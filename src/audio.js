@@ -25,6 +25,7 @@ const ACTIVE_GAIN_TIME_CONSTANT = 0.003;
 const RELEASE_TIME_CONSTANT = 0.025;
 const PAN_TIME_CONSTANT = 0.025;
 const MASTER_TIME_CONSTANT = 0.03;
+const STRIKE_GAIN_FLOOR = 0.0001;
 
 /**
  * Clamp a number, accepting reversed bounds and treating NaN as the low bound.
@@ -37,6 +38,22 @@ export function clamp(value, firstBound, secondBound) {
   const high = Math.max(firstBound, secondBound);
   if (Number.isNaN(value)) return low;
   return Math.min(high, Math.max(low, value));
+}
+
+/** Match Web Audio's interpolation between two positive exponential values. */
+function exponentialRampValue(start, end, progress) {
+  const amount = clamp(progress, 0, 1);
+  return start * (end / start) ** amount;
+}
+
+/** Transfer a normalized mark through a display/audio mapping curve. */
+export function mapCurve01(value, curve = "linear") {
+  const normalized = clamp(value, 0, 1);
+  if (curve === "exponential") return normalized ** 2;
+  if (curve === "logarithmic") return Math.log1p(9 * normalized) / Math.log(10);
+  if (curve === "smooth") return normalized * normalized * (3 - 2 * normalized);
+  if (curve === "inverted") return 1 - normalized;
+  return normalized;
 }
 
 /**
@@ -83,7 +100,7 @@ export function cornerAttackSeconds(milliseconds) {
 }
 
 export function cornerDecaySeconds(milliseconds) {
-  return clamp(milliseconds, 20, 800) / 1000;
+  return clamp(milliseconds, 15, 2000) / 1000;
 }
 
 /** A perceptual master taper keeps the useful half of the slider audible. */
@@ -159,6 +176,19 @@ export function normalizeVoiceGains(voices, maxCombinedGain = 1) {
   return sanitized.map((voice) => ({ ...voice, gain: voice.gain * scale }));
 }
 
+/**
+ * Bound a synchronous transient batch by its worst-case phase-aligned peak.
+ * Unlike sustained voices, fresh oscillators begin in phase, so an L1 ceiling
+ * prevents a multi-head corner hit from overloading the shared bus.
+ */
+export function normalizeStrikeGains(voices, maxPeakSum = 0.78) {
+  const sanitized = voices.map(sanitizeVoice);
+  const ceiling = clamp(maxPeakSum, 0, 1);
+  const peakSum = sanitized.reduce((sum, voice) => sum + voice.gain, 0);
+  const scale = peakSum > ceiling && peakSum > 0 ? ceiling / peakSum : 1;
+  return sanitized.map((voice) => ({ ...voice, gain: voice.gain * scale }));
+}
+
 /** Fixed-size, click-safe oscillator pool for animation-frame updates. */
 export class VoicePool {
   /** @param {number} [size] */
@@ -179,10 +209,12 @@ export class VoicePool {
     this.compressor = null;
     /** @type {{oscillator: OscillatorNode, gain: GainNode, pan: StereoPannerNode, key: string|null}[]} */
     this.voices = [];
-    /** @type {Set<{oscillator: OscillatorNode, gain: GainNode, pan: StereoPannerNode}>} */
+    /** @type {Set<{oscillator: OscillatorNode, gain: GainNode, pan: StereoPannerNode, startedAt: number, attackEndsAt: number, endedAt: number, peakGain: number}>} */
     this.activeStrikes = new Set();
-    /** @type {Map<string, {oscillator: OscillatorNode, gain: GainNode, pan: StereoPannerNode, startedAt: number}>} */
+    /** @type {Map<string, {oscillator: OscillatorNode, gain: GainNode, pan: StereoPannerNode, startedAt: number, attackEndsAt: number, endedAt: number, peakGain: number}>} */
     this.activeStrikeByKey = new Map();
+    /** @type {Map<string, number>} */
+    this.lastStrikeAtByKey = new Map();
     this.desiredLevel = 0.5;
     this.enabled = false;
     /** @type {Promise<void>|null} */
@@ -317,45 +349,53 @@ export class VoicePool {
    * the sustained pool, a strike cannot linger merely because a playhead is
    * parked on a corner.
    * @param {VoiceSpec} spec
-   * @param {{attackSeconds?: number, decaySeconds?: number}} [envelope]
+   * @param {{attackSeconds?: number, decaySeconds?: number, startDelaySeconds?: number}} [envelope]
    */
-  strike(spec, { attackSeconds = 0.004, decaySeconds = 0.08 } = {}) {
+  strike(spec, {
+    attackSeconds = 0.004,
+    decaySeconds = 0.08,
+    startDelaySeconds = 0,
+  } = {}) {
     if (!this.enabled || !this.context || !this.master) return false;
-    if (this.activeStrikes.size >= 256) return false;
+    if (this.activeStrikes.size >= 128) return false;
     const voice = sanitizeVoice(spec);
-    if (voice.gain <= 0) return false;
+    if (voice.gain <= STRIKE_GAIN_FLOOR) return false;
 
     const context = this.context;
     const now = context.currentTime;
+    const startAt = now + clamp(startDelaySeconds, 0, 0.05);
     const key = voice.key;
-    const previous = key ? this.activeStrikeByKey.get(key) : null;
-    if (previous && now - previous.startedAt < 0.008) return false;
-    if (previous) {
-      try {
-        previous.gain.gain.cancelScheduledValues(now);
-        previous.gain.gain.setTargetAtTime(0, now, 0.003);
-        previous.oscillator.stop(now + 0.012);
-      } catch {
-        // A voice finishing at the retrigger instant needs no extra cleanup.
-      }
+    const previousStart = key ? this.lastStrikeAtByKey.get(key) : undefined;
+    if (previousStart !== undefined && startAt - previousStart < 0.012) return false;
+    if (key) {
+      this.lastStrikeAtByKey.set(key, startAt);
     }
 
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     const pan = context.createStereoPanner();
     const attack = clamp(attackSeconds, 0.0005, 0.03);
-    const decay = clamp(decaySeconds, 0.015, 1);
-    const end = now + attack + decay;
+    const decay = clamp(decaySeconds, 0.015, 2);
+    const end = startAt + attack + decay;
+    const peakGain = Math.max(STRIKE_GAIN_FLOOR, voice.gain);
 
     oscillator.type = waveformForIndex(voice.waveform, this.activeStrikes.size);
-    oscillator.frequency.setValueAtTime(voice.frequency, now);
-    pan.pan.setValueAtTime(voice.pan ?? 0, now);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, voice.gain), now + attack);
-    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    oscillator.frequency.setValueAtTime(voice.frequency, startAt);
+    pan.pan.setValueAtTime(voice.pan ?? 0, startAt);
+    gain.gain.setValueAtTime(STRIKE_GAIN_FLOOR, startAt);
+    gain.gain.exponentialRampToValueAtTime(peakGain, startAt + attack);
+    gain.gain.exponentialRampToValueAtTime(STRIKE_GAIN_FLOOR, end);
     oscillator.connect(gain).connect(pan).connect(this.master);
 
-    const strike = { oscillator, gain, pan, startedAt: now };
+    const strike = {
+      oscillator,
+      gain,
+      pan,
+      startedAt: startAt,
+      attackEndsAt: startAt + attack,
+      endedAt: end,
+      peakGain,
+    };
     this.activeStrikes.add(strike);
     if (key) this.activeStrikeByKey.set(key, strike);
     oscillator.onended = () => {
@@ -367,9 +407,45 @@ export class VoicePool {
       gain.disconnect();
       pan.disconnect();
     };
-    oscillator.start(now);
+    oscillator.start(startAt);
     oscillator.stop(end + 0.02);
     return true;
+  }
+
+  /**
+   * Return the phase-aligned peak budget not currently occupied by one-shot
+   * envelopes. Scheduled and attacking strikes conservatively reserve their
+   * full eventual peak so adjacent animation frames cannot overbook delayed
+   * hits. Completed envelopes are ignored even if their oscillator's
+   * `onended` callback has not run yet.
+   * @param {number} [maxPeakSum]
+   */
+  availableStrikeHeadroom(maxPeakSum = 0.78) {
+    const ceiling = clamp(maxPeakSum, 0, 1);
+    if (!this.context) return ceiling;
+
+    const now = this.context.currentTime;
+    let occupied = 0;
+    for (const strike of this.activeStrikes) {
+      if (now >= strike.endedAt) continue;
+
+      if (now <= strike.attackEndsAt) {
+        occupied += strike.peakGain;
+      } else {
+        const decayDuration = strike.endedAt - strike.attackEndsAt;
+        const progress = decayDuration > 0
+          ? clamp((now - strike.attackEndsAt) / decayDuration, 0, 1)
+          : 1;
+        occupied += exponentialRampValue(
+          strike.peakGain,
+          STRIKE_GAIN_FLOOR,
+          progress,
+        );
+      }
+
+      if (occupied >= ceiling) return 0;
+    }
+    return Math.max(0, ceiling - occupied);
   }
 
   /** @param {readonly VoiceSpec[]} specs */
@@ -445,14 +521,21 @@ export class VoicePool {
     }
     for (const strike of this.activeStrikes) {
       try {
-        strike.gain.gain.cancelScheduledValues(now);
-        strike.gain.gain.setTargetAtTime(0, now, 0.006);
-        strike.oscillator.stop(now + 0.04);
+        const parameter = strike.gain.gain;
+        if (typeof parameter.cancelAndHoldAtTime === "function") {
+          parameter.cancelAndHoldAtTime(now);
+        } else {
+          parameter.cancelScheduledValues(now);
+          parameter.setValueAtTime(Math.max(0.0001, parameter.value), now);
+        }
+        parameter.exponentialRampToValueAtTime(0.0001, now + 0.025);
+        strike.oscillator.stop(now + 0.03);
       } catch {
         // A strike that has already ended needs no further cleanup.
       }
     }
     this.activeStrikeByKey.clear();
+    this.lastStrikeAtByKey.clear();
   }
 
   /** Mute without destroying the graph, so it can be enabled again cheaply. */
@@ -496,6 +579,7 @@ export class VoicePool {
     }
     this.activeStrikes.clear();
     this.activeStrikeByKey.clear();
+    this.lastStrikeAtByKey.clear();
     this.master?.disconnect();
     this.compressor?.disconnect();
     this.resetGraph();
@@ -510,5 +594,6 @@ export class VoicePool {
     this.voices = [];
     this.activeStrikes.clear();
     this.activeStrikeByKey.clear();
+    this.lastStrikeAtByKey.clear();
   }
 }

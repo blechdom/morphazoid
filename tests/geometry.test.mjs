@@ -55,6 +55,62 @@ test("curvature +1 follows the unit circumcircle and removes true corners", () =
   for (const cornerStrength of circle.cornerStrengths) near(cornerStrength, 0, 1e-10);
 });
 
+test("stars alternate true outer and inner vertices with signed corner turns", () => {
+  const star = buildShape({
+    sides: 5,
+    shapeType: "star",
+    starDepth: 0.48,
+    curvature: 0,
+    samplesPerEdge: 16,
+  });
+
+  assert.equal(star.shapeType, "star");
+  assert.equal(star.sides, 5);
+  assert.equal(star.vertexCount, 10);
+  assert.equal(star.vertexIndices.length, 10);
+  assert.equal(star.points.length, 10 * 16);
+
+  const radii = star.vertexIndices.map((index) => Math.hypot(
+    star.points[index].x,
+    star.points[index].y,
+  ));
+  for (let index = 0; index < star.vertexCount; index += 1) {
+    if (index % 2 === 0) {
+      near(radii[index], 1);
+      assert.ok(star.cornerTurns[index] > 0, "outer corners must turn outward");
+    } else {
+      near(radii[index], 0.52);
+      assert.ok(star.cornerTurns[index] < 0, "inner corners must turn inward");
+    }
+    near(star.cornerStrengths[index], Math.abs(star.cornerTurns[index]));
+  }
+});
+
+test("roundness softens a star's angle jumps independently of star depth", () => {
+  const options = {
+    sides: 5,
+    shapeType: "star",
+    starDepth: 0.48,
+    samplesPerEdge: 32,
+  };
+  const sharp = buildShape({ ...options, curvature: 0 });
+  const rounded = buildShape({ ...options, curvature: 0.45 });
+  const circle = buildShape({ ...options, curvature: 1 });
+
+  assert.equal(sharp.starDepth, rounded.starDepth);
+  for (let index = 0; index < sharp.vertexCount; index += 1) {
+    assert.equal(Math.sign(rounded.cornerTurns[index]), Math.sign(sharp.cornerTurns[index]));
+    assert.ok(
+      rounded.cornerStrengths[index] < sharp.cornerStrengths[index],
+      "partial roundness should soften, not remove, each corner",
+    );
+  }
+
+  assert.ok(circle.points.every((point) => Math.abs(Math.hypot(point.x, point.y) - 1) < 1e-10));
+  assert.ok(circle.cornerTurns.every((turn) => Math.abs(turn) < 1e-10));
+  assert.ok(circle.cornerStrengths.every((strength) => Math.abs(strength) < 1e-10));
+});
+
 test("negative curvature bows polygon edges inward without crossing the center", () => {
   const straight = buildShape({ sides: 4, curvature: 0, samplesPerEdge: 20 });
   const inward = buildShape({ sides: 4, curvature: -1, samplesPerEdge: 20 });
@@ -74,6 +130,41 @@ test("rotation is expressed in degrees around the instrument origin", () => {
   near(vertical.points[vertical.points.length - 1].y, 1);
 });
 
+test("stretch, skew, and asymmetry remain fitted inside the unit disc", () => {
+  const variants = [
+    { aspect: 1 },
+    { aspect: -1 },
+    { skew: 0.8 },
+    { skew: -0.8 },
+    { asymmetry: 1 },
+    { aspect: 1, skew: 0.8, asymmetry: 1, rotationDeg: 33 },
+  ];
+
+  for (const transforms of variants) {
+    const shape = buildShape({
+      sides: 7,
+      shapeType: "star",
+      starDepth: 0.68,
+      curvature: 0.25,
+      samplesPerEdge: 24,
+      ...transforms,
+    });
+    const radii = shape.points.map((point) => Math.hypot(point.x, point.y));
+    assert.ok(shape.points.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y)));
+    assert.ok(radii.every((radius) => radius <= 1 + 1e-10));
+    near(Math.max(...radii), 1, 1e-10);
+  }
+
+  const regular = buildShape({ sides: 7, curvature: 0, asymmetry: 0 });
+  const asymmetric = buildShape({ sides: 7, curvature: 0, asymmetry: 1 });
+  const regularVertexRadii = regular.vertexIndices.map((index) =>
+    Math.hypot(regular.points[index].x, regular.points[index].y));
+  const asymmetricVertexRadii = asymmetric.vertexIndices.map((index) =>
+    Math.hypot(asymmetric.points[index].x, asymmetric.points[index].y));
+  assert.ok(Math.max(...regularVertexRadii) - Math.min(...regularVertexRadii) < 1e-10);
+  assert.ok(Math.max(...asymmetricVertexRadii) - Math.min(...asymmetricVertexRadii) > 0.05);
+});
+
 test("pointAtPath uses constant arclength and supports open-line ping-pong", () => {
   const line = buildShape({ sides: 2, curvature: 0 });
   near(pointAtPath(line, 0.25).x, -0.5);
@@ -89,6 +180,27 @@ test("pointAtPath uses constant arclength and supports open-line ping-pong", () 
   near(oneThird.x, secondVertex.x);
   near(oneThird.y, secondVertex.y);
   near(oneThird.cornerDistance, 0);
+});
+
+test("path contacts expose the signed turn of their nearest corner", () => {
+  const star = buildShape({
+    sides: 5,
+    shapeType: "star",
+    starDepth: 0.48,
+    curvature: 0,
+    samplesPerEdge: 24,
+  });
+  const innerCornerIndex = 1;
+  const contact = pointAtPath(
+    star,
+    star.vertexDistances[innerCornerIndex] / star.totalLength,
+  );
+
+  assert.equal(contact.cornerIndex, innerCornerIndex);
+  assert.ok(contact.cornerTurn < 0);
+  near(contact.cornerTurn, star.cornerTurns[innerCornerIndex]);
+  near(contact.cornerStrength, Math.abs(contact.cornerTurn));
+  near(contact.cornerDistance, 0);
 });
 
 test("progress helpers wrap and reflect negative and positive values", () => {
@@ -107,6 +219,8 @@ test("vertical scans are sorted, dedupe shared vertices, and include sonificatio
   near(vertexHits[1].y, 1);
   assert.ok(vertexHits.every((hit) => hit.cornerDistance <= EPSILON));
   assert.ok(vertexHits.every((hit) => hit.cornerStrength > 0));
+  assert.ok(vertexHits.every((hit) => hit.cornerTurn > 0));
+  assert.ok(vertexHits.every((hit) => Math.abs(hit.cornerTurn) === hit.cornerStrength));
   assert.ok(vertexHits.every((hit) => Math.hypot(hit.tangent.x, hit.tangent.y) > 0.99));
 
   const ordinaryHits = verticalIntersections(diamond, 0.25);
@@ -152,6 +266,8 @@ test("horizontal scans mirror vertical scan behavior and preserve contact metada
   near(vertexHits[0].x, -1);
   near(vertexHits[1].x, 1);
   assert.ok(vertexHits.every((hit) => hit.cornerDistance <= EPSILON));
+  assert.ok(vertexHits.every((hit) => Number.isFinite(hit.cornerTurn)));
+  assert.ok(vertexHits.every((hit) => Math.abs(hit.cornerTurn) === hit.cornerStrength));
   assert.ok(vertexHits.every((hit) => Math.hypot(hit.tangent.x, hit.tangent.y) > 0.99));
 
   const ordinaryHits = horizontalIntersections(diamond, 0.25);

@@ -5,20 +5,46 @@ import test from "node:test";
 test("app.js initializes and draws one frame against browser APIs", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+  const initialTags = new Map(
+    [...html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)].map((match) => [match[1], match[0]]),
+  );
   const elements = new Map();
   const listeners = new Map();
   const attributes = new Map();
 
   function element(id) {
+    const classes = new Set();
+    const styleValues = new Map();
     const node = {
       id,
       value: "0",
-      hidden: false,
+      hidden: /\bhidden\b/.test(initialTags.get(id) ?? ""),
       disabled: false,
       textContent: "",
+      innerHTML: "",
       title: "",
       dataset: {},
-      classList: { add() {} },
+      style: {
+        left: "",
+        top: "",
+        setProperty(name, value) {
+          styleValues.set(name, String(value));
+        },
+        getPropertyValue(name) {
+          return styleValues.get(name) ?? "";
+        },
+      },
+      classList: {
+        add(...names) { for (const name of names) classes.add(name); },
+        remove(...names) { for (const name of names) classes.delete(name); },
+        contains(name) { return classes.has(name); },
+        toggle(name, force) {
+          const next = force === undefined ? !classes.has(name) : Boolean(force);
+          if (next) classes.add(name);
+          else classes.delete(name);
+          return next;
+        },
+      },
       addEventListener(type, listener) {
         listeners.set(`${id}:${type}`, listener);
       },
@@ -28,6 +54,11 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
       querySelectorAll() {
         return [];
       },
+      getBoundingClientRect() {
+        return { left: 0, top: 0, width: 900, height: 600 };
+      },
+      setPointerCapture() {},
+      focus() {},
     };
     elements.set(id, node);
     return node;
@@ -36,10 +67,11 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   for (const id of ids) element(id);
 
   const groups = {
-    playMethod: ["scanMode", "traceMode"],
+    playMethod: ["traceMode", "scanMode"],
     lineLayout: ["parallelLines", "crossedLines"],
-    scanMotion: ["pingPongScan", "loopScan"],
-    curvatureDirection: ["curvatureIn", "curvatureOutward"],
+    scanMotion: ["loopScan", "pingPongScan"],
+    curvatureDirection: ["curvatureOutward", "curvatureIn"],
+    shapeType: ["polygonShape", "starShape"],
   };
   const dataValues = {
     scanMode: "scan",
@@ -50,6 +82,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     loopScan: "loop",
     curvatureIn: "-1",
     curvatureOutward: "1",
+    polygonShape: "polygon",
+    starShape: "star",
   };
   for (const [id, value] of Object.entries(dataValues)) elements.get(id).dataset.value = value;
   for (const [id, childIds] of Object.entries(groups)) {
@@ -79,11 +113,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   };
   const canvas = elements.get("stage");
   canvas.getContext = () => drawingContext;
-  canvas.getBoundingClientRect = () => ({ left: 0, width: 900, height: 600 });
-  canvas.setPointerCapture = () => {};
-  canvas.focus = () => {};
+  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 900, height: 600 });
   const stage = elements.get("stageWrap");
   stage.getBoundingClientRect = () => ({ width: 900, height: 600 });
+  elements.get("headLayoutTrack").getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 52 });
 
   let queuedFrame;
   globalThis.requestAnimationFrame = (callback) => {
@@ -182,10 +215,12 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.match(elements.get("stageReadout").textContent, /1 CONTACT/);
   assert.equal(attributes.get("traceMode:aria-pressed"), "true");
   assert.equal(attributes.get("loopScan:aria-pressed"), "true");
-  assert.equal(attributes.get("traversalForward:aria-pressed"), "true");
-  assert.equal(attributes.get("rotationForward:aria-pressed"), "true");
+  assert.equal(attributes.get("polygonShape:aria-pressed"), "true");
+  assert.equal(attributes.get("curvatureOutward:aria-pressed"), "true");
   assert.equal(attributes.get("rotationPlayButton:aria-pressed"), "false");
   assert.equal(elements.get("levelOut").textContent, "65%");
+  assert.equal(elements.get("position").value, "0.5");
+  assert.equal(elements.get("positionOut").textContent, "50.0%");
   assert.equal(elements.get("headsControl").hidden, false);
   assert.equal(elements.get("lineCountControl").hidden, true);
   assert.equal(elements.get("lineLayoutControl").hidden, true);
@@ -194,6 +229,16 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("soundMode").value, "sine");
   assert.equal(elements.get("sineArticulation").hidden, false);
   assert.equal(elements.get("percussionArticulation").hidden, true);
+  assert.equal(elements.get("hitMapping").hidden, true);
+  assert.equal(elements.get("traversalDirection").hidden, true);
+  assert.equal(elements.get("rotationDirection").hidden, true);
+  assert.equal(elements.get("headMarker0").hidden, false);
+  assert.equal(elements.get("headMarker0").style.left, "50%");
+  assert.equal(elements.get("headMarker1").hidden, true);
+  assert.equal(elements.get("outputVoiceLabel").textContent, "sine");
+  assert.equal(elements.get("outputContactLabel").textContent, "Contact 1 of 1");
+  assert.notEqual(elements.get("markFrequencyOut").textContent, "");
+  assert.match(elements.get("contactStream").innerHTML, /contact-row/);
 
   await listeners.get("audioButton:click")();
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
@@ -215,6 +260,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
   assert.equal(elements.get("sineArticulation").hidden, true);
   assert.equal(elements.get("percussionArticulation").hidden, false);
+  assert.equal(elements.get("hitMapping").hidden, false);
   queuedFrame(1_085);
   assert.ok(
     continuousGains.every((gain) => gain.gain.value === 0),
@@ -230,14 +276,13 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   elements.get("soundMode").value = "sine";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
   queuedFrame(1_100);
+  assert.equal(elements.get("levelRouteSource").textContent, "Corner distance + magnitude");
+  assert.equal(elements.get("levelRouteCurve").textContent, "spatial amplitude envelope");
   elements.get("position").value = "0.6";
   listeners.get("position:input")();
   queuedFrame(1_110);
   assert.equal(audioOscillators.length, afterPercussionStrike, "sine mode must never trigger percussion voices");
-
-  listeners.get("traversalReverse:click")();
-  assert.equal(attributes.get("traversalReverse:aria-pressed"), "true");
-  listeners.get("traversalForward:click")();
+  assert.equal(elements.get("hitMapping").hidden, true);
 
   elements.get("position").value = "0";
   listeners.get("position:input")();
@@ -245,23 +290,35 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
 
   elements.get("speed").value = "1";
   listeners.get("speed:input")();
-  assert.equal(elements.get("speedOut").textContent, "1.200 cyc/s");
+  assert.equal(elements.get("speedOut").textContent, "4.000 cyc/s");
   listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
+  assert.equal(elements.get("traversalDirection").hidden, false);
+  assert.equal(elements.get("traversalDirectionText").textContent, "CW");
+  listeners.get("traversalDirection:click")();
+  assert.equal(elements.get("traversalDirectionText").textContent, "CCW");
+  listeners.get("traversalDirection:click")();
   queuedFrame(1_220);
-  assert.equal(elements.get("positionOut").textContent, "12.0%");
+  assert.equal(elements.get("positionOut").textContent, "40.0%");
   listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "false");
+  assert.equal(elements.get("traversalDirection").hidden, true);
 
-  elements.get("rotationSpeed").value = "2";
+  elements.get("rotationSpeed").value = "4";
   listeners.get("rotationSpeed:input")();
-  assert.equal(elements.get("rotationSpeedOut").textContent, "2.00 rev/s");
+  assert.equal(elements.get("rotationSpeedOut").textContent, "4.00 rev/s");
   listeners.get("rotationPlayButton:click")();
   assert.equal(attributes.get("rotationPlayButton:aria-pressed"), "true");
+  assert.equal(elements.get("rotationDirection").hidden, false);
+  assert.equal(elements.get("rotationDirectionText").textContent, "CW");
+  listeners.get("rotationDirection:click")();
+  assert.equal(elements.get("rotationDirectionText").textContent, "CCW");
+  listeners.get("rotationDirection:click")();
   queuedFrame(1_320);
-  assert.equal(elements.get("rotationOut").textContent, "72°");
+  assert.equal(elements.get("rotationOut").textContent, "144°");
   listeners.get("rotationPlayButton:click")();
   assert.equal(attributes.get("rotationPlayButton:aria-pressed"), "false");
+  assert.equal(elements.get("rotationDirection").hidden, true);
 
   listeners.get("scanMode:click")();
   assert.equal(elements.get("headsControl").hidden, true);
@@ -286,6 +343,9 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   segments.length = 0;
   listeners.get("crossedLines:click")();
   assert.equal(attributes.get("crossedLines:aria-pressed"), "true");
+  assert.equal(elements.get("headLayoutTrack").classList.contains("is-crossed"), true);
+  assert.equal(elements.get("headMarker0").style.top, "28%");
+  assert.equal(elements.get("headMarker1").style.top, "72%");
   queuedFrame(1_500);
   const longHorizontal = segments.filter((segment) => (
     Math.abs(segment.y2 - segment.y1) < 0.01 && Math.abs(segment.x2 - segment.x1) > 500
@@ -297,6 +357,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.ok(longVertical.length > 5, "crossed mode should draw vertical scanners and trails");
 
   listeners.get("traceMode:click")();
+  assert.equal(elements.get("headLayoutTrack").classList.contains("is-crossed"), false);
+  assert.equal(elements.get("headMarker0").style.top, "50%");
   assert.equal(elements.get("headsControl").hidden, false);
   assert.equal(elements.get("lineCountControl").hidden, true);
   assert.equal(elements.get("lineLayoutControl").hidden, true);
@@ -304,6 +366,23 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("probeType").textContent, "1 TRACE HEAD");
   queuedFrame(2_000);
   assert.match(elements.get("stageReadout").textContent, /1 POINT/);
+
+  elements.get("heads").value = "3";
+  listeners.get("heads:input")();
+  assert.equal(elements.get("headMarker0").style.left, "50%");
+  assert.ok(Math.abs(parseFloat(elements.get("headMarker1").style.left) - 83.333) < 0.01);
+  assert.ok(Math.abs(parseFloat(elements.get("headMarker2").style.left) - 16.667) < 0.01);
+  assert.equal(elements.get("headMarker3").hidden, true);
+
+  listeners.get("headMarker1:pointerdown")({
+    clientX: 75,
+    pointerId: 7,
+    preventDefault() {},
+  });
+  assert.equal(elements.get("headMarker1").style.left, "25%");
+  listeners.get("headLayoutTrack:pointerup")({ pointerId: 7 });
+  listeners.get("resetHeadSpacing:click")();
+  assert.ok(Math.abs(parseFloat(elements.get("headMarker1").style.left) - 83.333) < 0.01);
 
   elements.get("heads").value = "12";
   listeners.get("heads:input")();
@@ -319,6 +398,26 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("scanMotionControl").hidden, false);
   assert.match(elements.get("stageReadout").textContent, /4 LINES/);
   assert.doesNotMatch(elements.get("stageReadout").textContent, /12 POINTS/);
+
+  listeners.get("starShape:click")();
+  assert.equal(attributes.get("starShape:aria-pressed"), "true");
+  assert.equal(elements.get("starDepthControl").hidden, false);
+  elements.get("sides").value = "7";
+  listeners.get("sides:input")();
+  assert.equal(elements.get("sidesOut").textContent, "7 · star points");
+  elements.get("aspect").value = "0.5";
+  listeners.get("aspect:input")();
+  assert.equal(elements.get("aspectOut").textContent, "50% wide");
+  elements.get("skew").value = "-0.35";
+  listeners.get("skew:input")();
+  assert.equal(elements.get("skewOut").textContent, "-35%");
+  elements.get("asymmetry").value = "0.4";
+  listeners.get("asymmetry:input")();
+  assert.equal(elements.get("asymmetryOut").textContent, "40%");
+  listeners.get("resetForm:click")();
+  assert.equal(attributes.get("polygonShape:aria-pressed"), "true");
+  assert.equal(elements.get("starDepthControl").hidden, true);
+  assert.equal(elements.get("sidesOut").textContent, "4 · polygon");
 
   elements.get("curvature").value = "0.4";
   listeners.get("curvature:input")();
@@ -346,6 +445,14 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("stereoWidth:input")();
   elements.get("mappingFrame").value = "shape";
   listeners.get("mappingFrame:change")({ currentTarget: elements.get("mappingFrame") });
+  elements.get("pitchSource").value = "incidence";
+  listeners.get("pitchSource:change")({ currentTarget: elements.get("pitchSource") });
+  elements.get("pitchCurve").value = "logarithmic";
+  listeners.get("pitchCurve:change")({ currentTarget: elements.get("pitchCurve") });
+  elements.get("hitLevelSource").value = "incidence";
+  listeners.get("hitLevelSource:change")({ currentTarget: elements.get("hitLevelSource") });
+  elements.get("hitLevelCurve").value = "exponential";
+  listeners.get("hitLevelCurve:change")({ currentTarget: elements.get("hitLevelCurve") });
   elements.get("soundMode").value = "percussion";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
 
@@ -360,10 +467,24 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("cornerAttackOut").textContent, "12.5 ms");
   assert.equal(elements.get("stereoWidthOut").textContent, "42%");
   assert.equal(elements.get("mappingFrame").value, "shape");
+  assert.equal(elements.get("pitchSource").value, "incidence");
+  assert.equal(elements.get("pitchCurve").value, "logarithmic");
+  assert.equal(elements.get("hitLevelSource").value, "incidence");
+  assert.equal(elements.get("hitLevelCurve").value, "exponential");
   assert.equal(elements.get("soundMode").value, "percussion");
   assert.equal(elements.get("sineArticulation").hidden, true);
   assert.equal(elements.get("percussionArticulation").hidden, false);
+  assert.equal(elements.get("hitMapping").hidden, false);
   assert.ok(storage.has("morphazoid:shape:audio:v1"));
+
+  queuedFrame(3_100);
+  assert.equal(elements.get("outputVoiceLabel").textContent, "percussion");
+  assert.equal(elements.get("pitchRouteSource").textContent, "Incidence");
+  assert.match(elements.get("pitchRouteCurve").textContent, /expand lows/);
+  assert.equal(elements.get("levelRouteSource").textContent, "Incidence");
+  assert.equal(elements.get("levelRouteCurve").textContent, "expand highs");
+  assert.notEqual(elements.get("markIncidenceOut").textContent, "");
+  assert.match(elements.get("markDecayOut").textContent, /320 ms/);
 
   await import(`../app.js?smokeReload=${Date.now()}`);
   assert.equal(elements.get("levelOut").textContent, "73%");
@@ -373,7 +494,12 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("cornerAttackOut").textContent, "12.5 ms");
   assert.equal(elements.get("cornerDecayOut").textContent, "320 ms");
   assert.equal(elements.get("mappingFrame").value, "shape");
+  assert.equal(elements.get("pitchSource").value, "incidence");
+  assert.equal(elements.get("pitchCurve").value, "logarithmic");
+  assert.equal(elements.get("hitLevelSource").value, "incidence");
+  assert.equal(elements.get("hitLevelCurve").value, "exponential");
   assert.equal(elements.get("soundMode").value, "percussion");
   assert.equal(elements.get("sineArticulation").hidden, true);
   assert.equal(elements.get("percussionArticulation").hidden, false);
+  assert.equal(elements.get("hitMapping").hidden, false);
 });

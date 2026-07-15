@@ -18,6 +18,11 @@
  * @typedef {{
  *   sides: number,
  *   curvature: number,
+ *   shapeType?: 'polygon'|'star',
+ *   starDepth?: number,
+ *   aspect?: number,
+ *   skew?: number,
+ *   asymmetry?: number,
  *   rotationDeg?: number,
  *   samplesPerEdge?: number,
  * }} BuildShapeOptions
@@ -26,7 +31,13 @@
  *   points: readonly Point[],
  *   closed: boolean,
  *   sides: number,
+ *   vertexCount: number,
  *   curvature: number,
+ *   shapeType: 'polygon'|'star',
+ *   starDepth: number,
+ *   aspect: number,
+ *   skew: number,
+ *   asymmetry: number,
  *   rotationDeg: number,
  *   samplesPerEdge: number,
  *   bounds: Bounds,
@@ -35,6 +46,7 @@
  *   vertexIndices: readonly number[],
  *   vertexDistances: readonly number[],
  *   cornerStrengths: readonly number[],
+ *   cornerTurns: readonly number[],
  * }} ShapePath
  * @typedef {Point & {
  *   u: number,
@@ -45,6 +57,7 @@
  *   tangentAngle: number,
  *   cornerIndex: number,
  *   cornerStrength: number,
+ *   cornerTurn: number,
  *   cornerDistance: number,
  *   cornerDistance01: number,
  * }} PathContact
@@ -85,7 +98,7 @@ function normalize(vector) {
   return { x: vector.x / length, y: vector.y / length };
 }
 
-function angleBetween(incoming, outgoing) {
+function signedTurn(incoming, outgoing) {
   const a = normalize(incoming);
   const b = normalize(outgoing);
   if (
@@ -94,7 +107,7 @@ function angleBetween(incoming, outgoing) {
   ) {
     return 0;
   }
-  return Math.acos(clamp(a.x * b.x + a.y * b.y, -1, 1));
+  return Math.atan2(a.x * b.y - a.y * b.x, a.x * b.x + a.y * b.y);
 }
 
 /** @param {number} value */
@@ -155,60 +168,63 @@ export function pointInBounds01(point, bounds) {
   };
 }
 
-function polygonEdgeSample(edgeIndex, t, sides, curvature, rotationRad) {
-  const sector = TAU / sides;
-  const startAngle = -Math.PI / 2 + rotationRad + edgeIndex * sector;
-  const endAngle = startAngle + sector;
-  const start = { x: Math.cos(startAngle), y: Math.sin(startAngle) };
-  const end = { x: Math.cos(endAngle), y: Math.sin(endAngle) };
+function closedEdgeSample(edgeIndex, t, vertices, curvature) {
+  const startVertex = vertices[edgeIndex];
+  const endVertex = vertices[(edgeIndex + 1) % vertices.length];
+  const start = startVertex.point;
+  const end = endVertex.point;
   const chord = { x: lerp(start.x, end.x, t), y: lerp(start.y, end.y, t) };
-  const chordDerivative = { x: end.x - start.x, y: end.y - start.y };
 
   if (curvature >= 0) {
-    const theta = startAngle + sector * t;
+    const endAngle = edgeIndex === vertices.length - 1
+      ? endVertex.angle + TAU
+      : endVertex.angle;
+    const theta = lerp(startVertex.angle, endAngle, t);
     const circle = { x: Math.cos(theta), y: Math.sin(theta) };
-    const circleDerivative = {
-      x: -Math.sin(theta) * sector,
-      y: Math.cos(theta) * sector,
-    };
     return {
-      point: {
-        x: lerp(chord.x, circle.x, curvature),
-        y: lerp(chord.y, circle.y, curvature),
-      },
-      derivative: {
-        x: lerp(chordDerivative.x, circleDerivative.x, curvature),
-        y: lerp(chordDerivative.y, circleDerivative.y, curvature),
-      },
+      x: lerp(chord.x, circle.x, curvature),
+      y: lerp(chord.y, circle.y, curvature),
     };
   }
 
   const bend = -curvature * MAX_INWARD_FRACTION;
   const sine = Math.sin(Math.PI * t);
   const radialScale = 1 - bend * sine * sine;
-  const scaleDerivative = -bend * Math.PI * Math.sin(TAU * t);
   return {
-    point: { x: chord.x * radialScale, y: chord.y * radialScale },
-    derivative: {
-      x: chordDerivative.x * radialScale + chord.x * scaleDerivative,
-      y: chordDerivative.y * radialScale + chord.y * scaleDerivative,
-    },
+    x: chord.x * radialScale,
+    y: chord.y * radialScale,
   };
 }
 
-function openLineSample(t, curvature, rotationRad) {
-  const localPoint = {
+function openLineSample(t, curvature) {
+  return {
     x: -1 + 2 * t,
     y: curvature * OPEN_LINE_BEND * Math.sin(Math.PI * t),
   };
-  const localDerivative = {
-    x: 2,
-    y: curvature * OPEN_LINE_BEND * Math.PI * Math.cos(Math.PI * t),
-  };
-  return {
-    point: rotate(localPoint, rotationRad),
-    derivative: rotate(localDerivative, rotationRad),
-  };
+}
+
+function transformAndFit(points, aspect, skew, rotationRad) {
+  const xScale = 2 ** aspect;
+  const yScale = 2 ** -aspect;
+  const transformed = points.map((point) => {
+    const y = point.y * yScale;
+    return { x: point.x * xScale + skew * y, y };
+  });
+  const radius = transformed.reduce(
+    (maximum, point) => Math.max(maximum, Math.hypot(point.x, point.y)),
+    1,
+  );
+  return transformed.map((point) => rotate({
+    x: point.x / radius,
+    y: point.y / radius,
+  }, rotationRad));
+}
+
+function asymmetryScale(index, amount) {
+  if (amount <= EPSILON) return 1;
+  const first = Math.sin((index + 1) * 2.399963229728653 + 0.41);
+  const second = Math.cos((index + 1) * 1.173 + 0.83);
+  return 1 + amount * 0.2 * (first + second * 0.35) / 1.35;
 }
 
 function measure(points, closed) {
@@ -242,6 +258,14 @@ export function buildShape(options) {
 
   const sides = options.sides;
   const curvature = clamp(finiteOr(options.curvature, 0), -1, 1);
+  const requestedType = options.shapeType === "star" ? "star" : "polygon";
+  const shapeType = requestedType === "star" && sides >= 3 ? "star" : "polygon";
+  const starDepth = shapeType === "star"
+    ? clamp(finiteOr(options.starDepth, 0.48), 0.05, 0.82)
+    : 0;
+  const aspect = clamp(finiteOr(options.aspect, 0), -1, 1);
+  const skew = clamp(finiteOr(options.skew, 0), -0.8, 0.8);
+  const asymmetry = clamp(finiteOr(options.asymmetry, 0), 0, 1);
   const rotationDeg = finiteOr(options.rotationDeg, 0);
   const rotationRad = (rotationDeg * Math.PI) / 180;
   const samplesPerEdge = clamp(
@@ -250,45 +274,66 @@ export function buildShape(options) {
     MAX_SAMPLES_PER_EDGE,
   );
 
-  let points;
+  let localPoints;
   let vertexIndices;
   let cornerStrengths;
+  let cornerTurns;
   const closed = sides >= 3;
+  const vertexCount = closed && shapeType === "star" ? sides * 2 : sides;
 
   if (!closed) {
-    points = [];
+    localPoints = [];
     for (let sample = 0; sample <= samplesPerEdge; sample += 1) {
-      points.push(openLineSample(sample / samplesPerEdge, curvature, rotationRad).point);
+      localPoints.push(openLineSample(sample / samplesPerEdge, curvature));
     }
-    vertexIndices = [0, points.length - 1];
+    vertexIndices = [0, localPoints.length - 1];
     // Endpoints become perceptual corners when ping-pong traversal reverses.
     cornerStrengths = [1, 1];
+    cornerTurns = [1, -1];
   } else {
-    points = [];
+    const sector = TAU / vertexCount;
+    const vertices = Array.from({ length: vertexCount }, (_, index) => {
+      const angle = -Math.PI / 2 + index * sector;
+      const starScale = shapeType === "star" && index % 2 === 1
+        ? 1 - starDepth
+        : 1;
+      const radius = starScale * asymmetryScale(index, asymmetry);
+      return {
+        angle,
+        point: { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius },
+      };
+    });
+    localPoints = [];
     vertexIndices = [];
-    cornerStrengths = [];
-    for (let edge = 0; edge < sides; edge += 1) {
-      vertexIndices.push(points.length);
+    for (let edge = 0; edge < vertexCount; edge += 1) {
+      vertexIndices.push(localPoints.length);
       for (let sample = 0; sample < samplesPerEdge; sample += 1) {
-        points.push(
-          polygonEdgeSample(edge, sample / samplesPerEdge, sides, curvature, rotationRad).point,
+        localPoints.push(
+          closedEdgeSample(edge, sample / samplesPerEdge, vertices, curvature),
         );
       }
     }
-    for (let vertex = 0; vertex < sides; vertex += 1) {
-      const incoming = polygonEdgeSample(
-        (vertex - 1 + sides) % sides,
-        1,
-        sides,
-        curvature,
-        rotationRad,
-      ).derivative;
-      const outgoing = polygonEdgeSample(vertex, 0, sides, curvature, rotationRad).derivative;
-      cornerStrengths.push(
-        curvature >= 1 - EPSILON
-          ? 0
-          : clamp(angleBetween(incoming, outgoing) / Math.PI, 0, 1),
-      );
+  }
+
+  const points = transformAndFit(localPoints, aspect, skew, rotationRad);
+  if (closed) {
+    cornerTurns = [];
+    cornerStrengths = [];
+    for (const pointIndex of vertexIndices) {
+      if (curvature >= 1 - EPSILON) {
+        cornerTurns.push(0);
+        cornerStrengths.push(0);
+        continue;
+      }
+      const point = points[pointIndex];
+      const previous = points[(pointIndex - 1 + points.length) % points.length];
+      const next = points[(pointIndex + 1) % points.length];
+      const turn = clamp(signedTurn(
+        { x: point.x - previous.x, y: point.y - previous.y },
+        { x: next.x - point.x, y: next.y - point.y },
+      ) / Math.PI, -1, 1);
+      cornerTurns.push(turn);
+      cornerStrengths.push(Math.abs(turn));
     }
   }
 
@@ -298,7 +343,13 @@ export function buildShape(options) {
     points,
     closed,
     sides,
+    vertexCount,
     curvature,
+    shapeType,
+    starDepth,
+    aspect,
+    skew,
+    asymmetry,
     rotationDeg,
     samplesPerEdge,
     bounds: boundsFromPoints(points),
@@ -307,6 +358,7 @@ export function buildShape(options) {
     vertexIndices,
     vertexDistances,
     cornerStrengths,
+    cornerTurns,
   };
 }
 
@@ -338,7 +390,7 @@ function contactOnSegment(path, segmentIndex, segmentT, distance) {
   const tangent = normalize({ x: pointB.x - pointA.x, y: pointB.y - pointA.y });
   const normalizedDistance = path.closed && distance >= path.totalLength - EPSILON ? 0 : distance;
   const { cornerIndex, cornerDistance } = nearestCorner(path, normalizedDistance);
-  const meanSideLength = path.totalLength / (path.closed ? path.sides : 1);
+  const meanSideLength = path.totalLength / Math.max(1, path.vertexDistances.length);
   return {
     x: lerp(pointA.x, pointB.x, segmentT),
     y: lerp(pointA.y, pointB.y, segmentT),
@@ -350,6 +402,7 @@ function contactOnSegment(path, segmentIndex, segmentT, distance) {
     tangentAngle: Math.atan2(tangent.y, tangent.x),
     cornerIndex,
     cornerStrength: path.cornerStrengths[cornerIndex] ?? 0,
+    cornerTurn: path.cornerTurns[cornerIndex] ?? 0,
     cornerDistance,
     cornerDistance01: meanSideLength <= EPSILON ? 0 : cornerDistance / meanSideLength,
   };
@@ -413,6 +466,7 @@ function mergeContacts(a, b, epsilon) {
     tangent: mergedTangent,
     tangentAngle: Math.atan2(mergedTangent.y, mergedTangent.x),
     cornerStrength: Math.max(a.cornerStrength, b.cornerStrength),
+    cornerTurn: Math.abs(a.cornerTurn) >= Math.abs(b.cornerTurn) ? a.cornerTurn : b.cornerTurn,
     cornerDistance: Math.min(a.cornerDistance, b.cornerDistance),
     cornerDistance01: Math.min(a.cornerDistance01, b.cornerDistance01),
   };
