@@ -10,6 +10,7 @@ import {
   normalizeVoiceGains,
   pitch01ToFrequency,
   reduceVoiceContacts,
+  sineCornerEnvelopeGain,
   VoicePool,
   waveformForIndex,
 } from "../src/audio.js";
@@ -56,6 +57,35 @@ test("corner articulation parameters remain independent", () => {
   assert.equal(levelToGain(0), 0);
   assert.equal(levelToGain(0.25), 0.5);
   assert.equal(levelToGain(1), 1);
+});
+
+test("sine corner envelope preserves the original single-oscillator profile", () => {
+  // A square turns through 90 degrees, giving it a normalized corner strength
+  // of 0.5. At the corner, the default Tesselateher profile is its 0.12
+  // continuous sine level plus the corner-shaped amplitude rise.
+  assert.equal(sineCornerEnvelopeGain(0.5, 0), 0.2475);
+
+  const spatialProfile = [0, 0.25, 0.5, 0.75, 1].map((distance) =>
+    sineCornerEnvelopeGain(0.5, distance)
+  );
+  for (let index = 1; index < spatialProfile.length; index += 1) {
+    assert.ok(spatialProfile[index] < spatialProfile[index - 1]);
+  }
+
+  // Accent changes the corner rise, not the underlying sine oscillator: even
+  // with no accent, the spatial envelope has a strictly positive floor.
+  assert.equal(sineCornerEnvelopeGain(1, 0, 0, 1), 0.12);
+  assert.ok(sineCornerEnvelopeGain(1, 1, 0, 1) > 0.006);
+
+  // Every public input is bounded before it participates in the envelope.
+  assert.equal(
+    sineCornerEnvelopeGain(2, -1, 2, -1),
+    sineCornerEnvelopeGain(1, 0, 1, 0),
+  );
+  assert.equal(
+    sineCornerEnvelopeGain(-1, 2, -1, 2),
+    sineCornerEnvelopeGain(0, 1, 0, 1),
+  );
 });
 
 test("alternating waveform resolves deterministically", () => {

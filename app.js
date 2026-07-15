@@ -21,18 +21,23 @@ import {
   cornerDecaySeconds,
   cornerStrikePeak,
   pitch01ToFrequency,
+  sineCornerEnvelopeGain,
 } from "./src/audio.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
 const SPEED_MIN = 0.01;
 const SPEED_MAX = 1.2;
+const MAX_CONTINUOUS_VOICES = 32;
 const HEAD_COLORS = ["#5fe8c4", "#7db4ff", "#c79bff", "#ffb86b"];
 const AUDIO_SETTINGS_KEY = "morphazoid:shape:audio:v1";
 const PERSISTED_AUDIO_KEYS = new Set([
   "baseFrequency",
   "pitchRange",
   "level",
+  "soundMode",
+  "sineAccent",
+  "sineDecay",
   "cornerAccent",
   "cornerAttack",
   "cornerDecay",
@@ -45,10 +50,10 @@ const state = {
   curvature: 0,
   curvatureDirection: 1,
   rotation: 0,
-  playMethod: "scan",
+  playMethod: "trace",
   lineCount: 1,
   lineLayout: "parallel",
-  scanMotion: "pingpong",
+  scanMotion: "loop",
   heads: 1,
   autoRotate: false,
   rotationSpeed: 0.12,
@@ -62,6 +67,9 @@ const state = {
   baseFrequency: 110,
   pitchRange: 2.5,
   level: 0.65,
+  soundMode: "sine",
+  sineAccent: 0.75,
+  sineDecay: 0.65,
   cornerAccent: 0.9,
   cornerAttack: 3,
   cornerDecay: 90,
@@ -102,6 +110,9 @@ loadAudioSettings();
 state.baseFrequency = clamp(state.baseFrequency, 55, 440);
 state.pitchRange = clamp(state.pitchRange, 0, 6);
 state.level = clamp(state.level, 0, 1);
+state.soundMode = state.soundMode === "percussion" ? "percussion" : "sine";
+state.sineAccent = clamp(state.sineAccent, 0, 1);
+state.sineDecay = clamp(state.sineDecay, 0, 1);
 state.cornerAccent = clamp(state.cornerAccent, 0, 1);
 state.cornerAttack = clamp(state.cornerAttack, 0.5, 30);
 if (state.cornerDecay < 20) state.cornerDecay = 90;
@@ -112,8 +123,7 @@ state.mappingFrame = state.mappingFrame === "shape" ? "shape" : "instrument";
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d");
-// This instrument is transient-only: no always-running edge voice allocation.
-const pool = new VoicePool(0);
+const pool = new VoicePool(MAX_CONTINUOUS_VOICES);
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 let cssWidth = 1;
@@ -249,6 +259,8 @@ bindRange("rotationSpeed", "rotationSpeed", (value) => `${value.toFixed(2)} rev/
 bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
+bindRange("sineAccent", "sineAccent", (value) => `${Math.round(value * 100)}%`);
+bindRange("sineDecay", "sineDecay", (value) => `${Math.round(value * 100)}%`);
 bindRange("cornerAccent", "cornerAccent", (value) => `${Math.round(value * 100)}%`);
 bindRange("cornerAttack", "cornerAttack", (value) => `${Number(value).toFixed(value % 1 ? 1 : 0)} ms`);
 bindRange("cornerDecay", "cornerDecay", (value) => `${Math.round(cornerDecaySeconds(value) * 1000)} ms`);
@@ -366,6 +378,30 @@ for (const button of $("scanMotion").querySelectorAll("button")) {
   button.addEventListener("click", () => setScanMotion(button.dataset.value));
 }
 
+function setSoundMode(mode, shouldAnnounce = true) {
+  const nextMode = mode === "percussion" ? "percussion" : "sine";
+  if (nextMode !== state.soundMode) {
+    pool.silence();
+    state.soundMode = nextMode;
+    resetCornerTracking();
+  }
+  $("soundMode").value = state.soundMode;
+  $("sineArticulation").hidden = state.soundMode !== "sine";
+  $("percussionArticulation").hidden = state.soundMode !== "percussion";
+  persistAudioSettings();
+  if (shouldAnnounce) {
+    announce(state.soundMode === "sine"
+      ? "Continuous sine with corner amplitude selected."
+      : "Percussion corner strikes selected.");
+  }
+  invalidate();
+}
+
+$("soundMode").value = state.soundMode;
+$("soundMode").addEventListener("change", (event) => {
+  setSoundMode(event.currentTarget.value);
+});
+
 function setRotationPlaying(playing, shouldAnnounce = true) {
   state.autoRotate = Boolean(playing);
   setPressed($("rotationPlayButton"), state.autoRotate);
@@ -462,7 +498,9 @@ async function toggleAudio() {
     pool.setLevel(state.level);
     state.audio = true;
     paintAudioState();
-    announce("Audio on. Corner-triggered sine strikes are ready.");
+    announce(state.soundMode === "sine"
+      ? "Audio on. Continuous sine corner envelopes are ready."
+      : "Audio on. Percussion corner strikes are ready.");
     dismissHelp();
   } catch (error) {
     state.audio = false;
@@ -634,9 +672,11 @@ function collectContacts(path, position = state.continuousPosition) {
       contacts.push(...intersections);
     } else {
       const phase = phaseForHead(position, headIndex, headCount);
+      const headTravel = position + headIndex / headCount;
       const contact = {
         ...traceContact(path, phase),
         headIndex,
+        headTravel,
         headPhase: phase,
         voiceKey: `trace:${headIndex}`,
       };
@@ -822,6 +862,99 @@ function mappingForContact(contact, path) {
   };
 }
 
+function pingPongMotionDirection(travelPosition, multiplier = 1) {
+  const step = state.traversalDirection * 1e-5;
+  const before = pingPong01(travelPosition * multiplier);
+  const after = pingPong01((travelPosition + step) * multiplier);
+  const delta = after - before;
+  return Math.abs(delta) > 1e-9 ? Math.sign(delta) : state.traversalDirection;
+}
+
+function pointContourDirection(contact, path) {
+  return path.closed
+    ? state.traversalDirection
+    : pingPongMotionDirection(contact.headTravel, 2);
+}
+
+function cornerEnvelopeProfile(contact, path) {
+  // A scanner can reverse at a projected shape extremum without crossing a
+  // vertex, and rotation can move its contour contact independently of the
+  // scanner. Geometric corner distance keeps those line envelopes continuous.
+  if (state.playMethod === "scan") {
+    return {
+      strength: contact.cornerStrength ?? 0,
+      distance: clamp(contact.cornerDistance01 ?? 0, 0, 1),
+    };
+  }
+
+  // Point heads have an unambiguous path direction, so preserve the original
+  // Tesselateher profile: each corner peaks, then decays along the next edge.
+  const distances = path.vertexDistances;
+  if (!distances.length || path.totalLength <= 1e-9) {
+    return { strength: contact.cornerStrength ?? 0, distance: 0 };
+  }
+
+  const distance = clamp(contact.distance, 0, path.totalLength);
+  const direction = pointContourDirection(contact, path);
+  const epsilon = 1e-9;
+
+  if (direction >= 0) {
+    let cornerIndex = 0;
+    for (let index = 1; index < distances.length; index += 1) {
+      if (distances[index] <= distance + epsilon) cornerIndex = index;
+      else break;
+    }
+    const start = distances[cornerIndex];
+    const end = cornerIndex + 1 < distances.length
+      ? distances[cornerIndex + 1]
+      : path.totalLength;
+    return {
+      strength: path.cornerStrengths[cornerIndex] ?? 0,
+      distance: end - start <= epsilon ? 0 : clamp((distance - start) / (end - start), 0, 1),
+    };
+  }
+
+  let cornerIndex = distances.findIndex((value) => value >= distance - epsilon);
+  let target;
+  let start;
+  if (cornerIndex < 0) {
+    cornerIndex = 0;
+    target = path.totalLength;
+    start = distances[distances.length - 1];
+  } else if (cornerIndex === 0) {
+    target = 0;
+    start = path.closed ? distances[distances.length - 1] - path.totalLength : 0;
+  } else {
+    target = distances[cornerIndex];
+    start = distances[cornerIndex - 1];
+  }
+  return {
+    strength: path.cornerStrengths[cornerIndex] ?? 0,
+    distance: target - start <= epsilon
+      ? 0
+      : clamp((target - distance) / (target - start), 0, 1),
+  };
+}
+
+function continuousSineVoices(contacts, path) {
+  return contacts.map((contact) => {
+    const mapping = mappingForContact(contact, path);
+    const corner = cornerEnvelopeProfile(contact, path);
+    return {
+      key: `sine:${contact.voiceKey}`,
+      frequency: pitch01ToFrequency(mapping.pitch, state.baseFrequency, state.pitchRange),
+      gain: sineCornerEnvelopeGain(
+        corner.strength,
+        corner.distance,
+        state.sineAccent,
+        state.sineDecay,
+      ),
+      pan: mapping.pan,
+      waveform: "sine",
+    };
+  });
+}
+
 function makeCornerSnapshot(path, continuousPosition = state.continuousPosition) {
   const count = effectiveHeadCount();
   const vertices = path.vertexIndices.map((pointIndex, vertexIndex) => {
@@ -863,7 +996,7 @@ function makeCornerSnapshot(path, continuousPosition = state.continuousPosition)
 
 function strikeCorner(path, vertex, headIndex) {
   const peak = cornerStrikePeak(vertex.strength, state.cornerAccent);
-  if (!state.audio || peak <= 0) return;
+  if (state.soundMode !== "percussion" || !state.audio || peak <= 0) return;
   const mapping = mappingForContact(vertex, path);
   const envelope = {
     attackSeconds: cornerAttackSeconds(state.cornerAttack),
@@ -889,6 +1022,7 @@ function projectedVertexPhase(snapshot, vertex, axis) {
 }
 
 function strikeCurrentCorners() {
+  if (state.soundMode !== "percussion") return;
   const path = currentShape();
   const snapshot = makeCornerSnapshot(path);
   const epsilon = 1e-6;
@@ -1033,11 +1167,22 @@ function frame(now) {
 
   const path = currentShape();
   const moving = state.playing || state.autoRotate;
-  trackCornerMotion(path);
+  if (state.soundMode === "percussion") trackCornerMotion(path);
+  else cornerSnapshot = null;
   const contacts = drawFrame(path);
+  const sineVoices = state.soundMode === "sine"
+    ? continuousSineVoices(contacts, path)
+    : [];
+
+  if (state.audio && !document.hidden) {
+    pool.setVoices(state.soundMode === "sine" ? sineVoices : []);
+  }
 
   if (!moving || now - lastUiUpdate > 60) {
-    updateUi(contacts, state.audio ? pool.activeStrikeCount : 0);
+    const voiceCount = state.soundMode === "sine"
+      ? Math.min(sineVoices.length, MAX_CONTINUOUS_VOICES)
+      : pool.activeStrikeCount;
+    updateUi(contacts, state.audio ? voiceCount : 0);
     lastUiUpdate = now;
   }
   if (moving) scheduleFrame();
@@ -1102,8 +1247,9 @@ $("shape").addEventListener("input", dismissHelp);
 updateSidesOutput();
 updateCurvatureOutput();
 setLineLayout("parallel", false);
-setPlayMethod("scan", false);
+setPlayMethod(state.playMethod, false);
 setScanMotion(state.scanMotion, false);
+setSoundMode(state.soundMode, false);
 setTraversalDirection(1, false);
 setRotationDirection(1, false);
 setRotationPlaying(false, false);

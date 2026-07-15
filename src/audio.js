@@ -21,7 +21,7 @@ const MAX_FREQUENCY = 20_000;
 const MAX_RANGE_OCTAVES = 10;
 
 const FREQUENCY_TIME_CONSTANT = 0.018;
-const ATTACK_TIME_CONSTANT = 0.006;
+const ACTIVE_GAIN_TIME_CONSTANT = 0.003;
 const RELEASE_TIME_CONSTANT = 0.025;
 const PAN_TIME_CONSTANT = 0.025;
 const MASTER_TIME_CONSTANT = 0.03;
@@ -56,6 +56,25 @@ export function pitch01ToFrequency(pitch01, baseHz, rangeOctaves) {
 /** Peak of a transient-only corner strike. */
 export function cornerStrikePeak(cornerStrength, accent) {
   return 0.75 * clamp(cornerStrength, 0, 1) * clamp(accent, 0, 1);
+}
+
+/**
+ * Tesselateher's single-voice corner envelope. The floor and corner peak are
+ * two amplitudes of the same sine oscillator, never separately mixed layers.
+ */
+export function sineCornerEnvelopeGain(
+  cornerStrength,
+  distanceIntoEdge,
+  accent = 0.75,
+  decay = 0.65,
+) {
+  const amount = clamp(accent, 0, 1);
+  const decayAmount = clamp(decay, 0, 1);
+  const distance = clamp(distanceIntoEdge, 0, 1);
+  const envelope = Math.exp(-7 * decayAmount * distance);
+  const floor = 0.12 + (0.006 - 0.12) * decayAmount;
+  const sustain = floor + (0.12 - floor) * envelope;
+  return sustain + 0.34 * amount * clamp(cornerStrength, 0, 1) * envelope;
 }
 
 /** Convert the directly labelled articulation controls from ms to seconds. */
@@ -407,9 +426,7 @@ export class VoicePool {
       voice.gain.gain.setTargetAtTime(
         gain,
         now,
-        gain >= voice.gain.gain.value
-          ? ATTACK_TIME_CONSTANT
-          : RELEASE_TIME_CONSTANT,
+        ACTIVE_GAIN_TIME_CONSTANT,
       );
       voice.pan.pan.setTargetAtTime(pan, now, PAN_TIME_CONSTANT);
       if (voice.oscillator.type !== waveform) {

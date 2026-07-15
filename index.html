@@ -38,18 +38,18 @@
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Shape instrument canvas. One scan line reads a four-sided contour."
+            aria-label="Shape instrument canvas. One point traces a four-sided contour."
             aria-describedby="canvasInstructions liveStatus"
           >
             An animated contour read by a scanning line or tracing points.
           </canvas>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">1 LINE · 1 CONTACT · AUDIO OFF</span>
+            <span id="stageReadout">1 POINT · 1 CONTACT · AUDIO OFF</span>
           </div>
 
           <div class="probe-meta" aria-hidden="true">
-            <i></i><span id="probeType">SCAN LINE</span>
+            <i></i><span id="probeType">1 TRACE HEAD</span>
           </div>
         </div>
       </section>
@@ -60,11 +60,11 @@
 
           <div class="field-label">Playhead type</div>
           <div class="choice-tabs" id="playMethod" role="group" aria-label="Reading method">
-            <button id="scanMode" type="button" data-value="scan" aria-pressed="true">Line</button>
-            <button id="traceMode" type="button" data-value="trace" aria-pressed="false">Points</button>
+            <button id="scanMode" type="button" data-value="scan" aria-pressed="false">Line</button>
+            <button id="traceMode" type="button" data-value="trace" aria-pressed="true">Points</button>
           </div>
 
-          <label class="control mode-control" id="lineCountControl" for="lineCount">
+          <label class="control mode-control" id="lineCountControl" for="lineCount" hidden>
             <span><b>Playhead number</b><output id="lineCountOut" for="lineCount">1 line</output></span>
             <input id="lineCount" type="range" min="1" max="4" step="1" value="1" />
           </label>
@@ -77,15 +77,15 @@
             </div>
           </div>
 
-          <div class="mode-control" id="scanMotionControl">
+          <div class="mode-control" id="scanMotionControl" hidden>
             <div class="field-label">Line movement</div>
             <div class="choice-tabs compact" id="scanMotion" role="group" aria-label="Scan line movement">
-              <button id="pingPongScan" type="button" data-value="pingpong" aria-pressed="true">Ping-pong</button>
-              <button id="loopScan" type="button" data-value="loop" aria-pressed="false">Loop</button>
+              <button id="pingPongScan" type="button" data-value="pingpong" aria-pressed="false">Ping-pong</button>
+              <button id="loopScan" type="button" data-value="loop" aria-pressed="true">Loop</button>
             </div>
           </div>
 
-          <label class="control mode-control" id="headsControl" for="heads" hidden>
+          <label class="control mode-control" id="headsControl" for="heads">
             <span><b>Playhead number</b><output id="headsOut" for="heads">1 point</output></span>
             <input id="heads" type="range" min="1" max="12" step="1" value="1" />
           </label>
@@ -104,12 +104,12 @@
           <div class="rate-control" role="group" aria-label="Playhead speed and direction">
             <span class="rate-heading"><b>Playhead speed + direction</b><output id="speedOut" for="speed">0.060 cyc/s</output></span>
             <div class="rate-row">
-              <button class="rate-direction" id="traversalReverse" type="button" aria-pressed="false" aria-label="Set scan direction right to left">
-                <span id="reverseDirectionGlyph">←</span><small id="reverseDirectionText">R→L</small>
+              <button class="rate-direction" id="traversalReverse" type="button" aria-pressed="false" aria-label="Trace counterclockwise">
+                <span id="reverseDirectionGlyph">↺</span><small id="reverseDirectionText">CCW</small>
               </button>
               <input id="speed" aria-label="Playhead speed" type="range" min="0" max="1" step="0.001" value="0.4376" />
-              <button class="rate-direction" id="traversalForward" type="button" aria-pressed="true" aria-label="Set scan direction left to right">
-                <span id="forwardDirectionGlyph">→</span><small id="forwardDirectionText">L→R</small>
+              <button class="rate-direction" id="traversalForward" type="button" aria-pressed="true" aria-label="Trace clockwise">
+                <span id="forwardDirectionGlyph">↻</span><small id="forwardDirectionText">CW</small>
               </button>
             </div>
           </div>
@@ -162,6 +162,16 @@
         <section class="group" aria-labelledby="soundTitle">
           <h2 class="group-title" id="soundTitle">Sound</h2>
 
+          <label class="select-control" for="soundMode">
+            <span class="field-label">Sound</span>
+            <span class="select-shell">
+              <select id="soundMode">
+                <option value="sine" selected>Sine · corner envelope</option>
+                <option value="percussion">Percussion · corner strikes</option>
+              </select>
+            </span>
+          </label>
+
           <label class="control" for="baseFrequency">
             <span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span>
             <input id="baseFrequency" type="range" min="55" max="440" step="1" value="110" />
@@ -200,20 +210,34 @@
             <section class="advanced-section" aria-labelledby="articulationTitle">
               <h2 class="group-title" id="articulationTitle">Articulation</h2>
 
-              <label class="control" for="cornerAccent">
-                <span><b>Corner accent</b><output id="cornerAccentOut" for="cornerAccent">90%</output></span>
-                <input id="cornerAccent" type="range" min="0" max="1" step="0.01" value="0.9" />
-              </label>
+              <div id="sineArticulation">
+                <label class="control" for="sineAccent">
+                  <span><b>Corner amplitude</b><output id="sineAccentOut" for="sineAccent">75%</output></span>
+                  <input id="sineAccent" type="range" min="0" max="1" step="0.01" value="0.75" />
+                </label>
 
-              <label class="control" for="cornerAttack">
-                <span><b>Corner attack</b><output id="cornerAttackOut" for="cornerAttack">3 ms</output></span>
-                <input id="cornerAttack" type="range" min="0.5" max="30" step="0.5" value="3" />
-              </label>
+                <label class="control" for="sineDecay">
+                  <span><b>Corner decay</b><output id="sineDecayOut" for="sineDecay">65%</output></span>
+                  <input id="sineDecay" type="range" min="0" max="1" step="0.01" value="0.65" />
+                </label>
+              </div>
 
-              <label class="control" for="cornerDecay">
-                <span><b>Corner decay</b><output id="cornerDecayOut" for="cornerDecay">90 ms</output></span>
-                <input id="cornerDecay" type="range" min="20" max="800" step="5" value="90" />
-              </label>
+              <div id="percussionArticulation" hidden>
+                <label class="control" for="cornerAccent">
+                  <span><b>Hit level</b><output id="cornerAccentOut" for="cornerAccent">90%</output></span>
+                  <input id="cornerAccent" type="range" min="0" max="1" step="0.01" value="0.9" />
+                </label>
+
+                <label class="control" for="cornerAttack">
+                  <span><b>Hit attack</b><output id="cornerAttackOut" for="cornerAttack">3 ms</output></span>
+                  <input id="cornerAttack" type="range" min="0.5" max="30" step="0.5" value="3" />
+                </label>
+
+                <label class="control" for="cornerDecay">
+                  <span><b>Hit decay</b><output id="cornerDecayOut" for="cornerDecay">90 ms</output></span>
+                  <input id="cornerDecay" type="range" min="20" max="800" step="5" value="90" />
+                </label>
+              </div>
             </section>
           </div>
         </details>
