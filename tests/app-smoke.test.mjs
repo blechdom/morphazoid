@@ -196,12 +196,12 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
 
   await listeners.get("audioButton:click")();
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
-  assert.equal(audioOscillators.length, 32, "enabling audio should not trigger a sounding voice");
+  assert.equal(audioOscillators.length, 0, "enabling audio should allocate no sustained oscillators");
   elements.get("position").value = "0.6";
   listeners.get("position:input")();
   queuedFrame(1_050);
-  assert.ok(audioOscillators.length > 32, "manual scrubbing across corners should create transient strikes");
-  assert.ok(audioOscillators.slice(32).every((oscillator) => oscillator.type === "sine"));
+  assert.ok(audioOscillators.length > 0, "manual scrubbing across corners should create transient strikes");
+  assert.ok(audioOscillators.every((oscillator) => oscillator.type === "sine"));
   elements.get("position").value = "0";
   listeners.get("position:input")();
   queuedFrame(1_075);

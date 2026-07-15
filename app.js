@@ -27,7 +27,6 @@ const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
 const SPEED_MIN = 0.01;
 const SPEED_MAX = 1.2;
-const MAX_AUDIBLE_VOICES = 32;
 const HEAD_COLORS = ["#5fe8c4", "#7db4ff", "#c79bff", "#ffb86b"];
 const AUDIO_SETTINGS_KEY = "morphazoid:shape:audio:v1";
 const PERSISTED_AUDIO_KEYS = new Set([
@@ -113,7 +112,8 @@ state.mappingFrame = state.mappingFrame === "shape" ? "shape" : "instrument";
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d");
-const pool = new VoicePool(MAX_AUDIBLE_VOICES);
+// This instrument is transient-only: no always-running edge voice allocation.
+const pool = new VoicePool(0);
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 let cssWidth = 1;

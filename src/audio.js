@@ -145,7 +145,7 @@ export class VoicePool {
   /** @param {number} [size] */
   constructor(size = DEFAULT_VOICE_COUNT) {
     this.size = Math.max(
-      1,
+      0,
       Math.min(
         128,
         Math.trunc(Number.isFinite(size) ? size : DEFAULT_VOICE_COUNT),
