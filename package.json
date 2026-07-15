@@ -1,0 +1,14 @@
+{
+  "name": "morphazoid",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Morphazoid Shape — a geometric instrument for sounding contact.",
+  "scripts": {
+    "dev": "python3 -m http.server 3435",
+    "start": "python3 -m http.server 3435",
+    "check": "for file in app.js src/*.js; do node --check $file || exit 1; done",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "npm run check && npm test"
+  }
+}

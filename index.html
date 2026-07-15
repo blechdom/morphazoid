@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Shape — a geometric instrument for sounding contact." />
+    <title>Shape — Morphazoid</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="masthead">
+      <a class="wordmark" href="#shape" aria-label="Morphazoid Shape">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <span class="tab active" aria-current="page">shape</span>
+      </nav>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+
+        <label class="header-level" for="level">
+          <span><b>Volume</b><output id="levelOut" for="level">65%</output></span>
+          <input id="level" aria-label="Audio level" type="range" min="0" max="1" step="0.01" value="0.65" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="shape">
+      <section class="stage" aria-label="Shape stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Shape instrument canvas. One scan line reads a four-sided contour."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            An animated contour read by a scanning line or tracing points.
+          </canvas>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">1 LINE · 1 CONTACT · AUDIO OFF</span>
+          </div>
+
+          <div class="probe-meta" aria-hidden="true">
+            <i></i><span id="probeType">SCAN LINE</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Shape controls">
+        <section class="group performance-group" aria-labelledby="playTitle">
+          <h2 class="group-title" id="playTitle">Play</h2>
+
+          <div class="field-label">Playhead type</div>
+          <div class="choice-tabs" id="playMethod" role="group" aria-label="Reading method">
+            <button id="scanMode" type="button" data-value="scan" aria-pressed="true">Line</button>
+            <button id="traceMode" type="button" data-value="trace" aria-pressed="false">Points</button>
+          </div>
+
+          <label class="control mode-control" id="lineCountControl" for="lineCount">
+            <span><b>Playhead number</b><output id="lineCountOut" for="lineCount">1 line</output></span>
+            <input id="lineCount" type="range" min="1" max="4" step="1" value="1" />
+          </label>
+
+          <div class="mode-control" id="lineLayoutControl" hidden>
+            <div class="field-label">Line layout</div>
+            <div class="choice-tabs compact" id="lineLayout" role="group" aria-label="Scan line layout">
+              <button id="parallelLines" type="button" data-value="parallel" aria-pressed="true">Parallel</button>
+              <button id="crossedLines" type="button" data-value="crossed" aria-pressed="false">Crossed 90°</button>
+            </div>
+          </div>
+
+          <div class="mode-control" id="scanMotionControl">
+            <div class="field-label">Line movement</div>
+            <div class="choice-tabs compact" id="scanMotion" role="group" aria-label="Scan line movement">
+              <button id="pingPongScan" type="button" data-value="pingpong" aria-pressed="true">Ping-pong</button>
+              <button id="loopScan" type="button" data-value="loop" aria-pressed="false">Loop</button>
+            </div>
+          </div>
+
+          <label class="control mode-control" id="headsControl" for="heads" hidden>
+            <span><b>Playhead number</b><output id="headsOut" for="heads">1 point</output></span>
+            <input id="heads" type="range" min="1" max="12" step="1" value="1" />
+          </label>
+
+          <div class="position-row">
+            <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play playhead">
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+            </button>
+            <label class="control position-control" for="position">
+              <span><b id="positionLabel">Playhead position</b><output id="positionOut" for="position">0.0%</output></span>
+              <input id="position" type="range" min="0" max="1" step="0.0005" value="0" />
+            </label>
+          </div>
+
+          <div class="rate-control" role="group" aria-label="Playhead speed and direction">
+            <span class="rate-heading"><b>Playhead speed + direction</b><output id="speedOut" for="speed">0.060 cyc/s</output></span>
+            <div class="rate-row">
+              <button class="rate-direction" id="traversalReverse" type="button" aria-pressed="false" aria-label="Set scan direction right to left">
+                <span id="reverseDirectionGlyph">←</span><small id="reverseDirectionText">R→L</small>
+              </button>
+              <input id="speed" aria-label="Playhead speed" type="range" min="0" max="1" step="0.001" value="0.4376" />
+              <button class="rate-direction" id="traversalForward" type="button" aria-pressed="true" aria-label="Set scan direction left to right">
+                <span id="forwardDirectionGlyph">→</span><small id="forwardDirectionText">L→R</small>
+              </button>
+            </div>
+          </div>
+
+          <div class="position-row rotation-position-row">
+            <button class="play-button" id="rotationPlayButton" type="button" aria-pressed="false" aria-label="Start rotation">
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+            </button>
+            <label class="control rotation-control" for="rotation">
+              <span><b>Rotate angle</b><output id="rotationOut" for="rotation">0°</output></span>
+              <input id="rotation" type="range" min="-180" max="180" step="1" value="0" />
+            </label>
+          </div>
+
+          <div class="rate-control motion-controls" id="rotationControls" role="group" aria-label="Rotation speed and direction">
+            <span class="rate-heading"><b>Rotation speed + direction</b><output id="rotationSpeedOut" for="rotationSpeed">0.12 rev/s</output></span>
+            <div class="rate-row">
+              <button class="rate-direction" id="rotationReverse" type="button" aria-pressed="false" aria-label="Rotate counterclockwise">
+                <span>↺</span><small>CCW</small>
+              </button>
+              <input id="rotationSpeed" aria-label="Rotation speed" type="range" min="0" max="2" step="0.01" value="0.12" />
+              <button class="rate-direction" id="rotationForward" type="button" aria-pressed="true" aria-label="Rotate clockwise">
+                <span>↻</span><small>CW</small>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="group" aria-labelledby="formTitle">
+          <h2 class="group-title" id="formTitle">Form</h2>
+
+          <label class="control" for="sides">
+            <span><b>Sides</b><output id="sidesOut" for="sides">4 · polygon</output></span>
+            <input id="sides" type="range" min="2" max="16" step="1" value="4" />
+          </label>
+
+          <div class="control" id="curvatureControl">
+            <span><b>Roundness</b><output id="curvatureOut" for="curvature">straight</output></span>
+            <div class="roundness-row">
+              <input id="curvature" aria-label="Roundness amount" type="range" min="0" max="1" step="0.005" value="0" />
+              <div class="polarity-tabs" id="curvatureDirection" role="group" aria-label="Roundness direction">
+                <button id="curvatureIn" type="button" data-value="-1" aria-pressed="false">In</button>
+                <button id="curvatureOutward" type="button" data-value="1" aria-pressed="true">Out</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="group" aria-labelledby="soundTitle">
+          <h2 class="group-title" id="soundTitle">Sound</h2>
+
+          <label class="control" for="baseFrequency">
+            <span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span>
+            <input id="baseFrequency" type="range" min="55" max="440" step="1" value="110" />
+          </label>
+
+          <label class="control" for="pitchRange">
+            <span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">2.50 oct</output></span>
+            <input id="pitchRange" type="range" min="0" max="6" step="0.05" value="2.5" />
+          </label>
+
+          <p class="audio-error" id="audioError" role="alert" hidden></p>
+        </section>
+
+        <details class="advanced">
+          <summary>Advanced</summary>
+          <div class="advanced-body">
+            <section class="advanced-section" aria-labelledby="mappingTitle">
+              <h2 class="group-title" id="mappingTitle">Mapping</h2>
+
+              <label class="select-control" for="mappingFrame">
+                <span class="field-label">Frame</span>
+                <span class="select-shell">
+                  <select id="mappingFrame">
+                    <option value="instrument" selected>instrument-relative</option>
+                    <option value="shape">shape-relative</option>
+                  </select>
+                </span>
+              </label>
+
+              <label class="control" for="stereoWidth">
+                <span><b>Stereo width</b><output id="stereoWidthOut" for="stereoWidth">100%</output></span>
+                <input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="1" />
+              </label>
+            </section>
+
+            <section class="advanced-section" aria-labelledby="articulationTitle">
+              <h2 class="group-title" id="articulationTitle">Articulation</h2>
+
+              <label class="control" for="cornerAccent">
+                <span><b>Corner accent</b><output id="cornerAccentOut" for="cornerAccent">90%</output></span>
+                <input id="cornerAccent" type="range" min="0" max="1" step="0.01" value="0.9" />
+              </label>
+
+              <label class="control" for="cornerAttack">
+                <span><b>Corner attack</b><output id="cornerAttackOut" for="cornerAttack">3 ms</output></span>
+                <input id="cornerAttack" type="range" min="0.5" max="30" step="0.5" value="3" />
+              </label>
+
+              <label class="control" for="cornerDecay">
+                <span><b>Corner decay</b><output id="cornerDecayOut" for="cornerDecay">90 ms</output></span>
+                <input id="cornerDecay" type="range" min="20" max="800" step="5" value="90" />
+              </label>
+            </section>
+          </div>
+        </details>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">Drag horizontally to scrub. Press Space to play or pause. Press Left or Right Arrow to move by a fine step, or hold Shift for a larger step. Audio and movement are independent.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
