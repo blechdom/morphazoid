@@ -11,6 +11,7 @@ test("all four instruments share complete navigation", async () => {
     for (const link of ["shape", "lattice", "solid", "hyper"]) {
       assert.match(html, new RegExp(`>${link}<\\/a>`));
     }
+    assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/, "sections should start collapsed");
   }
 });
 

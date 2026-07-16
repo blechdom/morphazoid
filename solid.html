@@ -44,7 +44,7 @@
       </section>
 
       <aside class="panel" aria-label="Solid controls">
-        <details class="group control-section" open>
+        <details class="group control-section" data-section="play">
           <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">plane · paused</span></summary>
           <div class="group-body">
             <div class="position-row">
@@ -62,7 +62,7 @@
           </div>
         </details>
 
-        <details class="group control-section" open>
+        <details class="group control-section" data-section="form">
           <summary class="group-summary"><h2 class="group-title">Form</h2><span class="section-state" id="formSummary">cube</span></summary>
           <div class="group-body">
             <label class="select-control" for="solidType"><span class="field-label">Wireframe solid</span><span class="select-shell"><select id="solidType"><option value="cube" selected>Cube</option><option value="pyramid">Pyramid</option><option value="cone">Cone</option><option value="sphere">Sphere</option></select></span></label>
@@ -71,7 +71,7 @@
           </div>
         </details>
 
-        <details class="group control-section" open>
+        <details class="group control-section" data-section="rotation">
           <summary class="group-summary"><h2 class="group-title">Rotation</h2><span class="section-state" id="rotationSummary">manual</span></summary>
           <div class="group-body">
             <div class="choice-switch" id="rotationMode" role="group" aria-label="Solid rotation">
@@ -85,7 +85,7 @@
           </div>
         </details>
 
-        <details class="group control-section" open>
+        <details class="group control-section" data-section="sound">
           <summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state" id="soundSummary">FM</span></summary>
           <div class="group-body">
             <label class="select-control" for="soundMode"><span class="field-label">Voice</span><span class="select-shell"><select id="soundMode"><option value="fm" selected>FM · intersection index</option><option value="sine">Sine · corner envelope</option><option value="percussion">Percussion · vertex strikes</option><option value="shepard">Shepard · surface cycle</option><option value="pm">PM · intersection phase</option></select></span></label>

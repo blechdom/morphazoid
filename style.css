@@ -796,6 +796,42 @@ input[type="range"]::-moz-range-thumb {
   border-bottom: 1px solid var(--line);
 }
 
+.control-section[data-section="play"] {
+  --accent: #5fe8c4;
+  --accent-soft: color-mix(in oklab, #5fe8c4 55%, transparent);
+  --accent-glow: color-mix(in oklab, #5fe8c4 22%, transparent);
+}
+
+.control-section[data-section="form"] {
+  --accent: #e8c46b;
+  --accent-soft: color-mix(in oklab, #e8c46b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #e8c46b 20%, transparent);
+}
+
+.control-section[data-section="rotation"] {
+  --accent: #ffb86b;
+  --accent-soft: color-mix(in oklab, #ffb86b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffb86b 20%, transparent);
+}
+
+.control-section[data-section="sound"] {
+  --accent: #7db4ff;
+  --accent-soft: color-mix(in oklab, #7db4ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #7db4ff 22%, transparent);
+}
+
+.control-section[data-section="mapping"] {
+  --accent: #c79bff;
+  --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #c79bff 20%, transparent);
+}
+
+.control-section[data-section="output"] {
+  --accent: #ffb86b;
+  --accent-soft: color-mix(in oklab, #ffb86b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffb86b 20%, transparent);
+}
+
 .group-summary {
   display: flex;
   min-height: 52px;
@@ -805,6 +841,8 @@ input[type="range"]::-moz-range-thumb {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
+  background: linear-gradient(90deg, var(--accent-glow), transparent 42%);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .group-summary::-webkit-details-marker {
@@ -819,6 +857,7 @@ input[type="range"]::-moz-range-thumb {
 
 .control-section[open] > .group-summary {
   border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, var(--accent-glow), transparent 68%);
 }
 
 .control-section[open] > .group-summary::after {
@@ -908,6 +947,68 @@ input[type="range"]::-moz-range-thumb {
 
 .mode-control {
   margin-top: 7px;
+}
+
+.count-range-proxy {
+  display: none !important;
+}
+
+.playhead-stepper {
+  display: grid;
+  min-height: 50px;
+  margin: 7px 0 14px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: 50px minmax(0, 1fr) 50px;
+  align-items: stretch;
+}
+
+.playhead-stepper > button {
+  min-width: 50px;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+  color: var(--accent);
+  background: transparent;
+  font-size: 23px;
+  font-weight: 300;
+}
+
+.playhead-stepper > button:last-child {
+  border-right: 0;
+  border-left: 1px solid var(--line);
+}
+
+.playhead-stepper > button:hover,
+.playhead-stepper > button:focus-visible {
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 14px var(--accent-glow);
+}
+
+.playhead-stepper > button:disabled {
+  cursor: not-allowed;
+  color: var(--faint);
+  background: transparent;
+  box-shadow: none;
+}
+
+.playhead-stepper > span {
+  display: grid;
+  padding: 7px 12px;
+  place-content: center;
+  text-align: center;
+}
+
+.playhead-stepper small {
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.playhead-stepper output {
+  color: var(--ink);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 .head-layout-control {

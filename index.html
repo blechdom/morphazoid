@@ -58,7 +58,7 @@
       </section>
 
       <aside class="panel" aria-label="Shape controls">
-        <details class="group control-section performance-group" id="playSection" open>
+        <details class="group control-section performance-group" id="playSection" data-section="play">
           <summary class="group-summary">
             <h2 class="group-title" id="playTitle">Play</h2>
             <span class="section-state" id="playSummary">Points · paused</span>
@@ -71,12 +71,18 @@
               <button id="radialMode" type="button" data-value="radial" aria-pressed="false">Radar</button>
             </div>
 
-            <label class="control mode-control" id="headsControl" for="heads">
+            <div class="playhead-stepper" id="playheadStepper" role="group" aria-label="Playhead count">
+              <button id="removePlayhead" type="button" aria-label="Remove one playhead">−</button>
+              <span><small>Playheads</small><output id="playheadCountOut">1 point</output></span>
+              <button id="addPlayhead" type="button" aria-label="Add one playhead">+</button>
+            </div>
+
+            <label class="control mode-control count-range-proxy" id="headsControl" for="heads">
               <span><b>Playhead number</b><output id="headsOut" for="heads">1 point</output></span>
               <input id="heads" type="range" min="1" max="12" step="1" value="1" />
             </label>
 
-            <label class="control mode-control" id="lineCountControl" for="lineCount" hidden>
+            <label class="control mode-control count-range-proxy" id="lineCountControl" for="lineCount" hidden>
               <span><b>Playhead number</b><output id="lineCountOut" for="lineCount">1 line</output></span>
               <input id="lineCount" type="range" min="1" max="4" step="1" value="1" />
             </label>
@@ -162,7 +168,7 @@
           </div>
         </details>
 
-        <details class="group control-section" id="formSection" open>
+        <details class="group control-section" id="formSection" data-section="form">
           <summary class="group-summary">
             <h2 class="group-title" id="formTitle">Form</h2>
             <span class="section-state" id="formSummary">4 sides</span>
@@ -215,7 +221,7 @@
           </div>
         </details>
 
-        <details class="group control-section" id="soundSection" open>
+        <details class="group control-section" id="soundSection" data-section="sound">
           <summary class="group-summary">
             <h2 class="group-title" id="soundTitle">Sound</h2>
             <span class="section-state" id="soundSummary">Sine</span>
@@ -323,7 +329,7 @@
           </div>
         </details>
 
-        <details class="group control-section" id="mappingSection">
+        <details class="group control-section" id="mappingSection" data-section="mapping">
           <summary class="group-summary">
             <h2 class="group-title" id="mappingTitle">Mapping</h2>
             <span class="section-state">Marks → sound</span>
@@ -414,7 +420,7 @@
           </div>
         </details>
 
-        <details class="group control-section output-section" id="outputSection" open>
+        <details class="group control-section output-section" id="outputSection" data-section="output">
           <summary class="group-summary">
             <h2 class="group-title" id="outputTitle">Output</h2>
             <span class="stream-indicator"><i></i>live</span>

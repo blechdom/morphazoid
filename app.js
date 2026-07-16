@@ -338,6 +338,19 @@ function updateCanvasLabel() {
   canvas.setAttribute("aria-label", `Shape instrument canvas. ${formatSides()}; ${reader}.`);
 }
 
+function updatePlayheadStepper() {
+  const scan = state.playMethod === "scan";
+  const count = scan ? state.lineCount : state.heads;
+  const noun = scan ? "line" : state.playMethod === "radial" ? "ray" : "point";
+  $("playheadCountOut").textContent = `${count} ${plural(count, noun)}`;
+  $("removePlayhead").disabled = count <= 1;
+  $("addPlayhead").disabled = count >= (scan ? 4 : 12);
+  $("playheadStepper").setAttribute(
+    "aria-label",
+    `${count} ${plural(count, noun)}. Add or remove playheads.`,
+  );
+}
+
 function updateLineControls() {
   const showLayout = state.playMethod === "scan" && state.lineCount > 1;
   $("lineLayoutControl").hidden = !showLayout;
@@ -350,6 +363,7 @@ function updateLineControls() {
   updateTraversalDirection();
   updateCanvasLabel();
   renderHeadLayout();
+  updatePlayheadStepper();
   updateSectionSummaries();
 }
 
@@ -543,6 +557,27 @@ function setPlayMethod(method, shouldAnnounce = true) {
 for (const button of $("playMethod").querySelectorAll("button")) {
   button.addEventListener("click", () => setPlayMethod(button.dataset.value));
 }
+
+function changePlayheadCount(delta) {
+  if (state.playMethod === "scan") {
+    state.lineCount = Math.round(clamp(state.lineCount + delta, 1, 4));
+    $("lineCount").value = String(state.lineCount);
+    state.scanHeadOffsets = canonicalHeadOffsets(state.lineCount, activeOffsetLayout("scan"));
+    updateLineCountOutput();
+  } else {
+    state.heads = Math.round(clamp(state.heads + delta, 1, 12));
+    $("heads").value = String(state.heads);
+    state.traceHeadOffsets = canonicalHeadOffsets(state.heads);
+    updateHeadsOutput();
+  }
+  updateLineControls();
+  resetCornerTracking();
+  announce(`${$("playheadCountOut").textContent} active.`);
+  invalidate();
+}
+
+$("removePlayhead").addEventListener("click", () => changePlayheadCount(-1));
+$("addPlayhead").addEventListener("click", () => changePlayheadCount(1));
 
 function setLineLayout(layout, shouldAnnounce = true) {
   const nextLayout = layout === "crossed" ? "crossed" : "parallel";

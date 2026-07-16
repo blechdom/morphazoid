@@ -28,6 +28,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.deepEqual(sectionPositions, [...sectionPositions].sort((a, b) => a - b));
   for (const id of sectionIds) {
     assert.match(openingTag(id), /^<details\b/);
+    assert.doesNotMatch(openingTag(id), /\sopen(?:\s|>)/, `${id} should start collapsed`);
   }
   for (const title of ["Play", "Form", "Sound", "Mapping", "Output"]) {
     assert.match(html, new RegExp(`<h2[^>]*>${title}<\\/h2>`));
@@ -69,6 +70,10 @@ test("the mobile instrument markup exposes the complete compact control surface"
   // The playhead phase editor is compact, draggable, keyboard-operable, and resettable.
   assert.ok(html.includes('id="headLayoutTrack"'));
   assert.ok(html.includes('id="resetHeadSpacing"'));
+  for (const id of ["playheadStepper", "removePlayhead", "playheadCountOut", "addPlayhead"]) {
+    assert.ok(html.includes(`id="${id}"`), `missing compact playhead control #${id}`);
+  }
+  assert.match(openingTag("addPlayhead"), /aria-label="Add one playhead"/);
   const markers = [...html.matchAll(/id="headMarker(\d+)"/g)].map((match) => Number(match[1]));
   assert.deepEqual(markers, Array.from({ length: 12 }, (_, index) => index));
   assert.match(openingTag("headMarker0"), /aria-valuenow="0\.5"/);

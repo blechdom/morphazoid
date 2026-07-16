@@ -239,6 +239,14 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("headMarker0").hidden, false);
   assert.equal(elements.get("headMarker0").style.left, "50%");
   assert.equal(elements.get("headMarker1").hidden, true);
+  assert.equal(elements.get("playheadCountOut").textContent, "1 point");
+  assert.equal(elements.get("removePlayhead").disabled, true);
+  listeners.get("addPlayhead:click")();
+  assert.equal(elements.get("playheadCountOut").textContent, "2 points");
+  assert.equal(elements.get("headMarker1").hidden, false);
+  listeners.get("removePlayhead:click")();
+  assert.equal(elements.get("playheadCountOut").textContent, "1 point");
+  assert.equal(elements.get("headMarker1").hidden, true);
   assert.equal(elements.get("outputVoiceLabel").textContent, "fm");
   assert.equal(elements.get("outputContactLabel").textContent, "Contact 1 of 1");
   assert.notEqual(elements.get("markFrequencyOut").textContent, "");
@@ -357,6 +365,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("lineCountControl").hidden, false);
   assert.equal(elements.get("scanMotionControl").hidden, false);
   assert.equal(attributes.get("loopScan:aria-pressed"), "true");
+  assert.equal(elements.get("playheadCountOut").textContent, "1 line");
   elements.get("position").value = "1";
   listeners.get("position:input")();
   queuedFrame(1_330);
