@@ -18,6 +18,8 @@
       <nav class="tabs" aria-label="Instrument">
         <a class="tab active" href="./" aria-current="page">shape</a>
         <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
       </nav>
 
       <div class="audio-strip" aria-label="Audio controls">
@@ -56,7 +58,7 @@
       </section>
 
       <aside class="panel" aria-label="Shape controls">
-        <details class="group control-section performance-group" id="playSection" open>
+        <details class="group control-section performance-group" id="playSection" data-section="play">
           <summary class="group-summary">
             <h2 class="group-title" id="playTitle">Play</h2>
             <span class="section-state" id="playSummary">Points · paused</span>
@@ -66,14 +68,21 @@
             <div class="choice-switch" id="playMethod" role="group" aria-label="Reading method">
               <button id="traceMode" type="button" data-value="trace" aria-pressed="true">Points</button>
               <button id="scanMode" type="button" data-value="scan" aria-pressed="false">Line</button>
+              <button id="radialMode" type="button" data-value="radial" aria-pressed="false">Radar</button>
             </div>
 
-            <label class="control mode-control" id="headsControl" for="heads">
+            <div class="playhead-stepper" id="playheadStepper" role="group" aria-label="Playhead count">
+              <button id="removePlayhead" type="button" aria-label="Remove one playhead">−</button>
+              <span><small>Playheads</small><output id="playheadCountOut">1 point</output></span>
+              <button id="addPlayhead" type="button" aria-label="Add one playhead">+</button>
+            </div>
+
+            <label class="control mode-control count-range-proxy" id="headsControl" for="heads">
               <span><b>Playhead number</b><output id="headsOut" for="heads">1 point</output></span>
               <input id="heads" type="range" min="1" max="12" step="1" value="1" />
             </label>
 
-            <label class="control mode-control" id="lineCountControl" for="lineCount" hidden>
+            <label class="control mode-control count-range-proxy" id="lineCountControl" for="lineCount" hidden>
               <span><b>Playhead number</b><output id="lineCountOut" for="lineCount">1 line</output></span>
               <input id="lineCount" type="range" min="1" max="4" step="1" value="1" />
             </label>
@@ -159,7 +168,7 @@
           </div>
         </details>
 
-        <details class="group control-section" id="formSection" open>
+        <details class="group control-section" id="formSection" data-section="form">
           <summary class="group-summary">
             <h2 class="group-title" id="formTitle">Form</h2>
             <span class="section-state" id="formSummary">4 sides</span>
@@ -212,7 +221,7 @@
           </div>
         </details>
 
-        <details class="group control-section" id="soundSection" open>
+        <details class="group control-section" id="soundSection" data-section="sound">
           <summary class="group-summary">
             <h2 class="group-title" id="soundTitle">Sound</h2>
             <span class="section-state" id="soundSummary">Sine</span>
@@ -222,8 +231,11 @@
               <span class="field-label">Voice</span>
               <span class="select-shell">
                 <select id="soundMode">
-                  <option value="sine" selected>Sine · corner envelope</option>
+                  <option value="sine">Sine · corner envelope</option>
                   <option value="percussion">Percussion · corner strikes</option>
+                  <option value="shepard">Shepard · cyclic glissando</option>
+                  <option value="fm" selected>FM · mark-driven index</option>
+                  <option value="pm">PM · mark-driven phase</option>
                 </select>
               </span>
             </label>
@@ -238,7 +250,7 @@
               <input id="pitchRange" type="range" min="0" max="6" step="0.05" value="2.5" />
             </label>
 
-            <div id="sineArticulation">
+            <div id="sineArticulation" hidden>
               <label class="control" for="sineAccent">
                 <span><b>Corner amplitude</b><output id="sineAccentOut" for="sineAccent">75%</output></span>
                 <input id="sineAccent" type="range" min="0" max="1" step="0.01" value="0.75" />
@@ -267,14 +279,60 @@
               </label>
             </div>
 
+            <div class="synth-panel" id="shepardArticulation" hidden>
+              <label class="control" for="shepardCycles">
+                <span><b>Glide rate</b><output id="shepardCyclesOut" for="shepardCycles">1.00 oct / loop</output></span>
+                <input id="shepardCycles" type="range" min="0.25" max="4" step="0.05" value="1" />
+              </label>
+
+              <label class="select-control" for="shepardDirection">
+                <span class="field-label">Glide direction</span>
+                <span class="select-shell">
+                  <select id="shepardDirection">
+                    <option value="1" selected>Follow playhead</option>
+                    <option value="-1">Oppose playhead</option>
+                  </select>
+                </span>
+              </label>
+
+              <label class="control" for="shepardWidth">
+                <span><b>Spectral width</b><output id="shepardWidthOut" for="shepardWidth">4.0 oct</output></span>
+                <input id="shepardWidth" type="range" min="1" max="8" step="0.1" value="4" />
+              </label>
+            </div>
+
+            <div class="synth-panel" id="fmArticulation">
+              <label class="control" for="fmIndex">
+                <span><b>FM index</b><output id="fmIndexOut" for="fmIndex">3.00 max</output></span>
+                <input id="fmIndex" type="range" min="0" max="12" step="0.05" value="3" />
+              </label>
+
+              <label class="control" for="fmRatio">
+                <span><b>Modulator ratio</b><output id="fmRatioOut" for="fmRatio">2.00 : 1</output></span>
+                <input id="fmRatio" type="range" min="0.25" max="8" step="0.05" value="2" />
+              </label>
+            </div>
+
+            <div class="synth-panel" id="pmArticulation" hidden>
+              <label class="control" for="pmIndex">
+                <span><b>Phase depth</b><output id="pmIndexOut" for="pmIndex">2.00 rad</output></span>
+                <input id="pmIndex" type="range" min="0" max="8" step="0.05" value="2" />
+              </label>
+
+              <label class="control" for="pmRatio">
+                <span><b>Modulator ratio</b><output id="pmRatioOut" for="pmRatio">1.00 : 1</output></span>
+                <input id="pmRatio" type="range" min="0.25" max="8" step="0.05" value="1" />
+              </label>
+            </div>
+
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>
 
-        <details class="group control-section" id="mappingSection">
+        <details class="group control-section" id="mappingSection" data-section="mapping">
           <summary class="group-summary">
             <h2 class="group-title" id="mappingTitle">Mapping</h2>
-            <span class="section-state">Marks → sound</span>
+            <span class="section-state" id="mappingSummary">Height → pitch</span>
           </summary>
           <div class="group-body">
             <label class="select-control" for="mappingFrame">
@@ -292,6 +350,7 @@
               <span class="select-shell">
                 <select id="pitchSource">
                   <option value="height" selected>Vertical position</option>
+                  <option value="center">Distance from center · radar radius</option>
                   <option value="corner">Corner magnitude</option>
                   <option value="incidence">Incidence</option>
                   <option value="phase">Contour phase</option>
@@ -311,6 +370,20 @@
                 </select>
               </span>
             </label>
+
+            <div id="synthMapping">
+              <label class="select-control" for="synthSource">
+                <span class="field-label">Modulation drive mark</span>
+                <span class="select-shell">
+                  <select id="synthSource">
+                    <option value="incidence" selected>Incidence</option>
+                    <option value="corner">Corner magnitude</option>
+                    <option value="phase">Contour phase</option>
+                    <option value="height">Vertical position</option>
+                  </select>
+                </span>
+              </label>
+            </div>
 
             <div id="hitMapping">
               <label class="select-control" for="hitLevelSource">
@@ -344,11 +417,12 @@
               <input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="1" />
             </label>
 
+            <p class="control-note"><b>Pitch path:</b> the selected mark passes through the chosen curve, then spans Base frequency + Pitch range from the Sound section. <b>Center distance</b> is 0 at the radar origin and 1 at the outer radius; choose Invert to make the center high.</p>
             <p class="control-note"><b>Stage axes</b> stay fixed as the form rotates. <b>Shape axes</b> rotate with the form, so the same local point retains its pitch and pan relationship.</p>
           </div>
         </details>
 
-        <details class="group control-section output-section" id="outputSection" open>
+        <details class="group control-section output-section" id="outputSection" data-section="output">
           <summary class="group-summary">
             <h2 class="group-title" id="outputTitle">Output</h2>
             <span class="stream-indicator"><i></i>live</span>
@@ -362,6 +436,7 @@
             <dl class="mark-grid" aria-label="Realtime mark values">
               <div><dt>Phase</dt><dd><output id="markPhaseOut">0.500</output></dd></div>
               <div><dt>Position</dt><dd><output id="markPositionOut">0.000, 1.000</output></dd></div>
+              <div><dt>Center distance</dt><dd><output id="markCenterOut">1.000</output></dd></div>
               <div><dt>Corner turn</dt><dd><output id="markTurnOut">+90° outer</output></dd></div>
               <div><dt>Corner distance</dt><dd><output id="markDistanceOut">0.000</output></dd></div>
               <div><dt>Incidence</dt><dd><output id="markIncidenceOut">0.707</output></dd></div>
@@ -370,6 +445,8 @@
               <div><dt>Frequency</dt><dd><output id="markFrequencyOut">110 Hz</output></dd></div>
               <div><dt>Amplitude</dt><dd><output id="markGainOut">0.248</output></dd></div>
               <div><dt>Pan</dt><dd><output id="markPanOut">0.000</output></dd></div>
+              <div><dt>Synth drive</dt><dd><output id="markSynthDriveOut">&minus;</output></dd></div>
+              <div><dt>Synth value</dt><dd><output id="markSynthValueOut">corner envelope</output></dd></div>
               <div><dt>Decay</dt><dd><output id="markDecayOut">90 ms</output></dd></div>
               <div><dt>Rotation</dt><dd><output id="markRotationOut">0°</output></dd></div>
             </dl>
@@ -380,6 +457,7 @@
               <div><span id="pitchRouteSource">Vertical position</span><b>Pitch</b><small id="pitchRouteCurve">linear mark → exponential Hz</small></div>
               <div><span>Horizontal position</span><b>Pan</b><small>linear bipolar</small></div>
               <div><span id="levelRouteSource">Corner distance + magnitude</span><b>Level</b><small id="levelRouteCurve">spatial amplitude envelope</small></div>
+              <div id="synthRoute" hidden><span id="synthRouteSource">Incidence</span><b id="synthRouteTarget">Mod depth</b><small id="synthRouteCurve">linear geometry drive</small></div>
             </div>
 
             <div class="future-outputs" aria-label="Planned output destinations">

@@ -18,6 +18,8 @@
       <nav class="tabs" aria-label="Instrument">
         <a class="tab" href="./">shape</a>
         <a class="tab active" href="lattice.html" aria-current="page">lattice</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
       </nav>
 
       <div class="audio-strip" aria-label="Audio controls">
@@ -56,7 +58,7 @@
       </section>
 
       <aside class="panel" aria-label="Lattice controls">
-        <details class="group control-section performance-group" id="playSection" open>
+        <details class="group control-section performance-group" id="playSection" data-section="play">
           <summary class="group-summary">
             <h2 class="group-title">Play</h2>
             <span class="section-state" id="playSummary">Line &middot; paused</span>
@@ -98,7 +100,7 @@
           </div>
         </details>
 
-        <details class="group control-section" id="formSection" open>
+        <details class="group control-section" id="formSection" data-section="form">
           <summary class="group-summary">
             <h2 class="group-title">Form</h2>
             <span class="section-state" id="formSummary">Pentagon &middot; IH20</span>
@@ -167,13 +169,26 @@
           </div>
         </details>
 
-        <details class="group control-section" id="soundSection" open>
+        <details class="group control-section" id="soundSection" data-section="sound">
           <summary class="group-summary">
             <h2 class="group-title">Sound</h2>
             <span class="section-state" id="soundSummary">Sine</span>
           </summary>
           <div class="group-body">
-            <p class="sine-voice"><b>Sine contacts</b><span>One sine oscillator per selected intersection.</span></p>
+            <p class="sine-voice"><b>One patch per contact</b><span>No voice stacks: each selected intersection controls one simple synth patch.</span></p>
+
+            <label class="select-control" for="soundMode">
+              <span class="field-label">Voice</span>
+              <span class="select-shell">
+                <select id="soundMode">
+                  <option value="sine" selected>Sine · intersection envelope</option>
+                  <option value="percussion">Percussion · new intersections</option>
+                  <option value="shepard">Shepard · cyclic glissando</option>
+                  <option value="fm">FM · mark-driven index</option>
+                  <option value="pm">PM · mark-driven phase</option>
+                </select>
+              </span>
+            </label>
 
             <label class="control" for="baseFrequency">
               <span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span>
@@ -200,11 +215,69 @@
               <input id="voiceCap" type="range" min="1" max="32" step="1" value="16" />
             </label>
 
+            <div class="synth-panel" id="percussionArticulation" hidden>
+              <label class="control" for="percussionAttack">
+                <span><b>Attack</b><output id="percussionAttackOut" for="percussionAttack">3 ms</output></span>
+                <input id="percussionAttack" type="range" min="0.5" max="30" step="0.5" value="3" />
+              </label>
+
+              <label class="control" for="percussionDecay">
+                <span><b>Decay</b><output id="percussionDecayOut" for="percussionDecay">110 ms</output></span>
+                <input id="percussionDecay" type="range" min="15" max="2000" step="5" value="110" />
+              </label>
+            </div>
+
+            <div class="synth-panel" id="shepardArticulation" hidden>
+              <label class="control" for="shepardCycles">
+                <span><b>Glide rate</b><output id="shepardCyclesOut" for="shepardCycles">1.00 oct / loop</output></span>
+                <input id="shepardCycles" type="range" min="0.25" max="4" step="0.05" value="1" />
+              </label>
+
+              <label class="select-control" for="shepardDirection">
+                <span class="field-label">Glide direction</span>
+                <span class="select-shell">
+                  <select id="shepardDirection">
+                    <option value="1" selected>Follow pattern</option>
+                    <option value="-1">Oppose pattern</option>
+                  </select>
+                </span>
+              </label>
+
+              <label class="control" for="shepardWidth">
+                <span><b>Spectral width</b><output id="shepardWidthOut" for="shepardWidth">4.0 oct</output></span>
+                <input id="shepardWidth" type="range" min="1" max="8" step="0.1" value="4" />
+              </label>
+            </div>
+
+            <div class="synth-panel" id="fmArticulation" hidden>
+              <label class="control" for="fmIndex">
+                <span><b>FM index</b><output id="fmIndexOut" for="fmIndex">3.00 max</output></span>
+                <input id="fmIndex" type="range" min="0" max="12" step="0.05" value="3" />
+              </label>
+
+              <label class="control" for="fmRatio">
+                <span><b>Modulator ratio</b><output id="fmRatioOut" for="fmRatio">2.00 : 1</output></span>
+                <input id="fmRatio" type="range" min="0.25" max="8" step="0.05" value="2" />
+              </label>
+            </div>
+
+            <div class="synth-panel" id="pmArticulation" hidden>
+              <label class="control" for="pmIndex">
+                <span><b>Phase depth</b><output id="pmIndexOut" for="pmIndex">2.00 rad</output></span>
+                <input id="pmIndex" type="range" min="0" max="8" step="0.05" value="2" />
+              </label>
+
+              <label class="control" for="pmRatio">
+                <span><b>Modulator ratio</b><output id="pmRatioOut" for="pmRatio">1.00 : 1</output></span>
+                <input id="pmRatio" type="range" min="0.25" max="8" step="0.05" value="1" />
+              </label>
+            </div>
+
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>
 
-        <details class="group control-section" id="mappingSection">
+        <details class="group control-section" id="mappingSection" data-section="mapping">
           <summary class="group-summary">
             <h2 class="group-title">Mapping</h2>
             <span class="section-state">Marks &rarr; sound</span>
@@ -234,6 +307,20 @@
                 </select>
               </span>
             </label>
+
+            <div id="synthMapping" hidden>
+              <label class="select-control" for="synthSource">
+                <span class="field-label">Modulation drive mark</span>
+                <span class="select-shell">
+                  <select id="synthSource">
+                    <option value="incidence" selected>Line / edge incidence</option>
+                    <option value="orientation">Edge orientation</option>
+                    <option value="along">Position along line</option>
+                    <option value="height">Vertical position</option>
+                  </select>
+                </span>
+              </label>
+            </div>
 
             <label class="select-control" for="levelSource">
               <span class="field-label">Level mark</span>
@@ -267,7 +354,7 @@
           </div>
         </details>
 
-        <details class="group control-section output-section" id="outputSection" open>
+        <details class="group control-section output-section" id="outputSection" data-section="output">
           <summary class="group-summary">
             <h2 class="group-title">Output</h2>
             <span class="stream-indicator"><i></i>live</span>
@@ -287,6 +374,8 @@
               <div><dt>Frequency</dt><dd><output id="markFrequencyOut">&minus;</output></dd></div>
               <div><dt>Amplitude</dt><dd><output id="markGainOut">&minus;</output></dd></div>
               <div><dt>Pan</dt><dd><output id="markPanOut">&minus;</output></dd></div>
+              <div><dt>Synth drive</dt><dd><output id="markSynthDriveOut">&minus;</output></dd></div>
+              <div><dt>Synth value</dt><dd><output id="markSynthValueOut">intersection envelope</output></dd></div>
             </dl>
 
             <div class="contact-stream" id="contactStream" aria-label="Active lattice contact data stream"></div>
@@ -295,6 +384,7 @@
               <div><span id="pitchRouteSource">Vertical position</span><b>Pitch</b><small id="pitchRouteCurve">linear mark &rarr; exponential Hz</small></div>
               <div><span>Horizontal position</span><b>Pan</b><small>linear bipolar</small></div>
               <div><span id="levelRouteSource">Line / edge incidence</span><b>Level</b><small id="levelRouteCurve">linear</small></div>
+              <div id="synthRoute" hidden><span id="synthRouteSource">Line / edge incidence</span><b id="synthRouteTarget">Mod depth</b><small id="synthRouteCurve">linear geometry drive</small></div>
             </div>
           </div>
         </details>

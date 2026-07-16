@@ -583,3 +583,90 @@ export function verticalIntersections(path, x, epsilon = 1e-8) {
 export function horizontalIntersections(path, y, epsilon = 1e-8) {
   return axisIntersections(path, y, "y", epsilon);
 }
+
+/**
+ * Intersections between a contour and a ray rooted at `origin`, sorted from
+ * the origin outwards. This is the geometric core of the radar playhead.
+ * Shared-vertex hits are merged so a ray passing exactly through a corner
+ * still produces one contact.
+ * @param {ShapePath} path
+ * @param {number} angleRadians
+ * @param {{x:number,y:number}} [origin]
+ * @param {number} [epsilon]
+ * @returns {PathContact[]}
+ */
+export function rayIntersections(
+  path,
+  angleRadians,
+  origin = { x: 0, y: 0 },
+  epsilon = 1e-8,
+) {
+  if (!Number.isFinite(angleRadians) || path.points.length < 2) return [];
+  const safeEpsilon = Math.max(EPSILON, Math.abs(epsilon));
+  const direction = { x: Math.cos(angleRadians), y: Math.sin(angleRadians) };
+  const segmentCount = path.closed ? path.points.length : path.points.length - 1;
+  const candidates = [];
+
+  for (let segmentIndex = 0; segmentIndex < segmentCount; segmentIndex += 1) {
+    const pointA = path.points[segmentIndex];
+    const pointB = path.points[(segmentIndex + 1) % path.points.length];
+    const edge = { x: pointB.x - pointA.x, y: pointB.y - pointA.y };
+    const relative = { x: pointA.x - origin.x, y: pointA.y - origin.y };
+    const denominator = direction.x * edge.y - direction.y * edge.x;
+
+    if (Math.abs(denominator) <= safeEpsilon) {
+      // Collinear overlaps have infinitely many solutions. Their finite end
+      // points are the useful contacts and will be deduplicated below.
+      const cross = relative.x * direction.y - relative.y * direction.x;
+      if (Math.abs(cross) > safeEpsilon) continue;
+      for (const segmentT of [0, 1]) {
+        const point = segmentT ? pointB : pointA;
+        const rayDistance = (point.x - origin.x) * direction.x
+          + (point.y - origin.y) * direction.y;
+        if (rayDistance < -safeEpsilon) continue;
+        const length = segmentLength(path, segmentIndex);
+        const distance = path.cumulativeLengths[segmentIndex] + length * segmentT;
+        candidates.push({
+          ...contactOnSegment(path, segmentIndex, segmentT, distance),
+          rayDistance: Math.max(0, rayDistance),
+          rayPhase: wrap01(angleRadians / (Math.PI * 2) + 0.25),
+        });
+      }
+      continue;
+    }
+
+    const rayDistance = (relative.x * edge.y - relative.y * edge.x) / denominator;
+    const segmentT = (relative.x * direction.y - relative.y * direction.x) / denominator;
+    if (rayDistance < -safeEpsilon || segmentT < -safeEpsilon || segmentT > 1 + safeEpsilon) {
+      continue;
+    }
+    const boundedT = clamp(segmentT, 0, 1);
+    const length = segmentLength(path, segmentIndex);
+    const distance = path.cumulativeLengths[segmentIndex] + length * boundedT;
+    candidates.push({
+      ...contactOnSegment(path, segmentIndex, boundedT, distance),
+      rayDistance: Math.max(0, rayDistance),
+      rayPhase: wrap01(angleRadians / (Math.PI * 2) + 0.25),
+    });
+  }
+
+  candidates.sort((a, b) => a.rayDistance - b.rayDistance || a.distance - b.distance);
+  const deduped = [];
+  for (const candidate of candidates) {
+    const previous = deduped[deduped.length - 1];
+    if (
+      previous
+      && Math.abs(previous.x - candidate.x) <= safeEpsilon
+      && Math.abs(previous.y - candidate.y) <= safeEpsilon
+    ) {
+      deduped[deduped.length - 1] = {
+        ...mergeContacts(previous, candidate, safeEpsilon),
+        rayDistance: Math.min(previous.rayDistance, candidate.rayDistance),
+        rayPhase: candidate.rayPhase,
+      };
+    } else {
+      deduped.push(candidate);
+    }
+  }
+  return deduped;
+}

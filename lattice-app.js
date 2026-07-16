@@ -1,8 +1,12 @@
 import {
   VoicePool,
   clamp,
+  cornerAttackSeconds,
+  cornerDecaySeconds,
   mapCurve01,
+  normalizeStrikeGains,
   pitch01ToFrequency,
+  synthParametersForMode,
 } from "./src/audio.js";
 import {
   TILING_TYPES,
@@ -27,6 +31,15 @@ const MAX_VOICES = 32;
 const MAX_PARAMETERS = 6;
 const MAX_EDGE_CLASSES = 5;
 const DEFAULT_TILING_TYPE = 20;
+const STRIKE_BATCH_CEILING = 0.78;
+const SOUND_MODE_LABELS = {
+  sine: "Sine",
+  percussion: "Percussion",
+  shepard: "Shepard glissando",
+  fm: "FM",
+  pm: "PM",
+};
+const SOUND_MODES = new Set(Object.keys(SOUND_MODE_LABELS));
 const STORAGE_KEY = "morphazoid:lattice:audio:v1";
 const PERSISTED_KEYS = new Set([
   "level",
@@ -35,6 +48,17 @@ const PERSISTED_KEYS = new Set([
   "contactLevel",
   "intersectionAccent",
   "voiceCap",
+  "soundMode",
+  "synthSource",
+  "percussionAttack",
+  "percussionDecay",
+  "shepardCycles",
+  "shepardDirection",
+  "shepardWidth",
+  "fmIndex",
+  "fmRatio",
+  "pmIndex",
+  "pmRatio",
   "pitchSource",
   "pitchCurve",
   "levelSource",
@@ -70,6 +94,17 @@ const state = {
   contactLevel: 0.55,
   intersectionAccent: 0.65,
   voiceCap: 16,
+  soundMode: "sine",
+  synthSource: "incidence",
+  percussionAttack: 3,
+  percussionDecay: 110,
+  shepardCycles: 1,
+  shepardDirection: 1,
+  shepardWidth: 4,
+  fmIndex: 3,
+  fmRatio: 2,
+  pmIndex: 2,
+  pmRatio: 1,
   pitchSource: "height",
   pitchCurve: "linear",
   levelSource: "incidence",
@@ -114,6 +149,19 @@ state.pitchRange = clamp(state.pitchRange, 0, 6);
 state.contactLevel = clamp(state.contactLevel, 0, 1);
 state.intersectionAccent = clamp(state.intersectionAccent, 0, 1);
 state.voiceCap = Math.round(clamp(state.voiceCap, 1, MAX_VOICES));
+state.soundMode = SOUND_MODES.has(state.soundMode) ? state.soundMode : "sine";
+state.synthSource = ["height", "along", "incidence", "orientation"].includes(state.synthSource)
+  ? state.synthSource
+  : "incidence";
+state.percussionAttack = clamp(state.percussionAttack, 0.5, 30);
+state.percussionDecay = clamp(state.percussionDecay, 15, 2000);
+state.shepardCycles = clamp(state.shepardCycles, 0.25, 4);
+state.shepardDirection = state.shepardDirection < 0 ? -1 : 1;
+state.shepardWidth = clamp(state.shepardWidth, 1, 8);
+state.fmIndex = clamp(state.fmIndex, 0, 12);
+state.fmRatio = clamp(state.fmRatio, 0.25, 8);
+state.pmIndex = clamp(state.pmIndex, 0, 8);
+state.pmRatio = clamp(state.pmRatio, 0.25, 8);
 state.stereoWidth = clamp(state.stereoWidth, 0, 1);
 if (!['height', 'along', 'incidence', 'orientation'].includes(state.pitchSource)) {
   state.pitchSource = "height";
@@ -246,12 +294,50 @@ bindRange(
 bindRange("voiceCap", "voiceCap", (value) => (
   `${Math.round(value)} ${plural(Math.round(value), "voice")}`
 ));
+bindRange("percussionAttack", "percussionAttack", (value) => `${Number(value).toFixed(value % 1 ? 1 : 0)} ms`);
+bindRange("percussionDecay", "percussionDecay", (value) => `${Math.round(value)} ms`);
+bindRange("shepardCycles", "shepardCycles", (value) => `${value.toFixed(2)} oct / loop`);
+bindRange("shepardWidth", "shepardWidth", (value) => `${value.toFixed(1)} oct`);
+bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`);
+bindRange("fmRatio", "fmRatio", (value) => `${value.toFixed(2)} : 1`);
+bindRange("pmIndex", "pmIndex", (value) => `${value.toFixed(2)} rad`);
+bindRange("pmRatio", "pmRatio", (value) => `${value.toFixed(2)} : 1`);
 bindRange("stereoWidth", "stereoWidth", (value) => `${Math.round(value * 100)}%`);
 
 bindSelect("pitchSource", "pitchSource");
 bindSelect("pitchCurve", "pitchCurve");
 bindSelect("levelSource", "levelSource");
 bindSelect("levelCurve", "levelCurve");
+bindSelect("synthSource", "synthSource");
+
+function setSoundMode(mode, shouldAnnounce = true) {
+  const nextMode = SOUND_MODES.has(mode) ? mode : "sine";
+  if (nextMode !== state.soundMode) {
+    pool.silence();
+    state.soundMode = nextMode;
+    contactOnsets.clear();
+  }
+  $("soundMode").value = state.soundMode;
+  $("percussionArticulation").hidden = state.soundMode !== "percussion";
+  $("shepardArticulation").hidden = state.soundMode !== "shepard";
+  $("fmArticulation").hidden = state.soundMode !== "fm";
+  $("pmArticulation").hidden = state.soundMode !== "pm";
+  $("synthMapping").hidden = !["fm", "pm"].includes(state.soundMode);
+  persistSettings();
+  updateSummaries();
+  if (shouldAnnounce) announce(`${SOUND_MODE_LABELS[state.soundMode]} voice selected.`);
+  scheduleFrame();
+}
+
+$("soundMode").addEventListener("change", (event) => {
+  setSoundMode(event.currentTarget.value);
+});
+$("shepardDirection").value = String(state.shepardDirection);
+$("shepardDirection").addEventListener("change", (event) => {
+  state.shepardDirection = Number(event.currentTarget.value) < 0 ? -1 : 1;
+  persistSettings();
+  scheduleFrame();
+});
 
 const tilingSelect = $("tilingType");
 tilingSelect.innerHTML = [...new Set(TILING_TYPES.map((info) => info.family))]
@@ -687,8 +773,9 @@ async function enableAudio() {
     pool.setVoices([]);
     pool.setLevel(state.level);
     state.audio = true;
+    contactOnsets.clear();
     paintAudioState();
-    announce("Audio on. Sine contacts are ready.");
+    announce(`Audio on. ${SOUND_MODE_LABELS[state.soundMode]} is ready.`);
     scheduleFrame();
     return true;
   } catch (error) {
@@ -726,7 +813,7 @@ function updateSummaries() {
   const info = tilingInfo(state.tilingType);
   $("playSummary").textContent = `Pattern \u00b7 ${state.playing ? state.scanMotion : "paused"}`;
   $("formSummary").textContent = info.label;
-  $("soundSummary").textContent = "Sine";
+  $("soundSummary").textContent = SOUND_MODE_LABELS[state.soundMode];
 }
 
 $("straightenEdges").addEventListener("click", () => {
@@ -899,6 +986,33 @@ function rawLevelMark(contact) {
   return contact.incidence;
 }
 
+function rawSynthMark(contact) {
+  if (state.synthSource === "along") return contact.along01;
+  if (state.synthSource === "orientation") return contact.orientation;
+  if (state.synthSource === "height") return normalizedContact(contact).y;
+  return contact.incidence;
+}
+
+function shepardRate() {
+  if (!state.playing) return 0;
+  const visualLoopRate = state.scanMotion === "pingpong" ? state.speed * 0.5 : state.speed;
+  return visualLoopRate
+    * state.shepardCycles
+    * state.shepardDirection
+    * state.traversalDirection;
+}
+
+function synthParametersForContact(contact) {
+  return synthParametersForMode(state.soundMode, rawSynthMark(contact), {
+    fmIndex: state.fmIndex,
+    fmRatio: state.fmRatio,
+    pmIndex: state.pmIndex,
+    pmRatio: state.pmRatio,
+    shepardRate: shepardRate(),
+    shepardWidth: state.shepardWidth,
+  });
+}
+
 function mappingForContact(contact) {
   const normalized = normalizedContact(contact);
   const pitchRaw = clamp(rawPitchMark(contact), 0, 1);
@@ -913,6 +1027,10 @@ function mappingForContact(contact) {
     levelMark,
     frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange),
     gain: baseGain * intersectionAccentMultiplier(contact.accentAge, state.intersectionAccent),
+    strikeGain: state.contactLevel
+      * 0.65
+      * (0.2 + 0.8 * levelMark)
+      * (0.5 + 0.5 * state.intersectionAccent),
     pan: (normalized.x * 2 - 1) * state.stereoWidth,
     normalized,
   };
@@ -922,12 +1040,14 @@ function addIntersectionAccents(contacts, nowSeconds) {
   const activeKeys = new Set();
   const accented = contacts.map((contact) => {
     activeKeys.add(contact.voiceKey);
-    if (!contactOnsets.has(contact.voiceKey)) contactOnsets.set(contact.voiceKey, nowSeconds);
+    const onset = !contactOnsets.has(contact.voiceKey);
+    if (onset) contactOnsets.set(contact.voiceKey, nowSeconds);
     const accentAge = Math.max(0, nowSeconds - contactOnsets.get(contact.voiceKey));
     return {
       ...contact,
       accentAge,
       accent: Math.exp(-accentAge / 0.14),
+      onset,
     };
   });
   for (const key of contactOnsets.keys()) {
@@ -939,18 +1059,42 @@ function addIntersectionAccents(contacts, nowSeconds) {
 function voiceData(contacts) {
   return contacts.map((contact) => {
     const mapping = mappingForContact(contact);
+    const synth = synthParametersForContact(contact);
     return {
       contact,
       mapping,
+      synth,
       voice: {
         key: `lattice:${contact.voiceKey}`,
         frequency: mapping.frequency,
         gain: mapping.gain,
         pan: mapping.pan,
         waveform: "sine",
+        ...synth,
       },
     };
   });
+}
+
+function emitIntersectionStrikes(data) {
+  if (state.soundMode !== "percussion" || !state.audio) return;
+  const intents = data
+    .filter((item) => item.contact.onset)
+    .map((item) => ({
+      key: `intersection:${item.contact.voiceKey}`,
+      frequency: item.mapping.frequency,
+      gain: item.mapping.strikeGain,
+      pan: item.mapping.pan,
+      waveform: "sine",
+    }));
+  if (!intents.length) return;
+  const headroom = pool.availableStrikeHeadroom(STRIKE_BATCH_CEILING);
+  for (const spec of normalizeStrikeGains(intents, headroom)) {
+    pool.strike(spec, {
+      attackSeconds: cornerAttackSeconds(state.percussionAttack),
+      decaySeconds: cornerDecaySeconds(state.percussionDecay),
+    });
+  }
 }
 
 const SOURCE_LABELS = {
@@ -971,12 +1115,21 @@ const CURVE_LABELS = {
 };
 
 function updateOutput(data) {
-  $("outputVoiceLabel").textContent = "sine";
+  $("outputVoiceLabel").textContent = state.soundMode;
   $("pitchRouteSource").textContent = SOURCE_LABELS[state.pitchSource];
   $("pitchRouteCurve").textContent = `${CURVE_LABELS[state.pitchCurve]} mark \u2192 exponential Hz`;
   $("levelRouteSource").textContent = SOURCE_LABELS[state.levelSource];
   $("levelRouteCurve").textContent = CURVE_LABELS[state.levelCurve];
   $("markPhaseOut").textContent = state.position.toFixed(3);
+  const modulationMode = ["fm", "pm"].includes(state.soundMode);
+  $("synthRoute").hidden = !modulationMode && state.soundMode !== "shepard";
+  $("synthRouteSource").textContent = modulationMode
+    ? SOURCE_LABELS[state.synthSource]
+    : "Pattern transport";
+  $("synthRouteTarget").textContent = modulationMode ? "Mod depth" : "Glissando";
+  $("synthRouteCurve").textContent = modulationMode
+    ? "linear geometry drive"
+    : `${state.shepardCycles.toFixed(2)} octaves per loop`;
 
   if (!data.length) {
     $("outputContactLabel").textContent = "No active contact";
@@ -988,6 +1141,8 @@ function updateOutput(data) {
       "markFrequencyOut",
       "markGainOut",
       "markPanOut",
+      "markSynthDriveOut",
+      "markSynthValueOut",
     ]) $(id).textContent = "-";
     $("contactStream").innerHTML = "";
     return;
@@ -1002,6 +1157,21 @@ function updateOutput(data) {
   $("markFrequencyOut").textContent = `${Math.round(first.mapping.frequency)} Hz`;
   $("markGainOut").textContent = first.mapping.gain.toFixed(3);
   $("markPanOut").textContent = first.mapping.pan.toFixed(3);
+  $("markSynthDriveOut").textContent = modulationMode
+    ? first.synth.synthDrive.toFixed(3)
+    : state.soundMode === "shepard" ? state.position.toFixed(3) : "-";
+  if (state.soundMode === "fm") {
+    $("markSynthValueOut").textContent = `${first.synth.modulationIndex.toFixed(2)} index @ ${first.synth.modulationRatio.toFixed(2)}:1`;
+  } else if (state.soundMode === "pm") {
+    $("markSynthValueOut").textContent = `${first.synth.modulationIndex.toFixed(2)} rad @ ${first.synth.modulationRatio.toFixed(2)}:1`;
+  } else if (state.soundMode === "shepard") {
+    const direction = first.synth.shepardRate >= 0 ? "+" : "";
+    $("markSynthValueOut").textContent = `${direction}${first.synth.shepardRate.toFixed(3)} oct/s \u00b7 ${first.synth.shepardWidth.toFixed(1)} oct`;
+  } else if (state.soundMode === "percussion") {
+    $("markSynthValueOut").textContent = `${Math.round(state.percussionDecay)} ms strike`;
+  } else {
+    $("markSynthValueOut").textContent = "intersection envelope";
+  }
   $("contactStream").innerHTML = data.slice(0, 12).map((item, index) => (
     `<div class="contact-row"><b>#${index + 1}</b>`
       + `<span>x ${item.mapping.normalized.x.toFixed(3)}</span>`
@@ -1010,10 +1180,10 @@ function updateOutput(data) {
   )).join("");
 }
 
-function updateUi(allContacts, data) {
+function updateUi(allContacts, data, voiceCount) {
   $("position").value = String(state.position);
   $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
-  $("stageReadout").textContent = `1 LINE \u00b7 ${allContacts.length} ${plural(allContacts.length, "CONTACT", "CONTACTS")} \u00b7 ${state.audio ? `${data.length} ${plural(data.length, "VOICE", "VOICES")}` : "AUDIO OFF"}`;
+  $("stageReadout").textContent = `1 LINE \u00b7 ${allContacts.length} ${plural(allContacts.length, "CONTACT", "CONTACTS")} \u00b7 ${state.audio ? `${voiceCount} ${plural(voiceCount, "VOICE", "VOICES")}` : "AUDIO OFF"}`;
   updateSummaries();
   updateOutput(data);
 }
@@ -1037,15 +1207,24 @@ function frame(now) {
   const contacts = addIntersectionAccents(rawContacts, now / 1000);
   const voicedContacts = evenlySelectContacts(contacts, state.voiceCap);
   const data = voiceData(voicedContacts);
+  emitIntersectionStrikes(data);
   drawLattice(scan, offset, contacts, voicedContacts);
   if (tileEditorDirty) drawTileEditor();
 
-  if (state.audio && !document.hidden) pool.setVoices(data.map((item) => item.voice));
+  const continuousMode = state.soundMode !== "percussion";
+  if (state.audio && !document.hidden) {
+    pool.setVoices(continuousMode ? data.map((item) => item.voice) : []);
+  }
   if (!state.playing || now - lastUiUpdate > 60) {
-    updateUi(contacts, data);
+    const voiceCount = continuousMode ? data.length : pool.activeStrikeCount;
+    updateUi(contacts, data, state.audio ? voiceCount : 0);
     lastUiUpdate = now;
   }
-  if (state.playing || contacts.some((contact) => contact.accent > 0.025)) scheduleFrame();
+  if (
+    state.playing
+    || contacts.some((contact) => contact.accent > 0.025)
+    || (state.soundMode === "percussion" && pool.activeStrikeCount > 0)
+  ) scheduleFrame();
 }
 
 function canvasWorldPoint(event) {
@@ -1115,6 +1294,7 @@ window.addEventListener("pageshow", scheduleFrame);
 configureTilingControls();
 setTileEditorOpen(false, false);
 setScanMotion(state.scanMotion, false);
+setSoundMode(state.soundMode, false);
 setPosition(state.position);
 updateDirection();
 updateSummaries();

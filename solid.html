@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Solid — a 3D wireframe intersection instrument." />
+    <title>Solid — Morphazoid</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="solid-page">
+    <header class="masthead">
+      <a class="wordmark" href="#solid" aria-label="Morphazoid Solid">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab active" href="solid.html" aria-current="page">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+      </nav>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Volume</b><output id="levelOut" for="level">65%</output></span>
+          <input id="level" type="range" min="0" max="1" step="0.01" value="0.65" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="solid">
+      <section class="stage" aria-label="Solid stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" aria-label="Rotatable 3D wireframe cut by a moving plane.">
+            A projected 3D wireframe and its plane intersections.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true"><span id="stageReadout">CUBE · 0 CONTACTS · AUDIO OFF</span></div>
+          <div class="probe-meta" aria-hidden="true"><i></i><span>2D SURFACE PLAYER</span></div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Solid controls">
+        <details class="group control-section" data-section="play">
+          <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">plane · paused</span></summary>
+          <div class="group-body">
+            <div class="position-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play surface">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="position">
+                <span><b>Surface position</b><output id="positionOut" for="position">0.0%</output></span>
+                <input id="position" type="range" min="0" max="1" step="0.001" value="0.5" />
+              </label>
+            </div>
+            <label class="control" for="speed"><span><b>Surface speed</b><output id="speedOut" for="speed">0.12 cyc/s</output></span><input id="speed" type="range" min="0.01" max="2" step="0.01" value="0.12" /></label>
+            <button class="mini-action direction-action" id="directionButton" type="button">Direction · forward</button>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form">
+          <summary class="group-summary"><h2 class="group-title">Form</h2><span class="section-state" id="formSummary">cube</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="solidType"><span class="field-label">Wireframe solid</span><span class="select-shell"><select id="solidType"><option value="cube" selected>Cube</option><option value="pyramid">Pyramid</option><option value="cone">Cone</option><option value="sphere">Sphere</option></select></span></label>
+            <label class="control" for="planeYaw"><span><b>Surface yaw</b><output id="planeYawOut" for="planeYaw">0°</output></span><input id="planeYaw" type="range" min="-180" max="180" step="1" value="0" /></label>
+            <label class="control" for="planePitch"><span><b>Surface pitch</b><output id="planePitchOut" for="planePitch">18°</output></span><input id="planePitch" type="range" min="-90" max="90" step="1" value="18" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="rotation">
+          <summary class="group-summary"><h2 class="group-title">Rotation</h2><span class="section-state" id="rotationSummary">manual</span></summary>
+          <div class="group-body">
+            <div class="choice-switch" id="rotationMode" role="group" aria-label="Solid rotation">
+              <button id="manualRotation" type="button" aria-pressed="true">Manual</button>
+              <button id="autoRotation" type="button" aria-pressed="false">Auto rotate</button>
+            </div>
+            <label class="control" for="rotationX"><span><b>X rotation</b><output id="rotationXOut" for="rotationX">−18°</output></span><input id="rotationX" type="range" min="-180" max="180" step="1" value="-18" /></label>
+            <label class="control" for="rotationY"><span><b>Y rotation</b><output id="rotationYOut" for="rotationY">28°</output></span><input id="rotationY" type="range" min="-180" max="180" step="1" value="28" /></label>
+            <label class="control" for="rotationZ"><span><b>Z rotation</b><output id="rotationZOut" for="rotationZ">0°</output></span><input id="rotationZ" type="range" min="-180" max="180" step="1" value="0" /></label>
+            <label class="control" for="rotationSpeed"><span><b>Auto rotation</b><output id="rotationSpeedOut" for="rotationSpeed">0.08 rev/s</output></span><input id="rotationSpeed" type="range" min="0" max="1" step="0.01" value="0.08" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound">
+          <summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state" id="soundSummary">FM</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="soundMode"><span class="field-label">Voice</span><span class="select-shell"><select id="soundMode"><option value="fm" selected>FM · intersection index</option><option value="sine">Sine · corner envelope</option><option value="percussion">Percussion · vertex strikes</option><option value="shepard">Shepard · surface cycle</option><option value="pm">PM · intersection phase</option></select></span></label>
+            <label class="control" for="baseFrequency"><span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="55" max="440" step="1" value="110" /></label>
+            <label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">3.00 oct</output></span><input id="pitchRange" type="range" min="0" max="6" step="0.05" value="3" /></label>
+            <div class="synth-panel" id="fmControls"><label class="control" for="fmIndex"><span><b>FM index</b><output id="fmIndexOut" for="fmIndex">3.00 max</output></span><input id="fmIndex" type="range" min="0" max="12" step="0.05" value="3" /></label><label class="control" for="fmRatio"><span><b>Modulator ratio</b><output id="fmRatioOut" for="fmRatio">2.00 : 1</output></span><input id="fmRatio" type="range" min="0.25" max="8" step="0.05" value="2" /></label></div>
+            <p class="control-note">Pitch follows 3D height. FM/PM depth follows distance across the cutting surface; Shepard follows the audio-clocked surface cycle.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+      </aside>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="solid-app.js"></script>
+  </body>
+</html>
