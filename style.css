@@ -176,10 +176,19 @@ a {
   display: flex;
   min-width: 90px;
   padding: 0 14px;
-  color: var(--accent);
+  color: var(--muted);
   align-items: center;
   font-size: 11px;
   letter-spacing: 0.09em;
+  text-decoration: none;
+}
+
+.tab:hover {
+  color: var(--ink);
+}
+
+.tab.active {
+  color: var(--accent);
 }
 
 .tab::after {
@@ -191,6 +200,11 @@ a {
   background: var(--accent);
   box-shadow: 0 0 8px var(--accent-soft);
   content: "";
+  opacity: 0;
+}
+
+.tab.active::after {
+  opacity: 1;
 }
 
 .edition {
@@ -283,6 +297,207 @@ a {
   border: 1px solid var(--accent);
   border-radius: 50%;
   box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.lattice-page {
+  --accent: #ffb86b;
+  --accent-soft: color-mix(in oklab, #ffb86b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffb86b 22%, transparent);
+}
+
+.lattice-page .stage-wrap {
+  background:
+    linear-gradient(rgba(255, 184, 107, 0.024) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 184, 107, 0.024) 1px, transparent 1px),
+    radial-gradient(circle at 50% 48%, rgba(255, 184, 107, 0.055), transparent 40%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.lattice-page #stage {
+  cursor: crosshair;
+}
+
+.lattice-page .probe-meta i {
+  width: 18px;
+  height: 1px;
+  border: 0;
+  border-top: 1px solid var(--accent);
+  border-radius: 0;
+}
+
+.lattice-control-block {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.lattice-control-heading {
+  display: flex;
+  margin-bottom: 11px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lattice-control-heading b {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lattice-control-heading small {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.lattice-control-block .control[hidden] {
+  display: none;
+}
+
+.lattice-control-block input:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.tile-editor-disclosure {
+  margin-top: 14px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+}
+
+.tile-editor-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 11px;
+  border: 0;
+  cursor: pointer;
+  color: var(--ink);
+  background: transparent;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.tile-editor-toggle span {
+  display: grid;
+  gap: 3px;
+}
+
+.tile-editor-toggle b {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tile-editor-toggle small {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.tile-editor-toggle i {
+  color: var(--accent);
+  font-size: 16px;
+  font-style: normal;
+}
+
+.tile-editor-toggle[aria-expanded="true"] {
+  border-bottom: 1px solid var(--line);
+  background: var(--accent-glow);
+}
+
+.tile-editor-panel {
+  padding: 10px;
+}
+
+.tile-editor-panel[hidden] {
+  display: none;
+}
+
+.tile-editor-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  cursor: grab;
+  background:
+    linear-gradient(rgba(255, 184, 107, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 184, 107, 0.025) 1px, transparent 1px),
+    #080b0d;
+  background-size: 22px 22px;
+  touch-action: none;
+}
+
+.tile-editor-canvas.is-dragging {
+  cursor: grabbing;
+}
+
+.tile-editor-legend {
+  display: flex;
+  margin-top: 8px;
+  color: var(--muted);
+  align-items: center;
+  gap: 7px;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tile-editor-legend i {
+  width: 8px;
+  height: 8px;
+  border: 1px solid #fff3d6;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-soft);
+}
+
+.tile-editor-panel .control-note {
+  margin-top: 9px;
+  margin-bottom: 10px;
+}
+
+.lattice-reset-row {
+  display: grid;
+  margin: 14px 0 9px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.lattice-reset-row .mini-action {
+  min-height: 38px;
+  padding-right: 7px;
+  padding-left: 7px;
+  white-space: normal;
+}
+
+.sine-voice {
+  display: grid;
+  margin: 0 0 16px;
+  padding: 11px 12px;
+  border-left: 2px solid var(--accent);
+  background: var(--accent-glow);
+  gap: 4px;
+}
+
+.sine-voice b {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sine-voice span {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
 }
 
 .audio-button,
@@ -1117,9 +1332,18 @@ select:hover {
   }
 
   .wordmark > span:last-child,
-  .tabs,
   .edition {
     display: none;
+  }
+
+  .tabs {
+    min-width: 0;
+  }
+
+  .tab {
+    min-width: auto;
+    padding: 0 7px;
+    font-size: 9px;
   }
 
   .audio-strip {

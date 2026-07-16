@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Lattice, a geometric instrument that sounds the contacts made by one line." />
+    <title>Lattice - Morphazoid</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="lattice-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid Shape">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab active" href="lattice.html" aria-current="page">lattice</a>
+      </nav>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">+</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+
+        <label class="header-level" for="level">
+          <span><b>Volume</b><output id="levelOut" for="level">65%</output></span>
+          <input id="level" aria-label="Audio level" type="range" min="0" max="1" step="0.01" value="0.65" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="lattice">
+      <section class="stage" aria-label="Lattice stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Lattice instrument canvas. One centered line reads a moving isohedral pattern."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A moving curved lattice read by one centered line.
+          </canvas>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">1 LINE &middot; 0 CONTACTS &middot; AUDIO OFF</span>
+          </div>
+
+          <div class="probe-meta" aria-hidden="true">
+            <i></i><span>LINE PLAYHEAD</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Lattice controls">
+        <details class="group control-section performance-group" id="playSection" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Play</h2>
+            <span class="section-state" id="playSummary">Line &middot; paused</span>
+          </summary>
+          <div class="group-body">
+            <div class="field-label">Pattern movement</div>
+            <div class="choice-switch compact" id="scanMotion" role="group" aria-label="Pattern movement">
+              <button id="loopScan" type="button" data-value="loop" aria-pressed="true">Loop</button>
+              <button id="pingPongScan" type="button" data-value="pingpong" aria-pressed="false">Ping-pong</button>
+            </div>
+
+            <div class="position-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play pattern">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="position">
+                <span><b>Pattern phase</b><output id="positionOut" for="position">50.0%</output></span>
+                <input id="position" type="range" min="0" max="1" step="0.0005" value="0.5" />
+              </label>
+            </div>
+
+            <div class="rate-control" role="group" aria-label="Automatic pattern motion">
+              <span class="rate-heading"><b>Pattern speed</b><output id="speedOut" for="speed">0.080 cyc/s</output></span>
+              <div class="rate-row-single">
+                <input id="speed" aria-label="Pattern speed" type="range" min="0" max="1" step="0.001" value="0.3386" />
+                <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Pattern direction: forward" hidden>
+                  <span id="traversalDirectionGlyph">&rarr;</span><small id="traversalDirectionText">FWD</small>
+                </button>
+              </div>
+            </div>
+
+            <label class="control" for="angle">
+              <span><b>Line angle</b><output id="angleOut" for="angle">90&deg;</output></span>
+              <input id="angle" type="range" min="0" max="179" step="1" value="90" />
+            </label>
+
+            <p class="control-note">Play moves one exact lattice period and unlocks audio. The line stays centered; drag the field to scrub its phase. Only edges touched by the line become voices.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="formSection" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Form</h2>
+            <span class="section-state" id="formSummary">Pentagon &middot; IH20</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="tilingType">
+              <span class="field-label">Isohedral prototile</span>
+              <span class="select-shell">
+                <select id="tilingType">
+                  <option value="20" selected>Pentagon &middot; IH20</option>
+                </select>
+              </span>
+            </label>
+
+            <label class="control" for="density">
+              <span><b>Density</b><output id="densityOut" for="density">medium</output></span>
+              <input id="density" type="range" min="0" max="1" step="0.01" value="0.52" />
+            </label>
+
+            <div class="lattice-control-block" id="parameterControls">
+              <div class="lattice-control-heading"><b>Tile geometry</b><small id="parameterCount">0 parameters</small></div>
+              <label class="control" id="parameterControl0" for="parameter0" hidden><span><b id="parameterLabel0">Shape parameter 1</b><output id="parameter0Out" for="parameter0">0.000</output></span><input id="parameter0" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl1" for="parameter1" hidden><span><b id="parameterLabel1">Shape parameter 2</b><output id="parameter1Out" for="parameter1">0.000</output></span><input id="parameter1" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl2" for="parameter2" hidden><span><b id="parameterLabel2">Shape parameter 3</b><output id="parameter2Out" for="parameter2">0.000</output></span><input id="parameter2" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl3" for="parameter3" hidden><span><b id="parameterLabel3">Shape parameter 4</b><output id="parameter3Out" for="parameter3">0.000</output></span><input id="parameter3" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl4" for="parameter4" hidden><span><b id="parameterLabel4">Shape parameter 5</b><output id="parameter4Out" for="parameter4">0.000</output></span><input id="parameter4" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl5" for="parameter5" hidden><span><b id="parameterLabel5">Shape parameter 6</b><output id="parameter5Out" for="parameter5">0.000</output></span><input id="parameter5" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+            </div>
+
+            <div class="tile-editor-disclosure">
+              <button class="tile-editor-toggle" id="toggleTileEditor" type="button" aria-expanded="false" aria-controls="tileEditorPanel">
+                <span><b>Edit tile by dragging</b><small>optional vertex frame</small></span><i id="tileEditorToggleGlyph" aria-hidden="true">+</i>
+              </button>
+              <div class="tile-editor-panel" id="tileEditorPanel" hidden>
+                <canvas
+                  class="tile-editor-canvas"
+                  id="tileEditorCanvas"
+                  width="320"
+                  height="220"
+                  tabindex="0"
+                  aria-label="Editable prototile. Drag an orange corner to change the legal tile parameters."
+                  aria-describedby="tileEditorNote"
+                >
+                  Editable isohedral prototile.
+                </canvas>
+                <div class="tile-editor-legend" aria-hidden="true"><i></i><span id="tileEditorLegend">movable corner</span></div>
+                <p class="control-note" id="tileEditorNote">Drag a corner. Its movement is projected onto the legal parameters for this isohedral family, and the sliders stay synchronized.</p>
+                <button class="mini-action reset-form" id="resetTileVertices" type="button">Reset vertices</button>
+              </div>
+            </div>
+
+            <div class="lattice-control-block" id="edgeControls">
+              <div class="lattice-control-heading"><b>Matching edges</b><small id="edgeCount">0 classes</small></div>
+              <label class="control" id="edgeControl0" for="edgeCurve0" hidden><span><b id="edgeLabel0">Edge A</b><output id="edgeCurve0Out" for="edgeCurve0">straight</output></span><input id="edgeCurve0" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+              <label class="control" id="edgeControl1" for="edgeCurve1" hidden><span><b id="edgeLabel1">Edge B</b><output id="edgeCurve1Out" for="edgeCurve1">straight</output></span><input id="edgeCurve1" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+              <label class="control" id="edgeControl2" for="edgeCurve2" hidden><span><b id="edgeLabel2">Edge C</b><output id="edgeCurve2Out" for="edgeCurve2">straight</output></span><input id="edgeCurve2" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+              <label class="control" id="edgeControl3" for="edgeCurve3" hidden><span><b id="edgeLabel3">Edge D</b><output id="edgeCurve3Out" for="edgeCurve3">straight</output></span><input id="edgeCurve3" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+              <label class="control" id="edgeControl4" for="edgeCurve4" hidden><span><b id="edgeLabel4">Edge E</b><output id="edgeCurve4Out" for="edgeCurve4">straight</output></span><input id="edgeCurve4" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+              <p class="control-note" id="edgeRuleNote">Only bendable J, U, and S classes are shown. Rigid I classes remain straight.</p>
+            </div>
+
+            <div class="lattice-reset-row">
+              <button class="mini-action" id="straightenEdges" type="button">Straighten edges</button>
+              <button class="mini-action" id="resetForm" type="button">Reset tiling + line</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" id="soundSection" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Sound</h2>
+            <span class="section-state" id="soundSummary">Sine</span>
+          </summary>
+          <div class="group-body">
+            <p class="sine-voice"><b>Sine contacts</b><span>One sine oscillator per selected intersection.</span></p>
+
+            <label class="control" for="baseFrequency">
+              <span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span>
+              <input id="baseFrequency" type="range" min="55" max="440" step="1" value="110" />
+            </label>
+
+            <label class="control" for="pitchRange">
+              <span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">3.50 oct</output></span>
+              <input id="pitchRange" type="range" min="0" max="6" step="0.05" value="3.5" />
+            </label>
+
+            <label class="control" for="contactLevel">
+              <span><b>Contact level</b><output id="contactLevelOut" for="contactLevel">55%</output></span>
+              <input id="contactLevel" type="range" min="0" max="1" step="0.01" value="0.55" />
+            </label>
+
+            <label class="control" for="intersectionAccent">
+              <span><b>Intersection accent</b><output id="intersectionAccentOut" for="intersectionAccent">65%</output></span>
+              <input id="intersectionAccent" type="range" min="0" max="1" step="0.01" value="0.65" />
+            </label>
+
+            <label class="control" for="voiceCap">
+              <span><b>Voice limit</b><output id="voiceCapOut" for="voiceCap">16 voices</output></span>
+              <input id="voiceCap" type="range" min="1" max="32" step="1" value="16" />
+            </label>
+
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="mappingSection">
+          <summary class="group-summary">
+            <h2 class="group-title">Mapping</h2>
+            <span class="section-state">Marks &rarr; sound</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="pitchSource">
+              <span class="field-label">Pitch mark</span>
+              <span class="select-shell">
+                <select id="pitchSource">
+                  <option value="height" selected>Vertical position</option>
+                  <option value="along">Position along line</option>
+                  <option value="incidence">Line / edge incidence</option>
+                  <option value="orientation">Edge orientation</option>
+                </select>
+              </span>
+            </label>
+
+            <label class="select-control" for="pitchCurve">
+              <span class="field-label">Pitch interpretation</span>
+              <span class="select-shell">
+                <select id="pitchCurve">
+                  <option value="linear" selected>Linear mark &middot; exponential Hz</option>
+                  <option value="exponential">Expand high values</option>
+                  <option value="logarithmic">Expand low values</option>
+                  <option value="smooth">Smooth S-curve</option>
+                  <option value="inverted">Invert</option>
+                </select>
+              </span>
+            </label>
+
+            <label class="select-control" for="levelSource">
+              <span class="field-label">Level mark</span>
+              <span class="select-shell">
+                <select id="levelSource">
+                  <option value="fixed">Fixed</option>
+                  <option value="incidence" selected>Line / edge incidence</option>
+                  <option value="center">Distance from line center</option>
+                  <option value="orientation">Edge orientation</option>
+                </select>
+              </span>
+            </label>
+
+            <label class="select-control" for="levelCurve">
+              <span class="field-label">Level curve</span>
+              <span class="select-shell">
+                <select id="levelCurve">
+                  <option value="linear" selected>Linear</option>
+                  <option value="exponential">Expand high values</option>
+                  <option value="logarithmic">Expand low values</option>
+                  <option value="smooth">Smooth S-curve</option>
+                  <option value="inverted">Invert</option>
+                </select>
+              </span>
+            </label>
+
+            <label class="control" for="stereoWidth">
+              <span><b>Stereo width</b><output id="stereoWidthOut" for="stereoWidth">100%</output></span>
+              <input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="1" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section output-section" id="outputSection" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Output</h2>
+            <span class="stream-indicator"><i></i>live</span>
+          </summary>
+          <div class="group-body">
+            <div class="output-lead">
+              <span id="outputContactLabel">No active contact</span>
+              <output id="outputVoiceLabel">sine</output>
+            </div>
+
+            <dl class="mark-grid" aria-label="Realtime lattice mark values">
+              <div><dt>Pattern phase</dt><dd><output id="markPhaseOut">0.500</output></dd></div>
+              <div><dt>Position</dt><dd><output id="markPositionOut">&minus;</output></dd></div>
+              <div><dt>Incidence</dt><dd><output id="markIncidenceOut">&minus;</output></dd></div>
+              <div><dt>Edge angle</dt><dd><output id="markAngleOut">&minus;</output></dd></div>
+              <div><dt>Pitch mark</dt><dd><output id="markPitchValueOut">&minus;</output></dd></div>
+              <div><dt>Frequency</dt><dd><output id="markFrequencyOut">&minus;</output></dd></div>
+              <div><dt>Amplitude</dt><dd><output id="markGainOut">&minus;</output></dd></div>
+              <div><dt>Pan</dt><dd><output id="markPanOut">&minus;</output></dd></div>
+            </dl>
+
+            <div class="contact-stream" id="contactStream" aria-label="Active lattice contact data stream"></div>
+
+            <div class="route-list" aria-label="Current lattice data mappings">
+              <div><span id="pitchRouteSource">Vertical position</span><b>Pitch</b><small id="pitchRouteCurve">linear mark &rarr; exponential Hz</small></div>
+              <div><span>Horizontal position</span><b>Pan</b><small>linear bipolar</small></div>
+              <div><span id="levelRouteSource">Line / edge incidence</span><b>Level</b><small id="levelRouteCurve">linear</small></div>
+            </div>
+          </div>
+        </details>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">Drag to scrub the pattern under the centered line. Press Space to play or pause. Press Left or Right Arrow to change pattern phase. Press Up or Down Arrow to rotate the line.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="lattice-app.js"></script>
+  </body>
+</html>
