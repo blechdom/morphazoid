@@ -13,6 +13,12 @@
  * @property {number} gain
  * @property {number} [pan]
  * @property {OscillatorChoice} [waveform]
+ * @property {'sine'|'shepard'|'fm'|'pm'} [mode]
+ * @property {number} [synthDrive]
+ * @property {number} [modulationIndex]
+ * @property {number} [modulationRatio]
+ * @property {number} [shepardRate]
+ * @property {number} [shepardWidth]
  */
 
 const DEFAULT_VOICE_COUNT = 32;
@@ -26,6 +32,40 @@ const RELEASE_TIME_CONSTANT = 0.025;
 const PAN_TIME_CONSTANT = 0.025;
 const MASTER_TIME_CONSTANT = 0.03;
 const STRIKE_GAIN_FLOOR = 0.0001;
+const CONTINUOUS_SYNTH_MODES = new Set(["sine", "shepard", "fm", "pm"]);
+
+/** Keep persisted or externally supplied mode names inside the DSP contract. */
+export function sanitizeSynthMode(mode) {
+  return CONTINUOUS_SYNTH_MODES.has(mode) ? mode : "sine";
+}
+
+/**
+ * Turn one normalized geometry mark into the parameters for a single synth
+ * patch. FM and PM share a drive mark but retain independent indices/ratios.
+ */
+export function synthParametersForMode(mode, drive = 0, {
+  fmIndex = 2.5,
+  fmRatio = 2,
+  pmIndex = 1.5,
+  pmRatio = 1,
+  shepardRate = 0,
+  shepardWidth = 4,
+} = {}) {
+  const safeMode = sanitizeSynthMode(mode);
+  const safeDrive = clamp(drive, 0, 1);
+  return {
+    mode: safeMode,
+    synthDrive: safeDrive,
+    modulationIndex: safeMode === "fm"
+      ? clamp(fmIndex, 0, 20) * safeDrive
+      : safeMode === "pm" ? clamp(pmIndex, 0, 12) * safeDrive : 0,
+    modulationRatio: safeMode === "fm"
+      ? clamp(fmRatio, 0.125, 16)
+      : safeMode === "pm" ? clamp(pmRatio, 0.125, 16) : 1,
+    shepardRate: safeMode === "shepard" ? clamp(shepardRate, -8, 8) : 0,
+    shepardWidth: clamp(shepardWidth, 1, 8),
+  };
+}
 
 /**
  * Clamp a number, accepting reversed bounds and treating NaN as the low bound.
@@ -129,6 +169,12 @@ function sanitizeVoice(voice) {
     gain: clamp(voice.gain, 0, 1),
     pan: clamp(voice.pan ?? 0, -1, 1),
     waveform: voice.waveform ?? "sine",
+    mode: sanitizeSynthMode(voice.mode),
+    synthDrive: clamp(voice.synthDrive ?? 0, 0, 1),
+    modulationIndex: clamp(voice.modulationIndex ?? 0, 0, 20),
+    modulationRatio: clamp(voice.modulationRatio ?? 1, 0.125, 16),
+    shepardRate: clamp(voice.shepardRate ?? 0, -8, 8),
+    shepardWidth: clamp(voice.shepardWidth ?? 4, 1, 8),
   };
 }
 
@@ -207,6 +253,9 @@ export class VoicePool {
     this.master = null;
     /** @type {DynamicsCompressorNode|null} */
     this.compressor = null;
+    /** @type {AudioWorkletNode|null} */
+    this.synthNode = null;
+    this.workletUnavailable = false;
     /** @type {{oscillator: OscillatorNode, gain: GainNode, pan: StereoPannerNode, key: string|null}[]} */
     this.voices = [];
     /** @type {Set<{oscillator: OscillatorNode, gain: GainNode, pan: StereoPannerNode, startedAt: number, attackEndsAt: number, endedAt: number, peakGain: number}>} */
@@ -266,6 +315,7 @@ export class VoicePool {
       }
       context = this.context;
     }
+    await this.prepareContinuousSynth(context);
     if (context.state === "suspended") await context.resume();
     if (this.context !== context || !this.master || context.state === "closed") {
       throw new Error("Audio start was interrupted.");
@@ -278,6 +328,44 @@ export class VoicePool {
       MASTER_TIME_CONSTANT,
     );
     this.applyVoices(this.pendingVoices);
+  }
+
+  async prepareContinuousSynth(context) {
+    if (this.synthNode || this.workletUnavailable) return;
+    const audioGlobal = /** @type {any} */ (globalThis);
+    const AudioWorkletNodeConstructor = audioGlobal.AudioWorkletNode;
+    if (!context.audioWorklet?.addModule || !AudioWorkletNodeConstructor) {
+      this.workletUnavailable = true;
+      return;
+    }
+
+    try {
+      await context.audioWorklet.addModule(
+        new URL("./contour-synth-processor.js", import.meta.url),
+      );
+      if (this.context !== context || !this.master || context.state === "closed") return;
+      const synthNode = new AudioWorkletNodeConstructor(
+        context,
+        "morphazoid-contour-synth",
+        {
+          numberOfInputs: 0,
+          numberOfOutputs: 1,
+          outputChannelCount: [2],
+          processorOptions: { maxVoices: this.size },
+        },
+      );
+      synthNode.connect(this.master);
+      synthNode.onprocessorerror = () => {
+        synthNode.disconnect();
+        if (this.synthNode === synthNode) this.synthNode = null;
+        this.workletUnavailable = true;
+        if (this.enabled) this.applyVoices(this.pendingVoices);
+      };
+      this.synthNode = synthNode;
+    } catch {
+      // The native sine pool below is a safe fallback for older Web Audio hosts.
+      this.workletUnavailable = true;
+    }
   }
 
   buildGraph() {
@@ -342,6 +430,37 @@ export class VoicePool {
     const reduced = reduceVoiceContacts(voices, this.size);
     this.pendingVoices = normalizeVoiceGains(reduced);
     if (this.enabled) this.applyVoices(this.pendingVoices);
+  }
+
+  /**
+   * Send the render-thread synth a short geometry trajectory. The worklet
+   * interpolates it sample by sample, so a delayed paint does not freeze FM,
+   * pitch, or pan at the last visual frame. Native Web Audio fallback keeps
+   * using the current targets and remains click-smoothed.
+   * @param {readonly VoiceSpec[]} voices
+   * @param {readonly VoiceSpec[]} nextVoices
+   * @param {number} durationSeconds
+   */
+  setVoiceTrajectory(voices, nextVoices, durationSeconds = 0.075) {
+    const current = normalizeVoiceGains(reduceVoiceContacts(voices, this.size));
+    const future = normalizeVoiceGains(reduceVoiceContacts(nextVoices, this.size));
+    this.pendingVoices = current;
+    if (!this.enabled) return;
+    if (!this.synthNode) {
+      this.applyVoices(current);
+      return;
+    }
+    this.synthNode.port.postMessage({
+      type: "voices",
+      voices: current,
+      nextVoices: future,
+      durationSeconds: clamp(durationSeconds, 0.01, 0.25),
+    });
+    const now = this.context?.currentTime ?? 0;
+    for (const voice of this.voices) {
+      voice.key = null;
+      voice.gain.gain.setTargetAtTime(0, now, RELEASE_TIME_CONSTANT);
+    }
   }
 
   /**
@@ -457,6 +576,15 @@ export class VoicePool {
       ...sanitizeVoice(spec),
       key: typeof spec.key === "string" ? spec.key : `index:${index}`,
     }));
+
+    if (this.synthNode) {
+      this.synthNode.port.postMessage({ type: "voices", voices: sanitized });
+      for (const voice of this.voices) {
+        voice.key = null;
+        voice.gain.gain.setTargetAtTime(0, now, RELEASE_TIME_CONSTANT);
+      }
+      return;
+    }
     const byKey = new Map(this.voices.map((voice, index) => [voice.key, index]));
     const assignments = new Array(this.voices.length).fill(null);
     const assignedSlots = new Set();
@@ -514,6 +642,7 @@ export class VoicePool {
   /** Fade every oscillator out and clear pending voice state. */
   silence() {
     this.pendingVoices = [];
+    this.synthNode?.port.postMessage({ type: "voices", voices: [] });
     if (!this.context) return;
     const now = this.context.currentTime;
     for (const voice of this.voices) {
@@ -582,6 +711,7 @@ export class VoicePool {
     this.lastStrikeAtByKey.clear();
     this.master?.disconnect();
     this.compressor?.disconnect();
+    this.synthNode?.disconnect();
     this.resetGraph();
 
     if (context && context.state !== "closed") await context.close();
@@ -591,6 +721,8 @@ export class VoicePool {
     this.context = null;
     this.master = null;
     this.compressor = null;
+    this.synthNode = null;
+    this.workletUnavailable = false;
     this.voices = [];
     this.activeStrikes.clear();
     this.activeStrikeByKey.clear();

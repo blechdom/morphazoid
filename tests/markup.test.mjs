@@ -85,15 +85,23 @@ test("the mobile instrument markup exposes the complete compact control surface"
 
   const soundSelect = html.match(/<select\s+id="soundMode"[^>]*>([\s\S]*?)<\/select>/);
   assert.ok(soundSelect, "missing sound mode select");
-  assert.match(soundSelect[1], /<option\s+value="sine"\s+selected>Sine\b/);
+  assert.match(soundSelect[1], /<option\s+value="sine">Sine\b/);
   assert.match(soundSelect[1], /<option\s+value="percussion">Percussion\b/);
-  assert.doesNotMatch(openingTag("sineArticulation"), /\bhidden\b/);
+  assert.match(soundSelect[1], /<option\s+value="shepard">Shepard\b/);
+  assert.match(soundSelect[1], /<option\s+value="fm"\s+selected>FM\b/);
+  assert.match(soundSelect[1], /<option\s+value="pm">PM\b/);
+  assert.match(openingTag("sineArticulation"), /\bhidden\b/);
   assert.match(openingTag("percussionArticulation"), /\bhidden\b/);
+  assert.match(openingTag("shepardArticulation"), /\bhidden\b/);
+  assert.doesNotMatch(openingTag("fmArticulation"), /\bhidden\b/);
+  assert.match(openingTag("pmArticulation"), /\bhidden\b/);
   assert.match(openingTag("cornerDecay"), /min="15"[^>]*max="2000"[^>]*value="90"/);
 
   // Mapping names the coordinate frame and transfer curves explicitly.
   for (const id of [
     "mappingFrame", "pitchSource", "pitchCurve", "hitLevelSource", "hitLevelCurve",
+    "synthSource", "shepardCycles", "shepardDirection", "shepardWidth",
+    "fmIndex", "fmRatio", "pmIndex", "pmRatio",
   ]) assert.ok(html.includes(`id="${id}"`));
   assert.match(html, /Stage axes[^<]*fixed/);
   assert.match(html, /Shape axes[^<]*rotate with form/);
@@ -104,7 +112,8 @@ test("the mobile instrument markup exposes the complete compact control surface"
   for (const id of [
     "markPhaseOut", "markPositionOut", "markTurnOut", "markDistanceOut",
     "markIncidenceOut", "markTangentOut", "markPitchValueOut", "markFrequencyOut",
-    "markGainOut", "markPanOut", "markDecayOut", "markRotationOut", "contactStream",
+    "markGainOut", "markPanOut", "markSynthDriveOut", "markSynthValueOut",
+    "markDecayOut", "markRotationOut", "contactStream",
   ]) assert.ok(html.includes(`id="${id}"`), `missing output #${id}`);
   assert.match(html, /Web MIDI · planned/);
   assert.match(html, /OSC · planned/);

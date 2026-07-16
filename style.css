@@ -305,6 +305,46 @@ a {
   --accent-glow: color-mix(in oklab, #ffb86b 22%, transparent);
 }
 
+.solid-page {
+  --accent: #7db4ff;
+  --accent-soft: color-mix(in oklab, #7db4ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #7db4ff 22%, transparent);
+}
+
+.hyper-page {
+  --accent: #c79bff;
+  --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #c79bff 22%, transparent);
+}
+
+.solid-page .stage-wrap,
+.hyper-page .stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--accent) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 3%, transparent) 1px, transparent 1px),
+    radial-gradient(circle at 50% 48%, var(--accent-glow), transparent 42%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.solid-page #stage,
+.hyper-page #stage {
+  cursor: grab;
+}
+
+.solid-page .probe-meta i,
+.hyper-page .probe-meta i {
+  width: 16px;
+  height: 10px;
+  border-radius: 0;
+  transform: skewY(-18deg);
+}
+
+.direction-action {
+  width: 100%;
+  margin: 0 0 10px;
+}
+
 .lattice-page .stage-wrap {
   background:
     linear-gradient(rgba(255, 184, 107, 0.024) 1px, transparent 1px),
@@ -498,6 +538,30 @@ a {
   color: var(--muted);
   font-size: 9px;
   line-height: 1.45;
+}
+
+.synth-panel {
+  position: relative;
+  margin: 14px 0 5px;
+  padding: 5px 11px 1px;
+  border-left: 1px solid var(--accent);
+  background:
+    linear-gradient(90deg, var(--accent-glow), transparent 72%),
+    var(--bg-deep);
+}
+
+.synth-panel::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 28px;
+  height: 1px;
+  background: var(--accent);
+  content: "";
+}
+
+.synth-panel[hidden] {
+  display: none;
 }
 
 .audio-button,
@@ -1331,7 +1395,7 @@ select:hover {
     gap: 12px;
   }
 
-  .wordmark > span:last-child,
+  .wordmark,
   .edition {
     display: none;
   }

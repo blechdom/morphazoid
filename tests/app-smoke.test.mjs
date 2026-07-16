@@ -67,7 +67,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   for (const id of ids) element(id);
 
   const groups = {
-    playMethod: ["traceMode", "scanMode"],
+    playMethod: ["traceMode", "scanMode", "radialMode"],
     lineLayout: ["parallelLines", "crossedLines"],
     scanMotion: ["loopScan", "pingPongScan"],
     curvatureDirection: ["curvatureOutward", "curvatureIn"],
@@ -76,6 +76,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   const dataValues = {
     scanMode: "scan",
     traceMode: "trace",
+    radialMode: "radial",
     parallelLines: "parallel",
     crossedLines: "crossed",
     pingPongScan: "pingpong",
@@ -226,23 +227,26 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("lineLayoutControl").hidden, true);
   assert.equal(elements.get("scanMotionControl").hidden, true);
   assert.equal(elements.get("probeType").textContent, "1 TRACE HEAD");
-  assert.equal(elements.get("soundMode").value, "sine");
-  assert.equal(elements.get("sineArticulation").hidden, false);
+  assert.equal(elements.get("soundMode").value, "fm");
+  assert.equal(elements.get("sineArticulation").hidden, true);
   assert.equal(elements.get("percussionArticulation").hidden, true);
+  assert.equal(elements.get("shepardArticulation").hidden, true);
+  assert.equal(elements.get("fmArticulation").hidden, false);
+  assert.equal(elements.get("pmArticulation").hidden, true);
   assert.equal(elements.get("hitMapping").hidden, true);
   assert.equal(elements.get("traversalDirection").hidden, true);
   assert.equal(elements.get("rotationDirection").hidden, true);
   assert.equal(elements.get("headMarker0").hidden, false);
   assert.equal(elements.get("headMarker0").style.left, "50%");
   assert.equal(elements.get("headMarker1").hidden, true);
-  assert.equal(elements.get("outputVoiceLabel").textContent, "sine");
+  assert.equal(elements.get("outputVoiceLabel").textContent, "fm");
   assert.equal(elements.get("outputContactLabel").textContent, "Contact 1 of 1");
   assert.notEqual(elements.get("markFrequencyOut").textContent, "");
   assert.match(elements.get("contactStream").innerHTML, /contact-row/);
 
   await listeners.get("audioButton:click")();
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
-  assert.equal(audioOscillators.length, 32, "sine mode should allocate its continuous voice pool");
+  assert.equal(audioOscillators.length, 32, "FM mode should allocate its continuous voice pool");
   queuedFrame(1_020);
   assert.match(elements.get("stageReadout").textContent, /1 VOICE/);
   const continuousGains = audioGains.slice(1, 33);
@@ -283,6 +287,34 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   queuedFrame(1_110);
   assert.equal(audioOscillators.length, afterPercussionStrike, "sine mode must never trigger percussion voices");
   assert.equal(elements.get("hitMapping").hidden, true);
+
+  elements.get("soundMode").value = "fm";
+  listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
+  assert.equal(elements.get("fmArticulation").hidden, false);
+  assert.equal(elements.get("synthMapping").hidden, false);
+  elements.get("fmIndex").value = "6";
+  listeners.get("fmIndex:input")();
+  elements.get("synthSource").value = "corner";
+  listeners.get("synthSource:change")({ currentTarget: elements.get("synthSource") });
+  queuedFrame(1_115);
+  assert.equal(elements.get("outputVoiceLabel").textContent, "fm");
+  assert.match(elements.get("markSynthValueOut").textContent, /index @/);
+  assert.equal(audioOscillators.length, afterPercussionStrike, "FM fallback must reuse the continuous pool");
+
+  elements.get("soundMode").value = "pm";
+  listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
+  queuedFrame(1_116);
+  assert.equal(elements.get("pmArticulation").hidden, false);
+  assert.match(elements.get("markSynthValueOut").textContent, /rad @/);
+
+  elements.get("soundMode").value = "shepard";
+  listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
+  queuedFrame(1_117);
+  assert.equal(elements.get("shepardArticulation").hidden, false);
+  assert.match(elements.get("markSynthValueOut").textContent, /oct\/s/);
+
+  elements.get("soundMode").value = "sine";
+  listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
 
   elements.get("position").value = "0";
   listeners.get("position:input")();
@@ -355,6 +387,13 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   ));
   assert.ok(longHorizontal.length > 5, "crossed mode should draw horizontal scanners and trails");
   assert.ok(longVertical.length > 5, "crossed mode should draw vertical scanners and trails");
+
+  listeners.get("radialMode:click")();
+  assert.equal(attributes.get("radialMode:aria-pressed"), "true");
+  assert.equal(elements.get("positionLabel").textContent, "Radar angle");
+  assert.equal(elements.get("probeType").textContent, "1 RADAR RAY");
+  queuedFrame(1_550);
+  assert.match(elements.get("stageReadout").textContent, /1 RAY/);
 
   listeners.get("traceMode:click")();
   assert.equal(elements.get("headLayoutTrack").classList.contains("is-crossed"), false);
@@ -453,6 +492,14 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("hitLevelSource:change")({ currentTarget: elements.get("hitLevelSource") });
   elements.get("hitLevelCurve").value = "exponential";
   listeners.get("hitLevelCurve:change")({ currentTarget: elements.get("hitLevelCurve") });
+  elements.get("synthSource").value = "phase";
+  listeners.get("synthSource:change")({ currentTarget: elements.get("synthSource") });
+  elements.get("fmIndex").value = "5.5";
+  listeners.get("fmIndex:input")();
+  elements.get("pmIndex").value = "3.25";
+  listeners.get("pmIndex:input")();
+  elements.get("shepardCycles").value = "1.75";
+  listeners.get("shepardCycles:input")();
   elements.get("soundMode").value = "percussion";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
 
@@ -471,6 +518,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("pitchCurve").value, "logarithmic");
   assert.equal(elements.get("hitLevelSource").value, "incidence");
   assert.equal(elements.get("hitLevelCurve").value, "exponential");
+  assert.equal(elements.get("synthSource").value, "phase");
+  assert.equal(elements.get("fmIndexOut").textContent, "5.50 max");
+  assert.equal(elements.get("pmIndexOut").textContent, "3.25 rad");
+  assert.equal(elements.get("shepardCyclesOut").textContent, "1.75 oct / loop");
   assert.equal(elements.get("soundMode").value, "percussion");
   assert.equal(elements.get("sineArticulation").hidden, true);
   assert.equal(elements.get("percussionArticulation").hidden, false);
@@ -498,6 +549,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("pitchCurve").value, "logarithmic");
   assert.equal(elements.get("hitLevelSource").value, "incidence");
   assert.equal(elements.get("hitLevelCurve").value, "exponential");
+  assert.equal(elements.get("synthSource").value, "phase");
+  assert.equal(elements.get("fmIndexOut").textContent, "5.50 max");
+  assert.equal(elements.get("pmIndexOut").textContent, "3.25 rad");
+  assert.equal(elements.get("shepardCyclesOut").textContent, "1.75 oct / loop");
   assert.equal(elements.get("soundMode").value, "percussion");
   assert.equal(elements.get("sineArticulation").hidden, true);
   assert.equal(elements.get("percussionArticulation").hidden, false);

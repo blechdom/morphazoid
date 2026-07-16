@@ -193,6 +193,11 @@ test("lattice app renders and plays line contacts", async () => {
   assert.match(elements.get("outputContactLabel").textContent, /Contact 1 of/);
   assert.equal(elements.get("tileEditorPanel").hidden, true);
   assert.equal(attributes.get("toggleTileEditor:aria-expanded"), "false");
+  assert.equal(elements.get("soundMode").value, "sine");
+  assert.equal(elements.get("percussionArticulation").hidden, true);
+  assert.equal(elements.get("shepardArticulation").hidden, true);
+  assert.equal(elements.get("fmArticulation").hidden, true);
+  assert.equal(elements.get("pmArticulation").hidden, true);
 
   const arcsBeforeEditor = drawnArcs;
   listeners.get("toggleTileEditor:click")();
@@ -263,6 +268,44 @@ test("lattice app renders and plays line contacts", async () => {
   assert.ok(oscillators.every((oscillator) => (
     oscillator.frequency.value >= 110 && oscillator.frequency.value <= 1245
   )));
+
+  elements.get("soundMode").value = "fm";
+  listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
+  elements.get("fmIndex").value = "5";
+  listeners.get("fmIndex:input")();
+  now += 80;
+  queuedFrame(now);
+  assert.equal(elements.get("fmArticulation").hidden, false);
+  assert.equal(elements.get("synthMapping").hidden, false);
+  assert.equal(elements.get("outputVoiceLabel").textContent, "fm");
+  assert.match(elements.get("markSynthValueOut").textContent, /index @/);
+  assert.equal(oscillators.length, 32, "FM fallback must reuse the continuous pool");
+
+  elements.get("soundMode").value = "pm";
+  listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
+  now += 80;
+  queuedFrame(now);
+  assert.equal(elements.get("pmArticulation").hidden, false);
+  assert.match(elements.get("markSynthValueOut").textContent, /rad @/);
+
+  elements.get("soundMode").value = "shepard";
+  listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
+  now += 80;
+  queuedFrame(now);
+  assert.equal(elements.get("shepardArticulation").hidden, false);
+  assert.match(elements.get("markSynthValueOut").textContent, /oct\/s/);
+
+  elements.get("soundMode").value = "percussion";
+  listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
+  now += 80;
+  queuedFrame(now);
+  assert.equal(elements.get("percussionArticulation").hidden, false);
+  assert.ok(oscillators.length > 32, "new line intersections should trigger percussion strikes");
+
+  elements.get("soundMode").value = "sine";
+  listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
+  now += 80;
+  queuedFrame(now);
 
   await listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "false");
@@ -372,5 +415,17 @@ test("lattice app renders and plays line contacts", async () => {
   elements.get("intersectionAccent").value = "0.8";
   listeners.get("intersectionAccent:input")();
   assert.equal(elements.get("intersectionAccentOut").textContent, "80%");
+  elements.get("synthSource").value = "orientation";
+  listeners.get("synthSource:change")();
+  elements.get("pmIndex").value = "3.5";
+  listeners.get("pmIndex:input")();
+  elements.get("shepardCycles").value = "2.25";
+  listeners.get("shepardCycles:input")();
+  assert.equal(elements.get("pmIndexOut").textContent, "3.50 rad");
+  assert.equal(elements.get("shepardCyclesOut").textContent, "2.25 oct / loop");
   assert.ok(storage.has("morphazoid:lattice:audio:v1"));
+  const persisted = JSON.parse(storage.get("morphazoid:lattice:audio:v1"));
+  assert.equal(persisted.synthSource, "orientation");
+  assert.equal(persisted.pmIndex, 3.5);
+  assert.equal(persisted.shepardCycles, 2.25);
 });

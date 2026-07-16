@@ -6,6 +6,7 @@ import {
   horizontalIntersections,
   pingPong01,
   pointAtPath,
+  rayIntersections,
   verticalIntersections,
   wrap01,
 } from "../src/geometry.js";
@@ -180,6 +181,23 @@ test("pointAtPath uses constant arclength and supports open-line ping-pong", () 
   near(oneThird.x, secondVertex.x);
   near(oneThird.y, secondVertex.y);
   near(oneThird.cornerDistance, 0);
+});
+
+test("radar rays are rooted at center and return outward-sorted contour hits", () => {
+  const square = buildShape({ sides: 4, curvature: 0, rotationDeg: 45 });
+  const right = rayIntersections(square, 0);
+  assert.equal(right.length, 1);
+  assert.ok(right[0].x > 0.7);
+  near(right[0].y, 0, 1e-6);
+  assert.ok(right[0].rayDistance > 0);
+
+  const star = buildShape({ sides: 5, shapeType: "star", starDepth: 0.7, rotationDeg: 18 });
+  const hits = rayIntersections(star, Math.PI);
+  assert.ok(hits.length >= 1);
+  for (let index = 1; index < hits.length; index += 1) {
+    assert.ok(hits[index].rayDistance >= hits[index - 1].rayDistance);
+  }
+  assert.ok(hits.every((contact) => contact.x <= 1e-7));
 });
 
 test("path contacts expose the signed turn of their nearest corner", () => {

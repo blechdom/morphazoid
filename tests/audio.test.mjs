@@ -13,6 +13,7 @@ import {
   pitch01ToFrequency,
   reduceVoiceContacts,
   sineCornerEnvelopeGain,
+  synthParametersForMode,
   VoicePool,
   waveformForIndex,
 } from "../src/audio.js";
@@ -44,6 +45,34 @@ test("pitch mapping is continuous and safely clamped", () => {
   assert.equal(pitch01ToFrequency(-1, 110, 2), 110);
   assert.equal(pitch01ToFrequency(2, 110, 2), 440);
   assert.equal(pitch01ToFrequency(1, 18_000, 10), 20_000);
+});
+
+test("geometry drive produces bounded and mode-specific synth parameters", () => {
+  assert.deepEqual(synthParametersForMode("sine", 0.75), {
+    mode: "sine",
+    synthDrive: 0.75,
+    modulationIndex: 0,
+    modulationRatio: 1,
+    shepardRate: 0,
+    shepardWidth: 4,
+  });
+
+  const fm = synthParametersForMode("fm", 0.5, { fmIndex: 6, fmRatio: 2.5 });
+  assert.equal(fm.modulationIndex, 3);
+  assert.equal(fm.modulationRatio, 2.5);
+
+  const pm = synthParametersForMode("pm", 0.25, { pmIndex: 4, pmRatio: 1.5 });
+  assert.equal(pm.modulationIndex, 1);
+  assert.equal(pm.modulationRatio, 1.5);
+
+  const shepard = synthParametersForMode("shepard", 2, {
+    shepardRate: -20,
+    shepardWidth: 12,
+  });
+  assert.equal(shepard.synthDrive, 1);
+  assert.equal(shepard.shepardRate, -8);
+  assert.equal(shepard.shepardWidth, 8);
+  assert.equal(synthParametersForMode("unknown", Number.NaN).mode, "sine");
 });
 
 test("mark mapping curves are bounded and preserve their intended shape", () => {
@@ -191,6 +220,114 @@ function fakeNode(properties = {}) {
     disconnect() {},
   };
 }
+
+test("continuous synth specs use one worklet while native fallback voices stay silent", async () => {
+  const previousAudioContext = globalThis.AudioContext;
+  const previousAudioWorkletNode = globalThis.AudioWorkletNode;
+  const messages = [];
+  let moduleUrl = "";
+  let workletCount = 0;
+
+  class FakeWorkletNode {
+    constructor(_context, name, options) {
+      workletCount += 1;
+      this.name = name;
+      this.options = options;
+      this.port = { postMessage(message) { messages.push(message); } };
+      this.onprocessorerror = null;
+    }
+    connect() { return this; }
+    disconnect() {}
+  }
+
+  class FakeContext {
+    constructor() {
+      this.currentTime = 0;
+      this.state = "running";
+      this.destination = fakeNode();
+      this.audioWorklet = {
+        async addModule(url) { moduleUrl = String(url); },
+      };
+    }
+    createGain() { return fakeNode({ gain: fakeParam(0) }); }
+    createStereoPanner() { return fakeNode({ pan: fakeParam(0) }); }
+    createDynamicsCompressor() {
+      return fakeNode({
+        threshold: fakeParam(0),
+        knee: fakeParam(0),
+        ratio: fakeParam(0),
+        attack: fakeParam(0),
+        release: fakeParam(0),
+      });
+    }
+    createOscillator() {
+      return fakeNode({
+        type: "sine",
+        frequency: fakeParam(220),
+        start() {},
+        stop() {},
+      });
+    }
+    async resume() { this.state = "running"; }
+    async close() { this.state = "closed"; }
+  }
+
+  globalThis.AudioContext = FakeContext;
+  globalThis.AudioWorkletNode = FakeWorkletNode;
+  const pool = new VoicePool(2);
+  try {
+    await pool.enable();
+    pool.setVoices([{
+      key: "shape:contact:0",
+      frequency: 330,
+      gain: 0.2,
+      pan: -0.4,
+      mode: "pm",
+      synthDrive: 0.75,
+      modulationIndex: 2.25,
+      modulationRatio: 1.5,
+    }]);
+
+    assert.equal(workletCount, 1);
+    assert.match(moduleUrl, /contour-synth-processor\.js$/);
+    assert.equal(pool.synthNode.name, "morphazoid-contour-synth");
+    assert.deepEqual(pool.synthNode.options.outputChannelCount, [2]);
+    const latest = messages.at(-1);
+    assert.equal(latest.type, "voices");
+    assert.equal(latest.voices.length, 1);
+    assert.equal(latest.voices[0].mode, "pm");
+    assert.equal(latest.voices[0].modulationIndex, 2.25);
+    assert.ok(pool.voices.every((voice) => voice.gain.gain.value === 0));
+
+    pool.setVoiceTrajectory([{
+      key: "shape:contact:0",
+      frequency: 330,
+      gain: 0.2,
+      mode: "fm",
+      modulationIndex: 1,
+    }], [{
+      key: "shape:contact:0",
+      frequency: 440,
+      gain: 0.16,
+      mode: "fm",
+      modulationIndex: 5,
+    }], 0.075);
+    const trajectory = messages.at(-1);
+    assert.equal(trajectory.durationSeconds, 0.075);
+    assert.equal(trajectory.voices[0].frequency, 330);
+    assert.equal(trajectory.nextVoices[0].frequency, 440);
+    assert.equal(trajectory.nextVoices[0].modulationIndex, 5);
+
+    pool.silence();
+    assert.deepEqual(messages.at(-1), { type: "voices", voices: [] });
+  } finally {
+    await pool.close();
+    if (previousAudioContext === undefined) delete globalThis.AudioContext;
+    else globalThis.AudioContext = previousAudioContext;
+    if (previousAudioWorkletNode === undefined) delete globalThis.AudioWorkletNode;
+    else globalThis.AudioWorkletNode = previousAudioWorkletNode;
+  }
+});
 
 test("strike headroom tracks scheduled exponential envelopes and overlapping tails", () => {
   const pool = new VoicePool(0);

@@ -38,7 +38,7 @@ test("Lattice is one centered line instrument with no walk controls", async () =
   assert.match(app, /new VoicePool\(MAX_VOICES\)/);
 });
 
-test("Lattice exposes complete shape controls and sine-only contact audio", async () => {
+test("Lattice exposes complete shape controls and single-patch synth modes", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("lattice.html", root), "utf8"),
     readFile(new URL("lattice-app.js", root), "utf8"),
@@ -57,6 +57,11 @@ test("Lattice exposes complete shape controls and sine-only contact audio", asyn
   assert.match(app, /TILING_TYPES/);
   assert.match(app, /waveform: "sine"/);
   assert.doesNotMatch(app, /waveform: state\.|"triangle"|"alternating"/);
+  for (const mode of ["sine", "percussion", "shepard", "fm", "pm"]) {
+    assert.match(html, new RegExp(`<option value="${mode}"`));
+  }
+  assert.match(app, /synthParametersForMode/);
+  assert.match(app, /emitIntersectionStrikes/);
 });
 
 test("Lattice markup has unique ids and complete control labels", async () => {
@@ -69,7 +74,9 @@ test("Lattice markup has unique ids and complete control labels", async () => {
     "parameter0", "parameter1", "parameter2", "parameter3", "parameter4", "parameter5",
     "edgeCurve0", "edgeCurve1", "edgeCurve2", "edgeCurve3", "edgeCurve4",
     "baseFrequency", "pitchRange", "contactLevel", "intersectionAccent", "voiceCap",
-    "pitchSource", "pitchCurve", "levelSource", "levelCurve", "stereoWidth",
+    "soundMode", "percussionAttack", "percussionDecay", "shepardCycles",
+    "shepardDirection", "shepardWidth", "fmIndex", "fmRatio", "pmIndex", "pmRatio",
+    "pitchSource", "pitchCurve", "synthSource", "levelSource", "levelCurve", "stereoWidth",
   ]) {
     assert.match(html, new RegExp(`<label[^>]*for="${control}"`), `${control} needs a label`);
   }
