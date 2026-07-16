@@ -52,6 +52,13 @@ const SOUND_MODE_LABELS = {
   pm: "PM",
 };
 const SOUND_MODES = new Set(Object.keys(SOUND_MODE_LABELS));
+const PITCH_SUMMARY_LABELS = {
+  height: "Height",
+  center: "Center distance",
+  corner: "Corner",
+  incidence: "Incidence",
+  phase: "Contour phase",
+};
 const PERSISTED_AUDIO_KEYS = new Set([
   "baseFrequency",
   "pitchRange",
@@ -181,7 +188,7 @@ state.pmIndex = clamp(state.pmIndex, 0, 8);
 state.pmRatio = clamp(state.pmRatio, 0.25, 8);
 state.stereoWidth = clamp(state.stereoWidth, 0, 1);
 state.mappingFrame = state.mappingFrame === "shape" ? "shape" : "instrument";
-state.pitchSource = ["height", "corner", "incidence", "phase"].includes(state.pitchSource)
+state.pitchSource = ["height", "center", "corner", "incidence", "phase"].includes(state.pitchSource)
   ? state.pitchSource
   : "height";
 state.pitchCurve = ["linear", "exponential", "logarithmic", "smooth", "inverted"].includes(state.pitchCurve)
@@ -327,6 +334,7 @@ function updateSectionSummaries() {
     ? "open line"
     : state.shapeType === "star" ? `${state.sides}-point star` : `${state.sides} sides`;
   $("soundSummary").textContent = SOUND_MODE_LABELS[state.soundMode];
+  $("mappingSummary").textContent = `${PITCH_SUMMARY_LABELS[state.pitchSource] ?? "Mark"} → pitch`;
 }
 
 function updateCanvasLabel() {
@@ -766,6 +774,7 @@ for (const [id, key] of [
   $(id).addEventListener("change", (event) => {
     state[key] = event.currentTarget.value;
     persistAudioSettings();
+    if (key === "pitchSource") updateSectionSummaries();
     dismissHelp();
   });
 }
@@ -1331,11 +1340,19 @@ function incidenceForContact(contact, path, headIndex = contact.headIndex ?? 0) 
 function rawMarkForSource(source, contact, path, headIndex = contact.headIndex ?? 0) {
   if (source === "corner") return clamp(contact.cornerStrength ?? contact.strength ?? 0, 0, 1);
   if (source === "incidence") return incidenceForContact(contact, path, headIndex);
+  if (source === "center") return centerDistanceForContact(contact);
   if (source === "phase") {
     return wrap01(contact.u ?? contact.pathPhase ?? 0);
   }
   const normalized = normalizedContactCoordinates(contact, path);
   return clamp(1 - normalized.y, 0, 1);
+}
+
+function centerDistanceForContact(contact) {
+  const distance = Number.isFinite(contact.rayDistance)
+    ? contact.rayDistance
+    : Math.hypot(contact.x, contact.y);
+  return clamp(distance, 0, 1);
 }
 
 function hitLevelMark(contact, path, headIndex = contact.headIndex ?? 0) {
@@ -1699,6 +1716,7 @@ function drawFrame(path) {
 
 const SOURCE_LABELS = {
   height: "Vertical position",
+  center: "Distance from center",
   corner: "Corner magnitude",
   incidence: "Incidence",
   phase: "Contour phase",
@@ -1772,7 +1790,7 @@ function updateOutputDashboard(contacts, path) {
   if (!contacts.length) {
     $("outputContactLabel").textContent = "No active contact";
     for (const id of [
-      "markPhaseOut", "markPositionOut", "markTurnOut", "markDistanceOut",
+      "markPhaseOut", "markPositionOut", "markCenterOut", "markTurnOut", "markDistanceOut",
       "markIncidenceOut", "markTangentOut", "markPitchValueOut",
       "markFrequencyOut", "markGainOut", "markPanOut",
       "markSynthDriveOut", "markSynthValueOut",
@@ -1793,6 +1811,7 @@ function updateOutputDashboard(contacts, path) {
   $("outputContactLabel").textContent = `Contact 1 of ${contacts.length}`;
   $("markPhaseOut").textContent = wrap01(contact.u ?? contact.headPhase ?? 0).toFixed(3);
   $("markPositionOut").textContent = `${contact.x.toFixed(3)}, ${contact.y.toFixed(3)}`;
+  $("markCenterOut").textContent = centerDistanceForContact(contact).toFixed(3);
   $("markTurnOut").textContent = displayTurn(contact.cornerTurn ?? 0);
   $("markDistanceOut").textContent = clamp(contact.cornerDistance01 ?? 0, 0, 9.999).toFixed(3);
   $("markIncidenceOut").textContent = mapping.incidence.toFixed(3);

@@ -248,6 +248,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("playheadCountOut").textContent, "1 point");
   assert.equal(elements.get("headMarker1").hidden, true);
   assert.equal(elements.get("outputVoiceLabel").textContent, "fm");
+  assert.equal(elements.get("mappingSummary").textContent, "Height → pitch");
   assert.equal(elements.get("outputContactLabel").textContent, "Contact 1 of 1");
   assert.notEqual(elements.get("markFrequencyOut").textContent, "");
   assert.match(elements.get("contactStream").innerHTML, /contact-row/);
@@ -403,6 +404,12 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("probeType").textContent, "1 RADAR RAY");
   queuedFrame(1_550);
   assert.match(elements.get("stageReadout").textContent, /1 RAY/);
+  elements.get("pitchSource").value = "center";
+  listeners.get("pitchSource:change")({ currentTarget: elements.get("pitchSource") });
+  queuedFrame(1_560);
+  assert.equal(elements.get("mappingSummary").textContent, "Center distance → pitch");
+  assert.equal(elements.get("pitchRouteSource").textContent, "Distance from center");
+  assert.ok(Number(elements.get("markCenterOut").textContent) > 0);
 
   listeners.get("traceMode:click")();
   assert.equal(elements.get("headLayoutTrack").classList.contains("is-crossed"), false);

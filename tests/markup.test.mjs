@@ -104,18 +104,20 @@ test("the mobile instrument markup exposes the complete compact control surface"
 
   // Mapping names the coordinate frame and transfer curves explicitly.
   for (const id of [
-    "mappingFrame", "pitchSource", "pitchCurve", "hitLevelSource", "hitLevelCurve",
+    "mappingFrame", "mappingSummary", "pitchSource", "pitchCurve", "hitLevelSource", "hitLevelCurve",
     "synthSource", "shepardCycles", "shepardDirection", "shepardWidth",
     "fmIndex", "fmRatio", "pmIndex", "pmRatio",
   ]) assert.ok(html.includes(`id="${id}"`));
   assert.match(html, /Stage axes[^<]*fixed/);
   assert.match(html, /Shape axes[^<]*rotate with form/);
+  assert.match(html, /value="center">Distance from center · radar radius/);
+  assert.match(html, /Center distance[\s\S]*?0 at the radar origin/);
   assert.match(html, /value="exponential">Expand high values/);
   assert.match(html, /value="logarithmic">Expand low values/);
 
   // Output is a realtime marks dashboard with clearly future-facing external routes.
   for (const id of [
-    "markPhaseOut", "markPositionOut", "markTurnOut", "markDistanceOut",
+    "markPhaseOut", "markPositionOut", "markCenterOut", "markTurnOut", "markDistanceOut",
     "markIncidenceOut", "markTangentOut", "markPitchValueOut", "markFrequencyOut",
     "markGainOut", "markPanOut", "markSynthDriveOut", "markSynthValueOut",
     "markDecayOut", "markRotationOut", "contactStream",
