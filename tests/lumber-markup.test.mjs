@@ -34,7 +34,7 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
     /id="(?:playbackSection|shapeMapping|ringTiming|ringLength)"/,
   );
   assert.match(html, /Record creates a new outer ring/);
-  assert.match(html, /push or pull them radially/i);
+  assert.match(html, /push or pull .* radially/i);
 
   assert.match(app, /getUserMedia/);
   assert.match(app, /createScriptProcessor/);
@@ -47,12 +47,17 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.match(app, /playScrubGrain/);
   assert.match(app, /toggleRingSolo/);
   assert.match(app, /data-ring-action="solo"/);
+  assert.match(app, /lastRingListSignature/);
+  assert.match(app, /ringList"\)\.addEventListener\("pointerdown"/);
   assert.match(app, /timeStretchLoopSamples/);
   assert.match(app, /ringCycleDuration/);
   assert.match(app, /expandedMode/);
   assert.match(app, /const rotation = -currentPhase\(ring\) \* TAU/);
   assert.match(app, /radialOffsets/);
   assert.match(app, /radialPointAt/);
+  assert.match(app, /touch-pending/);
+  assert.match(app, /tangentialMotion > radialMotion/);
+  assert.match(app, /measureEnvelopePeak/);
   assert.match(app, /setThreeDView/);
 
   assert.match(css, /\.lumber-page\s+#loopSection\s*\{/);

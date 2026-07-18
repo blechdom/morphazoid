@@ -20,6 +20,97 @@ export function buildTesseract(radius = 0.68) {
   return { vertices, edges };
 }
 
+export function buildHyperPyramid(radius = 0.66) {
+  const vertices = Array.from({ length: 8 }, (_, index) => ({
+    x: index & 1 ? radius : -radius,
+    y: index & 2 ? radius : -radius,
+    z: index & 4 ? radius : -radius,
+    w: -0.48,
+  }));
+  vertices.push({ x: 0, y: 0, z: 0, w: 1.05 });
+  const axes = ["x", "y", "z"];
+  const edges = [];
+  for (let index = 0; index < 8; index += 1) {
+    for (let axis = 0; axis < axes.length; axis += 1) {
+      const neighbor = index ^ (1 << axis);
+      if (index < neighbor) edges.push({ a: index, b: neighbor, axis: axes[axis] });
+    }
+    edges.push({ a: index, b: 8, axis: "w" });
+  }
+  return { vertices, edges };
+}
+
+export function buildHypersphere(radius = 0.88, chiSteps = 5, uSteps = 10, vSteps = 8) {
+  const vertices = [];
+  const indexFor = (chi, u, v) => (chi * uSteps + u) * vSteps + v;
+  for (let chi = 0; chi < chiSteps; chi += 1) {
+    const chiAngle = (chi + 0.5) / chiSteps * Math.PI / 2;
+    for (let u = 0; u < uSteps; u += 1) {
+      const uAngle = u / uSteps * Math.PI * 2;
+      for (let v = 0; v < vSteps; v += 1) {
+        const vAngle = v / vSteps * Math.PI * 2;
+        vertices.push({
+          x: radius * Math.cos(chiAngle) * Math.cos(uAngle),
+          y: radius * Math.cos(chiAngle) * Math.sin(uAngle),
+          z: radius * Math.sin(chiAngle) * Math.cos(vAngle),
+          w: radius * Math.sin(chiAngle) * Math.sin(vAngle),
+        });
+      }
+    }
+  }
+  const edges = [];
+  for (let chi = 0; chi < chiSteps; chi += 1) {
+    for (let u = 0; u < uSteps; u += 1) {
+      for (let v = 0; v < vSteps; v += 1) {
+        const current = indexFor(chi, u, v);
+        edges.push({ a: current, b: indexFor(chi, (u + 1) % uSteps, v), axis: "u" });
+        edges.push({ a: current, b: indexFor(chi, u, (v + 1) % vSteps), axis: "v" });
+        if (chi + 1 < chiSteps) {
+          edges.push({ a: current, b: indexFor(chi + 1, u, v), axis: "w" });
+        }
+      }
+    }
+  }
+  return { vertices, edges };
+}
+
+export function buildKleinBottle(radius = 0.82, uSteps = 20, vSteps = 12) {
+  const vertices = [];
+  const indexFor = (u, v) => u * vSteps + v;
+  for (let u = 0; u < uSteps; u += 1) {
+    const uAngle = u / uSteps * Math.PI * 2;
+    for (let v = 0; v < vSteps; v += 1) {
+      const vAngle = v / vSteps * Math.PI * 2;
+      const tube = 1.35 + 0.45 * Math.cos(vAngle);
+      vertices.push({
+        x: radius * tube * Math.cos(uAngle) / 1.8,
+        y: radius * tube * Math.sin(uAngle) / 1.8,
+        z: radius * 0.62 * Math.sin(vAngle) * Math.cos(uAngle / 2),
+        w: radius * 0.62 * Math.sin(vAngle) * Math.sin(uAngle / 2),
+      });
+    }
+  }
+  const edges = [];
+  for (let u = 0; u < uSteps; u += 1) {
+    for (let v = 0; v < vSteps; v += 1) {
+      const current = indexFor(u, v);
+      const nextU = u + 1 < uSteps
+        ? indexFor(u + 1, v)
+        : indexFor(0, (vSteps - v) % vSteps);
+      edges.push({ a: current, b: nextU, axis: u + 1 < uSteps ? "u" : "w" });
+      edges.push({ a: current, b: indexFor(u, (v + 1) % vSteps), axis: "v" });
+    }
+  }
+  return { vertices, edges };
+}
+
+export function buildHyperShape(type = "tesseract") {
+  if (type === "hypersphere") return buildHypersphere();
+  if (type === "hyperpyramid") return buildHyperPyramid();
+  if (type === "klein") return buildKleinBottle();
+  return buildTesseract();
+}
+
 function rotatePlane(point, first, second, degrees) {
   const angle = degrees * Math.PI / 180;
   const cosine = Math.cos(angle);
@@ -77,7 +168,11 @@ export function hyperplaneOffsetForPhase(phase, radius = 1.25) {
 }
 
 export function transformedTesseract(rotation) {
-  const source = buildTesseract();
+  return transformedHyperShape("tesseract", rotation);
+}
+
+export function transformedHyperShape(type, rotation) {
+  const source = buildHyperShape(type);
   return {
     ...source,
     vertices: source.vertices.map((point) => rotatePoint4(point, rotation)),

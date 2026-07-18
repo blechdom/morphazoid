@@ -11,7 +11,7 @@ import {
   hyperplaneIntersections,
   hyperplaneOffsetForPhase,
   projectPoint4,
-  transformedTesseract,
+  transformedHyperShape,
 } from "./src/hyper.js";
 
 const $ = (id) => document.getElementById(id);
@@ -21,6 +21,7 @@ const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
 const pool = new VoicePool(32);
 const state = {
+  shapeType: "tesseract",
   position: 0.5,
   continuousPosition: 0.5,
   speed: 0.1,
@@ -105,6 +106,21 @@ bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`);
 bindRange("fmRatio", "fmRatio", (value) => `${value.toFixed(2)} : 1`);
+
+const SHAPE_LABELS = {
+  tesseract: "Tesseract",
+  hypersphere: "Hypersphere",
+  hyperpyramid: "Hyperpyramid",
+  klein: "Klein bottle",
+};
+
+$("hyperShape").addEventListener("change", (event) => {
+  state.shapeType = event.currentTarget.value;
+  $("formSummary").textContent = SHAPE_LABELS[state.shapeType] ?? "Tesseract";
+  previousSigns = null;
+  pool.silence();
+  scheduleFrame();
+});
 
 function resetClocks() {
   lastFrameTime = performance.now();
@@ -366,7 +382,7 @@ function frame(now) {
     state.rotationZW = normalizeDegrees(state.rotationZW - degrees * 0.31);
   }
 
-  const tesseract = transformedTesseract(rotation());
+  const tesseract = transformedHyperShape(state.shapeType, rotation());
   const offset = hyperplaneOffsetForPhase(state.continuousPosition);
   const contacts = hyperplaneIntersections(tesseract, offset);
   drawScene(tesseract, contacts, offset);
@@ -378,7 +394,7 @@ function frame(now) {
       const lookahead = 0.075;
       const futurePhase = state.continuousPosition + (state.playing ? state.direction * state.speed * lookahead : 0);
       const futureDegrees = state.autoRotate ? state.rotationSpeed * 360 * lookahead : 0;
-      const future = transformedTesseract(rotation({
+      const future = transformedHyperShape(state.shapeType, rotation({
         xw: state.rotationXW + futureDegrees,
         yw: state.rotationYW + futureDegrees * 0.57,
         zw: state.rotationZW - futureDegrees * 0.31,
@@ -394,7 +410,8 @@ function frame(now) {
     $(`rotation${axis}`).value = String(state[`rotation${axis}`]);
     $(`rotation${axis}Out`).textContent = `${Math.round(state[`rotation${axis}`])}°`;
   }
-  $("stageReadout").textContent = `TESSERACT · ${contacts.length} CONTACT${contacts.length === 1 ? "" : "S"} · ${state.audio ? `${Math.min(voices.length, 32)} VOICES` : "AUDIO OFF"}`;
+  const shapeLabel = (SHAPE_LABELS[state.shapeType] ?? "Tesseract").toUpperCase();
+  $("stageReadout").textContent = `${shapeLabel} · ${contacts.length} CONTACT${contacts.length === 1 ? "" : "S"} · ${state.audio ? `${Math.min(voices.length, 32)} VOICES` : "AUDIO OFF"}`;
   if (state.playing || state.autoRotate) scheduleFrame();
 }
 

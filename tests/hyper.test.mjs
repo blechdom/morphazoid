@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  buildHyperPyramid,
+  buildHypersphere,
+  buildKleinBottle,
+  buildHyperShape,
   buildTesseract,
   hyperplaneIntersections,
   projectPoint4,
@@ -26,6 +30,26 @@ test("4D rotation and W-plane contacts remain finite", () => {
   }
 });
 
+test("Hyper exposes finite hypersphere, hyperpyramid, and Klein wireframes", () => {
+  const shapes = {
+    hypersphere: buildHypersphere(),
+    hyperpyramid: buildHyperPyramid(),
+    klein: buildKleinBottle(),
+  };
+  for (const [type, shape] of Object.entries(shapes)) {
+    assert.ok(shape.vertices.length >= 5, `${type} needs vertices`);
+    assert.ok(shape.edges.length >= shape.vertices.length, `${type} needs a connected wireframe`);
+    assert.ok(shape.vertices.every((point) => (
+      [point.x, point.y, point.z, point.w].every(Number.isFinite)
+    )));
+    assert.ok(shape.edges.every((edge) => (
+      edge.a >= 0 && edge.a < shape.vertices.length
+      && edge.b >= 0 && edge.b < shape.vertices.length
+    )));
+    assert.deepEqual(buildHyperShape(type), shape);
+  }
+});
+
 test("Hyper defaults to manual rotation and maps canvas drag to XW/YW", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("../hyper.html", import.meta.url), "utf8"),
@@ -35,7 +59,12 @@ test("Hyper defaults to manual rotation and maps canvas drag to XW/YW", async ()
   assert.match(html, /id="manualRotation"[^>]*aria-pressed="true"/);
   assert.match(html, /id="autoRotation"[^>]*aria-pressed="false"/);
   assert.match(html, /id="canvasInstructions"/);
+  assert.match(html, /id="hyperShape"/);
+  assert.match(html, /Hypersphere/);
+  assert.match(html, /Hyperpyramid/);
+  assert.match(html, /Klein bottle/);
   assert.match(app, /autoRotate: false/);
+  assert.match(app, /transformedHyperShape\(state\.shapeType/);
   assert.match(app, /canvas\.addEventListener\("pointerdown"/);
   assert.match(app, /state\.rotationYW = normalizeDegrees/);
   assert.match(app, /state\.rotationXW = normalizeDegrees/);

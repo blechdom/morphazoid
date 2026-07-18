@@ -55,6 +55,7 @@ function createRing(order = 0) {
     buffer: null,
     reverseBuffer: null,
     envelope: waveformEnvelope([], DRAW_SAMPLES),
+    envelopePeak: 1,
     duration: 0,
     direction: 1,
     phase: 0,
@@ -104,6 +105,7 @@ let cssHeight = 1;
 let pixelRatio = 1;
 let scheduledFrame = 0;
 let lastUiUpdate = 0;
+let lastRingListSignature = "";
 let pointerGesture = null;
 let hoverVertex = -1;
 let audioChanging = false;
@@ -966,6 +968,7 @@ function rebuildRingAudio(ring, { restart = true } = {}) {
   ring.buffer = makeAudioBuffer(processed, ring.sampleRate);
   ring.reverseBuffer = makeAudioBuffer(reverseSamples(processed), ring.sampleRate);
   ring.envelope = waveformEnvelope(processed, DRAW_SAMPLES);
+  ring.envelopePeak = measureEnvelopePeak(ring.envelope);
   ring.duration = ring.buffer.duration;
   anchorRing(ring, ring.phase);
   if (wasPlaying) startRingSource(ring);
@@ -1029,7 +1032,18 @@ function formatDuration(seconds) {
 }
 
 function renderRingList(selectedRing) {
-  $("ringList").innerHTML = orderedRings().map((ring, index) => {
+  const rings = orderedRings();
+  const signature = rings.map((ring) => [
+    ring.id,
+    ring.id === selectedRing.id ? 1 : 0,
+    ring.buffer ? ringCycleDuration(ring).toFixed(4) : "empty",
+    ring.muted ? 1 : 0,
+    state.soloRingId === ring.id ? 1 : 0,
+    ring.color,
+  ].join(":")).join("|");
+  if (signature === lastRingListSignature) return;
+  lastRingListSignature = signature;
+  $("ringList").innerHTML = rings.map((ring, index) => {
     const soloed = state.soloRingId === ring.id;
     const status = ring.buffer
       ? `${formatDuration(ringCycleDuration(ring))}${ring.muted ? " · muted" : soloed ? " · solo" : ""}`
@@ -1188,6 +1202,14 @@ function envelopeSample(values, phase) {
   return values[first] + (values[second] - values[first]) * amount;
 }
 
+function measureEnvelopePeak(envelope) {
+  let peak = 0;
+  for (const values of [envelope?.minimums, envelope?.maximums]) {
+    for (const value of values ?? []) peak = Math.max(peak, Math.abs(value));
+  }
+  return Math.max(0.12, peak);
+}
+
 function activeEnvelope(ring) {
   if (state.recording && ring.id === recordingTargetId) {
     return waveformEnvelope(liveSamples, Math.min(DRAW_SAMPLES, liveSamples.length || 1));
@@ -1241,7 +1263,7 @@ function ringPoint(ring, phase, geometry, envelope, edge = "center") {
   let amplitude = 0;
   if (edge === "outer") amplitude = envelopeSample(envelope.maximums, phase);
   else if (edge === "inner") amplitude = envelopeSample(envelope.minimums, phase);
-  const waveformOffset = amplitude * geometry.radius * 0.18;
+  const waveformOffset = amplitude / Math.max(0.12, ring.envelopePeak) * geometry.radius * 0.24;
   return projectRingPoint(
     point.x * scale + radialX / radialLength * waveformOffset,
     point.y * scale + radialY / radialLength * waveformOffset,
@@ -1286,7 +1308,7 @@ function drawRing(ring, geometry, envelope) {
   context.fill();
   if (!hasSignal || !ringIsAudible(ring)) context.setLineDash([4, 8]);
   context.strokeStyle = colorWithAlpha(ring.color, hasSignal ? 0.92 : 0.48);
-  context.lineWidth = selected ? 1.6 : 1;
+  context.lineWidth = selected ? 2 : 1.25;
   context.shadowColor = colorWithAlpha(ring.color, 0.35);
   context.shadowBlur = hasSignal ? 10 : 4;
   context.stroke();
@@ -1294,9 +1316,16 @@ function drawRing(ring, geometry, envelope) {
   context.shadowBlur = 0;
   context.setLineDash([]);
   traceRing(ring, geometry, envelope, "inner");
-  context.strokeStyle = colorWithAlpha(ring.color, 0.38);
-  context.lineWidth = 0.8;
+  context.strokeStyle = colorWithAlpha(ring.color, hasSignal ? 0.62 : 0.3);
+  context.lineWidth = hasSignal ? 1.2 : 0.8;
   context.stroke();
+  if (hasSignal) {
+    context.setLineDash([2, 5]);
+    traceRing(ring, geometry, envelope, "center");
+    context.strokeStyle = colorWithAlpha(ring.color, 0.3);
+    context.lineWidth = 0.7;
+    context.stroke();
+  }
   context.restore();
 }
 
@@ -1360,7 +1389,7 @@ function drawCenter(geometry) {
   context.fillText(headline, geometry.centerX, geometry.centerY - 6);
   context.font = `9px ${CANVAS_FONT}`;
   context.fillStyle = "rgba(119,131,126,.95)";
-  context.fillText(detail, geometry.centerX, geometry.centerY + 12);
+  if (detail) context.fillText(detail, geometry.centerX, geometry.centerY + 12);
   context.beginPath();
   context.arc(geometry.centerX, geometry.centerY, 2.5, 0, TAU);
   context.fillStyle = ring.color;
@@ -1478,7 +1507,29 @@ canvas.addEventListener("pointerdown", (event) => {
     vertexIndex = nearestVertex(data, ring, data.geometry);
   }
   ring.selectedVertex = vertexIndex >= 0 ? vertexIndex : ring.selectedVertex;
-  if (vertexIndex >= 0) {
+  if (vertexIndex >= 0 && (event.pointerType === "touch" || expandedMode)) {
+    const hit = nearestProjectedContourPhase(data, ring, data.geometry);
+    pointerGesture = {
+      type: "touch-pending",
+      pointerId: event.pointerId,
+      ringId: ring.id,
+      vertexIndex,
+      startPointer: { x: data.x, y: data.y },
+      startVertex: expandedMode ? null : { ...ring.vertices[vertexIndex] },
+      startOffset: expandedMode ? ring.radialOffsets[vertexIndex] : 0,
+      startDistance: Math.hypot(
+        data.x - data.geometry.centerX,
+        data.y - data.geometry.centerY,
+      ),
+      startAngle: Math.atan2(
+        data.y - data.geometry.centerY,
+        data.x - data.geometry.centerX,
+      ),
+      hitPhase: hit.phase,
+      lastMoveAt: performance.now(),
+      visualRotation: expandedMode && ring.buffer ? -ring.phase * TAU : 0,
+    };
+  } else if (vertexIndex >= 0) {
     if (expandedMode && ring.buffer) {
       captureRingPhase(ring);
       stopRingSource(ring);
@@ -1535,6 +1586,47 @@ canvas.addEventListener("pointermove", (event) => {
   }
   const ring = ringById(pointerGesture.ringId);
   if (!ring) return;
+  if (pointerGesture.type === "touch-pending") {
+    const distance = Math.hypot(
+      data.x - pointerGesture.startPointer.x,
+      data.y - pointerGesture.startPointer.y,
+    );
+    if (distance < 8) return;
+    const radius = Math.hypot(
+      data.x - data.geometry.centerX,
+      data.y - data.geometry.centerY,
+    );
+    const angle = Math.atan2(
+      data.y - data.geometry.centerY,
+      data.x - data.geometry.centerX,
+    );
+    const angleDelta = Math.atan2(
+      Math.sin(angle - pointerGesture.startAngle),
+      Math.cos(angle - pointerGesture.startAngle),
+    );
+    const radialMotion = Math.abs(radius - pointerGesture.startDistance);
+    const tangentialMotion = Math.abs(angleDelta) * Math.max(1, pointerGesture.startDistance);
+    if (tangentialMotion > radialMotion * 1.1) {
+      captureRingPhase(ring);
+      stopRingSource(ring);
+      ring.lastScrubAt = -Infinity;
+      state.scrubbing = true;
+      pointerGesture.type = "scrub";
+      pointerGesture.previousPhase = pointerGesture.hitPhase;
+      pointerGesture.startPhase = ring.phase;
+      pointerGesture.lastPointerAngle = pointerGesture.startAngle;
+      pointerGesture.accumulatedAngle = 0;
+      stageWrap.classList.add("is-spinning");
+    } else {
+      if (expandedMode && ring.buffer) {
+        captureRingPhase(ring);
+        stopRingSource(ring);
+        state.scrubbing = true;
+      }
+      pointerGesture.type = "vertex";
+      stageWrap.classList.add("is-deforming");
+    }
+  }
   if (pointerGesture.type === "vertex") {
     const scale = data.geometry.radius * ringScale(ring);
     if (expandedMode) {
@@ -1611,7 +1703,9 @@ function finishPointerGesture(event, announceResult = true) {
   pointerGesture = null;
   stageWrap.classList.remove("is-deforming", "is-spinning");
   canvas.style.cursor = "";
-  if (ring && gesture.type === "scrub") {
+  if (ring && gesture.type === "touch-pending") {
+    // A tap selects the handle; movement chooses scrub or radial edit.
+  } else if (ring && gesture.type === "scrub") {
     stopScrubVoice(ring);
     state.scrubbing = false;
     if (state.playing) startRingSource(ring);
@@ -1624,7 +1718,9 @@ function finishPointerGesture(event, announceResult = true) {
       state.scrubbing = false;
       if (state.playing) startRingSource(ring);
     }
-    if (announceResult) announce("Vertex moved freely in two dimensions.");
+    if (announceResult) {
+      announce(expandedMode ? "Vertex moved radially." : "Vertex moved freely in two dimensions.");
+    }
   }
   updateUi();
   scheduleFrame();
@@ -1649,6 +1745,12 @@ $("replaceRing").addEventListener("click", () => {
 $("playButton").addEventListener("click", () => void setPlaying(!state.playing));
 $("audioButton").addEventListener("click", () => void toggleAudio());
 $("clearAllRings").addEventListener("click", clearAllRings);
+$("ringList").addEventListener("pointerdown", (event) => {
+  const button = event.target.closest?.('[data-ring-action="select"]');
+  if (!button || button.disabled) return;
+  const ring = ringById(Number(button.dataset.ringId));
+  if (ring) setActiveRing(ring);
+});
 $("ringList").addEventListener("click", (event) => {
   const button = event.target.closest?.("[data-ring-action]");
   if (!button || button.disabled) return;

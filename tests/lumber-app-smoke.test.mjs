@@ -219,6 +219,17 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   assert.match(elements.get("ringList").innerHTML, /#e8c46b/i);
   assert.match(elements.get("ringList").innerHTML, /#5fe8c4/i);
   assert.ok(sources.every((source) => source.playbackRate.value === 1));
+  const selectRingWhilePlaying = (ringId) => listeners.get("ringList:pointerdown")({
+    target: {
+      closest() {
+        return { disabled: false, dataset: { ringId: String(ringId) } };
+      },
+    },
+  });
+  selectRingWhilePlaying(1);
+  assert.equal(elements.get("activeRingOut").textContent, "Ring 1 of 2");
+  selectRingWhilePlaying(2);
+  assert.equal(elements.get("activeRingOut").textContent, "Ring 2 of 2");
 
   const ringCountBeforeReplace = elements.get("activeRingOut").textContent;
   await recordWith(2, "replaceRing");
@@ -252,9 +263,9 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   await new Promise((resolve) => setImmediate(resolve));
   const sourcesBeforeScrub = sources.length;
   listeners.get("stage:pointerdown")(gesture(450, 117));
-  listeners.get("stage:pointermove")(gesture(480, 142));
-  listeners.get("stage:pointerup")(gesture(480, 142));
-  assert.match(elements.get("liveStatus").textContent, /two dimensions/);
+  listeners.get("stage:pointermove")(gesture(450, 90));
+  listeners.get("stage:pointerup")(gesture(450, 90));
+  assert.match(elements.get("liveStatus").textContent, /radially/);
 
   await new Promise((resolve) => setTimeout(resolve, 30));
   listeners.get("stage:pointerdown")(gesture(497, 123));
