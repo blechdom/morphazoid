@@ -4,13 +4,15 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("all four instruments share complete navigation", async () => {
-  const files = ["index.html", "lattice.html", "solid.html", "hyper.html"];
+test("all five instrument pages share complete navigation", async () => {
+  const files = ["index.html", "lattice.html", "solid.html", "hyper.html", "lumber.html"];
   const pages = await Promise.all(files.map((file) => readFile(new URL(file, root), "utf8")));
   for (const html of pages) {
-    for (const link of ["shape", "lattice", "solid", "hyper"]) {
+    for (const link of ["shape", "lattice", "solid", "hyper", "lumber"]) {
       assert.match(html, new RegExp(`>${link}<\\/a>`));
     }
+  }
+  for (const html of pages) {
     assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/, "sections should start collapsed");
   }
 });

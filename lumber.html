@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Lumber — a geometric live audio looper." />
+    <title>Lumber — Morphazoid</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="lumber-page" data-lumber-mode="expanded">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid Shape">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab active" href="lumber.html" aria-current="page">lumber</a>
+      </nav>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">≈</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+
+        <label class="header-level" for="level">
+          <span><b>Volume</b><output id="levelOut" for="level">70%</output></span>
+          <input id="level" aria-label="Loop volume" type="range" min="0" max="1" step="0.01" value="0.7" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="lumber">
+      <section class="stage" aria-label="Lumber loop stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Lumber looper canvas. Record a loop, then move its waveform vertices or spin it."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Rotating geometric audio rings with granular scrubbing.
+          </canvas>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">EMPTY RING · RING 1/1 · 0 SOUNDING</span>
+          </div>
+
+          <div class="probe-meta" aria-hidden="true">
+            <i></i><span>ROTATING RINGS · GRANULAR SCRUB · 3D DEPTH</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Lumber controls">
+        <details class="group control-section performance-group" id="loopSection">
+          <summary class="group-summary">
+            <h2 class="group-title">Transport</h2>
+            <span class="section-state" id="loopSummary">empty</span>
+          </summary>
+          <div class="group-body">
+            <div class="loop-transports" role="group" aria-label="Loop transport">
+              <button class="loop-transport record-transport" id="recordButton" type="button" aria-pressed="false">
+                <span class="record-glyph" aria-hidden="true"></span>
+                <span><b id="recordLabel">Record</b><small id="recordHint">new loop</small></span>
+              </button>
+
+              <button class="loop-transport playback-transport" id="playButton" type="button" aria-pressed="false" disabled>
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                <span><b id="playLabel">Play</b><small>loop</small></span>
+              </button>
+            </div>
+
+            <dl class="loop-metrics" aria-label="Current loop values">
+              <div><dt>Loop time</dt><dd><output id="durationOut">empty</output></dd></div>
+              <div><dt>Ring</dt><dd><output id="ringMetricOut">1 / 1</output></dd></div>
+              <div><dt>Direction</dt><dd><output id="directionOut">forward</output></dd></div>
+            </dl>
+            <div class="field-label">While recording</div>
+            <div class="choice-switch compact" id="recordBacking" role="group" aria-label="Existing ring playback while recording">
+              <button id="backingOff" type="button" data-value="off" aria-pressed="true">Pause rings</button>
+              <button id="backingOn" type="button" data-value="on" aria-pressed="false">Hear rings</button>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="ringSection">
+          <summary class="group-summary">
+            <h2 class="group-title">Ring management</h2>
+            <span class="section-state" id="ringSummary">1 ring · active 1</span>
+          </summary>
+          <div class="group-body">
+            <p class="active-ring-lead"><small>Active ring</small><output id="activeRingOut">Ring 1 of 1</output></p>
+            <div class="ring-list" id="ringList" aria-label="Ring list"></div>
+            <div class="ring-clear-row">
+              <button class="mini-action ring-remove" id="replaceRing" type="button" disabled>Replace active</button>
+              <button class="mini-action ring-remove ring-clear" id="clearAllRings" type="button">Clear all rings</button>
+            </div>
+            <div class="field-label">Active ring direction</div>
+            <div class="choice-switch compact" id="ringDirection" role="group" aria-label="Active ring playback direction">
+              <button id="rotateLeft" type="button" data-value="-1" aria-pressed="false">← Reverse</button>
+              <button id="rotateRight" type="button" data-value="1" aria-pressed="true">Forward →</button>
+            </div>
+            <p class="control-note">Use each inline Mute, Solo, or Delete button without changing selection. Record creates a new outer ring after the first take; Replace active explicitly overwrites the selected ring.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="shapeSection">
+          <summary class="group-summary">
+            <h2 class="group-title">Shape</h2>
+            <span class="section-state" id="shapeSummary">circle · 12 vertices</span>
+          </summary>
+          <div class="group-body">
+            <div class="field-label">Default shape</div>
+            <div class="choice-switch compact" id="shapePreset" role="group" aria-label="Active ring shape">
+              <button id="circlePreset" type="button" data-value="circle" aria-pressed="true">Circle</button>
+              <button id="trianglePreset" type="button" data-value="triangle" aria-pressed="false">Triangle</button>
+              <button id="squarePreset" type="button" data-value="square" aria-pressed="false">Square</button>
+            </div>
+
+            <div class="playhead-stepper lumber-vertex-stepper" id="vertexStepper" role="group" aria-label="Loop vertex count">
+              <button id="removeVertex" type="button" aria-label="Remove one loop vertex">−</button>
+              <span><small>Loop vertices</small><output id="vertexCountOut">12 vertices</output></span>
+              <button id="addVertex" type="button" aria-label="Add one loop vertex">+</button>
+            </div>
+
+            <p class="control-note">Handles keep their angular positions: push or pull them radially while the waveform ring rotates. Shape depth drives the local stretch/pitch contour.</p>
+            <button class="mini-action reset-form" id="resetShape" type="button">Reset to circle</button>
+          </div>
+        </details>
+
+        <details class="group control-section" id="advancedSection">
+          <summary class="group-summary">
+            <h2 class="group-title">Advanced playback</h2>
+            <span class="section-state" id="advancedSummary">native</span>
+          </summary>
+          <div class="group-body">
+            <div class="field-label">Shape timing</div>
+            <div class="choice-switch compact" id="timeMode" role="group" aria-label="Shape timing mode">
+              <button id="timeNative" type="button" data-value="native" aria-pressed="true">Native</button>
+              <button id="timeLocal" type="button" data-value="local" aria-pressed="false">Local stretch</button>
+            </div>
+            <label class="control" for="timeStretch">
+              <span><b>Local stretch depth</b><output id="timeStretchOut" for="timeStretch">0%</output></span>
+              <input id="timeStretch" type="range" min="0" max="1" step="0.01" value="0" />
+            </label>
+            <label class="control" for="pitchShift">
+              <span><b>Tape pitch</b><output id="pitchShiftOut" for="pitchShift">0 st</output></span>
+              <input id="pitchShift" type="range" min="-12" max="12" step="1" value="0" />
+            </label>
+            <p class="control-note"><b>Optional per ring.</b> Local stretch redistributes time around long and short edges while preserving the full recorded duration. Tape pitch changes playback speed and cycle length. Scrubbing remains granular and works while playing or paused.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="depthSection">
+          <summary class="group-summary">
+            <h2 class="group-title">3D view</h2>
+            <span class="section-state" id="depthSummary">flat</span>
+          </summary>
+          <div class="group-body">
+            <div class="field-label">View mode</div>
+            <div class="choice-switch compact" id="viewMode" role="group" aria-label="Lumber view mode">
+              <button id="viewFlat" type="button" data-value="flat" aria-pressed="true">Flat</button>
+              <button id="viewThreeD" type="button" data-value="3d" aria-pressed="false">Make 3D</button>
+            </div>
+            <label class="control" for="viewTilt">
+              <span><b>View tilt</b><output id="viewTiltOut" for="viewTilt">52°</output></span>
+              <input id="viewTilt" type="range" min="0" max="78" step="1" value="52" />
+            </label>
+            <label class="control" for="viewYaw">
+              <span><b>View orbit</b><output id="viewYawOut" for="viewYaw">−18°</output></span>
+              <input id="viewYaw" type="range" min="-80" max="80" step="1" value="-18" />
+            </label>
+            <label class="control" for="ringDepth">
+              <span><b>Active ring depth</b><output id="ringDepthOut" for="ringDepth">0%</output></span>
+              <input id="ringDepth" type="range" min="-1" max="1" step="0.01" value="0" />
+            </label>
+            <button class="mini-action reset-form" id="spreadDepth" type="button">Spread rings in depth</button>
+            <p class="control-note">Tilt and orbit the lumber form, then move each ring independently forward or backward along the depth axis. Audio remains unchanged.</p>
+          </div>
+        </details>
+
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">Lumber uses rotating waveform rings, radial shape handles, local time stretch, granular scrub, tape pitch, and 3D depth. Record creates a new outer ring; Replace Active overwrites only by explicit request. Drag a contour to scrub or push and pull a fixed-angle vertex radially.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="lumber-app.js"></script>
+  </body>
+</html>

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Morphazoid Shape and Lattice - geometric instruments for sounding contact.",
+  "description": "Morphazoid - geometric instruments for shape, lattice, spatial forms, and live audio loops.",
   "scripts": {
     "dev": "python3 -m http.server 3435",
     "start": "python3 -m http.server 3435",

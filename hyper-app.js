@@ -26,7 +26,7 @@ const state = {
   speed: 0.1,
   direction: 1,
   playing: false,
-  autoRotate: true,
+  autoRotate: false,
   rotationXW: 24,
   rotationYW: -18,
   rotationZW: 12,
@@ -46,6 +46,7 @@ let scheduledFrame = 0;
 let lastFrameTime = performance.now();
 let lastAudioTime = null;
 let previousSigns = null;
+let canvasDrag = null;
 
 function normalizeDegrees(value) {
   return ((value + 180) % 360 + 360) % 360 - 180;
@@ -130,6 +131,55 @@ function paintRotation() {
 }
 $("manualRotation").addEventListener("click", () => { state.autoRotate = false; paintRotation(); scheduleFrame(); });
 $("autoRotation").addEventListener("click", () => { state.autoRotate = true; paintRotation(); resetClocks(); scheduleFrame(); });
+
+function paintRotationAxes() {
+  for (const axis of ["XW", "YW", "ZW"]) {
+    $(`rotation${axis}`).value = String(state[`rotation${axis}`]);
+    $(`rotation${axis}Out`).textContent = `${Math.round(state[`rotation${axis}`])}°`;
+  }
+  paintRotation();
+}
+
+canvas.addEventListener("pointerdown", (event) => {
+  if (event.isPrimary === false || (event.button ?? 0) !== 0) return;
+  if (state.autoRotate) state.autoRotate = false;
+  canvasDrag = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    rotationXW: state.rotationXW,
+    rotationYW: state.rotationYW,
+  };
+  canvas.setPointerCapture(event.pointerId);
+  canvas.focus({ preventScroll: true });
+  stageWrap.classList.add("is-spinning");
+  paintRotation();
+  event.preventDefault();
+});
+
+canvas.addEventListener("pointermove", (event) => {
+  if (!canvasDrag || event.pointerId !== canvasDrag.pointerId) return;
+  const bounds = canvas.getBoundingClientRect();
+  const horizontal = (event.clientX - canvasDrag.startX) / Math.max(1, bounds.width);
+  const vertical = (event.clientY - canvasDrag.startY) / Math.max(1, bounds.height);
+  state.rotationYW = normalizeDegrees(canvasDrag.rotationYW + horizontal * 240);
+  state.rotationXW = normalizeDegrees(canvasDrag.rotationXW - vertical * 240);
+  previousSigns = null;
+  paintRotationAxes();
+  scheduleFrame();
+  event.preventDefault();
+});
+
+function finishCanvasDrag(event) {
+  if (!canvasDrag || event.pointerId !== canvasDrag.pointerId) return;
+  canvasDrag = null;
+  stageWrap.classList.remove("is-spinning");
+  paintRotationAxes();
+}
+
+canvas.addEventListener("pointerup", finishCanvasDrag);
+canvas.addEventListener("pointercancel", finishCanvasDrag);
+canvas.addEventListener("lostpointercapture", finishCanvasDrag);
 
 $("soundMode").addEventListener("change", (event) => {
   state.soundMode = event.currentTarget.value;

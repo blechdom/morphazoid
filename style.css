@@ -366,6 +366,78 @@ a {
   border-radius: 0;
 }
 
+.lumber-page {
+  --accent: #e8c46b;
+  --accent-soft: color-mix(in oklab, #e8c46b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #e8c46b 22%, transparent);
+}
+
+.lumber-page #loopSection {
+  --accent: #e8c46b;
+  --accent-soft: color-mix(in oklab, #e8c46b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #e8c46b 20%, transparent);
+}
+
+.lumber-page #ringSection {
+  --accent: #5fe8c4;
+  --accent-soft: color-mix(in oklab, #5fe8c4 55%, transparent);
+  --accent-glow: color-mix(in oklab, #5fe8c4 22%, transparent);
+}
+
+.lumber-page #shapeSection {
+  --accent: #c79bff;
+  --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #c79bff 20%, transparent);
+}
+
+.lumber-page #advancedSection {
+  --accent: #7db4ff;
+  --accent-soft: color-mix(in oklab, #7db4ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #7db4ff 22%, transparent);
+}
+
+.lumber-page #depthSection {
+  --accent: #ffb86b;
+  --accent-soft: color-mix(in oklab, #ffb86b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffb86b 20%, transparent);
+}
+
+.lumber-page .stage-wrap {
+  background:
+    linear-gradient(rgba(232, 196, 107, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(232, 196, 107, 0.022) 1px, transparent 1px),
+    radial-gradient(circle at 50% 48%, rgba(232, 196, 107, 0.06), transparent 39%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.lumber-page #stage {
+  cursor: default;
+}
+
+.lumber-page .stage-wrap.is-shaping #stage {
+  cursor: grabbing;
+}
+
+.lumber-page .stage-wrap.is-deforming #stage {
+  cursor: ns-resize;
+}
+
+.lumber-page .probe-meta i {
+  width: 10px;
+  height: 10px;
+  border-color: var(--accent);
+  box-shadow: 0 0 9px var(--accent-glow);
+}
+
+.hyper-page #stage {
+  cursor: grab;
+}
+
+.hyper-page .stage-wrap.is-spinning #stage {
+  cursor: grabbing;
+}
+
 .lattice-control-block {
   margin-top: 16px;
   padding-top: 14px;
@@ -562,6 +634,264 @@ a {
 
 .synth-panel[hidden] {
   display: none;
+}
+
+.loop-transports {
+  display: grid;
+  margin-bottom: 15px;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.playhead-stepper.lumber-vertex-stepper {
+  margin-top: 0;
+}
+
+.ring-clear-row {
+  display: grid;
+  margin-bottom: 14px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
+}
+
+.active-ring-lead {
+  display: flex;
+  margin: 0 0 8px;
+  color: var(--muted);
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.active-ring-lead output {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+}
+
+.ring-remove {
+  width: 100%;
+}
+
+.ring-clear:hover,
+.ring-clear:focus-visible {
+  border-color: rgba(255, 130, 111, 0.6);
+  color: #ff826f;
+}
+
+.ring-list {
+  display: grid;
+  margin: 0 0 7px;
+  border-top: 1px solid var(--line);
+}
+
+.ring-list-row {
+  display: grid;
+  min-height: 38px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: minmax(0, 1fr) repeat(3, 34px);
+}
+
+.ring-list-row > button {
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.ring-list-row > button:first-child {
+  display: grid;
+  padding: 5px 8px;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  text-align: left;
+}
+
+.ring-list-row > button:last-child {
+  border-right: 0;
+  font-size: 14px;
+}
+
+.ring-list-row i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ring-row-color);
+  box-shadow: 0 0 8px var(--ring-row-color);
+}
+
+.ring-list-row small {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ring-list-row.active > button:first-child {
+  color: var(--ink);
+  background: var(--accent-glow);
+}
+
+.ring-list-row.solo {
+  box-shadow: inset 2px 0 0 var(--ring-row-color, var(--accent));
+}
+
+.ring-list-row.solo > button[data-ring-action="solo"] {
+  color: var(--ink);
+  background: var(--accent-glow);
+}
+
+.ring-list-row > button:hover,
+.ring-list-row > button:focus-visible {
+  color: var(--accent);
+}
+
+.ring-list-row > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.loop-transport {
+  display: flex;
+  min-width: 0;
+  min-height: 60px;
+  padding: 9px 11px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--bg-deep);
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.loop-transport:hover,
+.loop-transport:focus-visible {
+  border-color: var(--accent-soft);
+  background: var(--accent-glow);
+}
+
+.loop-transport > span:last-child {
+  display: grid;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.loop-transport b {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.loop-transport small {
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loop-transport svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-linecap: square;
+  stroke-width: 2;
+}
+
+.loop-transport .transport-pause,
+.loop-transport[aria-pressed="true"] .transport-play {
+  display: none;
+}
+
+.loop-transport[aria-pressed="true"] .transport-pause {
+  display: block;
+}
+
+.record-glyph {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #ff826f;
+  border-radius: 50%;
+  background: rgba(255, 130, 111, 0.16);
+  box-shadow: 0 0 10px rgba(255, 130, 111, 0.18);
+  flex: 0 0 14px;
+}
+
+.record-transport[aria-pressed="true"] {
+  border-color: #ff826f;
+  background: rgba(255, 130, 111, 0.09);
+}
+
+.record-transport[aria-pressed="true"] .record-glyph {
+  border-radius: 1px;
+  background: #ff826f;
+  box-shadow: 0 0 12px rgba(255, 130, 111, 0.34);
+}
+
+.playback-transport[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 12px var(--accent-glow);
+}
+
+.loop-transport:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.record-transport:disabled {
+  cursor: wait;
+}
+
+.loop-metrics {
+  display: grid;
+  margin: 0 0 15px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.loop-metrics > div {
+  min-width: 0;
+  padding: 9px 8px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.loop-metrics dt {
+  overflow: hidden;
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.loop-metrics dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--ink);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .audio-button,
@@ -1575,6 +1905,78 @@ select:hover {
 
   .audio-copy b {
     font-size: 9px;
+  }
+
+  .tabs {
+    flex: 0 1 auto;
+  }
+
+  .tab {
+    padding-right: 5px;
+    padding-left: 5px;
+    font-size: 8px;
+  }
+
+  .audio-strip {
+    width: min(122px, 38vw);
+    grid-template-columns: 56px minmax(54px, 1fr);
+    gap: 4px;
+  }
+
+  .audio-button {
+    width: 56px;
+    min-width: 56px;
+    padding-right: 5px;
+    padding-left: 5px;
+    gap: 4px;
+  }
+
+  .audio-glyph {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 520px) {
+  .masthead {
+    padding-right: 10px;
+    padding-left: 10px;
+    gap: 8px;
+  }
+
+  .tabs {
+    min-width: 0;
+    flex: 1 1 auto;
+    justify-content: space-between;
+  }
+
+  .tab {
+    min-width: 0;
+    padding-right: 4px;
+    padding-left: 4px;
+    font-size: 8px;
+  }
+
+  .audio-strip {
+    width: 56px;
+    flex: 0 0 56px;
+    grid-template-columns: 56px;
+    gap: 0;
+  }
+
+  .header-level {
+    display: none;
+  }
+
+  .audio-button {
+    width: 56px;
+    min-width: 56px;
+    padding-right: 5px;
+    padding-left: 5px;
+    gap: 4px;
+  }
+
+  .audio-glyph {
+    font-size: 12px;
   }
 }
 

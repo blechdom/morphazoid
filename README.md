@@ -1,6 +1,6 @@
 # Morphazoid
 
-Four geometric instruments for sounding contact.
+Five geometric instruments for sounding contact and recorded motion.
 
 **Shape** is a two-dimensional instrument: one to twelve point heads trace the boundary, one to four parallel or crossed scan lines read contour intersections, or center-rooted radar rays rotate clockwise/counterclockwise through every contour hit. Scan lines stay inside the contour's projected bounds and can loop or ping-pong. Reader and rotation transports run independently at up to four cycles or revolutions per second. FM is the default voice.
 
@@ -9,6 +9,8 @@ Four geometric instruments for sounding contact.
 **Solid** extends the intersection instrument into 3D. Cube, pyramid, cone, and sphere wireframes are cut by an oriented 2D plane. Segment/plane contacts become voices, vertex crossings can become percussion, and the solid can rotate manually or automatically around all three visible axes.
 
 **Hyper** uses the same idea in 4D. A tesseract rotates through the XW, YW, and ZW planes while a moving W hyperplane sounds the intersected 4D segments. The projected visible height controls pitch and hidden-axis depth can drive FM or PM.
+
+**Lumber** is a traditional live audio looper drawn as differently colored concentric rings. Record New fills the sole initial empty ring, then creates and selects a new outer ring for every later take; replacing audio is a separate explicit Ring Management action. Rings can be selected, muted, reversed, audibly scrubbed, deleted, or cleared independently. Circle, triangle, and square presets only seed the contour: every vertex remains freely draggable in two dimensions. Collapsed Advanced Playback and 3D View sections optionally restore shape-driven local time stretching, tape-style pitch/speed shifting, camera tilt/orbit, and independent ring depth without cluttering the default workflow.
 
 An optional prototile frame provides direct vertex editing without sacrificing tessellation validity. Movable corners are projected onto the selected family's native Tactile parameter space and keep the sliders synchronized; symmetry-fixed corners remain visibly locked. Tile solids retain their aspect/color identity as visual metadata, but no musical meaning is assigned to color yet so that mapping can be designed separately.
 

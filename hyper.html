@@ -12,7 +12,7 @@
     <header class="masthead">
       <a class="wordmark" href="#hyper" aria-label="Morphazoid Hyper"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="./">shape</a><a class="tab" href="lattice.html">lattice</a><a class="tab" href="solid.html">solid</a><a class="tab active" href="hyper.html" aria-current="page">hyper</a>
+        <a class="tab" href="./">shape</a><a class="tab" href="lattice.html">lattice</a><a class="tab" href="solid.html">solid</a><a class="tab active" href="hyper.html" aria-current="page">hyper</a><a class="tab" href="lumber.html">lumber</a>
       </nav>
       <div class="audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">◉</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
@@ -21,7 +21,7 @@
     </header>
     <main class="shell" id="hyper">
       <section class="stage" aria-label="Hyper stage"><div class="stage-wrap" id="stageWrap">
-        <canvas id="stage" tabindex="0" aria-label="A rotating tesseract read by a moving W hyperplane.">A projected four-dimensional wireframe.</canvas>
+        <canvas id="stage" tabindex="0" aria-label="A draggable tesseract read by a moving W hyperplane." aria-describedby="canvasInstructions liveStatus">A projected four-dimensional wireframe.</canvas>
         <div class="stage-meta" aria-hidden="true"><span id="stageReadout">TESSERACT · 0 CONTACTS · AUDIO OFF</span></div>
         <div class="probe-meta" aria-hidden="true"><i></i><span>3D HYPERPLANE PLAYER</span></div>
       </div></section>
@@ -31,13 +31,13 @@
           <label class="control" for="speed"><span><b>Hyperplane speed</b><output id="speedOut" for="speed">0.10 cyc/s</output></span><input id="speed" type="range" min="0.01" max="2" step="0.01" value="0.1" /></label>
           <button class="mini-action direction-action" id="directionButton" type="button">Direction · forward</button>
         </div></details>
-        <details class="group control-section" data-section="rotation"><summary class="group-summary"><h2 class="group-title">4D Rotation</h2><span class="section-state" id="rotationSummary">auto · XW</span></summary><div class="group-body">
-          <div class="choice-switch" id="rotationMode" role="group" aria-label="4D rotation"><button id="manualRotation" type="button" aria-pressed="false">Manual</button><button id="autoRotation" type="button" aria-pressed="true">Auto rotate</button></div>
+        <details class="group control-section" data-section="rotation"><summary class="group-summary"><h2 class="group-title">4D Rotation</h2><span class="section-state" id="rotationSummary">manual</span></summary><div class="group-body">
+          <div class="choice-switch" id="rotationMode" role="group" aria-label="4D rotation"><button id="manualRotation" type="button" aria-pressed="true">Manual</button><button id="autoRotation" type="button" aria-pressed="false">Auto rotate</button></div>
           <label class="control" for="rotationXW"><span><b>X–W plane</b><output id="rotationXWOut" for="rotationXW">24°</output></span><input id="rotationXW" type="range" min="-180" max="180" step="1" value="24" /></label>
           <label class="control" for="rotationYW"><span><b>Y–W plane</b><output id="rotationYWOut" for="rotationYW">−18°</output></span><input id="rotationYW" type="range" min="-180" max="180" step="1" value="-18" /></label>
           <label class="control" for="rotationZW"><span><b>Z–W plane</b><output id="rotationZWOut" for="rotationZW">12°</output></span><input id="rotationZW" type="range" min="-180" max="180" step="1" value="12" /></label>
           <label class="control" for="rotationSpeed"><span><b>Auto rotation</b><output id="rotationSpeedOut" for="rotationSpeed">0.06 rev/s</output></span><input id="rotationSpeed" type="range" min="0" max="0.5" step="0.01" value="0.06" /></label>
-          <p class="control-note">These are true 4D rotations: each control mixes one visible axis with W before perspective projection.</p>
+          <p class="control-note">Drag the canvas to rotate X–W and Y–W directly. Z–W stays independent. Auto rotate remains optional.</p>
         </div></details>
         <details class="group control-section" data-section="sound"><summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state" id="soundSummary">FM</span></summary><div class="group-body">
           <label class="select-control" for="soundMode"><span class="field-label">Voice</span><span class="select-shell"><select id="soundMode"><option value="fm" selected>FM · W-depth index</option><option value="sine">Sine · edge envelope</option><option value="percussion">Percussion · 4D corners</option><option value="shepard">Shepard · hyperplane cycle</option><option value="pm">PM · W-depth phase</option></select></span></label>
@@ -47,6 +47,7 @@
           <p class="control-note">Pitch follows projected height; modulation follows hidden-axis depth. Shepard rate is locked to the hyperplane transport.</p><p class="audio-error" id="audioError" role="alert" hidden></p>
         </div></details>
       </aside>
+      <p class="sr-only" id="canvasInstructions">Drag horizontally to rotate the tesseract through Y–W and vertically to rotate through X–W. Dragging switches rotation to Manual and does not move the W hyperplane or enable audio.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="hyper-app.js"></script>

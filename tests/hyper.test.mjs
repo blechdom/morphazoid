@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -23,4 +24,20 @@ test("4D rotation and W-plane contacts remain finite", () => {
     assert.ok([point.x, point.y, point.z, point.w].every(Number.isFinite));
     assert.ok([projectPoint4(point).x, projectPoint4(point).y].every(Number.isFinite));
   }
+});
+
+test("Hyper defaults to manual rotation and maps canvas drag to XW/YW", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("../hyper.html", import.meta.url), "utf8"),
+    readFile(new URL("../hyper-app.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(html, /id="rotationSummary">manual</);
+  assert.match(html, /id="manualRotation"[^>]*aria-pressed="true"/);
+  assert.match(html, /id="autoRotation"[^>]*aria-pressed="false"/);
+  assert.match(html, /id="canvasInstructions"/);
+  assert.match(app, /autoRotate: false/);
+  assert.match(app, /canvas\.addEventListener\("pointerdown"/);
+  assert.match(app, /state\.rotationYW = normalizeDegrees/);
+  assert.match(app, /state\.rotationXW = normalizeDegrees/);
+  assert.doesNotMatch(app, /state\.rotationZW = normalizeDegrees\(canvasDrag/);
 });
