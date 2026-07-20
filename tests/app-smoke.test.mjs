@@ -227,7 +227,6 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("lineCountControl").hidden, true);
   assert.equal(elements.get("lineLayoutControl").hidden, true);
   assert.equal(elements.get("scanMotionControl").hidden, true);
-  assert.equal(elements.get("probeType").textContent, "1 TRACE HEAD");
   assert.equal(elements.get("soundMode").value, "sine");
   assert.equal(elements.get("sineArticulation").hidden, false);
   assert.equal(elements.get("percussionArticulation").hidden, true);
@@ -408,7 +407,6 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("radialMode:click")();
   assert.equal(attributes.get("radialMode:aria-pressed"), "true");
   assert.equal(elements.get("positionLabel").textContent, "Radar angle");
-  assert.equal(elements.get("probeType").textContent, "1 RADAR RAY");
   queuedFrame(1_550);
   assert.match(elements.get("stageReadout").textContent, /1 RAY/);
   elements.get("pitchSource").value = "center";
@@ -440,7 +438,6 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("lineCountControl").hidden, true);
   assert.equal(elements.get("lineLayoutControl").hidden, true);
   assert.equal(elements.get("scanMotionControl").hidden, true);
-  assert.equal(elements.get("probeType").textContent, "1 TRACE HEAD");
   queuedFrame(2_000);
   assert.match(elements.get("stageReadout").textContent, /1 POINT/);
 
@@ -464,7 +461,6 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   elements.get("heads").value = "12";
   listeners.get("heads:input")();
   queuedFrame(2_500);
-  assert.equal(elements.get("probeType").textContent, "12 TRACE HEADS");
   assert.match(elements.get("stageReadout").textContent, /12 POINTS/);
 
   listeners.get("scanMode:click")();

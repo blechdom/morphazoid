@@ -368,11 +368,6 @@ function updateLineControls() {
   const showLayout = state.playMethod === "scan" && state.lineCount > 1;
   $("lineLayoutControl").hidden = !showLayout;
   $("scanMotionControl").hidden = state.playMethod !== "scan";
-  $("probeType").textContent = state.playMethod === "scan"
-    ? `${state.lineCount} ${activeLineLayout().toUpperCase()} ${plural(state.lineCount, "LINE", "LINES")}`
-    : state.playMethod === "radial"
-      ? `${state.heads} RADAR ${plural(state.heads, "RAY", "RAYS")}`
-    : `${state.heads} TRACE ${plural(state.heads, "HEAD", "HEADS")}`;
   updateTraversalDirection();
   updateCanvasLabel();
   renderHeadLayout();
