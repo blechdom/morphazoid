@@ -288,7 +288,8 @@ test("lattice app renders and plays line contacts", async () => {
   assert.equal(oscillators.length, 16, "FM fallback must reuse the continuous pool");
   elements.get("parameter0").value = "0.15";
   listeners.get("parameter0:input")();
-  queuedFrame(performance.now() + 20);
+  now += 20;
+  queuedFrame(now);
   assert.ok(
     voiceGains.every((gain) => gain.gain.value <= 0.1),
     "form edits must not reapply intersection accents to continuous synths",
@@ -313,11 +314,16 @@ test("lattice app renders and plays line contacts", async () => {
   now += 80;
   queuedFrame(now);
   assert.equal(elements.get("percussionArticulation").hidden, false);
+  for (let frameIndex = 0; frameIndex < 30 && oscillators.length === 16; frameIndex += 1) {
+    now += 100;
+    queuedFrame(now);
+  }
   assert.ok(oscillators.length > 16, "new line intersections should trigger percussion strikes");
   const strikesBeforeFormEdit = oscillators.length;
   elements.get("parameter0").value = "0.18";
   listeners.get("parameter0:input")();
-  queuedFrame(performance.now() + 20);
+  now += 20;
+  queuedFrame(now);
   assert.equal(
     oscillators.length,
     strikesBeforeFormEdit,

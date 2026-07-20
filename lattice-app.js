@@ -208,6 +208,7 @@ const contactOnsets = new Map();
 const contactLastSeen = new Map();
 const movableVertexCache = new Map();
 let suppressContactOnsetsUntil = 0;
+let suppressContactOnsetFrames = 0;
 
 function wrap01(value) {
   const wrapped = value % 1;
@@ -249,6 +250,7 @@ function suppressGeometryOnsets(duration = GEOMETRY_EDIT_SETTLE_MS) {
     suppressContactOnsetsUntil,
     performance.now() + duration,
   );
+  suppressContactOnsetFrames = Math.max(suppressContactOnsetFrames, 2);
 }
 
 function invalidateGeometry() {
@@ -1306,7 +1308,8 @@ function frame(now) {
   const scan = createScanLine(viewBounds, 0.5, state.angle);
   const offset = latticeOffsetForPhase(lattice, state.position);
   const rawContacts = contactsForLine(lattice, scan, undefined, offset);
-  const geometryEditing = now < suppressContactOnsetsUntil;
+  const geometryEditing = suppressContactOnsetFrames > 0 || now < suppressContactOnsetsUntil;
+  if (suppressContactOnsetFrames > 0) suppressContactOnsetFrames -= 1;
   const contacts = addIntersectionAccents(rawContacts, now / 1000, geometryEditing);
   const voicedContacts = centeredContactWindow(contacts, state.voiceCap);
   const data = voiceData(voicedContacts);
