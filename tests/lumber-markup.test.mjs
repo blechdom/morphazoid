@@ -49,6 +49,8 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.match(html, />Reset delay ring<\/button>/);
   assert.match(html, />Stereo spread</);
   assert.doesNotMatch(html, /delay brush|delay paint|brush size/i);
+  assert.match(html, /id="backingOff"[^>]*aria-pressed="false"[^>]*>Pause rings/);
+  assert.match(html, /id="backingOn"[^>]*aria-pressed="true"[^>]*>Hear rings/);
 
   assert.match(app, /getUserMedia/);
   assert.match(app, /createScriptProcessor/);

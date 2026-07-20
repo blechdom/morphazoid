@@ -214,6 +214,8 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   assert.ok(arcs >= 12, "the empty default contour and vertices must render");
   assert.equal(elements.get("vertexCountOut").textContent, "12 vertices");
   assert.match(elements.get("stageReadout").textContent, /EMPTY RING/);
+  assert.equal(attributes.get("backingOff:aria-pressed"), "false");
+  assert.equal(attributes.get("backingOn:aria-pressed"), "true");
 
   const input = Float32Array.from(
     { length: 2_048 },

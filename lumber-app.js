@@ -96,7 +96,7 @@ const state = {
   playing: false,
   recording: false,
   scrubbing: false,
-  backingDuringRecord: false,
+  backingDuringRecord: true,
   view3d: false,
   viewTilt: 52,
   viewYaw: -18,
