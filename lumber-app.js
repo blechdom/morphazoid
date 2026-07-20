@@ -5,16 +5,15 @@ import {
   loopPhaseAtTime,
   MAX_VERTEX_COUNT,
   MIN_VERTEX_COUNT,
+  mixDelayParametersFromOffsets,
   moveVertex,
   pointOnContour,
-  paintDelayMask,
   presetVertices,
   radialContourVertices,
   removeContourVertex,
   reverseSamples,
   scrubPhaseFromAngle,
   scrubRateFromMotion,
-  sampleDelayMask,
   pitchShiftLoopSamplesByContour,
   waveformEnvelope,
   wrap01,
@@ -29,9 +28,12 @@ const MIN_RECORD_SECONDS = 0.15;
 const MAX_RINGS = 5;
 const MIN_RADIAL_OFFSET = -0.42;
 const MAX_RADIAL_OFFSET = 0.62;
+const FX_RING_MIN_OFFSET = -0.34;
+const FX_RING_MAX_OFFSET = 0.34;
+const FX_RING_SCALE = 1.72;
 const WAVEFORM_RADIUS = 0.065;
-const STORAGE_KEY = "morphazoid:lumber:audio:v2";
 const RING_COLORS = ["#e8c46b", "#5fe8c4", "#7db4ff", "#c79bff", "#ff826f"];
+const FX_RING_COLOR = "#ff826f";
 const CANVAS_FONT = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 const expandedMode = document.body?.dataset?.lumberMode === "expanded";
 
@@ -57,10 +59,6 @@ function createRing(order = 0) {
     lengthRatio: 1,
     headCount: 1,
     headOffsets: [0],
-    delayPaint: new Float32Array(64),
-    delayTime: 0.28,
-    delayFeedback: 0.34,
-    delayWet: 0.62,
     filterTone: 0.86,
     filterResonance: 0,
     pan: 0,
@@ -90,25 +88,12 @@ const state = {
   view3d: false,
   viewTilt: 52,
   viewYaw: -18,
-  brushMode: "off",
-  brushSize: 0.06,
+  delayRing: null,
   level: 0.7,
   rings: [firstRing],
   activeRingId: firstRing.id,
   soloRingId: null,
 };
-
-try {
-  const stored = JSON.parse(globalThis.localStorage?.getItem(STORAGE_KEY) ?? "null");
-  if (stored && Number.isFinite(Number(stored.level))) {
-    state.level = clamp(Number(stored.level), 0, 1);
-  }
-  if (stored && typeof stored.backingDuringRecord === "boolean") {
-    state.backingDuringRecord = stored.backingDuringRecord;
-  }
-} catch {
-  // Persistence is optional.
-}
 
 const canvas = $("stage");
 const context = canvas.getContext("2d");
@@ -122,7 +107,7 @@ let lastUiUpdate = 0;
 let lastRingListSignature = "";
 let pointerGesture = null;
 let hoverVertex = -1;
-let brushCursor = null;
+let fxHoverVertex = -1;
 let audioChanging = false;
 let recordChanging = false;
 let transportGeneration = 0;
@@ -130,6 +115,9 @@ let transportGeneration = 0;
 let audioContext = null;
 let masterGain = null;
 let masterLimiter = null;
+let mixDelaySend = null;
+let mixDelayNode = null;
+let mixDelayFeedback = null;
 
 let mediaStream = null;
 let microphoneSource = null;
@@ -203,17 +191,6 @@ function ringVertexCount(ring) {
 function ringAudioVertices(ring) {
   if (!expandedMode) return ring.vertices;
   return ringRadialVertices(ring);
-}
-
-function persistSettings() {
-  try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify({
-      level: state.level,
-      backingDuringRecord: state.backingDuringRecord,
-    }));
-  } catch {
-    // Audio remains usable without storage.
-  }
 }
 
 function orderedRings() {
@@ -399,6 +376,23 @@ function ringFilterFrequency(ring) {
   return 180 + 19_820 * clamp(ring.filterTone, 0, 1) ** 3;
 }
 
+function mixDelayParameters() {
+  return mixDelayParametersFromOffsets(
+    state.delayRing?.radialOffsets,
+    FX_RING_MIN_OFFSET,
+    FX_RING_MAX_OFFSET,
+  );
+}
+
+function updateMixDelay() {
+  if (!audioContext) return;
+  const parameters = mixDelayParameters();
+  const now = audioContext.currentTime;
+  mixDelaySend?.gain.setTargetAtTime(parameters.wet, now, 0.02);
+  mixDelayNode?.delayTime.setTargetAtTime(parameters.time, now, 0.02);
+  mixDelayFeedback?.gain.setTargetAtTime(parameters.feedback, now, 0.02);
+}
+
 function updateRingEffects(ring) {
   const voice = ring?.source;
   if (!voice || !audioContext) return;
@@ -406,12 +400,6 @@ function updateRingEffects(ring) {
   voice.filter?.frequency.setTargetAtTime(ringFilterFrequency(ring), now, 0.02);
   voice.filter?.Q.setTargetAtTime(ring.filterResonance, now, 0.02);
   voice.panner?.pan.setTargetAtTime(ring.pan, now, 0.02);
-  if (voice.delaySend) {
-    const amount = sampleDelayMask(ring.delayPaint, currentPhase(ring));
-    voice.delaySend.gain.setTargetAtTime(amount * ring.delayWet, now, 0.012);
-    voice.delay.delayTime.setTargetAtTime(ring.delayTime, now, 0.02);
-    voice.feedback.gain.setTargetAtTime(ring.delayFeedback, now, 0.02);
-  }
 }
 
 function startRingSource(ring) {
@@ -440,26 +428,6 @@ function startRingSource(ring) {
     effectNodes.push(panner);
   }
   output.connect(masterGain);
-  let delaySend = null;
-  let delay = null;
-  let feedback = null;
-  if (typeof audioContext.createDelay === "function") {
-    delaySend = audioContext.createGain();
-    delay = audioContext.createDelay(2);
-    feedback = audioContext.createGain();
-    const wet = audioContext.createGain();
-    delaySend.gain.value = 0;
-    delay.delayTime.value = ring.delayTime;
-    feedback.gain.value = ring.delayFeedback;
-    wet.gain.value = 1;
-    output.connect(delaySend);
-    delaySend.connect(delay);
-    delay.connect(wet);
-    wet.connect(masterGain);
-    delay.connect(feedback);
-    feedback.connect(delay);
-    effectNodes.push(delaySend, delay, feedback, wet);
-  }
   const sources = [];
   const headCount = Math.round(clamp(ring.headCount, 1, 4));
   const headOffsets = ringHeadOffsets(ring);
@@ -488,9 +456,6 @@ function startRingSource(ring) {
     gain,
     filter,
     panner,
-    delaySend,
-    delay,
-    feedback,
     nodes: effectNodes,
   };
   anchorRing(ring, ring.phase);
@@ -582,6 +547,7 @@ async function ensureAudio() {
     audioContext = new AudioContextClass();
     masterGain = audioContext.createGain();
     masterGain.gain.value = 0;
+    let masterOutput = audioContext.destination;
     if (typeof audioContext.createDynamicsCompressor === "function") {
       masterLimiter = audioContext.createDynamicsCompressor();
       masterLimiter.threshold?.setValueAtTime?.(-8, audioContext.currentTime);
@@ -591,14 +557,32 @@ async function ensureAudio() {
       masterLimiter.release?.setValueAtTime?.(0.16, audioContext.currentTime);
       masterGain.connect(masterLimiter);
       masterLimiter.connect(audioContext.destination);
+      masterOutput = masterLimiter;
     } else {
       masterGain.connect(audioContext.destination);
+    }
+    if (typeof audioContext.createDelay === "function") {
+      mixDelaySend = audioContext.createGain();
+      mixDelayNode = audioContext.createDelay(2);
+      mixDelayFeedback = audioContext.createGain();
+      const mixDelayWet = audioContext.createGain();
+      mixDelaySend.gain.value = 0;
+      mixDelayNode.delayTime.value = 0.28;
+      mixDelayFeedback.gain.value = 0;
+      mixDelayWet.gain.value = 1;
+      masterGain.connect(mixDelaySend);
+      mixDelaySend.connect(mixDelayNode);
+      mixDelayNode.connect(mixDelayWet);
+      mixDelayWet.connect(masterOutput);
+      mixDelayNode.connect(mixDelayFeedback);
+      mixDelayFeedback.connect(mixDelayNode);
     }
   }
   if (audioContext.state !== "running" && audioContext.state !== "closed") {
     await audioContext.resume();
   }
   paintMasterGain();
+  updateMixDelay();
   return audioContext;
 }
 
@@ -952,34 +936,25 @@ function setRingHeadOffset(index, value, restart = false) {
   scheduleFrame();
 }
 
-function paintDelayAt(ring, phase) {
-  const target = state.brushMode === "erase" ? 0 : 1;
-  ring.delayPaint = paintDelayMask(
-    ring.delayPaint,
-    phase,
-    target,
-    state.brushSize,
-  );
-  updateRingEffects(ring);
-}
-
-function clearActiveDelayPaint() {
-  const ring = activeRing();
-  ring.delayPaint = new Float32Array(ring.delayPaint.length);
-  updateRingEffects(ring);
+function addDelayRing() {
+  if (state.delayRing || state.recording || recordChanging) return;
+  state.delayRing = {
+    radialOffsets: Array(DEFAULT_VERTEX_COUNT).fill(0),
+    selectedVertex: 0,
+  };
+  updateMixDelay();
   updateUi();
   scheduleFrame();
-  announce(`Delay paint cleared from ring ${ringOrdinal(ring)}.`);
+  announce("Delay ring added to the full mix.");
 }
 
-function clearAllDelayPaint() {
-  for (const ring of state.rings) {
-    ring.delayPaint = new Float32Array(ring.delayPaint.length);
-    updateRingEffects(ring);
-  }
+function removeDelayRing() {
+  if (!state.delayRing || state.recording || recordChanging) return;
+  state.delayRing = null;
+  updateMixDelay();
   updateUi();
   scheduleFrame();
-  announce("Delay paint cleared from all rings.");
+  announce("Delay ring removed. The mix is dry.");
 }
 
 function spreadRingDepths() {
@@ -1416,18 +1391,17 @@ function updateUi() {
   $("advancedSummary").textContent = `${ring.timingMode} · ${ring.lengthRatio}× · ${ring.headCount}h`
     + ` · pitch ${Math.round(ring.shapePitchDepth * 100)}%`;
 
-  for (const button of $("brushMode").querySelectorAll("button")) {
-    setPressed(button, button.dataset.value === state.brushMode);
-    button.disabled = locked;
-  }
-  $("brushSize").value = String(state.brushSize);
-  $("brushSizeOut").textContent = `${Math.round(state.brushSize * 100)}%`;
-  $("delayTime").value = String(ring.delayTime);
-  $("delayTimeOut").textContent = `${Math.round(ring.delayTime * 1000)} ms`;
-  $("delayFeedback").value = String(ring.delayFeedback);
-  $("delayFeedbackOut").textContent = `${Math.round(ring.delayFeedback * 100)}%`;
-  $("delayWet").value = String(ring.delayWet);
-  $("delayWetOut").textContent = `${Math.round(ring.delayWet * 100)}%`;
+  const delay = mixDelayParameters();
+  $("addDelayRing").disabled = locked || Boolean(state.delayRing);
+  $("removeDelayRing").disabled = locked || !state.delayRing;
+  $("mixDelayWetOut").textContent = delay.wet <= 0.001
+    ? "dry"
+    : `${Math.round(delay.wet * 100)}%`;
+  $("mixDelayTimeOut").textContent = `${Math.round(delay.time * 1000)} ms`;
+  $("mixDelayFeedbackOut").textContent = `${Math.round(delay.feedback * 100)}%`;
+  $("effectsSummary").textContent = state.delayRing
+    ? `Delay ring · ${Math.round(delay.wet * 100)}% wet`
+    : "Delay ring · off";
   $("filterTone").value = String(ring.filterTone);
   const cutoff = ringFilterFrequency(ring);
   $("filterToneOut").textContent = cutoff >= 1000
@@ -1439,17 +1413,6 @@ function updateUi() {
   $("ringPanOut").textContent = Math.abs(ring.pan) < 0.01
     ? "center"
     : `${Math.round(Math.abs(ring.pan) * 100)}% ${ring.pan < 0 ? "left" : "right"}`;
-  const paintedAmount = ring.delayPaint.reduce((sum, value) => sum + value, 0)
-    / ring.delayPaint.length;
-  $("effectsRingOut").textContent = `Ring ${ordinal}`;
-  $("effectsSummary").textContent = paintedAmount > 0.005
-    ? `Ring ${ordinal} · ${Math.round(paintedAmount * 100)}% painted`
-    : `Ring ${ordinal} · clear`;
-  $("clearDelayPaint").disabled = locked || paintedAmount <= 0.001;
-  const anyDelayPaint = state.rings.some((item) => (
-    item.delayPaint.some((value) => value > 0.001)
-  ));
-  $("clearAllDelayPaint").disabled = locked || !anyDelayPaint;
 
   for (const button of $("viewMode").querySelectorAll("button")) {
     setPressed(button, (button.dataset.value === "3d") === state.view3d);
@@ -1496,7 +1459,7 @@ function stageGeometry() {
   return {
     centerX: cssWidth * 0.5,
     centerY: cssHeight * 0.5,
-    radius: Math.max(18, extent * 0.24),
+    radius: Math.max(18, extent * (state.delayRing ? 0.205 : 0.24)),
   };
 }
 
@@ -1652,53 +1615,56 @@ function drawRing(ring, geometry, envelope) {
   context.restore();
 }
 
-function drawDelayPaint(ring, geometry, envelope) {
-  const mask = ring.delayPaint;
-  if (!mask?.some((value) => value > 0.015)) return;
-  context.save();
-  context.lineCap = "round";
-  context.shadowColor = "#7db4ff";
-  context.shadowBlur = 9;
-  for (let index = 0; index < mask.length; index += 1) {
-    const amount = mask[index];
-    if (amount <= 0.015) continue;
-    const start = ringPoint(ring, index / mask.length, geometry, envelope, "outer");
-    const end = ringPoint(ring, (index + 1) / mask.length, geometry, envelope, "outer");
-    context.beginPath();
-    context.moveTo(start.x, start.y);
-    context.lineTo(end.x, end.y);
-    context.strokeStyle = `rgba(125,180,255,${0.24 + amount * 0.72})`;
-    context.lineWidth = 1.5 + amount * 4;
-    context.stroke();
-  }
-  context.restore();
+function delayRingPoint(phase, geometry) {
+  const vertices = radialContourVertices(
+    state.delayRing?.radialOffsets,
+    FX_RING_MIN_OFFSET,
+    FX_RING_MAX_OFFSET,
+  );
+  const point = pointOnContour(vertices, phase);
+  return {
+    x: geometry.centerX + point.x * geometry.radius * FX_RING_SCALE,
+    y: geometry.centerY + point.y * geometry.radius * FX_RING_SCALE,
+  };
 }
 
-function drawBrushCursor(geometry) {
-  if (state.brushMode === "off" || !brushCursor) return;
-  const ring = ringById(brushCursor.ringId);
-  if (!ring) return;
-  const point = { x: brushCursor.x, y: brushCursor.y };
-  const radius = clamp(
-    state.brushSize * TAU * geometry.radius * ringScale(ring),
-    7,
-    64,
-  );
-  const color = state.brushMode === "erase" ? "#ff826f" : "#7db4ff";
+function drawDelayRing(geometry) {
+  if (!state.delayRing) return;
+  const parameters = mixDelayParameters();
   context.save();
   context.beginPath();
-  context.arc(point.x, point.y, radius, 0, TAU);
-  context.fillStyle = colorWithAlpha(color, 0.06);
+  for (let index = 0; index <= DRAW_SAMPLES; index += 1) {
+    const point = delayRingPoint(index / DRAW_SAMPLES, geometry);
+    if (index) context.lineTo(point.x, point.y);
+    else context.moveTo(point.x, point.y);
+  }
+  context.closePath();
+  context.fillStyle = colorWithAlpha(FX_RING_COLOR, 0.025 + parameters.wet * 0.07);
   context.fill();
-  context.setLineDash([4, 4]);
-  context.strokeStyle = colorWithAlpha(color, 0.9);
-  context.lineWidth = 1;
+  context.strokeStyle = colorWithAlpha(FX_RING_COLOR, 0.62 + parameters.wet * 0.35);
+  context.lineWidth = 1.5 + parameters.wet * 2.5;
+  context.shadowColor = FX_RING_COLOR;
+  context.shadowBlur = 5 + parameters.feedback * 12;
   context.stroke();
-  context.setLineDash([]);
-  context.beginPath();
-  context.arc(point.x, point.y, 2, 0, TAU);
-  context.fillStyle = color;
-  context.fill();
+  context.shadowBlur = 0;
+  for (let index = 0; index < state.delayRing.radialOffsets.length; index += 1) {
+    const point = delayRingPoint(index / state.delayRing.radialOffsets.length, geometry);
+    const selected = index === state.delayRing.selectedVertex;
+    const hovered = index === fxHoverVertex;
+    context.beginPath();
+    context.arc(point.x, point.y, selected ? 6.5 : hovered ? 6 : 3.5, 0, TAU);
+    context.fillStyle = selected || hovered ? "#fff3d6" : colorWithAlpha(FX_RING_COLOR, 0.38);
+    context.fill();
+    context.strokeStyle = FX_RING_COLOR;
+    context.lineWidth = selected ? 1.5 : 1;
+    context.stroke();
+  }
+  const labelPoint = delayRingPoint(0, geometry);
+  context.font = `600 9px ${CANVAS_FONT}`;
+  context.textAlign = "center";
+  context.textBaseline = "bottom";
+  context.fillStyle = colorWithAlpha(FX_RING_COLOR, 0.9);
+  context.fillText("DELAY", labelPoint.x, labelPoint.y - 10);
   context.restore();
 }
 
@@ -1792,11 +1758,10 @@ function drawFrame() {
   for (const ring of rings) {
     const envelope = activeEnvelope(ring);
     drawRing(ring, geometry, envelope);
-    drawDelayPaint(ring, geometry, envelope);
     drawReadHead(ring, geometry, envelope);
     drawVertices(ring, geometry);
   }
-  drawBrushCursor(geometry);
+  drawDelayRing(geometry);
   drawCenter(geometry);
 }
 
@@ -1827,6 +1792,21 @@ function nearestVertex(data, ring, geometry) {
   let distance = ringVertexCount(ring) <= 4 ? 30 : 22;
   for (let index = 0; index < ringVertexCount(ring); index += 1) {
     const point = vertexScreenPoint(ring, index, geometry);
+    const nextDistance = Math.hypot(data.x - point.x, data.y - point.y);
+    if (nextDistance < distance) {
+      selected = index;
+      distance = nextDistance;
+    }
+  }
+  return selected;
+}
+
+function nearestDelayRingVertex(data) {
+  if (!state.delayRing) return -1;
+  let selected = -1;
+  let distance = 22;
+  for (let index = 0; index < state.delayRing.radialOffsets.length; index += 1) {
+    const point = delayRingPoint(index / state.delayRing.radialOffsets.length, data.geometry);
     const nextDistance = Math.hypot(data.x - point.x, data.y - point.y);
     if (nextDistance < distance) {
       selected = index;
@@ -1887,20 +1867,21 @@ canvas.addEventListener("pointerdown", (event) => {
   if (event.isPrimary === false || (event.button ?? 0) !== 0 || state.recording || recordChanging) return;
   canvas.focus({ preventScroll: true });
   const data = pointerData(event);
-  if (state.brushMode === "paint" || state.brushMode === "erase") {
-    const hit = nearestRingHit(data);
-    if (!hit) return;
-    brushCursor = { ringId: hit.ring.id, phase: hit.phase, x: data.x, y: data.y };
-    setActiveRing(hit.ring, false);
-    paintDelayAt(hit.ring, hit.phase);
+  const delayVertexIndex = nearestDelayRingVertex(data);
+  if (delayVertexIndex >= 0) {
+    state.delayRing.selectedVertex = delayVertexIndex;
     pointerGesture = {
-      type: "delay-paint",
+      type: "delay-ring-vertex",
       pointerId: event.pointerId,
-      ringId: hit.ring.id,
+      vertexIndex: delayVertexIndex,
+      startOffset: state.delayRing.radialOffsets[delayVertexIndex],
+      startDistance: Math.hypot(
+        data.x - data.geometry.centerX,
+        data.y - data.geometry.centerY,
+      ),
     };
     canvas.setPointerCapture(event.pointerId);
-    canvas.style.cursor = "none";
-    updateUi();
+    stageWrap.classList.add("is-deforming");
     scheduleFrame();
     event.preventDefault();
     return;
@@ -1987,13 +1968,10 @@ canvas.addEventListener("pointerdown", (event) => {
 canvas.addEventListener("pointermove", (event) => {
   const data = pointerData(event);
   if (!pointerGesture || event.pointerId !== pointerGesture.pointerId) {
-    if (state.brushMode !== "off") {
+    fxHoverVertex = state.recording ? -1 : nearestDelayRingVertex(data);
+    if (fxHoverVertex >= 0) {
       hoverVertex = -1;
-      const hit = nearestRingHit(data);
-      brushCursor = hit
-        ? { ringId: hit.ring.id, phase: hit.phase, x: data.x, y: data.y }
-        : null;
-      canvas.style.cursor = hit ? "none" : "crosshair";
+      canvas.style.cursor = "move";
       scheduleFrame();
       return;
     }
@@ -2002,19 +1980,27 @@ canvas.addEventListener("pointermove", (event) => {
     scheduleFrame();
     return;
   }
-  const ring = ringById(pointerGesture.ringId);
-  if (!ring) return;
-  if (pointerGesture.type === "delay-paint") {
-    const hit = nearestProjectedContourPhase(data, ring, data.geometry);
-    if (hit.distance <= 36) {
-      brushCursor = { ringId: ring.id, phase: hit.phase, x: data.x, y: data.y };
-      paintDelayAt(ring, hit.phase);
-    }
+  if (pointerGesture.type === "delay-ring-vertex") {
+    if (!state.delayRing) return;
+    const distance = Math.hypot(
+      data.x - data.geometry.centerX,
+      data.y - data.geometry.centerY,
+    );
+    state.delayRing.radialOffsets[pointerGesture.vertexIndex] = clamp(
+      pointerGesture.startOffset
+        + (distance - pointerGesture.startDistance)
+          / Math.max(1, data.geometry.radius * FX_RING_SCALE),
+      FX_RING_MIN_OFFSET,
+      FX_RING_MAX_OFFSET,
+    );
+    updateMixDelay();
     updateUi();
     scheduleFrame();
     event.preventDefault();
     return;
   }
+  const ring = ringById(pointerGesture.ringId);
+  if (!ring) return;
   if (pointerGesture.type === "touch-pending") {
     const distance = Math.hypot(
       data.x - pointerGesture.startPointer.x,
@@ -2131,11 +2117,9 @@ function finishPointerGesture(event, announceResult = true) {
   const ring = ringById(gesture.ringId);
   pointerGesture = null;
   stageWrap.classList.remove("is-deforming", "is-spinning");
-  canvas.style.cursor = state.brushMode !== "off" && brushCursor ? "none" : "";
-  if (ring && gesture.type === "delay-paint") {
-    if (announceResult) {
-      announce(`${state.brushMode === "erase" ? "Erased" : "Painted"} delay on ring ${ringOrdinal(ring)}.`);
-    }
+  canvas.style.cursor = "";
+  if (gesture.type === "delay-ring-vertex") {
+    if (announceResult) announce("Delay ring reshaped for the full mix.");
   } else if (ring && gesture.type === "touch-pending") {
     // A tap selects the handle; movement chooses scrub or radial edit.
   } else if (ring && gesture.type === "scrub") {
@@ -2165,7 +2149,7 @@ canvas.addEventListener("lostpointercapture", (event) => finishPointerGesture(ev
 canvas.addEventListener("pointerleave", () => {
   if (pointerGesture) return;
   hoverVertex = -1;
-  brushCursor = null;
+  fxHoverVertex = -1;
   canvas.style.cursor = "";
   scheduleFrame();
 });
@@ -2222,7 +2206,6 @@ for (const button of $("shapePreset").querySelectorAll("button")) {
 for (const button of $("recordBacking").querySelectorAll("button")) {
   button.addEventListener("click", () => {
     state.backingDuringRecord = button.dataset.value === "on";
-    persistSettings();
     updateUi();
     announce(state.backingDuringRecord
       ? "Existing rings may play during recording. Use headphones."
@@ -2256,39 +2239,8 @@ $("shapePitchDepth").addEventListener("input", () => {
 $("shapePitchDepth").addEventListener("change", () => {
   setShapePitchDepth($("shapePitchDepth").value);
 });
-for (const button of $("brushMode").querySelectorAll("button")) {
-  button.addEventListener("click", () => {
-    state.brushMode = button.dataset.value;
-    if (state.brushMode === "off") brushCursor = null;
-    canvas.style.cursor = state.brushMode === "off"
-      ? ""
-      : brushCursor ? "none" : "crosshair";
-    updateUi();
-    scheduleFrame();
-    announce(state.brushMode === "off"
-      ? "Delay brush off. Ring scrubbing restored."
-      : `${state.brushMode === "erase" ? "Erase" : "Delay paint"} brush active.`);
-  });
-}
-$("brushSize").addEventListener("input", () => {
-  state.brushSize = clamp(Number($("brushSize").value), 0.01, 0.2);
-  updateUi();
-});
-$("delayTime").addEventListener("input", () => {
-  activeRing().delayTime = clamp(Number($("delayTime").value), 0.04, 1.2);
-  updateRingEffects(activeRing());
-  updateUi();
-});
-$("delayFeedback").addEventListener("input", () => {
-  activeRing().delayFeedback = clamp(Number($("delayFeedback").value), 0, 0.82);
-  updateRingEffects(activeRing());
-  updateUi();
-});
-$("delayWet").addEventListener("input", () => {
-  activeRing().delayWet = clamp(Number($("delayWet").value), 0, 1);
-  updateRingEffects(activeRing());
-  updateUi();
-});
+$("addDelayRing").addEventListener("click", addDelayRing);
+$("removeDelayRing").addEventListener("click", removeDelayRing);
 $("filterTone").addEventListener("input", () => {
   activeRing().filterTone = clamp(Number($("filterTone").value), 0, 1);
   updateRingEffects(activeRing());
@@ -2304,8 +2256,6 @@ $("ringPan").addEventListener("input", () => {
   updateRingEffects(activeRing());
   updateUi();
 });
-$("clearDelayPaint").addEventListener("click", clearActiveDelayPaint);
-$("clearAllDelayPaint").addEventListener("click", clearAllDelayPaint);
 for (const button of $("viewMode").querySelectorAll("button")) {
   button.addEventListener("click", () => setThreeDView(button.dataset.value === "3d"));
 }
@@ -2330,7 +2280,6 @@ $("removeVertex").addEventListener("click", removeVertex);
 $("resetShape").addEventListener("click", () => applyPreset("circle"));
 $("level").addEventListener("input", () => {
   state.level = clamp(Number($("level").value), 0, 1);
-  persistSettings();
   paintMasterGain();
   updateUi();
 });

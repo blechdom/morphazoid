@@ -471,10 +471,5 @@ test("lattice app renders and plays line contacts", async () => {
   listeners.get("shepardCycles:input")();
   assert.equal(elements.get("pmIndexOut").textContent, "3.50 rad");
   assert.equal(elements.get("shepardCyclesOut").textContent, "2.25 oct / loop");
-  assert.ok(storage.has("morphazoid:lattice:audio:v2"));
-  const persisted = JSON.parse(storage.get("morphazoid:lattice:audio:v2"));
-  assert.equal(persisted.synthSource, "orientation");
-  assert.equal(persisted.pmIndex, 3.5);
-  assert.equal(persisted.shepardCycles, 2.25);
-  assert.equal(persisted.intersectionDecay, 180);
+  assert.equal(storage.size, 0, "Lattice settings should not persist across loads");
 });

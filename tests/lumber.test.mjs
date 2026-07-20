@@ -7,9 +7,9 @@ import {
   contourPitchRatioAt,
   fadeLoopEdges,
   loopPhaseAtTime,
+  mixDelayParametersFromOffsets,
   moveVertex,
   nearestContourPhase,
-  paintDelayMask,
   pointOnContour,
   pitchShiftLoopSamplesByContour,
   phaseThroughContourTimeWarp,
@@ -19,7 +19,6 @@ import {
   reverseSamples,
   scrubPhaseFromAngle,
   scrubRateFromMotion,
-  sampleDelayMask,
   timeStretchLoopSamples,
   waveformEnvelope,
   wrap01,
@@ -113,8 +112,8 @@ test("radial edits shift pitch locally without changing loop duration", () => {
   inwardOffsets[0] = -0.42;
   const inward = radialContourVertices(inwardOffsets);
 
-  assert.ok(contourPitchRatioAt(outward, 0, 1) < 1, "outward must lower pitch");
-  assert.ok(contourPitchRatioAt(inward, 0, 1) > 1, "inward must raise pitch");
+  assert.ok(contourPitchRatioAt(outward, 0, 1) > 1, "outward must raise pitch");
+  assert.ok(contourPitchRatioAt(inward, 0, 1) < 1, "inward must lower pitch");
   assert.ok(Math.abs(contourPitchRatioAt(outward, 0.5, 1) - 1) < 1e-12);
 
   const samples = Float32Array.from(
@@ -134,7 +133,7 @@ test("triangle and square retain pullable local-pitch vertices", () => {
     offsets[0] = 0.62;
     const vertices = radialContourVertices(offsets);
     assert.equal(vertices.length, count);
-    assert.ok(contourPitchRatioAt(vertices, 0, 1) < 1);
+    assert.ok(contourPitchRatioAt(vertices, 0, 1) > 1);
     assert.ok(
       Math.abs(contourPitchRatioAt(vertices, 1.5 / count, 1) - 1) < 1e-12,
       `${count}-vertex edge opposite the moved handle should retain pitch`,
@@ -142,14 +141,24 @@ test("triangle and square retain pullable local-pitch vertices", () => {
   }
 });
 
-test("delay paint wraps around the ring and interpolates by contour phase", () => {
-  let mask = new Float32Array(64);
-  mask = paintDelayMask(mask, 0.99, 1, 0.08);
-  assert.ok(mask[63] > 0.8);
-  assert.ok(mask[0] > 0.7, "brush should wrap across the loop seam");
-  assert.ok(sampleDelayMask(mask, 0.995) > 0.8);
-  const erased = paintDelayMask(mask, 0.99, 0, 0.08);
-  assert.ok(sampleDelayMask(erased, 0.99) < sampleDelayMask(mask, 0.99));
+test("mix delay ring is dry at rest and maps inward and outward independently", () => {
+  const dry = mixDelayParametersFromOffsets(Array(12).fill(0));
+  assert.deepEqual(dry, { inward: 0, outward: 0, time: 0.28, feedback: 0, wet: 0 });
+
+  const inward = mixDelayParametersFromOffsets([-0.34, ...Array(11).fill(0)]);
+  assert.ok(inward.time < dry.time);
+  assert.equal(inward.feedback, 0);
+  assert.ok(inward.wet > 0);
+
+  const outward = mixDelayParametersFromOffsets([0.34, ...Array(11).fill(0)]);
+  assert.equal(outward.time, dry.time);
+  assert.ok(outward.feedback > 0);
+  assert.ok(outward.wet > inward.wet);
+
+  const combined = mixDelayParametersFromOffsets([-0.34, 0.34, ...Array(10).fill(0)]);
+  assert.ok(combined.time < dry.time);
+  assert.ok(combined.feedback > 0);
+  assert.ok(combined.wet > outward.wet);
 });
 
 test("recorded samples retain envelope, reverse, and click-safe edges", () => {

@@ -18,6 +18,7 @@ test("all five instrument pages share desktop and mobile navigation", async () =
     }
     assert.match(html, /class="mobile-instrument-select"/);
     assert.match(html, /<script type="module" src="nav\.js">/);
+    assert.match(html, /data-reset-all>Reset all parameters<\/button>/);
   }
   for (const html of pages) {
     assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/, "sections should start collapsed");
@@ -26,6 +27,8 @@ test("all five instrument pages share desktop and mobile navigation", async () =
   assert.match(css, /\.mobile-instrument-nav/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.header-level\s*\{\s*display: grid;/);
   assert.match(nav, /location\.href = select\.value/);
+  assert.match(nav, /localStorage\?\.removeItem/);
+  assert.match(nav, /location\.reload\(\)/);
 });
 
 test("Solid and Hyper expose wireframe players and Sine-first audio", async () => {

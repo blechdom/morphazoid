@@ -50,7 +50,6 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
     ringTiming: ["timingFree", "timingSync"],
     ringLength: ["lengthQuarter", "lengthHalf", "lengthFull", "lengthDouble"],
     viewMode: ["viewFlat", "viewThreeD"],
-    brushMode: ["brushOff", "brushPaint", "brushErase"],
   };
   const values = {
     circlePreset: "circle",
@@ -66,9 +65,6 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
     lengthDouble: "2",
     viewFlat: "flat",
     viewThreeD: "3d",
-    brushOff: "off",
-    brushPaint: "paint",
-    brushErase: "erase",
   };
   for (const [id, value] of Object.entries(values)) elements.get(id).dataset.value = value;
   for (const [id, children] of Object.entries(groups)) {
@@ -319,26 +315,25 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   listeners.get("stage:pointerup")(gesture(579, 171));
   assert.ok(sources.length > sourcesBeforeScrub, "paused contour drag must create scrub audio");
 
-  listeners.get("brushPaint:click")();
-  listeners.get("stage:pointerdown")(gesture(579, 171));
-  listeners.get("stage:pointermove")(gesture(565, 155));
-  listeners.get("stage:pointerup")(gesture(565, 155));
-  assert.match(elements.get("effectsSummary").textContent, /painted/);
-  assert.equal(elements.get("stage").style.cursor, "none");
-  assert.equal(elements.get("clearAllDelayPaint").disabled, false);
-  listeners.get("clearAllDelayPaint:click")();
-  assert.match(elements.get("effectsSummary").textContent, /clear/);
-  assert.equal(elements.get("clearAllDelayPaint").disabled, true);
-  listeners.get("brushOff:click")();
+  assert.equal(elements.get("mixDelayWetOut").textContent, "dry");
+  listeners.get("addDelayRing:click")();
+  assert.match(elements.get("effectsSummary").textContent, /0% wet/);
+  assert.equal(elements.get("addDelayRing").disabled, true);
+  assert.equal(elements.get("removeDelayRing").disabled, false);
+  listeners.get("stage:pointerdown")(gesture(450, 88));
+  listeners.get("stage:pointermove")(gesture(450, 55));
+  listeners.get("stage:pointerup")(gesture(450, 55));
+  assert.doesNotMatch(elements.get("mixDelayWetOut").textContent, /dry/);
+  assert.match(elements.get("liveStatus").textContent, /full mix/);
+  listeners.get("removeDelayRing:click")();
+  assert.equal(elements.get("mixDelayWetOut").textContent, "dry");
   elements.get("filterTone").value = "0.5";
   listeners.get("filterTone:input")();
   assert.match(elements.get("filterToneOut").textContent, /kHz/);
   elements.get("ringPan").value = "-0.5";
   listeners.get("ringPan:input")();
   assert.equal(elements.get("ringPanOut").textContent, "50% left");
-  assert.equal(elements.get("effectsRingOut").textContent, "Ring 2");
   selectRingWhilePlaying(1);
-  assert.equal(elements.get("effectsRingOut").textContent, "Ring 1");
   assert.equal(elements.get("ringPanOut").textContent, "center");
   selectRingWhilePlaying(2);
   assert.equal(elements.get("ringPanOut").textContent, "50% left");

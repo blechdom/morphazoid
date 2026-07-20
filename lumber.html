@@ -184,33 +184,20 @@
 
         <details class="group control-section" id="effectsSection">
           <summary class="group-summary">
-            <h2 class="group-title">Ring FX + stereo</h2>
-            <span class="section-state" id="effectsSummary">Ring 1 · clear</span>
+            <h2 class="group-title">Mix FX + ring tone</h2>
+            <span class="section-state" id="effectsSummary">Delay ring · off</span>
           </summary>
           <div class="group-body">
-            <p class="active-ring-lead"><small>Editing FX for</small><output id="effectsRingOut">Ring 1</output></p>
-            <div class="field-label">Delay brush</div>
-            <div class="choice-switch compact" id="brushMode" role="group" aria-label="Delay paint brush mode">
-              <button id="brushOff" type="button" data-value="off" aria-pressed="true">Off / scrub</button>
-              <button id="brushPaint" type="button" data-value="paint" aria-pressed="false">Paint</button>
-              <button id="brushErase" type="button" data-value="erase" aria-pressed="false">Erase</button>
+            <div class="fx-ring-actions">
+              <button class="mini-action" id="addDelayRing" type="button">Add delay ring</button>
+              <button class="mini-action ring-remove" id="removeDelayRing" type="button" disabled>Remove delay ring</button>
             </div>
-            <label class="control" for="brushSize">
-              <span><b>Brush size</b><output id="brushSizeOut" for="brushSize">6%</output></span>
-              <input id="brushSize" type="range" min="0.01" max="0.2" step="0.01" value="0.06" />
-            </label>
-            <label class="control" for="delayTime">
-              <span><b>Delay time</b><output id="delayTimeOut" for="delayTime">280 ms</output></span>
-              <input id="delayTime" type="range" min="0.04" max="1.2" step="0.01" value="0.28" />
-            </label>
-            <label class="control" for="delayFeedback">
-              <span><b>Feedback</b><output id="delayFeedbackOut" for="delayFeedback">34%</output></span>
-              <input id="delayFeedback" type="range" min="0" max="0.82" step="0.01" value="0.34" />
-            </label>
-            <label class="control" for="delayWet">
-              <span><b>Painted send</b><output id="delayWetOut" for="delayWet">62%</output></span>
-              <input id="delayWet" type="range" min="0" max="1" step="0.01" value="0.62" />
-            </label>
+            <dl class="loop-metrics fx-ring-metrics" aria-label="Delay ring values">
+              <div><dt>Mix send</dt><dd><output id="mixDelayWetOut">dry</output></dd></div>
+              <div><dt>Delay time</dt><dd><output id="mixDelayTimeOut">280 ms</output></dd></div>
+              <div><dt>Feedback</dt><dd><output id="mixDelayFeedbackOut">0%</output></dd></div>
+            </dl>
+            <div class="field-label">Active ring tone + stereo</div>
             <label class="control" for="filterTone">
               <span><b>Filter tone</b><output id="filterToneOut" for="filterTone">12.8 kHz</output></span>
               <input id="filterTone" type="range" min="0" max="1" step="0.01" value="0.86" />
@@ -223,10 +210,6 @@
               <span><b>Stereo pan</b><output id="ringPanOut" for="ringPan">center</output></span>
               <input id="ringPan" type="range" min="-1" max="1" step="0.01" value="0" />
             </label>
-            <div class="fx-clear-row">
-              <button class="mini-action reset-form" id="clearDelayPaint" type="button">Clear active</button>
-              <button class="mini-action reset-form" id="clearAllDelayPaint" type="button">Clear all rings</button>
-            </div>
           </div>
         </details>
 
@@ -257,9 +240,12 @@
           </div>
         </details>
 
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">Lumber uses rotating waveform rings, straight-sided radial shape handles, local pitch shaping, movable playback heads, granular scrub, per-ring effects, and 3D depth. Pulling a vertex outward lowers that loop section; pushing inward raises it without changing total loop duration.</p>
+      <p class="sr-only" id="canvasInstructions">Lumber uses rotating waveform rings, straight-sided radial shape handles, local pitch shaping, movable playback heads, granular scrub, a mix delay ring, per-ring tone, and 3D depth. Pulling a sound-ring vertex inward lowers that loop section; pulling it outward raises it without changing total loop duration.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 

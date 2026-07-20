@@ -10,7 +10,7 @@ Five geometric instruments for sounding contact and recorded motion.
 
 **Hyper** uses the same idea in 4D. Tesseract, hypersphere, hyperpyramid, and Klein-bottle wireframes can be stretched through X/Y/Z/W. XW, YW, and ZW rotation run independently while a moving W hyperplane sounds the intersected 4D segments.
 
-**Lumber** is a live audio looper drawn as thin, differently colored concentric rings. Each ring has inline direction, relative volume, mute, solo, and delete controls. Straight radial handles apply duration-preserving local pitch: outward lowers and inward raises only adjacent loop sections. Additional controls provide movable playback heads, per-ring clocks, one-click global length/phase sync, a visible delay brush with clear-all, per-ring filter/stereo, and optional 3D depth.
+**Lumber** is a live audio looper drawn as thin, differently colored concentric rings. Each ring has inline direction, relative volume, mute, solo, and delete controls. Straight radial handles apply duration-preserving local pitch: inward lowers and outward raises only adjacent loop sections. Additional controls provide movable playback heads, per-ring clocks, one-click global length/phase sync, per-ring filter/stereo, and optional 3D depth. An optional outer Delay ring affects the complete mix: its neutral shape is dry, inward pulls shorten the echo, and outward pulls add feedback and wet level.
 
 Lattice keeps its prototile editor permanently visible. Movable corners are projected onto the selected family's native Tactile parameter space, while an overlap guard rejects self-crossing edits and a density guard limits visual/audio overload.
 
@@ -20,7 +20,7 @@ Sound modes are exclusive. The default Sine mode keeps one sine patch per contac
 
 Lattice reuses the same click-safe voice pool, synth modes, pitch curves, stereo mapping, level normalization, and lazy Web Audio lifecycle. Every selected contact is one patch, with guarded onset accents and crossfaded percussion retriggers. Dense fields retain a centered adjacent contact window so tighter visual spacing produces tighter pitch spacing, while density also increases the exact lattice-cycle rate. Form edits temporarily suppress onset detection to avoid ripping or level surges.
 
-The Mapping section routes geometric marks such as height, corner angle, incidence, and phase to pitch or level with linear, exponential, logarithmic, smooth, and inverted response curves. The Output dashboard exposes the live values and planned Web MIDI, OSC, and JSON-stream destinations. Pitch mapping, stereo width, volume, and sound settings persist locally.
+The Mapping section routes geometric marks such as height, corner angle, incidence, and phase to pitch or level with linear, exponential, logarithmic, smooth, and inverted response curves. The Output dashboard exposes the live values and planned Web MIDI, OSC, and JSON-stream destinations. Every page starts from its baseline settings when loaded, and the bottom-of-panel reset returns the complete instrument to that baseline.
 
 On small screens the stage stays visible while the controls scroll independently. Play, Form, Sound, Mapping, and Output are collapsible so the most useful controls can stay close together during performance.
 

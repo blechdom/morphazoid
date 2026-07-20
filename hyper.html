@@ -51,6 +51,9 @@
           <div class="synth-panel" id="fmControls" hidden><label class="control" for="fmIndex"><span><b>FM index</b><output id="fmIndexOut" for="fmIndex">3.50 max</output></span><input id="fmIndex" type="range" min="0" max="12" step="0.05" value="3.5" /></label><label class="control" for="fmRatio"><span><b>Modulator ratio</b><output id="fmRatioOut" for="fmRatio">1.50 : 1</output></span><input id="fmRatio" type="range" min="0.25" max="8" step="0.05" value="1.5" /></label></div>
           <p class="audio-error" id="audioError" role="alert" hidden></p>
         </div></details>
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
       </aside>
       <p class="sr-only" id="canvasInstructions">Drag horizontally to set Y–W and vertically to set X–W. Their animation pauses while dragging; Z–W remains independent.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>

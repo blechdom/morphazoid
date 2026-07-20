@@ -33,29 +33,31 @@ export function scrubRateFromMotion(phaseDelta, durationSeconds, elapsedMillisec
   return clamp(rate, 0.2, 4);
 }
 
-export function paintDelayMask(mask, phase, value, radius = 0.06) {
-  const next = Float32Array.from(mask ?? new Float32Array(64));
-  const center = wrap01(phase);
-  const target = clamp(value, 0, 1);
-  const brushRadius = clamp(radius, 0.005, 0.5);
-  for (let index = 0; index < next.length; index += 1) {
-    const samplePhase = index / next.length;
-    const direct = Math.abs(samplePhase - center);
-    const distance = Math.min(direct, 1 - direct);
-    if (distance > brushRadius) continue;
-    const strength = 1 - distance / brushRadius;
-    next[index] += (target - next[index]) * strength;
+export function mixDelayParametersFromOffsets(
+  offsets,
+  minimumOffset = -0.34,
+  maximumOffset = 0.34,
+) {
+  const values = Array.from(offsets ?? []);
+  if (!values.length) return { inward: 0, outward: 0, time: 0.28, feedback: 0, wet: 0 };
+  let inwardEnergy = 0;
+  let outwardEnergy = 0;
+  for (const offset of values) {
+    const value = Number(offset) || 0;
+    const inward = clamp(-value / Math.abs(minimumOffset || -1), 0, 1);
+    const outward = clamp(value / Math.abs(maximumOffset || 1), 0, 1);
+    inwardEnergy += inward * inward;
+    outwardEnergy += outward * outward;
   }
-  return next;
-}
-
-export function sampleDelayMask(mask, phase) {
-  if (!mask?.length) return 0;
-  const position = wrap01(phase) * mask.length;
-  const first = Math.floor(position) % mask.length;
-  const second = (first + 1) % mask.length;
-  const amount = position - Math.floor(position);
-  return clamp(mask[first] + (mask[second] - mask[first]) * amount, 0, 1);
+  const inward = Math.sqrt(inwardEnergy / values.length);
+  const outward = Math.sqrt(outwardEnergy / values.length);
+  return {
+    inward,
+    outward,
+    time: 0.28 - inward * 0.23,
+    feedback: outward * 0.8,
+    wet: clamp(inward * 0.55 + outward * 0.75, 0, 0.9),
+  };
 }
 
 export function presetVertices(preset = "circle", requestedCount = 8) {
@@ -259,7 +261,7 @@ export function contourPitchRatioAt(
   const normalizedOffset = radialOffset >= 0
     ? radialOffset / 0.62
     : radialOffset / 0.42;
-  const semitones = -clamp(depth, 0, 1)
+  const semitones = clamp(depth, 0, 1)
     * clamp(maximumSemitones, 0, 24)
     * clamp(normalizedOffset, -1, 1);
   return 2 ** (semitones / 12);

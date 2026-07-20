@@ -43,7 +43,6 @@ const STRIKE_BATCH_CEILING = 0.78;
 const AUDIO_LOOKAHEAD_SECONDS = 0.075;
 const AUDIO_UPDATE_INTERVAL_MS = 24;
 const HEAD_COLORS = ["#5fe8c4", "#7db4ff", "#c79bff", "#ffb86b"];
-const AUDIO_SETTINGS_KEY = "morphazoid:shape:audio:v1";
 const SOUND_MODE_LABELS = {
   sine: "Sine",
   percussion: "Percussion",
@@ -59,32 +58,6 @@ const PITCH_SUMMARY_LABELS = {
   incidence: "Incidence",
   phase: "Contour phase",
 };
-const PERSISTED_AUDIO_KEYS = new Set([
-  "baseFrequency",
-  "pitchRange",
-  "level",
-  "soundMode",
-  "sineAccent",
-  "sineDecay",
-  "cornerAccent",
-  "cornerAttack",
-  "cornerDecay",
-  "synthSource",
-  "shepardCycles",
-  "shepardDirection",
-  "shepardWidth",
-  "fmIndex",
-  "fmRatio",
-  "pmIndex",
-  "pmRatio",
-  "stereoWidth",
-  "mappingFrame",
-  "pitchSource",
-  "pitchCurve",
-  "hitLevelSource",
-  "hitLevelCurve",
-]);
-
 const state = {
   sides: 4,
   curvature: 0,
@@ -136,36 +109,6 @@ const state = {
   hitLevelCurve: "linear",
 };
 
-function loadAudioSettings() {
-  try {
-    const stored = globalThis.localStorage?.getItem(AUDIO_SETTINGS_KEY);
-    if (!stored) return;
-    const values = JSON.parse(stored);
-    if (!values || typeof values !== "object") return;
-    for (const key of PERSISTED_AUDIO_KEYS) {
-      if (!(key in values)) continue;
-      if (typeof state[key] === "number" && Number.isFinite(Number(values[key]))) {
-        state[key] = Number(values[key]);
-      } else if (typeof state[key] === "string" && typeof values[key] === "string") {
-        state[key] = values[key];
-      }
-    }
-  } catch {
-    // Storage is an optional convenience; audio remains fully usable without it.
-  }
-}
-
-function persistAudioSettings() {
-  try {
-    const values = {};
-    for (const key of PERSISTED_AUDIO_KEYS) values[key] = state[key];
-    globalThis.localStorage?.setItem(AUDIO_SETTINGS_KEY, JSON.stringify(values));
-  } catch {
-    // Ignore unavailable or full storage.
-  }
-}
-
-loadAudioSettings();
 state.baseFrequency = clamp(state.baseFrequency, 20, 440);
 state.pitchRange = clamp(state.pitchRange, 0, 6);
 state.level = clamp(state.level, 0, 1);
@@ -398,7 +341,6 @@ function bindRange(id, key, formatter, afterChange) {
     if (key === "rotation") state.rotation = normalizeDegrees(state.rotation);
     updateOutput();
     afterChange?.();
-    if (PERSISTED_AUDIO_KEYS.has(key)) persistAudioSettings();
     dismissHelp();
   });
   input.value = String(state[key]);
@@ -717,7 +659,6 @@ function setSoundMode(mode, shouldAnnounce = true) {
   $("hitMapping").hidden = state.soundMode !== "percussion";
   $("synthMapping").hidden = !["fm", "pm"].includes(state.soundMode);
   updateSectionSummaries();
-  persistAudioSettings();
   if (shouldAnnounce) {
     const descriptions = {
       sine: "Continuous sine with corner amplitude selected.",
@@ -739,7 +680,6 @@ $("soundMode").addEventListener("change", (event) => {
 $("shepardDirection").value = String(state.shepardDirection);
 $("shepardDirection").addEventListener("change", (event) => {
   state.shepardDirection = Number(event.currentTarget.value) < 0 ? -1 : 1;
-  persistAudioSettings();
   invalidate();
 });
 
@@ -774,7 +714,6 @@ $("rotationDirection").addEventListener("click", () => setRotationDirection(-sta
 $("mappingFrame").value = state.mappingFrame;
 $("mappingFrame").addEventListener("change", (event) => {
   state.mappingFrame = event.currentTarget.value;
-  persistAudioSettings();
   dismissHelp();
 });
 
@@ -788,7 +727,6 @@ for (const [id, key] of [
   $(id).value = state[key];
   $(id).addEventListener("change", (event) => {
     state[key] = event.currentTarget.value;
-    persistAudioSettings();
     if (key === "pitchSource") updateSectionSummaries();
     dismissHelp();
   });

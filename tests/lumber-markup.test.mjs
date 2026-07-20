@@ -22,13 +22,13 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
     "backingOff", "backingOn",
     "shapePitchDepth", "advancedSummary", "viewFlat",
     "viewThreeD", "viewTilt", "viewYaw", "ringDepth", "spreadDepth",
-    "brushOff", "brushPaint", "brushErase", "brushSize", "delayTime",
-    "delayFeedback", "delayWet", "clearDelayPaint", "clearAllDelayPaint", "effectsSummary",
+    "addDelayRing", "removeDelayRing", "mixDelayTimeOut",
+    "mixDelayFeedbackOut", "mixDelayWetOut", "effectsSummary",
     "filterTone", "filterResonance", "ringPan",
     "timingFree", "timingSync", "lengthQuarter", "lengthHalf",
     "lengthFull", "lengthDouble",
     "removeLoopHead", "addLoopHead", "headCountOut", "headOffsetControls",
-    "headOffset1", "headOffset2", "headOffset3", "effectsRingOut",
+    "headOffset1", "headOffset2", "headOffset3",
   ]) assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
   for (const section of [
     "loopSection", "ringSection", "shapeSection", "advancedSection", "effectsSection",
@@ -43,7 +43,8 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   );
   assert.doesNotMatch(html, /class="control-note"/);
   assert.doesNotMatch(html, /Native|Tape pitch|id="timeMode"|id="pitchShift"/i);
-  assert.match(html, /Ring FX \+ stereo/);
+  assert.match(html, /Mix FX \+ ring tone/);
+  assert.doesNotMatch(html, /delay brush|delay paint|brush size/i);
 
   assert.match(app, /getUserMedia/);
   assert.match(app, /createScriptProcessor/);
@@ -78,11 +79,11 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.match(app, /touch-pending/);
   assert.match(app, /tangentialMotion > radialMotion/);
   assert.match(app, /measureEnvelopePeak/);
-  assert.match(app, /paintDelayMask/);
-  assert.match(app, /sampleDelayMask/);
-  assert.match(app, /drawDelayPaint/);
-  assert.match(app, /drawBrushCursor/);
-  assert.match(app, /clearAllDelayPaint/);
+  assert.match(app, /mixDelayParametersFromOffsets/);
+  assert.match(app, /drawDelayRing/);
+  assert.match(app, /updateMixDelay/);
+  assert.match(app, /mixDelayNode/);
+  assert.doesNotMatch(app, /paintDelayMask|sampleDelayMask|drawDelayPaint|drawBrushCursor/);
   assert.match(app, /synchronizeAllRings/);
   assert.match(app, /createBiquadFilter/);
   assert.match(app, /createStereoPanner/);

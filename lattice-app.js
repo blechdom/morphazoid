@@ -50,33 +50,6 @@ const SOUND_MODE_LABELS = {
   pm: "PM",
 };
 const SOUND_MODES = new Set(Object.keys(SOUND_MODE_LABELS));
-const STORAGE_KEY = "morphazoid:lattice:audio:v2";
-const PERSISTED_KEYS = new Set([
-  "level",
-  "baseFrequency",
-  "pitchRange",
-  "contactLevel",
-  "intersectionAccent",
-  "intersectionDecay",
-  "voiceCap",
-  "soundMode",
-  "synthSource",
-  "percussionAttack",
-  "percussionDecay",
-  "shepardCycles",
-  "shepardDirection",
-  "shepardWidth",
-  "fmIndex",
-  "fmRatio",
-  "pmIndex",
-  "pmRatio",
-  "pitchSource",
-  "pitchCurve",
-  "levelSource",
-  "levelCurve",
-  "stereoWidth",
-]);
-
 const TILE_COLORS = [
   "rgba(255, 184, 107, 0.070)",
   "rgba(125, 180, 255, 0.052)",
@@ -124,36 +97,6 @@ const state = {
   stereoWidth: 1,
 };
 
-function loadSettings() {
-  try {
-    const stored = globalThis.localStorage?.getItem(STORAGE_KEY);
-    if (!stored) return;
-    const values = JSON.parse(stored);
-    if (!values || typeof values !== "object") return;
-    for (const key of PERSISTED_KEYS) {
-      if (!(key in values)) continue;
-      if (typeof state[key] === "number" && Number.isFinite(Number(values[key]))) {
-        state[key] = Number(values[key]);
-      } else if (typeof state[key] === "string" && typeof values[key] === "string") {
-        state[key] = values[key];
-      }
-    }
-  } catch {
-    // Local persistence is optional.
-  }
-}
-
-function persistSettings() {
-  try {
-    const values = {};
-    for (const key of PERSISTED_KEYS) values[key] = state[key];
-    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(values));
-  } catch {
-    // Audio remains usable if storage is unavailable.
-  }
-}
-
-loadSettings();
 state.level = clamp(state.level, 0, 1);
 state.baseFrequency = clamp(state.baseFrequency, 20, 440);
 state.pitchRange = clamp(state.pitchRange, 0, 6);
@@ -279,7 +222,6 @@ function bindRange(id, key, formatter, afterChange) {
     if (key === "voiceCap") state.voiceCap = Math.round(state.voiceCap);
     paint();
     afterChange?.();
-    if (PERSISTED_KEYS.has(key)) persistSettings();
     scheduleFrame();
   });
   paint();
@@ -292,7 +234,6 @@ function bindSelect(id, key, afterChange) {
   select.addEventListener("change", () => {
     state[key] = select.value;
     afterChange?.();
-    if (PERSISTED_KEYS.has(key)) persistSettings();
     scheduleFrame();
   });
 }
@@ -384,7 +325,6 @@ function setSoundMode(mode, shouldAnnounce = true) {
   $("fmArticulation").hidden = state.soundMode !== "fm";
   $("pmArticulation").hidden = state.soundMode !== "pm";
   $("synthMapping").hidden = !["fm", "pm"].includes(state.soundMode);
-  persistSettings();
   updateSummaries();
   if (shouldAnnounce) announce(`${SOUND_MODE_LABELS[state.soundMode]} voice selected.`);
   scheduleFrame();
@@ -396,7 +336,6 @@ $("soundMode").addEventListener("change", (event) => {
 $("shepardDirection").value = String(state.shepardDirection);
 $("shepardDirection").addEventListener("change", (event) => {
   state.shepardDirection = Number(event.currentTarget.value) < 0 ? -1 : 1;
-  persistSettings();
   scheduleFrame();
 });
 

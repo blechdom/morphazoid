@@ -724,19 +724,23 @@ a {
   gap: 7px;
 }
 
+.fx-ring-actions {
+  display: grid;
+  margin-bottom: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fx-ring-actions .mini-action {
+  min-width: 0;
+}
+
+.fx-ring-metrics {
+  margin-bottom: 18px;
+}
+
 .ring-sync-all {
   grid-column: 1 / -1;
-}
-
-.fx-clear-row {
-  display: grid;
-  margin-bottom: 10px;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-}
-
-.fx-clear-row .mini-action {
-  min-height: 36px;
 }
 
 .active-ring-lead {
@@ -1256,6 +1260,28 @@ input[type="range"]::-moz-range-thumb {
   background: var(--panel);
   scrollbar-color: var(--faint) transparent;
   scrollbar-width: thin;
+}
+
+.reset-all-row {
+  padding: 22px;
+}
+
+.reset-all-button {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: transparent;
+  font: 600 10px/1 var(--mono);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.reset-all-button:hover,
+.reset-all-button:focus-visible {
+  border-color: #ff826f;
+  color: #ffb2a8;
+  background: rgba(255, 130, 111, 0.06);
 }
 
 .group {
