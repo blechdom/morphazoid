@@ -21,6 +21,16 @@
         <a class="tab" href="hyper.html">hyper</a>
         <a class="tab" href="lumber.html">lumber</a>
       </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="solid.html" selected>solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="lumber.html">lumber</option>
+        </select>
+      </label>
       <div class="audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
           <span class="audio-glyph" aria-hidden="true">◉</span>
@@ -90,7 +100,6 @@
             <div class="axis-control-group"><label class="control" for="rotationX"><span><b>X rotation</b><output id="rotationXOut" for="rotationX">−18°</output></span><input id="rotationX" type="range" min="-180" max="180" step="1" value="-18" /></label><div class="axis-motion-row"><button class="mini-action axis-play-button" id="rotationXPlay" type="button" aria-pressed="false" aria-label="Play X rotation"><span aria-hidden="true">▶</span><small>X</small></button><label class="control" for="rotationXSpeed"><span><b>X speed</b><output id="rotationXSpeedOut" for="rotationXSpeed">+0.03 rev/s</output></span><input id="rotationXSpeed" type="range" min="-0.5" max="0.5" step="0.01" value="0.03" /></label></div></div>
             <div class="axis-control-group"><label class="control" for="rotationY"><span><b>Y rotation</b><output id="rotationYOut" for="rotationY">28°</output></span><input id="rotationY" type="range" min="-180" max="180" step="1" value="28" /></label><div class="axis-motion-row"><button class="mini-action axis-play-button" id="rotationYPlay" type="button" aria-pressed="false" aria-label="Play Y rotation"><span aria-hidden="true">▶</span><small>Y</small></button><label class="control" for="rotationYSpeed"><span><b>Y speed</b><output id="rotationYSpeedOut" for="rotationYSpeed">+0.08 rev/s</output></span><input id="rotationYSpeed" type="range" min="-0.5" max="0.5" step="0.01" value="0.08" /></label></div></div>
             <div class="axis-control-group"><label class="control" for="rotationZ"><span><b>Z rotation</b><output id="rotationZOut" for="rotationZ">0°</output></span><input id="rotationZ" type="range" min="-180" max="180" step="1" value="0" /></label><div class="axis-motion-row"><button class="mini-action axis-play-button" id="rotationZPlay" type="button" aria-pressed="false" aria-label="Play Z rotation"><span aria-hidden="true">▶</span><small>Z</small></button><label class="control" for="rotationZSpeed"><span><b>Z speed</b><output id="rotationZSpeedOut" for="rotationZSpeed">+0.02 rev/s</output></span><input id="rotationZSpeed" type="range" min="-0.5" max="0.5" step="0.01" value="0.02" /></label></div></div>
-            <p class="control-note">Drag the canvas to set X and Y manually. Each axis can run independently; negative speeds reverse its direction.</p>
           </div>
         </details>
 
@@ -101,13 +110,13 @@
             <label class="control" for="baseFrequency"><span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" /></label>
             <label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">3.00 oct</output></span><input id="pitchRange" type="range" min="0" max="6" step="0.05" value="3" /></label>
             <div class="synth-panel" id="fmControls" hidden><label class="control" for="fmIndex"><span><b>FM index</b><output id="fmIndexOut" for="fmIndex">3.00 max</output></span><input id="fmIndex" type="range" min="0" max="12" step="0.05" value="3" /></label><label class="control" for="fmRatio"><span><b>Modulator ratio</b><output id="fmRatioOut" for="fmRatio">2.00 : 1</output></span><input id="fmRatio" type="range" min="0.25" max="8" step="0.05" value="2" /></label></div>
-            <p class="control-note">Pitch follows 3D height. FM/PM depth follows distance across the cutting surface; Shepard follows the audio-clocked surface cycle. Voices stop when both the cutting plane and rotation are paused.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>
       </aside>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
+    <script type="module" src="nav.js"></script>
     <script type="module" src="solid-app.js"></script>
   </body>
 </html>

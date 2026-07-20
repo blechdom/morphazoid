@@ -50,13 +50,14 @@ const SOUND_MODE_LABELS = {
   pm: "PM",
 };
 const SOUND_MODES = new Set(Object.keys(SOUND_MODE_LABELS));
-const STORAGE_KEY = "morphazoid:lattice:audio:v1";
+const STORAGE_KEY = "morphazoid:lattice:audio:v2";
 const PERSISTED_KEYS = new Set([
   "level",
   "baseFrequency",
   "pitchRange",
   "contactLevel",
   "intersectionAccent",
+  "intersectionDecay",
   "voiceCap",
   "soundMode",
   "synthSource",
@@ -101,9 +102,10 @@ const state = {
   level: 0.65,
   baseFrequency: 110,
   pitchRange: 3.5,
-  contactLevel: 0.55,
-  intersectionAccent: 0.65,
-  voiceCap: 12,
+  contactLevel: 0.35,
+  intersectionAccent: 0.75,
+  intersectionDecay: 100,
+  voiceCap: 8,
   soundMode: "sine",
   synthSource: "incidence",
   percussionAttack: 3,
@@ -157,6 +159,7 @@ state.baseFrequency = clamp(state.baseFrequency, 20, 440);
 state.pitchRange = clamp(state.pitchRange, 0, 6);
 state.contactLevel = clamp(state.contactLevel, 0, 1);
 state.intersectionAccent = clamp(state.intersectionAccent, 0, 1);
+state.intersectionDecay = clamp(state.intersectionDecay, 20, 2000);
 state.voiceCap = Math.round(clamp(state.voiceCap, 1, MAX_VOICES));
 state.soundMode = SOUND_MODES.has(state.soundMode) ? state.soundMode : "sine";
 state.synthSource = ["height", "along", "incidence", "orientation"].includes(state.synthSource)
@@ -347,6 +350,7 @@ bindRange(
   "intersectionAccent",
   (value) => `${Math.round(value * 100)}%`,
 );
+bindRange("intersectionDecay", "intersectionDecay", (value) => `${Math.round(value)} ms`);
 bindRange("voiceCap", "voiceCap", (value) => (
   `${Math.round(value)} ${plural(Math.round(value), "voice")}`
 ));
@@ -462,10 +466,6 @@ function configureTilingControls() {
     $("edgeLabel" + index).textContent = `Edge ${String.fromCharCode(65 + index)} \u00b7 ${edgeShapeName(shape)}${rigid ? " rigid" : ""}`;
     paintEdgeControl(index);
   }
-  $("edgeRuleNote").textContent = bendableCount
-    ? "Rigid I edges stay straight."
-    : "All edges are fixed by symmetry.";
-
   const hasVertexParameters = info.defaultParameters.length > 0;
   $("resetTileVertices").disabled = !hasVertexParameters;
   tileEditorCanvas.setAttribute("aria-disabled", String(!hasVertexParameters));
@@ -1109,14 +1109,18 @@ function mappingForContact(contact) {
   const levelRaw = clamp(rawLevelMark(contact), 0, 1);
   const pitch = mapCurve01(pitchRaw, state.pitchCurve);
   const levelMark = mapCurve01(levelRaw, state.levelCurve);
-  const baseGain = state.contactLevel * 0.18 * (0.2 + 0.8 * levelMark);
+  const baseGain = state.contactLevel * 0.14 * (0.2 + 0.8 * levelMark);
   return {
     pitchRaw,
     levelRaw,
     pitch,
     levelMark,
     frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange),
-    gain: baseGain * intersectionAccentMultiplier(contact.accentAge, state.intersectionAccent),
+    gain: baseGain * intersectionAccentMultiplier(
+      contact.accentAge,
+      state.intersectionAccent,
+      state.intersectionDecay / 1000,
+    ),
     strikeGain: state.contactLevel
       * 0.65
       * (0.2 + 0.8 * levelMark)
@@ -1144,7 +1148,9 @@ function addIntersectionAccents(contacts, nowSeconds, suppressOnsets = false) {
     return {
       ...contact,
       accentAge,
-      accent: Number.isFinite(accentAge) ? Math.exp(-accentAge / 0.14) : 0,
+      accent: Number.isFinite(accentAge)
+        ? Math.exp(-accentAge / (state.intersectionDecay / 1000))
+        : 0,
       onset,
     };
   });

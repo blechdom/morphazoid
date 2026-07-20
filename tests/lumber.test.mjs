@@ -128,6 +128,20 @@ test("radial edits shift pitch locally without changing loop duration", () => {
   assert.notDeepEqual([...shifted], [...samples]);
 });
 
+test("triangle and square retain pullable local-pitch vertices", () => {
+  for (const count of [3, 4]) {
+    const offsets = Array(count).fill(0);
+    offsets[0] = 0.62;
+    const vertices = radialContourVertices(offsets);
+    assert.equal(vertices.length, count);
+    assert.ok(contourPitchRatioAt(vertices, 0, 1) < 1);
+    assert.ok(
+      Math.abs(contourPitchRatioAt(vertices, 1.5 / count, 1) - 1) < 1e-12,
+      `${count}-vertex edge opposite the moved handle should retain pitch`,
+    );
+  }
+});
+
 test("delay paint wraps around the ring and interpolates by contour phase", () => {
   let mask = new Float32Array(64);
   mask = paintDelayMask(mask, 0.99, 1, 0.08);

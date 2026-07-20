@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "python3 -m http.server 3435",
     "start": "python3 -m http.server 3435",
-    "check": "for file in app.js *-app.js src/*.js; do node --check $file || exit 1; done",
+    "check": "for file in app.js nav.js *-app.js src/*.js; do node --check $file || exit 1; done",
     "test": "node --test tests/*.test.mjs",
     "verify": "npm run check && npm test"
   }

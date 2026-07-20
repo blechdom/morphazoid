@@ -171,6 +171,25 @@ a {
   margin-right: auto;
 }
 
+.mobile-instrument-nav {
+  display: none;
+  min-width: 0;
+}
+
+.mobile-instrument-select {
+  width: 100%;
+  height: 36px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--accent);
+  background: var(--bg-deep);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .tab {
   position: relative;
   display: flex;
@@ -1901,6 +1920,7 @@ select:hover {
   }
 
   body {
+    height: 100vh;
     height: 100dvh;
   }
 
@@ -1960,7 +1980,13 @@ select:hover {
   }
 
   .tabs {
-    min-width: 0;
+    display: none;
+  }
+
+  .mobile-instrument-nav {
+    display: block;
+    width: clamp(92px, 28vw, 132px);
+    flex: 0 1 132px;
   }
 
   .tab {
@@ -2071,28 +2097,15 @@ select:hover {
     gap: 8px;
   }
 
-  .tabs {
-    min-width: 0;
-    flex: 1 1 auto;
-    justify-content: space-between;
-  }
-
-  .tab {
-    min-width: 0;
-    padding-right: 4px;
-    padding-left: 4px;
-    font-size: 8px;
-  }
-
   .audio-strip {
-    width: 56px;
-    flex: 0 0 56px;
-    grid-template-columns: 56px;
-    gap: 0;
+    width: min(158px, 52vw);
+    flex: 1 1 auto;
+    grid-template-columns: 56px minmax(70px, 1fr);
+    gap: 6px;
   }
 
   .header-level {
-    display: none;
+    display: grid;
   }
 
   .audio-button {

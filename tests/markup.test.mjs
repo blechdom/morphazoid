@@ -116,10 +116,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   ]) assert.ok(html.includes(`id="${id}"`));
   assert.match(html, /Octaves per circuit/);
   assert.match(html, /oct \/ circuit/);
-  assert.match(html, /Stage axes[^<]*fixed/);
-  assert.match(html, /Shape axes[^<]*rotate with form/);
   assert.match(html, /value="center">Distance from center · radar radius/);
-  assert.match(html, /Center distance[\s\S]*?0 at the radar origin/);
   assert.match(html, /value="exponential">Expand high values/);
   assert.match(html, /value="logarithmic">Expand low values/);
 

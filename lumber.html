@@ -22,6 +22,16 @@
         <a class="tab" href="hyper.html">hyper</a>
         <a class="tab active" href="lumber.html" aria-current="page">lumber</a>
       </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="lumber.html" selected>lumber</option>
+        </select>
+      </label>
 
       <div class="audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
@@ -105,7 +115,6 @@
               <button class="mini-action ring-remove ring-clear" id="clearAllRings" type="button">Clear all rings</button>
               <button class="mini-action ring-sync-all" id="syncAllRings" type="button" disabled>Sync all · length + phase</button>
             </div>
-            <p class="control-note">Each row has its own direction arrow, relative-volume knob, Mute, Solo, and Delete controls. Record creates a new outer ring after the first take; Replace active explicitly overwrites the selected ring.</p>
           </div>
         </details>
 
@@ -128,7 +137,6 @@
               <button id="addVertex" type="button" aria-label="Add one loop vertex">+</button>
             </div>
 
-            <p class="control-note">With mouse or touch, sweep tangentially around a ring to scrub; push or pull a handle radially to edit shape. The first motion chooses the gesture.</p>
             <button class="mini-action reset-form" id="resetShape" type="button">Reset to circle</button>
           </div>
         </details>
@@ -174,7 +182,6 @@
               <span><b>Local pitch depth</b><output id="shapePitchDepthOut" for="shapePitchDepth">65%</output></span>
               <input id="shapePitchDepth" type="range" min="0.1" max="1" step="0.01" value="0.65" />
             </label>
-            <p class="control-note"><b>Per ring.</b> Free keeps an independent clock; Sync locks the cycle to Ring 1. Head offsets position additional playheads relative to Head 1. Pulling a vertex outward lowers only that local section; pushing inward raises it. The complete loop duration stays fixed.</p>
           </div>
         </details>
 
@@ -223,7 +230,6 @@
               <button class="mini-action reset-form" id="clearDelayPaint" type="button">Clear active</button>
               <button class="mini-action reset-form" id="clearAllDelayPaint" type="button">Clear all rings</button>
             </div>
-            <p class="control-note">These delay, filter, and stereo settings belong only to the active ring. Choose Paint to brush its delay send around that ring; switch Off to scrub normally.</p>
           </div>
         </details>
 
@@ -251,7 +257,6 @@
               <input id="ringDepth" type="range" min="-1" max="1" step="0.01" value="0" />
             </label>
             <button class="mini-action reset-form" id="spreadDepth" type="button">Spread rings in depth</button>
-            <p class="control-note">Tilt and orbit the lumber form, then move each ring independently forward or backward along the depth axis. Audio remains unchanged.</p>
           </div>
         </details>
 
@@ -261,6 +266,7 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
+    <script type="module" src="nav.js"></script>
     <script type="module" src="lumber-app.js"></script>
   </body>
 </html>

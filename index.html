@@ -22,6 +22,16 @@
         <a class="tab" href="hyper.html">hyper</a>
         <a class="tab" href="lumber.html">lumber</a>
       </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./" selected>shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="lumber.html">lumber</option>
+        </select>
+      </label>
 
       <div class="audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
@@ -218,7 +228,6 @@
               <input id="asymmetry" type="range" min="0" max="1" step="0.01" value="0" />
             </label>
 
-            <p class="control-note">Star depth creates alternating outer and inner corners. Roundness bends the edges between those corners; inward roundness is a curve, not a star notch.</p>
             <button class="mini-action reset-form" id="resetForm" type="button">Reset form</button>
           </div>
         </details>
@@ -262,7 +271,6 @@
                 <span><b>Corner decay</b><output id="sineDecayOut" for="sineDecay">650 ms</output></span>
                 <input id="sineDecay" type="range" min="20" max="4000" step="10" value="650" />
               </label>
-              <p class="control-note">Applies to Sine, Shepard, FM, and PM. Decay is elapsed time, so it may end before the next edge or span it as playhead speed changes.</p>
             </div>
 
             <div id="percussionArticulation" hidden>
@@ -302,7 +310,6 @@
                 <span><b>Spectral width</b><output id="shepardWidthOut" for="shepardWidth">4.0 oct</output></span>
                 <input id="shepardWidth" type="range" min="1" max="8" step="0.1" value="4" />
               </label>
-              <p class="control-note">Playhead angle drives octave position directly. One complete point contour or radar rotation advances the selected number of octaves, preserving the infinite-rise illusion.</p>
             </div>
 
             <div class="synth-panel" id="fmArticulation" hidden>
@@ -329,7 +336,6 @@
               </label>
             </div>
 
-            <p class="control-note">Synth voices are motion-gated: pausing both the playhead and rotation stops audio because no geometry data is being consumed.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>
@@ -422,8 +428,6 @@
               <input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="1" />
             </label>
 
-            <p class="control-note"><b>Pitch path:</b> the selected mark passes through the chosen curve, then spans Base frequency + Pitch range from the Sound section. <b>Center distance</b> is 0 at the radar origin and 1 at the outer radius; choose Invert to make the center high.</p>
-            <p class="control-note"><b>Stage axes</b> stay fixed as the form rotates. <b>Shape axes</b> rotate with the form, so the same local point retains its pitch and pan relationship.</p>
           </div>
         </details>
 
@@ -478,6 +482,7 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
+    <script type="module" src="nav.js"></script>
     <script type="module" src="app.js"></script>
   </body>
 </html>

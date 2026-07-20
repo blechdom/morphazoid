@@ -257,4 +257,9 @@ test("dense contacts are sampled spatially and same-sine accents decay", () => {
   assert.ok(onset > tail);
   assert.ok(tail > 1 && tail < 1.001);
   assert.equal(intersectionAccentMultiplier(0, 0), 1);
+  assert.ok(
+    intersectionAccentMultiplier(0.1, 0.75, 0.2)
+      > intersectionAccentMultiplier(0.1, 0.75, 0.05),
+    "longer decay must retain more intersection emphasis",
+  );
 });

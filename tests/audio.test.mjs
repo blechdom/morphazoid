@@ -242,6 +242,7 @@ test("continuous synth specs use one worklet while native fallback voices stay s
   const messages = [];
   let moduleUrl = "";
   let workletCount = 0;
+  let resumedBeforeWorklet = false;
 
   class FakeWorkletNode {
     constructor(_context, name, options) {
@@ -258,10 +259,14 @@ test("continuous synth specs use one worklet while native fallback voices stay s
   class FakeContext {
     constructor() {
       this.currentTime = 0;
-      this.state = "running";
+      this.state = "suspended";
       this.destination = fakeNode();
+      const context = this;
       this.audioWorklet = {
-        async addModule(url) { moduleUrl = String(url); },
+        async addModule(url) {
+          resumedBeforeWorklet = context.state === "running";
+          moduleUrl = String(url);
+        },
       };
     }
     createGain() { return fakeNode({ gain: fakeParam(0) }); }
@@ -304,6 +309,7 @@ test("continuous synth specs use one worklet while native fallback voices stay s
     }]);
 
     assert.equal(workletCount, 1);
+    assert.equal(resumedBeforeWorklet, true, "iOS audio must resume before awaiting worklet load");
     assert.match(moduleUrl, /contour-synth-processor\.js$/);
     assert.equal(pool.synthNode.name, "morphazoid-contour-synth");
     assert.deepEqual(pool.synthNode.options.outputChannelCount, [2]);

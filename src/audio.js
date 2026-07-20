@@ -331,8 +331,11 @@ export class VoicePool {
       }
       context = this.context;
     }
+    // iOS Safari requires resume() to be invoked synchronously inside the
+    // original tap. Loading an AudioWorklet first can consume that activation.
+    if (context.state !== "running") await context.resume();
     await this.prepareContinuousSynth(context);
-    if (context.state === "suspended") await context.resume();
+    if (context.state !== "running" && context.state !== "closed") await context.resume();
     if (this.context !== context || !this.master || context.state === "closed") {
       throw new Error("Audio start was interrupted.");
     }

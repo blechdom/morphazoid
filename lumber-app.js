@@ -595,7 +595,9 @@ async function ensureAudio() {
       masterGain.connect(audioContext.destination);
     }
   }
-  if (audioContext.state === "suspended") await audioContext.resume();
+  if (audioContext.state !== "running" && audioContext.state !== "closed") {
+    await audioContext.resume();
+  }
   paintMasterGain();
   return audioContext;
 }
@@ -786,6 +788,7 @@ function applyPreset(preset) {
     ring.vertices = presetVertices(preset, DEFAULT_VERTEX_COUNT);
   }
   ring.selectedVertex = 0;
+  ring.shapePitchDepth = clamp(ring.shapePitchDepth ?? 0.65, 0.1, 1);
   if (ring.rawSamples && ring.shapePitchDepth > 0) rebuildRingAudio(ring);
   updateUi();
   scheduleFrame();
@@ -1731,12 +1734,19 @@ function vertexScreenPoint(ring, index, geometry) {
 function drawVertices(ring, geometry) {
   if (ring.id !== state.activeRingId || state.recording) return;
   context.save();
+  const prominentHandles = ringVertexCount(ring) <= 4;
   for (let index = 0; index < ringVertexCount(ring); index += 1) {
     const point = vertexScreenPoint(ring, index, geometry);
     const selected = index === ring.selectedVertex;
     const hovered = index === hoverVertex;
     context.beginPath();
-    context.arc(point.x, point.y, selected ? 7 : hovered ? 6 : 4, 0, TAU);
+    context.arc(
+      point.x,
+      point.y,
+      selected ? (prominentHandles ? 9 : 7) : hovered ? 7 : prominentHandles ? 5.5 : 4,
+      0,
+      TAU,
+    );
     context.fillStyle = selected || hovered ? "#fff3d6" : colorWithAlpha(ring.color, 0.3);
     context.fill();
     context.strokeStyle = ring.color;
@@ -1814,7 +1824,7 @@ function pointerData(event) {
 
 function nearestVertex(data, ring, geometry) {
   let selected = -1;
-  let distance = 22;
+  let distance = ringVertexCount(ring) <= 4 ? 30 : 22;
   for (let index = 0; index < ringVertexCount(ring); index += 1) {
     const point = vertexScreenPoint(ring, index, geometry);
     const nextDistance = Math.hypot(data.x - point.x, data.y - point.y);

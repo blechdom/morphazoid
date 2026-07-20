@@ -41,8 +41,7 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
     html,
     /id="(?:playbackSection|shapeMapping)"/,
   );
-  assert.match(html, /Record creates a new outer ring/);
-  assert.match(html, /push or pull .* radially/i);
+  assert.doesNotMatch(html, /class="control-note"/);
   assert.doesNotMatch(html, /Native|Tape pitch|id="timeMode"|id="pitchShift"/i);
   assert.match(html, /Ring FX \+ stereo/);
 
@@ -64,8 +63,6 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.match(app, /lastRingListSignature/);
   assert.match(app, /ringList"\)\.addEventListener\("pointerdown"/);
   assert.match(app, /pitchShiftLoopSamplesByContour/);
-  assert.match(html, /Pulling a vertex outward lowers/);
-  assert.match(html, /complete loop duration stays fixed/i);
   assert.match(app, /ringCycleDuration/);
   assert.match(app, /setRingTimingMode/);
   assert.match(app, /setRingLengthRatio/);

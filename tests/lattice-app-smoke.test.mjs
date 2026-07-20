@@ -182,6 +182,10 @@ test("lattice app renders and plays line contacts", async () => {
   assert.equal(elements.get("parameterCount").textContent, "2 parameters · guarded");
   assert.equal(elements.get("edgeCount").textContent, "3 bendable classes");
   assert.equal(elements.get("edgeCurve0Out").textContent, "straight");
+  assert.equal(elements.get("contactLevelOut").textContent, "35%");
+  assert.equal(elements.get("intersectionAccentOut").textContent, "75%");
+  assert.equal(elements.get("intersectionDecayOut").textContent, "100 ms");
+  assert.equal(elements.get("voiceCapOut").textContent, "8 voices");
   assert.equal(
     (elements.get("tilingType").innerHTML.match(/<option /g) ?? []).length,
     72,
@@ -417,7 +421,6 @@ test("lattice app renders and plays line contacts", async () => {
   assert.equal(elements.get("edgeCount").textContent, "0 bendable classes");
   assert.equal(elements.get("edgeControl0").hidden, true);
   assert.equal(elements.get("edgeCurve0").disabled, true);
-  assert.match(elements.get("edgeRuleNote").textContent, /fixed by symmetry/);
   assert.equal(elements.get("resetTileVertices").disabled, true);
   assert.equal(elements.get("tileEditorLegend").textContent, "symmetry-locked corners");
 
@@ -457,6 +460,9 @@ test("lattice app renders and plays line contacts", async () => {
   elements.get("intersectionAccent").value = "0.8";
   listeners.get("intersectionAccent:input")();
   assert.equal(elements.get("intersectionAccentOut").textContent, "80%");
+  elements.get("intersectionDecay").value = "180";
+  listeners.get("intersectionDecay:input")();
+  assert.equal(elements.get("intersectionDecayOut").textContent, "180 ms");
   elements.get("synthSource").value = "orientation";
   listeners.get("synthSource:change")();
   elements.get("pmIndex").value = "3.5";
@@ -465,9 +471,10 @@ test("lattice app renders and plays line contacts", async () => {
   listeners.get("shepardCycles:input")();
   assert.equal(elements.get("pmIndexOut").textContent, "3.50 rad");
   assert.equal(elements.get("shepardCyclesOut").textContent, "2.25 oct / loop");
-  assert.ok(storage.has("morphazoid:lattice:audio:v1"));
-  const persisted = JSON.parse(storage.get("morphazoid:lattice:audio:v1"));
+  assert.ok(storage.has("morphazoid:lattice:audio:v2"));
+  const persisted = JSON.parse(storage.get("morphazoid:lattice:audio:v2"));
   assert.equal(persisted.synthSource, "orientation");
   assert.equal(persisted.pmIndex, 3.5);
   assert.equal(persisted.shepardCycles, 2.25);
+  assert.equal(persisted.intersectionDecay, 180);
 });

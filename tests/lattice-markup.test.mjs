@@ -31,9 +31,6 @@ test("Lattice is one centered line instrument with no walk controls", async () =
 
   assert.equal((html.match(/<canvas[^>]+id="stage"/g) ?? []).length, 1);
   assert.equal((html.match(/<canvas\b/g) ?? []).length, 2);
-  assert.match(html, /The line stays centered/);
-  assert.match(html, /Only edges touched by the line become voices/);
-  assert.match(html, /tessellation moves right to left/);
   assert.match(html, /id="angle"[^>]+value="90"/);
   assert.match(html, /id="resetLineAngle"[^>]*>Reset 90&deg;<\/button>/);
   assert.match(html, /id="position"/);
@@ -57,11 +54,12 @@ test("Lattice exposes complete shape controls and single-patch synth modes", asy
   assert.match(html, /id="tilingType"/);
   assert.match(html, /id="parameter5"/);
   assert.match(html, /id="edgeCurve4"/);
-  assert.match(html, /Rigid I edges stay straight/);
   assert.match(html, /id="straightenEdges"/);
   assert.match(html, /id="intersectionAccent"/);
+  assert.match(html, /id="intersectionDecay"[^>]+value="100"/);
   assert.match(html, /id="density"[^>]+max="0\.8"/);
-  assert.match(html, /id="voiceCap"[^>]+max="16"[^>]+value="12"/);
+  assert.match(html, /id="voiceCap"[^>]+max="12"[^>]+value="8"/);
+  assert.doesNotMatch(html, /class="control-note"|class="sine-voice"/);
   assert.match(html, /<section class="group control-section always-open" id="formSection"/);
   assert.match(html, /id="tileEditorPanel"/);
   assert.doesNotMatch(html, /id="tileEditorPanel"[^>]*hidden/);
@@ -98,7 +96,8 @@ test("Lattice markup has unique ids and complete control labels", async () => {
     "level", "position", "angle", "tilingType", "density",
     "parameter0", "parameter1", "parameter2", "parameter3", "parameter4", "parameter5",
     "edgeCurve0", "edgeCurve1", "edgeCurve2", "edgeCurve3", "edgeCurve4",
-    "baseFrequency", "pitchRange", "contactLevel", "intersectionAccent", "voiceCap",
+    "baseFrequency", "pitchRange", "contactLevel", "intersectionAccent",
+    "intersectionDecay", "voiceCap",
     "soundMode", "percussionAttack", "percussionDecay", "shepardCycles",
     "shepardDirection", "shepardWidth", "fmIndex", "fmRatio", "pmIndex", "pmRatio",
     "pitchSource", "pitchCurve", "synthSource", "levelSource", "levelCurve", "stereoWidth",

@@ -4,17 +4,28 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("all five instrument pages share complete navigation", async () => {
+test("all five instrument pages share desktop and mobile navigation", async () => {
   const files = ["index.html", "lattice.html", "solid.html", "hyper.html", "lumber.html"];
-  const pages = await Promise.all(files.map((file) => readFile(new URL(file, root), "utf8")));
+  const [pages, css, nav] = await Promise.all([
+    Promise.all(files.map((file) => readFile(new URL(file, root), "utf8"))),
+    readFile(new URL("style.css", root), "utf8"),
+    readFile(new URL("nav.js", root), "utf8"),
+  ]);
   for (const html of pages) {
     for (const link of ["shape", "lattice", "solid", "hyper", "lumber"]) {
       assert.match(html, new RegExp(`>${link}<\\/a>`));
+      assert.match(html, new RegExp(`>${link}<\\/option>`));
     }
+    assert.match(html, /class="mobile-instrument-select"/);
+    assert.match(html, /<script type="module" src="nav\.js">/);
   }
   for (const html of pages) {
     assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/, "sections should start collapsed");
   }
+  assert.match(css, /@media \(max-width: 650px\)[\s\S]*?\.tabs\s*\{\s*display: none;/);
+  assert.match(css, /\.mobile-instrument-nav/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.header-level\s*\{\s*display: grid;/);
+  assert.match(nav, /location\.href = select\.value/);
 });
 
 test("Solid and Hyper expose wireframe players and Sine-first audio", async () => {

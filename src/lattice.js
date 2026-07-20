@@ -810,7 +810,8 @@ export function centeredContactWindow(contacts, count) {
 }
 
 /** Same-sine onset emphasis for a newly intersected edge. */
-export function intersectionAccentMultiplier(ageSeconds, amount = 0.65) {
+export function intersectionAccentMultiplier(ageSeconds, amount = 0.65, decaySeconds = 0.1) {
   const age = Math.max(0, Number(ageSeconds) || 0);
-  return 1 + 1.25 * clamp(Number(amount) || 0, 0, 1) * Math.exp(-age / 0.14);
+  const decay = clamp(Number(decaySeconds) || 0.1, 0.02, 2);
+  return 1 + 1.25 * clamp(Number(amount) || 0, 0, 1) * Math.exp(-age / decay);
 }

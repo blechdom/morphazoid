@@ -285,6 +285,12 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   listeners.get("shapePitchDepth:input")();
   listeners.get("shapePitchDepth:change")();
   assert.match(elements.get("advancedSummary").textContent, /pitch 80%/);
+  listeners.get("trianglePreset:click")();
+  assert.equal(elements.get("vertexCountOut").textContent, "3 vertices");
+  listeners.get("squarePreset:click")();
+  assert.equal(elements.get("vertexCountOut").textContent, "4 vertices");
+  listeners.get("circlePreset:click")();
+  assert.equal(elements.get("vertexCountOut").textContent, "12 vertices");
   listeners.get("viewThreeD:click")();
   assert.match(elements.get("depthSummary").textContent, /3D/);
   assert.equal(elements.get("ringDepth").disabled, false);
