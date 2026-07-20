@@ -220,11 +220,14 @@ function transformAndFit(points, aspect, skew, rotationRad) {
   }, rotationRad));
 }
 
-function asymmetryScale(index, amount) {
+function asymmetryScale(index, amount, count) {
   if (amount <= EPSILON) return 1;
-  const first = Math.sin((index + 1) * 2.399963229728653 + 0.41);
-  const second = Math.cos((index + 1) * 1.173 + 0.83);
-  return 1 + amount * 0.2 * (first + second * 0.35) / 1.35;
+  const phase = index / Math.max(1, count) * TAU;
+  const primaryLobe = Math.cos(phase - 0.58);
+  const secondaryLobe = Math.sin(phase * 2 + 0.31);
+  const irregularity = Math.sin((index + 1) * 2.399963229728653 + 0.41);
+  const profile = primaryLobe * 0.68 + secondaryLobe * 0.22 + irregularity * 0.1;
+  return Math.max(0.25, 1 + amount ** 0.82 * 0.62 * profile);
 }
 
 function measure(points, closed) {
@@ -252,8 +255,8 @@ function measure(points, closed) {
  * @returns {ShapePath}
  */
 export function buildShape(options) {
-  if (!Number.isInteger(options.sides) || options.sides < 2 || options.sides > 16) {
-    throw new RangeError("sides must be an integer from 2 through 16");
+  if (!Number.isInteger(options.sides) || options.sides < 2 || options.sides > 32) {
+    throw new RangeError("sides must be an integer from 2 through 32");
   }
 
   const sides = options.sides;
@@ -263,8 +266,8 @@ export function buildShape(options) {
   const starDepth = shapeType === "star"
     ? clamp(finiteOr(options.starDepth, 0.48), 0.05, 0.82)
     : 0;
-  const aspect = clamp(finiteOr(options.aspect, 0), -1, 1);
-  const skew = clamp(finiteOr(options.skew, 0), -0.8, 0.8);
+  const aspect = clamp(finiteOr(options.aspect, 0), -2, 2);
+  const skew = clamp(finiteOr(options.skew, 0), -2, 2);
   const asymmetry = clamp(finiteOr(options.asymmetry, 0), 0, 1);
   const rotationDeg = finiteOr(options.rotationDeg, 0);
   const rotationRad = (rotationDeg * Math.PI) / 180;
@@ -284,7 +287,13 @@ export function buildShape(options) {
   if (!closed) {
     localPoints = [];
     for (let sample = 0; sample <= samplesPerEdge; sample += 1) {
-      localPoints.push(openLineSample(sample / samplesPerEdge, curvature));
+      const point = openLineSample(sample / samplesPerEdge, curvature);
+      const horizontalBias = 1 + asymmetry * 0.45 * point.x;
+      const verticalBias = 1 + asymmetry * 0.3 * point.x;
+      localPoints.push({
+        x: point.x * horizontalBias,
+        y: point.y * verticalBias,
+      });
     }
     vertexIndices = [0, localPoints.length - 1];
     // Endpoints become perceptual corners when ping-pong traversal reverses.
@@ -297,7 +306,7 @@ export function buildShape(options) {
       const starScale = shapeType === "star" && index % 2 === 1
         ? 1 - starDepth
         : 1;
-      const radius = starScale * asymmetryScale(index, asymmetry);
+      const radius = starScale * asymmetryScale(index, asymmetry, vertexCount);
       return {
         angle,
         point: { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius },

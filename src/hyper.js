@@ -40,7 +40,7 @@ export function buildHyperPyramid(radius = 0.66) {
   return { vertices, edges };
 }
 
-export function buildHypersphere(radius = 0.88, chiSteps = 5, uSteps = 10, vSteps = 8) {
+export function buildHypersphere(radius = 0.88, chiSteps = 3, uSteps = 6, vSteps = 6) {
   const vertices = [];
   const indexFor = (chi, u, v) => (chi * uSteps + u) * vSteps + v;
   for (let chi = 0; chi < chiSteps; chi += 1) {
@@ -74,7 +74,7 @@ export function buildHypersphere(radius = 0.88, chiSteps = 5, uSteps = 10, vStep
   return { vertices, edges };
 }
 
-export function buildKleinBottle(radius = 0.82, uSteps = 20, vSteps = 12) {
+export function buildKleinBottle(radius = 0.82, uSteps = 12, vSteps = 8) {
   const vertices = [];
   const indexFor = (u, v) => u * vSteps + v;
   for (let u = 0; u < uSteps; u += 1) {
@@ -171,11 +171,22 @@ export function transformedTesseract(rotation) {
   return transformedHyperShape("tesseract", rotation);
 }
 
-export function transformedHyperShape(type, rotation) {
+export function transformedHyperShape(type, rotation, form = {}) {
   const source = buildHyperShape(type);
+  const scale = {
+    x: Math.max(0.4, Math.min(1.6, Number(form.x) || 1)),
+    y: Math.max(0.4, Math.min(1.6, Number(form.y) || 1)),
+    z: Math.max(0.4, Math.min(1.6, Number(form.z) || 1)),
+    w: Math.max(0.4, Math.min(1.6, Number(form.w) || 1)),
+  };
   return {
     ...source,
-    vertices: source.vertices.map((point) => rotatePoint4(point, rotation)),
+    vertices: source.vertices.map((point) => rotatePoint4({
+      x: point.x * scale.x,
+      y: point.y * scale.y,
+      z: point.z * scale.z,
+      w: point.w * scale.w,
+    }, rotation)),
   };
 }
 

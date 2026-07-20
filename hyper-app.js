@@ -16,6 +16,8 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
+const MAX_HYPER_VOICES = 20;
+const MAX_CORNER_STRIKES = 16;
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
@@ -27,13 +29,21 @@ const state = {
   speed: 0.1,
   direction: 1,
   playing: false,
-  autoRotate: false,
   rotationXW: 24,
   rotationYW: -18,
   rotationZW: 12,
-  rotationSpeed: 0.06,
+  rotationXWPlaying: false,
+  rotationYWPlaying: false,
+  rotationZWPlaying: false,
+  rotationXWSpeed: 0.06,
+  rotationYWSpeed: 0.04,
+  rotationZWSpeed: -0.02,
+  hyperScaleX: 1,
+  hyperScaleY: 1,
+  hyperScaleZ: 1,
+  hyperScaleW: 1,
   audio: false,
-  soundMode: "fm",
+  soundMode: "sine",
   level: 0.6,
   baseFrequency: 82,
   pitchRange: 4,
@@ -100,8 +110,17 @@ bindRange("speed", "speed", (value) => `${value.toFixed(2)} cyc/s`);
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
 for (const axis of ["XW", "YW", "ZW"]) {
   bindRange(`rotation${axis}`, `rotation${axis}`, (value) => `${Math.round(value)}°`, () => { previousSigns = null; });
+  bindRange(
+    `rotation${axis}Speed`,
+    `rotation${axis}Speed`,
+    (value) => `${value >= 0 ? "+" : ""}${value.toFixed(2)} rev/s`,
+  );
 }
-bindRange("rotationSpeed", "rotationSpeed", (value) => `${value.toFixed(2)} rev/s`);
+for (const axis of ["X", "Y", "Z", "W"]) {
+  bindRange(`hyperScale${axis}`, `hyperScale${axis}`, (value) => `${value.toFixed(2)}×`, () => {
+    previousSigns = null;
+  });
+}
 bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`);
@@ -122,6 +141,17 @@ $("hyperShape").addEventListener("change", (event) => {
   scheduleFrame();
 });
 
+$("resetHyperForm").addEventListener("click", () => {
+  for (const axis of ["X", "Y", "Z", "W"]) {
+    state[`hyperScale${axis}`] = 1;
+    $(`hyperScale${axis}`).value = "1";
+    $(`hyperScale${axis}Out`).textContent = "1.00×";
+  }
+  previousSigns = null;
+  pool.silence();
+  scheduleFrame();
+});
+
 function resetClocks() {
   lastFrameTime = performance.now();
   lastAudioTime = pool.context?.currentTime ?? null;
@@ -131,6 +161,7 @@ $("playButton").addEventListener("click", () => {
   state.playing = !state.playing;
   setPressed($("playButton"), state.playing);
   $("playSummary").textContent = `W plane · ${state.playing ? "playing" : "paused"}`;
+  if (!state.playing && !rotationIsMoving()) pool.silence();
   resetClocks();
   scheduleFrame();
 });
@@ -140,13 +171,33 @@ $("directionButton").addEventListener("click", () => {
   scheduleFrame();
 });
 
-function paintRotation() {
-  setPressed($("manualRotation"), !state.autoRotate);
-  setPressed($("autoRotation"), state.autoRotate);
-  $("rotationSummary").textContent = state.autoRotate ? "auto · XW/YW/ZW" : "manual";
+function rotationIsMoving() {
+  return state.rotationXWPlaying || state.rotationYWPlaying || state.rotationZWPlaying;
 }
-$("manualRotation").addEventListener("click", () => { state.autoRotate = false; paintRotation(); scheduleFrame(); });
-$("autoRotation").addEventListener("click", () => { state.autoRotate = true; paintRotation(); resetClocks(); scheduleFrame(); });
+
+function paintRotation() {
+  const axes = [];
+  for (const axis of ["XW", "YW", "ZW"]) {
+    const playing = state[`rotation${axis}Playing`];
+    const button = $(`rotation${axis}Play`);
+    setPressed(button, playing);
+    button.setAttribute("aria-label", `${playing ? "Pause" : "Play"} ${axis} rotation`);
+    button.querySelector("span").textContent = playing ? "Ⅱ" : "▶";
+    if (playing) axes.push(axis);
+  }
+  $("rotationSummary").textContent = axes.length ? axes.join("+") : "paused";
+}
+
+for (const axis of ["XW", "YW", "ZW"]) {
+  $(`rotation${axis}Play`).addEventListener("click", () => {
+    state[`rotation${axis}Playing`] = !state[`rotation${axis}Playing`];
+    previousSigns = null;
+    paintRotation();
+    resetClocks();
+    if (!state.playing && !rotationIsMoving()) pool.silence();
+    scheduleFrame();
+  });
+}
 
 function paintRotationAxes() {
   for (const axis of ["XW", "YW", "ZW"]) {
@@ -158,7 +209,8 @@ function paintRotationAxes() {
 
 canvas.addEventListener("pointerdown", (event) => {
   if (event.isPrimary === false || (event.button ?? 0) !== 0) return;
-  if (state.autoRotate) state.autoRotate = false;
+  state.rotationXWPlaying = false;
+  state.rotationYWPlaying = false;
   canvasDrag = {
     pointerId: event.pointerId,
     startX: event.clientX,
@@ -236,6 +288,23 @@ function rotation(overrides = {}) {
     xy: 16,
     yz: -9,
   };
+}
+
+function hyperForm() {
+  return {
+    x: state.hyperScaleX,
+    y: state.hyperScaleY,
+    z: state.hyperScaleZ,
+    w: state.hyperScaleW,
+  };
+}
+
+function currentHyperShape(nextRotation = rotation()) {
+  return transformedHyperShape(state.shapeType, nextRotation, hyperForm());
+}
+
+function currentHyperplaneOffset(phase = state.continuousPosition) {
+  return hyperplaneOffsetForPhase(phase, 1.25 * state.hyperScaleW);
 }
 
 function viewPoint(point) {
@@ -319,7 +388,7 @@ function contactVoice(contact, index) {
   return {
     key: `hyper:${contact.edgeIndex ?? index}`,
     frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange),
-    gain: sineCornerEnvelopeGain(contact.cornerStrength ?? 0, 0.18, 0.82, 0.58),
+    gain: sineCornerEnvelopeGain(contact.cornerStrength ?? 0, 0.18, 0.82, 350, 200),
     pan: clamp(projected.x, -1, 1),
     waveform: "sine",
     ...synthParametersForMode(state.soundMode, drive, {
@@ -331,6 +400,13 @@ function contactVoice(contact, index) {
       shepardWidth: 5,
     }),
   };
+}
+
+function evenlySelect(items, limit) {
+  if (items.length <= limit) return items;
+  return Array.from({ length: limit }, (_, index) => (
+    items[Math.floor(index * items.length / limit)]
+  ));
 }
 
 function emitCorners(tesseract, offset) {
@@ -349,7 +425,10 @@ function emitCorners(tesseract, offset) {
         waveform: "sine",
       });
     });
-    normalizeStrikeGains(intents, 0.78).forEach((spec) => pool.strike(spec, {
+    normalizeStrikeGains(
+      evenlySelect(intents, MAX_CORNER_STRIKES),
+      0.78,
+    ).forEach((spec) => pool.strike(spec, {
       attackSeconds: 0.003,
       decaySeconds: 0.12,
     }));
@@ -375,33 +454,35 @@ function frame(now) {
     state.continuousPosition += state.direction * state.speed * delta;
     state.position = ((state.continuousPosition % 1) + 1) % 1;
   }
-  if (state.autoRotate) {
-    const degrees = state.rotationSpeed * 360 * delta;
-    state.rotationXW = normalizeDegrees(state.rotationXW + degrees);
-    state.rotationYW = normalizeDegrees(state.rotationYW + degrees * 0.57);
-    state.rotationZW = normalizeDegrees(state.rotationZW - degrees * 0.31);
+  for (const axis of ["XW", "YW", "ZW"]) {
+    if (!state[`rotation${axis}Playing`]) continue;
+    state[`rotation${axis}`] = normalizeDegrees(
+      state[`rotation${axis}`] + state[`rotation${axis}Speed`] * 360 * delta,
+    );
   }
 
-  const tesseract = transformedHyperShape(state.shapeType, rotation());
-  const offset = hyperplaneOffsetForPhase(state.continuousPosition);
+  const tesseract = currentHyperShape();
+  const offset = currentHyperplaneOffset();
   const contacts = hyperplaneIntersections(tesseract, offset);
   drawScene(tesseract, contacts, offset);
-  emitCorners(tesseract, offset);
+  const moving = state.playing || rotationIsMoving();
+  if (moving) emitCorners(tesseract, offset);
   const continuous = state.soundMode !== "percussion";
-  const voices = continuous ? contacts.map(contactVoice) : [];
+  const voicedContacts = evenlySelect(contacts, MAX_HYPER_VOICES);
+  const voices = continuous ? voicedContacts.map(contactVoice) : [];
   if (state.audio) {
-    if (continuous && (state.playing || state.autoRotate)) {
+    if (continuous && moving) {
       const lookahead = 0.075;
       const futurePhase = state.continuousPosition + (state.playing ? state.direction * state.speed * lookahead : 0);
-      const futureDegrees = state.autoRotate ? state.rotationSpeed * 360 * lookahead : 0;
-      const future = transformedHyperShape(state.shapeType, rotation({
-        xw: state.rotationXW + futureDegrees,
-        yw: state.rotationYW + futureDegrees * 0.57,
-        zw: state.rotationZW - futureDegrees * 0.31,
+      const future = currentHyperShape(rotation({
+        xw: state.rotationXW + (state.rotationXWPlaying ? state.rotationXWSpeed * 360 * lookahead : 0),
+        yw: state.rotationYW + (state.rotationYWPlaying ? state.rotationYWSpeed * 360 * lookahead : 0),
+        zw: state.rotationZW + (state.rotationZWPlaying ? state.rotationZWSpeed * 360 * lookahead : 0),
       }));
-      const futureContacts = hyperplaneIntersections(future, hyperplaneOffsetForPhase(futurePhase));
-      pool.setVoiceTrajectory(voices, futureContacts.map(contactVoice), lookahead);
-    } else pool.setVoices(voices);
+      const futureContacts = hyperplaneIntersections(future, currentHyperplaneOffset(futurePhase));
+      const futureVoices = evenlySelect(futureContacts, MAX_HYPER_VOICES).map(contactVoice);
+      pool.setVoiceTrajectory(voices, futureVoices, lookahead);
+    } else pool.setVoices([]);
   }
 
   $("position").value = String(state.position);
@@ -411,8 +492,8 @@ function frame(now) {
     $(`rotation${axis}Out`).textContent = `${Math.round(state[`rotation${axis}`])}°`;
   }
   const shapeLabel = (SHAPE_LABELS[state.shapeType] ?? "Tesseract").toUpperCase();
-  $("stageReadout").textContent = `${shapeLabel} · ${contacts.length} CONTACT${contacts.length === 1 ? "" : "S"} · ${state.audio ? `${Math.min(voices.length, 32)} VOICES` : "AUDIO OFF"}`;
-  if (state.playing || state.autoRotate) scheduleFrame();
+  $("stageReadout").textContent = `${shapeLabel} · ${contacts.length} CONTACT${contacts.length === 1 ? "" : "S"} · ${state.audio ? `${moving && continuous ? voices.length : pool.activeStrikeCount} VOICES` : "AUDIO OFF"}`;
+  if (moving) scheduleFrame();
 }
 
 document.addEventListener("visibilitychange", () => document.hidden ? pool.silence() : scheduleFrame());

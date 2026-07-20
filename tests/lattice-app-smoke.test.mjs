@@ -179,7 +179,7 @@ test("lattice app renders and plays line contacts", async () => {
   assert.doesNotMatch(elements.get("stageReadout").textContent, /WALK/);
   assert.match(elements.get("formSummary").textContent, /Pentagon .+ IH20/);
   assert.equal(elements.get("angleOut").textContent, "90\u00b0");
-  assert.equal(elements.get("parameterCount").textContent, "2 parameters");
+  assert.equal(elements.get("parameterCount").textContent, "2 parameters · guarded");
   assert.equal(elements.get("edgeCount").textContent, "3 bendable classes");
   assert.equal(elements.get("edgeCurve0Out").textContent, "straight");
   assert.equal(
@@ -188,24 +188,30 @@ test("lattice app renders and plays line contacts", async () => {
     "the selector should contain every Tactile isohedral family",
   );
   assert.equal(attributes.get("loopScan:aria-pressed"), "true");
+  assert.equal(elements.get("traversalDirectionGlyph").textContent, "\u2190");
+  assert.equal(elements.get("traversalDirectionText").textContent, "R→L");
   assert.equal(attributes.get("playButton:aria-pressed"), undefined);
   assert.ok(drawnArcs > 0, "line contacts should be drawn");
   assert.match(elements.get("outputContactLabel").textContent, /Contact 1 of/);
-  assert.equal(elements.get("tileEditorPanel").hidden, true);
-  assert.equal(attributes.get("toggleTileEditor:aria-expanded"), "false");
+  assert.equal(elements.get("tileEditorPanel").hidden, false);
+  assert.equal(tileEditorCanvas.width, 640);
+  assert.equal(tileEditorCanvas.height, 440);
   assert.equal(elements.get("soundMode").value, "sine");
   assert.equal(elements.get("percussionArticulation").hidden, true);
   assert.equal(elements.get("shepardArticulation").hidden, true);
   assert.equal(elements.get("fmArticulation").hidden, true);
   assert.equal(elements.get("pmArticulation").hidden, true);
-
-  const arcsBeforeEditor = drawnArcs;
-  listeners.get("toggleTileEditor:click")();
-  assert.equal(elements.get("tileEditorPanel").hidden, false);
-  assert.equal(attributes.get("toggleTileEditor:aria-expanded"), "true");
-  assert.equal(tileEditorCanvas.width, 640);
-  assert.equal(tileEditorCanvas.height, 440);
-  assert.ok(drawnArcs > arcsBeforeEditor, "the editor should draw prototile corner handles");
+  assert.equal(elements.get("speedOut").textContent, "0.080 cyc/s");
+  elements.get("density").value = "0.8";
+  listeners.get("density:input")();
+  now += 20;
+  queuedFrame(now);
+  assert.ok(Number.parseFloat(elements.get("speedOut").textContent) > 0.08);
+  elements.get("density").value = "0.52";
+  listeners.get("density:input")();
+  now += 20;
+  queuedFrame(now);
+  assert.equal(elements.get("speedOut").textContent, "0.080 cyc/s");
 
   const editorModel = buildPrototile({
     type: 20,
@@ -252,16 +258,16 @@ test("lattice app renders and plays line contacts", async () => {
   await listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
-  assert.equal(oscillators.length, 32);
+  assert.equal(oscillators.length, 16);
   assert.ok(oscillators.every((oscillator) => oscillator.type === "sine"));
   assert.ok(Math.abs(gains[0].gain.value - Math.sqrt(0.65)) < 1e-12);
   now += 100;
   queuedFrame(now);
   assert.match(elements.get("stageReadout").textContent, /VOICE/);
-  const voiceGains = gains.slice(1, 33);
+  const voiceGains = gains.slice(1, 17);
   assert.ok(voiceGains.some((gain) => gain.gain.value > 0));
   assert.ok(
-    Math.hypot(...voiceGains.map((gain) => gain.gain.value)) > 0.2,
+    Math.hypot(...voiceGains.map((gain) => gain.gain.value)) > 0.05,
     "the default line chord should have audible combined gain",
   );
   assert.ok(oscillators.some((oscillator) => oscillator.frequency.value !== 220));
@@ -279,7 +285,14 @@ test("lattice app renders and plays line contacts", async () => {
   assert.equal(elements.get("synthMapping").hidden, false);
   assert.equal(elements.get("outputVoiceLabel").textContent, "fm");
   assert.match(elements.get("markSynthValueOut").textContent, /index @/);
-  assert.equal(oscillators.length, 32, "FM fallback must reuse the continuous pool");
+  assert.equal(oscillators.length, 16, "FM fallback must reuse the continuous pool");
+  elements.get("parameter0").value = "0.15";
+  listeners.get("parameter0:input")();
+  queuedFrame(performance.now() + 20);
+  assert.ok(
+    voiceGains.every((gain) => gain.gain.value <= 0.1),
+    "form edits must not reapply intersection accents to continuous synths",
+  );
 
   elements.get("soundMode").value = "pm";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
@@ -300,20 +313,29 @@ test("lattice app renders and plays line contacts", async () => {
   now += 80;
   queuedFrame(now);
   assert.equal(elements.get("percussionArticulation").hidden, false);
-  assert.ok(oscillators.length > 32, "new line intersections should trigger percussion strikes");
+  assert.ok(oscillators.length > 16, "new line intersections should trigger percussion strikes");
+  const strikesBeforeFormEdit = oscillators.length;
+  elements.get("parameter0").value = "0.18";
+  listeners.get("parameter0:input")();
+  queuedFrame(performance.now() + 20);
+  assert.equal(
+    oscillators.length,
+    strikesBeforeFormEdit,
+    "form edits must not retrigger percussion contacts",
+  );
 
   elements.get("soundMode").value = "sine";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
   now += 80;
   queuedFrame(now);
 
+  const activeCombinedGain = Math.hypot(...voiceGains.map((gain) => gain.gain.value));
+  assert.ok(activeCombinedGain > 0);
   await listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "false");
-  const accentedCombinedGain = Math.hypot(...voiceGains.map((gain) => gain.gain.value));
   now += 1000;
   queuedFrame(now);
-  const settledCombinedGain = Math.hypot(...voiceGains.map((gain) => gain.gain.value));
-  assert.ok(settledCombinedGain < accentedCombinedGain, "intersection accent should decay on the same voices");
+  assert.ok(voiceGains.every((gain) => gain.gain.value === 0), "paused lattice must be silent");
 
   await listeners.get("audioButton:click")();
   assert.equal(attributes.get("audioButton:aria-pressed"), "false");
@@ -328,8 +350,8 @@ test("lattice app renders and plays line contacts", async () => {
   listeners.get("voiceCap:input")();
   now += 20;
   queuedFrame(now);
-  assert.equal(voiceGains.filter((gain) => gain.gain.value > 0).length, 4);
-  assert.match(elements.get("stageReadout").textContent, /4 VOICES/);
+  assert.equal(voiceGains.filter((gain) => gain.gain.value > 0).length, 0);
+  assert.match(elements.get("stageReadout").textContent, /0 VOICES/);
 
   const startPosition = Number(elements.get("position").value);
   listeners.get("pingPongScan:click")();
@@ -339,6 +361,8 @@ test("lattice app renders and plays line contacts", async () => {
   now += 100;
   queuedFrame(now);
   assert.notEqual(Number(elements.get("position").value), startPosition);
+  assert.equal(voiceGains.filter((gain) => gain.gain.value > 0).length, 4);
+  assert.match(elements.get("stageReadout").textContent, /4 VOICES/);
   await listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "false");
 
@@ -360,13 +384,16 @@ test("lattice app renders and plays line contacts", async () => {
   now += 20;
   queuedFrame(now);
   assert.ok(drawnArcs > 4);
+  listeners.get("resetLineAngle:click")();
+  assert.equal(elements.get("angle").value, "90");
+  assert.equal(elements.get("angleOut").textContent, "90\u00b0");
 
   elements.get("tilingType").value = "1";
   listeners.get("tilingType:change")();
   now += 20;
   queuedFrame(now);
   assert.match(elements.get("formSummary").textContent, /Hexagon .+ IH01/);
-  assert.equal(elements.get("parameterCount").textContent, "4 parameters");
+  assert.equal(elements.get("parameterCount").textContent, "4 parameters · guarded");
   assert.equal(elements.get("edgeCount").textContent, "3 bendable classes");
   assert.equal(elements.get("parameterControl4").hidden, true);
 
@@ -384,9 +411,18 @@ test("lattice app renders and plays line contacts", async () => {
   assert.equal(elements.get("edgeCount").textContent, "0 bendable classes");
   assert.equal(elements.get("edgeControl0").hidden, true);
   assert.equal(elements.get("edgeCurve0").disabled, true);
-  assert.match(elements.get("edgeRuleNote").textContent, /no edge-shape parameters/);
+  assert.match(elements.get("edgeRuleNote").textContent, /fixed by symmetry/);
   assert.equal(elements.get("resetTileVertices").disabled, true);
-  assert.match(elements.get("tileEditorNote").textContent, /no movable vertex parameters/);
+  assert.equal(elements.get("tileEditorLegend").textContent, "symmetry-locked corners");
+
+  elements.get("density").value = "0.8";
+  listeners.get("density:input")();
+  elements.get("tilingType").value = "71";
+  listeners.get("tilingType:change")();
+  now += 20;
+  queuedFrame(now);
+  assert.match(elements.get("densityOut").textContent, /limit/);
+  assert.ok(Number(elements.get("density").value) < 0.8);
 
   elements.get("tilingType").value = "20";
   listeners.get("tilingType:change")();

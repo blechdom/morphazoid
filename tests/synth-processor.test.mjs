@@ -96,3 +96,37 @@ test("pan is equal-power and Shepard octave wraps remain click bounded", () => {
   }
   assert.ok(largestStep < 0.2, `Shepard wrap step was ${largestStep}`);
 });
+
+test("external Shepard position locks octave phase to playhead angle", () => {
+  const processor = new ProcessorConstructor({ processorOptions: { maxVoices: 1 } });
+  const sendPosition = (position) => processor.port.onmessage({
+    data: {
+      type: "voices",
+      voices: [{
+        key: "angle-locked",
+        mode: "shepard",
+        frequency: 110,
+        gain: 0.25,
+        pan: 0,
+        shepardRate: 8,
+        shepardWidth: 4,
+        shepardPosition: position,
+      }],
+    },
+  });
+  const processBlocks = (count) => {
+    for (let block = 0; block < count; block += 1) {
+      processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+    }
+  };
+
+  sendPosition(0.125);
+  processBlocks(80);
+  const voice = processor.voices.get("angle-locked");
+  assert.ok(Math.abs(voice.shepardPosition - 0.125) < 1e-6);
+
+  sendPosition(0.625);
+  processBlocks(160);
+  assert.ok(Math.abs(voice.shepardPosition - 0.625) < 0.01);
+  assert.equal(voice.shepardExternallyDriven, true);
+});

@@ -51,6 +51,8 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assertDefaultLeftChoice("scanMotion", "loopScan", "Loop", "pingPongScan");
   assertDefaultLeftChoice("curvatureDirection", "curvatureOutward", "Out", "curvatureIn");
   assertDefaultLeftChoice("shapeType", "polygonShape", "Polygon", "starShape");
+  assert.match(openingTag("circleShape"), /data-value="circle"[^>]*aria-pressed="false"/);
+  assert.ok(html.indexOf('id="circleShape"') < html.indexOf('id="polygonShape"'));
   assert.equal((html.match(/class="choice-switch/g) ?? []).length, 5);
 
   // Points start at the contour midpoint; conditional line controls remain hidden.
@@ -65,6 +67,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(openingTag("rotationDirection"), /\bhidden\b/);
   assert.doesNotMatch(html, /id="(?:traversal|rotation)(?:Forward|Reverse)"/);
   assert.match(app, /const SPEED_MAX = 4;/);
+  assert.match(app, /shepardPositionForContact/);
   assert.match(openingTag("rotationSpeed"), /max="4"/);
 
   // The playhead phase editor is compact, draggable, keyboard-operable, and resettable.
@@ -84,22 +87,25 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(openingTag("starDepthControl"), /\bhidden\b/);
   assert.match(openingTag("starDepth"), /min="0\.05"[^>]*max="0\.82"/);
   assert.match(openingTag("curvature"), /min="0"[^>]*max="1"/);
-  assert.match(openingTag("aspect"), /min="-1"[^>]*max="1"/);
-  assert.match(openingTag("skew"), /min="-0\.8"[^>]*max="0\.8"/);
+  assert.match(openingTag("sides"), /min="2"[^>]*max="32"/);
+  assert.match(openingTag("aspect"), /min="-2"[^>]*max="2"/);
+  assert.match(openingTag("skew"), /min="-2"[^>]*max="2"/);
   assert.match(openingTag("asymmetry"), /min="0"[^>]*max="1"/);
 
   const soundSelect = html.match(/<select\s+id="soundMode"[^>]*>([\s\S]*?)<\/select>/);
   assert.ok(soundSelect, "missing sound mode select");
-  assert.match(soundSelect[1], /<option\s+value="sine">Sine\b/);
+  assert.match(soundSelect[1], /<option\s+value="sine"\s+selected>Sine\b/);
   assert.match(soundSelect[1], /<option\s+value="percussion">Percussion\b/);
   assert.match(soundSelect[1], /<option\s+value="shepard">Shepard\b/);
-  assert.match(soundSelect[1], /<option\s+value="fm"\s+selected>FM\b/);
+  assert.match(soundSelect[1], /<option\s+value="fm">FM\b/);
   assert.match(soundSelect[1], /<option\s+value="pm">PM\b/);
-  assert.match(openingTag("sineArticulation"), /\bhidden\b/);
+  assert.doesNotMatch(openingTag("sineArticulation"), /\bhidden\b/);
   assert.match(openingTag("percussionArticulation"), /\bhidden\b/);
   assert.match(openingTag("shepardArticulation"), /\bhidden\b/);
-  assert.doesNotMatch(openingTag("fmArticulation"), /\bhidden\b/);
+  assert.match(openingTag("fmArticulation"), /\bhidden\b/);
   assert.match(openingTag("pmArticulation"), /\bhidden\b/);
+  assert.match(openingTag("sineAccent"), /min="0"[^>]*max="1\.5"[^>]*value="1"/);
+  assert.match(openingTag("sineDecay"), /min="20"[^>]*max="4000"[^>]*value="650"/);
   assert.match(openingTag("cornerDecay"), /min="15"[^>]*max="2000"[^>]*value="90"/);
 
   // Mapping names the coordinate frame and transfer curves explicitly.
@@ -108,6 +114,8 @@ test("the mobile instrument markup exposes the complete compact control surface"
     "synthSource", "shepardCycles", "shepardDirection", "shepardWidth",
     "fmIndex", "fmRatio", "pmIndex", "pmRatio",
   ]) assert.ok(html.includes(`id="${id}"`));
+  assert.match(html, /Octaves per circuit/);
+  assert.match(html, /oct \/ circuit/);
   assert.match(html, /Stage axes[^<]*fixed/);
   assert.match(html, /Shape axes[^<]*rotate with form/);
   assert.match(html, /value="center">Distance from center · radar radius/);

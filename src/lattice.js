@@ -249,6 +249,125 @@ export function buildPrototile({
   };
 }
 
+function pointOnSegment(point, start, end, tolerance = 1e-8) {
+  const cross = (end.x - start.x) * (point.y - start.y)
+    - (end.y - start.y) * (point.x - start.x);
+  if (Math.abs(cross) > tolerance) return false;
+  return point.x >= Math.min(start.x, end.x) - tolerance
+    && point.x <= Math.max(start.x, end.x) + tolerance
+    && point.y >= Math.min(start.y, end.y) - tolerance
+    && point.y <= Math.max(start.y, end.y) + tolerance;
+}
+
+function segmentsIntersect(firstStart, firstEnd, secondStart, secondEnd) {
+  const turn = (start, end, point) => (
+    (end.x - start.x) * (point.y - start.y)
+    - (end.y - start.y) * (point.x - start.x)
+  );
+  const firstA = turn(firstStart, firstEnd, secondStart);
+  const firstB = turn(firstStart, firstEnd, secondEnd);
+  const secondA = turn(secondStart, secondEnd, firstStart);
+  const secondB = turn(secondStart, secondEnd, firstEnd);
+  const tolerance = 1e-8;
+  if (
+    ((firstA > tolerance && firstB < -tolerance) || (firstA < -tolerance && firstB > tolerance))
+    && ((secondA > tolerance && secondB < -tolerance) || (secondA < -tolerance && secondB > tolerance))
+  ) return true;
+  return (Math.abs(firstA) <= tolerance && pointOnSegment(secondStart, firstStart, firstEnd))
+    || (Math.abs(firstB) <= tolerance && pointOnSegment(secondEnd, firstStart, firstEnd))
+    || (Math.abs(secondA) <= tolerance && pointOnSegment(firstStart, secondStart, secondEnd))
+    || (Math.abs(secondB) <= tolerance && pointOnSegment(firstEnd, secondStart, secondEnd));
+}
+
+/** True when the sampled prototile outline has positive area and never crosses itself. */
+export function prototileIsNonOverlapping(options = {}) {
+  const model = buildPrototile(options);
+  const points = model.outline;
+  if (points.length < 3) return false;
+  const signedArea = points.reduce((sum, point, index) => {
+    const next = points[(index + 1) % points.length];
+    return sum + point.x * next.y - next.x * point.y;
+  }, 0) * 0.5;
+  const boxArea = Math.max(
+    EPSILON,
+    (model.bounds.maxX - model.bounds.minX) * (model.bounds.maxY - model.bounds.minY),
+  );
+  if (Math.abs(signedArea) < boxArea * 1e-5) return false;
+
+  for (let first = 0; first < points.length; first += 1) {
+    const firstNext = (first + 1) % points.length;
+    const firstStart = points[first];
+    const firstEnd = points[firstNext];
+    if (Math.hypot(firstEnd.x - firstStart.x, firstEnd.y - firstStart.y) < EPSILON) return false;
+    for (let second = first + 1; second < points.length; second += 1) {
+      const secondNext = (second + 1) % points.length;
+      if (second === first || second === firstNext || secondNext === first) continue;
+      if (segmentsIntersect(firstStart, firstEnd, points[second], points[secondNext])) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Move toward a requested edit only as far as the prototile remains simple.
+ * This makes parameter sliders, corner dragging, and edge bends share one guard.
+ */
+export function constrainPrototileEdit({
+  type = DEFAULT_TYPE,
+  currentParameters = [],
+  parameters = currentParameters,
+  currentEdgeCurves = [],
+  edgeCurves = currentEdgeCurves,
+  iterations = 14,
+} = {}) {
+  const interpolateValues = (current, requested, amount) => current.map((value, index) => {
+    const target = Number(requested[index]);
+    return lerp(value, Number.isFinite(target) ? target : value, amount);
+  });
+  const startParameters = currentParameters.map((value) => Number(value) || 0);
+  const startCurves = currentEdgeCurves.map((value) => Number(value) || 0);
+  const targetParameters = interpolateValues(startParameters, parameters, 1);
+  const targetCurves = interpolateValues(startCurves, edgeCurves, 1);
+  const isSafe = (nextParameters, nextCurves) => prototileIsNonOverlapping({
+    type,
+    parameters: nextParameters,
+    edgeCurves: nextCurves,
+  });
+
+  if (isSafe(targetParameters, targetCurves)) {
+    return {
+      parameters: targetParameters,
+      edgeCurves: targetCurves,
+      constrained: false,
+      fraction: 1,
+    };
+  }
+  if (!isSafe(startParameters, startCurves)) {
+    return {
+      parameters: startParameters,
+      edgeCurves: startCurves,
+      constrained: true,
+      fraction: 0,
+    };
+  }
+
+  let safeAmount = 0;
+  let unsafeAmount = 1;
+  for (let iteration = 0; iteration < Math.max(1, Math.trunc(iterations)); iteration += 1) {
+    const amount = (safeAmount + unsafeAmount) * 0.5;
+    const nextParameters = interpolateValues(startParameters, targetParameters, amount);
+    const nextCurves = interpolateValues(startCurves, targetCurves, amount);
+    if (isSafe(nextParameters, nextCurves)) safeAmount = amount;
+    else unsafeAmount = amount;
+  }
+  return {
+    parameters: interpolateValues(startParameters, targetParameters, safeAmount),
+    edgeCurves: interpolateValues(startCurves, targetCurves, safeAmount),
+    constrained: true,
+    fraction: safeAmount,
+  };
+}
+
 /**
  * Project a dragged corner onto the legal parameter space for its IH family.
  * Tactile's vertices are linear in the native parameters; a damped
@@ -666,6 +785,28 @@ export function evenlySelectContacts(contacts, count) {
   return Array.from({ length: limit }, (_, index) => (
     contacts[Math.round((index * (contacts.length - 1)) / (limit - 1))]
   ));
+}
+
+/** Keep a contiguous, center-weighted contact window so visual spacing remains audible. */
+export function centeredContactWindow(contacts, count) {
+  if (!Array.isArray(contacts) || !contacts.length) return [];
+  const limit = Math.max(1, Math.trunc(Number(count) || 1));
+  if (contacts.length <= limit) return [...contacts];
+  let centerIndex = 0;
+  let centerDistance = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < contacts.length; index += 1) {
+    const distance = Math.abs(Number(contacts[index].along) || 0);
+    if (distance < centerDistance) {
+      centerDistance = distance;
+      centerIndex = index;
+    }
+  }
+  const start = clamp(
+    centerIndex - Math.floor((limit - 1) / 2),
+    0,
+    contacts.length - limit,
+  );
+  return contacts.slice(start, start + limit);
 }
 
 /** Same-sine onset emphasis for a newly intersected edge. */

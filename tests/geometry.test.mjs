@@ -40,7 +40,7 @@ test("sides=2 is one open line and signed curvature bends opposite ways", () => 
 });
 
 test("three or more sides produce closed paths without a duplicated seam point", () => {
-  for (const sides of [3, 4, 8, 16]) {
+  for (const sides of [3, 4, 8, 16, 32]) {
     const shape = buildShape({ sides, curvature: 0, samplesPerEdge: 12 });
     assert.equal(shape.closed, true);
     assert.equal(shape.vertexIndices.length, sides);
@@ -135,8 +135,12 @@ test("stretch, skew, and asymmetry remain fitted inside the unit disc", () => {
   const variants = [
     { aspect: 1 },
     { aspect: -1 },
+    { aspect: 2 },
+    { aspect: -2 },
     { skew: 0.8 },
     { skew: -0.8 },
+    { skew: 2 },
+    { skew: -2 },
     { asymmetry: 1 },
     { aspect: 1, skew: 0.8, asymmetry: 1, rotationDeg: 33 },
   ];
@@ -163,7 +167,20 @@ test("stretch, skew, and asymmetry remain fitted inside the unit disc", () => {
   const asymmetricVertexRadii = asymmetric.vertexIndices.map((index) =>
     Math.hypot(asymmetric.points[index].x, asymmetric.points[index].y));
   assert.ok(Math.max(...regularVertexRadii) - Math.min(...regularVertexRadii) < 1e-10);
-  assert.ok(Math.max(...asymmetricVertexRadii) - Math.min(...asymmetricVertexRadii) > 0.05);
+  assert.ok(Math.max(...asymmetricVertexRadii) - Math.min(...asymmetricVertexRadii) > 0.45);
+
+  const halfAsymmetric = buildShape({ sides: 7, curvature: 0, asymmetry: 0.5 });
+  const halfRadii = halfAsymmetric.vertexIndices.map((index) =>
+    Math.hypot(halfAsymmetric.points[index].x, halfAsymmetric.points[index].y));
+  assert.ok(Math.max(...halfRadii) - Math.min(...halfRadii) > 0.3);
+
+  const asymmetricLine = buildShape({ sides: 2, curvature: 0.4, asymmetry: 1 });
+  assert.ok(
+    Math.abs(asymmetricLine.points.at(-1).x)
+      - Math.abs(asymmetricLine.points[0].x)
+      > 0.5,
+    "open lines should become visibly one-sided too",
+  );
 });
 
 test("pointAtPath uses constant arclength and supports open-line ping-pong", () => {
@@ -307,7 +324,7 @@ test("horizontal scans mirror vertical scan behavior and preserve contact metada
 
 test("shape input validation and clamping keep geometry finite", () => {
   assert.throws(() => buildShape({ sides: 1, curvature: 0 }), RangeError);
-  assert.throws(() => buildShape({ sides: 17, curvature: 0 }), RangeError);
+  assert.throws(() => buildShape({ sides: 33, curvature: 0 }), RangeError);
   assert.throws(() => buildShape({ sides: 3.5, curvature: 0 }), RangeError);
   const clamped = buildShape({ sides: 3, curvature: 12, samplesPerEdge: 2 });
   assert.equal(clamped.curvature, 1);

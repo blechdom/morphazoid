@@ -17,24 +17,34 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.equal((html.match(/<canvas\b/g) ?? []).length, 1);
   for (const id of [
     "recordButton", "playButton", "replaceRing", "ringList",
-    "clearAllRings", "circlePreset", "trianglePreset",
+    "clearAllRings", "syncAllRings", "circlePreset", "trianglePreset",
     "squarePreset", "removeVertex", "addVertex", "vertexCountOut",
-    "rotateLeft", "rotateRight", "backingOff", "backingOn", "timeNative",
-    "timeLocal", "timeStretch", "pitchShift", "advancedSummary", "viewFlat",
+    "backingOff", "backingOn",
+    "shapePitchDepth", "advancedSummary", "viewFlat",
     "viewThreeD", "viewTilt", "viewYaw", "ringDepth", "spreadDepth",
+    "brushOff", "brushPaint", "brushErase", "brushSize", "delayTime",
+    "delayFeedback", "delayWet", "clearDelayPaint", "clearAllDelayPaint", "effectsSummary",
+    "filterTone", "filterResonance", "ringPan",
+    "timingFree", "timingSync", "lengthQuarter", "lengthHalf",
+    "lengthFull", "lengthDouble",
+    "removeLoopHead", "addLoopHead", "headCountOut", "headOffsetControls",
+    "headOffset1", "headOffset2", "headOffset3", "effectsRingOut",
   ]) assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
   for (const section of [
-    "loopSection", "ringSection", "shapeSection", "advancedSection", "depthSection",
+    "loopSection", "ringSection", "shapeSection", "advancedSection", "effectsSection",
+    "depthSection",
   ]) {
     assert.match(html, new RegExp(`<details[^>]*id="${section}"`));
   }
   assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/);
   assert.doesNotMatch(
     html,
-    /id="(?:playbackSection|shapeMapping|ringTiming|ringLength)"/,
+    /id="(?:playbackSection|shapeMapping)"/,
   );
   assert.match(html, /Record creates a new outer ring/);
   assert.match(html, /push or pull .* radially/i);
+  assert.doesNotMatch(html, /Native|Tape pitch|id="timeMode"|id="pitchShift"/i);
+  assert.match(html, /Ring FX \+ stereo/);
 
   assert.match(app, /getUserMedia/);
   assert.match(app, /createScriptProcessor/);
@@ -47,30 +57,56 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.match(app, /playScrubGrain/);
   assert.match(app, /toggleRingSolo/);
   assert.match(app, /data-ring-action="solo"/);
+  assert.match(app, /data-ring-action="direction"/);
+  assert.match(app, /data-ring-volume=/);
+  assert.doesNotMatch(html, /id="ringDirection"|id="rotateLeft"|id="rotateRight"/);
+  assert.match(css, /\.ring-volume-knob/);
   assert.match(app, /lastRingListSignature/);
   assert.match(app, /ringList"\)\.addEventListener\("pointerdown"/);
-  assert.match(app, /timeStretchLoopSamples/);
+  assert.match(app, /pitchShiftLoopSamplesByContour/);
+  assert.match(html, /Pulling a vertex outward lowers/);
+  assert.match(html, /complete loop duration stays fixed/i);
   assert.match(app, /ringCycleDuration/);
+  assert.match(app, /setRingTimingMode/);
+  assert.match(app, /setRingLengthRatio/);
+  assert.match(app, /setRingHeadCount/);
+  assert.match(app, /setRingHeadOffset/);
   assert.match(app, /expandedMode/);
   assert.match(app, /const rotation = -currentPhase\(ring\) \* TAU/);
   assert.match(app, /radialOffsets/);
   assert.match(app, /radialPointAt/);
+  assert.match(app, /radialContourVertices/);
+  assert.match(app, /maximumEditableRadialOffset/);
+  assert.match(app, /WAVEFORM_RADIUS = 0\.065/);
   assert.match(app, /touch-pending/);
   assert.match(app, /tangentialMotion > radialMotion/);
   assert.match(app, /measureEnvelopePeak/);
+  assert.match(app, /paintDelayMask/);
+  assert.match(app, /sampleDelayMask/);
+  assert.match(app, /drawDelayPaint/);
+  assert.match(app, /drawBrushCursor/);
+  assert.match(app, /clearAllDelayPaint/);
+  assert.match(app, /synchronizeAllRings/);
+  assert.match(app, /createBiquadFilter/);
+  assert.match(app, /createStereoPanner/);
   assert.match(app, /setThreeDView/);
 
   assert.match(css, /\.lumber-page\s+#loopSection\s*\{/);
   assert.match(css, /\.lumber-page\s+#ringSection\s*\{/);
   assert.match(css, /\.lumber-page\s+#shapeSection\s*\{/);
   assert.match(css, /\.lumber-page\s+#advancedSection\s*\{/);
+  assert.match(css, /\.lumber-page\s+#effectsSection\s*\{/);
   assert.match(css, /\.lumber-page\s+#depthSection\s*\{/);
   assert.match(css, /\.lumber-page #loopSection\s*\{\s*--accent:\s*#e8c46b;/);
   assert.match(css, /\.lumber-page #ringSection\s*\{\s*--accent:\s*#5fe8c4;/);
   assert.match(css, /\.lumber-page #shapeSection\s*\{\s*--accent:\s*#c79bff;/);
   assert.match(css, /\.lumber-page #advancedSection\s*\{\s*--accent:\s*#7db4ff;/);
+  assert.match(css, /\.lumber-page #effectsSection\s*\{\s*--accent:\s*#ff826f;/);
   assert.match(css, /\.lumber-page #depthSection\s*\{\s*--accent:\s*#ffb86b;/);
-  for (const section of ["loopSection", "ringSection", "shapeSection", "advancedSection", "depthSection"]) {
+  for (const section of [
+    "loopSection", "ringSection", "shapeSection", "advancedSection", "effectsSection",
+    "depthSection",
+  ]) {
     assert.match(
       css,
       new RegExp(`\\.lumber-page #${section}\\s*\\{[\\s\\S]*?--accent-glow:`),

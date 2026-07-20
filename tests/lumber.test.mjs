@@ -4,23 +4,28 @@ import test from "node:test";
 import {
   addContourVertex,
   createContourTimeWarp,
+  contourPitchRatioAt,
   fadeLoopEdges,
   loopPhaseAtTime,
   moveVertex,
   nearestContourPhase,
+  paintDelayMask,
   pointOnContour,
+  pitchShiftLoopSamplesByContour,
   phaseThroughContourTimeWarp,
   presetVertices,
+  radialContourVertices,
   removeContourVertex,
   reverseSamples,
   scrubPhaseFromAngle,
   scrubRateFromMotion,
+  sampleDelayMask,
   timeStretchLoopSamples,
   waveformEnvelope,
   wrap01,
 } from "../src/lumber.js";
 
-test("native loop phase always closes at the recorded duration", () => {
+test("loop phase always closes at the recorded duration", () => {
   assert.equal(wrap01(-0.25), 0.75);
   assert.equal(loopPhaseAtTime(0, 2, 4), 0.5);
   assert.equal(loopPhaseAtTime(0, 4, 4), 0);
@@ -28,6 +33,17 @@ test("native loop phase always closes at the recorded duration", () => {
   assert.equal(scrubPhaseFromAngle(0.25, Math.PI / 2), 0);
   assert.equal(scrubPhaseFromAngle(0.25, -Math.PI / 2), 0.5);
   assert.equal(scrubRateFromMotion(0.025, 4, 100), 1);
+});
+
+test("radial vertex edits remain straight between adjacent handles", () => {
+  const vertices = radialContourVertices([0, 0.5, 0, -0.2]);
+  const midpoint = pointOnContour(vertices, 1.5 / vertices.length);
+  assert.ok(Math.abs(midpoint.x - (vertices[1].x + vertices[2].x) / 2) < 1e-12);
+  assert.ok(Math.abs(midpoint.y - (vertices[1].y + vertices[2].y) / 2) < 1e-12);
+  assert.deepEqual(radialContourVertices([0, 99, 0])[1], {
+    x: Math.cos(-Math.PI / 2 + Math.PI * 2 / 3) * 1.62,
+    y: Math.sin(-Math.PI / 2 + Math.PI * 2 / 3) * 1.62,
+  });
 });
 
 test("presets seed freely editable two-dimensional contours", () => {
@@ -86,6 +102,40 @@ test("local shape timing preserves sample count while redistributing segment tim
   const stretched = timeStretchLoopSamples(samples, vertices, 1);
   assert.equal(stretched.length, samples.length);
   assert.notDeepEqual([...stretched], [...samples]);
+});
+
+test("radial edits shift pitch locally without changing loop duration", () => {
+  const untouched = radialContourVertices(Array(12).fill(0));
+  const outwardOffsets = Array(12).fill(0);
+  outwardOffsets[0] = 0.62;
+  const outward = radialContourVertices(outwardOffsets);
+  const inwardOffsets = Array(12).fill(0);
+  inwardOffsets[0] = -0.42;
+  const inward = radialContourVertices(inwardOffsets);
+
+  assert.ok(contourPitchRatioAt(outward, 0, 1) < 1, "outward must lower pitch");
+  assert.ok(contourPitchRatioAt(inward, 0, 1) > 1, "inward must raise pitch");
+  assert.ok(Math.abs(contourPitchRatioAt(outward, 0.5, 1) - 1) < 1e-12);
+
+  const samples = Float32Array.from(
+    { length: 4096 },
+    (_, index) => Math.sin(index * Math.PI * 2 / 64),
+  );
+  const identity = pitchShiftLoopSamplesByContour(samples, untouched, 1);
+  const shifted = pitchShiftLoopSamplesByContour(samples, outward, 1);
+  assert.equal(shifted.length, samples.length);
+  assert.ok(Math.max(...identity.map((value, index) => Math.abs(value - samples[index]))) < 1e-6);
+  assert.notDeepEqual([...shifted], [...samples]);
+});
+
+test("delay paint wraps around the ring and interpolates by contour phase", () => {
+  let mask = new Float32Array(64);
+  mask = paintDelayMask(mask, 0.99, 1, 0.08);
+  assert.ok(mask[63] > 0.8);
+  assert.ok(mask[0] > 0.7, "brush should wrap across the loop seam");
+  assert.ok(sampleDelayMask(mask, 0.995) > 0.8);
+  const erased = paintDelayMask(mask, 0.99, 0, 0.08);
+  assert.ok(sampleDelayMask(erased, 0.99) < sampleDelayMask(mask, 0.99));
 });
 
 test("recorded samples retain envelope, reverse, and click-safe edges", () => {

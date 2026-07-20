@@ -103,13 +103,9 @@
             <div class="ring-clear-row">
               <button class="mini-action ring-remove" id="replaceRing" type="button" disabled>Replace active</button>
               <button class="mini-action ring-remove ring-clear" id="clearAllRings" type="button">Clear all rings</button>
+              <button class="mini-action ring-sync-all" id="syncAllRings" type="button" disabled>Sync all · length + phase</button>
             </div>
-            <div class="field-label">Active ring direction</div>
-            <div class="choice-switch compact" id="ringDirection" role="group" aria-label="Active ring playback direction">
-              <button id="rotateLeft" type="button" data-value="-1" aria-pressed="false">← Reverse</button>
-              <button id="rotateRight" type="button" data-value="1" aria-pressed="true">Forward →</button>
-            </div>
-            <p class="control-note">Use each inline Mute, Solo, or Delete button without changing selection. Record creates a new outer ring after the first take; Replace active explicitly overwrites the selected ring.</p>
+            <p class="control-note">Each row has its own direction arrow, relative-volume knob, Mute, Solo, and Delete controls. Record creates a new outer ring after the first take; Replace active explicitly overwrites the selected ring.</p>
           </div>
         </details>
 
@@ -140,23 +136,94 @@
         <details class="group control-section" id="advancedSection">
           <summary class="group-summary">
             <h2 class="group-title">Advanced playback</h2>
-            <span class="section-state" id="advancedSummary">native</span>
+            <span class="section-state" id="advancedSummary">free · 1× · 1h · pitch 65%</span>
           </summary>
           <div class="group-body">
-            <div class="field-label">Shape timing</div>
-            <div class="choice-switch compact" id="timeMode" role="group" aria-label="Shape timing mode">
-              <button id="timeNative" type="button" data-value="native" aria-pressed="true">Native</button>
-              <button id="timeLocal" type="button" data-value="local" aria-pressed="false">Local stretch</button>
+            <div class="field-label">Ring clock</div>
+            <div class="choice-switch compact" id="ringTiming" role="group" aria-label="Active ring clock mode">
+              <button id="timingFree" type="button" data-value="free" aria-pressed="true">Free</button>
+              <button id="timingSync" type="button" data-value="sync" aria-pressed="false">Sync to Ring 1</button>
             </div>
-            <label class="control" for="timeStretch">
-              <span><b>Local stretch depth</b><output id="timeStretchOut" for="timeStretch">0%</output></span>
-              <input id="timeStretch" type="range" min="0" max="1" step="0.01" value="0" />
+            <div class="field-label">Live cycle length</div>
+            <div class="choice-switch compact ring-length-switch" id="ringLength" role="group" aria-label="Active ring cycle length">
+              <button id="lengthQuarter" type="button" data-value="0.25" aria-pressed="false">¼×</button>
+              <button id="lengthHalf" type="button" data-value="0.5" aria-pressed="false">½×</button>
+              <button id="lengthFull" type="button" data-value="1" aria-pressed="true">1×</button>
+              <button id="lengthDouble" type="button" data-value="2" aria-pressed="false">2×</button>
+            </div>
+            <div class="playhead-stepper lumber-vertex-stepper" id="loopHeadStepper" role="group" aria-label="Active ring playback head count">
+              <button id="removeLoopHead" type="button" aria-label="Remove one playback head">−</button>
+              <span><small>Playback heads</small><output id="headCountOut">1 head</output></span>
+              <button id="addLoopHead" type="button" aria-label="Add one playback head">+</button>
+            </div>
+            <div class="head-offset-controls" id="headOffsetControls" aria-label="Playback head positions" hidden>
+              <label class="control" id="headOffsetControl1" for="headOffset1" hidden>
+                <span><b>Head 2 offset</b><output id="headOffset1Out" for="headOffset1">50%</output></span>
+                <input id="headOffset1" type="range" min="2" max="98" step="1" value="50" />
+              </label>
+              <label class="control" id="headOffsetControl2" for="headOffset2" hidden>
+                <span><b>Head 3 offset</b><output id="headOffset2Out" for="headOffset2">67%</output></span>
+                <input id="headOffset2" type="range" min="2" max="98" step="1" value="67" />
+              </label>
+              <label class="control" id="headOffsetControl3" for="headOffset3" hidden>
+                <span><b>Head 4 offset</b><output id="headOffset3Out" for="headOffset3">75%</output></span>
+                <input id="headOffset3" type="range" min="2" max="98" step="1" value="75" />
+              </label>
+            </div>
+            <label class="control" for="shapePitchDepth">
+              <span><b>Local pitch depth</b><output id="shapePitchDepthOut" for="shapePitchDepth">65%</output></span>
+              <input id="shapePitchDepth" type="range" min="0.1" max="1" step="0.01" value="0.65" />
             </label>
-            <label class="control" for="pitchShift">
-              <span><b>Tape pitch</b><output id="pitchShiftOut" for="pitchShift">0 st</output></span>
-              <input id="pitchShift" type="range" min="-12" max="12" step="1" value="0" />
+            <p class="control-note"><b>Per ring.</b> Free keeps an independent clock; Sync locks the cycle to Ring 1. Head offsets position additional playheads relative to Head 1. Pulling a vertex outward lowers only that local section; pushing inward raises it. The complete loop duration stays fixed.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="effectsSection">
+          <summary class="group-summary">
+            <h2 class="group-title">Ring FX + stereo</h2>
+            <span class="section-state" id="effectsSummary">Ring 1 · clear</span>
+          </summary>
+          <div class="group-body">
+            <p class="active-ring-lead"><small>Editing FX for</small><output id="effectsRingOut">Ring 1</output></p>
+            <div class="field-label">Delay brush</div>
+            <div class="choice-switch compact" id="brushMode" role="group" aria-label="Delay paint brush mode">
+              <button id="brushOff" type="button" data-value="off" aria-pressed="true">Off / scrub</button>
+              <button id="brushPaint" type="button" data-value="paint" aria-pressed="false">Paint</button>
+              <button id="brushErase" type="button" data-value="erase" aria-pressed="false">Erase</button>
+            </div>
+            <label class="control" for="brushSize">
+              <span><b>Brush size</b><output id="brushSizeOut" for="brushSize">6%</output></span>
+              <input id="brushSize" type="range" min="0.01" max="0.2" step="0.01" value="0.06" />
             </label>
-            <p class="control-note"><b>Optional per ring.</b> Local stretch redistributes time around long and short edges while preserving the full recorded duration. Tape pitch changes playback speed and cycle length. Scrubbing remains granular and works while playing or paused.</p>
+            <label class="control" for="delayTime">
+              <span><b>Delay time</b><output id="delayTimeOut" for="delayTime">280 ms</output></span>
+              <input id="delayTime" type="range" min="0.04" max="1.2" step="0.01" value="0.28" />
+            </label>
+            <label class="control" for="delayFeedback">
+              <span><b>Feedback</b><output id="delayFeedbackOut" for="delayFeedback">34%</output></span>
+              <input id="delayFeedback" type="range" min="0" max="0.82" step="0.01" value="0.34" />
+            </label>
+            <label class="control" for="delayWet">
+              <span><b>Painted send</b><output id="delayWetOut" for="delayWet">62%</output></span>
+              <input id="delayWet" type="range" min="0" max="1" step="0.01" value="0.62" />
+            </label>
+            <label class="control" for="filterTone">
+              <span><b>Filter tone</b><output id="filterToneOut" for="filterTone">12.8 kHz</output></span>
+              <input id="filterTone" type="range" min="0" max="1" step="0.01" value="0.86" />
+            </label>
+            <label class="control" for="filterResonance">
+              <span><b>Filter resonance</b><output id="filterResonanceOut" for="filterResonance">0.0 Q</output></span>
+              <input id="filterResonance" type="range" min="0" max="12" step="0.1" value="0" />
+            </label>
+            <label class="control" for="ringPan">
+              <span><b>Stereo pan</b><output id="ringPanOut" for="ringPan">center</output></span>
+              <input id="ringPan" type="range" min="-1" max="1" step="0.01" value="0" />
+            </label>
+            <div class="fx-clear-row">
+              <button class="mini-action reset-form" id="clearDelayPaint" type="button">Clear active</button>
+              <button class="mini-action reset-form" id="clearAllDelayPaint" type="button">Clear all rings</button>
+            </div>
+            <p class="control-note">These delay, filter, and stereo settings belong only to the active ring. Choose Paint to brush its delay send around that ring; switch Off to scrub normally.</p>
           </div>
         </details>
 
@@ -190,7 +257,7 @@
 
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">Lumber uses rotating waveform rings, radial shape handles, local time stretch, granular scrub, tape pitch, and 3D depth. With mouse or touch, sweep tangentially around a ring to scrub audio or push and pull a handle radially to edit shape. Record creates a new outer ring; Replace Active overwrites only by explicit request.</p>
+      <p class="sr-only" id="canvasInstructions">Lumber uses rotating waveform rings, straight-sided radial shape handles, local pitch shaping, movable playback heads, granular scrub, per-ring effects, and 3D depth. Pulling a vertex outward lowers that loop section; pushing inward raises it without changing total loop duration.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 

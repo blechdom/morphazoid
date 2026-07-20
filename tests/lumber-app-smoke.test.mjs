@@ -46,23 +46,29 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   for (const id of tags.keys()) element(id);
   const groups = {
     shapePreset: ["circlePreset", "trianglePreset", "squarePreset"],
-    ringDirection: ["rotateLeft", "rotateRight"],
     recordBacking: ["backingOff", "backingOn"],
-    timeMode: ["timeNative", "timeLocal"],
+    ringTiming: ["timingFree", "timingSync"],
+    ringLength: ["lengthQuarter", "lengthHalf", "lengthFull", "lengthDouble"],
     viewMode: ["viewFlat", "viewThreeD"],
+    brushMode: ["brushOff", "brushPaint", "brushErase"],
   };
   const values = {
     circlePreset: "circle",
     trianglePreset: "triangle",
     squarePreset: "square",
-    rotateLeft: "-1",
-    rotateRight: "1",
     backingOff: "off",
     backingOn: "on",
-    timeNative: "native",
-    timeLocal: "local",
+    timingFree: "free",
+    timingSync: "sync",
+    lengthQuarter: "0.25",
+    lengthHalf: "0.5",
+    lengthFull: "1",
+    lengthDouble: "2",
     viewFlat: "flat",
     viewThreeD: "3d",
+    brushOff: "off",
+    brushPaint: "paint",
+    brushErase: "erase",
   };
   for (const [id, value] of Object.entries(values)) elements.get(id).dataset.value = value;
   for (const [id, children] of Object.entries(groups)) {
@@ -218,7 +224,45 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   assert.equal(elements.get("activeRingOut").textContent, "Ring 2 of 2");
   assert.match(elements.get("ringList").innerHTML, /#e8c46b/i);
   assert.match(elements.get("ringList").innerHTML, /#5fe8c4/i);
+  assert.match(elements.get("ringList").innerHTML, /data-ring-action="direction"/);
+  assert.match(elements.get("ringList").innerHTML, /data-ring-volume="2"/);
   assert.ok(sources.every((source) => source.playbackRate.value === 1));
+  listeners.get("timingSync:click")();
+  listeners.get("lengthHalf:click")();
+  assert.equal(sources.at(-1).playbackRate.value, 2);
+  assert.match(elements.get("advancedSummary").textContent, /sync · 0\.5×/);
+  listeners.get("lengthFull:click")();
+  listeners.get("timingFree:click")();
+  const sourcesBeforeSyncAll = sources.length;
+  listeners.get("syncAllRings:click")();
+  assert.equal(sources.length, sourcesBeforeSyncAll + 2);
+  assert.equal(
+    sources.at(-1).startCalls[0][1],
+    sources.at(-2).startCalls[0][1],
+    "sync all should align every ring to the same phase",
+  );
+  assert.match(elements.get("advancedSummary").textContent, /sync · 1×/);
+  listeners.get("timingFree:click")();
+  const sourcesBeforeHeads = sources.length;
+  listeners.get("addLoopHead:click")();
+  assert.equal(elements.get("headCountOut").textContent, "2 heads");
+  assert.equal(elements.get("headOffsetControls").hidden, false);
+  assert.equal(elements.get("headOffset1Out").textContent, "50%");
+  assert.equal(sources.length, sourcesBeforeHeads + 2);
+  assert.notEqual(
+    sources.at(-1).startCalls[0][1],
+    sources.at(-2).startCalls[0][1],
+    "playback heads need distinct phase offsets",
+  );
+  elements.get("headOffset1").value = "25";
+  listeners.get("headOffset1:input")();
+  assert.equal(elements.get("headOffset1Out").textContent, "25%");
+  const sourcesBeforeHeadMove = sources.length;
+  listeners.get("headOffset1:change")();
+  assert.equal(sources.length, sourcesBeforeHeadMove + 2);
+  assert.notEqual(sources.at(-1).startCalls[0][1], sources.at(-2).startCalls[0][1]);
+  listeners.get("removeLoopHead:click")();
+  assert.equal(elements.get("headOffsetControls").hidden, true);
   const selectRingWhilePlaying = (ringId) => listeners.get("ringList:pointerdown")({
     target: {
       closest() {
@@ -236,15 +280,11 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   assert.equal(elements.get("activeRingOut").textContent, ringCountBeforeReplace);
   assert.equal(stoppedTracks, 3);
 
-  listeners.get("timeLocal:click")();
-  assert.match(elements.get("advancedSummary").textContent, /stretch/);
-  elements.get("pitchShift").value = "7";
-  listeners.get("pitchShift:input")();
-  assert.ok(Math.abs(sources.at(-1).playbackRate.value - 2 ** (7 / 12)) < 1e-12);
-  elements.get("pitchShift").value = "0";
-  listeners.get("pitchShift:input")();
-  listeners.get("timeNative:click")();
-  assert.equal(elements.get("advancedSummary").textContent, "native");
+  assert.match(elements.get("advancedSummary").textContent, /pitch 65%/);
+  elements.get("shapePitchDepth").value = "0.8";
+  listeners.get("shapePitchDepth:input")();
+  listeners.get("shapePitchDepth:change")();
+  assert.match(elements.get("advancedSummary").textContent, /pitch 80%/);
   listeners.get("viewThreeD:click")();
   assert.match(elements.get("depthSummary").textContent, /3D/);
   assert.equal(elements.get("ringDepth").disabled, false);
@@ -262,9 +302,9 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   listeners.get("playButton:click")();
   await new Promise((resolve) => setImmediate(resolve));
   const sourcesBeforeScrub = sources.length;
-  listeners.get("stage:pointerdown")(gesture(450, 117));
-  listeners.get("stage:pointermove")(gesture(450, 90));
-  listeners.get("stage:pointerup")(gesture(450, 90));
+  listeners.get("stage:pointerdown")(gesture(450, 143));
+  listeners.get("stage:pointermove")(gesture(450, 110));
+  listeners.get("stage:pointerup")(gesture(450, 110));
   assert.match(elements.get("liveStatus").textContent, /radially/);
 
   await new Promise((resolve) => setTimeout(resolve, 30));
@@ -273,6 +313,30 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   listeners.get("stage:pointerup")(gesture(579, 171));
   assert.ok(sources.length > sourcesBeforeScrub, "paused contour drag must create scrub audio");
 
+  listeners.get("brushPaint:click")();
+  listeners.get("stage:pointerdown")(gesture(579, 171));
+  listeners.get("stage:pointermove")(gesture(565, 155));
+  listeners.get("stage:pointerup")(gesture(565, 155));
+  assert.match(elements.get("effectsSummary").textContent, /painted/);
+  assert.equal(elements.get("stage").style.cursor, "none");
+  assert.equal(elements.get("clearAllDelayPaint").disabled, false);
+  listeners.get("clearAllDelayPaint:click")();
+  assert.match(elements.get("effectsSummary").textContent, /clear/);
+  assert.equal(elements.get("clearAllDelayPaint").disabled, true);
+  listeners.get("brushOff:click")();
+  elements.get("filterTone").value = "0.5";
+  listeners.get("filterTone:input")();
+  assert.match(elements.get("filterToneOut").textContent, /kHz/);
+  elements.get("ringPan").value = "-0.5";
+  listeners.get("ringPan:input")();
+  assert.equal(elements.get("ringPanOut").textContent, "50% left");
+  assert.equal(elements.get("effectsRingOut").textContent, "Ring 2");
+  selectRingWhilePlaying(1);
+  assert.equal(elements.get("effectsRingOut").textContent, "Ring 1");
+  assert.equal(elements.get("ringPanOut").textContent, "center");
+  selectRingWhilePlaying(2);
+  assert.equal(elements.get("ringPanOut").textContent, "50% left");
+
   const ringAction = (action, ringId = 2) => listeners.get("ringList:click")({
     target: {
       closest() {
@@ -280,6 +344,29 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
       },
     },
   });
+  const directionMarkup = elements.get("ringList").innerHTML;
+  ringAction("direction");
+  assert.notEqual(elements.get("ringList").innerHTML, directionMarkup);
+  assert.match(elements.get("liveStatus").textContent, /Ring 2 (?:reversed|forward)/);
+  ringAction("direction");
+  const knobValues = [];
+  const volumeLabel = {
+    title: "",
+    querySelector() {
+      return { style: { setProperty(name, value) { knobValues.push([name, value]); } } };
+    },
+  };
+  const volumeInput = {
+    value: "0.4",
+    dataset: { ringVolume: "2" },
+    parentElement: volumeLabel,
+    closest(selector) { return selector === "[data-ring-volume]" ? this : null; },
+  };
+  listeners.get("ringList:input")({ target: volumeInput });
+  assert.equal(volumeLabel.title, "Ring 2 volume 40%");
+  assert.equal(knobValues.at(-1)[0], "--ring-volume-angle");
+  listeners.get("ringList:change")({ target: volumeInput });
+  assert.match(elements.get("liveStatus").textContent, /volume 40 percent/);
   ringAction("mute");
   assert.match(elements.get("ringList").innerHTML, /muted/);
   ringAction("mute");

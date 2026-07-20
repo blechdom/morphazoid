@@ -10,6 +10,7 @@ import {
 } from "./src/audio.js";
 import {
   buildSolid,
+  deformSolid,
   planeBasis,
   planeIntersections,
   planeNormal,
@@ -32,15 +33,28 @@ const state = {
   speed: 0.12,
   direction: 1,
   playing: false,
-  autoRotate: false,
   rotationX: -18,
   rotationY: 28,
   rotationZ: 0,
-  rotationSpeed: 0.08,
+  rotationXPlaying: false,
+  rotationYPlaying: false,
+  rotationZPlaying: false,
+  rotationXSpeed: 0.03,
+  rotationYSpeed: 0.08,
+  rotationZSpeed: 0.02,
   planeYaw: 0,
   planePitch: 18,
+  planeYawPlaying: false,
+  planePitchPlaying: false,
+  planeYawSpeed: 0.04,
+  planePitchSpeed: 0.03,
+  formScaleX: 1,
+  formScaleY: 1,
+  formScaleZ: 1,
+  formSkewX: 0,
+  formSkewZ: 0,
   audio: false,
-  soundMode: "fm",
+  soundMode: "sine",
   level: 0.65,
   baseFrequency: 110,
   pitchRange: 3,
@@ -117,7 +131,18 @@ bindRange("planePitch", "planePitch", (value) => `${Math.round(value)}°`, () =>
 bindRange("rotationX", "rotationX", (value) => `${Math.round(value)}°`, () => { previousVertexSigns = null; });
 bindRange("rotationY", "rotationY", (value) => `${Math.round(value)}°`, () => { previousVertexSigns = null; });
 bindRange("rotationZ", "rotationZ", (value) => `${Math.round(value)}°`, () => { previousVertexSigns = null; });
-bindRange("rotationSpeed", "rotationSpeed", (value) => `${value.toFixed(2)} rev/s`);
+for (const key of [
+  "rotationXSpeed", "rotationYSpeed", "rotationZSpeed",
+  "planeYawSpeed", "planePitchSpeed",
+]) {
+  bindRange(key, key, (value) => `${value >= 0 ? "+" : ""}${value.toFixed(2)} rev/s`);
+}
+for (const key of ["formScaleX", "formScaleY", "formScaleZ"]) {
+  bindRange(key, key, (value) => `${value.toFixed(2)}×`, () => { previousVertexSigns = null; });
+}
+for (const key of ["formSkewX", "formSkewZ"]) {
+  bindRange(key, key, (value) => `${Math.round(value * 100)}%`, () => { previousVertexSigns = null; });
+}
 bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`);
@@ -128,6 +153,20 @@ $("solidType").addEventListener("change", (event) => {
   $("formSummary").textContent = state.solidType;
   previousVertexSigns = null;
   announce(`${state.solidType} wireframe selected.`);
+  scheduleFrame();
+});
+
+$("resetSolidForm").addEventListener("click", () => {
+  for (const key of ["formScaleX", "formScaleY", "formScaleZ"]) state[key] = 1;
+  for (const key of ["formSkewX", "formSkewZ"]) state[key] = 0;
+  for (const key of ["formScaleX", "formScaleY", "formScaleZ", "formSkewX", "formSkewZ"]) {
+    $(key).value = String(state[key]);
+    $(`${key}Out`).textContent = key.startsWith("formScale")
+      ? `${state[key].toFixed(2)}×`
+      : `${Math.round(state[key] * 100)}%`;
+  }
+  previousVertexSigns = null;
+  announce("Solid proportions reset.");
   scheduleFrame();
 });
 
@@ -142,14 +181,69 @@ $("soundMode").addEventListener("change", (event) => {
 
 function paintTransport() {
   setPressed($("playButton"), state.playing);
-  $("playSummary").textContent = `plane · ${state.playing ? "playing" : "paused"}`;
+  const surfaceAxes = [
+    state.planeYawPlaying ? "yaw" : "",
+    state.planePitchPlaying ? "pitch" : "",
+  ].filter(Boolean);
+  $("playSummary").textContent = state.playing || surfaceAxes.length
+    ? `plane · ${[state.playing ? "position" : "", ...surfaceAxes].filter(Boolean).join("+")}`
+    : "plane · paused";
+}
+
+const AXIS_MOTIONS = [
+  { key: "rotationXPlaying", button: "rotationXPlay", label: "X rotation" },
+  { key: "rotationYPlaying", button: "rotationYPlay", label: "Y rotation" },
+  { key: "rotationZPlaying", button: "rotationZPlay", label: "Z rotation" },
+  { key: "planeYawPlaying", button: "planeYawPlay", label: "surface yaw" },
+  { key: "planePitchPlaying", button: "planePitchPlay", label: "surface pitch" },
+];
+
+function rotationIsMoving() {
+  return state.rotationXPlaying || state.rotationYPlaying || state.rotationZPlaying;
+}
+
+function motionIsActive() {
+  return state.playing || rotationIsMoving() || state.planeYawPlaying || state.planePitchPlaying;
+}
+
+function resetClocks() {
+  lastFrameTime = performance.now();
+  lastAudioTime = pool.context?.currentTime ?? null;
+}
+
+function paintMotionControls() {
+  for (const motion of AXIS_MOTIONS) {
+    const button = $(motion.button);
+    setPressed(button, state[motion.key]);
+    button.setAttribute("aria-label", `${state[motion.key] ? "Pause" : "Play"} ${motion.label}`);
+    button.querySelector("span").textContent = state[motion.key] ? "Ⅱ" : "▶";
+  }
+  const axes = [
+    state.rotationXPlaying ? "X" : "",
+    state.rotationYPlaying ? "Y" : "",
+    state.rotationZPlaying ? "Z" : "",
+  ].filter(Boolean);
+  $("rotationSummary").textContent = axes.length ? axes.join("+") : "paused";
+  paintTransport();
+}
+
+for (const motion of AXIS_MOTIONS) {
+  $(motion.button).addEventListener("click", () => {
+    state[motion.key] = !state[motion.key];
+    previousVertexSigns = null;
+    resetClocks();
+    paintMotionControls();
+    if (!motionIsActive()) pool.silence();
+    announce(`${motion.label} ${state[motion.key] ? "playing" : "paused"}.`);
+    scheduleFrame();
+  });
 }
 
 $("playButton").addEventListener("click", () => {
   state.playing = !state.playing;
-  lastFrameTime = performance.now();
-  lastAudioTime = pool.context?.currentTime ?? null;
+  resetClocks();
   paintTransport();
+  if (!motionIsActive()) pool.silence();
   announce(state.playing ? "Surface playing." : "Surface paused.");
   scheduleFrame();
 });
@@ -158,25 +252,6 @@ $("directionButton").addEventListener("click", () => {
   state.direction *= -1;
   $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
   announce(`Surface direction ${state.direction > 0 ? "forward" : "reverse"}.`);
-  scheduleFrame();
-});
-
-function paintRotationMode() {
-  setPressed($("manualRotation"), !state.autoRotate);
-  setPressed($("autoRotation"), state.autoRotate);
-  $("rotationSummary").textContent = state.autoRotate ? "auto · XYZ" : "manual";
-}
-
-$("manualRotation").addEventListener("click", () => {
-  state.autoRotate = false;
-  paintRotationMode();
-  scheduleFrame();
-});
-$("autoRotation").addEventListener("click", () => {
-  state.autoRotate = true;
-  lastFrameTime = performance.now();
-  lastAudioTime = pool.context?.currentTime ?? null;
-  paintRotationMode();
   scheduleFrame();
 });
 
@@ -204,7 +279,13 @@ async function toggleAudio() {
 $("audioButton").addEventListener("click", toggleAudio);
 
 function transformedSolid(rotation = currentRotation()) {
-  const solid = buildSolid(state.solidType);
+  const solid = deformSolid(buildSolid(state.solidType), {
+    scaleX: state.formScaleX,
+    scaleY: state.formScaleY,
+    scaleZ: state.formScaleZ,
+    skewX: state.formSkewX,
+    skewZ: state.formSkewZ,
+  });
   return {
     ...solid,
     vertices: solid.vertices.map((point) => rotatePoint3(point, rotation)),
@@ -215,9 +296,19 @@ function currentRotation() {
   return { x: state.rotationX, y: state.rotationY, z: state.rotationZ };
 }
 
-function currentPlane(phase = state.continuousPosition) {
-  const normal = planeNormal(state.planeYaw, state.planePitch);
-  return { normal, offset: planeOffsetForPhase(phase) };
+function currentPlane(
+  phase = state.continuousPosition,
+  yaw = state.planeYaw,
+  pitch = state.planePitch,
+  solid = null,
+) {
+  const normal = planeNormal(yaw, pitch);
+  const radius = solid?.vertices?.length
+    ? Math.max(...solid.vertices.map((point) => Math.abs(
+      normal.x * point.x + normal.y * point.y + normal.z * point.z
+    ))) + 0.04
+    : 1.05;
+  return { normal, offset: planeOffsetForPhase(phase, radius) };
 }
 
 function projectionTransform() {
@@ -320,7 +411,7 @@ function voiceForContact(contact, index, phase = state.continuousPosition) {
   return {
     key: `solid:${contact.edgeIndex ?? index}`,
     frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange),
-    gain: sineCornerEnvelopeGain(contact.cornerStrength ?? 0, 0.25, 0.8, 0.55),
+    gain: sineCornerEnvelopeGain(contact.cornerStrength ?? 0, 0.25, 0.8, 350, 200),
     pan: clamp(contact.x, -1, 1),
     waveform: "sine",
     ...synth,
@@ -372,38 +463,50 @@ function frame(now) {
     state.continuousPosition += state.direction * state.speed * delta;
     state.position = ((state.continuousPosition % 1) + 1) % 1;
   }
-  if (state.autoRotate) {
-    const degrees = state.rotationSpeed * 360 * delta;
-    state.rotationX = normalizeDegrees(state.rotationX + degrees * 0.41);
-    state.rotationY = normalizeDegrees(state.rotationY + degrees);
-    state.rotationZ = normalizeDegrees(state.rotationZ + degrees * 0.23);
+  for (const axis of ["X", "Y", "Z"]) {
+    if (!state[`rotation${axis}Playing`]) continue;
+    state[`rotation${axis}`] = normalizeDegrees(
+      state[`rotation${axis}`] + state[`rotation${axis}Speed`] * 360 * delta,
+    );
+  }
+  if (state.planeYawPlaying) {
+    state.planeYaw = normalizeDegrees(state.planeYaw + state.planeYawSpeed * 360 * delta);
+  }
+  if (state.planePitchPlaying) {
+    state.planePitch = normalizeDegrees(state.planePitch + state.planePitchSpeed * 360 * delta);
   }
 
   const solid = transformedSolid();
-  const plane = currentPlane();
+  const plane = currentPlane(state.continuousPosition, state.planeYaw, state.planePitch, solid);
   const contacts = planeIntersections(solid, plane.normal, plane.offset);
   drawScene(solid, plane, contacts);
-  emitVertexStrikes(solid, plane);
+  const moving = motionIsActive();
+  if (moving) emitVertexStrikes(solid, plane);
 
   const continuous = state.soundMode !== "percussion";
   const voices = continuous ? contacts.map(voiceForContact) : [];
   if (state.audio) {
-    if (continuous && (state.playing || state.autoRotate)) {
+    if (continuous && moving) {
       const futurePhase = state.continuousPosition + (state.playing
         ? state.direction * state.speed * 0.075
         : 0);
-      const futureRotation = state.autoRotate ? {
-        x: state.rotationX + state.rotationSpeed * 360 * 0.075 * 0.41,
-        y: state.rotationY + state.rotationSpeed * 360 * 0.075,
-        z: state.rotationZ + state.rotationSpeed * 360 * 0.075 * 0.23,
-      } : currentRotation();
+      const futureRotation = {
+        x: state.rotationX + (state.rotationXPlaying ? state.rotationXSpeed * 360 * 0.075 : 0),
+        y: state.rotationY + (state.rotationYPlaying ? state.rotationYSpeed * 360 * 0.075 : 0),
+        z: state.rotationZ + (state.rotationZPlaying ? state.rotationZSpeed * 360 * 0.075 : 0),
+      };
       const futureSolid = transformedSolid(futureRotation);
-      const futurePlane = currentPlane(futurePhase);
+      const futurePlane = currentPlane(
+        futurePhase,
+        state.planeYaw + (state.planeYawPlaying ? state.planeYawSpeed * 360 * 0.075 : 0),
+        state.planePitch + (state.planePitchPlaying ? state.planePitchSpeed * 360 * 0.075 : 0),
+        futureSolid,
+      );
       const futureContacts = planeIntersections(futureSolid, futurePlane.normal, futurePlane.offset);
       pool.setVoiceTrajectory(voices, futureContacts.map((contact, index) => (
         voiceForContact(contact, index, futurePhase)
       )), 0.075);
-    } else pool.setVoices(voices);
+    } else pool.setVoices([]);
   }
 
   $("position").value = String(state.position);
@@ -412,17 +515,24 @@ function frame(now) {
     $(`rotation${axis}`).value = String(state[`rotation${axis}`]);
     $(`rotation${axis}Out`).textContent = `${Math.round(state[`rotation${axis}`])}°`;
   }
-  $("stageReadout").textContent = `${state.solidType.toUpperCase()} · ${contacts.length} CONTACT${contacts.length === 1 ? "" : "S"} · ${state.audio ? `${Math.min(voices.length, 32)} VOICES` : "AUDIO OFF"}`;
+  $("planeYaw").value = String(state.planeYaw);
+  $("planeYawOut").textContent = `${Math.round(state.planeYaw)}°`;
+  $("planePitch").value = String(state.planePitch);
+  $("planePitchOut").textContent = `${Math.round(state.planePitch)}°`;
+  $("stageReadout").textContent = `${state.solidType.toUpperCase()} · ${contacts.length} CONTACT${contacts.length === 1 ? "" : "S"} · ${state.audio ? `${moving && continuous ? Math.min(voices.length, 32) : pool.activeStrikeCount} VOICES` : "AUDIO OFF"}`;
 
-  if (state.playing || state.autoRotate) scheduleFrame();
+  if (moving) scheduleFrame();
 }
 
 canvas.addEventListener("pointerdown", (event) => {
+  state.rotationXPlaying = false;
+  state.rotationYPlaying = false;
+  paintMotionControls();
   pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, rx: state.rotationX, ry: state.rotationY };
   canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener("pointermove", (event) => {
-  if (!pointer || pointer.id !== event.pointerId || state.autoRotate) return;
+  if (!pointer || pointer.id !== event.pointerId) return;
   state.rotationY = normalizeDegrees(pointer.ry + (event.clientX - pointer.x) * 0.45);
   state.rotationX = normalizeDegrees(pointer.rx - (event.clientY - pointer.y) * 0.45);
   previousVertexSigns = null;
@@ -442,5 +552,5 @@ window.addEventListener("pagehide", (event) => {
 });
 
 paintTransport();
-paintRotationMode();
+paintMotionControls();
 scheduleFrame();

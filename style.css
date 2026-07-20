@@ -396,6 +396,12 @@ a {
   --accent-glow: color-mix(in oklab, #7db4ff 22%, transparent);
 }
 
+.lumber-page #effectsSection {
+  --accent: #ff826f;
+  --accent-soft: color-mix(in oklab, #ff826f 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff826f 20%, transparent);
+}
+
 .lumber-page #depthSection {
   --accent: #ffb86b;
   --accent-soft: color-mix(in oklab, #ffb86b 55%, transparent);
@@ -439,14 +445,14 @@ a {
 }
 
 .lattice-control-block {
-  margin-top: 16px;
-  padding-top: 14px;
+  margin-top: 10px;
+  padding-top: 9px;
   border-top: 1px solid var(--line);
 }
 
 .lattice-control-heading {
   display: flex;
-  margin-bottom: 11px;
+  margin-bottom: 7px;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
@@ -475,61 +481,27 @@ a {
   opacity: 0.38;
 }
 
-.tile-editor-disclosure {
-  margin-top: 14px;
+.tile-editor-panel {
+  padding: 9px;
   border: 1px solid var(--line-strong);
   background: var(--bg-deep);
 }
 
-.tile-editor-toggle {
-  display: flex;
-  width: 100%;
-  min-height: 48px;
-  padding: 8px 11px;
-  border: 0;
-  cursor: pointer;
-  color: var(--ink);
-  background: transparent;
-  align-items: center;
-  justify-content: space-between;
-  text-align: left;
-}
-
-.tile-editor-toggle span {
+.tile-editor-toolbar {
   display: grid;
-  gap: 3px;
+  margin-top: 9px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 9px;
 }
 
-.tile-editor-toggle b {
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.tile-editor-toolbar .select-control {
+  margin: 0;
+  gap: 4px;
 }
 
-.tile-editor-toggle small {
-  color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 0.04em;
-}
-
-.tile-editor-toggle i {
-  color: var(--accent);
-  font-size: 16px;
-  font-style: normal;
-}
-
-.tile-editor-toggle[aria-expanded="true"] {
-  border-bottom: 1px solid var(--line);
-  background: var(--accent-glow);
-}
-
-.tile-editor-panel {
-  padding: 10px;
-}
-
-.tile-editor-panel[hidden] {
-  display: none;
+.tile-editor-toolbar .mini-action {
+  min-height: 40px;
 }
 
 .tile-editor-canvas {
@@ -570,9 +542,21 @@ a {
   box-shadow: 0 0 8px var(--accent-soft);
 }
 
-.tile-editor-panel .control-note {
-  margin-top: 9px;
-  margin-bottom: 10px;
+.lattice-form-body > .lattice-compact-control {
+  margin-top: 10px;
+}
+
+.lattice-form-body .lattice-compact-control,
+.lattice-form-body .lattice-control-block .control {
+  grid-template-columns: minmax(116px, 0.9fr) minmax(112px, 1.1fr);
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.lattice-form-body .lattice-compact-control > span,
+.lattice-form-body .lattice-control-block .control > span {
+  margin-bottom: 0;
 }
 
 .lattice-reset-row {
@@ -580,6 +564,63 @@ a {
   margin: 14px 0 9px;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.lattice-angle-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.lattice-angle-control .mini-action {
+  min-height: 32px;
+  margin-bottom: 11px;
+}
+
+.axis-control-group {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.axis-control-group > .control {
+  margin-bottom: 7px;
+}
+
+.axis-motion-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: end;
+  gap: 8px;
+}
+
+.axis-motion-row .control {
+  margin-bottom: 0;
+}
+
+.axis-play-button {
+  display: grid;
+  min-height: 40px;
+  padding: 4px;
+  place-content: center;
+  gap: 1px;
+}
+
+.axis-play-button span {
+  font-size: 10px;
+}
+
+.axis-play-button small {
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.axis-play-button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
 }
 
 .lattice-reset-row .mini-action {
@@ -647,11 +688,36 @@ a {
   margin-top: 0;
 }
 
+.head-offset-controls {
+  margin: 10px 0 4px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+}
+
+.head-offset-controls .control {
+  margin-bottom: 7px;
+}
+
 .ring-clear-row {
   display: grid;
   margin-bottom: 14px;
   grid-template-columns: repeat(2, 1fr);
   gap: 7px;
+}
+
+.ring-sync-all {
+  grid-column: 1 / -1;
+}
+
+.fx-clear-row {
+  display: grid;
+  margin-bottom: 10px;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.fx-clear-row .mini-action {
+  min-height: 36px;
 }
 
 .active-ring-lead {
@@ -693,7 +759,7 @@ a {
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   border-left: 1px solid var(--line);
-  grid-template-columns: minmax(0, 1fr) repeat(3, 34px);
+  grid-template-columns: minmax(0, 1fr) 32px 38px repeat(3, 32px);
 }
 
 .ring-list-row > button {
@@ -720,12 +786,64 @@ a {
   font-size: 14px;
 }
 
-.ring-list-row i {
+.ring-list-row > button:first-child > i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--ring-row-color);
   box-shadow: 0 0 8px var(--ring-row-color);
+}
+
+.ring-list-row > button[data-ring-action="direction"] {
+  font-size: 15px;
+}
+
+.ring-volume-control {
+  position: relative;
+  display: grid;
+  border-right: 1px solid var(--line);
+  cursor: ew-resize;
+  background: var(--bg-deep);
+  place-items: center;
+}
+
+.ring-volume-knob {
+  position: relative;
+  display: block;
+  width: 21px;
+  height: 21px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, #11171a 0 54%, transparent 57%),
+    conic-gradient(from 225deg, var(--ring-row-color, var(--accent)) 0 270deg, #252c2f 270deg);
+}
+
+.ring-volume-knob b {
+  position: absolute;
+  top: 2px;
+  left: 9px;
+  width: 1px;
+  height: 7px;
+  background: #fff3d6;
+  box-shadow: 0 0 4px var(--ring-row-color, var(--accent));
+  transform: rotate(var(--ring-volume-angle));
+  transform-origin: 50% 8.5px;
+}
+
+.ring-volume-control input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: ew-resize;
+  opacity: 0;
+}
+
+.ring-volume-control:has(input:focus-visible) {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .ring-list-row small {
@@ -1192,6 +1310,16 @@ input[type="range"]::-moz-range-thumb {
 
 .control-section[open] > .group-summary::after {
   content: "−";
+}
+
+.static-group-summary {
+  border-bottom: 1px solid var(--line);
+  cursor: default;
+  background: linear-gradient(90deg, var(--accent-glow), transparent 68%);
+}
+
+.static-group-summary::after {
+  display: none;
 }
 
 .group-body {

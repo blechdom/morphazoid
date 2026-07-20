@@ -177,13 +177,14 @@
           <div class="group-body">
             <div class="field-label">Topology</div>
             <div class="choice-switch" id="shapeType" role="group" aria-label="Shape topology">
+              <button id="circleShape" type="button" data-value="circle" aria-pressed="false">Circle</button>
               <button id="polygonShape" type="button" data-value="polygon" aria-pressed="true">Polygon</button>
               <button id="starShape" type="button" data-value="star" aria-pressed="false">Star</button>
             </div>
 
-            <label class="control" for="sides">
+            <label class="control" id="sidesControl" for="sides">
               <span><b>Sides / points</b><output id="sidesOut" for="sides">4 · polygon</output></span>
-              <input id="sides" type="range" min="2" max="16" step="1" value="4" />
+              <input id="sides" type="range" min="2" max="32" step="1" value="4" />
             </label>
 
             <label class="control" id="starDepthControl" for="starDepth" hidden>
@@ -204,12 +205,12 @@
 
             <label class="control" for="aspect">
               <span><b>Stretch</b><output id="aspectOut" for="aspect">even</output></span>
-              <input id="aspect" type="range" min="-1" max="1" step="0.01" value="0" />
+              <input id="aspect" type="range" min="-2" max="2" step="0.01" value="0" />
             </label>
 
             <label class="control" for="skew">
               <span><b>Skew</b><output id="skewOut" for="skew">0%</output></span>
-              <input id="skew" type="range" min="-0.8" max="0.8" step="0.01" value="0" />
+              <input id="skew" type="range" min="-2" max="2" step="0.01" value="0" />
             </label>
 
             <label class="control" for="asymmetry">
@@ -232,10 +233,10 @@
               <span class="field-label">Voice</span>
               <span class="select-shell">
                 <select id="soundMode">
-                  <option value="sine">Sine · corner envelope</option>
+                  <option value="sine" selected>Sine · corner envelope</option>
                   <option value="percussion">Percussion · corner strikes</option>
                   <option value="shepard">Shepard · cyclic glissando</option>
-                  <option value="fm" selected>FM · mark-driven index</option>
+                  <option value="fm">FM · mark-driven index</option>
                   <option value="pm">PM · mark-driven phase</option>
                 </select>
               </span>
@@ -243,7 +244,7 @@
 
             <label class="control" for="baseFrequency">
               <span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span>
-              <input id="baseFrequency" type="range" min="55" max="440" step="1" value="110" />
+              <input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" />
             </label>
 
             <label class="control" for="pitchRange">
@@ -251,16 +252,17 @@
               <input id="pitchRange" type="range" min="0" max="6" step="0.05" value="2.5" />
             </label>
 
-            <div id="sineArticulation" hidden>
+            <div id="sineArticulation">
               <label class="control" for="sineAccent">
-                <span><b>Corner amplitude</b><output id="sineAccentOut" for="sineAccent">75%</output></span>
-                <input id="sineAccent" type="range" min="0" max="1" step="0.01" value="0.75" />
+                <span><b>Corner emphasis</b><output id="sineAccentOut" for="sineAccent">100%</output></span>
+                <input id="sineAccent" type="range" min="0" max="1.5" step="0.01" value="1" />
               </label>
 
               <label class="control" for="sineDecay">
-                <span><b>Corner decay</b><output id="sineDecayOut" for="sineDecay">65%</output></span>
-                <input id="sineDecay" type="range" min="0" max="1" step="0.01" value="0.65" />
+                <span><b>Corner decay</b><output id="sineDecayOut" for="sineDecay">650 ms</output></span>
+                <input id="sineDecay" type="range" min="20" max="4000" step="10" value="650" />
               </label>
+              <p class="control-note">Applies to Sine, Shepard, FM, and PM. Decay is elapsed time, so it may end before the next edge or span it as playhead speed changes.</p>
             </div>
 
             <div id="percussionArticulation" hidden>
@@ -282,7 +284,7 @@
 
             <div class="synth-panel" id="shepardArticulation" hidden>
               <label class="control" for="shepardCycles">
-                <span><b>Glide rate</b><output id="shepardCyclesOut" for="shepardCycles">1.00 oct / loop</output></span>
+                <span><b>Octaves per circuit</b><output id="shepardCyclesOut" for="shepardCycles">1.00 oct / circuit</output></span>
                 <input id="shepardCycles" type="range" min="0.25" max="4" step="0.05" value="1" />
               </label>
 
@@ -300,9 +302,10 @@
                 <span><b>Spectral width</b><output id="shepardWidthOut" for="shepardWidth">4.0 oct</output></span>
                 <input id="shepardWidth" type="range" min="1" max="8" step="0.1" value="4" />
               </label>
+              <p class="control-note">Playhead angle drives octave position directly. One complete point contour or radar rotation advances the selected number of octaves, preserving the infinite-rise illusion.</p>
             </div>
 
-            <div class="synth-panel" id="fmArticulation">
+            <div class="synth-panel" id="fmArticulation" hidden>
               <label class="control" for="fmIndex">
                 <span><b>FM index</b><output id="fmIndexOut" for="fmIndex">3.00 max</output></span>
                 <input id="fmIndex" type="range" min="0" max="12" step="0.05" value="3" />
@@ -326,6 +329,7 @@
               </label>
             </div>
 
+            <p class="control-note">Synth voices are motion-gated: pausing both the playhead and rotation stops audio because no geometry data is being consumed.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>
@@ -372,7 +376,7 @@
               </span>
             </label>
 
-            <div id="synthMapping">
+            <div id="synthMapping" hidden>
               <label class="select-control" for="synthSource">
                 <span class="field-label">Modulation drive mark</span>
                 <span class="select-shell">

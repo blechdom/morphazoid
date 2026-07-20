@@ -12,10 +12,11 @@ import {
   TILING_TYPES,
   buildLattice,
   buildPrototile,
+  centeredContactWindow,
+  constrainPrototileEdit,
   contactsForLine,
   createScanLine,
   edgeShapeName,
-  evenlySelectContacts,
   intersectionAccentMultiplier,
   latticeOffsetForPhase,
   parametersForDraggedVertex,
@@ -27,10 +28,19 @@ import { EdgeShape } from "./vendor/tactile/tactile.js";
 const $ = (id) => document.getElementById(id);
 const SPEED_MIN = 0.01;
 const SPEED_MAX = 4;
-const MAX_VOICES = 32;
+const MAX_VOICES = 16;
 const MAX_PARAMETERS = 6;
 const MAX_EDGE_CLASSES = 5;
 const DEFAULT_TILING_TYPE = 20;
+const DEFAULT_DENSITY = 0.52;
+const MAX_DENSITY = 0.8;
+const OPEN_TILE_SCALE = 0.46;
+const DENSE_TILE_SCALE = 0.14;
+const DEFAULT_TILE_SCALE = OPEN_TILE_SCALE
+  + (DENSE_TILE_SCALE - OPEN_TILE_SCALE) * DEFAULT_DENSITY;
+const MAX_TILES_PER_WORLD_AREA = 70;
+const GEOMETRY_EDIT_SETTLE_MS = 180;
+const CONTACT_REENTRY_GRACE_SECONDS = 0.08;
 const STRIKE_BATCH_CEILING = 0.78;
 const SOUND_MODE_LABELS = {
   sine: "Sine",
@@ -79,12 +89,12 @@ const state = {
   tilingType: DEFAULT_TILING_TYPE,
   parameters: [...defaultInfo.defaultParameters],
   edgeCurves: defaultInfo.edgeShapes.map(() => 0),
-  density: 0.52,
+  density: DEFAULT_DENSITY,
   scanMotion: "loop",
   position: 0.5,
   continuousPosition: 0.5,
   speed: 0.08,
-  traversalDirection: 1,
+  traversalDirection: -1,
   angle: 90,
   playing: false,
   audio: false,
@@ -93,7 +103,7 @@ const state = {
   pitchRange: 3.5,
   contactLevel: 0.55,
   intersectionAccent: 0.65,
-  voiceCap: 16,
+  voiceCap: 12,
   soundMode: "sine",
   synthSource: "incidence",
   percussionAttack: 3,
@@ -110,7 +120,6 @@ const state = {
   levelSource: "incidence",
   levelCurve: "linear",
   stereoWidth: 1,
-  tileEditorOpen: false,
 };
 
 function loadSettings() {
@@ -144,7 +153,7 @@ function persistSettings() {
 
 loadSettings();
 state.level = clamp(state.level, 0, 1);
-state.baseFrequency = clamp(state.baseFrequency, 55, 440);
+state.baseFrequency = clamp(state.baseFrequency, 20, 440);
 state.pitchRange = clamp(state.pitchRange, 0, 6);
 state.contactLevel = clamp(state.contactLevel, 0, 1);
 state.intersectionAccent = clamp(state.intersectionAccent, 0, 1);
@@ -196,7 +205,9 @@ let scheduledFrame = 0;
 let lastFrameTime = performance.now();
 let lastUiUpdate = 0;
 const contactOnsets = new Map();
+const contactLastSeen = new Map();
 const movableVertexCache = new Map();
+let suppressContactOnsetsUntil = 0;
 
 function wrap01(value) {
   const wrapped = value % 1;
@@ -228,10 +239,22 @@ function scheduleFrame() {
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
 
+function resetContactTracking() {
+  contactOnsets.clear();
+  contactLastSeen.clear();
+}
+
+function suppressGeometryOnsets(duration = GEOMETRY_EDIT_SETTLE_MS) {
+  suppressContactOnsetsUntil = Math.max(
+    suppressContactOnsetsUntil,
+    performance.now() + duration,
+  );
+}
+
 function invalidateGeometry() {
   geometryDirty = true;
   tileEditorDirty = true;
-  contactOnsets.clear();
+  suppressGeometryOnsets();
   scheduleFrame();
 }
 
@@ -269,17 +292,48 @@ function bindSelect(id, key, afterChange) {
   });
 }
 
+function tileScaleForDensity(density = state.density) {
+  const amount = clamp(Number(density), 0, MAX_DENSITY);
+  return OPEN_TILE_SCALE + (DENSE_TILE_SCALE - OPEN_TILE_SCALE) * amount;
+}
+
+function densityForTileScale(scale) {
+  return clamp(
+    (OPEN_TILE_SCALE - Number(scale)) / (OPEN_TILE_SCALE - DENSE_TILE_SCALE),
+    0,
+    MAX_DENSITY,
+  );
+}
+
+function effectiveCycleRate() {
+  return state.speed * DEFAULT_TILE_SCALE / tileScaleForDensity();
+}
+
+function paintSpeed() {
+  $("speedOut").textContent = `${effectiveCycleRate().toFixed(3)} cyc/s`;
+}
+
 const paintDensity = bindRange("density", "density", (value) => {
   if (value < 0.34) return "open";
   if (value > 0.68) return "dense";
   return "medium";
-}, invalidateGeometry);
+}, () => {
+  invalidateGeometry();
+  paintSpeed();
+});
 const paintAngle = bindRange(
   "angle",
   "angle",
   (value) => `${Math.round(value)}\u00b0`,
-  () => contactOnsets.clear(),
+  () => suppressGeometryOnsets(),
 );
+$("resetLineAngle").addEventListener("click", () => {
+  state.angle = 90;
+  paintAngle();
+  suppressGeometryOnsets();
+  scheduleFrame();
+  announce("Line angle reset to 90 degrees.");
+});
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => {
   pool.setLevel(state.level);
 });
@@ -315,7 +369,8 @@ function setSoundMode(mode, shouldAnnounce = true) {
   if (nextMode !== state.soundMode) {
     pool.silence();
     state.soundMode = nextMode;
-    contactOnsets.clear();
+    resetContactTracking();
+    suppressGeometryOnsets();
   }
   $("soundMode").value = state.soundMode;
   $("percussionArticulation").hidden = state.soundMode !== "percussion";
@@ -373,7 +428,7 @@ function paintEdgeControl(index) {
 
 function configureTilingControls() {
   const info = tilingInfo(state.tilingType);
-  $("parameterCount").textContent = `${info.defaultParameters.length} ${plural(info.defaultParameters.length, "parameter")}`;
+  $("parameterCount").textContent = `${info.defaultParameters.length} ${plural(info.defaultParameters.length, "parameter")} · guarded`;
   for (let index = 0; index < MAX_PARAMETERS; index += 1) {
     const visible = index < info.defaultParameters.length;
     const wrapper = $("parameterControl" + index);
@@ -384,7 +439,7 @@ function configureTilingControls() {
     input.min = String(range.min);
     input.max = String(range.max);
     input.step = "0.005";
-    $("parameterLabel" + index).textContent = `Shape parameter ${index + 1}`;
+    $("parameterLabel" + index).textContent = `Shape ${index + 1}`;
     paintParameterControl(index);
   }
 
@@ -406,8 +461,8 @@ function configureTilingControls() {
     paintEdgeControl(index);
   }
   $("edgeRuleNote").textContent = bendableCount
-    ? "Only bendable J, U, and S classes are shown. Rigid I classes remain straight."
-    : "This family uses only rigid I edges, so there are no edge-shape parameters.";
+    ? "Rigid I edges stay straight."
+    : "All edges are fixed by symmetry.";
 
   const hasVertexParameters = info.defaultParameters.length > 0;
   $("resetTileVertices").disabled = !hasVertexParameters;
@@ -415,9 +470,6 @@ function configureTilingControls() {
   $("tileEditorLegend").textContent = hasVertexParameters
     ? "movable corner"
     : "symmetry-locked corners";
-  $("tileEditorNote").textContent = hasVertexParameters
-    ? "Drag an orange corner. Its movement is projected onto the legal parameters for this isohedral family, and the sliders stay synchronized."
-    : "This isohedral family has no movable vertex parameters. Its corners are fixed by symmetry; bendable edge controls remain available below.";
   tileEditorDirty = true;
 }
 
@@ -484,11 +536,6 @@ function traceEditorPoints(points, view, close = false) {
 }
 
 function drawTileEditor(lockedView = tileEditorDrag?.view) {
-  if (!state.tileEditorOpen) {
-    tileEditorDirty = false;
-    return;
-  }
-
   const model = buildPrototile({
     type: state.tilingType,
     parameters: state.parameters,
@@ -553,24 +600,6 @@ function drawTileEditor(lockedView = tileEditorDrag?.view) {
   tileEditorDirty = false;
 }
 
-function setTileEditorOpen(open, shouldAnnounce = true) {
-  state.tileEditorOpen = Boolean(open);
-  $("tileEditorPanel").hidden = !state.tileEditorOpen;
-  $("toggleTileEditor").setAttribute("aria-expanded", String(state.tileEditorOpen));
-  $("tileEditorToggleGlyph").textContent = state.tileEditorOpen ? "\u2212" : "+";
-  tileEditorDrag = null;
-  tileEditorCanvas.style.cursor = "";
-  tileEditorDirty = true;
-  if (state.tileEditorOpen) drawTileEditor();
-  if (shouldAnnounce) {
-    announce(state.tileEditorOpen ? "Tile vertex editor opened." : "Tile vertex editor closed.");
-  }
-}
-
-$("toggleTileEditor").addEventListener("click", () => {
-  setTileEditorOpen(!state.tileEditorOpen);
-});
-
 $("resetTileVertices").addEventListener("click", () => {
   state.parameters = [...tilingInfo(state.tilingType).defaultParameters];
   for (let index = 0; index < state.parameters.length; index += 1) {
@@ -580,8 +609,17 @@ $("resetTileVertices").addEventListener("click", () => {
   announce("Tile vertices reset to this family's defaults.");
 });
 
+function guardedPrototileEdit(parameters = state.parameters, edgeCurves = state.edgeCurves) {
+  return constrainPrototileEdit({
+    type: state.tilingType,
+    currentParameters: state.parameters,
+    parameters,
+    currentEdgeCurves: state.edgeCurves,
+    edgeCurves,
+  });
+}
+
 tileEditorCanvas.addEventListener("pointerdown", (event) => {
-  if (!state.tileEditorOpen) return;
   if (tileEditorDirty || !tileEditorView) drawTileEditor();
   const point = editorPointerPoint(event, tileEditorView);
   let nearest = -1;
@@ -603,6 +641,7 @@ tileEditorCanvas.addEventListener("pointerdown", (event) => {
   }
   tileEditorDrag = {
     vertexIndex: nearest,
+    constrained: false,
     view: {
       width: tileEditorView.width,
       height: tileEditorView.height,
@@ -618,12 +657,16 @@ tileEditorCanvas.addEventListener("pointerdown", (event) => {
 
 tileEditorCanvas.addEventListener("pointermove", (event) => {
   if (!tileEditorDrag) return;
-  state.parameters = parametersForDraggedVertex({
+  const requested = parametersForDraggedVertex({
     type: state.tilingType,
     parameters: state.parameters,
     vertexIndex: tileEditorDrag.vertexIndex,
     target: editorNaturalPoint(event, tileEditorDrag.view),
   });
+  const guarded = guardedPrototileEdit(requested);
+  state.parameters = guarded.parameters;
+  state.edgeCurves = guarded.edgeCurves;
+  tileEditorDrag.constrained ||= guarded.constrained;
   for (let index = 0; index < state.parameters.length; index += 1) {
     paintParameterControl(index);
   }
@@ -634,11 +677,14 @@ tileEditorCanvas.addEventListener("pointermove", (event) => {
 
 function finishTileEditorDrag() {
   if (!tileEditorDrag) return;
+  const constrained = tileEditorDrag.constrained;
   tileEditorDrag = null;
   tileEditorCanvas.style.cursor = "";
   tileEditorDirty = true;
   drawTileEditor();
-  announce("Tile vertices updated; lattice parameters synchronized.");
+  announce(constrained
+    ? "Overlap guard limited the vertex edit."
+    : "Tile vertices updated; lattice parameters synchronized.");
 }
 
 tileEditorCanvas.addEventListener("pointerup", finishTileEditorDrag);
@@ -646,8 +692,15 @@ tileEditorCanvas.addEventListener("pointercancel", finishTileEditorDrag);
 
 for (let index = 0; index < MAX_PARAMETERS; index += 1) {
   $("parameter" + index).addEventListener("input", () => {
-    state.parameters[index] = Number($("parameter" + index).value);
-    paintParameterControl(index);
+    const requested = [...state.parameters];
+    requested[index] = Number($("parameter" + index).value);
+    const guarded = guardedPrototileEdit(requested);
+    state.parameters = guarded.parameters;
+    state.edgeCurves = guarded.edgeCurves;
+    for (let controlIndex = 0; controlIndex < state.parameters.length; controlIndex += 1) {
+      paintParameterControl(controlIndex);
+    }
+    if (guarded.constrained) announce("Overlap guard limited the shape parameter.");
     invalidateGeometry();
   });
 }
@@ -656,8 +709,15 @@ for (let index = 0; index < MAX_EDGE_CLASSES; index += 1) {
   $("edgeCurve" + index).addEventListener("input", () => {
     const info = tilingInfo(state.tilingType);
     if (info.edgeShapes[index] === EdgeShape.I) return;
-    state.edgeCurves[index] = Number($("edgeCurve" + index).value);
-    paintEdgeControl(index);
+    const requested = [...state.edgeCurves];
+    requested[index] = Number($("edgeCurve" + index).value);
+    const guarded = guardedPrototileEdit(state.parameters, requested);
+    state.parameters = guarded.parameters;
+    state.edgeCurves = guarded.edgeCurves;
+    for (let controlIndex = 0; controlIndex < state.edgeCurves.length; controlIndex += 1) {
+      paintEdgeControl(controlIndex);
+    }
+    if (guarded.constrained) announce("Overlap guard limited the edge bend.");
     invalidateGeometry();
   });
 }
@@ -680,9 +740,9 @@ const speedInput = $("speed");
 speedInput.value = String(sliderFromSpeed(state.speed));
 speedInput.addEventListener("input", () => {
   state.speed = speedFromSlider(Number(speedInput.value));
-  $("speedOut").textContent = `${state.speed.toFixed(3)} cyc/s`;
+  paintSpeed();
 });
-$("speedOut").textContent = `${state.speed.toFixed(3)} cyc/s`;
+paintSpeed();
 
 function setScanMotion(motion, shouldAnnounce = true) {
   if (!["loop", "pingpong"].includes(motion)) return;
@@ -723,21 +783,26 @@ $("position").addEventListener("input", () => setPosition($("position").value));
 function updateDirection() {
   const forward = state.traversalDirection > 0;
   $("traversalDirectionGlyph").textContent = forward ? "\u2192" : "\u2190";
-  $("traversalDirectionText").textContent = forward ? "FWD" : "REV";
+  $("traversalDirectionText").textContent = forward ? "L→R" : "R→L";
   $("traversalDirection").setAttribute(
     "aria-label",
-    `Pattern direction: ${forward ? "forward" : "reverse"}`,
+    forward
+      ? "Pattern moves left to right; apparent cursor moves right to left"
+      : "Pattern moves right to left; apparent cursor moves left to right",
   );
 }
 
 $("traversalDirection").addEventListener("click", () => {
   state.traversalDirection *= -1;
   updateDirection();
-  announce(state.traversalDirection > 0 ? "Pattern direction forward." : "Pattern direction reverse.");
+  announce(state.traversalDirection > 0
+    ? "Pattern moves left to right."
+    : "Pattern moves right to left; apparent cursor moves left to right.");
 });
 
 function setPlaying(playing) {
   state.playing = Boolean(playing);
+  if (!state.playing) pool.silence();
   setPressed($("playButton"), state.playing);
   $("playButton").setAttribute("aria-label", state.playing ? "Pause pattern" : "Play pattern");
   $("traversalDirection").hidden = !state.playing;
@@ -773,7 +838,8 @@ async function enableAudio() {
     pool.setVoices([]);
     pool.setLevel(state.level);
     state.audio = true;
-    contactOnsets.clear();
+    resetContactTracking();
+    suppressGeometryOnsets();
     paintAudioState();
     announce(`Audio on. ${SOUND_MODE_LABELS[state.soundMode]} is ready.`);
     scheduleFrame();
@@ -824,7 +890,7 @@ $("straightenEdges").addEventListener("click", () => {
 });
 
 $("resetForm").addEventListener("click", () => {
-  state.density = 0.52;
+  state.density = DEFAULT_DENSITY;
   state.angle = 90;
   paintDensity();
   paintAngle();
@@ -857,21 +923,42 @@ function resizeCanvas() {
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 
 function rebuildGeometry() {
-  const tileScale = 0.46 + (0.14 - 0.46) * state.density;
-  lattice = buildLattice({
+  const buildAtDensity = (density) => buildLattice({
     type: state.tilingType,
     parameters: state.parameters,
     edgeCurves: state.edgeCurves,
-    scale: tileScale,
+    scale: tileScaleForDensity(density),
     // Keep the pattern's primitive period horizontal. The line rotates
     // independently, so angle changes alter the contacts rather than rotating
     // the entire instrument with its reader.
     alignPeriodToDegrees: 180,
     bounds: viewBounds,
   });
+  const worldArea = (viewBounds.maxX - viewBounds.minX) * (viewBounds.maxY - viewBounds.minY);
+  const tileBudget = Math.max(140, Math.round(worldArea * MAX_TILES_PER_WORLD_AREA));
+  const requestedDensity = clamp(state.density, 0, MAX_DENSITY);
+  let appliedDensity = requestedDensity;
+  let nextLattice = buildAtDensity(appliedDensity);
+  for (let attempt = 0; attempt < 4 && nextLattice.tiles.length > tileBudget; attempt += 1) {
+    if (appliedDensity <= 0) break;
+    const scale = tileScaleForDensity(appliedDensity);
+    const guardedScale = Math.min(
+      OPEN_TILE_SCALE,
+      scale * Math.sqrt(nextLattice.tiles.length / tileBudget) * 1.03,
+    );
+    const guardedDensity = densityForTileScale(guardedScale);
+    appliedDensity = guardedDensity < appliedDensity - 0.002
+      ? guardedDensity
+      : Math.max(0, appliedDensity - 0.02);
+    nextLattice = buildAtDensity(appliedDensity);
+  }
+  const densityLimited = appliedDensity < requestedDensity - 0.002;
+  state.density = appliedDensity;
+  lattice = nextLattice;
+  paintDensity();
+  paintSpeed();
   geometryDirty = false;
-  contactOnsets.clear();
-  $("densityOut").textContent = `${lattice.tiles.length} tiles`;
+  $("densityOut").textContent = `${lattice.tiles.length} tiles${densityLimited ? " · limit" : ""}`;
 }
 
 function tracePoints(points, close = false) {
@@ -995,7 +1082,8 @@ function rawSynthMark(contact) {
 
 function shepardRate() {
   if (!state.playing) return 0;
-  const visualLoopRate = state.scanMotion === "pingpong" ? state.speed * 0.5 : state.speed;
+  const rate = effectiveCycleRate();
+  const visualLoopRate = state.scanMotion === "pingpong" ? rate * 0.5 : rate;
   return visualLoopRate
     * state.shepardCycles
     * state.shepardDirection
@@ -1036,22 +1124,34 @@ function mappingForContact(contact) {
   };
 }
 
-function addIntersectionAccents(contacts, nowSeconds) {
+function addIntersectionAccents(contacts, nowSeconds, suppressOnsets = false) {
   const activeKeys = new Set();
   const accented = contacts.map((contact) => {
-    activeKeys.add(contact.voiceKey);
-    const onset = !contactOnsets.has(contact.voiceKey);
-    if (onset) contactOnsets.set(contact.voiceKey, nowSeconds);
-    const accentAge = Math.max(0, nowSeconds - contactOnsets.get(contact.voiceKey));
+    const key = contact.voiceKey;
+    activeKeys.add(key);
+    const tracked = contactOnsets.has(key);
+    const onset = !suppressOnsets && !tracked;
+    if (!tracked) contactOnsets.set(key, suppressOnsets ? nowSeconds - 1 : nowSeconds);
+    else if (suppressOnsets) {
+      contactOnsets.set(key, Math.min(contactOnsets.get(key), nowSeconds - 1));
+    }
+    contactLastSeen.set(key, nowSeconds);
+    const accentAge = suppressOnsets
+      ? Number.POSITIVE_INFINITY
+      : Math.max(0, nowSeconds - contactOnsets.get(key));
     return {
       ...contact,
       accentAge,
-      accent: Math.exp(-accentAge / 0.14),
+      accent: Number.isFinite(accentAge) ? Math.exp(-accentAge / 0.14) : 0,
       onset,
     };
   });
   for (const key of contactOnsets.keys()) {
-    if (!activeKeys.has(key)) contactOnsets.delete(key);
+    if (activeKeys.has(key)) continue;
+    const lastSeen = contactLastSeen.get(key) ?? Number.NEGATIVE_INFINITY;
+    if (nowSeconds - lastSeen <= CONTACT_REENTRY_GRACE_SECONDS) continue;
+    contactOnsets.delete(key);
+    contactLastSeen.delete(key);
   }
   return accented;
 }
@@ -1093,6 +1193,8 @@ function emitIntersectionStrikes(data) {
     pool.strike(spec, {
       attackSeconds: cornerAttackSeconds(state.percussionAttack),
       decaySeconds: cornerDecaySeconds(state.percussionDecay),
+      retriggerMode: "crossfade",
+      crossfadeSeconds: 0.014,
     });
   }
 }
@@ -1194,7 +1296,7 @@ function frame(now) {
   lastFrameTime = now;
 
   if (state.playing) {
-    state.continuousPosition += state.traversalDirection * state.speed * deltaSeconds;
+    state.continuousPosition += state.traversalDirection * effectiveCycleRate() * deltaSeconds;
     state.position = state.scanMotion === "pingpong"
       ? pingPong01(state.continuousPosition)
       : wrap01(state.continuousPosition);
@@ -1204,19 +1306,22 @@ function frame(now) {
   const scan = createScanLine(viewBounds, 0.5, state.angle);
   const offset = latticeOffsetForPhase(lattice, state.position);
   const rawContacts = contactsForLine(lattice, scan, undefined, offset);
-  const contacts = addIntersectionAccents(rawContacts, now / 1000);
-  const voicedContacts = evenlySelectContacts(contacts, state.voiceCap);
+  const geometryEditing = now < suppressContactOnsetsUntil;
+  const contacts = addIntersectionAccents(rawContacts, now / 1000, geometryEditing);
+  const voicedContacts = centeredContactWindow(contacts, state.voiceCap);
   const data = voiceData(voicedContacts);
-  emitIntersectionStrikes(data);
+  if (state.playing && !geometryEditing) emitIntersectionStrikes(data);
   drawLattice(scan, offset, contacts, voicedContacts);
   if (tileEditorDirty) drawTileEditor();
 
   const continuousMode = state.soundMode !== "percussion";
   if (state.audio && !document.hidden) {
-    pool.setVoices(continuousMode ? data.map((item) => item.voice) : []);
+    pool.setVoices(continuousMode && state.playing ? data.map((item) => item.voice) : []);
   }
   if (!state.playing || now - lastUiUpdate > 60) {
-    const voiceCount = continuousMode ? data.length : pool.activeStrikeCount;
+    const voiceCount = continuousMode
+      ? (state.playing ? data.length : 0)
+      : pool.activeStrikeCount;
     updateUi(contacts, data, state.audio ? voiceCount : 0);
     lastUiUpdate = now;
   }
@@ -1271,12 +1376,12 @@ window.addEventListener("keydown", (event) => {
   else if (event.key === "ArrowUp") {
     state.angle = (state.angle + 1) % 180;
     paintAngle();
-    contactOnsets.clear();
+    suppressGeometryOnsets();
     scheduleFrame();
   } else if (event.key === "ArrowDown") {
     state.angle = (state.angle + 179) % 180;
     paintAngle();
-    contactOnsets.clear();
+    suppressGeometryOnsets();
     scheduleFrame();
   } else return;
   event.preventDefault();
@@ -1292,7 +1397,6 @@ window.addEventListener("pagehide", (event) => {
 window.addEventListener("pageshow", scheduleFrame);
 
 configureTilingControls();
-setTileEditorOpen(false, false);
 setScanMotion(state.scanMotion, false);
 setSoundMode(state.soundMode, false);
 setPosition(state.position);

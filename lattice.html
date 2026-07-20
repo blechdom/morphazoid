@@ -86,71 +86,70 @@
               <span class="rate-heading"><b>Pattern speed</b><output id="speedOut" for="speed">0.080 cyc/s</output></span>
               <div class="rate-row-single">
                 <input id="speed" aria-label="Pattern speed" type="range" min="0" max="1" step="0.001" value="0.3386" />
-                <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Pattern direction: forward" hidden>
-                  <span id="traversalDirectionGlyph">&rarr;</span><small id="traversalDirectionText">FWD</small>
+                <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Pattern moves right to left; apparent cursor moves left to right" hidden>
+                  <span id="traversalDirectionGlyph">&larr;</span><small id="traversalDirectionText">R→L</small>
                 </button>
               </div>
             </div>
 
-            <label class="control" for="angle">
-              <span><b>Line angle</b><output id="angleOut" for="angle">90&deg;</output></span>
-              <input id="angle" type="range" min="0" max="179" step="1" value="90" />
-            </label>
+            <div class="lattice-angle-control">
+              <label class="control" for="angle">
+                <span><b>Line angle</b><output id="angleOut" for="angle">90&deg;</output></span>
+                <input id="angle" type="range" min="0" max="179" step="1" value="90" />
+              </label>
+              <button class="mini-action" id="resetLineAngle" type="button">Reset 90&deg;</button>
+            </div>
 
-            <p class="control-note">Play moves one exact lattice period and unlocks audio. The line stays centered; drag the field to scrub its phase. Only edges touched by the line become voices.</p>
+            <p class="control-note">Play moves one exact lattice period and unlocks audio. The line stays centered. By default the tessellation moves right to left, so the cursor appears to travel left to right. Drag the field to scrub its phase. Only edges touched by the line become voices.</p>
           </div>
         </details>
 
-        <details class="group control-section" id="formSection" data-section="form">
-          <summary class="group-summary">
+        <section class="group control-section always-open" id="formSection" data-section="form">
+          <div class="group-summary static-group-summary">
             <h2 class="group-title">Form</h2>
             <span class="section-state" id="formSummary">Pentagon &middot; IH20</span>
-          </summary>
-          <div class="group-body">
-            <label class="select-control" for="tilingType">
-              <span class="field-label">Isohedral prototile</span>
-              <span class="select-shell">
-                <select id="tilingType">
-                  <option value="20" selected>Pentagon &middot; IH20</option>
-                </select>
-              </span>
-            </label>
-
-            <label class="control" for="density">
-              <span><b>Density</b><output id="densityOut" for="density">medium</output></span>
-              <input id="density" type="range" min="0" max="1" step="0.01" value="0.52" />
-            </label>
-
-            <div class="lattice-control-block" id="parameterControls">
-              <div class="lattice-control-heading"><b>Tile geometry</b><small id="parameterCount">0 parameters</small></div>
-              <label class="control" id="parameterControl0" for="parameter0" hidden><span><b id="parameterLabel0">Shape parameter 1</b><output id="parameter0Out" for="parameter0">0.000</output></span><input id="parameter0" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
-              <label class="control" id="parameterControl1" for="parameter1" hidden><span><b id="parameterLabel1">Shape parameter 2</b><output id="parameter1Out" for="parameter1">0.000</output></span><input id="parameter1" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
-              <label class="control" id="parameterControl2" for="parameter2" hidden><span><b id="parameterLabel2">Shape parameter 3</b><output id="parameter2Out" for="parameter2">0.000</output></span><input id="parameter2" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
-              <label class="control" id="parameterControl3" for="parameter3" hidden><span><b id="parameterLabel3">Shape parameter 4</b><output id="parameter3Out" for="parameter3">0.000</output></span><input id="parameter3" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
-              <label class="control" id="parameterControl4" for="parameter4" hidden><span><b id="parameterLabel4">Shape parameter 5</b><output id="parameter4Out" for="parameter4">0.000</output></span><input id="parameter4" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
-              <label class="control" id="parameterControl5" for="parameter5" hidden><span><b id="parameterLabel5">Shape parameter 6</b><output id="parameter5Out" for="parameter5">0.000</output></span><input id="parameter5" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+          </div>
+          <div class="group-body lattice-form-body">
+            <div class="tile-editor-panel" id="tileEditorPanel">
+              <canvas
+                class="tile-editor-canvas"
+                id="tileEditorCanvas"
+                width="320"
+                height="220"
+                tabindex="0"
+                aria-label="Editable isohedral prototile"
+              >
+                Editable isohedral prototile.
+              </canvas>
+              <div class="tile-editor-legend" aria-hidden="true"><i></i><span id="tileEditorLegend">movable corner</span></div>
             </div>
 
-            <div class="tile-editor-disclosure">
-              <button class="tile-editor-toggle" id="toggleTileEditor" type="button" aria-expanded="false" aria-controls="tileEditorPanel">
-                <span><b>Edit tile by dragging</b><small>optional vertex frame</small></span><i id="tileEditorToggleGlyph" aria-hidden="true">+</i>
-              </button>
-              <div class="tile-editor-panel" id="tileEditorPanel" hidden>
-                <canvas
-                  class="tile-editor-canvas"
-                  id="tileEditorCanvas"
-                  width="320"
-                  height="220"
-                  tabindex="0"
-                  aria-label="Editable prototile. Drag an orange corner to change the legal tile parameters."
-                  aria-describedby="tileEditorNote"
-                >
-                  Editable isohedral prototile.
-                </canvas>
-                <div class="tile-editor-legend" aria-hidden="true"><i></i><span id="tileEditorLegend">movable corner</span></div>
-                <p class="control-note" id="tileEditorNote">Drag a corner. Its movement is projected onto the legal parameters for this isohedral family, and the sliders stay synchronized.</p>
-                <button class="mini-action reset-form" id="resetTileVertices" type="button">Reset vertices</button>
-              </div>
+            <div class="tile-editor-toolbar">
+              <button class="mini-action reset-form" id="resetTileVertices" type="button">Reset vertices</button>
+              <label class="select-control" for="tilingType">
+                <span class="field-label">Prototile</span>
+                <span class="select-shell">
+                  <select id="tilingType">
+                    <option value="20" selected>Pentagon &middot; IH20</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+
+            <label class="control lattice-compact-control" for="density">
+              <span><b>Density</b><output id="densityOut" for="density">medium</output></span>
+              <input id="density" type="range" min="0" max="0.8" step="0.01" value="0.52" />
+            </label>
+            <p class="control-note lattice-density-note">Closer tiles produce closer pitches and pass the line more often. A visual and voice guard prevents overload.</p>
+
+            <div class="lattice-control-block" id="parameterControls">
+              <div class="lattice-control-heading"><b>Shape</b><small id="parameterCount">0 parameters</small></div>
+              <label class="control" id="parameterControl0" for="parameter0" hidden><span><b id="parameterLabel0">Shape 1</b><output id="parameter0Out" for="parameter0">0.000</output></span><input id="parameter0" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl1" for="parameter1" hidden><span><b id="parameterLabel1">Shape 2</b><output id="parameter1Out" for="parameter1">0.000</output></span><input id="parameter1" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl2" for="parameter2" hidden><span><b id="parameterLabel2">Shape 3</b><output id="parameter2Out" for="parameter2">0.000</output></span><input id="parameter2" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl3" for="parameter3" hidden><span><b id="parameterLabel3">Shape 4</b><output id="parameter3Out" for="parameter3">0.000</output></span><input id="parameter3" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl4" for="parameter4" hidden><span><b id="parameterLabel4">Shape 5</b><output id="parameter4Out" for="parameter4">0.000</output></span><input id="parameter4" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl5" for="parameter5" hidden><span><b id="parameterLabel5">Shape 6</b><output id="parameter5Out" for="parameter5">0.000</output></span><input id="parameter5" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
             </div>
 
             <div class="lattice-control-block" id="edgeControls">
@@ -160,7 +159,7 @@
               <label class="control" id="edgeControl2" for="edgeCurve2" hidden><span><b id="edgeLabel2">Edge C</b><output id="edgeCurve2Out" for="edgeCurve2">straight</output></span><input id="edgeCurve2" type="range" min="-1" max="1" step="0.01" value="0" /></label>
               <label class="control" id="edgeControl3" for="edgeCurve3" hidden><span><b id="edgeLabel3">Edge D</b><output id="edgeCurve3Out" for="edgeCurve3">straight</output></span><input id="edgeCurve3" type="range" min="-1" max="1" step="0.01" value="0" /></label>
               <label class="control" id="edgeControl4" for="edgeCurve4" hidden><span><b id="edgeLabel4">Edge E</b><output id="edgeCurve4Out" for="edgeCurve4">straight</output></span><input id="edgeCurve4" type="range" min="-1" max="1" step="0.01" value="0" /></label>
-              <p class="control-note" id="edgeRuleNote">Only bendable J, U, and S classes are shown. Rigid I classes remain straight.</p>
+              <p class="control-note" id="edgeRuleNote">Rigid I edges stay straight.</p>
             </div>
 
             <div class="lattice-reset-row">
@@ -168,7 +167,7 @@
               <button class="mini-action" id="resetForm" type="button">Reset tiling + line</button>
             </div>
           </div>
-        </details>
+        </section>
 
         <details class="group control-section" id="soundSection" data-section="sound">
           <summary class="group-summary">
@@ -193,7 +192,7 @@
 
             <label class="control" for="baseFrequency">
               <span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span>
-              <input id="baseFrequency" type="range" min="55" max="440" step="1" value="110" />
+              <input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" />
             </label>
 
             <label class="control" for="pitchRange">
@@ -212,8 +211,8 @@
             </label>
 
             <label class="control" for="voiceCap">
-              <span><b>Voice limit</b><output id="voiceCapOut" for="voiceCap">16 voices</output></span>
-              <input id="voiceCap" type="range" min="1" max="32" step="1" value="16" />
+              <span><b>Voice limit</b><output id="voiceCapOut" for="voiceCap">12 voices</output></span>
+              <input id="voiceCap" type="range" min="1" max="16" step="1" value="12" />
             </label>
 
             <div class="synth-panel" id="percussionArticulation" hidden>
@@ -274,6 +273,7 @@
               </label>
             </div>
 
+            <p class="control-note">Synth voices run only while the tessellation is moving; pause immediately silences them.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>

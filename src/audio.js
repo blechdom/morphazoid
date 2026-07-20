@@ -19,6 +19,7 @@
  * @property {number} [modulationRatio]
  * @property {number} [shepardRate]
  * @property {number} [shepardWidth]
+ * @property {number|null} [shepardPosition]
  */
 
 const DEFAULT_VOICE_COUNT = 32;
@@ -50,6 +51,7 @@ export function synthParametersForMode(mode, drive = 0, {
   pmRatio = 1,
   shepardRate = 0,
   shepardWidth = 4,
+  shepardPosition = null,
 } = {}) {
   const safeMode = sanitizeSynthMode(mode);
   const safeDrive = clamp(drive, 0, 1);
@@ -64,6 +66,9 @@ export function synthParametersForMode(mode, drive = 0, {
       : safeMode === "pm" ? clamp(pmRatio, 0.125, 16) : 1,
     shepardRate: safeMode === "shepard" ? clamp(shepardRate, -8, 8) : 0,
     shepardWidth: clamp(shepardWidth, 1, 8),
+    shepardPosition: safeMode === "shepard" && Number.isFinite(shepardPosition)
+      ? ((shepardPosition % 1) + 1) % 1
+      : null,
   };
 }
 
@@ -122,16 +127,24 @@ export function cornerStrikePeak(cornerStrength, accent) {
 export function sineCornerEnvelopeGain(
   cornerStrength,
   distanceIntoEdge,
-  accent = 0.75,
-  decay = 0.65,
+  accent = 1,
+  decayMilliseconds = 650,
+  edgeDurationMilliseconds = 1000,
 ) {
-  const amount = clamp(accent, 0, 1);
-  const decayAmount = clamp(decay, 0, 1);
+  const amount = clamp(accent, 0, 1.5);
+  const decayMs = clamp(decayMilliseconds, 20, 4000);
   const distance = clamp(distanceIntoEdge, 0, 1);
-  const envelope = Math.exp(-7 * decayAmount * distance);
-  const floor = 0.12 + (0.006 - 0.12) * decayAmount;
-  const sustain = floor + (0.12 - floor) * envelope;
-  return sustain + 0.34 * amount * clamp(cornerStrength, 0, 1) * envelope;
+  const edgeDuration = Math.max(1, Number(edgeDurationMilliseconds) || 0);
+  const elapsedMs = distance * edgeDuration;
+  const envelope = Number.isFinite(elapsedMs)
+    ? Math.exp(-6.9 * elapsedMs / decayMs)
+    : distance <= 1e-9 ? 1 : 0;
+  const sustain = 0.015 + (0.12 - 0.015) * envelope;
+  return clamp(
+    sustain + 0.48 * amount * clamp(cornerStrength, 0, 1) * envelope,
+    0,
+    1,
+  );
 }
 
 /** Convert the directly labelled articulation controls from ms to seconds. */
@@ -175,6 +188,9 @@ function sanitizeVoice(voice) {
     modulationRatio: clamp(voice.modulationRatio ?? 1, 0.125, 16),
     shepardRate: clamp(voice.shepardRate ?? 0, -8, 8),
     shepardWidth: clamp(voice.shepardWidth ?? 4, 1, 8),
+    shepardPosition: Number.isFinite(voice.shepardPosition)
+      ? ((voice.shepardPosition % 1) + 1) % 1
+      : null,
   };
 }
 
@@ -468,12 +484,14 @@ export class VoicePool {
    * the sustained pool, a strike cannot linger merely because a playhead is
    * parked on a corner.
    * @param {VoiceSpec} spec
-   * @param {{attackSeconds?: number, decaySeconds?: number, startDelaySeconds?: number}} [envelope]
+   * @param {{attackSeconds?: number, decaySeconds?: number, startDelaySeconds?: number, retriggerMode?: "overlap"|"crossfade"|"ignore", crossfadeSeconds?: number}} [envelope]
    */
   strike(spec, {
     attackSeconds = 0.004,
     decaySeconds = 0.08,
     startDelaySeconds = 0,
+    retriggerMode = "overlap",
+    crossfadeSeconds = 0.012,
   } = {}) {
     if (!this.enabled || !this.context || !this.master) return false;
     if (this.activeStrikes.size >= 128) return false;
@@ -486,6 +504,28 @@ export class VoicePool {
     const key = voice.key;
     const previousStart = key ? this.lastStrikeAtByKey.get(key) : undefined;
     if (previousStart !== undefined && startAt - previousStart < 0.012) return false;
+    const previousStrike = key ? this.activeStrikeByKey.get(key) : null;
+    if (previousStrike && startAt < previousStrike.endedAt) {
+      if (retriggerMode === "ignore") return false;
+      if (retriggerMode === "crossfade") {
+        const fadeDuration = clamp(crossfadeSeconds, 0.006, 0.04);
+        const fadeEnd = startAt + fadeDuration;
+        try {
+          const parameter = previousStrike.gain.gain;
+          if (typeof parameter.cancelAndHoldAtTime === "function") {
+            parameter.cancelAndHoldAtTime(startAt);
+            parameter.exponentialRampToValueAtTime(STRIKE_GAIN_FLOOR, fadeEnd);
+          } else {
+            parameter.cancelScheduledValues(startAt);
+            parameter.setTargetAtTime(STRIKE_GAIN_FLOOR, startAt, fadeDuration / 4);
+          }
+          previousStrike.oscillator.stop(fadeEnd + 0.005);
+          previousStrike.endedAt = fadeEnd;
+        } catch {
+          // The previous strike may have ended between lookup and reschedule.
+        }
+      }
+    }
     if (key) {
       this.lastStrikeAtByKey.set(key, startAt);
     }
@@ -504,6 +544,7 @@ export class VoicePool {
     gain.gain.setValueAtTime(STRIKE_GAIN_FLOOR, startAt);
     gain.gain.exponentialRampToValueAtTime(peakGain, startAt + attack);
     gain.gain.exponentialRampToValueAtTime(STRIKE_GAIN_FLOOR, end);
+    gain.gain.setValueAtTime(0, end + 0.008);
     oscillator.connect(gain).connect(pan).connect(this.master);
 
     const strike = {
@@ -527,7 +568,7 @@ export class VoicePool {
       pan.disconnect();
     };
     oscillator.start(startAt);
-    oscillator.stop(end + 0.02);
+    oscillator.stop(end + 0.012);
     return true;
   }
 

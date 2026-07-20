@@ -33,6 +33,31 @@ export function scrubRateFromMotion(phaseDelta, durationSeconds, elapsedMillisec
   return clamp(rate, 0.2, 4);
 }
 
+export function paintDelayMask(mask, phase, value, radius = 0.06) {
+  const next = Float32Array.from(mask ?? new Float32Array(64));
+  const center = wrap01(phase);
+  const target = clamp(value, 0, 1);
+  const brushRadius = clamp(radius, 0.005, 0.5);
+  for (let index = 0; index < next.length; index += 1) {
+    const samplePhase = index / next.length;
+    const direct = Math.abs(samplePhase - center);
+    const distance = Math.min(direct, 1 - direct);
+    if (distance > brushRadius) continue;
+    const strength = 1 - distance / brushRadius;
+    next[index] += (target - next[index]) * strength;
+  }
+  return next;
+}
+
+export function sampleDelayMask(mask, phase) {
+  if (!mask?.length) return 0;
+  const position = wrap01(phase) * mask.length;
+  const first = Math.floor(position) % mask.length;
+  const second = (first + 1) % mask.length;
+  const amount = position - Math.floor(position);
+  return clamp(mask[first] + (mask[second] - mask[first]) * amount, 0, 1);
+}
+
 export function presetVertices(preset = "circle", requestedCount = 8) {
   const count = preset === "triangle"
     ? 3
@@ -42,6 +67,22 @@ export function presetVertices(preset = "circle", requestedCount = 8) {
   return Array.from({ length: count }, (_, index) => {
     const angle = -Math.PI / 2 + index * Math.PI * 2 / count;
     return { x: Math.cos(angle), y: Math.sin(angle) };
+  });
+}
+
+export function radialContourVertices(
+  offsets,
+  minimumOffset = -0.42,
+  maximumOffset = 0.62,
+) {
+  const values = Array.from(offsets ?? []);
+  if (values.length < MIN_VERTEX_COUNT) {
+    return presetVertices("circle", MIN_VERTEX_COUNT);
+  }
+  return values.map((offset, index) => {
+    const angle = -Math.PI / 2 + index * Math.PI * 2 / values.length;
+    const radius = 1 + clamp(offset, minimumOffset, maximumOffset);
+    return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
   });
 }
 
@@ -197,6 +238,79 @@ export function timeStretchLoopSamples(samples, vertices, amount = 0) {
     stretched[index] = samples[first] + (samples[second] - samples[first]) * mix;
   }
   return stretched;
+}
+
+export function contourPitchRatioAt(
+  vertices,
+  phase,
+  depth = 1,
+  maximumSemitones = 12,
+) {
+  const count = vertices?.length ?? 0;
+  if (!count) return 1;
+  const position = wrap01(phase) * count;
+  const first = Math.floor(position) % count;
+  const second = (first + 1) % count;
+  const amount = position - Math.floor(position);
+  const firstRadius = Math.hypot(vertices[first].x, vertices[first].y);
+  const secondRadius = Math.hypot(vertices[second].x, vertices[second].y);
+  const radius = firstRadius + (secondRadius - firstRadius) * amount;
+  const radialOffset = radius - 1;
+  const normalizedOffset = radialOffset >= 0
+    ? radialOffset / 0.62
+    : radialOffset / 0.42;
+  const semitones = -clamp(depth, 0, 1)
+    * clamp(maximumSemitones, 0, 24)
+    * clamp(normalizedOffset, -1, 1);
+  return 2 ** (semitones / 12);
+}
+
+function wrappedSample(samples, position) {
+  const length = samples.length;
+  const wrapped = ((position % length) + length) % length;
+  const first = Math.floor(wrapped);
+  const second = (first + 1) % length;
+  const amount = wrapped - first;
+  return samples[first] + (samples[second] - samples[first]) * amount;
+}
+
+/**
+ * Pitch-shift short contour regions with center-anchored grains. Grain centers
+ * stay on the original timeline, so the complete loop duration never changes.
+ */
+export function pitchShiftLoopSamplesByContour(samples, vertices, depth = 0.65) {
+  const length = samples?.length ?? 0;
+  if (!length) return new Float32Array(0);
+  const strength = clamp(depth, 0, 1);
+  if (strength <= 1e-6 || length < 32) return Float32Array.from(samples);
+
+  const grainSize = Math.min(
+    512,
+    2 ** Math.max(5, Math.floor(Math.log2(Math.max(32, length / 2)))),
+  );
+  const halfGrain = Math.floor(grainSize / 2);
+  const hop = Math.max(8, Math.floor(grainSize / 4));
+  const output = new Float64Array(length);
+  const weights = new Float64Array(length);
+
+  for (let center = 0; center < length; center += hop) {
+    const ratio = contourPitchRatioAt(vertices, center / length, strength);
+    for (let index = 0; index < grainSize; index += 1) {
+      const local = index - halfGrain;
+      const outputIndex = ((center + local) % length + length) % length;
+      const window = Math.sin(Math.PI * (index + 0.5) / grainSize) ** 2;
+      output[outputIndex] += wrappedSample(samples, center + local * ratio) * window;
+      weights[outputIndex] += window;
+    }
+  }
+
+  const shifted = new Float32Array(length);
+  for (let index = 0; index < length; index += 1) {
+    shifted[index] = weights[index] > 1e-9
+      ? output[index] / weights[index]
+      : samples[index];
+  }
+  return shifted;
 }
 
 export function waveformEnvelope(samples, requestedBins = 256) {

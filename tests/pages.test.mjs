@@ -17,7 +17,7 @@ test("all five instrument pages share complete navigation", async () => {
   }
 });
 
-test("Solid and Hyper expose wireframe players and FM-first audio", async () => {
+test("Solid and Hyper expose wireframe players and Sine-first audio", async () => {
   const [solid, hyper] = await Promise.all([
     readFile(new URL("solid.html", root), "utf8"),
     readFile(new URL("hyper.html", root), "utf8"),
@@ -28,5 +28,13 @@ test("Solid and Hyper expose wireframe players and FM-first audio", async () => 
   assert.match(hyper, /3D HYPERPLANE PLAYER/);
   assert.match(hyper, /X–W plane[\s\S]*Y–W plane[\s\S]*Z–W plane/);
   assert.match(hyper, /<script type="module" src="hyper-app\.js">/);
-  for (const html of [solid, hyper]) assert.match(html, /<option value="fm" selected>/);
+  for (const html of [solid, hyper]) assert.match(html, /<option value="sine" selected>/);
+});
+
+test("every synthesized instrument can reach a 20 Hz base frequency", async () => {
+  const files = ["index.html", "lattice.html", "solid.html", "hyper.html"];
+  const pages = await Promise.all(files.map((file) => readFile(new URL(file, root), "utf8")));
+  for (const html of pages) {
+    assert.match(html, /id="baseFrequency"[^>]*min="20"/);
+  }
 });

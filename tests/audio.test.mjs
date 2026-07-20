@@ -39,6 +39,7 @@ test("clamp handles normal, reversed, infinite, and NaN values", () => {
 });
 
 test("pitch mapping is continuous and safely clamped", () => {
+  assert.equal(pitch01ToFrequency(0, 20, 2), 20);
   assert.equal(pitch01ToFrequency(0, 110, 2), 110);
   assert.equal(pitch01ToFrequency(0.5, 110, 2), 220);
   assert.equal(pitch01ToFrequency(1, 110, 2), 440);
@@ -55,6 +56,7 @@ test("geometry drive produces bounded and mode-specific synth parameters", () =>
     modulationRatio: 1,
     shepardRate: 0,
     shepardWidth: 4,
+    shepardPosition: null,
   });
 
   const fm = synthParametersForMode("fm", 0.5, { fmIndex: 6, fmRatio: 2.5 });
@@ -72,6 +74,10 @@ test("geometry drive produces bounded and mode-specific synth parameters", () =>
   assert.equal(shepard.synthDrive, 1);
   assert.equal(shepard.shepardRate, -8);
   assert.equal(shepard.shepardWidth, 8);
+  assert.equal(
+    synthParametersForMode("shepard", 1, { shepardPosition: 2.25 }).shepardPosition,
+    0.25,
+  );
   assert.equal(synthParametersForMode("unknown", Number.NaN).mode, "sine");
 });
 
@@ -118,11 +124,9 @@ test("corner articulation parameters remain independent", () => {
   assert.equal(levelToGain(1), 1);
 });
 
-test("sine corner envelope preserves the original single-oscillator profile", () => {
-  // A square turns through 90 degrees, giving it a normalized corner strength
-  // of 0.5. At the corner, the default Tesselateher profile is its 0.12
-  // continuous sine level plus the corner-shaped amplitude rise.
-  assert.equal(sineCornerEnvelopeGain(0.5, 0), 0.2475);
+test("sine corner envelope has stronger impact and millisecond decay control", () => {
+  // A square's 0.5 corner strength now gets a stronger but still bounded onset.
+  assert.equal(sineCornerEnvelopeGain(0.5, 0), 0.36);
 
   const spatialProfile = [0, 0.25, 0.5, 0.75, 1].map((distance) =>
     sineCornerEnvelopeGain(0.5, distance)
@@ -133,17 +137,28 @@ test("sine corner envelope preserves the original single-oscillator profile", ()
 
   // Accent changes the corner rise, not the underlying sine oscillator: even
   // with no accent, the spatial envelope has a strictly positive floor.
-  assert.equal(sineCornerEnvelopeGain(1, 0, 0, 1), 0.12);
-  assert.ok(sineCornerEnvelopeGain(1, 1, 0, 1) > 0.006);
+  assert.equal(sineCornerEnvelopeGain(1, 0, 0, 650), 0.12);
+  assert.ok(sineCornerEnvelopeGain(1, 1, 0, 650) > 0.015);
+  assert.ok(
+    sineCornerEnvelopeGain(1, 0.6, 1, 4000)
+      > sineCornerEnvelopeGain(1, 0.6, 1, 100),
+    "longer millisecond decay must retain more corner impact",
+  );
+  assert.ok(
+    sineCornerEnvelopeGain(1, 0.5, 1, 300, 100)
+      > sineCornerEnvelopeGain(1, 0.5, 1, 300, 1000),
+    "the same decay must cover more of an edge when the cursor moves faster",
+  );
+  assert.ok(sineCornerEnvelopeGain(1, 0, 1.5, 650) > 0.8);
 
   // Every public input is bounded before it participates in the envelope.
   assert.equal(
     sineCornerEnvelopeGain(2, -1, 2, -1),
-    sineCornerEnvelopeGain(1, 0, 1, 0),
+    sineCornerEnvelopeGain(1, 0, 1.5, 20),
   );
   assert.equal(
     sineCornerEnvelopeGain(-1, 2, -1, 2),
-    sineCornerEnvelopeGain(0, 1, 0, 1),
+    sineCornerEnvelopeGain(0, 1, 0, 20),
   );
 });
 
@@ -488,7 +503,7 @@ test("same-key strikes debounce clicks but overlap naturally after 12 ms", () =>
   assert.equal(pool.pendingVoices.length, 0);
   assert.equal(created[0].type, "triangle");
   assert.deepEqual(created[0].startCalls, [[2]]);
-  assert.ok(Math.abs(created[0].stopCalls[0][0] - 2.084) < 1e-12);
+  assert.ok(Math.abs(created[0].stopCalls[0][0] - 2.076) < 1e-12);
 
   pool.context.currentTime = 2.011;
   assert.equal(pool.strike(
@@ -518,6 +533,45 @@ test("same-key strikes debounce clicks but overlap naturally after 12 ms", () =>
   created[1].onended();
   assert.equal(pool.activeStrikeCount, 0);
   assert.equal(pool.activeStrikeByKey.size, 0);
+});
+
+test("crossfade retriggers release the previous same-key percussion voice", () => {
+  const pool = new VoicePool(0);
+  const created = [];
+  pool.context = {
+    currentTime: 1,
+    createOscillator() {
+      const oscillator = fakeNode({
+        type: "sine",
+        frequency: fakeParam(220),
+        start() {},
+        stopCalls: [],
+        stop(...args) { this.stopCalls.push(args); },
+        onended: null,
+      });
+      created.push(oscillator);
+      return oscillator;
+    },
+    createGain() { return fakeNode({ gain: fakeParam(0) }); },
+    createStereoPanner() { return fakeNode({ pan: fakeParam(0) }); },
+  };
+  pool.master = fakeNode();
+  pool.enabled = true;
+
+  assert.equal(pool.strike(
+    { key: "lattice:edge-a", frequency: 330, gain: 0.2 },
+    { attackSeconds: 0.004, decaySeconds: 0.2, retriggerMode: "crossfade" },
+  ), true);
+  const first = [...pool.activeStrikes][0];
+  pool.context.currentTime = 1.02;
+  assert.equal(pool.strike(
+    { key: "lattice:edge-a", frequency: 440, gain: 0.2 },
+    { attackSeconds: 0.004, decaySeconds: 0.2, retriggerMode: "crossfade" },
+  ), true);
+  assert.equal(created.length, 2);
+  assert.ok(first.gain.gain.calls.some(([kind]) => kind === "cancel"));
+  assert.equal(created[0].stopCalls.length, 2);
+  assert.ok(created[0].stopCalls[1][0] < created[0].stopCalls[0][0]);
 });
 
 test("corner strikes schedule delayed attacks and the full 2000 ms decay", () => {
@@ -559,17 +613,20 @@ test("corner strikes schedule delayed attacks and the full 2000 ms decay", () =>
   const startAt = 5.025;
   const endAt = startAt + 0.003 + 2;
   nearAudio(created[0].startCalls[0][0], startAt);
-  nearAudio(created[0].stopCalls[0][0], endAt + 0.02);
+  nearAudio(created[0].stopCalls[0][0], endAt + 0.012);
   assert.deepEqual(created[0].frequency.calls, [["value", 880, startAt]]);
   assert.deepEqual(strike.pan.pan.calls, [["value", 0.6, startAt]]);
   assert.deepEqual(strike.gain.gain.calls.map(([kind]) => kind), [
     "value",
     "exponential",
     "exponential",
+    "value",
   ]);
   nearAudio(strike.gain.gain.calls[0][2], startAt);
   nearAudio(strike.gain.gain.calls[1][2], startAt + 0.003);
   nearAudio(strike.gain.gain.calls[2][2], endAt);
+  nearAudio(strike.gain.gain.calls[3][2], endAt + 0.008);
+  assert.equal(strike.gain.gain.calls[3][1], 0);
 });
 
 function nearAudio(actual, expected, epsilon = 1e-12) {

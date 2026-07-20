@@ -47,6 +47,40 @@ function pyramid() {
   ]);
 }
 
+function octahedron() {
+  const vertices = [
+    { x: 0.9, y: 0, z: 0 }, { x: -0.9, y: 0, z: 0 },
+    { x: 0, y: 0.9, z: 0 }, { x: 0, y: -0.9, z: 0 },
+    { x: 0, y: 0, z: 0.9 }, { x: 0, y: 0, z: -0.9 },
+  ];
+  const pairs = [];
+  for (let first = 0; first < vertices.length; first += 1) {
+    for (let second = first + 1; second < vertices.length; second += 1) {
+      const opposite = vertices[first].x + vertices[second].x === 0
+        && vertices[first].y + vertices[second].y === 0
+        && vertices[first].z + vertices[second].z === 0;
+      if (!opposite) pairs.push([first, second]);
+    }
+  }
+  return indexedSolid("octahedron", vertices, pairs);
+}
+
+function triangularPrism() {
+  const vertices = [];
+  for (const z of [-0.72, 0.72]) {
+    vertices.push(
+      { x: 0, y: 0.88, z },
+      { x: -0.8, y: -0.62, z },
+      { x: 0.8, y: -0.62, z },
+    );
+  }
+  return indexedSolid("prism", vertices, [
+    [0, 1], [1, 2], [2, 0],
+    [3, 4], [4, 5], [5, 3],
+    [0, 3], [1, 4], [2, 5],
+  ]);
+}
+
 function cone(segments = 16) {
   const vertices = [{ x: 0, y: 0.95, z: 0 }];
   for (let index = 0; index < segments; index += 1) {
@@ -60,6 +94,22 @@ function cone(segments = 16) {
     pairs.push([current, next], [0, current]);
   }
   return indexedSolid("cone", vertices, pairs);
+}
+
+function cylinder(segments = 12) {
+  const vertices = [];
+  for (const y of [-0.78, 0.78]) {
+    for (let index = 0; index < segments; index += 1) {
+      const angle = index / segments * TAU;
+      vertices.push({ x: Math.cos(angle) * 0.76, y, z: Math.sin(angle) * 0.76 });
+    }
+  }
+  const pairs = [];
+  for (let index = 0; index < segments; index += 1) {
+    const next = (index + 1) % segments;
+    pairs.push([index, next], [index + segments, next + segments], [index, index + segments]);
+  }
+  return indexedSolid("cylinder", vertices, pairs);
 }
 
 function sphere(longitudes = 12, latitudes = 7) {
@@ -86,11 +136,66 @@ function sphere(longitudes = 12, latitudes = 7) {
   return indexedSolid("sphere", vertices, pairs);
 }
 
+function torus(majorSegments = 12, minorSegments = 6) {
+  const vertices = [];
+  for (let major = 0; major < majorSegments; major += 1) {
+    const majorAngle = major / majorSegments * TAU;
+    for (let minor = 0; minor < minorSegments; minor += 1) {
+      const minorAngle = minor / minorSegments * TAU;
+      const radius = 0.62 + Math.cos(minorAngle) * 0.24;
+      vertices.push({
+        x: Math.cos(majorAngle) * radius,
+        y: Math.sin(minorAngle) * 0.24,
+        z: Math.sin(majorAngle) * radius,
+      });
+    }
+  }
+  const pairs = [];
+  const at = (major, minor) => (
+    (major % majorSegments) * minorSegments + (minor % minorSegments)
+  );
+  for (let major = 0; major < majorSegments; major += 1) {
+    for (let minor = 0; minor < minorSegments; minor += 1) {
+      pairs.push(
+        [at(major, minor), at(major + 1, minor)],
+        [at(major, minor), at(major, minor + 1)],
+      );
+    }
+  }
+  return indexedSolid("torus", vertices, pairs);
+}
+
 export function buildSolid(type = "cube") {
+  if (type === "torus") return torus();
   if (type === "sphere") return sphere();
+  if (type === "cylinder") return cylinder();
   if (type === "cone") return cone();
+  if (type === "prism") return triangularPrism();
+  if (type === "octahedron") return octahedron();
   if (type === "pyramid") return pyramid();
   return cube();
+}
+
+export function deformSolid(solid, {
+  scaleX = 1,
+  scaleY = 1,
+  scaleZ = 1,
+  skewX = 0,
+  skewZ = 0,
+} = {}) {
+  const xScale = Math.max(0.35, Math.min(1.8, Number(scaleX) || 1));
+  const yScale = Math.max(0.35, Math.min(1.8, Number(scaleY) || 1));
+  const zScale = Math.max(0.35, Math.min(1.8, Number(scaleZ) || 1));
+  const xSkew = Math.max(-0.8, Math.min(0.8, Number(skewX) || 0));
+  const zSkew = Math.max(-0.8, Math.min(0.8, Number(skewZ) || 0));
+  return {
+    ...solid,
+    vertices: solid.vertices.map((point) => ({
+      x: point.x * xScale + point.y * xSkew,
+      y: point.y * yScale,
+      z: point.z * zScale + point.y * zSkew,
+    })),
+  };
 }
 
 export function planeNormal(yawDegrees = 0, pitchDegrees = 0) {

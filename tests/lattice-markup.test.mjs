@@ -33,7 +33,9 @@ test("Lattice is one centered line instrument with no walk controls", async () =
   assert.equal((html.match(/<canvas\b/g) ?? []).length, 2);
   assert.match(html, /The line stays centered/);
   assert.match(html, /Only edges touched by the line become voices/);
-  assert.match(html, /id="angle"/);
+  assert.match(html, /tessellation moves right to left/);
+  assert.match(html, /id="angle"[^>]+value="90"/);
+  assert.match(html, /id="resetLineAngle"[^>]*>Reset 90&deg;<\/button>/);
   assert.match(html, /id="position"/);
   assert.match(html, /id="voiceCap"/);
   assert.match(html, /src="lattice-app\.js"/);
@@ -42,6 +44,9 @@ test("Lattice is one centered line instrument with no walk controls", async () =
   assert.match(app, /createScanLine\(viewBounds, 0\.5, state\.angle\)/);
   assert.match(app, /contactsForLine/);
   assert.match(app, /new VoicePool\(MAX_VOICES\)/);
+  assert.match(app, /traversalDirection: -1/);
+  assert.match(app, /\$\("resetLineAngle"\)\.addEventListener\("click"/);
+  assert.match(app, /continuousMode && state\.playing \? data\.map/);
 });
 
 test("Lattice exposes complete shape controls and single-patch synth modes", async () => {
@@ -52,13 +57,27 @@ test("Lattice exposes complete shape controls and single-patch synth modes", asy
   assert.match(html, /id="tilingType"/);
   assert.match(html, /id="parameter5"/);
   assert.match(html, /id="edgeCurve4"/);
-  assert.match(html, /Rigid I classes remain straight/);
+  assert.match(html, /Rigid I edges stay straight/);
   assert.match(html, /id="straightenEdges"/);
   assert.match(html, /id="intersectionAccent"/);
-  assert.match(html, /id="tileEditorPanel" hidden/);
+  assert.match(html, /id="density"[^>]+max="0\.8"/);
+  assert.match(html, /id="voiceCap"[^>]+max="16"[^>]+value="12"/);
+  assert.match(html, /<section class="group control-section always-open" id="formSection"/);
+  assert.match(html, /id="tileEditorPanel"/);
+  assert.doesNotMatch(html, /id="tileEditorPanel"[^>]*hidden/);
   assert.match(html, /id="tileEditorCanvas"/);
-  assert.match(html, /Edit tile by dragging/);
+  assert.doesNotMatch(html, /Edit tile by dragging|optional vertex frame|Drag an orange corner/);
+  assert.doesNotMatch(html, /id="toggleTileEditor"/);
+  assert.match(html, /id="resetTileVertices"[\s\S]+id="tilingType"/);
   assert.match(app, /parametersForDraggedVertex/);
+  assert.match(app, /constrainPrototileEdit/);
+  assert.match(app, /centeredContactWindow/);
+  assert.match(app, /effectiveCycleRate/);
+  assert.match(app, /MAX_TILES_PER_WORLD_AREA/);
+  assert.match(app, /GEOMETRY_EDIT_SETTLE_MS/);
+  assert.match(app, /suppressGeometryOnsets/);
+  assert.match(app, /CONTACT_REENTRY_GRACE_SECONDS/);
+  assert.match(app, /retriggerMode: "crossfade"/);
   assert.doesNotMatch(html, /id="waveform"|Triangle<\/option>|alternating sine/i);
   assert.match(app, /TILING_TYPES/);
   assert.match(app, /waveform: "sine"/);

@@ -38,6 +38,9 @@ function sanitizeSpec(spec, index) {
     modulationRatio: clamp(spec.modulationRatio ?? 1, 0.125, 16),
     shepardRate: clamp(spec.shepardRate ?? 0, -8, 8),
     shepardWidth: clamp(spec.shepardWidth ?? 4, 1, 8),
+    shepardPosition: Number.isFinite(spec.shepardPosition)
+      ? ((spec.shepardPosition % 1) + 1) % 1
+      : null,
   };
 }
 
@@ -58,7 +61,8 @@ function makeVoice(spec) {
     shepardWidth: spec.shepardWidth,
     phase: seed,
     modulationPhase: seed * 0.61803398875,
-    shepardPosition: (seed / TAU) % 1,
+    shepardPosition: spec.shepardPosition ?? (seed / TAU) % 1,
+    shepardExternallyDriven: spec.shepardPosition !== null,
     shepardPhases: Array.from(
       { length: SHEPARD_PARTIAL_COUNT },
       (_, index) => seed * (1 + index * 0.137),
@@ -79,6 +83,25 @@ function rotateShepardDown(phases) {
     phases[index] = phases[index + 1];
   }
   phases[phases.length - 1] = phases[phases.length - 2] * 1.324717957;
+}
+
+function advanceShepardPosition(voice, delta) {
+  voice.shepardPosition += delta;
+  while (voice.shepardPosition >= 1) {
+    voice.shepardPosition -= 1;
+    rotateShepardUp(voice.shepardPhases);
+  }
+  while (voice.shepardPosition < 0) {
+    voice.shepardPosition += 1;
+    rotateShepardDown(voice.shepardPhases);
+  }
+}
+
+function wrappedPositionDelta(from, to) {
+  let delta = to - from;
+  if (delta > 0.5) delta -= 1;
+  if (delta < -0.5) delta += 1;
+  return delta;
 }
 
 class MorphazoidContourSynth extends AudioWorkletProcessor {
@@ -128,14 +151,8 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
   }
 
   renderShepard(voice, frequency) {
-    voice.shepardPosition += voice.shepardRate / sampleRate;
-    while (voice.shepardPosition >= 1) {
-      voice.shepardPosition -= 1;
-      rotateShepardUp(voice.shepardPhases);
-    }
-    while (voice.shepardPosition < 0) {
-      voice.shepardPosition += 1;
-      rotateShepardDown(voice.shepardPhases);
+    if (!voice.shepardExternallyDriven) {
+      advanceShepardPosition(voice, voice.shepardRate / sampleRate);
     }
 
     const halfWidth = Math.max(0.5, voice.shepardWidth * 0.5);
@@ -214,6 +231,17 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
           + (nextTarget.shepardRate - target.shepardRate) * trajectoryAmount;
         const shepardWidthTarget = target.shepardWidth
           + (nextTarget.shepardWidth - target.shepardWidth) * trajectoryAmount;
+        let shepardPositionTarget = null;
+        if (Number.isFinite(target.shepardPosition)) {
+          const nextPosition = Number.isFinite(nextTarget.shepardPosition)
+            ? nextTarget.shepardPosition
+            : target.shepardPosition;
+          shepardPositionTarget = (
+            target.shepardPosition
+              + wrappedPositionDelta(target.shepardPosition, nextPosition) * trajectoryAmount
+              + 1
+          ) % 1;
+        }
         voice.gain += (gainTarget - voice.gain) * gainSlew;
         voice.frequency += (frequencyTarget - voice.frequency) * frequencySlew;
         voice.pan += (panTarget - voice.pan) * parameterSlew;
@@ -225,6 +253,14 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
         ) * modulationSlew;
         voice.shepardRate += (shepardRateTarget - voice.shepardRate) * parameterSlew;
         voice.shepardWidth += (shepardWidthTarget - voice.shepardWidth) * parameterSlew;
+        voice.shepardExternallyDriven = shepardPositionTarget !== null;
+        if (shepardPositionTarget !== null) {
+          advanceShepardPosition(
+            voice,
+            wrappedPositionDelta(voice.shepardPosition, shepardPositionTarget)
+              * parameterSlew,
+          );
+        }
 
         const sample = this.renderVoice(voice) * voice.gain;
         const panAngle = (clamp(voice.pan, -1, 1) + 1) * Math.PI * 0.25;

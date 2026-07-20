@@ -114,9 +114,9 @@ const state = {
   baseFrequency: 110,
   pitchRange: 2.5,
   level: 0.65,
-  soundMode: "fm",
-  sineAccent: 0.75,
-  sineDecay: 0.65,
+  soundMode: "sine",
+  sineAccent: 1,
+  sineDecay: 650,
   cornerAccent: 0.9,
   cornerAttack: 3,
   cornerDecay: 90,
@@ -166,12 +166,13 @@ function persistAudioSettings() {
 }
 
 loadAudioSettings();
-state.baseFrequency = clamp(state.baseFrequency, 55, 440);
+state.baseFrequency = clamp(state.baseFrequency, 20, 440);
 state.pitchRange = clamp(state.pitchRange, 0, 6);
 state.level = clamp(state.level, 0, 1);
 state.soundMode = SOUND_MODES.has(state.soundMode) ? state.soundMode : "sine";
-state.sineAccent = clamp(state.sineAccent, 0, 1);
-state.sineDecay = clamp(state.sineDecay, 0, 1);
+state.sineAccent = clamp(state.sineAccent, 0, 1.5);
+if (state.sineDecay <= 1) state.sineDecay *= 1000;
+state.sineDecay = clamp(state.sineDecay, 20, 4000);
 state.cornerAccent = clamp(state.cornerAccent, 0, 1);
 state.cornerAttack = clamp(state.cornerAttack, 0.5, 30);
 if (state.cornerDecay < 15) state.cornerDecay = 90;
@@ -254,11 +255,13 @@ function announce(message) {
 }
 
 function formatSides(value = state.sides) {
+  if (state.shapeType === "circle") return "circle · smooth";
   if (value === 2) return "2 · open line";
   return state.shapeType === "star" ? `${value} · star points` : `${value} · polygon`;
 }
 
 function formatCurvature(value = state.curvature) {
+  if (state.shapeType === "circle") return "perfect circle";
   if (Math.abs(value) < 0.005) return "straight";
   const amount = `${Math.round(Math.abs(value) * 100)}%`;
   if (state.sides === 2) return `${amount} ${value < 0 ? "negative" : "positive"} bend`;
@@ -330,7 +333,9 @@ function renderHeadLayout() {
 function updateSectionSummaries() {
   const reader = state.playMethod === "scan" ? "Lines" : state.playMethod === "radial" ? "Radar" : "Points";
   $("playSummary").textContent = `${reader} · ${state.playing ? "playing" : "paused"}`;
-  $("formSummary").textContent = state.sides === 2
+  $("formSummary").textContent = state.shapeType === "circle"
+    ? "circle · no corners"
+    : state.sides === 2
     ? "open line"
     : state.shapeType === "star" ? `${state.sides}-point star` : `${state.sides} sides`;
   $("soundSummary").textContent = SOUND_MODE_LABELS[state.soundMode];
@@ -441,11 +446,11 @@ bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
 bindRange("sineAccent", "sineAccent", (value) => `${Math.round(value * 100)}%`);
-bindRange("sineDecay", "sineDecay", (value) => `${Math.round(value * 100)}%`);
+bindRange("sineDecay", "sineDecay", (value) => `${Math.round(value)} ms`);
 bindRange("cornerAccent", "cornerAccent", (value) => `${Math.round(value * 100)}%`);
 bindRange("cornerAttack", "cornerAttack", (value) => `${Number(value).toFixed(value % 1 ? 1 : 0)} ms`);
 bindRange("cornerDecay", "cornerDecay", (value) => `${Math.round(cornerDecaySeconds(value) * 1000)} ms`);
-bindRange("shepardCycles", "shepardCycles", (value) => `${value.toFixed(2)} oct / loop`);
+bindRange("shepardCycles", "shepardCycles", (value) => `${value.toFixed(2)} oct / circuit`);
 bindRange("shepardWidth", "shepardWidth", (value) => `${value.toFixed(1)} oct`);
 bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`);
 bindRange("fmRatio", "fmRatio", (value) => `${value.toFixed(2)} : 1`);
@@ -484,18 +489,32 @@ for (const button of $("curvatureDirection").querySelectorAll("button")) {
 }
 
 function setShapeType(type, shouldAnnounce = true) {
-  state.shapeType = type === "star" ? "star" : "polygon";
+  const previousType = state.shapeType;
+  state.shapeType = type === "circle" ? "circle" : type === "star" ? "star" : "polygon";
+  if (state.shapeType === "circle") {
+    state.curvature = 1;
+    state.curvatureDirection = 1;
+  } else if (previousType === "circle") {
+    state.curvature = 0;
+    state.curvatureDirection = 1;
+  }
   for (const button of $("shapeType").querySelectorAll("button")) {
     setPressed(button, button.dataset.value === state.shapeType);
   }
+  const circle = state.shapeType === "circle";
+  $("sidesControl").hidden = circle;
+  $("curvatureControl").hidden = circle;
   $("starDepthControl").hidden = state.shapeType !== "star" || state.sides < 3;
+  updateCurvatureOutput();
   updateSidesOutput();
   updateSectionSummaries();
   resetCornerTracking();
   if (shouldAnnounce) {
-    announce(state.shapeType === "star"
-      ? "Star topology selected. Inner and outer corners alternate."
-      : "Polygon topology selected.");
+    announce(state.shapeType === "circle"
+      ? "Circle selected. The contour is smooth with no corners."
+      : state.shapeType === "star"
+        ? "Star topology selected. Inner and outer corners alternate."
+        : "Polygon topology selected.");
   }
   invalidate();
 }
@@ -695,7 +714,7 @@ function setSoundMode(mode, shouldAnnounce = true) {
     resetCornerTracking();
   }
   $("soundMode").value = state.soundMode;
-  $("sineArticulation").hidden = state.soundMode !== "sine";
+  $("sineArticulation").hidden = state.soundMode === "percussion";
   $("percussionArticulation").hidden = state.soundMode !== "percussion";
   $("shepardArticulation").hidden = state.soundMode !== "shepard";
   $("fmArticulation").hidden = state.soundMode !== "fm";
@@ -734,6 +753,7 @@ function setRotationPlaying(playing, shouldAnnounce = true) {
   setPressed($("rotationPlayButton"), state.autoRotate);
   $("rotationPlayButton").setAttribute("aria-label", state.autoRotate ? "Pause rotation" : "Start rotation");
   $("rotationDirection").hidden = !state.autoRotate;
+  if (!state.autoRotate && !state.playing) pool.silence();
   lastFrameTime = performance.now();
   lastAudioClockTime = pool.context?.currentTime ?? null;
   if (shouldAnnounce) announce(state.autoRotate ? "Rotation playing." : "Rotation paused.");
@@ -811,6 +831,7 @@ function setPlaying(playing) {
   setPressed($("playButton"), state.playing);
   $("playButton").setAttribute("aria-label", state.playing ? "Pause playhead" : "Play playhead");
   $("traversalDirection").hidden = !state.playing;
+  if (!state.playing && !state.autoRotate) pool.silence();
   lastFrameTime = performance.now();
   lastAudioClockTime = pool.context?.currentTime ?? null;
   if (state.playing && state.audio) {
@@ -1035,7 +1056,42 @@ function scannerAt(path, position, headIndex, headCount) {
 function radialAt(path, position, headIndex) {
   const phase = wrap01(position + phaseOffsetForHead(headIndex, "radial"));
   const angle = phase * TAU - Math.PI * 0.5;
-  const intersections = rayIntersections(path, angle).map((contact, contactIndex) => ({
+  const rawIntersections = rayIntersections(path, angle).filter((contact) => (
+    path.closed || contact.rayDistance > 0.015
+  ));
+  if (!path.closed) {
+    if (rawIntersections.length > 2) {
+      const furthest = rawIntersections.reduce((selected, contact) => (
+        contact.rayDistance > selected.rayDistance ? contact : selected
+      ));
+      rawIntersections.splice(0, rawIntersections.length, furthest);
+    }
+    const beamWidth = 0.11;
+    for (const endpointPhase of [0, 0.5]) {
+      const contact = traceContact(path, endpointPhase);
+      const endpointAngle = Math.atan2(contact.y, contact.x);
+      const difference = Math.abs(Math.atan2(
+        Math.sin(endpointAngle - angle),
+        Math.cos(endpointAngle - angle),
+      ));
+      if (difference > beamWidth) continue;
+      const alignment = 1 - difference / beamWidth;
+      if (rawIntersections.some((item) => Math.hypot(item.x - contact.x, item.y - contact.y) < 1e-5)) {
+        continue;
+      }
+      rawIntersections.push({
+        ...contact,
+        cornerStrength: (contact.cornerStrength ?? contact.strength ?? 1) * alignment,
+        strength: (contact.strength ?? contact.cornerStrength ?? 1) * alignment,
+        rayDistance: Math.hypot(contact.x, contact.y),
+        rayPhase: phase,
+        radarAlignment: alignment,
+      });
+    }
+  }
+  const intersections = rawIntersections
+    .sort((first, second) => first.rayDistance - second.rayDistance)
+    .map((contact, contactIndex) => ({
     ...contact,
     headIndex,
     headPhase: phase,
@@ -1400,6 +1456,7 @@ function cornerEnvelopeProfile(contact, path) {
     return {
       strength: contact.cornerStrength ?? 0,
       distance: clamp(contact.cornerDistance01 ?? 0, 0, 1),
+      edgeFraction: 1 / Math.max(1, path.vertexCount),
     };
   }
 
@@ -1407,7 +1464,7 @@ function cornerEnvelopeProfile(contact, path) {
   // Tesselateher profile: each corner peaks, then decays along the next edge.
   const distances = path.vertexDistances;
   if (!distances.length || path.totalLength <= 1e-9) {
-    return { strength: contact.cornerStrength ?? 0, distance: 0 };
+    return { strength: contact.cornerStrength ?? 0, distance: 0, edgeFraction: 1 };
   }
 
   const distance = clamp(contact.distance, 0, path.totalLength);
@@ -1427,6 +1484,7 @@ function cornerEnvelopeProfile(contact, path) {
     return {
       strength: path.cornerStrengths[cornerIndex] ?? 0,
       distance: end - start <= epsilon ? 0 : clamp((distance - start) / (end - start), 0, 1),
+      edgeFraction: (end - start) / path.totalLength,
     };
   }
 
@@ -1449,7 +1507,16 @@ function cornerEnvelopeProfile(contact, path) {
     distance: target - start <= epsilon
       ? 0
       : clamp((target - distance) / (target - start), 0, 1),
+    edgeFraction: (target - start) / path.totalLength,
   };
+}
+
+function cornerEdgeDurationMilliseconds(profile) {
+  const readerCyclesPerSecond = state.playing ? state.speed : 0;
+  const rotationCyclesPerSecond = state.autoRotate ? state.rotationSpeed : 0;
+  const motionCyclesPerSecond = readerCyclesPerSecond + rotationCyclesPerSecond;
+  if (motionCyclesPerSecond <= 1e-6) return Number.POSITIVE_INFINITY;
+  return Math.max(1, profile.edgeFraction / motionCyclesPerSecond * 1000);
 }
 
 function shepardRate() {
@@ -1463,6 +1530,11 @@ function shepardRate() {
     * state.traversalDirection;
 }
 
+function shepardPositionForContact(contact) {
+  const circuitPhase = wrap01(contact.headPhase ?? contact.u ?? state.position);
+  return wrap01(circuitPhase * state.shepardCycles * state.shepardDirection);
+}
+
 function synthParametersForContact(contact, path, headIndex = contact.headIndex ?? 0) {
   const drive = rawMarkForSource(state.synthSource, contact, path, headIndex);
   return synthParametersForMode(state.soundMode, drive, {
@@ -1472,6 +1544,9 @@ function synthParametersForContact(contact, path, headIndex = contact.headIndex 
     pmRatio: state.pmRatio,
     shepardRate: shepardRate(),
     shepardWidth: state.shepardWidth,
+    shepardPosition: state.soundMode === "shepard"
+      ? shepardPositionForContact(contact)
+      : null,
   });
 }
 
@@ -1488,6 +1563,7 @@ function continuousSynthVoices(contacts, path) {
         corner.distance,
         state.sineAccent,
         state.sineDecay,
+        cornerEdgeDurationMilliseconds(corner),
       ),
       pan: mapping.pan,
       waveform: "sine",
@@ -1749,6 +1825,7 @@ function contactOutputGain(contact, path) {
     corner.distance,
     state.sineAccent,
     state.sineDecay,
+    cornerEdgeDurationMilliseconds(corner),
   );
 }
 
@@ -1785,7 +1862,7 @@ function updateOutputDashboard(contacts, path) {
   $("synthRouteTarget").textContent = modulationMode ? "Mod depth" : "Glissando";
   $("synthRouteCurve").textContent = modulationMode
     ? "linear geometry drive"
-    : `${state.shepardCycles.toFixed(2)} octaves per loop`;
+    : `${state.shepardCycles.toFixed(2)} octaves per playhead circuit`;
 
   if (!contacts.length) {
     $("outputContactLabel").textContent = "No active contact";
@@ -1797,7 +1874,7 @@ function updateOutputDashboard(contacts, path) {
     ]) $(id).textContent = "—";
     $("markDecayOut").textContent = state.soundMode === "percussion"
       ? `${Math.round(state.cornerDecay)} ms`
-      : `${Math.round(state.sineDecay * 100)}% profile`;
+      : `${Math.round(state.sineDecay)} ms`;
     $("markRotationOut").textContent = `${Math.round(state.rotation)}°`;
     $("contactStream").innerHTML = "";
     return;
@@ -1826,7 +1903,7 @@ function updateOutputDashboard(contacts, path) {
   $("markSynthValueOut").textContent = synthValueLabel(synth);
   $("markDecayOut").textContent = state.soundMode === "percussion"
     ? `${Math.round(state.cornerDecay)} ms`
-    : `${Math.round(state.sineDecay * 100)}% profile`;
+    : `${Math.round(state.sineDecay)} ms`;
   $("markRotationOut").textContent = `${Math.round(state.rotation)}°`;
 
   $("contactStream").innerHTML = contacts.slice(0, 12).map((item, index) => {
@@ -1900,10 +1977,13 @@ function frame(now) {
   const path = currentShape();
   const moving = state.playing || state.autoRotate;
   pendingCornerStrikes = [];
-  if (state.soundMode === "percussion") {
+  if (state.soundMode === "percussion" && moving) {
     trackCornerMotion(path);
     flushCornerStrikes(deltaSeconds);
-  } else cornerSnapshot = null;
+  } else {
+    cornerSnapshot = null;
+    if (state.soundMode === "percussion" && !moving) pool.silence();
+  }
   const contacts = drawFrame(path);
   const continuousMode = state.soundMode !== "percussion";
   const synthVoices = continuousMode
@@ -1934,7 +2014,7 @@ function frame(now) {
           AUDIO_LOOKAHEAD_SECONDS,
         );
       } else {
-        pool.setVoices(continuousMode ? synthVoices : []);
+        pool.setVoices([]);
       }
       lastAudioUpdate = now;
     }
@@ -1942,7 +2022,7 @@ function frame(now) {
 
   if (!moving || now - lastUiUpdate > 60) {
     const voiceCount = continuousMode
-      ? Math.min(synthVoices.length, MAX_CONTINUOUS_VOICES)
+      ? (moving ? Math.min(synthVoices.length, MAX_CONTINUOUS_VOICES) : 0)
       : pool.activeStrikeCount;
     updateUi(contacts, state.audio ? voiceCount : 0, path);
     lastUiUpdate = now;

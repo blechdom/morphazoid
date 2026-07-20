@@ -7,12 +7,15 @@ import {
   MIN_VERTEX_COUNT,
   moveVertex,
   pointOnContour,
+  paintDelayMask,
   presetVertices,
+  radialContourVertices,
   removeContourVertex,
   reverseSamples,
   scrubPhaseFromAngle,
   scrubRateFromMotion,
-  timeStretchLoopSamples,
+  sampleDelayMask,
+  pitchShiftLoopSamplesByContour,
   waveformEnvelope,
   wrap01,
 } from "./src/lumber.js";
@@ -26,6 +29,7 @@ const MIN_RECORD_SECONDS = 0.15;
 const MAX_RINGS = 5;
 const MIN_RADIAL_OFFSET = -0.42;
 const MAX_RADIAL_OFFSET = 0.62;
+const WAVEFORM_RADIUS = 0.065;
 const STORAGE_KEY = "morphazoid:lumber:audio:v2";
 const RING_COLORS = ["#e8c46b", "#5fe8c4", "#7db4ff", "#c79bff", "#ff826f"];
 const CANVAS_FONT = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
@@ -43,15 +47,23 @@ function createRing(order = 0) {
     preset: "circle",
     vertices: presetVertices("circle", DEFAULT_VERTEX_COUNT),
     radialOffsets: Array(DEFAULT_VERTEX_COUNT).fill(0),
-    radialBaseMode: "circle",
     selectedVertex: 0,
     muted: false,
+    volume: 1,
     rawSamples: null,
     sampleRate: 48_000,
-    timeStretch: expandedMode ? 0.65 : 0,
-    pitchSemitones: 0,
+    shapePitchDepth: 0.65,
     timingMode: "free",
     lengthRatio: 1,
+    headCount: 1,
+    headOffsets: [0],
+    delayPaint: new Float32Array(64),
+    delayTime: 0.28,
+    delayFeedback: 0.34,
+    delayWet: 0.62,
+    filterTone: 0.86,
+    filterResonance: 0,
+    pan: 0,
     buffer: null,
     reverseBuffer: null,
     envelope: waveformEnvelope([], DRAW_SAMPLES),
@@ -78,6 +90,8 @@ const state = {
   view3d: false,
   viewTilt: 52,
   viewYaw: -18,
+  brushMode: "off",
+  brushSize: 0.06,
   level: 0.7,
   rings: [firstRing],
   activeRingId: firstRing.id,
@@ -108,6 +122,7 @@ let lastUiUpdate = 0;
 let lastRingListSignature = "";
 let pointerGesture = null;
 let hoverVertex = -1;
+let brushCursor = null;
 let audioChanging = false;
 let recordChanging = false;
 let transportGeneration = 0;
@@ -173,21 +188,12 @@ function resizeRadialOffsets(offsets, count) {
   ));
 }
 
-function regularPolygonRadius(count, phase) {
-  if (count < 3) return 1;
-  const local = (wrap01(phase) * count) % 1;
-  const angle = (local - 0.5) * TAU / count;
-  return Math.cos(Math.PI / count) / Math.max(0.1, Math.cos(angle));
+function ringRadialVertices(ring) {
+  return radialContourVertices(ring.radialOffsets, MIN_RADIAL_OFFSET, MAX_RADIAL_OFFSET);
 }
 
 function radialPointAt(ring, phase) {
-  const count = ring.radialOffsets.length;
-  const baseRadius = ring.radialBaseMode === "polygon"
-    ? regularPolygonRadius(count, phase)
-    : 1;
-  const radius = Math.max(0.12, baseRadius + sampleRadialOffsets(ring.radialOffsets, phase));
-  const angle = -Math.PI / 2 + wrap01(phase) * TAU;
-  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+  return pointOnContour(ringRadialVertices(ring), phase);
 }
 
 function ringVertexCount(ring) {
@@ -196,7 +202,7 @@ function ringVertexCount(ring) {
 
 function ringAudioVertices(ring) {
   if (!expandedMode) return ring.vertices;
-  return Array.from({ length: 64 }, (_, index) => radialPointAt(ring, index / 64));
+  return ringRadialVertices(ring);
 }
 
 function persistSettings() {
@@ -228,6 +234,12 @@ function ringIsAudible(ring) {
     && (state.soloRingId === null || state.soloRingId === ring.id);
 }
 
+function ringVoiceGain(ring) {
+  if (!ringIsAudible(ring)) return 0;
+  return clamp(ring.volume ?? 1, 0, 1.25)
+    / Math.sqrt(Math.max(1, ring.headCount));
+}
+
 function recordedRings() {
   return state.rings.filter((ring) => ring.buffer && ring.reverseBuffer);
 }
@@ -247,6 +259,14 @@ function ringScale(ring) {
   return 1 + (index - center) * 0.18;
 }
 
+function ringHeadOffsets(ring) {
+  const count = Math.round(clamp(ring?.headCount, 1, 4));
+  const stored = Array.isArray(ring?.headOffsets) ? ring.headOffsets : [];
+  return Array.from({ length: count }, (_, index) => (
+    index === 0 ? 0 : wrap01(stored[index] ?? index / count)
+  ));
+}
+
 function ringPlaybackRate(ring) {
   const cycle = ringCycleDuration(ring);
   return cycle > 0 ? ring.duration / cycle : 1;
@@ -254,8 +274,7 @@ function ringPlaybackRate(ring) {
 
 function ringCycleDuration(ring) {
   if (!ring?.duration) return 0;
-  const tapeRate = 2 ** (clamp(ring.pitchSemitones ?? 0, -12, 12) / 12);
-  const freeCycle = ring.duration / tapeRate * (expandedMode ? ring.lengthRatio : 1);
+  const freeCycle = ring.duration * (expandedMode ? ring.lengthRatio : 1);
   const master = masterRing();
   if (
     expandedMode
@@ -263,8 +282,7 @@ function ringCycleDuration(ring) {
     && master
     && master.id !== ring.id
   ) {
-    const masterRate = 2 ** (clamp(master.pitchSemitones ?? 0, -12, 12) / 12);
-    return Math.max(0.01, master.duration / masterRate * master.lengthRatio * ring.lengthRatio);
+    return Math.max(0.01, master.duration * master.lengthRatio * ring.lengthRatio);
   }
   return Math.max(0.01, freeCycle);
 }
@@ -303,18 +321,34 @@ function stopVoice(voice, fadeSeconds = 0.004) {
   const now = audioContext?.currentTime ?? 0;
   voice.gain?.gain.cancelScheduledValues?.(now);
   voice.gain?.gain.setTargetAtTime?.(0, now, fadeSeconds);
-  voice.source.onended = () => {
+  const sources = voice.sources?.length ? voice.sources : [voice.source];
+  let remaining = sources.length;
+  let cleaned = false;
+  const cleanup = () => {
+    remaining -= 1;
+    if (remaining > 0 || cleaned) return;
+    cleaned = true;
     try {
-      voice.source.disconnect();
       voice.gain?.disconnect();
+      for (const node of voice.nodes ?? []) node?.disconnect?.();
     } catch {
       // Nodes may already be disconnected during teardown.
     }
   };
-  try {
-    voice.source.stop(now + 0.025);
-  } catch {
-    voice.source.onended?.();
+  for (const source of sources) {
+    source.onended = () => {
+      try {
+        source.disconnect();
+      } catch {
+        // Source may already be disconnected.
+      }
+      cleanup();
+    };
+    try {
+      source.stop(now + 0.025);
+    } catch {
+      source.onended?.();
+    }
   }
 }
 
@@ -361,28 +395,106 @@ function stopScrubVoice(ring) {
   fadeScrubVoice(voice);
 }
 
+function ringFilterFrequency(ring) {
+  return 180 + 19_820 * clamp(ring.filterTone, 0, 1) ** 3;
+}
+
+function updateRingEffects(ring) {
+  const voice = ring?.source;
+  if (!voice || !audioContext) return;
+  const now = audioContext.currentTime;
+  voice.filter?.frequency.setTargetAtTime(ringFilterFrequency(ring), now, 0.02);
+  voice.filter?.Q.setTargetAtTime(ring.filterResonance, now, 0.02);
+  voice.panner?.pan.setTargetAtTime(ring.pan, now, 0.02);
+  if (voice.delaySend) {
+    const amount = sampleDelayMask(ring.delayPaint, currentPhase(ring));
+    voice.delaySend.gain.setTargetAtTime(amount * ring.delayWet, now, 0.012);
+    voice.delay.delayTime.setTargetAtTime(ring.delayTime, now, 0.02);
+    voice.feedback.gain.setTargetAtTime(ring.delayFeedback, now, 0.02);
+  }
+}
+
 function startRingSource(ring) {
   stopRingSource(ring);
   if (!state.playing || !audioContext || !masterGain || !ring?.buffer) return;
-  const source = audioContext.createBufferSource();
-  source.buffer = ring.direction > 0 ? ring.buffer : ring.reverseBuffer;
-  source.loop = true;
-  source.loopStart = 0;
-  source.loopEnd = source.buffer.duration;
-  source.playbackRate.setValueAtTime(ringPlaybackRate(ring), audioContext.currentTime);
   const gain = audioContext.createGain();
   gain.gain.value = 0;
-  source.connect(gain);
-  gain.connect(masterGain);
-  const sourcePhase = ring.direction > 0 ? ring.phase : wrap01(1 - ring.phase);
-  const offset = Math.min(
-    sourcePhase * source.buffer.duration,
-    Math.max(0, source.buffer.duration - 1 / Math.max(1, source.buffer.sampleRate)),
-  );
-  source.start(0, offset);
-  gain.gain.setTargetAtTime(ringIsAudible(ring) ? 1 : 0, audioContext.currentTime, 0.006);
-  ring.source = { source, gain };
+  const effectNodes = [];
+  let output = gain;
+  let filter = null;
+  let panner = null;
+  if (typeof audioContext.createBiquadFilter === "function") {
+    filter = audioContext.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = ringFilterFrequency(ring);
+    filter.Q.value = ring.filterResonance;
+    output.connect(filter);
+    output = filter;
+    effectNodes.push(filter);
+  }
+  if (typeof audioContext.createStereoPanner === "function") {
+    panner = audioContext.createStereoPanner();
+    panner.pan.value = ring.pan;
+    output.connect(panner);
+    output = panner;
+    effectNodes.push(panner);
+  }
+  output.connect(masterGain);
+  let delaySend = null;
+  let delay = null;
+  let feedback = null;
+  if (typeof audioContext.createDelay === "function") {
+    delaySend = audioContext.createGain();
+    delay = audioContext.createDelay(2);
+    feedback = audioContext.createGain();
+    const wet = audioContext.createGain();
+    delaySend.gain.value = 0;
+    delay.delayTime.value = ring.delayTime;
+    feedback.gain.value = ring.delayFeedback;
+    wet.gain.value = 1;
+    output.connect(delaySend);
+    delaySend.connect(delay);
+    delay.connect(wet);
+    wet.connect(masterGain);
+    delay.connect(feedback);
+    feedback.connect(delay);
+    effectNodes.push(delaySend, delay, feedback, wet);
+  }
+  const sources = [];
+  const headCount = Math.round(clamp(ring.headCount, 1, 4));
+  const headOffsets = ringHeadOffsets(ring);
+  for (let head = 0; head < headCount; head += 1) {
+    const source = audioContext.createBufferSource();
+    source.buffer = ring.direction > 0 ? ring.buffer : ring.reverseBuffer;
+    source.loop = true;
+    source.loopStart = 0;
+    source.loopEnd = source.buffer.duration;
+    source.playbackRate.setValueAtTime(ringPlaybackRate(ring), audioContext.currentTime);
+    source.connect(gain);
+    const phase = wrap01(ring.phase + headOffsets[head]);
+    const sourcePhase = ring.direction > 0 ? phase : wrap01(1 - phase);
+    const offset = Math.min(
+      sourcePhase * source.buffer.duration,
+      Math.max(0, source.buffer.duration - 1 / Math.max(1, source.buffer.sampleRate)),
+    );
+    source.start(0, offset);
+    sources.push(source);
+  }
+  const voiceGain = ringVoiceGain(ring);
+  gain.gain.setTargetAtTime(voiceGain, audioContext.currentTime, 0.006);
+  ring.source = {
+    source: sources[0],
+    sources,
+    gain,
+    filter,
+    panner,
+    delaySend,
+    delay,
+    feedback,
+    nodes: effectNodes,
+  };
   anchorRing(ring, ring.phase);
+  updateRingEffects(ring);
 }
 
 function playScrubGrain(ring, scrubRate = ringPlaybackRate(ring)) {
@@ -406,7 +518,13 @@ function playScrubGrain(ring, scrubRate = ringPlaybackRate(ring)) {
     sourcePhase * source.buffer.duration,
     Math.max(0, source.buffer.duration - 1 / Math.max(1, source.buffer.sampleRate)),
   ));
-  scheduleEqualPowerGain(gain.gain, "in", audioContext.currentTime, 0.02, 0.72);
+  scheduleEqualPowerGain(
+    gain.gain,
+    "in",
+    audioContext.currentTime,
+    0.02,
+    0.72 * clamp(ring.volume ?? 1, 0, 1.25),
+  );
   gain.gain.setTargetAtTime(0, audioContext.currentTime + 0.065, 0.012);
   source.stop(audioContext.currentTime + 0.11);
   const voice = { source, gain };
@@ -555,8 +673,8 @@ async function setPlaying(playing, shouldAnnounce = true) {
   return state.playing;
 }
 
-function setDirection(direction) {
-  const ring = activeRing();
+function setDirection(ring, direction) {
+  if (!ring) return;
   const next = direction < 0 ? -1 : 1;
   if (next === ring.direction) return;
   captureRingPhase(ring);
@@ -565,6 +683,17 @@ function setDirection(direction) {
   updateUi();
   scheduleFrame();
   announce(`Ring ${ringOrdinal(ring)} ${next < 0 ? "reversed" : "forward"}.`);
+}
+
+function setRingVolume(ring, volume, shouldAnnounce = false) {
+  if (!ring) return;
+  ring.volume = clamp(Number(volume), 0, 1.25);
+  const now = audioContext?.currentTime ?? 0;
+  ring.source?.gain.gain.cancelScheduledValues?.(now);
+  ring.source?.gain.gain.setTargetAtTime?.(ringVoiceGain(ring), now, 0.012);
+  if (shouldAnnounce) {
+    announce(`Ring ${ringOrdinal(ring)} volume ${Math.round(ring.volume * 100)} percent.`);
+  }
 }
 
 function setActiveRing(ring, shouldAnnounce = true) {
@@ -591,7 +720,11 @@ function refreshRingAudibility() {
     const audible = ringIsAudible(ring);
     if (!audible) stopScrubVoice(ring);
     ring.source?.gain.gain.cancelScheduledValues?.(now);
-    ring.source?.gain.gain.setTargetAtTime?.(audible ? 1 : 0, now, 0.01);
+    ring.source?.gain.gain.setTargetAtTime?.(
+      audible ? ringVoiceGain(ring) : 0,
+      now,
+      0.01,
+    );
   }
   paintMasterGain();
   updateUi();
@@ -619,6 +752,7 @@ function removeRing(ring) {
   state.activeRingId = next.id;
   if (!recordedRings().length) state.playing = false;
   refreshRingAudibility();
+  restartSyncedRings();
   announce("Ring deleted.");
 }
 
@@ -648,12 +782,11 @@ function applyPreset(preset) {
   if (expandedMode) {
     const count = preset === "triangle" ? 3 : preset === "square" ? 4 : DEFAULT_VERTEX_COUNT;
     ring.radialOffsets = Array(count).fill(0);
-    ring.radialBaseMode = preset === "circle" ? "circle" : "polygon";
   } else {
     ring.vertices = presetVertices(preset, DEFAULT_VERTEX_COUNT);
   }
   ring.selectedVertex = 0;
-  if (ring.rawSamples && ring.timeStretch > 0) rebuildRingAudio(ring);
+  if (ring.rawSamples && ring.shapePitchDepth > 0) rebuildRingAudio(ring);
   updateUi();
   scheduleFrame();
   announce(`${preset[0].toUpperCase()}${preset.slice(1)} contour seeded.`);
@@ -670,7 +803,7 @@ function addVertex() {
   }
   ring.selectedVertex = Math.min(ringVertexCount(ring) - 1, ring.selectedVertex + 1);
   ring.preset = "custom";
-  if (ring.rawSamples && ring.timeStretch > 0) rebuildRingAudio(ring);
+  if (ring.rawSamples && ring.shapePitchDepth > 0) rebuildRingAudio(ring);
   updateUi();
   scheduleFrame();
   announce(`${ringVertexCount(ring)} ${expandedMode ? "radial" : "free"} vertices.`);
@@ -687,42 +820,163 @@ function removeVertex() {
   }
   ring.selectedVertex = Math.min(ring.selectedVertex, ringVertexCount(ring) - 1);
   ring.preset = "custom";
-  if (ring.rawSamples && ring.timeStretch > 0) rebuildRingAudio(ring);
+  if (ring.rawSamples && ring.shapePitchDepth > 0) rebuildRingAudio(ring);
   updateUi();
   scheduleFrame();
   announce(`${ringVertexCount(ring)} ${expandedMode ? "radial" : "free"} vertices.`);
 }
 
-function setTimeMode(mode) {
+function setShapePitchDepth(value) {
   if (state.recording || recordChanging) return;
   const ring = activeRing();
-  ring.timeStretch = mode === "local" ? Math.max(0.5, ring.timeStretch) : 0;
-  if (ring.rawSamples) rebuildRingAudio(ring);
-  updateUi();
-  scheduleFrame();
-  announce(ring.timeStretch > 0 ? "Local shape time stretch enabled." : "Native ring timing restored.");
-}
-
-function setTimeStretch(value) {
-  if (state.recording || recordChanging) return;
-  const ring = activeRing();
-  ring.timeStretch = clamp(Number(value), 0, 1);
+  ring.shapePitchDepth = clamp(Number(value), 0.1, 1);
   if (ring.rawSamples) rebuildRingAudio(ring);
   updateUi();
   scheduleFrame();
 }
 
-function setPitchSemitones(value) {
-  if (state.recording || recordChanging) return;
-  const ring = activeRing();
+function alignRingToMaster(ring) {
+  const master = masterRing();
+  if (!master || master.id === ring.id || ring.timingMode !== "sync") return;
+  ring.phase = wrap01(currentPhase(master) / Math.max(0.01, ring.lengthRatio));
+  anchorRing(ring, ring.phase);
+}
+
+function restartRingTiming(ring, align = ring.timingMode === "sync") {
   const wasPlaying = state.playing && Boolean(ring.buffer);
   if (wasPlaying) captureRingPhase(ring);
   if (wasPlaying) stopRingSource(ring);
-  ring.pitchSemitones = Math.round(clamp(Number(value), -12, 12));
+  if (align) alignRingToMaster(ring);
+  else anchorRing(ring, ring.phase);
+  if (wasPlaying) startRingSource(ring);
+}
+
+function restartSyncedRings() {
+  const master = masterRing();
+  if (!master) return;
+  for (const ring of recordedRings()) {
+    if (ring.id === master.id || ring.timingMode !== "sync") continue;
+    restartRingTiming(ring, true);
+  }
+}
+
+function synchronizeAllRings() {
+  if (state.recording || recordChanging) return;
+  const rings = recordedRings();
+  const master = masterRing();
+  if (!master || rings.length < 2) {
+    announce("Record at least two rings before syncing all.");
+    return;
+  }
+  const phase = currentPhase(master);
+  const wasPlaying = state.playing;
+  stopAllRingSources({ capturePhase: false });
+  master.timingMode = "free";
+  master.lengthRatio = 1;
+  master.phase = phase;
+  anchorRing(master, phase);
+  for (const ring of rings) {
+    if (ring.id === master.id) continue;
+    ring.timingMode = "sync";
+    ring.lengthRatio = 1;
+    ring.direction = master.direction;
+    ring.phase = phase;
+    anchorRing(ring, phase);
+  }
+  if (wasPlaying) startAllRingSources();
+  updateUi();
+  scheduleFrame();
+  announce("All rings synchronized to Ring 1 at the same cycle length and phase.");
+}
+
+function setRingTimingMode(mode) {
+  if (state.recording || recordChanging) return;
+  const ring = activeRing();
+  const master = masterRing();
+  if (mode === "sync" && master?.id === ring.id) {
+    announce("Ring 1 is the sync master and remains Free.");
+    return;
+  }
+  if (ring.buffer) captureRingPhase(ring);
+  ring.timingMode = mode === "sync" ? "sync" : "free";
+  restartRingTiming(ring, ring.timingMode === "sync");
+  updateUi();
+  scheduleFrame();
+  announce(ring.timingMode === "sync"
+    ? "Ring synchronized to Ring 1."
+    : "Ring returned to its independent clock.");
+}
+
+function setRingLengthRatio(value) {
+  if (state.recording || recordChanging) return;
+  const ring = activeRing();
+  const ratio = [0.25, 0.5, 1, 2].includes(Number(value)) ? Number(value) : 1;
+  if (ring.buffer) captureRingPhase(ring);
+  ring.lengthRatio = ratio;
+  restartRingTiming(ring, ring.timingMode === "sync");
+  if (masterRing()?.id === ring.id) restartSyncedRings();
+  updateUi();
+  scheduleFrame();
+  announce(`Ring cycle set to ${ratio}×.`);
+}
+
+function setRingHeadCount(value) {
+  if (state.recording || recordChanging) return;
+  const ring = activeRing();
+  const count = Math.round(clamp(value, 1, 4));
+  if (count === ring.headCount) return;
+  const wasPlaying = state.playing && Boolean(ring.buffer);
+  if (wasPlaying) captureRingPhase(ring);
+  if (wasPlaying) stopRingSource(ring);
+  ring.headCount = count;
+  ring.headOffsets = Array.from({ length: count }, (_, index) => index / count);
   anchorRing(ring, ring.phase);
   if (wasPlaying) startRingSource(ring);
   updateUi();
   scheduleFrame();
+  announce(`${count} playback ${count === 1 ? "head" : "heads"} on ring ${ringOrdinal(ring)}.`);
+}
+
+function setRingHeadOffset(index, value, restart = false) {
+  if (state.recording || recordChanging) return;
+  const ring = activeRing();
+  const headIndex = Math.round(Number(index));
+  if (headIndex <= 0 || headIndex >= ring.headCount) return;
+  ring.headOffsets = ringHeadOffsets(ring);
+  ring.headOffsets[headIndex] = clamp(Number(value), 0.02, 0.98);
+  if (restart && state.playing && ring.buffer) restartRingTiming(ring, false);
+  updateUi();
+  scheduleFrame();
+}
+
+function paintDelayAt(ring, phase) {
+  const target = state.brushMode === "erase" ? 0 : 1;
+  ring.delayPaint = paintDelayMask(
+    ring.delayPaint,
+    phase,
+    target,
+    state.brushSize,
+  );
+  updateRingEffects(ring);
+}
+
+function clearActiveDelayPaint() {
+  const ring = activeRing();
+  ring.delayPaint = new Float32Array(ring.delayPaint.length);
+  updateRingEffects(ring);
+  updateUi();
+  scheduleFrame();
+  announce(`Delay paint cleared from ring ${ringOrdinal(ring)}.`);
+}
+
+function clearAllDelayPaint() {
+  for (const ring of state.rings) {
+    ring.delayPaint = new Float32Array(ring.delayPaint.length);
+    updateRingEffects(ring);
+  }
+  updateUi();
+  scheduleFrame();
+  announce("Delay paint cleared from all rings.");
 }
 
 function spreadRingDepths() {
@@ -962,8 +1216,12 @@ function rebuildRingAudio(ring, { restart = true } = {}) {
   const wasPlaying = restart && state.playing && Boolean(ring.buffer);
   if (wasPlaying) captureRingPhase(ring);
   if (wasPlaying) stopRingSource(ring);
-  const processed = ring.timeStretch > 0
-    ? timeStretchLoopSamples(ring.rawSamples, ringAudioVertices(ring), ring.timeStretch)
+  const processed = ring.shapePitchDepth > 0
+    ? pitchShiftLoopSamplesByContour(
+      ring.rawSamples,
+      ringAudioVertices(ring),
+      ring.shapePitchDepth,
+    )
     : Float32Array.from(ring.rawSamples);
   ring.buffer = makeAudioBuffer(processed, ring.sampleRate);
   ring.reverseBuffer = makeAudioBuffer(reverseSamples(processed), ring.sampleRate);
@@ -1005,6 +1263,9 @@ async function finishRecording({ playAfterCapture = true } = {}) {
   rebuildRingAudio(target, { restart: false });
   target.direction = 1;
   target.muted = false;
+  if (masterRing()?.id === target.id) target.timingMode = "free";
+  else if (target.timingMode === "sync") alignRingToMaster(target);
+  if (masterRing()?.id === target.id) restartSyncedRings();
   recordingChunks = [];
   recordingSampleCount = 0;
   liveSamples = new Float32Array(0);
@@ -1039,18 +1300,26 @@ function renderRingList(selectedRing) {
     ring.buffer ? ringCycleDuration(ring).toFixed(4) : "empty",
     ring.muted ? 1 : 0,
     state.soloRingId === ring.id ? 1 : 0,
+    ring.direction,
     ring.color,
   ].join(":")).join("|");
   if (signature === lastRingListSignature) return;
   lastRingListSignature = signature;
   $("ringList").innerHTML = rings.map((ring, index) => {
     const soloed = state.soloRingId === ring.id;
+    const volume = clamp(ring.volume ?? 1, 0, 1.25);
+    const volumePercent = Math.round(volume * 100);
+    const knobAngle = -135 + volume / 1.25 * 270;
     const status = ring.buffer
       ? `${formatDuration(ringCycleDuration(ring))}${ring.muted ? " · muted" : soloed ? " · solo" : ""}`
       : "empty";
-    return `<div class="ring-list-row${ring.id === selectedRing.id ? " active" : ""}${soloed ? " solo" : ""}">`
+    return `<div class="ring-list-row${ring.id === selectedRing.id ? " active" : ""}${soloed ? " solo" : ""}" style="--ring-row-color:${ring.color}">`
       + `<button type="button" data-ring-action="select" data-ring-id="${ring.id}">`
       + `<i style="--ring-row-color:${ring.color}"></i><span>Ring ${index + 1}</span><small>${status}</small></button>`
+      + `<button type="button" data-ring-action="direction" data-ring-id="${ring.id}" title="${ring.direction > 0 ? "Forward; switch to reverse" : "Reverse; switch to forward"}" aria-label="Ring ${index + 1} direction: ${ring.direction > 0 ? "forward" : "reverse"}">${ring.direction > 0 ? "→" : "←"}</button>`
+      + `<label class="ring-volume-control" title="Ring ${index + 1} volume ${volumePercent}%">`
+      + `<span class="ring-volume-knob" style="--ring-volume-angle:${knobAngle}deg"><b></b></span>`
+      + `<input type="range" min="0" max="1.25" step="0.01" value="${volume}" data-ring-volume="${ring.id}" aria-label="Ring ${index + 1} relative volume" /></label>`
       + `<button type="button" data-ring-action="mute" data-ring-id="${ring.id}" title="${ring.muted ? "Unmute" : "Mute"}" aria-label="${ring.muted ? "Unmute" : "Mute"} ring ${index + 1}"${ring.buffer ? "" : " disabled"}>${ring.muted ? "U" : "M"}</button>`
       + `<button type="button" data-ring-action="solo" data-ring-id="${ring.id}" title="${soloed ? "Clear solo" : "Solo"}" aria-label="${soloed ? "Clear solo on" : "Solo"} ring ${index + 1}"${ring.buffer ? "" : " disabled"}>S</button>`
       + `<button type="button" data-ring-action="delete" data-ring-id="${ring.id}" title="Delete" aria-label="Delete ring ${index + 1}"${state.rings.length <= 1 ? " disabled" : ""}>×</button></div>`;
@@ -1099,11 +1368,8 @@ function updateUi() {
   renderRingList(ring);
   $("replaceRing").disabled = locked || !ring.buffer;
   $("clearAllRings").disabled = locked;
+  $("syncAllRings").disabled = locked || recorded.length < 2;
 
-  for (const button of $("ringDirection").querySelectorAll("button")) {
-    setPressed(button, Number(button.dataset.value) === ring.direction);
-    button.disabled = locked;
-  }
   for (const button of $("recordBacking").querySelectorAll("button")) {
     const enabled = button.dataset.value === "on";
     setPressed(button, enabled === state.backingDuringRecord);
@@ -1120,20 +1386,67 @@ function updateUi() {
     button.disabled = locked;
   }
 
-  const localTime = ring.timeStretch > 0;
-  for (const button of $("timeMode").querySelectorAll("button")) {
-    setPressed(button, (button.dataset.value === "local") === localTime);
+  for (const button of $("ringTiming").querySelectorAll("button")) {
+    setPressed(button, button.dataset.value === ring.timingMode);
+    button.disabled = locked
+      || (button.dataset.value === "sync" && masterRing()?.id === ring.id);
+  }
+  for (const button of $("ringLength").querySelectorAll("button")) {
+    setPressed(button, Number(button.dataset.value) === ring.lengthRatio);
     button.disabled = locked;
   }
-  $("timeStretch").value = String(ring.timeStretch);
-  $("timeStretch").disabled = locked || !localTime;
-  $("timeStretchOut").textContent = `${Math.round(ring.timeStretch * 100)}%`;
-  $("pitchShift").value = String(ring.pitchSemitones);
-  $("pitchShift").disabled = locked;
-  $("pitchShiftOut").textContent = `${ring.pitchSemitones > 0 ? "+" : ""}${Math.round(ring.pitchSemitones)} st`;
-  $("advancedSummary").textContent = localTime || ring.pitchSemitones
-    ? `${localTime ? `stretch ${Math.round(ring.timeStretch * 100)}%` : "native"} · ${ring.pitchSemitones > 0 ? "+" : ""}${ring.pitchSemitones} st`
-    : "native";
+  $("headCountOut").textContent = `${ring.headCount} ${ring.headCount === 1 ? "head" : "heads"}`;
+  $("removeLoopHead").disabled = locked || ring.headCount <= 1;
+  $("addLoopHead").disabled = locked || ring.headCount >= 4;
+  const headOffsets = ringHeadOffsets(ring);
+  $("headOffsetControls").hidden = ring.headCount <= 1;
+  for (let index = 1; index < 4; index += 1) {
+    const visible = index < ring.headCount;
+    $(`headOffsetControl${index}`).hidden = !visible;
+    $(`headOffset${index}`).disabled = locked || !visible;
+    $(`headOffset${index}`).value = String(Math.round((headOffsets[index] ?? 0) * 100));
+    $(`headOffset${index}Out`).textContent = `${Math.round((headOffsets[index] ?? 0) * 100)}%`;
+  }
+  $("shapePitchDepth").value = String(ring.shapePitchDepth);
+  $("shapePitchDepth").disabled = locked;
+  $("shapePitchDepthOut").textContent = `${Math.round(ring.shapePitchDepth * 100)}%`;
+  $("advancedSummary").textContent = `${ring.timingMode} · ${ring.lengthRatio}× · ${ring.headCount}h`
+    + ` · pitch ${Math.round(ring.shapePitchDepth * 100)}%`;
+
+  for (const button of $("brushMode").querySelectorAll("button")) {
+    setPressed(button, button.dataset.value === state.brushMode);
+    button.disabled = locked;
+  }
+  $("brushSize").value = String(state.brushSize);
+  $("brushSizeOut").textContent = `${Math.round(state.brushSize * 100)}%`;
+  $("delayTime").value = String(ring.delayTime);
+  $("delayTimeOut").textContent = `${Math.round(ring.delayTime * 1000)} ms`;
+  $("delayFeedback").value = String(ring.delayFeedback);
+  $("delayFeedbackOut").textContent = `${Math.round(ring.delayFeedback * 100)}%`;
+  $("delayWet").value = String(ring.delayWet);
+  $("delayWetOut").textContent = `${Math.round(ring.delayWet * 100)}%`;
+  $("filterTone").value = String(ring.filterTone);
+  const cutoff = ringFilterFrequency(ring);
+  $("filterToneOut").textContent = cutoff >= 1000
+    ? `${(cutoff / 1000).toFixed(1)} kHz`
+    : `${Math.round(cutoff)} Hz`;
+  $("filterResonance").value = String(ring.filterResonance);
+  $("filterResonanceOut").textContent = `${ring.filterResonance.toFixed(1)} Q`;
+  $("ringPan").value = String(ring.pan);
+  $("ringPanOut").textContent = Math.abs(ring.pan) < 0.01
+    ? "center"
+    : `${Math.round(Math.abs(ring.pan) * 100)}% ${ring.pan < 0 ? "left" : "right"}`;
+  const paintedAmount = ring.delayPaint.reduce((sum, value) => sum + value, 0)
+    / ring.delayPaint.length;
+  $("effectsRingOut").textContent = `Ring ${ordinal}`;
+  $("effectsSummary").textContent = paintedAmount > 0.005
+    ? `Ring ${ordinal} · ${Math.round(paintedAmount * 100)}% painted`
+    : `Ring ${ordinal} · clear`;
+  $("clearDelayPaint").disabled = locked || paintedAmount <= 0.001;
+  const anyDelayPaint = state.rings.some((item) => (
+    item.delayPaint.some((value) => value > 0.001)
+  ));
+  $("clearAllDelayPaint").disabled = locked || !anyDelayPaint;
 
   for (const button of $("viewMode").querySelectorAll("button")) {
     setPressed(button, (button.dataset.value === "3d") === state.view3d);
@@ -1177,20 +1490,26 @@ function resizeCanvas() {
 
 function stageGeometry() {
   const extent = Math.min(cssWidth, cssHeight);
-  let maximum = 1;
-  for (const ring of state.rings) {
-    const vertices = expandedMode ? ringAudioVertices(ring) : ring.vertices;
-    const vertexExtent = Math.max(
-      1,
-      ...vertices.map((vertex) => Math.hypot(vertex.x, vertex.y)),
-    );
-    maximum = Math.max(maximum, vertexExtent * ringScale(ring));
-  }
   return {
     centerX: cssWidth * 0.5,
     centerY: cssHeight * 0.5,
-    radius: Math.max(18, Math.min(extent * 0.28, (extent * 0.5 - 20) / (maximum * 1.18))),
+    radius: Math.max(18, extent * 0.24),
   };
+}
+
+function maximumEditableRadialOffset(ring, geometry) {
+  const extent = Math.min(cssWidth, cssHeight);
+  const handlePadding = Math.max(12, extent * 0.035);
+  const waveformPadding = geometry.radius * WAVEFORM_RADIUS;
+  const availableRadius = Math.max(
+    geometry.radius,
+    extent * 0.5 - handlePadding - waveformPadding,
+  );
+  return clamp(
+    availableRadius / Math.max(1, geometry.radius * ringScale(ring)) - 1,
+    0,
+    MAX_RADIAL_OFFSET,
+  );
 }
 
 function envelopeSample(values, phase) {
@@ -1250,7 +1569,7 @@ function projectRingPoint(x, y, ring, geometry) {
 function ringPoint(ring, phase, geometry, envelope, edge = "center") {
   const scale = geometry.radius * ringScale(ring);
   const point = expandedMode
-    ? { ...radialPointAt(ring, phase), tangent: { x: 1, y: 0 } }
+    ? radialPointAt(ring, phase)
     : pointOnContour(ring.vertices, phase);
   let radialX = point.x;
   let radialY = point.y;
@@ -1263,7 +1582,8 @@ function ringPoint(ring, phase, geometry, envelope, edge = "center") {
   let amplitude = 0;
   if (edge === "outer") amplitude = envelopeSample(envelope.maximums, phase);
   else if (edge === "inner") amplitude = envelopeSample(envelope.minimums, phase);
-  const waveformOffset = amplitude / Math.max(0.12, ring.envelopePeak) * geometry.radius * 0.24;
+  const waveformOffset = amplitude / Math.max(0.12, ring.envelopePeak)
+    * geometry.radius * WAVEFORM_RADIUS;
   return projectRingPoint(
     point.x * scale + radialX / radialLength * waveformOffset,
     point.y * scale + radialY / radialLength * waveformOffset,
@@ -1310,7 +1630,7 @@ function drawRing(ring, geometry, envelope) {
   context.strokeStyle = colorWithAlpha(ring.color, hasSignal ? 0.92 : 0.48);
   context.lineWidth = selected ? 2 : 1.25;
   context.shadowColor = colorWithAlpha(ring.color, 0.35);
-  context.shadowBlur = hasSignal ? 10 : 4;
+  context.shadowBlur = hasSignal ? 6 : 3;
   context.stroke();
 
   context.shadowBlur = 0;
@@ -1329,19 +1649,74 @@ function drawRing(ring, geometry, envelope) {
   context.restore();
 }
 
+function drawDelayPaint(ring, geometry, envelope) {
+  const mask = ring.delayPaint;
+  if (!mask?.some((value) => value > 0.015)) return;
+  context.save();
+  context.lineCap = "round";
+  context.shadowColor = "#7db4ff";
+  context.shadowBlur = 9;
+  for (let index = 0; index < mask.length; index += 1) {
+    const amount = mask[index];
+    if (amount <= 0.015) continue;
+    const start = ringPoint(ring, index / mask.length, geometry, envelope, "outer");
+    const end = ringPoint(ring, (index + 1) / mask.length, geometry, envelope, "outer");
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    context.lineTo(end.x, end.y);
+    context.strokeStyle = `rgba(125,180,255,${0.24 + amount * 0.72})`;
+    context.lineWidth = 1.5 + amount * 4;
+    context.stroke();
+  }
+  context.restore();
+}
+
+function drawBrushCursor(geometry) {
+  if (state.brushMode === "off" || !brushCursor) return;
+  const ring = ringById(brushCursor.ringId);
+  if (!ring) return;
+  const point = { x: brushCursor.x, y: brushCursor.y };
+  const radius = clamp(
+    state.brushSize * TAU * geometry.radius * ringScale(ring),
+    7,
+    64,
+  );
+  const color = state.brushMode === "erase" ? "#ff826f" : "#7db4ff";
+  context.save();
+  context.beginPath();
+  context.arc(point.x, point.y, radius, 0, TAU);
+  context.fillStyle = colorWithAlpha(color, 0.06);
+  context.fill();
+  context.setLineDash([4, 4]);
+  context.strokeStyle = colorWithAlpha(color, 0.9);
+  context.lineWidth = 1;
+  context.stroke();
+  context.setLineDash([]);
+  context.beginPath();
+  context.arc(point.x, point.y, 2, 0, TAU);
+  context.fillStyle = color;
+  context.fill();
+  context.restore();
+}
+
 function drawReadHead(ring, geometry, envelope) {
   if (!ring.buffer || !ringIsAudible(ring) || (state.recording && ring.id === recordingTargetId)) return;
-  const point = ringPoint(ring, currentPhase(ring), geometry, envelope, "center");
   context.save();
   context.shadowColor = ring.color;
   context.shadowBlur = 13;
-  context.fillStyle = "#fff3d6";
-  context.beginPath();
-  context.arc(point.x, point.y, 4.5, 0, TAU);
-  context.fill();
-  context.strokeStyle = ring.color;
-  context.lineWidth = 1;
-  context.stroke();
+  const count = Math.round(clamp(ring.headCount, 1, 4));
+  const headOffsets = ringHeadOffsets(ring);
+  for (let head = 0; head < count; head += 1) {
+    const phase = wrap01(currentPhase(ring) + headOffsets[head]);
+    const point = ringPoint(ring, phase, geometry, envelope, "center");
+    context.fillStyle = head === 0 ? "#fff3d6" : colorWithAlpha(ring.color, 0.78);
+    context.beginPath();
+    context.arc(point.x, point.y, head === 0 ? 4.5 : 3.4, 0, TAU);
+    context.fill();
+    context.strokeStyle = ring.color;
+    context.lineWidth = 1;
+    context.stroke();
+  }
   context.restore();
 }
 
@@ -1407,15 +1782,20 @@ function drawFrame() {
   for (const ring of rings) {
     const envelope = activeEnvelope(ring);
     drawRing(ring, geometry, envelope);
+    drawDelayPaint(ring, geometry, envelope);
     drawReadHead(ring, geometry, envelope);
     drawVertices(ring, geometry);
   }
+  drawBrushCursor(geometry);
   drawCenter(geometry);
 }
 
 function frame(now) {
   scheduledFrame = 0;
   drawFrame();
+  if (state.playing) {
+    for (const ring of recordedRings()) updateRingEffects(ring);
+  }
   if (state.recording || state.playing || pointerGesture || now - lastUiUpdate > 100) {
     updateUi();
     lastUiUpdate = now;
@@ -1497,6 +1877,24 @@ canvas.addEventListener("pointerdown", (event) => {
   if (event.isPrimary === false || (event.button ?? 0) !== 0 || state.recording || recordChanging) return;
   canvas.focus({ preventScroll: true });
   const data = pointerData(event);
+  if (state.brushMode === "paint" || state.brushMode === "erase") {
+    const hit = nearestRingHit(data);
+    if (!hit) return;
+    brushCursor = { ringId: hit.ring.id, phase: hit.phase, x: data.x, y: data.y };
+    setActiveRing(hit.ring, false);
+    paintDelayAt(hit.ring, hit.phase);
+    pointerGesture = {
+      type: "delay-paint",
+      pointerId: event.pointerId,
+      ringId: hit.ring.id,
+    };
+    canvas.setPointerCapture(event.pointerId);
+    canvas.style.cursor = "none";
+    updateUi();
+    scheduleFrame();
+    event.preventDefault();
+    return;
+  }
   let ring = activeRing();
   let vertexIndex = nearestVertex(data, ring, data.geometry);
   if (vertexIndex < 0) {
@@ -1579,6 +1977,16 @@ canvas.addEventListener("pointerdown", (event) => {
 canvas.addEventListener("pointermove", (event) => {
   const data = pointerData(event);
   if (!pointerGesture || event.pointerId !== pointerGesture.pointerId) {
+    if (state.brushMode !== "off") {
+      hoverVertex = -1;
+      const hit = nearestRingHit(data);
+      brushCursor = hit
+        ? { ringId: hit.ring.id, phase: hit.phase, x: data.x, y: data.y }
+        : null;
+      canvas.style.cursor = hit ? "none" : "crosshair";
+      scheduleFrame();
+      return;
+    }
     hoverVertex = state.recording ? -1 : nearestVertex(data, activeRing(), data.geometry);
     canvas.style.cursor = hoverVertex >= 0 ? "move" : nearestRingHit(data) ? "grab" : "";
     scheduleFrame();
@@ -1586,6 +1994,17 @@ canvas.addEventListener("pointermove", (event) => {
   }
   const ring = ringById(pointerGesture.ringId);
   if (!ring) return;
+  if (pointerGesture.type === "delay-paint") {
+    const hit = nearestProjectedContourPhase(data, ring, data.geometry);
+    if (hit.distance <= 36) {
+      brushCursor = { ringId: ring.id, phase: hit.phase, x: data.x, y: data.y };
+      paintDelayAt(ring, hit.phase);
+    }
+    updateUi();
+    scheduleFrame();
+    event.preventDefault();
+    return;
+  }
   if (pointerGesture.type === "touch-pending") {
     const distance = Math.hypot(
       data.x - pointerGesture.startPointer.x,
@@ -1638,7 +2057,7 @@ canvas.addEventListener("pointermove", (event) => {
         pointerGesture.startOffset
           + (distance - pointerGesture.startDistance) / Math.max(1, scale),
         MIN_RADIAL_OFFSET,
-        MAX_RADIAL_OFFSET,
+        maximumEditableRadialOffset(ring, data.geometry),
       );
     } else {
       const yawScale = state.view3d ? Math.max(0.25, Math.cos(state.viewYaw * Math.PI / 180)) : 1;
@@ -1702,8 +2121,12 @@ function finishPointerGesture(event, announceResult = true) {
   const ring = ringById(gesture.ringId);
   pointerGesture = null;
   stageWrap.classList.remove("is-deforming", "is-spinning");
-  canvas.style.cursor = "";
-  if (ring && gesture.type === "touch-pending") {
+  canvas.style.cursor = state.brushMode !== "off" && brushCursor ? "none" : "";
+  if (ring && gesture.type === "delay-paint") {
+    if (announceResult) {
+      announce(`${state.brushMode === "erase" ? "Erased" : "Painted"} delay on ring ${ringOrdinal(ring)}.`);
+    }
+  } else if (ring && gesture.type === "touch-pending") {
     // A tap selects the handle; movement chooses scrub or radial edit.
   } else if (ring && gesture.type === "scrub") {
     stopScrubVoice(ring);
@@ -1711,7 +2134,7 @@ function finishPointerGesture(event, announceResult = true) {
     if (state.playing) startRingSource(ring);
     if (announceResult) announce(`Ring ${ringOrdinal(ring)} scrubbed ${ring.direction < 0 ? "in reverse" : "forward"}.`);
   } else if (ring) {
-    if (ring.rawSamples && ring.timeStretch > 0) {
+    if (ring.rawSamples && ring.shapePitchDepth > 0) {
       rebuildRingAudio(ring, { restart: !expandedMode });
     }
     if (expandedMode && ring.buffer) {
@@ -1732,6 +2155,7 @@ canvas.addEventListener("lostpointercapture", (event) => finishPointerGesture(ev
 canvas.addEventListener("pointerleave", () => {
   if (pointerGesture) return;
   hoverVertex = -1;
+  brushCursor = null;
   canvas.style.cursor = "";
   scheduleFrame();
 });
@@ -1745,6 +2169,7 @@ $("replaceRing").addEventListener("click", () => {
 $("playButton").addEventListener("click", () => void setPlaying(!state.playing));
 $("audioButton").addEventListener("click", () => void toggleAudio());
 $("clearAllRings").addEventListener("click", clearAllRings);
+$("syncAllRings").addEventListener("click", synchronizeAllRings);
 $("ringList").addEventListener("pointerdown", (event) => {
   const button = event.target.closest?.('[data-ring-action="select"]');
   if (!button || button.disabled) return;
@@ -1757,16 +2182,32 @@ $("ringList").addEventListener("click", (event) => {
   const ring = ringById(Number(button.dataset.ringId));
   if (!ring) return;
   if (button.dataset.ringAction === "select") setActiveRing(ring);
+  else if (button.dataset.ringAction === "direction") setDirection(ring, -ring.direction);
   else if (button.dataset.ringAction === "mute") setRingMuted(ring, !ring.muted);
   else if (button.dataset.ringAction === "solo") toggleRingSolo(ring);
   else if (button.dataset.ringAction === "delete") removeRing(ring);
 });
+$("ringList").addEventListener("input", (event) => {
+  const input = event.target.closest?.("[data-ring-volume]");
+  if (!input) return;
+  const ring = ringById(Number(input.dataset.ringVolume));
+  if (!ring) return;
+  setRingVolume(ring, input.value);
+  const knob = input.parentElement?.querySelector?.(".ring-volume-knob");
+  const label = input.parentElement;
+  const volumePercent = Math.round(ring.volume * 100);
+  knob?.style.setProperty("--ring-volume-angle", `${-135 + ring.volume / 1.25 * 270}deg`);
+  if (label) label.title = `Ring ${ringOrdinal(ring)} volume ${volumePercent}%`;
+});
+$("ringList").addEventListener("change", (event) => {
+  const input = event.target.closest?.("[data-ring-volume]");
+  if (!input) return;
+  const ring = ringById(Number(input.dataset.ringVolume));
+  if (ring) setRingVolume(ring, input.value, true);
+});
 
 for (const button of $("shapePreset").querySelectorAll("button")) {
   button.addEventListener("click", () => applyPreset(button.dataset.value));
-}
-for (const button of $("ringDirection").querySelectorAll("button")) {
-  button.addEventListener("click", () => setDirection(Number(button.dataset.value)));
 }
 for (const button of $("recordBacking").querySelectorAll("button")) {
   button.addEventListener("click", () => {
@@ -1778,19 +2219,83 @@ for (const button of $("recordBacking").querySelectorAll("button")) {
       : "Existing rings will pause during recording.");
   });
 }
-for (const button of $("timeMode").querySelectorAll("button")) {
-  button.addEventListener("click", () => setTimeMode(button.dataset.value));
+for (const button of $("ringTiming").querySelectorAll("button")) {
+  button.addEventListener("click", () => setRingTimingMode(button.dataset.value));
 }
-$("timeStretch").addEventListener("input", () => {
-  activeRing().timeStretch = clamp(Number($("timeStretch").value), 0, 1);
+for (const button of $("ringLength").querySelectorAll("button")) {
+  button.addEventListener("click", () => setRingLengthRatio(button.dataset.value));
+}
+$("removeLoopHead").addEventListener("click", () => {
+  setRingHeadCount(activeRing().headCount - 1);
+});
+$("addLoopHead").addEventListener("click", () => {
+  setRingHeadCount(activeRing().headCount + 1);
+});
+for (let index = 1; index < 4; index += 1) {
+  $(`headOffset${index}`).addEventListener("input", () => {
+    setRingHeadOffset(index, Number($(`headOffset${index}`).value) / 100);
+  });
+  $(`headOffset${index}`).addEventListener("change", () => {
+    setRingHeadOffset(index, Number($(`headOffset${index}`).value) / 100, true);
+  });
+}
+$("shapePitchDepth").addEventListener("input", () => {
+  activeRing().shapePitchDepth = clamp(Number($("shapePitchDepth").value), 0.1, 1);
   updateUi();
 });
-$("timeStretch").addEventListener("change", () => {
-  setTimeStretch($("timeStretch").value);
+$("shapePitchDepth").addEventListener("change", () => {
+  setShapePitchDepth($("shapePitchDepth").value);
 });
-$("pitchShift").addEventListener("input", () => {
-  setPitchSemitones($("pitchShift").value);
+for (const button of $("brushMode").querySelectorAll("button")) {
+  button.addEventListener("click", () => {
+    state.brushMode = button.dataset.value;
+    if (state.brushMode === "off") brushCursor = null;
+    canvas.style.cursor = state.brushMode === "off"
+      ? ""
+      : brushCursor ? "none" : "crosshair";
+    updateUi();
+    scheduleFrame();
+    announce(state.brushMode === "off"
+      ? "Delay brush off. Ring scrubbing restored."
+      : `${state.brushMode === "erase" ? "Erase" : "Delay paint"} brush active.`);
+  });
+}
+$("brushSize").addEventListener("input", () => {
+  state.brushSize = clamp(Number($("brushSize").value), 0.01, 0.2);
+  updateUi();
 });
+$("delayTime").addEventListener("input", () => {
+  activeRing().delayTime = clamp(Number($("delayTime").value), 0.04, 1.2);
+  updateRingEffects(activeRing());
+  updateUi();
+});
+$("delayFeedback").addEventListener("input", () => {
+  activeRing().delayFeedback = clamp(Number($("delayFeedback").value), 0, 0.82);
+  updateRingEffects(activeRing());
+  updateUi();
+});
+$("delayWet").addEventListener("input", () => {
+  activeRing().delayWet = clamp(Number($("delayWet").value), 0, 1);
+  updateRingEffects(activeRing());
+  updateUi();
+});
+$("filterTone").addEventListener("input", () => {
+  activeRing().filterTone = clamp(Number($("filterTone").value), 0, 1);
+  updateRingEffects(activeRing());
+  updateUi();
+});
+$("filterResonance").addEventListener("input", () => {
+  activeRing().filterResonance = clamp(Number($("filterResonance").value), 0, 12);
+  updateRingEffects(activeRing());
+  updateUi();
+});
+$("ringPan").addEventListener("input", () => {
+  activeRing().pan = clamp(Number($("ringPan").value), -1, 1);
+  updateRingEffects(activeRing());
+  updateUi();
+});
+$("clearDelayPaint").addEventListener("click", clearActiveDelayPaint);
+$("clearAllDelayPaint").addEventListener("click", clearAllDelayPaint);
 for (const button of $("viewMode").querySelectorAll("button")) {
   button.addEventListener("click", () => setThreeDView(button.dataset.value === "3d"));
 }

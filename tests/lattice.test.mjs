@@ -6,6 +6,8 @@ import {
   TILING_TYPES,
   buildLattice,
   buildPrototile,
+  centeredContactWindow,
+  constrainPrototileEdit,
   contactsForLine,
   createScanLine,
   edgeCurve,
@@ -13,6 +15,7 @@ import {
   intersectionAccentMultiplier,
   latticeOffsetForPhase,
   parametersForDraggedVertex,
+  prototileIsNonOverlapping,
   tilingInfo,
   tilingParameterRange,
 } from "../src/lattice.js";
@@ -28,6 +31,37 @@ test("the complete Tactile isohedral catalog is exposed with control metadata", 
   assert.equal(Math.max(...TILING_TYPES.map((info) => info.edgeShapes.length)), 5);
   assert.equal(tilingInfo(20).label, "Pentagon \u00b7 IH20");
   assert.ok(TILING_TYPES.some((info) => info.edgeShapes.includes(EdgeShape.I)));
+});
+
+test("prototile editing stops before edges can overlap", () => {
+  assert.ok(TILING_TYPES.every(({ type }) => prototileIsNonOverlapping({ type })));
+  const info = tilingInfo(22);
+  const straight = info.edgeShapes.map(() => 0);
+  const extreme = info.edgeShapes.map(() => 1);
+  assert.equal(prototileIsNonOverlapping({ type: 22, edgeCurves: extreme }), false);
+  const guarded = constrainPrototileEdit({
+    type: 22,
+    currentParameters: info.defaultParameters,
+    parameters: info.defaultParameters,
+    currentEdgeCurves: straight,
+    edgeCurves: extreme,
+  });
+  assert.equal(guarded.constrained, true);
+  assert.ok(guarded.fraction < 1);
+  assert.equal(prototileIsNonOverlapping({
+    type: 22,
+    parameters: guarded.parameters,
+    edgeCurves: guarded.edgeCurves,
+  }), true);
+});
+
+test("voice limiting keeps adjacent center contacts instead of widening dense chords", () => {
+  const contacts = Array.from({ length: 11 }, (_, index) => ({
+    along: index - 5,
+    id: index,
+  }));
+  assert.deepEqual(centeredContactWindow(contacts, 3).map(({ id }) => id), [4, 5, 6]);
+  assert.deepEqual(centeredContactWindow(contacts, 20).map(({ id }) => id), contacts.map(({ id }) => id));
 });
 
 test("curved isohedral edges retain exact endpoints and legal symmetry", () => {
