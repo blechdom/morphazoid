@@ -17,7 +17,7 @@ import {
   contactsForLine,
   createScanLine,
   edgeShapeName,
-  intersectionAccentMultiplier,
+  intersectionAmplitudeEnvelope,
   latticeOffsetForPhase,
   parametersForDraggedVertex,
   tilingInfo,
@@ -191,6 +191,12 @@ function resetContactTracking() {
   contactLastSeen.clear();
 }
 
+function restartContinuousEnvelopes() {
+  resetContactTracking();
+  suppressContactOnsetsUntil = 0;
+  suppressContactOnsetFrames = 0;
+}
+
 function suppressGeometryOnsets(duration = GEOMETRY_EDIT_SETTLE_MS) {
   suppressContactOnsetsUntil = Math.max(
     suppressContactOnsetsUntil,
@@ -316,8 +322,11 @@ function setSoundMode(mode, shouldAnnounce = true) {
   if (nextMode !== state.soundMode) {
     pool.silence();
     state.soundMode = nextMode;
-    resetContactTracking();
-    suppressGeometryOnsets();
+    if (state.playing && state.soundMode !== "percussion") restartContinuousEnvelopes();
+    else {
+      resetContactTracking();
+      suppressGeometryOnsets();
+    }
   }
   $("soundMode").value = state.soundMode;
   $("percussionArticulation").hidden = state.soundMode !== "percussion";
@@ -742,8 +751,10 @@ $("traversalDirection").addEventListener("click", () => {
 });
 
 function setPlaying(playing) {
+  const wasPlaying = state.playing;
   state.playing = Boolean(playing);
   if (!state.playing) pool.silence();
+  else if (!wasPlaying && state.soundMode !== "percussion") restartContinuousEnvelopes();
   setPressed($("playButton"), state.playing);
   $("playButton").setAttribute("aria-label", state.playing ? "Pause pattern" : "Play pattern");
   $("traversalDirection").hidden = !state.playing;
@@ -779,8 +790,11 @@ async function enableAudio() {
     pool.setVoices([]);
     pool.setLevel(state.level);
     state.audio = true;
-    resetContactTracking();
-    suppressGeometryOnsets();
+    if (state.playing && state.soundMode !== "percussion") restartContinuousEnvelopes();
+    else {
+      resetContactTracking();
+      suppressGeometryOnsets();
+    }
     paintAudioState();
     announce(`Audio on. ${SOUND_MODE_LABELS[state.soundMode]} is ready.`);
     scheduleFrame();
@@ -1055,7 +1069,7 @@ function mappingForContact(contact) {
     pitch,
     levelMark,
     frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange),
-    gain: baseGain * intersectionAccentMultiplier(
+    gain: baseGain * intersectionAmplitudeEnvelope(
       contact.accentAge,
       state.intersectionAccent,
       state.intersectionDecay / 1000,

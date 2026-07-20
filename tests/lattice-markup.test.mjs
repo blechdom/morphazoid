@@ -57,6 +57,7 @@ test("Lattice exposes complete shape controls and single-patch synth modes", asy
   assert.match(html, /id="straightenEdges"/);
   assert.match(html, /id="intersectionAccent"/);
   assert.match(html, /id="intersectionDecay"[^>]+value="100"/);
+  assert.match(html, />Amplitude decay</);
   assert.match(html, /id="density"[^>]+max="0\.8"/);
   assert.match(html, /id="voiceCap"[^>]+max="12"[^>]+value="8"/);
   assert.doesNotMatch(html, /class="control-note"|class="sine-voice"/);

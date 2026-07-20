@@ -12,7 +12,7 @@ import {
   createScanLine,
   edgeCurve,
   evenlySelectContacts,
-  intersectionAccentMultiplier,
+  intersectionAmplitudeEnvelope,
   latticeOffsetForPhase,
   parametersForDraggedVertex,
   prototileIsNonOverlapping,
@@ -243,7 +243,7 @@ test("an arbitrary-angle line returns ordered, merged contacts", () => {
   );
 });
 
-test("dense contacts are sampled spatially and same-sine accents decay", () => {
+test("dense contacts are sampled spatially and intersection amplitude decays to silence", () => {
   const contacts = Array.from({ length: 21 }, (_, index) => ({ index }));
   assert.deepEqual(
     evenlySelectContacts(contacts, 5).map((contact) => contact.index),
@@ -252,14 +252,22 @@ test("dense contacts are sampled spatially and same-sine accents decay", () => {
   assert.deepEqual(evenlySelectContacts(contacts, 1), [{ index: 10 }]);
   assert.deepEqual(evenlySelectContacts(contacts, 0), []);
 
-  const onset = intersectionAccentMultiplier(0, 0.65);
-  const tail = intersectionAccentMultiplier(1, 0.65);
+  const onset = intersectionAmplitudeEnvelope(0, 0.65, 0.2);
+  const tail = intersectionAmplitudeEnvelope(0.1, 0.65, 0.2);
   assert.ok(onset > tail);
-  assert.ok(tail > 1 && tail < 1.001);
-  assert.equal(intersectionAccentMultiplier(0, 0), 1);
+  assert.ok(tail > 0);
   assert.ok(
-    intersectionAccentMultiplier(0.1, 0.75, 0.2)
-      > intersectionAccentMultiplier(0.1, 0.75, 0.05),
-    "longer decay must retain more intersection emphasis",
+    intersectionAmplitudeEnvelope(0.19, 0.65, 0.2)
+      > intersectionAmplitudeEnvelope(0.199, 0.65, 0.2),
+    "the final approach to silence must keep tapering",
+  );
+  assert.ok(intersectionAmplitudeEnvelope(0.199, 0.65, 0.2) < onset * 0.001);
+  assert.equal(intersectionAmplitudeEnvelope(0.2, 0.65, 0.2), 0);
+  assert.equal(intersectionAmplitudeEnvelope(1, 0.65, 0.2), 0);
+  assert.equal(intersectionAmplitudeEnvelope(0, 0), 1);
+  assert.ok(
+    intersectionAmplitudeEnvelope(0.1, 0.75, 0.2)
+      > intersectionAmplitudeEnvelope(0.1, 0.75, 0.05),
+    "longer decay must retain oscillator amplitude",
   );
 });

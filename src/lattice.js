@@ -809,9 +809,13 @@ export function centeredContactWindow(contacts, count) {
   return contacts.slice(start, start + limit);
 }
 
-/** Same-sine onset emphasis for a newly intersected edge. */
-export function intersectionAccentMultiplier(ageSeconds, amount = 0.65, decaySeconds = 0.1) {
+/** Finite onset envelope for a continuously tracked edge intersection. */
+export function intersectionAmplitudeEnvelope(ageSeconds, amount = 0.65, decaySeconds = 0.1) {
   const age = Math.max(0, Number(ageSeconds) || 0);
   const decay = clamp(Number(decaySeconds) || 0.1, 0.02, 2);
-  return 1 + 1.25 * clamp(Number(amount) || 0, 0, 1) * Math.exp(-age / decay);
+  const progress = clamp(age / decay, 0, 1);
+  const silentTail = Math.exp(-4);
+  const remaining = (Math.exp(-4 * progress) - silentTail) / (1 - silentTail);
+  const peak = 1 + 1.25 * clamp(Number(amount) || 0, 0, 1);
+  return peak * remaining;
 }

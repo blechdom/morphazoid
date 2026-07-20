@@ -265,19 +265,32 @@ test("lattice app renders and plays line contacts", async () => {
   assert.equal(oscillators.length, 16);
   assert.ok(oscillators.every((oscillator) => oscillator.type === "sine"));
   assert.ok(Math.abs(gains[0].gain.value - Math.sqrt(0.65)) < 1e-12);
-  now += 100;
+  now += 50;
   queuedFrame(now);
-  assert.match(elements.get("stageReadout").textContent, /VOICE/);
   const voiceGains = gains.slice(1, 17);
   assert.ok(voiceGains.some((gain) => gain.gain.value > 0));
+  const onsetCombinedGain = Math.hypot(...voiceGains.map((gain) => gain.gain.value));
   assert.ok(
-    Math.hypot(...voiceGains.map((gain) => gain.gain.value)) > 0.05,
+    onsetCombinedGain > 0.05,
     "the default line chord should have audible combined gain",
   );
   assert.ok(oscillators.some((oscillator) => oscillator.frequency.value !== 220));
   assert.ok(oscillators.every((oscillator) => (
     oscillator.frequency.value >= 110 && oscillator.frequency.value <= 1245
   )));
+  const onsetFrequencies = oscillators.map((oscillator) => oscillator.frequency.value);
+  now += 70;
+  queuedFrame(now);
+  assert.match(elements.get("stageReadout").textContent, /VOICE/);
+  assert.ok(
+    Math.hypot(...voiceGains.map((gain) => gain.gain.value)) < onsetCombinedGain,
+    "the continuous lattice chord must fall away after its onset",
+  );
+  assert.notDeepEqual(
+    oscillators.map((oscillator) => oscillator.frequency.value),
+    onsetFrequencies,
+    "curve motion must keep steering pitch after the amplitude envelope ends",
+  );
 
   elements.get("soundMode").value = "fm";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
