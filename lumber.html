@@ -189,15 +189,28 @@
           </summary>
           <div class="group-body">
             <div class="fx-ring-actions">
-              <button class="mini-action" id="addDelayRing" type="button">Add delay ring</button>
-              <button class="mini-action ring-remove" id="removeDelayRing" type="button" disabled>Remove delay ring</button>
+              <button class="mini-action" id="delayRingToggle" type="button" aria-pressed="false">Delay ring on/off</button>
+              <button class="mini-action ring-remove" id="resetDelayRing" type="button" disabled>Reset delay ring</button>
+            </div>
+            <div class="axis-motion-row fx-rotation-row">
+              <button class="mini-action axis-play-button" id="delayRotationPlay" type="button" aria-pressed="false" aria-label="Play delay ring rotation" disabled>
+                <span aria-hidden="true">▶</span><small>Delay</small>
+              </button>
+              <label class="control" for="delayRotationSpeed">
+                <span><b>Rotation speed</b><output id="delayRotationSpeedOut" for="delayRotationSpeed">+0.08 rev/s</output></span>
+                <input id="delayRotationSpeed" type="range" min="-0.5" max="0.5" step="0.01" value="0.08" disabled />
+              </label>
             </div>
             <dl class="loop-metrics fx-ring-metrics" aria-label="Delay ring values">
               <div><dt>Mix send</dt><dd><output id="mixDelayWetOut">dry</output></dd></div>
               <div><dt>Delay time</dt><dd><output id="mixDelayTimeOut">280 ms</output></dd></div>
               <div><dt>Feedback</dt><dd><output id="mixDelayFeedbackOut">0%</output></dd></div>
             </dl>
-            <div class="field-label">Active ring tone + stereo</div>
+            <label class="control" for="delaySpread">
+              <span><b>Stereo spread</b><output id="delaySpreadOut" for="delaySpread">65%</output></span>
+              <input id="delaySpread" type="range" min="0" max="1" step="0.01" value="0.65" disabled />
+            </label>
+            <div class="field-label">Active ring tone</div>
             <label class="control" for="filterTone">
               <span><b>Filter tone</b><output id="filterToneOut" for="filterTone">12.8 kHz</output></span>
               <input id="filterTone" type="range" min="0" max="1" step="0.01" value="0.86" />
@@ -205,10 +218,6 @@
             <label class="control" for="filterResonance">
               <span><b>Filter resonance</b><output id="filterResonanceOut" for="filterResonance">0.0 Q</output></span>
               <input id="filterResonance" type="range" min="0" max="12" step="0.1" value="0" />
-            </label>
-            <label class="control" for="ringPan">
-              <span><b>Stereo pan</b><output id="ringPanOut" for="ringPan">center</output></span>
-              <input id="ringPan" type="range" min="-1" max="1" step="0.01" value="0" />
             </label>
           </div>
         </details>

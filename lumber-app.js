@@ -33,7 +33,7 @@ const FX_RING_MAX_OFFSET = 0.34;
 const FX_RING_SCALE = 1.72;
 const WAVEFORM_RADIUS = 0.065;
 const RING_COLORS = ["#e8c46b", "#5fe8c4", "#7db4ff", "#c79bff", "#ff826f"];
-const FX_RING_COLOR = "#ff826f";
+const FX_RING_COLOR = "#ffe3c2";
 const CANVAS_FONT = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 const expandedMode = document.body?.dataset?.lumberMode === "expanded";
 
@@ -78,6 +78,18 @@ function createRing(order = 0) {
   };
 }
 
+function createDelayRingState(enabled = false) {
+  return {
+    enabled,
+    radialOffsets: Array(DEFAULT_VERTEX_COUNT).fill(0),
+    selectedVertex: 0,
+    rotationPhase: 0,
+    rotationPlaying: false,
+    rotationSpeed: 0.08,
+    spread: 0.65,
+  };
+}
+
 const firstRing = createRing();
 const state = {
   audio: false,
@@ -88,7 +100,7 @@ const state = {
   view3d: false,
   viewTilt: 52,
   viewYaw: -18,
-  delayRing: null,
+  delayRing: createDelayRingState(),
   level: 0.7,
   rings: [firstRing],
   activeRingId: firstRing.id,
@@ -111,13 +123,15 @@ let fxHoverVertex = -1;
 let audioChanging = false;
 let recordChanging = false;
 let transportGeneration = 0;
+let lastDelayFrameTime = performance.now();
 
 let audioContext = null;
 let masterGain = null;
 let masterLimiter = null;
 let mixDelaySend = null;
-let mixDelayNode = null;
-let mixDelayFeedback = null;
+let mixDelayNodes = [];
+let mixDelayFeedbacks = [];
+let mixDelayPanners = [];
 
 let mediaStream = null;
 let microphoneSource = null;
@@ -378,7 +392,7 @@ function ringFilterFrequency(ring) {
 
 function mixDelayParameters() {
   return mixDelayParametersFromOffsets(
-    state.delayRing?.radialOffsets,
+    state.delayRing.enabled ? state.delayRing.radialOffsets : null,
     FX_RING_MIN_OFFSET,
     FX_RING_MAX_OFFSET,
   );
@@ -389,8 +403,17 @@ function updateMixDelay() {
   const parameters = mixDelayParameters();
   const now = audioContext.currentTime;
   mixDelaySend?.gain.setTargetAtTime(parameters.wet, now, 0.02);
-  mixDelayNode?.delayTime.setTargetAtTime(parameters.time, now, 0.02);
-  mixDelayFeedback?.gain.setTargetAtTime(parameters.feedback, now, 0.02);
+  const spread = state.delayRing.enabled ? clamp(state.delayRing.spread, 0, 1) : 0;
+  mixDelayNodes.forEach((delay, index) => {
+    const side = index ? 1 : -1;
+    delay.delayTime.setTargetAtTime(parameters.time * (1 + side * spread * 0.08), now, 0.02);
+  });
+  for (const feedback of mixDelayFeedbacks) {
+    feedback.gain.setTargetAtTime(parameters.feedback, now, 0.02);
+  }
+  mixDelayPanners.forEach((panner, index) => {
+    panner.pan.setTargetAtTime((index ? 1 : -1) * spread, now, 0.02);
+  });
 }
 
 function updateRingEffects(ring) {
@@ -563,19 +586,34 @@ async function ensureAudio() {
     }
     if (typeof audioContext.createDelay === "function") {
       mixDelaySend = audioContext.createGain();
-      mixDelayNode = audioContext.createDelay(2);
-      mixDelayFeedback = audioContext.createGain();
-      const mixDelayWet = audioContext.createGain();
       mixDelaySend.gain.value = 0;
-      mixDelayNode.delayTime.value = 0.28;
-      mixDelayFeedback.gain.value = 0;
-      mixDelayWet.gain.value = 1;
       masterGain.connect(mixDelaySend);
-      mixDelaySend.connect(mixDelayNode);
-      mixDelayNode.connect(mixDelayWet);
-      mixDelayWet.connect(masterOutput);
-      mixDelayNode.connect(mixDelayFeedback);
-      mixDelayFeedback.connect(mixDelayNode);
+      mixDelayNodes = [];
+      mixDelayFeedbacks = [];
+      mixDelayPanners = [];
+      for (const side of [-1, 1]) {
+        const delay = audioContext.createDelay(2);
+        const feedback = audioContext.createGain();
+        const wet = audioContext.createGain();
+        delay.delayTime.value = 0.28;
+        feedback.gain.value = 0;
+        wet.gain.value = 0.5;
+        mixDelaySend.connect(delay);
+        delay.connect(wet);
+        if (typeof audioContext.createStereoPanner === "function") {
+          const panner = audioContext.createStereoPanner();
+          panner.pan.value = side * state.delayRing.spread;
+          wet.connect(panner);
+          panner.connect(masterOutput);
+          mixDelayPanners.push(panner);
+        } else {
+          wet.connect(masterOutput);
+        }
+        delay.connect(feedback);
+        feedback.connect(delay);
+        mixDelayNodes.push(delay);
+        mixDelayFeedbacks.push(feedback);
+      }
     }
   }
   if (audioContext.state !== "running" && audioContext.state !== "closed") {
@@ -679,6 +717,20 @@ function setRingVolume(ring, volume, shouldAnnounce = false) {
   ring.source?.gain.gain.setTargetAtTime?.(ringVoiceGain(ring), now, 0.012);
   if (shouldAnnounce) {
     announce(`Ring ${ringOrdinal(ring)} volume ${Math.round(ring.volume * 100)} percent.`);
+  }
+}
+
+function setRingPan(ring, pan, shouldAnnounce = false) {
+  if (!ring) return;
+  ring.pan = clamp(Number(pan), -1, 1);
+  const now = audioContext?.currentTime ?? 0;
+  ring.source?.panner?.pan.cancelScheduledValues?.(now);
+  ring.source?.panner?.pan.setTargetAtTime?.(ring.pan, now, 0.012);
+  if (shouldAnnounce) {
+    const position = Math.abs(ring.pan) < 0.01
+      ? "center"
+      : `${Math.round(Math.abs(ring.pan) * 100)} percent ${ring.pan < 0 ? "left" : "right"}`;
+    announce(`Ring ${ringOrdinal(ring)} pan ${position}.`);
   }
 }
 
@@ -936,25 +988,25 @@ function setRingHeadOffset(index, value, restart = false) {
   scheduleFrame();
 }
 
-function addDelayRing() {
-  if (state.delayRing || state.recording || recordChanging) return;
-  state.delayRing = {
-    radialOffsets: Array(DEFAULT_VERTEX_COUNT).fill(0),
-    selectedVertex: 0,
-  };
+function toggleDelayRing() {
+  if (state.recording || recordChanging) return;
+  state.delayRing.enabled = !state.delayRing.enabled;
+  if (!state.delayRing.enabled) state.delayRing.rotationPlaying = false;
+  lastDelayFrameTime = performance.now();
   updateMixDelay();
   updateUi();
   scheduleFrame();
-  announce("Delay ring added to the full mix.");
+  announce(`Delay ring ${state.delayRing.enabled ? "on" : "off"}.`);
 }
 
-function removeDelayRing() {
-  if (!state.delayRing || state.recording || recordChanging) return;
-  state.delayRing = null;
+function resetDelayRing() {
+  if (!state.delayRing.enabled || state.recording || recordChanging) return;
+  state.delayRing = createDelayRingState(true);
+  lastDelayFrameTime = performance.now();
   updateMixDelay();
   updateUi();
   scheduleFrame();
-  announce("Delay ring removed. The mix is dry.");
+  announce("Delay ring reset to its dry circle.");
 }
 
 function spreadRingDepths() {
@@ -1288,6 +1340,10 @@ function renderRingList(selectedRing) {
     const volume = clamp(ring.volume ?? 1, 0, 1.25);
     const volumePercent = Math.round(volume * 100);
     const knobAngle = -135 + volume / 1.25 * 270;
+    const pan = clamp(ring.pan ?? 0, -1, 1);
+    const panPosition = Math.abs(pan) < 0.01
+      ? "center"
+      : `${Math.round(Math.abs(pan) * 100)}% ${pan < 0 ? "left" : "right"}`;
     const status = ring.buffer
       ? `${formatDuration(ringCycleDuration(ring))}${ring.muted ? " · muted" : soloed ? " · solo" : ""}`
       : "empty";
@@ -1298,6 +1354,9 @@ function renderRingList(selectedRing) {
       + `<label class="ring-volume-control" title="Ring ${index + 1} volume ${volumePercent}%">`
       + `<span class="ring-volume-knob" style="--ring-volume-angle:${knobAngle}deg"><b></b></span>`
       + `<input type="range" min="0" max="1.25" step="0.01" value="${volume}" data-ring-volume="${ring.id}" aria-label="Ring ${index + 1} relative volume" /></label>`
+      + `<label class="ring-pan-control" title="Ring ${index + 1} pan ${panPosition}">`
+      + `<span class="ring-pan-knob" style="--ring-pan-angle:${pan * 135}deg"><b></b></span>`
+      + `<input type="range" min="-1" max="1" step="0.01" value="${pan}" data-ring-pan="${ring.id}" aria-label="Ring ${index + 1} stereo pan" /></label>`
       + `<button type="button" data-ring-action="mute" data-ring-id="${ring.id}" title="${ring.muted ? "Unmute" : "Mute"}" aria-label="${ring.muted ? "Unmute" : "Mute"} ring ${index + 1}"${ring.buffer ? "" : " disabled"}>${ring.muted ? "U" : "M"}</button>`
       + `<button type="button" data-ring-action="solo" data-ring-id="${ring.id}" title="${soloed ? "Clear solo" : "Solo"}" aria-label="${soloed ? "Clear solo on" : "Solo"} ring ${index + 1}"${ring.buffer ? "" : " disabled"}>S</button>`
       + `<button type="button" data-ring-action="delete" data-ring-id="${ring.id}" title="Delete" aria-label="Delete ring ${index + 1}"${state.rings.length <= 1 ? " disabled" : ""}>×</button></div>`;
@@ -1392,15 +1451,31 @@ function updateUi() {
     + ` · pitch ${Math.round(ring.shapePitchDepth * 100)}%`;
 
   const delay = mixDelayParameters();
-  $("addDelayRing").disabled = locked || Boolean(state.delayRing);
-  $("removeDelayRing").disabled = locked || !state.delayRing;
+  setPressed($("delayRingToggle"), state.delayRing.enabled);
+  $("delayRingToggle").disabled = locked;
+  $("resetDelayRing").disabled = locked || !state.delayRing.enabled;
+  setPressed($("delayRotationPlay"), state.delayRing.rotationPlaying);
+  $("delayRotationPlay").disabled = locked || !state.delayRing.enabled;
+  $("delayRotationPlay").setAttribute(
+    "aria-label",
+    `${state.delayRing.rotationPlaying ? "Pause" : "Play"} delay ring rotation`,
+  );
+  $("delayRotationPlay").querySelector("span").textContent = state.delayRing.rotationPlaying
+    ? "Ⅱ"
+    : "▶";
+  $("delayRotationSpeed").value = String(state.delayRing.rotationSpeed);
+  $("delayRotationSpeed").disabled = locked || !state.delayRing.enabled;
+  $("delayRotationSpeedOut").textContent = `${state.delayRing.rotationSpeed >= 0 ? "+" : ""}${state.delayRing.rotationSpeed.toFixed(2)} rev/s`;
+  $("delaySpread").value = String(state.delayRing.spread);
+  $("delaySpread").disabled = locked || !state.delayRing.enabled;
+  $("delaySpreadOut").textContent = `${Math.round(state.delayRing.spread * 100)}%`;
   $("mixDelayWetOut").textContent = delay.wet <= 0.001
     ? "dry"
     : `${Math.round(delay.wet * 100)}%`;
   $("mixDelayTimeOut").textContent = `${Math.round(delay.time * 1000)} ms`;
   $("mixDelayFeedbackOut").textContent = `${Math.round(delay.feedback * 100)}%`;
-  $("effectsSummary").textContent = state.delayRing
-    ? `Delay ring · ${Math.round(delay.wet * 100)}% wet`
+  $("effectsSummary").textContent = state.delayRing.enabled
+    ? `Delay ring · ${Math.round(delay.wet * 100)}% wet${state.delayRing.rotationPlaying ? " · rotating" : ""}`
     : "Delay ring · off";
   $("filterTone").value = String(ring.filterTone);
   const cutoff = ringFilterFrequency(ring);
@@ -1409,10 +1484,6 @@ function updateUi() {
     : `${Math.round(cutoff)} Hz`;
   $("filterResonance").value = String(ring.filterResonance);
   $("filterResonanceOut").textContent = `${ring.filterResonance.toFixed(1)} Q`;
-  $("ringPan").value = String(ring.pan);
-  $("ringPanOut").textContent = Math.abs(ring.pan) < 0.01
-    ? "center"
-    : `${Math.round(Math.abs(ring.pan) * 100)}% ${ring.pan < 0 ? "left" : "right"}`;
 
   for (const button of $("viewMode").querySelectorAll("button")) {
     setPressed(button, (button.dataset.value === "3d") === state.view3d);
@@ -1459,7 +1530,7 @@ function stageGeometry() {
   return {
     centerX: cssWidth * 0.5,
     centerY: cssHeight * 0.5,
-    radius: Math.max(18, extent * (state.delayRing ? 0.205 : 0.24)),
+    radius: Math.max(18, extent * (state.delayRing.enabled ? 0.205 : 0.24)),
   };
 }
 
@@ -1617,19 +1688,22 @@ function drawRing(ring, geometry, envelope) {
 
 function delayRingPoint(phase, geometry) {
   const vertices = radialContourVertices(
-    state.delayRing?.radialOffsets,
+    state.delayRing.radialOffsets,
     FX_RING_MIN_OFFSET,
     FX_RING_MAX_OFFSET,
   );
   const point = pointOnContour(vertices, phase);
+  const rotation = state.delayRing.rotationPhase * TAU;
+  const x = point.x * Math.cos(rotation) - point.y * Math.sin(rotation);
+  const y = point.x * Math.sin(rotation) + point.y * Math.cos(rotation);
   return {
-    x: geometry.centerX + point.x * geometry.radius * FX_RING_SCALE,
-    y: geometry.centerY + point.y * geometry.radius * FX_RING_SCALE,
+    x: geometry.centerX + x * geometry.radius * FX_RING_SCALE,
+    y: geometry.centerY + y * geometry.radius * FX_RING_SCALE,
   };
 }
 
 function drawDelayRing(geometry) {
-  if (!state.delayRing) return;
+  if (!state.delayRing.enabled) return;
   const parameters = mixDelayParameters();
   context.save();
   context.beginPath();
@@ -1767,6 +1841,13 @@ function drawFrame() {
 
 function frame(now) {
   scheduledFrame = 0;
+  const delayElapsed = clamp((now - lastDelayFrameTime) / 1000, 0, 0.1);
+  lastDelayFrameTime = now;
+  if (state.delayRing.enabled && state.delayRing.rotationPlaying) {
+    state.delayRing.rotationPhase = wrap01(
+      state.delayRing.rotationPhase + state.delayRing.rotationSpeed * delayElapsed,
+    );
+  }
   drawFrame();
   if (state.playing) {
     for (const ring of recordedRings()) updateRingEffects(ring);
@@ -1775,7 +1856,9 @@ function frame(now) {
     updateUi();
     lastUiUpdate = now;
   }
-  if (state.recording || state.playing || pointerGesture) scheduleFrame();
+  if (state.recording || state.playing || pointerGesture || state.delayRing.rotationPlaying) {
+    scheduleFrame();
+  }
 }
 
 function pointerData(event) {
@@ -1802,7 +1885,7 @@ function nearestVertex(data, ring, geometry) {
 }
 
 function nearestDelayRingVertex(data) {
-  if (!state.delayRing) return -1;
+  if (!state.delayRing.enabled) return -1;
   let selected = -1;
   let distance = 22;
   for (let index = 0; index < state.delayRing.radialOffsets.length; index += 1) {
@@ -1981,7 +2064,7 @@ canvas.addEventListener("pointermove", (event) => {
     return;
   }
   if (pointerGesture.type === "delay-ring-vertex") {
-    if (!state.delayRing) return;
+    if (!state.delayRing.enabled) return;
     const distance = Math.hypot(
       data.x - data.geometry.centerX,
       data.y - data.geometry.centerY,
@@ -2182,22 +2265,44 @@ $("ringList").addEventListener("click", (event) => {
   else if (button.dataset.ringAction === "delete") removeRing(ring);
 });
 $("ringList").addEventListener("input", (event) => {
-  const input = event.target.closest?.("[data-ring-volume]");
-  if (!input) return;
-  const ring = ringById(Number(input.dataset.ringVolume));
+  const volumeInput = event.target.closest?.("[data-ring-volume]");
+  if (volumeInput) {
+    const ring = ringById(Number(volumeInput.dataset.ringVolume));
+    if (!ring) return;
+    setRingVolume(ring, volumeInput.value);
+    const knob = volumeInput.parentElement?.querySelector?.(".ring-volume-knob");
+    const volumePercent = Math.round(ring.volume * 100);
+    knob?.style.setProperty("--ring-volume-angle", `${-135 + ring.volume / 1.25 * 270}deg`);
+    if (volumeInput.parentElement) {
+      volumeInput.parentElement.title = `Ring ${ringOrdinal(ring)} volume ${volumePercent}%`;
+    }
+    return;
+  }
+  const panInput = event.target.closest?.("[data-ring-pan]");
+  if (!panInput) return;
+  const ring = ringById(Number(panInput.dataset.ringPan));
   if (!ring) return;
-  setRingVolume(ring, input.value);
-  const knob = input.parentElement?.querySelector?.(".ring-volume-knob");
-  const label = input.parentElement;
-  const volumePercent = Math.round(ring.volume * 100);
-  knob?.style.setProperty("--ring-volume-angle", `${-135 + ring.volume / 1.25 * 270}deg`);
-  if (label) label.title = `Ring ${ringOrdinal(ring)} volume ${volumePercent}%`;
+  setRingPan(ring, panInput.value);
+  const knob = panInput.parentElement?.querySelector?.(".ring-pan-knob");
+  const position = Math.abs(ring.pan) < 0.01
+    ? "center"
+    : `${Math.round(Math.abs(ring.pan) * 100)}% ${ring.pan < 0 ? "left" : "right"}`;
+  knob?.style.setProperty("--ring-pan-angle", `${ring.pan * 135}deg`);
+  if (panInput.parentElement) {
+    panInput.parentElement.title = `Ring ${ringOrdinal(ring)} pan ${position}`;
+  }
 });
 $("ringList").addEventListener("change", (event) => {
-  const input = event.target.closest?.("[data-ring-volume]");
-  if (!input) return;
-  const ring = ringById(Number(input.dataset.ringVolume));
-  if (ring) setRingVolume(ring, input.value, true);
+  const volumeInput = event.target.closest?.("[data-ring-volume]");
+  if (volumeInput) {
+    const ring = ringById(Number(volumeInput.dataset.ringVolume));
+    if (ring) setRingVolume(ring, volumeInput.value, true);
+    return;
+  }
+  const panInput = event.target.closest?.("[data-ring-pan]");
+  if (!panInput) return;
+  const ring = ringById(Number(panInput.dataset.ringPan));
+  if (ring) setRingPan(ring, panInput.value, true);
 });
 
 for (const button of $("shapePreset").querySelectorAll("button")) {
@@ -2239,8 +2344,26 @@ $("shapePitchDepth").addEventListener("input", () => {
 $("shapePitchDepth").addEventListener("change", () => {
   setShapePitchDepth($("shapePitchDepth").value);
 });
-$("addDelayRing").addEventListener("click", addDelayRing);
-$("removeDelayRing").addEventListener("click", removeDelayRing);
+$("delayRingToggle").addEventListener("click", toggleDelayRing);
+$("resetDelayRing").addEventListener("click", resetDelayRing);
+$("delayRotationPlay").addEventListener("click", () => {
+  if (!state.delayRing.enabled) return;
+  state.delayRing.rotationPlaying = !state.delayRing.rotationPlaying;
+  lastDelayFrameTime = performance.now();
+  updateUi();
+  scheduleFrame();
+  announce(`Delay ring rotation ${state.delayRing.rotationPlaying ? "playing" : "paused"}.`);
+});
+$("delayRotationSpeed").addEventListener("input", () => {
+  state.delayRing.rotationSpeed = clamp(Number($("delayRotationSpeed").value), -0.5, 0.5);
+  updateUi();
+  scheduleFrame();
+});
+$("delaySpread").addEventListener("input", () => {
+  state.delayRing.spread = clamp(Number($("delaySpread").value), 0, 1);
+  updateMixDelay();
+  updateUi();
+});
 $("filterTone").addEventListener("input", () => {
   activeRing().filterTone = clamp(Number($("filterTone").value), 0, 1);
   updateRingEffects(activeRing());
@@ -2248,11 +2371,6 @@ $("filterTone").addEventListener("input", () => {
 });
 $("filterResonance").addEventListener("input", () => {
   activeRing().filterResonance = clamp(Number($("filterResonance").value), 0, 12);
-  updateRingEffects(activeRing());
-  updateUi();
-});
-$("ringPan").addEventListener("input", () => {
-  activeRing().pan = clamp(Number($("ringPan").value), -1, 1);
   updateRingEffects(activeRing());
   updateUi();
 });

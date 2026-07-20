@@ -34,6 +34,7 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
       },
       addEventListener(type, listener) { listeners.set(`${id}:${type}`, listener); },
       setAttribute(name, value) { attributes.set(`${id}:${name}`, String(value)); },
+      querySelector() { return { textContent: "", style: { setProperty() {} } }; },
       querySelectorAll() { return []; },
       getBoundingClientRect() { return { left: 0, top: 0, width: 900, height: 600 }; },
       setPointerCapture() {},
@@ -131,6 +132,10 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   const processors = [];
   const sources = [];
   const gains = [];
+  const panners = [];
+  const delays = [];
+  const captureGains = [];
+  let nextGainIsCapture = false;
   globalThis.AudioContext = class {
     constructor() {
       this.currentTime = 0;
@@ -141,12 +146,17 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
     createGain() {
       const gain = audioNode({ gain: audioParam(0) });
       gains.push(gain);
+      if (nextGainIsCapture) {
+        captureGains.push(gain);
+        nextGainIsCapture = false;
+      }
       return gain;
     }
     createMediaStreamSource() { return audioNode(); }
     createScriptProcessor() {
       const processor = audioNode({ onaudioprocess: null });
       processors.push(processor);
+      nextGainIsCapture = true;
       return processor;
     }
     createBuffer(channels, length, sampleRate) {
@@ -169,6 +179,16 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
       });
       sources.push(source);
       return source;
+    }
+    createStereoPanner() {
+      const panner = audioNode({ pan: audioParam(0) });
+      panners.push(panner);
+      return panner;
+    }
+    createDelay() {
+      const delay = audioNode({ delayTime: audioParam(0) });
+      delays.push(delay);
+      return delay;
     }
     async resume() { this.state = "running"; }
     async suspend() { this.state = "suspended"; }
@@ -222,6 +242,8 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   assert.match(elements.get("ringList").innerHTML, /#5fe8c4/i);
   assert.match(elements.get("ringList").innerHTML, /data-ring-action="direction"/);
   assert.match(elements.get("ringList").innerHTML, /data-ring-volume="2"/);
+  assert.match(elements.get("ringList").innerHTML, /data-ring-pan="2"/);
+  assert.match(elements.get("ringList").innerHTML, /Ring 2 pan center/);
   assert.ok(sources.every((source) => source.playbackRate.value === 1));
   listeners.get("timingSync:click")();
   listeners.get("lengthHalf:click")();
@@ -316,27 +338,59 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   assert.ok(sources.length > sourcesBeforeScrub, "paused contour drag must create scrub audio");
 
   assert.equal(elements.get("mixDelayWetOut").textContent, "dry");
-  listeners.get("addDelayRing:click")();
+  assert.equal(attributes.get("delayRingToggle:aria-pressed"), "false");
+  listeners.get("delayRingToggle:click")();
   assert.match(elements.get("effectsSummary").textContent, /0% wet/);
-  assert.equal(elements.get("addDelayRing").disabled, true);
-  assert.equal(elements.get("removeDelayRing").disabled, false);
+  assert.equal(attributes.get("delayRingToggle:aria-pressed"), "true");
+  assert.equal(elements.get("resetDelayRing").disabled, false);
   listeners.get("stage:pointerdown")(gesture(450, 88));
   listeners.get("stage:pointermove")(gesture(450, 55));
   listeners.get("stage:pointerup")(gesture(450, 55));
   assert.doesNotMatch(elements.get("mixDelayWetOut").textContent, /dry/);
   assert.match(elements.get("liveStatus").textContent, /full mix/);
-  listeners.get("removeDelayRing:click")();
+  assert.ok(gains[1].gain.value > 0, "delay ring deformation must open the mix send");
+  elements.get("delaySpread").value = "0.8";
+  listeners.get("delaySpread:input")();
+  assert.equal(elements.get("delaySpreadOut").textContent, "80%");
+  assert.equal(panners[0].pan.value, -0.8);
+  assert.equal(panners[1].pan.value, 0.8);
+  assert.notEqual(delays[0].delayTime.value, delays[1].delayTime.value);
+  elements.get("delayRotationSpeed").value = "0.2";
+  listeners.get("delayRotationSpeed:input")();
+  assert.equal(elements.get("delayRotationSpeedOut").textContent, "+0.20 rev/s");
+  listeners.get("delayRotationPlay:click")();
+  assert.equal(attributes.get("delayRotationPlay:aria-pressed"), "true");
+  assert.match(elements.get("effectsSummary").textContent, /rotating/);
+  listeners.get("resetDelayRing:click")();
   assert.equal(elements.get("mixDelayWetOut").textContent, "dry");
+  assert.equal(elements.get("delaySpreadOut").textContent, "65%");
+  assert.equal(attributes.get("delayRotationPlay:aria-pressed"), "false");
+  listeners.get("delayRingToggle:click")();
+  assert.match(elements.get("effectsSummary").textContent, /off/);
   elements.get("filterTone").value = "0.5";
   listeners.get("filterTone:input")();
   assert.match(elements.get("filterToneOut").textContent, /kHz/);
-  elements.get("ringPan").value = "-0.5";
-  listeners.get("ringPan:input")();
-  assert.equal(elements.get("ringPanOut").textContent, "50% left");
-  selectRingWhilePlaying(1);
-  assert.equal(elements.get("ringPanOut").textContent, "center");
-  selectRingWhilePlaying(2);
-  assert.equal(elements.get("ringPanOut").textContent, "50% left");
+  const panValues = [];
+  const panLabel = {
+    title: "",
+    querySelector() {
+      return { style: { setProperty(name, value) { panValues.push([name, value]); } } };
+    },
+  };
+  const panInput = {
+    value: "-0.5",
+    dataset: { ringPan: "2" },
+    parentElement: panLabel,
+    closest(selector) { return selector === "[data-ring-pan]" ? this : null; },
+  };
+  listeners.get("playButton:click")();
+  await new Promise((resolve) => setImmediate(resolve));
+  listeners.get("ringList:input")({ target: panInput });
+  assert.equal(panLabel.title, "Ring 2 pan 50% left");
+  assert.equal(panValues.at(-1)[0], "--ring-pan-angle");
+  assert.equal(panners.at(-1).pan.value, -0.5);
+  listeners.get("ringList:change")({ target: panInput });
+  assert.match(elements.get("liveStatus").textContent, /pan 50 percent left/);
 
   const ringAction = (action, ringId = 2) => listeners.get("ringList:click")({
     target: {
@@ -381,5 +435,6 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   assert.match(elements.get("stageReadout").textContent, /EMPTY RING/);
   assert.ok(documentListeners.has("visibilitychange"));
   assert.ok(windowListeners.has("pagehide"));
-  assert.ok(gains[1].gain.value === 0, "microphone input must remain unmonitored");
+  assert.ok(captureGains.length >= 3);
+  assert.ok(captureGains.every((gain) => gain.gain.value === 0), "microphone input must remain unmonitored");
 });

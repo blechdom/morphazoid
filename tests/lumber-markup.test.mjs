@@ -22,9 +22,10 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
     "backingOff", "backingOn",
     "shapePitchDepth", "advancedSummary", "viewFlat",
     "viewThreeD", "viewTilt", "viewYaw", "ringDepth", "spreadDepth",
-    "addDelayRing", "removeDelayRing", "mixDelayTimeOut",
+    "delayRingToggle", "resetDelayRing", "delayRotationPlay", "delayRotationSpeed",
+    "delayRotationSpeedOut", "delaySpread", "delaySpreadOut", "mixDelayTimeOut",
     "mixDelayFeedbackOut", "mixDelayWetOut", "effectsSummary",
-    "filterTone", "filterResonance", "ringPan",
+    "filterTone", "filterResonance",
     "timingFree", "timingSync", "lengthQuarter", "lengthHalf",
     "lengthFull", "lengthDouble",
     "removeLoopHead", "addLoopHead", "headCountOut", "headOffsetControls",
@@ -44,6 +45,9 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.doesNotMatch(html, /class="control-note"/);
   assert.doesNotMatch(html, /Native|Tape pitch|id="timeMode"|id="pitchShift"/i);
   assert.match(html, /Mix FX \+ ring tone/);
+  assert.match(html, />Delay ring on\/off<\/button>/);
+  assert.match(html, />Reset delay ring<\/button>/);
+  assert.match(html, />Stereo spread</);
   assert.doesNotMatch(html, /delay brush|delay paint|brush size/i);
 
   assert.match(app, /getUserMedia/);
@@ -59,8 +63,10 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.match(app, /data-ring-action="solo"/);
   assert.match(app, /data-ring-action="direction"/);
   assert.match(app, /data-ring-volume=/);
+  assert.match(app, /data-ring-pan=/);
   assert.doesNotMatch(html, /id="ringDirection"|id="rotateLeft"|id="rotateRight"/);
   assert.match(css, /\.ring-volume-knob/);
+  assert.match(css, /\.ring-pan-knob/);
   assert.match(app, /lastRingListSignature/);
   assert.match(app, /ringList"\)\.addEventListener\("pointerdown"/);
   assert.match(app, /pitchShiftLoopSamplesByContour/);
@@ -82,7 +88,8 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.match(app, /mixDelayParametersFromOffsets/);
   assert.match(app, /drawDelayRing/);
   assert.match(app, /updateMixDelay/);
-  assert.match(app, /mixDelayNode/);
+  assert.match(app, /mixDelayNodes/);
+  assert.match(app, /mixDelayPanners/);
   assert.doesNotMatch(app, /paintDelayMask|sampleDelayMask|drawDelayPaint|drawBrushCursor/);
   assert.match(app, /synchronizeAllRings/);
   assert.match(app, /createBiquadFilter/);
