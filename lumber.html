@@ -246,6 +246,37 @@
               <input id="ringDepth" type="range" min="-1" max="1" step="0.01" value="0" />
             </label>
             <button class="mini-action reset-form" id="spreadDepth" type="button">Spread rings in depth</button>
+            <div class="depth-effects">
+              <div class="field-label">Depth effects</div>
+              <div class="depth-effect-row">
+                <div class="depth-effect-name">
+                  <b>Reverb</b>
+                  <output id="reverbIntensityOut">off</output>
+                </div>
+                <div class="choice-switch compact" id="reverbMode" role="group" aria-label="3D reverb">
+                  <button id="reverbOff" type="button" data-value="off" aria-pressed="true">Off</button>
+                  <button id="reverbOn" type="button" data-value="on" aria-pressed="false">On</button>
+                </div>
+                <div class="choice-switch compact depth-direction" id="reverbDirection" role="group" aria-label="Reverb intensity direction">
+                  <button id="reverbLeft" type="button" data-value="left" aria-pressed="false">Left</button>
+                  <button id="reverbRight" type="button" data-value="right" aria-pressed="true">Right</button>
+                </div>
+              </div>
+              <div class="depth-effect-row">
+                <div class="depth-effect-name">
+                  <b>Fuzz</b>
+                  <output id="fuzzIntensityOut">off</output>
+                </div>
+                <div class="choice-switch compact" id="fuzzMode" role="group" aria-label="3D fuzz">
+                  <button id="fuzzOff" type="button" data-value="off" aria-pressed="true">Off</button>
+                  <button id="fuzzOn" type="button" data-value="on" aria-pressed="false">On</button>
+                </div>
+                <div class="choice-switch compact depth-direction" id="fuzzDirection" role="group" aria-label="Fuzz intensity direction">
+                  <button id="fuzzLeft" type="button" data-value="left" aria-pressed="false">Left</button>
+                  <button id="fuzzRight" type="button" data-value="right" aria-pressed="true">Right</button>
+                </div>
+              </div>
+            </div>
           </div>
         </details>
 

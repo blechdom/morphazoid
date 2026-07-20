@@ -1484,6 +1484,53 @@ input[type="range"]::-moz-range-thumb {
   font-size: 9px;
 }
 
+.depth-effects {
+  margin: 4px 0 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.depth-effect-row {
+  display: grid;
+  min-width: 0;
+  padding: 8px 0 3px;
+  border-bottom: 1px solid var(--line);
+  grid-template-columns: minmax(58px, 0.7fr) minmax(92px, 1fr) minmax(104px, 1.15fr);
+  align-items: center;
+  gap: 7px;
+}
+
+.depth-effect-name {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.depth-effect-name b {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.depth-effect-name output {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.depth-effect-row .choice-switch {
+  margin: 0;
+}
+
+.depth-effect-row .choice-switch button {
+  min-height: 32px;
+  padding: 5px 4px;
+}
+
 .mode-control {
   margin-top: 7px;
 }

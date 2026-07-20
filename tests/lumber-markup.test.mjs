@@ -22,6 +22,8 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
     "backingOff", "backingOn",
     "shapePitchDepth", "advancedSummary", "viewFlat",
     "viewThreeD", "viewTilt", "viewYaw", "ringDepth", "spreadDepth",
+    "reverbOff", "reverbOn", "reverbLeft", "reverbRight", "reverbIntensityOut",
+    "fuzzOff", "fuzzOn", "fuzzLeft", "fuzzRight", "fuzzIntensityOut",
     "delayRingToggle", "resetDelayRing", "delayRotationPlay", "delayRotationSpeed",
     "delayRotationSpeedOut", "delaySpread", "delaySpreadOut", "mixDelayTimeOut",
     "mixDelayFeedbackOut", "mixDelayWetOut", "effectsSummary",
@@ -97,6 +99,11 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.match(app, /createBiquadFilter/);
   assert.match(app, /createStereoPanner/);
   assert.match(app, /setThreeDView/);
+  assert.match(app, /depthEffectIntensity/);
+  assert.match(app, /createConvolver/);
+  assert.match(app, /createWaveShaper/);
+  assert.match(app, /depthReverbImpulse/);
+  assert.match(css, /\.depth-effect-row/);
 
   assert.match(css, /\.lumber-page\s+#loopSection\s*\{/);
   assert.match(css, /\.lumber-page\s+#ringSection\s*\{/);

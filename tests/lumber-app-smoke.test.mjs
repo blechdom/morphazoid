@@ -51,6 +51,10 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
     ringTiming: ["timingFree", "timingSync"],
     ringLength: ["lengthQuarter", "lengthHalf", "lengthFull", "lengthDouble"],
     viewMode: ["viewFlat", "viewThreeD"],
+    reverbMode: ["reverbOff", "reverbOn"],
+    reverbDirection: ["reverbLeft", "reverbRight"],
+    fuzzMode: ["fuzzOff", "fuzzOn"],
+    fuzzDirection: ["fuzzLeft", "fuzzRight"],
   };
   const values = {
     circlePreset: "circle",
@@ -66,6 +70,14 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
     lengthDouble: "2",
     viewFlat: "flat",
     viewThreeD: "3d",
+    reverbOff: "off",
+    reverbOn: "on",
+    reverbLeft: "left",
+    reverbRight: "right",
+    fuzzOff: "off",
+    fuzzOn: "on",
+    fuzzLeft: "left",
+    fuzzRight: "right",
   };
   for (const [id, value] of Object.entries(values)) elements.get(id).dataset.value = value;
   for (const [id, children] of Object.entries(groups)) {
@@ -134,6 +146,8 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   const gains = [];
   const panners = [];
   const delays = [];
+  const convolvers = [];
+  const shapers = [];
   const captureGains = [];
   let nextGainIsCapture = false;
   globalThis.AudioContext = class {
@@ -189,6 +203,16 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
       const delay = audioNode({ delayTime: audioParam(0) });
       delays.push(delay);
       return delay;
+    }
+    createConvolver() {
+      const convolver = audioNode({ buffer: null });
+      convolvers.push(convolver);
+      return convolver;
+    }
+    createWaveShaper() {
+      const shaper = audioNode({ curve: null, oversample: "none" });
+      shapers.push(shaper);
+      return shaper;
     }
     async resume() { this.state = "running"; }
     async suspend() { this.state = "suspended"; }
@@ -314,8 +338,26 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   listeners.get("viewThreeD:click")();
   assert.match(elements.get("depthSummary").textContent, /3D/);
   assert.equal(elements.get("ringDepth").disabled, false);
+  assert.equal(elements.get("reverbOn").disabled, false);
+  assert.equal(convolvers.length, 1, "3D reverb should share one room convolver");
+  assert.ok(shapers.length >= 2, "each sounding ring should have a fuzz path");
+  listeners.get("reverbOn:click")();
+  assert.equal(attributes.get("reverbOn:aria-pressed"), "true");
+  assert.match(elements.get("reverbIntensityOut").textContent, /%/);
+  const rightReverbIntensity = elements.get("reverbIntensityOut").textContent;
+  listeners.get("reverbLeft:click")();
+  assert.notEqual(elements.get("reverbIntensityOut").textContent, rightReverbIntensity);
+  assert.match(elements.get("depthSummary").textContent, /reverb/);
+  listeners.get("fuzzOn:click")();
+  assert.equal(attributes.get("fuzzOn:aria-pressed"), "true");
+  assert.match(elements.get("fuzzIntensityOut").textContent, /%/);
+  assert.equal(elements.get("fuzzRight").disabled, false);
+  assert.match(elements.get("depthSummary").textContent, /fuzz/);
   queuedFrame(performance.now() + 32);
   listeners.get("viewFlat:click")();
+  assert.equal(elements.get("reverbIntensityOut").textContent, "flat");
+  assert.equal(elements.get("fuzzIntensityOut").textContent, "flat");
+  assert.equal(elements.get("reverbOn").disabled, true);
 
   const gesture = (x, y) => ({
     clientX: x,

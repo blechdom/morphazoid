@@ -100,6 +100,10 @@ const state = {
   view3d: false,
   viewTilt: 52,
   viewYaw: -18,
+  reverbEnabled: false,
+  reverbDirection: 1,
+  fuzzEnabled: false,
+  fuzzDirection: 1,
   delayRing: createDelayRingState(),
   level: 0.7,
   rings: [firstRing],
@@ -132,6 +136,9 @@ let mixDelaySend = null;
 let mixDelayNodes = [];
 let mixDelayFeedbacks = [];
 let mixDelayPanners = [];
+let depthReverbInput = null;
+let depthReverb = null;
+let depthReverbWet = null;
 
 let mediaStream = null;
 let microphoneSource = null;
@@ -416,13 +423,71 @@ function updateMixDelay() {
   });
 }
 
+function depthEffectIntensity(ring, direction) {
+  if (!state.view3d || !ring) return 0;
+  const geometry = stageGeometry();
+  const rings = orderedRings()
+    .map((item) => ({
+      ring: item,
+      x: projectRingPoint(0, 0, item, geometry).x,
+    }))
+    .sort((first, second) => first.x - second.x || first.ring.depth - second.ring.depth);
+  const index = rings.findIndex((item) => item.ring.id === ring.id);
+  const position = rings.length <= 1 ? 0.5 : index / (rings.length - 1);
+  return direction < 0 ? 1 - position : position;
+}
+
+function updateAllRingEffects() {
+  for (const ring of state.rings) updateRingEffects(ring);
+}
+
 function updateRingEffects(ring) {
   const voice = ring?.source;
   if (!voice || !audioContext) return;
   const now = audioContext.currentTime;
+  const reverbIntensity = state.reverbEnabled
+    ? depthEffectIntensity(ring, state.reverbDirection)
+    : 0;
+  const fuzzIntensity = state.fuzzEnabled
+    ? depthEffectIntensity(ring, state.fuzzDirection)
+    : 0;
   voice.filter?.frequency.setTargetAtTime(ringFilterFrequency(ring), now, 0.02);
   voice.filter?.Q.setTargetAtTime(ring.filterResonance, now, 0.02);
   voice.panner?.pan.setTargetAtTime(ring.pan, now, 0.02);
+  voice.dryGain?.gain.setTargetAtTime(1 - fuzzIntensity * 0.42, now, 0.02);
+  voice.fuzzGain?.gain.setTargetAtTime(fuzzIntensity * 0.78, now, 0.02);
+  voice.reverbSend?.gain.setTargetAtTime(reverbIntensity ** 0.75 * 0.72, now, 0.02);
+}
+
+function fuzzCurve() {
+  const curve = new Float32Array(2_048);
+  const drive = 22;
+  for (let index = 0; index < curve.length; index += 1) {
+    const input = index / (curve.length - 1) * 2 - 1;
+    curve[index] = (1 + drive) * input / (1 + drive * Math.abs(input));
+  }
+  return curve;
+}
+
+function depthReverbImpulse(context) {
+  const length = Math.round(context.sampleRate * 1.9);
+  const impulse = context.createBuffer(2, length, context.sampleRate);
+  for (let channel = 0; channel < 2; channel += 1) {
+    const samples = new Float32Array(length);
+    let seed = 0x6d2b79f5 ^ (channel * 0x45d9f3b);
+    for (let index = 0; index < length; index += 1) {
+      seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+      const noise = seed / 0xffff_ffff * 2 - 1;
+      const decay = (1 - index / length) ** 2.8;
+      samples[index] = noise * decay * 0.42;
+    }
+    for (const [seconds, level] of [[0.023, 0.7], [0.041, 0.48], [0.073, 0.31]]) {
+      const index = Math.min(length - 1, Math.round(context.sampleRate * seconds));
+      samples[index] += level * (channel ? -1 : 1);
+    }
+    impulse.copyToChannel(samples, channel);
+  }
+  return impulse;
 }
 
 function startRingSource(ring) {
@@ -450,7 +515,31 @@ function startRingSource(ring) {
     output = panner;
     effectNodes.push(panner);
   }
-  output.connect(masterGain);
+  const dryGain = audioContext.createGain();
+  dryGain.gain.value = 1;
+  output.connect(dryGain);
+  dryGain.connect(masterGain);
+  effectNodes.push(dryGain);
+  let fuzzGain = null;
+  if (typeof audioContext.createWaveShaper === "function") {
+    fuzzGain = audioContext.createGain();
+    fuzzGain.gain.value = 0;
+    const shaper = audioContext.createWaveShaper();
+    shaper.curve = fuzzCurve();
+    shaper.oversample = "4x";
+    output.connect(fuzzGain);
+    fuzzGain.connect(shaper);
+    shaper.connect(masterGain);
+    effectNodes.push(fuzzGain, shaper);
+  }
+  let reverbSend = null;
+  if (depthReverbInput) {
+    reverbSend = audioContext.createGain();
+    reverbSend.gain.value = 0;
+    output.connect(reverbSend);
+    reverbSend.connect(depthReverbInput);
+    effectNodes.push(reverbSend);
+  }
   const sources = [];
   const headCount = Math.round(clamp(ring.headCount, 1, 4));
   const headOffsets = ringHeadOffsets(ring);
@@ -479,6 +568,9 @@ function startRingSource(ring) {
     gain,
     filter,
     panner,
+    dryGain,
+    fuzzGain,
+    reverbSend,
     nodes: effectNodes,
   };
   anchorRing(ring, ring.phase);
@@ -614,6 +706,16 @@ async function ensureAudio() {
         mixDelayNodes.push(delay);
         mixDelayFeedbacks.push(feedback);
       }
+    }
+    if (typeof audioContext.createConvolver === "function") {
+      depthReverbInput = audioContext.createGain();
+      depthReverb = audioContext.createConvolver();
+      depthReverb.buffer = depthReverbImpulse(audioContext);
+      depthReverbWet = audioContext.createGain();
+      depthReverbWet.gain.value = 0.82;
+      depthReverbInput.connect(depthReverb);
+      depthReverb.connect(depthReverbWet);
+      depthReverbWet.connect(masterGain);
     }
   }
   if (audioContext.state !== "running" && audioContext.state !== "closed") {
@@ -789,6 +891,7 @@ function removeRing(ring) {
   const next = rings[index + 1] ?? rings[index - 1] ?? state.rings[0];
   state.activeRingId = next.id;
   if (!recordedRings().length) state.playing = false;
+  updateAllRingEffects();
   refreshRingAudibility();
   restartSyncedRings();
   announce("Ring deleted.");
@@ -1015,6 +1118,7 @@ function spreadRingDepths() {
   rings.forEach((ring, index) => {
     ring.depth = clamp((index - center) * 0.34, -1, 1);
   });
+  updateAllRingEffects();
   updateUi();
   scheduleFrame();
   announce("Rings spread across the depth axis.");
@@ -1029,9 +1133,26 @@ function setThreeDView(enabled) {
   ) {
     spreadRingDepths();
   }
+  updateAllRingEffects();
   updateUi();
   scheduleFrame();
   announce(state.view3d ? "Three dimensional view enabled." : "Flat view enabled.");
+}
+
+function setDepthEffectEnabled(effect, enabled) {
+  const property = effect === "reverb" ? "reverbEnabled" : "fuzzEnabled";
+  state[property] = Boolean(enabled);
+  updateAllRingEffects();
+  updateUi();
+  announce(`${effect === "reverb" ? "Reverb" : "Fuzz"} ${state[property] ? "on" : "off"}.`);
+}
+
+function setDepthEffectDirection(effect, direction) {
+  const property = effect === "reverb" ? "reverbDirection" : "fuzzDirection";
+  state[property] = direction === "left" ? -1 : 1;
+  updateAllRingEffects();
+  updateUi();
+  announce(`${effect === "reverb" ? "Reverb" : "Fuzz"} builds toward the ${direction}.`);
 }
 
 function stopStream(stream) {
@@ -1067,6 +1188,7 @@ function createOuterRing() {
   const ring = createRing(maximumOrder + 1);
   state.rings.push(ring);
   state.activeRingId = ring.id;
+  updateAllRingEffects();
   return ring;
 }
 
@@ -1086,6 +1208,7 @@ async function restoreRecordingSession({ resumePlayback = true, removeCreated = 
     if (created) {
       state.rings = state.rings.filter((ring) => ring.id !== created.id);
       state.activeRingId = session.previousActiveId;
+      updateAllRingEffects();
     }
   }
   if (resumePlayback && session.wasPlaying && recordedRings().length) {
@@ -1498,8 +1621,29 @@ function updateUi() {
   $("viewYaw").disabled = !state.view3d;
   $("ringDepth").disabled = !state.view3d;
   $("spreadDepth").disabled = !state.view3d || state.rings.length < 2;
+  for (const effect of ["reverb", "fuzz"]) {
+    const enabled = state[`${effect}Enabled`];
+    const direction = state[`${effect}Direction`];
+    for (const button of $(`${effect}Mode`).querySelectorAll("button")) {
+      setPressed(button, (button.dataset.value === "on") === enabled);
+      button.disabled = locked || !state.view3d;
+    }
+    for (const button of $(`${effect}Direction`).querySelectorAll("button")) {
+      setPressed(button, (button.dataset.value === "left") === (direction < 0));
+      button.disabled = locked || !state.view3d || !enabled;
+    }
+    $(`${effect}IntensityOut`).textContent = !enabled
+      ? "off"
+      : !state.view3d
+        ? "flat"
+        : `${Math.round(depthEffectIntensity(ring, direction) * 100)}%`;
+  }
+  const activeDepthEffects = [
+    state.reverbEnabled ? "reverb" : "",
+    state.fuzzEnabled ? "fuzz" : "",
+  ].filter(Boolean).join(" + ");
   $("depthSummary").textContent = state.view3d
-    ? `3D · ${Math.round(ring.depth * 100)}% depth`
+    ? `3D · ${Math.round(ring.depth * 100)}% depth${activeDepthEffects ? ` · ${activeDepthEffects}` : ""}`
     : "flat";
 
   $("level").value = String(state.level);
@@ -2379,20 +2523,35 @@ for (const button of $("viewMode").querySelectorAll("button")) {
 }
 $("viewTilt").addEventListener("input", () => {
   state.viewTilt = clamp(Number($("viewTilt").value), 0, 78);
+  updateAllRingEffects();
   updateUi();
   scheduleFrame();
 });
 $("viewYaw").addEventListener("input", () => {
   state.viewYaw = clamp(Number($("viewYaw").value), -80, 80);
+  updateAllRingEffects();
   updateUi();
   scheduleFrame();
 });
 $("ringDepth").addEventListener("input", () => {
   activeRing().depth = clamp(Number($("ringDepth").value), -1, 1);
+  updateAllRingEffects();
   updateUi();
   scheduleFrame();
 });
 $("spreadDepth").addEventListener("click", spreadRingDepths);
+for (const effect of ["reverb", "fuzz"]) {
+  for (const button of $(`${effect}Mode`).querySelectorAll("button")) {
+    button.addEventListener("click", () => {
+      setDepthEffectEnabled(effect, button.dataset.value === "on");
+    });
+  }
+  for (const button of $(`${effect}Direction`).querySelectorAll("button")) {
+    button.addEventListener("click", () => {
+      setDepthEffectDirection(effect, button.dataset.value);
+    });
+  }
+}
 $("addVertex").addEventListener("click", addVertex);
 $("removeVertex").addEventListener("click", removeVertex);
 $("resetShape").addEventListener("click", () => applyPreset("circle"));
