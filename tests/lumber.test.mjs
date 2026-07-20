@@ -103,7 +103,7 @@ test("local shape timing preserves sample count while redistributing segment tim
   assert.notDeepEqual([...stretched], [...samples]);
 });
 
-test("radial edits shift pitch locally without changing loop duration", () => {
+test("visible contour radius shifts pitch without changing loop duration", () => {
   const untouched = radialContourVertices(Array(12).fill(0));
   const outwardOffsets = Array(12).fill(0);
   outwardOffsets[0] = 0.62;
@@ -114,30 +114,27 @@ test("radial edits shift pitch locally without changing loop duration", () => {
 
   assert.ok(contourPitchRatioAt(outward, 0, 1) > 1, "outward must raise pitch");
   assert.ok(contourPitchRatioAt(inward, 0, 1) < 1, "inward must lower pitch");
-  assert.ok(Math.abs(contourPitchRatioAt(outward, 0.5, 1) - 1) < 1e-12);
+  assert.equal(contourPitchRatioAt(untouched, 0, 1), 1);
+  assert.ok(contourPitchRatioAt(untouched, 0.5 / untouched.length, 1) < 1);
 
   const samples = Float32Array.from(
     { length: 4096 },
     (_, index) => Math.sin(index * Math.PI * 2 / 64),
   );
-  const identity = pitchShiftLoopSamplesByContour(samples, untouched, 1);
+  const contoured = pitchShiftLoopSamplesByContour(samples, untouched, 1);
   const shifted = pitchShiftLoopSamplesByContour(samples, outward, 1);
+  assert.equal(contoured.length, samples.length);
   assert.equal(shifted.length, samples.length);
-  assert.ok(Math.max(...identity.map((value, index) => Math.abs(value - samples[index]))) < 1e-6);
+  assert.notDeepEqual([...contoured], [...samples]);
   assert.notDeepEqual([...shifted], [...samples]);
 });
 
-test("triangle and square retain pullable local-pitch vertices", () => {
+test("triangle and square use their full visible shape as a pitch envelope", () => {
   for (const count of [3, 4]) {
-    const offsets = Array(count).fill(0);
-    offsets[0] = 0.62;
-    const vertices = radialContourVertices(offsets);
+    const vertices = radialContourVertices(Array(count).fill(0));
     assert.equal(vertices.length, count);
-    assert.ok(contourPitchRatioAt(vertices, 0, 1) > 1);
-    assert.ok(
-      Math.abs(contourPitchRatioAt(vertices, 1.5 / count, 1) - 1) < 1e-12,
-      `${count}-vertex edge opposite the moved handle should retain pitch`,
-    );
+    assert.equal(contourPitchRatioAt(vertices, 0, 1), 1);
+    assert.ok(contourPitchRatioAt(vertices, 0.5 / count, 1) < 1);
   }
 });
 

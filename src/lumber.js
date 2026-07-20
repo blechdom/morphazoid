@@ -250,13 +250,8 @@ export function contourPitchRatioAt(
 ) {
   const count = vertices?.length ?? 0;
   if (!count) return 1;
-  const position = wrap01(phase) * count;
-  const first = Math.floor(position) % count;
-  const second = (first + 1) % count;
-  const amount = position - Math.floor(position);
-  const firstRadius = Math.hypot(vertices[first].x, vertices[first].y);
-  const secondRadius = Math.hypot(vertices[second].x, vertices[second].y);
-  const radius = firstRadius + (secondRadius - firstRadius) * amount;
+  const point = pointOnContour(vertices, phase);
+  const radius = Math.hypot(point.x, point.y);
   const radialOffset = radius - 1;
   const normalizedOffset = radialOffset >= 0
     ? radialOffset / 0.62
