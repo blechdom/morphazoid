@@ -138,6 +138,29 @@ test("triangle and square use their full visible shape as a pitch envelope", () 
   }
 });
 
+test("triangle contour produces an audible local pitch drop without changing duration", () => {
+  const sampleRate = 48_000;
+  const frequency = 220;
+  const samples = Float32Array.from(
+    { length: sampleRate },
+    (_, index) => Math.sin(index * Math.PI * 2 * frequency / sampleRate),
+  );
+  const triangle = radialContourVertices(Array(3).fill(0));
+  const shifted = pitchShiftLoopSamplesByContour(samples, triangle, 0.65);
+  const start = Math.floor(shifted.length * 0.08);
+  const end = Math.floor(shifted.length * 0.25);
+  let positiveCrossings = 0;
+  for (let index = start + 1; index < end; index += 1) {
+    if (shifted[index - 1] <= 0 && shifted[index] > 0) positiveCrossings += 1;
+  }
+  const localFrequency = positiveCrossings * sampleRate / (end - start);
+  assert.equal(shifted.length, samples.length);
+  assert.ok(
+    localFrequency < frequency * 0.9,
+    `triangle midpoint should pitch 220 Hz clearly downward, received ${localFrequency.toFixed(1)} Hz`,
+  );
+});
+
 test("mix delay ring is dry at rest and maps inward and outward independently", () => {
   const dry = mixDelayParametersFromOffsets(Array(12).fill(0));
   assert.deepEqual(dry, { inward: 0, outward: 0, time: 0.28, feedback: 0, wet: 0 });

@@ -329,8 +329,14 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   listeners.get("shapePitchDepth:input")();
   listeners.get("shapePitchDepth:change")();
   assert.match(elements.get("advancedSummary").textContent, /pitch 80%/);
+  const sourceBeforeTriangle = sources.at(-1);
   listeners.get("trianglePreset:click")();
   assert.equal(elements.get("vertexCountOut").textContent, "3 vertices");
+  assert.notEqual(
+    sources.at(-1).buffer,
+    sourceBeforeTriangle.buffer,
+    "a preset change must restart playback with its newly pitch-shaped buffer",
+  );
   listeners.get("squarePreset:click")();
   assert.equal(elements.get("vertexCountOut").textContent, "4 vertices");
   listeners.get("circlePreset:click")();

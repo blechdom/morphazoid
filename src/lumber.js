@@ -282,7 +282,7 @@ export function pitchShiftLoopSamplesByContour(samples, vertices, depth = 0.65) 
   if (strength <= 1e-6 || length < 32) return Float32Array.from(samples);
 
   const grainSize = Math.min(
-    512,
+    4096,
     2 ** Math.max(5, Math.floor(Math.log2(Math.max(32, length / 2)))),
   );
   const halfGrain = Math.floor(grainSize / 2);
