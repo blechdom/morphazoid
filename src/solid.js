@@ -299,3 +299,38 @@ export function planeBasis(normal) {
     },
   };
 }
+
+function distanceToSegment2(point, start, end) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  const amount = lengthSquared > EPSILON
+    ? Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared))
+    : 0;
+  return Math.hypot(point.x - (start.x + dx * amount), point.y - (start.y + dy * amount));
+}
+
+function pointInPolygon2(point, polygon) {
+  let inside = false;
+  for (let current = 0, previous = polygon.length - 1; current < polygon.length; previous = current++) {
+    const a = polygon[current];
+    const b = polygon[previous];
+    const crosses = (a.y > point.y) !== (b.y > point.y)
+      && point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
+/** Pick the visible rotation target, prioritizing wireframe edges over the plane behind them. */
+export function pickRotationTarget(point, solidSegments, planePolygon, tolerance = 12) {
+  if (solidSegments.some(([start, end]) => distanceToSegment2(point, start, end) <= tolerance)) {
+    return "solid";
+  }
+  if (pointInPolygon2(point, planePolygon)) return "surface";
+  for (let index = 0; index < planePolygon.length; index += 1) {
+    const next = (index + 1) % planePolygon.length;
+    if (distanceToSegment2(point, planePolygon[index], planePolygon[next]) <= tolerance) return "surface";
+  }
+  return null;
+}

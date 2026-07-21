@@ -8,6 +8,7 @@ import {
   planeBasis,
   planeIntersections,
   planeNormal,
+  pickRotationTarget,
   projectPoint3,
   rotatePoint3,
 } from "../src/solid.js";
@@ -53,6 +54,17 @@ test("a plane reads segment intersections rather than solid volume", () => {
   const rotatedContacts = planeIntersections(rotated, planeNormal(0, 18), 0.1);
   assert.ok(rotatedContacts.length >= 3);
   assert.ok(rotatedContacts.every((contact) => [contact.x, contact.y, contact.z].every(Number.isFinite)));
+});
+
+test("3D target picking selects wireframe edges before the surface behind them", () => {
+  const plane = [
+    { x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 },
+  ];
+  const solid = [[{ x: 20, y: 20 }, { x: 80, y: 80 }]];
+  assert.equal(pickRotationTarget({ x: 50, y: 52 }, solid, plane, 6), "solid");
+  assert.equal(pickRotationTarget({ x: 20, y: 75 }, solid, plane, 6), "surface");
+  assert.equal(pickRotationTarget({ x: 104, y: 50 }, solid, plane, 6), "surface");
+  assert.equal(pickRotationTarget({ x: 130, y: 50 }, solid, plane, 6), null);
 });
 
 test("Solid defaults to Sine and silences continuous voices while stopped", async () => {
@@ -102,4 +114,18 @@ test("Solid opens with a dimensional shape and a visibly broad surface", async (
     return sum + point.x * next.y - next.x * point.y;
   }, 0)) * 0.5;
   assert.ok(projectedArea > 3.5);
+});
+
+test("Solid can select and drag either the shape or surface in 3D", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("../solid.html", import.meta.url), "utf8"),
+    readFile(new URL("../solid-app.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(html, /id="selectSolid"[^>]+aria-pressed="true"[^>]*>Shape<\/button>/);
+  assert.match(html, /id="selectSurface"[^>]+aria-pressed="false"[^>]*>Surface<\/button>/);
+  assert.match(app, /rotationTarget !== "surface"[\s\S]*?selectRotationTarget\(targetAtPointer\(event\), false\)/);
+  assert.match(app, /pointer\.target === "surface"[\s\S]*?state\.planeYaw = normalizeDegrees/);
+  assert.match(app, /state\.planePitch = normalizeDegrees/);
+  assert.match(app, /state\.rotationY = normalizeDegrees/);
+  assert.match(app, /pickRotationTarget\(point, solidSegments, polygon, 12\)/);
 });

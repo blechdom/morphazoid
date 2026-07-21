@@ -46,9 +46,13 @@
     <main class="shell" id="solid">
       <section class="stage" aria-label="Solid stage">
         <div class="stage-wrap" id="stageWrap">
-          <canvas id="stage" tabindex="0" aria-label="Rotatable 3D wireframe cut by a moving plane.">
+          <canvas id="stage" tabindex="0" aria-label="Drag to rotate the selected 3D shape or surface.">
             A projected 3D wireframe and its plane intersections.
           </canvas>
+          <div class="solid-target-switch" role="group" aria-label="3D rotation target">
+            <button id="selectSolid" type="button" aria-pressed="true">Shape</button>
+            <button id="selectSurface" type="button" aria-pressed="false">Surface</button>
+          </div>
           <div class="stage-meta" aria-hidden="true"><span id="stageReadout">CUBE · 0 CONTACTS · AUDIO OFF</span></div>
         </div>
       </section>

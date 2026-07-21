@@ -15,6 +15,7 @@ import {
   planeIntersections,
   planeNormal,
   planeOffsetForPhase,
+  pickRotationTarget,
   projectPoint3,
   rotatePoint3,
 } from "./src/solid.js";
@@ -70,6 +71,7 @@ let lastFrameTime = performance.now();
 let lastAudioTime = null;
 let previousVertexSigns = null;
 let pointer = null;
+let rotationTarget = "solid";
 
 function normalizeDegrees(value) {
   return ((value + 180) % 360 + 360) % 360 - 180;
@@ -324,7 +326,7 @@ function projected(point, transform) {
   return { ...result, canvasX: transform.x(result.x), canvasY: transform.y(result.y) };
 }
 
-function drawPlane(plane, transform) {
+function planeCorners(plane, transform) {
   const { u, v } = planeBasis(plane.normal);
   const center = {
     x: plane.normal.x * plane.offset,
@@ -332,23 +334,36 @@ function drawPlane(plane, transform) {
     z: plane.normal.z * plane.offset,
   };
   const size = 1.18;
-  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => projected({
+  return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => projected({
     x: center.x + (u.x * a + v.x * b) * size,
     y: center.y + (u.y * a + v.y * b) * size,
     z: center.z + (u.z * a + v.z * b) * size,
   }, transform));
+}
+
+function drawPlane(plane, transform) {
+  const corners = planeCorners(plane, transform);
+  const selected = rotationTarget === "surface";
   context.beginPath();
   corners.forEach((point, index) => index
     ? context.lineTo(point.canvasX, point.canvasY)
     : context.moveTo(point.canvasX, point.canvasY));
   context.closePath();
-  context.fillStyle = "rgba(125,180,255,.055)";
+  context.fillStyle = selected ? "rgba(125,180,255,.12)" : "rgba(125,180,255,.055)";
   context.fill();
-  context.strokeStyle = "rgba(125,180,255,.38)";
-  context.lineWidth = 1;
+  context.strokeStyle = selected ? "rgba(164,204,255,.88)" : "rgba(125,180,255,.38)";
+  context.lineWidth = selected ? 1.6 : 1;
   context.setLineDash([4, 6]);
   context.stroke();
   context.setLineDash([]);
+  if (selected) {
+    for (const point of corners) {
+      context.beginPath();
+      context.arc(point.canvasX, point.canvasY, 2.5, 0, TAU);
+      context.fillStyle = "#a4ccff";
+      context.fill();
+    }
+  }
 }
 
 function drawScene(solid, plane, contacts) {
@@ -524,21 +539,87 @@ function frame(now) {
   if (moving) scheduleFrame();
 }
 
+function paintRotationTarget() {
+  setPressed($("selectSolid"), rotationTarget === "solid");
+  setPressed($("selectSurface"), rotationTarget === "surface");
+  stageWrap.classList.toggle("is-surface-target", rotationTarget === "surface");
+}
+
+function selectRotationTarget(target, shouldAnnounce = true) {
+  if (!target || target === rotationTarget) return;
+  rotationTarget = target;
+  paintRotationTarget();
+  if (shouldAnnounce) announce(`${target === "surface" ? "Surface" : "Shape"} selected for 3D rotation.`);
+  scheduleFrame();
+}
+
+$("selectSolid").addEventListener("click", () => selectRotationTarget("solid"));
+$("selectSurface").addEventListener("click", () => selectRotationTarget("surface"));
+
+function targetAtPointer(event) {
+  const bounds = canvas.getBoundingClientRect();
+  const point = {
+    x: (event.clientX - bounds.left) * cssWidth / Math.max(1, bounds.width),
+    y: (event.clientY - bounds.top) * cssHeight / Math.max(1, bounds.height),
+  };
+  const solid = transformedSolid();
+  const plane = currentPlane(state.continuousPosition, state.planeYaw, state.planePitch, solid);
+  const transform = projectionTransform();
+  const solidSegments = solid.edges.map(({ a, b }) => {
+    const start = projected(solid.vertices[a], transform);
+    const end = projected(solid.vertices[b], transform);
+    return [
+      { x: start.canvasX, y: start.canvasY },
+      { x: end.canvasX, y: end.canvasY },
+    ];
+  });
+  const polygon = planeCorners(plane, transform).map((corner) => ({
+    x: corner.canvasX,
+    y: corner.canvasY,
+  }));
+  return pickRotationTarget(point, solidSegments, polygon, 12);
+}
+
 canvas.addEventListener("pointerdown", (event) => {
-  state.rotationXPlaying = false;
-  state.rotationYPlaying = false;
+  if (rotationTarget !== "surface") selectRotationTarget(targetAtPointer(event), false);
+  if (rotationTarget === "surface") {
+    state.planeYawPlaying = false;
+    state.planePitchPlaying = false;
+  } else {
+    state.rotationXPlaying = false;
+    state.rotationYPlaying = false;
+  }
   paintMotionControls();
-  pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, rx: state.rotationX, ry: state.rotationY };
+  pointer = {
+    id: event.pointerId,
+    target: rotationTarget,
+    x: event.clientX,
+    y: event.clientY,
+    rx: state.rotationX,
+    ry: state.rotationY,
+    yaw: state.planeYaw,
+    pitch: state.planePitch,
+  };
+  stageWrap.classList.add("is-spinning");
   canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener("pointermove", (event) => {
   if (!pointer || pointer.id !== event.pointerId) return;
-  state.rotationY = normalizeDegrees(pointer.ry + (event.clientX - pointer.x) * 0.45);
-  state.rotationX = normalizeDegrees(pointer.rx - (event.clientY - pointer.y) * 0.45);
+  if (pointer.target === "surface") {
+    state.planeYaw = normalizeDegrees(pointer.yaw + (event.clientX - pointer.x) * 0.45);
+    state.planePitch = normalizeDegrees(pointer.pitch - (event.clientY - pointer.y) * 0.45);
+  } else {
+    state.rotationY = normalizeDegrees(pointer.ry + (event.clientX - pointer.x) * 0.45);
+    state.rotationX = normalizeDegrees(pointer.rx - (event.clientY - pointer.y) * 0.45);
+  }
   previousVertexSigns = null;
   scheduleFrame();
 });
-const endPointer = (event) => { if (pointer?.id === event.pointerId) pointer = null; };
+const endPointer = (event) => {
+  if (pointer?.id !== event.pointerId) return;
+  pointer = null;
+  stageWrap.classList.remove("is-spinning");
+};
 canvas.addEventListener("pointerup", endPointer);
 canvas.addEventListener("pointercancel", endPointer);
 
@@ -553,4 +634,5 @@ window.addEventListener("pagehide", (event) => {
 
 paintTransport();
 paintMotionControls();
+paintRotationTarget();
 scheduleFrame();
