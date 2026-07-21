@@ -253,6 +253,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("levelOut").textContent, "65%");
   assert.equal(elements.get("position").value, "0");
   assert.equal(elements.get("positionOut").textContent, "0.0%");
+  assert.equal(attributes.get("speed:aria-valuetext"), "0.060 cyc/s");
   assert.equal(elements.get("headsControl").hidden, false);
   assert.equal(elements.get("lineCountControl").hidden, true);
   assert.equal(elements.get("playheadMotion").hidden, false);
@@ -274,21 +275,29 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("amplitudeEnvelopeToggleText").textContent, "Off");
   assert.equal(elements.get("amplitudeCurveState").textContent, "Bypassed");
   assert.match(elements.get("amplitudeReleaseBehavior").textContent, /constant per-voice level/);
+  assert.equal(attributes.get("amplitudeCurveEditor:aria-disabled"), "true");
+  assert.equal(elements.get("amplitudeNode2").disabled, true);
+  assert.equal(elements.get("amplitudePresetPluck").disabled, true);
+  assert.equal(elements.get("cornerSwellToggle").disabled, true);
   listeners.get("amplitudeEnvelopeToggle:click")();
   assert.equal(attributes.get("amplitudeEnvelopeToggle:aria-pressed"), "true");
+  assert.equal(attributes.get("amplitudeCurveEditor:aria-disabled"), "false");
+  assert.equal(elements.get("amplitudeNode2").disabled, false);
   assert.equal(elements.get("percussionArticulation").hidden, true);
   assert.equal(elements.get("shepardArticulation").hidden, true);
   assert.equal(elements.get("fmArticulation").hidden, true);
   assert.equal(elements.get("pmArticulation").hidden, true);
   assert.equal(elements.get("percussionMapping").hidden, true);
   assert.equal(elements.get("timbreMapping").hidden, true);
-  assert.equal(elements.get("timbreSourceHelp").textContent, "0 follows the contour · 1 crosses at 90°");
+  assert.equal(elements.get("timbreSourceHelp").textContent, "0 is smooth · 1 is the sharpest turn");
   assert.equal(elements.get("percussionSourceHelp").textContent, "0 is smooth · 1 is the sharpest turn");
   assert.equal(elements.get("traversalDirection").hidden, false);
   assert.equal(elements.get("rotationDirection").hidden, false);
   assert.equal(elements.get("headMarker0").hidden, false);
   assert.equal(elements.get("headMarker0").style.left, "0%");
   assert.equal(elements.get("headMarker0").style.top, "58%");
+  assert.equal(attributes.get("headMarker0:aria-label"), "Point 1 relative phase");
+  assert.equal(attributes.get("headMarker0:aria-valuetext"), "0.0 percent relative phase");
   assert.equal(elements.get("headMarker1").hidden, true);
   assert.equal(elements.get("playheadCountOut").textContent, "1 point");
   assert.equal(elements.get("removePlayhead").disabled, true);
@@ -319,7 +328,11 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("panRouteSource").textContent, "Horizontal position");
   assert.equal(elements.get("panRouteCurve").textContent, "normal · 100% width");
   assert.equal(elements.has("mappingFrame"), false);
+  listeners.get("stereoVertical:click")();
+  assert.match(elements.get("stereoMappingNote").textContent, /Stage top → audio left · stage bottom → audio right/);
+  listeners.get("stereoHorizontal:click")();
   assert.equal(elements.get("outputContactLabel").textContent, "Contact 1 of 1");
+  assert.equal(Number(elements.get("markIncidenceOut").textContent), 0);
   assert.notEqual(elements.get("markFrequencyOut").textContent, "");
   assert.match(elements.get("contactStream").innerHTML, /contact-row/);
 
@@ -415,6 +428,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   elements.get("speed").value = "0";
   listeners.get("speed:input")();
   assert.equal(elements.get("speedOut").textContent, "0.000 cyc/s");
+  assert.equal(attributes.get("speed:aria-valuetext"), "0.000 cyc/s");
   elements.get("speed").value = "1";
   listeners.get("speed:input")();
   assert.equal(elements.get("speedOut").textContent, "4.000 cyc/s");
@@ -542,6 +556,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("speedLabel").textContent, "Radar speed");
   assert.equal(elements.get("positionOut").textContent, "360.0°");
   assert.equal(elements.get("speedOut").textContent, "4.000 rev/s");
+  assert.equal(attributes.get("speed:aria-valuetext"), "4.000 rev/s");
   assert.equal(attributes.get("position:aria-label"), "Radar angle from 0 to 360 degrees");
   queuedFrame(1_550);
   assert.match(elements.get("stageReadout").textContent, /1 RAY/);
@@ -575,6 +590,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("pitchCurveState").textContent, "Custom");
   assert.equal(attributes.get("pitchCurveExponential:aria-pressed"), "false");
   assert.match(attributes.get("pitchCurveNode2:aria-valuetext"), /21 percent output/);
+  assert.equal(attributes.get("pitchCurveNode2:aria-valuenow"), "21");
   listeners.get("resetPitchCurve:click")();
   assert.equal(elements.get("pitchCurveState").textContent, "Linear");
 
@@ -852,7 +868,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("stereoWidthOut").textContent, "100%");
   assert.equal(elements.get("percussionLevelSource").value, "corner");
   assert.equal(elements.get("percussionLevelCurve").value, "linear");
-  assert.equal(elements.get("timbreSource").value, "incidence");
+  assert.equal(elements.get("timbreSource").value, "corner");
   assert.equal(elements.get("fmIndexOut").textContent, "3.00 max");
   assert.equal(elements.get("pmIndexOut").textContent, "2.00 rad max");
   assert.equal(elements.get("shepardCyclesOut").textContent, "1.00 oct / circuit");

@@ -130,3 +130,35 @@ test("external Shepard position locks octave phase to playhead angle", () => {
   assert.ok(Math.abs(voice.shepardPosition - 0.625) < 0.01);
   assert.equal(voice.shepardExternallyDriven, true);
 });
+
+test("external Shepard trajectories preserve direction beyond a half octave", () => {
+  const processTrajectory = (rate, start, end) => {
+    const processor = new ProcessorConstructor({ processorOptions: { maxVoices: 1 } });
+    const spec = (position) => ({
+      key: "fast-angle-locked",
+      mode: "shepard",
+      frequency: 110,
+      gain: 0.25,
+      pan: 0,
+      shepardRate: rate,
+      shepardWidth: 4,
+      shepardPosition: position,
+    });
+    processor.port.onmessage({
+      data: {
+        type: "voices",
+        voices: [spec(start)],
+        nextVoices: [spec(end)],
+        durationSeconds: 0.075,
+      },
+    });
+    processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+    return processor.voices.get("fast-angle-locked").shepardPosition;
+  };
+
+  const forward = processTrajectory(8, 0, 0.6);
+  assert.ok(forward > 0 && forward < 0.1, `expected forward motion, received ${forward}`);
+
+  const reverse = processTrajectory(-8, 0, 0.4);
+  assert.ok(reverse > 0.9 && reverse < 1, `expected reverse motion, received ${reverse}`);
+});

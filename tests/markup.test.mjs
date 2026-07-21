@@ -212,6 +212,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(openingTag("pitchCurveLogarithmic"), /data-value="logarithmic"[^>]*aria-pressed="false"/);
   const pitchCurveNodes = [...html.matchAll(/id="pitchCurveNode(\d+)"/g)].map((match) => Number(match[1]));
   assert.deepEqual(pitchCurveNodes, [0, 1, 2, 3, 4]);
+  assert.match(openingTag("pitchCurveNode2"), /role="slider"[^>]*aria-valuemin="0"[^>]*aria-valuemax="100"[^>]*aria-valuenow="50"/);
   assert.match(html, /Drag nodes · arrows 1% · Shift 5%/);
   assert.match(app, /updateMappingCurveNode/);
   assert.match(app, /evaluateMappingCurve/);
@@ -225,17 +226,25 @@ test("the mobile instrument markup exposes the complete compact control surface"
 
   // Timbre has an explicit source and a sound-specific DSP destination.
   assert.match(html, /<span class="field-label">Timbre source<\/span>/);
+  assert.match(openingTag("timbreSource"), /aria-describedby="timbreMappingNote timbreSourceHelp"/);
+  assert.match(openingTag("percussionLevelSource"), /aria-describedby="percussionSourceHelp"/);
   assert.match(html, />Crossing angle<\/option>/);
   assert.match(html, />Corner sharpness<\/option>/);
   assert.match(html, />Contour position<\/option>/);
   assert.match(html, />Distance from center<\/option>/);
   assert.match(html, /Maximum spectral width/);
   assert.match(html, /id="pmIndexOut"[^>]*>2\.00 rad max<\/output>/);
-  assert.match(html, /0 follows the contour · 1 crosses at 90°/);
   assert.match(html, /0 is smooth · 1 is the sharpest turn/);
   assert.match(app, /\["fm", "pm", "shepard"\]\.includes\(state\.soundMode\)/);
   assert.match(app, /TIMBRE_TARGET_LABELS/);
   assert.match(app, /SOURCE_HELP/);
+  assert.match(app, /0 is stage top · 1 is stage bottom/);
+  assert.match(app, /0 follows the contour · 1 crosses at 90°/);
+  assert.match(app, /if \(state\.playMethod === "trace"\) return 0;/);
+  assert.match(app, /Point playheads follow the contour · crossing angle stays 0/);
+  assert.match(app, /Stage top → audio left · stage bottom → audio right/);
+  assert.match(app, /scanAxis: head\?\.axis === "path" \? undefined : head\?\.axis/);
+  assert.match(app, /strikeCorner\(path, afterVertex, headIndex, time01, afterHead\)/);
   assert.doesNotMatch(html, /mark-driven|drive mark|level mark|Pitch mark|Realtime mark|Corner magnitude|>Incidence<|Contour phase/i);
 
   // Output is a realtime mapping dashboard with clearly future-facing external routes.
@@ -266,6 +275,13 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /\.amplitude-mode-buttons\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*52px\)/);
   assert.match(css, /\.master-level-row\s*\{/);
   assert.match(css, /\.mapping-source-help\s*\{/);
+  assert.match(css, /\.audio-strip\.shape-audio-strip\s*\{[\s\S]*?grid-template-columns:\s*max-content/);
+  assert.match(css, /@media\s*\(pointer:\s*coarse\)[\s\S]*?\.head-option-toggle\s*\{[\s\S]*?width:\s*36px/);
+  assert.match(openingTag("amplitudeNode2"), /role="slider"[^>]*aria-valuemin="0"[^>]*aria-valuemax="100"[^>]*aria-valuenow="28"/);
+  assert.match(app, /amplitudeCurveEditor"\)\.setAttribute\("aria-disabled"/);
+  assert.match(app, /speed"\)\.setAttribute\("aria-valuetext", formatPlayheadSpeed\(\)\)/);
+  assert.match(app, /marker\.setAttribute\("aria-label", `\$\{reader\} \$\{index \+ 1\} relative phase`\)/);
+  assert.match(app, /rgba\(214,232,226,\.25\)/);
 
   assert.ok(html.indexOf('id="audioButton"') < html.indexOf('id="playSection"'));
   assert.ok(html.indexOf('id="level"') > html.indexOf('id="outputSection"'));

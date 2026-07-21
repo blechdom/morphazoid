@@ -288,11 +288,11 @@
                   <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
                   <path class="curve-path" id="amplitudeCurvePath" d="M0 96 L14.4 0 L60 69.12 L148.8 84.48 L196.8 96 L240 96" />
                 </svg>
-                <button class="curve-node amplitude-node" id="amplitudeNode0" type="button" data-node-index="0" style="left:0%;top:100%" aria-label="Trigger: 0 percent interval, 0 percent level"><span>T</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode1" type="button" data-node-index="1" style="left:6%;top:0%" aria-label="Attack: 6 percent interval, 100 percent level"><span>A</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode2" type="button" data-node-index="2" style="left:25%;top:72%" aria-label="Decay: 25 percent interval, 28 percent level"><span>D</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode3" type="button" data-node-index="3" style="left:62%;top:88%" aria-label="Sustain: 62 percent interval, 12 percent level"><span>S</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode4" type="button" data-node-index="4" style="left:82%;top:100%" aria-label="Release: 82 percent interval, 0 percent level"><span>R</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode0" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="0" style="left:0%;top:100%" aria-label="Trigger: 0 percent interval, 0 percent level"><span>T</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode1" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" data-node-index="1" style="left:6%;top:0%" aria-label="Attack: 6 percent interval, 100 percent level"><span>A</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode2" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="28" data-node-index="2" style="left:25%;top:72%" aria-label="Decay: 25 percent interval, 28 percent level"><span>D</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode3" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="12" data-node-index="3" style="left:62%;top:88%" aria-label="Sustain: 62 percent interval, 12 percent level"><span>S</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode4" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="4" style="left:82%;top:100%" aria-label="Release: 82 percent interval, 0 percent level"><span>R</span></button>
               </div>
               <div class="curve-editor-footer">
                 <small>Corner trigger 0% → next corner 100%</small>
@@ -404,11 +404,11 @@
                   <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
                   <path class="curve-path" id="pitchCurvePath" d="M0 96 L60 72 L120 48 L180 24 L240 0" />
                 </svg>
-                <button class="curve-node" id="pitchCurveNode0" type="button" data-node-index="0" style="left:0%;top:100%" aria-label="Pitch curve node 1: input 0 percent, output 0 percent"></button>
-                <button class="curve-node" id="pitchCurveNode1" type="button" data-node-index="1" style="left:25%;top:75%" aria-label="Pitch curve node 2: input 25 percent, output 25 percent"></button>
-                <button class="curve-node" id="pitchCurveNode2" type="button" data-node-index="2" style="left:50%;top:50%" aria-label="Pitch curve node 3: input 50 percent, output 50 percent"></button>
-                <button class="curve-node" id="pitchCurveNode3" type="button" data-node-index="3" style="left:75%;top:25%" aria-label="Pitch curve node 4: input 75 percent, output 75 percent"></button>
-                <button class="curve-node" id="pitchCurveNode4" type="button" data-node-index="4" style="left:100%;top:0%" aria-label="Pitch curve node 5: input 100 percent, output 100 percent"></button>
+                <button class="curve-node" id="pitchCurveNode0" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="0" style="left:0%;top:100%" aria-label="Pitch curve node 1: input 0 percent, output 0 percent"></button>
+                <button class="curve-node" id="pitchCurveNode1" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25" data-node-index="1" style="left:25%;top:75%" aria-label="Pitch curve node 2: input 25 percent, output 25 percent"></button>
+                <button class="curve-node" id="pitchCurveNode2" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" data-node-index="2" style="left:50%;top:50%" aria-label="Pitch curve node 3: input 50 percent, output 50 percent"></button>
+                <button class="curve-node" id="pitchCurveNode3" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="75" data-node-index="3" style="left:75%;top:25%" aria-label="Pitch curve node 4: input 75 percent, output 75 percent"></button>
+                <button class="curve-node" id="pitchCurveNode4" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" data-node-index="4" style="left:100%;top:0%" aria-label="Pitch curve node 5: input 100 percent, output 100 percent"></button>
               </div>
               <div class="curve-editor-footer">
                 <small>Drag nodes · arrows 1% · Shift 5%</small>
@@ -420,9 +420,9 @@
               <label class="select-control" for="timbreSource">
                 <span class="field-label">Timbre source</span>
                 <span class="select-shell">
-                  <select id="timbreSource">
-                    <option value="incidence" selected>Crossing angle</option>
-                    <option value="corner">Corner sharpness</option>
+                  <select id="timbreSource" aria-describedby="timbreMappingNote timbreSourceHelp">
+                    <option value="incidence">Crossing angle</option>
+                    <option value="corner" selected>Corner sharpness</option>
                     <option value="phase">Contour position</option>
                     <option value="height">Vertical position</option>
                     <option value="horizontal">Horizontal position</option>
@@ -430,15 +430,15 @@
                   </select>
                 </span>
               </label>
-              <small class="mapping-coordinate-note" id="timbreMappingNote">Crossing angle → FM index</small>
-              <small class="mapping-coordinate-note mapping-source-help" id="timbreSourceHelp">0 follows the contour · 1 crosses at 90°</small>
+              <small class="mapping-coordinate-note" id="timbreMappingNote" aria-live="polite">Corner sharpness → FM index</small>
+              <small class="mapping-coordinate-note mapping-source-help" id="timbreSourceHelp">0 is smooth · 1 is the sharpest turn</small>
             </div>
 
             <div id="percussionMapping">
               <label class="select-control" for="percussionLevelSource">
                 <span class="field-label">Percussion amplitude source</span>
                 <span class="select-shell">
-                  <select id="percussionLevelSource">
+                  <select id="percussionLevelSource" aria-describedby="percussionSourceHelp">
                     <option value="corner" selected>Corner sharpness</option>
                     <option value="incidence">Crossing angle</option>
                     <option value="fixed">Fixed</option>

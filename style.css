@@ -1140,8 +1140,11 @@ a {
   gap: 12px;
 }
 
-.shape-audio-strip {
-  grid-template-columns: 78px;
+.audio-strip.shape-audio-strip {
+  width: max-content;
+  flex: 0 0 auto;
+  grid-template-columns: max-content;
+  gap: 0;
 }
 
 .audio-button {
@@ -2044,8 +2047,8 @@ input[type="range"]::-moz-range-thumb {
 .mapping-coordinate-note {
   display: block;
   margin-top: 5px;
-  color: var(--faint);
-  font-size: 8px;
+  color: var(--muted);
+  font-size: 9px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -2238,6 +2241,10 @@ input[type="range"]::-moz-range-thumb {
   opacity: 0.38;
 }
 
+.amplitude-curve-editor[aria-disabled="true"] {
+  pointer-events: none;
+}
+
 .amplitude-node {
   width: 22px;
   min-width: 22px;
@@ -2267,8 +2274,8 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .amplitude-curve-status small {
-  color: var(--faint);
-  font-size: 8px;
+  color: var(--muted);
+  font-size: 9px;
   line-height: 1.35;
   text-align: right;
 }
@@ -2286,8 +2293,8 @@ input[type="range"]::-moz-range-thumb {
 
 .form-count-key {
   margin-top: -4px;
-  color: var(--faint);
-  font-size: 8px;
+  color: var(--muted);
+  font-size: 9px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -2808,6 +2815,18 @@ select:hover {
     min-width: 34px;
     height: 34px;
     min-height: 34px;
+  }
+
+  .head-layout-track.has-head-options {
+    height: 90px;
+  }
+
+  .head-option-toggle {
+    top: 18px;
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    min-height: 36px;
   }
 }
 

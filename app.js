@@ -80,9 +80,9 @@ const TIMBRE_TARGET_LABELS = {
   shepard: "Spectral width",
 };
 const SOURCE_HELP = {
-  vertical: "0 is stage bottom · 1 is stage top",
+  vertical: "0 is stage top · 1 is stage bottom",
   horizontal: "0 is stage left · 1 is stage right",
-  height: "0 is stage bottom · 1 is stage top",
+  height: "0 is stage top · 1 is stage bottom",
   center: "0 is stage center · 1 is the outer edge",
   corner: "0 is smooth · 1 is the sharpest turn",
   incidence: "0 follows the contour · 1 crosses at 90°",
@@ -132,7 +132,7 @@ const state = {
   cornerAccent: 0.9,
   cornerAttack: 3,
   cornerDecay: 90,
-  timbreSource: "incidence",
+  timbreSource: "corner",
   shepardCycles: 1,
   shepardDirection: 1,
   shepardWidth: 4,
@@ -160,7 +160,7 @@ if (state.cornerDecay < 15) state.cornerDecay = 90;
 state.cornerDecay = clamp(state.cornerDecay, 15, 2000);
 state.timbreSource = ["height", "horizontal", "center", "corner", "incidence", "phase"].includes(state.timbreSource)
   ? state.timbreSource
-  : "incidence";
+  : "corner";
 state.shepardCycles = clamp(state.shepardCycles, 0.25, 4);
 state.shepardDirection = state.shepardDirection < 0 ? -1 : 1;
 state.shepardWidth = clamp(state.shepardWidth, 1, 8);
@@ -373,7 +373,7 @@ function renderHeadLayout() {
     marker.setAttribute("aria-orientation", "horizontal");
     marker.setAttribute("aria-valuenow", displayPhase.toFixed(3));
     marker.setAttribute("aria-valuetext", `${(displayPhase * 100).toFixed(1)} percent relative phase`);
-    marker.setAttribute("aria-label", `${reader} ${index + 1} relative phase ${(displayPhase * 100).toFixed(1)} percent`);
+    marker.setAttribute("aria-label", `${reader} ${index + 1} relative phase`);
     optionButton.style.left = `${displayPhase * 100}%`;
     optionButton.style.setProperty("--head-color", HEAD_COLORS[index % HEAD_COLORS.length]);
     if (lines) {
@@ -464,6 +464,7 @@ function updatePlayheadReadouts() {
   $("position").setAttribute("aria-label", radar ? "Radar angle from 0 to 360 degrees" : "Playhead position");
   $("position").setAttribute("aria-valuetext", formatPlayheadPosition());
   $("speed").setAttribute("aria-label", radar ? "Radar speed in revolutions per second" : "Playhead speed");
+  $("speed").setAttribute("aria-valuetext", formatPlayheadSpeed());
 }
 
 function setPressed(button, pressed) {
@@ -640,6 +641,7 @@ function setPlayMethod(method, shouldAnnounce = true) {
   updateLineCountOutput();
   updateHeadsOutput();
   updateLineControls();
+  updateTimbreMappingUi();
   resetCornerTracking();
   if (shouldAnnounce) {
     announce(isScan
@@ -899,9 +901,14 @@ function timbreMappedRangeLabel() {
 function updateTimbreMappingUi() {
   const source = SOURCE_LABELS[state.timbreSource] ?? "Source value";
   const target = TIMBRE_TARGET_LABELS[state.soundMode] ?? "Timbre";
+  const helpForSource = (sourceName) => (
+    sourceName === "incidence" && state.playMethod === "trace"
+      ? "Point playheads follow the contour · crossing angle stays 0"
+      : SOURCE_HELP[sourceName] ?? "Normalized source value from 0–1"
+  );
   $("timbreMappingNote").textContent = `${source} → ${target} · ${timbreMappedRangeLabel()}`;
-  $("timbreSourceHelp").textContent = SOURCE_HELP[state.timbreSource] ?? "Normalized source value from 0–1";
-  $("percussionSourceHelp").textContent = SOURCE_HELP[state.percussionLevelSource] ?? "Normalized source value from 0–1";
+  $("timbreSourceHelp").textContent = helpForSource(state.timbreSource);
+  $("percussionSourceHelp").textContent = helpForSource(state.percussionLevelSource);
 }
 
 function setPitchDimension(source, shouldAnnounce = true) {
@@ -927,7 +934,7 @@ const STEREO_SOURCE_LABELS = {
 function stereoMappingDescription() {
   const descriptions = {
     horizontal: ["Stage left → audio left · stage right → audio right", "Stage left → audio right · stage right → audio left"],
-    vertical: ["Stage bottom → audio left · stage top → audio right", "Stage bottom → audio right · stage top → audio left"],
+    vertical: ["Stage top → audio left · stage bottom → audio right", "Stage top → audio right · stage bottom → audio left"],
     center: ["Stage center → audio left · outer edge → audio right", "Stage center → audio right · outer edge → audio left"],
   };
   return descriptions[state.stereoSource][state.stereoInverted ? 1 : 0];
@@ -992,6 +999,7 @@ function renderPitchCurve() {
     handle.style.left = `${node.x * 100}%`;
     handle.style.top = `${(1 - node.y) * 100}%`;
     handle.setAttribute("aria-label", `Pitch curve node ${index + 1}: input ${inputPercent} percent, output ${outputPercent} percent`);
+    handle.setAttribute("aria-valuenow", String(outputPercent));
     handle.setAttribute("aria-valuetext", `${inputPercent} percent input maps to ${outputPercent} percent output`);
   });
 }
@@ -1094,9 +1102,13 @@ function updateAmplitudeUi() {
   setPressed($("cornerSwellToggle"), state.cornerSwell);
   $("cornerSwellToggle").setAttribute("aria-label", `Corner swell ${state.cornerSwell ? "on" : "off"}`);
   $("amplitudeCurveEditor").classList.toggle("is-disabled", !state.amplitudeEnvelopeEnabled);
+  $("amplitudeCurveEditor").setAttribute("aria-disabled", String(!state.amplitudeEnvelopeEnabled));
   for (const button of $("amplitudeEnvelopePresets").querySelectorAll("button")) {
     setPressed(button, button.dataset.value === state.amplitudePreset);
+    button.disabled = !state.amplitudeEnvelopeEnabled;
   }
+  $("resetAmplitudeCurve").disabled = !state.amplitudeEnvelopeEnabled;
+  $("cornerSwellToggle").disabled = !state.amplitudeEnvelopeEnabled;
   state.amplitudeEnvelopePoints.forEach((point, index) => {
     const handle = $(`amplitudeNode${index}`);
     const intervalPercent = Math.round(point.x * 100);
@@ -1104,7 +1116,9 @@ function updateAmplitudeUi() {
     handle.style.left = `${point.x * 100}%`;
     handle.style.top = `${(1 - point.y) * 100}%`;
     handle.setAttribute("aria-label", `${AMPLITUDE_NODE_NAMES[index]}: ${intervalPercent} percent interval, ${levelPercent} percent level`);
+    handle.setAttribute("aria-valuenow", String(levelPercent));
     handle.setAttribute("aria-valuetext", `${intervalPercent} percent interval, ${levelPercent} percent level`);
+    handle.disabled = !state.amplitudeEnvelopeEnabled;
   });
   $("amplitudeReleaseBehavior").textContent = !state.amplitudeEnvelopeEnabled
     ? "ADSR off · constant per-voice level"
@@ -1197,6 +1211,7 @@ speedInput.value = String(sliderFromSpeed(state.speed));
 speedInput.addEventListener("input", () => {
   state.speed = speedFromSlider(Number(speedInput.value));
   $("speedOut").textContent = formatPlayheadSpeed();
+  speedInput.setAttribute("aria-valuetext", formatPlayheadSpeed());
   dismissHelp();
 });
 
@@ -1574,7 +1589,7 @@ function drawShape(path, transform) {
 function drawGuideField(transform) {
   context.save();
   context.setLineDash([3, 7]);
-  context.strokeStyle = "rgba(214,232,226,.12)";
+  context.strokeStyle = "rgba(214,232,226,.25)";
   context.lineWidth = 1;
   context.beginPath();
   context.moveTo(transform.x(-1.1), transform.y(0));
@@ -1761,7 +1776,8 @@ function contactMotionVelocity(contact, headIndex = contact.headIndex ?? 0, useI
 }
 
 function incidenceForContact(contact, path, headIndex = contact.headIndex ?? 0) {
-  if (state.playMethod === "trace") return clamp(contact.cornerStrength ?? contact.strength ?? 0, 0, 1);
+  // A Point playhead travels along the contour, so it never crosses it.
+  if (state.playMethod === "trace") return 0;
   const tangent = tangentForContact(contact, path);
   const { velocity: initialVelocity, axis } = contactMotionVelocity(contact, headIndex);
   let velocity = initialVelocity;
@@ -2043,12 +2059,20 @@ function makeCornerSnapshot(
   };
 }
 
-function strikeCorner(path, vertex, headIndex, time01 = 0) {
+function strikeCorner(path, vertex, headIndex, time01 = 0, head = null) {
   if (state.soundMode !== "percussion" || !state.audio || vertex.strength <= 0) return;
-  const levelValue = percussionLevelValue(vertex, path, headIndex);
+  const contact = {
+    ...vertex,
+    headIndex,
+    headTravel: head?.continuousPhase,
+    scanAxis: head?.axis === "path" ? undefined : head?.axis,
+    cornerStrength: vertex.strength,
+    cornerTurn: vertex.turn,
+  };
+  const levelValue = percussionLevelValue(contact, path, headIndex);
   const peak = cornerStrikePeak(levelValue, state.cornerAccent);
   if (peak <= 0) return;
-  const mapping = mappingForContact(vertex, path, headIndex);
+  const mapping = mappingForContact(contact, path, headIndex);
   const envelope = {
     attackSeconds: cornerAttackSeconds(state.cornerAttack),
     decaySeconds: cornerDecaySeconds(state.cornerDecay),
@@ -2163,7 +2187,7 @@ function strikeCurrentCorners() {
       const distance = circularDistance
         ? Math.min(Math.abs(phase - target), 1 - Math.abs(phase - target))
         : Math.abs(phase - target);
-      if (distance <= epsilon) strikeCorner(path, vertex, headIndex);
+      if (distance <= epsilon) strikeCorner(path, vertex, headIndex, 0, head);
     }
   }
   cornerSnapshot = snapshot;
@@ -2197,7 +2221,7 @@ function emitCornerStrikes(previous, current, path, time01 = 1) {
         path,
       );
       if (crossed) {
-        strikeCorner(path, afterVertex, headIndex, time01);
+        strikeCorner(path, afterVertex, headIndex, time01, afterHead);
       }
     }
   }
