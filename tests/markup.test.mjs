@@ -220,6 +220,9 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(openingTag("pitchCurveLinear"), /data-value="linear"[^>]*aria-pressed="true"/);
   assert.match(openingTag("pitchCurveExponential"), /data-value="exponential"[^>]*aria-pressed="false"/);
   assert.match(openingTag("pitchCurveLogarithmic"), /data-value="logarithmic"[^>]*aria-pressed="false"/);
+  assert.match(html, /vertical pitch rises upward/);
+  assert.match(html, /id="pitchRouteSource"[^>]*>Vertical position ↑</);
+  assert.match(app, /state\.pitchSource === "vertical" \? 1 - sourcePitch : sourcePitch/);
   const pitchCurveNodes = [...html.matchAll(/id="pitchCurveNode(\d+)"/g)].map((match) => Number(match[1]));
   assert.deepEqual(pitchCurveNodes, [0, 1, 2, 3, 4]);
   assert.match(openingTag("pitchCurveNode2"), /role="slider"[^>]*aria-valuemin="0"[^>]*aria-valuemax="100"[^>]*aria-valuenow="50"/);

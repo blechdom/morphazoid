@@ -363,6 +363,18 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("pitchCurveState").textContent, "Linear");
   assert.equal(attributes.get("pitchCurveLinear:aria-pressed"), "true");
   assert.match(attributes.get("pitchCurvePath:d"), /^M0\.00 96\.00/);
+  assert.equal(elements.get("pitchRouteSource").textContent, "Vertical position ↑");
+  assert.equal(elements.get("markPitchValueOut").textContent, "1.000");
+  const topFrequency = Number.parseFloat(elements.get("markFrequencyOut").textContent);
+  elements.get("position").value = "0.5";
+  listeners.get("position:input")();
+  queuedFrame(1_005);
+  assert.equal(elements.get("markPitchValueOut").textContent, "0.000");
+  assert.ok(Number.parseFloat(elements.get("markFrequencyOut").textContent) < topFrequency);
+  elements.get("position").value = "0";
+  listeners.get("position:input")();
+  queuedFrame(1_006);
+  assert.equal(elements.get("markPitchValueOut").textContent, "1.000");
   assert.equal(attributes.get("stereoHorizontal:aria-pressed"), "true");
   assert.equal(attributes.get("stereoVertical:aria-pressed"), "false");
   assert.equal(attributes.get("stereoCenter:aria-pressed"), "false");

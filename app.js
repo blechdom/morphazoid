@@ -66,6 +66,11 @@ const PITCH_SUMMARY_LABELS = {
   horizontal: "Horizontal",
   center: "Center distance",
 };
+const PITCH_ROUTE_LABELS = {
+  vertical: "Vertical position ↑",
+  horizontal: "Horizontal position",
+  center: "Distance from center",
+};
 const SOURCE_LABELS = {
   vertical: "Vertical position",
   horizontal: "Horizontal position",
@@ -1998,7 +2003,8 @@ function percussionLevelValue(contact, path, headIndex = contact.headIndex ?? 0)
 
 function mappingForContact(contact, path, headIndex = contact.headIndex ?? 0) {
   const normalized = normalizedContactCoordinates(contact, path);
-  const pitchRaw = sourceValueForContact(state.pitchSource, contact, path, headIndex);
+  const sourcePitch = sourceValueForContact(state.pitchSource, contact, path, headIndex);
+  const pitchRaw = state.pitchSource === "vertical" ? 1 - sourcePitch : sourcePitch;
   const panSource = state.stereoSource === "vertical"
     ? normalized.y
     : state.stereoSource === "center" ? centerDistanceForContact(contact) : normalized.x;
@@ -2497,7 +2503,7 @@ function envelopeDurationLabel() {
 
 function updateOutputDashboard(contacts, path) {
   $("outputVoiceLabel").textContent = state.soundMode;
-  $("pitchRouteSource").textContent = SOURCE_LABELS[state.pitchSource] ?? state.pitchSource;
+  $("pitchRouteSource").textContent = PITCH_ROUTE_LABELS[state.pitchSource] ?? state.pitchSource;
   $("pitchRouteCurve").textContent = `${PITCH_CURVE_LABELS[state.pitchCurvePreset] ?? "Custom"} response → exponential Hz`;
   updateStereoMappingUi();
   $("levelRouteSource").textContent = state.soundMode === "percussion"
