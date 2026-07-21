@@ -56,8 +56,9 @@ test("curvature +1 follows the unit circumcircle and removes true corners", () =
   for (const cornerStrength of circle.cornerStrengths) near(cornerStrength, 0, 1e-10);
 });
 
-test("an explicit circle is a closed vertex-free contour", () => {
-  const circle = buildShape({ sides: 4, shapeType: "circle", curvature: 0, samplesPerEdge: 24 });
+test("sides=1 is a closed vertex-free circle", () => {
+  const circle = buildShape({ sides: 1, curvature: 0, samplesPerEdge: 24 });
+  assert.equal(circle.sides, 1);
   assert.equal(circle.shapeType, "circle");
   assert.equal(circle.closed, true);
   assert.equal(circle.vertexCount, 0);
@@ -337,7 +338,7 @@ test("horizontal scans mirror vertical scan behavior and preserve contact metada
 });
 
 test("shape input validation and clamping keep geometry finite", () => {
-  assert.throws(() => buildShape({ sides: 1, curvature: 0 }), RangeError);
+  assert.throws(() => buildShape({ sides: 0, curvature: 0 }), RangeError);
   assert.throws(() => buildShape({ sides: 33, curvature: 0 }), RangeError);
   assert.throws(() => buildShape({ sides: 3.5, curvature: 0 }), RangeError);
   const clamped = buildShape({ sides: 3, curvature: 12, samplesPerEdge: 2 });

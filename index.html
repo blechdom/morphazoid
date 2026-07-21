@@ -184,48 +184,44 @@
             <span class="section-state" id="formSummary">4 sides</span>
           </summary>
           <div class="group-body">
-            <div class="field-label">Topology</div>
-            <div class="choice-switch" id="shapeType" role="group" aria-label="Shape topology">
-              <button id="circleShape" type="button" data-value="circle" aria-pressed="false">Circle</button>
-              <button id="polygonShape" type="button" data-value="polygon" aria-pressed="true">Polygon</button>
-              <button id="starShape" type="button" data-value="star" aria-pressed="false">Star</button>
-            </div>
-
             <label class="control" id="sidesControl" for="sides">
-              <span><b>Sides / points</b><output id="sidesOut" for="sides">4 · polygon</output></span>
-              <input id="sides" type="range" min="2" max="32" step="1" value="4" />
-            </label>
-
-            <label class="control" id="starDepthControl" for="starDepth" hidden>
-              <span><b>Star depth</b><output id="starDepthOut" for="starDepth">48%</output></span>
-              <input id="starDepth" type="range" min="0.05" max="0.82" step="0.01" value="0.48" />
+              <span><b>Form</b><output id="sidesOut" for="sides">4 · polygon</output></span>
+              <input id="sides" type="range" min="1" max="32" step="1" value="4" />
+              <small class="form-count-key">1 circle · 2 open line · 3+ polygon</small>
             </label>
 
             <div class="control" id="curvatureControl">
               <span><b>Roundness</b><output id="curvatureOut" for="curvature">straight</output></span>
-              <div class="roundness-row">
-                <input id="curvature" aria-label="Roundness amount" type="range" min="0" max="1" step="0.005" value="0" />
-                <div class="choice-switch polarity-switch" id="curvatureDirection" role="group" aria-label="Roundness direction">
-                  <button id="curvatureOutward" type="button" data-value="1" aria-pressed="true">Out</button>
-                  <button id="curvatureIn" type="button" data-value="-1" aria-pressed="false">In</button>
+              <div class="form-range-row">
+                <div class="signed-form-range">
+                  <input id="curvature" aria-label="Roundness: inward, straight, or outward" type="range" min="-1" max="1" step="0.005" value="0" />
+                  <div class="form-range-poles" aria-hidden="true"><span>In</span><span>Straight</span><span>Out</span></div>
                 </div>
+                <button class="mini-action form-range-reset" id="resetCurvature" type="button" aria-label="Reset roundness to straight">Straight</button>
               </div>
             </div>
 
-            <label class="control" for="aspect">
+            <div class="control">
               <span><b>Stretch</b><output id="aspectOut" for="aspect">even</output></span>
-              <input id="aspect" type="range" min="-2" max="2" step="0.01" value="0" />
-            </label>
+              <div class="form-range-row">
+                <div class="signed-form-range">
+                  <input id="aspect" aria-label="Stretch: tall, even, or wide" type="range" min="-2" max="2" step="0.01" value="0" />
+                  <div class="form-range-poles" aria-hidden="true"><span>Tall</span><span>Even</span><span>Wide</span></div>
+                </div>
+                <button class="mini-action form-range-reset" id="resetAspect" type="button" aria-label="Reset stretch to even">Even</button>
+              </div>
+            </div>
 
-            <label class="control" for="skew">
+            <div class="control">
               <span><b>Skew</b><output id="skewOut" for="skew">0%</output></span>
-              <input id="skew" type="range" min="-2" max="2" step="0.01" value="0" />
-            </label>
-
-            <label class="control" for="asymmetry">
-              <span><b>Asymmetry</b><output id="asymmetryOut" for="asymmetry">0%</output></span>
-              <input id="asymmetry" type="range" min="0" max="1" step="0.01" value="0" />
-            </label>
+              <div class="form-range-row">
+                <div class="signed-form-range">
+                  <input id="skew" aria-label="Skew left or right" type="range" min="-2" max="2" step="0.01" value="0" />
+                  <div class="form-range-poles" aria-hidden="true"><span>Left</span><span>Zero</span><span>Right</span></div>
+                </div>
+                <button class="mini-action form-range-reset" id="resetSkew" type="button" aria-label="Reset skew to zero">Zero</button>
+              </div>
+            </div>
 
             <button class="mini-action reset-form" id="resetForm" type="button">Reset form</button>
           </div>

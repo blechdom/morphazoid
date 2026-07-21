@@ -61,12 +61,9 @@ const PITCH_SUMMARY_LABELS = {
 const state = {
   sides: 4,
   curvature: 0,
-  curvatureDirection: 1,
   shapeType: "polygon",
-  starDepth: 0.48,
   aspect: 0,
   skew: 0,
-  asymmetry: 0,
   rotation: 0,
   playMethod: "trace",
   lineCount: 1,
@@ -202,16 +199,15 @@ function announce(message) {
 }
 
 function formatSides(value = state.sides) {
-  if (state.shapeType === "circle") return "circle · smooth";
+  if (value === 1) return "1 · circle";
   if (value === 2) return "2 · open line";
-  return state.shapeType === "star" ? `${value} · star points` : `${value} · polygon`;
+  return `${value} · polygon`;
 }
 
 function formatCurvature(value = state.curvature) {
-  if (state.shapeType === "circle") return "perfect circle";
+  if (state.sides === 1) return "continuous contour";
   if (Math.abs(value) < 0.005) return "straight";
   const amount = `${Math.round(Math.abs(value) * 100)}%`;
-  if (state.sides === 2) return `${amount} ${value < 0 ? "negative" : "positive"} bend`;
   return `${amount} ${value < 0 ? "inward" : "outward"}`;
 }
 
@@ -332,11 +328,11 @@ function renderHeadLayout() {
 function updateSectionSummaries() {
   const reader = state.playMethod === "scan" ? "Lines" : state.playMethod === "radial" ? "Radar" : "Points";
   $("playSummary").textContent = `${reader} · ${state.playing ? "playing" : "paused"}`;
-  $("formSummary").textContent = state.shapeType === "circle"
+  $("formSummary").textContent = state.sides === 1
     ? "circle · no corners"
     : state.sides === 2
     ? "open line"
-    : state.shapeType === "star" ? `${state.sides}-point star` : `${state.sides} sides`;
+    : `${state.sides} sides`;
   $("soundSummary").textContent = SOUND_MODE_LABELS[state.soundMode];
   $("mappingSummary").textContent = `${PITCH_SUMMARY_LABELS[state.pitchSource] ?? "Mark"} → pitch`;
 }
@@ -425,10 +421,10 @@ function bindRange(id, key, formatter, afterChange) {
 }
 
 const updateSidesOutput = bindRange("sides", "sides", formatSides, () => {
+  syncFormTopology();
   updateCurvatureOutput();
   updateTraversalDirection();
   updateCanvasLabel();
-  $("starDepthControl").hidden = state.shapeType !== "star" || state.sides < 3;
   updateSectionSummaries();
   resetCornerTracking();
 });
@@ -449,13 +445,12 @@ const updateHeadsOutput = bindRange("heads", "heads", (value) => {
   resetCornerTracking();
 });
 bindRange("rotationSpeed", "rotationSpeed", (value) => `${value.toFixed(2)} rev/s`);
-const updateStarDepthOutput = bindRange("starDepth", "starDepth", (value) => `${Math.round(value * 100)}%`, resetCornerTracking);
+const updateCurvatureOutput = bindRange("curvature", "curvature", formatCurvature, resetCornerTracking);
 const updateAspectOutput = bindRange("aspect", "aspect", (value) => {
   if (Math.abs(value) < 0.005) return "even";
   return `${Math.round(Math.abs(value) * 100)}% ${value > 0 ? "wide" : "tall"}`;
 }, resetCornerTracking);
 const updateSkewOutput = bindRange("skew", "skew", (value) => `${Math.round(value * 100)}%`, resetCornerTracking);
-const updateAsymmetryOutput = bindRange("asymmetry", "asymmetry", (value) => `${Math.round(value * 100)}%`, resetCornerTracking);
 bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
@@ -472,93 +467,59 @@ bindRange("pmIndex", "pmIndex", (value) => `${value.toFixed(2)} rad`);
 bindRange("pmRatio", "pmRatio", (value) => `${value.toFixed(2)} : 1`);
 bindRange("stereoWidth", "stereoWidth", (value) => `${Math.round(value * 100)}%`);
 
-function updateCurvatureOutput() {
-  $("curvature").value = String(Math.abs(state.curvature));
-  $("curvatureOut").textContent = formatCurvature();
-  for (const button of $("curvatureDirection").querySelectorAll("button")) {
-    setPressed(button, Number(button.dataset.value) === state.curvatureDirection);
-  }
-}
-
-function setCurvatureAmount(amount) {
-  state.curvature = clamp(Number(amount), 0, 1) * state.curvatureDirection;
-  updateCurvatureOutput();
-  updateCanvasLabel();
-  resetCornerTracking();
-  dismissHelp();
-}
-
-function setCurvatureDirection(direction, shouldAnnounce = true) {
-  state.curvatureDirection = direction < 0 ? -1 : 1;
-  state.curvature = Math.abs(state.curvature) * state.curvatureDirection;
-  updateCurvatureOutput();
-  resetCornerTracking();
-  if (shouldAnnounce) announce(`Roundness bends ${state.curvatureDirection < 0 ? "inward" : "outward"}.`);
-  dismissHelp();
-}
-
-$("curvature").addEventListener("input", () => setCurvatureAmount($("curvature").value));
-for (const button of $("curvatureDirection").querySelectorAll("button")) {
-  button.addEventListener("click", () => setCurvatureDirection(Number(button.dataset.value)));
-}
-
-function setShapeType(type, shouldAnnounce = true) {
-  const previousType = state.shapeType;
-  state.shapeType = type === "circle" ? "circle" : type === "star" ? "star" : "polygon";
-  if (state.shapeType === "circle") {
-    state.curvature = 1;
-    state.curvatureDirection = 1;
-  } else if (previousType === "circle") {
-    state.curvature = 0;
-    state.curvatureDirection = 1;
-  }
-  for (const button of $("shapeType").querySelectorAll("button")) {
-    setPressed(button, button.dataset.value === state.shapeType);
-  }
-  const circle = state.shapeType === "circle";
-  $("sidesControl").hidden = circle;
+function syncFormTopology(shouldAnnounce = false) {
+  const circle = state.sides === 1;
+  state.shapeType = circle ? "circle" : "polygon";
   $("curvatureControl").hidden = circle;
-  $("starDepthControl").hidden = state.shapeType !== "star" || state.sides < 3;
   $("sineModeOption").textContent = circle ? "Sine · continuous contour" : "Sine · corner envelope";
   updateSineArticulationVisibility();
-  updateCurvatureOutput();
-  updateSidesOutput();
   updateSectionSummaries();
   resetCornerTracking();
   if (shouldAnnounce) {
-    announce(state.shapeType === "circle"
-      ? "Circle selected. The contour is smooth with no corners."
-      : state.shapeType === "star"
-        ? "Star topology selected. Inner and outer corners alternate."
-        : "Polygon topology selected.");
+    announce(circle
+      ? "One selected: a smooth circle with no corners."
+      : state.sides === 2
+        ? "Two selected: an open line."
+        : `${state.sides}-sided polygon selected.`);
   }
   invalidate();
 }
 
-for (const button of $("shapeType").querySelectorAll("button")) {
-  button.addEventListener("click", () => setShapeType(button.dataset.value));
+function resetFormRange(id, key, updateOutput, label) {
+  state[key] = 0;
+  $(id).value = "0";
+  updateOutput();
+  resetCornerTracking();
+  announce(`${label} reset.`);
+  invalidate();
 }
+
+$("resetCurvature").addEventListener("click", () => {
+  resetFormRange("curvature", "curvature", updateCurvatureOutput, "Roundness");
+});
+$("resetAspect").addEventListener("click", () => {
+  resetFormRange("aspect", "aspect", updateAspectOutput, "Stretch");
+});
+$("resetSkew").addEventListener("click", () => {
+  resetFormRange("skew", "skew", updateSkewOutput, "Skew");
+});
 
 $("resetForm").addEventListener("click", () => {
   state.sides = 4;
   state.curvature = 0;
-  state.curvatureDirection = 1;
-  state.starDepth = 0.48;
   state.aspect = 0;
   state.skew = 0;
-  state.asymmetry = 0;
   $("sides").value = "4";
-  $("starDepth").value = "0.48";
+  $("curvature").value = "0";
   $("aspect").value = "0";
   $("skew").value = "0";
-  $("asymmetry").value = "0";
+  syncFormTopology(false);
   updateSidesOutput();
   updateCurvatureOutput();
-  updateStarDepthOutput();
   updateAspectOutput();
   updateSkewOutput();
-  updateAsymmetryOutput();
-  setShapeType("polygon", false);
+  updateTraversalDirection();
+  updateCanvasLabel();
   announce("Form reset.");
   invalidate();
 });
@@ -918,7 +879,7 @@ function updateTraversalDirection() {
   const forward = state.traversalDirection > 0;
   const bouncing = state.motionMode === "pingpong";
   const openPoints = state.playMethod === "trace" && state.sides === 2;
-  const closedPoints = state.playMethod === "trace" && state.sides > 2;
+  const closedPoints = state.playMethod === "trace" && state.sides !== 2;
   const radial = state.playMethod === "radial";
   const glyph = forward ? "→" : "←";
   const text = bouncing
@@ -965,11 +926,9 @@ function currentShape() {
   const key = [
     state.sides,
     state.shapeType,
-    state.starDepth.toFixed(4),
     state.curvature.toFixed(4),
     state.aspect.toFixed(4),
     state.skew.toFixed(4),
-    state.asymmetry.toFixed(4),
     state.rotation.toFixed(4),
   ].join("|");
   if (cachedShape && cachedShapeKey === key) return cachedShape;
@@ -977,11 +936,9 @@ function currentShape() {
   cachedShape = buildShape({
     sides: state.sides,
     shapeType: state.shapeType,
-    starDepth: state.starDepth,
     curvature: state.curvature,
     aspect: state.aspect,
     skew: state.skew,
-    asymmetry: state.asymmetry,
     rotationDeg: state.rotation,
     samplesPerEdge: 48,
   });
@@ -992,11 +949,9 @@ function shapeAtRotation(rotationDeg) {
   return buildShape({
     sides: state.sides,
     shapeType: state.shapeType,
-    starDepth: state.starDepth,
     curvature: state.curvature,
     aspect: state.aspect,
     skew: state.skew,
-    asymmetry: state.asymmetry,
     rotationDeg,
     samplesPerEdge: 48,
   });
@@ -1006,22 +961,18 @@ function currentLocalShape() {
   const key = [
     state.sides,
     state.shapeType,
-    state.starDepth.toFixed(4),
     state.curvature.toFixed(4),
     state.aspect.toFixed(4),
     state.skew.toFixed(4),
-    state.asymmetry.toFixed(4),
   ].join("|");
   if (cachedLocalShape && cachedLocalShapeKey === key) return cachedLocalShape;
   cachedLocalShapeKey = key;
   cachedLocalShape = buildShape({
     sides: state.sides,
     shapeType: state.shapeType,
-    starDepth: state.starDepth,
     curvature: state.curvature,
     aspect: state.aspect,
     skew: state.skew,
-    asymmetry: state.asymmetry,
     rotationDeg: 0,
     samplesPerEdge: 48,
   });
@@ -1868,11 +1819,9 @@ function trackCornerMotion(finalPath) {
       : buildShape({
         sides: state.sides,
         shapeType: state.shapeType,
-        starDepth: state.starDepth,
         curvature: state.curvature,
         aspect: state.aspect,
         skew: state.skew,
-        asymmetry: state.asymmetry,
         rotationDeg: normalizeDegrees(cornerSnapshot.rotationDeg + rotationDelta * amount),
         samplesPerEdge: 48,
       });
@@ -2267,9 +2216,9 @@ window.addEventListener("pageshow", () => invalidate());
 
 $("shape").addEventListener("input", dismissHelp);
 
+syncFormTopology(false);
 updateSidesOutput();
 updateCurvatureOutput();
-setShapeType(state.shapeType, false);
 setPlayMethod(state.playMethod, false);
 setMotionMode(state.motionMode, false);
 setSoundMode(state.soundMode, false);

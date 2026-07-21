@@ -2,8 +2,9 @@
  * Pure geometry for the 2D shape instrument.
  *
  * Coordinates are centered at the origin and normalized to the unit disc.
- * Closed shapes put their true vertices on the unit circle. A two-sided shape
- * is deliberately an open, single-traversal line from (-1, 0) to (1, 0).
+ * One side denotes a vertex-free circle. Closed polygons put their true
+ * vertices on the unit circle. A two-sided shape is deliberately an open,
+ * single-traversal line from (-1, 0) to (1, 0).
  *
  * @typedef {{ x: number, y: number }} Point
  * @typedef {{
@@ -18,7 +19,7 @@
  * @typedef {{
  *   sides: number,
  *   curvature: number,
- *   shapeType?: 'polygon'|'star',
+ *   shapeType?: 'circle'|'polygon'|'star',
  *   starDepth?: number,
  *   aspect?: number,
  *   skew?: number,
@@ -250,13 +251,13 @@ function measure(points, closed) {
 }
 
 /**
- * Build a normalized open line or closed curved regular polygon.
+ * Build a normalized circle, open line, or closed curved regular polygon.
  * @param {BuildShapeOptions} options
  * @returns {ShapePath}
  */
 export function buildShape(options) {
-  if (!Number.isInteger(options.sides) || options.sides < 2 || options.sides > 32) {
-    throw new RangeError("sides must be an integer from 2 through 32");
+  if (!Number.isInteger(options.sides) || options.sides < 1 || options.sides > 32) {
+    throw new RangeError("sides must be an integer from 1 through 32");
   }
 
   const sides = options.sides;
@@ -264,9 +265,11 @@ export function buildShape(options) {
   const requestedType = options.shapeType === "circle"
     ? "circle"
     : options.shapeType === "star" ? "star" : "polygon";
-  const shapeType = requestedType === "circle"
+  const shapeType = sides === 1
     ? "circle"
-    : requestedType === "star" && sides >= 3 ? "star" : "polygon";
+    : requestedType === "circle"
+      ? "circle"
+      : requestedType === "star" && sides >= 3 ? "star" : "polygon";
   const starDepth = shapeType === "star"
     ? clamp(finiteOr(options.starDepth, 0.48), 0.05, 0.82)
     : 0;

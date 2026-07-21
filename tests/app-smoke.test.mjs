@@ -69,8 +69,6 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   const groups = {
     playMethod: ["traceMode", "scanMode", "radialMode"],
     playheadMotion: ["loopMotion", "pingPongMotion"],
-    curvatureDirection: ["curvatureOutward", "curvatureIn"],
-    shapeType: ["circleShape", "polygonShape", "starShape"],
   };
   const dataValues = {
     scanMode: "scan",
@@ -78,11 +76,6 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     radialMode: "radial",
     pingPongMotion: "pingpong",
     loopMotion: "loop",
-    curvatureIn: "-1",
-    curvatureOutward: "1",
-    circleShape: "circle",
-    polygonShape: "polygon",
-    starShape: "star",
   };
   for (const [id, value] of Object.entries(dataValues)) elements.get(id).dataset.value = value;
   for (const [id, childIds] of Object.entries(groups)) {
@@ -214,8 +207,13 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.match(elements.get("stageReadout").textContent, /1 CONTACT/);
   assert.equal(attributes.get("traceMode:aria-pressed"), "true");
   assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
-  assert.equal(attributes.get("polygonShape:aria-pressed"), "true");
-  assert.equal(attributes.get("curvatureOutward:aria-pressed"), "true");
+  assert.equal(elements.get("sides").value, "4");
+  assert.equal(elements.get("sidesOut").textContent, "4 · polygon");
+  assert.equal(elements.get("formSummary").textContent, "4 sides");
+  for (const removedId of [
+    "shapeType", "circleShape", "polygonShape", "starShape", "starDepth",
+    "starDepthControl", "asymmetry", "curvatureDirection", "curvatureOutward", "curvatureIn",
+  ]) assert.equal(elements.has(removedId), false, `obsolete Form control #${removedId} should be absent`);
   assert.equal(attributes.get("rotationPlayButton:aria-pressed"), "false");
   assert.equal(elements.get("levelOut").textContent, "65%");
   assert.equal(elements.get("position").value, "0.5");
@@ -528,12 +526,15 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.match(elements.get("stageReadout").textContent, /4 LINES/);
   assert.doesNotMatch(elements.get("stageReadout").textContent, /12 POINTS/);
 
-  listeners.get("circleShape:click")();
-  assert.equal(attributes.get("circleShape:aria-pressed"), "true");
-  assert.equal(elements.get("sidesControl").hidden, true);
+  // Side count is the form selector: 1 is a continuous circle, 2 is an open
+  // line, and 3+ is a polygon. Only a circle suppresses corner controls.
+  elements.get("sides").value = "1";
+  listeners.get("sides:input")();
+  assert.equal(elements.get("sidesOut").textContent, "1 · circle");
+  assert.equal(elements.get("sidesControl").hidden, false);
   assert.equal(elements.get("curvatureControl").hidden, true);
   assert.equal(elements.get("formSummary").textContent, "circle · no corners");
-  assert.equal(elements.get("curvatureOut").textContent, "perfect circle");
+  assert.equal(elements.get("curvatureOut").textContent, "continuous contour");
   assert.equal(elements.get("sineArticulation").hidden, true);
   assert.equal(elements.get("sineModeOption").textContent, "Sine · continuous contour");
   queuedFrame(3_010);
@@ -541,37 +542,57 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("levelRouteCurve").textContent, "constant continuous level");
   assert.equal(elements.get("markDecayOut").textContent, "none");
 
-  listeners.get("starShape:click")();
-  assert.equal(attributes.get("starShape:aria-pressed"), "true");
-  assert.equal(elements.get("sidesControl").hidden, false);
-  assert.equal(elements.get("curvatureControl").hidden, false);
-  assert.equal(elements.get("starDepthControl").hidden, false);
-  elements.get("sides").value = "7";
+  elements.get("sides").value = "2";
   listeners.get("sides:input")();
-  assert.equal(elements.get("sidesOut").textContent, "7 · star points");
-  elements.get("aspect").value = "0.5";
-  listeners.get("aspect:input")();
-  assert.equal(elements.get("aspectOut").textContent, "50% wide");
-  elements.get("skew").value = "-0.35";
-  listeners.get("skew:input")();
-  assert.equal(elements.get("skewOut").textContent, "-35%");
-  elements.get("asymmetry").value = "0.4";
-  listeners.get("asymmetry:input")();
-  assert.equal(elements.get("asymmetryOut").textContent, "40%");
-  listeners.get("resetForm:click")();
-  assert.equal(attributes.get("polygonShape:aria-pressed"), "true");
-  assert.equal(elements.get("starDepthControl").hidden, true);
-  assert.equal(elements.get("sidesOut").textContent, "4 · polygon");
+  assert.equal(elements.get("sidesOut").textContent, "2 · open line");
+  assert.equal(elements.get("formSummary").textContent, "open line");
+  assert.equal(elements.get("curvatureControl").hidden, false);
+  elements.get("sides").value = "3";
+  listeners.get("sides:input")();
+  assert.equal(elements.get("sidesOut").textContent, "3 · polygon");
+  assert.equal(elements.get("formSummary").textContent, "3 sides");
 
+  elements.get("curvature").value = "-0.4";
+  listeners.get("curvature:input")();
+  assert.equal(elements.get("curvatureOut").textContent, "40% inward");
   elements.get("curvature").value = "0.4";
   listeners.get("curvature:input")();
   assert.equal(elements.get("curvatureOut").textContent, "40% outward");
-  listeners.get("curvatureIn:click")();
-  assert.equal(elements.get("curvatureOut").textContent, "40% inward");
-  assert.equal(elements.get("curvature").value, "0.4");
-  elements.get("curvature").value = "0";
-  listeners.get("curvature:input")();
+  listeners.get("resetCurvature:click")();
+  assert.equal(elements.get("curvature").value, "0");
   assert.equal(elements.get("curvatureOut").textContent, "straight");
+
+  elements.get("aspect").value = "0.5";
+  listeners.get("aspect:input")();
+  assert.equal(elements.get("aspectOut").textContent, "50% wide");
+  listeners.get("resetAspect:click")();
+  assert.equal(elements.get("aspect").value, "0");
+  assert.equal(elements.get("aspectOut").textContent, "even");
+
+  elements.get("skew").value = "-0.35";
+  listeners.get("skew:input")();
+  assert.equal(elements.get("skewOut").textContent, "-35%");
+  listeners.get("resetSkew:click")();
+  assert.equal(elements.get("skew").value, "0");
+  assert.equal(elements.get("skewOut").textContent, "0%");
+
+  elements.get("sides").value = "7";
+  listeners.get("sides:input")();
+  elements.get("curvature").value = "-0.25";
+  listeners.get("curvature:input")();
+  elements.get("aspect").value = "0.5";
+  listeners.get("aspect:input")();
+  elements.get("skew").value = "-0.35";
+  listeners.get("skew:input")();
+  listeners.get("resetForm:click")();
+  assert.equal(elements.get("sidesOut").textContent, "4 · polygon");
+  assert.equal(elements.get("sides").value, "4");
+  assert.equal(elements.get("curvature").value, "0");
+  assert.equal(elements.get("curvatureOut").textContent, "straight");
+  assert.equal(elements.get("aspect").value, "0");
+  assert.equal(elements.get("aspectOut").textContent, "even");
+  assert.equal(elements.get("skew").value, "0");
+  assert.equal(elements.get("skewOut").textContent, "0%");
 
   elements.get("level").value = "0.73";
   listeners.get("level:input")();

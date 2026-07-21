@@ -56,13 +56,9 @@ test("the mobile instrument markup exposes the complete compact control surface"
     assert.match(html.slice(selectedStart, otherStart), new RegExp(`>${selectedLabel}<\\/button>`));
   };
 
-  // Immediate binary choices are left-defaulting rocker controls, not faux tabs.
+  // Reading method remains a compact rocker control.
   assertDefaultLeftChoice("playMethod", "traceMode", "Points", "scanMode");
-  assertDefaultLeftChoice("curvatureDirection", "curvatureOutward", "Out", "curvatureIn");
-  assertDefaultLeftChoice("shapeType", "polygonShape", "Polygon", "starShape");
-  assert.match(openingTag("circleShape"), /data-value="circle"[^>]*aria-pressed="false"/);
-  assert.ok(html.indexOf('id="circleShape"') < html.indexOf('id="polygonShape"'));
-  assert.equal((html.match(/class="choice-switch/g) ?? []).length, 3);
+  assert.equal((html.match(/class="choice-switch/g) ?? []).length, 1);
   assert.match(openingTag("loopMotion"), /aria-pressed="true"[^>]*aria-label="Loop movement"/);
   assert.match(openingTag("pingPongMotion"), /aria-pressed="false"[^>]*aria-label="Back-and-forth movement"/);
   assert.match(html, /id="loopMotion"[\s\S]*?>⟳<[\s\S]*?id="pingPongMotion"[\s\S]*?>↔</);
@@ -116,14 +112,29 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.doesNotMatch(openingTag("headMarker0"), /\bhidden\b/);
   assert.match(openingTag("headMarker1"), /\bhidden\b/);
 
-  // Form supports polygon/star topology and bounded asymmetrical transforms.
-  assert.match(openingTag("starDepthControl"), /\bhidden\b/);
-  assert.match(openingTag("starDepth"), /min="0\.05"[^>]*max="0\.82"/);
-  assert.match(openingTag("curvature"), /min="0"[^>]*max="1"/);
-  assert.match(openingTag("sides"), /min="2"[^>]*max="32"/);
+  // Side count directly selects circle, open line, or polygon; form transforms
+  // use centered signed ranges with an adjacent reset action.
+  assert.match(openingTag("sides"), /min="1"[^>]*max="32"[^>]*step="1"/);
+  assert.match(html, /1 circle · 2 open line · 3\+ polygon/);
+  assert.match(openingTag("curvature"), /min="-1"[^>]*max="1"[^>]*value="0"/);
   assert.match(openingTag("aspect"), /min="-2"[^>]*max="2"/);
   assert.match(openingTag("skew"), /min="-2"[^>]*max="2"/);
-  assert.match(openingTag("asymmetry"), /min="0"[^>]*max="1"/);
+  assert.match(html, /<span>In<\/span><span>Straight<\/span><span>Out<\/span>/);
+
+  const assertAdjacentReset = (sliderId, resetId, label) => {
+    assert.match(
+      html,
+      new RegExp(`<div class="form-range-row">[\\s\\S]{0,600}id="${sliderId}"[\\s\\S]{0,400}id="${resetId}"`),
+    );
+    assert.match(openingTag(resetId), new RegExp(`aria-label="[^"]*${label}[^"]*"`, "i"));
+  };
+  assertAdjacentReset("curvature", "resetCurvature", "straight");
+  assertAdjacentReset("aspect", "resetAspect", "even");
+  assertAdjacentReset("skew", "resetSkew", "zero");
+  assert.doesNotMatch(
+    html,
+    /id="(?:shapeType|circleShape|polygonShape|starShape|starDepth|starDepthControl|asymmetry|asymmetryControl|curvatureDirection|curvatureOutward|curvatureIn)"/,
+  );
 
   const soundSelect = html.match(/<select\s+id="soundMode"[^>]*>([\s\S]*?)<\/select>/);
   assert.ok(soundSelect, "missing sound mode select");

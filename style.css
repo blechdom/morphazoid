@@ -1933,15 +1933,47 @@ input[type="range"]::-moz-range-thumb {
   margin-top: 5px;
 }
 
-.roundness-row {
-  display: grid;
-  min-width: 0;
-  grid-template-columns: minmax(0, 1fr) 94px;
-  align-items: center;
-  gap: 12px;
+.form-count-key {
+  margin-top: -4px;
+  color: var(--faint);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.polarity-switch {
+.form-range-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 68px;
+  align-items: start;
+  gap: 10px;
+}
+
+.signed-form-range {
+  min-width: 0;
+}
+
+.form-range-poles {
+  display: grid;
+  margin-top: -6px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.form-range-poles span:nth-child(2) {
+  text-align: center;
+}
+
+.form-range-poles span:last-child {
+  text-align: right;
+}
+
+.form-range-reset {
+  width: 68px;
+  min-height: 40px;
   margin: 0;
 }
 
