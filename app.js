@@ -32,6 +32,11 @@ import {
   updateHeadOffset,
   wrapOffset,
 } from "./src/playheads.js";
+import {
+  evaluateMappingCurve,
+  mappingCurvePreset,
+  updateMappingCurveNode,
+} from "./src/mapping.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -105,7 +110,8 @@ const state = {
   pmRatio: 1,
   stereoWidth: 1,
   pitchSource: "vertical",
-  pitchCurve: "linear",
+  pitchCurvePreset: "linear",
+  pitchCurveNodes: mappingCurvePreset("linear"),
   hitLevelSource: "corner",
   hitLevelCurve: "linear",
 };
@@ -135,9 +141,6 @@ state.stereoWidth = clamp(state.stereoWidth, 0, 1);
 state.pitchSource = ["vertical", "horizontal", "center"].includes(state.pitchSource)
   ? state.pitchSource
   : "vertical";
-state.pitchCurve = ["linear", "exponential", "logarithmic", "smooth", "inverted"].includes(state.pitchCurve)
-  ? state.pitchCurve
-  : "linear";
 state.hitLevelSource = ["corner", "incidence", "fixed", "signed"].includes(state.hitLevelSource)
   ? state.hitLevelSource
   : "corner";
@@ -156,6 +159,7 @@ let cssHeight = 1;
 let pixelRatio = 1;
 let pointerGesture = null;
 let draggingHead = null;
+let draggingPitchCurveNode = null;
 let lastFrameTime = performance.now();
 let lastAudioClockTime = null;
 let lastUiUpdate = 0;
@@ -839,7 +843,6 @@ for (const button of $("rotationMotion").querySelectorAll("button[data-value]"))
 }
 
 for (const [id, key] of [
-  ["pitchCurve", "pitchCurve"],
   ["hitLevelSource", "hitLevelSource"],
   ["hitLevelCurve", "hitLevelCurve"],
   ["synthSource", "synthSource"],
@@ -864,6 +867,107 @@ function setPitchDimension(source, shouldAnnounce = true) {
 for (const button of $("pitchDimension").querySelectorAll("button")) {
   button.addEventListener("click", () => setPitchDimension(button.dataset.value));
 }
+
+const PITCH_CURVE_LABELS = {
+  linear: "Linear",
+  exponential: "Exponential",
+  logarithmic: "Logarithmic",
+  smooth: "Smooth",
+  inverted: "Inverted",
+  custom: "Custom",
+};
+
+function pitchCurvePathData(nodes = state.pitchCurveNodes) {
+  return nodes.map((node, index) => {
+    const x = (node.x * 240).toFixed(2);
+    const y = ((1 - node.y) * 96).toFixed(2);
+    return `${index ? "L" : "M"}${x} ${y}`;
+  }).join(" ");
+}
+
+function renderPitchCurve() {
+  $("pitchCurvePath").setAttribute("d", pitchCurvePathData());
+  $("pitchCurveState").textContent = PITCH_CURVE_LABELS[state.pitchCurvePreset] ?? "Custom";
+  for (const button of $("pitchCurvePresets").querySelectorAll("button")) {
+    setPressed(button, button.dataset.value === state.pitchCurvePreset);
+  }
+  state.pitchCurveNodes.forEach((node, index) => {
+    const handle = $(`pitchCurveNode${index}`);
+    const inputPercent = Math.round(node.x * 100);
+    const outputPercent = Math.round(node.y * 100);
+    handle.style.left = `${node.x * 100}%`;
+    handle.style.top = `${(1 - node.y) * 100}%`;
+    handle.setAttribute("aria-label", `Pitch curve node ${index + 1}: input ${inputPercent} percent, output ${outputPercent} percent`);
+    handle.setAttribute("aria-valuetext", `${inputPercent} percent input maps to ${outputPercent} percent output`);
+  });
+}
+
+function selectPitchCurvePreset(preset, shouldAnnounce = true) {
+  state.pitchCurvePreset = PITCH_CURVE_LABELS[preset] ? preset : "linear";
+  state.pitchCurveNodes = mappingCurvePreset(state.pitchCurvePreset);
+  renderPitchCurve();
+  if (shouldAnnounce) announce(`${PITCH_CURVE_LABELS[state.pitchCurvePreset]} pitch response selected.`);
+  invalidate();
+}
+
+function setPitchCurveNode(index, point, shouldAnnounce = false) {
+  state.pitchCurveNodes = updateMappingCurveNode(state.pitchCurveNodes, index, point);
+  state.pitchCurvePreset = "custom";
+  renderPitchCurve();
+  if (shouldAnnounce) {
+    const node = state.pitchCurveNodes[index];
+    announce(`Pitch curve node ${index + 1}: ${Math.round(node.x * 100)} percent input, ${Math.round(node.y * 100)} percent output.`);
+  }
+  invalidate();
+}
+
+for (const button of $("pitchCurvePresets").querySelectorAll("button")) {
+  button.addEventListener("click", () => selectPitchCurvePreset(button.dataset.value));
+}
+
+function pitchCurvePointFromPointer(event) {
+  const bounds = $("pitchCurveEditor").getBoundingClientRect();
+  return {
+    x: clamp((event.clientX - bounds.left) / Math.max(1, bounds.width), 0, 1),
+    y: clamp(1 - (event.clientY - bounds.top) / Math.max(1, bounds.height), 0, 1),
+  };
+}
+
+for (let index = 0; index < 5; index += 1) {
+  const handle = $(`pitchCurveNode${index}`);
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault?.();
+    draggingPitchCurveNode = { index, pointerId: event.pointerId };
+    $("pitchCurveEditor").setPointerCapture?.(event.pointerId);
+  });
+  handle.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    const step = event.shiftKey ? 0.05 : 0.01;
+    const node = state.pitchCurveNodes[index];
+    setPitchCurveNode(index, {
+      x: node.x + (event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0),
+      y: node.y + (event.key === "ArrowDown" ? -step : event.key === "ArrowUp" ? step : 0),
+    }, true);
+  });
+}
+
+$("pitchCurveEditor").addEventListener("pointermove", (event) => {
+  if (!draggingPitchCurveNode || event.pointerId !== draggingPitchCurveNode.pointerId) return;
+  setPitchCurveNode(draggingPitchCurveNode.index, pitchCurvePointFromPointer(event));
+});
+
+function endPitchCurveDrag(event) {
+  if (!draggingPitchCurveNode || event.pointerId !== draggingPitchCurveNode.pointerId) return;
+  const index = draggingPitchCurveNode.index;
+  draggingPitchCurveNode = null;
+  const node = state.pitchCurveNodes[index];
+  announce(`Pitch curve node ${index + 1}: ${Math.round(node.x * 100)} percent input, ${Math.round(node.y * 100)} percent output.`);
+}
+
+$("pitchCurveEditor").addEventListener("pointerup", endPitchCurveDrag);
+$("pitchCurveEditor").addEventListener("pointercancel", endPitchCurveDrag);
+$("resetPitchCurve").addEventListener("click", () => selectPitchCurvePreset("linear"));
 
 const speedInput = $("speed");
 speedInput.value = String(sliderFromSpeed(state.speed));
@@ -1475,7 +1579,7 @@ function mappingForContact(contact, path, headIndex = contact.headIndex ?? 0) {
   const pitchRaw = rawMarkForSource(state.pitchSource, contact, path, headIndex);
   return {
     pitchRaw,
-    pitch: mapCurve01(pitchRaw, state.pitchCurve),
+    pitch: evaluateMappingCurve(pitchRaw, state.pitchCurveNodes),
     pan: clamp(normalized.x * 2 - 1, -1, 1) * state.stereoWidth,
     normalized,
     incidence: incidenceForContact(contact, path, headIndex),
@@ -1976,7 +2080,7 @@ function envelopeDurationLabel() {
 function updateOutputDashboard(contacts, path) {
   $("outputVoiceLabel").textContent = state.soundMode;
   $("pitchRouteSource").textContent = SOURCE_LABELS[state.pitchSource] ?? state.pitchSource;
-  $("pitchRouteCurve").textContent = `${CURVE_LABELS[state.pitchCurve]} mark → exponential Hz`;
+  $("pitchRouteCurve").textContent = `${PITCH_CURVE_LABELS[state.pitchCurvePreset] ?? "Custom"} response → exponential Hz`;
   $("levelRouteSource").textContent = state.soundMode === "percussion"
     ? SOURCE_LABELS[state.hitLevelSource] ?? state.hitLevelSource
     : state.shapeType === "circle" ? "Continuous contour" : "Corner distance + magnitude";
@@ -2285,6 +2389,7 @@ setPlayMethod(state.playMethod, false);
 setMotionMode(state.motionMode, false);
 setSoundMode(state.soundMode, false);
 setPitchDimension(state.pitchSource, false);
+renderPitchCurve();
 setTraversalDirection(1, false);
 setRotationDirection(1, false);
 setRotationMotionMode(state.rotationMotionMode, false);

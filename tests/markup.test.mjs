@@ -171,7 +171,9 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.doesNotMatch(app, /mappingFrame|currentLocalShape/);
   for (const id of [
     "mappingSummary", "pitchDimension", "pitchVertical", "pitchHorizontal", "pitchCenter",
-    "pitchCurve", "hitLevelSource", "hitLevelCurve",
+    "pitchCurvePresets", "pitchCurveLinear", "pitchCurveExponential", "pitchCurveLogarithmic",
+    "pitchCurveSmooth", "pitchCurveInverted", "pitchCurveEditor", "pitchCurvePath",
+    "resetPitchCurve", "hitLevelSource", "hitLevelCurve",
     "synthSource", "shepardCycles", "shepardDirection", "shepardWidth",
     "fmIndex", "fmRatio", "pmIndex", "pmRatio",
   ]) assert.ok(html.includes(`id="${id}"`));
@@ -184,8 +186,15 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.doesNotMatch(html, /id="pitchSource"/);
   assert.match(app, /source === "horizontal"/);
   assert.match(app, /return clamp\(normalized\.y, 0, 1\)/);
-  assert.match(html, /value="exponential">Expand high values/);
-  assert.match(html, /value="logarithmic">Expand low values/);
+  assert.doesNotMatch(html, /id="pitchCurve"/);
+  assert.match(openingTag("pitchCurveLinear"), /data-value="linear"[^>]*aria-pressed="true"/);
+  assert.match(openingTag("pitchCurveExponential"), /data-value="exponential"[^>]*aria-pressed="false"/);
+  assert.match(openingTag("pitchCurveLogarithmic"), /data-value="logarithmic"[^>]*aria-pressed="false"/);
+  const pitchCurveNodes = [...html.matchAll(/id="pitchCurveNode(\d+)"/g)].map((match) => Number(match[1]));
+  assert.deepEqual(pitchCurveNodes, [0, 1, 2, 3, 4]);
+  assert.match(html, /Drag nodes · arrows 1% · Shift 5%/);
+  assert.match(app, /updateMappingCurveNode/);
+  assert.match(app, /evaluateMappingCurve/);
 
   // Output is a realtime marks dashboard with clearly future-facing external routes.
   for (const id of [
@@ -206,6 +215,8 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /\.transport-button-array\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,\s*42px\)/);
   assert.match(css, /\.transport-button-array\s*>\s*button\s*\{[\s\S]*?width:\s*42px;[\s\S]*?height:\s*44px;/);
   assert.match(css, /\.transport-button-array\s*>\s*button\s*\+\s*button\s*\{[\s\S]*?border-left:\s*0;/);
+  assert.match(css, /\.curve-editor\s*\{[\s\S]*?height:\s*96px;/);
+  assert.match(css, /\.curve-node\s*\{[\s\S]*?position:\s*absolute;/);
 
   assert.ok(html.indexOf('id="audioButton"') < html.indexOf('id="playSection"'));
   assert.ok(html.indexOf('id="level"') < html.indexOf("<main"));

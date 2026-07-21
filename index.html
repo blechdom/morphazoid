@@ -369,18 +369,34 @@
               <small class="mapping-coordinate-note">Fixed stage / screen axes</small>
             </div>
 
-            <label class="select-control" for="pitchCurve">
-              <span class="field-label">Pitch interpretation</span>
-              <span class="select-shell">
-                <select id="pitchCurve">
-                  <option value="linear" selected>Linear mark · exponential Hz</option>
-                  <option value="exponential">Expand high values</option>
-                  <option value="logarithmic">Expand low values</option>
-                  <option value="smooth">Smooth S-curve</option>
-                  <option value="inverted">Invert</option>
-                </select>
-              </span>
-            </label>
+            <div class="mapping-curve-control">
+              <div class="mapping-curve-heading">
+                <span class="field-label">Pitch response</span>
+                <output id="pitchCurveState">Linear</output>
+              </div>
+              <div class="curve-preset-strip" id="pitchCurvePresets" role="group" aria-label="Pitch response presets">
+                <button id="pitchCurveLinear" type="button" data-value="linear" aria-pressed="true" title="Linear">Lin</button>
+                <button id="pitchCurveExponential" type="button" data-value="exponential" aria-pressed="false" title="Exponential">Exp</button>
+                <button id="pitchCurveLogarithmic" type="button" data-value="logarithmic" aria-pressed="false" title="Logarithmic">Log</button>
+                <button id="pitchCurveSmooth" type="button" data-value="smooth" aria-pressed="false" title="Smooth S-curve">S</button>
+                <button id="pitchCurveInverted" type="button" data-value="inverted" aria-pressed="false" title="Inverted">Inv</button>
+              </div>
+              <div class="curve-editor" id="pitchCurveEditor" role="group" aria-label="Editable pitch response curve">
+                <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true">
+                  <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
+                  <path class="curve-path" id="pitchCurvePath" d="M0 96 L60 72 L120 48 L180 24 L240 0" />
+                </svg>
+                <button class="curve-node" id="pitchCurveNode0" type="button" data-node-index="0" style="left:0%;top:100%" aria-label="Pitch curve node 1: input 0 percent, output 0 percent"></button>
+                <button class="curve-node" id="pitchCurveNode1" type="button" data-node-index="1" style="left:25%;top:75%" aria-label="Pitch curve node 2: input 25 percent, output 25 percent"></button>
+                <button class="curve-node" id="pitchCurveNode2" type="button" data-node-index="2" style="left:50%;top:50%" aria-label="Pitch curve node 3: input 50 percent, output 50 percent"></button>
+                <button class="curve-node" id="pitchCurveNode3" type="button" data-node-index="3" style="left:75%;top:25%" aria-label="Pitch curve node 4: input 75 percent, output 75 percent"></button>
+                <button class="curve-node" id="pitchCurveNode4" type="button" data-node-index="4" style="left:100%;top:0%" aria-label="Pitch curve node 5: input 100 percent, output 100 percent"></button>
+              </div>
+              <div class="curve-editor-footer">
+                <small>Drag nodes · arrows 1% · Shift 5%</small>
+                <button class="mini-action" id="resetPitchCurve" type="button">Reset</button>
+              </div>
+            </div>
 
             <div id="synthMapping" hidden>
               <label class="select-control" for="synthSource">

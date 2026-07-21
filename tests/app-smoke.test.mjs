@@ -72,6 +72,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     rotationMotion: ["rotationLoopMotion", "rotationPingPongMotion"],
     closedShapeType: ["polygonShape", "starShape"],
     pitchDimension: ["pitchVertical", "pitchHorizontal", "pitchCenter"],
+    pitchCurvePresets: [
+      "pitchCurveLinear", "pitchCurveExponential", "pitchCurveLogarithmic",
+      "pitchCurveSmooth", "pitchCurveInverted",
+    ],
   };
   const dataValues = {
     scanMode: "scan",
@@ -86,6 +90,11 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     pitchVertical: "vertical",
     pitchHorizontal: "horizontal",
     pitchCenter: "center",
+    pitchCurveLinear: "linear",
+    pitchCurveExponential: "exponential",
+    pitchCurveLogarithmic: "logarithmic",
+    pitchCurveSmooth: "smooth",
+    pitchCurveInverted: "inverted",
   };
   for (const [id, value] of Object.entries(dataValues)) elements.get(id).dataset.value = value;
   for (const [id, childIds] of Object.entries(groups)) {
@@ -119,6 +128,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   const stage = elements.get("stageWrap");
   stage.getBoundingClientRect = () => ({ width: 900, height: 600 });
   elements.get("headLayoutTrack").getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 52 });
+  elements.get("pitchCurveEditor").getBoundingClientRect = () => ({ left: 0, top: 0, width: 240, height: 96 });
 
   let queuedFrame;
   globalThis.requestAnimationFrame = (callback) => {
@@ -273,6 +283,9 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("pitchVertical:aria-pressed"), "true");
   assert.equal(attributes.get("pitchHorizontal:aria-pressed"), "false");
   assert.equal(attributes.get("pitchCenter:aria-pressed"), "false");
+  assert.equal(elements.get("pitchCurveState").textContent, "Linear");
+  assert.equal(attributes.get("pitchCurveLinear:aria-pressed"), "true");
+  assert.match(attributes.get("pitchCurvePath:d"), /^M0\.00 96\.00/);
   assert.equal(elements.has("mappingFrame"), false);
   assert.equal(elements.get("outputContactLabel").textContent, "Contact 1 of 1");
   assert.notEqual(elements.get("markFrequencyOut").textContent, "");
@@ -482,6 +495,20 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("pitchRouteSource").textContent, "Distance from center");
   assert.ok(Number(elements.get("markCenterOut").textContent) > 0);
 
+  listeners.get("pitchCurveExponential:click")();
+  assert.equal(elements.get("pitchCurveState").textContent, "Exponential");
+  assert.equal(attributes.get("pitchCurveExponential:aria-pressed"), "true");
+  listeners.get("pitchCurveNode2:keydown")({
+    key: "ArrowUp",
+    shiftKey: false,
+    preventDefault() {},
+  });
+  assert.equal(elements.get("pitchCurveState").textContent, "Custom");
+  assert.equal(attributes.get("pitchCurveExponential:aria-pressed"), "false");
+  assert.match(attributes.get("pitchCurveNode2:aria-valuetext"), /21 percent output/);
+  listeners.get("resetPitchCurve:click")();
+  assert.equal(elements.get("pitchCurveState").textContent, "Linear");
+
   elements.get("sides").value = "2";
   listeners.get("sides:input")();
   elements.get("rotation").value = "0";
@@ -682,8 +709,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   elements.get("stereoWidth").value = "0.42";
   listeners.get("stereoWidth:input")();
   listeners.get("pitchHorizontal:click")();
-  elements.get("pitchCurve").value = "logarithmic";
-  listeners.get("pitchCurve:change")({ currentTarget: elements.get("pitchCurve") });
+  listeners.get("pitchCurveLogarithmic:click")();
   elements.get("hitLevelSource").value = "incidence";
   listeners.get("hitLevelSource:change")({ currentTarget: elements.get("hitLevelSource") });
   elements.get("hitLevelCurve").value = "exponential";
@@ -711,7 +737,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("stereoWidthOut").textContent, "42%");
   assert.equal(elements.has("mappingFrame"), false);
   assert.equal(attributes.get("pitchHorizontal:aria-pressed"), "true");
-  assert.equal(elements.get("pitchCurve").value, "logarithmic");
+  assert.equal(attributes.get("pitchCurveLogarithmic:aria-pressed"), "true");
   assert.equal(elements.get("hitLevelSource").value, "incidence");
   assert.equal(elements.get("hitLevelCurve").value, "exponential");
   assert.equal(elements.get("synthSource").value, "phase");
@@ -727,7 +753,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   queuedFrame(3_100);
   assert.equal(elements.get("outputVoiceLabel").textContent, "percussion");
   assert.equal(elements.get("pitchRouteSource").textContent, "Horizontal position");
-  assert.match(elements.get("pitchRouteCurve").textContent, /expand lows/);
+  assert.match(elements.get("pitchRouteCurve").textContent, /Logarithmic response/);
   assert.equal(elements.get("levelRouteSource").textContent, "Incidence");
   assert.equal(elements.get("levelRouteCurve").textContent, "expand highs");
   assert.notEqual(elements.get("markIncidenceOut").textContent, "");
@@ -743,7 +769,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.has("mappingFrame"), false);
   assert.equal(attributes.get("pitchVertical:aria-pressed"), "true");
   assert.equal(attributes.get("pitchHorizontal:aria-pressed"), "false");
-  assert.equal(elements.get("pitchCurve").value, "linear");
+  assert.equal(attributes.get("pitchCurveLinear:aria-pressed"), "true");
   assert.equal(elements.get("hitLevelSource").value, "corner");
   assert.equal(elements.get("hitLevelCurve").value, "linear");
   assert.equal(elements.get("synthSource").value, "incidence");
