@@ -393,12 +393,12 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   assert.match(elements.get("effectsSummary").textContent, /0% wet/);
   assert.equal(attributes.get("delayRingToggle:aria-pressed"), "true");
   assert.equal(elements.get("resetDelayRing").disabled, false);
-  listeners.get("stage:pointerdown")(gesture(450, 88));
-  listeners.get("stage:pointermove")(gesture(450, 55));
-  listeners.get("stage:pointerup")(gesture(450, 55));
+  listeners.get("stage:pointerdown")(gesture(508, 84));
+  listeners.get("stage:pointermove")(gesture(514, 62));
+  listeners.get("stage:pointerup")(gesture(514, 62));
   assert.doesNotMatch(elements.get("mixDelayWetOut").textContent, /dry/);
   assert.match(elements.get("liveStatus").textContent, /full mix/);
-  assert.ok(gains[1].gain.value > 0, "delay ring deformation must open the mix send");
+  assert.ok(gains[1].gain.value > 0, "dragging outside the delay contour must open the mix send");
   elements.get("delaySpread").value = "0.8";
   listeners.get("delaySpread:input")();
   assert.equal(elements.get("delaySpreadOut").textContent, "80%");

@@ -1830,7 +1830,7 @@ function drawRing(ring, geometry, envelope) {
   context.restore();
 }
 
-function delayRingPoint(phase, geometry) {
+function delayRingPoint(phase, geometry, outwardPixels = 0) {
   const vertices = radialContourVertices(
     state.delayRing.radialOffsets,
     FX_RING_MIN_OFFSET,
@@ -1840,40 +1840,48 @@ function delayRingPoint(phase, geometry) {
   const rotation = state.delayRing.rotationPhase * TAU;
   const x = point.x * Math.cos(rotation) - point.y * Math.sin(rotation);
   const y = point.x * Math.sin(rotation) + point.y * Math.cos(rotation);
+  const scaledX = x * geometry.radius * FX_RING_SCALE;
+  const scaledY = y * geometry.radius * FX_RING_SCALE;
+  const length = Math.max(1, Math.hypot(scaledX, scaledY));
   return {
-    x: geometry.centerX + x * geometry.radius * FX_RING_SCALE,
-    y: geometry.centerY + y * geometry.radius * FX_RING_SCALE,
+    x: geometry.centerX + scaledX + scaledX / length * outwardPixels,
+    y: geometry.centerY + scaledY + scaledY / length * outwardPixels,
   };
+}
+
+function traceDelayRing(geometry, outwardPixels = 0) {
+  context.beginPath();
+  for (let index = 0; index <= DRAW_SAMPLES; index += 1) {
+    const point = delayRingPoint(index / DRAW_SAMPLES, geometry, outwardPixels);
+    if (index) context.lineTo(point.x, point.y);
+    else context.moveTo(point.x, point.y);
+  }
+  context.closePath();
 }
 
 function drawDelayRing(geometry) {
   if (!state.delayRing.enabled) return;
   const parameters = mixDelayParameters();
   context.save();
-  context.beginPath();
-  for (let index = 0; index <= DRAW_SAMPLES; index += 1) {
-    const point = delayRingPoint(index / DRAW_SAMPLES, geometry);
-    if (index) context.lineTo(point.x, point.y);
-    else context.moveTo(point.x, point.y);
-  }
-  context.closePath();
-  context.fillStyle = colorWithAlpha(FX_RING_COLOR, 0.025 + parameters.wet * 0.07);
-  context.fill();
-  context.strokeStyle = colorWithAlpha(FX_RING_COLOR, 0.62 + parameters.wet * 0.35);
-  context.lineWidth = 1.5 + parameters.wet * 2.5;
-  context.shadowColor = FX_RING_COLOR;
-  context.shadowBlur = 5 + parameters.feedback * 12;
+  traceDelayRing(geometry, 7);
+  context.strokeStyle = colorWithAlpha(FX_RING_COLOR, 0.055 + parameters.wet * 0.11);
+  context.lineWidth = 10;
   context.stroke();
-  context.shadowBlur = 0;
+  traceDelayRing(geometry);
+  context.strokeStyle = colorWithAlpha(FX_RING_COLOR, 0.42 + parameters.wet * 0.24);
+  context.lineWidth = 1.1 + parameters.wet * 1.1;
+  context.stroke();
   for (let index = 0; index < state.delayRing.radialOffsets.length; index += 1) {
     const point = delayRingPoint(index / state.delayRing.radialOffsets.length, geometry);
     const selected = index === state.delayRing.selectedVertex;
     const hovered = index === fxHoverVertex;
     context.beginPath();
     context.arc(point.x, point.y, selected ? 6.5 : hovered ? 6 : 3.5, 0, TAU);
-    context.fillStyle = selected || hovered ? "#fff3d6" : colorWithAlpha(FX_RING_COLOR, 0.38);
+    context.fillStyle = selected || hovered
+      ? colorWithAlpha(FX_RING_COLOR, 0.68)
+      : colorWithAlpha(FX_RING_COLOR, 0.28);
     context.fill();
-    context.strokeStyle = FX_RING_COLOR;
+    context.strokeStyle = colorWithAlpha(FX_RING_COLOR, selected || hovered ? 0.72 : 0.42);
     context.lineWidth = selected ? 1.5 : 1;
     context.stroke();
   }
@@ -1881,7 +1889,7 @@ function drawDelayRing(geometry) {
   context.font = `600 9px ${CANVAS_FONT}`;
   context.textAlign = "center";
   context.textBaseline = "bottom";
-  context.fillStyle = colorWithAlpha(FX_RING_COLOR, 0.9);
+  context.fillStyle = colorWithAlpha(FX_RING_COLOR, 0.62);
   context.fillText("DELAY", labelPoint.x, labelPoint.y - 10);
   context.restore();
 }
@@ -2043,17 +2051,54 @@ function nearestDelayRingVertex(data) {
   return selected;
 }
 
-function distanceToSegment(point, start, end) {
+function closestPointOnSegment(point, start, end) {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
   const lengthSquared = dx * dx + dy * dy;
   const amount = lengthSquared <= 1e-9
     ? 0
     : clamp(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared, 0, 1);
-  return Math.hypot(
-    point.x - (start.x + dx * amount),
-    point.y - (start.y + dy * amount),
-  );
+  const x = start.x + dx * amount;
+  const y = start.y + dy * amount;
+  return { x, y, amount, distance: Math.hypot(point.x - x, point.y - y) };
+}
+
+function distanceToSegment(point, start, end) {
+  return closestPointOnSegment(point, start, end).distance;
+}
+
+function nearestDelayRingContour(data) {
+  if (!state.delayRing.enabled) return null;
+  const samples = 192;
+  let best = null;
+  let previous = delayRingPoint(0, data.geometry);
+  for (let index = 1; index <= samples; index += 1) {
+    const point = delayRingPoint(index / samples, data.geometry);
+    const closest = closestPointOnSegment(data, previous, point);
+    if (!best || closest.distance < best.distance) {
+      best = {
+        ...closest,
+        phase: wrap01((index - 1 + closest.amount) / samples),
+      };
+    }
+    previous = point;
+  }
+  return best;
+}
+
+function nearestDelayRingTarget(data) {
+  const exactVertex = nearestDelayRingVertex(data);
+  if (exactVertex >= 0) return exactVertex;
+  const hit = nearestDelayRingContour(data);
+  if (!hit || hit.distance > 28) return -1;
+  const contourX = hit.x - data.geometry.centerX;
+  const contourY = hit.y - data.geometry.centerY;
+  const outwardDistance = (
+    (data.x - hit.x) * contourX + (data.y - hit.y) * contourY
+  ) / Math.max(1, Math.hypot(contourX, contourY));
+  if (outwardDistance < -2) return -1;
+  return Math.round(hit.phase * state.delayRing.radialOffsets.length)
+    % state.delayRing.radialOffsets.length;
 }
 
 function nearestProjectedContourPhase(data, ring, geometry) {
@@ -2094,7 +2139,7 @@ canvas.addEventListener("pointerdown", (event) => {
   if (event.isPrimary === false || (event.button ?? 0) !== 0 || state.recording || recordChanging) return;
   canvas.focus({ preventScroll: true });
   const data = pointerData(event);
-  const delayVertexIndex = nearestDelayRingVertex(data);
+  const delayVertexIndex = nearestDelayRingTarget(data);
   if (delayVertexIndex >= 0) {
     state.delayRing.selectedVertex = delayVertexIndex;
     pointerGesture = {
@@ -2195,7 +2240,7 @@ canvas.addEventListener("pointerdown", (event) => {
 canvas.addEventListener("pointermove", (event) => {
   const data = pointerData(event);
   if (!pointerGesture || event.pointerId !== pointerGesture.pointerId) {
-    fxHoverVertex = state.recording ? -1 : nearestDelayRingVertex(data);
+    fxHoverVertex = state.recording ? -1 : nearestDelayRingTarget(data);
     if (fxHoverVertex >= 0) {
       hoverVertex = -1;
       canvas.style.cursor = "move";

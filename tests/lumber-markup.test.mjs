@@ -91,6 +91,9 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.match(app, /measureEnvelopePeak/);
   assert.match(app, /mixDelayParametersFromOffsets/);
   assert.match(app, /drawDelayRing/);
+  assert.match(app, /traceDelayRing\(geometry, 7\)/);
+  assert.match(app, /nearestDelayRingTarget/);
+  assert.doesNotMatch(app, /0\.025 \+ parameters\.wet \* 0\.07/);
   assert.match(app, /updateMixDelay/);
   assert.match(app, /mixDelayNodes/);
   assert.match(app, /mixDelayPanners/);
