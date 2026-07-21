@@ -280,7 +280,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("shepardArticulation").hidden, true);
   assert.equal(elements.get("fmArticulation").hidden, true);
   assert.equal(elements.get("pmArticulation").hidden, true);
-  assert.equal(elements.get("hitMapping").hidden, true);
+  assert.equal(elements.get("percussionMapping").hidden, true);
+  assert.equal(elements.get("timbreMapping").hidden, true);
   assert.equal(elements.get("traversalDirection").hidden, false);
   assert.equal(elements.get("rotationDirection").hidden, false);
   assert.equal(elements.get("headMarker0").hidden, false);
@@ -341,7 +342,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
   assert.equal(elements.get("amplitudeArticulation").hidden, true);
   assert.equal(elements.get("percussionArticulation").hidden, false);
-  assert.equal(elements.get("hitMapping").hidden, false);
+  assert.equal(elements.get("percussionMapping").hidden, false);
   queuedFrame(1_085);
   assert.ok(
     continuousGains.every((gain) => gain.gain.value === 0),
@@ -363,26 +364,31 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("position:input")();
   queuedFrame(1_110);
   assert.equal(audioOscillators.length, afterPercussionStrike, "sine mode must never trigger percussion voices");
-  assert.equal(elements.get("hitMapping").hidden, true);
+  assert.equal(elements.get("percussionMapping").hidden, true);
 
   elements.get("soundMode").value = "fm";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
   assert.equal(elements.get("amplitudeArticulation").hidden, false);
   assert.equal(elements.get("fmArticulation").hidden, false);
-  assert.equal(elements.get("synthMapping").hidden, false);
+  assert.equal(elements.get("timbreMapping").hidden, false);
   elements.get("fmIndex").value = "6";
   listeners.get("fmIndex:input")();
-  elements.get("synthSource").value = "corner";
-  listeners.get("synthSource:change")({ currentTarget: elements.get("synthSource") });
+  elements.get("timbreSource").value = "corner";
+  listeners.get("timbreSource:change")({ currentTarget: elements.get("timbreSource") });
+  assert.equal(elements.get("timbreMappingNote").textContent, "Corner sharpness → FM index · 0–6.00 index");
   queuedFrame(1_115);
   assert.equal(elements.get("outputVoiceLabel").textContent, "fm");
   assert.match(elements.get("markSynthValueOut").textContent, /index @/);
+  assert.equal(elements.get("timbreRouteSource").textContent, "Corner sharpness");
+  assert.equal(elements.get("timbreRouteTarget").textContent, "FM index");
   assert.equal(audioOscillators.length, afterPercussionStrike, "FM fallback must reuse the continuous pool");
 
   elements.get("soundMode").value = "pm";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
   queuedFrame(1_116);
   assert.equal(elements.get("pmArticulation").hidden, false);
+  assert.equal(elements.get("timbreMapping").hidden, false);
+  assert.match(elements.get("timbreMappingNote").textContent, /Corner sharpness → Phase depth/);
   assert.match(elements.get("markSynthValueOut").textContent, /rad @/);
 
   elements.get("soundMode").value = "shepard";
@@ -390,6 +396,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   queuedFrame(1_117);
   assert.equal(elements.get("amplitudeArticulation").hidden, false);
   assert.equal(elements.get("shepardArticulation").hidden, false);
+  assert.equal(elements.get("timbreMapping").hidden, false);
+  assert.match(elements.get("timbreMappingNote").textContent, /Corner sharpness → Spectral width/);
+  assert.notEqual(elements.get("markSynthDriveOut").textContent, "-");
+  assert.equal(elements.get("timbreRouteTarget").textContent, "Spectral width");
   assert.match(elements.get("markSynthValueOut").textContent, /oct\/s/);
 
   elements.get("soundMode").value = "sine";
@@ -767,12 +777,12 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("stereoInvert:click")();
   listeners.get("pitchHorizontal:click")();
   listeners.get("pitchCurveLogarithmic:click")();
-  elements.get("hitLevelSource").value = "incidence";
-  listeners.get("hitLevelSource:change")({ currentTarget: elements.get("hitLevelSource") });
-  elements.get("hitLevelCurve").value = "exponential";
-  listeners.get("hitLevelCurve:change")({ currentTarget: elements.get("hitLevelCurve") });
-  elements.get("synthSource").value = "phase";
-  listeners.get("synthSource:change")({ currentTarget: elements.get("synthSource") });
+  elements.get("percussionLevelSource").value = "incidence";
+  listeners.get("percussionLevelSource:change")({ currentTarget: elements.get("percussionLevelSource") });
+  elements.get("percussionLevelCurve").value = "exponential";
+  listeners.get("percussionLevelCurve:change")({ currentTarget: elements.get("percussionLevelCurve") });
+  elements.get("timbreSource").value = "phase";
+  listeners.get("timbreSource:change")({ currentTarget: elements.get("timbreSource") });
   elements.get("fmIndex").value = "5.5";
   listeners.get("fmIndex:input")();
   elements.get("pmIndex").value = "3.25";
@@ -800,23 +810,23 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.has("mappingFrame"), false);
   assert.equal(attributes.get("pitchHorizontal:aria-pressed"), "true");
   assert.equal(attributes.get("pitchCurveLogarithmic:aria-pressed"), "true");
-  assert.equal(elements.get("hitLevelSource").value, "incidence");
-  assert.equal(elements.get("hitLevelCurve").value, "exponential");
-  assert.equal(elements.get("synthSource").value, "phase");
+  assert.equal(elements.get("percussionLevelSource").value, "incidence");
+  assert.equal(elements.get("percussionLevelCurve").value, "exponential");
+  assert.equal(elements.get("timbreSource").value, "phase");
   assert.equal(elements.get("fmIndexOut").textContent, "5.50 max");
-  assert.equal(elements.get("pmIndexOut").textContent, "3.25 rad");
+  assert.equal(elements.get("pmIndexOut").textContent, "3.25 rad max");
   assert.equal(elements.get("shepardCyclesOut").textContent, "1.75 oct / circuit");
   assert.equal(elements.get("soundMode").value, "percussion");
   assert.equal(elements.get("amplitudeArticulation").hidden, true);
   assert.equal(elements.get("percussionArticulation").hidden, false);
-  assert.equal(elements.get("hitMapping").hidden, false);
+  assert.equal(elements.get("percussionMapping").hidden, false);
   assert.equal(storage.size, 0, "Shape settings should not persist across loads");
 
   queuedFrame(3_100);
   assert.equal(elements.get("outputVoiceLabel").textContent, "percussion");
   assert.equal(elements.get("pitchRouteSource").textContent, "Horizontal position");
   assert.match(elements.get("pitchRouteCurve").textContent, /Logarithmic response/);
-  assert.equal(elements.get("levelRouteSource").textContent, "Incidence");
+  assert.equal(elements.get("levelRouteSource").textContent, "Crossing angle");
   assert.equal(elements.get("levelRouteCurve").textContent, "expand highs");
   assert.notEqual(elements.get("markIncidenceOut").textContent, "");
   assert.match(elements.get("markDecayOut").textContent, /320 ms/);
@@ -837,14 +847,15 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("stereoHorizontal:aria-pressed"), "true");
   assert.equal(attributes.get("stereoInvert:aria-pressed"), "false");
   assert.equal(elements.get("stereoWidthOut").textContent, "100%");
-  assert.equal(elements.get("hitLevelSource").value, "corner");
-  assert.equal(elements.get("hitLevelCurve").value, "linear");
-  assert.equal(elements.get("synthSource").value, "incidence");
+  assert.equal(elements.get("percussionLevelSource").value, "corner");
+  assert.equal(elements.get("percussionLevelCurve").value, "linear");
+  assert.equal(elements.get("timbreSource").value, "incidence");
   assert.equal(elements.get("fmIndexOut").textContent, "3.00 max");
-  assert.equal(elements.get("pmIndexOut").textContent, "2.00 rad");
+  assert.equal(elements.get("pmIndexOut").textContent, "2.00 rad max");
   assert.equal(elements.get("shepardCyclesOut").textContent, "1.00 oct / circuit");
   assert.equal(elements.get("soundMode").value, "sine");
   assert.equal(elements.get("amplitudeArticulation").hidden, false);
   assert.equal(elements.get("percussionArticulation").hidden, true);
-  assert.equal(elements.get("hitMapping").hidden, true);
+  assert.equal(elements.get("percussionMapping").hidden, true);
+  assert.equal(elements.get("timbreMapping").hidden, true);
 });

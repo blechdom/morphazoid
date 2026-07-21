@@ -19,6 +19,7 @@ import {
   scaleShapeVoiceGains,
   sineCornerEnvelopeGain,
   synthParametersForMode,
+  timbreParametersForMode,
   VoicePool,
   waveformForIndex,
   updateAmplitudeEnvelopeNode,
@@ -87,7 +88,68 @@ test("geometry drive produces bounded and mode-specific synth parameters", () =>
   assert.equal(synthParametersForMode("unknown", Number.NaN).mode, "sine");
 });
 
-test("mark mapping curves are bounded and preserve their intended shape", () => {
+test("timbre mapping targets the sound-specific DSP amount", () => {
+  assert.deepEqual(timbreParametersForMode("sine", 0.75, {
+    fmIndex: 8,
+    pmIndex: 6,
+    shepardWidth: 7,
+  }), {
+    modulationIndex: 0,
+    shepardWidth: 7,
+  });
+
+  assert.equal(
+    timbreParametersForMode("fm", 0.5, { fmIndex: 6 }).modulationIndex,
+    3,
+  );
+  assert.equal(
+    timbreParametersForMode("pm", 0.25, { pmIndex: 4 }).modulationIndex,
+    1,
+  );
+
+  assert.equal(
+    timbreParametersForMode("shepard", 0, { shepardWidth: 7 }).shepardWidth,
+    1,
+  );
+  assert.equal(
+    timbreParametersForMode("shepard", 0.5, { shepardWidth: 7 }).shepardWidth,
+    4,
+  );
+  assert.equal(
+    timbreParametersForMode("shepard", 1, { shepardWidth: 7 }).shepardWidth,
+    7,
+  );
+
+  const boundedFm = timbreParametersForMode("fm", 2, { fmIndex: 40 });
+  const boundedPm = timbreParametersForMode("pm", 2, { pmIndex: 40 });
+  const boundedShepard = timbreParametersForMode("shepard", 2, {
+    shepardWidth: 40,
+  });
+  assert.equal(boundedFm.modulationIndex, 20);
+  assert.equal(boundedPm.modulationIndex, 12);
+  assert.equal(boundedShepard.shepardWidth, 8);
+});
+
+test("synth parameters use mapped Shepard width without changing sine", () => {
+  assert.equal(
+    synthParametersForMode("shepard", 0, { shepardWidth: 7 }).shepardWidth,
+    1,
+  );
+  assert.equal(
+    synthParametersForMode("shepard", 0.5, { shepardWidth: 7 }).shepardWidth,
+    4,
+  );
+  assert.equal(
+    synthParametersForMode("shepard", 1, { shepardWidth: 7 }).shepardWidth,
+    7,
+  );
+
+  const sine = synthParametersForMode("sine", 0.8, { shepardWidth: 6 });
+  assert.equal(sine.modulationIndex, 0);
+  assert.equal(sine.shepardWidth, 6);
+});
+
+test("source response curves are bounded and preserve their intended shape", () => {
   for (const curve of ["linear", "exponential", "logarithmic", "smooth"]) {
     assert.equal(mapCurve01(-1, curve), 0);
     assert.equal(mapCurve01(0, curve), 0);

@@ -190,8 +190,9 @@ test("the mobile instrument markup exposes the complete compact control surface"
     "pitchCurveSmooth", "pitchCurveInverted", "pitchCurveEditor", "pitchCurvePath",
     "resetPitchCurve", "stereoDimension", "stereoHorizontal", "stereoVertical", "stereoCenter",
     "stereoInvert", "stereoMappingNote", "stereoWidth", "panRouteSource", "panRouteCurve",
-    "hitLevelSource", "hitLevelCurve",
-    "synthSource", "shepardCycles", "shepardDirection", "shepardWidth",
+    "percussionMapping", "percussionLevelSource", "percussionLevelCurve",
+    "timbreMapping", "timbreSource", "timbreMappingNote",
+    "shepardCycles", "shepardDirection", "shepardWidth",
     "fmIndex", "fmRatio", "pmIndex", "pmRatio",
   ]) assert.ok(html.includes(`id="${id}"`));
   assert.match(html, /Octaves per circuit/);
@@ -203,6 +204,8 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.doesNotMatch(html, /id="pitchSource"/);
   assert.match(app, /source === "horizontal"/);
   assert.match(app, /return clamp\(normalized\.y, 0, 1\)/);
+  assert.match(app, /sourceValueForContact/);
+  assert.doesNotMatch(app, /rawMarkForSource/);
   assert.doesNotMatch(html, /id="pitchCurve"/);
   assert.match(openingTag("pitchCurveLinear"), /data-value="linear"[^>]*aria-pressed="true"/);
   assert.match(openingTag("pitchCurveExponential"), /data-value="exponential"[^>]*aria-pressed="false"/);
@@ -220,13 +223,29 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(app, /panSource \* 2 - 1/);
   assert.match(app, /state\.stereoInverted \? -1 : 1/);
 
-  // Output is a realtime marks dashboard with clearly future-facing external routes.
+  // Timbre has an explicit source and a sound-specific DSP destination.
+  assert.match(html, /<span class="field-label">Timbre source<\/span>/);
+  assert.match(html, />Crossing angle<\/option>/);
+  assert.match(html, />Corner sharpness<\/option>/);
+  assert.match(html, />Contour position<\/option>/);
+  assert.match(html, />Distance from center<\/option>/);
+  assert.match(html, /Maximum spectral width/);
+  assert.match(html, /id="pmIndexOut"[^>]*>2\.00 rad max<\/output>/);
+  assert.match(app, /\["fm", "pm", "shepard"\]\.includes\(state\.soundMode\)/);
+  assert.match(app, /TIMBRE_TARGET_LABELS/);
+  assert.doesNotMatch(html, /mark-driven|drive mark|level mark|Pitch mark|Realtime mark|Corner magnitude|>Incidence<|Contour phase/i);
+
+  // Output is a realtime mapping dashboard with clearly future-facing external routes.
   for (const id of [
     "markPhaseOut", "markPositionOut", "markCenterOut", "markTurnOut", "markDistanceOut",
     "markIncidenceOut", "markTangentOut", "markPitchValueOut", "markFrequencyOut",
     "markGainOut", "markPanOut", "markSynthDriveOut", "markSynthValueOut",
     "markDecayOut", "markRotationOut", "contactStream",
+    "timbreRoute", "timbreRouteSource", "timbreRouteTarget", "timbreRouteCurve",
   ]) assert.ok(html.includes(`id="${id}"`), `missing output #${id}`);
+  assert.match(html, /aria-label="Realtime mapping values"/);
+  assert.match(html, /<dt>Pitch source value<\/dt>/);
+  assert.match(html, /<dt>Timbre source value<\/dt>/);
   assert.match(html, /Web MIDI · planned/);
   assert.match(html, /OSC · planned/);
   assert.match(html, /JSON stream · planned/);

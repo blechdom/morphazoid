@@ -254,8 +254,8 @@
                   <option id="sineModeOption" value="sine" selected>Sine · corner envelope</option>
                   <option value="percussion">Percussion · corner strikes</option>
                   <option value="shepard">Shepard · cyclic glissando</option>
-                  <option value="fm">FM · mark-driven index</option>
-                  <option value="pm">PM · mark-driven phase</option>
+                  <option value="fm">FM · mapped index</option>
+                  <option value="pm">PM · mapped phase depth</option>
                 </select>
               </span>
             </label>
@@ -338,7 +338,7 @@
               </label>
 
               <label class="control" for="shepardWidth">
-                <span><b>Spectral width</b><output id="shepardWidthOut" for="shepardWidth">4.0 oct</output></span>
+                <span><b>Maximum spectral width</b><output id="shepardWidthOut" for="shepardWidth">4.0 oct max</output></span>
                 <input id="shepardWidth" type="range" min="1" max="8" step="0.1" value="4" />
               </label>
             </div>
@@ -357,7 +357,7 @@
 
             <div class="synth-panel" id="pmArticulation" hidden>
               <label class="control" for="pmIndex">
-                <span><b>Phase depth</b><output id="pmIndexOut" for="pmIndex">2.00 rad</output></span>
+                <span><b>Phase depth</b><output id="pmIndexOut" for="pmIndex">2.00 rad max</output></span>
                 <input id="pmIndex" type="range" min="0" max="8" step="0.05" value="2" />
               </label>
 
@@ -416,37 +416,40 @@
               </div>
             </div>
 
-            <div id="synthMapping" hidden>
-              <label class="select-control" for="synthSource">
-                <span class="field-label">Modulation drive mark</span>
+            <div id="timbreMapping" hidden>
+              <label class="select-control" for="timbreSource">
+                <span class="field-label">Timbre source</span>
                 <span class="select-shell">
-                  <select id="synthSource">
-                    <option value="incidence" selected>Incidence</option>
-                    <option value="corner">Corner magnitude</option>
-                    <option value="phase">Contour phase</option>
+                  <select id="timbreSource">
+                    <option value="incidence" selected>Crossing angle</option>
+                    <option value="corner">Corner sharpness</option>
+                    <option value="phase">Contour position</option>
                     <option value="height">Vertical position</option>
+                    <option value="horizontal">Horizontal position</option>
+                    <option value="center">Distance from center</option>
                   </select>
                 </span>
               </label>
+              <small class="mapping-coordinate-note" id="timbreMappingNote">Crossing angle → FM index</small>
             </div>
 
-            <div id="hitMapping">
-              <label class="select-control" for="hitLevelSource">
-                <span class="field-label">Percussion level mark</span>
+            <div id="percussionMapping">
+              <label class="select-control" for="percussionLevelSource">
+                <span class="field-label">Percussion amplitude source</span>
                 <span class="select-shell">
-                  <select id="hitLevelSource">
-                    <option value="corner" selected>Corner magnitude</option>
-                    <option value="incidence">Incidence</option>
+                  <select id="percussionLevelSource">
+                    <option value="corner" selected>Corner sharpness</option>
+                    <option value="incidence">Crossing angle</option>
                     <option value="fixed">Fixed</option>
                     <option value="signed">Inner / outer polarity</option>
                   </select>
                 </span>
               </label>
 
-              <label class="select-control" for="hitLevelCurve">
+              <label class="select-control" for="percussionLevelCurve">
                 <span class="field-label">Level curve</span>
                 <span class="select-shell">
-                  <select id="hitLevelCurve">
+                  <select id="percussionLevelCurve">
                     <option value="linear" selected>Linear</option>
                     <option value="exponential">Expand high values</option>
                     <option value="logarithmic">Expand low values</option>
@@ -490,31 +493,31 @@
               <output id="outputVoiceLabel">sine</output>
             </div>
 
-            <dl class="mark-grid" aria-label="Realtime mark values">
-              <div><dt>Phase</dt><dd><output id="markPhaseOut">0.500</output></dd></div>
-              <div><dt>Position</dt><dd><output id="markPositionOut">0.000, 1.000</output></dd></div>
+            <dl class="mark-grid" aria-label="Realtime mapping values">
+              <div><dt>Contour position</dt><dd><output id="markPhaseOut">0.500</output></dd></div>
+              <div><dt>Stage position</dt><dd><output id="markPositionOut">0.000, 1.000</output></dd></div>
               <div><dt>Center distance</dt><dd><output id="markCenterOut">1.000</output></dd></div>
               <div><dt>Corner turn</dt><dd><output id="markTurnOut">+90° outer</output></dd></div>
               <div><dt>Corner distance</dt><dd><output id="markDistanceOut">0.000</output></dd></div>
-              <div><dt>Incidence</dt><dd><output id="markIncidenceOut">0.707</output></dd></div>
+              <div><dt>Crossing angle</dt><dd><output id="markIncidenceOut">0.707</output></dd></div>
               <div><dt>Tangent</dt><dd><output id="markTangentOut">135°</output></dd></div>
-              <div><dt>Pitch mark</dt><dd><output id="markPitchValueOut">0.000</output></dd></div>
+              <div><dt>Pitch source value</dt><dd><output id="markPitchValueOut">0.000</output></dd></div>
               <div><dt>Frequency</dt><dd><output id="markFrequencyOut">110 Hz</output></dd></div>
               <div><dt>Amplitude</dt><dd><output id="markGainOut">0.248</output></dd></div>
               <div><dt>Pan</dt><dd><output id="markPanOut">0.000</output></dd></div>
-              <div><dt>Synth drive</dt><dd><output id="markSynthDriveOut">&minus;</output></dd></div>
-              <div><dt>Synth value</dt><dd><output id="markSynthValueOut">corner envelope</output></dd></div>
-              <div><dt>Decay</dt><dd><output id="markDecayOut">90 ms</output></dd></div>
+              <div><dt>Timbre source value</dt><dd><output id="markSynthDriveOut">&minus;</output></dd></div>
+              <div><dt>Timbre target</dt><dd><output id="markSynthValueOut">pure sine</output></dd></div>
+              <div><dt>Envelope</dt><dd><output id="markDecayOut">R 0% · rests</output></dd></div>
               <div><dt>Rotation</dt><dd><output id="markRotationOut">0°</output></dd></div>
             </dl>
 
             <div class="contact-stream" id="contactStream" aria-label="Active contact data stream"></div>
 
             <div class="route-list" aria-label="Current data mappings">
-              <div><span id="pitchRouteSource">Vertical position</span><b>Pitch</b><small id="pitchRouteCurve">linear mark → exponential Hz</small></div>
+              <div><span id="pitchRouteSource">Vertical position</span><b>Pitch</b><small id="pitchRouteCurve">Linear response → exponential Hz</small></div>
               <div><span id="panRouteSource">Horizontal position</span><b>Pan</b><small id="panRouteCurve">normal · 100% width</small></div>
-              <div><span id="levelRouteSource">Corner distance + magnitude</span><b>Level</b><small id="levelRouteCurve">spatial amplitude envelope</small></div>
-              <div id="synthRoute" hidden><span id="synthRouteSource">Incidence</span><b id="synthRouteTarget">Mod depth</b><small id="synthRouteCurve">linear geometry drive</small></div>
+              <div><span id="levelRouteSource">Directed corner interval</span><b>Level</b><small id="levelRouteCurve">Pluck ADSR</small></div>
+              <div id="timbreRoute" hidden><span id="timbreRouteSource">Crossing angle</span><b id="timbreRouteTarget">FM index</b><small id="timbreRouteCurve">0–3.00 mapped range</small></div>
             </div>
 
             <div class="future-outputs" aria-label="Planned output destinations">

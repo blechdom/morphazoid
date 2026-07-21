@@ -165,8 +165,31 @@ export function sanitizeSynthMode(mode) {
 }
 
 /**
- * Turn one normalized geometry mark into the parameters for a single synth
- * patch. FM and PM share a drive mark but retain independent indices/ratios.
+ * Map one normalized source value to the sound-specific timbre parameter.
+ * FM controls frequency-modulation index, PM controls phase depth, and
+ * Shepard controls the octave-window width. Sine has no mapped timbre.
+ */
+export function timbreParametersForMode(mode, amount = 0, {
+  fmIndex = 2.5,
+  pmIndex = 1.5,
+  shepardWidth = 4,
+} = {}) {
+  const safeMode = sanitizeSynthMode(mode);
+  const safeAmount = clamp(amount, 0, 1);
+  const maximumShepardWidth = clamp(shepardWidth, 1, 8);
+  return {
+    modulationIndex: safeMode === "fm"
+      ? clamp(fmIndex, 0, 20) * safeAmount
+      : safeMode === "pm" ? clamp(pmIndex, 0, 12) * safeAmount : 0,
+    shepardWidth: safeMode === "shepard"
+      ? 1 + (maximumShepardWidth - 1) * safeAmount
+      : maximumShepardWidth,
+  };
+}
+
+/**
+ * Turn one normalized timbre source value into the parameters for a single
+ * synth patch. Ratios and Shepard motion remain independent of that mapping.
  */
 export function synthParametersForMode(mode, drive = 0, {
   fmIndex = 2.5,
@@ -179,17 +202,20 @@ export function synthParametersForMode(mode, drive = 0, {
 } = {}) {
   const safeMode = sanitizeSynthMode(mode);
   const safeDrive = clamp(drive, 0, 1);
+  const timbre = timbreParametersForMode(safeMode, safeDrive, {
+    fmIndex,
+    pmIndex,
+    shepardWidth,
+  });
   return {
     mode: safeMode,
     synthDrive: safeDrive,
-    modulationIndex: safeMode === "fm"
-      ? clamp(fmIndex, 0, 20) * safeDrive
-      : safeMode === "pm" ? clamp(pmIndex, 0, 12) * safeDrive : 0,
+    modulationIndex: timbre.modulationIndex,
     modulationRatio: safeMode === "fm"
       ? clamp(fmRatio, 0.125, 16)
       : safeMode === "pm" ? clamp(pmRatio, 0.125, 16) : 1,
     shepardRate: safeMode === "shepard" ? clamp(shepardRate, -8, 8) : 0,
-    shepardWidth: clamp(shepardWidth, 1, 8),
+    shepardWidth: timbre.shepardWidth,
     shepardPosition: safeMode === "shepard" && Number.isFinite(shepardPosition)
       ? ((shepardPosition % 1) + 1) % 1
       : null,
@@ -215,7 +241,7 @@ function exponentialRampValue(start, end, progress) {
   return start * (end / start) ** amount;
 }
 
-/** Transfer a normalized mark through a display/audio mapping curve. */
+/** Transfer a normalized source value through a display/audio response curve. */
 export function mapCurve01(value, curve = "linear") {
   const normalized = clamp(value, 0, 1);
   if (curve === "exponential") return normalized ** 2;
