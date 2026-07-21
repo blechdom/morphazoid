@@ -288,9 +288,9 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /\.amplitude-mode-buttons\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*52px\)/);
   assert.match(css, /\.amplitude-preset-strip\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*1fr\)/);
   assert.match(css, /\.amplitude-timing-row\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums/);
-  assert.match(css, /\.master-level-row\s*\{/);
+  assert.match(css, /\.header-level\s*\{[\s\S]*?height:\s*44px/);
   assert.match(css, /\.mapping-source-help\s*\{/);
-  assert.match(css, /\.audio-strip\.shape-audio-strip\s*\{[\s\S]*?grid-template-columns:\s*max-content/);
+  assert.match(css, /\.audio-strip\s*\{[\s\S]*?grid-template-columns:\s*78px\s+minmax\(96px,\s*140px\)/);
   assert.match(css, /@media\s*\(pointer:\s*coarse\)[\s\S]*?\.head-option-toggle\s*\{[\s\S]*?width:\s*36px/);
   assert.match(openingTag("amplitudeNode2"), /role="slider"[^>]*aria-valuemin="0"[^>]*aria-valuemax="100"[^>]*aria-valuenow="32"/);
   assert.match(app, /amplitudeCurveEditor"\)\.setAttribute\("aria-disabled"/);
@@ -299,10 +299,12 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(app, /rgba\(214,232,226,\.25\)/);
 
   assert.ok(html.indexOf('id="audioButton"') < html.indexOf('id="playSection"'));
-  assert.ok(html.indexOf('id="level"') > html.indexOf('id="outputSection"'));
-  assert.ok(html.indexOf('id="level"') < html.indexOf('class="reset-all-row"'));
+  assert.ok(html.indexOf('id="audioButton"') < html.indexOf('id="level"'));
+  assert.ok(html.indexOf('id="level"') < html.indexOf("<main"));
   assert.match(html, /<b>Master level<\/b>/);
-  assert.doesNotMatch(html.slice(0, html.indexOf("<main")), /id="level"|class="header-level"/);
+  assert.match(html.slice(0, html.indexOf("<main")), /class="header-level"[\s\S]*id="level"/);
+  assert.match(openingTag("level"), /aria-label="Master audio level"/);
+  assert.doesNotMatch(html, /master-level-row|shape-audio-strip/);
   assert.doesNotMatch(html, /id="restartButton"|id="displayTitle"|id="guidesToggle"|id="verticesToggle"|id="trailsToggle"/);
 
   const htmlIds = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);

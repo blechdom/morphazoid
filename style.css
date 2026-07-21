@@ -1140,13 +1140,6 @@ a {
   gap: 12px;
 }
 
-.audio-strip.shape-audio-strip {
-  width: max-content;
-  flex: 0 0 auto;
-  grid-template-columns: max-content;
-  gap: 0;
-}
-
 .audio-button {
   display: flex;
   width: 78px;
@@ -2302,17 +2295,6 @@ input[type="range"]::-moz-range-thumb {
   font-size: 9px;
   line-height: 1.35;
   text-align: right;
-}
-
-.master-level-row {
-  margin-top: 12px;
-  padding: 15px 18px 8px;
-  border: 1px solid var(--line-strong);
-  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
-}
-
-.master-level-row .control {
-  margin: 0;
 }
 
 .form-count-key {
