@@ -1074,6 +1074,7 @@ $("resetPitchCurve").addEventListener("click", () => selectPitchCurvePreset("lin
 const AMPLITUDE_NODE_NAMES = ["Trigger", "Attack", "Decay", "Sustain", "Release"];
 const AMPLITUDE_PRESET_LABELS = {
   pluck: "Pluck",
+  note: "Note",
   sustain: "Sustain",
   pad: "Pad",
   custom: "Custom",
@@ -1128,7 +1129,7 @@ function updateAmplitudeUi() {
 }
 
 function selectAmplitudePreset(preset, shouldAnnounce = true) {
-  state.amplitudePreset = ["sustain", "pad"].includes(preset) ? preset : "pluck";
+  state.amplitudePreset = ["note", "sustain", "pad"].includes(preset) ? preset : "pluck";
   state.amplitudeEnvelopePoints = amplitudeEnvelopePreset(state.amplitudePreset);
   updateAmplitudeUi();
   if (shouldAnnounce) announce(`${AMPLITUDE_PRESET_LABELS[state.amplitudePreset]} amplitude ADSR selected.`);

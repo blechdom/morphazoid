@@ -280,19 +280,20 @@
               </div>
               <div class="curve-preset-strip amplitude-preset-strip" id="amplitudeEnvelopePresets" role="group" aria-label="Amplitude ADSR presets">
                 <button id="amplitudePresetPluck" type="button" data-value="pluck" aria-pressed="true">Pluck</button>
+                <button id="amplitudePresetNote" type="button" data-value="note" aria-pressed="false">Note</button>
                 <button id="amplitudePresetSustain" type="button" data-value="sustain" aria-pressed="false">Sustain</button>
                 <button id="amplitudePresetPad" type="button" data-value="pad" aria-pressed="false">Pad</button>
               </div>
               <div class="curve-editor amplitude-curve-editor" id="amplitudeCurveEditor" role="group" aria-label="Editable amplitude ADSR across one corner interval">
                 <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true">
                   <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
-                  <path class="curve-path" id="amplitudeCurvePath" d="M0 96 L14.4 0 L60 69.12 L148.8 84.48 L196.8 96 L240 96" />
+                  <path class="curve-path" id="amplitudeCurvePath" d="M0 96 L4.8 0 L14.4 65.28 L24 86.4 L38.4 96 L240 96" />
                 </svg>
                 <button class="curve-node amplitude-node" id="amplitudeNode0" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="0" style="left:0%;top:100%" aria-label="Trigger: 0 percent interval, 0 percent level"><span>T</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode1" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" data-node-index="1" style="left:6%;top:0%" aria-label="Attack: 6 percent interval, 100 percent level"><span>A</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode2" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="28" data-node-index="2" style="left:25%;top:72%" aria-label="Decay: 25 percent interval, 28 percent level"><span>D</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode3" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="12" data-node-index="3" style="left:62%;top:88%" aria-label="Sustain: 62 percent interval, 12 percent level"><span>S</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode4" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="4" style="left:82%;top:100%" aria-label="Release: 82 percent interval, 0 percent level"><span>R</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode1" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" data-node-index="1" style="left:2%;top:0%" aria-label="Attack: 2 percent interval, 100 percent level"><span>A</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode2" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="32" data-node-index="2" style="left:6%;top:68%" aria-label="Decay: 6 percent interval, 32 percent level"><span>D</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode3" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10" data-node-index="3" style="left:10%;top:90%" aria-label="Sustain: 10 percent interval, 10 percent level"><span>S</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode4" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="4" style="left:16%;top:100%" aria-label="Release: 16 percent interval, 0 percent level"><span>R</span></button>
               </div>
               <div class="curve-editor-footer">
                 <small>Corner trigger 0% → next corner 100%</small>

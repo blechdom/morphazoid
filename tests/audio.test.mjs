@@ -177,6 +177,7 @@ test("source response curves are bounded and preserve their intended shape", () 
 test("amplitude envelope presets are five-node immutable templates", () => {
   assert.deepEqual(Object.keys(AMPLITUDE_ENVELOPE_PRESETS), [
     "pluck",
+    "note",
     "sustain",
     "pad",
   ]);
@@ -192,6 +193,18 @@ test("amplitude envelope presets are five-node immutable templates", () => {
   const editable = amplitudeEnvelopePreset("pluck");
   editable[1].y = 0.25;
   assert.equal(AMPLITUDE_ENVELOPE_PRESETS.pluck[1].y, 1);
+  assert.deepEqual(amplitudeEnvelopePreset("note"), [
+    { x: 0, y: 0 },
+    { x: 0.06, y: 1 },
+    { x: 0.25, y: 0.28 },
+    { x: 0.62, y: 0.12 },
+    { x: 0.82, y: 0 },
+  ], "Note preserves the previous Pluck contour");
+  assert.ok(
+    AMPLITUDE_ENVELOPE_PRESETS.pluck.at(-1).x
+      < AMPLITUDE_ENVELOPE_PRESETS.note.at(-1).x / 4,
+    "Pluck should finish much sooner than Note",
+  );
   assert.deepEqual(amplitudeEnvelopePreset("missing"), amplitudeEnvelopePreset("sustain"));
 });
 

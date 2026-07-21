@@ -163,7 +163,8 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(openingTag("pmArticulation"), /\bhidden\b/);
   for (const id of [
     "amplitudeEnvelopeToggle", "amplitudeEnvelopeToggleText", "cornerSwellToggle",
-    "amplitudeEnvelopePresets", "amplitudePresetPluck", "amplitudePresetSustain", "amplitudePresetPad",
+    "amplitudeEnvelopePresets", "amplitudePresetPluck", "amplitudePresetNote",
+    "amplitudePresetSustain", "amplitudePresetPad",
     "amplitudeCurveEditor", "amplitudeCurvePath", "resetAmplitudeCurve",
     "amplitudeCurveState", "amplitudeReleaseBehavior",
   ]) assert.ok(html.includes(`id="${id}"`), `missing amplitude ADSR control #${id}`);
@@ -171,6 +172,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(openingTag("cornerSwellToggle"), /aria-pressed="false"[^>]*aria-label="Corner swell off"/);
   assert.match(html, /id="cornerSwellToggle"[\s\S]{0,160}>▶◀</);
   assert.match(openingTag("amplitudePresetPluck"), /data-value="pluck"[^>]*aria-pressed="true"/);
+  assert.match(openingTag("amplitudePresetNote"), /data-value="note"[^>]*aria-pressed="false"/);
   const amplitudeNodes = [...html.matchAll(/id="amplitudeNode(\d+)"/g)].map((match) => Number(match[1]));
   assert.deepEqual(amplitudeNodes, [0, 1, 2, 3, 4]);
   assert.match(html, /Corner trigger 0% → next corner 100%/);
@@ -273,11 +275,12 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /\.curve-editor\s*\{[\s\S]*?height:\s*96px;/);
   assert.match(css, /\.curve-node\s*\{[\s\S]*?position:\s*absolute;/);
   assert.match(css, /\.amplitude-mode-buttons\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*52px\)/);
+  assert.match(css, /\.amplitude-preset-strip\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*1fr\)/);
   assert.match(css, /\.master-level-row\s*\{/);
   assert.match(css, /\.mapping-source-help\s*\{/);
   assert.match(css, /\.audio-strip\.shape-audio-strip\s*\{[\s\S]*?grid-template-columns:\s*max-content/);
   assert.match(css, /@media\s*\(pointer:\s*coarse\)[\s\S]*?\.head-option-toggle\s*\{[\s\S]*?width:\s*36px/);
-  assert.match(openingTag("amplitudeNode2"), /role="slider"[^>]*aria-valuemin="0"[^>]*aria-valuemax="100"[^>]*aria-valuenow="28"/);
+  assert.match(openingTag("amplitudeNode2"), /role="slider"[^>]*aria-valuemin="0"[^>]*aria-valuemax="100"[^>]*aria-valuenow="32"/);
   assert.match(app, /amplitudeCurveEditor"\)\.setAttribute\("aria-disabled"/);
   assert.match(app, /speed"\)\.setAttribute\("aria-valuetext", formatPlayheadSpeed\(\)\)/);
   assert.match(app, /marker\.setAttribute\("aria-label", `\$\{reader\} \$\{index \+ 1\} relative phase`\)/);

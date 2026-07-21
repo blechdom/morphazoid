@@ -77,7 +77,9 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
       "pitchCurveLinear", "pitchCurveExponential", "pitchCurveLogarithmic",
       "pitchCurveSmooth", "pitchCurveInverted",
     ],
-    amplitudeEnvelopePresets: ["amplitudePresetPluck", "amplitudePresetSustain", "amplitudePresetPad"],
+    amplitudeEnvelopePresets: [
+      "amplitudePresetPluck", "amplitudePresetNote", "amplitudePresetSustain", "amplitudePresetPad",
+    ],
   };
   const dataValues = {
     scanMode: "scan",
@@ -101,6 +103,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     pitchCurveSmooth: "smooth",
     pitchCurveInverted: "inverted",
     amplitudePresetPluck: "pluck",
+    amplitudePresetNote: "note",
     amplitudePresetSustain: "sustain",
     amplitudePresetPad: "pad",
   };
@@ -268,6 +271,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("amplitudeEnvelopeToggleText").textContent, "On");
   assert.equal(attributes.get("cornerSwellToggle:aria-pressed"), "false");
   assert.equal(attributes.get("amplitudePresetPluck:aria-pressed"), "true");
+  assert.equal(attributes.get("amplitudePresetNote:aria-pressed"), "false");
   assert.equal(elements.get("amplitudeCurveState").textContent, "Pluck");
   assert.match(elements.get("amplitudeReleaseBehavior").textContent, /rests until next trigger/);
   listeners.get("amplitudeEnvelopeToggle:click")();
@@ -420,6 +424,9 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
 
   elements.get("soundMode").value = "sine";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
+  listeners.get("amplitudePresetNote:click")();
+  assert.equal(attributes.get("amplitudePresetNote:aria-pressed"), "true");
+  assert.equal(elements.get("amplitudeCurveState").textContent, "Note");
 
   elements.get("position").value = "0";
   listeners.get("position:input")();

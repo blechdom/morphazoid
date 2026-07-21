@@ -49,6 +49,13 @@ function freezeEnvelopePreset(points) {
 export const AMPLITUDE_ENVELOPE_PRESETS = Object.freeze({
   pluck: freezeEnvelopePreset([
     { x: 0, y: 0 },
+    { x: 0.02, y: 1 },
+    { x: 0.06, y: 0.32 },
+    { x: 0.1, y: 0.1 },
+    { x: 0.16, y: 0 },
+  ]),
+  note: freezeEnvelopePreset([
+    { x: 0, y: 0 },
     { x: 0.06, y: 1 },
     { x: 0.25, y: 0.28 },
     { x: 0.62, y: 0.12 },
