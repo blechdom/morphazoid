@@ -33,16 +33,12 @@
         </select>
       </label>
 
-      <div class="audio-strip" aria-label="Audio controls">
+      <div class="audio-strip shape-audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
           <span class="audio-glyph" aria-hidden="true">◉</span>
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
 
-        <label class="header-level" for="level">
-          <span><b>Volume</b><output id="levelOut" for="level">65%</output></span>
-          <input id="level" aria-label="Audio level" type="range" min="0" max="1" step="0.01" value="0.65" />
-        </label>
       </div>
     </header>
 
@@ -274,16 +270,38 @@
               <input id="pitchRange" type="range" min="0" max="6" step="0.05" value="2.5" />
             </label>
 
-            <div id="sineArticulation">
-              <label class="control" for="sineAccent">
-                <span><b>Corner emphasis</b><output id="sineAccentOut" for="sineAccent">100%</output></span>
-                <input id="sineAccent" type="range" min="0" max="1.5" step="0.01" value="1" />
-              </label>
-
-              <label class="control" for="sineDecay">
-                <span><b>Corner decay</b><output id="sineDecayOut" for="sineDecay">650 ms</output></span>
-                <input id="sineDecay" type="range" min="20" max="4000" step="10" value="650" />
-              </label>
+            <div class="amplitude-articulation" id="amplitudeArticulation">
+              <div class="amplitude-heading-row">
+                <span class="field-label">Amplitude ADSR</span>
+                <div class="amplitude-mode-buttons" role="group" aria-label="Amplitude envelope modes">
+                  <button id="amplitudeEnvelopeToggle" type="button" aria-pressed="true" aria-label="Amplitude ADSR on"><span aria-hidden="true">⌁</span><small id="amplitudeEnvelopeToggleText">On</small></button>
+                  <button id="cornerSwellToggle" type="button" aria-pressed="false" aria-label="Corner swell off"><span aria-hidden="true">▶◀</span><small>Swell</small></button>
+                </div>
+              </div>
+              <div class="curve-preset-strip amplitude-preset-strip" id="amplitudeEnvelopePresets" role="group" aria-label="Amplitude ADSR presets">
+                <button id="amplitudePresetPluck" type="button" data-value="pluck" aria-pressed="true">Pluck</button>
+                <button id="amplitudePresetSustain" type="button" data-value="sustain" aria-pressed="false">Sustain</button>
+                <button id="amplitudePresetPad" type="button" data-value="pad" aria-pressed="false">Pad</button>
+              </div>
+              <div class="curve-editor amplitude-curve-editor" id="amplitudeCurveEditor" role="group" aria-label="Editable amplitude ADSR across one corner interval">
+                <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true">
+                  <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
+                  <path class="curve-path" id="amplitudeCurvePath" d="M0 96 L14.4 0 L60 69.12 L148.8 84.48 L196.8 96 L240 96" />
+                </svg>
+                <button class="curve-node amplitude-node" id="amplitudeNode0" type="button" data-node-index="0" style="left:0%;top:100%" aria-label="Trigger: 0 percent interval, 0 percent level"><span>T</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode1" type="button" data-node-index="1" style="left:6%;top:0%" aria-label="Attack: 6 percent interval, 100 percent level"><span>A</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode2" type="button" data-node-index="2" style="left:25%;top:72%" aria-label="Decay: 25 percent interval, 28 percent level"><span>D</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode3" type="button" data-node-index="3" style="left:62%;top:88%" aria-label="Sustain: 62 percent interval, 12 percent level"><span>S</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode4" type="button" data-node-index="4" style="left:82%;top:100%" aria-label="Release: 82 percent interval, 0 percent level"><span>R</span></button>
+              </div>
+              <div class="curve-editor-footer">
+                <small>Corner trigger 0% → next corner 100%</small>
+                <button class="mini-action" id="resetAmplitudeCurve" type="button">Reset</button>
+              </div>
+              <div class="amplitude-curve-status">
+                <output id="amplitudeCurveState">Pluck</output>
+                <small id="amplitudeReleaseBehavior">Release reaches zero · voice rests until next trigger</small>
+              </div>
             </div>
 
             <div id="percussionArticulation" hidden>
@@ -506,6 +524,12 @@
             </div>
           </div>
         </details>
+        <div class="master-level-row">
+          <label class="control" for="level">
+            <span><b>Master level</b><output id="levelOut" for="level">65%</output></span>
+            <input id="level" aria-label="Master audio level" type="range" min="0" max="1" step="0.01" value="0.65" />
+          </label>
+        </div>
         <div class="reset-all-row">
           <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
         </div>

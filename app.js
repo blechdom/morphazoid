@@ -15,6 +15,7 @@ import {
   rebasePingPongPosition,
 } from "./src/articulation.js";
 import {
+  amplitudeEnvelopePreset,
   VoicePool,
   clamp,
   cornerAttackSeconds,
@@ -23,8 +24,10 @@ import {
   mapCurve01,
   normalizeStrikeGains,
   pitch01ToFrequency,
-  sineCornerEnvelopeGain,
+  sampleAmplitudeEnvelope,
+  scaleShapeVoiceGains,
   synthParametersForMode,
+  updateAmplitudeEnvelopeNode,
 } from "./src/audio.js";
 import {
   canonicalHeadOffsets,
@@ -95,8 +98,10 @@ const state = {
   pitchRange: 2.5,
   level: 0.65,
   soundMode: "sine",
-  sineAccent: 1,
-  sineDecay: 650,
+  amplitudeEnvelopeEnabled: true,
+  cornerSwell: false,
+  amplitudePreset: "pluck",
+  amplitudeEnvelopePoints: amplitudeEnvelopePreset("pluck"),
   cornerAccent: 0.9,
   cornerAttack: 3,
   cornerDecay: 90,
@@ -122,9 +127,6 @@ state.baseFrequency = clamp(state.baseFrequency, 20, 440);
 state.pitchRange = clamp(state.pitchRange, 0, 6);
 state.level = clamp(state.level, 0, 1);
 state.soundMode = SOUND_MODES.has(state.soundMode) ? state.soundMode : "sine";
-state.sineAccent = clamp(state.sineAccent, 0, 1.5);
-if (state.sineDecay <= 1) state.sineDecay *= 1000;
-state.sineDecay = clamp(state.sineDecay, 20, 4000);
 state.cornerAccent = clamp(state.cornerAccent, 0, 1);
 state.cornerAttack = clamp(state.cornerAttack, 0.5, 30);
 if (state.cornerDecay < 15) state.cornerDecay = 90;
@@ -166,6 +168,7 @@ let pixelRatio = 1;
 let pointerGesture = null;
 let draggingHead = null;
 let draggingPitchCurveNode = null;
+let draggingAmplitudeNode = null;
 let lastFrameTime = performance.now();
 let lastAudioClockTime = null;
 let lastUiUpdate = 0;
@@ -497,8 +500,6 @@ const updateStarDepthOutput = bindRange("starDepth", "starDepth", (value) => `${
 bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
-bindRange("sineAccent", "sineAccent", (value) => `${Math.round(value * 100)}%`);
-bindRange("sineDecay", "sineDecay", (value) => `${Math.round(value)} ms`);
 bindRange("cornerAccent", "cornerAccent", (value) => `${Math.round(value * 100)}%`);
 bindRange("cornerAttack", "cornerAttack", (value) => `${Number(value).toFixed(value % 1 ? 1 : 0)} ms`);
 bindRange("cornerDecay", "cornerDecay", (value) => `${Math.round(cornerDecaySeconds(value) * 1000)} ms`);
@@ -521,7 +522,7 @@ function syncFormTopology(shouldAnnounce = false) {
   }
   $("curvatureControl").hidden = circle;
   $("sineModeOption").textContent = circle ? "Sine · continuous contour" : "Sine · corner envelope";
-  updateSineArticulationVisibility();
+  updateAmplitudeArticulationVisibility();
   updateSectionSummaries();
   resetCornerTracking();
   if (shouldAnnounce) {
@@ -767,7 +768,7 @@ function setSoundMode(mode, shouldAnnounce = true) {
     resetCornerTracking();
   }
   $("soundMode").value = state.soundMode;
-  updateSineArticulationVisibility();
+  updateAmplitudeArticulationVisibility();
   $("percussionArticulation").hidden = state.soundMode !== "percussion";
   $("shepardArticulation").hidden = state.soundMode !== "shepard";
   $("fmArticulation").hidden = state.soundMode !== "fm";
@@ -788,8 +789,8 @@ function setSoundMode(mode, shouldAnnounce = true) {
   invalidate();
 }
 
-function updateSineArticulationVisibility() {
-  $("sineArticulation").hidden = state.soundMode === "percussion" || state.shapeType === "circle";
+function updateAmplitudeArticulationVisibility() {
+  $("amplitudeArticulation").hidden = state.soundMode === "percussion" || state.shapeType === "circle";
 }
 
 $("soundMode").value = state.soundMode;
@@ -1018,6 +1019,135 @@ function endPitchCurveDrag(event) {
 $("pitchCurveEditor").addEventListener("pointerup", endPitchCurveDrag);
 $("pitchCurveEditor").addEventListener("pointercancel", endPitchCurveDrag);
 $("resetPitchCurve").addEventListener("click", () => selectPitchCurvePreset("linear"));
+
+const AMPLITUDE_NODE_NAMES = ["Trigger", "Attack", "Decay", "Sustain", "Release"];
+const AMPLITUDE_PRESET_LABELS = {
+  pluck: "Pluck",
+  sustain: "Sustain",
+  pad: "Pad",
+  custom: "Custom",
+};
+
+function amplitudeCurvePathData(points = state.amplitudeEnvelopePoints) {
+  const commands = points.map((point, index) => {
+    const x = (point.x * 240).toFixed(2);
+    const y = ((1 - point.y) * 96).toFixed(2);
+    return `${index ? "L" : "M"}${x} ${y}`;
+  });
+  const release = points.at(-1);
+  if (release.x < 1) commands.push(`L240.00 ${((1 - release.y) * 96).toFixed(2)}`);
+  return commands.join(" ");
+}
+
+function updateAmplitudeUi() {
+  const release = state.amplitudeEnvelopePoints.at(-1);
+  $("amplitudeCurvePath").setAttribute("d", amplitudeCurvePathData());
+  $("amplitudeCurveState").textContent = state.amplitudeEnvelopeEnabled
+    ? AMPLITUDE_PRESET_LABELS[state.amplitudePreset] ?? "Custom"
+    : "Bypassed";
+  setPressed($("amplitudeEnvelopeToggle"), state.amplitudeEnvelopeEnabled);
+  $("amplitudeEnvelopeToggle").setAttribute("aria-label", `Amplitude ADSR ${state.amplitudeEnvelopeEnabled ? "on" : "off"}`);
+  $("amplitudeEnvelopeToggleText").textContent = state.amplitudeEnvelopeEnabled ? "On" : "Off";
+  setPressed($("cornerSwellToggle"), state.cornerSwell);
+  $("cornerSwellToggle").setAttribute("aria-label", `Corner swell ${state.cornerSwell ? "on" : "off"}`);
+  $("amplitudeCurveEditor").classList.toggle("is-disabled", !state.amplitudeEnvelopeEnabled);
+  for (const button of $("amplitudeEnvelopePresets").querySelectorAll("button")) {
+    setPressed(button, button.dataset.value === state.amplitudePreset);
+  }
+  state.amplitudeEnvelopePoints.forEach((point, index) => {
+    const handle = $(`amplitudeNode${index}`);
+    const intervalPercent = Math.round(point.x * 100);
+    const levelPercent = Math.round(point.y * 100);
+    handle.style.left = `${point.x * 100}%`;
+    handle.style.top = `${(1 - point.y) * 100}%`;
+    handle.setAttribute("aria-label", `${AMPLITUDE_NODE_NAMES[index]}: ${intervalPercent} percent interval, ${levelPercent} percent level`);
+    handle.setAttribute("aria-valuetext", `${intervalPercent} percent interval, ${levelPercent} percent level`);
+  });
+  $("amplitudeReleaseBehavior").textContent = !state.amplitudeEnvelopeEnabled
+    ? "ADSR off · constant per-voice level"
+    : release.y <= 0.005
+      ? "Release reaches zero · voice rests until next trigger"
+      : `Release holds ${Math.round(release.y * 100)}% · voice continues until next trigger`;
+}
+
+function selectAmplitudePreset(preset, shouldAnnounce = true) {
+  state.amplitudePreset = ["sustain", "pad"].includes(preset) ? preset : "pluck";
+  state.amplitudeEnvelopePoints = amplitudeEnvelopePreset(state.amplitudePreset);
+  updateAmplitudeUi();
+  if (shouldAnnounce) announce(`${AMPLITUDE_PRESET_LABELS[state.amplitudePreset]} amplitude ADSR selected.`);
+  invalidate();
+}
+
+function setAmplitudeNode(index, point, shouldAnnounce = false) {
+  state.amplitudeEnvelopePoints = updateAmplitudeEnvelopeNode(state.amplitudeEnvelopePoints, index, point);
+  state.amplitudePreset = "custom";
+  updateAmplitudeUi();
+  if (shouldAnnounce) {
+    const node = state.amplitudeEnvelopePoints[index];
+    announce(`${AMPLITUDE_NODE_NAMES[index]}: ${Math.round(node.x * 100)} percent interval, ${Math.round(node.y * 100)} percent level.`);
+  }
+  invalidate();
+}
+
+for (const button of $("amplitudeEnvelopePresets").querySelectorAll("button")) {
+  button.addEventListener("click", () => selectAmplitudePreset(button.dataset.value));
+}
+
+function amplitudePointFromPointer(event) {
+  const bounds = $("amplitudeCurveEditor").getBoundingClientRect();
+  return {
+    x: clamp((event.clientX - bounds.left) / Math.max(1, bounds.width), 0, 1),
+    y: clamp(1 - (event.clientY - bounds.top) / Math.max(1, bounds.height), 0, 1),
+  };
+}
+
+for (let index = 0; index < 5; index += 1) {
+  const handle = $(`amplitudeNode${index}`);
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault?.();
+    draggingAmplitudeNode = { index, pointerId: event.pointerId };
+    $("amplitudeCurveEditor").setPointerCapture?.(event.pointerId);
+  });
+  handle.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    const step = event.shiftKey ? 0.05 : 0.01;
+    const node = state.amplitudeEnvelopePoints[index];
+    setAmplitudeNode(index, {
+      x: node.x + (event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0),
+      y: node.y + (event.key === "ArrowDown" ? -step : event.key === "ArrowUp" ? step : 0),
+    }, true);
+  });
+}
+
+$("amplitudeCurveEditor").addEventListener("pointermove", (event) => {
+  if (!draggingAmplitudeNode || event.pointerId !== draggingAmplitudeNode.pointerId) return;
+  setAmplitudeNode(draggingAmplitudeNode.index, amplitudePointFromPointer(event));
+});
+
+function endAmplitudeDrag(event) {
+  if (!draggingAmplitudeNode || event.pointerId !== draggingAmplitudeNode.pointerId) return;
+  const index = draggingAmplitudeNode.index;
+  draggingAmplitudeNode = null;
+  const node = state.amplitudeEnvelopePoints[index];
+  announce(`${AMPLITUDE_NODE_NAMES[index]}: ${Math.round(node.x * 100)} percent interval, ${Math.round(node.y * 100)} percent level.`);
+}
+
+$("amplitudeCurveEditor").addEventListener("pointerup", endAmplitudeDrag);
+$("amplitudeCurveEditor").addEventListener("pointercancel", endAmplitudeDrag);
+$("resetAmplitudeCurve").addEventListener("click", () => selectAmplitudePreset("pluck"));
+$("amplitudeEnvelopeToggle").addEventListener("click", () => {
+  state.amplitudeEnvelopeEnabled = !state.amplitudeEnvelopeEnabled;
+  updateAmplitudeUi();
+  announce(`Amplitude ADSR ${state.amplitudeEnvelopeEnabled ? "on" : "off"}.`);
+  invalidate();
+});
+$("cornerSwellToggle").addEventListener("click", () => {
+  state.cornerSwell = !state.cornerSwell;
+  updateAmplitudeUi();
+  announce(`Corner swell ${state.cornerSwell ? "on" : "off"}.`);
+  invalidate();
+});
 
 const speedInput = $("speed");
 speedInput.value = String(sliderFromSpeed(state.speed));
@@ -1554,9 +1684,7 @@ function tangentForContact(contact, path) {
   return { x: (next.x - previous.x) / length, y: (next.y - previous.y) / length };
 }
 
-function incidenceForContact(contact, path, headIndex = contact.headIndex ?? 0) {
-  if (state.playMethod === "trace") return clamp(contact.cornerStrength ?? contact.strength ?? 0, 0, 1);
-  const tangent = tangentForContact(contact, path);
+function contactMotionVelocity(contact, headIndex = contact.headIndex ?? 0, useIntent = false) {
   const axis = contact.scanAxis ?? scanAxisForHead(headIndex);
   const relativeDirection = state.playMethod === "scan" ? 1 : headDirection(headIndex);
   const headTravel = Number.isFinite(contact.headTravel)
@@ -1567,10 +1695,13 @@ function incidenceForContact(contact, path, headIndex = contact.headIndex ?? 0) 
   const motionDirection = state.motionMode === "pingpong"
     ? pingPongMotionDirection(headTravel, 1, relativeDirection)
     : state.traversalDirection * relativeDirection;
-  const scanSpeed = state.playing ? motionDirection * state.speed : 0;
+  let scanSpeed = state.playing ? motionDirection * state.speed : useIntent ? motionDirection : 0;
   const rotationSpeed = state.autoRotate
     ? currentRotationDirection() * state.rotationSpeed * TAU
     : 0;
+  if (useIntent && Math.abs(scanSpeed) <= 1e-9 && Math.abs(rotationSpeed) <= 1e-9) {
+    scanSpeed = motionDirection;
+  }
   let velocity = axis === "radial"
     ? {
       x: -contact.y * scanSpeed * TAU,
@@ -1583,6 +1714,14 @@ function incidenceForContact(contact, path, headIndex = contact.headIndex ?? 0) 
     x: velocity.x + rotationSpeed * contact.y,
     y: velocity.y - rotationSpeed * contact.x,
   };
+  return { velocity, axis };
+}
+
+function incidenceForContact(contact, path, headIndex = contact.headIndex ?? 0) {
+  if (state.playMethod === "trace") return clamp(contact.cornerStrength ?? contact.strength ?? 0, 0, 1);
+  const tangent = tangentForContact(contact, path);
+  const { velocity: initialVelocity, axis } = contactMotionVelocity(contact, headIndex);
+  let velocity = initialVelocity;
   let length = Math.hypot(velocity.x, velocity.y);
   if (length <= 1e-9) {
     velocity = axis === "radial"
@@ -1667,26 +1806,32 @@ function pointContourDirection(contact, path) {
     : pingPongMotionDirection(contact.headTravel, 2, relativeDirection);
 }
 
+function contactContourDirection(contact, path) {
+  if (state.playMethod === "trace") return pointContourDirection(contact, path);
+  const tangent = tangentForContact(contact, path);
+  const { velocity } = contactMotionVelocity(contact, contact.headIndex ?? 0, true);
+  const alongContour = velocity.x * tangent.x + velocity.y * tangent.y;
+  return Math.abs(alongContour) <= 1e-9 ? 1 : Math.sign(alongContour);
+}
+
 function cornerEnvelopeProfile(contact, path) {
-  // Line and radar readers can reverse without moving monotonically along the
-  // contour. Geometric corner distance keeps those envelopes continuous.
-  if (state.playMethod !== "trace") {
+  if (state.cornerSwell) {
     return {
       strength: contact.cornerStrength ?? 0,
-      distance: clamp(contact.cornerDistance01 ?? 0, 0, 1),
+      distance: clamp((contact.cornerDistance01 ?? 0) * 2, 0, 1),
       edgeFraction: 1 / Math.max(1, path.vertexCount),
     };
   }
 
-  // Point heads have an unambiguous path direction, so preserve the original
-  // Tesselateher profile: each corner peaks, then decays along the next edge.
+  // Every reader follows a directed corner interval. Line and Radar therefore
+  // rise only after crossing a corner unless the explicit swell mirror is on.
   const distances = path.vertexDistances;
   if (!distances.length || path.totalLength <= 1e-9) {
     return { strength: contact.cornerStrength ?? 0, distance: 0, edgeFraction: 1 };
   }
 
   const distance = clamp(contact.distance, 0, path.totalLength);
-  const direction = pointContourDirection(contact, path);
+  const direction = contactContourDirection(contact, path);
   const epsilon = 1e-9;
 
   if (direction >= 0) {
@@ -1729,14 +1874,6 @@ function cornerEnvelopeProfile(contact, path) {
   };
 }
 
-function cornerEdgeDurationMilliseconds(profile) {
-  const readerCyclesPerSecond = state.playing ? state.speed : 0;
-  const rotationCyclesPerSecond = state.autoRotate ? state.rotationSpeed : 0;
-  const motionCyclesPerSecond = readerCyclesPerSecond + rotationCyclesPerSecond;
-  if (motionCyclesPerSecond <= 1e-6) return Number.POSITIVE_INFINITY;
-  return Math.max(1, profile.edgeFraction / motionCyclesPerSecond * 1000);
-}
-
 function shepardRate(contact, headIndex = contact.headIndex ?? 0) {
   if (!state.playing) return 0;
   const visualLoopRate = state.motionMode === "pingpong"
@@ -1777,28 +1914,32 @@ function synthParametersForContact(contact, path, headIndex = contact.headIndex 
   });
 }
 
+function amplitudeGainForContact(contact, path) {
+  if (path.shapeType === "circle") return 0.12;
+  if (!state.amplitudeEnvelopeEnabled) return 0.18;
+  const profile = cornerEnvelopeProfile(contact, path);
+  const attackPhase = state.amplitudeEnvelopePoints[1]?.x ?? 0;
+  const envelopePhase = state.cornerSwell
+    ? attackPhase + profile.distance * (1 - attackPhase)
+    : profile.distance;
+  const envelope = sampleAmplitudeEnvelope(envelopePhase, state.amplitudeEnvelopePoints);
+  const cornerPeak = 0.18 + 0.5 * clamp(profile.strength, 0, 1);
+  return clamp(cornerPeak * envelope, 0, 1);
+}
+
 function continuousSynthVoices(contacts, path) {
-  return contacts.map((contact) => {
+  return scaleShapeVoiceGains(contacts.map((contact) => {
     const mapping = mappingForContact(contact, path);
-    const corner = cornerEnvelopeProfile(contact, path);
     const synth = synthParametersForContact(contact, path);
     return {
       key: `shape:${contact.voiceKey}`,
       frequency: pitch01ToFrequency(mapping.pitch, state.baseFrequency, state.pitchRange),
-      gain: path.shapeType === "circle"
-        ? 0.12
-        : sineCornerEnvelopeGain(
-          corner.strength,
-          corner.distance,
-          state.sineAccent,
-          state.sineDecay,
-          cornerEdgeDurationMilliseconds(corner),
-        ),
+      gain: amplitudeGainForContact(contact, path),
       pan: mapping.pan,
       waveform: "sine",
       ...synth,
     };
-  });
+  }));
 }
 
 function makeCornerSnapshot(
@@ -2099,15 +2240,7 @@ function contactOutputGain(contact, path) {
     if ((contact.cornerStrength ?? 0) <= 0) return 0;
     return cornerStrikePeak(hitLevelMark(contact, path), state.cornerAccent);
   }
-  if (path.shapeType === "circle") return 0.12;
-  const corner = cornerEnvelopeProfile(contact, path);
-  return sineCornerEnvelopeGain(
-    corner.strength,
-    corner.distance,
-    state.sineAccent,
-    state.sineDecay,
-    cornerEdgeDurationMilliseconds(corner),
-  );
+  return amplitudeGainForContact(contact, path);
 }
 
 function synthValueLabel(parameters) {
@@ -2128,7 +2261,9 @@ function synthValueLabel(parameters) {
 function envelopeDurationLabel() {
   if (state.soundMode === "percussion") return `${Math.round(state.cornerDecay)} ms`;
   if (state.shapeType === "circle") return "none";
-  return `${Math.round(state.sineDecay)} ms`;
+  if (!state.amplitudeEnvelopeEnabled) return "bypassed";
+  const release = state.amplitudeEnvelopePoints.at(-1)?.y ?? 0;
+  return release <= 0.005 ? "R 0% · rests" : `R ${Math.round(release * 100)}% · holds`;
 }
 
 function updateOutputDashboard(contacts, path) {
@@ -2138,10 +2273,14 @@ function updateOutputDashboard(contacts, path) {
   updateStereoMappingUi();
   $("levelRouteSource").textContent = state.soundMode === "percussion"
     ? SOURCE_LABELS[state.hitLevelSource] ?? state.hitLevelSource
-    : state.shapeType === "circle" ? "Continuous contour" : "Corner distance + magnitude";
+    : state.shapeType === "circle" ? "Continuous contour" : state.cornerSwell ? "Mirrored corner interval" : "Directed corner interval";
   $("levelRouteCurve").textContent = state.soundMode === "percussion"
     ? CURVE_LABELS[state.hitLevelCurve] ?? state.hitLevelCurve
-    : state.shapeType === "circle" ? "constant continuous level" : "spatial amplitude envelope";
+    : state.shapeType === "circle"
+      ? "constant continuous level"
+      : state.amplitudeEnvelopeEnabled
+        ? `${AMPLITUDE_PRESET_LABELS[state.amplitudePreset] ?? "Custom"} ADSR${state.cornerSwell ? " · swell" : ""}`
+        : "ADSR bypassed";
   const modulationMode = ["fm", "pm"].includes(state.soundMode);
   $("synthRoute").hidden = !modulationMode && state.soundMode !== "shepard";
   $("synthRouteSource").textContent = modulationMode
@@ -2446,6 +2585,7 @@ setSoundMode(state.soundMode, false);
 setPitchDimension(state.pitchSource, false);
 setStereoDimension(state.stereoSource, false);
 renderPitchCurve();
+updateAmplitudeUi();
 setTraversalDirection(1, false);
 setRotationDirection(1, false);
 setRotationMotionMode(state.rotationMotionMode, false);

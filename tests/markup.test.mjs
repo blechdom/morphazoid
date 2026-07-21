@@ -156,13 +156,28 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(soundSelect[1], /<option\s+value="shepard">Shepard\b/);
   assert.match(soundSelect[1], /<option\s+value="fm">FM\b/);
   assert.match(soundSelect[1], /<option\s+value="pm">PM\b/);
-  assert.doesNotMatch(openingTag("sineArticulation"), /\bhidden\b/);
+  assert.doesNotMatch(openingTag("amplitudeArticulation"), /\bhidden\b/);
   assert.match(openingTag("percussionArticulation"), /\bhidden\b/);
   assert.match(openingTag("shepardArticulation"), /\bhidden\b/);
   assert.match(openingTag("fmArticulation"), /\bhidden\b/);
   assert.match(openingTag("pmArticulation"), /\bhidden\b/);
-  assert.match(openingTag("sineAccent"), /min="0"[^>]*max="1\.5"[^>]*value="1"/);
-  assert.match(openingTag("sineDecay"), /min="20"[^>]*max="4000"[^>]*value="650"/);
+  for (const id of [
+    "amplitudeEnvelopeToggle", "amplitudeEnvelopeToggleText", "cornerSwellToggle",
+    "amplitudeEnvelopePresets", "amplitudePresetPluck", "amplitudePresetSustain", "amplitudePresetPad",
+    "amplitudeCurveEditor", "amplitudeCurvePath", "resetAmplitudeCurve",
+    "amplitudeCurveState", "amplitudeReleaseBehavior",
+  ]) assert.ok(html.includes(`id="${id}"`), `missing amplitude ADSR control #${id}`);
+  assert.match(openingTag("amplitudeEnvelopeToggle"), /aria-pressed="true"[^>]*aria-label="Amplitude ADSR on"/);
+  assert.match(openingTag("cornerSwellToggle"), /aria-pressed="false"[^>]*aria-label="Corner swell off"/);
+  assert.match(html, /id="cornerSwellToggle"[\s\S]{0,160}>▶◀</);
+  assert.match(openingTag("amplitudePresetPluck"), /data-value="pluck"[^>]*aria-pressed="true"/);
+  const amplitudeNodes = [...html.matchAll(/id="amplitudeNode(\d+)"/g)].map((match) => Number(match[1]));
+  assert.deepEqual(amplitudeNodes, [0, 1, 2, 3, 4]);
+  assert.match(html, /Corner trigger 0% → next corner 100%/);
+  assert.doesNotMatch(html, /id="(?:sineArticulation|sineAccent|sineDecay)"/);
+  assert.match(app, /sampleAmplitudeEnvelope/);
+  assert.match(app, /scaleShapeVoiceGains/);
+  assert.match(app, /state\.cornerSwell/);
   assert.match(openingTag("cornerDecay"), /min="15"[^>]*max="2000"[^>]*value="90"/);
 
   // Mapping has one permanent reference: fixed stage/screen axes. There is no
@@ -226,9 +241,14 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /\.transport-button-array\s*>\s*button\s*\+\s*button\s*\{[\s\S]*?border-left:\s*0;/);
   assert.match(css, /\.curve-editor\s*\{[\s\S]*?height:\s*96px;/);
   assert.match(css, /\.curve-node\s*\{[\s\S]*?position:\s*absolute;/);
+  assert.match(css, /\.amplitude-mode-buttons\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*52px\)/);
+  assert.match(css, /\.master-level-row\s*\{/);
 
   assert.ok(html.indexOf('id="audioButton"') < html.indexOf('id="playSection"'));
-  assert.ok(html.indexOf('id="level"') < html.indexOf("<main"));
+  assert.ok(html.indexOf('id="level"') > html.indexOf('id="outputSection"'));
+  assert.ok(html.indexOf('id="level"') < html.indexOf('class="reset-all-row"'));
+  assert.match(html, /<b>Master level<\/b>/);
+  assert.doesNotMatch(html.slice(0, html.indexOf("<main")), /id="level"|class="header-level"/);
   assert.doesNotMatch(html, /id="restartButton"|id="displayTitle"|id="guidesToggle"|id="verticesToggle"|id="trailsToggle"/);
 
   const htmlIds = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);

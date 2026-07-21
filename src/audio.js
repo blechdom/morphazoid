@@ -35,6 +35,130 @@ const MASTER_TIME_CONSTANT = 0.03;
 const STRIKE_GAIN_FLOOR = 0.0001;
 const CONTINUOUS_SYNTH_MODES = new Set(["sine", "shepard", "fm", "pm"]);
 
+/** @typedef {{x: number, y: number}} AmplitudeEnvelopeNode */
+
+function freezeEnvelopePreset(points) {
+  return Object.freeze(points.map((point) => Object.freeze({ ...point })));
+}
+
+/**
+ * Five-node trigger envelopes for the compact editor. The nodes represent,
+ * in order: trigger level, attack peak, decay end, sustain end, and release
+ * endpoint. Call amplitudeEnvelopePreset() to get an editable copy.
+ */
+export const AMPLITUDE_ENVELOPE_PRESETS = Object.freeze({
+  pluck: freezeEnvelopePreset([
+    { x: 0, y: 0 },
+    { x: 0.06, y: 1 },
+    { x: 0.25, y: 0.28 },
+    { x: 0.62, y: 0.12 },
+    { x: 0.82, y: 0 },
+  ]),
+  sustain: freezeEnvelopePreset([
+    { x: 0, y: 0 },
+    { x: 0.1, y: 1 },
+    { x: 0.28, y: 0.72 },
+    { x: 0.78, y: 0.72 },
+    { x: 0.9, y: 0 },
+  ]),
+  pad: freezeEnvelopePreset([
+    { x: 0, y: 0 },
+    { x: 0.3, y: 1 },
+    { x: 0.58, y: 0.78 },
+    { x: 0.82, y: 0.78 },
+    { x: 0.95, y: 0 },
+  ]),
+});
+
+/** Return a fresh, editable copy of a named envelope preset. */
+export function amplitudeEnvelopePreset(name = "sustain") {
+  const presetName = typeof name === "string" ? name.toLowerCase() : "sustain";
+  const preset = AMPLITUDE_ENVELOPE_PRESETS[presetName]
+    ?? AMPLITUDE_ENVELOPE_PRESETS.sustain;
+  return preset.map((point) => ({ ...point }));
+}
+
+/**
+ * Keep externally supplied editor state inside the five-node contract. Invalid
+ * node values fall back to the matching Sustain node; valid nodes are sorted
+ * by X so sampling remains deterministic even for malformed persisted input.
+ * @param {unknown} points
+ * @returns {AmplitudeEnvelopeNode[]}
+ */
+export function sanitizeAmplitudeEnvelope(points) {
+  const source = Array.isArray(points) ? points : [];
+  const fallback = AMPLITUDE_ENVELOPE_PRESETS.sustain;
+  const sanitized = fallback
+    .map((fallbackPoint, index) => {
+      const point = source[index];
+      const x = point && typeof point === "object" && Number.isFinite(point.x)
+        ? clamp(point.x, 0, 1)
+        : fallbackPoint.x;
+      const y = point && typeof point === "object" && Number.isFinite(point.y)
+        ? clamp(point.y, 0, 1)
+        : fallbackPoint.y;
+      return { x, y, originalIndex: index };
+    })
+    .sort((a, b) => a.x - b.x || a.originalIndex - b.originalIndex)
+    .map(({ x, y }) => ({ x, y }));
+  sanitized[0].x = 0;
+  return sanitized;
+}
+
+/**
+ * Move one editor node without allowing it to cross either neighbour.
+ * Invalid indices or values leave the sanitized curve unchanged.
+ * @param {unknown} points
+ * @param {number} index
+ * @param {{x?: number, y?: number}} [changes]
+ * @returns {AmplitudeEnvelopeNode[]}
+ */
+export function updateAmplitudeEnvelopeNode(points, index, changes = {}) {
+  const next = sanitizeAmplitudeEnvelope(points);
+  if (!Number.isInteger(index) || index < 0 || index >= next.length) return next;
+  const safeChanges = changes && typeof changes === "object" ? changes : {};
+  const current = next[index];
+  const lowX = index > 0 ? next[index - 1].x : 0;
+  const highX = index < next.length - 1 ? next[index + 1].x : 1;
+  next[index] = {
+    x: index === 0
+      ? 0
+      : Number.isFinite(safeChanges.x)
+      ? clamp(safeChanges.x, lowX, highX)
+      : current.x,
+    y: Number.isFinite(safeChanges.y)
+      ? clamp(safeChanges.y, 0, 1)
+      : current.y,
+  };
+  return next;
+}
+
+/**
+ * Piecewise-linear envelope sampling. Before the first node its level is held;
+ * after the release node its final Y is held through phase 1. A zero endpoint
+ * therefore stops, while a non-zero endpoint sustains until the next trigger.
+ * @param {number} phase
+ * @param {unknown} points
+ */
+export function sampleAmplitudeEnvelope(phase, points) {
+  const envelope = sanitizeAmplitudeEnvelope(points);
+  const amount = typeof phase === "number" && !Number.isNaN(phase)
+    ? clamp(phase, 0, 1)
+    : 0;
+  if (amount <= envelope[0].x) return envelope[0].y;
+
+  for (let index = 1; index < envelope.length; index += 1) {
+    const left = envelope[index - 1];
+    const right = envelope[index];
+    if (amount > right.x) continue;
+    if (right.x <= left.x) return right.y;
+    const progress = (amount - left.x) / (right.x - left.x);
+    return left.y + (right.y - left.y) * progress;
+  }
+
+  return envelope.at(-1).y;
+}
+
 /** Keep persisted or externally supplied mode names inside the DSP contract. */
 export function sanitizeSynthMode(mode) {
   return CONTINUOUS_SYNTH_MODES.has(mode) ? mode : "sine";
@@ -236,6 +360,27 @@ export function normalizeVoiceGains(voices, maxCombinedGain = 1) {
   );
   const scale = combined > ceiling && combined > 0 ? ceiling / combined : 1;
   return sanitized.map((voice) => ({ ...voice, gain: voice.gain * scale }));
+}
+
+/**
+ * Give each Shape contact its own voice while keeping larger playhead groups
+ * near the same perceived energy. Only finite positive gains count as audible;
+ * the supplied voice objects and array are never modified.
+ * @param {readonly VoiceSpec[]} voices
+ * @returns {VoiceSpec[]}
+ */
+export function scaleShapeVoiceGains(voices) {
+  if (!Array.isArray(voices)) return [];
+  const audibleCount = voices.reduce(
+    (count, voice) => count
+      + (Number.isFinite(voice?.gain) && voice.gain > 0 ? 1 : 0),
+    0,
+  );
+  const scale = audibleCount > 0 ? 1 / Math.sqrt(audibleCount) : 1;
+  return voices.map((voice) => ({
+    ...voice,
+    gain: Number.isFinite(voice?.gain) ? voice.gain * scale : voice?.gain,
+  }));
 }
 
 /**

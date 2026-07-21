@@ -1140,6 +1140,10 @@ a {
   gap: 12px;
 }
 
+.shape-audio-strip {
+  grid-template-columns: 78px;
+}
+
 .audio-button {
   display: flex;
   width: 78px;
@@ -2164,6 +2168,114 @@ input[type="range"]::-moz-range-thumb {
 .curve-editor-footer .mini-action {
   min-width: 54px;
   min-height: 32px;
+}
+
+.amplitude-articulation {
+  margin: 12px 0 16px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+
+.amplitude-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.amplitude-mode-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 52px);
+}
+
+.amplitude-mode-buttons button {
+  display: grid;
+  min-width: 52px;
+  min-height: 38px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: transparent;
+  place-content: center;
+  gap: 2px;
+}
+
+.amplitude-mode-buttons button + button {
+  border-left: 0;
+}
+
+.amplitude-mode-buttons button span {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.amplitude-mode-buttons button small {
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.amplitude-mode-buttons button:hover,
+.amplitude-mode-buttons button:focus-visible,
+.amplitude-mode-buttons button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.amplitude-preset-strip {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.amplitude-curve-editor.is-disabled {
+  opacity: 0.38;
+}
+
+.amplitude-node {
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  min-height: 22px;
+}
+
+.amplitude-node span {
+  color: var(--accent);
+  font-size: 7px;
+  line-height: 1;
+}
+
+.amplitude-curve-status {
+  display: grid;
+  margin-top: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 9px;
+}
+
+.amplitude-curve-status output {
+  color: var(--accent);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.amplitude-curve-status small {
+  color: var(--faint);
+  font-size: 8px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.master-level-row {
+  margin-top: 12px;
+  padding: 15px 18px 8px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+}
+
+.master-level-row .control {
+  margin: 0;
 }
 
 .form-count-key {
