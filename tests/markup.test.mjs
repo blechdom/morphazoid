@@ -36,6 +36,16 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.doesNotMatch(html, />\s*Advanced\s*</i);
   assert.equal((html.match(/class="group-summary"/g) ?? []).length, sectionIds.length);
 
+  // Shared playback position and speed lead the Play section, before method selection.
+  const playStart = html.indexOf('id="playSection"');
+  const positionStart = html.indexOf('id="position"', playStart);
+  const speedStart = html.indexOf('id="speed"', playStart);
+  const methodStart = html.indexOf('id="playMethod"', playStart);
+  assert.ok(playStart >= 0 && positionStart > playStart && speedStart > positionStart);
+  assert.ok(methodStart > speedStart);
+  assert.ok(html.indexOf('id="traceMode"', methodStart) < html.indexOf('id="scanMode"', methodStart));
+  assert.ok(html.indexOf('id="scanMode"', methodStart) < html.indexOf('id="radialMode"', methodStart));
+
   const assertDefaultLeftChoice = (groupId, selectedId, selectedLabel, otherId) => {
     const groupStart = html.indexOf(`id="${groupId}"`);
     const selectedStart = html.indexOf(`id="${selectedId}"`, groupStart);
@@ -48,31 +58,54 @@ test("the mobile instrument markup exposes the complete compact control surface"
 
   // Immediate binary choices are left-defaulting rocker controls, not faux tabs.
   assertDefaultLeftChoice("playMethod", "traceMode", "Points", "scanMode");
-  assertDefaultLeftChoice("scanMotion", "loopScan", "Loop", "pingPongScan");
   assertDefaultLeftChoice("curvatureDirection", "curvatureOutward", "Out", "curvatureIn");
   assertDefaultLeftChoice("shapeType", "polygonShape", "Polygon", "starShape");
   assert.match(openingTag("circleShape"), /data-value="circle"[^>]*aria-pressed="false"/);
   assert.ok(html.indexOf('id="circleShape"') < html.indexOf('id="polygonShape"'));
-  assert.equal((html.match(/class="choice-switch/g) ?? []).length, 5);
+  assert.equal((html.match(/class="choice-switch/g) ?? []).length, 3);
+  assert.match(openingTag("loopMotion"), /aria-pressed="true"[^>]*aria-label="Loop movement"/);
+  assert.match(openingTag("pingPongMotion"), /aria-pressed="false"[^>]*aria-label="Back-and-forth movement"/);
+  assert.match(html, /id="loopMotion"[\s\S]*?>⟳<[\s\S]*?id="pingPongMotion"[\s\S]*?>↔</);
 
-  // Points start at the contour midpoint; conditional line controls remain hidden.
+  // Loop / ping-pong is shared by every playhead type and sits beside the count stepper.
+  const countMotionRow = html.indexOf('class="playhead-count-motion-row"');
+  const stepperStart = html.indexOf('id="playheadStepper"', countMotionRow);
+  const motionStart = html.indexOf('id="playheadMotion"', countMotionRow);
+  const headsStart = html.indexOf('id="headsControl"', countMotionRow);
+  assert.ok(countMotionRow >= 0 && stepperStart > countMotionRow && motionStart > stepperStart);
+  assert.ok(headsStart > motionStart);
+  assert.doesNotMatch(html, /Line movement/i);
+  assert.doesNotMatch(html, /id="scanMotionControl"/);
+
+  // Points start at the contour midpoint; conditional line-count controls remain hidden.
   assert.match(openingTag("position"), /value="0\.5"/);
   assert.doesNotMatch(openingTag("headsControl"), /\bhidden\b/);
   assert.match(openingTag("lineCountControl"), /\bhidden\b/);
-  assert.match(openingTag("lineLayoutControl"), /\bhidden\b/);
-  assert.match(openingTag("scanMotionControl"), /\bhidden\b/);
+  const options = [...html.matchAll(/id="headOption(\d+)"/g)].map((match) => Number(match[1]));
+  assert.deepEqual(options, Array.from({ length: 12 }, (_, index) => index));
+  assert.match(openingTag("headOption0"), /class="head-option-toggle"/);
+  assert.doesNotMatch(openingTag("headOption0"), /\bhidden\b/);
+  assert.match(openingTag("headOption0"), /aria-label="Playhead 1 forward; reverse direction"/);
+  assert.match(openingTag("headOption1"), /\bhidden\b/);
+  assert.doesNotMatch(html, /id="lineAxis\d+"/);
+  for (let index = 0; index < 12; index += 1) {
+    assert.match(openingTag(`headOption${index}`), /class="head-option-toggle"/);
+  }
 
   // Each transport owns one compact direction toggle, shown only while it runs.
   assert.match(openingTag("traversalDirection"), /\bhidden\b/);
   assert.match(openingTag("rotationDirection"), /\bhidden\b/);
   assert.doesNotMatch(html, /id="(?:traversal|rotation)(?:Forward|Reverse)"/);
   assert.match(app, /const SPEED_MAX = 4;/);
+  assert.match(app, /SPEED_MAX \* Math\.expm1\(SPEED_CURVE \* position\) \/ Math\.expm1\(SPEED_CURVE\)/);
   assert.match(app, /shepardPositionForContact/);
   assert.match(openingTag("rotationSpeed"), /max="4"/);
+  assert.ok(html.includes('id="speedLabel"'));
 
   // The playhead phase editor is compact, draggable, keyboard-operable, and resettable.
   assert.ok(html.includes('id="headLayoutTrack"'));
   assert.ok(html.includes('id="resetHeadSpacing"'));
+  assert.match(html, /id="resetHeadSpacing"[^>]*>Equidistant<\/button>/);
   for (const id of ["playheadStepper", "removePlayhead", "playheadCountOut", "addPlayhead"]) {
     assert.ok(html.includes(`id="${id}"`), `missing compact playhead control #${id}`);
   }
@@ -94,7 +127,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
 
   const soundSelect = html.match(/<select\s+id="soundMode"[^>]*>([\s\S]*?)<\/select>/);
   assert.ok(soundSelect, "missing sound mode select");
-  assert.match(soundSelect[1], /<option\s+value="sine"\s+selected>Sine\b/);
+  assert.match(soundSelect[1], /<option[^>]*\svalue="sine"\s+selected>Sine\b/);
   assert.match(soundSelect[1], /<option\s+value="percussion">Percussion\b/);
   assert.match(soundSelect[1], /<option\s+value="shepard">Shepard\b/);
   assert.match(soundSelect[1], /<option\s+value="fm">FM\b/);
@@ -135,7 +168,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /@media\s*\(max-width:\s*960px\)[\s\S]*?\.stage\s*\{[\s\S]*?position:\s*sticky;/);
   assert.match(css, /@media\s*\(max-width:\s*960px\)[\s\S]*?\.panel\s*\{[\s\S]*?overflow-y:\s*auto;/);
   assert.match(css, /@media\s*\(max-width:\s*960px\)\s*and\s*\(max-height:\s*560px\)/);
-  assert.match(css, /\.head-layout-track\.is-crossed[\s\S]*?height:\s*64px/);
+  assert.match(css, /\.head-layout-track\.has-head-options[\s\S]*?height:\s*76px/);
 
   assert.ok(html.indexOf('id="audioButton"') < html.indexOf('id="playSection"'));
   assert.ok(html.indexOf('id="level"') < html.indexOf("<main"));

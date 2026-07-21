@@ -36,8 +36,8 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
-const SPEED_MIN = 0.01;
 const SPEED_MAX = 4;
+const SPEED_CURVE = 5.6;
 const MAX_CONTINUOUS_VOICES = 32;
 const STRIKE_BATCH_CEILING = 0.78;
 const AUDIO_LOOKAHEAD_SECONDS = 0.075;
@@ -70,11 +70,15 @@ const state = {
   rotation: 0,
   playMethod: "trace",
   lineCount: 1,
-  lineLayout: "parallel",
-  scanMotion: "loop",
+  scanLineAxes: ["vertical", "vertical", "vertical", "vertical"],
+  motionMode: "loop",
   heads: 1,
   traceHeadOffsets: [0],
   scanHeadOffsets: [0],
+  traceHeadDirections: Array(12).fill(1),
+  radialHeadDirections: Array(12).fill(1),
+  traceHeadDirectionAdjustments: Array(12).fill(0),
+  radialHeadDirectionAdjustments: Array(12).fill(0),
   autoRotate: false,
   rotationSpeed: 0.12,
   rotationDirection: 1,
@@ -215,12 +219,15 @@ function effectiveHeadCount() {
   return state.playMethod === "scan" ? state.lineCount : state.heads;
 }
 
-function activeLineLayout() {
-  return state.lineCount > 1 ? state.lineLayout : "parallel";
+function scanAxesLabel() {
+  const axes = state.scanLineAxes.slice(0, state.lineCount);
+  if (axes.every((axis) => axis === "vertical")) return "vertical";
+  if (axes.every((axis) => axis === "horizontal")) return "horizontal";
+  return "mixed-axis";
 }
 
-function activeOffsetLayout(method = state.playMethod) {
-  return method === "scan" && activeLineLayout() === "crossed" ? "crossed" : "parallel";
+function activeOffsetLayout() {
+  return "parallel";
 }
 
 function offsetsForMethod(method = state.playMethod) {
@@ -232,10 +239,40 @@ function setOffsetsForMethod(method, offsets) {
   else state.traceHeadOffsets = offsets;
 }
 
+function directionsForMethod(method = state.playMethod) {
+  return method === "radial" ? state.radialHeadDirections : state.traceHeadDirections;
+}
+
+function directionAdjustmentsForMethod(method = state.playMethod) {
+  return method === "radial"
+    ? state.radialHeadDirectionAdjustments
+    : state.traceHeadDirectionAdjustments;
+}
+
+function headDirection(headIndex, method = state.playMethod) {
+  if (method === "scan") return 1;
+  return directionsForMethod(method)[headIndex] < 0 ? -1 : 1;
+}
+
 function phaseOffsetForHead(headIndex, method = state.playMethod) {
   const count = method === "scan" ? state.lineCount : state.heads;
   const offsets = sanitizeHeadOffsets(offsetsForMethod(method), count, activeOffsetLayout(method));
   return offsets[headIndex] ?? 0;
+}
+
+function alignDirectionAdjustments(method = state.playMethod) {
+  if (method === "scan") return;
+  const count = method === state.playMethod ? effectiveHeadCount() : state.heads;
+  const directions = directionsForMethod(method);
+  const adjustments = directionAdjustmentsForMethod(method);
+  for (let index = 0; index < count; index += 1) {
+    adjustments[index] = (1 - (directions[index] < 0 ? -1 : 1)) * state.continuousPosition;
+  }
+}
+
+function alignPointAndRadarDirections() {
+  alignDirectionAdjustments("trace");
+  alignDirectionAdjustments("radial");
 }
 
 function resetActiveHeadOffsets(shouldAnnounce = true) {
@@ -244,6 +281,7 @@ function resetActiveHeadOffsets(shouldAnnounce = true) {
     state.playMethod,
     canonicalHeadOffsets(count, activeOffsetLayout()),
   );
+  if (state.playMethod !== "scan") alignPointAndRadarDirections();
   resetCornerTracking();
   renderHeadLayout();
   if (shouldAnnounce) announce("Playheads reset to equal spacing.");
@@ -253,23 +291,41 @@ function resetActiveHeadOffsets(shouldAnnounce = true) {
 function renderHeadLayout() {
   const count = effectiveHeadCount();
   const offsets = sanitizeHeadOffsets(offsetsForMethod(), count, activeOffsetLayout());
-  const crossed = state.playMethod === "scan" && activeLineLayout() === "crossed";
+  const lines = state.playMethod === "scan";
   setOffsetsForMethod(state.playMethod, offsets);
-  $("headLayoutTrack").classList.toggle("is-crossed", crossed);
+  $("headLayoutTrack").classList.add("has-head-options");
   for (let index = 0; index < 12; index += 1) {
     const marker = $(`headMarker${index}`);
     marker.hidden = index >= count;
+    const optionButton = $(`headOption${index}`);
+    optionButton.hidden = index >= count;
     if (marker.hidden) continue;
     const displayPhase = wrap01(0.5 + offsets[index]);
-    const axis = crossed ? (index % 2 === 0 ? "Vertical line" : "Horizontal line") : "Playhead";
+    const reader = lines ? `${scanAxisForHead(index)} line` : state.playMethod === "radial" ? "Radar ray" : "Point";
     marker.style.left = `${displayPhase * 100}%`;
-    marker.style.top = crossed ? (index % 2 === 0 ? "28%" : "72%") : "50%";
+    marker.style.top = "58%";
     marker.style.setProperty("--head-color", HEAD_COLORS[index % HEAD_COLORS.length]);
     marker.setAttribute("role", "slider");
     marker.setAttribute("aria-orientation", "horizontal");
     marker.setAttribute("aria-valuenow", displayPhase.toFixed(3));
     marker.setAttribute("aria-valuetext", `${(displayPhase * 100).toFixed(1)} percent relative phase`);
-    marker.setAttribute("aria-label", `${axis} ${index + 1} relative phase ${(displayPhase * 100).toFixed(1)} percent`);
+    marker.setAttribute("aria-label", `${reader} ${index + 1} relative phase ${(displayPhase * 100).toFixed(1)} percent`);
+    optionButton.style.left = `${displayPhase * 100}%`;
+    optionButton.style.setProperty("--head-color", HEAD_COLORS[index % HEAD_COLORS.length]);
+    if (lines) {
+      const horizontal = scanAxisForHead(index) === "horizontal";
+      optionButton.textContent = horizontal ? "—" : "│";
+      setPressed(optionButton, horizontal);
+      optionButton.setAttribute("aria-label", `Line ${index + 1} ${horizontal ? "horizontal" : "vertical"}; rotate 90 degrees`);
+      optionButton.title = `Rotate line ${index + 1} ${horizontal ? "vertical" : "horizontal"}`;
+    } else {
+      const reverse = headDirection(index) < 0;
+      const noun = state.playMethod === "radial" ? "Radar ray" : "Point";
+      optionButton.textContent = reverse ? "←" : "→";
+      setPressed(optionButton, reverse);
+      optionButton.setAttribute("aria-label", `${noun} ${index + 1} ${reverse ? "reverse" : "forward"}; change direction`);
+      optionButton.title = `${reverse ? "Set forward" : "Reverse"} ${noun.toLowerCase()} ${index + 1}`;
+    }
   }
 }
 
@@ -287,7 +343,7 @@ function updateSectionSummaries() {
 
 function updateCanvasLabel() {
   const reader = state.playMethod === "scan"
-    ? `${state.lineCount} ${activeLineLayout()} ${state.scanMotion} scanning ${plural(state.lineCount, "line")}`
+    ? `${state.lineCount} ${scanAxesLabel()} ${state.motionMode} scanning ${plural(state.lineCount, "line")}`
     : state.playMethod === "radial"
       ? `${state.heads} rotating radar ${plural(state.heads, "ray", "rays")}`
     : `${state.heads} tracing ${plural(state.heads, "head")}`;
@@ -308,9 +364,6 @@ function updatePlayheadStepper() {
 }
 
 function updateLineControls() {
-  const showLayout = state.playMethod === "scan" && state.lineCount > 1;
-  $("lineLayoutControl").hidden = !showLayout;
-  $("scanMotionControl").hidden = state.playMethod !== "scan";
   updateTraversalDirection();
   updateCanvasLabel();
   renderHeadLayout();
@@ -319,11 +372,34 @@ function updateLineControls() {
 }
 
 function speedFromSlider(value) {
-  return SPEED_MIN * (SPEED_MAX / SPEED_MIN) ** clamp(value, 0, 1);
+  const position = clamp(value, 0, 1);
+  return SPEED_MAX * Math.expm1(SPEED_CURVE * position) / Math.expm1(SPEED_CURVE);
 }
 
 function sliderFromSpeed(value) {
-  return Math.log(value / SPEED_MIN) / Math.log(SPEED_MAX / SPEED_MIN);
+  const speed = clamp(value, 0, SPEED_MAX);
+  return Math.log1p(speed / SPEED_MAX * Math.expm1(SPEED_CURVE)) / SPEED_CURVE;
+}
+
+function formatPlayheadPosition() {
+  return state.playMethod === "radial"
+    ? `${(state.position * 360).toFixed(1)}°`
+    : `${(state.position * 100).toFixed(1)}%`;
+}
+
+function formatPlayheadSpeed() {
+  return `${state.speed.toFixed(3)} ${state.playMethod === "radial" ? "rev/s" : "cyc/s"}`;
+}
+
+function updatePlayheadReadouts() {
+  const radar = state.playMethod === "radial";
+  $("positionLabel").textContent = radar ? "Radar angle" : "Playhead position";
+  $("speedLabel").textContent = radar ? "Radar speed" : "Playhead speed";
+  $("positionOut").textContent = formatPlayheadPosition();
+  $("speedOut").textContent = formatPlayheadSpeed();
+  $("position").setAttribute("aria-label", radar ? "Radar angle from 0 to 360 degrees" : "Playhead position");
+  $("position").setAttribute("aria-valuetext", formatPlayheadPosition());
+  $("speed").setAttribute("aria-label", radar ? "Radar speed in revolutions per second" : "Playhead speed");
 }
 
 function setPressed(button, pressed) {
@@ -360,7 +436,7 @@ bindRange("rotation", "rotation", (value) => `${Math.round(value)}°`);
 const updateLineCountOutput = bindRange("lineCount", "lineCount", (value) => {
   return `${value} ${plural(value, "line")}`;
 }, () => {
-  state.scanHeadOffsets = canonicalHeadOffsets(state.lineCount, activeOffsetLayout("scan"));
+  state.scanHeadOffsets = canonicalHeadOffsets(state.lineCount);
   updateLineControls();
   resetCornerTracking();
 });
@@ -368,6 +444,7 @@ const updateHeadsOutput = bindRange("heads", "heads", (value) => {
   return `${value} ${plural(value, "point")}`;
 }, () => {
   state.traceHeadOffsets = canonicalHeadOffsets(state.heads);
+  alignPointAndRadarDirections();
   updateLineControls();
   resetCornerTracking();
 });
@@ -442,6 +519,8 @@ function setShapeType(type, shouldAnnounce = true) {
   $("sidesControl").hidden = circle;
   $("curvatureControl").hidden = circle;
   $("starDepthControl").hidden = state.shapeType !== "star" || state.sides < 3;
+  $("sineModeOption").textContent = circle ? "Sine · continuous contour" : "Sine · corner envelope";
+  updateSineArticulationVisibility();
   updateCurvatureOutput();
   updateSidesOutput();
   updateSectionSummaries();
@@ -487,7 +566,7 @@ $("resetForm").addEventListener("click", () => {
 function setPlayMethod(method, shouldAnnounce = true) {
   const nextMethod = ["trace", "scan", "radial"].includes(method) ? method : "trace";
   if (nextMethod !== state.playMethod) {
-    state.continuousPosition = nextMethod === "scan" && state.scanMotion === "pingpong"
+    state.continuousPosition = state.motionMode === "pingpong"
       ? rebasePingPongPosition(state.continuousPosition, state.position)
       : rebaseContinuousPosition(
         state.continuousPosition,
@@ -503,7 +582,7 @@ function setPlayMethod(method, shouldAnnounce = true) {
   const isScan = state.playMethod === "scan";
   $("headsControl").hidden = isScan;
   $("lineCountControl").hidden = !isScan;
-  $("positionLabel").textContent = state.playMethod === "radial" ? "Radar angle" : "Playhead position";
+  updatePlayheadReadouts();
   updateLineCountOutput();
   updateHeadsOutput();
   updateLineControls();
@@ -526,12 +605,13 @@ function changePlayheadCount(delta) {
   if (state.playMethod === "scan") {
     state.lineCount = Math.round(clamp(state.lineCount + delta, 1, 4));
     $("lineCount").value = String(state.lineCount);
-    state.scanHeadOffsets = canonicalHeadOffsets(state.lineCount, activeOffsetLayout("scan"));
+    state.scanHeadOffsets = canonicalHeadOffsets(state.lineCount);
     updateLineCountOutput();
   } else {
     state.heads = Math.round(clamp(state.heads + delta, 1, 12));
     $("heads").value = String(state.heads);
     state.traceHeadOffsets = canonicalHeadOffsets(state.heads);
+    alignPointAndRadarDirections();
     updateHeadsOutput();
   }
   updateLineControls();
@@ -543,28 +623,38 @@ function changePlayheadCount(delta) {
 $("removePlayhead").addEventListener("click", () => changePlayheadCount(-1));
 $("addPlayhead").addEventListener("click", () => changePlayheadCount(1));
 
-function setLineLayout(layout, shouldAnnounce = true) {
-  const nextLayout = layout === "crossed" ? "crossed" : "parallel";
-  if (nextLayout !== state.lineLayout) {
-    state.lineLayout = nextLayout;
-    state.scanHeadOffsets = canonicalHeadOffsets(state.lineCount, activeOffsetLayout("scan"));
-  }
-  for (const button of $("lineLayout").querySelectorAll("button")) {
-    setPressed(button, button.dataset.value === state.lineLayout);
+function toggleHeadOption(index, shouldAnnounce = true) {
+  if (!Number.isInteger(index) || index < 0 || index >= effectiveHeadCount()) return;
+  let message;
+  if (state.playMethod === "scan") {
+    const current = state.scanLineAxes[index] === "horizontal" ? "horizontal" : "vertical";
+    state.scanLineAxes[index] = current === "vertical" ? "horizontal" : "vertical";
+    message = `Line ${index + 1} rotated to ${state.scanLineAxes[index]}.`;
+  } else {
+    const method = state.playMethod;
+    const beforeTravel = directionalHeadTravel(state.continuousPosition, index, method);
+    const directions = directionsForMethod();
+    directions[index] = directions[index] < 0 ? 1 : -1;
+    const adjustments = directionAdjustmentsForMethod();
+    adjustments[index] = beforeTravel
+      - directions[index] * state.continuousPosition
+      - phaseOffsetForHead(index, method);
+    const noun = state.playMethod === "radial" ? "Radar ray" : "Point";
+    message = `${noun} ${index + 1} set to ${directions[index] < 0 ? "reverse" : "forward"}.`;
   }
   updateLineControls();
   resetCornerTracking();
-  if (shouldAnnounce) announce(`${state.lineLayout} scan lines selected.`);
+  if (shouldAnnounce) announce(message);
   invalidate();
 }
 
-for (const button of $("lineLayout").querySelectorAll("button")) {
-  button.addEventListener("click", () => setLineLayout(button.dataset.value));
+for (let index = 0; index < 12; index += 1) {
+  $(`headOption${index}`).addEventListener("click", () => toggleHeadOption(index));
 }
 
-function setScanMotion(motion, shouldAnnounce = true) {
+function setMotionMode(motion, shouldAnnounce = true) {
   const nextMotion = motion === "loop" ? "loop" : "pingpong";
-  if (nextMotion !== state.scanMotion) {
+  if (nextMotion !== state.motionMode) {
     if (nextMotion === "pingpong") {
       state.continuousPosition = rebasePingPongPosition(
         state.continuousPosition,
@@ -577,20 +667,20 @@ function setScanMotion(motion, shouldAnnounce = true) {
         state.position,
       );
     }
-    state.scanMotion = nextMotion;
+    state.motionMode = nextMotion;
     resetCornerTracking();
   }
-  for (const button of $("scanMotion").querySelectorAll("button")) {
-    setPressed(button, button.dataset.value === state.scanMotion);
+  for (const button of $("playheadMotion").querySelectorAll("button")) {
+    setPressed(button, button.dataset.value === state.motionMode);
   }
   updateTraversalDirection();
   updateCanvasLabel();
-  if (shouldAnnounce) announce(`${state.scanMotion === "pingpong" ? "Ping-pong" : "Loop"} line movement selected.`);
+  if (shouldAnnounce) announce(`${state.motionMode === "pingpong" ? "Ping-pong" : "Loop"} playhead movement selected.`);
   invalidate();
 }
 
-for (const button of $("scanMotion").querySelectorAll("button")) {
-  button.addEventListener("click", () => setScanMotion(button.dataset.value));
+for (const button of $("playheadMotion").querySelectorAll("button")) {
+  button.addEventListener("click", () => setMotionMode(button.dataset.value));
 }
 
 function setCustomHeadOffset(index, displayPhase, shouldAnnounce = false) {
@@ -651,7 +741,7 @@ function setSoundMode(mode, shouldAnnounce = true) {
     resetCornerTracking();
   }
   $("soundMode").value = state.soundMode;
-  $("sineArticulation").hidden = state.soundMode === "percussion";
+  updateSineArticulationVisibility();
   $("percussionArticulation").hidden = state.soundMode !== "percussion";
   $("shepardArticulation").hidden = state.soundMode !== "shepard";
   $("fmArticulation").hidden = state.soundMode !== "fm";
@@ -670,6 +760,10 @@ function setSoundMode(mode, shouldAnnounce = true) {
     announce(descriptions[state.soundMode]);
   }
   invalidate();
+}
+
+function updateSineArticulationVisibility() {
+  $("sineArticulation").hidden = state.soundMode === "percussion" || state.shapeType === "circle";
 }
 
 $("soundMode").value = state.soundMode;
@@ -700,7 +794,7 @@ $("rotationPlayButton").addEventListener("click", () => setRotationPlaying(!stat
 function setRotationDirection(direction, shouldAnnounce = true) {
   state.rotationDirection = direction < 0 ? -1 : 1;
   const clockwise = state.rotationDirection > 0;
-  $("rotationDirectionGlyph").textContent = clockwise ? "↻" : "↺";
+  $("rotationDirectionGlyph").textContent = clockwise ? "→" : "←";
   $("rotationDirectionText").textContent = clockwise ? "CW" : "CCW";
   $("rotationDirection").setAttribute("aria-label", `Rotation direction: ${clockwise ? "clockwise" : "counterclockwise"}`);
   if (shouldAnnounce) {
@@ -736,13 +830,13 @@ const speedInput = $("speed");
 speedInput.value = String(sliderFromSpeed(state.speed));
 speedInput.addEventListener("input", () => {
   state.speed = speedFromSlider(Number(speedInput.value));
-  $("speedOut").textContent = `${state.speed.toFixed(3)} cyc/s`;
+  $("speedOut").textContent = formatPlayheadSpeed();
   dismissHelp();
 });
 
 function setPosition(value) {
   const nextPosition = clamp(value, 0, 1);
-  state.continuousPosition = state.playMethod === "scan" && state.scanMotion === "pingpong"
+  state.continuousPosition = state.motionMode === "pingpong"
     ? rebasePingPongPosition(state.continuousPosition, nextPosition)
     : rebaseContinuousPosition(
       state.continuousPosition,
@@ -751,7 +845,8 @@ function setPosition(value) {
     );
   state.position = nextPosition;
   $("position").value = String(state.position);
-  $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
+  $("positionOut").textContent = formatPlayheadPosition();
+  $("position").setAttribute("aria-valuetext", formatPlayheadPosition());
 }
 
 $("position").addEventListener("input", () => {
@@ -821,26 +916,21 @@ $("audioButton").addEventListener("click", toggleAudio);
 
 function updateTraversalDirection() {
   const forward = state.traversalDirection > 0;
-  const crossed = state.playMethod === "scan" && activeLineLayout() === "crossed";
-  const bouncing = state.playMethod === "scan" && state.scanMotion === "pingpong";
+  const bouncing = state.motionMode === "pingpong";
   const openPoints = state.playMethod === "trace" && state.sides === 2;
   const closedPoints = state.playMethod === "trace" && state.sides > 2;
-  const glyph = crossed
-    ? (forward ? "↘" : "↖")
-    : closedPoints ? (forward ? "↻" : "↺") : (forward ? "→" : "←");
+  const radial = state.playMethod === "radial";
+  const glyph = forward ? "→" : "←";
   const text = bouncing
     ? (forward ? "FWD" : "REV")
-    : crossed ? (forward ? "→+↓" : "←+↑")
-      : openPoints ? (forward ? "FWD" : "REV")
-        : closedPoints ? (forward ? "CW" : "CCW") : (forward ? "L→R" : "R→L");
+    : openPoints ? (forward ? "FWD" : "REV")
+        : closedPoints || radial ? (forward ? "CW" : "CCW") : (forward ? "L→R" : "R→L");
   const label = bouncing
     ? `${forward ? "Forward" : "Reverse"} ping-pong travel`
-    : crossed
-      ? (forward ? "Scan left to right and top to bottom" : "Scan right to left and bottom to top")
-      : openPoints
+    : openPoints
         ? `${forward ? "Forward" : "Reverse"} point traversal`
-        : closedPoints
-          ? `Trace ${forward ? "clockwise" : "counterclockwise"}`
+        : closedPoints || radial
+          ? `${radial ? "Radar sweep" : "Trace"} ${forward ? "clockwise" : "counterclockwise"}`
           : `Scan ${forward ? "left to right" : "right to left"}`;
 
   $("traversalDirectionGlyph").textContent = glyph;
@@ -938,19 +1028,29 @@ function currentLocalShape() {
   return cachedLocalShape;
 }
 
-function phaseForHead(position, headIndex, headCount) {
-  if (headIndex === 0 && Math.abs(position - 1) < 1e-9) return 1;
-  return wrap01(position + phaseOffsetForHead(headIndex, "trace"));
+function directionalHeadTravel(position, headIndex, method = state.playMethod) {
+  const adjustment = directionAdjustmentsForMethod(method)[headIndex] ?? 0;
+  return headDirection(headIndex, method) * position
+    + phaseOffsetForHead(headIndex, method)
+    + adjustment;
+}
+
+function phaseForHead(position, headIndex, headCount, method = "trace") {
+  const travel = directionalHeadTravel(position, headIndex, method);
+  if (state.motionMode === "pingpong") return pingPong01(travel);
+  if (headIndex === 0 && Math.abs(travel - 1) < 1e-9) return 1;
+  return wrap01(travel);
 }
 
 function traceContact(path, phase) {
-  return pointAtPath(path, path.closed ? phase : phase * 2, { pingPong: !path.closed });
+  if (path.closed) return pointAtPath(path, phase);
+  return state.motionMode === "pingpong"
+    ? pointAtPath(path, phase)
+    : pointAtPath(path, phase * 2, { pingPong: true });
 }
 
 function scanAxisForHead(headIndex) {
-  return activeLineLayout() === "crossed" && headIndex % 2 === 1
-    ? "horizontal"
-    : "vertical";
+  return state.scanLineAxes[headIndex] === "horizontal" ? "horizontal" : "vertical";
 }
 
 function scanPhaseOffset(headIndex, headCount) {
@@ -959,7 +1059,7 @@ function scanPhaseOffset(headIndex, headCount) {
 
 function scanPhaseAt(position, headIndex, headCount) {
   const offsetPosition = position + scanPhaseOffset(headIndex, headCount);
-  if (state.scanMotion === "pingpong") return pingPong01(offsetPosition);
+  if (state.motionMode === "pingpong") return pingPong01(offsetPosition);
   if (
     headIndex === 0 &&
     state.position === 1 &&
@@ -971,6 +1071,7 @@ function scanPhaseAt(position, headIndex, headCount) {
 }
 
 function scannerAt(path, position, headIndex, headCount) {
+  const headTravel = position + scanPhaseOffset(headIndex, headCount);
   const phase = scanPhaseAt(position, headIndex, headCount);
   const axis = scanAxisForHead(headIndex);
   const minimum = axis === "horizontal" ? path.bounds.minY : path.bounds.minX;
@@ -978,6 +1079,7 @@ function scannerAt(path, position, headIndex, headCount) {
   const span = maximum - minimum;
   return {
     headIndex,
+    headTravel,
     phase,
     axis,
     coordinate: span <= 1e-9
@@ -987,7 +1089,8 @@ function scannerAt(path, position, headIndex, headCount) {
 }
 
 function radialAt(path, position, headIndex) {
-  const phase = wrap01(position + phaseOffsetForHead(headIndex, "radial"));
+  const headTravel = directionalHeadTravel(position, headIndex, "radial");
+  const phase = state.motionMode === "pingpong" ? pingPong01(headTravel) : wrap01(headTravel);
   const angle = phase * TAU - Math.PI * 0.5;
   const rawIntersections = rayIntersections(path, angle).filter((contact) => (
     path.closed || contact.rayDistance > 0.015
@@ -1000,8 +1103,8 @@ function radialAt(path, position, headIndex) {
       rawIntersections.splice(0, rawIntersections.length, furthest);
     }
     const beamWidth = 0.11;
-    for (const endpointPhase of [0, 0.5]) {
-      const contact = traceContact(path, endpointPhase);
+    for (const endpointPhase of [0, 1]) {
+      const contact = pointAtPath(path, endpointPhase);
       const endpointAngle = Math.atan2(contact.y, contact.x);
       const difference = Math.abs(Math.atan2(
         Math.sin(endpointAngle - angle),
@@ -1025,13 +1128,14 @@ function radialAt(path, position, headIndex) {
   const intersections = rawIntersections
     .sort((first, second) => first.rayDistance - second.rayDistance)
     .map((contact, contactIndex) => ({
-    ...contact,
-    headIndex,
-    headPhase: phase,
-    scanAxis: "radial",
-    voiceKey: `radial:${headIndex}:${contactIndex}`,
-  }));
-  return { headIndex, phase, angle, contacts: intersections };
+      ...contact,
+      headIndex,
+      headTravel,
+      headPhase: phase,
+      scanAxis: "radial",
+      voiceKey: `radial:${headIndex}:${contactIndex}`,
+    }));
+  return { headIndex, headTravel, phase, angle, contacts: intersections };
 }
 
 function collectContacts(path, position = state.continuousPosition) {
@@ -1046,6 +1150,7 @@ function collectContacts(path, position = state.continuousPosition) {
         : verticalIntersections(path, scanner.coordinate)).map((contact, contactIndex) => ({
         ...contact,
         headIndex,
+        headTravel: scanner.headTravel,
         headPhase: scanner.phase,
         scanAxis: scanner.axis,
         voiceKey: `scan:${scanner.axis}:${headIndex}:${contactIndex}`,
@@ -1058,7 +1163,7 @@ function collectContacts(path, position = state.continuousPosition) {
       contacts.push(...radial.contacts);
     } else {
       const phase = phaseForHead(position, headIndex, headCount);
-      const headTravel = position + phaseOffsetForHead(headIndex, "trace");
+      const headTravel = directionalHeadTravel(position, headIndex, "trace");
       const contact = {
         ...traceContact(path, phase),
         headIndex,
@@ -1184,9 +1289,11 @@ function drawPlayer(path, transform) {
     if (showTrails) {
       for (let headIndex = 0; headIndex < headCount; headIndex += 1) {
         for (let trail = 7; trail >= 1; trail -= 1) {
-          const phase = wrap01(
-            state.continuousPosition + phaseOffsetForHead(headIndex, "radial")
-              - state.traversalDirection * trail * 0.008,
+          const phase = phaseForHead(
+            state.continuousPosition - state.traversalDirection * trail * 0.008,
+            headIndex,
+            headCount,
+            "radial",
           );
           const angle = phase * TAU - Math.PI * 0.5;
           context.beginPath();
@@ -1246,7 +1353,7 @@ function drawPlayer(path, transform) {
     for (let headIndex = 0; headIndex < headCount; headIndex += 1) {
       const color = HEAD_COLORS[headIndex % HEAD_COLORS.length];
       for (let trail = 14; trail >= 1; trail -= 1) {
-        const trailPosition = state.position - state.traversalDirection * trail * 0.006;
+        const trailPosition = state.continuousPosition - state.traversalDirection * trail * 0.006;
         const phase = phaseForHead(trailPosition, headIndex, headCount);
         const point = traceContact(path, phase);
         const strength = 1 - trail / 15;
@@ -1299,7 +1406,16 @@ function incidenceForContact(contact, path, headIndex = contact.headIndex ?? 0) 
   if (state.playMethod === "trace") return clamp(contact.cornerStrength ?? contact.strength ?? 0, 0, 1);
   const tangent = tangentForContact(contact, path);
   const axis = contact.scanAxis ?? scanAxisForHead(headIndex);
-  const scanSpeed = state.playing ? state.traversalDirection * state.speed : 0;
+  const relativeDirection = state.playMethod === "scan" ? 1 : headDirection(headIndex);
+  const headTravel = Number.isFinite(contact.headTravel)
+    ? contact.headTravel
+    : state.playMethod === "scan"
+      ? state.continuousPosition + phaseOffsetForHead(headIndex, "scan")
+      : directionalHeadTravel(state.continuousPosition, headIndex);
+  const motionDirection = state.motionMode === "pingpong"
+    ? pingPongMotionDirection(headTravel, 1, relativeDirection)
+    : state.traversalDirection * relativeDirection;
+  const scanSpeed = state.playing ? motionDirection * state.speed : 0;
   const rotationSpeed = state.autoRotate
     ? state.rotationDirection * state.rotationSpeed * TAU
     : 0;
@@ -1367,25 +1483,30 @@ function mappingForContact(contact, path, headIndex = contact.headIndex ?? 0) {
   };
 }
 
-function pingPongMotionDirection(travelPosition, multiplier = 1) {
-  const step = state.traversalDirection * 1e-5;
+function pingPongMotionDirection(travelPosition, multiplier = 1, relativeDirection = 1) {
+  const step = state.traversalDirection * relativeDirection * 1e-5;
   const before = pingPong01(travelPosition * multiplier);
   const after = pingPong01((travelPosition + step) * multiplier);
   const delta = after - before;
-  return Math.abs(delta) > 1e-9 ? Math.sign(delta) : state.traversalDirection;
+  return Math.abs(delta) > 1e-9
+    ? Math.sign(delta)
+    : state.traversalDirection * relativeDirection;
 }
 
 function pointContourDirection(contact, path) {
+  const relativeDirection = headDirection(contact.headIndex ?? 0, "trace");
+  if (state.motionMode === "pingpong") {
+    return pingPongMotionDirection(contact.headTravel, 1, relativeDirection);
+  }
   return path.closed
-    ? state.traversalDirection
-    : pingPongMotionDirection(contact.headTravel, 2);
+    ? state.traversalDirection * relativeDirection
+    : pingPongMotionDirection(contact.headTravel, 2, relativeDirection);
 }
 
 function cornerEnvelopeProfile(contact, path) {
-  // A scanner can reverse at a projected shape extremum without crossing a
-  // vertex, and rotation can move its contour contact independently of the
-  // scanner. Geometric corner distance keeps those line envelopes continuous.
-  if (state.playMethod === "scan") {
+  // Line and radar readers can reverse without moving monotonically along the
+  // contour. Geometric corner distance keeps those envelopes continuous.
+  if (state.playMethod !== "trace") {
     return {
       strength: contact.cornerStrength ?? 0,
       distance: clamp(contact.cornerDistance01 ?? 0, 0, 1),
@@ -1452,15 +1573,24 @@ function cornerEdgeDurationMilliseconds(profile) {
   return Math.max(1, profile.edgeFraction / motionCyclesPerSecond * 1000);
 }
 
-function shepardRate() {
+function shepardRate(contact, headIndex = contact.headIndex ?? 0) {
   if (!state.playing) return 0;
-  const visualLoopRate = state.playMethod === "scan" && state.scanMotion === "pingpong"
+  const visualLoopRate = state.motionMode === "pingpong"
     ? state.speed * 0.5
     : state.speed;
+  const relativeDirection = state.playMethod === "scan" ? 1 : headDirection(headIndex);
+  const travel = Number.isFinite(contact.headTravel)
+    ? contact.headTravel
+    : state.playMethod === "scan"
+      ? state.continuousPosition + phaseOffsetForHead(headIndex, "scan")
+      : directionalHeadTravel(state.continuousPosition, headIndex);
+  const motionDirection = state.motionMode === "pingpong"
+    ? pingPongMotionDirection(travel, 1, relativeDirection)
+    : state.traversalDirection * relativeDirection;
   return visualLoopRate
     * state.shepardCycles
     * state.shepardDirection
-    * state.traversalDirection;
+    * motionDirection;
 }
 
 function shepardPositionForContact(contact) {
@@ -1475,7 +1605,7 @@ function synthParametersForContact(contact, path, headIndex = contact.headIndex 
     fmRatio: state.fmRatio,
     pmIndex: state.pmIndex,
     pmRatio: state.pmRatio,
-    shepardRate: shepardRate(),
+    shepardRate: shepardRate(contact, headIndex),
     shepardWidth: state.shepardWidth,
     shepardPosition: state.soundMode === "shepard"
       ? shepardPositionForContact(contact)
@@ -1491,13 +1621,15 @@ function continuousSynthVoices(contacts, path) {
     return {
       key: `shape:${contact.voiceKey}`,
       frequency: pitch01ToFrequency(mapping.pitch, state.baseFrequency, state.pitchRange),
-      gain: sineCornerEnvelopeGain(
-        corner.strength,
-        corner.distance,
-        state.sineAccent,
-        state.sineDecay,
-        cornerEdgeDurationMilliseconds(corner),
-      ),
+      gain: path.shapeType === "circle"
+        ? 0.12
+        : sineCornerEnvelopeGain(
+          corner.strength,
+          corner.distance,
+          state.sineAccent,
+          state.sineDecay,
+          cornerEdgeDurationMilliseconds(corner),
+        ),
       pan: mapping.pan,
       waveform: "sine",
       ...synth,
@@ -1517,7 +1649,7 @@ function makeCornerSnapshot(path, continuousPosition = state.continuousPosition)
       turn: path.cornerTurns[vertexIndex] ?? 0,
       pathPhase: path.closed
         ? path.vertexDistances[vertexIndex] / Math.max(path.totalLength, 1e-9)
-        : vertexIndex === 0 ? 0 : 0.5,
+        : vertexIndex === 0 ? 0 : state.motionMode === "pingpong" ? 1 : 0.5,
     };
   });
   const heads = Array.from({ length: count }, (_, headIndex) => ({
@@ -1525,16 +1657,20 @@ function makeCornerSnapshot(path, continuousPosition = state.continuousPosition)
       ? scanAxisForHead(headIndex)
       : state.playMethod === "radial" ? "radial"
       : "path",
-    continuousPhase: continuousPosition + (state.playMethod === "scan"
-      ? phaseOffsetForHead(headIndex, "scan")
-      : phaseOffsetForHead(headIndex, "trace")),
+    continuousPhase: state.playMethod === "scan"
+      ? continuousPosition + phaseOffsetForHead(headIndex, "scan")
+      : directionalHeadTravel(continuousPosition, headIndex, state.playMethod),
   }));
   return {
     signature: [
       state.playMethod,
       count,
-      activeLineLayout(),
-      state.scanMotion,
+      state.scanLineAxes.slice(0, count).join(","),
+      state.playMethod === "scan" ? "" : directionsForMethod().slice(0, count).join(","),
+      state.playMethod === "scan"
+        ? ""
+        : directionAdjustmentsForMethod().slice(0, count).map((value) => value.toFixed(4)).join(","),
+      state.motionMode,
       path.sides,
       path.vertexCount,
       path.shapeType,
@@ -1608,6 +1744,51 @@ function projectedVertexPhase(snapshot, vertex, axis) {
   return clamp(((horizontal ? vertex.y : vertex.x) - minimum) / span, 0, 1);
 }
 
+function hasCircularPlaybackSeam(head, path) {
+  return head.axis === "radial" || (head.axis === "path" && path.closed);
+}
+
+function crossesPlaybackTarget(
+  beforeHead,
+  afterHead,
+  beforeTarget,
+  afterTarget,
+  path,
+) {
+  if (state.motionMode !== "pingpong") {
+    return crossesPeriodicTarget(
+      beforeHead.continuousPhase,
+      afterHead.continuousPhase,
+      beforeTarget,
+      afterTarget,
+    );
+  }
+
+  const crossed = crossesPingPongTarget(
+    beforeHead.continuousPhase,
+    afterHead.continuousPhase,
+    beforeTarget,
+    afterTarget,
+  );
+  if (crossed || !hasCircularPlaybackSeam(afterHead, path)) return crossed;
+
+  // A closed contour and a radar ray identify phase 0 with phase 1. Test the
+  // other seam spelling as well so a ping-pong turnaround emits one strike.
+  const seamEpsilon = 1e-6;
+  const touchesSeam = beforeTarget <= seamEpsilon
+    || beforeTarget >= 1 - seamEpsilon
+    || afterTarget <= seamEpsilon
+    || afterTarget >= 1 - seamEpsilon;
+  if (!touchesSeam) return false;
+  const alias = (target) => target < 0.5 ? target + 1 : target;
+  return crossesPingPongTarget(
+    beforeHead.continuousPhase,
+    afterHead.continuousPhase,
+    alias(beforeTarget),
+    alias(afterTarget),
+  );
+}
+
 function strikeCurrentCorners() {
   if (state.soundMode !== "percussion") return;
   const path = currentShape();
@@ -1620,12 +1801,12 @@ function strikeCurrentCorners() {
         ? vertex.pathPhase
         : projectedVertexPhase(snapshot, vertex, head.axis);
       if (target === null) continue;
-      const phase = head.axis === "path"
-        ? wrap01(head.continuousPhase)
-        : head.axis !== "radial" && state.scanMotion === "pingpong"
-          ? pingPong01(head.continuousPhase)
-          : wrap01(head.continuousPhase);
-      const distance = state.scanMotion === "loop" || head.axis === "path" || head.axis === "radial"
+      const phase = state.motionMode === "pingpong"
+        ? pingPong01(head.continuousPhase)
+        : wrap01(head.continuousPhase);
+      const circularDistance = state.motionMode === "loop"
+        || hasCircularPlaybackSeam(head, path);
+      const distance = circularDistance
         ? Math.min(Math.abs(phase - target), 1 - Math.abs(phase - target))
         : Math.abs(phase - target);
       if (distance <= epsilon) strikeCorner(path, vertex, headIndex);
@@ -1654,20 +1835,13 @@ function emitCornerStrikes(previous, current, path, time01 = 1) {
         afterTarget = afterVertex.pathPhase;
       }
       if (beforeTarget === null || afterTarget === null) continue;
-      const crossed = ["vertical", "horizontal"].includes(afterHead.axis)
-        && state.scanMotion === "pingpong"
-        ? crossesPingPongTarget(
-          beforeHead.continuousPhase,
-          afterHead.continuousPhase,
-          beforeTarget,
-          afterTarget,
-        )
-        : crossesPeriodicTarget(
-          beforeHead.continuousPhase,
-          afterHead.continuousPhase,
-          beforeTarget,
-          afterTarget,
-        );
+      const crossed = crossesPlaybackTarget(
+        beforeHead,
+        afterHead,
+        beforeTarget,
+        afterTarget,
+        path,
+      );
       if (crossed) {
         strikeCorner(path, afterVertex, headIndex, time01);
       }
@@ -1752,6 +1926,7 @@ function contactOutputGain(contact, path) {
     if ((contact.cornerStrength ?? 0) <= 0) return 0;
     return cornerStrikePeak(hitLevelMark(contact, path), state.cornerAccent);
   }
+  if (path.shapeType === "circle") return 0.12;
   const corner = cornerEnvelopeProfile(contact, path);
   return sineCornerEnvelopeGain(
     corner.strength,
@@ -1774,7 +1949,13 @@ function synthValueLabel(parameters) {
     return `${direction}${parameters.shepardRate.toFixed(3)} oct/s · ${parameters.shepardWidth.toFixed(1)} oct`;
   }
   if (state.soundMode === "percussion") return `${Math.round(state.cornerDecay)} ms strike`;
-  return "corner envelope";
+  return state.shapeType === "circle" ? "continuous contour" : "corner envelope";
+}
+
+function envelopeDurationLabel() {
+  if (state.soundMode === "percussion") return `${Math.round(state.cornerDecay)} ms`;
+  if (state.shapeType === "circle") return "none";
+  return `${Math.round(state.sineDecay)} ms`;
 }
 
 function updateOutputDashboard(contacts, path) {
@@ -1783,10 +1964,10 @@ function updateOutputDashboard(contacts, path) {
   $("pitchRouteCurve").textContent = `${CURVE_LABELS[state.pitchCurve]} mark → exponential Hz`;
   $("levelRouteSource").textContent = state.soundMode === "percussion"
     ? SOURCE_LABELS[state.hitLevelSource] ?? state.hitLevelSource
-    : "Corner distance + magnitude";
+    : state.shapeType === "circle" ? "Continuous contour" : "Corner distance + magnitude";
   $("levelRouteCurve").textContent = state.soundMode === "percussion"
     ? CURVE_LABELS[state.hitLevelCurve] ?? state.hitLevelCurve
-    : "spatial amplitude envelope";
+    : state.shapeType === "circle" ? "constant continuous level" : "spatial amplitude envelope";
   const modulationMode = ["fm", "pm"].includes(state.soundMode);
   $("synthRoute").hidden = !modulationMode && state.soundMode !== "shepard";
   $("synthRouteSource").textContent = modulationMode
@@ -1805,9 +1986,7 @@ function updateOutputDashboard(contacts, path) {
       "markFrequencyOut", "markGainOut", "markPanOut",
       "markSynthDriveOut", "markSynthValueOut",
     ]) $(id).textContent = "—";
-    $("markDecayOut").textContent = state.soundMode === "percussion"
-      ? `${Math.round(state.cornerDecay)} ms`
-      : `${Math.round(state.sineDecay)} ms`;
+    $("markDecayOut").textContent = envelopeDurationLabel();
     $("markRotationOut").textContent = `${Math.round(state.rotation)}°`;
     $("contactStream").innerHTML = "";
     return;
@@ -1834,9 +2013,7 @@ function updateOutputDashboard(contacts, path) {
     ? synth.synthDrive.toFixed(3)
     : state.soundMode === "shepard" ? wrap01(contact.u ?? contact.headPhase ?? 0).toFixed(3) : "-";
   $("markSynthValueOut").textContent = synthValueLabel(synth);
-  $("markDecayOut").textContent = state.soundMode === "percussion"
-    ? `${Math.round(state.cornerDecay)} ms`
-    : `${Math.round(state.sineDecay)} ms`;
+  $("markDecayOut").textContent = envelopeDurationLabel();
   $("markRotationOut").textContent = `${Math.round(state.rotation)}°`;
 
   $("contactStream").innerHTML = contacts.slice(0, 12).map((item, index) => {
@@ -1848,7 +2025,8 @@ function updateOutputDashboard(contacts, path) {
 
 function updateUi(contacts, voiceCount, path) {
   $("position").value = String(state.position);
-  $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
+  $("positionOut").textContent = formatPlayheadPosition();
+  $("position").setAttribute("aria-valuetext", formatPlayheadPosition());
   $("rotation").value = String(state.rotation);
   $("rotationOut").textContent = `${Math.round(state.rotation)}°`;
 
@@ -1896,7 +2074,7 @@ function frame(now) {
 
   if (state.playing) {
     state.continuousPosition += state.traversalDirection * state.speed * deltaSeconds;
-    state.position = state.playMethod === "scan" && state.scanMotion === "pingpong"
+    state.position = state.motionMode === "pingpong"
       ? pingPong01(state.continuousPosition)
       : wrap01(state.continuousPosition);
   }
@@ -2092,9 +2270,8 @@ $("shape").addEventListener("input", dismissHelp);
 updateSidesOutput();
 updateCurvatureOutput();
 setShapeType(state.shapeType, false);
-setLineLayout("parallel", false);
 setPlayMethod(state.playMethod, false);
-setScanMotion(state.scanMotion, false);
+setMotionMode(state.motionMode, false);
 setSoundMode(state.soundMode, false);
 setTraversalDirection(1, false);
 setRotationDirection(1, false);
@@ -2102,6 +2279,6 @@ setRotationPlaying(false, false);
 paintAudioState();
 renderHeadLayout();
 updateSectionSummaries();
-$("speedOut").textContent = `${state.speed.toFixed(3)} cyc/s`;
+updatePlayheadReadouts();
 lastFrameTime = performance.now();
 scheduleFrame();

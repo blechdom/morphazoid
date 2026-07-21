@@ -72,6 +72,27 @@
             <span class="section-state" id="playSummary">Points · paused</span>
           </summary>
           <div class="group-body">
+            <div class="position-row playhead-position-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play playhead">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="position">
+                <span><b id="positionLabel">Playhead position</b><output id="positionOut" for="position">50.0%</output></span>
+                <input id="position" type="range" min="0" max="1" step="0.0005" value="0.5" />
+              </label>
+            </div>
+
+            <div class="rate-control playhead-rate-control" role="group" aria-label="Automatic playhead motion">
+              <span class="rate-heading"><b id="speedLabel">Playhead speed</b><output id="speedOut" for="speed">0.060 cyc/s</output></span>
+              <div class="rate-row-single">
+                <input id="speed" aria-label="Playhead speed" type="range" min="0" max="1" step="0.001" value="0.2992" />
+                <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Playhead direction: clockwise" hidden>
+                  <span id="traversalDirectionGlyph">→</span><small id="traversalDirectionText">CW</small>
+                </button>
+              </div>
+            </div>
+
             <div class="field-label">Playhead type</div>
             <div class="choice-switch" id="playMethod" role="group" aria-label="Reading method">
               <button id="traceMode" type="button" data-value="trace" aria-pressed="true">Points</button>
@@ -79,10 +100,16 @@
               <button id="radialMode" type="button" data-value="radial" aria-pressed="false">Radar</button>
             </div>
 
-            <div class="playhead-stepper" id="playheadStepper" role="group" aria-label="Playhead count">
-              <button id="removePlayhead" type="button" aria-label="Remove one playhead">−</button>
-              <span><small>Playheads</small><output id="playheadCountOut">1 point</output></span>
-              <button id="addPlayhead" type="button" aria-label="Add one playhead">+</button>
+            <div class="playhead-count-motion-row">
+              <div class="playhead-stepper" id="playheadStepper" role="group" aria-label="Playhead count">
+                <button id="removePlayhead" type="button" aria-label="Remove one playhead">−</button>
+                <span><small>Playheads</small><output id="playheadCountOut">1 point</output></span>
+                <button id="addPlayhead" type="button" aria-label="Add one playhead">+</button>
+              </div>
+              <div class="icon-choice playhead-motion-choice" id="playheadMotion" role="group" aria-label="Playhead movement">
+                <button id="loopMotion" type="button" data-value="loop" aria-pressed="true" aria-label="Loop movement" title="Loop"><span aria-hidden="true">⟳</span><small>Loop</small></button>
+                <button id="pingPongMotion" type="button" data-value="pingpong" aria-pressed="false" aria-label="Back-and-forth movement" title="Back and forth"><span aria-hidden="true">↔</span><small>Ping-pong</small></button>
+              </div>
             </div>
 
             <label class="control mode-control count-range-proxy" id="headsControl" for="heads">
@@ -95,61 +122,36 @@
               <input id="lineCount" type="range" min="1" max="4" step="1" value="1" />
             </label>
 
-            <div class="mode-control" id="lineLayoutControl" hidden>
-              <div class="field-label">Line layout</div>
-              <div class="choice-switch compact" id="lineLayout" role="group" aria-label="Scan line layout">
-                <button id="parallelLines" type="button" data-value="parallel" aria-pressed="true">Parallel</button>
-                <button id="crossedLines" type="button" data-value="crossed" aria-pressed="false">Crossed 90°</button>
-              </div>
-            </div>
-
-            <div class="mode-control" id="scanMotionControl" hidden>
-              <div class="field-label">Line movement</div>
-              <div class="choice-switch compact" id="scanMotion" role="group" aria-label="Scan line movement">
-                <button id="loopScan" type="button" data-value="loop" aria-pressed="true">Loop</button>
-                <button id="pingPongScan" type="button" data-value="pingpong" aria-pressed="false">Ping-pong</button>
-              </div>
-            </div>
-
             <div class="head-layout-control" id="headLayoutControl">
               <div class="head-layout-heading">
                 <span class="field-label">Relative spacing</span>
-                <button class="mini-action" id="resetHeadSpacing" type="button">Equalize</button>
+                <button class="mini-action" id="resetHeadSpacing" type="button">Equidistant</button>
               </div>
               <div class="head-layout-track" id="headLayoutTrack" aria-label="Relative playhead spacing">
                 <button class="head-marker" id="headMarker0" type="button" data-head-index="0" aria-label="Playhead 1 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.5"><span>1</span></button>
+                <button class="head-option-toggle" id="headOption0" type="button" data-head-index="0" aria-pressed="false" aria-label="Playhead 1 forward; reverse direction" title="Reverse playhead 1"><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker1" type="button" data-head-index="1" aria-label="Playhead 2 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>2</span></button>
+                <button class="head-option-toggle" id="headOption1" type="button" data-head-index="1" aria-pressed="false" aria-label="Playhead 2 forward; reverse direction" title="Reverse playhead 2" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker2" type="button" data-head-index="2" aria-label="Playhead 3 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>3</span></button>
+                <button class="head-option-toggle" id="headOption2" type="button" data-head-index="2" aria-pressed="false" aria-label="Playhead 3 forward; reverse direction" title="Reverse playhead 3" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker3" type="button" data-head-index="3" aria-label="Playhead 4 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>4</span></button>
+                <button class="head-option-toggle" id="headOption3" type="button" data-head-index="3" aria-pressed="false" aria-label="Playhead 4 forward; reverse direction" title="Reverse playhead 4" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker4" type="button" data-head-index="4" aria-label="Playhead 5 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>5</span></button>
+                <button class="head-option-toggle" id="headOption4" type="button" data-head-index="4" aria-pressed="false" aria-label="Playhead 5 forward; reverse direction" title="Reverse playhead 5" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker5" type="button" data-head-index="5" aria-label="Playhead 6 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>6</span></button>
+                <button class="head-option-toggle" id="headOption5" type="button" data-head-index="5" aria-pressed="false" aria-label="Playhead 6 forward; reverse direction" title="Reverse playhead 6" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker6" type="button" data-head-index="6" aria-label="Playhead 7 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>7</span></button>
+                <button class="head-option-toggle" id="headOption6" type="button" data-head-index="6" aria-pressed="false" aria-label="Playhead 7 forward; reverse direction" title="Reverse playhead 7" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker7" type="button" data-head-index="7" aria-label="Playhead 8 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>8</span></button>
+                <button class="head-option-toggle" id="headOption7" type="button" data-head-index="7" aria-pressed="false" aria-label="Playhead 8 forward; reverse direction" title="Reverse playhead 8" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker8" type="button" data-head-index="8" aria-label="Playhead 9 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>9</span></button>
+                <button class="head-option-toggle" id="headOption8" type="button" data-head-index="8" aria-pressed="false" aria-label="Playhead 9 forward; reverse direction" title="Reverse playhead 9" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker9" type="button" data-head-index="9" aria-label="Playhead 10 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>10</span></button>
+                <button class="head-option-toggle" id="headOption9" type="button" data-head-index="9" aria-pressed="false" aria-label="Playhead 10 forward; reverse direction" title="Reverse playhead 10" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker10" type="button" data-head-index="10" aria-label="Playhead 11 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>11</span></button>
+                <button class="head-option-toggle" id="headOption10" type="button" data-head-index="10" aria-pressed="false" aria-label="Playhead 11 forward; reverse direction" title="Reverse playhead 11" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker11" type="button" data-head-index="11" aria-label="Playhead 12 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>12</span></button>
-              </div>
-            </div>
-
-            <div class="position-row">
-              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play playhead">
-                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
-                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-              </button>
-              <label class="control position-control" for="position">
-                <span><b id="positionLabel">Playhead position</b><output id="positionOut" for="position">50.0%</output></span>
-                <input id="position" type="range" min="0" max="1" step="0.0005" value="0.5" />
-              </label>
-            </div>
-
-            <div class="rate-control" role="group" aria-label="Automatic playhead motion">
-              <span class="rate-heading"><b>Playhead speed</b><output id="speedOut" for="speed">0.060 cyc/s</output></span>
-              <div class="rate-row-single">
-                <input id="speed" aria-label="Playhead speed" type="range" min="0" max="1" step="0.001" value="0.2992" />
-                <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Playhead direction: clockwise" hidden>
-                  <span id="traversalDirectionGlyph">↻</span><small id="traversalDirectionText">CW</small>
-                </button>
+                <button class="head-option-toggle" id="headOption11" type="button" data-head-index="11" aria-pressed="false" aria-label="Playhead 12 forward; reverse direction" title="Reverse playhead 12" hidden><span aria-hidden="true">→</span></button>
               </div>
             </div>
 
@@ -169,7 +171,7 @@
               <div class="rate-row-single">
                 <input id="rotationSpeed" aria-label="Rotation speed" type="range" min="0" max="4" step="0.01" value="0.12" />
                 <button class="direction-toggle" id="rotationDirection" type="button" aria-label="Rotation direction: clockwise" hidden>
-                  <span id="rotationDirectionGlyph">↻</span><small id="rotationDirectionText">CW</small>
+                  <span id="rotationDirectionGlyph">→</span><small id="rotationDirectionText">CW</small>
                 </button>
               </div>
             </div>
@@ -239,7 +241,7 @@
               <span class="field-label">Voice</span>
               <span class="select-shell">
                 <select id="soundMode">
-                  <option value="sine" selected>Sine · corner envelope</option>
+                  <option id="sineModeOption" value="sine" selected>Sine · corner envelope</option>
                   <option value="percussion">Percussion · corner strikes</option>
                   <option value="shepard">Shepard · cyclic glissando</option>
                   <option value="fm">FM · mark-driven index</option>

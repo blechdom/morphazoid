@@ -68,8 +68,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
 
   const groups = {
     playMethod: ["traceMode", "scanMode", "radialMode"],
-    lineLayout: ["parallelLines", "crossedLines"],
-    scanMotion: ["loopScan", "pingPongScan"],
+    playheadMotion: ["loopMotion", "pingPongMotion"],
     curvatureDirection: ["curvatureOutward", "curvatureIn"],
     shapeType: ["circleShape", "polygonShape", "starShape"],
   };
@@ -77,10 +76,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     scanMode: "scan",
     traceMode: "trace",
     radialMode: "radial",
-    parallelLines: "parallel",
-    crossedLines: "crossed",
-    pingPongScan: "pingpong",
-    loopScan: "loop",
+    pingPongMotion: "pingpong",
+    loopMotion: "loop",
     curvatureIn: "-1",
     curvatureOutward: "1",
     circleShape: "circle",
@@ -216,7 +213,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.match(elements.get("stageReadout").textContent, /1 POINT/);
   assert.match(elements.get("stageReadout").textContent, /1 CONTACT/);
   assert.equal(attributes.get("traceMode:aria-pressed"), "true");
-  assert.equal(attributes.get("loopScan:aria-pressed"), "true");
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
   assert.equal(attributes.get("polygonShape:aria-pressed"), "true");
   assert.equal(attributes.get("curvatureOutward:aria-pressed"), "true");
   assert.equal(attributes.get("rotationPlayButton:aria-pressed"), "false");
@@ -225,8 +222,12 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("positionOut").textContent, "50.0%");
   assert.equal(elements.get("headsControl").hidden, false);
   assert.equal(elements.get("lineCountControl").hidden, true);
-  assert.equal(elements.get("lineLayoutControl").hidden, true);
-  assert.equal(elements.get("scanMotionControl").hidden, true);
+  assert.equal(elements.get("playheadMotion").hidden, false);
+  assert.equal(elements.has("scanMotionControl"), false);
+  assert.equal(elements.get("headOption0").hidden, false);
+  assert.equal(elements.get("headOption0").textContent, "→");
+  assert.equal(attributes.get("headOption0:aria-pressed"), "false");
+  assert.equal(elements.get("headOption1").hidden, true);
   assert.equal(elements.get("soundMode").value, "sine");
   assert.equal(elements.get("sineArticulation").hidden, false);
   assert.equal(elements.get("percussionArticulation").hidden, true);
@@ -238,6 +239,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("rotationDirection").hidden, true);
   assert.equal(elements.get("headMarker0").hidden, false);
   assert.equal(elements.get("headMarker0").style.left, "50%");
+  assert.equal(elements.get("headMarker0").style.top, "58%");
   assert.equal(elements.get("headMarker1").hidden, true);
   assert.equal(elements.get("playheadCountOut").textContent, "1 point");
   assert.equal(elements.get("removePlayhead").disabled, true);
@@ -247,6 +249,11 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("removePlayhead:click")();
   assert.equal(elements.get("playheadCountOut").textContent, "1 point");
   assert.equal(elements.get("headMarker1").hidden, true);
+  assert.equal(elements.get("headOption1").hidden, true);
+  listeners.get("pingPongMotion:click")();
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "true");
+  listeners.get("loopMotion:click")();
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
   assert.equal(elements.get("outputVoiceLabel").textContent, "sine");
   assert.equal(elements.get("mappingSummary").textContent, "Height → pitch");
   assert.equal(elements.get("outputContactLabel").textContent, "Contact 1 of 1");
@@ -332,6 +339,9 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("position:input")();
   queuedFrame(1_120);
 
+  elements.get("speed").value = "0";
+  listeners.get("speed:input")();
+  assert.equal(elements.get("speedOut").textContent, "0.000 cyc/s");
   elements.get("speed").value = "1";
   listeners.get("speed:input")();
   assert.equal(elements.get("speedOut").textContent, "4.000 cyc/s");
@@ -358,8 +368,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("rotationPlayButton:aria-pressed"), "true");
   assert.equal(elements.get("rotationDirection").hidden, false);
   assert.equal(elements.get("rotationDirectionText").textContent, "CW");
+  assert.equal(elements.get("rotationDirectionGlyph").textContent, "→");
   listeners.get("rotationDirection:click")();
   assert.equal(elements.get("rotationDirectionText").textContent, "CCW");
+  assert.equal(elements.get("rotationDirectionGlyph").textContent, "←");
   listeners.get("rotationDirection:click")();
   queuedFrame(1_320);
   assert.equal(elements.get("rotationOut").textContent, "144°");
@@ -370,30 +382,33 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("scanMode:click")();
   assert.equal(elements.get("headsControl").hidden, true);
   assert.equal(elements.get("lineCountControl").hidden, false);
-  assert.equal(elements.get("scanMotionControl").hidden, false);
-  assert.equal(attributes.get("loopScan:aria-pressed"), "true");
+  assert.equal(elements.get("playheadMotion").hidden, false);
+  assert.equal(elements.get("headOption0").hidden, false);
+  assert.equal(elements.get("headOption0").textContent, "│");
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
   assert.equal(elements.get("playheadCountOut").textContent, "1 line");
   elements.get("position").value = "1";
   listeners.get("position:input")();
   queuedFrame(1_330);
   assert.match(elements.get("stageReadout").textContent, /CONTACT/);
-  listeners.get("pingPongScan:click")();
-  assert.equal(attributes.get("pingPongScan:aria-pressed"), "true");
-  listeners.get("loopScan:click")();
-  assert.equal(attributes.get("loopScan:aria-pressed"), "true");
+  listeners.get("pingPongMotion:click")();
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "true");
+  listeners.get("loopMotion:click")();
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
 
   elements.get("lineCount").value = "4";
   listeners.get("lineCount:input")();
   queuedFrame(1_250);
   assert.match(elements.get("stageReadout").textContent, /4 LINES/);
-  assert.equal(elements.get("lineLayoutControl").hidden, false);
+  assert.equal(elements.get("headOption3").hidden, false);
 
   segments.length = 0;
-  listeners.get("crossedLines:click")();
-  assert.equal(attributes.get("crossedLines:aria-pressed"), "true");
-  assert.equal(elements.get("headLayoutTrack").classList.contains("is-crossed"), true);
-  assert.equal(elements.get("headMarker0").style.top, "28%");
-  assert.equal(elements.get("headMarker1").style.top, "72%");
+  listeners.get("headOption1:click")();
+  assert.equal(attributes.get("headOption1:aria-pressed"), "true");
+  assert.equal(elements.get("headOption1").textContent, "—");
+  assert.equal(elements.get("headLayoutTrack").classList.contains("has-head-options"), true);
+  assert.equal(elements.get("headMarker0").style.top, "58%");
+  assert.equal(elements.get("headMarker1").style.top, "58%");
   queuedFrame(1_500);
   const longHorizontal = segments.filter((segment) => (
     Math.abs(segment.y2 - segment.y1) < 0.01 && Math.abs(segment.x2 - segment.x1) > 500
@@ -401,12 +416,24 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   const longVertical = segments.filter((segment) => (
     Math.abs(segment.x2 - segment.x1) < 0.01 && Math.abs(segment.y2 - segment.y1) > 500
   ));
-  assert.ok(longHorizontal.length > 5, "crossed mode should draw horizontal scanners and trails");
-  assert.ok(longVertical.length > 5, "crossed mode should draw vertical scanners and trails");
+  assert.ok(longHorizontal.length > 5, "a rotated line should draw horizontal scanners and trails");
+  assert.ok(longVertical.length > 5, "unchanged lines should remain vertical scanners");
 
   listeners.get("radialMode:click")();
   assert.equal(attributes.get("radialMode:aria-pressed"), "true");
+  assert.equal(elements.get("playheadMotion").hidden, false);
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
+  assert.equal(elements.get("headOption0").hidden, false);
+  assert.equal(elements.get("headOption0").textContent, "→");
+  listeners.get("pingPongMotion:click")();
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "true");
+  listeners.get("loopMotion:click")();
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
   assert.equal(elements.get("positionLabel").textContent, "Radar angle");
+  assert.equal(elements.get("speedLabel").textContent, "Radar speed");
+  assert.equal(elements.get("positionOut").textContent, "360.0°");
+  assert.equal(elements.get("speedOut").textContent, "4.000 rev/s");
+  assert.equal(attributes.get("position:aria-label"), "Radar angle from 0 to 360 degrees");
   queuedFrame(1_550);
   assert.match(elements.get("stageReadout").textContent, /1 RAY/);
   elements.get("pitchSource").value = "center";
@@ -422,22 +449,31 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("rotation:input")();
   elements.get("position").value = "0.5";
   listeners.get("position:input")();
+  assert.equal(elements.get("positionOut").textContent, "180.0°");
   queuedFrame(1_570);
   assert.match(elements.get("stageReadout").textContent, /0 CONTACTS/);
   elements.get("position").value = "0.25";
   listeners.get("position:input")();
+  assert.equal(elements.get("positionOut").textContent, "90.0°");
   queuedFrame(1_580);
   assert.match(elements.get("stageReadout").textContent, /1 CONTACT/);
   elements.get("sides").value = "4";
   listeners.get("sides:input")();
 
+  // Radar direction settings stay separate from Point direction settings.
+  listeners.get("headOption0:click")();
+  assert.equal(elements.get("headOption0").textContent, "←");
+  assert.equal(attributes.get("headOption0:aria-pressed"), "true");
+
   listeners.get("traceMode:click")();
-  assert.equal(elements.get("headLayoutTrack").classList.contains("is-crossed"), false);
-  assert.equal(elements.get("headMarker0").style.top, "50%");
+  assert.equal(elements.get("headLayoutTrack").classList.contains("has-head-options"), true);
+  assert.equal(elements.get("headMarker0").style.top, "58%");
+  assert.equal(elements.get("headOption0").hidden, false);
+  assert.equal(elements.get("headOption0").textContent, "→");
+  assert.equal(attributes.get("headOption0:aria-pressed"), "false");
   assert.equal(elements.get("headsControl").hidden, false);
   assert.equal(elements.get("lineCountControl").hidden, true);
-  assert.equal(elements.get("lineLayoutControl").hidden, true);
-  assert.equal(elements.get("scanMotionControl").hidden, true);
+  assert.equal(elements.get("playheadMotion").hidden, false);
   queuedFrame(2_000);
   assert.match(elements.get("stageReadout").textContent, /1 POINT/);
 
@@ -447,6 +483,26 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.ok(Math.abs(parseFloat(elements.get("headMarker1").style.left) - 83.333) < 0.01);
   assert.ok(Math.abs(parseFloat(elements.get("headMarker2").style.left) - 16.667) < 0.01);
   assert.equal(elements.get("headMarker3").hidden, true);
+  assert.equal(elements.get("headOption2").hidden, false);
+  assert.equal(elements.get("headOption3").hidden, true);
+  listeners.get("headOption1:click")();
+  assert.equal(elements.get("headOption0").textContent, "→");
+  assert.equal(elements.get("headOption1").textContent, "←");
+  assert.equal(attributes.get("headOption1:aria-pressed"), "true");
+
+  // Opposite arrows move Point heads in opposite directions without jumping
+  // when the direction is changed.
+  queuedFrame(2_050);
+  const contactPhases = () => [...elements.get("contactStream").innerHTML.matchAll(/u ([\d.]+)/g)]
+    .map((match) => Number(match[1]));
+  const beforeDirectionStep = contactPhases();
+  elements.get("position").value = "0.35";
+  listeners.get("position:input")();
+  queuedFrame(2_060);
+  const afterDirectionStep = contactPhases();
+  const signedPhaseDelta = (before, after) => ((after - before + 1.5) % 1) - 0.5;
+  assert.ok(Math.abs(signedPhaseDelta(beforeDirectionStep[0], afterDirectionStep[0]) - 0.1) < 0.002);
+  assert.ok(Math.abs(signedPhaseDelta(beforeDirectionStep[1], afterDirectionStep[1]) + 0.1) < 0.002);
 
   listeners.get("headMarker1:pointerdown")({
     clientX: 75,
@@ -467,8 +523,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   queuedFrame(3_000);
   assert.equal(elements.get("headsControl").hidden, true);
   assert.equal(elements.get("lineCountControl").hidden, false);
-  assert.equal(elements.get("lineLayoutControl").hidden, false);
-  assert.equal(elements.get("scanMotionControl").hidden, false);
+  assert.equal(elements.get("playheadMotion").hidden, false);
+  assert.equal(elements.get("headOption3").hidden, false);
   assert.match(elements.get("stageReadout").textContent, /4 LINES/);
   assert.doesNotMatch(elements.get("stageReadout").textContent, /12 POINTS/);
 
@@ -478,6 +534,12 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("curvatureControl").hidden, true);
   assert.equal(elements.get("formSummary").textContent, "circle · no corners");
   assert.equal(elements.get("curvatureOut").textContent, "perfect circle");
+  assert.equal(elements.get("sineArticulation").hidden, true);
+  assert.equal(elements.get("sineModeOption").textContent, "Sine · continuous contour");
+  queuedFrame(3_010);
+  assert.equal(elements.get("levelRouteSource").textContent, "Continuous contour");
+  assert.equal(elements.get("levelRouteCurve").textContent, "constant continuous level");
+  assert.equal(elements.get("markDecayOut").textContent, "none");
 
   listeners.get("starShape:click")();
   assert.equal(attributes.get("starShape:aria-pressed"), "true");

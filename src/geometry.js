@@ -33,7 +33,7 @@
  *   sides: number,
  *   vertexCount: number,
  *   curvature: number,
- *   shapeType: 'polygon'|'star',
+ *   shapeType: 'circle'|'polygon'|'star',
  *   starDepth: number,
  *   aspect: number,
  *   skew: number,
@@ -261,8 +261,12 @@ export function buildShape(options) {
 
   const sides = options.sides;
   const curvature = clamp(finiteOr(options.curvature, 0), -1, 1);
-  const requestedType = options.shapeType === "star" ? "star" : "polygon";
-  const shapeType = requestedType === "star" && sides >= 3 ? "star" : "polygon";
+  const requestedType = options.shapeType === "circle"
+    ? "circle"
+    : options.shapeType === "star" ? "star" : "polygon";
+  const shapeType = requestedType === "circle"
+    ? "circle"
+    : requestedType === "star" && sides >= 3 ? "star" : "polygon";
   const starDepth = shapeType === "star"
     ? clamp(finiteOr(options.starDepth, 0.48), 0.05, 0.82)
     : 0;
@@ -281,10 +285,21 @@ export function buildShape(options) {
   let vertexIndices;
   let cornerStrengths;
   let cornerTurns;
-  const closed = sides >= 3;
-  const vertexCount = closed && shapeType === "star" ? sides * 2 : sides;
+  const closed = shapeType === "circle" || sides >= 3;
+  const vertexCount = shapeType === "circle"
+    ? 0
+    : closed && shapeType === "star" ? sides * 2 : sides;
 
-  if (!closed) {
+  if (shapeType === "circle") {
+    const sampleCount = Math.max(32, sides * samplesPerEdge);
+    localPoints = Array.from({ length: sampleCount }, (_, index) => {
+      const angle = -Math.PI / 2 + index / sampleCount * TAU;
+      return { x: Math.cos(angle), y: Math.sin(angle) };
+    });
+    vertexIndices = [];
+    cornerStrengths = [];
+    cornerTurns = [];
+  } else if (!closed) {
     localPoints = [];
     for (let sample = 0; sample <= samplesPerEdge; sample += 1) {
       const point = openLineSample(sample / samplesPerEdge, curvature);
@@ -380,6 +395,7 @@ function segmentLength(path, segmentIndex) {
 }
 
 function nearestCorner(path, distance) {
+  if (!path.vertexDistances.length) return { cornerIndex: -1, cornerDistance: 0 };
   let cornerIndex = 0;
   let cornerDistance = Number.POSITIVE_INFINITY;
   for (let index = 0; index < path.vertexDistances.length; index += 1) {

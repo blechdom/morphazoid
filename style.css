@@ -1598,6 +1598,35 @@ input[type="range"]::-moz-range-thumb {
   align-items: stretch;
 }
 
+.playhead-count-motion-row {
+  display: grid;
+  margin: 7px 0 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 7px;
+}
+
+.playhead-count-motion-row .playhead-stepper {
+  min-width: 0;
+  margin: 0;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+}
+
+.playhead-count-motion-row .playhead-stepper > button {
+  min-width: 42px;
+}
+
+.playhead-motion-choice {
+  align-self: stretch;
+}
+
+.playhead-motion-choice button {
+  width: 42px;
+  min-width: 42px;
+  height: 100%;
+  min-height: 50px;
+}
+
 .playhead-stepper > button {
   min-width: 50px;
   border-right: 1px solid var(--line);
@@ -1703,16 +1732,8 @@ input[type="range"]::-moz-range-thumb {
   content: "";
 }
 
-.head-layout-track.is-crossed {
-  height: 64px;
-}
-
-.head-layout-track.is-crossed::before {
-  top: 28%;
-  height: 44%;
-  border-top: 1px solid var(--line-strong);
-  border-bottom: 1px solid var(--line-strong);
-  background: transparent;
+.head-layout-track.has-head-options {
+  height: 76px;
 }
 
 .head-marker {
@@ -1740,6 +1761,74 @@ input[type="range"]::-moz-range-thumb {
 .head-marker:hover,
 .head-marker:focus-visible {
   background: color-mix(in oklab, var(--head-color, var(--accent)) 14%, var(--bg-deep));
+}
+
+.head-option-toggle {
+  position: absolute;
+  z-index: 3;
+  top: 9px;
+  left: 50%;
+  display: grid;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0;
+  border: 1px solid var(--head-color, var(--accent));
+  border-radius: 50%;
+  color: var(--head-color, var(--accent));
+  background: var(--bg-deep);
+  box-shadow: 0 0 7px color-mix(in oklab, var(--head-color, var(--accent)) 20%, transparent);
+  font-size: 13px;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  place-items: center;
+}
+
+.head-option-toggle[hidden] {
+  display: none;
+}
+
+.head-option-toggle:hover,
+.head-option-toggle:focus-visible,
+.head-option-toggle[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--head-color, var(--accent)) 17%, var(--bg-deep));
+}
+
+.icon-choice {
+  display: flex;
+  gap: 7px;
+}
+
+.icon-choice button {
+  display: grid;
+  width: 46px;
+  min-width: 46px;
+  height: 42px;
+  min-height: 42px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: transparent;
+  place-content: center;
+  gap: 1px;
+}
+
+.icon-choice button span {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.icon-choice button small {
+  font-size: 6px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.icon-choice button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
 }
 
 .reset-form {
