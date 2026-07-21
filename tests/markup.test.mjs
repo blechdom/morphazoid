@@ -151,11 +151,18 @@ test("the mobile instrument markup exposes the complete compact control surface"
 
   const soundSelect = html.match(/<select\s+id="soundMode"[^>]*>([\s\S]*?)<\/select>/);
   assert.ok(soundSelect, "missing sound mode select");
-  assert.match(soundSelect[1], /<option[^>]*\svalue="sine"\s+selected>Sine\b/);
+  assert.match(soundSelect[1], /<option[^>]*\svalue="sine"\s+selected>Sine Oscillators\b/);
   assert.match(soundSelect[1], /<option\s+value="percussion">Percussion\b/);
-  assert.match(soundSelect[1], /<option\s+value="shepard">Shepard\b/);
-  assert.match(soundSelect[1], /<option\s+value="fm">FM\b/);
-  assert.match(soundSelect[1], /<option\s+value="pm">PM\b/);
+  assert.match(soundSelect[1], /<option\s+value="shepard">Shepard Glissandi\b/);
+  assert.match(soundSelect[1], /<option\s+value="fm">FM Synthesis\b/);
+  assert.match(soundSelect[1], /<option\s+value="pm">PM Synthesis\b/);
+  assert.match(html, /<span class="field-label">Synth<\/span>/);
+  for (const panelId of ["percussionArticulation", "shepardArticulation", "fmArticulation", "pmArticulation"]) {
+    assert.ok(
+      html.indexOf(`id="${panelId}"`) < html.indexOf('id="baseFrequency"'),
+      `${panelId} should sit beside the Synth selector, before shared pitch controls`,
+    );
+  }
   assert.doesNotMatch(openingTag("amplitudeArticulation"), /\bhidden\b/);
   assert.match(openingTag("percussionArticulation"), /\bhidden\b/);
   assert.match(openingTag("shepardArticulation"), /\bhidden\b/);
@@ -169,7 +176,8 @@ test("the mobile instrument markup exposes the complete compact control surface"
     "amplitudeCurveState", "amplitudeReleaseBehavior", "amplitudeIntervalHelp",
     "amplitudeNodeReadout", "amplitudeTimingBasis",
   ]) assert.ok(html.includes(`id="${id}"`), `missing amplitude ADSR control #${id}`);
-  assert.match(openingTag("amplitudeEnvelopeToggle"), /aria-pressed="true"[^>]*aria-label="Amplitude ADSR on"/);
+  assert.match(openingTag("amplitudeEnvelopeToggle"), /aria-pressed="true"[^>]*aria-label="Corner Amplitude ADSR on"/);
+  assert.match(html, /<span class="field-label">Corner Amplitude ADSR<\/span>/);
   assert.match(openingTag("cornerSwellToggle"), /aria-pressed="false"[^>]*aria-label="Corner swell off"/);
   assert.match(html, /id="cornerSwellToggleText"[^>]*>Swell off</);
   assert.match(html, /id="cornerSwellToggle"[\s\S]{0,160}>▶◀</);
@@ -179,7 +187,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.deepEqual(amplitudeNodes, [0, 1, 2, 3, 4]);
   assert.match(html, /Corner trigger 0% → next corner 100%/);
   assert.match(html, /A @ 83 ms · D @ 250 ms · S @ 417 ms · R @ 667 ms/);
-  assert.match(openingTag("amplitudeNodeReadout"), /aria-label="ADSR node timing"/);
+  assert.match(openingTag("amplitudeNodeReadout"), /aria-label="Corner ADSR node timing"/);
   assert.match(html, /Point · 0\.060 cyc\/s current contour timing · endpoints from trigger/);
   assert.doesNotMatch(html, /id="(?:sineArticulation|sineAccent|sineDecay)"/);
   assert.match(app, /sampleAmplitudeEnvelope/);

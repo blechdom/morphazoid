@@ -54,11 +54,11 @@ const AUDIO_LOOKAHEAD_SECONDS = 0.075;
 const AUDIO_UPDATE_INTERVAL_MS = 24;
 const HEAD_COLORS = ["#5fe8c4", "#7db4ff", "#c79bff", "#ffb86b"];
 const SOUND_MODE_LABELS = {
-  sine: "Sine",
+  sine: "Sine Oscillators",
   percussion: "Percussion",
-  shepard: "Shepard glissando",
-  fm: "FM",
-  pm: "PM",
+  shepard: "Shepard Glissandi",
+  fm: "FM Synthesis",
+  pm: "PM Synthesis",
 };
 const SOUND_MODES = new Set(Object.keys(SOUND_MODE_LABELS));
 const PITCH_SUMMARY_LABELS = {
@@ -557,7 +557,9 @@ function syncFormTopology(shouldAnnounce = false) {
     setPressed(button, button.dataset.value === state.closedShapeType);
   }
   $("curvatureControl").hidden = circle;
-  $("sineModeOption").textContent = circle ? "Sine · continuous contour" : "Sine · corner envelope";
+  $("sineModeOption").textContent = circle
+    ? "Sine Oscillators · continuous contour"
+    : "Sine Oscillators · corner envelope";
   updateAmplitudeArticulationVisibility();
   updateSectionSummaries();
   resetCornerTracking();
@@ -816,11 +818,11 @@ function setSoundMode(mode, shouldAnnounce = true) {
   updateSectionSummaries();
   if (shouldAnnounce) {
     const descriptions = {
-      sine: "Continuous sine with corner amplitude selected.",
+      sine: "Sine Oscillators with corner amplitude selected.",
       percussion: "Percussion corner strikes selected.",
-      shepard: "Transport-locked Shepard glissando with mapped spectral width selected.",
-      fm: "Frequency modulation with mapped FM index selected.",
-      pm: "Phase modulation with mapped phase depth selected.",
+      shepard: "Transport-locked Shepard Glissandi with mapped spectral width selected.",
+      fm: "FM Synthesis with mapped modulation index selected.",
+      pm: "PM Synthesis with mapped phase depth selected.",
     };
     announce(descriptions[state.soundMode]);
   }
@@ -1265,7 +1267,7 @@ function updateAmplitudeUi() {
     ? `${AMPLITUDE_PRESET_LABELS[state.amplitudePreset] ?? "Custom"}${state.cornerSwell ? " · mirrored" : ""}`
     : "Bypassed";
   setPressed($("amplitudeEnvelopeToggle"), state.amplitudeEnvelopeEnabled);
-  $("amplitudeEnvelopeToggle").setAttribute("aria-label", `Amplitude ADSR ${state.amplitudeEnvelopeEnabled ? "on" : "off"}`);
+  $("amplitudeEnvelopeToggle").setAttribute("aria-label", `Corner Amplitude ADSR ${state.amplitudeEnvelopeEnabled ? "on" : "off"}`);
   $("amplitudeEnvelopeToggleText").textContent = state.amplitudeEnvelopeEnabled ? "On" : "Off";
   setPressed($("cornerSwellToggle"), state.cornerSwell);
   $("cornerSwellToggle").setAttribute("aria-label", `Corner swell ${state.cornerSwell ? "on" : "off"}`);
@@ -1276,8 +1278,8 @@ function updateAmplitudeUi() {
   $("amplitudeCurveEditor").setAttribute(
     "aria-label",
     state.cornerSwell
-      ? "Editable amplitude ADSR mirrored before and after each corner"
-      : "Editable amplitude ADSR across one directed corner interval",
+      ? "Editable Corner Amplitude ADSR mirrored before and after each corner"
+      : "Editable Corner Amplitude ADSR across one directed corner interval",
   );
   $("amplitudeCurveEditor").classList.toggle("is-disabled", !state.amplitudeEnvelopeEnabled);
   $("amplitudeCurveEditor").setAttribute("aria-disabled", String(!state.amplitudeEnvelopeEnabled));
@@ -1297,17 +1299,17 @@ function updateAmplitudeUi() {
   });
   updateAmplitudeTimingUi();
   $("amplitudeReleaseBehavior").textContent = !state.amplitudeEnvelopeEnabled
-    ? "ADSR off · constant per-voice level"
+    ? "ADSR off · constant per-synth level"
     : release.y <= 0.005
-      ? "Release reaches zero · voice rests until next trigger"
-      : `Release holds ${Math.round(release.y * 100)}% · voice continues until next trigger`;
+      ? "Release reaches zero · synth rests until next trigger"
+      : `Release holds ${Math.round(release.y * 100)}% · synth continues until next trigger`;
 }
 
 function selectAmplitudePreset(preset, shouldAnnounce = true) {
   state.amplitudePreset = ["note", "sustain", "pad"].includes(preset) ? preset : "pluck";
   state.amplitudeEnvelopePoints = amplitudeEnvelopePreset(state.amplitudePreset);
   updateAmplitudeUi();
-  if (shouldAnnounce) announce(`${AMPLITUDE_PRESET_LABELS[state.amplitudePreset]} amplitude ADSR selected.`);
+  if (shouldAnnounce) announce(`${AMPLITUDE_PRESET_LABELS[state.amplitudePreset]} Corner Amplitude ADSR selected.`);
   invalidate();
 }
 
@@ -1372,7 +1374,7 @@ $("amplitudeEnvelopeToggle").addEventListener("click", () => {
   if (!state.amplitudeEnvelopeEnabled) state.cornerSwell = false;
   lastAudioUpdate = -Infinity;
   updateAmplitudeUi();
-  announce(`Amplitude ADSR ${state.amplitudeEnvelopeEnabled ? "on" : "off"}.`);
+  announce(`Corner Amplitude ADSR ${state.amplitudeEnvelopeEnabled ? "on" : "off"}.`);
   invalidate();
 });
 $("cornerSwellToggle").addEventListener("click", () => {
@@ -2502,7 +2504,7 @@ function envelopeDurationLabel() {
 }
 
 function updateOutputDashboard(contacts, path) {
-  $("outputVoiceLabel").textContent = state.soundMode;
+  $("outputVoiceLabel").textContent = SOUND_MODE_LABELS[state.soundMode];
   $("pitchRouteSource").textContent = PITCH_ROUTE_LABELS[state.pitchSource] ?? state.pitchSource;
   $("pitchRouteCurve").textContent = `${PITCH_CURVE_LABELS[state.pitchCurvePreset] ?? "Custom"} response → exponential Hz`;
   updateStereoMappingUi();
@@ -2583,7 +2585,7 @@ function updateUi(contacts, voiceCount, path) {
     : `${readerCount} ${plural(readerCount, "POINT", "POINTS")}`;
   const contactText = `${contacts.length} ${plural(contacts.length, "CONTACT", "CONTACTS")}`;
   const audioText = state.audio
-    ? `${voiceCount} ${plural(voiceCount, "VOICE", "VOICES")}`
+    ? `${voiceCount} ${plural(voiceCount, "SYNTH", "SYNTHS")}`
     : "AUDIO OFF";
   $("stageReadout").textContent = `${readerName} · ${contactText} · ${audioText}`;
   updateSectionSummaries();

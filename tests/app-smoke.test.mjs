@@ -314,7 +314,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("amplitudeEnvelopeToggle:aria-pressed"), "false");
   assert.equal(elements.get("amplitudeEnvelopeToggleText").textContent, "Off");
   assert.equal(elements.get("amplitudeCurveState").textContent, "Bypassed");
-  assert.match(elements.get("amplitudeReleaseBehavior").textContent, /constant per-voice level/);
+  assert.match(elements.get("amplitudeReleaseBehavior").textContent, /constant per-synth level/);
   assert.equal(attributes.get("amplitudeCurveEditor:aria-disabled"), "true");
   assert.equal(elements.get("amplitudeNode2").disabled, true);
   assert.equal(elements.get("amplitudePresetPluck").disabled, true);
@@ -355,7 +355,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("pingPongMotion:aria-pressed"), "true");
   listeners.get("loopMotion:click")();
   assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
-  assert.equal(elements.get("outputVoiceLabel").textContent, "sine");
+  assert.equal(elements.get("soundSummary").textContent, "Sine Oscillators");
+  assert.equal(elements.get("outputVoiceLabel").textContent, "Sine Oscillators");
   assert.equal(elements.get("mappingSummary").textContent, "Vertical → pitch");
   assert.equal(attributes.get("pitchVertical:aria-pressed"), "true");
   assert.equal(attributes.get("pitchHorizontal:aria-pressed"), "false");
@@ -395,7 +396,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
   assert.equal(audioOscillators.length, 32, "Sine mode should allocate its continuous voice pool");
   queuedFrame(1_020);
-  assert.match(elements.get("stageReadout").textContent, /0 VOICES/);
+  assert.match(elements.get("stageReadout").textContent, /0 SYNTHS/);
   const continuousGains = audioGains.slice(1, 33);
   assert.ok(continuousGains.every((gain) => gain.gain.value === 0));
   elements.get("position").value = "0.6";
@@ -410,6 +411,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
 
   elements.get("soundMode").value = "percussion";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
+  assert.equal(elements.get("soundSummary").textContent, "Percussion");
   assert.equal(elements.get("amplitudeArticulation").hidden, true);
   assert.equal(elements.get("percussionArticulation").hidden, false);
   assert.equal(elements.get("percussionMapping").hidden, false);
@@ -448,7 +450,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("timbreMappingNote").textContent, "Corner sharpness → FM index · 0–6.00 index");
   assert.equal(elements.get("timbreSourceHelp").textContent, "0 is smooth · 1 is the sharpest turn");
   queuedFrame(1_115);
-  assert.equal(elements.get("outputVoiceLabel").textContent, "fm");
+  assert.equal(elements.get("soundSummary").textContent, "FM Synthesis");
+  assert.equal(elements.get("outputVoiceLabel").textContent, "FM Synthesis");
   assert.match(elements.get("markSynthValueOut").textContent, /index @/);
   assert.equal(elements.get("timbreRouteSource").textContent, "Corner sharpness");
   assert.equal(elements.get("timbreRouteTarget").textContent, "FM index");
@@ -776,7 +779,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("formSummary").textContent, "circle · no corners");
   assert.equal(elements.get("curvatureOut").textContent, "continuous contour");
   assert.equal(elements.get("amplitudeArticulation").hidden, true);
-  assert.equal(elements.get("sineModeOption").textContent, "Sine · continuous contour");
+  assert.equal(elements.get("sineModeOption").textContent, "Sine Oscillators · continuous contour");
   queuedFrame(3_010);
   assert.equal(elements.get("levelRouteSource").textContent, "Continuous contour");
   assert.equal(elements.get("levelRouteCurve").textContent, "constant continuous level");
@@ -936,7 +939,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(storage.size, 0, "Shape settings should not persist across loads");
 
   queuedFrame(3_100);
-  assert.equal(elements.get("outputVoiceLabel").textContent, "percussion");
+  assert.equal(elements.get("outputVoiceLabel").textContent, "Percussion");
   assert.equal(elements.get("pitchRouteSource").textContent, "Horizontal position");
   assert.match(elements.get("pitchRouteCurve").textContent, /Logarithmic response/);
   assert.equal(elements.get("levelRouteSource").textContent, "Crossing angle");

@@ -247,72 +247,23 @@
         <details class="group control-section" id="soundSection" data-section="sound">
           <summary class="group-summary">
             <h2 class="group-title" id="soundTitle">Sound</h2>
-            <span class="section-state" id="soundSummary">Sine</span>
+            <span class="section-state" id="soundSummary">Sine Oscillators</span>
           </summary>
           <div class="group-body">
             <label class="select-control" for="soundMode">
-              <span class="field-label">Voice</span>
+              <span class="field-label">Synth</span>
               <span class="select-shell">
                 <select id="soundMode">
-                  <option id="sineModeOption" value="sine" selected>Sine · corner envelope</option>
+                  <option id="sineModeOption" value="sine" selected>Sine Oscillators · corner envelope</option>
                   <option value="percussion">Percussion · corner strikes</option>
-                  <option value="shepard">Shepard · cyclic glissando</option>
-                  <option value="fm">FM · mapped index</option>
-                  <option value="pm">PM · mapped phase depth</option>
+                  <option value="shepard">Shepard Glissandi · cyclic pitch illusion</option>
+                  <option value="fm">FM Synthesis · mapped index</option>
+                  <option value="pm">PM Synthesis · mapped phase depth</option>
                 </select>
               </span>
             </label>
 
-            <label class="control" for="baseFrequency">
-              <span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span>
-              <input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" />
-            </label>
-
-            <label class="control" for="pitchRange">
-              <span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">2.50 oct</output></span>
-              <input id="pitchRange" type="range" min="0" max="6" step="0.05" value="2.5" />
-            </label>
-
-            <div class="amplitude-articulation" id="amplitudeArticulation">
-              <div class="amplitude-heading-row">
-                <span class="field-label">Amplitude ADSR</span>
-                <div class="amplitude-mode-buttons" role="group" aria-label="Amplitude envelope modes">
-                  <button id="amplitudeEnvelopeToggle" type="button" aria-pressed="true" aria-label="Amplitude ADSR on"><span aria-hidden="true">⌁</span><small id="amplitudeEnvelopeToggleText">On</small></button>
-                  <button id="cornerSwellToggle" type="button" aria-pressed="false" aria-label="Corner swell off"><span aria-hidden="true">▶◀</span><small id="cornerSwellToggleText">Swell off</small></button>
-                </div>
-              </div>
-              <div class="curve-preset-strip amplitude-preset-strip" id="amplitudeEnvelopePresets" role="group" aria-label="Amplitude ADSR presets">
-                <button id="amplitudePresetPluck" type="button" data-value="pluck" aria-pressed="true">Pluck</button>
-                <button id="amplitudePresetNote" type="button" data-value="note" aria-pressed="false">Note</button>
-                <button id="amplitudePresetSustain" type="button" data-value="sustain" aria-pressed="false">Sustain</button>
-                <button id="amplitudePresetPad" type="button" data-value="pad" aria-pressed="false">Pad</button>
-              </div>
-              <div class="curve-editor amplitude-curve-editor" id="amplitudeCurveEditor" role="group" aria-label="Editable amplitude ADSR across one corner interval">
-                <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true">
-                  <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
-                  <path class="curve-path" id="amplitudeCurvePath" d="M0 96 L4.8 0 L14.4 65.28 L24 86.4 L38.4 96 L240 96" />
-                </svg>
-                <button class="curve-node amplitude-node" id="amplitudeNode0" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="0" style="left:0%;top:100%" aria-label="Trigger: 0 percent interval, 0 percent level"><span>T</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode1" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" data-node-index="1" style="left:2%;top:0%" aria-label="Attack: 2 percent interval, 100 percent level"><span>A</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode2" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="32" data-node-index="2" style="left:6%;top:68%" aria-label="Decay: 6 percent interval, 32 percent level"><span>D</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode3" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10" data-node-index="3" style="left:10%;top:90%" aria-label="Sustain: 10 percent interval, 10 percent level"><span>S</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode4" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="4" style="left:16%;top:100%" aria-label="Release: 16 percent interval, 0 percent level"><span>R</span></button>
-              </div>
-              <div class="curve-editor-footer">
-                <small id="amplitudeIntervalHelp">Corner trigger 0% → next corner 100%</small>
-                <button class="mini-action" id="resetAmplitudeCurve" type="button">Reset</button>
-              </div>
-              <div class="amplitude-timing-row">
-                <output id="amplitudeNodeReadout" aria-label="ADSR node timing">A @ 83 ms · D @ 250 ms · S @ 417 ms · R @ 667 ms</output>
-                <small id="amplitudeTimingBasis">Point · 0.060 cyc/s current contour timing · endpoints from trigger</small>
-              </div>
-              <div class="amplitude-curve-status">
-                <output id="amplitudeCurveState">Pluck</output>
-                <small id="amplitudeReleaseBehavior">Release reaches zero · voice rests until next trigger</small>
-              </div>
-            </div>
-
-            <div id="percussionArticulation" hidden>
+            <div class="synth-panel" id="percussionArticulation" hidden>
               <label class="control" for="cornerAccent">
                 <span><b>Hit level</b><output id="cornerAccentOut" for="cornerAccent">90%</output></span>
                 <input id="cornerAccent" type="range" min="0" max="1" step="0.01" value="0.9" />
@@ -373,6 +324,55 @@
                 <span><b>Modulator ratio</b><output id="pmRatioOut" for="pmRatio">1.00 : 1</output></span>
                 <input id="pmRatio" type="range" min="0.25" max="8" step="0.05" value="1" />
               </label>
+            </div>
+
+            <label class="control" for="baseFrequency">
+              <span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span>
+              <input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" />
+            </label>
+
+            <label class="control" for="pitchRange">
+              <span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">2.50 oct</output></span>
+              <input id="pitchRange" type="range" min="0" max="6" step="0.05" value="2.5" />
+            </label>
+
+            <div class="amplitude-articulation" id="amplitudeArticulation">
+              <div class="amplitude-heading-row">
+                <span class="field-label">Corner Amplitude ADSR</span>
+                <div class="amplitude-mode-buttons" role="group" aria-label="Corner amplitude envelope modes">
+                  <button id="amplitudeEnvelopeToggle" type="button" aria-pressed="true" aria-label="Corner Amplitude ADSR on"><span aria-hidden="true">⌁</span><small id="amplitudeEnvelopeToggleText">On</small></button>
+                  <button id="cornerSwellToggle" type="button" aria-pressed="false" aria-label="Corner swell off"><span aria-hidden="true">▶◀</span><small id="cornerSwellToggleText">Swell off</small></button>
+                </div>
+              </div>
+              <div class="curve-preset-strip amplitude-preset-strip" id="amplitudeEnvelopePresets" role="group" aria-label="Corner Amplitude ADSR presets">
+                <button id="amplitudePresetPluck" type="button" data-value="pluck" aria-pressed="true">Pluck</button>
+                <button id="amplitudePresetNote" type="button" data-value="note" aria-pressed="false">Note</button>
+                <button id="amplitudePresetSustain" type="button" data-value="sustain" aria-pressed="false">Sustain</button>
+                <button id="amplitudePresetPad" type="button" data-value="pad" aria-pressed="false">Pad</button>
+              </div>
+              <div class="curve-editor amplitude-curve-editor" id="amplitudeCurveEditor" role="group" aria-label="Editable Corner Amplitude ADSR across one corner interval">
+                <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true">
+                  <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
+                  <path class="curve-path" id="amplitudeCurvePath" d="M0 96 L4.8 0 L14.4 65.28 L24 86.4 L38.4 96 L240 96" />
+                </svg>
+                <button class="curve-node amplitude-node" id="amplitudeNode0" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="0" style="left:0%;top:100%" aria-label="Trigger: 0 percent interval, 0 percent level"><span>T</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode1" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" data-node-index="1" style="left:2%;top:0%" aria-label="Attack: 2 percent interval, 100 percent level"><span>A</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode2" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="32" data-node-index="2" style="left:6%;top:68%" aria-label="Decay: 6 percent interval, 32 percent level"><span>D</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode3" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10" data-node-index="3" style="left:10%;top:90%" aria-label="Sustain: 10 percent interval, 10 percent level"><span>S</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode4" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="4" style="left:16%;top:100%" aria-label="Release: 16 percent interval, 0 percent level"><span>R</span></button>
+              </div>
+              <div class="curve-editor-footer">
+                <small id="amplitudeIntervalHelp">Corner trigger 0% → next corner 100%</small>
+                <button class="mini-action" id="resetAmplitudeCurve" type="button">Reset</button>
+              </div>
+              <div class="amplitude-timing-row">
+                <output id="amplitudeNodeReadout" aria-label="Corner ADSR node timing">A @ 83 ms · D @ 250 ms · S @ 417 ms · R @ 667 ms</output>
+                <small id="amplitudeTimingBasis">Point · 0.060 cyc/s current contour timing · endpoints from trigger</small>
+              </div>
+              <div class="amplitude-curve-status">
+                <output id="amplitudeCurveState">Pluck</output>
+                <small id="amplitudeReleaseBehavior">Release reaches zero · synth rests until next trigger</small>
+              </div>
             </div>
 
             <p class="audio-error" id="audioError" role="alert" hidden></p>
@@ -500,7 +500,7 @@
           <div class="group-body">
             <div class="output-lead">
               <span id="outputContactLabel">Contact 1 of 1</span>
-              <output id="outputVoiceLabel">sine</output>
+              <output id="outputVoiceLabel">Sine Oscillators</output>
             </div>
 
             <dl class="mark-grid" aria-label="Realtime mapping values">
