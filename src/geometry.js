@@ -2,8 +2,9 @@
  * Pure geometry for the 2D shape instrument.
  *
  * Coordinates are centered at the origin and normalized to the unit disc.
- * Closed shapes put their true vertices on the unit circle. A two-sided shape
- * is deliberately an open, single-traversal line from (-1, 0) to (1, 0).
+ * One side denotes a vertex-free circle. Closed polygons put their true
+ * vertices on the unit circle. A two-sided shape is deliberately an open,
+ * single-traversal line from (-1, 0) to (1, 0).
  *
  * @typedef {{ x: number, y: number }} Point
  * @typedef {{
@@ -18,7 +19,7 @@
  * @typedef {{
  *   sides: number,
  *   curvature: number,
- *   shapeType?: 'polygon'|'star',
+ *   shapeType?: 'circle'|'polygon'|'star',
  *   starDepth?: number,
  *   aspect?: number,
  *   skew?: number,
@@ -33,7 +34,7 @@
  *   sides: number,
  *   vertexCount: number,
  *   curvature: number,
- *   shapeType: 'polygon'|'star',
+ *   shapeType: 'circle'|'polygon'|'star',
  *   starDepth: number,
  *   aspect: number,
  *   skew: number,
@@ -250,19 +251,25 @@ function measure(points, closed) {
 }
 
 /**
- * Build a normalized open line or closed curved regular polygon.
+ * Build a normalized circle, open line, or closed curved regular polygon.
  * @param {BuildShapeOptions} options
  * @returns {ShapePath}
  */
 export function buildShape(options) {
-  if (!Number.isInteger(options.sides) || options.sides < 2 || options.sides > 32) {
-    throw new RangeError("sides must be an integer from 2 through 32");
+  if (!Number.isInteger(options.sides) || options.sides < 1 || options.sides > 32) {
+    throw new RangeError("sides must be an integer from 1 through 32");
   }
 
   const sides = options.sides;
   const curvature = clamp(finiteOr(options.curvature, 0), -1, 1);
-  const requestedType = options.shapeType === "star" ? "star" : "polygon";
-  const shapeType = requestedType === "star" && sides >= 3 ? "star" : "polygon";
+  const requestedType = options.shapeType === "circle"
+    ? "circle"
+    : options.shapeType === "star" ? "star" : "polygon";
+  const shapeType = sides === 1
+    ? "circle"
+    : requestedType === "circle"
+      ? "circle"
+      : requestedType === "star" && sides >= 3 ? "star" : "polygon";
   const starDepth = shapeType === "star"
     ? clamp(finiteOr(options.starDepth, 0.48), 0.05, 0.82)
     : 0;
@@ -281,10 +288,21 @@ export function buildShape(options) {
   let vertexIndices;
   let cornerStrengths;
   let cornerTurns;
-  const closed = sides >= 3;
-  const vertexCount = closed && shapeType === "star" ? sides * 2 : sides;
+  const closed = shapeType === "circle" || sides >= 3;
+  const vertexCount = shapeType === "circle"
+    ? 0
+    : closed && shapeType === "star" ? sides * 2 : sides;
 
-  if (!closed) {
+  if (shapeType === "circle") {
+    const sampleCount = Math.max(32, sides * samplesPerEdge);
+    localPoints = Array.from({ length: sampleCount }, (_, index) => {
+      const angle = -Math.PI / 2 + index / sampleCount * TAU;
+      return { x: Math.cos(angle), y: Math.sin(angle) };
+    });
+    vertexIndices = [];
+    cornerStrengths = [];
+    cornerTurns = [];
+  } else if (!closed) {
     localPoints = [];
     for (let sample = 0; sample <= samplesPerEdge; sample += 1) {
       const point = openLineSample(sample / samplesPerEdge, curvature);
@@ -380,6 +398,7 @@ function segmentLength(path, segmentIndex) {
 }
 
 function nearestCorner(path, distance) {
+  if (!path.vertexDistances.length) return { cornerIndex: -1, cornerDistance: 0 };
   let cornerIndex = 0;
   let cornerDistance = Number.POSITIVE_INFINITY;
   for (let index = 0; index < path.vertexDistances.length; index += 1) {

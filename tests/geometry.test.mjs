@@ -56,6 +56,21 @@ test("curvature +1 follows the unit circumcircle and removes true corners", () =
   for (const cornerStrength of circle.cornerStrengths) near(cornerStrength, 0, 1e-10);
 });
 
+test("sides=1 is a closed vertex-free circle", () => {
+  const circle = buildShape({ sides: 1, curvature: 0, samplesPerEdge: 24 });
+  assert.equal(circle.sides, 1);
+  assert.equal(circle.shapeType, "circle");
+  assert.equal(circle.closed, true);
+  assert.equal(circle.vertexCount, 0);
+  assert.deepEqual(circle.vertexIndices, []);
+  assert.deepEqual(circle.vertexDistances, []);
+  assert.deepEqual(circle.cornerStrengths, []);
+  const contact = pointAtPath(circle, 0.125);
+  assert.equal(contact.cornerIndex, -1);
+  assert.equal(contact.cornerStrength, 0);
+  assert.equal(contact.cornerDistance, 0);
+});
+
 test("stars alternate true outer and inner vertices with signed corner turns", () => {
   const star = buildShape({
     sides: 5,
@@ -323,7 +338,7 @@ test("horizontal scans mirror vertical scan behavior and preserve contact metada
 });
 
 test("shape input validation and clamping keep geometry finite", () => {
-  assert.throws(() => buildShape({ sides: 1, curvature: 0 }), RangeError);
+  assert.throws(() => buildShape({ sides: 0, curvature: 0 }), RangeError);
   assert.throws(() => buildShape({ sides: 33, curvature: 0 }), RangeError);
   assert.throws(() => buildShape({ sides: 3.5, curvature: 0 }), RangeError);
   const clamped = buildShape({ sides: 3, curvature: 12, samplesPerEdge: 2 });

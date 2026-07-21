@@ -33,16 +33,12 @@
         </select>
       </label>
 
-      <div class="audio-strip" aria-label="Audio controls">
+      <div class="audio-strip shape-audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
           <span class="audio-glyph" aria-hidden="true">◉</span>
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
 
-        <label class="header-level" for="level">
-          <span><b>Volume</b><output id="levelOut" for="level">65%</output></span>
-          <input id="level" aria-label="Audio level" type="range" min="0" max="1" step="0.01" value="0.65" />
-        </label>
       </div>
     </header>
 
@@ -72,6 +68,31 @@
             <span class="section-state" id="playSummary">Points · paused</span>
           </summary>
           <div class="group-body">
+            <div class="position-row playhead-position-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play playhead">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="position">
+                <span><b id="positionLabel">Playhead position</b><output id="positionOut" for="position">0.0%</output></span>
+                <input id="position" type="range" min="0" max="1" step="0.0005" value="0" />
+              </label>
+            </div>
+
+            <div class="rate-control playhead-rate-control" role="group" aria-label="Automatic playhead motion">
+              <span class="rate-heading"><b id="speedLabel">Playhead speed</b><output id="speedOut" for="speed">0.060 cyc/s</output></span>
+              <div class="rate-row-single transport-rate-row">
+                <input id="speed" aria-label="Playhead speed" type="range" min="0" max="1" step="0.001" value="0.2992" />
+                <div class="transport-button-array" id="playheadMotion" role="group" aria-label="Playhead direction and movement">
+                  <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Playhead direction: clockwise">
+                    <span id="traversalDirectionGlyph">→</span><small id="traversalDirectionText">CW</small>
+                  </button>
+                  <button id="loopMotion" type="button" data-value="loop" aria-pressed="true" aria-label="Loop movement" title="Loop"><span aria-hidden="true">⟳</span><small>Loop</small></button>
+                  <button id="pingPongMotion" type="button" data-value="pingpong" aria-pressed="false" aria-label="Back-and-forth movement" title="Back and forth"><span aria-hidden="true">↔</span><small>Ping-pong</small></button>
+                </div>
+              </div>
+            </div>
+
             <div class="field-label">Playhead type</div>
             <div class="choice-switch" id="playMethod" role="group" aria-label="Reading method">
               <button id="traceMode" type="button" data-value="trace" aria-pressed="true">Points</button>
@@ -95,61 +116,36 @@
               <input id="lineCount" type="range" min="1" max="4" step="1" value="1" />
             </label>
 
-            <div class="mode-control" id="lineLayoutControl" hidden>
-              <div class="field-label">Line layout</div>
-              <div class="choice-switch compact" id="lineLayout" role="group" aria-label="Scan line layout">
-                <button id="parallelLines" type="button" data-value="parallel" aria-pressed="true">Parallel</button>
-                <button id="crossedLines" type="button" data-value="crossed" aria-pressed="false">Crossed 90°</button>
-              </div>
-            </div>
-
-            <div class="mode-control" id="scanMotionControl" hidden>
-              <div class="field-label">Line movement</div>
-              <div class="choice-switch compact" id="scanMotion" role="group" aria-label="Scan line movement">
-                <button id="loopScan" type="button" data-value="loop" aria-pressed="true">Loop</button>
-                <button id="pingPongScan" type="button" data-value="pingpong" aria-pressed="false">Ping-pong</button>
-              </div>
-            </div>
-
             <div class="head-layout-control" id="headLayoutControl">
               <div class="head-layout-heading">
                 <span class="field-label">Relative spacing</span>
-                <button class="mini-action" id="resetHeadSpacing" type="button">Equalize</button>
+                <button class="mini-action" id="resetHeadSpacing" type="button">Equidistant</button>
               </div>
               <div class="head-layout-track" id="headLayoutTrack" aria-label="Relative playhead spacing">
-                <button class="head-marker" id="headMarker0" type="button" data-head-index="0" aria-label="Playhead 1 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.5"><span>1</span></button>
+                <button class="head-marker" id="headMarker0" type="button" data-head-index="0" aria-label="Playhead 1 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0"><span>1</span></button>
+                <button class="head-option-toggle" id="headOption0" type="button" data-head-index="0" aria-pressed="false" aria-label="Playhead 1 forward; reverse direction" title="Reverse playhead 1"><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker1" type="button" data-head-index="1" aria-label="Playhead 2 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>2</span></button>
+                <button class="head-option-toggle" id="headOption1" type="button" data-head-index="1" aria-pressed="false" aria-label="Playhead 2 forward; reverse direction" title="Reverse playhead 2" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker2" type="button" data-head-index="2" aria-label="Playhead 3 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>3</span></button>
+                <button class="head-option-toggle" id="headOption2" type="button" data-head-index="2" aria-pressed="false" aria-label="Playhead 3 forward; reverse direction" title="Reverse playhead 3" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker3" type="button" data-head-index="3" aria-label="Playhead 4 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>4</span></button>
+                <button class="head-option-toggle" id="headOption3" type="button" data-head-index="3" aria-pressed="false" aria-label="Playhead 4 forward; reverse direction" title="Reverse playhead 4" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker4" type="button" data-head-index="4" aria-label="Playhead 5 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>5</span></button>
+                <button class="head-option-toggle" id="headOption4" type="button" data-head-index="4" aria-pressed="false" aria-label="Playhead 5 forward; reverse direction" title="Reverse playhead 5" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker5" type="button" data-head-index="5" aria-label="Playhead 6 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>6</span></button>
+                <button class="head-option-toggle" id="headOption5" type="button" data-head-index="5" aria-pressed="false" aria-label="Playhead 6 forward; reverse direction" title="Reverse playhead 6" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker6" type="button" data-head-index="6" aria-label="Playhead 7 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>7</span></button>
+                <button class="head-option-toggle" id="headOption6" type="button" data-head-index="6" aria-pressed="false" aria-label="Playhead 7 forward; reverse direction" title="Reverse playhead 7" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker7" type="button" data-head-index="7" aria-label="Playhead 8 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>8</span></button>
+                <button class="head-option-toggle" id="headOption7" type="button" data-head-index="7" aria-pressed="false" aria-label="Playhead 8 forward; reverse direction" title="Reverse playhead 8" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker8" type="button" data-head-index="8" aria-label="Playhead 9 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>9</span></button>
+                <button class="head-option-toggle" id="headOption8" type="button" data-head-index="8" aria-pressed="false" aria-label="Playhead 9 forward; reverse direction" title="Reverse playhead 9" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker9" type="button" data-head-index="9" aria-label="Playhead 10 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>10</span></button>
+                <button class="head-option-toggle" id="headOption9" type="button" data-head-index="9" aria-pressed="false" aria-label="Playhead 10 forward; reverse direction" title="Reverse playhead 10" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker10" type="button" data-head-index="10" aria-label="Playhead 11 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>11</span></button>
+                <button class="head-option-toggle" id="headOption10" type="button" data-head-index="10" aria-pressed="false" aria-label="Playhead 11 forward; reverse direction" title="Reverse playhead 11" hidden><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker11" type="button" data-head-index="11" aria-label="Playhead 12 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>12</span></button>
-              </div>
-            </div>
-
-            <div class="position-row">
-              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play playhead">
-                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
-                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-              </button>
-              <label class="control position-control" for="position">
-                <span><b id="positionLabel">Playhead position</b><output id="positionOut" for="position">50.0%</output></span>
-                <input id="position" type="range" min="0" max="1" step="0.0005" value="0.5" />
-              </label>
-            </div>
-
-            <div class="rate-control" role="group" aria-label="Automatic playhead motion">
-              <span class="rate-heading"><b>Playhead speed</b><output id="speedOut" for="speed">0.060 cyc/s</output></span>
-              <div class="rate-row-single">
-                <input id="speed" aria-label="Playhead speed" type="range" min="0" max="1" step="0.001" value="0.2992" />
-                <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Playhead direction: clockwise" hidden>
-                  <span id="traversalDirectionGlyph">↻</span><small id="traversalDirectionText">CW</small>
-                </button>
+                <button class="head-option-toggle" id="headOption11" type="button" data-head-index="11" aria-pressed="false" aria-label="Playhead 12 forward; reverse direction" title="Reverse playhead 12" hidden><span aria-hidden="true">→</span></button>
               </div>
             </div>
 
@@ -158,19 +154,26 @@
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
               </button>
-              <label class="control rotation-control" for="rotation">
-                <span><b>Rotate angle</b><output id="rotationOut" for="rotation">0°</output></span>
-                <input id="rotation" type="range" min="-180" max="180" step="1" value="0" />
-              </label>
+              <div class="control rotation-control">
+                <span><label for="rotation">Rotate angle</label><output id="rotationOut" for="rotation">0°</output></span>
+                <div class="rotation-angle-row">
+                  <input id="rotation" type="range" min="-180" max="180" step="1" value="0" />
+                  <button class="mini-action rotation-reset" id="resetRotation" type="button" aria-label="Reset rotation angle to zero degrees">0°</button>
+                </div>
+              </div>
             </div>
 
             <div class="rate-control motion-controls" id="rotationControls" role="group" aria-label="Automatic rotation">
               <span class="rate-heading"><b>Rotation speed</b><output id="rotationSpeedOut" for="rotationSpeed">0.12 rev/s</output></span>
-              <div class="rate-row-single">
+              <div class="rate-row-single transport-rate-row">
                 <input id="rotationSpeed" aria-label="Rotation speed" type="range" min="0" max="4" step="0.01" value="0.12" />
-                <button class="direction-toggle" id="rotationDirection" type="button" aria-label="Rotation direction: clockwise" hidden>
-                  <span id="rotationDirectionGlyph">↻</span><small id="rotationDirectionText">CW</small>
-                </button>
+                <div class="transport-button-array" id="rotationMotion" role="group" aria-label="Rotation direction and movement">
+                  <button class="direction-toggle" id="rotationDirection" type="button" aria-label="Rotation direction: clockwise">
+                    <span id="rotationDirectionGlyph">→</span><small id="rotationDirectionText">CW</small>
+                  </button>
+                  <button id="rotationLoopMotion" type="button" data-value="loop" aria-pressed="true" aria-label="Loop rotation" title="Loop rotation"><span aria-hidden="true">⟳</span><small>Loop</small></button>
+                  <button id="rotationPingPongMotion" type="button" data-value="pingpong" aria-pressed="false" aria-label="Back-and-forth rotation" title="Back and forth rotation"><span aria-hidden="true">↔</span><small>Ping-pong</small></button>
+                </div>
               </div>
             </div>
           </div>
@@ -182,17 +185,19 @@
             <span class="section-state" id="formSummary">4 sides</span>
           </summary>
           <div class="group-body">
-            <div class="field-label">Topology</div>
-            <div class="choice-switch" id="shapeType" role="group" aria-label="Shape topology">
-              <button id="circleShape" type="button" data-value="circle" aria-pressed="false">Circle</button>
-              <button id="polygonShape" type="button" data-value="polygon" aria-pressed="true">Polygon</button>
-              <button id="starShape" type="button" data-value="star" aria-pressed="false">Star</button>
-            </div>
-
             <label class="control" id="sidesControl" for="sides">
               <span><b>Sides / points</b><output id="sidesOut" for="sides">4 · polygon</output></span>
-              <input id="sides" type="range" min="2" max="32" step="1" value="4" />
+              <input id="sides" type="range" min="1" max="32" step="1" value="4" />
+              <small class="form-count-key">1 circle · 2 open line · 3+ polygon or star</small>
             </label>
+
+            <div class="form-topology-control" id="closedShapeControl">
+              <span class="field-label">Contour</span>
+              <div class="choice-switch" id="closedShapeType" role="group" aria-label="Closed contour type">
+                <button id="polygonShape" type="button" data-value="polygon" aria-pressed="true">Polygon</button>
+                <button id="starShape" type="button" data-value="star" aria-pressed="false">Star</button>
+              </div>
+            </div>
 
             <label class="control" id="starDepthControl" for="starDepth" hidden>
               <span><b>Star depth</b><output id="starDepthOut" for="starDepth">48%</output></span>
@@ -201,29 +206,36 @@
 
             <div class="control" id="curvatureControl">
               <span><b>Roundness</b><output id="curvatureOut" for="curvature">straight</output></span>
-              <div class="roundness-row">
-                <input id="curvature" aria-label="Roundness amount" type="range" min="0" max="1" step="0.005" value="0" />
-                <div class="choice-switch polarity-switch" id="curvatureDirection" role="group" aria-label="Roundness direction">
-                  <button id="curvatureOutward" type="button" data-value="1" aria-pressed="true">Out</button>
-                  <button id="curvatureIn" type="button" data-value="-1" aria-pressed="false">In</button>
+              <div class="form-range-row">
+                <div class="signed-form-range">
+                  <input id="curvature" aria-label="Roundness: inward, straight, or outward" type="range" min="-1" max="1" step="0.005" value="0" />
+                  <div class="form-range-poles" aria-hidden="true"><span>In</span><span>Straight</span><span>Out</span></div>
                 </div>
+                <button class="mini-action form-range-reset" id="resetCurvature" type="button" aria-label="Reset roundness to straight">Straight</button>
               </div>
             </div>
 
-            <label class="control" for="aspect">
+            <div class="control">
               <span><b>Stretch</b><output id="aspectOut" for="aspect">even</output></span>
-              <input id="aspect" type="range" min="-2" max="2" step="0.01" value="0" />
-            </label>
+              <div class="form-range-row">
+                <div class="signed-form-range">
+                  <input id="aspect" aria-label="Stretch: tall, even, or wide" type="range" min="-2" max="2" step="0.01" value="0" />
+                  <div class="form-range-poles" aria-hidden="true"><span>Tall</span><span>Even</span><span>Wide</span></div>
+                </div>
+                <button class="mini-action form-range-reset" id="resetAspect" type="button" aria-label="Reset stretch to even">Even</button>
+              </div>
+            </div>
 
-            <label class="control" for="skew">
+            <div class="control">
               <span><b>Skew</b><output id="skewOut" for="skew">0%</output></span>
-              <input id="skew" type="range" min="-2" max="2" step="0.01" value="0" />
-            </label>
-
-            <label class="control" for="asymmetry">
-              <span><b>Asymmetry</b><output id="asymmetryOut" for="asymmetry">0%</output></span>
-              <input id="asymmetry" type="range" min="0" max="1" step="0.01" value="0" />
-            </label>
+              <div class="form-range-row">
+                <div class="signed-form-range">
+                  <input id="skew" aria-label="Skew left or right" type="range" min="-2" max="2" step="0.01" value="0" />
+                  <div class="form-range-poles" aria-hidden="true"><span>Left</span><span>Zero</span><span>Right</span></div>
+                </div>
+                <button class="mini-action form-range-reset" id="resetSkew" type="button" aria-label="Reset skew to zero">Zero</button>
+              </div>
+            </div>
 
             <button class="mini-action reset-form" id="resetForm" type="button">Reset form</button>
           </div>
@@ -239,11 +251,11 @@
               <span class="field-label">Voice</span>
               <span class="select-shell">
                 <select id="soundMode">
-                  <option value="sine" selected>Sine · corner envelope</option>
+                  <option id="sineModeOption" value="sine" selected>Sine · corner envelope</option>
                   <option value="percussion">Percussion · corner strikes</option>
                   <option value="shepard">Shepard · cyclic glissando</option>
-                  <option value="fm">FM · mark-driven index</option>
-                  <option value="pm">PM · mark-driven phase</option>
+                  <option value="fm">FM · mapped index</option>
+                  <option value="pm">PM · mapped phase depth</option>
                 </select>
               </span>
             </label>
@@ -258,16 +270,38 @@
               <input id="pitchRange" type="range" min="0" max="6" step="0.05" value="2.5" />
             </label>
 
-            <div id="sineArticulation">
-              <label class="control" for="sineAccent">
-                <span><b>Corner emphasis</b><output id="sineAccentOut" for="sineAccent">100%</output></span>
-                <input id="sineAccent" type="range" min="0" max="1.5" step="0.01" value="1" />
-              </label>
-
-              <label class="control" for="sineDecay">
-                <span><b>Corner decay</b><output id="sineDecayOut" for="sineDecay">650 ms</output></span>
-                <input id="sineDecay" type="range" min="20" max="4000" step="10" value="650" />
-              </label>
+            <div class="amplitude-articulation" id="amplitudeArticulation">
+              <div class="amplitude-heading-row">
+                <span class="field-label">Amplitude ADSR</span>
+                <div class="amplitude-mode-buttons" role="group" aria-label="Amplitude envelope modes">
+                  <button id="amplitudeEnvelopeToggle" type="button" aria-pressed="true" aria-label="Amplitude ADSR on"><span aria-hidden="true">⌁</span><small id="amplitudeEnvelopeToggleText">On</small></button>
+                  <button id="cornerSwellToggle" type="button" aria-pressed="false" aria-label="Corner swell off"><span aria-hidden="true">▶◀</span><small>Swell</small></button>
+                </div>
+              </div>
+              <div class="curve-preset-strip amplitude-preset-strip" id="amplitudeEnvelopePresets" role="group" aria-label="Amplitude ADSR presets">
+                <button id="amplitudePresetPluck" type="button" data-value="pluck" aria-pressed="true">Pluck</button>
+                <button id="amplitudePresetSustain" type="button" data-value="sustain" aria-pressed="false">Sustain</button>
+                <button id="amplitudePresetPad" type="button" data-value="pad" aria-pressed="false">Pad</button>
+              </div>
+              <div class="curve-editor amplitude-curve-editor" id="amplitudeCurveEditor" role="group" aria-label="Editable amplitude ADSR across one corner interval">
+                <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true">
+                  <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
+                  <path class="curve-path" id="amplitudeCurvePath" d="M0 96 L14.4 0 L60 69.12 L148.8 84.48 L196.8 96 L240 96" />
+                </svg>
+                <button class="curve-node amplitude-node" id="amplitudeNode0" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="0" style="left:0%;top:100%" aria-label="Trigger: 0 percent interval, 0 percent level"><span>T</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode1" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" data-node-index="1" style="left:6%;top:0%" aria-label="Attack: 6 percent interval, 100 percent level"><span>A</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode2" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="28" data-node-index="2" style="left:25%;top:72%" aria-label="Decay: 25 percent interval, 28 percent level"><span>D</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode3" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="12" data-node-index="3" style="left:62%;top:88%" aria-label="Sustain: 62 percent interval, 12 percent level"><span>S</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode4" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="4" style="left:82%;top:100%" aria-label="Release: 82 percent interval, 0 percent level"><span>R</span></button>
+              </div>
+              <div class="curve-editor-footer">
+                <small>Corner trigger 0% → next corner 100%</small>
+                <button class="mini-action" id="resetAmplitudeCurve" type="button">Reset</button>
+              </div>
+              <div class="amplitude-curve-status">
+                <output id="amplitudeCurveState">Pluck</output>
+                <small id="amplitudeReleaseBehavior">Release reaches zero · voice rests until next trigger</small>
+              </div>
             </div>
 
             <div id="percussionArticulation" hidden>
@@ -304,7 +338,7 @@
               </label>
 
               <label class="control" for="shepardWidth">
-                <span><b>Spectral width</b><output id="shepardWidthOut" for="shepardWidth">4.0 oct</output></span>
+                <span><b>Maximum spectral width</b><output id="shepardWidthOut" for="shepardWidth">4.0 oct max</output></span>
                 <input id="shepardWidth" type="range" min="1" max="8" step="0.1" value="4" />
               </label>
             </div>
@@ -323,7 +357,7 @@
 
             <div class="synth-panel" id="pmArticulation" hidden>
               <label class="control" for="pmIndex">
-                <span><b>Phase depth</b><output id="pmIndexOut" for="pmIndex">2.00 rad</output></span>
+                <span><b>Phase depth</b><output id="pmIndexOut" for="pmIndex">2.00 rad max</output></span>
                 <input id="pmIndex" type="range" min="0" max="8" step="0.05" value="2" />
               </label>
 
@@ -340,76 +374,83 @@
         <details class="group control-section" id="mappingSection" data-section="mapping">
           <summary class="group-summary">
             <h2 class="group-title" id="mappingTitle">Mapping</h2>
-            <span class="section-state" id="mappingSummary">Height → pitch</span>
+            <span class="section-state" id="mappingSummary">Vertical → pitch</span>
           </summary>
           <div class="group-body">
-            <label class="select-control" for="mappingFrame">
-              <span class="field-label">Pitch + pan reference</span>
-              <span class="select-shell">
-                <select id="mappingFrame">
-                  <option value="instrument" selected>Stage axes · fixed</option>
-                  <option value="shape">Shape axes · rotate with form</option>
-                </select>
-              </span>
-            </label>
+            <div class="mapping-dimension-control">
+              <span class="field-label">Pitch dimension</span>
+              <div class="choice-switch mapping-dimension-choice" id="pitchDimension" role="group" aria-label="Pitch dimension in fixed stage coordinates">
+                <button id="pitchVertical" type="button" data-value="vertical" aria-pressed="true"><span aria-hidden="true">↕</span>Vertical</button>
+                <button id="pitchHorizontal" type="button" data-value="horizontal" aria-pressed="false"><span aria-hidden="true">↔</span>Horizontal</button>
+                <button id="pitchCenter" type="button" data-value="center" aria-pressed="false"><span aria-hidden="true">◎</span>Center distance</button>
+              </div>
+              <small class="mapping-coordinate-note">Stage / screen axes stay fixed while the form rotates</small>
+            </div>
 
-            <label class="select-control" for="pitchSource">
-              <span class="field-label">Pitch mark</span>
-              <span class="select-shell">
-                <select id="pitchSource">
-                  <option value="height" selected>Vertical position</option>
-                  <option value="center">Distance from center · radar radius</option>
-                  <option value="corner">Corner magnitude</option>
-                  <option value="incidence">Incidence</option>
-                  <option value="phase">Contour phase</option>
-                </select>
-              </span>
-            </label>
+            <div class="mapping-curve-control">
+              <div class="mapping-curve-heading">
+                <span class="field-label">Pitch response</span>
+                <output id="pitchCurveState">Linear</output>
+              </div>
+              <div class="curve-preset-strip" id="pitchCurvePresets" role="group" aria-label="Pitch response presets">
+                <button id="pitchCurveLinear" type="button" data-value="linear" aria-pressed="true" title="Linear">Lin</button>
+                <button id="pitchCurveExponential" type="button" data-value="exponential" aria-pressed="false" title="Exponential">Exp</button>
+                <button id="pitchCurveLogarithmic" type="button" data-value="logarithmic" aria-pressed="false" title="Logarithmic">Log</button>
+                <button id="pitchCurveSmooth" type="button" data-value="smooth" aria-pressed="false" title="Smooth S-curve">S</button>
+                <button id="pitchCurveInverted" type="button" data-value="inverted" aria-pressed="false" title="Inverted">Inv</button>
+              </div>
+              <div class="curve-editor" id="pitchCurveEditor" role="group" aria-label="Editable pitch response curve">
+                <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true">
+                  <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
+                  <path class="curve-path" id="pitchCurvePath" d="M0 96 L60 72 L120 48 L180 24 L240 0" />
+                </svg>
+                <button class="curve-node" id="pitchCurveNode0" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="0" style="left:0%;top:100%" aria-label="Pitch curve node 1: input 0 percent, output 0 percent"></button>
+                <button class="curve-node" id="pitchCurveNode1" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25" data-node-index="1" style="left:25%;top:75%" aria-label="Pitch curve node 2: input 25 percent, output 25 percent"></button>
+                <button class="curve-node" id="pitchCurveNode2" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" data-node-index="2" style="left:50%;top:50%" aria-label="Pitch curve node 3: input 50 percent, output 50 percent"></button>
+                <button class="curve-node" id="pitchCurveNode3" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="75" data-node-index="3" style="left:75%;top:25%" aria-label="Pitch curve node 4: input 75 percent, output 75 percent"></button>
+                <button class="curve-node" id="pitchCurveNode4" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" data-node-index="4" style="left:100%;top:0%" aria-label="Pitch curve node 5: input 100 percent, output 100 percent"></button>
+              </div>
+              <div class="curve-editor-footer">
+                <small>Drag nodes · arrows 1% · Shift 5%</small>
+                <button class="mini-action" id="resetPitchCurve" type="button">Reset</button>
+              </div>
+            </div>
 
-            <label class="select-control" for="pitchCurve">
-              <span class="field-label">Pitch interpretation</span>
-              <span class="select-shell">
-                <select id="pitchCurve">
-                  <option value="linear" selected>Linear mark · exponential Hz</option>
-                  <option value="exponential">Expand high values</option>
-                  <option value="logarithmic">Expand low values</option>
-                  <option value="smooth">Smooth S-curve</option>
-                  <option value="inverted">Invert</option>
-                </select>
-              </span>
-            </label>
-
-            <div id="synthMapping" hidden>
-              <label class="select-control" for="synthSource">
-                <span class="field-label">Modulation drive mark</span>
+            <div id="timbreMapping" hidden>
+              <label class="select-control" for="timbreSource">
+                <span class="field-label">Timbre source</span>
                 <span class="select-shell">
-                  <select id="synthSource">
-                    <option value="incidence" selected>Incidence</option>
-                    <option value="corner">Corner magnitude</option>
-                    <option value="phase">Contour phase</option>
+                  <select id="timbreSource" aria-describedby="timbreMappingNote timbreSourceHelp">
+                    <option value="incidence">Crossing angle</option>
+                    <option value="corner" selected>Corner sharpness</option>
+                    <option value="phase">Contour position</option>
                     <option value="height">Vertical position</option>
+                    <option value="horizontal">Horizontal position</option>
+                    <option value="center">Distance from center</option>
                   </select>
                 </span>
               </label>
+              <small class="mapping-coordinate-note" id="timbreMappingNote" aria-live="polite">Corner sharpness → FM index</small>
+              <small class="mapping-coordinate-note mapping-source-help" id="timbreSourceHelp">0 is smooth · 1 is the sharpest turn</small>
             </div>
 
-            <div id="hitMapping">
-              <label class="select-control" for="hitLevelSource">
-                <span class="field-label">Percussion level mark</span>
+            <div id="percussionMapping">
+              <label class="select-control" for="percussionLevelSource">
+                <span class="field-label">Percussion amplitude source</span>
                 <span class="select-shell">
-                  <select id="hitLevelSource">
-                    <option value="corner" selected>Corner magnitude</option>
-                    <option value="incidence">Incidence</option>
+                  <select id="percussionLevelSource" aria-describedby="percussionSourceHelp">
+                    <option value="corner" selected>Corner sharpness</option>
+                    <option value="incidence">Crossing angle</option>
                     <option value="fixed">Fixed</option>
                     <option value="signed">Inner / outer polarity</option>
                   </select>
                 </span>
               </label>
 
-              <label class="select-control" for="hitLevelCurve">
+              <label class="select-control" for="percussionLevelCurve">
                 <span class="field-label">Level curve</span>
                 <span class="select-shell">
-                  <select id="hitLevelCurve">
+                  <select id="percussionLevelCurve">
                     <option value="linear" selected>Linear</option>
                     <option value="exponential">Expand high values</option>
                     <option value="logarithmic">Expand low values</option>
@@ -418,11 +459,26 @@
                   </select>
                 </span>
               </label>
+              <small class="mapping-coordinate-note mapping-source-help" id="percussionSourceHelp">0 is smooth · 1 is the sharpest turn</small>
+            </div>
+
+            <div class="mapping-dimension-control stereo-mapping-control">
+              <span class="field-label">Stereo dimension</span>
+              <div class="choice-switch mapping-dimension-choice" id="stereoDimension" role="group" aria-label="Stereo position dimension in fixed stage coordinates">
+                <button id="stereoHorizontal" type="button" data-value="horizontal" aria-pressed="true"><span aria-hidden="true">↔</span>Horizontal</button>
+                <button id="stereoVertical" type="button" data-value="vertical" aria-pressed="false"><span aria-hidden="true">↕</span>Vertical</button>
+                <button id="stereoCenter" type="button" data-value="center" aria-pressed="false"><span aria-hidden="true">◎</span>Center distance</button>
+              </div>
+              <div class="stereo-direction-row">
+                <small id="stereoMappingNote">Stage left → audio left · stage right → audio right</small>
+                <button class="mini-action stereo-invert" id="stereoInvert" type="button" aria-pressed="false" aria-label="Reverse horizontal stereo direction"><span aria-hidden="true">⇄</span> Flip</button>
+              </div>
             </div>
 
             <label class="control" for="stereoWidth">
               <span><b>Stereo width</b><output id="stereoWidthOut" for="stereoWidth">100%</output></span>
               <input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="1" />
+              <small class="mapping-coordinate-note">0% mono · 100% full mapped width</small>
             </label>
 
           </div>
@@ -439,31 +495,31 @@
               <output id="outputVoiceLabel">sine</output>
             </div>
 
-            <dl class="mark-grid" aria-label="Realtime mark values">
-              <div><dt>Phase</dt><dd><output id="markPhaseOut">0.500</output></dd></div>
-              <div><dt>Position</dt><dd><output id="markPositionOut">0.000, 1.000</output></dd></div>
+            <dl class="mark-grid" aria-label="Realtime mapping values">
+              <div><dt>Contour position</dt><dd><output id="markPhaseOut">0.500</output></dd></div>
+              <div><dt>Stage position</dt><dd><output id="markPositionOut">0.000, 1.000</output></dd></div>
               <div><dt>Center distance</dt><dd><output id="markCenterOut">1.000</output></dd></div>
               <div><dt>Corner turn</dt><dd><output id="markTurnOut">+90° outer</output></dd></div>
               <div><dt>Corner distance</dt><dd><output id="markDistanceOut">0.000</output></dd></div>
-              <div><dt>Incidence</dt><dd><output id="markIncidenceOut">0.707</output></dd></div>
+              <div><dt>Crossing angle</dt><dd><output id="markIncidenceOut">0.707</output></dd></div>
               <div><dt>Tangent</dt><dd><output id="markTangentOut">135°</output></dd></div>
-              <div><dt>Pitch mark</dt><dd><output id="markPitchValueOut">0.000</output></dd></div>
+              <div><dt>Pitch source value</dt><dd><output id="markPitchValueOut">0.000</output></dd></div>
               <div><dt>Frequency</dt><dd><output id="markFrequencyOut">110 Hz</output></dd></div>
               <div><dt>Amplitude</dt><dd><output id="markGainOut">0.248</output></dd></div>
               <div><dt>Pan</dt><dd><output id="markPanOut">0.000</output></dd></div>
-              <div><dt>Synth drive</dt><dd><output id="markSynthDriveOut">&minus;</output></dd></div>
-              <div><dt>Synth value</dt><dd><output id="markSynthValueOut">corner envelope</output></dd></div>
-              <div><dt>Decay</dt><dd><output id="markDecayOut">90 ms</output></dd></div>
+              <div><dt>Timbre source value</dt><dd><output id="markSynthDriveOut">&minus;</output></dd></div>
+              <div><dt>Timbre target</dt><dd><output id="markSynthValueOut">pure sine</output></dd></div>
+              <div><dt>Envelope</dt><dd><output id="markDecayOut">R 0% · rests</output></dd></div>
               <div><dt>Rotation</dt><dd><output id="markRotationOut">0°</output></dd></div>
             </dl>
 
             <div class="contact-stream" id="contactStream" aria-label="Active contact data stream"></div>
 
             <div class="route-list" aria-label="Current data mappings">
-              <div><span id="pitchRouteSource">Vertical position</span><b>Pitch</b><small id="pitchRouteCurve">linear mark → exponential Hz</small></div>
-              <div><span>Horizontal position</span><b>Pan</b><small>linear bipolar</small></div>
-              <div><span id="levelRouteSource">Corner distance + magnitude</span><b>Level</b><small id="levelRouteCurve">spatial amplitude envelope</small></div>
-              <div id="synthRoute" hidden><span id="synthRouteSource">Incidence</span><b id="synthRouteTarget">Mod depth</b><small id="synthRouteCurve">linear geometry drive</small></div>
+              <div><span id="pitchRouteSource">Vertical position</span><b>Pitch</b><small id="pitchRouteCurve">Linear response → exponential Hz</small></div>
+              <div><span id="panRouteSource">Horizontal position</span><b>Pan</b><small id="panRouteCurve">normal · 100% width</small></div>
+              <div><span id="levelRouteSource">Directed corner interval</span><b>Level</b><small id="levelRouteCurve">Pluck ADSR</small></div>
+              <div id="timbreRoute" hidden><span id="timbreRouteSource">Crossing angle</span><b id="timbreRouteTarget">FM index</b><small id="timbreRouteCurve">0–3.00 mapped range</small></div>
             </div>
 
             <div class="future-outputs" aria-label="Planned output destinations">
@@ -473,6 +529,12 @@
             </div>
           </div>
         </details>
+        <div class="master-level-row">
+          <label class="control" for="level">
+            <span><b>Master level</b><output id="levelOut" for="level">65%</output></span>
+            <input id="level" aria-label="Master audio level" type="range" min="0" max="1" step="0.01" value="0.65" />
+          </label>
+        </div>
         <div class="reset-all-row">
           <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
         </div>

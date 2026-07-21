@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  AMPLITUDE_ENVELOPE_PRESETS,
+  amplitudeEnvelopePreset,
   clamp,
   cornerAttackSeconds,
   cornerDecaySeconds,
@@ -12,10 +14,15 @@ import {
   normalizeVoiceGains,
   pitch01ToFrequency,
   reduceVoiceContacts,
+  sampleAmplitudeEnvelope,
+  sanitizeAmplitudeEnvelope,
+  scaleShapeVoiceGains,
   sineCornerEnvelopeGain,
   synthParametersForMode,
+  timbreParametersForMode,
   VoicePool,
   waveformForIndex,
+  updateAmplitudeEnvelopeNode,
 } from "../src/audio.js";
 
 test("audio module imports and constructs without browser globals", () => {
@@ -81,7 +88,68 @@ test("geometry drive produces bounded and mode-specific synth parameters", () =>
   assert.equal(synthParametersForMode("unknown", Number.NaN).mode, "sine");
 });
 
-test("mark mapping curves are bounded and preserve their intended shape", () => {
+test("timbre mapping targets the sound-specific DSP amount", () => {
+  assert.deepEqual(timbreParametersForMode("sine", 0.75, {
+    fmIndex: 8,
+    pmIndex: 6,
+    shepardWidth: 7,
+  }), {
+    modulationIndex: 0,
+    shepardWidth: 7,
+  });
+
+  assert.equal(
+    timbreParametersForMode("fm", 0.5, { fmIndex: 6 }).modulationIndex,
+    3,
+  );
+  assert.equal(
+    timbreParametersForMode("pm", 0.25, { pmIndex: 4 }).modulationIndex,
+    1,
+  );
+
+  assert.equal(
+    timbreParametersForMode("shepard", 0, { shepardWidth: 7 }).shepardWidth,
+    1,
+  );
+  assert.equal(
+    timbreParametersForMode("shepard", 0.5, { shepardWidth: 7 }).shepardWidth,
+    4,
+  );
+  assert.equal(
+    timbreParametersForMode("shepard", 1, { shepardWidth: 7 }).shepardWidth,
+    7,
+  );
+
+  const boundedFm = timbreParametersForMode("fm", 2, { fmIndex: 40 });
+  const boundedPm = timbreParametersForMode("pm", 2, { pmIndex: 40 });
+  const boundedShepard = timbreParametersForMode("shepard", 2, {
+    shepardWidth: 40,
+  });
+  assert.equal(boundedFm.modulationIndex, 20);
+  assert.equal(boundedPm.modulationIndex, 12);
+  assert.equal(boundedShepard.shepardWidth, 8);
+});
+
+test("synth parameters use mapped Shepard width without changing sine", () => {
+  assert.equal(
+    synthParametersForMode("shepard", 0, { shepardWidth: 7 }).shepardWidth,
+    1,
+  );
+  assert.equal(
+    synthParametersForMode("shepard", 0.5, { shepardWidth: 7 }).shepardWidth,
+    4,
+  );
+  assert.equal(
+    synthParametersForMode("shepard", 1, { shepardWidth: 7 }).shepardWidth,
+    7,
+  );
+
+  const sine = synthParametersForMode("sine", 0.8, { shepardWidth: 6 });
+  assert.equal(sine.modulationIndex, 0);
+  assert.equal(sine.shepardWidth, 6);
+});
+
+test("source response curves are bounded and preserve their intended shape", () => {
   for (const curve of ["linear", "exponential", "logarithmic", "smooth"]) {
     assert.equal(mapCurve01(-1, curve), 0);
     assert.equal(mapCurve01(0, curve), 0);
@@ -104,6 +172,75 @@ test("mark mapping curves are bounded and preserve their intended shape", () => 
       assert.ok(samples[index] >= samples[index - 1], `${curve} must be monotonic`);
     }
   }
+});
+
+test("amplitude envelope presets are five-node immutable templates", () => {
+  assert.deepEqual(Object.keys(AMPLITUDE_ENVELOPE_PRESETS), [
+    "pluck",
+    "sustain",
+    "pad",
+  ]);
+  for (const preset of Object.values(AMPLITUDE_ENVELOPE_PRESETS)) {
+    assert.equal(preset.length, 5);
+    assert.equal(Object.isFrozen(preset), true);
+    assert.ok(preset.every((node) => Object.isFrozen(node)));
+    assert.ok(preset.every((node, index) => index === 0 || node.x >= preset[index - 1].x));
+    assert.equal(preset[0].x, 0);
+    assert.ok(preset.at(-1).x < 1, "release endpoint should leave an explicit hold segment");
+  }
+
+  const editable = amplitudeEnvelopePreset("pluck");
+  editable[1].y = 0.25;
+  assert.equal(AMPLITUDE_ENVELOPE_PRESETS.pluck[1].y, 1);
+  assert.deepEqual(amplitudeEnvelopePreset("missing"), amplitudeEnvelopePreset("sustain"));
+});
+
+test("amplitude envelopes sanitize malformed points and preserve node order while editing", () => {
+  const sanitized = sanitizeAmplitudeEnvelope([
+    { x: 2, y: -1 },
+    null,
+    { x: 0.4, y: 2 },
+    { x: Number.NaN, y: 0.3 },
+    { x: -1, y: 0.45 },
+  ]);
+  assert.equal(sanitized.length, 5);
+  assert.ok(sanitized.every(({ x, y }) => x >= 0 && x <= 1 && y >= 0 && y <= 1));
+  assert.ok(sanitized.every((node, index) => index === 0 || node.x >= sanitized[index - 1].x));
+  assert.deepEqual(sanitizeAmplitudeEnvelope(null), amplitudeEnvelopePreset("sustain"));
+
+  const original = amplitudeEnvelopePreset("sustain");
+  const moved = updateAmplitudeEnvelopeNode(original, 2, { x: 0.99, y: -2 });
+  assert.equal(moved[2].x, original[3].x, "a node cannot cross its right neighbour");
+  assert.equal(moved[2].y, 0);
+  assert.deepEqual(original, amplitudeEnvelopePreset("sustain"), "editing must be immutable");
+
+  const movedLeft = updateAmplitudeEnvelopeNode(original, 2, { x: -1, y: 2 });
+  assert.equal(movedLeft[2].x, original[1].x);
+  assert.equal(movedLeft[2].y, 1);
+  assert.deepEqual(updateAmplitudeEnvelopeNode(original, 99, { x: 0 }), original);
+  assert.equal(updateAmplitudeEnvelopeNode(original, 0, { x: 0.8 })[0].x, 0);
+});
+
+test("amplitude envelope sampling interpolates and holds the release endpoint", () => {
+  const zeroRelease = [
+    { x: 0, y: 0 },
+    { x: 0.1, y: 1 },
+    { x: 0.3, y: 0.5 },
+    { x: 0.6, y: 0.5 },
+    { x: 0.8, y: 0 },
+  ];
+  nearAudio(sampleAmplitudeEnvelope(0.05, zeroRelease), 0.5);
+  nearAudio(sampleAmplitudeEnvelope(0.2, zeroRelease), 0.75);
+  assert.equal(sampleAmplitudeEnvelope(0.8, zeroRelease), 0);
+  assert.equal(sampleAmplitudeEnvelope(0.95, zeroRelease), 0);
+  assert.equal(sampleAmplitudeEnvelope(2, zeroRelease), 0);
+
+  const heldRelease = updateAmplitudeEnvelopeNode(zeroRelease, 4, { y: 0.35 });
+  assert.equal(sampleAmplitudeEnvelope(0.8, heldRelease), 0.35);
+  assert.equal(sampleAmplitudeEnvelope(0.95, heldRelease), 0.35);
+  assert.equal(sampleAmplitudeEnvelope(1, heldRelease), 0.35);
+  assert.equal(sampleAmplitudeEnvelope(Number.NaN, null), 0);
+  assert.equal(sampleAmplitudeEnvelope(undefined, null), 0);
 });
 
 test("corner articulation parameters remain independent", () => {
@@ -189,6 +326,32 @@ test("normalization caps combined gain without boosting quiet input", () => {
 
   const quiet = normalizeVoiceGains([{ frequency: 110, gain: 0.25 }]);
   assert.equal(quiet[0]?.gain, 0.25);
+});
+
+test("Shape voice scaling follows inverse square-root active voice count", () => {
+  for (const count of [1, 4, 9]) {
+    const voices = Array.from({ length: count }, (_, index) => ({
+      key: `shape:${index}`,
+      frequency: 220 + index,
+      gain: 0.9,
+    }));
+    const snapshot = structuredClone(voices);
+    const scaled = scaleShapeVoiceGains(voices);
+    nearAudio(scaled[0].gain, 0.9 / Math.sqrt(count));
+    assert.ok(scaled.every((voice) => voice.gain === scaled[0].gain));
+    assert.deepEqual(voices, snapshot, "input voices must not be modified");
+    assert.notEqual(scaled[0], voices[0]);
+  }
+
+  const partlySilent = scaleShapeVoiceGains([
+    { frequency: 110, gain: 0.8 },
+    { frequency: 220, gain: 0 },
+    { frequency: 330, gain: 0.6 },
+  ]);
+  nearAudio(partlySilent[0].gain, 0.8 / Math.sqrt(2));
+  assert.equal(partlySilent[1].gain, 0);
+  nearAudio(partlySilent[2].gain, 0.6 / Math.sqrt(2));
+  assert.deepEqual(scaleShapeVoiceGains(null), []);
 });
 
 test("phase-aligned strike batches share a 0.78 peak ceiling proportionally", () => {

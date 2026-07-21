@@ -104,6 +104,11 @@ function wrappedPositionDelta(from, to) {
   return delta;
 }
 
+function directedWrappedPositionDelta(from, to, expectedDelta = 0) {
+  const rawDelta = to - from;
+  return rawDelta + Math.round(expectedDelta - rawDelta);
+}
+
 class MorphazoidContourSynth extends AudioWorkletProcessor {
   constructor(options) {
     super();
@@ -214,6 +219,15 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
     for (const voice of this.voices.values()) {
       const target = voice.target;
       const nextTarget = voice.nextTarget;
+      const trajectoryDuration = voice.trajectorySamples / sampleRate;
+      const expectedShepardDelta = (
+        target.shepardRate + nextTarget.shepardRate
+      ) * 0.5 * trajectoryDuration;
+      const shepardTrajectoryDelta = directedWrappedPositionDelta(
+        target.shepardPosition ?? 0,
+        nextTarget.shepardPosition ?? target.shepardPosition ?? 0,
+        expectedShepardDelta,
+      );
       voice.mode = target.mode;
       for (let index = 0; index < left.length; index += 1) {
         const trajectoryAmount = voice.trajectorySamples > 0
@@ -233,12 +247,9 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
           + (nextTarget.shepardWidth - target.shepardWidth) * trajectoryAmount;
         let shepardPositionTarget = null;
         if (Number.isFinite(target.shepardPosition)) {
-          const nextPosition = Number.isFinite(nextTarget.shepardPosition)
-            ? nextTarget.shepardPosition
-            : target.shepardPosition;
           shepardPositionTarget = (
             target.shepardPosition
-              + wrappedPositionDelta(target.shepardPosition, nextPosition) * trajectoryAmount
+              + shepardTrajectoryDelta * trajectoryAmount
               + 1
           ) % 1;
         }
