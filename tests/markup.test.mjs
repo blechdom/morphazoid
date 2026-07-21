@@ -58,7 +58,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
 
   // Reading method remains a compact rocker control.
   assertDefaultLeftChoice("playMethod", "traceMode", "Points", "scanMode");
-  assert.equal((html.match(/class="choice-switch/g) ?? []).length, 3);
+  assert.equal((html.match(/class="choice-switch/g) ?? []).length, 4);
   assert.match(openingTag("loopMotion"), /aria-pressed="true"[^>]*aria-label="Loop movement"/);
   assert.match(openingTag("pingPongMotion"), /aria-pressed="false"[^>]*aria-label="Back-and-forth movement"/);
   assert.match(html, /id="loopMotion"[\s\S]*?>⟳<[\s\S]*?id="pingPongMotion"[\s\S]*?>↔</);
@@ -173,7 +173,9 @@ test("the mobile instrument markup exposes the complete compact control surface"
     "mappingSummary", "pitchDimension", "pitchVertical", "pitchHorizontal", "pitchCenter",
     "pitchCurvePresets", "pitchCurveLinear", "pitchCurveExponential", "pitchCurveLogarithmic",
     "pitchCurveSmooth", "pitchCurveInverted", "pitchCurveEditor", "pitchCurvePath",
-    "resetPitchCurve", "hitLevelSource", "hitLevelCurve",
+    "resetPitchCurve", "stereoDimension", "stereoHorizontal", "stereoVertical", "stereoCenter",
+    "stereoInvert", "stereoMappingNote", "stereoWidth", "panRouteSource", "panRouteCurve",
+    "hitLevelSource", "hitLevelCurve",
     "synthSource", "shepardCycles", "shepardDirection", "shepardWidth",
     "fmIndex", "fmRatio", "pmIndex", "pmRatio",
   ]) assert.ok(html.includes(`id="${id}"`));
@@ -195,6 +197,13 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(html, /Drag nodes · arrows 1% · Shift 5%/);
   assert.match(app, /updateMappingCurveNode/);
   assert.match(app, /evaluateMappingCurve/);
+  assertDefaultLeftChoice("stereoDimension", "stereoHorizontal", "[\\s\\S]*Horizontal", "stereoVertical");
+  assert.match(openingTag("stereoVertical"), /data-value="vertical"[^>]*aria-pressed="false"/);
+  assert.match(openingTag("stereoCenter"), /data-value="center"[^>]*aria-pressed="false"/);
+  assert.match(openingTag("stereoInvert"), /aria-pressed="false"[^>]*aria-label="Reverse horizontal stereo direction"/);
+  assert.match(html, /0% mono · 100% full mapped width/);
+  assert.match(app, /panSource \* 2 - 1/);
+  assert.match(app, /state\.stereoInverted \? -1 : 1/);
 
   // Output is a realtime marks dashboard with clearly future-facing external routes.
   for (const id of [

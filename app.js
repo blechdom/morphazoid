@@ -109,6 +109,8 @@ const state = {
   pmIndex: 2,
   pmRatio: 1,
   stereoWidth: 1,
+  stereoSource: "horizontal",
+  stereoInverted: false,
   pitchSource: "vertical",
   pitchCurvePreset: "linear",
   pitchCurveNodes: mappingCurvePreset("linear"),
@@ -138,6 +140,10 @@ state.fmRatio = clamp(state.fmRatio, 0.25, 8);
 state.pmIndex = clamp(state.pmIndex, 0, 8);
 state.pmRatio = clamp(state.pmRatio, 0.25, 8);
 state.stereoWidth = clamp(state.stereoWidth, 0, 1);
+state.stereoSource = ["horizontal", "vertical", "center"].includes(state.stereoSource)
+  ? state.stereoSource
+  : "horizontal";
+state.stereoInverted = Boolean(state.stereoInverted);
 state.pitchSource = ["vertical", "horizontal", "center"].includes(state.pitchSource)
   ? state.pitchSource
   : "vertical";
@@ -502,7 +508,7 @@ bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`);
 bindRange("fmRatio", "fmRatio", (value) => `${value.toFixed(2)} : 1`);
 bindRange("pmIndex", "pmIndex", (value) => `${value.toFixed(2)} rad`);
 bindRange("pmRatio", "pmRatio", (value) => `${value.toFixed(2)} : 1`);
-bindRange("stereoWidth", "stereoWidth", (value) => `${Math.round(value * 100)}%`);
+bindRange("stereoWidth", "stereoWidth", (value) => `${Math.round(value * 100)}%`, updateStereoMappingUi);
 
 function syncFormTopology(shouldAnnounce = false) {
   const circle = state.sides === 1;
@@ -867,6 +873,50 @@ function setPitchDimension(source, shouldAnnounce = true) {
 for (const button of $("pitchDimension").querySelectorAll("button")) {
   button.addEventListener("click", () => setPitchDimension(button.dataset.value));
 }
+
+const STEREO_SOURCE_LABELS = {
+  horizontal: "Horizontal position",
+  vertical: "Vertical position",
+  center: "Distance from center",
+};
+
+function stereoMappingDescription() {
+  const descriptions = {
+    horizontal: ["Stage left → audio left · stage right → audio right", "Stage left → audio right · stage right → audio left"],
+    vertical: ["Stage bottom → audio left · stage top → audio right", "Stage bottom → audio right · stage top → audio left"],
+    center: ["Stage center → audio left · outer edge → audio right", "Stage center → audio right · outer edge → audio left"],
+  };
+  return descriptions[state.stereoSource][state.stereoInverted ? 1 : 0];
+}
+
+function updateStereoMappingUi() {
+  $("stereoMappingNote").textContent = stereoMappingDescription();
+  setPressed($("stereoInvert"), state.stereoInverted);
+  $("stereoInvert").setAttribute("aria-label", `${state.stereoInverted ? "Restore" : "Reverse"} ${state.stereoSource} stereo direction`);
+  $("panRouteSource").textContent = STEREO_SOURCE_LABELS[state.stereoSource];
+  $("panRouteCurve").textContent = `${state.stereoInverted ? "reversed" : "normal"} · ${Math.round(state.stereoWidth * 100)}% width`;
+}
+
+function setStereoDimension(source, shouldAnnounce = true) {
+  state.stereoSource = ["vertical", "center"].includes(source) ? source : "horizontal";
+  for (const button of $("stereoDimension").querySelectorAll("button")) {
+    setPressed(button, button.dataset.value === state.stereoSource);
+  }
+  updateStereoMappingUi();
+  if (shouldAnnounce) announce(`${STEREO_SOURCE_LABELS[state.stereoSource]} mapped to stereo position.`);
+  invalidate();
+}
+
+for (const button of $("stereoDimension").querySelectorAll("button")) {
+  button.addEventListener("click", () => setStereoDimension(button.dataset.value));
+}
+
+$("stereoInvert").addEventListener("click", () => {
+  state.stereoInverted = !state.stereoInverted;
+  updateStereoMappingUi();
+  announce(`${state.stereoSource} stereo direction ${state.stereoInverted ? "reversed" : "restored"}.`);
+  invalidate();
+});
 
 const PITCH_CURVE_LABELS = {
   linear: "Linear",
@@ -1577,10 +1627,14 @@ function hitLevelMark(contact, path, headIndex = contact.headIndex ?? 0) {
 function mappingForContact(contact, path, headIndex = contact.headIndex ?? 0) {
   const normalized = normalizedContactCoordinates(contact, path);
   const pitchRaw = rawMarkForSource(state.pitchSource, contact, path, headIndex);
+  const panSource = state.stereoSource === "vertical"
+    ? normalized.y
+    : state.stereoSource === "center" ? centerDistanceForContact(contact) : normalized.x;
+  const panDirection = state.stereoInverted ? -1 : 1;
   return {
     pitchRaw,
     pitch: evaluateMappingCurve(pitchRaw, state.pitchCurveNodes),
-    pan: clamp(normalized.x * 2 - 1, -1, 1) * state.stereoWidth,
+    pan: clamp((panSource * 2 - 1) * panDirection * state.stereoWidth, -1, 1),
     normalized,
     incidence: incidenceForContact(contact, path, headIndex),
   };
@@ -2081,6 +2135,7 @@ function updateOutputDashboard(contacts, path) {
   $("outputVoiceLabel").textContent = state.soundMode;
   $("pitchRouteSource").textContent = SOURCE_LABELS[state.pitchSource] ?? state.pitchSource;
   $("pitchRouteCurve").textContent = `${PITCH_CURVE_LABELS[state.pitchCurvePreset] ?? "Custom"} response → exponential Hz`;
+  updateStereoMappingUi();
   $("levelRouteSource").textContent = state.soundMode === "percussion"
     ? SOURCE_LABELS[state.hitLevelSource] ?? state.hitLevelSource
     : state.shapeType === "circle" ? "Continuous contour" : "Corner distance + magnitude";
@@ -2389,6 +2444,7 @@ setPlayMethod(state.playMethod, false);
 setMotionMode(state.motionMode, false);
 setSoundMode(state.soundMode, false);
 setPitchDimension(state.pitchSource, false);
+setStereoDimension(state.stereoSource, false);
 renderPitchCurve();
 setTraversalDirection(1, false);
 setRotationDirection(1, false);

@@ -72,6 +72,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     rotationMotion: ["rotationLoopMotion", "rotationPingPongMotion"],
     closedShapeType: ["polygonShape", "starShape"],
     pitchDimension: ["pitchVertical", "pitchHorizontal", "pitchCenter"],
+    stereoDimension: ["stereoHorizontal", "stereoVertical", "stereoCenter"],
     pitchCurvePresets: [
       "pitchCurveLinear", "pitchCurveExponential", "pitchCurveLogarithmic",
       "pitchCurveSmooth", "pitchCurveInverted",
@@ -90,6 +91,9 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     pitchVertical: "vertical",
     pitchHorizontal: "horizontal",
     pitchCenter: "center",
+    stereoHorizontal: "horizontal",
+    stereoVertical: "vertical",
+    stereoCenter: "center",
     pitchCurveLinear: "linear",
     pitchCurveExponential: "exponential",
     pitchCurveLogarithmic: "logarithmic",
@@ -286,6 +290,13 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("pitchCurveState").textContent, "Linear");
   assert.equal(attributes.get("pitchCurveLinear:aria-pressed"), "true");
   assert.match(attributes.get("pitchCurvePath:d"), /^M0\.00 96\.00/);
+  assert.equal(attributes.get("stereoHorizontal:aria-pressed"), "true");
+  assert.equal(attributes.get("stereoVertical:aria-pressed"), "false");
+  assert.equal(attributes.get("stereoCenter:aria-pressed"), "false");
+  assert.equal(attributes.get("stereoInvert:aria-pressed"), "false");
+  assert.match(elements.get("stereoMappingNote").textContent, /Stage left → audio left/);
+  assert.equal(elements.get("panRouteSource").textContent, "Horizontal position");
+  assert.equal(elements.get("panRouteCurve").textContent, "normal · 100% width");
   assert.equal(elements.has("mappingFrame"), false);
   assert.equal(elements.get("outputContactLabel").textContent, "Contact 1 of 1");
   assert.notEqual(elements.get("markFrequencyOut").textContent, "");
@@ -494,6 +505,19 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("mappingSummary").textContent, "Center distance → pitch");
   assert.equal(elements.get("pitchRouteSource").textContent, "Distance from center");
   assert.ok(Number(elements.get("markCenterOut").textContent) > 0);
+
+  listeners.get("stereoCenter:click")();
+  queuedFrame(1_561);
+  assert.equal(attributes.get("stereoCenter:aria-pressed"), "true");
+  assert.equal(elements.get("panRouteSource").textContent, "Distance from center");
+  const outwardPan = Number(elements.get("markPanOut").textContent);
+  listeners.get("stereoInvert:click")();
+  queuedFrame(1_562);
+  assert.equal(attributes.get("stereoInvert:aria-pressed"), "true");
+  assert.ok(Math.abs(Number(elements.get("markPanOut").textContent) + outwardPan) < 0.002);
+  assert.match(elements.get("panRouteCurve").textContent, /reversed/);
+  listeners.get("stereoInvert:click")();
+  listeners.get("stereoHorizontal:click")();
 
   listeners.get("pitchCurveExponential:click")();
   assert.equal(elements.get("pitchCurveState").textContent, "Exponential");
@@ -708,6 +732,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("cornerAttack:input")();
   elements.get("stereoWidth").value = "0.42";
   listeners.get("stereoWidth:input")();
+  listeners.get("stereoVertical:click")();
+  listeners.get("stereoInvert:click")();
   listeners.get("pitchHorizontal:click")();
   listeners.get("pitchCurveLogarithmic:click")();
   elements.get("hitLevelSource").value = "incidence";
@@ -735,6 +761,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("cornerDecayOut").textContent, "320 ms");
   assert.equal(elements.get("cornerAttackOut").textContent, "12.5 ms");
   assert.equal(elements.get("stereoWidthOut").textContent, "42%");
+  assert.equal(attributes.get("stereoVertical:aria-pressed"), "true");
+  assert.equal(attributes.get("stereoInvert:aria-pressed"), "true");
+  assert.equal(elements.get("panRouteSource").textContent, "Vertical position");
+  assert.equal(elements.get("panRouteCurve").textContent, "reversed · 42% width");
   assert.equal(elements.has("mappingFrame"), false);
   assert.equal(attributes.get("pitchHorizontal:aria-pressed"), "true");
   assert.equal(attributes.get("pitchCurveLogarithmic:aria-pressed"), "true");
@@ -770,6 +800,9 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("pitchVertical:aria-pressed"), "true");
   assert.equal(attributes.get("pitchHorizontal:aria-pressed"), "false");
   assert.equal(attributes.get("pitchCurveLinear:aria-pressed"), "true");
+  assert.equal(attributes.get("stereoHorizontal:aria-pressed"), "true");
+  assert.equal(attributes.get("stereoInvert:aria-pressed"), "false");
+  assert.equal(elements.get("stereoWidthOut").textContent, "100%");
   assert.equal(elements.get("hitLevelSource").value, "corner");
   assert.equal(elements.get("hitLevelCurve").value, "linear");
   assert.equal(elements.get("synthSource").value, "incidence");

@@ -439,9 +439,23 @@
               </label>
             </div>
 
+            <div class="mapping-dimension-control stereo-mapping-control">
+              <span class="field-label">Stereo dimension</span>
+              <div class="choice-switch mapping-dimension-choice" id="stereoDimension" role="group" aria-label="Stereo position dimension in fixed stage coordinates">
+                <button id="stereoHorizontal" type="button" data-value="horizontal" aria-pressed="true"><span aria-hidden="true">↔</span>Horizontal</button>
+                <button id="stereoVertical" type="button" data-value="vertical" aria-pressed="false"><span aria-hidden="true">↕</span>Vertical</button>
+                <button id="stereoCenter" type="button" data-value="center" aria-pressed="false"><span aria-hidden="true">◎</span>Center distance</button>
+              </div>
+              <div class="stereo-direction-row">
+                <small id="stereoMappingNote">Stage left → audio left · stage right → audio right</small>
+                <button class="mini-action stereo-invert" id="stereoInvert" type="button" aria-pressed="false" aria-label="Reverse horizontal stereo direction"><span aria-hidden="true">⇄</span> Flip</button>
+              </div>
+            </div>
+
             <label class="control" for="stereoWidth">
               <span><b>Stereo width</b><output id="stereoWidthOut" for="stereoWidth">100%</output></span>
               <input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="1" />
+              <small class="mapping-coordinate-note">0% mono · 100% full mapped width</small>
             </label>
 
           </div>
@@ -480,7 +494,7 @@
 
             <div class="route-list" aria-label="Current data mappings">
               <div><span id="pitchRouteSource">Vertical position</span><b>Pitch</b><small id="pitchRouteCurve">linear mark → exponential Hz</small></div>
-              <div><span>Horizontal position</span><b>Pan</b><small>linear bipolar</small></div>
+              <div><span id="panRouteSource">Horizontal position</span><b>Pan</b><small id="panRouteCurve">normal · 100% width</small></div>
               <div><span id="levelRouteSource">Corner distance + magnitude</span><b>Level</b><small id="levelRouteCurve">spatial amplitude envelope</small></div>
               <div id="synthRoute" hidden><span id="synthRouteSource">Incidence</span><b id="synthRouteTarget">Mod depth</b><small id="synthRouteCurve">linear geometry drive</small></div>
             </div>

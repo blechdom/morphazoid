@@ -2003,6 +2003,40 @@ input[type="range"]::-moz-range-thumb {
   font-size: 14px;
 }
 
+.stereo-mapping-control {
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.stereo-direction-row {
+  display: grid;
+  margin-top: 7px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.stereo-direction-row > small {
+  color: var(--faint);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.stereo-invert {
+  display: inline-grid;
+  min-width: 62px;
+  min-height: 34px;
+  grid-template-columns: auto auto;
+  place-content: center;
+  gap: 5px;
+}
+
+.stereo-invert[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
 .mapping-coordinate-note {
   display: block;
   margin-top: 5px;
