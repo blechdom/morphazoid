@@ -93,11 +93,16 @@
               <span class="rate-heading"><b>Pattern speed</b><output id="speedOut" for="speed">0.080 cyc/s</output></span>
               <div class="rate-row-single">
                 <input id="speed" aria-label="Pattern speed" type="range" min="0" max="1" step="0.001" value="0.3386" />
-                <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Pattern moves right to left; apparent cursor moves left to right" hidden>
-                  <span id="traversalDirectionGlyph">&larr;</span><small id="traversalDirectionText">R→L</small>
+                <button class="direction-toggle" id="patternDirection" type="button" aria-label="Pattern moves right to left; switch to top to bottom">
+                  <span id="patternDirectionGlyph">&larr;</span><small id="patternDirectionText">R→L</small>
                 </button>
               </div>
             </div>
+
+            <label class="control pattern-direction-control" for="patternDirectionAngle">
+              <span><b>Pattern direction</b><output id="patternDirectionAngleOut" for="patternDirectionAngle">R→L</output></span>
+              <input id="patternDirectionAngle" type="range" min="0" max="90" step="1" value="0" />
+            </label>
 
             <div class="lattice-angle-control">
               <label class="control" for="angle">

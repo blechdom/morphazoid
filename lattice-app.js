@@ -69,6 +69,7 @@ const state = {
   continuousPosition: 0.5,
   speed: 0.08,
   traversalDirection: -1,
+  patternDirectionAngle: 0,
   angle: 90,
   playing: false,
   audio: false,
@@ -104,6 +105,7 @@ state.contactLevel = clamp(state.contactLevel, 0, 1);
 state.intersectionAccent = clamp(state.intersectionAccent, 0, 1);
 state.intersectionDecay = clamp(state.intersectionDecay, 20, 2000);
 state.voiceCap = Math.round(clamp(state.voiceCap, 1, MAX_VOICES));
+state.patternDirectionAngle = clamp(state.patternDirectionAngle, 0, 90);
 state.soundMode = SOUND_MODES.has(state.soundMode) ? state.soundMode : "sine";
 state.synthSource = ["height", "along", "incidence", "orientation"].includes(state.synthSource)
   ? state.synthSource
@@ -730,24 +732,44 @@ function setContinuousPosition(value) {
 
 $("position").addEventListener("input", () => setPosition($("position").value));
 
-function updateDirection() {
-  const forward = state.traversalDirection > 0;
-  $("traversalDirectionGlyph").textContent = forward ? "\u2192" : "\u2190";
-  $("traversalDirectionText").textContent = forward ? "L→R" : "R→L";
-  $("traversalDirection").setAttribute(
+function patternDirectionName(angle = state.patternDirectionAngle) {
+  if (angle <= 0.5) return "R→L";
+  if (angle >= 89.5) return "U→D";
+  return `${Math.round(angle)}°`;
+}
+
+function paintPatternDirection() {
+  const angle = state.patternDirectionAngle;
+  const name = patternDirectionName(angle);
+  $("patternDirectionAngle").value = String(angle);
+  $("patternDirectionAngleOut").textContent = name;
+  $("patternDirectionGlyph").textContent = angle <= 0.5 ? "\u2190" : angle >= 89.5 ? "\u2193" : "\u2199";
+  $("patternDirectionText").textContent = name;
+  $("patternDirection").setAttribute(
     "aria-label",
-    forward
-      ? "Pattern moves left to right; apparent cursor moves right to left"
-      : "Pattern moves right to left; apparent cursor moves left to right",
+    angle < 45
+      ? "Pattern moves right to left; switch to top to bottom"
+      : "Pattern moves top to bottom; switch to right to left",
   );
 }
 
-$("traversalDirection").addEventListener("click", () => {
-  state.traversalDirection *= -1;
-  updateDirection();
-  announce(state.traversalDirection > 0
-    ? "Pattern moves left to right."
-    : "Pattern moves right to left; apparent cursor moves left to right.");
+function setPatternDirectionAngle(value, shouldAnnounce = false) {
+  state.patternDirectionAngle = clamp(Number(value), 0, 90);
+  paintPatternDirection();
+  invalidateGeometry();
+  updateSummaries();
+  if (shouldAnnounce) {
+    announce(state.patternDirectionAngle < 45
+      ? "Pattern moves right to left."
+      : "Pattern moves top to bottom.");
+  }
+}
+
+$("patternDirection").addEventListener("click", () => {
+  setPatternDirectionAngle(state.patternDirectionAngle < 45 ? 90 : 0, true);
+});
+$("patternDirectionAngle").addEventListener("input", () => {
+  setPatternDirectionAngle($("patternDirectionAngle").value);
 });
 
 function setPlaying(playing) {
@@ -757,7 +779,6 @@ function setPlaying(playing) {
   else if (!wasPlaying && state.soundMode !== "percussion") restartContinuousEnvelopes();
   setPressed($("playButton"), state.playing);
   $("playButton").setAttribute("aria-label", state.playing ? "Pause pattern" : "Play pattern");
-  $("traversalDirection").hidden = !state.playing;
   lastFrameTime = performance.now();
   updateSummaries();
   announce(state.playing ? "Pattern playing." : "Pattern paused.");
@@ -832,7 +853,7 @@ $("audioButton").addEventListener("click", toggleAudio);
 
 function updateSummaries() {
   const info = tilingInfo(state.tilingType);
-  $("playSummary").textContent = `Pattern \u00b7 ${state.playing ? state.scanMotion : "paused"}`;
+  $("playSummary").textContent = `Pattern \u00b7 ${state.playing ? state.scanMotion : "paused"} \u00b7 ${patternDirectionName()}`;
   $("formSummary").textContent = info.label;
   $("soundSummary").textContent = SOUND_MODE_LABELS[state.soundMode];
 }
@@ -883,10 +904,9 @@ function rebuildGeometry() {
     parameters: state.parameters,
     edgeCurves: state.edgeCurves,
     scale: tileScaleForDensity(density),
-    // Keep the pattern's primitive period horizontal. The line rotates
-    // independently, so angle changes alter the contacts rather than rotating
-    // the entire instrument with its reader.
-    alignPeriodToDegrees: 180,
+    // The background follows its own motion bearing; the reader line keeps an
+    // independent angle so changing either control produces new contacts.
+    alignPeriodToDegrees: 180 + state.patternDirectionAngle,
     bounds: viewBounds,
   });
   const worldArea = (viewBounds.maxX - viewBounds.minX) * (viewBounds.maxY - viewBounds.minY);
@@ -1362,7 +1382,7 @@ configureTilingControls();
 setScanMotion(state.scanMotion, false);
 setSoundMode(state.soundMode, false);
 setPosition(state.position);
-updateDirection();
+paintPatternDirection();
 updateSummaries();
 paintAudioState();
 scheduleFrame();

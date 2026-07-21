@@ -197,6 +197,33 @@ test("the default line is vertical and remains centered for every pattern phase"
   assert.equal(scan.position, 0.5);
 });
 
+test("pattern bearing rotates independently from the reader line", () => {
+  const horizontal = buildLattice({
+    type: 20,
+    scale: 0.26,
+    bounds,
+    alignPeriodToDegrees: 180,
+  });
+  const diagonal = buildLattice({
+    type: 20,
+    scale: 0.26,
+    bounds,
+    alignPeriodToDegrees: 225,
+  });
+  const vertical = buildLattice({
+    type: 20,
+    scale: 0.26,
+    bounds,
+    alignPeriodToDegrees: 270,
+  });
+  assert.ok(horizontal.period.x < -0.1);
+  assert.ok(Math.abs(horizontal.period.y) < 1e-9);
+  assert.ok(diagonal.period.x < -0.1 && diagonal.period.y < -0.1);
+  assert.ok(Math.abs(vertical.period.x) < 1e-9);
+  assert.ok(vertical.period.y < -0.1);
+  assert.equal(createScanLine(bounds, 0.5, 37).angleDegrees, 37);
+});
+
 test("one lattice translation closes the visual and audio contact loop exactly", () => {
   for (const type of [1, 20, 39, 69]) {
     const lattice = buildLattice({ type, curve: 0.42, scale: 0.26, bounds, alignPeriodToDegrees: 180 });

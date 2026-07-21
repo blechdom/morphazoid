@@ -34,11 +34,14 @@ test("Lattice is one centered line instrument with no walk controls", async () =
   assert.match(html, /id="angle"[^>]+value="90"/);
   assert.match(html, /id="resetLineAngle"[^>]*>Reset 90&deg;<\/button>/);
   assert.match(html, /id="position"/);
+  assert.match(html, /id="patternDirection"/);
+  assert.match(html, /id="patternDirectionAngle"[^>]+value="0"/);
   assert.match(html, /id="voiceCap"/);
   assert.match(html, /src="lattice-app\.js"/);
   assert.doesNotMatch(html, /walk dot|walk length|turn bias/i);
   assert.doesNotMatch(`${app}\n${geometry}`, /walkNet|walkToPolyline|_probeWalk|walkLen/);
   assert.match(app, /createScanLine\(viewBounds, 0\.5, state\.angle\)/);
+  assert.match(app, /alignPeriodToDegrees: 180 \+ state\.patternDirectionAngle/);
   assert.match(app, /contactsForLine/);
   assert.match(app, /new VoicePool\(MAX_VOICES\)/);
   assert.match(app, /traversalDirection: -1/);
@@ -94,7 +97,7 @@ test("Lattice markup has unique ids and complete control labels", async () => {
   assert.equal(new Set(ids).size, ids.length, "every lattice id must be unique");
 
   for (const control of [
-    "level", "position", "angle", "tilingType", "density",
+    "level", "position", "patternDirectionAngle", "angle", "tilingType", "density",
     "parameter0", "parameter1", "parameter2", "parameter3", "parameter4", "parameter5",
     "edgeCurve0", "edgeCurve1", "edgeCurve2", "edgeCurve3", "edgeCurve4",
     "baseFrequency", "pitchRange", "contactLevel", "intersectionAccent",

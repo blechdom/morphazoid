@@ -192,8 +192,21 @@ test("lattice app renders and plays line contacts", async () => {
     "the selector should contain every Tactile isohedral family",
   );
   assert.equal(attributes.get("loopScan:aria-pressed"), "true");
-  assert.equal(elements.get("traversalDirectionGlyph").textContent, "\u2190");
-  assert.equal(elements.get("traversalDirectionText").textContent, "R→L");
+  assert.equal(elements.get("patternDirectionGlyph").textContent, "\u2190");
+  assert.equal(elements.get("patternDirectionText").textContent, "R→L");
+  assert.equal(elements.get("patternDirectionAngleOut").textContent, "R→L");
+  listeners.get("patternDirection:click")();
+  assert.equal(elements.get("patternDirectionAngle").value, "90");
+  assert.equal(elements.get("patternDirectionGlyph").textContent, "\u2193");
+  assert.equal(elements.get("patternDirectionAngleOut").textContent, "U→D");
+  assert.equal(elements.get("angleOut").textContent, "90\u00b0");
+  elements.get("patternDirectionAngle").value = "37";
+  listeners.get("patternDirectionAngle:input")();
+  assert.equal(elements.get("patternDirectionAngleOut").textContent, "37\u00b0");
+  assert.equal(elements.get("angleOut").textContent, "90\u00b0");
+  listeners.get("patternDirection:click")();
+  listeners.get("patternDirection:click")();
+  assert.equal(elements.get("patternDirectionAngleOut").textContent, "R→L");
   assert.equal(attributes.get("playButton:aria-pressed"), undefined);
   assert.ok(drawnArcs > 0, "line contacts should be drawn");
   assert.match(elements.get("outputContactLabel").textContent, /Contact 1 of/);
