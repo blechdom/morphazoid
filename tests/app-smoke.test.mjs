@@ -275,11 +275,36 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("amplitudePresetNote:aria-pressed"), "false");
   assert.equal(elements.get("amplitudeCurveState").textContent, "Pluck");
   assert.equal(elements.get("amplitudeIntervalHelp").textContent, "Corner trigger 0% → next corner 100%");
+  assert.equal(
+    elements.get("amplitudeNodeReadout").textContent,
+    "A @ 83 ms · D @ 250 ms · S @ 417 ms · R @ 667 ms",
+  );
+  assert.equal(
+    elements.get("amplitudeTimingBasis").textContent,
+    "Point · 0.060 cyc/s current contour timing · endpoints from trigger",
+  );
+  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /250 milliseconds from the trigger/);
+  listeners.get("amplitudeNode2:pointerdown")({ pointerId: 9, preventDefault() {} });
+  listeners.get("amplitudeCurveEditor:pointermove")({ pointerId: 9, clientX: 19.2, clientY: 48 });
+  assert.equal(
+    elements.get("amplitudeNodeReadout").textContent,
+    "A @ 83 ms · D @ 333 ms · S @ 417 ms · R @ 667 ms",
+  );
+  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /333 milliseconds from the trigger/);
+  assert.equal(elements.get("amplitudeNode2").title, "Decay · 333 ms · 50% level");
+  listeners.get("amplitudeCurveEditor:pointerup")({ pointerId: 9 });
+  listeners.get("resetAmplitudeCurve:click")();
   listeners.get("cornerSwellToggle:click")();
   assert.equal(attributes.get("cornerSwellToggle:aria-pressed"), "true");
   assert.equal(elements.get("cornerSwellToggleText").textContent, "Swell on");
   assert.equal(elements.get("amplitudeCurveState").textContent, "Pluck · mirrored");
   assert.equal(elements.get("amplitudeIntervalHelp").textContent, "Midpoint → corner peak → midpoint");
+  assert.equal(
+    elements.get("amplitudeNodeReadout").textContent,
+    "A 0 ms peak · D ±85 ms · S ±170 ms · R ±298 ms",
+  );
+  assert.match(elements.get("amplitudeTimingBasis").textContent, /± from corner/);
+  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /plus or minus 85 milliseconds from the corner/);
   listeners.get("cornerSwellToggle:click")();
   assert.equal(attributes.get("cornerSwellToggle:aria-pressed"), "false");
   assert.equal(elements.get("cornerSwellToggleText").textContent, "Swell off");
@@ -450,6 +475,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("speed:input")();
   assert.equal(elements.get("speedOut").textContent, "0.000 cyc/s");
   assert.equal(attributes.get("speed:aria-valuetext"), "0.000 cyc/s");
+  assert.equal(elements.get("amplitudeNodeReadout").textContent, "A @ — ms · D @ — ms · S @ — ms · R @ — ms");
+  assert.equal(elements.get("amplitudeTimingBasis").textContent, "Point · stopped at 0.000 cyc/s");
   elements.get("speed").value = "1";
   listeners.get("speed:input")();
   assert.equal(elements.get("speedOut").textContent, "4.000 cyc/s");
@@ -583,6 +610,26 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("positionOut").textContent, "360.0°");
   assert.equal(elements.get("speedOut").textContent, "4.000 rev/s");
   assert.equal(attributes.get("speed:aria-valuetext"), "4.000 rev/s");
+  queuedFrame(1_565);
+  assert.match(elements.get("amplitudeNodeReadout").textContent, /@ ≈ /);
+  assert.match(elements.get("amplitudeTimingBasis").textContent, /^≈ Radar ·/);
+  assert.match(elements.get("amplitudeTimingBasis").textContent, /even-corner nominal estimate/);
+  elements.get("speed").value = "0";
+  listeners.get("speed:input")();
+  elements.get("rotationSpeed").value = "0.5";
+  listeners.get("rotationSpeed:input")();
+  listeners.get("rotationPlayButton:click")();
+  assert.equal(attributes.get("rotationPlayButton:aria-pressed"), "true");
+  queuedFrame(1_566);
+  assert.equal(
+    elements.get("amplitudeTimingBasis").textContent,
+    "Radar · rotation-only motion · no stable ms estimate",
+  );
+  assert.equal(elements.get("amplitudeNodeReadout").textContent, "A @ — ms · D @ — ms · S @ — ms · R @ — ms");
+  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /no stable millisecond estimate during rotation-only motion/);
+  listeners.get("rotationPlayButton:click")();
+  elements.get("speed").value = "1";
+  listeners.get("speed:input")();
   assert.equal(attributes.get("position:aria-label"), "Radar angle from 0 to 360 degrees");
   queuedFrame(1_550);
   assert.match(elements.get("stageReadout").textContent, /1 RAY/);
@@ -729,6 +776,15 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("formSummary").textContent, "open line");
   assert.equal(elements.get("closedShapeControl").hidden, true);
   assert.equal(elements.get("curvatureControl").hidden, false);
+  listeners.get("traceMode:click")();
+  queuedFrame(3_011);
+  assert.match(elements.get("amplitudeNodeReadout").textContent, /^A @ 7\.5 ms/);
+  listeners.get("pingPongMotion:click")();
+  queuedFrame(3_012);
+  assert.match(elements.get("amplitudeNodeReadout").textContent, /^A @ 15 ms/);
+  listeners.get("loopMotion:click")();
+  listeners.get("scanMode:click")();
+  queuedFrame(3_013);
   elements.get("sides").value = "3";
   listeners.get("sides:input")();
   assert.equal(elements.get("sidesOut").textContent, "3 · polygon");

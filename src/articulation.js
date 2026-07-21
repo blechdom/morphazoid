@@ -67,6 +67,38 @@ export function motionSubsteps(positionDelta, rotationDeltaDegrees) {
   );
 }
 
+/**
+ * Convert a spatial envelope endpoint into its elapsed-time range. Fractions
+ * describe one or more local contour intervals as portions of a full reader
+ * circuit; travelMultiplier accounts for traversals such as an open Line loop
+ * that covers the contour twice per circuit.
+ *
+ * Returns null while stopped or when no usable interval exists.
+ */
+export function spatialEnvelopeTimeRange(
+  phase,
+  intervalFractions,
+  cyclesPerSecond,
+  travelMultiplier = 1,
+) {
+  const speed = Math.abs(Number(cyclesPerSecond));
+  const multiplier = Math.abs(Number(travelMultiplier));
+  const amount = Math.max(0, Math.min(1, Number.isFinite(phase) ? phase : 0));
+  const fractions = Array.isArray(intervalFractions)
+    ? intervalFractions.filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  if (!Number.isFinite(speed) || speed <= 0 || !Number.isFinite(multiplier) || multiplier <= 0 || !fractions.length) {
+    return null;
+  }
+  const milliseconds = fractions.map((fraction) => (
+    amount * fraction * 1000 / (speed * multiplier)
+  ));
+  return {
+    minimumMs: Math.min(...milliseconds),
+    maximumMs: Math.max(...milliseconds),
+  };
+}
+
 /** Move an absolute slider without discarding completed playback cycles. */
 export function rebaseContinuousPosition(continuousPosition, wrappedPosition, nextPosition) {
   return continuousPosition + nextPosition - wrappedPosition;

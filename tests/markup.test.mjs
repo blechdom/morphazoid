@@ -167,6 +167,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
     "amplitudePresetSustain", "amplitudePresetPad",
     "amplitudeCurveEditor", "amplitudeCurvePath", "resetAmplitudeCurve",
     "amplitudeCurveState", "amplitudeReleaseBehavior", "amplitudeIntervalHelp",
+    "amplitudeNodeReadout", "amplitudeTimingBasis",
   ]) assert.ok(html.includes(`id="${id}"`), `missing amplitude ADSR control #${id}`);
   assert.match(openingTag("amplitudeEnvelopeToggle"), /aria-pressed="true"[^>]*aria-label="Amplitude ADSR on"/);
   assert.match(openingTag("cornerSwellToggle"), /aria-pressed="false"[^>]*aria-label="Corner swell off"/);
@@ -177,11 +178,16 @@ test("the mobile instrument markup exposes the complete compact control surface"
   const amplitudeNodes = [...html.matchAll(/id="amplitudeNode(\d+)"/g)].map((match) => Number(match[1]));
   assert.deepEqual(amplitudeNodes, [0, 1, 2, 3, 4]);
   assert.match(html, /Corner trigger 0% → next corner 100%/);
+  assert.match(html, /A @ 83 ms · D @ 250 ms · S @ 417 ms · R @ 667 ms/);
+  assert.match(openingTag("amplitudeNodeReadout"), /aria-label="ADSR node timing"/);
+  assert.match(html, /Point · 0\.060 cyc\/s current contour timing · endpoints from trigger/);
   assert.doesNotMatch(html, /id="(?:sineArticulation|sineAccent|sineDecay)"/);
   assert.match(app, /sampleAmplitudeEnvelope/);
   assert.match(app, /scaleShapeVoiceGains/);
   assert.match(app, /state\.cornerSwell/);
   assert.match(app, /mirroredCornerPhase\(path, contact\)/);
+  assert.match(app, /spatialEnvelopeTimeRange/);
+  assert.match(app, /aria-describedby", "amplitudeTimingBasis"/);
   assert.match(openingTag("cornerDecay"), /min="15"[^>]*max="2000"[^>]*value="90"/);
 
   // Mapping has one permanent reference: fixed stage/screen axes. There is no
@@ -278,6 +284,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /\.curve-node\s*\{[\s\S]*?position:\s*absolute;/);
   assert.match(css, /\.amplitude-mode-buttons\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*52px\)/);
   assert.match(css, /\.amplitude-preset-strip\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*1fr\)/);
+  assert.match(css, /\.amplitude-timing-row\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums/);
   assert.match(css, /\.master-level-row\s*\{/);
   assert.match(css, /\.mapping-source-help\s*\{/);
   assert.match(css, /\.audio-strip\.shape-audio-strip\s*\{[\s\S]*?grid-template-columns:\s*max-content/);

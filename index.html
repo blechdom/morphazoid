@@ -299,6 +299,10 @@
                 <small id="amplitudeIntervalHelp">Corner trigger 0% → next corner 100%</small>
                 <button class="mini-action" id="resetAmplitudeCurve" type="button">Reset</button>
               </div>
+              <div class="amplitude-timing-row">
+                <output id="amplitudeNodeReadout" aria-label="ADSR node timing">A @ 83 ms · D @ 250 ms · S @ 417 ms · R @ 667 ms</output>
+                <small id="amplitudeTimingBasis">Point · 0.060 cyc/s current contour timing · endpoints from trigger</small>
+              </div>
               <div class="amplitude-curve-status">
                 <output id="amplitudeCurveState">Pluck</output>
                 <small id="amplitudeReleaseBehavior">Release reaches zero · voice rests until next trigger</small>

@@ -7,6 +7,7 @@ import {
   motionSubsteps,
   rebaseContinuousPosition,
   rebasePingPongPosition,
+  spatialEnvelopeTimeRange,
 } from "../src/articulation.js";
 
 test("corner crossings work forward, backward, and across cycle wrap", () => {
@@ -61,6 +62,27 @@ test("rotation substeps expose two near-tangent crossings hidden by frame endpoi
     previousTarget = target;
   }
   assert.equal(crossings, 2);
+});
+
+test("spatial envelope timing reports exact, ranged, doubled, and stopped values", () => {
+  assert.deepEqual(spatialEnvelopeTimeRange(0.25, [0.2], 0.05), {
+    minimumMs: 1000,
+    maximumMs: 1000,
+  });
+  assert.deepEqual(spatialEnvelopeTimeRange(0.25, [0.2, 0.4], 0.05), {
+    minimumMs: 1000,
+    maximumMs: 2000,
+  });
+  assert.deepEqual(spatialEnvelopeTimeRange(0.25, [1], 0.05, 2), {
+    minimumMs: 2500,
+    maximumMs: 2500,
+  });
+  assert.equal(spatialEnvelopeTimeRange(0.5, [0.25], 0), null);
+  assert.equal(spatialEnvelopeTimeRange(0.5, [], 0.1), null);
+  assert.deepEqual(spatialEnvelopeTimeRange(2, [0.25], 0.1), {
+    minimumMs: 2500,
+    maximumMs: 2500,
+  });
 });
 
 test("manual scrubbing preserves completed forward and reverse cycles", () => {

@@ -14,6 +14,7 @@ import {
   motionSubsteps,
   rebaseContinuousPosition,
   rebasePingPongPosition,
+  spatialEnvelopeTimeRange,
 } from "./src/articulation.js";
 import {
   amplitudeEnvelopePreset,
@@ -840,6 +841,7 @@ function setRotationPlaying(playing, shouldAnnounce = true) {
   state.autoRotate = Boolean(playing);
   setPressed($("rotationPlayButton"), state.autoRotate);
   $("rotationPlayButton").setAttribute("aria-label", state.autoRotate ? "Pause rotation" : "Start rotation");
+  updateAmplitudeTimingUi();
   if (!state.autoRotate && !state.playing) pool.silence();
   lastFrameTime = performance.now();
   lastAudioClockTime = pool.context?.currentTime ?? null;
@@ -1093,6 +1095,164 @@ function amplitudeCurvePathData(points = state.amplitudeEnvelopePoints) {
   return commands.join(" ");
 }
 
+function shapeEdgeFractions(path) {
+  if (!path?.vertexDistances?.length || path.totalLength <= 1e-9) return [];
+  if (!path.closed) return [1];
+  return path.vertexDistances.map((start, index) => {
+    const end = index + 1 < path.vertexDistances.length
+      ? path.vertexDistances[index + 1]
+      : path.totalLength;
+    return (end - start) / path.totalLength;
+  }).filter((fraction) => fraction > 1e-9);
+}
+
+function amplitudeTimingReference(path) {
+  const label = state.playMethod === "scan" ? "Line" : state.playMethod === "radial" ? "Radar" : "Point";
+  const edgeFractions = shapeEdgeFractions(path);
+  const approximate = state.playMethod !== "trace";
+  const intervalFractions = approximate && edgeFractions.length
+    ? [1 / edgeFractions.length]
+    : edgeFractions;
+  const travelMultiplier = state.playMethod === "trace"
+    && !path.closed
+    && state.motionMode === "loop"
+    ? 2
+    : 1;
+  const timedFractions = state.cornerSwell
+    ? intervalFractions.map((fraction) => fraction * 0.5)
+    : intervalFractions;
+  const variedEdges = intervalFractions.length > 1
+    && Math.max(...intervalFractions) - Math.min(...intervalFractions) > 1e-6;
+  const rotationOnly = approximate
+    && state.speed <= 0
+    && state.autoRotate
+    && state.rotationSpeed > 0;
+  let basis;
+  if (!edgeFractions.length) {
+    basis = "No corner timing on a continuous circle";
+  } else if (rotationOnly) {
+    basis = `${label} · rotation-only motion · no stable ms estimate`;
+  } else if (state.speed <= 0) {
+    basis = `${label} · stopped at ${formatPlayheadSpeed()}`;
+  } else if (approximate) {
+    basis = `≈ ${label} · ${formatPlayheadSpeed()} even-corner nominal estimate${state.autoRotate ? " · varies with rotation" : ""}`;
+  } else {
+    basis = `${label} · ${formatPlayheadSpeed()} current contour timing${variedEdges ? " · edge range" : ""}`;
+  }
+  if (edgeFractions.length && state.speed > 0) {
+    basis += state.cornerSwell ? " · ± from corner" : " · endpoints from trigger";
+  }
+  return {
+    approximate,
+    basis,
+    intervalFractions: timedFractions,
+    travelMultiplier,
+    unavailableSpoken: !edgeFractions.length
+      ? "no corner timing on a continuous circle"
+      : rotationOnly
+        ? "no stable millisecond estimate during rotation-only motion"
+        : "timing unavailable while the playhead speed is zero",
+  };
+}
+
+function formatMilliseconds(milliseconds) {
+  if (milliseconds < 10) return milliseconds.toFixed(1).replace(/\.0$/, "");
+  return String(Math.round(milliseconds));
+}
+
+function formatAmplitudeTimeRange(range, { approximate = false, symmetric = false } = {}) {
+  if (!range) return "— ms";
+  const minimum = formatMilliseconds(range.minimumMs);
+  const maximum = formatMilliseconds(range.maximumMs);
+  const value = minimum === maximum ? `${minimum} ms` : `${minimum}–${maximum} ms`;
+  return `${approximate ? "≈ " : ""}${symmetric ? "±" : ""}${value}`;
+}
+
+function speakAmplitudeTimeRange(
+  range,
+  { approximate = false, symmetric = false } = {},
+) {
+  if (!range) return "timing unavailable";
+  const minimum = formatMilliseconds(range.minimumMs);
+  const maximum = formatMilliseconds(range.maximumMs);
+  const value = minimum === maximum
+    ? `${minimum} milliseconds`
+    : `${minimum} to ${maximum} milliseconds depending on the edge`;
+  return `${approximate ? "approximately " : ""}${symmetric ? "plus or minus " : ""}${value}`;
+}
+
+function amplitudeNodeTiming(index, path, reference = amplitudeTimingReference(path)) {
+  const node = state.amplitudeEnvelopePoints[index];
+  if (state.cornerSwell) {
+    if (index === 0) return { short: "unused in Swell", spoken: "unused in Swell" };
+    if (index === 1) return { short: "0 ms peak", spoken: "at the corner peak, zero milliseconds" };
+    const attackPhase = state.amplitudeEnvelopePoints[1]?.x ?? 0;
+    const mirroredDistance = attackPhase >= 1
+      ? 0
+      : clamp((node.x - attackPhase) / (1 - attackPhase), 0, 1);
+    const range = spatialEnvelopeTimeRange(
+      mirroredDistance,
+      reference.intervalFractions,
+      state.speed,
+      reference.travelMultiplier,
+    );
+    return {
+      short: formatAmplitudeTimeRange(range, { approximate: reference.approximate, symmetric: true }),
+      spoken: range
+        ? `${speakAmplitudeTimeRange(range, {
+          approximate: reference.approximate,
+          symmetric: true,
+        })} from the corner`
+        : reference.unavailableSpoken,
+    };
+  }
+
+  const range = spatialEnvelopeTimeRange(
+    node.x,
+    reference.intervalFractions,
+    state.speed,
+    reference.travelMultiplier,
+  );
+  return {
+    short: formatAmplitudeTimeRange(range, { approximate: reference.approximate }),
+    spoken: range
+      ? `${speakAmplitudeTimeRange(range, {
+        approximate: reference.approximate,
+      })} from the trigger`
+      : reference.unavailableSpoken,
+  };
+}
+
+function amplitudeNodeAnnouncement(index, path = currentShape()) {
+  const node = state.amplitudeEnvelopePoints[index];
+  const intervalPercent = Math.round(node.x * 100);
+  const levelPercent = Math.round(node.y * 100);
+  const timing = amplitudeNodeTiming(index, path);
+  return `${AMPLITUDE_NODE_NAMES[index]}: ${intervalPercent} percent interval, ${levelPercent} percent level, ${timing.spoken}.`;
+}
+
+function updateAmplitudeTimingUi(path = currentShape()) {
+  const reference = amplitudeTimingReference(path);
+  const timings = state.amplitudeEnvelopePoints.map((_, index) => (
+    amplitudeNodeTiming(index, path, reference)
+  ));
+  $("amplitudeNodeReadout").textContent = state.cornerSwell
+    ? `A ${timings[1].short} · D ${timings[2].short} · S ${timings[3].short} · R ${timings[4].short}`
+    : `A @ ${timings[1].short} · D @ ${timings[2].short} · S @ ${timings[3].short} · R @ ${timings[4].short}`;
+  $("amplitudeTimingBasis").textContent = reference.basis;
+
+  state.amplitudeEnvelopePoints.forEach((point, index) => {
+    const handle = $(`amplitudeNode${index}`);
+    const intervalPercent = Math.round(point.x * 100);
+    const levelPercent = Math.round(point.y * 100);
+    const timing = timings[index];
+    handle.setAttribute("aria-label", `${AMPLITUDE_NODE_NAMES[index]}: ${intervalPercent} percent interval, ${levelPercent} percent level, ${timing.spoken}`);
+    handle.setAttribute("aria-valuetext", `${intervalPercent} percent interval, ${levelPercent} percent level, ${timing.spoken}`);
+    handle.setAttribute("aria-describedby", "amplitudeTimingBasis");
+    handle.title = `${AMPLITUDE_NODE_NAMES[index]} · ${timing.short} · ${levelPercent}% level`;
+  });
+}
+
 function updateAmplitudeUi() {
   const release = state.amplitudeEnvelopePoints.at(-1);
   $("amplitudeCurvePath").setAttribute("d", amplitudeCurvePathData());
@@ -1124,15 +1284,13 @@ function updateAmplitudeUi() {
   $("cornerSwellToggle").disabled = !state.amplitudeEnvelopeEnabled;
   state.amplitudeEnvelopePoints.forEach((point, index) => {
     const handle = $(`amplitudeNode${index}`);
-    const intervalPercent = Math.round(point.x * 100);
     const levelPercent = Math.round(point.y * 100);
     handle.style.left = `${point.x * 100}%`;
     handle.style.top = `${(1 - point.y) * 100}%`;
-    handle.setAttribute("aria-label", `${AMPLITUDE_NODE_NAMES[index]}: ${intervalPercent} percent interval, ${levelPercent} percent level`);
     handle.setAttribute("aria-valuenow", String(levelPercent));
-    handle.setAttribute("aria-valuetext", `${intervalPercent} percent interval, ${levelPercent} percent level`);
     handle.disabled = !state.amplitudeEnvelopeEnabled;
   });
+  updateAmplitudeTimingUi();
   $("amplitudeReleaseBehavior").textContent = !state.amplitudeEnvelopeEnabled
     ? "ADSR off · constant per-voice level"
     : release.y <= 0.005
@@ -1153,8 +1311,7 @@ function setAmplitudeNode(index, point, shouldAnnounce = false) {
   state.amplitudePreset = "custom";
   updateAmplitudeUi();
   if (shouldAnnounce) {
-    const node = state.amplitudeEnvelopePoints[index];
-    announce(`${AMPLITUDE_NODE_NAMES[index]}: ${Math.round(node.x * 100)} percent interval, ${Math.round(node.y * 100)} percent level.`);
+    announce(amplitudeNodeAnnouncement(index));
   }
   invalidate();
 }
@@ -1199,8 +1356,7 @@ function endAmplitudeDrag(event) {
   if (!draggingAmplitudeNode || event.pointerId !== draggingAmplitudeNode.pointerId) return;
   const index = draggingAmplitudeNode.index;
   draggingAmplitudeNode = null;
-  const node = state.amplitudeEnvelopePoints[index];
-  announce(`${AMPLITUDE_NODE_NAMES[index]}: ${Math.round(node.x * 100)} percent interval, ${Math.round(node.y * 100)} percent level.`);
+  announce(amplitudeNodeAnnouncement(index));
 }
 
 $("amplitudeCurveEditor").addEventListener("pointerup", endAmplitudeDrag);
@@ -1229,6 +1385,7 @@ speedInput.addEventListener("input", () => {
   state.speed = speedFromSlider(Number(speedInput.value));
   $("speedOut").textContent = formatPlayheadSpeed();
   speedInput.setAttribute("aria-valuetext", formatPlayheadSpeed());
+  updateAmplitudeTimingUi();
   dismissHelp();
 });
 
@@ -2410,6 +2567,7 @@ function updateUi(contacts, voiceCount, path) {
   $("position").setAttribute("aria-valuetext", formatPlayheadPosition());
   $("rotation").value = String(state.rotation);
   $("rotationOut").textContent = `${Math.round(state.rotation)}°`;
+  updateAmplitudeTimingUi(path);
 
   const readerCount = effectiveHeadCount();
   const readerName = state.playMethod === "scan"
