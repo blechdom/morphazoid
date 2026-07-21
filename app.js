@@ -3,7 +3,6 @@ import {
   horizontalIntersections,
   pingPong01,
   pointAtPath,
-  pointInBounds01,
   rayIntersections,
   verticalIntersections,
   wrap01,
@@ -62,9 +61,13 @@ const state = {
   sides: 4,
   curvature: 0,
   shapeType: "polygon",
+  closedShapeType: "polygon",
+  starDepth: 0.48,
   aspect: 0,
   skew: 0,
   rotation: 0,
+  continuousRotation: 0,
+  rotationMotionMode: "loop",
   playMethod: "trace",
   lineCount: 1,
   scanLineAxes: ["vertical", "vertical", "vertical", "vertical"],
@@ -81,8 +84,8 @@ const state = {
   rotationDirection: 1,
   audio: false,
   playing: false,
-  position: 0.5,
-  continuousPosition: 0.5,
+  position: 0,
+  continuousPosition: 0,
   speed: 0.06,
   traversalDirection: 1,
   baseFrequency: 110,
@@ -103,7 +106,6 @@ const state = {
   pmIndex: 2,
   pmRatio: 1,
   stereoWidth: 1,
-  mappingFrame: "instrument",
   pitchSource: "height",
   pitchCurve: "linear",
   hitLevelSource: "corner",
@@ -132,7 +134,6 @@ state.fmRatio = clamp(state.fmRatio, 0.25, 8);
 state.pmIndex = clamp(state.pmIndex, 0, 8);
 state.pmRatio = clamp(state.pmRatio, 0.25, 8);
 state.stereoWidth = clamp(state.stereoWidth, 0, 1);
-state.mappingFrame = state.mappingFrame === "shape" ? "shape" : "instrument";
 state.pitchSource = ["height", "center", "corner", "incidence", "phase"].includes(state.pitchSource)
   ? state.pitchSource
   : "height";
@@ -163,8 +164,6 @@ let lastUiUpdate = 0;
 let lastAudioUpdate = -Infinity;
 let cachedShape = null;
 let cachedShapeKey = "";
-let cachedLocalShape = null;
-let cachedLocalShapeKey = "";
 let audioChanging = false;
 let scheduledFrame = 0;
 let cornerSnapshot = null;
@@ -176,6 +175,37 @@ function plural(count, singular, pluralForm = `${singular}s`) {
 
 function normalizeDegrees(value) {
   return ((value + 180) % 360 + 360) % 360 - 180;
+}
+
+function rotationAngleAtTravel(travel, mode = state.rotationMotionMode) {
+  return mode === "pingpong"
+    ? pingPong01(travel) * 360 - 180
+    : normalizeDegrees(travel * 360);
+}
+
+function rebaseRotationTravel(angle = state.rotation, preferredLeg = null) {
+  if (state.rotationMotionMode === "pingpong") {
+    const physical = clamp((normalizeDegrees(angle) + 180) / 360, 0, 1);
+    state.continuousRotation = preferredLeg === "ascending"
+      ? Math.round((state.continuousRotation - physical) / 2) * 2 + physical
+      : rebasePingPongPosition(state.continuousRotation, physical);
+  } else {
+    state.continuousRotation = rebaseContinuousPosition(
+      state.continuousRotation,
+      wrap01(state.continuousRotation),
+      wrap01(normalizeDegrees(angle) / 360),
+    );
+  }
+}
+
+function setRotationAngle(angle, shouldAnnounce = false) {
+  state.rotation = normalizeDegrees(angle);
+  rebaseRotationTravel(state.rotation);
+  $("rotation").value = String(state.rotation);
+  $("rotationOut").textContent = `${Math.round(state.rotation)}°`;
+  resetCornerTracking();
+  if (shouldAnnounce) announce(`Rotation reset to ${Math.round(state.rotation)} degrees.`);
+  invalidate();
 }
 
 function scheduleFrame() {
@@ -201,7 +231,7 @@ function announce(message) {
 function formatSides(value = state.sides) {
   if (value === 1) return "1 · circle";
   if (value === 2) return "2 · open line";
-  return `${value} · polygon`;
+  return `${value} · ${state.closedShapeType}`;
 }
 
 function formatCurvature(value = state.curvature) {
@@ -296,7 +326,7 @@ function renderHeadLayout() {
     const optionButton = $(`headOption${index}`);
     optionButton.hidden = index >= count;
     if (marker.hidden) continue;
-    const displayPhase = wrap01(0.5 + offsets[index]);
+    const displayPhase = wrap01(offsets[index]);
     const reader = lines ? `${scanAxisForHead(index)} line` : state.playMethod === "radial" ? "Radar ray" : "Point";
     marker.style.left = `${displayPhase * 100}%`;
     marker.style.top = "58%";
@@ -332,7 +362,7 @@ function updateSectionSummaries() {
     ? "circle · no corners"
     : state.sides === 2
     ? "open line"
-    : `${state.sides} sides`;
+    : `${state.sides}-point ${state.closedShapeType}`;
   $("soundSummary").textContent = SOUND_MODE_LABELS[state.soundMode];
   $("mappingSummary").textContent = `${PITCH_SUMMARY_LABELS[state.pitchSource] ?? "Mark"} → pitch`;
 }
@@ -428,7 +458,11 @@ const updateSidesOutput = bindRange("sides", "sides", formatSides, () => {
   updateSectionSummaries();
   resetCornerTracking();
 });
-bindRange("rotation", "rotation", (value) => `${Math.round(value)}°`);
+$("rotation").addEventListener("input", () => {
+  setRotationAngle(Number($("rotation").value));
+  dismissHelp();
+});
+$("resetRotation").addEventListener("click", () => setRotationAngle(0, true));
 const updateLineCountOutput = bindRange("lineCount", "lineCount", (value) => {
   return `${value} ${plural(value, "line")}`;
 }, () => {
@@ -451,6 +485,7 @@ const updateAspectOutput = bindRange("aspect", "aspect", (value) => {
   return `${Math.round(Math.abs(value) * 100)}% ${value > 0 ? "wide" : "tall"}`;
 }, resetCornerTracking);
 const updateSkewOutput = bindRange("skew", "skew", (value) => `${Math.round(value * 100)}%`, resetCornerTracking);
+const updateStarDepthOutput = bindRange("starDepth", "starDepth", (value) => `${Math.round(value * 100)}%`, resetCornerTracking);
 bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
@@ -469,7 +504,13 @@ bindRange("stereoWidth", "stereoWidth", (value) => `${Math.round(value * 100)}%`
 
 function syncFormTopology(shouldAnnounce = false) {
   const circle = state.sides === 1;
-  state.shapeType = circle ? "circle" : "polygon";
+  const closed = state.sides >= 3;
+  state.shapeType = circle ? "circle" : closed ? state.closedShapeType : "polygon";
+  $("closedShapeControl").hidden = !closed;
+  $("starDepthControl").hidden = !closed || state.closedShapeType !== "star";
+  for (const button of $("closedShapeType").querySelectorAll("button")) {
+    setPressed(button, button.dataset.value === state.closedShapeType);
+  }
   $("curvatureControl").hidden = circle;
   $("sineModeOption").textContent = circle ? "Sine · continuous contour" : "Sine · corner envelope";
   updateSineArticulationVisibility();
@@ -480,9 +521,23 @@ function syncFormTopology(shouldAnnounce = false) {
       ? "One selected: a smooth circle with no corners."
       : state.sides === 2
         ? "Two selected: an open line."
-        : `${state.sides}-sided polygon selected.`);
+        : `${state.sides}-point ${state.closedShapeType} selected.`);
   }
   invalidate();
+}
+
+function setClosedShapeType(shapeType, shouldAnnounce = true) {
+  state.closedShapeType = shapeType === "star" ? "star" : "polygon";
+  syncFormTopology(false);
+  updateSidesOutput();
+  updateSectionSummaries();
+  updateCanvasLabel();
+  resetCornerTracking();
+  if (shouldAnnounce) announce(`${state.closedShapeType === "star" ? "Star" : "Polygon"} contour selected.`);
+}
+
+for (const button of $("closedShapeType").querySelectorAll("button")) {
+  button.addEventListener("click", () => setClosedShapeType(button.dataset.value));
 }
 
 function resetFormRange(id, key, updateOutput, label) {
@@ -505,16 +560,18 @@ $("resetSkew").addEventListener("click", () => {
 });
 
 $("resetForm").addEventListener("click", () => {
-  state.sides = 4;
+  state.closedShapeType = "polygon";
+  state.starDepth = 0.48;
   state.curvature = 0;
   state.aspect = 0;
   state.skew = 0;
-  $("sides").value = "4";
+  $("starDepth").value = "0.48";
   $("curvature").value = "0";
   $("aspect").value = "0";
   $("skew").value = "0";
   syncFormTopology(false);
   updateSidesOutput();
+  updateStarDepthOutput();
   updateCurvatureOutput();
   updateAspectOutput();
   updateSkewOutput();
@@ -631,7 +688,7 @@ function setMotionMode(motion, shouldAnnounce = true) {
     state.motionMode = nextMotion;
     resetCornerTracking();
   }
-  for (const button of $("playheadMotion").querySelectorAll("button")) {
+  for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
     setPressed(button, button.dataset.value === state.motionMode);
   }
   updateTraversalDirection();
@@ -640,7 +697,7 @@ function setMotionMode(motion, shouldAnnounce = true) {
   invalidate();
 }
 
-for (const button of $("playheadMotion").querySelectorAll("button")) {
+for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
   button.addEventListener("click", () => setMotionMode(button.dataset.value));
 }
 
@@ -649,7 +706,7 @@ function setCustomHeadOffset(index, displayPhase, shouldAnnounce = false) {
   const offsets = sanitizeHeadOffsets(offsetsForMethod(), count, activeOffsetLayout());
   setOffsetsForMethod(
     state.playMethod,
-    updateHeadOffset(offsets, index, wrapOffset(displayPhase - 0.5)),
+    updateHeadOffset(offsets, index, wrapOffset(displayPhase)),
   );
   resetCornerTracking();
   renderHeadLayout();
@@ -673,7 +730,7 @@ for (let index = 0; index < 12; index += 1) {
   marker.addEventListener("keydown", (event) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
-    const current = wrap01(0.5 + phaseOffsetForHead(index));
+    const current = wrap01(phaseOffsetForHead(index));
     const step = event.shiftKey ? 0.05 : 0.01;
     setCustomHeadOffset(index, current + (event.key === "ArrowLeft" ? -step : step), true);
   });
@@ -742,7 +799,6 @@ function setRotationPlaying(playing, shouldAnnounce = true) {
   state.autoRotate = Boolean(playing);
   setPressed($("rotationPlayButton"), state.autoRotate);
   $("rotationPlayButton").setAttribute("aria-label", state.autoRotate ? "Pause rotation" : "Start rotation");
-  $("rotationDirection").hidden = !state.autoRotate;
   if (!state.autoRotate && !state.playing) pool.silence();
   lastFrameTime = performance.now();
   lastAudioClockTime = pool.context?.currentTime ?? null;
@@ -766,11 +822,23 @@ function setRotationDirection(direction, shouldAnnounce = true) {
 
 $("rotationDirection").addEventListener("click", () => setRotationDirection(-state.rotationDirection));
 
-$("mappingFrame").value = state.mappingFrame;
-$("mappingFrame").addEventListener("change", (event) => {
-  state.mappingFrame = event.currentTarget.value;
-  dismissHelp();
-});
+function setRotationMotionMode(motion, shouldAnnounce = true) {
+  const nextMotion = motion === "pingpong" ? "pingpong" : "loop";
+  if (nextMotion !== state.rotationMotionMode) {
+    state.rotationMotionMode = nextMotion;
+    rebaseRotationTravel(state.rotation, nextMotion === "pingpong" ? "ascending" : null);
+    resetCornerTracking();
+  }
+  for (const button of $("rotationMotion").querySelectorAll("button[data-value]")) {
+    setPressed(button, button.dataset.value === state.rotationMotionMode);
+  }
+  if (shouldAnnounce) announce(`${nextMotion === "pingpong" ? "Ping-pong" : "Loop"} rotation selected.`);
+  invalidate();
+}
+
+for (const button of $("rotationMotion").querySelectorAll("button[data-value]")) {
+  button.addEventListener("click", () => setRotationMotionMode(button.dataset.value));
+}
 
 for (const [id, key] of [
   ["pitchSource", "pitchSource"],
@@ -819,7 +887,6 @@ function setPlaying(playing) {
   state.playing = Boolean(playing);
   setPressed($("playButton"), state.playing);
   $("playButton").setAttribute("aria-label", state.playing ? "Pause playhead" : "Play playhead");
-  $("traversalDirection").hidden = !state.playing;
   if (!state.playing && !state.autoRotate) pool.silence();
   lastFrameTime = performance.now();
   lastAudioClockTime = pool.context?.currentTime ?? null;
@@ -926,6 +993,7 @@ function currentShape() {
   const key = [
     state.sides,
     state.shapeType,
+    state.starDepth.toFixed(4),
     state.curvature.toFixed(4),
     state.aspect.toFixed(4),
     state.skew.toFixed(4),
@@ -936,6 +1004,7 @@ function currentShape() {
   cachedShape = buildShape({
     sides: state.sides,
     shapeType: state.shapeType,
+    starDepth: state.starDepth,
     curvature: state.curvature,
     aspect: state.aspect,
     skew: state.skew,
@@ -949,34 +1018,13 @@ function shapeAtRotation(rotationDeg) {
   return buildShape({
     sides: state.sides,
     shapeType: state.shapeType,
+    starDepth: state.starDepth,
     curvature: state.curvature,
     aspect: state.aspect,
     skew: state.skew,
     rotationDeg,
     samplesPerEdge: 48,
   });
-}
-
-function currentLocalShape() {
-  const key = [
-    state.sides,
-    state.shapeType,
-    state.curvature.toFixed(4),
-    state.aspect.toFixed(4),
-    state.skew.toFixed(4),
-  ].join("|");
-  if (cachedLocalShape && cachedLocalShapeKey === key) return cachedLocalShape;
-  cachedLocalShapeKey = key;
-  cachedLocalShape = buildShape({
-    sides: state.sides,
-    shapeType: state.shapeType,
-    curvature: state.curvature,
-    aspect: state.aspect,
-    skew: state.skew,
-    rotationDeg: 0,
-    samplesPerEdge: 48,
-  });
-  return cachedLocalShape;
 }
 
 function directionalHeadTravel(position, headIndex, method = state.playMethod) {
@@ -1323,17 +1371,6 @@ function drawPlayer(path, transform) {
 }
 
 function normalizedContactCoordinates(contact, path) {
-  if (state.mappingFrame === "shape") {
-    const radians = (-path.rotationDeg * Math.PI) / 180;
-    const cosine = Math.cos(radians);
-    const sine = Math.sin(radians);
-    const localContact = {
-      x: contact.x * cosine - contact.y * sine,
-      y: contact.x * sine + contact.y * cosine,
-    };
-    const normalized = pointInBounds01(localContact, currentLocalShape().bounds);
-    return { x: clamp(normalized.x, 0, 1), y: clamp(normalized.y, 0, 1) };
-  }
   return {
     x: clamp((contact.x + 1) * 0.5, 0, 1),
     y: clamp((contact.y + 1) * 0.5, 0, 1),
@@ -1368,7 +1405,7 @@ function incidenceForContact(contact, path, headIndex = contact.headIndex ?? 0) 
     : state.traversalDirection * relativeDirection;
   const scanSpeed = state.playing ? motionDirection * state.speed : 0;
   const rotationSpeed = state.autoRotate
-    ? state.rotationDirection * state.rotationSpeed * TAU
+    ? currentRotationDirection() * state.rotationSpeed * TAU
     : 0;
   let velocity = axis === "radial"
     ? {
@@ -1442,6 +1479,13 @@ function pingPongMotionDirection(travelPosition, multiplier = 1, relativeDirecti
   return Math.abs(delta) > 1e-9
     ? Math.sign(delta)
     : state.traversalDirection * relativeDirection;
+}
+
+function currentRotationDirection() {
+  if (state.rotationMotionMode !== "pingpong") return state.rotationDirection;
+  const step = state.rotationDirection * 1e-5;
+  const delta = pingPong01(state.continuousRotation + step) - pingPong01(state.continuousRotation);
+  return Math.abs(delta) > 1e-9 ? Math.sign(delta) : -state.rotationDirection;
 }
 
 function pointContourDirection(contact, path) {
@@ -1588,7 +1632,11 @@ function continuousSynthVoices(contacts, path) {
   });
 }
 
-function makeCornerSnapshot(path, continuousPosition = state.continuousPosition) {
+function makeCornerSnapshot(
+  path,
+  continuousPosition = state.continuousPosition,
+  continuousRotation = state.continuousRotation,
+) {
   const count = effectiveHeadCount();
   const vertices = path.vertexIndices.map((pointIndex, vertexIndex) => {
     const point = path.points[pointIndex];
@@ -1622,6 +1670,7 @@ function makeCornerSnapshot(path, continuousPosition = state.continuousPosition)
         ? ""
         : directionAdjustmentsForMethod().slice(0, count).map((value) => value.toFixed(4)).join(","),
       state.motionMode,
+      state.rotationMotionMode,
       path.sides,
       path.vertexCount,
       path.shapeType,
@@ -1633,6 +1682,7 @@ function makeCornerSnapshot(path, continuousPosition = state.continuousPosition)
       offsetsForMethod().map((value) => value.toFixed(4)).join(","),
     ].join("|"),
     continuousPosition,
+    continuousRotation,
     rotationDeg: path.rotationDeg,
     bounds: path.bounds,
     heads,
@@ -1808,21 +1858,23 @@ function trackCornerMotion(finalPath) {
   }
 
   const positionDelta = finalSnapshot.continuousPosition - cornerSnapshot.continuousPosition;
-  const rotationDelta = normalizeDegrees(finalSnapshot.rotationDeg - cornerSnapshot.rotationDeg);
-  const steps = motionSubsteps(positionDelta, rotationDelta);
+  const rotationTravelDelta = finalSnapshot.continuousRotation - cornerSnapshot.continuousRotation;
+  const steps = motionSubsteps(positionDelta, rotationTravelDelta * 360);
   let previous = cornerSnapshot;
   for (let step = 1; step <= steps; step += 1) {
     const amount = step / steps;
     const isFinal = step === steps;
+    const intermediateRotationTravel = cornerSnapshot.continuousRotation + rotationTravelDelta * amount;
     const path = isFinal
       ? finalPath
       : buildShape({
         sides: state.sides,
         shapeType: state.shapeType,
+        starDepth: state.starDepth,
         curvature: state.curvature,
         aspect: state.aspect,
         skew: state.skew,
-        rotationDeg: normalizeDegrees(cornerSnapshot.rotationDeg + rotationDelta * amount),
+        rotationDeg: rotationAngleAtTravel(intermediateRotationTravel),
         samplesPerEdge: 48,
       });
     const snapshot = isFinal
@@ -1830,6 +1882,7 @@ function trackCornerMotion(finalPath) {
       : makeCornerSnapshot(
         path,
         cornerSnapshot.continuousPosition + positionDelta * amount,
+        intermediateRotationTravel,
       );
     emitCornerStrikes(previous, snapshot, path, amount);
     previous = snapshot;
@@ -2029,9 +2082,8 @@ function frame(now) {
   }
 
   if (state.autoRotate) {
-    state.rotation = normalizeDegrees(
-      state.rotation + state.rotationDirection * state.rotationSpeed * 360 * deltaSeconds,
-    );
+    state.continuousRotation += state.rotationDirection * state.rotationSpeed * deltaSeconds;
+    state.rotation = rotationAngleAtTravel(state.continuousRotation);
   }
 
   const path = currentShape();
@@ -2058,11 +2110,11 @@ function frame(now) {
           + (state.playing
             ? state.traversalDirection * state.speed * AUDIO_LOOKAHEAD_SECONDS
             : 0);
-        const futureRotation = normalizeDegrees(
-          state.rotation + (state.autoRotate
-            ? state.rotationDirection * state.rotationSpeed * 360 * AUDIO_LOOKAHEAD_SECONDS
-            : 0),
-        );
+        const futureRotationTravel = state.continuousRotation
+          + (state.autoRotate
+            ? state.rotationDirection * state.rotationSpeed * AUDIO_LOOKAHEAD_SECONDS
+            : 0);
+        const futureRotation = rotationAngleAtTravel(futureRotationTravel);
         const futurePath = Math.abs(futureRotation - state.rotation) > 1e-9
           ? shapeAtRotation(futureRotation)
           : path;
@@ -2168,10 +2220,7 @@ canvas.addEventListener("pointermove", (event) => {
     Math.sin(pointerAngle(event) - pointerGesture.startAngle),
     Math.cos(pointerAngle(event) - pointerGesture.startAngle),
   );
-  state.rotation = normalizeDegrees(pointerGesture.startRotation + angleDelta * 180 / Math.PI);
-  $("rotation").value = String(state.rotation);
-  $("rotationOut").textContent = `${Math.round(state.rotation)}°`;
-  invalidate();
+  setRotationAngle(pointerGesture.startRotation + angleDelta * 180 / Math.PI);
 });
 
 function endPointer(event) {
@@ -2224,6 +2273,7 @@ setMotionMode(state.motionMode, false);
 setSoundMode(state.soundMode, false);
 setTraversalDirection(1, false);
 setRotationDirection(1, false);
+setRotationMotionMode(state.rotationMotionMode, false);
 setRotationPlaying(false, false);
 paintAudioState();
 renderHeadLayout();

@@ -69,6 +69,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   const groups = {
     playMethod: ["traceMode", "scanMode", "radialMode"],
     playheadMotion: ["loopMotion", "pingPongMotion"],
+    rotationMotion: ["rotationLoopMotion", "rotationPingPongMotion"],
+    closedShapeType: ["polygonShape", "starShape"],
   };
   const dataValues = {
     scanMode: "scan",
@@ -76,6 +78,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     radialMode: "radial",
     pingPongMotion: "pingpong",
     loopMotion: "loop",
+    rotationPingPongMotion: "pingpong",
+    rotationLoopMotion: "loop",
+    polygonShape: "polygon",
+    starShape: "star",
   };
   for (const [id, value] of Object.entries(dataValues)) elements.get(id).dataset.value = value;
   for (const [id, childIds] of Object.entries(groups)) {
@@ -209,15 +215,21 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
   assert.equal(elements.get("sides").value, "4");
   assert.equal(elements.get("sidesOut").textContent, "4 · polygon");
-  assert.equal(elements.get("formSummary").textContent, "4 sides");
+  assert.equal(elements.get("formSummary").textContent, "4-point polygon");
   for (const removedId of [
-    "shapeType", "circleShape", "polygonShape", "starShape", "starDepth",
-    "starDepthControl", "asymmetry", "curvatureDirection", "curvatureOutward", "curvatureIn",
+    "shapeType", "circleShape", "asymmetry", "curvatureDirection", "curvatureOutward", "curvatureIn",
   ]) assert.equal(elements.has(removedId), false, `obsolete Form control #${removedId} should be absent`);
+  assert.equal(attributes.get("polygonShape:aria-pressed"), "true");
+  assert.equal(attributes.get("starShape:aria-pressed"), "false");
+  assert.equal(elements.get("closedShapeControl").hidden, false);
+  assert.equal(elements.get("starDepthControl").hidden, true);
+  assert.equal(elements.get("starDepthOut").textContent, "48%");
   assert.equal(attributes.get("rotationPlayButton:aria-pressed"), "false");
+  assert.equal(attributes.get("rotationLoopMotion:aria-pressed"), "true");
+  assert.equal(attributes.get("rotationPingPongMotion:aria-pressed"), "false");
   assert.equal(elements.get("levelOut").textContent, "65%");
-  assert.equal(elements.get("position").value, "0.5");
-  assert.equal(elements.get("positionOut").textContent, "50.0%");
+  assert.equal(elements.get("position").value, "0");
+  assert.equal(elements.get("positionOut").textContent, "0.0%");
   assert.equal(elements.get("headsControl").hidden, false);
   assert.equal(elements.get("lineCountControl").hidden, true);
   assert.equal(elements.get("playheadMotion").hidden, false);
@@ -233,10 +245,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("fmArticulation").hidden, true);
   assert.equal(elements.get("pmArticulation").hidden, true);
   assert.equal(elements.get("hitMapping").hidden, true);
-  assert.equal(elements.get("traversalDirection").hidden, true);
-  assert.equal(elements.get("rotationDirection").hidden, true);
+  assert.equal(elements.get("traversalDirection").hidden, false);
+  assert.equal(elements.get("rotationDirection").hidden, false);
   assert.equal(elements.get("headMarker0").hidden, false);
-  assert.equal(elements.get("headMarker0").style.left, "50%");
+  assert.equal(elements.get("headMarker0").style.left, "0%");
   assert.equal(elements.get("headMarker0").style.top, "58%");
   assert.equal(elements.get("headMarker1").hidden, true);
   assert.equal(elements.get("playheadCountOut").textContent, "1 point");
@@ -254,6 +266,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
   assert.equal(elements.get("outputVoiceLabel").textContent, "sine");
   assert.equal(elements.get("mappingSummary").textContent, "Height → pitch");
+  assert.equal(elements.has("mappingFrame"), false);
   assert.equal(elements.get("outputContactLabel").textContent, "Contact 1 of 1");
   assert.notEqual(elements.get("markFrequencyOut").textContent, "");
   assert.match(elements.get("contactStream").innerHTML, /contact-row/);
@@ -355,7 +368,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.ok(continuousGains.some((gain) => gain.gain.value > 0));
   listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "false");
-  assert.equal(elements.get("traversalDirection").hidden, true);
+  assert.equal(elements.get("traversalDirection").hidden, false);
   queuedFrame(1_225);
   assert.ok(continuousGains.every((gain) => gain.gain.value === 0));
 
@@ -375,7 +388,29 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("rotationOut").textContent, "144°");
   listeners.get("rotationPlayButton:click")();
   assert.equal(attributes.get("rotationPlayButton:aria-pressed"), "false");
-  assert.equal(elements.get("rotationDirection").hidden, true);
+  assert.equal(elements.get("rotationDirection").hidden, false);
+
+  // Reset keeps the angle slider/readout synchronized. Rotation ping-pong
+  // preserves zero on selection, then reverses after its +180-degree limit.
+  listeners.get("resetRotation:click")();
+  assert.equal(elements.get("rotation").value, "0");
+  assert.equal(elements.get("rotationOut").textContent, "0°");
+  listeners.get("rotationPingPongMotion:click")();
+  assert.equal(attributes.get("rotationPingPongMotion:aria-pressed"), "true");
+  assert.equal(attributes.get("rotationLoopMotion:aria-pressed"), "false");
+  assert.equal(elements.get("rotationOut").textContent, "0°");
+  listeners.get("rotationPlayButton:click")();
+  queuedFrame(1_420);
+  const rotationBeforeTurnaround = Number.parseFloat(elements.get("rotationOut").textContent);
+  queuedFrame(1_520);
+  const rotationAfterTurnaround = Number.parseFloat(elements.get("rotationOut").textContent);
+  assert.ok(rotationBeforeTurnaround > rotationAfterTurnaround);
+  listeners.get("rotationPlayButton:click")();
+  assert.equal(elements.get("rotationDirection").hidden, false);
+  listeners.get("rotationLoopMotion:click")();
+  assert.equal(attributes.get("rotationLoopMotion:aria-pressed"), "true");
+  listeners.get("resetRotation:click")();
+  assert.equal(elements.get("rotationOut").textContent, "0°");
 
   listeners.get("scanMode:click")();
   assert.equal(elements.get("headsControl").hidden, true);
@@ -477,9 +512,9 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
 
   elements.get("heads").value = "3";
   listeners.get("heads:input")();
-  assert.equal(elements.get("headMarker0").style.left, "50%");
-  assert.ok(Math.abs(parseFloat(elements.get("headMarker1").style.left) - 83.333) < 0.01);
-  assert.ok(Math.abs(parseFloat(elements.get("headMarker2").style.left) - 16.667) < 0.01);
+  assert.equal(elements.get("headMarker0").style.left, "0%");
+  assert.ok(Math.abs(parseFloat(elements.get("headMarker1").style.left) - 33.333) < 0.01);
+  assert.ok(Math.abs(parseFloat(elements.get("headMarker2").style.left) - 66.667) < 0.01);
   assert.equal(elements.get("headMarker3").hidden, true);
   assert.equal(elements.get("headOption2").hidden, false);
   assert.equal(elements.get("headOption3").hidden, true);
@@ -510,7 +545,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("headMarker1").style.left, "25%");
   listeners.get("headLayoutTrack:pointerup")({ pointerId: 7 });
   listeners.get("resetHeadSpacing:click")();
-  assert.ok(Math.abs(parseFloat(elements.get("headMarker1").style.left) - 83.333) < 0.01);
+  assert.ok(Math.abs(parseFloat(elements.get("headMarker1").style.left) - 33.333) < 0.01);
 
   elements.get("heads").value = "12";
   listeners.get("heads:input")();
@@ -526,12 +561,14 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.match(elements.get("stageReadout").textContent, /4 LINES/);
   assert.doesNotMatch(elements.get("stageReadout").textContent, /12 POINTS/);
 
-  // Side count is the form selector: 1 is a continuous circle, 2 is an open
-  // line, and 3+ is a polygon. Only a circle suppresses corner controls.
+  // Side count selects a continuous circle, open line, or a closed polygon /
+  // star. The closed topology and star depth survive a temporary 1/2 choice.
   elements.get("sides").value = "1";
   listeners.get("sides:input")();
   assert.equal(elements.get("sidesOut").textContent, "1 · circle");
   assert.equal(elements.get("sidesControl").hidden, false);
+  assert.equal(elements.get("closedShapeControl").hidden, true);
+  assert.equal(elements.get("starDepthControl").hidden, true);
   assert.equal(elements.get("curvatureControl").hidden, true);
   assert.equal(elements.get("formSummary").textContent, "circle · no corners");
   assert.equal(elements.get("curvatureOut").textContent, "continuous contour");
@@ -546,11 +583,38 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("sides:input")();
   assert.equal(elements.get("sidesOut").textContent, "2 · open line");
   assert.equal(elements.get("formSummary").textContent, "open line");
+  assert.equal(elements.get("closedShapeControl").hidden, true);
   assert.equal(elements.get("curvatureControl").hidden, false);
   elements.get("sides").value = "3";
   listeners.get("sides:input")();
   assert.equal(elements.get("sidesOut").textContent, "3 · polygon");
-  assert.equal(elements.get("formSummary").textContent, "3 sides");
+  assert.equal(elements.get("formSummary").textContent, "3-point polygon");
+  assert.equal(elements.get("closedShapeControl").hidden, false);
+
+  listeners.get("starShape:click")();
+  assert.equal(attributes.get("starShape:aria-pressed"), "true");
+  assert.equal(attributes.get("polygonShape:aria-pressed"), "false");
+  assert.equal(elements.get("sidesOut").textContent, "3 · star");
+  assert.equal(elements.get("formSummary").textContent, "3-point star");
+  assert.equal(elements.get("starDepthControl").hidden, false);
+  elements.get("starDepth").value = "0.7";
+  listeners.get("starDepth:input")();
+  assert.equal(elements.get("starDepthOut").textContent, "70%");
+
+  elements.get("sides").value = "1";
+  listeners.get("sides:input")();
+  assert.equal(elements.get("closedShapeControl").hidden, true);
+  assert.equal(elements.get("starDepthControl").hidden, true);
+  elements.get("sides").value = "2";
+  listeners.get("sides:input")();
+  assert.equal(elements.get("closedShapeControl").hidden, true);
+  elements.get("sides").value = "7";
+  listeners.get("sides:input")();
+  assert.equal(attributes.get("starShape:aria-pressed"), "true");
+  assert.equal(elements.get("sidesOut").textContent, "7 · star");
+  assert.equal(elements.get("formSummary").textContent, "7-point star");
+  assert.equal(elements.get("starDepthControl").hidden, false);
+  assert.equal(elements.get("starDepthOut").textContent, "70%");
 
   elements.get("curvature").value = "-0.4";
   listeners.get("curvature:input")();
@@ -576,8 +640,6 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("skew").value, "0");
   assert.equal(elements.get("skewOut").textContent, "0%");
 
-  elements.get("sides").value = "7";
-  listeners.get("sides:input")();
   elements.get("curvature").value = "-0.25";
   listeners.get("curvature:input")();
   elements.get("aspect").value = "0.5";
@@ -585,8 +647,13 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   elements.get("skew").value = "-0.35";
   listeners.get("skew:input")();
   listeners.get("resetForm:click")();
-  assert.equal(elements.get("sidesOut").textContent, "4 · polygon");
-  assert.equal(elements.get("sides").value, "4");
+  assert.equal(elements.get("sidesOut").textContent, "7 · polygon");
+  assert.equal(elements.get("sides").value, "7");
+  assert.equal(attributes.get("polygonShape:aria-pressed"), "true");
+  assert.equal(attributes.get("starShape:aria-pressed"), "false");
+  assert.equal(elements.get("starDepth").value, "0.48");
+  assert.equal(elements.get("starDepthOut").textContent, "48%");
+  assert.equal(elements.get("starDepthControl").hidden, true);
   assert.equal(elements.get("curvature").value, "0");
   assert.equal(elements.get("curvatureOut").textContent, "straight");
   assert.equal(elements.get("aspect").value, "0");
@@ -608,8 +675,6 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("cornerAttack:input")();
   elements.get("stereoWidth").value = "0.42";
   listeners.get("stereoWidth:input")();
-  elements.get("mappingFrame").value = "shape";
-  listeners.get("mappingFrame:change")({ currentTarget: elements.get("mappingFrame") });
   elements.get("pitchSource").value = "incidence";
   listeners.get("pitchSource:change")({ currentTarget: elements.get("pitchSource") });
   elements.get("pitchCurve").value = "logarithmic";
@@ -639,7 +704,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("cornerDecayOut").textContent, "320 ms");
   assert.equal(elements.get("cornerAttackOut").textContent, "12.5 ms");
   assert.equal(elements.get("stereoWidthOut").textContent, "42%");
-  assert.equal(elements.get("mappingFrame").value, "shape");
+  assert.equal(elements.has("mappingFrame"), false);
   assert.equal(elements.get("pitchSource").value, "incidence");
   assert.equal(elements.get("pitchCurve").value, "logarithmic");
   assert.equal(elements.get("hitLevelSource").value, "incidence");
@@ -670,7 +735,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("cornerAccentOut").textContent, "90%");
   assert.equal(elements.get("cornerAttackOut").textContent, "3 ms");
   assert.equal(elements.get("cornerDecayOut").textContent, "90 ms");
-  assert.equal(elements.get("mappingFrame").value, "instrument");
+  assert.equal(elements.has("mappingFrame"), false);
   assert.equal(elements.get("pitchSource").value, "height");
   assert.equal(elements.get("pitchCurve").value, "linear");
   assert.equal(elements.get("hitLevelSource").value, "corner");

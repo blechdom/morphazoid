@@ -58,23 +58,25 @@ test("the mobile instrument markup exposes the complete compact control surface"
 
   // Reading method remains a compact rocker control.
   assertDefaultLeftChoice("playMethod", "traceMode", "Points", "scanMode");
-  assert.equal((html.match(/class="choice-switch/g) ?? []).length, 1);
+  assert.equal((html.match(/class="choice-switch/g) ?? []).length, 2);
   assert.match(openingTag("loopMotion"), /aria-pressed="true"[^>]*aria-label="Loop movement"/);
   assert.match(openingTag("pingPongMotion"), /aria-pressed="false"[^>]*aria-label="Back-and-forth movement"/);
   assert.match(html, /id="loopMotion"[\s\S]*?>⟳<[\s\S]*?id="pingPongMotion"[\s\S]*?>↔</);
 
-  // Loop / ping-pong is shared by every playhead type and sits beside the count stepper.
-  const countMotionRow = html.indexOf('class="playhead-count-motion-row"');
-  const stepperStart = html.indexOf('id="playheadStepper"', countMotionRow);
-  const motionStart = html.indexOf('id="playheadMotion"', countMotionRow);
-  const headsStart = html.indexOf('id="headsControl"', countMotionRow);
-  assert.ok(countMotionRow >= 0 && stepperStart > countMotionRow && motionStart > stepperStart);
-  assert.ok(headsStart > motionStart);
+  // Loop / ping-pong is shared by every playhead type and forms one continuous
+  // three-button array with direction beside Playhead speed, not the count row.
+  const motionStart = html.indexOf('id="playheadMotion"', speedStart);
+  const stepperStart = html.indexOf('id="playheadStepper"', methodStart);
+  assert.ok(motionStart > speedStart && motionStart < methodStart);
+  assert.ok(stepperStart > methodStart);
+  assert.match(openingTag("playheadMotion"), /class="transport-button-array"/);
+  assert.doesNotMatch(html, /playhead-count-motion-row|playhead-motion-choice/);
   assert.doesNotMatch(html, /Line movement/i);
   assert.doesNotMatch(html, /id="scanMotionControl"/);
 
-  // Points start at the contour midpoint; conditional line-count controls remain hidden.
-  assert.match(openingTag("position"), /value="0\.5"/);
+  // Points and the first relative-spacing marker start at zero, the far left.
+  assert.match(openingTag("position"), /value="0"/);
+  assert.match(html, /id="positionOut"[^>]*>0\.0%<\/output>/);
   assert.doesNotMatch(openingTag("headsControl"), /\bhidden\b/);
   assert.match(openingTag("lineCountControl"), /\bhidden\b/);
   const options = [...html.matchAll(/id="headOption(\d+)"/g)].map((match) => Number(match[1]));
@@ -88,10 +90,16 @@ test("the mobile instrument markup exposes the complete compact control surface"
     assert.match(openingTag(`headOption${index}`), /class="head-option-toggle"/);
   }
 
-  // Each transport owns one compact direction toggle, shown only while it runs.
-  assert.match(openingTag("traversalDirection"), /\bhidden\b/);
-  assert.match(openingTag("rotationDirection"), /\bhidden\b/);
+  // Direction and motion mode stay visible whether or not either transport runs.
+  assert.doesNotMatch(openingTag("traversalDirection"), /\bhidden\b/);
+  assert.doesNotMatch(openingTag("rotationDirection"), /\bhidden\b/);
   assert.doesNotMatch(html, /id="(?:traversal|rotation)(?:Forward|Reverse)"/);
+  assert.match(openingTag("rotationMotion"), /class="transport-button-array"/);
+  assert.match(openingTag("rotationLoopMotion"), /aria-pressed="true"[^>]*aria-label="Loop rotation"/);
+  assert.match(openingTag("rotationPingPongMotion"), /aria-pressed="false"[^>]*aria-label="Back-and-forth rotation"/);
+  assert.match(html, /id="rotationLoopMotion"[\s\S]*?>⟳<[\s\S]*?id="rotationPingPongMotion"[\s\S]*?>↔</);
+  assert.match(openingTag("resetRotation"), /aria-label="Reset rotation angle to zero degrees"/);
+  assert.match(html, /class="rotation-angle-row"[\s\S]{0,300}id="rotation"[\s\S]{0,300}id="resetRotation"[^>]*>0°<\/button>/);
   assert.match(app, /const SPEED_MAX = 4;/);
   assert.match(app, /SPEED_MAX \* Math\.expm1\(SPEED_CURVE \* position\) \/ Math\.expm1\(SPEED_CURVE\)/);
   assert.match(app, /shepardPositionForContact/);
@@ -108,14 +116,19 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(openingTag("addPlayhead"), /aria-label="Add one playhead"/);
   const markers = [...html.matchAll(/id="headMarker(\d+)"/g)].map((match) => Number(match[1]));
   assert.deepEqual(markers, Array.from({ length: 12 }, (_, index) => index));
-  assert.match(openingTag("headMarker0"), /aria-valuenow="0\.5"/);
+  assert.match(openingTag("headMarker0"), /aria-valuenow="0"/);
   assert.doesNotMatch(openingTag("headMarker0"), /\bhidden\b/);
   assert.match(openingTag("headMarker1"), /\bhidden\b/);
 
-  // Side count directly selects circle, open line, or polygon; form transforms
-  // use centered signed ranges with an adjacent reset action.
+  // Side count directly selects circle/open line; closed forms retain a compact
+  // polygon/star choice and star depth. Form transforms use centered signed
+  // ranges with an adjacent reset action.
   assert.match(openingTag("sides"), /min="1"[^>]*max="32"[^>]*step="1"/);
-  assert.match(html, /1 circle · 2 open line · 3\+ polygon/);
+  assert.match(html, /<b>Sides \/ points<\/b>/);
+  assert.match(html, /1 circle · 2 open line · 3\+ polygon or star/);
+  assertDefaultLeftChoice("closedShapeType", "polygonShape", "Polygon", "starShape");
+  assert.match(openingTag("starDepthControl"), /\bhidden\b/);
+  assert.match(openingTag("starDepth"), /min="0\.05"[^>]*max="0\.82"[^>]*value="0\.48"/);
   assert.match(openingTag("curvature"), /min="-1"[^>]*max="1"[^>]*value="0"/);
   assert.match(openingTag("aspect"), /min="-2"[^>]*max="2"/);
   assert.match(openingTag("skew"), /min="-2"[^>]*max="2"/);
@@ -133,7 +146,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assertAdjacentReset("skew", "resetSkew", "zero");
   assert.doesNotMatch(
     html,
-    /id="(?:shapeType|circleShape|polygonShape|starShape|starDepth|starDepthControl|asymmetry|asymmetryControl|curvatureDirection|curvatureOutward|curvatureIn)"/,
+    /id="(?:shapeType|circleShape|asymmetry|asymmetryControl|curvatureDirection|curvatureOutward|curvatureIn)"/,
   );
 
   const soundSelect = html.match(/<select\s+id="soundMode"[^>]*>([\s\S]*?)<\/select>/);
@@ -152,9 +165,12 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(openingTag("sineDecay"), /min="20"[^>]*max="4000"[^>]*value="650"/);
   assert.match(openingTag("cornerDecay"), /min="15"[^>]*max="2000"[^>]*value="90"/);
 
-  // Mapping names the coordinate frame and transfer curves explicitly.
+  // Mapping has one permanent reference: fixed stage/screen axes. There is no
+  // Form-local coordinate-frame choice to drift when the contour rotates.
+  assert.doesNotMatch(html, /id="mappingFrame"|Shape axes · rotate with form/);
+  assert.doesNotMatch(app, /mappingFrame|currentLocalShape/);
   for (const id of [
-    "mappingFrame", "mappingSummary", "pitchSource", "pitchCurve", "hitLevelSource", "hitLevelCurve",
+    "mappingSummary", "pitchSource", "pitchCurve", "hitLevelSource", "hitLevelCurve",
     "synthSource", "shepardCycles", "shepardDirection", "shepardWidth",
     "fmIndex", "fmRatio", "pmIndex", "pmRatio",
   ]) assert.ok(html.includes(`id="${id}"`));
@@ -180,6 +196,9 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /@media\s*\(max-width:\s*960px\)[\s\S]*?\.panel\s*\{[\s\S]*?overflow-y:\s*auto;/);
   assert.match(css, /@media\s*\(max-width:\s*960px\)\s*and\s*\(max-height:\s*560px\)/);
   assert.match(css, /\.head-layout-track\.has-head-options[\s\S]*?height:\s*76px/);
+  assert.match(css, /\.transport-button-array\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,\s*42px\)/);
+  assert.match(css, /\.transport-button-array\s*>\s*button\s*\{[\s\S]*?width:\s*42px;[\s\S]*?height:\s*44px;/);
+  assert.match(css, /\.transport-button-array\s*>\s*button\s*\+\s*button\s*\{[\s\S]*?border-left:\s*0;/);
 
   assert.ok(html.indexOf('id="audioButton"') < html.indexOf('id="playSection"'));
   assert.ok(html.indexOf('id="level"') < html.indexOf("<main"));

@@ -78,18 +78,22 @@
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
               </button>
               <label class="control position-control" for="position">
-                <span><b id="positionLabel">Playhead position</b><output id="positionOut" for="position">50.0%</output></span>
-                <input id="position" type="range" min="0" max="1" step="0.0005" value="0.5" />
+                <span><b id="positionLabel">Playhead position</b><output id="positionOut" for="position">0.0%</output></span>
+                <input id="position" type="range" min="0" max="1" step="0.0005" value="0" />
               </label>
             </div>
 
             <div class="rate-control playhead-rate-control" role="group" aria-label="Automatic playhead motion">
               <span class="rate-heading"><b id="speedLabel">Playhead speed</b><output id="speedOut" for="speed">0.060 cyc/s</output></span>
-              <div class="rate-row-single">
+              <div class="rate-row-single transport-rate-row">
                 <input id="speed" aria-label="Playhead speed" type="range" min="0" max="1" step="0.001" value="0.2992" />
-                <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Playhead direction: clockwise" hidden>
-                  <span id="traversalDirectionGlyph">→</span><small id="traversalDirectionText">CW</small>
-                </button>
+                <div class="transport-button-array" id="playheadMotion" role="group" aria-label="Playhead direction and movement">
+                  <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Playhead direction: clockwise">
+                    <span id="traversalDirectionGlyph">→</span><small id="traversalDirectionText">CW</small>
+                  </button>
+                  <button id="loopMotion" type="button" data-value="loop" aria-pressed="true" aria-label="Loop movement" title="Loop"><span aria-hidden="true">⟳</span><small>Loop</small></button>
+                  <button id="pingPongMotion" type="button" data-value="pingpong" aria-pressed="false" aria-label="Back-and-forth movement" title="Back and forth"><span aria-hidden="true">↔</span><small>Ping-pong</small></button>
+                </div>
               </div>
             </div>
 
@@ -100,16 +104,10 @@
               <button id="radialMode" type="button" data-value="radial" aria-pressed="false">Radar</button>
             </div>
 
-            <div class="playhead-count-motion-row">
-              <div class="playhead-stepper" id="playheadStepper" role="group" aria-label="Playhead count">
-                <button id="removePlayhead" type="button" aria-label="Remove one playhead">−</button>
-                <span><small>Playheads</small><output id="playheadCountOut">1 point</output></span>
-                <button id="addPlayhead" type="button" aria-label="Add one playhead">+</button>
-              </div>
-              <div class="icon-choice playhead-motion-choice" id="playheadMotion" role="group" aria-label="Playhead movement">
-                <button id="loopMotion" type="button" data-value="loop" aria-pressed="true" aria-label="Loop movement" title="Loop"><span aria-hidden="true">⟳</span><small>Loop</small></button>
-                <button id="pingPongMotion" type="button" data-value="pingpong" aria-pressed="false" aria-label="Back-and-forth movement" title="Back and forth"><span aria-hidden="true">↔</span><small>Ping-pong</small></button>
-              </div>
+            <div class="playhead-stepper" id="playheadStepper" role="group" aria-label="Playhead count">
+              <button id="removePlayhead" type="button" aria-label="Remove one playhead">−</button>
+              <span><small>Playheads</small><output id="playheadCountOut">1 point</output></span>
+              <button id="addPlayhead" type="button" aria-label="Add one playhead">+</button>
             </div>
 
             <label class="control mode-control count-range-proxy" id="headsControl" for="heads">
@@ -128,7 +126,7 @@
                 <button class="mini-action" id="resetHeadSpacing" type="button">Equidistant</button>
               </div>
               <div class="head-layout-track" id="headLayoutTrack" aria-label="Relative playhead spacing">
-                <button class="head-marker" id="headMarker0" type="button" data-head-index="0" aria-label="Playhead 1 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.5"><span>1</span></button>
+                <button class="head-marker" id="headMarker0" type="button" data-head-index="0" aria-label="Playhead 1 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0"><span>1</span></button>
                 <button class="head-option-toggle" id="headOption0" type="button" data-head-index="0" aria-pressed="false" aria-label="Playhead 1 forward; reverse direction" title="Reverse playhead 1"><span aria-hidden="true">→</span></button>
                 <button class="head-marker" id="headMarker1" type="button" data-head-index="1" aria-label="Playhead 2 phase" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" hidden><span>2</span></button>
                 <button class="head-option-toggle" id="headOption1" type="button" data-head-index="1" aria-pressed="false" aria-label="Playhead 2 forward; reverse direction" title="Reverse playhead 2" hidden><span aria-hidden="true">→</span></button>
@@ -160,19 +158,26 @@
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
               </button>
-              <label class="control rotation-control" for="rotation">
-                <span><b>Rotate angle</b><output id="rotationOut" for="rotation">0°</output></span>
-                <input id="rotation" type="range" min="-180" max="180" step="1" value="0" />
-              </label>
+              <div class="control rotation-control">
+                <span><label for="rotation">Rotate angle</label><output id="rotationOut" for="rotation">0°</output></span>
+                <div class="rotation-angle-row">
+                  <input id="rotation" type="range" min="-180" max="180" step="1" value="0" />
+                  <button class="mini-action rotation-reset" id="resetRotation" type="button" aria-label="Reset rotation angle to zero degrees">0°</button>
+                </div>
+              </div>
             </div>
 
             <div class="rate-control motion-controls" id="rotationControls" role="group" aria-label="Automatic rotation">
               <span class="rate-heading"><b>Rotation speed</b><output id="rotationSpeedOut" for="rotationSpeed">0.12 rev/s</output></span>
-              <div class="rate-row-single">
+              <div class="rate-row-single transport-rate-row">
                 <input id="rotationSpeed" aria-label="Rotation speed" type="range" min="0" max="4" step="0.01" value="0.12" />
-                <button class="direction-toggle" id="rotationDirection" type="button" aria-label="Rotation direction: clockwise" hidden>
-                  <span id="rotationDirectionGlyph">→</span><small id="rotationDirectionText">CW</small>
-                </button>
+                <div class="transport-button-array" id="rotationMotion" role="group" aria-label="Rotation direction and movement">
+                  <button class="direction-toggle" id="rotationDirection" type="button" aria-label="Rotation direction: clockwise">
+                    <span id="rotationDirectionGlyph">→</span><small id="rotationDirectionText">CW</small>
+                  </button>
+                  <button id="rotationLoopMotion" type="button" data-value="loop" aria-pressed="true" aria-label="Loop rotation" title="Loop rotation"><span aria-hidden="true">⟳</span><small>Loop</small></button>
+                  <button id="rotationPingPongMotion" type="button" data-value="pingpong" aria-pressed="false" aria-label="Back-and-forth rotation" title="Back and forth rotation"><span aria-hidden="true">↔</span><small>Ping-pong</small></button>
+                </div>
               </div>
             </div>
           </div>
@@ -185,9 +190,22 @@
           </summary>
           <div class="group-body">
             <label class="control" id="sidesControl" for="sides">
-              <span><b>Form</b><output id="sidesOut" for="sides">4 · polygon</output></span>
+              <span><b>Sides / points</b><output id="sidesOut" for="sides">4 · polygon</output></span>
               <input id="sides" type="range" min="1" max="32" step="1" value="4" />
-              <small class="form-count-key">1 circle · 2 open line · 3+ polygon</small>
+              <small class="form-count-key">1 circle · 2 open line · 3+ polygon or star</small>
+            </label>
+
+            <div class="form-topology-control" id="closedShapeControl">
+              <span class="field-label">Contour</span>
+              <div class="choice-switch" id="closedShapeType" role="group" aria-label="Closed contour type">
+                <button id="polygonShape" type="button" data-value="polygon" aria-pressed="true">Polygon</button>
+                <button id="starShape" type="button" data-value="star" aria-pressed="false">Star</button>
+              </div>
+            </div>
+
+            <label class="control" id="starDepthControl" for="starDepth" hidden>
+              <span><b>Star depth</b><output id="starDepthOut" for="starDepth">48%</output></span>
+              <input id="starDepth" type="range" min="0.05" max="0.82" step="0.01" value="0.48" />
             </label>
 
             <div class="control" id="curvatureControl">
@@ -341,16 +359,6 @@
             <span class="section-state" id="mappingSummary">Height → pitch</span>
           </summary>
           <div class="group-body">
-            <label class="select-control" for="mappingFrame">
-              <span class="field-label">Pitch + pan reference</span>
-              <span class="select-shell">
-                <select id="mappingFrame">
-                  <option value="instrument" selected>Stage axes · fixed</option>
-                  <option value="shape">Shape axes · rotate with form</option>
-                </select>
-              </span>
-            </label>
-
             <label class="select-control" for="pitchSource">
               <span class="field-label">Pitch mark</span>
               <span class="select-shell">
