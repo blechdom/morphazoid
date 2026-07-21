@@ -275,7 +275,7 @@
                 <span class="field-label">Amplitude ADSR</span>
                 <div class="amplitude-mode-buttons" role="group" aria-label="Amplitude envelope modes">
                   <button id="amplitudeEnvelopeToggle" type="button" aria-pressed="true" aria-label="Amplitude ADSR on"><span aria-hidden="true">⌁</span><small id="amplitudeEnvelopeToggleText">On</small></button>
-                  <button id="cornerSwellToggle" type="button" aria-pressed="false" aria-label="Corner swell off"><span aria-hidden="true">▶◀</span><small>Swell</small></button>
+                  <button id="cornerSwellToggle" type="button" aria-pressed="false" aria-label="Corner swell off"><span aria-hidden="true">▶◀</span><small id="cornerSwellToggleText">Swell off</small></button>
                 </div>
               </div>
               <div class="curve-preset-strip amplitude-preset-strip" id="amplitudeEnvelopePresets" role="group" aria-label="Amplitude ADSR presets">
@@ -296,7 +296,7 @@
                 <button class="curve-node amplitude-node" id="amplitudeNode4" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="4" style="left:16%;top:100%" aria-label="Release: 16 percent interval, 0 percent level"><span>R</span></button>
               </div>
               <div class="curve-editor-footer">
-                <small>Corner trigger 0% → next corner 100%</small>
+                <small id="amplitudeIntervalHelp">Corner trigger 0% → next corner 100%</small>
                 <button class="mini-action" id="resetAmplitudeCurve" type="button">Reset</button>
               </div>
               <div class="amplitude-curve-status">

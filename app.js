@@ -1,6 +1,7 @@
 import {
   buildShape,
   horizontalIntersections,
+  mirroredCornerPhase,
   pingPong01,
   pointAtPath,
   rayIntersections,
@@ -22,6 +23,7 @@ import {
   cornerDecaySeconds,
   cornerStrikePeak,
   mapCurve01,
+  mirroredAmplitudeEnvelopePhase,
   normalizeStrikeGains,
   pitch01ToFrequency,
   sampleAmplitudeEnvelope,
@@ -1095,13 +1097,23 @@ function updateAmplitudeUi() {
   const release = state.amplitudeEnvelopePoints.at(-1);
   $("amplitudeCurvePath").setAttribute("d", amplitudeCurvePathData());
   $("amplitudeCurveState").textContent = state.amplitudeEnvelopeEnabled
-    ? AMPLITUDE_PRESET_LABELS[state.amplitudePreset] ?? "Custom"
+    ? `${AMPLITUDE_PRESET_LABELS[state.amplitudePreset] ?? "Custom"}${state.cornerSwell ? " · mirrored" : ""}`
     : "Bypassed";
   setPressed($("amplitudeEnvelopeToggle"), state.amplitudeEnvelopeEnabled);
   $("amplitudeEnvelopeToggle").setAttribute("aria-label", `Amplitude ADSR ${state.amplitudeEnvelopeEnabled ? "on" : "off"}`);
   $("amplitudeEnvelopeToggleText").textContent = state.amplitudeEnvelopeEnabled ? "On" : "Off";
   setPressed($("cornerSwellToggle"), state.cornerSwell);
   $("cornerSwellToggle").setAttribute("aria-label", `Corner swell ${state.cornerSwell ? "on" : "off"}`);
+  $("cornerSwellToggleText").textContent = state.cornerSwell ? "Swell on" : "Swell off";
+  $("amplitudeIntervalHelp").textContent = state.cornerSwell
+    ? "Midpoint → corner peak → midpoint"
+    : "Corner trigger 0% → next corner 100%";
+  $("amplitudeCurveEditor").setAttribute(
+    "aria-label",
+    state.cornerSwell
+      ? "Editable amplitude ADSR mirrored before and after each corner"
+      : "Editable amplitude ADSR across one directed corner interval",
+  );
   $("amplitudeCurveEditor").classList.toggle("is-disabled", !state.amplitudeEnvelopeEnabled);
   $("amplitudeCurveEditor").setAttribute("aria-disabled", String(!state.amplitudeEnvelopeEnabled));
   for (const button of $("amplitudeEnvelopePresets").querySelectorAll("button")) {
@@ -1196,12 +1208,16 @@ $("amplitudeCurveEditor").addEventListener("pointercancel", endAmplitudeDrag);
 $("resetAmplitudeCurve").addEventListener("click", () => selectAmplitudePreset("pluck"));
 $("amplitudeEnvelopeToggle").addEventListener("click", () => {
   state.amplitudeEnvelopeEnabled = !state.amplitudeEnvelopeEnabled;
+  if (!state.amplitudeEnvelopeEnabled) state.cornerSwell = false;
+  lastAudioUpdate = -Infinity;
   updateAmplitudeUi();
   announce(`Amplitude ADSR ${state.amplitudeEnvelopeEnabled ? "on" : "off"}.`);
   invalidate();
 });
 $("cornerSwellToggle").addEventListener("click", () => {
+  if (!state.amplitudeEnvelopeEnabled) return;
   state.cornerSwell = !state.cornerSwell;
+  lastAudioUpdate = -Infinity;
   updateAmplitudeUi();
   announce(`Corner swell ${state.cornerSwell ? "on" : "off"}.`);
   invalidate();
@@ -1878,7 +1894,7 @@ function cornerEnvelopeProfile(contact, path) {
   if (state.cornerSwell) {
     return {
       strength: contact.cornerStrength ?? 0,
-      distance: clamp((contact.cornerDistance01 ?? 0) * 2, 0, 1),
+      distance: mirroredCornerPhase(path, contact),
       edgeFraction: 1 / Math.max(1, path.vertexCount),
     };
   }
@@ -1980,7 +1996,7 @@ function amplitudeGainForContact(contact, path) {
   const profile = cornerEnvelopeProfile(contact, path);
   const attackPhase = state.amplitudeEnvelopePoints[1]?.x ?? 0;
   const envelopePhase = state.cornerSwell
-    ? attackPhase + profile.distance * (1 - attackPhase)
+    ? mirroredAmplitudeEnvelopePhase(profile.distance, attackPhase)
     : profile.distance;
   const envelope = sampleAmplitudeEnvelope(envelopePhase, state.amplitudeEnvelopePoints);
   const cornerPeak = 0.18 + 0.5 * clamp(profile.strength, 0, 1);

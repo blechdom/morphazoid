@@ -2226,7 +2226,11 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .amplitude-mode-buttons button:hover,
-.amplitude-mode-buttons button:focus-visible,
+.amplitude-mode-buttons button:focus-visible {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+}
+
 .amplitude-mode-buttons button[aria-pressed="true"] {
   border-color: var(--accent-soft);
   color: var(--accent);

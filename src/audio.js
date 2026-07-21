@@ -166,6 +166,16 @@ export function sampleAmplitudeEnvelope(phase, points) {
   return envelope.at(-1).y;
 }
 
+/**
+ * Convert local mirrored distance (corner 0 → adjacent midpoint 1) to the
+ * envelope phase used by corner Swell. The attack node is the corner peak;
+ * decay, sustain, and release then run outward in either direction.
+ */
+export function mirroredAmplitudeEnvelopePhase(distance, attackPhase = 0) {
+  const attack = clamp(Number.isFinite(attackPhase) ? attackPhase : 0, 0, 1);
+  return attack + clamp(Number.isFinite(distance) ? distance : 0, 0, 1) * (1 - attack);
+}
+
 /** Keep persisted or externally supplied mode names inside the DSP contract. */
 export function sanitizeSynthMode(mode) {
   return CONTINUOUS_SYNTH_MODES.has(mode) ? mode : "sine";

@@ -10,6 +10,7 @@ import {
   cornerStrikePeak,
   levelToGain,
   mapCurve01,
+  mirroredAmplitudeEnvelopePhase,
   normalizeStrikeGains,
   normalizeVoiceGains,
   pitch01ToFrequency,
@@ -254,6 +255,18 @@ test("amplitude envelope sampling interpolates and holds the release endpoint", 
   assert.equal(sampleAmplitudeEnvelope(1, heldRelease), 0.35);
   assert.equal(sampleAmplitudeEnvelope(Number.NaN, null), 0);
   assert.equal(sampleAmplitudeEnvelope(undefined, null), 0);
+});
+
+test("mirrored amplitude phase places the attack peak at each corner", () => {
+  nearAudio(mirroredAmplitudeEnvelopePhase(0, 0.06), 0.06);
+  nearAudio(mirroredAmplitudeEnvelopePhase(0.5, 0.06), 0.53);
+  nearAudio(mirroredAmplitudeEnvelopePhase(1, 0.06), 1);
+  assert.equal(mirroredAmplitudeEnvelopePhase(Number.NaN, 0.06), 0.06);
+  assert.equal(mirroredAmplitudeEnvelopePhase(0.5, 2), 1);
+
+  const note = amplitudeEnvelopePreset("note");
+  assert.equal(sampleAmplitudeEnvelope(mirroredAmplitudeEnvelopePhase(0, note[1].x), note), 1);
+  assert.equal(sampleAmplitudeEnvelope(mirroredAmplitudeEnvelopePhase(1, note[1].x), note), 0);
 });
 
 test("corner articulation parameters remain independent", () => {

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildShape,
   horizontalIntersections,
+  mirroredCornerPhase,
   pingPong01,
   pointAtPath,
   rayIntersections,
@@ -37,6 +38,71 @@ test("sides=2 is one open line and signed curvature bends opposite ways", () => 
   assert.ok(positive.points[midpoint].y > 0.7);
   assert.ok(negative.points[midpoint].y < -0.7);
   near(positive.points[midpoint].y, -negative.points[midpoint].y);
+});
+
+test("mirrored corner phase spans each local half-edge symmetrically", () => {
+  const line = buildShape({
+    sides: 2,
+    curvature: 0.55,
+    aspect: 0.7,
+    skew: -0.45,
+    samplesPerEdge: 48,
+  });
+  for (const [progress, expected] of [
+    [0, 0],
+    [0.25, 0.5],
+    [0.5, 1],
+    [0.75, 0.5],
+    [1, 0],
+  ]) near(mirroredCornerPhase(line, pointAtPath(line, progress)), expected, 1e-7);
+
+  const uneven = buildShape({
+    sides: 5,
+    curvature: -0.35,
+    aspect: 1.1,
+    skew: 0.8,
+    samplesPerEdge: 64,
+  });
+  const edges = uneven.vertexDistances.map((start, index) => {
+    const end = index + 1 < uneven.vertexDistances.length
+      ? uneven.vertexDistances[index + 1]
+      : uneven.totalLength;
+    return { start, length: end - start };
+  });
+  const lengths = edges.map(({ length }) => length);
+  assert.ok(Math.max(...lengths) - Math.min(...lengths) > 0.05, "test shape must have unequal edges");
+
+  for (const { start, length } of edges) {
+    near(mirroredCornerPhase(
+      uneven,
+      pointAtPath(uneven, (start + length * 0.25) / uneven.totalLength),
+    ), 0.5, 1e-7);
+    near(mirroredCornerPhase(
+      uneven,
+      pointAtPath(uneven, (start + length * 0.5) / uneven.totalLength),
+    ), 1, 1e-7);
+    near(mirroredCornerPhase(
+      uneven,
+      pointAtPath(uneven, (start + length * 0.75) / uneven.totalLength),
+    ), 0.5, 1e-7);
+  }
+
+  for (let index = 0; index < uneven.vertexDistances.length; index += 1) {
+    const corner = uneven.vertexDistances[index];
+    const previousCorner = index > 0
+      ? uneven.vertexDistances[index - 1]
+      : uneven.vertexDistances.at(-1) - uneven.totalLength;
+    const nextCorner = index + 1 < uneven.vertexDistances.length
+      ? uneven.vertexDistances[index + 1]
+      : uneven.totalLength;
+    const before = wrap01((corner - (corner - previousCorner) * 0.2) / uneven.totalLength);
+    const after = wrap01((corner + (nextCorner - corner) * 0.2) / uneven.totalLength);
+    near(mirroredCornerPhase(uneven, pointAtPath(uneven, before)), 0.4, 1e-7);
+    near(mirroredCornerPhase(uneven, pointAtPath(uneven, after)), 0.4, 1e-7);
+  }
+
+  const circle = buildShape({ sides: 1 });
+  near(mirroredCornerPhase(circle, pointAtPath(circle, 0.25)), 0);
 });
 
 test("three or more sides produce closed paths without a duplicated seam point", () => {

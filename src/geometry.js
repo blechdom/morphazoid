@@ -480,6 +480,46 @@ export function pointAtPath(path, progress, options = {}) {
   return contactOnSegment(path, segmentIndex, segmentT, distance);
 }
 
+/**
+ * Map a contact's distance from its nearest corner across that corner's local
+ * half-edge. The corner is phase 0 and either adjacent edge midpoint is phase
+ * 1, so unequal edges and the two halves of an open line remain symmetrical.
+ * @param {ShapePath} path
+ * @param {PathContact} contact
+ * @returns {number}
+ */
+export function mirroredCornerPhase(path, contact) {
+  const distances = path?.vertexDistances ?? [];
+  const totalLength = path?.totalLength ?? 0;
+  const cornerIndex = contact?.cornerIndex;
+  if (
+    !Number.isInteger(cornerIndex)
+    || cornerIndex < 0
+    || cornerIndex >= distances.length
+    || totalLength <= EPSILON
+  ) return 0;
+
+  const cornerDistance = distances[cornerIndex];
+  let delta = finiteOr(contact?.distance, cornerDistance) - cornerDistance;
+  if (path.closed) {
+    if (delta > totalLength / 2) delta -= totalLength;
+    else if (delta < -totalLength / 2) delta += totalLength;
+  }
+  if (Math.abs(delta) <= EPSILON) return 0;
+
+  const previousDistance = cornerIndex > 0
+    ? distances[cornerIndex - 1]
+    : path.closed ? distances.at(-1) - totalLength : null;
+  const nextDistance = cornerIndex + 1 < distances.length
+    ? distances[cornerIndex + 1]
+    : path.closed ? distances[0] + totalLength : null;
+  const edgeLength = delta < 0
+    ? previousDistance === null ? 0 : cornerDistance - previousDistance
+    : nextDistance === null ? 0 : nextDistance - cornerDistance;
+  if (edgeLength <= EPSILON) return 0;
+  return clamp(Math.abs(delta) / (edgeLength * 0.5), 0, 1);
+}
+
 function mergeContacts(a, b, epsilon) {
   const tangentSum = { x: a.tangent.x + b.tangent.x, y: a.tangent.y + b.tangent.y };
   const mergedTangent = Math.hypot(tangentSum.x, tangentSum.y) > epsilon

@@ -162,14 +162,15 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(openingTag("fmArticulation"), /\bhidden\b/);
   assert.match(openingTag("pmArticulation"), /\bhidden\b/);
   for (const id of [
-    "amplitudeEnvelopeToggle", "amplitudeEnvelopeToggleText", "cornerSwellToggle",
+    "amplitudeEnvelopeToggle", "amplitudeEnvelopeToggleText", "cornerSwellToggle", "cornerSwellToggleText",
     "amplitudeEnvelopePresets", "amplitudePresetPluck", "amplitudePresetNote",
     "amplitudePresetSustain", "amplitudePresetPad",
     "amplitudeCurveEditor", "amplitudeCurvePath", "resetAmplitudeCurve",
-    "amplitudeCurveState", "amplitudeReleaseBehavior",
+    "amplitudeCurveState", "amplitudeReleaseBehavior", "amplitudeIntervalHelp",
   ]) assert.ok(html.includes(`id="${id}"`), `missing amplitude ADSR control #${id}`);
   assert.match(openingTag("amplitudeEnvelopeToggle"), /aria-pressed="true"[^>]*aria-label="Amplitude ADSR on"/);
   assert.match(openingTag("cornerSwellToggle"), /aria-pressed="false"[^>]*aria-label="Corner swell off"/);
+  assert.match(html, /id="cornerSwellToggleText"[^>]*>Swell off</);
   assert.match(html, /id="cornerSwellToggle"[\s\S]{0,160}>▶◀</);
   assert.match(openingTag("amplitudePresetPluck"), /data-value="pluck"[^>]*aria-pressed="true"/);
   assert.match(openingTag("amplitudePresetNote"), /data-value="note"[^>]*aria-pressed="false"/);
@@ -180,6 +181,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(app, /sampleAmplitudeEnvelope/);
   assert.match(app, /scaleShapeVoiceGains/);
   assert.match(app, /state\.cornerSwell/);
+  assert.match(app, /mirroredCornerPhase\(path, contact\)/);
   assert.match(openingTag("cornerDecay"), /min="15"[^>]*max="2000"[^>]*value="90"/);
 
   // Mapping has one permanent reference: fixed stage/screen axes. There is no
