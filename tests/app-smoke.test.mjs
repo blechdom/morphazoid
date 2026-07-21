@@ -282,6 +282,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("pmArticulation").hidden, true);
   assert.equal(elements.get("percussionMapping").hidden, true);
   assert.equal(elements.get("timbreMapping").hidden, true);
+  assert.equal(elements.get("timbreSourceHelp").textContent, "0 follows the contour · 1 crosses at 90°");
+  assert.equal(elements.get("percussionSourceHelp").textContent, "0 is smooth · 1 is the sharpest turn");
   assert.equal(elements.get("traversalDirection").hidden, false);
   assert.equal(elements.get("rotationDirection").hidden, false);
   assert.equal(elements.get("headMarker0").hidden, false);
@@ -376,6 +378,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   elements.get("timbreSource").value = "corner";
   listeners.get("timbreSource:change")({ currentTarget: elements.get("timbreSource") });
   assert.equal(elements.get("timbreMappingNote").textContent, "Corner sharpness → FM index · 0–6.00 index");
+  assert.equal(elements.get("timbreSourceHelp").textContent, "0 is smooth · 1 is the sharpest turn");
   queuedFrame(1_115);
   assert.equal(elements.get("outputVoiceLabel").textContent, "fm");
   assert.match(elements.get("markSynthValueOut").textContent, /index @/);

@@ -79,6 +79,17 @@ const TIMBRE_TARGET_LABELS = {
   pm: "Phase depth",
   shepard: "Spectral width",
 };
+const SOURCE_HELP = {
+  vertical: "0 is stage bottom · 1 is stage top",
+  horizontal: "0 is stage left · 1 is stage right",
+  height: "0 is stage bottom · 1 is stage top",
+  center: "0 is stage center · 1 is the outer edge",
+  corner: "0 is smooth · 1 is the sharpest turn",
+  incidence: "0 follows the contour · 1 crosses at 90°",
+  phase: "0–1 position around the contour",
+  fixed: "Every corner uses the same value",
+  signed: "Inner and outer corners use opposite polarity",
+};
 const state = {
   sides: 4,
   curvature: 0,
@@ -874,7 +885,7 @@ for (const [id, key] of [
   $(id).value = state[key];
   $(id).addEventListener("change", (event) => {
     state[key] = event.currentTarget.value;
-    if (key === "timbreSource") updateTimbreMappingUi();
+    if (["timbreSource", "percussionLevelSource"].includes(key)) updateTimbreMappingUi();
     dismissHelp();
   });
 }
@@ -889,6 +900,8 @@ function updateTimbreMappingUi() {
   const source = SOURCE_LABELS[state.timbreSource] ?? "Source value";
   const target = TIMBRE_TARGET_LABELS[state.soundMode] ?? "Timbre";
   $("timbreMappingNote").textContent = `${source} → ${target} · ${timbreMappedRangeLabel()}`;
+  $("timbreSourceHelp").textContent = SOURCE_HELP[state.timbreSource] ?? "Normalized source value from 0–1";
+  $("percussionSourceHelp").textContent = SOURCE_HELP[state.percussionLevelSource] ?? "Normalized source value from 0–1";
 }
 
 function setPitchDimension(source, shouldAnnounce = true) {

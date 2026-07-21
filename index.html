@@ -384,7 +384,7 @@
                 <button id="pitchHorizontal" type="button" data-value="horizontal" aria-pressed="false"><span aria-hidden="true">↔</span>Horizontal</button>
                 <button id="pitchCenter" type="button" data-value="center" aria-pressed="false"><span aria-hidden="true">◎</span>Center distance</button>
               </div>
-              <small class="mapping-coordinate-note">Fixed stage / screen axes</small>
+              <small class="mapping-coordinate-note">Stage / screen axes stay fixed while the form rotates</small>
             </div>
 
             <div class="mapping-curve-control">
@@ -431,6 +431,7 @@
                 </span>
               </label>
               <small class="mapping-coordinate-note" id="timbreMappingNote">Crossing angle → FM index</small>
+              <small class="mapping-coordinate-note mapping-source-help" id="timbreSourceHelp">0 follows the contour · 1 crosses at 90°</small>
             </div>
 
             <div id="percussionMapping">
@@ -458,6 +459,7 @@
                   </select>
                 </span>
               </label>
+              <small class="mapping-coordinate-note mapping-source-help" id="percussionSourceHelp">0 is smooth · 1 is the sharpest turn</small>
             </div>
 
             <div class="mapping-dimension-control stereo-mapping-control">

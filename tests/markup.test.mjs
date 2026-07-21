@@ -191,7 +191,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
     "resetPitchCurve", "stereoDimension", "stereoHorizontal", "stereoVertical", "stereoCenter",
     "stereoInvert", "stereoMappingNote", "stereoWidth", "panRouteSource", "panRouteCurve",
     "percussionMapping", "percussionLevelSource", "percussionLevelCurve",
-    "timbreMapping", "timbreSource", "timbreMappingNote",
+    "timbreMapping", "timbreSource", "timbreMappingNote", "timbreSourceHelp", "percussionSourceHelp",
     "shepardCycles", "shepardDirection", "shepardWidth",
     "fmIndex", "fmRatio", "pmIndex", "pmRatio",
   ]) assert.ok(html.includes(`id="${id}"`));
@@ -200,7 +200,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assertDefaultLeftChoice("pitchDimension", "pitchVertical", "[\\s\\S]*Vertical", "pitchHorizontal");
   assert.match(openingTag("pitchHorizontal"), /data-value="horizontal"[^>]*aria-pressed="false"/);
   assert.match(openingTag("pitchCenter"), /data-value="center"[^>]*aria-pressed="false"/);
-  assert.match(html, /Fixed stage \/ screen axes/);
+  assert.match(html, /Stage \/ screen axes stay fixed while the form rotates/);
   assert.doesNotMatch(html, /id="pitchSource"/);
   assert.match(app, /source === "horizontal"/);
   assert.match(app, /return clamp\(normalized\.y, 0, 1\)/);
@@ -231,8 +231,11 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(html, />Distance from center<\/option>/);
   assert.match(html, /Maximum spectral width/);
   assert.match(html, /id="pmIndexOut"[^>]*>2\.00 rad max<\/output>/);
+  assert.match(html, /0 follows the contour · 1 crosses at 90°/);
+  assert.match(html, /0 is smooth · 1 is the sharpest turn/);
   assert.match(app, /\["fm", "pm", "shepard"\]\.includes\(state\.soundMode\)/);
   assert.match(app, /TIMBRE_TARGET_LABELS/);
+  assert.match(app, /SOURCE_HELP/);
   assert.doesNotMatch(html, /mark-driven|drive mark|level mark|Pitch mark|Realtime mark|Corner magnitude|>Incidence<|Contour phase/i);
 
   // Output is a realtime mapping dashboard with clearly future-facing external routes.
@@ -262,6 +265,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /\.curve-node\s*\{[\s\S]*?position:\s*absolute;/);
   assert.match(css, /\.amplitude-mode-buttons\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*52px\)/);
   assert.match(css, /\.master-level-row\s*\{/);
+  assert.match(css, /\.mapping-source-help\s*\{/);
 
   assert.ok(html.indexOf('id="audioButton"') < html.indexOf('id="playSection"'));
   assert.ok(html.indexOf('id="level"') > html.indexOf('id="outputSection"'));
