@@ -5,8 +5,10 @@ import test from "node:test";
 import {
   buildSolid,
   deformSolid,
+  planeBasis,
   planeIntersections,
   planeNormal,
+  projectPoint3,
   rotatePoint3,
 } from "../src/solid.js";
 
@@ -73,4 +75,31 @@ test("Solid defaults to Sine and silences continuous voices while stopped", asyn
   assert.match(html, /id="formSkewZ"/);
   assert.match(app, /const moving = motionIsActive\(\)/);
   assert.match(app, /else pool\.setVoices\(\[\]\)/);
+});
+
+test("Solid opens with a dimensional shape and a visibly broad surface", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("../solid.html", import.meta.url), "utf8"),
+    readFile(new URL("../solid-app.js", import.meta.url), "utf8"),
+  ]);
+  for (const [key, value] of [
+    ["rotationX", -24], ["rotationY", 36], ["rotationZ", 8],
+    ["planeYaw", 45], ["planePitch", -22],
+  ]) {
+    assert.match(app, new RegExp(`${key}: ${value}`));
+    assert.match(html, new RegExp(`id="${key}"[^>]+value="${value}"`));
+  }
+
+  const normal = planeNormal(45, -22);
+  const { u, v } = planeBasis(normal);
+  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => projectPoint3({
+    x: (u.x * a + v.x * b) * 1.18,
+    y: (u.y * a + v.y * b) * 1.18,
+    z: (u.z * a + v.z * b) * 1.18,
+  }));
+  const projectedArea = Math.abs(corners.reduce((sum, point, index) => {
+    const next = corners[(index + 1) % corners.length];
+    return sum + point.x * next.y - next.x * point.y;
+  }, 0)) * 0.5;
+  assert.ok(projectedArea > 3.5);
 });
