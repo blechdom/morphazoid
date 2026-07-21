@@ -1983,6 +1983,35 @@ input[type="range"]::-moz-range-thumb {
   margin: 0 0 14px;
 }
 
+.mapping-dimension-control {
+  margin: 0 0 14px;
+}
+
+.mapping-dimension-choice {
+  margin-top: 5px;
+}
+
+.mapping-dimension-choice button {
+  display: grid;
+  grid-template-columns: auto auto;
+  place-content: center;
+  gap: 5px;
+}
+
+.mapping-dimension-choice button span {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.mapping-coordinate-note {
+  display: block;
+  margin-top: 5px;
+  color: var(--faint);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .form-count-key {
   margin-top: -4px;
   color: var(--faint);

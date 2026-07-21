@@ -58,7 +58,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
 
   // Reading method remains a compact rocker control.
   assertDefaultLeftChoice("playMethod", "traceMode", "Points", "scanMode");
-  assert.equal((html.match(/class="choice-switch/g) ?? []).length, 2);
+  assert.equal((html.match(/class="choice-switch/g) ?? []).length, 3);
   assert.match(openingTag("loopMotion"), /aria-pressed="true"[^>]*aria-label="Loop movement"/);
   assert.match(openingTag("pingPongMotion"), /aria-pressed="false"[^>]*aria-label="Back-and-forth movement"/);
   assert.match(html, /id="loopMotion"[\s\S]*?>⟳<[\s\S]*?id="pingPongMotion"[\s\S]*?>↔</);
@@ -170,13 +170,20 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.doesNotMatch(html, /id="mappingFrame"|Shape axes · rotate with form/);
   assert.doesNotMatch(app, /mappingFrame|currentLocalShape/);
   for (const id of [
-    "mappingSummary", "pitchSource", "pitchCurve", "hitLevelSource", "hitLevelCurve",
+    "mappingSummary", "pitchDimension", "pitchVertical", "pitchHorizontal", "pitchCenter",
+    "pitchCurve", "hitLevelSource", "hitLevelCurve",
     "synthSource", "shepardCycles", "shepardDirection", "shepardWidth",
     "fmIndex", "fmRatio", "pmIndex", "pmRatio",
   ]) assert.ok(html.includes(`id="${id}"`));
   assert.match(html, /Octaves per circuit/);
   assert.match(html, /oct \/ circuit/);
-  assert.match(html, /value="center">Distance from center · radar radius/);
+  assertDefaultLeftChoice("pitchDimension", "pitchVertical", "[\\s\\S]*Vertical", "pitchHorizontal");
+  assert.match(openingTag("pitchHorizontal"), /data-value="horizontal"[^>]*aria-pressed="false"/);
+  assert.match(openingTag("pitchCenter"), /data-value="center"[^>]*aria-pressed="false"/);
+  assert.match(html, /Fixed stage \/ screen axes/);
+  assert.doesNotMatch(html, /id="pitchSource"/);
+  assert.match(app, /source === "horizontal"/);
+  assert.match(app, /return clamp\(normalized\.y, 0, 1\)/);
   assert.match(html, /value="exponential">Expand high values/);
   assert.match(html, /value="logarithmic">Expand low values/);
 

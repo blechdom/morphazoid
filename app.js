@@ -51,11 +51,9 @@ const SOUND_MODE_LABELS = {
 };
 const SOUND_MODES = new Set(Object.keys(SOUND_MODE_LABELS));
 const PITCH_SUMMARY_LABELS = {
-  height: "Height",
+  vertical: "Vertical",
+  horizontal: "Horizontal",
   center: "Center distance",
-  corner: "Corner",
-  incidence: "Incidence",
-  phase: "Contour phase",
 };
 const state = {
   sides: 4,
@@ -106,7 +104,7 @@ const state = {
   pmIndex: 2,
   pmRatio: 1,
   stereoWidth: 1,
-  pitchSource: "height",
+  pitchSource: "vertical",
   pitchCurve: "linear",
   hitLevelSource: "corner",
   hitLevelCurve: "linear",
@@ -134,9 +132,9 @@ state.fmRatio = clamp(state.fmRatio, 0.25, 8);
 state.pmIndex = clamp(state.pmIndex, 0, 8);
 state.pmRatio = clamp(state.pmRatio, 0.25, 8);
 state.stereoWidth = clamp(state.stereoWidth, 0, 1);
-state.pitchSource = ["height", "center", "corner", "incidence", "phase"].includes(state.pitchSource)
+state.pitchSource = ["vertical", "horizontal", "center"].includes(state.pitchSource)
   ? state.pitchSource
-  : "height";
+  : "vertical";
 state.pitchCurve = ["linear", "exponential", "logarithmic", "smooth", "inverted"].includes(state.pitchCurve)
   ? state.pitchCurve
   : "linear";
@@ -841,7 +839,6 @@ for (const button of $("rotationMotion").querySelectorAll("button[data-value]"))
 }
 
 for (const [id, key] of [
-  ["pitchSource", "pitchSource"],
   ["pitchCurve", "pitchCurve"],
   ["hitLevelSource", "hitLevelSource"],
   ["hitLevelCurve", "hitLevelCurve"],
@@ -850,9 +847,22 @@ for (const [id, key] of [
   $(id).value = state[key];
   $(id).addEventListener("change", (event) => {
     state[key] = event.currentTarget.value;
-    if (key === "pitchSource") updateSectionSummaries();
     dismissHelp();
   });
+}
+
+function setPitchDimension(source, shouldAnnounce = true) {
+  state.pitchSource = ["horizontal", "center"].includes(source) ? source : "vertical";
+  for (const button of $("pitchDimension").querySelectorAll("button")) {
+    setPressed(button, button.dataset.value === state.pitchSource);
+  }
+  updateSectionSummaries();
+  if (shouldAnnounce) announce(`${PITCH_SUMMARY_LABELS[state.pitchSource]} position mapped to pitch.`);
+  invalidate();
+}
+
+for (const button of $("pitchDimension").querySelectorAll("button")) {
+  button.addEventListener("click", () => setPitchDimension(button.dataset.value));
 }
 
 const speedInput = $("speed");
@@ -1434,11 +1444,12 @@ function rawMarkForSource(source, contact, path, headIndex = contact.headIndex ?
   if (source === "corner") return clamp(contact.cornerStrength ?? contact.strength ?? 0, 0, 1);
   if (source === "incidence") return incidenceForContact(contact, path, headIndex);
   if (source === "center") return centerDistanceForContact(contact);
+  if (source === "horizontal") return normalizedContactCoordinates(contact, path).x;
   if (source === "phase") {
     return wrap01(contact.u ?? contact.pathPhase ?? 0);
   }
   const normalized = normalizedContactCoordinates(contact, path);
-  return clamp(1 - normalized.y, 0, 1);
+  return clamp(normalized.y, 0, 1);
 }
 
 function centerDistanceForContact(contact) {
@@ -1900,6 +1911,8 @@ function drawFrame(path) {
 }
 
 const SOURCE_LABELS = {
+  vertical: "Vertical position",
+  horizontal: "Horizontal position",
   height: "Vertical position",
   center: "Distance from center",
   corner: "Corner magnitude",
@@ -2271,6 +2284,7 @@ updateCurvatureOutput();
 setPlayMethod(state.playMethod, false);
 setMotionMode(state.motionMode, false);
 setSoundMode(state.soundMode, false);
+setPitchDimension(state.pitchSource, false);
 setTraversalDirection(1, false);
 setRotationDirection(1, false);
 setRotationMotionMode(state.rotationMotionMode, false);

@@ -356,21 +356,18 @@
         <details class="group control-section" id="mappingSection" data-section="mapping">
           <summary class="group-summary">
             <h2 class="group-title" id="mappingTitle">Mapping</h2>
-            <span class="section-state" id="mappingSummary">Height → pitch</span>
+            <span class="section-state" id="mappingSummary">Vertical → pitch</span>
           </summary>
           <div class="group-body">
-            <label class="select-control" for="pitchSource">
-              <span class="field-label">Pitch mark</span>
-              <span class="select-shell">
-                <select id="pitchSource">
-                  <option value="height" selected>Vertical position</option>
-                  <option value="center">Distance from center · radar radius</option>
-                  <option value="corner">Corner magnitude</option>
-                  <option value="incidence">Incidence</option>
-                  <option value="phase">Contour phase</option>
-                </select>
-              </span>
-            </label>
+            <div class="mapping-dimension-control">
+              <span class="field-label">Pitch dimension</span>
+              <div class="choice-switch mapping-dimension-choice" id="pitchDimension" role="group" aria-label="Pitch dimension in fixed stage coordinates">
+                <button id="pitchVertical" type="button" data-value="vertical" aria-pressed="true"><span aria-hidden="true">↕</span>Vertical</button>
+                <button id="pitchHorizontal" type="button" data-value="horizontal" aria-pressed="false"><span aria-hidden="true">↔</span>Horizontal</button>
+                <button id="pitchCenter" type="button" data-value="center" aria-pressed="false"><span aria-hidden="true">◎</span>Center distance</button>
+              </div>
+              <small class="mapping-coordinate-note">Fixed stage / screen axes</small>
+            </div>
 
             <label class="select-control" for="pitchCurve">
               <span class="field-label">Pitch interpretation</span>
