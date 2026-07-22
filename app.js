@@ -62,6 +62,24 @@ const SOUND_MODE_LABELS = {
   pm: "PM Synthesis",
 };
 const SOUND_MODES = new Set(Object.keys(SOUND_MODE_LABELS));
+const PARAMETER_MAPPING_SOURCES = new Set([
+  "fixed",
+  "horizontal",
+  "height",
+  "center",
+  "corner",
+  "incidence",
+  "phase",
+]);
+const PARAMETER_SOURCE_LABELS = {
+  fixed: "Direct control",
+  horizontal: "Left to right",
+  height: "Up to down",
+  center: "Center to edge",
+  corner: "Corner sharpness",
+  incidence: "Crossing angle",
+  phase: "Contour position",
+};
 const RESET_SHAPE_SIDES_KEY = "morphazoid:shape:reset:sides";
 const PITCH_SUMMARY_LABELS = {
   vertical: "Vertical",
@@ -155,7 +173,9 @@ const state = {
   percussionAttackNoise: 0,
   percussionPreset: "pluck",
   percussionEnvelopePoints: percussionEnvelopePreset("pluck"),
-  timbreSource: "fixed",
+  cornerAmplitudeSource: "fixed",
+  fmIndexSource: "fixed",
+  pmDepthSource: "fixed",
   shepardCycles: 1,
   shepardDirection: 1,
   shepardWidth: 4,
@@ -179,8 +199,14 @@ state.level = clamp(state.level, 0, 1);
 state.soundMode = SOUND_MODES.has(state.soundMode) ? state.soundMode : "sine";
 state.percussionStrikeLevel = clamp(state.percussionStrikeLevel, 0, 1);
 state.percussionAttackNoise = clamp(state.percussionAttackNoise, 0, 1);
-state.timbreSource = ["fixed", "height", "horizontal", "center", "corner", "incidence", "phase"].includes(state.timbreSource)
-  ? state.timbreSource
+state.cornerAmplitudeSource = PARAMETER_MAPPING_SOURCES.has(state.cornerAmplitudeSource)
+  ? state.cornerAmplitudeSource
+  : "fixed";
+state.fmIndexSource = PARAMETER_MAPPING_SOURCES.has(state.fmIndexSource)
+  ? state.fmIndexSource
+  : "fixed";
+state.pmDepthSource = PARAMETER_MAPPING_SOURCES.has(state.pmDepthSource)
+  ? state.pmDepthSource
   : "fixed";
 state.shepardCycles = clamp(state.shepardCycles, 0.25, 4);
 state.shepardDirection = state.shepardDirection < 0 ? -1 : 1;
@@ -197,7 +223,16 @@ state.stereoInverted = Boolean(state.stereoInverted);
 state.pitchSource = ["vertical", "horizontal", "center"].includes(state.pitchSource)
   ? state.pitchSource
   : "vertical";
-state.percussionLevelSource = ["corner", "incidence", "fixed", "signed"].includes(state.percussionLevelSource)
+state.percussionLevelSource = [
+  "corner",
+  "incidence",
+  "fixed",
+  "horizontal",
+  "height",
+  "center",
+  "phase",
+  "signed",
+].includes(state.percussionLevelSource)
   ? state.percussionLevelSource
   : "corner";
 state.percussionLevelCurve = ["linear", "exponential", "logarithmic", "smooth", "inverted"].includes(state.percussionLevelCurve)
@@ -845,7 +880,10 @@ function setSoundMode(mode, shouldAnnounce = true) {
 }
 
 function updateAmplitudeArticulationVisibility() {
-  $("amplitudeArticulation").hidden = state.soundMode === "percussion" || state.shapeType === "circle";
+  const hidden = state.soundMode === "percussion" || state.shapeType === "circle";
+  $("amplitudeArticulation").hidden = hidden;
+  $("cornerAmplitudeMapping").hidden = hidden;
+  updateCornerAmplitudeMappingUi();
 }
 
 $("soundMode").value = state.soundMode;
@@ -908,41 +946,90 @@ for (const button of $("rotationMotion").querySelectorAll("button[data-value]"))
 for (const [id, key] of [
   ["percussionLevelSource", "percussionLevelSource"],
   ["percussionLevelCurve", "percussionLevelCurve"],
-  ["timbreSource", "timbreSource"],
 ]) {
   $(id).value = state[key];
   $(id).addEventListener("change", (event) => {
     state[key] = event.currentTarget.value;
-    if (["timbreSource", "percussionLevelSource"].includes(key)) updateTimbreMappingUi();
+    if (key === "percussionLevelSource") updateTimbreMappingUi();
     dismissHelp();
   });
 }
 
+$("cornerAmplitudeSource").value = state.cornerAmplitudeSource;
+$("cornerAmplitudeSource").addEventListener("change", (event) => {
+  state.cornerAmplitudeSource = PARAMETER_MAPPING_SOURCES.has(event.currentTarget.value)
+    ? event.currentTarget.value
+    : "fixed";
+  updateCornerAmplitudeMappingUi();
+  dismissHelp();
+});
+
+function activeTimbreSourceKey() {
+  return state.soundMode === "pm" ? "pmDepthSource" : "fmIndexSource";
+}
+
+function activeTimbreSource() {
+  return state[activeTimbreSourceKey()];
+}
+
+$("timbreSource").addEventListener("change", (event) => {
+  const source = PARAMETER_MAPPING_SOURCES.has(event.currentTarget.value)
+    ? event.currentTarget.value
+    : "fixed";
+  state[activeTimbreSourceKey()] = source;
+  updateTimbreMappingUi();
+  dismissHelp();
+});
+
 function timbreMappedRangeLabel() {
-  const minimum = state.timbreSource === "fixed" ? "" : "0–";
+  const minimum = activeTimbreSource() === "fixed" ? "" : "0–";
   if (state.soundMode === "fm") return `${minimum}${state.fmIndex.toFixed(2)} index`;
   if (state.soundMode === "pm") return `${minimum}${state.pmIndex.toFixed(2)} rad`;
   return "";
 }
 
-function timbreSourceLabel(source) {
-  return source === "fixed" ? "Direct control" : SOURCE_LABELS[source] ?? "Source value";
+function mappingSourceLabel(source) {
+  return PARAMETER_SOURCE_LABELS[source] ?? SOURCE_LABELS[source] ?? "Source value";
+}
+
+function mappingSourceHelp(source) {
+  return source === "incidence" && state.playMethod === "trace"
+    ? "Point playheads follow the contour · crossing angle stays 0"
+    : SOURCE_HELP[source] ?? "Normalized source value from 0–1";
+}
+
+function updateCornerAmplitudeMappingUi() {
+  const source = state.cornerAmplitudeSource;
+  const target = state.amplitudeEnvelopeEnabled ? "Corner ADSR level" : "Synth level";
+  $("cornerAmplitudeSource").value = source;
+  $("cornerAmplitudeSourceFieldLabel").textContent = `${target} source`;
+  $("cornerAmplitudeMappingNote").textContent = `${mappingSourceLabel(source)} → ${target} · ${source === "fixed" ? "100%" : "0–100%"}`;
+  if (!state.amplitudeEnvelopeEnabled) {
+    $("cornerAmplitudeSourceHelp").textContent = source === "fixed"
+      ? "The constant level applies equally to every Synth while Corner ADSR is bypassed."
+      : `${mappingSourceHelp(source)} · scales the constant Synth level while Corner ADSR is bypassed`;
+    return;
+  }
+  $("cornerAmplitudeSourceHelp").textContent = source === "fixed"
+    ? "The envelope level applies equally to every Synth; A/D/S/R timing is unchanged."
+    : `${mappingSourceHelp(source)} · scales level after the envelope; A/D/S/R timing is unchanged`;
 }
 
 function updateTimbreMappingUi() {
-  const source = timbreSourceLabel(state.timbreSource);
-  const target = TIMBRE_TARGET_LABELS[state.soundMode] ?? "Timbre";
-  const helpForSource = (sourceName) => (
-    sourceName === "incidence" && state.playMethod === "trace"
-      ? "Point playheads follow the contour · crossing angle stays 0"
-      : SOURCE_HELP[sourceName] ?? "Normalized source value from 0–1"
-  );
+  const sourceKey = activeTimbreSource();
+  const source = mappingSourceLabel(sourceKey);
+  const target = TIMBRE_TARGET_LABELS[state.soundMode] ?? "FM index";
+  $("timbreSource").value = sourceKey;
+  $("timbreSourceFieldLabel").textContent = state.soundMode === "pm"
+    ? "PM phase-depth source"
+    : "FM index source";
   const range = timbreMappedRangeLabel();
   $("timbreMappingNote").textContent = `${source} → ${target}${range ? ` · ${range}` : ""}`;
-  $("timbreSourceHelp").textContent = state.timbreSource === "fixed"
+  $("timbreSourceHelp").textContent = sourceKey === "fixed"
     ? `The ${target} control applies equally to every Synth.`
-    : helpForSource(state.timbreSource);
-  $("percussionSourceHelp").textContent = helpForSource(state.percussionLevelSource);
+    : mappingSourceHelp(sourceKey);
+  $("percussionSourceHelp").textContent = mappingSourceHelp(state.percussionLevelSource);
+  updateCornerAmplitudeMappingUi();
 }
 
 function setPitchDimension(source, shouldAnnounce = true) {
@@ -1326,6 +1413,7 @@ function updateAmplitudeUi() {
     : release.y <= 0.005
       ? "Release reaches zero · synth rests until next trigger"
       : `Release holds ${Math.round(release.y * 100)}% · synth continues until next trigger`;
+  updateCornerAmplitudeMappingUi();
 }
 
 function selectAmplitudePreset(preset, shouldAnnounce = true) {
@@ -2280,7 +2368,7 @@ function shepardPositionForContact(contact) {
 function synthParametersForContact(contact, path, headIndex = contact.headIndex ?? 0) {
   const drive = state.soundMode === "shepard"
     ? 1
-    : sourceValueForContact(state.timbreSource, contact, path, headIndex);
+    : sourceValueForContact(activeTimbreSource(), contact, path, headIndex);
   return synthParametersForMode(state.soundMode, drive, {
     fmIndex: state.fmIndex,
     fmRatio: state.fmRatio,
@@ -2296,15 +2384,19 @@ function synthParametersForContact(contact, path, headIndex = contact.headIndex 
 
 function amplitudeGainForContact(contact, path) {
   if (path.shapeType === "circle") return 0.12;
-  if (!state.amplitudeEnvelopeEnabled) return 0.18;
-  const profile = cornerEnvelopeProfile(contact, path);
-  const attackPhase = state.amplitudeEnvelopePoints[1]?.x ?? 0;
-  const envelopePhase = state.cornerSwell
-    ? mirroredAmplitudeEnvelopePhase(profile.distance, attackPhase)
-    : profile.distance;
-  const envelope = sampleAmplitudeEnvelope(envelopePhase, state.amplitudeEnvelopePoints);
-  const cornerPeak = 0.18 + 0.5 * clamp(profile.strength, 0, 1);
-  return clamp(cornerPeak * envelope, 0, 1);
+  let envelopeGain = 0.18;
+  if (state.amplitudeEnvelopeEnabled) {
+    const profile = cornerEnvelopeProfile(contact, path);
+    const attackPhase = state.amplitudeEnvelopePoints[1]?.x ?? 0;
+    const envelopePhase = state.cornerSwell
+      ? mirroredAmplitudeEnvelopePhase(profile.distance, attackPhase)
+      : profile.distance;
+    const envelope = sampleAmplitudeEnvelope(envelopePhase, state.amplitudeEnvelopePoints);
+    const cornerPeak = 0.18 + 0.5 * clamp(profile.strength, 0, 1);
+    envelopeGain = cornerPeak * envelope;
+  }
+  const mappedLevel = sourceValueForContact(state.cornerAmplitudeSource, contact, path);
+  return clamp(envelopeGain * mappedLevel, 0, 1);
 }
 
 function continuousSynthVoices(contacts, path) {
@@ -2657,9 +2749,16 @@ function updateOutputDashboard(contacts, path) {
     ? "fixed spectral anchor · cyclic glide supplies pitch motion"
     : `${PITCH_CURVE_LABELS[state.pitchCurvePreset] ?? "Custom"} response → exponential Hz`;
   updateStereoMappingUi();
+  const continuousLevelRoute = !state.amplitudeEnvelopeEnabled
+    ? "constant Synth level"
+    : state.cornerSwell ? "mirrored corner interval" : "directed corner interval";
   $("levelRouteSource").textContent = state.soundMode === "percussion"
     ? SOURCE_LABELS[state.percussionLevelSource] ?? state.percussionLevelSource
-    : state.shapeType === "circle" ? "Continuous contour" : state.cornerSwell ? "Mirrored corner interval" : "Directed corner interval";
+    : state.shapeType === "circle"
+      ? "Continuous contour"
+      : state.cornerAmplitudeSource === "fixed"
+        ? continuousLevelRoute[0].toUpperCase() + continuousLevelRoute.slice(1)
+        : `${mappingSourceLabel(state.cornerAmplitudeSource)} × ${continuousLevelRoute}`;
   $("levelRouteCurve").textContent = state.soundMode === "percussion"
     ? CURVE_LABELS[state.percussionLevelCurve] ?? state.percussionLevelCurve
     : state.shapeType === "circle"
@@ -2669,9 +2768,9 @@ function updateOutputDashboard(contacts, path) {
         : "ADSR bypassed";
   const timbreMode = ["fm", "pm"].includes(state.soundMode);
   $("timbreRoute").hidden = !timbreMode;
-  $("timbreRouteSource").textContent = timbreSourceLabel(state.timbreSource);
+  $("timbreRouteSource").textContent = mappingSourceLabel(activeTimbreSource());
   $("timbreRouteTarget").textContent = TIMBRE_TARGET_LABELS[state.soundMode] ?? "Timbre";
-  $("timbreRouteCurve").textContent = state.timbreSource === "fixed"
+  $("timbreRouteCurve").textContent = activeTimbreSource() === "fixed"
     ? `${timbreMappedRangeLabel()} direct`
     : `${timbreMappedRangeLabel()} mapped range`;
 

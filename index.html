@@ -454,18 +454,37 @@
               </div>
             </div>
 
+            <div id="cornerAmplitudeMapping">
+              <label class="select-control" for="cornerAmplitudeSource">
+                <span class="field-label" id="cornerAmplitudeSourceFieldLabel">Corner ADSR level source</span>
+                <span class="select-shell">
+                  <select id="cornerAmplitudeSource" aria-describedby="cornerAmplitudeMappingNote cornerAmplitudeSourceHelp">
+                    <option value="fixed" selected>Direct</option>
+                    <option value="horizontal">Left → right</option>
+                    <option value="height">Up → down</option>
+                    <option value="center">Center → edge</option>
+                    <option value="corner">Corner sharpness</option>
+                    <option value="incidence">Crossing angle</option>
+                    <option value="phase">Contour position</option>
+                  </select>
+                </span>
+              </label>
+              <small class="mapping-coordinate-note" id="cornerAmplitudeMappingNote" aria-live="polite">Direct control → Corner ADSR level · 100%</small>
+              <small class="mapping-coordinate-note mapping-source-help" id="cornerAmplitudeSourceHelp">The envelope level applies equally to every Synth; A/D/S/R timing is unchanged.</small>
+            </div>
+
             <div id="timbreMapping" hidden>
               <label class="select-control" for="timbreSource">
-                <span class="field-label">Timbre source</span>
+                <span class="field-label" id="timbreSourceFieldLabel">FM index source</span>
                 <span class="select-shell">
                   <select id="timbreSource" aria-describedby="timbreMappingNote timbreSourceHelp">
                     <option value="fixed" selected>Direct</option>
+                    <option value="horizontal">Left → right</option>
+                    <option value="height">Up → down</option>
+                    <option value="center">Center → edge</option>
                     <option value="incidence">Crossing angle</option>
                     <option value="corner">Corner sharpness</option>
                     <option value="phase">Contour position</option>
-                    <option value="height">Vertical position</option>
-                    <option value="horizontal">Horizontal position</option>
-                    <option value="center">Distance from center</option>
                   </select>
                 </span>
               </label>
@@ -481,6 +500,10 @@
                     <option value="corner" selected>Corner sharpness</option>
                     <option value="incidence">Crossing angle</option>
                     <option value="fixed">Fixed</option>
+                    <option value="horizontal">Left → right</option>
+                    <option value="height">Up → down</option>
+                    <option value="center">Center → edge</option>
+                    <option value="phase">Contour position</option>
                     <option value="signed">Inner / outer polarity</option>
                   </select>
                 </span>

@@ -229,7 +229,9 @@ test("the mobile instrument markup exposes the complete compact control surface"
     "resetPitchCurve", "stereoDimension", "stereoHorizontal", "stereoVertical", "stereoCenter",
     "stereoInvert", "stereoMappingNote", "stereoWidth", "panRouteSource", "panRouteCurve",
     "percussionMapping", "percussionLevelSource", "percussionLevelCurve",
-    "timbreMapping", "timbreSource", "timbreMappingNote", "timbreSourceHelp", "percussionSourceHelp",
+    "cornerAmplitudeMapping", "cornerAmplitudeSource", "cornerAmplitudeSourceFieldLabel", "cornerAmplitudeMappingNote",
+    "cornerAmplitudeSourceHelp", "timbreMapping", "timbreSource", "timbreSourceFieldLabel",
+    "timbreMappingNote", "timbreSourceHelp", "percussionSourceHelp",
     "shepardCycles", "shepardDirection", "shepardWidth",
     "fmIndex", "fmRatio", "pmIndex", "pmRatio",
   ]) assert.ok(html.includes(`id="${id}"`));
@@ -265,15 +267,23 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(app, /panSource \* 2 - 1/);
   assert.match(app, /state\.stereoInverted \? -1 : 1/);
 
-  // Timbre has an explicit source and a sound-specific DSP destination.
-  assert.match(html, /<span class="field-label">Timbre source<\/span>/);
+  // Corner ADSR, FM index, and PM phase depth each have an explicit source.
+  assert.match(html, /id="cornerAmplitudeSourceFieldLabel">Corner ADSR level source<\/span>/);
+  assert.match(openingTag("cornerAmplitudeSource"), /aria-describedby="cornerAmplitudeMappingNote cornerAmplitudeSourceHelp"/);
+  assert.match(html, /Direct control → Corner ADSR level · 100%/);
+  assert.match(app, /fmIndexSource: "fixed"/);
+  assert.match(app, /pmDepthSource: "fixed"/);
+  assert.match(app, /envelopeGain \* mappedLevel/);
+  assert.match(html, /id="timbreSourceFieldLabel">FM index source<\/span>/);
   assert.match(openingTag("timbreSource"), /aria-describedby="timbreMappingNote timbreSourceHelp"/);
   assert.match(html, /<option value="fixed" selected>Direct<\/option>/);
   assert.match(openingTag("percussionLevelSource"), /aria-describedby="percussionSourceHelp"/);
   assert.match(html, />Crossing angle<\/option>/);
   assert.match(html, />Corner sharpness<\/option>/);
   assert.match(html, />Contour position<\/option>/);
-  assert.match(html, />Distance from center<\/option>/);
+  assert.match(html, />Left → right<\/option>/);
+  assert.match(html, />Up → down<\/option>/);
+  assert.match(html, />Center → edge<\/option>/);
   assert.match(html, /<b>Spectral width<\/b>/);
   assert.match(html, /id="fmIndexOut"[^>]*>3\.00<\/output>/);
   assert.match(html, /id="pmIndexOut"[^>]*>2\.00 rad<\/output>/);
