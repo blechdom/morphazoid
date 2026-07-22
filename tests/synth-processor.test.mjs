@@ -268,3 +268,37 @@ test("external Shepard trajectories preserve direction beyond a half octave", ()
   const reverse = processTrajectory(-8, 0, 0.4);
   assert.ok(reverse > 0.9 && reverse < 1, `expected reverse motion, received ${reverse}`);
 });
+
+test("unwrapped Shepard travel drives exact multi-octave trajectories", () => {
+  const processor = new ProcessorConstructor({ processorOptions: { maxVoices: 1 } });
+  const spec = (travel) => ({
+    key: "signed-turn-travel",
+    mode: "shepard",
+    frequency: 110,
+    gain: 0.25,
+    pan: 0,
+    // This fallback points upward, so the assertion also proves explicit
+    // travel takes precedence over the inferred rate trajectory.
+    shepardRate: 8,
+    shepardWidth: 4,
+    shepardPosition: 0.25,
+    shepardTravel: travel,
+  });
+  processor.port.onmessage({
+    data: {
+      type: "voices",
+      voices: [spec(3)],
+      nextVoices: [spec(1)],
+      durationSeconds: 0.075,
+    },
+  });
+
+  processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+  const voice = processor.voices.get("signed-turn-travel");
+  assert.equal(voice.target.shepardTravel, 3);
+  assert.equal(voice.nextTarget.shepardTravel, 1);
+  assert.ok(
+    voice.shepardPosition < 0.25,
+    `expected two-octave downward motion, received ${voice.shepardPosition}`,
+  );
+});

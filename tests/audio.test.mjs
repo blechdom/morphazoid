@@ -413,6 +413,30 @@ test("contact reduction retains the loudest voices in original order", () => {
   );
 });
 
+test("voice sanitization preserves unwrapped Shepard travel", () => {
+  const [voice, invalid] = reduceVoiceContacts([
+    {
+      key: "shepard:turn",
+      mode: "shepard",
+      frequency: 220,
+      gain: 0.5,
+      shepardPosition: -2.75,
+      shepardTravel: -12.75,
+    },
+    {
+      key: "shepard:invalid",
+      mode: "shepard",
+      frequency: 220,
+      gain: 0.25,
+      shepardTravel: Number.POSITIVE_INFINITY,
+    },
+  ]);
+
+  assert.equal(voice.shepardPosition, 0.25);
+  assert.equal(voice.shepardTravel, -12.75);
+  assert.equal(invalid.shepardTravel, null);
+});
+
 test("normalization caps combined gain without boosting quiet input", () => {
   const loud = normalizeVoiceGains([
     { frequency: 110, gain: 1 },

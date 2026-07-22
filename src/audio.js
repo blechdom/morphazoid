@@ -20,6 +20,7 @@
  * @property {number} [shepardRate]
  * @property {number} [shepardWidth]
  * @property {number|null} [shepardPosition]
+ * @property {number|null} [shepardTravel]
  */
 
 const DEFAULT_VOICE_COUNT = 32;
@@ -459,6 +460,9 @@ function sanitizeVoice(voice) {
     shepardWidth: clamp(voice.shepardWidth ?? 4, 1, 8),
     shepardPosition: Number.isFinite(voice.shepardPosition)
       ? ((voice.shepardPosition % 1) + 1) % 1
+      : null,
+    shepardTravel: Number.isFinite(voice.shepardTravel)
+      ? voice.shepardTravel
       : null,
   };
 }

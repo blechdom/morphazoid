@@ -1576,6 +1576,12 @@ input[type="range"]::-moz-range-thumb {
   color: var(--ink);
 }
 
+.choice-switch button:disabled {
+  cursor: not-allowed;
+  color: var(--faint);
+  opacity: 0.55;
+}
+
 .choice-switch button[aria-pressed="true"] {
   border-color: var(--accent-soft);
   color: var(--accent);
