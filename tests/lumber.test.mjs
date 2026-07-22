@@ -6,6 +6,7 @@ import {
   createContourTimeWarp,
   contourPitchRatioAt,
   fadeLoopEdges,
+  fuzzMixGains,
   loopPhaseAtTime,
   mixDelayParametersFromOffsets,
   moveVertex,
@@ -179,6 +180,15 @@ test("mix delay ring is dry at rest and maps inward and outward independently", 
   assert.ok(combined.time < dry.time);
   assert.ok(combined.feedback > 0);
   assert.ok(combined.wet > outward.wet);
+});
+
+test("fuzz output level is post-drive trimmed and dry-gain compensated", () => {
+  assert.deepEqual(fuzzMixGains(0, 1), { dry: 1, wet: 0 });
+  assert.deepEqual(fuzzMixGains(1, 0.2), { dry: 0.916, wet: 0.016 });
+  assert.deepEqual(fuzzMixGains(0.5, 0.6), { dry: 0.874, wet: 0.024 });
+  const clipped = fuzzMixGains(2, 2);
+  assert.ok(Math.abs(clipped.dry - 0.58) < 1e-12);
+  assert.equal(clipped.wet, 0.08);
 });
 
 test("recorded samples retain envelope, reverse, and click-safe edges", () => {

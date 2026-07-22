@@ -134,9 +134,14 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
     };
   }
   function audioNode(properties = {}) {
+    const connections = [];
     return {
       ...properties,
-      connect(destination) { return destination; },
+      connections,
+      connect(destination) {
+        connections.push(destination);
+        return destination;
+      },
       disconnect() {},
     };
   }
@@ -345,6 +350,8 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   assert.match(elements.get("depthSummary").textContent, /3D/);
   assert.equal(elements.get("ringDepth").disabled, false);
   assert.equal(elements.get("reverbOn").disabled, false);
+  assert.equal(elements.get("fuzzLevel").disabled, true);
+  assert.equal(elements.get("fuzzLevelOut").textContent, "20%");
   assert.equal(convolvers.length, 1, "3D reverb should share one room convolver");
   assert.ok(shapers.length >= 2, "each sounding ring should have a fuzz path");
   listeners.get("reverbOn:click")();
@@ -358,12 +365,23 @@ test("Lumber renders, records new rings, and explicitly replaces", async () => {
   assert.equal(attributes.get("fuzzOn:aria-pressed"), "true");
   assert.match(elements.get("fuzzIntensityOut").textContent, /%/);
   assert.equal(elements.get("fuzzRight").disabled, false);
+  assert.equal(elements.get("fuzzLevel").disabled, false);
   assert.match(elements.get("depthSummary").textContent, /fuzz/);
+  const fuzzOutputGains = shapers.map((shaper) => shaper.connections[0]?.gain?.value ?? 0);
+  assert.ok(Math.abs(Math.max(...fuzzOutputGains) - 0.016) < 1e-12);
+  elements.get("fuzzLevel").value = "0.6";
+  listeners.get("fuzzLevel:input")();
+  assert.equal(elements.get("fuzzLevelOut").textContent, "60%");
+  assert.ok(Math.abs(Math.max(...fuzzOutputGains.map((_, index) => (
+    shapers[index].connections[0]?.gain?.value ?? 0
+  ))) - 0.048) < 1e-12);
   queuedFrame(performance.now() + 32);
   listeners.get("viewFlat:click")();
   assert.equal(elements.get("reverbIntensityOut").textContent, "flat");
   assert.equal(elements.get("fuzzIntensityOut").textContent, "flat");
   assert.equal(elements.get("reverbOn").disabled, true);
+  assert.equal(elements.get("fuzzLevel").disabled, true);
+  assert.equal(Math.max(...shapers.map((shaper) => shaper.connections[0]?.gain?.value ?? 0)), 0);
 
   const gesture = (x, y) => ({
     clientX: x,

@@ -24,6 +24,7 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
     "viewThreeD", "viewTilt", "viewYaw", "ringDepth", "spreadDepth",
     "reverbOff", "reverbOn", "reverbLeft", "reverbRight", "reverbIntensityOut",
     "fuzzOff", "fuzzOn", "fuzzLeft", "fuzzRight", "fuzzIntensityOut",
+    "fuzzLevel", "fuzzLevelOut",
     "delayRingToggle", "resetDelayRing", "delayRotationPlay", "delayRotationSpeed",
     "delayRotationSpeedOut", "delaySpread", "delaySpreadOut", "mixDelayTimeOut",
     "mixDelayFeedbackOut", "mixDelayWetOut", "effectsSummary",
@@ -105,6 +106,8 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.match(app, /depthEffectIntensity/);
   assert.match(app, /createConvolver/);
   assert.match(app, /createWaveShaper/);
+  assert.match(app, /shaper\.connect\(fuzzGain\)/);
+  assert.match(app, /fuzzMixGains/);
   assert.match(app, /depthReverbImpulse/);
   assert.match(css, /\.depth-effect-row/);
 

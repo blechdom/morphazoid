@@ -60,6 +60,20 @@ export function mixDelayParametersFromOffsets(
   };
 }
 
+/**
+ * Return a loudness-compensated dry/fuzz mix for a spatial depth amount.
+ * The wet trim accounts for the high small-signal gain of Lumber's fixed
+ * drive waveshaper; the user level therefore behaves like output level rather
+ * than changing the distortion character.
+ */
+export function fuzzMixGains(intensity, level = 0.2) {
+  const amount = clamp(intensity, 0, 1) * clamp(level, 0, 1);
+  return {
+    dry: 1 - amount * 0.42,
+    wet: amount * 0.08,
+  };
+}
+
 export function presetVertices(preset = "circle", requestedCount = 8) {
   const count = preset === "triangle"
     ? 3

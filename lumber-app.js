@@ -2,6 +2,7 @@ import { clamp, levelToGain } from "./src/audio.js";
 import {
   addContourVertex,
   fadeLoopEdges,
+  fuzzMixGains,
   loopPhaseAtTime,
   MAX_VERTEX_COUNT,
   MIN_VERTEX_COUNT,
@@ -32,6 +33,7 @@ const FX_RING_MIN_OFFSET = -0.34;
 const FX_RING_MAX_OFFSET = 0.34;
 const FX_RING_SCALE = 1.72;
 const WAVEFORM_RADIUS = 0.065;
+const DEFAULT_FUZZ_LEVEL = 0.2;
 const RING_COLORS = ["#e8c46b", "#5fe8c4", "#7db4ff", "#c79bff", "#ff826f"];
 const FX_RING_COLOR = "#ffe3c2";
 const CANVAS_FONT = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
@@ -104,6 +106,7 @@ const state = {
   reverbDirection: 1,
   fuzzEnabled: false,
   fuzzDirection: 1,
+  fuzzLevel: DEFAULT_FUZZ_LEVEL,
   delayRing: createDelayRingState(),
   level: 0.7,
   rings: [firstRing],
@@ -451,11 +454,12 @@ function updateRingEffects(ring) {
   const fuzzIntensity = state.fuzzEnabled
     ? depthEffectIntensity(ring, state.fuzzDirection)
     : 0;
+  const fuzzMix = fuzzMixGains(voice.fuzzGain ? fuzzIntensity : 0, state.fuzzLevel);
   voice.filter?.frequency.setTargetAtTime(ringFilterFrequency(ring), now, 0.02);
   voice.filter?.Q.setTargetAtTime(ring.filterResonance, now, 0.02);
   voice.panner?.pan.setTargetAtTime(ring.pan, now, 0.02);
-  voice.dryGain?.gain.setTargetAtTime(1 - fuzzIntensity * 0.42, now, 0.02);
-  voice.fuzzGain?.gain.setTargetAtTime(fuzzIntensity * 0.78, now, 0.02);
+  voice.dryGain?.gain.setTargetAtTime(fuzzMix.dry, now, 0.04);
+  voice.fuzzGain?.gain.setTargetAtTime(fuzzMix.wet, now, 0.04);
   voice.reverbSend?.gain.setTargetAtTime(reverbIntensity ** 0.75 * 0.72, now, 0.02);
 }
 
@@ -522,15 +526,18 @@ function startRingSource(ring) {
   effectNodes.push(dryGain);
   let fuzzGain = null;
   if (typeof audioContext.createWaveShaper === "function") {
-    fuzzGain = audioContext.createGain();
-    fuzzGain.gain.value = 0;
+    const fuzzDrive = audioContext.createGain();
+    fuzzDrive.gain.value = 0.78;
     const shaper = audioContext.createWaveShaper();
     shaper.curve = fuzzCurve();
     shaper.oversample = "4x";
-    output.connect(fuzzGain);
-    fuzzGain.connect(shaper);
-    shaper.connect(masterGain);
-    effectNodes.push(fuzzGain, shaper);
+    fuzzGain = audioContext.createGain();
+    fuzzGain.gain.value = 0;
+    output.connect(fuzzDrive);
+    fuzzDrive.connect(shaper);
+    shaper.connect(fuzzGain);
+    fuzzGain.connect(masterGain);
+    effectNodes.push(fuzzDrive, shaper, fuzzGain);
   }
   let reverbSend = null;
   if (depthReverbInput) {
@@ -1632,12 +1639,19 @@ function updateUi() {
       setPressed(button, (button.dataset.value === "left") === (direction < 0));
       button.disabled = locked || !state.view3d || !enabled;
     }
+    const spatialIntensity = depthEffectIntensity(ring, direction);
+    const displayedIntensity = effect === "fuzz"
+      ? spatialIntensity * state.fuzzLevel
+      : spatialIntensity;
     $(`${effect}IntensityOut`).textContent = !enabled
       ? "off"
       : !state.view3d
         ? "flat"
-        : `${Math.round(depthEffectIntensity(ring, direction) * 100)}%`;
+        : `${Math.round(displayedIntensity * 100)}%`;
   }
+  $("fuzzLevel").value = String(state.fuzzLevel);
+  $("fuzzLevel").disabled = locked || !state.view3d || !state.fuzzEnabled;
+  $("fuzzLevelOut").textContent = `${Math.round(state.fuzzLevel * 100)}%`;
   const activeDepthEffects = [
     state.reverbEnabled ? "reverb" : "",
     state.fuzzEnabled ? "fuzz" : "",
@@ -2597,6 +2611,11 @@ for (const effect of ["reverb", "fuzz"]) {
     });
   }
 }
+$("fuzzLevel").addEventListener("input", () => {
+  state.fuzzLevel = clamp(Number($("fuzzLevel").value), 0, 1);
+  updateAllRingEffects();
+  updateUi();
+});
 $("addVertex").addEventListener("click", addVertex);
 $("removeVertex").addEventListener("click", removeVertex);
 $("resetShape").addEventListener("click", () => applyPreset("circle"));
