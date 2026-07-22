@@ -4,20 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#07090b" />
-    <meta name="description" content="Morphazoid L-System — recursive drawing data mapped to sound." />
-    <title>L-System — Morphazoid</title>
+    <meta name="description" content="Morphazoid L-Mic — a microphone recording recursively resampled through an L-system." />
+    <title>L-Mic — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body class="l-system-page">
     <header class="masthead">
-      <a class="wordmark" href="#l-system" aria-label="Morphazoid L-System"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+      <a class="wordmark" href="#l-system" aria-label="Morphazoid L-Mic"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="./">shape</a><a class="tab" href="lattice.html">lattice</a><a class="tab" href="spiral.html">spiral</a><a class="tab" href="solid.html">solid</a><a class="tab" href="hyper.html">hyper</a><a class="tab active" href="l-system.html" aria-current="page">l-system</a><a class="tab" href="julia.html">julia</a><a class="tab" href="lumber.html">lumber</a>
+        <a class="tab" href="./">shape</a><a class="tab" href="lattice.html">lattice</a><a class="tab" href="spiral.html">spiral</a><a class="tab" href="solid.html">solid</a><a class="tab" href="hyper.html">hyper</a><a class="tab active" href="l-system.html" aria-current="page">l-mic</a><a class="tab" href="julia.html">julia</a><a class="tab" href="lumber.html">lumber</a><a class="tab fractaphone-tab" href="fractaphone.html">fractaphone</a>
       </nav>
-      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="./">shape</option><option value="lattice.html">lattice</option><option value="spiral.html">spiral</option><option value="solid.html">solid</option><option value="hyper.html">hyper</option><option value="l-system.html" selected>l-system</option><option value="julia.html">julia</option><option value="lumber.html">lumber</option></select></label>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="./">shape</option><option value="lattice.html">lattice</option><option value="spiral.html">spiral</option><option value="solid.html">solid</option><option value="hyper.html">hyper</option><option value="l-system.html" selected>l-mic</option><option value="julia.html">julia</option><option value="lumber.html">lumber</option><option value="fractaphone.html">fractaphone</option></select></label>
       <div class="audio-strip" aria-label="Audio controls">
-        <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">◉</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">●</span><span class="audio-copy"><b>Microphone</b><small id="audioState">off</small></span></button>
         <label class="header-level" for="level"><span><b>Volume</b><output id="levelOut" for="level">55%</output></span><input id="level" type="range" min="0" max="1" step="0.01" value="0.55" /></label>
       </div>
     </header>
@@ -62,10 +62,13 @@
         <details class="group control-section" data-section="form">
           <summary class="group-summary"><h2 class="group-title">System</h2><span class="section-state" id="systemSummary">Pythagorean tree</span></summary>
           <div class="group-body">
-            <label class="select-control" for="preset"><span class="field-label">Grammar preset</span><span class="select-shell"><select id="preset"><option value="pythagorean" selected>Pythagorean tree</option><option value="plant">Branching plant</option><option value="coral">Coral</option><option value="dragon">Dragon curve</option></select></span></label>
+            <label class="select-control" for="preset"><span class="field-label">Grammar preset</span><span class="select-shell"><select id="preset"><optgroup label="Branching systems"><option value="pythagorean" selected>Pythagorean tree</option><option value="plant">Branching plant</option><option value="coral">Coral</option></optgroup><optgroup label="Classic fractals"><option value="dragon">Dragon curve</option><option value="koch">Koch snowflake</option><option value="sierpinski">Sierpiński triangle</option><option value="hilbert">Hilbert curve</option><option value="gosper">Gosper curve</option><option value="cantor">Cantor set</option><option value="levy">Lévy C curve</option><option value="terdragon">Terdragon</option></optgroup></select></span></label>
             <label class="control" for="iterations"><span><b>Iterations</b><output id="iterationsOut" for="iterations">7</output></span><input id="iterations" type="range" min="0" max="12" step="1" value="7" /></label>
             <label class="control" for="angle"><span><b>Turn angle</b><output id="angleOut" for="angle">45°</output></span><input id="angle" type="range" min="0" max="180" step="0.5" value="45" /></label>
-            <label class="control" for="lengthScale"><span><b>Branch taper</b><output id="lengthScaleOut" for="lengthScale">72%</output></span><input id="lengthScale" type="range" min="0.5" max="1" step="0.01" value="0.72" /></label>
+            <label class="control signed-form-range" for="turnAsymmetry"><span><b>Turn asymmetry</b><output id="turnAsymmetryOut" for="turnAsymmetry">−45° / +45°</output></span><input id="turnAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" aria-describedby="turnAsymmetryNote" /><span class="form-range-poles" aria-hidden="true"><span>− wider</span><span>Even</span><span>+ wider</span></span></label>
+            <small class="growth-parameter-note" id="turnAsymmetryNote">Makes + and − turns unequal while preserving their total opening—and their combined pitch spread.</small>
+            <label class="control" for="lengthScale"><span><b>Branch length taper</b><output id="lengthScaleOut" for="lengthScale">72%</output></span><input id="lengthScale" type="range" min="0.3" max="1" step="0.01" value="0.72" aria-describedby="taperNote" /></label>
+            <small class="growth-parameter-note" id="taperNote">72% means each &gt;-marked level is 0.72× as long; &lt; restores it. Length only—not line width or loudness.</small>
             <div class="grammar-card" aria-label="Current L-system grammar"><span><b>Axiom</b><code id="axiomReadout">FX</code></span><span><b>Rules</b><code id="rulesReadout">X → &gt;[-FX]+FX&lt;</code></span></div>
             <p class="audio-error" id="systemError" role="alert" hidden></p>
             <button class="mini-action reset-form" id="resetSystem" type="button">Reset system</button>
@@ -76,18 +79,21 @@
           <summary class="group-summary"><h2 class="group-title">Mapping</h2><span class="section-state" id="mappingSummary">angle → pitch</span></summary>
           <div class="group-body">
             <label class="select-control" for="pitchSource"><span class="field-label">Pitch data</span><span class="select-shell"><select id="pitchSource"><option value="angle" selected>Cumulative branch angle</option><option value="height">Vertical position</option><option value="depth">Branch depth</option><option value="progress">Growth progress</option></select></span></label>
-            <label class="control" for="baseFrequency"><span><b>Trunk frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" /></label>
+            <label class="control" for="baseFrequency"><span><b>Trunk playback rate</b><output id="baseFrequencyOut" for="baseFrequency">1.00×</output></span><input id="baseFrequency" type="range" min="0.5" max="2" step="0.01" value="1" /></label>
             <label class="control" for="pitchRange"><span><b>Angle pitch scale</b><output id="pitchRangeOut" for="pitchRange">2.00 oct / turn</output></span><input id="pitchRange" type="range" min="0" max="7" step="0.05" value="2" /></label>
-            <small class="form-count-key">Each fork inherits its parent pitch, then turns it up or down. Voice power is divided across every active branch.</small>
-            <label class="control" for="depthAmount"><span><b>Depth → timbre</b><output id="depthAmountOut" for="depthAmount">65%</output></span><input id="depthAmount" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
+            <small class="form-count-key">Each fork inherits the trunk recording, then reads it faster or slower. Branches are mixed as virtual voices inside one processor.</small>
+            <label class="control" for="depthAmount"><span><b>Depth compression amount</b><output id="depthAmountOut" for="depthAmount">65%</output></span><input id="depthAmount" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
           </div>
         </details>
 
         <details class="group control-section" data-section="sound">
-          <summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state" id="soundSummary">SINE</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Mic recursion</h2><span class="section-state" id="soundSummary">ROLLING LOOP</span></summary>
           <div class="group-body">
-            <label class="select-control" for="soundMode"><span class="field-label">Voice</span><span class="select-shell"><select id="soundMode"><option value="sine" selected>Sine · bifurcating branches</option><option value="fm">FM · branch depth</option><option value="pm">PM · branch depth</option><option value="shepard">Shepard · endless path</option></select></span></label>
-            <label class="control" for="modulationIndex"><span><b>Modulation depth</b><output id="modulationIndexOut" for="modulationIndex">3.00 max</output></span><input id="modulationIndex" type="range" min="0" max="12" step="0.05" value="3" /></label>
+            <label class="control" for="branchCompression"><span><b>Time compression</b><output id="branchCompressionOut" for="branchCompression">1.08× / level</output></span><input id="branchCompression" type="range" min="1" max="1.3" step="0.01" value="1.08" /></label>
+            <label class="control" for="branchFeedback"><span><b>Record previous branches</b><output id="branchFeedbackOut" for="branchFeedback">32%</output></span><input id="branchFeedback" type="range" min="0" max="0.82" step="0.01" value="0.32" /></label>
+            <small class="form-count-key">The live mic fills a rolling trunk buffer. Sibling combinations are bounced into separate reusable subtree stems, while feedback records some of the whole forest for later ancestry. Headphones are strongly recommended.</small>
+            <div class="structure-readout"><b>Branch ceiling</b><output id="polyphonyReadout">AUTO CHECK · 128 ready</output></div>
+            <p class="structure-description" id="polyphonyDescription">The ceiling rises only when this structure asks for more branches and measured render load has safe headroom.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>

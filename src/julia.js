@@ -7,8 +7,68 @@ export const DEFAULT_JULIA_BOUNDS = Object.freeze({
   maxY: 2,
 });
 
-const DEFAULT_MAX_ITERATIONS = 96;
-const DEFAULT_RESOLUTION = 224;
+export const JULIA_DEFAULTS = Object.freeze({
+  presetId: "listening",
+  cReal: -0.788,
+  cImag: 0.1191,
+  maxIterations: 32,
+  resolution: 320,
+  contourTreatment: 0,
+  speed: 0.017,
+  turnOctaves: 4,
+  baseFrequency: 300,
+  shepardWidth: 8,
+});
+
+/** Curated quadratic Julia parameters that produce playable filled contours. */
+export const JULIA_PRESETS = Object.freeze([
+  Object.freeze({
+    id: "listening",
+    name: "Listening default",
+    cReal: JULIA_DEFAULTS.cReal,
+    cImag: JULIA_DEFAULTS.cImag,
+  }),
+  Object.freeze({
+    id: "spiral",
+    name: "Spiral",
+    cReal: -0.7,
+    cImag: 0.27015,
+    finiteDepth: true,
+  }),
+  Object.freeze({ id: "circle", name: "Unit circle", cReal: 0, cImag: 0 }),
+  Object.freeze({ id: "cauliflower", name: "Cauliflower", cReal: 0.25, cImag: 0 }),
+  Object.freeze({ id: "san-marco", name: "San Marco", cReal: -0.75, cImag: 0 }),
+  Object.freeze({ id: "basilica", name: "Basilica", cReal: -1, cImag: 0 }),
+  Object.freeze({
+    id: "rabbit",
+    name: "Douady rabbit / dragon",
+    cReal: -0.12256116687665361,
+    cImag: 0.7448617666197442,
+  }),
+  Object.freeze({
+    id: "corabbit",
+    name: "Co-rabbit",
+    cReal: -0.12256116687665361,
+    cImag: -0.7448617666197442,
+  }),
+  Object.freeze({
+    id: "airplane",
+    name: "Airplane",
+    cReal: -1.7548776662466927,
+    cImag: 0,
+    minimumResolution: 320,
+    maximumSimplify: 0.25,
+  }),
+  Object.freeze({
+    id: "siegel",
+    name: "Golden-mean Siegel disk",
+    cReal: -0.3905408702184,
+    cImag: -0.5867879073469687,
+  }),
+]);
+
+const DEFAULT_MAX_ITERATIONS = JULIA_DEFAULTS.maxIterations;
+const DEFAULT_RESOLUTION = JULIA_DEFAULTS.resolution;
 
 function finite(value, fallback) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -34,15 +94,15 @@ function distanceBetween(a, b) {
 export function escapeTimeJulia(
   x,
   y,
-  cReal = -0.7,
-  cImag = 0.27015,
+  cReal = JULIA_DEFAULTS.cReal,
+  cImag = JULIA_DEFAULTS.cImag,
   maxIterations = DEFAULT_MAX_ITERATIONS,
   escapeRadius = 2,
 ) {
   let zx = finite(x, 0);
   let zy = finite(y, 0);
-  const cr = finite(cReal, -0.7);
-  const ci = finite(cImag, 0.27015);
+  const cr = finite(cReal, JULIA_DEFAULTS.cReal);
+  const ci = finite(cImag, JULIA_DEFAULTS.cImag);
   const limit = clamp(Math.trunc(finite(maxIterations, DEFAULT_MAX_ITERATIONS)), 1, 4096);
   const radius = clamp(finite(escapeRadius, 2), 1.01, 1e6);
   const radiusSquared = radius * radius;
@@ -59,8 +119,8 @@ export function escapeTimeJulia(
 
 /** Sample a square, top-down escape-time field suitable for Canvas pixels. */
 export function generateJuliaField({
-  cReal = -0.7,
-  cImag = 0.27015,
+  cReal = JULIA_DEFAULTS.cReal,
+  cImag = JULIA_DEFAULTS.cImag,
   resolution = DEFAULT_RESOLUTION,
   maxIterations = DEFAULT_MAX_ITERATIONS,
   escapeRadius = 2,
@@ -110,8 +170,8 @@ export function generateJuliaField({
     height: size,
     maxIterations: limit,
     escapeRadius: clamp(finite(escapeRadius, 2), 1.01, 1e6),
-    cReal: finite(cReal, -0.7),
-    cImag: finite(cImag, 0.27015),
+    cReal: finite(cReal, JULIA_DEFAULTS.cReal),
+    cImag: finite(cImag, JULIA_DEFAULTS.cImag),
     bounds: safeBounds,
     insideCount,
   };
@@ -349,6 +409,40 @@ export function simplifyClosedContour(points, tolerance = 0) {
   return reduced.length >= 3 ? reduced : source;
 }
 
+/**
+ * Circular Laplacian smoothing for the negative half of the signed contour
+ * treatment control. It keeps the marching-squares point count and seam while
+ * progressively rounding grid-scale stair steps.
+ */
+export function smoothClosedContour(points, amount = 0) {
+  let result = (Array.isArray(points) ? points : [])
+    .filter((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y))
+    .map((point) => ({ x: point.x, y: point.y }));
+  if (result.length > 1 && pointKey(result[0]) === pointKey(result.at(-1))) result.pop();
+  const strength = clamp(finite(amount, 0), 0, 3);
+  if (result.length < 4 || !(strength > 0)) return result;
+  const fullPasses = Math.floor(strength);
+  const partialPass = strength - fullPasses;
+  const pass = (source, blend) => source.map((point, index) => {
+    const previous = source[(index - 1 + source.length) % source.length];
+    const next = source[(index + 1) % source.length];
+    const averageX = (previous.x + 2 * point.x + next.x) * 0.25;
+    const averageY = (previous.y + 2 * point.y + next.y) * 0.25;
+    return {
+      x: point.x + (averageX - point.x) * blend,
+      y: point.y + (averageY - point.y) * blend,
+    };
+  });
+  for (let iteration = 0; iteration < fullPasses; iteration += 1) result = pass(result, 1);
+  if (partialPass > 1e-9) result = pass(result, partialPass);
+  return result;
+}
+
+/** Minor-third-to-fifth companion interval used to distinguish ±z locations. */
+export function juliaVerticalAddressOctaves(normalizedY = 0) {
+  return (5 + 2 * clamp(finite(normalizedY, 0), -1, 1)) / 12;
+}
+
 function signedArea(points) {
   let twiceArea = 0;
   for (let index = 0; index < points.length; index += 1) {
@@ -445,11 +539,11 @@ export function sampleBoundary(path, phase) {
 
 /**
  * Convert cumulative signed curvature to an unwrapped Shepard octave value.
- * One simple CCW circuit has +2π total turn and therefore rises by one octave
- * with the default mapping. Negative phases naturally reverse every turn.
+ * One simple CCW circuit has +2π total turn and therefore rises by four
+ * octaves with the page's default mapping. Negative phases reverse every turn.
  */
 export function cumulativeTurnOctaves(path, continuousPhase, {
-  octavesPerTurn = 1,
+  octavesPerTurn = JULIA_DEFAULTS.turnOctaves,
   polarity = 1,
   glide = 0.35,
 } = {}) {
@@ -465,7 +559,7 @@ export function cumulativeTurnOctaves(path, continuousPhase, {
     + sample.cumulativeTurn
     + sample.turn * eased;
   const octavePosition = (polarity < 0 ? -1 : 1)
-    * Math.max(0, finite(octavesPerTurn, 1))
+    * Math.max(0, finite(octavesPerTurn, JULIA_DEFAULTS.turnOctaves))
     * turnRadians / TAU;
   return {
     octavePosition,
@@ -483,11 +577,11 @@ export function generateJuliaBoundary(options = {}) {
   if (!primaryContour) {
     return { field, contours, primaryContour: null, boundary: null };
   }
-  const simplifiedPoints = simplifyClosedContour(
-    primaryContour.points,
-    Math.max(0, finite(options.simplifyTolerance, 0)),
-  );
-  const boundary = buildBoundaryPath(simplifiedPoints)
+  const treatment = clamp(finite(options.simplifyTolerance, 0), -3, 3);
+  const treatedPoints = treatment < 0
+    ? smoothClosedContour(primaryContour.points, -treatment)
+    : simplifyClosedContour(primaryContour.points, treatment);
+  const boundary = buildBoundaryPath(treatedPoints)
     ?? buildBoundaryPath(primaryContour.points);
   return { field, contours, primaryContour, boundary };
 }

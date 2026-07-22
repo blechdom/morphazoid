@@ -131,13 +131,39 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
 
   assert.equal(canvas.width, 1800);
   assert.equal(canvas.height, 1200);
-  assert.match(elements.get("stageReadout").textContent, /^SPIRAL · \d+ LOOPS? · \d+ TURNS · 1\.00× · AUDIO OFF$/);
-  assert.equal(elements.get("mappingSummary").textContent, "left rises · 1.00 oct/turn");
-  assert.equal(elements.get("resolutionOut").textContent, "224²");
-  assert.equal(elements.get("simplifyOut").textContent, "0.75 px");
+  assert.match(elements.get("stageReadout").textContent, /^LISTENING DEFAULT · \d+ LOOPS? · \d+ TURNS · 1\.00× · AUDIO OFF$/);
+  assert.equal(elements.get("mappingSummary").textContent, "left rises · 4.00 oct/turn · vertical address");
+  assert.equal(elements.get("cRealOut").textContent, "−0.788");
+  assert.equal(elements.get("cImagOut").textContent, "+0.1191i");
+  assert.equal(elements.get("maxIterationsOut").textContent, "32");
+  assert.equal(elements.get("resolutionOut").textContent, "320²");
+  assert.equal(elements.get("simplifyOut").textContent, "raw · 0.00 px");
+  assert.equal(elements.get("speedOut").textContent, "0.017 cyc/s");
+  assert.equal(elements.get("turnOctavesOut").textContent, "4.00 oct");
+  assert.equal(elements.get("baseFrequencyOut").textContent, "300 Hz");
+  assert.equal(elements.get("shepardWidthOut").textContent, "8.0 oct");
   assert.equal(elements.get("viewZoomOut").textContent, "1.00×");
   assert.ok(strokes >= 6, "the boundary, turn groups, and playhead trail should be drawn");
   assert.ok(arcs >= 2, "the boundary playhead should be visible");
+
+  listeners.get("preset:change")({ currentTarget: { value: "airplane" } });
+  assert.equal(elements.get("juliaSummary").textContent, "Airplane");
+  assert.equal(elements.get("cRealOut").textContent, "−1.755");
+  assert.equal(elements.get("resolutionOut").textContent, "320²");
+  assert.equal(elements.get("simplifyOut").textContent, "raw · 0.00 px");
+  assert.equal(elements.get("geometryError").hidden, true);
+  listeners.get("preset:change")({ currentTarget: { value: "listening" } });
+  assert.equal(elements.get("juliaSummary").textContent, "Listening default");
+
+  elements.get("speed").value = "-1";
+  listeners.get("speed:input")();
+  assert.equal(elements.get("speedOut").textContent, "0.001 cyc/s");
+  elements.get("speed").value = "1";
+  listeners.get("speed:input")();
+  assert.equal(elements.get("speedOut").textContent, "0.250 cyc/s");
+  elements.get("speed").value = "0";
+  listeners.get("speed:input")();
+  assert.equal(elements.get("speedOut").textContent, "0.017 cyc/s");
 
   listeners.get("rightRises:click")();
   assert.equal(attributes.get("rightRises:aria-pressed"), "true");
@@ -150,10 +176,10 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
   listeners.get("stage:pointerdown")({ pointerId: 3, clientX: 450, clientY: 300, shiftKey: true, preventDefault() {} });
   listeners.get("stage:pointermove")({ pointerId: 3, clientX: 490, clientY: 320 });
   listeners.get("stage:pointerup")({ pointerId: 3 });
-  assert.notEqual(elements.get("viewCenterOut").textContent, "0.000 + 0.000i");
+  assert.notEqual(elements.get("viewCenterOut").textContent, "0.000 + 0.0000i");
   listeners.get("resetView:click")();
   assert.equal(elements.get("viewZoomOut").textContent, "1.00×");
-  assert.equal(elements.get("viewCenterOut").textContent, "0.000 + 0.000i");
+  assert.equal(elements.get("viewCenterOut").textContent, "0.000 + 0.0000i");
 
   listeners.get("analyzeSimilarity:click")();
   assert.equal(elements.get("auditionSimilarity").disabled, false);
@@ -172,7 +198,7 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
   const before = Number(elements.get("position").value);
   listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
-  now += 100;
+  now = performance.now() + 100;
   queuedFrame(now);
   assert.notEqual(Number(elements.get("position").value), before);
 

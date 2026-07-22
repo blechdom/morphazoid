@@ -7,7 +7,11 @@ let processorName = "";
 globalThis.sampleRate = 48_000;
 globalThis.AudioWorkletProcessor = class {
   constructor() {
-    this.port = { onmessage: null };
+    this.port = {
+      onmessage: null,
+      messages: [],
+      postMessage(message) { this.messages.push(message); },
+    };
   }
 };
 globalThis.registerProcessor = (name, constructor) => {
@@ -119,6 +123,38 @@ test("worklet registers one stereo contour synth processor", () => {
   assert.equal(typeof ProcessorConstructor, "function");
 });
 
+test("worklet admits a runtime-selected voice count and reports render load", () => {
+  const processor = new ProcessorConstructor({ processorOptions: { maxVoices: 512 } });
+  const voices = Array.from({ length: 300 }, (_, index) => ({
+    key: `voice:${index}`,
+    mode: "sine",
+    frequency: 110 + index,
+    gain: 0.001,
+    pan: 0,
+  }));
+  processor.port.onmessage({
+    data: {
+      type: "voices",
+      voices,
+      requestedVoiceCount: 450,
+      voiceLimit: 300,
+      mode: "sine",
+    },
+  });
+  assert.equal(processor.activeTargetCount, 300);
+  assert.equal(processor.voices.size, 300);
+  for (let block = 0; block < 96; block += 1) {
+    processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+  }
+  const report = processor.port.messages.find((message) => message.type === "render-load");
+  assert.equal(report.supported, true);
+  assert.equal(report.activeVoices, 300);
+  assert.equal(report.requestedVoices, 450);
+  assert.equal(report.voiceLimit, 300);
+  assert.ok(Number.isFinite(report.averageLoad));
+  assert.ok(Number.isFinite(report.peakLoad));
+});
+
 test("sine, FM, PM, and Shepard render finite, distinct simple patches", () => {
   const sine = render("sine");
   const fm = render("fm", { modulationIndex: 4, modulationRatio: 2 });
@@ -154,15 +190,15 @@ test("pan is equal-power and Shepard octave wraps remain click bounded", () => {
   assert.ok(largestStep < 0.2, `Shepard wrap step was ${largestStep}`);
 });
 
-test("Shepard keeps overlapping partials through the half-octave crossfade", () => {
-  for (const width of [1, undefined]) {
+test("Shepard keeps overlapping partials through narrow and wide crossfades", () => {
+  for (const width of [1, undefined, 15]) {
     const trajectory = renderShepardTrajectory({ start: 0.45, end: 0.55, width });
     assert.ok(
       trajectory.minimumContributors >= 2,
       `width ${width ?? "default"} fell to ${trajectory.minimumContributors} contributors`,
     );
     assert.ok(
-      largestStep(trajectory.left) < 0.08,
+      largestStep(trajectory.left) < (width === 15 ? 0.1 : 0.08),
       `width ${width ?? "default"} midpoint step was ${largestStep(trajectory.left)}`,
     );
   }

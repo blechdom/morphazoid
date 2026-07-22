@@ -1,13 +1,9 @@
-import {
-  VoicePool,
-  clamp,
-  pitch01ToFrequency,
-  synthParametersForMode,
-} from "./src/audio.js";
+import { clamp } from "./src/audio.js";
+import { MicBranchEngine } from "./src/mic-branch-engine.js";
+import { micBranchPlaybackRate } from "./src/mic-branch-dsp.js";
 import {
   L_SYSTEM_PRESETS,
   allocateIterationVoiceHeads,
-  branchAngleFrequency,
   branchVoiceGain,
   iterationPlaybackAtPhase,
   iterationPlaybackPhaseRate,
@@ -20,14 +16,18 @@ const TAU = Math.PI * 2;
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
-const MAX_L_SYSTEM_VOICES = 128;
-const pool = new VoicePool(MAX_L_SYSTEM_VOICES);
+const INITIAL_L_SYSTEM_VOICES = 128;
+const MAX_L_SYSTEM_VOICES = 4096;
+const pool = new MicBranchEngine(INITIAL_L_SYSTEM_VOICES, {
+  adaptive: true,
+  maxVoices: MAX_L_SYSTEM_VOICES,
+});
 const presetById = new Map(L_SYSTEM_PRESETS.map((preset) => [preset.id, preset]));
-const generationLimits = { pythagorean: 11, plant: 6, coral: 5, dragon: 15 };
 const state = {
   presetId: "pythagorean",
   iterations: 7,
   angle: 45,
+  turnAsymmetry: 0,
   lengthScale: 0.72,
   position: 0,
   continuousPosition: 0,
@@ -37,11 +37,11 @@ const state = {
   audio: false,
   level: 0.55,
   pitchSource: "angle",
-  baseFrequency: 110,
+  baseFrequency: 1,
   pitchRange: 2,
   depthAmount: 0.65,
-  soundMode: "sine",
-  modulationIndex: 3,
+  branchCompression: 1.08,
+  branchFeedback: 0.32,
   structureMode: "final",
 };
 
@@ -71,6 +71,8 @@ function setPressed(element, pressed) {
 function scheduleFrame() {
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
+
+pool.onPolyphonyStatus = scheduleFrame;
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
@@ -114,17 +116,58 @@ bindRange("speed", "speed", (value) => (
 ));
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
 bindRange("iterations", "iterations", (value) => String(Math.round(value)), rebuildTrace);
-bindRange("angle", "angle", (value) => `${Number(value.toFixed(1))}°`, rebuildTrace);
-bindRange("lengthScale", "lengthScale", (value) => `${Math.round(value * 100)}%`, rebuildTrace);
-bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
+bindRange("angle", "angle", (value) => `${Number(value.toFixed(1))}°`, () => {
+  paintGrowthCapabilities();
+  rebuildTrace();
+});
+bindRange("turnAsymmetry", "turnAsymmetry", formatTurnPair, rebuildTrace);
+bindRange("lengthScale", "lengthScale", (value) => `${Math.round(value * 100)}%`, () => {
+  paintGrowthCapabilities();
+  rebuildTrace();
+});
+bindRange("baseFrequency", "baseFrequency", (value) => `${value.toFixed(2)}×`);
 bindRange("pitchRange", "pitchRange", (value) => (
   state.pitchSource === "angle" ? `${value.toFixed(2)} oct / turn` : `${value.toFixed(2)} oct`
 ));
 bindRange("depthAmount", "depthAmount", (value) => `${Math.round(value * 100)}%`);
-bindRange("modulationIndex", "modulationIndex", (value) => `${value.toFixed(2)} max`);
+bindRange("branchCompression", "branchCompression", (value) => `${value.toFixed(2)}× / level`);
+bindRange("branchFeedback", "branchFeedback", (value) => `${Math.round(value * 100)}%`, () => {
+  pool.setFeedback(state.branchFeedback);
+});
 
 function currentPreset() {
   return presetById.get(state.presetId) ?? L_SYSTEM_PRESETS[0];
+}
+
+function formatAngle(value) {
+  return Number(value.toFixed(1));
+}
+
+function formatTurnPair(asymmetry) {
+  const minusTurn = state.angle * (1 - asymmetry);
+  const plusTurn = state.angle * (1 + asymmetry);
+  return `−${formatAngle(minusTurn)}° / +${formatAngle(plusTurn)}°`;
+}
+
+function paintGrowthCapabilities() {
+  const preset = currentPreset();
+  const grammar = `${preset.axiom}${Object.values(preset.rules).join("")}`;
+  const hasTurns = /[+-]/.test(grammar);
+  const hasTaper = /[<>]/.test(grammar);
+  $("turnAsymmetry").disabled = !hasTurns;
+  $("turnAsymmetryOut").textContent = hasTurns ? formatTurnPair(state.turnAsymmetry) : "not used";
+  $("turnAsymmetryNote").textContent = hasTurns
+    ? "Makes + and − turns unequal while preserving their total opening—and their combined pitch spread."
+    : "This grammar has no + or − turns, so its angle and turn asymmetry are not used.";
+  $("angle").disabled = !hasTurns;
+  $("angleOut").textContent = hasTurns ? `${formatAngle(state.angle)}°` : "not used";
+  $("lengthScale").disabled = !hasTaper;
+  $("lengthScaleOut").textContent = hasTaper
+    ? `${Math.round(state.lengthScale * 100)}%`
+    : "not used";
+  $("taperNote").textContent = hasTaper
+    ? `${Math.round(state.lengthScale * 100)}% means each >-marked level is ${state.lengthScale.toFixed(2)}× as long; < restores it. Length only—not line width or loudness.`
+    : "This grammar has no > or < length markers, so taper is not used.";
 }
 
 function paintGrammar() {
@@ -133,7 +176,9 @@ function paintGrammar() {
   $("rulesReadout").textContent = Object.entries(preset.rules)
     .map(([symbol, replacement]) => `${symbol} → ${replacement}`)
     .join(" · ");
+  $("iterations").max = String(preset.maxIterations ?? 12);
   $("systemSummary").textContent = preset.name;
+  paintGrowthCapabilities();
 }
 
 function rebuildTrace() {
@@ -141,6 +186,7 @@ function rebuildTrace() {
   try {
     iterationTraces = buildIterationTraces(preset, state.iterations, {
       angle: state.angle,
+      turnAsymmetry: state.turnAsymmetry,
       lengthScale: state.lengthScale,
     });
     $("systemError").hidden = true;
@@ -158,13 +204,16 @@ function loadPreset(id) {
   state.presetId = preset.id;
   state.iterations = preset.iterations;
   state.angle = preset.angle;
+  state.turnAsymmetry = preset.turnAsymmetry ?? 0;
   state.lengthScale = preset.lengthScale;
   $("preset").value = preset.id;
-  $("iterations").max = String(generationLimits[preset.id] ?? 12);
+  $("iterations").max = String(preset.maxIterations ?? 12);
   $("iterations").value = String(state.iterations);
   $("iterationsOut").textContent = String(state.iterations);
   $("angle").value = String(state.angle);
   $("angleOut").textContent = `${state.angle}°`;
+  $("turnAsymmetry").value = String(state.turnAsymmetry);
+  $("turnAsymmetryOut").textContent = formatTurnPair(state.turnAsymmetry);
   $("lengthScale").value = String(state.lengthScale);
   $("lengthScaleOut").textContent = `${Math.round(state.lengthScale * 100)}%`;
   paintGrammar();
@@ -272,13 +321,6 @@ $("pitchSource").addEventListener("change", (event) => {
   scheduleFrame();
 });
 
-$("soundMode").addEventListener("change", (event) => {
-  state.soundMode = event.currentTarget.value;
-  $("soundSummary").textContent = state.soundMode.toUpperCase();
-  pool.silence();
-  scheduleFrame();
-});
-
 $("audioButton").addEventListener("click", async () => {
   $("audioError").hidden = true;
   if (state.audio) {
@@ -286,9 +328,10 @@ $("audioButton").addEventListener("click", async () => {
     pool.disable();
   } else {
     try {
-      $("audioState").textContent = "starting…";
+      $("audioState").textContent = "requesting mic…";
       await pool.enable();
       pool.setLevel(state.level);
+      pool.setFeedback(state.branchFeedback);
       state.audio = true;
       resetClocks();
     } catch (error) {
@@ -407,31 +450,47 @@ function pitchValue(playhead, normalized) {
 function voiceForPlayhead(playhead, activePower, combinedGain) {
   const normalized = normalizeLSystemPoint(playhead, playhead.sourceTrace.bounds);
   const depth = playhead.depth / Math.max(1, playhead.sourceTrace.maxForkDepth);
-  const drive = clamp(depth * state.depthAmount, 0, 1);
   const mappedPitch = pitchValue(playhead, normalized);
-  const frequency = state.pitchSource === "angle"
-    ? branchAngleFrequency(playhead.cumulativeTurn, state.baseFrequency, state.pitchRange)
-    : pitch01ToFrequency(mappedPitch, state.baseFrequency, state.pitchRange);
+  const pitchPosition = state.pitchSource === "angle"
+    ? playhead.cumulativeTurn / TAU
+    : mappedPitch - 0.5;
+  const pitchRate = micBranchPlaybackRate(
+    pitchPosition,
+    state.pitchRange,
+    state.baseFrequency,
+  );
+  const depthCompression = state.branchCompression ** (
+    depth * state.depthAmount * Math.max(1, playhead.sourceTrace.maxForkDepth)
+  );
+  const segment = playhead.segment;
+  const parent = Number.isInteger(segment.parentIndex)
+    ? playhead.sourceTrace.segments[segment.parentIndex]
+    : null;
+  const grandparent = parent && Number.isInteger(parent.parentIndex)
+    ? playhead.sourceTrace.segments[parent.parentIndex]
+    : null;
+  const lineagePrefix = `iteration:${playhead.iteration}`;
+  const sourceKey = grandparent
+    ? `${lineagePrefix}:combo:${grandparent.index}`
+    : parent
+      ? `${lineagePrefix}:stem:${parent.index}`
+      : "base";
+  const bounceKey = parent
+    ? `${lineagePrefix}:combo:${parent.index}`
+    : `${lineagePrefix}:stem:${segment.index}`;
   return {
     key: `l-system:${playhead.voiceKey}`,
-    frequency,
+    rate: clamp(pitchRate * depthCompression, 0.25, 4),
     gain: branchVoiceGain(playhead.powerShare, activePower, combinedGain),
     pan: clamp(normalized.x * 2 - 1, -1, 1),
-    waveform: "sine",
-    ...synthParametersForMode(state.soundMode, drive, {
-      fmIndex: state.modulationIndex,
-      fmRatio: 1.5,
-      pmIndex: state.modulationIndex,
-      pmRatio: 1.5,
-      shepardRate: state.playing ? state.speed * state.direction : 0,
-      shepardWidth: 5,
-      shepardPosition: state.position,
-    }),
+    depth: playhead.depth,
+    sourceKey,
+    bounceKey,
   };
 }
 
-function voicesForPlayheads(playheads) {
-  const selected = allocateIterationVoiceHeads(playheads, MAX_L_SYSTEM_VOICES);
+function voicesForPlayheads(playheads, maxVoices = pool.voiceLimit) {
+  const selected = allocateIterationVoiceHeads(playheads, maxVoices);
   const groups = new Map();
   for (const playhead of selected) {
     const group = groups.get(playhead.iteration) ?? [];
@@ -443,6 +502,35 @@ function voicesForPlayheads(playheads) {
     const activePower = heads.reduce((sum, playhead) => sum + playhead.powerShare, 0);
     return heads.map((playhead) => voiceForPlayhead(playhead, activePower, layerGain));
   });
+}
+
+function paintPolyphony(soundingVoices, requestedVoices) {
+  const status = pool.polyphonyStatus;
+  const load = Number.isFinite(status.averageLoad)
+    ? ` · DSP ${Math.round(status.averageLoad * 100)}%`
+    : "";
+  const count = requestedVoices > status.limit
+    ? `${status.limit} / ${requestedVoices}`
+    : `${Math.max(soundingVoices, status.limit)} ready`;
+  const label = status.status === "fallback"
+    ? "SAFE CAP"
+    : status.status === "probing"
+      ? "AUTO TEST"
+      : status.status === "capped"
+        ? "AUTO CAP"
+        : status.status === "warming"
+          ? "AUTO CHECK"
+          : "AUTO";
+  $("polyphonyReadout").textContent = `${label} · ${count}${load}`;
+  $("polyphonyDescription").textContent = status.status === "fallback"
+    ? "This browser cannot expose reliable render load, so playback stays at the proven 128-branch fallback."
+    : status.status === "probing"
+      ? "The renderer has headroom, so the ceiling is rising in a guarded step."
+      : status.status === "capped" && requestedVoices > status.limit
+        ? `Playback is holding at ${status.limit} branches to preserve audio headroom; quieter branches remain visual.`
+        : status.status === "warming" && requestedVoices > status.limit
+          ? "Measuring real playback load before admitting the next group of branches."
+          : "Every branch currently requested by the structure fits within the measured ceiling.";
 }
 
 function transportDelta(now) {
@@ -473,20 +561,15 @@ function frame(now) {
   drawScene(playback, playheads);
 
   let voices = [];
+  const requestedVoices = state.audio && state.playing ? playheads.length : 0;
   if (state.audio && state.playing && playheads.length) {
-    const lookahead = 0.065;
-    const futurePhase = state.continuousPosition + state.direction * phaseRate * lookahead;
-    const futurePlayback = iterationPlaybackAtPhase(
-      iterationTraces,
-      futurePhase,
-      state.structureMode,
-    );
-    const futureHeads = playbackHeads(futurePlayback);
-    voices = voicesForPlayheads(playheads);
-    pool.setVoiceTrajectory(voices, voicesForPlayheads(futureHeads), lookahead);
+    const voiceLimit = pool.setVoiceDemand(requestedVoices);
+    voices = voicesForPlayheads(playheads, voiceLimit);
+    pool.setVoices(voices, { requestedVoiceCount: requestedVoices });
   } else if (state.audio) {
     pool.setVoices([]);
   }
+  paintPolyphony(voices.length, requestedVoices);
 
   $("position").value = String(state.position);
   $("positionOut").textContent = state.structureMode === "sequence"
@@ -511,7 +594,9 @@ function frame(now) {
         : `FINAL I${finalIteration}`;
   const headLabel = `${playheads.length} HEAD${playheads.length === 1 ? "" : "S"}`;
   const voiceText = state.audio
-    ? (state.playing ? `${voices.length} ${state.soundMode.toUpperCase()} VOICE${voices.length === 1 ? "" : "S"}` : "AUDIO READY")
+    ? (state.playing
+      ? `${voices.length}${voices.length < requestedVoices ? `/${requestedVoices}` : ""} MIC BRANCH${voices.length === 1 ? "" : "ES"}`
+      : "MIC READY")
     : "AUDIO OFF";
   $("playSummary").textContent = `${headLabel.toLowerCase()} · ${state.playing ? "playing" : "paused"}`;
   $("stageReadout").textContent = `${preset.name.toUpperCase()} · ${structureLabel} · ${headLabel} · ${voiceText}`;

@@ -39,6 +39,26 @@ test("audio module imports and constructs without browser globals", () => {
   assert.equal(pool.isEnabled, false);
 });
 
+test("adaptive VoicePool keeps 128 native nodes while expanding worklet capacity", () => {
+  const pool = new VoicePool(128, { adaptive: true, maxVoices: 4_096 });
+  assert.equal(pool.size, 128);
+  assert.equal(pool.maxVoiceLimit, 4_096);
+  assert.equal(pool.voiceLimitFor("sine"), 128);
+  pool.setVoiceDemand(512, "sine");
+  for (let index = 0; index < 3; index += 1) {
+    pool.observePolyphony({
+      mode: "sine",
+      averageLoad: 0.2,
+      peakLoad: 0.3,
+      activeVoices: 128,
+      requestedVoices: 512,
+      source: "test",
+    });
+  }
+  assert.equal(pool.voiceLimitFor("sine"), 160);
+  assert.equal(pool.voiceLimitFor("fm"), 128);
+});
+
 test("starting without Web Audio fails only when explicitly requested", async () => {
   const pool = new VoicePool();
   await assert.rejects(pool.start(), /Web Audio is not available/);
@@ -87,7 +107,7 @@ test("geometry drive produces bounded and mode-specific synth parameters", () =>
   });
   assert.equal(shepard.synthDrive, 1);
   assert.equal(shepard.shepardRate, -8);
-  assert.equal(shepard.shepardWidth, 8);
+  assert.equal(shepard.shepardWidth, 12);
   assert.equal(
     synthParametersForMode("shepard", 1, { shepardPosition: 2.25 }).shepardPosition,
     0.25,
@@ -134,7 +154,7 @@ test("timbre mapping targets the sound-specific DSP amount", () => {
   });
   assert.equal(boundedFm.modulationIndex, 20);
   assert.equal(boundedPm.modulationIndex, 12);
-  assert.equal(boundedShepard.shepardWidth, 8);
+  assert.equal(boundedShepard.shepardWidth, 15);
 });
 
 test("synth parameters use mapped Shepard width without changing sine", () => {
@@ -627,7 +647,13 @@ test("continuous synth specs use one worklet while native fallback voices stay s
     assert.equal(trajectory.nextVoices[0].modulationIndex, 5);
 
     pool.silence();
-    assert.deepEqual(messages.at(-1), { type: "voices", voices: [] });
+    assert.deepEqual(messages.at(-1), {
+      type: "voices",
+      voices: [],
+      mode: "sine",
+      requestedVoiceCount: 0,
+      voiceLimit: 2,
+    });
   } finally {
     await pool.close();
     if (previousAudioContext === undefined) delete globalThis.AudioContext;

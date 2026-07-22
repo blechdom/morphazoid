@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Fractaphone — a live microphone that grows recursive audio descendants." />
+    <title>Fractaphone — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="fractaphone.css" />
+  </head>
+  <body class="fractaphone-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid Shape">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-mic</a>
+        <a class="tab" href="julia.html">julia</a>
+        <a class="tab" href="lumber.html">lumber</a>
+        <a class="tab fractaphone-tab active" href="fractaphone.html" aria-current="page">fractaphone</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-mic</option>
+          <option value="julia.html">julia</option>
+          <option value="lumber.html">lumber</option>
+          <option value="fractaphone.html" selected>fractaphone</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Microphone controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph fracta-audio-glyph" aria-hidden="true">∞</span>
+          <span class="audio-copy"><b>Mic</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
+          <input id="level" aria-label="Fractaphone output level" type="range" min="0" max="1" step="0.01" value="0.58" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="fractaphone">
+      <section class="stage fracta-stage" aria-label="Fractaphone echo tree">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Fractaphone canvas. A live voice grows into a branching tree of recursive descendants."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A branching visualization of recursive microphone echoes.
+          </canvas>
+
+          <div class="fracta-intro" id="stageIntro">
+            <span class="fracta-kicker">LIVE RECURSIVE MICROPHONE</span>
+            <strong>mic<span>(</span>mic<span>)</span></strong>
+            <p>Speak once. Let every echo become the parent of another.</p>
+            <button id="stageStartButton" type="button">
+              <i aria-hidden="true"></i>
+              <span><b>Start microphone</b><small>headphones recommended</small></span>
+            </button>
+          </div>
+
+          <button class="fracta-panic" id="panicButton" type="button" disabled>
+            <span aria-hidden="true">×</span> panic
+          </button>
+
+          <div class="fracta-recording-badge" id="recordingBadge" hidden>
+            <i aria-hidden="true"></i><span>REC</span><output id="stageRecordTime">0:00</output>
+          </div>
+
+          <div class="fracta-generation-key" id="generationKey" aria-hidden="true">
+            <span>G0 ROOT</span><i></i><span id="generationKeyEnd">G8 DESCENDANT</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">MIC OFF · BLOOM · 10 GENERATIONS</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Fractaphone controls">
+        <details class="group control-section performance-group" id="listenSection" data-section="listen">
+          <summary class="group-summary">
+            <h2 class="group-title">Listen</h2>
+            <span class="section-state" id="listenSummary">microphone off</span>
+          </summary>
+          <div class="group-body">
+            <div class="fracta-listen-actions">
+              <button class="fracta-mic-button" id="micButton" type="button" aria-pressed="false">
+                <span class="fracta-mic-icon" aria-hidden="true"><i></i></span>
+                <span><b id="micButtonLabel">Start microphone</b><small id="micButtonHint">allow access to begin</small></span>
+              </button>
+              <button class="fracta-freeze-button" id="freezeButton" type="button" aria-pressed="false" disabled>
+                <span aria-hidden="true">◇</span>
+                <span><b id="freezeLabel">Hold seed</b><small id="freezeHint">let the tree decay</small></span>
+              </button>
+            </div>
+
+            <div class="fracta-meter" aria-label="Live microphone level">
+              <span><b>Input signal</b><output id="inputMeterOut">silent</output></span>
+              <div><i id="inputMeterBar"></i><em id="inputPeakMarker"></em></div>
+            </div>
+
+            <dl class="loop-metrics fracta-metrics" aria-label="Live recursion values">
+              <div><dt>State</dt><dd><output id="stateMetric">off</output></dd></div>
+              <div><dt>Depth</dt><dd><output id="depthMetric">10 gen</output></dd></div>
+              <div><dt>Output</dt><dd><output id="outputMetric">silent</output></dd></div>
+            </dl>
+
+            <label class="control" for="inputTrim">
+              <span><b>Input trim</b><output id="inputTrimOut" for="inputTrim">85%</output></span>
+              <input id="inputTrim" type="range" min="0" max="1.25" step="0.01" value="0.85" />
+            </label>
+            <p class="fracta-headphone-note"><b>Use headphones.</b> Speakers can feed the room back into the microphone before the digital recursion does.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="recursionSection" data-section="recursion">
+          <summary class="group-summary">
+            <h2 class="group-title">Recursion</h2>
+            <span class="section-state" id="recursionSummary">Bloom · 10 generations</span>
+          </summary>
+          <div class="group-body">
+            <div class="field-label">Starting topology</div>
+            <div class="fracta-presets" id="presetButtons" role="group" aria-label="Recursion presets">
+              <button type="button" data-preset="tunnel" aria-pressed="false"><i></i><span>Tunnel</span><small>one line</small></button>
+              <button type="button" data-preset="bloom" aria-pressed="true"><i></i><span>Bloom</span><small>wide fork</small></button>
+              <button type="button" data-preset="choir" aria-pressed="false"><i></i><span>Choir</span><small>close voices</small></button>
+              <button type="button" data-preset="fray" aria-pressed="false"><i></i><span>Fray</span><small>fast mutation</small></button>
+            </div>
+
+            <label class="control" for="depth">
+              <span><b>Depth</b><output id="depthOut" for="depth">72% · 10 gen</output></span>
+              <input id="depth" type="range" min="0" max="0.86" step="0.01" value="0.72" />
+            </label>
+            <label class="control" for="interval">
+              <span><b>Time fold</b><output id="intervalOut" for="interval">240 ms</output></span>
+              <input id="interval" type="range" min="70" max="900" step="1" value="240" />
+            </label>
+            <label class="control" for="branching">
+              <span><b>Branching</b><output id="branchingOut" for="branching">84%</output></span>
+              <input id="branching" type="range" min="0" max="1" step="0.01" value="0.84" />
+            </label>
+            <label class="control" for="mutation">
+              <span><b>Mutation</b><output id="mutationOut" for="mutation">30%</output></span>
+              <input id="mutation" type="range" min="0" max="1" step="0.01" value="0.3" />
+            </label>
+            <p class="control-note">Every descendant passes through another delay, loses a little spectrum, and splits between the two branches. Mutation also adds a small opposing time drift.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="mixSection" data-section="mix">
+          <summary class="group-summary">
+            <h2 class="group-title">Mix</h2>
+            <span class="section-state" id="mixSummary">76% descendants · root muted</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="wet">
+              <span><b>Descendants</b><output id="wetOut" for="wet">76%</output></span>
+              <input id="wet" type="range" min="0" max="1" step="0.01" value="0.76" />
+            </label>
+            <label class="control" for="dry">
+              <span><b>Original voice</b><output id="dryOut" for="dry">muted</output></span>
+              <input id="dry" type="range" min="0" max="0.5" step="0.01" value="0" />
+            </label>
+            <label class="control" for="spread">
+              <span><b>Stereo spread</b><output id="spreadOut" for="spread">90%</output></span>
+              <input id="spread" type="range" min="0" max="1" step="0.01" value="0.9" />
+            </label>
+            <p class="control-note">The original voice starts muted so you hear the recursive descendants first.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="captureSection" data-section="capture">
+          <summary class="group-summary">
+            <h2 class="group-title">Capture</h2>
+            <span class="section-state" id="captureSummary">ready to record output</span>
+          </summary>
+          <div class="group-body">
+            <button class="fracta-record-button" id="recordButton" type="button" aria-pressed="false" disabled>
+              <span class="record-glyph" aria-hidden="true"></span>
+              <span><b id="recordLabel">Record recursion</b><small id="recordHint">captures what you hear</small></span>
+            </button>
+            <div class="fracta-take" id="lastTake" hidden>
+              <div><small>Last take</small><output id="lastTakeOut">0:00 · WebM</output></div>
+              <a class="mini-action" id="downloadTake" href="#" download>Download</a>
+              <button class="mini-action" id="clearTake" type="button">Clear</button>
+            </div>
+            <p class="control-note">Capture records the processed stereo output, including every recursive generation. Your microphone audio stays in this browser.</p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">Start the microphone with headphones connected. Depth controls how many recursive descendants remain audible, Time fold controls their spacing, Branching splits each generation, and Mutation progressively changes it. Press Escape for an immediate panic stop.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="fractaphone-app.js"></script>
+  </body>
+</html>
