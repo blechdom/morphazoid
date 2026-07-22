@@ -154,15 +154,15 @@ test("pan is equal-power and Shepard octave wraps remain click bounded", () => {
   assert.ok(largestStep < 0.2, `Shepard wrap step was ${largestStep}`);
 });
 
-test("Shepard keeps overlapping partials through the half-octave crossfade", () => {
-  for (const width of [1, undefined]) {
+test("Shepard keeps overlapping partials through narrow and wide crossfades", () => {
+  for (const width of [1, undefined, 15]) {
     const trajectory = renderShepardTrajectory({ start: 0.45, end: 0.55, width });
     assert.ok(
       trajectory.minimumContributors >= 2,
       `width ${width ?? "default"} fell to ${trajectory.minimumContributors} contributors`,
     );
     assert.ok(
-      largestStep(trajectory.left) < 0.08,
+      largestStep(trajectory.left) < (width === 15 ? 0.1 : 0.08),
       `width ${width ?? "default"} midpoint step was ${largestStep(trajectory.left)}`,
     );
   }

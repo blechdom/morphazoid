@@ -2,7 +2,7 @@ const PROCESSOR_NAME = "morphazoid-contour-synth";
 const TAU = Math.PI * 2;
 const MIN_FREQUENCY = 20;
 const MAX_FREQUENCY = 20_000;
-const SHEPARD_PARTIAL_COUNT = 9;
+const SHEPARD_PARTIAL_COUNT = 17;
 const SHEPARD_CENTER = Math.floor(SHEPARD_PARTIAL_COUNT / 2);
 const MIN_SHEPARD_WIDTH = 2.5;
 
@@ -42,7 +42,7 @@ function sanitizeSpec(spec, index) {
     modulationIndex: clamp(spec.modulationIndex ?? 0, 0, 20),
     modulationRatio: clamp(spec.modulationRatio ?? 1, 0.125, 16),
     shepardRate: clamp(spec.shepardRate ?? 0, -8, 8),
-    shepardWidth: clamp(spec.shepardWidth ?? 4, 1, 8),
+    shepardWidth: clamp(spec.shepardWidth ?? 4, 1, 15),
     shepardPosition: Number.isFinite(spec.shepardPosition)
       ? wrapUnit(spec.shepardPosition)
       : null,
@@ -177,9 +177,12 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
     let sum = 0;
     let weightPower = 0;
     let contributorCount = 0;
+    const firstOctaveOffset = -SHEPARD_CENTER + voice.shepardPosition;
+    let nextPartialFrequency = frequency * 2 ** firstOctaveOffset;
     for (let index = 0; index < SHEPARD_PARTIAL_COUNT; index += 1) {
-      const octaveOffset = index - SHEPARD_CENTER + voice.shepardPosition;
-      const partialFrequency = frequency * 2 ** octaveOffset;
+      const octaveOffset = firstOctaveOffset + index;
+      const partialFrequency = nextPartialFrequency;
+      nextPartialFrequency *= 2;
 
       // Keep every oscillator's phase moving even while its window is closed.
       // It can then enter the bank continuously instead of resuming from a

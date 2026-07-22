@@ -27,6 +27,7 @@ const DEFAULT_VOICE_COUNT = 32;
 const MIN_FREQUENCY = 20;
 const MAX_FREQUENCY = 20_000;
 const MAX_RANGE_OCTAVES = 10;
+const MAX_SHEPARD_WIDTH = 15;
 
 const FREQUENCY_TIME_CONSTANT = 0.018;
 const ACTIVE_GAIN_TIME_CONSTANT = 0.003;
@@ -296,7 +297,7 @@ export function timbreParametersForMode(mode, amount = 0, {
 } = {}) {
   const safeMode = sanitizeSynthMode(mode);
   const safeAmount = clamp(amount, 0, 1);
-  const maximumShepardWidth = clamp(shepardWidth, 1, 8);
+  const maximumShepardWidth = clamp(shepardWidth, 1, MAX_SHEPARD_WIDTH);
   return {
     modulationIndex: safeMode === "fm"
       ? clamp(fmIndex, 0, 20) * safeAmount
@@ -457,7 +458,7 @@ function sanitizeVoice(voice) {
     modulationIndex: clamp(voice.modulationIndex ?? 0, 0, 20),
     modulationRatio: clamp(voice.modulationRatio ?? 1, 0.125, 16),
     shepardRate: clamp(voice.shepardRate ?? 0, -8, 8),
-    shepardWidth: clamp(voice.shepardWidth ?? 4, 1, 8),
+    shepardWidth: clamp(voice.shepardWidth ?? 4, 1, MAX_SHEPARD_WIDTH),
     shepardPosition: Number.isFinite(voice.shepardPosition)
       ? ((voice.shepardPosition % 1) + 1) % 1
       : null,

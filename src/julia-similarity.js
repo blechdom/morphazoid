@@ -1,4 +1,4 @@
-import { TAU, sampleBoundary } from "./julia.js";
+import { JULIA_DEFAULTS, TAU, sampleBoundary } from "./julia.js";
 
 const EPSILON = 1e-12;
 
@@ -384,6 +384,147 @@ export function multiscalePitchBands(signal) {
   ];
 }
 
+export const SIMILARITY_AUDITION_MODES = Object.freeze([
+  "chorus",
+  "canon",
+  "wavelet",
+  "orbit",
+  "harmony",
+]);
+
+/**
+ * Build five deliberately different listening grammars from one inverse-arc
+ * family. Geometry remains the pitch source; scheduling, scale bands, timbre,
+ * and comparison roles keep the experiments distinguishable even in mono.
+ */
+export function buildSimilarityAuditionLayers(family, plans, mode, {
+  referenceDuration = 8,
+  minimumLayerDuration = 2,
+} = {}) {
+  const levels = family?.levels ?? [];
+  if (!levels.length) return [];
+  const selectedMode = SIMILARITY_AUDITION_MODES.includes(mode) ? mode : "chorus";
+  const duration = clamp(finite(referenceDuration, 8), 1, 60);
+  const minimum = clamp(finite(minimumLayerDuration, 2), 0.5, duration);
+  const naturalDuration = (level) => clamp(
+    duration * Math.max(0.001, finite(level?.durationRatio, 1)),
+    minimum,
+    60,
+  );
+  const distributePan = (index, count, width = 0.72) => (
+    count <= 1 ? 0 : -width + width * 2 * index / (count - 1)
+  );
+  const baseLayer = (key, level, index, count) => ({
+    key,
+    depth: level.depth,
+    signal: level.signal,
+    start: 0,
+    duration: naturalDuration(level),
+    repeatPeriod: null,
+    gain: 0.22,
+    pan: distributePan(index, count),
+    pitchOffset: 0,
+    pitchScale: 1,
+    synthMode: "shepard",
+    frequencyRatio: 1,
+    fadeSeconds: 0.12,
+  });
+
+  if (selectedMode === "chorus") {
+    return levels.map((level, index) => ({
+      ...baseLayer(`similarity:chorus:${index}`, level, index, levels.length),
+      duration,
+      repeatPeriod: Math.min(duration, naturalDuration(level)),
+      gain: 0.19,
+    }));
+  }
+
+  if (selectedMode === "canon") {
+    const entrySpacing = Math.max(1, duration * 0.1875);
+    const commonEnd = entrySpacing * (levels.length - 1) + Math.max(minimum, duration * 0.5);
+    return levels.map((level, index) => {
+      const start = index * entrySpacing;
+      const layerDuration = commonEnd - start;
+      return {
+        ...baseLayer(`similarity:canon:${index}`, level, index, levels.length),
+        start,
+        duration: layerDuration,
+        repeatPeriod: Math.min(layerDuration, naturalDuration(level)),
+        gain: 0.2,
+        pitchOffset: index / 6,
+        fadeSeconds: 0.08,
+      };
+    });
+  }
+
+  if (selectedMode === "wavelet") {
+    const reference = levels[0];
+    const bands = reference.bands?.length === 3
+      ? reference.bands
+      : multiscalePitchBands(reference.signal);
+    const configurations = [
+      { scale: 0.65, offset: -0.2, mode: "sine", ratio: 0.5, gain: 0.2 },
+      { scale: 3, offset: 0, mode: "fm", ratio: 1, gain: 0.17, modulationIndex: 2.4 },
+      { scale: 5.5, offset: 0.2, mode: "shepard", ratio: 2, gain: 0.16, widthRatio: 0.42 },
+    ];
+    return bands.map((band, index) => {
+      const configuration = configurations[index];
+      return {
+        ...baseLayer(`similarity:wavelet:${band.id}`, reference, index, bands.length),
+        band: band.id,
+        signal: band,
+        duration,
+        gain: configuration.gain,
+        pan: distributePan(index, bands.length, 0.48),
+        pitchOffset: configuration.offset,
+        pitchScale: configuration.scale,
+        synthMode: configuration.mode,
+        frequencyRatio: configuration.ratio,
+        modulationIndex: configuration.modulationIndex ?? 0,
+        shepardWidthRatio: configuration.widthRatio ?? 1,
+      };
+    });
+  }
+
+  if (selectedMode === "orbit") {
+    let cursor = 0;
+    return [...levels].reverse().map((level, index, reversed) => {
+      const layerDuration = naturalDuration(level);
+      const layer = {
+        ...baseLayer(`similarity:orbit:${level.depth}`, level, index, reversed.length),
+        start: cursor,
+        duration: layerDuration,
+        gain: 0.24,
+        pan: index % 2 ? 0.42 : -0.42,
+        pitchOffset: level.depth / 12,
+        frequencyRatio: index % 2 ? 1.25 : 0.8,
+      };
+      cursor += layerDuration + 0.22;
+      return layer;
+    });
+  }
+
+  const reference = levels[0];
+  const candidate = levels.at(-1);
+  const score = clamp(finite(plans?.harmony?.score, 0), 0, 1);
+  const detune = (1 - score) * 0.08;
+  return [
+    {
+      ...baseLayer("similarity:harmony:reference", reference, 0, 2),
+      duration,
+      gain: 0.22,
+      pan: -0.08,
+    },
+    {
+      ...baseLayer("similarity:harmony:candidate", candidate, 1, 2),
+      duration,
+      gain: 0.22,
+      pan: 0.08,
+      pitchOffset: detune,
+    },
+  ];
+}
+
 /** Simulate finite auditory feature frames, then compare after restoring normalized time. */
 export function temporalPitchFidelity(signal, durationSeconds, featureRate = 50) {
   const duration = clamp(finite(durationSeconds, 2), 0.05, 60);
@@ -404,11 +545,11 @@ export function rateLimitedTemporalPitchFidelity(
   signal,
   durationSeconds,
   featureRate = 50,
-  maximumOctavesPerSecond = 7.5,
+  maximumOctavesPerSecond = 30,
 ) {
   const duration = clamp(finite(durationSeconds, 2), 0.05, 60);
   const rate = clamp(finite(featureRate, 50), 10, 1000);
-  const maximumRate = clamp(finite(maximumOctavesPerSecond, 7.5), 0.01, 1000);
+  const maximumRate = clamp(finite(maximumOctavesPerSecond, 30), 0.01, 1000);
   const frames = Math.max(4, Math.round(duration * rate));
   const observed = new Float64Array(frames);
   const maximumStep = maximumRate * duration / (frames - 1);
@@ -432,7 +573,7 @@ export function rateLimitedTemporalPitchFidelity(
 /** Duration needed to keep a chosen percentile of local pitch slopes under a slew limit. */
 export function minimumAuditionDuration(
   signal,
-  maximumOctavesPerSecond = 7.5,
+  maximumOctavesPerSecond = 30,
   slopePercentile = 0.99,
 ) {
   const pitches = signal?.pitches ?? signal ?? [];
@@ -444,13 +585,13 @@ export function minimumAuditionDuration(
   slopes.sort((a, b) => a - b);
   const quantile = clamp(finite(slopePercentile, 0.99), 0, 1);
   const selected = slopes[Math.round((slopes.length - 1) * quantile)] ?? 0;
-  return selected / Math.max(0.01, finite(maximumOctavesPerSecond, 7.5));
+  return selected / Math.max(0.01, finite(maximumOctavesPerSecond, 30));
 }
 
 /** Build the exact inverse-image locations used by the five listening experiments. */
 export function buildInverseArcFamily(parentPoints, {
-  cReal = -0.7,
-  cImag = 0.27015,
+  cReal = JULIA_DEFAULTS.cReal,
+  cImag = JULIA_DEFAULTS.cImag,
   depth = 3,
   branch = 1,
   samples = 512,
@@ -494,14 +635,16 @@ export function buildInverseArcFamily(parentPoints, {
     cReal: finite(cReal),
     cImag: finite(cImag),
     branch: finite(branch, 1) < 0 ? -1 : 1,
+    samples: clamp(Math.trunc(finite(samples, 512)), 16, 8192),
+    smoothing: Math.max(0, Math.trunc(finite(smoothing, 2))),
     levels,
   };
 }
 
 /** Enumerate all 2^depth inverse-branch locations without choosing an audio chain. */
 export function buildInverseArcTree(parentPoints, {
-  cReal = -0.7,
-  cImag = 0.27015,
+  cReal = JULIA_DEFAULTS.cReal,
+  cImag = JULIA_DEFAULTS.cImag,
   depth = 3,
   samples = 192,
 } = {}) {
@@ -546,7 +689,10 @@ export function evaluateSimilarityPlans(family) {
     for (let iteration = 0; iteration < level.depth; iteration += 1) {
       recovered = forwardJuliaArc(recovered, family.cReal, family.cImag);
     }
-    return comparePitchSignals(reference.signal, pitchSignalForArc(recovered)).score;
+    return comparePitchSignals(reference.signal, pitchSignalForArc(recovered, {
+      samples: family.samples ?? 512,
+      smoothing: family.smoothing ?? 2,
+    })).score;
   });
 
   const harmonyScores = descendants.map((level) => level.comparison.score);

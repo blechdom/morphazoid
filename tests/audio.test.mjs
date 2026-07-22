@@ -87,7 +87,7 @@ test("geometry drive produces bounded and mode-specific synth parameters", () =>
   });
   assert.equal(shepard.synthDrive, 1);
   assert.equal(shepard.shepardRate, -8);
-  assert.equal(shepard.shepardWidth, 8);
+  assert.equal(shepard.shepardWidth, 12);
   assert.equal(
     synthParametersForMode("shepard", 1, { shepardPosition: 2.25 }).shepardPosition,
     0.25,
@@ -134,7 +134,7 @@ test("timbre mapping targets the sound-specific DSP amount", () => {
   });
   assert.equal(boundedFm.modulationIndex, 20);
   assert.equal(boundedPm.modulationIndex, 12);
-  assert.equal(boundedShepard.shepardWidth, 8);
+  assert.equal(boundedShepard.shepardWidth, 15);
 });
 
 test("synth parameters use mapped Shepard width without changing sine", () => {
