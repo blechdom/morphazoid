@@ -4,6 +4,7 @@ const MIN_FREQUENCY = 20;
 const MAX_FREQUENCY = 20_000;
 const SHEPARD_PARTIAL_COUNT = 9;
 const SHEPARD_CENTER = Math.floor(SHEPARD_PARTIAL_COUNT / 2);
+const MIN_SHEPARD_WIDTH = 2.5;
 
 function clamp(value, low, high) {
   if (!Number.isFinite(value)) return low;
@@ -160,24 +161,40 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
       advanceShepardPosition(voice, voice.shepardRate / sampleRate);
     }
 
-    const halfWidth = Math.max(0.5, voice.shepardWidth * 0.5);
+    // The legacy width of one brings both neighbouring windows to zero at the
+    // half-octave point. Keep narrow stored values usable by guaranteeing a
+    // small overlapping bank through every crossfade.
+    const effectiveWidth = Math.max(MIN_SHEPARD_WIDTH, voice.shepardWidth);
+    const halfWidth = effectiveWidth * 0.5;
     const frequencyCeiling = Math.min(MAX_FREQUENCY, sampleRate * 0.45);
     let sum = 0;
-    let weightSum = 0;
+    let weightPower = 0;
+    let contributorCount = 0;
     for (let index = 0; index < SHEPARD_PARTIAL_COUNT; index += 1) {
       const octaveOffset = index - SHEPARD_CENTER + voice.shepardPosition;
-      const distance = octaveOffset / halfWidth;
-      if (Math.abs(distance) >= 1) continue;
       const partialFrequency = frequency * 2 ** octaveOffset;
-      if (partialFrequency < MIN_FREQUENCY || partialFrequency > frequencyCeiling) continue;
-      const weight = Math.cos(distance * Math.PI * 0.5) ** 2;
+
+      // Keep every oscillator's phase moving even while its window is closed.
+      // It can then enter the bank continuously instead of resuming from a
+      // stale phase. Octave wraps still rotate these phases onto the matching
+      // neighbouring oscillator in advanceShepardPosition().
       voice.shepardPhases[index] = wrapPhase(
         voice.shepardPhases[index] + TAU * partialFrequency / sampleRate,
       );
+
+      const distance = Math.abs(octaveOffset) / halfWidth;
+      if (
+        distance >= 1
+        || partialFrequency < MIN_FREQUENCY
+        || partialFrequency > frequencyCeiling
+      ) continue;
+      const weight = 0.5 + 0.5 * Math.cos(Math.PI * distance);
       sum += Math.sin(voice.shepardPhases[index]) * weight;
-      weightSum += weight;
+      weightPower += weight ** 2;
+      contributorCount += 1;
     }
-    return weightSum > 1e-9 ? sum / weightSum : Math.sin(voice.phase);
+    voice.shepardContributorCount = contributorCount;
+    return weightPower > 1e-9 ? sum / Math.sqrt(weightPower) : 0;
   }
 
   renderVoice(voice) {

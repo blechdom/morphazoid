@@ -213,6 +213,10 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(app, /aria-describedby", "amplitudeTimingBasis"/);
   assert.match(app, /percussionEnvelopePoints/);
   assert.match(app, /attackNoise: state\.percussionAttackNoise/);
+  assert.match(openingTag("shepardWidth"), /min="2"[^>]*max="8"[^>]*value="4"/);
+  assert.match(html, /Nine overlapping octave partials · Base frequency anchors the cyclic bank\./);
+  assert.match(app, /state\.soundMode === "shepard"\s*\? state\.baseFrequency/);
+  assert.match(app, /Number\.isFinite\(contact\.headTravel\)/);
 
   // Mapping has one permanent reference: fixed stage/screen axes. There is no
   // Form-local coordinate-frame choice to drift when the contour rotates.
@@ -269,10 +273,10 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(html, />Corner sharpness<\/option>/);
   assert.match(html, />Contour position<\/option>/);
   assert.match(html, />Distance from center<\/option>/);
-  assert.match(html, /Maximum spectral width/);
+  assert.match(html, /<b>Spectral width<\/b>/);
   assert.match(html, /id="pmIndexOut"[^>]*>2\.00 rad max<\/output>/);
   assert.match(html, /0 is smooth · 1 is the sharpest turn/);
-  assert.match(app, /\["fm", "pm", "shepard"\]\.includes\(state\.soundMode\)/);
+  assert.match(app, /\["fm", "pm"\]\.includes\(state\.soundMode\)/);
   assert.match(app, /TIMBRE_TARGET_LABELS/);
   assert.match(app, /SOURCE_HELP/);
   assert.match(app, /0 is stage top · 1 is stage bottom/);

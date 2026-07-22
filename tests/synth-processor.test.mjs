@@ -57,6 +57,63 @@ function differenceRms(first, second) {
   return rms(first.map((value, index) => value - second[index]));
 }
 
+function largestStep(values) {
+  let largest = 0;
+  for (let index = 1; index < values.length; index += 1) {
+    largest = Math.max(largest, Math.abs(values[index] - values[index - 1]));
+  }
+  return largest;
+}
+
+function renderShepardTrajectory({
+  start,
+  end,
+  width,
+  rate = 0,
+  durationSeconds = 0.12,
+}) {
+  const processor = new ProcessorConstructor({ processorOptions: { maxVoices: 1 } });
+  const spec = (position) => {
+    const result = {
+      key: "shepard-trajectory",
+      mode: "shepard",
+      frequency: 220,
+      gain: 0.3,
+      pan: 0,
+      shepardRate: rate,
+      shepardPosition: position,
+    };
+    if (width !== undefined) result.shepardWidth = width;
+    return result;
+  };
+  processor.port.onmessage({
+    data: {
+      type: "voices",
+      voices: [spec(start)],
+      nextVoices: [spec(end)],
+      durationSeconds,
+    },
+  });
+
+  const left = [];
+  let minimumContributors = Infinity;
+  const blocks = Math.ceil(durationSeconds * sampleRate / 128) + 20;
+  for (let block = 0; block < blocks; block += 1) {
+    const blockLeft = new Float32Array(128);
+    processor.process([], [[blockLeft, new Float32Array(128)]]);
+    left.push(...blockLeft);
+    minimumContributors = Math.min(
+      minimumContributors,
+      processor.voices.get("shepard-trajectory").shepardContributorCount,
+    );
+  }
+  return {
+    left,
+    minimumContributors,
+    finalPosition: processor.voices.get("shepard-trajectory").shepardPosition,
+  };
+}
+
 test("worklet registers one stereo contour synth processor", () => {
   assert.equal(processorName, "morphazoid-contour-synth");
   assert.equal(typeof ProcessorConstructor, "function");
@@ -95,6 +152,55 @@ test("pan is equal-power and Shepard octave wraps remain click bounded", () => {
     largestStep = Math.max(largestStep, Math.abs(shepard.left[index] - shepard.left[index - 1]));
   }
   assert.ok(largestStep < 0.2, `Shepard wrap step was ${largestStep}`);
+});
+
+test("Shepard keeps overlapping partials through the half-octave crossfade", () => {
+  for (const width of [1, undefined]) {
+    const trajectory = renderShepardTrajectory({ start: 0.45, end: 0.55, width });
+    assert.ok(
+      trajectory.minimumContributors >= 2,
+      `width ${width ?? "default"} fell to ${trajectory.minimumContributors} contributors`,
+    );
+    assert.ok(
+      largestStep(trajectory.left) < 0.08,
+      `width ${width ?? "default"} midpoint step was ${largestStep(trajectory.left)}`,
+    );
+  }
+});
+
+test("Shepard externally driven octave seams remain click safe", () => {
+  const trajectory = renderShepardTrajectory({
+    start: 0.95,
+    end: 0.05,
+    width: 1,
+    rate: 1,
+  });
+  assert.ok(
+    largestStep(trajectory.left) < 0.08,
+    `externally driven seam step was ${largestStep(trajectory.left)}`,
+  );
+  assert.ok(
+    Math.abs(trajectory.finalPosition - 0.05) < 0.01,
+    `externally driven seam stopped at ${trajectory.finalPosition}`,
+  );
+});
+
+test("Shepard power normalization keeps level consistent around the contour", () => {
+  const levels = [0, 0.25, 0.5, 0.75].map((shepardPosition) => {
+    const rendered = render(
+      "shepard",
+      { shepardPosition, shepardWidth: 1, gain: 0.3 },
+      160,
+    );
+    return rms(rendered.left.slice(48 * 128));
+  });
+  const quietest = Math.min(...levels);
+  const loudest = Math.max(...levels);
+  assert.ok(quietest > 0.1, `unexpected Shepard levels: ${levels.join(", ")}`);
+  assert.ok(
+    loudest / quietest < 1.2,
+    `Shepard RMS varied too much: ${levels.join(", ")}`,
+  );
 });
 
 test("external Shepard position locks octave phase to playhead angle", () => {

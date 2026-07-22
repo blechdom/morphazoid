@@ -185,7 +185,7 @@ state.timbreSource = ["height", "horizontal", "center", "corner", "incidence", "
   : "corner";
 state.shepardCycles = clamp(state.shepardCycles, 0.25, 4);
 state.shepardDirection = state.shepardDirection < 0 ? -1 : 1;
-state.shepardWidth = clamp(state.shepardWidth, 1, 8);
+state.shepardWidth = clamp(state.shepardWidth, 2, 8);
 state.fmIndex = clamp(state.fmIndex, 0, 12);
 state.fmRatio = clamp(state.fmRatio, 0.25, 8);
 state.pmIndex = clamp(state.pmIndex, 0, 8);
@@ -425,7 +425,9 @@ function updateSectionSummaries() {
     ? "open line"
     : `${state.sides}-point ${state.closedShapeType}`;
   $("soundSummary").textContent = SOUND_MODE_LABELS[state.soundMode];
-  $("mappingSummary").textContent = `${PITCH_SUMMARY_LABELS[state.pitchSource] ?? "Source"} → pitch`;
+  $("mappingSummary").textContent = state.soundMode === "shepard"
+    ? "Base → Shepard glide"
+    : `${PITCH_SUMMARY_LABELS[state.pitchSource] ?? "Source"} → pitch`;
 }
 
 function updateCanvasLabel() {
@@ -554,7 +556,7 @@ bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool
 bindRange("percussionStrikeLevel", "percussionStrikeLevel", (value) => `${Math.round(value * 100)}%`);
 bindRange("percussionAttackNoise", "percussionAttackNoise", (value) => `${Math.round(value * 100)}%`);
 bindRange("shepardCycles", "shepardCycles", (value) => `${value.toFixed(2)} oct / circuit`);
-bindRange("shepardWidth", "shepardWidth", (value) => `${value.toFixed(1)} oct max`, updateTimbreMappingUi);
+bindRange("shepardWidth", "shepardWidth", (value) => `${value.toFixed(1)} oct`, updateTimbreMappingUi);
 bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`, updateTimbreMappingUi);
 bindRange("fmRatio", "fmRatio", (value) => `${value.toFixed(2)} : 1`);
 bindRange("pmIndex", "pmIndex", (value) => `${value.toFixed(2)} rad max`, updateTimbreMappingUi);
@@ -827,14 +829,14 @@ function setSoundMode(mode, shouldAnnounce = true) {
   $("fmArticulation").hidden = state.soundMode !== "fm";
   $("pmArticulation").hidden = state.soundMode !== "pm";
   $("percussionMapping").hidden = state.soundMode !== "percussion";
-  $("timbreMapping").hidden = !["fm", "pm", "shepard"].includes(state.soundMode);
+  $("timbreMapping").hidden = !["fm", "pm"].includes(state.soundMode);
   updateTimbreMappingUi();
   updateSectionSummaries();
   if (shouldAnnounce) {
     const descriptions = {
       sine: "Sine Oscillators with corner amplitude selected.",
       percussion: "Percussion corner strikes selected.",
-      shepard: "Transport-locked Shepard Glissandi with mapped spectral width selected.",
+      shepard: "Transport-locked nine-partial Shepard Glissandi selected.",
       fm: "FM Synthesis with mapped modulation index selected.",
       pm: "PM Synthesis with mapped phase depth selected.",
     };
@@ -2137,6 +2139,12 @@ function mappingForContact(contact, path, headIndex = contact.headIndex ?? 0) {
   };
 }
 
+function synthFrequencyForMapping(mapping) {
+  return state.soundMode === "shepard"
+    ? state.baseFrequency
+    : pitch01ToFrequency(mapping.pitch, state.baseFrequency, state.pitchRange);
+}
+
 function pingPongMotionDirection(travelPosition, multiplier = 1, relativeDirection = 1) {
   const step = state.traversalDirection * relativeDirection * 1e-5;
   const before = pingPong01(travelPosition * multiplier);
@@ -2253,12 +2261,18 @@ function shepardRate(contact, headIndex = contact.headIndex ?? 0) {
 }
 
 function shepardPositionForContact(contact) {
-  const circuitPhase = wrap01(contact.headPhase ?? contact.u ?? state.position);
-  return wrap01(circuitPhase * state.shepardCycles * state.shepardDirection);
+  const circuitTravel = state.motionMode === "pingpong"
+    ? (contact.headPhase ?? pingPong01(contact.headTravel ?? state.continuousPosition))
+    : Number.isFinite(contact.headTravel)
+      ? contact.headTravel
+      : contact.headPhase ?? contact.u ?? state.continuousPosition;
+  return wrap01(circuitTravel * state.shepardCycles * state.shepardDirection);
 }
 
 function synthParametersForContact(contact, path, headIndex = contact.headIndex ?? 0) {
-  const drive = sourceValueForContact(state.timbreSource, contact, path, headIndex);
+  const drive = state.soundMode === "shepard"
+    ? 1
+    : sourceValueForContact(state.timbreSource, contact, path, headIndex);
   return synthParametersForMode(state.soundMode, drive, {
     fmIndex: state.fmIndex,
     fmRatio: state.fmRatio,
@@ -2291,7 +2305,7 @@ function continuousSynthVoices(contacts, path) {
     const synth = synthParametersForContact(contact, path);
     return {
       key: `shape:${contact.voiceKey}`,
-      frequency: pitch01ToFrequency(mapping.pitch, state.baseFrequency, state.pitchRange),
+      frequency: synthFrequencyForMapping(mapping),
       gain: amplitudeGainForContact(contact, path),
       pan: mapping.pan,
       waveform: "sine",
@@ -2628,8 +2642,12 @@ function envelopeDurationLabel() {
 
 function updateOutputDashboard(contacts, path) {
   $("outputVoiceLabel").textContent = SOUND_MODE_LABELS[state.soundMode];
-  $("pitchRouteSource").textContent = PITCH_ROUTE_LABELS[state.pitchSource] ?? state.pitchSource;
-  $("pitchRouteCurve").textContent = `${PITCH_CURVE_LABELS[state.pitchCurvePreset] ?? "Custom"} response → exponential Hz`;
+  $("pitchRouteSource").textContent = state.soundMode === "shepard"
+    ? "Base frequency"
+    : PITCH_ROUTE_LABELS[state.pitchSource] ?? state.pitchSource;
+  $("pitchRouteCurve").textContent = state.soundMode === "shepard"
+    ? "fixed spectral anchor · cyclic glide supplies pitch motion"
+    : `${PITCH_CURVE_LABELS[state.pitchCurvePreset] ?? "Custom"} response → exponential Hz`;
   updateStereoMappingUi();
   $("levelRouteSource").textContent = state.soundMode === "percussion"
     ? SOURCE_LABELS[state.percussionLevelSource] ?? state.percussionLevelSource
@@ -2641,7 +2659,7 @@ function updateOutputDashboard(contacts, path) {
       : state.amplitudeEnvelopeEnabled
         ? `${AMPLITUDE_PRESET_LABELS[state.amplitudePreset] ?? "Custom"} ADSR${state.cornerSwell ? " · swell" : ""}`
         : "ADSR bypassed";
-  const timbreMode = ["fm", "pm", "shepard"].includes(state.soundMode);
+  const timbreMode = ["fm", "pm"].includes(state.soundMode);
   $("timbreRoute").hidden = !timbreMode;
   $("timbreRouteSource").textContent = SOURCE_LABELS[state.timbreSource] ?? state.timbreSource;
   $("timbreRouteTarget").textContent = TIMBRE_TARGET_LABELS[state.soundMode] ?? "Timbre";
@@ -2664,7 +2682,7 @@ function updateOutputDashboard(contacts, path) {
   const contact = contacts[0];
   const mapping = mappingForContact(contact, path);
   const synth = synthParametersForContact(contact, path);
-  const frequency = pitch01ToFrequency(mapping.pitch, state.baseFrequency, state.pitchRange);
+  const frequency = synthFrequencyForMapping(mapping);
   const tangentDegrees = Math.atan2(contact.tangent.y, contact.tangent.x) * 180 / Math.PI;
   $("outputContactLabel").textContent = `Contact 1 of ${contacts.length}`;
   $("markPhaseOut").textContent = wrap01(contact.u ?? contact.headPhase ?? 0).toFixed(3);
@@ -2678,7 +2696,7 @@ function updateOutputDashboard(contacts, path) {
   $("markFrequencyOut").textContent = `${Math.round(frequency)} Hz`;
   $("markGainOut").textContent = contactOutputGain(contact, path).toFixed(3);
   $("markPanOut").textContent = mapping.pan.toFixed(3);
-  $("markSynthDriveOut").textContent = ["fm", "pm", "shepard"].includes(state.soundMode)
+  $("markSynthDriveOut").textContent = ["fm", "pm"].includes(state.soundMode)
     ? synth.synthDrive.toFixed(3)
     : "-";
   $("markSynthValueOut").textContent = synthValueLabel(synth);
@@ -2687,7 +2705,7 @@ function updateOutputDashboard(contacts, path) {
 
   $("contactStream").innerHTML = contacts.slice(0, 12).map((item, index) => {
     const itemMapping = mappingForContact(item, path);
-    const itemFrequency = pitch01ToFrequency(itemMapping.pitch, state.baseFrequency, state.pitchRange);
+    const itemFrequency = synthFrequencyForMapping(itemMapping);
     return `<div class="contact-row"><b>#${index + 1}</b><span>u ${wrap01(item.u ?? item.headPhase ?? 0).toFixed(3)}</span><span>∠ ${Math.round((item.cornerTurn ?? 0) * 180)}°</span><span>${Math.round(itemFrequency)} Hz</span></div>`;
   }).join("");
 }

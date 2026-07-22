@@ -196,11 +196,13 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   }
   const audioOscillators = [];
   const audioGains = [];
+  const audioWorkletMessages = [];
   globalThis.AudioContext = class {
     constructor() {
       this.currentTime = 0;
       this.state = "running";
       this.destination = audioNode();
+      this.audioWorklet = { async addModule() {} };
     }
     createGain() {
       const gain = audioNode({ gain: audioParam(0) });
@@ -230,6 +232,16 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     }
     async resume() { this.state = "running"; }
     async close() { this.state = "closed"; }
+  };
+  globalThis.AudioWorkletNode = class {
+    constructor() {
+      this.port = {
+        postMessage(message) { audioWorkletMessages.push(message); },
+      };
+      this.onprocessorerror = null;
+    }
+    connect(destination) { return destination; }
+    disconnect() {}
   };
   const storage = new Map();
   const sessionStorage = new Map();
@@ -486,7 +498,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.match(elements.get("markSynthValueOut").textContent, /index @/);
   assert.equal(elements.get("timbreRouteSource").textContent, "Corner sharpness");
   assert.equal(elements.get("timbreRouteTarget").textContent, "FM index");
-  assert.equal(audioOscillators.length, afterPercussionStrike, "FM fallback must reuse the continuous pool");
+  assert.equal(audioOscillators.length, afterPercussionStrike, "FM worklet must not allocate native oscillators");
 
   elements.get("soundMode").value = "pm";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
@@ -498,14 +510,57 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
 
   elements.get("soundMode").value = "shepard";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
-  queuedFrame(1_117);
+  listeners.get("rotationPlayButton:click")();
+  queuedFrame(1_180);
   assert.equal(elements.get("amplitudeArticulation").hidden, false);
   assert.equal(elements.get("shepardArticulation").hidden, false);
-  assert.equal(elements.get("timbreMapping").hidden, false);
-  assert.match(elements.get("timbreMappingNote").textContent, /Corner sharpness → Spectral width/);
-  assert.notEqual(elements.get("markSynthDriveOut").textContent, "-");
-  assert.equal(elements.get("timbreRouteTarget").textContent, "Spectral width");
+  assert.equal(elements.get("timbreMapping").hidden, true);
+  assert.equal(elements.get("mappingSummary").textContent, "Base → Shepard glide");
+  assert.equal(elements.get("pitchRouteSource").textContent, "Base frequency");
+  assert.match(elements.get("pitchRouteCurve").textContent, /fixed spectral anchor/);
+  assert.equal(elements.get("markFrequencyOut").textContent, "110 Hz");
+  assert.equal(elements.get("markSynthDriveOut").textContent, "-");
   assert.match(elements.get("markSynthValueOut").textContent, /oct\/s/);
+
+  const latestWorkletVoice = (mode) => audioWorkletMessages
+    .toReversed()
+    .flatMap((message) => message.voices ?? [])
+    .find((voice) => voice.mode === mode);
+  let shepardVoice = latestWorkletVoice("shepard");
+  assert.ok(shepardVoice, `missing Shepard worklet spec: ${JSON.stringify(audioWorkletMessages)}`);
+  assert.equal(shepardVoice.frequency, 110, "Shepard must use a fixed spectral anchor");
+  assert.equal(shepardVoice.shepardWidth, 4, "the width slider directly controls the bank");
+  assert.equal(shepardVoice.synthDrive, 1, "geometry must not collapse the Shepard bank");
+
+  elements.get("shepardCycles").value = "1.25";
+  listeners.get("shepardCycles:input")();
+  elements.get("sides").value = "1";
+  listeners.get("sides:input")();
+  elements.get("position").value = "0.99";
+  listeners.get("position:input")();
+  queuedFrame(1_210);
+  const beforeCircuitSeam = latestWorkletVoice("shepard").shepardPosition;
+  const previousSpeedSlider = elements.get("speed").value;
+  elements.get("speed").value = "0.47717299738597074";
+  listeners.get("speed:input")();
+  listeners.get("playButton:click")();
+  queuedFrame(1_240);
+  const afterCircuitSeam = latestWorkletVoice("shepard").shepardPosition;
+  assert.ok(
+    afterCircuitSeam > beforeCircuitSeam && afterCircuitSeam - beforeCircuitSeam < 0.05,
+    `fractional Shepard cycles should cross the contour seam continuously (${beforeCircuitSeam} → ${afterCircuitSeam})`,
+  );
+  listeners.get("playButton:click")();
+  elements.get("speed").value = previousSpeedSlider;
+  listeners.get("speed:input")();
+  elements.get("shepardCycles").value = "1";
+  listeners.get("shepardCycles:input")();
+  elements.get("sides").value = "4";
+  listeners.get("sides:input")();
+  elements.get("position").value = "0.6";
+  listeners.get("position:input")();
+  listeners.get("rotationPlayButton:click")();
+  listeners.get("resetRotation:click")();
 
   elements.get("soundMode").value = "sine";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
@@ -535,11 +590,15 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("traversalDirection:click")();
   queuedFrame(1_220);
   assert.equal(elements.get("positionOut").textContent, "40.0%");
-  assert.ok(continuousGains.some((gain) => gain.gain.value > 0));
+  assert.ok(
+    audioWorkletMessages.at(-1).voices.some((voice) => voice.gain > 0),
+    "continuous playback must send audible voices to the worklet",
+  );
   listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "false");
   assert.equal(elements.get("traversalDirection").hidden, false);
   queuedFrame(1_225);
+  assert.deepEqual(audioWorkletMessages.at(-1).voices, []);
   assert.ok(continuousGains.every((gain) => gain.gain.value === 0));
 
   elements.get("rotationSpeed").value = "4";
