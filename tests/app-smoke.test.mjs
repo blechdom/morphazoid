@@ -232,9 +232,15 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     async close() { this.state = "closed"; }
   };
   const storage = new Map();
+  const sessionStorage = new Map();
   globalThis.localStorage = {
     getItem(key) { return storage.get(key) ?? null; },
     setItem(key, value) { storage.set(key, String(value)); },
+  };
+  globalThis.sessionStorage = {
+    getItem(key) { return sessionStorage.get(key) ?? null; },
+    setItem(key, value) { sessionStorage.set(key, String(value)); },
+    removeItem(key) { sessionStorage.delete(key); },
   };
 
   await import(`../app.js?smoke=${Date.now()}`);
@@ -972,7 +978,11 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.notEqual(elements.get("markIncidenceOut").textContent, "");
   assert.match(elements.get("markDecayOut").textContent, /3500 ms ADSR/);
 
+  sessionStorage.set("morphazoid:shape:reset:sides", "7");
   await import(`../app.js?smokeReload=${Date.now()}`);
+  assert.equal(elements.get("sides").value, "7");
+  assert.equal(elements.get("sidesOut").textContent, "7 · polygon");
+  assert.equal(sessionStorage.size, 0, "the reset-only side count should be consumed once");
   assert.equal(elements.get("levelOut").textContent, "65%");
   assert.equal(elements.get("amplitudeCurveState").textContent, "Pluck");
   assert.equal(attributes.get("amplitudeEnvelopeToggle:aria-pressed"), "true");

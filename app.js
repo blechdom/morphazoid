@@ -62,6 +62,7 @@ const SOUND_MODE_LABELS = {
   pm: "PM Synthesis",
 };
 const SOUND_MODES = new Set(Object.keys(SOUND_MODE_LABELS));
+const RESET_SHAPE_SIDES_KEY = "morphazoid:shape:reset:sides";
 const PITCH_SUMMARY_LABELS = {
   vertical: "Vertical",
   horizontal: "Horizontal",
@@ -99,8 +100,21 @@ const SOURCE_HELP = {
   fixed: "Every corner uses the same value",
   signed: "Inner and outer corners use opposite polarity",
 };
+
+function initialSidesAfterReset() {
+  let sides = 4;
+  try {
+    const preserved = globalThis.sessionStorage?.getItem(RESET_SHAPE_SIDES_KEY);
+    globalThis.sessionStorage?.removeItem(RESET_SHAPE_SIDES_KEY);
+    if (preserved !== null && Number.isFinite(Number(preserved))) sides = Number(preserved);
+  } catch {
+    // A reset simply falls back to four sides when session storage is blocked.
+  }
+  return Math.round(clamp(sides, 1, 32));
+}
+
 const state = {
-  sides: 4,
+  sides: initialSidesAfterReset(),
   curvature: 0,
   shapeType: "polygon",
   closedShapeType: "polygon",
