@@ -172,7 +172,7 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
   const before = Number(elements.get("position").value);
   listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
-  now += 100;
+  now = performance.now() + 100;
   queuedFrame(now);
   assert.notEqual(Number(elements.get("position").value), before);
 
