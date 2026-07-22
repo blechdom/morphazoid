@@ -103,11 +103,25 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
     connect(destination) { return destination; },
     disconnect() {},
   });
+  const audioWorkletMessages = [];
+  globalThis.AudioWorkletNode = class {
+    constructor() {
+      this.port = {
+        onmessage: null,
+        postMessage(message) { audioWorkletMessages.push(message); },
+        start() {},
+      };
+      this.onprocessorerror = null;
+    }
+    connect(destination) { return destination; }
+    disconnect() {}
+  };
   globalThis.AudioContext = class {
     constructor() {
       this.currentTime = 0;
       this.state = "running";
       this.destination = audioNode();
+      this.audioWorklet = { async addModule() {} };
     }
     createGain() { return audioNode({ gain: audioParam(0) }); }
     createStereoPanner() { return audioNode({ pan: audioParam(0) }); }
@@ -132,16 +146,19 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
   assert.equal(canvas.width, 1800);
   assert.equal(canvas.height, 1200);
   assert.match(elements.get("stageReadout").textContent, /^LISTENING DEFAULT · \d+ LOOPS? · \d+ TURNS · 1\.00× · AUDIO OFF$/);
-  assert.equal(elements.get("mappingSummary").textContent, "left rises · 4.00 oct/turn · vertical address");
+  assert.equal(elements.get("mappingSummary").textContent, "left rises · 5.00 oct/turn · vertical harmony");
   assert.equal(elements.get("cRealOut").textContent, "−0.788");
   assert.equal(elements.get("cImagOut").textContent, "+0.1191i");
   assert.equal(elements.get("maxIterationsOut").textContent, "32");
   assert.equal(elements.get("resolutionOut").textContent, "320²");
   assert.equal(elements.get("simplifyOut").textContent, "raw · 0.00 px");
   assert.equal(elements.get("speedOut").textContent, "0.017 cyc/s");
-  assert.equal(elements.get("turnOctavesOut").textContent, "4.00 oct");
+  assert.equal(elements.get("turnOctavesOut").textContent, "5.00 oct");
   assert.equal(elements.get("baseFrequencyOut").textContent, "300 Hz");
   assert.equal(elements.get("shepardWidthOut").textContent, "8.0 oct");
+  assert.equal(elements.get("synthMode").value, "harmony");
+  assert.equal(elements.get("soundSummary").textContent, "Shepard + harmony");
+  assert.equal(elements.get("verticalHarmonyRule").hidden, false);
   assert.equal(elements.get("viewZoomOut").textContent, "1.00×");
   assert.ok(strokes >= 6, "the boundary, turn groups, and playhead trail should be drawn");
   assert.ok(arcs >= 2, "the boundary playhead should be visible");
@@ -204,7 +221,32 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
 
   await listeners.get("audioButton:click")();
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
-  assert.equal(elements.get("audioState").textContent, "sine fallback");
+  assert.equal(elements.get("audioState").textContent, "on");
+  now += 80;
+  queuedFrame(now);
+  let voiceMessage = audioWorkletMessages.at(-1);
+  assert.equal(voiceMessage.type, "voices");
+  assert.deepEqual(voiceMessage.voices.map((voice) => voice.key), [
+    "julia:boundary:shape",
+    "julia:boundary:address",
+  ]);
+  assert.ok(voiceMessage.voices.every((voice) => voice.mode === "shepard"));
+  assert.ok(voiceMessage.voices.every((voice) => voice.frequency === 300));
+
+  elements.get("synthMode").value = "basic";
+  listeners.get("synthMode:change")({ currentTarget: elements.get("synthMode") });
+  now += 80;
+  queuedFrame(now);
+  voiceMessage = audioWorkletMessages.at(-1);
+  assert.equal(voiceMessage.voices.length, 1);
+  assert.equal(voiceMessage.voices[0].key, "julia:boundary");
+  assert.equal(voiceMessage.voices[0].mode, "shepard");
+  assert.equal(voiceMessage.voices[0].frequency, 300);
+  assert.equal(voiceMessage.voices[0].shepardWidth, 8);
+  assert.ok(Number.isFinite(voiceMessage.voices[0].shepardTravel));
+  assert.equal(elements.get("soundSummary").textContent, "Basic Shepard");
+  assert.match(elements.get("mappingSummary").textContent, /basic$/);
+  assert.equal(elements.get("verticalHarmonyRule").hidden, true);
   await listeners.get("auditionSimilarity:click")();
   assert.equal(attributes.get("auditionSimilarity:aria-pressed"), "true");
   now += 80;

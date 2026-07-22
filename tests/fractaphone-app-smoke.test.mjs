@@ -241,7 +241,7 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
   assert.equal(elements.get("audioState").textContent, "off");
   assert.equal(elements.get("recordButton").disabled, true);
   assert.equal(attributes.get("preset-bloom:aria-pressed"), "true");
-  assert.equal(startButtonLabel.textContent, "Start microphone");
+  assert.equal(startButtonLabel.textContent, "Start audio");
 
   listeners.get("stageStartButton:click")();
   await new Promise((resolve) => setImmediate(resolve));
@@ -261,6 +261,7 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
   assert.equal(attributes.get("micButton:aria-pressed"), "true");
   assert.equal(gains[0].gain.value, 0.85, "input trim should reach the live graph");
   assert.equal(elements.get("recordButton").disabled, false);
+  assert.equal(elements.get("recordHint").textContent, "records while you listen");
 
   elements.get("inputTrim").value = "0.4";
   listeners.get("inputTrim:input")();
@@ -282,6 +283,7 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
   listeners.get("recordButton:click")();
   assert.equal(attributes.get("recordButton:aria-pressed"), "true");
   assert.equal(elements.get("recordingBadge").hidden, false);
+  assert.equal(elements.get("audioState").textContent, "listening", "recording should not stop monitoring");
   listeners.get("recordButton:click")();
   assert.equal(elements.get("recordingBadge").hidden, true);
   listeners.get("recordButton:click")();

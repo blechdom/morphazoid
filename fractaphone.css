@@ -54,56 +54,15 @@
   position: absolute;
   z-index: 4;
   top: 50%;
-  left: clamp(24px, 7vw, 100px);
-  display: grid;
-  width: min(390px, calc(100% - 48px));
-  padding: 26px 28px;
-  border: 1px solid rgba(255, 243, 214, 0.16);
-  background:
-    linear-gradient(135deg, rgba(85, 217, 255, 0.07), transparent 60%),
-    color-mix(in oklab, var(--bg-deep) 91%, transparent);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42), inset 2px 0 0 var(--fracta-root);
-  backdrop-filter: blur(12px);
-  transform: translateY(-50%);
+  left: 50%;
+  transform: translate(-50%, -50%);
   transition: opacity 180ms ease, transform 180ms ease;
 }
 
 .fracta-intro.is-hidden {
   pointer-events: none;
   opacity: 0;
-  transform: translate(-12px, -50%);
-}
-
-.fracta-kicker {
-  color: var(--accent);
-  font-size: 8px;
-  letter-spacing: 0.2em;
-}
-
-.fracta-intro > strong {
-  margin: 5px 0 3px;
-  color: var(--fracta-root);
-  font-size: clamp(34px, 5vw, 58px);
-  font-weight: 400;
-  letter-spacing: -0.08em;
-  line-height: 1;
-  text-shadow: 0 0 24px rgba(255, 243, 214, 0.12);
-}
-
-.fracta-intro > strong span:first-child {
-  color: #55d9ff;
-}
-
-.fracta-intro > strong span:last-child {
-  color: #c79bff;
-}
-
-.fracta-intro p {
-  max-width: 34em;
-  margin: 8px 0 20px;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.6;
+  transform: translate(-50%, -60%);
 }
 
 #stageStartButton {
@@ -114,7 +73,9 @@
   border: 1px solid var(--accent-soft);
   cursor: pointer;
   color: var(--ink);
-  background: rgba(85, 217, 255, 0.07);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(10px);
   align-items: center;
   gap: 11px;
   text-align: left;
@@ -608,20 +569,6 @@
 }
 
 @media (max-width: 960px) {
-  .fracta-intro {
-    left: clamp(18px, 7vw, 72px);
-    width: min(350px, calc(100% - 36px));
-    padding: 18px 21px;
-  }
-
-  .fracta-intro > strong {
-    font-size: clamp(31px, 7vw, 48px);
-  }
-
-  .fracta-intro p {
-    margin-bottom: 14px;
-  }
-
   #stageStartButton {
     min-height: 48px;
   }
@@ -630,25 +577,10 @@
 @media (max-width: 650px) {
   .fracta-intro {
     top: 51%;
-    width: min(320px, calc(100% - 30px));
-    padding: 14px 16px;
-  }
-
-  .fracta-kicker {
-    font-size: 7px;
-  }
-
-  .fracta-intro > strong {
-    font-size: 31px;
-  }
-
-  .fracta-intro p {
-    display: none;
   }
 
   #stageStartButton {
     min-height: 42px;
-    margin-top: 10px;
     padding: 6px 11px;
   }
 
