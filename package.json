@@ -7,8 +7,9 @@
   "scripts": {
     "dev": "python3 -m http.server 3435",
     "start": "python3 -m http.server 3435",
-    "check": "for file in app.js nav.js *-app.js src/*.js; do node --check $file || exit 1; done",
-    "test": "node --test tests/*.test.mjs",
+    "analyze:julia-similarity": "node scripts/julia-similarity-report.mjs",
+    "check": "for file in app.js nav.js *-app.js src/*.js; do node --check $file || exit 1; done; node --check scripts/julia-similarity-report.mjs",
+    "test": "node --test tests/*.test.mjs morphazoidical/tests/*.test.mjs",
     "verify": "npm run check && npm test"
   }
 }

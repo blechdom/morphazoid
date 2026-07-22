@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07100f" />
+    <meta
+      name="description"
+      content="Explore the real-time geometric features available to Morphazoidical's visual, mapping, and audio systems."
+    />
+    <title>Feature Atlas — Morphazoidical</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="atlas-page">
+    <a class="skip-link" href="#atlasCatalog">Skip to feature catalog</a>
+
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Morphazoidical workbench">
+        <span class="brand-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span><b>Morphazoidical</b><small>geometry workbench</small></span>
+      </a>
+      <nav class="primary-nav" aria-label="Morphazoidical">
+        <a href="./">Workbench</a>
+        <a class="active" href="atlas.html" aria-current="page">Feature Atlas</a>
+        <a href="../">Legacy instruments</a>
+      </nav>
+      <div class="session-state" aria-label="Catalog status">
+        <span class="status-pill live"><i></i><span id="registryCount">—</span>&nbsp;registered</span>
+      </div>
+    </header>
+
+    <main class="atlas-main" id="atlasCatalog">
+      <h1 class="sr-only">Feature Atlas</h1>
+
+      <form class="atlas-toolbar" id="atlasFilters" role="search">
+        <label class="atlas-search" for="featureSearch">
+          <span class="sr-only">Search features by name, identifier, or definition</span>
+          <input
+            id="featureSearch"
+            name="q"
+            type="search"
+            autocomplete="off"
+            placeholder="Search name, ID, unit, or concept…"
+          />
+          <span aria-hidden="true">⌕</span>
+        </label>
+        <div class="atlas-filters" aria-label="Feature filters">
+          <button type="button" data-scope="" aria-pressed="true">All</button>
+          <button type="button" data-scope="geometry" aria-pressed="false">Form</button>
+          <button type="button" data-scope="contact" aria-pressed="false">Contact</button>
+          <button type="button" data-scope="reader" aria-pressed="false">Reader</button>
+          <button type="button" data-scope="event" aria-pressed="false">Events</button>
+          <label class="compact-select" for="groupFilter">
+            <span>Group</span>
+            <select id="groupFilter" name="group" aria-label="Feature group">
+              <option value="">All groups</option>
+            </select>
+          </label>
+          <button id="clearFilters" type="button">Reset</button>
+        </div>
+      </form>
+
+      <div class="atlas-result-meta">
+        <output id="atlasResultCount" for="featureSearch groupFilter" aria-live="polite">Loading features…</output>
+        <span id="activeFilterSummary">All scopes · all groups</span>
+      </div>
+
+      <div class="feature-groups" id="featureGroups" aria-busy="true"></div>
+      <p class="atlas-empty" id="atlasEmpty" hidden>
+        No features match those filters. Try a broader term or reset the catalog.
+      </p>
+    </main>
+
+    <noscript>
+      <p class="atlas-empty">The Feature Atlas needs JavaScript to read the shared feature registry.</p>
+    </noscript>
+    <script type="module" src="atlas.js"></script>
+  </body>
+</html>

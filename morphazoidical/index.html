@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07100f" />
+    <meta name="description" content="Morphazoidical — an explainable real-time geometry-to-sound workbench." />
+    <title>Morphazoidical — Geometry Workbench</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="workbench-page">
+    <a class="skip-link" href="#workspace">Skip to workbench</a>
+
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Morphazoidical workbench">
+        <span class="brand-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span><b>Morphazoidical</b><small>geometry workbench</small></span>
+      </a>
+      <nav class="primary-nav" aria-label="Morphazoidical">
+        <a class="active" href="./" aria-current="page">Workbench</a>
+        <a href="atlas.html">Feature Atlas</a>
+        <a href="../">Legacy instruments</a>
+      </nav>
+      <div class="session-state" aria-label="Analysis status">
+        <span class="status-pill live"><i></i>Live analysis</span>
+        <span class="status-pill" id="fidelityBadge">Sampled · 48/edge</span>
+        <button class="audio-toggle" id="audioToggle" type="button" aria-pressed="false">
+          <span class="audio-dot" aria-hidden="true"></span>
+          <span><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace" id="workspace">
+      <section class="stage-column" aria-labelledby="stageTitle">
+        <div class="stage-heading">
+          <div>
+            <p class="eyebrow">Analysis surface</p>
+            <h1 id="stageTitle">Shape / reader field</h1>
+          </div>
+          <div class="stage-tools" aria-label="Stage overlays">
+            <label class="compact-select" for="qualityMode"><span>Quality</span><select id="qualityMode"><option value="balanced" selected>Balanced</option><option value="precision">Precision</option><option value="performance">Performance</option></select></label>
+            <button class="tool-toggle" id="showHull" type="button" aria-pressed="false">Hull</button>
+            <button class="tool-toggle" id="showNormals" type="button" aria-pressed="true">Vectors</button>
+            <button class="tool-toggle" id="showIntervals" type="button" aria-pressed="true">Inside spans</button>
+            <button class="tool-toggle" id="showLabels" type="button" aria-pressed="false">IDs</button>
+          </div>
+        </div>
+
+        <div class="stage-shell" id="stageShell">
+          <canvas id="geometryStage" tabindex="0" aria-label="Interactive geometry stage. Drag horizontally to move the reader. Click a contact to pin it. Press Space to play or pause." aria-describedby="stageHelp liveStatus">
+            A real-time geometric contour and reader analysis.
+          </canvas>
+          <div class="stage-vignette" aria-hidden="true"></div>
+          <div class="stage-hud top-left" aria-hidden="true">
+            <span id="geometryStatus">PENTAGON · SIMPLE CLOSED</span>
+            <span id="readerStatus">VERTICAL SCAN · 2 CONTACTS</span>
+          </div>
+          <div class="stage-hud top-right" aria-hidden="true">
+            <span><b id="contactCount">2</b> contacts</span>
+            <span><b id="voiceCount">0</b> voices</span>
+          </div>
+          <div class="stage-hud bottom-left quality-readout">
+            <span><i class="quality-swatch sampled"></i>centerline · sampled polyline</span>
+            <span id="analysisRate">analysis — Hz</span>
+          </div>
+          <div class="coordinate-compass" aria-hidden="true"><span class="axis-x">+X</span><span class="axis-y">+Y</span><i></i></div>
+        </div>
+        <p class="sr-only" id="stageHelp">Drag the stage to scrub the active reader. Select a glowing contact to pin its identity in the inspector. All controls have keyboard-accessible alternatives below.</p>
+
+        <section class="event-ribbon" aria-labelledby="eventTitle">
+          <div class="ribbon-heading">
+            <div><p class="eyebrow">Temporal topology</p><h2 id="eventTitle">Event monitor</h2></div>
+            <span class="quality-note"><i></i>Frame-sampled events · refinement planned</span>
+          </div>
+          <ol class="event-stream" id="eventStream" aria-live="polite">
+            <li class="event-empty"><span>No topology changes yet</span><small>Birth, death, entry, exit, and pair events will appear here.</small></li>
+          </ol>
+        </section>
+      </section>
+
+      <aside class="analysis-rail" aria-label="Live geometry inspector">
+        <div class="inspector-head">
+          <div>
+            <p class="eyebrow">Pinned subject</p>
+            <h2 id="selectedContactLabel">Contact · automatic</h2>
+          </div>
+          <button class="icon-button" id="clearContactPin" type="button" aria-label="Return to automatic contact selection" title="Return to automatic selection">×</button>
+        </div>
+
+        <div class="inspector-tabs" role="tablist" aria-label="Inspector scope">
+          <button id="contactTab" type="button" role="tab" data-inspector-tab="contact" aria-selected="true" aria-controls="contactPanel">Contact</button>
+          <button id="readerTab" type="button" role="tab" data-inspector-tab="reader" aria-selected="false" aria-controls="readerPanel">Reader</button>
+          <button id="formTab" type="button" role="tab" data-inspector-tab="form" aria-selected="false" aria-controls="formPanel">Form</button>
+          <button id="topologyTab" type="button" role="tab" data-inspector-tab="topology" aria-selected="false" aria-controls="topologyPanel">Topology</button>
+          <button id="audioTab" type="button" role="tab" data-inspector-tab="audio" aria-selected="false" aria-controls="audioPanel">Audio</button>
+        </div>
+
+        <section class="inspector-panel" id="contactPanel" role="tabpanel" aria-labelledby="contactTab">
+          <div class="metric-hero" id="contactHero">
+            <div><small>Center radius</small><strong>—</strong><span>model unit</span></div>
+            <div><small>Contour phase</small><strong>—</strong><span>cycle</span></div>
+          </div>
+          <dl class="metric-list" id="contactMetrics"></dl>
+          <a class="explain-link" href="atlas.html?scope=contact">Explain contact features <span>↗</span></a>
+        </section>
+
+        <section class="inspector-panel" id="readerPanel" role="tabpanel" aria-labelledby="readerTab" hidden>
+          <div class="metric-hero" id="readerHero"></div>
+          <dl class="metric-list" id="readerMetrics"></dl>
+          <div class="contact-list-wrap"><h3>Ordered contacts</h3><ol class="contact-list" id="contactList"></ol></div>
+          <a class="explain-link" href="atlas.html?scope=reader">Explain reader features <span>↗</span></a>
+        </section>
+
+        <section class="inspector-panel" id="formPanel" role="tabpanel" aria-labelledby="formTab" hidden>
+          <div class="metric-hero" id="formHero"></div>
+          <dl class="metric-list" id="formMetrics"></dl>
+          <a class="explain-link" href="atlas.html?scope=geometry">Explain form features <span>↗</span></a>
+        </section>
+
+        <section class="inspector-panel" id="topologyPanel" role="tabpanel" aria-labelledby="topologyTab" hidden>
+          <div class="topology-summary" id="topologySummary"><span class="topology-orb simple"></span><div><strong>Simple contour</strong><small>No sampled self-intersections</small></div></div>
+          <dl class="metric-list" id="topologyMetrics"></dl>
+          <div class="semantic-note"><b>Important distinction</b><p>Rigid rotation preserves contour topology. Reader contacts can still be born or die at tangencies while the form rotates.</p></div>
+          <a class="explain-link" href="atlas.html?group=Topology">Explain topology features <span>↗</span></a>
+        </section>
+
+        <section class="inspector-panel" id="audioPanel" role="tabpanel" aria-labelledby="audioTab" hidden>
+          <div class="signal-chain" aria-label="Geometry to audio signal chain"><span>raw</span><i>→</i><span>normalized</span><i>→</i><span>mapped</span><i>→</i><span>voice</span></div>
+          <dl class="metric-list" id="audioMetrics"></dl>
+          <div class="semantic-note"><b>Rendered versus estimated</b><p>Targets shown here precede device output and loudspeaker response. Culled contacts remain visible but are marked silent.</p></div>
+        </section>
+
+        <footer class="inspector-footer">
+          <span id="coordinateBadge">Stage frame · +X right · +Y down · positive angles clockwise</span>
+          <a href="PLAN.md">Accuracy contract</a>
+        </footer>
+      </aside>
+
+      <section class="control-rack" aria-label="Performance and mapping controls">
+        <details class="rack-card" open>
+          <summary><span><i class="rack-icon transport"></i><b>Transport</b></span><small id="transportSummary">paused</small></summary>
+          <div class="rack-body">
+            <div class="transport-row">
+              <button class="round-play" id="playToggle" type="button" aria-pressed="false" aria-label="Play reader"><span class="play-symbol">▶</span><span class="pause-symbol">Ⅱ</span></button>
+              <label class="range-control grow" for="readerPhase"><span><b>Reader phase</b><output id="readerPhaseOut" for="readerPhase">50.0%</output></span><input id="readerPhase" type="range" min="0" max="1" step="0.001" value="0.5" /></label>
+            </div>
+            <label class="range-control" for="readerSpeed"><span><b>Reader speed</b><output id="readerSpeedOut" for="readerSpeed">0.12 cyc/s</output></span><input id="readerSpeed" type="range" min="-1" max="1" step="0.01" value="0.12" /></label>
+            <div class="rotation-row">
+              <button class="mini-transport" id="rotationToggle" type="button" aria-pressed="false"><span>↻</span> Rotate</button>
+              <label class="range-control grow" for="rotation"><span><b>Pose</b><output id="rotationOut" for="rotation">0°</output></span><input id="rotation" type="range" min="-180" max="180" step="0.1" value="0" /></label>
+            </div>
+            <label class="range-control" for="rotationSpeed"><span><b>Rotation speed</b><output id="rotationSpeedOut" for="rotationSpeed">0.08 rev/s</output></span><input id="rotationSpeed" type="range" min="-0.5" max="0.5" step="0.01" value="0.08" /></label>
+          </div>
+        </details>
+
+        <details class="rack-card" open>
+          <summary><span><i class="rack-icon form"></i><b>Form</b></span><small id="formSummary">5-sided polygon</small></summary>
+          <div class="rack-body two-column-controls">
+            <label class="select-control" for="shapeType"><span>Shape</span><select id="shapeType"><option value="polygon" selected>Polygon</option><option value="star">Star</option><option value="circle">Circle</option><option value="line">Open line</option></select></label>
+            <label class="range-control" for="sides"><span><b>Sides / points</b><output id="sidesOut" for="sides">5</output></span><input id="sides" type="range" min="2" max="32" step="1" value="5" /></label>
+            <label class="range-control" for="starDepth"><span><b>Star depth</b><output id="starDepthOut" for="starDepth">48%</output></span><input id="starDepth" type="range" min="0.05" max="0.82" step="0.01" value="0.48" /></label>
+            <label class="range-control" for="curvature"><span><b>Edge curvature</b><output id="curvatureOut" for="curvature">+12%</output></span><input id="curvature" type="range" min="-1" max="1" step="0.01" value="0.12" /></label>
+            <label class="range-control" for="aspect"><span><b>Stretch</b><output id="aspectOut" for="aspect">0%</output></span><input id="aspect" type="range" min="-1.5" max="1.5" step="0.01" value="0" /></label>
+            <label class="range-control" for="skew"><span><b>Skew</b><output id="skewOut" for="skew">0%</output></span><input id="skew" type="range" min="-1.5" max="1.5" step="0.01" value="0" /></label>
+          </div>
+        </details>
+
+        <details class="rack-card" open>
+          <summary><span><i class="rack-icon reader"></i><b>Reader</b></span><small>one reader · explicit frame</small></summary>
+          <div class="rack-body">
+            <label class="select-control" for="readerMode"><span>Reader geometry</span><select id="readerMode"><option value="vertical" selected>Vertical scan line</option><option value="horizontal">Horizontal scan line</option><option value="ray">Center radar ray</option><option value="path">Contour tracer</option></select></label>
+            <div class="reader-definition"><span><b id="readerDefinitionTitle">Bounds-relative scan</b><small id="readerDefinitionText">Phase maps between the form’s current left and right bounds.</small></span><a href="atlas.html?scope=reader" aria-label="Read about reader geometry">?</a></div>
+          </div>
+        </details>
+
+        <details class="rack-card mapping-card" open>
+          <summary><span><i class="rack-icon mapping"></i><b>Mapping</b></span><small>geometry → sound</small></summary>
+          <div class="rack-body">
+            <div class="mapping-grid">
+              <label for="pitchSource"><span><i class="route-dot pitch"></i><b>Pitch</b><small id="pitchRouteValue">—</small></span><select id="pitchSource" data-route="pitch"></select></label>
+              <label for="panSource"><span><i class="route-dot pan"></i><b>Pan</b><small id="panRouteValue">—</small></span><select id="panSource" data-route="pan"></select></label>
+              <label for="levelSource"><span><i class="route-dot level"></i><b>Level</b><small id="levelRouteValue">—</small></span><select id="levelSource" data-route="level"></select></label>
+              <label for="timbreSource"><span><i class="route-dot timbre"></i><b>Timbre</b><small id="timbreRouteValue">—</small></span><select id="timbreSource" data-route="timbre"></select></label>
+            </div>
+            <div class="audio-parameters">
+              <label class="select-control" for="soundMode"><span>Voice</span><select id="soundMode"><option value="sine" selected>Sine</option><option value="fm">FM</option><option value="pm">PM</option><option value="shepard">Shepard</option></select></label>
+              <label class="range-control" for="baseFrequency"><span><b>Base</b><output id="baseFrequencyOut" for="baseFrequency">82 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="82" /></label>
+              <label class="range-control" for="pitchRange"><span><b>Range</b><output id="pitchRangeOut" for="pitchRange">4.0 oct</output></span><input id="pitchRange" type="range" min="0" max="7" step="0.1" value="4" /></label>
+              <label class="range-control" for="masterLevel"><span><b>Master</b><output id="masterLevelOut" for="masterLevel">55%</output></span><input id="masterLevel" type="range" min="0" max="1" step="0.01" value="0.55" /></label>
+            </div>
+            <p class="mapping-disclosure"><b>Mapping contract:</b> raw → registry normalization → destination range. Circular sources wrap; unavailable sources hold a neutral fallback and are visibly marked.</p>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
