@@ -244,9 +244,21 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
   assert.equal(voiceMessage.voices[0].frequency, 300);
   assert.equal(voiceMessage.voices[0].shepardWidth, 8);
   assert.ok(Number.isFinite(voiceMessage.voices[0].shepardTravel));
+  assert.equal(voiceMessage.nextVoices.length, 1);
   assert.equal(elements.get("soundSummary").textContent, "Basic Shepard");
   assert.match(elements.get("mappingSummary").textContent, /basic$/);
   assert.equal(elements.get("verticalHarmonyRule").hidden, true);
+
+  elements.get("synthMode").value = "harmony";
+  listeners.get("synthMode:change")({ currentTarget: elements.get("synthMode") });
+  now += 80;
+  queuedFrame(now);
+  voiceMessage = audioWorkletMessages.at(-1);
+  assert.equal(voiceMessage.voices.length, 2);
+  assert.equal(voiceMessage.nextVoices.length, 2);
+  assert.equal(elements.get("soundSummary").textContent, "Shepard + harmony");
+  assert.match(elements.get("synthModeHelp").textContent, /vertical harmony/);
+  assert.equal(elements.get("verticalHarmonyRule").hidden, false);
   await listeners.get("auditionSimilarity:click")();
   assert.equal(attributes.get("auditionSimilarity:aria-pressed"), "true");
   now += 80;
