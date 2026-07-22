@@ -71,6 +71,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     playheadMotion: ["loopMotion", "pingPongMotion"],
     rotationMotion: ["rotationLoopMotion", "rotationPingPongMotion"],
     closedShapeType: ["polygonShape", "starShape"],
+    shepardMapping: ["shepardMappingTravel", "shepardMappingTurn"],
     pitchDimension: ["pitchVertical", "pitchHorizontal", "pitchCenter"],
     stereoDimension: ["stereoHorizontal", "stereoVertical", "stereoCenter"],
     pitchCurvePresets: [
@@ -94,6 +95,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     rotationLoopMotion: "loop",
     polygonShape: "polygon",
     starShape: "star",
+    shepardMappingTravel: "travel",
+    shepardMappingTurn: "turn",
     pitchVertical: "vertical",
     pitchHorizontal: "horizontal",
     pitchCenter: "center",
@@ -578,9 +581,14 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("amplitudeArticulation").hidden, false);
   assert.equal(elements.get("shepardArticulation").hidden, false);
   assert.equal(elements.get("timbreMapping").hidden, true);
-  assert.equal(elements.get("mappingSummary").textContent, "Base → Shepard glide");
-  assert.equal(elements.get("pitchRouteSource").textContent, "Base frequency");
-  assert.match(elements.get("pitchRouteCurve").textContent, /fixed spectral anchor/);
+  assert.equal(elements.get("mappingSummary").textContent, "Path distance → Shepard pitch");
+  assert.equal(elements.get("pitchRouteSource").textContent, "Path distance");
+  assert.match(elements.get("pitchRouteCurve").textContent, /1\.00 oct \/ circuit/);
+  assert.equal(elements.get("pitchDimensionControl").hidden, true);
+  assert.equal(elements.get("pitchCurveControl").hidden, true);
+  assert.equal(attributes.get("shepardMappingTravel:aria-pressed"), "true");
+  assert.equal(attributes.get("shepardMappingTurn:aria-pressed"), "false");
+  assert.equal(elements.get("shepardMappingTurn").disabled, false);
   assert.equal(elements.get("markFrequencyOut").textContent, "110 Hz");
   assert.equal(elements.get("markSynthDriveOut").textContent, "-");
   assert.match(elements.get("markSynthValueOut").textContent, /oct\/s/);
@@ -590,6 +598,56 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(shepardVoice.frequency, 110, "Shepard must use a fixed spectral anchor");
   assert.equal(shepardVoice.shepardWidth, 4, "the width slider directly controls the bank");
   assert.equal(shepardVoice.synthDrive, 1, "geometry must not collapse the Shepard bank");
+  assert.ok(Number.isFinite(shepardVoice.shepardTravel), "Shepard voices must preserve unwrapped travel");
+
+  listeners.get("shepardMappingTurn:click")();
+  assert.equal(elements.get("mappingSummary").textContent, "Turn angle → Shepard pitch");
+  assert.equal(attributes.get("shepardMappingTravel:aria-pressed"), "false");
+  assert.equal(attributes.get("shepardMappingTurn:aria-pressed"), "true");
+  assert.equal(elements.get("shepardCyclesLabel").textContent, "Octaves per 360°");
+  assert.equal(elements.get("shepardCyclesOut").textContent, "1.00 oct / 360°");
+  assert.equal(elements.get("shepardDirectionPositive").textContent, "Left ↑ · Right ↓");
+  assert.equal(elements.get("shepardTurnGlideControl").hidden, false);
+  assert.match(elements.get("shepardMappingHelp").textContent, /Left turns raise · right turns lower/);
+  queuedFrame(1_285);
+  const signedSquare = latestWorkletVoice("shepard");
+  assert.ok(Math.abs(signedSquare.shepardTravel + 0.75) < 1e-6, `three right turns should lower 0.75 octave: ${signedSquare.shepardTravel}`);
+  assert.ok(Math.abs(signedSquare.shepardPosition - 0.25) < 1e-9);
+  assert.equal(elements.get("pitchRouteSource").textContent, "Signed contour turns");
+  assert.match(elements.get("pitchRouteCurve").textContent, /right ↓ · left ↑ · cyclic closure/);
+  assert.equal(elements.get("pitchSourceValueLabel").textContent, "Shepard octave travel");
+  assert.equal(elements.get("markPitchValueOut").textContent, "-0.750");
+
+  elements.get("position").value = "0.04";
+  listeners.get("position:input")();
+  listeners.get("playButton:click")();
+  queuedFrame(1_345);
+  const afterRightTurn = latestWorkletVoice("shepard").shepardTravel;
+  listeners.get("traversalDirection:click")();
+  queuedFrame(1_445);
+  const afterLeftTurn = latestWorkletVoice("shepard").shepardTravel;
+  assert.ok(afterLeftTurn > afterRightTurn, `reversing through the corner should raise pitch (${afterRightTurn} → ${afterLeftTurn})`);
+  listeners.get("traversalDirection:click")();
+  listeners.get("playButton:click")();
+
+  elements.get("sides").value = "1";
+  listeners.get("sides:input")();
+  elements.get("position").value = "0.25";
+  listeners.get("position:input")();
+  queuedFrame(1_475);
+  assert.ok(
+    Math.abs(latestWorkletVoice("shepard").shepardTravel + 0.25) < 1e-6,
+    "a circle should glide uniformly through one signed octave",
+  );
+
+  elements.get("sides").value = "2";
+  listeners.get("sides:input")();
+  assert.equal(elements.get("mappingSummary").textContent, "Path distance → Shepard pitch");
+  assert.equal(attributes.get("shepardMappingTravel:aria-pressed"), "true");
+  assert.equal(elements.get("shepardMappingTurn").disabled, true);
+  assert.match(elements.get("shepardMappingHelp").textContent, /requires Point playheads on a closed contour/);
+  elements.get("sides").value = "4";
+  listeners.get("sides:input")();
 
   elements.get("shepardCycles").value = "1.25";
   listeners.get("shepardCycles:input")();
@@ -597,13 +655,13 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("sides:input")();
   elements.get("position").value = "0.99";
   listeners.get("position:input")();
-  queuedFrame(1_250);
+  queuedFrame(1_510);
   const beforeCircuitSeam = latestWorkletVoice("shepard").shepardPosition;
   const previousSpeedSlider = elements.get("speed").value;
   elements.get("speed").value = "0.47717299738597074";
   listeners.get("speed:input")();
   listeners.get("playButton:click")();
-  queuedFrame(1_280);
+  queuedFrame(1_540);
   const afterCircuitSeam = latestWorkletVoice("shepard").shepardPosition;
   assert.ok(
     afterCircuitSeam > beforeCircuitSeam && afterCircuitSeam - beforeCircuitSeam < 0.05,

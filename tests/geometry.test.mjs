@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildShape,
+  cumulativeSignedTurn,
   horizontalIntersections,
   mirroredCornerPhase,
   pingPong01,
@@ -114,6 +115,99 @@ test("three or more sides produce closed paths without a duplicated seam point",
     assert.notDeepEqual(shape.points[0], shape.points[shape.points.length - 1]);
     assert.deepEqual(pointAtPath(shape, 0), pointAtPath(shape, 1));
   }
+});
+
+test("cumulative signed turn stays unwrapped across seams, reverse travel, and laps", () => {
+  const square = buildShape({ sides: 4, curvature: 0, samplesPerEdge: 24 });
+  near(cumulativeSignedTurn(square, 0), 0);
+  near(cumulativeSignedTurn(square, 0.25), Math.PI / 2, 1e-7);
+  near(cumulativeSignedTurn(square, 0.5), Math.PI, 1e-7);
+  near(cumulativeSignedTurn(square, 0.75), Math.PI * 1.5, 1e-7);
+  near(cumulativeSignedTurn(square, 1), Math.PI * 2, 1e-7);
+  near(cumulativeSignedTurn(square, -0.25), -Math.PI / 2, 1e-7);
+  near(cumulativeSignedTurn(square, -1), -Math.PI * 2, 1e-7);
+  near(cumulativeSignedTurn(square, 2.5), Math.PI * 5, 1e-7);
+
+  const beforeSeam = cumulativeSignedTurn(square, 1 - 1e-9);
+  assert.ok(Math.abs(beforeSeam - Math.PI * 2) < 1e-6);
+  const beforeReverseSeam = cumulativeSignedTurn(square, -1e-9);
+  assert.ok(Math.abs(beforeReverseSeam) < 1e-6);
+});
+
+test("declared corners glide through a useful fraction of their outgoing edge", () => {
+  const square = buildShape({ sides: 4, curvature: 0, samplesPerEdge: 48 });
+  const halfDefaultGlide = 0.25 * 0.35 * 0.5;
+  near(cumulativeSignedTurn(square, halfDefaultGlide), Math.PI / 4, 1e-7);
+  near(cumulativeSignedTurn(square, 0.25 * 0.35), Math.PI / 2, 1e-7);
+
+  // A full-edge glide puts half of a 90-degree turn at the edge midpoint,
+  // proving the transition is based on the true edge rather than one sample.
+  near(cumulativeSignedTurn(square, 0.125, { glide: 1 }), Math.PI / 4, 1e-7);
+  near(cumulativeSignedTurn(square, 0.25, { glide: 1 }), Math.PI / 2, 1e-7);
+});
+
+test("circles and rounded contours retain one smooth signed revolution", () => {
+  const contours = [
+    buildShape({ sides: 1, samplesPerEdge: 64 }),
+    buildShape({ sides: 7, curvature: 1, samplesPerEdge: 32 }),
+  ];
+  for (const contour of contours) {
+    for (const progress of [0, 0.03125, 0.125, 0.37, 0.5, 0.875, 1, 1.25]) {
+      near(cumulativeSignedTurn(contour, progress), progress * Math.PI * 2, 1e-7);
+    }
+  }
+
+  const rounded = buildShape({
+    sides: 6,
+    curvature: 0.58,
+    aspect: 0.7,
+    skew: -0.4,
+    samplesPerEdge: 48,
+  });
+  near(cumulativeSignedTurn(rounded, 1), Math.PI * 2, 1e-7);
+  near(cumulativeSignedTurn(rounded, -1), -Math.PI * 2, 1e-7);
+  const samples = Array.from(
+    { length: 257 },
+    (_, index) => cumulativeSignedTurn(rounded, index / 256),
+  );
+  assert.ok(samples.every(Number.isFinite));
+  for (let index = 1; index < samples.length; index += 1) {
+    assert.ok(samples[index] >= samples[index - 1] - 1e-9);
+  }
+});
+
+test("concave star turns move both ways while the closed total remains 360 degrees", () => {
+  const star = buildShape({
+    sides: 5,
+    shapeType: "star",
+    starDepth: 0.48,
+    curvature: 0,
+    samplesPerEdge: 48,
+  });
+  near(cumulativeSignedTurn(star, 1), Math.PI * 2, 1e-7);
+
+  const changeAfterVertex = (vertexIndex) => {
+    const start = star.vertexDistances[vertexIndex];
+    const end = vertexIndex + 1 < star.vertexDistances.length
+      ? star.vertexDistances[vertexIndex + 1]
+      : star.totalLength;
+    const atVertex = cumulativeSignedTurn(star, start / star.totalLength, { glide: 0.5 });
+    const afterVertex = cumulativeSignedTurn(
+      star,
+      (start + (end - start) * 0.25) / star.totalLength,
+      { glide: 0.5 },
+    );
+    return afterVertex - atVertex;
+  };
+  assert.ok(changeAfterVertex(0) > 0, "outer vertex must add positive signed turn");
+  assert.ok(changeAfterVertex(1) < 0, "inner vertex must add negative signed turn");
+});
+
+test("open lines have no canonical cumulative signed circuit", () => {
+  const line = buildShape({ sides: 2, curvature: 0.7, samplesPerEdge: 48 });
+  near(cumulativeSignedTurn(line, 0.5), 0);
+  near(cumulativeSignedTurn(line, 3), 0);
+  near(cumulativeSignedTurn(line, -2), 0);
 });
 
 test("curvature +1 follows the unit circumcircle and removes true corners", () => {

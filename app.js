@@ -1,5 +1,6 @@
 import {
   buildShape,
+  cumulativeSignedTurn,
   horizontalIntersections,
   mirroredCornerPhase,
   pingPong01,
@@ -178,6 +179,8 @@ const state = {
   pmDepthSource: "fixed",
   shepardCycles: 1,
   shepardDirection: 1,
+  shepardMapping: "travel",
+  shepardTurnGlide: 0.35,
   shepardWidth: 4,
   fmIndex: 3,
   fmRatio: 2,
@@ -210,6 +213,8 @@ state.pmDepthSource = PARAMETER_MAPPING_SOURCES.has(state.pmDepthSource)
   : "fixed";
 state.shepardCycles = clamp(state.shepardCycles, 0.25, 4);
 state.shepardDirection = state.shepardDirection < 0 ? -1 : 1;
+state.shepardMapping = state.shepardMapping === "turn" ? "turn" : "travel";
+state.shepardTurnGlide = clamp(state.shepardTurnGlide, 0.05, 1);
 state.shepardWidth = clamp(state.shepardWidth, 2, 8);
 state.fmIndex = clamp(state.fmIndex, 0, 12);
 state.fmRatio = clamp(state.fmRatio, 0.25, 8);
@@ -450,6 +455,15 @@ function renderHeadLayout() {
   }
 }
 
+function shepardTurnMappingAvailable(path = null) {
+  const closed = path ? path.closed : state.sides !== 2;
+  return state.playMethod === "trace" && closed;
+}
+
+function usesShepardTurnMapping(path = null) {
+  return state.shepardMapping === "turn" && shepardTurnMappingAvailable(path);
+}
+
 function updateSectionSummaries() {
   const reader = state.playMethod === "scan" ? "Lines" : state.playMethod === "radial" ? "Radar" : "Points";
   $("playSummary").textContent = `${reader} · ${state.playing ? "playing" : "paused"}`;
@@ -460,7 +474,9 @@ function updateSectionSummaries() {
     : `${state.sides}-point ${state.closedShapeType}`;
   $("soundSummary").textContent = SOUND_MODE_LABELS[state.soundMode];
   $("mappingSummary").textContent = state.soundMode === "shepard"
-    ? "Base → Shepard glide"
+    ? usesShepardTurnMapping()
+      ? "Turn angle → Shepard pitch"
+      : "Path distance → Shepard pitch"
     : `${PITCH_SUMMARY_LABELS[state.pitchSource] ?? "Source"} → pitch`;
 }
 
@@ -589,7 +605,20 @@ bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
 bindRange("percussionStrikeLevel", "percussionStrikeLevel", (value) => `${Math.round(value * 100)}%`);
 bindRange("percussionAttackNoise", "percussionAttackNoise", (value) => `${Math.round(value * 100)}%`);
-bindRange("shepardCycles", "shepardCycles", (value) => `${value.toFixed(2)} oct / circuit`);
+const updateShepardCyclesOutput = bindRange("shepardCycles", "shepardCycles", (value) => (
+  state.shepardMapping === "turn"
+    ? `${value.toFixed(2)} oct / 360°`
+    : `${value.toFixed(2)} oct / circuit`
+), () => {
+  updateSectionSummaries();
+  invalidate();
+});
+const updateShepardTurnGlideOutput = bindRange(
+  "shepardTurnGlide",
+  "shepardTurnGlide",
+  (value) => `${Math.round(value * 100)}%`,
+  invalidate,
+);
 bindRange("shepardWidth", "shepardWidth", (value) => `${value.toFixed(1)} oct`, updateTimbreMappingUi);
 bindRange("fmIndex", "fmIndex", (value) => value.toFixed(2), updateTimbreMappingUi);
 bindRange("fmRatio", "fmRatio", (value) => `${value.toFixed(2)} : 1`);
@@ -611,6 +640,7 @@ function syncFormTopology(shouldAnnounce = false) {
     ? "Sine Oscillators · continuous contour"
     : "Sine Oscillators · corner envelope";
   updateAmplitudeArticulationVisibility();
+  updateShepardMappingUi();
   updateSectionSummaries();
   resetCornerTracking();
   if (shouldAnnounce) {
@@ -702,6 +732,7 @@ function setPlayMethod(method, shouldAnnounce = true) {
   updateHeadsOutput();
   updateLineControls();
   updateTimbreMappingUi();
+  updateShepardMappingUi();
   resetCornerTracking();
   if (shouldAnnounce) {
     announce(isScan
@@ -864,13 +895,18 @@ function setSoundMode(mode, shouldAnnounce = true) {
   $("pmArticulation").hidden = state.soundMode !== "pm";
   $("percussionMapping").hidden = state.soundMode !== "percussion";
   $("timbreMapping").hidden = !["fm", "pm"].includes(state.soundMode);
+  $("pitchDimensionControl").hidden = state.soundMode === "shepard";
+  $("pitchCurveControl").hidden = state.soundMode === "shepard";
   updateTimbreMappingUi();
+  updateShepardMappingUi();
   updateSectionSummaries();
   if (shouldAnnounce) {
     const descriptions = {
       sine: "Sine Oscillators with corner amplitude selected.",
       percussion: "Percussion corner strikes selected.",
-      shepard: "Transport-locked nine-partial Shepard Glissandi selected.",
+      shepard: usesShepardTurnMapping()
+        ? "Shepard Glissandi selected. Signed contour turns control cyclic pitch."
+        : "Shepard Glissandi selected. Path distance controls cyclic pitch.",
       fm: "FM Synthesis selected.",
       pm: "PM Synthesis selected.",
     };
@@ -891,9 +927,64 @@ $("soundMode").addEventListener("change", (event) => {
   setSoundMode(event.currentTarget.value);
 });
 
+function updateShepardMappingUi() {
+  const available = shepardTurnMappingAvailable();
+  if (!available && state.shepardMapping === "turn") state.shepardMapping = "travel";
+  for (const button of $("shepardMapping").querySelectorAll("button")) {
+    setPressed(button, button.dataset.value === state.shepardMapping);
+  }
+  $("shepardMappingTurn").disabled = !available;
+  $("shepardCyclesLabel").textContent = state.shepardMapping === "turn"
+    ? "Octaves per 360°"
+    : "Octaves per circuit";
+  $("shepardDirectionLabel").textContent = state.shepardMapping === "turn"
+    ? "Turn direction"
+    : "Glide direction";
+  $("shepardDirectionPositive").textContent = state.shepardMapping === "turn"
+    ? "Left ↑ · Right ↓"
+    : "Follow playhead";
+  $("shepardDirectionNegative").textContent = state.shepardMapping === "turn"
+    ? "Left ↓ · Right ↑"
+    : "Oppose playhead";
+  $("shepardTurnGlideControl").hidden = state.shepardMapping !== "turn";
+  if (!available) {
+    const reader = state.playMethod === "trace" ? "an open line" : state.playMethod === "scan" ? "Line playheads" : "Radar";
+    $("shepardMappingHelp").textContent = `Turn angle requires Point playheads on a closed contour; ${reader} uses path distance.`;
+  } else if (state.shepardMapping === "turn") {
+    $("shepardMappingHelp").textContent = "Left turns raise · right turns lower · sharper turns produce larger changes.";
+  } else {
+    $("shepardMappingHelp").textContent = "Equal distance along the contour produces equal pitch change.";
+  }
+  updateShepardCyclesOutput();
+  updateShepardTurnGlideOutput();
+  updateSectionSummaries();
+}
+
+function setShepardMapping(mapping, shouldAnnounce = true) {
+  const next = mapping === "turn" ? "turn" : "travel";
+  if (next === "turn" && !shepardTurnMappingAvailable()) {
+    if (shouldAnnounce) announce("Turn angle mapping requires Point playheads on a closed contour.");
+    return;
+  }
+  state.shepardMapping = next;
+  pool.silence();
+  updateShepardMappingUi();
+  if (shouldAnnounce) {
+    announce(next === "turn"
+      ? "Shepard pitch follows signed contour turns. Left rises and right falls."
+      : "Shepard pitch follows distance along the contour.");
+  }
+  invalidate();
+}
+
+for (const button of $("shepardMapping").querySelectorAll("button")) {
+  button.addEventListener("click", () => setShepardMapping(button.dataset.value));
+}
+
 $("shepardDirection").value = String(state.shepardDirection);
 $("shepardDirection").addEventListener("change", (event) => {
   state.shepardDirection = Number(event.currentTarget.value) < 0 ? -1 : 1;
+  updateShepardMappingUi();
   invalidate();
 });
 
@@ -2336,8 +2427,49 @@ function cornerEnvelopeProfile(contact, path) {
   };
 }
 
-function shepardRate(contact, headIndex = contact.headIndex ?? 0) {
+function shepardContourProgress(contact, path) {
+  if (!usesShepardTurnMapping(path)) return null;
+  if (state.motionMode === "pingpong") {
+    return contact.headPhase ?? pingPong01(contact.headTravel ?? state.continuousPosition);
+  }
+  return Number.isFinite(contact.headTravel)
+    ? contact.headTravel
+    : contact.headPhase ?? contact.u ?? state.continuousPosition;
+}
+
+function shepardTravelForContact(contact, path) {
+  const contourProgress = shepardContourProgress(contact, path);
+  if (contourProgress !== null) {
+    return -cumulativeSignedTurn(path, contourProgress, {
+      glide: state.shepardTurnGlide,
+    }) / TAU * state.shepardCycles * state.shepardDirection;
+  }
+  const circuitTravel = state.motionMode === "pingpong"
+    ? (contact.headPhase ?? pingPong01(contact.headTravel ?? state.continuousPosition))
+    : Number.isFinite(contact.headTravel)
+      ? contact.headTravel
+      : contact.headPhase ?? contact.u ?? state.continuousPosition;
+  return circuitTravel * state.shepardCycles * state.shepardDirection;
+}
+
+function shepardRate(contact, path, headIndex = contact.headIndex ?? 0) {
   if (!state.playing) return 0;
+  if (usesShepardTurnMapping(path)) {
+    const deltaSeconds = 0.001;
+    const relativeDirection = headDirection(headIndex, "trace");
+    const currentHeadTravel = Number.isFinite(contact.headTravel)
+      ? contact.headTravel
+      : directionalHeadTravel(state.continuousPosition, headIndex, "trace");
+    const nextHeadTravel = currentHeadTravel
+      + state.traversalDirection * relativeDirection * state.speed * deltaSeconds;
+    const nextContact = {
+      ...contact,
+      headTravel: nextHeadTravel,
+      headPhase: state.motionMode === "pingpong" ? pingPong01(nextHeadTravel) : wrap01(nextHeadTravel),
+    };
+    return (shepardTravelForContact(nextContact, path) - shepardTravelForContact(contact, path))
+      / deltaSeconds;
+  }
   const visualLoopRate = state.motionMode === "pingpong"
     ? state.speed * 0.5
     : state.speed;
@@ -2356,30 +2488,28 @@ function shepardRate(contact, headIndex = contact.headIndex ?? 0) {
     * motionDirection;
 }
 
-function shepardPositionForContact(contact) {
-  const circuitTravel = state.motionMode === "pingpong"
-    ? (contact.headPhase ?? pingPong01(contact.headTravel ?? state.continuousPosition))
-    : Number.isFinite(contact.headTravel)
-      ? contact.headTravel
-      : contact.headPhase ?? contact.u ?? state.continuousPosition;
-  return wrap01(circuitTravel * state.shepardCycles * state.shepardDirection);
+function shepardPositionForContact(contact, path) {
+  return wrap01(shepardTravelForContact(contact, path));
 }
 
 function synthParametersForContact(contact, path, headIndex = contact.headIndex ?? 0) {
   const drive = state.soundMode === "shepard"
     ? 1
     : sourceValueForContact(activeTimbreSource(), contact, path, headIndex);
-  return synthParametersForMode(state.soundMode, drive, {
+  const parameters = synthParametersForMode(state.soundMode, drive, {
     fmIndex: state.fmIndex,
     fmRatio: state.fmRatio,
     pmIndex: state.pmIndex,
     pmRatio: state.pmRatio,
-    shepardRate: shepardRate(contact, headIndex),
+    shepardRate: shepardRate(contact, path, headIndex),
     shepardWidth: state.shepardWidth,
     shepardPosition: state.soundMode === "shepard"
-      ? shepardPositionForContact(contact)
+      ? shepardPositionForContact(contact, path)
       : null,
   });
+  return state.soundMode === "shepard"
+    ? { ...parameters, shepardTravel: shepardTravelForContact(contact, path) }
+    : parameters;
 }
 
 function amplitudeGainForContact(contact, path) {
@@ -2720,6 +2850,10 @@ function synthValueLabel(parameters) {
     return `${parameters.modulationIndex.toFixed(2)} rad @ ${parameters.modulationRatio.toFixed(2)}:1`;
   }
   if (state.soundMode === "shepard") {
+    if (usesShepardTurnMapping() && Number.isFinite(parameters.shepardTravel)) {
+      const direction = parameters.shepardTravel >= 0 ? "+" : "";
+      return `${direction}${parameters.shepardTravel.toFixed(3)} oct signed turn · ${parameters.shepardWidth.toFixed(1)} oct bank`;
+    }
     const direction = parameters.shepardRate >= 0 ? "+" : "";
     return `${direction}${parameters.shepardRate.toFixed(3)} oct/s · ${parameters.shepardWidth.toFixed(1)} oct`;
   }
@@ -2743,10 +2877,12 @@ function envelopeDurationLabel() {
 function updateOutputDashboard(contacts, path) {
   $("outputVoiceLabel").textContent = SOUND_MODE_LABELS[state.soundMode];
   $("pitchRouteSource").textContent = state.soundMode === "shepard"
-    ? "Base frequency"
+    ? usesShepardTurnMapping(path) ? "Signed contour turns" : "Path distance"
     : PITCH_ROUTE_LABELS[state.pitchSource] ?? state.pitchSource;
   $("pitchRouteCurve").textContent = state.soundMode === "shepard"
-    ? "fixed spectral anchor · cyclic glide supplies pitch motion"
+    ? usesShepardTurnMapping(path)
+      ? `${state.shepardCycles.toFixed(2)} oct / 360° · right ↓ · left ↑ · cyclic closure`
+      : `${state.shepardCycles.toFixed(2)} oct / circuit · ${state.shepardDirection > 0 ? "follow" : "oppose"} playhead`
     : `${PITCH_CURVE_LABELS[state.pitchCurvePreset] ?? "Custom"} response → exponential Hz`;
   updateStereoMappingUi();
   const continuousLevelRoute = !state.amplitudeEnvelopeEnabled
@@ -2801,7 +2937,12 @@ function updateOutputDashboard(contacts, path) {
   $("markDistanceOut").textContent = clamp(contact.cornerDistance01 ?? 0, 0, 9.999).toFixed(3);
   $("markIncidenceOut").textContent = mapping.incidence.toFixed(3);
   $("markTangentOut").textContent = `${Math.round(tangentDegrees)}°`;
-  $("markPitchValueOut").textContent = mapping.pitch.toFixed(3);
+  $("pitchSourceValueLabel").textContent = state.soundMode === "shepard"
+    ? "Shepard octave travel"
+    : "Pitch source value";
+  $("markPitchValueOut").textContent = state.soundMode === "shepard" && Number.isFinite(synth.shepardTravel)
+    ? synth.shepardTravel.toFixed(3)
+    : mapping.pitch.toFixed(3);
   $("markFrequencyOut").textContent = `${Math.round(frequency)} Hz`;
   $("markGainOut").textContent = contactOutputGain(contact, path).toFixed(3);
   $("markPanOut").textContent = mapping.pan.toFixed(3);

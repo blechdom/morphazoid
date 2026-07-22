@@ -193,8 +193,8 @@ a {
 .tab {
   position: relative;
   display: flex;
-  min-width: 90px;
-  padding: 0 14px;
+  min-width: clamp(58px, 6.2vw, 84px);
+  padding: 0 clamp(7px, 1vw, 14px);
   color: var(--muted);
   align-items: center;
   font-size: 11px;
@@ -382,6 +382,85 @@ a {
   --accent: #c79bff;
   --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
   --accent-glow: color-mix(in oklab, #c79bff 22%, transparent);
+}
+
+.l-system-page {
+  --accent: #75ef9d;
+  --accent-soft: color-mix(in oklab, #75ef9d 55%, transparent);
+  --accent-glow: color-mix(in oklab, #75ef9d 22%, transparent);
+}
+
+.julia-page {
+  --accent: #ff7aa6;
+  --accent-soft: color-mix(in oklab, #ff7aa6 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff7aa6 22%, transparent);
+  --turn-left: #5fe8c4;
+  --turn-right: #ffb86b;
+}
+
+.julia-page .stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--accent) 2.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 2.5%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 48%, var(--accent-glow), transparent 48%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.julia-page #stage {
+  cursor: crosshair;
+}
+
+.julia-page .stage-wrap.is-panning #stage {
+  cursor: grabbing;
+}
+
+.julia-turn-meta {
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+}
+
+.julia-turn-meta i {
+  background: var(--muted);
+}
+
+.julia-turn-meta.is-left {
+  color: var(--turn-left);
+}
+
+.julia-turn-meta.is-left i {
+  border-color: var(--turn-left);
+  background: var(--turn-left);
+  box-shadow: 0 0 9px color-mix(in oklab, var(--turn-left) 55%, transparent);
+}
+
+.julia-turn-meta.is-right {
+  color: var(--turn-right);
+}
+
+.julia-turn-meta.is-right i {
+  border-color: var(--turn-right);
+  background: var(--turn-right);
+  box-shadow: 0 0 9px color-mix(in oklab, var(--turn-right) 55%, transparent);
+}
+
+.turn-rule-card code {
+  font-variant-numeric: tabular-nums;
+}
+
+.l-system-page .stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--accent) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 3%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 34% 50%, var(--accent-glow), transparent 48%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.l-system-page #stage {
+  cursor: default;
 }
 
 .solid-page .stage-wrap,
@@ -1458,10 +1537,119 @@ input[type="range"]::-moz-range-thumb {
   --accent-glow: color-mix(in oklab, #c79bff 20%, transparent);
 }
 
+.control-section[data-section="similarity"] {
+  --accent: #5fe8c4;
+  --accent-soft: color-mix(in oklab, #5fe8c4 55%, transparent);
+  --accent-glow: color-mix(in oklab, #5fe8c4 20%, transparent);
+}
+
+.julia-similarity-actions {
+  display: grid;
+  margin: 4px 0 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.julia-similarity-actions .mini-action:first-child {
+  grid-column: 1 / -1;
+}
+
+.julia-similarity-actions .mini-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.similarity-result-card > span {
+  grid-template-columns: 70px minmax(0, 1fr);
+}
+
+.control-section[data-section="structure"] {
+  --accent: #ffb86b;
+  --accent-soft: color-mix(in oklab, #ffb86b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffb86b 20%, transparent);
+}
+
 .control-section[data-section="output"] {
   --accent: #ffb86b;
   --accent-soft: color-mix(in oklab, #ffb86b 55%, transparent);
   --accent-glow: color-mix(in oklab, #ffb86b 20%, transparent);
+}
+
+.grammar-card {
+  display: grid;
+  margin: 8px 0 16px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+}
+
+.grammar-card > span {
+  display: grid;
+  min-width: 0;
+  padding: 9px 10px;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.grammar-card > span + span {
+  border-top: 1px solid var(--line);
+}
+
+.grammar-card b {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.grammar-card code {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font: 10px/1.45 var(--mono);
+}
+
+.structure-mode-switch {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.structure-mode-switch #structureCanon {
+  grid-column: 1 / -1;
+}
+
+.structure-readout {
+  display: flex;
+  min-height: 31px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--panel-high);
+}
+
+.structure-readout b {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.structure-readout output {
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.structure-description {
+  min-height: 2.8em;
+  margin: 9px 0 6px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
 }
 
 .group-summary {
@@ -1574,6 +1762,12 @@ input[type="range"]::-moz-range-thumb {
 
 .choice-switch button:hover {
   color: var(--ink);
+}
+
+.choice-switch button:disabled {
+  cursor: not-allowed;
+  color: var(--faint);
+  opacity: 0.55;
 }
 
 .choice-switch button[aria-pressed="true"] {
@@ -2667,6 +2861,18 @@ select:hover {
   .group-summary {
     padding-right: clamp(20px, 5vw, 46px);
     padding-left: clamp(20px, 5vw, 46px);
+  }
+}
+
+@media (max-width: 840px) {
+  .tabs {
+    display: none;
+  }
+
+  .mobile-instrument-nav {
+    display: block;
+    width: clamp(104px, 22vw, 142px);
+    flex: 0 1 142px;
   }
 }
 

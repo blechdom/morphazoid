@@ -16,6 +16,10 @@ function wrapPhase(value) {
   return value;
 }
 
+function wrapUnit(value) {
+  return ((value % 1) + 1) % 1;
+}
+
 function hashPhase(key) {
   let hash = 2166136261;
   for (let index = 0; index < key.length; index += 1) {
@@ -40,7 +44,10 @@ function sanitizeSpec(spec, index) {
     shepardRate: clamp(spec.shepardRate ?? 0, -8, 8),
     shepardWidth: clamp(spec.shepardWidth ?? 4, 1, 8),
     shepardPosition: Number.isFinite(spec.shepardPosition)
-      ? ((spec.shepardPosition % 1) + 1) % 1
+      ? wrapUnit(spec.shepardPosition)
+      : null,
+    shepardTravel: Number.isFinite(spec.shepardTravel)
+      ? spec.shepardTravel
       : null,
   };
 }
@@ -237,9 +244,12 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
       const target = voice.target;
       const nextTarget = voice.nextTarget;
       const trajectoryDuration = voice.trajectorySamples / sampleRate;
-      const expectedShepardDelta = (
-        target.shepardRate + nextTarget.shepardRate
-      ) * 0.5 * trajectoryDuration;
+      const expectedShepardDelta = Number.isFinite(target.shepardTravel)
+        && Number.isFinite(nextTarget.shepardTravel)
+        ? nextTarget.shepardTravel - target.shepardTravel
+        : (
+          target.shepardRate + nextTarget.shepardRate
+        ) * 0.5 * trajectoryDuration;
       const shepardTrajectoryDelta = directedWrappedPositionDelta(
         target.shepardPosition ?? 0,
         nextTarget.shepardPosition ?? target.shepardPosition ?? 0,
@@ -264,11 +274,10 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
           + (nextTarget.shepardWidth - target.shepardWidth) * trajectoryAmount;
         let shepardPositionTarget = null;
         if (Number.isFinite(target.shepardPosition)) {
-          shepardPositionTarget = (
+          shepardPositionTarget = wrapUnit(
             target.shepardPosition
               + shepardTrajectoryDelta * trajectoryAmount
-              + 1
-          ) % 1;
+          );
         }
         voice.gain += (gainTarget - voice.gain) * gainSlew;
         voice.frequency += (frequencyTarget - voice.frequency) * frequencySlew;

@@ -1,14 +1,20 @@
 # Morphazoid
 
-Five geometric instruments for sounding contact and recorded motion.
+Eight geometric instruments for sounding contact, recursion, and recorded motion.
 
 **Shape** is a two-dimensional instrument: one to twelve point playheads trace the boundary, one to four independently orientable scan lines read contour intersections, or center-rooted radar rays rotate through every contour hit. Radar position is expressed as an angle from 0–360°. Every playhead type can loop or ping-pong, and shape rotation has its own direction and loop/ping-pong transport. Point and radar spacing markers carry independent forward/reverse arrows, while each line marker carries its own 90-degree orientation toggle. A Sides / points count of 1 is a vertex-free circle, 2 is an open line, and 3–32 can be polygons or stars.
 
 **Lattice** turns a curved isohedral tiling into one deduplicated edge field. A single centered line is the only playhead: the infinite pattern moves beneath it and sounds every edge it intersects simultaneously. Its independent motion bearing can snap from right-to-left to up-to-down or rotate continuously between them without changing the reader line angle. It never walks or serializes the lattice. All 72 Tactile isohedral families are available, with their native shape parameters and independently bendable J, U, and S edge classes; symmetry-locked I edges remain straight.
 
+**Spiral** maps an editable isohedral tessellation into log-polar space. Radius, angle, or multi-turn spiral readers intersect the warped edge field, and each contact can map radius, reader position, orientation, or incidence into continuous, percussive, Shepard, FM, or PM voices.
+
 **Solid** extends the intersection instrument into 3D. Eight wireframes—including cube, octahedron, prism, sphere, and torus—can be stretched and skewed before an oriented 2D plane cuts them. Segment/plane contacts become voices, while X/Y/Z rotation and surface yaw/pitch each have independent play and speed controls.
 
 **Hyper** uses the same idea in 4D. Tesseract, hypersphere, hyperpyramid, and Klein-bottle wireframes can be stretched through X/Y/Z/W. XW, YW, and ZW rotation run independently while a moving W hyperplane sounds the intersected 4D segments.
+
+**L-System** traces recursive turtle grammars from Pythagorean trees to dragon curves. A distance-accurate playhead follows the generated path while height, branch depth, or progress controls pitch and recursion depth shapes the selected synthesis mode.
+
+**Julia** finds every closed boundary of an escape-time Julia set with marching squares and traverses the longest loop at constant spatial speed. Each signed left or right turn bends a nine-partial Shepard tone in the corresponding direction; at the default mapping, one complete signed revolution equals one cyclic octave. Complex constant, grid resolution, contour reduction, turn polarity, pitch sensitivity, and corner glide remain playable controls. Wheel/slider zoom resamples the complex-plane viewport at full grid resolution, dragging empty stage space (or Shift-dragging) pans it, and Reset view returns to the complete set without breaking the sounding loop. Its Self-similarity lab takes a short playhead-centered boundary motif through the exact inverse branches ±√(z−c), which predict where related arcs occur. It overlays all 2<sup>depth</sup> locations, highlights and auditions a selected repeated-sign chain, measures local tangent-pitch fidelity after normalized-time resampling, reports the nearest low-period repelling target as a separate diagnostic, and auditions multiscale chorus, curvature canon, dyadic scale-band, whole-arc orbit, and similarity-harmony experiments. Descendant duration follows the measured arc-length ratio—with a one-second audition floor—whether an inverse step contracts or expands that particular arc. The default Spiral critical orbit escapes at iteration 96, so the page explicitly identifies its longest filled contour as a cap-sensitive finite-depth approximation rather than mistaking the iteration setting for the cause of self-similarity. The reproducible report adds 40-way distractor retrieval and independent zoom-field checks; local percentages in the page are signal proxies, not claims of human recognition.
 
 **Lumber** is a live audio looper drawn as thin, differently colored concentric rings. Each ring has inline direction, relative volume, centered L/R pan, mute, solo, and delete controls. Straight radial handles apply duration-preserving local pitch: inward lowers and outward raises only adjacent loop sections. Additional controls provide movable playback heads, per-ring clocks, one-click global length/phase sync, per-ring filtering, and optional 3D depth. A pale outer Delay ring can be toggled for the complete mix: its neutral shape is dry, inward pulls shorten the echo, and outward pulls add feedback and wet level. It has an independent rotation transport and stereo spread control.
 
@@ -44,4 +50,5 @@ Open <http://localhost:3435>.
 
 ```sh
 npm run verify
+npm run analyze:julia-similarity
 ```

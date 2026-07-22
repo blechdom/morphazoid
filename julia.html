@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Julia — a Shepard tone steered by the signed turns of a Julia-set boundary." />
+    <title>Julia — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="julia-page">
+    <header class="masthead">
+      <a class="wordmark" href="#julia" aria-label="Morphazoid Julia">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab active" href="julia.html" aria-current="page">julia</a>
+        <a class="tab" href="lumber.html">lumber</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="julia.html" selected>julia</option>
+          <option value="lumber.html">lumber</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Volume</b><output id="levelOut" for="level">55%</output></span>
+          <input id="level" type="range" min="0" max="1" step="0.01" value="0.55" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="julia">
+      <section class="stage" aria-label="Julia-set boundary stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="A playhead traverses the longest closed boundary of a Julia set. Left and right turns bend a Shepard tone."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A Julia-set contour with a moving boundary playhead.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true"><span id="stageReadout">SPIRAL · BUILDING BOUNDARY</span></div>
+          <div class="probe-meta julia-turn-meta" aria-hidden="true"><i id="turnIndicator"></i><span id="turnReadout">STRAIGHT · 0.0° · 0.000 OCT</span></div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Julia controls">
+        <details class="group control-section" data-section="play">
+          <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">boundary · paused</span></summary>
+          <div class="group-body">
+            <div class="position-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play Julia boundary">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="position"><span><b>Boundary position</b><output id="positionOut" for="position">0.0%</output></span><input id="position" type="range" min="0" max="1" step="0.0005" value="0" /></label>
+            </div>
+            <label class="control" for="speed"><span><b>Traversal speed</b><output id="speedOut" for="speed">0.035 cyc/s</output></span><input id="speed" type="range" min="0.005" max="0.25" step="0.001" value="0.035" /></label>
+            <button class="mini-action direction-action" id="directionButton" type="button">Direction · forward</button>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form">
+          <summary class="group-summary"><h2 class="group-title">Julia</h2><span class="section-state" id="juliaSummary">Spiral</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="preset"><span class="field-label">Complex constant</span><span class="select-shell"><select id="preset"><option value="spiral" selected>Spiral · −0.700 + 0.270i</option><option value="rabbit">Douady rabbit · −0.123 + 0.745i</option><option value="siegel">Siegel-like finite depth · −0.391 − 0.587i</option><option value="basilica">Basilica · −1.000 + 0.000i</option><option value="custom">Custom</option></select></span></label>
+            <label class="control" for="cReal"><span><b>Real part</b><output id="cRealOut" for="cReal">−0.700</output></span><input id="cReal" type="range" min="-1.2" max="0.4" step="0.001" value="-0.7" /></label>
+            <label class="control" for="cImag"><span><b>Imaginary part</b><output id="cImagOut" for="cImag">+0.270i</output></span><input id="cImag" type="range" min="-1.1" max="1.1" step="0.001" value="0.27015" /></label>
+            <label class="control" for="maxIterations"><span><b>Escape iterations</b><output id="maxIterationsOut" for="maxIterations">96</output></span><input id="maxIterations" type="range" min="32" max="192" step="4" value="96" /></label>
+            <label class="control" for="resolution"><span><b>Boundary grid</b><output id="resolutionOut" for="resolution">224²</output></span><input id="resolution" type="range" min="96" max="320" step="8" value="224" /></label>
+            <label class="control" for="simplify"><span><b>Contour reduction</b><output id="simplifyOut" for="simplify">0.75 px</output></span><input id="simplify" type="range" min="0" max="3" step="0.05" value="0.75" /></label>
+            <label class="control" for="viewZoom"><span><b>View zoom</b><output id="viewZoomOut" for="viewZoom">1.00×</output></span><input id="viewZoom" type="range" min="0" max="6" step="0.05" value="0" /></label>
+            <div class="grammar-card zoom-readout-card" aria-label="Julia viewport"><span><b>View center</b><code id="viewCenterOut">0.000 + 0.000i</code></span></div>
+            <button class="mini-action reset-form" id="resetView" type="button">Reset view</button>
+            <p class="control-note">Marching squares finds every closed component; the longest boundary becomes the instrument path.</p>
+            <p class="control-note">Wheel or use View zoom to magnify and resample. Drag empty stage space (or Shift-drag) to pan; drag near the bright boundary to scrub.</p>
+            <p class="audio-error" id="geometryError" role="alert" hidden></p>
+            <button class="mini-action reset-form" id="resetJulia" type="button">Reset Julia</button>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="mapping">
+          <summary class="group-summary"><h2 class="group-title">Mapping</h2><span class="section-state" id="mappingSummary">left rises · 1 oct/turn</span></summary>
+          <div class="group-body">
+            <span class="field-label">Turn polarity</span>
+            <div class="choice-switch" id="turnPolarity" role="group" aria-label="Turn-to-pitch direction">
+              <button id="leftRises" type="button" data-value="1" aria-pressed="true">Left rises</button>
+              <button id="rightRises" type="button" data-value="-1" aria-pressed="false">Right rises</button>
+            </div>
+            <label class="control" for="turnOctaves"><span><b>Pitch per full turn</b><output id="turnOctavesOut" for="turnOctaves">1.00 oct</output></span><input id="turnOctaves" type="range" min="0" max="4" step="0.05" value="1" /></label>
+            <label class="control" for="cornerGlide"><span><b>Corner glide</b><output id="cornerGlideOut" for="cornerGlide">35% edge</output></span><input id="cornerGlide" type="range" min="0.05" max="1" step="0.01" value="0.35" /></label>
+            <div class="grammar-card turn-rule-card" aria-label="Current angle mapping"><span><b>Left turn</b><code id="leftRule">+ angle → pitch rises</code></span><span><b>Right turn</b><code id="rightRule">− angle → pitch falls</code></span></div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="similarity">
+          <summary class="group-summary"><h2 class="group-title">Self-similarity lab</h2><span class="section-state" id="similaritySummary">not traced</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="similarityExperiment"><span class="field-label">Listening experiment</span><span class="select-shell"><select id="similarityExperiment"><option value="chorus" selected>1 · Multiscale Shepard chorus</option><option value="canon">2 · Curvature motif canon</option><option value="wavelet">3 · Spatial wavelet orchestra</option><option value="orbit">4 · Recursive arc-orbit echoes</option><option value="harmony">5 · Similarity-as-harmony</option></select></span></label>
+            <label class="control" for="motifWidth"><span><b>Boundary motif</b><output id="motifWidthOut" for="motifWidth">2.5%</output></span><input id="motifWidth" type="range" min="0.01" max="0.1" step="0.0025" value="0.025" /></label>
+            <label class="control" for="similarityDepth"><span><b>Inverse depth</b><output id="similarityDepthOut" for="similarityDepth">3 echoes</output></span><input id="similarityDepth" type="range" min="1" max="3" step="1" value="3" /></label>
+            <label class="control" for="similarityDuration"><span><b>Reference duration</b><output id="similarityDurationOut" for="similarityDuration">8.0 s</output></span><input id="similarityDuration" type="range" min="2" max="16" step="0.5" value="8" /></label>
+            <span class="field-label">Auditioned branch chain</span>
+            <div class="choice-switch" id="similarityBranch" role="group" aria-label="Repeated inverse Julia branch">
+              <button id="positiveBranch" type="button" data-value="1" aria-pressed="true">+√ branch</button>
+              <button id="negativeBranch" type="button" data-value="-1" aria-pressed="false">−√ branch</button>
+            </div>
+            <div class="julia-similarity-actions">
+              <button class="mini-action" id="analyzeSimilarity" type="button">Trace inverse echoes</button>
+              <button class="mini-action" id="auditionSimilarity" type="button" aria-pressed="false" disabled>Audition plan</button>
+              <button class="mini-action" id="jumpSimilarity" type="button" disabled>Zoom to echo</button>
+            </div>
+            <div class="grammar-card similarity-result-card">
+              <span><b>Location</b><code id="similarityLocation">Move the playhead to choose a boundary motif.</code></span>
+              <span><b>Pitch match</b><code id="similarityMatch">—</code></span>
+              <span><b>Time test</b><code id="similarityTempo">—</code></span>
+              <span><b>Local proxy</b><code id="similarityPlanResult">—</code></span>
+            </div>
+            <p class="audio-error" id="similarityWarning" role="status" hidden></p>
+            <p class="control-note">The inverse maps ±√(z−c) predict all 2<sup>depth</sup> related locations; every chain is overlaid while the repeated + or − chain is highlighted and auditioned. Grid resolution determines whether the arcs are sampled; escape iterations determine whether slow-escaping pixels are classified reliably.</p>
+            <p class="control-note">Auditions follow the current direction, turn polarity, and Pitch per full turn. Corner glide remains specific to the closed marching-squares boundary; the lab descriptor uses smoothed tangent heading.</p>
+            <p class="control-note">Local proxies measure analytic signal fidelity; the reproducible report adds distractor retrieval. Auditioning remains the perceptual test—neither number alone proves that a listener recognizes the shape.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound">
+          <summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state">Shepard</span></summary>
+          <div class="group-body">
+            <label class="control" for="baseFrequency"><span><b>Shepard center</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" /></label>
+            <label class="control" for="shepardWidth"><span><b>Spectral width</b><output id="shepardWidthOut" for="shepardWidth">5.0 oct</output></span><input id="shepardWidth" type="range" min="1" max="8" step="0.1" value="5" /></label>
+            <p class="control-note">Nine octave-spaced partials crossfade as signed boundary curvature moves the cyclic pitch.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button></div>
+      </aside>
+      <p class="sr-only" id="canvasInstructions">Press Play to traverse the selected Julia boundary. Arrow keys scrub the boundary. Use the mouse wheel or View zoom control to zoom, and drag empty stage space or Shift-drag to pan. Left turns raise Shepard pitch by default; right turns lower it.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="julia-app.js"></script>
+  </body>
+</html>

@@ -68,9 +68,11 @@ const TAU = Math.PI * 2;
 const EPSILON = 1e-12;
 const DEFAULT_SAMPLES_PER_EDGE = 32;
 const MAX_SAMPLES_PER_EDGE = 256;
+const DEFAULT_SIGNED_TURN_GLIDE = 0.35;
 const OPEN_LINE_BEND = 0.75;
 // Even at curvature -1, an edge retains 22% of its chord radius at midpoint.
 const MAX_INWARD_FRACTION = 0.78;
+const signedTurnProfileCache = new WeakMap();
 
 function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
@@ -109,6 +111,75 @@ function signedTurn(incoming, outgoing) {
     return 0;
   }
   return Math.atan2(a.x * b.y - a.y * b.x, a.x * b.x + a.y * b.y);
+}
+
+function smoothstep01(value) {
+  const amount = clamp(value, 0, 1);
+  return amount * amount * (3 - 2 * amount);
+}
+
+function signedTurnProfile(path, glide) {
+  let cachedByGlide = signedTurnProfileCache.get(path);
+  if (!cachedByGlide) {
+    cachedByGlide = new Map();
+    signedTurnProfileCache.set(path, cachedByGlide);
+  }
+  if (cachedByGlide.has(glide)) return cachedByGlide.get(glide);
+
+  const pointCount = path.points.length;
+  const turns = path.points.map((point, index) => {
+    const previous = path.points[(index - 1 + pointCount) % pointCount];
+    const next = path.points[(index + 1) % pointCount];
+    return signedTurn(
+      { x: point.x - previous.x, y: point.y - previous.y },
+      { x: next.x - point.x, y: next.y - point.y },
+    );
+  });
+  const cumulativeTurns = new Array(pointCount + 1).fill(0);
+  for (let index = 0; index < pointCount; index += 1) {
+    cumulativeTurns[index + 1] = cumulativeTurns[index] + turns[index];
+  }
+
+  // Sampled curvature normally turns linearly across its outgoing sample.
+  // Declared vertices need a longer transition so a polygon corner does not
+  // squeeze its whole pitch change into one of many tiny edge samples.
+  const trueVertexGlides = new Map();
+  for (let vertexIndex = 0; vertexIndex < path.vertexIndices.length; vertexIndex += 1) {
+    const pointIndex = path.vertexIndices[vertexIndex];
+    const strength = Math.abs(path.cornerStrengths[vertexIndex] ?? 0);
+    if (strength <= EPSILON) continue;
+    const startDistance = path.cumulativeLengths[pointIndex];
+    const nextDistance = vertexIndex + 1 < path.vertexDistances.length
+      ? path.vertexDistances[vertexIndex + 1]
+      : path.totalLength + (path.vertexDistances[0] ?? 0);
+    const outgoingEdgeLength = Math.max(0, nextDistance - startDistance);
+    const outgoingSampleLength = segmentLength(path, pointIndex);
+    trueVertexGlides.set(pointIndex, {
+      startDistance,
+      width: Math.min(
+        outgoingEdgeLength,
+        Math.max(outgoingSampleLength, outgoingEdgeLength * glide),
+      ),
+    });
+  }
+
+  const previousTrueVertex = new Int32Array(pointCount);
+  previousTrueVertex.fill(-1);
+  let latestTrueVertex = -1;
+  for (let index = 0; index < pointCount; index += 1) {
+    if (trueVertexGlides.has(index)) latestTrueVertex = index;
+    previousTrueVertex[index] = latestTrueVertex;
+  }
+
+  const profile = {
+    turns,
+    cumulativeTurns,
+    totalTurn: cumulativeTurns[pointCount],
+    trueVertexGlides,
+    previousTrueVertex,
+  };
+  cachedByGlide.set(glide, profile);
+  return profile;
 }
 
 /** @param {number} value */
@@ -478,6 +549,71 @@ export function pointAtPath(path, progress, options = {}) {
   const distance = u * path.totalLength;
   const { segmentIndex, segmentT } = segmentAtDistance(path, distance);
   return contactOnSegment(path, segmentIndex, segmentT, distance);
+}
+
+/**
+ * Accumulate the contour's signed tangent rotation in radians.
+ *
+ * Progress is deliberately unwrapped: every complete lap contributes the
+ * path's total signed turn, including for negative progress. On a closed
+ * simple contour this is normally +2π for the path order used by Shape.
+ * Positive values are counterclockwise in geometry coordinates (a visual
+ * right turn on the canvas, whose Y axis points down). Open paths return zero
+ * because they do not have a canonical signed circuit.
+ *
+ * Sampled curvature is interpolated across each outgoing sample. A declared
+ * sharp vertex is instead eased across `glide` of its outgoing true edge so
+ * its turn remains audible without becoming a discontinuous pitch step.
+ *
+ * @param {ShapePath} path
+ * @param {number} progress Unwrapped laps around the contour.
+ * @param {{ glide?: number }} [options]
+ * @returns {number}
+ */
+export function cumulativeSignedTurn(path, progress, { glide } = {}) {
+  if (
+    !path?.closed
+    || !Array.isArray(path.points)
+    || path.points.length < 3
+    || !(path.totalLength > EPSILON)
+  ) return 0;
+
+  const safeProgress = finiteOr(progress, 0);
+  const safeGlide = clamp(finiteOr(glide, DEFAULT_SIGNED_TURN_GLIDE), 0, 1);
+  const profile = signedTurnProfile(path, safeGlide);
+  const lap = Math.floor(safeProgress);
+  const phase = safeProgress - lap;
+  if (phase <= EPSILON) return lap * profile.totalTurn;
+
+  const distance = phase * path.totalLength;
+  const { segmentIndex, segmentT } = segmentAtDistance(path, distance);
+  let turn = profile.cumulativeTurns[segmentIndex];
+  const trueVertexIndex = profile.previousTrueVertex[segmentIndex];
+  const trueVertex = trueVertexIndex >= 0
+    ? profile.trueVertexGlides.get(trueVertexIndex)
+    : null;
+  const trueVertexIsActive = trueVertex
+    && distance < trueVertex.startDistance + trueVertex.width - EPSILON;
+
+  if (trueVertexIsActive) {
+    const eased = smoothstep01(
+      (distance - trueVertex.startDistance) / Math.max(EPSILON, trueVertex.width),
+    );
+    // The prefix contains an earlier vertex's complete turn; replace it with
+    // the still-in-progress eased amount. At the current vertex, its turn is
+    // not in the prefix yet, so add only the eased amount.
+    turn += profile.turns[trueVertexIndex] * (
+      trueVertexIndex < segmentIndex ? eased - 1 : eased
+    );
+  }
+
+  // A true vertex supplies the turn for its own outgoing segment above.
+  // Ordinary sampled curvature remains linear, which makes a sampled circle
+  // exactly uniform rather than imposing tiny acceleration ripples.
+  if (!profile.trueVertexGlides.has(segmentIndex)) {
+    turn += profile.turns[segmentIndex] * segmentT;
+  }
+  return lap * profile.totalTurn + turn;
 }
 
 /**

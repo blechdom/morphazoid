@@ -58,7 +58,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
 
   // Reading method remains a compact rocker control.
   assertDefaultLeftChoice("playMethod", "traceMode", "Points", "scanMode");
-  assert.equal((html.match(/class="choice-switch/g) ?? []).length, 4);
+  assert.equal((html.match(/class="choice-switch/g) ?? []).length, 5);
   assert.match(openingTag("loopMotion"), /aria-pressed="true"[^>]*aria-label="Loop movement"/);
   assert.match(openingTag("pingPongMotion"), /aria-pressed="false"[^>]*aria-label="Back-and-forth movement"/);
   assert.match(html, /id="loopMotion"[\s\S]*?>⟳<[\s\S]*?id="pingPongMotion"[\s\S]*?>↔</);
@@ -232,11 +232,18 @@ test("the mobile instrument markup exposes the complete compact control surface"
     "cornerAmplitudeMapping", "cornerAmplitudeSource", "cornerAmplitudeSourceFieldLabel", "cornerAmplitudeMappingNote",
     "cornerAmplitudeSourceHelp", "timbreMapping", "timbreSource", "timbreSourceFieldLabel",
     "timbreMappingNote", "timbreSourceHelp", "percussionSourceHelp",
-    "shepardCycles", "shepardDirection", "shepardWidth",
+    "shepardMapping", "shepardMappingTravel", "shepardMappingTurn", "shepardMappingHelp",
+    "shepardCycles", "shepardCyclesLabel", "shepardDirection", "shepardTurnGlide", "shepardWidth",
     "fmIndex", "fmRatio", "pmIndex", "pmRatio",
   ]) assert.ok(html.includes(`id="${id}"`));
   assert.match(html, /Octaves per circuit/);
   assert.match(html, /oct \/ circuit/);
+  assertDefaultLeftChoice("shepardMapping", "shepardMappingTravel", "Path distance", "shepardMappingTurn");
+  assert.match(html, /Turn angle/);
+  assert.match(app, /Left turns raise · right turns lower/);
+  assert.match(app, /Octaves per 360°/);
+  assert.match(app, /cumulativeSignedTurn/);
+  assert.match(app, /shepardTravel/);
   assertDefaultLeftChoice("pitchDimension", "pitchVertical", "[\\s\\S]*Vertical", "pitchHorizontal");
   assert.match(openingTag("pitchHorizontal"), /data-value="horizontal"[^>]*aria-pressed="false"/);
   assert.match(openingTag("pitchCenter"), /data-value="center"[^>]*aria-pressed="false"/);
@@ -305,13 +312,13 @@ test("the mobile instrument markup exposes the complete compact control surface"
   // Output is a realtime mapping dashboard with clearly future-facing external routes.
   for (const id of [
     "markPhaseOut", "markPositionOut", "markCenterOut", "markTurnOut", "markDistanceOut",
-    "markIncidenceOut", "markTangentOut", "markPitchValueOut", "markFrequencyOut",
+    "markIncidenceOut", "markTangentOut", "pitchSourceValueLabel", "markPitchValueOut", "markFrequencyOut",
     "markGainOut", "markPanOut", "markSynthDriveOut", "markSynthValueOut",
     "markDecayOut", "markRotationOut", "contactStream",
     "timbreRoute", "timbreRouteSource", "timbreRouteTarget", "timbreRouteCurve",
   ]) assert.ok(html.includes(`id="${id}"`), `missing output #${id}`);
   assert.match(html, /aria-label="Realtime mapping values"/);
-  assert.match(html, /<dt>Pitch source value<\/dt>/);
+  assert.match(html, /<dt[^>]*>Pitch source value<\/dt>/);
   assert.match(html, /<dt>Timbre source value<\/dt>/);
   assert.match(html, /Web MIDI · planned/);
   assert.match(html, /OSC · planned/);

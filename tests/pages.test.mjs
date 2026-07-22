@@ -4,15 +4,15 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("all five instrument pages share desktop and mobile navigation", async () => {
-  const files = ["index.html", "lattice.html", "solid.html", "hyper.html", "lumber.html"];
+test("all eight instrument pages share desktop and mobile navigation", async () => {
+  const files = ["index.html", "lattice.html", "spiral.html", "solid.html", "hyper.html", "l-system.html", "julia.html", "lumber.html"];
   const [pages, css, nav] = await Promise.all([
     Promise.all(files.map((file) => readFile(new URL(file, root), "utf8"))),
     readFile(new URL("style.css", root), "utf8"),
     readFile(new URL("nav.js", root), "utf8"),
   ]);
   for (const html of pages) {
-    for (const link of ["shape", "lattice", "solid", "hyper", "lumber"]) {
+    for (const link of ["shape", "lattice", "spiral", "solid", "hyper", "l-system", "julia", "lumber"]) {
       assert.match(html, new RegExp(`>${link}<\\/a>`));
       assert.match(html, new RegExp(`>${link}<\\/option>`));
     }
@@ -44,7 +44,7 @@ test("Solid and Hyper expose wireframe players and Sine-first audio", async () =
 });
 
 test("every synthesized instrument can reach a 20 Hz base frequency", async () => {
-  const files = ["index.html", "lattice.html", "solid.html", "hyper.html"];
+  const files = ["index.html", "lattice.html", "spiral.html", "solid.html", "hyper.html", "l-system.html", "julia.html"];
   const pages = await Promise.all(files.map((file) => readFile(new URL(file, root), "utf8")));
   for (const html of pages) {
     assert.match(html, /id="baseFrequency"[^>]*min="20"/);

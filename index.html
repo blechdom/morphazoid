@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#07090b" />
     <meta name="description" content="Morphazoid Shape — a geometric instrument for sounding contact." />
     <title>Shape — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -21,6 +22,8 @@
         <a class="tab" href="spiral.html">spiral</a>
         <a class="tab" href="solid.html">solid</a>
         <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab" href="julia.html">julia</a>
         <a class="tab" href="lumber.html">lumber</a>
       </nav>
       <label class="mobile-instrument-nav">
@@ -31,6 +34,8 @@
           <option value="spiral.html">spiral</option>
           <option value="solid.html">solid</option>
           <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="julia.html">julia</option>
           <option value="lumber.html">lumber</option>
         </select>
       </label>
@@ -312,19 +317,34 @@
             </div>
 
             <div class="synth-panel" id="shepardArticulation" hidden>
-              <label class="control" for="shepardCycles">
-                <span><b>Octaves per circuit</b><output id="shepardCyclesOut" for="shepardCycles">1.00 oct / circuit</output></span>
+              <div class="shepard-mapping-control">
+                <span class="field-label">Pitch follows</span>
+                <div class="choice-switch compact" id="shepardMapping" role="group" aria-label="Shepard pitch mapping" aria-describedby="shepardMappingHelp">
+                  <button id="shepardMappingTravel" type="button" data-value="travel" aria-pressed="true">Path distance</button>
+                  <button id="shepardMappingTurn" type="button" data-value="turn" aria-pressed="false">Turn angle</button>
+                </div>
+                <small class="mapping-coordinate-note mapping-source-help" id="shepardMappingHelp">Equal distance along the contour produces equal pitch change.</small>
+              </div>
+
+              <label class="control" id="shepardCyclesControl" for="shepardCycles">
+                <span><b id="shepardCyclesLabel">Octaves per circuit</b><output id="shepardCyclesOut" for="shepardCycles">1.00 oct / circuit</output></span>
                 <input id="shepardCycles" type="range" min="0.25" max="4" step="0.05" value="1" />
               </label>
 
-              <label class="select-control" for="shepardDirection">
-                <span class="field-label">Glide direction</span>
+              <label class="select-control" id="shepardDirectionControl" for="shepardDirection">
+                <span class="field-label" id="shepardDirectionLabel">Glide direction</span>
                 <span class="select-shell">
                   <select id="shepardDirection">
-                    <option value="1" selected>Follow playhead</option>
-                    <option value="-1">Oppose playhead</option>
+                    <option id="shepardDirectionPositive" value="1" selected>Follow playhead</option>
+                    <option id="shepardDirectionNegative" value="-1">Oppose playhead</option>
                   </select>
                 </span>
+              </label>
+
+              <label class="control" id="shepardTurnGlideControl" for="shepardTurnGlide" hidden>
+                <span><b>Corner glide</b><output id="shepardTurnGlideOut" for="shepardTurnGlide">35%</output></span>
+                <input id="shepardTurnGlide" type="range" min="0.05" max="1" step="0.05" value="0.35" />
+                <small class="mapping-coordinate-note mapping-source-help">Spreads each sharp turn across the beginning of its outgoing edge.</small>
               </label>
 
               <label class="control" for="shepardWidth">
@@ -417,7 +437,7 @@
             <span class="section-state" id="mappingSummary">Vertical → pitch</span>
           </summary>
           <div class="group-body">
-            <div class="mapping-dimension-control">
+            <div class="mapping-dimension-control" id="pitchDimensionControl">
               <span class="field-label">Pitch dimension</span>
               <div class="choice-switch mapping-dimension-choice" id="pitchDimension" role="group" aria-label="Pitch dimension in fixed stage coordinates">
                 <button id="pitchVertical" type="button" data-value="vertical" aria-pressed="true"><span aria-hidden="true">↕</span>Vertical</button>
@@ -427,7 +447,7 @@
               <small class="mapping-coordinate-note">Stage / screen axes stay fixed while the form rotates · vertical pitch rises upward</small>
             </div>
 
-            <div class="mapping-curve-control">
+            <div class="mapping-curve-control" id="pitchCurveControl">
               <div class="mapping-curve-heading">
                 <span class="field-label">Pitch response</span>
                 <output id="pitchCurveState">Linear</output>
@@ -567,7 +587,7 @@
               <div><dt>Corner distance</dt><dd><output id="markDistanceOut">0.000</output></dd></div>
               <div><dt>Crossing angle</dt><dd><output id="markIncidenceOut">0.707</output></dd></div>
               <div><dt>Tangent</dt><dd><output id="markTangentOut">135°</output></dd></div>
-              <div><dt>Pitch source value</dt><dd><output id="markPitchValueOut">0.000</output></dd></div>
+              <div><dt id="pitchSourceValueLabel">Pitch source value</dt><dd><output id="markPitchValueOut">0.000</output></dd></div>
               <div><dt>Frequency</dt><dd><output id="markFrequencyOut">110 Hz</output></dd></div>
               <div><dt>Amplitude</dt><dd><output id="markGainOut">0.248</output></dd></div>
               <div><dt>Pan</dt><dd><output id="markPanOut">0.000</output></dd></div>
