@@ -18,7 +18,7 @@ test("Fractaphone exposes live recursion, capture, safety, and an echo-tree stag
   assert.match(html, /src="fractaphone-app\.js"/);
   assert.match(html, /href="fractaphone\.css"/);
   for (const id of [
-    "stage", "stageIntro", "stageStartButton", "panicButton", "audioButton", "micButton",
+    "stage", "seedControl", "seedMicButton", "panicButton", "audioButton", "micButton",
     "freezeButton", "inputMeterBar", "inputTrim", "depth", "interval", "branching",
     "mutation", "wet", "dry", "spread", "recordButton", "downloadTake", "clearTake",
   ]) assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
@@ -29,6 +29,8 @@ test("Fractaphone exposes live recursion, capture, safety, and an echo-tree stag
   assert.doesNotMatch(html, /LIVE RECURSIVE MICROPHONE|Speak once\. Let every echo become the parent of another\.|<strong>mic/);
   assert.match(html, /Recording does not mute monitoring/);
   assert.match(html, /Use headphones/);
+  assert.match(html, /<b id="micButtonLabel">Start input<\/b>/);
+  assert.match(html, /<b id="freezeLabel">Stop audio<\/b>/);
   assert.match(html, /Press Escape for an immediate panic stop/);
 
   assert.match(app, /getUserMedia/);
@@ -45,7 +47,8 @@ test("Fractaphone exposes live recursion, capture, safety, and an echo-tree stag
   assert.match(app, /visibilitychange/);
 
   assert.match(css, /\.fractaphone-page\s*\{/);
-  assert.match(css, /\.fracta-intro/);
+  assert.match(css, /\.fracta-seed-control/);
+  assert.match(css, /#seedMicButton/);
   assert.match(css, /\.fracta-panic/);
   assert.match(css, /\.fracta-presets/);
   assert.match(css, /@media \(max-width: 650px\)/);

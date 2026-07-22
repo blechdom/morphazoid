@@ -47,9 +47,9 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
 
   for (const id of tags.keys()) element(id);
 
-  const startButtonLabel = { textContent: "" };
-  elements.get("stageStartButton").querySelector = (selector) => (
-    selector === "b" ? startButtonLabel : null
+  const seedButtonLabel = { textContent: "" };
+  elements.get("seedMicButton").querySelector = (selector) => (
+    selector === "b" ? seedButtonLabel : null
   );
   const presetButtons = [...html.matchAll(/<button[^>]+data-preset="([^"]+)"[^>]*>/g)]
     .map((match) => ({
@@ -241,9 +241,11 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
   assert.equal(elements.get("audioState").textContent, "off");
   assert.equal(elements.get("recordButton").disabled, true);
   assert.equal(attributes.get("preset-bloom:aria-pressed"), "true");
-  assert.equal(startButtonLabel.textContent, "Start audio");
+  assert.equal(seedButtonLabel.textContent, "Start input");
+  assert.equal(elements.get("seedControl").style.left, "108px");
+  assert.equal(elements.get("seedControl").style.top, "301px");
 
-  listeners.get("stageStartButton:click")();
+  listeners.get("seedMicButton:click")();
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(requestedConstraints, {
     video: false,
@@ -257,11 +259,21 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
   assert.equal(audioContexts.length, 1);
   assert.equal(elements.get("audioState").textContent, "listening");
   assert.equal(elements.get("stateMetric").textContent, "live");
-  assert.equal(elements.get("stageIntro").classList.contains("is-hidden"), true);
+  assert.equal(attributes.get("seedMicButton:aria-pressed"), "true");
   assert.equal(attributes.get("micButton:aria-pressed"), "true");
   assert.equal(gains[0].gain.value, 0.85, "input trim should reach the live graph");
   assert.equal(elements.get("recordButton").disabled, false);
   assert.equal(elements.get("recordHint").textContent, "records while you listen");
+  assert.equal(elements.get("micButtonLabel").textContent, "Pause input");
+
+  listeners.get("micButton:click")();
+  assert.equal(elements.get("audioState").textContent, "input paused");
+  assert.equal(elements.get("stateMetric").textContent, "paused");
+  assert.equal(elements.get("micButtonLabel").textContent, "Resume input");
+  assert.match(elements.get("stageReadout").textContent, /^INPUT PAUSED/);
+  listeners.get("micButton:click")();
+  assert.equal(elements.get("audioState").textContent, "listening");
+  assert.equal(elements.get("micButtonLabel").textContent, "Pause input");
 
   elements.get("inputTrim").value = "0.4";
   listeners.get("inputTrim:input")();

@@ -489,8 +489,14 @@ function toggleFreeze() {
   applyAudioParameters();
   updateUi();
   announce(state.frozen
-    ? "Seed held. Existing descendants are decaying without new input."
-    : "Seed reopened. Live voice is feeding the tree.");
+    ? "Input paused. Existing descendants continue without new microphone sound."
+    : "Input resumed. Live microphone sound is feeding the tree.");
+}
+
+async function toggleInput() {
+  if (state.starting) return;
+  if (!state.mic) await startMicrophone();
+  else toggleFreeze();
 }
 
 function supportedRecorderMimeType() {
@@ -744,6 +750,16 @@ function drawStage(timestamp) {
     positions.set(node.id, { x, y });
   }
 
+  const rootPosition = positions.get(nodes.find((node) => node.generation === 0)?.id);
+  if (rootPosition) {
+    const seedWidth = clamp(cssWidth * 0.105, 62, 104);
+    const seedHeight = clamp(cssHeight * 0.105, 35, 54);
+    $("seedControl").style.left = `${rootPosition.x}px`;
+    $("seedControl").style.top = `${rootPosition.y}px`;
+    $("seedControl").style.width = `${seedWidth}px`;
+    $("seedControl").style.height = `${seedHeight}px`;
+  }
+
   context.save();
   context.font = "8px ui-monospace, SFMono-Regular, Menlo, monospace";
   context.textAlign = "center";
@@ -797,7 +813,7 @@ function drawStage(timestamp) {
     context.font = "9px ui-monospace, SFMono-Regular, Menlo, monospace";
     context.letterSpacing = "0.12em";
     context.textAlign = "left";
-    context.fillText("SEED HELD · DESCENDANTS DECAYING", 18, cssHeight - 42);
+    context.fillText("INPUT PAUSED · DESCENDANTS DECAYING", 18, cssHeight - 42);
     context.restore();
   }
 }
@@ -859,35 +875,43 @@ function updateUi() {
   const starting = state.starting;
   const audioState = starting
     ? "allow mic…"
-    : live ? (state.frozen ? "seed held" : "listening") : "off";
+    : live ? (state.frozen ? "input paused" : "listening") : "off";
 
   paintControls();
   setPressed($("audioButton"), live);
   $("audioButton").disabled = starting;
   $("audioState").textContent = audioState;
-  setPressed($("micButton"), live);
+  setPressed($("micButton"), live && !state.frozen);
   $("micButton").disabled = starting;
-  $("micButtonLabel").textContent = starting ? "Allow microphone" : live ? "Stop microphone" : "Start microphone";
+  $("micButtonLabel").textContent = starting
+    ? "Allow microphone"
+    : live ? (state.frozen ? "Resume input" : "Pause input") : "Start input";
   $("micButtonHint").textContent = starting
     ? "waiting for permission"
-    : live ? "recursive input is live" : "allow access to begin";
-  setPressed($("freezeButton"), state.frozen);
+    : live
+      ? (state.frozen ? "feed the tree again" : "tail continues while paused")
+      : "allow microphone access";
+  setPressed($("freezeButton"), false);
   $("freezeButton").disabled = !live;
-  $("freezeLabel").textContent = state.frozen ? "Release seed" : "Hold seed";
-  $("freezeHint").textContent = state.frozen ? "feed the tree again" : "let the tree decay";
+  $("freezeLabel").textContent = "Stop audio";
+  $("freezeHint").textContent = "disconnect and clear the tail";
   $("panicButton").disabled = !live && !starting;
-  $("stageStartButton").disabled = starting;
-  $("stageStartButton").querySelector("b").textContent = starting ? "Allow microphone" : "Start audio";
-  $("stageIntro").classList.toggle("is-hidden", live);
+  $("seedMicButton").disabled = starting;
+  setPressed($("seedMicButton"), live && !state.frozen);
+  const seedLabel = starting
+    ? "Allow microphone"
+    : live ? (state.frozen ? "Resume input" : "Pause input") : "Start input";
+  $("seedMicButton").querySelector("b").textContent = seedLabel;
+  $("seedMicButton").setAttribute("aria-label", seedLabel);
 
-  $("stateMetric").textContent = starting ? "starting" : live ? (state.frozen ? "held" : "live") : "off";
+  $("stateMetric").textContent = starting ? "starting" : live ? (state.frozen ? "paused" : "live") : "off";
   $("depthMetric").textContent = `${generations} gen`;
-  $("listenSummary").textContent = starting ? "waiting for permission" : live ? (state.frozen ? "seed held" : "microphone live") : "microphone off";
+  $("listenSummary").textContent = starting ? "waiting for permission" : live ? (state.frozen ? "input paused · tail live" : "microphone live") : "microphone off";
   $("recursionSummary").textContent = `${label} · ${generations} generations`;
   $("mixSummary").textContent = `${Math.round(state.wet * 100)}% descendants · ${state.dry ? `${Math.round(state.dry * 100)}% root` : "root muted"}`;
   $("generationKeyEnd").textContent = `G${generations} DESCENDANT`;
-  $("stageReadout").textContent = `${live ? (state.frozen ? "SEED HELD" : "MIC LIVE") : "MIC OFF"} · ${label.toUpperCase()} · ${generations} GENERATIONS`;
-  canvas.setAttribute("aria-label", `Fractaphone echo tree. ${live ? state.frozen ? "Seed held" : "Microphone live" : "Microphone off"}. ${generations} estimated audible generations.`);
+  $("stageReadout").textContent = `${live ? (state.frozen ? "INPUT PAUSED" : "MIC LIVE") : "MIC OFF"} · ${label.toUpperCase()} · ${generations} GENERATIONS`;
+  canvas.setAttribute("aria-label", `Fractaphone echo tree. ${live ? state.frozen ? "Input paused; recursive tail live" : "Microphone live" : "Microphone off"}. ${generations} estimated audible generations.`);
 
   for (const button of $("presetButtons").querySelectorAll("button")) {
     setPressed(button, button.dataset.preset === state.preset);
@@ -942,10 +966,10 @@ $("presetButtons").addEventListener("click", (event) => {
   if (button) applyPreset(button.dataset.preset);
 });
 
-for (const button of [$("audioButton"), $("micButton"), $("stageStartButton")]) {
-  button.addEventListener("click", () => void toggleMicrophone());
-}
-$("freezeButton").addEventListener("click", toggleFreeze);
+$("audioButton").addEventListener("click", () => void toggleMicrophone());
+$("seedMicButton").addEventListener("click", () => void toggleInput());
+$("micButton").addEventListener("click", () => void toggleInput());
+$("freezeButton").addEventListener("click", () => stopMicrophone());
 $("panicButton").addEventListener("click", () => panic());
 $("recordButton").addEventListener("click", toggleRecording);
 $("clearTake").addEventListener("click", clearLastTake);
@@ -958,8 +982,8 @@ document.addEventListener("keydown", (event) => {
   const target = event.target;
   if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement || target?.isContentEditable) return;
   if (event.repeat) return;
-  if (event.key.toLowerCase() === "m") void toggleMicrophone();
-  if (event.key.toLowerCase() === "f") toggleFreeze();
+  if (event.key.toLowerCase() === "m") void toggleInput();
+  if (event.key.toLowerCase() === "f" && state.mic) stopMicrophone();
   if (event.key.toLowerCase() === "r" && state.mic) toggleRecording();
 });
 

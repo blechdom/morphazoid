@@ -67,10 +67,10 @@
             A branching visualization of recursive microphone echoes.
           </canvas>
 
-          <div class="fracta-intro" id="stageIntro">
-            <button id="stageStartButton" type="button">
+          <div class="fracta-seed-control" id="seedControl">
+            <button id="seedMicButton" type="button" aria-pressed="false" aria-label="Start microphone input">
               <i aria-hidden="true"></i>
-              <span><b>Start audio</b><small>microphone access · headphones recommended</small></span>
+              <span><b>Start input</b><small>microphone seed</small></span>
             </button>
           </div>
 
@@ -102,11 +102,11 @@
             <div class="fracta-listen-actions">
               <button class="fracta-mic-button" id="micButton" type="button" aria-pressed="false">
                 <span class="fracta-mic-icon" aria-hidden="true"><i></i></span>
-                <span><b id="micButtonLabel">Start microphone</b><small id="micButtonHint">allow access to begin</small></span>
+                <span><b id="micButtonLabel">Start input</b><small id="micButtonHint">allow microphone access</small></span>
               </button>
               <button class="fracta-freeze-button" id="freezeButton" type="button" aria-pressed="false" disabled>
-                <span aria-hidden="true">◇</span>
-                <span><b id="freezeLabel">Hold seed</b><small id="freezeHint">let the tree decay</small></span>
+                <span aria-hidden="true">×</span>
+                <span><b id="freezeLabel">Stop audio</b><small id="freezeHint">disconnect and clear the tail</small></span>
               </button>
             </div>
 
@@ -210,7 +210,7 @@
         </div>
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">Start the microphone with headphones connected. Depth controls how many recursive descendants remain audible, Time fold controls their spacing, Branching splits each generation, and Mutation progressively changes it. Press Escape for an immediate panic stop.</p>
+      <p class="sr-only" id="canvasInstructions">Start the microphone with headphones connected. Use Pause input to stop feeding new sound while the recursive tail continues. Depth controls how many descendants remain audible. Press Escape for an immediate panic stop.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
