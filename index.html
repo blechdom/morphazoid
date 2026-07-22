@@ -257,8 +257,8 @@
                   <option id="sineModeOption" value="sine" selected>Sine Oscillators · corner envelope</option>
                   <option value="percussion">Percussion · corner strikes</option>
                   <option value="shepard">Shepard Glissandi · cyclic pitch illusion</option>
-                  <option value="fm">FM Synthesis · mapped index</option>
-                  <option value="pm">PM Synthesis · mapped phase depth</option>
+                  <option value="fm">FM Synthesis · direct or mapped index</option>
+                  <option value="pm">PM Synthesis · direct or mapped phase depth</option>
                 </select>
               </span>
             </label>
@@ -334,7 +334,7 @@
 
             <div class="synth-panel" id="fmArticulation" hidden>
               <label class="control" for="fmIndex">
-                <span><b>FM index</b><output id="fmIndexOut" for="fmIndex">3.00 max</output></span>
+                <span><b>FM index</b><output id="fmIndexOut" for="fmIndex">3.00</output></span>
                 <input id="fmIndex" type="range" min="0" max="12" step="0.05" value="3" />
               </label>
 
@@ -346,7 +346,7 @@
 
             <div class="synth-panel" id="pmArticulation" hidden>
               <label class="control" for="pmIndex">
-                <span><b>Phase depth</b><output id="pmIndexOut" for="pmIndex">2.00 rad max</output></span>
+                <span><b>Phase depth</b><output id="pmIndexOut" for="pmIndex">2.00 rad</output></span>
                 <input id="pmIndex" type="range" min="0" max="8" step="0.05" value="2" />
               </label>
 
@@ -459,8 +459,9 @@
                 <span class="field-label">Timbre source</span>
                 <span class="select-shell">
                   <select id="timbreSource" aria-describedby="timbreMappingNote timbreSourceHelp">
+                    <option value="fixed" selected>Direct</option>
                     <option value="incidence">Crossing angle</option>
-                    <option value="corner" selected>Corner sharpness</option>
+                    <option value="corner">Corner sharpness</option>
                     <option value="phase">Contour position</option>
                     <option value="height">Vertical position</option>
                     <option value="horizontal">Horizontal position</option>
@@ -468,8 +469,8 @@
                   </select>
                 </span>
               </label>
-              <small class="mapping-coordinate-note" id="timbreMappingNote" aria-live="polite">Corner sharpness → FM index</small>
-              <small class="mapping-coordinate-note mapping-source-help" id="timbreSourceHelp">0 is smooth · 1 is the sharpest turn</small>
+              <small class="mapping-coordinate-note" id="timbreMappingNote" aria-live="polite">Direct control → FM index · 3.00 index</small>
+              <small class="mapping-coordinate-note mapping-source-help" id="timbreSourceHelp">The FM index control applies equally to every Synth.</small>
             </div>
 
             <div id="percussionMapping">

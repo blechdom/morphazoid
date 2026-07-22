@@ -268,13 +268,16 @@ test("the mobile instrument markup exposes the complete compact control surface"
   // Timbre has an explicit source and a sound-specific DSP destination.
   assert.match(html, /<span class="field-label">Timbre source<\/span>/);
   assert.match(openingTag("timbreSource"), /aria-describedby="timbreMappingNote timbreSourceHelp"/);
+  assert.match(html, /<option value="fixed" selected>Direct<\/option>/);
   assert.match(openingTag("percussionLevelSource"), /aria-describedby="percussionSourceHelp"/);
   assert.match(html, />Crossing angle<\/option>/);
   assert.match(html, />Corner sharpness<\/option>/);
   assert.match(html, />Contour position<\/option>/);
   assert.match(html, />Distance from center<\/option>/);
   assert.match(html, /<b>Spectral width<\/b>/);
-  assert.match(html, /id="pmIndexOut"[^>]*>2\.00 rad max<\/output>/);
+  assert.match(html, /id="fmIndexOut"[^>]*>3\.00<\/output>/);
+  assert.match(html, /id="pmIndexOut"[^>]*>2\.00 rad<\/output>/);
+  assert.match(html, /Direct control → FM index · 3\.00 index/);
   assert.match(html, /0 is smooth · 1 is the sharpest turn/);
   assert.match(app, /\["fm", "pm"\]\.includes\(state\.soundMode\)/);
   assert.match(app, /TIMBRE_TARGET_LABELS/);
@@ -282,6 +285,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(app, /0 is stage top · 1 is stage bottom/);
   assert.match(app, /0 follows the contour · 1 crosses at 90°/);
   assert.match(app, /if \(state\.playMethod === "trace"\) return 0;/);
+  assert.match(app, /if \(source === "fixed"\) return 1;/);
   assert.match(app, /Point playheads follow the contour · crossing angle stays 0/);
   assert.match(app, /Stage top → audio left · stage bottom → audio right/);
   assert.match(app, /scanAxis: head\?\.axis === "path" \? undefined : head\?\.axis/);

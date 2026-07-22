@@ -87,7 +87,6 @@ const SOURCE_LABELS = {
 const TIMBRE_TARGET_LABELS = {
   fm: "FM index",
   pm: "Phase depth",
-  shepard: "Spectral width",
 };
 const SOURCE_HELP = {
   vertical: "0 is stage top · 1 is stage bottom",
@@ -156,7 +155,7 @@ const state = {
   percussionAttackNoise: 0,
   percussionPreset: "pluck",
   percussionEnvelopePoints: percussionEnvelopePreset("pluck"),
-  timbreSource: "corner",
+  timbreSource: "fixed",
   shepardCycles: 1,
   shepardDirection: 1,
   shepardWidth: 4,
@@ -180,9 +179,9 @@ state.level = clamp(state.level, 0, 1);
 state.soundMode = SOUND_MODES.has(state.soundMode) ? state.soundMode : "sine";
 state.percussionStrikeLevel = clamp(state.percussionStrikeLevel, 0, 1);
 state.percussionAttackNoise = clamp(state.percussionAttackNoise, 0, 1);
-state.timbreSource = ["height", "horizontal", "center", "corner", "incidence", "phase"].includes(state.timbreSource)
+state.timbreSource = ["fixed", "height", "horizontal", "center", "corner", "incidence", "phase"].includes(state.timbreSource)
   ? state.timbreSource
-  : "corner";
+  : "fixed";
 state.shepardCycles = clamp(state.shepardCycles, 0.25, 4);
 state.shepardDirection = state.shepardDirection < 0 ? -1 : 1;
 state.shepardWidth = clamp(state.shepardWidth, 2, 8);
@@ -557,9 +556,9 @@ bindRange("percussionStrikeLevel", "percussionStrikeLevel", (value) => `${Math.r
 bindRange("percussionAttackNoise", "percussionAttackNoise", (value) => `${Math.round(value * 100)}%`);
 bindRange("shepardCycles", "shepardCycles", (value) => `${value.toFixed(2)} oct / circuit`);
 bindRange("shepardWidth", "shepardWidth", (value) => `${value.toFixed(1)} oct`, updateTimbreMappingUi);
-bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`, updateTimbreMappingUi);
+bindRange("fmIndex", "fmIndex", (value) => value.toFixed(2), updateTimbreMappingUi);
 bindRange("fmRatio", "fmRatio", (value) => `${value.toFixed(2)} : 1`);
-bindRange("pmIndex", "pmIndex", (value) => `${value.toFixed(2)} rad max`, updateTimbreMappingUi);
+bindRange("pmIndex", "pmIndex", (value) => `${value.toFixed(2)} rad`, updateTimbreMappingUi);
 bindRange("pmRatio", "pmRatio", (value) => `${value.toFixed(2)} : 1`);
 bindRange("stereoWidth", "stereoWidth", (value) => `${Math.round(value * 100)}%`, updateStereoMappingUi);
 
@@ -837,8 +836,8 @@ function setSoundMode(mode, shouldAnnounce = true) {
       sine: "Sine Oscillators with corner amplitude selected.",
       percussion: "Percussion corner strikes selected.",
       shepard: "Transport-locked nine-partial Shepard Glissandi selected.",
-      fm: "FM Synthesis with mapped modulation index selected.",
-      pm: "PM Synthesis with mapped phase depth selected.",
+      fm: "FM Synthesis selected.",
+      pm: "PM Synthesis selected.",
     };
     announce(descriptions[state.soundMode]);
   }
@@ -920,21 +919,29 @@ for (const [id, key] of [
 }
 
 function timbreMappedRangeLabel() {
-  if (state.soundMode === "fm") return `0–${state.fmIndex.toFixed(2)} index`;
-  if (state.soundMode === "pm") return `0–${state.pmIndex.toFixed(2)} rad`;
-  return `1.0–${state.shepardWidth.toFixed(1)} oct`;
+  const minimum = state.timbreSource === "fixed" ? "" : "0–";
+  if (state.soundMode === "fm") return `${minimum}${state.fmIndex.toFixed(2)} index`;
+  if (state.soundMode === "pm") return `${minimum}${state.pmIndex.toFixed(2)} rad`;
+  return "";
+}
+
+function timbreSourceLabel(source) {
+  return source === "fixed" ? "Direct control" : SOURCE_LABELS[source] ?? "Source value";
 }
 
 function updateTimbreMappingUi() {
-  const source = SOURCE_LABELS[state.timbreSource] ?? "Source value";
+  const source = timbreSourceLabel(state.timbreSource);
   const target = TIMBRE_TARGET_LABELS[state.soundMode] ?? "Timbre";
   const helpForSource = (sourceName) => (
     sourceName === "incidence" && state.playMethod === "trace"
       ? "Point playheads follow the contour · crossing angle stays 0"
       : SOURCE_HELP[sourceName] ?? "Normalized source value from 0–1"
   );
-  $("timbreMappingNote").textContent = `${source} → ${target} · ${timbreMappedRangeLabel()}`;
-  $("timbreSourceHelp").textContent = helpForSource(state.timbreSource);
+  const range = timbreMappedRangeLabel();
+  $("timbreMappingNote").textContent = `${source} → ${target}${range ? ` · ${range}` : ""}`;
+  $("timbreSourceHelp").textContent = state.timbreSource === "fixed"
+    ? `The ${target} control applies equally to every Synth.`
+    : helpForSource(state.timbreSource);
   $("percussionSourceHelp").textContent = helpForSource(state.percussionLevelSource);
 }
 
@@ -2093,6 +2100,7 @@ function incidenceForContact(contact, path, headIndex = contact.headIndex ?? 0) 
 }
 
 function sourceValueForContact(source, contact, path, headIndex = contact.headIndex ?? 0) {
+  if (source === "fixed") return 1;
   if (source === "corner") return clamp(contact.cornerStrength ?? contact.strength ?? 0, 0, 1);
   if (source === "incidence") return incidenceForContact(contact, path, headIndex);
   if (source === "center") return centerDistanceForContact(contact);
@@ -2661,9 +2669,11 @@ function updateOutputDashboard(contacts, path) {
         : "ADSR bypassed";
   const timbreMode = ["fm", "pm"].includes(state.soundMode);
   $("timbreRoute").hidden = !timbreMode;
-  $("timbreRouteSource").textContent = SOURCE_LABELS[state.timbreSource] ?? state.timbreSource;
+  $("timbreRouteSource").textContent = timbreSourceLabel(state.timbreSource);
   $("timbreRouteTarget").textContent = TIMBRE_TARGET_LABELS[state.soundMode] ?? "Timbre";
-  $("timbreRouteCurve").textContent = `${timbreMappedRangeLabel()} mapped range`;
+  $("timbreRouteCurve").textContent = state.timbreSource === "fixed"
+    ? `${timbreMappedRangeLabel()} direct`
+    : `${timbreMappedRangeLabel()} mapped range`;
 
   if (!contacts.length) {
     $("outputContactLabel").textContent = "No active contact";
