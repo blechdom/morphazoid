@@ -262,7 +262,7 @@ test("Julia page exposes the fractal, signed-turn mapping, and Shepard controls"
   assert.match(html, /id="turnOctaves"[^>]*min="0"[^>]*max="8"[^>]*value="5"/);
   assert.match(html, /id="baseFrequency"[^>]*min="20"[^>]*max="580"[^>]*value="300"/);
   assert.match(html, /id="shepardWidth"[^>]*min="1"[^>]*max="15"[^>]*value="8"/);
-  assert.match(html, /id="synthMode"[\s\S]*option value="harmony" selected>Shepard \+ vertical harmony<[\s\S]*option value="basic">Basic Shepard</);
+  assert.match(html, /id="synthMode"[\s\S]*option value="basic" selected>Basic Shepard<[\s\S]*option value="harmony">Shepard \+ vertical harmony</);
   assert.match(html, /src="julia-app\.js"/);
   assert.match(app, /generateJuliaBoundary/);
   assert.match(app, /cumulativeTurnOctaves/);

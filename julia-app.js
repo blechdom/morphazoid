@@ -69,7 +69,7 @@ const state = {
   cornerGlide: 0.35,
   baseFrequency: JULIA_DEFAULTS.baseFrequency,
   shepardWidth: JULIA_DEFAULTS.shepardWidth,
-  synthMode: "harmony",
+  synthMode: "basic",
   similarityExperiment: "chorus",
   motifWidth: 0.025,
   similarityDepth: 3,
