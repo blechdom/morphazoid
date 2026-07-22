@@ -12,9 +12,10 @@ test("all nine instrument pages share desktop and mobile navigation", async () =
     readFile(new URL("nav.js", root), "utf8"),
   ]);
   for (const html of pages) {
-    for (const link of ["shape", "lattice", "spiral", "solid", "hyper", "l-system", "julia", "lumber", "fractaphone"]) {
-      assert.match(html, new RegExp(`>${link}<\\/a>`));
-      assert.match(html, new RegExp(`>${link}<\\/option>`));
+    for (const label of ["shape", "lattice", "spiral", "solid", "hyper", "l-system", "julia", "lumber", "mic(mic)"]) {
+      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      assert.match(html, new RegExp(`>${escapedLabel}<\\/a>`));
+      assert.match(html, new RegExp(`>${escapedLabel}<\\/option>`));
     }
     assert.match(html, /class="mobile-instrument-select"/);
     assert.match(html, /<script type="module" src="nav\.js">/);

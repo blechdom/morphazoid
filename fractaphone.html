@@ -26,7 +26,7 @@
         <a class="tab" href="l-system.html">l-system</a>
         <a class="tab" href="julia.html">julia</a>
         <a class="tab" href="lumber.html">lumber</a>
-        <a class="tab fractaphone-tab active" href="fractaphone.html" aria-current="page">fractaphone</a>
+        <a class="tab fractaphone-tab active" href="fractaphone.html" aria-current="page">mic(mic)</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
@@ -39,14 +39,14 @@
           <option value="l-system.html">l-system</option>
           <option value="julia.html">julia</option>
           <option value="lumber.html">lumber</option>
-          <option value="fractaphone.html" selected>fractaphone</option>
+          <option value="fractaphone.html" selected>mic(mic)</option>
         </select>
       </label>
 
-      <div class="audio-strip" aria-label="Microphone controls">
+      <div class="audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
           <span class="audio-glyph fracta-audio-glyph" aria-hidden="true">∞</span>
-          <span class="audio-copy"><b>Mic</b><small id="audioState">off</small></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
         <label class="header-level" for="level">
           <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
@@ -68,12 +68,9 @@
           </canvas>
 
           <div class="fracta-intro" id="stageIntro">
-            <span class="fracta-kicker">LIVE RECURSIVE MICROPHONE</span>
-            <strong>mic<span>(</span>mic<span>)</span></strong>
-            <p>Speak once. Let every echo become the parent of another.</p>
             <button id="stageStartButton" type="button">
               <i aria-hidden="true"></i>
-              <span><b>Start microphone</b><small>headphones recommended</small></span>
+              <span><b>Start audio</b><small>microphone access · headphones recommended</small></span>
             </button>
           </div>
 
@@ -197,14 +194,14 @@
           <div class="group-body">
             <button class="fracta-record-button" id="recordButton" type="button" aria-pressed="false" disabled>
               <span class="record-glyph" aria-hidden="true"></span>
-              <span><b id="recordLabel">Record recursion</b><small id="recordHint">captures what you hear</small></span>
+              <span><b id="recordLabel">Record recursion</b><small id="recordHint">records while you listen</small></span>
             </button>
             <div class="fracta-take" id="lastTake" hidden>
               <div><small>Last take</small><output id="lastTakeOut">0:00 · WebM</output></div>
               <a class="mini-action" id="downloadTake" href="#" download>Download</a>
               <button class="mini-action" id="clearTake" type="button">Clear</button>
             </div>
-            <p class="control-note">Capture records the processed stereo output, including every recursive generation. Your microphone audio stays in this browser.</p>
+            <p class="control-note">Recording does not mute monitoring. Capture saves the processed stereo output, including every recursive generation, while you continue listening. Your microphone audio stays in this browser.</p>
           </div>
         </details>
 

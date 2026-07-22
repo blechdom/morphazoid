@@ -28,7 +28,8 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const LOOKAHEAD_SECONDS = 0.065;
-const MAX_SHEPARD_RATE = 30;
+const MAX_BASIC_SHEPARD_RATE = 7.5;
+const MAX_SIMILARITY_SHEPARD_RATE = 30;
 const PRESETS = JULIA_PRESETS;
 const presetById = new Map(PRESETS.map((preset) => [preset.id, preset]));
 const pool = new VoicePool(5);
@@ -68,6 +69,7 @@ const state = {
   cornerGlide: 0.35,
   baseFrequency: JULIA_DEFAULTS.baseFrequency,
   shepardWidth: JULIA_DEFAULTS.shepardWidth,
+  synthMode: "harmony",
   similarityExperiment: "chorus",
   motifWidth: 0.025,
   similarityDepth: 3,
@@ -312,7 +314,19 @@ function updateMappingUi() {
   setPressed($("rightRises"), !leftRises);
   $("leftRule").textContent = `+ angle → pitch ${leftRises ? "rises" : "falls"}`;
   $("rightRule").textContent = `− angle → pitch ${leftRises ? "falls" : "rises"}`;
-  $("mappingSummary").textContent = `${leftRises ? "left" : "right"} rises · ${state.turnOctaves.toFixed(2)} oct/turn · vertical address`;
+  const mode = state.synthMode === "basic" ? "basic" : "vertical harmony";
+  $("mappingSummary").textContent = `${leftRises ? "left" : "right"} rises · ${state.turnOctaves.toFixed(2)} oct/turn · ${mode}`;
+}
+
+function updateSynthModeUi() {
+  const basic = state.synthMode === "basic";
+  $("synthMode").value = basic ? "basic" : "harmony";
+  $("soundSummary").textContent = basic ? "Basic Shepard" : "Shepard + harmony";
+  $("verticalHarmonyRule").hidden = basic;
+  $("synthModeHelp").textContent = basic
+    ? "One Shepard voice follows signed boundary turns directly."
+    : "The main Shepard voice follows signed boundary turns; vertical harmony adds a quieter position-address voice.";
+  updateMappingUi();
 }
 
 for (const button of [$("leftRises"), $("rightRises")]) {
@@ -325,7 +339,18 @@ for (const button of [$("leftRises"), $("rightRises")]) {
     announce(`${state.turnPolarity > 0 ? "Left" : "Right"} turns now raise pitch.`);
   });
 }
-updateMappingUi();
+
+$("synthMode").addEventListener("change", (event) => {
+  state.synthMode = event.currentTarget.value === "basic" ? "basic" : "harmony";
+  audioOctavePosition = null;
+  pool.silence();
+  updateSynthModeUi();
+  scheduleFrame();
+  announce(state.synthMode === "basic"
+    ? "Basic Shepard playback selected."
+    : "Shepard with vertical harmony selected.");
+});
+updateSynthModeUi();
 
 const SIMILARITY_PLAN_LABELS = Object.freeze({
   chorus: "multiscale chorus",
@@ -956,14 +981,14 @@ function rateLimitedSimilarityTrajectory(key, currentTarget, futureTarget, delta
   let current = similarityAudioPositions.get(key);
   if (!Number.isFinite(current)) current = currentTarget;
   else {
-    const maximumStep = MAX_SHEPARD_RATE * Math.max(0, deltaSeconds);
+    const maximumStep = MAX_SIMILARITY_SHEPARD_RATE * Math.max(0, deltaSeconds);
     current += clamp(currentTarget - current, -maximumStep, maximumStep);
   }
   similarityAudioPositions.set(key, current);
   const futureStep = clamp(
     futureTarget - current,
-    -MAX_SHEPARD_RATE * LOOKAHEAD_SECONDS,
-    MAX_SHEPARD_RATE * LOOKAHEAD_SECONDS,
+    -MAX_SIMILARITY_SHEPARD_RATE * LOOKAHEAD_SECONDS,
+    MAX_SIMILARITY_SHEPARD_RATE * LOOKAHEAD_SECONDS,
   );
   return {
     current,
@@ -1058,18 +1083,21 @@ function pitchAtAudioPosition(pitch, octavePosition) {
 }
 
 function rateLimitedAudioTrajectory(pitch, futurePitch, deltaSeconds) {
+  const maximumRate = state.synthMode === "basic"
+    ? MAX_BASIC_SHEPARD_RATE
+    : MAX_SIMILARITY_SHEPARD_RATE;
   if (!Number.isFinite(audioOctavePosition)) {
     audioOctavePosition = pitch.octavePosition;
   } else {
     const correction = pitch.octavePosition - audioOctavePosition;
-    const maximumStep = MAX_SHEPARD_RATE * Math.max(0, deltaSeconds);
+    const maximumStep = maximumRate * Math.max(0, deltaSeconds);
     audioOctavePosition += clamp(correction, -maximumStep, maximumStep);
   }
   const futureCorrection = futurePitch.octavePosition - audioOctavePosition;
   const futureStep = clamp(
     futureCorrection,
-    -MAX_SHEPARD_RATE * LOOKAHEAD_SECONDS,
-    MAX_SHEPARD_RATE * LOOKAHEAD_SECONDS,
+    -maximumRate * LOOKAHEAD_SECONDS,
+    maximumRate * LOOKAHEAD_SECONDS,
   );
   const futureAudioPosition = audioOctavePosition + futureStep;
   return {
@@ -1137,36 +1165,43 @@ function frame(now) {
       + state.direction * state.speed * LOOKAHEAD_SECONDS;
     const futurePitch = pitchStateAt(futurePosition);
     const audioTrajectory = rateLimitedAudioTrajectory(pitch, futurePitch, delta);
-    const currentAddress = boundaryVerticalAddress(state.continuousPosition);
-    const futureAddress = boundaryVerticalAddress(futurePosition);
-    const currentInterval = juliaVerticalAddressOctaves(currentAddress);
-    const futureInterval = juliaVerticalAddressOctaves(futureAddress);
-    const addressRate = (futureInterval - currentInterval) / LOOKAHEAD_SECONDS;
+    const basic = state.synthMode === "basic";
+    const shapeOptions = {
+      key: basic ? "julia:boundary" : "julia:boundary:shape",
+      gain: basic ? 0.26 : 0.22,
+    };
+    const currentVoices = [voiceForPitch(
+      audioTrajectory.current,
+      audioTrajectory.rate,
+      shapeOptions,
+    )];
+    const futureVoices = [voiceForPitch(
+      audioTrajectory.future,
+      audioTrajectory.rate,
+      shapeOptions,
+    )];
+    if (!basic) {
+      const currentAddress = boundaryVerticalAddress(state.continuousPosition);
+      const futureAddress = boundaryVerticalAddress(futurePosition);
+      const currentInterval = juliaVerticalAddressOctaves(currentAddress);
+      const futureInterval = juliaVerticalAddressOctaves(futureAddress);
+      const addressRate = (futureInterval - currentInterval) / LOOKAHEAD_SECONDS;
+      currentVoices.push(voiceForPitch(audioTrajectory.current, audioTrajectory.rate + addressRate, {
+        key: "julia:boundary:address",
+        gain: 0.105,
+        pan: currentAddress * 0.62,
+        octaveOffset: currentInterval,
+      }));
+      futureVoices.push(voiceForPitch(audioTrajectory.future, audioTrajectory.rate + addressRate, {
+        key: "julia:boundary:address",
+        gain: 0.105,
+        pan: futureAddress * 0.62,
+        octaveOffset: futureInterval,
+      }));
+    }
     pool.setVoiceTrajectory(
-      [
-        voiceForPitch(audioTrajectory.current, audioTrajectory.rate, {
-          key: "julia:boundary:shape",
-          gain: 0.22,
-        }),
-        voiceForPitch(audioTrajectory.current, audioTrajectory.rate + addressRate, {
-          key: "julia:boundary:address",
-          gain: 0.105,
-          pan: currentAddress * 0.62,
-          octaveOffset: currentInterval,
-        }),
-      ],
-      [
-        voiceForPitch(audioTrajectory.future, audioTrajectory.rate, {
-          key: "julia:boundary:shape",
-          gain: 0.22,
-        }),
-        voiceForPitch(audioTrajectory.future, audioTrajectory.rate + addressRate, {
-          key: "julia:boundary:address",
-          gain: 0.105,
-          pan: futureAddress * 0.62,
-          octaveOffset: futureInterval,
-        }),
-      ],
+      currentVoices,
+      futureVoices,
       LOOKAHEAD_SECONDS,
     );
   } else if (state.audio) {

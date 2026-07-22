@@ -15,7 +15,7 @@ export const JULIA_DEFAULTS = Object.freeze({
   resolution: 320,
   contourTreatment: 0,
   speed: 0.017,
-  turnOctaves: 4,
+  turnOctaves: 5,
   baseFrequency: 300,
   shepardWidth: 8,
 });
@@ -539,7 +539,7 @@ export function sampleBoundary(path, phase) {
 
 /**
  * Convert cumulative signed curvature to an unwrapped Shepard octave value.
- * One simple CCW circuit has +2π total turn and therefore rises by four
+ * One simple CCW circuit has +2π total turn and therefore rises by five
  * octaves with the page's default mapping. Negative phases reverse every turn.
  */
 export function cumulativeTurnOctaves(path, continuousPhase, {

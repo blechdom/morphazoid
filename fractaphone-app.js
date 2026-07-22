@@ -877,7 +877,7 @@ function updateUi() {
   $("freezeHint").textContent = state.frozen ? "feed the tree again" : "let the tree decay";
   $("panicButton").disabled = !live && !starting;
   $("stageStartButton").disabled = starting;
-  $("stageStartButton").querySelector("b").textContent = starting ? "Allow microphone" : "Start microphone";
+  $("stageStartButton").querySelector("b").textContent = starting ? "Allow microphone" : "Start audio";
   $("stageIntro").classList.toggle("is-hidden", live);
 
   $("stateMetric").textContent = starting ? "starting" : live ? (state.frozen ? "held" : "live") : "off";
@@ -897,7 +897,7 @@ function updateUi() {
   setPressed($("recordButton"), state.recording);
   $("recordButton").disabled = !canRecord;
   $("recordLabel").textContent = state.recording ? "Finish recording" : "Record recursion";
-  if (!state.recording) $("recordHint").textContent = canRecord ? "captures what you hear" : "start the microphone first";
+  if (!state.recording) $("recordHint").textContent = canRecord ? "records while you listen" : "start audio first";
   $("recordingBadge").hidden = !state.recording;
   $("captureSummary").textContent = state.recording
     ? `recording · ${formatTime((performance.now() - recordingStartedAt) / 1000)}`

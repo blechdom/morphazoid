@@ -24,7 +24,7 @@
         <a class="tab" href="l-system.html">l-system</a>
         <a class="tab active" href="julia.html" aria-current="page">julia</a>
         <a class="tab" href="lumber.html">lumber</a>
-        <a class="tab fractaphone-tab" href="fractaphone.html">fractaphone</a>
+        <a class="tab fractaphone-tab" href="fractaphone.html">mic(mic)</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
@@ -37,7 +37,7 @@
           <option value="l-system.html">l-system</option>
           <option value="julia.html" selected>julia</option>
           <option value="lumber.html">lumber</option>
-          <option value="fractaphone.html">fractaphone</option>
+          <option value="fractaphone.html">mic(mic)</option>
         </select>
       </label>
       <div class="audio-strip" aria-label="Audio controls">
@@ -104,16 +104,16 @@
         </details>
 
         <details class="group control-section" data-section="mapping">
-          <summary class="group-summary"><h2 class="group-title">Mapping</h2><span class="section-state" id="mappingSummary">left rises · 4 oct/turn · vertical address</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Mapping</h2><span class="section-state" id="mappingSummary">left rises · 5 oct/turn · vertical harmony</span></summary>
           <div class="group-body">
             <span class="field-label">Turn polarity</span>
             <div class="choice-switch" id="turnPolarity" role="group" aria-label="Turn-to-pitch direction">
               <button id="leftRises" type="button" data-value="1" aria-pressed="true">Left rises</button>
               <button id="rightRises" type="button" data-value="-1" aria-pressed="false">Right rises</button>
             </div>
-            <label class="control" for="turnOctaves"><span><b>Pitch per full turn</b><output id="turnOctavesOut" for="turnOctaves">4.00 oct</output></span><input id="turnOctaves" type="range" min="0" max="8" step="0.05" value="4" /></label>
+            <label class="control" for="turnOctaves"><span><b>Pitch per full turn</b><output id="turnOctavesOut" for="turnOctaves">5.00 oct</output></span><input id="turnOctaves" type="range" min="0" max="8" step="0.05" value="5" /></label>
             <label class="control" for="cornerGlide"><span><b>Corner glide</b><output id="cornerGlideOut" for="cornerGlide">35% edge</output></span><input id="cornerGlide" type="range" min="0.05" max="1" step="0.01" value="0.35" /></label>
-            <div class="grammar-card turn-rule-card" aria-label="Current angle mapping"><span><b>Left turn</b><code id="leftRule">+ angle → pitch rises</code></span><span><b>Right turn</b><code id="rightRule">− angle → pitch falls</code></span><span><b>Vertical address</b><code>quiet harmony · bottom: minor third → top: fifth</code></span></div>
+            <div class="grammar-card turn-rule-card" aria-label="Current angle mapping"><span><b>Left turn</b><code id="leftRule">+ angle → pitch rises</code></span><span><b>Right turn</b><code id="rightRule">− angle → pitch falls</code></span><span id="verticalHarmonyRule"><b>Vertical harmony</b><code>quiet voice · bottom: minor third → top: fifth</code></span></div>
           </div>
         </details>
 
@@ -149,11 +149,12 @@
         </details>
 
         <details class="group control-section" data-section="sound">
-          <summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state">Shepard</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state" id="soundSummary">Shepard + harmony</span></summary>
           <div class="group-body">
+            <label class="select-control" for="synthMode"><span class="field-label">Synth</span><span class="select-shell"><select id="synthMode"><option value="harmony" selected>Shepard + vertical harmony</option><option value="basic">Basic Shepard</option></select></span></label>
             <label class="control" for="baseFrequency"><span><b>Shepard center</b><output id="baseFrequencyOut" for="baseFrequency">300 Hz</output></span><input id="baseFrequency" type="range" min="20" max="580" step="1" value="300" /></label>
             <label class="control" for="shepardWidth"><span><b>Spectral width</b><output id="shepardWidthOut" for="shepardWidth">8.0 oct</output></span><input id="shepardWidth" type="range" min="1" max="15" step="0.1" value="8" /></label>
-            <p class="control-note">Seventeen octave-spaced partials crossfade as signed boundary curvature moves the cyclic pitch.</p>
+            <p class="control-note" id="synthModeHelp">The main Shepard voice follows signed boundary turns; vertical harmony adds a quieter position-address voice.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>

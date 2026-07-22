@@ -12,8 +12,9 @@ test("Fractaphone exposes live recursion, capture, safety, and an echo-tree stag
   ]);
 
   assert.match(html, /<body class="fractaphone-page">/);
-  assert.match(html, /class="tab fractaphone-tab active"[^>]*aria-current="page">fractaphone/);
-  assert.match(html, /<option value="fractaphone\.html" selected>fractaphone<\/option>/);
+  assert.match(html, /class="tab fractaphone-tab active"[^>]*aria-current="page">mic\(mic\)/);
+  assert.match(html, /<option value="fractaphone\.html" selected>mic\(mic\)<\/option>/);
+  assert.match(html, /<span class="audio-copy"><b>Audio<\/b>/);
   assert.match(html, /src="fractaphone-app\.js"/);
   assert.match(html, /href="fractaphone\.css"/);
   for (const id of [
@@ -25,6 +26,8 @@ test("Fractaphone exposes live recursion, capture, safety, and an echo-tree stag
     assert.match(html, new RegExp(`<details[^>]*id="${section}"`));
   }
   assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/);
+  assert.doesNotMatch(html, /LIVE RECURSIVE MICROPHONE|Speak once\. Let every echo become the parent of another\.|<strong>mic/);
+  assert.match(html, /Recording does not mute monitoring/);
   assert.match(html, /Use headphones/);
   assert.match(html, /Press Escape for an immediate panic stop/);
 

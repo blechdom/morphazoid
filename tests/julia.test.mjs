@@ -245,7 +245,8 @@ test("Julia page exposes the fractal, signed-turn mapping, and Shepard controls"
   for (const id of [
     "playButton", "position", "speed", "cReal", "cImag", "maxIterations",
     "resolution", "simplify", "viewZoom", "resetView", "turnOctaves", "cornerGlide", "baseFrequency",
-    "shepardWidth", "similarityExperiment", "motifWidth", "similarityDepth",
+    "shepardWidth", "synthMode", "soundSummary", "synthModeHelp", "verticalHarmonyRule",
+    "similarityExperiment", "motifWidth", "similarityDepth",
     "similarityDuration", "analyzeSimilarity", "auditionSimilarity", "jumpSimilarity",
   ]) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(html, /leftRises[\s\S]*rightRises/);
@@ -258,17 +259,21 @@ test("Julia page exposes the fractal, signed-turn mapping, and Shepard controls"
   assert.match(html, /id="maxIterations"[^>]*value="0"[^>]*data-mid="32"/);
   assert.match(html, /id="resolution"[^>]*value="0"[^>]*data-mid="320"/);
   assert.match(html, /id="simplify"[^>]*min="-3"[^>]*max="3"[^>]*value="0"/);
-  assert.match(html, /id="turnOctaves"[^>]*min="0"[^>]*max="8"[^>]*value="4"/);
+  assert.match(html, /id="turnOctaves"[^>]*min="0"[^>]*max="8"[^>]*value="5"/);
   assert.match(html, /id="baseFrequency"[^>]*min="20"[^>]*max="580"[^>]*value="300"/);
   assert.match(html, /id="shepardWidth"[^>]*min="1"[^>]*max="15"[^>]*value="8"/);
+  assert.match(html, /id="synthMode"[\s\S]*option value="harmony" selected>Shepard \+ vertical harmony<[\s\S]*option value="basic">Basic Shepard</);
   assert.match(html, /src="julia-app\.js"/);
   assert.match(app, /generateJuliaBoundary/);
   assert.match(app, /cumulativeTurnOctaves/);
   assert.match(app, /setVoiceTrajectory/);
   assert.match(app, /shepardPosition/);
   assert.match(app, /shepardTravel/);
-  assert.match(app, /MAX_SHEPARD_RATE = 30/);
+  assert.match(app, /MAX_BASIC_SHEPARD_RATE = 7\.5/);
+  assert.match(app, /MAX_SIMILARITY_SHEPARD_RATE = 30/);
   assert.match(app, /rateLimitedAudioTrajectory/);
+  assert.match(app, /state\.synthMode === "basic"/);
+  assert.match(app, /basic \? "julia:boundary" : "julia:boundary:shape"/);
   assert.match(app, /buildInverseArcFamily/);
   assert.match(app, /buildInverseArcTree/);
   assert.match(app, /similarityVoiceTrajectory/);
