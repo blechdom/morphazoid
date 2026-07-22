@@ -35,11 +35,11 @@ let microphoneSource = null;
 let microphoneGeneration = 0;
 let audioChanging = false;
 let recorder = null;
-let recorderChunks = [];
 let recordingStartedAt = 0;
 let recordingMimeType = "";
 let lastTakeUrl = "";
 let lastTakeDuration = 0;
+let lastTakeMimeType = "";
 let inputWave = new Float32Array(1024);
 let outputWave = new Float32Array(1024);
 let safetyWave = new Float32Array(512);
@@ -62,6 +62,7 @@ function showError(message) {
   const element = $("audioError");
   element.textContent = message;
   element.hidden = false;
+  $("listenSection").open = true;
 }
 
 function clearError() {
@@ -511,7 +512,6 @@ function startRecording() {
     return;
   }
   clearError();
-  recorderChunks = [];
   recordingMimeType = supportedRecorderMimeType();
   try {
     recorder = recordingMimeType
@@ -523,37 +523,43 @@ function startRecording() {
   }
 
   const activeRecorder = recorder;
+  const activeChunks = [];
+  const activeStartedAt = performance.now();
+  const requestedMimeType = recordingMimeType;
   activeRecorder.addEventListener("dataavailable", (event) => {
-    if (event.data?.size) recorderChunks.push(event.data);
+    if (event.data?.size) activeChunks.push(event.data);
   });
   activeRecorder.addEventListener("error", () => {
+    if (recorder !== activeRecorder) return;
     state.recording = false;
     updateUi();
     showError("The browser stopped the processed recording.");
   });
   activeRecorder.addEventListener("stop", () => {
-    const duration = Math.max(0, (performance.now() - recordingStartedAt) / 1000);
-    const mimeType = activeRecorder.mimeType || recordingMimeType || "audio/webm";
-    const chunks = recorderChunks;
-    recorderChunks = [];
-    if (!chunks.length) {
+    if (recorder === activeRecorder) {
+      state.recording = false;
+      recorder = null;
+    }
+    const duration = Math.max(0, (performance.now() - activeStartedAt) / 1000);
+    const mimeType = activeRecorder.mimeType || requestedMimeType || "audio/webm";
+    if (!activeChunks.length) {
       updateUi();
       return;
     }
     if (lastTakeUrl) URL.revokeObjectURL(lastTakeUrl);
-    const blob = new Blob(chunks, { type: mimeType });
+    const blob = new Blob(activeChunks, { type: mimeType });
     lastTakeUrl = URL.createObjectURL(blob);
     lastTakeDuration = duration;
+    lastTakeMimeType = mimeType;
     const extension = recorderExtension(mimeType);
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     $("downloadTake").href = lastTakeUrl;
     $("downloadTake").download = `fractaphone-${stamp}.${extension}`;
-    recordingMimeType = mimeType;
     updateUi();
     announce("Recursive recording ready to download.");
   }, { once: true });
 
-  recordingStartedAt = performance.now();
+  recordingStartedAt = activeStartedAt;
   activeRecorder.start(250);
   state.recording = true;
   updateUi();
@@ -576,7 +582,7 @@ function clearLastTake() {
   if (lastTakeUrl) URL.revokeObjectURL(lastTakeUrl);
   lastTakeUrl = "";
   lastTakeDuration = 0;
-  recordingMimeType = "";
+  lastTakeMimeType = "";
   $("downloadTake").removeAttribute("href");
   updateUi();
   announce("Last recursive recording cleared.");
@@ -806,6 +812,7 @@ function frame(timestamp) {
     const duration = (timestamp - recordingStartedAt) / 1000;
     $("stageRecordTime").textContent = formatTime(duration);
     $("recordHint").textContent = `${formatTime(duration)} · click to finish`;
+    $("captureSummary").textContent = `recording · ${formatTime(duration)}`;
   }
   requestAnimationFrame(frame);
 }
@@ -897,7 +904,7 @@ function updateUi() {
     : lastTakeUrl ? "last take ready" : "ready to record output";
   $("lastTake").hidden = !lastTakeUrl;
   if (lastTakeUrl) {
-    const extension = recorderExtension(recordingMimeType).toUpperCase();
+    const extension = recorderExtension(lastTakeMimeType).toUpperCase();
     $("lastTakeOut").textContent = `${formatTime(lastTakeDuration)} · ${extension}`;
   }
 }
@@ -944,12 +951,12 @@ $("recordButton").addEventListener("click", toggleRecording);
 $("clearTake").addEventListener("click", clearLastTake);
 
 document.addEventListener("keydown", (event) => {
-  const target = event.target;
-  if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement || target?.isContentEditable) return;
   if (event.key === "Escape") {
     if (state.mic || state.starting) panic();
     return;
   }
+  const target = event.target;
+  if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement || target?.isContentEditable) return;
   if (event.repeat) return;
   if (event.key.toLowerCase() === "m") void toggleMicrophone();
   if (event.key.toLowerCase() === "f") toggleFreeze();

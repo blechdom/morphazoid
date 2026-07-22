@@ -156,18 +156,26 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
     this.port.onmessage = (event) => {
       if (event.data?.type === "voices") {
         const startedAt = clockMilliseconds();
-        this.runtimeLimit = Math.floor(clamp(
+        const nextRuntimeLimit = Math.floor(clamp(
           event.data.voiceLimit ?? this.runtimeLimit,
           0,
           this.maxVoices,
         ));
+        const nextMode = ["sine", "fm", "pm", "shepard"].includes(event.data.mode)
+          ? event.data.mode
+          : "sine";
+        if (nextRuntimeLimit !== this.runtimeLimit || nextMode !== this.requestedMode) {
+          this.loadBlocks = 0;
+          this.loadTotal = 0;
+          this.loadPeak = 0;
+          this.pendingControlMilliseconds = 0;
+        }
+        this.runtimeLimit = nextRuntimeLimit;
         this.requestedVoiceCount = Math.max(
           0,
           Math.floor(Number(event.data.requestedVoiceCount) || 0),
         );
-        this.requestedMode = ["sine", "fm", "pm", "shepard"].includes(event.data.mode)
-          ? event.data.mode
-          : "sine";
+        this.requestedMode = nextMode;
         this.setVoiceTargets(
           event.data.voices,
           event.data.nextVoices,

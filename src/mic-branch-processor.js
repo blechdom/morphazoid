@@ -38,7 +38,14 @@ class MorphazoidMicBranches extends AudioWorkletProcessor {
           0,
           Math.floor(Number(data.requestedVoiceCount) || data.voices?.length || 0),
         );
+        const previousLimit = this.renderer.runtimeLimit;
         this.renderer.setVoices(data.voices, data.voiceLimit);
+        if (this.renderer.runtimeLimit !== previousLimit) {
+          this.loadBlocks = 0;
+          this.loadTotal = 0;
+          this.loadPeak = 0;
+          this.pendingControlMilliseconds = 0;
+        }
       }
       if (data?.type === "feedback") this.renderer.setFeedback(data.value);
       const endedAt = clockMilliseconds();

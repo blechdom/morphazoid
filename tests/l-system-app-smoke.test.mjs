@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("L-mic app draws and drives virtual microphone branches in one processor", async () => {
+test("L-system app draws and drives adaptively capped bifurcating sine voices", async () => {
   const html = await readFile(new URL("../l-system.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
@@ -72,17 +72,6 @@ test("L-mic app draws and drives virtual microphone branches in one processor", 
   let oscillatorCount = 0;
   const workletMessages = [];
   let workletNode = null;
-  let mediaTrackStopped = false;
-  Object.defineProperty(globalThis, "navigator", {
-    configurable: true,
-    value: {
-      mediaDevices: {
-        async getUserMedia() {
-          return { getTracks: () => [{ stop() { mediaTrackStopped = true; } }] };
-        },
-      },
-    },
-  });
   globalThis.AudioWorkletNode = class {
     constructor() {
       this.port = { postMessage(message) { workletMessages.push(message); } };
@@ -115,7 +104,6 @@ test("L-mic app draws and drives virtual microphone branches in one processor", 
       oscillatorCount += 1;
       return audioNode({ type: "sine", frequency: audioParam(220), start() {}, stop() {} });
     }
-    createMediaStreamSource() { return audioNode(); }
     async resume() { this.state = "running"; }
     async close() { this.state = "closed"; }
   };
@@ -178,6 +166,13 @@ test("L-mic app draws and drives virtual microphone branches in one processor", 
 
   listeners.get("structureFinal:click")();
 
+  elements.get("soundMode").value = "shepard";
+  listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
+  queuedFrame(now + 12);
+  assert.match(elements.get("polyphonyDescription").textContent, /512 voices/);
+  elements.get("soundMode").value = "sine";
+  listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
+
   elements.get("position").value = "0.99";
   listeners.get("position:input")();
   queuedFrame(now + 20);
@@ -189,21 +184,19 @@ test("L-mic app draws and drives virtual microphone branches in one processor", 
   assert.match(elements.get("structureReadout").textContent, /I1 \+ I2[\s\S]*I7 · phase locked/);
 
   await listeners.get("audioButton:click")();
-  assert.equal(oscillatorCount, 0, "L-mic must not allocate an oscillator per branch");
+  assert.equal(oscillatorCount, 0, "the worklet path must not keep an idle native fallback pool");
   listeners.get("playButton:click")();
   now += 60;
   queuedFrame(now);
-  assert.match(elements.get("stageReadout").textContent, /7 ITERATIONS TOGETHER · 254 HEADS · 128\/254 MIC BRANCHES/);
+  assert.match(elements.get("stageReadout").textContent, /7 ITERATIONS TOGETHER · 254 HEADS · 128\/254 SINE VOICES/);
   assert.match(elements.get("polyphonyReadout").textContent, /AUTO CHECK · 128 \/ 254/);
   assert.match(elements.get("polyphonyDescription").textContent, /Measuring real playback load/);
   const branchMessage = workletMessages.filter((message) => message.type === "voices").at(-1);
   assert.equal(branchMessage.voices.length, 128);
   assert.equal(branchMessage.voiceLimit, 128);
   assert.equal(branchMessage.requestedVoiceCount, 254);
-  assert.ok(branchMessage.voices.every((voice) => Number.isFinite(voice.rate)));
-  assert.ok(branchMessage.voices.every((voice) => (
-    typeof voice.sourceKey === "string" && typeof voice.bounceKey === "string"
-  )));
+  assert.equal(branchMessage.mode, "sine");
+  assert.ok(branchMessage.voices.every((voice) => Number.isFinite(voice.frequency)));
   assert.ok(Math.hypot(...branchMessage.voices.map((voice) => voice.gain)) <= 0.38 + 1e-9);
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
 
@@ -224,6 +217,35 @@ test("L-mic app draws and drives virtual microphone branches in one processor", 
   assert.equal(expandedMessage.voices.length, 160);
   assert.match(elements.get("polyphonyReadout").textContent, /AUTO TEST · 160 \/ 254/);
 
+  elements.get("iterations").value = "8";
+  listeners.get("iterations:input")();
+  elements.get("position").value = "0.99";
+  listeners.get("position:input")();
+  queuedFrame(now + 80);
+  for (const activeVoices of [128, 160, 200, 256]) {
+    for (let index = 0; index < 3; index += 1) {
+      workletNode.port.onmessage({ data: {
+        type: "render-load",
+        supported: true,
+        timing: "high-res",
+        averageLoad: 0.2,
+        peakLoad: 0.3,
+        activeVoices,
+        renderedVoices: activeVoices,
+        requestedVoices: 510,
+      } });
+    }
+  }
+  queuedFrame(now + 120);
+  const highCountMessages = workletMessages.filter((message) => message.type === "voices");
+  assert.equal(highCountMessages.at(-1).voices.length, 320);
+  queuedFrame(now + 130);
+  assert.equal(
+    workletMessages.filter((message) => message.type === "voices").length,
+    highCountMessages.length,
+    "voice control updates above 256 voices should be limited to 30 Hz",
+  );
+
   elements.get("preset").value = "cantor";
   listeners.get("preset:change")({ currentTarget: elements.get("preset") });
   elements.get("position").value = "0.5";
@@ -231,9 +253,8 @@ test("L-mic app draws and drives virtual microphone branches in one processor", 
   queuedFrame(now + 80);
   assert.equal(elements.get("angle").disabled, true);
   assert.equal(elements.get("turnAsymmetry").disabled, true);
-  assert.match(elements.get("stageReadout").textContent, /^CANTOR SET · 6 ITERATIONS TOGETHER · 0 HEADS · 0 MIC BRANCHES/);
+  assert.match(elements.get("stageReadout").textContent, /^CANTOR SET · 6 ITERATIONS TOGETHER · 0 HEADS · 0 SINE VOICES/);
   assert.deepEqual(workletMessages.filter((message) => message.type === "voices").at(-1).voices, []);
 
   windowListeners.get("pagehide")({ persisted: true });
-  assert.equal(mediaTrackStopped, true);
 });

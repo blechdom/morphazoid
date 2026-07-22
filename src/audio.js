@@ -587,11 +587,13 @@ export class VoicePool {
       })
       : null;
     this.polyphonyMode = "sine";
+    this.renderCapacityUpdatesToIgnore = 0;
     this.voiceDemand = 0;
     this.voiceLimit = this.size;
     this.onPolyphonyStatus = null;
     this.renderCapacity = null;
     this.renderCapacityActive = false;
+    this.renderCapacityHasSample = false;
     this.lastPlaybackStatsAt = -Infinity;
     this.lastUnderrunEvents = 0;
     this.lastUnderrunDuration = 0;
@@ -663,7 +665,9 @@ export class VoicePool {
   }
 
   setVoiceDemand(demand, mode = this.polyphonyMode) {
-    this.polyphonyMode = CONTINUOUS_SYNTH_MODES.has(mode) ? mode : "sine";
+    const nextMode = CONTINUOUS_SYNTH_MODES.has(mode) ? mode : "sine";
+    if (nextMode !== this.polyphonyMode) this.renderCapacityUpdatesToIgnore = 1;
+    this.polyphonyMode = nextMode;
     this.voiceDemand = Math.max(0, Math.floor(Number(demand) || 0));
     if (this.polyphonyController) {
       const decision = this.polyphonyController.setDemand(this.polyphonyMode, this.voiceDemand);
@@ -710,14 +714,28 @@ export class VoicePool {
 
   startRenderCapacityMonitoring(context) {
     if (!this.polyphonyController) return;
-    const capacity = context?.renderCapacity;
+    let capacity = null;
+    try {
+      capacity = context?.renderCapacity;
+    } catch {
+      return;
+    }
     if (!capacity || typeof capacity.start !== "function") return;
     try {
+      this.renderCapacityHasSample = false;
       capacity.onupdate = (event) => {
+        if (this.renderCapacityUpdatesToIgnore > 0) {
+          this.renderCapacityUpdatesToIgnore -= 1;
+          return;
+        }
+        const averageLoad = Number(event?.averageLoad);
+        const peakLoad = Number(event?.peakLoad);
+        if (!Number.isFinite(averageLoad) || !Number.isFinite(peakLoad)) return;
+        this.renderCapacityHasSample = true;
         this.observePolyphony({
           mode: this.polyphonyMode,
-          averageLoad: event?.averageLoad,
-          peakLoad: event?.peakLoad,
+          averageLoad,
+          peakLoad,
           underrunRatio: event?.underrunRatio,
           activeVoices: this.lastSubmittedVoiceCount,
           requestedVoices: this.voiceDemand,
@@ -745,6 +763,7 @@ export class VoicePool {
     }
     this.renderCapacity = null;
     this.renderCapacityActive = false;
+    this.renderCapacityHasSample = false;
   }
 
   pollPlaybackStats() {
@@ -833,6 +852,7 @@ export class VoicePool {
     if (!context.audioWorklet?.addModule || !AudioWorkletNodeConstructor) {
       this.workletUnavailable = true;
       this.useAdaptiveFallback("native-fallback");
+      this.buildNativeVoices();
       return;
     }
 
@@ -859,7 +879,7 @@ export class VoicePool {
           if (!this.renderCapacityActive) this.useAdaptiveFallback("timing-unavailable");
           return;
         }
-        if (this.renderCapacityActive) return;
+        if (this.renderCapacityActive && this.renderCapacityHasSample) return;
         this.observePolyphony({
           mode: report.mode,
           averageLoad: report.averageLoad,
@@ -878,6 +898,7 @@ export class VoicePool {
         this.workletUnavailable = true;
         this.stopRenderCapacityMonitoring();
         this.useAdaptiveFallback("processor-fallback");
+        this.buildNativeVoices();
         if (this.enabled) this.applyVoices(this.pendingVoices);
       };
       this.synthNode = synthNode;
@@ -886,6 +907,7 @@ export class VoicePool {
       // The native sine pool below is a safe fallback for older Web Audio hosts.
       this.workletUnavailable = true;
       this.useAdaptiveFallback("native-fallback");
+      this.buildNativeVoices();
     }
   }
 
@@ -911,6 +933,17 @@ export class VoicePool {
     compressor.release.value = 0.12;
     master.connect(compressor).connect(context.destination);
 
+    this.context = context;
+    this.master = master;
+    this.compressor = compressor;
+    this.voices = [];
+  }
+
+  /** Allocate native OscillatorNodes only when the worklet path is unavailable. */
+  buildNativeVoices() {
+    const context = this.context;
+    const master = this.master;
+    if (!context || !master || this.voices.length > 0) return;
     const voices = [];
     for (let index = 0; index < this.size; index += 1) {
       const oscillator = context.createOscillator();
@@ -925,10 +958,6 @@ export class VoicePool {
       oscillator.start();
       voices.push({ oscillator, gain, pan, key: null });
     }
-
-    this.context = context;
-    this.master = master;
-    this.compressor = compressor;
     this.voices = voices;
   }
 
@@ -991,7 +1020,11 @@ export class VoicePool {
       ? Math.floor(options.voiceLimit)
       : this.voiceLimitFor(mode);
     const limit = this.synthNode
-      ? Math.min(this.maxVoiceLimit, Math.max(0, requestedLimit))
+      ? Math.min(
+        this.maxVoiceLimit,
+        this.voiceLimitFor(mode),
+        Math.max(0, requestedLimit),
+      )
       : this.size;
     const current = normalizeVoiceGains(reduceVoiceContacts(voices, limit));
     const future = normalizeVoiceGains(reduceVoiceContacts(nextVoices, limit));
@@ -1325,6 +1358,7 @@ export class VoicePool {
   /** @param {readonly VoiceSpec[]} specs */
   applyVoices(specs) {
     if (!this.context) return;
+    if (!this.synthNode) this.buildNativeVoices();
     const now = this.context.currentTime;
     const sourceSpecs = this.synthNode
       ? specs
@@ -1521,6 +1555,7 @@ export class VoicePool {
     this.compressor = null;
     this.synthNode = null;
     this.workletUnavailable = false;
+    this.renderCapacityUpdatesToIgnore = 0;
     this.lastPlaybackStatsAt = -Infinity;
     this.lastUnderrunEvents = 0;
     this.lastUnderrunDuration = 0;

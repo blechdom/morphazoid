@@ -85,3 +85,23 @@ test("missing renderer telemetry stays at the conservative fallback", () => {
     { limit: 128, status: "fallback", source: "test-fallback" },
   );
 });
+
+test("silencing during a trial clears probe state and restores the stable limit", () => {
+  const controller = new AdaptivePolyphonyController({ initialVoices: 128 });
+  controller.setDemand("sine", 512);
+  for (let index = 0; index < 3; index += 1) observe(controller);
+  assert.equal(controller.decision("sine").status, "probing");
+  const silent = controller.setDemand("sine", 0);
+  assert.equal(silent.limit, 128);
+  assert.notEqual(silent.status, "probing");
+  assert.notEqual(silent.status, "capped");
+});
+
+test("small adaptive pools never exceed their requested hard limit", () => {
+  const controller = new AdaptivePolyphonyController({
+    initialVoices: 2,
+    hardLimits: { sine: 2, fm: 2, pm: 2, shepard: 2 },
+  });
+  assert.equal(controller.limitFor("sine"), 2);
+  assert.equal(controller.decision("sine").hardLimit, 2);
+});

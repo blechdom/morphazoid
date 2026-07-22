@@ -50,7 +50,8 @@ export function clamp(value, minimum = 0, maximum = 1) {
 export function estimateGenerations(feedback, silenceFloor = 0.04) {
   const gain = clamp(feedback, 0, MAX_RECURSION_FEEDBACK);
   const floor = clamp(silenceFloor, 0.0001, 0.5);
-  if (gain <= floor) return gain > 0 ? 1 : 0;
+  // The seeded delay is generation one even when no signal is fed back.
+  if (gain <= floor) return 1;
   return Math.min(32, Math.max(1, Math.ceil(Math.log(floor) / Math.log(gain))));
 }
 

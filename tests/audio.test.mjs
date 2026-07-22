@@ -39,7 +39,7 @@ test("audio module imports and constructs without browser globals", () => {
   assert.equal(pool.isEnabled, false);
 });
 
-test("adaptive VoicePool keeps 128 native nodes while expanding worklet capacity", () => {
+test("adaptive VoicePool keeps a 128-voice native fallback while expanding worklet capacity", () => {
   const pool = new VoicePool(128, { adaptive: true, maxVoices: 4_096 });
   assert.equal(pool.size, 128);
   assert.equal(pool.maxVoiceLimit, 4_096);
@@ -57,6 +57,56 @@ test("adaptive VoicePool keeps 128 native nodes while expanding worklet capacity
   }
   assert.equal(pool.voiceLimitFor("sine"), 160);
   assert.equal(pool.voiceLimitFor("fm"), 128);
+
+  const tiny = new VoicePool(2, { adaptive: true, maxVoices: 2 });
+  assert.equal(tiny.voiceLimitFor("sine"), 2);
+  assert.equal(tiny.polyphonyStatus.hardLimit, 2);
+});
+
+test("trajectory callers cannot bypass the controller's measured ceiling", () => {
+  const pool = new VoicePool(128, { adaptive: true, maxVoices: 4_096 });
+  const messages = [];
+  pool.context = { currentTime: 0 };
+  pool.enabled = true;
+  pool.synthNode = { port: { postMessage(message) { messages.push(message); } } };
+  const voices = Array.from({ length: 300 }, (_, index) => ({
+    key: `voice:${index}`,
+    frequency: 220 + index,
+    gain: 0.001,
+    mode: "sine",
+  }));
+  pool.setVoiceTrajectory(voices, voices, 0.075, {
+    requestedVoiceCount: voices.length,
+    mode: "sine",
+    voiceLimit: 4_096,
+  });
+  assert.equal(messages.at(-1).voiceLimit, 128);
+  assert.equal(messages.at(-1).voices.length, 128);
+});
+
+test("render-capacity monitoring waits for valid samples before taking precedence", () => {
+  const pool = new VoicePool(128, { adaptive: true, maxVoices: 4_096 });
+  let startOptions = null;
+  let stopped = false;
+  const capacity = {
+    onupdate: null,
+    start(options) { startOptions = options; },
+    stop() { stopped = true; },
+  };
+  pool.setVoiceDemand(512, "sine");
+  pool.lastSubmittedVoiceCount = 128;
+  pool.startRenderCapacityMonitoring({ renderCapacity: capacity });
+  assert.deepEqual(startOptions, { updateInterval: 0.5 });
+  capacity.onupdate({});
+  assert.equal(pool.renderCapacityHasSample, false);
+  for (let index = 0; index < 3; index += 1) {
+    capacity.onupdate({ averageLoad: 0.2, peakLoad: 0.3, underrunRatio: 0 });
+  }
+  assert.equal(pool.renderCapacityHasSample, true);
+  assert.equal(pool.voiceLimitFor("sine"), 160);
+  pool.stopRenderCapacityMonitoring();
+  assert.equal(stopped, true);
+  assert.equal(pool.renderCapacityHasSample, false);
 });
 
 test("starting without Web Audio fails only when explicitly requested", async () => {
@@ -549,6 +599,7 @@ test("continuous synth specs use one worklet while native fallback voices stay s
   const messages = [];
   let moduleUrl = "";
   let workletCount = 0;
+  let nativeOscillatorCount = 0;
   let resumedBeforeWorklet = false;
 
   class FakeWorkletNode {
@@ -588,6 +639,7 @@ test("continuous synth specs use one worklet while native fallback voices stay s
       });
     }
     createOscillator() {
+      nativeOscillatorCount += 1;
       return fakeNode({
         type: "sine",
         frequency: fakeParam(220),
@@ -616,6 +668,7 @@ test("continuous synth specs use one worklet while native fallback voices stay s
     }]);
 
     assert.equal(workletCount, 1);
+    assert.equal(nativeOscillatorCount, 0, "native fallback oscillators must be lazy");
     assert.equal(resumedBeforeWorklet, true, "iOS audio must resume before awaiting worklet load");
     assert.match(moduleUrl, /contour-synth-processor\.js$/);
     assert.equal(pool.synthNode.name, "morphazoid-contour-synth");

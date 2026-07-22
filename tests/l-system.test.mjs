@@ -305,7 +305,7 @@ test("L-system playhead wraps and exposes normalized audio data", () => {
   assert.ok(normalized.y >= 0 && normalized.y <= 1);
 });
 
-test("L-mic page exposes presets, traversal, mapping, microphone recursion, and reciprocal navigation", async () => {
+test("L-system page exposes presets, traversal, mapping, adaptive synthesis, and reciprocal navigation", async () => {
   const root = new URL("../", import.meta.url);
   const [html, app] = await Promise.all([
     readFile(new URL("l-system.html", root), "utf8"),
@@ -315,18 +315,19 @@ test("L-mic page exposes presets, traversal, mapping, microphone recursion, and 
   for (const name of ["Koch snowflake", "Sierpiński triangle", "Hilbert curve", "Gosper curve", "Cantor set", "Lévy C curve", "Terdragon"]) {
     assert.match(html, new RegExp(name));
   }
-  for (const id of ["playButton", "position", "speed", "structureMode", "structureFinal", "structureSequence", "structureTogether", "structureAccumulate", "structureCanon", "preset", "iterations", "angle", "turnAsymmetry", "turnAsymmetryNote", "lengthScale", "taperNote", "pitchSource", "baseFrequency", "pitchRange", "branchCompression", "branchFeedback", "polyphonyReadout", "polyphonyDescription"]) {
+  for (const id of ["playButton", "position", "speed", "structureMode", "structureFinal", "structureSequence", "structureTogether", "structureAccumulate", "structureCanon", "preset", "iterations", "angle", "turnAsymmetry", "turnAsymmetryNote", "lengthScale", "taperNote", "pitchSource", "baseFrequency", "pitchRange", "soundMode", "modulationIndex", "polyphonyReadout", "polyphonyDescription"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(html, /Branch length taper/);
   assert.match(html, /Length only—not line width or loudness/);
-  assert.match(html, /hyper<\/a><a class="tab active"[^>]+>l-mic<\/a><a class="tab"[^>]+>julia<\/a><a class="tab"[^>]+>lumber<\/a>/);
+  assert.match(html, /hyper<\/a><a class="tab active"[^>]+>l-system<\/a><a class="tab"[^>]+>julia<\/a><a class="tab"[^>]+>lumber<\/a>/);
   assert.match(html, /src="l-system-app\.js"/);
   assert.match(app, /iterationPlaybackAtPhase/);
   assert.match(app, /allocateIterationVoiceHeads/);
-  assert.match(app, /new MicBranchEngine\(INITIAL_L_SYSTEM_VOICES,[\s\S]*maxVoices: MAX_L_SYSTEM_VOICES/);
+  assert.match(app, /new VoicePool\(INITIAL_L_SYSTEM_VOICES,[\s\S]*adaptive: true,[\s\S]*maxVoices: MAX_L_SYSTEM_VOICES/);
   assert.match(app, /branchVoiceGain/);
-  assert.match(app, /micBranchPlaybackRate/);
-  assert.match(app, /pool\.setVoices/);
+  assert.match(app, /branchAngleFrequency/);
+  assert.match(app, /pitch01ToFrequency/);
+  assert.match(app, /pool\.setVoiceTrajectory/);
   assert.doesNotMatch(app, /createOscillator/);
 });

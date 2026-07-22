@@ -73,8 +73,12 @@ export class AdaptivePolyphonyController {
     growthFactor = 1.25,
     cooldownWindows = 20,
   } = {}) {
-    this.minVoices = Math.max(1, integer(minVoices, 16));
-    this.initialVoices = Math.max(this.minVoices, integer(initialVoices, 128));
+    const requestedInitial = Math.max(1, integer(initialVoices, 128));
+    this.minVoices = Math.min(
+      requestedInitial,
+      Math.max(1, integer(minVoices, 16)),
+    );
+    this.initialVoices = Math.max(this.minVoices, requestedInitial);
     this.growBelow = Math.max(0, finiteNumber(growBelow, 0.45));
     this.growPeakBelow = Math.max(this.growBelow, finiteNumber(growPeakBelow, 0.7));
     this.targetLoad = Math.max(0.05, finiteNumber(targetLoad, 0.55));
@@ -122,10 +126,18 @@ export class AdaptivePolyphonyController {
 
   setDemand(mode, demand) {
     const profile = this.profile(mode);
+    const previousDemand = profile.demand;
     profile.demand = Math.max(0, integer(demand, 0));
     if (this.telemetry === "unavailable") profile.status = "fallback";
-    else if (profile.demand <= profile.limit && !["probing", "capped"].includes(profile.status)) {
+    else if (profile.demand <= profile.limit) {
+      if (profile.demand === 0 && profile.status === "probing") {
+        profile.limit = profile.stableLimit;
+      }
       profile.status = this.telemetry === "pending" ? "warming" : "demand-limited";
+      if (profile.demand === 0 && previousDemand !== 0) {
+        profile.safeWindows = 0;
+        profile.highWindows = 0;
+      }
     }
     return this.decision(mode);
   }

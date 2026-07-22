@@ -1,9 +1,13 @@
-import { clamp } from "./src/audio.js";
-import { MicBranchEngine } from "./src/mic-branch-engine.js";
-import { micBranchPlaybackRate } from "./src/mic-branch-dsp.js";
+import {
+  VoicePool,
+  clamp,
+  pitch01ToFrequency,
+  synthParametersForMode,
+} from "./src/audio.js";
 import {
   L_SYSTEM_PRESETS,
   allocateIterationVoiceHeads,
+  branchAngleFrequency,
   branchVoiceGain,
   iterationPlaybackAtPhase,
   iterationPlaybackPhaseRate,
@@ -18,7 +22,7 @@ const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
 const INITIAL_L_SYSTEM_VOICES = 128;
 const MAX_L_SYSTEM_VOICES = 4096;
-const pool = new MicBranchEngine(INITIAL_L_SYSTEM_VOICES, {
+const pool = new VoicePool(INITIAL_L_SYSTEM_VOICES, {
   adaptive: true,
   maxVoices: MAX_L_SYSTEM_VOICES,
 });
@@ -37,11 +41,11 @@ const state = {
   audio: false,
   level: 0.55,
   pitchSource: "angle",
-  baseFrequency: 1,
+  baseFrequency: 110,
   pitchRange: 2,
   depthAmount: 0.65,
-  branchCompression: 1.08,
-  branchFeedback: 0.32,
+  soundMode: "sine",
+  modulationIndex: 3,
   structureMode: "final",
 };
 
@@ -63,6 +67,23 @@ let pixelRatio = 1;
 let scheduledFrame = 0;
 let lastFrameTime = performance.now();
 let lastAudioTime = null;
+let lastVoiceSubmissionTime = -Infinity;
+let lastSoundingVoiceCount = 0;
+let lastSubmittedVoiceLimit = -1;
+let lastSubmittedSoundMode = "";
+
+function resetVoiceSubmission() {
+  lastVoiceSubmissionTime = -Infinity;
+  lastSoundingVoiceCount = 0;
+  lastSubmittedVoiceLimit = -1;
+  lastSubmittedSoundMode = "";
+}
+
+function voiceSubmissionInterval(voiceLimit) {
+  if (voiceLimit > 1_024) return 1 / 20;
+  if (voiceLimit > 256) return 1 / 30;
+  return 0;
+}
 
 function setPressed(element, pressed) {
   element.setAttribute("aria-pressed", String(Boolean(pressed)));
@@ -125,15 +146,12 @@ bindRange("lengthScale", "lengthScale", (value) => `${Math.round(value * 100)}%`
   paintGrowthCapabilities();
   rebuildTrace();
 });
-bindRange("baseFrequency", "baseFrequency", (value) => `${value.toFixed(2)}×`);
+bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindRange("pitchRange", "pitchRange", (value) => (
   state.pitchSource === "angle" ? `${value.toFixed(2)} oct / turn` : `${value.toFixed(2)} oct`
 ));
 bindRange("depthAmount", "depthAmount", (value) => `${Math.round(value * 100)}%`);
-bindRange("branchCompression", "branchCompression", (value) => `${value.toFixed(2)}× / level`);
-bindRange("branchFeedback", "branchFeedback", (value) => `${Math.round(value * 100)}%`, () => {
-  pool.setFeedback(state.branchFeedback);
-});
+bindRange("modulationIndex", "modulationIndex", (value) => `${value.toFixed(2)} max`);
 
 function currentPreset() {
   return presetById.get(state.presetId) ?? L_SYSTEM_PRESETS[0];
@@ -191,6 +209,7 @@ function rebuildTrace() {
     });
     $("systemError").hidden = true;
     pool.silence();
+    resetVoiceSubmission();
     paintStructure();
   } catch (error) {
     $("systemError").textContent = error instanceof Error ? error.message : "This grammar is too large to draw.";
@@ -297,6 +316,7 @@ $("playButton").addEventListener("click", () => {
   )).length;
   $("playSummary").textContent = `${headCount} head${headCount === 1 ? "" : "s"} · ${state.playing ? "playing" : "paused"}`;
   if (!state.playing) pool.silence();
+  resetVoiceSubmission();
   resetClocks();
   scheduleFrame();
 });
@@ -321,18 +341,28 @@ $("pitchSource").addEventListener("change", (event) => {
   scheduleFrame();
 });
 
+$("soundMode").addEventListener("change", (event) => {
+  state.soundMode = event.currentTarget.value;
+  $("soundSummary").textContent = state.soundMode.toUpperCase();
+  pool.silence();
+  pool.setVoiceDemand(0, state.soundMode);
+  resetVoiceSubmission();
+  scheduleFrame();
+});
+
 $("audioButton").addEventListener("click", async () => {
   $("audioError").hidden = true;
   if (state.audio) {
     state.audio = false;
     pool.disable();
+    resetVoiceSubmission();
   } else {
     try {
-      $("audioState").textContent = "requesting mic…";
+      $("audioState").textContent = "starting…";
       await pool.enable();
       pool.setLevel(state.level);
-      pool.setFeedback(state.branchFeedback);
       state.audio = true;
+      resetVoiceSubmission();
       resetClocks();
     } catch (error) {
       $("audioError").textContent = error instanceof Error ? error.message : "Web Audio could not start.";
@@ -450,46 +480,30 @@ function pitchValue(playhead, normalized) {
 function voiceForPlayhead(playhead, activePower, combinedGain) {
   const normalized = normalizeLSystemPoint(playhead, playhead.sourceTrace.bounds);
   const depth = playhead.depth / Math.max(1, playhead.sourceTrace.maxForkDepth);
+  const drive = clamp(depth * state.depthAmount, 0, 1);
   const mappedPitch = pitchValue(playhead, normalized);
-  const pitchPosition = state.pitchSource === "angle"
-    ? playhead.cumulativeTurn / TAU
-    : mappedPitch - 0.5;
-  const pitchRate = micBranchPlaybackRate(
-    pitchPosition,
-    state.pitchRange,
-    state.baseFrequency,
-  );
-  const depthCompression = state.branchCompression ** (
-    depth * state.depthAmount * Math.max(1, playhead.sourceTrace.maxForkDepth)
-  );
-  const segment = playhead.segment;
-  const parent = Number.isInteger(segment.parentIndex)
-    ? playhead.sourceTrace.segments[segment.parentIndex]
-    : null;
-  const grandparent = parent && Number.isInteger(parent.parentIndex)
-    ? playhead.sourceTrace.segments[parent.parentIndex]
-    : null;
-  const lineagePrefix = `iteration:${playhead.iteration}`;
-  const sourceKey = grandparent
-    ? `${lineagePrefix}:combo:${grandparent.index}`
-    : parent
-      ? `${lineagePrefix}:stem:${parent.index}`
-      : "base";
-  const bounceKey = parent
-    ? `${lineagePrefix}:combo:${parent.index}`
-    : `${lineagePrefix}:stem:${segment.index}`;
+  const frequency = state.pitchSource === "angle"
+    ? branchAngleFrequency(playhead.cumulativeTurn, state.baseFrequency, state.pitchRange)
+    : pitch01ToFrequency(mappedPitch, state.baseFrequency, state.pitchRange);
   return {
     key: `l-system:${playhead.voiceKey}`,
-    rate: clamp(pitchRate * depthCompression, 0.25, 4),
+    frequency,
     gain: branchVoiceGain(playhead.powerShare, activePower, combinedGain),
     pan: clamp(normalized.x * 2 - 1, -1, 1),
-    depth: playhead.depth,
-    sourceKey,
-    bounceKey,
+    waveform: "sine",
+    ...synthParametersForMode(state.soundMode, drive, {
+      fmIndex: state.modulationIndex,
+      fmRatio: 1.5,
+      pmIndex: state.modulationIndex,
+      pmRatio: 1.5,
+      shepardRate: state.playing ? state.speed * state.direction : 0,
+      shepardWidth: 5,
+      shepardPosition: playhead.localPhase,
+    }),
   };
 }
 
-function voicesForPlayheads(playheads, maxVoices = pool.voiceLimit) {
+function voicesForPlayheads(playheads, maxVoices = pool.voiceLimitFor(state.soundMode)) {
   const selected = allocateIterationVoiceHeads(playheads, maxVoices);
   const groups = new Map();
   for (const playhead of selected) {
@@ -523,14 +537,14 @@ function paintPolyphony(soundingVoices, requestedVoices) {
           : "AUTO";
   $("polyphonyReadout").textContent = `${label} · ${count}${load}`;
   $("polyphonyDescription").textContent = status.status === "fallback"
-    ? "This browser cannot expose reliable render load, so playback stays at the proven 128-branch fallback."
+    ? "This browser cannot expose reliable render load, so playback stays at the proven 128-voice fallback."
     : status.status === "probing"
-      ? "The renderer has headroom, so the ceiling is rising in a guarded step."
+      ? `The renderer has headroom, so the ceiling is rising in a guarded step toward the ${status.hardLimit}-voice ${status.mode.toUpperCase()} guard.`
       : status.status === "capped" && requestedVoices > status.limit
-        ? `Playback is holding at ${status.limit} branches to preserve audio headroom; quieter branches remain visual.`
+        ? `Playback is holding at ${status.limit} voices to preserve audio headroom; additional branches remain visual.`
         : status.status === "warming" && requestedVoices > status.limit
           ? "Measuring real playback load before admitting the next group of branches."
-          : "Every branch currently requested by the structure fits within the measured ceiling.";
+          : `Every branch currently requested by the structure fits within the measured ceiling; this mode's hard guard is ${status.hardLimit} voices.`;
 }
 
 function transportDelta(now) {
@@ -560,16 +574,49 @@ function frame(now) {
   const playheads = playbackHeads(playback);
   drawScene(playback, playheads);
 
-  let voices = [];
-  const requestedVoices = state.audio && state.playing ? playheads.length : 0;
-  if (state.audio && state.playing && playheads.length) {
-    const voiceLimit = pool.setVoiceDemand(requestedVoices);
-    voices = voicesForPlayheads(playheads, voiceLimit);
-    pool.setVoices(voices, { requestedVoiceCount: requestedVoices });
+  let soundingVoiceCount = 0;
+  let requestedVoices = 0;
+  if (state.audio && state.playing) {
+    const lookahead = 0.065;
+    const futurePhase = state.continuousPosition + state.direction * phaseRate * lookahead;
+    const futurePlayback = iterationPlaybackAtPhase(
+      iterationTraces,
+      futurePhase,
+      state.structureMode,
+    );
+    const futureHeads = playbackHeads(futurePlayback);
+    requestedVoices = Math.max(playheads.length, futureHeads.length);
+    const voiceLimit = pool.setVoiceDemand(requestedVoices, state.soundMode);
+    const controlTime = now / 1_000;
+    const shouldSubmitVoices = voiceLimit !== lastSubmittedVoiceLimit
+      || state.soundMode !== lastSubmittedSoundMode
+      || requestedVoices === 0
+      || controlTime - lastVoiceSubmissionTime >= voiceSubmissionInterval(voiceLimit);
+    if (shouldSubmitVoices) {
+      const voices = voicesForPlayheads(playheads, voiceLimit);
+      pool.setVoiceTrajectory(
+        voices,
+        voicesForPlayheads(futureHeads, voiceLimit),
+        lookahead,
+        {
+          requestedVoiceCount: requestedVoices,
+          mode: state.soundMode,
+          voiceLimit,
+        },
+      );
+      lastVoiceSubmissionTime = controlTime;
+      lastSoundingVoiceCount = voices.length;
+      lastSubmittedVoiceLimit = voiceLimit;
+      lastSubmittedSoundMode = state.soundMode;
+    }
+    soundingVoiceCount = lastSoundingVoiceCount;
   } else if (state.audio) {
     pool.setVoices([]);
+    resetVoiceSubmission();
+  } else {
+    resetVoiceSubmission();
   }
-  paintPolyphony(voices.length, requestedVoices);
+  paintPolyphony(soundingVoiceCount, requestedVoices);
 
   $("position").value = String(state.position);
   $("positionOut").textContent = state.structureMode === "sequence"
@@ -595,8 +642,8 @@ function frame(now) {
   const headLabel = `${playheads.length} HEAD${playheads.length === 1 ? "" : "S"}`;
   const voiceText = state.audio
     ? (state.playing
-      ? `${voices.length}${voices.length < requestedVoices ? `/${requestedVoices}` : ""} MIC BRANCH${voices.length === 1 ? "" : "ES"}`
-      : "MIC READY")
+      ? `${soundingVoiceCount}${soundingVoiceCount < requestedVoices ? `/${requestedVoices}` : ""} ${state.soundMode.toUpperCase()} VOICE${soundingVoiceCount === 1 ? "" : "S"}`
+      : "AUDIO READY")
     : "AUDIO OFF";
   $("playSummary").textContent = `${headLabel.toLowerCase()} · ${state.playing ? "playing" : "paused"}`;
   $("stageReadout").textContent = `${preset.name.toUpperCase()} · ${structureLabel} · ${headLabel} · ${voiceText}`;

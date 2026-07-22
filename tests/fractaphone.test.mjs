@@ -23,7 +23,7 @@ test("Fractaphone presets stay inside the bounded feedback design", () => {
 });
 
 test("generation estimates stop when descendants fall below the audible floor", () => {
-  assert.equal(estimateGenerations(0), 0);
+  assert.equal(estimateGenerations(0), 1);
   assert.equal(estimateGenerations(0.02), 1);
   assert.equal(estimateGenerations(0.5), 5);
   assert.equal(estimateGenerations(0.72), 10);

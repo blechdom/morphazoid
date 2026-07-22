@@ -115,7 +115,12 @@ export class MicBranchEngine {
 
   startRenderCapacityMonitoring() {
     if (!this.polyphonyController || this.renderCapacityActive) return;
-    const capacity = this.context?.renderCapacity;
+    let capacity = null;
+    try {
+      capacity = this.context?.renderCapacity;
+    } catch {
+      return;
+    }
     if (!capacity || typeof capacity.start !== "function") return;
     try {
       capacity.onupdate = (event) => this.observePolyphony({
@@ -323,8 +328,8 @@ export class MicBranchEngine {
   }
 
   disable() {
-    this.enabled = false;
     this.silence();
+    this.enabled = false;
     this.stopRenderCapacityMonitoring();
     if (this.context && this.master) this.master.gain.setTargetAtTime(0, this.context.currentTime, MASTER_TIME_CONSTANT);
     this.source?.disconnect();

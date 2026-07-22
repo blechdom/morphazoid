@@ -466,7 +466,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
 
   await listeners.get("audioButton:click")();
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
-  assert.equal(audioOscillators.length, 32, "Sine mode should allocate its continuous voice pool");
+  assert.equal(audioOscillators.length, 0, "the worklet path should not allocate idle native oscillators");
   queuedFrame(1_020);
   assert.match(elements.get("stageReadout").textContent, /0 SYNTHS/);
   const continuousGains = audioGains.slice(1, 33);
@@ -478,7 +478,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   elements.get("position").value = "0.6";
   listeners.get("position:input")();
   queuedFrame(1_050);
-  assert.equal(audioOscillators.length, 32, "sine corner envelopes must not add a second oscillator layer");
+  assert.equal(audioOscillators.length, 0, "sine corner envelopes must stay in the worklet");
   assert.ok(audioOscillators.every((oscillator) => oscillator.type === "sine"));
   assert.ok(continuousGains.every((gain) => gain.gain.value === 0));
   elements.get("position").value = "0";
@@ -500,7 +500,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   elements.get("position").value = "0.3";
   listeners.get("position:input")();
   queuedFrame(1_095);
-  assert.equal(audioOscillators.length, 32, "paused percussion must not create corner strikes");
+  assert.equal(audioOscillators.length, 0, "paused percussion must not create corner strikes");
   assert.ok(audioOscillators.every((oscillator) => oscillator.type === "sine"));
   const afterPercussionStrike = audioOscillators.length;
 
