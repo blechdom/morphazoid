@@ -80,6 +80,9 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     amplitudeEnvelopePresets: [
       "amplitudePresetPluck", "amplitudePresetNote", "amplitudePresetSustain", "amplitudePresetPad",
     ],
+    percussionEnvelopePresets: [
+      "percussionPresetPluck", "percussionPresetNote", "percussionPresetSustain", "percussionPresetPad",
+    ],
   };
   const dataValues = {
     scanMode: "scan",
@@ -106,6 +109,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     amplitudePresetNote: "note",
     amplitudePresetSustain: "sustain",
     amplitudePresetPad: "pad",
+    percussionPresetPluck: "pluck",
+    percussionPresetNote: "note",
+    percussionPresetSustain: "sustain",
+    percussionPresetPad: "pad",
   };
   for (const [id, value] of Object.entries(dataValues)) elements.get(id).dataset.value = value;
   for (const [id, childIds] of Object.entries(groups)) {
@@ -141,6 +148,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   elements.get("headLayoutTrack").getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 52 });
   elements.get("pitchCurveEditor").getBoundingClientRect = () => ({ left: 0, top: 0, width: 240, height: 96 });
   elements.get("amplitudeCurveEditor").getBoundingClientRect = () => ({ left: 0, top: 0, width: 240, height: 96 });
+  elements.get("percussionCurveEditor").getBoundingClientRect = () => ({ left: 0, top: 0, width: 240, height: 96 });
 
   let queuedFrame;
   globalThis.requestAnimationFrame = (callback) => {
@@ -330,6 +338,23 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("shepardArticulation").hidden, true);
   assert.equal(elements.get("fmArticulation").hidden, true);
   assert.equal(elements.get("pmArticulation").hidden, true);
+  assert.equal(elements.get("percussionStrikeLevelOut").textContent, "90%");
+  assert.equal(elements.get("percussionAttackNoiseOut").textContent, "0%");
+  assert.equal(elements.get("percussionEnvelopeState").textContent, "Pluck");
+  assert.equal(attributes.get("percussionPresetPluck:aria-pressed"), "true");
+  assert.equal(
+    elements.get("percussionNodeReadout").textContent,
+    "A 3 ms · D 25 ms · S 55 ms · R 100 ms",
+  );
+  assert.match(attributes.get("percussionNode2:aria-valuetext"), /25 milliseconds from the trigger/);
+  listeners.get("percussionNode2:pointerdown")({ pointerId: 11, preventDefault() {} });
+  listeners.get("percussionCurveEditor:pointermove")({ pointerId: 11, clientX: 96, clientY: 48 });
+  assert.equal(elements.get("percussionEnvelopeState").textContent, "Custom");
+  assert.match(elements.get("percussionNodeReadout").textContent, /D 27 ms/);
+  assert.match(attributes.get("percussionNode2:aria-valuetext"), /27 milliseconds from the trigger/);
+  listeners.get("percussionCurveEditor:pointerup")({ pointerId: 11 });
+  listeners.get("resetPercussionCurve:click")();
+  assert.equal(elements.get("percussionEnvelopeState").textContent, "Pluck");
   assert.equal(elements.get("percussionMapping").hidden, true);
   assert.equal(elements.get("timbreMapping").hidden, true);
   assert.equal(elements.get("timbreSourceHelp").textContent, "0 is smooth · 1 is the sharpest turn");
@@ -881,12 +906,11 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("amplitudePresetSustain:click")();
   listeners.get("amplitudeNode4:keydown")({ key: "ArrowUp", shiftKey: true, preventDefault() {} });
   listeners.get("cornerSwellToggle:click")();
-  elements.get("cornerAccent").value = "0.84";
-  listeners.get("cornerAccent:input")();
-  elements.get("cornerDecay").value = "320";
-  listeners.get("cornerDecay:input")();
-  elements.get("cornerAttack").value = "12.5";
-  listeners.get("cornerAttack:input")();
+  elements.get("percussionStrikeLevel").value = "0.84";
+  listeners.get("percussionStrikeLevel:input")();
+  elements.get("percussionAttackNoise").value = "0.36";
+  listeners.get("percussionAttackNoise:input")();
+  listeners.get("percussionPresetPad:click")();
   elements.get("stereoWidth").value = "0.42";
   listeners.get("stereoWidth:input")();
   listeners.get("stereoVertical:click")();
@@ -915,9 +939,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("amplitudeCurveState").textContent, "Custom · mirrored");
   assert.match(elements.get("amplitudeReleaseBehavior").textContent, /holds 5%/);
   assert.equal(attributes.get("cornerSwellToggle:aria-pressed"), "true");
-  assert.equal(elements.get("cornerAccentOut").textContent, "84%");
-  assert.equal(elements.get("cornerDecayOut").textContent, "320 ms");
-  assert.equal(elements.get("cornerAttackOut").textContent, "12.5 ms");
+  assert.equal(elements.get("percussionStrikeLevelOut").textContent, "84%");
+  assert.equal(elements.get("percussionAttackNoiseOut").textContent, "36%");
+  assert.equal(elements.get("percussionEnvelopeState").textContent, "Pad");
+  assert.equal(elements.get("percussionNodeReadout").textContent, "A 350 ms · D 900 ms · S 2200 ms · R 3500 ms");
   assert.equal(elements.get("stereoWidthOut").textContent, "42%");
   assert.equal(attributes.get("stereoVertical:aria-pressed"), "true");
   assert.equal(attributes.get("stereoInvert:aria-pressed"), "true");
@@ -945,7 +970,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("levelRouteSource").textContent, "Crossing angle");
   assert.equal(elements.get("levelRouteCurve").textContent, "expand highs");
   assert.notEqual(elements.get("markIncidenceOut").textContent, "");
-  assert.match(elements.get("markDecayOut").textContent, /320 ms/);
+  assert.match(elements.get("markDecayOut").textContent, /3500 ms ADSR/);
 
   await import(`../app.js?smokeReload=${Date.now()}`);
   assert.equal(elements.get("levelOut").textContent, "65%");
@@ -953,9 +978,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("amplitudeEnvelopeToggle:aria-pressed"), "true");
   assert.equal(attributes.get("cornerSwellToggle:aria-pressed"), "false");
   assert.match(elements.get("amplitudeReleaseBehavior").textContent, /rests until next trigger/);
-  assert.equal(elements.get("cornerAccentOut").textContent, "90%");
-  assert.equal(elements.get("cornerAttackOut").textContent, "3 ms");
-  assert.equal(elements.get("cornerDecayOut").textContent, "90 ms");
+  assert.equal(elements.get("percussionStrikeLevelOut").textContent, "90%");
+  assert.equal(elements.get("percussionAttackNoiseOut").textContent, "0%");
+  assert.equal(elements.get("percussionEnvelopeState").textContent, "Pluck");
+  assert.equal(elements.get("percussionNodeReadout").textContent, "A 3 ms · D 25 ms · S 55 ms · R 100 ms");
   assert.equal(elements.has("mappingFrame"), false);
   assert.equal(attributes.get("pitchVertical:aria-pressed"), "true");
   assert.equal(attributes.get("pitchHorizontal:aria-pressed"), "false");

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   AMPLITUDE_ENVELOPE_PRESETS,
+  PERCUSSION_ENVELOPE_PRESETS,
   amplitudeEnvelopePreset,
   clamp,
   cornerAttackSeconds,
@@ -14,9 +15,13 @@ import {
   normalizeStrikeGains,
   normalizeVoiceGains,
   pitch01ToFrequency,
+  percussionEnvelopeEditorX,
+  percussionEnvelopePreset,
+  percussionEnvelopeTimeMs,
   reduceVoiceContacts,
   sampleAmplitudeEnvelope,
   sanitizeAmplitudeEnvelope,
+  sanitizePercussionEnvelope,
   scaleShapeVoiceGains,
   sineCornerEnvelopeGain,
   synthParametersForMode,
@@ -24,6 +29,7 @@ import {
   VoicePool,
   waveformForIndex,
   updateAmplitudeEnvelopeNode,
+  updatePercussionEnvelopeNode,
 } from "../src/audio.js";
 
 test("audio module imports and constructs without browser globals", () => {
@@ -269,6 +275,70 @@ test("mirrored amplitude phase places the attack peak at each corner", () => {
   assert.equal(sampleAmplitudeEnvelope(mirroredAmplitudeEnvelopePhase(1, note[1].x), note), 0);
 });
 
+test("percussion envelope presets map exact millisecond landmarks into logarithmic editor space", () => {
+  assert.deepEqual(Object.keys(PERCUSSION_ENVELOPE_PRESETS), [
+    "pluck",
+    "note",
+    "sustain",
+    "pad",
+  ]);
+  const expected = {
+    pluck: [[0, 0], [3, 1], [25, 0.28], [55, 0.08], [100, 0]],
+    note: [[0, 0], [10, 1], [100, 0.55], [350, 0.42], [600, 0]],
+    sustain: [[0, 0], [30, 1], [180, 0.78], [900, 0.78], [1_400, 0]],
+    pad: [[0, 0], [350, 1], [900, 0.84], [2_200, 0.72], [3_500, 0]],
+  };
+  for (const [name, preset] of Object.entries(PERCUSSION_ENVELOPE_PRESETS)) {
+    assert.equal(Object.isFrozen(preset), true);
+    assert.ok(preset.every((node) => Object.isFrozen(node)));
+    assert.deepEqual(
+      preset.map((node) => [Math.round(percussionEnvelopeTimeMs(node.x)), node.y]),
+      expected[name],
+    );
+  }
+
+  for (const milliseconds of [0, 3, 25, 100, 600, 1_400, 3_500, 4_000]) {
+    nearAudio(
+      percussionEnvelopeTimeMs(percussionEnvelopeEditorX(milliseconds)),
+      milliseconds,
+      1e-9,
+    );
+  }
+  assert.equal(percussionEnvelopeEditorX(-1), 0);
+  assert.equal(percussionEnvelopeEditorX(9_000), 1);
+  assert.equal(percussionEnvelopeTimeMs(-1), 0);
+  nearAudio(percussionEnvelopeTimeMs(2), 4_000, 1e-9);
+
+  const editable = percussionEnvelopePreset("pluck");
+  editable[2].y = 1;
+  assert.equal(PERCUSSION_ENVELOPE_PRESETS.pluck[2].y, 0.28);
+  assert.deepEqual(percussionEnvelopePreset("missing"), percussionEnvelopePreset("pluck"));
+});
+
+test("percussion envelope editing preserves semantic order and fixed T/A/R levels", () => {
+  const malformed = sanitizePercussionEnvelope([
+    { x: 0.9, y: 0.7 },
+    { x: 0.2, y: 0.1 },
+    { x: 0.1, y: 0.6 },
+    { x: 2, y: -1 },
+    { x: 0.3, y: 1 },
+  ]);
+  assert.equal(malformed[0].x, 0);
+  assert.deepEqual(malformed.map((node) => node.y), [0, 1, 0.6, 0, 0]);
+  assert.ok(malformed.every((node, index) => index === 0 || node.x >= malformed[index - 1].x));
+  assert.deepEqual(sanitizePercussionEnvelope(null), percussionEnvelopePreset("pluck"));
+
+  const original = percussionEnvelopePreset("note");
+  const decay = updatePercussionEnvelopeNode(original, 2, { x: 1, y: -1 });
+  assert.equal(decay[2].x, original[3].x);
+  assert.equal(decay[2].y, 0);
+  assert.deepEqual(original, percussionEnvelopePreset("note"));
+  assert.equal(updatePercussionEnvelopeNode(original, 0, { x: 1, y: 1 })[0].y, 0);
+  assert.equal(updatePercussionEnvelopeNode(original, 1, { y: 0 })[1].y, 1);
+  assert.equal(updatePercussionEnvelopeNode(original, 4, { y: 1 })[4].y, 0);
+  assert.deepEqual(updatePercussionEnvelopeNode(original, 9, { y: 1 }), original);
+});
+
 test("corner articulation parameters remain independent", () => {
   assert.equal(cornerStrikePeak(0.5, 1), 0.375);
   assert.equal(cornerStrikePeak(1, 0.5), 0.375);
@@ -410,6 +480,10 @@ function fakeParam(value = 0) {
     exponentialRampToValueAtTime(...args) {
       this.value = args[0];
       this.calls.push(["exponential", ...args]);
+    },
+    linearRampToValueAtTime(...args) {
+      this.value = args[0];
+      this.calls.push(["linear", ...args]);
     },
     cancelScheduledValues(...args) {
       this.calls.push(["cancel", ...args]);
@@ -822,6 +896,202 @@ test("corner strikes schedule delayed attacks and the full 2000 ms decay", () =>
   nearAudio(strike.gain.gain.calls[2][2], endAt);
   nearAudio(strike.gain.gain.calls[3][2], endAt + 0.008);
   assert.equal(strike.gain.gain.calls[3][1], 0);
+});
+
+test("temporal percussion ADSR schedules all five nodes and creates no default noise source", () => {
+  const pool = new VoicePool(0);
+  const created = [];
+  let bufferCalls = 0;
+  let sourceCalls = 0;
+  pool.context = {
+    currentTime: 7,
+    sampleRate: 48_000,
+    createOscillator() {
+      const oscillator = fakeNode({
+        type: "sine",
+        frequency: fakeParam(220),
+        startCalls: [],
+        stopCalls: [],
+        start(...args) { this.startCalls.push(args); },
+        stop(...args) { this.stopCalls.push(args); },
+        onended: null,
+      });
+      created.push(oscillator);
+      return oscillator;
+    },
+    createGain() { return fakeNode({ gain: fakeParam(0) }); },
+    createStereoPanner() { return fakeNode({ pan: fakeParam(0) }); },
+    createBuffer() { bufferCalls += 1; throw new Error("must not run"); },
+    createBufferSource() { sourceCalls += 1; throw new Error("must not run"); },
+  };
+  pool.master = fakeNode();
+  pool.enabled = true;
+
+  assert.equal(pool.strike(
+    { key: "percussion:pluck", frequency: 440, gain: 0.5 },
+    { envelopePoints: percussionEnvelopePreset("pluck") },
+  ), true);
+  assert.equal(bufferCalls, 0);
+  assert.equal(sourceCalls, 0);
+
+  const [strike] = [...pool.activeStrikes];
+  nearAudio(strike.startedAt, 7);
+  nearAudio(strike.attackEndsAt, 7.003, 1e-9);
+  nearAudio(strike.endedAt, 7.1, 1e-9);
+  nearAudio(created[0].stopCalls[0][0], 7.112, 1e-9);
+  assert.deepEqual(strike.gain.gain.calls.map(([kind]) => kind), [
+    "value",
+    "exponential",
+    "exponential",
+    "exponential",
+    "exponential",
+    "value",
+  ]);
+  const ramps = strike.gain.gain.calls.slice(1, 5);
+  const expected = [
+    [0.5, 7.003],
+    [0.14, 7.025],
+    [0.04, 7.055],
+    [0.0001, 7.1],
+  ];
+  ramps.forEach(([, gainValue, time], index) => {
+    nearAudio(gainValue, expected[index][0], 1e-12);
+    nearAudio(time, expected[index][1], 1e-9);
+  });
+});
+
+test("attack noise shares the requested peak, reuses its buffer, and cleans up on crossfade", async () => {
+  const pool = new VoicePool(0);
+  const oscillators = [];
+  const noiseSources = [];
+  const buffers = [];
+  let bufferCalls = 0;
+  const context = {
+    currentTime: 1,
+    sampleRate: 1_000,
+    state: "running",
+    createOscillator() {
+      const oscillator = fakeNode({
+        type: "sine",
+        frequency: fakeParam(220),
+        startCalls: [],
+        stopCalls: [],
+        disconnected: false,
+        start(...args) { this.startCalls.push(args); },
+        stop(...args) { this.stopCalls.push(args); },
+        disconnect() { this.disconnected = true; },
+        onended: null,
+      });
+      oscillators.push(oscillator);
+      return oscillator;
+    },
+    createGain() {
+      const node = fakeNode({
+        gain: fakeParam(0),
+        disconnected: false,
+      });
+      node.disconnect = function disconnect() { this.disconnected = true; };
+      return node;
+    },
+    createStereoPanner() { return fakeNode({ pan: fakeParam(0) }); },
+    createBuffer(_channels, length, sampleRate) {
+      bufferCalls += 1;
+      const samples = new Float32Array(length);
+      const buffer = { sampleRate, samples, getChannelData() { return samples; } };
+      buffers.push(buffer);
+      return buffer;
+    },
+    createBufferSource() {
+      const source = fakeNode({
+        buffer: null,
+        startCalls: [],
+        stopCalls: [],
+        disconnected: false,
+        start(...args) { this.startCalls.push(args); },
+        stop(...args) { this.stopCalls.push(args); },
+      });
+      source.disconnect = function disconnect() { this.disconnected = true; };
+      noiseSources.push(source);
+      return source;
+    },
+    async close() { this.state = "closed"; },
+  };
+  pool.context = context;
+  pool.master = fakeNode();
+  pool.enabled = true;
+
+  const envelopePoints = percussionEnvelopePreset("note");
+  assert.equal(pool.strike(
+    { key: "percussion:same", frequency: 330, gain: 0.4 },
+    { envelopePoints, attackNoise: 0.25, retriggerMode: "crossfade" },
+  ), true);
+  const first = [...pool.activeStrikes][0];
+  assert.equal(first.peakGain, 0.4);
+  nearAudio(first.gain.gain.calls[1][1], 0.355);
+  nearAudio(first.noiseGain.gain.calls[1][1], 0.045);
+  nearAudio(first.gain.gain.calls[1][1] + first.noiseGain.gain.calls[1][1], 0.4);
+  assert.deepEqual(first.noiseGain.gain.calls.map(([kind]) => kind), [
+    "value",
+    "linear",
+    "linear",
+  ]);
+  assert.equal(buffers[0].samples.length, 320);
+  assert.ok(buffers[0].samples.every((sample) => sample >= -1 && sample <= 1));
+
+  context.currentTime = 1.02;
+  assert.equal(pool.strike(
+    { key: "percussion:same", frequency: 440, gain: 0.4 },
+    { envelopePoints, attackNoise: 0.75, retriggerMode: "crossfade" },
+  ), true);
+  const second = [...pool.activeStrikes].at(-1);
+  assert.equal(bufferCalls, 1, "one short noise buffer should serve every hit");
+  assert.equal(noiseSources.length, 2);
+  assert.equal(noiseSources[0].buffer, noiseSources[1].buffer);
+  nearAudio(second.gain.gain.calls[1][1], 0.265);
+  nearAudio(second.noiseGain.gain.calls[1][1], 0.135);
+  assert.ok(first.noiseGain.gain.calls.some(([kind]) => kind === "cancel"));
+  assert.equal(noiseSources[0].stopCalls.length, 2, "crossfade also stops the old noise burst");
+
+  oscillators[0].onended();
+  assert.equal(noiseSources[0].disconnected, true);
+  assert.equal(first.noiseGain.disconnected, true);
+  await pool.close();
+  assert.equal(noiseSources[1].disconnected, true);
+  assert.equal(second.noiseGain.disconnected, true);
+  assert.equal(context.state, "closed");
+  assert.equal(pool.attackNoiseBuffer, null);
+});
+
+test("attack noise safely falls back to a full-level tone when buffer APIs are unavailable", () => {
+  const pool = new VoicePool(0);
+  let sourceCalls = 0;
+  pool.context = {
+    currentTime: 3,
+    createOscillator() {
+      return fakeNode({
+        type: "sine",
+        frequency: fakeParam(220),
+        start() {},
+        stop() {},
+        onended: null,
+      });
+    },
+    createGain() { return fakeNode({ gain: fakeParam(0) }); },
+    createStereoPanner() { return fakeNode({ pan: fakeParam(0) }); },
+    createBufferSource() { sourceCalls += 1; return fakeNode(); },
+  };
+  pool.master = fakeNode();
+  pool.enabled = true;
+
+  assert.doesNotThrow(() => pool.strike(
+    { key: "percussion:fallback", frequency: 220, gain: 0.4 },
+    { envelopePoints: percussionEnvelopePreset("pluck"), attackNoise: 1 },
+  ));
+  const [strike] = [...pool.activeStrikes];
+  assert.equal(sourceCalls, 0, "a source is not created without a valid buffer");
+  nearAudio(strike.gain.gain.calls[1][1], 0.4);
+  assert.equal(strike.noiseSource, null);
+  assert.equal(strike.noiseGain, null);
 });
 
 function nearAudio(actual, expected, epsilon = 1e-12) {

@@ -2205,6 +2205,13 @@ input[type="range"]::-moz-range-thumb {
   gap: 10px;
 }
 
+.percussion-envelope-articulation .amplitude-heading-row output {
+  color: var(--accent);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .amplitude-mode-buttons {
   display: grid;
   grid-template-columns: repeat(2, 52px);

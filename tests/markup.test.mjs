@@ -169,6 +169,21 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(openingTag("fmArticulation"), /\bhidden\b/);
   assert.match(openingTag("pmArticulation"), /\bhidden\b/);
   for (const id of [
+    "percussionStrikeLevel", "percussionStrikeLevelOut", "percussionAttackNoise",
+    "percussionAttackNoiseOut", "percussionEnvelopePresets", "percussionPresetPluck",
+    "percussionPresetNote", "percussionPresetSustain", "percussionPresetPad",
+    "percussionCurveEditor", "percussionCurvePath", "percussionEnvelopeState",
+    "percussionNodeReadout", "resetPercussionCurve",
+  ]) assert.ok(html.includes(`id="${id}"`), `missing percussion ADSR control #${id}`);
+  const percussionNodes = [...html.matchAll(/id="percussionNode(\d+)"/g)].map((match) => Number(match[1]));
+  assert.deepEqual(percussionNodes, [0, 1, 2, 3, 4]);
+  assert.match(html, /<span class="field-label">Percussion ADSR<\/span>/);
+  assert.match(openingTag("percussionPresetPluck"), /data-value="pluck"[^>]*aria-pressed="true"/);
+  assert.match(openingTag("percussionAttackNoise"), /min="0"[^>]*max="1"[^>]*value="0"/);
+  assert.match(html, /Scales every mapped percussion trigger; Master level scales the final mix\./);
+  assert.match(html, /A 3 ms · D 25 ms · S 55 ms · R 100 ms/);
+  assert.doesNotMatch(html, /id="(?:cornerAccent|cornerAttack|cornerDecay)"/);
+  for (const id of [
     "amplitudeEnvelopeToggle", "amplitudeEnvelopeToggleText", "cornerSwellToggle", "cornerSwellToggleText",
     "amplitudeEnvelopePresets", "amplitudePresetPluck", "amplitudePresetNote",
     "amplitudePresetSustain", "amplitudePresetPad",
@@ -196,7 +211,8 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(app, /mirroredCornerPhase\(path, contact\)/);
   assert.match(app, /spatialEnvelopeTimeRange/);
   assert.match(app, /aria-describedby", "amplitudeTimingBasis"/);
-  assert.match(openingTag("cornerDecay"), /min="15"[^>]*max="2000"[^>]*value="90"/);
+  assert.match(app, /percussionEnvelopePoints/);
+  assert.match(app, /attackNoise: state\.percussionAttackNoise/);
 
   // Mapping has one permanent reference: fixed stage/screen axes. There is no
   // Form-local coordinate-frame choice to drift when the contour rotates.

@@ -33,6 +33,8 @@ const RELEASE_TIME_CONSTANT = 0.025;
 const PAN_TIME_CONSTANT = 0.025;
 const MASTER_TIME_CONSTANT = 0.03;
 const STRIKE_GAIN_FLOOR = 0.0001;
+const PERCUSSION_ENVELOPE_MAX_MS = 4_000;
+const ATTACK_NOISE_SECONDS = 0.04;
 const CONTINUOUS_SYNTH_MODES = new Set(["sine", "shepard", "fm", "pm"]);
 
 /** @typedef {{x: number, y: number}} AmplitudeEnvelopeNode */
@@ -83,6 +85,106 @@ export function amplitudeEnvelopePreset(name = "sustain") {
   const preset = AMPLITUDE_ENVELOPE_PRESETS[presetName]
     ?? AMPLITUDE_ENVELOPE_PRESETS.sustain;
   return preset.map((point) => ({ ...point }));
+}
+
+/**
+ * Convert the compact percussion editor's logarithmic X coordinate to time.
+ * log1p/expm1 keep zero exact while leaving enough horizontal space to edit
+ * both a 3 ms click and a 4 second pad in the same small graph.
+ */
+export function percussionEnvelopeTimeMs(editorX) {
+  const normalized = clamp(Number.isFinite(editorX) ? editorX : 0, 0, 1);
+  return Math.expm1(normalized * Math.log1p(PERCUSSION_ENVELOPE_MAX_MS));
+}
+
+/** Convert a percussion envelope time (0-4000 ms) back to editor X. */
+export function percussionEnvelopeEditorX(timeMs) {
+  const bounded = clamp(Number.isFinite(timeMs) ? timeMs : 0, 0, PERCUSSION_ENVELOPE_MAX_MS);
+  return Math.log1p(bounded) / Math.log1p(PERCUSSION_ENVELOPE_MAX_MS);
+}
+
+function percussionPreset(times, levels) {
+  return freezeEnvelopePreset(times.map((timeMs, index) => ({
+    x: percussionEnvelopeEditorX(timeMs),
+    y: levels[index],
+  })));
+}
+
+/**
+ * Five-node temporal percussion envelopes: trigger, attack peak, decay level,
+ * sustain level/end, and release. X is logarithmic editor space; helpers above
+ * convert it to milliseconds for display and Web Audio scheduling.
+ */
+export const PERCUSSION_ENVELOPE_PRESETS = Object.freeze({
+  pluck: percussionPreset([0, 3, 25, 55, 100], [0, 1, 0.28, 0.08, 0]),
+  note: percussionPreset([0, 10, 100, 350, 600], [0, 1, 0.55, 0.42, 0]),
+  sustain: percussionPreset([0, 30, 180, 900, 1_400], [0, 1, 0.78, 0.78, 0]),
+  pad: percussionPreset([0, 350, 900, 2_200, 3_500], [0, 1, 0.84, 0.72, 0]),
+});
+
+/** Return a fresh editable copy of a named percussion envelope preset. */
+export function percussionEnvelopePreset(name = "pluck") {
+  const presetName = typeof name === "string" ? name.toLowerCase() : "pluck";
+  const preset = PERCUSSION_ENVELOPE_PRESETS[presetName]
+    ?? PERCUSSION_ENVELOPE_PRESETS.pluck;
+  return preset.map((point) => ({ ...point }));
+}
+
+/**
+ * Keep persisted percussion editor state inside its five semantic node roles.
+ * Node order is repaired without sorting, so an attack can never become a
+ * decay node. Trigger/release stay silent and the attack remains the peak.
+ * @param {unknown} points
+ * @returns {AmplitudeEnvelopeNode[]}
+ */
+export function sanitizePercussionEnvelope(points) {
+  const source = Array.isArray(points) ? points : [];
+  const fallback = PERCUSSION_ENVELOPE_PRESETS.pluck;
+  const sanitized = fallback.map((fallbackPoint, index) => {
+    const point = source[index];
+    return {
+      x: point && typeof point === "object" && Number.isFinite(point.x)
+        ? clamp(point.x, 0, 1)
+        : fallbackPoint.x,
+      y: point && typeof point === "object" && Number.isFinite(point.y)
+        ? clamp(point.y, 0, 1)
+        : fallbackPoint.y,
+    };
+  });
+
+  sanitized[0].x = 0;
+  for (let index = 1; index < sanitized.length; index += 1) {
+    sanitized[index].x = Math.max(sanitized[index - 1].x, sanitized[index].x);
+  }
+  sanitized[0].y = 0;
+  sanitized[1].y = 1;
+  sanitized[4].y = 0;
+  return sanitized;
+}
+
+/** Move one percussion node without crossing neighbours or changing anchors. */
+export function updatePercussionEnvelopeNode(points, index, changes = {}) {
+  const next = sanitizePercussionEnvelope(points);
+  if (!Number.isInteger(index) || index < 0 || index >= next.length) return next;
+  const safeChanges = changes && typeof changes === "object" ? changes : {};
+  const current = next[index];
+  const lowX = index > 0 ? next[index - 1].x : 0;
+  const highX = index < next.length - 1 ? next[index + 1].x : 1;
+  next[index] = {
+    x: index === 0
+      ? 0
+      : Number.isFinite(safeChanges.x)
+      ? clamp(safeChanges.x, lowX, highX)
+      : current.x,
+    y: index === 0 || index === 4
+      ? 0
+      : index === 1
+      ? 1
+      : Number.isFinite(safeChanges.y)
+      ? clamp(safeChanges.y, 0, 1)
+      : current.y,
+  };
+  return next;
 }
 
 /**
@@ -460,11 +562,13 @@ export class VoicePool {
     /** @type {AudioWorkletNode|null} */
     this.synthNode = null;
     this.workletUnavailable = false;
+    /** @type {AudioBuffer|null} */
+    this.attackNoiseBuffer = null;
     /** @type {{oscillator: OscillatorNode, gain: GainNode, pan: StereoPannerNode, key: string|null}[]} */
     this.voices = [];
-    /** @type {Set<{oscillator: OscillatorNode, gain: GainNode, pan: StereoPannerNode, startedAt: number, attackEndsAt: number, endedAt: number, peakGain: number}>} */
+    /** @type {Set<{oscillator: OscillatorNode, gain: GainNode, pan: StereoPannerNode, noiseSource?: AudioBufferSourceNode|null, noiseGain?: GainNode|null, noiseEndsAt?: number, startedAt: number, attackEndsAt: number, endedAt: number, peakGain: number, envelopeLevels?: {time: number, gain: number}[]|null}>} */
     this.activeStrikes = new Set();
-    /** @type {Map<string, {oscillator: OscillatorNode, gain: GainNode, pan: StereoPannerNode, startedAt: number, attackEndsAt: number, endedAt: number, peakGain: number}>} */
+    /** @type {Map<string, {oscillator: OscillatorNode, gain: GainNode, pan: StereoPannerNode, noiseSource?: AudioBufferSourceNode|null, noiseGain?: GainNode|null, noiseEndsAt?: number, startedAt: number, attackEndsAt: number, endedAt: number, peakGain: number, envelopeLevels?: {time: number, gain: number}[]|null}>} */
     this.activeStrikeByKey = new Map();
     /** @type {Map<string, number>} */
     this.lastStrikeAtByKey = new Map();
@@ -670,16 +774,46 @@ export class VoicePool {
     }
   }
 
+  /** Build one short reusable white-noise buffer for percussion attacks. */
+  attackNoiseBufferForContext() {
+    if (this.attackNoiseBuffer) return this.attackNoiseBuffer;
+    const context = this.context;
+    if (!context || typeof context.createBuffer !== "function") return null;
+    try {
+      const sampleRate = clamp(
+        Number.isFinite(context.sampleRate) ? context.sampleRate : 48_000,
+        8_000,
+        192_000,
+      );
+      const buffer = context.createBuffer(
+        1,
+        Math.max(1, Math.ceil(sampleRate * ATTACK_NOISE_SECONDS)),
+        sampleRate,
+      );
+      if (!buffer || typeof buffer.getChannelData !== "function") return null;
+      const samples = buffer.getChannelData(0);
+      for (let index = 0; index < samples.length; index += 1) {
+        samples[index] = Math.random() * 2 - 1;
+      }
+      this.attackNoiseBuffer = buffer;
+      return buffer;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Fire a one-shot attack/decay transient on the shared output bus. Unlike
    * the sustained pool, a strike cannot linger merely because a playhead is
    * parked on a corner.
    * @param {VoiceSpec} spec
-   * @param {{attackSeconds?: number, decaySeconds?: number, startDelaySeconds?: number, retriggerMode?: "overlap"|"crossfade"|"ignore", crossfadeSeconds?: number}} [envelope]
+   * @param {{attackSeconds?: number, decaySeconds?: number, envelopePoints?: unknown, attackNoise?: number, startDelaySeconds?: number, retriggerMode?: "overlap"|"crossfade"|"ignore", crossfadeSeconds?: number}} [envelope]
    */
   strike(spec, {
     attackSeconds = 0.004,
     decaySeconds = 0.08,
+    envelopePoints,
+    attackNoise = 0,
     startDelaySeconds = 0,
     retriggerMode = "overlap",
     crossfadeSeconds = 0.012,
@@ -710,11 +844,29 @@ export class VoicePool {
             parameter.cancelScheduledValues(startAt);
             parameter.setTargetAtTime(STRIKE_GAIN_FLOOR, startAt, fadeDuration / 4);
           }
-          previousStrike.oscillator.stop(fadeEnd + 0.005);
-          previousStrike.endedAt = fadeEnd;
         } catch {
-          // The previous strike may have ended between lookup and reschedule.
+          // The previous tone may have ended between lookup and reschedule.
         }
+        if (previousStrike.noiseGain) {
+          try {
+            const noiseParameter = previousStrike.noiseGain.gain;
+            noiseParameter.cancelScheduledValues(startAt);
+            noiseParameter.setTargetAtTime(0, startAt, fadeDuration / 4);
+          } catch {
+            // An already-ended noise burst needs no fade.
+          }
+        }
+        try {
+          previousStrike.oscillator.stop(fadeEnd + 0.005);
+        } catch {
+          // Already stopped.
+        }
+        try {
+          previousStrike.noiseSource?.stop(fadeEnd + 0.005);
+        } catch {
+          // Already stopped.
+        }
+        previousStrike.endedAt = fadeEnd;
       }
     }
     if (key) {
@@ -724,28 +876,134 @@ export class VoicePool {
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     const pan = context.createStereoPanner();
-    const attack = clamp(attackSeconds, 0.0005, 0.03);
-    const decay = clamp(decaySeconds, 0.015, 2);
-    const end = startAt + attack + decay;
     const peakGain = Math.max(STRIKE_GAIN_FLOOR, voice.gain);
+    const percussionEnvelope = envelopePoints === undefined
+      ? null
+      : sanitizePercussionEnvelope(envelopePoints);
+    const envelopeTimes = percussionEnvelope?.map((point) =>
+      percussionEnvelopeTimeMs(point.x) / 1_000
+    ) ?? null;
+    const attack = percussionEnvelope
+      ? envelopeTimes[1]
+      : clamp(attackSeconds, 0.0005, 0.03);
+    const decay = percussionEnvelope
+      ? Math.max(0, envelopeTimes[4] - attack)
+      : clamp(decaySeconds, 0.015, 2);
+    const end = startAt + Math.max(0.0005, attack + decay);
+
+    let noiseSource = null;
+    let noiseGain = null;
+    let noisePeak = 0;
+    const requestedNoise = clamp(Number.isFinite(attackNoise) ? attackNoise : 0, 0, 1);
+    if (
+      requestedNoise > 0
+      && typeof context.createBufferSource === "function"
+      && typeof context.createGain === "function"
+    ) {
+      const buffer = this.attackNoiseBufferForContext();
+      if (buffer) {
+        try {
+          noiseSource = context.createBufferSource();
+          noiseGain = context.createGain();
+          if (
+            !noiseSource
+            || typeof noiseSource.connect !== "function"
+            || typeof noiseSource.start !== "function"
+            || typeof noiseSource.stop !== "function"
+            || !noiseGain?.gain
+            || typeof noiseGain.gain.setValueAtTime !== "function"
+            || typeof noiseGain.gain.linearRampToValueAtTime !== "function"
+          ) {
+            throw new Error("Attack noise nodes are incomplete.");
+          }
+          noiseSource.buffer = buffer;
+          noisePeak = Math.min(
+            peakGain - STRIKE_GAIN_FLOOR,
+            peakGain * 0.45 * requestedNoise,
+          );
+          if (noisePeak <= 0) {
+            noiseSource = null;
+            noiseGain = null;
+            noisePeak = 0;
+          }
+        } catch {
+          try {
+            noiseSource?.disconnect();
+            noiseGain?.disconnect();
+          } catch {
+            // Partially constructed fallback nodes can be discarded.
+          }
+          noiseSource = null;
+          noiseGain = null;
+          noisePeak = 0;
+        }
+      }
+    }
+    const tonePeak = peakGain - noisePeak;
 
     oscillator.type = waveformForIndex(voice.waveform, this.activeStrikes.size);
     oscillator.frequency.setValueAtTime(voice.frequency, startAt);
     pan.pan.setValueAtTime(voice.pan ?? 0, startAt);
     gain.gain.setValueAtTime(STRIKE_GAIN_FLOOR, startAt);
-    gain.gain.exponentialRampToValueAtTime(peakGain, startAt + attack);
-    gain.gain.exponentialRampToValueAtTime(STRIKE_GAIN_FLOOR, end);
+    if (percussionEnvelope && envelopeTimes) {
+      let previousTime = startAt;
+      for (let index = 1; index < percussionEnvelope.length; index += 1) {
+        const at = startAt + envelopeTimes[index];
+        const target = Math.max(
+          STRIKE_GAIN_FLOOR,
+          tonePeak * percussionEnvelope[index].y,
+        );
+        if (at <= previousTime) gain.gain.setValueAtTime(target, at);
+        else gain.gain.exponentialRampToValueAtTime(target, at);
+        previousTime = at;
+      }
+    } else {
+      // Preserve the original two-ramp envelope exactly for callers on other
+      // pages that still provide attackSeconds/decaySeconds.
+      gain.gain.exponentialRampToValueAtTime(tonePeak, startAt + attack);
+      gain.gain.exponentialRampToValueAtTime(STRIKE_GAIN_FLOOR, end);
+    }
     gain.gain.setValueAtTime(0, end + 0.008);
     oscillator.connect(gain).connect(pan).connect(this.master);
+
+    let noiseEndsAt = startAt;
+    if (noiseSource && noiseGain && noisePeak > 0) {
+      const duration = Math.min(ATTACK_NOISE_SECONDS, end - startAt);
+      const noiseAttack = Math.min(
+        duration,
+        0.008,
+        Math.max(0.001, duration * 0.2),
+      );
+      noiseEndsAt = startAt + duration;
+      noiseGain.gain.setValueAtTime(0, startAt);
+      noiseGain.gain.linearRampToValueAtTime(noisePeak, startAt + noiseAttack);
+      noiseGain.gain.linearRampToValueAtTime(0, startAt + duration);
+      noiseSource.connect(noiseGain).connect(pan);
+      noiseSource.onended = () => {
+        noiseSource.disconnect();
+        noiseGain.disconnect();
+      };
+      noiseSource.start(startAt);
+      noiseSource.stop(startAt + duration + 0.005);
+    }
 
     const strike = {
       oscillator,
       gain,
       pan,
+      noiseSource,
+      noiseGain,
+      noiseEndsAt,
       startedAt: startAt,
       attackEndsAt: startAt + attack,
       endedAt: end,
       peakGain,
+      envelopeLevels: percussionEnvelope && envelopeTimes
+        ? percussionEnvelope.map((point, index) => ({
+            time: startAt + envelopeTimes[index],
+            gain: Math.max(STRIKE_GAIN_FLOOR, tonePeak * point.y),
+          }))
+        : null,
     };
     this.activeStrikes.add(strike);
     if (key) this.activeStrikeByKey.set(key, strike);
@@ -757,6 +1015,8 @@ export class VoicePool {
       oscillator.disconnect();
       gain.disconnect();
       pan.disconnect();
+      noiseSource?.disconnect();
+      noiseGain?.disconnect();
     };
     oscillator.start(startAt);
     oscillator.stop(end + 0.012);
@@ -780,8 +1040,26 @@ export class VoicePool {
     for (const strike of this.activeStrikes) {
       if (now >= strike.endedAt) continue;
 
-      if (now <= strike.attackEndsAt) {
+      if (now <= strike.attackEndsAt || now < (strike.noiseEndsAt ?? strike.startedAt)) {
         occupied += strike.peakGain;
+      } else if (strike.envelopeLevels) {
+        const levels = strike.envelopeLevels;
+        let currentGain = levels.at(-1)?.gain ?? STRIKE_GAIN_FLOOR;
+        for (let index = 1; index < levels.length; index += 1) {
+          const left = levels[index - 1];
+          const right = levels[index];
+          if (now > right.time) continue;
+          if (right.time <= left.time) currentGain = right.gain;
+          else {
+            currentGain = exponentialRampValue(
+              Math.max(STRIKE_GAIN_FLOOR, left.gain),
+              Math.max(STRIKE_GAIN_FLOOR, right.gain),
+              (now - left.time) / (right.time - left.time),
+            );
+          }
+          break;
+        }
+        occupied += currentGain;
       } else {
         const decayDuration = strike.endedAt - strike.attackEndsAt;
         const progress = decayDuration > 0
@@ -890,9 +1168,26 @@ export class VoicePool {
           parameter.setValueAtTime(Math.max(0.0001, parameter.value), now);
         }
         parameter.exponentialRampToValueAtTime(0.0001, now + 0.025);
+      } catch {
+        // A strike that has already ended needs no further tone fade.
+      }
+      try {
         strike.oscillator.stop(now + 0.03);
       } catch {
-        // A strike that has already ended needs no further cleanup.
+        // Already stopped.
+      }
+      if (strike.noiseGain) {
+        try {
+          strike.noiseGain.gain.cancelScheduledValues(now);
+          strike.noiseGain.gain.setTargetAtTime(0, now, 0.006);
+        } catch {
+          // An already-ended noise burst needs no fade.
+        }
+      }
+      try {
+        strike.noiseSource?.stop(now + 0.03);
+      } catch {
+        // Already stopped.
       }
     }
     this.activeStrikeByKey.clear();
@@ -937,6 +1232,13 @@ export class VoicePool {
       strike.oscillator.disconnect();
       strike.gain.disconnect();
       strike.pan.disconnect();
+      try {
+        strike.noiseSource?.stop();
+      } catch {
+        // Already stopped.
+      }
+      strike.noiseSource?.disconnect();
+      strike.noiseGain?.disconnect();
     }
     this.activeStrikes.clear();
     this.activeStrikeByKey.clear();
@@ -955,6 +1257,7 @@ export class VoicePool {
     this.compressor = null;
     this.synthNode = null;
     this.workletUnavailable = false;
+    this.attackNoiseBuffer = null;
     this.voices = [];
     this.activeStrikes.clear();
     this.activeStrikeByKey.clear();

@@ -20,17 +20,18 @@ import {
   amplitudeEnvelopePreset,
   VoicePool,
   clamp,
-  cornerAttackSeconds,
-  cornerDecaySeconds,
   cornerStrikePeak,
   mapCurve01,
   mirroredAmplitudeEnvelopePhase,
   normalizeStrikeGains,
+  percussionEnvelopePreset,
+  percussionEnvelopeTimeMs,
   pitch01ToFrequency,
   sampleAmplitudeEnvelope,
   scaleShapeVoiceGains,
   synthParametersForMode,
   updateAmplitudeEnvelopeNode,
+  updatePercussionEnvelopeNode,
 } from "./src/audio.js";
 import {
   canonicalHeadOffsets,
@@ -137,9 +138,10 @@ const state = {
   cornerSwell: false,
   amplitudePreset: "pluck",
   amplitudeEnvelopePoints: amplitudeEnvelopePreset("pluck"),
-  cornerAccent: 0.9,
-  cornerAttack: 3,
-  cornerDecay: 90,
+  percussionStrikeLevel: 0.9,
+  percussionAttackNoise: 0,
+  percussionPreset: "pluck",
+  percussionEnvelopePoints: percussionEnvelopePreset("pluck"),
   timbreSource: "corner",
   shepardCycles: 1,
   shepardDirection: 1,
@@ -162,10 +164,8 @@ state.baseFrequency = clamp(state.baseFrequency, 20, 440);
 state.pitchRange = clamp(state.pitchRange, 0, 6);
 state.level = clamp(state.level, 0, 1);
 state.soundMode = SOUND_MODES.has(state.soundMode) ? state.soundMode : "sine";
-state.cornerAccent = clamp(state.cornerAccent, 0, 1);
-state.cornerAttack = clamp(state.cornerAttack, 0.5, 30);
-if (state.cornerDecay < 15) state.cornerDecay = 90;
-state.cornerDecay = clamp(state.cornerDecay, 15, 2000);
+state.percussionStrikeLevel = clamp(state.percussionStrikeLevel, 0, 1);
+state.percussionAttackNoise = clamp(state.percussionAttackNoise, 0, 1);
 state.timbreSource = ["height", "horizontal", "center", "corner", "incidence", "phase"].includes(state.timbreSource)
   ? state.timbreSource
   : "corner";
@@ -204,6 +204,7 @@ let pointerGesture = null;
 let draggingHead = null;
 let draggingPitchCurveNode = null;
 let draggingAmplitudeNode = null;
+let draggingPercussionNode = null;
 let lastFrameTime = performance.now();
 let lastAudioClockTime = null;
 let lastUiUpdate = 0;
@@ -536,9 +537,8 @@ const updateStarDepthOutput = bindRange("starDepth", "starDepth", (value) => `${
 bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
-bindRange("cornerAccent", "cornerAccent", (value) => `${Math.round(value * 100)}%`);
-bindRange("cornerAttack", "cornerAttack", (value) => `${Number(value).toFixed(value % 1 ? 1 : 0)} ms`);
-bindRange("cornerDecay", "cornerDecay", (value) => `${Math.round(cornerDecaySeconds(value) * 1000)} ms`);
+bindRange("percussionStrikeLevel", "percussionStrikeLevel", (value) => `${Math.round(value * 100)}%`);
+bindRange("percussionAttackNoise", "percussionAttackNoise", (value) => `${Math.round(value * 100)}%`);
 bindRange("shepardCycles", "shepardCycles", (value) => `${value.toFixed(2)} oct / circuit`);
 bindRange("shepardWidth", "shepardWidth", (value) => `${value.toFixed(1)} oct max`, updateTimbreMappingUi);
 bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`, updateTimbreMappingUi);
@@ -1385,6 +1385,109 @@ $("cornerSwellToggle").addEventListener("click", () => {
   announce(`Corner swell ${state.cornerSwell ? "on" : "off"}.`);
   invalidate();
 });
+
+function percussionNodeTiming(index) {
+  const milliseconds = percussionEnvelopeTimeMs(state.percussionEnvelopePoints[index]?.x ?? 0);
+  return {
+    short: `${formatMilliseconds(milliseconds)} ms`,
+    spoken: `${formatMilliseconds(milliseconds)} milliseconds from the trigger`,
+  };
+}
+
+function percussionNodeAnnouncement(index) {
+  const node = state.percussionEnvelopePoints[index];
+  const timing = percussionNodeTiming(index);
+  return `${AMPLITUDE_NODE_NAMES[index]}: ${timing.spoken}, ${Math.round(node.y * 100)} percent level.`;
+}
+
+function updatePercussionUi() {
+  $("percussionCurvePath").setAttribute("d", amplitudeCurvePathData(state.percussionEnvelopePoints));
+  $("percussionEnvelopeState").textContent = AMPLITUDE_PRESET_LABELS[state.percussionPreset] ?? "Custom";
+  for (const button of $("percussionEnvelopePresets").querySelectorAll("button")) {
+    setPressed(button, button.dataset.value === state.percussionPreset);
+  }
+
+  const timings = state.percussionEnvelopePoints.map((_, index) => percussionNodeTiming(index));
+  $("percussionNodeReadout").textContent = `A ${timings[1].short} · D ${timings[2].short} · S ${timings[3].short} · R ${timings[4].short}`;
+  state.percussionEnvelopePoints.forEach((point, index) => {
+    const handle = $(`percussionNode${index}`);
+    const levelPercent = Math.round(point.y * 100);
+    const timing = timings[index];
+    handle.style.left = `${point.x * 100}%`;
+    handle.style.top = `${(1 - point.y) * 100}%`;
+    handle.setAttribute("aria-valuenow", String(levelPercent));
+    handle.setAttribute("aria-label", `${AMPLITUDE_NODE_NAMES[index]}: ${timing.spoken}, ${levelPercent} percent level`);
+    handle.setAttribute("aria-valuetext", `${timing.spoken}, ${levelPercent} percent level`);
+    handle.title = `${AMPLITUDE_NODE_NAMES[index]} · ${timing.short} · ${levelPercent}% level`;
+  });
+}
+
+function selectPercussionPreset(preset, shouldAnnounce = true) {
+  state.percussionPreset = ["note", "sustain", "pad"].includes(preset) ? preset : "pluck";
+  state.percussionEnvelopePoints = percussionEnvelopePreset(state.percussionPreset);
+  updatePercussionUi();
+  if (shouldAnnounce) announce(`${AMPLITUDE_PRESET_LABELS[state.percussionPreset]} Percussion ADSR selected.`);
+  invalidate();
+}
+
+function setPercussionNode(index, point, shouldAnnounce = false) {
+  state.percussionEnvelopePoints = updatePercussionEnvelopeNode(
+    state.percussionEnvelopePoints,
+    index,
+    point,
+  );
+  state.percussionPreset = "custom";
+  updatePercussionUi();
+  if (shouldAnnounce) announce(percussionNodeAnnouncement(index));
+  invalidate();
+}
+
+for (const button of $("percussionEnvelopePresets").querySelectorAll("button")) {
+  button.addEventListener("click", () => selectPercussionPreset(button.dataset.value));
+}
+
+function percussionPointFromPointer(event) {
+  const bounds = $("percussionCurveEditor").getBoundingClientRect();
+  return {
+    x: clamp((event.clientX - bounds.left) / Math.max(1, bounds.width), 0, 1),
+    y: clamp(1 - (event.clientY - bounds.top) / Math.max(1, bounds.height), 0, 1),
+  };
+}
+
+for (let index = 0; index < 5; index += 1) {
+  const handle = $(`percussionNode${index}`);
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault?.();
+    draggingPercussionNode = { index, pointerId: event.pointerId };
+    $("percussionCurveEditor").setPointerCapture?.(event.pointerId);
+  });
+  handle.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    const step = event.shiftKey ? 0.05 : 0.01;
+    const node = state.percussionEnvelopePoints[index];
+    setPercussionNode(index, {
+      x: node.x + (event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0),
+      y: node.y + (event.key === "ArrowDown" ? -step : event.key === "ArrowUp" ? step : 0),
+    }, true);
+  });
+}
+
+$("percussionCurveEditor").addEventListener("pointermove", (event) => {
+  if (!draggingPercussionNode || event.pointerId !== draggingPercussionNode.pointerId) return;
+  setPercussionNode(draggingPercussionNode.index, percussionPointFromPointer(event));
+});
+
+function endPercussionDrag(event) {
+  if (!draggingPercussionNode || event.pointerId !== draggingPercussionNode.pointerId) return;
+  const index = draggingPercussionNode.index;
+  draggingPercussionNode = null;
+  announce(percussionNodeAnnouncement(index));
+}
+
+$("percussionCurveEditor").addEventListener("pointerup", endPercussionDrag);
+$("percussionCurveEditor").addEventListener("pointercancel", endPercussionDrag);
+$("resetPercussionCurve").addEventListener("click", () => selectPercussionPreset("pluck"));
 
 const speedInput = $("speed");
 speedInput.value = String(sliderFromSpeed(state.speed));
@@ -2252,12 +2355,13 @@ function strikeCorner(path, vertex, headIndex, time01 = 0, head = null) {
     cornerTurn: vertex.turn,
   };
   const levelValue = percussionLevelValue(contact, path, headIndex);
-  const peak = cornerStrikePeak(levelValue, state.cornerAccent);
+  const peak = cornerStrikePeak(levelValue, state.percussionStrikeLevel);
   if (peak <= 0) return;
   const mapping = mappingForContact(contact, path, headIndex);
   const envelope = {
-    attackSeconds: cornerAttackSeconds(state.cornerAttack),
-    decaySeconds: cornerDecaySeconds(state.cornerDecay),
+    envelopePoints: state.percussionEnvelopePoints,
+    attackNoise: state.percussionAttackNoise,
+    retriggerMode: "crossfade",
   };
   const frequency = pitch01ToFrequency(mapping.pitch, state.baseFrequency, state.pitchRange);
 
@@ -2475,7 +2579,7 @@ function displayTurn(turn) {
 function contactOutputGain(contact, path) {
   if (state.soundMode === "percussion") {
     if ((contact.cornerStrength ?? 0) <= 0) return 0;
-    return cornerStrikePeak(percussionLevelValue(contact, path), state.cornerAccent);
+    return cornerStrikePeak(percussionLevelValue(contact, path), state.percussionStrikeLevel);
   }
   return amplitudeGainForContact(contact, path);
 }
@@ -2491,12 +2595,17 @@ function synthValueLabel(parameters) {
     const direction = parameters.shepardRate >= 0 ? "+" : "";
     return `${direction}${parameters.shepardRate.toFixed(3)} oct/s · ${parameters.shepardWidth.toFixed(1)} oct`;
   }
-  if (state.soundMode === "percussion") return `sine strike · ${Math.round(state.cornerDecay)} ms`;
+  if (state.soundMode === "percussion") {
+    const noise = Math.round(state.percussionAttackNoise * 100);
+    return `sine strike · ${AMPLITUDE_PRESET_LABELS[state.percussionPreset] ?? "Custom"} ADSR · ${noise}% noise`;
+  }
   return "pure sine";
 }
 
 function envelopeDurationLabel() {
-  if (state.soundMode === "percussion") return `${Math.round(state.cornerDecay)} ms`;
+  if (state.soundMode === "percussion") {
+    return `${formatMilliseconds(percussionEnvelopeTimeMs(state.percussionEnvelopePoints.at(-1)?.x ?? 0))} ms ADSR`;
+  }
   if (state.shapeType === "circle") return "none";
   if (!state.amplitudeEnvelopeEnabled) return "bypassed";
   const release = state.amplitudeEnvelopePoints.at(-1)?.y ?? 0;
@@ -2820,6 +2929,7 @@ setPitchDimension(state.pitchSource, false);
 setStereoDimension(state.stereoSource, false);
 renderPitchCurve();
 updateAmplitudeUi();
+updatePercussionUi();
 setTraversalDirection(1, false);
 setRotationDirection(1, false);
 setRotationMotionMode(state.rotationMotionMode, false);

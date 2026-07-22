@@ -264,19 +264,48 @@
             </label>
 
             <div class="synth-panel" id="percussionArticulation" hidden>
-              <label class="control" for="cornerAccent">
-                <span><b>Hit level</b><output id="cornerAccentOut" for="cornerAccent">90%</output></span>
-                <input id="cornerAccent" type="range" min="0" max="1" step="0.01" value="0.9" />
+              <label class="control" for="percussionStrikeLevel">
+                <span><b>Strike level</b><output id="percussionStrikeLevelOut" for="percussionStrikeLevel">90%</output></span>
+                <input id="percussionStrikeLevel" type="range" min="0" max="1" step="0.01" value="0.9" />
+                <small class="mapping-coordinate-note mapping-source-help">Scales every mapped percussion trigger; Master level scales the final mix.</small>
               </label>
 
-              <label class="control" for="cornerAttack">
-                <span><b>Attack</b><output id="cornerAttackOut" for="cornerAttack">3 ms</output></span>
-                <input id="cornerAttack" type="range" min="0.5" max="30" step="0.5" value="3" />
-              </label>
+              <div class="amplitude-articulation percussion-envelope-articulation">
+                <div class="amplitude-heading-row">
+                  <span class="field-label">Percussion ADSR</span>
+                  <output id="percussionEnvelopeState">Pluck</output>
+                </div>
+                <div class="curve-preset-strip amplitude-preset-strip" id="percussionEnvelopePresets" role="group" aria-label="Percussion ADSR presets">
+                  <button id="percussionPresetPluck" type="button" data-value="pluck" aria-pressed="true">Pluck</button>
+                  <button id="percussionPresetNote" type="button" data-value="note" aria-pressed="false">Note</button>
+                  <button id="percussionPresetSustain" type="button" data-value="sustain" aria-pressed="false">Sustain</button>
+                  <button id="percussionPresetPad" type="button" data-value="pad" aria-pressed="false">Pad</button>
+                </div>
+                <div class="curve-editor amplitude-curve-editor" id="percussionCurveEditor" role="group" aria-label="Editable percussion ADSR in milliseconds">
+                  <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true">
+                    <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
+                    <path class="curve-path" id="percussionCurvePath" d="M0 96 L40.11 0 L94.27 69.12 L116.48 88.32 L133.54 96" />
+                  </svg>
+                  <button class="curve-node amplitude-node" id="percussionNode0" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="0" style="left:0%;top:100%" aria-label="Trigger: 0 milliseconds, 0 percent level"><span>T</span></button>
+                  <button class="curve-node amplitude-node" id="percussionNode1" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" data-node-index="1" style="left:16.71%;top:0%" aria-label="Attack: 3 milliseconds, 100 percent level"><span>A</span></button>
+                  <button class="curve-node amplitude-node" id="percussionNode2" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="28" data-node-index="2" style="left:39.28%;top:72%" aria-label="Decay: 25 milliseconds, 28 percent level"><span>D</span></button>
+                  <button class="curve-node amplitude-node" id="percussionNode3" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="8" data-node-index="3" style="left:48.53%;top:92%" aria-label="Sustain: 55 milliseconds, 8 percent level"><span>S</span></button>
+                  <button class="curve-node amplitude-node" id="percussionNode4" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="4" style="left:55.64%;top:100%" aria-label="Release: 100 milliseconds, 0 percent level"><span>R</span></button>
+                </div>
+                <div class="curve-editor-footer">
+                  <small>Log time · trigger → silence · 0–4000 ms</small>
+                  <button class="mini-action" id="resetPercussionCurve" type="button">Reset</button>
+                </div>
+                <div class="amplitude-timing-row">
+                  <output id="percussionNodeReadout" aria-label="Percussion ADSR node timing">A 3 ms · D 25 ms · S 55 ms · R 100 ms</output>
+                  <small>Drag nodes for time and level; the release always reaches silence.</small>
+                </div>
+              </div>
 
-              <label class="control" for="cornerDecay">
-                <span><b>Decay</b><output id="cornerDecayOut" for="cornerDecay">90 ms</output></span>
-                <input id="cornerDecay" type="range" min="15" max="2000" step="5" value="90" />
+              <label class="control" for="percussionAttackNoise">
+                <span><b>Attack noise</b><output id="percussionAttackNoiseOut" for="percussionAttackNoise">0%</output></span>
+                <input id="percussionAttackNoise" type="range" min="0" max="1" step="0.01" value="0" />
+                <small class="mapping-coordinate-note mapping-source-help">Adds a short noise transient without raising the strike's peak level.</small>
               </label>
             </div>
 
