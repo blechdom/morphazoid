@@ -324,6 +324,54 @@ a {
   --accent-glow: color-mix(in oklab, #ffb86b 22%, transparent);
 }
 
+.spiral-page {
+  --accent: #ff826f;
+  --accent-soft: color-mix(in oklab, #ff826f 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff826f 22%, transparent);
+}
+
+.spiral-page .stage-wrap {
+  background:
+    linear-gradient(rgba(95, 232, 196, 0.024) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 180, 255, 0.024) 1px, transparent 1px),
+    radial-gradient(circle at 50% 50%, rgba(255, 130, 111, 0.07), transparent 48%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.spiral-page #stage {
+  cursor: crosshair;
+}
+
+.spiral-page .stage-wrap.is-scrubbing #stage {
+  cursor: grabbing;
+}
+
+.spiral-coordinate-meta {
+  position: absolute;
+  z-index: 2;
+  bottom: 16px;
+  left: 18px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  pointer-events: none;
+  color: #ffb86b;
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  font-size: 9px;
+  letter-spacing: 0;
+}
+
+.spiral-time-switch {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-flow: initial;
+}
+
+.spiral-winding-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .solid-page {
   --accent: #7db4ff;
   --accent-soft: color-mix(in oklab, #7db4ff 55%, transparent);
@@ -1390,6 +1438,12 @@ input[type="range"]::-moz-range-thumb {
   --accent: #ffb86b;
   --accent-soft: color-mix(in oklab, #ffb86b 55%, transparent);
   --accent-glow: color-mix(in oklab, #ffb86b 20%, transparent);
+}
+
+.control-section[data-section="winding"] {
+  --accent: #ff826f;
+  --accent-soft: color-mix(in oklab, #ff826f 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff826f 20%, transparent);
 }
 
 .control-section[data-section="sound"] {
@@ -2661,6 +2715,11 @@ select:hover {
     right: 13px;
     left: 13px;
     font-size: 9px;
+  }
+
+  .spiral-coordinate-meta {
+    bottom: 12px;
+    left: 13px;
   }
 
   .solid-target-switch {

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Spiral, a log-polar isohedral tessellation instrument." />
+    <title>Spiral - Morphazoid</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="spiral-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid Shape">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab active" href="spiral.html" aria-current="page">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="lumber.html">lumber</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html" selected>spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="lumber.html">lumber</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">@</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Volume</b><output id="levelOut" for="level">65%</output></span>
+          <input id="level" type="range" min="0" max="1" step="0.01" value="0.65" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="spiral">
+      <section class="stage" aria-label="Spiral stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Spiral tessellation instrument with an intrinsic time reader."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A logarithmic spiral tessellation read by radius, angle, or spiral time.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">RADIUS &middot; 0 CONTACTS &middot; AUDIO OFF</span>
+          </div>
+          <div class="spiral-coordinate-meta" aria-hidden="true">
+            <span id="coordinateReadout">LOG R &middot; OUT &rarr; IN</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Spiral controls">
+        <details class="group control-section performance-group" id="playSection" data-section="play">
+          <summary class="group-summary">
+            <h2 class="group-title">Play</h2>
+            <span class="section-state" id="playSummary">Radius &middot; paused</span>
+          </summary>
+          <div class="group-body">
+            <div class="field-label">Time path</div>
+            <div class="choice-switch compact spiral-time-switch" id="timePath" role="group" aria-label="Time path">
+              <button id="radiusTime" type="button" data-value="radius" aria-pressed="true">Radius</button>
+              <button id="angleTime" type="button" data-value="angle" aria-pressed="false">Angle</button>
+              <button id="spiralTime" type="button" data-value="spiral" aria-pressed="false">Spiral</button>
+            </div>
+
+            <div class="position-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play spiral time">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="position">
+                <span><b>Time phase</b><output id="positionOut" for="position">0.0%</output></span>
+                <input id="position" type="range" min="0" max="1" step="0.0005" value="0" />
+              </label>
+            </div>
+
+            <label class="control" for="speed">
+              <span><b>Time speed</b><output id="speedOut" for="speed">0.120 cyc/s</output></span>
+              <input id="speed" type="range" min="0.01" max="1" step="0.001" value="0.12" />
+            </label>
+            <button class="mini-action direction-action" id="timeDirection" type="button">Out &rarr; In</button>
+
+            <label class="control" id="readerTurnsControl" for="readerTurns" hidden>
+              <span><b>Reader turns</b><output id="readerTurnsOut" for="readerTurns">2.00 turns</output></span>
+              <input id="readerTurns" type="range" min="0.25" max="6" step="0.05" value="2" />
+            </label>
+          </div>
+        </details>
+
+        <section class="group control-section always-open" id="formSection" data-section="form">
+          <div class="group-summary static-group-summary">
+            <h2 class="group-title">Form</h2>
+            <span class="section-state" id="formSummary">Pentagon &middot; IH20</span>
+          </div>
+          <div class="group-body lattice-form-body">
+            <div class="tile-editor-panel" id="tileEditorPanel">
+              <canvas
+                class="tile-editor-canvas"
+                id="tileEditorCanvas"
+                width="320"
+                height="220"
+                tabindex="0"
+                aria-label="Editable isohedral prototile"
+              >
+                Editable isohedral prototile.
+              </canvas>
+              <div class="tile-editor-legend" aria-hidden="true"><i></i><span id="tileEditorLegend">movable corner</span></div>
+            </div>
+
+            <div class="tile-editor-toolbar">
+              <button class="mini-action reset-form" id="resetTileVertices" type="button">Reset vertices</button>
+              <label class="select-control" for="tilingType">
+                <span class="field-label">Prototile</span>
+                <span class="select-shell">
+                  <select id="tilingType">
+                    <option value="20" selected>Pentagon &middot; IH20</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+
+            <div class="lattice-control-block" id="parameterControls">
+              <div class="lattice-control-heading"><b>Shape</b><small id="parameterCount">0 parameters</small></div>
+              <label class="control" id="parameterControl0" for="parameter0" hidden><span><b id="parameterLabel0">Shape 1</b><output id="parameter0Out" for="parameter0">0.000</output></span><input id="parameter0" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl1" for="parameter1" hidden><span><b id="parameterLabel1">Shape 2</b><output id="parameter1Out" for="parameter1">0.000</output></span><input id="parameter1" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl2" for="parameter2" hidden><span><b id="parameterLabel2">Shape 3</b><output id="parameter2Out" for="parameter2">0.000</output></span><input id="parameter2" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl3" for="parameter3" hidden><span><b id="parameterLabel3">Shape 4</b><output id="parameter3Out" for="parameter3">0.000</output></span><input id="parameter3" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl4" for="parameter4" hidden><span><b id="parameterLabel4">Shape 5</b><output id="parameter4Out" for="parameter4">0.000</output></span><input id="parameter4" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+              <label class="control" id="parameterControl5" for="parameter5" hidden><span><b id="parameterLabel5">Shape 6</b><output id="parameter5Out" for="parameter5">0.000</output></span><input id="parameter5" type="range" min="-0.35" max="0.35" step="0.005" value="0" /></label>
+            </div>
+
+            <div class="lattice-control-block" id="edgeControls">
+              <div class="lattice-control-heading"><b>Matching edges</b><small id="edgeCount">0 classes</small></div>
+              <label class="control" id="edgeControl0" for="edgeCurve0" hidden><span><b id="edgeLabel0">Edge A</b><output id="edgeCurve0Out" for="edgeCurve0">straight</output></span><input id="edgeCurve0" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+              <label class="control" id="edgeControl1" for="edgeCurve1" hidden><span><b id="edgeLabel1">Edge B</b><output id="edgeCurve1Out" for="edgeCurve1">straight</output></span><input id="edgeCurve1" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+              <label class="control" id="edgeControl2" for="edgeCurve2" hidden><span><b id="edgeLabel2">Edge C</b><output id="edgeCurve2Out" for="edgeCurve2">straight</output></span><input id="edgeCurve2" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+              <label class="control" id="edgeControl3" for="edgeCurve3" hidden><span><b id="edgeLabel3">Edge D</b><output id="edgeCurve3Out" for="edgeCurve3">straight</output></span><input id="edgeCurve3" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+              <label class="control" id="edgeControl4" for="edgeCurve4" hidden><span><b id="edgeLabel4">Edge E</b><output id="edgeCurve4Out" for="edgeCurve4">straight</output></span><input id="edgeCurve4" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+            </div>
+
+            <div class="lattice-reset-row">
+              <button class="mini-action" id="straightenEdges" type="button">Straighten edges</button>
+              <button class="mini-action" id="resetForm" type="button">Reset tile</button>
+            </div>
+          </div>
+        </section>
+
+        <details class="group control-section" id="windingSection" data-section="winding">
+          <summary class="group-summary">
+            <h2 class="group-title">Winding</h2>
+            <span class="section-state" id="windingSummary">A1 &middot; B5</span>
+          </summary>
+          <div class="group-body">
+            <div class="spiral-winding-pair">
+              <label class="control" for="spiralA"><span><b>A turns</b><output id="spiralAOut" for="spiralA">1</output></span><input id="spiralA" type="range" min="0" max="12" step="1" value="1" /></label>
+              <label class="control" for="spiralB"><span><b>B turns</b><output id="spiralBOut" for="spiralB">5</output></span><input id="spiralB" type="range" min="0" max="12" step="1" value="5" /></label>
+            </div>
+            <label class="control" for="patternScale"><span><b>Pattern scale</b><output id="patternScaleOut" for="patternScale">0.00</output></span><input id="patternScale" type="range" min="-1.2" max="1.2" step="0.01" value="0" /></label>
+            <label class="control" for="patternRotation"><span><b>Pattern rotation</b><output id="patternRotationOut" for="patternRotation">0&deg;</output></span><input id="patternRotation" type="range" min="-180" max="180" step="1" value="0" /></label>
+            <button class="mini-action reset-form" id="resetWinding" type="button">Reset winding</button>
+          </div>
+        </details>
+
+        <details class="group control-section" id="soundSection" data-section="sound">
+          <summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state" id="soundSummary">Sine</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="soundMode"><span class="field-label">Voice</span><span class="select-shell"><select id="soundMode"><option value="sine" selected>Sine &middot; contact envelope</option><option value="percussion">Percussion &middot; new contacts</option><option value="shepard">Shepard &middot; cyclic radius</option><option value="fm">FM &middot; incidence index</option><option value="pm">PM &middot; edge phase</option></select></span></label>
+            <label class="control" for="baseFrequency"><span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" /></label>
+            <label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">3.50 oct</output></span><input id="pitchRange" type="range" min="0" max="6" step="0.05" value="3.5" /></label>
+            <label class="control" for="contactLevel"><span><b>Contact level</b><output id="contactLevelOut" for="contactLevel">38%</output></span><input id="contactLevel" type="range" min="0" max="1" step="0.01" value="0.38" /></label>
+            <label class="control" for="intersectionDecay"><span><b>Amplitude decay</b><output id="intersectionDecayOut" for="intersectionDecay">180 ms</output></span><input id="intersectionDecay" type="range" min="20" max="2000" step="10" value="180" /></label>
+            <label class="control" for="voiceCap"><span><b>Voice limit</b><output id="voiceCapOut" for="voiceCap">8 voices</output></span><input id="voiceCap" type="range" min="1" max="16" step="1" value="8" /></label>
+            <label class="control" for="stereoWidth"><span><b>Stereo width</b><output id="stereoWidthOut" for="stereoWidth">80%</output></span><input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="mappingSection" data-section="mapping">
+          <summary class="group-summary"><h2 class="group-title">Mapping</h2><span class="section-state" id="mappingSummary">Radius &rarr; pitch</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="pitchSource"><span class="field-label">Pitch source</span><span class="select-shell"><select id="pitchSource"><option value="radius" selected>Log radius</option><option value="angle">Angular position</option><option value="reader">Reader position</option><option value="orientation">Edge orientation</option></select></span></label>
+          </div>
+        </details>
+
+        <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button></div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">Drag across the spiral to place time in its active radius, angle, or spiral coordinate.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="spiral-app.js"></script>
+  </body>
+</html>
