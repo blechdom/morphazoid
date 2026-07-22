@@ -1,4 +1,9 @@
-import { generateJuliaBoundary, generateJuliaField } from "../src/julia.js";
+import {
+  generateJuliaBoundary,
+  generateJuliaField,
+  JULIA_DEFAULTS,
+  JULIA_PRESETS,
+} from "../src/julia.js";
 import {
   buildInverseArcFamily,
   comparePitchSignals,
@@ -12,12 +17,8 @@ import {
   resampleOpenArc,
 } from "../src/julia-similarity.js";
 
-const presets = [
-  { name: "Spiral", cReal: -0.7, cImag: 0.27015 },
-  { name: "Rabbit", cReal: -0.123, cImag: 0.745 },
-  { name: "Siegel-like", cReal: -0.391, cImag: -0.587 },
-  { name: "Basilica", cReal: -1, cImag: 0 },
-];
+const reportPresetIds = new Set(["listening", "spiral", "rabbit", "siegel", "basilica"]);
+const presets = JULIA_PRESETS.filter((preset) => reportPresetIds.has(preset.id));
 const phases = Array.from({ length: 10 }, (_value, index) => (index + 0.5) / 10);
 
 function median(values) {
@@ -141,7 +142,7 @@ for (const preset of presets) {
       fraction: 0.025,
       samples: 512,
     }),
-    { ...preset, depth: 3, samples: 512 },
+    { ...preset, depth: 3, samples: 512, smoothing: 12 },
   ));
   families.forEach((family, motif) => fixtures.push({ preset: preset.name, motif, family }));
   for (const family of families) {
@@ -171,8 +172,8 @@ for (const preset of presets) {
           resolution,
           normalizedGeometryError: rasterArc.error / span,
           pitch: comparePitchSignals(
-            pitchSignalForArc(family.levels[0].points, { smoothing: 4 }),
-            pitchSignalForArc(rasterArc.points, { smoothing: 4 }),
+            pitchSignalForArc(family.levels[0].points, { smoothing: 12 }),
+            pitchSignalForArc(rasterArc.points, { smoothing: 12 }),
           ),
         });
       }
@@ -279,18 +280,25 @@ for (const key of ["chorus", "canon", "wavelet"]) {
 process.stdout.write(`| orbit | sanity check only | exact inverse→forward whole-arc round trip; raw point orbits are not outline-bearing |\n`);
 process.stdout.write(`| harmony | AUROC ${median(retrievalRows.map((row) => row.auroc)).toFixed(3)} | detector separation from the 40-way retrieval; it reports resemblance but does not carry an outline |\n`);
 
+const rabbitPreset = JULIA_PRESETS.find((preset) => preset.id === "rabbit");
 const rabbit = generateJuliaBoundary({
-  cReal: -0.123,
-  cImag: 0.745,
+  cReal: rabbitPreset.cReal,
+  cImag: rabbitPreset.cImag,
   resolution: 256,
   maxIterations: 160,
   simplifyTolerance: 0.35,
 });
-const reference = buildInverseArcFamily(
+const referenceSignal = buildInverseArcFamily(
   sampleBoundaryArc(rabbit.boundary, rabbit.field, { centerPhase: 0.5, fraction: 0.025, samples: 512 }),
-  { cReal: -0.123, cImag: 0.745, depth: 1 },
+  { cReal: rabbitPreset.cReal, cImag: rabbitPreset.cImag, depth: 1, smoothing: 12 },
 ).levels[0].signal;
-process.stdout.write("\nRabbit phase-0.5 motif: 50 Hz command sampling and 7.5 oct/s slew-limit proxies (not rendered audio or human recognition)\n");
+const reference = {
+  pitches: Float64Array.from(
+    referenceSignal.pitches,
+    (pitch) => pitch * JULIA_DEFAULTS.turnOctaves,
+  ),
+};
+process.stdout.write(`\nRabbit phase-0.5 motif at ${JULIA_DEFAULTS.turnOctaves} oct/turn: 50 Hz command sampling and 30 oct/s travel-aware slew proxies (not rendered audio or human recognition)\n`);
 for (const duration of [0.5, 1, 2, 4, 8]) {
   const sampled = temporalPitchFidelity(reference, duration);
   const limited = rateLimitedTemporalPitchFidelity(reference, duration);

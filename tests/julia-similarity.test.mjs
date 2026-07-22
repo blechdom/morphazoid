@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { generateJuliaBoundary } from "../src/julia.js";
 import {
+  buildSimilarityAuditionLayers,
   buildInverseArcFamily,
   buildInverseArcTree,
   comparePitchSignals,
@@ -44,8 +45,10 @@ test("continuous inverse branches land on exact Julia preimages", () => {
     x: -0.7 + index / 63 * 0.4,
     y: 0.18 + Math.sin(index / 63 * Math.PI) * 0.08,
   }));
+  const siblings = new Map();
   for (const branch of [-1, 1]) {
     const child = inverseJuliaArc(parent, -0.123, 0.745, branch);
+    siblings.set(branch, child);
     const recovered = forwardJuliaArc(child, -0.123, 0.745);
     assert.equal(recovered.length, parent.length);
     for (let index = 0; index < parent.length; index += 1) {
@@ -55,6 +58,14 @@ test("continuous inverse branches land on exact Julia preimages", () => {
       ) < 1e-10);
     }
   }
+  for (let index = 0; index < parent.length; index += 1) {
+    assert.ok(Math.hypot(
+      siblings.get(1)[index].x + siblings.get(-1)[index].x,
+      siblings.get(1)[index].y + siblings.get(-1)[index].y,
+    ) < 1e-12);
+  }
+  const siblingSignals = [...siblings.values()].map((points) => pitchSignalForArc(points));
+  assert.ok(comparePitchSignals(...siblingSignals).pitchCorrelation > 0.999999);
   const tree = buildInverseArcTree(parent, {
     cReal: -0.123,
     cImag: 0.745,
@@ -90,8 +101,8 @@ test("tangent pitch retains a shape under translation, rotation, scale, and temp
   const fourOctaveSignal = {
     pitches: Float64Array.from(reference.pitches, (pitch) => pitch * 4),
   };
-  const fast = rateLimitedTemporalPitchFidelity(fourOctaveSignal, 0.5);
-  const slow = rateLimitedTemporalPitchFidelity(fourOctaveSignal, 8);
+  const fast = rateLimitedTemporalPitchFidelity(fourOctaveSignal, 0.5, 50, 7.5);
+  const slow = rateLimitedTemporalPitchFidelity(fourOctaveSignal, 8, 50, 7.5);
   assert.ok(fast.limitedFraction > slow.limitedFraction);
   assert.ok(fast.pitchCorrelation < slow.pitchCorrelation);
   assert.ok(minimumAuditionDuration(reference) > 0);
@@ -114,6 +125,7 @@ test("five plan proxies and sanity checks run on a real Rabbit inverse-image fam
     cReal: -0.123,
     cImag: 0.745,
     depth: 3,
+    smoothing: 12,
   });
   assert.equal(family.levels.length, 4);
   assert.ok(family.levels.slice(1).every((level) => level.comparison.pitchCorrelation > 0.98));
@@ -126,4 +138,69 @@ test("five plan proxies and sanity checks run on a real Rabbit inverse-image fam
   assert.ok(plans.orbit.score > 0.98);
   assert.equal(plans.orbit.shapeBearing, "arc-only");
   assert.equal(plans.harmony.shapeBearing, false);
+
+  for (const level of family.levels) level.bands = undefined;
+  const modes = Object.fromEntries(
+    ["chorus", "canon", "wavelet", "orbit", "harmony"].map((mode) => [
+      mode,
+      buildSimilarityAuditionLayers(family, plans, mode, {
+        referenceDuration: 8,
+        minimumLayerDuration: 2,
+      }),
+    ]),
+  );
+  assert.equal(modes.chorus.length, 4);
+  assert.ok(modes.chorus.every((layer) => layer.start === 0 && layer.duration === 8));
+  assert.ok(modes.chorus.slice(1).every((layer) => layer.repeatPeriod <= 8));
+
+  assert.equal(modes.canon.length, 4);
+  assert.ok(modes.canon.every((layer, index) => (
+    index === 0 || layer.start - modes.canon[index - 1].start >= 1
+  )));
+  assert.equal(new Set(modes.canon.map((layer) => layer.start + layer.duration)).size, 1);
+
+  assert.deepEqual(modes.wavelet.map((layer) => layer.band), ["coarse", "middle", "fine"]);
+  assert.deepEqual(modes.wavelet.map((layer) => layer.synthMode), ["sine", "fm", "shepard"]);
+  assert.ok(modes.wavelet.every((layer) => layer.duration === 8));
+
+  assert.deepEqual(modes.orbit.map((layer) => layer.depth), [3, 2, 1, 0]);
+  for (let index = 1; index < modes.orbit.length; index += 1) {
+    assert.ok(
+      modes.orbit[index].start >= modes.orbit[index - 1].start + modes.orbit[index - 1].duration,
+      "arc-orbit cells must not overlap",
+    );
+  }
+
+  assert.equal(modes.harmony.length, 2);
+  assert.ok(modes.harmony.every((layer) => layer.start === 0 && layer.duration === 8));
+  assert.ok(modes.harmony[1].pitchOffset >= 0 && modes.harmony[1].pitchOffset <= 0.08);
+
+  const fingerprints = Object.values(modes).map((layers) => JSON.stringify(layers.map((layer) => ({
+    start: Number(layer.start.toFixed(3)),
+    duration: Number(layer.duration.toFixed(3)),
+    repeat: Number((layer.repeatPeriod ?? 0).toFixed(3)),
+    mode: layer.synthMode,
+    band: layer.band ?? "full",
+  }))));
+  assert.equal(new Set(fingerprints).size, 5, "all listening grammars need distinct schedules/timbres");
+
+  for (const [mode, layers] of Object.entries(modes)) {
+    for (const layer of layers) {
+      const scaled = {
+        pitches: Float64Array.from(
+          layer.signal.pitches,
+          (pitch) => pitch * 4 * layer.pitchScale,
+        ),
+      };
+      const fidelity = rateLimitedTemporalPitchFidelity(
+        scaled,
+        layer.repeatPeriod ?? layer.duration,
+      );
+      assert.ok(
+        fidelity.limitedFraction < 0.05,
+        `${mode}/${layer.key} should retain its four-octave time-scale gesture`,
+      );
+      assert.ok(fidelity.pitchCorrelation > 0.98, `${mode}/${layer.key} lost its pitch shape`);
+    }
+  }
 });

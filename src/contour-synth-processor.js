@@ -2,9 +2,27 @@ const PROCESSOR_NAME = "morphazoid-contour-synth";
 const TAU = Math.PI * 2;
 const MIN_FREQUENCY = 20;
 const MAX_FREQUENCY = 20_000;
-const SHEPARD_PARTIAL_COUNT = 9;
+const SHEPARD_PARTIAL_COUNT = 17;
 const SHEPARD_CENTER = Math.floor(SHEPARD_PARTIAL_COUNT / 2);
 const MIN_SHEPARD_WIDTH = 2.5;
+const MAX_WORKLET_VOICES = 4096;
+const LOAD_REPORT_BLOCKS = 96;
+
+const CLOCK_KIND = typeof globalThis.performance?.now === "function"
+  ? "high-res"
+  : typeof Date?.now === "function"
+    ? "coarse"
+    : "unavailable";
+
+function clockMilliseconds() {
+  try {
+    if (CLOCK_KIND === "high-res") return globalThis.performance.now();
+    if (CLOCK_KIND === "coarse") return Date.now();
+  } catch {
+    // Timing telemetry is optional; audio rendering must continue without it.
+  }
+  return null;
+}
 
 function clamp(value, low, high) {
   if (!Number.isFinite(value)) return low;
@@ -42,7 +60,7 @@ function sanitizeSpec(spec, index) {
     modulationIndex: clamp(spec.modulationIndex ?? 0, 0, 20),
     modulationRatio: clamp(spec.modulationRatio ?? 1, 0.125, 16),
     shepardRate: clamp(spec.shepardRate ?? 0, -8, 8),
-    shepardWidth: clamp(spec.shepardWidth ?? 4, 1, 8),
+    shepardWidth: clamp(spec.shepardWidth ?? 4, 1, 15),
     shepardPosition: Number.isFinite(spec.shepardPosition)
       ? wrapUnit(spec.shepardPosition)
       : null,
@@ -120,39 +138,83 @@ function directedWrappedPositionDelta(from, to, expectedDelta = 0) {
 class MorphazoidContourSynth extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    this.maxVoices = clamp(options.processorOptions?.maxVoices ?? 32, 0, 128);
+    this.maxVoices = Math.floor(clamp(
+      options.processorOptions?.maxVoices ?? 32,
+      0,
+      MAX_WORKLET_VOICES,
+    ));
+    this.runtimeLimit = this.maxVoices;
     this.voices = new Map();
+    this.requestedVoiceCount = 0;
+    this.requestedMode = "sine";
+    this.activeTargetCount = 0;
+    this.loadBlocks = 0;
+    this.loadTotal = 0;
+    this.loadPeak = 0;
+    this.pendingControlMilliseconds = 0;
+    this.reportedTimingUnavailable = false;
     this.port.onmessage = (event) => {
       if (event.data?.type === "voices") {
+        const startedAt = clockMilliseconds();
+        const nextRuntimeLimit = Math.floor(clamp(
+          event.data.voiceLimit ?? this.runtimeLimit,
+          0,
+          this.maxVoices,
+        ));
+        const nextMode = ["sine", "fm", "pm", "shepard"].includes(event.data.mode)
+          ? event.data.mode
+          : "sine";
+        if (nextRuntimeLimit !== this.runtimeLimit || nextMode !== this.requestedMode) {
+          this.loadBlocks = 0;
+          this.loadTotal = 0;
+          this.loadPeak = 0;
+          this.pendingControlMilliseconds = 0;
+        }
+        this.runtimeLimit = nextRuntimeLimit;
+        this.requestedVoiceCount = Math.max(
+          0,
+          Math.floor(Number(event.data.requestedVoiceCount) || 0),
+        );
+        this.requestedMode = nextMode;
         this.setVoiceTargets(
           event.data.voices,
           event.data.nextVoices,
           event.data.durationSeconds,
         );
+        const endedAt = clockMilliseconds();
+        if (startedAt !== null && endedAt !== null) {
+          this.pendingControlMilliseconds += Math.max(0, endedAt - startedAt);
+        }
       }
     };
   }
 
+  pruneReleasingVoices(limit) {
+    const boundedLimit = Math.max(0, Math.floor(limit));
+    if (this.voices.size <= boundedLimit) return;
+    const releasing = [...this.voices.entries()]
+      .filter(([, voice]) => voice.releasing)
+      .sort((left, right) => left[1].gain - right[1].gain);
+    const removeCount = Math.min(
+      releasing.length,
+      this.voices.size - boundedLimit,
+    );
+    for (let index = 0; index < removeCount; index += 1) {
+      this.voices.delete(releasing[index][0]);
+    }
+  }
+
   setVoiceTargets(specs, nextSpecs, durationSeconds = 0) {
+    const targetLimit = Math.min(this.maxVoices, this.runtimeLimit);
     const sanitized = Array.isArray(specs)
-      ? specs.slice(0, this.maxVoices).map(sanitizeSpec)
+      ? specs.slice(0, targetLimit).map(sanitizeSpec)
       : [];
     const sanitizedNext = Array.isArray(nextSpecs)
-      ? nextSpecs.slice(0, this.maxVoices).map(sanitizeSpec)
+      ? nextSpecs.slice(0, targetLimit).map(sanitizeSpec)
       : [];
     const nextByKey = new Map(sanitizedNext.map((spec) => [spec.key, spec]));
     const trajectorySamples = Math.round(clamp(durationSeconds, 0, 0.25) * sampleRate);
-    const activeKeys = new Set();
-    for (const spec of sanitized) {
-      activeKeys.add(spec.key);
-      const voice = this.voices.get(spec.key) ?? makeVoice(spec);
-      voice.target = spec;
-      voice.nextTarget = nextByKey.get(spec.key) ?? spec;
-      voice.trajectorySample = 0;
-      voice.trajectorySamples = trajectorySamples;
-      voice.releasing = false;
-      this.voices.set(spec.key, voice);
-    }
+    const activeKeys = new Set(sanitized.map((spec) => spec.key));
     for (const [key, voice] of this.voices) {
       if (activeKeys.has(key)) continue;
       voice.target = { ...voice.target, gain: 0 };
@@ -161,6 +223,27 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
       voice.trajectorySamples = 0;
       voice.releasing = true;
     }
+
+    const newVoiceCount = sanitized.reduce(
+      (count, spec) => count + (this.voices.has(spec.key) ? 0 : 1),
+      0,
+    );
+    this.pruneReleasingVoices(Math.max(0, this.maxVoices - newVoiceCount));
+    for (const spec of sanitized) {
+      const voice = this.voices.get(spec.key) ?? makeVoice(spec);
+      voice.target = spec;
+      voice.nextTarget = nextByKey.get(spec.key) ?? spec;
+      voice.trajectorySample = 0;
+      voice.trajectorySamples = trajectorySamples;
+      voice.releasing = false;
+      this.voices.set(spec.key, voice);
+    }
+    this.activeTargetCount = sanitized.length;
+    const releaseAllowance = Math.min(64, Math.ceil(targetLimit * 0.125));
+    this.pruneReleasingVoices(Math.min(
+      this.maxVoices,
+      targetLimit + releaseAllowance,
+    ));
   }
 
   renderShepard(voice, frequency) {
@@ -209,6 +292,10 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
     if (voice.mode === "shepard") return this.renderShepard(voice, frequency);
 
     const carrierIncrement = TAU * frequency / sampleRate;
+    if (voice.mode === "sine") {
+      voice.phase = wrapPhase(voice.phase + carrierIncrement);
+      return Math.sin(voice.phase);
+    }
     const modulationIncrement = carrierIncrement * voice.modulationRatio;
     voice.modulationPhase = wrapPhase(voice.modulationPhase + modulationIncrement);
     const modulation = Math.sin(voice.modulationPhase);
@@ -221,15 +308,48 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
     }
 
     voice.phase = wrapPhase(voice.phase + carrierIncrement);
-    if (voice.mode === "pm") {
-      return Math.sin(voice.phase + voice.modulationIndex * modulation);
+    return Math.sin(voice.phase + voice.modulationIndex * modulation);
+  }
+
+  recordRenderLoad(startedAt, frameCount) {
+    if (startedAt === null || CLOCK_KIND === "unavailable") {
+      if (!this.reportedTimingUnavailable) {
+        this.port.postMessage?.({ type: "render-load", supported: false });
+        this.reportedTimingUnavailable = true;
+      }
+      return;
     }
-    return Math.sin(voice.phase);
+    const endedAt = clockMilliseconds();
+    if (endedAt === null) return;
+    const budgetMilliseconds = Math.max(1, frameCount) / sampleRate * 1000;
+    const elapsed = Math.max(0, endedAt - startedAt) + this.pendingControlMilliseconds;
+    this.pendingControlMilliseconds = 0;
+    const load = elapsed / Math.max(1e-6, budgetMilliseconds);
+    this.loadBlocks += 1;
+    this.loadTotal += load;
+    this.loadPeak = Math.max(this.loadPeak, load);
+    if (this.loadBlocks < LOAD_REPORT_BLOCKS) return;
+    this.port.postMessage?.({
+      type: "render-load",
+      supported: true,
+      timing: CLOCK_KIND,
+      averageLoad: this.loadTotal / this.loadBlocks,
+      peakLoad: this.loadPeak,
+      activeVoices: this.activeTargetCount,
+      renderedVoices: this.voices.size,
+      requestedVoices: this.requestedVoiceCount,
+      voiceLimit: this.runtimeLimit,
+      mode: this.requestedMode,
+    });
+    this.loadBlocks = 0;
+    this.loadTotal = 0;
+    this.loadPeak = 0;
   }
 
   process(_inputs, outputs) {
     const output = outputs[0];
     if (!output?.length) return true;
+    const renderStartedAt = clockMilliseconds();
     const left = output[0];
     const right = output[1] ?? left;
     left.fill(0);
@@ -313,6 +433,7 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
     for (const [key, voice] of this.voices) {
       if (voice.releasing && voice.gain < 0.00001) this.voices.delete(key);
     }
+    this.recordRenderLoad(renderStartedAt, left.length);
     return true;
   }
 }

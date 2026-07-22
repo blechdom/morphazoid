@@ -20,14 +20,18 @@ const TAU = Math.PI * 2;
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
-const MAX_L_SYSTEM_VOICES = 128;
-const pool = new VoicePool(MAX_L_SYSTEM_VOICES);
+const INITIAL_L_SYSTEM_VOICES = 128;
+const MAX_L_SYSTEM_VOICES = 4096;
+const pool = new VoicePool(INITIAL_L_SYSTEM_VOICES, {
+  adaptive: true,
+  maxVoices: MAX_L_SYSTEM_VOICES,
+});
 const presetById = new Map(L_SYSTEM_PRESETS.map((preset) => [preset.id, preset]));
-const generationLimits = { pythagorean: 11, plant: 6, coral: 5, dragon: 15 };
 const state = {
   presetId: "pythagorean",
   iterations: 7,
   angle: 45,
+  turnAsymmetry: 0,
   lengthScale: 0.72,
   position: 0,
   continuousPosition: 0,
@@ -63,6 +67,23 @@ let pixelRatio = 1;
 let scheduledFrame = 0;
 let lastFrameTime = performance.now();
 let lastAudioTime = null;
+let lastVoiceSubmissionTime = -Infinity;
+let lastSoundingVoiceCount = 0;
+let lastSubmittedVoiceLimit = -1;
+let lastSubmittedSoundMode = "";
+
+function resetVoiceSubmission() {
+  lastVoiceSubmissionTime = -Infinity;
+  lastSoundingVoiceCount = 0;
+  lastSubmittedVoiceLimit = -1;
+  lastSubmittedSoundMode = "";
+}
+
+function voiceSubmissionInterval(voiceLimit) {
+  if (voiceLimit > 1_024) return 1 / 20;
+  if (voiceLimit > 256) return 1 / 30;
+  return 0;
+}
 
 function setPressed(element, pressed) {
   element.setAttribute("aria-pressed", String(Boolean(pressed)));
@@ -71,6 +92,8 @@ function setPressed(element, pressed) {
 function scheduleFrame() {
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
+
+pool.onPolyphonyStatus = scheduleFrame;
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
@@ -114,8 +137,15 @@ bindRange("speed", "speed", (value) => (
 ));
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
 bindRange("iterations", "iterations", (value) => String(Math.round(value)), rebuildTrace);
-bindRange("angle", "angle", (value) => `${Number(value.toFixed(1))}°`, rebuildTrace);
-bindRange("lengthScale", "lengthScale", (value) => `${Math.round(value * 100)}%`, rebuildTrace);
+bindRange("angle", "angle", (value) => `${Number(value.toFixed(1))}°`, () => {
+  paintGrowthCapabilities();
+  rebuildTrace();
+});
+bindRange("turnAsymmetry", "turnAsymmetry", formatTurnPair, rebuildTrace);
+bindRange("lengthScale", "lengthScale", (value) => `${Math.round(value * 100)}%`, () => {
+  paintGrowthCapabilities();
+  rebuildTrace();
+});
 bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindRange("pitchRange", "pitchRange", (value) => (
   state.pitchSource === "angle" ? `${value.toFixed(2)} oct / turn` : `${value.toFixed(2)} oct`
@@ -127,13 +157,46 @@ function currentPreset() {
   return presetById.get(state.presetId) ?? L_SYSTEM_PRESETS[0];
 }
 
+function formatAngle(value) {
+  return Number(value.toFixed(1));
+}
+
+function formatTurnPair(asymmetry) {
+  const minusTurn = state.angle * (1 - asymmetry);
+  const plusTurn = state.angle * (1 + asymmetry);
+  return `−${formatAngle(minusTurn)}° / +${formatAngle(plusTurn)}°`;
+}
+
+function paintGrowthCapabilities() {
+  const preset = currentPreset();
+  const grammar = `${preset.axiom}${Object.values(preset.rules).join("")}`;
+  const hasTurns = /[+-]/.test(grammar);
+  const hasTaper = /[<>]/.test(grammar);
+  $("turnAsymmetry").disabled = !hasTurns;
+  $("turnAsymmetryOut").textContent = hasTurns ? formatTurnPair(state.turnAsymmetry) : "not used";
+  $("turnAsymmetryNote").textContent = hasTurns
+    ? "Makes + and − turns unequal while preserving their total opening—and their combined pitch spread."
+    : "This grammar has no + or − turns, so its angle and turn asymmetry are not used.";
+  $("angle").disabled = !hasTurns;
+  $("angleOut").textContent = hasTurns ? `${formatAngle(state.angle)}°` : "not used";
+  $("lengthScale").disabled = !hasTaper;
+  $("lengthScaleOut").textContent = hasTaper
+    ? `${Math.round(state.lengthScale * 100)}%`
+    : "not used";
+  $("taperNote").textContent = hasTaper
+    ? `${Math.round(state.lengthScale * 100)}% means each >-marked level is ${state.lengthScale.toFixed(2)}× as long; < restores it. Length only—not line width or loudness.`
+    : "This grammar has no > or < length markers, so taper is not used.";
+}
+
 function paintGrammar() {
   const preset = currentPreset();
   $("axiomReadout").textContent = preset.axiom;
   $("rulesReadout").textContent = Object.entries(preset.rules)
     .map(([symbol, replacement]) => `${symbol} → ${replacement}`)
     .join(" · ");
+  $("iterations").max = String(preset.maxIterations ?? 12);
   $("systemSummary").textContent = preset.name;
+  paintGrowthCapabilities();
 }
 
 function rebuildTrace() {
@@ -141,10 +204,12 @@ function rebuildTrace() {
   try {
     iterationTraces = buildIterationTraces(preset, state.iterations, {
       angle: state.angle,
+      turnAsymmetry: state.turnAsymmetry,
       lengthScale: state.lengthScale,
     });
     $("systemError").hidden = true;
     pool.silence();
+    resetVoiceSubmission();
     paintStructure();
   } catch (error) {
     $("systemError").textContent = error instanceof Error ? error.message : "This grammar is too large to draw.";
@@ -158,13 +223,16 @@ function loadPreset(id) {
   state.presetId = preset.id;
   state.iterations = preset.iterations;
   state.angle = preset.angle;
+  state.turnAsymmetry = preset.turnAsymmetry ?? 0;
   state.lengthScale = preset.lengthScale;
   $("preset").value = preset.id;
-  $("iterations").max = String(generationLimits[preset.id] ?? 12);
+  $("iterations").max = String(preset.maxIterations ?? 12);
   $("iterations").value = String(state.iterations);
   $("iterationsOut").textContent = String(state.iterations);
   $("angle").value = String(state.angle);
   $("angleOut").textContent = `${state.angle}°`;
+  $("turnAsymmetry").value = String(state.turnAsymmetry);
+  $("turnAsymmetryOut").textContent = formatTurnPair(state.turnAsymmetry);
   $("lengthScale").value = String(state.lengthScale);
   $("lengthScaleOut").textContent = `${Math.round(state.lengthScale * 100)}%`;
   paintGrammar();
@@ -248,6 +316,7 @@ $("playButton").addEventListener("click", () => {
   )).length;
   $("playSummary").textContent = `${headCount} head${headCount === 1 ? "" : "s"} · ${state.playing ? "playing" : "paused"}`;
   if (!state.playing) pool.silence();
+  resetVoiceSubmission();
   resetClocks();
   scheduleFrame();
 });
@@ -276,6 +345,8 @@ $("soundMode").addEventListener("change", (event) => {
   state.soundMode = event.currentTarget.value;
   $("soundSummary").textContent = state.soundMode.toUpperCase();
   pool.silence();
+  pool.setVoiceDemand(0, state.soundMode);
+  resetVoiceSubmission();
   scheduleFrame();
 });
 
@@ -284,12 +355,14 @@ $("audioButton").addEventListener("click", async () => {
   if (state.audio) {
     state.audio = false;
     pool.disable();
+    resetVoiceSubmission();
   } else {
     try {
       $("audioState").textContent = "starting…";
       await pool.enable();
       pool.setLevel(state.level);
       state.audio = true;
+      resetVoiceSubmission();
       resetClocks();
     } catch (error) {
       $("audioError").textContent = error instanceof Error ? error.message : "Web Audio could not start.";
@@ -425,13 +498,13 @@ function voiceForPlayhead(playhead, activePower, combinedGain) {
       pmRatio: 1.5,
       shepardRate: state.playing ? state.speed * state.direction : 0,
       shepardWidth: 5,
-      shepardPosition: state.position,
+      shepardPosition: playhead.localPhase,
     }),
   };
 }
 
-function voicesForPlayheads(playheads) {
-  const selected = allocateIterationVoiceHeads(playheads, MAX_L_SYSTEM_VOICES);
+function voicesForPlayheads(playheads, maxVoices = pool.voiceLimitFor(state.soundMode)) {
+  const selected = allocateIterationVoiceHeads(playheads, maxVoices);
   const groups = new Map();
   for (const playhead of selected) {
     const group = groups.get(playhead.iteration) ?? [];
@@ -443,6 +516,35 @@ function voicesForPlayheads(playheads) {
     const activePower = heads.reduce((sum, playhead) => sum + playhead.powerShare, 0);
     return heads.map((playhead) => voiceForPlayhead(playhead, activePower, layerGain));
   });
+}
+
+function paintPolyphony(soundingVoices, requestedVoices) {
+  const status = pool.polyphonyStatus;
+  const load = Number.isFinite(status.averageLoad)
+    ? ` · DSP ${Math.round(status.averageLoad * 100)}%`
+    : "";
+  const count = requestedVoices > status.limit
+    ? `${status.limit} / ${requestedVoices}`
+    : `${Math.max(soundingVoices, status.limit)} ready`;
+  const label = status.status === "fallback"
+    ? "SAFE CAP"
+    : status.status === "probing"
+      ? "AUTO TEST"
+      : status.status === "capped"
+        ? "AUTO CAP"
+        : status.status === "warming"
+          ? "AUTO CHECK"
+          : "AUTO";
+  $("polyphonyReadout").textContent = `${label} · ${count}${load}`;
+  $("polyphonyDescription").textContent = status.status === "fallback"
+    ? "This browser cannot expose reliable render load, so playback stays at the proven 128-voice fallback."
+    : status.status === "probing"
+      ? `The renderer has headroom, so the ceiling is rising in a guarded step toward the ${status.hardLimit}-voice ${status.mode.toUpperCase()} guard.`
+      : status.status === "capped" && requestedVoices > status.limit
+        ? `Playback is holding at ${status.limit} voices to preserve audio headroom; additional branches remain visual.`
+        : status.status === "warming" && requestedVoices > status.limit
+          ? "Measuring real playback load before admitting the next group of branches."
+          : `Every branch currently requested by the structure fits within the measured ceiling; this mode's hard guard is ${status.hardLimit} voices.`;
 }
 
 function transportDelta(now) {
@@ -472,8 +574,9 @@ function frame(now) {
   const playheads = playbackHeads(playback);
   drawScene(playback, playheads);
 
-  let voices = [];
-  if (state.audio && state.playing && playheads.length) {
+  let soundingVoiceCount = 0;
+  let requestedVoices = 0;
+  if (state.audio && state.playing) {
     const lookahead = 0.065;
     const futurePhase = state.continuousPosition + state.direction * phaseRate * lookahead;
     const futurePlayback = iterationPlaybackAtPhase(
@@ -482,11 +585,38 @@ function frame(now) {
       state.structureMode,
     );
     const futureHeads = playbackHeads(futurePlayback);
-    voices = voicesForPlayheads(playheads);
-    pool.setVoiceTrajectory(voices, voicesForPlayheads(futureHeads), lookahead);
+    requestedVoices = Math.max(playheads.length, futureHeads.length);
+    const voiceLimit = pool.setVoiceDemand(requestedVoices, state.soundMode);
+    const controlTime = now / 1_000;
+    const shouldSubmitVoices = voiceLimit !== lastSubmittedVoiceLimit
+      || state.soundMode !== lastSubmittedSoundMode
+      || requestedVoices === 0
+      || controlTime - lastVoiceSubmissionTime >= voiceSubmissionInterval(voiceLimit);
+    if (shouldSubmitVoices) {
+      const voices = voicesForPlayheads(playheads, voiceLimit);
+      pool.setVoiceTrajectory(
+        voices,
+        voicesForPlayheads(futureHeads, voiceLimit),
+        lookahead,
+        {
+          requestedVoiceCount: requestedVoices,
+          mode: state.soundMode,
+          voiceLimit,
+        },
+      );
+      lastVoiceSubmissionTime = controlTime;
+      lastSoundingVoiceCount = voices.length;
+      lastSubmittedVoiceLimit = voiceLimit;
+      lastSubmittedSoundMode = state.soundMode;
+    }
+    soundingVoiceCount = lastSoundingVoiceCount;
   } else if (state.audio) {
     pool.setVoices([]);
+    resetVoiceSubmission();
+  } else {
+    resetVoiceSubmission();
   }
+  paintPolyphony(soundingVoiceCount, requestedVoices);
 
   $("position").value = String(state.position);
   $("positionOut").textContent = state.structureMode === "sequence"
@@ -511,7 +641,9 @@ function frame(now) {
         : `FINAL I${finalIteration}`;
   const headLabel = `${playheads.length} HEAD${playheads.length === 1 ? "" : "S"}`;
   const voiceText = state.audio
-    ? (state.playing ? `${voices.length} ${state.soundMode.toUpperCase()} VOICE${voices.length === 1 ? "" : "S"}` : "AUDIO READY")
+    ? (state.playing
+      ? `${soundingVoiceCount}${soundingVoiceCount < requestedVoices ? `/${requestedVoices}` : ""} ${state.soundMode.toUpperCase()} VOICE${soundingVoiceCount === 1 ? "" : "S"}`
+      : "AUDIO READY")
     : "AUDIO OFF";
   $("playSummary").textContent = `${headLabel.toLowerCase()} · ${state.playing ? "playing" : "paused"}`;
   $("stageReadout").textContent = `${preset.name.toUpperCase()} · ${structureLabel} · ${headLabel} · ${voiceText}`;

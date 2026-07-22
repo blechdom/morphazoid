@@ -8,6 +8,7 @@ export const L_SYSTEM_PRESETS = Object.freeze([
     axiom: "FX",
     rules: Object.freeze({ X: ">[-FX]+FX<" }),
     iterations: 7,
+    maxIterations: 11,
     angle: 45,
     lengthScale: 0.72,
   }),
@@ -17,6 +18,7 @@ export const L_SYSTEM_PRESETS = Object.freeze([
     axiom: "X",
     rules: Object.freeze({ X: "F+[[X]-X]-F[-FX]+X", F: "FF" }),
     iterations: 5,
+    maxIterations: 6,
     angle: 22.5,
     lengthScale: 1,
   }),
@@ -26,6 +28,7 @@ export const L_SYSTEM_PRESETS = Object.freeze([
     axiom: "F",
     rules: Object.freeze({ F: ">FF+[+F-F-F]-[-F+F+F]<" }),
     iterations: 4,
+    maxIterations: 5,
     angle: 22.5,
     lengthScale: 0.72,
   }),
@@ -35,7 +38,84 @@ export const L_SYSTEM_PRESETS = Object.freeze([
     axiom: "FX",
     rules: Object.freeze({ X: "X+YF+", Y: "-FX-Y" }),
     iterations: 12,
+    maxIterations: 15,
     angle: 90,
+    lengthScale: 1,
+  }),
+  Object.freeze({
+    id: "koch",
+    name: "Koch snowflake",
+    axiom: "F--F--F",
+    rules: Object.freeze({ F: "F+F--F+F" }),
+    iterations: 4,
+    maxIterations: 5,
+    angle: 60,
+    lengthScale: 1,
+  }),
+  Object.freeze({
+    id: "sierpinski",
+    name: "Sierpiński triangle",
+    axiom: "F-G-G",
+    rules: Object.freeze({ F: "F-G+F+G-F", G: "GG" }),
+    iterations: 5,
+    maxIterations: 6,
+    angle: 120,
+    lengthScale: 1,
+    drawSymbols: "FG",
+  }),
+  Object.freeze({
+    id: "hilbert",
+    name: "Hilbert curve",
+    axiom: "X",
+    rules: Object.freeze({ X: "-YF+XFX+FY-", Y: "+XF-YFY-FX+" }),
+    iterations: 5,
+    maxIterations: 7,
+    angle: 90,
+    lengthScale: 1,
+  }),
+  Object.freeze({
+    id: "gosper",
+    name: "Gosper curve",
+    axiom: "X",
+    rules: Object.freeze({
+      X: "X+Y++Y-X--XX-Y+",
+      Y: "-X+YY++Y+X--X-Y",
+    }),
+    iterations: 4,
+    maxIterations: 5,
+    angle: 60,
+    lengthScale: 1,
+    drawSymbols: "XY",
+  }),
+  Object.freeze({
+    id: "cantor",
+    name: "Cantor set",
+    axiom: "F",
+    rules: Object.freeze({ F: "FfF", f: "fff" }),
+    iterations: 6,
+    maxIterations: 11,
+    angle: 0,
+    lengthScale: 1,
+    moveSymbols: "f",
+  }),
+  Object.freeze({
+    id: "levy",
+    name: "Lévy C curve",
+    axiom: "F",
+    rules: Object.freeze({ F: "+F--F+" }),
+    iterations: 12,
+    maxIterations: 15,
+    angle: 45,
+    lengthScale: 1,
+  }),
+  Object.freeze({
+    id: "terdragon",
+    name: "Terdragon",
+    axiom: "F",
+    rules: Object.freeze({ F: "F-F+F" }),
+    iterations: 7,
+    maxIterations: 10,
+    angle: 120,
     lengthScale: 1,
   }),
 ]);
@@ -64,14 +144,10 @@ function safeNumber(value, fallback) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
 }
 
-function signedAngle(value) {
-  return Math.atan2(Math.sin(value), Math.cos(value));
-}
-
 /**
- * Interpret F/B as drawing moves, +/- as turns, [] as branch state, and
- * >/< as local step scaling. The turtle starts toward +X so growth reads
- * naturally from left to right on the instrument canvas.
+ * Interpret drawing and pen-up moves, +/- as turns, [] as branch state, and
+ * >/< as local step scaling. The turtle starts toward +X by default so growth
+ * reads naturally from left to right on the instrument canvas.
  */
 export function traceLSystem({
   axiom = "F",
@@ -80,44 +156,72 @@ export function traceLSystem({
   angle = 25,
   lengthScale = 1,
   step = 1,
+  drawSymbols = "F",
+  moveSymbols = "",
+  turnAsymmetry = 0,
   maxSymbols = DEFAULT_MAX_SYMBOLS,
 } = {}) {
   const instructions = expandLSystem(axiom, rules, iterations, maxSymbols);
   const turn = safeNumber(angle, 25) * DEG_TO_RAD;
   const taper = Math.max(0.05, safeNumber(lengthScale, 1));
+  const turnSkew = Math.min(0.8, Math.max(-0.8, safeNumber(turnAsymmetry, 0)));
+  const forwardSymbols = new Set(String(drawSymbols ?? "F"));
+  const penUpSymbols = new Set(String(moveSymbols ?? ""));
   let distance = Math.max(0.0001, safeNumber(step, 1));
-  let state = { x: 0, y: 0, heading: 0, depth: 0, parentIndex: null };
+  let state = {
+    x: 0,
+    y: 0,
+    heading: 0,
+    turnTotal: 0,
+    pathDistance: 0,
+    depth: 0,
+    parentIndex: null,
+  };
   const stack = [];
   const segments = [];
   const generations = [];
   const bounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+  let maxPathDistance = 0;
 
   for (let instructionIndex = 0; instructionIndex < instructions.length; instructionIndex += 1) {
     const command = instructions[instructionIndex];
-    if (command === "F" || command === "B") {
+    const paintable = forwardSymbols.has(command) || command === "B";
+    if (paintable || penUpSymbols.has(command)) {
       const signedDistance = command === "B" ? -distance : distance;
       const start = { x: state.x, y: state.y };
       state.x += Math.cos(state.heading) * signedDistance;
       state.y += Math.sin(state.heading) * signedDistance;
       const end = { x: state.x, y: state.y };
+      const startDistance = state.pathDistance;
+      state.pathDistance += Math.abs(signedDistance);
+      maxPathDistance = Math.max(maxPathDistance, state.pathDistance);
+      bounds.minX = Math.min(bounds.minX, state.x);
+      bounds.maxX = Math.max(bounds.maxX, state.x);
+      bounds.minY = Math.min(bounds.minY, state.y);
+      bounds.maxY = Math.max(bounds.maxY, state.y);
+      if (!paintable) {
+        const parent = state.parentIndex === null ? null : segments[state.parentIndex];
+        if (parent) parent.subtreeEndDistance = Math.max(parent.subtreeEndDistance, state.pathDistance);
+        continue;
+      }
       const parent = state.parentIndex === null ? null : segments[state.parentIndex];
       const generation = parent ? parent.generation + 1 : 0;
       const index = segments.length;
-      const localTurn = parent ? signedAngle(state.heading - parent.heading) : state.heading;
-      const startDistance = parent?.endDistance ?? 0;
+      const localTurn = parent ? state.turnTotal - parent.turnTotal : 0;
       const segment = {
         start,
         end,
         depth: state.depth,
         heading: state.heading,
+        turnTotal: state.turnTotal,
         turn: localTurn,
         cumulativeTurn: (parent?.cumulativeTurn ?? 0) + localTurn,
         parentIndex: state.parentIndex,
         children: [],
         generation,
         startDistance,
-        endDistance: startDistance + Math.abs(signedDistance),
-        subtreeEndDistance: startDistance + Math.abs(signedDistance),
+        endDistance: state.pathDistance,
+        subtreeEndDistance: state.pathDistance,
         forkDepth: 0,
         powerShare: 1,
         voiceKey: "",
@@ -128,14 +232,14 @@ export function traceLSystem({
       if (parent) parent.children.push(index);
       (generations[generation] ??= []).push(segment);
       state.parentIndex = index;
-      bounds.minX = Math.min(bounds.minX, state.x);
-      bounds.maxX = Math.max(bounds.maxX, state.x);
-      bounds.minY = Math.min(bounds.minY, state.y);
-      bounds.maxY = Math.max(bounds.maxY, state.y);
     } else if (command === "+") {
-      state.heading += turn;
+      const amount = turn * (1 + turnSkew);
+      state.heading += amount;
+      state.turnTotal += amount;
     } else if (command === "-") {
-      state.heading -= turn;
+      const amount = turn * (1 - turnSkew);
+      state.heading -= amount;
+      state.turnTotal -= amount;
     } else if (command === "[") {
       stack.push({ ...state, distance });
       state.depth += 1;
@@ -180,10 +284,10 @@ export function traceLSystem({
         : `${segment.voiceKey}/branch:${childIndex}`;
     });
   }
-  const duration = rootIndices.reduce(
+  const duration = Math.max(maxPathDistance, rootIndices.reduce(
     (maximum, index) => Math.max(maximum, segments[index].subtreeEndDistance),
     0,
-  );
+  ));
 
   return {
     instructions,
@@ -329,6 +433,41 @@ export function iterationPlaybackAtPhase(traces, phase, mode = "final") {
   };
 }
 
+/**
+ * Pick progressively finer samples without replacing earlier selections.
+ * Raising a voice cap therefore adds branch keys instead of churning the
+ * voices already sounding at the previous cap.
+ */
+export function progressiveSampleIndices(length, count) {
+  const total = Math.max(0, Math.floor(safeNumber(length, 0)));
+  const requested = Math.min(total, Math.max(0, Math.floor(safeNumber(count, 0))));
+  if (requested === 0) return [];
+  if (requested === total) return Array.from({ length: total }, (_, index) => index);
+
+  const order = [0];
+  if (total > 1) order.push(total - 1);
+  const intervals = total > 2 ? [[0, total - 1]] : [];
+  let cursor = 0;
+  while (order.length < requested && cursor < intervals.length) {
+    const [low, high] = intervals[cursor];
+    cursor += 1;
+    const middle = Math.floor((low + high) / 2);
+    if (middle <= low || middle >= high) continue;
+    order.push(middle);
+    if (middle - low > 1) intervals.push([low, middle]);
+    if (high - middle > 1) intervals.push([middle, high]);
+  }
+
+  // Defensive fill for very small or uneven intervals.
+  if (order.length < requested) {
+    const selected = new Set(order);
+    for (let index = 0; index < total && order.length < requested; index += 1) {
+      if (!selected.has(index)) order.push(index);
+    }
+  }
+  return order.slice(0, requested).sort((left, right) => left - right);
+}
+
 /** Reserve representation for every sounding iteration before filling voices. */
 export function allocateIterationVoiceHeads(playheads, maxVoices = 128) {
   const source = Array.isArray(playheads) ? playheads : [];
@@ -373,9 +512,7 @@ export function allocateIterationVoiceHeads(playheads, maxVoices = 128) {
   return selectedGroups.flatMap((group, groupIndex) => {
     const count = quotas[groupIndex];
     if (count >= group.length) return group;
-    return Array.from({ length: count }, (_, index) => (
-      group[Math.floor(index * group.length / count)]
-    ));
+    return progressiveSampleIndices(group.length, count).map((index) => group[index]);
   });
 }
 

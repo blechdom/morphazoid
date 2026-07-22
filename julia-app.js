@@ -4,12 +4,16 @@ import {
   synthParametersForMode,
 } from "./src/audio.js";
 import {
+  JULIA_DEFAULTS,
+  JULIA_PRESETS,
   TAU,
   cumulativeTurnOctaves,
   generateJuliaBoundary,
+  juliaVerticalAddressOctaves,
   sampleBoundary,
 } from "./src/julia.js";
 import {
+  buildSimilarityAuditionLayers,
   buildInverseArcFamily,
   buildInverseArcTree,
   criticalOrbitStatus,
@@ -24,14 +28,8 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const LOOKAHEAD_SECONDS = 0.065;
-const MAX_SHEPARD_RATE = 7.5;
-const MIN_RECOGNIZABLE_SECONDS = 1;
-const PRESETS = Object.freeze([
-  Object.freeze({ id: "spiral", name: "Spiral", cReal: -0.7, cImag: 0.27015 }),
-  Object.freeze({ id: "rabbit", name: "Douady rabbit", cReal: -0.123, cImag: 0.745 }),
-  Object.freeze({ id: "siegel", name: "Siegel-like finite depth", cReal: -0.391, cImag: -0.587 }),
-  Object.freeze({ id: "basilica", name: "Basilica", cReal: -1, cImag: 0 }),
-]);
+const MAX_SHEPARD_RATE = 30;
+const PRESETS = JULIA_PRESETS;
 const presetById = new Map(PRESETS.map((preset) => [preset.id, preset]));
 const pool = new VoicePool(5);
 const canvas = $("stage");
@@ -40,28 +38,36 @@ const context = canvas.getContext("2d", { desynchronized: true });
 const fieldCanvas = document.createElement("canvas");
 const fieldContext = fieldCanvas.getContext("2d");
 
+const CENTERED_RANGE_SCALES = Object.freeze({
+  speed: Object.freeze({ low: 0.001, middle: JULIA_DEFAULTS.speed, high: 0.25, step: 0.001 }),
+  cReal: Object.freeze({ low: -2, middle: JULIA_DEFAULTS.cReal, high: 0.5, step: 0.001 }),
+  cImag: Object.freeze({ low: -1.2, middle: JULIA_DEFAULTS.cImag, high: 1.2, step: 0.0001 }),
+  maxIterations: Object.freeze({ low: 8, middle: JULIA_DEFAULTS.maxIterations, high: 192, step: 4 }),
+  resolution: Object.freeze({ low: 96, middle: JULIA_DEFAULTS.resolution, high: 544, step: 8 }),
+});
+
 const state = {
-  presetId: "spiral",
-  cReal: -0.7,
-  cImag: 0.27015,
-  maxIterations: 96,
-  resolution: 224,
-  simplify: 0.75,
+  presetId: JULIA_DEFAULTS.presetId,
+  cReal: JULIA_DEFAULTS.cReal,
+  cImag: JULIA_DEFAULTS.cImag,
+  maxIterations: JULIA_DEFAULTS.maxIterations,
+  resolution: JULIA_DEFAULTS.resolution,
+  simplify: JULIA_DEFAULTS.contourTreatment,
   viewZoom: 0,
   viewCenterX: 0,
   viewCenterY: 0,
   position: 0,
   continuousPosition: 0,
-  speed: 0.035,
+  speed: JULIA_DEFAULTS.speed,
   direction: 1,
   playing: false,
   audio: false,
   level: 0.55,
   turnPolarity: 1,
-  turnOctaves: 1,
+  turnOctaves: JULIA_DEFAULTS.turnOctaves,
   cornerGlide: 0.35,
-  baseFrequency: 110,
-  shepardWidth: 5,
+  baseFrequency: JULIA_DEFAULTS.baseFrequency,
+  shepardWidth: JULIA_DEFAULTS.shepardWidth,
   similarityExperiment: "chorus",
   motifWidth: 0.025,
   similarityDepth: 3,
@@ -105,7 +111,31 @@ function signed(value, digits = 3, suffix = "") {
 
 function complexLabel(real, imaginary) {
   const imag = Number(imaginary) || 0;
-  return `${signed(real)} ${imag < 0 ? "−" : "+"} ${Math.abs(imag).toFixed(3)}i`;
+  return `${signed(real)} ${imag < 0 ? "−" : "+"} ${Math.abs(imag).toFixed(4)}i`;
+}
+
+function quantizeRangeValue(value, scale) {
+  const bounded = clamp(value, scale.low, scale.high);
+  const steps = Math.round((bounded - scale.low) / scale.step);
+  const quantized = scale.low + steps * scale.step;
+  const precision = Math.max(0, String(scale.step).split(".")[1]?.length ?? 0);
+  return Number(quantized.toFixed(precision));
+}
+
+function centeredRangeValue(position, scale) {
+  const amount = clamp(Number(position) || 0, -1, 1);
+  const value = amount < 0
+    ? scale.middle + (scale.middle - scale.low) * amount
+    : scale.middle + (scale.high - scale.middle) * amount;
+  return quantizeRangeValue(value, scale);
+}
+
+function centeredRangePosition(value, scale) {
+  const amount = clamp(Number(value), scale.low, scale.high);
+  if (amount < scale.middle) {
+    return (amount - scale.middle) / Math.max(1e-12, scale.middle - scale.low);
+  }
+  return (amount - scale.middle) / Math.max(1e-12, scale.high - scale.middle);
 }
 
 function setPressed(element, pressed) {
@@ -140,12 +170,19 @@ resizeCanvas();
 function bindRange(id, key, formatter, afterChange) {
   const input = $(id);
   const output = $(`${id}Out`);
+  const centeredScale = CENTERED_RANGE_SCALES[id];
   const paint = () => {
-    input.value = String(state[key]);
-    if (output) output.textContent = formatter(state[key]);
+    input.value = String(centeredScale
+      ? centeredRangePosition(state[key], centeredScale)
+      : state[key]);
+    const text = formatter(state[key]);
+    if (output) output.textContent = text;
+    input.setAttribute("aria-valuetext", text);
   };
   input.addEventListener("input", () => {
-    state[key] = Number(input.value);
+    state[key] = centeredScale
+      ? centeredRangeValue(input.value, centeredScale)
+      : Number(input.value);
     paint();
     afterChange?.();
     scheduleFrame();
@@ -163,10 +200,12 @@ const paintPosition = bindRange("position", "position", (value) => `${(value * 1
 bindRange("speed", "speed", (value) => `${value.toFixed(3)} cyc/s`);
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
 const paintReal = bindRange("cReal", "cReal", (value) => signed(value), geometryControlChanged);
-const paintImaginary = bindRange("cImag", "cImag", (value) => signed(value, 3, "i"), geometryControlChanged);
+const paintImaginary = bindRange("cImag", "cImag", (value) => signed(value, 4, "i"), geometryControlChanged);
 const paintIterations = bindRange("maxIterations", "maxIterations", (value) => String(Math.round(value)), scheduleBoundaryRebuild);
 const paintResolution = bindRange("resolution", "resolution", (value) => `${Math.round(value)}²`, scheduleBoundaryRebuild);
-const paintSimplify = bindRange("simplify", "simplify", (value) => `${value.toFixed(2)} px`, scheduleBoundaryRebuild);
+const paintSimplify = bindRange("simplify", "simplify", (value) => value < -1e-9
+  ? `${Math.abs(value).toFixed(2)} smooth`
+  : value > 1e-9 ? `${value.toFixed(2)} px reduce` : "raw · 0.00 px", scheduleBoundaryRebuild);
 const paintViewZoom = bindRange("viewZoom", "viewZoom", (value) => `${(2 ** value).toFixed(value < 3 ? 2 : 1)}×`, () => {
   state.viewIterationBonus = 0;
   updateViewUi();
@@ -236,6 +275,12 @@ function loadPreset(id) {
   state.viewCenterX = 0;
   state.viewCenterY = 0;
   state.viewIterationBonus = 0;
+  if (preset.minimumResolution) {
+    state.resolution = Math.max(state.resolution, preset.minimumResolution);
+  }
+  if (preset.maximumSimplify !== undefined) {
+    state.simplify = Math.min(state.simplify, preset.maximumSimplify);
+  }
   $("preset").value = preset.id;
   setGeometryControls();
   updateViewUi();
@@ -253,10 +298,10 @@ $("preset").addEventListener("change", (event) => {
 });
 
 $("resetJulia").addEventListener("click", () => {
-  state.maxIterations = 96;
-  state.resolution = 224;
-  state.simplify = 0.75;
-  loadPreset("spiral");
+  state.maxIterations = JULIA_DEFAULTS.maxIterations;
+  state.resolution = JULIA_DEFAULTS.resolution;
+  state.simplify = JULIA_DEFAULTS.contourTreatment;
+  loadPreset(JULIA_DEFAULTS.presetId);
 });
 
 $("resetView").addEventListener("click", () => resetViewport());
@@ -267,7 +312,7 @@ function updateMappingUi() {
   setPressed($("rightRises"), !leftRises);
   $("leftRule").textContent = `+ angle → pitch ${leftRises ? "rises" : "falls"}`;
   $("rightRule").textContent = `− angle → pitch ${leftRises ? "falls" : "rises"}`;
-  $("mappingSummary").textContent = `${leftRises ? "left" : "right"} rises · ${state.turnOctaves.toFixed(2)} oct/turn`;
+  $("mappingSummary").textContent = `${leftRises ? "left" : "right"} rises · ${state.turnOctaves.toFixed(2)} oct/turn · vertical address`;
 }
 
 for (const button of [$("leftRises"), $("rightRises")]) {
@@ -397,7 +442,7 @@ function analyzeSimilarityFamily() {
     depth: state.similarityDepth,
     branch: state.similarityBranch,
     samples: 512,
-    smoothing: 2,
+    smoothing: 12,
   });
   similarityTree = buildInverseArcTree(parentArc, {
     cReal: state.cReal,
@@ -832,32 +877,41 @@ function pitchStateAt(continuousPosition) {
   });
 }
 
-function voiceForPitch(pitch, shepardRate = 0) {
-  const sample = pitch.sample;
-  const pan = sample && generated?.field
-    ? clamp(sample.x / Math.max(1, generated.field.width - 1) * 2 - 1, -1, 1)
-    : 0;
-  const fallbackFrequency = state.baseFrequency * 2 ** pitch.octavePhase;
-  return {
-    key: "julia:boundary",
-    frequency: pool.workletUnavailable ? fallbackFrequency : state.baseFrequency,
-    gain: 0.26,
-    pan,
-    waveform: "sine",
-    ...synthParametersForMode("shepard", 1, {
-      shepardRate,
-      shepardWidth: state.shepardWidth,
-      shepardPosition: pitch.octavePhase,
-    }),
-  };
+function boundaryVerticalAddress(continuousPosition) {
+  if (!generated?.boundary || !generated?.field) return 0;
+  const radius = 0.018;
+  let sum = 0;
+  let count = 0;
+  for (let index = -4; index <= 4; index += 1) {
+    const sample = sampleBoundary(
+      generated.boundary,
+      continuousPosition + radius * index / 4,
+    );
+    if (!sample) continue;
+    sum += sample.y / Math.max(1, generated.field.height - 1) * 2 - 1;
+    count += 1;
+  }
+  return clamp(count ? sum / count : 0, -1, 1);
 }
 
-function voiceForSimilarityPitch(key, octavePosition, shepardRate, gain, pan) {
+function voiceForPitch(pitch, shepardRate = 0, {
+  key = "julia:boundary",
+  gain = 0.22,
+  pan: requestedPan,
+  octaveOffset = 0,
+  frequencyRatio = 1,
+} = {}) {
+  const sample = pitch.sample;
+  const pan = Number.isFinite(requestedPan) ? requestedPan : sample && generated?.field
+    ? clamp(sample.x / Math.max(1, generated.field.width - 1) * 2 - 1, -1, 1)
+    : 0;
+  const octavePosition = pitch.octavePosition + octaveOffset;
   const octavePhase = wrap01(octavePosition);
-  const fallbackFrequency = state.baseFrequency * 2 ** octavePhase;
+  const anchor = state.baseFrequency * frequencyRatio;
+  const fallbackFrequency = anchor * 2 ** octavePhase;
   return {
     key,
-    frequency: pool.workletUnavailable ? fallbackFrequency : state.baseFrequency,
+    frequency: pool.workletUnavailable ? fallbackFrequency : anchor,
     gain,
     pan,
     waveform: "sine",
@@ -866,6 +920,35 @@ function voiceForSimilarityPitch(key, octavePosition, shepardRate, gain, pan) {
       shepardWidth: state.shepardWidth,
       shepardPosition: octavePhase,
     }),
+    shepardTravel: octavePosition,
+  };
+}
+
+function voiceForSimilarityPitch(layer, octavePosition, shepardRate, gain) {
+  const octavePhase = wrap01(octavePosition);
+  const synthMode = layer.synthMode ?? "shepard";
+  const anchor = state.baseFrequency * (layer.frequencyRatio ?? 1);
+  const frequency = synthMode === "shepard"
+    ? pool.workletUnavailable ? anchor * 2 ** octavePhase : anchor
+    : anchor * 2 ** clamp(octavePosition, -4, 4);
+  const shepardWidth = clamp(
+    state.shepardWidth * (layer.shepardWidthRatio ?? 1),
+    1,
+    15,
+  );
+  return {
+    key: layer.key,
+    frequency,
+    gain,
+    pan: layer.pan,
+    waveform: "sine",
+    ...synthParametersForMode(synthMode, 1, {
+      fmIndex: layer.modulationIndex ?? 2.5,
+      shepardRate,
+      shepardWidth,
+      shepardPosition: octavePhase,
+    }),
+    shepardTravel: octavePosition,
   };
 }
 
@@ -889,99 +972,39 @@ function rateLimitedSimilarityTrajectory(key, currentTarget, futureTarget, delta
   };
 }
 
-function smoothAuditionEnvelope(localTime, duration) {
+function smoothAuditionEnvelope(localTime, duration, maximumEdge = 0.18) {
   if (localTime < 0 || localTime > duration) return 0;
-  const edge = Math.min(0.18, duration * 0.12);
+  const edge = Math.min(maximumEdge, duration * 0.12);
   if (!(edge > 0)) return 1;
   const amount = clamp(Math.min(localTime, duration - localTime) / edge, 0, 1);
   return amount * amount * (3 - 2 * amount);
 }
 
-function similarityLevelDuration(level) {
-  return Math.max(
-    MIN_RECOGNIZABLE_SECONDS,
-    state.similarityDuration * Math.max(0.001, level.durationRatio),
+function similarityLayerPhase(layer, localTime) {
+  if (layer.repeatPeriod > 0) return wrap01(Math.max(0, localTime) / layer.repeatPeriod);
+  return clamp(localTime / layer.duration, 0, 1);
+}
+
+function similarityLayerEnvelope(layer, localTime) {
+  const outer = smoothAuditionEnvelope(
+    localTime,
+    layer.duration,
+    layer.fadeSeconds ?? 0.18,
   );
+  if (!(outer > 0) || !(layer.repeatPeriod > 0) || layer.repeatPeriod >= layer.duration - 1e-9) {
+    return outer;
+  }
+  const cycleTime = wrap01(Math.max(0, localTime) / layer.repeatPeriod) * layer.repeatPeriod;
+  return outer * smoothAuditionEnvelope(cycleTime, layer.repeatPeriod, 0.055);
 }
 
 function similarityLayersForMode(mode) {
-  const levels = similarityFamily?.levels ?? [];
-  if (!levels.length) return [];
-  const layers = [];
-  const distributePan = (index, count) => count <= 1 ? 0 : -0.72 + 1.44 * index / (count - 1);
-  if (mode === "chorus") {
-    levels.forEach((level, index) => layers.push({
-      key: `similarity:chorus:${index}`,
-      signal: level.signal,
-      start: 0,
-      duration: similarityLevelDuration(level),
-      gain: 0.24,
-      pan: distributePan(index, levels.length),
-      pitchOffset: 0,
-      pitchScale: 1,
-    }));
-  } else if (mode === "canon") {
-    levels.forEach((level, index) => layers.push({
-      key: `similarity:canon:${index}`,
-      signal: level.signal,
-      start: index * 0.65,
-      duration: similarityLevelDuration(level),
-      gain: 0.25,
-      pan: distributePan(index, levels.length),
-      pitchOffset: index * 0.08,
-      pitchScale: 1,
-    }));
-  } else if (mode === "wavelet") {
-    levels.slice(0, 3).forEach((level, index, selected) => {
-      const band = level.bands?.[Math.min(index, 2)] ?? level.signal;
-      layers.push({
-        key: `similarity:wavelet:${index}`,
-        signal: band,
-        start: 0,
-        duration: similarityLevelDuration(level),
-        gain: 0.27,
-        pan: distributePan(index, selected.length),
-        pitchOffset: index * 0.18,
-        pitchScale: band.gain ?? 1,
-      });
-    });
-  } else if (mode === "orbit") {
-    [...levels].reverse().forEach((level, index, reversed) => layers.push({
-      key: `similarity:orbit:${level.depth}`,
-      signal: level.signal,
-      start: index * 0.55,
-      duration: similarityLevelDuration(level),
-      gain: 0.25,
-      pan: distributePan(index, reversed.length),
-      pitchOffset: level.depth * 0.12,
-      pitchScale: 1,
-    }));
-  } else {
-    const reference = levels[0];
-    const candidate = levels.at(-1);
-    const score = similarityPlans?.harmony?.score ?? 0;
-    const roughness = (1 - score) * 0.5;
-    layers.push({
-      key: "similarity:harmony:reference",
-      signal: reference.signal,
-      start: 0,
-      duration: similarityLevelDuration(reference),
-      gain: 0.28,
-      pan: -0.38,
-      pitchOffset: 0,
-      pitchScale: 1,
-    }, {
-      key: "similarity:harmony:candidate",
-      signal: candidate.signal,
-      start: 0,
-      duration: similarityLevelDuration(candidate),
-      gain: 0.28,
-      pan: 0.38,
-      pitchOffset: roughness,
-      pitchScale: 1,
-    });
-  }
-  return layers;
+  return buildSimilarityAuditionLayers(
+    similarityFamily,
+    similarityPlans,
+    mode,
+    { referenceDuration: state.similarityDuration, minimumLayerDuration: 2 },
+  );
 }
 
 function directedSimilarityPitch(signal, phase) {
@@ -1004,11 +1027,11 @@ function similarityVoiceTrajectory(now, deltaSeconds) {
   for (const layer of layers) {
     const local = elapsed - layer.start;
     const futureLocal = local + LOOKAHEAD_SECONDS;
-    const currentGain = smoothAuditionEnvelope(local, layer.duration) * layer.gain;
-    const futureGain = smoothAuditionEnvelope(futureLocal, layer.duration) * layer.gain;
+    const currentGain = similarityLayerEnvelope(layer, local) * layer.gain;
+    const futureGain = similarityLayerEnvelope(layer, futureLocal) * layer.gain;
     if (currentGain <= 0 && futureGain <= 0) continue;
-    const currentPhase = clamp(local / layer.duration, 0, 1);
-    const futurePhase = clamp(futureLocal / layer.duration, 0, 1);
+    const currentPhase = similarityLayerPhase(layer, local);
+    const futurePhase = similarityLayerPhase(layer, futureLocal);
     const mappingScale = state.turnPolarity * state.turnOctaves * layer.pitchScale;
     const currentTarget = layer.pitchOffset
       + mappingScale * directedSimilarityPitch(layer.signal, currentPhase);
@@ -1020,8 +1043,8 @@ function similarityVoiceTrajectory(now, deltaSeconds) {
       futureTarget,
       deltaSeconds,
     );
-    current.push(voiceForSimilarityPitch(layer.key, pitch.current, pitch.rate, currentGain, layer.pan));
-    future.push(voiceForSimilarityPitch(layer.key, pitch.future, pitch.rate, futureGain, layer.pan));
+    current.push(voiceForSimilarityPitch(layer, pitch.current, pitch.rate, currentGain));
+    future.push(voiceForSimilarityPitch(layer, pitch.future, pitch.rate, futureGain));
   }
   return { current, future };
 }
@@ -1114,9 +1137,36 @@ function frame(now) {
       + state.direction * state.speed * LOOKAHEAD_SECONDS;
     const futurePitch = pitchStateAt(futurePosition);
     const audioTrajectory = rateLimitedAudioTrajectory(pitch, futurePitch, delta);
+    const currentAddress = boundaryVerticalAddress(state.continuousPosition);
+    const futureAddress = boundaryVerticalAddress(futurePosition);
+    const currentInterval = juliaVerticalAddressOctaves(currentAddress);
+    const futureInterval = juliaVerticalAddressOctaves(futureAddress);
+    const addressRate = (futureInterval - currentInterval) / LOOKAHEAD_SECONDS;
     pool.setVoiceTrajectory(
-      [voiceForPitch(audioTrajectory.current, audioTrajectory.rate)],
-      [voiceForPitch(audioTrajectory.future, audioTrajectory.rate)],
+      [
+        voiceForPitch(audioTrajectory.current, audioTrajectory.rate, {
+          key: "julia:boundary:shape",
+          gain: 0.22,
+        }),
+        voiceForPitch(audioTrajectory.current, audioTrajectory.rate + addressRate, {
+          key: "julia:boundary:address",
+          gain: 0.105,
+          pan: currentAddress * 0.62,
+          octaveOffset: currentInterval,
+        }),
+      ],
+      [
+        voiceForPitch(audioTrajectory.future, audioTrajectory.rate, {
+          key: "julia:boundary:shape",
+          gain: 0.22,
+        }),
+        voiceForPitch(audioTrajectory.future, audioTrajectory.rate + addressRate, {
+          key: "julia:boundary:address",
+          gain: 0.105,
+          pan: futureAddress * 0.62,
+          octaveOffset: futureInterval,
+        }),
+      ],
       LOOKAHEAD_SECONDS,
     );
   } else if (state.audio) {

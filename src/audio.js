@@ -1,3 +1,8 @@
+import {
+  ADAPTIVE_POLYPHONY_HARD_LIMITS,
+  AdaptivePolyphonyController,
+} from "./adaptive-polyphony.js";
+
 /**
  * Lazy browser audio for the geometric instrument. Importing this module does
  * not touch window or construct an AudioContext, so its pure helpers are safe
@@ -24,9 +29,12 @@
  */
 
 const DEFAULT_VOICE_COUNT = 32;
+const MAX_NATIVE_VOICE_COUNT = 128;
+const MAX_WORKLET_VOICE_COUNT = Math.max(...Object.values(ADAPTIVE_POLYPHONY_HARD_LIMITS));
 const MIN_FREQUENCY = 20;
 const MAX_FREQUENCY = 20_000;
 const MAX_RANGE_OCTAVES = 10;
+const MAX_SHEPARD_WIDTH = 15;
 
 const FREQUENCY_TIME_CONSTANT = 0.018;
 const ACTIVE_GAIN_TIME_CONSTANT = 0.003;
@@ -296,7 +304,7 @@ export function timbreParametersForMode(mode, amount = 0, {
 } = {}) {
   const safeMode = sanitizeSynthMode(mode);
   const safeAmount = clamp(amount, 0, 1);
-  const maximumShepardWidth = clamp(shepardWidth, 1, 8);
+  const maximumShepardWidth = clamp(shepardWidth, 1, MAX_SHEPARD_WIDTH);
   return {
     modulationIndex: safeMode === "fm"
       ? clamp(fmIndex, 0, 20) * safeAmount
@@ -457,7 +465,7 @@ function sanitizeVoice(voice) {
     modulationIndex: clamp(voice.modulationIndex ?? 0, 0, 20),
     modulationRatio: clamp(voice.modulationRatio ?? 1, 0.125, 16),
     shepardRate: clamp(voice.shepardRate ?? 0, -8, 8),
-    shepardWidth: clamp(voice.shepardWidth ?? 4, 1, 8),
+    shepardWidth: clamp(voice.shepardWidth ?? 4, 1, MAX_SHEPARD_WIDTH),
     shepardPosition: Number.isFinite(voice.shepardPosition)
       ? ((voice.shepardPosition % 1) + 1) % 1
       : null,
@@ -547,15 +555,50 @@ export function normalizeStrikeGains(voices, maxPeakSum = 0.78) {
 
 /** Fixed-size, click-safe oscillator pool for animation-frame updates. */
 export class VoicePool {
-  /** @param {number} [size] */
-  constructor(size = DEFAULT_VOICE_COUNT) {
+  /**
+   * @param {number} [size] Native fallback and initial continuous voice count.
+   * @param {{adaptive?: boolean, maxVoices?: number}} [options]
+   */
+  constructor(size = DEFAULT_VOICE_COUNT, options = {}) {
     this.size = Math.max(
       0,
       Math.min(
-        128,
+        MAX_NATIVE_VOICE_COUNT,
         Math.trunc(Number.isFinite(size) ? size : DEFAULT_VOICE_COUNT),
       ),
     );
+    this.adaptivePolyphony = Boolean(options?.adaptive) && this.size > 0;
+    this.maxVoiceLimit = this.adaptivePolyphony
+      ? Math.max(
+        this.size,
+        Math.min(
+          MAX_WORKLET_VOICE_COUNT,
+          Math.trunc(Number.isFinite(options?.maxVoices)
+            ? options.maxVoices
+            : MAX_WORKLET_VOICE_COUNT),
+        ),
+      )
+      : this.size;
+    this.polyphonyController = this.adaptivePolyphony
+      ? new AdaptivePolyphonyController({
+        initialVoices: this.size,
+        hardLimits: Object.fromEntries(Object.entries(ADAPTIVE_POLYPHONY_HARD_LIMITS)
+          .map(([mode, limit]) => [mode, Math.min(limit, this.maxVoiceLimit)])),
+      })
+      : null;
+    this.polyphonyMode = "sine";
+    this.renderCapacityUpdatesToIgnore = 0;
+    this.voiceDemand = 0;
+    this.voiceLimit = this.size;
+    this.onPolyphonyStatus = null;
+    this.renderCapacity = null;
+    this.renderCapacityActive = false;
+    this.renderCapacityHasSample = false;
+    this.lastPlaybackStatsAt = -Infinity;
+    this.lastUnderrunEvents = 0;
+    this.lastUnderrunDuration = 0;
+    this.lastSubmittedVoiceCount = 0;
+    this.lastPolyphonyStatusSignature = "";
 
     /** @type {AudioContext|null} */
     this.context = null;
@@ -594,6 +637,163 @@ export class VoicePool {
 
   get activeStrikeCount() {
     return this.activeStrikes.size;
+  }
+
+  get polyphonyStatus() {
+    if (!this.polyphonyController) {
+      return Object.freeze({
+        mode: this.polyphonyMode,
+        limit: this.size,
+        stableLimit: this.size,
+        hardLimit: this.size,
+        demand: this.voiceDemand,
+        activeVoices: this.lastSubmittedVoiceCount,
+        averageLoad: null,
+        peakLoad: null,
+        underrunRatio: 0,
+        status: "fixed",
+        source: "fixed",
+        telemetry: "unavailable",
+      });
+    }
+    return this.polyphonyController.decision(this.polyphonyMode);
+  }
+
+  voiceLimitFor(mode = this.polyphonyMode) {
+    if (!this.polyphonyController) return this.size;
+    return this.polyphonyController.limitFor(mode);
+  }
+
+  setVoiceDemand(demand, mode = this.polyphonyMode) {
+    const nextMode = CONTINUOUS_SYNTH_MODES.has(mode) ? mode : "sine";
+    if (nextMode !== this.polyphonyMode) this.renderCapacityUpdatesToIgnore = 1;
+    this.polyphonyMode = nextMode;
+    this.voiceDemand = Math.max(0, Math.floor(Number(demand) || 0));
+    if (this.polyphonyController) {
+      const decision = this.polyphonyController.setDemand(this.polyphonyMode, this.voiceDemand);
+      this.voiceLimit = decision.limit;
+      this.notifyPolyphonyStatus(decision);
+    }
+    return this.voiceLimitFor(this.polyphonyMode);
+  }
+
+  notifyPolyphonyStatus(status = this.polyphonyStatus) {
+    const signature = [
+      status.mode,
+      status.limit,
+      status.demand,
+      status.status,
+      status.source,
+      Number.isFinite(status.averageLoad) ? status.averageLoad.toFixed(3) : "-",
+      Number.isFinite(status.peakLoad) ? status.peakLoad.toFixed(3) : "-",
+    ].join("|");
+    if (signature === this.lastPolyphonyStatusSignature) return;
+    this.lastPolyphonyStatusSignature = signature;
+    if (typeof this.onPolyphonyStatus !== "function") return;
+    try {
+      this.onPolyphonyStatus(status);
+    } catch {
+      // Status presentation must never interrupt the audio path.
+    }
+  }
+
+  observePolyphony(sample) {
+    if (!this.polyphonyController) return this.polyphonyStatus;
+    const decision = this.polyphonyController.observe(sample);
+    if (sample.mode === this.polyphonyMode || !sample.mode) this.voiceLimit = decision.limit;
+    this.notifyPolyphonyStatus(decision);
+    return decision;
+  }
+
+  useAdaptiveFallback(source = "native-fallback") {
+    if (!this.polyphonyController) return;
+    this.polyphonyController.setTelemetryUnavailable(source);
+    this.voiceLimit = this.size;
+    this.notifyPolyphonyStatus();
+  }
+
+  startRenderCapacityMonitoring(context) {
+    if (!this.polyphonyController) return;
+    let capacity = null;
+    try {
+      capacity = context?.renderCapacity;
+    } catch {
+      return;
+    }
+    if (!capacity || typeof capacity.start !== "function") return;
+    try {
+      this.renderCapacityHasSample = false;
+      capacity.onupdate = (event) => {
+        if (this.renderCapacityUpdatesToIgnore > 0) {
+          this.renderCapacityUpdatesToIgnore -= 1;
+          return;
+        }
+        const averageLoad = Number(event?.averageLoad);
+        const peakLoad = Number(event?.peakLoad);
+        if (!Number.isFinite(averageLoad) || !Number.isFinite(peakLoad)) return;
+        this.renderCapacityHasSample = true;
+        this.observePolyphony({
+          mode: this.polyphonyMode,
+          averageLoad,
+          peakLoad,
+          underrunRatio: event?.underrunRatio,
+          activeVoices: this.lastSubmittedVoiceCount,
+          requestedVoices: this.voiceDemand,
+          source: "render-capacity",
+        });
+      };
+      capacity.start({ updateInterval: 0.5 });
+      this.renderCapacity = capacity;
+      this.renderCapacityActive = true;
+    } catch {
+      capacity.onupdate = null;
+      this.renderCapacity = null;
+      this.renderCapacityActive = false;
+    }
+  }
+
+  stopRenderCapacityMonitoring() {
+    if (this.renderCapacity) {
+      try {
+        this.renderCapacity.stop?.();
+      } catch {
+        // A closed context may already have stopped collection.
+      }
+      this.renderCapacity.onupdate = null;
+    }
+    this.renderCapacity = null;
+    this.renderCapacityActive = false;
+    this.renderCapacityHasSample = false;
+  }
+
+  pollPlaybackStats() {
+    if (!this.polyphonyController || !this.context) return;
+    const now = Number(this.context.currentTime) || 0;
+    if (now - this.lastPlaybackStatsAt < 1) return;
+    this.lastPlaybackStatsAt = now;
+    let stats = null;
+    try {
+      stats = this.context.playbackStats;
+    } catch {
+      return;
+    }
+    if (!stats) return;
+    const events = Math.max(0, Number(stats.underrunEvents) || 0);
+    const duration = Math.max(0, Number(stats.underrunDuration) || 0);
+    const hadUnderrun = events > this.lastUnderrunEvents
+      || duration > this.lastUnderrunDuration + 1e-6;
+    this.lastUnderrunEvents = events;
+    this.lastUnderrunDuration = duration;
+    if (!hadUnderrun) return;
+    this.observePolyphony({
+      mode: this.polyphonyMode,
+      averageLoad: 1,
+      peakLoad: 1,
+      underrunRatio: 1,
+      activeVoices: this.lastSubmittedVoiceCount,
+      requestedVoices: this.voiceDemand,
+      source: "playback-stats",
+    });
   }
 
   /** Create/resume Web Audio after a user gesture and unmute the master bus. */
@@ -651,6 +851,8 @@ export class VoicePool {
     const AudioWorkletNodeConstructor = audioGlobal.AudioWorkletNode;
     if (!context.audioWorklet?.addModule || !AudioWorkletNodeConstructor) {
       this.workletUnavailable = true;
+      this.useAdaptiveFallback("native-fallback");
+      this.buildNativeVoices();
       return;
     }
 
@@ -666,20 +868,46 @@ export class VoicePool {
           numberOfInputs: 0,
           numberOfOutputs: 1,
           outputChannelCount: [2],
-          processorOptions: { maxVoices: this.size },
+          processorOptions: { maxVoices: this.maxVoiceLimit },
         },
       );
       synthNode.connect(this.master);
+      synthNode.port.onmessage = (event) => {
+        const report = event?.data;
+        if (report?.type !== "render-load" || !this.polyphonyController) return;
+        if (report.supported === false) {
+          if (!this.renderCapacityActive) this.useAdaptiveFallback("timing-unavailable");
+          return;
+        }
+        if (this.renderCapacityActive && this.renderCapacityHasSample) return;
+        this.observePolyphony({
+          mode: report.mode,
+          averageLoad: report.averageLoad,
+          peakLoad: report.peakLoad,
+          underrunRatio: 0,
+          activeVoices: report.renderedVoices ?? report.activeVoices,
+          requestedVoices: report.requestedVoices ?? this.voiceDemand,
+          source: report.timing === "high-res" ? "worklet" : "worklet-coarse",
+          valid: report.supported !== false,
+        });
+      };
+      synthNode.port.start?.();
       synthNode.onprocessorerror = () => {
         synthNode.disconnect();
         if (this.synthNode === synthNode) this.synthNode = null;
         this.workletUnavailable = true;
+        this.stopRenderCapacityMonitoring();
+        this.useAdaptiveFallback("processor-fallback");
+        this.buildNativeVoices();
         if (this.enabled) this.applyVoices(this.pendingVoices);
       };
       this.synthNode = synthNode;
+      this.startRenderCapacityMonitoring(context);
     } catch {
       // The native sine pool below is a safe fallback for older Web Audio hosts.
       this.workletUnavailable = true;
+      this.useAdaptiveFallback("native-fallback");
+      this.buildNativeVoices();
     }
   }
 
@@ -705,6 +933,17 @@ export class VoicePool {
     compressor.release.value = 0.12;
     master.connect(compressor).connect(context.destination);
 
+    this.context = context;
+    this.master = master;
+    this.compressor = compressor;
+    this.voices = [];
+  }
+
+  /** Allocate native OscillatorNodes only when the worklet path is unavailable. */
+  buildNativeVoices() {
+    const context = this.context;
+    const master = this.master;
+    if (!context || !master || this.voices.length > 0) return;
     const voices = [];
     for (let index = 0; index < this.size; index += 1) {
       const oscillator = context.createOscillator();
@@ -719,10 +958,6 @@ export class VoicePool {
       oscillator.start();
       voices.push({ oscillator, gain, pan, key: null });
     }
-
-    this.context = context;
-    this.master = master;
-    this.compressor = compressor;
     this.voices = voices;
   }
 
@@ -740,10 +975,24 @@ export class VoicePool {
   /**
    * Steer the oscillator pool; excess contacts are reduced and gains normalized.
    * @param {readonly VoiceSpec[]} voices
+   * @param {{requestedVoiceCount?: number, mode?: string, voiceLimit?: number}} [options]
    */
-  setVoices(voices) {
-    const reduced = reduceVoiceContacts(voices, this.size);
+  setVoices(voices, options = {}) {
+    const mode = CONTINUOUS_SYNTH_MODES.has(options.mode)
+      ? options.mode
+      : voices[0]?.mode ?? this.polyphonyMode;
+    const requested = Math.max(
+      voices.length,
+      Math.floor(Number(options.requestedVoiceCount) || 0),
+    );
+    if (this.adaptivePolyphony) this.setVoiceDemand(requested, mode);
+    const limit = this.synthNode
+      ? Math.min(this.voiceLimitFor(mode), this.maxVoiceLimit)
+      : this.size;
+    const reduced = reduceVoiceContacts(voices, limit);
     this.pendingVoices = normalizeVoiceGains(reduced);
+    this.lastSubmittedVoiceCount = this.pendingVoices.length;
+    this.pollPlaybackStats();
     if (this.enabled) this.applyVoices(this.pendingVoices);
   }
 
@@ -755,11 +1004,33 @@ export class VoicePool {
    * @param {readonly VoiceSpec[]} voices
    * @param {readonly VoiceSpec[]} nextVoices
    * @param {number} durationSeconds
+   * @param {{requestedVoiceCount?: number, mode?: string, voiceLimit?: number}} [options]
    */
-  setVoiceTrajectory(voices, nextVoices, durationSeconds = 0.075) {
-    const current = normalizeVoiceGains(reduceVoiceContacts(voices, this.size));
-    const future = normalizeVoiceGains(reduceVoiceContacts(nextVoices, this.size));
+  setVoiceTrajectory(voices, nextVoices, durationSeconds = 0.075, options = {}) {
+    const mode = CONTINUOUS_SYNTH_MODES.has(options.mode)
+      ? options.mode
+      : voices[0]?.mode ?? nextVoices[0]?.mode ?? this.polyphonyMode;
+    const requested = Math.max(
+      voices.length,
+      nextVoices.length,
+      Math.floor(Number(options.requestedVoiceCount) || 0),
+    );
+    if (this.adaptivePolyphony) this.setVoiceDemand(requested, mode);
+    const requestedLimit = Number.isFinite(options.voiceLimit)
+      ? Math.floor(options.voiceLimit)
+      : this.voiceLimitFor(mode);
+    const limit = this.synthNode
+      ? Math.min(
+        this.maxVoiceLimit,
+        this.voiceLimitFor(mode),
+        Math.max(0, requestedLimit),
+      )
+      : this.size;
+    const current = normalizeVoiceGains(reduceVoiceContacts(voices, limit));
+    const future = normalizeVoiceGains(reduceVoiceContacts(nextVoices, limit));
     this.pendingVoices = current;
+    this.lastSubmittedVoiceCount = Math.max(current.length, future.length);
+    this.pollPlaybackStats();
     if (!this.enabled) return;
     if (!this.synthNode) {
       this.applyVoices(current);
@@ -770,6 +1041,9 @@ export class VoicePool {
       voices: current,
       nextVoices: future,
       durationSeconds: clamp(durationSeconds, 0.01, 0.25),
+      requestedVoiceCount: requested,
+      mode,
+      voiceLimit: limit,
     });
     const now = this.context?.currentTime ?? 0;
     for (const voice of this.voices) {
@@ -1084,15 +1358,25 @@ export class VoicePool {
   /** @param {readonly VoiceSpec[]} specs */
   applyVoices(specs) {
     if (!this.context) return;
+    if (!this.synthNode) this.buildNativeVoices();
     const now = this.context.currentTime;
+    const sourceSpecs = this.synthNode
+      ? specs
+      : normalizeVoiceGains(reduceVoiceContacts(specs, this.size));
 
-    const sanitized = specs.map((spec, index) => ({
+    const sanitized = sourceSpecs.map((spec, index) => ({
       ...sanitizeVoice(spec),
       key: typeof spec.key === "string" ? spec.key : `index:${index}`,
     }));
 
     if (this.synthNode) {
-      this.synthNode.port.postMessage({ type: "voices", voices: sanitized });
+      this.synthNode.port.postMessage({
+        type: "voices",
+        voices: sanitized,
+        requestedVoiceCount: this.voiceDemand || sanitized.length,
+        mode: this.polyphonyMode,
+        voiceLimit: this.voiceLimitFor(this.polyphonyMode),
+      });
       for (const voice of this.voices) {
         voice.key = null;
         voice.gain.gain.setTargetAtTime(0, now, RELEASE_TIME_CONSTANT);
@@ -1156,7 +1440,15 @@ export class VoicePool {
   /** Fade every oscillator out and clear pending voice state. */
   silence() {
     this.pendingVoices = [];
-    this.synthNode?.port.postMessage({ type: "voices", voices: [] });
+    this.lastSubmittedVoiceCount = 0;
+    if (this.adaptivePolyphony) this.setVoiceDemand(0, this.polyphonyMode);
+    this.synthNode?.port.postMessage({
+      type: "voices",
+      voices: [],
+      requestedVoiceCount: 0,
+      mode: this.polyphonyMode,
+      voiceLimit: this.voiceLimitFor(this.polyphonyMode),
+    });
     if (!this.context) return;
     const now = this.context.currentTime;
     for (const voice of this.voices) {
@@ -1216,6 +1508,7 @@ export class VoicePool {
     const context = this.context;
     this.enabled = false;
     this.pendingVoices = [];
+    this.stopRenderCapacityMonitoring();
 
     for (const voice of this.voices) {
       try {
@@ -1256,11 +1549,17 @@ export class VoicePool {
   }
 
   resetGraph() {
+    this.stopRenderCapacityMonitoring();
     this.context = null;
     this.master = null;
     this.compressor = null;
     this.synthNode = null;
     this.workletUnavailable = false;
+    this.renderCapacityUpdatesToIgnore = 0;
+    this.lastPlaybackStatsAt = -Infinity;
+    this.lastUnderrunEvents = 0;
+    this.lastUnderrunDuration = 0;
+    this.lastSubmittedVoiceCount = 0;
     this.attackNoiseBuffer = null;
     this.voices = [];
     this.activeStrikes.clear();

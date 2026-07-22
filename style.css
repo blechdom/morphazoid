@@ -210,6 +210,12 @@ a {
   color: var(--accent);
 }
 
+.fractaphone-tab {
+  min-width: 94px;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
 .tab::after {
   position: absolute;
   right: 10px;
@@ -1582,6 +1588,19 @@ input[type="range"]::-moz-range-thumb {
   background: color-mix(in oklab, var(--panel-high) 86%, transparent);
 }
 
+.growth-parameter-note {
+  display: block;
+  margin: -7px 0 13px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.l-system-page input:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
 .grammar-card > span {
   display: grid;
   min-width: 0;
@@ -2864,7 +2883,7 @@ select:hover {
   }
 }
 
-@media (max-width: 840px) {
+@media (max-width: 1120px) {
   .tabs {
     display: none;
   }
