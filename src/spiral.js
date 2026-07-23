@@ -18,6 +18,9 @@ const DEFAULT_BOUNDS = Object.freeze({
   innerRadius: 0.045,
   outerRadius: 1.08,
 });
+export const SPIRAL_ZOOM_DEPTH = Math.log(
+  DEFAULT_BOUNDS.outerRadius / DEFAULT_BOUNDS.innerRadius,
+);
 
 function lerp(start, end, amount) {
   return start + (end - start) * amount;
@@ -90,14 +93,30 @@ export function spiralPoint(logPoint) {
   };
 }
 
-/** A smooth, closed zoom cycle matching the manual Pattern scale range. */
-export function spiralLoopLogOffset(phase, amplitude = 1.2) {
+/** A constant-speed deep zoom that reverses only at the stage's full radial span. */
+export function spiralLoopLogOffset(phase, amplitude = SPIRAL_ZOOM_DEPTH) {
   const numericPhase = Number(phase);
   const numericAmplitude = Number(amplitude);
   const position = Number.isFinite(numericPhase) ? wrap01(numericPhase) : 0;
-  const scale = Number.isFinite(numericAmplitude) ? numericAmplitude : 1.2;
+  const scale = Number.isFinite(numericAmplitude) ? numericAmplitude : SPIRAL_ZOOM_DEPTH;
   if (position < EPSILON || 1 - position < EPSILON) return 0;
-  return Math.sin(position * TAU) * scale;
+  return (position <= 0.5 ? position * 2 : (1 - position) * 2) * scale;
+}
+
+/** Stable pitch color for a contact's edge class and isohedral tile aspect. */
+export function shapePitchForSpiralContact(contact = {}) {
+  const edgeShape = Math.trunc(Number(contact.edgeShapeId) || 0);
+  const aspect = Math.trunc(Number(contact.aspect) || 0);
+  const edge = Math.trunc(Number(contact.edgeIndex) || 0);
+  const pitchClass = ((edgeShape * 5 + aspect * 3 + edge * 7) % 12 + 12) % 12;
+  return pitchClass / 11;
+}
+
+/** Let angle lead the pitch while tile/edge identity separates each contact. */
+export function angleShapePitchForSpiralContact(contact = {}) {
+  const angle = wrap01(Number(contact.angle01) || 0);
+  const shape = shapePitchForSpiralContact(contact);
+  return wrap01(angle * 0.72 + shape * 0.34);
 }
 
 /** Similarity transform that sends A*T1 + B*T2 to one complete angular turn. */

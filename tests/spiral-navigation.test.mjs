@@ -26,5 +26,5 @@ test("Spiral sits between Lattice and Solid in published navigation", async () =
   const spiral = htmlPages[2];
   assert.match(spiral, /class="tab active" href="spiral\.html" aria-current="page">spiral<\/a>/);
   assert.match(spiral, /<option value="spiral\.html" selected>spiral<\/option>/);
-  assert.match(spiral, /<script type="module" src="spiral-app\.js\?v=direct-zoom-loop"><\/script>/);
+  assert.match(spiral, /<script type="module" src="spiral-app\.js\?v=deep-zoom"><\/script>/);
 });

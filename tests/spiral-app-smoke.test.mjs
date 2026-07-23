@@ -45,6 +45,8 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   elements.get("radiusTime").dataset.value = "radius";
   elements.get("angleTime").dataset.value = "angle";
   elements.get("spiralTime").dataset.value = "spiral";
+  elements.get("pitchSource").value = "angleShape";
+  elements.get("pitchSource").selectedOptions = [{ textContent: "Angle + tile shape" }];
 
   let drawnArcs = 0;
   const drawnLinePoints = [];
@@ -154,7 +156,7 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   assert.equal((elements.get("tilingType").innerHTML.match(/<option /g) ?? []).length, 72);
   assert.equal(attributes.get("radiusTime:aria-pressed"), "true");
   assert.equal(attributes.get("sizeCoupling:aria-pressed"), "false");
-  assert.equal(elements.get("mappingSummary").textContent, "Log radius → pitch");
+  assert.equal(elements.get("mappingSummary").textContent, "Angle + tile shape → pitch");
   assert.ok(drawnArcs > 0);
 
   listeners.get("spiralTime:click")();
@@ -178,7 +180,7 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   listeners.get("loopPhase:input")();
   now += 20;
   queuedFrame(now);
-  assert.match(elements.get("loopPhaseOut").textContent, /25\.0% · \+1\.20/);
+  assert.match(elements.get("loopPhaseOut").textContent, /1\.59 · IN/);
   assert.notDeepEqual(drawnLinePoints, geometryBeforeLoop);
   await listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
@@ -192,6 +194,9 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   const voiceGains = gains.slice(1, 17);
   assert.ok(voiceGains.some((gain) => gain.gain.value > 0));
   assert.ok(oscillators.some((oscillator) => oscillator.frequency.value !== 220));
+  assert.ok(new Set(oscillators.map((oscillator) => (
+    oscillator.frequency.value.toFixed(3)
+  ))).size > 3);
   assert.match(elements.get("stageReadout").textContent, /VOICE/);
 
   await listeners.get("playButton:click")();
@@ -209,7 +214,7 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   listeners.get("sizeCoupling:click")();
   assert.equal(attributes.get("sizeCoupling:aria-pressed"), "true");
   assert.match(elements.get("sizeCoupling").textContent, /on$/);
-  assert.equal(elements.get("mappingSummary").textContent, "Log radius + size → pitch/time");
+  assert.equal(elements.get("mappingSummary").textContent, "Angle + tile shape + size → pitch/time");
   assert.match(elements.get("coordinateReadout").textContent, /^R ·/);
   now += 20;
   queuedFrame(now);

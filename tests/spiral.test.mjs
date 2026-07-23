@@ -4,12 +4,15 @@ import test from "node:test";
 
 import { IsohedralTiling } from "../vendor/tactile/tactile.js";
 import {
+  SPIRAL_ZOOM_DEPTH,
+  angleShapePitchForSpiralContact,
   buildSpiralTessellation,
   contactsForSpiralReader,
   createSpiralReader,
   createSpiralTransform,
   phaseForSpiralPoint,
   scaleRateForSpiralRadius,
+  shapePitchForSpiralContact,
   spiralLoopLogOffset,
   spiralPoint,
 } from "../src/spiral.js";
@@ -32,24 +35,52 @@ test("A and B close one exact turn of the logarithmic spiral", () => {
   assert.ok(Math.hypot(first.x - repeated.x, first.y - repeated.y) < 1e-8);
 });
 
-test("tessellation zoom follows the Pattern scale range and closes smoothly", () => {
+test("tessellation zoom crosses one full radial span before reversing", () => {
   assert.equal(spiralLoopLogOffset(0), 0);
-  assert.ok(Math.abs(spiralLoopLogOffset(0.25) - 1.2) < 1e-12);
-  assert.ok(Math.abs(spiralLoopLogOffset(0.5)) < 1e-12);
-  assert.ok(Math.abs(spiralLoopLogOffset(0.75) + 1.2) < 1e-12);
+  assert.ok(Math.abs(spiralLoopLogOffset(0.25) - SPIRAL_ZOOM_DEPTH / 2) < 1e-12);
+  assert.ok(Math.abs(spiralLoopLogOffset(0.5) - SPIRAL_ZOOM_DEPTH) < 1e-12);
+  assert.ok(Math.abs(spiralLoopLogOffset(0.75) - SPIRAL_ZOOM_DEPTH / 2) < 1e-12);
   assert.equal(spiralLoopLogOffset(1), 0);
+  assert.ok(Math.abs(Math.exp(SPIRAL_ZOOM_DEPTH) - 24) < 1e-12);
+  assert.ok(Math.abs(
+    (spiralLoopLogOffset(0.2) - spiralLoopLogOffset(0.1))
+      - (spiralLoopLogOffset(0.3) - spiralLoopLogOffset(0.2)),
+  ) < 1e-12);
   assert.ok(Math.abs(
     spiralLoopLogOffset(0.001) - spiralLoopLogOffset(1.001),
   ) < 1e-12);
 
   const start = buildSpiralTessellation({ type: 20, loopPhase: 0 });
-  const zoomed = buildSpiralTessellation({ type: 20, loopPhase: 0.25 });
+  const zoomed = buildSpiralTessellation({ type: 20, loopPhase: 0.5 });
   assert.equal(start.transform.logOffset, 0);
-  assert.ok(Math.abs(zoomed.transform.logOffset - 1.2) < 1e-12);
+  assert.ok(Math.abs(zoomed.transform.logOffset - SPIRAL_ZOOM_DEPTH) < 1e-12);
   assert.equal(zoomed.transform.angleOffset, start.transform.angleOffset);
   assert.ok(Math.abs(Math.exp(
     zoomed.transform.logOffset - start.transform.logOffset,
-  ) - Math.exp(1.2)) < 1e-12);
+  ) - 24) < 1e-12);
+});
+
+test("angle and tile shape give contacts distinct default pitches", () => {
+  const base = {
+    angle01: 0.2,
+    edgeShapeId: 0,
+    aspect: 0,
+    edgeIndex: 0,
+  };
+  const anotherAngle = { ...base, angle01: 0.65 };
+  const anotherShape = { ...base, edgeShapeId: 2, aspect: 3, edgeIndex: 4 };
+  assert.notEqual(
+    angleShapePitchForSpiralContact(base),
+    angleShapePitchForSpiralContact(anotherAngle),
+  );
+  assert.notEqual(
+    angleShapePitchForSpiralContact(base),
+    angleShapePitchForSpiralContact(anotherShape),
+  );
+  assert.notEqual(
+    shapePitchForSpiralContact(base),
+    shapePitchForSpiralContact(anotherShape),
+  );
 });
 
 test("spiral tessellation preserves editable IH data and produces finite readers", () => {
@@ -114,6 +145,7 @@ test("Spiral page exposes intrinsic time paths and tactile winding controls", as
   assert.match(html, /id="angleTime"/);
   assert.match(html, /id="spiralTime"/);
   assert.match(html, /id="sizeCoupling"[^>]+aria-pressed="false"/);
+  assert.match(html, /value="angleShape" selected>Angle \+ tile shape/);
   assert.ok(
     html.indexOf('id="sizeCoupling"') < html.indexOf('id="formSection"'),
     "size coupling belongs in the Play section",
@@ -122,8 +154,8 @@ test("Spiral page exposes intrinsic time paths and tactile winding controls", as
   assert.match(html, /id="spiralB"[^>]+value="5"/);
   assert.match(html, /id="loopPhase"/);
   assert.match(html, /id="loopPlayButton"/);
-  assert.match(html, /Tessellation zoom/);
-  assert.match(html, /Zoom out/);
+  assert.match(html, /Deep zoom &middot; in &harr; out/);
+  assert.match(html, /Reverse zoom/);
   assert.match(app, /buildSpiralTessellation/);
   assert.match(app, /contactsForSpiralReader/);
   assert.match(app, /phaseForSpiralPoint/);

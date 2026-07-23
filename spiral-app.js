@@ -18,11 +18,13 @@ import {
   tilingParameterRange,
 } from "./src/lattice.js";
 import {
+  angleShapePitchForSpiralContact,
   buildSpiralTessellation,
   contactsForSpiralReader,
   createSpiralReader,
   phaseForSpiralPoint,
   scaleRateForSpiralRadius,
+  shapePitchForSpiralContact,
   spiralLoopLogOffset,
 } from "./src/spiral.js";
 import { EdgeShape } from "./vendor/tactile/tactile.js";
@@ -65,7 +67,7 @@ const state = {
   continuousLoopPhase: 0,
   speed: 0.12,
   direction: 1,
-  loopSpeed: 0.12,
+  loopSpeed: 0.05,
   loopDirection: 1,
   readerTurns: 2,
   playing: false,
@@ -81,7 +83,7 @@ const state = {
   percussionDecay: 180,
   voiceCap: 8,
   stereoWidth: 0.8,
-  pitchSource: "radius",
+  pitchSource: "angleShape",
   sizeCoupling: false,
 };
 
@@ -209,7 +211,9 @@ $("loopPhase").addEventListener("input", () => setLoopPhase($("loopPhase").value
 
 function paintLoopPhase() {
   const offset = spiralLoopLogOffset(state.loopPhase);
-  $("loopPhaseOut").textContent = `${(state.loopPhase * 100).toFixed(1)}% · ${offset >= 0 ? "+" : ""}${offset.toFixed(2)}`;
+  const phaseDirection = state.loopPhase < 0.5 ? 1 : -1;
+  const zoomingIn = phaseDirection * state.loopDirection > 0;
+  $("loopPhaseOut").textContent = `${offset.toFixed(2)} · ${zoomingIn ? "IN" : "OUT"}`;
 }
 
 function formatBend(value, rigid = false) {
@@ -539,7 +543,7 @@ function directionLabel() {
 }
 
 function loopDirectionLabel() {
-  return state.loopDirection > 0 ? "Zoom out" : "Zoom in";
+  return "Reverse zoom";
 }
 
 function coordinateLabel() {
@@ -585,7 +589,8 @@ $("timeDirection").addEventListener("click", () => {
 $("loopDirection").addEventListener("click", () => {
   state.loopDirection *= -1;
   updateTimeControls();
-  announce(`Loop direction ${loopDirectionLabel()}.`);
+  paintLoopPhase();
+  announce("Zoom direction reversed.");
 });
 
 function setPosition(value) {
@@ -862,6 +867,8 @@ function addContactEnvelopes(contacts, nowSeconds) {
 }
 
 function pitchMark(contact) {
+  if (state.pitchSource === "angleShape") return angleShapePitchForSpiralContact(contact);
+  if (state.pitchSource === "shape") return shapePitchForSpiralContact(contact);
   if (state.pitchSource === "angle") return contact.angle01;
   if (state.pitchSource === "reader") return contact.along01;
   if (state.pitchSource === "orientation") return contact.orientation;

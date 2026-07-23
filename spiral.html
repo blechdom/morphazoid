@@ -121,16 +121,16 @@
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
               </button>
               <label class="control position-control" for="loopPhase">
-                <span><b>Tessellation zoom</b><output id="loopPhaseOut" for="loopPhase">0.0% &middot; +0.00</output></span>
+                <span><b>Deep zoom &middot; in &harr; out</b><output id="loopPhaseOut" for="loopPhase">0.00 &middot; IN</output></span>
                 <input id="loopPhase" type="range" min="0" max="1" step="0.0005" value="0" />
               </label>
             </div>
 
             <label class="control" for="loopSpeed">
-              <span><b>Loop speed</b><output id="loopSpeedOut" for="loopSpeed">0.120 cyc/s</output></span>
-              <input id="loopSpeed" type="range" min="0.01" max="1" step="0.001" value="0.12" />
+              <span><b>Loop speed</b><output id="loopSpeedOut" for="loopSpeed">0.050 cyc/s</output></span>
+              <input id="loopSpeed" type="range" min="0.01" max="1" step="0.001" value="0.05" />
             </label>
-            <button class="mini-action direction-action" id="loopDirection" type="button">Zoom out</button>
+            <button class="mini-action direction-action" id="loopDirection" type="button">Reverse zoom</button>
           </div>
         </details>
 
@@ -228,9 +228,9 @@
         </details>
 
         <details class="group control-section" id="mappingSection" data-section="mapping">
-          <summary class="group-summary"><h2 class="group-title">Mapping</h2><span class="section-state" id="mappingSummary">Radius &rarr; pitch</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Mapping</h2><span class="section-state" id="mappingSummary">Angle + tile shape &rarr; pitch</span></summary>
           <div class="group-body">
-            <label class="select-control" for="pitchSource"><span class="field-label">Pitch source</span><span class="select-shell"><select id="pitchSource"><option value="radius" selected>Log radius</option><option value="angle">Angular position</option><option value="reader">Reader position</option><option value="orientation">Edge orientation</option></select></span></label>
+            <label class="select-control" for="pitchSource"><span class="field-label">Pitch source</span><span class="select-shell"><select id="pitchSource"><option value="angleShape" selected>Angle + tile shape</option><option value="shape">Tile / edge shape</option><option value="angle">Angular position</option><option value="reader">Reader position</option><option value="orientation">Edge orientation</option><option value="radius">Log radius</option></select></span></label>
           </div>
         </details>
 
@@ -241,6 +241,6 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="spiral-app.js?v=direct-zoom-loop"></script>
+    <script type="module" src="spiral-app.js?v=deep-zoom"></script>
   </body>
 </html>
