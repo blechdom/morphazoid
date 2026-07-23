@@ -23,6 +23,7 @@ import {
   createSpiralReader,
   phaseForSpiralPoint,
   scaleRateForSpiralRadius,
+  spiralLoopLogOffset,
 } from "./src/spiral.js";
 import { EdgeShape } from "./vendor/tactile/tactile.js";
 import { createAmplitudeControl } from "./src/amplitude-control.js";
@@ -198,13 +199,18 @@ function setLoopPhase(value) {
   state.loopPhase = clamp(Number(value) || 0, 0, 1);
   state.continuousLoopPhase = state.loopPhase;
   $("loopPhase").value = String(state.loopPhase);
-  $("loopPhaseOut").textContent = `${(state.loopPhase * 100).toFixed(1)}%`;
+  paintLoopPhase();
   geometryDirty = true;
   resetContactTracking();
   scheduleFrame();
 }
 
 $("loopPhase").addEventListener("input", () => setLoopPhase($("loopPhase").value));
+
+function paintLoopPhase() {
+  const offset = spiralLoopLogOffset(state.loopPhase);
+  $("loopPhaseOut").textContent = `${(state.loopPhase * 100).toFixed(1)}% · ${offset >= 0 ? "+" : ""}${offset.toFixed(2)}`;
+}
 
 function formatBend(value, rigid = false) {
   if (rigid) return "fixed straight";
@@ -972,7 +978,7 @@ function frame(now) {
   $("position").value = String(state.position);
   $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
   $("loopPhase").value = String(state.loopPhase);
-  $("loopPhaseOut").textContent = `${(state.loopPhase * 100).toFixed(1)}%`;
+  paintLoopPhase();
   $("stageReadout").textContent = `${state.timePath.toUpperCase()} · ${contacts.length} ${plural(contacts.length, "CONTACT", "CONTACTS")} · ${state.audio ? `${data.length} ${plural(data.length, "VOICE", "VOICES")}` : "AUDIO OFF"}`;
   if (state.playing || state.loopPlaying) scheduleFrame();
 }

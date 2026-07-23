@@ -96,3 +96,39 @@ test("recursion markup keeps ids unique and range controls labelled", async () =
   assert.match(html, /id="stage"[\s\S]*aria-describedby="canvasInstructions liveStatus"/);
   assert.match(html, /id="liveStatus" aria-live="polite"/);
 });
+
+test("recursion offers three labelled geometry projections beside the canvas", async () => {
+  const html = await readFile(new URL("recursion.html", root), "utf8");
+  const group = html.match(
+    /<[^>]+\bid="geometryViews"[^>]*>([\s\S]*?)<\/(?:div|nav|section)>/,
+  );
+  assert.ok(group, "missing #geometryViews");
+  assert.match(group[0], /\brole="group"/);
+  assert.match(group[0], /\baria-label="Geometry view"/i);
+
+  const buttons = [...group[1].matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)]
+    .map((match) => ({
+      attributes: match[1],
+      label: match[2].replace(/<[^>]*>/g, "").trim(),
+    }));
+  assert.deepEqual(
+    buttons.map(({ attributes }) => attributes.match(/\bid="([^"]+)"/)?.[1]),
+    ["geometryOrbit", "geometryStack", "geometryCausality"],
+  );
+  assert.deepEqual(
+    buttons.map(({ attributes }) => (
+      attributes.match(/\bdata-geometry-view="([^"]+)"/)?.[1]
+    )),
+    ["orbit", "stack", "causality"],
+  );
+  assert.deepEqual(
+    buttons.map(({ label }) => label),
+    ["Orbit", "Stack", "Causality"],
+  );
+  assert.ok(buttons.every(({ attributes }) => /\btype="button"/.test(attributes)));
+  assert.match(buttons[0].attributes, /\baria-pressed="true"/);
+  assert.ok(buttons.slice(1).every(({ attributes }) => (
+    /\baria-pressed="false"/.test(attributes)
+  )));
+  assert.match(html, /id="canvasInstructions"[\s\S]*Orbit[\s\S]*Stack[\s\S]*Causality/i);
+});

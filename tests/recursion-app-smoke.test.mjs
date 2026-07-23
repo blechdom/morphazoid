@@ -51,6 +51,7 @@ test("recursion app initializes, draws, switches systems, and drives bounded con
   function element(id) {
     const tag = tags.get(id) ?? "";
     const attributes = new Map();
+    const geometryView = attribute(tag, "data-geometry-view");
     const node = {
       id,
       value: attribute(tag, "value"),
@@ -59,7 +60,7 @@ test("recursion app initializes, draws, switches systems, and drives bounded con
       hidden: /\bhidden(?:\s|>)/.test(tag),
       disabled: /\bdisabled(?:\s|>)/.test(tag),
       files: [],
-      dataset: {},
+      dataset: geometryView ? { geometryView } : {},
       style: {},
       attributes,
       classList: classList(),
@@ -67,6 +68,10 @@ test("recursion app initializes, draws, switches systems, and drives bounded con
       setAttribute(name, value) { attributes.set(name, String(value)); },
       removeAttribute(name) { attributes.delete(name); },
       getAttribute(name) { return attributes.get(name) ?? null; },
+      closest(selector) {
+        if (selector === "[data-geometry-view]" && this.dataset.geometryView) return this;
+        return null;
+      },
       querySelector() { return null; },
       querySelectorAll() { return []; },
       getBoundingClientRect() {
@@ -290,6 +295,37 @@ test("recursion app initializes, draws, switches systems, and drives bounded con
   assert.match(elements.get("depthRail").innerHTML, /G0/);
   assert.equal(studyButtons[0].getAttribute("aria-selected"), "true");
   assert.equal(sourceButtons[0].getAttribute("aria-pressed"), "true");
+  assert.equal(elements.get("geometryOrbit").getAttribute("aria-pressed"), "true");
+  assert.equal(elements.get("geometryStack").getAttribute("aria-pressed"), "false");
+  assert.equal(elements.get("geometryCausality").getAttribute("aria-pressed"), "false");
+
+  const selectGeometry = (id) => {
+    const button = elements.get(id);
+    const delegated = listeners.get("geometryViews:click");
+    const direct = listeners.get(`${id}:click`);
+    assert.ok(delegated || direct, `missing geometry listener for #${id}`);
+    if (delegated) delegated({ target: button });
+    else direct({ currentTarget: button, target: button });
+  };
+  let previousPaths = paths;
+  selectGeometry("geometryStack");
+  flushFrame();
+  assert.equal(elements.get("geometryOrbit").getAttribute("aria-pressed"), "false");
+  assert.equal(elements.get("geometryStack").getAttribute("aria-pressed"), "true");
+  assert.equal(elements.get("geometryCausality").getAttribute("aria-pressed"), "false");
+  assert.ok(paths > previousPaths, "Stack view should repaint the DSP geometry");
+
+  previousPaths = paths;
+  selectGeometry("geometryCausality");
+  flushFrame();
+  assert.equal(elements.get("geometryOrbit").getAttribute("aria-pressed"), "false");
+  assert.equal(elements.get("geometryStack").getAttribute("aria-pressed"), "false");
+  assert.equal(elements.get("geometryCausality").getAttribute("aria-pressed"), "true");
+  assert.ok(paths > previousPaths, "Causality view should repaint the DSP geometry");
+
+  selectGeometry("geometryOrbit");
+  flushFrame();
+  assert.equal(elements.get("geometryOrbit").getAttribute("aria-pressed"), "true");
 
   for (const id of [
     "spectral-mobius",

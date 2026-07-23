@@ -68,6 +68,46 @@
   line-height: 1.55;
 }
 
+.recursion-geometry-views {
+  position: absolute;
+  z-index: 4;
+  top: clamp(42px, 8vh, 80px);
+  right: clamp(18px, 3vw, 44px);
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  grid-template-columns: repeat(3, auto);
+  backdrop-filter: blur(8px);
+}
+
+.recursion-geometry-views button {
+  min-width: 52px;
+  height: 27px;
+  padding: 0 8px;
+  border: 0;
+  cursor: pointer;
+  color: var(--faint);
+  background: transparent;
+  font: 7px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.09em;
+}
+
+.recursion-geometry-views button + button {
+  border-left: 1px solid var(--line);
+}
+
+.recursion-geometry-views button:hover {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+}
+
+.recursion-geometry-views button[aria-pressed="true"] {
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
 .recursion-process {
   position: absolute;
   z-index: 2;
@@ -789,6 +829,11 @@
     font-size: clamp(20px, 4vw, 30px);
   }
 
+  .recursion-geometry-views {
+    top: 38px;
+    right: 24px;
+  }
+
   .recursion-process {
     right: 24px;
     bottom: 18px;
@@ -809,6 +854,18 @@
 
   .recursion-stage-heading p {
     font-size: 9px;
+  }
+
+  .recursion-geometry-views {
+    top: 14px;
+    right: 14px;
+  }
+
+  .recursion-geometry-views button {
+    min-width: 43px;
+    height: 24px;
+    padding: 0 6px;
+    font-size: 6px;
   }
 
   .recursion-process {

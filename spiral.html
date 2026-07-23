@@ -121,7 +121,7 @@
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
               </button>
               <label class="control position-control" for="loopPhase">
-                <span><b>Tessellation loop</b><output id="loopPhaseOut" for="loopPhase">0.0%</output></span>
+                <span><b>Tessellation zoom</b><output id="loopPhaseOut" for="loopPhase">0.0% &middot; +0.00</output></span>
                 <input id="loopPhase" type="range" min="0" max="1" step="0.0005" value="0" />
               </label>
             </div>
@@ -241,6 +241,6 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="spiral-app.js"></script>
+    <script type="module" src="spiral-app.js?v=direct-zoom-loop"></script>
   </body>
 </html>

@@ -1,5 +1,11 @@
 import { RECURSION_STUDIES, buildRecursionPlan } from "./src/recursion.js";
 import { RecursiveAudioEngine } from "./src/recursion-audio-engine.js";
+import {
+  causalCurve,
+  geometryTrace,
+  stackPoint,
+  torusPoint,
+} from "./src/recursion-geometry.js";
 import { mobiusFrequencyMap } from "./src/recursion-spectral-dsp.js";
 
 const $ = (id) => document.getElementById(id);
@@ -127,6 +133,7 @@ const settings = Object.fromEntries(RECURSION_STUDIES.map((study) => [
 const state = {
   studyId: "ouroboros-tape",
   source: "noise",
+  geometryView: "orbit",
   level: 0.42,
   accumulate: true,
   playing: false,
@@ -230,6 +237,12 @@ function pressureDescription(value) {
   return "event horizon";
 }
 
+function paintGeometryViews() {
+  for (const button of $("geometryViews").querySelectorAll("[data-geometry]")) {
+    setPressed(button, button.dataset.geometry === state.geometryView);
+  }
+}
+
 function paintStudyControls() {
   const study = currentStudy();
   const ui = currentUi();
@@ -290,6 +303,7 @@ function paintStudyControls() {
     ? "generations accumulate"
     : "solo the active lineage";
   paintSource();
+  paintGeometryViews();
   paintReadout(null);
 }
 
@@ -534,7 +548,7 @@ function paintReadout(moment) {
   const motionReadout = motion
     ? `${motion.pulses.length} PULSES · KLEIN ${motion.seam.orientation < 0 ? "INSIDE-OUT" : "OUTSIDE-IN"}`
     : "4 COUPLED CLOCKS";
-  $("stageReadout").textContent = `${currentUi().readout} · ${direction} · ${motionReadout} · ${state.playing ? loadDescription(moment).toUpperCase() : "AUDIO OFF"}`;
+  $("stageReadout").textContent = `${currentUi().readout} · ${state.geometryView.toUpperCase()} · ${direction} · ${motionReadout} · ${state.playing ? loadDescription(moment).toUpperCase() : "AUDIO OFF"}`;
 }
 
 function paintTimeline(elapsed, moment) {

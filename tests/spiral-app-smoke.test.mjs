@@ -178,6 +178,7 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   listeners.get("loopPhase:input")();
   now += 20;
   queuedFrame(now);
+  assert.match(elements.get("loopPhaseOut").textContent, /25\.0% · \+1\.20/);
   assert.notDeepEqual(drawnLinePoints, geometryBeforeLoop);
   await listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "true");

@@ -10,6 +10,7 @@ import {
   createSpiralTransform,
   phaseForSpiralPoint,
   scaleRateForSpiralRadius,
+  spiralLoopLogOffset,
   spiralPoint,
 } from "../src/spiral.js";
 import { tilingInfo } from "../src/lattice.js";
@@ -31,42 +32,24 @@ test("A and B close one exact turn of the logarithmic spiral", () => {
   assert.ok(Math.hypot(first.x - repeated.x, first.y - repeated.y) < 1e-8);
 });
 
-test("tessellation loop closes on one exact lattice translation", () => {
-  const tiling = new IsohedralTiling(tilingInfo(20).type);
-  const options = {
-    firstTranslation: tiling.getT1(),
-    secondTranslation: tiling.getT2(),
-    spiralA: 1,
-    spiralB: 5,
-  };
-  const start = createSpiralTransform(options);
-  const end = createSpiralTransform({
-    ...options,
-    logOffset: start.loop.logOffset,
-    angleOffset: start.loop.angleOffset,
-  });
-  const middle = createSpiralTransform({
-    ...options,
-    logOffset: start.loop.logOffset * 0.5,
-    angleOffset: start.loop.angleOffset * 0.5,
-  });
-  const point = { x: 0.217, y: -0.431 };
-  const translated = {
-    x: point.x
-      + start.loop.first * options.firstTranslation.x
-      + start.loop.second * options.secondTranslation.x,
-    y: point.y
-      + start.loop.first * options.firstTranslation.y
-      + start.loop.second * options.secondTranslation.y,
-  };
-  const first = spiralPoint(end.mapNatural(point));
-  const repeated = spiralPoint(start.mapNatural(translated));
-  const midpoint = spiralPoint(middle.mapNatural(point));
-  const startPoint = spiralPoint(start.mapNatural(point));
-  assert.ok(start.loop.steps > 1);
-  assert.ok(start.loop.logOffset >= 1.2);
-  assert.ok(Math.hypot(midpoint.x - startPoint.x, midpoint.y - startPoint.y) > 0.01);
-  assert.ok(Math.hypot(first.x - repeated.x, first.y - repeated.y) < 1e-8);
+test("tessellation zoom follows the Pattern scale range and closes smoothly", () => {
+  assert.equal(spiralLoopLogOffset(0), 0);
+  assert.ok(Math.abs(spiralLoopLogOffset(0.25) - 1.2) < 1e-12);
+  assert.ok(Math.abs(spiralLoopLogOffset(0.5)) < 1e-12);
+  assert.ok(Math.abs(spiralLoopLogOffset(0.75) + 1.2) < 1e-12);
+  assert.equal(spiralLoopLogOffset(1), 0);
+  assert.ok(Math.abs(
+    spiralLoopLogOffset(0.001) - spiralLoopLogOffset(1.001),
+  ) < 1e-12);
+
+  const start = buildSpiralTessellation({ type: 20, loopPhase: 0 });
+  const zoomed = buildSpiralTessellation({ type: 20, loopPhase: 0.25 });
+  assert.equal(start.transform.logOffset, 0);
+  assert.ok(Math.abs(zoomed.transform.logOffset - 1.2) < 1e-12);
+  assert.equal(zoomed.transform.angleOffset, start.transform.angleOffset);
+  assert.ok(Math.abs(Math.exp(
+    zoomed.transform.logOffset - start.transform.logOffset,
+  ) - Math.exp(1.2)) < 1e-12);
 });
 
 test("spiral tessellation preserves editable IH data and produces finite readers", () => {
@@ -139,7 +122,7 @@ test("Spiral page exposes intrinsic time paths and tactile winding controls", as
   assert.match(html, /id="spiralB"[^>]+value="5"/);
   assert.match(html, /id="loopPhase"/);
   assert.match(html, /id="loopPlayButton"/);
-  assert.match(html, /Tessellation loop/);
+  assert.match(html, /Tessellation zoom/);
   assert.match(html, /Zoom out/);
   assert.match(app, /buildSpiralTessellation/);
   assert.match(app, /contactsForSpiralReader/);
