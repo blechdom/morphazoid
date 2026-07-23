@@ -358,7 +358,7 @@ $("audioButton").addEventListener("click", async () => {
     resetVoiceSubmission();
   } else {
     try {
-      $("audioState").textContent = "starting…";
+      $("audioState").textContent = "off";
       await pool.enable();
       pool.setLevel(state.level);
       state.audio = true;

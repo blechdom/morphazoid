@@ -758,7 +758,7 @@ async function toggleAudio() {
   if (audioChanging) return;
   audioChanging = true;
   $("audioButton").disabled = true;
-  $("audioState").textContent = state.audio ? "stopping…" : "starting…";
+  $("audioState").textContent = state.audio ? "on" : "off";
   try {
     await setAudioEnabled(!state.audio);
   } finally {

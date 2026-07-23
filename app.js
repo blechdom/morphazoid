@@ -1773,7 +1773,7 @@ async function toggleAudio() {
 
   audioChanging = true;
   $("audioButton").disabled = true;
-  $("audioState").textContent = "starting…";
+  paintAudioState();
   $("audioError").hidden = true;
   try {
     await pool.enable();
@@ -1785,7 +1785,7 @@ async function toggleAudio() {
     dismissHelp();
   } catch (error) {
     state.audio = false;
-    $("audioState").textContent = "unavailable";
+    paintAudioState();
     $("audioError").textContent = error instanceof Error ? error.message : "Web Audio could not start.";
     $("audioError").hidden = false;
   } finally {

@@ -873,9 +873,7 @@ function updateUi() {
   const label = presetLabel();
   const live = state.mic;
   const starting = state.starting;
-  const audioState = starting
-    ? "allow mic…"
-    : live ? (state.frozen ? "input paused" : "listening") : "off";
+  const audioState = live ? "on" : "off";
 
   paintControls();
   setPressed($("audioButton"), live);

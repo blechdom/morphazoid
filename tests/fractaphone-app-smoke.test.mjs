@@ -257,7 +257,7 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
     },
   });
   assert.equal(audioContexts.length, 1);
-  assert.equal(elements.get("audioState").textContent, "listening");
+  assert.equal(elements.get("audioState").textContent, "on");
   assert.equal(elements.get("stateMetric").textContent, "live");
   assert.equal(attributes.get("seedMicButton:aria-pressed"), "true");
   assert.equal(attributes.get("micButton:aria-pressed"), "true");
@@ -267,12 +267,12 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
   assert.equal(elements.get("micButtonLabel").textContent, "Pause input");
 
   listeners.get("micButton:click")();
-  assert.equal(elements.get("audioState").textContent, "input paused");
+  assert.equal(elements.get("audioState").textContent, "on");
   assert.equal(elements.get("stateMetric").textContent, "paused");
   assert.equal(elements.get("micButtonLabel").textContent, "Resume input");
   assert.match(elements.get("stageReadout").textContent, /^INPUT PAUSED/);
   listeners.get("micButton:click")();
-  assert.equal(elements.get("audioState").textContent, "listening");
+  assert.equal(elements.get("audioState").textContent, "on");
   assert.equal(elements.get("micButtonLabel").textContent, "Pause input");
 
   elements.get("inputTrim").value = "0.4";
@@ -295,7 +295,7 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
   listeners.get("recordButton:click")();
   assert.equal(attributes.get("recordButton:aria-pressed"), "true");
   assert.equal(elements.get("recordingBadge").hidden, false);
-  assert.equal(elements.get("audioState").textContent, "listening", "recording should not stop monitoring");
+  assert.equal(elements.get("audioState").textContent, "on", "recording should not stop monitoring");
   listeners.get("recordButton:click")();
   assert.equal(elements.get("recordingBadge").hidden, true);
   listeners.get("recordButton:click")();

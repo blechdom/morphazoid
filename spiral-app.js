@@ -591,7 +591,7 @@ async function enableAudio() {
   if (state.audio || audioChanging) return;
   audioChanging = true;
   $("audioButton").disabled = true;
-  $("audioState").textContent = "starting...";
+  paintAudio();
   $("audioError").hidden = true;
   try {
     await pool.enable();
@@ -602,7 +602,7 @@ async function enableAudio() {
   } catch (error) {
     $("audioError").textContent = error instanceof Error ? error.message : "Web Audio could not start.";
     $("audioError").hidden = false;
-    $("audioState").textContent = "unavailable";
+    paintAudio();
   } finally {
     audioChanging = false;
     $("audioButton").disabled = false;

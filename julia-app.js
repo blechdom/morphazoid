@@ -561,7 +561,7 @@ $("auditionSimilarity").addEventListener("click", async () => {
       pool.setLevel(state.level);
       state.audio = true;
       setPressed($("audioButton"), true);
-      $("audioState").textContent = pool.workletUnavailable ? "sine fallback" : "on";
+      $("audioState").textContent = "on";
     }
   } catch (error) {
     if (!pageActive || lifecycleGeneration !== pageLifecycleGeneration || enableRequest !== audioEnableRequest) return;
@@ -1268,7 +1268,7 @@ $("audioButton").addEventListener("click", async () => {
       audioOctavePosition = null;
       pool.disable();
     } else {
-      $("audioState").textContent = "starting…";
+      $("audioState").textContent = "off";
       pendingEnableLifecycle = lifecycleGeneration;
       await pool.enable();
       if (!pageActive || lifecycleGeneration !== pageLifecycleGeneration) {
@@ -1293,9 +1293,7 @@ $("audioButton").addEventListener("click", async () => {
     $("audioButton").disabled = false;
   }
   setPressed($("audioButton"), state.audio);
-  $("audioState").textContent = state.audio
-    ? pool.workletUnavailable ? "sine fallback" : "on"
-    : "off";
+  $("audioState").textContent = state.audio ? "on" : "off";
   scheduleFrame();
 });
 

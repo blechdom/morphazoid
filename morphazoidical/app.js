@@ -1321,7 +1321,7 @@ export function startWorkbench(root = document) {
         }
         audio.setAttribute("aria-pressed", String(state.audio));
         audio.classList.toggle("is-active", state.audio);
-        setText(byId("audioState"), state.audio ? "live" : "off");
+        setText(byId("audioState"), state.audio ? "on" : "off");
       } catch (error) {
         state.audio = false;
         announce(error instanceof Error ? error.message : "Audio is unavailable.");
