@@ -66,11 +66,11 @@
         <div class="stage-wrap" id="stageWrap">
           <canvas
             id="stage"
-            tabindex="0"
-            aria-label="mic(mic) canvas. A live voice grows into a branching tree of recursive descendants."
-            aria-describedby="canvasInstructions liveStatus"
+            role="img"
+            aria-label="Live fitted mic(mic) L-system tree. Microphone off."
+            aria-describedby="treeDescription canvasInstructions liveStatus"
           >
-            A branching visualization of recursive microphone echoes.
+            A fitted L-system tree whose branches vibrate as microphone audio travels through them.
           </canvas>
 
           <div class="fracta-seed-control" id="seedControl">
@@ -89,11 +89,11 @@
           </div>
 
           <div class="fracta-generation-key" id="generationKey" aria-hidden="true">
-            <span>G0 ROOT</span><i></i><span id="generationKeyEnd">G10 DESCENDANT</span>
+            <span>G0 ROOT</span><i></i><span id="generationKeyEnd">G7 DESCENDANT</span>
           </div>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">MIC OFF · BRANCHING PLANT · 10 GENERATIONS</span>
+            <span id="stageReadout">MIC OFF · PYTHAGOREAN PINE · 7 GENERATIONS</span>
           </div>
         </div>
       </section>
@@ -133,54 +133,89 @@
         <details class="group control-section" id="recursionSection" data-section="recursion">
           <summary class="group-summary">
             <h2 class="group-title">Recursion</h2>
-            <span class="section-state" id="recursionSummary">Branching plant · 10 generations</span>
+            <span class="section-state" id="recursionSummary">Pythagorean Pine · 7 generations</span>
           </summary>
           <div class="group-body">
-            <label class="select-control" for="generationPreset"><span class="field-label">L-System grammar preset</span><span class="select-shell"><select id="generationPreset"><option value="clean">Clean echo · 1:1</option><option value="binary">Half-time fork</option><option value="pythagorean">Pythagorean tree</option><option value="plant" selected>Branching plant</option><option value="coral">Coral</option><option value="dragon">Dragon curve</option><option value="koch">Koch fork</option><option value="custom" hidden>Custom</option></select></span></label>
-            <div class="generation-shape-preview">
-              <small id="generationShapeSummary">10 gen · bounded preview</small>
-              <svg id="generationShapePreview" viewBox="0 0 190 140" preserveAspectRatio="xMinYMid meet" role="img" aria-label="Live left-to-right L-system shape preview">
-                <defs>
-                  <linearGradient id="generationShapeGradient" x1="0" y1="1" x2="1" y2="0">
-                    <stop offset="0" stop-color="#55d9ff" />
-                    <stop offset=".55" stop-color="#c79bff" />
-                    <stop offset="1" stop-color="#ff826f" />
-                  </linearGradient>
-                </defs>
-                <path id="generationShapeTrunk" d="M8 70L22 70" />
-                <path id="generationShapePath" d="" />
-                <path id="generationShapeAudiblePath" d="" />
-                <circle id="generationShapeRoot" cx="8" cy="70" r="2.2" />
-              </svg>
-            </div>
-            <label class="control" for="generations"><span><b>Generations</b><output id="generationsOut" for="generations">10 / 12</output></span><input id="generations" type="range" min="1" max="12" step="1" value="10" /></label>
-            <small class="generation-safety-note">Realtime safety cap: 12 generations · up to 48 audible branches.</small>
-            <label class="control" for="timeRatio"><span><b>Child time ratio</b><output id="timeRatioOut" for="timeRatio">0.72× per generation</output></span><input id="timeRatio" type="range" min="0.2" max="1" step="0.01" value="0.72" /></label>
-            <label class="control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">22.5°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="22.5" /></label>
-            <label class="control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">18% right wider</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0.18" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
-            <label class="control" for="generationPitchScale"><span><b>Angle → pitch</b><output id="generationPitchScaleOut" for="generationPitchScale">1.00 oct / 180°</output></span><input id="generationPitchScale" type="range" min="0" max="4" step="0.05" value="1" /></label>
-            <div class="grammar-card generation-rule-card" aria-label="Generation relationship preview">
-              <span><b>Timing levels</b><code id="generationTimingReadout">240 ms → 173 ms → 124 ms → 90 ms</code></span>
-              <span><b>Pitch turns</b><code id="generationPitchReadout">−18.45° → −1.23 st · +26.55° → +1.77 st</code></span>
-              <span><b>Branch count</b><code id="generationCountReadout">1 parent → 2 children → 4 grandchildren → 8</code></span>
-            </div>
-            <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reset generation rule</button>
-            <label class="control" for="branching">
-              <span><b>Fork density</b><output id="branchingOut" for="branching">84% fork probability</output></span>
-              <input id="branching" type="range" min="0" max="1" step="0.01" value="0.84" />
+            <label class="select-control" for="generationPreset">
+              <span class="field-label">Recursion growth preset</span>
+              <span class="select-shell">
+                <select id="generationPreset" aria-describedby="generationPresetDescription">
+                  <optgroup label="Trees">
+                    <option value="pythagorean" selected>Pythagorean Pine</option>
+                    <option value="binary">Silver Birch</option>
+                    <option value="willow">Weeping Willow</option>
+                    <option value="mangrove">Mangrove Roots</option>
+                    <option value="sequoia">Giant Sequoia</option>
+                    <option value="dragon">Dragon Tree</option>
+                  </optgroup>
+                  <optgroup label="Stalks, vines, and fronds">
+                    <option value="clean">Bamboo Shoot</option>
+                    <option value="plant">Fern Frond</option>
+                    <option value="ivy">Midnight Ivy</option>
+                    <option value="orchid">Ghost Orchid</option>
+                    <option value="kelp">Kelp Forest</option>
+                  </optgroup>
+                  <optgroup label="Dense and extreme growth">
+                    <option value="moss">Moss Carpet</option>
+                    <option value="bramble">Blackberry Bramble</option>
+                    <option value="venus">Venus Flytrap</option>
+                    <option value="coral">Staghorn Coral</option>
+                    <option value="koch">Frosted Agave</option>
+                  </optgroup>
+                  <option value="custom" hidden>Custom growth</option>
+                </select>
+              </span>
             </label>
-            <label class="control" for="mutation">
-              <span><b>Rule mutation</b><output id="mutationOut" for="mutation">30% rule variance</output></span>
-              <input id="mutation" type="range" min="0" max="1" step="0.01" value="0.3" />
-            </label>
-            <label class="control" for="depth">
-              <span><b>Depth / decay</b><output id="depthOut" for="depth">72%</output></span>
-              <input id="depth" type="range" min="0" max="0.86" step="0.01" value="0.72" />
-            </label>
-            <label class="control" for="interval">
-              <span><b>Time fold</b><output id="intervalOut" for="interval">240 ms</output></span>
-              <input id="interval" type="range" min="0.2" max="2400" step="0.1" value="240" />
-            </label>
+            <p class="growth-preset-description" id="generationPresetDescription">The balanced reference tree: clear forks, tapering time, and mirrored pitch.</p>
+
+            <section class="recursion-parameter-cluster" aria-labelledby="branchingParametersTitle">
+              <h3 class="parameter-cluster-title" id="branchingParametersTitle">Branching</h3>
+              <label class="control" for="generations"><span><b>Generations</b><output id="generationsOut" for="generations">7 / 12</output></span><input id="generations" type="range" min="1" max="12" step="1" value="7" /></label>
+              <small class="generation-safety-note">Realtime safety cap: 12 generations · up to 48 audible branches.</small>
+              <label class="control" for="branching">
+                <span><b>Fork density</b><output id="branchingOut" for="branching">100% fork probability</output></span>
+                <input id="branching" type="range" min="0" max="1" step="0.01" value="1" />
+              </label>
+              <label class="control" for="depth">
+                <span><b>Depth / decay</b><output id="depthOut" for="depth">72%</output></span>
+                <input id="depth" type="range" min="0" max="0.86" step="0.01" value="0.72" />
+              </label>
+              <div class="grammar-card parameter-cluster-readout" aria-label="Branch count preview">
+                <span><b>Branch count</b><code id="generationCountReadout">1 → 2 → 4 → 8</code></span>
+              </div>
+            </section>
+
+            <section class="recursion-parameter-cluster" aria-labelledby="timingParametersTitle">
+              <h3 class="parameter-cluster-title" id="timingParametersTitle">Timing</h3>
+              <label class="control" for="interval">
+                <span><b>Time fold</b><output id="intervalOut" for="interval">240 ms</output></span>
+                <input id="interval" type="range" min="0.2" max="2400" step="0.1" value="240" />
+              </label>
+              <label class="control" for="timeRatio"><span><b>Child time ratio</b><output id="timeRatioOut" for="timeRatio">0.72× per generation</output></span><input id="timeRatio" type="range" min="0.2" max="1" step="0.01" value="0.72" /></label>
+              <div class="grammar-card parameter-cluster-readout" aria-label="Generation timing preview">
+                <span><b>Timing levels</b><code id="generationTimingReadout">240 ms → 173 ms → 124 ms → 90 ms</code></span>
+              </div>
+            </section>
+
+            <section class="recursion-parameter-cluster" aria-labelledby="pitchParametersTitle">
+              <h3 class="parameter-cluster-title" id="pitchParametersTitle">Pitch</h3>
+              <label class="control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">45°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="45" /></label>
+              <label class="control" for="generationPitchScale"><span><b>Angle → pitch</b><output id="generationPitchScaleOut" for="generationPitchScale">1.00 oct / 180°</output></span><input id="generationPitchScale" type="range" min="0" max="4" step="0.05" value="1" /></label>
+              <div class="grammar-card parameter-cluster-readout" aria-label="Branch pitch preview">
+                <span><b>Pitch turns</b><code id="generationPitchReadout">−45° → −3 st · +45° → +3 st</code></span>
+              </div>
+            </section>
+
+            <section class="recursion-parameter-cluster" aria-labelledby="variationParametersTitle">
+              <h3 class="parameter-cluster-title" id="variationParametersTitle">Variation</h3>
+              <label class="control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">even</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
+              <label class="control" for="mutation">
+                <span><b>Rule mutation</b><output id="mutationOut" for="mutation">0% rule variance</output></span>
+                <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" />
+              </label>
+            </section>
+
+            <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reload selected growth preset</button>
           </div>
         </details>
 
@@ -230,11 +265,12 @@
         </div>
       </aside>
 
+      <p class="sr-only" id="treeDescription">Pythagorean Pine. Seven generations and 255 connected segments; 48 of 48 bounded delayed descendant paths carry audible gain. Microphone loudness travels outward from the seed by vibrating the branches.</p>
       <p class="sr-only" id="canvasInstructions">Start the microphone with headphones connected. Use Pause input to stop feeding new sound while the recursive tail continues. Generations controls the rewrite count; Depth controls how quickly descendants fade. Press Escape for an immediate panic stop.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="micmic-app.js?v=20260723-safe-grammar"></script>
+    <script type="module" src="micmic-app.js?v=20260723-growth-presets"></script>
   </body>
 </html>

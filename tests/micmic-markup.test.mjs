@@ -23,8 +23,7 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
     "mutation", "wet", "dry", "spread", "recordButton", "downloadTake", "clearTake",
     "generationPreset", "generations", "timeRatio", "generationAngle", "generationAsymmetry",
     "generationPitchScale", "generationTimingReadout", "generationPitchReadout", "resetGenerationRules",
-    "generationShapePreview", "generationShapeTrunk", "generationShapePath", "generationShapeAudiblePath",
-    "generationShapeRoot", "generationShapeSummary",
+    "generationPresetDescription", "treeDescription",
   ]) assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
   for (const section of ["listenSection", "recursionSection", "mixSection", "captureSection"]) {
     assert.match(html, new RegExp(`<details[^>]*id="${section}"`));
@@ -37,9 +36,44 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
   assert.match(html, /<b id="freezeLabel">Stop audio<\/b>/);
   assert.match(html, /Press Escape for an immediate panic stop/);
   assert.match(html, /id="generations"[^>]*min="1"[^>]*max="12"/);
+  assert.match(html, /Recursion growth preset/);
+  assert.match(html, /id="generationPreset" aria-describedby="generationPresetDescription"/);
+  assert.match(html, /<option value="pythagorean" selected>Pythagorean Pine<\/option>/);
+  for (const plantName of [
+    "Bamboo Shoot", "Silver Birch", "Fern Frond", "Weeping Willow", "Midnight Ivy",
+    "Mangrove Roots", "Giant Sequoia", "Ghost Orchid", "Kelp Forest", "Moss Carpet",
+    "Blackberry Bramble", "Venus Flytrap",
+  ]) {
+    assert.match(html, new RegExp(`>${plantName}<`), `missing ${plantName} preset`);
+  }
+  assert.ok((html.match(/<option value="[^"]+"/g) ?? []).length >= 16);
+  assert.match(html, /id="generations"[^>]*value="7"/);
+  assert.match(html, /id="branching"[^>]*value="1"/);
+  assert.match(html, /id="mutation"[^>]*value="0"/);
   assert.doesNotMatch(html, /Starting topology|id="presetButtons"|data-preset=/);
   assert.doesNotMatch(html, /id="stateMetric"|id="depthMetric"|id="outputMetric"/);
   assert.doesNotMatch(html, /The interval is inherited and multiplied once per generation/);
+  assert.doesNotMatch(html, /generation-shape-preview|generationShape/);
+  for (const title of ["Branching", "Timing", "Pitch", "Variation"]) {
+    assert.match(html, new RegExp(`class="parameter-cluster-title"[^>]*>${title}<`));
+  }
+  const recursionMarkup = html.slice(
+    html.indexOf('id="recursionSection"'),
+    html.indexOf('id="mixSection"'),
+  );
+  const groupedControlOrder = [
+    "generationPreset",
+    "generations", "branching", "depth",
+    "interval", "timeRatio",
+    "generationAngle", "generationPitchScale",
+    "generationAsymmetry", "mutation",
+  ];
+  let previousControlPosition = -1;
+  for (const id of groupedControlOrder) {
+    const position = recursionMarkup.indexOf(`id="${id}"`);
+    assert.ok(position > previousControlPosition, `#${id} should follow its parameter group`);
+    previousControlPosition = position;
+  }
 
   assert.match(app, /getUserMedia/);
   assert.match(app, /echoCancellation:\s*\{ ideal: false \}/);
@@ -55,12 +89,25 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
   assert.match(app, /createMediaStreamDestination/);
   assert.match(app, /function panic/);
   assert.match(app, /visibilitychange/);
+  assert.match(app, /function drawVibratingBranch/);
+  assert.match(app, /branchEnvelopeAt\(delayedTime\)/);
+  assert.match(app, /function stageGenerationLayout/);
+  assert.match(app, /ENVELOPE_HISTORY_SECONDS = 32/);
+  assert.match(app, /Math\.exp\(-elapsed \/ 0\.16\)/);
+  assert.match(app, /function stageGeometry/);
+  assert.match(app, /globalThis\.Path2D/);
+  assert.doesNotMatch(app, /MAX_ENVELOPE_SAMPLES|envelopeHistory\.splice/);
+  assert.doesNotMatch(app, /capsulePath|drawCapsule|generationShape/);
+  assert.doesNotMatch(app, /localStorage|sessionStorage/);
 
   assert.match(css, /\.micmic-page\s*\{/);
   assert.match(css, /\.fracta-seed-control/);
   assert.match(css, /#seedMicButton/);
   assert.match(css, /\.fracta-panic/);
-  assert.match(css, /\.generation-shape-preview/);
+  assert.match(css, /\.recursion-parameter-cluster/);
+  assert.match(css, /\.parameter-cluster-title/);
+  assert.match(css, /\.growth-preset-description/);
+  assert.doesNotMatch(css, /\.generation-shape-preview|#generationShape/);
   assert.match(css, /@media \(max-width: 650px\)/);
 });
 
@@ -72,6 +119,7 @@ test("mic(mic) markup has unique ids and labelled controls", async () => {
     assert.match(html, new RegExp(`<label[^>]*for="${id}"`));
     assert.match(html, new RegExp(`<input id="${id}"`));
   }
-  assert.match(html, /id="stage"[\s\S]*aria-describedby="canvasInstructions liveStatus"/);
+  assert.match(html, /id="stage"[\s\S]*?role="img"[\s\S]*?aria-describedby="treeDescription canvasInstructions liveStatus"/);
+  assert.doesNotMatch(html, /id="stage"[^>]*tabindex=/);
   assert.match(html, /data-reset-all>Reset all parameters<\/button>/);
 });

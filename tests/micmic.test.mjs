@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { L_SYSTEM_PRESETS, traceLSystem } from "../src/l-system.js";
 import {
   MICMIC_PRESETS,
   GENERATION_RULE_PRESETS,
@@ -134,6 +135,41 @@ test("one bounded L-system topology drives a fixed trunk and richer audio branch
   assert.ok(voices.length <= MAX_GENERATION_VOICES && voices.length >= 40);
   assert.ok(voices.every((voice) => topologyIds.has(voice.key.replace(/^generation:/, ""))));
   assert.ok(new Set(voices.map((voice) => voice.generation)).size === 12);
+  const audibleIds = new Set(voices.map((voice) => voice.key.replace(/^generation:/, "")));
+  assert.ok(voices.every((voice) => (
+    voice.parentId === "trunk" || audibleIds.has(voice.parentId)
+  )), "bounded audio branches must preserve their audible ancestry");
+});
+
+test("default mic(mic) Pythagorean geometry matches the L-system page", () => {
+  const preset = L_SYSTEM_PRESETS.find((candidate) => candidate.id === "pythagorean");
+  const canonical = traceLSystem(preset);
+  const topology = generationTopology({
+    generations: 7,
+    branching: 1,
+    mutation: 0,
+    timeRatio: 0.72,
+    angle: 45,
+    asymmetry: 0,
+  });
+  const topologyBounds = {
+    minX: Math.min(...topology.flatMap((node) => [node.startX, node.x])),
+    maxX: Math.max(...topology.flatMap((node) => [node.startX, node.x])),
+    minY: Math.min(...topology.flatMap((node) => [node.startY, node.y])),
+    maxY: Math.max(...topology.flatMap((node) => [node.startY, node.y])),
+  };
+
+  assert.equal(topology.length, 255);
+  assert.equal(topology.length, canonical.segments.length);
+  for (const key of ["minX", "maxX", "minY", "maxY"]) {
+    assert.ok(Math.abs(topologyBounds[key] - canonical.bounds[key]) < 1e-12);
+  }
+  assert.deepEqual(
+    Array.from({ length: 8 }, (_, generation) => (
+      topology.filter((node) => node.generation === generation).length
+    )),
+    [1, 2, 4, 8, 16, 32, 64, 128],
+  );
 });
 
 test("generation and voice limits stay bounded above the UI maximum", () => {
@@ -203,13 +239,44 @@ test("fork density changes both visual segments and audible branches", () => {
   assert.ok(treeVoices.length > lineVoices.length);
 });
 
-test("generation relationship presets mirror the L-system families", () => {
-  assert.deepEqual(Object.keys(GENERATION_RULE_PRESETS), ["clean", "binary", "pythagorean", "plant", "coral", "dragon", "koch"]);
+test("plant-named growth presets span the full bounded recursion system", () => {
+  const presetNames = Object.keys(GENERATION_RULE_PRESETS);
+  assert.ok(presetNames.length >= 16);
+  for (const name of [
+    "clean", "binary", "pythagorean", "plant", "willow", "ivy", "mangrove",
+    "sequoia", "coral", "dragon", "koch", "orchid", "kelp", "moss", "bramble", "venus",
+  ]) {
+    assert.ok(presetNames.includes(name), `missing ${name} growth preset`);
+  }
+  for (const preset of Object.values(GENERATION_RULE_PRESETS)) {
+    assert.ok(Object.isFrozen(preset));
+    assert.ok(preset.label.length > 3);
+    assert.ok(preset.description.length > 20);
+    assert.ok(preset.generations >= 1 && preset.generations <= MAX_GENERATION_STAGES);
+    assert.ok(preset.branching >= 0 && preset.branching <= 1);
+    assert.ok(preset.depth >= 0 && preset.depth <= MAX_RECURSION_FEEDBACK);
+    assert.ok(preset.interval >= 0.2 && preset.interval <= 2_400);
+    assert.ok(preset.mutation >= 0 && preset.mutation <= 1);
+    assert.ok(preset.timeRatio >= 0.2 && preset.timeRatio <= 1);
+    assert.ok(preset.angle >= 0 && preset.angle <= 180);
+    assert.ok(preset.asymmetry >= -0.8 && preset.asymmetry <= 0.8);
+    assert.ok(preset.pitchScale >= 0 && preset.pitchScale <= 4);
+    const voices = generationVoiceSpecs(preset);
+    assert.ok(Math.max(0, ...voices.map((voice) => voice.delay)) < 32);
+  }
+  assert.equal(new Set(Object.values(GENERATION_RULE_PRESETS).map(({ label }) => label)).size, presetNames.length);
   assert.equal(GENERATION_RULE_PRESETS.clean.timeRatio, 1);
   assert.equal(GENERATION_RULE_PRESETS.clean.angle, 0);
   assert.equal(GENERATION_RULE_PRESETS.binary.timeRatio, 0.5);
-  assert.equal(GENERATION_RULE_PRESETS.binary.angle, 30);
+  assert.equal(GENERATION_RULE_PRESETS.binary.angle, 28);
   assert.equal(GENERATION_RULE_PRESETS.pythagorean.angle, 45);
+  assert.equal(GENERATION_RULE_PRESETS.pythagorean.generations, 7);
+  assert.equal(GENERATION_RULE_PRESETS.pythagorean.branching, 1);
+  assert.equal(GENERATION_RULE_PRESETS.pythagorean.mutation, 0);
+  assert.ok(Math.min(...Object.values(GENERATION_RULE_PRESETS).map(({ interval }) => interval)) <= 16);
+  assert.ok(Math.max(...Object.values(GENERATION_RULE_PRESETS).map(({ interval }) => interval)) >= 1_400);
+  assert.ok(Math.max(...Object.values(GENERATION_RULE_PRESETS).map(({ angle }) => angle)) >= 110);
+  assert.ok(Math.max(...Object.values(GENERATION_RULE_PRESETS).map(({ mutation }) => mutation)) >= 0.74);
 });
 
 test("echo tree layout has stable parent links and a bounded visual width", () => {

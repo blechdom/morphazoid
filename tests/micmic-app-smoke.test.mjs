@@ -54,22 +54,33 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
 
   let strokes = 0;
   let arcs = 0;
+  let frameStrokes = 0;
+  let framePoints = [];
+  const rememberPoint = (x, y) => {
+    if (Number.isFinite(x) && Number.isFinite(y)) framePoints.push([x, y]);
+  };
   const drawingContext = {
     arc() { arcs += 1; },
     beginPath() {},
     bezierCurveTo() {},
-    clearRect() {},
+    clearRect() {
+      frameStrokes = 0;
+      framePoints = [];
+    },
     clip() {},
     closePath() {},
     fill() {},
     fillText() {},
-    lineTo() {},
-    moveTo() {},
+    lineTo(x, y) { rememberPoint(x, y); },
+    moveTo(x, y) { rememberPoint(x, y); },
     quadraticCurveTo() {},
     restore() {},
     save() {},
     setTransform() {},
-    stroke() { strokes += 1; },
+    stroke() {
+      strokes += 1;
+      frameStrokes += 1;
+    },
   };
   const canvas = elements.get("stage");
   canvas.getContext = () => drawingContext;
@@ -234,34 +245,59 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.equal(canvas.width, 1800);
   assert.equal(canvas.height, 1200);
   assert.ok(strokes > 20, "the default echo tree should render");
-  assert.equal(arcs, 0, "an idle tree should not draw travelling audio pulses");
-  assert.equal(elements.get("stageReadout").textContent, "MIC OFF · BRANCHING PLANT · 10 GENERATIONS");
-  assert.equal(elements.get("recursionSummary").textContent, "Branching plant · 10 generations");
+  const idleFrameStrokes = frameStrokes;
+  const xs = framePoints.map(([x]) => x);
+  const ys = framePoints.map(([, y]) => y);
+  const initialBounds = {
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minY: Math.min(...ys),
+    maxY: Math.max(...ys),
+  };
+  assert.ok(initialBounds.maxY - initialBounds.minY > 480, "the fitted tree should use nearly all available stage height");
+  assert.ok(initialBounds.maxX - initialBounds.minX > 300, "the fitted tree should remain visibly wide");
+  assert.ok(initialBounds.minX >= 0 && initialBounds.maxX <= 900);
+  assert.ok(initialBounds.minY >= 0 && initialBounds.maxY <= 600);
+  assert.equal(arcs, 0, "the unified tree should not draw detached travelling dots");
+  assert.equal(elements.get("stageReadout").textContent, "MIC OFF · PYTHAGOREAN PINE · 7 GENERATIONS");
+  assert.equal(elements.get("recursionSummary").textContent, "Pythagorean Pine · 7 generations");
   assert.equal(elements.get("mixSummary").textContent, "76% descendants · root muted");
   assert.equal(elements.get("depthOut").textContent, "72%");
-  assert.equal(elements.get("generationsOut").textContent, "10 / 12");
+  assert.equal(elements.get("generationsOut").textContent, "7 / 12");
+  assert.equal(elements.get("branchingOut").textContent, "100% fork probability");
+  assert.equal(elements.get("mutationOut").textContent, "0% rule variance");
+  assert.match(elements.get("generationPresetDescription").textContent, /balanced reference tree/);
   assert.equal(elements.get("audioState").textContent, "off");
   assert.equal(elements.get("recordButton").disabled, true);
   assert.equal(seedButtonLabel.textContent, "Start input");
-  assert.equal(elements.get("seedControl").style.left, "108px");
-  assert.equal(elements.get("seedControl").style.top, "301px");
-  const initialGenerationShape = attributes.get("generationShapePath:d");
-  const initialGenerationTrunk = attributes.get("generationShapeTrunk:d");
-  assert.ok(initialGenerationShape?.startsWith("M"));
-  assert.equal(initialGenerationTrunk, "M8.00 70.00L22.00 70.00");
-  assert.ok(Number(attributes.get("generationShapeRoot:cx")) < 12, "rewrite seed should begin at the left");
-  assert.match(elements.get("generationShapeSummary").textContent, /^10 gen · \d+ visual · \d+ audible/);
+  const initialSeedLeft = Number.parseFloat(elements.get("seedControl").style.left);
+  const initialSeedTop = Number.parseFloat(elements.get("seedControl").style.top);
+  assert.ok(initialSeedLeft > 0 && initialSeedLeft < 900);
+  assert.ok(initialSeedTop > 0 && initialSeedTop < 600);
+  assert.equal(elements.get("seedControl").style.width, elements.get("seedControl").style.height);
+  assert.match(elements.get("treeDescription").textContent, /7 generations and 255 connected segments; 48 of 48 bounded delayed descendant paths carry audible gain/);
+  elements.get("timeRatio").value = "0.2";
+  listeners.get("timeRatio:input")();
+  queuedFrame(performance.now() + 130);
+  const compactXs = framePoints.map(([x]) => x);
+  const compactYs = framePoints.map(([, y]) => y);
+  const compactWidth = Math.max(...compactXs) - Math.min(...compactXs);
+  const compactHeight = Math.max(...compactYs) - Math.min(...compactYs);
+  assert.ok(
+    compactWidth > 760 || compactHeight > 480,
+    "even an aggressively folded tree should fill one available stage dimension",
+  );
+  elements.get("generationPreset").value = "pythagorean";
+  listeners.get("generationPreset:change")({ currentTarget: elements.get("generationPreset") });
   elements.get("depth").value = "0.86";
   listeners.get("depth:input")();
-  assert.match(elements.get("generationShapeSummary").textContent, /^10 gen ·/);
-  assert.equal(attributes.get("generationShapePath:d"), initialGenerationShape);
+  assert.match(elements.get("treeDescription").textContent, /7 generations and 255 connected segments/);
   elements.get("depth").value = "0.72";
   listeners.get("depth:input")();
   elements.get("generations").value = "12";
   listeners.get("generations:input")();
-  assert.match(elements.get("generationShapeSummary").textContent, /^12 gen ·/);
-  assert.notEqual(attributes.get("generationShapePath:d"), initialGenerationShape);
-  elements.get("generations").value = "10";
+  assert.match(elements.get("treeDescription").textContent, /12 generations/);
+  elements.get("generations").value = "7";
   listeners.get("generations:input")();
 
   listeners.get("seedMicButton:click")();
@@ -288,18 +324,37 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.ok(initialGenerations.voices.every((voice) => (
     Number.isFinite(voice.delay) && Number.isFinite(voice.rate)
   )));
+  const initiallyAudible = new Set(initialGenerations.voices.map((voice) => (
+    voice.key.replace(/^generation:/, "")
+  )));
+  assert.ok(initialGenerations.voices.every((voice) => (
+    voice.parentId === "trunk" || initiallyAudible.has(voice.parentId)
+  )), "every audible branch should retain its parent");
 
-  const shapeBeforeMutation = attributes.get("generationShapePath:d");
+  elements.get("depth").value = "0";
+  listeners.get("depth:input")();
+  assert.match(elements.get("treeDescription").textContent, /0 of 48 bounded delayed descendant paths carry audible gain/);
+  queuedFrame(performance.now() + 150);
+  assert.equal(
+    frameStrokes,
+    idleFrameStrokes + 1,
+    "zero-gain descendants should stay still while the microphone trunk reacts",
+  );
+  elements.get("depth").value = "0.72";
+  listeners.get("depth:input")();
+
+  queuedFrame(performance.now() + 160);
+  const geometryBeforeMutation = framePoints.slice(0, 510);
   elements.get("mutation").value = "0.9";
   listeners.get("mutation:input")();
+  queuedFrame(performance.now() + 160);
   const mutatedGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
-  assert.notEqual(attributes.get("generationShapePath:d"), shapeBeforeMutation);
-  assert.equal(attributes.get("generationShapeTrunk:d"), initialGenerationTrunk);
+  assert.notDeepEqual(framePoints.slice(0, 510), geometryBeforeMutation, "mutation should redraw the fitted grammar");
   assert.notDeepEqual(
     mutatedGenerations.voices.map((voice) => [voice.turnDegrees, voice.interval]),
     initialGenerations.voices.map((voice) => [voice.turnDegrees, voice.interval]),
   );
-  elements.get("mutation").value = "0.3";
+  elements.get("mutation").value = "0";
   listeners.get("mutation:input")();
 
   elements.get("generations").value = "12";
@@ -307,7 +362,7 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   const cappedGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
   assert.ok(cappedGenerations.voices.length <= 48);
   assert.equal(Math.max(...cappedGenerations.voices.map((voice) => voice.generation)), 12);
-  elements.get("generations").value = "10";
+  elements.get("generations").value = "7";
   listeners.get("generations:input")();
 
   elements.get("generationAngle").value = "60";
@@ -315,8 +370,7 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   const pitchedGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
   assert.ok(pitchedGenerations.voices.find((voice) => voice.generation === 1 && voice.rule === "A").rate < 1);
   assert.ok(pitchedGenerations.voices.find((voice) => voice.generation === 1 && voice.rule === "B").rate > 1);
-  assert.match(elements.get("generationPitchReadout").textContent, /-49\.2° → -3\.28 st · \+70\.8° → \+4\.72 st/);
-  assert.notEqual(attributes.get("generationShapePath:d"), initialGenerationShape);
+  assert.match(elements.get("generationPitchReadout").textContent, /-60° → -4 st · \+60° → \+4 st/);
 
   elements.get("generationPreset").value = "pythagorean";
   listeners.get("generationPreset:change")({ currentTarget: elements.get("generationPreset") });
@@ -325,14 +379,19 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.deepEqual(firstFork.map((voice) => voice.rule), ["A", "B"]);
   assert.equal(elements.get("timeRatioOut").textContent, "0.72× per generation");
   assert.equal(elements.get("generationAngleOut").textContent, "45°");
+  assert.equal(elements.get("generationsOut").textContent, "7 / 12");
+  assert.equal(elements.get("branchingOut").textContent, "100% fork probability");
+  assert.equal(elements.get("mutationOut").textContent, "0% rule variance");
+  assert.equal(elements.get("depthOut").textContent, "72%");
+  assert.equal(elements.get("intervalOut").textContent, "240 ms");
 
   elements.get("generationPreset").value = "binary";
   listeners.get("generationPreset:change")({ currentTarget: elements.get("generationPreset") });
-  assert.equal(
-    attributes.get("generationShapeTrunk:d"),
-    initialGenerationTrunk,
-    "child timing must not rescale the seed trunk",
-  );
+  assert.equal(elements.get("generationsOut").textContent, "9 / 12");
+  assert.equal(elements.get("depthOut").textContent, "64%");
+  assert.equal(elements.get("intervalOut").textContent, "360 ms");
+  assert.equal(elements.get("generationAngleOut").textContent, "28°");
+  assert.match(elements.get("generationPresetDescription").textContent, /halves its timing/);
 
   listeners.get("micButton:click")();
   assert.equal(elements.get("audioState").textContent, "on");
@@ -347,17 +406,37 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.equal(elements.get("inputTrimOut").textContent, "40%");
   assert.equal(gains[0].gain.value, 0.4);
 
+  const intervalFrameTime = performance.now() + 220;
+  queuedFrame(intervalFrameTime);
+  const segmentCount = Number(elements.get("treeDescription").textContent.match(/and (\d+) connected segments/)?.[1]);
+  const ghostGeometryBeforeInterval = framePoints.slice(0, segmentCount * 2);
+  const seedBeforeInterval = {
+    left: elements.get("seedControl").style.left,
+    top: elements.get("seedControl").style.top,
+  };
   elements.get("interval").value = "500";
   listeners.get("interval:input")();
   assert.equal(elements.get("intervalOut").textContent, "500 ms");
   assert.equal(elements.get("generationTimingReadout").textContent, "500 ms → 250 ms → 125 ms → 63 ms");
-  assert.equal(elements.get("recursionSummary").textContent, "Half-time fork · 10 generations");
+  assert.equal(elements.get("generationPreset").value, "custom");
+  assert.equal(elements.get("recursionSummary").textContent, "Custom growth · 9 generations");
   assert.equal(delays[0].delayTime.value, 0.5);
-  assert.ok(Math.abs(delays[1].delayTime.value - 0.75956) < 1e-9);
-
-  const arcsBeforeLiveFrame = arcs;
-  queuedFrame(performance.now() + 240);
-  assert.ok(arcs > arcsBeforeLiveFrame, "live recursive branches should draw travelling pulses");
+  assert.ok(Math.abs(delays[1].delayTime.value - 0.809) < 1e-9);
+  queuedFrame(intervalFrameTime);
+  assert.deepEqual(
+    framePoints.slice(0, segmentCount * 2),
+    ghostGeometryBeforeInterval,
+    "playback timing must not alter the fitted tree geometry",
+  );
+  assert.deepEqual(
+    {
+      left: elements.get("seedControl").style.left,
+      top: elements.get("seedControl").style.top,
+    },
+    seedBeforeInterval,
+  );
+  assert.ok(frameStrokes > idleFrameStrokes, "live loudness should add localized vibrating branch strokes");
+  assert.equal(arcs, 0, "live audio should remain embodied in branches rather than detached dots");
   assert.notEqual(elements.get("inputMeterOut").textContent, "silent");
 
   listeners.get("recordButton:click")();

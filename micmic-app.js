@@ -7,11 +7,12 @@ import {
   generationVoiceSpecs,
   recorderExtension,
   recursionParameters,
-} from "./src/micmic.js?v=20260723-canonical-tree";
+} from "./src/micmic.js?v=20260723-growth-presets";
 import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260723-safe-grammar";
 
 const $ = (id) => document.getElementById(id);
 const GENERATION_COLORS = ["#fff3d6", "#55d9ff", "#5fe8c4", "#7db4ff", "#c79bff", "#ff826f", "#e8c46b"];
+const REDUCED_MOTION = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 const DEFAULT_STATE = Object.freeze({
   ...MICMIC_PRESETS.bloom,
   inputTrim: 0.85,
@@ -22,6 +23,8 @@ const DEFAULT_STATE = Object.freeze({
   recording: false,
   generations: GENERATION_RULE_PRESETS.pythagorean.generations,
   branching: GENERATION_RULE_PRESETS.pythagorean.branching,
+  depth: GENERATION_RULE_PRESETS.pythagorean.depth,
+  interval: GENERATION_RULE_PRESETS.pythagorean.interval,
   mutation: GENERATION_RULE_PRESETS.pythagorean.mutation,
   generationPreset: "pythagorean",
   timeRatio: GENERATION_RULE_PRESETS.pythagorean.timeRatio,
@@ -52,13 +55,22 @@ let lastTakeDuration = 0;
 let lastTakeMimeType = "";
 let inputWave = new Float32Array(1024);
 let safetyWave = new Float32Array(512);
-let branchAWave = new Float32Array(512);
-let branchBWave = new Float32Array(512);
 let inputPeakHold = 0;
 let hotSince = 0;
 let lastUiMeterUpdate = 0;
 let lastFrameTime = performance.now();
 let generationVisualModel = null;
+let generationTopologyCache = null;
+let stageGeometryCache = null;
+let lastGenerationPreset = DEFAULT_STATE.generationPreset;
+let currentInputEnvelope = 0;
+let lastEnvelopeUpdateTime = null;
+let envelopeHistoryHead = 0;
+let envelopeHistoryLength = 0;
+const ENVELOPE_HISTORY_SECONDS = 32;
+const ENVELOPE_HISTORY_CAPACITY = 65_536;
+const envelopeHistoryTimes = new Float64Array(ENVELOPE_HISTORY_CAPACITY);
+const envelopeHistoryValues = new Float32Array(ENVELOPE_HISTORY_CAPACITY);
 
 function signed(value, suffix = "") {
   const rounded = Number(Number(value).toFixed(2));
@@ -80,57 +92,34 @@ function generationTurns() {
   };
 }
 
-function topologyCoordinateBounds(topology) {
-  const descendants = topology.filter((node) => node.generation > 0);
-  if (!descendants.length) return { minX: 1, maxX: 1, minY: 0, maxY: 0 };
-  return descendants.reduce((bounds, node) => ({
-    minX: Math.min(bounds.minX, node.startX, node.x),
-    maxX: Math.max(bounds.maxX, node.startX, node.x),
-    minY: Math.min(bounds.minY, node.startY, node.y),
-    maxY: Math.max(bounds.maxY, node.startY, node.y),
-  }), { minX: 1, maxX: 1, minY: 0, maxY: 0 });
-}
-
-function compactGenerationLayout(topology) {
-  const bounds = topologyCoordinateBounds(topology);
-  const rootX = 8;
-  const trunkLength = 28;
-  const trunkEndX = rootX + trunkLength;
-  const top = 10;
-  const bottom = 130;
-  const right = 182;
-  const negativeX = Math.max(0, 1 - bounds.minX);
-  const positiveX = Math.max(0, bounds.maxX - 1);
-  const height = bounds.maxY - bounds.minY;
-  const scaleLimits = [trunkLength];
-  if (negativeX > 1e-9) scaleLimits.push((trunkEndX - rootX) / negativeX);
-  if (positiveX > 1e-9) scaleLimits.push((right - trunkEndX) / positiveX);
-  if (height > 1e-9) scaleLimits.push((bottom - top) / height);
-  const scale = Math.max(0.1, Math.min(...scaleLimits));
-  const drawnHeight = height * scale;
-  const yOrigin = height > 1e-9
-    ? top + ((bottom - top) - drawnHeight) / 2 - bounds.minY * scale
-    : (top + bottom) / 2;
-  return {
-    root: { x: rootX, y: yOrigin },
-    trunkEnd: { x: trunkEndX, y: yOrigin },
-    project: (x, y) => ({
-      x: trunkEndX + (x - 1) * scale,
-      y: yOrigin + y * scale,
-    }),
-  };
+function generationTopologyKey() {
+  return [
+    state.generations,
+    state.branching,
+    state.mutation,
+    state.timeRatio,
+    state.generationAngle,
+    state.generationAsymmetry,
+  ].join(":");
 }
 
 function buildGenerationVisualModel() {
   const generationCount = state.generations;
-  const topology = generationTopology({
-    generations: generationCount,
-    branching: state.branching,
-    mutation: state.mutation,
-    timeRatio: state.timeRatio,
-    angle: state.generationAngle,
-    asymmetry: state.generationAsymmetry,
-  });
+  const topologyKey = generationTopologyKey();
+  if (generationTopologyCache?.key !== topologyKey) {
+    generationTopologyCache = {
+      key: topologyKey,
+      topology: generationTopology({
+        generations: generationCount,
+        branching: state.branching,
+        mutation: state.mutation,
+        timeRatio: state.timeRatio,
+        angle: state.generationAngle,
+        asymmetry: state.generationAsymmetry,
+      }),
+    };
+  }
+  const topology = generationTopologyCache.topology;
   const voices = generationVoiceSpecs({
     generations: generationCount,
     interval: state.interval,
@@ -145,53 +134,15 @@ function buildGenerationVisualModel() {
   });
   return {
     generationCount,
+    topologyKey,
     topology,
     voices,
     audibleIds: new Set(voices.map((voice) => voice.key.replace(/^generation:/, ""))),
+    voiceById: new Map(voices.map((voice) => [
+      voice.key.replace(/^generation:/, ""),
+      voice,
+    ])),
   };
-}
-
-function generationShapeGeometry() {
-  generationVisualModel = buildGenerationVisualModel();
-  const {
-    generationCount,
-    topology,
-    voices,
-    audibleIds,
-  } = generationVisualModel;
-  const layout = compactGenerationLayout(topology);
-  const pathFor = (nodes) => nodes.map((node) => {
-    const start = layout.project(node.startX, node.startY);
-    const end = layout.project(node.x, node.y);
-    return `M${start.x.toFixed(2)} ${start.y.toFixed(2)}L${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
-  }).join("");
-  return {
-    trunkPath: `M${layout.root.x.toFixed(2)} ${layout.root.y.toFixed(2)}L${layout.trunkEnd.x.toFixed(2)} ${layout.trunkEnd.y.toFixed(2)}`,
-    path: pathFor(topology.slice(1)),
-    audiblePath: pathFor(topology.slice(1).filter((node) => audibleIds.has(node.id))),
-    root: layout.root,
-    generationCount,
-    branchCount: Math.max(0, topology.length - 1),
-    audibleCount: voices.length,
-    generationCounts: Array.from({ length: generationCount + 1 }, (_, generation) => (
-      topology.filter((node) => node.generation === generation).length
-    )),
-  };
-}
-
-function renderGenerationShape() {
-  const geometry = generationShapeGeometry();
-  $("generationShapeTrunk").setAttribute("d", geometry.trunkPath);
-  $("generationShapePath").setAttribute("d", geometry.path);
-  $("generationShapeAudiblePath").setAttribute("d", geometry.audiblePath);
-  $("generationShapeRoot").setAttribute("cx", geometry.root.x.toFixed(2));
-  $("generationShapeRoot").setAttribute("cy", geometry.root.y.toFixed(2));
-  $("generationShapeSummary").textContent = `${geometry.generationCount} gen · ${geometry.branchCount} visual · ${geometry.audibleCount} audible`;
-  $("generationShapePreview").setAttribute(
-    "aria-label",
-    `Live ${geometry.generationCount}-generation L-system preview with ${geometry.branchCount} segments, ${Number(state.generationAngle.toFixed(1))} degree branch angle, and ${state.timeRatio.toFixed(2)} child length ratio.`,
-  );
-  return geometry;
 }
 
 function renderGenerationRules() {
@@ -201,10 +152,16 @@ function renderGenerationRules() {
   const turns = generationTurns();
   const toSemitones = (degrees) => degrees / 180 * 12 * state.generationPitchScale;
   $("generationPreset").value = state.generationPreset;
+  $("generationPresetDescription").textContent = state.generationPreset === "custom"
+    ? "Your current hand-shaped combination of recursion controls."
+    : GENERATION_RULE_PRESETS[state.generationPreset]?.description ?? "";
   $("generationTimingReadout").textContent = timing.map(formatMilliseconds).join(" → ");
   $("generationPitchReadout").textContent = `${signed(turns.left, "°")} → ${signed(toSemitones(turns.left), " st")} · ${signed(turns.right, "°")} → ${signed(toSemitones(turns.right), " st")}`;
-  const geometry = renderGenerationShape();
-  $("generationCountReadout").textContent = geometry.generationCounts.slice(0, 4).join(" → ");
+  generationVisualModel = buildGenerationVisualModel();
+  const generationCounts = Array.from({ length: state.generations + 1 }, (_, generation) => (
+    generationVisualModel.topology.filter((node) => node.generation === generation).length
+  ));
+  $("generationCountReadout").textContent = generationCounts.slice(0, 4).join(" → ");
 }
 
 function setPressed(element, pressed) {
@@ -547,8 +504,6 @@ async function ensureAudioGraph() {
     graph = buildAudioGraph(audioContext);
     inputWave = new Float32Array(graph.inputAnalyser.fftSize);
     safetyWave = new Float32Array(graph.safetyAnalyser.fftSize);
-    branchAWave = new Float32Array(graph.branchAnalyserA.fftSize);
-    branchBWave = new Float32Array(graph.branchAnalyserB.fftSize);
     audioContext.addEventListener?.("statechange", updateUi);
     await prepareGenerationProcessor(audioContext, graph);
   }
@@ -619,6 +574,7 @@ async function startMicrophone() {
   const generation = ++microphoneGeneration;
   audioChanging = true;
   state.starting = true;
+  clearEnvelopeHistory();
   clearError();
   updateUi();
 
@@ -685,6 +641,7 @@ function stopMicrophone(message = "mic(mic) microphone off.", shouldAnnounce = t
   releaseMicrophone();
   if (state.recording) stopRecording();
   hotSince = 0;
+  clearEnvelopeHistory();
   updateUi();
   if (shouldAnnounce) announce(message);
 }
@@ -835,11 +792,71 @@ function readAnalyser(analyser, samples) {
   return { rms: Math.sqrt(energy / samples.length), peak };
 }
 
+function clearEnvelopeHistory() {
+  currentInputEnvelope = 0;
+  lastEnvelopeUpdateTime = null;
+  envelopeHistoryHead = 0;
+  envelopeHistoryLength = 0;
+}
+
+function recordInputEnvelope(timestamp) {
+  const time = timestamp / 1_000;
+  const cutoff = time - ENVELOPE_HISTORY_SECONDS;
+  while (
+    envelopeHistoryLength > 0
+    && envelopeHistoryTimes[envelopeHistoryHead] < cutoff
+  ) {
+    envelopeHistoryHead = (envelopeHistoryHead + 1) % ENVELOPE_HISTORY_CAPACITY;
+    envelopeHistoryLength -= 1;
+  }
+  if (envelopeHistoryLength === ENVELOPE_HISTORY_CAPACITY) {
+    envelopeHistoryHead = (envelopeHistoryHead + 1) % ENVELOPE_HISTORY_CAPACITY;
+    envelopeHistoryLength -= 1;
+  }
+  const writeIndex = (
+    envelopeHistoryHead + envelopeHistoryLength
+  ) % ENVELOPE_HISTORY_CAPACITY;
+  envelopeHistoryTimes[writeIndex] = time;
+  envelopeHistoryValues[writeIndex] = currentInputEnvelope;
+  envelopeHistoryLength += 1;
+}
+
+function inputEnvelopeAt(time) {
+  if (!envelopeHistoryLength) return 0;
+  const indexAt = (index) => (
+    envelopeHistoryHead + index
+  ) % ENVELOPE_HISTORY_CAPACITY;
+  const firstIndex = indexAt(0);
+  if (time < envelopeHistoryTimes[firstIndex]) return 0;
+  const lastIndex = indexAt(envelopeHistoryLength - 1);
+  if (time >= envelopeHistoryTimes[lastIndex]) {
+    return envelopeHistoryValues[lastIndex];
+  }
+  let low = 0;
+  let high = envelopeHistoryLength - 1;
+  while (high - low > 1) {
+    const middle = (low + high) >> 1;
+    if (envelopeHistoryTimes[indexAt(middle)] <= time) low = middle;
+    else high = middle;
+  }
+  const beforeIndex = indexAt(low);
+  const afterIndex = indexAt(high);
+  const beforeTime = envelopeHistoryTimes[beforeIndex];
+  const afterTime = envelopeHistoryTimes[afterIndex];
+  const mix = clamp((time - beforeTime) / Math.max(1e-6, afterTime - beforeTime));
+  return envelopeHistoryValues[beforeIndex]
+    + (envelopeHistoryValues[afterIndex] - envelopeHistoryValues[beforeIndex]) * mix;
+}
+
 function updateMeters(now) {
+  const elapsed = lastEnvelopeUpdateTime === null
+    ? 1 / 60
+    : clamp((now - lastEnvelopeUpdateTime) / 1_000, 0, 0.25);
+  lastEnvelopeUpdateTime = now;
+  const envelopeRelease = Math.exp(-elapsed / 0.16);
   if (!graph || !state.mic) {
     inputWave.fill(0);
-    branchAWave.fill(0);
-    branchBWave.fill(0);
+    currentInputEnvelope *= envelopeRelease;
     inputPeakHold *= 0.9;
     if (now - lastUiMeterUpdate > 100) {
       $("inputMeterBar").style.width = "0%";
@@ -852,9 +869,11 @@ function updateMeters(now) {
 
   const input = readAnalyser(graph.inputAnalyser, inputWave);
   const safety = readAnalyser(graph.safetyAnalyser, safetyWave);
-  readAnalyser(graph.branchAnalyserA, branchAWave);
-  readAnalyser(graph.branchAnalyserB, branchBWave);
   const meter = clamp(input.rms * 4.2);
+  const nextEnvelope = state.frozen
+    ? 0
+    : clamp(Math.max(input.rms * 5.5, input.peak * 0.9));
+  currentInputEnvelope = Math.max(nextEnvelope, currentInputEnvelope * envelopeRelease);
   inputPeakHold = Math.max(clamp(input.peak), inputPeakHold * 0.965);
 
   if (now - lastUiMeterUpdate > 70) {
@@ -876,66 +895,173 @@ function updateMeters(now) {
   }
 }
 
-function capsulePath(drawContext, x, y, width, height) {
-  const radius = Math.min(width, height) / 2;
-  drawContext.beginPath();
-  drawContext.moveTo(x + radius, y);
-  drawContext.lineTo(x + width - radius, y);
-  drawContext.quadraticCurveTo(x + width, y, x + width, y + radius);
-  drawContext.lineTo(x + width, y + height - radius);
-  drawContext.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-  drawContext.lineTo(x + radius, y + height);
-  drawContext.quadraticCurveTo(x, y + height, x, y + height - radius);
-  drawContext.lineTo(x, y + radius);
-  drawContext.quadraticCurveTo(x, y, x + radius, y);
-  drawContext.closePath();
+function topologyBounds(topology) {
+  return topology.reduce((bounds, node) => ({
+    minX: Math.min(bounds.minX, node.startX, node.x),
+    maxX: Math.max(bounds.maxX, node.startX, node.x),
+    minY: Math.min(bounds.minY, node.startY, node.y),
+    maxY: Math.max(bounds.maxY, node.startY, node.y),
+  }), { minX: 0, maxX: 0, minY: 0, maxY: 0 });
 }
 
-function drawCapsule(node, position, samples, timestamp) {
-  const generation = node.generation;
-  const active = state.mic;
-  const color = GENERATION_COLORS[generation % GENERATION_COLORS.length];
-  const root = generation === 0;
-  const width = root ? clamp(cssWidth * 0.105, 62, 104) : clamp(59 - generation * 3.4, 25, 56);
-  const height = root ? clamp(cssHeight * 0.105, 35, 54) : clamp(27 - generation * 1.4, 13, 25);
-  const x = position.x - width / 2;
-  const y = position.y - height / 2;
-  const decay = root ? 1 : Math.pow(state.depth, generation * 0.72);
-  const alpha = active ? 0.3 + decay * 0.7 : 0.17;
+// Match the L-system page: preserve the grammar's proportions, then fit the
+// complete rewrite into the largest centered rectangle the stage can contain.
+// Playback interval never participates in this transform.
+function stageGenerationLayout(topology) {
+  const bounds = topologyBounds(topology);
+  const margin = Math.max(30, Math.min(cssWidth, cssHeight) * 0.075);
+  const availableWidth = Math.max(1, cssWidth - margin * 2);
+  const availableHeight = Math.max(1, cssHeight - margin * 2);
+  const dataWidth = Math.max(1e-9, bounds.maxX - bounds.minX);
+  const dataHeight = Math.max(1e-9, bounds.maxY - bounds.minY);
+  const scale = Math.min(availableWidth / dataWidth, availableHeight / dataHeight);
+  const drawnWidth = dataWidth * scale;
+  const drawnHeight = dataHeight * scale;
+  const left = (cssWidth - drawnWidth) * 0.5;
+  const top = (cssHeight - drawnHeight) * 0.5;
+  const projectPoint = (x, y) => ({
+    x: left + (x - bounds.minX) * scale,
+    y: top + (bounds.maxY - y) * scale,
+  });
+  return {
+    root: projectPoint(0, 0),
+    seedSize: clamp(Math.min(cssWidth, cssHeight) * 0.085, 46, 62),
+    project: (node) => projectPoint(node.x, node.y),
+    projectPoint,
+  };
+}
+
+function stageGeometry(model) {
+  if (
+    stageGeometryCache?.topologyKey === model.topologyKey
+    && stageGeometryCache.width === cssWidth
+    && stageGeometryCache.height === cssHeight
+  ) {
+    return stageGeometryCache;
+  }
+  const layout = stageGenerationLayout(model.topology);
+  const segments = model.topology.map((node) => ({
+    node,
+    start: layout.projectPoint(node.startX, node.startY),
+    end: layout.project(node),
+  }));
+  const PathConstructor = globalThis.Path2D;
+  const ghostPath = typeof PathConstructor === "function"
+    ? new PathConstructor()
+    : null;
+  if (ghostPath) {
+    for (const segment of segments) {
+      ghostPath.moveTo(segment.start.x, segment.start.y);
+      ghostPath.lineTo(segment.end.x, segment.end.y);
+    }
+  }
+  stageGeometryCache = {
+    topologyKey: model.topologyKey,
+    width: cssWidth,
+    height: cssHeight,
+    layout,
+    segments,
+    ghostPath,
+  };
+  return stageGeometryCache;
+}
+
+function branchEnvelopeAt(time) {
+  return clamp(1 - Math.exp(-inputEnvelopeAt(time) * 5));
+}
+
+function drawVibratingBranch(node, start, end, voice, parentVoice, timestamp) {
+  const color = GENERATION_COLORS[node.generation % GENERATION_COLORS.length];
+  if (!state.mic) {
+    context.save();
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    context.lineTo(end.x, end.y);
+    context.strokeStyle = color;
+    context.globalAlpha = 0.18;
+    context.lineWidth = node.generation === 0 ? 1.85 : 0.95;
+    context.lineCap = "round";
+    context.stroke();
+    context.restore();
+    return;
+  }
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const length = Math.hypot(dx, dy);
+  const normalX = length > 1e-6 ? -dy / length : 0;
+  const normalY = length > 1e-6 ? dx / length : 0;
+  const steps = Math.max(5, Math.min(14, Math.ceil(length / 14)));
+  const now = timestamp / 1_000;
+  const startDelay = node.generation === 0
+    ? 0
+    : parentVoice?.delay ?? Math.max(0, (voice?.delay ?? 0) - (voice?.interval ?? 0));
+  const endDelay = node.generation === 0 ? 0 : voice?.delay ?? startDelay;
+  const rate = Math.sqrt(clamp(voice?.rate ?? 1, 0.25, 4));
+  const maximumOffset = clamp(length * 0.055, 1.5, 8);
+  const voiceLevel = node.generation === 0
+    ? 1
+    : clamp(Math.sqrt(Math.max(0, voice?.gain ?? 0) / 0.5) * Math.sqrt(clamp(state.wet)));
+  const points = [];
+
+  for (let index = 0; index <= steps; index += 1) {
+    const progress = index / steps;
+    const delayedTime = now - (startDelay + (endDelay - startDelay) * progress);
+    const energy = branchEnvelopeAt(delayedTime) * voiceLevel;
+    const carrier = Math.sin(
+      timestamp * 0.009 * rate
+      + progress * Math.PI * (3 + node.generation * 0.35)
+      + node.index * 0.71,
+    );
+    const offset = REDUCED_MOTION
+      ? 0
+      : Math.sin(Math.PI * progress) * energy * maximumOffset * carrier;
+    points.push({
+      x: start.x + dx * progress + normalX * offset,
+      y: start.y + dy * progress + normalY * offset,
+      energy,
+    });
+  }
 
   context.save();
-  context.globalAlpha = alpha;
-  capsulePath(context, x, y, width, height);
-  context.fillStyle = `${color}0b`;
-  context.fill();
-  context.strokeStyle = color;
-  context.lineWidth = root ? 1.3 : 0.8;
-  context.shadowColor = color;
-  context.shadowBlur = active ? (root ? 14 : 7 * decay) : 0;
-  context.stroke();
-  context.shadowBlur = 0;
-  capsulePath(context, x + 3, y + 3, width - 6, height - 6);
-  context.clip();
-
+  context.lineCap = "round";
+  context.lineJoin = "round";
   context.beginPath();
-  const sampleCount = Math.max(8, Math.floor(width));
-  const phaseOffset = (generation * 31 + node.index * 17) % Math.max(1, samples.length);
-  for (let index = 0; index < sampleCount; index += 1) {
-    const sampleIndex = Math.floor(index / Math.max(1, sampleCount - 1) * (samples.length - 1));
-    const raw = active
-      ? samples[(sampleIndex + phaseOffset) % samples.length] ?? 0
-      : Math.sin(timestamp * 0.0013 + index * 0.7 + generation) * 0.08;
-    const mutationJitter = Math.sin(index * 1.9 + generation * 2.4 + timestamp * 0.002) * state.mutation * 0.08;
-    const wave = clamp(raw + mutationJitter, -1, 1);
-    const px = x + 4 + index / Math.max(1, sampleCount - 1) * (width - 8);
-    const py = y + height / 2 + wave * height * 0.34 * decay;
-    if (index === 0) context.moveTo(px, py);
-    else context.lineTo(px, py);
-  }
+  points.forEach((point, index) => {
+    if (index === 0) context.moveTo(point.x, point.y);
+    else context.lineTo(point.x, point.y);
+  });
   context.strokeStyle = color;
-  context.lineWidth = root ? 1.2 : 0.75;
-  context.globalAlpha = active ? 0.92 : 0.3;
+  context.globalAlpha = state.mic
+    ? 0.2 + Math.pow(state.depth, node.generation * 0.7) * 0.24
+    : 0.18;
+  context.lineWidth = node.generation === 0 ? 1.85 : 0.95;
   context.stroke();
+
+  // Brighten only the energetic part of the polyline so attacks visibly
+  // travel from the seed to each delayed descendant instead of flashing the
+  // entire tree at once.
+  let connected = false;
+  let peakEnergy = 0;
+  context.beginPath();
+  for (let index = 1; index < points.length; index += 1) {
+    const energy = Math.max(points[index - 1].energy, points[index].energy);
+    if (energy < 0.015) {
+      connected = false;
+      continue;
+    }
+    if (!connected) context.moveTo(points[index - 1].x, points[index - 1].y);
+    context.lineTo(points[index].x, points[index].y);
+    connected = true;
+    peakEnergy = Math.max(peakEnergy, energy);
+  }
+  if (peakEnergy > 0) {
+    context.strokeStyle = color;
+    context.globalAlpha = 0.24 + peakEnergy * 0.72;
+    context.lineWidth = (node.generation === 0 ? 1.9 : 1.05) + peakEnergy * 2.4;
+    context.shadowColor = color;
+    context.shadowBlur = 3 + peakEnergy * 12;
+    context.stroke();
+  }
   context.restore();
 }
 
@@ -943,86 +1069,44 @@ function drawStage(timestamp) {
   context.clearRect(0, 0, cssWidth, cssHeight);
   const model = generationVisualModel ?? buildGenerationVisualModel();
   generationVisualModel = model;
-  const nodes = model.topology;
-  const generations = model.generationCount;
-  const left = clamp(cssWidth * 0.12, 62, 135);
-  const right = cssWidth - clamp(cssWidth * 0.08, 48, 92);
-  const top = 58;
-  const bottom = cssHeight - 56;
-  const centerY = (top + bottom) / 2;
-  const unit = Math.max(4, (right - left) / (MAX_GENERATION_STAGES + 1));
-  const project = (x, y) => ({
-    x: left + x * unit,
-    y: centerY + y * unit,
-  });
-  const positions = new Map();
-  for (const node of nodes) {
-    positions.set(node.id, project(node.x, node.y));
-  }
+  const geometry = stageGeometry(model);
+  const { layout, segments } = geometry;
 
-  const trunk = nodes[0];
-  const seedPosition = trunk ? project(trunk.startX, trunk.startY) : null;
-  if (seedPosition) {
-    const seedWidth = clamp(cssWidth * 0.105, 62, 104);
-    const seedHeight = clamp(cssHeight * 0.105, 35, 54);
-    $("seedControl").style.left = `${seedPosition.x}px`;
-    $("seedControl").style.top = `${seedPosition.y}px`;
-    $("seedControl").style.width = `${seedWidth}px`;
-    $("seedControl").style.height = `${seedHeight}px`;
-  }
+  $("seedControl").style.left = `${layout.root.x}px`;
+  $("seedControl").style.top = `${layout.root.y}px`;
+  $("seedControl").style.width = `${layout.seedSize}px`;
+  $("seedControl").style.height = `${layout.seedSize}px`;
 
+  // The full rewrite remains visible as one connected quiet tree, even when
+  // only a bounded subset of its branches can be rendered as audio voices.
   context.save();
-  context.font = "8px ui-monospace, SFMono-Regular, Menlo, monospace";
-  context.textAlign = "center";
-  context.textBaseline = "top";
-  for (let generation = 0; generation <= generations; generation += 1) {
-    const x = left + (generation + 1) * unit;
-    context.fillStyle = generation === 0 ? "rgba(255,243,214,.48)" : "rgba(119,131,126,.38)";
-    context.fillText(`G${generation}`, x, 31);
+  if (geometry.ghostPath) {
+    context.strokeStyle = "rgba(119,131,126,.58)";
+    context.globalAlpha = state.mic ? 0.34 : 0.28;
+    context.lineWidth = 0.72;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.stroke(geometry.ghostPath);
+  } else {
+    context.beginPath();
+    for (const segment of segments) {
+      context.moveTo(segment.start.x, segment.start.y);
+      context.lineTo(segment.end.x, segment.end.y);
+    }
+    context.strokeStyle = "rgba(119,131,126,.58)";
+    context.globalAlpha = state.mic ? 0.34 : 0.28;
+    context.lineWidth = 0.72;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.stroke();
   }
   context.restore();
 
-  for (const node of nodes) {
-    const start = project(node.startX, node.startY);
-    const end = positions.get(node.id);
-    const audible = node.generation === 0 || model.audibleIds.has(node.id);
-    const color = GENERATION_COLORS[node.generation % GENERATION_COLORS.length];
-    context.save();
-    context.beginPath();
-    context.moveTo(start.x, start.y);
-    context.lineTo(end.x, end.y);
-    context.strokeStyle = audible ? color : "rgba(119,131,126,.48)";
-    context.globalAlpha = audible
-      ? (state.mic ? 0.18 + Math.pow(state.depth, node.generation) * 0.3 : 0.13)
-      : 0.08;
-    context.lineWidth = node.generation === 0 ? 1.8 : audible ? 0.9 : 0.55;
-    context.stroke();
-
-    if (state.mic && audible) {
-      const travel = ((timestamp / Math.max(70, state.interval) + node.generation * 0.14 + node.index * 0.03) % 1);
-      const pulse = {
-        x: start.x + (end.x - start.x) * travel,
-        y: start.y + (end.y - start.y) * travel,
-      };
-      context.beginPath();
-      context.arc(pulse.x, pulse.y, 1.3, 0, Math.PI * 2);
-      context.fillStyle = color;
-      context.globalAlpha = 0.65 * Math.pow(state.depth, node.generation * 0.35);
-      context.shadowColor = color;
-      context.shadowBlur = 7;
-      context.fill();
-    }
-    context.restore();
-  }
-
-  const soundingNodes = nodes.filter((node) => (
-    node.generation === 0 || model.audibleIds.has(node.id)
-  ));
-  for (const node of [...soundingNodes].reverse()) {
-    const samples = node.generation === 0
-      ? inputWave
-      : node.rule === "A" ? branchAWave : branchBWave;
-    drawCapsule(node, positions.get(node.id), samples, timestamp);
+  for (const { node, start, end } of segments) {
+    if (node.generation > 0 && !model.audibleIds.has(node.id)) continue;
+    const voice = model.voiceById.get(node.id);
+    const parentVoice = model.voiceById.get(node.parentId);
+    drawVibratingBranch(node, start, end, voice, parentVoice, timestamp);
   }
 
   if (state.frozen) {
@@ -1041,6 +1125,7 @@ function frame(timestamp) {
   lastFrameTime = timestamp;
   inputPeakHold *= Math.pow(0.985, elapsed / 16.67);
   updateMeters(timestamp);
+  recordInputEnvelope(timestamp);
   drawStage(timestamp);
   if (state.recording) {
     const duration = (timestamp - recordingStartedAt) / 1000;
@@ -1061,12 +1146,13 @@ function resizeStage() {
   canvas.style.width = `${cssWidth}px`;
   canvas.style.height = `${cssHeight}px`;
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  stageGeometryCache = null;
 }
 
 function presetLabel() {
   return state.generationPreset === "custom"
-    ? "Custom"
-    : GENERATION_RULE_PRESETS[state.generationPreset]?.label ?? "Custom";
+    ? "Custom growth"
+    : GENERATION_RULE_PRESETS[state.generationPreset]?.label ?? "Custom growth";
 }
 
 function paintControls() {
@@ -1132,7 +1218,13 @@ function updateUi() {
   $("mixSummary").textContent = `${Math.round(state.wet * 100)}% descendants · ${state.dry ? `${Math.round(state.dry * 100)}% root` : "root muted"}`;
   $("generationKeyEnd").textContent = `G${generations} DESCENDANT`;
   $("stageReadout").textContent = `${live ? (state.frozen ? "INPUT PAUSED" : "MIC LIVE") : "MIC OFF"} · ${label.toUpperCase()} · ${generations} GENERATIONS`;
-  canvas.setAttribute("aria-label", `mic(mic) echo tree. ${live ? state.frozen ? "Input paused; recursive tail live" : "Microphone live" : "Microphone off"}. ${generations} selected generations.`);
+  const segmentCount = generationVisualModel?.topology.length ?? 0;
+  const voiceCount = generationVisualModel?.voices.length ?? 0;
+  const audibleCount = generationVisualModel?.voices.filter((voice) => (
+    voice.gain * state.wet > 0.00001
+  )).length ?? 0;
+  canvas.setAttribute("aria-label", `Live fitted mic(mic) L-system tree. ${live ? state.frozen ? "Input paused; recursive tail live" : "Microphone live" : "Microphone off"}.`);
+  $("treeDescription").textContent = `${label}. ${generations} generations and ${segmentCount} connected segments; ${audibleCount} of ${voiceCount} bounded delayed descendant paths carry audible gain. Microphone loudness travels outward from the seed by vibrating the branches.`;
 
   const canRecord = live && Boolean(graph?.recorderDestination) && Boolean(globalThis.MediaRecorder);
   setPressed($("recordButton"), state.recording);
@@ -1150,30 +1242,43 @@ function updateUi() {
   }
 }
 
-function bindRange(id, key) {
+function bindRange(id, key, marksGrowthCustom = false) {
   $(id).addEventListener("input", () => {
     state[key] = Number($(id).value);
+    if (marksGrowthCustom) state.generationPreset = "custom";
     applyAudioParameters();
     updateUi();
   });
 }
 
-for (const id of ["generations", "depth", "interval", "branching", "mutation", "wet", "dry", "spread"]) {
+for (const id of ["generations", "depth", "interval", "branching", "mutation"]) {
+  bindRange(id, id, true);
+}
+for (const id of ["wet", "dry", "spread"]) {
   bindRange(id, id);
 }
 bindRange("inputTrim", "inputTrim");
 bindRange("level", "level");
 
 function loadGenerationPreset(name, shouldAnnounce = true) {
-  const preset = GENERATION_RULE_PRESETS[name] ?? GENERATION_RULE_PRESETS.clean;
-  state.generationPreset = Object.prototype.hasOwnProperty.call(GENERATION_RULE_PRESETS, name) ? name : "clean";
+  const resolvedName = Object.prototype.hasOwnProperty.call(GENERATION_RULE_PRESETS, name)
+    ? name
+    : lastGenerationPreset;
+  const preset = GENERATION_RULE_PRESETS[resolvedName] ?? GENERATION_RULE_PRESETS.pythagorean;
+  state.generationPreset = resolvedName;
+  lastGenerationPreset = resolvedName;
+  state.generations = preset.generations;
+  state.branching = preset.branching;
+  state.depth = preset.depth;
+  state.interval = preset.interval;
+  state.mutation = preset.mutation;
   state.timeRatio = preset.timeRatio;
   state.generationAngle = preset.angle;
   state.generationAsymmetry = preset.asymmetry;
   state.generationPitchScale = preset.pitchScale;
   applyAudioParameters();
   updateUi();
-  if (shouldAnnounce) announce(`${preset.label} generation rule loaded.`);
+  if (shouldAnnounce) announce(`${preset.label} recursion preset loaded.`);
 }
 
 $("generationPreset").addEventListener("change", (event) => loadGenerationPreset(event.currentTarget.value));

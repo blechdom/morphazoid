@@ -55,6 +55,7 @@
   z-index: 4;
   top: 50%;
   left: 12%;
+  aspect-ratio: 1;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -65,12 +66,15 @@
   width: 100%;
   height: 100%;
   padding: 0;
-  border: 0;
-  border-radius: 999px;
+  border: 1px solid rgba(85, 217, 255, 0.18);
+  border-radius: 50%;
   cursor: pointer;
   color: var(--ink);
-  background: rgba(7, 9, 11, 0.18);
-  box-shadow: inset 0 0 18px rgba(85, 217, 255, 0.025);
+  background:
+    radial-gradient(circle, rgba(85, 217, 255, 0.1), rgba(7, 9, 11, 0.82) 68%);
+  box-shadow:
+    inset 0 0 18px rgba(85, 217, 255, 0.07),
+    0 0 16px rgba(85, 217, 255, 0.08);
   pointer-events: auto;
   place-items: center;
 }
@@ -419,31 +423,36 @@
   font-weight: 500;
 }
 
-.generation-shape-preview {
-  position: relative;
-  min-height: 168px;
-  margin: 10px 0 14px;
-  border: 1px solid var(--line-strong);
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 78% 48%, rgba(199, 155, 255, 0.08), transparent 54%),
-    rgba(7, 9, 11, 0.55);
+.growth-preset-description {
+  min-height: 2.9em;
+  margin: -3px 0 3px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
 }
 
-.generation-shape-preview small {
-  position: absolute;
-  top: 8px;
-  left: 9px;
-  z-index: 1;
-  color: var(--faint);
-  font: 7px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-  pointer-events: none;
+.recursion-parameter-cluster {
+  display: grid;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
 }
 
-#generationShapePreview {
-  display: block;
-  width: 100%;
-  height: 168px;
+.parameter-cluster-title {
+  margin: 0 0 10px;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.parameter-cluster-readout {
+  margin: -1px 0 3px;
+}
+
+.parameter-cluster-readout > span {
+  grid-template-columns: 76px minmax(0, 1fr);
 }
 
 .generation-safety-note {
@@ -451,38 +460,6 @@
   margin: -5px 0 12px;
   color: var(--faint);
   font: 7px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-#generationShapePath {
-  fill: none;
-  stroke: rgba(119, 131, 126, 0.32);
-  stroke-width: 0.85;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-#generationShapeAudiblePath {
-  fill: none;
-  stroke: url("#generationShapeGradient");
-  stroke-width: 1.35;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-#generationShapeTrunk {
-  fill: none;
-  stroke: #fff3d6;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
-}
-
-#generationShapeRoot {
-  fill: #fff3d6;
-  stroke: rgba(255, 243, 214, 0.35);
-  stroke-width: 3;
 }
 
 .fracta-record-button {
