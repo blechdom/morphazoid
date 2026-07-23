@@ -51,14 +51,6 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   elements.get("seedMicButton").querySelector = (selector) => (
     selector === "b" ? seedButtonLabel : null
   );
-  const presetButtons = [...html.matchAll(/<button[^>]+data-preset="([^"]+)"[^>]*>/g)]
-    .map((match) => ({
-      dataset: { preset: match[1] },
-      setAttribute(name, value) {
-        attributes.set(`preset-${match[1]}:${name}`, String(value));
-      },
-    }));
-  elements.get("presetButtons").querySelectorAll = () => presetButtons;
 
   let strokes = 0;
   let arcs = 0;
@@ -243,28 +235,34 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.equal(canvas.height, 1200);
   assert.ok(strokes > 20, "the default echo tree should render");
   assert.equal(arcs, 0, "an idle tree should not draw travelling audio pulses");
-  assert.equal(elements.get("stageReadout").textContent, "MIC OFF · BLOOM · 10 GENERATIONS");
-  assert.equal(elements.get("recursionSummary").textContent, "Bloom · 10 generations");
+  assert.equal(elements.get("stageReadout").textContent, "MIC OFF · BRANCHING PLANT · 10 GENERATIONS");
+  assert.equal(elements.get("recursionSummary").textContent, "Branching plant · 10 generations");
   assert.equal(elements.get("mixSummary").textContent, "76% descendants · root muted");
-  assert.equal(elements.get("depthOut").textContent, "72% · 10 gen");
+  assert.equal(elements.get("depthOut").textContent, "72%");
+  assert.equal(elements.get("generationsOut").textContent, "10 / 12");
   assert.equal(elements.get("audioState").textContent, "off");
   assert.equal(elements.get("recordButton").disabled, true);
-  assert.equal(attributes.get("preset-bloom:aria-pressed"), "true");
   assert.equal(seedButtonLabel.textContent, "Start input");
   assert.equal(elements.get("seedControl").style.left, "108px");
   assert.equal(elements.get("seedControl").style.top, "301px");
   const initialGenerationShape = attributes.get("generationShapePath:d");
   const initialGenerationTrunk = attributes.get("generationShapeTrunk:d");
   assert.ok(initialGenerationShape?.startsWith("M"));
-  assert.equal(initialGenerationTrunk, "M8.00 48.00L22.00 48.00");
+  assert.equal(initialGenerationTrunk, "M8.00 70.00L22.00 70.00");
   assert.ok(Number(attributes.get("generationShapeRoot:cx")) < 12, "rewrite seed should begin at the left");
   assert.match(elements.get("generationShapeSummary").textContent, /^10 gen · \d+ visual · \d+ audible/);
   elements.get("depth").value = "0.86";
   listeners.get("depth:input")();
-  assert.match(elements.get("generationShapeSummary").textContent, /^12 gen ·/);
-  assert.notEqual(attributes.get("generationShapePath:d"), initialGenerationShape);
+  assert.match(elements.get("generationShapeSummary").textContent, /^10 gen ·/);
+  assert.equal(attributes.get("generationShapePath:d"), initialGenerationShape);
   elements.get("depth").value = "0.72";
   listeners.get("depth:input")();
+  elements.get("generations").value = "12";
+  listeners.get("generations:input")();
+  assert.match(elements.get("generationShapeSummary").textContent, /^12 gen ·/);
+  assert.notEqual(attributes.get("generationShapePath:d"), initialGenerationShape);
+  elements.get("generations").value = "10";
+  listeners.get("generations:input")();
 
   listeners.get("seedMicButton:click")();
   await new Promise((resolve) => setImmediate(resolve));
@@ -279,7 +277,6 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   });
   assert.equal(audioContexts.length, 1);
   assert.equal(elements.get("audioState").textContent, "on");
-  assert.equal(elements.get("stateMetric").textContent, "live");
   assert.equal(attributes.get("seedMicButton:aria-pressed"), "true");
   assert.equal(attributes.get("micButton:aria-pressed"), "true");
   assert.equal(gains[0].gain.value, 0.85, "input trim should reach the live graph");
@@ -291,6 +288,27 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.ok(initialGenerations.voices.every((voice) => (
     Number.isFinite(voice.delay) && Number.isFinite(voice.rate)
   )));
+
+  const shapeBeforeMutation = attributes.get("generationShapePath:d");
+  elements.get("mutation").value = "0.9";
+  listeners.get("mutation:input")();
+  const mutatedGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
+  assert.notEqual(attributes.get("generationShapePath:d"), shapeBeforeMutation);
+  assert.equal(attributes.get("generationShapeTrunk:d"), initialGenerationTrunk);
+  assert.notDeepEqual(
+    mutatedGenerations.voices.map((voice) => [voice.turnDegrees, voice.interval]),
+    initialGenerations.voices.map((voice) => [voice.turnDegrees, voice.interval]),
+  );
+  elements.get("mutation").value = "0.3";
+  listeners.get("mutation:input")();
+
+  elements.get("generations").value = "12";
+  listeners.get("generations:input")();
+  const cappedGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
+  assert.ok(cappedGenerations.voices.length <= 48);
+  assert.equal(Math.max(...cappedGenerations.voices.map((voice) => voice.generation)), 12);
+  elements.get("generations").value = "10";
+  listeners.get("generations:input")();
 
   elements.get("generationAngle").value = "60";
   listeners.get("generationAngle:input")();
@@ -318,7 +336,6 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
 
   listeners.get("micButton:click")();
   assert.equal(elements.get("audioState").textContent, "on");
-  assert.equal(elements.get("stateMetric").textContent, "paused");
   assert.equal(elements.get("micButtonLabel").textContent, "Resume input");
   assert.match(elements.get("stageReadout").textContent, /^INPUT PAUSED/);
   listeners.get("micButton:click")();
@@ -334,7 +351,7 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   listeners.get("interval:input")();
   assert.equal(elements.get("intervalOut").textContent, "500 ms");
   assert.equal(elements.get("generationTimingReadout").textContent, "500 ms → 250 ms → 125 ms → 63 ms");
-  assert.equal(elements.get("recursionSummary").textContent, "Custom · 10 generations");
+  assert.equal(elements.get("recursionSummary").textContent, "Half-time fork · 10 generations");
   assert.equal(delays[0].delayTime.value, 0.5);
   assert.ok(Math.abs(delays[1].delayTime.value - 0.75956) < 1e-9);
 

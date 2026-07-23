@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   MICMIC_PRESETS,
   GENERATION_RULE_PRESETS,
+  MAX_GENERATION_STAGES,
   MAX_GENERATION_VOICES,
   MAX_RECURSION_FEEDBACK,
   clamp,
@@ -133,6 +134,73 @@ test("one bounded L-system topology drives a fixed trunk and richer audio branch
   assert.ok(voices.length <= MAX_GENERATION_VOICES && voices.length >= 40);
   assert.ok(voices.every((voice) => topologyIds.has(voice.key.replace(/^generation:/, ""))));
   assert.ok(new Set(voices.map((voice) => voice.generation)).size === 12);
+});
+
+test("generation and voice limits stay bounded above the UI maximum", () => {
+  const topology = generationTopology({
+    generations: 99,
+    branching: 1,
+    timeRatio: 1,
+    angle: 45,
+  });
+  const voices = generationVoiceSpecs({
+    generations: 99,
+    interval: 2_400,
+    depth: 0.86,
+    branching: 1,
+    timeRatio: 1,
+    angle: 45,
+  });
+  assert.equal(Math.max(...topology.map((node) => node.generation)), MAX_GENERATION_STAGES);
+  assert.equal(Math.max(...voices.map((voice) => voice.generation)), MAX_GENERATION_STAGES);
+  assert.ok(voices.length <= MAX_GENERATION_VOICES);
+  assert.ok(Math.max(...voices.map((voice) => voice.delay)) <= 28.8 + 1e-9);
+});
+
+test("rule mutation deterministically changes the shared drawing and audio rewrite", () => {
+  const settings = {
+    generations: 8,
+    branching: 0.84,
+    timeRatio: 0.72,
+    angle: 30,
+    asymmetry: 0.1,
+  };
+  const stable = generationTopology({ ...settings, mutation: 0 });
+  const mutated = generationTopology({ ...settings, mutation: 1 });
+  assert.deepEqual(mutated[0], stable[0], "mutation must not change the seed trunk");
+  assert.deepEqual(
+    generationTopology({ ...settings, mutation: 1 }),
+    mutated,
+    "the same rewrite controls must produce the same mutation",
+  );
+  assert.ok(mutated.slice(1).some((node, index) => (
+    node.turnDegrees !== stable[index + 1].turnDegrees
+    || node.length !== stable[index + 1].length
+  )));
+
+  const stableVoices = generationVoiceSpecs({ ...settings, interval: 500, depth: 0.72, mutation: 0 });
+  const mutatedVoices = generationVoiceSpecs({ ...settings, interval: 500, depth: 0.72, mutation: 1 });
+  assert.deepEqual(
+    mutatedVoices.map((voice) => voice.key),
+    stableVoices.map((voice) => voice.key),
+  );
+  assert.ok(mutatedVoices.some((voice, index) => (
+    voice.turnDegrees !== stableVoices[index].turnDegrees
+    || voice.interval !== stableVoices[index].interval
+    || voice.rate !== stableVoices[index].rate
+  )));
+});
+
+test("fork density changes both visual segments and audible branches", () => {
+  const line = generationTopology({ generations: 6, branching: 0, angle: 30 });
+  const tree = generationTopology({ generations: 6, branching: 1, angle: 30 });
+  const lineVoices = generationVoiceSpecs({ generations: 6, branching: 0, angle: 30 });
+  const treeVoices = generationVoiceSpecs({ generations: 6, branching: 1, angle: 30 });
+
+  assert.equal(line.length, 7);
+  assert.ok(tree.length > line.length);
+  assert.equal(lineVoices.length, 6);
+  assert.ok(treeVoices.length > lineVoices.length);
 });
 
 test("generation relationship presets mirror the L-system families", () => {

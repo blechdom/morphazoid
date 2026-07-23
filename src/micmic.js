@@ -124,6 +124,7 @@ function evenlyBounded(candidates, maximum) {
 export function generationTopology({
   generations = 8,
   branching = 0.84,
+  mutation = 0,
   timeRatio = 0.5,
   angle = 30,
   asymmetry = 0,
@@ -131,6 +132,7 @@ export function generationTopology({
 } = {}) {
   const count = Math.max(1, Math.min(MAX_GENERATION_STAGES, Math.round(Number(generations) || 1)));
   const branchAmount = clamp(branching);
+  const mutationAmount = clamp(mutation);
   const taper = clamp(timeRatio, 0.2, 1);
   const turn = clamp(angle, 0, 180);
   const skew = clamp(asymmetry, -0.8, 0.8);
@@ -171,16 +173,27 @@ export function generationTopology({
         ? [{ name: "A", turn: turnA }, { name: "B", turn: turnB }]
         : [{ name: "C", turn: 0 }];
       for (const rule of rules) {
-        const headingDegrees = parent.headingDegrees + rule.turn;
+        // Stable, per-rewrite variations keep slider gestures deterministic.
+        // The same mutated turn and length feed both the drawing and audio.
+        const identity = `${parent.id}/${rule.name}`;
+        const turnVariation = (hashUnit(`${identity}:turn`) * 2 - 1)
+          * turn * mutationAmount * 0.5;
+        // Mutated timing may fold earlier, never beyond the selected Time
+        // Fold × Child Time Ratio envelope, so the 12-generation safety cap
+        // always fits the bounded audio history.
+        const lengthVariation = hashUnit(`${identity}:length`)
+          * mutationAmount * 0.3;
+        const mutatedTurn = rule.turn + turnVariation;
+        const headingDegrees = parent.headingDegrees + mutatedTurn;
         const heading = headingDegrees * Math.PI / 180;
-        const length = taper ** generation;
+        const length = Math.max(0.02, taper ** generation * (1 - lengthVariation));
         candidates.push({
-          id: `${parent.id}/${rule.name}`,
+          id: identity,
           parentId: parent.id,
           generation,
           index: candidates.length,
           rule: rule.name,
-          turnDegrees: rule.turn,
+          turnDegrees: mutatedTurn,
           headingDegrees,
           length,
           startX: parent.x,
@@ -203,7 +216,7 @@ export function generationVoiceSpecs({
   depth = 0.72,
   branching = 0.84,
   spread = 0.9,
-  mutation = 0.3,
+  mutation = 0,
   timeRatio = 0.5,
   angle = 30,
   asymmetry = 0,
@@ -213,6 +226,7 @@ export function generationVoiceSpecs({
   const layout = generationTopology({
     generations,
     branching,
+    mutation,
     timeRatio,
     angle,
     asymmetry,

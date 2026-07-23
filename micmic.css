@@ -419,109 +419,38 @@
   font-weight: 500;
 }
 
-.fracta-presets {
-  display: grid;
-  margin: 7px 0 16px;
-  border-top: 1px solid var(--line-strong);
-  border-left: 1px solid var(--line-strong);
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.fracta-presets button {
-  display: grid;
-  min-height: 55px;
-  padding: 8px 10px;
-  border-right: 1px solid var(--line-strong);
-  border-bottom: 1px solid var(--line-strong);
-  cursor: pointer;
-  color: var(--muted);
-  background: var(--bg-deep);
-  grid-template-columns: 18px 1fr;
-  align-content: center;
-  align-items: center;
-  gap: 1px 8px;
-  text-align: left;
-}
-
-.fracta-presets button:hover,
-.fracta-presets button:focus-visible {
-  color: var(--ink);
-  background: var(--accent-glow);
-}
-
-.fracta-presets button[aria-pressed="true"] {
-  color: var(--accent);
-  background: var(--accent-glow);
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-
-.fracta-presets i {
-  position: relative;
-  width: 15px;
-  height: 15px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  grid-row: 1 / 3;
-}
-
-.fracta-presets i::after {
-  position: absolute;
-  inset: 3px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  content: "";
-}
-
-.fracta-presets span {
-  color: currentColor;
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.fracta-presets small {
-  color: var(--faint);
-  font-size: 7px;
-}
-
 .generation-shape-preview {
-  display: grid;
-  grid-template-columns: minmax(82px, 0.7fr) minmax(120px, 1.3fr);
-  min-height: 92px;
+  position: relative;
+  min-height: 168px;
   margin: 10px 0 14px;
   border: 1px solid var(--line-strong);
   overflow: hidden;
   background:
     radial-gradient(circle at 78% 48%, rgba(199, 155, 255, 0.08), transparent 54%),
     rgba(7, 9, 11, 0.55);
-  align-items: stretch;
-}
-
-.generation-shape-preview > span {
-  display: flex;
-  padding: 10px;
-  border-right: 1px solid var(--line);
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.generation-shape-preview b {
-  color: var(--ink);
-  font-size: 8px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .generation-shape-preview small {
+  position: absolute;
+  top: 8px;
+  left: 9px;
+  z-index: 1;
   color: var(--faint);
   font: 7px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  pointer-events: none;
 }
 
 #generationShapePreview {
   display: block;
   width: 100%;
-  height: 92px;
+  height: 168px;
+}
+
+.generation-safety-note {
+  display: block;
+  margin: -5px 0 12px;
+  color: var(--faint);
+  font: 7px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 #generationShapePath {
@@ -554,110 +483,6 @@
   fill: #fff3d6;
   stroke: rgba(255, 243, 214, 0.35);
   stroke-width: 3;
-}
-
-.generation-editor {
-  margin: 15px 0 14px;
-  border: 1px solid var(--line-strong);
-  background: rgba(7, 9, 11, 0.55);
-}
-
-.generation-editor-heading {
-  display: flex;
-  min-height: 42px;
-  padding: 7px 9px;
-  border-bottom: 1px solid var(--line);
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.generation-editor-heading > span {
-  display: grid;
-  gap: 2px;
-}
-
-.generation-editor-heading b {
-  color: var(--ink);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.generation-editor-heading small {
-  color: var(--muted);
-  font-size: 7px;
-}
-
-#generationEditor {
-  display: block;
-  width: 100%;
-  height: auto;
-  min-height: 164px;
-  cursor: crosshair;
-  touch-action: none;
-}
-
-#generationEditor .editor-grid {
-  stroke: rgba(119, 131, 126, 0.16);
-  stroke-width: 1;
-}
-
-#generationEditor .editor-axis {
-  fill: var(--faint);
-  font: 7px ui-monospace, SFMono-Regular, Menlo, monospace;
-  letter-spacing: 0.06em;
-}
-
-#generationEditor .generation-path {
-  fill: none;
-  stroke-width: 1.4;
-}
-
-#generationEditor .branch-a { stroke: #55d9ff; }
-#generationEditor .branch-b { stroke: #ff826f; }
-
-#generationEditor .time-offset {
-  stroke: rgba(85, 217, 255, 0.34);
-  stroke-width: 1;
-  stroke-dasharray: 2 2;
-}
-
-#generationEditor .generation-handle {
-  cursor: move;
-  fill: #090c11;
-  stroke: #8cbbef;
-  stroke-width: 1.4;
-}
-
-#generationEditor .generation-handle.branch-a { stroke: #55d9ff; }
-#generationEditor .generation-handle.branch-b { stroke: #ff826f; }
-
-#generationEditor circle:hover,
-#generationEditor circle:focus {
-  stroke-width: 2.5;
-}
-
-.generation-editor-legend {
-  display: flex;
-  padding: 0 9px 6px;
-  justify-content: space-between;
-  font-size: 7px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.generation-editor-legend .pitch { color: #c79bff; }
-
-#generationEditOut {
-  display: block;
-  min-height: 25px;
-  padding: 6px 9px;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 8px;
-  font-variant-numeric: tabular-nums;
 }
 
 .fracta-record-button {
@@ -794,9 +619,6 @@
     min-height: 54px;
   }
 
-  .fracta-presets {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -3,25 +3,24 @@ import {
   GENERATION_RULE_PRESETS,
   MAX_GENERATION_STAGES,
   clamp,
-  generationCountForDepth,
   generationTopology,
   generationVoiceSpecs,
   recorderExtension,
   recursionParameters,
 } from "./src/micmic.js";
-import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260723-fixed-pool";
+import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260723-safe-grammar";
 
 const $ = (id) => document.getElementById(id);
 const GENERATION_COLORS = ["#fff3d6", "#55d9ff", "#5fe8c4", "#7db4ff", "#c79bff", "#ff826f", "#e8c46b"];
 const DEFAULT_STATE = Object.freeze({
   ...MICMIC_PRESETS.bloom,
-  preset: "bloom",
   inputTrim: 0.85,
   level: 0.58,
   mic: false,
   starting: false,
   frozen: false,
   recording: false,
+  generations: 10,
   generationPreset: "plant",
   timeRatio: GENERATION_RULE_PRESETS.plant.timeRatio,
   generationAngle: GENERATION_RULE_PRESETS.plant.angle,
@@ -50,7 +49,6 @@ let lastTakeUrl = "";
 let lastTakeDuration = 0;
 let lastTakeMimeType = "";
 let inputWave = new Float32Array(1024);
-let outputWave = new Float32Array(1024);
 let safetyWave = new Float32Array(512);
 let branchAWave = new Float32Array(512);
 let branchBWave = new Float32Array(512);
@@ -81,10 +79,11 @@ function generationTurns() {
 }
 
 function buildGenerationVisualModel() {
-  const generationCount = generationCountForDepth(state.depth);
+  const generationCount = state.generations;
   const topology = generationTopology({
     generations: generationCount,
     branching: state.branching,
+    mutation: state.mutation,
     timeRatio: state.timeRatio,
     angle: state.generationAngle,
     asymmetry: state.generationAsymmetry,
@@ -120,7 +119,7 @@ function generationShapeGeometry() {
   // Use one fixed projection instead of fitting the current bounds.  The seed
   // trunk is therefore always exactly 14 SVG units wide; taper only affects
   // its rewritten descendants.
-  const project = (x, y) => ({ x: 8 + x * 14, y: 48 + y * 14 });
+  const project = (x, y) => ({ x: 8 + x * 14, y: 70 + y * 22 });
   const pathFor = (nodes) => nodes.map((node) => {
     const start = project(node.startX, node.startY);
     const end = project(node.x, node.y);
@@ -453,14 +452,14 @@ async function prepareGenerationProcessor(audio, audioGraph) {
   if (!audio.audioWorklet?.addModule || !WorkletNode) return;
   try {
     await audio.audioWorklet.addModule(
-      new URL("./src/micmic-generation-processor.js?v=20260723-shared-topology", import.meta.url),
+      new URL("./src/micmic-generation-processor.js?v=20260723-safe-grammar", import.meta.url),
     );
     if (audioContext !== audio || graph !== audioGraph || audio.state === "closed") return;
     const node = new WorkletNode(audio, "morphazoid-micmic-generations", {
       numberOfInputs: 1,
       numberOfOutputs: 1,
       outputChannelCount: [2],
-      processorOptions: { historySeconds: 32, maxVoices: 48 },
+      processorOptions: { historySeconds: 30, maxVoices: 48 },
     });
     audioGraph.seedGate.connect(node);
     node.connect(audioGraph.wetBus);
@@ -477,7 +476,7 @@ async function prepareGenerationProcessor(audio, audioGraph) {
       audio,
       audioGraph.seedGate,
       audioGraph.wetBus,
-      { maxPitchSources: 5, maxVoices: 48, historySeconds: 32 },
+      { maxPitchSources: 3, maxVoices: 48, historySeconds: 30 },
     ).then((bank) => {
       if (audioContext !== audio || graph !== audioGraph || audio.state === "closed") {
         void bank.dispose();
@@ -509,7 +508,6 @@ async function ensureAudioGraph() {
     audioContext = new AudioContextClass();
     graph = buildAudioGraph(audioContext);
     inputWave = new Float32Array(graph.inputAnalyser.fftSize);
-    outputWave = new Float32Array(graph.outputAnalyser.fftSize);
     safetyWave = new Float32Array(graph.safetyAnalyser.fftSize);
     branchAWave = new Float32Array(graph.branchAnalyserA.fftSize);
     branchBWave = new Float32Array(graph.branchAnalyserB.fftSize);
@@ -563,7 +561,7 @@ function applyAudioParameters(immediate = false) {
   setAudioParam(graph.modulationB?.gain, -parameters.modulationDepth, immediate);
   setAudioParam(graph.masterGain.gain, active ? levelToGain(state.level) : 0, immediate);
   const generationVoices = active ? generationVoiceSpecs({
-      generations: parameters.generations,
+      generations: state.generations,
       interval: state.interval,
       depth: state.depth,
       branching: state.branching,
@@ -802,7 +800,6 @@ function readAnalyser(analyser, samples) {
 function updateMeters(now) {
   if (!graph || !state.mic) {
     inputWave.fill(0);
-    outputWave.fill(0);
     branchAWave.fill(0);
     branchBWave.fill(0);
     inputPeakHold *= 0.9;
@@ -810,14 +807,12 @@ function updateMeters(now) {
       $("inputMeterBar").style.width = "0%";
       $("inputPeakMarker").style.left = `${Math.round(inputPeakHold * 100)}%`;
       $("inputMeterOut").textContent = "silent";
-      $("outputMetric").textContent = "silent";
       lastUiMeterUpdate = now;
     }
     return;
   }
 
   const input = readAnalyser(graph.inputAnalyser, inputWave);
-  const output = readAnalyser(graph.outputAnalyser, outputWave);
   const safety = readAnalyser(graph.safetyAnalyser, safetyWave);
   readAnalyser(graph.branchAnalyserA, branchAWave);
   readAnalyser(graph.branchAnalyserB, branchBWave);
@@ -828,7 +823,6 @@ function updateMeters(now) {
     $("inputMeterBar").style.width = `${Math.round(meter * 100)}%`;
     $("inputPeakMarker").style.left = `${Math.round(inputPeakHold * 100)}%`;
     $("inputMeterOut").textContent = formatDecibels(input.rms);
-    $("outputMetric").textContent = formatDecibels(output.rms);
     lastUiMeterUpdate = now;
   }
 
@@ -1032,18 +1026,20 @@ function resizeStage() {
 }
 
 function presetLabel() {
-  return state.preset === "custom" ? "Custom" : MICMIC_PRESETS[state.preset]?.label ?? "Custom";
+  return state.generationPreset === "custom"
+    ? "Custom"
+    : GENERATION_RULE_PRESETS[state.generationPreset]?.label ?? "Custom";
 }
 
 function paintControls() {
-  const generations = generationCountForDepth(state.depth);
   const values = {
     level: [state.level, `${Math.round(state.level * 100)}%`],
     inputTrim: [state.inputTrim, `${Math.round(state.inputTrim * 100)}%`],
-    depth: [state.depth, `${Math.round(state.depth * 100)}% · ${generations} gen`],
+    generations: [state.generations, `${state.generations} / ${MAX_GENERATION_STAGES}`],
+    depth: [state.depth, `${Math.round(state.depth * 100)}%`],
     interval: [state.interval, formatMilliseconds(state.interval)],
-    branching: [state.branching, `${Math.round(state.branching * 100)}%`],
-    mutation: [state.mutation, `${Math.round(state.mutation * 100)}%`],
+    branching: [state.branching, `${Math.round(state.branching * 100)}% fork probability`],
+    mutation: [state.mutation, `${Math.round(state.mutation * 100)}% rule variance`],
     timeRatio: [state.timeRatio, `${state.timeRatio.toFixed(2)}× per generation`],
     generationAngle: [state.generationAngle, `${Number(state.generationAngle.toFixed(1))}°`],
     generationAsymmetry: [state.generationAsymmetry, state.generationAsymmetry === 0 ? "even" : `${Math.round(Math.abs(state.generationAsymmetry) * 100)}% ${state.generationAsymmetry < 0 ? "left wider" : "right wider"}`],
@@ -1059,7 +1055,7 @@ function paintControls() {
 }
 
 function updateUi() {
-  const generations = generationCountForDepth(state.depth);
+  const generations = state.generations;
   const label = presetLabel();
   const live = state.mic;
   const starting = state.starting;
@@ -1093,18 +1089,12 @@ function updateUi() {
   $("seedMicButton").querySelector("b").textContent = seedLabel;
   $("seedMicButton").setAttribute("aria-label", seedLabel);
 
-  $("stateMetric").textContent = starting ? "starting" : live ? (state.frozen ? "paused" : "live") : "off";
-  $("depthMetric").textContent = `${generations} gen`;
   $("listenSummary").textContent = starting ? "waiting for permission" : live ? (state.frozen ? "input paused · tail live" : "microphone live") : "microphone off";
   $("recursionSummary").textContent = `${label} · ${generations} generations`;
   $("mixSummary").textContent = `${Math.round(state.wet * 100)}% descendants · ${state.dry ? `${Math.round(state.dry * 100)}% root` : "root muted"}`;
   $("generationKeyEnd").textContent = `G${generations} DESCENDANT`;
   $("stageReadout").textContent = `${live ? (state.frozen ? "INPUT PAUSED" : "MIC LIVE") : "MIC OFF"} · ${label.toUpperCase()} · ${generations} GENERATIONS`;
-  canvas.setAttribute("aria-label", `mic(mic) echo tree. ${live ? state.frozen ? "Input paused; recursive tail live" : "Microphone live" : "Microphone off"}. ${generations} estimated audible generations.`);
-
-  for (const button of $("presetButtons").querySelectorAll("button")) {
-    setPressed(button, button.dataset.preset === state.preset);
-  }
+  canvas.setAttribute("aria-label", `mic(mic) echo tree. ${live ? state.frozen ? "Input paused; recursive tail live" : "Microphone live" : "Microphone off"}. ${generations} selected generations.`);
 
   const canRecord = live && Boolean(graph?.recorderDestination) && Boolean(globalThis.MediaRecorder);
   setPressed($("recordButton"), state.recording);
@@ -1122,24 +1112,19 @@ function updateUi() {
   }
 }
 
-function markCustom() {
-  state.preset = "custom";
-}
-
-function bindRange(id, key, { presetParameter = true } = {}) {
+function bindRange(id, key) {
   $(id).addEventListener("input", () => {
     state[key] = Number($(id).value);
-    if (presetParameter) markCustom();
     applyAudioParameters();
     updateUi();
   });
 }
 
-for (const id of ["depth", "interval", "branching", "mutation", "wet", "dry", "spread"]) {
+for (const id of ["generations", "depth", "interval", "branching", "mutation", "wet", "dry", "spread"]) {
   bindRange(id, id);
 }
-bindRange("inputTrim", "inputTrim", { presetParameter: false });
-bindRange("level", "level", { presetParameter: false });
+bindRange("inputTrim", "inputTrim");
+bindRange("level", "level");
 
 function loadGenerationPreset(name, shouldAnnounce = true) {
   const preset = GENERATION_RULE_PRESETS[name] ?? GENERATION_RULE_PRESETS.clean;
@@ -1164,20 +1149,6 @@ for (const id of ["timeRatio", "generationAngle", "generationAsymmetry", "genera
     updateUi();
   });
 }
-
-function applyPreset(name) {
-  const preset = MICMIC_PRESETS[name];
-  if (!preset) return;
-  Object.assign(state, preset, { preset: name });
-  applyAudioParameters();
-  updateUi();
-  announce(`${preset.label} recursion loaded.`);
-}
-
-$("presetButtons").addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-preset]");
-  if (button) applyPreset(button.dataset.preset);
-});
 
 $("audioButton").addEventListener("click", () => void toggleMicrophone());
 $("seedMicButton").addEventListener("click", () => void toggleInput());

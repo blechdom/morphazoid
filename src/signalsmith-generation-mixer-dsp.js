@@ -22,14 +22,14 @@ function sanitizeVoice(voice, index, maximumDelay, maximumInputs) {
 export class SignalsmithGenerationMixerDSP {
   constructor({
     sampleRate = DEFAULT_SAMPLE_RATE,
-    historySeconds = 32,
-    maxInputs = 6,
+    historySeconds = 30,
+    maxInputs = 4,
     maxVoices = 48,
   } = {}) {
     this.sampleRate = clamp(sampleRate, 8_000, 192_000, DEFAULT_SAMPLE_RATE);
-    this.maxInputs = Math.max(1, Math.round(clamp(maxInputs, 1, 12, 6)));
+    this.maxInputs = Math.max(1, Math.round(clamp(maxInputs, 1, 12, 4)));
     this.maxVoices = Math.max(1, Math.round(clamp(maxVoices, 1, 96, 48)));
-    this.historyLength = Math.ceil(clamp(historySeconds, 4, 40, 32) * this.sampleRate);
+    this.historyLength = Math.ceil(clamp(historySeconds, 4, 40, 30) * this.sampleRate);
     this.maximumDelay = (this.historyLength - 3) / this.sampleRate;
     this.histories = Array.from(
       { length: this.maxInputs },

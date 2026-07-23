@@ -21,7 +21,7 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
     "stage", "seedControl", "seedMicButton", "panicButton", "audioButton", "micButton",
     "freezeButton", "inputMeterBar", "inputTrim", "depth", "interval", "branching",
     "mutation", "wet", "dry", "spread", "recordButton", "downloadTake", "clearTake",
-    "generationPreset", "timeRatio", "generationAngle", "generationAsymmetry",
+    "generationPreset", "generations", "timeRatio", "generationAngle", "generationAsymmetry",
     "generationPitchScale", "generationTimingReadout", "generationPitchReadout", "resetGenerationRules",
     "generationShapePreview", "generationShapeTrunk", "generationShapePath", "generationShapeAudiblePath",
     "generationShapeRoot", "generationShapeSummary",
@@ -36,6 +36,10 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
   assert.match(html, /<b id="micButtonLabel">Start input<\/b>/);
   assert.match(html, /<b id="freezeLabel">Stop audio<\/b>/);
   assert.match(html, /Press Escape for an immediate panic stop/);
+  assert.match(html, /id="generations"[^>]*min="1"[^>]*max="12"/);
+  assert.doesNotMatch(html, /Starting topology|id="presetButtons"|data-preset=/);
+  assert.doesNotMatch(html, /id="stateMetric"|id="depthMetric"|id="outputMetric"/);
+  assert.doesNotMatch(html, /The interval is inherited and multiplied once per generation/);
 
   assert.match(app, /getUserMedia/);
   assert.match(app, /echoCancellation:\s*\{ ideal: false \}/);
@@ -56,9 +60,7 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
   assert.match(css, /\.fracta-seed-control/);
   assert.match(css, /#seedMicButton/);
   assert.match(css, /\.fracta-panic/);
-  assert.match(css, /\.fracta-presets/);
   assert.match(css, /\.generation-shape-preview/);
-  assert.match(css, /\.generation-editor/);
   assert.match(css, /@media \(max-width: 650px\)/);
 });
 
@@ -66,7 +68,7 @@ test("mic(mic) markup has unique ids and labelled controls", async () => {
   const html = await readFile(new URL("micmic.html", root), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
-  for (const id of ["level", "inputTrim", "depth", "interval", "timeRatio", "generationAngle", "generationAsymmetry", "generationPitchScale", "branching", "mutation", "wet", "dry", "spread"]) {
+  for (const id of ["level", "inputTrim", "generations", "depth", "interval", "timeRatio", "generationAngle", "generationAsymmetry", "generationPitchScale", "branching", "mutation", "wet", "dry", "spread"]) {
     assert.match(html, new RegExp(`<label[^>]*for="${id}"`));
     assert.match(html, new RegExp(`<input id="${id}"`));
   }

@@ -87,11 +87,11 @@
           </div>
 
           <div class="fracta-generation-key" id="generationKey" aria-hidden="true">
-            <span>G0 ROOT</span><i></i><span id="generationKeyEnd">G8 DESCENDANT</span>
+            <span>G0 ROOT</span><i></i><span id="generationKeyEnd">G10 DESCENDANT</span>
           </div>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">MIC OFF · BLOOM · 10 GENERATIONS</span>
+            <span id="stageReadout">MIC OFF · BRANCHING PLANT · 10 GENERATIONS</span>
           </div>
         </div>
       </section>
@@ -131,13 +131,13 @@
         <details class="group control-section" id="recursionSection" data-section="recursion">
           <summary class="group-summary">
             <h2 class="group-title">Recursion</h2>
-            <span class="section-state" id="recursionSummary">Bloom · 10 generations</span>
+            <span class="section-state" id="recursionSummary">Branching plant · 10 generations</span>
           </summary>
           <div class="group-body">
-            <label class="select-control" for="generationPreset"><span class="field-label">L-system relationship</span><span class="select-shell"><select id="generationPreset"><option value="clean">Clean echo · 1:1</option><option value="binary">Half-time fork</option><option value="pythagorean">Pythagorean tree</option><option value="plant" selected>Branching plant</option><option value="coral">Coral</option><option value="dragon">Dragon curve</option><option value="koch">Koch fork</option><option value="custom" hidden>Custom</option></select></span></label>
+            <label class="select-control" for="generationPreset"><span class="field-label">L-System grammar preset</span><span class="select-shell"><select id="generationPreset"><option value="clean">Clean echo · 1:1</option><option value="binary">Half-time fork</option><option value="pythagorean">Pythagorean tree</option><option value="plant" selected>Branching plant</option><option value="coral">Coral</option><option value="dragon">Dragon curve</option><option value="koch">Koch fork</option><option value="custom" hidden>Custom</option></select></span></label>
             <div class="generation-shape-preview">
               <small id="generationShapeSummary">10 gen · bounded preview</small>
-              <svg id="generationShapePreview" viewBox="0 0 190 140" role="img" aria-label="Live left-to-right L-system shape preview">
+              <svg id="generationShapePreview" viewBox="0 0 190 140" preserveAspectRatio="xMinYMid meet" role="img" aria-label="Live left-to-right L-system shape preview">
                 <defs>
                   <linearGradient id="generationShapeGradient" x1="0" y1="1" x2="1" y2="0">
                     <stop offset="0" stop-color="#55d9ff" />
@@ -152,6 +152,7 @@
               </svg>
             </div>
             <label class="control" for="generations"><span><b>Generations</b><output id="generationsOut" for="generations">10 / 12</output></span><input id="generations" type="range" min="1" max="12" step="1" value="10" /></label>
+            <small class="generation-safety-note">Realtime safety cap: 12 generations · up to 48 audible branches.</small>
             <label class="control" for="timeRatio"><span><b>Child time ratio</b><output id="timeRatioOut" for="timeRatio">0.72× per generation</output></span><input id="timeRatio" type="range" min="0.2" max="1" step="0.01" value="0.72" /></label>
             <label class="control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">22.5°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="22.5" /></label>
             <label class="control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">18% right wider</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0.18" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
@@ -167,7 +168,7 @@
               <input id="branching" type="range" min="0" max="1" step="0.01" value="0.84" />
             </label>
             <label class="control" for="mutation">
-              <span><b>Rule mutation</b><output id="mutationOut" for="mutation">30% variance</output></span>
+              <span><b>Rule mutation</b><output id="mutationOut" for="mutation">30% rule variance</output></span>
               <input id="mutation" type="range" min="0" max="1" step="0.01" value="0.3" />
             </label>
             <label class="control" for="depth">
@@ -227,11 +228,11 @@
         </div>
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">Start the microphone with headphones connected. Use Pause input to stop feeding new sound while the recursive tail continues. Depth controls how many descendants remain audible. Press Escape for an immediate panic stop.</p>
+      <p class="sr-only" id="canvasInstructions">Start the microphone with headphones connected. Use Pause input to stop feeding new sound while the recursive tail continues. Generations controls the rewrite count; Depth controls how quickly descendants fade. Press Escape for an immediate panic stop.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="micmic-app.js?v=20260723-fixed-pool"></script>
+    <script type="module" src="micmic-app.js?v=20260723-safe-grammar"></script>
   </body>
 </html>

@@ -19,7 +19,7 @@ async function defaultMixerFactory(context, { maxInputs, maxVoices, historySecon
     throw new Error("The bounded generation mixer requires AudioWorklet.");
   }
   await context.audioWorklet.addModule(
-    new URL("./signalsmith-generation-mixer-processor.js?v=20260723-fixed-pool", import.meta.url),
+    new URL("./signalsmith-generation-mixer-processor.js?v=20260723-safe-grammar", import.meta.url),
   );
   return new WorkletNode(context, "morphazoid-signalsmith-generation-mixer", {
     numberOfInputs: maxInputs,
@@ -36,9 +36,9 @@ async function defaultMixerFactory(context, { maxInputs, maxVoices, historySecon
  */
 export class SignalsmithGenerationBank {
   constructor(context, input, output, {
-    maxPitchSources = 5,
+    maxPitchSources = 3,
     maxVoices = 48,
-    historySeconds = 32,
+    historySeconds = 30,
     stretchFactory = SignalsmithStretch,
     mixerFactory = defaultMixerFactory,
   } = {}) {
@@ -47,7 +47,7 @@ export class SignalsmithGenerationBank {
     this.output = output;
     this.maxPitchSources = Math.max(1, Math.min(7, Math.round(maxPitchSources)));
     this.maxVoices = Math.max(1, Math.min(64, Math.round(maxVoices)));
-    this.historySeconds = clamp(historySeconds, 4, 40, 32);
+    this.historySeconds = clamp(historySeconds, 4, 40, 30);
     this.stretchFactory = stretchFactory;
     this.mixerFactory = mixerFactory;
     this.slots = [];

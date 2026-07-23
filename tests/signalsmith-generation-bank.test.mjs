@@ -74,6 +74,16 @@ async function initializedBank(fixture, options = {}) {
   return bank;
 }
 
+test("generation bank defaults to three bounded pitch processors", async () => {
+  const fixture = harness();
+  const bank = await initializedBank(fixture);
+
+  assert.equal(bank.maxPitchSources, 3);
+  assert.equal(bank.historySeconds, 30);
+  assert.equal(fixture.created.stretches.length, 3);
+  assert.equal(fixture.created.mixers.length, 1);
+});
+
 test("generation bank uses a fixed pitch pool and one bounded mixer history", async () => {
   const fixture = harness();
   const bank = await initializedBank(fixture, { maxPitchSources: 2, maxVoices: 8 });
