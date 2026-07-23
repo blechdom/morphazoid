@@ -2528,6 +2528,10 @@ input[type="range"]::-moz-range-thumb {
   grid-template-columns: repeat(4, 1fr);
 }
 
+#amplitudeEnvelopePresets {
+  grid-template-columns: repeat(5, 1fr);
+}
+
 .amplitude-curve-editor.is-disabled {
   opacity: 0.38;
 }

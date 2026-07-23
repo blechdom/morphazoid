@@ -73,6 +73,10 @@ test("spatial envelope timing reports exact, ranged, doubled, and stopped values
     minimumMs: 1000,
     maximumMs: 2000,
   });
+  assert.deepEqual(spatialEnvelopeTimeRange(1, [0.2, 0.4], 0.05), {
+    minimumMs: 4000,
+    maximumMs: 8000,
+  }, "a full Segment ramp follows each edge's actual traversal time");
   assert.deepEqual(spatialEnvelopeTimeRange(0.25, [1], 0.05, 2), {
     minimumMs: 2500,
     maximumMs: 2500,

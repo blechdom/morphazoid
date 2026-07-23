@@ -185,7 +185,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.doesNotMatch(html, /id="(?:cornerAccent|cornerAttack|cornerDecay)"/);
   for (const id of [
     "amplitudeEnvelopeToggle", "amplitudeEnvelopeToggleText", "cornerSwellToggle", "cornerSwellToggleText",
-    "amplitudeEnvelopePresets", "amplitudePresetPluck", "amplitudePresetNote",
+    "amplitudeEnvelopePresets", "amplitudePresetSegment", "amplitudePresetPluck", "amplitudePresetNote",
     "amplitudePresetSustain", "amplitudePresetPad",
     "amplitudeCurveEditor", "amplitudeCurvePath", "resetAmplitudeCurve",
     "amplitudeCurveState", "amplitudeReleaseBehavior", "amplitudeIntervalHelp",
@@ -193,15 +193,16 @@ test("the mobile instrument markup exposes the complete compact control surface"
   ]) assert.ok(html.includes(`id="${id}"`), `missing amplitude ADSR control #${id}`);
   assert.match(openingTag("amplitudeEnvelopeToggle"), /aria-pressed="true"[^>]*aria-label="Corner Amplitude ADSR on"/);
   assert.match(html, /<span class="field-label">Corner Amplitude ADSR<\/span>/);
-  assert.match(openingTag("cornerSwellToggle"), /aria-pressed="false"[^>]*aria-label="Corner swell off"/);
+  assert.match(openingTag("cornerSwellToggle"), /aria-pressed="false"[^>]*aria-label="Corner swell unavailable for Segment preset"[^>]*disabled/);
   assert.match(html, /id="cornerSwellToggleText"[^>]*>Swell off</);
   assert.match(html, /id="cornerSwellToggle"[\s\S]{0,160}>▶◀</);
-  assert.match(openingTag("amplitudePresetPluck"), /data-value="pluck"[^>]*aria-pressed="true"/);
+  assert.match(openingTag("amplitudePresetSegment"), /data-value="segment"[^>]*aria-pressed="true"/);
+  assert.match(openingTag("amplitudePresetPluck"), /data-value="pluck"[^>]*aria-pressed="false"/);
   assert.match(openingTag("amplitudePresetNote"), /data-value="note"[^>]*aria-pressed="false"/);
   const amplitudeNodes = [...html.matchAll(/id="amplitudeNode(\d+)"/g)].map((match) => Number(match[1]));
   assert.deepEqual(amplitudeNodes, [0, 1, 2, 3, 4]);
-  assert.match(html, /Corner trigger 0% → next corner 100%/);
-  assert.match(html, /A @ 83 ms · D @ 250 ms · S @ 417 ms · R @ 667 ms/);
+  assert.match(html, /Current corner 100% → next corner 0%/);
+  assert.match(html, /Segment 4167 ms · linear 100% → 0%/);
   assert.match(openingTag("amplitudeNodeReadout"), /aria-label="Corner ADSR node timing"/);
   assert.match(html, /Point · 0\.060 cyc\/s current contour timing · endpoints from trigger/);
   assert.doesNotMatch(html, /id="(?:sineArticulation|sineAccent|sineDecay)"/);
@@ -336,12 +337,13 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /\.curve-node\s*\{[\s\S]*?position:\s*absolute;/);
   assert.match(css, /\.amplitude-mode-buttons\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*52px\)/);
   assert.match(css, /\.amplitude-preset-strip\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4,\s*1fr\)/);
+  assert.match(css, /#amplitudeEnvelopePresets\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5,\s*1fr\)/);
   assert.match(css, /\.amplitude-timing-row\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums/);
   assert.match(css, /\.header-level\s*\{[\s\S]*?height:\s*44px/);
   assert.match(css, /\.mapping-source-help\s*\{/);
   assert.match(css, /\.audio-strip\s*\{[\s\S]*?grid-template-columns:\s*78px\s+minmax\(96px,\s*140px\)/);
   assert.match(css, /@media\s*\(pointer:\s*coarse\)[\s\S]*?\.head-option-toggle\s*\{[\s\S]*?width:\s*36px/);
-  assert.match(openingTag("amplitudeNode2"), /role="slider"[^>]*aria-valuemin="0"[^>]*aria-valuemax="100"[^>]*aria-valuenow="32"/);
+  assert.match(openingTag("amplitudeNode2"), /role="slider"[^>]*aria-valuemin="0"[^>]*aria-valuemax="100"[^>]*aria-valuenow="50"/);
   assert.match(app, /amplitudeCurveEditor"\)\.setAttribute\("aria-disabled"/);
   assert.match(app, /speed"\)\.setAttribute\("aria-valuetext", formatPlayheadSpeed\(\)\)/);
   assert.match(app, /marker\.setAttribute\("aria-label", `\$\{reader\} \$\{index \+ 1\} relative phase`\)/);

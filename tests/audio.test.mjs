@@ -253,6 +253,7 @@ test("source response curves are bounded and preserve their intended shape", () 
 
 test("amplitude envelope presets are five-node immutable templates", () => {
   assert.deepEqual(Object.keys(AMPLITUDE_ENVELOPE_PRESETS), [
+    "segment",
     "pluck",
     "note",
     "sustain",
@@ -264,8 +265,28 @@ test("amplitude envelope presets are five-node immutable templates", () => {
     assert.ok(preset.every((node) => Object.isFrozen(node)));
     assert.ok(preset.every((node, index) => index === 0 || node.x >= preset[index - 1].x));
     assert.equal(preset[0].x, 0);
-    assert.ok(preset.at(-1).x < 1, "release endpoint should leave an explicit hold segment");
   }
+  assert.equal(AMPLITUDE_ENVELOPE_PRESETS.segment.at(-1).x, 1);
+  for (const name of ["pluck", "note", "sustain", "pad"]) {
+    assert.ok(
+      AMPLITUDE_ENVELOPE_PRESETS[name].at(-1).x < 1,
+      `${name} release endpoint should leave an explicit hold segment`,
+    );
+  }
+
+  assert.deepEqual(amplitudeEnvelopePreset("segment"), [
+    { x: 0, y: 1 },
+    { x: 0.25, y: 0.75 },
+    { x: 0.5, y: 0.5 },
+    { x: 0.75, y: 0.25 },
+    { x: 1, y: 0 },
+  ]);
+  assert.deepEqual(
+    [0, 0.25, 0.5, 0.75, 1].map((phase) => (
+      sampleAmplitudeEnvelope(phase, AMPLITUDE_ENVELOPE_PRESETS.segment)
+    )),
+    [1, 0.75, 0.5, 0.25, 0],
+  );
 
   const editable = amplitudeEnvelopePreset("pluck");
   editable[1].y = 0.25;

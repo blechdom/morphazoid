@@ -79,7 +79,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
       "pitchCurveSmooth", "pitchCurveInverted",
     ],
     amplitudeEnvelopePresets: [
-      "amplitudePresetPluck", "amplitudePresetNote", "amplitudePresetSustain", "amplitudePresetPad",
+      "amplitudePresetSegment", "amplitudePresetPluck", "amplitudePresetNote",
+      "amplitudePresetSustain", "amplitudePresetPad",
     ],
     percussionEnvelopePresets: [
       "percussionPresetPluck", "percussionPresetNote", "percussionPresetSustain", "percussionPresetPad",
@@ -108,6 +109,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     pitchCurveLogarithmic: "logarithmic",
     pitchCurveSmooth: "smooth",
     pitchCurveInverted: "inverted",
+    amplitudePresetSegment: "segment",
     amplitudePresetPluck: "pluck",
     amplitudePresetNote: "note",
     amplitudePresetSustain: "sustain",
@@ -304,40 +306,72 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("amplitudeEnvelopeToggleText").textContent, "On");
   assert.equal(attributes.get("cornerSwellToggle:aria-pressed"), "false");
   assert.equal(elements.get("cornerSwellToggleText").textContent, "Swell off");
-  assert.equal(attributes.get("amplitudePresetPluck:aria-pressed"), "true");
+  assert.equal(attributes.get("amplitudePresetSegment:aria-pressed"), "true");
+  assert.equal(attributes.get("amplitudePresetPluck:aria-pressed"), "false");
   assert.equal(attributes.get("amplitudePresetNote:aria-pressed"), "false");
-  assert.equal(elements.get("amplitudeCurveState").textContent, "Pluck");
-  assert.equal(elements.get("amplitudeIntervalHelp").textContent, "Corner trigger 0% → next corner 100%");
+  assert.equal(elements.get("amplitudeCurveState").textContent, "Segment");
+  assert.equal(elements.get("amplitudeIntervalHelp").textContent, "Current corner 100% → next corner 0%");
   assert.equal(
     elements.get("amplitudeNodeReadout").textContent,
-    "A @ 83 ms · D @ 250 ms · S @ 417 ms · R @ 667 ms",
+    "Segment 4167 ms · linear 100% → 0%",
   );
   assert.equal(
     elements.get("amplitudeTimingBasis").textContent,
     "Point · 0.060 cyc/s current contour timing · endpoints from trigger",
   );
-  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /250 milliseconds from the trigger/);
+  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /2083 milliseconds from the trigger/);
+  assert.equal(elements.get("cornerSwellToggle").disabled, true);
+  assert.equal(
+    attributes.get("cornerSwellToggle:aria-label"),
+    "Corner swell unavailable for Segment preset",
+  );
+
+  const segmentGains = [];
+  for (const [frameTime, position] of [[1_001, 0], [1_002, 0.125], [1_003, 0.249], [1_004, 0.25]]) {
+    elements.get("position").value = String(position);
+    listeners.get("position:input")();
+    queuedFrame(frameTime);
+    segmentGains.push(Number(elements.get("markGainOut").textContent));
+  }
+  assert.ok(
+    segmentGains[0] > segmentGains[1] && segmentGains[1] > segmentGains[2],
+    `Segment gain should taper toward the next corner (${segmentGains.join(" → ")})`,
+  );
+  assert.ok(
+    segmentGains[3] > segmentGains[2] * 10,
+    `Segment gain should retrigger at the next corner (${segmentGains[2]} → ${segmentGains[3]})`,
+  );
+
+  listeners.get("amplitudePresetNote:click")();
+  assert.equal(elements.get("cornerSwellToggle").disabled, false);
+  assert.equal(
+    elements.get("amplitudeNodeReadout").textContent,
+    "A @ 250 ms · D @ 1042 ms · S @ 2583 ms · R @ 3417 ms",
+  );
   listeners.get("amplitudeNode2:pointerdown")({ pointerId: 9, preventDefault() {} });
   listeners.get("amplitudeCurveEditor:pointermove")({ pointerId: 9, clientX: 19.2, clientY: 48 });
   assert.equal(
     elements.get("amplitudeNodeReadout").textContent,
-    "A @ 83 ms · D @ 333 ms · S @ 417 ms · R @ 667 ms",
+    "A @ 250 ms · D @ 333 ms · S @ 2583 ms · R @ 3417 ms",
   );
   assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /333 milliseconds from the trigger/);
   assert.equal(elements.get("amplitudeNode2").title, "Decay · 333 ms · 50% level");
   listeners.get("amplitudeCurveEditor:pointerup")({ pointerId: 9 });
   listeners.get("resetAmplitudeCurve:click")();
+  assert.equal(elements.get("amplitudeCurveState").textContent, "Segment");
+  assert.equal(elements.get("cornerSwellToggle").disabled, true);
+  listeners.get("amplitudePresetNote:click")();
   listeners.get("cornerSwellToggle:click")();
   assert.equal(attributes.get("cornerSwellToggle:aria-pressed"), "true");
   assert.equal(elements.get("cornerSwellToggleText").textContent, "Swell on");
-  assert.equal(elements.get("amplitudeCurveState").textContent, "Pluck · mirrored");
+  assert.equal(elements.get("amplitudeCurveState").textContent, "Note · mirrored");
   assert.equal(elements.get("amplitudeIntervalHelp").textContent, "Midpoint → corner peak → midpoint");
   assert.equal(
     elements.get("amplitudeNodeReadout").textContent,
-    "A 0 ms peak · D ±85 ms · S ±170 ms · R ±298 ms",
+    "A 0 ms peak · D ±421 ms · S ±1241 ms · R ±1684 ms",
   );
   assert.match(elements.get("amplitudeTimingBasis").textContent, /± from corner/);
-  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /plus or minus 85 milliseconds from the corner/);
+  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /plus or minus 421 milliseconds from the corner/);
   listeners.get("cornerSwellToggle:click")();
   assert.equal(attributes.get("cornerSwellToggle:aria-pressed"), "false");
   assert.equal(elements.get("cornerSwellToggleText").textContent, "Swell off");
@@ -350,6 +384,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.match(elements.get("amplitudeReleaseBehavior").textContent, /constant per-synth level/);
   assert.equal(attributes.get("amplitudeCurveEditor:aria-disabled"), "true");
   assert.equal(elements.get("amplitudeNode2").disabled, true);
+  assert.equal(elements.get("amplitudePresetSegment").disabled, true);
   assert.equal(elements.get("amplitudePresetPluck").disabled, true);
   assert.equal(elements.get("cornerSwellToggle").disabled, true);
   assert.equal(attributes.get("cornerSwellToggle:aria-pressed"), "false");
@@ -508,7 +543,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
   queuedFrame(1_100);
   assert.equal(elements.get("levelRouteSource").textContent, "Directed corner interval");
-  assert.equal(elements.get("levelRouteCurve").textContent, "Pluck ADSR");
+  assert.equal(elements.get("levelRouteCurve").textContent, "Note ADSR");
   elements.get("position").value = "0.6";
   listeners.get("position:input")();
   queuedFrame(1_110);
@@ -1175,10 +1210,11 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("sidesOut").textContent, "7 · polygon");
   assert.equal(sessionStorage.size, 0, "the reset-only side count should be consumed once");
   assert.equal(elements.get("levelOut").textContent, "65%");
-  assert.equal(elements.get("amplitudeCurveState").textContent, "Pluck");
+  assert.equal(elements.get("amplitudeCurveState").textContent, "Segment");
   assert.equal(attributes.get("amplitudeEnvelopeToggle:aria-pressed"), "true");
   assert.equal(attributes.get("cornerSwellToggle:aria-pressed"), "false");
-  assert.match(elements.get("amplitudeReleaseBehavior").textContent, /rests until next trigger/);
+  assert.equal(elements.get("cornerSwellToggle").disabled, true);
+  assert.match(elements.get("amplitudeReleaseBehavior").textContent, /Linear fade fills the segment/);
   assert.equal(elements.get("percussionStrikeLevelOut").textContent, "90%");
   assert.equal(elements.get("percussionAttackNoiseOut").textContent, "0%");
   assert.equal(elements.get("percussionEnvelopeState").textContent, "Pluck");

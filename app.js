@@ -168,8 +168,8 @@ const state = {
   soundMode: "sine",
   amplitudeEnvelopeEnabled: true,
   cornerSwell: false,
-  amplitudePreset: "pluck",
-  amplitudeEnvelopePoints: amplitudeEnvelopePreset("pluck"),
+  amplitudePreset: "segment",
+  amplitudeEnvelopePoints: amplitudeEnvelopePreset("segment"),
   percussionStrikeLevel: 0.9,
   percussionAttackNoise: 0,
   percussionPreset: "pluck",
@@ -1285,6 +1285,7 @@ $("resetPitchCurve").addEventListener("click", () => selectPitchCurvePreset("lin
 
 const AMPLITUDE_NODE_NAMES = ["Trigger", "Attack", "Decay", "Sustain", "Release"];
 const AMPLITUDE_PRESET_LABELS = {
+  segment: "Segment",
   pluck: "Pluck",
   note: "Note",
   sustain: "Sustain",
@@ -1444,9 +1445,11 @@ function updateAmplitudeTimingUi(path = currentShape()) {
   const timings = state.amplitudeEnvelopePoints.map((_, index) => (
     amplitudeNodeTiming(index, path, reference)
   ));
-  $("amplitudeNodeReadout").textContent = state.cornerSwell
-    ? `A ${timings[1].short} · D ${timings[2].short} · S ${timings[3].short} · R ${timings[4].short}`
-    : `A @ ${timings[1].short} · D @ ${timings[2].short} · S @ ${timings[3].short} · R @ ${timings[4].short}`;
+  $("amplitudeNodeReadout").textContent = state.amplitudePreset === "segment"
+    ? `Segment ${timings[4].short} · linear 100% → 0%`
+    : state.cornerSwell
+      ? `A ${timings[1].short} · D ${timings[2].short} · S ${timings[3].short} · R ${timings[4].short}`
+      : `A @ ${timings[1].short} · D @ ${timings[2].short} · S @ ${timings[3].short} · R @ ${timings[4].short}`;
   $("amplitudeTimingBasis").textContent = reference.basis;
 
   state.amplitudeEnvelopePoints.forEach((point, index) => {
@@ -1463,6 +1466,7 @@ function updateAmplitudeTimingUi(path = currentShape()) {
 
 function updateAmplitudeUi() {
   const release = state.amplitudeEnvelopePoints.at(-1);
+  const segmentPreset = state.amplitudePreset === "segment";
   $("amplitudeCurvePath").setAttribute("d", amplitudeCurvePathData());
   $("amplitudeCurveState").textContent = state.amplitudeEnvelopeEnabled
     ? `${AMPLITUDE_PRESET_LABELS[state.amplitudePreset] ?? "Custom"}${state.cornerSwell ? " · mirrored" : ""}`
@@ -1471,11 +1475,16 @@ function updateAmplitudeUi() {
   $("amplitudeEnvelopeToggle").setAttribute("aria-label", `Corner Amplitude ADSR ${state.amplitudeEnvelopeEnabled ? "on" : "off"}`);
   $("amplitudeEnvelopeToggleText").textContent = state.amplitudeEnvelopeEnabled ? "On" : "Off";
   setPressed($("cornerSwellToggle"), state.cornerSwell);
-  $("cornerSwellToggle").setAttribute("aria-label", `Corner swell ${state.cornerSwell ? "on" : "off"}`);
+  $("cornerSwellToggle").setAttribute(
+    "aria-label",
+    segmentPreset ? "Corner swell unavailable for Segment preset" : `Corner swell ${state.cornerSwell ? "on" : "off"}`,
+  );
   $("cornerSwellToggleText").textContent = state.cornerSwell ? "Swell on" : "Swell off";
   $("amplitudeIntervalHelp").textContent = state.cornerSwell
     ? "Midpoint → corner peak → midpoint"
-    : "Corner trigger 0% → next corner 100%";
+    : segmentPreset
+      ? "Current corner 100% → next corner 0%"
+      : "Corner trigger 0% → next corner 100%";
   $("amplitudeCurveEditor").setAttribute(
     "aria-label",
     state.cornerSwell
@@ -1489,7 +1498,7 @@ function updateAmplitudeUi() {
     button.disabled = !state.amplitudeEnvelopeEnabled;
   }
   $("resetAmplitudeCurve").disabled = !state.amplitudeEnvelopeEnabled;
-  $("cornerSwellToggle").disabled = !state.amplitudeEnvelopeEnabled;
+  $("cornerSwellToggle").disabled = !state.amplitudeEnvelopeEnabled || segmentPreset;
   state.amplitudeEnvelopePoints.forEach((point, index) => {
     const handle = $(`amplitudeNode${index}`);
     const levelPercent = Math.round(point.y * 100);
@@ -1501,6 +1510,8 @@ function updateAmplitudeUi() {
   updateAmplitudeTimingUi();
   $("amplitudeReleaseBehavior").textContent = !state.amplitudeEnvelopeEnabled
     ? "ADSR off · constant per-synth level"
+    : segmentPreset
+      ? "Linear fade fills the segment · zero at the next corner"
     : release.y <= 0.005
       ? "Release reaches zero · synth rests until next trigger"
       : `Release holds ${Math.round(release.y * 100)}% · synth continues until next trigger`;
@@ -1508,10 +1519,15 @@ function updateAmplitudeUi() {
 }
 
 function selectAmplitudePreset(preset, shouldAnnounce = true) {
-  state.amplitudePreset = ["note", "sustain", "pad"].includes(preset) ? preset : "pluck";
+  state.amplitudePreset = ["segment", "note", "sustain", "pad"].includes(preset) ? preset : "pluck";
+  if (state.amplitudePreset === "segment") state.cornerSwell = false;
   state.amplitudeEnvelopePoints = amplitudeEnvelopePreset(state.amplitudePreset);
   updateAmplitudeUi();
-  if (shouldAnnounce) announce(`${AMPLITUDE_PRESET_LABELS[state.amplitudePreset]} Corner Amplitude ADSR selected.`);
+  if (shouldAnnounce) {
+    announce(state.amplitudePreset === "segment"
+      ? "Segment amplitude ramp selected."
+      : `${AMPLITUDE_PRESET_LABELS[state.amplitudePreset]} Corner Amplitude ADSR selected.`);
+  }
   invalidate();
 }
 
@@ -1570,7 +1586,7 @@ function endAmplitudeDrag(event) {
 
 $("amplitudeCurveEditor").addEventListener("pointerup", endAmplitudeDrag);
 $("amplitudeCurveEditor").addEventListener("pointercancel", endAmplitudeDrag);
-$("resetAmplitudeCurve").addEventListener("click", () => selectAmplitudePreset("pluck"));
+$("resetAmplitudeCurve").addEventListener("click", () => selectAmplitudePreset("segment"));
 $("amplitudeEnvelopeToggle").addEventListener("click", () => {
   state.amplitudeEnvelopeEnabled = !state.amplitudeEnvelopeEnabled;
   if (!state.amplitudeEnvelopeEnabled) state.cornerSwell = false;
@@ -1580,7 +1596,7 @@ $("amplitudeEnvelopeToggle").addEventListener("click", () => {
   invalidate();
 });
 $("cornerSwellToggle").addEventListener("click", () => {
-  if (!state.amplitudeEnvelopeEnabled) return;
+  if (!state.amplitudeEnvelopeEnabled || state.amplitudePreset === "segment") return;
   state.cornerSwell = !state.cornerSwell;
   lastAudioUpdate = -Infinity;
   updateAmplitudeUi();
@@ -2521,7 +2537,9 @@ function amplitudeGainForContact(contact, path) {
     const envelopePhase = state.cornerSwell
       ? mirroredAmplitudeEnvelopePhase(profile.distance, attackPhase)
       : profile.distance;
-    const envelope = sampleAmplitudeEnvelope(envelopePhase, state.amplitudeEnvelopePoints);
+    const envelope = state.amplitudePreset === "segment"
+      ? 1 - clamp(profile.distance, 0, 1)
+      : sampleAmplitudeEnvelope(envelopePhase, state.amplitudeEnvelopePoints);
     const cornerPeak = 0.18 + 0.5 * clamp(profile.strength, 0, 1);
     envelopeGain = cornerPeak * envelope;
   }
@@ -2887,7 +2905,9 @@ function updateOutputDashboard(contacts, path) {
   updateStereoMappingUi();
   const continuousLevelRoute = !state.amplitudeEnvelopeEnabled
     ? "constant Synth level"
-    : state.cornerSwell ? "mirrored corner interval" : "directed corner interval";
+    : state.amplitudePreset === "segment"
+      ? "segment length"
+      : state.cornerSwell ? "mirrored corner interval" : "directed corner interval";
   $("levelRouteSource").textContent = state.soundMode === "percussion"
     ? SOURCE_LABELS[state.percussionLevelSource] ?? state.percussionLevelSource
     : state.shapeType === "circle"
@@ -2900,7 +2920,9 @@ function updateOutputDashboard(contacts, path) {
     : state.shapeType === "circle"
       ? "constant continuous level"
       : state.amplitudeEnvelopeEnabled
-        ? `${AMPLITUDE_PRESET_LABELS[state.amplitudePreset] ?? "Custom"} ADSR${state.cornerSwell ? " · swell" : ""}`
+        ? state.amplitudePreset === "segment"
+          ? "Segment length · linear 100% → 0%"
+          : `${AMPLITUDE_PRESET_LABELS[state.amplitudePreset] ?? "Custom"} ADSR${state.cornerSwell ? " · swell" : ""}`
         : "ADSR bypassed";
   const timbreMode = ["fm", "pm"].includes(state.soundMode);
   $("timbreRoute").hidden = !timbreMode;

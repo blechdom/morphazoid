@@ -395,11 +395,12 @@
                 <span class="field-label">Corner Amplitude ADSR</span>
                 <div class="amplitude-mode-buttons" role="group" aria-label="Corner amplitude envelope modes">
                   <button id="amplitudeEnvelopeToggle" type="button" aria-pressed="true" aria-label="Corner Amplitude ADSR on"><span aria-hidden="true">⌁</span><small id="amplitudeEnvelopeToggleText">On</small></button>
-                  <button id="cornerSwellToggle" type="button" aria-pressed="false" aria-label="Corner swell off"><span aria-hidden="true">▶◀</span><small id="cornerSwellToggleText">Swell off</small></button>
+                  <button id="cornerSwellToggle" type="button" aria-pressed="false" aria-label="Corner swell unavailable for Segment preset" disabled><span aria-hidden="true">▶◀</span><small id="cornerSwellToggleText">Swell off</small></button>
                 </div>
               </div>
               <div class="curve-preset-strip amplitude-preset-strip" id="amplitudeEnvelopePresets" role="group" aria-label="Corner Amplitude ADSR presets">
-                <button id="amplitudePresetPluck" type="button" data-value="pluck" aria-pressed="true">Pluck</button>
+                <button id="amplitudePresetSegment" type="button" data-value="segment" aria-pressed="true">Segment</button>
+                <button id="amplitudePresetPluck" type="button" data-value="pluck" aria-pressed="false">Pluck</button>
                 <button id="amplitudePresetNote" type="button" data-value="note" aria-pressed="false">Note</button>
                 <button id="amplitudePresetSustain" type="button" data-value="sustain" aria-pressed="false">Sustain</button>
                 <button id="amplitudePresetPad" type="button" data-value="pad" aria-pressed="false">Pad</button>
@@ -407,25 +408,25 @@
               <div class="curve-editor amplitude-curve-editor" id="amplitudeCurveEditor" role="group" aria-label="Editable Corner Amplitude ADSR across one corner interval">
                 <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true">
                   <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
-                  <path class="curve-path" id="amplitudeCurvePath" d="M0 96 L4.8 0 L14.4 65.28 L24 86.4 L38.4 96 L240 96" />
+                  <path class="curve-path" id="amplitudeCurvePath" d="M0.00 0.00 L60.00 24.00 L120.00 48.00 L180.00 72.00 L240.00 96.00" />
                 </svg>
-                <button class="curve-node amplitude-node" id="amplitudeNode0" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="0" style="left:0%;top:100%" aria-label="Trigger: 0 percent interval, 0 percent level"><span>T</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode1" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" data-node-index="1" style="left:2%;top:0%" aria-label="Attack: 2 percent interval, 100 percent level"><span>A</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode2" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="32" data-node-index="2" style="left:6%;top:68%" aria-label="Decay: 6 percent interval, 32 percent level"><span>D</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode3" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10" data-node-index="3" style="left:10%;top:90%" aria-label="Sustain: 10 percent interval, 10 percent level"><span>S</span></button>
-                <button class="curve-node amplitude-node" id="amplitudeNode4" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="4" style="left:16%;top:100%" aria-label="Release: 16 percent interval, 0 percent level"><span>R</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode0" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" data-node-index="0" style="left:0%;top:0%" aria-label="Trigger: 0 percent interval, 100 percent level"><span>T</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode1" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="75" data-node-index="1" style="left:25%;top:25%" aria-label="Attack: 25 percent interval, 75 percent level"><span>A</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode2" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" data-node-index="2" style="left:50%;top:50%" aria-label="Decay: 50 percent interval, 50 percent level"><span>D</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode3" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25" data-node-index="3" style="left:75%;top:75%" aria-label="Sustain: 75 percent interval, 25 percent level"><span>S</span></button>
+                <button class="curve-node amplitude-node" id="amplitudeNode4" type="button" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-node-index="4" style="left:100%;top:100%" aria-label="Release: 100 percent interval, 0 percent level"><span>R</span></button>
               </div>
               <div class="curve-editor-footer">
-                <small id="amplitudeIntervalHelp">Corner trigger 0% → next corner 100%</small>
+                <small id="amplitudeIntervalHelp">Current corner 100% → next corner 0%</small>
                 <button class="mini-action" id="resetAmplitudeCurve" type="button">Reset</button>
               </div>
               <div class="amplitude-timing-row">
-                <output id="amplitudeNodeReadout" aria-label="Corner ADSR node timing">A @ 83 ms · D @ 250 ms · S @ 417 ms · R @ 667 ms</output>
+                <output id="amplitudeNodeReadout" aria-label="Corner ADSR node timing">Segment 4167 ms · linear 100% → 0%</output>
                 <small id="amplitudeTimingBasis">Point · 0.060 cyc/s current contour timing · endpoints from trigger</small>
               </div>
               <div class="amplitude-curve-status">
-                <output id="amplitudeCurveState">Pluck</output>
-                <small id="amplitudeReleaseBehavior">Release reaches zero · synth rests until next trigger</small>
+                <output id="amplitudeCurveState">Segment</output>
+                <small id="amplitudeReleaseBehavior">Linear fade fills the segment · zero at the next corner</small>
               </div>
             </div>
 
@@ -604,7 +605,7 @@
             <div class="route-list" aria-label="Current data mappings">
               <div><span id="pitchRouteSource">Vertical position ↑</span><b>Pitch</b><small id="pitchRouteCurve">Linear response → exponential Hz</small></div>
               <div><span id="panRouteSource">Horizontal position</span><b>Pan</b><small id="panRouteCurve">normal · 100% width</small></div>
-              <div><span id="levelRouteSource">Directed corner interval</span><b>Level</b><small id="levelRouteCurve">Pluck ADSR</small></div>
+              <div><span id="levelRouteSource">Segment length</span><b>Level</b><small id="levelRouteCurve">Segment length · linear 100% → 0%</small></div>
               <div id="timbreRoute" hidden><span id="timbreRouteSource">Crossing angle</span><b id="timbreRouteTarget">FM index</b><small id="timbreRouteCurve">0–3.00 mapped range</small></div>
             </div>
 
