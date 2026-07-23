@@ -273,12 +273,42 @@ export function buildSpiralTessellation({
   };
 }
 
+/**
+ * Couple a contact's audible rate to its visible log-polar scale. Smaller
+ * inner shapes run up to twice as fast/high; larger outer shapes run down to
+ * half speed/pitch, with the geometric middle left unchanged.
+ */
+export function scaleRateForSpiralRadius(
+  radius,
+  innerRadius = DEFAULT_BOUNDS.innerRadius,
+  outerRadius = DEFAULT_BOUNDS.outerRadius,
+) {
+  const inner = clamp(Number(innerRadius) || DEFAULT_BOUNDS.innerRadius, 0.02, 0.3);
+  const outer = clamp(Number(outerRadius) || DEFAULT_BOUNDS.outerRadius, 0.7, 1.5);
+  const low = Math.min(inner, outer);
+  const high = Math.max(inner, outer);
+  const numericRadius = Number(radius);
+  const contactRadius = clamp(
+    Number.isFinite(numericRadius) ? numericRadius : Math.sqrt(low * high),
+    low,
+    high,
+  );
+  const sizePosition = clamp(
+    (Math.log(contactRadius) - Math.log(low))
+      / Math.max(EPSILON, Math.log(high) - Math.log(low)),
+    0,
+    1,
+  );
+  return 2 ** (1 - 2 * sizePosition);
+}
+
 export function createSpiralReader({
   mode = "radius",
   phase = 0,
   innerRadius = DEFAULT_BOUNDS.innerRadius,
   outerRadius = DEFAULT_BOUNDS.outerRadius,
   turns = 2,
+  sizeCoupled = false,
 } = {}) {
   const position = clamp(Number(phase) || 0, 0, 1);
   const inner = clamp(Number(innerRadius) || DEFAULT_BOUNDS.innerRadius, 0.02, 0.3);
@@ -289,7 +319,9 @@ export function createSpiralReader({
   const points = [];
 
   if (readerMode === "radius") {
-    const radius = Math.exp(lerp(logOuter, logInner, position));
+    const radius = sizeCoupled
+      ? lerp(outer, inner, position)
+      : Math.exp(lerp(logOuter, logInner, position));
     const samples = 128;
     for (let index = 0; index <= samples; index += 1) {
       const angle = index / samples * TAU;
@@ -316,6 +348,7 @@ export function createSpiralReader({
     mode: readerMode,
     phase: position,
     turns: clamp(Number(turns) || 2, 0.25, 6),
+    sizeCoupled: Boolean(sizeCoupled),
     innerRadius: inner,
     outerRadius: outer,
     points,
@@ -433,14 +466,18 @@ export function phaseForSpiralPoint(point, {
   innerRadius = DEFAULT_BOUNDS.innerRadius,
   outerRadius = DEFAULT_BOUNDS.outerRadius,
   turns = 2,
+  sizeCoupled = false,
 } = {}) {
   const angle = Math.atan2(point.y, point.x);
-  const radial = clamp(
-    (Math.log(outerRadius) - Math.log(Math.max(innerRadius, Math.hypot(point.x, point.y))))
-      / Math.max(EPSILON, Math.log(outerRadius) - Math.log(innerRadius)),
-    0,
-    1,
-  );
+  const radius = clamp(Math.hypot(point.x, point.y), innerRadius, outerRadius);
+  const radial = mode === "radius" && sizeCoupled
+    ? clamp((outerRadius - radius) / Math.max(EPSILON, outerRadius - innerRadius), 0, 1)
+    : clamp(
+      (Math.log(outerRadius) - Math.log(Math.max(innerRadius, radius)))
+        / Math.max(EPSILON, Math.log(outerRadius) - Math.log(innerRadius)),
+      0,
+      1,
+    );
   if (mode === "radius") return radial;
   if (mode === "spiral") {
     return wrap01((-Math.PI / 2 + radial * clamp(Number(turns) || 2, 0.25, 6) * TAU - angle) / TAU);

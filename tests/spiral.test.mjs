@@ -9,6 +9,7 @@ import {
   createSpiralReader,
   createSpiralTransform,
   phaseForSpiralPoint,
+  scaleRateForSpiralRadius,
   spiralPoint,
 } from "../src/spiral.js";
 import { tilingInfo } from "../src/lattice.js";
@@ -58,6 +59,30 @@ test("radial time is logarithmic and defaults from outside to inside", () => {
   assert.ok(Math.abs(phaseForSpiralPoint({ x: 0.05, y: 0 }, options) - 1) < 1e-8);
 });
 
+test("size coupling gives radial playback physical speed and bounded pitch rates", () => {
+  const options = {
+    mode: "radius",
+    innerRadius: 0.05,
+    outerRadius: 1,
+    sizeCoupled: true,
+  };
+  const middle = createSpiralReader({ ...options, phase: 0.5 });
+  assert.ok(Math.abs(Math.hypot(middle.points[0].x, middle.points[0].y) - 0.525) < 1e-8);
+  assert.ok(Math.abs(phaseForSpiralPoint({ x: 0.525, y: 0 }, options) - 0.5) < 1e-8);
+  for (const phase of [0, 0.01, 0.1, 0.25, 0.5, 0.73, 0.99, 1]) {
+    const reader = createSpiralReader({ ...options, phase });
+    assert.ok(Math.abs(phaseForSpiralPoint(reader.points[0], options) - phase) < 1e-8);
+  }
+
+  const geometricMiddle = Math.sqrt(0.05);
+  assert.equal(scaleRateForSpiralRadius(0.05, 0.05, 1), 2);
+  assert.ok(Math.abs(scaleRateForSpiralRadius(geometricMiddle, 0.05, 1) - 1) < 1e-12);
+  assert.equal(scaleRateForSpiralRadius(1, 0.05, 1), 0.5);
+  assert.equal(scaleRateForSpiralRadius(0, 0.05, 1), 2);
+  assert.equal(scaleRateForSpiralRadius(0.001, 0.05, 1), 2);
+  assert.equal(scaleRateForSpiralRadius(10, 0.05, 1), 0.5);
+});
+
 test("Spiral page exposes intrinsic time paths and tactile winding controls", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("../spiral.html", import.meta.url), "utf8"),
@@ -67,12 +92,14 @@ test("Spiral page exposes intrinsic time paths and tactile winding controls", as
   assert.match(html, /id="radiusTime"[^>]+aria-pressed="true"/);
   assert.match(html, /id="angleTime"/);
   assert.match(html, /id="spiralTime"/);
+  assert.match(html, /id="sizeCoupling"[^>]+aria-pressed="false"/);
   assert.match(html, /id="spiralA"[^>]+value="1"/);
   assert.match(html, /id="spiralB"[^>]+value="5"/);
   assert.match(html, /Out[^<]*In/);
   assert.match(app, /buildSpiralTessellation/);
   assert.match(app, /contactsForSpiralReader/);
   assert.match(app, /phaseForSpiralPoint/);
+  assert.match(app, /scaleRateForSpiralRadius/);
 
   const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]));
   const referenced = new Set([...app.matchAll(/\$\("([^"]+)"\)/g)].map((match) => match[1]));

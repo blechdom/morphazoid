@@ -23,6 +23,7 @@ import {
   contactsForSpiralReader,
   createSpiralReader,
   phaseForSpiralPoint,
+  scaleRateForSpiralRadius,
 } from "./src/spiral.js";
 import { EdgeShape } from "./vendor/tactile/tactile.js";
 
@@ -73,6 +74,7 @@ const state = {
   voiceCap: 8,
   stereoWidth: 0.8,
   pitchSource: "radius",
+  sizeCoupling: false,
 };
 
 const canvas = $("stage");
@@ -508,7 +510,7 @@ function directionLabel() {
 }
 
 function coordinateLabel() {
-  if (state.timePath === "radius") return "LOG R";
+  if (state.timePath === "radius") return state.sizeCoupling ? "R" : "LOG R";
   if (state.timePath === "angle") return "THETA";
   return "LOG R + THETA";
 }
@@ -520,6 +522,13 @@ function updateTimeControls() {
   $("readerTurnsControl").hidden = state.timePath !== "spiral";
   $("timeDirection").textContent = directionLabel();
   $("coordinateReadout").textContent = `${coordinateLabel()} · ${directionLabel().toUpperCase()}`;
+  setPressed($("sizeCoupling"), state.sizeCoupling);
+  $("sizeCoupling").textContent = `Size affects time + pitch · ${state.sizeCoupling ? "on" : "off"}`;
+  $("sizeCoupling").setAttribute(
+    "aria-label",
+    `Size affects time and pitch ${state.sizeCoupling ? "on" : "off"}`,
+  );
+  updateMappingSummary();
   updateSummaries();
 }
 
@@ -628,11 +637,42 @@ $("soundMode").addEventListener("change", () => {
   scheduleFrame();
 });
 
+function updateMappingSummary() {
+  const label = $("pitchSource").selectedOptions?.[0]?.textContent ?? state.pitchSource;
+  $("mappingSummary").textContent = state.sizeCoupling
+    ? `${label} + size → pitch/time`
+    : `${label} → pitch`;
+}
+
 $("pitchSource").addEventListener("change", () => {
   state.pitchSource = $("pitchSource").value;
-  const label = $("pitchSource").selectedOptions[0].textContent;
-  $("mappingSummary").textContent = `${label} → pitch`;
+  updateMappingSummary();
   scheduleFrame();
+});
+
+$("sizeCoupling").addEventListener("click", () => {
+  if (state.timePath === "radius" && (geometryDirty || !tessellation)) rebuildGeometry();
+  const radialAnchor = state.timePath === "radius"
+    ? createSpiralReader({
+      ...tessellation.bounds,
+      mode: "radius",
+      phase: state.position,
+      sizeCoupled: state.sizeCoupling,
+    }).points[0]
+    : null;
+  state.sizeCoupling = !state.sizeCoupling;
+  if (radialAnchor) {
+    setPosition(phaseForSpiralPoint(radialAnchor, {
+      ...tessellation.bounds,
+      mode: "radius",
+      sizeCoupled: state.sizeCoupling,
+    }));
+  }
+  pool.silence();
+  resetContactTracking();
+  updateTimeControls();
+  scheduleFrame();
+  announce(`Shape size ${state.sizeCoupling ? "now" : "no longer"} affects time and pitch.`);
 });
 
 function resizeCanvas() {
@@ -763,23 +803,40 @@ function pitchMark(contact) {
 function voiceData(contacts) {
   return contacts.map((contact) => {
     const pitch = pitchMark(contact);
+    const sizeRate = state.sizeCoupling
+      ? scaleRateForSpiralRadius(
+        contact.radius,
+        tessellation.bounds.innerRadius,
+        tessellation.bounds.outerRadius,
+      )
+      : 1;
+    const durationScale = 1 / sizeRate;
+    const pitchScale = state.sizeCoupling
+      ? (state.pitchSource === "radius" ? Math.sqrt(sizeRate) : sizeRate)
+      : 1;
     const gain = state.contactLevel * 0.13
       * (0.25 + 0.75 * contact.incidence)
-      * intersectionAmplitudeEnvelope(contact.age, 0.75, state.intersectionDecay / 1000);
+      * intersectionAmplitudeEnvelope(
+        contact.age,
+        0.75,
+        state.intersectionDecay / 1000 * durationScale,
+      );
     const synth = synthParametersForMode(state.soundMode, contact.incidence, {
       fmIndex: 4,
       fmRatio: 2,
       pmIndex: 2.4,
       pmRatio: 1,
-      shepardRate: state.playing ? state.speed * state.direction : 0,
+      shepardRate: state.playing ? state.speed * state.direction * sizeRate : 0,
       shepardWidth: 4,
     });
     return {
       contact,
-      frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange),
+      frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange) * pitchScale,
       gain,
       pan: clamp(contact.x / tessellation.bounds.outerRadius, -1, 1) * state.stereoWidth,
       synth,
+      sizeRate,
+      durationScale,
     };
   });
 }
@@ -788,19 +845,22 @@ function updateAudio(data) {
   if (!state.audio) return;
   if (state.soundMode === "percussion") {
     pool.setVoices([]);
-    const intents = data.filter((item) => item.contact.onset).map((item) => ({
+    const strikeItems = data.filter((item) => item.contact.onset);
+    const intents = strikeItems.map((item) => ({
       key: `spiral:strike:${item.contact.voiceKey}`,
       frequency: item.frequency,
       gain: state.contactLevel * 0.55 * (0.25 + 0.75 * item.contact.incidence),
       pan: item.pan,
       waveform: "sine",
     }));
-    for (const spec of normalizeStrikeGains(intents, pool.availableStrikeHeadroom(0.78))) {
+    const normalized = normalizeStrikeGains(intents, pool.availableStrikeHeadroom(0.78));
+    normalized.forEach((spec, index) => {
+      const durationScale = strikeItems[index]?.durationScale ?? 1;
       pool.strike(spec, {
-        attackSeconds: cornerAttackSeconds(3),
-        decaySeconds: cornerDecaySeconds(Math.max(90, state.intersectionDecay)),
+        attackSeconds: cornerAttackSeconds(3 * durationScale),
+        decaySeconds: cornerDecaySeconds(Math.max(90, state.intersectionDecay) * durationScale),
       });
-    }
+    });
   } else if (state.playing) {
     pool.setVoices(data.map((item) => ({
       key: `spiral:${item.contact.voiceKey}`,
@@ -827,6 +887,7 @@ function frame(now) {
     mode: state.timePath,
     phase: state.position,
     turns: state.readerTurns,
+    sizeCoupled: state.sizeCoupling,
   });
   const contacts = contactsForSpiralReader(tessellation, reader);
   const selected = evenlySelectContacts(contacts, state.voiceCap);
@@ -854,6 +915,7 @@ function scrubFromPointer(event) {
     ...tessellation.bounds,
     mode: state.timePath,
     turns: state.readerTurns,
+    sizeCoupled: state.sizeCoupling,
   });
   setPosition(phase);
 }

@@ -148,6 +148,8 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   assert.equal(elements.get("edgeCount").textContent, "3 bendable classes");
   assert.equal((elements.get("tilingType").innerHTML.match(/<option /g) ?? []).length, 72);
   assert.equal(attributes.get("radiusTime:aria-pressed"), "true");
+  assert.equal(attributes.get("sizeCoupling:aria-pressed"), "false");
+  assert.equal(elements.get("mappingSummary").textContent, "Log radius → pitch");
   assert.ok(drawnArcs > 0);
 
   listeners.get("spiralTime:click")();
@@ -175,6 +177,19 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   assert.ok(voiceGains.some((gain) => gain.gain.value > 0));
   assert.ok(oscillators.some((oscillator) => oscillator.frequency.value !== 220));
   assert.match(elements.get("stageReadout").textContent, /VOICE/);
+
+  listeners.get("radiusTime:click")();
+  const uncoupledFrequencies = oscillators.map((oscillator) => oscillator.frequency.value);
+  listeners.get("sizeCoupling:click")();
+  assert.equal(attributes.get("sizeCoupling:aria-pressed"), "true");
+  assert.match(elements.get("sizeCoupling").textContent, /on$/);
+  assert.equal(elements.get("mappingSummary").textContent, "Log radius + size → pitch/time");
+  assert.match(elements.get("coordinateReadout").textContent, /^R ·/);
+  now += 20;
+  queuedFrame(now);
+  assert.ok(oscillators.some((oscillator, index) => (
+    Math.abs(oscillator.frequency.value - uncoupledFrequencies[index]) > 1e-6
+  )));
 
   const beforeScrub = Number(elements.get("position").value);
   listeners.get("stage:pointerdown")({ clientX: 690, clientY: 260, pointerId: 4 });
