@@ -106,11 +106,29 @@
               <input id="speed" type="range" min="0.01" max="1" step="0.001" value="0.12" />
             </label>
             <button class="mini-action direction-action" id="timeDirection" type="button">Out &rarr; In</button>
+            <button class="mini-action" id="sizeCoupling" type="button" aria-pressed="false" aria-label="Size affects time and pitch off">Size affects time + pitch &middot; off</button>
 
             <label class="control" id="readerTurnsControl" for="readerTurns" hidden>
               <span><b>Reader turns</b><output id="readerTurnsOut" for="readerTurns">2.00 turns</output></span>
               <input id="readerTurns" type="range" min="0.25" max="6" step="0.05" value="2" />
             </label>
+
+            <div class="position-row loop-position-row">
+              <button class="play-button" id="loopPlayButton" type="button" aria-pressed="false" aria-label="Play tessellation loop">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="loopPhase">
+                <span><b>Tessellation loop</b><output id="loopPhaseOut" for="loopPhase">0.0%</output></span>
+                <input id="loopPhase" type="range" min="0" max="1" step="0.0005" value="0" />
+              </label>
+            </div>
+
+            <label class="control" for="loopSpeed">
+              <span><b>Loop speed</b><output id="loopSpeedOut" for="loopSpeed">0.120 cyc/s</output></span>
+              <input id="loopSpeed" type="range" min="0.01" max="1" step="0.001" value="0.12" />
+            </label>
+            <button class="mini-action direction-action" id="loopDirection" type="button">Zoom out</button>
           </div>
         </details>
 
@@ -211,7 +229,6 @@
           <summary class="group-summary"><h2 class="group-title">Mapping</h2><span class="section-state" id="mappingSummary">Radius &rarr; pitch</span></summary>
           <div class="group-body">
             <label class="select-control" for="pitchSource"><span class="field-label">Pitch source</span><span class="select-shell"><select id="pitchSource"><option value="radius" selected>Log radius</option><option value="angle">Angular position</option><option value="reader">Reader position</option><option value="orientation">Edge orientation</option></select></span></label>
-            <button class="mini-action" id="sizeCoupling" type="button" aria-pressed="false" aria-label="Size affects time and pitch off">Size affects time + pitch &middot; off</button>
           </div>
         </details>
 

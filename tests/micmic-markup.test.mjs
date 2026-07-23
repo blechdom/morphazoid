@@ -15,7 +15,7 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
   assert.match(html, /class="tab micmic-tab active"[^>]*aria-current="page">mic\(mic\)/);
   assert.match(html, /<option value="micmic\.html" selected>mic\(mic\)<\/option>/);
   assert.match(html, /<span class="audio-copy"><b>Audio<\/b>/);
-  assert.match(html, /src="micmic-app\.js"/);
+  assert.match(html, /src="micmic-app\.js(?:\?[^"]+)?"/);
   assert.match(html, /href="micmic\.css"/);
   for (const id of [
     "stage", "seedControl", "seedMicButton", "panicButton", "audioButton", "micButton",

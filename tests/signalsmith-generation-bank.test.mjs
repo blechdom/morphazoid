@@ -61,7 +61,7 @@ function harness() {
       async configure(options) { this.configured = options; },
       async schedule(options) { this.schedules.push(options); },
       async latency() { return 0.08; },
-      async stop() {},
+      async stop() { this.stopped = true; },
     });
     created.stretches.push(node);
     return node;
@@ -153,4 +153,33 @@ test("generation bank caps distinct pitch processors and maps overflow voices", 
 
   assert.equal(fixture.created.stretches.length, 2);
   assert.equal(bank.taps.size, 3);
+});
+
+test("rapid branch-angle changes create only the final pitch processor and retire the old one", async () => {
+  const fixture = harness();
+  const bank = new SignalsmithGenerationBank(
+    fixture.context,
+    fixture.input,
+    fixture.output,
+    { stretchFactory: fixture.stretchFactory },
+  );
+  bank.desired = [
+    { key: "branch", semitones: 0, pitchKey: "0", delay: 0.25, gain: 0.5, pan: 0 },
+  ];
+  bank.revision = 1;
+  await bank.reconcile(1);
+
+  for (const rate of [1.05, 1.12, 1.2, 1.3]) {
+    bank.setVoices([{ key: "branch", rate, delay: 0.25, gain: 0.5, pan: 0 }]);
+  }
+  assert.equal(fixture.created.stretches.length, 0, "dragging must not allocate per input event");
+  await new Promise((resolve) => setTimeout(resolve, 115));
+  assert.equal(fixture.created.stretches.length, 1);
+  assert.ok(Math.abs(fixture.created.stretches[0].schedules[0].semitones - 4.54) < 0.01);
+
+  bank.setVoices([{ key: "branch", rate: 0.8, delay: 0.25, gain: 0.5, pan: 0 }]);
+  await new Promise((resolve) => setTimeout(resolve, 115));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(fixture.created.stretches.length, 2);
+  assert.equal(fixture.created.stretches[0].stopped, true, "superseded worklet should be released");
 });

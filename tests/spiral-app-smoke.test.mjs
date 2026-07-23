@@ -167,16 +167,30 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
 
   elements.get("position").value = "0.45";
   listeners.get("position:input")();
+  elements.get("loopPhase").value = "0.25";
+  listeners.get("loopPhase:input")();
   await listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
   assert.equal(oscillators.length, 16);
   now += 60;
   queuedFrame(now);
+  assert.equal(Number(elements.get("loopPhase").value), 0.25);
+  assert.ok(Number(elements.get("position").value) < 0.45);
   const voiceGains = gains.slice(1, 17);
   assert.ok(voiceGains.some((gain) => gain.gain.value > 0));
   assert.ok(oscillators.some((oscillator) => oscillator.frequency.value !== 220));
   assert.match(elements.get("stageReadout").textContent, /VOICE/);
+
+  await listeners.get("playButton:click")();
+  const stationaryPosition = Number(elements.get("position").value);
+  await listeners.get("loopPlayButton:click")();
+  assert.equal(attributes.get("playButton:aria-pressed"), "false");
+  assert.equal(attributes.get("loopPlayButton:aria-pressed"), "true");
+  now += 60;
+  queuedFrame(now);
+  assert.equal(Number(elements.get("position").value), stationaryPosition);
+  assert.ok(Number(elements.get("loopPhase").value) > 0.25);
 
   listeners.get("radiusTime:click")();
   const uncoupledFrequencies = oscillators.map((oscillator) => oscillator.frequency.value);

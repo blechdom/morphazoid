@@ -37,11 +37,11 @@ function assertValidPlan(plan) {
       assert.ok(Number.isFinite(event.offset) && event.offset >= 0);
       assert.ok(Number.isFinite(event.duration) && event.duration > 0);
       assert.ok(event.offset + event.duration <= moment.duration + 1e-6);
-      for (const melodicKey of ["frequency", "midi", "semitones", "pitch", "waveform"]) {
+      for (const noteKey of ["midi", "note", "noteName", "waveform"]) {
         assert.equal(
-          Object.hasOwn(event, melodicKey),
+          Object.hasOwn(event, noteKey),
           false,
-          `${plan.studyId} must remain a non-melodic structural score`,
+          `${plan.studyId} must derive pitch motion from transformed audio, not note events`,
         );
       }
       if (Number.isFinite(event.gain)) {

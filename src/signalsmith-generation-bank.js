@@ -25,20 +25,6 @@ function fadeTo(parameter, from, to, time, duration) {
   else parameter.setTargetAtTime?.(to, time, duration / 3);
 }
 
-function timingOnlyChange(previous, next) {
-  if (!previous.length || previous.length !== next.length) return false;
-  let changed = false;
-  const otherwiseIdentical = next.every((voice, index) => {
-    const prior = previous[index];
-    if (voice.delay !== prior.delay) changed = true;
-    return voice.key === prior.key
-      && voice.pitchKey === prior.pitchKey
-      && voice.gain === prior.gain
-      && voice.pan === prior.pan;
-  });
-  return otherwiseIdentical && changed;
-}
-
 /**
  * Groups branch voices by transposition.  Each unique pitch gets one
  * Signalsmith spectral processor, then fans out through crossfaded Web Audio
@@ -91,14 +77,14 @@ export class SignalsmithGenerationBank {
         pan: clamp(voice?.pan, -1, 1, 0),
       };
     });
-    const timingOnly = timingOnlyChange(this.desired, desired);
     this.desired = desired;
     const revision = ++this.revision;
     if (this.timingTimer !== null) clearTimeout(this.timingTimer);
-    if (timingOnly) {
-      // Range inputs can fire every animation frame.  Coalescing those events
-      // lets the current tap remain stationary while the finger is moving,
-      // then performs one clean crossfade to the final timing relationship.
+    if (desired.length && this.taps.size) {
+      // Range inputs can fire every animation frame.  Coalesce the complete
+      // gesture before changing either delay taps or spectral pitch sources.
+      // Otherwise Branch Angle can allocate dozens of abandoned WASM
+      // AudioWorklets during a single drag and exhaust the live graph.
       this.timingTimer = setTimeout(() => {
         this.timingTimer = null;
         void this.reconcile(revision);
@@ -179,6 +165,26 @@ export class SignalsmithGenerationBank {
     this.taps.delete(key);
   }
 
+  retireUnusedPitchSources(keepKeys) {
+    const retained = new Set(keepKeys);
+    for (const [key, candidate] of this.pitchSources) {
+      if (retained.has(key)) continue;
+      void (async () => {
+        try {
+          const source = await candidate;
+          if (this.pitchSources.get(key) !== candidate && this.pitchSources.get(key) !== source) return;
+          if ([...this.taps.values()].some((tap) => tap.source === source.node)) return;
+          this.pitchSources.delete(key);
+          this.input.disconnect?.(source.node);
+          await source.node.stop?.();
+          source.node.disconnect?.();
+        } catch {
+          this.pitchSources.delete(key);
+        }
+      })();
+    }
+  }
+
   async reconcile(revision) {
     const selectedKeys = this.selectedPitchKeys();
     const sources = new Map([["0", { node: this.input, latency: 0, semitones: 0 }]]);
@@ -250,6 +256,7 @@ export class SignalsmithGenerationBank {
       tap.gain.gain.setTargetAtTime(voice.gain, now, 0.025);
       tap.pan.pan.setTargetAtTime(voice.pan, now, 0.025);
     }
+    this.retireUnusedPitchSources(selectedKeys);
   }
 
   async dispose() {

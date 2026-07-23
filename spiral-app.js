@@ -60,10 +60,15 @@ const state = {
   timePath: "radius",
   position: 0,
   continuousPosition: 0,
+  loopPhase: 0,
+  continuousLoopPhase: 0,
   speed: 0.12,
   direction: 1,
+  loopSpeed: 0.12,
+  loopDirection: 1,
   readerTurns: 2,
   playing: false,
+  loopPlaying: false,
   audio: false,
   level: 0.65,
   soundMode: "sine",
@@ -155,6 +160,7 @@ function bindRange(id, key, formatter, afterChange) {
 }
 
 bindRange("speed", "speed", (value) => `${value.toFixed(3)} cyc/s`);
+bindRange("loopSpeed", "loopSpeed", (value) => `${value.toFixed(3)} cyc/s`);
 bindRange("readerTurns", "readerTurns", (value) => `${value.toFixed(2)} turns`, resetContactTracking);
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
 bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
@@ -187,6 +193,18 @@ bindRange("spiralB", "spiralB", (value) => String(Math.round(value)), () => {
 });
 bindRange("patternScale", "patternScale", (value) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}`, invalidateGeometry);
 bindRange("patternRotation", "patternRotation", (value) => `${Math.round(value)}°`, invalidateGeometry);
+
+function setLoopPhase(value) {
+  state.loopPhase = clamp(Number(value) || 0, 0, 1);
+  state.continuousLoopPhase = state.loopPhase;
+  $("loopPhase").value = String(state.loopPhase);
+  $("loopPhaseOut").textContent = `${(state.loopPhase * 100).toFixed(1)}%`;
+  geometryDirty = true;
+  resetContactTracking();
+  scheduleFrame();
+}
+
+$("loopPhase").addEventListener("input", () => setLoopPhase($("loopPhase").value));
 
 function formatBend(value, rigid = false) {
   if (rigid) return "fixed straight";
@@ -514,6 +532,10 @@ function directionLabel() {
   return state.direction > 0 ? "Clockwise" : "Counterclockwise";
 }
 
+function loopDirectionLabel() {
+  return state.loopDirection > 0 ? "Zoom out" : "Zoom in";
+}
+
 function coordinateLabel() {
   if (state.timePath === "radius") return state.sizeCoupling ? "R" : "LOG R";
   if (state.timePath === "angle") return "THETA";
@@ -526,6 +548,7 @@ function updateTimeControls() {
   }
   $("readerTurnsControl").hidden = state.timePath !== "spiral";
   $("timeDirection").textContent = directionLabel();
+  $("loopDirection").textContent = loopDirectionLabel();
   $("coordinateReadout").textContent = `${coordinateLabel()} · ${directionLabel().toUpperCase()}`;
   setPressed($("sizeCoupling"), state.sizeCoupling);
   $("sizeCoupling").textContent = `Size affects time + pitch · ${state.sizeCoupling ? "on" : "off"}`;
@@ -553,6 +576,12 @@ $("timeDirection").addEventListener("click", () => {
   announce(`Time direction ${directionLabel()}.`);
 });
 
+$("loopDirection").addEventListener("click", () => {
+  state.loopDirection *= -1;
+  updateTimeControls();
+  announce(`Loop direction ${loopDirectionLabel()}.`);
+});
+
 function setPosition(value) {
   state.position = clamp(Number(value) || 0, 0, 1);
   state.continuousPosition = state.position;
@@ -566,7 +595,11 @@ $("position").addEventListener("input", () => setPosition($("position").value));
 
 function updateSummaries() {
   const timeName = state.timePath[0].toUpperCase() + state.timePath.slice(1);
-  $("playSummary").textContent = `${timeName} · ${state.playing ? directionLabel() : "paused"}`;
+  const active = [
+    state.playing ? "time" : "",
+    state.loopPlaying ? "loop" : "",
+  ].filter(Boolean).join(" + ");
+  $("playSummary").textContent = `${timeName} · ${active || "paused"}`;
   $("formSummary").textContent = tilingInfo(state.tilingType).label;
   $("windingSummary").textContent = `A${state.spiralA} · B${state.spiralB}`;
   $("soundSummary").textContent = SOUND_LABELS[state.soundMode];
@@ -574,7 +607,15 @@ function updateSummaries() {
 
 function paintPlayback() {
   setPressed($("playButton"), state.playing);
-  $("playButton").setAttribute("aria-label", state.playing ? "Pause spiral time" : "Play spiral time");
+  $("playButton").setAttribute(
+    "aria-label",
+    state.playing ? "Pause spiral time" : "Play spiral time",
+  );
+  setPressed($("loopPlayButton"), state.loopPlaying);
+  $("loopPlayButton").setAttribute(
+    "aria-label",
+    state.loopPlaying ? "Pause tessellation loop" : "Play tessellation loop",
+  );
   updateSummaries();
 }
 
@@ -582,7 +623,16 @@ function setPlaying(playing) {
   state.playing = Boolean(playing);
   lastFrameTime = performance.now();
   resetContactTracking();
-  if (!state.playing) pool.setVoices([]);
+  if (!state.playing && !state.loopPlaying) pool.setVoices([]);
+  paintPlayback();
+  scheduleFrame();
+}
+
+function setLoopPlaying(playing) {
+  state.loopPlaying = Boolean(playing);
+  lastFrameTime = performance.now();
+  resetContactTracking();
+  if (!state.playing && !state.loopPlaying) pool.setVoices([]);
   paintPlayback();
   scheduleFrame();
 }
@@ -631,6 +681,14 @@ $("playButton").addEventListener("click", async () => {
   else {
     if (!state.audio) await enableAudio();
     setPlaying(true);
+  }
+});
+
+$("loopPlayButton").addEventListener("click", async () => {
+  if (state.loopPlaying) setLoopPlaying(false);
+  else {
+    if (!state.audio) await enableAudio();
+    setLoopPlaying(true);
   }
 });
 
@@ -706,6 +764,7 @@ function rebuildGeometry() {
     spiralB: state.spiralB,
     logOffset: state.patternScale,
     angleOffset: state.patternRotation * Math.PI / 180,
+    loopPhase: state.loopPhase,
   });
   state.parameters = [...tessellation.parameters];
   state.edgeCurves = [...tessellation.edgeCurves];
@@ -833,7 +892,9 @@ function voiceData(contacts) {
       fmRatio: 2,
       pmIndex: 2.4,
       pmRatio: 1,
-      shepardRate: state.playing ? state.speed * state.direction * sizeRate : 0,
+      shepardRate: state.playing
+        ? state.speed * state.direction * sizeRate
+        : state.loopPlaying ? state.loopSpeed * state.loopDirection * sizeRate : 0,
       shepardWidth: 4,
     });
     return {
@@ -868,7 +929,7 @@ function updateAudio(data) {
         decaySeconds: cornerDecaySeconds(state.percussionDecay * durationScale),
       });
     });
-  } else if (state.playing) {
+  } else if (state.playing || state.loopPlaying) {
     pool.setVoices(data.map((item) => ({
       key: `spiral:${item.contact.voiceKey}`,
       frequency: item.frequency,
@@ -888,6 +949,11 @@ function frame(now) {
     state.continuousPosition += state.direction * state.speed * delta;
     state.position = wrap01(state.continuousPosition);
   }
+  if (state.loopPlaying) {
+    state.continuousLoopPhase += state.loopDirection * state.loopSpeed * delta;
+    state.loopPhase = wrap01(state.continuousLoopPhase);
+    geometryDirty = true;
+  }
   if (geometryDirty || !tessellation) rebuildGeometry();
   const reader = createSpiralReader({
     ...tessellation.bounds,
@@ -905,8 +971,10 @@ function frame(now) {
   updateAudio(data);
   $("position").value = String(state.position);
   $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
+  $("loopPhase").value = String(state.loopPhase);
+  $("loopPhaseOut").textContent = `${(state.loopPhase * 100).toFixed(1)}%`;
   $("stageReadout").textContent = `${state.timePath.toUpperCase()} · ${contacts.length} ${plural(contacts.length, "CONTACT", "CONTACTS")} · ${state.audio ? `${data.length} ${plural(data.length, "VOICE", "VOICES")}` : "AUDIO OFF"}`;
-  if (state.playing) scheduleFrame();
+  if (state.playing || state.loopPlaying) scheduleFrame();
 }
 
 function canvasWorldPoint(event) {
@@ -968,6 +1036,7 @@ window.addEventListener("pagehide", (event) => {
 
 configureTilingControls();
 setPosition(state.position);
+setLoopPhase(state.loopPhase);
 updateTimeControls();
 paintPlayback();
 paintAudio();

@@ -31,6 +31,44 @@ test("A and B close one exact turn of the logarithmic spiral", () => {
   assert.ok(Math.hypot(first.x - repeated.x, first.y - repeated.y) < 1e-8);
 });
 
+test("tessellation loop closes on one exact lattice translation", () => {
+  const tiling = new IsohedralTiling(tilingInfo(20).type);
+  const options = {
+    firstTranslation: tiling.getT1(),
+    secondTranslation: tiling.getT2(),
+    spiralA: 1,
+    spiralB: 5,
+  };
+  const start = createSpiralTransform(options);
+  const end = createSpiralTransform({
+    ...options,
+    logOffset: start.loop.logOffset,
+    angleOffset: start.loop.angleOffset,
+  });
+  const middle = createSpiralTransform({
+    ...options,
+    logOffset: start.loop.logOffset * 0.5,
+    angleOffset: start.loop.angleOffset * 0.5,
+  });
+  const point = { x: 0.217, y: -0.431 };
+  const translated = {
+    x: point.x
+      + start.loop.first * options.firstTranslation.x
+      + start.loop.second * options.secondTranslation.x,
+    y: point.y
+      + start.loop.first * options.firstTranslation.y
+      + start.loop.second * options.secondTranslation.y,
+  };
+  const first = spiralPoint(end.mapNatural(point));
+  const repeated = spiralPoint(start.mapNatural(translated));
+  const midpoint = spiralPoint(middle.mapNatural(point));
+  const startPoint = spiralPoint(start.mapNatural(point));
+  assert.ok(start.loop.steps > 1);
+  assert.ok(start.loop.logOffset >= 1.2);
+  assert.ok(Math.hypot(midpoint.x - startPoint.x, midpoint.y - startPoint.y) > 0.01);
+  assert.ok(Math.hypot(first.x - repeated.x, first.y - repeated.y) < 1e-8);
+});
+
 test("spiral tessellation preserves editable IH data and produces finite readers", () => {
   const tessellation = buildSpiralTessellation({ type: 20, spiralA: 1, spiralB: 5 });
   assert.equal(tessellation.info.code, "IH20");
@@ -93,9 +131,16 @@ test("Spiral page exposes intrinsic time paths and tactile winding controls", as
   assert.match(html, /id="angleTime"/);
   assert.match(html, /id="spiralTime"/);
   assert.match(html, /id="sizeCoupling"[^>]+aria-pressed="false"/);
+  assert.ok(
+    html.indexOf('id="sizeCoupling"') < html.indexOf('id="formSection"'),
+    "size coupling belongs in the Play section",
+  );
   assert.match(html, /id="spiralA"[^>]+value="1"/);
   assert.match(html, /id="spiralB"[^>]+value="5"/);
-  assert.match(html, /Out[^<]*In/);
+  assert.match(html, /id="loopPhase"/);
+  assert.match(html, /id="loopPlayButton"/);
+  assert.match(html, /Tessellation loop/);
+  assert.match(html, /Zoom out/);
   assert.match(app, /buildSpiralTessellation/);
   assert.match(app, /contactsForSpiralReader/);
   assert.match(app, /phaseForSpiralPoint/);

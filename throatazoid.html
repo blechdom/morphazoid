@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#020302" />
+    <meta
+      name="description"
+      content="THROATAZOID — a microphone-driven geometric vocal organism."
+    />
+    <title>THROATAZOID</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="throatazoid.css" />
+  </head>
+  <body class="throatazoid-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid Shape">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab recursion-tab" href="recursion.html">recursion</a>
+        <a class="tab" href="julia.html">julia</a>
+        <a class="tab" href="lumber.html">lumber</a>
+        <a class="tab micmic-tab" href="micmic.html">mic(mic)</a>
+        <a
+          class="tab throatazoid-tab active"
+          href="throatazoid.html"
+          aria-current="page"
+        >throatazoid</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
+          <option value="julia.html">julia</option>
+          <option value="lumber.html">lumber</option>
+          <option value="micmic.html">mic(mic)</option>
+          <option value="throatazoid.html" selected>throatazoid</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph throatazoid-audio-glyph" aria-hidden="true">⟐</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">46%</output></span>
+          <input
+            id="level"
+            aria-label="Throatazoid output level"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value="0.46"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="throatazoid">
+      <section class="stage throatazoid-stage" aria-label="Throatazoid anatomy">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Interactive alien vocal tract. Drag the diamond chamber handles to change each throat's length and aperture."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            An interactive polygonal organism with microphone-driven vocal tracts.
+          </canvas>
+
+          <div class="throatazoid-word" aria-hidden="true">THROATAZOID</div>
+
+          <button
+            class="throatazoid-awaken"
+            id="awakenButton"
+            type="button"
+            aria-pressed="false"
+          >
+            <span class="throatazoid-sigil" aria-hidden="true">
+              <i></i><i></i><i></i>
+            </span>
+            <b id="awakenLabel">Awaken</b>
+          </button>
+
+          <div class="throatazoid-stage-meter" aria-hidden="true">
+            <span>VOICE</span>
+            <i><b id="stageInputMeter"></b></i>
+          </div>
+
+          <div class="throatazoid-organ-key" id="organKey" aria-hidden="true">
+            <span><i></i>ROOT</span>
+            <span><i></i>CHAMBER</span>
+            <span><i></i>MOUTH</span>
+          </div>
+
+          <div class="throatazoid-handle-readout" id="handleReadout" hidden>
+            <span id="handleName">THROAT 01</span>
+            <b id="handleValue">42% OPEN · 64% LONG</b>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">DORMANT · TRIUNE · 3 THROATS</span>
+          </div>
+
+          <button class="throatazoid-panic" id="panicButton" type="button" disabled>
+            <span aria-hidden="true">×</span> sever
+          </button>
+
+          <div class="throatazoid-recording-badge" id="recordingBadge" hidden>
+            <i aria-hidden="true"></i><span>REC</span><output id="stageRecordTime">0:00</output>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Throatazoid controls">
+        <details class="group control-section" id="listenSection" data-section="listen">
+          <summary class="group-summary">
+            <h2 class="group-title">Listen</h2>
+            <span class="section-state" id="listenSummary">organism dormant</span>
+          </summary>
+          <div class="group-body">
+            <div class="throatazoid-listen-actions">
+              <button
+                class="throatazoid-mic-button"
+                id="micButton"
+                type="button"
+                aria-pressed="false"
+              >
+                <span class="throatazoid-mic-icon" aria-hidden="true"><i></i></span>
+                <span>
+                  <b id="micButtonLabel">Awaken</b>
+                  <small id="micButtonHint">allow microphone access</small>
+                </span>
+              </button>
+              <button
+                class="throatazoid-stop-button"
+                id="stopButton"
+                type="button"
+                disabled
+              >
+                <span aria-hidden="true">×</span>
+                <span><b>Sever</b><small>disconnect completely</small></span>
+              </button>
+            </div>
+
+            <div class="throatazoid-meter" aria-label="Live microphone level">
+              <span><b>Input organism</b><output id="inputMeterOut">silent</output></span>
+              <div><i id="inputMeterBar"></i><em id="inputPeakMarker"></em></div>
+            </div>
+
+            <dl class="loop-metrics throatazoid-metrics" aria-label="Live organism values">
+              <div><dt>State</dt><dd><output id="stateMetric">dormant</output></dd></div>
+              <div><dt>Specimen</dt><dd><output id="specimenMetric">triune</output></dd></div>
+              <div><dt>Output</dt><dd><output id="outputMetric">silent</output></dd></div>
+            </dl>
+
+            <label class="control" for="inputTrim">
+              <span><b>Input hunger</b><output id="inputTrimOut" for="inputTrim">88%</output></span>
+              <input id="inputTrim" type="range" min="0" max="1.35" step="0.01" value="0.88" />
+            </label>
+
+            <p class="throatazoid-headphone-note">
+              <b>Use headphones.</b> The organism listens to the room whenever it is awake.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="anatomySection" data-section="anatomy">
+          <summary class="group-summary">
+            <h2 class="group-title">Anatomy</h2>
+            <span class="section-state" id="anatomySummary">triune · 3 throats</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Specimen</span>
+            <div class="throatazoid-specimens" id="specimenButtons" role="group" aria-label="Specimen">
+              <button type="button" data-specimen="triune" aria-pressed="true">
+                <i aria-hidden="true"></i><span>Triune</span><small>three voices</small>
+              </button>
+              <button type="button" data-specimen="oracle" aria-pressed="false">
+                <i aria-hidden="true"></i><span>Oracle</span><small>one abyss</small>
+              </button>
+              <button type="button" data-specimen="hive" aria-pressed="false">
+                <i aria-hidden="true"></i><span>Hive</span><small>five mouths</small>
+              </button>
+              <button type="button" data-specimen="razor" aria-pressed="false">
+                <i aria-hidden="true"></i><span>Razor</span><small>metal teeth</small>
+              </button>
+            </div>
+
+            <label class="control" for="throatCount">
+              <span><b>Throats</b><output id="throatCountOut" for="throatCount">3</output></span>
+              <input id="throatCount" type="range" min="1" max="5" step="1" value="3" />
+            </label>
+            <label class="control" for="bodyLength">
+              <span><b>Body length</b><output id="bodyLengthOut" for="bodyLength">56%</output></span>
+              <input id="bodyLength" type="range" min="0" max="1" step="0.01" value="0.56" />
+            </label>
+            <label class="control" for="tension">
+              <span><b>Membrane tension</b><output id="tensionOut" for="tension">58%</output></span>
+              <input id="tension" type="range" min="0" max="1" step="0.01" value="0.58" />
+            </label>
+            <label class="control" for="mutation">
+              <span><b>Mutation</b><output id="mutationOut" for="mutation">32%</output></span>
+              <input id="mutation" type="range" min="0" max="1" step="0.01" value="0.32" />
+            </label>
+
+            <div class="throatazoid-selected">
+              <div>
+                <span>Selected chamber</span>
+                <b id="selectedThroatName">THROAT 01</b>
+              </div>
+              <button id="muteThroatButton" type="button" aria-pressed="false">MUTE</button>
+            </div>
+            <label class="control" for="selectedAperture">
+              <span><b>Aperture</b><output id="selectedApertureOut" for="selectedAperture">42%</output></span>
+              <input id="selectedAperture" type="range" min="0.05" max="1" step="0.01" value="0.42" />
+            </label>
+            <label class="control" for="selectedLength">
+              <span><b>Length</b><output id="selectedLengthOut" for="selectedLength">64%</output></span>
+              <input id="selectedLength" type="range" min="0" max="1" step="0.01" value="0.64" />
+            </label>
+            <p class="control-note">
+              Drag a diamond chamber on the organism: outward opens it; sideways changes its length.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="voiceSection" data-section="voice">
+          <summary class="group-summary">
+            <h2 class="group-title">Voice</h2>
+            <span class="section-state" id="voiceSummary">88% organism · 8% human</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="wet">
+              <span><b>Organism</b><output id="wetOut" for="wet">88%</output></span>
+              <input id="wet" type="range" min="0" max="1" step="0.01" value="0.88" />
+            </label>
+            <label class="control" for="dry">
+              <span><b>Original voice</b><output id="dryOut" for="dry">8%</output></span>
+              <input id="dry" type="range" min="0" max="0.5" step="0.01" value="0.08" />
+            </label>
+            <label class="control" for="growl">
+              <span><b>Alien growl</b><output id="growlOut" for="growl">20%</output></span>
+              <input id="growl" type="range" min="0" max="1" step="0.01" value="0.2" />
+            </label>
+            <label class="control" for="coupling">
+              <span><b>Throat coupling</b><output id="couplingOut" for="coupling">18%</output></span>
+              <input id="coupling" type="range" min="0" max="0.72" step="0.01" value="0.18" />
+            </label>
+            <label class="control" for="spread">
+              <span><b>Mouth spread</b><output id="spreadOut" for="spread">82%</output></span>
+              <input id="spread" type="range" min="0" max="1" step="0.01" value="0.82" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" id="captureSection" data-section="capture">
+          <summary class="group-summary">
+            <h2 class="group-title">Capture</h2>
+            <span class="section-state" id="captureSummary">ready</span>
+          </summary>
+          <div class="group-body">
+            <button
+              class="throatazoid-record-button"
+              id="recordButton"
+              type="button"
+              aria-pressed="false"
+              disabled
+            >
+              <span class="record-glyph" aria-hidden="true"></span>
+              <span><b id="recordLabel">Record organism</b><small id="recordHint">processed stereo output</small></span>
+            </button>
+            <div class="throatazoid-take" id="lastTake" hidden>
+              <div><small>Last specimen</small><output id="lastTakeOut">0:00 · WebM</output></div>
+              <a class="mini-action" id="downloadTake" href="#" download>Download</a>
+              <button class="mini-action" id="clearTake" type="button">Clear</button>
+            </div>
+            <p class="control-note">Microphone audio stays in this browser.</p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Start the microphone with headphones connected. Drag a diamond chamber left or right
+        to change throat length and toward or away from its center line to change aperture.
+        Use the Anatomy controls for keyboard-accessible adjustment. Press Escape to sever audio.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="throatazoid-app.js"></script>
+  </body>
+</html>

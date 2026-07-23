@@ -127,6 +127,56 @@ export function createSpiralTransform({
       y: -x * sine + y * cosine,
     };
   };
+  const divisor = (() => {
+    let first = Math.abs(a);
+    let second = Math.abs(b);
+    while (second) [first, second] = [second, first % second];
+    return Math.max(1, first);
+  })();
+  const primitiveA = a / divisor;
+  const primitiveB = b / divisor;
+  let loopFirst = 0;
+  let loopSecond = 0;
+  let bestLoopScore = Infinity;
+  const searchRadius = Math.max(2, Math.abs(primitiveA), Math.abs(primitiveB));
+  for (let first = -searchRadius; first <= searchRadius; first += 1) {
+    for (let second = -searchRadius; second <= searchRadius; second += 1) {
+      if (primitiveA * second - primitiveB * first !== 1) continue;
+      const score = first * first + second * second;
+      if (score < bestLoopScore) {
+        bestLoopScore = score;
+        loopFirst = first;
+        loopSecond = second;
+      }
+    }
+  }
+  const loopNatural = {
+    x: loopFirst * firstTranslation.x + loopSecond * secondTranslation.x,
+    y: loopFirst * firstTranslation.y + loopSecond * secondTranslation.y,
+  };
+  const loopMapped = mapNatural(loopNatural);
+  const mappedOrigin = mapNatural({ x: 0, y: 0 });
+  let loopLogOffset = loopMapped.x - mappedOrigin.x;
+  let loopAngleOffset = (
+    (loopMapped.y - mappedOrigin.y + Math.PI) % TAU + TAU
+  ) % TAU - Math.PI;
+  if (loopLogOffset < 0) {
+    loopFirst *= -1;
+    loopSecond *= -1;
+    loopLogOffset *= -1;
+    loopAngleOffset *= -1;
+  }
+  // A primitive lattice step can be too subtle to read as motion (the default
+  // winding changes scale by only ~19% per cycle). Repeat an integer number of
+  // exact steps so the loop approaches the manual Pattern scale excursion
+  // without sacrificing its identical lattice endpoint.
+  const loopSteps = Math.min(64, Math.max(1, Math.ceil(1.2 / loopLogOffset)));
+  loopFirst *= loopSteps;
+  loopSecond *= loopSteps;
+  loopLogOffset *= loopSteps;
+  loopAngleOffset = (
+    (loopAngleOffset * loopSteps + Math.PI) % TAU + TAU
+  ) % TAU - Math.PI;
   return {
     spiralA: a,
     spiralB: b,
@@ -135,6 +185,13 @@ export function createSpiralTransform({
     rotation,
     logOffset,
     angleOffset,
+    loop: {
+      first: loopFirst,
+      second: loopSecond,
+      steps: loopSteps,
+      logOffset: loopLogOffset,
+      angleOffset: loopAngleOffset,
+    },
     mapNatural,
     mapLogToNatural,
   };
@@ -149,6 +206,7 @@ export function buildSpiralTessellation({
   spiralB = 5,
   logOffset = 0,
   angleOffset = 0,
+  loopPhase = 0,
   innerRadius = DEFAULT_BOUNDS.innerRadius,
   outerRadius = DEFAULT_BOUNDS.outerRadius,
   maxTiles = 900,
@@ -158,7 +216,7 @@ export function buildSpiralTessellation({
     innerRadius: clamp(Number(innerRadius) || DEFAULT_BOUNDS.innerRadius, 0.02, 0.3),
     outerRadius: clamp(Number(outerRadius) || DEFAULT_BOUNDS.outerRadius, 0.7, 1.5),
   };
-  const transform = createSpiralTransform({
+  const baseTransform = createSpiralTransform({
     firstTranslation: tiling.getT1(),
     secondTranslation: tiling.getT2(),
     spiralA,
@@ -166,6 +224,17 @@ export function buildSpiralTessellation({
     logOffset,
     angleOffset,
   });
+  const loopAmount = Number.isFinite(Number(loopPhase)) ? Number(loopPhase) : 0;
+  const transform = Math.abs(loopAmount) < EPSILON
+    ? baseTransform
+    : createSpiralTransform({
+      firstTranslation: tiling.getT1(),
+      secondTranslation: tiling.getT2(),
+      spiralA,
+      spiralB,
+      logOffset: Number(logOffset) + baseTransform.loop.logOffset * loopAmount,
+      angleOffset: Number(angleOffset) + baseTransform.loop.angleOffset * loopAmount,
+    });
   const logInner = Math.log(bounds.innerRadius);
   const logOuter = Math.log(bounds.outerRadius);
   const margin = Math.min(1.4, Math.max(0.35, transform.scale * 0.8));
@@ -178,10 +247,10 @@ export function buildSpiralTessellation({
   const naturalBounds = pointsBounds(domainCorners);
   const instances = [];
   for (const instance of tiling.fillRegionBounds(
-    naturalBounds.minX - 2,
-    naturalBounds.minY - 2,
-    naturalBounds.maxX + 2,
-    naturalBounds.maxY + 2,
+    naturalBounds.minX - 3,
+    naturalBounds.minY - 3,
+    naturalBounds.maxX + 3,
+    naturalBounds.maxY + 3,
   )) {
     instances.push(instance);
     if (instances.length >= Math.max(50, Math.trunc(maxTiles))) break;
@@ -228,7 +297,7 @@ export function buildSpiralTessellation({
         if (!edgeMap.has(key)) {
           edgeMap.set(key, {
             key,
-            periodicKey: key,
+            periodicKey: `${instance.t1}:${instance.t2}:${instance.aspect}:${edgeIndex}`,
             points,
             bounds: edgeBounds,
             aspect: instance.aspect,

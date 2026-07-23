@@ -8,7 +8,7 @@ import {
   recorderExtension,
   recursionParameters,
 } from "./src/micmic.js";
-import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260723-crossfade";
+import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260723-angle-lifecycle";
 
 const $ = (id) => document.getElementById(id);
 const GENERATION_COLORS = ["#fff3d6", "#55d9ff", "#5fe8c4", "#7db4ff", "#c79bff", "#ff826f", "#e8c46b"];
