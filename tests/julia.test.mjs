@@ -11,6 +11,7 @@ import {
   extractMarchingSquaresContours,
   generateJuliaBoundary,
   generateJuliaField,
+  juliaContourVerticalAddress,
   juliaVerticalAddressOctaves,
   sampleBoundary,
   selectLongestClosedContour,
@@ -136,6 +137,19 @@ test("the default field is centrally symmetric and its vertical harmony is compl
   assert.equal(juliaVerticalAddressOctaves(-1), 3 / 12);
   assert.equal(juliaVerticalAddressOctaves(0), 5 / 12);
   assert.equal(juliaVerticalAddressOctaves(1), 7 / 12);
+  assert.equal(juliaContourVerticalAddress(0, 101), -1);
+  assert.equal(juliaContourVerticalAddress(50, 101), 0);
+  assert.equal(juliaContourVerticalAddress(100, 101), 1);
+  assert.equal(
+    juliaVerticalAddressOctaves(juliaContourVerticalAddress(0, 101)),
+    3 / 12,
+    "the bottom contour coordinate should map to a minor third",
+  );
+  assert.equal(
+    juliaVerticalAddressOctaves(juliaContourVerticalAddress(100, 101)),
+    7 / 12,
+    "the top contour coordinate should map to a perfect fifth",
+  );
   for (const y of [-1, -0.3, 0, 0.45, 1]) {
     assert.ok(Math.abs(
       juliaVerticalAddressOctaves(y) + juliaVerticalAddressOctaves(-y) - 10 / 12,

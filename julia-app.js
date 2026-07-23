@@ -9,6 +9,7 @@ import {
   TAU,
   cumulativeTurnOctaves,
   generateJuliaBoundary,
+  juliaContourVerticalAddress,
   juliaVerticalAddressOctaves,
   sampleBoundary,
 } from "./src/julia.js";
@@ -913,7 +914,7 @@ function boundaryVerticalAddress(continuousPosition) {
       continuousPosition + radius * index / 4,
     );
     if (!sample) continue;
-    sum += sample.y / Math.max(1, generated.field.height - 1) * 2 - 1;
+    sum += juliaContourVerticalAddress(sample.y, generated.field.height);
     count += 1;
   }
   return clamp(count ? sum / count : 0, -1, 1);
