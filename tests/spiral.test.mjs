@@ -145,6 +145,10 @@ test("Spiral page exposes intrinsic time paths and tactile winding controls", as
   assert.match(app, /contactsForSpiralReader/);
   assert.match(app, /phaseForSpiralPoint/);
   assert.match(app, /scaleRateForSpiralRadius/);
+  assert.match(
+    app,
+    /setLoopPlaying\(true\);\s+if \(!state\.audio\) void enableAudio\(\);/,
+  );
 
   const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]));
   const referenced = new Set([...app.matchAll(/\$\("([^"]+)"\)/g)].map((match) => match[1]));

@@ -1,5 +1,7 @@
 export const MAX_RECURSION_FEEDBACK = 0.86;
-export const MAX_GENERATION_STAGES = 8;
+export const MAX_GENERATION_STAGES = 12;
+export const MAX_GENERATION_VOICES = 48;
+export const MAX_BRANCHES_PER_GENERATION = 9;
 export const GENERATION_RULE_PRESETS = Object.freeze({
   clean: Object.freeze({ label: "Clean echo · 1:1", timeRatio: 1, angle: 0, asymmetry: 0, pitchScale: 1 }),
   binary: Object.freeze({ label: "Half-time fork", timeRatio: 0.5, angle: 30, asymmetry: 0, pitchScale: 1 }),
@@ -65,6 +67,10 @@ export function estimateGenerations(feedback, silenceFloor = 0.04) {
   return Math.min(32, Math.max(1, Math.ceil(Math.log(floor) / Math.log(gain))));
 }
 
+export function generationCountForDepth(feedback, silenceFloor = 0.04) {
+  return Math.min(MAX_GENERATION_STAGES, estimateGenerations(feedback, silenceFloor));
+}
+
 export function recursionParameters(values = {}) {
   const interval = clamp(values.interval ?? 240, 0.2, 2_400);
   const depth = clamp(values.depth ?? 0.72, 0, MAX_RECURSION_FEEDBACK);
@@ -89,11 +95,108 @@ export function recursionParameters(values = {}) {
     panA: -spread,
     panB: spread,
     wetNormalization: 0.36 + 0.64 * Math.sqrt(Math.max(0.08, 1 - depth * depth)),
-    generations: estimateGenerations(depth),
+    generations: generationCountForDepth(depth),
   };
 }
 
-/** Build an inherited binary rewrite: interval tapers, branch turns map to pitch. */
+function hashUnit(value) {
+  const text = String(value);
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 0xffffffff;
+}
+
+function evenlyBounded(candidates, maximum) {
+  if (candidates.length <= maximum) return candidates;
+  return Array.from({ length: maximum }, (_, index) => (
+    candidates[Math.floor(index * candidates.length / maximum)]
+  ));
+}
+
+/**
+ * Build the bounded L-system used by both the rewrite drawing and the audio.
+ * Generation zero is a fixed seed trunk.  Child Time Ratio starts at
+ * generation one, so it can never resize or remove that trunk.
+ */
+export function generationTopology({
+  generations = 8,
+  branching = 0.84,
+  timeRatio = 0.5,
+  angle = 30,
+  asymmetry = 0,
+  maximumPerGeneration = MAX_BRANCHES_PER_GENERATION,
+} = {}) {
+  const count = Math.max(1, Math.min(MAX_GENERATION_STAGES, Math.round(Number(generations) || 1)));
+  const branchAmount = clamp(branching);
+  const taper = clamp(timeRatio, 0.2, 1);
+  const turn = clamp(angle, 0, 180);
+  const skew = clamp(asymmetry, -0.8, 0.8);
+  const turnA = -turn * (1 - skew);
+  const turnB = turn * (1 + skew);
+  const maximum = Math.max(1, Math.min(
+    MAX_BRANCHES_PER_GENERATION,
+    Math.round(Number(maximumPerGeneration) || MAX_BRANCHES_PER_GENERATION),
+  ));
+  const trunk = {
+    id: "trunk",
+    parentId: null,
+    generation: 0,
+    index: 0,
+    rule: "T",
+    turnDegrees: 0,
+    headingDegrees: 0,
+    length: 1,
+    startX: 0,
+    startY: 0,
+    x: 1,
+    y: 0,
+  };
+  const nodes = [trunk];
+  let frontier = [trunk];
+
+  for (let generation = 1; generation <= count; generation += 1) {
+    const forkCount = Math.round(frontier.length * branchAmount);
+    const forkedIds = new Set(
+      [...frontier]
+        .sort((left, right) => hashUnit(`${generation}:${left.id}`) - hashUnit(`${generation}:${right.id}`))
+        .slice(0, forkCount)
+        .map((node) => node.id),
+    );
+    const candidates = [];
+    for (const parent of frontier) {
+      const rules = forkedIds.has(parent.id)
+        ? [{ name: "A", turn: turnA }, { name: "B", turn: turnB }]
+        : [{ name: "C", turn: 0 }];
+      for (const rule of rules) {
+        const headingDegrees = parent.headingDegrees + rule.turn;
+        const heading = headingDegrees * Math.PI / 180;
+        const length = taper ** generation;
+        candidates.push({
+          id: `${parent.id}/${rule.name}`,
+          parentId: parent.id,
+          generation,
+          index: candidates.length,
+          rule: rule.name,
+          turnDegrees: rule.turn,
+          headingDegrees,
+          length,
+          startX: parent.x,
+          startY: parent.y,
+          x: parent.x + Math.cos(heading) * length,
+          y: parent.y + Math.sin(heading) * length,
+        });
+      }
+    }
+    frontier = evenlyBounded(candidates, maximum).map((node, index) => ({ ...node, index }));
+    nodes.push(...frontier);
+  }
+  return nodes;
+}
+
+/** Build inherited audio voices from the exact same L-system as the preview. */
 export function generationVoiceSpecs({
   generations = 8,
   interval = 240,
@@ -106,47 +209,55 @@ export function generationVoiceSpecs({
   asymmetry = 0,
   pitchScale = 1,
 } = {}) {
-  const count = Math.max(1, Math.min(MAX_GENERATION_STAGES, Math.round(Number(generations) || 1)));
-  const taper = clamp(timeRatio, 0.2, 1);
-  const turn = clamp(angle, 0, 180);
-  const skew = clamp(asymmetry, -0.8, 0.8);
   const octaveScale = clamp(pitchScale, 0, 4);
-  const turnA = -turn * (1 - skew);
-  const turnB = turn * (1 + skew);
-  const layout = echoTreeLayout(count, branching, 8).filter((node) => node.generation > 0);
+  const layout = generationTopology({
+    generations,
+    branching,
+    timeRatio,
+    angle,
+    asymmetry,
+  });
   const perGeneration = new Map();
-  for (const node of layout) {
+  for (const node of layout.slice(1)) {
     const group = perGeneration.get(node.generation) ?? [];
     group.push(node);
     perGeneration.set(node.generation, group);
   }
-  const lineage = new Map([["0:0", { delay: 0, interval: clamp(interval, 0.2, 2_400) / 1000, semitones: 0 }]]);
+  const baseInterval = clamp(interval, 0.2, 2_400) / 1000;
+  const lineage = new Map([["trunk", { delay: 0, interval: baseInterval, semitones: 0 }]]);
   const voices = [];
+  const count = Math.max(...layout.map((node) => node.generation));
+  const maximumY = Math.max(0.001, ...layout.map((node) => Math.abs(node.y)));
   for (let generation = 1; generation <= count; generation += 1) {
     const nodes = perGeneration.get(generation) ?? [];
     const generationGain = 0.5 * Math.pow(clamp(depth, 0, MAX_RECURSION_FEEDBACK), generation * 0.72);
     for (const node of nodes) {
-      const parent = lineage.get(node.parentId) ?? lineage.get("0:0");
-      const hasFork = nodes.length > 1 && clamp(branching) > 0;
-      const branchTurn = !hasFork ? 0 : (node.rule === "B" ? turnB : turnA);
-      const nextInterval = parent.interval * taper;
+      const parent = lineage.get(node.parentId) ?? lineage.get("trunk");
+      const branchTurn = node.turnDegrees;
+      const nextInterval = baseInterval * node.length;
       const cumulativeDelay = parent.delay + nextInterval;
       const cumulativeSemitones = parent.semitones + branchTurn / 180 * 12 * octaveScale;
       lineage.set(node.id, { delay: cumulativeDelay, interval: nextInterval, semitones: cumulativeSemitones });
       voices.push({
-        key: `generation:${generation}:${node.index}`,
+        key: `generation:${node.id}`,
         generation,
         rule: node.rule,
+        parentId: node.parentId,
         turnDegrees: branchTurn,
         interval: nextInterval,
         delay: cumulativeDelay,
         rate: clamp(2 ** (cumulativeSemitones / 12), 0.125, 8),
         gain: generationGain / Math.sqrt(Math.max(1, nodes.length)),
-        pan: clamp(node.y * 2 * clamp(spread), -1, 1),
+        pan: clamp(node.y / maximumY * clamp(spread), -1, 1),
       });
     }
   }
-  return voices;
+  if (voices.length <= MAX_GENERATION_VOICES) return voices;
+  const groups = Array.from({ length: count }, (_, index) => (
+    voices.filter((voice) => voice.generation === index + 1)
+  ));
+  const quota = Math.max(1, Math.ceil(MAX_GENERATION_VOICES / groups.length));
+  return groups.flatMap((group) => evenlyBounded(group, quota)).slice(0, MAX_GENERATION_VOICES);
 }
 
 export function echoTreeLayout(

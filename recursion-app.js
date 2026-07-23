@@ -17,79 +17,79 @@ const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)"
 const STUDY_UI = Object.freeze({
   "ouroboros-tape": Object.freeze({
     title: "Ouroboros Tape",
-    premise: "Each pass feeds its transformed tail into the mouth of the next.",
+    premise: "The loop becomes a twisted orbit: its tail breeds new slices, rates, accents, and phrase entrances.",
     readout: "TIME-DOMAIN AUTOPHAGY",
-    cue: "Track one scrape as reversal, filtering, folding, and tail-to-head splicing slowly erase its ancestry.",
-    summary: "buffer eats buffer",
-    topology: "serial output-as-next-input chain",
-    analysis: "amplitude, direction, zero crossings, stereo lineage",
-    rewrite: "reverse · swap · low-pass · tail-to-head fold",
-    wildness: "wavefold · ring pressure · accumulated ancestors",
+    cue: "Track the loop splitting into orbiting fragments: every pitch bend changes the rhythm that selects the next piece of its tail.",
+    summary: "four clocks eat one another",
+    topology: "nested torus · output-as-input · Klein seam",
+    analysis: "phrase position · rate orbit · spectral region · stereo handedness",
+    rewrite: "tail slice · reverse · swap · rate bend · recursive pulse genome",
+    wildness: "8–96 grains · cross-clock feedback · accumulated counter-phrases",
     depthLabel: "Generation depth",
     processKind: "BUFFER",
   }),
   "spectral-mobius": Object.freeze({
     title: "Spectral Möbius Furnace",
-    premise: "A spectrum folds through itself, twists once, and becomes the next sheet.",
+    premise: "A spectral sheet folds while its moving seam rewrites pitch, pulse spacing, phrase order, and handedness.",
     readout: "STFT FOLD / PHASE SEAM",
-    cue: "Hear upper-band noise cross the fold seam, reappear inverted below it, and compound into a dense spectral scar.",
+    cue: "Hear moving bands jump through multiple rates and rhythmic scales; every odd lap returns reversed, channel-swapped, and inside-out.",
     summary: "STFT folds into its underside",
     topology: "serial frequency-axis recurrence",
     analysis: "1024-point Hann STFT · 75% overlap",
     rewrite: "tent-map bin fold · branch phase inversion · iSTFT",
-    wildness: "phase twist · spectral erosion · ancestor sheets",
+    wildness: "moving seam · continuous rate bends · 96-grain ancestor sheets",
     depthLabel: "Spectral generations",
     processKind: "SPECTRUM",
   }),
   "filter-hydra": Object.freeze({
     title: "Filter-Bank Hydra",
-    premise: "One broadband body splits into two children; every child grows two more heads.",
+    premise: "Every spectral child grows its own pulse genome, rate curve, delay pattern, and stereo orbit.",
     readout: "BINARY FILTER TREE",
-    cue: "Follow noise becoming 2, 4, 8, then 16 inherited bodies, each moving in time without adding a note.",
+    cue: "Follow one body bursting into independent filter-rhythm creatures that interrupt and re-seed one another across the whole phrase.",
     summary: "bands grow bands",
     topology: "breadth-first complementary filter tree",
     analysis: "inherited logarithmic low / high regions",
     rewrite: "each parent appends one low-pass or high-pass child",
-    wildness: "crossover overlap · resonance · 128 normalized heads",
+    wildness: "cross-rhythmic heads · moving resonance · hyperactive bounded ancestry",
     depthLabel: "Tree depth",
     processKind: "FILTER TREE",
   }),
   "cantor-delay": Object.freeze({
     title: "Cantor Delay Weather",
-    premise: "Each surviving gap breeds two smaller filtered descendants.",
+    premise: "Every gap breeds a different clock; pitch motion changes delay ratios and delay motion jumps to new phrase regions.",
     readout: "FINITE DELAY MYCELIUM",
-    cue: "Hear one burst become 2, 4, 8, then 16 weather fronts; large gaps remain while micro-delays fuse into pressure.",
+    cue: "Hear nested polytempos tear holes through the phrase, then fill those holes with filtered, reversed micro-weather.",
     summary: "echoes inside echoes",
     topology: "finite binary temporal tree",
     analysis: "explicit parent delay and Cantor coordinate",
     rewrite: "two feed-forward children at contracted intervals",
-    wildness: "up to 256 simultaneous nodes · no infinite feedback",
+    wildness: "polytempo dust · 96 moving grains · finite feed-forward storms",
     depthLabel: "Delay-tree depth",
     processKind: "DELAY FIELD",
   }),
   "convolution-maw": Object.freeze({
     title: "Self-Convolution Maw",
-    premise: "The sound becomes the room that the same sound must cross.",
+    premise: "The sound becomes its own room, then the room erupts into a recursively re-ordered trigger constellation.",
     readout: "SELF-CONVOLUTION / FIXED WINDOW",
-    cue: "Hear the seed strike itself: each pass squares its temporal relationships and swallows the next attack.",
+    cue: "Hear dense convolved matter repeatedly fracture into pitched swarms, rotating rhythms, and inside-out phrase attacks.",
     summary: "sound becomes its own room",
     topology: "serial self-convolution",
     analysis: "bounded sparse impulse extraction",
     rewrite: "parent × parent · circular fold · fixed-length crop",
-    wildness: "cross-channel kernel · saturation · ancestral tails",
+    wildness: "kernel swarms · rate spirals · rotating ancestral tails",
     depthLabel: "Convolution order",
     processKind: "CONVOLUTION",
   }),
   "phase-labyrinth": Object.freeze({
     title: "Phase Labyrinth",
-    premise: "Magnitude stays almost still while phase takes a deeper route through itself.",
-    readout: "NESTED ALLPASS / EXACT UNWIND",
-    cue: "Track the same hiss as its spectral silhouette remains while attacks smear, hollow out, become fog, then retrace the route home.",
-    summary: "enter phase · return by inverse order",
-    topology: "nested allpass call stack",
+    premise: "Phase chambers are struck by a recursive pulse field whose rhythm, pitch, filter, and phrase direction keep changing.",
+    readout: "NESTED ALLPASS / TWISTED RETURN",
+    cue: "Track attacks ricocheting through changing allpass routes while the source reverses, bends, swaps sides, and re-enters elsewhere.",
+    summary: "enter phase · return through shorter routes",
+    topology: "nested allpass call stack · twisted return",
     analysis: "group delay and inherited phase path",
     rewrite: "append one allpass chamber per inward call",
-    wildness: "phase diffusion · polarity turns · layered chambers",
+    wildness: "phase ricochet · polarity turns · layered clock collisions",
     depthLabel: "Labyrinth depth",
     processKind: "PHASE PATH",
   }),
@@ -242,7 +242,7 @@ function paintStudyControls() {
   $("studySelect").value = state.studyId;
   $("listenCue").textContent = ui.cue;
   $("howSummary").textContent = ui.summary;
-  $("howSequence").textContent = study.copy.sequence;
+  $("howSequence").textContent = `${study.copy.sequence} Inside every generation, phrase bends timbre, timbre bends pitch, pitch fractures rhythm, and rhythm chooses the next phrase region.`;
   $("recursionMethod").textContent = ui.topology;
   $("analysisMethod").textContent = ui.analysis;
   $("parameterMethod").textContent = ui.rewrite;
@@ -379,9 +379,22 @@ function lineageMoments(moment) {
 function scheduleSemanticMoment(moment, when) {
   const lineage = lineageMoments(moment);
   const powerScale = 1 / Math.sqrt(Math.max(1, lineage.length));
-  for (const candidate of lineage) {
+  for (let index = 0; index < lineage.length; index += 1) {
+    const candidate = lineage[index];
     const activeScale = candidate === moment ? 1 : 0.7;
-    audio.scheduleMoment(state.studyId, candidate, when, powerScale * activeScale);
+    const age = Math.max(0, moment.depth - candidate.depth);
+    audio.scheduleMoment(
+      state.studyId,
+      candidate,
+      when,
+      powerScale * activeScale,
+      {
+        pulseLimit: candidate === moment ? 96 : 20,
+        phaseOffset: candidate === moment
+          ? 0
+          : (age * 0.173 + index * 0.071) * candidate.duration,
+      },
+    );
   }
 }
 
@@ -517,7 +530,11 @@ function loadDescription(moment) {
 function paintReadout(moment) {
   const depth = Math.max(0, moment?.depth ?? 0);
   const direction = moment?.kind === "unwind" ? "UNWIND" : `G${depth}`;
-  $("stageReadout").textContent = `${currentUi().readout} · ${direction} · ${state.playing ? loadDescription(moment).toUpperCase() : "AUDIO OFF"}`;
+  const motion = moment?.motion;
+  const motionReadout = motion
+    ? `${motion.pulses.length} PULSES · KLEIN ${motion.seam.orientation < 0 ? "INSIDE-OUT" : "OUTSIDE-IN"}`
+    : "4 COUPLED CLOCKS";
+  $("stageReadout").textContent = `${currentUi().readout} · ${direction} · ${motionReadout} · ${state.playing ? loadDescription(moment).toUpperCase() : "AUDIO OFF"}`;
 }
 
 function paintTimeline(elapsed, moment) {
@@ -966,7 +983,86 @@ function drawPhaseLabyrinth(moment, progress) {
     drawing.restore();
     drawLabel(`${stage}`, x, centerY + radius + 13, active ? (returning ? colors.brass : colors.violet) : colors.muted);
   }
-  drawLabel(returning ? "INVERSE ORDER" : `${depth} PHASE CHAMBERS`, bounds.right, bounds.top - 12, colors.muted, "right");
+  drawLabel(returning ? "SHORTER RETURN ROUTE" : `${depth} PHASE CHAMBERS`, bounds.right, bounds.top - 12, colors.muted, "right");
+}
+
+function drawMotionTopology(moment, progress) {
+  const motion = moment?.motion;
+  if (!motion?.pulses?.length) return;
+  const colors = palette();
+  const dimensions = [
+    ["timbre", "TMB", colors.teal],
+    ["pitch", "PCH", colors.violet],
+    ["rhythm", "RHY", colors.brass],
+    ["phrase", "PHR", colors.hot],
+  ];
+  const left = Math.max(28, cssWidth * 0.11);
+  const right = cssWidth - Math.max(28, cssWidth * 0.08);
+  const width = right - left;
+  const centerY = cssHeight * 0.84;
+  const orientation = motion.seam.orientation;
+
+  drawing.save();
+  drawing.strokeStyle = orientation < 0 ? "rgba(255, 130, 111, 0.34)" : "rgba(112, 234, 216, 0.3)";
+  drawing.lineWidth = 0.8;
+  drawing.beginPath();
+  for (let index = 0; index <= 80; index += 1) {
+    const position = index / 80;
+    const x = left + position * width;
+    const twist = Math.sin((position * 2 + progress) * TAU) * 7 * orientation;
+    const y = centerY + twist;
+    if (!index) drawing.moveTo(x, y);
+    else drawing.lineTo(x, y);
+  }
+  drawing.stroke();
+
+  const duration = Math.max(0.08, moment.duration);
+  for (const pulse of motion.pulses) {
+    const position = clamp(pulse.offset / duration, 0, 1);
+    const distance = Math.abs(position - progress);
+    const wrappedDistance = Math.min(distance, 1 - distance);
+    if (wrappedDistance > 0.075) continue;
+    const x = left + position * width;
+    const y = centerY + Math.sin((position * 2 + progress) * TAU) * 7 * orientation;
+    drawing.fillStyle = pulse.polarity < 0 ? colors.hot : colors.white;
+    const radius = wrappedDistance < 0.02 ? 2.4 : 1.2;
+    drawing.beginPath();
+    drawing.arc(x, y, radius, 0, TAU);
+    drawing.fill();
+  }
+
+  for (let index = 0; index < dimensions.length; index += 1) {
+    const [name, label, color] = dimensions[index];
+    const definition = motion.clocks[name];
+    const phase = definition.phase
+      + definition.direction * definition.cycles * progress;
+    const wrapped = phase - Math.floor(phase);
+    const x = left + (index + 0.5) / dimensions.length * width;
+    const radius = 10;
+    drawing.strokeStyle = color;
+    drawing.lineWidth = 0.9;
+    drawing.beginPath();
+    drawing.arc(x, centerY, radius, 0, TAU);
+    drawing.stroke();
+    drawing.beginPath();
+    drawing.moveTo(x, centerY);
+    drawing.lineTo(
+      x + Math.cos(wrapped * TAU) * radius,
+      centerY + Math.sin(wrapped * TAU) * radius,
+    );
+    drawing.stroke();
+    drawLabel(label, x, centerY + 19, color, "center", 7);
+  }
+  drawing.restore();
+
+  drawLabel(
+    `${motion.pulses.length} GRAINS · ${motion.seam.crossings} SEAM CROSSINGS`,
+    right,
+    centerY + 20,
+    colors.muted,
+    "right",
+    7,
+  );
 }
 
 function drawStage(moment, progress) {
@@ -977,6 +1073,7 @@ function drawStage(moment, progress) {
   else if (state.studyId === "cantor-delay") drawCantorDelay(moment, progress);
   else if (state.studyId === "convolution-maw") drawConvolutionMaw(moment, progress);
   else drawPhaseLabyrinth(moment, progress);
+  drawMotionTopology(moment, progress);
 }
 
 $("studyButtons").addEventListener("click", (event) => {
@@ -1042,8 +1139,9 @@ $("accumulateButton").addEventListener("click", () => {
 $("overwhelmButton").addEventListener("click", () => {
   const study = currentStudy();
   currentSettings().depth = study.parameters.depth.max;
-  currentSettings().intensity = Math.min(study.parameters.intensity.max, 0.93);
-  currentSettings().pace = Math.max(study.parameters.pace.min, study.defaults.pace * 0.72);
+  currentSettings().transform = study.parameters.transform.max;
+  currentSettings().intensity = study.parameters.intensity.max;
+  currentSettings().pace = study.parameters.pace.min;
   state.accumulate = true;
   paintStudyControls();
   updatePlan();

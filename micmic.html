@@ -28,6 +28,7 @@
         <a class="tab" href="julia.html">julia</a>
         <a class="tab" href="lumber.html">lumber</a>
         <a class="tab micmic-tab active" href="micmic.html" aria-current="page">mic(mic)</a>
+        <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
@@ -42,6 +43,7 @@
           <option value="julia.html">julia</option>
           <option value="lumber.html">lumber</option>
           <option value="micmic.html" selected>mic(mic)</option>
+          <option value="throatazoid.html">throatazoid</option>
         </select>
       </label>
 
@@ -155,10 +157,10 @@
               <input id="interval" type="range" min="0.2" max="2400" step="0.1" value="240" />
             </label>
             <div class="field-label">Generation rewrite</div>
-            <label class="select-control" for="generationPreset"><span class="field-label">L-system relationship</span><span class="select-shell"><select id="generationPreset"><option value="clean" selected>Clean echo · 1:1</option><option value="binary">Half-time fork</option><option value="pythagorean">Pythagorean tree</option><option value="plant">Branching plant</option><option value="coral">Coral</option><option value="dragon">Dragon curve</option><option value="koch">Koch fork</option><option value="custom" hidden>Custom</option></select></span></label>
+            <label class="select-control" for="generationPreset"><span class="field-label">L-system relationship</span><span class="select-shell"><select id="generationPreset"><option value="clean">Clean echo · 1:1</option><option value="binary">Half-time fork</option><option value="pythagorean">Pythagorean tree</option><option value="plant" selected>Branching plant</option><option value="coral">Coral</option><option value="dragon">Dragon curve</option><option value="koch">Koch fork</option><option value="custom" hidden>Custom</option></select></span></label>
             <div class="generation-shape-preview">
               <span><b>Rewrite shape</b><small id="generationShapeSummary">10-generation preview</small></span>
-              <svg id="generationShapePreview" viewBox="0 0 120 76" role="img" aria-label="Live left-to-right L-system shape preview">
+              <svg id="generationShapePreview" viewBox="0 0 190 96" role="img" aria-label="Live left-to-right L-system shape preview">
                 <defs>
                   <linearGradient id="generationShapeGradient" x1="0" y1="1" x2="1" y2="0">
                     <stop offset="0" stop-color="#55d9ff" />
@@ -166,17 +168,19 @@
                     <stop offset="1" stop-color="#ff826f" />
                   </linearGradient>
                 </defs>
-                <path id="generationShapePath" d="M60 70L60 6" />
-                <circle id="generationShapeRoot" cx="60" cy="70" r="2.2" />
+                <path id="generationShapeTrunk" d="M8 48L22 48" />
+                <path id="generationShapePath" d="" />
+                <path id="generationShapeAudiblePath" d="" />
+                <circle id="generationShapeRoot" cx="8" cy="48" r="2.2" />
               </svg>
             </div>
-            <label class="control" for="timeRatio"><span><b>Child time ratio</b><output id="timeRatioOut" for="timeRatio">1.00× per generation</output></span><input id="timeRatio" type="range" min="0.2" max="1" step="0.01" value="1" /></label>
-            <label class="control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">0°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="0" /></label>
-            <label class="control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">even</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
+            <label class="control" for="timeRatio"><span><b>Child time ratio</b><output id="timeRatioOut" for="timeRatio">0.72× per generation</output></span><input id="timeRatio" type="range" min="0.2" max="1" step="0.01" value="0.72" /></label>
+            <label class="control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">22.5°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="22.5" /></label>
+            <label class="control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">18% right wider</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0.18" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
             <label class="control" for="generationPitchScale"><span><b>Angle → pitch</b><output id="generationPitchScaleOut" for="generationPitchScale">1.00 oct / 180°</output></span><input id="generationPitchScale" type="range" min="0" max="4" step="0.05" value="1" /></label>
             <div class="grammar-card generation-rule-card" aria-label="Generation relationship preview">
-              <span><b>Timing levels</b><code id="generationTimingReadout">240 ms → 240 ms → 240 ms → 240 ms</code></span>
-              <span><b>Pitch turns</b><code id="generationPitchReadout">0° → 0 st · 0° → 0 st</code></span>
+              <span><b>Timing levels</b><code id="generationTimingReadout">240 ms → 173 ms → 124 ms → 90 ms</code></span>
+              <span><b>Pitch turns</b><code id="generationPitchReadout">−18.45° → −1.23 st · +26.55° → +1.77 st</code></span>
               <span><b>Branch count</b><code id="generationCountReadout">1 parent → 2 children → 4 grandchildren → 8</code></span>
             </div>
             <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reset generation rule</button>
@@ -243,6 +247,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="micmic-app.js?v=20260723-angle-lifecycle"></script>
+    <script type="module" src="micmic-app.js?v=20260723-fixed-pool"></script>
   </body>
 </html>

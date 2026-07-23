@@ -676,19 +676,19 @@ $("audioButton").addEventListener("click", async () => {
   scheduleFrame();
 });
 
-$("playButton").addEventListener("click", async () => {
+$("playButton").addEventListener("click", () => {
   if (state.playing) setPlaying(false);
   else {
-    if (!state.audio) await enableAudio();
     setPlaying(true);
+    if (!state.audio) void enableAudio();
   }
 });
 
-$("loopPlayButton").addEventListener("click", async () => {
+$("loopPlayButton").addEventListener("click", () => {
   if (state.loopPlaying) setLoopPlaying(false);
   else {
-    if (!state.audio) await enableAudio();
     setLoopPlaying(true);
+    if (!state.audio) void enableAudio();
   }
 });
 

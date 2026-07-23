@@ -47,12 +47,17 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   elements.get("spiralTime").dataset.value = "spiral";
 
   let drawnArcs = 0;
+  const drawnLinePoints = [];
   const drawingContext = {
     beginPath() {},
     clearRect() {},
     closePath() {},
     fill() {},
-    lineTo() {},
+    lineTo(x, y) {
+      if (drawnLinePoints.length < 200) {
+        drawnLinePoints.push([Number(x.toFixed(3)), Number(y.toFixed(3))]);
+      }
+    },
     moveTo() {},
     setTransform() {},
     stroke() {},
@@ -164,13 +169,19 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   now += 20;
   queuedFrame(now);
   assert.equal(elements.get("windingSummary").textContent, "A2 · B5");
+  const geometryBeforeLoop = drawnLinePoints.slice();
+  drawnLinePoints.length = 0;
 
   elements.get("position").value = "0.45";
   listeners.get("position:input")();
   elements.get("loopPhase").value = "0.25";
   listeners.get("loopPhase:input")();
+  now += 20;
+  queuedFrame(now);
+  assert.notDeepEqual(drawnLinePoints, geometryBeforeLoop);
   await listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
   assert.equal(oscillators.length, 16);
   now += 60;

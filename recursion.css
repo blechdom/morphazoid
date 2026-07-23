@@ -572,6 +572,27 @@
   font-variant-numeric: tabular-nums;
 }
 
+.recursion-clock-loop {
+  display: grid;
+  margin: -8px 0 16px;
+  color: var(--faint);
+  grid-template-columns: repeat(4, auto 1fr) auto;
+  align-items: center;
+  font-size: 7px;
+  letter-spacing: 0.07em;
+}
+
+.recursion-clock-loop span {
+  color: var(--muted);
+}
+
+.recursion-clock-loop i {
+  overflow: hidden;
+  color: var(--accent-soft);
+  font-style: normal;
+  text-align: center;
+}
+
 .recursion-pressure-control {
   margin-top: 3px;
   padding: 11px 10px 4px;

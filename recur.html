@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Recur — a recursion tracer that sonifies a recursive process descending, hitting its base case, and unwinding." />
+    <title>Recur — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="recur-page">
+    <header class="masthead">
+      <a class="wordmark" href="#recur" aria-label="Morphazoid Recur">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab recursion-tab" href="recursion.html">recursion</a>
+        <a class="tab active" href="recur.html" aria-current="page">recur</a>
+        <a class="tab" href="julia.html">julia</a>
+        <a class="tab" href="lumber.html">lumber</a>
+        <a class="tab micmic-tab" href="micmic.html">mic(mic)</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
+          <option value="recur.html" selected>recur</option>
+          <option value="julia.html">julia</option>
+          <option value="lumber.html">lumber</option>
+          <option value="micmic.html">mic(mic)</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Volume</b><output id="levelOut" for="level">65%</output></span>
+          <input id="level" type="range" min="0" max="1" step="0.01" value="0.65" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="recur">
+      <section class="stage" aria-label="Recur stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" aria-label="A live call stack: frames descend, a base case rings, and the stack unwinds in reverse.">
+            A live diagram of a recursive call stack winding down and unwinding.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true"><span id="stageReadout">FACTORIAL(5) · READY · AUDIO OFF</span></div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Recur controls">
+        <details class="group control-section" data-section="play">
+          <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">paused</span></summary>
+          <div class="group-body">
+            <div class="position-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play the recursion">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="position">
+                <span><b>Position</b><output id="positionOut" for="position">0%</output></span>
+                <input id="position" type="range" min="0" max="1" step="0.001" value="0" />
+              </label>
+            </div>
+            <div class="button-row">
+              <button class="mini-action" id="stepButton" type="button">Step ▸</button>
+              <button class="mini-action" id="restartButton" type="button">Restart ⟲</button>
+            </div>
+            <p class="readout-line"><b id="processLabel">factorial(5)</b> <output id="momentReadout" for="position">ready</output></p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="program">
+          <summary class="group-summary"><h2 class="group-title">Program</h2><span class="section-state" id="programSummary">factorial</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="program"><span class="field-label">Recursive process</span><span class="select-shell"><select id="program">
+              <option value="factorial" selected>Factorial n! · linear stack</option>
+              <option value="countdown">Countdown · linear stack</option>
+              <option value="sum">Sum 1..n · linear stack</option>
+              <option value="hanoi">Towers of Hanoi · ruler rhythm</option>
+              <option value="fibonacci">Fibonacci (naive) · recompute tree</option>
+            </select></span></label>
+            <label class="control" for="n"><span><b>Argument n</b><output id="nOut" for="n">5</output></span><input id="n" type="range" min="1" max="24" step="1" value="5" /></label>
+            <button class="mini-action" id="memoize" type="button" aria-pressed="false" hidden>Memoize · off</button>
+            <p class="readout-line"><output id="programBlurb" for="program">One call per level down, a single base case, cadences resolve in reverse.</output></p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="timescale">
+          <summary class="group-summary"><h2 class="group-title">Time-scale</h2><span class="section-state" id="timeScaleSummary">1.1 steps/s</span></summary>
+          <div class="group-body">
+            <label class="control" for="timeScale"><span><b>Speed</b><output id="timeScaleOut" for="timeScale">1.1 steps/s</output></span><input id="timeScale" type="range" min="0" max="1" step="0.001" value="0.18" /></label>
+            <p class="readout-line">Slow: count each recursive step. Fast: the steps fuse into a pitched tone whose pitch is the recursion rate.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="voicing">
+          <summary class="group-summary"><h2 class="group-title">Voicing</h2><span class="section-state" id="voicingSummary">shepard · resolve</span></summary>
+          <div class="group-body">
+            <button class="mini-action" id="shepardToggle" type="button" aria-pressed="true">Shepard descent · on</button>
+            <label class="select-control" for="synthMode"><span class="field-label">Stack voice</span><span class="select-shell"><select id="synthMode">
+              <option value="shepard" selected>Shepard · endless descent</option>
+              <option value="sine">Sine · plain register</option>
+              <option value="fm">FM · brighter with depth</option>
+            </select></span></label>
+            <label class="select-control" for="returnVoicing"><span class="field-label">Returns</span><span class="select-shell"><select id="returnVoicing">
+              <option value="resolve" selected>Resolve · discrete cadence</option>
+              <option value="feedback">Feedback · audio eats itself</option>
+            </select></span></label>
+            <label class="control" for="feedback"><span><b>Feedback</b><output id="feedbackOut" for="feedback">0.55</output></span><input id="feedback" type="range" min="0" max="0.86" step="0.01" value="0.55" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="mapping">
+          <summary class="group-summary"><h2 class="group-title">Mapping</h2><span class="section-state" id="mappingSummary">depth → pitch</span></summary>
+          <div class="group-body">
+            <label class="control" for="baseFrequency"><span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" /></label>
+            <label class="control" for="rangeOctaves"><span><b>Depth range</b><output id="rangeOctavesOut" for="rangeOctaves">3.00 oct</output></span><input id="rangeOctaves" type="range" min="0" max="6" step="0.05" value="3" /></label>
+            <label class="control" for="panSpread"><span><b>Branch spread</b><output id="panSpreadOut" for="panSpread">70%</output></span><input id="panSpread" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="output">
+          <summary class="group-summary"><h2 class="group-title">Output</h2><span class="section-state" id="outputSummary">bounded</span></summary>
+          <div class="group-body">
+            <p class="readout-line">Held stack frames are Shepard-tinted bars; a base case flashes; returns collapse the stack in reverse. Feedback voicing stays below a safety ceiling and the mix is compressor-protected.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="recur-app.js"></script>
+  </body>
+</html>

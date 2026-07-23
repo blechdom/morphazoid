@@ -102,8 +102,8 @@ test("all default plans are deterministic, bounded, and structurally valid", () 
     );
     assert.ok(first.duration <= study.limits.maxDuration);
     assert.ok(
-      first.duration >= 35 && first.duration <= 55,
-      `${study.id} default cycle should unfold slowly, received ${first.duration}s`,
+      first.duration >= 22 && first.duration <= 32,
+      `${study.id} default cycle should remain gradual while phrases overlap, received ${first.duration}s`,
     );
     assert.deepEqual(first.params, study.defaults);
 
@@ -161,7 +161,7 @@ test("Ouroboros uses each sequential buffer generation as the next input", () =>
     plan.moments.map((moment) => moment.at),
     Array.from(
       { length: depth + 1 },
-      (_, generation) => Number((generation * pace * 1.22).toFixed(6)),
+      (_, generation) => Number((generation * pace * 0.78).toFixed(6)),
     ),
   );
   for (let generation = 0; generation <= depth; generation += 1) {
@@ -173,9 +173,10 @@ test("Ouroboros uses each sequential buffer generation as the next input", () =>
     assert.ok(event.process.tailFold >= 0 && event.process.tailFold <= 0.94);
     if (generation > 0) {
       assert.ok(event.process.lowpassHz <= plan.moments[generation - 1].events[0].process.lowpassHz);
-      assert.ok(plan.moments[generation].at >= (
+      assert.ok(plan.moments[generation].at < (
         plan.moments[generation - 1].at + plan.moments[generation - 1].duration
       ));
+      assert.ok(plan.moments[generation].at > plan.moments[generation - 1].at);
     }
   }
 });
@@ -192,7 +193,7 @@ test("Spectral Möbius is a serial STFT fold with deterministic alternating phas
   assert.equal(plan.moments.length, depth + 1);
   for (let generation = 0; generation <= depth; generation += 1) {
     const event = plan.moments[generation].events[0];
-    assert.deepEqual(event.analysis, { fftSize: 2048, hopSize: 512, window: "hann" });
+    assert.deepEqual(event.analysis, { fftSize: 1024, hopSize: 256, window: "hann" });
     assert.equal(event.inputGeneration, generation ? generation - 1 : null);
     assert.equal(event.process.mirrorUpperBins, generation > 0);
     assert.equal(event.process.preserveMagnitude, true);
@@ -237,9 +238,10 @@ test("Filter Hydra produces sequential powers-of-two inherited filter generation
       )));
     }
     if (level > 0) {
-      assert.ok(plan.moments[level].at >= (
+      assert.ok(plan.moments[level].at < (
         plan.moments[level - 1].at + plan.moments[level - 1].duration
       ));
+      assert.ok(plan.moments[level].at > plan.moments[level - 1].at);
     }
   }
 });
@@ -313,14 +315,15 @@ test("Convolution Maw serially doubles convolution order while bounding the buff
     assert.equal(event.process.normalize, "unit-rms");
     assert.equal(event.process.wet, generation ? 0.76 : 0);
     if (generation > 0) {
-      assert.ok(plan.moments[generation].at >= (
+      assert.ok(plan.moments[generation].at < (
         plan.moments[generation - 1].at + plan.moments[generation - 1].duration
       ));
+      assert.ok(plan.moments[generation].at > plan.moments[generation - 1].at);
     }
   }
 });
 
-test("Phase Labyrinth nests allpass stages and unwinds exact inverses", () => {
+test("Phase Labyrinth nests allpass stages and returns through shorter routes", () => {
   const depth = 5;
   const pace = 2;
   const plan = buildRecursionPlan("phase-labyrinth", {
@@ -344,7 +347,7 @@ test("Phase Labyrinth nests allpass stages and unwinds exact inverses", () => {
     plan.moments.map((moment) => moment.at),
     Array.from(
       { length: depth * 2 + 1 },
-      (_, index) => Number((index * pace * 1.18).toFixed(6)),
+      (_, index) => Number((index * pace * 0.78).toFixed(6)),
     ),
   );
 
@@ -359,6 +362,6 @@ test("Phase Labyrinth nests allpass stages and unwinds exact inverses", () => {
     const process = moment.events[0].process;
     assert.equal(process.chain.length, process.chainLength);
     assert.ok(process.chain.every((stage) => stage.feedback >= 0 && stage.feedback <= 0.92));
-    assert.equal(process.inverse, moment.kind === "unwind");
+    assert.equal(process.returning, moment.kind === "unwind");
   }
 });

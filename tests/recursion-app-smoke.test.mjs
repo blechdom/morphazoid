@@ -341,7 +341,8 @@ test("recursion app initializes, draws, switches systems, and drives bounded con
 
   listeners.get("overwhelmButton:click")();
   assert.equal(elements.get("depth").value, elements.get("depth").max);
-  assert.match(elements.get("intensityOut").textContent, /^93% · event horizon$/);
+  assert.equal(elements.get("transform").value, elements.get("transform").max);
+  assert.match(elements.get("intensityOut").textContent, /^95% · event horizon$/);
   assert.match(elements.get("liveStatus").textContent, /Maximum finite structure/);
 
   // Bring the graph back to a small, fast phase lineage before exercising audio.
@@ -361,5 +362,24 @@ test("recursion app initializes, draws, switches systems, and drives bounded con
   await listeners.get("stepButton:click")();
   assert.ok(filters.length >= 3, "the first nested chamber should add an allpass filter");
   assert.ok(delays.length >= 1, "the first nested chamber should add a bounded delay");
+  const scheduledRates = bufferSources
+    .map((source) => source.playbackRate.value)
+    .filter((value) => Number.isFinite(value) && value > 0);
+  assert.ok(bufferSources.length >= 24, "nested clock motion should schedule a busy grain field");
+  assert.ok(
+    new Set(scheduledRates.map((value) => value.toFixed(3))).size >= 8,
+    "the pitch clock should produce many continuous playback rates",
+  );
+  assert.ok(
+    Math.max(...scheduledRates) / Math.min(...scheduledRates) >= 1.5,
+    "recursive pitch motion should span substantially more than one static rate",
+  );
+  const movingCutoffs = filters
+    .map((filter) => filter.frequency.value)
+    .filter((value) => Number.isFinite(value) && value > 0);
+  assert.ok(
+    Math.max(...movingCutoffs) / Math.min(...movingCutoffs) >= 4,
+    "the timbre clock should move filters across a broad spectral range",
+  );
   assert.match(elements.get("liveStatus").textContent, /Output power normalized/);
 });

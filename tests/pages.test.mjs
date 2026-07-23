@@ -4,10 +4,11 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("all ten instrument pages share desktop and mobile navigation", async () => {
+test("all eleven instrument pages share desktop and mobile navigation", async () => {
   const files = [
     "index.html", "lattice.html", "spiral.html", "solid.html", "hyper.html",
     "l-system.html", "recursion.html", "julia.html", "lumber.html", "micmic.html",
+    "throatazoid.html",
   ];
   const [pages, css, nav] = await Promise.all([
     Promise.all(files.map((file) => readFile(new URL(file, root), "utf8"))),
@@ -17,7 +18,7 @@ test("all ten instrument pages share desktop and mobile navigation", async () =>
   for (const [index, html] of pages.entries()) {
     for (const label of [
       "shape", "lattice", "spiral", "solid", "hyper",
-      "l-system", "recursion", "julia", "lumber", "mic(mic)",
+      "l-system", "recursion", "julia", "lumber", "mic(mic)", "throatazoid",
     ]) {
       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       assert.match(html, new RegExp(`>${escapedLabel}<\\/a>`));

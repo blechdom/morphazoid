@@ -1,3 +1,5 @@
+import { addDimensionalMotion } from "./recursion-motion.js";
+
 const TIME_PRECISION = 1_000_000;
 const MAX_CANTOR_NODES = 511;
 
@@ -269,9 +271,9 @@ export const RECURSION_STUDIES = Object.freeze([
     copy: {
       premise: "Each inward generation adds one allpass chamber; the unwind removes them in reverse.",
       cue: "The spectrum stays broadly intact while attacks smear, hollow out, and then find their way home.",
-      sequence: "Dry seed → nested allpass stages → deepest chamber → inverse stages in reverse order.",
-      recursion: "Nested call stack of invertible allpass stages",
-      process: "Short allpass delays with paired inverse stages and bounded feedback",
+      sequence: "Dry seed → nested allpass stages → deepest chamber → progressively shorter return routes.",
+      recursion: "Nested call stack of allpass stages and clock-twisted pulse fields",
+      process: "Short allpass stages with bounded delay and a finite reverse-order return",
       listenFor: "Timing and phase changing radically while overall spectral energy remains recognizable.",
     },
     depth: { min: 1, max: 7, default: 5 },
@@ -352,7 +354,8 @@ function semanticMoment({
 }
 
 function finishPlan(studyId, params, moments) {
-  const duration = roundTime(moments.reduce(
+  const moving = addDimensionalMotion(studyId, params, moments);
+  const duration = roundTime(moving.moments.reduce(
     (latest, entry) => Math.max(latest, entry.at + entry.duration),
     0,
   ));
@@ -360,12 +363,13 @@ function finishPlan(studyId, params, moments) {
     studyId,
     params: { ...params },
     duration,
-    moments,
+    moments: moving.moments,
+    motionCaps: moving.motionCaps,
   };
 }
 
-function serializedGenerationAt(generation, pace, gapRatio) {
-  return generation * pace * (1 + gapRatio);
+function recursiveGenerationAt(generation, pace, overlapRatio) {
+  return generation * pace * (1 - overlapRatio);
 }
 
 function ouroborosTapePlan(params) {
@@ -380,7 +384,7 @@ function ouroborosTapePlan(params) {
       ? Math.max(360, 18_000 * (1 - intensity * 0.42) ** generation)
       : 20_000;
     moments.push(semanticMoment({
-      at: serializedGenerationAt(generation, pace, 0.22),
+      at: recursiveGenerationAt(generation, pace, 0.22),
       duration: pace,
       kind: transformed ? "generation" : "seed",
       depth: generation,
@@ -425,7 +429,7 @@ function spectralMobiusPlan(params) {
     const progress = generation / depth;
     const direction = generation % 2 === 0 ? 1 : -1;
     moments.push(semanticMoment({
-      at: serializedGenerationAt(generation, pace, 0.25),
+      at: recursiveGenerationAt(generation, pace, 0.25),
       duration: pace,
       kind: transformed ? "spectral-fold" : "seed",
       depth: generation,
@@ -443,8 +447,8 @@ function spectralMobiusPlan(params) {
           gain: 0.34 * (1 - progress * intensity * 0.12),
           pan: direction * progress * transform * 0.28,
           analysis: {
-            fftSize: 2048,
-            hopSize: 512,
+            fftSize: 1024,
+            hopSize: 256,
             window: "hann",
           },
           process: {
@@ -454,7 +458,7 @@ function spectralMobiusPlan(params) {
             phaseRotationTurns: roundTime(
               transformed ? direction * transform * intensity * generation * 0.5 : 0,
             ),
-            seamBin: transformed ? Math.round(1024 * (1 - transform * 0.5)) : 1024,
+            seamBin: transformed ? Math.round(512 * (1 - transform * 0.5)) : 512,
             preserveMagnitude: true,
             overlapAdd: true,
           },
@@ -529,7 +533,7 @@ function filterHydraPlan(params) {
     const offsetWindow = Math.min(pace * 0.16, paths.length * 0.004);
     const offsetStep = paths.length > 1 ? offsetWindow / (paths.length - 1) : 0;
     moments.push(semanticMoment({
-      at: serializedGenerationAt(level, pace, 0.2),
+      at: recursiveGenerationAt(level, pace, 0.2),
       duration: pace,
       kind: level === 0 ? "seed" : level === depth ? "leaf-generation" : "filter-generation",
       depth: level,
@@ -578,7 +582,7 @@ function cantorDelayPlan(params) {
     const nodeGain = generationGain / Math.sqrt(paths.length);
     const eventDuration = Math.max(0.04, pace * 0.09 * ratio ** (level * 0.2));
     moments.push(semanticMoment({
-      at: serializedGenerationAt(level, pace, 0.18),
+      at: recursiveGenerationAt(level, pace, 0.18),
       duration: pace,
       kind: level === 0 ? "seed" : level === depth ? "leaf-generation" : "delay-generation",
       depth: level,
@@ -626,7 +630,7 @@ function convolutionMawPlan(params) {
     const transformed = generation > 0;
     const progress = generation / depth;
     moments.push(semanticMoment({
-      at: serializedGenerationAt(generation, pace, 0.26),
+      at: recursiveGenerationAt(generation, pace, 0.26),
       duration: pace,
       kind: transformed ? "self-convolution" : "seed",
       depth: generation,
@@ -677,7 +681,7 @@ function phaseLabyrinthPlan(params) {
     (_, index) => allpassStage(index + 1, delayMs, intensity),
   );
   const moments = [];
-  const spacing = pace * 1.18;
+  const spacing = pace * 0.78;
 
   for (let level = 0; level <= depth; level += 1) {
     const seed = level === 0;
@@ -706,7 +710,7 @@ function phaseLabyrinthPlan(params) {
             stage,
             chain: stages.slice(0, level),
             chainLength: level,
-            inverse: false,
+            returning: false,
           },
           duration: pace * 0.82,
         }, source),
@@ -733,11 +737,11 @@ function phaseLabyrinthPlan(params) {
           serialized: true,
           gain: 0.35,
           process: {
-            operation: "invert-allpass",
+            operation: "remove-allpass-stage",
             stage: removedStage,
             chain: stages.slice(0, level),
             chainLength: level,
-            inverse: true,
+            returning: true,
           },
           duration: pace * 0.82,
         }, source),

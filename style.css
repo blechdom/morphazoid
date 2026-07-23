@@ -164,10 +164,17 @@ a {
   color: var(--accent);
 }
 
-.micmic-tab {
+.micmic-tab,
+.throatazoid-tab {
   min-width: 82px;
   font-size: 10px;
   letter-spacing: 0.05em;
+}
+
+.throatazoid-tab {
+  min-width: 88px;
+  font-size: 9px;
+  letter-spacing: 0.035em;
 }
 
 .tab::after {
@@ -2846,7 +2853,7 @@ select:hover {
   }
 }
 
-@media (max-width: 1220px) {
+@media (max-width: 1340px) {
   .tabs {
     display: none;
   }

@@ -5,6 +5,7 @@ import {
   normalizeChannels,
   ouroborosGenerations,
 } from "./recursion-buffer-dsp.js";
+import { MOTION_CAPS } from "./recursion-motion.js";
 import { spectralMobiusGenerations } from "./recursion-spectral-dsp.js";
 
 const MIN_GAIN = 0.0001;
@@ -326,10 +327,12 @@ export class RecursiveAudioEngine {
     const prepared = {
       studyId,
       sourceKind,
+      parameters: { ...parameters },
       seed,
       seedBuffer: this.audioBuffer(seed.channels),
       generations: null,
       generationBuffers: null,
+      motionBufferCache: new Map(),
     };
 
     if (studyId === "ouroboros-tape") {
@@ -403,7 +406,7 @@ export class RecursiveAudioEngine {
   }
 
   register(source) {
-    if (this.sources.size >= MAX_GRAPH_SOURCES) return source;
+    if (this.sources.size >= MAX_GRAPH_SOURCES) return null;
     this.sources.add(source);
     const previous = source.onended;
     source.onended = (...args) => {
@@ -411,6 +414,39 @@ export class RecursiveAudioEngine {
       previous?.(...args);
     };
     return source;
+  }
+
+  motionBuffer(generation, pulse) {
+    const prepared = this.prepared;
+    if (!prepared) return null;
+    const buffers = prepared.generationBuffers;
+    const generationIndex = buffers?.length
+      ? Math.min(Math.max(0, Math.round(generation)), buffers.length - 1)
+      : 0;
+    const base = buffers?.[generationIndex] ?? prepared.seedBuffer;
+    if (!base) return null;
+    const reverse = pulse.timeDirection < 0;
+    const swap = Boolean(pulse.channelSwap);
+    if (!reverse && !swap) return base;
+    const key = `${generationIndex}:${reverse ? "r" : "f"}:${swap ? "s" : "n"}`;
+    if (prepared.motionBufferCache.has(key)) {
+      return prepared.motionBufferCache.get(key);
+    }
+    const length = base.length;
+    const left = base.getChannelData(0);
+    const right = base.getChannelData(Math.min(1, base.numberOfChannels - 1));
+    const outputLeft = new Float32Array(length);
+    const outputRight = new Float32Array(length);
+    const sourceLeft = swap ? right : left;
+    const sourceRight = swap ? left : right;
+    for (let index = 0; index < length; index += 1) {
+      const sourceIndex = reverse ? length - index - 1 : index;
+      outputLeft[index] = sourceLeft[sourceIndex];
+      outputRight[index] = sourceRight[sourceIndex];
+    }
+    const variant = this.audioBuffer([outputLeft, outputRight]);
+    prepared.motionBufferCache.set(key, variant);
+    return variant;
   }
 
   outputNode(gain, pan, start, end) {
@@ -427,10 +463,26 @@ export class RecursiveAudioEngine {
     return envelope;
   }
 
+  motionOutputNode(gain, panStart, panEnd, start, end) {
+    const envelope = this.context.createGain();
+    rampEnvelope(envelope.gain, start, Math.max(MIN_GAIN, gain), end);
+    let tail = envelope;
+    if (typeof this.context.createStereoPanner === "function") {
+      const panner = this.context.createStereoPanner();
+      setParam(panner.pan, "setValueAtTime", clamp(panStart, -1, 1), start);
+      setParam(panner.pan, "linearRampToValueAtTime", clamp(panEnd, -1, 1), end);
+      envelope.connect(panner);
+      tail = panner;
+    }
+    tail.connect(this.sessionBus ?? this.master);
+    return envelope;
+  }
+
   scheduleBuffer(buffer, start, event, gainScale = 1, options = {}) {
     if (!buffer || typeof this.context.createBufferSource !== "function") return;
     const duration = clamp(options.duration ?? event.duration ?? buffer.duration, 0.025, 8);
     const source = this.register(this.context.createBufferSource());
+    if (!source) return;
     source.buffer = buffer;
     source.playbackRate.value = clamp(buffer.duration / duration, 0.35, 4);
     const output = this.outputNode(
@@ -452,10 +504,187 @@ export class RecursiveAudioEngine {
     this.scheduleBuffer(buffer, start, event, gainScale);
   }
 
+  connectMotionStudyPath(studyId, moment, pulse, input) {
+    let tail = input;
+    const events = Array.isArray(moment?.events) ? moment.events : [];
+    const routedEvent = events.length
+      ? events[(pulse.routeIndex ?? pulse.phraseIndex) % events.length]
+      : null;
+
+    if (studyId === "filter-hydra") {
+      const filters = routedEvent?.process?.filters ?? [];
+      for (const definition of filters) {
+        const filter = this.context.createBiquadFilter?.();
+        if (!filter) continue;
+        filter.type = definition.type;
+        filter.frequency.value = clamp(definition.cutoffHz, 24, 18_000);
+        filter.Q.value = clamp(definition.q * 0.72, 0.1, 5.2);
+        tail.connect(filter);
+        tail = filter;
+      }
+    } else if (studyId === "cantor-delay") {
+      const path = routedEvent?.path ?? [];
+      if (path.length && typeof this.context.createBiquadFilter === "function") {
+        let low = 45;
+        let high = 18_000;
+        for (const branch of path) {
+          const split = Math.sqrt(low * high);
+          if (Number(branch) === 0) high = split;
+          else low = split;
+        }
+        const center = Math.sqrt(low * high);
+        const filter = this.context.createBiquadFilter();
+        filter.type = "bandpass";
+        filter.frequency.value = center;
+        filter.Q.value = clamp(center / Math.max(55, high - low), 0.25, 7);
+        tail.connect(filter);
+        tail = filter;
+      }
+    } else if (studyId === "phase-labyrinth") {
+      const chain = routedEvent?.process?.chain ?? [];
+      for (const definition of chain) {
+        const allpass = this.context.createBiquadFilter?.();
+        if (!allpass) continue;
+        allpass.type = "allpass";
+        const delaySeconds = clamp(definition.delayMs / 1_000, 0.001, 0.05);
+        allpass.frequency.value = clamp(1 / (delaySeconds * 4), 32, 8_000);
+        allpass.Q.value = clamp(0.3 + definition.feedback * 8, 0.3, 7.5);
+        tail.connect(allpass);
+        tail = allpass;
+      }
+    }
+
+    return tail;
+  }
+
+  scheduleMotionPulse(studyId, moment, pulse, when, pulseGain) {
+    if (typeof this.context.createBufferSource !== "function") return;
+    const generation = Math.max(0, Math.round(moment.depth ?? 0));
+    const buffer = this.motionBuffer(generation, pulse);
+    if (!buffer) return;
+    const source = this.register(this.context.createBufferSource());
+    if (!source) return;
+    source.buffer = buffer;
+
+    const startRate = clamp(
+      pulse.playbackRate,
+      MOTION_CAPS.minPlaybackRate,
+      MOTION_CAPS.maxPlaybackRate,
+    );
+    const endRate = clamp(
+      startRate * 2 ** (clamp(
+        pulse.pitchEnd,
+        -MOTION_CAPS.maxAbsPitchSemitones,
+        MOTION_CAPS.maxAbsPitchSemitones,
+      ) / 12),
+      MOTION_CAPS.minPlaybackRate,
+      MOTION_CAPS.maxPlaybackRate,
+    );
+    const duration = clamp(pulse.duration, 0.02, 0.5);
+    const end = when + duration;
+    setParam(source.playbackRate, "setValueAtTime", startRate, when);
+    setParam(source.playbackRate, "exponentialRampToValueAtTime", endRate, end);
+
+    const polarity = this.context.createGain();
+    polarity.gain.value = pulse.polarity < 0 ? -1 : 1;
+    source.connect(polarity);
+    let tail = this.connectMotionStudyPath(studyId, moment, pulse, polarity);
+
+    const movingFilter = this.context.createBiquadFilter?.();
+    if (movingFilter) {
+      const types = studyId === "ouroboros-tape"
+        ? ["lowpass", "bandpass", "highpass"]
+        : ["bandpass", "highpass", "lowpass"];
+      movingFilter.type = types[pulse.phraseIndex % types.length];
+      const startHz = clamp(
+        pulse.filterHz,
+        MOTION_CAPS.minFilterHz,
+        MOTION_CAPS.maxFilterHz,
+      );
+      const endHz = clamp(
+        startHz * 2 ** (pulse.pitchEnd / 18),
+        MOTION_CAPS.minFilterHz,
+        MOTION_CAPS.maxFilterHz,
+      );
+      setParam(movingFilter.frequency, "setValueAtTime", startHz, when);
+      setParam(movingFilter.frequency, "exponentialRampToValueAtTime", endHz, end);
+      setParam(movingFilter.Q, "setValueAtTime", clamp(pulse.q, 0.2, 14), when);
+      tail.connect(movingFilter);
+      tail = movingFilter;
+    }
+
+    const panEnd = clamp(
+      -pulse.pan * 0.72 + Math.sin((pulse.phraseIndex + 1) * 1.7) * 0.28,
+      -1,
+      1,
+    );
+    const output = this.motionOutputNode(
+      pulseGain,
+      pulse.pan,
+      panEnd,
+      when,
+      end,
+    );
+    tail.connect(output);
+
+    const maximumRead = Math.max(0.001, buffer.duration - 0.001);
+    const requiredRead = Math.min(
+      maximumRead,
+      duration * Math.max(startRate, endRate) + 0.025,
+    );
+    const maximumOffset = Math.max(0, buffer.duration - requiredRead);
+    const sourceOffset = clamp(pulse.sourcePosition, 0, 1) * maximumOffset;
+    source.start(when, sourceOffset, Math.min(buffer.duration - sourceOffset, requiredRead));
+    source.stop(end + 0.04);
+  }
+
+  scheduleMotionField(studyId, moment, when, gainScale, {
+    pulseLimit = MOTION_CAPS.maxPulsesPerMoment,
+    phaseOffset = 0,
+  } = {}) {
+    const available = Array.isArray(moment?.motion?.pulses)
+      ? moment.motion.pulses
+      : [];
+    if (!available.length) return;
+    const limit = Math.max(1, Math.min(
+      MOTION_CAPS.maxPulsesPerMoment,
+      Math.round(pulseLimit),
+    ));
+    const pulses = available.length <= limit
+      ? available
+      : Array.from(
+        { length: limit },
+        (_, index) => available[Math.floor(index * available.length / limit)],
+      );
+    const averageDuration = pulses.reduce(
+      (total, pulse) => total + pulse.duration,
+      0,
+    ) / pulses.length;
+    const overlap = Math.max(
+      1,
+      pulses.length * averageDuration / Math.max(0.08, moment.duration),
+    );
+    const pulseGain = clamp(0.24 / Math.sqrt(overlap) * gainScale, 0.006, 0.18);
+    const offsetSpan = Math.max(0.08, moment.duration * 0.84);
+
+    for (const pulse of pulses) {
+      if (this.sources.size >= MAX_GRAPH_SOURCES) break;
+      const rotatedOffset = (
+        (pulse.offset + phaseOffset) % offsetSpan + offsetSpan
+      ) % offsetSpan;
+      const start = Math.max(
+        this.context.currentTime + 0.003,
+        when + rotatedOffset + pulse.delay,
+      );
+      this.scheduleMotionPulse(studyId, moment, pulse, start, pulseGain);
+    }
+  }
+
   scheduleFilterBranch(event, start, gainScale) {
     const buffer = this.prepared?.seedBuffer;
     if (!buffer) return;
     const source = this.register(this.context.createBufferSource());
+    if (!source) return;
     source.buffer = buffer;
     const duration = clamp(event.duration ?? buffer.duration, 0.08, 7);
     source.playbackRate.value = clamp(buffer.duration / duration, 0.4, 3.5);
@@ -487,6 +716,7 @@ export class RecursiveAudioEngine {
     const depth = Math.max(0, Math.round(moment.depth ?? 0));
     const duration = clamp(moment.duration ?? buffer.duration, 0.08, 7);
     const source = this.register(this.context.createBufferSource());
+    if (!source) return;
     source.buffer = buffer;
     source.playbackRate.value = clamp(buffer.duration / duration, 0.4, 3.5);
     const byPath = new Map(events.map((event) => [(event.path ?? []).join(""), event]));
@@ -545,6 +775,7 @@ export class RecursiveAudioEngine {
     if (!buffer) return;
     const duration = clamp(event.duration ?? 0.08, 0.025, 0.65);
     const source = this.register(this.context.createBufferSource());
+    if (!source) return;
     source.buffer = buffer;
     const output = this.outputNode(
       clamp((event.gain ?? 0.04) * gainScale, 0.001, 0.22),
@@ -584,12 +815,13 @@ export class RecursiveAudioEngine {
     if (!buffer) return;
     const duration = clamp(event.duration ?? buffer.duration, 0.08, 7);
     const source = this.register(this.context.createBufferSource());
+    if (!source) return;
     source.buffer = buffer;
     source.playbackRate.value = clamp(buffer.duration / duration, 0.4, 3.5);
     let tail = source;
     const chain = event.process?.chain ?? [];
-    const inverse = Boolean(event.process?.inverse);
-    const definitions = inverse ? [...chain].reverse() : chain;
+    const returning = Boolean(event.process?.returning);
+    const definitions = returning ? [...chain].reverse() : chain;
     for (const definition of definitions) {
       const allpass = this.context.createBiquadFilter?.();
       if (!allpass) continue;
@@ -608,7 +840,7 @@ export class RecursiveAudioEngine {
     }
     const output = this.outputNode(
       clamp((event.gain ?? 0.34) * gainScale, 0.003, 0.4),
-      inverse ? -0.18 : 0.18,
+      returning ? -0.18 : 0.18,
       start,
       start + duration,
     );
@@ -617,10 +849,19 @@ export class RecursiveAudioEngine {
     source.stop(start + duration + 0.08);
   }
 
-  scheduleMoment(studyId, moment, when, gainScale = 1) {
+  scheduleMoment(studyId, moment, when, gainScale = 1, motionOptions = {}) {
     if (!this.context || !this.sessionBus || !moment) return;
+    const hasMotion = Boolean(moment.motion?.pulses?.length);
+    const underlayScale = hasMotion ? 0.2 : 1;
     if (studyId === "filter-hydra") {
-      this.scheduleHydraTree(moment, Math.max(this.context.currentTime + 0.003, when), gainScale);
+      this.scheduleHydraTree(
+        moment,
+        Math.max(this.context.currentTime + 0.003, when),
+        gainScale * underlayScale,
+      );
+      if (hasMotion) {
+        this.scheduleMotionField(studyId, moment, when, gainScale, motionOptions);
+      }
       return;
     }
     const events = Array.isArray(moment.events) ? moment.events : [];
@@ -628,16 +869,19 @@ export class RecursiveAudioEngine {
       if (this.sources.size >= MAX_GRAPH_SOURCES) break;
       const start = Math.max(this.context.currentTime + 0.003, when + (event.offset ?? 0));
       if (event.synth === "buffer-generation" || event.synth === "stft-fold-generation") {
-        this.scheduleGenerationBuffer(event, start, gainScale);
+        this.scheduleGenerationBuffer(event, start, gainScale * underlayScale);
       } else if (event.synth === "filter-branch") {
-        this.scheduleFilterBranch(event, start, gainScale);
+        this.scheduleFilterBranch(event, start, gainScale * underlayScale);
       } else if (event.synth === "cantor-delay-node") {
-        this.scheduleCantorNode(event, start, gainScale);
+        this.scheduleCantorNode(event, start, gainScale * underlayScale);
       } else if (event.synth === "self-convolution-generation") {
-        this.scheduleGenerationBuffer(event, start, gainScale);
+        this.scheduleGenerationBuffer(event, start, gainScale * underlayScale);
       } else if (event.synth === "allpass-generation") {
-        this.scheduleAllpass(event, start, gainScale);
+        this.scheduleAllpass(event, start, gainScale * underlayScale);
       }
+    }
+    if (hasMotion) {
+      this.scheduleMotionField(studyId, moment, when, gainScale, motionOptions);
     }
   }
 

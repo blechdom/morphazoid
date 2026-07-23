@@ -1,14 +1,15 @@
 import {
   MICMIC_PRESETS,
   GENERATION_RULE_PRESETS,
+  MAX_GENERATION_STAGES,
   clamp,
-  echoTreeLayout,
-  estimateGenerations,
+  generationCountForDepth,
+  generationTopology,
   generationVoiceSpecs,
   recorderExtension,
   recursionParameters,
 } from "./src/micmic.js";
-import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260723-angle-lifecycle";
+import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260723-fixed-pool";
 
 const $ = (id) => document.getElementById(id);
 const GENERATION_COLORS = ["#fff3d6", "#55d9ff", "#5fe8c4", "#7db4ff", "#c79bff", "#ff826f", "#e8c46b"];
@@ -21,11 +22,11 @@ const DEFAULT_STATE = Object.freeze({
   starting: false,
   frozen: false,
   recording: false,
-  generationPreset: "clean",
-  timeRatio: GENERATION_RULE_PRESETS.clean.timeRatio,
-  generationAngle: GENERATION_RULE_PRESETS.clean.angle,
-  generationAsymmetry: GENERATION_RULE_PRESETS.clean.asymmetry,
-  generationPitchScale: GENERATION_RULE_PRESETS.clean.pitchScale,
+  generationPreset: "plant",
+  timeRatio: GENERATION_RULE_PRESETS.plant.timeRatio,
+  generationAngle: GENERATION_RULE_PRESETS.plant.angle,
+  generationAsymmetry: GENERATION_RULE_PRESETS.plant.asymmetry,
+  generationPitchScale: GENERATION_RULE_PRESETS.plant.pitchScale,
 });
 
 const state = { ...DEFAULT_STATE };
@@ -57,6 +58,7 @@ let inputPeakHold = 0;
 let hotSince = 0;
 let lastUiMeterUpdate = 0;
 let lastFrameTime = performance.now();
+let generationVisualModel = null;
 
 function signed(value, suffix = "") {
   const rounded = Number(Number(value).toFixed(2));
@@ -78,84 +80,81 @@ function generationTurns() {
   };
 }
 
-function generationShapeGeometry() {
-  const generationCount = estimateGenerations(state.depth);
-  // The compact diagram may show the complete decay estimate even though the
-  // audible renderer applies its own stricter real-time voice budget.
-  const layout = echoTreeLayout(generationCount, state.branching, 8, 32);
-  const groups = new Map();
-  for (const node of layout) {
-    if (!node.parentId) continue;
-    const siblings = groups.get(node.parentId) ?? [];
-    siblings.push(node);
-    groups.set(node.parentId, siblings);
-  }
-
-  // Match the L-system instrument: the seed is read at the left and each
-  // rewrite generation advances toward the right.
-  const positions = new Map([["0:0", { x: 0, y: 0, heading: 0 }]]);
-  const points = [{ x: 0, y: 0 }];
-  const segments = [];
-  const turns = generationTurns();
-  for (const node of layout) {
-    if (!node.parentId) continue;
-    const parent = positions.get(node.parentId) ?? positions.get("0:0");
-    const siblings = groups.get(node.parentId) ?? [node];
-    const siblingIndex = Math.max(0, siblings.indexOf(node));
-    const position = siblings.length <= 1 ? 0 : siblingIndex / (siblings.length - 1) * 2 - 1;
-    const turnDegrees = position < 0
-      ? Math.abs(position) * turns.left
-      : position * turns.right;
-    const heading = parent.heading + turnDegrees * Math.PI / 180;
-    const length = Math.pow(state.timeRatio, Math.max(0, node.generation - 1));
-    const child = {
-      x: parent.x + Math.cos(heading) * length,
-      y: parent.y + Math.sin(heading) * length,
-      heading,
-    };
-    positions.set(node.id, child);
-    points.push(child);
-    segments.push({ from: parent, to: child });
-  }
-
-  const xValues = points.map((point) => point.x);
-  const yValues = points.map((point) => point.y);
-  const minimumX = Math.min(...xValues);
-  const maximumX = Math.max(...xValues);
-  const minimumY = Math.min(...yValues);
-  const maximumY = Math.max(...yValues);
-  const width = Math.max(0.25, maximumX - minimumX);
-  const height = Math.max(0.25, maximumY - minimumY);
-  const scale = Math.min(108 / width, 64 / height);
-  const offsetX = 60 - (minimumX + maximumX) * 0.5 * scale;
-  const offsetY = 38 - (minimumY + maximumY) * 0.5 * scale;
-  const project = (point) => ({
-    x: offsetX + point.x * scale,
-    y: offsetY + point.y * scale,
+function buildGenerationVisualModel() {
+  const generationCount = generationCountForDepth(state.depth);
+  const topology = generationTopology({
+    generations: generationCount,
+    branching: state.branching,
+    timeRatio: state.timeRatio,
+    angle: state.generationAngle,
+    asymmetry: state.generationAsymmetry,
   });
-  const root = project(points[0]);
+  const voices = generationVoiceSpecs({
+    generations: generationCount,
+    interval: state.interval,
+    depth: state.depth,
+    branching: state.branching,
+    spread: state.spread,
+    mutation: state.mutation,
+    timeRatio: state.timeRatio,
+    angle: state.generationAngle,
+    asymmetry: state.generationAsymmetry,
+    pitchScale: state.generationPitchScale,
+  });
   return {
-    path: segments.map(({ from, to }) => {
-      const start = project(from);
-      const end = project(to);
-      return `M${start.x.toFixed(2)} ${start.y.toFixed(2)}L${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
-    }).join(""),
+    generationCount,
+    topology,
+    voices,
+    audibleIds: new Set(voices.map((voice) => voice.key.replace(/^generation:/, ""))),
+  };
+}
+
+function generationShapeGeometry() {
+  generationVisualModel = buildGenerationVisualModel();
+  const {
+    generationCount,
+    topology,
+    voices,
+    audibleIds,
+  } = generationVisualModel;
+  // Use one fixed projection instead of fitting the current bounds.  The seed
+  // trunk is therefore always exactly 14 SVG units wide; taper only affects
+  // its rewritten descendants.
+  const project = (x, y) => ({ x: 8 + x * 14, y: 48 + y * 14 });
+  const pathFor = (nodes) => nodes.map((node) => {
+    const start = project(node.startX, node.startY);
+    const end = project(node.x, node.y);
+    return `M${start.x.toFixed(2)} ${start.y.toFixed(2)}L${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+  }).join("");
+  const trunk = topology[0];
+  const root = project(trunk.startX, trunk.startY);
+  return {
+    trunkPath: pathFor([trunk]),
+    path: pathFor(topology.slice(1)),
+    audiblePath: pathFor(topology.slice(1).filter((node) => audibleIds.has(node.id))),
     root,
     generationCount,
-    branchCount: Math.max(0, layout.length - 1),
+    branchCount: Math.max(0, topology.length - 1),
+    audibleCount: voices.length,
+    generationCounts: Array.from({ length: generationCount + 1 }, (_, generation) => (
+      topology.filter((node) => node.generation === generation).length
+    )),
   };
 }
 
 function renderGenerationShape() {
   const geometry = generationShapeGeometry();
+  $("generationShapeTrunk").setAttribute("d", geometry.trunkPath);
   $("generationShapePath").setAttribute("d", geometry.path);
+  $("generationShapeAudiblePath").setAttribute("d", geometry.audiblePath);
   $("generationShapeRoot").setAttribute("cx", geometry.root.x.toFixed(2));
   $("generationShapeRoot").setAttribute("cy", geometry.root.y.toFixed(2));
-  $("generationShapeSummary").textContent = `${geometry.generationCount} gen · ${geometry.branchCount} segments · ${state.timeRatio.toFixed(2)}×`;
+  $("generationShapeSummary").textContent = `${geometry.generationCount} gen · ${geometry.branchCount} visual · ${geometry.audibleCount} audible`;
   $("generationShapePreview").setAttribute(
     "aria-label",
     `Live ${geometry.generationCount}-generation L-system preview with ${geometry.branchCount} segments, ${Number(state.generationAngle.toFixed(1))} degree branch angle, and ${state.timeRatio.toFixed(2)} child length ratio.`,
   );
+  return geometry;
 }
 
 function renderGenerationRules() {
@@ -167,12 +166,8 @@ function renderGenerationRules() {
   $("generationPreset").value = state.generationPreset;
   $("generationTimingReadout").textContent = timing.map(formatMilliseconds).join(" → ");
   $("generationPitchReadout").textContent = `${signed(turns.left, "°")} → ${signed(toSemitones(turns.left), " st")} · ${signed(turns.right, "°")} → ${signed(toSemitones(turns.right), " st")}`;
-  const preview = echoTreeLayout(3, state.branching, 8);
-  const counts = [0, 1, 2, 3].map((generation) => (
-    preview.filter((node) => node.generation === generation).length
-  ));
-  $("generationCountReadout").textContent = counts.join(" → ");
-  renderGenerationShape();
+  const geometry = renderGenerationShape();
+  $("generationCountReadout").textContent = geometry.generationCounts.slice(0, 4).join(" → ");
 }
 
 function setPressed(element, pressed) {
@@ -458,14 +453,14 @@ async function prepareGenerationProcessor(audio, audioGraph) {
   if (!audio.audioWorklet?.addModule || !WorkletNode) return;
   try {
     await audio.audioWorklet.addModule(
-      new URL("./src/micmic-generation-processor.js?v=20260723-crossfade", import.meta.url),
+      new URL("./src/micmic-generation-processor.js?v=20260723-shared-topology", import.meta.url),
     );
     if (audioContext !== audio || graph !== audioGraph || audio.state === "closed") return;
     const node = new WorkletNode(audio, "morphazoid-micmic-generations", {
       numberOfInputs: 1,
       numberOfOutputs: 1,
       outputChannelCount: [2],
-      processorOptions: { historySeconds: 60, maxVoices: 64 },
+      processorOptions: { historySeconds: 32, maxVoices: 48 },
     });
     audioGraph.seedGate.connect(node);
     node.connect(audioGraph.wetBus);
@@ -482,14 +477,16 @@ async function prepareGenerationProcessor(audio, audioGraph) {
       audio,
       audioGraph.seedGate,
       audioGraph.wetBus,
-      { maxPitchSources: 7 },
+      { maxPitchSources: 5, maxVoices: 48, historySeconds: 32 },
     ).then((bank) => {
       if (audioContext !== audio || graph !== audioGraph || audio.state === "closed") {
         void bank.dispose();
         return;
       }
       audioGraph.seedGate.disconnect?.(node);
+      node.port.postMessage?.({ type: "voices", voices: [] });
       node.disconnect?.();
+      node.port.close?.();
       audioGraph.generationBank = bank;
       audioGraph.generationNode = bank;
       audioGraph.generationRenderer = bank;
@@ -862,22 +859,6 @@ function capsulePath(drawContext, x, y, width, height) {
   drawContext.closePath();
 }
 
-function cubicPoint(start, end, amount) {
-  const controlA = { x: start.x + (end.x - start.x) * 0.48, y: start.y };
-  const controlB = { x: start.x + (end.x - start.x) * 0.52, y: end.y };
-  const inverse = 1 - amount;
-  return {
-    x: inverse ** 3 * start.x
-      + 3 * inverse ** 2 * amount * controlA.x
-      + 3 * inverse * amount ** 2 * controlB.x
-      + amount ** 3 * end.x,
-    y: inverse ** 3 * start.y
-      + 3 * inverse ** 2 * amount * controlA.y
-      + 3 * inverse * amount ** 2 * controlB.y
-      + amount ** 3 * end.y,
-  };
-}
-
 function drawCapsule(node, position, samples, timestamp) {
   const generation = node.generation;
   const active = state.mic;
@@ -928,30 +909,32 @@ function drawCapsule(node, position, samples, timestamp) {
 
 function drawStage(timestamp) {
   context.clearRect(0, 0, cssWidth, cssHeight);
-  const generations = estimateGenerations(state.depth);
-  const visibleGenerations = Math.min(8, generations);
-  const nodes = echoTreeLayout(visibleGenerations, state.branching, cssWidth < 680 ? 5 : 8);
+  const model = generationVisualModel ?? buildGenerationVisualModel();
+  generationVisualModel = model;
+  const nodes = model.topology;
+  const generations = model.generationCount;
   const left = clamp(cssWidth * 0.12, 62, 135);
   const right = cssWidth - clamp(cssWidth * 0.08, 48, 92);
   const top = 58;
   const bottom = cssHeight - 56;
   const centerY = (top + bottom) / 2;
-  const verticalSpan = Math.max(80, bottom - top);
+  const unit = Math.max(4, (right - left) / (MAX_GENERATION_STAGES + 1));
+  const project = (x, y) => ({
+    x: left + x * unit,
+    y: centerY + y * unit,
+  });
   const positions = new Map();
-
   for (const node of nodes) {
-    const x = left + node.x * Math.max(40, right - left);
-    const fan = 0.28 + state.branching * 0.62;
-    const y = centerY + node.y * verticalSpan * fan;
-    positions.set(node.id, { x, y });
+    positions.set(node.id, project(node.x, node.y));
   }
 
-  const rootPosition = positions.get(nodes.find((node) => node.generation === 0)?.id);
-  if (rootPosition) {
+  const trunk = nodes[0];
+  const seedPosition = trunk ? project(trunk.startX, trunk.startY) : null;
+  if (seedPosition) {
     const seedWidth = clamp(cssWidth * 0.105, 62, 104);
     const seedHeight = clamp(cssHeight * 0.105, 35, 54);
-    $("seedControl").style.left = `${rootPosition.x}px`;
-    $("seedControl").style.top = `${rootPosition.y}px`;
+    $("seedControl").style.left = `${seedPosition.x}px`;
+    $("seedControl").style.top = `${seedPosition.y}px`;
     $("seedControl").style.width = `${seedWidth}px`;
     $("seedControl").style.height = `${seedHeight}px`;
   }
@@ -960,31 +943,35 @@ function drawStage(timestamp) {
   context.font = "8px ui-monospace, SFMono-Regular, Menlo, monospace";
   context.textAlign = "center";
   context.textBaseline = "top";
-  for (let generation = 0; generation <= visibleGenerations; generation += 1) {
-    const x = left + generation / Math.max(1, visibleGenerations) * Math.max(40, right - left);
+  for (let generation = 0; generation <= generations; generation += 1) {
+    const x = left + (generation + 1) * unit;
     context.fillStyle = generation === 0 ? "rgba(255,243,214,.48)" : "rgba(119,131,126,.38)";
     context.fillText(`G${generation}`, x, 31);
   }
   context.restore();
 
   for (const node of nodes) {
-    if (!node.parentId) continue;
-    const start = positions.get(node.parentId);
+    const start = project(node.startX, node.startY);
     const end = positions.get(node.id);
+    const audible = node.generation === 0 || model.audibleIds.has(node.id);
     const color = GENERATION_COLORS[node.generation % GENERATION_COLORS.length];
     context.save();
     context.beginPath();
     context.moveTo(start.x, start.y);
-    const midX = start.x + (end.x - start.x) * 0.5;
-    context.bezierCurveTo(midX, start.y, midX, end.y, end.x, end.y);
-    context.strokeStyle = color;
-    context.globalAlpha = state.mic ? 0.13 + Math.pow(state.depth, node.generation) * 0.22 : 0.07;
-    context.lineWidth = 0.7;
+    context.lineTo(end.x, end.y);
+    context.strokeStyle = audible ? color : "rgba(119,131,126,.48)";
+    context.globalAlpha = audible
+      ? (state.mic ? 0.18 + Math.pow(state.depth, node.generation) * 0.3 : 0.13)
+      : 0.08;
+    context.lineWidth = node.generation === 0 ? 1.8 : audible ? 0.9 : 0.55;
     context.stroke();
 
-    if (state.mic) {
+    if (state.mic && audible) {
       const travel = ((timestamp / Math.max(70, state.interval) + node.generation * 0.14 + node.index * 0.03) % 1);
-      const pulse = cubicPoint(start, end, travel);
+      const pulse = {
+        x: start.x + (end.x - start.x) * travel,
+        y: start.y + (end.y - start.y) * travel,
+      };
       context.beginPath();
       context.arc(pulse.x, pulse.y, 1.3, 0, Math.PI * 2);
       context.fillStyle = color;
@@ -996,10 +983,13 @@ function drawStage(timestamp) {
     context.restore();
   }
 
-  for (const node of [...nodes].reverse()) {
+  const soundingNodes = nodes.filter((node) => (
+    node.generation === 0 || model.audibleIds.has(node.id)
+  ));
+  for (const node of [...soundingNodes].reverse()) {
     const samples = node.generation === 0
       ? inputWave
-      : (node.index + node.generation) % 2 ? branchAWave : branchBWave;
+      : node.rule === "A" ? branchAWave : branchBWave;
     drawCapsule(node, positions.get(node.id), samples, timestamp);
   }
 
@@ -1046,7 +1036,7 @@ function presetLabel() {
 }
 
 function paintControls() {
-  const generations = estimateGenerations(state.depth);
+  const generations = generationCountForDepth(state.depth);
   const values = {
     level: [state.level, `${Math.round(state.level * 100)}%`],
     inputTrim: [state.inputTrim, `${Math.round(state.inputTrim * 100)}%`],
@@ -1069,7 +1059,7 @@ function paintControls() {
 }
 
 function updateUi() {
-  const generations = estimateGenerations(state.depth);
+  const generations = generationCountForDepth(state.depth);
   const label = presetLabel();
   const live = state.mic;
   const starting = state.starting;

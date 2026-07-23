@@ -23,7 +23,8 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
     "mutation", "wet", "dry", "spread", "recordButton", "downloadTake", "clearTake",
     "generationPreset", "timeRatio", "generationAngle", "generationAsymmetry",
     "generationPitchScale", "generationTimingReadout", "generationPitchReadout", "resetGenerationRules",
-    "generationShapePreview", "generationShapePath", "generationShapeRoot", "generationShapeSummary",
+    "generationShapePreview", "generationShapeTrunk", "generationShapePath", "generationShapeAudiblePath",
+    "generationShapeRoot", "generationShapeSummary",
   ]) assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
   for (const section of ["listenSection", "recursionSection", "mixSection", "captureSection"]) {
     assert.match(html, new RegExp(`<details[^>]*id="${section}"`));

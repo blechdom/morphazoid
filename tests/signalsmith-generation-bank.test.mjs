@@ -3,30 +3,12 @@ import test from "node:test";
 
 import { SignalsmithGenerationBank } from "../src/signalsmith-generation-bank.js";
 
-function parameter() {
-  return {
-    events: [],
-    cancelScheduledValues(time) {
-      this.events.push({ type: "cancel", time });
-    },
-    setValueAtTime(value, time) {
-      this.events.push({ type: "set", value, time });
-    },
-    linearRampToValueAtTime(value, time) {
-      this.events.push({ type: "ramp", value, time });
-    },
-    setTargetAtTime(value, time, constant) {
-      this.events.push({ type: "target", value, time, constant });
-    },
-  };
-}
-
 function audioNode(extra = {}) {
   return {
     ...extra,
     connections: [],
-    connect(destination) {
-      this.connections.push(destination);
+    connect(destination, output = 0, input = 0) {
+      this.connections.push({ destination, output, input });
       return destination;
     },
     disconnect() {},
@@ -34,24 +16,12 @@ function audioNode(extra = {}) {
 }
 
 function harness() {
-  const created = { delays: [], gains: [], pans: [], stretches: [] };
+  const created = { stretches: [], mixers: [] };
   const context = {
     currentTime: 4,
     sampleRate: 48_000,
     createDelay() {
-      const node = audioNode({ delayTime: parameter() });
-      created.delays.push(node);
-      return node;
-    },
-    createGain() {
-      const node = audioNode({ gain: parameter() });
-      created.gains.push(node);
-      return node;
-    },
-    createStereoPanner() {
-      const node = audioNode({ pan: parameter() });
-      created.pans.push(node);
-      return node;
+      throw new Error("the fixed-pool bank must not allocate DelayNodes");
     },
   };
   const stretchFactory = async () => {
@@ -62,8 +32,21 @@ function harness() {
       async schedule(options) { this.schedules.push(options); },
       async latency() { return 0.08; },
       async stop() { this.stopped = true; },
+      port: { close() {} },
     });
     created.stretches.push(node);
+    return node;
+  };
+  const mixerFactory = async () => {
+    const messages = [];
+    const node = audioNode({
+      port: {
+        messages,
+        postMessage(message) { messages.push(message); },
+        close() {},
+      },
+    });
+    created.mixers.push(node);
     return node;
   };
   return {
@@ -72,114 +55,82 @@ function harness() {
     output: audioNode(),
     created,
     stretchFactory,
+    mixerFactory,
   };
 }
 
-test("generation bank preserves neutral audio and shares silky pitch processors", async () => {
-  const fixture = harness();
+async function initializedBank(fixture, options = {}) {
   const bank = new SignalsmithGenerationBank(
     fixture.context,
     fixture.input,
     fixture.output,
-    { stretchFactory: fixture.stretchFactory },
+    {
+      stretchFactory: fixture.stretchFactory,
+      mixerFactory: fixture.mixerFactory,
+      ...options,
+    },
   );
+  await bank.initialize();
+  return bank;
+}
 
-  bank.desired = [
-    { key: "neutral", semitones: 0, pitchKey: "0", delay: 0.25, gain: 0.5, pan: 0 },
-    { key: "up-a", semitones: 12, pitchKey: "12.00", delay: 0.5, gain: 0.4, pan: -0.4 },
-    { key: "up-b", semitones: 12, pitchKey: "12.00", delay: 0.75, gain: 0.3, pan: 0.4 },
-  ];
-  bank.revision = 1;
-  await bank.reconcile(1);
-
-  assert.equal(fixture.created.stretches.length, 1, "one processor should serve a shared pitch");
-  assert.equal(bank.taps.get("neutral").source, fixture.input, "zero pitch must remain bit-clean");
-  assert.equal(bank.taps.get("up-a").source, bank.taps.get("up-b").source);
-  assert.equal(fixture.created.stretches[0].schedules[0].semitones, 12);
-  assert.equal(fixture.created.stretches[0].schedules[0].formantCompensation, false);
-  assert.equal(
-    bank.taps.get("up-a").delays[0].delayTime.events.at(-1).value,
-    0.42,
-    "processor latency should not move the branch in time",
-  );
-});
-
-test("generation timing changes crossfade stationary delay taps instead of scrubbing one tap", async () => {
+test("generation bank uses a fixed pitch pool and one bounded mixer history", async () => {
   const fixture = harness();
-  const bank = new SignalsmithGenerationBank(
-    fixture.context,
-    fixture.input,
-    fixture.output,
-    { stretchFactory: fixture.stretchFactory },
-  );
-  bank.desired = [
-    { key: "branch", semitones: 0, pitchKey: "0", delay: 0.25, gain: 0.5, pan: 0 },
-  ];
-  bank.revision = 1;
-  await bank.reconcile(1);
-  const tap = bank.taps.get("branch");
+  const bank = await initializedBank(fixture, { maxPitchSources: 2, maxVoices: 8 });
 
-  bank.desired = [
-    { key: "branch", semitones: 0, pitchKey: "0", delay: 0.75, gain: 0.5, pan: 0 },
-  ];
-  bank.revision = 2;
-  await bank.reconcile(2);
-
-  assert.equal(tap.delayValues[0], 0.25, "audible delay must remain stationary");
-  assert.equal(tap.delayValues[1], 0.75, "new time belongs on the silent delay");
-  assert.equal(tap.activeLane, 1);
+  assert.equal(fixture.created.stretches.length, 2);
+  assert.equal(fixture.created.mixers.length, 1);
   assert.deepEqual(
-    tap.laneGains.map((lane) => lane.gain.events.filter((event) => event.type === "ramp").at(-1).value),
-    [0, 1],
+    fixture.created.stretches.map((node) => node.connections[0].input),
+    [1, 2],
   );
+
+  bank.setVoices([
+    { key: "neutral", rate: 1, delay: 0.25, gain: 0.5, pan: 0 },
+    { key: "up-a", rate: 2, delay: 0.5, gain: 0.4, pan: -0.4 },
+    { key: "up-b", rate: 2, delay: 0.75, gain: 0.3, pan: 0.4 },
+  ]);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const voices = fixture.created.mixers[0].port.messages.at(-1).voices;
+  assert.equal(voices.find((voice) => voice.key === "neutral").sourceIndex, 0);
+  assert.equal(voices.find((voice) => voice.key === "up-a").sourceIndex, 1);
+  assert.equal(voices.find((voice) => voice.key === "up-b").sourceIndex, 1);
+  assert.equal(voices.find((voice) => voice.key === "up-a").delay, 0.42);
+  assert.equal(fixture.created.stretches[0].schedules.at(-1).semitones, 12);
+  assert.equal(fixture.created.stretches[0].schedules.at(-1).formantCompensation, false);
 });
 
-test("generation bank caps distinct pitch processors and maps overflow voices", async () => {
+test("overflow pitches map to the bounded pool without allocating more processors", async () => {
   const fixture = harness();
-  const bank = new SignalsmithGenerationBank(
-    fixture.context,
-    fixture.input,
-    fixture.output,
-    { stretchFactory: fixture.stretchFactory, maxPitchSources: 2 },
-  );
-  const voices = [
+  const bank = await initializedBank(fixture, { maxPitchSources: 2, maxVoices: 8 });
+  bank.setVoices([
     { key: "loud", rate: 2, delay: 0.2, gain: 0.8, pan: 0 },
     { key: "medium", rate: 0.5, delay: 0.3, gain: 0.6, pan: 0 },
     { key: "quiet", rate: 1.5, delay: 0.4, gain: 0.1, pan: 0 },
-  ];
+  ]);
+  await new Promise((resolve) => setImmediate(resolve));
 
-  bank.setVoices(voices);
-  await bank.reconcile(bank.revision);
-
+  const voices = fixture.created.mixers[0].port.messages.at(-1).voices;
   assert.equal(fixture.created.stretches.length, 2);
-  assert.equal(bank.taps.size, 3);
+  assert.equal(voices.length, 3);
+  assert.ok(voices.every((voice) => voice.sourceIndex >= 1 && voice.sourceIndex <= 2));
 });
 
-test("rapid branch-angle changes create only the final pitch processor and retire the old one", async () => {
+test("rapid branch-angle gestures retune slots but keep node allocation constant", async () => {
   const fixture = harness();
-  const bank = new SignalsmithGenerationBank(
-    fixture.context,
-    fixture.input,
-    fixture.output,
-    { stretchFactory: fixture.stretchFactory },
-  );
-  bank.desired = [
-    { key: "branch", semitones: 0, pitchKey: "0", delay: 0.25, gain: 0.5, pan: 0 },
-  ];
-  bank.revision = 1;
-  await bank.reconcile(1);
+  const bank = await initializedBank(fixture, { maxPitchSources: 2, maxVoices: 8 });
+  bank.setVoices([{ key: "branch", rate: 1, delay: 0.25, gain: 0.5, pan: 0 }]);
+  await new Promise((resolve) => setImmediate(resolve));
 
   for (const rate of [1.05, 1.12, 1.2, 1.3]) {
     bank.setVoices([{ key: "branch", rate, delay: 0.25, gain: 0.5, pan: 0 }]);
   }
-  assert.equal(fixture.created.stretches.length, 0, "dragging must not allocate per input event");
-  await new Promise((resolve) => setTimeout(resolve, 115));
-  assert.equal(fixture.created.stretches.length, 1);
-  assert.ok(Math.abs(fixture.created.stretches[0].schedules[0].semitones - 4.54) < 0.01);
-
-  bank.setVoices([{ key: "branch", rate: 0.8, delay: 0.25, gain: 0.5, pan: 0 }]);
-  await new Promise((resolve) => setTimeout(resolve, 115));
-  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(fixture.created.stretches.length, 2);
-  assert.equal(fixture.created.stretches[0].stopped, true, "superseded worklet should be released");
+  const messageCount = fixture.created.mixers[0].port.messages.length;
+  await new Promise((resolve) => setTimeout(resolve, 115));
+
+  assert.equal(fixture.created.stretches.length, 2, "a gesture must never create another worklet");
+  assert.equal(fixture.created.mixers[0].port.messages.length, messageCount + 1);
+  assert.ok(Math.abs(fixture.created.stretches[0].schedules.at(-1).semitones - 4.54) < 0.01);
 });

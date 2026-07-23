@@ -254,12 +254,14 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.equal(elements.get("seedControl").style.left, "108px");
   assert.equal(elements.get("seedControl").style.top, "301px");
   const initialGenerationShape = attributes.get("generationShapePath:d");
+  const initialGenerationTrunk = attributes.get("generationShapeTrunk:d");
   assert.ok(initialGenerationShape?.startsWith("M"));
+  assert.equal(initialGenerationTrunk, "M8.00 48.00L22.00 48.00");
   assert.ok(Number(attributes.get("generationShapeRoot:cx")) < 12, "rewrite seed should begin at the left");
-  assert.match(elements.get("generationShapeSummary").textContent, /^10 gen · .*segments · 1\.00×/);
+  assert.match(elements.get("generationShapeSummary").textContent, /^10 gen · \d+ visual · \d+ audible/);
   elements.get("depth").value = "0.86";
   listeners.get("depth:input")();
-  assert.match(elements.get("generationShapeSummary").textContent, /^22 gen ·/);
+  assert.match(elements.get("generationShapeSummary").textContent, /^12 gen ·/);
   assert.notEqual(attributes.get("generationShapePath:d"), initialGenerationShape);
   elements.get("depth").value = "0.72";
   listeners.get("depth:input")();
@@ -295,7 +297,7 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   const pitchedGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
   assert.ok(pitchedGenerations.voices.find((voice) => voice.generation === 1 && voice.rule === "A").rate < 1);
   assert.ok(pitchedGenerations.voices.find((voice) => voice.generation === 1 && voice.rule === "B").rate > 1);
-  assert.match(elements.get("generationPitchReadout").textContent, /-60° → -4 st · \+60° → \+4 st/);
+  assert.match(elements.get("generationPitchReadout").textContent, /-49\.2° → -3\.28 st · \+70\.8° → \+4\.72 st/);
   assert.notEqual(attributes.get("generationShapePath:d"), initialGenerationShape);
 
   elements.get("generationPreset").value = "pythagorean";
@@ -308,6 +310,11 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
 
   elements.get("generationPreset").value = "binary";
   listeners.get("generationPreset:change")({ currentTarget: elements.get("generationPreset") });
+  assert.equal(
+    attributes.get("generationShapeTrunk:d"),
+    initialGenerationTrunk,
+    "child timing must not rescale the seed trunk",
+  );
 
   listeners.get("micButton:click")();
   assert.equal(elements.get("audioState").textContent, "on");

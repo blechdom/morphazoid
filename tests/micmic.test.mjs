@@ -4,10 +4,13 @@ import test from "node:test";
 import {
   MICMIC_PRESETS,
   GENERATION_RULE_PRESETS,
+  MAX_GENERATION_VOICES,
   MAX_RECURSION_FEEDBACK,
   clamp,
   echoTreeLayout,
   estimateGenerations,
+  generationCountForDepth,
+  generationTopology,
   generationVoiceSpecs,
   recorderExtension,
   recursionParameters,
@@ -30,6 +33,7 @@ test("generation estimates stop when descendants fall below the audible floor", 
   assert.equal(estimateGenerations(0.5), 5);
   assert.equal(estimateGenerations(0.72), 10);
   assert.ok(estimateGenerations(10) <= 32);
+  assert.equal(generationCountForDepth(0.86), 12);
 });
 
 test("feedback matrix conserves bounded outgoing gain while branching", () => {
@@ -95,6 +99,42 @@ test("branch angles accumulate as proportional octave turns", () => {
   assert.ok(Math.abs(second[3].rate - 2 ** (4 / 12)) < 1e-12);
 });
 
+test("one bounded L-system topology drives a fixed trunk and richer audio branches", () => {
+  const shortChildren = generationTopology({
+    generations: 8,
+    branching: 1,
+    timeRatio: 0.2,
+    angle: 30,
+  });
+  const longChildren = generationTopology({
+    generations: 8,
+    branching: 1,
+    timeRatio: 1,
+    angle: 30,
+  });
+  assert.deepEqual(shortChildren[0], longChildren[0], "child timing must never resize the trunk");
+  assert.equal(shortChildren[0].length, 1);
+  assert.ok(shortChildren.length > 50, "the visual topology should contain a dense bounded tree");
+
+  const voices = generationVoiceSpecs({
+    generations: 12,
+    interval: 240,
+    depth: 0.86,
+    branching: 1,
+    timeRatio: 0.72,
+    angle: 45,
+  });
+  const topologyIds = new Set(generationTopology({
+    generations: 12,
+    branching: 1,
+    timeRatio: 0.72,
+    angle: 45,
+  }).map((node) => node.id));
+  assert.ok(voices.length <= MAX_GENERATION_VOICES && voices.length >= 40);
+  assert.ok(voices.every((voice) => topologyIds.has(voice.key.replace(/^generation:/, ""))));
+  assert.ok(new Set(voices.map((voice) => voice.generation)).size === 12);
+});
+
 test("generation relationship presets mirror the L-system families", () => {
   assert.deepEqual(Object.keys(GENERATION_RULE_PRESETS), ["clean", "binary", "pythagorean", "plant", "coral", "dragon", "koch"]);
   assert.equal(GENERATION_RULE_PRESETS.clean.timeRatio, 1);
@@ -110,10 +150,10 @@ test("echo tree layout has stable parent links and a bounded visual width", () =
   assert.ok(line.every((node) => node.y === 0));
 
   const tree = echoTreeLayout(20, 1, 6);
-  assert.equal(Math.max(...tree.map((node) => node.generation)), 8);
+  assert.equal(Math.max(...tree.map((node) => node.generation)), 12);
   const ids = new Set(tree.map((node) => node.id));
   for (const node of tree.slice(1)) assert.ok(ids.has(node.parentId));
-  for (let generation = 1; generation <= 8; generation += 1) {
+  for (let generation = 1; generation <= 12; generation += 1) {
     assert.ok(tree.filter((node) => node.generation === generation).length <= 6);
   }
   const extendedPreview = echoTreeLayout(22, 1, 6, 32);

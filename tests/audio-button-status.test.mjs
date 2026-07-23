@@ -14,6 +14,7 @@ const instrumentScripts = [
   "julia-app.js",
   "lumber-app.js",
   "micmic-app.js",
+  "throatazoid-app.js",
   "morphazoidical/app.js",
 ];
 

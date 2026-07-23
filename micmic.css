@@ -526,10 +526,27 @@
 
 #generationShapePath {
   fill: none;
+  stroke: rgba(119, 131, 126, 0.32);
+  stroke-width: 0.85;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+#generationShapeAudiblePath {
+  fill: none;
   stroke: url("#generationShapeGradient");
   stroke-width: 1.35;
   stroke-linecap: round;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+#generationShapeTrunk {
+  fill: none;
+  stroke: #fff3d6;
+  stroke-width: 2.4;
+  stroke-linecap: round;
   vector-effect: non-scaling-stroke;
 }
 

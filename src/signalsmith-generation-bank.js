@@ -13,85 +13,127 @@ function pitchKey(semitones) {
   return Math.abs(semitones) < 0.005 ? "0" : semitones.toFixed(2);
 }
 
-function setImmediately(parameter, value, time) {
-  parameter.cancelScheduledValues?.(time);
-  if (parameter.setValueAtTime) parameter.setValueAtTime(value, time);
-  else parameter.setTargetAtTime?.(value, time, 0.001);
-}
-
-function fadeTo(parameter, from, to, time, duration) {
-  setImmediately(parameter, from, time);
-  if (parameter.linearRampToValueAtTime) parameter.linearRampToValueAtTime(to, time + duration);
-  else parameter.setTargetAtTime?.(to, time, duration / 3);
+async function defaultMixerFactory(context, { maxInputs, maxVoices, historySeconds }) {
+  const WorkletNode = globalThis.AudioWorkletNode;
+  if (!context.audioWorklet?.addModule || !WorkletNode) {
+    throw new Error("The bounded generation mixer requires AudioWorklet.");
+  }
+  await context.audioWorklet.addModule(
+    new URL("./signalsmith-generation-mixer-processor.js?v=20260723-fixed-pool", import.meta.url),
+  );
+  return new WorkletNode(context, "morphazoid-signalsmith-generation-mixer", {
+    numberOfInputs: maxInputs,
+    numberOfOutputs: 1,
+    outputChannelCount: [2],
+    processorOptions: { maxInputs, maxVoices, historySeconds },
+  });
 }
 
 /**
- * Groups branch voices by transposition.  Each unique pitch gets one
- * Signalsmith spectral processor, then fans out through crossfaded Web Audio
- * delay pairs so time and pitch remain separate controls.  Delay times never
- * move while audible: changing a timing rule prepares a silent tap at the new
- * position and fades across, avoiding Doppler scrubbing and buffer tearing.
+ * A fixed pool of high-quality pitch processors feeding one bounded rolling
+ * multi-tap history.  Grammar edits retune slots and virtual read heads; they
+ * never allocate pitch worklets or 60-second DelayNodes during a gesture.
  */
 export class SignalsmithGenerationBank {
   constructor(context, input, output, {
-    maxPitchSources = 7,
+    maxPitchSources = 5,
+    maxVoices = 48,
+    historySeconds = 32,
     stretchFactory = SignalsmithStretch,
+    mixerFactory = defaultMixerFactory,
   } = {}) {
     this.context = context;
     this.input = input;
     this.output = output;
-    this.maxPitchSources = Math.max(1, Math.round(maxPitchSources));
+    this.maxPitchSources = Math.max(1, Math.min(7, Math.round(maxPitchSources)));
+    this.maxVoices = Math.max(1, Math.min(64, Math.round(maxVoices)));
+    this.historySeconds = clamp(historySeconds, 4, 40, 32);
     this.stretchFactory = stretchFactory;
-    this.pitchSources = new Map();
-    this.taps = new Map();
+    this.mixerFactory = mixerFactory;
+    this.slots = [];
+    this.mixer = null;
     this.desired = [];
     this.revision = 0;
+    this.rendered = false;
     this.disposed = false;
-    this.timingTimer = null;
+    this.gestureTimer = null;
   }
 
   static async create(context, input, output, options) {
     const bank = new SignalsmithGenerationBank(context, input, output, options);
-    // Force the official worklet/WASM module to load before replacing the
-    // lightweight fallback.  The probe never enters the audible graph.
-    const probe = await bank.stretchFactory(context, {
-      numberOfInputs: 1,
-      numberOfOutputs: 1,
-      outputChannelCount: [1],
+    try {
+      await bank.initialize();
+      return bank;
+    } catch (error) {
+      await bank.dispose();
+      throw error;
+    }
+  }
+
+  async initialize() {
+    const maxInputs = this.maxPitchSources + 1;
+    this.mixer = await this.mixerFactory(this.context, {
+      maxInputs,
+      maxVoices: this.maxVoices,
+      historySeconds: this.historySeconds,
     });
-    await probe.configure?.({ blockMs: 160, intervalMs: 30, splitComputation: true });
-    await probe.stop?.();
-    probe.disconnect?.();
-    return bank;
+    this.input.connect(this.mixer, 0, 0);
+    this.mixer.connect(this.output);
+
+    // This is the entire lifetime allocation.  Slots are retuned in place and
+    // never keyed to transient slider values.
+    for (let index = 0; index < this.maxPitchSources; index += 1) {
+      const node = await this.stretchFactory(this.context, {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+      });
+      await node.configure?.({ blockMs: 160, intervalMs: 30, splitComputation: true });
+      this.input.connect(node);
+      node.connect(this.mixer, 0, index + 1);
+      await node.schedule?.({
+        active: true,
+        output: this.context.currentTime,
+        semitones: 0,
+        tonalityHz: 8_000,
+        formantSemitones: 0,
+        formantCompensation: false,
+        formantBaseHz: 0,
+      });
+      this.slots.push({
+        node,
+        inputIndex: index + 1,
+        latency: clamp(await node.latency?.(), 0, 1, 0),
+        key: null,
+        semitones: 0,
+      });
+    }
   }
 
   setVoices(voices) {
-    const desired = (Array.isArray(voices) ? voices : []).map((voice, index) => {
-      const semitones = semitonesForVoice(voice);
-      return {
-        key: typeof voice?.key === "string" ? voice.key : `stretch:${index}`,
-        semitones,
-        pitchKey: pitchKey(semitones),
-        delay: clamp(voice?.delay, 0.00002, 58, 0.2),
-        gain: clamp(voice?.gain, 0, 1, 0),
-        pan: clamp(voice?.pan, -1, 1, 0),
-      };
-    });
-    this.desired = desired;
+    this.desired = (Array.isArray(voices) ? voices : [])
+      .slice(0, this.maxVoices)
+      .map((voice, index) => {
+        const semitones = semitonesForVoice(voice);
+        return {
+          key: typeof voice?.key === "string" ? voice.key : `stretch:${index}`,
+          semitones,
+          pitchKey: pitchKey(semitones),
+          delay: clamp(voice?.delay, 0.00002, this.historySeconds - 0.01, 0.2),
+          gain: clamp(voice?.gain, 0, 1, 0),
+          pan: clamp(voice?.pan, -1, 1, 0),
+        };
+      });
     const revision = ++this.revision;
-    if (this.timingTimer !== null) clearTimeout(this.timingTimer);
-    if (desired.length && this.taps.size) {
-      // Range inputs can fire every animation frame.  Coalesce the complete
-      // gesture before changing either delay taps or spectral pitch sources.
-      // Otherwise Branch Angle can allocate dozens of abandoned WASM
-      // AudioWorklets during a single drag and exhaust the live graph.
-      this.timingTimer = setTimeout(() => {
-        this.timingTimer = null;
-        void this.reconcile(revision);
+    if (this.gestureTimer !== null) clearTimeout(this.gestureTimer);
+    if (this.desired.length && this.rendered) {
+      this.gestureTimer = setTimeout(() => {
+        this.gestureTimer = null;
+        void this.reconcile(revision).catch(() => {});
       }, 90);
     } else {
-      this.timingTimer = null;
-      void this.reconcile(revision);
+      this.gestureTimer = null;
+      void this.reconcile(revision).catch(() => {});
     }
   }
 
@@ -107,44 +149,6 @@ export class SignalsmithGenerationBank {
       .map(([key]) => key);
   }
 
-  async ensurePitchSource(key) {
-    if (key === "0") return { node: this.input, latency: 0, semitones: 0 };
-    if (this.pitchSources.has(key)) return this.pitchSources.get(key);
-
-    const semitones = Number(key);
-    const pending = (async () => {
-      const node = await this.stretchFactory(this.context, {
-        numberOfInputs: 1,
-        numberOfOutputs: 1,
-        outputChannelCount: [1],
-      });
-      await node.configure?.({ blockMs: 160, intervalMs: 30, splitComputation: true });
-      this.input.connect(node);
-      await node.schedule?.({
-        active: true,
-        output: this.context.currentTime,
-        semitones,
-        tonalityHz: 8_000,
-        formantSemitones: 0,
-        // Moving the spectral envelope with the pitch is closer to tape and
-        // avoids the fixed-formant "voice changer" colour on microphones.
-        formantCompensation: false,
-        formantBaseHz: 0,
-      });
-      const latency = clamp(await node.latency?.(), 0, 1, 0);
-      return { node, latency, semitones };
-    })();
-    this.pitchSources.set(key, pending);
-    try {
-      const source = await pending;
-      this.pitchSources.set(key, source);
-      return source;
-    } catch (error) {
-      this.pitchSources.delete(key);
-      throw error;
-    }
-  }
-
   nearestPitchKey(semitones, availableKeys) {
     if (!availableKeys.length || Math.abs(semitones) < 0.005) return "0";
     return availableKeys.reduce((best, key) => (
@@ -152,129 +156,83 @@ export class SignalsmithGenerationBank {
     ), availableKeys[0]);
   }
 
-  removeTap(key) {
-    const tap = this.taps.get(key);
-    if (!tap) return;
-    for (let lane = 0; lane < tap.delays.length; lane += 1) {
-      tap.source?.disconnect?.(tap.delays[lane]);
-      tap.delays[lane].disconnect?.();
-      tap.laneGains[lane].disconnect?.();
+  async assignPitchSlots(keys) {
+    const assignments = new Map();
+    const retained = new Set();
+    for (const key of keys) {
+      const slot = this.slots.find((candidate) => candidate.key === key);
+      if (!slot) continue;
+      assignments.set(key, slot);
+      retained.add(slot);
     }
-    tap.gain.disconnect?.();
-    tap.pan.disconnect?.();
-    this.taps.delete(key);
-  }
-
-  retireUnusedPitchSources(keepKeys) {
-    const retained = new Set(keepKeys);
-    for (const [key, candidate] of this.pitchSources) {
-      if (retained.has(key)) continue;
-      void (async () => {
-        try {
-          const source = await candidate;
-          if (this.pitchSources.get(key) !== candidate && this.pitchSources.get(key) !== source) return;
-          if ([...this.taps.values()].some((tap) => tap.source === source.node)) return;
-          this.pitchSources.delete(key);
-          this.input.disconnect?.(source.node);
-          await source.node.stop?.();
-          source.node.disconnect?.();
-        } catch {
-          this.pitchSources.delete(key);
-        }
-      })();
+    const available = this.slots.filter((slot) => !retained.has(slot));
+    for (const key of keys) {
+      if (assignments.has(key)) continue;
+      const slot = available.shift();
+      if (!slot) break;
+      const semitones = Number(key);
+      await slot.node.schedule?.({
+        active: true,
+        output: this.context.currentTime + slot.latency,
+        semitones,
+        tonalityHz: 8_000,
+        formantSemitones: 0,
+        formantCompensation: false,
+        formantBaseHz: 0,
+      });
+      slot.key = key;
+      slot.semitones = semitones;
+      assignments.set(key, slot);
     }
+    for (const slot of this.slots) {
+      if (!retained.has(slot) && ![...assignments.values()].includes(slot)) slot.key = null;
+    }
+    return assignments;
   }
 
   async reconcile(revision) {
+    if (this.disposed || !this.mixer) return;
     const selectedKeys = this.selectedPitchKeys();
-    const sources = new Map([["0", { node: this.input, latency: 0, semitones: 0 }]]);
-    await Promise.all(selectedKeys.map(async (key) => {
-      try {
-        sources.set(key, await this.ensurePitchSource(key));
-      } catch {
-        // A failed high-quality source falls back to the exact neutral buffer.
-      }
-    }));
+    const assignments = await this.assignPitchSlots(selectedKeys);
     if (this.disposed || revision !== this.revision) return;
-
-    const activeKeys = new Set(this.desired.map((voice) => voice.key));
-    for (const key of this.taps.keys()) {
-      if (!activeKeys.has(key)) this.removeTap(key);
-    }
-
-    const now = this.context.currentTime;
-    const availableKeys = [...sources.keys()].filter((key) => key !== "0");
-    for (const voice of this.desired) {
-      const selectedKey = sources.has(voice.pitchKey)
+    const availableKeys = [...assignments.keys()];
+    const renderedVoices = this.desired.map((voice) => {
+      const selectedKey = assignments.has(voice.pitchKey)
         ? voice.pitchKey
         : this.nearestPitchKey(voice.semitones, availableKeys);
-      const sourceInfo = sources.get(selectedKey) ?? sources.get("0");
-      let tap = this.taps.get(voice.key);
-      if (!tap || tap.source !== sourceInfo.node) {
-        this.removeTap(voice.key);
-        const delays = [this.context.createDelay(60), this.context.createDelay(60)];
-        const laneGains = [this.context.createGain(), this.context.createGain()];
-        const gain = this.context.createGain();
-        const pan = this.context.createStereoPanner();
-        for (let lane = 0; lane < delays.length; lane += 1) {
-          sourceInfo.node.connect(delays[lane]);
-          delays[lane].connect(laneGains[lane]);
-          laneGains[lane].connect(gain);
-        }
-        gain.connect(pan);
-        pan.connect(this.output);
-        const initialDelay = Math.max(0, voice.delay - sourceInfo.latency);
-        setImmediately(delays[0].delayTime, initialDelay, now);
-        setImmediately(delays[1].delayTime, initialDelay, now);
-        setImmediately(laneGains[0].gain, 1, now);
-        setImmediately(laneGains[1].gain, 0, now);
-        tap = {
-          source: sourceInfo.node,
-          delays,
-          laneGains,
-          delayValues: [initialDelay, initialDelay],
-          activeLane: 0,
-          gain,
-          pan,
-        };
-        this.taps.set(voice.key, tap);
-      }
-      const audibleDelay = Math.max(0, voice.delay - sourceInfo.latency);
-      const sampleRate = Number(this.context.sampleRate) || 48_000;
-      if (Math.abs(audibleDelay - tap.delayValues[tap.activeLane]) > 1 / sampleRate) {
-        const previousLane = tap.activeLane;
-        const nextLane = 1 - previousLane;
-        // Collapse any interrupted fade before reusing its quiet lane.
-        setImmediately(tap.laneGains[previousLane].gain, 1, now);
-        setImmediately(tap.laneGains[nextLane].gain, 0, now);
-        setImmediately(tap.delays[nextLane].delayTime, audibleDelay, now);
-        tap.delayValues[nextLane] = audibleDelay;
-        fadeTo(tap.laneGains[previousLane].gain, 1, 0, now, 0.065);
-        fadeTo(tap.laneGains[nextLane].gain, 0, 1, now, 0.065);
-        tap.activeLane = nextLane;
-      }
-      tap.gain.gain.setTargetAtTime(voice.gain, now, 0.025);
-      tap.pan.pan.setTargetAtTime(voice.pan, now, 0.025);
-    }
-    this.retireUnusedPitchSources(selectedKeys);
+      const slot = assignments.get(selectedKey);
+      return {
+        key: voice.key,
+        sourceIndex: slot?.inputIndex ?? 0,
+        delay: Math.max(0, voice.delay - (slot?.latency ?? 0)),
+        gain: voice.gain,
+        pan: voice.pan,
+      };
+    });
+    this.mixer.port?.postMessage?.({ type: "voices", voices: renderedVoices });
+    this.rendered = renderedVoices.length > 0;
   }
 
   async dispose() {
     this.disposed = true;
     this.revision += 1;
-    if (this.timingTimer !== null) clearTimeout(this.timingTimer);
-    this.timingTimer = null;
-    for (const key of [...this.taps.keys()]) this.removeTap(key);
-    for (const source of this.pitchSources.values()) {
+    if (this.gestureTimer !== null) clearTimeout(this.gestureTimer);
+    this.gestureTimer = null;
+    this.mixer?.port?.postMessage?.({ type: "voices", voices: [] });
+    try { this.input.disconnect?.(this.mixer); } catch { /* already disconnected */ }
+    this.mixer?.disconnect?.();
+    this.mixer?.port?.close?.();
+    for (const slot of this.slots) {
       try {
-        const resolved = await source;
-        this.input.disconnect?.(resolved.node);
-        await resolved.node.stop?.();
-        resolved.node.disconnect?.();
+        this.input.disconnect?.(slot.node);
+        await slot.node.stop?.();
+        slot.node.disconnect?.();
+        slot.node.port?.close?.();
       } catch {
         // Already unavailable.
       }
     }
-    this.pitchSources.clear();
+    this.slots = [];
+    this.mixer = null;
   }
 }
