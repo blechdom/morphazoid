@@ -5,7 +5,6 @@ import {
   cornerDecaySeconds,
   normalizeStrikeGains,
   pitch01ToFrequency,
-  sineCornerEnvelopeGain,
   synthParametersForMode,
 } from "./src/audio.js";
 import {
@@ -19,10 +18,12 @@ import {
   projectPoint3,
   rotatePoint3,
 } from "./src/solid.js";
+import { createAmplitudeControl } from "./src/amplitude-control.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
 const pool = new VoicePool(32);
+const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
@@ -61,6 +62,8 @@ const state = {
   pitchRange: 3,
   fmIndex: 3,
   fmRatio: 2,
+  percussionAttack: 3,
+  percussionDecay: 110,
 };
 
 let cssWidth = 1;
@@ -149,6 +152,8 @@ bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`);
 bindRange("fmRatio", "fmRatio", (value) => `${value.toFixed(2)} : 1`);
+bindRange("percussionAttack", "percussionAttack", (value) => `${Number(value).toFixed(value % 1 ? 1 : 0)} ms`);
+bindRange("percussionDecay", "percussionDecay", (value) => `${Math.round(value)} ms`);
 
 $("solidType").addEventListener("change", (event) => {
   state.solidType = event.currentTarget.value;
@@ -177,6 +182,8 @@ $("soundMode").addEventListener("change", (event) => {
   pool.silence();
   $("soundSummary").textContent = state.soundMode.toUpperCase();
   $("fmControls").hidden = !["fm", "pm"].includes(state.soundMode);
+  $("percussionArticulation").hidden = state.soundMode !== "percussion";
+  amplitudeControl.setVisible(state.soundMode !== "percussion");
   previousVertexSigns = null;
   scheduleFrame();
 });
@@ -426,7 +433,7 @@ function voiceForContact(contact, index, phase = state.continuousPosition) {
   return {
     key: `solid:${contact.edgeIndex ?? index}`,
     frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange),
-    gain: sineCornerEnvelopeGain(contact.cornerStrength ?? 0, 0.25, 0.8, 350, 200),
+    gain: amplitudeControl.sample(contact.t ?? 0, 0.25 + 0.55 * (contact.cornerStrength ?? 0)),
     pan: clamp(contact.x, -1, 1),
     waveform: "sine",
     ...synth,
@@ -453,8 +460,8 @@ function emitVertexStrikes(solid, plane) {
     });
     const normalized = normalizeStrikeGains(intents, 0.78);
     normalized.forEach((spec) => pool.strike(spec, {
-      attackSeconds: cornerAttackSeconds(3),
-      decaySeconds: cornerDecaySeconds(110),
+      attackSeconds: cornerAttackSeconds(state.percussionAttack),
+      decaySeconds: cornerDecaySeconds(state.percussionDecay),
     }));
   }
   previousVertexSigns = signs;

@@ -4,22 +4,32 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("all nine instrument pages share desktop and mobile navigation", async () => {
-  const files = ["index.html", "lattice.html", "spiral.html", "solid.html", "hyper.html", "l-system.html", "julia.html", "lumber.html", "fractaphone.html"];
+test("all ten instrument pages share desktop and mobile navigation", async () => {
+  const files = [
+    "index.html", "lattice.html", "spiral.html", "solid.html", "hyper.html",
+    "l-system.html", "recursion.html", "julia.html", "lumber.html", "micmic.html",
+  ];
   const [pages, css, nav] = await Promise.all([
     Promise.all(files.map((file) => readFile(new URL(file, root), "utf8"))),
     readFile(new URL("style.css", root), "utf8"),
     readFile(new URL("nav.js", root), "utf8"),
   ]);
-  for (const html of pages) {
-    for (const label of ["shape", "lattice", "spiral", "solid", "hyper", "l-system", "julia", "lumber", "mic(mic)"]) {
+  for (const [index, html] of pages.entries()) {
+    for (const label of [
+      "shape", "lattice", "spiral", "solid", "hyper",
+      "l-system", "recursion", "julia", "lumber", "mic(mic)",
+    ]) {
       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       assert.match(html, new RegExp(`>${escapedLabel}<\\/a>`));
       assert.match(html, new RegExp(`>${escapedLabel}<\\/option>`));
     }
     assert.match(html, /class="mobile-instrument-select"/);
     assert.match(html, /<script type="module" src="nav\.js">/);
-    assert.match(html, /data-reset-all>Reset all parameters<\/button>/);
+    if (files[index] === "recursion.html") {
+      assert.match(html, /id="resetStudy"[^>]*>Reset this system<\/button>/);
+    } else {
+      assert.match(html, /data-reset-all>Reset all parameters<\/button>/);
+    }
   }
   for (const html of pages) {
     assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/, "sections should start collapsed");

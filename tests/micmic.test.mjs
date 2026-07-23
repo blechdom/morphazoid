@@ -2,21 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  FRACTAPHONE_PRESETS,
+  MICMIC_PRESETS,
+  GENERATION_RULE_PRESETS,
   MAX_RECURSION_FEEDBACK,
   clamp,
   echoTreeLayout,
   estimateGenerations,
+  generationVoiceSpecs,
   recorderExtension,
   recursionParameters,
-} from "../src/fractaphone.js";
+} from "../src/micmic.js";
 
-test("Fractaphone presets stay inside the bounded feedback design", () => {
-  assert.deepEqual(Object.keys(FRACTAPHONE_PRESETS), ["tunnel", "bloom", "choir", "fray"]);
-  for (const preset of Object.values(FRACTAPHONE_PRESETS)) {
+test("mic(mic) presets stay inside the bounded feedback design", () => {
+  assert.deepEqual(Object.keys(MICMIC_PRESETS), ["tunnel", "bloom", "choir", "fray"]);
+  for (const preset of Object.values(MICMIC_PRESETS)) {
     assert.ok(Object.isFrozen(preset));
     assert.ok(preset.depth >= 0 && preset.depth <= MAX_RECURSION_FEEDBACK);
-    assert.ok(preset.interval >= 70 && preset.interval <= 900);
+    assert.ok(preset.interval >= 0.2 && preset.interval <= 2_400);
     assert.ok(preset.branching >= 0 && preset.branching <= 1);
     assert.ok(preset.mutation >= 0 && preset.mutation <= 1);
   }
@@ -49,7 +51,57 @@ test("feedback matrix conserves bounded outgoing gain while branching", () => {
 
   const clamped = recursionParameters({ interval: 10_000, depth: 4, branching: 4 });
   assert.ok(clamped.selfFeedback + clamped.crossFeedback <= MAX_RECURSION_FEEDBACK);
-  assert.ok(clamped.intervalB <= 0.9 * 1.618 + 1e-12);
+  assert.ok(clamped.intervalB <= 2.4 * 1.618 + 1e-12);
+});
+
+test("generation rewrite recursively tapers the inherited buffer interval", () => {
+  const flat = generationVoiceSpecs({
+    generations: 3,
+    interval: 500,
+    depth: 0.7,
+    branching: 0,
+    timeRatio: 0.5,
+  });
+  assert.deepEqual(flat.map((voice) => voice.interval), [0.25, 0.125, 0.0625]);
+  assert.deepEqual(flat.map((voice) => voice.delay), [0.25, 0.375, 0.4375]);
+  assert.ok(flat.every((voice) => voice.rate === 1));
+});
+
+test("branch angles accumulate as proportional octave turns", () => {
+  const voices = generationVoiceSpecs({
+    generations: 2,
+    interval: 500,
+    depth: 0.7,
+    branching: 1,
+    timeRatio: 0.5,
+    angle: 30,
+    asymmetry: 0,
+    pitchScale: 1,
+  });
+  const first = voices.filter((voice) => voice.generation === 1);
+  assert.deepEqual(first.map((voice) => [voice.rule, voice.interval, voice.turnDegrees]), [
+    ["A", 0.25, -30],
+    ["B", 0.25, 30],
+  ]);
+  assert.ok(Math.abs(first[0].rate - 2 ** (-2 / 12)) < 1e-12);
+  assert.ok(Math.abs(first[1].rate - 2 ** (2 / 12)) < 1e-12);
+  const second = voices.filter((voice) => voice.generation === 2);
+  assert.deepEqual(second.map((voice) => [voice.rule, voice.interval, voice.turnDegrees]), [
+    ["A", 0.125, -30], ["B", 0.125, 30], ["A", 0.125, -30], ["B", 0.125, 30],
+  ]);
+  assert.ok(Math.abs(second[0].rate - 2 ** (-4 / 12)) < 1e-12);
+  assert.equal(second[1].rate, 1);
+  assert.equal(second[2].rate, 1);
+  assert.ok(Math.abs(second[3].rate - 2 ** (4 / 12)) < 1e-12);
+});
+
+test("generation relationship presets mirror the L-system families", () => {
+  assert.deepEqual(Object.keys(GENERATION_RULE_PRESETS), ["clean", "binary", "pythagorean", "plant", "coral", "dragon", "koch"]);
+  assert.equal(GENERATION_RULE_PRESETS.clean.timeRatio, 1);
+  assert.equal(GENERATION_RULE_PRESETS.clean.angle, 0);
+  assert.equal(GENERATION_RULE_PRESETS.binary.timeRatio, 0.5);
+  assert.equal(GENERATION_RULE_PRESETS.binary.angle, 30);
+  assert.equal(GENERATION_RULE_PRESETS.pythagorean.angle, 45);
 });
 
 test("echo tree layout has stable parent links and a bounded visual width", () => {
@@ -64,6 +116,8 @@ test("echo tree layout has stable parent links and a bounded visual width", () =
   for (let generation = 1; generation <= 8; generation += 1) {
     assert.ok(tree.filter((node) => node.generation === generation).length <= 6);
   }
+  const extendedPreview = echoTreeLayout(22, 1, 6, 32);
+  assert.equal(Math.max(...extendedPreview.map((node) => node.generation)), 22);
 });
 
 test("small helpers normalize values and recording extensions", () => {

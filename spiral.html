@@ -23,9 +23,10 @@
         <a class="tab" href="solid.html">solid</a>
         <a class="tab" href="hyper.html">hyper</a>
         <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab recursion-tab" href="recursion.html">recursion</a>
         <a class="tab" href="julia.html">julia</a>
         <a class="tab" href="lumber.html">lumber</a>
-        <a class="tab fractaphone-tab" href="fractaphone.html">mic(mic)</a>
+        <a class="tab micmic-tab" href="micmic.html">mic(mic)</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
@@ -36,9 +37,10 @@
           <option value="solid.html">solid</option>
           <option value="hyper.html">hyper</option>
           <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
           <option value="julia.html">julia</option>
           <option value="lumber.html">lumber</option>
-          <option value="fractaphone.html">mic(mic)</option>
+          <option value="micmic.html">mic(mic)</option>
         </select>
       </label>
 
@@ -193,7 +195,12 @@
             <label class="control" for="baseFrequency"><span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" /></label>
             <label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">3.50 oct</output></span><input id="pitchRange" type="range" min="0" max="6" step="0.05" value="3.5" /></label>
             <label class="control" for="contactLevel"><span><b>Contact level</b><output id="contactLevelOut" for="contactLevel">38%</output></span><input id="contactLevel" type="range" min="0" max="1" step="0.01" value="0.38" /></label>
-            <label class="control" for="intersectionDecay"><span><b>Amplitude decay</b><output id="intersectionDecayOut" for="intersectionDecay">180 ms</output></span><input id="intersectionDecay" type="range" min="20" max="2000" step="10" value="180" /></label>
+            <label class="control" id="intersectionDecayControl" for="intersectionDecay"><span><b>Envelope duration</b><output id="intersectionDecayOut" for="intersectionDecay">180 ms</output></span><input id="intersectionDecay" type="range" min="20" max="2000" step="10" value="180" /></label>
+            <div id="amplitudeControl" aria-label="Editable contact amplitude envelope"></div>
+            <div class="synth-panel" id="percussionArticulation" hidden>
+              <label class="control" for="percussionAttack"><span><b>Attack</b><output id="percussionAttackOut" for="percussionAttack">3 ms</output></span><input id="percussionAttack" type="range" min="0.5" max="30" step="0.5" value="3" /></label>
+              <label class="control" for="percussionDecay"><span><b>Decay</b><output id="percussionDecayOut" for="percussionDecay">180 ms</output></span><input id="percussionDecay" type="range" min="15" max="2000" step="5" value="180" /></label>
+            </div>
             <label class="control" for="voiceCap"><span><b>Voice limit</b><output id="voiceCapOut" for="voiceCap">8 voices</output></span><input id="voiceCap" type="range" min="1" max="16" step="1" value="8" /></label>
             <label class="control" for="stereoWidth"><span><b>Stereo width</b><output id="stereoWidthOut" for="stereoWidth">80%</output></span><input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
             <p class="audio-error" id="audioError" role="alert" hidden></p>

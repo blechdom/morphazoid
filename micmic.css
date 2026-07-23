@@ -1,4 +1,4 @@
-.fractaphone-page {
+.micmic-page {
   --accent: #55d9ff;
   --accent-soft: color-mix(in oklab, #55d9ff 55%, transparent);
   --accent-glow: color-mix(in oklab, #55d9ff 22%, transparent);
@@ -6,31 +6,31 @@
   --fracta-coral: #ff826f;
 }
 
-.fractaphone-page #listenSection {
+.micmic-page #listenSection {
   --accent: #55d9ff;
   --accent-soft: color-mix(in oklab, #55d9ff 55%, transparent);
   --accent-glow: color-mix(in oklab, #55d9ff 21%, transparent);
 }
 
-.fractaphone-page #recursionSection {
+.micmic-page #recursionSection {
   --accent: #c79bff;
   --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
   --accent-glow: color-mix(in oklab, #c79bff 20%, transparent);
 }
 
-.fractaphone-page #mixSection {
+.micmic-page #mixSection {
   --accent: #5fe8c4;
   --accent-soft: color-mix(in oklab, #5fe8c4 55%, transparent);
   --accent-glow: color-mix(in oklab, #5fe8c4 20%, transparent);
 }
 
-.fractaphone-page #captureSection {
+.micmic-page #captureSection {
   --accent: #ff826f;
   --accent-soft: color-mix(in oklab, #ff826f 55%, transparent);
   --accent-glow: color-mix(in oklab, #ff826f 20%, transparent);
 }
 
-.fractaphone-page .stage-wrap {
+.micmic-page .stage-wrap {
   background:
     linear-gradient(rgba(85, 217, 255, 0.021) 1px, transparent 1px),
     linear-gradient(90deg, rgba(85, 217, 255, 0.021) 1px, transparent 1px),
@@ -40,7 +40,7 @@
   background-size: 44px 44px, 44px 44px, auto, auto, auto;
 }
 
-.fractaphone-page #stage {
+.micmic-page #stage {
   cursor: default;
 }
 
@@ -482,6 +482,165 @@
 .fracta-presets small {
   color: var(--faint);
   font-size: 7px;
+}
+
+.generation-shape-preview {
+  display: grid;
+  grid-template-columns: minmax(82px, 0.7fr) minmax(120px, 1.3fr);
+  min-height: 92px;
+  margin: 10px 0 14px;
+  border: 1px solid var(--line-strong);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 78% 48%, rgba(199, 155, 255, 0.08), transparent 54%),
+    rgba(7, 9, 11, 0.55);
+  align-items: stretch;
+}
+
+.generation-shape-preview > span {
+  display: flex;
+  padding: 10px;
+  border-right: 1px solid var(--line);
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.generation-shape-preview b {
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.generation-shape-preview small {
+  color: var(--faint);
+  font: 7px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+#generationShapePreview {
+  display: block;
+  width: 100%;
+  height: 92px;
+}
+
+#generationShapePath {
+  fill: none;
+  stroke: url("#generationShapeGradient");
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+#generationShapeRoot {
+  fill: #fff3d6;
+  stroke: rgba(255, 243, 214, 0.35);
+  stroke-width: 3;
+}
+
+.generation-editor {
+  margin: 15px 0 14px;
+  border: 1px solid var(--line-strong);
+  background: rgba(7, 9, 11, 0.55);
+}
+
+.generation-editor-heading {
+  display: flex;
+  min-height: 42px;
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.generation-editor-heading > span {
+  display: grid;
+  gap: 2px;
+}
+
+.generation-editor-heading b {
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.generation-editor-heading small {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+#generationEditor {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 164px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+#generationEditor .editor-grid {
+  stroke: rgba(119, 131, 126, 0.16);
+  stroke-width: 1;
+}
+
+#generationEditor .editor-axis {
+  fill: var(--faint);
+  font: 7px ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.06em;
+}
+
+#generationEditor .generation-path {
+  fill: none;
+  stroke-width: 1.4;
+}
+
+#generationEditor .branch-a { stroke: #55d9ff; }
+#generationEditor .branch-b { stroke: #ff826f; }
+
+#generationEditor .time-offset {
+  stroke: rgba(85, 217, 255, 0.34);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+#generationEditor .generation-handle {
+  cursor: move;
+  fill: #090c11;
+  stroke: #8cbbef;
+  stroke-width: 1.4;
+}
+
+#generationEditor .generation-handle.branch-a { stroke: #55d9ff; }
+#generationEditor .generation-handle.branch-b { stroke: #ff826f; }
+
+#generationEditor circle:hover,
+#generationEditor circle:focus {
+  stroke-width: 2.5;
+}
+
+.generation-editor-legend {
+  display: flex;
+  padding: 0 9px 6px;
+  justify-content: space-between;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.generation-editor-legend .pitch { color: #c79bff; }
+
+#generationEditOut {
+  display: block;
+  min-height: 25px;
+  padding: 6px 9px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
 }
 
 .fracta-record-button {

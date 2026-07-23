@@ -13,7 +13,7 @@ const instrumentScripts = [
   "recursion-app.js",
   "julia-app.js",
   "lumber-app.js",
-  "fractaphone-app.js",
+  "micmic-app.js",
   "morphazoidical/app.js",
 ];
 

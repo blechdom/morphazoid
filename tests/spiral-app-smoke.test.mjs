@@ -191,6 +191,15 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
     Math.abs(oscillator.frequency.value - uncoupledFrequencies[index]) > 1e-6
   )));
 
+  elements.get("soundMode").value = "percussion";
+  listeners.get("soundMode:change")();
+  assert.equal(elements.get("amplitudeControl").hidden, true);
+  assert.equal(elements.get("intersectionDecayControl").hidden, true);
+  assert.equal(elements.get("percussionArticulation").hidden, false);
+  elements.get("percussionDecay").value = "720";
+  listeners.get("percussionDecay:input")();
+  assert.equal(elements.get("percussionDecayOut").textContent, "720 ms");
+
   const beforeScrub = Number(elements.get("position").value);
   listeners.get("stage:pointerdown")({ clientX: 690, clientY: 260, pointerId: 4 });
   listeners.get("stage:pointermove")({ clientX: 610, clientY: 190, pointerId: 4 });

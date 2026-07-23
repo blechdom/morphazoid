@@ -14,6 +14,7 @@ import {
   normalizeLSystemPoint,
   traceLSystem,
 } from "./src/l-system.js";
+import { createAmplitudeControl } from "./src/amplitude-control.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -26,6 +27,7 @@ const pool = new VoicePool(INITIAL_L_SYSTEM_VOICES, {
   adaptive: true,
   maxVoices: MAX_L_SYSTEM_VOICES,
 });
+const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
 const presetById = new Map(L_SYSTEM_PRESETS.map((preset) => [preset.id, preset]));
 const state = {
   presetId: "pythagorean",
@@ -344,6 +346,7 @@ $("pitchSource").addEventListener("change", (event) => {
 $("soundMode").addEventListener("change", (event) => {
   state.soundMode = event.currentTarget.value;
   $("soundSummary").textContent = state.soundMode.toUpperCase();
+  amplitudeControl.setVisible(state.soundMode !== "percussion");
   pool.silence();
   pool.setVoiceDemand(0, state.soundMode);
   resetVoiceSubmission();
@@ -488,7 +491,8 @@ function voiceForPlayhead(playhead, activePower, combinedGain) {
   return {
     key: `l-system:${playhead.voiceKey}`,
     frequency,
-    gain: branchVoiceGain(playhead.powerShare, activePower, combinedGain),
+    gain: branchVoiceGain(playhead.powerShare, activePower, combinedGain)
+      * amplitudeControl.sample(playhead.progress ?? 0, 1),
     pan: clamp(normalized.x * 2 - 1, -1, 1),
     waveform: "sine",
     ...synthParametersForMode(state.soundMode, drive, {

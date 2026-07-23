@@ -1,0 +1,12 @@
+{
+  "name": "signalsmith-stretch",
+  "version": "1.3.2",
+  "description": "JS/WASM release of the Signalsmith Stretch library",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://signalsmith-audio.co.uk/code/stretch.git"
+  },
+  "author": "Geraint Luff",
+  "license": "MIT"
+}

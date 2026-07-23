@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#07090b" />
-    <meta name="description" content="Morphazoid Fractaphone — a live microphone that grows recursive audio descendants." />
-    <title>Fractaphone — Morphazoid</title>
+    <meta name="description" content="Morphazoid mic(mic) — a live microphone that grows recursive audio descendants." />
+    <title>mic(mic) — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="fractaphone.css" />
+    <link rel="stylesheet" href="micmic.css" />
   </head>
-  <body class="fractaphone-page">
+  <body class="micmic-page">
     <header class="masthead">
       <a class="wordmark" href="./" aria-label="Morphazoid Shape">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -24,9 +24,10 @@
         <a class="tab" href="solid.html">solid</a>
         <a class="tab" href="hyper.html">hyper</a>
         <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab recursion-tab" href="recursion.html">recursion</a>
         <a class="tab" href="julia.html">julia</a>
         <a class="tab" href="lumber.html">lumber</a>
-        <a class="tab fractaphone-tab active" href="fractaphone.html" aria-current="page">mic(mic)</a>
+        <a class="tab micmic-tab active" href="micmic.html" aria-current="page">mic(mic)</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
@@ -37,9 +38,10 @@
           <option value="solid.html">solid</option>
           <option value="hyper.html">hyper</option>
           <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
           <option value="julia.html">julia</option>
           <option value="lumber.html">lumber</option>
-          <option value="fractaphone.html" selected>mic(mic)</option>
+          <option value="micmic.html" selected>mic(mic)</option>
         </select>
       </label>
 
@@ -50,18 +52,18 @@
         </button>
         <label class="header-level" for="level">
           <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
-          <input id="level" aria-label="Fractaphone output level" type="range" min="0" max="1" step="0.01" value="0.58" />
+          <input id="level" aria-label="mic(mic) output level" type="range" min="0" max="1" step="0.01" value="0.58" />
         </label>
       </div>
     </header>
 
-    <main class="shell" id="fractaphone">
-      <section class="stage fracta-stage" aria-label="Fractaphone echo tree">
+    <main class="shell" id="micmic">
+      <section class="stage fracta-stage" aria-label="mic(mic) echo tree">
         <div class="stage-wrap" id="stageWrap">
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Fractaphone canvas. A live voice grows into a branching tree of recursive descendants."
+            aria-label="mic(mic) canvas. A live voice grows into a branching tree of recursive descendants."
             aria-describedby="canvasInstructions liveStatus"
           >
             A branching visualization of recursive microphone echoes.
@@ -92,7 +94,7 @@
         </div>
       </section>
 
-      <aside class="panel" aria-label="Fractaphone controls">
+      <aside class="panel" aria-label="mic(mic) controls">
         <details class="group control-section performance-group" id="listenSection" data-section="listen">
           <summary class="group-summary">
             <h2 class="group-title">Listen</h2>
@@ -150,8 +152,34 @@
             </label>
             <label class="control" for="interval">
               <span><b>Time fold</b><output id="intervalOut" for="interval">240 ms</output></span>
-              <input id="interval" type="range" min="70" max="900" step="1" value="240" />
+              <input id="interval" type="range" min="0.2" max="2400" step="0.1" value="240" />
             </label>
+            <div class="field-label">Generation rewrite</div>
+            <label class="select-control" for="generationPreset"><span class="field-label">L-system relationship</span><span class="select-shell"><select id="generationPreset"><option value="clean" selected>Clean echo · 1:1</option><option value="binary">Half-time fork</option><option value="pythagorean">Pythagorean tree</option><option value="plant">Branching plant</option><option value="coral">Coral</option><option value="dragon">Dragon curve</option><option value="koch">Koch fork</option><option value="custom" hidden>Custom</option></select></span></label>
+            <div class="generation-shape-preview">
+              <span><b>Rewrite shape</b><small id="generationShapeSummary">10-generation preview</small></span>
+              <svg id="generationShapePreview" viewBox="0 0 120 76" role="img" aria-label="Live left-to-right L-system shape preview">
+                <defs>
+                  <linearGradient id="generationShapeGradient" x1="0" y1="1" x2="1" y2="0">
+                    <stop offset="0" stop-color="#55d9ff" />
+                    <stop offset=".55" stop-color="#c79bff" />
+                    <stop offset="1" stop-color="#ff826f" />
+                  </linearGradient>
+                </defs>
+                <path id="generationShapePath" d="M60 70L60 6" />
+                <circle id="generationShapeRoot" cx="60" cy="70" r="2.2" />
+              </svg>
+            </div>
+            <label class="control" for="timeRatio"><span><b>Child time ratio</b><output id="timeRatioOut" for="timeRatio">1.00× per generation</output></span><input id="timeRatio" type="range" min="0.2" max="1" step="0.01" value="1" /></label>
+            <label class="control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">0°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="0" /></label>
+            <label class="control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">even</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
+            <label class="control" for="generationPitchScale"><span><b>Angle → pitch</b><output id="generationPitchScaleOut" for="generationPitchScale">1.00 oct / 180°</output></span><input id="generationPitchScale" type="range" min="0" max="4" step="0.05" value="1" /></label>
+            <div class="grammar-card generation-rule-card" aria-label="Generation relationship preview">
+              <span><b>Timing levels</b><code id="generationTimingReadout">240 ms → 240 ms → 240 ms → 240 ms</code></span>
+              <span><b>Pitch turns</b><code id="generationPitchReadout">0° → 0 st · 0° → 0 st</code></span>
+              <span><b>Branch count</b><code id="generationCountReadout">1 parent → 2 children → 4 grandchildren → 8</code></span>
+            </div>
+            <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reset generation rule</button>
             <label class="control" for="branching">
               <span><b>Branching</b><output id="branchingOut" for="branching">84%</output></span>
               <input id="branching" type="range" min="0" max="1" step="0.01" value="0.84" />
@@ -160,7 +188,7 @@
               <span><b>Mutation</b><output id="mutationOut" for="mutation">30%</output></span>
               <input id="mutation" type="range" min="0" max="1" step="0.01" value="0.3" />
             </label>
-            <p class="control-note">Every descendant passes through another delay, loses a little spectrum, and splits between the two branches. Mutation also adds a small opposing time drift.</p>
+            <p class="control-note">The interval is inherited and multiplied once per generation. At 500 ms and 0.5×, the levels are 500 → 250 → 125 ms. Left and right turns inherit pitch: ±30° at 1 octave / 180° produces ±2 semitones per fork.</p>
           </div>
         </details>
 
@@ -215,6 +243,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="fractaphone-app.js"></script>
+    <script type="module" src="micmic-app.js"></script>
   </body>
 </html>

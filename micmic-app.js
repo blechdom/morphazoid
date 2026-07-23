@@ -1,16 +1,19 @@
 import {
-  FRACTAPHONE_PRESETS,
+  MICMIC_PRESETS,
+  GENERATION_RULE_PRESETS,
   clamp,
   echoTreeLayout,
   estimateGenerations,
+  generationVoiceSpecs,
   recorderExtension,
   recursionParameters,
-} from "./src/fractaphone.js";
+} from "./src/micmic.js";
+import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260723-crossfade";
 
 const $ = (id) => document.getElementById(id);
 const GENERATION_COLORS = ["#fff3d6", "#55d9ff", "#5fe8c4", "#7db4ff", "#c79bff", "#ff826f", "#e8c46b"];
 const DEFAULT_STATE = Object.freeze({
-  ...FRACTAPHONE_PRESETS.bloom,
+  ...MICMIC_PRESETS.bloom,
   preset: "bloom",
   inputTrim: 0.85,
   level: 0.58,
@@ -18,6 +21,11 @@ const DEFAULT_STATE = Object.freeze({
   starting: false,
   frozen: false,
   recording: false,
+  generationPreset: "clean",
+  timeRatio: GENERATION_RULE_PRESETS.clean.timeRatio,
+  generationAngle: GENERATION_RULE_PRESETS.clean.angle,
+  generationAsymmetry: GENERATION_RULE_PRESETS.clean.asymmetry,
+  generationPitchScale: GENERATION_RULE_PRESETS.clean.pitchScale,
 });
 
 const state = { ...DEFAULT_STATE };
@@ -49,6 +57,123 @@ let inputPeakHold = 0;
 let hotSince = 0;
 let lastUiMeterUpdate = 0;
 let lastFrameTime = performance.now();
+
+function signed(value, suffix = "") {
+  const rounded = Number(Number(value).toFixed(2));
+  return `${rounded >= 0 ? "+" : ""}${rounded}${suffix}`;
+}
+
+function formatMilliseconds(value) {
+  const amount = Number(value);
+  if (amount < 0.1) return `${Number(amount.toFixed(3))} ms`;
+  if (amount < 1) return `${Number(amount.toFixed(2))} ms`;
+  if (amount < 10) return `${Number(amount.toFixed(2))} ms`;
+  return `${Math.round(amount)} ms`;
+}
+
+function generationTurns() {
+  return {
+    left: -state.generationAngle * (1 - state.generationAsymmetry),
+    right: state.generationAngle * (1 + state.generationAsymmetry),
+  };
+}
+
+function generationShapeGeometry() {
+  const generationCount = estimateGenerations(state.depth);
+  // The compact diagram may show the complete decay estimate even though the
+  // audible renderer applies its own stricter real-time voice budget.
+  const layout = echoTreeLayout(generationCount, state.branching, 8, 32);
+  const groups = new Map();
+  for (const node of layout) {
+    if (!node.parentId) continue;
+    const siblings = groups.get(node.parentId) ?? [];
+    siblings.push(node);
+    groups.set(node.parentId, siblings);
+  }
+
+  // Match the L-system instrument: the seed is read at the left and each
+  // rewrite generation advances toward the right.
+  const positions = new Map([["0:0", { x: 0, y: 0, heading: 0 }]]);
+  const points = [{ x: 0, y: 0 }];
+  const segments = [];
+  const turns = generationTurns();
+  for (const node of layout) {
+    if (!node.parentId) continue;
+    const parent = positions.get(node.parentId) ?? positions.get("0:0");
+    const siblings = groups.get(node.parentId) ?? [node];
+    const siblingIndex = Math.max(0, siblings.indexOf(node));
+    const position = siblings.length <= 1 ? 0 : siblingIndex / (siblings.length - 1) * 2 - 1;
+    const turnDegrees = position < 0
+      ? Math.abs(position) * turns.left
+      : position * turns.right;
+    const heading = parent.heading + turnDegrees * Math.PI / 180;
+    const length = Math.pow(state.timeRatio, Math.max(0, node.generation - 1));
+    const child = {
+      x: parent.x + Math.cos(heading) * length,
+      y: parent.y + Math.sin(heading) * length,
+      heading,
+    };
+    positions.set(node.id, child);
+    points.push(child);
+    segments.push({ from: parent, to: child });
+  }
+
+  const xValues = points.map((point) => point.x);
+  const yValues = points.map((point) => point.y);
+  const minimumX = Math.min(...xValues);
+  const maximumX = Math.max(...xValues);
+  const minimumY = Math.min(...yValues);
+  const maximumY = Math.max(...yValues);
+  const width = Math.max(0.25, maximumX - minimumX);
+  const height = Math.max(0.25, maximumY - minimumY);
+  const scale = Math.min(108 / width, 64 / height);
+  const offsetX = 60 - (minimumX + maximumX) * 0.5 * scale;
+  const offsetY = 38 - (minimumY + maximumY) * 0.5 * scale;
+  const project = (point) => ({
+    x: offsetX + point.x * scale,
+    y: offsetY + point.y * scale,
+  });
+  const root = project(points[0]);
+  return {
+    path: segments.map(({ from, to }) => {
+      const start = project(from);
+      const end = project(to);
+      return `M${start.x.toFixed(2)} ${start.y.toFixed(2)}L${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+    }).join(""),
+    root,
+    generationCount,
+    branchCount: Math.max(0, layout.length - 1),
+  };
+}
+
+function renderGenerationShape() {
+  const geometry = generationShapeGeometry();
+  $("generationShapePath").setAttribute("d", geometry.path);
+  $("generationShapeRoot").setAttribute("cx", geometry.root.x.toFixed(2));
+  $("generationShapeRoot").setAttribute("cy", geometry.root.y.toFixed(2));
+  $("generationShapeSummary").textContent = `${geometry.generationCount} gen · ${geometry.branchCount} segments · ${state.timeRatio.toFixed(2)}×`;
+  $("generationShapePreview").setAttribute(
+    "aria-label",
+    `Live ${geometry.generationCount}-generation L-system preview with ${geometry.branchCount} segments, ${Number(state.generationAngle.toFixed(1))} degree branch angle, and ${state.timeRatio.toFixed(2)} child length ratio.`,
+  );
+}
+
+function renderGenerationRules() {
+  const timing = Array.from({ length: 4 }, (_, generation) => (
+    state.interval * state.timeRatio ** generation
+  ));
+  const turns = generationTurns();
+  const toSemitones = (degrees) => degrees / 180 * 12 * state.generationPitchScale;
+  $("generationPreset").value = state.generationPreset;
+  $("generationTimingReadout").textContent = timing.map(formatMilliseconds).join(" → ");
+  $("generationPitchReadout").textContent = `${signed(turns.left, "°")} → ${signed(toSemitones(turns.left), " st")} · ${signed(turns.right, "°")} → ${signed(toSemitones(turns.right), " st")}`;
+  const preview = echoTreeLayout(3, state.branching, 8);
+  const counts = [0, 1, 2, 3].map((generation) => (
+    preview.filter((node) => node.generation === generation).length
+  ));
+  $("generationCountReadout").textContent = counts.join(" → ");
+  renderGenerationShape();
+}
 
 function setPressed(element, pressed) {
   element?.setAttribute("aria-pressed", String(Boolean(pressed)));
@@ -165,8 +290,8 @@ function buildAudioGraph(audio) {
   const seedA = audio.createGain();
   const seedB = audio.createGain();
   const dryGain = audio.createGain();
-  const delayA = audio.createDelay(2.5);
-  const delayB = audio.createDelay(2.5);
+  const delayA = audio.createDelay(6);
+  const delayB = audio.createDelay(6);
   const branchAnalyserA = audio.createAnalyser();
   const branchAnalyserB = audio.createAnalyser();
   const lowpassA = audio.createBiquadFilter();
@@ -316,6 +441,7 @@ function buildAudioGraph(audio) {
     tapB,
     panA,
     panB,
+    wetBus,
     wetGain,
     safetyAnalyser,
     masterGain,
@@ -325,6 +451,58 @@ function buildAudioGraph(audio) {
     modulationA,
     modulationB,
   };
+}
+
+async function prepareGenerationProcessor(audio, audioGraph) {
+  const WorkletNode = globalThis.AudioWorkletNode;
+  if (!audio.audioWorklet?.addModule || !WorkletNode) return;
+  try {
+    await audio.audioWorklet.addModule(
+      new URL("./src/micmic-generation-processor.js?v=20260723-crossfade", import.meta.url),
+    );
+    if (audioContext !== audio || graph !== audioGraph || audio.state === "closed") return;
+    const node = new WorkletNode(audio, "morphazoid-micmic-generations", {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],
+      processorOptions: { historySeconds: 60, maxVoices: 64 },
+    });
+    audioGraph.seedGate.connect(node);
+    node.connect(audioGraph.wetBus);
+    audioGraph.generationNode = node;
+    audioGraph.generationRenderer = {
+      setVoices(voices) {
+        node.port.postMessage({ type: "voices", voices });
+      },
+    };
+
+    // Keep the lightweight processor audible while the larger spectral WASM
+    // engine loads.  Once ready, switch atomically to the high-quality bank.
+    void SignalsmithGenerationBank.create(
+      audio,
+      audioGraph.seedGate,
+      audioGraph.wetBus,
+      { maxPitchSources: 7 },
+    ).then((bank) => {
+      if (audioContext !== audio || graph !== audioGraph || audio.state === "closed") {
+        void bank.dispose();
+        return;
+      }
+      audioGraph.seedGate.disconnect?.(node);
+      node.disconnect?.();
+      audioGraph.generationBank = bank;
+      audioGraph.generationNode = bank;
+      audioGraph.generationRenderer = bank;
+      bank.setVoices(audioGraph.generationVoices ?? []);
+      announce("Silky spectral pitch engine ready.");
+    }).catch(() => {
+      // The exact-delay/granular processor remains the offline-safe fallback.
+    });
+  } catch {
+    // The bounded feedback matrix remains the compatible fallback.
+    audioGraph.generationNode = null;
+    audioGraph.generationRenderer = null;
+  }
 }
 
 async function ensureAudioGraph() {
@@ -339,6 +517,7 @@ async function ensureAudioGraph() {
     branchAWave = new Float32Array(graph.branchAnalyserA.fftSize);
     branchBWave = new Float32Array(graph.branchAnalyserB.fftSize);
     audioContext.addEventListener?.("statechange", updateUi);
+    await prepareGenerationProcessor(audioContext, graph);
   }
   if (audioContext.state !== "running") await audioContext.resume();
   return audioContext;
@@ -357,14 +536,15 @@ function applyAudioParameters(immediate = false) {
   const parameters = recursionParameters(state);
   const active = state.mic;
   const seedOpen = active && !state.frozen;
-  const feedbackSelf = active ? parameters.selfFeedback : 0;
-  const feedbackCross = active ? parameters.crossFeedback : 0;
+  const explicitGenerations = Boolean(graph.generationNode);
+  const feedbackSelf = active && !explicitGenerations ? parameters.selfFeedback : 0;
+  const feedbackCross = active && !explicitGenerations ? parameters.crossFeedback : 0;
   const maximumCutoff = Math.min(18_000, audioContext.sampleRate * 0.45);
 
   setAudioParam(graph.input.gain, active ? state.inputTrim : 0, immediate);
   setAudioParam(graph.seedGate.gain, seedOpen ? 1 : 0, immediate);
-  setAudioParam(graph.seedA.gain, parameters.seedA, immediate);
-  setAudioParam(graph.seedB.gain, parameters.seedB, immediate);
+  setAudioParam(graph.seedA.gain, explicitGenerations ? 0 : parameters.seedA, immediate);
+  setAudioParam(graph.seedB.gain, explicitGenerations ? 0 : parameters.seedB, immediate);
   setAudioParam(graph.dryGain.gain, seedOpen ? state.dry : 0, immediate);
   setAudioParam(graph.delayA.delayTime, parameters.intervalA, immediate);
   setAudioParam(graph.delayB.delayTime, parameters.intervalB, immediate);
@@ -376,6 +556,8 @@ function applyAudioParameters(immediate = false) {
   setAudioParam(graph.feedbackBB.gain, feedbackSelf, immediate);
   setAudioParam(graph.feedbackAB.gain, feedbackCross, immediate);
   setAudioParam(graph.feedbackBA.gain, feedbackCross, immediate);
+  setAudioParam(graph.tapA.gain, explicitGenerations ? 0 : 0.7, immediate);
+  setAudioParam(graph.tapB.gain, explicitGenerations ? 0 : 0.7, immediate);
   setAudioParam(graph.wetGain.gain, active ? state.wet * parameters.wetNormalization : 0, immediate);
   setAudioParam(graph.panA.pan, parameters.panA, immediate);
   setAudioParam(graph.panB.pan, parameters.panB, immediate);
@@ -383,6 +565,20 @@ function applyAudioParameters(immediate = false) {
   setAudioParam(graph.modulationA?.gain, parameters.modulationDepth, immediate);
   setAudioParam(graph.modulationB?.gain, -parameters.modulationDepth, immediate);
   setAudioParam(graph.masterGain.gain, active ? levelToGain(state.level) : 0, immediate);
+  const generationVoices = active ? generationVoiceSpecs({
+      generations: parameters.generations,
+      interval: state.interval,
+      depth: state.depth,
+      branching: state.branching,
+      spread: state.spread,
+      mutation: state.mutation,
+      timeRatio: state.timeRatio,
+      angle: state.generationAngle,
+      asymmetry: state.generationAsymmetry,
+      pitchScale: state.generationPitchScale,
+    }) : [];
+  graph.generationVoices = generationVoices;
+  graph.generationRenderer?.setVoices(generationVoices);
 }
 
 async function startMicrophone() {
@@ -428,7 +624,7 @@ async function startMicrophone() {
     state.frozen = false;
     applyAudioParameters();
     clearError();
-    announce("Fractaphone microphone on. Speak to seed the echo tree.");
+    announce("mic(mic) microphone on. Speak to seed the echo tree.");
   } catch (error) {
     if (generation !== microphoneGeneration) return;
     state.mic = false;
@@ -446,7 +642,7 @@ async function startMicrophone() {
   }
 }
 
-function stopMicrophone(message = "Fractaphone microphone off.", shouldAnnounce = true) {
+function stopMicrophone(message = "mic(mic) microphone off.", shouldAnnounce = true) {
   ++microphoneGeneration;
   state.starting = false;
   state.mic = false;
@@ -560,7 +756,7 @@ function startRecording() {
     const extension = recorderExtension(mimeType);
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     $("downloadTake").href = lastTakeUrl;
-    $("downloadTake").download = `fractaphone-${stamp}.${extension}`;
+    $("downloadTake").download = `micmic-${stamp}.${extension}`;
     updateUi();
     announce("Recursive recording ready to download.");
   }, { once: true });
@@ -569,7 +765,7 @@ function startRecording() {
   activeRecorder.start(250);
   state.recording = true;
   updateUi();
-  announce("Recording the processed Fractaphone output.");
+  announce("Recording the processed mic(mic) output.");
 }
 
 function stopRecording() {
@@ -846,7 +1042,7 @@ function resizeStage() {
 }
 
 function presetLabel() {
-  return state.preset === "custom" ? "Custom" : FRACTAPHONE_PRESETS[state.preset]?.label ?? "Custom";
+  return state.preset === "custom" ? "Custom" : MICMIC_PRESETS[state.preset]?.label ?? "Custom";
 }
 
 function paintControls() {
@@ -855,9 +1051,13 @@ function paintControls() {
     level: [state.level, `${Math.round(state.level * 100)}%`],
     inputTrim: [state.inputTrim, `${Math.round(state.inputTrim * 100)}%`],
     depth: [state.depth, `${Math.round(state.depth * 100)}% · ${generations} gen`],
-    interval: [state.interval, `${Math.round(state.interval)} ms`],
+    interval: [state.interval, formatMilliseconds(state.interval)],
     branching: [state.branching, `${Math.round(state.branching * 100)}%`],
     mutation: [state.mutation, `${Math.round(state.mutation * 100)}%`],
+    timeRatio: [state.timeRatio, `${state.timeRatio.toFixed(2)}× per generation`],
+    generationAngle: [state.generationAngle, `${Number(state.generationAngle.toFixed(1))}°`],
+    generationAsymmetry: [state.generationAsymmetry, state.generationAsymmetry === 0 ? "even" : `${Math.round(Math.abs(state.generationAsymmetry) * 100)}% ${state.generationAsymmetry < 0 ? "left wider" : "right wider"}`],
+    generationPitchScale: [state.generationPitchScale, `${state.generationPitchScale.toFixed(2)} oct / 180°`],
     wet: [state.wet, `${Math.round(state.wet * 100)}%`],
     dry: [state.dry, state.dry <= 0.001 ? "muted" : `${Math.round(state.dry * 100)}%`],
     spread: [state.spread, `${Math.round(state.spread * 100)}%`],
@@ -876,6 +1076,7 @@ function updateUi() {
   const audioState = live ? "on" : "off";
 
   paintControls();
+  renderGenerationRules();
   setPressed($("audioButton"), live);
   $("audioButton").disabled = starting;
   $("audioState").textContent = audioState;
@@ -909,7 +1110,7 @@ function updateUi() {
   $("mixSummary").textContent = `${Math.round(state.wet * 100)}% descendants · ${state.dry ? `${Math.round(state.dry * 100)}% root` : "root muted"}`;
   $("generationKeyEnd").textContent = `G${generations} DESCENDANT`;
   $("stageReadout").textContent = `${live ? (state.frozen ? "INPUT PAUSED" : "MIC LIVE") : "MIC OFF"} · ${label.toUpperCase()} · ${generations} GENERATIONS`;
-  canvas.setAttribute("aria-label", `Fractaphone echo tree. ${live ? state.frozen ? "Input paused; recursive tail live" : "Microphone live" : "Microphone off"}. ${generations} estimated audible generations.`);
+  canvas.setAttribute("aria-label", `mic(mic) echo tree. ${live ? state.frozen ? "Input paused; recursive tail live" : "Microphone live" : "Microphone off"}. ${generations} estimated audible generations.`);
 
   for (const button of $("presetButtons").querySelectorAll("button")) {
     setPressed(button, button.dataset.preset === state.preset);
@@ -950,8 +1151,32 @@ for (const id of ["depth", "interval", "branching", "mutation", "wet", "dry", "s
 bindRange("inputTrim", "inputTrim", { presetParameter: false });
 bindRange("level", "level", { presetParameter: false });
 
+function loadGenerationPreset(name, shouldAnnounce = true) {
+  const preset = GENERATION_RULE_PRESETS[name] ?? GENERATION_RULE_PRESETS.clean;
+  state.generationPreset = Object.prototype.hasOwnProperty.call(GENERATION_RULE_PRESETS, name) ? name : "clean";
+  state.timeRatio = preset.timeRatio;
+  state.generationAngle = preset.angle;
+  state.generationAsymmetry = preset.asymmetry;
+  state.generationPitchScale = preset.pitchScale;
+  applyAudioParameters();
+  updateUi();
+  if (shouldAnnounce) announce(`${preset.label} generation rule loaded.`);
+}
+
+$("generationPreset").addEventListener("change", (event) => loadGenerationPreset(event.currentTarget.value));
+$("resetGenerationRules").addEventListener("click", () => loadGenerationPreset(state.generationPreset));
+
+for (const id of ["timeRatio", "generationAngle", "generationAsymmetry", "generationPitchScale"]) {
+  $(id).addEventListener("input", () => {
+    state[id] = Number($(id).value);
+    state.generationPreset = "custom";
+    applyAudioParameters();
+    updateUi();
+  });
+}
+
 function applyPreset(name) {
-  const preset = FRACTAPHONE_PRESETS[name];
+  const preset = MICMIC_PRESETS[name];
   if (!preset) return;
   Object.assign(state, preset, { preset: name });
   applyAudioParameters();
@@ -987,7 +1212,7 @@ document.addEventListener("keydown", (event) => {
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && (state.mic || state.starting)) {
-    panic("Microphone stopped because Fractaphone moved to the background.");
+    panic("Microphone stopped because mic(mic) moved to the background.");
   }
 });
 

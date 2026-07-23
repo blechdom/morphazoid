@@ -17,13 +17,13 @@ import {
   contactsForLine,
   createScanLine,
   edgeShapeName,
-  intersectionAmplitudeEnvelope,
   latticeOffsetForPhase,
   parametersForDraggedVertex,
   tilingInfo,
   tilingParameterRange,
 } from "./src/lattice.js";
 import { EdgeShape } from "./vendor/tactile/tactile.js";
+import { createAmplitudeControl } from "./src/amplitude-control.js";
 
 const $ = (id) => document.getElementById(id);
 const SPEED_MIN = 0.01;
@@ -136,6 +136,7 @@ const stageWrap = $("stageWrap");
 const tileEditorCanvas = $("tileEditorCanvas");
 const tileEditorContext = tileEditorCanvas.getContext("2d");
 const pool = new VoicePool(MAX_VOICES);
+const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
 
 let cssWidth = 1;
 let cssHeight = 1;
@@ -336,6 +337,7 @@ function setSoundMode(mode, shouldAnnounce = true) {
   $("fmArticulation").hidden = state.soundMode !== "fm";
   $("pmArticulation").hidden = state.soundMode !== "pm";
   $("synthMapping").hidden = !["fm", "pm"].includes(state.soundMode);
+  amplitudeControl.setVisible(state.soundMode !== "percussion");
   updateSummaries();
   if (shouldAnnounce) announce(`${SOUND_MODE_LABELS[state.soundMode]} voice selected.`);
   scheduleFrame();
@@ -1089,10 +1091,11 @@ function mappingForContact(contact) {
     pitch,
     levelMark,
     frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange),
-    gain: baseGain * intersectionAmplitudeEnvelope(
-      contact.accentAge,
-      state.intersectionAccent,
-      state.intersectionDecay / 1000,
+    gain: baseGain * amplitudeControl.sample(
+      Number.isFinite(contact.accentAge)
+        ? clamp(contact.accentAge / (state.intersectionDecay / 1000), 0, 1)
+        : (amplitudeControl.state.points[2]?.x ?? 0.25),
+      1 + 1.25 * state.intersectionAccent,
     ),
     strikeGain: state.contactLevel
       * 0.65

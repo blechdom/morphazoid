@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("Fractaphone renders and drives a recursive microphone graph", async () => {
-  const html = await readFile(new URL("../fractaphone.html", import.meta.url), "utf8");
+test("mic(mic) renders and drives a recursive microphone graph", async () => {
+  const html = await readFile(new URL("../micmic.html", import.meta.url), "utf8");
   const tags = new Map(
     [...html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)].map((match) => [match[1], match[0]]),
   );
@@ -130,12 +130,21 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
   const delays = [];
   const analysers = [];
   const audioContexts = [];
+  const generationMessages = [];
+  globalThis.AudioWorkletNode = class {
+    constructor() {
+      this.port = { postMessage(message) { generationMessages.push(message); } };
+    }
+    connect(destination) { return destination; }
+    disconnect() {}
+  };
   globalThis.AudioContext = class {
     constructor() {
       this.currentTime = 0;
       this.sampleRate = 48_000;
       this.state = "running";
       this.destination = audioNode();
+      this.audioWorklet = { async addModule() {} };
       audioContexts.push(this);
     }
     addEventListener() {}
@@ -226,7 +235,7 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
     }
   };
 
-  await import(`../fractaphone-app.js?smoke=${Date.now()}`);
+  await import(`../micmic-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
   queuedFrame(performance.now() + 120);
 
@@ -244,6 +253,16 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
   assert.equal(seedButtonLabel.textContent, "Start input");
   assert.equal(elements.get("seedControl").style.left, "108px");
   assert.equal(elements.get("seedControl").style.top, "301px");
+  const initialGenerationShape = attributes.get("generationShapePath:d");
+  assert.ok(initialGenerationShape?.startsWith("M"));
+  assert.ok(Number(attributes.get("generationShapeRoot:cx")) < 12, "rewrite seed should begin at the left");
+  assert.match(elements.get("generationShapeSummary").textContent, /^10 gen · .*segments · 1\.00×/);
+  elements.get("depth").value = "0.86";
+  listeners.get("depth:input")();
+  assert.match(elements.get("generationShapeSummary").textContent, /^22 gen ·/);
+  assert.notEqual(attributes.get("generationShapePath:d"), initialGenerationShape);
+  elements.get("depth").value = "0.72";
+  listeners.get("depth:input")();
 
   listeners.get("seedMicButton:click")();
   await new Promise((resolve) => setImmediate(resolve));
@@ -265,6 +284,30 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
   assert.equal(elements.get("recordButton").disabled, false);
   assert.equal(elements.get("recordHint").textContent, "records while you listen");
   assert.equal(elements.get("micButtonLabel").textContent, "Pause input");
+  const initialGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
+  assert.ok(initialGenerations.voices.length > 8);
+  assert.ok(initialGenerations.voices.every((voice) => (
+    Number.isFinite(voice.delay) && Number.isFinite(voice.rate)
+  )));
+
+  elements.get("generationAngle").value = "60";
+  listeners.get("generationAngle:input")();
+  const pitchedGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
+  assert.ok(pitchedGenerations.voices.find((voice) => voice.generation === 1 && voice.rule === "A").rate < 1);
+  assert.ok(pitchedGenerations.voices.find((voice) => voice.generation === 1 && voice.rule === "B").rate > 1);
+  assert.match(elements.get("generationPitchReadout").textContent, /-60° → -4 st · \+60° → \+4 st/);
+  assert.notEqual(attributes.get("generationShapePath:d"), initialGenerationShape);
+
+  elements.get("generationPreset").value = "pythagorean";
+  listeners.get("generationPreset:change")({ currentTarget: elements.get("generationPreset") });
+  const forkedGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
+  const firstFork = forkedGenerations.voices.filter((voice) => voice.generation === 1);
+  assert.deepEqual(firstFork.map((voice) => voice.rule), ["A", "B"]);
+  assert.equal(elements.get("timeRatioOut").textContent, "0.72× per generation");
+  assert.equal(elements.get("generationAngleOut").textContent, "45°");
+
+  elements.get("generationPreset").value = "binary";
+  listeners.get("generationPreset:change")({ currentTarget: elements.get("generationPreset") });
 
   listeners.get("micButton:click")();
   assert.equal(elements.get("audioState").textContent, "on");
@@ -283,6 +326,7 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
   elements.get("interval").value = "500";
   listeners.get("interval:input")();
   assert.equal(elements.get("intervalOut").textContent, "500 ms");
+  assert.equal(elements.get("generationTimingReadout").textContent, "500 ms → 250 ms → 125 ms → 63 ms");
   assert.equal(elements.get("recursionSummary").textContent, "Custom · 10 generations");
   assert.equal(delays[0].delayTime.value, 0.5);
   assert.ok(Math.abs(delays[1].delayTime.value - 0.75956) < 1e-9);
@@ -305,7 +349,7 @@ test("Fractaphone renders and drives a recursive microphone graph", async () => 
   listeners.get("recordButton:click")();
   mediaRecorders[1].finishStop();
   assert.equal(elements.get("lastTake").hidden, false);
-  assert.match(elements.get("downloadTake").download, /^fractaphone-.+\.webm$/);
+  assert.match(elements.get("downloadTake").download, /^micmic-.+\.webm$/);
 
   listeners.get("audioButton:click")();
   assert.equal(elements.get("audioState").textContent, "off");

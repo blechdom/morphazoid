@@ -1,9 +1,10 @@
 import {
   VoicePool,
   clamp,
+  cornerAttackSeconds,
+  cornerDecaySeconds,
   normalizeStrikeGains,
   pitch01ToFrequency,
-  sineCornerEnvelopeGain,
   synthParametersForMode,
 } from "./src/audio.js";
 import { projectPoint3, rotatePoint3 } from "./src/solid.js";
@@ -13,6 +14,7 @@ import {
   projectPoint4,
   transformedHyperShape,
 } from "./src/hyper.js";
+import { createAmplitudeControl } from "./src/amplitude-control.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -22,6 +24,7 @@ const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
 const pool = new VoicePool(32);
+const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
 const state = {
   shapeType: "tesseract",
   position: 0.5,
@@ -49,6 +52,8 @@ const state = {
   pitchRange: 4,
   fmIndex: 3.5,
   fmRatio: 1.5,
+  percussionAttack: 3,
+  percussionDecay: 120,
 };
 let cssWidth = 1;
 let cssHeight = 1;
@@ -125,6 +130,8 @@ bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("fmIndex", "fmIndex", (value) => `${value.toFixed(2)} max`);
 bindRange("fmRatio", "fmRatio", (value) => `${value.toFixed(2)} : 1`);
+bindRange("percussionAttack", "percussionAttack", (value) => `${Number(value).toFixed(value % 1 ? 1 : 0)} ms`);
+bindRange("percussionDecay", "percussionDecay", (value) => `${Math.round(value)} ms`);
 
 const SHAPE_LABELS = {
   tesseract: "Tesseract",
@@ -253,6 +260,8 @@ $("soundMode").addEventListener("change", (event) => {
   state.soundMode = event.currentTarget.value;
   $("soundSummary").textContent = state.soundMode.toUpperCase();
   $("fmControls").hidden = !["fm", "pm"].includes(state.soundMode);
+  $("percussionArticulation").hidden = state.soundMode !== "percussion";
+  amplitudeControl.setVisible(state.soundMode !== "percussion");
   pool.silence();
   previousSigns = null;
   scheduleFrame();
@@ -388,7 +397,7 @@ function contactVoice(contact, index) {
   return {
     key: `hyper:${contact.edgeIndex ?? index}`,
     frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange),
-    gain: sineCornerEnvelopeGain(contact.cornerStrength ?? 0, 0.18, 0.82, 350, 200),
+    gain: amplitudeControl.sample(contact.t ?? 0, 0.18 + 0.64 * (contact.cornerStrength ?? 0)),
     pan: clamp(projected.x, -1, 1),
     waveform: "sine",
     ...synthParametersForMode(state.soundMode, drive, {
@@ -429,8 +438,8 @@ function emitCorners(tesseract, offset) {
       evenlySelect(intents, MAX_CORNER_STRIKES),
       0.78,
     ).forEach((spec) => pool.strike(spec, {
-      attackSeconds: 0.003,
-      decaySeconds: 0.12,
+      attackSeconds: cornerAttackSeconds(state.percussionAttack),
+      decaySeconds: cornerDecaySeconds(state.percussionDecay),
     }));
   }
   previousSigns = signs;

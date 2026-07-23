@@ -13,7 +13,6 @@ import {
   constrainPrototileEdit,
   edgeShapeName,
   evenlySelectContacts,
-  intersectionAmplitudeEnvelope,
   parametersForDraggedVertex,
   tilingInfo,
   tilingParameterRange,
@@ -26,6 +25,7 @@ import {
   scaleRateForSpiralRadius,
 } from "./src/spiral.js";
 import { EdgeShape } from "./vendor/tactile/tactile.js";
+import { createAmplitudeControl } from "./src/amplitude-control.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -71,6 +71,8 @@ const state = {
   pitchRange: 3.5,
   contactLevel: 0.38,
   intersectionDecay: 180,
+  percussionAttack: 3,
+  percussionDecay: 180,
   voiceCap: 8,
   stereoWidth: 0.8,
   pitchSource: "radius",
@@ -83,6 +85,7 @@ const stageWrap = $("stageWrap");
 const tileEditorCanvas = $("tileEditorCanvas");
 const tileEditorContext = tileEditorCanvas.getContext("2d");
 const pool = new VoicePool(MAX_VOICES);
+const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
 
 let cssWidth = 1;
 let cssHeight = 1;
@@ -158,6 +161,8 @@ bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
 bindRange("contactLevel", "contactLevel", (value) => `${Math.round(value * 100)}%`);
 bindRange("intersectionDecay", "intersectionDecay", (value) => `${Math.round(value)} ms`);
+bindRange("percussionAttack", "percussionAttack", (value) => `${Number(value).toFixed(value % 1 ? 1 : 0)} ms`);
+bindRange("percussionDecay", "percussionDecay", (value) => `${Math.round(value)} ms`);
 bindRange("voiceCap", "voiceCap", (value) => `${Math.round(value)} ${plural(Math.round(value), "voice")}`);
 bindRange("stereoWidth", "stereoWidth", (value) => `${Math.round(value * 100)}%`);
 bindRange("spiralA", "spiralA", (value) => String(Math.round(value)), () => {
@@ -631,6 +636,9 @@ $("playButton").addEventListener("click", async () => {
 
 $("soundMode").addEventListener("change", () => {
   state.soundMode = $("soundMode").value;
+  amplitudeControl.setVisible(state.soundMode !== "percussion");
+  $("intersectionDecayControl").hidden = state.soundMode === "percussion";
+  $("percussionArticulation").hidden = state.soundMode !== "percussion";
   pool.silence();
   resetContactTracking();
   updateSummaries();
@@ -816,10 +824,9 @@ function voiceData(contacts) {
       : 1;
     const gain = state.contactLevel * 0.13
       * (0.25 + 0.75 * contact.incidence)
-      * intersectionAmplitudeEnvelope(
-        contact.age,
+      * amplitudeControl.sample(
+        clamp(contact.age / (state.intersectionDecay / 1000 * durationScale), 0, 1),
         0.75,
-        state.intersectionDecay / 1000 * durationScale,
       );
     const synth = synthParametersForMode(state.soundMode, contact.incidence, {
       fmIndex: 4,
@@ -857,8 +864,8 @@ function updateAudio(data) {
     normalized.forEach((spec, index) => {
       const durationScale = strikeItems[index]?.durationScale ?? 1;
       pool.strike(spec, {
-        attackSeconds: cornerAttackSeconds(3 * durationScale),
-        decaySeconds: cornerDecaySeconds(Math.max(90, state.intersectionDecay) * durationScale),
+        attackSeconds: cornerAttackSeconds(state.percussionAttack * durationScale),
+        decaySeconds: cornerDecaySeconds(state.percussionDecay * durationScale),
       });
     });
   } else if (state.playing) {
