@@ -4,7 +4,7 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("Throatazoid is a first-class mic-driven Morphazoid instrument", async () => {
+test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument", async () => {
   const [html, css, app] = await Promise.all([
     readFile(new URL("throatazoid.html", root), "utf8"),
     readFile(new URL("throatazoid.css", root), "utf8"),
@@ -21,8 +21,9 @@ test("Throatazoid is a first-class mic-driven Morphazoid instrument", async () =
   assert.match(html, /id="stage"[\s\S]*?aria-describedby="canvasInstructions liveStatus"/);
   assert.match(html, /id="awakenButton"[\s\S]*?aria-pressed="false"/);
   assert.match(html, /<b id="awakenLabel">Awaken<\/b>/);
-  assert.match(html, /Use headphones\./);
-  assert.match(html, /Microphone audio stays in this browser\./);
+  assert.match(html, /Headphones recommended\./);
+  assert.match(html, /Glottis mode needs no microphone\./);
+  assert.match(html, /Audio is synthesized and processed in this browser\./);
   assert.match(html, /data-reset-all>Reset all parameters<\/button>/);
   assert.match(html, /src="nav\.js"/);
   assert.match(html, /src="throatazoid-app\.js"/);
@@ -32,9 +33,33 @@ test("Throatazoid is a first-class mic-driven Morphazoid instrument", async () =
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, "every Throatazoid id must be unique");
 
+  assert.match(html, /\bid="sourceButtons"/);
+  const sources = [...html.matchAll(
+    /<button\b[^>]*\bdata-source="([^"]+)"[^>]*>/g,
+  )].map((match) => match[1]);
+  assert.deepEqual(sources, ["mic", "glottis", "hybrid"]);
+
   for (const control of [
-    "level", "inputTrim", "throatCount", "bodyLength", "tension", "mutation",
-    "selectedAperture", "selectedLength", "wet", "dry", "growl", "coupling", "spread",
+    "level",
+    "inputTrim",
+    "inputStability",
+    "exciterPitch",
+    "exciterIntensity",
+    "exciterTenseness",
+    "exciterBreath",
+    "exciterVibrato",
+    "exciterWobble",
+    "throatCount",
+    "bodyLength",
+    "tension",
+    "mutation",
+    "selectedAperture",
+    "selectedLength",
+    "wet",
+    "dry",
+    "growl",
+    "coupling",
+    "spread",
   ]) {
     assert.match(html, new RegExp(`<label[^>]*for="${control}"`), `${control} needs a label`);
   }
@@ -43,7 +68,12 @@ test("Throatazoid is a first-class mic-driven Morphazoid instrument", async () =
   assert.match(css, /\.throatazoid-word/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(app, /navigator\.mediaDevices\.getUserMedia/);
-  assert.match(app, /echoCancellation:\s*\{\s*ideal:\s*true\s*\}/);
+  assert.match(app, /echoCancellation:\s*(?:false|\{\s*ideal:\s*false\s*\})/);
+  assert.match(app, /noiseSuppression:\s*(?:false|\{\s*ideal:\s*false\s*\})/);
+  assert.match(app, /autoGainControl:\s*(?:false|\{\s*ideal:\s*false\s*\})/);
+  assert.match(app, /createPeriodicWave/);
+  assert.match(app, /createBufferSource/);
+  assert.match(app, /glottalHarmonics/);
   assert.match(app, /createDynamicsCompressor/);
   assert.match(app, /makeCeilingCurve/);
   assert.match(app, /createMediaStreamDestination/);

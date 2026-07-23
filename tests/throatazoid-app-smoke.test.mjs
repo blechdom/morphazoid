@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("Throatazoid renders, awakens the mic graph, and mutates specimens", async () => {
+test("Throatazoid renders, awakens mic and glottis sources, and mutates specimens", async (t) => {
   const html = await readFile(new URL("../throatazoid.html", import.meta.url), "utf8");
   const tags = new Map(
     [...html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)].map((match) => [match[1], match[0]]),
@@ -47,10 +47,13 @@ test("Throatazoid renders, awakens the mic graph, and mutates specimens", async 
       classList: classList(),
       addEventListener(type, listener) { listeners.set(`${id}:${type}`, listener); },
       setAttribute(name, value) { attributes.set(`${id}:${name}`, String(value)); },
+      getAttribute(name) { return attributes.get(`${id}:${name}`) ?? null; },
       removeAttribute(name) {
         attributes.delete(`${id}:${name}`);
         if (name === "href") this.href = "";
       },
+      closest() { return null; },
+      querySelector() { return null; },
       querySelectorAll() { return []; },
       getBoundingClientRect() { return { left: 0, top: 0, width: 940, height: 610 }; },
       setPointerCapture() {},
@@ -77,6 +80,29 @@ test("Throatazoid renders, awakens the mic graph, and mutates specimens", async 
     });
   elements.get("specimenButtons").querySelectorAll = () => specimenButtons;
 
+  const sourceButtons = [...html.matchAll(/<button[^>]+data-source="([^"]+)"[^>]*>/g)]
+    .map((match) => {
+      const source = match[1];
+      return {
+        dataset: { source },
+        addEventListener(type, listener) {
+          listeners.set(`source-${source}:${type}`, listener);
+        },
+        setAttribute(name, value) {
+          attributes.set(`source-${source}:${name}`, String(value));
+        },
+        getAttribute(name) {
+          return attributes.get(`source-${source}:${name}`) ?? null;
+        },
+        closest(selector) {
+          return selector === "[data-source]" ? this : null;
+        },
+      };
+    });
+  elements.get("sourceButtons").querySelectorAll = (selector) => (
+    selector === "[data-source]" ? sourceButtons : []
+  );
+
   let strokes = 0;
   let fills = 0;
   const context = {
@@ -98,6 +124,27 @@ test("Throatazoid renders, awakens the mic graph, and mutates specimens", async 
 
   let queuedFrame = null;
   let frameId = 0;
+  const originalGlobals = new Map();
+  for (const name of [
+    "AudioContext",
+    "HTMLInputElement",
+    "HTMLSelectElement",
+    "HTMLTextAreaElement",
+    "ResizeObserver",
+    "cancelAnimationFrame",
+    "document",
+    "navigator",
+    "requestAnimationFrame",
+  ]) {
+    originalGlobals.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
+  }
+  t.after(() => {
+    for (const [name, descriptor] of originalGlobals) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  });
+
   globalThis.requestAnimationFrame = (callback) => {
     queuedFrame = callback;
     frameId += 1;
@@ -121,6 +168,8 @@ test("Throatazoid renders, awakens the mic graph, and mutates specimens", async 
     return {
       value,
       cancelScheduledValues() {},
+      exponentialRampToValueAtTime(next) { this.value = next; },
+      linearRampToValueAtTime(next) { this.value = next; },
       setTargetAtTime(next) { this.value = next; },
       setValueAtTime(next) { this.value = next; },
     };
@@ -136,6 +185,8 @@ test("Throatazoid renders, awakens the mic graph, and mutates specimens", async 
 
   const contexts = [];
   const analysers = [];
+  const bufferSources = [];
+  const periodicWaves = [];
   globalThis.AudioContext = class {
     constructor() {
       this.currentTime = 0;
@@ -178,9 +229,40 @@ test("Throatazoid renders, awakens the mic graph, and mutates specimens", async 
       return audioNode({
         type: "sine",
         frequency: audioParam(0),
+        detune: audioParam(0),
+        setPeriodicWave(wave) { this.periodicWave = wave; },
         start() {},
         stop() {},
       });
+    }
+    createBuffer(numberOfChannels, length, sampleRate) {
+      const channels = Array.from(
+        { length: numberOfChannels },
+        () => new Float32Array(length),
+      );
+      return {
+        numberOfChannels,
+        length,
+        sampleRate,
+        duration: length / sampleRate,
+        getChannelData(channel) { return channels[channel]; },
+      };
+    }
+    createBufferSource() {
+      const source = audioNode({
+        buffer: null,
+        loop: false,
+        playbackRate: audioParam(1),
+        start() { this.started = true; },
+        stop() { this.stopped = true; },
+      });
+      bufferSources.push(source);
+      return source;
+    }
+    createPeriodicWave(real, imaginary, options = {}) {
+      const wave = { real, imaginary, options };
+      periodicWaves.push(wave);
+      return wave;
     }
     createMediaStreamDestination() { return audioNode({ stream: { id: "processed" } }); }
     createMediaStreamSource() { return audioNode(); }
@@ -189,6 +271,7 @@ test("Throatazoid renders, awakens the mic graph, and mutates specimens", async 
   };
 
   let requestedConstraints = null;
+  let getUserMediaCalls = 0;
   let stopped = 0;
   const track = {
     addEventListener() {},
@@ -199,6 +282,7 @@ test("Throatazoid renders, awakens the mic graph, and mutates specimens", async 
     value: {
       mediaDevices: {
         async getUserMedia(constraints) {
+          getUserMediaCalls += 1;
           requestedConstraints = constraints;
           return {
             getAudioTracks: () => [track],
@@ -218,15 +302,50 @@ test("Throatazoid renders, awakens the mic graph, and mutates specimens", async 
   assert.equal(elements.get("audioState").textContent, "off");
   assert.equal(elements.get("stage").width, 940);
   assert.equal(elements.get("stage").height, 610);
+  assert.deepEqual(sourceButtons.map((button) => button.dataset.source), [
+    "mic",
+    "glottis",
+    "hybrid",
+  ]);
 
+  function selectSource(source) {
+    const button = sourceButtons.find((candidate) => candidate.dataset.source === source);
+    assert.ok(button, `missing ${source} source button`);
+    const direct = listeners.get(`source-${source}:click`);
+    const delegated = listeners.get("sourceButtons:click");
+    assert.ok(direct || delegated, `missing source listener for ${source}`);
+    if (direct) direct({ currentTarget: button, target: button });
+    else delegated({ currentTarget: elements.get("sourceButtons"), target: button });
+  }
+
+  selectSource("glottis");
   listeners.get("awakenButton:click")();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(contexts.length, 1);
-  assert.equal(requestedConstraints.audio.echoCancellation.ideal, true);
-  assert.equal(requestedConstraints.audio.noiseSuppression.ideal, false);
+  assert.equal(getUserMediaCalls, 0, "the internal glottis must not request microphone access");
+  assert.equal(requestedConstraints, null);
+  assert.ok(periodicWaves.length >= 1, "the glottis should build a periodic vocal waveform");
+  assert.ok(bufferSources.length >= 1, "the glottis should build its breath-noise source");
   assert.equal(elements.get("audioState").textContent, "on");
   assert.equal(elements.get("stateMetric").textContent, "awake");
   assert.ok(analysers.length >= 3);
+
+  listeners.get("stopButton:click")();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(elements.get("audioState").textContent, "off");
+  assert.equal(stopped, 0, "stopping the internal glottis should not touch a media track");
+
+  selectSource("mic");
+  listeners.get("awakenButton:click")();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(getUserMediaCalls, 1);
+  const constraintValue = (value) => (
+    typeof value === "object" && value !== null ? value.ideal : value
+  );
+  assert.equal(constraintValue(requestedConstraints.audio.echoCancellation), false);
+  assert.equal(constraintValue(requestedConstraints.audio.noiseSuppression), false);
+  assert.equal(constraintValue(requestedConstraints.audio.autoGainControl), false);
+  assert.equal(elements.get("audioState").textContent, "on");
 
   listeners.get("specimen-hive:click")();
   assert.equal(elements.get("throatCount").value, "5");

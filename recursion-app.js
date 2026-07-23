@@ -238,8 +238,13 @@ function pressureDescription(value) {
 }
 
 function paintGeometryViews() {
-  for (const button of $("geometryViews").querySelectorAll("[data-geometry]")) {
-    setPressed(button, button.dataset.geometry === state.geometryView);
+  const views = {
+    orbit: $("geometryOrbit"),
+    stack: $("geometryStack"),
+    causality: $("geometryCausality"),
+  };
+  for (const [view, button] of Object.entries(views)) {
+    setPressed(button, view === state.geometryView);
   }
 }
 
@@ -390,13 +395,18 @@ function lineageMoments(moment) {
   return [...byDepth.values()];
 }
 
+function lineagePhaseOffset(candidate, activeMoment, lineageIndex) {
+  if (candidate === activeMoment) return 0;
+  const age = Math.max(0, activeMoment.depth - candidate.depth);
+  return (age * 0.173 + lineageIndex * 0.071) * candidate.duration;
+}
+
 function scheduleSemanticMoment(moment, when) {
   const lineage = lineageMoments(moment);
   const powerScale = 1 / Math.sqrt(Math.max(1, lineage.length));
   for (let index = 0; index < lineage.length; index += 1) {
     const candidate = lineage[index];
     const activeScale = candidate === moment ? 1 : 0.7;
-    const age = Math.max(0, moment.depth - candidate.depth);
     audio.scheduleMoment(
       state.studyId,
       candidate,
@@ -404,9 +414,7 @@ function scheduleSemanticMoment(moment, when) {
       powerScale * activeScale,
       {
         pulseLimit: candidate === moment ? 96 : 20,
-        phaseOffset: candidate === moment
-          ? 0
-          : (age * 0.173 + index * 0.071) * candidate.duration,
+        phaseOffset: lineagePhaseOffset(candidate, moment, index),
       },
     );
   }
@@ -1079,15 +1087,443 @@ function drawMotionTopology(moment, progress) {
   );
 }
 
-function drawStage(moment, progress) {
-  canvasSetup();
+function geometryColour(coordinate, alpha = 1) {
+  const position = clamp(coordinate.spectrum, 0, 1);
+  const low = [112, 234, 216];
+  const middle = [199, 155, 255];
+  const high = coordinate.orientation < 0 ? [255, 130, 111] : [232, 196, 107];
+  const start = position < 0.5 ? low : middle;
+  const end = position < 0.5 ? middle : high;
+  const local = position < 0.5 ? position * 2 : (position - 0.5) * 2;
+  const channels = start.map((value, index) => Math.round(
+    value + (end[index] - value) * local,
+  ));
+  return `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${clamp(alpha, 0, 1)})`;
+}
+
+function geometryMoments(activeMoment) {
+  const active = activeMoment ?? plan.moments[0];
+  if (!active) return [];
+  return lineageMoments(active).filter(Boolean).map((candidate, index) => {
+    const available = candidate.motion?.pulses ?? [];
+    const limit = candidate === active ? 96 : 20;
+    const audiblePulses = available.length <= limit
+      ? available
+      : Array.from(
+        { length: limit },
+        (_, pulseIndex) => available[Math.floor(pulseIndex * available.length / limit)],
+      );
+    const phaseOffset = lineagePhaseOffset(candidate, active, index);
+    const offsetSpan = Math.max(0.08, candidate.duration * 0.84);
+    return {
+      ...candidate,
+      motion: {
+        ...candidate.motion,
+        pulses: audiblePulses.map((pulse) => ({
+          ...pulse,
+          offset: (
+            (pulse.offset + phaseOffset) % offsetSpan + offsetSpan
+          ) % offsetSpan,
+        })),
+      },
+    };
+  });
+}
+
+function geometryScene(activeMoment, progress, maxPoints) {
+  const moments = geometryMoments(activeMoment);
+  return geometryTrace(moments, {
+    maxPoints,
+    activeMomentIndex: moments.length - 1,
+    progress,
+  });
+}
+
+function projectionToCanvas(projected, bounds, {
+  xScale = 0.48,
+  yScale = 0.54,
+  depthShift = 0.035,
+} = {}) {
+  const width = bounds.right - bounds.left;
+  const height = bounds.bottom - bounds.top;
+  return {
+    x: (bounds.left + bounds.right) / 2 + projected.x * width * xScale,
+    y: (bounds.top + bounds.bottom) / 2
+      + projected.y * height * yScale
+      - projected.z * height * depthShift,
+    z: projected.z,
+    scale: projected.scale,
+    alpha: projected.alpha,
+  };
+}
+
+function releaseCoordinate(coordinate) {
+  const phraseTravel = coordinate.duration
+    * coordinate.playbackRate
+    * coordinate.timeDirection
+    * 0.72;
+  const source = coordinate.u + phraseTravel;
+  return {
+    ...coordinate,
+    u: source - Math.floor(source),
+    w: coordinate.releaseTime,
+    time: coordinate.releaseTime,
+    rhythm: coordinate.releaseTime,
+    v: coordinate.spectrumRelease,
+    spectrum: coordinate.spectrumRelease,
+    pitch: coordinate.pitchRelease,
+    pan: coordinate.panRelease,
+    energy: coordinate.energy * 0.78,
+    occupancy: coordinate.occupancy * 0.78,
+  };
+}
+
+function drawGeometryLine(start, end, colour, width = 0.8) {
+  drawing.strokeStyle = colour;
+  drawing.lineWidth = width;
+  drawing.beginPath();
+  drawing.moveTo(start.x, start.y);
+  drawing.lineTo(end.x, end.y);
+  drawing.stroke();
+}
+
+function drawOrbitWireframe(bounds, activeMoment, progress, twist) {
+  const depth = clamp(
+    (activeMoment?.depth ?? 0) / Math.max(1, currentSettings().depth),
+    0,
+    1,
+  );
+  const orientation = activeMoment?.motion?.seam?.orientation ?? 1;
+  const rotation = (reducedMotion ? 0 : progress * 0.62)
+    + (activeMoment?.depth ?? 0) * 0.075 * orientation;
+  const common = {
+    depth,
+    pitch: 0,
+    pan: 0,
+    energy: 0.14,
+    orientation,
+    polarity: 1,
+  };
+
+  drawing.save();
+  drawing.strokeStyle = "rgba(214, 232, 226, 0.085)";
+  drawing.lineWidth = 0.6;
+  for (let minor = 0; minor < 9; minor += 1) {
+    drawing.beginPath();
+    for (let index = 0; index <= 52; index += 1) {
+      const coordinate = {
+        ...common,
+        u: minor / 9,
+        v: 0.48,
+        w: index / 52,
+      };
+      const screen = projectionToCanvas(
+        torusPoint(coordinate, { rotation, twist }),
+        bounds,
+      );
+      if (!index) drawing.moveTo(screen.x, screen.y);
+      else drawing.lineTo(screen.x, screen.y);
+    }
+    drawing.stroke();
+  }
+  for (let major = 0; major < 14; major += 1) {
+    drawing.beginPath();
+    for (let index = 0; index <= 30; index += 1) {
+      const coordinate = {
+        ...common,
+        u: index / 30,
+        v: 0.48,
+        w: major / 14,
+      };
+      const screen = projectionToCanvas(
+        torusPoint(coordinate, { rotation, twist }),
+        bounds,
+      );
+      if (!index) drawing.moveTo(screen.x, screen.y);
+      else drawing.lineTo(screen.x, screen.y);
+    }
+    drawing.stroke();
+  }
+  drawing.restore();
+  return rotation;
+}
+
+function drawOrbitGeometry(activeMoment, progress) {
+  const bounds = visualBounds();
+  const trace = geometryScene(activeMoment, progress, state.accumulate ? 384 : 160);
+  const coupling = activeMoment?.motion?.coupling ?? {};
+  const couplingStrength = [
+    coupling.timbreToPitch,
+    coupling.pitchToRhythm,
+    coupling.rhythmToPhrase,
+    coupling.phraseToTimbre,
+  ].reduce((total, value) => total + Math.abs(Number(value) || 0), 0) / 4;
+  const twist = 0.66 + couplingStrength * 0.82;
+  const rotation = drawOrbitWireframe(bounds, activeMoment, progress, twist);
+  const trajectories = trace.points.map((coordinate) => {
+    const attack = projectionToCanvas(
+      torusPoint(coordinate, { rotation, twist }),
+      bounds,
+    );
+    const release = projectionToCanvas(
+      torusPoint(releaseCoordinate(coordinate), { rotation, twist }),
+      bounds,
+    );
+    return { coordinate, attack, release };
+  }).sort((left, right) => left.attack.z - right.attack.z);
+
+  for (const { coordinate, attack, release } of trajectories) {
+    const sounding = coordinate.sounding;
+    const visited = coordinate.active;
+    const alpha = sounding ? 0.96 : visited ? 0.5 : 0.18;
+    drawGeometryLine(
+      attack,
+      release,
+      geometryColour(coordinate, alpha),
+      sounding ? 2.1 : visited ? 1.05 : 0.6,
+    );
+    drawing.save();
+    drawing.fillStyle = geometryColour(coordinate, sounding ? 1 : 0.46);
+    if (sounding) {
+      drawing.shadowColor = geometryColour(coordinate, 1);
+      drawing.shadowBlur = 13;
+    }
+    drawing.beginPath();
+    drawing.arc(
+      attack.x,
+      attack.y,
+      (sounding ? 4.2 : 1.3 + coordinate.energy * 1.5) * attack.scale,
+      0,
+      TAU,
+    );
+    drawing.fill();
+    drawing.restore();
+  }
+
+  const colors = palette();
+  drawLabel("RHYTHM / OUTPUT TIME → MAJOR ORBIT", bounds.left, bounds.bottom + 14, colors.muted, "left", 7);
+  drawLabel("PHRASE τ ↻ · SPECTRUM / PITCH ↕ · POLARITY = ORIENTATION", bounds.right, bounds.bottom + 14, colors.muted, "right", 7);
+}
+
+function drawStackPlane(bounds, metaTime, active, progress) {
+  const color = active ? "rgba(112, 234, 216, 0.22)" : "rgba(214, 232, 226, 0.065)";
+  const base = {
+    depth: metaTime,
+    metaTime,
+    delay: 0,
+    pitch: 0,
+    phrase: 0.5,
+    pan: 0,
+    energy: 0.1,
+  };
+  const corners = [
+    { ...base, w: 0, v: 0 },
+    { ...base, w: 1, v: 0 },
+    { ...base, w: 1, v: 1 },
+    { ...base, w: 0, v: 1 },
+    { ...base, w: 0, v: 0 },
+  ].map((coordinate) => projectionToCanvas(
+    stackPoint(coordinate),
+    bounds,
+    { xScale: 0.45, yScale: 0.49, depthShift: 0.05 },
+  ));
+  drawing.strokeStyle = color;
+  drawing.lineWidth = active ? 0.9 : 0.55;
+  drawing.beginPath();
+  corners.forEach((point, index) => {
+    if (!index) drawing.moveTo(point.x, point.y);
+    else drawing.lineTo(point.x, point.y);
+  });
+  drawing.stroke();
+
+  if (active) {
+    const playhead = [0, 1].map((spectrum) => projectionToCanvas(
+      stackPoint({
+        ...base,
+        w: progress,
+        v: spectrum,
+      }),
+      bounds,
+      { xScale: 0.45, yScale: 0.49, depthShift: 0.05 },
+    ));
+    drawGeometryLine(playhead[0], playhead[1], "rgba(255, 243, 214, 0.52)", 1);
+  }
+}
+
+function drawStackGeometry(activeMoment, progress) {
+  const bounds = visualBounds();
+  const moments = geometryMoments(activeMoment);
+  const trace = geometryTrace(moments, {
+    maxPoints: state.accumulate ? 512 : 192,
+    activeMomentIndex: moments.length - 1,
+    progress,
+  });
+  for (let index = 0; index < moments.length; index += 1) {
+    drawStackPlane(
+      bounds,
+      moments.length > 1 ? index / (moments.length - 1) : 0,
+      index === moments.length - 1,
+      progress,
+    );
+  }
+
+  const trajectories = trace.points.map((coordinate) => {
+    const attack = projectionToCanvas(
+      stackPoint(coordinate),
+      bounds,
+      { xScale: 0.45, yScale: 0.49, depthShift: 0.05 },
+    );
+    const release = projectionToCanvas(
+      stackPoint(releaseCoordinate(coordinate)),
+      bounds,
+      { xScale: 0.45, yScale: 0.49, depthShift: 0.05 },
+    );
+    const scored = projectionToCanvas(
+      stackPoint({ ...coordinate, w: coordinate.scoreTime }),
+      bounds,
+      { xScale: 0.45, yScale: 0.49, depthShift: 0.05 },
+    );
+    return { coordinate, attack, release, scored };
+  }).sort((left, right) => left.attack.z - right.attack.z);
+
+  for (const { coordinate, attack, release, scored } of trajectories) {
+    if (coordinate.delay > 0.001) {
+      drawing.save();
+      drawing.setLineDash([2, 4]);
+      drawGeometryLine(scored, attack, geometryColour(coordinate, 0.19), 0.55);
+      drawing.restore();
+    }
+    const alpha = coordinate.sounding ? 1 : coordinate.active ? 0.55 : 0.2;
+    drawGeometryLine(
+      attack,
+      release,
+      geometryColour(coordinate, alpha),
+      coordinate.sounding ? 2.2 : 0.7 + coordinate.energy * 0.75,
+    );
+    drawing.fillStyle = geometryColour(coordinate, alpha);
+    drawing.beginPath();
+    drawing.arc(attack.x, attack.y, coordinate.sounding ? 3.7 : 1.2, 0, TAU);
+    drawing.fill();
+  }
+
+  const colors = palette();
+  drawLabel("OUTPUT / RHYTHM TIME →", bounds.left, bounds.bottom + 14, colors.muted, "left", 7);
+  drawLabel("↑ LOG SPECTRUM · RECURSIVE TIME = LAYER DEPTH", bounds.right, bounds.bottom + 14, colors.muted, "right", 7);
+}
+
+function normalizedGeometryPoint(point, bounds) {
+  const width = bounds.right - bounds.left;
+  const height = bounds.bottom - bounds.top;
+  return {
+    x: (bounds.left + bounds.right) / 2 + point.x * width * 0.48,
+    y: (bounds.top + bounds.bottom) / 2
+      + point.y * height * 0.52
+      - point.z * height * 0.045,
+    z: point.z,
+    scale: point.scale,
+    alpha: point.alpha,
+  };
+}
+
+function drawCausalityGeometry(activeMoment, progress) {
+  const bounds = visualBounds();
+  const trace = geometryScene(activeMoment, progress, state.accumulate ? 224 : 128);
+  const colors = palette();
+  const rails = [
+    [-0.92, "SOURCE / PHRASE τ", "left"],
+    [0, "DSP ROUTE", "center"],
+    [0.92, "OUTPUT / RHYTHM T", "right"],
+  ];
+  for (const [position] of rails) {
+    const x = (bounds.left + bounds.right) / 2
+      + position * (bounds.right - bounds.left) * 0.48;
+    drawing.strokeStyle = "rgba(214, 232, 226, 0.1)";
+    drawing.lineWidth = 0.7;
+    drawing.beginPath();
+    drawing.moveTo(x, bounds.top);
+    drawing.lineTo(x, bounds.bottom);
+    drawing.stroke();
+  }
+
+  const ordered = [...trace.points].sort((left, right) => (
+    left.metaTime - right.metaTime || left.w - right.w
+  ));
+  for (const coordinate of ordered) {
+    const curve = causalCurve([coordinate], { segments: 12 });
+    drawing.save();
+    if (coordinate.timeDirection < 0) drawing.setLineDash([3, 4]);
+    drawing.strokeStyle = geometryColour(
+      coordinate,
+      coordinate.sounding ? 0.96 : coordinate.active ? 0.42 : 0.12,
+    );
+    drawing.lineWidth = coordinate.sounding ? 2 : 0.55 + coordinate.energy * 0.75;
+    drawing.beginPath();
+    curve.forEach((point, index) => {
+      const screen = normalizedGeometryPoint(point, bounds);
+      if (!index) drawing.moveTo(screen.x, screen.y);
+      else drawing.lineTo(screen.x, screen.y);
+    });
+    drawing.stroke();
+    drawing.restore();
+
+    const sourcePoint = normalizedGeometryPoint(curve[0], bounds);
+    const routePoint = normalizedGeometryPoint(
+      curve[Math.floor(curve.length / 2)],
+      bounds,
+    );
+    const outputPoint = normalizedGeometryPoint(curve.at(-1), bounds);
+    drawing.fillStyle = geometryColour(coordinate, coordinate.sounding ? 1 : 0.46);
+    for (const point of [sourcePoint, routePoint]) {
+      drawing.beginPath();
+      drawing.arc(point.x, point.y, coordinate.sounding ? 3.2 : 1.25, 0, TAU);
+      drawing.fill();
+    }
+    drawing.save();
+    drawing.strokeStyle = geometryColour(coordinate, coordinate.sounding ? 1 : 0.55);
+    drawing.fillStyle = coordinate.channelSwap
+      ? "rgba(5, 6, 8, 0.84)"
+      : geometryColour(coordinate, coordinate.sounding ? 1 : 0.42);
+    drawing.lineWidth = 0.9;
+    drawing.beginPath();
+    drawing.arc(
+      outputPoint.x + coordinate.pan * 5,
+      outputPoint.y,
+      coordinate.sounding ? 3.8 : 1.7,
+      0,
+      TAU,
+    );
+    drawing.fill();
+    drawing.stroke();
+    drawing.restore();
+  }
+
+  for (const [position, label, align] of rails) {
+    const x = (bounds.left + bounds.right) / 2
+      + position * (bounds.right - bounds.left) * 0.48;
+    drawLabel(label, x, bounds.bottom + 14, colors.muted, align, 7);
+  }
+}
+
+function drawSystemBackground(moment, progress) {
   if (state.studyId === "ouroboros-tape") drawOuroboros(moment, progress);
   else if (state.studyId === "spectral-mobius") drawSpectralMobius(moment, progress);
   else if (state.studyId === "filter-hydra") drawFilterHydra(moment);
   else if (state.studyId === "cantor-delay") drawCantorDelay(moment, progress);
   else if (state.studyId === "convolution-maw") drawConvolutionMaw(moment, progress);
   else drawPhaseLabyrinth(moment, progress);
-  drawMotionTopology(moment, progress);
+}
+
+function drawStage(moment, progress) {
+  canvasSetup();
+  const activeMoment = moment ?? plan.moments[0];
+  drawing.save();
+  drawing.globalAlpha = state.geometryView === "causality" ? 0.055 : 0.095;
+  drawSystemBackground(activeMoment, progress);
+  drawing.restore();
+  if (state.geometryView === "stack") drawStackGeometry(activeMoment, progress);
+  else if (state.geometryView === "causality") drawCausalityGeometry(activeMoment, progress);
+  else drawOrbitGeometry(activeMoment, progress);
+  drawMotionTopology(activeMoment, progress);
 }
 
 $("studyButtons").addEventListener("click", (event) => {
@@ -1104,6 +1540,20 @@ $("studyButtons").addEventListener("keydown", (event) => {
   $("studyButtons").querySelector(`[data-study="${studyIds[nextIndex]}"]`)?.focus();
 });
 $("studySelect").addEventListener("change", (event) => selectStudy(event.currentTarget.value));
+$("geometryViews").addEventListener("click", (event) => {
+  const button = event.target.closest?.("[data-geometry]");
+  const view = button?.dataset.geometry;
+  if (!["orbit", "stack", "causality"].includes(view) || view === state.geometryView) return;
+  state.geometryView = view;
+  paintGeometryViews();
+  paintReadout(currentTransportState().moment);
+  $("liveStatus").textContent = view === "orbit"
+    ? "Orbit view: rhythm circles the twisted manifold while phrase, spectrum, pitch, pan, and polarity deform it."
+    : view === "stack"
+      ? "Stack view: output time and logarithmic spectrum are layered through recursive time."
+      : "Causality view: source phrase positions braid through actual DSP routes into audible output onsets.";
+  scheduleFrame();
+});
 $("sourceButtons").addEventListener("click", (event) => {
   const button = event.target.closest?.("[data-source]");
   if (button) selectSource(button.dataset.source);

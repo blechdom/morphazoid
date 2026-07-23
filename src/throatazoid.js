@@ -1,62 +1,296 @@
 export const MAX_THROATS = 5;
 
+function defineSpecimen(specimen) {
+  return Object.freeze({
+    ...specimen,
+    throats: Object.freeze(specimen.throats.map((throat) => Object.freeze({ ...throat }))),
+  });
+}
+
 export const SPECIMENS = Object.freeze({
-  triune: Object.freeze({
+  triune: defineSpecimen({
     name: "Triune",
+    description: "three voices",
     throatCount: 3,
     bodyLength: 0.56,
     tension: 0.58,
     mutation: 0.32,
     coupling: 0.18,
     growl: 0.2,
-    throats: Object.freeze([
-      Object.freeze({ aperture: 0.42, length: 0.64 }),
-      Object.freeze({ aperture: 0.68, length: 0.48 }),
-      Object.freeze({ aperture: 0.36, length: 0.78 }),
-    ]),
+    wet: 0.88,
+    dry: 0.08,
+    spread: 0.82,
+    exciterPitch: 108,
+    exciterIntensity: 0.72,
+    exciterTenseness: 0.62,
+    exciterBreath: 0.16,
+    exciterVibrato: 0.08,
+    exciterWobble: 0.05,
+    throats: [
+      { aperture: 0.42, length: 0.64 },
+      { aperture: 0.68, length: 0.48 },
+      { aperture: 0.36, length: 0.78 },
+    ],
   }),
-  oracle: Object.freeze({
+  oracle: defineSpecimen({
     name: "Oracle",
+    description: "one abyss",
     throatCount: 1,
-    bodyLength: 0.86,
-    tension: 0.32,
-    mutation: 0.15,
-    coupling: 0.28,
-    growl: 0.13,
-    throats: Object.freeze([
-      Object.freeze({ aperture: 0.78, length: 0.9 }),
-    ]),
+    bodyLength: 0.88,
+    tension: 0.28,
+    mutation: 0.12,
+    coupling: 0.48,
+    growl: 0.1,
+    wet: 1,
+    dry: 0,
+    spread: 0,
+    exciterPitch: 67,
+    exciterIntensity: 0.78,
+    exciterTenseness: 0.45,
+    exciterBreath: 0.22,
+    exciterVibrato: 0.03,
+    exciterWobble: 0.18,
+    throats: [{ aperture: 0.82, length: 0.95 }],
   }),
-  hive: Object.freeze({
+  hive: defineSpecimen({
     name: "Hive",
+    description: "five mouths",
     throatCount: 5,
-    bodyLength: 0.38,
-    tension: 0.72,
-    mutation: 0.58,
-    coupling: 0.42,
-    growl: 0.31,
-    throats: Object.freeze([
-      Object.freeze({ aperture: 0.3, length: 0.46 }),
-      Object.freeze({ aperture: 0.47, length: 0.62 }),
-      Object.freeze({ aperture: 0.25, length: 0.74 }),
-      Object.freeze({ aperture: 0.52, length: 0.54 }),
-      Object.freeze({ aperture: 0.34, length: 0.82 }),
-    ]),
+    bodyLength: 0.33,
+    tension: 0.75,
+    mutation: 0.62,
+    coupling: 0.38,
+    growl: 0.28,
+    wet: 0.92,
+    dry: 0.03,
+    spread: 1,
+    exciterPitch: 176,
+    exciterIntensity: 0.62,
+    exciterTenseness: 0.72,
+    exciterBreath: 0.1,
+    exciterVibrato: 0.12,
+    exciterWobble: 0.08,
+    throats: [
+      { aperture: 0.3, length: 0.46 },
+      { aperture: 0.47, length: 0.62 },
+      { aperture: 0.25, length: 0.74 },
+      { aperture: 0.52, length: 0.54 },
+      { aperture: 0.34, length: 0.82 },
+    ],
   }),
-  razor: Object.freeze({
+  razor: defineSpecimen({
     name: "Razor",
+    description: "metal teeth",
     throatCount: 4,
-    bodyLength: 0.44,
-    tension: 0.9,
-    mutation: 0.77,
-    coupling: 0.08,
-    growl: 0.66,
-    throats: Object.freeze([
-      Object.freeze({ aperture: 0.16, length: 0.42 }),
-      Object.freeze({ aperture: 0.24, length: 0.6 }),
-      Object.freeze({ aperture: 0.12, length: 0.72 }),
-      Object.freeze({ aperture: 0.2, length: 0.88 }),
-    ]),
+    bodyLength: 0.42,
+    tension: 0.94,
+    mutation: 0.82,
+    coupling: 0.04,
+    growl: 0.78,
+    wet: 1,
+    dry: 0,
+    spread: 0.9,
+    exciterPitch: 132,
+    exciterIntensity: 0.8,
+    exciterTenseness: 0.94,
+    exciterBreath: 0.04,
+    exciterVibrato: 0,
+    exciterWobble: 0.02,
+    throats: [
+      { aperture: 0.14, length: 0.38 },
+      { aperture: 0.22, length: 0.58 },
+      { aperture: 0.1, length: 0.74 },
+      { aperture: 0.18, length: 0.9 },
+    ],
+  }),
+  monolith: defineSpecimen({
+    name: "Monolith",
+    description: "subterranean",
+    throatCount: 1,
+    bodyLength: 1,
+    tension: 0.82,
+    mutation: 0.04,
+    coupling: 0.12,
+    growl: 0.44,
+    wet: 0.98,
+    dry: 0.01,
+    spread: 0,
+    exciterPitch: 45,
+    exciterIntensity: 0.92,
+    exciterTenseness: 0.88,
+    exciterBreath: 0.03,
+    exciterVibrato: 0.02,
+    exciterWobble: 0.08,
+    throats: [{ aperture: 0.96, length: 1 }],
+  }),
+  siren: defineSpecimen({
+    name: "Siren",
+    description: "split signal",
+    throatCount: 2,
+    bodyLength: 0.32,
+    tension: 0.66,
+    mutation: 0.44,
+    coupling: 0.18,
+    growl: 0.18,
+    wet: 0.94,
+    dry: 0.02,
+    spread: 1,
+    exciterPitch: 240,
+    exciterIntensity: 0.58,
+    exciterTenseness: 0.58,
+    exciterBreath: 0.12,
+    exciterVibrato: 0.82,
+    exciterWobble: 0.3,
+    throats: [
+      { aperture: 0.55, length: 0.25 },
+      { aperture: 0.3, length: 0.78 },
+    ],
+  }),
+  larva: defineSpecimen({
+    name: "Larva",
+    description: "soft membrane",
+    throatCount: 2,
+    bodyLength: 0.22,
+    tension: 0.18,
+    mutation: 0.24,
+    coupling: 0.58,
+    growl: 0.04,
+    wet: 0.86,
+    dry: 0.12,
+    spread: 0.45,
+    exciterPitch: 198,
+    exciterIntensity: 0.42,
+    exciterTenseness: 0.18,
+    exciterBreath: 0.82,
+    exciterVibrato: 0.16,
+    exciterWobble: 0.28,
+    throats: [
+      { aperture: 0.72, length: 0.3 },
+      { aperture: 0.62, length: 0.44 },
+    ],
+  }),
+  cathedral: defineSpecimen({
+    name: "Cathedral",
+    description: "hollow colony",
+    throatCount: 5,
+    bodyLength: 0.95,
+    tension: 0.46,
+    mutation: 0.18,
+    coupling: 0.7,
+    growl: 0.08,
+    wet: 1,
+    dry: 0,
+    spread: 0.75,
+    exciterPitch: 83,
+    exciterIntensity: 0.74,
+    exciterTenseness: 0.5,
+    exciterBreath: 0.26,
+    exciterVibrato: 0.04,
+    exciterWobble: 0.14,
+    throats: [
+      { aperture: 0.78, length: 0.92 },
+      { aperture: 0.58, length: 0.82 },
+      { aperture: 0.9, length: 1 },
+      { aperture: 0.52, length: 0.74 },
+      { aperture: 0.7, length: 0.88 },
+    ],
+  }),
+  needle: defineSpecimen({
+    name: "Needle",
+    description: "high puncture",
+    throatCount: 3,
+    bodyLength: 0.24,
+    tension: 0.98,
+    mutation: 0.91,
+    coupling: 0.02,
+    growl: 0.52,
+    wet: 1,
+    dry: 0,
+    spread: 0.6,
+    exciterPitch: 310,
+    exciterIntensity: 0.52,
+    exciterTenseness: 0.91,
+    exciterBreath: 0.06,
+    exciterVibrato: 0.08,
+    exciterWobble: 0.02,
+    throats: [
+      { aperture: 0.08, length: 0.12 },
+      { aperture: 0.12, length: 0.34 },
+      { aperture: 0.07, length: 0.56 },
+    ],
+  }),
+  maw: defineSpecimen({
+    name: "Maw",
+    description: "overfed",
+    throatCount: 2,
+    bodyLength: 0.78,
+    tension: 0.68,
+    mutation: 0.74,
+    coupling: 0.34,
+    growl: 0.96,
+    wet: 0.96,
+    dry: 0.02,
+    spread: 0.72,
+    exciterPitch: 52,
+    exciterIntensity: 0.96,
+    exciterTenseness: 0.74,
+    exciterBreath: 0.08,
+    exciterVibrato: 0.03,
+    exciterWobble: 0.11,
+    throats: [
+      { aperture: 0.98, length: 0.88 },
+      { aperture: 0.72, length: 0.52 },
+    ],
+  }),
+  choir: defineSpecimen({
+    name: "Choir",
+    description: "gentle swarm",
+    throatCount: 5,
+    bodyLength: 0.54,
+    tension: 0.42,
+    mutation: 0.14,
+    coupling: 0.32,
+    growl: 0.02,
+    wet: 0.82,
+    dry: 0.18,
+    spread: 1,
+    exciterPitch: 121,
+    exciterIntensity: 0.62,
+    exciterTenseness: 0.53,
+    exciterBreath: 0.13,
+    exciterVibrato: 0.28,
+    exciterWobble: 0.22,
+    throats: [
+      { aperture: 0.54, length: 0.52 },
+      { aperture: 0.62, length: 0.57 },
+      { aperture: 0.7, length: 0.62 },
+      { aperture: 0.6, length: 0.67 },
+      { aperture: 0.52, length: 0.72 },
+    ],
+  }),
+  void: defineSpecimen({
+    name: "Void",
+    description: "breath without body",
+    throatCount: 3,
+    bodyLength: 0.99,
+    tension: 0.06,
+    mutation: 0.92,
+    coupling: 0.72,
+    growl: 0.62,
+    wet: 1,
+    dry: 0,
+    spread: 0.95,
+    exciterPitch: 49,
+    exciterIntensity: 0.68,
+    exciterTenseness: 0.12,
+    exciterBreath: 1,
+    exciterVibrato: 0.46,
+    exciterWobble: 0.82,
+    throats: [
+      { aperture: 0.15, length: 0.98 },
+      { aperture: 0.64, length: 0.86 },
+      { aperture: 0.08, length: 0.72 },
+    ],
   }),
 });
 
@@ -88,8 +322,100 @@ export function specimenState(name = "triune") {
     mutation: specimen.mutation,
     coupling: specimen.coupling,
     growl: specimen.growl,
+    wet: specimen.wet,
+    dry: specimen.dry,
+    spread: specimen.spread,
+    exciterPitch: specimen.exciterPitch,
+    exciterIntensity: specimen.exciterIntensity,
+    exciterTenseness: specimen.exciterTenseness,
+    exciterBreath: specimen.exciterBreath,
+    exciterVibrato: specimen.exciterVibrato,
+    exciterWobble: specimen.exciterWobble,
     throats,
   };
+}
+
+export function glottalCoefficients(tenseness = 0.6) {
+  const value = clamp(tenseness);
+  const rd = clamp(3 * (1 - value), 0.5, 2.7);
+  const ra = -0.01 + 0.048 * rd;
+  const rk = 0.224 + 0.118 * rd;
+  const rg = ((rk / 4) * (0.5 + 1.2 * rk)) / (0.11 * rd - ra * (0.5 + 1.2 * rk));
+  const tp = 1 / (2 * rg);
+  const te = tp * (1 + rk);
+  const epsilon = 1 / ra;
+  const shift = Math.exp(-epsilon * (1 - te));
+  const delta = 1 - shift;
+  const rhs = ((shift - 1) / epsilon + (1 - te) * shift) / delta;
+  const lowerIntegral = -(te - tp) / 2 + rhs;
+  const upperIntegral = -lowerIntegral;
+  const omega = Math.PI / tp;
+  const sineAtClosure = Math.sin(omega * te);
+  const logarithmInput = Math.max(
+    1e-8,
+    (-Math.PI * sineAtClosure * upperIntegral) / (tp * 2),
+  );
+  const alpha = Math.log(logarithmInput) / (tp / 2 - te);
+  const e0 = -1 / (sineAtClosure * Math.exp(alpha * te));
+  return { alpha, delta, e0, epsilon, omega, shift, te };
+}
+
+export function glottalSample(phase, tenseness = 0.6) {
+  const interpolation = ((Number(phase) || 0) % 1 + 1) % 1;
+  const coefficients = glottalCoefficients(tenseness);
+  return sampleGlottis(interpolation, coefficients);
+}
+
+function sampleGlottis(interpolation, coefficients) {
+  if (interpolation > coefficients.te) {
+    return (
+      -Math.exp(-coefficients.epsilon * (interpolation - coefficients.te))
+      + coefficients.shift
+    ) / coefficients.delta;
+  }
+  return coefficients.e0
+    * Math.exp(coefficients.alpha * interpolation)
+    * Math.sin(coefficients.omega * interpolation);
+}
+
+export function glottalHarmonics(tenseness = 0.6, harmonicCount = 48, sampleCount = 1024) {
+  const harmonics = Math.max(4, Math.min(96, Math.round(harmonicCount)));
+  const samples = Math.max(128, Math.min(4096, Math.round(sampleCount)));
+  const real = new Float32Array(harmonics + 1);
+  const imaginary = new Float32Array(harmonics + 1);
+  const coefficients = glottalCoefficients(tenseness);
+  const waveform = Float32Array.from(
+    { length: samples },
+    (_, index) => sampleGlottis(index / samples, coefficients),
+  );
+  for (let harmonic = 1; harmonic <= harmonics; harmonic += 1) {
+    let cosine = 0;
+    let sine = 0;
+    for (let index = 0; index < samples; index += 1) {
+      const phase = index / samples;
+      const value = waveform[index];
+      const angle = Math.PI * 2 * harmonic * phase;
+      cosine += value * Math.cos(angle);
+      sine += value * Math.sin(angle);
+    }
+    real[harmonic] = cosine * 2 / samples;
+    imaginary[harmonic] = sine * 2 / samples;
+  }
+  return { real, imaginary };
+}
+
+export function smoothEnvelope(
+  previous,
+  target,
+  deltaMilliseconds,
+  attackMilliseconds = 55,
+  releaseMilliseconds = 320,
+) {
+  const from = Math.max(0, Number(previous) || 0);
+  const to = Math.max(0, Number(target) || 0);
+  const elapsed = Math.max(0, Number(deltaMilliseconds) || 0);
+  const time = Math.max(1, to > from ? attackMilliseconds : releaseMilliseconds);
+  return from + (to - from) * (1 - Math.exp(-elapsed / time));
 }
 
 export function throatSlots(count) {
@@ -252,4 +578,3 @@ export function waveformLevel(samples) {
     peak,
   };
 }
-

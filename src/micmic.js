@@ -1,11 +1,20 @@
 export const MAX_RECURSION_FEEDBACK = 0.86;
 export const MAX_GENERATION_STAGES = 12;
 export const MAX_GENERATION_VOICES = 48;
-export const MAX_BRANCHES_PER_GENERATION = 9;
+export const MAX_BRANCHES_PER_GENERATION = 128;
 export const GENERATION_RULE_PRESETS = Object.freeze({
   clean: Object.freeze({ label: "Clean echo · 1:1", timeRatio: 1, angle: 0, asymmetry: 0, pitchScale: 1 }),
   binary: Object.freeze({ label: "Half-time fork", timeRatio: 0.5, angle: 30, asymmetry: 0, pitchScale: 1 }),
-  pythagorean: Object.freeze({ label: "Pythagorean tree", timeRatio: 0.72, angle: 45, asymmetry: 0, pitchScale: 1 }),
+  pythagorean: Object.freeze({
+    label: "Pythagorean tree",
+    generations: 7,
+    branching: 1,
+    mutation: 0,
+    timeRatio: 0.72,
+    angle: 45,
+    asymmetry: 0,
+    pitchScale: 1,
+  }),
   plant: Object.freeze({ label: "Branching plant", timeRatio: 0.72, angle: 22.5, asymmetry: 0.18, pitchScale: 1 }),
   coral: Object.freeze({ label: "Coral", timeRatio: 0.72, angle: 22.5, asymmetry: -0.22, pitchScale: 1.4 }),
   dragon: Object.freeze({ label: "Dragon curve", timeRatio: Math.SQRT1_2, angle: 90, asymmetry: 0, pitchScale: 0.5 }),
@@ -114,6 +123,41 @@ function evenlyBounded(candidates, maximum) {
   return Array.from({ length: maximum }, (_, index) => (
     candidates[Math.floor(index * candidates.length / maximum)]
   ));
+}
+
+function boundedConnectedVoices(voices, maximum, deepestGeneration) {
+  if (voices.length <= maximum) return voices;
+  const voiceId = (voice) => voice.key.replace(/^generation:/, "");
+  const byId = new Map(voices.map((voice) => [voiceId(voice), voice]));
+  const selected = new Set();
+  const deepest = voices
+    .filter((voice) => voice.generation === deepestGeneration)
+    .sort((left, right) => (
+      hashUnit(`audible:${voiceId(left)}`) - hashUnit(`audible:${voiceId(right)}`)
+    ));
+
+  for (const target of deepest) {
+    const path = [];
+    let cursor = target;
+    while (cursor) {
+      const id = voiceId(cursor);
+      if (!selected.has(id)) path.unshift(id);
+      cursor = cursor.parentId === "trunk" ? null : byId.get(cursor.parentId);
+    }
+    if (selected.size + path.length > maximum) continue;
+    for (const id of path) selected.add(id);
+    if (selected.size === maximum) break;
+  }
+
+  // Spend any remaining budget only on children whose parent is already
+  // audible. This keeps every highlighted buffer connected to the seed.
+  for (const voice of voices) {
+    if (selected.size >= maximum) break;
+    const id = voiceId(voice);
+    if (selected.has(id)) continue;
+    if (voice.parentId === "trunk" || selected.has(voice.parentId)) selected.add(id);
+  }
+  return voices.filter((voice) => selected.has(voiceId(voice))).slice(0, maximum);
 }
 
 /**
@@ -238,13 +282,13 @@ export function generationVoiceSpecs({
     perGeneration.set(node.generation, group);
   }
   const baseInterval = clamp(interval, 0.2, 2_400) / 1000;
+  const depthAmount = clamp(depth, 0, MAX_RECURSION_FEEDBACK);
   const lineage = new Map([["trunk", { delay: 0, interval: baseInterval, semitones: 0 }]]);
   const voices = [];
   const count = Math.max(...layout.map((node) => node.generation));
   const maximumY = Math.max(0.001, ...layout.map((node) => Math.abs(node.y)));
   for (let generation = 1; generation <= count; generation += 1) {
     const nodes = perGeneration.get(generation) ?? [];
-    const generationGain = 0.5 * Math.pow(clamp(depth, 0, MAX_RECURSION_FEEDBACK), generation * 0.72);
     for (const node of nodes) {
       const parent = lineage.get(node.parentId) ?? lineage.get("trunk");
       const branchTurn = node.turnDegrees;
@@ -261,17 +305,25 @@ export function generationVoiceSpecs({
         interval: nextInterval,
         delay: cumulativeDelay,
         rate: clamp(2 ** (cumulativeSemitones / 12), 0.125, 8),
-        gain: generationGain / Math.sqrt(Math.max(1, nodes.length)),
+        gain: 0,
         pan: clamp(node.y / maximumY * clamp(spread), -1, 1),
       });
     }
   }
-  if (voices.length <= MAX_GENERATION_VOICES) return voices;
-  const groups = Array.from({ length: count }, (_, index) => (
-    voices.filter((voice) => voice.generation === index + 1)
-  ));
-  const quota = Math.max(1, Math.ceil(MAX_GENERATION_VOICES / groups.length));
-  return groups.flatMap((group) => evenlyBounded(group, quota)).slice(0, MAX_GENERATION_VOICES);
+  const selected = boundedConnectedVoices(voices, MAX_GENERATION_VOICES, count);
+  const selectedPerGeneration = new Map();
+  for (const voice of selected) {
+    selectedPerGeneration.set(
+      voice.generation,
+      (selectedPerGeneration.get(voice.generation) ?? 0) + 1,
+    );
+  }
+  return selected.map((voice) => ({
+    ...voice,
+    gain: 0.5
+      * Math.pow(depthAmount, voice.generation * 0.72)
+      / Math.sqrt(selectedPerGeneration.get(voice.generation) ?? 1),
+  }));
 }
 
 export function echoTreeLayout(

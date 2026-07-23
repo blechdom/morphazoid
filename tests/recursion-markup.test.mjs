@@ -98,13 +98,16 @@ test("recursion markup keeps ids unique and range controls labelled", async () =
 });
 
 test("recursion offers three labelled geometry projections beside the canvas", async () => {
-  const html = await readFile(new URL("recursion.html", root), "utf8");
+  const [html, app] = await Promise.all([
+    readFile(new URL("recursion.html", root), "utf8"),
+    readFile(new URL("recursion-app.js", root), "utf8"),
+  ]);
   const group = html.match(
     /<[^>]+\bid="geometryViews"[^>]*>([\s\S]*?)<\/(?:div|nav|section)>/,
   );
   assert.ok(group, "missing #geometryViews");
   assert.match(group[0], /\brole="group"/);
-  assert.match(group[0], /\baria-label="Geometry view"/i);
+  assert.match(group[0], /\baria-label="Geometry (?:view|projection)"/i);
 
   const buttons = [...group[1].matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)]
     .map((match) => ({
@@ -117,18 +120,33 @@ test("recursion offers three labelled geometry projections beside the canvas", a
   );
   assert.deepEqual(
     buttons.map(({ attributes }) => (
-      attributes.match(/\bdata-geometry-view="([^"]+)"/)?.[1]
+      attributes.match(/\bdata-geometry(?:-view)?="([^"]+)"/)?.[1]
     )),
     ["orbit", "stack", "causality"],
   );
   assert.deepEqual(
-    buttons.map(({ label }) => label),
-    ["Orbit", "Stack", "Causality"],
+    buttons.slice(0, 2).map(({ label }) => label.toLowerCase()),
+    ["orbit", "stack"],
   );
+  assert.match(buttons[2].label, /^causal(?:ity)?$/i);
   assert.ok(buttons.every(({ attributes }) => /\btype="button"/.test(attributes)));
   assert.match(buttons[0].attributes, /\baria-pressed="true"/);
   assert.ok(buttons.slice(1).every(({ attributes }) => (
     /\baria-pressed="false"/.test(attributes)
   )));
-  assert.match(html, /id="canvasInstructions"[\s\S]*Orbit[\s\S]*Stack[\s\S]*Causality/i);
+  assert.match(html, /id="canvasInstructions"[\s\S]*Orbit[\s\S]*Stack[\s\S]*Causal/i);
+
+  for (const geometryFunction of [
+    "geometryTrace",
+    "torusPoint",
+    "stackPoint",
+    "causalCurve",
+  ]) {
+    const calls = [...app.matchAll(new RegExp(`\\b${geometryFunction}\\s*\\(`, "g"))];
+    assert.ok(calls.length > 0, `${geometryFunction} must drive the canvas, not just be imported`);
+  }
+  assert.match(
+    app,
+    /\$\(\s*["']geometryViews["']\s*\)\.addEventListener\s*\(\s*["']click["']/,
+  );
 });

@@ -7,7 +7,7 @@ import {
   generationVoiceSpecs,
   recorderExtension,
   recursionParameters,
-} from "./src/micmic.js";
+} from "./src/micmic.js?v=20260723-canonical-tree";
 import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260723-safe-grammar";
 
 const $ = (id) => document.getElementById(id);
@@ -20,12 +20,14 @@ const DEFAULT_STATE = Object.freeze({
   starting: false,
   frozen: false,
   recording: false,
-  generations: 10,
-  generationPreset: "plant",
-  timeRatio: GENERATION_RULE_PRESETS.plant.timeRatio,
-  generationAngle: GENERATION_RULE_PRESETS.plant.angle,
-  generationAsymmetry: GENERATION_RULE_PRESETS.plant.asymmetry,
-  generationPitchScale: GENERATION_RULE_PRESETS.plant.pitchScale,
+  generations: GENERATION_RULE_PRESETS.pythagorean.generations,
+  branching: GENERATION_RULE_PRESETS.pythagorean.branching,
+  mutation: GENERATION_RULE_PRESETS.pythagorean.mutation,
+  generationPreset: "pythagorean",
+  timeRatio: GENERATION_RULE_PRESETS.pythagorean.timeRatio,
+  generationAngle: GENERATION_RULE_PRESETS.pythagorean.angle,
+  generationAsymmetry: GENERATION_RULE_PRESETS.pythagorean.asymmetry,
+  generationPitchScale: GENERATION_RULE_PRESETS.pythagorean.pitchScale,
 });
 
 const state = { ...DEFAULT_STATE };
@@ -78,6 +80,47 @@ function generationTurns() {
   };
 }
 
+function topologyCoordinateBounds(topology) {
+  const descendants = topology.filter((node) => node.generation > 0);
+  if (!descendants.length) return { minX: 1, maxX: 1, minY: 0, maxY: 0 };
+  return descendants.reduce((bounds, node) => ({
+    minX: Math.min(bounds.minX, node.startX, node.x),
+    maxX: Math.max(bounds.maxX, node.startX, node.x),
+    minY: Math.min(bounds.minY, node.startY, node.y),
+    maxY: Math.max(bounds.maxY, node.startY, node.y),
+  }), { minX: 1, maxX: 1, minY: 0, maxY: 0 });
+}
+
+function compactGenerationLayout(topology) {
+  const bounds = topologyCoordinateBounds(topology);
+  const rootX = 8;
+  const trunkLength = 28;
+  const trunkEndX = rootX + trunkLength;
+  const top = 10;
+  const bottom = 130;
+  const right = 182;
+  const negativeX = Math.max(0, 1 - bounds.minX);
+  const positiveX = Math.max(0, bounds.maxX - 1);
+  const height = bounds.maxY - bounds.minY;
+  const scaleLimits = [trunkLength];
+  if (negativeX > 1e-9) scaleLimits.push((trunkEndX - rootX) / negativeX);
+  if (positiveX > 1e-9) scaleLimits.push((right - trunkEndX) / positiveX);
+  if (height > 1e-9) scaleLimits.push((bottom - top) / height);
+  const scale = Math.max(0.1, Math.min(...scaleLimits));
+  const drawnHeight = height * scale;
+  const yOrigin = height > 1e-9
+    ? top + ((bottom - top) - drawnHeight) / 2 - bounds.minY * scale
+    : (top + bottom) / 2;
+  return {
+    root: { x: rootX, y: yOrigin },
+    trunkEnd: { x: trunkEndX, y: yOrigin },
+    project: (x, y) => ({
+      x: trunkEndX + (x - 1) * scale,
+      y: yOrigin + y * scale,
+    }),
+  };
+}
+
 function buildGenerationVisualModel() {
   const generationCount = state.generations;
   const topology = generationTopology({
@@ -116,22 +159,17 @@ function generationShapeGeometry() {
     voices,
     audibleIds,
   } = generationVisualModel;
-  // Use one fixed projection instead of fitting the current bounds.  The seed
-  // trunk is therefore always exactly 14 SVG units wide; taper only affects
-  // its rewritten descendants.
-  const project = (x, y) => ({ x: 8 + x * 14, y: 70 + y * 22 });
+  const layout = compactGenerationLayout(topology);
   const pathFor = (nodes) => nodes.map((node) => {
-    const start = project(node.startX, node.startY);
-    const end = project(node.x, node.y);
+    const start = layout.project(node.startX, node.startY);
+    const end = layout.project(node.x, node.y);
     return `M${start.x.toFixed(2)} ${start.y.toFixed(2)}L${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
   }).join("");
-  const trunk = topology[0];
-  const root = project(trunk.startX, trunk.startY);
   return {
-    trunkPath: pathFor([trunk]),
+    trunkPath: `M${layout.root.x.toFixed(2)} ${layout.root.y.toFixed(2)}L${layout.trunkEnd.x.toFixed(2)} ${layout.trunkEnd.y.toFixed(2)}`,
     path: pathFor(topology.slice(1)),
     audiblePath: pathFor(topology.slice(1).filter((node) => audibleIds.has(node.id))),
-    root,
+    root: layout.root,
     generationCount,
     branchCount: Math.max(0, topology.length - 1),
     audibleCount: voices.length,

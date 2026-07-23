@@ -4,10 +4,10 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("all eleven instrument pages share desktop and mobile navigation", async () => {
+test("all instrument pages share desktop and mobile navigation", async () => {
   const files = [
     "index.html", "lattice.html", "spiral.html", "solid.html", "hyper.html",
-    "l-system.html", "recursion.html", "julia.html", "lumber.html", "micmic.html",
+    "l-system.html", "recursion.html", "recur.html", "julia.html", "lumber.html", "micmic.html",
     "throatazoid.html",
   ];
   const [pages, css, nav] = await Promise.all([
@@ -26,6 +26,12 @@ test("all eleven instrument pages share desktop and mobile navigation", async ()
     }
     assert.match(html, /class="mobile-instrument-select"/);
     assert.match(html, /<script type="module" src="nav\.js">/);
+    if (files[index] !== "recursion.html") {
+      // recur is a greenfield instrument; recursion.html is intentionally left
+      // untouched, so it is the one page without a recur link.
+      assert.match(html, />recur<\/a>/);
+      assert.match(html, />recur<\/option>/);
+    }
     if (files[index] === "recursion.html") {
       assert.match(html, /id="resetStudy"[^>]*>Reset this system<\/button>/);
     } else {

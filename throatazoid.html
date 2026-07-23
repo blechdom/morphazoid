@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#020302" />
     <meta
       name="description"
-      content="THROATAZOID — a microphone-driven geometric vocal organism."
+      content="THROATAZOID"
     />
     <title>THROATAZOID</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -28,6 +28,7 @@
         <a class="tab" href="hyper.html">hyper</a>
         <a class="tab" href="l-system.html">l-system</a>
         <a class="tab recursion-tab" href="recursion.html">recursion</a>
+        <a class="tab" href="recur.html">recur</a>
         <a class="tab" href="julia.html">julia</a>
         <a class="tab" href="lumber.html">lumber</a>
         <a class="tab micmic-tab" href="micmic.html">mic(mic)</a>
@@ -48,6 +49,7 @@
           <option value="hyper.html">hyper</option>
           <option value="l-system.html">l-system</option>
           <option value="recursion.html">recursion</option>
+          <option value="recur.html">recur</option>
           <option value="julia.html">julia</option>
           <option value="lumber.html">lumber</option>
           <option value="micmic.html">mic(mic)</option>
@@ -84,10 +86,83 @@
             aria-label="Interactive alien vocal tract. Drag the diamond chamber handles to change each throat's length and aperture."
             aria-describedby="canvasInstructions liveStatus"
           >
-            An interactive polygonal organism with microphone-driven vocal tracts.
+            An interactive polygonal organism with selectable microphone and internal
+            glottal excitation.
           </canvas>
 
           <div class="throatazoid-word" aria-hidden="true">THROATAZOID</div>
+
+          <div
+            class="throatazoid-phoneme-dock"
+            id="phonemeButtons"
+            role="group"
+            aria-label="Alien phoneme gestures"
+          >
+            <span class="throatazoid-phoneme-label" aria-hidden="true">PHONEMES</span>
+            <button
+              type="button"
+              data-phoneme="a"
+              aria-pressed="true"
+              aria-label="Shape vowel A"
+              title="Open vowel A"
+            >A</button>
+            <button
+              type="button"
+              data-phoneme="e"
+              aria-pressed="false"
+              aria-label="Shape vowel E"
+              title="Front vowel E"
+            >E</button>
+            <button
+              type="button"
+              data-phoneme="i"
+              aria-pressed="false"
+              aria-label="Shape vowel I"
+              title="High vowel I"
+            >I</button>
+            <button
+              type="button"
+              data-phoneme="o"
+              aria-pressed="false"
+              aria-label="Shape vowel O"
+              title="Round vowel O"
+            >O</button>
+            <button
+              type="button"
+              data-phoneme="u"
+              aria-pressed="false"
+              aria-label="Shape vowel U"
+              title="Deep vowel U"
+            >U</button>
+            <button
+              type="button"
+              data-phoneme="s"
+              aria-pressed="false"
+              aria-label="Shape consonant S"
+              title="Sibilant S"
+            >S</button>
+            <button
+              type="button"
+              data-phoneme="k"
+              aria-pressed="false"
+              aria-label="Shape consonant K"
+              title="Velar strike K"
+            >K</button>
+            <button
+              type="button"
+              data-phoneme="m"
+              aria-pressed="false"
+              aria-label="Shape consonant M"
+              title="Nasal closure M"
+            >M</button>
+            <button
+              type="button"
+              data-phoneme="n"
+              aria-pressed="false"
+              aria-label="Shape consonant N"
+              title="Nasal tongue N"
+            >N</button>
+          </div>
 
           <button
             class="throatazoid-awaken"
@@ -110,6 +185,8 @@
             <span><i></i>ROOT</span>
             <span><i></i>CHAMBER</span>
             <span><i></i>MOUTH</span>
+            <span><i></i>TONGUE</span>
+            <span><i></i>NOSE</span>
           </div>
 
           <div class="throatazoid-handle-readout" id="handleReadout" hidden>
@@ -138,6 +215,30 @@
             <span class="section-state" id="listenSummary">organism dormant</span>
           </summary>
           <div class="group-body">
+            <div class="throatazoid-source-heading">
+              <span class="field-label" id="sourceModeLabel">Excitation source</span>
+              <output id="sourceSummary">microphone</output>
+            </div>
+            <div
+              class="throatazoid-source-selector"
+              id="sourceButtons"
+              role="group"
+              aria-labelledby="sourceModeLabel"
+            >
+              <button type="button" data-source="mic" aria-pressed="true">
+                <i class="throatazoid-source-sigil" aria-hidden="true"><b></b></i>
+                <span><b>Mic</b><small>external voice</small></span>
+              </button>
+              <button type="button" data-source="glottis" aria-pressed="false">
+                <i class="throatazoid-source-sigil" aria-hidden="true"><b></b></i>
+                <span><b>Glottis</b><small>internal membrane</small></span>
+              </button>
+              <button type="button" data-source="hybrid" aria-pressed="false">
+                <i class="throatazoid-source-sigil" aria-hidden="true"><b></b></i>
+                <span><b>Hybrid</b><small>voice + membrane</small></span>
+              </button>
+            </div>
+
             <div class="throatazoid-listen-actions">
               <button
                 class="throatazoid-mic-button"
@@ -148,7 +249,7 @@
                 <span class="throatazoid-mic-icon" aria-hidden="true"><i></i></span>
                 <span>
                   <b id="micButtonLabel">Awaken</b>
-                  <small id="micButtonHint">allow microphone access</small>
+                  <small id="micButtonHint">awaken selected source</small>
                 </span>
               </button>
               <button
@@ -162,8 +263,8 @@
               </button>
             </div>
 
-            <div class="throatazoid-meter" aria-label="Live microphone level">
-              <span><b>Input organism</b><output id="inputMeterOut">silent</output></span>
+            <div class="throatazoid-meter" aria-label="Live excitation level">
+              <span><b>Excitation level</b><output id="inputMeterOut">silent</output></span>
               <div><i id="inputMeterBar"></i><em id="inputPeakMarker"></em></div>
             </div>
 
@@ -177,9 +278,118 @@
               <span><b>Input hunger</b><output id="inputTrimOut" for="inputTrim">88%</output></span>
               <input id="inputTrim" type="range" min="0" max="1.35" step="0.01" value="0.88" />
             </label>
+            <label class="control throatazoid-stability-control" for="inputStability">
+              <span>
+                <b>Input stability</b>
+                <output id="inputStabilityOut" for="inputStability">72%</output>
+              </span>
+              <input
+                id="inputStability"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.72"
+              />
+              <small>steadies mic movement without flattening attacks</small>
+            </label>
+
+            <div class="throatazoid-glottis-controls" id="glottisControls">
+              <div class="throatazoid-glottis-heading">
+                <span><i aria-hidden="true"></i><b>Internal glottis</b></span>
+                <small>LF membrane</small>
+              </div>
+              <div class="throatazoid-glottis-grid">
+                <label class="control" for="exciterPitch">
+                  <span>
+                    <b>Pitch</b>
+                    <output id="exciterPitchOut" for="exciterPitch">108 Hz</output>
+                  </span>
+                  <input
+                    id="exciterPitch"
+                    type="range"
+                    min="40"
+                    max="420"
+                    step="1"
+                    value="108"
+                  />
+                </label>
+                <label class="control" for="exciterIntensity">
+                  <span>
+                    <b>Intensity</b>
+                    <output id="exciterIntensityOut" for="exciterIntensity">72%</output>
+                  </span>
+                  <input
+                    id="exciterIntensity"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.72"
+                  />
+                </label>
+                <label class="control" for="exciterTenseness">
+                  <span>
+                    <b>Tenseness</b>
+                    <output id="exciterTensenessOut" for="exciterTenseness">62%</output>
+                  </span>
+                  <input
+                    id="exciterTenseness"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.62"
+                  />
+                </label>
+                <label class="control" for="exciterBreath">
+                  <span>
+                    <b>Breath</b>
+                    <output id="exciterBreathOut" for="exciterBreath">16%</output>
+                  </span>
+                  <input
+                    id="exciterBreath"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.16"
+                  />
+                </label>
+                <label class="control" for="exciterVibrato">
+                  <span>
+                    <b>Vibrato</b>
+                    <output id="exciterVibratoOut" for="exciterVibrato">8%</output>
+                  </span>
+                  <input
+                    id="exciterVibrato"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.08"
+                  />
+                </label>
+                <label class="control" for="exciterWobble">
+                  <span>
+                    <b>Wobble</b>
+                    <output id="exciterWobbleOut" for="exciterWobble">5%</output>
+                  </span>
+                  <input
+                    id="exciterWobble"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.05"
+                  />
+                </label>
+              </div>
+            </div>
 
             <p class="throatazoid-headphone-note">
-              <b>Use headphones.</b> The organism listens to the room whenever it is awake.
+              <b>Headphones recommended.</b> Mic and hybrid modes listen to the room.
+              Glottis mode needs no microphone.
             </p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
@@ -204,6 +414,30 @@
               </button>
               <button type="button" data-specimen="razor" aria-pressed="false">
                 <i aria-hidden="true"></i><span>Razor</span><small>metal teeth</small>
+              </button>
+              <button type="button" data-specimen="monolith" aria-pressed="false">
+                <i aria-hidden="true"></i><span>Monolith</span><small>subterranean</small>
+              </button>
+              <button type="button" data-specimen="siren" aria-pressed="false">
+                <i aria-hidden="true"></i><span>Siren</span><small>split signal</small>
+              </button>
+              <button type="button" data-specimen="larva" aria-pressed="false">
+                <i aria-hidden="true"></i><span>Larva</span><small>soft membrane</small>
+              </button>
+              <button type="button" data-specimen="cathedral" aria-pressed="false">
+                <i aria-hidden="true"></i><span>Cathedral</span><small>hollow colony</small>
+              </button>
+              <button type="button" data-specimen="needle" aria-pressed="false">
+                <i aria-hidden="true"></i><span>Needle</span><small>high puncture</small>
+              </button>
+              <button type="button" data-specimen="maw" aria-pressed="false">
+                <i aria-hidden="true"></i><span>Maw</span><small>overfed</small>
+              </button>
+              <button type="button" data-specimen="choir" aria-pressed="false">
+                <i aria-hidden="true"></i><span>Choir</span><small>gentle swarm</small>
+              </button>
+              <button type="button" data-specimen="void" aria-pressed="false">
+                <i aria-hidden="true"></i><span>Void</span><small>breath without body</small>
               </button>
             </div>
 
@@ -242,6 +476,206 @@
             <p class="control-note">
               Drag a diamond chamber on the organism: outward opens it; sideways changes its length.
             </p>
+          </div>
+        </details>
+
+        <details
+          class="group control-section"
+          id="articulationSection"
+          data-section="articulation"
+        >
+          <summary class="group-summary">
+            <h2 class="group-title">Articulation</h2>
+            <span class="section-state" id="articulationSummary">2 tongues · 2 noses</span>
+          </summary>
+          <div class="group-body">
+            <p class="throatazoid-articulation-intro">
+              Drag tongue diamonds and nose gates directly on the organism, or tune each organ
+              precisely below.
+            </p>
+
+            <section class="throatazoid-organ-cluster is-tongue" aria-labelledby="tongueClusterTitle">
+              <div class="throatazoid-organ-heading">
+                <span>
+                  <i class="throatazoid-organ-sigil" aria-hidden="true"></i>
+                  <b id="tongueClusterTitle">Tongue colony</b>
+                </span>
+                <output id="tongueCountOut" for="tongueCount">2</output>
+              </div>
+
+              <label class="control throatazoid-count-control" for="tongueCount">
+                <span><b>Tongues</b><small>one to three per mouth</small></span>
+                <input id="tongueCount" type="range" min="1" max="3" step="1" value="2" />
+              </label>
+
+              <span class="field-label" id="tongueSelectorLabel">Selected tongue</span>
+              <div
+                class="throatazoid-organ-selector"
+                id="tongueButtons"
+                role="group"
+                aria-labelledby="tongueSelectorLabel"
+              >
+                <button type="button" data-tongue="0" aria-pressed="true">
+                  <i aria-hidden="true"></i><span>I</span>
+                </button>
+                <button type="button" data-tongue="1" aria-pressed="false">
+                  <i aria-hidden="true"></i><span>II</span>
+                </button>
+                <button type="button" data-tongue="2" aria-pressed="false">
+                  <i aria-hidden="true"></i><span>III</span>
+                </button>
+              </div>
+
+              <div class="throatazoid-articulation-grid">
+                <label class="control" for="selectedTonguePosition">
+                  <span>
+                    <b>Position</b>
+                    <output
+                      id="selectedTonguePositionOut"
+                      for="selectedTonguePosition"
+                    >54%</output>
+                  </span>
+                  <input
+                    id="selectedTonguePosition"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.54"
+                  />
+                </label>
+                <label class="control" for="selectedTongueHeight">
+                  <span>
+                    <b>Height</b>
+                    <output
+                      id="selectedTongueHeightOut"
+                      for="selectedTongueHeight"
+                    >64%</output>
+                  </span>
+                  <input
+                    id="selectedTongueHeight"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.64"
+                  />
+                </label>
+                <label class="control" for="selectedTongueCurl">
+                  <span>
+                    <b>Curl</b>
+                    <output
+                      id="selectedTongueCurlOut"
+                      for="selectedTongueCurl"
+                    >18%</output>
+                  </span>
+                  <input
+                    id="selectedTongueCurl"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.18"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section class="throatazoid-organ-cluster is-nose" aria-labelledby="noseClusterTitle">
+              <div class="throatazoid-organ-heading">
+                <span>
+                  <i class="throatazoid-organ-sigil" aria-hidden="true"></i>
+                  <b id="noseClusterTitle">Nasal array</b>
+                </span>
+                <output id="noseCountOut" for="noseCount">2</output>
+              </div>
+
+              <label class="control throatazoid-count-control" for="noseCount">
+                <span><b>Noses</b><small>parallel resonance paths</small></span>
+                <input id="noseCount" type="range" min="1" max="3" step="1" value="2" />
+              </label>
+
+              <span class="field-label" id="noseSelectorLabel">Selected nose</span>
+              <div
+                class="throatazoid-organ-selector"
+                id="noseButtons"
+                role="group"
+                aria-labelledby="noseSelectorLabel"
+              >
+                <button type="button" data-nose="0" aria-pressed="true">
+                  <i aria-hidden="true"></i><span>I</span>
+                </button>
+                <button type="button" data-nose="1" aria-pressed="false">
+                  <i aria-hidden="true"></i><span>II</span>
+                </button>
+                <button type="button" data-nose="2" aria-pressed="false">
+                  <i aria-hidden="true"></i><span>III</span>
+                </button>
+              </div>
+
+              <div class="throatazoid-articulation-grid">
+                <label class="control" for="selectedNoseOpenness">
+                  <span>
+                    <b>Velum gate</b>
+                    <output
+                      id="selectedNoseOpennessOut"
+                      for="selectedNoseOpenness"
+                    >35%</output>
+                  </span>
+                  <input
+                    id="selectedNoseOpenness"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.35"
+                  />
+                </label>
+                <label class="control" for="selectedNoseLength">
+                  <span>
+                    <b>Length</b>
+                    <output
+                      id="selectedNoseLengthOut"
+                      for="selectedNoseLength"
+                    >62%</output>
+                  </span>
+                  <input
+                    id="selectedNoseLength"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.62"
+                  />
+                </label>
+                <label class="control" for="selectedNoseResonance">
+                  <span>
+                    <b>Resonance</b>
+                    <output
+                      id="selectedNoseResonanceOut"
+                      for="selectedNoseResonance"
+                    >48%</output>
+                  </span>
+                  <input
+                    id="selectedNoseResonance"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.48"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <label class="control throatazoid-closure-control" for="oralClosure">
+              <span>
+                <b>Oral closure</b>
+                <output id="oralClosureOut" for="oralClosure">6%</output>
+              </span>
+              <input id="oralClosure" type="range" min="0" max="1" step="0.01" value="0.06" />
+              <small>seal the mouths for plosive and nasal pressure</small>
+            </label>
           </div>
         </details>
 
@@ -295,7 +729,7 @@
               <a class="mini-action" id="downloadTake" href="#" download>Download</a>
               <button class="mini-action" id="clearTake" type="button">Clear</button>
             </div>
-            <p class="control-note">Microphone audio stays in this browser.</p>
+            <p class="control-note">Audio is synthesized and processed in this browser.</p>
           </div>
         </details>
 
@@ -305,9 +739,12 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        Start the microphone with headphones connected. Drag a diamond chamber left or right
-        to change throat length and toward or away from its center line to change aperture.
-        Use the Anatomy controls for keyboard-accessible adjustment. Press Escape to sever audio.
+        Choose microphone, internal glottis, or hybrid excitation and awaken the organism.
+        Microphone and hybrid modes may request microphone access. Drag a diamond chamber left
+        or right to change throat length and toward or away from its center line to change
+        aperture. Drag tongue diamonds and nose gates to shape articulation. Use the Anatomy
+        and Articulation controls for keyboard-accessible adjustment. Press Escape to sever
+        audio.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

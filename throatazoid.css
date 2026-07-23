@@ -365,6 +365,175 @@
   --accent-glow: color-mix(in oklab, #ff745f 14%, transparent);
 }
 
+.throatazoid-source-heading {
+  display: flex;
+  margin-bottom: 7px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.throatazoid-source-heading output {
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.throatazoid-source-selector {
+  display: grid;
+  margin-bottom: 10px;
+  border-top: 1px solid var(--line-strong);
+  border-left: 1px solid var(--line-strong);
+  background: var(--xeno-black);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.throatazoid-source-selector button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 58px;
+  padding: 8px 7px;
+  overflow: hidden;
+  border-right: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background:
+    linear-gradient(135deg, transparent 54%, rgba(216, 255, 87, 0.014)),
+    var(--xeno-black);
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  text-align: left;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.throatazoid-source-selector button:hover,
+.throatazoid-source-selector button:focus-visible {
+  color: var(--xeno-bone);
+  background-color: var(--accent-glow);
+}
+
+.throatazoid-source-selector button[aria-pressed="true"] {
+  color: var(--accent);
+  background-color: rgba(216, 255, 87, 0.045);
+  box-shadow:
+    inset 2px 0 0 var(--accent),
+    inset 0 0 22px rgba(216, 255, 87, 0.025);
+}
+
+.throatazoid-source-selector button > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.throatazoid-source-selector button > span b {
+  overflow: hidden;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+
+.throatazoid-source-selector button > span small {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.throatazoid-source-sigil {
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 27px;
+  border: 1px solid currentColor;
+  clip-path: polygon(50% 0, 100% 25%, 82% 100%, 18% 100%, 0 25%);
+  opacity: 0.78;
+}
+
+.throatazoid-source-sigil::before,
+.throatazoid-source-sigil::after {
+  position: absolute;
+  background: currentColor;
+  content: "";
+}
+
+.throatazoid-source-sigil::before {
+  top: 5px;
+  bottom: 5px;
+  left: 10px;
+  width: 1px;
+}
+
+.throatazoid-source-sigil::after {
+  top: 13px;
+  left: 4px;
+  width: 13px;
+  height: 1px;
+}
+
+.throatazoid-source-sigil b {
+  display: none;
+}
+
+[data-source="glottis"] .throatazoid-source-sigil {
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  clip-path: polygon(50% 0, 82% 13%, 100% 50%, 82% 87%, 50% 100%, 18% 87%, 0 50%, 18% 13%);
+}
+
+[data-source="glottis"] .throatazoid-source-sigil::before {
+  top: 4px;
+  bottom: 4px;
+  left: 10px;
+  transform: rotate(21deg);
+}
+
+[data-source="glottis"] .throatazoid-source-sigil::after {
+  top: 10px;
+  left: 4px;
+  width: 14px;
+  transform: rotate(-21deg);
+}
+
+[data-source="hybrid"] .throatazoid-source-sigil {
+  width: 24px;
+  height: 24px;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  background:
+    linear-gradient(90deg, transparent 47%, currentColor 48%, currentColor 52%, transparent 53%);
+}
+
+[data-source="hybrid"] .throatazoid-source-sigil::before {
+  top: 5px;
+  bottom: auto;
+  left: 4px;
+  width: 15px;
+  height: 1px;
+  transform: rotate(45deg);
+}
+
+[data-source="hybrid"] .throatazoid-source-sigil::after {
+  top: 16px;
+  left: 4px;
+  width: 15px;
+  transform: rotate(-45deg);
+}
+
 .throatazoid-listen-actions {
   display: grid;
   margin-bottom: 14px;
@@ -519,6 +688,121 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.throatazoid-stability-control {
+  margin-bottom: 13px;
+}
+
+.throatazoid-stability-control > small {
+  margin-top: -5px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.025em;
+  line-height: 1.35;
+}
+
+.throatazoid-glottis-controls {
+  position: relative;
+  margin: 5px 0 13px;
+  padding: 10px 10px 5px;
+  overflow: hidden;
+  border: 1px solid rgba(216, 255, 87, 0.16);
+  background:
+    linear-gradient(116deg, rgba(216, 255, 87, 0.042), transparent 38%),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 30px,
+      rgba(216, 255, 87, 0.012) 31px
+    ),
+    var(--xeno-black);
+}
+
+.throatazoid-glottis-controls::after {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(216, 255, 87, 0.13);
+  transform: rotate(45deg);
+  content: "";
+}
+
+.throatazoid-glottis-heading {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  margin-bottom: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.throatazoid-glottis-heading > span {
+  display: inline-flex;
+  color: var(--accent);
+  align-items: center;
+  gap: 7px;
+}
+
+.throatazoid-glottis-heading i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+  transform: rotate(45deg);
+  box-shadow: 0 0 8px var(--accent-soft);
+}
+
+.throatazoid-glottis-heading b {
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.throatazoid-glottis-heading small {
+  color: var(--xeno-dim);
+  font-size: 6px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.throatazoid-glottis-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 14px;
+}
+
+.throatazoid-glottis-grid .control {
+  margin-bottom: 3px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(232, 237, 223, 0.07);
+}
+
+.throatazoid-glottis-grid .control > span {
+  margin-bottom: 0;
+  gap: 5px;
+}
+
+.throatazoid-glottis-grid .control b {
+  overflow: hidden;
+  font-size: 8px;
+  letter-spacing: 0.035em;
+  text-overflow: ellipsis;
+}
+
+.throatazoid-glottis-grid .control output {
+  color: var(--accent);
+  font-size: 7px;
+}
+
+.throatazoid-glottis-grid input[type="range"] {
+  height: 30px;
+}
+
 .throatazoid-headphone-note {
   margin: 5px 0 12px;
   padding: 9px 10px;
@@ -539,23 +823,23 @@
   margin: 8px 0 16px;
   border-top: 1px solid var(--line-strong);
   border-left: 1px solid var(--line-strong);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .throatazoid-specimens button {
   display: grid;
   min-width: 0;
-  min-height: 59px;
-  padding: 8px 9px;
+  min-height: 50px;
+  padding: 7px 6px;
   border-right: 1px solid var(--line-strong);
   border-bottom: 1px solid var(--line-strong);
   cursor: pointer;
   color: var(--muted);
   background: var(--xeno-black);
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 18px minmax(0, 1fr);
   align-content: center;
   align-items: center;
-  gap: 2px 8px;
+  gap: 2px 5px;
   text-align: left;
 }
 
@@ -573,8 +857,8 @@
 
 .throatazoid-specimens i {
   position: relative;
-  width: 22px;
-  height: 22px;
+  width: 17px;
+  height: 18px;
   border: 1px solid currentColor;
   clip-path: polygon(50% 0, 100% 36%, 82% 100%, 18% 100%, 0 36%);
   grid-row: 1 / 3;
@@ -597,11 +881,92 @@
   transform: rotate(28deg);
 }
 
+.throatazoid-specimens [data-specimen="oracle"] i {
+  border-radius: 50%;
+  clip-path: none;
+}
+
+.throatazoid-specimens [data-specimen="hive"] i {
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+}
+
+.throatazoid-specimens [data-specimen="razor"] i {
+  clip-path: polygon(0 20%, 30% 0, 44% 38%, 68% 10%, 100% 28%, 78% 58%, 100% 100%, 55% 78%, 18% 100%);
+}
+
+.throatazoid-specimens [data-specimen="monolith"] i {
+  width: 11px;
+  height: 21px;
+  margin-left: 3px;
+  clip-path: polygon(24% 0, 76% 0, 100% 100%, 0 100%);
+}
+
+.throatazoid-specimens [data-specimen="siren"] i {
+  clip-path: polygon(0 0, 50% 34%, 100% 0, 72% 50%, 100% 100%, 50% 66%, 0 100%, 28% 50%);
+}
+
+.throatazoid-specimens [data-specimen="larva"] i {
+  border-radius: 58% 42% 62% 38% / 43% 59% 41% 57%;
+  clip-path: none;
+  transform: rotate(-18deg);
+}
+
+.throatazoid-specimens [data-specimen="cathedral"] i {
+  height: 21px;
+  clip-path: polygon(0 100%, 0 45%, 20% 45%, 20% 18%, 36% 18%, 50% 0, 64% 18%, 80% 18%, 80% 45%, 100% 45%, 100% 100%);
+}
+
+.throatazoid-specimens [data-specimen="needle"] i {
+  width: 8px;
+  height: 22px;
+  margin-left: 4px;
+  clip-path: polygon(50% 0, 100% 86%, 50% 100%, 0 86%);
+}
+
+.throatazoid-specimens [data-specimen="maw"] i {
+  width: 18px;
+  height: 13px;
+  clip-path: polygon(0 50%, 22% 0, 50% 22%, 78% 0, 100% 50%, 78% 100%, 50% 78%, 22% 100%);
+}
+
+.throatazoid-specimens [data-specimen="choir"] i {
+  width: 13px;
+  margin-left: 2px;
+  box-shadow:
+    -3px 0 0 -2px currentColor,
+    3px 0 0 -2px currentColor;
+}
+
+.throatazoid-specimens [data-specimen="void"] i {
+  width: 17px;
+  height: 17px;
+  border-style: dashed;
+  border-radius: 50%;
+  clip-path: none;
+  transform: rotate(18deg);
+}
+
+.throatazoid-specimens [data-specimen="monolith"] i::before,
+.throatazoid-specimens [data-specimen="needle"] i::before {
+  top: 3px;
+  left: 50%;
+  width: 1px;
+  height: 14px;
+  transform: none;
+}
+
+.throatazoid-specimens [data-specimen="monolith"] i::after,
+.throatazoid-specimens [data-specimen="needle"] i::after,
+.throatazoid-specimens [data-specimen="void"] i::before,
+.throatazoid-specimens [data-specimen="void"] i::after {
+  display: none;
+}
+
 .throatazoid-specimens span {
   overflow: hidden;
   color: currentColor;
-  font-size: 9px;
-  letter-spacing: 0.08em;
+  font-size: 8px;
+  letter-spacing: 0.055em;
   text-overflow: ellipsis;
   text-transform: uppercase;
 }
@@ -609,7 +974,7 @@
 .throatazoid-specimens small {
   overflow: hidden;
   color: var(--faint);
-  font-size: 7px;
+  font-size: 6px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

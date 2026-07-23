@@ -1,8 +1,14 @@
 import {
+  MAX_NOSES,
   MAX_THROATS,
+  MAX_TONGUES,
+  PHONEMES,
   SPECIMENS,
   anatomyLayout,
   clamp,
+  glottalHarmonics,
+  noseVoiceParameters,
+  smoothEnvelope,
   specimenState,
   throatVoiceParameters,
   waveformLevel,
@@ -20,6 +26,10 @@ const DEFAULTS = Object.freeze({
   dry: 0.08,
   spread: 0.82,
   level: 0.46,
+  inputStability: 0.72,
+  sourceMode: "mic",
+  phoneme: "a",
+  awake: false,
   mic: false,
   starting: false,
   recording: false,
@@ -35,21 +45,30 @@ let cssHeight = 1;
 let pixelRatio = 1;
 let currentLayout = anatomyLayout(900, 600, state);
 let selectedThroat = 0;
+let selectedTongue = 0;
+let selectedNose = 0;
+let currentTongues = [];
+let currentNoses = [];
 let pointerDrag = null;
 let audioContext = null;
 let graph = null;
 let mediaStream = null;
 let microphoneSource = null;
 let microphoneGeneration = 0;
-let audioChanging = false;
 let audioDirty = false;
+let periodicWaveCache = new Map();
 let inputWave = new Float32Array(2048);
 let outputWave = new Float32Array(2048);
 let safetyWave = new Float32Array(1024);
 let inputLevel = { rms: 0, peak: 0 };
 let outputLevel = { rms: 0, peak: 0 };
+let rawInputLevel = { rms: 0, peak: 0 };
+let rawOutputLevel = { rms: 0, peak: 0 };
 let inputPeakHold = 0;
-let hotSince = 0;
+let inputPeakHeldUntil = 0;
+let signalIsVocal = false;
+let quietSince = 0;
+let lastEnvelopeTime = 0;
 let lastMeterUpdate = 0;
 let recorder = null;
 let recordingStartedAt = 0;
@@ -59,6 +78,16 @@ let lastTakeUrl = "";
 let lastTakeDuration = 0;
 let lastTakeMimeType = "";
 let frameHandle = 0;
+
+const SOURCE_LABELS = Object.freeze({
+  mic: "Mic",
+  glottis: "Glottis",
+  hybrid: "Hybrid",
+});
+
+function isAwake() {
+  return Boolean(state.awake);
+}
 
 function setPressed(element, pressed) {
   element?.setAttribute("aria-pressed", String(Boolean(pressed)));
@@ -112,14 +141,15 @@ function stopStream(stream) {
 }
 
 function releaseMicrophone() {
+  const stream = mediaStream;
   try {
     microphoneSource?.disconnect();
   } catch {
     // A device-level end may have already disconnected the source.
   }
-  stopStream(mediaStream);
   microphoneSource = null;
   mediaStream = null;
+  stopStream(stream);
 }
 
 function makeSoftClipCurve(size = 4096, drive = 1.55) {
@@ -169,6 +199,130 @@ function configureCompressor(compressor, now) {
   compressor.release?.setValueAtTime?.(0.16, now);
 }
 
+function configureInputCompressor(compressor, now) {
+  compressor.threshold?.setValueAtTime?.(-32, now);
+  compressor.knee?.setValueAtTime?.(18, now);
+  compressor.ratio?.setValueAtTime?.(3.5, now);
+  compressor.attack?.setValueAtTime?.(0.012, now);
+  compressor.release?.setValueAtTime?.(0.24, now);
+}
+
+function createNoiseSource(audio, seconds = 2) {
+  if (
+    typeof audio.createBuffer !== "function"
+    || typeof audio.createBufferSource !== "function"
+  ) return null;
+  const sampleRate = audio.sampleRate || 48_000;
+  const buffer = audio.createBuffer(1, Math.ceil(sampleRate * seconds), sampleRate);
+  const samples = buffer.getChannelData?.(0);
+  if (!samples) return null;
+  let seed = 0x5eedc0de;
+  for (let index = 0; index < samples.length; index += 1) {
+    seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+    samples[index] = seed / 0x8000_0000 - 1;
+  }
+  const source = audio.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+  source.start();
+  return source;
+}
+
+function createInternalExciter(audio, wetBus) {
+  const internalBus = audio.createGain();
+  const pulseGain = audio.createGain();
+  const pulseLowpass = audio.createBiquadFilter();
+  const pulse = typeof audio.createOscillator === "function" ? audio.createOscillator() : null;
+  const vibrato = typeof audio.createOscillator === "function" ? audio.createOscillator() : null;
+  const vibratoDepth = audio.createGain();
+  const wobble = typeof audio.createOscillator === "function" ? audio.createOscillator() : null;
+  const wobbleDepth = audio.createGain();
+  const breathHighpass = audio.createBiquadFilter();
+  const breathLowpass = audio.createBiquadFilter();
+  const breathGain = audio.createGain();
+  const turbulenceFilter = audio.createBiquadFilter();
+  const turbulenceBus = audio.createGain();
+  const transientFilter = audio.createBiquadFilter();
+  const transientGain = audio.createGain();
+  const noise = createNoiseSource(audio);
+
+  internalBus.gain.value = 1;
+  pulseGain.gain.value = 0;
+  pulseLowpass.type = "lowpass";
+  pulseLowpass.frequency.value = 6_500;
+  pulseLowpass.Q.value = 0.72;
+  vibratoDepth.gain.value = 0;
+  wobbleDepth.gain.value = 0;
+  breathHighpass.type = "highpass";
+  breathHighpass.frequency.value = 350;
+  breathHighpass.Q.value = 0.707;
+  breathLowpass.type = "lowpass";
+  breathLowpass.frequency.value = 8_000;
+  breathLowpass.Q.value = 0.707;
+  breathGain.gain.value = 0;
+  turbulenceFilter.type = "bandpass";
+  turbulenceFilter.frequency.value = 3_200;
+  turbulenceFilter.Q.value = 0.72;
+  turbulenceBus.gain.value = 0.42;
+  transientFilter.type = "bandpass";
+  transientFilter.frequency.value = 1_150;
+  transientFilter.Q.value = 1.4;
+  transientGain.gain.value = 0;
+
+  if (pulse) {
+    pulse.type = "sawtooth";
+    pulse.frequency.value = state.exciterPitch;
+    connect(pulse, pulseLowpass);
+    connect(pulseLowpass, pulseGain);
+    connect(pulseGain, internalBus);
+    if (vibrato) {
+      vibrato.type = "sine";
+      vibrato.frequency.value = 5.2;
+      vibrato.connect(vibratoDepth);
+      vibratoDepth.connect(pulse.frequency);
+      vibrato.start();
+    }
+    if (wobble) {
+      wobble.type = "sine";
+      wobble.frequency.value = 0.43;
+      wobble.connect(wobbleDepth);
+      wobbleDepth.connect(pulse.frequency);
+      wobble.start();
+    }
+    pulse.start();
+  }
+
+  if (noise) {
+    noise.connect(breathHighpass);
+    connect(breathHighpass, breathLowpass);
+    connect(breathLowpass, breathGain);
+    connect(breathGain, internalBus);
+    noise.connect(turbulenceFilter);
+    connect(turbulenceFilter, turbulenceBus);
+    noise.connect(transientFilter);
+    connect(transientFilter, transientGain);
+    connect(transientGain, wetBus);
+  }
+
+  return {
+    internalBus,
+    pulse,
+    pulseGain,
+    pulseLowpass,
+    vibrato,
+    vibratoDepth,
+    wobble,
+    wobbleDepth,
+    breathGain,
+    turbulenceFilter,
+    turbulenceBus,
+    transientFilter,
+    transientGain,
+    noise,
+    waveKey: "",
+  };
+}
+
 function buildThroat(audio, index, wetBus) {
   const inlet = audio.createGain();
   const highpass = audio.createBiquadFilter();
@@ -176,6 +330,9 @@ function buildThroat(audio, index, wetBus) {
   const lowpass = audio.createBiquadFilter();
   const drive = audio.createGain();
   const shaper = createShaper(audio, makeSoftClipCurve());
+  const delay = typeof audio.createDelay === "function" ? audio.createDelay(0.08) : audio.createGain();
+  const turbulenceFilter = audio.createBiquadFilter();
+  const turbulenceGain = audio.createGain();
   const normalGain = audio.createGain();
   const ringCarrier = audio.createGain();
   const ringDepth = audio.createGain();
@@ -198,19 +355,26 @@ function buildThroat(audio, index, wetBus) {
   inlet.gain.value = 0;
   drive.gain.value = 1;
   normalGain.gain.value = 1;
+  turbulenceFilter.type = "bandpass";
+  turbulenceFilter.frequency.value = 3_200;
+  turbulenceFilter.Q.value = 0.8;
+  turbulenceGain.gain.value = 0;
   ringCarrier.gain.value = 0;
   ringDepth.gain.value = 0;
   mix.gain.value = 0.72;
 
   connect(inlet, highpass);
+  connect(turbulenceFilter, turbulenceGain);
+  connect(turbulenceGain, highpass);
   let tail = highpass;
   for (const filter of formants) tail = connect(tail, filter);
   connect(tail, lowpass);
   connect(lowpass, drive);
   connect(drive, shaper);
-  connect(shaper, normalGain);
+  connect(shaper, delay);
+  connect(delay, normalGain);
   connect(normalGain, mix);
-  connect(shaper, ringCarrier);
+  connect(delay, ringCarrier);
   connect(ringCarrier, mix);
   connect(mix, panner);
   connect(panner, wetBus);
@@ -229,6 +393,9 @@ function buildThroat(audio, index, wetBus) {
     formants,
     lowpass,
     drive,
+    delay,
+    turbulenceFilter,
+    turbulenceGain,
     normalGain,
     ringCarrier,
     ringDepth,
@@ -240,25 +407,47 @@ function buildThroat(audio, index, wetBus) {
 
 function buildAudioGraph(audio) {
   const input = audio.createGain();
+  const micHighpass = audio.createBiquadFilter();
+  const micCompressor = audio.createDynamicsCompressor();
+  const micSelect = audio.createGain();
+  const sourceBus = audio.createGain();
+  const internalSelect = audio.createGain();
+  const inputTrim = audio.createGain();
   const highpass = audio.createBiquadFilter();
   const inputAnalyser = audio.createAnalyser();
   const dryGain = audio.createGain();
   const wetBus = audio.createGain();
   const wetGain = audio.createGain();
   const mixBus = audio.createGain();
-  const sacs = Array.from({ length: 2 }, (_, index) => {
-    const filter = audio.createBiquadFilter();
-    const gain = audio.createGain();
-    const panner = createPanner(audio, index === 0 ? -0.55 : 0.55);
-    filter.type = "bandpass";
-    filter.frequency.value = index === 0 ? 330 : 610;
-    filter.Q.value = 6;
-    gain.gain.value = 0;
-    inputAnalyser.connect(filter);
-    filter.connect(gain);
-    gain.connect(panner);
-    panner.connect(wetBus);
-    return { filter, gain, panner };
+  const exciter = createInternalExciter(audio, wetBus);
+  const noses = Array.from({ length: MAX_NOSES }, (_, index) => {
+    const gate = audio.createGain();
+    const lowpass = audio.createBiquadFilter();
+    const pole = audio.createBiquadFilter();
+    const notch = audio.createBiquadFilter();
+    const delay = typeof audio.createDelay === "function"
+      ? audio.createDelay(0.06)
+      : audio.createGain();
+    const panner = createPanner(audio, index === 1 ? 0.55 : -0.55 + index * 0.3);
+    gate.gain.value = 0;
+    lowpass.type = "lowpass";
+    lowpass.frequency.value = 4_800;
+    lowpass.Q.value = 0.707;
+    pole.type = "peaking";
+    pole.frequency.value = 310 + index * 180;
+    pole.Q.value = 5;
+    pole.gain.value = 9;
+    notch.type = "notch";
+    notch.frequency.value = 900 + index * 430;
+    notch.Q.value = 3.5;
+    inputAnalyser.connect(gate);
+    connect(gate, lowpass);
+    connect(lowpass, pole);
+    connect(pole, notch);
+    connect(notch, delay);
+    connect(delay, panner);
+    connect(panner, wetBus);
+    return { gate, lowpass, pole, notch, delay, panner };
   });
   const safetyAnalyser = audio.createAnalyser();
   const compressor = audio.createDynamicsCompressor();
@@ -269,7 +458,13 @@ function buildAudioGraph(audio) {
     ? audio.createMediaStreamDestination()
     : null;
 
-  input.gain.value = 0;
+  input.gain.value = 1;
+  micSelect.gain.value = 0;
+  internalSelect.gain.value = 0;
+  inputTrim.gain.value = 0;
+  micHighpass.type = "highpass";
+  micHighpass.frequency.value = 70;
+  micHighpass.Q.value = 0.707;
   highpass.type = "highpass";
   highpass.frequency.value = 55;
   highpass.Q.value = 0.707;
@@ -283,7 +478,15 @@ function buildAudioGraph(audio) {
   wetGain.gain.value = 0;
   masterGain.gain.value = 0;
 
-  connect(input, highpass);
+  connect(input, micHighpass);
+  connect(micHighpass, micCompressor);
+  configureInputCompressor(micCompressor, audio.currentTime);
+  connect(micCompressor, micSelect);
+  connect(micSelect, sourceBus);
+  connect(exciter.internalBus, internalSelect);
+  connect(internalSelect, sourceBus);
+  connect(sourceBus, inputTrim);
+  connect(inputTrim, highpass);
   connect(highpass, inputAnalyser);
   connect(inputAnalyser, dryGain);
   connect(dryGain, mixBus);
@@ -291,7 +494,10 @@ function buildAudioGraph(audio) {
     { length: MAX_THROATS },
     (_, index) => buildThroat(audio, index, wetBus),
   );
-  for (const throat of throats) inputAnalyser.connect(throat.inlet);
+  for (const throat of throats) {
+    inputAnalyser.connect(throat.inlet);
+    exciter.noise?.connect?.(throat.turbulenceFilter);
+  }
   connect(wetBus, wetGain);
   connect(wetGain, mixBus);
   connect(mixBus, safetyAnalyser);
@@ -305,11 +511,18 @@ function buildAudioGraph(audio) {
 
   return {
     input,
+    micHighpass,
+    micCompressor,
+    micSelect,
+    sourceBus,
+    internalSelect,
+    inputTrim,
     inputAnalyser,
     dryGain,
     throats,
-    sacs,
+    noses,
     wetGain,
+    exciter,
     safetyAnalyser,
     masterGain,
     outputAnalyser,
@@ -322,6 +535,7 @@ async function ensureAudioGraph() {
   if (!AudioContextClass) throw new Error("Web Audio is unavailable in this browser.");
   if (!audioContext || audioContext.state === "closed") {
     audioContext = new AudioContextClass();
+    periodicWaveCache = new Map();
     graph = buildAudioGraph(audioContext);
     inputWave = new Float32Array(graph.inputAnalyser.fftSize);
     outputWave = new Float32Array(graph.outputAnalyser.fftSize);
@@ -335,25 +549,101 @@ async function ensureAudioGraph() {
 function setAudioParam(parameter, value, immediate = false, timeConstant = 0.025) {
   if (!parameter || !audioContext) return;
   const now = audioContext.currentTime;
-  parameter.cancelScheduledValues?.(now);
+  if (typeof parameter.cancelAndHoldAtTime === "function") parameter.cancelAndHoldAtTime(now);
+  else parameter.cancelScheduledValues?.(now);
   if (immediate) parameter.setValueAtTime?.(value, now);
   else parameter.setTargetAtTime?.(value, now, timeConstant);
 }
 
+function updateGlottalWaveform() {
+  const oscillator = graph?.exciter?.pulse;
+  if (
+    !oscillator?.setPeriodicWave
+    || typeof audioContext?.createPeriodicWave !== "function"
+  ) return;
+  const key = (Math.round(clamp(state.exciterTenseness) * 24) / 24).toFixed(3);
+  if (graph.exciter.waveKey === key) return;
+  try {
+    let wave = periodicWaveCache.get(key);
+    if (!wave) {
+      const { real, imaginary } = glottalHarmonics(Number(key), 48, 1_024);
+      wave = audioContext.createPeriodicWave(real, imaginary, { disableNormalization: false });
+      periodicWaveCache.set(key, wave);
+    }
+    oscillator.setPeriodicWave(wave);
+    graph.exciter.waveKey = key;
+  } catch {
+    oscillator.type = "sawtooth";
+  }
+}
+
 function applyAudioParameters(immediate = false) {
   if (!graph || !audioContext) return;
-  const live = state.mic;
+  const live = isAwake();
+  const micLive = live
+    && state.mic
+    && (state.sourceMode === "mic" || state.sourceMode === "hybrid");
+  const glottisLive = live
+    && (state.sourceMode === "glottis" || state.sourceMode === "hybrid");
   const sampleRate = audioContext.sampleRate || 48_000;
-  setAudioParam(graph.input.gain, live ? state.inputTrim : 0, immediate);
+  const hybridScale = state.sourceMode === "hybrid" ? 0.68 : 1;
+  setAudioParam(graph.micSelect.gain, micLive ? hybridScale : 0, immediate, 0.035);
+  setAudioParam(graph.internalSelect.gain, glottisLive ? hybridScale : 0, immediate, 0.035);
+  setAudioParam(graph.inputTrim.gain, live ? state.inputTrim : 0, immediate);
   setAudioParam(graph.dryGain.gain, live ? state.dry : 0, immediate);
   setAudioParam(graph.wetGain.gain, live ? state.wet : 0, immediate);
   setAudioParam(graph.masterGain.gain, live ? Math.sqrt(state.level) : 0, immediate);
+  setAudioParam(graph.micCompressor.threshold, -27 - state.inputStability * 9, immediate);
+  setAudioParam(graph.micCompressor.ratio, 2.2 + state.inputStability * 3.1, immediate);
+  setAudioParam(graph.micCompressor.release, 0.14 + state.inputStability * 0.42, immediate);
+
+  updateGlottalWaveform();
+  const pitch = clamp(state.exciterPitch, 40, 420);
+  const intensity = clamp(state.exciterIntensity);
+  const tenseness = clamp(state.exciterTenseness);
+  const breath = clamp(state.exciterBreath);
+  const vibratoCents = clamp(state.exciterVibrato) * 72;
+  const wobbleCents = clamp(state.exciterWobble) * 145;
+  setAudioParam(graph.exciter.pulse?.frequency, pitch, immediate, 0.035);
+  setAudioParam(
+    graph.exciter.pulseGain.gain,
+    intensity * (0.2 + tenseness * 0.32),
+    immediate,
+    0.05,
+  );
+  setAudioParam(
+    graph.exciter.breathGain.gain,
+    intensity * breath * (0.18 + (1 - tenseness) * 0.82) * 0.42,
+    immediate,
+    0.06,
+  );
+  setAudioParam(
+    graph.exciter.vibratoDepth.gain,
+    pitch * (Math.pow(2, vibratoCents / 1_200) - 1),
+    immediate,
+    0.08,
+  );
+  setAudioParam(
+    graph.exciter.wobbleDepth.gain,
+    pitch * (Math.pow(2, wobbleCents / 1_200) - 1),
+    immediate,
+    0.12,
+  );
+  setAudioParam(
+    graph.exciter.pulseLowpass.frequency,
+    3_800 + tenseness * 5_700,
+    immediate,
+  );
 
   for (let index = 0; index < MAX_THROATS; index += 1) {
     const voice = throatVoiceParameters(state, index, sampleRate);
     const throat = graph.throats[index];
     const active = live && index < state.throatCount;
-    setAudioParam(throat.inlet.gain, active ? voice.gain : 0, immediate);
+    setAudioParam(
+      throat.inlet.gain,
+      active ? voice.gain * (voice.oralGain ?? 1) : 0,
+      immediate,
+    );
     setAudioParam(throat.highpass.frequency, voice.highpass, immediate);
     setAudioParam(throat.highpass.Q, 0.68 + state.tension * 0.45, immediate);
     for (let formantIndex = 0; formantIndex < throat.formants.length; formantIndex += 1) {
@@ -364,26 +654,49 @@ function applyAudioParameters(immediate = false) {
     }
     setAudioParam(throat.lowpass.frequency, voice.lowpass, immediate);
     setAudioParam(throat.drive.gain, 0.72 + state.tension * 0.72 + state.mutation * 0.46, immediate);
+    setAudioParam(throat.delay?.delayTime, voice.delay, immediate, 0.045);
     setAudioParam(throat.normalGain.gain, voice.normalMix, immediate);
     setAudioParam(throat.ringDepth.gain, voice.ringMix, immediate);
     setAudioParam(throat.oscillator?.frequency, voice.ringFrequency, immediate, 0.04);
     setAudioParam(throat.panner.pan, voice.pan * state.spread, immediate);
-  }
-
-  const sacFrequencies = [
-    180 + (1 - state.bodyLength) * 380 + state.mutation * 95,
-    430 + state.tension * 520 + state.mutation * 180,
-  ];
-  for (let index = 0; index < graph.sacs.length; index += 1) {
-    const sac = graph.sacs[index];
-    setAudioParam(sac.filter.frequency, sacFrequencies[index], immediate);
-    setAudioParam(sac.filter.Q, 3.4 + state.tension * 8 + index * 1.4, immediate);
+    const aperture = state.throats[index]?.aperture ?? 1;
+    const constriction = clamp((0.34 - aperture) / 0.29);
+    const contact = clamp(voice.contact ?? 0);
+    const tongueNoise = contact * (1 - contact * 0.82);
     setAudioParam(
-      sac.gain.gain,
-      live ? state.coupling * (index === 0 ? 0.17 : 0.12) : 0,
+      throat.turbulenceFilter.frequency,
+      voice.turbulenceFrequency ?? 3_200,
+      immediate,
+      0.04,
+    );
+    setAudioParam(
+      throat.turbulenceFilter.Q,
+      0.65 + contact * 5.5,
       immediate,
     );
-    setAudioParam(sac.panner.pan, (index === 0 ? -0.5 : 0.5) * state.spread, immediate);
+    setAudioParam(
+      throat.turbulenceGain.gain,
+      active && voice.gain > 0
+        ? Math.max(constriction * (0.012 + state.mutation * 0.055), tongueNoise * 0.11)
+        : 0,
+      immediate,
+      0.045,
+    );
+  }
+
+  for (let index = 0; index < graph.noses.length; index += 1) {
+    const nose = graph.noses[index];
+    const voice = noseVoiceParameters(state, index, sampleRate);
+    const active = live && index < state.noseCount;
+    setAudioParam(nose.gate.gain, active ? voice.gain : 0, immediate, 0.045);
+    setAudioParam(nose.lowpass.frequency, voice.lowpass, immediate);
+    setAudioParam(nose.pole.frequency, voice.pole, immediate);
+    setAudioParam(nose.pole.Q, voice.resonance, immediate);
+    setAudioParam(nose.pole.gain, 5 + voice.resonance * 0.72, immediate);
+    setAudioParam(nose.notch.frequency, voice.notch, immediate);
+    setAudioParam(nose.notch.Q, 1.4 + voice.resonance * 0.38, immediate);
+    setAudioParam(nose.delay?.delayTime, voice.delay, immediate, 0.05);
+    setAudioParam(nose.panner.pan, voice.pan * state.spread, immediate);
   }
   audioDirty = false;
 }
@@ -392,9 +705,32 @@ function markAudioDirty() {
   audioDirty = true;
 }
 
-async function startMicrophone() {
-  if (audioChanging || state.mic) return;
-  audioChanging = true;
+function triggerReleaseBurst(index = selectedThroat) {
+  const gain = graph?.exciter?.transientGain?.gain;
+  if (!gain || !audioContext || !isAwake()) return;
+  const voice = throatVoiceParameters(state, index, audioContext.sampleRate || 48_000);
+  setAudioParam(graph.exciter.transientFilter?.frequency, voice.formants[1], true);
+  const now = audioContext.currentTime;
+  gain.cancelScheduledValues?.(now);
+  gain.setValueAtTime?.(0.0001, now);
+  if (typeof gain.linearRampToValueAtTime === "function") {
+    gain.linearRampToValueAtTime(0.09 + state.mutation * 0.07, now + 0.006);
+    gain.exponentialRampToValueAtTime?.(0.0001, now + 0.095);
+  } else {
+    gain.setTargetAtTime?.(0, now + 0.008, 0.025);
+  }
+}
+
+function sourceUsesMicrophone(mode = state.sourceMode) {
+  return mode === "mic" || mode === "hybrid";
+}
+
+async function activateSource(mode = state.sourceMode) {
+  const target = SOURCE_LABELS[mode] ? mode : "mic";
+  const previousMode = state.sourceMode;
+  const previousAwake = state.awake;
+  const previousMic = state.mic;
+  state.sourceMode = target;
   state.starting = true;
   const generation = ++microphoneGeneration;
   clearError();
@@ -402,62 +738,94 @@ async function startMicrophone() {
 
   try {
     const audio = await ensureAudioGraph();
-    if (!globalThis.navigator?.mediaDevices?.getUserMedia) {
-      throw new Error("Microphone input requires HTTPS or localhost.");
+    if (sourceUsesMicrophone(target) && !mediaStream) {
+      if (!globalThis.navigator?.mediaDevices?.getUserMedia) {
+        throw new Error("Microphone input requires HTTPS or localhost.");
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: {
+          channelCount: { ideal: 1 },
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      });
+      if (generation !== microphoneGeneration) {
+        stopStream(stream);
+        return;
+      }
+      releaseMicrophone();
+      mediaStream = stream;
+      microphoneSource = audio.createMediaStreamSource(stream);
+      microphoneSource.connect(graph.input);
+      for (const track of stream.getAudioTracks?.() ?? stream.getTracks?.() ?? []) {
+        track.addEventListener?.("ended", () => {
+          if (mediaStream !== stream) return;
+          releaseMicrophone();
+          state.mic = false;
+          if (state.sourceMode === "hybrid" && state.awake) {
+            state.sourceMode = "glottis";
+            applyAudioParameters();
+            updateUi();
+            announce("Microphone shed. The internal glottis continues.");
+          } else {
+            void severAudio("Microphone disconnected.");
+          }
+        }, { once: true });
+      }
     }
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: false,
-      audio: {
-        channelCount: { ideal: 1 },
-        echoCancellation: { ideal: true },
-        noiseSuppression: { ideal: false },
-        autoGainControl: { ideal: false },
-      },
-    });
-    if (generation !== microphoneGeneration) {
-      stopStream(stream);
-      return;
-    }
-    releaseMicrophone();
-    mediaStream = stream;
-    microphoneSource = audio.createMediaStreamSource(stream);
-    microphoneSource.connect(graph.input);
-    for (const track of stream.getAudioTracks?.() ?? stream.getTracks?.() ?? []) {
-      track.addEventListener?.("ended", () => {
-        if (generation !== microphoneGeneration) return;
-        void severAudio("Microphone disconnected.");
-      }, { once: true });
-    }
-    state.mic = true;
-    state.starting = false;
-    applyAudioParameters(true);
-    announce("Throatazoid awake. Drag a diamond chamber to deform its voice.");
-  } catch (error) {
-    if (generation === microphoneGeneration) {
+
+    if (generation !== microphoneGeneration) return;
+    if (target === "glottis") {
       releaseMicrophone();
       state.mic = false;
+    } else {
+      state.mic = Boolean(mediaStream);
+    }
+    state.awake = true;
+    state.starting = false;
+    applyAudioParameters();
+    announce(`${SOURCE_LABELS[target]} excitation awake. Drag a diamond chamber to deform it.`);
+  } catch (error) {
+    if (generation === microphoneGeneration) {
+      state.sourceMode = previousMode;
+      state.awake = previousAwake;
+      state.mic = previousMic && Boolean(mediaStream);
       state.starting = false;
       showError(microphoneErrorMessage(error));
-      announce("Throatazoid could not access the microphone.");
+      if (previousAwake) applyAudioParameters();
+      announce(previousAwake
+        ? "Microphone unavailable. The previous excitation continues."
+        : "Throatazoid could not access the microphone.");
     }
   } finally {
-    audioChanging = false;
-    updateUi();
+    if (generation === microphoneGeneration) updateUi();
   }
 }
 
 async function severAudio(message = "Throatazoid severed.") {
   microphoneGeneration += 1;
   state.starting = false;
+  state.awake = false;
   state.mic = false;
   if (recorder?.state === "recording") recorder.stop();
   if (graph && audioContext) {
-    setAudioParam(graph.input.gain, 0, true);
+    setAudioParam(graph.micSelect.gain, 0, true);
+    setAudioParam(graph.internalSelect.gain, 0, true);
+    setAudioParam(graph.inputTrim.gain, 0, true);
     setAudioParam(graph.masterGain.gain, 0, true);
   }
   releaseMicrophone();
   inputLevel = { rms: 0, peak: 0 };
   outputLevel = { rms: 0, peak: 0 };
+  rawInputLevel = { rms: 0, peak: 0 };
+  rawOutputLevel = { rms: 0, peak: 0 };
+  inputPeakHold = 0;
+  inputPeakHeldUntil = 0;
+  signalIsVocal = false;
+  quietSince = 0;
+  lastEnvelopeTime = 0;
   try {
     await audioContext?.suspend?.();
   } catch {
@@ -467,9 +835,30 @@ async function severAudio(message = "Throatazoid severed.") {
   announce(message);
 }
 
+function toggleAudio() {
+  if (isAwake() || state.starting) void severAudio();
+  else void activateSource(state.sourceMode);
+}
+
+function selectSourceMode(mode) {
+  if (!SOURCE_LABELS[mode]) return;
+  if (state.starting && mode === state.sourceMode) return;
+  clearError();
+  if (isAwake() || state.starting) {
+    void activateSource(mode);
+  } else {
+    state.sourceMode = mode;
+    updateUi();
+  }
+}
+
 function toggleMicrophone() {
-  if (state.mic || state.starting) void severAudio();
-  else void startMicrophone();
+  if (isAwake() && state.sourceMode === "mic") {
+    void severAudio();
+    return;
+  }
+  state.sourceMode = "mic";
+  void activateSource("mic");
 }
 
 function chooseRecorderMimeType() {
@@ -500,7 +889,7 @@ function clearLastTake() {
 }
 
 function startRecording() {
-  if (!state.mic || !graph?.recorderDestination || !globalThis.MediaRecorder) return;
+  if (!isAwake() || !graph?.recorderDestination || !globalThis.MediaRecorder) return;
   clearLastTake();
   recordingMimeType = chooseRecorderMimeType();
   recordedChunks = [];
@@ -556,6 +945,15 @@ function applySpecimen(name) {
   state.mutation = next.mutation;
   state.coupling = next.coupling;
   state.growl = next.growl;
+  state.wet = next.wet;
+  state.dry = next.dry;
+  state.spread = next.spread;
+  state.exciterPitch = next.exciterPitch;
+  state.exciterIntensity = next.exciterIntensity;
+  state.exciterTenseness = next.exciterTenseness;
+  state.exciterBreath = next.exciterBreath;
+  state.exciterVibrato = next.exciterVibrato;
+  state.exciterWobble = next.exciterWobble;
   state.throats = next.throats.map((throat) => ({ ...throat }));
   selectedThroat = Math.min(selectedThroat, state.throatCount - 1);
   markAudioDirty();
@@ -576,8 +974,9 @@ function updateSelectedThroatUi() {
 }
 
 function updateUi() {
-  const live = state.mic;
+  const live = isAwake();
   const starting = state.starting;
+  const sourceName = SOURCE_LABELS[state.sourceMode] ?? "Mic";
   $("audioState").textContent = live ? "on" : "off";
   setPressed($("audioButton"), live);
   setPressed($("micButton"), live);
@@ -587,18 +986,30 @@ function updateUi() {
   $("awakenButton").disabled = starting;
   $("stopButton").disabled = !live && !starting;
   $("panicButton").disabled = !live && !starting;
-  $("micButtonLabel").textContent = starting ? "Listening…" : live ? "Awake" : "Awaken";
+  $("micButtonLabel").textContent = starting ? "Opening…" : live ? "Awake" : "Awaken";
   $("micButtonHint").textContent = starting
-    ? "waiting for permission"
+    ? sourceUsesMicrophone()
+      ? "requesting raw microphone"
+      : "forming internal vocal folds"
     : live
-      ? "microphone is the source"
-      : "allow microphone access";
-  $("awakenLabel").textContent = starting ? "Listening" : live ? "Awake" : "Awaken";
+      ? state.sourceMode === "glottis"
+        ? "LF pulse + breath · no microphone"
+        : state.sourceMode === "hybrid"
+          ? "microphone + synthetic folds"
+          : "conditioned microphone source"
+      : state.sourceMode === "glottis"
+        ? "permission-free excitation"
+        : state.sourceMode === "hybrid"
+          ? "microphone + internal glottis"
+          : "allow microphone access";
+  $("awakenLabel").textContent = starting ? "Opening" : live ? "Awake" : "Awaken";
 
   $("level").value = String(state.level);
   $("levelOut").textContent = percentage(state.level);
   $("inputTrim").value = String(state.inputTrim);
   $("inputTrimOut").textContent = `${Math.round(state.inputTrim * 100)}%`;
+  $("inputStability").value = String(state.inputStability);
+  $("inputStabilityOut").textContent = `${percentage(state.inputStability)} · stabilized`;
   $("throatCount").value = String(state.throatCount);
   $("throatCountOut").textContent = String(state.throatCount);
   $("bodyLength").value = String(state.bodyLength);
@@ -617,20 +1028,42 @@ function updateUi() {
   $("couplingOut").textContent = percentage(state.coupling / 0.72);
   $("spread").value = String(state.spread);
   $("spreadOut").textContent = percentage(state.spread);
+  $("exciterPitch").value = String(state.exciterPitch);
+  $("exciterPitchOut").textContent = `${Math.round(state.exciterPitch)} Hz`;
+  $("exciterIntensity").value = String(state.exciterIntensity);
+  $("exciterIntensityOut").textContent = percentage(state.exciterIntensity);
+  $("exciterTenseness").value = String(state.exciterTenseness);
+  $("exciterTensenessOut").textContent = percentage(state.exciterTenseness);
+  $("exciterBreath").value = String(state.exciterBreath);
+  $("exciterBreathOut").textContent = percentage(state.exciterBreath);
+  $("exciterVibrato").value = String(state.exciterVibrato);
+  $("exciterVibratoOut").textContent = percentage(state.exciterVibrato);
+  $("exciterWobble").value = String(state.exciterWobble);
+  $("exciterWobbleOut").textContent = percentage(state.exciterWobble);
 
   for (const button of $("specimenButtons").querySelectorAll("[data-specimen]")) {
     setPressed(button, button.dataset.specimen === state.specimen);
   }
+  for (const button of $("sourceButtons").querySelectorAll("[data-source]")) {
+    setPressed(button, button.dataset.source === state.sourceMode);
+  }
   const name = specimenLabel();
-  $("listenSummary").textContent = starting ? "requesting microphone" : live ? "organism awake" : "organism dormant";
+  $("sourceSummary").textContent = `${sourceName.toLowerCase()} excitation`;
+  $("listenSummary").textContent = starting
+    ? sourceUsesMicrophone()
+      ? `opening ${sourceName.toLowerCase()}`
+      : "forming glottis"
+    : live
+      ? `${sourceName.toLowerCase()} awake`
+      : `${sourceName.toLowerCase()} selected`;
   $("anatomySummary").textContent = `${name} · ${state.throatCount} throat${state.throatCount === 1 ? "" : "s"}`;
-  $("voiceSummary").textContent = `${percentage(state.wet)} organism · ${percentage(state.dry)} human`;
-  $("stateMetric").textContent = starting ? "listening" : live ? "awake" : "dormant";
+  $("voiceSummary").textContent = `${percentage(state.wet)} organism · ${percentage(state.dry)} source`;
+  $("stateMetric").textContent = starting ? "opening" : live ? "awake" : "dormant";
   $("specimenMetric").textContent = name.toLowerCase();
   const signalState = live
-    ? inputLevel.rms < 0.002
-      ? "SILENT"
-      : "VOCAL"
+    ? signalIsVocal
+      ? "VOCAL"
+      : "QUIET"
     : "DORMANT";
   $("stageReadout").textContent = `${signalState} · ${name.toUpperCase()} · ${state.throatCount} THROAT${state.throatCount === 1 ? "" : "S"}`;
   updateSelectedThroatUi();
@@ -761,7 +1194,7 @@ function drawGullet(layout, time, liveAlpha) {
     drawing.stroke();
   }
 
-  if (state.mic && inputWave.length) {
+  if (isAwake() && inputWave.length) {
     drawing.beginPath();
     const samples = Math.min(90, inputWave.length);
     for (let index = 0; index < samples; index += 1) {
@@ -877,7 +1310,7 @@ function drawBranch(branch, liveAlpha) {
 }
 
 function drawPressure(layout, time, liveAlpha) {
-  if (!state.mic || liveAlpha < 0.015 || prefersReducedMotion) return;
+  if (!isAwake() || liveAlpha < 0.015 || prefersReducedMotion) return;
   const packetCount = 3 + Math.round(liveAlpha * 4);
   for (const branch of layout.branches) {
     if (branch.muted) continue;
@@ -915,8 +1348,8 @@ function drawStage(time) {
   drawDiamond(
     currentLayout.root,
     4.4,
-    state.mic ? "#d8ff57" : "rgba(216,255,87,.38)",
-    state.mic ? "#d8ff57" : "#020302",
+    isAwake() ? "#d8ff57" : "rgba(216,255,87,.38)",
+    isAwake() ? "#d8ff57" : "#020302",
   );
   drawDiamond(currentLayout.junction, 4, "rgba(232,237,223,.52)");
 }
@@ -928,30 +1361,64 @@ function readAnalyser(analyser, samples) {
 }
 
 function updateMeters(time) {
-  if (graph && state.mic) {
-    inputLevel = readAnalyser(graph.inputAnalyser, inputWave);
-    outputLevel = readAnalyser(graph.outputAnalyser, outputWave);
-    const safety = readAnalyser(graph.safetyAnalyser, safetyWave);
-    if (safety.peak > 0.96 || safety.rms > 0.54) {
-      if (!hotSince) hotSince = time;
-      if (time - hotSince > 900) {
-        state.inputTrim = Math.max(0.18, state.inputTrim * 0.78);
-        applyAudioParameters();
-        showError("The organism was overfed; input hunger was reduced automatically.");
-        hotSince = time + 2_000;
-      }
-    } else {
-      hotSince = 0;
-    }
+  const elapsed = lastEnvelopeTime ? clamp(time - lastEnvelopeTime, 0, 250) : 16.67;
+  lastEnvelopeTime = time;
+  if (graph && isAwake()) {
+    rawInputLevel = readAnalyser(graph.inputAnalyser, inputWave);
+    rawOutputLevel = readAnalyser(graph.outputAnalyser, outputWave);
+    readAnalyser(graph.safetyAnalyser, safetyWave);
   } else {
-    inputLevel = { rms: inputLevel.rms * 0.82, peak: inputLevel.peak * 0.82 };
-    outputLevel = { rms: outputLevel.rms * 0.82, peak: outputLevel.peak * 0.82 };
+    rawInputLevel = { rms: 0, peak: 0 };
+    rawOutputLevel = { rms: 0, peak: 0 };
+  }
+
+  const stability = clamp(state.inputStability);
+  inputLevel.rms = smoothEnvelope(
+    inputLevel.rms,
+    rawInputLevel.rms,
+    elapsed,
+    30 + stability * 55,
+    160 + stability * 360,
+  );
+  outputLevel.rms = smoothEnvelope(
+    outputLevel.rms,
+    rawOutputLevel.rms,
+    elapsed,
+    35,
+    260,
+  );
+  outputLevel.peak = smoothEnvelope(
+    outputLevel.peak,
+    rawOutputLevel.peak,
+    elapsed,
+    18,
+    420,
+  );
+
+  if (rawInputLevel.peak >= inputLevel.peak) {
+    inputLevel.peak = rawInputLevel.peak;
+    inputPeakHeldUntil = time + 450;
+  } else if (time > inputPeakHeldUntil) {
+    inputLevel.peak = smoothEnvelope(inputLevel.peak, rawInputLevel.peak, elapsed, 12, 650);
+  }
+
+  if (!signalIsVocal && inputLevel.rms > 0.006) {
+    signalIsVocal = true;
+    quietSince = 0;
+  } else if (signalIsVocal && inputLevel.rms < 0.003) {
+    if (!quietSince) quietSince = time;
+    if (time - quietSince > 250) {
+      signalIsVocal = false;
+      quietSince = 0;
+    }
+  } else if (inputLevel.rms >= 0.003) {
+    quietSince = 0;
   }
 
   if (time - lastMeterUpdate < 70) return;
   lastMeterUpdate = time;
   const meterValue = clamp(inputLevel.rms * 5.5);
-  inputPeakHold = Math.max(inputPeakHold * 0.94, clamp(inputLevel.peak * 2.8));
+  inputPeakHold = clamp(inputLevel.peak * 2.8);
   $("inputMeterBar").style.width = `${meterValue * 100}%`;
   $("inputPeakMarker").style.left = `${inputPeakHold * 100}%`;
   $("stageInputMeter").style.width = `${meterValue * 100}%`;
@@ -1098,14 +1565,16 @@ function handleCanvasKey(event) {
   }
   if (event.key === "Enter") {
     event.preventDefault();
-    state.throats[selectedThroat].muted = !state.throats[selectedThroat].muted;
+    const wasMuted = state.throats[selectedThroat].muted;
+    state.throats[selectedThroat].muted = !wasMuted;
+    if (wasMuted) triggerReleaseBurst(selectedThroat);
     markAudioDirty();
     updateUi();
     announce(`Throat ${selectedThroat + 1} ${state.throats[selectedThroat].muted ? "sealed" : "opened"}.`);
     return;
   }
-  const presets = ["triune", "oracle", "hive", "razor"];
-  if (/^[1-4]$/.test(event.key)) {
+  const presets = Object.keys(SPECIMENS).slice(0, 9);
+  if (/^[1-9]$/.test(event.key) && presets[Number(event.key) - 1]) {
     event.preventDefault();
     applySpecimen(presets[Number(event.key) - 1]);
   }
@@ -1128,6 +1597,10 @@ for (const button of $("specimenButtons").querySelectorAll("[data-specimen]")) {
   button.addEventListener("click", () => applySpecimen(button.dataset.specimen));
 }
 
+for (const button of $("sourceButtons").querySelectorAll("[data-source]")) {
+  button.addEventListener("click", () => selectSourceMode(button.dataset.source));
+}
+
 $("throatCount").addEventListener("input", () => {
   state.throatCount = Math.round(clamp(Number($("throatCount").value), 1, MAX_THROATS));
   selectedThroat = Math.min(selectedThroat, state.throatCount - 1);
@@ -1138,6 +1611,7 @@ $("throatCount").addEventListener("input", () => {
 
 bindRange("level", "level");
 bindRange("inputTrim", "inputTrim", { maximum: 1.35 });
+bindRange("inputStability", "inputStability");
 bindRange("bodyLength", "bodyLength", { custom: true });
 bindRange("tension", "tension", { custom: true });
 bindRange("mutation", "mutation", { custom: true });
@@ -1146,9 +1620,19 @@ bindRange("dry", "dry", { maximum: 0.5 });
 bindRange("growl", "growl");
 bindRange("coupling", "coupling", { maximum: 0.72 });
 bindRange("spread", "spread");
+bindRange("exciterPitch", "exciterPitch", { minimum: 40, maximum: 420 });
+bindRange("exciterIntensity", "exciterIntensity");
+bindRange("exciterTenseness", "exciterTenseness");
+bindRange("exciterBreath", "exciterBreath");
+bindRange("exciterVibrato", "exciterVibrato");
+bindRange("exciterWobble", "exciterWobble");
 
 $("selectedAperture").addEventListener("input", () => {
+  const previous = state.throats[selectedThroat].aperture;
   state.throats[selectedThroat].aperture = clamp(Number($("selectedAperture").value), 0.05, 1);
+  if (previous <= 0.1 && state.throats[selectedThroat].aperture > 0.13) {
+    triggerReleaseBurst(selectedThroat);
+  }
   state.specimen = "mutant";
   markAudioDirty();
   updateUi();
@@ -1162,13 +1646,15 @@ $("selectedLength").addEventListener("input", () => {
 });
 
 $("muteThroatButton").addEventListener("click", () => {
-  state.throats[selectedThroat].muted = !state.throats[selectedThroat].muted;
+  const wasMuted = state.throats[selectedThroat].muted;
+  state.throats[selectedThroat].muted = !wasMuted;
+  if (wasMuted) triggerReleaseBurst(selectedThroat);
   markAudioDirty();
   updateUi();
 });
 
 for (const button of [$("audioButton"), $("awakenButton"), $("micButton")]) {
-  button.addEventListener("click", toggleMicrophone);
+  button.addEventListener("click", toggleAudio);
 }
 $("stopButton").addEventListener("click", () => void severAudio());
 $("panicButton").addEventListener("click", () => void severAudio());
@@ -1195,11 +1681,21 @@ document.addEventListener("keydown", (event) => {
   if (!editing && event.key.toLowerCase() === "m") {
     event.preventDefault();
     toggleMicrophone();
+  } else if (!editing && event.key.toLowerCase() === "g") {
+    event.preventDefault();
+    selectSourceMode("glottis");
+    if (!isAwake()) void activateSource("glottis");
+  } else if (!editing && event.key.toLowerCase() === "h") {
+    event.preventDefault();
+    selectSourceMode("hybrid");
+    if (!isAwake()) void activateSource("hybrid");
   }
 });
 
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden && (state.mic || state.starting)) void severAudio("Audio stopped while the page was hidden.");
+  if (document.hidden && (isAwake() || state.starting)) {
+    void severAudio("Audio stopped while the page was hidden.");
+  }
 });
 
 globalThis.addEventListener?.("pagehide", () => {
@@ -1210,6 +1706,18 @@ globalThis.addEventListener?.("pagehide", () => {
       throat.oscillator?.stop?.();
     } catch {
       // Oscillators can only be stopped once.
+    }
+  }
+  for (const source of [
+    graph?.exciter?.pulse,
+    graph?.exciter?.vibrato,
+    graph?.exciter?.wobble,
+    graph?.exciter?.noise,
+  ]) {
+    try {
+      source?.stop?.();
+    } catch {
+      // Internal sources are one-shot Web Audio nodes.
     }
   }
   cancelAnimationFrame(frameHandle);

@@ -271,4 +271,12 @@ test("geometry traces preserve ancestry and active progress under deterministic 
   assert.equal(full.truncated, false);
   assert.equal(full.points.length, full.totalPoints);
   assert.ok(full.points.every((coordinate) => !coordinate.active));
+
+  const tiny = geometryTrace(plan.moments, {
+    maxPoints: 5,
+    activeMomentIndex: 0,
+    progress: 1,
+  });
+  assert.ok(tiny.points.length <= 5, "maxPoints must remain a true hard cap");
+  assert.equal(tiny.truncated, true);
 });
