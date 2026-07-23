@@ -110,32 +110,16 @@ canvas:focus-visible {
 .brand small { margin-top: 5px; color: var(--muted); font: 9px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; }
 
 .brand-glyph {
-  position: relative;
   display: block;
   width: 34px;
   height: 34px;
-  border: 1px solid rgba(97, 236, 193, 0.32);
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(97, 236, 193, 0.1), transparent 64%);
+  background: url("../favicon.svg") center / 175% no-repeat;
+  filter: drop-shadow(0 0 7px rgba(139, 92, 246, 0.38));
 }
 
 .brand-glyph i {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  display: block;
-  width: 3px;
-  height: 3px;
-  margin: -1.5px;
-  border-radius: 50%;
-  background: var(--mint);
-  box-shadow: 0 0 12px var(--mint);
+  display: none;
 }
-
-.brand-glyph i:nth-child(1) { transform: translate(-9px, 5px); }
-.brand-glyph i:nth-child(2) { transform: translate(0, -10px); }
-.brand-glyph i:nth-child(3) { transform: translate(9px, 5px); }
-.brand-glyph::after { content: ""; position: absolute; inset: 8px; border: 1px solid rgba(232, 199, 110, 0.36); transform: rotate(45deg); }
 
 .primary-nav {
   display: flex;

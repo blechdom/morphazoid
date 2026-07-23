@@ -107,62 +107,16 @@ a {
 }
 
 .brand-mark {
-  position: relative;
   display: block;
-  width: 29px;
-  height: 22px;
-  flex: 0 0 29px;
-  transform: rotate(-4deg);
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  background: url("favicon.svg") center / 175% no-repeat;
+  filter: drop-shadow(0 0 6px color-mix(in oklab, var(--violet) 38%, transparent));
 }
 
 .brand-mark i {
-  position: absolute;
-  border: 1px solid currentColor;
-  box-shadow: 0 0 8px color-mix(in oklab, currentColor 35%, transparent);
-  transform-origin: 42% 61%;
-}
-
-.brand-mark i:nth-child(1) {
-  top: 9px;
-  left: 0;
-  width: 14px;
-  height: 8px;
-  border-radius: 58% 13% 48% 19%;
-  color: var(--accent);
-  transform: rotate(19deg) skewX(-14deg);
-}
-
-.brand-mark i:nth-child(2) {
-  top: 1px;
-  left: 9px;
-  width: 11px;
-  height: 15px;
-  border-radius: 17% 61% 24% 46%;
-  color: var(--blue);
-  transform: rotate(53deg) skewY(7deg);
-}
-
-.brand-mark i:nth-child(3) {
-  top: 13px;
-  left: 20px;
-  width: 7px;
-  height: 7px;
-  border-left-color: transparent;
-  border-radius: 51% 12% 38% 22%;
-  color: var(--violet);
-  transform: rotate(-21deg);
-}
-
-.brand-mark::after {
-  position: absolute;
-  top: 2px;
-  left: 24px;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--brass);
-  box-shadow: 0 0 7px color-mix(in oklab, var(--brass) 48%, transparent);
-  content: "";
+  display: none;
 }
 
 .tabs {
