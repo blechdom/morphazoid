@@ -1,0 +1,120 @@
+.graph-delay-page {
+  --accent: #68e0d2;
+  --accent-soft: color-mix(in oklab, #68e0d2 55%, transparent);
+  --accent-glow: color-mix(in oklab, #68e0d2 22%, transparent);
+}
+
+.graph-delay-page #topologySection {
+  --accent: #7db4ff;
+  --accent-soft: color-mix(in oklab, #7db4ff 55%, transparent);
+}
+
+.graph-delay-page #delaySection {
+  --accent: #ff9b7d;
+  --accent-soft: color-mix(in oklab, #ff9b7d 55%, transparent);
+}
+
+.graph-delay-page #motionSection {
+  --accent: #e8c46b;
+  --accent-soft: color-mix(in oklab, #e8c46b 55%, transparent);
+}
+
+.graph-rotation-play[aria-pressed="true"] .transport-play,
+.graph-rotation-play[aria-pressed="false"] .transport-pause {
+  display: none;
+}
+
+.graph-rotation-play[aria-pressed="true"] .transport-pause,
+.graph-rotation-play[aria-pressed="false"] .transport-play {
+  display: block;
+}
+
+.graph-delay-page .stage-wrap {
+  background:
+    linear-gradient(rgba(104, 224, 210, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(104, 224, 210, 0.025) 1px, transparent 1px),
+    radial-gradient(circle at 18% 50%, rgba(104, 224, 210, 0.08), transparent 25%),
+    radial-gradient(circle at 72% 45%, rgba(125, 180, 255, 0.07), transparent 42%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto, auto;
+}
+
+.graph-delay-page .graph-seed-control {
+  display: none;
+}
+
+.graph-delay-page #stage {
+  cursor: grab;
+  touch-action: none;
+}
+
+.graph-delay-page #stage.is-dragging {
+  cursor: grabbing;
+}
+
+.graph-delay-page #seedMicButton {
+  border-color: rgba(104, 224, 210, 0.22);
+}
+
+.graph-key {
+  position: absolute;
+  z-index: 3;
+  right: 92px;
+  bottom: 19px;
+  left: 18px;
+  display: flex;
+  color: var(--faint);
+  gap: 16px;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.graph-key span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.graph-key i {
+  width: 18px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #55d9ff, #5fe8c4, #c79bff, #ff826f);
+}
+
+.graph-key i.feedback {
+  height: 2px;
+  background: repeating-linear-gradient(90deg, #ff826f 0 3px, transparent 3px 6px);
+}
+
+.graph-metrics {
+  display: grid;
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.graph-metrics span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.selected-node-card {
+  border-color: color-mix(in oklab, var(--accent) 24%, var(--line));
+  background: color-mix(in oklab, var(--accent) 4%, var(--bg-deep));
+}
+
+.graph-delay-page input:disabled {
+  cursor: not-allowed;
+  opacity: 0.34;
+}
+
+@media (max-width: 650px) {
+  .graph-key {
+    right: 72px;
+    gap: 9px;
+  }
+
+}

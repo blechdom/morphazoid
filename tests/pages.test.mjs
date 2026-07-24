@@ -8,6 +8,7 @@ test("all instrument pages share desktop and mobile navigation", async () => {
   const files = [
     "index.html", "lattice.html", "spiral.html", "solid.html", "hyper.html",
     "l-system.html", "recursion.html", "recur.html", "julia.html", "lumber.html", "micmic.html",
+    "graph-delay.html",
     "throatazoid.html",
   ];
   const [pages, css, nav] = await Promise.all([
@@ -18,7 +19,7 @@ test("all instrument pages share desktop and mobile navigation", async () => {
   for (const [index, html] of pages.entries()) {
     for (const label of [
       "shape", "lattice", "spiral", "solid", "hyper",
-      "l-system", "recursion", "julia", "lumber", "mic(mic)", "throatazoid",
+      "l-system", "recursion", "julia", "lumber", "mic(mic)", "graph-delay", "throatazoid",
     ]) {
       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       assert.match(html, new RegExp(`>${escapedLabel}<\\/a>`));
