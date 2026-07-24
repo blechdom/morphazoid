@@ -38,12 +38,19 @@ export class SignalsmithGenerationMixerDSP {
     this.writeIndex = 0;
     this.recordedSamples = 0;
     this.voices = new Map();
+    this.runtimeLimit = this.maxVoices;
+    this.activeTargetCount = 0;
   }
 
-  setVoices(specifications) {
+  setVoices(specifications, voiceLimit = this.runtimeLimit) {
+    this.runtimeLimit = Math.max(0, Math.min(
+      this.maxVoices,
+      Math.floor(clamp(voiceLimit, 0, this.maxVoices, this.runtimeLimit)),
+    ));
     const next = new Map();
-    (Array.isArray(specifications) ? specifications : [])
-      .slice(0, this.maxVoices)
+    const source = (Array.isArray(specifications) ? specifications : [])
+      .slice(0, this.runtimeLimit);
+    source
       .forEach((candidate, index) => {
         const target = sanitizeVoice(
           candidate,
@@ -80,8 +87,12 @@ export class SignalsmithGenerationMixerDSP {
         }
         next.set(target.key, { ...prior, target, releasing: false });
       });
+    const releaseAllowance = Math.min(12, Math.ceil(this.runtimeLimit * 0.125));
     for (const [key, prior] of this.voices) {
-      if (next.has(key) || next.size >= this.maxVoices + 12) continue;
+      if (
+        next.has(key)
+        || next.size >= Math.min(this.maxVoices + 12, this.runtimeLimit + releaseAllowance)
+      ) continue;
       next.set(key, {
         ...prior,
         target: { ...prior.target, gain: 0 },
@@ -89,6 +100,7 @@ export class SignalsmithGenerationMixerDSP {
       });
     }
     this.voices = next;
+    this.activeTargetCount = source.length;
   }
 
   read(sourceIndex, delaySeconds, writePosition) {

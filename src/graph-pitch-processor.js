@@ -3,8 +3,8 @@ class MorphazoidGraphPitchProcessor extends AudioWorkletProcessor {
     return [{
       name: "semitones",
       defaultValue: 0,
-      minValue: -24,
-      maxValue: 24,
+      minValue: -36,
+      maxValue: 36,
       automationRate: "k-rate",
     }];
   }
@@ -33,7 +33,7 @@ class MorphazoidGraphPitchProcessor extends AudioWorkletProcessor {
     const output = outputs[0]?.[0];
     if (!output) return true;
     const semitones = parameters.semitones[0] ?? 0;
-    const ratio = Math.min(4, Math.max(0.25, 2 ** (semitones / 12)));
+    const ratio = Math.min(8, Math.max(0.125, 2 ** (semitones / 12)));
     const phaseStep = Math.abs(1 - ratio) / this.windowSamples;
     const size = this.buffer.length;
 

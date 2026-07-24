@@ -41,6 +41,7 @@ export class SignalsmithGenerationBank {
     historySeconds = 30,
     stretchFactory = SignalsmithStretch,
     mixerFactory = defaultMixerFactory,
+    onRenderLoad = null,
   } = {}) {
     this.context = context;
     this.input = input;
@@ -50,6 +51,7 @@ export class SignalsmithGenerationBank {
     this.historySeconds = clamp(historySeconds, 4, 40, 30);
     this.stretchFactory = stretchFactory;
     this.mixerFactory = mixerFactory;
+    this.onRenderLoad = typeof onRenderLoad === "function" ? onRenderLoad : null;
     this.slots = [];
     this.mixer = null;
     this.desired = [];
@@ -57,6 +59,8 @@ export class SignalsmithGenerationBank {
     this.rendered = false;
     this.disposed = false;
     this.gestureTimer = null;
+    this.requestedVoiceCount = 0;
+    this.runtimeVoiceLimit = this.maxVoices;
   }
 
   static async create(context, input, output, options) {
@@ -79,6 +83,18 @@ export class SignalsmithGenerationBank {
     });
     this.input.connect(this.mixer, 0, 0);
     this.mixer.connect(this.output);
+    if (this.mixer.port) {
+      this.mixer.port.onmessage = (event) => {
+        const report = event?.data;
+        if (report?.type !== "render-load") return;
+        try {
+          this.onRenderLoad?.(report);
+        } catch {
+          // Capacity presentation must never interrupt audio rendering.
+        }
+      };
+      this.mixer.port.start?.();
+    }
 
     // This is the entire lifetime allocation.  Slots are retuned in place and
     // never keyed to transient slider values.
@@ -110,9 +126,17 @@ export class SignalsmithGenerationBank {
     }
   }
 
-  setVoices(voices) {
+  setVoices(voices, { requestedVoiceCount, voiceLimit } = {}) {
+    this.runtimeVoiceLimit = Math.max(0, Math.min(
+      this.maxVoices,
+      Math.floor(clamp(voiceLimit, 0, this.maxVoices, this.maxVoices)),
+    ));
+    this.requestedVoiceCount = Math.max(
+      0,
+      Math.floor(Number(requestedVoiceCount) || voices?.length || 0),
+    );
     this.desired = (Array.isArray(voices) ? voices : [])
-      .slice(0, this.maxVoices)
+      .slice(0, this.runtimeVoiceLimit)
       .map((voice, index) => {
         const semitones = semitonesForVoice(voice);
         return {
@@ -209,7 +233,12 @@ export class SignalsmithGenerationBank {
         pan: voice.pan,
       };
     });
-    this.mixer.port?.postMessage?.({ type: "voices", voices: renderedVoices });
+    this.mixer.port?.postMessage?.({
+      type: "voices",
+      voices: renderedVoices,
+      requestedVoiceCount: this.requestedVoiceCount,
+      voiceLimit: this.runtimeVoiceLimit,
+    });
     this.rendered = renderedVoices.length > 0;
   }
 
@@ -221,6 +250,7 @@ export class SignalsmithGenerationBank {
     this.mixer?.port?.postMessage?.({ type: "voices", voices: [] });
     try { this.input.disconnect?.(this.mixer); } catch { /* already disconnected */ }
     this.mixer?.disconnect?.();
+    if (this.mixer?.port) this.mixer.port.onmessage = null;
     this.mixer?.port?.close?.();
     for (const slot of this.slots) {
       try {

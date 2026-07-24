@@ -124,7 +124,11 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   function audioNode(properties = {}) {
     return {
       ...properties,
-      connect(destination) { return destination; },
+      connections: [],
+      connect(destination) {
+        this.connections.push(destination);
+        return destination;
+      },
       disconnect() {},
     };
   }
@@ -134,11 +138,31 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   const analysers = [];
   const audioContexts = [];
   const generationMessages = [];
+  const workletNodes = [];
+  const renderCapacities = [];
   globalThis.AudioWorkletNode = class {
-    constructor() {
-      this.port = { postMessage(message) { generationMessages.push(message); } };
+    constructor(context, name, options = {}) {
+      this.context = context;
+      this.name = name;
+      this.options = options;
+      this.port = {
+        onmessage: null,
+        messages: [],
+        postMessage: (message) => {
+          this.port.messages.push(message);
+          generationMessages.push(message);
+        },
+        start() {},
+        close() {},
+        emit: (data) => this.port.onmessage?.({ data }),
+      };
+      workletNodes.push(this);
     }
-    connect(destination) { return destination; }
+    connections = [];
+    connect(destination) {
+      this.connections.push(destination);
+      return destination;
+    }
     disconnect() {}
   };
   globalThis.AudioContext = class {
@@ -148,6 +172,12 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
       this.state = "running";
       this.destination = audioNode();
       this.audioWorklet = { async addModule() {} };
+      this.renderCapacity = {
+        onupdate: null,
+        start() {},
+        stop() {},
+      };
+      renderCapacities.push(this.renderCapacity);
       audioContexts.push(this);
     }
     addEventListener() {}
@@ -199,6 +229,7 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   };
 
   let requestedConstraints = null;
+  let microphoneRequests = 0;
   let stoppedTracks = 0;
   const track = {
     addEventListener() {},
@@ -209,6 +240,7 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
     value: {
       mediaDevices: {
         async getUserMedia(constraints) {
+          microphoneRequests += 1;
           requestedConstraints = constraints;
           return { getTracks: () => [track] };
         },
@@ -314,6 +346,11 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.equal(elements.get("audioState").textContent, "on");
   assert.equal(attributes.get("seedMicButton:aria-pressed"), "true");
   assert.equal(attributes.get("micButton:aria-pressed"), "true");
+  const directNode = workletNodes.find((node) => (
+    node.name === "morphazoid-micmic-generations"
+  ));
+  const currentRendererGain = directNode.connections[0];
+  assert.equal(currentRendererGain.gain.value, 1, "the current renderer must own startup audio");
   assert.equal(gains[0].gain.value, 0.85, "input trim should reach the live graph");
   assert.equal(elements.get("recordButton").disabled, false);
   assert.equal(elements.get("recordHint").textContent, "records while you listen");
@@ -382,6 +419,66 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.equal(elements.get("mutationOut").textContent, "0% rule variance");
   assert.equal(elements.get("depthOut").textContent, "72%");
   assert.equal(elements.get("intervalOut").textContent, "240 ms");
+
+  assert.equal(renderCapacities.length, 1);
+  for (let index = 0; index < 4; index += 1) {
+    renderCapacities[0].onupdate({
+      averageLoad: 0.2,
+      peakLoad: 0.3,
+      underrunRatio: 0,
+    });
+  }
+  const expandedGenerations = generationMessages
+    .filter((message) => message.type === "voices")
+    .at(-1);
+  assert.equal(expandedGenerations.voiceLimit, 64);
+  assert.equal(expandedGenerations.voices.length, 64);
+  assert.match(elements.get("generationCapacityNote").textContent, /64 \/ 254 audible branches/);
+  assert.match(elements.get("generationCapacityNote").textContent, /DSP 20%/);
+
+  for (let index = 0; index < 2; index += 1) {
+    renderCapacities[0].onupdate({
+      averageLoad: 0.72,
+      peakLoad: 0.9,
+      underrunRatio: 0,
+    });
+  }
+  const rolledBackGenerations = generationMessages
+    .filter((message) => message.type === "voices")
+    .at(-1);
+  assert.equal(rolledBackGenerations.voiceLimit, 48);
+  assert.equal(rolledBackGenerations.voices.length, 48);
+  assert.match(elements.get("generationCapacityNote").textContent, /AUTO CAP · 48 \/ 254/);
+
+  assert.equal(attributes.get("branchRendererToggle:aria-checked"), "false");
+  listeners.get("branchRendererToggle:click")();
+  await new Promise((resolve) => setImmediate(resolve));
+  const branchNode = workletNodes.find((node) => node.name === "morphazoid-mic-branches");
+  assert.ok(branchNode, "experimental renderer should be created lazily");
+  const branchRendererGain = branchNode.connections[0];
+  assert.equal(currentRendererGain.gain.value, 1, "warm-up must not interrupt the current renderer");
+  assert.equal(branchRendererGain.gain.value, 0, "the experimental renderer must warm silently");
+  const branchVoices = branchNode.port.messages.find((message) => (
+    message.type === "voices" && message.voices.length > 0
+  ));
+  assert.ok(branchVoices.voices.every((voice) => (
+    typeof voice.sourceKey === "string"
+    && (voice.bounceKey === null || typeof voice.bounceKey === "string")
+  )));
+  branchNode.port.emit({ type: "history-ready", renderer: "recursive-bounce" });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(attributes.get("branchRendererToggle:aria-checked"), "true");
+  assert.match(elements.get("branchRendererState").textContent, /experimental bounce engine/);
+  assert.equal(currentRendererGain.gain.value, 0);
+  assert.equal(branchRendererGain.gain.value, 1);
+  assert.equal(audioContexts.length, 1, "the alternate renderer must reuse the current AudioContext");
+  assert.equal(microphoneRequests, 1, "the alternate renderer must reuse the current microphone");
+
+  listeners.get("branchRendererToggle:click")();
+  assert.equal(attributes.get("branchRendererToggle:aria-checked"), "false");
+  assert.equal(elements.get("branchRendererState").textContent, "Off · current silky engine");
+  assert.equal(currentRendererGain.gain.value, 1, "switching off must restore the current renderer");
+  assert.equal(branchRendererGain.gain.value, 0);
 
   elements.get("generationPreset").value = "binary";
   listeners.get("generationPreset:change")({ currentTarget: elements.get("generationPreset") });

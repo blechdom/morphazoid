@@ -46,7 +46,7 @@ test("cyclic edge gains are normalized below unity at every receiving node", () 
   assert.ok(parameters.every((edge) => edge.delaySeconds >= 0.004));
 });
 
-test("edge length maps monotonically to time and dragged height remains available for pitch", () => {
+test("edge length maps monotonically to time while node positions remain editable", () => {
   const graph = generateGraph({ type: "chain", nodeCount: 3 });
   graph.nodes[0].x = 0.1;
   graph.nodes[1].x = 0.2;
@@ -58,6 +58,13 @@ test("edge length maps monotonically to time and dragged height remains availabl
   assert.equal(graph.nodes[1].y, 0.2);
 });
 
+test("default edge timing stays near one shared rhythmic delay", () => {
+  const graph = generateGraph({ type: "smallworld", nodeCount: 16, density: 0.5, seed: 17 });
+  const parameters = edgeAudioParameters(graph, { baseDelay: 220, timeScale: 60 });
+  assert.ok(parameters.every((edge) => edge.delaySeconds >= 0.22));
+  assert.ok(parameters.every((edge) => edge.delaySeconds <= 0.28));
+});
+
 test("graph-delay page exposes microphone, topology, feedback safety, and panic controls", async () => {
   const root = new URL("../", import.meta.url);
   const [html, app] = await Promise.all([
@@ -66,7 +73,7 @@ test("graph-delay page exposes microphone, topology, feedback safety, and panic 
   ]);
   assert.match(html, /<body class="micmic-page graph-delay-page">/);
   assert.match(html, /graph-delay-tab active/);
-  for (const id of ["stage", "audioButton", "micButton", "panicButton", "topology", "nodeCount", "density", "seed", "rotationPlayButton", "rotation", "rotationSpeed", "resetViewButton", "baseDelay", "timeScale", "pitchRange", "feedback", "damping", "wet", "dry", "spread"]) {
+  for (const id of ["stage", "audioButton", "micButton", "panicButton", "topology", "nodeCount", "density", "seed", "nodeMotionPlayButton", "nodeMotionMode", "nodeMotionSpeed", "nodeMotionAmount", "micMotionPlayButton", "micMotionMode", "micMotionSpeed", "micMotionSize", "resetViewButton", "baseDelay", "timeScale", "inputPitchReference", "pitchFloor", "pitchCeiling", "feedback", "damping", "wet", "dry", "spread"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   for (const label of ["Delay Chain", "Branching Tree", "Layered DAG", "Bipartite Field", "Directed Ring", "Small World", "Hub \\+ Spokes", "Feedback Mesh", "Modular Islands", "Seeded Random"]) {
@@ -74,7 +81,7 @@ test("graph-delay page exposes microphone, topology, feedback safety, and panic 
   }
   assert.match(html, /Use headphones/);
   assert.match(html, /MIC IN and SPEAKERS OUT/);
-  assert.match(html, /play automatic rotation/);
+  assert.match(html, /wiggle, orbit, or randomly walk/);
   assert.match(html, /Press Escape for an immediate panic stop/);
   assert.match(app, /getUserMedia/);
   assert.match(app, /createDelay\(2\.2\)/);
@@ -83,9 +90,35 @@ test("graph-delay page exposes microphone, topology, feedback safety, and panic 
   assert.match(app, /function panic/);
   assert.match(app, /pointerdown/);
   assert.match(app, /nodePitchSemitones/);
+  assert.match(app, /function nodePitchTargetHz/);
+  assert.match(app, /function nodeRelationAngle/);
+  assert.match(html, /id="pitchFloor"[^>]*min="20"[^>]*value="40"/);
+  assert.match(html, /id="pitchCeiling"[^>]*value="1280"/);
+  assert.match(html, /id="baseDelay"[^>]*value="220"/);
+  assert.match(html, /id="timeScale"[^>]*value="60"/);
+  assert.doesNotMatch(html, /±12 semitones|id="pitchRange"/);
   assert.match(app, /graph-pitch-processor/);
   assert.match(app, /function geometryModel/);
   assert.match(app, /function exitNodeIds/);
+  assert.match(app, /function audibleOutputNodeIds/);
+  assert.match(app, /function terminalDelaySeconds/);
+  assert.match(app, /function scheduleGraphRebuild/);
+  assert.match(app, /function flushGraphRebuild/);
+  assert.match(app, /linearRampToValueAtTime\(state\.level/);
+  assert.match(app, /node\.port\?\.close/);
+  assert.match(app, /0\.9 \/ Math\.sqrt\(exits\.length\)/);
   assert.match(app, /draggingTerminal/);
-  assert.match(app, /state\.rotationSpeed \* 360/);
+  assert.match(app, /function advanceNodeMotion/);
+  assert.match(app, /function bakeNodeMotion/);
+  assert.match(app, /function advanceMicrophoneMotion/);
+  assert.match(app, /function visualArrivalTimes/);
+  assert.match(app, /arrivalTimes\[edge\.from\]/);
+  assert.match(app, /function drawMicrophonePathGuide/);
+  for (const motion of ["circle", "ellipse", "triangle", "square", "figure8", "random"]) {
+    assert.match(html, new RegExp(`value="${motion}"`));
+  }
+  for (const motion of ["wiggle", "orbit", "random"]) {
+    assert.match(html, new RegExp(`value="${motion}"`));
+  }
+  assert.doesNotMatch(html, /id="rotation(?:PlayButton|Speed)?"/);
 });

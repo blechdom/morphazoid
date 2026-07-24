@@ -6,6 +6,7 @@ import {
   FIXED_FORK_DENSITY,
   MICMIC_PRESETS,
   GENERATION_RULE_PRESETS,
+  MAX_ADAPTIVE_GENERATION_VOICES,
   MAX_GENERATION_STAGES,
   MAX_GENERATION_VOICES,
   MAX_RECURSION_FEEDBACK,
@@ -13,6 +14,7 @@ import {
   echoTreeLayout,
   estimateGenerations,
   generationCountForDepth,
+  generationBounceVoiceSpecs,
   generationTopology,
   generationVoiceSpecs,
   recorderExtension,
@@ -192,6 +194,60 @@ test("generation and voice limits stay bounded above the UI maximum", () => {
   assert.equal(Math.max(...voices.map((voice) => voice.generation)), MAX_GENERATION_STAGES);
   assert.ok(voices.length <= MAX_GENERATION_VOICES);
   assert.ok(Math.max(...voices.map((voice) => voice.delay)) <= 28.8 + 1e-9);
+});
+
+test("adaptive voice limits add connected descendants without replacing existing keys", () => {
+  const settings = {
+    generations: 12,
+    interval: 240,
+    depth: 0.8,
+    branching: 1,
+    timeRatio: 0.72,
+    angle: 45,
+  };
+  const plans = [32, MAX_GENERATION_VOICES, MAX_ADAPTIVE_GENERATION_VOICES]
+    .map((maximumVoices) => generationVoiceSpecs({ ...settings, maximumVoices }));
+  assert.deepEqual(plans.map((voices) => voices.length), [32, 48, 64]);
+  for (const voices of plans) {
+    const ids = new Set(voices.map((voice) => voice.key.replace(/^generation:/, "")));
+    assert.ok(voices.every((voice) => (
+      voice.parentId === "trunk" || ids.has(voice.parentId)
+    )));
+    assert.equal(Math.max(...voices.map((voice) => voice.generation)), 12);
+  }
+  assert.ok(plans[0].every((voice) => plans[1].some(({ key }) => key === voice.key)));
+  assert.ok(plans[1].every((voice) => plans[2].some(({ key }) => key === voice.key)));
+
+  const guarded = generationVoiceSpecs({ ...settings, maximumVoices: 4_096 });
+  assert.equal(guarded.length, MAX_ADAPTIVE_GENERATION_VOICES);
+});
+
+test("experimental recursive bounce uses local turns and one reusable stem per generation", () => {
+  const direct = generationVoiceSpecs({
+    generations: 4,
+    interval: 500,
+    depth: 0.72,
+    branching: 1,
+    timeRatio: 0.5,
+    angle: 30,
+    pitchScale: 1,
+    maximumVoices: 32,
+  });
+  const bounced = generationBounceVoiceSpecs(direct, { depth: 0.72, pitchScale: 1 });
+  assert.equal(bounced.length, direct.length);
+  assert.ok(bounced.every((voice) => voice.delay > 0 && voice.delay <= 0.25));
+  assert.ok(bounced.filter((voice) => voice.depth === 1).every((voice) => (
+    voice.sourceKey === "base" && voice.bounceKey === "generation:1"
+  )));
+  assert.ok(bounced.filter((voice) => voice.depth === 2).every((voice) => (
+    voice.sourceKey === "generation:1" && voice.bounceKey === "generation:2"
+  )));
+  assert.ok(bounced.filter((voice) => voice.depth === 4).every((voice) => (
+    voice.sourceKey === "generation:3" && voice.bounceKey === null
+  )));
+  const firstFork = bounced.filter((voice) => voice.depth === 1);
+  assert.ok(firstFork.some((voice) => voice.rate < 1));
+  assert.ok(firstFork.some((voice) => voice.rate > 1));
 });
 
 test("rule mutation deterministically changes the shared drawing and audio rewrite", () => {

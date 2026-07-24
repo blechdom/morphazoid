@@ -6,8 +6,8 @@ import {
   buildRecursionPlan,
 } from "../src/recursion.js";
 
-const EXPECTED_IDS = [
-  "ouroboros-tape",
+const PUBLIC_INSTRUMENT_ID = "ouroboros-tape";
+const HIDDEN_BUILDER_IDS = [
   "spectral-mobius",
   "filter-hydra",
   "cantor-delay",
@@ -52,9 +52,15 @@ function assertValidPlan(plan) {
   }
 }
 
-test("metadata is exactly the six ranked non-melodic studies with UI definitions", () => {
-  assert.deepEqual(RECURSION_STUDIES.map((study) => study.id), EXPECTED_IDS);
-  assert.deepEqual(RECURSION_STUDIES.map((study) => study.rank), [1, 2, 3, 4, 5, 6]);
+test("metadata exposes one public Fuzzy Donut instrument", () => {
+  assert.equal(RECURSION_STUDIES.length, 1);
+  assert.deepEqual(RECURSION_STUDIES.map((study) => study.id), [PUBLIC_INSTRUMENT_ID]);
+  assert.deepEqual(RECURSION_STUDIES.map((study) => study.rank), [1]);
+  assert.deepEqual(RECURSION_STUDIES.map((study) => study.title), ["Fuzzy Donut"]);
+  assert.deepEqual(RECURSION_STUDIES.map((study) => study.shortTitle), ["Fuzzy Donut"]);
+  assert.ok(HIDDEN_BUILDER_IDS.every((id) => (
+    !RECURSION_STUDIES.some((study) => study.id === id)
+  )));
   for (const study of RECURSION_STUDIES) {
     assert.ok(study.title && study.shortTitle && study.description);
     for (const key of ["premise", "cue", "sequence", "recursion", "process", "listenFor"]) {
@@ -89,7 +95,7 @@ test("metadata is exactly the six ranked non-melodic studies with UI definitions
   }
 });
 
-test("all default plans are deterministic, bounded, and structurally valid", () => {
+test("the public Fuzzy Donut plan is deterministic, bounded, and structurally valid", () => {
   for (const study of RECURSION_STUDIES) {
     const first = buildRecursionPlan(study.id);
     const second = buildRecursionPlan(study.id);
@@ -125,15 +131,15 @@ test("all default plans are deterministic, bounded, and structurally valid", () 
   assert.throws(() => buildRecursionPlan("not-a-study"), RangeError);
 });
 
-test("depth, pace, transform, intensity, and source are normalized", () => {
-  const plan = buildRecursionPlan("cantor-delay", {
+test("public depth, pace, transform, intensity, and source are normalized", () => {
+  const plan = buildRecursionPlan(PUBLIC_INSTRUMENT_ID, {
     depth: 999,
     pace: -4,
     transform: 99,
     intensity: -1,
     source: "uploaded:field-recording",
   });
-  const metadata = RECURSION_STUDIES.find((study) => study.id === "cantor-delay");
+  const metadata = RECURSION_STUDIES[0];
   assert.equal(plan.params.depth, metadata.parameters.depth.max);
   assert.equal(plan.params.pace, metadata.parameters.pace.min);
   assert.equal(plan.params.transform, metadata.parameters.transform.max);

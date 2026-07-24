@@ -22,6 +22,20 @@ test("Shape, Lattice, and Lumber expose reciprocal instrument navigation", async
   assert.match(lumberHtml, /<a class="tab active" href="lumber\.html" aria-current="page">lumber<\/a>/);
 });
 
+test("Lattice and Spiral visibly credit Craig S. Kaplan's TactileJS work", async () => {
+  const pages = await Promise.all([
+    readFile(new URL("lattice.html", root), "utf8"),
+    readFile(new URL("spiral.html", root), "utf8"),
+  ]);
+
+  for (const html of pages) {
+    assert.match(html, /Craig S\. Kaplan&[a-z]+;s TactileJS library/);
+    assert.match(html, /href="https:\/\/github\.com\/isohedral\/tactile-js"/);
+    assert.match(html, /href="https:\/\/isohedral\.ca\/software\/tactile\/"/);
+    assert.match(html, /BSD-3-Clause/);
+  }
+});
+
 test("Lattice is one centered line instrument with no walk controls", async () => {
   const [html, app, geometry] = await Promise.all([
     readFile(new URL("lattice.html", root), "utf8"),

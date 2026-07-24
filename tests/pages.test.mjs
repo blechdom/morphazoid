@@ -7,7 +7,7 @@ const root = new URL("../", import.meta.url);
 test("all instrument pages share desktop and mobile navigation", async () => {
   const files = [
     "index.html", "lattice.html", "spiral.html", "solid.html", "hyper.html",
-    "l-system.html", "recursion.html", "recur.html", "julia.html", "lumber.html", "micmic.html",
+    "l-system.html", "recursion.html", "julia.html", "lumber.html", "micmic.html",
     "graph-delay.html",
     "throatazoid.html",
   ];
@@ -20,6 +20,7 @@ test("all instrument pages share desktop and mobile navigation", async () => {
     for (const label of [
       "shape", "lattice", "spiral", "solid", "hyper",
       "l-system", "recursion", "julia", "lumber", "mic(mic)", "graph-delay", "throatazoid",
+      "morphazoidical",
     ]) {
       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       assert.match(html, new RegExp(`>${escapedLabel}<\\/a>`));
@@ -27,14 +28,22 @@ test("all instrument pages share desktop and mobile navigation", async () => {
     }
     assert.match(html, /class="mobile-instrument-select"/);
     assert.match(html, /<script type="module" src="nav\.js">/);
-    if (files[index] !== "recursion.html") {
-      // recur is a greenfield instrument; recursion.html is intentionally left
-      // untouched, so it is the one page without a recur link.
-      assert.match(html, />recur<\/a>/);
-      assert.match(html, />recur<\/option>/);
-    }
+    const desktopNavigation = html.match(/<nav class="tabs"[\s\S]*?<\/nav>/)?.[0] ?? "";
+    const mobileNavigation = html.match(
+      /<select class="mobile-instrument-select"[\s\S]*?<\/select>/,
+    )?.[0] ?? "";
+    assert.equal(
+      (desktopNavigation.match(/<a\b[^>]*aria-current="page"[^>]*>/g) ?? []).length,
+      1,
+      `${files[index]} should keep one current desktop tool`,
+    );
+    assert.equal(
+      (mobileNavigation.match(/<option\b[^>]*\sselected(?:\s|>)/g) ?? []).length,
+      1,
+      `${files[index]} should keep one selected mobile tool`,
+    );
     if (files[index] === "recursion.html") {
-      assert.match(html, /id="resetStudy"[^>]*>Reset this system<\/button>/);
+      assert.match(html, /id="resetStudy"[^>]*>Reset<\/button>/);
     } else {
       assert.match(html, /data-reset-all>Reset all parameters<\/button>/);
     }
@@ -42,7 +51,12 @@ test("all instrument pages share desktop and mobile navigation", async () => {
   for (const html of pages) {
     assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/, "sections should start collapsed");
   }
+  assert.match(css, /@media \(max-width: 1800px\)[\s\S]*?\.tabs\s*\{\s*display: none;/);
   assert.match(css, /@media \(max-width: 650px\)[\s\S]*?\.tabs\s*\{\s*display: none;/);
+  assert.match(css, /\.tools-menu-label\s*\{[^}]*color: var\(--muted\);[^}]*font-size: 10px;/);
+  assert.match(css, /\.tools-menu-current\s*\{[^}]*font-size: 13px;/);
+  assert.match(css, /\.tools-menu-heading\s*\{[^}]*color: var\(--muted\);[^}]*font-size: 10px;/);
+  assert.match(css, /\.tools-menu-link\s*\{[^}]*font-size: 12px;/);
   assert.match(css, /\.mobile-instrument-nav/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.header-level\s*\{\s*display: grid;/);
   assert.match(nav, /location\.href = select\.value/);

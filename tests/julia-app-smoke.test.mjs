@@ -42,12 +42,16 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
 
   let strokes = 0;
   let arcs = 0;
+  const screenDraws = [];
+  const staticMetrics = { clears: 0, strokes: 0 };
+  let fieldUploads = 0;
+  let stageContextOptions;
   const drawingContext = {
     arc() { arcs += 1; },
     beginPath() {},
     clearRect() {},
     closePath() {},
-    drawImage() {},
+    drawImage(...args) { screenDraws.push(args); },
     fill() {},
     lineTo() {},
     moveTo() {},
@@ -57,14 +61,69 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
     stroke() { strokes += 1; },
   };
   const textureContext = {
+    arc() {},
+    beginPath() {},
+    clearRect() {},
+    closePath() {},
     createImageData(width, height) {
       return { data: new Uint8ClampedArray(width * height * 4) };
     },
-    putImageData() {},
+    drawImage() {},
+    fill() {},
+    lineTo() {},
+    moveTo() {},
+    putImageData() { fieldUploads += 1; },
+    restore() {},
+    save() {},
+    setTransform() {},
+    stroke() {},
+  };
+  const staticDrawingContext = {
+    arc() { arcs += 1; },
+    beginPath() {},
+    clearRect() { staticMetrics.clears += 1; },
+    closePath() {},
+    drawImage() {},
+    fill() {},
+    lineTo() {},
+    moveTo() {},
+    restore() {},
+    save() {},
+    setTransform() {},
+    stroke() {
+      staticMetrics.strokes += 1;
+      strokes += 1;
+    },
   };
   const canvas = elements.get("stage");
-  canvas.getContext = () => drawingContext;
-  elements.get("stageWrap").getBoundingClientRect = () => ({ width: 900, height: 600 });
+  let canvasWidth = 300;
+  let canvasHeight = 150;
+  let canvasWidthWrites = 0;
+  let canvasHeightWrites = 0;
+  Object.defineProperties(canvas, {
+    width: {
+      get() { return canvasWidth; },
+      set(value) {
+        canvasWidth = value;
+        canvasWidthWrites += 1;
+      },
+    },
+    height: {
+      get() { return canvasHeight; },
+      set(value) {
+        canvasHeight = value;
+        canvasHeightWrites += 1;
+      },
+    },
+  });
+  canvas.getContext = (kind, options) => {
+    assert.equal(kind, "2d");
+    stageContextOptions = options;
+    return drawingContext;
+  };
+  const stageBounds = { width: 900, height: 600 };
+  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, ...stageBounds });
+  elements.get("stageWrap").getBoundingClientRect = () => ({ ...stageBounds });
 
   let queuedFrame = null;
   let frameId = 0;
@@ -73,17 +132,37 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
     frameId += 1;
     return frameId;
   };
+  let resizeObserverCallback = null;
   globalThis.ResizeObserver = class {
-    constructor(callback) { this.callback = callback; }
+    constructor(callback) {
+      this.callback = callback;
+      resizeObserverCallback = callback;
+    }
     observe() { this.callback(); }
   };
+  function flushFrame(now) {
+    assert.equal(typeof queuedFrame, "function");
+    const callback = queuedFrame;
+    queuedFrame = null;
+    callback(now);
+  }
 
   const documentListeners = new Map();
+  let offscreenCanvasCount = 0;
   globalThis.document = {
     hidden: false,
     createElement(name) {
       assert.equal(name, "canvas");
-      return { width: 0, height: 0, getContext: () => textureContext };
+      const context = offscreenCanvasCount === 0 ? textureContext : staticDrawingContext;
+      offscreenCanvasCount += 1;
+      return {
+        width: 0,
+        height: 0,
+        getContext(kind) {
+          assert.equal(kind, "2d");
+          return context;
+        },
+      };
     },
     getElementById(id) { return elements.get(id) ?? null; },
     addEventListener(type, listener) { documentListeners.set(type, listener); },
@@ -141,10 +220,13 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
   await import(`../julia-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
   let now = performance.now() + 20;
-  queuedFrame(now);
+  flushFrame(now);
 
   assert.equal(canvas.width, 1800);
   assert.equal(canvas.height, 1200);
+  assert.equal(stageContextOptions, undefined);
+  assert.equal(canvasWidthWrites, 1);
+  assert.equal(canvasHeightWrites, 1);
   assert.match(elements.get("stageReadout").textContent, /^LISTENING DEFAULT · \d+ LOOPS? · \d+ TURNS · 1\.00× · AUDIO OFF$/);
   assert.equal(elements.get("mappingSummary").textContent, "left rises · 5.00 oct/turn · basic");
   assert.equal(elements.get("cRealOut").textContent, "−0.788");
@@ -162,6 +244,39 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
   assert.equal(elements.get("viewZoomOut").textContent, "1.00×");
   assert.ok(strokes >= 6, "the boundary, turn groups, and playhead trail should be drawn");
   assert.ok(arcs >= 2, "the boundary playhead should be visible");
+  assert.equal(fieldUploads, 1);
+  assert.equal(staticMetrics.clears, 1);
+
+  const unchangedResizeFrame = frameId;
+  resizeObserverCallback();
+  resizeObserverCallback();
+  assert.equal(frameId, unchangedResizeFrame + 1, "resize notifications should coalesce into one frame");
+  now += 16;
+  flushFrame(now);
+  assert.equal(canvasWidthWrites, 1, "an unchanged resize must not clear the backing store");
+  assert.equal(canvasHeightWrites, 1, "an unchanged resize must not clear the backing store");
+
+  stageBounds.width = 600;
+  stageBounds.height = 400;
+  resizeObserverCallback();
+  resizeObserverCallback();
+  now += 16;
+  flushFrame(now);
+  assert.equal(canvas.width, 1200);
+  assert.equal(canvas.height, 800);
+  assert.equal(canvasWidthWrites, 2);
+  assert.equal(canvasHeightWrites, 2);
+
+  stageBounds.width = 900;
+  stageBounds.height = 600;
+  resizeObserverCallback();
+  resizeObserverCallback();
+  now += 16;
+  flushFrame(now);
+  assert.equal(canvas.width, 1800);
+  assert.equal(canvas.height, 1200);
+  assert.equal(canvasWidthWrites, 3);
+  assert.equal(canvasHeightWrites, 3);
 
   listeners.get("preset:change")({ currentTarget: { value: "airplane" } });
   assert.equal(elements.get("juliaSummary").textContent, "Airplane");
@@ -188,17 +303,51 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
   listeners.get("directionButton:click")();
   assert.equal(elements.get("directionButton").textContent, "Direction · reverse");
 
-  listeners.get("stage:wheel")({ clientX: 450, clientY: 300, deltaY: -300, preventDefault() {} });
+  now += 16;
+  flushFrame(now);
+  const uploadsBeforeZoom = fieldUploads;
+  const staticClearsBeforeZoom = staticMetrics.clears;
+  const initialPreview = screenDraws.at(-1);
+  listeners.get("stage:wheel")({ clientX: 600, clientY: 200, deltaY: -300, preventDefault() {} });
   assert.notEqual(elements.get("viewZoomOut").textContent, "1.00×");
+  now += 16;
+  flushFrame(now);
+  const zoomPreview = screenDraws.at(-1);
+  assert.equal(fieldUploads, uploadsBeforeZoom, "wheel preview should not regenerate the Julia field");
+  assert.equal(staticMetrics.clears, staticClearsBeforeZoom, "wheel preview should reuse the static layer");
+  assert.equal(zoomPreview.length, 9, "wheel preview should crop and map the cached scene");
+  assert.notDeepEqual(zoomPreview.slice(1), initialPreview.slice(1));
+  assert.notEqual(zoomPreview[1], initialPreview[1], "off-center zoom should follow the cursor horizontally");
+  assert.notEqual(zoomPreview[2], initialPreview[2], "off-center zoom should follow the cursor vertically");
+  assert.ok(zoomPreview[3] < initialPreview[3], "zooming in should crop a narrower cached source");
+  assert.ok(zoomPreview[4] < initialPreview[4], "zooming in should crop a shorter cached source");
+
   listeners.get("stage:pointerdown")({ pointerId: 3, clientX: 450, clientY: 300, shiftKey: true, preventDefault() {} });
   listeners.get("stage:pointermove")({ pointerId: 3, clientX: 490, clientY: 320 });
+  now += 16;
+  flushFrame(now);
+  const panPreview = screenDraws.at(-1);
+  assert.equal(fieldUploads, uploadsBeforeZoom, "pan preview should not regenerate the Julia field");
+  assert.equal(staticMetrics.clears, staticClearsBeforeZoom, "pan preview should reuse the static layer");
+  assert.notDeepEqual(panPreview.slice(1, 5), zoomPreview.slice(1, 5));
+
   listeners.get("stage:pointerup")({ pointerId: 3 });
+  assert.equal(fieldUploads, uploadsBeforeZoom + 1, "ending a pan should build one crisp field");
+  now += 16;
+  flushFrame(now);
+  assert.equal(staticMetrics.clears, staticClearsBeforeZoom + 1);
   assert.notEqual(elements.get("viewCenterOut").textContent, "0.000 + 0.0000i");
   listeners.get("resetView:click")();
   assert.equal(elements.get("viewZoomOut").textContent, "1.00×");
   assert.equal(elements.get("viewCenterOut").textContent, "0.000 + 0.0000i");
+  now += 16;
+  flushFrame(now);
 
+  const staticClearsBeforeSimilarity = staticMetrics.clears;
   listeners.get("analyzeSimilarity:click")();
+  now += 16;
+  flushFrame(now);
+  assert.equal(staticMetrics.clears, staticClearsBeforeSimilarity + 1);
   assert.equal(elements.get("auditionSimilarity").disabled, false);
   assert.equal(elements.get("jumpSimilarity").disabled, false);
   assert.match(elements.get("similarityMatch").textContent, /d1 r=/);
@@ -216,14 +365,20 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
   listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
   now = performance.now() + 100;
-  queuedFrame(now);
+  flushFrame(now);
   assert.notEqual(Number(elements.get("position").value), before);
+  const staticClearsDuringPlayback = staticMetrics.clears;
 
   await listeners.get("audioButton:click")();
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
   assert.equal(elements.get("audioState").textContent, "on");
   now += 80;
-  queuedFrame(now);
+  flushFrame(now);
+  assert.equal(
+    staticMetrics.clears,
+    staticClearsDuringPlayback,
+    "animation frames should reuse the cached static Julia scene",
+  );
   let voiceMessage = audioWorkletMessages.at(-1);
   assert.equal(voiceMessage.type, "voices");
   assert.equal(voiceMessage.voices.length, 1);
@@ -240,7 +395,7 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
   elements.get("synthMode").value = "harmony";
   listeners.get("synthMode:change")({ currentTarget: elements.get("synthMode") });
   now += 80;
-  queuedFrame(now);
+  flushFrame(now);
   voiceMessage = audioWorkletMessages.at(-1);
   assert.equal(voiceMessage.voices.length, 2);
   assert.equal(voiceMessage.nextVoices.length, 2);
@@ -257,7 +412,7 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
   elements.get("synthMode").value = "basic";
   listeners.get("synthMode:change")({ currentTarget: elements.get("synthMode") });
   now += 80;
-  queuedFrame(now);
+  flushFrame(now);
   voiceMessage = audioWorkletMessages.at(-1);
   assert.equal(voiceMessage.voices.length, 1);
   assert.equal(elements.get("soundSummary").textContent, "Basic Shepard");
@@ -265,7 +420,7 @@ test("Julia app builds, draws, scrubs, and advances its boundary", async () => {
   await listeners.get("auditionSimilarity:click")();
   assert.equal(attributes.get("auditionSimilarity:aria-pressed"), "true");
   now += 80;
-  queuedFrame(now);
+  flushFrame(now);
   assert.match(elements.get("stageReadout").textContent, /WAVELET ORCHESTRA LAB$/);
   await listeners.get("auditionSimilarity:click")();
   assert.equal(attributes.get("auditionSimilarity:aria-pressed"), "false");

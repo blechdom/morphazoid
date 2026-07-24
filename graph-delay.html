@@ -9,7 +9,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="micmic.css" />
-    <link rel="stylesheet" href="graph-delay.css?v=20260724-motion-endpoints" />
+    <link rel="stylesheet" href="graph-delay.css?v=20260724-relative-angle-motion" />
   </head>
   <body class="micmic-page graph-delay-page">
     <header class="masthead">
@@ -25,12 +25,12 @@
         <a class="tab" href="hyper.html">hyper</a>
         <a class="tab" href="l-system.html">l-system</a>
         <a class="tab recursion-tab" href="recursion.html">recursion</a>
-        <a class="tab" href="recur.html">recur</a>
         <a class="tab" href="julia.html">julia</a>
         <a class="tab" href="lumber.html">lumber</a>
         <a class="tab micmic-tab" href="micmic.html">mic(mic)</a>
         <a class="tab graph-delay-tab active" href="graph-delay.html" aria-current="page">graph-delay</a>
         <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
@@ -42,12 +42,12 @@
           <option value="hyper.html">hyper</option>
           <option value="l-system.html">l-system</option>
           <option value="recursion.html">recursion</option>
-          <option value="recur.html">recur</option>
           <option value="julia.html">julia</option>
           <option value="lumber.html">lumber</option>
           <option value="micmic.html">mic(mic)</option>
           <option value="graph-delay.html" selected>graph-delay</option>
           <option value="throatazoid.html">throatazoid</option>
+          <option value="morphazoidical/">morphazoidical</option>
         </select>
       </label>
       <div class="audio-strip" aria-label="Audio controls">
@@ -143,36 +143,68 @@
         </details>
 
         <details class="group control-section" id="motionSection" data-section="motion">
-          <summary class="group-summary"><h2 class="group-title">Motion</h2><span class="section-state" id="motionSummary">rotation paused · 0°</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Motion</h2><span class="section-state" id="motionSummary">nodes paused · mic paused</span></summary>
           <div class="group-body">
-            <div class="position-row">
-              <button class="play-button graph-rotation-play" id="rotationPlayButton" type="button" aria-pressed="false" aria-label="Play graph rotation">
+            <span class="field-label">Node motion</span>
+            <div class="mic-motion-row">
+              <button class="play-button motion-play-button" id="nodeMotionPlayButton" type="button" aria-pressed="false" aria-label="Play node motion">
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
               </button>
-              <label class="control position-control" for="rotation"><span><b>Graph rotation</b><output id="rotationOut" for="rotation">0°</output></span><input id="rotation" type="range" min="-180" max="180" step="0.5" value="0" /></label>
+              <label class="select-control mic-motion-select" for="nodeMotionMode">
+                <span class="select-shell">
+                  <select id="nodeMotionMode">
+                    <option value="wiggle" selected>Independent wiggle</option>
+                    <option value="orbit">Circular walks</option>
+                    <option value="random">Random walks</option>
+                  </select>
+                </span>
+              </label>
             </div>
-            <label class="control signed-form-range" for="rotationSpeed">
-              <span><b>Rotation speed</b><output id="rotationSpeedOut" for="rotationSpeed">+0.05 rev/s</output></span>
-              <input id="rotationSpeed" type="range" min="-0.25" max="0.25" step="0.01" value="0.05" />
-              <span class="form-range-poles" aria-hidden="true"><span>Counter</span><span>Still</span><span>Clockwise</span></span>
-            </label>
-            <p class="control-note">Rotation changes node height, so it performs the pitch map. Drag the MIC IN and SPEAKERS OUT terminals to reshape entrance and exit time; speaker X also sets output pan.</p>
-            <button class="mini-action" id="resetViewButton" type="button">Reset rotation + endpoints</button>
+            <label class="control" for="nodeMotionSpeed"><span><b>Node speed</b><output id="nodeMotionSpeedOut" for="nodeMotionSpeed">0.12 cyc/s</output></span><input id="nodeMotionSpeed" type="range" min="0.01" max="0.5" step="0.01" value="0.12" /></label>
+            <label class="control" for="nodeMotionAmount"><span><b>Node travel</b><output id="nodeMotionAmountOut" for="nodeMotionAmount">7%</output></span><input id="nodeMotionAmount" type="range" min="0.01" max="0.3" step="0.01" value="0.07" /></label>
+            <div class="motion-divider" aria-hidden="true"></div>
+            <span class="field-label">Microphone path</span>
+            <div class="mic-motion-row">
+              <button class="play-button motion-play-button" id="micMotionPlayButton" type="button" aria-pressed="false" aria-label="Play microphone motion">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="select-control mic-motion-select" for="micMotionMode">
+                <span class="select-shell">
+                  <select id="micMotionMode">
+                    <option value="circle" selected>Circle</option>
+                    <option value="ellipse">Ellipse</option>
+                    <option value="triangle">Triangle</option>
+                    <option value="square">Square</option>
+                    <option value="figure8">Figure eight</option>
+                    <option value="random">Random walk</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+            <label class="control" for="micMotionSpeed"><span><b>Mic speed</b><output id="micMotionSpeedOut" for="micMotionSpeed">0.08 cyc/s</output></span><input id="micMotionSpeed" type="range" min="0.01" max="0.4" step="0.01" value="0.08" /></label>
+            <label class="control" for="micMotionSize"><span><b>Path size</b><output id="micMotionSizeOut" for="micMotionSize">42%</output></span><input id="micMotionSize" type="range" min="0.05" max="0.46" step="0.01" value="0.42" /></label>
+            <p class="control-note">Moving nodes continuously changes edge angle → pitch and edge length → time. MIC IN and SPEAKERS OUT remain draggable; grabbing a moving node or MIC IN pauses that object for manual control.</p>
+            <button class="mini-action" id="resetViewButton" type="button">Stop motion + reset endpoints</button>
           </div>
         </details>
 
         <details class="group control-section" id="delaySection" data-section="delay">
-          <summary class="group-summary"><h2 class="group-title">Time + pitch</h2><span class="section-state" id="delaySummary">length → time · height → pitch</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Time + pitch</h2><span class="section-state" id="delaySummary">length → time · angle → pitch</span></summary>
           <div class="group-body">
-            <p class="growth-preset-description">Drag a node horizontally or vertically. Longer edges take more time; higher nodes transpose upward.</p>
-            <label class="control" for="baseDelay"><span><b>Minimum edge delay</b><output id="baseDelayOut" for="baseDelay">24 ms</output></span><input id="baseDelay" type="range" min="4" max="400" step="1" value="24" /></label>
-            <label class="control" for="timeScale"><span><b>Edge length → time</b><output id="timeScaleOut" for="timeScale">+900 ms across stage</output></span><input id="timeScale" type="range" min="0" max="1600" step="10" value="900" /></label>
-            <label class="control" for="pitchRange"><span><b>Node height → pitch</b><output id="pitchRangeOut" for="pitchRange">±12 semitones</output></span><input id="pitchRange" type="range" min="0" max="24" step="1" value="12" /></label>
+            <p class="growth-preset-description">Drag connected nodes. Longer edges take more time; each directed edge angle maps exponentially between a low and high pitch target.</p>
+            <label class="control" for="baseDelay"><span><b>Shared edge delay</b><output id="baseDelayOut" for="baseDelay">220 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="220" /></label>
+            <label class="control" for="timeScale"><span><b>Edge-length variation</b><output id="timeScaleOut" for="timeScale">+60 ms longest edge</output></span><input id="timeScale" type="range" min="0" max="800" step="5" value="60" /></label>
+            <p class="control-note">Every graph edge starts with the shared delay. Length adds only the selected variation, keeping repeats rhythmically related.</p>
+            <label class="control" for="inputPitchReference"><span><b>Input pitch reference</b><output id="inputPitchReferenceOut" for="inputPitchReference">110 Hz</output></span><input id="inputPitchReference" type="range" min="20" max="440" step="1" value="110" /></label>
+            <label class="control" for="pitchFloor"><span><b>Edge angle → pitch floor</b><output id="pitchFloorOut" for="pitchFloor">40 Hz</output></span><input id="pitchFloor" type="range" min="20" max="220" step="1" value="40" /></label>
+            <label class="control" for="pitchCeiling"><span><b>Edge angle → pitch ceiling</b><output id="pitchCeilingOut" for="pitchCeiling">1280 Hz</output></span><input id="pitchCeiling" type="range" min="440" max="4000" step="10" value="1280" /></label>
+            <p class="control-note">Each node reads the circular mean of its incoming directed-edge angles; entry nodes use the MIC IN angle. The input reference calibrates the resulting pitch-shift ratios.</p>
             <label class="control" for="feedback"><span><b>Feedback decay</b><output id="feedbackOut" for="feedback">72%</output></span><input id="feedback" type="range" min="0" max="0.92" step="0.01" value="0.72" /></label>
             <label class="control" for="damping"><span><b>Feedback damping</b><output id="dampingOut" for="damping">4.8 kHz</output></span><input id="damping" type="range" min="500" max="12000" step="50" value="4800" /></label>
             <div class="grammar-card graph-metrics selected-node-card" aria-live="polite">
-              <span><b>Selected node</b><code id="selectedNodeOut">node 1 · +0 st</code></span>
+              <span><b>Selected node</b><code id="selectedNodeOut">node 1 · 226 Hz</code></span>
               <span><b>Connected time</b><code id="selectedTimeOut">drag a node</code></span>
             </div>
             <p class="control-note" id="feedbackSafetyNote">This graph is acyclic, so the feedback control is dormant. Cyclic presets normalize all returning gains below unity.</p>
@@ -190,11 +222,11 @@
         <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button></div>
       </aside>
 
-      <p class="sr-only" id="graphDescription">A draggable, rotatable directed delay network. A cyan microphone terminal enters the network and a gold speaker terminal receives its output. Rainbow vibrating edges move audio forward. Coral dashed edges are inside strongly connected components and carry normalized feedback below unity. Edge length controls time and node height controls pitch.</p>
-      <p class="sr-only" id="canvasInstructions">Drag nodes, MIC IN, or SPEAKERS OUT. Use the Motion controls to rotate manually or play automatic rotation. Start microphone input while wearing headphones. Choose an acyclic graph for finite echoes or a cyclic graph for a decaying feedback network. Press Escape for an immediate panic stop.</p>
+      <p class="sr-only" id="graphDescription">A draggable directed delay network with independently moving nodes. A cyan microphone terminal enters the network and a gold speaker terminal receives its output. Rainbow vibrating edges move audio forward. Coral dashed edges are inside strongly connected components and carry normalized feedback below unity. Edge length controls time and directed edge angle controls pitch.</p>
+      <p class="sr-only" id="canvasInstructions">Drag nodes, MIC IN, or SPEAKERS OUT. Use Motion to wiggle, orbit, or randomly walk the nodes. Start microphone input while wearing headphones. Choose an acyclic graph for finite echoes or a cyclic graph for a decaying feedback network. Press Escape for an immediate panic stop.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="graph-delay-app.js?v=20260724-motion-endpoints"></script>
+    <script type="module" src="graph-delay-app.js?v=20260724-segment-vibration"></script>
   </body>
 </html>

@@ -19,14 +19,42 @@
   --accent-soft: color-mix(in oklab, #e8c46b 55%, transparent);
 }
 
-.graph-rotation-play[aria-pressed="true"] .transport-play,
-.graph-rotation-play[aria-pressed="false"] .transport-pause {
+.motion-play-button[aria-pressed="true"] .transport-play,
+.motion-play-button[aria-pressed="false"] .transport-pause {
   display: none;
 }
 
-.graph-rotation-play[aria-pressed="true"] .transport-pause,
-.graph-rotation-play[aria-pressed="false"] .transport-play {
+.motion-play-button[aria-pressed="true"] .transport-pause,
+.motion-play-button[aria-pressed="false"] .transport-play {
   display: block;
+}
+
+.motion-divider {
+  height: 1px;
+  margin: 17px 0 14px;
+  background: linear-gradient(90deg, transparent, var(--line-strong), transparent);
+}
+
+.mic-motion-row {
+  display: grid;
+  margin: 7px 0 12px;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+}
+
+.mic-motion-row .play-button {
+  width: 46px;
+  min-height: 46px;
+}
+
+.mic-motion-select {
+  margin: 0;
+}
+
+.mic-motion-select .select-shell,
+.mic-motion-select select {
+  height: 100%;
 }
 
 .graph-delay-page .stage-wrap {

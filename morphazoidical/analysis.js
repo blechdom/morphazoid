@@ -692,7 +692,20 @@ export function analyzeReader(path, reader, pathAnalysis = null, {
   epsilon = DEFAULT_EPSILON,
 } = {}) {
   const geometry = pathAnalysis ?? analyzePath(path, { center, fillRule, epsilon });
-  const source = contacts ?? contactsForReader(path, reader);
+  const rawSource = contacts ?? contactsForReader(path, reader);
+  const explicitRayExtent = reader?.type === "ray"
+    && Number.isFinite(reader.extent)
+    && reader.extent >= 0
+    ? reader.extent
+    : null;
+  const source = reader?.type === "ray"
+    ? rawSource.filter((contact) => {
+      const coordinate = readerCoordinate(contact, reader);
+      return Number.isFinite(coordinate)
+        && coordinate >= -epsilon
+        && (explicitRayExtent === null || coordinate <= explicitRayExtent + epsilon);
+    })
+    : rawSource;
   const analyzed = source.map((contact) => analyzeContact(path, contact, geometry, { center, epsilon }));
   analyzed.sort((a, b) => readerCoordinate(a, reader) - readerCoordinate(b, reader));
   const direction = readerDirection(reader);
@@ -734,8 +747,78 @@ export function analyzeReader(path, reader, pathAnalysis = null, {
   const coordinates = analyzed.map((contact) => readerCoordinate(contact, reader));
   const spacings = coordinates.slice(1).map((value, index) => Math.abs(value - coordinates[index]));
   const supportsIntervals = path.closed && ["vertical", "horizontal", "ray"].includes(reader?.type);
+  const farthestRayContact = coordinates.reduce(
+    (maximum, coordinate) => Number.isFinite(coordinate)
+      ? Math.max(maximum, coordinate)
+      : maximum,
+    0,
+  );
+  const inferredRayExtent = Math.max(
+    geometry.bounds.width,
+    geometry.bounds.height,
+    geometry.radius.maximum,
+    farthestRayContact,
+  );
+  const finiteExtent = reader?.type === "ray"
+    ? explicitRayExtent ?? inferredRayExtent
+    : reader?.type === "vertical" ? geometry.bounds.height
+      : reader?.type === "horizontal" ? geometry.bounds.width : 1;
   const insideIntervals = [];
-  if (supportsIntervals && analyzed.length >= 2) {
+  const rayOrigin = reader?.origin ?? { x: 0, y: 0 };
+  let rayIntervalsAvailable = reader?.type !== "ray" || (
+    finiteExtent > epsilon
+    && Number.isFinite(finiteExtent)
+    && Number.isFinite(reader?.angle)
+    && Number.isFinite(rayOrigin.x)
+    && Number.isFinite(rayOrigin.y)
+    && Number.isFinite(direction.x)
+    && Number.isFinite(direction.y)
+  );
+  if (supportsIntervals && reader?.type === "ray" && rayIntervalsAvailable) {
+    const endpoint = {
+      x: rayOrigin.x + direction.x * finiteExtent,
+      y: rayOrigin.y + direction.y * finiteExtent,
+    };
+    // A half-line's contacts omit the ray origin and finite endpoint. Add
+    // both so a single exit (origin inside) or enter (endpoint inside) still
+    // produces the measurable occupied interval instead of a false zero.
+    const boundaries = [
+      { coordinate: 0, contactIndex: null, point: rayOrigin },
+      ...analyzed.map((contact, contactIndex) => ({
+        coordinate: clamp(coordinates[contactIndex], 0, finiteExtent),
+        contactIndex,
+        point: { x: contact.x, y: contact.y },
+      })),
+      { coordinate: finiteExtent, contactIndex: null, point: endpoint },
+    ];
+    for (let index = 0; index + 1 < boundaries.length; index += 1) {
+      const start = boundaries[index];
+      const end = boundaries[index + 1];
+      const length = end.coordinate - start.coordinate;
+      if (length <= epsilon) continue;
+      const midpointDistance = (start.coordinate + end.coordinate) * 0.5;
+      const containment = pointContainment(path, {
+        x: rayOrigin.x + direction.x * midpointDistance,
+        y: rayOrigin.y + direction.y * midpointDistance,
+      }, { fillRule, epsilon });
+      if (!containment.valid) {
+        rayIntervalsAvailable = false;
+        break;
+      }
+      if (containment.inside) {
+        insideIntervals.push({
+          from: start.coordinate,
+          to: end.coordinate,
+          length,
+          startContactIndex: start.contactIndex,
+          endContactIndex: end.contactIndex,
+          start: { ...start.point },
+          end: { ...end.point },
+        });
+      }
+    }
+    if (!rayIntervalsAvailable) insideIntervals.length = 0;
+  } else if (supportsIntervals && analyzed.length >= 2) {
     for (let index = 0; index + 1 < analyzed.length; index += 1) {
       const a = analyzed[index];
       const b = analyzed[index + 1];
@@ -757,15 +840,12 @@ export function analyzeReader(path, reader, pathAnalysis = null, {
   const transversalities = analyzed
     .map((contact) => contact.readerTransversality)
     .filter(Number.isFinite);
-  const finiteExtent = reader?.type === "ray"
-    ? Math.max(geometry.bounds.width, geometry.bounds.height, geometry.radius.maximum)
-    : reader?.type === "vertical" ? geometry.bounds.height
-      : reader?.type === "horizontal" ? geometry.bounds.width : 1;
+  const intervalsAvailable = supportsIntervals && rayIntervalsAvailable;
   const features = {
     "reader.contactCount": analyzed.length,
-    "reader.insideIntervalCount": supportsIntervals ? insideIntervals.length : null,
-    "reader.insideSpan": supportsIntervals ? insideSpan : null,
-    "reader.insideFraction": supportsIntervals && finiteExtent > epsilon
+    "reader.insideIntervalCount": intervalsAvailable ? insideIntervals.length : null,
+    "reader.insideSpan": intervalsAvailable ? insideSpan : null,
+    "reader.insideFraction": intervalsAvailable && finiteExtent > epsilon
       ? clamp(insideSpan / finiteExtent, 0, 1)
       : null,
     "reader.spacing.minimum": spacings.length ? Math.min(...spacings) : null,
@@ -785,7 +865,7 @@ export function analyzeReader(path, reader, pathAnalysis = null, {
     coordinates,
     spacings,
     insideIntervals,
-    insideSpan,
+    insideSpan: reader?.type === "ray" && !rayIntervalsAvailable ? null : insideSpan,
     extent: finiteExtent,
     features,
   };

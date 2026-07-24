@@ -309,7 +309,7 @@ export function edgeAudioParameters(graph, {
       1,
     );
     const geometricDelay = Number.isFinite(Number(timeScale))
-      ? clamp(baseDelay, 4, 400) + normalizedLength * clamp(timeScale, 0, 1600)
+      ? clamp(baseDelay, 4, 600) + normalizedLength * clamp(timeScale, 0, 1600)
       : clamp(baseDelay, 8, 1600) * (1 + variation);
     const delaySeconds = clamp(
       geometricDelay / 1000,

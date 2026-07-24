@@ -44,15 +44,17 @@ test("microphone worklet enforces its live ceiling and reports render load", () 
   assert.equal(processor.renderer.activeTargetCount, 160);
   assert.equal(processor.renderer.voices.size, 160);
 
-  for (let block = 0; block < 96; block += 1) {
+  for (let block = 0; block < 144; block += 1) {
     const input = new Float32Array(128);
     processor.process([[input]], [[new Float32Array(128), new Float32Array(128)]]);
   }
   const report = processor.port.messages.find((message) => message.type === "render-load");
   assert.equal(report.supported, true);
+  assert.equal(report.renderer, "recursive-bounce");
   assert.equal(report.activeVoices, 160);
   assert.equal(report.requestedVoices, 300);
   assert.equal(report.voiceLimit, 160);
   assert.ok(Number.isFinite(report.averageLoad));
   assert.ok(Number.isFinite(report.peakLoad));
+  assert.ok(processor.port.messages.some((message) => message.type === "history-ready"));
 });

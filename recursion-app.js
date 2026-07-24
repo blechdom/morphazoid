@@ -6,118 +6,40 @@ import {
   stackPoint,
   torusPoint,
 } from "./src/recursion-geometry.js";
+import {
+  LIVE_AXIS_IDS,
+  LIVE_DEFAULTS,
+  LIVE_LABELS,
+  denseMomentFor,
+  morphMoment,
+  normalizeLiveAxes,
+} from "./src/recursion-live.js";
 import { mobiusFrequencyMap } from "./src/recursion-spectral-dsp.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
-const LOOKAHEAD_SECONDS = 0.18;
+const LOOKAHEAD_SECONDS = 0.12;
+const SCHEDULER_QUANTUM = 0.09;
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const drawing = canvas.getContext("2d", { desynchronized: true });
 const audio = new RecursiveAudioEngine();
-const studyById = new Map(RECURSION_STUDIES.map((study) => [study.id, study]));
-const studyIds = RECURSION_STUDIES.map((study) => study.id);
-const studyIndexById = new Map(studyIds.map((id, index) => [id, index]));
+const STUDY_ID = "ouroboros-tape";
+const FUZZY_DONUT = RECURSION_STUDIES.find((study) => study.id === STUDY_ID);
 const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 
 const STUDY_UI = Object.freeze({
-  "ouroboros-tape": Object.freeze({
-    title: "Ouroboros Tape",
-    premise: "The loop becomes a twisted orbit: its tail breeds new slices, rates, accents, and phrase entrances.",
-    readout: "TIME-DOMAIN AUTOPHAGY",
-    cue: "Track the loop splitting into orbiting fragments: every pitch bend changes the rhythm that selects the next piece of its tail.",
-    summary: "four clocks eat one another",
-    topology: "nested torus · output-as-input · Klein seam",
-    analysis: "phrase position · rate orbit · spectral region · stereo handedness",
-    rewrite: "tail slice · reverse · swap · rate bend · recursive pulse genome",
-    wildness: "8–96 grains · cross-clock feedback · accumulated counter-phrases",
-    depthLabel: "Generation depth",
-    processKind: "BUFFER",
-  }),
-  "spectral-mobius": Object.freeze({
-    title: "Spectral Möbius Furnace",
-    premise: "A spectral sheet folds while its moving seam rewrites pitch, pulse spacing, phrase order, and handedness.",
-    readout: "STFT FOLD / PHASE SEAM",
-    cue: "Hear moving bands jump through multiple rates and rhythmic scales; every odd lap returns reversed, channel-swapped, and inside-out.",
-    summary: "STFT folds into its underside",
-    topology: "serial frequency-axis recurrence",
-    analysis: "1024-point Hann STFT · 75% overlap",
-    rewrite: "tent-map bin fold · branch phase inversion · iSTFT",
-    wildness: "moving seam · continuous rate bends · 96-grain ancestor sheets",
-    depthLabel: "Spectral generations",
-    processKind: "SPECTRUM",
-  }),
-  "filter-hydra": Object.freeze({
-    title: "Filter-Bank Hydra",
-    premise: "Every spectral child grows its own pulse genome, rate curve, delay pattern, and stereo orbit.",
-    readout: "BINARY FILTER TREE",
-    cue: "Follow one body bursting into independent filter-rhythm creatures that interrupt and re-seed one another across the whole phrase.",
-    summary: "bands grow bands",
-    topology: "breadth-first complementary filter tree",
-    analysis: "inherited logarithmic low / high regions",
-    rewrite: "each parent appends one low-pass or high-pass child",
-    wildness: "cross-rhythmic heads · moving resonance · hyperactive bounded ancestry",
-    depthLabel: "Tree depth",
-    processKind: "FILTER TREE",
-  }),
-  "cantor-delay": Object.freeze({
-    title: "Cantor Delay Weather",
-    premise: "Every gap breeds a different clock; pitch motion changes delay ratios and delay motion jumps to new phrase regions.",
-    readout: "FINITE DELAY MYCELIUM",
-    cue: "Hear nested polytempos tear holes through the phrase, then fill those holes with filtered, reversed micro-weather.",
-    summary: "echoes inside echoes",
-    topology: "finite binary temporal tree",
-    analysis: "explicit parent delay and Cantor coordinate",
-    rewrite: "two feed-forward children at contracted intervals",
-    wildness: "polytempo dust · 96 moving grains · finite feed-forward storms",
-    depthLabel: "Delay-tree depth",
-    processKind: "DELAY FIELD",
-  }),
-  "convolution-maw": Object.freeze({
-    title: "Self-Convolution Maw",
-    premise: "The sound becomes its own room, then the room erupts into a recursively re-ordered trigger constellation.",
-    readout: "SELF-CONVOLUTION / FIXED WINDOW",
-    cue: "Hear dense convolved matter repeatedly fracture into pitched swarms, rotating rhythms, and inside-out phrase attacks.",
-    summary: "sound becomes its own room",
-    topology: "serial self-convolution",
-    analysis: "bounded sparse impulse extraction",
-    rewrite: "parent × parent · circular fold · fixed-length crop",
-    wildness: "kernel swarms · rate spirals · rotating ancestral tails",
-    depthLabel: "Convolution order",
-    processKind: "CONVOLUTION",
-  }),
-  "phase-labyrinth": Object.freeze({
-    title: "Phase Labyrinth",
-    premise: "Phase chambers are struck by a recursive pulse field whose rhythm, pitch, filter, and phrase direction keep changing.",
-    readout: "NESTED ALLPASS / TWISTED RETURN",
-    cue: "Track attacks ricocheting through changing allpass routes while the source reverses, bends, swaps sides, and re-enters elsewhere.",
-    summary: "enter phase · return through shorter routes",
-    topology: "nested allpass call stack · twisted return",
-    analysis: "group delay and inherited phase path",
-    rewrite: "append one allpass chamber per inward call",
-    wildness: "phase ricochet · polarity turns · layered clock collisions",
-    depthLabel: "Labyrinth depth",
-    processKind: "PHASE PATH",
-  }),
+  title: "Fuzzy Donut",
+  readout: "FUZZY DONUT",
+  depthLabel: "Depth",
+  processKind: "RECURSION",
 });
 
 const SOURCE_COPY = Object.freeze({
-  noise: Object.freeze({
-    readout: "PINK NOISE FIELD",
-    note: "A repeatable pink-noise field exposes filters, phase cancellation, and spectral motion without suggesting a melody.",
-  }),
-  impulse: Object.freeze({
-    readout: "SPARSE IMPULSE FIELD",
-    note: "Clicks and micro-bursts make each delay, convolution tail, filter split, and phase smear easy to locate in time.",
-  }),
-  mic: Object.freeze({
-    readout: "MICROPHONE CAPTURE",
-    note: "A finite four-second capture becomes the seed. It is never live-monitored, and the microphone closes immediately.",
-  }),
-  file: Object.freeze({
-    readout: "LOCAL AUDIO BUFFER",
-    note: "The first four seconds are decoded and processed locally in this browser. The file is never uploaded.",
-  }),
+  noise: Object.freeze({ readout: "NOISE" }),
+  impulse: Object.freeze({ readout: "IMPULSE" }),
+  mic: Object.freeze({ readout: "MIC" }),
+  file: Object.freeze({ readout: "AUDIO" }),
 });
 
 const settings = Object.fromEntries(RECURSION_STUDIES.map((study) => [
@@ -129,9 +51,13 @@ const settings = Object.fromEntries(RECURSION_STUDIES.map((study) => [
     intensity: study.defaults.intensity,
   },
 ]));
+const liveSettings = Object.fromEntries(RECURSION_STUDIES.map((study) => [
+  study.id,
+  { ...LIVE_DEFAULTS },
+]));
 
 const state = {
-  studyId: "ouroboros-tape",
+  studyId: STUDY_ID,
   source: "noise",
   geometryView: "orbit",
   level: 0.42,
@@ -145,7 +71,9 @@ const state = {
 
 let plan = buildCurrentPlan();
 let transportStart = 0;
-let nextMomentIndex = 0;
+let nextWindowAt = 0;
+let fieldTurn = 0;
+let fieldDuration = 1;
 let scheduledFrame = 0;
 let cssWidth = 1;
 let cssHeight = 1;
@@ -161,15 +89,79 @@ function clamp(value, minimum, maximum) {
 }
 
 function currentStudy() {
-  return studyById.get(state.studyId);
+  return FUZZY_DONUT;
 }
 
 function currentUi() {
-  return STUDY_UI[state.studyId];
+  return STUDY_UI;
 }
 
 function currentSettings() {
   return settings[state.studyId];
+}
+
+function currentLiveAxes() {
+  return liveSettings[state.studyId];
+}
+
+function effectiveLiveAxes() {
+  return normalizeLiveAxes({
+    ...currentLiveAxes(),
+    memory: state.accumulate ? currentLiveAxes().memory : 0,
+  });
+}
+
+function denseMoment() {
+  return denseMomentFor(plan);
+}
+
+function denseFieldDuration() {
+  const anchor = denseMoment();
+  if (!anchor) return 1;
+  const byDepth = new Map();
+  for (const candidate of plan.moments) {
+    if (
+      candidate.at <= anchor.at
+      && candidate.kind !== "unwind"
+      && candidate.depth <= anchor.depth
+    ) {
+      byDepth.set(candidate.depth, candidate);
+    }
+  }
+  const lineage = [...byDepth.values()];
+  let tail = Math.max(0.4, Number(anchor.duration) || 0);
+  // Reserve enough cycle time for every bounded live-axis corner. A delayed
+  // branch revealed after playback begins must still receive a scheduler
+  // window; changing Memory or Twist should not silently crop its tail.
+  for (let corner = -1; corner < 2 ** LIVE_AXIS_IDS.length; corner += 1) {
+    const axes = corner < 0
+      ? effectiveLiveAxes()
+      : Object.fromEntries(LIVE_AXIS_IDS.map((axis, index) => [
+        axis,
+        (corner >> index) & 1,
+      ]));
+    for (const moment of lineage) {
+      const shaped = morphMoment(state.studyId, moment, axes);
+      const eventTail = (shaped.events ?? []).reduce(
+        (maximum, event) => Math.max(
+          maximum,
+          (Number(event.offset) || 0) + (Number(event.duration) || 0),
+        ),
+        0,
+      );
+      const pulseTail = (shaped.motion?.pulses ?? []).reduce(
+        (maximum, pulse) => Math.max(
+          maximum,
+          (Number(pulse.offset) || 0)
+            + (Number(pulse.delay) || 0)
+            + (Number(pulse.duration) || 0),
+        ),
+        0,
+      );
+      tail = Math.max(tail, moment.duration, eventTail, pulseTail);
+    }
+  }
+  return clamp(tail, 0.4, 10);
 }
 
 function formatClock(seconds) {
@@ -222,7 +214,6 @@ function paintSource() {
     : sourceAvailable()
     ? sourceLabel.toUpperCase()
     : copy.readout;
-  $("seedNote").textContent = copy.note;
   $("fileInputLabel").hidden = state.source !== "file";
   $("captureButton").hidden = state.source !== "mic";
   for (const button of $("sourceButtons").querySelectorAll("[data-source]")) {
@@ -230,11 +221,29 @@ function paintSource() {
   }
 }
 
-function pressureDescription(value) {
-  if (value < 0.32) return "traceable";
-  if (value < 0.62) return "building";
-  if (value < 0.84) return "dense";
-  return "event horizon";
+function liveAxisValueText(axis, label, value) {
+  return `${label}: ${Math.round(value * 100)}%`;
+}
+
+function paintLiveControls() {
+  const labels = LIVE_LABELS[state.studyId];
+  const axes = currentLiveAxes();
+  for (const axis of LIVE_AXIS_IDS) {
+    const title = $(`live${axis[0].toUpperCase()}${axis.slice(1)}Label`);
+    const input = $(`live${axis[0].toUpperCase()}${axis.slice(1)}`);
+    const output = $(`live${axis[0].toUpperCase()}${axis.slice(1)}Out`);
+    const percent = Math.round(axes[axis] * 100);
+    title.textContent = labels[axis];
+    input.value = String(axes[axis]);
+    input.setAttribute(
+      "aria-valuetext",
+      liveAxisValueText(axis, labels[axis], axes[axis]),
+    );
+    output.textContent = `${percent}%`;
+  }
+  if ($("liveTreeState")) {
+    $("liveTreeState").textContent = state.accumulate ? "ANCESTORS" : "SOLO";
+  }
 }
 
 function paintGeometryViews() {
@@ -252,19 +261,7 @@ function paintStudyControls() {
   const study = currentStudy();
   const ui = currentUi();
   const values = currentSettings();
-  const index = studyIndexById.get(state.studyId) ?? 0;
-  $("stageIndex").textContent = `SYSTEM ${String(index + 1).padStart(2, "0")} / 06`;
   $("stageTitle").textContent = ui.title;
-  $("stagePremise").textContent = ui.premise;
-  $("studyCount").textContent = `${String(index + 1).padStart(2, "0")} / 06`;
-  $("studySelect").value = state.studyId;
-  $("listenCue").textContent = ui.cue;
-  $("howSummary").textContent = ui.summary;
-  $("howSequence").textContent = `${study.copy.sequence} Inside every generation, phrase bends timbre, timbre bends pitch, pitch fractures rhythm, and rhythm chooses the next phrase region.`;
-  $("recursionMethod").textContent = ui.topology;
-  $("analysisMethod").textContent = ui.analysis;
-  $("parameterMethod").textContent = ui.rewrite;
-  $("effectsMethod").textContent = ui.wildness;
   $("depthLabel").textContent = ui.depthLabel;
   $("processKind").textContent = ui.processKind;
 
@@ -273,53 +270,47 @@ function paintStudyControls() {
   $("depth").max = String(depthDefinition.max);
   $("depth").step = String(depthDefinition.step);
   $("depth").value = String(values.depth);
-  $("depthOut").textContent = depthDefinition.format(values.depth);
+  $("depthOut").textContent = String(values.depth);
 
   const paceDefinition = study.parameters.pace;
   $("pace").min = String(paceDefinition.min);
   $("pace").max = String(paceDefinition.max);
   $("pace").step = String(paceDefinition.step);
   $("pace").value = String(values.pace);
-  $("paceOut").textContent = `${values.pace.toFixed(2)} seconds`;
+  $("paceOut").textContent = `${values.pace.toFixed(1)} s`;
 
   const transformDefinition = study.parameters.transform;
-  $("transformLabel").textContent = transformDefinition.label;
+  $("transformLabel").textContent = "Fold";
   $("transform").min = String(transformDefinition.min);
   $("transform").max = String(transformDefinition.max);
   $("transform").step = String(transformDefinition.step);
   $("transform").value = String(values.transform);
-  $("transformOut").textContent = transformDefinition.format(values.transform);
+  $("transformOut").textContent = `${Math.round(values.transform * 100)}%`;
 
   const intensityDefinition = study.parameters.intensity;
   $("intensity").min = String(intensityDefinition.min);
   $("intensity").max = String(intensityDefinition.max);
   $("intensity").step = String(intensityDefinition.step);
   $("intensity").value = String(values.intensity);
-  $("intensityOut").textContent = `${Math.round(values.intensity * 100)}% · ${pressureDescription(values.intensity)}`;
+  $("intensityOut").textContent = `${Math.round(values.intensity * 100)}%`;
 
-  for (const button of $("studyButtons").querySelectorAll("[data-study]")) {
-    const selected = button.dataset.study === state.studyId;
-    button.setAttribute("aria-selected", String(selected));
-    button.tabIndex = selected ? 0 : -1;
-  }
   setPressed($("accumulateButton"), state.accumulate);
-  $("accumulateButton").querySelector("b").textContent = state.accumulate ? "Ancestors remain" : "Current generation only";
-  $("accumulateButton").querySelector("small").textContent = state.accumulate
-    ? "generations accumulate"
-    : "solo the active lineage";
+  $("accumulateButton").querySelector("b").textContent = state.accumulate ? "Ancestors" : "Solo";
   paintSource();
+  paintLiveControls();
   paintGeometryViews();
-  paintReadout(null);
+  paintReadout(denseMoment());
 }
 
 function updatePlan({ preserveStep = false } = {}) {
   plan = buildCurrentPlan();
+  fieldDuration = denseFieldDuration();
   if (!preserveStep) {
     state.stepIndex = -1;
     state.steppedMoment = null;
   }
   lastRailSignature = "";
-  paintTimeline(0, null);
+  paintTimeline(0, denseMoment());
   scheduleFrame();
 }
 
@@ -327,9 +318,6 @@ async function prepareCurrent() {
   state.preparing = true;
   $("audioButton").disabled = true;
   $("listenButton").disabled = true;
-  $("listenHint").textContent = state.studyId === "spectral-mobius"
-    ? "folding the time-frequency sheet"
-    : "building finite generations";
   try {
     await audio.prepare(state.studyId, currentSettings(), state.source);
     $("audioError").hidden = true;
@@ -342,9 +330,6 @@ async function prepareCurrent() {
     state.preparing = false;
     $("audioButton").disabled = false;
     $("listenButton").disabled = false;
-    $("listenHint").textContent = state.playing
-      ? "the finite lineage is unfolding"
-      : "start with the unprocessed seed";
   }
 }
 
@@ -352,21 +337,25 @@ function setPlaying(playing) {
   state.playing = Boolean(playing);
   setPressed($("audioButton"), state.playing);
   setPressed($("listenButton"), state.playing);
-  $("audioState").textContent = state.playing ? "descending" : "off";
-  $("listenLabel").textContent = state.playing ? "Cut" : "Descend";
-  $("listenHint").textContent = state.playing
-    ? "the finite lineage is unfolding"
-    : "start with the unprocessed seed";
+  $("audioState").textContent = state.playing ? "on" : "off";
+  $("listenLabel").textContent = state.playing ? "Stop" : "Play";
   if (!state.playing) audio.stopSession();
+  if (!state.playing) {
+    audio.suspend().catch(() => {
+      // Ignore suspend races while navigating or rapidly restarting.
+    });
+  }
   paintReadout(currentTransportState().moment);
   scheduleFrame();
 }
 
 function restartTransport() {
   if (!audio.context) return;
-  audio.beginSession();
-  transportStart = audio.context.currentTime + 0.08;
-  nextMomentIndex = 0;
+  audio.beginSession(state.studyId, effectiveLiveAxes());
+  fieldDuration = denseFieldDuration();
+  transportStart = audio.context.currentTime + 0.025;
+  nextWindowAt = transportStart;
+  fieldTurn = 0;
   state.stepIndex = -1;
   state.steppedMoment = null;
   lastAnnouncement = "";
@@ -395,73 +384,110 @@ function lineageMoments(moment) {
   return [...byDepth.values()];
 }
 
-function lineagePhaseOffset(candidate, activeMoment, lineageIndex) {
-  if (candidate === activeMoment) return 0;
+function lineagePhaseOffset(candidate, activeMoment, lineageIndex, cycleIndex = 0) {
   const age = Math.max(0, activeMoment.depth - candidate.depth);
-  return (age * 0.173 + lineageIndex * 0.071) * candidate.duration;
+  return (
+    age * 0.173
+      + lineageIndex * 0.071
+      + (cycleIndex + fieldTurn) * 0.137
+  ) * candidate.duration;
 }
 
-function scheduleSemanticMoment(moment, when) {
+function scheduleSemanticMoment(moment, when, {
+  windowStart = 0,
+  windowDuration = null,
+  includeNative = true,
+  cycleIndex = 0,
+} = {}) {
   const lineage = lineageMoments(moment);
-  const powerScale = 1 / Math.sqrt(Math.max(1, lineage.length));
+  const axes = effectiveLiveAxes();
+  audio.setLiveAxes(state.studyId, axes);
   for (let index = 0; index < lineage.length; index += 1) {
     const candidate = lineage[index];
-    const activeScale = candidate === moment ? 1 : 0.7;
+    const shaped = morphMoment(state.studyId, candidate, axes);
+    const activeScale = candidate === moment ? 1 : 0.9;
     audio.scheduleMoment(
       state.studyId,
-      candidate,
+      shaped,
       when,
-      powerScale * activeScale,
+      activeScale,
       {
         pulseLimit: candidate === moment ? 96 : 20,
-        phaseOffset: lineagePhaseOffset(candidate, moment, index),
+        phaseOffset: lineagePhaseOffset(candidate, moment, index, cycleIndex),
+        windowStart,
+        windowDuration,
+        includeNative,
       },
     );
   }
 }
 
 function scheduleTransport(now) {
-  if (!state.playing || !audio.context || !plan.moments.length) return;
-  const duration = Math.max(1, plan.duration);
-  while (transportStart + duration < now - 0.05) {
-    transportStart += duration;
-    nextMomentIndex = 0;
+  const anchor = denseMoment();
+  if (!state.playing || !audio.context || !anchor) return;
+  const duration = Math.max(0.4, fieldDuration);
+  let resynced = false;
+  if (nextWindowAt < now - LOOKAHEAD_SECONDS) {
+    nextWindowAt = now + 0.003;
+    resynced = true;
   }
   let guard = 0;
-  while (guard < 128) {
+  while (nextWindowAt <= now + LOOKAHEAD_SECONDS && guard < 256) {
     guard += 1;
-    if (nextMomentIndex >= plan.moments.length) {
-      transportStart += duration;
-      nextMomentIndex = 0;
+    const raw = Math.max(0, nextWindowAt - transportStart);
+    const cycleIndex = Math.floor((raw + 1e-7) / duration);
+    const windowStart = Math.max(0, raw - cycleIndex * duration);
+    const remaining = duration - windowStart;
+    if (remaining < 0.001) {
+      nextWindowAt += remaining;
+      continue;
     }
-    const moment = plan.moments[nextMomentIndex];
-    const when = transportStart + moment.at;
-    if (when > now + LOOKAHEAD_SECONDS) break;
-    if (when >= now - 0.07) scheduleSemanticMoment(moment, when);
-    nextMomentIndex += 1;
+    const windowDuration = Math.min(SCHEDULER_QUANTUM, remaining);
+    scheduleSemanticMoment(anchor, nextWindowAt, {
+      windowStart,
+      windowDuration,
+      // Native operators schedule their complete bounded cycle in advance.
+      // After a stall, drop missed rolling windows instead of duplicating
+      // those still-pending voices; native material re-enters at the next
+      // ordinary canopy boundary.
+      includeNative: !resynced && windowStart < 0.0005,
+      cycleIndex,
+    });
+    resynced = false;
+    nextWindowAt += windowDuration;
   }
 }
 
 async function stepForward() {
-  if (state.playing) setPlaying(false);
+  fieldTurn += 1;
+  if (state.playing) {
+    $("liveStatus").textContent = `TURN ${fieldTurn}`;
+    scheduleFrame();
+    return;
+  }
   const ready = await prepareCurrent();
-  if (!ready || !plan.moments.length) return;
-  audio.beginSession();
-  state.stepIndex = (state.stepIndex + 1) % plan.moments.length;
-  state.steppedMoment = plan.moments[state.stepIndex];
-  scheduleSemanticMoment(state.steppedMoment, audio.context.currentTime + 0.05);
+  const anchor = denseMoment();
+  if (!ready || !anchor) return;
+  audio.beginSession(state.studyId, effectiveLiveAxes());
+  state.stepIndex = fieldTurn;
+  state.steppedMoment = anchor;
+  scheduleSemanticMoment(anchor, audio.context.currentTime + 0.05, {
+    cycleIndex: fieldTurn,
+  });
   announce(state.steppedMoment);
   scheduleFrame();
 }
 
 function restartStudy() {
+  fieldTurn = 0;
   if (state.playing) restartTransport();
   else {
     audio.stopSession();
     state.stepIndex = -1;
-    state.steppedMoment = null;
-    paintTimeline(0, null);
+    state.steppedMoment = denseMoment();
+    paintTimeline(0, state.steppedMoment);
   }
+  $("liveStatus").textContent = "CENTER";
   scheduleFrame();
 }
 
@@ -479,22 +505,6 @@ function queuePreparedRestart() {
   }, 120);
 }
 
-async function selectStudy(id) {
-  if (!studyById.has(id) || id === state.studyId) return;
-  const wasPlaying = state.playing;
-  audio.stopSession();
-  state.studyId = id;
-  lastAnnouncement = "";
-  lastRailSignature = "";
-  paintStudyControls();
-  updatePlan();
-  audio.invalidate();
-  if (wasPlaying) {
-    const ready = await prepareCurrent();
-    if (ready) restartTransport();
-  }
-}
-
 function selectSource(source) {
   if (!SOURCE_COPY[source] || source === state.source) return;
   state.source = source;
@@ -507,27 +517,27 @@ function selectSource(source) {
   }
 }
 
-function momentAtTime(elapsed) {
-  let active = null;
-  for (const moment of plan.moments) {
-    if (moment.at > elapsed + 1e-6) break;
-    active = moment;
-  }
-  return active;
-}
-
 function currentTransportState() {
+  const anchor = denseMoment();
   if (!state.playing || !audio.context) {
-    const moment = state.steppedMoment;
-    return { elapsed: moment?.at ?? 0, moment, progress: moment ? 0.5 : 0 };
+    const moment = state.steppedMoment ?? anchor;
+    return {
+      elapsed: 0,
+      moment,
+      progress: moment ? 0.5 : 0,
+      cycleIndex: fieldTurn,
+    };
   }
-  const duration = Math.max(1, plan.duration);
+  const duration = Math.max(0.4, fieldDuration);
   const raw = audio.context.currentTime - transportStart;
   const elapsed = raw < 0 ? 0 : ((raw % duration) + duration) % duration;
-  const moment = momentAtTime(elapsed);
-  const span = Math.max(0.1, moment?.duration ?? currentSettings().pace);
-  const progress = moment ? clamp((elapsed - moment.at) / span, 0, 1) : 0;
-  return { elapsed, moment, progress };
+  const progress = anchor ? clamp(elapsed / duration, 0, 1) : 0;
+  return {
+    elapsed,
+    moment: anchor,
+    progress,
+    cycleIndex: raw > 0 ? Math.floor(raw / duration) : 0,
+  };
 }
 
 function announce(moment) {
@@ -535,34 +545,26 @@ function announce(moment) {
   const signature = `${state.studyId}:${moment.at}:${moment.kind}:${moment.depth}`;
   if (signature === lastAnnouncement) return;
   lastAnnouncement = signature;
-  $("liveStatus").textContent = `${moment.label}. ${loadDescription(moment)}. Output power normalized.`;
-}
-
-function loadDescription(moment) {
-  const depth = Math.max(0, moment?.depth ?? 0);
-  if (state.studyId === "ouroboros-tape") return depth ? `generation ${depth} consumes generation ${depth - 1}` : "dry seed";
-  if (state.studyId === "spectral-mobius") return `${depth} recursive spectral folds`;
-  if (state.studyId === "filter-hydra") return `${2 ** depth} filter heads`;
-  if (state.studyId === "cantor-delay") return `${2 ** depth} delay nodes, ${2 ** (depth + 1) - 1} total ancestors`;
-  if (state.studyId === "convolution-maw") return `convolution order ${2 ** depth}`;
-  if (moment?.kind === "unwind") return `${depth} allpass chambers remain`;
-  return `${depth} nested allpass chambers`;
+  const pulses = morphMoment(state.studyId, moment, effectiveLiveAxes())?.motion?.pulses?.length ?? 0;
+  $("liveStatus").textContent = `G${Math.max(0, moment.depth ?? 0)} · ${pulses} events`;
 }
 
 function paintReadout(moment) {
   const depth = Math.max(0, moment?.depth ?? 0);
-  const direction = moment?.kind === "unwind" ? "UNWIND" : `G${depth}`;
-  const motion = moment?.motion;
-  const motionReadout = motion
-    ? `${motion.pulses.length} PULSES · KLEIN ${motion.seam.orientation < 0 ? "INSIDE-OUT" : "OUTSIDE-IN"}`
-    : "4 COUPLED CLOCKS";
-  $("stageReadout").textContent = `${currentUi().readout} · ${state.geometryView.toUpperCase()} · ${direction} · ${motionReadout} · ${state.playing ? loadDescription(moment).toUpperCase() : "AUDIO OFF"}`;
+  const motion = morphMoment(state.studyId, moment, effectiveLiveAxes())?.motion;
+  $("stageReadout").textContent = [
+    currentUi().readout,
+    state.geometryView.toUpperCase(),
+    `G${depth}`,
+    `${motion?.pulses?.length ?? 0} EVENTS`,
+    state.playing ? "ON" : "OFF",
+  ].join(" · ");
 }
 
 function paintTimeline(elapsed, moment) {
-  const duration = Math.max(1, plan.duration);
+  const duration = Math.max(0.4, fieldDuration);
   $("timelineProgress").style.width = `${(clamp(elapsed / duration, 0, 1) * 100).toFixed(2)}%`;
-  $("timelineMoment").textContent = moment?.label ?? "seed ready";
+  $("timelineMoment").textContent = `G${Math.max(0, moment?.depth ?? 0)} · ${state.accumulate ? "ALL" : "ONE"}`;
   $("timelineTime").textContent = `${formatClock(elapsed)} / ${formatClock(duration)}`;
 }
 
@@ -570,14 +572,14 @@ function paintRail(moment) {
   const maximum = currentSettings().depth;
   const active = clamp(moment?.depth ?? 0, 0, maximum);
   const returning = moment?.kind === "unwind";
-  const signature = `${maximum}:${active}:${returning}:${state.playing}`;
+  const signature = `${maximum}:${active}:${returning}:${state.playing}:${state.accumulate}`;
   if (signature === lastRailSignature) return;
   lastRailSignature = signature;
   const cells = [];
   for (let generation = 0; generation <= maximum; generation += 1) {
     let className = "";
     if (generation === active) className = returning ? "is-returning" : "is-active";
-    else if (state.accumulate && generation < active) className = "is-waiting";
+    else if (state.accumulate && generation < active) className = "is-ancestor";
     cells.push(`<i class="${className}">G${generation}</i>`);
   }
   $("depthRail").innerHTML = cells.join("");
@@ -1104,8 +1106,11 @@ function geometryColour(coordinate, alpha = 1) {
 function geometryMoments(activeMoment) {
   const active = activeMoment ?? plan.moments[0];
   if (!active) return [];
+  const axes = effectiveLiveAxes();
+  const cycleIndex = currentTransportState().cycleIndex ?? 0;
   return lineageMoments(active).filter(Boolean).map((candidate, index) => {
-    const available = candidate.motion?.pulses ?? [];
+    const shaped = morphMoment(state.studyId, candidate, axes);
+    const available = shaped.motion?.pulses ?? [];
     const limit = candidate === active ? 96 : 20;
     const audiblePulses = available.length <= limit
       ? available
@@ -1113,12 +1118,12 @@ function geometryMoments(activeMoment) {
         { length: limit },
         (_, pulseIndex) => available[Math.floor(pulseIndex * available.length / limit)],
       );
-    const phaseOffset = lineagePhaseOffset(candidate, active, index);
-    const offsetSpan = Math.max(0.08, candidate.duration * 0.84);
+    const phaseOffset = lineagePhaseOffset(candidate, active, index, cycleIndex);
+    const offsetSpan = Math.max(0.08, shaped.duration * 0.84);
     return {
-      ...candidate,
+      ...shaped,
       motion: {
-        ...candidate.motion,
+        ...shaped.motion,
         pulses: audiblePulses.map((pulse) => ({
           ...pulse,
           offset: (
@@ -1526,20 +1531,6 @@ function drawStage(moment, progress) {
   drawMotionTopology(activeMoment, progress);
 }
 
-$("studyButtons").addEventListener("click", (event) => {
-  const button = event.target.closest?.("[data-study]");
-  if (button) selectStudy(button.dataset.study);
-});
-$("studyButtons").addEventListener("keydown", (event) => {
-  if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
-  event.preventDefault();
-  const direction = ["ArrowDown", "ArrowRight"].includes(event.key) ? 1 : -1;
-  const currentIndex = studyIndexById.get(state.studyId) ?? 0;
-  const nextIndex = (currentIndex + direction + studyIds.length) % studyIds.length;
-  selectStudy(studyIds[nextIndex]);
-  $("studyButtons").querySelector(`[data-study="${studyIds[nextIndex]}"]`)?.focus();
-});
-$("studySelect").addEventListener("change", (event) => selectStudy(event.currentTarget.value));
 $("geometryViews").addEventListener("click", (event) => {
   const button = event.target.closest?.("[data-geometry]");
   const view = button?.dataset.geometry;
@@ -1547,11 +1538,7 @@ $("geometryViews").addEventListener("click", (event) => {
   state.geometryView = view;
   paintGeometryViews();
   paintReadout(currentTransportState().moment);
-  $("liveStatus").textContent = view === "orbit"
-    ? "Orbit view: rhythm circles the twisted manifold while phrase, spectrum, pitch, pan, and polarity deform it."
-    : view === "stack"
-      ? "Stack view: output time and logarithmic spectrum are layered through recursive time."
-      : "Causality view: source phrase positions braid through actual DSP routes into audible output onsets.";
+  $("liveStatus").textContent = view.toUpperCase();
   scheduleFrame();
 });
 $("sourceButtons").addEventListener("click", (event) => {
@@ -1563,32 +1550,57 @@ $("listenButton").addEventListener("click", togglePlayback);
 $("stepButton").addEventListener("click", stepForward);
 $("restartButton").addEventListener("click", restartStudy);
 
+for (const axis of LIVE_AXIS_IDS) {
+  const controlId = `live${axis[0].toUpperCase()}${axis.slice(1)}`;
+  $(controlId).addEventListener("input", (event) => {
+    currentLiveAxes()[axis] = clamp(event.currentTarget.value, 0, 1);
+    paintLiveControls();
+    audio.setLiveAxes(state.studyId, effectiveLiveAxes());
+    scheduleFrame();
+  });
+  $(controlId).addEventListener("change", () => {
+    const label = LIVE_LABELS[state.studyId][axis];
+    const value = Math.round(currentLiveAxes()[axis] * 100);
+    $("liveStatus").textContent = `${label.toUpperCase()} ${value}%`;
+  });
+}
+
 $("depth").addEventListener("input", (event) => {
+  const value = Math.round(Number(event.currentTarget.value));
+  $("depthOut").textContent = String(value);
+});
+$("depth").addEventListener("change", (event) => {
   currentSettings().depth = Math.round(Number(event.currentTarget.value));
-  $("depthOut").textContent = currentStudy().parameters.depth.format(currentSettings().depth);
   updatePlan();
+  queuePreparedRestart();
 });
-$("depth").addEventListener("change", queuePreparedRestart);
 $("pace").addEventListener("input", (event) => {
-  currentSettings().pace = Number(event.currentTarget.value);
-  $("paceOut").textContent = `${currentSettings().pace.toFixed(2)} seconds`;
-  updatePlan();
+  const value = Number(event.currentTarget.value);
+  $("paceOut").textContent = `${value.toFixed(1)} s`;
 });
-$("pace").addEventListener("change", () => {
-  if (state.playing) restartTransport();
+$("pace").addEventListener("change", (event) => {
+  currentSettings().pace = Number(event.currentTarget.value);
+  updatePlan();
+  queuePreparedRestart();
 });
 $("transform").addEventListener("input", (event) => {
+  const value = Number(event.currentTarget.value);
+  $("transformOut").textContent = `${Math.round(value * 100)}%`;
+});
+$("transform").addEventListener("change", (event) => {
   currentSettings().transform = Number(event.currentTarget.value);
-  $("transformOut").textContent = currentStudy().parameters.transform.format(currentSettings().transform);
   updatePlan();
+  queuePreparedRestart();
 });
-$("transform").addEventListener("change", queuePreparedRestart);
 $("intensity").addEventListener("input", (event) => {
-  currentSettings().intensity = Number(event.currentTarget.value);
-  $("intensityOut").textContent = `${Math.round(currentSettings().intensity * 100)}% · ${pressureDescription(currentSettings().intensity)}`;
-  updatePlan();
+  const value = Number(event.currentTarget.value);
+  $("intensityOut").textContent = `${Math.round(value * 100)}%`;
 });
-$("intensity").addEventListener("change", queuePreparedRestart);
+$("intensity").addEventListener("change", (event) => {
+  currentSettings().intensity = Number(event.currentTarget.value);
+  updatePlan();
+  queuePreparedRestart();
+});
 $("level").addEventListener("input", (event) => {
   state.level = Number(event.currentTarget.value);
   $("levelOut").textContent = `${Math.round(state.level * 100)}%`;
@@ -1598,7 +1610,9 @@ $("level").addEventListener("input", (event) => {
 $("accumulateButton").addEventListener("click", () => {
   state.accumulate = !state.accumulate;
   paintStudyControls();
-  if (state.playing) restartTransport();
+  audio.setLiveAxes(state.studyId, effectiveLiveAxes());
+  $("liveStatus").textContent = state.accumulate ? "ANCESTORS ON" : "ANCESTORS OFF";
+  scheduleFrame();
 });
 $("overwhelmButton").addEventListener("click", () => {
   const study = currentStudy();
@@ -1606,11 +1620,15 @@ $("overwhelmButton").addEventListener("click", () => {
   currentSettings().transform = study.parameters.transform.max;
   currentSettings().intensity = study.parameters.intensity.max;
   currentSettings().pace = study.parameters.pace.min;
+  liveSettings[state.studyId] = Object.fromEntries(
+    LIVE_AXIS_IDS.map((axis) => [axis, 1]),
+  );
   state.accumulate = true;
   paintStudyControls();
   updatePlan();
+  audio.setLiveAxes(state.studyId, effectiveLiveAxes());
   queuePreparedRestart();
-  $("liveStatus").textContent = "Event horizon opened. Maximum finite structure, master level unchanged.";
+  $("liveStatus").textContent = "MAXIMUM";
 });
 $("resetStudy").addEventListener("click", () => {
   const study = currentStudy();
@@ -1620,29 +1638,32 @@ $("resetStudy").addEventListener("click", () => {
     transform: study.defaults.transform,
     intensity: study.defaults.intensity,
   };
+  liveSettings[state.studyId] = { ...LIVE_DEFAULTS };
   state.accumulate = true;
   paintStudyControls();
   updatePlan();
+  audio.setLiveAxes(state.studyId, effectiveLiveAxes());
   if (state.playing) queuePreparedRestart();
 });
 
 $("audioFile").addEventListener("change", async (event) => {
   const file = event.currentTarget.files?.[0];
   if (!file) return;
-  $("fileLabel").textContent = `Decoding ${file.name}`;
-  $("fileHint").textContent = "local processing only";
+  $("fileLabel").textContent = "Decoding";
+  $("fileHint").textContent = file.name;
   try {
     await audio.decodeFile(await file.arrayBuffer(), file.name);
     state.source = "file";
     $("fileLabel").textContent = file.name;
-    $("fileHint").textContent = "ready · first four seconds · never uploaded";
+    $("fileHint").textContent = "READY · LOCAL";
     paintSource();
     updatePlan();
     if (state.playing) queuePreparedRestart();
   } catch (error) {
     $("audioError").textContent = error instanceof Error ? error.message : "This audio file could not be decoded.";
     $("audioError").hidden = false;
-    $("fileLabel").textContent = "Choose another audio file";
+    $("fileLabel").textContent = "Audio file";
+    $("fileHint").textContent = "ERROR";
   }
 });
 
@@ -1652,18 +1673,18 @@ $("captureButton").addEventListener("click", async () => {
     return;
   }
   setPressed($("captureButton"), true);
-  $("captureLabel").textContent = "Capturing…";
-  $("captureHint").textContent = "0.0 / 4.0 s · never monitored";
+  $("captureLabel").textContent = "Capture";
+  $("captureHint").textContent = "0.0 / 4.0 S";
   state.captureProgress = 0.001;
   try {
     await audio.captureMicrophone(4, (progress) => {
       state.captureProgress = progress;
-      $("captureHint").textContent = `${(progress * 4).toFixed(1)} / 4.0 s · never monitored`;
+      $("captureHint").textContent = `${(progress * 4).toFixed(1)} / 4.0 S`;
       scheduleFrame();
     });
     state.source = "mic";
-    $("captureLabel").textContent = "Capture ready";
-    $("captureHint").textContent = "4.0 s · microphone closed · capture again";
+    $("captureLabel").textContent = "Capture";
+    $("captureHint").textContent = "READY · CLOSED";
     paintSource();
     updatePlan();
     if (state.playing) queuePreparedRestart();
@@ -1672,8 +1693,8 @@ $("captureButton").addEventListener("click", async () => {
       $("audioError").textContent = error instanceof Error ? error.message : "Microphone capture failed.";
       $("audioError").hidden = false;
     }
-    $("captureLabel").textContent = "Capture four seconds";
-    $("captureHint").textContent = "captured · never live-monitored";
+    $("captureLabel").textContent = "Capture";
+    $("captureHint").textContent = "4 S · NO MONITOR";
   } finally {
     state.captureProgress = 0;
     setPressed($("captureButton"), false);
@@ -1689,7 +1710,7 @@ function frame() {
   paintTimeline(transport.elapsed, transport.moment);
   paintRail(transport.moment);
   paintReadout(transport.moment);
-  $("processLabel").textContent = transport.moment?.label ?? "seed waiting at generation zero";
+  $("processLabel").textContent = `G${Math.max(0, transport.moment?.depth ?? 0)}`;
   if (!reducedMotion || now - lastReducedPaint > 0.12) {
     drawStage(transport.moment, transport.progress);
     lastReducedPaint = now;
@@ -1701,9 +1722,13 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     if (state.playing) setPlaying(false);
     if (state.captureProgress > 0) audio.stopCapture();
+    audio.suspend().catch(() => {
+      // Ignore suspend races while the document lifecycle is changing.
+    });
   }
 });
 globalThis.addEventListener?.("pagehide", () => audio.destroy(), { once: true });
+globalThis.addEventListener?.("beforeunload", () => audio.destroy(), { once: true });
 globalThis.addEventListener?.("keydown", (event) => {
   if (event.key === "Escape") {
     if (state.playing) setPlaying(false);
@@ -1716,6 +1741,7 @@ globalThis.addEventListener?.("keydown", (event) => {
 });
 
 paintStudyControls();
-paintTimeline(0, null);
-paintRail(null);
+fieldDuration = denseFieldDuration();
+paintTimeline(0, denseMoment());
+paintRail(denseMoment());
 scheduleFrame();

@@ -62,3 +62,24 @@ test("retiming a fallback voice crossfades two fixed read positions", () => {
   assert.ok(voice.delayFade > 0 && voice.delayFade < 1);
   assert.deepEqual(voice.delayValues, [0.2, 0.8], "neither read position should glide");
 });
+
+test("fallback generation DSP obeys the adaptive runtime ceiling", () => {
+  const renderer = new MicmicGenerationDSP({
+    sampleRate: 8_000,
+    historySeconds: 4,
+    maxVoices: 64,
+  });
+  const voices = Array.from({ length: 64 }, (_, index) => ({
+    key: `voice:${index}`,
+    delay: 0.02,
+    rate: 1,
+    gain: 0.01,
+    pan: 0,
+  }));
+  renderer.setVoices(voices, 32);
+  assert.equal(renderer.runtimeLimit, 32);
+  assert.equal(renderer.activeTargetCount, 32);
+  renderer.setVoices(voices, 64);
+  assert.equal(renderer.runtimeLimit, 64);
+  assert.equal(renderer.activeTargetCount, 64);
+});

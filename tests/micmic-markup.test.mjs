@@ -23,7 +23,8 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
     "mutation", "wet", "dry", "spread", "recordButton", "downloadTake", "clearTake",
     "generationPreset", "generations", "timeRatio", "generationAngle", "generationAsymmetry",
     "generationPitchScale", "generationTimingReadout", "generationPitchReadout", "resetGenerationRules",
-    "generationPresetDescription", "treeDescription",
+    "generationPresetDescription", "generationCapacityNote", "branchRendererToggle",
+    "branchRendererState", "branchRendererHelp", "treeDescription",
   ]) assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
   for (const section of ["listenSection", "recursionSection", "mixSection", "captureSection"]) {
     assert.match(html, new RegExp(`<details[^>]*id="${section}"`));
@@ -49,6 +50,9 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
   assert.ok((html.match(/<option value="[^"]+"/g) ?? []).length >= 16);
   assert.match(html, /id="generations"[^>]*value="7"/);
   assert.doesNotMatch(html, /Fork density|id="branching"|id="branchingOut"/);
+  assert.match(html, /id="branchRendererToggle"[\s\S]*?role="switch"[\s\S]*?aria-checked="false"/);
+  assert.match(html, /Recursive bounce[\s\S]*?Experimental alternate renderer/);
+  assert.match(html, /AUTO CHECK · 48 \/ 254 audible branches · hard guard 64/);
   assert.match(html, /id="mutation"[^>]*value="0"/);
   assert.doesNotMatch(html, /Starting topology|id="presetButtons"|data-preset=/);
   assert.doesNotMatch(html, /id="stateMetric"|id="depthMetric"|id="outputMetric"/);
@@ -107,6 +111,8 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
   assert.match(css, /\.recursion-parameter-cluster/);
   assert.match(css, /\.parameter-cluster-title/);
   assert.match(css, /\.growth-preset-description/);
+  assert.match(css, /\.branch-renderer-toggle/);
+  assert.match(css, /\.branch-toggle-track/);
   assert.doesNotMatch(css, /\.generation-shape-preview|#generationShape/);
   assert.match(css, /@media \(max-width: 650px\)/);
 });

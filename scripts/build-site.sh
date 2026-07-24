@@ -33,6 +33,8 @@ copy_runtime_file() {
 }
 
 while IFS= read -r -d '' source_path; do
+  [[ -f "$repo_root/$source_path" ]] || continue
+
   case "$source_path" in
     .github/*|tests/*|morphazoidical/tests/*|scripts/*)
       continue
@@ -41,6 +43,11 @@ while IFS= read -r -d '' source_path; do
 
   case "$source_path" in
     *.html|*.css|*.js|favicon.svg|morphazoidical/PLAN.md|\
+    vendor/elementary-audio/LICENSE|\
+    vendor/soundtouchjs-phase-vocoder/LICENSE|\
+    vendor/soundtouchjs/LICENSE|\
+    vendor/tone/LICENSE|\
+    vendor/tone/Tone.js.LICENSE.txt|\
     vendor/tactile/LICENSE|\
     vendor/signalsmith-stretch/SignalsmithStretch.mjs)
       copy_runtime_file "$source_path"

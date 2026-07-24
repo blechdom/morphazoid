@@ -122,12 +122,12 @@ function study({
   });
 }
 
-export const RECURSION_STUDIES = Object.freeze([
+const RECURSION_STUDY_DEFINITIONS = Object.freeze([
   study({
     id: "ouroboros-tape",
     rank: 1,
-    title: "Ouroboros Tape",
-    shortTitle: "Buffer consumes buffer",
+    title: "Fuzzy Donut",
+    shortTitle: "Fuzzy Donut",
     copy: {
       premise: "The rendered buffer from one pass becomes the only input to the next.",
       cue: "Listen for the seed surviving as direction, bandwidth, and tail placement turn inside out.",
@@ -136,19 +136,19 @@ export const RECURSION_STUDIES = Object.freeze([
       process: "Offline buffer reversal, filtering, folding, and normalization",
       listenFor: "A recognizable texture repeatedly swallowing its own ending.",
     },
-    depth: { min: 1, max: 8, default: 5 },
-    pace: { min: 2.8, max: 7, default: 5.3, step: 0.1 },
+    depth: { min: 1, max: 8, default: 7 },
+    pace: { min: 2, max: 6, default: 3.6, step: 0.1 },
     transform: {
       id: "transform",
       label: "Tail consumed",
       min: 0.08,
       max: 0.9,
       step: 0.01,
-      default: 0.58,
+      default: 0.72,
       unit: "%",
       format: (value) => `${Math.round(Number(value) * 100)}% folded`,
     },
-    intensity: { label: "Spectral erosion", default: 0.62 },
+    intensity: { label: "Pressure", default: 0.8 },
     limits: { maxMoments: 9, maxEvents: 9, maxDuration: 80 },
   }),
   study({
@@ -293,7 +293,13 @@ export const RECURSION_STUDIES = Object.freeze([
   }),
 ]);
 
-const STUDIES_BY_ID = new Map(RECURSION_STUDIES.map((entry) => [entry.id, entry]));
+export const RECURSION_STUDIES = Object.freeze([
+  RECURSION_STUDY_DEFINITIONS[0],
+]);
+
+const STUDIES_BY_ID = new Map(
+  RECURSION_STUDY_DEFINITIONS.map((entry) => [entry.id, entry]),
+);
 
 function normalizedParams(metadata, params = {}) {
   const depth = metadata.parameters.depth;

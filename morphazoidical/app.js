@@ -34,9 +34,19 @@ const TAU = Math.PI * 2;
 const DEG = 180 / Math.PI;
 const LOOKAHEAD_SECONDS = 0.075;
 const AUDIO_REFRESH_MS = 24;
+const UI_REFRESH_MS = 80;
 const MAX_VOICES = 32;
+const NEUTRAL_TIMBRE = 0;
 const SAMPLE_PRESETS = Object.freeze({ draft: 16, balanced: 48, precise: 96 });
 const CONTACT_COLORS = ["#66e6c4", "#79b9ff", "#c89eff", "#ffba72", "#ff7e9c"];
+const EVENT_FEATURE_IDS = Object.freeze([
+  "events.births",
+  "events.deaths",
+  "events.splits",
+  "events.merges",
+  "events.entries",
+  "events.exits",
+]);
 
 export const DEFAULT_STATE = Object.freeze({
   playing: false,
@@ -77,6 +87,210 @@ export const DEFAULT_STATE = Object.freeze({
     labels: false,
   }),
 });
+
+/**
+ * Stable feature IDs keep their registry taxonomy; this UI taxonomy answers
+ * the smaller set of questions a performer scans for in real time.
+ */
+export function metricSectionForDescriptor(descriptor) {
+  const id = descriptor?.id ?? "";
+  if (descriptor?.scope === "contact") {
+    if (id.startsWith("contact.motion.")) return "Motion & identity";
+    if (id.startsWith("contact.reader.")) return "Reader relationship";
+    if (
+      id === "contact.turn"
+      || id === "contact.curvature"
+      || id.startsWith("contact.corner.")
+      || id === "contact.hull.class"
+    ) return "Local shape";
+    if (
+      descriptor.group === "Direction"
+      || id === "contact.polarAngle"
+      || id === "contact.radialAlignment"
+      || id === "contact.tangentRadiusAngle"
+      || id === "contact.centerFacing"
+    ) return "Direction & stage origin";
+    return "Location on form";
+  }
+  if (descriptor?.scope === "reader") {
+    if (id === "reader.contactDelta") return "Change";
+    if (id.startsWith("reader.transversality.")) return "Tangency risk";
+    if (id.startsWith("reader.spacing.")) return "Contact distribution";
+    return "Occupancy";
+  }
+  if (descriptor?.scope === "geometry") {
+    if (descriptor.group === "Topology") return "Contour topology";
+    if (id === "geometry.samples" || id === "geometry.segments") return "Sampling diagnostics";
+    if (id.startsWith("geometry.radius.") || id.startsWith("geometry.center.")) {
+      return "Stage-origin profile";
+    }
+    if (
+      id === "geometry.compactness"
+      || id === "geometry.solidity"
+      || id === "geometry.convexity"
+      || id === "geometry.eccentricity"
+      || id.startsWith("geometry.hull.")
+    ) return "Shape character";
+    if (
+      id === "geometry.closed"
+      || id === "geometry.orientation"
+      || id === "geometry.logicalEdges"
+    ) return "Identity";
+    return "Size & pose";
+  }
+  if (descriptor?.scope === "event") {
+    if (id === "events.births" || id === "events.deaths") return "Contact lifecycle";
+    if (id === "events.entries" || id === "events.exits") return "Reader boundary";
+    return "Structural · planned";
+  }
+  return descriptor?.group ?? "Other";
+}
+
+function eventCount(events, directTypes, groupedType) {
+  const direct = events.filter((event) => directTypes.includes(event?.type));
+  if (direct.length) return direct.length;
+  return events
+    .filter((event) => event?.type === groupedType)
+    .reduce((sum, event) => sum + (finite(event?.count) ? event.count : 2), 0);
+}
+
+/**
+ * Preserve planned outputs as unavailable and derive fallback counters from
+ * the same event records shown in the log when the analysis layer fails.
+ */
+export function eventFeaturesFromAnalysis(analysis, events = []) {
+  const records = Array.isArray(events) ? events : [];
+  const fallback = {
+    births: eventCount(records, ["contact_birth", "birth"], "contact_pair_birth"),
+    deaths: eventCount(records, ["contact_death", "death"], "contact_pair_death"),
+    entries: records.filter((event) => ["entry", "reader_entry"].includes(event?.type)).length,
+    exits: records.filter((event) => ["exit", "reader_exit"].includes(event?.type)).length,
+  };
+  return {
+    "events.births": analysis?.eventCounts?.births ?? fallback.births,
+    "events.deaths": analysis?.eventCounts?.deaths ?? fallback.deaths,
+    "events.splits": analysis?.eventCounts?.splits ?? null,
+    "events.merges": analysis?.eventCounts?.merges ?? null,
+    "events.entries": analysis?.eventCounts?.entries ?? fallback.entries,
+    "events.exits": analysis?.eventCounts?.exits ?? fallback.exits,
+  };
+}
+
+/** A categorical `unavailable` sentinel is absence, never category zero. */
+export function isFeatureValueUnavailable(value) {
+  return value === null
+    || value === undefined
+    || value === "unavailable"
+    || (typeof value === "number" && !Number.isFinite(value));
+}
+
+/** Apply registry normalization only to values that actually exist. */
+export function mappingSignalForValue(featureOrId, value) {
+  if (isFeatureValueUnavailable(value)) {
+    return { raw: null, normalized: null, available: false };
+  }
+  const normalized = normalizeFeatureValue(featureOrId, value);
+  return {
+    raw: value,
+    normalized,
+    available: normalized !== null && Number.isFinite(normalized),
+  };
+}
+
+/** Fold event edges between slower UI paints so short pulses remain visible. */
+export function accumulateEventPulse(pulse, frame) {
+  const previous = pulse ?? {
+    features: {
+      "events.births": 0,
+      "events.deaths": 0,
+      "events.splits": null,
+      "events.merges": null,
+      "events.entries": 0,
+      "events.exits": 0,
+    },
+    eventCount: 0,
+    frameCount: 0,
+  };
+  if (!frame) return previous;
+  const features = { ...previous.features };
+  for (const id of EVENT_FEATURE_IDS) {
+    const value = frame?.features?.[id];
+    if (!finite(value)) continue;
+    features[id] = (finite(features[id]) ? features[id] : 0) + value;
+  }
+  return {
+    features,
+    eventCount: previous.eventCount + (Array.isArray(frame?.events) ? frame.events.length : 0),
+    frameCount: previous.frameCount + 1,
+  };
+}
+
+/** Native controls keep their own keyboard contract; shortcuts are page-level only. */
+export function shouldHandleGlobalShortcut(event) {
+  if (!event || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return false;
+  const interactive = event.target?.closest?.(
+    "button, summary, a[href], input, select, textarea, [role='tab'], [role='button'], [role='link'], [contenteditable]:not([contenteditable='false'])",
+  );
+  return !interactive;
+}
+
+/** Presentation metadata is shared by the timeline and focused tests. */
+export function eventPresentation(event) {
+  const type = String(event?.type ?? "");
+  const count = finite(event?.count) ? event.count : null;
+  if (type.includes("pair") || type === "split" || type === "merge") {
+    return {
+      className: "event-structural",
+      marker: count === null ? "2×" : `${formatNumber(count, 0)}×`,
+      subject: count === null ? event?.contactId ?? "Contact set" : `${formatNumber(count, 0)} contacts`,
+    };
+  }
+  if (type.includes("death") || type.includes("exit")) {
+    return {
+      className: type.includes("exit") ? "event-boundary event-death" : "event-death",
+      marker: type.includes("exit") ? "OUT" : "−",
+      subject: event?.contactId ?? "Contact set",
+    };
+  }
+  if (type.includes("entry")) {
+    return { className: "event-boundary", marker: "IN", subject: event?.contactId ?? "Contact set" };
+  }
+  if (type.includes("birth")) {
+    return { className: "event-birth", marker: "+", subject: event?.contactId ?? "Contact set" };
+  }
+  return { className: "", marker: "•", subject: event?.contactId ?? "Contact set" };
+}
+
+/** Label topology only when the analysis supplied a classification. */
+export function topologyPresentation(closed, topology) {
+  if (!closed) return "Open contour";
+  if (topology?.simpleClosed === true) return "Simple closed contour";
+  if (topology?.simpleClosed === false) return "Complex or degenerate contour";
+  return "Topology unavailable";
+}
+
+/** Separate geometric demand from voices actually submitted to a live engine. */
+export function audioVoiceCounts({
+  audioEnabled,
+  engineRunning,
+  geometricContacts = 0,
+  mappableVoices = 0,
+  submittedVoices = 0,
+  maximumVoices = MAX_VOICES,
+} = {}) {
+  const contacts = Math.max(0, Math.floor(Number(geometricContacts) || 0));
+  const mappable = Math.max(0, Math.floor(Number(mappableVoices) || 0));
+  const scheduled = audioEnabled
+    ? Math.max(0, Math.min(maximumVoices, Math.floor(Number(submittedVoices) || 0)))
+    : 0;
+  return {
+    contacts,
+    mappable,
+    scheduled,
+    rendered: audioEnabled && engineRunning ? scheduled : 0,
+    overCapacity: Math.max(0, mappable - maximumVoices),
+  };
+}
 
 /** Join current/future voice sets without dropping a birth or death abruptly. */
 export function unionVoiceTrajectories(currentVoices, futureVoices) {
@@ -196,13 +410,12 @@ function formatNumber(value, digits = 3) {
   if (!finite(value)) return "Unavailable";
   if (Math.abs(value) >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
   if (Math.abs(value) < 0.5 * 10 ** -digits) return "0";
-  return value.toFixed(digits).replace(/\.?0+$/, "");
+  const fixed = value.toFixed(digits);
+  return digits === 0 ? fixed : fixed.replace(/\.?0+$/, "");
 }
 
 function formatFeature(descriptor, value) {
-  if (value === null || value === undefined || (typeof value === "number" && !finite(value))) {
-    return "Unavailable";
-  }
+  if (isFeatureValueUnavailable(value)) return "Unavailable";
   if (descriptor?.type === "boolean") return value ? "Yes" : "No";
   if (descriptor?.type === "category") return String(value).replaceAll("-", " ");
   if (descriptor?.unit === "radian") return `${formatNumber(value * DEG, 1)}°`;
@@ -212,6 +425,41 @@ function formatFeature(descriptor, value) {
   const suffix = descriptor?.unit === "model-unit" ? " u"
     : descriptor?.unit === "model-unit²" ? " u²" : "";
   return `${formatNumber(value)}${suffix}`;
+}
+
+function meterKind(descriptor) {
+  if (descriptor?.type === "circular" || descriptor?.type === "cyclic") return "cyclic";
+  const normalization = descriptor?.normalization;
+  if (
+    normalization?.kind === "signed-positive"
+    || (
+      normalization?.kind === "linear"
+      && normalization.minimum < 0
+      && normalization.maximum > 0
+    )
+  ) return "signed";
+  return "linear";
+}
+
+function updateMeter(meter, descriptor, normalized) {
+  if (!meter) return;
+  const fill = meter.querySelector("i");
+  const available = finite(normalized);
+  const kind = meterKind(descriptor);
+  meter.dataset.kind = kind;
+  meter.hidden = !available || descriptor?.type === "boolean" || descriptor?.type === "category";
+  if (!fill || !available) return;
+  const value = clamp(normalized, 0, 1);
+  if (kind === "signed") {
+    fill.style.left = `${Math.min(0.5, value) * 100}%`;
+    fill.style.width = `${Math.abs(value - 0.5) * 100}%`;
+  } else if (kind === "cyclic") {
+    fill.style.left = `calc(${value * 100}% - 1px)`;
+    fill.style.width = "2px";
+  } else {
+    fill.style.left = "0";
+    fill.style.width = `${value * 100}%`;
+  }
 }
 
 class ContactIdentityTracker {
@@ -439,8 +687,7 @@ function featureValue(frame, id, contact = frame.selectedContact) {
 
 function mappingValue(frame, featureId, contact) {
   const raw = featureValue(frame, featureId, contact);
-  const normalized = normalizeFeatureValue(featureId, raw);
-  return { raw, normalized };
+  return mappingSignalForValue(featureId, raw);
 }
 
 function stateShape(state, positionSeconds = 0) {
@@ -514,7 +761,15 @@ export function startWorkbench(root = document) {
   let cssHeight = 1;
   let audioBusy = false;
   let analysisRateHz = 0;
+  let lastAnalysisTime = null;
+  let lastUiUpdate = -Infinity;
+  let renderedTimelineSignature = "";
   let latestTrajectory = null;
+  let pendingEventPulse = accumulateEventPulse(null, null);
+  const metricViews = new WeakMap();
+  const heroViews = new WeakMap();
+  const telemetryViews = new WeakMap();
+  const contactListViews = new WeakMap();
 
   const stageWrap = byId("stageShell", "stageWrap", "stagePanel") ?? canvas.parentElement;
   const announce = (message) => setText(byId("liveStatus", "announcer"), message);
@@ -560,6 +815,7 @@ export function startWorkbench(root = document) {
     const rawContacts = contactsForReader(path, reader);
     const tracked = tracker.assign(rawContacts, timestampMilliseconds, reader.id);
     let analysis = null;
+    let analysisError = null;
     try {
       analysis = analysisCall({
         path,
@@ -570,6 +826,7 @@ export function startWorkbench(root = document) {
           ? previousFrame.analysis : null,
       });
     } catch (error) {
+      analysisError = error;
       console.error("Morphazoidical analysis frame failed", error);
     }
 
@@ -585,25 +842,6 @@ export function startWorkbench(root = document) {
       contact.id,
       { ...fallbackContactFeatures(path, contact), ...(contact.features ?? contact.values ?? {}) },
     ]));
-    const features = {
-      ...fallbackFrameFeatures(path, contacts, previousFrame?.contacts.length),
-      ...(analysis?.geometry?.features ?? {}),
-      ...(analysis?.reader?.features ?? {}),
-      ...(analysis?.features ?? analysis?.values ?? {}),
-      "events.births": analysis?.eventCounts?.births ?? 0,
-      "events.deaths": analysis?.eventCounts?.deaths ?? 0,
-      "events.splits": analysis?.eventCounts?.splits ?? 0,
-      "events.merges": analysis?.eventCounts?.merges ?? 0,
-      "events.entries": analysis?.eventCounts?.entries ?? 0,
-      "events.exits": analysis?.eventCounts?.exits ?? 0,
-    };
-    const selectedContact = pinnedContactId
-      ? contacts.find((contact) => contact.id === pinnedContactId) ?? null
-      : contacts[0] ?? null;
-    if (pinnedContactId && !contacts.some((contact) => contact.id === pinnedContactId)) {
-      // Keep the pin latched so it can reconnect, but be explicit that it is inactive.
-    }
-
     const fallbackEvents = [
       ...contacts.filter((contact) => contact.isBirth).map((contact) => (
         makeEvent("contact_birth", timestamp, { contactId: contact.id })
@@ -613,6 +851,20 @@ export function startWorkbench(root = document) {
       )),
     ];
     const events = Array.isArray(analysis?.events) ? analysis.events : fallbackEvents;
+    const features = {
+      ...fallbackFrameFeatures(path, contacts, previousFrame?.contacts.length),
+      ...(analysis?.geometry?.features ?? {}),
+      ...(analysis?.reader?.features ?? {}),
+      ...(analysis?.features ?? analysis?.values ?? {}),
+      ...eventFeaturesFromAnalysis(analysis, events),
+    };
+    const selectedContact = pinnedContactId
+      ? contacts.find((contact) => contact.id === pinnedContactId) ?? null
+      : contacts[0] ?? null;
+    if (pinnedContactId && !contacts.some((contact) => contact.id === pinnedContactId)) {
+      // Keep the pin latched so it can reconnect, but be explicit that it is inactive.
+    }
+
     return Object.freeze({
       timestamp,
       path,
@@ -623,6 +875,7 @@ export function startWorkbench(root = document) {
       contactFeatures,
       features,
       events,
+      analysisError,
       analysisSignature,
     });
   }
@@ -669,7 +922,7 @@ export function startWorkbench(root = document) {
     const pan = mappingValue(frame, state.panSource, contact);
     const timbre = mappingValue(frame, state.timbreSource, contact);
     if (pitch.normalized === null || gain.normalized === null || pan.normalized === null) return null;
-    const synth = synthParametersForMode(state.soundMode, timbre.normalized ?? 0, {
+    const synth = synthParametersForMode(state.soundMode, timbre.normalized ?? NEUTRAL_TIMBRE, {
       fmIndex: 8,
       fmRatio: 2,
       pmIndex: 5,
@@ -702,7 +955,6 @@ export function startWorkbench(root = document) {
     const trajectory = unionVoiceTrajectories(currentVoices, futureVoices);
     latestTrajectory = trajectory;
     pool.setVoiceTrajectory(trajectory.current, trajectory.future, LOOKAHEAD_SECONDS);
-    renderAudioTelemetry(frame, currentVoices, trajectory);
   }
 
   function drawGuide(transform) {
@@ -916,7 +1168,10 @@ export function startWorkbench(root = document) {
     const groups = new Map();
     for (const descriptor of FEATURE_REGISTRY) {
       if (descriptor.type === "event" || !["contact", "reader", "geometry"].includes(descriptor.scope)) continue;
-      const groupLabel = descriptor.scope === "geometry" ? "Form" : descriptor.scope[0].toUpperCase() + descriptor.scope.slice(1);
+      const scopeLabel = descriptor.scope === "geometry"
+        ? "Form"
+        : descriptor.scope[0].toUpperCase() + descriptor.scope.slice(1);
+      const groupLabel = `${scopeLabel} · ${metricSectionForDescriptor(descriptor)}`;
       if (!groups.has(groupLabel)) groups.set(groupLabel, []);
       groups.get(groupLabel).push(descriptor);
     }
@@ -936,48 +1191,173 @@ export function startWorkbench(root = document) {
     select.dataset.target = target;
   }
 
+  function mappedTargetsForFeature(featureId) {
+    return [
+      state.pitchSource === featureId ? "Pitch" : null,
+      state.panSource === featureId ? "Pan" : null,
+      state.gainSource === featureId ? "Level" : null,
+      state.timbreSource === featureId ? "Timbre" : null,
+    ].filter(Boolean);
+  }
+
+  function ensureMetricView(host, descriptors) {
+    const signature = descriptors.map((descriptor) => descriptor.id).join("|");
+    const existing = metricViews.get(host);
+    if (existing?.signature === signature) return existing;
+
+    clear(host);
+    const grouped = new Map();
+    for (const descriptor of descriptors) {
+      const section = metricSectionForDescriptor(descriptor);
+      if (!grouped.has(section)) grouped.set(section, []);
+      grouped.get(section).push(descriptor);
+    }
+
+    const descriptions = {
+      "Location on form": "Position, phase, and edge identity",
+      "Direction & stage origin": "Angles and relation to the fixed origin",
+      "Local shape": "Turn, curvature, corner, and hull class",
+      "Reader relationship": "Ordering, crossing role, and incidence",
+      "Motion & identity": "Velocity and tracked contact lifetime",
+      Occupancy: "Contacts and contained reader spans",
+      "Contact distribution": "Spacing along the active reader",
+      "Tangency risk": "Low transversality flags a grazing candidate",
+      Change: "Current-frame contact-set change",
+      Identity: "Closure, orientation, and logical structure",
+      "Size & pose": "Dimensions, area, centroid, and principal direction",
+      "Shape character": "Compactness, hull relation, and eccentricity",
+      "Stage-origin profile": "Radii and containment at the fixed origin",
+      "Sampling diagnostics": "Polyline resolution used by this snapshot",
+      "Contour topology": "Crossings, touches, and overlaps",
+      "Contact lifecycle": "Birth and death edges in this frame",
+      "Reader boundary": "Entry and exit edges in this frame",
+      "Structural · planned": "Split and merge semantics are not implemented",
+    };
+    const rows = new Map();
+    const groups = [];
+    let groupIndex = 0;
+
+    for (const [section, sectionDescriptors] of grouped) {
+      const disclosure = element("details", "metric-group");
+      disclosure.open = host.id === "topologyMetrics" || groupIndex === 0;
+      const summary = element("summary");
+      const heading = element("span");
+      heading.append(element("b", "", section));
+      heading.append(element("small", "", descriptions[section] ?? "Raw and normalized live outputs"));
+      const count = element("span", "metric-group-count", `${sectionDescriptors.length} signals`);
+      summary.append(heading, count);
+      const list = element("dl", "metric-list");
+
+      for (const descriptor of sectionDescriptors) {
+        const row = element("div", "metric-row");
+        row.dataset.featureId = descriptor.id;
+        const term = element("dt");
+        term.append(element("span", "", descriptor.label));
+        term.append(element(
+          "small",
+          "",
+          `${descriptor.type}${descriptor.unit ? ` · ${descriptor.unit}` : ""}`,
+        ));
+        const badges = element("span", "metric-route-badges");
+        term.append(badges);
+
+        const definition = element("dd");
+        const value = element("strong", "metric-value", "Unavailable");
+        const normalized = element("span", "metric-normalized", "Not available");
+        const meter = element("span", "metric-meter");
+        meter.setAttribute("aria-hidden", "true");
+        meter.append(element("i"));
+        definition.append(value, normalized, meter);
+        row.append(term, definition);
+        row.title = [descriptor.id, descriptor.description, descriptor.availability]
+          .filter(Boolean)
+          .join(" · ");
+        list.append(row);
+        rows.set(descriptor.id, { row, value, normalized, meter, badges });
+      }
+
+      disclosure.append(summary, list);
+      host.append(disclosure);
+      groups.push({ count, descriptors: sectionDescriptors });
+      groupIndex += 1;
+    }
+
+    const view = { signature, rows, groups };
+    metricViews.set(host, view);
+    return view;
+  }
+
   function renderMetricRows(host, descriptors, frame, contact = frame.selectedContact) {
     if (!host) return;
-    clear(host);
+    const view = ensureMetricView(host, descriptors);
     for (const descriptor of descriptors) {
+      const parts = view.rows.get(descriptor.id);
+      if (!parts) continue;
       const value = featureValue(frame, descriptor.id, contact);
-      const normalized = normalizeFeatureValue(descriptor, value);
-      const row = element("div", value === null || value === undefined ? "invalid" : "");
-      row.dataset.featureId = descriptor.id;
-      const term = element("dt", "", descriptor.label);
-      term.append(element(
-        "small",
-        "",
-        `${descriptor.group} · ${descriptor.id}${descriptor.availability ? ` · ${descriptor.availability}` : ""}`,
-      ));
-      const definition = element("dd", "", formatFeature(descriptor, value));
-      definition.append(element(
-        "span",
-        "",
-        normalized === null ? "Unavailable · not mapped" : `normalized ${formatNumber(normalized)} · live sampled`,
-      ));
-      row.append(term, definition);
-      if (descriptor.description) row.title = descriptor.description;
-      host.append(row);
+      const signal = mappingSignalForValue(descriptor, value);
+      const normalized = signal.normalized;
+      const unavailable = isFeatureValueUnavailable(value);
+      const targets = mappedTargetsForFeature(descriptor.id);
+      parts.row.classList.toggle("invalid", unavailable);
+      parts.row.classList.toggle("is-mapped", targets.length > 0);
+      parts.row.dataset.status = unavailable ? "unavailable" : "live";
+      setText(parts.value, formatFeature(descriptor, value));
+      setText(
+        parts.normalized,
+        normalized === null ? "Not available for mapping" : `Norm ${formatNumber(normalized)}`,
+      );
+      updateMeter(parts.meter, descriptor, normalized);
+      const routeSignature = targets.join("|");
+      if (parts.badges.dataset.routes !== routeSignature) {
+        clear(parts.badges);
+        for (const target of targets) {
+          parts.badges.append(element("span", "metric-route-badge", target));
+        }
+        parts.badges.dataset.routes = routeSignature;
+      }
+    }
+    for (const group of view.groups) {
+      const live = group.descriptors.filter((descriptor) => {
+        const value = featureValue(frame, descriptor.id, contact);
+        return !isFeatureValueUnavailable(value);
+      }).length;
+      setText(group.count, `${live} live · ${group.descriptors.length - live} unavailable`);
     }
   }
 
   function renderHero(host, frame, featureIds, contact = frame.selectedContact) {
     if (!host) return;
-    clear(host);
+    const signature = featureIds.join("|");
+    let view = heroViews.get(host);
+    if (view?.signature !== signature) {
+      clear(host);
+      const cards = new Map();
+      for (const id of featureIds) {
+        const descriptor = getFeatureDescriptor(id);
+        if (!descriptor) continue;
+        const card = element("div");
+        const label = element("small", "", descriptor.label);
+        const value = element("strong", "", "Unavailable");
+        const meta = element("span", "", descriptor.availability ?? "Waiting for analysis");
+        card.append(label, value, meta);
+        host.append(card);
+        cards.set(id, { value, meta });
+      }
+      view = { signature, cards };
+      heroViews.set(host, view);
+    }
     for (const id of featureIds) {
       const descriptor = getFeatureDescriptor(id);
-      if (!descriptor) continue;
+      const card = view.cards.get(id);
+      if (!descriptor || !card) continue;
       const value = featureValue(frame, id, contact);
-      const card = element("div");
-      card.append(element("small", "", descriptor.label));
-      card.append(element("strong", "", formatFeature(descriptor, value)));
-      card.append(element(
-        "span",
-        "",
-        value === null || value === undefined ? descriptor.availability ?? "unavailable" : descriptor.unit ?? "normalized feature",
-      ));
-      host.append(card);
+      setText(card.value, formatFeature(descriptor, value));
+      setText(
+        card.meta,
+        isFeatureValueUnavailable(value)
+          ? descriptor.availability ?? "Unavailable"
+          : descriptor.unit ?? "Mapping-ready",
+      );
     }
   }
 
@@ -986,31 +1366,67 @@ export function startWorkbench(root = document) {
     const readerDescriptors = FEATURE_REGISTRY.filter((descriptor) => descriptor.scope === "reader");
     const geometryDescriptors = FEATURE_REGISTRY.filter((descriptor) => descriptor.scope === "geometry");
     const topologyDescriptors = FEATURE_REGISTRY.filter((descriptor) => descriptor.group === "Topology" || descriptor.group === "Events");
-    renderMetricRows(byId("contactMetrics"), contactDescriptors, frame);
-    renderMetricRows(byId("readerMetrics"), readerDescriptors, frame);
-    renderMetricRows(byId("formMetrics"), geometryDescriptors.filter((item) => item.group !== "Topology"), frame);
-    renderMetricRows(byId("topologyMetrics"), topologyDescriptors, frame);
-    renderHero(byId("contactHero"), frame, ["contact.radius", "contact.contourPhase"]);
-    renderHero(byId("readerHero"), frame, ["reader.contactCount", "reader.insideSpan"]);
-    renderHero(byId("formHero"), frame, ["geometry.perimeter", "geometry.area"]);
+    const activeScope = root.querySelector('[data-inspector-tab][aria-selected="true"]')
+      ?.dataset.inspectorTab ?? "contact";
+    if (activeScope === "contact") {
+      renderMetricRows(byId("contactMetrics"), contactDescriptors, frame);
+      renderHero(
+        byId("contactHero"),
+        frame,
+        ["contact.contourPhase", "contact.turn", "contact.motion.speed"],
+      );
+    } else if (activeScope === "reader") {
+      renderMetricRows(byId("readerMetrics"), readerDescriptors, frame);
+      renderHero(
+        byId("readerHero"),
+        frame,
+        ["reader.contactCount", "reader.insideFraction", "reader.transversality.minimum"],
+      );
+      renderContactList(frame);
+    } else if (activeScope === "form") {
+      renderMetricRows(
+        byId("formMetrics"),
+        geometryDescriptors.filter((item) => item.group !== "Topology"),
+        frame,
+      );
+      renderHero(
+        byId("formHero"),
+        frame,
+        ["geometry.perimeter", "geometry.area", "geometry.compactness"],
+      );
+    } else if (activeScope === "topology") {
+      renderMetricRows(byId("topologyMetrics"), topologyDescriptors, frame);
+    }
 
     const label = byId("selectedContactLabel");
     if (label) {
       const index = frame.contacts.findIndex((contact) => contact.id === frame.selectedContact?.id);
-      label.textContent = frame.selectedContact
+      const contactLabel = frame.selectedContact
         ? `Contact ${index + 1} · ${pinnedContactId ? "pinned" : "automatic"}`
         : pinnedContactId ? "Pinned contact · inactive" : "No active contact";
+      const headings = {
+        contact: contactLabel,
+        reader: `Reader · ${frame.reader.mode}`,
+        form: `${state.shapeType === "circle" ? "Circle" : state.shapeType === "line" ? "Open line" : state.shapeType} · form snapshot`,
+        topology: frame.path.closed ? "Contour topology · closed" : "Contour topology · open",
+        audio: `Audio output · ${state.audio ? "live" : "muted"}`,
+      };
+      label.textContent = headings[activeScope] ?? contactLabel;
     }
+    const clearPin = byId("clearContactPin");
+    if (clearPin) clearPin.hidden = activeScope !== "contact" || !pinnedContactId;
 
     const topology = frame.analysis?.geometry?.topology;
     const topologySummary = byId("topologySummary");
-    if (topologySummary) {
+    if (topologySummary && activeScope === "topology") {
       const count = frame.analysis?.geometry?.selfIntersections?.length ?? null;
       const orb = topologySummary.querySelector(".topology-orb");
       orb?.classList.toggle("complex", finite(count) && count > 0);
-      orb?.classList.toggle("simple", count === 0);
-      setText(topologySummary.querySelector("strong"), topology?.simpleClosed ? "Simple closed contour"
-        : frame.path.closed ? "Complex or degenerate contour" : "Open contour");
+      orb?.classList.toggle("simple", count === 0 && topology?.simpleClosed === true);
+      setText(
+        topologySummary.querySelector("strong"),
+        topologyPresentation(frame.path.closed, topology),
+      );
       setText(topologySummary.querySelector("small"), count === null ? "Self-intersection status unavailable"
         : `${count} sampled self-intersection${count === 1 ? "" : "s"}`);
     }
@@ -1019,34 +1435,64 @@ export function startWorkbench(root = document) {
   function renderContactList(frame) {
     const host = byId("contactList", "activeContacts");
     if (!host) return;
-    clear(host);
-    if (!frame.contacts.length) {
-      host.append(element("p", "empty-state", "No reader contacts in this frame."));
-      return;
+    let view = contactListViews.get(host);
+    if (!view) {
+      clear(host);
+      view = { items: new Map(), empty: null };
+      contactListViews.set(host, view);
     }
+
+    const liveIds = new Set(frame.contacts.map((contact) => contact.id));
+    for (const [id, parts] of view.items) {
+      if (liveIds.has(id)) continue;
+      parts.item.remove();
+      view.items.delete(id);
+    }
+
+    if (!frame.contacts.length) {
+      if (!view.empty) view.empty = element("li", "empty-state", "No reader contacts in this frame.");
+      if (view.empty.parentElement !== host) host.append(view.empty);
+    } else {
+      view.empty?.remove();
+    }
+
     frame.contacts.forEach((contact, index) => {
-      const item = element("li", frame.selectedContact?.id === contact.id ? "selected" : "");
-      item.tabIndex = 0;
-      item.setAttribute("role", "button");
+      let parts = view.items.get(contact.id);
+      if (!parts) {
+        const item = element("li");
+        const button = element("button", "contact-select");
+        const swatch = element("i");
+        const label = element("span");
+        const detail = element("small");
+        button.type = "button";
+        swatch.setAttribute("aria-hidden", "true");
+        button.append(swatch, label, detail);
+        button.addEventListener("click", () => {
+          const id = button.dataset.contactId;
+          pinnedContactId = pinnedContactId === id ? null : id;
+          const currentIndex = latestFrame?.contacts.findIndex((entry) => entry.id === id) ?? -1;
+          announce(pinnedContactId
+            ? `Pinned contact ${currentIndex >= 0 ? currentIndex + 1 : ""}.`
+            : "Contact pin cleared.");
+          invalidate();
+        });
+        item.append(button);
+        parts = { item, button, swatch, label, detail };
+        view.items.set(contact.id, parts);
+      }
+      const { item, button, swatch, label, detail } = parts;
       item.dataset.contactId = contact.id;
-      item.setAttribute("aria-pressed", String(pinnedContactId === contact.id));
-      const swatch = element("i");
+      button.dataset.contactId = contact.id;
+      button.setAttribute("aria-pressed", String(pinnedContactId === contact.id));
+      button.setAttribute("aria-label", `Contact ${index + 1}, contour phase ${formatNumber(contact.u)}`);
       swatch.style.background = CONTACT_COLORS[index % CONTACT_COLORS.length];
-      item.append(swatch);
-      item.append(element("span", "", `Contact ${index + 1}`));
-      item.append(element("small", "", `${formatNumber(contact.u)} · edge ${Math.floor(contact.segmentIndex / Math.max(1, frame.path.samplesPerEdge)) + 1}`));
-      const select = () => {
-        pinnedContactId = pinnedContactId === contact.id ? null : contact.id;
-        announce(pinnedContactId ? `Pinned contact ${index + 1}.` : "Contact pin cleared.");
-        invalidate();
-      };
-      item.addEventListener("click", select);
-      item.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        select();
-      });
-      host.append(item);
+      setText(label, `Contact ${index + 1}`);
+      setText(
+        detail,
+        `${formatNumber(contact.u)} · edge ${Math.floor(contact.segmentIndex / Math.max(1, frame.path.samplesPerEdge)) + 1}`,
+      );
+      const childAtIndex = host.children[index];
+      if (childAtIndex !== item) host.insertBefore(item, childAtIndex ?? null);
     });
     setText(byId("pinStatus", "contactPinStatus"), pinnedContactId
       ? frame.contacts.some((contact) => contact.id === pinnedContactId) ? "Pinned · live" : "Pinned · inactive"
@@ -1054,30 +1500,140 @@ export function startWorkbench(root = document) {
   }
 
   function pushEvents(events) {
+    const additions = [];
+    const known = new Set(eventHistory.map((entry) => entry.key));
     for (const event of events) {
       const key = event.id ?? `${event.type}:${event.timestamp}:${event.contactId ?? ""}`;
-      if (eventHistory.some((entry) => entry.key === key)) continue;
-      eventHistory.unshift({ ...event, key });
+      if (known.has(key)) continue;
+      known.add(key);
+      additions.push({ ...event, key });
     }
+    if (!additions.length) return;
+    eventHistory.unshift(...additions);
     eventHistory.splice(40);
+    renderedTimelineSignature = "";
+    const first = additions[0];
+    setText(
+      byId("eventAnnouncement"),
+      additions.length === 1
+        ? `${eventLabel(first)}${first.contactId ? `, ${first.contactId}` : ""}.`
+        : `${additions.length} geometry events. First: ${eventLabel(first)}.`,
+    );
+  }
+
+  function renderEventSummary(frame, pulse) {
+    for (const counter of root.querySelectorAll("[data-event-feature]")) {
+      const id = counter.dataset.eventFeature;
+      const value = Object.prototype.hasOwnProperty.call(pulse?.features ?? {}, id)
+        ? pulse.features[id]
+        : featureValue(frame, id, frame.selectedContact);
+      const unavailable = isFeatureValueUnavailable(value);
+      counter.dataset.status = unavailable ? "unavailable" : "live";
+      counter.dataset.active = String(!unavailable && value > 0);
+      counter.title = unavailable
+        ? getFeatureDescriptor(id)?.availability ?? "Unavailable"
+        : `${formatNumber(value, 0)} event edge${value === 1 ? "" : "s"} in this display update`;
+      setText(counter.querySelector("strong"), unavailable ? "—" : formatNumber(value, 0));
+    }
+    const currentEvents = pulse?.eventCount
+      ?? (Array.isArray(frame.events) ? frame.events.length : 0);
+    const activity = byId("eventActivity");
+    setText(
+      activity,
+      currentEvents
+        ? `${currentEvents} change${currentEvents === 1 ? "" : "s"} this update`
+        : "Stable snapshot",
+    );
+    activity?.parentElement?.setAttribute("data-active", String(currentEvents > 0));
+    setText(byId("eventHistoryCount"), `${eventHistory.length} latched`);
   }
 
   function renderTimeline() {
     const host = byId("eventStream", "eventTimeline", "timelineEvents");
     if (!host) return;
+    const visible = eventHistory.slice(0, 6);
+    const signature = visible.map((event) => event.key).join("|");
+    if (signature === renderedTimelineSignature) return;
+    renderedTimelineSignature = signature;
     clear(host);
-    if (!eventHistory.length) {
-      host.append(element("p", "empty-state", "Geometry events will appear as contacts enter, leave, split, or merge."));
+    if (!visible.length) {
+      const empty = element("li", "event-empty");
+      empty.append(element("span", "", "No topology changes yet"));
+      empty.append(element("small", "", "Contact and reader-boundary events will appear here."));
+      host.append(empty);
       return;
     }
-    const origin = eventHistory.at(-1)?.timestamp ?? 0;
-    for (const event of eventHistory.slice(0, 12)) {
-      const item = element("li", String(event.type ?? "").includes("death") ? "event-death" : "");
-      item.append(element("b", "", eventLabel(event)));
-      item.append(element("span", "", event.contactId ?? `${event.count ?? "set"} contacts`));
-      item.append(element("small", "", `+${(event.timestamp - origin).toFixed(2)} s · ${event.quality ?? "frame detected"}`));
+    const newestTimestamp = visible[0]?.timestamp ?? 0;
+    visible.forEach((event, index) => {
+      const visual = eventPresentation(event);
+      const item = element("li", visual.className);
+      item.classList.toggle("is-latest", index === 0);
+      item.append(element("span", "event-marker", visual.marker));
+      const body = element("div");
+      body.append(element("b", "", eventLabel(event)));
+      body.append(element(
+        "span",
+        "",
+        visual.subject,
+      ));
+      const age = Math.max(0, newestTimestamp - (event.timestamp ?? newestTimestamp));
+      item.append(body);
+      item.append(element(
+        "small",
+        "",
+        `${index === 0 ? "Latest" : `${age.toFixed(2)} s earlier`} · ${event.quality ?? "frame"}`,
+      ));
       host.append(item);
+    });
+  }
+
+  function renderLiveDashboard(frame, voices = []) {
+    for (const card of root.querySelectorAll("[data-live-feature]")) {
+      const id = card.dataset.liveFeature;
+      const descriptor = getFeatureDescriptor(id);
+      if (!descriptor) continue;
+      const value = featureValue(frame, id, frame.selectedContact);
+      const normalized = mappingSignalForValue(descriptor, value).normalized;
+      const unavailable = isFeatureValueUnavailable(value);
+      card.dataset.status = unavailable ? "unavailable" : "live";
+      card.dataset.alert = String(
+        id === "reader.transversality.minimum"
+        && finite(value)
+        && value < 0.08,
+      );
+      setText(card.querySelector(".live-value"), formatFeature(descriptor, value));
+      let meta = normalized === null
+        ? descriptor.availability ?? "Not available in this frame"
+        : `Norm ${formatNumber(normalized)}`;
+      if (id === "reader.transversality.minimum" && finite(value)) {
+        meta = value < 0.08 ? "Tangency candidate" : value < 0.25 ? "Near grazing" : "Transverse";
+      }
+      setText(card.querySelector(".live-value-meta"), meta);
+      updateMeter(card.querySelector(".live-meter"), descriptor, normalized);
+      card.setAttribute(
+        "aria-label",
+        `${descriptor.label}: ${formatFeature(descriptor, value)}. ${meta}.`,
+      );
     }
+
+    const intersectionCount = featureValue(frame, "geometry.selfIntersections", frame.selectedContact);
+    const topologyState = !frame.path.closed
+      ? "Topology · open contour"
+      : finite(intersectionCount) && intersectionCount > 0
+        ? `Topology · ${formatNumber(intersectionCount, 0)} intersection${intersectionCount === 1 ? "" : "s"}`
+        : finite(intersectionCount) ? "Topology · simple closed" : "Topology · unavailable";
+    const topologyLabel = byId("liveTopologyState");
+    setText(topologyLabel, topologyState);
+    topologyLabel?.classList.toggle("complex", finite(intersectionCount) && intersectionCount > 0);
+    const contactIndex = frame.contacts.findIndex((contact) => contact.id === frame.selectedContact?.id);
+    const subject = contactIndex >= 0 ? `contact ${contactIndex + 1}` : "no contact";
+    const voiceState = state.audio
+      ? `${pool.running ? pool.lastSubmittedVoiceCount : 0} rendered voices`
+      : `audio off · ${voices.length} mapping-ready`;
+    setText(
+      byId("liveFrameState"),
+      `${frame.contacts.length} contacts · ${voiceState} · ${subject}`,
+    );
   }
 
   function renderMapping(frame) {
@@ -1089,25 +1645,61 @@ export function startWorkbench(root = document) {
       ["timbre", state.timbreSource, byId("timbreRouteValue", "timbrePreview")],
     ];
     for (const [target, source, output] of routes) {
-      if (!output) continue;
       const descriptor = getFeatureDescriptor(source);
       const mapped = mappingValue(frame, source, contact);
+      const monitor = root.querySelector(`[data-route-monitor="${target}"]`);
       if (mapped.normalized === null) {
-        output.textContent = `${descriptor?.label ?? source}: Unavailable · voice held silent`;
-        output.dataset.status = "unavailable";
+        const neutralTimbre = target === "timbre";
+        const unavailableOutput = neutralTimbre
+          ? `${formatNumber(NEUTRAL_TIMBRE)} neutral fallback`
+          : "Silent";
+        if (output) {
+          output.textContent = neutralTimbre
+            ? `${descriptor?.label ?? source} · unavailable · ${unavailableOutput}`
+            : `${descriptor?.label ?? source} · unavailable · voice held silent`;
+          output.dataset.status = neutralTimbre ? "fallback" : "unavailable";
+        }
+        if (monitor) {
+          monitor.dataset.status = neutralTimbre ? "fallback" : "unavailable";
+          setText(monitor.querySelector(".route-status"), neutralTimbre ? "neutral" : "silent");
+          setText(monitor.querySelector(".route-source"), descriptor?.label ?? source);
+          setText(monitor.querySelector(".route-raw"), "—");
+          setText(monitor.querySelector(".route-normalized"), "—");
+          setText(monitor.querySelector(".route-output"), unavailableOutput);
+        }
         continue;
       }
       const targetValue = target === "pitch"
         ? `${Math.round(pitch01ToFrequency(mapped.normalized, state.baseFrequency, state.pitchRange))} Hz`
         : target === "pan" ? formatNumber(mapped.normalized * 2 - 1)
           : target === "timbre" ? `${formatNumber(mapped.normalized)} drive`
-            : formatNumber(mapped.normalized * 0.62);
-      output.textContent = `${formatFeature(descriptor, mapped.raw)} → ${formatNumber(mapped.normalized)} → ${targetValue}`;
-      output.dataset.status = "live";
+            : `${formatNumber(mapped.normalized * 0.62)} gain`;
+      const rawValue = formatFeature(descriptor, mapped.raw);
+      if (output) {
+        output.textContent = `${descriptor?.label ?? source} · raw ${rawValue} · norm ${formatNumber(mapped.normalized)} · ${targetValue}`;
+        output.dataset.status = "live";
+      }
+      if (monitor) {
+        monitor.dataset.status = "live";
+        setText(monitor.querySelector(".route-status"), "live");
+        setText(monitor.querySelector(".route-source"), descriptor?.label ?? source);
+        setText(monitor.querySelector(".route-raw"), rawValue);
+        setText(monitor.querySelector(".route-normalized"), formatNumber(mapped.normalized));
+        setText(monitor.querySelector(".route-output"), targetValue);
+      }
     }
   }
 
   function renderAudioTelemetry(frame, voices = [], trajectory = null) {
+    const counts = audioVoiceCounts({
+      audioEnabled: state.audio,
+      engineRunning: pool.running,
+      geometricContacts: frame.contacts.length,
+      mappableVoices: voices.length,
+      submittedVoices: pool.lastSubmittedVoiceCount,
+      maximumVoices: MAX_VOICES,
+    });
+    const audioOff = "0 · audio off";
     const host = byId("audioTelemetry", "audioMetrics");
     if (host) {
       const selected = frame.selectedContact;
@@ -1115,50 +1707,91 @@ export function startWorkbench(root = document) {
       const gain = mappingValue(frame, state.gainSource, selected);
       const selectedVoice = selected ? voices.find((voice) => voice.key === selected.id) : null;
       const rows = [
-        ["Geometric contacts", frame.contacts.length],
-        ["Mappable voices", voices.length],
-        ["Scheduled voices", trajectory?.current.length ?? voices.length],
-        ["Culled", Math.max(0, voices.length - MAX_VOICES)],
-        ["Voice patch", state.soundMode.toUpperCase()],
-        ["Selected pitch source", pitch.raw === null ? "Unavailable" : `${formatNumber(pitch.raw)} raw · ${formatNumber(pitch.normalized)} norm`],
-        ["Selected level source", gain.raw === null ? "Unavailable" : `${formatNumber(gain.raw)} raw · ${formatNumber(gain.normalized)} norm`],
-        ["Selected mapped target", selectedVoice ? `${Math.round(selectedVoice.frequency)} Hz · gain ${formatNumber(selectedVoice.gain)}` : "Silent / unavailable"],
-        ["Renderer", !state.audio ? "Muted" : pool.synthNode ? "AudioWorklet" : pool.workletUnavailable ? "Native fallback" : "Starting"],
-        ["Lookahead", `${Math.round(LOOKAHEAD_SECONDS * 1000)} ms`],
-        ["Output level", state.audio ? "Estimated" : "Unavailable while muted"],
+        ["Voice allocation", "Geometric contacts", counts.contacts],
+        ["Voice allocation", "Mapping-ready voices", counts.mappable],
+        ["Voice allocation", "Scheduled voices", state.audio ? counts.scheduled : audioOff],
+        ["Voice allocation", "Rendering now", state.audio
+          ? pool.running ? counts.rendered : "0 · engine not running"
+          : audioOff],
+        ["Voice allocation", "Over pool capacity", counts.overCapacity],
+        ["Selected mapping", "Voice patch", state.soundMode.toUpperCase()],
+        ["Selected mapping", "Pitch source", !pitch.available ? "Unavailable" : `${formatNumber(pitch.raw)} raw · ${formatNumber(pitch.normalized)} norm`],
+        ["Selected mapping", "Level source", !gain.available ? "Unavailable" : `${formatNumber(gain.raw)} raw · ${formatNumber(gain.normalized)} norm`],
+        ["Selected mapping", "Mapped target", selectedVoice
+          ? `${Math.round(selectedVoice.frequency)} Hz · gain ${formatNumber(selectedVoice.gain)}${state.audio ? "" : " · preview only"}`
+          : "Silent / unavailable"],
+        ["Engine & output", "Renderer", !state.audio ? "Audio off"
+          : !pool.running ? "Starting / suspended"
+            : pool.synthNode ? "AudioWorklet" : pool.workletUnavailable ? "Native fallback" : "Native renderer"],
+        ["Engine & output", "Lookahead", `${Math.round(LOOKAHEAD_SECONDS * 1000)} ms`],
+        ["Engine & output", "Output level", state.audio && pool.running ? "Estimated" : "Unavailable while audio is off"],
       ];
-      clear(host);
-      for (const [label, value] of rows) {
-        const row = element("div", "telemetry-row");
-        row.append(element("dt", "", label), element("dd", "", String(value)));
-        host.append(row);
+
+      const signature = rows.map(([group, label]) => `${group}:${label}`).join("|");
+      let view = telemetryViews.get(host);
+      if (view?.signature !== signature) {
+        clear(host);
+        const groups = new Map();
+        for (const [group, label] of rows) {
+          if (!groups.has(group)) groups.set(group, []);
+          groups.get(group).push(label);
+        }
+        const values = new Map();
+        for (const [group, labels] of groups) {
+          const section = element("section", "telemetry-group");
+          const header = element("header");
+          header.append(element("h3", "", group));
+          const list = element("dl");
+          for (const label of labels) {
+            const row = element("div", "telemetry-row");
+            const value = element("dd");
+            row.append(element("dt", "", label), value);
+            list.append(row);
+            values.set(label, value);
+          }
+          section.append(header, list);
+          host.append(section);
+        }
+        view = { signature, values };
+        telemetryViews.set(host, view);
+      }
+      for (const [, label, value] of rows) {
+        setText(view.values.get(label), String(value));
       }
     }
-    setText(byId("voiceCount", "activeVoiceCount"), String(Math.min(voices.length, MAX_VOICES)));
+    setText(byId("voiceCount", "activeVoiceCount"), String(counts.rendered));
     setText(byId("audioEngine", "audioRenderer"), !state.audio ? "Muted"
-      : pool.synthNode ? "Worklet · live" : "Fallback · estimated");
+      : !pool.running ? "Starting"
+        : pool.synthNode ? "Worklet · live" : "Fallback · estimated");
   }
 
   function renderQuality(frame) {
     const preset = state.qualityPreset[0].toUpperCase() + state.qualityPreset.slice(1);
     const label = `${preset} · sampled polyline · ${state.samplesPerEdge} samples/edge`;
+    const analysisAvailable = Boolean(frame.analysis);
     setText(byId("fidelityBadge", "geometryQuality", "qualityLabel"), `Sampled · ${state.samplesPerEdge}/edge`);
     setText(byId("qualityDetail", "geometryQualityDetail"),
-      "Live values are exact for the sampled polyline. Smooth-curve and sub-frame event error bounds are not yet available.");
+      analysisAvailable
+        ? "Live values are exact for the sampled polyline. Smooth-curve and sub-frame event error bounds are not yet available."
+        : `${label}. Core geometry and event counts are using the sampled fallback; advanced analysis is unavailable.`);
     const badge = byId("qualityStatus", "analysisStatus");
     if (badge) {
-      badge.textContent = "Live · sampled";
-      badge.dataset.status = "estimated";
+      badge.textContent = analysisAvailable ? "Live · sampled" : "Fallback · analysis unavailable";
+      badge.dataset.status = analysisAvailable ? "estimated" : "unavailable";
     }
     setText(byId("contactCount", "readerContactCount"), String(frame.contacts.length));
     setText(byId("readerPhaseOut"), `${(frame.reader.phase * 100).toFixed(1)}%`);
-    setText(byId("analysisRate"), `analysis ${analysisRateHz ? analysisRateHz.toFixed(0) : "—"} Hz`);
+    setText(
+      byId("analysisRate"),
+      state.playing || state.autoRotate
+        ? `snapshots ${analysisRateHz ? analysisRateHz.toFixed(0) : "—"} Hz`
+        : "snapshots on change",
+    );
     const shapeName = state.shapeType === "circle" ? "CIRCLE"
       : state.shapeType === "line" ? "OPEN LINE"
         : `${state.sides}-${state.shapeType === "star" ? "POINT STAR" : "SIDED POLYGON"}`;
     const topology = frame.analysis?.geometry?.topology;
-    const topologyName = !frame.path.closed ? "OPEN"
-      : topology?.simpleClosed ? "SIMPLE CLOSED" : "COMPLEX CLOSED";
+    const topologyName = topologyPresentation(frame.path.closed, topology).toUpperCase();
     setText(byId("geometryStatus"), `${shapeName} · ${topologyName}`);
     const readerNames = { vertical: "VERTICAL SCAN", horizontal: "HORIZONTAL SCAN", ray: "RADAR RAY", path: "CONTOUR TRACE" };
     setText(byId("readerStatus"), `${readerNames[frame.reader.mode] ?? "READER"} · ${frame.contacts.length} CONTACT${frame.contacts.length === 1 ? "" : "S"}`);
@@ -1194,14 +1827,16 @@ export function startWorkbench(root = document) {
     if (sides) sides.disabled = state.shapeType === "circle" || state.shapeType === "line";
   }
 
-  function updateUi(frame) {
-    renderContactList(frame);
-    renderInspector(frame);
+  function updateUi(frame, eventPulse) {
+    const voices = voicesForFrame(frame);
+    renderLiveDashboard(frame, voices);
+    renderEventSummary(frame, eventPulse);
     renderMapping(frame);
     renderTimeline();
     renderQuality(frame);
     renderControls(frame);
-    renderAudioTelemetry(frame, voicesForFrame(frame), latestTrajectory);
+    renderInspector(frame);
+    renderAudioTelemetry(frame, voices, latestTrajectory);
     setText(byId("positionValue", "positionOut"), formatNumber(state.position));
     setText(byId("rotationValue", "rotationOut"), `${formatNumber(state.rotation + state.continuousRotation, 1)}°`);
   }
@@ -1221,22 +1856,32 @@ export function startWorkbench(root = document) {
     if (moved) {
       const input = byId("readerPhase", "position", "readerPosition");
       if (input) input.value = String(state.position);
-      invalidated = true;
     }
   }
 
   function frameLoop(now) {
     const dt = Math.min(0.05, Math.max(0, (now - lastTime) / 1000));
     lastTime = now;
-    if (dt > 0) analysisRateHz = analysisRateHz
-      ? analysisRateHz * 0.9 + (1 / dt) * 0.1 : 1 / dt;
     applyMotion(dt);
     if (invalidated || state.playing || state.autoRotate) {
+      const forceUi = invalidated || lastUiUpdate < 0;
+      if (lastAnalysisTime !== null) {
+        const analysisDelta = Math.max(1e-3, (now - lastAnalysisTime) / 1000);
+        analysisRateHz = analysisRateHz
+          ? analysisRateHz * 0.9 + (1 / analysisDelta) * 0.1
+          : 1 / analysisDelta;
+      }
+      lastAnalysisTime = now;
       const frame = buildFrame(now);
       latestFrame = frame;
       pushEvents(frame.events);
+      pendingEventPulse = accumulateEventPulse(pendingEventPulse, frame);
       paint(frame);
-      updateUi(frame);
+      if (forceUi || now - lastUiUpdate >= UI_REFRESH_MS) {
+        updateUi(frame, pendingEventPulse);
+        pendingEventPulse = accumulateEventPulse(null, null);
+        lastUiUpdate = now;
+      }
       updateAudio(frame, now);
       previousFrame = frame;
       invalidated = false;
@@ -1385,7 +2030,7 @@ export function startWorkbench(root = document) {
     if (mappingDisclosure) {
       clear(mappingDisclosure);
       mappingDisclosure.append(element("b", "", "Mapping contract:"));
-      mappingDisclosure.append(" raw → registry normalization → destination range. Circular sources wrap; unavailable sources are visibly marked and hold the affected voice silent.");
+      mappingDisclosure.append(" raw → registry normalization → destination range. Circular sources wrap; unavailable pitch, level, or pan sources hold the voice silent, while unavailable timbre uses a visible neutral fallback.");
     }
 
     bindToggle(["autoRotate", "rotationToggle"], () => state.autoRotate, (value) => {
@@ -1428,6 +2073,7 @@ export function startWorkbench(root = document) {
           const selected = item === tab;
           item.setAttribute("aria-selected", String(selected));
           item.classList.toggle("is-active", selected);
+          item.tabIndex = selected ? 0 : -1;
         });
         for (const panel of root.querySelectorAll('[role="tabpanel"]')) {
           panel.hidden = panel.id !== tab.getAttribute("aria-controls");
@@ -1502,10 +2148,7 @@ export function startWorkbench(root = document) {
     canvas.addEventListener("pointercancel", endStageDrag);
 
     root.addEventListener("keydown", (event) => {
-      const editable = event.target instanceof HTMLInputElement
-        || event.target instanceof HTMLSelectElement
-        || event.target instanceof HTMLTextAreaElement;
-      if (editable) return;
+      if (!shouldHandleGlobalShortcut(event)) return;
       if (event.code === "Space") {
         event.preventDefault();
         play?.click();

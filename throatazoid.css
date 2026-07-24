@@ -20,6 +20,13 @@
     radial-gradient(ellipse at 42% 50%, rgba(216, 255, 87, 0.025), transparent 38%),
     radial-gradient(ellipse at 78% 50%, rgba(232, 237, 223, 0.018), transparent 45%),
     var(--xeno-black);
+  transition: box-shadow 140ms ease;
+}
+
+.throatazoid-page .stage-wrap.is-beatbox-focused {
+  box-shadow:
+    inset 0 0 0 1px rgba(121, 220, 255, 0.38),
+    inset 0 0 46px rgba(121, 220, 255, 0.035);
 }
 
 .throatazoid-page #stage {
@@ -385,6 +392,7 @@
 }
 
 .throatazoid-organ-key i {
+  position: relative;
   display: block;
   width: 5px;
   height: 5px;
@@ -393,21 +401,50 @@
 }
 
 .throatazoid-organ-key span:nth-child(1) i {
-  border-color: var(--accent);
+  width: 10px;
+  height: 1px;
+  border: 0;
+  transform: none;
   background: var(--accent);
   box-shadow: 0 0 7px var(--accent-soft);
 }
 
 .throatazoid-organ-key span:nth-child(2) i {
-  border-color: var(--xeno-bone);
+  width: 11px;
+  height: 9px;
+  border: 0;
+  border-left: 1px solid var(--xeno-bone);
+  transform: none;
+}
+
+.throatazoid-organ-key span:nth-child(2) i::before,
+.throatazoid-organ-key span:nth-child(2) i::after {
+  position: absolute;
+  left: 1px;
+  width: 9px;
+  height: 1px;
+  transform-origin: left center;
+  background: var(--xeno-bone);
+  content: "";
+}
+
+.throatazoid-organ-key span:nth-child(2) i::before {
+  top: 3px;
+  transform: rotate(-25deg);
+}
+
+.throatazoid-organ-key span:nth-child(2) i::after {
+  bottom: 3px;
+  transform: rotate(25deg);
 }
 
 .throatazoid-organ-key span:nth-child(3) i {
-  width: 8px;
-  height: 1px;
-  border: 0;
+  width: 10px;
+  height: 5px;
+  border-color: var(--xeno-bone);
+  border-radius: 48% 52% 40% 60%;
   transform: none;
-  background: var(--xeno-dim);
+  background: rgba(232, 237, 223, 0.05);
 }
 
 .throatazoid-organ-key span:nth-child(4) i {
@@ -426,6 +463,12 @@
   border-radius: 50% 0 50% 50%;
   transform: rotate(45deg);
   background: rgba(121, 220, 255, 0.09);
+  animation: throatazoid-nose-node 1.1s ease-in-out infinite alternate;
+}
+
+.is-nose .throatazoid-organ-selector button[aria-pressed="true"] i {
+  color: var(--xeno-nose);
+  animation: throatazoid-nose-node 850ms ease-in-out infinite alternate;
 }
 
 .throatazoid-handle-readout {
@@ -512,6 +555,223 @@
   animation: throatazoid-rec 1s steps(2, end) infinite;
 }
 
+.throatazoid-performance-presets {
+  margin: 10px 10px 7px;
+  overflow: hidden;
+  border: 1px solid rgba(216, 255, 87, 0.28);
+  color: var(--xeno-dim);
+  background:
+    linear-gradient(124deg, rgba(216, 255, 87, 0.075), transparent 36%),
+    var(--xeno-black);
+  box-shadow:
+    inset 0 0 28px rgba(216, 255, 87, 0.025),
+    0 9px 22px rgba(0, 0, 0, 0.22);
+  clip-path: polygon(
+    9px 0,
+    100% 0,
+    100% calc(100% - 9px),
+    calc(100% - 9px) 100%,
+    0 100%,
+    0 9px
+  );
+}
+
+.throatazoid-start-sound {
+  display: grid;
+  min-width: 0;
+  padding: 10px;
+  border-bottom: 1px solid rgba(216, 255, 87, 0.15);
+  grid-template-columns: minmax(0, 1fr) minmax(142px, 0.95fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.throatazoid-start-sound > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.throatazoid-start-sound > span > b {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.throatazoid-start-sound > span > small {
+  color: var(--xeno-dim);
+  font-size: 7px;
+  line-height: 1.35;
+}
+
+.throatazoid-start-sound > div {
+  display: grid;
+  border-top: 1px solid rgba(216, 255, 87, 0.22);
+  border-left: 1px solid rgba(216, 255, 87, 0.22);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.throatazoid-start-sound button,
+.throatazoid-preset-bank button {
+  min-width: 0;
+  border: 0;
+  border-right: 1px solid rgba(216, 255, 87, 0.16);
+  border-bottom: 1px solid rgba(216, 255, 87, 0.16);
+  cursor: pointer;
+  color: var(--xeno-dim);
+  background: rgba(2, 3, 2, 0.58);
+  text-align: left;
+  transition:
+    color 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.throatazoid-start-sound button {
+  display: grid;
+  min-height: 43px;
+  padding: 7px 8px;
+  align-content: center;
+  gap: 2px;
+}
+
+.throatazoid-start-sound button b {
+  color: var(--xeno-bone);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.throatazoid-start-sound button small {
+  color: var(--xeno-dim);
+  font-size: 6px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.throatazoid-start-sound button:first-child {
+  color: var(--accent);
+  background: rgba(216, 255, 87, 0.055);
+}
+
+.throatazoid-start-sound button:hover,
+.throatazoid-start-sound button:focus-visible,
+.throatazoid-preset-bank button:hover,
+.throatazoid-preset-bank button:focus-visible {
+  color: var(--xeno-bone);
+  background: rgba(216, 255, 87, 0.075);
+  outline: 1px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.throatazoid-start-sound button[aria-pressed="true"] {
+  color: var(--xeno-black);
+  background: var(--accent);
+  box-shadow: 0 0 18px rgba(216, 255, 87, 0.22);
+}
+
+.throatazoid-start-sound button[aria-pressed="true"] b,
+.throatazoid-start-sound button[aria-pressed="true"] small {
+  color: inherit;
+}
+
+.throatazoid-preset-bank {
+  display: grid;
+  border-left: 1px solid rgba(232, 237, 223, 0.1);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.throatazoid-preset-bank button {
+  display: grid;
+  min-height: 43px;
+  padding: 7px 8px 6px;
+  align-content: center;
+  gap: 2px;
+}
+
+.throatazoid-preset-bank button b {
+  color: var(--xeno-bone);
+  font-size: 8px;
+  font-weight: 550;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.throatazoid-preset-bank button small {
+  overflow: hidden;
+  color: var(--xeno-dim);
+  font-size: 6px;
+  letter-spacing: 0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.throatazoid-preset-bank button[aria-pressed="true"] {
+  color: var(--accent);
+  background:
+    linear-gradient(180deg, rgba(216, 255, 87, 0.12), transparent),
+    var(--xeno-black);
+  box-shadow:
+    inset 2px 0 0 var(--accent),
+    inset 0 0 18px rgba(216, 255, 87, 0.045);
+}
+
+.throatazoid-preset-bank button[aria-pressed="true"] b {
+  color: var(--accent);
+}
+
+.throatazoid-preset-bank-label {
+  display: flex;
+  min-height: 29px;
+  padding: 7px 9px 5px;
+  border-top: 1px solid rgba(216, 255, 87, 0.2);
+  border-right: 1px solid rgba(216, 255, 87, 0.16);
+  border-bottom: 1px solid rgba(216, 255, 87, 0.12);
+  color: var(--accent);
+  background:
+    linear-gradient(90deg, rgba(216, 255, 87, 0.09), transparent 70%),
+    var(--xeno-black);
+  grid-column: 1 / -1;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 9px;
+  text-transform: uppercase;
+}
+
+.throatazoid-preset-bank-label b {
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+.throatazoid-preset-bank-label small {
+  overflow: hidden;
+  color: var(--xeno-dim);
+  font-size: 6px;
+  letter-spacing: 0.045em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.throatazoid-performance-presets > p {
+  margin: 0;
+  padding: 8px 10px 9px;
+  color: var(--xeno-dim);
+  font-size: 7px;
+  letter-spacing: 0.025em;
+  line-height: 1.45;
+}
+
+.throatazoid-performance-presets > p b {
+  color: var(--accent);
+  font-weight: 550;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .throatazoid-inspiration-note {
   margin: 12px 0 0;
   padding: 12px 13px;
@@ -524,6 +784,10 @@
   font-size: 7px;
   letter-spacing: 0.025em;
   line-height: 1.65;
+}
+
+.throatazoid-page .panel > .throatazoid-inspiration-note {
+  margin: 10px 10px 6px;
 }
 
 .throatazoid-inspiration-note > b {
@@ -550,6 +814,28 @@
 .throatazoid-inspiration-note a:focus-visible {
   color: #fff0f6;
   text-decoration-color: currentColor;
+}
+
+.throatazoid-polyphonic-note {
+  margin: 9px 0 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(198, 160, 255, 0.22);
+  border-left: 2px solid var(--xeno-tongue);
+  color: var(--muted);
+  background:
+    linear-gradient(105deg, rgba(198, 160, 255, 0.08), transparent 72%),
+    var(--xeno-black);
+  font-size: 7px;
+  line-height: 1.55;
+}
+
+.throatazoid-polyphonic-note[hidden] {
+  display: none;
+}
+
+.throatazoid-polyphonic-note b {
+  color: var(--xeno-tongue);
+  font-weight: 500;
 }
 
 .throatazoid-page #listenSection {
@@ -672,8 +958,9 @@
   color: var(--muted);
   font-size: 7px;
   letter-spacing: 0.03em;
+  line-height: 1.35;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .throatazoid-typing-sigil {
@@ -1265,6 +1552,190 @@
     inset 0 0 22px rgba(216, 255, 87, 0.025);
 }
 
+.throatazoid-pressure-sources {
+  position: relative;
+  margin: 0 0 11px;
+  padding: 9px 10px 10px;
+  overflow: hidden;
+  border-top: 1px solid rgba(216, 255, 87, 0.15);
+  border-bottom: 1px solid rgba(216, 255, 87, 0.1);
+  background:
+    linear-gradient(90deg, rgba(216, 255, 87, 0.045), transparent 64%),
+    var(--xeno-black);
+}
+
+.throatazoid-pressure-sources::after {
+  position: absolute;
+  top: -18px;
+  right: -12px;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(216, 255, 87, 0.1);
+  transform: rotate(45deg);
+  pointer-events: none;
+  content: "";
+}
+
+.throatazoid-pressure-source-heading {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.throatazoid-pressure-source-heading > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.throatazoid-pressure-source-heading > span > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.throatazoid-pressure-source-heading b {
+  color: var(--xeno-bone);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.throatazoid-pressure-source-heading small {
+  overflow: hidden;
+  color: var(--xeno-dim);
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.throatazoid-pressure-source-heading output {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(216, 255, 87, 0.34);
+  color: var(--accent);
+  background: rgba(216, 255, 87, 0.04);
+  place-items: center;
+  font-size: 8px;
+}
+
+.throatazoid-pressure-source-sigil {
+  position: relative;
+  display: grid;
+  width: 32px;
+  height: 16px;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: center;
+  gap: 3px;
+}
+
+.throatazoid-pressure-source-sigil::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  content: "";
+}
+
+.throatazoid-pressure-source-sigil b {
+  display: block;
+  width: 5px;
+  height: 8px;
+  border: 1px solid var(--accent);
+  border-radius: 50% 50% 35% 35%;
+  background: rgba(216, 255, 87, 0.05);
+}
+
+.throatazoid-pressure-sources > label {
+  display: block;
+}
+
+.throatazoid-pressure-sources > label input[type="range"] {
+  width: 100%;
+  height: 28px;
+}
+
+.throatazoid-pressure-source-buttons {
+  display: grid;
+  border-left: 1px solid rgba(216, 255, 87, 0.12);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.throatazoid-pressure-source-buttons button {
+  display: grid;
+  min-width: 0;
+  min-height: 38px;
+  padding: 4px 5px;
+  border: 0;
+  border-top: 1px solid rgba(216, 255, 87, 0.12);
+  border-right: 1px solid rgba(216, 255, 87, 0.12);
+  border-bottom: 1px solid rgba(216, 255, 87, 0.12);
+  cursor: pointer;
+  color: var(--xeno-dim);
+  background: rgba(2, 3, 2, 0.65);
+  place-items: center;
+  grid-template-columns: 9px auto;
+  grid-template-rows: auto auto;
+  gap: 1px 5px;
+}
+
+.throatazoid-pressure-source-buttons button > i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  grid-row: 1 / -1;
+}
+
+.throatazoid-pressure-source-buttons button > span {
+  font-size: 7px;
+  letter-spacing: 0.1em;
+}
+
+.throatazoid-pressure-source-buttons button > small {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 5px;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+
+.throatazoid-pressure-source-buttons button:hover,
+.throatazoid-pressure-source-buttons button:focus-visible {
+  color: var(--accent);
+  background: rgba(216, 255, 87, 0.045);
+}
+
+.throatazoid-pressure-source-buttons button:focus-visible {
+  z-index: 1;
+  outline: 1px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.throatazoid-pressure-source-buttons button[aria-pressed="true"] {
+  color: var(--accent);
+  background:
+    linear-gradient(180deg, rgba(216, 255, 87, 0.075), transparent),
+    var(--xeno-black);
+}
+
+.throatazoid-pressure-source-buttons button[aria-pressed="true"] > i {
+  background: var(--accent);
+  box-shadow: 0 0 9px rgba(216, 255, 87, 0.56);
+  animation: throatazoid-pressure-pulse 760ms ease-in-out infinite alternate;
+}
+
 .throatazoid-source-selector button > span {
   display: grid;
   min-width: 0;
@@ -1653,54 +2124,32 @@
   font-weight: 500;
 }
 
-.throatazoid-specimens {
-  display: grid;
-  margin: 8px 0 16px;
-  border-top: 1px solid var(--line-strong);
-  border-left: 1px solid var(--line-strong);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.throatazoid-specimens button {
+.throatazoid-preset-bank button[data-specimen] {
   display: grid;
   min-width: 0;
-  min-height: 50px;
-  padding: 7px 6px;
-  border-right: 1px solid var(--line-strong);
-  border-bottom: 1px solid var(--line-strong);
-  cursor: pointer;
-  color: var(--muted);
-  background: var(--xeno-black);
-  grid-template-columns: 18px minmax(0, 1fr);
+  min-height: 46px;
+  padding: 6px;
+  grid-template-columns: 16px minmax(0, 1fr);
   align-content: center;
   align-items: center;
   gap: 2px 5px;
-  text-align: left;
 }
 
-.throatazoid-specimens button:hover,
-.throatazoid-specimens button:focus-visible {
-  color: var(--xeno-bone);
-  background: rgba(232, 237, 223, 0.03);
-}
-
-.throatazoid-specimens button[aria-pressed="true"] {
+.throatazoid-preset-bank button[data-specimen][aria-pressed="true"] {
   color: var(--accent);
-  background: rgba(216, 255, 87, 0.045);
-  box-shadow: inset 2px 0 0 var(--accent);
 }
 
-.throatazoid-specimens i {
+.throatazoid-preset-bank [data-specimen] i {
   position: relative;
-  width: 17px;
-  height: 18px;
+  width: 15px;
+  height: 16px;
   border: 1px solid currentColor;
   clip-path: polygon(50% 0, 100% 36%, 82% 100%, 18% 100%, 0 36%);
   grid-row: 1 / 3;
 }
 
-.throatazoid-specimens i::before,
-.throatazoid-specimens i::after {
+.throatazoid-preset-bank [data-specimen] i::before,
+.throatazoid-preset-bank [data-specimen] i::after {
   position: absolute;
   top: 10px;
   left: 4px;
@@ -1712,59 +2161,59 @@
   content: "";
 }
 
-.throatazoid-specimens i::after {
+.throatazoid-preset-bank [data-specimen] i::after {
   transform: rotate(28deg);
 }
 
-.throatazoid-specimens [data-specimen="oracle"] i {
+.throatazoid-preset-bank [data-specimen="oracle"] i {
   border-radius: 50%;
   clip-path: none;
 }
 
-.throatazoid-specimens [data-specimen="hive"] i {
+.throatazoid-preset-bank [data-specimen="hive"] i {
   clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
 }
 
-.throatazoid-specimens [data-specimen="razor"] i {
+.throatazoid-preset-bank [data-specimen="razor"] i {
   clip-path: polygon(0 20%, 30% 0, 44% 38%, 68% 10%, 100% 28%, 78% 58%, 100% 100%, 55% 78%, 18% 100%);
 }
 
-.throatazoid-specimens [data-specimen="monolith"] i {
+.throatazoid-preset-bank [data-specimen="monolith"] i {
   width: 11px;
   height: 21px;
   margin-left: 3px;
   clip-path: polygon(24% 0, 76% 0, 100% 100%, 0 100%);
 }
 
-.throatazoid-specimens [data-specimen="siren"] i {
+.throatazoid-preset-bank [data-specimen="siren"] i {
   clip-path: polygon(0 0, 50% 34%, 100% 0, 72% 50%, 100% 100%, 50% 66%, 0 100%, 28% 50%);
 }
 
-.throatazoid-specimens [data-specimen="larva"] i {
+.throatazoid-preset-bank [data-specimen="larva"] i {
   border-radius: 58% 42% 62% 38% / 43% 59% 41% 57%;
   clip-path: none;
   transform: rotate(-18deg);
 }
 
-.throatazoid-specimens [data-specimen="cathedral"] i {
+.throatazoid-preset-bank [data-specimen="cathedral"] i {
   height: 21px;
   clip-path: polygon(0 100%, 0 45%, 20% 45%, 20% 18%, 36% 18%, 50% 0, 64% 18%, 80% 18%, 80% 45%, 100% 45%, 100% 100%);
 }
 
-.throatazoid-specimens [data-specimen="needle"] i {
+.throatazoid-preset-bank [data-specimen="needle"] i {
   width: 8px;
   height: 22px;
   margin-left: 4px;
   clip-path: polygon(50% 0, 100% 86%, 50% 100%, 0 86%);
 }
 
-.throatazoid-specimens [data-specimen="maw"] i {
+.throatazoid-preset-bank [data-specimen="maw"] i {
   width: 18px;
   height: 13px;
   clip-path: polygon(0 50%, 22% 0, 50% 22%, 78% 0, 100% 50%, 78% 100%, 50% 78%, 22% 100%);
 }
 
-.throatazoid-specimens [data-specimen="choir"] i {
+.throatazoid-preset-bank [data-specimen="choir"] i {
   width: 13px;
   margin-left: 2px;
   box-shadow:
@@ -1772,7 +2221,20 @@
     3px 0 0 -2px currentColor;
 }
 
-.throatazoid-specimens [data-specimen="void"] i {
+.throatazoid-preset-bank [data-specimen="singing"] i {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  clip-path: polygon(0 50%, 18% 18%, 36% 72%, 52% 0, 69% 76%, 84% 25%, 100% 50%, 84% 75%, 69% 24%, 52% 100%, 36% 28%, 18% 82%);
+  background: currentColor;
+}
+
+.throatazoid-preset-bank [data-specimen="singing"] i::before,
+.throatazoid-preset-bank [data-specimen="singing"] i::after {
+  display: none;
+}
+
+.throatazoid-preset-bank [data-specimen="void"] i {
   width: 17px;
   height: 17px;
   border-style: dashed;
@@ -1781,8 +2243,8 @@
   transform: rotate(18deg);
 }
 
-.throatazoid-specimens [data-specimen="monolith"] i::before,
-.throatazoid-specimens [data-specimen="needle"] i::before {
+.throatazoid-preset-bank [data-specimen="monolith"] i::before,
+.throatazoid-preset-bank [data-specimen="needle"] i::before {
   top: 3px;
   left: 50%;
   width: 1px;
@@ -1790,14 +2252,14 @@
   transform: none;
 }
 
-.throatazoid-specimens [data-specimen="monolith"] i::after,
-.throatazoid-specimens [data-specimen="needle"] i::after,
-.throatazoid-specimens [data-specimen="void"] i::before,
-.throatazoid-specimens [data-specimen="void"] i::after {
+.throatazoid-preset-bank [data-specimen="monolith"] i::after,
+.throatazoid-preset-bank [data-specimen="needle"] i::after,
+.throatazoid-preset-bank [data-specimen="void"] i::before,
+.throatazoid-preset-bank [data-specimen="void"] i::after {
   display: none;
 }
 
-.throatazoid-specimens span {
+.throatazoid-preset-bank [data-specimen] span {
   overflow: hidden;
   color: currentColor;
   font-size: 8px;
@@ -1806,12 +2268,292 @@
   text-transform: uppercase;
 }
 
-.throatazoid-specimens small {
+.throatazoid-preset-bank [data-specimen] small {
   overflow: hidden;
   color: var(--faint);
   font-size: 6px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.throatazoid-mouth-gates {
+  position: relative;
+  margin: -2px 0 12px;
+  padding: 9px 0 0;
+  border-top: 1px solid rgba(232, 237, 223, 0.1);
+  border-bottom: 1px solid rgba(232, 237, 223, 0.08);
+  background:
+    linear-gradient(90deg, rgba(232, 237, 223, 0.025), transparent 76%),
+    var(--xeno-black);
+}
+
+.throatazoid-mouth-gates > div:first-child {
+  display: flex;
+  min-width: 0;
+  padding: 0 8px 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.throatazoid-mouth-gates > div:first-child > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.throatazoid-mouth-gates > div:first-child b {
+  color: var(--xeno-bone);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.throatazoid-mouth-gates > div:first-child small {
+  overflow: hidden;
+  color: var(--xeno-dim);
+  font-size: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.throatazoid-gate-sigil {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 12px;
+  border-right: 1px solid var(--xeno-bone);
+  border-left: 1px solid var(--xeno-bone);
+}
+
+.throatazoid-gate-sigil::before,
+.throatazoid-gate-sigil::after {
+  position: absolute;
+  left: 3px;
+  width: 10px;
+  height: 1px;
+  background: var(--accent);
+  content: "";
+}
+
+.throatazoid-gate-sigil::before {
+  top: 3px;
+}
+
+.throatazoid-gate-sigil::after {
+  bottom: 3px;
+}
+
+.throatazoid-mouth-gate-buttons {
+  display: grid;
+  border-left: 1px solid rgba(232, 237, 223, 0.1);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.throatazoid-mouth-gate-buttons button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 39px;
+  padding: 4px 2px 12px;
+  border: 0;
+  border-top: 1px solid rgba(232, 237, 223, 0.1);
+  border-right: 1px solid rgba(232, 237, 223, 0.1);
+  cursor: pointer;
+  color: var(--xeno-dim);
+  background: rgba(2, 3, 2, 0.7);
+  place-items: center;
+  gap: 3px;
+}
+
+.throatazoid-mouth-gate-buttons button > span {
+  font-size: 6px;
+  letter-spacing: 0.06em;
+}
+
+.throatazoid-mouth-gate-buttons button > i {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 8px;
+}
+
+.throatazoid-mouth-gate-buttons button > i::before,
+.throatazoid-mouth-gate-buttons button > i::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: currentColor;
+  content: "";
+  transition:
+    top 130ms ease,
+    bottom 130ms ease,
+    box-shadow 130ms ease;
+}
+
+.throatazoid-mouth-gate-buttons button > i::before {
+  top: 0;
+}
+
+.throatazoid-mouth-gate-buttons button > i::after {
+  bottom: 0;
+}
+
+.throatazoid-mouth-gate-buttons button::after {
+  position: absolute;
+  right: 1px;
+  bottom: 3px;
+  left: 1px;
+  color: currentColor;
+  font-size: 4px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+  content: "sealed";
+}
+
+.throatazoid-mouth-gate-buttons button:hover,
+.throatazoid-mouth-gate-buttons button:focus-visible {
+  color: var(--xeno-bone);
+  background: rgba(232, 237, 223, 0.035);
+}
+
+.throatazoid-mouth-gate-buttons button:focus-visible {
+  z-index: 1;
+  outline: 1px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.throatazoid-mouth-gate-buttons button[aria-pressed="true"] {
+  color: var(--accent);
+  background:
+    linear-gradient(180deg, rgba(216, 255, 87, 0.055), transparent),
+    var(--xeno-black);
+}
+
+.throatazoid-mouth-gate-buttons button[aria-pressed="true"]::after {
+  content: "open";
+}
+
+.throatazoid-mouth-gate-buttons button[aria-pressed="false"] > i::before {
+  top: 3px;
+  box-shadow: 0 0 6px rgba(255, 116, 95, 0.32);
+}
+
+.throatazoid-mouth-gate-buttons button[aria-pressed="false"] > i::after {
+  bottom: 4px;
+}
+
+.throatazoid-mouth-gate-buttons button[aria-pressed="false"] {
+  color: #ff9d8e;
+}
+
+.throatazoid-airway-coupling {
+  position: relative;
+  margin-top: 3px;
+  padding: 9px 10px 5px;
+  overflow: hidden;
+  border-top: 1px solid rgba(170, 191, 107, 0.17);
+  border-bottom: 1px solid rgba(170, 191, 107, 0.1);
+  background:
+    linear-gradient(90deg, rgba(170, 191, 107, 0.055), transparent 70%),
+    var(--xeno-black);
+}
+
+.throatazoid-airway-coupling::after {
+  position: absolute;
+  top: -18px;
+  right: -18px;
+  width: 43px;
+  height: 43px;
+  border: 1px solid rgba(170, 191, 107, 0.12);
+  transform: rotate(45deg);
+  pointer-events: none;
+  content: "";
+}
+
+.throatazoid-airway-coupling > span {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+}
+
+.throatazoid-airway-coupling > span > b {
+  overflow: hidden;
+  color: var(--xeno-bone);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.throatazoid-airway-coupling > small {
+  display: flex;
+  color: var(--xeno-dim);
+  font-size: 5px;
+  letter-spacing: 0.06em;
+  justify-content: space-between;
+  text-transform: uppercase;
+}
+
+.throatazoid-airway-coupling > small i {
+  font-style: normal;
+}
+
+.throatazoid-manifold-sigil {
+  position: relative;
+  display: block;
+  width: 29px;
+  height: 18px;
+}
+
+.throatazoid-manifold-sigil::before {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  width: 12px;
+  height: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+  content: "";
+}
+
+.throatazoid-manifold-sigil::after {
+  position: absolute;
+  top: 5px;
+  left: 11px;
+  width: 5px;
+  height: 7px;
+  border-left: 1px solid var(--xeno-bone);
+  content: "";
+}
+
+.throatazoid-manifold-sigil b {
+  position: absolute;
+  left: 15px;
+  display: block;
+  width: 12px;
+  height: 1px;
+  transform-origin: left center;
+  background: var(--xeno-bone);
+}
+
+.throatazoid-manifold-sigil b:nth-child(1) {
+  top: 5px;
+  transform: rotate(-22deg);
+}
+
+.throatazoid-manifold-sigil b:nth-child(2) {
+  top: 8px;
+}
+
+.throatazoid-manifold-sigil b:nth-child(3) {
+  top: 11px;
+  transform: rotate(22deg);
 }
 
 .throatazoid-selected {
@@ -1974,6 +2716,21 @@
   }
 }
 
+@keyframes throatazoid-pressure-pulse {
+  to {
+    transform: scale(1.18);
+    box-shadow: 0 0 13px rgba(216, 255, 87, 0.72);
+  }
+}
+
+@keyframes throatazoid-nose-node {
+  to {
+    transform: rotate(45deg) scale(1.16);
+    background: rgba(121, 220, 255, 0.32);
+    box-shadow: 0 0 10px rgba(121, 220, 255, 0.58);
+  }
+}
+
 /* Soft specimen / rigid chassis: the organism and its local controls carry the goo. */
 
 .throatazoid-page #stage.is-handle-hovered {
@@ -1983,7 +2740,7 @@
 .throatazoid-word,
 .throatazoid-awaken > b,
 .throatazoid-phoneme-dock button,
-.throatazoid-specimens span {
+.throatazoid-preset-bank [data-specimen] span {
   font-family: ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif;
 }
 
@@ -2133,12 +2890,7 @@
   border-radius: 15px 22px 14px 19px / 20px 14px 22px 16px;
 }
 
-.throatazoid-specimens {
-  border: 0;
-  gap: 5px;
-}
-
-.throatazoid-specimens button {
+.throatazoid-preset-bank button[data-specimen] {
   border: 1px solid var(--line-strong);
   border-radius: 14px 19px 13px 17px / 18px 13px 20px 14px;
   background:
@@ -2146,21 +2898,21 @@
     var(--xeno-black);
 }
 
-.throatazoid-specimens button:nth-child(3n + 2) {
+.throatazoid-preset-bank button[data-specimen]:nth-child(3n + 2) {
   border-radius: 20px 13px 18px 15px / 13px 20px 14px 19px;
 }
 
-.throatazoid-specimens button:nth-child(3n) {
+.throatazoid-preset-bank button[data-specimen]:nth-child(3n) {
   border-radius: 13px 18px 15px 21px / 20px 15px 19px 13px;
 }
 
-.throatazoid-specimens button[aria-pressed="true"] {
+.throatazoid-preset-bank button[data-specimen][aria-pressed="true"] {
   box-shadow:
     inset 0 0 0 1px color-mix(in oklab, var(--accent) 42%, transparent),
     inset 0 0 18px var(--accent-glow);
 }
 
-.throatazoid-specimens [data-specimen="hydra"] i {
+.throatazoid-preset-bank [data-specimen="hydra"] i {
   border-radius: 44% 56% 38% 62% / 58% 42% 61% 39%;
   clip-path: none;
   box-shadow:
@@ -2245,7 +2997,7 @@
 }
 
 .throatazoid-phoneme-heading b {
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 500;
   letter-spacing: 0.13em;
   text-transform: uppercase;
@@ -2254,7 +3006,7 @@
 
 .throatazoid-phoneme-heading small {
   color: var(--xeno-dim);
-  font-size: 6px;
+  font-size: 7px;
   letter-spacing: 0.055em;
   white-space: nowrap;
 }
@@ -2287,7 +3039,7 @@
   border-left: 1px solid rgba(232, 237, 223, 0.075);
   border-radius: 0;
   background: rgba(2, 3, 2, 0.38);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .throatazoid-phoneme-bank button:first-of-type {
@@ -2380,13 +3132,13 @@
   top: 91px;
   left: 18px;
   display: grid;
-  max-width: 270px;
+  max-width: 400px;
   padding-left: 10px;
   border-left: 1px solid rgba(216, 255, 87, 0.38);
   pointer-events: none;
   color: var(--xeno-dim);
   gap: 3px;
-  font-size: 7px;
+  font-size: 8px;
   letter-spacing: 0.045em;
   line-height: 1.35;
 }
@@ -2394,14 +3146,14 @@
 .throatazoid-stage-guide b {
   margin-bottom: 2px;
   color: var(--xeno-bone);
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 500;
   letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
 .throatazoid-stage-guide span {
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .throatazoid-stage-guide i {
@@ -2423,8 +3175,8 @@
   bottom: 15px;
   left: 50%;
   display: grid;
-  width: min(650px, calc(100% - 210px));
-  min-width: 430px;
+  width: min(760px, calc(100% - 190px));
+  min-width: 520px;
   min-height: 60px;
   overflow: hidden;
   border-top: 1px solid rgba(232, 237, 223, 0.18);
@@ -2435,7 +3187,7 @@
     linear-gradient(90deg, rgba(216, 255, 87, 0.035), transparent 28%),
     rgba(2, 3, 2, 0.88);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
-  grid-template-columns: 78px repeat(4, minmax(0, 1fr));
+  grid-template-columns: 78px repeat(5, minmax(0, 1fr));
 }
 
 .throatazoid-direct-articulation::before,
@@ -2473,7 +3225,7 @@
 
 .throatazoid-direct-articulation > header b {
   color: var(--xeno-bone);
-  font-size: 6px;
+  font-size: 7px;
   font-weight: 500;
   letter-spacing: 0.13em;
   text-transform: uppercase;
@@ -2482,7 +3234,7 @@
 .throatazoid-direct-articulation > header output {
   overflow: hidden;
   color: var(--accent);
-  font-size: 6px;
+  font-size: 7px;
   letter-spacing: 0.055em;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -2511,7 +3263,7 @@
 
 .throatazoid-direct-articulation span b {
   color: var(--xeno-bone);
-  font-size: 6px;
+  font-size: 7px;
   font-weight: 500;
   letter-spacing: 0.11em;
   text-transform: uppercase;
@@ -2520,7 +3272,7 @@
 .throatazoid-direct-articulation span output {
   overflow: hidden;
   color: var(--accent);
-  font-size: 6px;
+  font-size: 7px;
   letter-spacing: 0.04em;
   text-overflow: ellipsis;
   text-transform: uppercase;
@@ -2529,7 +3281,7 @@
 
 .throatazoid-direct-articulation small {
   color: var(--xeno-dim);
-  font-size: 5px;
+  font-size: 6px;
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
@@ -2613,27 +3365,27 @@
   gap: 4px;
 }
 
-.throatazoid-key-map > div {
+.throatazoid-key-map > .throatazoid-key-row {
   display: grid;
   min-width: 0;
   align-items: center;
   gap: 3px;
 }
 
-.throatazoid-key-map > div:first-child {
-  grid-template-columns: 62px repeat(5, minmax(18px, 1fr));
+.throatazoid-key-row.is-top {
+  grid-template-columns: repeat(10, minmax(18px, 1fr));
 }
 
-.throatazoid-key-map > div:nth-child(2) {
-  grid-template-columns: 62px repeat(10, minmax(18px, 1fr));
+.throatazoid-key-row.is-home {
+  width: 90%;
+  margin-left: 5%;
+  grid-template-columns: repeat(9, minmax(18px, 1fr));
 }
 
-.throatazoid-key-map > div > span {
-  overflow: hidden;
-  color: var(--xeno-dim);
-  font-size: 6px;
-  letter-spacing: 0.08em;
-  text-overflow: ellipsis;
+.throatazoid-key-row.is-bottom {
+  width: 72%;
+  margin-left: 13%;
+  grid-template-columns: repeat(7, minmax(18px, 1fr));
 }
 
 .throatazoid-key-map kbd {
@@ -2649,6 +3401,19 @@
   color: var(--accent);
   font-size: 4px;
   line-height: 1;
+}
+
+.throatazoid-key-map kbd.is-held {
+  color: var(--xeno-black);
+  background: var(--accent);
+  box-shadow:
+    inset 0 -2px 0 rgba(2, 3, 2, 0.22),
+    0 0 10px rgba(216, 255, 87, 0.28);
+  transform: translateY(1px);
+}
+
+.throatazoid-key-map kbd.is-held small {
+  color: inherit;
 }
 
 .throatazoid-key-map > small {
@@ -2707,8 +3472,8 @@
   }
 
   .throatazoid-direct-articulation {
-    width: min(650px, calc(100% - 170px));
-    min-width: 430px;
+    width: min(760px, calc(100% - 150px));
+    min-width: 520px;
   }
 }
 
@@ -2772,7 +3537,7 @@
     min-width: 0;
     min-height: 70px;
     padding-top: 18px;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .throatazoid-direct-articulation > header {
@@ -2829,6 +3594,14 @@
 }
 
 @media (max-width: 430px) {
+  .throatazoid-start-sound {
+    grid-template-columns: 1fr;
+  }
+
+  .throatazoid-preset-bank {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .throatazoid-listen-actions {
     grid-template-columns: 1fr;
   }
@@ -2858,16 +3631,8 @@
     display: grid;
   }
 
-  .throatazoid-key-map > div:first-child {
-    grid-template-columns: 48px repeat(5, minmax(18px, 1fr));
-  }
-
-  .throatazoid-key-map > div:nth-child(2) {
-    grid-template-columns: repeat(10, minmax(18px, 1fr));
-  }
-
-  .throatazoid-key-map > div:nth-child(2) > span {
-    display: none;
+  .throatazoid-key-map > .throatazoid-key-row {
+    gap: 2px;
   }
 
   .throatazoid-key-map kbd {
@@ -2895,6 +3660,214 @@
   }
 }
 
+/* Network-state polish: pressure glands, airway gates, and stage beatbox focus. */
+
+.throatazoid-pressure-source-buttons button {
+  position: relative;
+}
+
+.throatazoid-pressure-source-buttons button[data-connected="true"][aria-pressed="true"] {
+  color: var(--accent);
+  background:
+    linear-gradient(180deg, rgba(216, 255, 87, 0.11), transparent 72%),
+    var(--xeno-black);
+  box-shadow:
+    inset 0 2px 0 rgba(216, 255, 87, 0.58),
+    inset 0 0 13px rgba(216, 255, 87, 0.045);
+}
+
+.throatazoid-pressure-source-buttons button[data-connected="true"][aria-pressed="true"] > small {
+  color: rgba(216, 255, 87, 0.78);
+}
+
+.throatazoid-pressure-source-buttons button[data-connected="true"][aria-pressed="false"] {
+  color: #ff9d8e;
+  background:
+    linear-gradient(135deg, rgba(255, 116, 95, 0.075), transparent 62%),
+    var(--xeno-black);
+  box-shadow: inset 0 -2px 0 rgba(255, 116, 95, 0.38);
+}
+
+.throatazoid-pressure-source-buttons button[data-connected="true"][aria-pressed="false"] > i {
+  position: relative;
+  border-color: var(--xeno-wound);
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+.throatazoid-pressure-source-buttons button[data-connected="true"][aria-pressed="false"] > i::after {
+  position: absolute;
+  top: 2px;
+  right: -2px;
+  left: -2px;
+  height: 1px;
+  transform: rotate(-45deg);
+  background: currentColor;
+  content: "";
+}
+
+.throatazoid-pressure-source-buttons button[data-connected="true"][aria-pressed="false"] > small {
+  color: rgba(255, 157, 142, 0.76);
+}
+
+.throatazoid-pressure-source-buttons button[data-connected="false"] {
+  opacity: 0.34;
+  color: #596052;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0,
+      transparent 7px,
+      rgba(125, 133, 115, 0.035) 8px
+    ),
+    #030403;
+  box-shadow: inset 0 0 0 1px rgba(125, 133, 115, 0.055);
+}
+
+.throatazoid-pressure-source-buttons button[data-connected="false"] > i {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+.throatazoid-pressure-source-buttons button[data-connected="false"] > small {
+  color: #596052;
+}
+
+.throatazoid-pressure-source-buttons button[data-connected="false"]:hover,
+.throatazoid-pressure-source-buttons button[data-connected="false"]:focus-visible {
+  opacity: 0.72;
+  color: var(--accent);
+  background:
+    linear-gradient(135deg, rgba(216, 255, 87, 0.045), transparent 64%),
+    #030403;
+}
+
+.throatazoid-mouth-gate-buttons button[data-connected="true"][aria-pressed="true"] {
+  color: var(--accent);
+  background:
+    linear-gradient(180deg, rgba(216, 255, 87, 0.085), transparent 68%),
+    var(--xeno-black);
+  box-shadow:
+    inset 0 2px 0 rgba(216, 255, 87, 0.42),
+    inset 0 0 10px rgba(216, 255, 87, 0.035);
+}
+
+.throatazoid-mouth-gate-buttons button[data-connected="true"][aria-pressed="true"] > i::before,
+.throatazoid-mouth-gate-buttons button[data-connected="true"][aria-pressed="true"] > i::after {
+  background: var(--accent);
+  box-shadow: 0 0 5px rgba(216, 255, 87, 0.34);
+}
+
+.throatazoid-mouth-gate-buttons button[data-connected="true"][aria-pressed="false"] {
+  color: #ff9d8e;
+  background:
+    linear-gradient(180deg, rgba(255, 116, 95, 0.075), transparent 70%),
+    var(--xeno-black);
+  box-shadow:
+    inset 0 -2px 0 rgba(255, 116, 95, 0.4),
+    inset 0 0 10px rgba(255, 116, 95, 0.035);
+}
+
+.throatazoid-mouth-gate-buttons button[data-connected="true"][aria-pressed="false"] > i::before,
+.throatazoid-mouth-gate-buttons button[data-connected="true"][aria-pressed="false"] > i::after {
+  background: var(--xeno-wound);
+}
+
+.throatazoid-mouth-gate-buttons button[data-connected="false"] {
+  cursor: not-allowed;
+  opacity: 0.2;
+  color: #666d60;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0,
+      transparent 6px,
+      rgba(125, 133, 115, 0.045) 7px
+    ),
+    #030403;
+  box-shadow: none;
+}
+
+.throatazoid-mouth-gate-buttons button[data-connected="false"]::after {
+  color: #666d60;
+  content: "offline";
+}
+
+.throatazoid-mouth-gate-buttons button[data-connected="false"] > i {
+  opacity: 0.48;
+}
+
+.throatazoid-mouth-gate-buttons button[data-connected="false"] > i::before,
+.throatazoid-mouth-gate-buttons button[data-connected="false"] > i::after {
+  top: 3px;
+  bottom: auto;
+  background: #666d60;
+  box-shadow: none;
+}
+
+.throatazoid-page .stage-wrap.is-beatbox-focused {
+  box-shadow:
+    inset 0 0 0 1px rgba(121, 220, 255, 0.58),
+    inset 0 0 54px rgba(121, 220, 255, 0.055);
+}
+
+.throatazoid-page .stage-wrap.is-beatbox-focused::after {
+  position: absolute;
+  z-index: 9;
+  top: 81px;
+  left: 50%;
+  width: min(360px, calc(100% - 34px));
+  padding: 4px 12px;
+  overflow: hidden;
+  transform: translateX(-50%);
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0 50%);
+  pointer-events: none;
+  color: var(--xeno-nose);
+  background:
+    linear-gradient(90deg, transparent, rgba(121, 220, 255, 0.09), transparent),
+    rgba(2, 3, 2, 0.92);
+  box-shadow: inset 0 1px 0 rgba(121, 220, 255, 0.28);
+  content: "A–Z PHONETIC KEYBOARD ARMED · HOLD ANY LETTER";
+  font-size: 6px;
+  letter-spacing: 0.13em;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.throatazoid-page .stage-wrap.is-beatbox-focused #stage {
+  outline: 1px solid rgba(121, 220, 255, 0.2);
+  outline-offset: -5px;
+}
+
+.throatazoid-page .stage-wrap.is-beatbox-focused .throatazoid-stage-guide {
+  border-left-color: var(--xeno-nose);
+}
+
+.throatazoid-page .stage-wrap.is-beatbox-focused .throatazoid-stage-guide span:last-child {
+  color: var(--xeno-nose);
+  text-shadow: 0 0 8px rgba(121, 220, 255, 0.22);
+}
+
+.throatazoid-page .stage-wrap.is-beatbox-focused .throatazoid-stage-guide span:last-child i {
+  color: var(--xeno-nose);
+}
+
+.throatazoid-page .stage-wrap.is-beatbox-focused .throatazoid-phoneme-bank.is-consonant {
+  border-top-color: rgba(121, 220, 255, 0.3);
+  box-shadow: inset 0 -1px 0 rgba(121, 220, 255, 0.12);
+}
+
+@media (max-width: 650px) {
+  .throatazoid-page .stage-wrap.is-beatbox-focused::after {
+    top: 65px;
+    width: calc(100% - 24px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .throatazoid-recording-badge i {
     animation: none;
@@ -2905,11 +3878,14 @@
   }
 
   .throatazoid-awaken,
+  .throatazoid-page .stage-wrap,
   .throatazoid-typing-toggle,
   .throatazoid-typing-toggle > i > b,
   .throatazoid-phoneme-dock button,
   .throatazoid-phoneme-dock button::after,
   .throatazoid-source-selector button,
+  .throatazoid-mouth-gate-buttons button > i::before,
+  .throatazoid-mouth-gate-buttons button > i::after,
   #articulationPressureBar,
   .throatazoid-meter i,
   .throatazoid-meter em,
@@ -2918,7 +3894,10 @@
   }
 
   .throatazoid-phoneme-dock button.is-held,
-  .throatazoid-phoneme-dock button[data-held="true"] {
+  .throatazoid-phoneme-dock button[data-held="true"],
+  .throatazoid-pressure-source-buttons button[aria-pressed="true"] > i,
+  .throatazoid-organ-key span:nth-child(5) i,
+  .is-nose .throatazoid-organ-selector button[aria-pressed="true"] i {
     animation: none;
   }
 }

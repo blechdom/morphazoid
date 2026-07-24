@@ -25,12 +25,12 @@
         <a class="tab" href="hyper.html">hyper</a>
         <a class="tab" href="l-system.html">l-system</a>
         <a class="tab recursion-tab" href="recursion.html">recursion</a>
-        <a class="tab" href="recur.html">recur</a>
         <a class="tab" href="julia.html">julia</a>
         <a class="tab" href="lumber.html">lumber</a>
         <a class="tab micmic-tab active" href="micmic.html" aria-current="page">mic(mic)</a>
         <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
         <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
@@ -42,12 +42,12 @@
           <option value="hyper.html">hyper</option>
           <option value="l-system.html">l-system</option>
           <option value="recursion.html">recursion</option>
-          <option value="recur.html">recur</option>
           <option value="julia.html">julia</option>
           <option value="lumber.html">lumber</option>
           <option value="micmic.html" selected>mic(mic)</option>
           <option value="graph-delay.html">graph-delay</option>
           <option value="throatazoid.html">throatazoid</option>
+          <option value="morphazoidical/">morphazoidical</option>
         </select>
       </label>
 
@@ -173,7 +173,19 @@
             <section class="recursion-parameter-cluster" aria-labelledby="branchingParametersTitle">
               <h3 class="parameter-cluster-title" id="branchingParametersTitle">Branching</h3>
               <label class="control" for="generations"><span><b>Generations</b><output id="generationsOut" for="generations">7 / 12</output></span><input id="generations" type="range" min="1" max="12" step="1" value="7" /></label>
-              <small class="generation-safety-note">Realtime safety cap: 12 generations · up to 48 audible branches.</small>
+              <small class="generation-safety-note" id="generationCapacityNote">AUTO CHECK · 48 / 254 audible branches · hard guard 64</small>
+              <button
+                class="branch-renderer-toggle"
+                id="branchRendererToggle"
+                type="button"
+                role="switch"
+                aria-checked="false"
+                aria-describedby="branchRendererHelp"
+              >
+                <span class="branch-toggle-track" aria-hidden="true"><i></i></span>
+                <span><b>Recursive bounce</b><small id="branchRendererHelp">Experimental alternate renderer; the current silky engine stays available.</small></span>
+                <output id="branchRendererState">Off · current silky engine</output>
+              </button>
               <label class="control" for="depth">
                 <span><b>Depth / decay</b><output id="depthOut" for="depth">72%</output></span>
                 <input id="depth" type="range" min="0" max="0.86" step="0.01" value="0.72" />
@@ -269,6 +281,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="micmic-app.js?v=20260724-full-forks"></script>
+    <script type="module" src="micmic-app.js?v=20260724-adaptive-branches"></script>
   </body>
 </html>

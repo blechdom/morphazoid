@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildShape,
   pointAtPath,
+  rayIntersections,
   verticalIntersections,
 } from "../../src/geometry.js";
 import {
@@ -151,6 +152,78 @@ test("reader analysis orders contacts and identifies enter/exit inside spans", (
   });
   assert.equal(tracer.features["reader.insideIntervalCount"], null);
   assert.equal(tracer.features["reader.insideSpan"], null);
+});
+
+test("finite ray occupancy includes intervals touching the ray origin and endpoint", () => {
+  const circle = buildShape({ sides: 1, samplesPerEdge: 96 });
+  const centerInsideReader = {
+    id: "center-ray",
+    type: "ray",
+    angle: 0,
+    origin: { x: 0, y: 0 },
+  };
+  const centerInside = analyzeReader(circle, centerInsideReader, null, {
+    contacts: rayIntersections(circle, centerInsideReader.angle, centerInsideReader.origin),
+  });
+
+  assert.equal(centerInside.contacts.length, 1);
+  assert.equal(centerInside.contacts[0].boundaryRole, "exit");
+  assert.equal(centerInside.insideIntervals.length, 1);
+  assert.equal(centerInside.insideIntervals[0].startContactIndex, null);
+  assert.equal(centerInside.insideIntervals[0].endContactIndex, 0);
+  near(centerInside.insideIntervals[0].from, 0);
+  near(centerInside.insideSpan, 1, 1e-8);
+  near(centerInside.features["reader.insideFraction"], 0.5, 1e-8);
+
+  const centerOutsideReader = {
+    id: "offset-ray",
+    type: "ray",
+    angle: 0,
+    origin: { x: -2, y: 0 },
+    extent: 2,
+  };
+  const centerOutside = analyzeReader(circle, centerOutsideReader, null, {
+    contacts: rayIntersections(circle, centerOutsideReader.angle, centerOutsideReader.origin),
+  });
+
+  assert.equal(centerOutside.contacts.length, 1);
+  assert.equal(centerOutside.contacts[0].boundaryRole, "enter");
+  assert.equal(centerOutside.insideIntervals.length, 1);
+  assert.equal(centerOutside.insideIntervals[0].startContactIndex, 0);
+  assert.equal(centerOutside.insideIntervals[0].endContactIndex, null);
+  near(centerOutside.insideIntervals[0].from, 1, 1e-8);
+  near(centerOutside.insideIntervals[0].to, 2, 1e-8);
+  near(centerOutside.insideSpan, 1, 1e-8);
+  near(centerOutside.features["reader.insideFraction"], 0.5, 1e-8);
+
+  const undefinedRay = analyzeReader(circle, {
+    id: "undefined-ray",
+    type: "ray",
+    angle: Number.NaN,
+    origin: { x: 0, y: 0 },
+  }, null, { contacts: [] });
+  assert.equal(undefinedRay.insideSpan, null);
+  assert.equal(undefinedRay.features["reader.insideSpan"], null);
+  assert.equal(undefinedRay.features["reader.insideFraction"], null);
+});
+
+test("an inferred ray extent contains every outward contact from an offset origin", () => {
+  const circle = buildShape({ sides: 1, samplesPerEdge: 96 });
+  const reader = {
+    id: "inferred-offset-ray",
+    type: "ray",
+    angle: 0,
+    origin: { x: -2, y: 0 },
+  };
+  const analysis = analyzeReader(circle, reader, null, {
+    contacts: rayIntersections(circle, reader.angle, reader.origin),
+  });
+
+  assert.equal(analysis.contacts.length, 2);
+  near(analysis.extent, 3, 1e-8);
+  assert.ok(analysis.coordinates.every((coordinate) => coordinate <= analysis.extent));
+  near(analysis.insideSpan, 2, 1e-8);
+  near(analysis.features["reader.insideFraction"], 2 / 3, 1e-8);
 });
 
 test("stable identities and pair-bifurcation events survive a rotating form", () => {

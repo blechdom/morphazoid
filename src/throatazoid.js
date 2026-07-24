@@ -2,12 +2,28 @@ export const MAX_THROATS = 7;
 export const MAX_MOUTHS = MAX_THROATS;
 export const MAX_TONGUES = 5;
 export const MAX_NOSES = 3;
+export const MAX_PRESSURE_SOURCES = 4;
+const SINGING_INTERVAL_FALLBACKS = Object.freeze([-12, 0, 7, 12, 19, 24, 31]);
+const SINGING_DETUNE_FALLBACKS = Object.freeze([-8, 5, -4, 7, -6, 3, -2]);
 
 function defineSpecimen(specimen) {
   const articulation = specimenArticulation(specimen);
   const seed = nameSeed(specimen.name);
+  const voiceCount = boundedInteger(specimen.throatCount, 1, MAX_THROATS, 1);
+  const voiceMode = specimen.voiceMode === "polyphonic" ? "polyphonic" : "shared";
+  const voiceIntervals = Array.from({ length: voiceCount }, (_, index) => {
+    const interval = Number(specimen.voiceIntervals?.[index]);
+    return Number.isFinite(interval) ? clamp(interval, -48, 48) : 0;
+  });
+  const voiceDetunes = Array.from({ length: voiceCount }, (_, index) => {
+    const detune = Number(specimen.voiceDetunes?.[index]);
+    return Number.isFinite(detune) ? clamp(detune, -1_200, 1_200) : 0;
+  });
   return Object.freeze({
     ...specimen,
+    voiceMode,
+    voiceIntervals: Object.freeze(voiceIntervals),
+    voiceDetunes: Object.freeze(voiceDetunes),
     tongueCount: articulation.tongueCount,
     noseCount: articulation.noseCount,
     oralClosure: articulation.oralClosure,
@@ -314,6 +330,35 @@ export const SPECIMENS = Object.freeze({
       { aperture: 0.52, length: 0.72 },
     ],
   }),
+  singing: defineSpecimen({
+    name: "Singing",
+    description: "five pitched mouths",
+    voiceMode: "polyphonic",
+    voiceIntervals: [-12, 0, 7, 12, 19],
+    voiceDetunes: [-8, 5, -4, 7, -6],
+    throatCount: 5,
+    bodyLength: 0.58,
+    tension: 0.54,
+    mutation: 0.19,
+    coupling: 0.56,
+    growl: 0.03,
+    wet: 0.98,
+    dry: 0,
+    spread: 1,
+    exciterPitch: 110,
+    exciterIntensity: 0.72,
+    exciterTenseness: 0.58,
+    exciterBreath: 0.09,
+    exciterVibrato: 0.36,
+    exciterWobble: 0.08,
+    throats: [
+      { aperture: 0.58, length: 0.76 },
+      { aperture: 0.64, length: 0.65 },
+      { aperture: 0.72, length: 0.54 },
+      { aperture: 0.62, length: 0.47 },
+      { aperture: 0.56, length: 0.4 },
+    ],
+  }),
   void: defineSpecimen({
     name: "Void",
     description: "breath without body",
@@ -436,6 +481,24 @@ function specimenArticulation(specimen) {
     };
   }
 
+  if (specimen.name === "Singing") {
+    return {
+      tongueCount: 3,
+      noseCount: 2,
+      oralClosure: 0.02,
+      tongues: [
+        { position: 0.36, height: 0.12, curl: 0.06 },
+        { position: 0.53, height: 0.2, curl: 0.1 },
+        { position: 0.7, height: 0.16, curl: 0.08 },
+      ],
+      noses: [
+        { openness: 0.035, length: 0.52, resonance: 0.46 },
+        { openness: 0.025, length: 0.7, resonance: 0.58 },
+        { openness: 0.01, length: 0.84, resonance: 0.68 },
+      ],
+    };
+  }
+
   const seed = nameSeed(specimen.name);
   const activeThroats = specimen.throats.slice(0, specimen.throatCount);
   const averageAperture = activeThroats.reduce(
@@ -511,6 +574,11 @@ function freezePhoneme(phoneme) {
     tongueCount: boundedInteger(phoneme.tongueCount, 1, MAX_TONGUES, 1),
     noseCount: boundedInteger(phoneme.noseCount, 0, MAX_NOSES, 0),
     oralClosure: unitValue(phoneme.oralClosure),
+    lipDiameter: clamp(
+      Number.isFinite(Number(phoneme.lipDiameter)) ? Number(phoneme.lipDiameter) : 3,
+      0.35,
+      3,
+    ),
     tongues: Object.freeze(tongues.map((tongue) => Object.freeze(tongue))),
     noses: Object.freeze(noses.map((nose) => Object.freeze(nose))),
   });
@@ -526,65 +594,65 @@ export const PHONEMES = Object.freeze({
   a: freezePhoneme({
     name: "A",
     kind: "vowel",
-    tongueCount: 2,
-    noseCount: 2,
-    oralClosure: 0.03,
+    tongueCount: 1,
+    noseCount: 1,
+    oralClosure: 0,
+    lipDiameter: 3,
     tongues: [
-      { position: 0.38, height: 0.14, curl: 0.08 },
-      { position: 0.5, height: 0.22, curl: 0.14 },
-      { position: 0.25, height: 0.32, curl: 0.21 },
+      // Pink-style /ɑ/: tract index 13, tongue diameter 2.40.
+      { position: 0.006, height: 0.759, curl: 0.08 },
     ],
     noses: CLOSED_NOSES,
   }),
   e: freezePhoneme({
     name: "E",
     kind: "vowel",
-    tongueCount: 2,
-    noseCount: 2,
-    oralClosure: 0.04,
+    tongueCount: 1,
+    noseCount: 1,
+    oralClosure: 0,
+    lipDiameter: 3,
     tongues: [
-      { position: 0.76, height: 0.57, curl: 0.1 },
-      { position: 0.68, height: 0.5, curl: 0.16 },
-      { position: 0.58, height: 0.44, curl: 0.22 },
+      // Pink-style /e~ɛ/: tract index 20, tongue diameter 3.35.
+      { position: 0.406, height: 0.103, curl: 0.1 },
     ],
     noses: CLOSED_NOSES,
   }),
   i: freezePhoneme({
     name: "I",
     kind: "vowel",
-    tongueCount: 2,
-    noseCount: 2,
-    oralClosure: 0.06,
+    tongueCount: 1,
+    noseCount: 1,
+    oralClosure: 0,
+    lipDiameter: 3,
     tongues: [
-      { position: 0.92, height: 0.9, curl: 0.12 },
-      { position: 0.82, height: 0.82, curl: 0.18 },
-      { position: 0.72, height: 0.74, curl: 0.24 },
+      // Pink-style /i/: tract index 27.4, tongue diameter 2.25.
+      { position: 0.829, height: 0.862, curl: 0.12 },
     ],
     noses: CLOSED_NOSES,
   }),
   o: freezePhoneme({
     name: "O",
     kind: "vowel",
-    tongueCount: 2,
-    noseCount: 2,
-    oralClosure: 0.08,
+    tongueCount: 1,
+    noseCount: 1,
+    oralClosure: 0,
+    lipDiameter: 0.95,
     tongues: [
-      { position: 0.2, height: 0.54, curl: 0.2 },
-      { position: 0.28, height: 0.48, curl: 0.26 },
-      { position: 0.36, height: 0.42, curl: 0.32 },
+      // Pink-style /ɔ/: tract index 17.7, tongue diameter 2.05.
+      { position: 0.274, height: 1, curl: 0.2 },
     ],
     noses: CLOSED_NOSES,
   }),
   u: freezePhoneme({
     name: "U",
     kind: "vowel",
-    tongueCount: 2,
-    noseCount: 2,
-    oralClosure: 0.11,
+    tongueCount: 1,
+    noseCount: 1,
+    oralClosure: 0,
+    lipDiameter: 0.62,
     tongues: [
-      { position: 0.08, height: 0.88, curl: 0.28 },
-      { position: 0.16, height: 0.8, curl: 0.34 },
-      { position: 0.24, height: 0.72, curl: 0.4 },
+      // Pink-style /u/: tract index 23, tongue diameter 2.10.
+      { position: 0.577, height: 0.966, curl: 0.28 },
     ],
     noses: CLOSED_NOSES,
   }),
@@ -661,9 +729,19 @@ function freezeConsonant(id, consonant) {
     articulator: consonant.articulator,
     voiced: Boolean(consonant.voiced),
     constrictionPosition: unitValue(consonant.constrictionPosition),
+    constrictionDiameter: clamp(
+      Number.isFinite(Number(consonant.constrictionDiameter))
+        ? Number(consonant.constrictionDiameter)
+        : 0,
+      0,
+      3,
+    ),
     oralClosure: unitValue(consonant.oralClosure),
     glottalClosure: unitValue(consonant.glottalClosure),
     nasalCoupling: unitValue(consonant.nasalCoupling),
+    lipDiameter: consonant.lipDiameter == null
+      ? null
+      : clamp(Number(consonant.lipDiameter), 0.35, 3),
     frication: freezeSpectrum(consonant.frication),
     burst: freezeSpectrum(consonant.burst),
     nasal: freezeSpectrum(consonant.nasal),
@@ -751,7 +829,7 @@ const NG_GESTURE = freezePhoneme({
   ],
 });
 
-export const CONSONANTS = Object.freeze({
+const CORE_CONSONANTS = Object.freeze({
   glottal: freezeConsonant("glottal", {
     symbol: "ʔ",
     name: "Glottal stop",
@@ -760,6 +838,7 @@ export const CONSONANTS = Object.freeze({
     articulator: "glottis",
     voiced: false,
     constrictionPosition: 0,
+    constrictionDiameter: 3,
     oralClosure: GLOTTAL_GESTURE.oralClosure,
     glottalClosure: 1,
     nasalCoupling: 0,
@@ -782,6 +861,7 @@ export const CONSONANTS = Object.freeze({
     articulator: "tongue",
     voiced: false,
     constrictionPosition: 0.14,
+    constrictionDiameter: 0,
     oralClosure: PHONEMES.k.oralClosure,
     glottalClosure: 0.04,
     nasalCoupling: 0,
@@ -804,6 +884,7 @@ export const CONSONANTS = Object.freeze({
     articulator: "tongue",
     voiced: false,
     constrictionPosition: 0.9,
+    constrictionDiameter: 0,
     oralClosure: T_GESTURE.oralClosure,
     glottalClosure: 0.03,
     nasalCoupling: 0,
@@ -826,6 +907,7 @@ export const CONSONANTS = Object.freeze({
     articulator: "lips",
     voiced: false,
     constrictionPosition: 1,
+    constrictionDiameter: 0,
     oralClosure: P_GESTURE.oralClosure,
     glottalClosure: 0.02,
     nasalCoupling: 0,
@@ -848,6 +930,7 @@ export const CONSONANTS = Object.freeze({
     articulator: "tongue",
     voiced: false,
     constrictionPosition: 0.94,
+    constrictionDiameter: 0.6,
     oralClosure: PHONEMES.s.oralClosure,
     glottalClosure: 0,
     nasalCoupling: 0,
@@ -870,6 +953,7 @@ export const CONSONANTS = Object.freeze({
     articulator: "tongue",
     voiced: false,
     constrictionPosition: 0.72,
+    constrictionDiameter: 0.6,
     oralClosure: SH_GESTURE.oralClosure,
     glottalClosure: 0,
     nasalCoupling: 0,
@@ -892,6 +976,7 @@ export const CONSONANTS = Object.freeze({
     articulator: "lip-teeth",
     voiced: false,
     constrictionPosition: 0.99,
+    constrictionDiameter: 0.5,
     oralClosure: F_GESTURE.oralClosure,
     glottalClosure: 0,
     nasalCoupling: 0,
@@ -914,6 +999,7 @@ export const CONSONANTS = Object.freeze({
     articulator: "lips",
     voiced: true,
     constrictionPosition: 1,
+    constrictionDiameter: 0,
     oralClosure: PHONEMES.m.oralClosure,
     glottalClosure: 0,
     nasalCoupling: 0.96,
@@ -936,6 +1022,7 @@ export const CONSONANTS = Object.freeze({
     articulator: "tongue",
     voiced: true,
     constrictionPosition: 0.88,
+    constrictionDiameter: 0,
     oralClosure: PHONEMES.n.oralClosure,
     glottalClosure: 0,
     nasalCoupling: 0.93,
@@ -958,6 +1045,7 @@ export const CONSONANTS = Object.freeze({
     articulator: "tongue",
     voiced: true,
     constrictionPosition: 0.14,
+    constrictionDiameter: 0,
     oralClosure: NG_GESTURE.oralClosure,
     glottalClosure: 0,
     nasalCoupling: 0.9,
@@ -974,10 +1062,701 @@ export const CONSONANTS = Object.freeze({
   }),
 });
 
+function derivedConsonant(id, baseId, overrides) {
+  const base = CORE_CONSONANTS[baseId];
+  return freezeConsonant(id, {
+    ...base,
+    ...overrides,
+    frication: { ...base.frication, ...overrides.frication },
+    burst: { ...base.burst, ...overrides.burst },
+    nasal: { ...base.nasal, ...overrides.nasal },
+    gesture: overrides.gesture ?? base.gesture,
+  });
+}
+
+const LETTER_CONSONANTS = Object.freeze({
+  b: derivedConsonant("b", "p", {
+    symbol: "B",
+    name: "B",
+    voiced: true,
+    glottalClosure: 0,
+    burst: { frequency: 920, q: 0.9, gain: 0.64 },
+  }),
+  c: derivedConsonant("c", "sh", {
+    symbol: "CH",
+    name: "C / CH",
+    manner: "affricate",
+    voiced: false,
+    constrictionPosition: 0.72,
+    constrictionDiameter: 0.4,
+    oralClosure: 0.76,
+    frication: { frequency: 3_750, q: 2.9, gain: 0.92 },
+    burst: { frequency: 3_350, q: 2.5, gain: 0.76 },
+  }),
+  d: derivedConsonant("d", "t", {
+    symbol: "D",
+    name: "D",
+    voiced: true,
+    glottalClosure: 0,
+    burst: { frequency: 4_650, q: 2.8, gain: 0.68 },
+  }),
+  g: derivedConsonant("g", "k", {
+    symbol: "G",
+    name: "G",
+    voiced: true,
+    glottalClosure: 0,
+    burst: { frequency: 2_050, q: 2.4, gain: 0.72 },
+  }),
+  h: derivedConsonant("h", "f", {
+    symbol: "H",
+    name: "H",
+    place: "glottal",
+    articulator: "glottis",
+    constrictionPosition: 0.02,
+    constrictionDiameter: 0.56,
+    oralClosure: 0.42,
+    frication: { frequency: 1_250, q: 0.62, gain: 0.62 },
+    burst: { frequency: 1_050, q: 0.7, gain: 0 },
+    gesture: GLOTTAL_GESTURE,
+  }),
+  j: derivedConsonant("j", "sh", {
+    symbol: "J",
+    name: "J / DZH",
+    manner: "affricate",
+    voiced: true,
+    constrictionPosition: 0.7,
+    constrictionDiameter: 0.42,
+    oralClosure: 0.72,
+    frication: { frequency: 3_150, q: 2.5, gain: 0.68 },
+    burst: { frequency: 2_950, q: 2.2, gain: 0.54 },
+  }),
+  l: derivedConsonant("l", "n", {
+    symbol: "L",
+    name: "L",
+    manner: "approximant",
+    voiced: true,
+    nasalCoupling: 0,
+    constrictionPosition: 0.86,
+    constrictionDiameter: 1.05,
+    oralClosure: 0.24,
+    frication: { gain: 0 },
+    burst: { gain: 0 },
+    nasal: { gain: 0 },
+    gesture: T_GESTURE,
+  }),
+  q: derivedConsonant("q", "k", {
+    symbol: "Q",
+    name: "Q / KW",
+    constrictionPosition: 0.13,
+    lipDiameter: 0.58,
+    burst: { frequency: 1_900, q: 2.2, gain: 1.05 },
+  }),
+  r: derivedConsonant("r", "sh", {
+    symbol: "R",
+    name: "R",
+    manner: "approximant",
+    voiced: true,
+    constrictionPosition: 0.66,
+    constrictionDiameter: 0.82,
+    oralClosure: 0.33,
+    frication: { gain: 0 },
+    burst: { gain: 0 },
+  }),
+  v: derivedConsonant("v", "f", {
+    symbol: "V",
+    name: "V",
+    voiced: true,
+    frication: { frequency: 1_650, q: 0.78, gain: 0.5 },
+  }),
+  w: derivedConsonant("w", "k", {
+    symbol: "W",
+    name: "W",
+    manner: "approximant",
+    voiced: true,
+    constrictionPosition: 0.18,
+    constrictionDiameter: 1.15,
+    oralClosure: 0.18,
+    lipDiameter: 0.55,
+    frication: { gain: 0 },
+    burst: { gain: 0 },
+  }),
+  x: derivedConsonant("x", "k", {
+    symbol: "X",
+    name: "X / KS",
+    manner: "fricative",
+    voiced: false,
+    constrictionPosition: 0.28,
+    constrictionDiameter: 0.55,
+    oralClosure: 0.6,
+    frication: { frequency: 3_250, q: 1.9, gain: 0.96 },
+    burst: { frequency: 2_800, q: 1.8, gain: 0 },
+  }),
+  y: derivedConsonant("y", "sh", {
+    symbol: "Y",
+    name: "Y",
+    manner: "approximant",
+    voiced: true,
+    constrictionPosition: 0.58,
+    constrictionDiameter: 1.1,
+    oralClosure: 0.2,
+    lipDiameter: 2.4,
+    frication: { gain: 0 },
+    burst: { gain: 0 },
+  }),
+  z: derivedConsonant("z", "s", {
+    symbol: "Z",
+    name: "Z",
+    voiced: true,
+    frication: { frequency: 7_250, q: 4.4, gain: 0.72 },
+  }),
+});
+
+export const CONSONANTS = Object.freeze({
+  ...CORE_CONSONANTS,
+  ...LETTER_CONSONANTS,
+});
+
 export const ARTICULATIONS = Object.freeze({
   ...PHONEMES,
   ...CONSONANTS,
 });
+
+function defineVoicePreset(preset) {
+  return Object.freeze({
+    sourceMode: "glottis",
+    pressureSourceCount: 1,
+    articulationVoicing: 0.94,
+    nasalCoupling: 0,
+    ...preset,
+    parameters: Object.freeze({ ...preset.parameters }),
+    throats: Object.freeze(
+      (preset.throats ?? []).map((throat) => Object.freeze({ ...throat })),
+    ),
+    voiceIntervals: preset.voiceIntervals
+      ? Object.freeze([...preset.voiceIntervals])
+      : undefined,
+    voiceDetunes: preset.voiceDetunes
+      ? Object.freeze([...preset.voiceDetunes])
+      : undefined,
+  });
+}
+
+// These are immediate, audition-ready voices. The older SPECIMENS remain the
+// deeper alien-anatomy bank; this set starts with intelligible one-mouth speech.
+export const VOICE_PRESETS = Object.freeze({
+  clear: defineVoicePreset({
+    name: "Clear",
+    description: "neutral speech",
+    specimen: "oracle",
+    phoneme: "a",
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.55,
+      tension: 0.56,
+      mutation: 0,
+      coupling: 0,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 120,
+      exciterIntensity: 0.78,
+      exciterTenseness: 0.62,
+      exciterBreath: 0.08,
+      exciterVibrato: 0.03,
+      exciterWobble: 0.02,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.88, length: 0.56 }],
+  }),
+  deep: defineVoicePreset({
+    name: "Deep",
+    description: "low rounded O",
+    specimen: "oracle",
+    phoneme: "o",
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.92,
+      tension: 0.48,
+      mutation: 0,
+      coupling: 0,
+      growl: 0.04,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 72,
+      exciterIntensity: 0.84,
+      exciterTenseness: 0.56,
+      exciterBreath: 0.1,
+      exciterVibrato: 0.02,
+      exciterWobble: 0.025,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.92, length: 0.96 }],
+  }),
+  bright: defineVoicePreset({
+    name: "Bright",
+    description: "high focused EE",
+    specimen: "oracle",
+    phoneme: "i",
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.28,
+      tension: 0.76,
+      mutation: 0,
+      coupling: 0,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 196,
+      exciterIntensity: 0.62,
+      exciterTenseness: 0.74,
+      exciterBreath: 0.055,
+      exciterVibrato: 0.035,
+      exciterWobble: 0.01,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.82, length: 0.3 }],
+  }),
+  warm: defineVoicePreset({
+    name: "Warm",
+    description: "soft mid E",
+    specimen: "oracle",
+    phoneme: "e",
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.63,
+      tension: 0.46,
+      mutation: 0.015,
+      coupling: 0,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 138,
+      exciterIntensity: 0.72,
+      exciterTenseness: 0.5,
+      exciterBreath: 0.14,
+      exciterVibrato: 0.07,
+      exciterWobble: 0.025,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.9, length: 0.64 }],
+  }),
+  alto: defineVoicePreset({
+    name: "Alto",
+    description: "175 Hz velvet E",
+    specimen: "oracle",
+    phoneme: "e",
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.53,
+      tension: 0.48,
+      mutation: 0,
+      coupling: 0,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 175,
+      exciterIntensity: 0.72,
+      exciterTenseness: 0.52,
+      exciterBreath: 0.12,
+      exciterVibrato: 0.05,
+      exciterWobble: 0.018,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.9, length: 0.56 }],
+  }),
+  mezzo: defineVoicePreset({
+    name: "Mezzo",
+    description: "220 Hz clear A",
+    specimen: "oracle",
+    phoneme: "a",
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.42,
+      tension: 0.6,
+      mutation: 0,
+      coupling: 0,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 220,
+      exciterIntensity: 0.67,
+      exciterTenseness: 0.64,
+      exciterBreath: 0.085,
+      exciterVibrato: 0.065,
+      exciterWobble: 0.012,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.86, length: 0.44 }],
+  }),
+  soprano: defineVoicePreset({
+    name: "Soprano",
+    description: "262 Hz lyric A",
+    specimen: "oracle",
+    phoneme: "a",
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.32,
+      tension: 0.7,
+      mutation: 0,
+      coupling: 0,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 262,
+      exciterIntensity: 0.59,
+      exciterTenseness: 0.7,
+      exciterBreath: 0.075,
+      exciterVibrato: 0.085,
+      exciterWobble: 0.01,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.84, length: 0.34 }],
+  }),
+  airy: defineVoicePreset({
+    name: "Airy",
+    description: "247 Hz breathy U",
+    specimen: "oracle",
+    phoneme: "u",
+    articulationVoicing: 0.78,
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.36,
+      tension: 0.32,
+      mutation: 0,
+      coupling: 0,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 247,
+      exciterIntensity: 0.74,
+      exciterTenseness: 0.3,
+      exciterBreath: 0.52,
+      exciterVibrato: 0.045,
+      exciterWobble: 0.022,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.78, length: 0.39 }],
+  }),
+  bell: defineVoicePreset({
+    name: "Bell",
+    description: "330 Hz ringing EE",
+    specimen: "oracle",
+    phoneme: "i",
+    articulationVoicing: 0.98,
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.24,
+      tension: 0.88,
+      mutation: 0,
+      coupling: 0,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 330,
+      exciterIntensity: 0.52,
+      exciterTenseness: 0.86,
+      exciterBreath: 0.035,
+      exciterVibrato: 0.035,
+      exciterWobble: 0.005,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.74, length: 0.27 }],
+  }),
+  coloratura: defineVoicePreset({
+    name: "Coloratura",
+    description: "392 Hz agile E",
+    specimen: "oracle",
+    phoneme: "e",
+    articulationVoicing: 0.96,
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.2,
+      tension: 0.76,
+      mutation: 0,
+      coupling: 0,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 392,
+      exciterIntensity: 0.48,
+      exciterTenseness: 0.74,
+      exciterBreath: 0.06,
+      exciterVibrato: 0.12,
+      exciterWobble: 0.008,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.82, length: 0.22 }],
+  }),
+  whisper: defineVoicePreset({
+    name: "Whisper",
+    description: "air without buzz",
+    specimen: "larva",
+    phoneme: "a",
+    articulationVoicing: 0.06,
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.53,
+      tension: 0.16,
+      mutation: 0,
+      coupling: 0,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 146,
+      exciterIntensity: 0.88,
+      exciterTenseness: 0.08,
+      exciterBreath: 1,
+      exciterVibrato: 0,
+      exciterWobble: 0,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.8, length: 0.54 }],
+  }),
+  reed: defineVoicePreset({
+    name: "Reed",
+    description: "pressed and buzzy",
+    specimen: "oracle",
+    phoneme: "e",
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.4,
+      tension: 0.9,
+      mutation: 0.04,
+      coupling: 0,
+      growl: 0.13,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 164,
+      exciterIntensity: 0.68,
+      exciterTenseness: 0.93,
+      exciterBreath: 0.025,
+      exciterVibrato: 0.015,
+      exciterWobble: 0.01,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.7, length: 0.42 }],
+  }),
+  nasal: defineVoicePreset({
+    name: "Nasal",
+    description: "open velum",
+    specimen: "oracle",
+    phoneme: "a",
+    nasalCoupling: 0.48,
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.56,
+      tension: 0.58,
+      mutation: 0,
+      coupling: 0,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 126,
+      exciterIntensity: 0.74,
+      exciterTenseness: 0.58,
+      exciterBreath: 0.09,
+      exciterVibrato: 0.025,
+      exciterWobble: 0.015,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.86, length: 0.58 }],
+  }),
+  growl: defineVoicePreset({
+    name: "Growl",
+    description: "rough low O",
+    specimen: "maw",
+    phoneme: "o",
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.79,
+      tension: 0.68,
+      mutation: 0.2,
+      coupling: 0,
+      growl: 0.82,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 86,
+      exciterIntensity: 0.9,
+      exciterTenseness: 0.77,
+      exciterBreath: 0.08,
+      exciterVibrato: 0.025,
+      exciterWobble: 0.12,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.92, length: 0.84 }],
+  }),
+  beatbox: defineVoicePreset({
+    name: "Beatbox",
+    description: "hard consonant attack",
+    specimen: "oracle",
+    phoneme: "a",
+    parameters: {
+      throatCount: 1,
+      bodyLength: 0.5,
+      tension: 0.72,
+      mutation: 0,
+      coupling: 0,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      spread: 0,
+      exciterPitch: 104,
+      exciterIntensity: 0.96,
+      exciterTenseness: 0.75,
+      exciterBreath: 0.16,
+      exciterVibrato: 0,
+      exciterWobble: 0,
+      voiceMode: "shared",
+    },
+    throats: [{ aperture: 0.9, length: 0.52 }],
+  }),
+  singer: defineVoicePreset({
+    name: "Singer",
+    description: "five-mouth chord",
+    specimen: "singing",
+    phoneme: "a",
+    parameters: {
+      mutation: 0.04,
+      coupling: 0.38,
+      growl: 0,
+      wet: 1,
+      dry: 0,
+      exciterPitch: 110,
+      exciterIntensity: 0.72,
+      exciterBreath: 0.07,
+      voiceMode: "polyphonic",
+    },
+  }),
+  choir: defineVoicePreset({
+    name: "Choir",
+    description: "wide vowel cluster",
+    specimen: "singing",
+    phoneme: "u",
+    parameters: {
+      mutation: 0.1,
+      coupling: 0.58,
+      growl: 0.01,
+      wet: 1,
+      dry: 0,
+      spread: 1,
+      exciterPitch: 123,
+      exciterIntensity: 0.68,
+      exciterTenseness: 0.52,
+      exciterBreath: 0.12,
+      exciterVibrato: 0.28,
+      exciterWobble: 0.04,
+      voiceMode: "polyphonic",
+    },
+    voiceIntervals: [-12, -5, 0, 7, 12],
+    voiceDetunes: [-11, 7, -3, 9, -6],
+  }),
+  alien: defineVoicePreset({
+    name: "Alien",
+    description: "three coupled mouths",
+    specimen: "triune",
+    phoneme: "u",
+    pressureSourceCount: 3,
+    parameters: {
+      throatCount: 3,
+      bodyLength: 0.61,
+      tension: 0.6,
+      mutation: 0.34,
+      coupling: 0.5,
+      growl: 0.24,
+      wet: 1,
+      dry: 0,
+      spread: 0.92,
+      exciterPitch: 96,
+      exciterIntensity: 0.82,
+      exciterTenseness: 0.64,
+      exciterBreath: 0.17,
+      exciterVibrato: 0.08,
+      exciterWobble: 0.16,
+      voiceMode: "shared",
+    },
+    throats: [
+      { aperture: 0.62, length: 0.76 },
+      { aperture: 0.82, length: 0.48 },
+      { aperture: 0.5, length: 0.9 },
+    ],
+  }),
+});
+
+export function voicePresetState(name = "clear") {
+  const key = Object.prototype.hasOwnProperty.call(VOICE_PRESETS, name)
+    ? name
+    : "clear";
+  const preset = VOICE_PRESETS[key];
+  const base = specimenState(preset.specimen);
+  const phoneme = PHONEMES[preset.phoneme] ?? PHONEMES.a;
+  const parameters = preset.parameters;
+  const throatCount = boundedInteger(
+    parameters.throatCount ?? base.throatCount,
+    1,
+    MAX_THROATS,
+    1,
+  );
+  const throats = base.throats.map((throat, index) => ({
+    ...throat,
+    ...(preset.throats[index] ?? {}),
+    muted: false,
+  }));
+  const tongueCount = phoneme.tongueCount;
+  const noseCount = phoneme.noseCount;
+  const pressureSourceCount = boundedInteger(
+    preset.pressureSourceCount,
+    1,
+    MAX_PRESSURE_SOURCES,
+    1,
+  );
+
+  return {
+    ...base,
+    ...parameters,
+    voicePreset: key,
+    sourceMode: preset.sourceMode,
+    phoneme: preset.phoneme,
+    throatCount,
+    pressureSourceCount,
+    pressureSources: Array.from({ length: MAX_PRESSURE_SOURCES }, (_, index) => ({
+      open: index < pressureSourceCount,
+      level: clamp(0.94 - index * 0.1),
+    })),
+    articulationPlace: phoneme.tongues[0]?.position ?? 0.48,
+    articulationAperture: 1,
+    articulationVoicing: preset.articulationVoicing,
+    articulationManner: "vowel",
+    glottalClosure: 0,
+    nasalCoupling: preset.nasalCoupling,
+    tongueCount,
+    noseCount,
+    oralClosure: phoneme.oralClosure,
+    lipDiameter: phoneme.lipDiameter,
+    throats,
+    tongues: phoneme.tongues.map((tongue) => ({ ...tongue })),
+    noses: phoneme.noses.map((nose) => ({ ...nose })),
+    voiceIntervals: preset.voiceIntervals
+      ? [...preset.voiceIntervals]
+      : [...base.voiceIntervals],
+    voiceDetunes: preset.voiceDetunes
+      ? [...preset.voiceDetunes]
+      : [...base.voiceDetunes],
+  };
+}
 
 const CONSONANT_ALIASES = Object.freeze({
   "ʔ": "glottal",
@@ -1023,8 +1802,9 @@ export function consonantVoiceParameters(value, phase = "hold", sampleRate = 48_
   const frequency = (number) => clamp(number, 80, nyquistLimit);
   const sustaining = eventPhase !== "release";
   const sustainScale = eventPhase === "attack" ? 0.72 : sustaining ? 1 : 0;
-  const isStop = consonant.manner === "stop";
-  const isFricative = consonant.manner === "fricative";
+  const isAffricate = consonant.manner === "affricate";
+  const isStop = consonant.manner === "stop" || isAffricate;
+  const isFricative = consonant.manner === "fricative" || isAffricate;
   const isNasal = consonant.manner === "nasal";
   const hasOralReleaseBurst = isStop && consonant.place !== "glottal";
 
@@ -1060,22 +1840,39 @@ export function consonantVoiceParameters(value, phase = "hold", sampleRate = 48_
   };
 }
 
-const KEYBOARD_ARTICULATIONS = Object.freeze({
+export const LETTER_ARTICULATIONS = Object.freeze({
   a: "a",
+  b: "b",
+  c: "c",
+  d: "d",
   e: "e",
-  i: "i",
-  o: "o",
-  u: "u",
-  s: "s",
-  k: "k",
-  t: "t",
-  p: "p",
   f: "f",
+  g: "g",
+  h: "h",
+  i: "i",
+  j: "j",
+  k: "k",
+  l: "l",
   m: "m",
   n: "n",
-  q: "glottal",
-  x: "sh",
-  g: "ng",
+  o: "o",
+  p: "p",
+  q: "q",
+  r: "r",
+  s: "s",
+  t: "t",
+  u: "u",
+  v: "v",
+  w: "w",
+  x: "x",
+  y: "y",
+  z: "z",
+});
+
+const KEYBOARD_ARTICULATIONS = Object.freeze({
+  ...LETTER_ARTICULATIONS,
+  "'": "glottal",
+  "?": "glottal",
 });
 
 export function keyboardArticulation(value) {
@@ -1116,6 +1913,7 @@ export function specimenState(name = "triune") {
     tongueCount: specimen.tongueCount,
     noseCount: specimen.noseCount,
     oralClosure: specimen.oralClosure,
+    lipDiameter: 3,
     wet: specimen.wet,
     dry: specimen.dry,
     spread: specimen.spread,
@@ -1125,9 +1923,334 @@ export function specimenState(name = "triune") {
     exciterBreath: specimen.exciterBreath,
     exciterVibrato: specimen.exciterVibrato,
     exciterWobble: specimen.exciterWobble,
+    voiceMode: specimen.voiceMode,
+    voiceIntervals: [...specimen.voiceIntervals],
+    voiceDetunes: [...specimen.voiceDetunes],
     throats,
     tongues: specimen.tongues.map((tongue) => ({ ...tongue })),
     noses: specimen.noses.map((nose) => ({ ...nose })),
+  };
+}
+
+export function singingVoiceParameters(state, index) {
+  const count = boundedInteger(state.throatCount, 1, MAX_THROATS, 1);
+  const mouthIndex = boundedInteger(index, 0, MAX_THROATS - 1);
+  const intervalValue = Number(state.voiceIntervals?.[mouthIndex]);
+  const detuneValue = Number(state.voiceDetunes?.[mouthIndex]);
+  const interval = Number.isFinite(intervalValue)
+    ? clamp(intervalValue, -48, 48)
+    : SINGING_INTERVAL_FALLBACKS[mouthIndex];
+  const detune = Number.isFinite(detuneValue)
+    ? clamp(detuneValue, -1_200, 1_200)
+    : SINGING_DETUNE_FALLBACKS[mouthIndex];
+  const basePitch = clamp(Number(state.exciterPitch) || 110, 20, 20_000);
+  const frequency = clamp(
+    basePitch * 2 ** (interval / 12),
+    20,
+    20_000,
+  );
+  const throat = state.throats?.[mouthIndex] ?? defaultThroat(mouthIndex);
+  const active = mouthIndex < count && !throat.muted;
+  const pan = count <= 1
+    ? 0
+    : clamp((mouthIndex / (count - 1)) * 2 - 1, -1, 1);
+  const aperture = unitValue(throat.aperture, 0.5);
+  const length = unitValue(throat.length, 0.5);
+  const vibrato = unitValue(state.exciterVibrato);
+  const tension = unitValue(state.exciterTenseness, state.tension);
+
+  return {
+    mouthIndex,
+    frequency,
+    interval,
+    detune,
+    pan,
+    gain: active ? (0.76 + aperture * 0.24) / Math.sqrt(count) : 0,
+    vibratoRate: 4.45 + mouthIndex * 0.29 + length * 0.32,
+    vibratoDepth: 4 + vibrato * (15 + mouthIndex * 1.35),
+    phaseOffset: (mouthIndex * 0.38196601125 + length * 0.17) % 1,
+    timbre: clamp(0.25 + tension * 0.58 + aperture * 0.12),
+  };
+}
+
+function finiteNonnegative(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : Math.max(0, fallback);
+}
+
+function distributedAssignment(index, branchCount, articulatorCount) {
+  if (articulatorCount <= 0) return -1;
+  if (articulatorCount === 1 || branchCount <= 1) return 0;
+  return Math.round((index / (branchCount - 1)) * (articulatorCount - 1));
+}
+
+function assignedArticulator(value, fallback, count) {
+  if (count <= 0) return -1;
+  const number = Number(value);
+  return Number.isFinite(number)
+    ? boundedInteger(number, 0, count - 1, fallback)
+    : fallback;
+}
+
+export function normalizePressureSources(state = {}) {
+  const pressureSourceCount = boundedInteger(
+    state?.pressureSourceCount,
+    1,
+    MAX_PRESSURE_SOURCES,
+    1,
+  );
+  const configured = Array.isArray(state?.pressureSources)
+    ? state.pressureSources
+    : [];
+  const pressureSources = Array.from(
+    { length: MAX_PRESSURE_SOURCES },
+    (_, index) => {
+      const active = index < pressureSourceCount;
+      const source = configured[index] ?? {};
+      const open = active && (
+        source.open === undefined ? true : Boolean(source.open)
+      );
+      return {
+        index,
+        open,
+        level: active ? unitValue(source.level, 1) : 0,
+      };
+    },
+  );
+  return { pressureSourceCount, pressureSources };
+}
+
+export function mouthCouplingMatrix(countOrState = 1, coupling) {
+  const state = countOrState && typeof countOrState === "object"
+    ? countOrState
+    : null;
+  const mouthCount = boundedInteger(
+    state?.mouthCount ?? state?.throatCount ?? countOrState,
+    1,
+    MAX_MOUTHS,
+    1,
+  );
+  const amount = unitValue(coupling ?? state?.coupling);
+  const neighborCoupling = amount * 0.22;
+  const matrix = Array.from(
+    { length: mouthCount },
+    (_, row) => Array.from({ length: mouthCount }, (_, column) => (
+      row === column ? 1 : 0
+    )),
+  );
+  for (let index = 0; index < mouthCount - 1; index += 1) {
+    matrix[index][index] -= neighborCoupling;
+    matrix[index + 1][index + 1] -= neighborCoupling;
+    matrix[index][index + 1] += neighborCoupling;
+    matrix[index + 1][index] += neighborCoupling;
+  }
+  return matrix;
+}
+
+export function coupleMouthPressures(pressures, coupling = 0) {
+  const count = Math.min(
+    MAX_MOUTHS,
+    Array.isArray(pressures) || ArrayBuffer.isView(pressures)
+      ? pressures.length
+      : 0,
+  );
+  if (count <= 0) return [];
+  const values = Array.from(
+    { length: count },
+    (_, index) => finiteNonnegative(pressures[index]),
+  );
+  const matrix = mouthCouplingMatrix(count, coupling);
+  return matrix.map((row) => row.reduce(
+    (sum, weight, index) => sum + weight * values[index],
+    0,
+  ));
+}
+
+export function mouthManifold(state = {}) {
+  const mouthCount = boundedInteger(
+    state?.mouthCount ?? state?.throatCount,
+    1,
+    MAX_MOUTHS,
+    1,
+  );
+  const tongueCount = boundedInteger(
+    state?.tongueCount,
+    1,
+    MAX_TONGUES,
+    1,
+  );
+  const noseCount = boundedInteger(
+    state?.noseCount,
+    0,
+    MAX_NOSES,
+    0,
+  );
+  const configuredMouths = Array.isArray(state?.mouths)
+    ? state.mouths
+    : [];
+  const legacyThroats = Array.isArray(state?.throats)
+    ? state.throats
+    : [];
+  const globalClosure = unitValue(state?.oralClosure);
+  const mouths = Array.from({ length: mouthCount }, (_, index) => {
+    const fallback = defaultThroat(index);
+    const configured = configuredMouths[index] ?? legacyThroats[index] ?? fallback;
+    const aperture = unitValue(configured.aperture, fallback.aperture);
+    const length = unitValue(configured.length, fallback.length);
+    const localClosure = unitValue(
+      configured.closure ?? configured.oralClosure,
+    );
+    const closure = Math.max(globalClosure, localClosure);
+    const muted = Boolean(configured.muted ?? configured.closed);
+    const effectiveAperture = muted
+      ? 0
+      : aperture * oralOpening(closure);
+    const resistance = 0.28 + length * 1.45;
+    const conductance = effectiveAperture <= 1e-6
+      ? 0
+      : effectiveAperture ** 2 / resistance;
+    const defaultTongueIndex = distributedAssignment(
+      index,
+      mouthCount,
+      tongueCount,
+    );
+    const defaultNoseIndex = distributedAssignment(
+      index,
+      mouthCount,
+      noseCount,
+    );
+    const tongueIndex = assignedArticulator(
+      configured.tongueIndex ?? configured.tongueAssignment,
+      defaultTongueIndex,
+      tongueCount,
+    );
+    const noseIndex = assignedArticulator(
+      configured.noseIndex ?? configured.noseAssignment,
+      defaultNoseIndex,
+      noseCount,
+    );
+    return {
+      index,
+      aperture,
+      length,
+      closure,
+      effectiveAperture,
+      resistance,
+      conductance,
+      muted,
+      closed: muted,
+      tongueIndex,
+      noseIndex,
+      tongueAssignment: tongueIndex,
+      noseAssignment: noseIndex,
+    };
+  });
+  const bodyLength = unitValue(state?.bodyLength, 0.5);
+  const coupling = unitValue(state?.coupling);
+  const rootConfiguration = state?.rootAirway ?? {};
+  const rootLength = unitValue(rootConfiguration.length, bodyLength);
+  const rootArea = clamp(
+    Number.isFinite(Number(rootConfiguration.area))
+      ? Number(rootConfiguration.area)
+      : 0.48 + (1 - bodyLength) * 0.34,
+    0.05,
+    1,
+  );
+  const compliance = unitValue(
+    rootConfiguration.compliance,
+    0.22 + coupling * 0.58,
+  );
+  const loss = unitValue(
+    rootConfiguration.loss,
+    0.08 + rootLength * 0.2,
+  );
+  const pressureState = normalizePressureSources(state);
+  return {
+    kind: "mouth-manifold",
+    mouthCount,
+    tongueCount,
+    noseCount,
+    coupling,
+    root: {
+      length: rootLength,
+      area: rootArea,
+      compliance,
+      loss,
+      resistance: 0.32 + rootLength * 1.08 + loss * 0.4,
+    },
+    mouths,
+    couplingMatrix: mouthCouplingMatrix(mouthCount, coupling),
+    ...pressureState,
+  };
+}
+
+export function routeMouthPressure(state = {}, rootPressure = 1) {
+  const manifold = state?.kind === "mouth-manifold"
+    && Array.isArray(state.mouths)
+    && Array.isArray(state.couplingMatrix)
+    && state.root
+    ? state
+    : mouthManifold(state);
+  const normalizedSources = normalizePressureSources(manifold);
+  const activeSources = normalizedSources.pressureSources
+    .slice(0, normalizedSources.pressureSourceCount)
+    .filter((source) => source.open);
+  const sourceLevel = activeSources.length
+    ? activeSources.reduce((sum, source) => sum + source.level, 0)
+      / Math.sqrt(activeSources.length)
+    : 0;
+  const requestedPressure = finiteNonnegative(rootPressure, 1);
+  const sourcePressure = requestedPressure * sourceLevel;
+  const conductances = manifold.mouths.map((mouth) => (
+    finiteNonnegative(mouth.conductance)
+  ));
+  const totalConductance = conductances.reduce((sum, value) => sum + value, 0);
+  const coupled = manifold.couplingMatrix.map((row) => row.reduce(
+    (sum, weight, index) => sum + weight * conductances[index],
+    0,
+  ));
+  const masked = coupled.map((value, index) => (
+    conductances[index] > 1e-9 ? finiteNonnegative(value) : 0
+  ));
+  const maskedTotal = masked.reduce((sum, value) => sum + value, 0);
+  const demandScale = maskedTotal > 1e-12
+    ? totalConductance / maskedTotal
+    : 0;
+  const demands = masked.map((value) => value * demandScale);
+  const rootResistance = finiteNonnegative(manifold.root.resistance, 1);
+  const manifoldPressure = sourcePressure / (
+    1 + rootResistance * totalConductance
+  );
+  const rootArea = finiteNonnegative(manifold.root.area, 0.5);
+  const mouths = manifold.mouths.map((mouth, index) => {
+    const coupledConductance = demands[index] ?? 0;
+    const flow = manifoldPressure * coupledConductance * rootArea;
+    return {
+      ...mouth,
+      coupledConductance,
+      pressure: manifoldPressure,
+      flow,
+      share: totalConductance > 1e-12
+        ? coupledConductance / totalConductance
+        : 0,
+    };
+  });
+  const totalFlow = mouths.reduce((sum, mouth) => sum + mouth.flow, 0);
+  return {
+    ...manifold,
+    ...normalizedSources,
+    root: {
+      ...manifold.root,
+      requestedPressure,
+      sourceLevel,
+      openSourceCount: activeSources.length,
+      sourcePressure,
+      manifoldPressure,
+      pressureDrop: sourcePressure - manifoldPressure,
+      totalConductance,
+      totalFlow,
+    },
+    mouths,
   };
 }
 
@@ -1359,6 +2482,12 @@ export function throatVoiceParameters(state, index, sampleRate = 48_000) {
   tongue.height /= tongueWeight;
   tongue.curl /= tongueWeight;
   const oralClosure = unitValue(state.oralClosure);
+  const lipDiameter = clamp(
+    Number.isFinite(Number(state.lipDiameter)) ? Number(state.lipDiameter) : 3,
+    0.35,
+    3,
+  );
+  const lipRounding = clamp((1.4 - lipDiameter) / 0.9);
   const tractScale = 0.68 + (1 - bodyLength) * 0.68;
   const mutationSkew = 1 + Math.sin((voiceIndex + 1) * 2.17) * mutation * 0.16;
   const tongueHeightScale = 1.2 - tongue.height * 0.44;
@@ -1368,6 +2497,7 @@ export function throatVoiceParameters(state, index, sampleRate = 48_000) {
     * tractScale
     * mutationSkew
     * tongueHeightScale
+    * (1 - lipRounding * 0.16)
   );
   const second = (
     610
@@ -1375,7 +2505,7 @@ export function throatVoiceParameters(state, index, sampleRate = 48_000) {
     + voiceIndex * 118
     + tongueFrontShift
     + tongue.height * 150
-  ) * tractScale;
+  ) * tractScale * (1 - lipRounding * 0.32);
   const third = Math.min(
     nyquistLimit,
     (
@@ -1383,7 +2513,7 @@ export function throatVoiceParameters(state, index, sampleRate = 48_000) {
       + aperture * 1_620
       + voiceIndex * 205
       + (tongue.curl - 0.5) * 380
-    ) * tractScale * (2 - mutationSkew),
+    ) * tractScale * (2 - mutationSkew) * (1 - lipRounding * 0.08),
   );
   const fourth = Math.min(
     nyquistLimit,
@@ -1427,7 +2557,11 @@ export function throatVoiceParameters(state, index, sampleRate = 48_000) {
       7 + mutation * 5,
       3 + tension * 4,
     ],
-    lowpass: clamp(2_200 + aperture * 9_800 + tension * 2_000, 1_600, nyquistLimit),
+    lowpass: clamp(
+      (2_200 + aperture * 9_800 + tension * 2_000) * (1 - lipRounding * 0.24),
+      1_600,
+      nyquistLimit,
+    ),
     highpass: 48 + (1 - aperture) * 190,
     delay: 0.003 + length * 0.028 + voiceIndex * mutation * 0.0017,
     pan,

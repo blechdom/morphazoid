@@ -2,7 +2,7 @@
 
 Morphazoidical is the isolated design and engineering track for the next Morphazoid geometry-to-sound workbench. It turns geometric measurements into understandable, trustworthy mapping sources while keeping the legacy instruments untouched.
 
-The interface is intentionally progressive: the stage remains the visual center, a compact rack holds performance controls, a live inspector explains the selected contact or form, and an event timeline makes topology changes legible. The separate Feature Atlas is the searchable reference for every measurement that can eventually become a mapping source.
+The interface is intentionally progressive: the stage remains the visual center, a compact rack holds performance controls, and a persistent **Now** board keeps the most useful contact, reader, tangency, topology, and mapping values visible together. A grouped signal explorer preserves every registered output without turning the live view into a wall of telemetry, while a latched event monitor makes topology changes legible. The separate Feature Atlas is the searchable reference for every measurement that can eventually become a mapping source.
 
 ## Current status
 
@@ -31,8 +31,9 @@ The primary performance and analysis surface:
 
 - A persistent geometric stage with reader, contacts, center guides, and selectable overlays.
 - Compact Transport, Form, Reader, and Mapping racks.
-- Contact, Reader, Form, Topology, and Audio inspector views.
-- A chronological event strip for contact and topology changes.
+- An always-visible Now board with six essential values and four Raw → Normalized → Output mapping channels.
+- Contact, Reader, Form, Topology, and Audio explorer views, divided into user-facing geometric questions.
+- Current-frame event counters plus a chronological, bounded event log that announces only genuinely new events.
 - Visible coordinate-frame and quality information near the values it qualifies.
 - Responsive behavior that keeps the stage useful while dense information moves into drawers or stacked regions.
 

@@ -33,7 +33,14 @@ test("the isolated workbench exposes every runtime control and inspection surfac
   for (const required of [
     "geometryStage",
     "stageShell",
+    "liveDashboardTitle",
+    "liveTopologyState",
+    "liveFrameState",
+    "routeMonitorTitle",
     "eventStream",
+    "eventActivity",
+    "eventHistoryCount",
+    "eventAnnouncement",
     "contactMetrics",
     "readerMetrics",
     "formMetrics",
@@ -69,6 +76,29 @@ test("the isolated workbench exposes every runtime control and inspection surfac
   assert.match(html, /<canvas[^>]+tabindex=["']0["']/);
   assert.match(html, /<script type=["']module["'] src=["']app\.js["']/);
   assert.match(html, /\+Y down · positive angles clockwise/);
+  assert.equal([...html.matchAll(/\bdata-live-feature=/g)].length, 6);
+  assert.equal([...html.matchAll(/\bdata-route-monitor=/g)].length, 4);
+  assert.equal([...html.matchAll(/\bdata-event-feature=/g)].length, 6);
+});
+
+test("the live monitor and signal explorer expose stable, non-spamming semantics", async () => {
+  const html = await source("index.html");
+  const eventList = html.match(/<ol\b[^>]*\bid=["']eventStream["'][^>]*>/)?.[0] ?? "";
+  assert.ok(eventList, "eventStream must remain an ordered list");
+  assert.doesNotMatch(eventList, /\baria-live=/, "the visual event log must not announce every redraw");
+  assert.match(html, /id=["']eventAnnouncement["'][^>]*aria-live=["']polite["']/);
+
+  const tabs = [...html.matchAll(/<button\b[^>]*\brole=["']tab["'][^>]*>/g)].map((match) => match[0]);
+  assert.equal(tabs.length, 5);
+  assert.equal(tabs.filter((tab) => /\btabindex=["']0["']/.test(tab)).length, 1);
+  assert.equal(tabs.filter((tab) => /\btabindex=["']-1["']/.test(tab)).length, 4);
+  assert.equal(tabs.filter((tab) => /\baria-selected=["']true["']/.test(tab)).length, 1);
+
+  const ids = new Set(idsIn(html));
+  for (const tab of tabs) {
+    const panel = tab.match(/\baria-controls=["']([^"']+)["']/)?.[1];
+    assert.ok(panel && ids.has(panel), `tab points to missing panel ${panel}`);
+  }
 });
 
 test("page IDs and label targets are unique and valid", async () => {

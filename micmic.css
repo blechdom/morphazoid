@@ -462,6 +462,82 @@
   font: 7px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.branch-renderer-toggle {
+  display: grid;
+  width: 100%;
+  margin: 0 0 13px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--bg-deep);
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 9px;
+  text-align: left;
+}
+
+.branch-renderer-toggle:hover,
+.branch-renderer-toggle:focus-visible,
+.branch-renderer-toggle[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.branch-renderer-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.branch-renderer-toggle > span:nth-child(2) {
+  display: grid;
+  gap: 2px;
+}
+
+.branch-renderer-toggle b {
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.branch-renderer-toggle small,
+.branch-renderer-toggle output {
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.branch-renderer-toggle output {
+  grid-column: 2;
+}
+
+.branch-toggle-track {
+  position: relative;
+  width: 27px;
+  height: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.branch-toggle-track i {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.branch-renderer-toggle[aria-checked="true"] .branch-toggle-track i {
+  transform: translateX(13px);
+  background: var(--accent);
+  box-shadow: 0 0 9px var(--accent-glow);
+}
+
 .fracta-record-button {
   display: flex;
   width: 100%;

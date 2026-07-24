@@ -1,6 +1,7 @@
 export const MAX_RECURSION_FEEDBACK = 0.86;
 export const MAX_GENERATION_STAGES = 12;
 export const MAX_GENERATION_VOICES = 48;
+export const MAX_ADAPTIVE_GENERATION_VOICES = 64;
 export const MAX_BRANCHES_PER_GENERATION = 128;
 export const FIXED_FORK_DENSITY = 1;
 export const GENERATION_RULE_PRESETS = Object.freeze({
@@ -323,6 +324,7 @@ function boundedConnectedVoices(voices, maximum, deepestGeneration) {
   const voiceId = (voice) => voice.key.replace(/^generation:/, "");
   const byId = new Map(voices.map((voice) => [voiceId(voice), voice]));
   const selected = new Set();
+  const ordered = [];
   const deepest = voices
     .filter((voice) => voice.generation === deepestGeneration)
     .sort((left, right) => (
@@ -334,23 +336,29 @@ function boundedConnectedVoices(voices, maximum, deepestGeneration) {
     let cursor = target;
     while (cursor) {
       const id = voiceId(cursor);
-      if (!selected.has(id)) path.unshift(id);
+      if (!selected.has(id)) path.unshift(cursor);
       cursor = cursor.parentId === "trunk" ? null : byId.get(cursor.parentId);
     }
-    if (selected.size + path.length > maximum) continue;
-    for (const id of path) selected.add(id);
-    if (selected.size === maximum) break;
+    for (const voice of path) {
+      const id = voiceId(voice);
+      if (selected.has(id)) continue;
+      selected.add(id);
+      ordered.push(voice);
+    }
   }
 
-  // Spend any remaining budget only on children whose parent is already
-  // audible. This keeps every highlighted buffer connected to the seed.
+  // Append any non-deep descendants in topological order. Because parents are
+  // always admitted before children, every prefix is a valid connected tree;
+  // adaptive 32 → 48 → 64 changes therefore add voices without replacing keys.
   for (const voice of voices) {
-    if (selected.size >= maximum) break;
     const id = voiceId(voice);
     if (selected.has(id)) continue;
-    if (voice.parentId === "trunk" || selected.has(voice.parentId)) selected.add(id);
+    if (voice.parentId === "trunk" || selected.has(voice.parentId)) {
+      selected.add(id);
+      ordered.push(voice);
+    }
   }
-  return voices.filter((voice) => selected.has(voiceId(voice))).slice(0, maximum);
+  return ordered.slice(0, maximum);
 }
 
 /**
@@ -458,6 +466,7 @@ export function generationVoiceSpecs({
   angle = 30,
   asymmetry = 0,
   pitchScale = 1,
+  maximumVoices = MAX_GENERATION_VOICES,
 } = {}) {
   const octaveScale = clamp(pitchScale, 0, 4);
   const layout = generationTopology({
@@ -503,7 +512,11 @@ export function generationVoiceSpecs({
       });
     }
   }
-  const selected = boundedConnectedVoices(voices, MAX_GENERATION_VOICES, count);
+  const voiceLimit = Math.max(1, Math.min(
+    MAX_ADAPTIVE_GENERATION_VOICES,
+    Math.round(Number(maximumVoices) || MAX_GENERATION_VOICES),
+  ));
+  const selected = boundedConnectedVoices(voices, voiceLimit, count);
   const selectedPerGeneration = new Map();
   for (const voice of selected) {
     selectedPerGeneration.set(
@@ -517,6 +530,49 @@ export function generationVoiceSpecs({
       * Math.pow(depthAmount, voice.generation * 0.72)
       / Math.sqrt(selectedPerGeneration.get(voice.generation) ?? 1),
   }));
+}
+
+/**
+ * Translate the current visual/audio rewrite into the dormant recursive-bounce
+ * worklet contract. Each generation reads the previous generation's mono stem,
+ * applies its local child turn and interval, then writes one shared next stem.
+ * This is intentionally separate from the default silky renderer.
+ */
+export function generationBounceVoiceSpecs(
+  voices,
+  {
+    depth = 0.72,
+    pitchScale = 1,
+  } = {},
+) {
+  const source = Array.isArray(voices) ? voices : [];
+  const maximumGeneration = Math.max(0, ...source.map((voice) => (
+    Math.max(0, Math.round(Number(voice?.generation) || 0))
+  )));
+  const perGeneration = new Map();
+  for (const voice of source) {
+    const generation = Math.max(1, Math.round(Number(voice?.generation) || 1));
+    perGeneration.set(generation, (perGeneration.get(generation) ?? 0) + 1);
+  }
+  const stageDecay = Math.pow(clamp(depth, 0, MAX_RECURSION_FEEDBACK), 0.72);
+  const octaveScale = clamp(pitchScale, 0, 4);
+
+  return source.map((voice, index) => {
+    const generation = Math.max(1, Math.round(Number(voice?.generation) || 1));
+    const localSemitones = clamp(voice?.turnDegrees, -180, 180) / 180
+      * 12
+      * octaveScale;
+    return {
+      key: `bounce:${typeof voice?.key === "string" ? voice.key : index}`,
+      rate: clamp(2 ** (localSemitones / 12), 0.25, 4),
+      gain: 0.5 * stageDecay / Math.sqrt(perGeneration.get(generation) ?? 1),
+      pan: clamp(voice?.pan, -1, 1),
+      depth: generation,
+      delay: clamp(voice?.interval, 0.00002, 2.4),
+      sourceKey: generation === 1 ? "base" : `generation:${generation - 1}`,
+      bounceKey: generation < maximumGeneration ? `generation:${generation}` : null,
+    };
+  });
 }
 
 export function echoTreeLayout(

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="Morphazoid Recursion — six structural systems for sound consuming, folding, filtering, delaying, convolving, and phasing itself."
+      content="Morphazoid Recursion."
     />
     <title>Recursion — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -33,6 +33,7 @@
         <a class="tab micmic-tab" href="micmic.html">mic(mic)</a>
         <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
         <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
@@ -49,6 +50,7 @@
           <option value="micmic.html">mic(mic)</option>
           <option value="graph-delay.html">graph-delay</option>
           <option value="throatazoid.html">throatazoid</option>
+          <option value="morphazoidical/">morphazoidical</option>
         </select>
       </label>
 
@@ -65,197 +67,160 @@
     </header>
 
     <main class="shell recursion-shell" id="recursion">
-      <section class="stage recursion-stage" aria-label="Recursion analysis stage">
+      <section class="stage recursion-stage" aria-label="Fuzzy Donut">
         <div class="stage-wrap" id="stageWrap">
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Animated structural score and analysis display for the selected recursive audio system."
-            aria-describedby="canvasInstructions liveStatus"
+            aria-label="Fuzzy Donut"
+            aria-describedby="liveStatus"
           >
-            A synchronized structural display of recursive buffers, spectra, filters, delays, convolutions, and phase paths.
+            Fuzzy Donut
           </canvas>
 
           <div class="recursion-stage-heading">
-            <span id="stageIndex">SYSTEM 01 / 06</span>
-            <h1 id="stageTitle">Ouroboros Tape</h1>
-            <p id="stagePremise">The output of one bounded pass becomes the material of the next.</p>
+            <h1 id="stageTitle">Fuzzy Donut</h1>
           </div>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">TIME-DOMAIN AUTOPHAGY · G0 · AUDIO OFF</span>
+            <span id="stageReadout">FUZZY DONUT · ORBIT · G7 · 0 EVENTS · OFF</span>
           </div>
 
-          <div class="recursion-geometry-views" id="geometryViews" role="group" aria-label="Geometry projection">
+          <div class="recursion-geometry-views" id="geometryViews" role="group" aria-label="Geometry view">
             <button id="geometryOrbit" type="button" data-geometry="orbit" aria-pressed="true">ORBIT</button>
             <button id="geometryStack" type="button" data-geometry="stack" aria-pressed="false">STACK</button>
             <button id="geometryCausality" type="button" data-geometry="causality" aria-pressed="false">CAUSAL</button>
           </div>
 
           <div class="recursion-process" aria-hidden="true">
-            <span id="processKind">STATE</span>
-            <strong id="processLabel">seed waiting at generation zero</strong>
+            <span id="processKind">RECURSION</span>
+            <strong id="processLabel">G7</strong>
             <div class="recursion-depth-rail" id="depthRail"></div>
           </div>
         </div>
       </section>
 
-      <aside class="panel recursion-panel" aria-label="Recursion system controls">
-        <section class="recursion-study-nav" aria-labelledby="studyPickerLabel">
-          <div class="recursion-section-heading">
-            <span class="field-label" id="studyPickerLabel">Choose a system</span>
-            <output id="studyCount">01 / 06</output>
-          </div>
-          <div class="recursion-study-list recursion-system-list" id="studyButtons" role="tablist" aria-label="Six recursion systems">
-            <button type="button" role="tab" data-study="ouroboros-tape" aria-selected="true">
-              <span>01</span><b>Ouroboros Tape</b><small>buffer autophagy</small>
-            </button>
-            <button type="button" role="tab" data-study="spectral-mobius" aria-selected="false">
-              <span>02</span><b>Spectral Möbius</b><small>STFT · bin fold</small>
-            </button>
-            <button type="button" role="tab" data-study="filter-hydra" aria-selected="false">
-              <span>03</span><b>Filter-Bank Hydra</b><small>low / high tree</small>
-            </button>
-            <button type="button" role="tab" data-study="cantor-delay" aria-selected="false">
-              <span>04</span><b>Cantor Weather</b><small>branching delays</small>
-            </button>
-            <button type="button" role="tab" data-study="convolution-maw" aria-selected="false">
-              <span>05</span><b>Convolution Maw</b><small>space eats space</small>
-            </button>
-            <button type="button" role="tab" data-study="phase-labyrinth" aria-selected="false">
-              <span>06</span><b>Phase Labyrinth</b><small>nested allpass</small>
-            </button>
-          </div>
-          <label class="recursion-study-select" for="studySelect">
-            <span class="sr-only">Choose a recursion system</span>
-            <span class="select-shell">
-              <select id="studySelect">
-                <option value="ouroboros-tape">01 · Ouroboros Tape</option>
-                <option value="spectral-mobius">02 · Spectral Möbius</option>
-                <option value="filter-hydra">03 · Filter-Bank Hydra</option>
-                <option value="cantor-delay">04 · Cantor Weather</option>
-                <option value="convolution-maw">05 · Convolution Maw</option>
-                <option value="phase-labyrinth">06 · Phase Labyrinth</option>
-              </select>
-            </span>
-          </label>
-        </section>
-
+      <aside class="panel recursion-panel" aria-label="Fuzzy Donut controls">
         <section class="recursion-seed" aria-labelledby="seedHeading">
           <div class="recursion-section-heading">
-            <span class="field-label" id="seedHeading">Seed material</span>
-            <output id="sourceReadout">PINK NOISE FIELD</output>
+            <span class="field-label" id="seedHeading">Seed</span>
+            <output id="sourceReadout">NOISE</output>
           </div>
-          <div class="recursion-source-buttons" id="sourceButtons" role="group" aria-label="Seed source">
-            <button type="button" data-source="noise" aria-pressed="true"><b>Noise</b><small>broadband field</small></button>
-            <button type="button" data-source="impulse" aria-pressed="false"><b>Impulse</b><small>sparse clicks</small></button>
-            <button type="button" data-source="mic" aria-pressed="false"><b>Mic</b><small>4 s capture</small></button>
-            <button type="button" data-source="file" aria-pressed="false"><b>Audio</b><small>local file</small></button>
+          <div class="recursion-source-buttons" id="sourceButtons" role="group" aria-label="Seed">
+            <button type="button" data-source="noise" aria-pressed="true"><b>Noise</b></button>
+            <button type="button" data-source="impulse" aria-pressed="false"><b>Impulse</b></button>
+            <button type="button" data-source="mic" aria-pressed="false"><b>Mic</b></button>
+            <button type="button" data-source="file" aria-pressed="false"><b>Audio</b></button>
           </div>
           <button class="recursion-capture-button" id="captureButton" type="button" aria-pressed="false" hidden>
             <span class="record-glyph" aria-hidden="true"></span>
-            <span><b id="captureLabel">Capture four seconds</b><small id="captureHint">captured · never live-monitored</small></span>
+            <span><b id="captureLabel">Capture</b><small id="captureHint">4 S · NO MONITOR</small></span>
           </button>
           <label class="recursion-file-input" id="fileInputLabel" for="audioFile" hidden>
             <input id="audioFile" type="file" accept="audio/*" />
-            <span><b id="fileLabel">Choose an audio file</b><small id="fileHint">decoded locally · never uploaded</small></span>
+            <span><b id="fileLabel">Audio file</b><small id="fileHint">LOCAL · NO UPLOAD</small></span>
           </label>
-          <p class="recursion-seed-note" id="seedNote">A repeatable pink-noise field exposes filters, phase cancellation, and spectral motion without suggesting a melody.</p>
         </section>
 
-        <section class="recursion-listen" aria-labelledby="listenHeading">
-          <div class="recursion-cue">
-            <span class="field-label" id="listenHeading">Listen for</span>
-            <p id="listenCue">The seed stays recognizable for one pass, then reverses, filters, swaps sides, and folds its tail into its own beginning.</p>
-          </div>
-
+        <section class="recursion-listen" aria-label="Playback">
           <div class="recursion-transport">
             <button class="recursion-listen-button" id="listenButton" type="button" aria-pressed="false">
               <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
               <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-              <span><b id="listenLabel">Descend</b><small id="listenHint">start with the unprocessed seed</small></span>
+              <span><b id="listenLabel">Play</b></span>
             </button>
             <button class="recursion-step-button" id="stepButton" type="button">
-              <span aria-hidden="true">→|</span><small>Step</small>
+              <span aria-hidden="true">↬</span><small>Turn</small>
             </button>
             <button class="recursion-step-button" id="restartButton" type="button">
-              <span aria-hidden="true">↺</span><small>Restart</small>
+              <span aria-hidden="true">⊙</span><small>Center</small>
             </button>
           </div>
 
-          <div class="recursion-timeline" aria-label="System progress">
+          <div class="recursion-timeline" aria-label="Cycle">
             <i id="timelineProgress"></i>
-            <span id="timelineMoment">seed ready</span>
+            <span id="timelineMoment">G7 · ALL</span>
             <output id="timelineTime">0:00 / 0:18</output>
           </div>
 
-          <div class="recursion-clock-loop" aria-label="Closed feedback loop between four audio time dimensions">
+          <div class="recursion-clock-loop" aria-label="Dimensions">
             <span>TIMBRE</span><i>→</i><span>PITCH</span><i>→</i><span>RHYTHM</span><i>→</i><span>PHRASE</span><i>↩</i>
           </div>
 
-          <label class="control" for="depth">
-            <span><b id="depthLabel">Generation depth</b><output id="depthOut" for="depth">6 generations</output></span>
-            <input id="depth" type="range" min="2" max="8" step="1" value="6" />
-          </label>
-          <label class="control" for="pace">
-            <span><b>Generation interval</b><output id="paceOut" for="pace">1.40 seconds</output></span>
-            <input id="pace" type="range" min="0.35" max="3" step="0.05" value="1.4" />
-          </label>
-          <label class="control" for="transform">
-            <span><b id="transformLabel">Tail eaten per pass</b><output id="transformOut" for="transform">58%</output></span>
-            <input id="transform" type="range" min="0.1" max="0.9" step="0.01" value="0.58" />
-          </label>
-          <label class="control recursion-pressure-control" for="intensity">
-            <span><b>Structural pressure</b><output id="intensityOut" for="intensity">42% · traceable</output></span>
-            <input id="intensity" type="range" min="0" max="1" step="0.01" value="0.42" />
-            <small><span>LEGIBLE</span><span>OVERWHELMING</span></small>
-          </label>
+          <fieldset class="recursion-live-tree" id="liveTreeControls">
+            <legend>
+              <span>Parameters</span>
+              <output id="liveTreeState">ANCESTORS</output>
+            </legend>
+            <div class="recursion-live-grid">
+              <label for="liveTimbre">
+                <span><b id="liveTimbreLabel">Timbre</b><output id="liveTimbreOut" for="liveTimbre">64%</output></span>
+                <input id="liveTimbre" type="range" min="0" max="1" step="0.01" value="0.64" />
+              </label>
+              <label for="livePitch">
+                <span><b id="livePitchLabel">Pitch</b><output id="livePitchOut" for="livePitch">50%</output></span>
+                <input id="livePitch" type="range" min="0" max="1" step="0.01" value="0.5" />
+              </label>
+              <label for="liveRhythm">
+                <span><b id="liveRhythmLabel">Rhythm</b><output id="liveRhythmOut" for="liveRhythm">78%</output></span>
+                <input id="liveRhythm" type="range" min="0" max="1" step="0.01" value="0.78" />
+              </label>
+              <label for="livePhrase">
+                <span><b id="livePhraseLabel">Phrase</b><output id="livePhraseOut" for="livePhrase">52%</output></span>
+                <input id="livePhrase" type="range" min="0" max="1" step="0.01" value="0.52" />
+              </label>
+              <label for="liveTwist">
+                <span><b id="liveTwistLabel">Twist</b><output id="liveTwistOut" for="liveTwist">62%</output></span>
+                <input id="liveTwist" type="range" min="0" max="1" step="0.01" value="0.62" />
+              </label>
+              <label for="liveMemory">
+                <span><b id="liveMemoryLabel">Memory</b><output id="liveMemoryOut" for="liveMemory">74%</output></span>
+                <input id="liveMemory" type="range" min="0" max="1" step="0.01" value="0.74" />
+              </label>
+            </div>
+          </fieldset>
+
+          <details class="recursion-rendered-controls" id="renderedControls">
+            <summary>
+              <span class="field-label">Structure</span>
+            </summary>
+            <div class="recursion-rendered-body">
+              <label class="control" for="depth">
+                <span><b id="depthLabel">Depth</b><output id="depthOut" for="depth">7</output></span>
+                <input id="depth" type="range" min="1" max="8" step="1" value="7" />
+              </label>
+              <label class="control" for="pace">
+                <span><b>Pace</b><output id="paceOut" for="pace">3.6 s</output></span>
+                <input id="pace" type="range" min="2" max="6" step="0.1" value="3.6" />
+              </label>
+              <label class="control" for="transform">
+                <span><b id="transformLabel">Fold</b><output id="transformOut" for="transform">72%</output></span>
+                <input id="transform" type="range" min="0.08" max="0.9" step="0.01" value="0.72" />
+              </label>
+              <label class="control recursion-pressure-control" for="intensity">
+                <span><b>Pressure</b><output id="intensityOut" for="intensity">80%</output></span>
+                <input id="intensity" type="range" min="0" max="1" step="0.01" value="0.8" />
+              </label>
+            </div>
+          </details>
 
           <div class="recursion-density-actions">
             <button id="accumulateButton" type="button" aria-pressed="true">
-              <span aria-hidden="true">≋</span><span><b>Ancestors remain</b><small>generations accumulate</small></span>
+              <span aria-hidden="true">≋</span><span><b>Ancestors</b></span>
             </button>
             <button id="overwhelmButton" type="button">
-              <span aria-hidden="true">∴</span><span><b>Open event horizon</b><small>maximum structure, bounded level</small></span>
+              <span aria-hidden="true">∴</span><span><b>Maximum</b></span>
             </button>
           </div>
 
-          <p class="recursion-safety-line"><b>Pressure changes density, bandwidth, and persistence; it also accelerates the four clocks, pitch travel, delay motion, and phrase fragmentation—not master loudness.</b> Every path remains finite and power-normalized.</p>
           <p class="audio-error" id="audioError" role="alert" hidden></p>
         </section>
 
-        <details class="group recursion-explanation" id="howSection">
-          <summary class="group-summary">
-            <h2 class="group-title">Inside this system</h2>
-            <span class="section-state" id="howSummary">output becomes next input</span>
-          </summary>
-          <div class="group-body">
-            <p id="howSequence">Each rendered buffer is the only material used to create its child. Nothing feeds the speakers indefinitely: the page computes a finite lineage, normalizes it, and plays generations through time.</p>
-            <dl class="recursion-methods">
-              <div><dt>Topology</dt><dd id="recursionMethod">serial buffer recursion</dd></div>
-              <div><dt>Analysis</dt><dd id="analysisMethod">time-domain amplitude and zero crossings</dd></div>
-              <div><dt>Rewrite</dt><dd id="parameterMethod">reverse, stereo swap, tail fold, filter</dd></div>
-              <div><dt>Wildness</dt><dd id="effectsMethod">wavefold, ring modulation, ancestor overlap</dd></div>
-            </dl>
-          </div>
-        </details>
-
-        <details class="group recursion-explanation" id="safetySection">
-          <summary class="group-summary">
-            <h2 class="group-title">Bounds and input privacy</h2>
-            <span class="section-state">finite graph · RMS normalized · local only</span>
-          </summary>
-          <div class="group-body">
-            <p>Uploaded audio is decoded only in this browser and is never sent anywhere. Recursion depth, event count, filter Q, delay return, allpass coefficient, convolution length, and spectral energy all have hard ceilings. A compressor catches the final mix; the Output control still belongs to you.</p>
-          </div>
-        </details>
-
         <div class="reset-all-row">
-          <button class="reset-all-button" id="resetStudy" type="button">Reset this system</button>
+          <button class="reset-all-button" id="resetStudy" type="button">Reset</button>
         </div>
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">Choose one of six recursion systems and a noise, impulse, microphone capture, or local audio seed. Orbit projects rhythm and phrase onto a twisted manifold. Stack shows output time, logarithmic spectrum, and recursive depth. Causal maps source phrase positions through DSP routes into audible output onsets. Descend plays one finite lineage. Step auditions one generation. Structural pressure increases complexity while output energy remains normalized. Press Escape to stop.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 

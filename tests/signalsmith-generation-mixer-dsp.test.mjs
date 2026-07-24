@@ -53,3 +53,28 @@ test("mixer crossfades stationary read positions when timing or pitch slot chang
   renderer.process([silence, silence, silence], new Float32Array(512), new Float32Array(512));
   assert.ok(voice.delayFade > 0 && voice.delayFade < 1);
 });
+
+test("mixer follows a changing runtime branch ceiling inside its hard guard", () => {
+  const renderer = new SignalsmithGenerationMixerDSP({
+    sampleRate: 8_000,
+    historySeconds: 4,
+    maxInputs: 2,
+    maxVoices: 64,
+  });
+  const voices = Array.from({ length: 64 }, (_, index) => ({
+    key: `branch:${index}`,
+    sourceIndex: index % 2,
+    delay: 0.02 + index / 10_000,
+    gain: 0.01,
+    pan: 0,
+  }));
+  renderer.setVoices(voices, 32);
+  assert.equal(renderer.runtimeLimit, 32);
+  assert.equal(renderer.activeTargetCount, 32);
+  assert.equal(renderer.voices.size, 32);
+
+  renderer.setVoices(voices, 64);
+  assert.equal(renderer.runtimeLimit, 64);
+  assert.equal(renderer.activeTargetCount, 64);
+  assert.equal(renderer.voices.size, 64);
+});

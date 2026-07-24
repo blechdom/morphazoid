@@ -36,9 +36,11 @@ const presetById = new Map(PRESETS.map((preset) => [preset.id, preset]));
 const pool = new VoicePool(5);
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
-const context = canvas.getContext("2d", { desynchronized: true });
+const context = canvas.getContext("2d");
 const fieldCanvas = document.createElement("canvas");
 const fieldContext = fieldCanvas.getContext("2d");
+const staticCanvas = document.createElement("canvas");
+const staticContext = staticCanvas.getContext("2d");
 
 const CENTERED_RANGE_SCALES = Object.freeze({
   speed: Object.freeze({ low: 0.001, middle: JULIA_DEFAULTS.speed, high: 0.25, step: 0.001 }),
@@ -85,8 +87,10 @@ let cssWidth = 1;
 let cssHeight = 1;
 let pixelRatio = 1;
 let scheduledFrame = 0;
+let resizePending = false;
 let rebuildTimer = 0;
 let viewRebuildTimer = 0;
+let staticSceneCache = null;
 let lastFrameTime = performance.now();
 let lastAudioTime = null;
 let audioOctavePosition = null;
@@ -155,20 +159,35 @@ function scheduleFrame() {
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
-  pixelRatio = Math.max(1, Math.min(
+  const nextCssWidth = Math.max(1, Math.round(bounds.width));
+  const nextCssHeight = Math.max(1, Math.round(bounds.height));
+  const nextPixelRatio = Math.max(1, Math.min(
     window.devicePixelRatio || 1,
     2,
-    Math.sqrt(3_000_000 / (cssWidth * cssHeight)),
+    Math.sqrt(3_000_000 / (nextCssWidth * nextCssHeight)),
   ));
-  canvas.width = Math.round(cssWidth * pixelRatio);
-  canvas.height = Math.round(cssHeight * pixelRatio);
+  const nextWidth = Math.round(nextCssWidth * nextPixelRatio);
+  const nextHeight = Math.round(nextCssHeight * nextPixelRatio);
+  const changed = cssWidth !== nextCssWidth
+    || cssHeight !== nextCssHeight
+    || pixelRatio !== nextPixelRatio
+    || canvas.width !== nextWidth
+    || canvas.height !== nextHeight;
+  cssWidth = nextCssWidth;
+  cssHeight = nextCssHeight;
+  pixelRatio = nextPixelRatio;
+  if (canvas.width !== nextWidth) canvas.width = nextWidth;
+  if (canvas.height !== nextHeight) canvas.height = nextHeight;
+  if (changed) staticSceneCache = null;
+}
+
+function scheduleCanvasResize() {
+  resizePending = true;
   scheduleFrame();
 }
 
-new ResizeObserver(resizeCanvas).observe(stageWrap);
 resizeCanvas();
+new ResizeObserver(scheduleCanvasResize).observe(stageWrap);
 
 function bindRange(id, key, formatter, afterChange) {
   const input = $(id);
@@ -687,6 +706,7 @@ function rebuildBoundary() {
   } catch (error) {
     generated = null;
     viewGenerated = null;
+    staticSceneCache = null;
     state.playing = false;
     audioOctavePosition = null;
     setPressed($("playButton"), false);
@@ -700,12 +720,10 @@ function rebuildBoundary() {
   scheduleFrame();
 }
 
-function drawingTransform() {
+function drawingTransform(viewBounds = currentViewBounds()) {
   const side = Math.max(1, Math.min(cssWidth, cssHeight) * 0.88);
   const x = (cssWidth - side) * 0.5;
   const y = (cssHeight - side) * 0.5;
-  const viewField = viewGenerated?.field ?? generated?.field;
-  const viewBounds = viewField?.bounds ?? currentViewBounds();
   const viewWidth = Math.max(1e-12, viewBounds.maxX - viewBounds.minX);
   const viewHeight = Math.max(1e-12, viewBounds.maxY - viewBounds.minY);
   return {
@@ -730,24 +748,24 @@ function drawingTransform() {
   };
 }
 
-function tracePoints(points, transform, field, closed = true) {
+function tracePoints(targetContext, points, transform, field, closed = true) {
   if (!points?.length) return;
   const first = transform.point(points[0], field);
-  context.moveTo(first.x, first.y);
+  targetContext.moveTo(first.x, first.y);
   for (let index = 1; index < points.length; index += 1) {
     const point = transform.point(points[index], field);
-    context.lineTo(point.x, point.y);
+    targetContext.lineTo(point.x, point.y);
   }
-  if (closed) context.closePath();
+  if (closed) targetContext.closePath();
 }
 
-function traceComplexPoints(points, transform) {
+function traceComplexPoints(targetContext, points, transform) {
   if (!points?.length) return;
   const first = transform.complex(points[0]);
-  context.moveTo(first.x, first.y);
+  targetContext.moveTo(first.x, first.y);
   for (let index = 1; index < points.length; index += 1) {
     const point = transform.complex(points[index]);
-    context.lineTo(point.x, point.y);
+    targetContext.lineTo(point.x, point.y);
   }
 }
 
@@ -757,27 +775,22 @@ function turnColor(turn, alpha = 1) {
   return `rgba(219, 228, 224, ${alpha * 0.55})`;
 }
 
-function drawScene(sample) {
-  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  context.clearRect(0, 0, cssWidth, cssHeight);
-  if (!generated || !viewGenerated) return;
-  const transform = drawingTransform();
+function drawStaticScene(targetContext, transform) {
+  targetContext.save();
+  targetContext.globalAlpha = 0.72;
+  targetContext.imageSmoothingEnabled = true;
+  targetContext.drawImage(fieldCanvas, transform.x, transform.y, transform.side, transform.side);
+  targetContext.restore();
 
-  context.save();
-  context.globalAlpha = 0.72;
-  context.imageSmoothingEnabled = true;
-  context.drawImage(fieldCanvas, transform.x, transform.y, transform.side, transform.side);
-  context.restore();
-
-  context.save();
-  context.beginPath();
+  targetContext.save();
+  targetContext.beginPath();
   for (const contour of viewGenerated.contours) {
-    tracePoints(contour.points, transform, viewGenerated.field, contour.closed);
+    tracePoints(targetContext, contour.points, transform, viewGenerated.field, contour.closed);
   }
-  context.strokeStyle = "rgba(255, 122, 166, 0.16)";
-  context.lineWidth = 0.75;
-  context.stroke();
-  context.restore();
+  targetContext.strokeStyle = "rgba(255, 122, 166, 0.16)";
+  targetContext.lineWidth = 0.75;
+  targetContext.stroke();
+  targetContext.restore();
 
   if (similarityFamily?.levels?.length) {
     const colors = [
@@ -786,80 +799,180 @@ function drawScene(sample) {
       "rgba(125, 180, 255, 0.86)",
       "rgba(199, 155, 255, 0.84)",
     ];
-    context.save();
-    context.lineCap = "round";
-    context.lineJoin = "round";
+    targetContext.save();
+    targetContext.lineCap = "round";
+    targetContext.lineJoin = "round";
     if (similarityTree?.levels?.length) {
       for (let depth = 1; depth < similarityTree.levels.length; depth += 1) {
-        context.beginPath();
-        for (const arc of similarityTree.levels[depth]) traceComplexPoints(arc, transform);
-        context.strokeStyle = `rgba(95, 232, 196, ${Math.max(0.14, 0.34 - depth * 0.055)})`;
-        context.lineWidth = 1;
-        context.shadowBlur = 0;
-        context.stroke();
+        targetContext.beginPath();
+        for (const arc of similarityTree.levels[depth]) {
+          traceComplexPoints(targetContext, arc, transform);
+        }
+        targetContext.strokeStyle = `rgba(95, 232, 196, ${Math.max(0.14, 0.34 - depth * 0.055)})`;
+        targetContext.lineWidth = 1;
+        targetContext.shadowBlur = 0;
+        targetContext.stroke();
       }
     }
     for (const level of similarityFamily.levels) {
-      context.beginPath();
-      traceComplexPoints(level.points, transform);
-      context.strokeStyle = colors[Math.min(level.depth, colors.length - 1)];
-      context.lineWidth = level.depth === 0 ? 3 : 2.2;
-      context.shadowColor = colors[Math.min(level.depth, colors.length - 1)];
-      context.shadowBlur = 9;
-      context.stroke();
+      targetContext.beginPath();
+      traceComplexPoints(targetContext, level.points, transform);
+      targetContext.strokeStyle = colors[Math.min(level.depth, colors.length - 1)];
+      targetContext.lineWidth = level.depth === 0 ? 3 : 2.2;
+      targetContext.shadowColor = colors[Math.min(level.depth, colors.length - 1)];
+      targetContext.shadowBlur = 9;
+      targetContext.stroke();
       const center = transform.complex(level.center);
-      context.beginPath();
-      context.arc(center.x, center.y, level.depth === 0 ? 4 : 3, 0, TAU);
-      context.fillStyle = colors[Math.min(level.depth, colors.length - 1)];
-      context.fill();
+      targetContext.beginPath();
+      targetContext.arc(center.x, center.y, level.depth === 0 ? 4 : 3, 0, TAU);
+      targetContext.fillStyle = colors[Math.min(level.depth, colors.length - 1)];
+      targetContext.fill();
     }
     if (similarityPeriodicTarget) {
       const target = transform.complex(similarityPeriodicTarget);
-      context.beginPath();
-      context.arc(target.x, target.y, 8, 0, TAU);
-      context.strokeStyle = "rgba(255, 184, 107, 0.9)";
-      context.lineWidth = 1.3;
-      context.shadowColor = "rgba(255, 184, 107, 0.9)";
-      context.shadowBlur = 12;
-      context.stroke();
+      targetContext.beginPath();
+      targetContext.arc(target.x, target.y, 8, 0, TAU);
+      targetContext.strokeStyle = "rgba(255, 184, 107, 0.9)";
+      targetContext.lineWidth = 1.3;
+      targetContext.shadowColor = "rgba(255, 184, 107, 0.9)";
+      targetContext.shadowBlur = 12;
+      targetContext.stroke();
     }
-    context.restore();
+    targetContext.restore();
   }
 
   const boundary = generated.boundary;
-  context.save();
-  context.beginPath();
-  tracePoints(boundary.points, transform, generated.field);
-  context.strokeStyle = "rgba(255, 122, 166, 0.24)";
-  context.lineWidth = 5;
-  context.shadowColor = "rgba(255, 122, 166, 0.58)";
-  context.shadowBlur = 15;
-  context.stroke();
-  context.restore();
+  targetContext.save();
+  targetContext.beginPath();
+  tracePoints(targetContext, boundary.points, transform, generated.field);
+  targetContext.strokeStyle = "rgba(255, 122, 166, 0.24)";
+  targetContext.lineWidth = 5;
+  targetContext.shadowColor = "rgba(255, 122, 166, 0.58)";
+  targetContext.shadowBlur = 15;
+  targetContext.stroke();
+  targetContext.restore();
 
-  context.save();
-  context.lineCap = "round";
+  targetContext.save();
+  targetContext.lineCap = "round";
   const turnGroups = [
     { matches: (turn) => turn > 0.015, color: turnColor(1, 0.72) },
     { matches: (turn) => turn < -0.015, color: turnColor(-1, 0.72) },
     { matches: (turn) => Math.abs(turn) <= 0.015, color: turnColor(0, 0.72) },
   ];
   for (const group of turnGroups) {
-    context.beginPath();
+    targetContext.beginPath();
     for (const segment of boundary.segments) {
       if (!group.matches(segment.turn)) continue;
       const start = transform.point(segment.start, generated.field);
       const end = transform.point(segment.end, generated.field);
-      context.moveTo(start.x, start.y);
-      context.lineTo(end.x, end.y);
+      targetContext.moveTo(start.x, start.y);
+      targetContext.lineTo(end.x, end.y);
     }
-    context.strokeStyle = group.color;
-    context.lineWidth = 1.15;
-    context.stroke();
+    targetContext.strokeStyle = group.color;
+    targetContext.lineWidth = 1.15;
+    targetContext.stroke();
   }
+  targetContext.restore();
+}
+
+function boundsIntersection(first, second) {
+  const intersection = {
+    minX: Math.max(first.minX, second.minX),
+    maxX: Math.min(first.maxX, second.maxX),
+    minY: Math.max(first.minY, second.minY),
+    maxY: Math.min(first.maxY, second.maxY),
+  };
+  return intersection.minX < intersection.maxX && intersection.minY < intersection.maxY
+    ? intersection
+    : null;
+}
+
+function displayRect(bounds, transform) {
+  const topLeft = transform.complex({ x: bounds.minX, y: bounds.maxY });
+  const bottomRight = transform.complex({ x: bounds.maxX, y: bounds.minY });
+  return {
+    x: topLeft.x,
+    y: topLeft.y,
+    width: bottomRight.x - topLeft.x,
+    height: bottomRight.y - topLeft.y,
+  };
+}
+
+function staticSceneMatches() {
+  return staticSceneCache
+    && staticSceneCache.generated === generated
+    && staticSceneCache.viewGenerated === viewGenerated
+    && staticSceneCache.similarityFamily === similarityFamily
+    && staticSceneCache.similarityTree === similarityTree
+    && staticSceneCache.similarityPeriodicTarget === similarityPeriodicTarget
+    && staticSceneCache.cssWidth === cssWidth
+    && staticSceneCache.cssHeight === cssHeight
+    && staticSceneCache.pixelRatio === pixelRatio
+    && staticCanvas.width === canvas.width
+    && staticCanvas.height === canvas.height;
+}
+
+function ensureStaticScene() {
+  if (staticSceneMatches()) return;
+  if (staticCanvas.width !== canvas.width) staticCanvas.width = canvas.width;
+  if (staticCanvas.height !== canvas.height) staticCanvas.height = canvas.height;
+  const sourceBounds = {
+    ...(viewGenerated.field?.bounds ?? currentViewBounds()),
+  };
+  staticContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  staticContext.clearRect(0, 0, cssWidth, cssHeight);
+  drawStaticScene(staticContext, drawingTransform(sourceBounds));
+  staticSceneCache = {
+    generated,
+    viewGenerated,
+    similarityFamily,
+    similarityTree,
+    similarityPeriodicTarget,
+    cssWidth,
+    cssHeight,
+    pixelRatio,
+    sourceBounds,
+  };
+}
+
+function drawCachedStaticScene(transform) {
+  const desiredBounds = currentViewBounds();
+  const sourceBounds = staticSceneCache.sourceBounds;
+  const visibleBounds = boundsIntersection(sourceBounds, desiredBounds);
+  if (!visibleBounds) return;
+  const sourceRect = displayRect(visibleBounds, drawingTransform(sourceBounds));
+  const destinationRect = displayRect(visibleBounds, transform);
+  const sourceScaleX = staticCanvas.width / cssWidth;
+  const sourceScaleY = staticCanvas.height / cssHeight;
+  context.save();
+  context.imageSmoothingEnabled = true;
+  context.drawImage(
+    staticCanvas,
+    sourceRect.x * sourceScaleX,
+    sourceRect.y * sourceScaleY,
+    sourceRect.width * sourceScaleX,
+    sourceRect.height * sourceScaleY,
+    destinationRect.x,
+    destinationRect.y,
+    destinationRect.width,
+    destinationRect.height,
+  );
   context.restore();
+}
+
+function drawScene(sample) {
+  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  if (!generated || !viewGenerated) {
+    context.clearRect(0, 0, cssWidth, cssHeight);
+    return;
+  }
+  ensureStaticScene();
+  const transform = drawingTransform();
+  context.clearRect(0, 0, cssWidth, cssHeight);
+  drawCachedStaticScene(transform);
 
   if (!sample) return;
+  const boundary = generated.boundary;
   context.save();
   context.beginPath();
   const trailLength = 0.042;
@@ -1141,6 +1254,10 @@ function transportDelta(now) {
 
 function frame(now) {
   scheduledFrame = 0;
+  if (resizePending) {
+    resizePending = false;
+    resizeCanvas();
+  }
   const delta = transportDelta(now);
   if (state.playing && generated?.boundary) {
     state.continuousPosition += state.direction * state.speed * delta;

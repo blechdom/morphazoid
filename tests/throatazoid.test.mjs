@@ -4,34 +4,172 @@ import test from "node:test";
 import {
   ARTICULATIONS,
   CONSONANTS,
+  LETTER_ARTICULATIONS,
+  MAX_MOUTHS,
   MAX_NOSES,
+  MAX_PRESSURE_SOURCES,
   MAX_THROATS,
   MAX_TONGUES,
   PHONEMES,
   SPECIMENS,
+  VOICE_PRESETS,
   anatomyLayout,
   articulationKey,
   consonantKey,
   consonantVoiceParameters,
+  coupleMouthPressures,
   fricationOpening,
   glottalCoefficients,
   glottalHarmonics,
   glottalSample,
   keyboardArticulation,
   keyboardPhoneme,
+  mouthCouplingMatrix,
+  mouthManifold,
   noseVoiceParameters,
+  normalizePressureSources,
   oralOpening,
+  routeMouthPressure,
+  singingVoiceParameters,
   smoothEnvelope,
   specimenState,
   throatSlots,
   throatVoiceParameters,
+  voicePresetState,
   waveformLevel,
 } from "../src/throatazoid.js";
 
+test("the mega bank starts with eighteen distinct audition-ready voices", () => {
+  assert.deepEqual(Object.keys(VOICE_PRESETS), [
+    "clear",
+    "deep",
+    "bright",
+    "warm",
+    "alto",
+    "mezzo",
+    "soprano",
+    "airy",
+    "bell",
+    "coloratura",
+    "whisper",
+    "reed",
+    "nasal",
+    "growl",
+    "beatbox",
+    "singer",
+    "choir",
+    "alien",
+  ]);
+
+  const clear = voicePresetState("clear");
+  assert.equal(clear.sourceMode, "glottis");
+  assert.equal(clear.phoneme, "a");
+  assert.equal(clear.throatCount, 1);
+  assert.equal(clear.tongueCount, 1);
+  assert.equal(clear.noseCount, 1);
+  assert.equal(clear.pressureSourceCount, 1);
+  assert.equal(clear.mutation, 0);
+  assert.equal(clear.coupling, 0);
+  assert.equal(clear.growl, 0);
+  assert.equal(clear.wet, 1);
+  assert.equal(clear.dry, 0);
+
+  const fingerprints = [];
+  for (const [key, preset] of Object.entries(VOICE_PRESETS)) {
+    const state = voicePresetState(key);
+    assert.equal(state.voicePreset, key);
+    assert.equal(state.phoneme, preset.phoneme);
+    assert.equal(state.sourceMode, "glottis");
+    assert.equal(state.throats.length, MAX_THROATS);
+    assert.equal(state.tongues.length, MAX_TONGUES);
+    assert.equal(state.noses.length, MAX_NOSES);
+    assert.ok(state.throatCount >= 1 && state.throatCount <= MAX_THROATS);
+    assert.ok(
+      state.pressureSourceCount >= 1
+        && state.pressureSourceCount <= MAX_PRESSURE_SOURCES,
+    );
+    fingerprints.push(JSON.stringify({
+      phoneme: state.phoneme,
+      throatCount: state.throatCount,
+      bodyLength: state.bodyLength,
+      mutation: state.mutation,
+      coupling: state.coupling,
+      growl: state.growl,
+      pitch: state.exciterPitch,
+      breath: state.exciterBreath,
+      voicing: state.articulationVoicing,
+      nasal: state.nasalCoupling,
+      mode: state.voiceMode,
+      intervals: state.voiceIntervals,
+    }));
+  }
+  assert.equal(
+    new Set(fingerprints).size,
+    Object.keys(VOICE_PRESETS).length,
+    "every quick voice needs a meaningfully distinct parameter set",
+  );
+
+  const upperVoices = ["alto", "mezzo", "soprano", "airy", "bell", "coloratura"]
+    .map((key) => voicePresetState(key));
+  assert.equal(Math.min(...upperVoices.map((voice) => voice.exciterPitch)), 175);
+  assert.equal(Math.max(...upperVoices.map((voice) => voice.exciterPitch)), 392);
+  for (const voice of upperVoices) {
+    assert.equal(voice.sourceMode, "glottis");
+    assert.equal(voice.throatCount, 1);
+    assert.equal(voice.pressureSourceCount, 1);
+    assert.ok(voice.exciterPitch <= 420);
+  }
+});
+
+test("vowels use one calibrated tongue and independent rounded lips", () => {
+  const tractCoordinates = Object.fromEntries(
+    Object.entries(PHONEMES)
+      .filter(([, phoneme]) => phoneme.kind === "vowel")
+      .map(([key, phoneme]) => [
+        key,
+        {
+          index: 12.9 + phoneme.tongues[0].position * 17.5,
+          diameter: 3.5 - phoneme.tongues[0].height * 1.45,
+          lipDiameter: phoneme.lipDiameter,
+        },
+      ]),
+  );
+
+  for (const vowel of Object.values(PHONEMES).filter(
+    (phoneme) => phoneme.kind === "vowel",
+  )) {
+    assert.equal(vowel.tongueCount, 1, `${vowel.name} must use one coherent tongue`);
+    assert.equal(vowel.noseCount, 1, `${vowel.name} must start with one closed nose`);
+  }
+
+  assert.ok(Math.abs(tractCoordinates.a.index - 13) < 0.15);
+  assert.ok(Math.abs(tractCoordinates.a.diameter - 2.4) < 0.03);
+  assert.ok(Math.abs(tractCoordinates.e.index - 20) < 0.03);
+  assert.ok(Math.abs(tractCoordinates.e.diameter - 3.35) < 0.03);
+  assert.ok(Math.abs(tractCoordinates.i.index - 27.4) < 0.03);
+  assert.ok(Math.abs(tractCoordinates.i.diameter - 2.25) < 0.03);
+  assert.ok(Math.abs(tractCoordinates.o.index - 17.7) < 0.03);
+  assert.ok(Math.abs(tractCoordinates.o.diameter - 2.05) < 0.03);
+  assert.ok(Math.abs(tractCoordinates.u.index - 23) < 0.03);
+  assert.ok(Math.abs(tractCoordinates.u.diameter - 2.1) < 0.03);
+  assert.equal(tractCoordinates.a.lipDiameter, 3);
+  assert.ok(tractCoordinates.o.lipDiameter < 1.1);
+  assert.ok(tractCoordinates.u.lipDiameter < tractCoordinates.o.lipDiameter);
+
+  assert.equal(CONSONANTS.sh.constrictionDiameter, 0.6);
+  assert.equal(CONSONANTS.s.constrictionDiameter, 0.6);
+  assert.equal(CONSONANTS.f.constrictionDiameter, 0.5);
+  for (const key of ["k", "t", "p", "m", "n", "ng"]) {
+    assert.equal(CONSONANTS[key].constrictionDiameter, 0);
+  }
+});
+
 test("Throatazoid specimens produce complete bounded anatomy", () => {
   assert.equal(MAX_THROATS, 7);
+  assert.equal(MAX_MOUTHS, MAX_THROATS);
   assert.equal(MAX_TONGUES, 5);
   assert.equal(MAX_NOSES, 3);
+  assert.equal(MAX_PRESSURE_SOURCES, 4);
   assert.deepEqual(Object.keys(SPECIMENS), [
     "triune",
     "oracle",
@@ -45,6 +183,7 @@ test("Throatazoid specimens produce complete bounded anatomy", () => {
     "needle",
     "maw",
     "choir",
+    "singing",
     "void",
   ]);
 
@@ -128,9 +267,12 @@ test("Throatazoid specimens produce complete bounded anatomy", () => {
     exciterBreath: state.exciterBreath,
     exciterVibrato: state.exciterVibrato,
     exciterWobble: state.exciterWobble,
+    voiceMode: state.voiceMode,
+    voiceIntervals: state.voiceIntervals,
+    voiceDetunes: state.voiceDetunes,
     throats: state.throats.slice(0, state.throatCount),
   }));
-  assert.equal(new Set(fingerprints).size, 13, "every specimen needs a distinct full voice");
+  assert.equal(new Set(fingerprints).size, 14, "every specimen needs a distinct full voice");
   assert.deepEqual(
     [...new Set(states.map((state) => state.throatCount))].sort(),
     [1, 2, 3, 4, 5, 7],
@@ -138,6 +280,282 @@ test("Throatazoid specimens produce complete bounded anatomy", () => {
   assert.ok(Math.max(...states.map((state) => state.exciterPitch)) >= 300);
   assert.ok(Math.min(...states.map((state) => state.exciterPitch)) <= 50);
   assert.ok(Math.max(...states.map((state) => state.exciterBreath)) >= 0.8);
+});
+
+test("Singing is an explicit polyphonic specimen with one pitched voice per mouth", () => {
+  const specimen = SPECIMENS.singing;
+  assert.ok(specimen, "the Singing preset must be independently selectable");
+  assert.equal(specimen.name, "Singing");
+  assert.equal(specimen.voiceMode, "polyphonic");
+  assert.ok(specimen.throatCount >= 3, "Singing needs a real multi-mouth ensemble");
+  assert.equal(specimen.voiceIntervals.length, specimen.throatCount);
+  assert.equal(specimen.voiceDetunes.length, specimen.throatCount);
+  assert.ok(
+    new Set(specimen.voiceIntervals).size >= 3,
+    "Singing needs at least three distinct musical intervals",
+  );
+  assert.ok(
+    new Set(specimen.voiceDetunes).size >= 3,
+    "Singing needs independent micro-detuning rather than cloned oscillators",
+  );
+  assert.ok(specimen.exciterVibrato > 0, "the sung ensemble needs audible vibrato");
+
+  const state = specimenState("singing");
+  assert.equal(state.specimen, "singing");
+  assert.equal(state.voiceMode, "polyphonic");
+  assert.deepEqual(state.voiceIntervals, specimen.voiceIntervals);
+  assert.deepEqual(state.voiceDetunes, specimen.voiceDetunes);
+
+  const voices = Array.from(
+    { length: state.throatCount },
+    (_, mouthIndex) => singingVoiceParameters(state, mouthIndex),
+  );
+  assert.ok(
+    new Set(voices.map((voice) => voice.frequency.toFixed(4))).size >= 3,
+    "Singing must produce independently pitched voices, not one source through many filters",
+  );
+  assert.ok(
+    new Set(voices.map((voice) => voice.detune.toFixed(4))).size >= 3,
+    "Singing voices need distinct detunes",
+  );
+  assert.ok(
+    new Set(voices.map((voice) => voice.pan.toFixed(4))).size >= 3,
+    "Singing voices should occupy distinct stereo positions",
+  );
+
+  for (const [mouthIndex, voice] of voices.entries()) {
+    assert.equal(voice.mouthIndex, mouthIndex);
+    for (const parameter of ["frequency", "detune", "pan", "gain"]) {
+      assert.ok(
+        Number.isFinite(voice[parameter]),
+        `singing mouth ${mouthIndex} ${parameter} must be finite`,
+      );
+    }
+    assert.ok(voice.frequency >= 20 && voice.frequency <= 20_000);
+    assert.ok(voice.detune >= -1_200 && voice.detune <= 1_200);
+    assert.ok(voice.pan >= -1 && voice.pan <= 1);
+    assert.ok(voice.gain > 0 && voice.gain <= 1);
+  }
+
+  state.throats[2].muted = true;
+  assert.equal(
+    singingVoiceParameters(state, 2).gain,
+    0,
+    "closing a Singing mouth must silence its assigned voice",
+  );
+});
+
+test("pressure sources normalize to four bounded virtual root exciters", () => {
+  const defaults = normalizePressureSources();
+  assert.equal(defaults.pressureSourceCount, 1);
+  assert.equal(defaults.pressureSources.length, MAX_PRESSURE_SOURCES);
+  assert.deepEqual(defaults.pressureSources[0], {
+    index: 0,
+    open: true,
+    level: 1,
+  });
+  assert.ok(defaults.pressureSources.slice(1).every(
+    (source) => !source.open && source.level === 0,
+  ));
+
+  const normalized = normalizePressureSources({
+    pressureSourceCount: 99,
+    pressureSources: [
+      { open: false, level: 8 },
+      { open: true, level: -2 },
+      { open: 1, level: 0.4 },
+      { open: 0, level: Number.NaN },
+      { open: true, level: 0.8 },
+    ],
+  });
+  assert.equal(normalized.pressureSourceCount, MAX_PRESSURE_SOURCES);
+  assert.deepEqual(
+    normalized.pressureSources.map(({ open, level }) => ({ open, level })),
+    [
+      { open: false, level: 1 },
+      { open: true, level: 0 },
+      { open: true, level: 0.4 },
+      { open: false, level: 1 },
+    ],
+  );
+});
+
+test("legacy throat specimens adapt to one shared mouth manifold", () => {
+  const legacy = specimenState("hydra");
+  const manifold = mouthManifold(legacy);
+  assert.equal(manifold.kind, "mouth-manifold");
+  assert.equal(manifold.mouthCount, 7);
+  assert.equal(manifold.mouths.length, 7);
+  assert.equal(manifold.couplingMatrix.length, 7);
+  assert.equal(manifold.pressureSources.length, MAX_PRESSURE_SOURCES);
+  assert.ok(Object.values(manifold.root).every(Number.isFinite));
+
+  for (const [index, mouth] of manifold.mouths.entries()) {
+    assert.equal(mouth.index, index);
+    assert.equal(mouth.aperture, legacy.throats[index].aperture);
+    assert.equal(mouth.length, legacy.throats[index].length);
+    assert.ok(mouth.effectiveAperture >= 0 && mouth.effectiveAperture <= 1);
+    assert.ok(Number.isFinite(mouth.resistance) && mouth.resistance > 0);
+    assert.ok(Number.isFinite(mouth.conductance) && mouth.conductance >= 0);
+    assert.ok(Number.isInteger(mouth.tongueAssignment));
+    assert.ok(
+      mouth.tongueAssignment >= 0 && mouth.tongueAssignment < legacy.tongueCount,
+    );
+    assert.ok(Number.isInteger(mouth.noseAssignment));
+    assert.ok(mouth.noseAssignment >= 0 && mouth.noseAssignment < legacy.noseCount);
+    assert.equal(mouth.tongueIndex, mouth.tongueAssignment);
+    assert.equal(mouth.noseIndex, mouth.noseAssignment);
+  }
+
+  const explicit = mouthManifold({
+    mouthCount: 2,
+    throatCount: 7,
+    tongueCount: 3,
+    noseCount: 2,
+    oralClosure: 0,
+    mouths: [
+      {
+        aperture: 0.8,
+        length: 0.3,
+        tongueAssignment: 2,
+        noseAssignment: 1,
+      },
+      {
+        aperture: 0.4,
+        length: 0.9,
+        tongueIndex: 0,
+        noseIndex: 0,
+        closed: true,
+      },
+    ],
+  });
+  assert.equal(explicit.mouthCount, 2);
+  assert.deepEqual(
+    explicit.mouths.map((mouth) => [
+      mouth.tongueAssignment,
+      mouth.noseAssignment,
+    ]),
+    [[2, 1], [0, 0]],
+  );
+  assert.equal(explicit.mouths[1].closed, true);
+  assert.equal(explicit.mouths[1].conductance, 0);
+});
+
+test("neighbor coupling is symmetric, conservative, and stable through iteration", () => {
+  for (let count = 1; count <= MAX_MOUTHS; count += 1) {
+    const matrix = mouthCouplingMatrix(count, 1);
+    assert.equal(matrix.length, count);
+    for (let row = 0; row < count; row += 1) {
+      assert.equal(matrix[row].length, count);
+      assert.ok(matrix[row].every(
+        (weight) => Number.isFinite(weight) && weight >= 0 && weight <= 1,
+      ));
+      assert.ok(
+        Math.abs(matrix[row].reduce((sum, weight) => sum + weight, 0) - 1) < 1e-12,
+      );
+      for (let column = 0; column < count; column += 1) {
+        assert.ok(Math.abs(matrix[row][column] - matrix[column][row]) < 1e-12);
+      }
+    }
+  }
+
+  const initial = [1, 0, 0, 0, 0, 0, 0];
+  let coupled = initial;
+  let previousRange = 1;
+  for (let iteration = 0; iteration < 80; iteration += 1) {
+    coupled = coupleMouthPressures(coupled, 1);
+    const range = Math.max(...coupled) - Math.min(...coupled);
+    assert.ok(coupled.every(
+      (pressure) => Number.isFinite(pressure) && pressure >= 0 && pressure <= 1,
+    ));
+    assert.ok(Math.abs(coupled.reduce((sum, pressure) => sum + pressure, 0) - 1) < 1e-10);
+    assert.ok(range <= previousRange + 1e-12);
+    previousRange = range;
+  }
+  assert.ok(previousRange < 0.05, "stable coupling should diffuse a local pressure peak");
+  assert.ok(coupleMouthPressures([0.4, 0.4, 0.4], 1).every(
+    (pressure) => Math.abs(pressure - 0.4) < 1e-12,
+  ));
+  assert.deepEqual(coupleMouthPressures([], 1), []);
+});
+
+test("closing one mouth redirects shared-root flow into every remaining open mouth", () => {
+  const state = specimenState("triune");
+  state.oralClosure = 0;
+  state.coupling = 0.5;
+  for (let index = 0; index < state.throatCount; index += 1) {
+    state.throats[index] = {
+      aperture: 0.8,
+      length: 0.5,
+      muted: false,
+    };
+  }
+  const open = routeMouthPressure(state, 1);
+  state.throats[0].aperture = 0;
+  const redistributed = routeMouthPressure(state, 1);
+
+  assert.equal(redistributed.mouths[0].flow, 0);
+  for (let index = 1; index < state.throatCount; index += 1) {
+    assert.ok(
+      redistributed.mouths[index].flow > open.mouths[index].flow,
+      `mouth ${index} should receive more shared-root flow after mouth 0 closes`,
+    );
+  }
+  assert.ok(
+    redistributed.root.manifoldPressure > open.root.manifoldPressure,
+    "closing a parallel mouth should raise pressure in the common manifold",
+  );
+  assert.ok(
+    Math.abs(
+      redistributed.mouths.reduce((sum, mouth) => sum + mouth.share, 0) - 1
+    ) < 1e-12,
+  );
+
+  for (const throat of state.throats.slice(0, state.throatCount)) {
+    throat.aperture = 0;
+  }
+  const sealed = routeMouthPressure(state, 1);
+  assert.equal(sealed.root.totalConductance, 0);
+  assert.equal(sealed.root.totalFlow, 0);
+  assert.ok(sealed.mouths.every(
+    (mouth) => mouth.flow === 0
+      && mouth.share === 0
+      && Number.isFinite(mouth.pressure),
+  ));
+  assert.ok(Object.values(sealed.root).every(Number.isFinite));
+});
+
+test("only open pressure sources contribute to the shared root", () => {
+  const state = specimenState("triune");
+  state.oralClosure = 0;
+  state.pressureSourceCount = 2;
+  state.pressureSources = [
+    { open: true, level: 0.8 },
+    { open: true, level: 0.4 },
+  ];
+  const both = routeMouthPressure(state, 2);
+  assert.equal(both.root.openSourceCount, 2);
+  assert.ok(Math.abs(both.root.sourceLevel - 1.2 / Math.sqrt(2)) < 1e-12);
+  assert.ok(Math.abs(both.root.sourcePressure - both.root.sourceLevel * 2) < 1e-12);
+
+  state.pressureSources[1].open = false;
+  const one = routeMouthPressure(state, 2);
+  assert.equal(one.root.openSourceCount, 1);
+  assert.equal(one.root.sourceLevel, 0.8);
+  assert.equal(one.root.sourcePressure, 1.6);
+  assert.notEqual(one.root.sourcePressure, both.root.sourcePressure);
+
+  state.pressureSources[0].open = false;
+  const none = routeMouthPressure(state, 2);
+  assert.equal(none.root.openSourceCount, 0);
+  assert.equal(none.root.sourceLevel, 0);
+  assert.equal(none.root.sourcePressure, 0);
+  assert.equal(none.root.manifoldPressure, 0);
+  assert.equal(none.root.totalFlow, 0);
+  assert.ok(none.mouths.every(
+    (mouth) => mouth.flow === 0 && Number.isFinite(mouth.pressure),
+  ));
+  assert.ok(Object.values(none.root).every(Number.isFinite));
 });
 
 test("compact Throatazoid layouts keep every throat handle on the visible stage", () => {
@@ -237,30 +655,39 @@ test("typing maps only playable letter keys to phoneme gestures", () => {
   }
 });
 
-test("expanded typing keys map single strokes to every playable articulation", () => {
-  const mappings = {
-    a: "a",
-    e: "e",
-    i: "i",
-    o: "o",
-    u: "u",
-    s: "s",
-    k: "k",
-    t: "t",
-    p: "p",
-    f: "f",
-    m: "m",
-    n: "n",
-    q: "glottal",
-    x: "sh",
-    g: "ng",
-  };
-  for (const [key, articulation] of Object.entries(mappings)) {
+test("every alphabet key maps to its own playable approximation", () => {
+  assert.deepEqual(
+    Object.keys(LETTER_ARTICULATIONS),
+    [..."abcdefghijklmnopqrstuvwxyz"],
+  );
+  for (const [key, articulation] of Object.entries(LETTER_ARTICULATIONS)) {
+    assert.equal(articulation, key);
     assert.equal(keyboardArticulation(key), articulation);
     assert.equal(keyboardArticulation(key.toUpperCase()), articulation);
     assert.ok(ARTICULATIONS[articulation]);
   }
-  for (const invalid of ["", "h", "z", "sh", "ng", "Enter", 1, null, undefined]) {
+  const fingerprints = Object.values(LETTER_ARTICULATIONS).map((id) => {
+    const articulation = ARTICULATIONS[id];
+    return JSON.stringify({
+      kind: articulation.kind,
+      manner: articulation.manner,
+      place: articulation.place,
+      voiced: articulation.voiced,
+      position: articulation.constrictionPosition,
+      diameter: articulation.constrictionDiameter,
+      lipDiameter: articulation.lipDiameter,
+      fricationFrequency: articulation.frication?.frequency,
+      primaryTongue: articulation.tongues?.[0],
+    });
+  });
+  assert.equal(
+    new Set(fingerprints).size,
+    26,
+    "random alphabet play should reach 26 distinct tract or voicing settings",
+  );
+  assert.equal(keyboardArticulation("?"), "glottal");
+  assert.equal(keyboardArticulation("'"), "glottal");
+  for (const invalid of ["", "1", "sh", "ng", "Enter", 1, null, undefined]) {
     assert.equal(keyboardArticulation(invalid), "");
   }
 });
@@ -287,10 +714,41 @@ test("the articulation registry unifies vowels with rich consonant descriptors",
 test("consonant descriptors cover distinct places, manners, and complete gestures", () => {
   assert.deepEqual(
     Object.keys(CONSONANTS),
-    ["glottal", "k", "t", "p", "s", "sh", "f", "m", "n", "ng"],
+    [
+      "glottal",
+      "k",
+      "t",
+      "p",
+      "s",
+      "sh",
+      "f",
+      "m",
+      "n",
+      "ng",
+      "b",
+      "c",
+      "d",
+      "g",
+      "h",
+      "j",
+      "l",
+      "q",
+      "r",
+      "v",
+      "w",
+      "x",
+      "y",
+      "z",
+    ],
   );
 
-  const manners = new Set(["stop", "fricative", "nasal"]);
+  const manners = new Set([
+    "stop",
+    "fricative",
+    "nasal",
+    "affricate",
+    "approximant",
+  ]);
   const places = new Set([
     "glottal",
     "velar",
@@ -322,6 +780,15 @@ test("consonant descriptors cover distinct places, manners, and complete gesture
       assert.ok(Object.values(consonant[spectrum]).every(Number.isFinite));
       assert.ok(Object.isFrozen(consonant[spectrum]));
     }
+    assert.ok(
+      consonant.lipDiameter === null
+        || (
+          Number.isFinite(consonant.lipDiameter)
+          && consonant.lipDiameter >= 0.35
+          && consonant.lipDiameter <= 3
+        ),
+      `${id}.lipDiameter must be null or a bounded tract diameter`,
+    );
     assert.equal(consonant.gesture.kind, "consonant");
     assert.equal(consonant.gesture.tongues.length, MAX_TONGUES);
     assert.equal(consonant.gesture.noses.length, MAX_NOSES);
@@ -329,6 +796,49 @@ test("consonant descriptors cover distinct places, manners, and complete gesture
     assert.ok(Object.isFrozen(consonant.gesture));
   }
   assert.ok(Object.isFrozen(CONSONANTS));
+});
+
+test("alphabet consonants add voiced pairs, affricates, and approximants", () => {
+  for (const [voiced, unvoiced] of [
+    ["b", "p"],
+    ["d", "t"],
+    ["g", "k"],
+    ["v", "f"],
+    ["z", "s"],
+  ]) {
+    assert.equal(CONSONANTS[voiced].voiced, true);
+    assert.equal(CONSONANTS[unvoiced].voiced, false);
+    assert.equal(
+      CONSONANTS[voiced].place,
+      CONSONANTS[unvoiced].place,
+      `${voiced}/${unvoiced} should share an articulation place`,
+    );
+    assert.equal(
+      CONSONANTS[voiced].constrictionPosition,
+      CONSONANTS[unvoiced].constrictionPosition,
+    );
+  }
+
+  for (const id of ["c", "j"]) {
+    const hold = consonantVoiceParameters(id, "hold");
+    const release = consonantVoiceParameters(id, "release");
+    assert.equal(hold.manner, "affricate");
+    assert.ok(hold.fricationGain > 0);
+    assert.ok(release.burstGain > 0);
+  }
+
+  for (const id of ["l", "r", "w", "y"]) {
+    const hold = consonantVoiceParameters(id, "hold");
+    assert.equal(hold.manner, "approximant");
+    assert.equal(hold.voiced, true);
+    assert.equal(hold.fricationGain, 0);
+    assert.equal(hold.burstGain, 0);
+    assert.ok(CONSONANTS[id].constrictionDiameter >= 0.7);
+  }
+  assert.ok(CONSONANTS.q.lipDiameter < 0.7);
+  assert.ok(CONSONANTS.w.lipDiameter < 0.7);
+  assert.equal(CONSONANTS.h.place, "glottal");
+  assert.equal(CONSONANTS.x.manner, "fricative");
 });
 
 test("consonant keys normalize readable and IPA aliases without widening keyboard capture", () => {

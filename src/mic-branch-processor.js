@@ -24,6 +24,8 @@ class MorphazoidMicBranches extends AudioWorkletProcessor {
       sampleRate,
       historySeconds: options.processorOptions?.historySeconds,
       maxVoices: options.processorOptions?.maxVoices,
+      maxBounces: options.processorOptions?.maxBounces,
+      bounceSeconds: options.processorOptions?.bounceSeconds,
     });
     this.requestedVoices = 0;
     this.loadBlocks = 0;
@@ -31,6 +33,7 @@ class MorphazoidMicBranches extends AudioWorkletProcessor {
     this.loadPeak = 0;
     this.pendingControlMilliseconds = 0;
     this.reportedTimingUnavailable = false;
+    this.reportedHistoryReady = false;
     this.port.onmessage = ({ data }) => {
       const startedAt = clockMilliseconds();
       if (data?.type === "voices") {
@@ -84,6 +87,7 @@ class MorphazoidMicBranches extends AudioWorkletProcessor {
       requestedVoices: this.requestedVoices,
       voiceLimit: this.renderer.runtimeLimit,
       mode: "sine",
+      renderer: "recursive-bounce",
     });
     this.loadBlocks = 0;
     this.loadTotal = 0;
@@ -101,6 +105,13 @@ class MorphazoidMicBranches extends AudioWorkletProcessor {
       output[0],
       output[1] ?? output[0],
     );
+    if (
+      !this.reportedHistoryReady
+      && this.renderer.recordedSamples >= this.renderer.grainSamples * 3
+    ) {
+      this.reportedHistoryReady = true;
+      this.port.postMessage?.({ type: "history-ready", renderer: "recursive-bounce" });
+    }
     this.recordRenderLoad(startedAt, output[0].length);
     return keepAlive;
   }

@@ -35,11 +35,18 @@ export class MicmicGenerationDSP {
     this.writeIndex = 0;
     this.recordedSamples = 0;
     this.voices = new Map();
+    this.runtimeLimit = this.maxVoices;
+    this.activeTargetCount = 0;
   }
 
-  setVoices(specs) {
+  setVoices(specs, voiceLimit = this.runtimeLimit) {
+    this.runtimeLimit = Math.max(0, Math.min(
+      this.maxVoices,
+      Math.floor(clamp(voiceLimit, 0, this.maxVoices, this.runtimeLimit)),
+    ));
     const next = new Map();
-    (Array.isArray(specs) ? specs : []).slice(0, this.maxVoices).forEach((candidate, index) => {
+    const source = (Array.isArray(specs) ? specs : []).slice(0, this.runtimeLimit);
+    source.forEach((candidate, index) => {
       const target = sanitizeVoice(candidate, index);
       const prior = this.voices.get(target.key);
       if (prior) {
@@ -68,11 +75,16 @@ export class MicmicGenerationDSP {
         });
       }
     });
+    const releaseAllowance = Math.min(16, Math.ceil(this.runtimeLimit * 0.125));
     for (const [key, prior] of this.voices) {
-      if (next.has(key) || next.size >= this.maxVoices + 16) continue;
+      if (
+        next.has(key)
+        || next.size >= Math.min(this.maxVoices + 16, this.runtimeLimit + releaseAllowance)
+      ) continue;
       next.set(key, { ...prior, target: { ...prior.target, gain: 0 }, releasing: true });
     }
     this.voices = next;
+    this.activeTargetCount = source.length;
   }
 
   read(position) {

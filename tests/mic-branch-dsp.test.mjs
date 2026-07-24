@@ -26,6 +26,7 @@ test("microphone branch specs cannot overdrive the renderer contract", () => {
     gain: 1,
     pan: -1,
     depth: 64,
+    delay: 0.14,
     sourceKey: "base",
     bounceKey: null,
   });

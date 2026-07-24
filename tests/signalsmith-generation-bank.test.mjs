@@ -43,6 +43,7 @@ function harness() {
       port: {
         messages,
         postMessage(message) { messages.push(message); },
+        start() {},
         close() {},
       },
     });
@@ -143,4 +144,40 @@ test("rapid branch-angle gestures retune slots but keep node allocation constant
   assert.equal(fixture.created.stretches.length, 2, "a gesture must never create another worklet");
   assert.equal(fixture.created.mixers[0].port.messages.length, messageCount + 1);
   assert.ok(Math.abs(fixture.created.stretches[0].schedules.at(-1).semitones - 4.54) < 0.01);
+});
+
+test("generation bank forwards adaptive demand and render-load telemetry without reallocating", async () => {
+  const fixture = harness();
+  const reports = [];
+  const bank = await initializedBank(fixture, {
+    maxPitchSources: 3,
+    maxVoices: 64,
+    onRenderLoad: (report) => reports.push(report),
+  });
+  const voices = Array.from({ length: 64 }, (_, index) => ({
+    key: `branch:${index}`,
+    rate: 1,
+    delay: 0.2 + index / 1_000,
+    gain: 0.01,
+    pan: 0,
+  }));
+  bank.setVoices(voices, { requestedVoiceCount: 894, voiceLimit: 48 });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const message = fixture.created.mixers[0].port.messages.at(-1);
+  assert.equal(message.voices.length, 48);
+  assert.equal(message.requestedVoiceCount, 894);
+  assert.equal(message.voiceLimit, 48);
+  assert.equal(fixture.created.stretches.length, 3);
+
+  fixture.created.mixers[0].port.onmessage({
+    data: {
+      type: "render-load",
+      supported: true,
+      averageLoad: 0.2,
+      peakLoad: 0.3,
+    },
+  });
+  assert.equal(reports.length, 1);
+  assert.equal(reports[0].averageLoad, 0.2);
 });

@@ -19,6 +19,7 @@ export function sanitizeMicBranchVoice(voice, index = 0) {
     gain: clampMicValue(voice?.gain, 0, 1, 0),
     pan: clampMicValue(voice?.pan, -1, 1, 0),
     depth: clampMicValue(voice?.depth, 0, 64, 0),
+    delay: clampMicValue(voice?.delay, 0.00002, 20, 0.14),
     sourceKey: typeof voice?.sourceKey === "string" ? voice.sourceKey : "base",
     bounceKey: typeof voice?.bounceKey === "string" ? voice.bounceKey : null,
   };
@@ -38,7 +39,13 @@ function hashUnit(key) {
  * Branches are plain records in this renderer, not Web Audio graph nodes.
  */
 export class MicBranchDSP {
-  constructor({ sampleRate = DEFAULT_SAMPLE_RATE, historySeconds = 6, maxVoices = 1024, maxBounces = 96 } = {}) {
+  constructor({
+    sampleRate = DEFAULT_SAMPLE_RATE,
+    historySeconds = 6,
+    maxVoices = 1024,
+    maxBounces = 96,
+    bounceSeconds = 1.25,
+  } = {}) {
     this.sampleRate = clampMicValue(sampleRate, 8_000, 192_000, DEFAULT_SAMPLE_RATE);
     this.historyLength = Math.max(2048, Math.ceil(
       clampMicValue(historySeconds, 1, 20, 6) * this.sampleRate,
@@ -48,7 +55,10 @@ export class MicBranchDSP {
     this.runtimeLimit = this.maxVoices;
     this.activeTargetCount = 0;
     this.grainSamples = Math.max(256, Math.round(this.sampleRate * 0.12));
-    this.bounceLength = Math.max(this.grainSamples * 3, Math.round(this.sampleRate * 1.25));
+    this.bounceLength = Math.max(
+      this.grainSamples * 3,
+      Math.round(this.sampleRate * clampMicValue(bounceSeconds, 1.25, 6, 1.25)),
+    );
     this.maxBounces = Math.max(4, Math.floor(clampMicValue(maxBounces, 4, 256, 96)));
     this.writeIndex = 0;
     this.recordedSamples = 0;
@@ -137,18 +147,23 @@ export class MicBranchDSP {
 
   grainSample(voice, age01, writePosition) {
     const ageSamples = age01 * this.grainSamples;
+    const rateHeadroom = Math.max(0, voice.rate - 1) * this.grainSamples;
+    const requestedDelay = voice.target.delay * this.sampleRate + rateHeadroom;
     const bounce = voice.target.sourceKey === "base"
       ? null
       : this.bounces.get(voice.target.sourceKey);
     if (bounce && bounce.recordedSamples >= this.grainSamples * 1.5) {
       const available = Math.min(bounce.recordedSamples, bounce.data.length);
-      const sourceSpan = Math.min(available - 2, this.grainSamples * Math.max(1, voice.rate));
-      const readPosition = bounce.writeIndex - sourceSpan + ageSamples * voice.rate;
+      const delay = Math.max(this.grainSamples * 1.25, requestedDelay);
+      if (available < delay + this.grainSamples) return 0;
+      const sourceSpan = Math.min(
+        available - delay - 2,
+        this.grainSamples * Math.max(1, voice.rate),
+      );
+      const readPosition = bounce.writeIndex - delay - sourceSpan + ageSamples * voice.rate;
       return this.readHistory(readPosition, bounce.data);
     }
-    const rateHeadroom = Math.max(0, voice.rate - 1) * this.grainSamples;
-    const depthDelay = voice.target.depth * this.sampleRate * 0.018;
-    const delay = this.sampleRate * 0.14 + rateHeadroom + depthDelay;
+    const delay = Math.max(this.grainSamples * 1.25, requestedDelay);
     if (this.recordedSamples < delay + this.grainSamples) return 0;
     const readPosition = writePosition - delay + ageSamples * (voice.rate - 1);
     return this.readHistory(readPosition, this.history);
@@ -198,7 +213,6 @@ export class MicBranchDSP {
       }
 
       for (const bounce of this.bounces.values()) {
-        if (bounce.mix === 0) continue;
         bounce.data[bounce.writeIndex] = Math.tanh(bounce.mix);
         bounce.writeIndex = (bounce.writeIndex + 1) % bounce.data.length;
         bounce.recordedSamples = Math.min(bounce.data.length, bounce.recordedSamples + 1);
