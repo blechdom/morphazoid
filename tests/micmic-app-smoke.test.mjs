@@ -140,6 +140,19 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   const generationMessages = [];
   const workletNodes = [];
   const renderCapacities = [];
+  const pendingSignalsmithNodes = [];
+  let signalsmithReadyEnabled = false;
+  const signalsmithRemoteMethods = {
+    configure: 1,
+    latency: 1,
+    setUpdateInterval: 1,
+    stop: 1,
+    start: 5,
+    schedule: 2,
+  };
+  const readySignalsmithNode = (node) => {
+    queueMicrotask(() => node.port.emit(["ready", signalsmithRemoteMethods]));
+  };
   globalThis.AudioWorkletNode = class {
     constructor(context, name, options = {}) {
       this.context = context;
@@ -150,13 +163,25 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
         messages: [],
         postMessage: (message) => {
           this.port.messages.push(message);
-          generationMessages.push(message);
+          if (
+            name !== "signalsmith-stretch"
+            && name !== "morphazoid-signalsmith-generation-mixer"
+          ) generationMessages.push(message);
+          if (name === "signalsmith-stretch" && Array.isArray(message)) {
+            const [messageId, method] = message;
+            const result = method === "latency" ? 0.08 : undefined;
+            queueMicrotask(() => this.port.emit([messageId, result]));
+          }
         },
         start() {},
         close() {},
         emit: (data) => this.port.onmessage?.({ data }),
       };
       workletNodes.push(this);
+      if (name === "signalsmith-stretch") {
+        if (signalsmithReadyEnabled) readySignalsmithNode(this);
+        else pendingSignalsmithNodes.push(this);
+      }
     }
     connections = [];
     connect(destination) {
@@ -298,6 +323,8 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.equal(elements.get("generationsOut").textContent, "7 / 12");
   assert.equal(elements.get("mutationOut").textContent, "0% rule variance");
   assert.match(elements.get("generationPresetDescription").textContent, /balanced reference tree/);
+  assert.equal(elements.get("pitchDetail").value, "3");
+  assert.equal(elements.get("pitchDetail").disabled, false);
   assert.equal(elements.get("audioState").textContent, "off");
   assert.equal(elements.get("recordButton").disabled, true);
   assert.equal(seedButtonLabel.textContent, "Start input");
@@ -307,6 +334,17 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.ok(initialSeedTop > 0 && initialSeedTop < 600);
   assert.equal(elements.get("seedControl").style.width, elements.get("seedControl").style.height);
   assert.match(elements.get("treeDescription").textContent, /7 generations and 255 connected segments; 48 of 48 bounded delayed descendant paths carry audible gain/);
+  elements.get("pitchDetail").value = "7";
+  listeners.get("pitchDetail:change")({
+    currentTarget: elements.get("pitchDetail"),
+  });
+  assert.equal(elements.get("pitchDetail").value, "7");
+  listeners.get("resetGenerationRules:click")();
+  assert.equal(
+    elements.get("pitchDetail").value,
+    "7",
+    "reloading a growth preset must preserve renderer pitch detail",
+  );
   elements.get("timeRatio").value = "0.2";
   listeners.get("timeRatio:input")();
   queuedFrame(performance.now() + 130);
@@ -344,6 +382,7 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   });
   assert.equal(audioContexts.length, 1);
   assert.equal(elements.get("audioState").textContent, "on");
+  assert.equal(elements.get("pitchDetail").disabled, true);
   assert.equal(attributes.get("seedMicButton:aria-pressed"), "true");
   assert.equal(attributes.get("micButton:aria-pressed"), "true");
   const directNode = workletNodes.find((node) => (
@@ -553,4 +592,43 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.equal(elements.get("audioState").textContent, "off");
   assert.equal(attributes.get("audioButton:aria-pressed"), "false");
   assert.equal(stoppedTracks, 1);
+  assert.equal(elements.get("pitchDetail").disabled, false);
+  const firstAudioContext = audioContexts[0];
+  assert.equal(firstAudioContext.state, "running");
+  signalsmithReadyEnabled = true;
+  pendingSignalsmithNodes.splice(0).forEach(readySignalsmithNode);
+  elements.get("pitchDetail").value = "16";
+  listeners.get("pitchDetail:change")({
+    currentTarget: elements.get("pitchDetail"),
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.match(elements.get("pitchDetailStatus").textContent, /16 shifted lanes/i);
+  assert.equal(
+    firstAudioContext.state,
+    "closed",
+    "changing a stopped fixed pitch pool must retire its old AudioContext",
+  );
+  const firstSignalsmithNodes = workletNodes.filter((node) => (
+    node.context === firstAudioContext && node.name === "signalsmith-stretch"
+  ));
+  assert.ok(firstSignalsmithNodes.length > 0);
+  assert.ok(firstSignalsmithNodes.every((node) => (
+    node.port.messages.some((message) => Array.isArray(message) && message[1] === "stop")
+  )), "every old Signalsmith lane must be explicitly stopped before context close");
+  assert.equal(audioContexts.length, 1, "Pitch Detail should wait for Start before creating a new graph");
+  assert.equal(microphoneRequests, 1, "changing a stopped renderer must not request the microphone");
+  assert.equal(stoppedTracks, 1, "changing a stopped renderer must not implicitly stop the microphone again");
+
+  listeners.get("audioButton:click")();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(audioContexts.length, 2, "the next Start should create the selected pitch-detail graph");
+  assert.equal(microphoneRequests, 2);
+  assert.equal(stoppedTracks, 1, "starting the replacement graph must not add an implicit microphone stop");
+  assert.equal(elements.get("audioState").textContent, "on");
+  assert.equal(elements.get("pitchDetail").value, "16");
+  assert.equal(elements.get("pitchDetail").disabled, true);
+
+  listeners.get("audioButton:click")();
+  assert.equal(elements.get("audioState").textContent, "off");
+  assert.equal(stoppedTracks, 2);
 });

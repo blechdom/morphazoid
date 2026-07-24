@@ -30,6 +30,33 @@ test("fixed-pool mixer renders delayed taps without per-voice histories", () => 
   assert.equal(renderer.voices.size, 2);
 });
 
+test("mixer preserves the sixteenth shifted source beside its unison input", () => {
+  const renderer = new SignalsmithGenerationMixerDSP({
+    sampleRate: 8_000,
+    historySeconds: 4,
+    maxInputs: 17,
+    maxVoices: 4,
+  });
+  renderer.setVoices([
+    { key: "sixteenth-shift", sourceIndex: 16, delay: 0.02, gain: 0.5, pan: 0 },
+  ]);
+
+  assert.equal(renderer.maxInputs, 17);
+  assert.equal(renderer.histories.length, 17);
+  assert.equal(renderer.voices.get("sixteenth-shift").target.sourceIndex, 16);
+
+  let peak = 0;
+  for (let block = 0; block < 4; block += 1) {
+    const inputs = Array.from({ length: 17 }, () => new Float32Array(256));
+    inputs[16].fill(0.25);
+    const left = new Float32Array(256);
+    const right = new Float32Array(256);
+    renderer.process(inputs, left, right);
+    peak = Math.max(peak, ...left.map(Math.abs), ...right.map(Math.abs));
+  }
+  assert.ok(peak > 0.01, "source index 16 must remain independently audible");
+});
+
 test("mixer crossfades stationary read positions when timing or pitch slot changes", () => {
   const renderer = new SignalsmithGenerationMixerDSP({
     sampleRate: 8_000,

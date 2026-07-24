@@ -1,3 +1,5 @@
+import { MAX_SIGNALSMITH_MIXER_INPUTS } from "./signalsmith-generation-limits.js";
+
 const DEFAULT_SAMPLE_RATE = 48_000;
 
 function clamp(value, low, high, fallback = low) {
@@ -27,7 +29,10 @@ export class SignalsmithGenerationMixerDSP {
     maxVoices = 48,
   } = {}) {
     this.sampleRate = clamp(sampleRate, 8_000, 192_000, DEFAULT_SAMPLE_RATE);
-    this.maxInputs = Math.max(1, Math.round(clamp(maxInputs, 1, 12, 4)));
+    this.maxInputs = Math.max(
+      1,
+      Math.round(clamp(maxInputs, 1, MAX_SIGNALSMITH_MIXER_INPUTS, 4)),
+    );
     this.maxVoices = Math.max(1, Math.round(clamp(maxVoices, 1, 96, 48)));
     this.historyLength = Math.ceil(clamp(historySeconds, 4, 40, 30) * this.sampleRate);
     this.maximumDelay = (this.historyLength - 3) / this.sampleRate;

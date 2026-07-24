@@ -1,4 +1,4 @@
-import { SignalsmithGenerationMixerDSP } from "./signalsmith-generation-mixer-dsp.js";
+import { SignalsmithGenerationMixerDSP } from "./signalsmith-generation-mixer-dsp.js?v=20260724-pitch-detail";
 
 const LOAD_REPORT_BLOCKS = 96;
 const CLOCK_KIND = typeof globalThis.performance?.now === "function"

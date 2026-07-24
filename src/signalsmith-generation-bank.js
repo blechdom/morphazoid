@@ -1,4 +1,8 @@
 import SignalsmithStretch from "../vendor/signalsmith-stretch/SignalsmithStretch.mjs";
+import {
+  DEFAULT_SIGNALSMITH_PITCH_SOURCES,
+  MAX_SIGNALSMITH_PITCH_SOURCES,
+} from "./signalsmith-generation-limits.js";
 
 function clamp(value, low, high, fallback = low) {
   const number = Number(value);
@@ -19,7 +23,7 @@ async function defaultMixerFactory(context, { maxInputs, maxVoices, historySecon
     throw new Error("The bounded generation mixer requires AudioWorklet.");
   }
   await context.audioWorklet.addModule(
-    new URL("./signalsmith-generation-mixer-processor.js?v=20260723-safe-grammar", import.meta.url),
+    new URL("./signalsmith-generation-mixer-processor.js?v=20260724-pitch-detail", import.meta.url),
   );
   return new WorkletNode(context, "morphazoid-signalsmith-generation-mixer", {
     numberOfInputs: maxInputs,
@@ -36,22 +40,29 @@ async function defaultMixerFactory(context, { maxInputs, maxVoices, historySecon
  */
 export class SignalsmithGenerationBank {
   constructor(context, input, output, {
-    maxPitchSources = 3,
+    maxPitchSources = DEFAULT_SIGNALSMITH_PITCH_SOURCES,
     maxVoices = 48,
     historySeconds = 30,
     stretchFactory = SignalsmithStretch,
     mixerFactory = defaultMixerFactory,
     onRenderLoad = null,
+    onPitchDetail = null,
   } = {}) {
     this.context = context;
     this.input = input;
     this.output = output;
-    this.maxPitchSources = Math.max(1, Math.min(7, Math.round(maxPitchSources)));
+    this.maxPitchSources = Math.round(clamp(
+      maxPitchSources,
+      1,
+      MAX_SIGNALSMITH_PITCH_SOURCES,
+      DEFAULT_SIGNALSMITH_PITCH_SOURCES,
+    ));
     this.maxVoices = Math.max(1, Math.min(64, Math.round(maxVoices)));
     this.historySeconds = clamp(historySeconds, 4, 40, 30);
     this.stretchFactory = stretchFactory;
     this.mixerFactory = mixerFactory;
     this.onRenderLoad = typeof onRenderLoad === "function" ? onRenderLoad : null;
+    this.onPitchDetail = typeof onPitchDetail === "function" ? onPitchDetail : null;
     this.slots = [];
     this.mixer = null;
     this.desired = [];
@@ -104,6 +115,16 @@ export class SignalsmithGenerationBank {
         numberOfOutputs: 1,
         outputChannelCount: [1],
       });
+      const slot = {
+        node,
+        inputIndex: index + 1,
+        latency: 0,
+        key: null,
+        semitones: 0,
+      };
+      // Register immediately so a configure/schedule failure can still stop
+      // and release this partially initialized WASM lane.
+      this.slots.push(slot);
       await node.configure?.({ blockMs: 160, intervalMs: 30, splitComputation: true });
       this.input.connect(node);
       node.connect(this.mixer, 0, index + 1);
@@ -116,13 +137,7 @@ export class SignalsmithGenerationBank {
         formantCompensation: false,
         formantBaseHz: 0,
       });
-      this.slots.push({
-        node,
-        inputIndex: index + 1,
-        latency: clamp(await node.latency?.(), 0, 1, 0),
-        key: null,
-        semitones: 0,
-      });
+      slot.latency = clamp(await node.latency?.(), 0, 1, 0);
     }
   }
 
@@ -164,7 +179,7 @@ export class SignalsmithGenerationBank {
   selectedPitchKeys() {
     const power = new Map();
     for (const voice of this.desired) {
-      if (voice.pitchKey === "0") continue;
+      if (voice.pitchKey === "0" || voice.gain <= 0.000001) continue;
       power.set(voice.pitchKey, (power.get(voice.pitchKey) ?? 0) + voice.gain ** 2);
     }
     return [...power]
@@ -239,28 +254,55 @@ export class SignalsmithGenerationBank {
       requestedVoiceCount: this.requestedVoiceCount,
       voiceLimit: this.runtimeVoiceLimit,
     });
+    const audibleVoices = this.desired.filter((voice) => voice.gain > 0.000001);
+    const shiftedVoices = audibleVoices.filter((voice) => voice.pitchKey !== "0");
+    const requestedShiftedKeys = new Set(shiftedVoices.map((voice) => voice.pitchKey));
+    const exactShiftedKeys = new Set(
+      [...requestedShiftedKeys].filter((key) => assignments.has(key)),
+    );
+    const unisonVoices = audibleVoices.filter((voice) => voice.pitchKey === "0").length;
+    const report = Object.freeze({
+      pitchSourceLimit: this.maxPitchSources,
+      requestedShiftedPitches: requestedShiftedKeys.size,
+      exactShiftedPitches: exactShiftedKeys.size,
+      mergedShiftedPitches: Math.max(0, requestedShiftedKeys.size - exactShiftedKeys.size),
+      requestedPitchClasses: requestedShiftedKeys.size + (unisonVoices > 0 ? 1 : 0),
+      renderedPitchClasses: exactShiftedKeys.size + (unisonVoices > 0 ? 1 : 0),
+      unisonActive: unisonVoices > 0,
+      unisonVoices,
+      exactShiftedVoices: shiftedVoices.filter((voice) => assignments.has(voice.pitchKey)).length,
+      mergedShiftedVoices: shiftedVoices.filter((voice) => !assignments.has(voice.pitchKey)).length,
+    });
+    try {
+      this.onPitchDetail?.(report);
+    } catch {
+      // Pitch-detail presentation must never interrupt audio rendering.
+    }
     this.rendered = renderedVoices.length > 0;
   }
 
   async dispose() {
+    if (this.disposed) return;
     this.disposed = true;
     this.revision += 1;
     if (this.gestureTimer !== null) clearTimeout(this.gestureTimer);
     this.gestureTimer = null;
-    this.mixer?.port?.postMessage?.({ type: "voices", voices: [] });
+    try {
+      this.mixer?.port?.postMessage?.({ type: "voices", voices: [] });
+    } catch {
+      // The worklet may already be stopping.
+    }
     try { this.input.disconnect?.(this.mixer); } catch { /* already disconnected */ }
-    this.mixer?.disconnect?.();
-    if (this.mixer?.port) this.mixer.port.onmessage = null;
-    this.mixer?.port?.close?.();
+    try { this.mixer?.disconnect?.(); } catch { /* already disconnected */ }
+    if (this.mixer?.port) {
+      try { this.mixer.port.onmessage = null; } catch { /* already closed */ }
+      try { this.mixer.port.close?.(); } catch { /* already closed */ }
+    }
     for (const slot of this.slots) {
-      try {
-        this.input.disconnect?.(slot.node);
-        await slot.node.stop?.();
-        slot.node.disconnect?.();
-        slot.node.port?.close?.();
-      } catch {
-        // Already unavailable.
-      }
+      try { this.input.disconnect?.(slot.node); } catch { /* not connected */ }
+      try { await slot.node.stop?.(); } catch { /* already stopped */ }
+      try { slot.node.disconnect?.(); } catch { /* already disconnected */ }
+      try { slot.node.port?.close?.(); } catch { /* already closed */ }
     }
     this.slots = [];
     this.mixer = null;

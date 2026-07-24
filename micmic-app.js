@@ -13,7 +13,8 @@ import {
   recursionParameters,
 } from "./src/micmic.js?v=20260724-adaptive-branches";
 import { AdaptivePolyphonyController } from "./src/adaptive-polyphony.js";
-import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260724-adaptive-branches";
+import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260724-pitch-detail";
+import { DEFAULT_SIGNALSMITH_PITCH_SOURCES } from "./src/signalsmith-generation-limits.js";
 
 const $ = (id) => document.getElementById(id);
 const GENERATION_COLORS = ["#fff3d6", "#55d9ff", "#5fe8c4", "#7db4ff", "#c79bff", "#ff826f", "#e8c46b"];
@@ -22,6 +23,7 @@ const GENERATION_CAPACITY_MODE = "sine";
 const MIN_ADAPTIVE_GENERATION_VOICES = 32;
 const BRANCH_RENDERER_ENABLED = true;
 const BRANCH_RENDERER_READY_TIMEOUT = 1_200;
+const PITCH_DETAIL_OPTIONS = Object.freeze([3, 7, 10, 16]);
 const DEFAULT_STATE = Object.freeze({
   ...MICMIC_PRESETS.bloom,
   inputTrim: 0.85,
@@ -41,6 +43,7 @@ const DEFAULT_STATE = Object.freeze({
   generationAngle: GENERATION_RULE_PRESETS.pythagorean.angle,
   generationAsymmetry: GENERATION_RULE_PRESETS.pythagorean.asymmetry,
   generationPitchScale: GENERATION_RULE_PRESETS.pythagorean.pitchScale,
+  pitchDetail: DEFAULT_SIGNALSMITH_PITCH_SOURCES,
 });
 
 const state = { ...DEFAULT_STATE };
@@ -90,6 +93,9 @@ let lastUnderrunDuration = 0;
 let branchRendererRevision = 0;
 let branchRendererChanging = false;
 let branchRendererUnavailable = !BRANCH_RENDERER_ENABLED;
+let generationBankRevision = 0;
+let generationPitchDetailReport = null;
+let pitchDetailChanging = false;
 const ENVELOPE_HISTORY_SECONDS = 32;
 const ENVELOPE_HISTORY_CAPACITY = 65_536;
 const envelopeHistoryTimes = new Float64Array(ENVELOPE_HISTORY_CAPACITY);
@@ -106,6 +112,11 @@ function formatMilliseconds(value) {
   if (amount < 1) return `${Number(amount.toFixed(2))} ms`;
   if (amount < 10) return `${Number(amount.toFixed(2))} ms`;
   return `${Math.round(amount)} ms`;
+}
+
+function normalizePitchDetail(value, fallback = DEFAULT_SIGNALSMITH_PITCH_SOURCES) {
+  const amount = Math.round(Number(value));
+  return PITCH_DETAIL_OPTIONS.includes(amount) ? amount : fallback;
 }
 
 function createGenerationCapacityController() {
@@ -644,28 +655,49 @@ async function prepareGenerationProcessor(audio, audioGraph) {
     node.port.start?.();
     audioGraph.generationNode = node;
     audioGraph.directRendererKind = "granular-fallback";
+    audioGraph.pitchEngineState = "loading";
     audioGraph.generationRenderer = {
       setVoices(voices, options = {}) {
         node.port.postMessage({ type: "voices", voices, ...options });
       },
     };
+    const bankRevision = ++generationBankRevision;
+    const pitchSources = normalizePitchDetail(state.pitchDetail);
+    generationPitchDetailReport = null;
 
     // Keep the lightweight processor audible while the larger spectral WASM
     // engine loads.  Once ready, switch atomically to the high-quality bank.
-    void SignalsmithGenerationBank.create(
+    const bankCreation = SignalsmithGenerationBank.create(
       audio,
       audioGraph.seedGate,
       audioGraph.currentRendererGain,
       {
-        maxPitchSources: 3,
+        maxPitchSources: pitchSources,
         maxVoices: MAX_ADAPTIVE_GENERATION_VOICES,
         historySeconds: 30,
         onRenderLoad: observeGenerationRenderLoad,
+        onPitchDetail(report) {
+          if (
+            bankRevision !== generationBankRevision
+            || audioContext !== audio
+            || graph !== audioGraph
+            || audioGraph.generationBank?.maxPitchSources !== pitchSources
+          ) return;
+          generationPitchDetailReport = report;
+          updateUi();
+        },
       },
-    ).then((bank) => {
-      if (audioContext !== audio || graph !== audioGraph || audio.state === "closed") {
-        void bank.dispose();
-        return;
+    );
+    let managedBankCreation;
+    managedBankCreation = bankCreation.then(async (bank) => {
+      if (
+        bankRevision !== generationBankRevision
+        || audioContext !== audio
+        || graph !== audioGraph
+        || audio.state === "closed"
+      ) {
+        await bank.dispose();
+        return null;
       }
       audioGraph.seedGate.disconnect?.(node);
       node.port.postMessage?.({ type: "voices", voices: [] });
@@ -676,18 +708,37 @@ async function prepareGenerationProcessor(audio, audioGraph) {
       audioGraph.generationNode = bank;
       audioGraph.generationRenderer = bank;
       audioGraph.directRendererKind = "signalsmith-mixer";
+      audioGraph.pitchEngineState = "ready";
       bank.setVoices(
         audioGraph.generationVoices ?? [],
         audioGraph.generationVoiceOptions ?? {},
       );
-      announce("Silky spectral pitch engine ready.");
+      announce(`Silky ${pitchSources}-lane pitch engine ready.`);
+      updateUi();
+      return bank;
     }).catch(() => {
       // The exact-delay/granular processor remains the offline-safe fallback.
+      if (
+        bankRevision === generationBankRevision
+        && audioContext === audio
+        && graph === audioGraph
+      ) {
+        audioGraph.pitchEngineState = "fallback";
+        updateUi();
+      }
+      return null;
+    }).finally(() => {
+      if (audioGraph.generationBankPromise === managedBankCreation) {
+        audioGraph.generationBankPromise = null;
+      }
     });
+    audioGraph.generationBankPromise = managedBankCreation;
+    void managedBankCreation;
   } catch {
     // The bounded feedback matrix remains the compatible fallback.
     audioGraph.generationNode = null;
     audioGraph.generationRenderer = null;
+    audioGraph.pitchEngineState = "unavailable";
   }
 }
 
@@ -875,6 +926,68 @@ async function ensureAudioGraph() {
     void activateBranchRenderer();
   }
   return audioContext;
+}
+
+async function changePitchDetail(value) {
+  const nextDetail = normalizePitchDetail(value, state.pitchDetail);
+  if (
+    nextDetail === state.pitchDetail
+    || state.mic
+    || state.starting
+    || pitchDetailChanging
+    || audioChanging
+  ) {
+    updateUi();
+    return;
+  }
+
+  state.pitchDetail = nextDetail;
+  generationPitchDetailReport = null;
+  const closingAudio = audioContext;
+  const closingGraph = graph;
+  if (!closingAudio || closingAudio.state === "closed") {
+    updateUi();
+    announce(`${nextDetail}-lane pitch detail selected. It will load when audio starts.`);
+    return;
+  }
+
+  pitchDetailChanging = true;
+  audioChanging = true;
+  ++microphoneGeneration;
+  ++generationBankRevision;
+  branchRendererRevision += 1;
+  branchRendererChanging = false;
+  stopGenerationCapacityMonitoring();
+  updateUi();
+
+  try {
+    closingGraph?.branchRenderer?.silence();
+    closingGraph?.lfo?.stop?.();
+  } catch {
+    // The stopped graph may already have released its processors.
+  }
+  try {
+    await closingGraph?.generationBankPromise;
+  } catch {
+    // A rejected bank creation has already cleaned up its partial pool.
+  }
+  try {
+    await closingGraph?.generationBank?.dispose?.();
+  } catch {
+    // Closing the context below remains the final resource guard.
+  }
+  if (audioContext === closingAudio) audioContext = null;
+  if (graph === closingGraph) graph = null;
+  try {
+    await closingAudio.close?.();
+  } catch {
+    // A fresh context can still be created after a browser-side close error.
+  } finally {
+    pitchDetailChanging = false;
+    audioChanging = false;
+    updateUi();
+    announce(`${nextDetail}-lane pitch detail selected. It will load on the next Start.`);
+  }
 }
 
 function setAudioParam(parameter, value, immediate = false) {
@@ -1570,6 +1683,41 @@ function paintGenerationCapacity() {
   );
 }
 
+function paintPitchDetail() {
+  const control = $("pitchDetail");
+  control.value = String(state.pitchDetail);
+  control.disabled = Boolean(
+    state.mic || state.starting || pitchDetailChanging || audioChanging,
+  );
+  $("pitchDetailHelp").textContent = state.mic
+    ? "Stop audio to change Pitch Detail. Each lane preserves one distinct non-zero pitch; unison stays exact and separate."
+    : "Each lane preserves one distinct non-zero pitch; unison stays exact and separate. Higher detail uses more CPU and memory.";
+
+  let status = `${state.pitchDetail} shifted lanes · exact unison`;
+  if (pitchDetailChanging) {
+    status = `Retiring the old pitch engine · ${state.pitchDetail} lanes next`;
+  } else if (state.mic && graph?.directRendererKind === "signalsmith-mixer") {
+    const report = generationPitchDetailReport;
+    if (report?.requestedPitchClasses > 0) {
+      status = `${report.requestedPitchClasses} requested · ${report.renderedPitchClasses} distinct rendered`;
+      if (report.mergedShiftedPitches > 0) {
+        status += ` · ${report.mergedShiftedPitches} merged`;
+      }
+      if (report.unisonActive) status += " · exact unison";
+    } else {
+      status = `${state.pitchDetail} shifted lanes · measuring pitch map…`;
+    }
+  } else if (
+    state.mic
+    && ["fallback", "unavailable"].includes(graph?.pitchEngineState)
+  ) {
+    status = `${state.pitchDetail}-lane silky engine unavailable · granular fallback`;
+  } else if (state.mic) {
+    status = `${state.pitchDetail} shifted lanes selected · silky engine loading…`;
+  }
+  $("pitchDetailStatus").textContent = status;
+}
+
 function paintControls() {
   const values = {
     level: [state.level, `${Math.round(state.level * 100)}%`],
@@ -1597,16 +1745,18 @@ function updateUi() {
   const label = presetLabel();
   const live = state.mic;
   const starting = state.starting;
+  const controlsChanging = starting || pitchDetailChanging || audioChanging;
   const audioState = live ? "on" : "off";
 
   paintControls();
+  paintPitchDetail();
   renderGenerationRules();
   paintGenerationCapacity();
   setPressed($("audioButton"), live);
-  $("audioButton").disabled = starting;
+  $("audioButton").disabled = controlsChanging;
   $("audioState").textContent = audioState;
   setPressed($("micButton"), live && !state.frozen);
-  $("micButton").disabled = starting;
+  $("micButton").disabled = controlsChanging;
   $("micButtonLabel").textContent = starting
     ? "Allow microphone"
     : live ? (state.frozen ? "Resume input" : "Pause input") : "Start input";
@@ -1620,7 +1770,7 @@ function updateUi() {
   $("freezeLabel").textContent = "Stop audio";
   $("freezeHint").textContent = "disconnect and clear the tail";
   $("panicButton").disabled = !live && !starting;
-  $("seedMicButton").disabled = starting;
+  $("seedMicButton").disabled = controlsChanging;
   setPressed($("seedMicButton"), live && !state.frozen);
   const seedLabel = starting
     ? "Allow microphone"
@@ -1640,7 +1790,13 @@ function updateUi() {
           ? "On when audio starts"
           : "Off · current silky engine";
 
-  $("listenSummary").textContent = starting ? "waiting for permission" : live ? (state.frozen ? "input paused · tail live" : "microphone live") : "microphone off";
+  $("listenSummary").textContent = pitchDetailChanging
+    ? "changing pitch engine"
+    : starting
+      ? "waiting for permission"
+      : live
+        ? (state.frozen ? "input paused · tail live" : "microphone live")
+        : "microphone off";
   $("recursionSummary").textContent = `${label} · ${generations} generations`;
   $("mixSummary").textContent = `${Math.round(state.wet * 100)}% descendants · ${state.dry ? `${Math.round(state.dry * 100)}% root` : "root muted"}`;
   $("generationKeyEnd").textContent = `G${generations} DESCENDANT`;
@@ -1710,6 +1866,9 @@ function loadGenerationPreset(name, shouldAnnounce = true) {
 
 $("generationPreset").addEventListener("change", (event) => loadGenerationPreset(event.currentTarget.value));
 $("resetGenerationRules").addEventListener("click", () => loadGenerationPreset(state.generationPreset));
+$("pitchDetail").addEventListener("change", (event) => {
+  void changePitchDetail(event.currentTarget.value);
+});
 
 for (const id of ["timeRatio", "generationAngle", "generationAsymmetry", "generationPitchScale"]) {
   $(id).addEventListener("input", () => {
@@ -1752,6 +1911,7 @@ document.addEventListener("visibilitychange", () => {
 
 window.addEventListener("pagehide", () => {
   ++microphoneGeneration;
+  generationBankRevision += 1;
   branchRendererRevision += 1;
   stopGenerationCapacityMonitoring();
   if (state.recording) stopRecording();

@@ -24,7 +24,8 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
     "generationPreset", "generations", "timeRatio", "generationAngle", "generationAsymmetry",
     "generationPitchScale", "generationTimingReadout", "generationPitchReadout", "resetGenerationRules",
     "generationPresetDescription", "generationCapacityNote", "branchRendererToggle",
-    "branchRendererState", "branchRendererHelp", "treeDescription",
+    "branchRendererState", "branchRendererHelp", "pitchDetail", "pitchDetailHelp",
+    "pitchDetailStatus", "treeDescription",
   ]) assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
   for (const section of ["listenSection", "recursionSection", "mixSection", "captureSection"]) {
     assert.match(html, new RegExp(`<details[^>]*id="${section}"`));
@@ -54,6 +55,16 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
   assert.match(html, /Recursive bounce[\s\S]*?Experimental alternate renderer/);
   assert.match(html, /AUTO CHECK · 48 \/ 254 audible branches · hard guard 64/);
   assert.match(html, /id="mutation"[^>]*value="0"/);
+  assert.match(html, /<label[^>]*for="pitchDetail"/);
+  assert.match(html, /<select id="pitchDetail"[^>]*aria-describedby="pitchDetailHelp pitchDetailStatus"/);
+  assert.match(html, /<option value="3" selected>[^<]*3[^<]*<\/option>/);
+  for (const value of ["7", "10", "16"]) {
+    assert.match(
+      html,
+      new RegExp(`<option value="${value}">[^<]*${value}[^<]*<\\/option>`),
+      `missing visible ${value}-lane Pitch Detail option`,
+    );
+  }
   assert.doesNotMatch(html, /Starting topology|id="presetButtons"|data-preset=/);
   assert.doesNotMatch(html, /id="stateMetric"|id="depthMetric"|id="outputMetric"/);
   assert.doesNotMatch(html, /The interval is inherited and multiplied once per generation/);
@@ -69,7 +80,7 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
     "generationPreset",
     "generations", "depth",
     "interval", "timeRatio",
-    "generationAngle", "generationPitchScale",
+    "pitchDetail", "generationAngle", "generationPitchScale",
     "generationAsymmetry", "mutation",
   ];
   let previousControlPosition = -1;
@@ -125,6 +136,8 @@ test("mic(mic) markup has unique ids and labelled controls", async () => {
     assert.match(html, new RegExp(`<label[^>]*for="${id}"`));
     assert.match(html, new RegExp(`<input id="${id}"`));
   }
+  assert.match(html, /<label[^>]*for="pitchDetail"/);
+  assert.match(html, /<select id="pitchDetail"/);
   assert.match(html, /id="stage"[\s\S]*?role="img"[\s\S]*?aria-describedby="treeDescription canvasInstructions liveStatus"/);
   assert.doesNotMatch(html, /id="stage"[^>]*tabindex=/);
   assert.match(html, /data-reset-all>Reset all parameters<\/button>/);

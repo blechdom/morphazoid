@@ -209,6 +209,19 @@
 
             <section class="recursion-parameter-cluster" aria-labelledby="pitchParametersTitle">
               <h3 class="parameter-cluster-title" id="pitchParametersTitle">Pitch</h3>
+              <label class="select-control" for="pitchDetail">
+                <span class="field-label">Pitch detail</span>
+                <span class="select-shell">
+                  <select id="pitchDetail" aria-describedby="pitchDetailHelp pitchDetailStatus">
+                    <option value="3" selected>Silky · 3 shifted lanes (default)</option>
+                    <option value="7">Detailed · 7 shifted lanes</option>
+                    <option value="10">Full tree · 10 shifted lanes</option>
+                    <option value="16">Extreme · 16 shifted lanes (desktop)</option>
+                  </select>
+                </span>
+              </label>
+              <p class="control-note" id="pitchDetailHelp">Each lane preserves one distinct non-zero pitch; unison stays exact and separate. Higher detail uses more CPU and memory.</p>
+              <small class="generation-safety-note" id="pitchDetailStatus" aria-live="polite">3 shifted lanes · exact unison</small>
               <label class="control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">45°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="45" /></label>
               <label class="control" for="generationPitchScale"><span><b>Angle → pitch</b><output id="generationPitchScaleOut" for="generationPitchScale">1.00 oct / 180°</output></span><input id="generationPitchScale" type="range" min="0" max="4" step="0.05" value="1" /></label>
               <div class="grammar-card parameter-cluster-readout" aria-label="Branch pitch preview">
@@ -281,6 +294,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="micmic-app.js?v=20260724-adaptive-branches"></script>
+    <script type="module" src="micmic-app.js?v=20260724-pitch-detail"></script>
   </body>
 </html>
