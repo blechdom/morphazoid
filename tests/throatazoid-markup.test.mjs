@@ -19,9 +19,13 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
   );
   assert.match(html, /<option value="throatazoid\.html" selected>throatazoid<\/option>/);
   assert.match(html, /id="stage"[\s\S]*?aria-describedby="canvasInstructions liveStatus"/);
-  assert.match(html, /id="stageReadout">DORMANT · TRIUNE · 3T\/2G\/2N<\/span>/);
+  assert.match(html, /id="stageReadout">DORMANT · CLEAR · 1P\/1M\/1G\/1N<\/span>/);
+  assert.match(
+    html,
+    /aria-keyshortcuts="A B C D E F G H I J K L M N O P Q R S T U V W X Y Z"/,
+  );
   assert.match(html, /id="awakenButton"[\s\S]*?aria-pressed="false"/);
-  assert.match(html, /<b id="awakenLabel">Awaken<\/b>/);
+  assert.match(html, /<b id="awakenLabel">Start synth voice<\/b>/);
   assert.match(html, /Headphones recommended\./);
   assert.match(html, /Glottis mode needs no microphone\./);
   assert.match(html, /Audio is synthesized and processed in this browser\./);
@@ -30,6 +34,16 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
   assert.match(
     html,
     /href="https:\/\/dood\.al\/pinktrombone\/"[\s\S]*?>Pink Trombone<\/a>/,
+  );
+  assert.match(
+    html,
+    /class="throatazoid-inspiration-note"[\s\S]*?THROATAZOID is very, very inspired by[\s\S]*?href="https:\/\/dood\.al\/pinktrombone\/"[\s\S]*?>Pink Trombone<\/a>/,
+    "the visible disclosure must credit and link Pink Trombone",
+  );
+  assert.equal(
+    [...html.matchAll(/https:\/\/dood\.al\/pinktrombone\//g)].length,
+    1,
+    "the canonical Pink Trombone URL should appear exactly once",
   );
   assert.match(html, /rel="noopener noreferrer"/);
   assert.match(html, /src="nav\.js"/);
@@ -45,6 +59,70 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
     /<button\b[^>]*\bdata-source="([^"]+)"[^>]*>/g,
   )].map((match) => match[1]);
   assert.deepEqual(sources, ["mic", "glottis", "hybrid"]);
+  assert.match(
+    html,
+    /data-source="glottis"\s+aria-pressed="true"/,
+    "the stable internal glottis must be the default speech source",
+  );
+  assert.match(html, /\bid="quickSynthButton"/);
+  assert.match(html, /\bid="quickMicButton"/);
+  assert.match(html, /\bid="presetButtons"/);
+  assert.doesNotMatch(html, /\bid="(?:voicePresetButtons|specimenButtons)"/);
+  const voicePresets = [...html.matchAll(
+    /<button\b[^>]*\bdata-voice-preset="([^"]+)"[^>]*>/g,
+  )].map((match) => match[1]);
+  assert.deepEqual(voicePresets, [
+    "clear",
+    "deep",
+    "bright",
+    "warm",
+    "alto",
+    "mezzo",
+    "soprano",
+    "airy",
+    "bell",
+    "coloratura",
+    "whisper",
+    "reed",
+    "nasal",
+    "growl",
+    "beatbox",
+    "singer",
+    "choir",
+    "alien",
+  ]);
+  assert.match(
+    html,
+    /data-voice-preset="clear"\s+aria-pressed="true"/,
+    "Clear must be the first, selected voice",
+  );
+  assert.match(html, /the synth voice is the clearest way to hear vowels/i);
+  assert.match(html, /click a vowel[\s\S]*hold friction[\s\S]*press and release/i);
+  assert.match(
+    html,
+    /id="presetButtons"[\s\S]*data-voice-preset="clear"[\s\S]*data-specimen="void"[\s\S]*id="anatomySection"/,
+    "voices and alien anatomies must share one top-level mega preset bank",
+  );
+  const specimens = [...html.matchAll(
+    /<button\b[^>]*\bdata-specimen="([^"]+)"[^>]*>/g,
+  )].map((match) => match[1]);
+  assert.ok(specimens.includes("choir"), "Choir remains available as its own texture");
+  assert.ok(specimens.includes("singing"), "Singing must be an explicit selectable preset");
+  assert.match(
+    html,
+    /data-specimen="singing"[\s\S]*?<span>Singing<\/span>[\s\S]*?<small>[^<]*(?:voice|sing|vowel)[^<]*<\/small>/i,
+  );
+  assert.match(html, /\bid="pressureSourceCount"/);
+  assert.match(html, /\bid="pressureSourceButtons"/);
+  assert.deepEqual(
+    [...html.matchAll(/\bdata-pressure-source="([^"]+)"/g)].map((match) => match[1]),
+    ["0", "1", "2", "3"],
+  );
+  assert.match(html, /\bid="mouthGateButtons"/);
+  assert.deepEqual(
+    [...html.matchAll(/\bdata-mouth-gate="([^"]+)"/g)].map((match) => match[1]),
+    ["0", "1", "2", "3", "4", "5", "6"],
+  );
 
   assert.match(html, /\bid="articulationSection"/);
   assert.match(html, /\bid="articulationSummary"/);
@@ -57,7 +135,14 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
   );
   assert.match(html, /\bid="typingModeState">off<\/span>/);
   assert.match(html, /Type to speak/i);
-  assert.match(html, /hold to sustain/i);
+  assert.match(html, /All A(?:–|-)Z play approximate speech/i);
+  assert.match(html, /release stops to burst/i);
+  assert.match(html, /\bid="alphabetKeyMap"/);
+  const alphabetKeys = [...html.matchAll(
+    /<kbd\b[^>]*\bdata-letter="([a-z])"[^>]*>/g,
+  )].map((match) => match[1]);
+  assert.deepEqual(alphabetKeys, [..."qwertyuiopasdfghjklzxcvbnm"]);
+  assert.equal(new Set(alphabetKeys).size, 26);
   const tongues = [...html.matchAll(
     /<button\b[^>]*\bdata-tongue="([^"]+)"[^>]*>/g,
   )].map((match) => match[1]);
@@ -88,7 +173,7 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
   ]);
   assert.deepEqual(
     [...html.matchAll(/<kbd(?:\s[^>]*)?>([A-Z])/g)].map((match) => match[1]),
-    ["A", "E", "I", "O", "U", "Q", "K", "T", "P", "S", "X", "F", "M", "N", "G"],
+    [..."QWERTYUIOPASDFGHJKLZXCVBNM"],
   );
   for (const id of [
     "stageGuide",
@@ -96,6 +181,7 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
     "articulationGestureOut",
     "articulationPlace",
     "articulationAperture",
+    "articulationLip",
     "articulationPressure",
     "articulationVoicing",
   ]) {
@@ -128,6 +214,7 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
     "exciterBreath",
     "exciterVibrato",
     "exciterWobble",
+    "pressureSourceCount",
     "throatCount",
     "bodyLength",
     "tension",
@@ -143,6 +230,7 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
     "oralClosure",
     "selectedAperture",
     "selectedLength",
+    "articulationLip",
     "wet",
     "dry",
     "growl",
@@ -155,6 +243,8 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
   assert.match(css, /--xeno-black:\s*#020302/);
   assert.match(css, /\.throatazoid-word/);
   assert.match(css, /\.throatazoid-inspiration-note/);
+  assert.match(css, /\.throatazoid-performance-presets/);
+  assert.match(css, /\.throatazoid-preset-bank/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(app, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(app, /echoCancellation:\s*(?:false|\{\s*ideal:\s*false\s*\})/);
