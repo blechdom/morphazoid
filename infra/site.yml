@@ -1,0 +1,317 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Secure static hosting for Morphazoid with S3, CloudFront, ACM, Route 53, and GitHub OIDC.
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: morphazoid.com
+    Description: Apex domain served by CloudFront.
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: Public Route 53 hosted zone for DomainName.
+  GitHubOidcSubject:
+    Type: String
+    Default: repo:blechdom/morphazoid:environment:production
+    Description: Exact GitHub Actions OIDC subject accepted by the deploy role.
+  CreateGitHubOidcProvider:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: Create the account-global GitHub Actions OIDC provider when it does not already exist.
+
+Conditions:
+  ShouldCreateGitHubOidcProvider: !Equals
+    - !Ref CreateGitHubOidcProvider
+    - "true"
+
+Resources:
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldNoncurrentVersions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+      Tags:
+        - Key: Project
+          Value: morphazoid
+
+  SiteOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub ${AWS::StackName}-s3-oac
+        Description: Signed CloudFront access to the private Morphazoid bucket.
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  SiteCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub www.${DomainName}
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+        - DomainName: !Sub www.${DomainName}
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: Project
+          Value: morphazoid
+
+  SiteRequestFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub ${AWS::StackName}-request
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Canonicalize www and resolve directory index documents.
+        Runtime: cloudfront-js-2.0
+      FunctionCode: !Sub |
+        function handler(event) {
+          var request = event.request;
+          var host = request.headers.host && request.headers.host.value;
+          if (host === 'www.${DomainName}') {
+            return {
+              statusCode: 301,
+              statusDescription: 'Moved Permanently',
+              headers: {
+                location: { value: 'https://${DomainName}' + request.uri }
+              }
+            };
+          }
+          if (request.uri.endsWith('/')) {
+            request.uri += 'index.html';
+          }
+          return request;
+        }
+
+  SiteSecurityHeaders:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub ${AWS::StackName}-security
+        Comment: Browser security headers for Morphazoid.
+        SecurityHeadersConfig:
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: strict-origin-when-cross-origin
+            Override: true
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 63072000
+            IncludeSubdomains: false
+            Preload: false
+            Override: true
+        CustomHeadersConfig:
+          Items:
+            - Header: Permissions-Policy
+              Value: microphone=(self), camera=(), geolocation=()
+              Override: true
+
+  SiteDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Ref DomainName
+          - !Sub www.${DomainName}
+        Comment: !Sub Morphazoid production site for ${DomainName}
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          Compress: true
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt SiteRequestFunction.FunctionARN
+          ResponseHeadersPolicyId: !Ref SiteSecurityHeaders
+          TargetOriginId: private-site-bucket
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        Origins:
+          - DomainName: !GetAtt SiteBucket.RegionalDomainName
+            Id: private-site-bucket
+            OriginAccessControlId: !Ref SiteOriginAccessControl
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref SiteCertificate
+          MinimumProtocolVersion: TLSv1.2_2021
+          SslSupportMethod: sni-only
+      Tags:
+        - Key: Project
+          Value: morphazoid
+
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action:
+              - s3:*
+            Resource:
+              - !GetAtt SiteBucket.Arn
+              - !Sub ${SiteBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action:
+              - s3:GetObject
+            Resource: !Sub ${SiteBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${SiteDistribution}
+
+  SiteDns:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      RecordSets:
+        - Name: !Ref DomainName
+          Type: A
+          AliasTarget:
+            DNSName: !GetAtt SiteDistribution.DomainName
+            EvaluateTargetHealth: false
+            HostedZoneId: Z2FDTNDATAQYW2
+        - Name: !Ref DomainName
+          Type: AAAA
+          AliasTarget:
+            DNSName: !GetAtt SiteDistribution.DomainName
+            EvaluateTargetHealth: false
+            HostedZoneId: Z2FDTNDATAQYW2
+        - Name: !Sub www.${DomainName}
+          Type: A
+          AliasTarget:
+            DNSName: !GetAtt SiteDistribution.DomainName
+            EvaluateTargetHealth: false
+            HostedZoneId: Z2FDTNDATAQYW2
+        - Name: !Sub www.${DomainName}
+          Type: AAAA
+          AliasTarget:
+            DNSName: !GetAtt SiteDistribution.DomainName
+            EvaluateTargetHealth: false
+            HostedZoneId: Z2FDTNDATAQYW2
+
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: ShouldCreateGitHubOidcProvider
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      Tags:
+        - Key: Project
+          Value: morphazoid
+
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Content-only deploy role for the Morphazoid GitHub production environment.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - ShouldCreateGitHubOidcProvider
+                - !Ref GitHubOidcProvider
+                - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action:
+              - sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Ref GitHubOidcSubject
+      Policies:
+        - PolicyName: PublishStaticSite
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: InspectSiteBucket
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource: !GetAtt SiteBucket.Arn
+              - Sid: PublishSiteObjects
+                Effect: Allow
+                Action:
+                  - s3:DeleteObject
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub ${SiteBucket.Arn}/*
+              - Sid: InvalidateSiteDistribution
+                Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetInvalidation
+                Resource: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${SiteDistribution}
+      Tags:
+        - Key: Project
+          Value: morphazoid
+
+Outputs:
+  SiteUrl:
+    Description: Canonical production URL.
+    Value: !Sub https://${DomainName}
+  SiteBucketName:
+    Description: Private S3 bucket receiving static site artifacts.
+    Value: !Ref SiteBucket
+  DistributionId:
+    Description: CloudFront distribution ID used for invalidations.
+    Value: !Ref SiteDistribution
+  DistributionDomainName:
+    Description: CloudFront-generated hostname.
+    Value: !GetAtt SiteDistribution.DomainName
+  GitHubDeployRoleArn:
+    Description: OIDC role assumed by the production GitHub Actions job.
+    Value: !GetAtt GitHubDeployRole.Arn
