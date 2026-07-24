@@ -19,7 +19,7 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
   assert.match(html, /href="micmic\.css"/);
   for (const id of [
     "stage", "seedControl", "seedMicButton", "panicButton", "audioButton", "micButton",
-    "freezeButton", "inputMeterBar", "inputTrim", "depth", "interval", "branching",
+    "freezeButton", "inputMeterBar", "inputTrim", "depth", "interval",
     "mutation", "wet", "dry", "spread", "recordButton", "downloadTake", "clearTake",
     "generationPreset", "generations", "timeRatio", "generationAngle", "generationAsymmetry",
     "generationPitchScale", "generationTimingReadout", "generationPitchReadout", "resetGenerationRules",
@@ -48,7 +48,7 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
   }
   assert.ok((html.match(/<option value="[^"]+"/g) ?? []).length >= 16);
   assert.match(html, /id="generations"[^>]*value="7"/);
-  assert.match(html, /id="branching"[^>]*value="1"/);
+  assert.doesNotMatch(html, /Fork density|id="branching"|id="branchingOut"/);
   assert.match(html, /id="mutation"[^>]*value="0"/);
   assert.doesNotMatch(html, /Starting topology|id="presetButtons"|data-preset=/);
   assert.doesNotMatch(html, /id="stateMetric"|id="depthMetric"|id="outputMetric"/);
@@ -63,7 +63,7 @@ test("mic(mic) exposes live recursion, capture, safety, and an echo-tree stage",
   );
   const groupedControlOrder = [
     "generationPreset",
-    "generations", "branching", "depth",
+    "generations", "depth",
     "interval", "timeRatio",
     "generationAngle", "generationPitchScale",
     "generationAsymmetry", "mutation",
@@ -115,7 +115,7 @@ test("mic(mic) markup has unique ids and labelled controls", async () => {
   const html = await readFile(new URL("micmic.html", root), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
-  for (const id of ["level", "inputTrim", "generations", "depth", "interval", "timeRatio", "generationAngle", "generationAsymmetry", "generationPitchScale", "branching", "mutation", "wet", "dry", "spread"]) {
+  for (const id of ["level", "inputTrim", "generations", "depth", "interval", "timeRatio", "generationAngle", "generationAsymmetry", "generationPitchScale", "mutation", "wet", "dry", "spread"]) {
     assert.match(html, new RegExp(`<label[^>]*for="${id}"`));
     assert.match(html, new RegExp(`<input id="${id}"`));
   }

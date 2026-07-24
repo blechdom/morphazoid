@@ -1,4 +1,5 @@
 import {
+  FIXED_FORK_DENSITY,
   MICMIC_PRESETS,
   GENERATION_RULE_PRESETS,
   MAX_GENERATION_STAGES,
@@ -7,7 +8,7 @@ import {
   generationVoiceSpecs,
   recorderExtension,
   recursionParameters,
-} from "./src/micmic.js?v=20260723-growth-presets";
+} from "./src/micmic.js?v=20260724-full-forks";
 import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260723-safe-grammar";
 
 const $ = (id) => document.getElementById(id);
@@ -22,7 +23,7 @@ const DEFAULT_STATE = Object.freeze({
   frozen: false,
   recording: false,
   generations: GENERATION_RULE_PRESETS.pythagorean.generations,
-  branching: GENERATION_RULE_PRESETS.pythagorean.branching,
+  branching: FIXED_FORK_DENSITY,
   depth: GENERATION_RULE_PRESETS.pythagorean.depth,
   interval: GENERATION_RULE_PRESETS.pythagorean.interval,
   mutation: GENERATION_RULE_PRESETS.pythagorean.mutation,
@@ -1162,7 +1163,6 @@ function paintControls() {
     generations: [state.generations, `${state.generations} / ${MAX_GENERATION_STAGES}`],
     depth: [state.depth, `${Math.round(state.depth * 100)}%`],
     interval: [state.interval, formatMilliseconds(state.interval)],
-    branching: [state.branching, `${Math.round(state.branching * 100)}% fork probability`],
     mutation: [state.mutation, `${Math.round(state.mutation * 100)}% rule variance`],
     timeRatio: [state.timeRatio, `${state.timeRatio.toFixed(2)}× per generation`],
     generationAngle: [state.generationAngle, `${Number(state.generationAngle.toFixed(1))}°`],
@@ -1251,7 +1251,7 @@ function bindRange(id, key, marksGrowthCustom = false) {
   });
 }
 
-for (const id of ["generations", "depth", "interval", "branching", "mutation"]) {
+for (const id of ["generations", "depth", "interval", "mutation"]) {
   bindRange(id, id, true);
 }
 for (const id of ["wet", "dry", "spread"]) {
@@ -1268,7 +1268,7 @@ function loadGenerationPreset(name, shouldAnnounce = true) {
   state.generationPreset = resolvedName;
   lastGenerationPreset = resolvedName;
   state.generations = preset.generations;
-  state.branching = preset.branching;
+  state.branching = FIXED_FORK_DENSITY;
   state.depth = preset.depth;
   state.interval = preset.interval;
   state.mutation = preset.mutation;

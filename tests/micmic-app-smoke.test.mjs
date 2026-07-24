@@ -264,7 +264,6 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.equal(elements.get("mixSummary").textContent, "76% descendants · root muted");
   assert.equal(elements.get("depthOut").textContent, "72%");
   assert.equal(elements.get("generationsOut").textContent, "7 / 12");
-  assert.equal(elements.get("branchingOut").textContent, "100% fork probability");
   assert.equal(elements.get("mutationOut").textContent, "0% rule variance");
   assert.match(elements.get("generationPresetDescription").textContent, /balanced reference tree/);
   assert.equal(elements.get("audioState").textContent, "off");
@@ -380,7 +379,6 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.equal(elements.get("timeRatioOut").textContent, "0.72× per generation");
   assert.equal(elements.get("generationAngleOut").textContent, "45°");
   assert.equal(elements.get("generationsOut").textContent, "7 / 12");
-  assert.equal(elements.get("branchingOut").textContent, "100% fork probability");
   assert.equal(elements.get("mutationOut").textContent, "0% rule variance");
   assert.equal(elements.get("depthOut").textContent, "72%");
   assert.equal(elements.get("intervalOut").textContent, "240 ms");

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { L_SYSTEM_PRESETS, traceLSystem } from "../src/l-system.js";
 import {
+  FIXED_FORK_DENSITY,
   MICMIC_PRESETS,
   GENERATION_RULE_PRESETS,
   MAX_GENERATION_STAGES,
@@ -24,7 +25,7 @@ test("mic(mic) presets stay inside the bounded feedback design", () => {
     assert.ok(Object.isFrozen(preset));
     assert.ok(preset.depth >= 0 && preset.depth <= MAX_RECURSION_FEEDBACK);
     assert.ok(preset.interval >= 0.2 && preset.interval <= 2_400);
-    assert.ok(preset.branching >= 0 && preset.branching <= 1);
+    assert.equal(preset.branching, FIXED_FORK_DENSITY);
     assert.ok(preset.mutation >= 0 && preset.mutation <= 1);
   }
 });
@@ -253,7 +254,7 @@ test("plant-named growth presets span the full bounded recursion system", () => 
     assert.ok(preset.label.length > 3);
     assert.ok(preset.description.length > 20);
     assert.ok(preset.generations >= 1 && preset.generations <= MAX_GENERATION_STAGES);
-    assert.ok(preset.branching >= 0 && preset.branching <= 1);
+    assert.equal(preset.branching, FIXED_FORK_DENSITY);
     assert.ok(preset.depth >= 0 && preset.depth <= MAX_RECURSION_FEEDBACK);
     assert.ok(preset.interval >= 0.2 && preset.interval <= 2_400);
     assert.ok(preset.mutation >= 0 && preset.mutation <= 1);
