@@ -443,6 +443,12 @@ export function juliaVerticalAddressOctaves(normalizedY = 0) {
   return (5 + 2 * clamp(finite(normalizedY, 0), -1, 1)) / 12;
 }
 
+/** Normalize the +Y-up contour coordinates produced by marching squares. */
+export function juliaContourVerticalAddress(y = 0, height = 2) {
+  const span = Math.max(1, finite(height, 2) - 1);
+  return clamp(2 * finite(y, span * 0.5) / span - 1, -1, 1);
+}
+
 function signedArea(points) {
   let twiceArea = 0;
   for (let index = 0; index < points.length; index += 1) {

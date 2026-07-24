@@ -19,7 +19,7 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
   );
   assert.match(html, /<option value="throatazoid\.html" selected>throatazoid<\/option>/);
   assert.match(html, /id="stage"[\s\S]*?aria-describedby="canvasInstructions liveStatus"/);
-  assert.match(html, /id="stageReadout">DORMANT · TRIUNE · 3T\/2G\/2N<\/span>/);
+  assert.match(html, /id="stageReadout">DORMANT · TRIUNE · 3M\/2G\/2N<\/span>/);
   assert.match(html, /id="awakenButton"[\s\S]*?aria-pressed="false"/);
   assert.match(html, /<b id="awakenLabel">Awaken<\/b>/);
   assert.match(html, /Headphones recommended\./);

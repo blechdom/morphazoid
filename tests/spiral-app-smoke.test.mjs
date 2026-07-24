@@ -187,7 +187,7 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
   assert.equal(oscillators.length, 16);
-  now += 60;
+  now = performance.now() + 60;
   queuedFrame(now);
   assert.equal(Number(elements.get("loopPhase").value), 0.25);
   assert.ok(Number(elements.get("position").value) < 0.45);
@@ -204,7 +204,7 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   await listeners.get("loopPlayButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "false");
   assert.equal(attributes.get("loopPlayButton:aria-pressed"), "true");
-  now += 60;
+  now = performance.now() + 60;
   queuedFrame(now);
   assert.equal(Number(elements.get("position").value), stationaryPosition);
   assert.ok(Number(elements.get("loopPhase").value) > 0.25);
