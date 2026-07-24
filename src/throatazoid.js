@@ -1,9 +1,27 @@
-export const MAX_THROATS = 5;
+export const MAX_THROATS = 7;
+export const MAX_MOUTHS = MAX_THROATS;
+export const MAX_TONGUES = 5;
+export const MAX_NOSES = 3;
 
 function defineSpecimen(specimen) {
+  const articulation = specimenArticulation(specimen);
+  const seed = nameSeed(specimen.name);
   return Object.freeze({
     ...specimen,
+    tongueCount: articulation.tongueCount,
+    noseCount: articulation.noseCount,
+    oralClosure: articulation.oralClosure,
     throats: Object.freeze(specimen.throats.map((throat) => Object.freeze({ ...throat }))),
+    tongues: Object.freeze(
+      Array.from({ length: MAX_TONGUES }, (_, index) => Object.freeze(
+        normalizeTongue(articulation.tongues[index], defaultTongue(index, seed)),
+      )),
+    ),
+    noses: Object.freeze(
+      Array.from({ length: MAX_NOSES }, (_, index) => Object.freeze(
+        normalizeNose(articulation.noses[index], defaultNose(index, seed)),
+      )),
+    ),
   });
 }
 
@@ -76,6 +94,34 @@ export const SPECIMENS = Object.freeze({
       { aperture: 0.25, length: 0.74 },
       { aperture: 0.52, length: 0.54 },
       { aperture: 0.34, length: 0.82 },
+    ],
+  }),
+  hydra: defineSpecimen({
+    name: "Hydra",
+    description: "seven soft mouths",
+    throatCount: 7,
+    bodyLength: 0.68,
+    tension: 0.31,
+    mutation: 0.57,
+    coupling: 0.62,
+    growl: 0.34,
+    wet: 0.98,
+    dry: 0.01,
+    spread: 1,
+    exciterPitch: 76,
+    exciterIntensity: 0.84,
+    exciterTenseness: 0.38,
+    exciterBreath: 0.38,
+    exciterVibrato: 0.17,
+    exciterWobble: 0.41,
+    throats: [
+      { aperture: 0.68, length: 0.72 },
+      { aperture: 0.48, length: 0.58 },
+      { aperture: 0.82, length: 0.84 },
+      { aperture: 0.58, length: 0.66 },
+      { aperture: 0.88, length: 0.9 },
+      { aperture: 0.52, length: 0.62 },
+      { aperture: 0.74, length: 0.78 },
     ],
   }),
   razor: defineSpecimen({
@@ -298,6 +344,751 @@ export function clamp(value, minimum = 0, maximum = 1) {
   return Math.min(maximum, Math.max(minimum, Number(value) || 0));
 }
 
+function unitValue(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? clamp(number) : clamp(fallback);
+}
+
+export function oralOpening(closure = 0) {
+  const sealed = unitValue(closure);
+  if (sealed >= 1) return 0;
+  return Math.pow(Math.max(0, Math.cos(sealed * Math.PI * 0.5)), 1.35);
+}
+
+export function fricationOpening(closure = 0) {
+  const sealProgress = clamp((unitValue(closure) - 0.72) / 0.28);
+  return 1 - sealProgress * sealProgress * (3 - 2 * sealProgress);
+}
+
+function boundedInteger(value, minimum, maximum, fallback = minimum) {
+  const number = Number(value);
+  return Math.round(clamp(Number.isFinite(number) ? number : fallback, minimum, maximum));
+}
+
+function nameSeed(name) {
+  return Array.from(String(name)).reduce(
+    (seed, character, index) => (
+      (seed + character.codePointAt(0) * (index + 11) * 17) % 65_521
+    ),
+    97,
+  );
+}
+
+function seededUnit(seed, salt, minimum = 0.06, maximum = 0.94) {
+  const fraction = ((seed * (salt * 29 + 47) + salt * 137) % 997) / 996;
+  return minimum + fraction * (maximum - minimum);
+}
+
+function defaultTongue(index, seed = 0) {
+  const safeIndex = boundedInteger(index, 0, MAX_TONGUES - 1);
+  return {
+    position: seededUnit(seed + 19, safeIndex + 1, 0.1, 0.9),
+    height: seededUnit(seed + 43, safeIndex + 5, 0.12, 0.88),
+    curl: seededUnit(seed + 71, safeIndex + 9, 0.04, 0.72),
+  };
+}
+
+function defaultNose(index, seed = 0) {
+  const safeIndex = boundedInteger(index, 0, MAX_NOSES - 1);
+  return {
+    openness: seededUnit(seed + 101, safeIndex + 2, 0.04, 0.74),
+    length: seededUnit(seed + 131, safeIndex + 6, 0.18, 0.92),
+    resonance: seededUnit(seed + 167, safeIndex + 10, 0.16, 0.9),
+  };
+}
+
+function specimenArticulation(specimen) {
+  if (specimen.name === "Triune") {
+    return {
+      tongueCount: 2,
+      noseCount: 2,
+      oralClosure: 0.03,
+      tongues: [
+        { position: 0.38, height: 0.14, curl: 0.08 },
+        { position: 0.5, height: 0.22, curl: 0.14 },
+        { position: 0.25, height: 0.32, curl: 0.21 },
+      ],
+      noses: [
+        { openness: 0.03, length: 0.48, resonance: 0.42 },
+        { openness: 0.02, length: 0.65, resonance: 0.56 },
+        { openness: 0.01, length: 0.82, resonance: 0.7 },
+      ],
+    };
+  }
+
+  if (specimen.name === "Hydra") {
+    return {
+      tongueCount: 5,
+      noseCount: 3,
+      oralClosure: 0.12,
+      tongues: [
+        { position: 0.14, height: 0.42, curl: 0.18 },
+        { position: 0.32, height: 0.58, curl: 0.34 },
+        { position: 0.5, height: 0.74, curl: 0.5 },
+        { position: 0.68, height: 0.54, curl: 0.66 },
+        { position: 0.86, height: 0.38, curl: 0.82 },
+      ],
+      noses: [
+        { openness: 0.44, length: 0.48, resonance: 0.66 },
+        { openness: 0.58, length: 0.68, resonance: 0.78 },
+        { openness: 0.36, length: 0.86, resonance: 0.9 },
+      ],
+    };
+  }
+
+  const seed = nameSeed(specimen.name);
+  const activeThroats = specimen.throats.slice(0, specimen.throatCount);
+  const averageAperture = activeThroats.reduce(
+    (sum, throat) => sum + unitValue(throat.aperture, 0.5),
+    0,
+  ) / Math.max(1, activeThroats.length);
+  const tongueCount = 1 + seed % MAX_TONGUES;
+  const noseCount = 1 + Math.floor(seed / MAX_TONGUES) % MAX_NOSES;
+  const oralClosure = clamp(
+    0.025
+      + (1 - averageAperture) * 0.28
+      + unitValue(specimen.mutation) * 0.12
+      + (seed % 13) * 0.003,
+    0.02,
+    0.62,
+  );
+  const tongues = Array.from({ length: MAX_TONGUES }, (_, index) => {
+    const tongue = defaultTongue(index, seed);
+    return {
+      position: tongue.position,
+      height: tongue.height,
+      curl: clamp(
+        tongue.curl * 0.72
+          + unitValue(specimen.mutation) * 0.2
+          + (1 - averageAperture) * 0.08,
+      ),
+    };
+  });
+  const noses = Array.from({ length: MAX_NOSES }, (_, index) => {
+    const nose = defaultNose(index, seed);
+    return {
+      openness: clamp(
+        nose.openness * 0.62
+          + unitValue(specimen.coupling) * 0.3
+          + index * 0.025,
+      ),
+      length: nose.length,
+      resonance: clamp(
+        nose.resonance * 0.72 + unitValue(specimen.tension) * 0.22,
+      ),
+    };
+  });
+
+  return { tongueCount, noseCount, oralClosure, tongues, noses };
+}
+
+function normalizeTongue(tongue, fallback) {
+  return {
+    position: unitValue(tongue?.position, fallback.position),
+    height: unitValue(tongue?.height, fallback.height),
+    curl: unitValue(tongue?.curl, fallback.curl),
+  };
+}
+
+function normalizeNose(nose, fallback) {
+  return {
+    openness: unitValue(nose?.openness, fallback.openness),
+    length: unitValue(nose?.length, fallback.length),
+    resonance: unitValue(nose?.resonance, fallback.resonance),
+  };
+}
+
+function freezePhoneme(phoneme) {
+  const tongues = Array.from({ length: MAX_TONGUES }, (_, index) => (
+    normalizeTongue(phoneme.tongues?.[index], defaultTongue(index))
+  ));
+  const noses = Array.from({ length: MAX_NOSES }, (_, index) => (
+    normalizeNose(phoneme.noses?.[index], defaultNose(index))
+  ));
+  return Object.freeze({
+    name: phoneme.name,
+    kind: phoneme.kind,
+    tongueCount: boundedInteger(phoneme.tongueCount, 1, MAX_TONGUES, 1),
+    noseCount: boundedInteger(phoneme.noseCount, 0, MAX_NOSES, 0),
+    oralClosure: unitValue(phoneme.oralClosure),
+    tongues: Object.freeze(tongues.map((tongue) => Object.freeze(tongue))),
+    noses: Object.freeze(noses.map((nose) => Object.freeze(nose))),
+  });
+}
+
+const CLOSED_NOSES = [
+  { openness: 0.01, length: 0.42, resonance: 0.38 },
+  { openness: 0, length: 0.64, resonance: 0.55 },
+  { openness: 0, length: 0.84, resonance: 0.72 },
+];
+
+export const PHONEMES = Object.freeze({
+  a: freezePhoneme({
+    name: "A",
+    kind: "vowel",
+    tongueCount: 2,
+    noseCount: 2,
+    oralClosure: 0.03,
+    tongues: [
+      { position: 0.38, height: 0.14, curl: 0.08 },
+      { position: 0.5, height: 0.22, curl: 0.14 },
+      { position: 0.25, height: 0.32, curl: 0.21 },
+    ],
+    noses: CLOSED_NOSES,
+  }),
+  e: freezePhoneme({
+    name: "E",
+    kind: "vowel",
+    tongueCount: 2,
+    noseCount: 2,
+    oralClosure: 0.04,
+    tongues: [
+      { position: 0.76, height: 0.57, curl: 0.1 },
+      { position: 0.68, height: 0.5, curl: 0.16 },
+      { position: 0.58, height: 0.44, curl: 0.22 },
+    ],
+    noses: CLOSED_NOSES,
+  }),
+  i: freezePhoneme({
+    name: "I",
+    kind: "vowel",
+    tongueCount: 2,
+    noseCount: 2,
+    oralClosure: 0.06,
+    tongues: [
+      { position: 0.92, height: 0.9, curl: 0.12 },
+      { position: 0.82, height: 0.82, curl: 0.18 },
+      { position: 0.72, height: 0.74, curl: 0.24 },
+    ],
+    noses: CLOSED_NOSES,
+  }),
+  o: freezePhoneme({
+    name: "O",
+    kind: "vowel",
+    tongueCount: 2,
+    noseCount: 2,
+    oralClosure: 0.08,
+    tongues: [
+      { position: 0.2, height: 0.54, curl: 0.2 },
+      { position: 0.28, height: 0.48, curl: 0.26 },
+      { position: 0.36, height: 0.42, curl: 0.32 },
+    ],
+    noses: CLOSED_NOSES,
+  }),
+  u: freezePhoneme({
+    name: "U",
+    kind: "vowel",
+    tongueCount: 2,
+    noseCount: 2,
+    oralClosure: 0.11,
+    tongues: [
+      { position: 0.08, height: 0.88, curl: 0.28 },
+      { position: 0.16, height: 0.8, curl: 0.34 },
+      { position: 0.24, height: 0.72, curl: 0.4 },
+    ],
+    noses: CLOSED_NOSES,
+  }),
+  s: freezePhoneme({
+    name: "S",
+    kind: "consonant",
+    tongueCount: 3,
+    noseCount: 2,
+    oralClosure: 0.56,
+    tongues: [
+      { position: 0.94, height: 0.8, curl: 0.96 },
+      { position: 0.86, height: 0.72, curl: 0.9 },
+      { position: 0.78, height: 0.66, curl: 0.84 },
+    ],
+    noses: CLOSED_NOSES,
+  }),
+  k: freezePhoneme({
+    name: "K",
+    kind: "consonant",
+    tongueCount: 2,
+    noseCount: 2,
+    oralClosure: 1,
+    tongues: [
+      { position: 0.12, height: 0.86, curl: 0.82 },
+      { position: 0.22, height: 0.78, curl: 0.72 },
+      { position: 0.32, height: 0.7, curl: 0.62 },
+    ],
+    noses: CLOSED_NOSES,
+  }),
+  m: freezePhoneme({
+    name: "M",
+    kind: "consonant",
+    tongueCount: 1,
+    noseCount: 3,
+    oralClosure: 1,
+    tongues: [
+      { position: 0.42, height: 0.28, curl: 0.08 },
+      { position: 0.5, height: 0.32, curl: 0.12 },
+      { position: 0.34, height: 0.36, curl: 0.16 },
+    ],
+    noses: [
+      { openness: 0.94, length: 0.46, resonance: 0.72 },
+      { openness: 0.86, length: 0.66, resonance: 0.82 },
+      { openness: 0.78, length: 0.86, resonance: 0.9 },
+    ],
+  }),
+  n: freezePhoneme({
+    name: "N",
+    kind: "consonant",
+    tongueCount: 2,
+    noseCount: 3,
+    oralClosure: 1,
+    tongues: [
+      { position: 0.84, height: 0.74, curl: 0.94 },
+      { position: 0.72, height: 0.68, curl: 0.86 },
+      { position: 0.62, height: 0.62, curl: 0.78 },
+    ],
+    noses: [
+      { openness: 0.88, length: 0.42, resonance: 0.76 },
+      { openness: 0.8, length: 0.62, resonance: 0.84 },
+      { openness: 0.72, length: 0.82, resonance: 0.92 },
+    ],
+  }),
+});
+
+function freezeConsonant(id, consonant) {
+  const freezeSpectrum = (spectrum) => Object.freeze({ ...spectrum });
+  return Object.freeze({
+    id,
+    symbol: consonant.symbol,
+    name: consonant.name,
+    manner: consonant.manner,
+    place: consonant.place,
+    articulator: consonant.articulator,
+    voiced: Boolean(consonant.voiced),
+    constrictionPosition: unitValue(consonant.constrictionPosition),
+    oralClosure: unitValue(consonant.oralClosure),
+    glottalClosure: unitValue(consonant.glottalClosure),
+    nasalCoupling: unitValue(consonant.nasalCoupling),
+    frication: freezeSpectrum(consonant.frication),
+    burst: freezeSpectrum(consonant.burst),
+    nasal: freezeSpectrum(consonant.nasal),
+    gesture: consonant.gesture,
+  });
+}
+
+const GLOTTAL_GESTURE = freezePhoneme({
+  name: "Glottal stop",
+  kind: "consonant",
+  tongueCount: 1,
+  noseCount: 1,
+  oralClosure: 0.06,
+  tongues: [
+    { position: 0.46, height: 0.22, curl: 0.08 },
+  ],
+  noses: CLOSED_NOSES,
+});
+
+const T_GESTURE = freezePhoneme({
+  name: "T",
+  kind: "consonant",
+  tongueCount: 2,
+  noseCount: 1,
+  oralClosure: 1,
+  tongues: [
+    { position: 0.94, height: 0.98, curl: 0.76 },
+    { position: 0.86, height: 0.9, curl: 0.68 },
+  ],
+  noses: CLOSED_NOSES,
+});
+
+const P_GESTURE = freezePhoneme({
+  name: "P",
+  kind: "consonant",
+  tongueCount: 1,
+  noseCount: 1,
+  oralClosure: 1,
+  tongues: [
+    { position: 0.48, height: 0.24, curl: 0.06 },
+  ],
+  noses: CLOSED_NOSES,
+});
+
+const SH_GESTURE = freezePhoneme({
+  name: "SH",
+  kind: "consonant",
+  tongueCount: 3,
+  noseCount: 1,
+  oralClosure: 0.58,
+  tongues: [
+    { position: 0.74, height: 0.86, curl: 0.94 },
+    { position: 0.68, height: 0.78, curl: 0.88 },
+    { position: 0.62, height: 0.7, curl: 0.8 },
+  ],
+  noses: CLOSED_NOSES,
+});
+
+const F_GESTURE = freezePhoneme({
+  name: "F",
+  kind: "consonant",
+  tongueCount: 1,
+  noseCount: 1,
+  oralClosure: 0.38,
+  tongues: [
+    { position: 0.56, height: 0.28, curl: 0.1 },
+  ],
+  noses: CLOSED_NOSES,
+});
+
+const NG_GESTURE = freezePhoneme({
+  name: "NG",
+  kind: "consonant",
+  tongueCount: 2,
+  noseCount: 3,
+  oralClosure: 1,
+  tongues: [
+    { position: 0.1, height: 0.94, curl: 0.68 },
+    { position: 0.18, height: 0.86, curl: 0.6 },
+  ],
+  noses: [
+    { openness: 0.9, length: 0.58, resonance: 0.82 },
+    { openness: 0.84, length: 0.76, resonance: 0.9 },
+    { openness: 0.76, length: 0.92, resonance: 0.96 },
+  ],
+});
+
+export const CONSONANTS = Object.freeze({
+  glottal: freezeConsonant("glottal", {
+    symbol: "ʔ",
+    name: "Glottal stop",
+    manner: "stop",
+    place: "glottal",
+    articulator: "glottis",
+    voiced: false,
+    constrictionPosition: 0,
+    oralClosure: GLOTTAL_GESTURE.oralClosure,
+    glottalClosure: 1,
+    nasalCoupling: 0,
+    frication: { frequency: 720, q: 0.7, gain: 0 },
+    burst: {
+      frequency: 620,
+      q: 0.8,
+      gain: 0,
+      halfLife: 0.005,
+      duration: 0.2,
+    },
+    nasal: { poleFrequency: 240, notchFrequency: 920, q: 2.2, gain: 0 },
+    gesture: GLOTTAL_GESTURE,
+  }),
+  k: freezeConsonant("k", {
+    symbol: "K",
+    name: "K",
+    manner: "stop",
+    place: "velar",
+    articulator: "tongue",
+    voiced: false,
+    constrictionPosition: 0.14,
+    oralClosure: PHONEMES.k.oralClosure,
+    glottalClosure: 0.04,
+    nasalCoupling: 0,
+    frication: { frequency: 2_800, q: 1.4, gain: 0 },
+    burst: {
+      frequency: 2_350,
+      q: 2.8,
+      gain: 1,
+      halfLife: 0.005,
+      duration: 0.2,
+    },
+    nasal: { poleFrequency: 230, notchFrequency: 2_350, q: 4.8, gain: 0 },
+    gesture: PHONEMES.k,
+  }),
+  t: freezeConsonant("t", {
+    symbol: "T",
+    name: "T",
+    manner: "stop",
+    place: "alveolar",
+    articulator: "tongue",
+    voiced: false,
+    constrictionPosition: 0.9,
+    oralClosure: T_GESTURE.oralClosure,
+    glottalClosure: 0.03,
+    nasalCoupling: 0,
+    frication: { frequency: 5_800, q: 2.2, gain: 0 },
+    burst: {
+      frequency: 5_150,
+      q: 3.4,
+      gain: 0.94,
+      halfLife: 0.005,
+      duration: 0.2,
+    },
+    nasal: { poleFrequency: 285, notchFrequency: 1_720, q: 5.2, gain: 0 },
+    gesture: T_GESTURE,
+  }),
+  p: freezeConsonant("p", {
+    symbol: "P",
+    name: "P",
+    manner: "stop",
+    place: "bilabial",
+    articulator: "lips",
+    voiced: false,
+    constrictionPosition: 1,
+    oralClosure: P_GESTURE.oralClosure,
+    glottalClosure: 0.02,
+    nasalCoupling: 0,
+    frication: { frequency: 1_450, q: 0.65, gain: 0 },
+    burst: {
+      frequency: 1_050,
+      q: 0.85,
+      gain: 0.82,
+      halfLife: 0.005,
+      duration: 0.2,
+    },
+    nasal: { poleFrequency: 260, notchFrequency: 1_040, q: 4.4, gain: 0 },
+    gesture: P_GESTURE,
+  }),
+  s: freezeConsonant("s", {
+    symbol: "S",
+    name: "S",
+    manner: "fricative",
+    place: "alveolar",
+    articulator: "tongue",
+    voiced: false,
+    constrictionPosition: 0.94,
+    oralClosure: PHONEMES.s.oralClosure,
+    glottalClosure: 0,
+    nasalCoupling: 0,
+    frication: { frequency: 7_800, q: 4.8, gain: 1 },
+    burst: {
+      frequency: 7_100,
+      q: 3.6,
+      gain: 0,
+      halfLife: 0.005,
+      duration: 0.035,
+    },
+    nasal: { poleFrequency: 280, notchFrequency: 1_700, q: 4.8, gain: 0 },
+    gesture: PHONEMES.s,
+  }),
+  sh: freezeConsonant("sh", {
+    symbol: "SH",
+    name: "SH",
+    manner: "fricative",
+    place: "postalveolar",
+    articulator: "tongue",
+    voiced: false,
+    constrictionPosition: 0.72,
+    oralClosure: SH_GESTURE.oralClosure,
+    glottalClosure: 0,
+    nasalCoupling: 0,
+    frication: { frequency: 3_650, q: 2.7, gain: 0.92 },
+    burst: {
+      frequency: 3_450,
+      q: 2.2,
+      gain: 0,
+      halfLife: 0.005,
+      duration: 0.045,
+    },
+    nasal: { poleFrequency: 270, notchFrequency: 1_520, q: 4.2, gain: 0 },
+    gesture: SH_GESTURE,
+  }),
+  f: freezeConsonant("f", {
+    symbol: "F",
+    name: "F",
+    manner: "fricative",
+    place: "labiodental",
+    articulator: "lip-teeth",
+    voiced: false,
+    constrictionPosition: 0.99,
+    oralClosure: F_GESTURE.oralClosure,
+    glottalClosure: 0,
+    nasalCoupling: 0,
+    frication: { frequency: 1_850, q: 0.72, gain: 0.7 },
+    burst: {
+      frequency: 1_600,
+      q: 0.68,
+      gain: 0,
+      halfLife: 0.005,
+      duration: 0.04,
+    },
+    nasal: { poleFrequency: 255, notchFrequency: 1_120, q: 3.4, gain: 0 },
+    gesture: F_GESTURE,
+  }),
+  m: freezeConsonant("m", {
+    symbol: "M",
+    name: "M",
+    manner: "nasal",
+    place: "bilabial",
+    articulator: "lips",
+    voiced: true,
+    constrictionPosition: 1,
+    oralClosure: PHONEMES.m.oralClosure,
+    glottalClosure: 0,
+    nasalCoupling: 0.96,
+    frication: { frequency: 1_100, q: 0.8, gain: 0 },
+    burst: {
+      frequency: 1_000,
+      q: 0.9,
+      gain: 0,
+      halfLife: 0.005,
+      duration: 0.05,
+    },
+    nasal: { poleFrequency: 260, notchFrequency: 1_040, q: 4.8, gain: 1 },
+    gesture: PHONEMES.m,
+  }),
+  n: freezeConsonant("n", {
+    symbol: "N",
+    name: "N",
+    manner: "nasal",
+    place: "alveolar",
+    articulator: "tongue",
+    voiced: true,
+    constrictionPosition: 0.88,
+    oralClosure: PHONEMES.n.oralClosure,
+    glottalClosure: 0,
+    nasalCoupling: 0.93,
+    frication: { frequency: 2_600, q: 1.2, gain: 0 },
+    burst: {
+      frequency: 2_200,
+      q: 1.4,
+      gain: 0,
+      halfLife: 0.005,
+      duration: 0.05,
+    },
+    nasal: { poleFrequency: 285, notchFrequency: 1_720, q: 5.5, gain: 0.95 },
+    gesture: PHONEMES.n,
+  }),
+  ng: freezeConsonant("ng", {
+    symbol: "NG",
+    name: "NG",
+    manner: "nasal",
+    place: "velar",
+    articulator: "tongue",
+    voiced: true,
+    constrictionPosition: 0.14,
+    oralClosure: NG_GESTURE.oralClosure,
+    glottalClosure: 0,
+    nasalCoupling: 0.9,
+    frication: { frequency: 2_350, q: 1.1, gain: 0 },
+    burst: {
+      frequency: 2_100,
+      q: 1.5,
+      gain: 0,
+      halfLife: 0.005,
+      duration: 0.055,
+    },
+    nasal: { poleFrequency: 230, notchFrequency: 2_350, q: 6.2, gain: 0.92 },
+    gesture: NG_GESTURE,
+  }),
+});
+
+export const ARTICULATIONS = Object.freeze({
+  ...PHONEMES,
+  ...CONSONANTS,
+});
+
+const CONSONANT_ALIASES = Object.freeze({
+  "ʔ": "glottal",
+  "?": "glottal",
+  "glottal stop": "glottal",
+  "glottal-stop": "glottal",
+  "ʃ": "sh",
+  "ŋ": "ng",
+});
+
+export function consonantKey(value) {
+  if (typeof value !== "string") return "";
+  const key = value.trim().toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(CONSONANTS, key)) return key;
+  return CONSONANT_ALIASES[key] ?? "";
+}
+
+export function articulationKey(value) {
+  if (typeof value !== "string") return "";
+  const key = value.trim().toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(ARTICULATIONS, key)) return key;
+  return consonantKey(key);
+}
+
+export function consonantVoiceParameters(value, phase = "hold", sampleRate = 48_000) {
+  const key = consonantKey(value);
+  const consonant = CONSONANTS[key];
+  if (!consonant) return null;
+
+  let eventPhase = phase;
+  let rate = sampleRate;
+  if (typeof phase === "number") {
+    eventPhase = "hold";
+    rate = phase;
+  }
+  eventPhase = typeof eventPhase === "string" ? eventPhase.toLowerCase() : "hold";
+  if (!["attack", "hold", "release"].includes(eventPhase)) eventPhase = "hold";
+  const numericRate = Number(rate);
+  const safeSampleRate = Number.isFinite(numericRate)
+    ? clamp(numericRate, 8_000, 384_000)
+    : 48_000;
+  const nyquistLimit = safeSampleRate * 0.45;
+  const frequency = (number) => clamp(number, 80, nyquistLimit);
+  const sustaining = eventPhase !== "release";
+  const sustainScale = eventPhase === "attack" ? 0.72 : sustaining ? 1 : 0;
+  const isStop = consonant.manner === "stop";
+  const isFricative = consonant.manner === "fricative";
+  const isNasal = consonant.manner === "nasal";
+  const hasOralReleaseBurst = isStop && consonant.place !== "glottal";
+
+  return {
+    id: consonant.id,
+    symbol: consonant.symbol,
+    name: consonant.name,
+    manner: consonant.manner,
+    place: consonant.place,
+    articulator: consonant.articulator,
+    phase: eventPhase,
+    voiced: consonant.voiced,
+    constrictionPosition: consonant.constrictionPosition,
+    oralClosure: sustaining ? consonant.oralClosure : 0,
+    glottalClosure: sustaining ? consonant.glottalClosure : 0,
+    voicingGain: isNasal ? sustainScale : 0,
+    fricationFrequency: frequency(consonant.frication.frequency),
+    fricationQ: consonant.frication.q,
+    fricationGain: isFricative ? consonant.frication.gain * sustainScale : 0,
+    burstFrequency: frequency(consonant.burst.frequency),
+    burstQ: consonant.burst.q,
+    burstGain: hasOralReleaseBurst && eventPhase === "release"
+      ? consonant.burst.gain
+      : 0,
+    burstHalfLife: consonant.burst.halfLife,
+    burstDuration: consonant.burst.duration,
+    nasalPoleFrequency: frequency(consonant.nasal.poleFrequency),
+    nasalNotchFrequency: frequency(consonant.nasal.notchFrequency),
+    nasalQ: consonant.nasal.q,
+    nasalCoupling: isNasal ? consonant.nasalCoupling * sustainScale : 0,
+    nasalGain: isNasal ? consonant.nasal.gain * sustainScale : 0,
+    gesture: consonant.gesture,
+  };
+}
+
+const KEYBOARD_ARTICULATIONS = Object.freeze({
+  a: "a",
+  e: "e",
+  i: "i",
+  o: "o",
+  u: "u",
+  s: "s",
+  k: "k",
+  t: "t",
+  p: "p",
+  f: "f",
+  m: "m",
+  n: "n",
+  q: "glottal",
+  x: "sh",
+  g: "ng",
+});
+
+export function keyboardArticulation(value) {
+  if (typeof value !== "string" || value.length !== 1) return "";
+  return KEYBOARD_ARTICULATIONS[value.toLowerCase()] ?? "";
+}
+
+export function keyboardPhoneme(value) {
+  if (typeof value !== "string" || value.length !== 1) return "";
+  const key = value.toLowerCase();
+  return Object.prototype.hasOwnProperty.call(PHONEMES, key) ? key : "";
+}
+
 function defaultThroat(index) {
   return {
     aperture: clamp(0.36 + ((index * 0.19) % 0.38)),
@@ -322,6 +1113,9 @@ export function specimenState(name = "triune") {
     mutation: specimen.mutation,
     coupling: specimen.coupling,
     growl: specimen.growl,
+    tongueCount: specimen.tongueCount,
+    noseCount: specimen.noseCount,
+    oralClosure: specimen.oralClosure,
     wet: specimen.wet,
     dry: specimen.dry,
     spread: specimen.spread,
@@ -332,6 +1126,8 @@ export function specimenState(name = "triune") {
     exciterVibrato: specimen.exciterVibrato,
     exciterWobble: specimen.exciterWobble,
     throats,
+    tongues: specimen.tongues.map((tongue) => ({ ...tongue })),
+    noses: specimen.noses.map((nose) => ({ ...nose })),
   };
 }
 
@@ -444,7 +1240,7 @@ function offsetPoint(point, normal, distance) {
 
 export function anatomyLayout(width, height, state) {
   const safeWidth = Math.max(320, Number(width) || 320);
-  const safeHeight = Math.max(220, Number(height) || 220);
+  const safeHeight = Math.max(150, Number(height) || 220);
   const shortSide = Math.min(safeWidth, safeHeight);
   const centerY = safeHeight * 0.5;
   const root = { x: safeWidth * 0.105, y: centerY };
@@ -519,28 +1315,106 @@ export function anatomyLayout(width, height, state) {
 
 export function throatVoiceParameters(state, index, sampleRate = 48_000) {
   const count = Math.round(clamp(state.throatCount, 1, MAX_THROATS));
-  const throat = state.throats[index] ?? defaultThroat(index);
+  const voiceIndex = boundedInteger(index, 0, MAX_THROATS - 1);
+  const throat = state.throats?.[voiceIndex] ?? defaultThroat(voiceIndex);
   const aperture = clamp(throat.aperture);
   const length = clamp(throat.length);
   const bodyLength = clamp(state.bodyLength);
   const tension = clamp(state.tension);
   const mutation = clamp(state.mutation);
   const growl = clamp(state.growl);
-  const nyquistLimit = Math.max(4_000, Number(sampleRate) * 0.45);
+  const rate = Number(sampleRate);
+  const safeSampleRate = Number.isFinite(rate) ? clamp(rate, 8_000, 384_000) : 48_000;
+  const nyquistLimit = safeSampleRate * 0.45;
+  const tongueCount = boundedInteger(state.tongueCount, 1, MAX_TONGUES, 1);
+  const voicePosition = count <= 1 ? 0.5 : voiceIndex / (count - 1);
+  let tongueIndex = 0;
+  let strongestTongueWeight = -1;
+  let tongueWeight = 0;
+  let strongestLingualContact = 0;
+  const tongue = { position: 0, height: 0, curl: 0 };
+  for (let index = 0; index < tongueCount; index += 1) {
+    const next = normalizeTongue(
+      state.tongues?.[index],
+      defaultTongue(index),
+    );
+    const articulatorPosition = tongueCount <= 1 ? 0.5 : index / (tongueCount - 1);
+    const distance = Math.abs(voicePosition - articulatorPosition);
+    const weight = 0.22 + Math.pow(1 - distance, 2) * 0.78;
+    if (weight > strongestTongueWeight) {
+      strongestTongueWeight = weight;
+      tongueIndex = index;
+    }
+    tongue.position += next.position * weight;
+    tongue.height += next.height * weight;
+    tongue.curl += next.curl * weight;
+    strongestLingualContact = Math.max(
+      strongestLingualContact,
+      clamp((next.height * 0.52 + next.curl * 0.7 - 0.48) / 0.68)
+        * (0.45 + weight * 0.55),
+    );
+    tongueWeight += weight;
+  }
+  tongue.position /= tongueWeight;
+  tongue.height /= tongueWeight;
+  tongue.curl /= tongueWeight;
+  const oralClosure = unitValue(state.oralClosure);
   const tractScale = 0.68 + (1 - bodyLength) * 0.68;
-  const mutationSkew = 1 + Math.sin((index + 1) * 2.17) * mutation * 0.16;
-  const first = (170 + aperture * 720) * tractScale * mutationSkew;
-  const second = (610 + (1 - length) * 1_760 + index * 118) * tractScale;
+  const mutationSkew = 1 + Math.sin((voiceIndex + 1) * 2.17) * mutation * 0.16;
+  const tongueHeightScale = 1.2 - tongue.height * 0.44;
+  const tongueFrontShift = (tongue.position - 0.5) * 1_260;
+  const first = (
+    (170 + aperture * 720)
+    * tractScale
+    * mutationSkew
+    * tongueHeightScale
+  );
+  const second = (
+    610
+    + (1 - length) * 1_760
+    + voiceIndex * 118
+    + tongueFrontShift
+    + tongue.height * 150
+  ) * tractScale;
   const third = Math.min(
     nyquistLimit,
-    (1_680 + aperture * 1_620 + index * 205) * tractScale * (2 - mutationSkew),
+    (
+      1_680
+      + aperture * 1_620
+      + voiceIndex * 205
+      + (tongue.curl - 0.5) * 380
+    ) * tractScale * (2 - mutationSkew),
   );
   const fourth = Math.min(
     nyquistLimit,
-    (3_250 + length * 2_100 + index * 270) * (0.82 + tension * 0.32),
+    (
+      3_250
+      + length * 2_100
+      + voiceIndex * 270
+      + tongue.position * 240
+    ) * (0.82 + tension * 0.32),
   );
   const resonance = 2.4 + tension * 8.8 + (1 - aperture) * 4.2;
-  const pan = count === 1 ? 0 : (index / (count - 1)) * 2 - 1;
+  const pan = count === 1
+    ? 0
+    : clamp((voiceIndex / (count - 1)) * 2 - 1, -1, 1);
+  const lingualContact = clamp(
+    (tongue.height * 0.52 + tongue.curl * 0.7 - 0.48) / 0.68,
+  );
+  const contact = Math.max(oralClosure, lingualContact, strongestLingualContact);
+  const oralGain = clamp(
+    oralOpening(oralClosure) * (1 - contact * 0.16),
+  );
+  const turbulenceFrequency = clamp(
+    (
+      820
+      + tongue.position * 7_800
+      + tongue.curl * 980
+      + tension * 420
+    ) * (0.9 + (1 - bodyLength) * 0.18),
+    320,
+    nyquistLimit,
+  );
 
   return {
     formants: [first, second, third, fourth].map((frequency) => (
@@ -555,12 +1429,94 @@ export function throatVoiceParameters(state, index, sampleRate = 48_000) {
     ],
     lowpass: clamp(2_200 + aperture * 9_800 + tension * 2_000, 1_600, nyquistLimit),
     highpass: 48 + (1 - aperture) * 190,
-    delay: 0.003 + length * 0.028 + index * mutation * 0.0017,
+    delay: 0.003 + length * 0.028 + voiceIndex * mutation * 0.0017,
     pan,
-    ringFrequency: 23 + index * 17 + mutation * 83 + tension * 29,
+    ringFrequency: 23 + voiceIndex * 17 + mutation * 83 + tension * 29,
     ringMix: growl * (0.12 + mutation * 0.48),
     normalMix: 1 - growl * 0.42,
     gain: throat.muted ? 0 : 1 / Math.sqrt(count),
+    oralGain,
+    contact,
+    turbulenceFrequency,
+    tongueIndex,
+  };
+}
+
+export function noseVoiceParameters(state, index, sampleRate = 48_000) {
+  const noseCount = boundedInteger(state.noseCount, 0, MAX_NOSES, 0);
+  const noseIndex = boundedInteger(index, 0, MAX_NOSES - 1);
+  const nose = normalizeNose(
+    state.noses?.[noseIndex],
+    defaultNose(noseIndex),
+  );
+  const bodyLength = unitValue(state.bodyLength, 0.5);
+  const tension = unitValue(state.tension, 0.5);
+  const mutation = unitValue(state.mutation);
+  const coupling = unitValue(state.coupling, 0.5);
+  const spread = unitValue(state.spread, 1);
+  const rate = Number(sampleRate);
+  const safeSampleRate = Number.isFinite(rate) ? clamp(rate, 8_000, 384_000) : 48_000;
+  const nyquistLimit = safeSampleRate * 0.45;
+  const nasalScale = 0.72 + (1 - nose.length) * 0.62;
+  const poleFrequency = clamp(
+    (
+      155
+      + (1 - bodyLength) * 310
+      + noseIndex * 74
+      + nose.openness * 95
+    ) * nasalScale,
+    80,
+    Math.min(1_600, nyquistLimit),
+  );
+  const poleQ = clamp(
+    2.1 + nose.resonance * 13.4 + tension * 2.2,
+    1,
+    24,
+  );
+  const notchFrequency = clamp(
+    (
+      690
+      + (1 - nose.length) * 1_920
+      + noseIndex * 205
+      + mutation * 170
+    ) * (0.88 + (1 - bodyLength) * 0.18),
+    240,
+    nyquistLimit,
+  );
+  const notchQ = clamp(
+    1.2 + nose.resonance * 8.8 + (1 - nose.openness) * 2.4,
+    0.7,
+    16,
+  );
+  const lowpass = clamp(
+    1_650
+      + (1 - nose.length) * 5_200
+      + nose.openness * 2_250
+      + tension * 620,
+    600,
+    nyquistLimit,
+  );
+  const active = noseIndex < noseCount;
+  const gain = active
+    ? clamp(
+      nose.openness
+        * (0.1 + coupling * 0.5)
+        / Math.sqrt(Math.max(1, noseCount)),
+    )
+    : 0;
+  const pan = !active || noseCount <= 1
+    ? 0
+    : clamp(((noseIndex / (noseCount - 1)) * 2 - 1) * spread, -1, 1);
+
+  return {
+    poleFrequency,
+    poleQ,
+    notchFrequency,
+    notchQ,
+    lowpass,
+    gain,
+    pan,
+    delay: clamp(0.002 + nose.length * 0.021 + noseIndex * 0.0015, 0.002, 0.03),
   };
 }
 

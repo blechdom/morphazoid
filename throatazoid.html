@@ -83,11 +83,11 @@
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Interactive alien vocal tract. Drag the diamond chamber handles to change each throat's length and aperture."
+            aria-label="Interactive alien root airway branching through one manifold into multiple cross-coupled mouths. Drag mouth, tongue, and nose handles, or use the direct articulation controls."
             aria-describedby="canvasInstructions liveStatus"
           >
-            An interactive polygonal organism with selectable microphone and internal
-            glottal excitation.
+            An interactive polygonal organism with one root airway, a shared manifold,
+            multiple complete mouths, and selectable microphone or internal glottal excitation.
           </canvas>
 
           <div class="throatazoid-word" aria-hidden="true">THROATAZOID</div>
@@ -96,73 +96,268 @@
             class="throatazoid-phoneme-dock"
             id="phonemeButtons"
             role="group"
-            aria-label="Alien phoneme gestures"
+            aria-labelledby="phonemeDockLabel"
           >
-            <span class="throatazoid-phoneme-label" aria-hidden="true">PHONEMES</span>
-            <button
-              type="button"
-              data-phoneme="a"
-              aria-pressed="true"
-              aria-label="Shape vowel A"
-              title="Open vowel A"
-            >A</button>
-            <button
-              type="button"
-              data-phoneme="e"
-              aria-pressed="false"
-              aria-label="Shape vowel E"
-              title="Front vowel E"
-            >E</button>
-            <button
-              type="button"
-              data-phoneme="i"
-              aria-pressed="false"
-              aria-label="Shape vowel I"
-              title="High vowel I"
-            >I</button>
-            <button
-              type="button"
-              data-phoneme="o"
-              aria-pressed="false"
-              aria-label="Shape vowel O"
-              title="Round vowel O"
-            >O</button>
-            <button
-              type="button"
-              data-phoneme="u"
-              aria-pressed="false"
-              aria-label="Shape vowel U"
-              title="Deep vowel U"
-            >U</button>
-            <button
-              type="button"
-              data-phoneme="s"
-              aria-pressed="false"
-              aria-label="Shape consonant S"
-              title="Sibilant S"
-            >S</button>
-            <button
-              type="button"
-              data-phoneme="k"
-              aria-pressed="false"
-              aria-label="Shape consonant K"
-              title="Velar strike K"
-            >K</button>
-            <button
-              type="button"
-              data-phoneme="m"
-              aria-pressed="false"
-              aria-label="Shape consonant M"
-              title="Nasal closure M"
-            >M</button>
-            <button
-              type="button"
-              data-phoneme="n"
-              aria-pressed="false"
-              aria-label="Shape consonant N"
-              title="Nasal tongue N"
-            >N</button>
+            <div class="throatazoid-phoneme-heading">
+              <b id="phonemeDockLabel">Tract gestures</b>
+              <small>click · type · hold</small>
+            </div>
+
+            <div
+              class="throatazoid-phoneme-bank is-vowel"
+              role="group"
+              aria-label="Vowel gestures"
+            >
+              <span class="throatazoid-phoneme-label" aria-hidden="true">VOWELS</span>
+              <button
+                type="button"
+                data-phoneme="a"
+                data-kind="vowel"
+                data-key="a"
+                data-held="false"
+                aria-pressed="true"
+                aria-label="Shape vowel A"
+                title="Open vowel A · key A"
+              >A</button>
+              <button
+                type="button"
+                data-phoneme="e"
+                data-kind="vowel"
+                data-key="e"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape vowel E"
+                title="Front vowel E · key E"
+              >E</button>
+              <button
+                type="button"
+                data-phoneme="i"
+                data-kind="vowel"
+                data-key="i"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape vowel I"
+                title="High vowel I · key I"
+              >I</button>
+              <button
+                type="button"
+                data-phoneme="o"
+                data-kind="vowel"
+                data-key="o"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape vowel O"
+                title="Round vowel O · key O"
+              >O</button>
+              <button
+                type="button"
+                data-phoneme="u"
+                data-kind="vowel"
+                data-key="u"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape vowel U"
+                title="Deep vowel U · key U"
+              >U</button>
+            </div>
+
+            <div
+              class="throatazoid-phoneme-bank is-consonant"
+              role="group"
+              aria-label="Consonant gestures"
+            >
+              <span class="throatazoid-phoneme-label" aria-hidden="true">CONSONANTS</span>
+              <button
+                type="button"
+                data-phoneme="glottal"
+                data-kind="consonant"
+                data-place="glottal"
+                data-manner="stop"
+                data-key="q"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape glottal stop"
+                title="Glottal stop · key Q"
+              >ʔ</button>
+              <button
+                type="button"
+                data-phoneme="k"
+                data-kind="consonant"
+                data-place="velar"
+                data-manner="stop"
+                data-key="k"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape consonant K"
+                title="Velar stop K · key K"
+              >K</button>
+              <button
+                type="button"
+                data-phoneme="t"
+                data-kind="consonant"
+                data-place="alveolar"
+                data-manner="stop"
+                data-key="t"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape consonant T"
+                title="Alveolar stop T · key T"
+              >T</button>
+              <button
+                type="button"
+                data-phoneme="p"
+                data-kind="consonant"
+                data-place="labial"
+                data-manner="stop"
+                data-key="p"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape consonant P"
+                title="Labial stop P · key P"
+              >P</button>
+              <button
+                type="button"
+                data-phoneme="s"
+                data-kind="consonant"
+                data-place="alveolar"
+                data-manner="fricative"
+                data-key="s"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape consonant S"
+                title="Alveolar fricative S · key S"
+              >S</button>
+              <button
+                type="button"
+                data-phoneme="sh"
+                data-kind="consonant"
+                data-place="postalveolar"
+                data-manner="fricative"
+                data-key="x"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape consonant Sh"
+                title="Postalveolar fricative SH · key X"
+              >SH</button>
+              <button
+                type="button"
+                data-phoneme="f"
+                data-kind="consonant"
+                data-place="labiodental"
+                data-manner="fricative"
+                data-key="f"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape consonant F"
+                title="Labiodental fricative F · key F"
+              >F</button>
+              <button
+                type="button"
+                data-phoneme="m"
+                data-kind="consonant"
+                data-place="labial"
+                data-manner="nasal"
+                data-key="m"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape consonant M"
+                title="Labial nasal M · key M"
+              >M</button>
+              <button
+                type="button"
+                data-phoneme="n"
+                data-kind="consonant"
+                data-place="alveolar"
+                data-manner="nasal"
+                data-key="n"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape consonant N"
+                title="Alveolar nasal N · key N"
+              >N</button>
+              <button
+                type="button"
+                data-phoneme="ng"
+                data-kind="consonant"
+                data-place="velar"
+                data-manner="nasal"
+                data-key="g"
+                data-held="false"
+                aria-pressed="false"
+                aria-label="Shape consonant Ng"
+                title="Velar nasal NG · key G"
+              >NG</button>
+            </div>
           </div>
+
+          <div class="throatazoid-stage-guide" id="stageGuide" role="note">
+            <b>One root · many mouths</b>
+            <span><i>flow</i> root airway → shared manifold → coupled mouths</span>
+            <span><i>drag</i> mouths open · tongues place · noses resonate</span>
+            <span><i>play</i> gestures above · arm typing to sustain</span>
+          </div>
+
+          <section
+            class="throatazoid-direct-articulation"
+            id="stageArticulation"
+            aria-labelledby="stageArticulationLabel"
+          >
+            <header>
+              <b id="stageArticulationLabel">Articulation</b>
+              <output id="articulationGestureOut">A · OPEN VOWEL</output>
+            </header>
+            <label for="articulationPlace">
+              <span><b>Place</b><output id="articulationPlaceOut" for="articulationPlace">MID</output></span>
+              <input
+                id="articulationPlace"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.48"
+                aria-label="Articulation place, back to front"
+              />
+              <small><i>back</i><i>front</i></small>
+            </label>
+            <label for="articulationAperture">
+              <span><b>Aperture</b><output id="articulationApertureOut" for="articulationAperture">96%</output></span>
+              <input
+                id="articulationAperture"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.96"
+                aria-label="Oral aperture, closed to open"
+              />
+              <small><i>closed</i><i>open</i></small>
+            </label>
+            <div class="throatazoid-pressure-readout">
+              <span><b>Pressure</b><output id="articulationPressureOut">0%</output></span>
+              <div
+                id="articulationPressure"
+                role="meter"
+                aria-label="Tract pressure"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+              ><i id="articulationPressureBar"></i></div>
+              <small><i>empty</i><i>loaded</i></small>
+            </div>
+            <label for="articulationVoicing">
+              <span><b>Voicing</b><output id="articulationVoicingOut" for="articulationVoicing">94%</output></span>
+              <input
+                id="articulationVoicing"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.94"
+                aria-label="Voicing, breath to buzz"
+              />
+              <small><i>breath</i><i>buzz</i></small>
+            </label>
+          </section>
 
           <button
             class="throatazoid-awaken"
@@ -182,20 +377,20 @@
           </div>
 
           <div class="throatazoid-organ-key" id="organKey" aria-hidden="true">
-            <span><i></i>ROOT</span>
-            <span><i></i>CHAMBER</span>
-            <span><i></i>MOUTH</span>
-            <span><i></i>TONGUE</span>
-            <span><i></i>NOSE</span>
+            <span><i></i>ROOT AIRWAY</span>
+            <span><i></i>MANIFOLD</span>
+            <span><i></i>MOUTHS</span>
+            <span><i></i>TONGUES</span>
+            <span><i></i>NOSES</span>
           </div>
 
           <div class="throatazoid-handle-readout" id="handleReadout" hidden>
-            <span id="handleName">THROAT 01</span>
+            <span id="handleName">MOUTH 01</span>
             <b id="handleValue">42% OPEN · 64% LONG</b>
           </div>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">DORMANT · TRIUNE · 3 THROATS</span>
+            <span id="stageReadout">DORMANT · TRIUNE · 3M/2G/2N</span>
           </div>
 
           <button class="throatazoid-panic" id="panicButton" type="button" disabled>
@@ -398,55 +593,58 @@
         <details class="group control-section" id="anatomySection" data-section="anatomy">
           <summary class="group-summary">
             <h2 class="group-title">Anatomy</h2>
-            <span class="section-state" id="anatomySummary">triune · 3 throats</span>
+            <span class="section-state" id="anatomySummary">triune · 3 mouths</span>
           </summary>
           <div class="group-body">
             <span class="field-label">Specimen</span>
             <div class="throatazoid-specimens" id="specimenButtons" role="group" aria-label="Specimen">
               <button type="button" data-specimen="triune" aria-pressed="true">
-                <i aria-hidden="true"></i><span>Triune</span><small>three voices</small>
+                <i aria-hidden="true"></i><span>Triune</span><small>three linked mouths</small>
               </button>
               <button type="button" data-specimen="oracle" aria-pressed="false">
-                <i aria-hidden="true"></i><span>Oracle</span><small>one abyss</small>
+                <i aria-hidden="true"></i><span>Oracle</span><small>one deep mouth</small>
               </button>
               <button type="button" data-specimen="hive" aria-pressed="false">
-                <i aria-hidden="true"></i><span>Hive</span><small>five mouths</small>
+                <i aria-hidden="true"></i><span>Hive</span><small>five coupled mouths</small>
+              </button>
+              <button type="button" data-specimen="hydra" aria-pressed="false">
+                <i aria-hidden="true"></i><span>Hydra</span><small>seven cross-fed mouths</small>
               </button>
               <button type="button" data-specimen="razor" aria-pressed="false">
-                <i aria-hidden="true"></i><span>Razor</span><small>metal teeth</small>
+                <i aria-hidden="true"></i><span>Razor</span><small>four toothed mouths</small>
               </button>
               <button type="button" data-specimen="monolith" aria-pressed="false">
-                <i aria-hidden="true"></i><span>Monolith</span><small>subterranean</small>
+                <i aria-hidden="true"></i><span>Monolith</span><small>one stone mouth</small>
               </button>
               <button type="button" data-specimen="siren" aria-pressed="false">
-                <i aria-hidden="true"></i><span>Siren</span><small>split signal</small>
+                <i aria-hidden="true"></i><span>Siren</span><small>two mirrored mouths</small>
               </button>
               <button type="button" data-specimen="larva" aria-pressed="false">
-                <i aria-hidden="true"></i><span>Larva</span><small>soft membrane</small>
+                <i aria-hidden="true"></i><span>Larva</span><small>two soft mouths</small>
               </button>
               <button type="button" data-specimen="cathedral" aria-pressed="false">
-                <i aria-hidden="true"></i><span>Cathedral</span><small>hollow colony</small>
+                <i aria-hidden="true"></i><span>Cathedral</span><small>five hollow mouths</small>
               </button>
               <button type="button" data-specimen="needle" aria-pressed="false">
-                <i aria-hidden="true"></i><span>Needle</span><small>high puncture</small>
+                <i aria-hidden="true"></i><span>Needle</span><small>three narrow mouths</small>
               </button>
               <button type="button" data-specimen="maw" aria-pressed="false">
-                <i aria-hidden="true"></i><span>Maw</span><small>overfed</small>
+                <i aria-hidden="true"></i><span>Maw</span><small>two feeding mouths</small>
               </button>
               <button type="button" data-specimen="choir" aria-pressed="false">
-                <i aria-hidden="true"></i><span>Choir</span><small>gentle swarm</small>
+                <i aria-hidden="true"></i><span>Choir</span><small>five gentle mouths</small>
               </button>
               <button type="button" data-specimen="void" aria-pressed="false">
-                <i aria-hidden="true"></i><span>Void</span><small>breath without body</small>
+                <i aria-hidden="true"></i><span>Void</span><small>three breath mouths</small>
               </button>
             </div>
 
             <label class="control" for="throatCount">
-              <span><b>Throats</b><output id="throatCountOut" for="throatCount">3</output></span>
-              <input id="throatCount" type="range" min="1" max="5" step="1" value="3" />
+              <span><b>Mouth branches</b><output id="throatCountOut" for="throatCount">3</output></span>
+              <input id="throatCount" type="range" min="1" max="7" step="1" value="3" />
             </label>
             <label class="control" for="bodyLength">
-              <span><b>Body length</b><output id="bodyLengthOut" for="bodyLength">56%</output></span>
+              <span><b>Root airway length</b><output id="bodyLengthOut" for="bodyLength">56%</output></span>
               <input id="bodyLength" type="range" min="0" max="1" step="0.01" value="0.56" />
             </label>
             <label class="control" for="tension">
@@ -460,21 +658,21 @@
 
             <div class="throatazoid-selected">
               <div>
-                <span>Selected chamber</span>
-                <b id="selectedThroatName">THROAT 01</b>
+                <span>Selected mouth airway</span>
+                <b id="selectedThroatName">MOUTH 01</b>
               </div>
               <button id="muteThroatButton" type="button" aria-pressed="false">MUTE</button>
             </div>
             <label class="control" for="selectedAperture">
-              <span><b>Aperture</b><output id="selectedApertureOut" for="selectedAperture">42%</output></span>
+              <span><b>Mouth aperture</b><output id="selectedApertureOut" for="selectedAperture">42%</output></span>
               <input id="selectedAperture" type="range" min="0.05" max="1" step="0.01" value="0.42" />
             </label>
             <label class="control" for="selectedLength">
-              <span><b>Length</b><output id="selectedLengthOut" for="selectedLength">64%</output></span>
+              <span><b>Branch length</b><output id="selectedLengthOut" for="selectedLength">64%</output></span>
               <input id="selectedLength" type="range" min="0" max="1" step="0.01" value="0.64" />
             </label>
             <p class="control-note">
-              Drag a diamond chamber on the organism: outward opens it; sideways changes its length.
+              Drag a mouth diamond outward to open it; drag sideways to lengthen its branch airway.
             </p>
           </div>
         </details>
@@ -490,9 +688,56 @@
           </summary>
           <div class="group-body">
             <p class="throatazoid-articulation-intro">
-              Drag tongue diamonds and nose gates directly on the organism, or tune each organ
-              precisely below.
+              Each complete mouth carries its own tongue path and nasal gates. Drag them
+              directly on the organism, or tune the shared colony precisely below.
             </p>
+
+            <section
+              class="throatazoid-typing"
+              aria-labelledby="typingModeLabel"
+              aria-describedby="typingModeHelp"
+            >
+              <div class="throatazoid-typing-heading">
+                <span class="throatazoid-typing-title">
+                  <i class="throatazoid-typing-sigil" aria-hidden="true"></i>
+                  <span>
+                    <b id="typingModeLabel">Type to speak</b>
+                    <small id="typingModeHelp">Awaken first · hold keys to sustain</small>
+                  </span>
+                </span>
+                <button
+                  class="throatazoid-typing-toggle"
+                  id="typingModeButton"
+                  type="button"
+                  role="switch"
+                  aria-checked="false"
+                  aria-labelledby="typingModeLabel typingModeState"
+                  aria-describedby="typingModeHelp"
+                >
+                  <i aria-hidden="true"><b></b></i>
+                  <span id="typingModeState">off</span>
+                </button>
+              </div>
+              <div
+                class="throatazoid-key-map"
+                role="group"
+                aria-label="Playable keys: A E I O U; Q for glottal stop; K T P S; X for Sh; F M N; G for Ng"
+              >
+                <div>
+                  <span aria-hidden="true">VOWELS</span>
+                  <kbd>A</kbd><kbd>E</kbd><kbd>I</kbd><kbd>O</kbd><kbd>U</kbd>
+                </div>
+                <div>
+                  <span aria-hidden="true">CONSONANTS</span>
+                  <kbd title="Glottal stop">Q<small>ʔ</small></kbd>
+                  <kbd>K</kbd><kbd>T</kbd><kbd>P</kbd><kbd>S</kbd>
+                  <kbd title="Sh">X<small>SH</small></kbd>
+                  <kbd>F</kbd><kbd>M</kbd><kbd>N</kbd>
+                  <kbd title="Ng">G<small>NG</small></kbd>
+                </div>
+                <small>Q = ʔ · X = SH · G = NG · hold to sustain</small>
+              </div>
+            </section>
 
             <section class="throatazoid-organ-cluster is-tongue" aria-labelledby="tongueClusterTitle">
               <div class="throatazoid-organ-heading">
@@ -504,8 +749,8 @@
               </div>
 
               <label class="control throatazoid-count-control" for="tongueCount">
-                <span><b>Tongues</b><small>one to three per mouth</small></span>
-                <input id="tongueCount" type="range" min="1" max="3" step="1" value="2" />
+                <span><b>Tongues</b><small>one to five articulators</small></span>
+                <input id="tongueCount" type="range" min="1" max="5" step="1" value="2" />
               </label>
 
               <span class="field-label" id="tongueSelectorLabel">Selected tongue</span>
@@ -515,14 +760,45 @@
                 role="group"
                 aria-labelledby="tongueSelectorLabel"
               >
-                <button type="button" data-tongue="0" aria-pressed="true">
+                <button
+                  type="button"
+                  data-tongue="0"
+                  aria-pressed="true"
+                  aria-label="Select tongue one"
+                >
                   <i aria-hidden="true"></i><span>I</span>
                 </button>
-                <button type="button" data-tongue="1" aria-pressed="false">
+                <button
+                  type="button"
+                  data-tongue="1"
+                  aria-pressed="false"
+                  aria-label="Select tongue two"
+                >
                   <i aria-hidden="true"></i><span>II</span>
                 </button>
-                <button type="button" data-tongue="2" aria-pressed="false">
+                <button
+                  type="button"
+                  data-tongue="2"
+                  aria-pressed="false"
+                  aria-label="Select tongue three"
+                >
                   <i aria-hidden="true"></i><span>III</span>
+                </button>
+                <button
+                  type="button"
+                  data-tongue="3"
+                  aria-pressed="false"
+                  aria-label="Select tongue four"
+                >
+                  <i aria-hidden="true"></i><span>IV</span>
+                </button>
+                <button
+                  type="button"
+                  data-tongue="4"
+                  aria-pressed="false"
+                  aria-label="Select tongue five"
+                >
+                  <i aria-hidden="true"></i><span>V</span>
                 </button>
               </div>
 
@@ -602,13 +878,28 @@
                 role="group"
                 aria-labelledby="noseSelectorLabel"
               >
-                <button type="button" data-nose="0" aria-pressed="true">
+                <button
+                  type="button"
+                  data-nose="0"
+                  aria-pressed="true"
+                  aria-label="Select nose one"
+                >
                   <i aria-hidden="true"></i><span>I</span>
                 </button>
-                <button type="button" data-nose="1" aria-pressed="false">
+                <button
+                  type="button"
+                  data-nose="1"
+                  aria-pressed="false"
+                  aria-label="Select nose two"
+                >
                   <i aria-hidden="true"></i><span>II</span>
                 </button>
-                <button type="button" data-nose="2" aria-pressed="false">
+                <button
+                  type="button"
+                  data-nose="2"
+                  aria-pressed="false"
+                  aria-label="Select nose three"
+                >
                   <i aria-hidden="true"></i><span>III</span>
                 </button>
               </div>
@@ -697,9 +988,16 @@
               <span><b>Alien growl</b><output id="growlOut" for="growl">20%</output></span>
               <input id="growl" type="range" min="0" max="1" step="0.01" value="0.2" />
             </label>
-            <label class="control" for="coupling">
-              <span><b>Throat coupling</b><output id="couplingOut" for="coupling">18%</output></span>
+            <label class="control throatazoid-airway-coupling" for="coupling">
+              <span>
+                <i class="throatazoid-manifold-sigil" aria-hidden="true">
+                  <b></b><b></b><b></b>
+                </i>
+                <b>Airway cross-coupling</b>
+                <output id="couplingOut" for="coupling">18%</output>
+              </span>
               <input id="coupling" type="range" min="0" max="0.72" step="0.01" value="0.18" />
+              <small><i>isolated mouths</i><i>shared manifold breath</i></small>
             </label>
             <label class="control" for="spread">
               <span><b>Mouth spread</b><output id="spreadOut" for="spread">82%</output></span>
@@ -736,15 +1034,38 @@
         <div class="reset-all-row">
           <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
         </div>
+
+        <section
+          class="throatazoid-inspiration-note"
+          aria-labelledby="inspirationDisclosureTitle"
+        >
+          <b id="inspirationDisclosureTitle">Inspiration disclosure</b>
+          <p>
+            THROATAZOID is very, very inspired by
+            <a
+              href="https://dood.al/pinktrombone/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Pink Trombone</a>—its playful, interactive approach to shaping a synthetic
+            vocal tract is foundational to this experiment.
+          </p>
+        </section>
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
         Choose microphone, internal glottis, or hybrid excitation and awaken the organism.
-        Microphone and hybrid modes may request microphone access. Drag a diamond chamber left
-        or right to change throat length and toward or away from its center line to change
-        aperture. Drag tongue diamonds and nose gates to shape articulation. Use the Anatomy
-        and Articulation controls for keyboard-accessible adjustment. Press Escape to sever
-        audio.
+        Microphone and hybrid modes may request microphone access. One root airway feeds a
+        shared manifold, which branches into multiple complete mouths. Drag a mouth diamond
+        left or right to change its branch-airway length and toward or away from its center
+        line to change aperture. Cross-coupling leaks breath and resonance between adjacent
+        mouth airways. Drag tongue diamonds and nose gates to shape articulation. Use the
+        Anatomy and Articulation controls for keyboard-accessible adjustment. On the canvas,
+        Left and Right select a mouth, Up and Down change aperture, brackets change branch
+        length, and Enter seals or opens the selected mouth. Enable Type to speak to hold A,
+        E, I, O, U, K, T, P, S, F, M, or N, with Q for glottal stop, X for SH, and G for NG,
+        as momentary articulations. The direct stage controls adjust articulation place,
+        aperture, and voicing while the pressure meter reports stored tract pressure. Press
+        Escape to sever audio.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

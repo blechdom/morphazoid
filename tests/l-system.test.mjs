@@ -320,7 +320,7 @@ test("L-system page exposes presets, traversal, mapping, adaptive synthesis, and
   }
   assert.match(html, /Branch length taper/);
   assert.match(html, /Length only—not line width or loudness/);
-  assert.match(html, /hyper<\/a><a class="tab active"[^>]+>l-system<\/a><a class="tab recursion-tab"[^>]+>recursion<\/a><a class="tab"[^>]+>julia<\/a><a class="tab"[^>]+>lumber<\/a>/);
+  assert.match(html, /hyper<\/a><a class="tab active"[^>]+>l-system<\/a><a class="tab recursion-tab"[^>]+>recursion<\/a><a class="tab"[^>]+>recur<\/a><a class="tab"[^>]+>julia<\/a><a class="tab"[^>]+>lumber<\/a>/);
   assert.match(html, /src="l-system-app\.js"/);
   assert.match(app, /iterationPlaybackAtPhase/);
   assert.match(app, /allocateIterationVoiceHeads/);

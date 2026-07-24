@@ -69,73 +69,174 @@
         </div>
         <p class="sr-only" id="stageHelp">Drag the stage to scrub the active reader. Select a glowing contact to pin its identity in the inspector. All controls have keyboard-accessible alternatives below.</p>
 
-        <section class="event-ribbon" aria-labelledby="eventTitle">
-          <div class="ribbon-heading">
-            <div><p class="eyebrow">Temporal topology</p><h2 id="eventTitle">Event monitor</h2></div>
-            <span class="quality-note"><i></i>Frame-sampled events · refinement planned</span>
-          </div>
-          <ol class="event-stream" id="eventStream" aria-live="polite">
-            <li class="event-empty"><span>No topology changes yet</span><small>Birth, death, entry, exit, and pair events will appear here.</small></li>
-          </ol>
-        </section>
       </section>
 
       <aside class="analysis-rail" aria-label="Live geometry inspector">
-        <div class="inspector-head">
-          <div>
-            <p class="eyebrow">Pinned subject</p>
-            <h2 id="selectedContactLabel">Contact · automatic</h2>
+        <section class="live-dashboard" aria-labelledby="liveDashboardTitle">
+          <header class="live-dashboard-head">
+            <div>
+              <p class="eyebrow">Live overview</p>
+              <h2 id="liveDashboardTitle">Now</h2>
+            </div>
+            <div class="live-state-stack">
+              <span class="live-state topology" id="liveTopologyState">Topology · waiting</span>
+              <span class="live-state" id="liveFrameState">Waiting for first frame</span>
+            </div>
+          </header>
+
+          <div class="live-value-grid" aria-label="Essential geometry values">
+            <article class="live-value-card" data-live-feature="contact.contourPhase">
+              <header><span>Contour phase</span><small>Contact</small></header>
+              <strong class="live-value">—</strong>
+              <span class="live-meter" aria-hidden="true"><i></i></span>
+              <small class="live-value-meta">Waiting for contact</small>
+            </article>
+            <article class="live-value-card" data-live-feature="contact.radius">
+              <header><span>Origin radius</span><small>Contact</small></header>
+              <strong class="live-value">—</strong>
+              <span class="live-meter" aria-hidden="true"><i></i></span>
+              <small class="live-value-meta">Waiting for contact</small>
+            </article>
+            <article class="live-value-card" data-live-feature="contact.turn">
+              <header><span>Signed turn</span><small>Local shape</small></header>
+              <strong class="live-value">—</strong>
+              <span class="live-meter" aria-hidden="true"><i></i></span>
+              <small class="live-value-meta">Waiting for contact</small>
+            </article>
+            <article class="live-value-card" data-live-feature="reader.contactCount">
+              <header><span>Contacts</span><small>Reader</small></header>
+              <strong class="live-value">—</strong>
+              <span class="live-meter" aria-hidden="true"><i></i></span>
+              <small class="live-value-meta">Waiting for reader</small>
+            </article>
+            <article class="live-value-card" data-live-feature="reader.insideFraction">
+              <header><span>Inside fraction</span><small>Reader</small></header>
+              <strong class="live-value">—</strong>
+              <span class="live-meter" aria-hidden="true"><i></i></span>
+              <small class="live-value-meta">Closed contours only</small>
+            </article>
+            <article class="live-value-card" data-live-feature="reader.transversality.minimum">
+              <header><span>Min. transversality</span><small>Tangency</small></header>
+              <strong class="live-value">—</strong>
+              <span class="live-meter" aria-hidden="true"><i></i></span>
+              <small class="live-value-meta">Near zero flags tangency</small>
+            </article>
           </div>
-          <button class="icon-button" id="clearContactPin" type="button" aria-label="Return to automatic contact selection" title="Return to automatic selection">×</button>
+
+          <section class="route-monitor" aria-labelledby="routeMonitorTitle">
+            <header>
+              <h3 id="routeMonitorTitle">Mapping watch</h3>
+              <span>Raw → normalized → output</span>
+            </header>
+            <div class="route-monitor-grid">
+              <article class="route-card" data-route-monitor="pitch">
+                <header><span><i class="route-dot pitch"></i>Pitch</span><small class="route-status">waiting</small></header>
+                <strong class="route-source">—</strong>
+                <div class="route-pipeline"><span><small>Raw</small><b class="route-raw">—</b></span><span><small>Norm</small><b class="route-normalized">—</b></span><span><small>Output</small><b class="route-output">—</b></span></div>
+              </article>
+              <article class="route-card" data-route-monitor="pan">
+                <header><span><i class="route-dot pan"></i>Pan</span><small class="route-status">waiting</small></header>
+                <strong class="route-source">—</strong>
+                <div class="route-pipeline"><span><small>Raw</small><b class="route-raw">—</b></span><span><small>Norm</small><b class="route-normalized">—</b></span><span><small>Output</small><b class="route-output">—</b></span></div>
+              </article>
+              <article class="route-card" data-route-monitor="gain">
+                <header><span><i class="route-dot level"></i>Level</span><small class="route-status">waiting</small></header>
+                <strong class="route-source">—</strong>
+                <div class="route-pipeline"><span><small>Raw</small><b class="route-raw">—</b></span><span><small>Norm</small><b class="route-normalized">—</b></span><span><small>Output</small><b class="route-output">—</b></span></div>
+              </article>
+              <article class="route-card" data-route-monitor="timbre">
+                <header><span><i class="route-dot timbre"></i>Timbre</span><small class="route-status">waiting</small></header>
+                <strong class="route-source">—</strong>
+                <div class="route-pipeline"><span><small>Raw</small><b class="route-raw">—</b></span><span><small>Norm</small><b class="route-normalized">—</b></span><span><small>Output</small><b class="route-output">—</b></span></div>
+              </article>
+            </div>
+          </section>
+        </section>
+
+        <div class="rail-details">
+          <section class="event-ribbon" aria-labelledby="eventTitle">
+            <div class="ribbon-heading">
+              <div><p class="eyebrow">Temporal topology</p><h2 id="eventTitle">Event monitor</h2></div>
+              <div class="event-state"><strong id="eventActivity">Stable snapshot</strong><small>Frame sampled</small></div>
+            </div>
+
+            <div class="event-summary-groups" aria-label="Current-frame event counts">
+              <section class="event-counter-group">
+                <h3>Contact lifecycle</h3>
+                <div><span class="event-counter" data-event-feature="events.births"><small>Born</small><strong>0</strong></span><span class="event-counter" data-event-feature="events.deaths"><small>Ended</small><strong>0</strong></span></div>
+              </section>
+              <section class="event-counter-group">
+                <h3>Reader boundary</h3>
+                <div><span class="event-counter" data-event-feature="events.entries"><small>Enter</small><strong>0</strong></span><span class="event-counter" data-event-feature="events.exits"><small>Exit</small><strong>0</strong></span></div>
+              </section>
+              <section class="event-counter-group planned">
+                <h3>Structural · planned</h3>
+                <div><span class="event-counter" data-event-feature="events.splits"><small>Split</small><strong>—</strong></span><span class="event-counter" data-event-feature="events.merges"><small>Merge</small><strong>—</strong></span></div>
+              </section>
+            </div>
+
+            <div class="event-history-head"><h3>Recent event log</h3><span id="eventHistoryCount">0 latched</span></div>
+            <ol class="event-stream" id="eventStream">
+              <li class="event-empty"><span>No topology changes yet</span><small>Birth, death, entry, exit, and pair events will appear here.</small></li>
+            </ol>
+            <p class="sr-only" id="eventAnnouncement" aria-live="polite" aria-atomic="true"></p>
+          </section>
+
+          <section class="signal-explorer" aria-labelledby="signalExplorerTitle">
+            <div class="inspector-head">
+              <div>
+                <p class="eyebrow">Signal explorer</p>
+                <h2 id="signalExplorerTitle"><span id="selectedContactLabel">Contact · automatic</span></h2>
+              </div>
+              <button class="icon-button" id="clearContactPin" type="button" aria-label="Return to automatic contact selection" title="Return to automatic selection" hidden>×</button>
+            </div>
+
+            <div class="inspector-tabs" role="tablist" aria-label="Inspector scope">
+              <button id="contactTab" type="button" role="tab" data-inspector-tab="contact" aria-selected="true" aria-controls="contactPanel" tabindex="0">Contact</button>
+              <button id="readerTab" type="button" role="tab" data-inspector-tab="reader" aria-selected="false" aria-controls="readerPanel" tabindex="-1">Reader</button>
+              <button id="formTab" type="button" role="tab" data-inspector-tab="form" aria-selected="false" aria-controls="formPanel" tabindex="-1">Form</button>
+              <button id="topologyTab" type="button" role="tab" data-inspector-tab="topology" aria-selected="false" aria-controls="topologyPanel" tabindex="-1">Topology</button>
+              <button id="audioTab" type="button" role="tab" data-inspector-tab="audio" aria-selected="false" aria-controls="audioPanel" tabindex="-1">Audio</button>
+            </div>
+
+            <section class="inspector-panel" id="contactPanel" role="tabpanel" aria-labelledby="contactTab">
+              <div class="metric-hero" id="contactHero"></div>
+              <div class="metric-groups" id="contactMetrics"></div>
+              <a class="explain-link" href="atlas.html?scope=contact">Explain contact features <span>↗</span></a>
+            </section>
+
+            <section class="inspector-panel" id="readerPanel" role="tabpanel" aria-labelledby="readerTab" hidden>
+              <div class="metric-hero" id="readerHero"></div>
+              <div class="metric-groups" id="readerMetrics"></div>
+              <div class="contact-list-wrap"><h3>Ordered contacts</h3><ol class="contact-list" id="contactList"></ol></div>
+              <a class="explain-link" href="atlas.html?scope=reader">Explain reader features <span>↗</span></a>
+            </section>
+
+            <section class="inspector-panel" id="formPanel" role="tabpanel" aria-labelledby="formTab" hidden>
+              <div class="metric-hero" id="formHero"></div>
+              <div class="metric-groups" id="formMetrics"></div>
+              <a class="explain-link" href="atlas.html?scope=geometry">Explain form features <span>↗</span></a>
+            </section>
+
+            <section class="inspector-panel" id="topologyPanel" role="tabpanel" aria-labelledby="topologyTab" hidden>
+              <div class="topology-summary" id="topologySummary"><span class="topology-orb simple"></span><div><strong>Simple contour</strong><small>No sampled self-intersections</small></div></div>
+              <div class="metric-groups" id="topologyMetrics"></div>
+              <div class="semantic-note"><b>Important distinction</b><p>Rigid rotation preserves contour topology. Reader contacts can still be born or die at tangencies while the form rotates.</p></div>
+              <a class="explain-link" href="atlas.html?group=Topology">Explain topology features <span>↗</span></a>
+            </section>
+
+            <section class="inspector-panel" id="audioPanel" role="tabpanel" aria-labelledby="audioTab" hidden>
+              <div class="signal-chain" aria-label="Geometry to audio signal chain"><span>raw</span><i>→</i><span>normalized</span><i>→</i><span>mapped</span><i>→</i><span>voice</span></div>
+              <div class="telemetry-groups" id="audioMetrics"></div>
+              <div class="semantic-note"><b>Rendered versus estimated</b><p>Targets shown here precede device output and loudspeaker response. Culled contacts remain visible but are marked silent.</p></div>
+            </section>
+
+            <footer class="inspector-footer">
+              <span id="coordinateBadge">Stage frame · +X right · +Y down · positive angles clockwise</span>
+              <a href="PLAN.md">Accuracy contract</a>
+            </footer>
+          </section>
         </div>
-
-        <div class="inspector-tabs" role="tablist" aria-label="Inspector scope">
-          <button id="contactTab" type="button" role="tab" data-inspector-tab="contact" aria-selected="true" aria-controls="contactPanel">Contact</button>
-          <button id="readerTab" type="button" role="tab" data-inspector-tab="reader" aria-selected="false" aria-controls="readerPanel">Reader</button>
-          <button id="formTab" type="button" role="tab" data-inspector-tab="form" aria-selected="false" aria-controls="formPanel">Form</button>
-          <button id="topologyTab" type="button" role="tab" data-inspector-tab="topology" aria-selected="false" aria-controls="topologyPanel">Topology</button>
-          <button id="audioTab" type="button" role="tab" data-inspector-tab="audio" aria-selected="false" aria-controls="audioPanel">Audio</button>
-        </div>
-
-        <section class="inspector-panel" id="contactPanel" role="tabpanel" aria-labelledby="contactTab">
-          <div class="metric-hero" id="contactHero">
-            <div><small>Center radius</small><strong>—</strong><span>model unit</span></div>
-            <div><small>Contour phase</small><strong>—</strong><span>cycle</span></div>
-          </div>
-          <dl class="metric-list" id="contactMetrics"></dl>
-          <a class="explain-link" href="atlas.html?scope=contact">Explain contact features <span>↗</span></a>
-        </section>
-
-        <section class="inspector-panel" id="readerPanel" role="tabpanel" aria-labelledby="readerTab" hidden>
-          <div class="metric-hero" id="readerHero"></div>
-          <dl class="metric-list" id="readerMetrics"></dl>
-          <div class="contact-list-wrap"><h3>Ordered contacts</h3><ol class="contact-list" id="contactList"></ol></div>
-          <a class="explain-link" href="atlas.html?scope=reader">Explain reader features <span>↗</span></a>
-        </section>
-
-        <section class="inspector-panel" id="formPanel" role="tabpanel" aria-labelledby="formTab" hidden>
-          <div class="metric-hero" id="formHero"></div>
-          <dl class="metric-list" id="formMetrics"></dl>
-          <a class="explain-link" href="atlas.html?scope=geometry">Explain form features <span>↗</span></a>
-        </section>
-
-        <section class="inspector-panel" id="topologyPanel" role="tabpanel" aria-labelledby="topologyTab" hidden>
-          <div class="topology-summary" id="topologySummary"><span class="topology-orb simple"></span><div><strong>Simple contour</strong><small>No sampled self-intersections</small></div></div>
-          <dl class="metric-list" id="topologyMetrics"></dl>
-          <div class="semantic-note"><b>Important distinction</b><p>Rigid rotation preserves contour topology. Reader contacts can still be born or die at tangencies while the form rotates.</p></div>
-          <a class="explain-link" href="atlas.html?group=Topology">Explain topology features <span>↗</span></a>
-        </section>
-
-        <section class="inspector-panel" id="audioPanel" role="tabpanel" aria-labelledby="audioTab" hidden>
-          <div class="signal-chain" aria-label="Geometry to audio signal chain"><span>raw</span><i>→</i><span>normalized</span><i>→</i><span>mapped</span><i>→</i><span>voice</span></div>
-          <dl class="metric-list" id="audioMetrics"></dl>
-          <div class="semantic-note"><b>Rendered versus estimated</b><p>Targets shown here precede device output and loudspeaker response. Culled contacts remain visible but are marked silent.</p></div>
-        </section>
-
-        <footer class="inspector-footer">
-          <span id="coordinateBadge">Stage frame · +X right · +Y down · positive angles clockwise</span>
-          <a href="PLAN.md">Accuracy contract</a>
-        </footer>
       </aside>
 
       <section class="control-rack" aria-label="Performance and mapping controls">
@@ -179,10 +280,10 @@
           <summary><span><i class="rack-icon mapping"></i><b>Mapping</b></span><small>geometry → sound</small></summary>
           <div class="rack-body">
             <div class="mapping-grid">
-              <label for="pitchSource"><span><i class="route-dot pitch"></i><b>Pitch</b><small id="pitchRouteValue">—</small></span><select id="pitchSource" data-route="pitch"></select></label>
-              <label for="panSource"><span><i class="route-dot pan"></i><b>Pan</b><small id="panRouteValue">—</small></span><select id="panSource" data-route="pan"></select></label>
-              <label for="levelSource"><span><i class="route-dot level"></i><b>Level</b><small id="levelRouteValue">—</small></span><select id="levelSource" data-route="level"></select></label>
-              <label for="timbreSource"><span><i class="route-dot timbre"></i><b>Timbre</b><small id="timbreRouteValue">—</small></span><select id="timbreSource" data-route="timbre"></select></label>
+              <label for="pitchSource"><span><i class="route-dot pitch"></i><b>Pitch</b></span><select id="pitchSource" data-route="pitch"></select><small class="mapping-readout" id="pitchRouteValue">Waiting for analysis</small></label>
+              <label for="panSource"><span><i class="route-dot pan"></i><b>Pan</b></span><select id="panSource" data-route="pan"></select><small class="mapping-readout" id="panRouteValue">Waiting for analysis</small></label>
+              <label for="levelSource"><span><i class="route-dot level"></i><b>Level</b></span><select id="levelSource" data-route="level"></select><small class="mapping-readout" id="levelRouteValue">Waiting for analysis</small></label>
+              <label for="timbreSource"><span><i class="route-dot timbre"></i><b>Timbre</b></span><select id="timbreSource" data-route="timbre"></select><small class="mapping-readout" id="timbreRouteValue">Waiting for analysis</small></label>
             </div>
             <div class="audio-parameters">
               <label class="select-control" for="soundMode"><span>Voice</span><select id="soundMode"><option value="sine" selected>Sine</option><option value="fm">FM</option><option value="pm">PM</option><option value="shepard">Shepard</option></select></label>

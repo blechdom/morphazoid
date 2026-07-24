@@ -103,17 +103,64 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
     selector === "[data-source]" ? sourceButtons : []
   );
 
+  function dataButtons(attribute, containerId) {
+    const dataKey = attribute.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    const buttons = [...html.matchAll(
+      new RegExp(`<button[^>]+data-${attribute}="([^"]+)"[^>]*>`, "g"),
+    )].map((match) => {
+      const value = match[1];
+      const key = `${attribute}-${value}`;
+      return {
+        dataset: { [dataKey]: value },
+        disabled: false,
+        classList: classList(),
+        addEventListener(type, listener) {
+          listeners.set(`${key}:${type}`, listener);
+        },
+        setAttribute(name, next) {
+          attributes.set(`${key}:${name}`, String(next));
+        },
+        getAttribute(name) {
+          return attributes.get(`${key}:${name}`) ?? null;
+        },
+        removeAttribute(name) {
+          attributes.delete(`${key}:${name}`);
+        },
+        closest(selector) {
+          return selector === `[data-${attribute}]` ? this : null;
+        },
+      };
+    });
+    const container = elements.get(containerId);
+    assert.ok(container, `missing #${containerId}`);
+    container.querySelectorAll = (selector) => (
+      selector === `[data-${attribute}]` ? buttons : []
+    );
+    return buttons;
+  }
+
+  const tongueButtons = dataButtons("tongue", "tongueButtons");
+  const noseButtons = dataButtons("nose", "noseButtons");
+  const phonemeButtons = dataButtons("phoneme", "phonemeButtons");
+
   let strokes = 0;
   let fills = 0;
   const context = {
+    arc() {},
     beginPath() {},
+    bezierCurveTo() {},
     clearRect() {},
     closePath() {},
+    ellipse() {},
     fill() { fills += 1; },
+    fillText() {},
     lineTo() {},
     moveTo() {},
+    quadraticCurveTo() {},
+    rect() {},
     restore() {},
     rotate() {},
+    roundRect() {},
     save() {},
     setTransform() {},
     stroke() { strokes += 1; },
@@ -298,7 +345,7 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
   queuedFrame(performance.now() + 100);
   assert.ok(strokes > 15, "the dormant alien anatomy should have visible structure");
   assert.ok(fills > 5, "the organism should render solid black chambers");
-  assert.equal(elements.get("stageReadout").textContent, "DORMANT · TRIUNE · 3 THROATS");
+  assert.equal(elements.get("stageReadout").textContent, "DORMANT · TRIUNE · 3T/2G/2N");
   assert.equal(elements.get("audioState").textContent, "off");
   assert.equal(elements.get("stage").width, 940);
   assert.equal(elements.get("stage").height, 610);
@@ -307,6 +354,30 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
     "glottis",
     "hybrid",
   ]);
+  assert.deepEqual(
+    tongueButtons.map((button) => button.dataset.tongue),
+    ["0", "1", "2", "3", "4"],
+  );
+  assert.deepEqual(noseButtons.map((button) => button.dataset.nose), ["0", "1", "2"]);
+  assert.deepEqual(phonemeButtons.map((button) => button.dataset.phoneme), [
+    "a",
+    "e",
+    "i",
+    "o",
+    "u",
+    "glottal",
+    "k",
+    "t",
+    "p",
+    "s",
+    "sh",
+    "f",
+    "m",
+    "n",
+    "ng",
+  ]);
+  assert.equal(elements.get("articulationSummary").textContent, "2 tongues · 2 noses");
+  assert.equal(attributes.get("phoneme-a:aria-pressed"), "true");
 
   function selectSource(source) {
     const button = sourceButtons.find((candidate) => candidate.dataset.source === source);
@@ -317,6 +388,199 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
     if (direct) direct({ currentTarget: button, target: button });
     else delegated({ currentTarget: elements.get("sourceButtons"), target: button });
   }
+
+  function clickDataButton(attribute, value, containerId, buttons) {
+    const dataKey = attribute.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    const button = buttons.find((candidate) => candidate.dataset[dataKey] === value);
+    assert.ok(button, `missing ${attribute} ${value} button`);
+    const direct = listeners.get(`${attribute}-${value}:click`);
+    const delegated = listeners.get(`${containerId}:click`);
+    assert.ok(direct || delegated, `missing ${attribute} listener for ${value}`);
+    const event = {
+      currentTarget: direct ? button : elements.get(containerId),
+      target: button,
+      preventDefault() {},
+    };
+    if (direct) direct(event);
+    else delegated(event);
+  }
+
+  function inputControl(id, value) {
+    const node = elements.get(id);
+    assert.ok(node, `missing #${id}`);
+    node.value = String(value);
+    const listener = listeners.get(`${id}:input`);
+    assert.ok(listener, `missing input listener for #${id}`);
+    listener({ currentTarget: node, target: node });
+  }
+
+  function keyEvent(key, options = {}) {
+    let prevented = false;
+    return {
+      key,
+      target: options.target ?? {},
+      repeat: Boolean(options.repeat),
+      ctrlKey: Boolean(options.ctrlKey),
+      metaKey: Boolean(options.metaKey),
+      altKey: Boolean(options.altKey),
+      isComposing: Boolean(options.isComposing),
+      preventDefault() { prevented = true; },
+      get defaultPrevented() { return prevented; },
+    };
+  }
+
+  function isHeld(button) {
+    return button.classList.contains("is-held")
+      || button.dataset.held === "true"
+      || button.getAttribute("data-held") === "true";
+  }
+
+  const keydown = documentListeners.get("keydown");
+  const keyup = documentListeners.get("keyup");
+  assert.equal(typeof keydown, "function", "type-to-speak needs a document keydown listener");
+  assert.equal(typeof keyup, "function", "type-to-speak needs a document keyup listener");
+  assert.equal(attributes.get("typingModeButton:aria-checked"), "false");
+  assert.equal(elements.get("typingModeState").textContent, "off");
+
+  const typingOffEvent = keyEvent("i");
+  keydown(typingOffEvent);
+  assert.equal(typingOffEvent.defaultPrevented, false);
+  assert.equal(attributes.get("phoneme-a:aria-pressed"), "true");
+  assert.equal(attributes.get("phoneme-i:aria-pressed"), "false");
+
+  const typingToggle = listeners.get("typingModeButton:click");
+  assert.equal(typeof typingToggle, "function", "type-to-speak switch needs a click listener");
+  typingToggle({ currentTarget: elements.get("typingModeButton"), preventDefault() {} });
+  assert.equal(attributes.get("typingModeButton:aria-checked"), "true");
+  assert.equal(elements.get("typingModeState").textContent, "armed");
+
+  const typedI = keyEvent("I");
+  keydown(typedI);
+  assert.equal(typedI.defaultPrevented, true);
+  assert.equal(attributes.get("phoneme-a:aria-pressed"), "false");
+  assert.equal(attributes.get("phoneme-i:aria-pressed"), "true");
+  assert.ok(
+    isHeld(phonemeButtons.find((button) => button.dataset.phoneme === "i")),
+    "the active typed phoneme should expose held feedback",
+  );
+
+  const firstHeldStatus = elements.get("liveStatus").textContent;
+  keydown(keyEvent("i", { repeat: true }));
+  assert.equal(
+    elements.get("liveStatus").textContent,
+    firstHeldStatus,
+    "key repeat should not retrigger the held articulation",
+  );
+
+  const releasedI = keyEvent("i", { target: new HTMLInputElement() });
+  keyup(releasedI);
+  assert.equal(releasedI.defaultPrevented, true);
+  assert.equal(attributes.get("phoneme-i:aria-pressed"), "false");
+  assert.equal(
+    isHeld(phonemeButtons.find((button) => button.dataset.phoneme === "i")),
+    false,
+  );
+
+  const aButton = phonemeButtons.find((button) => button.dataset.phoneme === "a");
+  const oButton = phonemeButtons.find((button) => button.dataset.phoneme === "o");
+  keydown(keyEvent("a"));
+  keydown(keyEvent("o"));
+  assert.equal(attributes.get("phoneme-o:aria-pressed"), "true");
+  assert.ok(isHeld(aButton), "earlier held keys should remain visibly held");
+  assert.ok(isHeld(oButton), "the most recent key should be visibly held");
+  keyup(keyEvent("o"));
+  assert.equal(attributes.get("phoneme-o:aria-pressed"), "false");
+  assert.equal(attributes.get("phoneme-a:aria-pressed"), "true");
+  assert.ok(isHeld(aButton), "releasing the top key should restore the prior gesture");
+  keyup(keyEvent("a"));
+  assert.equal(attributes.get("phoneme-a:aria-pressed"), "false");
+  assert.equal(isHeld(aButton), false);
+
+  keydown(keyEvent("k"));
+  assert.equal(attributes.get("phoneme-k:aria-pressed"), "true");
+  assert.equal(elements.get("oralClosureOut").textContent, "100%");
+  assert.equal(elements.get("articulationApertureOut").textContent, "0%");
+  keyup(keyEvent("k"));
+  assert.equal(attributes.get("phoneme-k:aria-pressed"), "false");
+  assert.equal(elements.get("oralClosureOut").textContent, "6%");
+  assert.equal(elements.get("articulationApertureOut").textContent, "94%");
+
+  const editableTarget = new HTMLInputElement();
+  editableTarget.isContentEditable = false;
+  const editableEvent = keyEvent("o", { target: editableTarget });
+  keydown(editableEvent);
+  assert.equal(editableEvent.defaultPrevented, false);
+  assert.equal(attributes.get("phoneme-o:aria-pressed"), "false");
+
+  const contentEditableEvent = keyEvent("u", { target: { isContentEditable: true } });
+  keydown(contentEditableEvent);
+  assert.equal(contentEditableEvent.defaultPrevented, false);
+  assert.equal(attributes.get("phoneme-u:aria-pressed"), "false");
+
+  for (const options of [
+    { ctrlKey: true },
+    { metaKey: true },
+    { altKey: true },
+    { isComposing: true },
+  ]) {
+    const modifiedEvent = keyEvent("e", options);
+    keydown(modifiedEvent);
+    assert.equal(modifiedEvent.defaultPrevented, false);
+    assert.equal(attributes.get("phoneme-e:aria-pressed"), "false");
+  }
+
+  const typedM = keyEvent("m");
+  keydown(typedM);
+  assert.equal(typedM.defaultPrevented, true);
+  assert.equal(attributes.get("phoneme-m:aria-pressed"), "true");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(getUserMediaCalls, 0, "typed M must not invoke the microphone shortcut");
+  keyup(keyEvent("m"));
+
+  const contextsBeforeUnsupportedKeys = contexts.length;
+  for (const key of ["g", "h"]) keydown(keyEvent(key));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(
+    contexts.length,
+    contextsBeforeUnsupportedKeys,
+    "typing mode must suppress the legacy G/H source shortcuts",
+  );
+  assert.equal(getUserMediaCalls, 0);
+
+  typingToggle({ currentTarget: elements.get("typingModeButton"), preventDefault() {} });
+  assert.equal(attributes.get("typingModeButton:aria-checked"), "false");
+  assert.equal(elements.get("typingModeState").textContent, "off");
+
+  inputControl("tongueCount", 3);
+  clickDataButton("tongue", "2", "tongueButtons", tongueButtons);
+  inputControl("selectedTonguePosition", 0.91);
+  inputControl("selectedTongueHeight", 0.82);
+  inputControl("selectedTongueCurl", 0.73);
+  assert.equal(elements.get("tongueCountOut").textContent, "3");
+  assert.equal(elements.get("selectedTonguePositionOut").textContent, "91%");
+  assert.equal(elements.get("selectedTongueHeightOut").textContent, "82%");
+  assert.equal(elements.get("selectedTongueCurlOut").textContent, "73%");
+
+  inputControl("noseCount", 3);
+  clickDataButton("nose", "2", "noseButtons", noseButtons);
+  inputControl("selectedNoseOpenness", 0.88);
+  inputControl("selectedNoseLength", 0.77);
+  inputControl("selectedNoseResonance", 0.66);
+  inputControl("oralClosure", 0.57);
+  assert.equal(elements.get("noseCountOut").textContent, "3");
+  assert.equal(elements.get("selectedNoseOpennessOut").textContent, "88%");
+  assert.equal(elements.get("selectedNoseLengthOut").textContent, "77%");
+  assert.equal(elements.get("selectedNoseResonanceOut").textContent, "66%");
+  assert.equal(elements.get("oralClosureOut").textContent, "57%");
+  assert.equal(elements.get("articulationSummary").textContent, "3 tongues · 3 noses");
+
+  clickDataButton("phoneme", "i", "phonemeButtons", phonemeButtons);
+  assert.equal(attributes.get("phoneme-i:aria-pressed"), "true");
+  assert.match(elements.get("liveStatus").textContent, /articulation loaded\./i);
+  clickDataButton("phoneme", "m", "phonemeButtons", phonemeButtons);
+  assert.equal(attributes.get("phoneme-i:aria-pressed"), "false");
+  assert.equal(attributes.get("phoneme-m:aria-pressed"), "true");
+  assert.match(elements.get("liveStatus").textContent, /articulation loaded\./i);
 
   selectSource("glottis");
   listeners.get("awakenButton:click")();
