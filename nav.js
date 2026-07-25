@@ -45,6 +45,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "recursive-fm", label: "Recursive FM", href: "recursive-fm.html" },
     { id: "recursive-pm", label: "Recursive PM", href: "recursive-pm.html" },
     { id: "chaotic-fm", label: "Chaotic FM", href: "chaotic-fm.html" },
+    { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
   ]),
   freezeGroup("audio-mic", "Audio & Mic", [
     { id: "lumber", label: "Lumber", href: "lumber.html" },

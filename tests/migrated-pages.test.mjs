@@ -64,6 +64,13 @@ const migratedPages = [
     source: "src/chaotic-fm.js",
     requiredCopy: ["Chaotic", "FM"],
   },
+  {
+    id: "weierstrass",
+    html: "weierstrass.html",
+    app: "weierstrass-app.js",
+    source: "src/weierstrass.js",
+    requiredCopy: ["Weierstrass", "Wave", "FM"],
+  },
 ];
 
 test("migrated demos are native internal Morphazoid pages", async () => {

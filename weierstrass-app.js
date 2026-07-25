@@ -1,0 +1,747 @@
+import {
+  DEFAULT_WEIERSTRASS_PRESET_ID,
+  WEIERSTRASS_DEFAULTS,
+  WEIERSTRASS_FM_PRESETS,
+  WEIERSTRASS_LIMITS,
+  WEIERSTRASS_PRESETS,
+  WEIERSTRASS_WAVE_PRESETS,
+  WeierstrassAudio,
+  deriveWeierstrassBank,
+  deriveWeierstrassFmHeadroom,
+  formatWeierstrassFrequency,
+  logarithmicSliderPosition,
+  logarithmicSliderValue,
+  quadraticSliderPosition,
+  quadraticSliderValue,
+  sanitizeWeierstrassParams,
+} from "./src/weierstrass.js";
+
+const $ = (id) => document.getElementById(id);
+const FRAME_INTERVAL = 1_000 / 30;
+const TAU = Math.PI * 2;
+const audio = new WeierstrassAudio(globalThis);
+const canvas = $("stage");
+const context2d = canvas.getContext("2d", {
+  alpha: true,
+  desynchronized: true,
+});
+const stageWrap = $("stageWrap");
+const waveform = new Float32Array(512);
+const reducedMotion = globalThis.matchMedia?.(
+  "(prefers-reduced-motion: reduce)",
+)?.matches ?? false;
+
+const defaultPreset = WEIERSTRASS_PRESETS.find(
+  (preset) => preset.id === DEFAULT_WEIERSTRASS_PRESET_ID,
+) ?? WEIERSTRASS_WAVE_PRESETS[0];
+const defaultFmPreset = WEIERSTRASS_FM_PRESETS[0];
+
+const state = {
+  settings: {
+    ...defaultPreset.settings,
+    fmDepthHz: defaultFmPreset.settings.fmDepthHz,
+    offsetHz: defaultFmPreset.settings.offsetHz,
+  },
+  fmMemory: {
+    fmDepthHz: defaultFmPreset.settings.fmDepthHz,
+    offsetHz: defaultFmPreset.settings.offsetHz,
+  },
+  output: WEIERSTRASS_DEFAULTS.output,
+  activePresetId: defaultPreset.id,
+  audioOn: false,
+  audioStarting: false,
+};
+
+let frameId = null;
+let lastDrawTime = -Infinity;
+let visualizationDirty = true;
+let cssWidth = 1;
+let cssHeight = 1;
+let pixelRatio = 1;
+let disposed = false;
+
+const controls = {
+  terms: {
+    input: $("terms"),
+    output: $("termsOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => {
+      input.value = String(value);
+    },
+  },
+  startExponent: {
+    input: $("startExponent"),
+    output: $("startExponentOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => {
+      input.value = String(value);
+    },
+  },
+  amplitudeRatio: {
+    input: $("amplitudeRatio"),
+    output: $("amplitudeRatioOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => {
+      input.value = String(value);
+    },
+  },
+  frequencyRatio: {
+    input: $("frequencyRatio"),
+    output: $("frequencyRatioOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => {
+      input.value = String(value);
+    },
+  },
+  baseFrequencyHz: {
+    input: $("baseFrequency"),
+    output: $("baseFrequencyOut"),
+    read: (input) => logarithmicSliderValue(
+      Number(input.value),
+      WEIERSTRASS_LIMITS.minBaseFrequencyHz,
+      WEIERSTRASS_LIMITS.maxBaseFrequencyHz,
+    ),
+    write: (value, input) => {
+      input.value = String(logarithmicSliderPosition(
+        value,
+        WEIERSTRASS_LIMITS.minBaseFrequencyHz,
+        WEIERSTRASS_LIMITS.maxBaseFrequencyHz,
+      ));
+    },
+  },
+  fmDepthHz: {
+    input: $("fmDepth"),
+    output: $("fmDepthOut"),
+    read: (input) => quadraticSliderValue(
+      Number(input.value),
+      WEIERSTRASS_LIMITS.maxFmDepthHz,
+    ),
+    write: (value, input) => {
+      input.value = String(quadraticSliderPosition(
+        value,
+        WEIERSTRASS_LIMITS.maxFmDepthHz,
+      ));
+    },
+  },
+  offsetHz: {
+    input: $("offset"),
+    output: $("offsetOut"),
+    read: (input) => quadraticSliderValue(
+      Number(input.value),
+      WEIERSTRASS_LIMITS.maxOffsetHz,
+    ),
+    write: (value, input) => {
+      input.value = String(quadraticSliderPosition(
+        value,
+        WEIERSTRASS_LIMITS.maxOffsetHz,
+      ));
+    },
+  },
+};
+
+function setPressed(element, pressed) {
+  element.setAttribute("aria-pressed", String(Boolean(pressed)));
+}
+
+function compactNumber(value, maximumDigits = 3) {
+  return Number(value)
+    .toFixed(maximumDigits)
+    .replace(/0+$/, "")
+    .replace(/\.$/, "");
+}
+
+function presetById(id) {
+  return WEIERSTRASS_PRESETS.find((preset) => preset.id === id) ?? null;
+}
+
+function presetsForMode(mode) {
+  return mode === "fm"
+    ? WEIERSTRASS_FM_PRESETS
+    : WEIERSTRASS_WAVE_PRESETS;
+}
+
+function settingsMatchPreset(settings, preset) {
+  if (!preset || settings.mode !== preset.mode) return false;
+  const sharedKeys = [
+    "terms",
+    "startExponent",
+    "amplitudeRatio",
+    "frequencyRatio",
+    "baseFrequencyHz",
+  ];
+  if (sharedKeys.some((key) => settings[key] !== preset.settings[key])) {
+    return false;
+  }
+  if (settings.mode !== "fm") return true;
+  return (
+    settings.fmDepthHz === preset.settings.fmDepthHz
+    && settings.offsetHz === preset.settings.offsetHz
+  );
+}
+
+function matchingPresetId(settings) {
+  return presetsForMode(settings.mode).find(
+    (preset) => settingsMatchPreset(settings, preset),
+  )?.id ?? null;
+}
+
+function currentParameters() {
+  return {
+    ...state.settings,
+    output: state.output,
+  };
+}
+
+function currentSampleRate() {
+  return audio.context?.sampleRate ?? 48_000;
+}
+
+function currentBank() {
+  return deriveWeierstrassBank(currentParameters(), {
+    sampleRate: currentSampleRate(),
+  });
+}
+
+function currentHeadroom() {
+  return deriveWeierstrassFmHeadroom(currentParameters(), {
+    sampleRate: currentSampleRate(),
+  });
+}
+
+function announce(message) {
+  $("liveStatus").textContent = "";
+  requestAnimationFrame(() => {
+    $("liveStatus").textContent = message;
+  });
+}
+
+function clearError() {
+  $("audioError").hidden = true;
+  $("audioError").textContent = "";
+}
+
+function showError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  $("audioError").textContent = message;
+  $("audioError").hidden = false;
+  announce(`Audio error: ${message}`);
+}
+
+function writeControls() {
+  for (const [key, control] of Object.entries(controls)) {
+    control.write(state.settings[key], control.input);
+  }
+  $("output").value = String(state.output);
+}
+
+function updateModeInterface() {
+  for (const button of $("modeButtons").querySelectorAll("[data-mode]")) {
+    setPressed(button, button.dataset.mode === state.settings.mode);
+  }
+  for (const button of $("presetButtons").querySelectorAll("[data-mode]")) {
+    button.hidden = button.dataset.mode !== state.settings.mode;
+  }
+  $("fmControls").hidden = state.settings.mode !== "fm";
+  $("depthLedgerRow").hidden = state.settings.mode !== "fm";
+}
+
+function updatePresetInterface() {
+  for (const button of $("presetButtons").querySelectorAll("[data-preset]")) {
+    setPressed(button, button.dataset.preset === state.activePresetId);
+  }
+  const preset = presetById(state.activePresetId);
+  const modeLabel = state.settings.mode === "fm" ? "FM" : "Wave";
+  $("presetState").textContent = preset?.label ?? `Custom ${modeLabel}`;
+  $("presetDescription").textContent = preset?.description
+    ?? `A custom normalized Weierstrass ${modeLabel} bank.`;
+}
+
+function activeFrequencyRange(bank) {
+  let minimum = Infinity;
+  let maximum = 0;
+  for (const partial of bank.partials) {
+    if (!partial.active) continue;
+    minimum = Math.min(minimum, partial.frequencyHz);
+    maximum = Math.max(maximum, partial.frequencyHz);
+  }
+  if (!Number.isFinite(minimum) || maximum <= 0) return null;
+  return { minimum, maximum };
+}
+
+function updateReadouts(
+  bank = currentBank(),
+  headroom = currentHeadroom(),
+) {
+  const settings = bank.settings;
+  controls.terms.output.textContent = String(settings.terms);
+  controls.startExponent.output.textContent = String(settings.startExponent);
+  controls.amplitudeRatio.output.textContent = compactNumber(
+    settings.amplitudeRatio,
+    3,
+  );
+  controls.frequencyRatio.output.textContent = `${compactNumber(
+    settings.frequencyRatio,
+    3,
+  )}×`;
+  controls.baseFrequencyHz.output.textContent = formatWeierstrassFrequency(
+    settings.baseFrequencyHz,
+  );
+  controls.fmDepthHz.output.textContent = formatWeierstrassFrequency(
+    settings.fmDepthHz,
+  );
+  controls.offsetHz.output.textContent = formatWeierstrassFrequency(
+    settings.offsetHz,
+  );
+  $("outputOut").textContent = `${Math.round(state.output * 100)}%`;
+
+  const modeLabel = settings.mode === "fm" ? "FM" : "Wave";
+  $("algorithmState").textContent = settings.mode === "fm"
+    ? "FM · normalized + bounded"
+    : "Wave · normalized";
+  $("modeReadout").textContent = settings.mode === "fm"
+    ? "normalized bank → signed oscillator Hz"
+    : "normalized active Wave bank";
+  $("termReadout").textContent = [
+    `${bank.requestedCount} requested`,
+    `${bank.activeCount} active`,
+    `${bank.culledCount} culled`,
+  ].join(" · ");
+  const range = activeFrequencyRange(bank);
+  $("rangeReadout").textContent = range
+    ? `${formatWeierstrassFrequency(range.minimum)} → ${formatWeierstrassFrequency(range.maximum)}`
+    : "no portable active partials";
+
+  const preset = presetById(state.activePresetId);
+  if (preset) {
+    const sourceParts = [
+      `${compactNumber(preset.source.legacyFundamental)} source`,
+      `→ ${formatWeierstrassFrequency(preset.source.baseFrequencyHz)}`,
+    ];
+    if (preset.source.adaptation) {
+      sourceParts.push(
+        `· exponent ${preset.source.legacyStartExponent}→${preset.source.playableStartExponent}`,
+      );
+    }
+    $("sourceReadout").textContent = sourceParts.join(" ");
+  } else {
+    $("sourceReadout").textContent = (
+      `π-source half-rate policy · ${formatWeierstrassFrequency(settings.baseFrequencyHz)}`
+    );
+  }
+
+  const depthStatus = headroom.limited ? "bounded" : "rendered";
+  $("depthReadout").textContent = [
+    `${formatWeierstrassFrequency(headroom.requestedDepthHz)} requested`,
+    `${formatWeierstrassFrequency(headroom.effectiveDepthHz)} ${depthStatus}`,
+  ].join(" · ");
+  $("ceilingReadout").textContent = (
+    `${formatWeierstrassFrequency(settings.maximumFrequencyHz)} · tapered + signed clamp`
+  );
+  $("stageReadout").textContent = [
+    modeLabel,
+    `${bank.requestedCount} requested`,
+    `${bank.activeCount} active`,
+    `audio ${state.audioOn ? "on" : "off"}`,
+  ].join(" · ").toUpperCase();
+  $("scopeState").textContent = state.audioOn ? "SCOPE · LIVE" : "SCOPE · IDLE";
+  canvas.setAttribute(
+    "aria-label",
+    `Weierstrass ${modeLabel} bank with ${bank.requestedCount} requested, `
+      + `${bank.activeCount} active, and ${bank.culledCount} culled terms. `
+      + `Audio ${state.audioOn ? "on" : "off"}.`,
+  );
+}
+
+function updateAudioInterface() {
+  setPressed($("audioButton"), state.audioOn);
+  $("audioButton").disabled = state.audioStarting;
+  $("audioState").textContent = state.audioOn ? "on" : "off";
+}
+
+function updateInterface() {
+  writeControls();
+  updateModeInterface();
+  updatePresetInterface();
+  const bank = currentBank();
+  const headroom = currentHeadroom();
+  updateReadouts(bank, headroom);
+  audio.setParameters(currentParameters());
+  visualizationDirty = true;
+  scheduleVisualization();
+}
+
+function applySettings(settings, {
+  presetId,
+  message = null,
+} = {}) {
+  const nextMode = settings.mode ?? state.settings.mode;
+  const mergedSettings = {
+    ...state.settings,
+    ...settings,
+  };
+  if (nextMode === "wave") {
+    mergedSettings.fmDepthHz = state.fmMemory.fmDepthHz;
+    mergedSettings.offsetHz = state.fmMemory.offsetHz;
+  }
+  const safe = sanitizeWeierstrassParams({
+    ...mergedSettings,
+    output: state.output,
+  }, {
+    sampleRate: currentSampleRate(),
+  });
+  state.settings = {
+    mode: safe.mode,
+    terms: safe.terms,
+    startExponent: safe.startExponent,
+    amplitudeRatio: safe.amplitudeRatio,
+    frequencyRatio: safe.frequencyRatio,
+    baseFrequencyHz: safe.baseFrequencyHz,
+    fmDepthHz: safe.fmDepthHz,
+    offsetHz: safe.offsetHz,
+  };
+  if (safe.mode === "fm") {
+    state.fmMemory.fmDepthHz = safe.fmDepthHz;
+    state.fmMemory.offsetHz = safe.offsetHz;
+  }
+  state.activePresetId = presetId === undefined
+    ? matchingPresetId(state.settings)
+    : presetId;
+  updateInterface();
+  if (message) announce(message);
+}
+
+for (const [key, control] of Object.entries(controls)) {
+  control.input.addEventListener("input", () => {
+    applySettings({
+      ...state.settings,
+      [key]: control.read(control.input),
+    });
+  });
+}
+
+$("modeButtons").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-mode]");
+  if (!button || button.dataset.mode === state.settings.mode) return;
+  clearError();
+  applySettings({
+    ...state.settings,
+    mode: button.dataset.mode,
+    fmDepthHz: state.fmMemory.fmDepthHz,
+    offsetHz: state.fmMemory.offsetHz,
+  }, {
+    message: `${button.dataset.mode === "fm" ? "FM" : "Wave"} mode selected. Shared lattice preserved.`,
+  });
+});
+
+$("presetButtons").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-preset]");
+  if (!button) return;
+  const preset = presetById(button.dataset.preset);
+  if (!preset) return;
+  clearError();
+  applySettings(preset.settings, {
+    presetId: preset.id,
+    message: `${preset.label} ${preset.mode === "fm" ? "FM" : "Wave"} preset selected.`,
+  });
+});
+
+$("output").addEventListener("input", () => {
+  state.output = Number($("output").value);
+  audio.setParameters(currentParameters());
+  updateReadouts();
+});
+
+async function toggleAudio() {
+  if (state.audioStarting) return;
+  clearError();
+  state.audioStarting = true;
+  updateAudioInterface();
+  try {
+    if (state.audioOn) {
+      audio.stop();
+      state.audioOn = false;
+    } else {
+      audio.setParameters(currentParameters());
+      await audio.start();
+      state.audioOn = true;
+    }
+    announce(`Audio ${state.audioOn ? "on" : "off"}.`);
+  } catch (error) {
+    audio.stop();
+    state.audioOn = false;
+    showError(error);
+  } finally {
+    state.audioStarting = false;
+    updateAudioInterface();
+    updateReadouts();
+    visualizationDirty = true;
+    scheduleVisualization();
+  }
+}
+
+$("audioButton").addEventListener("click", toggleAudio);
+
+$("resetWeierstrass").addEventListener("click", () => {
+  clearError();
+  state.output = WEIERSTRASS_DEFAULTS.output;
+  state.fmMemory.fmDepthHz = defaultFmPreset.settings.fmDepthHz;
+  state.fmMemory.offsetHz = defaultFmPreset.settings.offsetHz;
+  applySettings(defaultPreset.settings, {
+    presetId: defaultPreset.id,
+    message: "Weierstrass parameters reset.",
+  });
+});
+
+canvas.addEventListener("keydown", (event) => {
+  if (event.key === " ") {
+    event.preventDefault();
+    toggleAudio();
+    return;
+  }
+  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+  event.preventDefault();
+  const increment = event.key === "ArrowUp" ? 1 : -1;
+  applySettings({
+    ...state.settings,
+    terms: state.settings.terms + increment,
+  });
+  announce(`${state.settings.terms} requested terms.`);
+});
+
+function resizeCanvas() {
+  const bounds = stageWrap.getBoundingClientRect();
+  cssWidth = Math.max(1, Math.round(bounds.width));
+  cssHeight = Math.max(1, Math.round(bounds.height));
+  pixelRatio = Math.min(1.5, Math.max(1, globalThis.devicePixelRatio || 1));
+  const width = Math.round(cssWidth * pixelRatio);
+  const height = Math.round(cssHeight * pixelRatio);
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
+  }
+  context2d.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  visualizationDirty = true;
+  scheduleVisualization();
+}
+
+function logarithmicX(frequency, minimum, maximum, left, right) {
+  const safe = Math.min(maximum, Math.max(minimum, frequency));
+  const position = Math.log(safe / minimum) / Math.log(maximum / minimum);
+  return left + position * (right - left);
+}
+
+function drawPartialLattice(context, bank, width, height, timestamp) {
+  const left = Math.max(28, width * 0.055);
+  const right = width - left;
+  const top = Math.max(132, Math.min(height * 0.24, 176));
+  const bottom = Math.max(top + 80, Math.min(height * 0.61, height - 150));
+  const minimumHz = WEIERSTRASS_LIMITS.minBaseFrequencyHz;
+  const maximumHz = bank.settings.maximumFrequencyHz;
+  const motion = state.audioOn && !reducedMotion
+    ? timestamp * 0.00018
+    : 0;
+
+  context.save();
+  context.lineWidth = 1;
+  context.strokeStyle = "rgba(214, 232, 226, 0.08)";
+  context.beginPath();
+  for (let octave = 0.001; octave <= maximumHz; octave *= 10) {
+    const x = logarithmicX(octave, minimumHz, maximumHz, left, right);
+    context.moveTo(x, top);
+    context.lineTo(x, bottom);
+  }
+  context.stroke();
+
+  context.beginPath();
+  let started = false;
+  for (const partial of bank.partials) {
+    if (!partial.active) continue;
+    const x = logarithmicX(
+      partial.frequencyHz,
+      minimumHz,
+      maximumHz,
+      left,
+      right,
+    );
+    const progress = bank.requestedCount > 1
+      ? partial.index / (bank.requestedCount - 1)
+      : 0.5;
+    const y = bottom - progress * (bottom - top);
+    if (!started) {
+      context.moveTo(x, y);
+      started = true;
+    } else {
+      context.lineTo(x, y);
+    }
+  }
+  context.strokeStyle = "rgba(125, 180, 255, 0.28)";
+  context.stroke();
+
+  for (const partial of bank.partials) {
+    const clampedFrequency = Number.isFinite(partial.frequencyHz)
+      ? partial.frequencyHz
+      : maximumHz;
+    const x = logarithmicX(
+      clampedFrequency,
+      minimumHz,
+      maximumHz,
+      left,
+      right,
+    );
+    const progress = bank.requestedCount > 1
+      ? partial.index / (bank.requestedCount - 1)
+      : 0.5;
+    const y = bottom - progress * (bottom - top);
+    const normalizedMagnitude = Math.abs(partial.normalizedWeight);
+    const radius = partial.active
+      ? 2.6 + Math.sqrt(normalizedMagnitude) * 9
+      : 2.2;
+
+    context.beginPath();
+    context.arc(
+      x,
+      y + (partial.active ? Math.sin(motion + partial.index) * 1.5 : 0),
+      radius,
+      0,
+      TAU,
+    );
+    if (!partial.active) {
+      context.fillStyle = "rgba(119, 131, 126, 0.12)";
+      context.strokeStyle = "rgba(119, 131, 126, 0.32)";
+    } else if (partial.taper < 0.999) {
+      context.fillStyle = "rgba(232, 196, 107, 0.2)";
+      context.strokeStyle = "#e8c46b";
+    } else {
+      context.fillStyle = state.settings.mode === "fm"
+        ? "rgba(199, 155, 255, 0.2)"
+        : "rgba(125, 180, 255, 0.2)";
+      context.strokeStyle = state.settings.mode === "fm"
+        ? "#c79bff"
+        : "#7db4ff";
+    }
+    context.fill();
+    context.stroke();
+  }
+
+  context.fillStyle = "#77837e";
+  context.font = "7px ui-monospace, SFMono-Regular, Menlo, monospace";
+  context.textAlign = "left";
+  context.fillText(formatWeierstrassFrequency(minimumHz), left, bottom + 20);
+  context.textAlign = "right";
+  context.fillText(formatWeierstrassFrequency(maximumHz), right, bottom + 20);
+  context.restore();
+}
+
+function drawScope(context, width, height) {
+  const left = Math.max(24, width * 0.045);
+  const right = width - left;
+  const top = Math.max(height * 0.71, 250);
+  const bottom = Math.max(top + 24, height - 43);
+  const center = (top + bottom) * 0.5;
+  const hasWaveform = state.audioOn && audio.getWaveform(waveform);
+
+  context.save();
+  context.strokeStyle = "rgba(214, 232, 226, 0.08)";
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(left, center);
+  context.lineTo(right, center);
+  context.stroke();
+
+  context.beginPath();
+  if (hasWaveform) {
+    const slice = (right - left) / Math.max(1, waveform.length - 1);
+    for (let index = 0; index < waveform.length; index += 1) {
+      const x = left + index * slice;
+      const y = center - waveform[index] * (bottom - top) * 0.46;
+      if (index === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    context.strokeStyle = state.settings.mode === "fm"
+      ? "#c79bff"
+      : "#7db4ff";
+    context.shadowColor = state.settings.mode === "fm"
+      ? "rgba(199, 155, 255, 0.4)"
+      : "rgba(125, 180, 255, 0.4)";
+    context.shadowBlur = 8;
+  } else {
+    context.moveTo(left, center);
+    context.lineTo(right, center);
+    context.strokeStyle = "rgba(119, 131, 126, 0.48)";
+  }
+  context.lineWidth = 1.25;
+  context.stroke();
+  context.restore();
+}
+
+function draw(timestamp) {
+  if (!context2d || disposed) return;
+  context2d.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  context2d.clearRect(0, 0, cssWidth, cssHeight);
+  drawPartialLattice(
+    context2d,
+    currentBank(),
+    cssWidth,
+    cssHeight,
+    timestamp,
+  );
+  drawScope(context2d, cssWidth, cssHeight);
+}
+
+function visualizationFrame(timestamp) {
+  frameId = null;
+  if (disposed || document.hidden) return;
+  if (
+    visualizationDirty
+    || timestamp - lastDrawTime >= FRAME_INTERVAL
+  ) {
+    draw(timestamp);
+    lastDrawTime = timestamp;
+    visualizationDirty = false;
+  }
+  if (state.audioOn) scheduleVisualization();
+}
+
+function scheduleVisualization() {
+  if (frameId === null && !document.hidden && !disposed) {
+    frameId = requestAnimationFrame(visualizationFrame);
+  }
+}
+
+const resizeObserver = typeof ResizeObserver === "function"
+  ? new ResizeObserver(resizeCanvas)
+  : null;
+resizeObserver?.observe(stageWrap);
+if (!resizeObserver) globalThis.addEventListener("resize", resizeCanvas);
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    visualizationDirty = true;
+    scheduleVisualization();
+  }
+});
+
+globalThis.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !state.audioOn) return;
+  audio.stop();
+  state.audioOn = false;
+  updateAudioInterface();
+  updateReadouts();
+  visualizationDirty = true;
+  scheduleVisualization();
+  announce("Audio off.");
+});
+
+globalThis.addEventListener("pagehide", () => {
+  disposed = true;
+  if (frameId !== null) cancelAnimationFrame(frameId);
+  resizeObserver?.disconnect();
+  if (!resizeObserver) globalThis.removeEventListener("resize", resizeCanvas);
+  void audio.close();
+}, { once: true });
+
+updateInterface();
+updateAudioInterface();
+resizeCanvas();

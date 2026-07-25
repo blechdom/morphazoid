@@ -85,6 +85,10 @@ required_files=(
   chaotic-fm.css
   chaotic-fm-app.js
   src/chaotic-fm.js
+  weierstrass.html
+  weierstrass.css
+  weierstrass-app.js
+  src/weierstrass.js
   morphazoidical/index.html
   vendor/signalsmith-stretch/SignalsmithStretch.mjs
   vendor/tactile/tactile.js

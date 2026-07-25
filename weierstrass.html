@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Weierstrass — normalized fractal Wave and frequency-modulation banks with bounded continuous phases."
+    />
+    <title>Weierstrass — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="weierstrass.css" />
+  </head>
+  <body class="weierstrass-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="recursive-fm.html">recursive fm</a>
+        <a class="tab" href="chaotic-fm.html">chaotic fm</a>
+        <a class="tab active" href="weierstrass.html" aria-current="page">weierstrass</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="recursive-fm.html">recursive fm</option>
+          <option value="chaotic-fm.html">chaotic fm</option>
+          <option value="weierstrass.html" selected>weierstrass</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph weierstrass-audio-glyph" aria-hidden="true">Σ</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">46%</output></span>
+          <input
+            id="output"
+            aria-label="Weierstrass output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.46"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell weierstrass-shell" id="weierstrass">
+      <section class="stage weierstrass-stage" aria-labelledby="weierstrassTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Weierstrass Wave bank with nine requested terms. Audio off."
+            aria-describedby="weierstrassDescription liveStatus"
+          >
+            A Weierstrass partial lattice and live oscilloscope.
+          </canvas>
+
+          <div class="weierstrass-heading">
+            <p>CHAOTIC SYNTHS · 04</p>
+            <h1 id="weierstrassTitle">Weierstrass</h1>
+            <span>Σ aⁿ cos(2π f₀ bⁿ t)</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">WAVE · 9 REQUESTED · AUDIO OFF</span>
+          </div>
+
+          <div class="weierstrass-scope-labels" aria-hidden="true">
+            <span>ACTIVE PARTIAL LATTICE</span>
+            <span id="scopeState">SCOPE · IDLE</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel weierstrass-panel" aria-label="Weierstrass controls">
+        <details class="group control-section weierstrass-character" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Character</h2>
+            <span class="section-state" id="presetState">Salt Lattice</span>
+          </summary>
+          <div class="group-body">
+            <div class="weierstrass-mode-buttons" id="modeButtons" role="group" aria-label="Weierstrass synthesis mode">
+              <button type="button" data-mode="wave" aria-pressed="true">Wave</button>
+              <button type="button" data-mode="fm" aria-pressed="false">FM</button>
+            </div>
+
+            <div class="weierstrass-preset-grid" id="presetButtons" role="group" aria-label="Weierstrass character presets">
+              <button type="button" data-preset="salt-lattice" data-mode="wave" aria-pressed="true">Salt Lattice</button>
+              <button type="button" data-preset="silver-thicket" data-mode="wave" aria-pressed="false">Silver Thicket</button>
+              <button type="button" data-preset="copper-canopy" data-mode="fm" aria-pressed="false" hidden>Copper Canopy</button>
+              <button type="button" data-preset="alias-ghost-recast" data-mode="fm" aria-pressed="false" hidden>Alias Ghost · Recast</button>
+              <button type="button" data-preset="slow-ember" data-mode="fm" aria-pressed="false" hidden>Slow Ember</button>
+              <button type="button" data-preset="twin-flare" data-mode="fm" aria-pressed="false" hidden>Twin Flare</button>
+              <button type="button" data-preset="prism-engine" data-mode="fm" aria-pressed="false" hidden>Prism Engine</button>
+            </div>
+            <p class="weierstrass-preset-description" id="presetDescription">
+              Nine tapering terms climb through a steep, crystalline 7.07× lattice.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section weierstrass-algorithm" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Algorithm</h2>
+            <span class="section-state" id="algorithmState">Wave · normalized</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="terms">
+              <span><b>Terms</b><output id="termsOut" for="terms">9</output></span>
+              <input id="terms" type="range" min="1" max="48" step="1" value="9" />
+            </label>
+
+            <label class="control" for="startExponent">
+              <span><b>Start exponent</b><output id="startExponentOut" for="startExponent">2</output></span>
+              <input id="startExponent" type="range" min="0" max="47" step="1" value="2" />
+            </label>
+
+            <label class="control" for="amplitudeRatio">
+              <span><b>Amplitude ratio a</b><output id="amplitudeRatioOut" for="amplitudeRatio">0.91</output></span>
+              <input id="amplitudeRatio" type="range" min="0" max="2" step="0.01" value="0.91" />
+            </label>
+
+            <label class="control" for="frequencyRatio">
+              <span><b>Frequency ratio b</b><output id="frequencyRatioOut" for="frequencyRatio">7.07×</output></span>
+              <input id="frequencyRatio" type="range" min="0.125" max="11" step="0.001" value="7.07" />
+            </label>
+
+            <label class="control" for="baseFrequency">
+              <span><b>Base-term frequency</b><output id="baseFrequencyOut" for="baseFrequency">0.905 Hz</output></span>
+              <input
+                id="baseFrequency"
+                type="range"
+                min="0"
+                max="1"
+                step="0.0001"
+                value="0.49"
+                aria-describedby="frequencyPolicyNote"
+              />
+            </label>
+            <small class="weierstrass-control-note" id="frequencyPolicyNote">
+              Logarithmic · source “fundamental” ÷ 2 because its π phasor ran at half-rate
+            </small>
+
+            <div id="fmControls" hidden>
+              <label class="control" for="fmDepth">
+                <span><b>FM deviation</b><output id="fmDepthOut" for="fmDepth">1.03 kHz</output></span>
+                <input id="fmDepth" type="range" min="0" max="1" step="0.0001" value="0.293" />
+              </label>
+
+              <label class="control" for="offset">
+                <span><b>Frequency offset</b><output id="offsetOut" for="offset">15.5 Hz</output></span>
+                <input id="offset" type="range" min="0" max="1" step="0.0001" value="0.036" />
+              </label>
+            </div>
+
+            <div class="grammar-card weierstrass-ledger" aria-label="Current bounded algorithm">
+              <span><b>Mode</b><code id="modeReadout">normalized Wave bank</code></span>
+              <span><b>Terms</b><code id="termReadout">9 requested · 4 active · 5 culled</code></span>
+              <span><b>Range</b><code id="rangeReadout">45.2 Hz → 15.99 kHz</code></span>
+              <span><b>Source</b><code id="sourceReadout">1.81 fundamental → 0.905 Hz</code></span>
+              <span id="depthLedgerRow" hidden><b>FM depth</b><code id="depthReadout">1.03 kHz requested · 1.03 kHz rendered</code></span>
+              <span><b>Ceiling</b><code id="ceilingReadout">20 kHz · tapered + clamped</code></span>
+            </div>
+
+            <p class="weierstrass-safety-note">
+              Every requested legacy tuple is retained in source metadata. Playable rates use the source’s actual half-rate, all terms are included, phases stay continuous, and above-band terms taper out before normalization.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetWeierstrass" type="button" data-reset-all>Reset parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="weierstrassDescription">
+        The upper diagram places every requested term on a logarithmic frequency lattice, distinguishing active, tapered, and culled terms. The lower trace is a live oscilloscope when audio is on.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="weierstrass-app.js"></script>
+  </body>
+</html>
