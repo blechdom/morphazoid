@@ -8,8 +8,13 @@ import {
 } from "./src/barber-delay.js";
 
 const $ = (id) => document.getElementById(id);
-const mode = document.body.dataset.delayMode === "sludge" ? "sludge" : "candy";
+const TAU = Math.PI * 2;
+const requestedMode = document.body.dataset.delayMode;
+const mode = requestedMode === "sludge" || requestedMode === "sandy"
+  ? requestedMode
+  : "candy";
 const isCandy = mode === "candy";
+const isSandy = mode === "sandy";
 const presets = BARBER_DELAY_PRESETS[mode];
 const audio = new BarberDelayAudio(mode, globalThis);
 const canvas = $("stage");
@@ -18,9 +23,11 @@ const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)"
 const waveform = new Float32Array(512);
 const colors = isCandy
   ? ["#dc3c50", "#fff0d1", "#c9f04b", "#e650a0", "#8c32a0"]
-  : ["#506428", "#d8c99e", "#50c8ff", "#3c5032", "#76552f"];
+  : isSandy
+    ? ["#20ccaa", "#21102f", "#00dcc8", "#7548bd", "#258d82"]
+    : ["#506428", "#d8c99e", "#50c8ff", "#3c5032", "#76552f"];
 
-const initialPreset = presets[0];
+const initialPreset = isSandy ? null : presets[0];
 const state = {
   settings: {
     ...sanitizeBarberDelayParams(
@@ -95,6 +102,15 @@ function markCustom() {
 
 function updatePitchReadout() {
   const estimate = barberDelayPitchEstimate(state.settings, mode);
+  if (isSandy) {
+    const semitoneSpan = Math.round(Math.abs(estimate.semitones));
+    $("productOut").textContent = `${estimate.octaves.toFixed(2)} oct`;
+    $("ratioOut").textContent = "1.00×";
+    $("semitonesOut").textContent = `${estimate.lowRatio.toFixed(2)}× → ${estimate.highRatio.toFixed(2)}×`;
+    $("pitchReadout").textContent = `≈ ±${semitoneSpan} st`;
+    $("pitchCaption").textContent = `${estimate.lowRatio.toFixed(2)}× → 1.00× → ${estimate.highRatio.toFixed(2)}×`;
+    return;
+  }
   const semitoneCopy = estimate.symmetric
     ? `±${Math.round(Math.abs(estimate.semitones))} st`
     : `${signed(estimate.semitones)} st`;
@@ -121,7 +137,13 @@ function updateInterface({ drawNow = true } = {}) {
   setPressed($("audioButton"), state.audioOn);
 
   $("speed").value = String(settings.speed);
-  $("range").value = String(settings.range);
+  if (isSandy) {
+    $("pitchOctaves").value = String(settings.pitchOctaves);
+    $("grainSize").value = String(settings.grainSize);
+    $("blend").value = String(settings.blend);
+  } else {
+    $("range").value = String(settings.range);
+  }
   $("voices").value = String(settings.numVoices);
   $("tilt").value = String(settings.tilt);
   $("feedback").value = String(settings.feedback);
@@ -131,7 +153,17 @@ function updateInterface({ drawNow = true } = {}) {
   $("outputLevel").value = String(settings.outputLevel);
 
   $("speedOut").textContent = `${settings.speed.toFixed(2)} Hz`;
-  $("rangeOut").textContent = formatSeconds(settings.range);
+  if (isSandy) {
+    $("pitchOctavesOut").textContent = `${settings.pitchOctaves.toFixed(2)} oct`;
+    $("grainSizeOut").textContent = formatSeconds(settings.grainSize);
+    $("blendOut").textContent = settings.blend <= 0.005
+      ? "Sand"
+      : settings.blend >= 0.995
+        ? "Syrup"
+        : `${Math.round(settings.blend * 100)}% syrup`;
+  } else {
+    $("rangeOut").textContent = formatSeconds(settings.range);
+  }
   $("voicesOut").textContent = String(settings.numVoices);
   $("tiltOut").textContent = Math.abs(settings.tilt) < 0.005
     ? "centered"
@@ -143,8 +175,12 @@ function updateInterface({ drawNow = true } = {}) {
   $("outputLevelOut").textContent = `${Math.round(settings.outputLevel * 100)}%`;
   $("audioState").textContent = state.audioOn ? "on" : "off";
 
-  $("motionSummary").textContent = `${directionGlyph} · ${settings.speed.toFixed(2)} Hz · ${settings.range.toFixed(2)} s`;
-  $("soundSummary").textContent = `${Math.round(settings.feedback * 100)}% feedback · ${Math.round(settings.dryWet * 100)}% wet`;
+  $("motionSummary").textContent = isSandy
+    ? `${directionGlyph} · ${settings.speed.toFixed(2)} Hz · ${settings.pitchOctaves.toFixed(1)} oct`
+    : `${directionGlyph} · ${settings.speed.toFixed(2)} Hz · ${settings.range.toFixed(2)} s`;
+  $("soundSummary").textContent = isSandy
+    ? `${Math.round(settings.blend * 100)}% syrup · ${Math.round(settings.dryWet * 100)}% wet`
+    : `${Math.round(settings.feedback * 100)}% feedback · ${Math.round(settings.dryWet * 100)}% wet`;
   $("sourceSummary").textContent = state.source === "microphone"
     ? "microphone · headphones"
     : state.fileLabel
@@ -165,7 +201,9 @@ function updateInterface({ drawNow = true } = {}) {
   $("stageReadout").textContent = [
     `${settings.numVoices} HEADS`,
     `${directionGlyph} ${settings.speed.toFixed(2)} HZ`,
-    `${settings.range.toFixed(2)} S`,
+    isSandy
+      ? `${settings.pitchOctaves.toFixed(1)} OCT · ${settings.fbDelay.toFixed(1)} S HISTORY`
+      : `${settings.range.toFixed(2)} S`,
     state.audioOn ? "AUDIO ON" : "AUDIO OFF",
   ].join(" · ");
   $("scopeState").textContent = state.audioOn ? "SCOPE · LIVE" : "SCOPE · IDLE";
@@ -173,7 +211,9 @@ function updateInterface({ drawNow = true } = {}) {
     "aria-label",
     isCandy
       ? `Animated red, pink, cream, lime, and purple winding delay stripes moving ${settings.directionUp ? "upward" : "downward"}. Audio ${state.audioOn ? "on" : "off"}.`
-      : `Animated olive, cyan, cream, and earth centered-hump delay paths moving ${settings.directionUp ? "upward" : "downward"}. Audio ${state.audioOn ? "on" : "off"}.`,
+      : isSandy
+        ? `Animated teal, violet, cyan, dark-purple, and green liquid grain stripes moving ${settings.directionUp ? "upward" : "downward"}. Audio ${state.audioOn ? "on" : "off"}.`
+        : `Animated olive, cyan, cream, and earth centered-hump delay paths moving ${settings.directionUp ? "upward" : "downward"}. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 
   updatePitchReadout();
@@ -191,7 +231,9 @@ function renderPresets() {
     button.setAttribute("aria-pressed", String(preset.id === state.preset));
     button.title = [
       `${preset.settings.speed} Hz`,
-      `${preset.settings.range} s`,
+      isSandy
+        ? `${preset.settings.pitchOctaves} oct · ${preset.settings.fbDelay} s history`
+        : `${preset.settings.range} s`,
       `${preset.settings.numVoices} heads`,
     ].join(" · ");
     button.addEventListener("click", () => applyPreset(preset.id));
@@ -228,7 +270,7 @@ function setParameter(key, value) {
 }
 
 function bindRange(id, key, transform = Number) {
-  $(id).addEventListener("input", (event) => {
+  $(id)?.addEventListener("input", (event) => {
     const value = transform(event.currentTarget.value);
     if (isCandy && state.ratioLock && key === "speed" && value > 0) {
       state.settings = {
@@ -266,7 +308,13 @@ for (const button of $("directionChoice").querySelectorAll("[data-direction]")) 
 }
 
 bindRange("speed", "speed");
-bindRange("range", "range");
+if (isSandy) {
+  bindRange("pitchOctaves", "pitchOctaves");
+  bindRange("grainSize", "grainSize");
+  bindRange("blend", "blend");
+} else {
+  bindRange("range", "range");
+}
 bindRange("voices", "numVoices", (value) => Math.round(Number(value)));
 bindRange("tilt", "tilt");
 bindRange("feedback", "feedback");
@@ -619,6 +667,116 @@ function drawSludgeField(ctx, width, height) {
   ctx.globalAlpha = 1;
 }
 
+function drawSandyField(ctx, width, height) {
+  const fieldWidth = Math.min(width * 0.72, 760);
+  const fieldHeight = Math.min(height * 0.62, 510);
+  const left = (width - fieldWidth) * 0.5;
+  const top = (height - fieldHeight) * 0.5;
+  const bandHeight = Math.max(14, fieldHeight / 20);
+  const direction = state.settings.directionUp ? 1 : -1;
+  const grit = 1 - state.settings.blend;
+
+  ctx.save();
+  roundedRectPath(
+    ctx,
+    left,
+    top,
+    fieldWidth,
+    fieldHeight,
+    Math.min(110, fieldWidth * 0.18),
+  );
+  ctx.clip();
+  const liquidGlow = ctx.createRadialGradient(
+    width * 0.48,
+    height * 0.48,
+    8,
+    width * 0.5,
+    height * 0.5,
+    fieldWidth * 0.58,
+  );
+  liquidGlow.addColorStop(0, "rgba(32, 204, 170, 0.12)");
+  liquidGlow.addColorStop(0.56, "rgba(72, 36, 112, 0.1)");
+  liquidGlow.addColorStop(1, "rgba(5, 4, 12, 0.94)");
+  ctx.fillStyle = liquidGlow;
+  ctx.fillRect(left, top, fieldWidth, fieldHeight);
+
+  ctx.translate(width * 0.5, height * 0.5);
+  ctx.rotate(direction * -0.72);
+  const diagonal = width + height;
+  const travel = state.visualPhase * bandHeight * 5;
+  for (let band = -42; band <= 42; band += 1) {
+    const stripeY = band * bandHeight + travel;
+    ctx.beginPath();
+    for (let step = 0; step <= 54; step += 1) {
+      const progress = step / 54;
+      const x = -diagonal + progress * diagonal * 2;
+      const slowWave = Math.sin((x / 92) + band * 0.82) * 10;
+      const sandRipple = Math.sin((x / 13) + band * 1.7) * 2.8 * grit;
+      const y = stripeY + slowWave + sandRipple;
+      if (step === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    for (let step = 54; step >= 0; step -= 1) {
+      const progress = step / 54;
+      const x = -diagonal + progress * diagonal * 2;
+      const slowWave = Math.sin((x / 92) + band * 0.82) * 10;
+      const sandRipple = Math.sin((x / 13) + band * 1.7) * 2.8 * grit;
+      ctx.lineTo(x, stripeY + bandHeight * 0.72 + slowWave + sandRipple);
+    }
+    ctx.closePath();
+    ctx.fillStyle = colors[((band % colors.length) + colors.length) % colors.length];
+    ctx.globalAlpha = 0.27 + state.settings.blend * 0.09;
+    ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.save();
+  roundedRectPath(
+    ctx,
+    left,
+    top,
+    fieldWidth,
+    fieldHeight,
+    Math.min(110, fieldWidth * 0.18),
+  );
+  ctx.strokeStyle = "rgba(32, 204, 170, 0.3)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  const heads = state.settings.numVoices;
+  for (let index = 0; index < heads; index += 1) {
+    const phase = wrapPhase(state.visualPhase + index / heads);
+    const centeredRate = (phase - 0.5) * direction;
+    const x = left + fieldWidth * (0.12 + phase * 0.76);
+    const y = top + fieldHeight * (
+      0.5 - centeredRate * 0.7
+      + Math.sin(phase * Math.PI * 4) * 0.035
+    );
+    const window = barberDelayWindow(phase, state.settings.tilt);
+    const grainPulse = 0.5 + 0.5 * Math.cos(
+      TAU * phase / Math.max(0.005, state.settings.grainSize),
+    );
+    ctx.beginPath();
+    ctx.arc(x, y, 2.5 + window * 4 + grainPulse * 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = colors[index % colors.length];
+    ctx.globalAlpha = 0.2 + window * 0.72;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(
+      x + (direction * 7),
+      y + 5,
+      1.8 + window * 2.5,
+      0,
+      Math.PI * 2,
+    );
+    ctx.globalAlpha = 0.14 + window * 0.48;
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
 function drawScope(ctx, width, height) {
   const left = Math.max(20, width * 0.07);
   const right = width - left;
@@ -642,7 +800,9 @@ function drawScope(ctx, width, height) {
     }
     ctx.strokeStyle = isCandy
       ? "rgba(255, 240, 209, 0.44)"
-      : "rgba(80, 200, 255, 0.42)";
+      : isSandy
+        ? "rgba(32, 204, 170, 0.48)"
+        : "rgba(80, 200, 255, 0.42)";
     ctx.lineWidth = 1;
     ctx.stroke();
   }
@@ -655,6 +815,7 @@ function draw(timestamp, force = false) {
   lastDrawTime = timestamp;
   context2d.clearRect(0, 0, canvasWidth, canvasHeight);
   if (isCandy) drawCandyField(context2d, canvasWidth, canvasHeight);
+  else if (isSandy) drawSandyField(context2d, canvasWidth, canvasHeight);
   else drawSludgeField(context2d, canvasWidth, canvasHeight);
   drawScope(context2d, canvasWidth, canvasHeight);
 }

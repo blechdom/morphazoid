@@ -40,6 +40,7 @@ test("site builder publishes runtime files without development material", async 
       "src/shepard-risset.js",
       "candy-coil-delay.html",
       "striped-sludge-delay.html",
+      "sandy-syrup-delay.html",
       "barber-delay.css",
       "barber-delay-app.js",
       "src/barber-delay.js",

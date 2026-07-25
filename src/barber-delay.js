@@ -3,6 +3,10 @@ const DEFAULT_SAMPLE_RATE = 48_000;
 const RENDER_QUANTUM = 128;
 const TAU = Math.PI * 2;
 const FEEDBACK_BUDGET = 0.95;
+const SANDY_BUFFER_SECONDS = 16;
+const SANDY_STREAM_COUNT = 24;
+const SANDY_READ_GUARD_SAMPLES = 4;
+const SANDY_NORMALIZATION_FLOOR = 0.5;
 
 export const BARBER_DELAY_PROCESSOR_NAME = PROCESSOR_NAME;
 
@@ -13,8 +17,17 @@ export const BARBER_DELAY_LIMITS = Object.freeze({
   maximumSpeed: 5,
   minimumRange: 0.1,
   maximumRange: 10,
+  minimumPitchOctaves: 0.5,
+  maximumPitchOctaves: 10,
+  minimumGrainSize: 0.005,
+  maximumGrainSize: 0.5,
   minimumFeedbackDelay: 0.001,
   maximumFeedbackDelay: 10,
+  minimumSandyHistory: 0.1,
+  maximumSandyHistory: 15,
+  sandyBufferSeconds: SANDY_BUFFER_SECONDS,
+  sandyStreamCount: SANDY_STREAM_COUNT,
+  sandyReadGuardSamples: SANDY_READ_GUARD_SAMPLES,
   maximumFeedback: FEEDBACK_BUDGET,
   maximumGlobalFeedback: 0.5,
   maximumInputGain: 2,
@@ -49,13 +62,31 @@ const SLUDGE_DEFAULTS = Object.freeze({
   outputLevel: 0.5,
 });
 
+const SANDY_DEFAULTS = Object.freeze({
+  numVoices: 8,
+  speed: 0.05,
+  pitchOctaves: 4,
+  directionUp: true,
+  tilt: 0,
+  feedback: 0,
+  fbDelay: 4,
+  globalFeedback: 0,
+  dryWet: 0.8,
+  inputGain: 1,
+  outputLevel: 0.5,
+  grainSize: 0.05,
+  blend: 0.5,
+});
+
 export const BARBER_DELAY_DEFAULTS = Object.freeze({
   candy: CANDY_DEFAULTS,
   sludge: SLUDGE_DEFAULTS,
+  sandy: SANDY_DEFAULTS,
 });
 
 export function sanitizeBarberDelayMode(mode) {
-  return mode === "sludge" ? "sludge" : "candy";
+  if (mode === "sludge" || mode === "sandy") return mode;
+  return "candy";
 }
 
 function finiteNumber(value, fallback) {
@@ -83,6 +114,7 @@ export function wrapBarberPhase(value) {
 export function sanitizeBarberDelayParams(params = {}, mode = "candy") {
   const safeMode = sanitizeBarberDelayMode(mode);
   const defaults = BARBER_DELAY_DEFAULTS[safeMode];
+  const isSandy = safeMode === "sandy";
   let feedback = clamp(
     params.feedback,
     0,
@@ -102,7 +134,7 @@ export function sanitizeBarberDelayParams(params = {}, mode = "candy") {
     globalFeedback *= normalization;
   }
 
-  return Object.freeze({
+  const shared = {
     numVoices: Math.round(clamp(
       params.numVoices,
       BARBER_DELAY_LIMITS.minimumVoices,
@@ -115,12 +147,6 @@ export function sanitizeBarberDelayParams(params = {}, mode = "candy") {
       BARBER_DELAY_LIMITS.maximumSpeed,
       defaults.speed,
     ),
-    range: clamp(
-      params.range,
-      BARBER_DELAY_LIMITS.minimumRange,
-      BARBER_DELAY_LIMITS.maximumRange,
-      defaults.range,
-    ),
     directionUp: params.directionUp === undefined
       ? defaults.directionUp
       : Boolean(params.directionUp),
@@ -128,8 +154,12 @@ export function sanitizeBarberDelayParams(params = {}, mode = "candy") {
     feedback,
     fbDelay: clamp(
       params.fbDelay,
-      BARBER_DELAY_LIMITS.minimumFeedbackDelay,
-      BARBER_DELAY_LIMITS.maximumFeedbackDelay,
+      isSandy
+        ? BARBER_DELAY_LIMITS.minimumSandyHistory
+        : BARBER_DELAY_LIMITS.minimumFeedbackDelay,
+      isSandy
+        ? BARBER_DELAY_LIMITS.maximumSandyHistory
+        : BARBER_DELAY_LIMITS.maximumFeedbackDelay,
       defaults.fbDelay,
     ),
     globalFeedback,
@@ -145,6 +175,35 @@ export function sanitizeBarberDelayParams(params = {}, mode = "candy") {
       0,
       BARBER_DELAY_LIMITS.maximumOutputLevel,
       defaults.outputLevel,
+    ),
+  };
+
+  if (isSandy) {
+    return Object.freeze({
+      ...shared,
+      pitchOctaves: clamp(
+        params.pitchOctaves,
+        BARBER_DELAY_LIMITS.minimumPitchOctaves,
+        BARBER_DELAY_LIMITS.maximumPitchOctaves,
+        defaults.pitchOctaves,
+      ),
+      grainSize: clamp(
+        params.grainSize,
+        BARBER_DELAY_LIMITS.minimumGrainSize,
+        BARBER_DELAY_LIMITS.maximumGrainSize,
+        defaults.grainSize,
+      ),
+      blend: clamp(params.blend, 0, 1, defaults.blend),
+    });
+  }
+
+  return Object.freeze({
+    ...shared,
+    range: clamp(
+      params.range,
+      BARBER_DELAY_LIMITS.minimumRange,
+      BARBER_DELAY_LIMITS.maximumRange,
+      defaults.range,
     ),
   });
 }
@@ -183,9 +242,154 @@ export function barberDelayWindow(phase, tilt = 0) {
   return 0.5 * (1 - Math.cos(TAU * skewedPosition));
 }
 
+function clampUnit(value, fallback = 0) {
+  return clamp(value, 0, 1, fallback);
+}
+
+/**
+ * Sandy Syrup's centered exponential pitch path. Unlike wrapBarberPhase(),
+ * this helper intentionally keeps an endpoint phase of 1 so callers can
+ * inspect the complete .25× → 1× → 4× vector for a four-octave sweep.
+ */
+export function sandySyrupTargetRate(
+  pitchOctaves,
+  phase,
+  directionUp = true,
+) {
+  const octaves = clamp(
+    pitchOctaves,
+    BARBER_DELAY_LIMITS.minimumPitchOctaves,
+    BARBER_DELAY_LIMITS.maximumPitchOctaves,
+    SANDY_DEFAULTS.pitchOctaves,
+  );
+  const position = clampUnit(phase);
+  const direction = directionUp ? 1 : -1;
+  return 2 ** (octaves * (position - 0.5) * direction);
+}
+
+/**
+ * Exponential history placement retained from the Morphisma instrument.
+ * At four octaves and four seconds it maps p=[0,.5,1] to [4,.8,0].
+ */
+export function sandySyrupBaseDelay(
+  pitchOctaves,
+  phase,
+  historySeconds,
+) {
+  const octaves = clamp(
+    pitchOctaves,
+    BARBER_DELAY_LIMITS.minimumPitchOctaves,
+    BARBER_DELAY_LIMITS.maximumPitchOctaves,
+    SANDY_DEFAULTS.pitchOctaves,
+  );
+  const position = clampUnit(phase);
+  const history = clamp(
+    historySeconds,
+    BARBER_DELAY_LIMITS.minimumSandyHistory,
+    BARBER_DELAY_LIMITS.maximumSandyHistory,
+    SANDY_DEFAULTS.fbDelay,
+  );
+  const octaveSpan = 2 ** octaves;
+  return (
+    history
+    * ((2 ** (octaves * (1 - position))) - 1)
+    / (octaveSpan - 1)
+  );
+}
+
+export function sandySyrupHann(phase) {
+  const position = wrapBarberPhase(phase);
+  return 0.5 * (1 - Math.cos(TAU * position));
+}
+
+export function sandySyrupComplementaryHann(phase) {
+  const primary = sandySyrupHann(phase);
+  const secondary = sandySyrupHann(phase + 0.5);
+  return Object.freeze({
+    primary,
+    secondary,
+    total: primary + secondary,
+  });
+}
+
+export function sandySyrupEffectiveRate(heldRate, targetRate, blend) {
+  const held = Math.max(0, finiteNumber(heldRate, 1));
+  const target = Math.max(0, finiteNumber(targetRate, held));
+  const mix = clampUnit(blend, SANDY_DEFAULTS.blend);
+  return held + ((target - held) * mix);
+}
+
+export function integrateSandySyrupCursor(
+  absoluteCursor,
+  heldRate,
+  targetRate,
+  blend,
+) {
+  return (
+    finiteNumber(absoluteCursor, 0)
+    + sandySyrupEffectiveRate(heldRate, targetRate, blend)
+  );
+}
+
+export function sandySyrupWetNormalizationGain(windowWeight) {
+  const weight = Math.max(0, finiteNumber(windowWeight, 0));
+  return 1 / Math.max(SANDY_NORMALIZATION_FLOOR, weight);
+}
+
+/**
+ * Clamp an absolute grain cursor to readable history. This both proves that a
+ * read never exceeds the finite ring and keeps high-rate grains behind the
+ * write head if their requested traversal is longer than the available guard.
+ */
+export function clampSandySyrupCursor(
+  absoluteCursor,
+  absoluteWriteIndex,
+  bufferLength,
+  guardSamples = SANDY_READ_GUARD_SAMPLES,
+) {
+  const write = finiteNumber(absoluteWriteIndex, 0);
+  const length = Math.max(
+    RENDER_QUANTUM + 2,
+    Math.round(finiteNumber(bufferLength, RENDER_QUANTUM + 2)),
+  );
+  const guard = clamp(
+    guardSamples,
+    1,
+    Math.max(1, length - 2),
+    SANDY_READ_GUARD_SAMPLES,
+  );
+  const oldest = write - (length - 2);
+  const newest = write - guard;
+  return Math.min(newest, Math.max(oldest, finiteNumber(
+    absoluteCursor,
+    newest,
+  )));
+}
+
 export function barberDelayPitchEstimate(params = {}, mode = "candy") {
   const safeMode = sanitizeBarberDelayMode(mode);
   const safe = sanitizeBarberDelayParams(params, safeMode);
+  if (safeMode === "sandy") {
+    const lowRatio = sandySyrupTargetRate(
+      safe.pitchOctaves,
+      0,
+      safe.directionUp,
+    );
+    const highRatio = sandySyrupTargetRate(
+      safe.pitchOctaves,
+      1,
+      safe.directionUp,
+    );
+    return Object.freeze({
+      product: safe.pitchOctaves,
+      ratio: 1,
+      lowRatio,
+      highRatio,
+      semitones: safe.pitchOctaves * 6,
+      symmetric: true,
+      octaves: safe.pitchOctaves,
+    });
+  }
   if (safeMode === "sludge") {
     const product = safe.speed * safe.range * Math.PI;
     const ratio = 1 + product;
@@ -326,9 +530,73 @@ const SLUDGE_PRESETS = Object.freeze([
   }),
 ]);
 
+const SANDY_PRESETS = Object.freeze([
+  makePreset("sandy", "silk-rise", "Silk Rise", {
+    speed: 0.08, pitchOctaves: 4, directionUp: true, numVoices: 8, tilt: 0,
+    feedback: 0, fbDelay: 4, globalFeedback: 0, dryWet: 0.85,
+    grainSize: 0.05, blend: 0.5,
+  }),
+  makePreset("sandy", "silk-fall", "Silk Fall", {
+    speed: 0.08, pitchOctaves: 4, directionUp: false, numVoices: 8, tilt: 0,
+    feedback: 0, fbDelay: 4, globalFeedback: 0, dryWet: 0.85,
+    grainSize: 0.05, blend: 0.5,
+  }),
+  makePreset("sandy", "pure-grit", "Pure Grit", {
+    speed: 0.1, pitchOctaves: 3, directionUp: true, numVoices: 8, tilt: 0,
+    feedback: 0, fbDelay: 4, globalFeedback: 0, dryWet: 0.85,
+    grainSize: 0.08, blend: 0,
+  }),
+  makePreset("sandy", "pure-syrup", "Pure Syrup", {
+    speed: 0.1, pitchOctaves: 3, directionUp: true, numVoices: 8, tilt: 0,
+    feedback: 0, fbDelay: 4, globalFeedback: 0, dryWet: 0.85,
+    grainSize: 0.08, blend: 1,
+  }),
+  makePreset("sandy", "glacial-drift", "Glacial Drift", {
+    speed: 0.015, pitchOctaves: 8, directionUp: true, numVoices: 12, tilt: 0,
+    feedback: 0.75, fbDelay: 12, globalFeedback: 0, dryWet: 1,
+    grainSize: 0.04, blend: 0.7,
+  }),
+  makePreset("sandy", "robot-grind", "Robot Grind", {
+    speed: 1.2, pitchOctaves: 1, directionUp: false, numVoices: 2, tilt: -0.6,
+    feedback: 0.93, fbDelay: 2, globalFeedback: 0, dryWet: 1,
+    grainSize: 0.015, blend: 0,
+  }),
+  makePreset("sandy", "grain-cloud", "Grain Cloud", {
+    speed: 0.1, pitchOctaves: 3, directionUp: true, numVoices: 10, tilt: -0.3,
+    feedback: 0.3, fbDelay: 5, globalFeedback: 0, dryWet: 0.9,
+    grainSize: 0.3, blend: 0,
+  }),
+  makePreset("sandy", "silk-glide", "Silk Glide", {
+    speed: 0.05, pitchOctaves: 6, directionUp: false, numVoices: 12, tilt: 0,
+    feedback: 0, fbDelay: 6, globalFeedback: 0, dryWet: 0.8,
+    grainSize: 0.008, blend: 1,
+  }),
+  makePreset("sandy", "metal-shimmer", "Metal Shimmer", {
+    speed: 0.6, pitchOctaves: 1, directionUp: true, numVoices: 6, tilt: 0.7,
+    feedback: 0.5, fbDelay: 1.5, globalFeedback: 0, dryWet: 0.7,
+    grainSize: 0.01, blend: 0.3,
+  }),
+  makePreset("sandy", "feedback-drone", "Feedback Drone", {
+    speed: 0.03, pitchOctaves: 2, directionUp: true, numVoices: 12, tilt: 0,
+    feedback: 0.92, fbDelay: 8, globalFeedback: 0, dryWet: 1,
+    grainSize: 0.06, blend: 0.6,
+  }),
+  makePreset("sandy", "full-spectrum", "Full Spectrum", {
+    speed: 0.04, pitchOctaves: 10, directionUp: true, numVoices: 12, tilt: 0,
+    feedback: 0, fbDelay: 10, globalFeedback: 0, dryWet: 1,
+    grainSize: 0.03, blend: 0.8,
+  }),
+  makePreset("sandy", "gentle-blend", "Gentle Blend", {
+    speed: 0.12, pitchOctaves: 2, directionUp: false, numVoices: 6, tilt: 0.2,
+    feedback: 0.2, fbDelay: 3, globalFeedback: 0, dryWet: 0.4,
+    grainSize: 0.06, blend: 0.4,
+  }),
+]);
+
 export const BARBER_DELAY_PRESETS = Object.freeze({
   candy: CANDY_PRESETS,
   sludge: SLUDGE_PRESETS,
+  sandy: SANDY_PRESETS,
 });
 
 export function createBarberSoftCeilingCurve(
@@ -367,17 +635,30 @@ function createProcessorClass(AudioWorkletBase) {
       const workletSampleRate = Number(globalThis.sampleRate)
         || DEFAULT_SAMPLE_RATE;
       this.sampleRate = workletSampleRate;
-      this.bufferLength = (
-        Math.ceil(BARBER_DELAY_LIMITS.maximumRange * workletSampleRate)
-        + RENDER_QUANTUM
-        + 2
-      );
+      this.isSandy = this.mode === "sandy";
+      this.bufferLength = this.isSandy
+        ? Math.ceil(SANDY_BUFFER_SECONDS * workletSampleRate)
+        : (
+          Math.ceil(
+            BARBER_DELAY_LIMITS.maximumRange * workletSampleRate,
+          )
+          + RENDER_QUANTUM
+          + 2
+        );
       this.buffers = [
         new Float32Array(this.bufferLength),
         new Float32Array(this.bufferLength),
       ];
       this.writeIndex = 0;
+      this.absoluteWriteIndex = 0;
       this.phase = 0;
+      this.streamCursors = new Float64Array(SANDY_STREAM_COUNT);
+      this.streamPhases = new Float64Array(SANDY_STREAM_COUNT);
+      this.streamHeldRates = new Float64Array(SANDY_STREAM_COUNT);
+      this.streamInitialized = new Uint8Array(SANDY_STREAM_COUNT);
+      for (let streamIndex = 1; streamIndex < SANDY_STREAM_COUNT; streamIndex += 2) {
+        this.streamPhases[streamIndex] = 0.5;
+      }
       this.previousWetLeft = 0;
       this.previousWetRight = 0;
       this.activeTarget = 0;
@@ -400,7 +681,19 @@ function createProcessorClass(AudioWorkletBase) {
           this.buffers[0].fill(0);
           this.buffers[1].fill(0);
           this.writeIndex = 0;
+          this.absoluteWriteIndex = 0;
           this.phase = 0;
+          this.streamCursors.fill(0);
+          this.streamHeldRates.fill(1);
+          this.streamInitialized.fill(0);
+          this.streamPhases.fill(0);
+          for (
+            let streamIndex = 1;
+            streamIndex < SANDY_STREAM_COUNT;
+            streamIndex += 2
+          ) {
+            this.streamPhases[streamIndex] = 0.5;
+          }
           this.previousWetLeft = 0;
           this.previousWetRight = 0;
         }
@@ -419,6 +712,64 @@ function createProcessorClass(AudioWorkletBase) {
       return buffer[before] + ((buffer[after] - buffer[before]) * fraction);
     }
 
+    readAbsolute(buffer, absoluteCursor) {
+      let readPosition = absoluteCursor % this.bufferLength;
+      if (readPosition < 0) readPosition += this.bufferLength;
+      const before = Math.floor(readPosition);
+      const after = before + 1 === this.bufferLength ? 0 : before + 1;
+      const fraction = readPosition - before;
+      return buffer[before] + ((buffer[after] - buffer[before]) * fraction);
+    }
+
+    resetSandyStream(
+      streamIndex,
+      voicePhase,
+      targetRate,
+      absoluteWriteIndex,
+    ) {
+      const octaves = this.current.pitchOctaves;
+      const octaveSpan = 2 ** octaves;
+      const baseDelaySamples = (
+        this.current.fbDelay
+        * this.sampleRate
+        * (((2 ** (octaves * (1 - voicePhase))) - 1)
+          / (octaveSpan - 1))
+      );
+      const grainSamples = Math.max(
+        1,
+        this.current.grainSize * this.sampleRate,
+      );
+      const sweepTravel = this.current.speed * this.current.grainSize;
+      const grainEnd = voicePhase + sweepTravel;
+      let maximumRate;
+      if (sweepTravel >= 1 || grainEnd >= 1) {
+        maximumRate = 2 ** (octaves * 0.5);
+      } else {
+        // Direction changes are smoothed during a grain. Bounding by distance
+        // from the center protects either direction without discontinuities.
+        const farthestFromCenter = Math.max(
+          Math.abs(voicePhase - 0.5),
+          Math.abs(grainEnd - 0.5),
+        );
+        maximumRate = 2 ** (octaves * farthestFromCenter);
+      }
+      const traversalReserve = Math.max(
+        0,
+        maximumRate - 1,
+      ) * grainSamples;
+      const lookbehind = (
+        Math.max(baseDelaySamples, traversalReserve)
+        + SANDY_READ_GUARD_SAMPLES
+      );
+      this.streamHeldRates[streamIndex] = targetRate;
+      this.streamCursors[streamIndex] = clampSandySyrupCursor(
+        absoluteWriteIndex - lookbehind,
+        absoluteWriteIndex,
+        this.bufferLength,
+      );
+      this.streamInitialized[streamIndex] = 1;
+    }
+
     process(inputs, outputs) {
       const output = outputs[0];
       if (!output?.length) return true;
@@ -428,6 +779,7 @@ function createProcessorClass(AudioWorkletBase) {
       const leftInput = input[0];
       const rightInput = input[1] ?? leftInput;
       const isSludge = this.mode === "sludge";
+      const isSandy = this.isSandy;
       const parameterSlew = 1 - Math.exp(-1 / (this.sampleRate * 0.04));
       const voiceSlew = 1 - Math.exp(-1 / (this.sampleRate * 0.075));
       const activeSlew = 1 - Math.exp(-1 / (this.sampleRate * 0.008));
@@ -440,9 +792,21 @@ function createProcessorClass(AudioWorkletBase) {
         this.current.speed += (
           this.target.speed - this.current.speed
         ) * parameterSlew;
-        this.current.range += (
-          this.target.range - this.current.range
-        ) * parameterSlew;
+        if (isSandy) {
+          this.current.pitchOctaves += (
+            this.target.pitchOctaves - this.current.pitchOctaves
+          ) * parameterSlew;
+          this.current.grainSize += (
+            this.target.grainSize - this.current.grainSize
+          ) * parameterSlew;
+          this.current.blend += (
+            this.target.blend - this.current.blend
+          ) * parameterSlew;
+        } else {
+          this.current.range += (
+            this.target.range - this.current.range
+          ) * parameterSlew;
+        }
         this.current.tilt += (
           this.target.tilt - this.current.tilt
         ) * parameterSlew;
@@ -510,44 +874,137 @@ function createProcessorClass(AudioWorkletBase) {
         this.buffers[1][this.writeIndex] = recordRight;
 
         const voiceCount = Math.max(1, this.current.numVoices);
-        const voiceGain = 2 / voiceCount;
-        const rangeSamples = this.current.range * this.sampleRate;
         const skew = 2 ** (this.current.tilt * 2);
         let wetLeft = 0;
         let wetRight = 0;
-
-        for (
-          let voiceIndex = 0;
-          voiceIndex < BARBER_DELAY_LIMITS.maximumVoices;
-          voiceIndex += 1
-        ) {
-          // A fractional final voice crossfades count changes instead of
-          // abruptly inserting or removing a read head.
-          const voiceActivation = Math.max(
-            0,
-            Math.min(1, voiceCount - voiceIndex),
+        if (isSandy) {
+          const octaves = this.current.pitchOctaves;
+          const directionSign = (this.current.directionMix * 2) - 1;
+          const grainStep = 1 / Math.max(
+            1,
+            this.current.grainSize * this.sampleRate,
           );
-          if (voiceActivation <= 1e-6) continue;
-          let voicePhase = this.phase + (voiceIndex / voiceCount);
-          voicePhase -= Math.floor(voicePhase);
+          const blend = this.current.blend;
+          let wetWeight = 0;
 
-          let risingCurve;
-          if (isSludge) {
-            const sine = Math.sin(Math.PI * voicePhase);
-            risingCurve = sine * sine;
-          } else {
-            risingCurve = (2 ** (1 - voicePhase)) - 1;
+          for (
+            let voiceIndex = 0;
+            voiceIndex < BARBER_DELAY_LIMITS.maximumVoices;
+            voiceIndex += 1
+          ) {
+            const voiceActivation = Math.max(
+              0,
+              Math.min(1, voiceCount - voiceIndex),
+            );
+            if (voiceActivation <= 1e-6) continue;
+            let voicePhase = this.phase + (voiceIndex / voiceCount);
+            voicePhase -= Math.floor(voicePhase);
+            const targetRate = 2 ** (
+              octaves * (voicePhase - 0.5) * directionSign
+            );
+            const skewedPhase = voicePhase ** skew;
+            const sweepWindow = 0.5 * (
+              1 - Math.cos(TAU * skewedPhase)
+            );
+            let voiceLeft = 0;
+            let voiceRight = 0;
+
+            for (let stream = 0; stream < 2; stream += 1) {
+              const streamIndex = voiceIndex * 2 + stream;
+              let grainPhase = this.streamPhases[streamIndex];
+              if (!this.streamInitialized[streamIndex]) {
+                this.resetSandyStream(
+                  streamIndex,
+                  voicePhase,
+                  targetRate,
+                  this.absoluteWriteIndex,
+                );
+              }
+
+              const heldRate = this.streamHeldRates[streamIndex];
+              const effectiveRate = heldRate + (
+                (targetRate - heldRate) * blend
+              );
+              const cursor = clampSandySyrupCursor(
+                this.streamCursors[streamIndex],
+                this.absoluteWriteIndex,
+                this.bufferLength,
+              );
+              const grainWindow = 0.5 * (
+                1 - Math.cos(TAU * grainPhase)
+              );
+              voiceLeft += this.readAbsolute(
+                this.buffers[0],
+                cursor,
+              ) * grainWindow;
+              voiceRight += this.readAbsolute(
+                this.buffers[1],
+                cursor,
+              ) * grainWindow;
+
+              this.streamCursors[streamIndex] = clampSandySyrupCursor(
+                cursor + effectiveRate,
+                this.absoluteWriteIndex + 1,
+                this.bufferLength,
+              );
+              grainPhase += grainStep;
+              if (grainPhase >= 1) {
+                grainPhase -= Math.floor(grainPhase);
+                this.resetSandyStream(
+                  streamIndex,
+                  voicePhase,
+                  targetRate,
+                  this.absoluteWriteIndex + 1,
+                );
+              }
+              this.streamPhases[streamIndex] = grainPhase;
+            }
+
+            const gain = sweepWindow * voiceActivation;
+            wetLeft += voiceLeft * gain;
+            wetRight += voiceRight * gain;
+            wetWeight += gain;
           }
-          const curve = (
-            (risingCurve * this.current.directionMix)
-            + ((1 - risingCurve) * (1 - this.current.directionMix))
-          );
-          const delaySamples = curve * rangeSamples;
-          const skewedPhase = voicePhase ** skew;
-          const window = 0.5 * (1 - Math.cos(TAU * skewedPhase));
-          const gain = window * voiceGain * voiceActivation;
-          wetLeft += this.read(this.buffers[0], delaySamples) * gain;
-          wetRight += this.read(this.buffers[1], delaySamples) * gain;
+
+          const wetNormalization = sandySyrupWetNormalizationGain(wetWeight);
+          wetLeft *= wetNormalization;
+          wetRight *= wetNormalization;
+        } else {
+          const voiceGain = 2 / voiceCount;
+          const rangeSamples = this.current.range * this.sampleRate;
+          for (
+            let voiceIndex = 0;
+            voiceIndex < BARBER_DELAY_LIMITS.maximumVoices;
+            voiceIndex += 1
+          ) {
+            // A fractional final voice crossfades count changes instead of
+            // abruptly inserting or removing a read head.
+            const voiceActivation = Math.max(
+              0,
+              Math.min(1, voiceCount - voiceIndex),
+            );
+            if (voiceActivation <= 1e-6) continue;
+            let voicePhase = this.phase + (voiceIndex / voiceCount);
+            voicePhase -= Math.floor(voicePhase);
+
+            let risingCurve;
+            if (isSludge) {
+              const sine = Math.sin(Math.PI * voicePhase);
+              risingCurve = sine * sine;
+            } else {
+              risingCurve = (2 ** (1 - voicePhase)) - 1;
+            }
+            const curve = (
+              (risingCurve * this.current.directionMix)
+              + ((1 - risingCurve) * (1 - this.current.directionMix))
+            );
+            const delaySamples = curve * rangeSamples;
+            const skewedPhase = voicePhase ** skew;
+            const window = 0.5 * (1 - Math.cos(TAU * skewedPhase));
+            const gain = window * voiceGain * voiceActivation;
+            wetLeft += this.read(this.buffers[0], delaySamples) * gain;
+            wetRight += this.read(this.buffers[1], delaySamples) * gain;
+          }
         }
 
         this.previousWetLeft = wetLeft;
@@ -570,6 +1027,7 @@ function createProcessorClass(AudioWorkletBase) {
 
         this.writeIndex += 1;
         if (this.writeIndex === this.bufferLength) this.writeIndex = 0;
+        this.absoluteWriteIndex += 1;
       }
       return true;
     }

@@ -39,6 +39,7 @@ export const TOOL_GROUPS = Object.freeze([
       label: "Striped Sludge Delay",
       href: "striped-sludge-delay.html",
     },
+    { id: "sandy-syrup-delay", label: "Sandy Syrup Delay", href: "sandy-syrup-delay.html" },
   ]),
   freezeGroup("chaotic-synths", "Chaotic Synths", [
     { id: "recursive-fm", label: "Recursive FM", href: "recursive-fm.html" },

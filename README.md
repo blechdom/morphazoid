@@ -26,6 +26,8 @@ Julia presets include the Unit circle, Cauliflower, San Marco, Basilica, the exa
 
 **Striped Sludge Delay** sends microphone or local-file audio through a centered multihead delay sweep. Each staggered head approaches the source pitch at the middle of its stripe before departing in the opposite direction, with playable direction, density, tilt, feedback, and mix controls plus a low-cost display of the same sounding motion.
 
+**Sandy Syrup Delay** turns microphone or local-file audio into a phase-staggered granular pitch field. Twelve original presets span held-rate Sand and continuously moving Syrup, backed by 24 preallocated grain streams, a bounded 16-second stereo history, protected feedback, and a liquid low-cost display.
+
 **Recursive FM** preserves the six original Morphisma parameter sets while rebuilding their carrier, offset operator, and recursively nested frequency modulators as one bounded Web Audio graph. Recursion depth, carrier frequency, offset, modulation amount, and divisor remain playable without the old render-time listener leaks or undefined-signal path.
 
 **Recursive PM** preserves the five original recursive phase-modulation settings while rebuilding the carrier and independently decaying phase operators in a zero-allocation AudioWorklet. Depth changes crossfade, live frequency/index controls glide, and the single audible operator passes through a normalized, protected output path.

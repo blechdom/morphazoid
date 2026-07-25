@@ -46,11 +46,13 @@ test("barber-delay parameters are finite, bounded, and share a feedback budget",
   assert.ok(Object.isFrozen(safe));
   assert.equal(sanitizeBarberDelayMode("unknown"), "candy");
   assert.equal(sanitizeBarberDelayMode("sludge"), "sludge");
+  assert.equal(sanitizeBarberDelayMode("sandy"), "sandy");
 });
 
-test("all 24 Morphisma delay presets are retained and immutable", () => {
+test("all 36 Morphisma delay presets are retained and immutable", () => {
   assert.equal(BARBER_DELAY_PRESETS.candy.length, 12);
   assert.equal(BARBER_DELAY_PRESETS.sludge.length, 12);
+  assert.equal(BARBER_DELAY_PRESETS.sandy.length, 12);
   assert.equal(
     new Set(BARBER_DELAY_PRESETS.candy.map(({ id }) => id)).size,
     12,

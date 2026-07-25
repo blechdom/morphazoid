@@ -47,9 +47,28 @@ const pages = [
       "Gentle Ooze",
     ],
   },
+  {
+    mode: "sandy",
+    file: "sandy-syrup-delay.html",
+    title: "Sandy Syrup Delay",
+    presetNames: [
+      "Silk Rise",
+      "Silk Fall",
+      "Pure Grit",
+      "Pure Syrup",
+      "Glacial Drift",
+      "Robot Grind",
+      "Grain Cloud",
+      "Silk Glide",
+      "Metal Shimmer",
+      "Feedback Drone",
+      "Full Spectrum",
+      "Gentle Blend",
+    ],
+  },
 ];
 
-test("both barber delays are native internal Morphazoid pages", async () => {
+test("all three barber delays are native internal Morphazoid pages", async () => {
   for (const page of pages) {
     const markup = await readFile(new URL(page.file, root), "utf8");
     assert.match(markup, new RegExp(`<body[^>]+data-delay-mode="${page.mode}"`));
@@ -99,6 +118,23 @@ test("Candy keeps tap range and one-to-one lock while Sludge stays centered-hump
   assert.match(sludge, /crosses the original pitch at its loudest/i);
 });
 
+test("Sandy keeps pitch span, history, and grain texture as separate controls", async () => {
+  const sandy = await readFile(
+    new URL("sandy-syrup-delay.html", root),
+    "utf8",
+  );
+  assert.match(sandy, /data-delay-mode="sandy"/);
+  assert.match(sandy, /id="pitchOctaves"[^>]+min="0\.5"[^>]+max="10"/);
+  assert.match(sandy, /id="feedbackTime"[^>]+min="0\.1"[^>]+max="15"/);
+  assert.match(sandy, /id="grainSize"[^>]+min="0\.005"[^>]+max="0\.5"/);
+  assert.match(sandy, /id="blend"[^>]+min="0"[^>]+max="1"/);
+  assert.match(sandy, /Sand · held rate/);
+  assert.match(sandy, /Syrup · live rate/);
+  assert.doesNotMatch(sandy, /id="range"/);
+  assert.doesNotMatch(sandy, /id="tapRange"/);
+  assert.doesNotMatch(sandy, /id="ratioLock"/);
+});
+
 test("the shared app preserves every authoritative built-in preset", () => {
   for (const page of pages) {
     const bank = BARBER_DELAY_PRESETS[page.mode];
@@ -129,8 +165,10 @@ test("the shared controller keeps audio behind the menu gesture and cleans resou
   assert.doesNotMatch(app, /setInterval/);
   assert.match(css, /\.candy-coil-page/);
   assert.match(css, /\.striped-sludge-page/);
+  assert.match(css, /\.sandy-syrup-page/);
   assert.match(css, /#c9f04b/i);
   assert.match(css, /#69d9ee/i);
+  assert.match(css, /#20ccaa/i);
 
   const inertAudio = new BarberDelayAudio("candy", {});
   assert.equal(inertAudio.context, null);

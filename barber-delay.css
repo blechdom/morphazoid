@@ -21,6 +21,15 @@
   --barber-tertiary: #76552f;
 }
 
+.sandy-syrup-page {
+  --barber-primary: #20ccaa;
+  --accent: #20ccaa;
+  --accent-soft: color-mix(in oklab, #20ccaa 58%, transparent);
+  --accent-glow: color-mix(in oklab, #20ccaa 24%, transparent);
+  --barber-secondary: #00dcc8;
+  --barber-tertiary: #7548bd;
+}
+
 .barber-delay-shell {
   grid-template-columns: minmax(0, 1fr) clamp(350px, 27vw, 410px);
 }
@@ -40,6 +49,15 @@
     linear-gradient(90deg, color-mix(in oklab, var(--barber-secondary) 2.2%, transparent) 1px, transparent 1px),
     radial-gradient(ellipse at 52% 51%, color-mix(in oklab, var(--barber-secondary) 7%, transparent), transparent 48%),
     var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.sandy-syrup-page .barber-delay-stage .stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, #20ccaa 2.8%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, #7548bd 2.5%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 48%, color-mix(in oklab, #20ccaa 9%, transparent), transparent 51%),
+    #06050d;
   background-size: 44px 44px, 44px 44px, auto, auto;
 }
 
@@ -170,6 +188,24 @@
   --accent: #d7c59a;
   --accent-soft: color-mix(in oklab, #d7c59a 55%, transparent);
   --accent-glow: color-mix(in oklab, #d7c59a 18%, transparent);
+}
+
+.sandy-syrup-page .control-section.barber-delay-source[data-section="play"] {
+  --accent: #00dcc8;
+  --accent-soft: color-mix(in oklab, #00dcc8 55%, transparent);
+  --accent-glow: color-mix(in oklab, #00dcc8 18%, transparent);
+}
+
+.sandy-syrup-page .control-section.barber-delay-presets[data-section="form"] {
+  --accent: #7548bd;
+  --accent-soft: color-mix(in oklab, #7548bd 58%, transparent);
+  --accent-glow: color-mix(in oklab, #7548bd 20%, transparent);
+}
+
+.sandy-syrup-page .control-section.barber-delay-sound[data-section="sound"] {
+  --accent: #20ccaa;
+  --accent-soft: color-mix(in oklab, #20ccaa 58%, transparent);
+  --accent-glow: color-mix(in oklab, #20ccaa 20%, transparent);
 }
 
 .barber-delay-audio-glyph {
@@ -371,6 +407,16 @@
   color: var(--accent);
   font-size: 9px;
   font-variant-numeric: tabular-nums;
+}
+
+.barber-blend-scale {
+  display: flex;
+  margin: -4px 0 11px;
+  color: var(--faint);
+  justify-content: space-between;
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .barber-safety-card {

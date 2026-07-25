@@ -36,6 +36,14 @@ const migratedPages = [
     requiredCopy: ["Striped", "Sludge", "Delay"],
   },
   {
+    id: "sandy-syrup-delay",
+    html: "sandy-syrup-delay.html",
+    app: "barber-delay-app.js",
+    source: "src/barber-delay.js",
+    sourceImport: "barber-delay",
+    requiredCopy: ["Sandy", "Syrup", "Delay"],
+  },
+  {
     id: "recursive-fm",
     html: "recursive-fm.html",
     app: "recursive-fm-app.js",
