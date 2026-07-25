@@ -6,21 +6,18 @@
 }
 
 .shepard-page .stage-wrap {
+  isolation: isolate;
   background:
-    linear-gradient(rgba(255, 120, 152, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(125, 180, 255, 0.025) 1px, transparent 1px),
-    radial-gradient(circle at 50% 48%, rgba(255, 120, 152, 0.085), transparent 40%),
+    radial-gradient(ellipse at 50% 48%, rgba(255, 120, 152, 0.09), transparent 63%),
+    radial-gradient(ellipse at 50% 54%, rgba(125, 180, 255, 0.045), transparent 78%),
     var(--bg-deep);
-  background-size: 44px 44px, 44px 44px, auto, auto;
 }
 
 .shepard-page.is-morphisma .stage-wrap {
   background:
-    linear-gradient(rgba(125, 180, 255, 0.032) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 120, 152, 0.02) 1px, transparent 1px),
-    radial-gradient(ellipse at 50% 48%, rgba(125, 180, 255, 0.105), transparent 46%),
+    radial-gradient(ellipse at 50% 48%, rgba(125, 180, 255, 0.105), transparent 65%),
+    radial-gradient(ellipse at 50% 54%, rgba(255, 120, 152, 0.04), transparent 79%),
     var(--bg-deep);
-  background-size: 36px 36px, 36px 36px, auto, auto;
 }
 
 .shepard-page #stage {

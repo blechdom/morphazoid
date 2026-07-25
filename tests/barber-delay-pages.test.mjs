@@ -158,6 +158,9 @@ test("the shared controller keeps audio behind the menu gesture and cleans resou
   assert.match(app, /audio\.start\(selectedSource\(\)\)/);
   assert.match(app, /getTimeDomainData\(waveform\)/);
   assert.match(app, /1_000 \/ 30/);
+  assert.match(app, /function drawAudioFragment/);
+  assert.match(app, /globalCompositeOperation = "destination-in"/);
+  assert.doesNotMatch(app, /roundedRectPath|\.(?:arc|arcTo)\(/);
   assert.match(app, /addEventListener\("pagehide"/);
   assert.match(app, /URL\.revokeObjectURL/);
   assert.match(app, /audio\.close\(\)/);

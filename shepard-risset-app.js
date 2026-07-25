@@ -301,7 +301,7 @@ function updateInterface({ rebuildPresets = false } = {}) {
     updateMorphismaVoiceReadouts(frame);
     canvas.setAttribute(
       "aria-label",
-      `Morphisma Sweep mode. ${Math.round(memory.voices)} phase-staggered quadratic lanes move ${rising ? "upward" : "downward"}; ${audible} are currently audible.`,
+      `Morphisma Sweep mode. ${Math.round(memory.voices)} phase-staggered quadratic lanes and waveform fragments move ${rising ? "upward" : "downward"}, fading into the stage edges; ${audible} are currently audible.`,
     );
   } else {
     $("motionSummary").textContent = `${rising ? "rise" : "fall"} · ${memory.speed.toFixed(2)} oct/s`;
@@ -321,7 +321,7 @@ function updateInterface({ rebuildPresets = false } = {}) {
     ].join(" · ");
     canvas.setAttribute(
       "aria-label",
-      `Octave Bank mode. Animated barber-pole stripes and octave traces move ${rising ? "upward" : "downward"}.`,
+      `Octave Bank mode. Unboxed barber-pole stripes and octave traces move ${rising ? "upward" : "downward"} and fade into the stage edges.`,
     );
   }
 
@@ -510,41 +510,55 @@ function resizeCanvas() {
   scheduleAnimation();
 }
 
-function roundedRectPath(ctx, x, y, width, height, radius) {
-  const r = Math.min(radius, width * 0.5, height * 0.5);
+function drawAudioFragment(ctx, x, y, size, color, alpha, seed = 0) {
+  const halfWidth = Math.max(3.5, size * 1.5);
+  const amplitude = Math.max(1.8, size * 0.62);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.sin(seed * 1.73) * 0.14);
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = Math.max(0.75, Math.min(1.5, size * 0.2));
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + width, y, x + width, y + height, r);
-  ctx.arcTo(x + width, y + height, x, y + height, r);
-  ctx.arcTo(x, y + height, x, y, r);
-  ctx.arcTo(x, y, x + width, y, r);
-  ctx.closePath();
+  ctx.moveTo(-halfWidth, 0);
+  ctx.lineTo(-halfWidth * 0.6, -amplitude * 0.35);
+  ctx.lineTo(-halfWidth * 0.28, amplitude * 0.52);
+  ctx.lineTo(0, -amplitude);
+  ctx.lineTo(halfWidth * 0.26, amplitude * 0.78);
+  ctx.lineTo(halfWidth * 0.58, -amplitude * 0.26);
+  ctx.lineTo(halfWidth, 0);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function fadeStageArtwork(ctx, width, height) {
+  const radius = Math.max(1, width * 0.56);
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-in";
+  ctx.translate(width * 0.5, height * 0.5);
+  ctx.scale(1, height / Math.max(1, width));
+  const fade = ctx.createRadialGradient(0, 0, radius * 0.42, 0, 0, radius);
+  fade.addColorStop(0, "rgba(0, 0, 0, 1)");
+  fade.addColorStop(0.56, "rgba(0, 0, 0, 1)");
+  fade.addColorStop(0.78, "rgba(0, 0, 0, 0.76)");
+  fade.addColorStop(0.94, "rgba(0, 0, 0, 0.14)");
+  fade.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = fade;
+  ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+  ctx.restore();
 }
 
 function drawBarberPole(ctx, width, height) {
   const memory = state.octave;
-  const poleWidth = Math.min(360, Math.max(150, width * 0.34));
-  const poleHeight = Math.min(height * 0.72, 620);
-  const x = (width - poleWidth) * 0.5;
-  const y = (height - poleHeight) * 0.5;
-  const radius = Math.min(82, poleWidth * 0.28);
-  const stripeWidth = Math.max(24, poleWidth / 7);
-  const diagonalLength = poleWidth + poleHeight;
+  const fieldWidth = Math.min(680, Math.max(260, width * 0.62));
+  const fieldHeight = Math.min(height * 0.78, 680);
+  const stripeWidth = Math.max(24, fieldWidth / 10);
+  const diagonalLength = width + height;
   const travel = (state.octaveVisualPhase * stripeWidth * 3) % (stripeWidth * 3);
 
   ctx.save();
-  roundedRectPath(ctx, x, y, poleWidth, poleHeight, radius);
-  ctx.clip();
-
-  const poleGradient = ctx.createLinearGradient(x, 0, x + poleWidth, 0);
-  poleGradient.addColorStop(0, "rgba(0, 0, 0, 0.82)");
-  poleGradient.addColorStop(0.18, "rgba(20, 24, 30, 0.82)");
-  poleGradient.addColorStop(0.5, "rgba(46, 31, 40, 0.7)");
-  poleGradient.addColorStop(0.82, "rgba(20, 24, 30, 0.82)");
-  poleGradient.addColorStop(1, "rgba(0, 0, 0, 0.86)");
-  ctx.fillStyle = poleGradient;
-  ctx.fillRect(x, y, poleWidth, poleHeight);
-
   ctx.translate(width * 0.5, height * 0.5);
   ctx.rotate(memory.direction > 0 ? -Math.PI / 4 : Math.PI / 4);
   const colors = [
@@ -571,16 +585,15 @@ function drawBarberPole(ctx, width, height) {
   ctx.restore();
 
   ctx.save();
-  roundedRectPath(ctx, x, y, poleWidth, poleHeight, radius);
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = "rgba(255, 243, 214, 0.28)";
-  ctx.stroke();
   const rings = Math.max(1, Math.round(memory.width));
+  const left = (width - fieldWidth) * 0.5;
+  const right = left + fieldWidth;
+  const top = (height - fieldHeight) * 0.5;
   for (let ring = 1; ring < rings; ring += 1) {
-    const ringY = y + poleHeight * ring / rings;
+    const ringY = top + fieldHeight * ring / rings;
     ctx.beginPath();
-    ctx.moveTo(x + 10, ringY);
-    ctx.lineTo(x + poleWidth - 10, ringY);
+    ctx.moveTo(left, ringY);
+    ctx.lineTo(right, ringY);
     ctx.strokeStyle = "rgba(255, 243, 214, 0.09)";
     ctx.stroke();
   }
@@ -602,7 +615,7 @@ function drawMorphismaSweep(ctx, width, height) {
   const frame = currentMorphismaFrame();
   updateMorphismaVoiceReadouts(frame);
   const voices = frame.requestedVoices;
-  const left = Math.max(26, width * 0.07);
+  const left = Math.max(12, width * 0.025);
   const right = width - left;
   const top = Math.max(54, height * 0.12);
   const bottom = Math.min(height - 78, height * 0.82);
@@ -646,22 +659,16 @@ function drawMorphismaSweep(ctx, width, height) {
       ? `rgba(125, 180, 255, ${alpha})`
       : `rgba(119, 131, 126, ${alpha})`;
     ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(x, y, voice.active ? 2.2 : 1.4, 0, Math.PI * 2);
-    ctx.fillStyle = voice.active
-      ? `rgba(255, 120, 152, ${0.35 + voice.envelope * 0.65})`
-      : "rgba(119, 131, 126, 0.25)";
-    ctx.fill();
+    drawAudioFragment(
+      ctx,
+      x,
+      y,
+      voice.active ? 3.2 : 2.2,
+      voice.active ? "rgb(255, 120, 152)" : "rgb(119, 131, 126)",
+      voice.active ? 0.35 + voice.envelope * 0.65 : 0.25,
+      voice.index + voice.phase,
+    );
   }
-
-  ctx.fillStyle = "rgba(214, 232, 226, 0.5)";
-  ctx.font = "8px ui-monospace, SFMono-Regular, Menlo, monospace";
-  ctx.textAlign = "right";
-  ctx.fillText(
-    `REQUESTED ${voices} · AUDIBLE ${frame.audibleVoices}`,
-    right,
-    top - 16,
-  );
   ctx.restore();
 }
 
@@ -694,6 +701,7 @@ function draw(timestamp, force = false) {
   if (isMorphisma()) drawMorphismaSweep(context2d, canvasWidth, canvasHeight);
   else drawBarberPole(context2d, canvasWidth, canvasHeight);
   drawWaveform(context2d, canvasWidth, canvasHeight);
+  fadeStageArtwork(context2d, canvasWidth, canvasHeight);
 }
 
 function animate(timestamp) {

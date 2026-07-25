@@ -35,30 +35,25 @@
 }
 
 .barber-delay-stage .stage-wrap {
+  isolation: isolate;
   background:
-    linear-gradient(color-mix(in oklab, var(--accent) 2.4%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in oklab, var(--barber-secondary) 2.1%, transparent) 1px, transparent 1px),
-    radial-gradient(ellipse at 52% 46%, color-mix(in oklab, var(--accent) 9%, transparent), transparent 50%),
+    radial-gradient(ellipse at 50% 49%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 62%),
+    radial-gradient(ellipse at 50% 53%, color-mix(in oklab, var(--barber-secondary) 4%, transparent), transparent 76%),
     var(--bg-deep);
-  background-size: 44px 44px, 44px 44px, auto, auto;
 }
 
 .striped-sludge-page .barber-delay-stage .stage-wrap {
   background:
-    linear-gradient(color-mix(in oklab, var(--accent) 2.5%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in oklab, var(--barber-secondary) 2.2%, transparent) 1px, transparent 1px),
-    radial-gradient(ellipse at 52% 51%, color-mix(in oklab, var(--barber-secondary) 7%, transparent), transparent 48%),
+    radial-gradient(ellipse at 50% 51%, color-mix(in oklab, var(--barber-secondary) 8%, transparent), transparent 64%),
+    radial-gradient(ellipse at 50% 48%, color-mix(in oklab, var(--accent) 4%, transparent), transparent 78%),
     var(--bg-deep);
-  background-size: 44px 44px, 44px 44px, auto, auto;
 }
 
 .sandy-syrup-page .barber-delay-stage .stage-wrap {
   background:
-    linear-gradient(color-mix(in oklab, #20ccaa 2.8%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in oklab, #7548bd 2.5%, transparent) 1px, transparent 1px),
-    radial-gradient(ellipse at 50% 48%, color-mix(in oklab, #20ccaa 9%, transparent), transparent 51%),
+    radial-gradient(ellipse at 50% 49%, color-mix(in oklab, #20ccaa 10%, transparent), transparent 63%),
+    radial-gradient(ellipse at 50% 54%, color-mix(in oklab, #7548bd 6%, transparent), transparent 78%),
     #06050d;
-  background-size: 44px 44px, 44px 44px, auto, auto;
 }
 
 .barber-delay-page #stage {

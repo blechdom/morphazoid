@@ -662,7 +662,11 @@ test("native page keeps audio creation behind the Audio gesture and cleans up", 
   assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);
   assert.match(markup, /id="audioState">off</);
   assert.match(markup, /src="shepard-risset-app\.js"/);
+  assert.match(markup, /Unboxed barber-pole stripes/);
   assert.match(app, /audioButton"\)\.addEventListener\("click", toggleAudio\)/);
+  assert.match(app, /function drawAudioFragment/);
+  assert.match(app, /globalCompositeOperation = "destination-in"/);
+  assert.doesNotMatch(app, /roundedRectPath|\.(?:arc|arcTo)\(/);
   assert.match(app, /addEventListener\("pagehide"/);
   assert.match(audioModule, /async start\(\)\s*\{\s*await this\.initialize\(\)/);
   assert.doesNotMatch(app, /new AudioContext/);

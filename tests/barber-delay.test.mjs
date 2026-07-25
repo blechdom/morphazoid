@@ -11,6 +11,7 @@ import {
   barberDelayPitchEstimate,
   barberDelayWindow,
   createBarberSoftCeilingCurve,
+  createCandyTransparentCeilingCurve,
   sanitizeBarberDelayMode,
   sanitizeBarberDelayParams,
 } from "../src/barber-delay.js";
@@ -141,6 +142,24 @@ test("barber soft ceiling is symmetric, monotonic, and bounded", () => {
   }
 });
 
+test("Candy ceiling is identity through normal range and shoulders safely", () => {
+  const curve = createCandyTransparentCeilingCurve(2_001);
+  assert.equal(curve.length, 2_001);
+  assert.ok(Math.abs(curve[0] + 0.98) < 1e-6);
+  assert.ok(Math.abs(curve[100] + 0.9) < 1e-6);
+  assert.equal(curve[1_000], 0);
+  assert.ok(Math.abs(curve[1_900] - 0.9) < 1e-6);
+  assert.ok(Math.abs(curve.at(-1) - 0.98) < 1e-6);
+  for (let index = 0; index < curve.length; index += 1) {
+    const input = (index / (curve.length - 1)) * 2 - 1;
+    if (Math.abs(input) <= 0.9) {
+      assert.ok(Math.abs(curve[index] - input) < 1e-6);
+    }
+    if (input >= 0) assert.ok(curve[index] <= input + 1e-7);
+    if (index > 0) assert.ok(curve[index] >= curve[index - 1]);
+  }
+});
+
 test("worklet uses one bounded stereo ring and stays finite at feedback limits", async () => {
   const previousProcessor = globalThis.AudioWorkletProcessor;
   const previousRegister = globalThis.registerProcessor;
@@ -168,6 +187,162 @@ test("worklet uses one bounded stereo ring and stays finite at feedback limits",
     await import(`../src/barber-delay.js?worklet-test=${Date.now()}`);
     assert.equal(registeredName, BARBER_DELAY_PROCESSOR_NAME);
     assert.equal(typeof Processor, "function");
+
+    const linearCandy = new Processor({
+      processorOptions: {
+        mode: "candy",
+        parameters: {
+          numVoices: 1,
+          speed: 0,
+          range: 0.1,
+          feedback: 0,
+          globalFeedback: 0,
+          dryWet: 1,
+          inputGain: 1,
+          outputLevel: 0.25,
+        },
+      },
+    });
+    const candyInput = new Float32Array(128);
+    for (let index = 0; index < candyInput.length; index += 1) {
+      candyInput[index] = Math.sin((Math.PI * 2 * index) / 37) * 0.8;
+    }
+    assert.equal(
+      linearCandy.process(
+        [[candyInput]],
+        [[new Float32Array(128), new Float32Array(128)]],
+      ),
+      true,
+    );
+    assert.deepEqual(
+      linearCandy.buffers[0].subarray(0, candyInput.length),
+      candyInput,
+      "Candy must not add saturation before its delay heads",
+    );
+    assert.equal(
+      linearCandy.process(
+        [[Float32Array.of(100)]],
+        [[new Float32Array(1), new Float32Array(1)]],
+      ),
+      true,
+    );
+    assert.ok(
+      linearCandy.buffers[0][candyInput.length] > 16
+      && linearCandy.buffers[0][candyInput.length] <= 64,
+      "Candy's extreme-only guard must bound internal runaway",
+    );
+
+    const latencyCandy = new Processor({
+      processorOptions: {
+        mode: "candy",
+        parameters: {
+          numVoices: 1,
+          speed: 0,
+          range: 0.1,
+          feedback: 0.5,
+          fbDelay: 0.001,
+          globalFeedback: 0,
+          dryWet: 1,
+          inputGain: 1,
+          outputLevel: 0.25,
+        },
+      },
+    });
+    const impulse = new Float32Array(128);
+    impulse[0] = 1;
+    assert.equal(
+      latencyCandy.process(
+        [[impulse]],
+        [[new Float32Array(128), new Float32Array(128)]],
+      ),
+      true,
+    );
+    assert.equal(latencyCandy.buffers[0][48], 0);
+    assert.equal(
+      latencyCandy.process(
+        [[new Float32Array(128)]],
+        [[new Float32Array(128), new Float32Array(128)]],
+      ),
+      true,
+    );
+    assert.ok(
+      Math.abs(latencyCandy.buffers[0][176] - 0.5) < 1e-6,
+      "Candy feedback tap must retain Morphisma's 128-sample block latency",
+    );
+
+    const protectedCandy = new Processor({
+      processorOptions: {
+        mode: "candy",
+        parameters: {
+          numVoices: 1,
+          speed: 0,
+          range: 0.1,
+          directionUp: true,
+          tilt: 0,
+          feedback: 0,
+          globalFeedback: 0,
+          dryWet: 1,
+          inputGain: 1,
+          outputLevel: 1,
+        },
+      },
+    });
+    protectedCandy.buffers[0].fill(0.75);
+    protectedCandy.buffers[1].fill(0.75);
+    protectedCandy.phase = 0.5;
+    protectedCandy.activeGain = 1;
+    protectedCandy.activeTarget = 1;
+    const candyWet = new Float32Array(1);
+    assert.equal(
+      protectedCandy.process(
+        [[new Float32Array(1)]],
+        [[candyWet, new Float32Array(1)]],
+      ),
+      true,
+    );
+    assert.ok(
+      candyWet[0] > 1.49 && candyWet[0] < 1.51,
+      `Candy worklet clipped before its protected output graph: ${candyWet[0]}`,
+    );
+
+    const feedbackCandy = new Processor({
+      processorOptions: {
+        mode: "candy",
+        parameters: {
+          numVoices: 12,
+          speed: 5,
+          range: 0.1,
+          directionUp: true,
+          tilt: 1,
+          feedback: 0.65,
+          fbDelay: 0.001,
+          globalFeedback: 0.3,
+          dryWet: 1,
+          inputGain: 2,
+          outputLevel: 1,
+        },
+      },
+    });
+    feedbackCandy.port.onmessage({
+      data: { type: "active", value: true },
+    });
+    let candyOscillatorPhase = 0;
+    for (let block = 0; block < 240; block += 1) {
+      const input = new Float32Array(128);
+      for (let index = 0; index < input.length; index += 1) {
+        candyOscillatorPhase += (Math.PI * 2 * 997) / 48_000;
+        input[index] = Math.sin(candyOscillatorPhase) * 0.5;
+      }
+      const left = new Float32Array(128);
+      const right = new Float32Array(128);
+      assert.equal(
+        feedbackCandy.process([[input]], [[left, right]]),
+        true,
+      );
+      assert.ok(left.every(Number.isFinite));
+      assert.ok(right.every(Number.isFinite));
+    }
+
     const processor = new Processor({
       processorOptions: {
         mode: "sludge",
@@ -254,7 +429,9 @@ test("browser wrapper is gesture-inert and releases a file source completely", a
     },
   });
   const makeNode = (extra = {}) => ({
+    connectedTarget: null,
     connect(target) {
+      this.connectedTarget = target;
       return target;
     },
     disconnect() {},
@@ -263,6 +440,7 @@ test("browser wrapper is gesture-inert and releases a file source completely", a
 
   class MockAudioWorkletNode {
     constructor() {
+      this.connectedTarget = null;
       this.port = {
         postMessage(message) {
           portMessages.push(message);
@@ -271,6 +449,7 @@ test("browser wrapper is gesture-inert and releases a file source completely", a
     }
 
     connect(target) {
+      this.connectedTarget = target;
       return target;
     }
 
@@ -377,6 +556,10 @@ test("browser wrapper is gesture-inert and releases a file source completely", a
   assert.equal(plays, 1);
   assert.equal(audio.state.enabled, true);
   assert.equal(audio.state.sourceKind, "file");
+  assert.equal(audio.node.connectedTarget, audio.ceiling);
+  assert.notEqual(audio.node.connectedTarget, audio.highpass);
+  assert.equal(audio.ceiling.connectedTarget, audio.master);
+  assert.equal(audio.ceiling.oversample, "none");
   assert.deepEqual(
     portMessages.slice(-2).map(({ type }) => type),
     ["reset", "active"],

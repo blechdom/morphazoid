@@ -210,10 +210,10 @@ function updateInterface({ drawNow = true } = {}) {
   canvas.setAttribute(
     "aria-label",
     isCandy
-      ? `Animated red, pink, cream, lime, and purple winding delay stripes moving ${settings.directionUp ? "upward" : "downward"}. Audio ${state.audioOn ? "on" : "off"}.`
+      ? `Unboxed red, pink, cream, lime, and purple winding delay stripes with small waveform fragments moving ${settings.directionUp ? "upward" : "downward"} and fading into the stage edges. Audio ${state.audioOn ? "on" : "off"}.`
       : isSandy
-        ? `Animated teal, violet, cyan, dark-purple, and green liquid grain stripes moving ${settings.directionUp ? "upward" : "downward"}. Audio ${state.audioOn ? "on" : "off"}.`
-        : `Animated olive, cyan, cream, and earth centered-hump delay paths moving ${settings.directionUp ? "upward" : "downward"}. Audio ${state.audioOn ? "on" : "off"}.`,
+        ? `Unboxed teal, violet, cyan, dark-purple, and green liquid grain stripes with small waveform fragments moving ${settings.directionUp ? "upward" : "downward"} and fading into the stage edges. Audio ${state.audioOn ? "on" : "off"}.`
+        : `Unboxed olive, cyan, cream, and earth centered-hump delay paths with small waveform fragments moving ${settings.directionUp ? "upward" : "downward"} and fading into the stage edges. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 
   updatePitchReadout();
@@ -508,35 +508,63 @@ function wrapPhase(value) {
   return ((value % 1) + 1) % 1;
 }
 
-function roundedRectPath(ctx, x, y, width, height, radius) {
-  const r = Math.min(radius, width * 0.5, height * 0.5);
+function drawAudioFragment(ctx, x, y, size, color, alpha, seed = 0) {
+  const halfWidth = Math.max(4, size * 1.45);
+  const amplitude = Math.max(2, size * 0.58);
+  const lean = Math.sin(seed * 2.17) * amplitude * 0.24;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.sin(seed * 1.31) * 0.16);
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = Math.max(0.8, Math.min(1.65, size * 0.18));
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + width, y, x + width, y + height, r);
-  ctx.arcTo(x + width, y + height, x, y + height, r);
-  ctx.arcTo(x, y + height, x, y, r);
-  ctx.arcTo(x, y, x + width, y, r);
-  ctx.closePath();
+  ctx.moveTo(-halfWidth, lean);
+  ctx.lineTo(-halfWidth * 0.58, -amplitude * 0.34);
+  ctx.lineTo(-halfWidth * 0.25, amplitude * 0.52);
+  ctx.lineTo(0, -amplitude);
+  ctx.lineTo(halfWidth * 0.24, amplitude * 0.78);
+  ctx.lineTo(halfWidth * 0.57, -amplitude * 0.28);
+  ctx.lineTo(halfWidth, -lean);
+  ctx.stroke();
+
+  ctx.globalAlpha = alpha * 0.46;
+  ctx.lineWidth = Math.max(0.65, size * 0.1);
+  ctx.beginPath();
+  ctx.moveTo(0, -amplitude * 1.52);
+  ctx.lineTo(0, amplitude * 1.45);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function fadeStageArtwork(ctx, width, height) {
+  const radius = Math.max(1, width * 0.56);
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-in";
+  ctx.translate(width * 0.5, height * 0.5);
+  ctx.scale(1, height / Math.max(1, width));
+  const fade = ctx.createRadialGradient(0, 0, radius * 0.42, 0, 0, radius);
+  fade.addColorStop(0, "rgba(0, 0, 0, 1)");
+  fade.addColorStop(0.56, "rgba(0, 0, 0, 1)");
+  fade.addColorStop(0.78, "rgba(0, 0, 0, 0.76)");
+  fade.addColorStop(0.94, "rgba(0, 0, 0, 0.14)");
+  fade.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = fade;
+  ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+  ctx.restore();
 }
 
 function drawCandyField(ctx, width, height) {
-  const fieldWidth = Math.min(width * 0.68, 710);
-  const fieldHeight = Math.min(height * 0.64, 540);
+  const fieldWidth = Math.min(width * 0.82, 920);
+  const fieldHeight = Math.min(height * 0.72, 610);
   const x = (width - fieldWidth) * 0.5;
   const y = (height - fieldHeight) * 0.51;
   const stripeHeight = Math.max(16, fieldHeight / 18);
   const travel = state.visualPhase * stripeHeight * 5;
 
   ctx.save();
-  roundedRectPath(ctx, x, y, fieldWidth, fieldHeight, Math.min(90, fieldWidth * 0.15));
-  ctx.clip();
-  const fieldGradient = ctx.createLinearGradient(x, 0, x + fieldWidth, 0);
-  fieldGradient.addColorStop(0, "rgba(2, 3, 4, 0.92)");
-  fieldGradient.addColorStop(0.48, "rgba(38, 12, 28, 0.58)");
-  fieldGradient.addColorStop(1, "rgba(2, 3, 4, 0.92)");
-  ctx.fillStyle = fieldGradient;
-  ctx.fillRect(x, y, fieldWidth, fieldHeight);
-
   ctx.translate(width * 0.5, height * 0.5);
   ctx.rotate(state.settings.directionUp ? -0.55 : 0.55);
   const diagonal = width + height;
@@ -565,13 +593,6 @@ function drawCandyField(ctx, width, height) {
   }
   ctx.restore();
 
-  ctx.save();
-  roundedRectPath(ctx, x, y, fieldWidth, fieldHeight, Math.min(90, fieldWidth * 0.15));
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = "rgba(255, 240, 209, 0.24)";
-  ctx.stroke();
-  ctx.restore();
-
   const heads = state.settings.numVoices;
   for (let index = 0; index < heads; index += 1) {
     const phase = wrapPhase(state.visualPhase + index / heads);
@@ -579,17 +600,20 @@ function drawCandyField(ctx, width, height) {
     const headX = width * 0.5 + Math.cos(angle) * fieldWidth * (0.12 + phase * 0.2);
     const headY = y + fieldHeight * (0.1 + phase * 0.8);
     const window = barberDelayWindow(phase, state.settings.tilt);
-    ctx.beginPath();
-    ctx.arc(headX, headY, 2.5 + window * 4.5, 0, Math.PI * 2);
-    ctx.fillStyle = colors[index % colors.length];
-    ctx.globalAlpha = 0.25 + window * 0.7;
-    ctx.fill();
+    drawAudioFragment(
+      ctx,
+      headX,
+      headY,
+      3.5 + window * 4.2,
+      colors[index % colors.length],
+      0.25 + window * 0.7,
+      index + phase,
+    );
   }
-  ctx.globalAlpha = 1;
 }
 
 function drawSludgeField(ctx, width, height) {
-  const fieldWidth = Math.min(width * 0.76, 820);
+  const fieldWidth = width * 1.04;
   const fieldHeight = Math.min(height * 0.54, 440);
   const left = (width - fieldWidth) * 0.5;
   const centerY = height * 0.52;
@@ -657,19 +681,22 @@ function drawSludgeField(ctx, width, height) {
     const x = left + phase * fieldWidth;
     const y = centerY + Math.cos(Math.PI * phase) * amplitude * direction;
     const window = barberDelayWindow(phase, state.settings.tilt);
-    ctx.beginPath();
-    ctx.arc(x, y, 2.5 + window * 5, 0, Math.PI * 2);
-    ctx.fillStyle = colors[index % colors.length];
-    ctx.globalAlpha = 0.22 + window * 0.76;
-    ctx.fill();
+    drawAudioFragment(
+      ctx,
+      x,
+      y,
+      3.5 + window * 4.5,
+      colors[index % colors.length],
+      0.22 + window * 0.76,
+      index + phase * 2,
+    );
   }
   ctx.restore();
-  ctx.globalAlpha = 1;
 }
 
 function drawSandyField(ctx, width, height) {
-  const fieldWidth = Math.min(width * 0.72, 760);
-  const fieldHeight = Math.min(height * 0.62, 510);
+  const fieldWidth = Math.min(width * 0.84, 940);
+  const fieldHeight = Math.min(height * 0.72, 610);
   const left = (width - fieldWidth) * 0.5;
   const top = (height - fieldHeight) * 0.5;
   const bandHeight = Math.max(14, fieldHeight / 20);
@@ -677,29 +704,6 @@ function drawSandyField(ctx, width, height) {
   const grit = 1 - state.settings.blend;
 
   ctx.save();
-  roundedRectPath(
-    ctx,
-    left,
-    top,
-    fieldWidth,
-    fieldHeight,
-    Math.min(110, fieldWidth * 0.18),
-  );
-  ctx.clip();
-  const liquidGlow = ctx.createRadialGradient(
-    width * 0.48,
-    height * 0.48,
-    8,
-    width * 0.5,
-    height * 0.5,
-    fieldWidth * 0.58,
-  );
-  liquidGlow.addColorStop(0, "rgba(32, 204, 170, 0.12)");
-  liquidGlow.addColorStop(0.56, "rgba(72, 36, 112, 0.1)");
-  liquidGlow.addColorStop(1, "rgba(5, 4, 12, 0.94)");
-  ctx.fillStyle = liquidGlow;
-  ctx.fillRect(left, top, fieldWidth, fieldHeight);
-
   ctx.translate(width * 0.5, height * 0.5);
   ctx.rotate(direction * -0.72);
   const diagonal = width + height;
@@ -731,18 +735,6 @@ function drawSandyField(ctx, width, height) {
   ctx.restore();
 
   ctx.save();
-  roundedRectPath(
-    ctx,
-    left,
-    top,
-    fieldWidth,
-    fieldHeight,
-    Math.min(110, fieldWidth * 0.18),
-  );
-  ctx.strokeStyle = "rgba(32, 204, 170, 0.3)";
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
   const heads = state.settings.numVoices;
   for (let index = 0; index < heads; index += 1) {
     const phase = wrapPhase(state.visualPhase + index / heads);
@@ -756,25 +748,27 @@ function drawSandyField(ctx, width, height) {
     const grainPulse = 0.5 + 0.5 * Math.cos(
       TAU * phase / Math.max(0.005, state.settings.grainSize),
     );
-    ctx.beginPath();
-    ctx.arc(x, y, 2.5 + window * 4 + grainPulse * 1.5, 0, Math.PI * 2);
-    ctx.fillStyle = colors[index % colors.length];
-    ctx.globalAlpha = 0.2 + window * 0.72;
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(
+    const color = colors[index % colors.length];
+    drawAudioFragment(
+      ctx,
+      x,
+      y,
+      3.2 + window * 3.8 + grainPulse,
+      color,
+      0.2 + window * 0.72,
+      index + phase * 3,
+    );
+    drawAudioFragment(
+      ctx,
       x + (direction * 7),
       y + 5,
-      1.8 + window * 2.5,
-      0,
-      Math.PI * 2,
+      2 + window * 1.8,
+      color,
+      0.14 + window * 0.48,
+      index + phase * 5 + 0.5,
     );
-    ctx.globalAlpha = 0.14 + window * 0.48;
-    ctx.fill();
   }
   ctx.restore();
-  ctx.globalAlpha = 1;
 }
 
 function drawScope(ctx, width, height) {
@@ -818,6 +812,7 @@ function draw(timestamp, force = false) {
   else if (isSandy) drawSandyField(context2d, canvasWidth, canvasHeight);
   else drawSludgeField(context2d, canvasWidth, canvasHeight);
   drawScope(context2d, canvasWidth, canvasHeight);
+  fadeStageArtwork(context2d, canvasWidth, canvasHeight);
 }
 
 function resizeCanvas() {

@@ -3,6 +3,8 @@ const DEFAULT_SAMPLE_RATE = 48_000;
 const RENDER_QUANTUM = 128;
 const TAU = Math.PI * 2;
 const FEEDBACK_BUDGET = 0.95;
+const CANDY_RECORD_LINEAR_LIMIT = 16;
+const CANDY_RECORD_CEILING = 64;
 const SANDY_BUFFER_SECONDS = 16;
 const SANDY_STREAM_COUNT = 24;
 const SANDY_READ_GUARD_SAMPLES = 4;
@@ -101,6 +103,20 @@ function clamp(value, minimum, maximum, fallback = minimum) {
   );
 }
 
+function candyRecordSample(value) {
+  const sample = finiteNumber(value, 0);
+  const magnitude = Math.abs(sample);
+  if (magnitude <= CANDY_RECORD_LINEAR_LIMIT) return sample;
+  const shoulder = CANDY_RECORD_CEILING - CANDY_RECORD_LINEAR_LIMIT;
+  return Math.sign(sample) * (
+    CANDY_RECORD_LINEAR_LIMIT
+    + (
+      shoulder
+      * Math.tanh((magnitude - CANDY_RECORD_LINEAR_LIMIT) / shoulder)
+    )
+  );
+}
+
 export function wrapBarberPhase(value) {
   const phase = finiteNumber(value, 0);
   return ((phase % 1) + 1) % 1;
@@ -108,8 +124,9 @@ export function wrapBarberPhase(value) {
 
 /**
  * Bound both UI and preset values before they cross onto the render thread.
- * Local and wet-bus feedback share a single sub-unity budget so their sum can
- * never create an unbounded loop, even when both controls are raised.
+ * Local and wet-bus feedback share a sub-unity user-control budget, reducing
+ * runaway risk when both controls are raised. Candy's transparent extreme
+ * record guard provides the final internal numerical bound after head summing.
  */
 export function sanitizeBarberDelayParams(params = {}, mode = "candy") {
   const safeMode = sanitizeBarberDelayMode(mode);
@@ -618,6 +635,49 @@ export function createBarberSoftCeilingCurve(
   return curve;
 }
 
+/**
+ * Candy's source graph had no always-on compressor or saturation stage.
+ * This curve is exactly y=x through the normal ±0.9 range, then uses a
+ * first-derivative-continuous shoulder to reach ±0.98 at full scale.
+ */
+export function createCandyTransparentCeilingCurve(
+  length = 2_049,
+  linearLimit = 0.9,
+  ceiling = 0.98,
+) {
+  const size = Math.max(33, Math.round(clamp(length, 33, 65_537, 2_049)));
+  const safeLinearLimit = clamp(linearLimit, 0.5, 0.95, 0.9);
+  const minimumCeiling = Math.max(
+    safeLinearLimit + 0.01,
+    (1 + safeLinearLimit) * 0.5,
+  );
+  const safeCeiling = clamp(
+    ceiling,
+    minimumCeiling,
+    0.999,
+    0.98,
+  );
+  const inputSpan = 1 - safeLinearLimit;
+  const shoulderCurve = (1 - safeCeiling) / (inputSpan * inputSpan);
+  const curve = new Float32Array(size);
+  for (let index = 0; index < size; index += 1) {
+    const input = (index / (size - 1)) * 2 - 1;
+    const magnitude = Math.abs(input);
+    if (magnitude <= safeLinearLimit) {
+      curve[index] = input;
+      continue;
+    }
+    const distance = magnitude - safeLinearLimit;
+    const shoulder = (
+      safeLinearLimit
+      + distance
+      - (shoulderCurve * distance * distance)
+    );
+    curve[index] = Math.sign(input) * shoulder;
+  }
+  return curve;
+}
+
 function createProcessorClass(AudioWorkletBase) {
   return class MorphazoidBarberDelayProcessor extends AudioWorkletBase {
     constructor(options = {}) {
@@ -778,6 +838,7 @@ function createProcessorClass(AudioWorkletBase) {
       const input = inputs[0] ?? [];
       const leftInput = input[0];
       const rightInput = input[1] ?? leftInput;
+      const isCandy = this.mode === "candy";
       const isSludge = this.mode === "sludge";
       const isSandy = this.isSandy;
       const parameterSlew = 1 - Math.exp(-1 / (this.sampleRate * 0.04));
@@ -846,9 +907,9 @@ function createProcessorClass(AudioWorkletBase) {
         const rawRight = finiteNumber(rightInput?.[sampleIndex], rawLeft);
         const sourceLeft = rawLeft * this.current.inputGain;
         const sourceRight = rawRight * this.current.inputGain;
-        const feedbackDelaySamples = Math.max(
-          1,
-          this.current.fbDelay * this.sampleRate,
+        const feedbackDelaySamples = (
+          Math.max(1, this.current.fbDelay * this.sampleRate)
+          + (isCandy ? RENDER_QUANTUM : 0)
         );
         const feedbackLeft = this.read(
           this.buffers[0],
@@ -859,17 +920,28 @@ function createProcessorClass(AudioWorkletBase) {
           feedbackDelaySamples,
         );
 
-        // Keep the record loop finite independently of the downstream graph.
-        const recordLeft = Math.tanh(
+        const recordInputLeft = (
           sourceLeft
           + (feedbackLeft * this.current.feedback)
-          + (this.previousWetLeft * this.current.globalFeedback),
+          + (this.previousWetLeft * this.current.globalFeedback)
         );
-        const recordRight = Math.tanh(
+        const recordInputRight = (
           sourceRight
           + (feedbackRight * this.current.feedback)
-          + (this.previousWetRight * this.current.globalFeedback),
+          + (this.previousWetRight * this.current.globalFeedback)
         );
+        // Morphisma's Candy graph wrote its summed input and feedback directly
+        // into every delay head. Preserve that linear tape path throughout the
+        // normal signal range. Global feedback can exceed unity after the wet
+        // heads are summed, so an inaudibly high soft guard prevents numerical
+        // runaway before the browser graph's final transparent ceiling.
+        // Sludge and Sandy retain the native port's existing record path.
+        const recordLeft = isCandy
+          ? candyRecordSample(recordInputLeft)
+          : Math.tanh(recordInputLeft);
+        const recordRight = isCandy
+          ? candyRecordSample(recordInputRight)
+          : Math.tanh(recordInputRight);
         this.buffers[0][this.writeIndex] = recordLeft;
         this.buffers[1][this.writeIndex] = recordRight;
 
@@ -1017,12 +1089,13 @@ function createProcessorClass(AudioWorkletBase) {
         const mixedRight = (
           (sourceRight * dryGain) + (wetRight * this.current.dryWet)
         ) * outputGain;
-        leftOutput[sampleIndex] = Math.max(-0.98, Math.min(0.98, mixedLeft));
+        leftOutput[sampleIndex] = isCandy
+          ? finiteNumber(mixedLeft, 0)
+          : Math.max(-0.98, Math.min(0.98, mixedLeft));
         if (rightOutput !== leftOutput) {
-          rightOutput[sampleIndex] = Math.max(
-            -0.98,
-            Math.min(0.98, mixedRight),
-          );
+          rightOutput[sampleIndex] = isCandy
+            ? finiteNumber(mixedRight, 0)
+            : Math.max(-0.98, Math.min(0.98, mixedRight));
         }
 
         this.writeIndex += 1;
@@ -1131,19 +1204,29 @@ export class BarberDelayAudio {
       compressor.ratio.value = 8;
       compressor.attack.value = 0.002;
       compressor.release.value = 0.2;
-      ceiling.curve = createBarberSoftCeilingCurve();
-      ceiling.oversample = "2x";
+      ceiling.curve = this.mode === "candy"
+        ? createCandyTransparentCeilingCurve()
+        : createBarberSoftCeilingCurve();
+      ceiling.oversample = this.mode === "candy" ? "none" : "2x";
       master.gain.value = 0;
       analyser.fftSize = 1_024;
       analyser.smoothingTimeConstant = 0.72;
 
-      node
-        .connect(highpass)
-        .connect(compressor)
-        .connect(ceiling)
-        .connect(master)
-        .connect(analyser)
-        .connect(context.destination);
+      if (this.mode === "candy") {
+        node
+          .connect(ceiling)
+          .connect(master)
+          .connect(analyser)
+          .connect(context.destination);
+      } else {
+        node
+          .connect(highpass)
+          .connect(compressor)
+          .connect(ceiling)
+          .connect(master)
+          .connect(analyser)
+          .connect(context.destination);
+      }
 
       this.context = context;
       this.node = node;
