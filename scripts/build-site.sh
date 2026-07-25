@@ -62,6 +62,15 @@ required_files=(
   favicon.svg
   src/audio.js
   src/contour-synth-processor.js
+  analyzer.html
+  analyzer-app.js
+  src/analyzer.js
+  shepard-risset.html
+  shepard-risset-app.js
+  src/shepard-risset.js
+  recursive-fm.html
+  recursive-fm-app.js
+  src/recursive-fm.js
   morphazoidical/index.html
   vendor/signalsmith-stretch/SignalsmithStretch.mjs
   vendor/tactile/tactile.js

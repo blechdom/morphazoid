@@ -128,12 +128,30 @@ class FakeDocument {
 test("tool registry is categorized, unique, and includes Morphazoidical", () => {
   assert.deepEqual(
     TOOL_GROUPS.map((group) => group.label),
-    ["Geometry", "Fractals & Recursion", "Audio & Mic", "Workbench"],
+    [
+      "Geometry",
+      "Fractals & Recursion",
+      "Barber Shop Poles",
+      "Chaotic Synths",
+      "Audio & Mic",
+      "Analysis",
+      "Workbench",
+    ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 14);
+  assert.equal(tools.length, 17);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
+  assert.equal(
+    tools.every((tool) => !/^[a-z][a-z\d+.-]*:/i.test(tool.href)),
+    true,
+    "menu entries must stay inside Morphazoid",
+  );
+  assert.equal(
+    tools.every((tool) => !Object.hasOwn(tool, "external")),
+    true,
+    "the menu registry must not introduce external destinations",
+  );
   assert.deepEqual(
     tools.find((tool) => tool.id === "morphazoidical"),
     {
@@ -151,6 +169,9 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}spiral.html#reader`, SITE_ROOT)?.id, "spiral");
   assert.equal(resolveActiveTool(`${SITE_ROOT}graph-delay.html`, SITE_ROOT)?.id, "graph-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}audio-engine-lab.html`, SITE_ROOT)?.id, "audio-engine-lab");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}shepard-risset.html`, SITE_ROOT)?.id, "shepard-risset");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}recursive-fm.html`, SITE_ROOT)?.id, "recursive-fm");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}analyzer.html`, SITE_ROOT)?.id, "analyzer");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}unknown.html`, SITE_ROOT), null);
@@ -185,7 +206,7 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
     TOOL_GROUPS.map((group) => group.label),
   );
   const links = details.findAll((node) => node.tagName === "A");
-  assert.equal(links.length, 14);
+  assert.equal(links.length, 17);
   const currentLinks = links.filter((link) => link.getAttribute("aria-current") === "page");
   assert.equal(currentLinks.length, 1);
   assert.equal(currentLinks[0].getAttribute("data-tool-id"), "julia");

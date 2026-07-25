@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Recursive FM — a bounded frequency-modulation operator recursively drives the frequency of its child."
+    />
+    <title>Recursive FM — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="recursive-fm.css" />
+  </head>
+  <body class="recursive-fm-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid Shape">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab recursion-tab" href="recursion.html">recursion</a>
+        <a class="tab active" href="recursive-fm.html" aria-current="page">recursive fm</a>
+        <a class="tab" href="julia.html">julia</a>
+        <a class="tab" href="lumber.html">lumber</a>
+        <a class="tab micmic-tab" href="micmic.html">mic(mic)</a>
+        <a class="tab" href="audio-engine-lab.html">engine lab</a>
+        <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
+        <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
+          <option value="recursive-fm.html" selected>recursive fm</option>
+          <option value="julia.html">julia</option>
+          <option value="lumber.html">lumber</option>
+          <option value="micmic.html">mic(mic)</option>
+          <option value="audio-engine-lab.html">engine lab</option>
+          <option value="graph-delay.html">graph-delay</option>
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="morphazoidical/">morphazoidical</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph recursive-fm-audio-glyph" aria-hidden="true">∿</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
+          <input id="level" aria-label="Recursive FM master output level" type="range" min="0" max="1" step="0.01" value="0.58" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell recursive-fm-shell" id="recursiveFm">
+      <section class="stage recursive-fm-stage" aria-labelledby="recursiveFmTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Recursive FM algorithm with three recursive operators. Audio off."
+            aria-describedby="recursiveFmDescription liveStatus"
+          >
+            A diagram and oscilloscope for a recursive frequency-modulation operator stack.
+          </canvas>
+
+          <div class="recursive-fm-heading">
+            <p>CHAOTIC SYNTHS · 01</p>
+            <h1 id="recursiveFmTitle">Recursive FM</h1>
+            <span>signal → frequency → signal</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">3 RECURSIONS · 5 OPERATORS · OFF</span>
+          </div>
+
+          <div class="recursive-fm-scope-labels" aria-hidden="true">
+            <span>OPERATOR STACK</span>
+            <span id="scopeState">SCOPE · IDLE</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel recursive-fm-panel" aria-label="Recursive FM controls">
+        <details class="group control-section recursive-fm-presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Character</h2>
+            <span class="section-state" id="presetState">Deep Well</span>
+          </summary>
+          <div class="group-body">
+            <div class="recursive-fm-preset-grid" id="presetButtons" role="group" aria-label="Recursive FM presets">
+              <button type="button" data-preset="seed-pulse" aria-pressed="false">Seed Pulse</button>
+              <button type="button" data-preset="deep-well" aria-pressed="true">Deep Well</button>
+              <button type="button" data-preset="glass-lattice" aria-pressed="false">Glass Lattice</button>
+              <button type="button" data-preset="undertow" aria-pressed="false">Undertow</button>
+              <button type="button" data-preset="high-window" aria-pressed="false">High Window</button>
+              <button type="button" data-preset="bent-brass" aria-pressed="false">Bent Brass</button>
+            </div>
+            <p class="recursive-fm-preset-description" id="presetDescription">
+              The original default: three descending layers around a 3.32 Hz seed.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section recursive-fm-structure" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Recursion</h2>
+            <span class="section-state" id="structureState">3 turns · bounded</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="depth">
+              <span><b>Recursion depth</b><output id="depthOut" for="depth">3</output></span>
+              <input id="depth" type="range" min="0" max="10" step="1" value="3" />
+            </label>
+
+            <label class="control" for="carrier">
+              <span><b>Carrier</b><output id="carrierOut" for="carrier">3.32 Hz</output></span>
+              <input
+                id="carrier"
+                type="range"
+                min="0"
+                max="1"
+                step="0.0001"
+                value="0.4438"
+                aria-describedby="carrierNote"
+              />
+            </label>
+            <small class="recursive-fm-control-note" id="carrierNote">Logarithmic · 0.01 Hz to 4.8 kHz</small>
+
+            <label class="control" for="offset">
+              <span><b>Frequency offset</b><output id="offsetOut" for="offset">0 Hz</output></span>
+              <input id="offset" type="range" min="0" max="1" step="0.0001" value="0" />
+            </label>
+
+            <label class="control" for="modulation">
+              <span><b>Modulation amount</b><output id="modulationOut" for="modulation">7.31 kHz</output></span>
+              <input id="modulation" type="range" min="0" max="1" step="0.0001" value="0.7804" />
+            </label>
+
+            <label class="control" for="divisor">
+              <span><b>Amount divisor</b><output id="divisorOut" for="divisor">÷3.68</output></span>
+              <input id="divisor" type="range" min="0.05" max="8" step="0.01" value="3.68" />
+            </label>
+
+            <div class="grammar-card recursive-fm-ledger" aria-label="Current bounded operator model">
+              <span><b>Seed</b><code id="seedReadout">3.32 Hz carrier</code></span>
+              <span><b>Entry</b><code id="entryReadout">0 → 7.31 kHz</code></span>
+              <span><b>Output</b><code id="operatorReadout">operator 4 · normalized</code></span>
+              <span><b>Ceiling</b><code id="ceilingReadout">20 kHz</code></span>
+            </div>
+
+            <p class="recursive-fm-safety-note">
+              Each sine becomes the next oscillator’s frequency. Extreme recursive amounts are retained, but bounded before they reach Web Audio.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetRecursiveFm" type="button" data-reset-all>Reset parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="recursiveFmDescription">
+        A horizontal operator diagram shows the slow carrier, offset oscillator, and each recursive frequency-modulation turn. The lower trace is a live oscilloscope when audio is on.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="recursive-fm-app.js"></script>
+  </body>
+</html>

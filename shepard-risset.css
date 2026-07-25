@@ -1,0 +1,215 @@
+.shepard-page {
+  --accent: #ff7898;
+  --accent-soft: color-mix(in oklab, #ff7898 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff7898 22%, transparent);
+}
+
+.shepard-page .stage-wrap {
+  background:
+    linear-gradient(rgba(255, 120, 152, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 180, 255, 0.025) 1px, transparent 1px),
+    radial-gradient(circle at 50% 48%, rgba(255, 120, 152, 0.085), transparent 40%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.shepard-page #stage {
+  cursor: default;
+}
+
+.shepard-stage-label {
+  position: absolute;
+  z-index: 3;
+  bottom: 22px;
+  left: 24px;
+  display: grid;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.shepard-stage-label span {
+  color: var(--ink);
+  font-size: clamp(18px, 2.4vw, 32px);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.shepard-stage-label small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.17em;
+}
+
+.shepard-direction-markers {
+  position: absolute;
+  z-index: 3;
+  right: 24px;
+  bottom: 22px;
+  display: grid;
+  min-width: 116px;
+  pointer-events: none;
+  justify-items: end;
+}
+
+.shepard-direction-markers span {
+  color: var(--accent);
+  font-size: 28px;
+  line-height: 1;
+  text-shadow: 0 0 16px var(--accent-glow);
+}
+
+.shepard-direction-markers small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.shepard-preset-grid {
+  display: grid;
+  margin: 0 0 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.shepard-preset-grid button {
+  display: grid;
+  min-height: 58px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  align-content: center;
+  justify-items: start;
+  text-align: left;
+}
+
+.shepard-preset-grid button:hover {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.shepard-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 14px var(--accent-glow);
+}
+
+.shepard-preset-grid b {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.shepard-preset-grid small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+}
+
+.shepard-control-note {
+  display: block;
+  margin: -2px 0 9px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.shepard-signal-card {
+  display: grid;
+  margin: 11px 0 9px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1.2fr);
+  align-items: center;
+  gap: 7px;
+}
+
+.shepard-signal-card span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.shepard-signal-card b {
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.shepard-signal-card small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+}
+
+.shepard-signal-card i {
+  color: var(--accent);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.shepard-page .audio-error {
+  margin: 10px 0 8px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 130, 111, 0.38);
+  color: #ffb2a8;
+  background: rgba(255, 130, 111, 0.06);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+@media (max-width: 650px) {
+  .shepard-stage-label {
+    bottom: 15px;
+    left: 14px;
+  }
+
+  .shepard-stage-label span {
+    font-size: 16px;
+  }
+
+  .shepard-stage-label small {
+    font-size: 7px;
+  }
+
+  .shepard-direction-markers {
+    right: 14px;
+    bottom: 15px;
+  }
+
+  .shepard-direction-markers small {
+    display: none;
+  }
+}
+
+@media (max-width: 390px) {
+  .shepard-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .shepard-signal-card {
+    grid-template-columns: 1fr;
+  }
+
+  .shepard-signal-card i {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shepard-direction-markers span {
+    text-shadow: none;
+  }
+}

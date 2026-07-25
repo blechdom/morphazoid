@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Analyzer — an internal test tone and private microphone oscilloscope, log-frequency spectrum, and scrolling spectrogram."
+    />
+    <title>Analyzer — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="analyzer.css" />
+  </head>
+  <body class="analyzer-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid Shape">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab recursion-tab" href="recursion.html">recursion</a>
+        <a class="tab" href="julia.html">julia</a>
+        <a class="tab" href="lumber.html">lumber</a>
+        <a class="tab micmic-tab" href="micmic.html">mic(mic)</a>
+        <a class="tab" href="audio-engine-lab.html">engine lab</a>
+        <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
+        <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab analyzer-tab active" href="analyzer.html" aria-current="page">analyzer</a>
+        <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
+          <option value="julia.html">julia</option>
+          <option value="lumber.html">lumber</option>
+          <option value="micmic.html">mic(mic)</option>
+          <option value="audio-engine-lab.html">engine lab</option>
+          <option value="graph-delay.html">graph-delay</option>
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="analyzer.html" selected>analyzer</option>
+          <option value="morphazoidical/">morphazoidical</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph analyzer-audio-glyph" aria-hidden="true">∿</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="masterLevel">
+          <span><b>Master</b><output id="levelOut" for="masterLevel">42%</output></span>
+          <input
+            id="masterLevel"
+            aria-label="Analyzer master level"
+            type="range"
+            min="0"
+            max="0.8"
+            step="0.01"
+            value="0.42"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="analyzer-shell">
+      <section class="analyzer-intro" aria-labelledby="analyzerTitle">
+        <div>
+          <p class="analyzer-kicker">Audio &amp; Mic · Signal Lab</p>
+          <h1 id="analyzerTitle">See the signal three ways.</h1>
+          <p>
+            A single safely limited master bus feeds the waveform, log-frequency
+            spectrum, and true scrolling frequency history.
+          </p>
+        </div>
+        <dl class="analyzer-live-metrics" aria-label="Live signal measurements">
+          <div><dt>Source</dt><dd id="sourceMetric">Test tone</dd></div>
+          <div><dt>RMS</dt><dd id="rmsMetric">−∞ dBFS</dd></div>
+          <div><dt>Peak</dt><dd id="peakMetric">−∞ dBFS</dd></div>
+          <div><dt>Strongest bin</dt><dd id="frequencyMetric">—</dd></div>
+        </dl>
+      </section>
+
+      <p class="analyzer-error" id="audioError" role="alert" hidden></p>
+      <p class="sr-only" id="analyzerStatus" aria-live="polite">Analyzer ready. Audio is off.</p>
+
+      <section class="analyzer-grid" aria-label="Signal visualizations">
+        <article class="analyzer-card scope-card">
+          <header>
+            <span class="analyzer-index">01</span>
+            <div>
+              <h2>Oscilloscope</h2>
+              <p>Limited master waveform · approximately 85 ms</p>
+            </div>
+            <span class="analyzer-badge">TIME</span>
+          </header>
+          <div class="analyzer-canvas-shell scope-shell">
+            <canvas
+              id="oscilloscope"
+              width="1200"
+              height="340"
+              role="img"
+              aria-label="Oscilloscope showing the limited master waveform. Audio is off."
+            >
+              Oscilloscope showing the limited master waveform.
+            </canvas>
+            <span class="canvas-state" id="scopeState">AUDIO OFF</span>
+            <div class="scope-scale" aria-hidden="true">
+              <span>+1</span><span>0</span><span>−1</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="analyzer-card spectrum-card">
+          <header>
+            <span class="analyzer-index">02</span>
+            <div>
+              <h2>Spectrum</h2>
+              <p>Log-frequency magnitude · 20 Hz–20 kHz</p>
+            </div>
+            <span class="analyzer-badge">FFT</span>
+          </header>
+          <div class="analyzer-canvas-shell spectrum-shell">
+            <canvas
+              id="spectrum"
+              width="1200"
+              height="340"
+              role="img"
+              aria-label="Log-frequency spectrum of the limited master signal. Audio is off."
+            >
+              Log-frequency spectrum of the limited master signal.
+            </canvas>
+            <div class="frequency-axis" aria-hidden="true">
+              <span style="left: 0%">20</span>
+              <span style="left: 23.3%">100</span>
+              <span style="left: 56.6%">1k</span>
+              <span style="left: 79.9%">5k</span>
+              <span style="left: 100%">20k</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="analyzer-card spectrogram-card">
+          <header>
+            <span class="analyzer-index">03</span>
+            <div>
+              <h2>Spectrogram</h2>
+              <p>Scrolling log-frequency history · newest at right</p>
+            </div>
+            <span class="analyzer-badge">HISTORY</span>
+          </header>
+          <div class="analyzer-canvas-shell spectrogram-shell">
+            <canvas
+              id="spectrogram"
+              width="1600"
+              height="390"
+              role="img"
+              aria-label="Scrolling spectrogram of the limited master signal. Audio is off."
+            >
+              Scrolling log-frequency spectrogram of the limited master signal.
+            </canvas>
+            <div class="spectrogram-frequency-axis" aria-hidden="true">
+              <span style="bottom: 100%">20k</span>
+              <span style="bottom: 79.9%">5k</span>
+              <span style="bottom: 56.6%">1k</span>
+              <span style="bottom: 23.3%">100</span>
+              <span style="bottom: 0%">20 Hz</span>
+            </div>
+            <div class="spectrogram-time-axis" aria-hidden="true">
+              <span>OLDER</span><span>NOW</span>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="analyzer-controls" aria-label="Analyzer controls">
+        <article class="analyzer-control-card source-control-card">
+          <header>
+            <div>
+              <p class="analyzer-index">04 · SOURCE</p>
+              <h2>Choose what enters the master bus</h2>
+            </div>
+            <span class="private-badge">LOCAL ONLY</span>
+          </header>
+
+          <fieldset class="source-choice">
+            <legend>Audio source</legend>
+            <label>
+              <input id="sourceTone" type="radio" name="source" value="tone" checked />
+              <span><b>Test tone</b><small>safe internal oscillator</small></span>
+            </label>
+            <label>
+              <input id="sourceMicrophone" type="radio" name="source" value="microphone" />
+              <span><b>Microphone</b><small>private visual analysis</small></span>
+            </label>
+          </fieldset>
+
+          <div class="tone-controls" id="toneControls">
+            <label class="analyzer-control" for="toneFrequency">
+              <span><b>Tone frequency</b><output id="toneFrequencyOut" for="toneFrequency">220 Hz</output></span>
+              <input id="toneFrequency" type="range" min="40" max="2000" step="1" value="220" />
+            </label>
+            <label class="select-control" for="toneWaveform">
+              <span class="field-label">Waveform</span>
+              <span class="select-shell">
+                <select id="toneWaveform">
+                  <option value="sine" selected>Sine</option>
+                  <option value="triangle">Triangle</option>
+                  <option value="sawtooth">Sawtooth</option>
+                  <option value="square">Square</option>
+                </select>
+              </span>
+            </label>
+          </div>
+          <p class="analyzer-note" id="sourceNote">
+            Test tone is monitored at the selected master level. Start low when using headphones.
+          </p>
+        </article>
+
+        <article class="analyzer-control-card analysis-control-card">
+          <header>
+            <div>
+              <p class="analyzer-index">05 · DISPLAY</p>
+              <h2>Shape the analysis, not the sound</h2>
+            </div>
+          </header>
+          <label class="analyzer-control" for="spectrumSmoothing">
+            <span><b>Spectrum smoothing</b><output id="spectrumSmoothingOut" for="spectrumSmoothing">72%</output></span>
+            <input id="spectrumSmoothing" type="range" min="0" max="0.96" step="0.01" value="0.72" />
+          </label>
+          <label class="analyzer-control" for="waterfallSpeed">
+            <span><b>Waterfall speed</b><output id="waterfallSpeedOut" for="waterfallSpeed">24 px/s</output></span>
+            <input id="waterfallSpeed" type="range" min="8" max="48" step="1" value="24" />
+          </label>
+          <div class="analyzer-actions">
+            <button class="analyzer-action" id="clearSpectrogram" type="button">Clear history</button>
+            <button class="analyzer-action analyzer-reset" type="button" data-reset-all>Reset all parameters</button>
+          </div>
+          <p class="analyzer-note">
+            Microphone mode is deliberately not sent to the speakers, preventing an acoustic feedback loop.
+            Its track stops when Audio is switched off or the page closes.
+          </p>
+        </article>
+      </section>
+
+      <footer class="analyzer-footer">
+        <span id="engineState"><i aria-hidden="true"></i> Audio engine idle</span>
+        <span>FFT 4096 · 30 FPS display ceiling · local processing</span>
+      </footer>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="analyzer-app.js"></script>
+  </body>
+</html>

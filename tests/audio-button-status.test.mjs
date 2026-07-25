@@ -15,6 +15,9 @@ const instrumentScripts = [
   "lumber-app.js",
   "micmic-app.js",
   "throatazoid-app.js",
+  "analyzer-app.js",
+  "shepard-risset-app.js",
+  "recursive-fm-app.js",
   "morphazoidical/app.js",
 ];
 

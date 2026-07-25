@@ -31,12 +31,25 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "recursion", label: "Recursion", href: "recursion.html" },
     { id: "julia", label: "Julia", href: "julia.html" },
   ]),
+  freezeGroup("barber-shop-poles", "Barber Shop Poles", [
+    { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },
+  ]),
+  freezeGroup("chaotic-synths", "Chaotic Synths", [
+    { id: "recursive-fm", label: "Recursive FM", href: "recursive-fm.html" },
+  ]),
   freezeGroup("audio-mic", "Audio & Mic", [
     { id: "lumber", label: "Lumber", href: "lumber.html" },
     { id: "micmic", label: "Mic(mic)", href: "micmic.html" },
     { id: "audio-engine-lab", label: "Audio Engine Lab", href: "audio-engine-lab.html" },
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
+  ]),
+  freezeGroup("analysis", "Analysis", [
+    {
+      id: "analyzer",
+      label: "Oscilloscope + Spectrogram",
+      href: "analyzer.html",
+    },
   ]),
   freezeGroup("workbench", "Workbench", [
     {
