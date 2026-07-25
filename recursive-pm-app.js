@@ -1,0 +1,501 @@
+import {
+  DEFAULT_RECURSIVE_PM_PRESET_ID,
+  RECURSIVE_PM_LIMITS,
+  RECURSIVE_PM_PRESETS,
+  RecursivePmAudioEngine,
+  deriveRecursivePmStack,
+  formatRecursivePmFrequency,
+  formatRecursivePmNumber,
+  logarithmicRecursivePmPosition,
+  logarithmicRecursivePmValue,
+  sanitizeRecursivePmSettings,
+  summarizeRecursivePmStack,
+} from "./src/recursive-pm.js";
+
+const $ = (id) => document.getElementById(id);
+const DEFAULT_LEVEL = 0.58;
+const VISUAL_FRAME_INTERVAL = 1_000 / 30;
+
+const defaultPreset = RECURSIVE_PM_PRESETS.find(
+  ({ id }) => id === DEFAULT_RECURSIVE_PM_PRESET_ID,
+) ?? RECURSIVE_PM_PRESETS[0];
+
+const state = {
+  settings: { ...defaultPreset.settings },
+  activePresetId: defaultPreset.id,
+  level: DEFAULT_LEVEL,
+  audioStarting: false,
+};
+
+const engine = new RecursivePmAudioEngine(window);
+const canvas = $("stage");
+const canvasContext = canvas.getContext("2d");
+const stageWrap = $("stageWrap");
+let pixelRatio = 1;
+let cssWidth = 1;
+let cssHeight = 1;
+let visualFrameId = null;
+let lastVisualFrame = -Infinity;
+let visualizationDirty = true;
+let resizeObserver = null;
+let usingWindowResizeFallback = false;
+let disposed = false;
+
+const controls = {
+  depth: {
+    input: $("depth"),
+    output: $("depthOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => { input.value = String(value); },
+  },
+  carrierHz: {
+    input: $("carrier"),
+    output: $("carrierOut"),
+    read: (input) => logarithmicRecursivePmValue(
+      Number(input.value),
+      RECURSIVE_PM_LIMITS.minCarrierHz,
+      RECURSIVE_PM_LIMITS.maxCarrierHz,
+    ),
+    write: (value, input) => {
+      input.value = String(logarithmicRecursivePmPosition(
+        value,
+        RECURSIVE_PM_LIMITS.minCarrierHz,
+        RECURSIVE_PM_LIMITS.maxCarrierHz,
+      ));
+    },
+  },
+  startModFrequencyHz: {
+    input: $("modFrequency"),
+    output: $("modFrequencyOut"),
+    read: (input) => logarithmicRecursivePmValue(
+      Number(input.value),
+      RECURSIVE_PM_LIMITS.minModFrequencyHz,
+      RECURSIVE_PM_LIMITS.maxModFrequencyHz,
+    ),
+    write: (value, input) => {
+      input.value = String(logarithmicRecursivePmPosition(
+        value,
+        RECURSIVE_PM_LIMITS.minModFrequencyHz,
+        RECURSIVE_PM_LIMITS.maxModFrequencyHz,
+      ));
+    },
+  },
+  frequencyDivisor: {
+    input: $("frequencyDivisor"),
+    output: $("frequencyDivisorOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => { input.value = String(value); },
+  },
+  startPhaseIndex: {
+    input: $("phaseIndex"),
+    output: $("phaseIndexOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => { input.value = String(value); },
+  },
+  indexDivisor: {
+    input: $("indexDivisor"),
+    output: $("indexDivisorOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => { input.value = String(value); },
+  },
+};
+
+function currentStack() {
+  return deriveRecursivePmStack(
+    state.settings,
+    { sampleRate: engine.sampleRate },
+  );
+}
+
+function presetById(id) {
+  return RECURSIVE_PM_PRESETS.find((preset) => preset.id === id) ?? null;
+}
+
+function updatePresetButtons() {
+  for (const button of $("presetButtons").querySelectorAll("[data-preset]")) {
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.preset === state.activePresetId),
+    );
+  }
+  const preset = presetById(state.activePresetId);
+  $("presetState").textContent = preset?.label ?? "Custom";
+  $("presetDescription").textContent = preset?.description
+    ?? "A custom recursive phase-operator stack.";
+}
+
+function updateControlOutputs(stack = currentStack()) {
+  const { settings } = stack;
+  controls.depth.output.textContent = String(settings.depth);
+  controls.carrierHz.output.textContent = formatRecursivePmFrequency(settings.carrierHz);
+  controls.startModFrequencyHz.output.textContent = formatRecursivePmFrequency(
+    settings.startModFrequencyHz,
+  );
+  controls.frequencyDivisor.output.textContent = `÷${formatRecursivePmNumber(settings.frequencyDivisor)}`;
+  controls.startPhaseIndex.output.textContent = formatRecursivePmNumber(settings.startPhaseIndex);
+  controls.indexDivisor.output.textContent = `÷${formatRecursivePmNumber(settings.indexDivisor)}`;
+
+  const summary = summarizeRecursivePmStack(stack);
+  const bounded = stack.actualDepth < stack.requestedDepth ? "frequency bounded" : "bounded";
+  $("structureState").textContent = `${summary.actualDepth} ${summary.actualDepth === 1 ? "turn" : "turns"} · ${bounded}`;
+  $("carrierReadout").textContent = `${formatRecursivePmFrequency(settings.carrierHz)} sine`;
+  $("entryReadout").textContent = `${formatRecursivePmFrequency(settings.startModFrequencyHz)} · index ${formatRecursivePmNumber(settings.startPhaseIndex)}`;
+  $("operatorReadout").textContent = `operator ${stack.audibleIndex} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
+  $("ceilingReadout").textContent = formatRecursivePmFrequency(settings.maximumFrequencyHz);
+  $("stageReadout").textContent = `${summary.label} · ${engine.running ? "ON" : "OFF"}`.toUpperCase();
+  $("scopeState").textContent = engine.running ? "SCOPE · LIVE" : "SCOPE · IDLE";
+  canvas.setAttribute(
+    "aria-label",
+    `Recursive PM algorithm with ${summary.actualDepth} recursive ${summary.actualDepth === 1 ? "operator" : "operators"}. Audio ${engine.running ? "on" : "off"}.`,
+  );
+}
+
+function writeControlsFromState() {
+  for (const [name, control] of Object.entries(controls)) {
+    control.write(state.settings[name], control.input);
+  }
+}
+
+function applySettings(settings, { presetId = null, announce = false } = {}) {
+  const safe = sanitizeRecursivePmSettings(
+    settings,
+    { sampleRate: engine.sampleRate },
+  );
+  state.settings = {
+    depth: safe.depth,
+    carrierHz: safe.carrierHz,
+    startModFrequencyHz: safe.startModFrequencyHz,
+    frequencyDivisor: safe.frequencyDivisor,
+    startPhaseIndex: safe.startPhaseIndex,
+    indexDivisor: safe.indexDivisor,
+  };
+  state.activePresetId = presetId;
+  writeControlsFromState();
+  const stack = engine.running
+    ? engine.updateSettings(state.settings)
+    : currentStack();
+  updatePresetButtons();
+  updateControlOutputs(stack);
+  visualizationDirty = true;
+  scheduleVisualization();
+  if (announce) {
+    const preset = presetById(presetId);
+    $("liveStatus").textContent = preset
+      ? `${preset.label} Recursive PM preset selected.`
+      : "Recursive PM parameters reset.";
+  }
+}
+
+function updateAudioUi() {
+  const active = engine.running;
+  $("audioButton").setAttribute("aria-pressed", String(active));
+  $("audioButton").disabled = state.audioStarting;
+  $("audioState").textContent = active ? "on" : "off";
+  updateControlOutputs();
+}
+
+function showError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  $("audioError").textContent = message;
+  $("audioError").hidden = false;
+  $("liveStatus").textContent = `Audio error: ${message}`;
+}
+
+function clearError() {
+  $("audioError").hidden = true;
+  $("audioError").textContent = "";
+}
+
+function resizeCanvas() {
+  if (disposed) return;
+  const bounds = stageWrap.getBoundingClientRect();
+  cssWidth = Math.max(1, Math.round(bounds.width));
+  cssHeight = Math.max(1, Math.round(bounds.height));
+  pixelRatio = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+  canvas.width = Math.round(cssWidth * pixelRatio);
+  canvas.height = Math.round(cssHeight * pixelRatio);
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
+  visualizationDirty = true;
+  scheduleVisualization();
+}
+
+function drawOperatorNode(context, x, y, radius, color, selected) {
+  context.save();
+  context.beginPath();
+  context.arc(x, y, radius, 0, Math.PI * 2);
+  context.fillStyle = selected ? color : "#07090b";
+  context.fill();
+  context.strokeStyle = color;
+  context.lineWidth = selected ? 2 : 1;
+  context.stroke();
+
+  if (!selected) {
+    context.beginPath();
+    context.arc(x, y, Math.max(2.5, radius * 0.38), -Math.PI * 0.7, Math.PI * 0.55);
+    context.strokeStyle = color;
+    context.globalAlpha = 0.55;
+    context.stroke();
+  }
+  context.restore();
+}
+
+function drawAlgorithm(context, stack, width, height) {
+  const operators = stack.operators;
+  const left = Math.max(28, width * 0.065);
+  const right = width - left;
+  const graphY = Math.max(92, Math.min(height * 0.47, height - 112));
+  const available = Math.max(1, right - left);
+  const spacing = operators.length > 1 ? available / (operators.length - 1) : 0;
+  const radius = Math.max(7, Math.min(13, spacing * 0.23 || 13));
+
+  context.save();
+  context.font = "8px ui-monospace, SFMono-Regular, Menlo, monospace";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+
+  for (let index = 1; index < operators.length; index += 1) {
+    const x1 = left + spacing * (index - 1);
+    const x2 = left + spacing * index;
+    const selected = index === operators.length - 1;
+    context.beginPath();
+    context.moveTo(x1 + radius + 3, graphY);
+    context.lineTo(x2 - radius - 3, graphY);
+    context.strokeStyle = selected ? "#fff1c7" : "#ff8fd8";
+    context.globalAlpha = 0.42;
+    context.lineWidth = 1;
+    context.stroke();
+    context.globalAlpha = 1;
+
+    if (spacing > 62) {
+      context.fillStyle = "#77837e";
+      context.fillText(
+        `× ${formatRecursivePmNumber(operators[index].phaseIndex)}`,
+        (x1 + x2) / 2,
+        graphY - 17,
+      );
+    }
+  }
+
+  operators.forEach((operator, index) => {
+    const x = left + spacing * index;
+    const selected = index === stack.audibleIndex;
+    const color = selected
+      ? "#fff1c7"
+      : (index === 0 ? "#65f0c7" : "#ff8fd8");
+    drawOperatorNode(
+      context,
+      x,
+      graphY,
+      selected ? radius + 2 : radius,
+      color,
+      selected,
+    );
+    context.fillStyle = selected ? "#07090b" : color;
+    context.font = `${Math.max(6, Math.min(9, radius * 0.72))}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    context.fillText(index === 0 ? "C" : "ϕ", x, graphY + 0.5);
+
+    if (spacing > 38 || operators.length <= 7) {
+      context.fillStyle = selected ? "#fff1c7" : "#77837e";
+      context.font = "7px ui-monospace, SFMono-Regular, Menlo, monospace";
+      context.fillText(
+        index === 0 ? "CARRIER" : `TURN ${index}`,
+        x,
+        graphY + radius + 17,
+      );
+      if (index > 0 && spacing > 52) {
+        context.fillText(
+          formatRecursivePmFrequency(operator.frequencyHz),
+          x,
+          graphY + radius + 29,
+        );
+      }
+    }
+  });
+  context.restore();
+}
+
+function drawScope(context, waveform, width, height) {
+  const left = Math.max(24, width * 0.045);
+  const right = width - left;
+  const top = Math.max(height * 0.67, 125);
+  const bottom = Math.max(top + 24, height - 43);
+  const middle = (top + bottom) / 2;
+
+  context.save();
+  context.strokeStyle = "rgba(214, 232, 226, 0.08)";
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(left, middle);
+  context.lineTo(right, middle);
+  context.stroke();
+
+  context.beginPath();
+  if (waveform) {
+    const slice = (right - left) / Math.max(1, waveform.length - 1);
+    for (let index = 0; index < waveform.length; index += 1) {
+      const x = left + index * slice;
+      const normalized = waveform[index] / 128 - 1;
+      const y = middle + normalized * (bottom - top) * 0.46;
+      if (index === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    context.strokeStyle = "#ff8fd8";
+    context.shadowColor = "rgba(255, 143, 216, 0.35)";
+    context.shadowBlur = 8;
+  } else {
+    context.moveTo(left, middle);
+    context.lineTo(right, middle);
+    context.strokeStyle = "rgba(119, 131, 126, 0.48)";
+  }
+  context.lineWidth = 1.25;
+  context.stroke();
+  context.restore();
+}
+
+function drawVisualization() {
+  canvasContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  canvasContext.clearRect(0, 0, cssWidth, cssHeight);
+  const stack = currentStack();
+  drawAlgorithm(canvasContext, stack, cssWidth, cssHeight);
+  drawScope(canvasContext, engine.readWaveform(), cssWidth, cssHeight);
+}
+
+function visualizationFrame(timestamp) {
+  visualFrameId = null;
+  if (disposed) return;
+  const shouldAnimate = engine.running && !document.hidden;
+  if (visualizationDirty || timestamp - lastVisualFrame >= VISUAL_FRAME_INTERVAL) {
+    drawVisualization();
+    visualizationDirty = false;
+    lastVisualFrame = timestamp;
+  }
+  if (shouldAnimate) visualFrameId = requestAnimationFrame(visualizationFrame);
+}
+
+function scheduleVisualization() {
+  if (!disposed && visualFrameId === null && !document.hidden) {
+    visualFrameId = requestAnimationFrame(visualizationFrame);
+  }
+}
+
+function beginResizeObservation() {
+  if ("ResizeObserver" in window) {
+    resizeObserver = new ResizeObserver(resizeCanvas);
+    resizeObserver.observe(stageWrap);
+    return;
+  }
+  usingWindowResizeFallback = true;
+  window.addEventListener("resize", resizeCanvas);
+}
+
+function endResizeObservation() {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+  if (usingWindowResizeFallback) {
+    window.removeEventListener("resize", resizeCanvas);
+    usingWindowResizeFallback = false;
+  }
+}
+
+for (const [name, control] of Object.entries(controls)) {
+  control.input.addEventListener("input", () => {
+    applySettings({
+      ...state.settings,
+      [name]: control.read(control.input),
+    });
+  });
+}
+
+$("presetButtons").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-preset]");
+  if (!button) return;
+  const preset = presetById(button.dataset.preset);
+  if (!preset) return;
+  clearError();
+  applySettings(preset.settings, { presetId: preset.id, announce: true });
+});
+
+$("level").addEventListener("input", () => {
+  state.level = Number($("level").value);
+  $("levelOut").textContent = `${Math.round(state.level * 100)}%`;
+  engine.setLevel(state.level);
+});
+
+$("audioButton").addEventListener("click", async () => {
+  if (state.audioStarting) return;
+  clearError();
+  state.audioStarting = true;
+  updateAudioUi();
+  try {
+    if (engine.running) {
+      await engine.stop();
+      $("liveStatus").textContent = "Recursive PM audio off.";
+    } else {
+      await engine.start(state.settings, state.level);
+      $("liveStatus").textContent = "Recursive PM audio on.";
+    }
+  } catch (error) {
+    await engine.stop({ immediate: true });
+    showError(error);
+  } finally {
+    state.audioStarting = false;
+    visualizationDirty = true;
+    updateAudioUi();
+    scheduleVisualization();
+  }
+});
+
+$("resetRecursivePm").addEventListener("click", () => {
+  clearError();
+  state.level = DEFAULT_LEVEL;
+  $("level").value = String(DEFAULT_LEVEL);
+  $("levelOut").textContent = `${Math.round(DEFAULT_LEVEL * 100)}%`;
+  engine.setLevel(DEFAULT_LEVEL);
+  applySettings(defaultPreset.settings, {
+    presetId: defaultPreset.id,
+    announce: true,
+  });
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!disposed && !document.hidden) {
+    visualizationDirty = true;
+    scheduleVisualization();
+  }
+});
+
+window.addEventListener("pagehide", () => {
+  disposed = true;
+  if (visualFrameId !== null) {
+    cancelAnimationFrame(visualFrameId);
+    visualFrameId = null;
+  }
+  endResizeObservation();
+  engine.stop({ immediate: true });
+});
+
+window.addEventListener("pageshow", (event) => {
+  if (!event.persisted || !disposed) return;
+  disposed = false;
+  beginResizeObservation();
+  visualizationDirty = true;
+  updateAudioUi();
+  resizeCanvas();
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !engine.running) return;
+  engine.stop({ immediate: true }).finally(() => {
+    state.audioStarting = false;
+    updateAudioUi();
+    visualizationDirty = true;
+    scheduleVisualization();
+  });
+});
+
+writeControlsFromState();
+updatePresetButtons();
+updateControlOutputs();
+beginResizeObservation();
+resizeCanvas();

@@ -19,6 +19,7 @@ const instrumentScripts = [
   "shepard-risset-app.js",
   "barber-delay-app.js",
   "recursive-fm-app.js",
+  "recursive-pm-app.js",
   "morphazoidical/app.js",
 ];
 

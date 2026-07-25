@@ -76,6 +76,10 @@ required_files=(
   recursive-fm.html
   recursive-fm-app.js
   src/recursive-fm.js
+  recursive-pm.html
+  recursive-pm.css
+  recursive-pm-app.js
+  src/recursive-pm.js
   morphazoidical/index.html
   vendor/signalsmith-stretch/SignalsmithStretch.mjs
   vendor/tactile/tactile.js

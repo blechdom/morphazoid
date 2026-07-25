@@ -139,7 +139,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 19);
+  assert.equal(tools.length, 20);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -171,6 +171,15 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "striped-sludge-delay", href: "striped-sludge-delay.html" },
     ],
   );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "chaotic-synths")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [
+      { id: "recursive-fm", href: "recursive-fm.html" },
+      { id: "recursive-pm", href: "recursive-pm.html" },
+    ],
+  );
 });
 
 test("active tool resolution preserves GitHub Pages subpaths and nested workbench pages", () => {
@@ -183,6 +192,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}candy-coil-delay.html`, SITE_ROOT)?.id, "candy-coil-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}striped-sludge-delay.html`, SITE_ROOT)?.id, "striped-sludge-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}recursive-fm.html`, SITE_ROOT)?.id, "recursive-fm");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}recursive-pm.html`, SITE_ROOT)?.id, "recursive-pm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}analyzer.html`, SITE_ROOT)?.id, "analyzer");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");
@@ -218,7 +228,7 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
     TOOL_GROUPS.map((group) => group.label),
   );
   const links = details.findAll((node) => node.tagName === "A");
-  assert.equal(links.length, 19);
+  assert.equal(links.length, 20);
   const currentLinks = links.filter((link) => link.getAttribute("aria-current") === "page");
   assert.equal(currentLinks.length, 1);
   assert.equal(currentLinks[0].getAttribute("data-tool-id"), "julia");

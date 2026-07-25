@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Recursive PM — a sine carrier folded through a bounded stack of recursive phase operators."
+    />
+    <title>Recursive PM — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="recursive-pm.css" />
+  </head>
+  <body class="recursive-pm-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid Shape">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab recursion-tab" href="recursion.html">recursion</a>
+        <a class="tab" href="recursive-fm.html">recursive fm</a>
+        <a class="tab active" href="recursive-pm.html" aria-current="page">recursive pm</a>
+        <a class="tab" href="julia.html">julia</a>
+        <a class="tab" href="lumber.html">lumber</a>
+        <a class="tab micmic-tab" href="micmic.html">mic(mic)</a>
+        <a class="tab" href="audio-engine-lab.html">engine lab</a>
+        <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
+        <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
+          <option value="recursive-fm.html">recursive fm</option>
+          <option value="recursive-pm.html" selected>recursive pm</option>
+          <option value="julia.html">julia</option>
+          <option value="lumber.html">lumber</option>
+          <option value="micmic.html">mic(mic)</option>
+          <option value="audio-engine-lab.html">engine lab</option>
+          <option value="graph-delay.html">graph-delay</option>
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="morphazoidical/">morphazoidical</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph recursive-pm-audio-glyph" aria-hidden="true">ϕ</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
+          <input id="level" aria-label="Recursive PM master output level" type="range" min="0" max="1" step="0.01" value="0.58" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell recursive-pm-shell" id="recursivePm">
+      <section class="stage recursive-pm-stage" aria-labelledby="recursivePmTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Recursive PM algorithm with three recursive operators. Audio off."
+            aria-describedby="recursivePmDescription liveStatus"
+          >
+            A diagram and oscilloscope for a recursive phase-modulation operator stack.
+          </canvas>
+
+          <div class="recursive-pm-heading">
+            <p>CHAOTIC SYNTHS · 02</p>
+            <h1 id="recursivePmTitle">Recursive PM</h1>
+            <span>signal → phase → signal</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">3 TURNS · 4 OPERATORS · OFF</span>
+          </div>
+
+          <div class="recursive-pm-scope-labels" aria-hidden="true">
+            <span>PHASE OPERATOR STACK</span>
+            <span id="scopeState">SCOPE · IDLE</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel recursive-pm-panel" aria-label="Recursive PM controls">
+        <details class="group control-section recursive-pm-presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Character</h2>
+            <span class="section-state" id="presetState">Chromium Swarm</span>
+          </summary>
+          <div class="group-body">
+            <div class="recursive-pm-preset-grid" id="presetButtons" role="group" aria-label="Recursive PM presets">
+              <button type="button" data-preset="low-orbit" aria-pressed="false">Low Orbit</button>
+              <button type="button" data-preset="chromium-swarm" aria-pressed="true">Chromium Swarm</button>
+              <button type="button" data-preset="glass-rotor" aria-pressed="false">Glass Rotor</button>
+              <button type="button" data-preset="brass-fold" aria-pressed="false">Brass Fold</button>
+              <button type="button" data-preset="slow-fracture" aria-pressed="false">Slow Fracture</button>
+            </div>
+            <p class="recursive-pm-preset-description" id="presetDescription">
+              The original default: a sub-audio carrier folded by a fast 372.64 Hz phase orbit.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section recursive-pm-structure" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Recursion</h2>
+            <span class="section-state" id="structureState">3 turns · bounded</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="depth">
+              <span><b>Recursion depth</b><output id="depthOut" for="depth">3</output></span>
+              <input id="depth" type="range" min="0" max="10" step="1" value="3" />
+            </label>
+
+            <label class="control" for="carrier">
+              <span><b>Carrier</b><output id="carrierOut" for="carrier">7.29 Hz</output></span>
+              <input id="carrier" type="range" min="0" max="1" step="0.0001" value="0.563" aria-describedby="carrierNote" />
+            </label>
+            <small class="recursive-pm-control-note" id="carrierNote">Logarithmic · 0.01 Hz to 1.2 kHz</small>
+
+            <label class="control" for="modFrequency">
+              <span><b>Starting mod frequency</b><output id="modFrequencyOut" for="modFrequency">372.64 Hz</output></span>
+              <input id="modFrequency" type="range" min="0" max="1" step="0.0001" value="0.987" aria-describedby="modFrequencyNote" />
+            </label>
+            <small class="recursive-pm-control-note" id="modFrequencyNote">Logarithmic · 0.01 Hz to 400 Hz</small>
+
+            <label class="control" for="frequencyDivisor">
+              <span><b>Frequency divisor</b><output id="frequencyDivisorOut" for="frequencyDivisor">÷4.98</output></span>
+              <input id="frequencyDivisor" type="range" min="0.01" max="8" step="0.01" value="4.98" />
+            </label>
+
+            <label class="control" for="phaseIndex">
+              <span><b>Starting phase index</b><output id="phaseIndexOut" for="phaseIndex">5.14</output></span>
+              <input id="phaseIndex" type="range" min="0" max="20" step="0.01" value="5.14" />
+            </label>
+
+            <label class="control" for="indexDivisor">
+              <span><b>Index divisor</b><output id="indexDivisorOut" for="indexDivisor">÷6.25</output></span>
+              <input id="indexDivisor" type="range" min="0.01" max="8" step="0.01" value="6.25" />
+            </label>
+
+            <div class="grammar-card recursive-pm-ledger" aria-label="Current bounded phase operator model">
+              <span><b>Carrier</b><code id="carrierReadout">7.29 Hz sine</code></span>
+              <span><b>First turn</b><code id="entryReadout">372.64 Hz · index 5.14</code></span>
+              <span><b>Output</b><code id="operatorReadout">operator 3 · normalized</code></span>
+              <span><b>Ceiling</b><code id="ceilingReadout">20 kHz</code></span>
+            </div>
+
+            <p class="recursive-pm-safety-note">
+              Every turn writes the previous sine into the next sine’s phase. Depth changes crossfade, live parameters glide, and the output is normalized before a protective limiter.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetRecursivePm" type="button" data-reset-all>Reset parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="recursivePmDescription">
+        A horizontal diagram shows the sine carrier and each recursive phase-modulation turn. The lower trace is a live oscilloscope when audio is on.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="recursive-pm-app.js"></script>
+  </body>
+</html>

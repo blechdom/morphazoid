@@ -42,6 +42,13 @@ const migratedPages = [
     source: "src/recursive-fm.js",
     requiredCopy: ["Recursive", "FM"],
   },
+  {
+    id: "recursive-pm",
+    html: "recursive-pm.html",
+    app: "recursive-pm-app.js",
+    source: "src/recursive-pm.js",
+    requiredCopy: ["Recursive", "PM"],
+  },
 ];
 
 test("migrated demos are native internal Morphazoid pages", async () => {
