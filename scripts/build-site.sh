@@ -68,6 +68,11 @@ required_files=(
   shepard-risset.html
   shepard-risset-app.js
   src/shepard-risset.js
+  candy-coil-delay.html
+  striped-sludge-delay.html
+  barber-delay.css
+  barber-delay-app.js
+  src/barber-delay.js
   recursive-fm.html
   recursive-fm-app.js
   src/recursive-fm.js

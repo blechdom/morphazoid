@@ -1,0 +1,496 @@
+.barber-delay-page {
+  --barber-cream: #fff0d1;
+  --barber-cyan: #69d9ee;
+}
+
+.candy-coil-page {
+  --barber-primary: #ed5f9f;
+  --accent: #ed5f9f;
+  --accent-soft: color-mix(in oklab, #ed5f9f 56%, transparent);
+  --accent-glow: color-mix(in oklab, #ed5f9f 22%, transparent);
+  --barber-secondary: #c9f04b;
+  --barber-tertiary: #9f58c7;
+}
+
+.striped-sludge-page {
+  --barber-primary: #9cad45;
+  --accent: #9cad45;
+  --accent-soft: color-mix(in oklab, #9cad45 56%, transparent);
+  --accent-glow: color-mix(in oklab, #9cad45 22%, transparent);
+  --barber-secondary: #69d9ee;
+  --barber-tertiary: #76552f;
+}
+
+.barber-delay-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 27vw, 410px);
+}
+
+.barber-delay-stage .stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--accent) 2.4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--barber-secondary) 2.1%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 52% 46%, color-mix(in oklab, var(--accent) 9%, transparent), transparent 50%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.striped-sludge-page .barber-delay-stage .stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--accent) 2.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--barber-secondary) 2.2%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 52% 51%, color-mix(in oklab, var(--barber-secondary) 7%, transparent), transparent 48%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.barber-delay-page #stage {
+  cursor: default;
+}
+
+.barber-delay-heading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(38px, 7vh, 72px);
+  left: clamp(20px, 4vw, 58px);
+  display: grid;
+  max-width: min(460px, 55%);
+  pointer-events: none;
+  gap: 5px;
+}
+
+.barber-delay-heading p,
+.barber-delay-heading span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.barber-delay-heading p {
+  color: var(--accent);
+}
+
+.barber-delay-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(25px, 4vw, 52px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.barber-delay-heading span {
+  margin-top: 3px;
+  color: var(--faint);
+  letter-spacing: 0.11em;
+}
+
+.barber-delay-interpretation {
+  position: absolute;
+  z-index: 3;
+  right: clamp(18px, 3vw, 40px);
+  bottom: 43px;
+  display: grid;
+  min-width: 166px;
+  padding: 10px 12px;
+  border-right: 2px solid var(--accent);
+  pointer-events: none;
+  justify-items: end;
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--bg-deep) 78%, transparent));
+}
+
+.barber-delay-interpretation span {
+  color: var(--accent);
+  font-size: clamp(18px, 2.2vw, 28px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: 0 0 18px var(--accent-glow);
+}
+
+.barber-delay-interpretation small {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.barber-delay-scope-labels {
+  position: absolute;
+  z-index: 2;
+  right: clamp(18px, 3vw, 40px);
+  bottom: 18px;
+  left: clamp(20px, 4vw, 58px);
+  display: flex;
+  color: var(--faint);
+  justify-content: space-between;
+  font-size: 7px;
+  letter-spacing: 0.15em;
+  pointer-events: none;
+}
+
+.barber-delay-panel {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--accent) 3%, transparent), transparent 280px),
+    var(--panel);
+}
+
+.control-section.barber-delay-source[data-section="play"] {
+  --accent: var(--barber-secondary);
+  --accent-soft: color-mix(in oklab, var(--barber-secondary) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--barber-secondary) 20%, transparent);
+}
+
+.control-section.barber-delay-presets[data-section="form"] {
+  --accent: var(--barber-tertiary);
+  --accent-soft: color-mix(in oklab, var(--barber-tertiary) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--barber-tertiary) 20%, transparent);
+}
+
+.control-section.barber-delay-motion[data-section="mapping"] {
+  --accent: var(--barber-primary);
+  --accent-soft: color-mix(in oklab, var(--barber-primary) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--barber-primary) 20%, transparent);
+}
+
+.control-section.barber-delay-sound[data-section="sound"] {
+  --accent: var(--barber-cyan);
+  --accent-soft: color-mix(in oklab, var(--barber-cyan) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--barber-cyan) 20%, transparent);
+}
+
+.striped-sludge-page .control-section.barber-delay-presets[data-section="form"] {
+  --accent: var(--barber-secondary);
+  --accent-soft: color-mix(in oklab, var(--barber-secondary) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--barber-secondary) 18%, transparent);
+}
+
+.striped-sludge-page .control-section.barber-delay-sound[data-section="sound"] {
+  --accent: #d7c59a;
+  --accent-soft: color-mix(in oklab, #d7c59a 55%, transparent);
+  --accent-glow: color-mix(in oklab, #d7c59a 18%, transparent);
+}
+
+.barber-delay-audio-glyph {
+  color: var(--accent);
+  font-size: 18px;
+}
+
+.barber-file-row {
+  display: grid;
+  margin: 1px 0 9px;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 6px;
+}
+
+.barber-file-picker {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 11px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  align-items: center;
+  background: var(--bg-deep);
+  font-size: 9px;
+}
+
+.barber-file-picker:hover,
+.barber-file-picker:focus-within {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.barber-file-picker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.barber-file-picker span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barber-icon-button {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 17px;
+}
+
+.barber-icon-button:hover {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.barber-icon-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.barber-delay-note {
+  margin: 3px 0 10px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.barber-delay-page .audio-error {
+  margin: 9px 0 5px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 130, 111, 0.38);
+  color: #ffb2a8;
+  background: rgba(255, 130, 111, 0.06);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.barber-preset-grid {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.barber-preset-grid button {
+  min-height: 38px;
+  padding: 6px 7px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font-size: 8px;
+  letter-spacing: 0.035em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.barber-preset-grid button:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.barber-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 10px var(--accent-glow);
+}
+
+.barber-coil-actions {
+  display: grid;
+  margin: 1px 0 13px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.barber-action-button {
+  display: grid;
+  min-height: 48px;
+  padding: 7px 9px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  align-content: center;
+  justify-items: start;
+  text-align: left;
+}
+
+.barber-action-button:hover {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.barber-action-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.barber-action-button b {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.barber-action-button small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.barber-rate-card {
+  display: grid;
+  margin: 8px 0 12px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+}
+
+.barber-rate-card > span {
+  display: grid;
+  min-width: 0;
+  padding: 8px 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.barber-rate-card > span + span {
+  border-top: 1px solid var(--line);
+}
+
+.barber-rate-card b {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.barber-rate-card output {
+  color: var(--accent);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.barber-safety-card {
+  display: grid;
+  margin: 12px 0 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1.2fr);
+  align-items: center;
+  gap: 7px;
+}
+
+.barber-safety-card span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.barber-safety-card b {
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.barber-safety-card small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+}
+
+.barber-safety-card i {
+  color: var(--accent);
+  font-size: 9px;
+  font-style: normal;
+}
+
+@media (max-width: 960px) {
+  .barber-delay-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .barber-delay-heading {
+    top: 28px;
+  }
+
+  .barber-delay-heading h1 {
+    font-size: clamp(24px, 6vw, 40px);
+  }
+}
+
+@media (max-width: 650px) {
+  .barber-delay-heading {
+    top: 18px;
+    left: 15px;
+  }
+
+  .barber-delay-heading p {
+    display: none;
+  }
+
+  .barber-delay-heading h1 {
+    max-width: 58vw;
+    font-size: clamp(19px, 6vw, 30px);
+  }
+
+  .barber-delay-heading span {
+    display: none;
+  }
+
+  .barber-delay-interpretation {
+    right: 13px;
+    bottom: 35px;
+    min-width: 122px;
+    padding: 7px 8px;
+  }
+
+  .barber-delay-interpretation span {
+    font-size: 17px;
+  }
+
+  .barber-delay-interpretation small {
+    max-width: 130px;
+    overflow: hidden;
+    font-size: 6px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .barber-delay-scope-labels {
+    right: 13px;
+    bottom: 10px;
+    left: 13px;
+  }
+}
+
+@media (max-width: 390px) {
+  .barber-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .barber-preset-grid button {
+    min-height: 36px;
+  }
+
+  .barber-safety-card {
+    grid-template-columns: 1fr;
+  }
+
+  .barber-safety-card i {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barber-delay-interpretation span {
+    text-shadow: none;
+  }
+}

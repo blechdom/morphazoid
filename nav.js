@@ -33,6 +33,12 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
   freezeGroup("barber-shop-poles", "Barber Shop Poles", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },
+    { id: "candy-coil-delay", label: "Candy Coil Delay", href: "candy-coil-delay.html" },
+    {
+      id: "striped-sludge-delay",
+      label: "Striped Sludge Delay",
+      href: "striped-sludge-delay.html",
+    },
   ]),
   freezeGroup("chaotic-synths", "Chaotic Synths", [
     { id: "recursive-fm", label: "Recursive FM", href: "recursive-fm.html" },

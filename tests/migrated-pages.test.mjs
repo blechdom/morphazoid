@@ -20,6 +20,22 @@ const migratedPages = [
     requiredCopy: ["Shepard", "Risset"],
   },
   {
+    id: "candy-coil-delay",
+    html: "candy-coil-delay.html",
+    app: "barber-delay-app.js",
+    source: "src/barber-delay.js",
+    sourceImport: "barber-delay",
+    requiredCopy: ["Candy", "Coil", "Delay"],
+  },
+  {
+    id: "striped-sludge-delay",
+    html: "striped-sludge-delay.html",
+    app: "barber-delay-app.js",
+    source: "src/barber-delay.js",
+    sourceImport: "barber-delay",
+    requiredCopy: ["Striped", "Sludge", "Delay"],
+  },
+  {
     id: "recursive-fm",
     html: "recursive-fm.html",
     app: "recursive-fm-app.js",
@@ -53,7 +69,7 @@ test("migrated demos are native internal Morphazoid pages", async () => {
       `${html}\n${app}\n${source}`,
       /(?:from\s+["']react["']|react-dom|next\/|@storybook)/i,
     );
-    assert.match(app, new RegExp(`\\.\\/src\\/${page.id}\\.js`));
+    assert.match(app, new RegExp(`\\.\\/src\\/${page.sourceImport ?? page.id}\\.js`));
     assert.match(app, /pagehide/);
   }
 });

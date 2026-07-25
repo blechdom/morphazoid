@@ -22,6 +22,10 @@ Julia presets include the Unit circle, Cauliflower, San Marco, Basilica, the exa
 
 **Shepard–Risset** is the first Morphisma barber-pole demo rebuilt directly inside Morphazoid. Phase-staggered octave voices continuously rise or fall through a bounded spectral window, with compact musical presets, a direction control, and a low-cost stripe display driven from the same normalized cycle.
 
+**Candy Coil Delay** rebuilds Morphisma's spiraling variable-delay instrument around phase-staggered read heads. Microphone or local-file audio can climb or fall through the coil; speed and range set the pitch relationship, while tap timing, ratio lock, head tilt, feedback, and dry/wet controls retain the original performance character inside a bounded audio path.
+
+**Striped Sludge Delay** sends microphone or local-file audio through a centered multihead delay sweep. Each staggered head approaches the source pitch at the middle of its stripe before departing in the opposite direction, with playable direction, density, tilt, feedback, and mix controls plus a low-cost display of the same sounding motion.
+
 **Recursive FM** preserves the six original Morphisma parameter sets while rebuilding their carrier, offset operator, and recursively nested frequency modulators as one bounded Web Audio graph. Recursion depth, carrier frequency, offset, modulation amount, and divisor remain playable without the old render-time listener leaks or undefined-signal path.
 
 **Oscilloscope + Spectrogram** analyzes one safely limited local master bus as a waveform, a log-frequency spectrum, and a true scrolling frequency history. It can generate a private internal test tone or inspect a microphone without monitoring the microphone through the speakers.
