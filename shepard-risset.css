@@ -2,6 +2,7 @@
   --accent: #ff7898;
   --accent-soft: color-mix(in oklab, #ff7898 55%, transparent);
   --accent-glow: color-mix(in oklab, #ff7898 22%, transparent);
+  --shepard-lane: #7db4ff;
 }
 
 .shepard-page .stage-wrap {
@@ -13,8 +14,54 @@
   background-size: 44px 44px, 44px 44px, auto, auto;
 }
 
+.shepard-page.is-morphisma .stage-wrap {
+  background:
+    linear-gradient(rgba(125, 180, 255, 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 120, 152, 0.02) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 48%, rgba(125, 180, 255, 0.105), transparent 46%),
+    var(--bg-deep);
+  background-size: 36px 36px, 36px 36px, auto, auto;
+}
+
 .shepard-page #stage {
   cursor: default;
+}
+
+.shepard-mode-section {
+  padding: 15px 15px 14px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 74%),
+    var(--panel-high);
+}
+
+.shepard-mode-heading {
+  display: flex;
+  margin: 0 0 10px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shepard-mode-heading .section-state {
+  overflow: hidden;
+  max-width: 55%;
+  color: var(--accent);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.shepard-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shepard-mode-switch button {
+  min-height: 42px;
+  line-height: 1.2;
 }
 
 .shepard-stage-label {
@@ -74,6 +121,11 @@
   gap: 6px;
 }
 
+.shepard-preset-grid.is-dense {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
 .shepard-preset-grid button {
   display: grid;
   min-height: 58px;
@@ -85,6 +137,24 @@
   align-content: center;
   justify-items: start;
   text-align: left;
+}
+
+.shepard-preset-grid.is-dense button {
+  min-height: 44px;
+  padding: 7px 6px;
+}
+
+.shepard-preset-grid.is-dense b {
+  font-size: 8px;
+  letter-spacing: 0.035em;
+}
+
+.shepard-preset-grid.is-dense small {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shepard-preset-grid button:hover {
@@ -119,6 +189,17 @@
   color: var(--muted);
   font-size: 9px;
   line-height: 1.55;
+}
+
+.shepard-control-note code {
+  color: color-mix(in oklab, var(--ink) 82%, var(--shepard-lane));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.94em;
+}
+
+#morphismaControls[hidden],
+#octaveControls[hidden] {
+  display: none;
 }
 
 .shepard-signal-card {
@@ -199,6 +280,14 @@
     grid-template-columns: 1fr;
   }
 
+  .shepard-preset-grid.is-dense {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shepard-mode-switch {
+    grid-template-columns: 1fr;
+  }
+
   .shepard-signal-card {
     grid-template-columns: 1fr;
   }
@@ -211,5 +300,9 @@
 @media (prefers-reduced-motion: reduce) {
   .shepard-direction-markers span {
     text-shadow: none;
+  }
+
+  .shepard-page .stage-wrap {
+    scroll-behavior: auto;
   }
 }

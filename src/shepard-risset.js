@@ -2,9 +2,17 @@ const PROCESSOR_NAME = "morphazoid-shepard-risset";
 const TAU = Math.PI * 2;
 const PARTIAL_COUNT = 17;
 const PARTIAL_CENTER = Math.floor(PARTIAL_COUNT / 2);
+const MAX_MORPHISMA_VOICES = 64;
 const MIN_FREQUENCY = 20;
 const MAX_FREQUENCY = 20_000;
 const DEFAULT_SAMPLE_RATE = 48_000;
+const ANTI_ALIAS_TAPER_RATIO = 0.4;
+const ANTI_ALIAS_CULL_RATIO = 0.45;
+
+export const SHEPARD_MODES = Object.freeze({
+  OCTAVE: "octave",
+  MORPHISMA: "morphisma",
+});
 
 export const SHEPARD_DEFAULTS = Object.freeze({
   centerFrequency: 220,
@@ -54,6 +62,126 @@ export const SHEPARD_PRESETS = Object.freeze([
   }),
 ]);
 
+export const MORPHISMA_SWEEP_DEFAULTS = Object.freeze({
+  voices: 8,
+  sweepRate: 0.05,
+  startFrequency: 100,
+  sweepRange: 2,
+  direction: 1,
+  cutoff: 18_000,
+});
+
+export const MORPHISMA_SWEEP_PRESETS = Object.freeze([
+  Object.freeze({
+    id: "classic-rise",
+    label: "Classic Rise",
+    voices: 8,
+    sweepRate: 0.05,
+    startFrequency: 100,
+    sweepRange: 2,
+    direction: 1,
+  }),
+  Object.freeze({
+    id: "classic-fall",
+    label: "Classic Fall",
+    voices: 8,
+    sweepRate: 0.05,
+    startFrequency: 200,
+    sweepRange: 1.5,
+    direction: -1,
+  }),
+  Object.freeze({
+    id: "tight-spiral",
+    label: "Tight Spiral",
+    voices: 2,
+    sweepRate: 5,
+    startFrequency: 135,
+    sweepRange: 3.7,
+    direction: 1,
+  }),
+  Object.freeze({
+    id: "micro-cluster",
+    label: "Micro Cluster",
+    voices: 8,
+    sweepRate: 0.06,
+    startFrequency: 660,
+    sweepRange: 0.12,
+    direction: -1,
+  }),
+  Object.freeze({
+    id: "wide-staircase",
+    label: "Wide Staircase",
+    voices: 6,
+    sweepRate: 0.75,
+    startFrequency: 212,
+    sweepRange: 4,
+    direction: 1,
+  }),
+  Object.freeze({
+    id: "swarm",
+    label: "Swarm",
+    voices: 64,
+    sweepRate: 0.15,
+    startFrequency: 80,
+    sweepRange: 2,
+    direction: 1,
+  }),
+  Object.freeze({
+    id: "screaming-descent",
+    label: "Screaming Descent",
+    voices: 12,
+    sweepRate: 3.5,
+    startFrequency: 2_400,
+    sweepRange: 5,
+    direction: -1,
+  }),
+  Object.freeze({
+    id: "sub-rumble",
+    label: "Sub Rumble",
+    voices: 32,
+    sweepRate: 0.02,
+    startFrequency: 25,
+    sweepRange: 2,
+    direction: 1,
+  }),
+  Object.freeze({
+    id: "glass-shatter",
+    label: "Glass Shatter",
+    voices: 16,
+    sweepRate: 8,
+    startFrequency: 1_200,
+    sweepRange: 1.05,
+    direction: 1,
+  }),
+  Object.freeze({
+    id: "alien-siren",
+    label: "Alien Siren",
+    voices: 4,
+    sweepRate: 2,
+    startFrequency: 300,
+    sweepRange: 7,
+    direction: -1,
+  }),
+  Object.freeze({
+    id: "dense-cloud",
+    label: "Dense Cloud",
+    voices: 48,
+    sweepRate: 0.08,
+    startFrequency: 55,
+    sweepRange: 3,
+    direction: 1,
+  }),
+  Object.freeze({
+    id: "wobble-saw",
+    label: "Wobble Saw",
+    voices: 3,
+    sweepRate: 6.5,
+    startFrequency: 440,
+    sweepRange: 0.5,
+    direction: -1,
+  }),
+]);
+
 export function clamp(value, low, high, fallback = low) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
@@ -63,6 +191,145 @@ export function clamp(value, low, high, fallback = low) {
 export function wrapUnit(value) {
   const numeric = Number.isFinite(value) ? value : 0;
   return ((numeric % 1) + 1) % 1;
+}
+
+export function sanitizeShepardMode(mode) {
+  return mode === SHEPARD_MODES.MORPHISMA
+    ? SHEPARD_MODES.MORPHISMA
+    : SHEPARD_MODES.OCTAVE;
+}
+
+export function sanitizeMorphismaSweepParams(params = {}) {
+  const numericDirection = Number(params.direction);
+  const fallbackDirection = MORPHISMA_SWEEP_DEFAULTS.direction;
+  const direction = Number.isFinite(numericDirection)
+    ? numericDirection < 0 ? -1 : 1
+    : fallbackDirection;
+  return Object.freeze({
+    voices: Math.round(clamp(
+      params.voices,
+      1,
+      MAX_MORPHISMA_VOICES,
+      MORPHISMA_SWEEP_DEFAULTS.voices,
+    )),
+    sweepRate: clamp(
+      params.sweepRate,
+      0.01,
+      10,
+      MORPHISMA_SWEEP_DEFAULTS.sweepRate,
+    ),
+    startFrequency: clamp(
+      params.startFrequency,
+      10,
+      3_000,
+      MORPHISMA_SWEEP_DEFAULTS.startFrequency,
+    ),
+    sweepRange: clamp(
+      params.sweepRange,
+      0.01,
+      8,
+      MORPHISMA_SWEEP_DEFAULTS.sweepRange,
+    ),
+    direction,
+  });
+}
+
+export function morphismaSweepEnvelope(phase) {
+  const p = wrapUnit(Number(phase));
+  return (Math.sin(TAU * p - 1.5) + 1) * 0.5;
+}
+
+export function morphismaSweepFrequency(phase, params = {}) {
+  const safe = sanitizeMorphismaSweepParams(params);
+  const p = wrapUnit(Number(phase));
+  const directedPhase = safe.direction < 0 ? 1 - p : p;
+  return safe.startFrequency + directedPhase * directedPhase
+    * (safe.startFrequency * safe.sweepRange * safe.voices);
+}
+
+export function morphismaAntiAliasWeight(
+  frequency,
+  sampleRate = DEFAULT_SAMPLE_RATE,
+) {
+  const safeFrequency = Math.abs(Number(frequency));
+  if (!Number.isFinite(safeFrequency)) return 0;
+  if (safeFrequency < MIN_FREQUENCY) return 0;
+  const safeSampleRate = clamp(
+    sampleRate,
+    8_000,
+    384_000,
+    DEFAULT_SAMPLE_RATE,
+  );
+  const frequencyCeiling = Math.min(
+    MAX_FREQUENCY,
+    safeSampleRate * ANTI_ALIAS_CULL_RATIO,
+  );
+  const taperStart = Math.min(
+    safeSampleRate * ANTI_ALIAS_TAPER_RATIO,
+    frequencyCeiling * 0.96,
+  );
+  if (safeFrequency <= taperStart) return 1;
+  if (safeFrequency >= frequencyCeiling || frequencyCeiling <= taperStart) {
+    return 0;
+  }
+  const position = (safeFrequency - taperStart)
+    / (frequencyCeiling - taperStart);
+  return 0.5 + 0.5 * Math.cos(Math.PI * position);
+}
+
+export function calculateMorphismaSweepVoices({
+  position = 0,
+  voices = MORPHISMA_SWEEP_DEFAULTS.voices,
+  sweepRate = MORPHISMA_SWEEP_DEFAULTS.sweepRate,
+  startFrequency = MORPHISMA_SWEEP_DEFAULTS.startFrequency,
+  sweepRange = MORPHISMA_SWEEP_DEFAULTS.sweepRange,
+  direction = MORPHISMA_SWEEP_DEFAULTS.direction,
+  sampleRate = DEFAULT_SAMPLE_RATE,
+} = {}) {
+  const safe = sanitizeMorphismaSweepParams({
+    voices,
+    sweepRate,
+    startFrequency,
+    sweepRange,
+    direction,
+  });
+  const basePhase = wrapUnit(Number(position));
+  const descriptors = [];
+  let audibleVoices = 0;
+  let weightPower = 0;
+
+  for (let index = 0; index < safe.voices; index += 1) {
+    const phase = wrapUnit(basePhase + index / safe.voices);
+    const directedPhase = safe.direction < 0 ? 1 - phase : phase;
+    const frequency = safe.startFrequency + directedPhase * directedPhase
+      * (safe.startFrequency * safe.sweepRange * safe.voices);
+    const envelope = morphismaSweepEnvelope(phase);
+    const antiAlias = morphismaAntiAliasWeight(frequency, sampleRate);
+    const weight = envelope * antiAlias;
+    const gain = weight / safe.voices;
+    const active = weight > 0;
+    if (active) audibleVoices += 1;
+    weightPower += weight * weight;
+    descriptors.push(Object.freeze({
+      index,
+      phase,
+      directedPhase,
+      frequency,
+      envelope,
+      antiAlias,
+      weight,
+      gain,
+      active,
+    }));
+  }
+
+  return Object.freeze({
+    requestedVoices: safe.voices,
+    audibleVoices,
+    weightPower,
+    normalization: weightPower > 1e-12 ? 1 / Math.sqrt(weightPower) : 0,
+    voices: Object.freeze(descriptors),
+  });
 }
 
 /**
@@ -189,28 +456,89 @@ function rotateForWraps(phases, wraps) {
 
 function createProcessorClass(AudioWorkletBase) {
   return class MorphazoidShepardRissetProcessor extends AudioWorkletBase {
-    constructor(options) {
+    constructor(options = {}) {
       super();
-      const initial = sanitizeShepardParams(options.processorOptions);
+      const processorOptions = options.processorOptions ?? {};
+      const initial = sanitizeShepardParams(
+        processorOptions.octave ?? processorOptions,
+      );
+      const initialMorphisma = sanitizeMorphismaSweepParams(
+        processorOptions.morphisma ?? processorOptions,
+      );
+      const initialMode = sanitizeShepardMode(processorOptions.mode);
       this.target = { ...initial };
       this.current = { ...initial };
+      this.morphismaTarget = { ...initialMorphisma };
+      this.morphismaCurrent = { ...initialMorphisma };
       this.position = 0;
-      this.phases = Array.from(
-        { length: PARTIAL_COUNT },
-        (_, index) => wrapUnit(index * 0.61803398875) * TAU,
+      this.phases = new Float64Array(PARTIAL_COUNT);
+      for (let index = 0; index < PARTIAL_COUNT; index += 1) {
+        this.phases[index] = wrapUnit(index * 0.61803398875) * TAU;
+      }
+      this.morphismaPosition = 0;
+      this.morphismaOscillatorPhases = new Float64Array(
+        MAX_MORPHISMA_VOICES,
       );
+      this.morphismaPhaseOffsets = new Float64Array(MAX_MORPHISMA_VOICES);
+      this.morphismaTargetPhaseOffsets = new Float64Array(
+        MAX_MORPHISMA_VOICES,
+      );
+      this.morphismaVoiceGains = new Float64Array(MAX_MORPHISMA_VOICES);
+      this.morphismaTargetVoiceGains = new Float64Array(
+        MAX_MORPHISMA_VOICES,
+      );
+      for (let index = 0; index < MAX_MORPHISMA_VOICES; index += 1) {
+        const offset = index / initialMorphisma.voices;
+        const gain = index < initialMorphisma.voices ? 1 : 0;
+        this.morphismaOscillatorPhases[index] = 0;
+        this.morphismaPhaseOffsets[index] = offset;
+        this.morphismaTargetPhaseOffsets[index] = offset;
+        this.morphismaVoiceGains[index] = gain;
+        this.morphismaTargetVoiceGains[index] = gain;
+      }
+      this.modeBlendTarget = initialMode === SHEPARD_MODES.MORPHISMA ? 1 : 0;
+      this.modeBlend = this.modeBlendTarget;
       this.activeTarget = 0;
       this.activeGain = 0;
       this.port.onmessage = (event) => {
         if (event.data?.type === "parameters") {
+          const parameters = event.data.parameters ?? {};
+          const octaveParameters = parameters.octave ?? parameters;
+          const morphismaParameters = parameters.morphisma ?? parameters;
           this.target = {
             ...this.target,
-            ...sanitizeShepardParams({ ...this.target, ...event.data.parameters }),
+            ...sanitizeShepardParams({
+              ...this.target,
+              ...octaveParameters,
+            }),
           };
+          this.morphismaTarget = {
+            ...this.morphismaTarget,
+            ...sanitizeMorphismaSweepParams({
+              ...this.morphismaTarget,
+              ...morphismaParameters,
+            }),
+          };
+          this.setMorphismaVoiceTargets(this.morphismaTarget.voices);
+          if (parameters.mode !== undefined) {
+            this.modeBlendTarget = sanitizeShepardMode(parameters.mode)
+              === SHEPARD_MODES.MORPHISMA ? 1 : 0;
+          }
         } else if (event.data?.type === "active") {
           this.activeTarget = event.data.value ? 1 : 0;
         }
       };
+    }
+
+    setMorphismaVoiceTargets(voices) {
+      const count = Math.max(
+        1,
+        Math.min(MAX_MORPHISMA_VOICES, Math.round(voices)),
+      );
+      for (let index = 0; index < MAX_MORPHISMA_VOICES; index += 1) {
+        this.morphismaTargetPhaseOffsets[index] = index / count;
+        this.morphismaTargetVoiceGains[index] = index < count ? 1 : 0;
+      }
     }
 
     process(_inputs, outputs) {
@@ -223,8 +551,21 @@ function createProcessorClass(AudioWorkletBase) {
 
       const workletSampleRate = Number(globalThis.sampleRate) || DEFAULT_SAMPLE_RATE;
       const frequencyCeiling = Math.min(MAX_FREQUENCY, workletSampleRate * 0.45);
+      const morphismaFrequencyCeiling = Math.min(
+        MAX_FREQUENCY,
+        workletSampleRate * ANTI_ALIAS_CULL_RATIO,
+      );
+      const morphismaTaperStart = Math.min(
+        workletSampleRate * ANTI_ALIAS_TAPER_RATIO,
+        morphismaFrequencyCeiling * 0.96,
+      );
+      const morphismaTaperSpan = Math.max(
+        1,
+        morphismaFrequencyCeiling - morphismaTaperStart,
+      );
       const parameterSlew = 1 - Math.exp(-1 / (workletSampleRate * 0.035));
       const activeSlew = 1 - Math.exp(-1 / (workletSampleRate * 0.008));
+      const modeSlew = 1 - Math.exp(-1 / (workletSampleRate * 0.02));
       const outputScale = 0.42;
 
       for (let sampleIndex = 0; sampleIndex < left.length; sampleIndex += 1) {
@@ -234,6 +575,23 @@ function createProcessorClass(AudioWorkletBase) {
         this.current.rate += (this.target.rate - this.current.rate) * parameterSlew;
         this.current.width += (this.target.width - this.current.width) * parameterSlew;
         this.current.spread += (this.target.spread - this.current.spread) * parameterSlew;
+        this.morphismaCurrent.voices += (
+          this.morphismaTarget.voices - this.morphismaCurrent.voices
+        ) * parameterSlew;
+        this.morphismaCurrent.sweepRate += (
+          this.morphismaTarget.sweepRate - this.morphismaCurrent.sweepRate
+        ) * parameterSlew;
+        this.morphismaCurrent.startFrequency += (
+          this.morphismaTarget.startFrequency
+          - this.morphismaCurrent.startFrequency
+        ) * parameterSlew;
+        this.morphismaCurrent.sweepRange += (
+          this.morphismaTarget.sweepRange - this.morphismaCurrent.sweepRange
+        ) * parameterSlew;
+        this.morphismaCurrent.direction += (
+          this.morphismaTarget.direction - this.morphismaCurrent.direction
+        ) * parameterSlew;
+        this.modeBlend += (this.modeBlendTarget - this.modeBlend) * modeSlew;
         this.activeGain += (this.activeTarget - this.activeGain) * activeSlew;
 
         // This is deliberately inlined instead of calling the exported helper:
@@ -278,10 +636,99 @@ function createProcessorClass(AudioWorkletBase) {
         }
 
         const normalization = weightPower > 1e-12
-          ? outputScale * this.activeGain / Math.sqrt(weightPower)
+          ? 1 / Math.sqrt(weightPower)
           : 0;
-        left[sampleIndex] = leftSum * normalization;
-        if (right !== left) right[sampleIndex] = rightSum * normalization;
+
+        const morphismaRawPosition = (
+          this.morphismaPosition
+          + this.morphismaCurrent.sweepRate / workletSampleRate
+        );
+        this.morphismaPosition = (
+          (morphismaRawPosition % 1) + 1
+        ) % 1;
+        const directionMix = Math.max(
+          0,
+          Math.min(1, (this.morphismaCurrent.direction + 1) * 0.5),
+        );
+        const inverseDirectionMix = 1 - directionMix;
+        const requestedVoices = Math.max(1, this.morphismaCurrent.voices);
+        const frequencySpan = (
+          this.morphismaCurrent.startFrequency
+          * this.morphismaCurrent.sweepRange
+          * requestedVoices
+        );
+        let morphismaSum = 0;
+
+        for (
+          let index = 0;
+          index < MAX_MORPHISMA_VOICES;
+          index += 1
+        ) {
+          this.morphismaPhaseOffsets[index] += (
+            this.morphismaTargetPhaseOffsets[index]
+            - this.morphismaPhaseOffsets[index]
+          ) * parameterSlew;
+          this.morphismaVoiceGains[index] += (
+            this.morphismaTargetVoiceGains[index]
+            - this.morphismaVoiceGains[index]
+          ) * parameterSlew;
+
+          const rawPhase = (
+            this.morphismaPosition + this.morphismaPhaseOffsets[index]
+          );
+          const phase = rawPhase - Math.floor(rawPhase);
+          const directedPhase = (
+            phase * directionMix
+            + (1 - phase) * inverseDirectionMix
+          );
+          const frequency = (
+            this.morphismaCurrent.startFrequency
+            + directedPhase * directedPhase * frequencySpan
+          );
+          this.morphismaOscillatorPhases[index] = (
+            this.morphismaOscillatorPhases[index]
+            + TAU * frequency / workletSampleRate
+          ) % TAU;
+
+          let antiAlias = 1;
+          if (
+            frequency < MIN_FREQUENCY
+            || frequency >= morphismaFrequencyCeiling
+          ) {
+            antiAlias = 0;
+          } else if (frequency > morphismaTaperStart) {
+            const taperPosition = (
+              (frequency - morphismaTaperStart) / morphismaTaperSpan
+            );
+            antiAlias = 0.5 + 0.5 * Math.cos(Math.PI * taperPosition);
+          }
+          const envelope = (
+            Math.sin(TAU * phase - 1.5) + 1
+          ) * 0.5;
+          const voiceGain = (
+            envelope
+            * antiAlias
+            * this.morphismaVoiceGains[index]
+            / requestedVoices
+          );
+          morphismaSum += (
+            Math.sin(this.morphismaOscillatorPhases[index]) * voiceGain
+          );
+        }
+
+        const octaveMix = Math.cos(this.modeBlend * Math.PI * 0.5);
+        const morphismaMix = Math.sin(this.modeBlend * Math.PI * 0.5);
+        const protectedScale = outputScale * this.activeGain;
+        left[sampleIndex] = protectedScale * (
+          leftSum * normalization * octaveMix
+          + morphismaSum * morphismaMix
+        );
+        if (right !== left) {
+          right[sampleIndex] = protectedScale * (
+            rightSum * normalization * octaveMix
+            + morphismaSum * morphismaMix
+          );
+        }
       }
       return true;
     }
@@ -316,7 +763,14 @@ export class ShepardRissetAudio {
     this.master = null;
     this.analyser = null;
     this.enabled = false;
-    this.params = { ...SHEPARD_DEFAULTS };
+    this.mode = SHEPARD_MODES.OCTAVE;
+    this.level = SHEPARD_DEFAULTS.level;
+    this.octaveParams = { ...SHEPARD_DEFAULTS };
+    this.morphismaParams = { ...MORPHISMA_SWEEP_DEFAULTS };
+    this.params = {
+      mode: this.mode,
+      ...this.octaveParams,
+    };
     this.suspendTimer = null;
   }
 
@@ -348,7 +802,11 @@ export class ShepardRissetAudio {
         numberOfInputs: 0,
         numberOfOutputs: 1,
         outputChannelCount: [2],
-        processorOptions: this.params,
+        processorOptions: {
+          mode: this.mode,
+          octave: this.octaveParams,
+          morphisma: this.morphismaParams,
+        },
       });
       const highpass = context.createBiquadFilter();
       const lowpass = context.createBiquadFilter();
@@ -361,7 +819,9 @@ export class ShepardRissetAudio {
       highpass.frequency.value = 28;
       highpass.Q.value = 0.707;
       lowpass.type = "lowpass";
-      lowpass.frequency.value = this.params.cutoff;
+      lowpass.frequency.value = this.mode === SHEPARD_MODES.MORPHISMA
+        ? this.morphismaParams.cutoff
+        : this.octaveParams.cutoff;
       lowpass.Q.value = 0.707;
       compressor.threshold.value = -12;
       compressor.knee.value = 7;
@@ -391,7 +851,7 @@ export class ShepardRissetAudio {
       this.ceiling = ceiling;
       this.master = master;
       this.analyser = analyser;
-      this.setParameters(this.params);
+      this.setParameters({ mode: this.mode });
     } catch (error) {
       await context.close().catch(() => {});
       throw error;
@@ -409,7 +869,7 @@ export class ShepardRissetAudio {
     this.node.port.postMessage({ type: "active", value: true });
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setValueAtTime(this.master.gain.value, now);
-    this.master.gain.linearRampToValueAtTime(this.params.level, now + 0.035);
+    this.master.gain.linearRampToValueAtTime(this.level, now + 0.035);
     this.enabled = true;
   }
 
@@ -430,28 +890,82 @@ export class ShepardRissetAudio {
   }
 
   setParameters(params = {}) {
-    this.params = {
-      ...this.params,
-      ...sanitizeShepardParams({ ...this.params, ...params }),
-    };
+    const nextMode = params.mode === undefined
+      ? this.mode
+      : sanitizeShepardMode(params.mode);
+    if (params.level !== undefined) {
+      this.level = sanitizeShepardParams({
+        ...this.octaveParams,
+        level: params.level,
+      }).level;
+    }
+    if (nextMode === SHEPARD_MODES.MORPHISMA) {
+      const safeMorphisma = sanitizeMorphismaSweepParams({
+        ...this.morphismaParams,
+        ...params,
+      });
+      this.morphismaParams = {
+        ...this.morphismaParams,
+        ...safeMorphisma,
+        cutoff: clamp(
+          params.cutoff ?? this.morphismaParams.cutoff,
+          800,
+          18_000,
+          MORPHISMA_SWEEP_DEFAULTS.cutoff,
+        ),
+      };
+    } else {
+      this.octaveParams = {
+        ...this.octaveParams,
+        ...sanitizeShepardParams({
+          ...this.octaveParams,
+          ...params,
+          level: this.level,
+        }),
+      };
+    }
+    this.mode = nextMode;
+    this.params = this.mode === SHEPARD_MODES.MORPHISMA
+      ? {
+        mode: this.mode,
+        ...this.morphismaParams,
+        level: this.level,
+      }
+      : {
+        mode: this.mode,
+        ...this.octaveParams,
+        level: this.level,
+      };
     if (!this.isInitialized) return;
     this.node.port.postMessage({
       type: "parameters",
       parameters: {
-        centerFrequency: this.params.centerFrequency,
-        rate: this.params.rate,
-        width: this.params.width,
-        spread: this.params.spread,
+        mode: this.mode,
+        octave: {
+          centerFrequency: this.octaveParams.centerFrequency,
+          rate: this.octaveParams.rate,
+          width: this.octaveParams.width,
+          spread: this.octaveParams.spread,
+        },
+        morphisma: {
+          voices: this.morphismaParams.voices,
+          sweepRate: this.morphismaParams.sweepRate,
+          startFrequency: this.morphismaParams.startFrequency,
+          sweepRange: this.morphismaParams.sweepRange,
+          direction: this.morphismaParams.direction,
+        },
       },
     });
     this.lowpass.frequency.setTargetAtTime(
-      this.params.cutoff,
+      this.mode === SHEPARD_MODES.MORPHISMA
+        ? this.morphismaParams.cutoff
+        : this.octaveParams.cutoff,
       this.context.currentTime,
       0.025,
     );
     if (this.enabled) {
       this.master.gain.setTargetAtTime(
-        this.params.level,
+        this.level,
         this.context.currentTime,
         0.015,
       );
