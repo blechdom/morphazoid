@@ -81,6 +81,10 @@ required_files=(
   recursive-pm.css
   recursive-pm-app.js
   src/recursive-pm.js
+  chaotic-fm.html
+  chaotic-fm.css
+  chaotic-fm-app.js
+  src/chaotic-fm.js
   morphazoidical/index.html
   vendor/signalsmith-stretch/SignalsmithStretch.mjs
   vendor/tactile/tactile.js

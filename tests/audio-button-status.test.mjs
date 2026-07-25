@@ -20,6 +20,7 @@ const instrumentScripts = [
   "barber-delay-app.js",
   "recursive-fm-app.js",
   "recursive-pm-app.js",
+  "chaotic-fm-app.js",
   "morphazoidical/app.js",
 ];
 

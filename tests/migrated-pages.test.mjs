@@ -57,6 +57,13 @@ const migratedPages = [
     source: "src/recursive-pm.js",
     requiredCopy: ["Recursive", "PM"],
   },
+  {
+    id: "chaotic-fm",
+    html: "chaotic-fm.html",
+    app: "chaotic-fm-app.js",
+    source: "src/chaotic-fm.js",
+    requiredCopy: ["Chaotic", "FM"],
+  },
 ];
 
 test("migrated demos are native internal Morphazoid pages", async () => {

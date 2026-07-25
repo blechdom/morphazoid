@@ -32,6 +32,8 @@ Julia presets include the Unit circle, Cauliflower, San Marco, Basilica, the exa
 
 **Recursive PM** preserves the five original recursive phase-modulation settings while rebuilding the carrier and independently decaying phase operators in a zero-allocation AudioWorklet. Depth changes crossfade, live frequency/index controls glide, and the single audible operator passes through a normalized, protected output path.
 
+**Chaotic FM** preserves the five original nonlinear recursive patches while making their algorithm explicit: a carrier sweeps an entry oscillator, then each tanh-shaped signal drives the next oscillator's signed frequency. The old “filter” control is now accurately labeled Nonlinearity rate, with bounded render-thread math, depth crossfades, and a protected output.
+
 **Oscilloscope + Spectrogram** analyzes one safely limited local master bus as a waveform, a log-frequency spectrum, and a true scrolling frequency history. It can generate a private internal test tone or inspect a microphone without monitoring the microphone through the speakers.
 
 **Lumber** is a live audio looper drawn as thin, differently colored concentric rings. Each ring has inline direction, relative volume, centered L/R pan, mute, solo, and delete controls. Straight radial handles apply duration-preserving local pitch: inward lowers and outward raises only adjacent loop sections. Additional controls provide movable playback heads, per-ring clocks, one-click global length/phase sync, per-ring filtering, and optional 3D depth. A pale outer Delay ring can be toggled for the complete mix: its neutral shape is dry, inward pulls shorten the echo, and outward pulls add feedback and wet level. It has an independent rotation transport and stereo spread control.
