@@ -12,6 +12,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="recursive-pm.css" />
+    <link rel="stylesheet" href="chaotic-synth-ui.css" />
   </head>
   <body class="recursive-pm-page">
     <header class="masthead">
@@ -82,7 +83,7 @@
             aria-label="Recursive PM algorithm with three recursive operators. Audio off."
             aria-describedby="recursivePmDescription liveStatus"
           >
-            A diagram and oscilloscope for a recursive phase-modulation operator stack.
+            An oscilloscope, spectrogram, and signal-flow explanation for Recursive PM.
           </canvas>
 
           <div class="recursive-pm-heading">
@@ -92,12 +93,26 @@
           </div>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">3 TURNS · 4 OPERATORS · OFF</span>
+            <span id="stageReadout">3 RECURSIONS · 4 OPERATORS · OFF</span>
           </div>
 
-          <div class="recursive-pm-scope-labels" aria-hidden="true">
-            <span>PHASE OPERATOR STACK</span>
-            <span id="scopeState">SCOPE · IDLE</span>
+          <div class="recursive-pm-scope-labels chaotic-analysis-labels" aria-hidden="true">
+            <span>OSCILLOSCOPE · SPECTROGRAM</span>
+            <span id="scopeState">ANALYSIS · IDLE</span>
+          </div>
+
+          <div
+            class="chaotic-signal-flow"
+            role="img"
+            aria-label="Recursive PM flow: carrier sine, phase addition, divided recursive phase turns, output."
+          >
+            <span class="chaotic-flow-node"><b>Carrier sine</b><small>base phasor</small></span>
+            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
+            <span class="chaotic-flow-node"><b>Add phase</b><small>phasor + previous × index</small></span>
+            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
+            <span class="chaotic-flow-node"><b>Recurse</b><small>divide frequency + index</small></span>
+            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
+            <span class="chaotic-flow-node"><b>Output</b><small>selected depth · normalized</small></span>
           </div>
         </div>
       </section>
@@ -125,7 +140,7 @@
         <details class="group control-section recursive-pm-structure" open>
           <summary class="group-summary">
             <h2 class="group-title">Recursion</h2>
-            <span class="section-state" id="structureState">3 turns · bounded</span>
+            <span class="section-state" id="structureState">3 recursions · bounded</span>
           </summary>
           <div class="group-body">
             <label class="control" for="depth">
@@ -160,15 +175,16 @@
               <input id="indexDivisor" type="range" min="0.01" max="8" step="0.01" value="6.25" />
             </label>
 
-            <div class="grammar-card recursive-pm-ledger" aria-label="Current bounded phase operator model">
+            <div class="grammar-card recursive-pm-ledger chaotic-turn-ledger" aria-label="Current bounded phase operator model">
               <span><b>Carrier</b><code id="carrierReadout">7.29 Hz sine</code></span>
-              <span><b>First turn</b><code id="entryReadout">372.64 Hz · index 5.14</code></span>
+              <span><b>Entry</b><code id="entryReadout">372.64 Hz · index 5.14</code></span>
+              <span><b>Recursions</b><code id="turnsReadout">1: 372.6 Hz × 5.14 · 2: 74.8 Hz × 0.82 · 3: 15 Hz × 0.13</code></span>
               <span><b>Output</b><code id="operatorReadout">operator 3 · normalized</code></span>
               <span><b>Ceiling</b><code id="ceilingReadout">20 kHz</code></span>
             </div>
 
             <p class="recursive-pm-safety-note">
-              Every turn writes the previous sine into the next sine’s phase. Depth changes crossfade, live parameters glide, and the output is normalized before a protective limiter.
+              Every recursion writes the previous sine into the next sine’s phase. At phase index 0—or after repeated index division—the result naturally approaches a plain sine. Depth changes crossfade, live parameters glide, and the output is normalized before a protective limiter.
             </p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
@@ -180,7 +196,7 @@
       </aside>
 
       <p class="sr-only" id="recursivePmDescription">
-        A horizontal diagram shows the sine carrier and each recursive phase-modulation turn. The lower trace is a live oscilloscope when audio is on.
+        A live oscilloscope and rolling spectrogram sit above a simple carrier-to-output flow chart. Detailed recursion values are listed below the sliders.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

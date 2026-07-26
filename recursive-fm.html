@@ -12,6 +12,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="recursive-fm.css" />
+    <link rel="stylesheet" href="chaotic-synth-ui.css" />
   </head>
   <body class="recursive-fm-page">
     <header class="masthead">
@@ -80,7 +81,7 @@
             aria-label="Recursive FM algorithm with three recursive operators. Audio off."
             aria-describedby="recursiveFmDescription liveStatus"
           >
-            A diagram and oscilloscope for a recursive frequency-modulation operator stack.
+            An oscilloscope, spectrogram, and signal-flow explanation for Recursive FM.
           </canvas>
 
           <div class="recursive-fm-heading">
@@ -93,9 +94,23 @@
             <span id="stageReadout">3 RECURSIONS · 5 OPERATORS · OFF</span>
           </div>
 
-          <div class="recursive-fm-scope-labels" aria-hidden="true">
-            <span>OPERATOR STACK</span>
-            <span id="scopeState">SCOPE · IDLE</span>
+          <div class="recursive-fm-scope-labels chaotic-analysis-labels" aria-hidden="true">
+            <span>OSCILLOSCOPE · SPECTROGRAM</span>
+            <span id="scopeState">ANALYSIS · IDLE</span>
+          </div>
+
+          <div
+            class="chaotic-signal-flow"
+            role="img"
+            aria-label="Recursive FM flow: carrier sine, entry frequency modulation, recursive frequency modulation, output."
+          >
+            <span class="chaotic-flow-node"><b>Carrier sine</b><small>slow seed oscillator</small></span>
+            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
+            <span class="chaotic-flow-node"><b>Entry FM</b><small>offset + bipolar deviation</small></span>
+            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
+            <span class="chaotic-flow-node"><b>Recurse</b><small>previous sine drives frequency</small></span>
+            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
+            <span class="chaotic-flow-node"><b>Output</b><small>selected depth · normalized</small></span>
           </div>
         </div>
       </section>
@@ -124,7 +139,7 @@
         <details class="group control-section recursive-fm-structure" open>
           <summary class="group-summary">
             <h2 class="group-title">Recursion</h2>
-            <span class="section-state" id="structureState">3 turns · bounded</span>
+            <span class="section-state" id="structureState">3 recursions · bounded</span>
           </summary>
           <div class="group-body">
             <label class="control" for="depth">
@@ -158,12 +173,13 @@
 
             <label class="control" for="divisor">
               <span><b>Amount divisor</b><output id="divisorOut" for="divisor">÷3.68</output></span>
-              <input id="divisor" type="range" min="0.05" max="8" step="0.01" value="3.68" />
+              <input id="divisor" type="range" min="0.001" max="8" step="0.001" value="3.68" />
             </label>
 
-            <div class="grammar-card recursive-fm-ledger" aria-label="Current bounded operator model">
+            <div class="grammar-card recursive-fm-ledger chaotic-turn-ledger" aria-label="Current bounded operator model">
               <span><b>Seed</b><code id="seedReadout">3.32 Hz carrier</code></span>
               <span><b>Entry</b><code id="entryReadout">0 → 7.31 kHz</code></span>
+              <span><b>Recursions</b><code id="turnsReadout">1: 3.65 kHz · 2: 993 Hz · 3: 270 Hz</code></span>
               <span><b>Output</b><code id="operatorReadout">operator 4 · normalized</code></span>
               <span><b>Ceiling</b><code id="ceilingReadout">20 kHz</code></span>
             </div>
@@ -181,7 +197,7 @@
       </aside>
 
       <p class="sr-only" id="recursiveFmDescription">
-        A horizontal operator diagram shows the slow carrier, offset oscillator, and each recursive frequency-modulation turn. The lower trace is a live oscilloscope when audio is on.
+        A live oscilloscope and rolling spectrogram sit above a simple carrier-to-output flow chart. Detailed recursion values are listed below the sliders.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

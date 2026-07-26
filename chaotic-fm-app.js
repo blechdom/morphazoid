@@ -12,6 +12,10 @@ import {
   quadraticSliderValue,
   sanitizeChaoticFmParams,
 } from "./src/chaotic-fm.js";
+import {
+  createChaoticSpectrogram,
+  drawChaoticAnalysis,
+} from "./src/chaotic-synth-visuals.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -24,6 +28,7 @@ const context2d = canvas.getContext("2d", {
 });
 const stageWrap = $("stageWrap");
 const waveform = new Float32Array(512);
+const spectrogram = createChaoticSpectrogram(document);
 const reducedMotion = globalThis.matchMedia?.(
   "(prefers-reduced-motion: reduce)",
 )?.matches ?? false;
@@ -205,8 +210,8 @@ function updateReadouts(stack = currentStack()) {
   );
   $("outputOut").textContent = `${Math.round(state.output * 100)}%`;
 
-  const turnWord = settings.depth === 1 ? "turn" : "turns";
-  $("algorithmState").textContent = `${settings.depth} ${turnWord} · tanh`;
+  const recursionWord = settings.depth === 1 ? "recursion" : "recursions";
+  $("algorithmState").textContent = `${settings.depth} ${recursionWord} · tanh`;
   $("carrierReadout").textContent = `${formatChaoticFrequency(settings.carrierHz)} sine`;
   $("entryReadout").textContent = [
     formatChaoticFrequency(stack.entry.minimumFrequencyHz),
@@ -214,23 +219,25 @@ function updateReadouts(stack = currentStack()) {
     formatChaoticFrequency(stack.entry.maximumFrequencyHz),
   ].join(" ");
   if (stack.turns.length > 0) {
-    $("turnReadout").textContent = [
-      `±${formatChaoticFrequency(settings.nonlinearityHz)}`,
-      `· amount ${compactNumber(stack.turns[0].amount, 2)}`,
-    ].join(" ");
+    $("turnsReadout").textContent = stack.turns.map(
+      (turn) => (
+        `${turn.index}: ±${formatChaoticFrequency(turn.nonlinearityHz)}`
+        + ` · amount ${compactNumber(turn.amount, 2)}`
+      ),
+    ).join(" · ");
   } else {
-    $("turnReadout").textContent = "bypassed · entry is audible";
+    $("turnsReadout").textContent = "none · entry is audible";
   }
   $("operatorReadout").textContent = `operator ${stack.audibleOperator} · depth-crossfaded`;
   $("stageReadout").textContent = [
-    `${settings.depth} ${turnWord}`,
+    `${settings.depth} ${recursionWord}`,
     `${stack.operatorCount} operators`,
     `audio ${state.audioOn ? "on" : "off"}`,
   ].join(" · ").toUpperCase();
-  $("scopeState").textContent = state.audioOn ? "SCOPE · LIVE" : "SCOPE · IDLE";
+  $("scopeState").textContent = state.audioOn ? "ANALYSIS · LIVE" : "ANALYSIS · IDLE";
   canvas.setAttribute(
     "aria-label",
-    `Chaotic FM algorithm with ${settings.depth} nonlinear recursive ${turnWord}. Audio ${state.audioOn ? "on" : "off"}.`,
+    `Chaotic FM analysis with ${settings.depth} nonlinear ${recursionWord}. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 }
 
@@ -511,8 +518,18 @@ function draw(timestamp) {
   if (!context2d || disposed) return;
   context2d.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context2d.clearRect(0, 0, cssWidth, cssHeight);
-  drawAlgorithm(context2d, currentStack(), cssWidth, cssHeight, timestamp);
-  drawScope(context2d, cssWidth, cssHeight);
+  const hasWaveform = state.audioOn && audio.getWaveform(waveform);
+  drawChaoticAnalysis(context2d, {
+    analyser: audio.analyser,
+    audioOn: state.audioOn,
+    glow: "rgba(255, 122, 166, 0.38)",
+    height: cssHeight,
+    hue: 340,
+    spectrogram,
+    stroke: "#ff7aa6",
+    waveform: hasWaveform ? waveform : null,
+    width: cssWidth,
+  });
 }
 
 function visualizationFrame(timestamp) {

@@ -11,6 +11,10 @@ import {
   sanitizeRecursiveFmSettings,
   summarizeRecursiveFmStack,
 } from "./src/recursive-fm.js";
+import {
+  createChaoticSpectrogram,
+  drawChaoticAnalysis,
+} from "./src/chaotic-synth-visuals.js";
 
 const $ = (id) => document.getElementById(id);
 const DEFAULT_LEVEL = 0.58;
@@ -275,6 +279,7 @@ const state = {
 const engine = new RecursiveFmAudioEngine();
 const canvas = $("stage");
 const canvasContext = canvas.getContext("2d");
+const spectrogram = createChaoticSpectrogram(document);
 const stageWrap = $("stageWrap");
 let pixelRatio = 1;
 let cssWidth = 1;
@@ -355,13 +360,23 @@ function updateControlOutputs(stack = currentStack()) {
   controls.divisor.output.textContent = `÷${settings.divisor.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}`;
 
   const summary = summarizeRecursiveFmStack(stack);
-  $("structureState").textContent = `${summary.recursiveTurns} ${summary.recursiveTurns === 1 ? "turn" : "turns"} · bounded`;
+  $("structureState").textContent = `${summary.recursiveTurns} ${summary.recursiveTurns === 1 ? "recursion" : "recursions"} · bounded`;
   $("seedReadout").textContent = `${formatRecursiveFmFrequency(settings.carrierHz)} carrier`;
   $("entryReadout").textContent = `${formatRecursiveFmFrequency(settings.offsetHz)} → ${formatRecursiveFmFrequency(settings.offsetHz + settings.modulationHz)}`;
+  const recursiveOperators = stack.operators.filter(
+    (operator) => operator.kind === "recursive-operator",
+  );
+  $("turnsReadout").textContent = recursiveOperators.length > 0
+    ? recursiveOperators.map(
+      (operator, index) => (
+        `${index + 1}: ${formatRecursiveFmFrequency(operator.modulationHz)}`
+      ),
+    ).join(" · ")
+    : "none · entry is audible";
   $("operatorReadout").textContent = `operator ${stack.audibleIndex} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
   $("ceilingReadout").textContent = formatRecursiveFmFrequency(settings.maximumFrequencyHz);
   $("stageReadout").textContent = `${summary.label} · ${engine.running ? "ON" : "OFF"}`.toUpperCase();
-  $("scopeState").textContent = engine.running ? "SCOPE · LIVE" : "SCOPE · IDLE";
+  $("scopeState").textContent = engine.running ? "ANALYSIS · LIVE" : "ANALYSIS · IDLE";
   canvas.setAttribute(
     "aria-label",
     `Recursive FM algorithm with ${summary.recursiveTurns} recursive ${summary.recursiveTurns === 1 ? "operator" : "operators"}. Audio ${engine.running ? "on" : "off"}.`,
@@ -547,9 +562,17 @@ function drawScope(context, waveform, width, height) {
 function drawVisualization() {
   canvasContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   canvasContext.clearRect(0, 0, cssWidth, cssHeight);
-  const stack = currentStack();
-  drawAlgorithm(canvasContext, stack, cssWidth, cssHeight);
-  drawScope(canvasContext, engine.readWaveform(), cssWidth, cssHeight);
+  drawChaoticAnalysis(canvasContext, {
+    analyser: engine.analyser,
+    audioOn: engine.running,
+    glow: "rgba(181, 156, 255, 0.35)",
+    height: cssHeight,
+    hue: 260,
+    spectrogram,
+    stroke: "#b59cff",
+    waveform: engine.readWaveform(),
+    width: cssWidth,
+  });
 }
 
 function visualizationFrame(timestamp) {

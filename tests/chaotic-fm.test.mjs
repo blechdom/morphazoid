@@ -416,6 +416,10 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);
   assert.match(markup, /id="audioState">off</);
   assert.match(markup, /id="output"/);
+  assert.match(markup, /href="chaotic-synth-ui\.css"/);
+  assert.match(markup, /class="chaotic-signal-flow"/);
+  assert.match(markup, /id="turnsReadout"/);
+  assert.doesNotMatch(markup, />Turn \d+</);
   assert.match(markup, />Nonlinearity rate</);
   assert.match(markup, /this is not an audio filter/i);
   assert.match(markup, /CHAOTIC SYNTHS · 03/);
@@ -424,6 +428,8 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   assert.doesNotMatch(markup, />\s*filter\s*</i);
 
   assert.match(app, /audioButton"\)\.addEventListener\("click", toggleAudio\)/);
+  assert.match(app, /drawChaoticAnalysis/);
+  assert.match(app, /createChaoticSpectrogram/);
   assert.match(app, /FRAME_INTERVAL = 1_000 \/ 30/);
   assert.match(app, /addEventListener\("pagehide"/);
   assert.match(app, /audio\.close\(\)/);

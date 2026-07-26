@@ -12,6 +12,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="chaotic-fm.css" />
+    <link rel="stylesheet" href="chaotic-synth-ui.css" />
   </head>
   <body class="chaotic-fm-page">
     <header class="masthead">
@@ -64,7 +65,7 @@
             aria-label="Chaotic FM algorithm with one nonlinear recursive turn. Audio off."
             aria-describedby="chaoticFmDescription liveStatus"
           >
-            A recursive Chaotic FM operator diagram and live oscilloscope.
+            An oscilloscope, spectrogram, and signal-flow explanation for Chaotic FM.
           </canvas>
 
           <div class="chaotic-fm-heading">
@@ -74,12 +75,26 @@
           </div>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">1 TURN · 3 OPERATORS · AUDIO OFF</span>
+            <span id="stageReadout">1 RECURSION · 3 OPERATORS · AUDIO OFF</span>
           </div>
 
-          <div class="chaotic-fm-scope-labels" aria-hidden="true">
-            <span>NONLINEAR OPERATOR STACK</span>
-            <span id="scopeState">SCOPE · IDLE</span>
+          <div class="chaotic-fm-scope-labels chaotic-analysis-labels" aria-hidden="true">
+            <span>OSCILLOSCOPE · SPECTROGRAM</span>
+            <span id="scopeState">ANALYSIS · IDLE</span>
+          </div>
+
+          <div
+            class="chaotic-signal-flow"
+            role="img"
+            aria-label="Chaotic FM flow: carrier sine, entry frequency modulation, tanh frequency shaping, recursive sine output."
+          >
+            <span class="chaotic-flow-node"><b>Carrier sine</b><small>seed oscillator</small></span>
+            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
+            <span class="chaotic-flow-node"><b>Entry FM</b><small>offset + bipolar deviation</small></span>
+            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
+            <span class="chaotic-flow-node"><b>tanh rate</b><small>shape + scale frequency</small></span>
+            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
+            <span class="chaotic-flow-node"><b>Output</b><small>recursive sine · bounded</small></span>
           </div>
         </div>
       </section>
@@ -107,7 +122,7 @@
         <details class="group control-section chaotic-fm-structure" open>
           <summary class="group-summary">
             <h2 class="group-title">Algorithm</h2>
-            <span class="section-state" id="algorithmState">1 turn · tanh</span>
+            <span class="section-state" id="algorithmState">1 recursion · tanh</span>
           </summary>
           <div class="group-body">
             <label class="control" for="depth">
@@ -152,10 +167,10 @@
               Frequency scale after tanh · this is not an audio filter
             </small>
 
-            <div class="grammar-card chaotic-fm-ledger" aria-label="Current bounded algorithm">
+            <div class="grammar-card chaotic-fm-ledger chaotic-turn-ledger" aria-label="Current bounded algorithm">
               <span><b>Carrier</b><code id="carrierReadout">10.5 Hz sine</code></span>
               <span><b>Entry</b><code id="entryReadout">0 → 350 Hz</code></span>
-              <span><b>Turn 1</b><code id="turnReadout">±256 Hz · amount 175</code></span>
+              <span><b>Recursions</b><code id="turnsReadout">1: ±256 Hz · amount 175</code></span>
               <span><b>Output</b><code id="operatorReadout">operator 2 · crossfaded</code></span>
             </div>
 
@@ -172,7 +187,7 @@
       </aside>
 
       <p class="sr-only" id="chaoticFmDescription">
-        The top diagram shows a low-frequency carrier feeding an entry oscillator, followed by zero to ten nonlinear recursive sine operators. The lower trace is a live oscilloscope when audio is on.
+        A live oscilloscope and rolling spectrogram sit above a simple carrier-to-output flow chart. Detailed recursion values are listed below the sliders.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

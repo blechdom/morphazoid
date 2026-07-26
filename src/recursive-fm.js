@@ -7,7 +7,7 @@ export const RECURSIVE_FM_LIMITS = Object.freeze({
   maxCarrierHz: 4_800,
   maxOffsetHz: 12_000,
   maxModulationHz: 12_000,
-  minDivisor: 0.05,
+  minDivisor: 0.001,
   maxDivisor: 8,
 });
 

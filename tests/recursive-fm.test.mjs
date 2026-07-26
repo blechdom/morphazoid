@@ -51,6 +51,10 @@ test("settings sanitizer accepts legacy names and contains unsafe values", () =>
   assert.equal(settings.maximumFrequencyHz, 19_845);
 });
 
+test("amount divisor retains the original Morphisma exploration range", () => {
+  assert.equal(RECURSIVE_FM_LIMITS.minDivisor, 0.001);
+});
+
 test("operator derivation matches the original safe Recursive FM topology", () => {
   const stack = deriveRecursiveFmStack({
     depth: 3,
@@ -120,9 +124,15 @@ test("Recursive FM page is internal and uses a gesture-controlled audio button",
   assert.match(html, /id="audioButton"/);
   assert.match(html, /id="level"/);
   assert.match(html, /id="stage"/);
+  assert.match(html, /href="chaotic-synth-ui\.css"/);
+  assert.match(html, /class="chaotic-signal-flow"/);
+  assert.match(html, /id="turnsReadout"/);
+  assert.doesNotMatch(html, />Turn \d+</);
   assert.match(html, /src="recursive-fm-app\.js"/);
   assert.doesNotMatch(html, /https?:\/\//);
   assert.match(app, /class RecursiveFmAudioEngine/);
+  assert.match(app, /drawChaoticAnalysis/);
+  assert.match(app, /createChaoticSpectrogram/);
   assert.match(app, /createDynamicsCompressor/);
   assert.match(app, /\$\("audioButton"\)\.addEventListener\("click"/);
   assert.match(app, /pagehide/);

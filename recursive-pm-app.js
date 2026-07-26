@@ -11,6 +11,10 @@ import {
   sanitizeRecursivePmSettings,
   summarizeRecursivePmStack,
 } from "./src/recursive-pm.js";
+import {
+  createChaoticSpectrogram,
+  drawChaoticAnalysis,
+} from "./src/chaotic-synth-visuals.js";
 
 const $ = (id) => document.getElementById(id);
 const DEFAULT_LEVEL = 0.58;
@@ -30,6 +34,7 @@ const state = {
 const engine = new RecursivePmAudioEngine(window);
 const canvas = $("stage");
 const canvasContext = canvas.getContext("2d");
+const spectrogram = createChaoticSpectrogram(document);
 const stageWrap = $("stageWrap");
 let pixelRatio = 1;
 let cssWidth = 1;
@@ -137,13 +142,24 @@ function updateControlOutputs(stack = currentStack()) {
 
   const summary = summarizeRecursivePmStack(stack);
   const bounded = stack.actualDepth < stack.requestedDepth ? "frequency bounded" : "bounded";
-  $("structureState").textContent = `${summary.actualDepth} ${summary.actualDepth === 1 ? "turn" : "turns"} · ${bounded}`;
+  $("structureState").textContent = `${summary.actualDepth} ${summary.actualDepth === 1 ? "recursion" : "recursions"} · ${bounded}`;
   $("carrierReadout").textContent = `${formatRecursivePmFrequency(settings.carrierHz)} sine`;
   $("entryReadout").textContent = `${formatRecursivePmFrequency(settings.startModFrequencyHz)} · index ${formatRecursivePmNumber(settings.startPhaseIndex)}`;
+  const phaseOperators = stack.operators.filter(
+    (operator) => operator.kind === "phase-operator",
+  );
+  $("turnsReadout").textContent = phaseOperators.length > 0
+    ? phaseOperators.map(
+      (operator) => (
+        `${operator.turn}: ${formatRecursivePmFrequency(operator.frequencyHz)}`
+        + ` × ${formatRecursivePmNumber(operator.phaseIndex)}`
+      ),
+    ).join(" · ")
+    : "none · carrier sine is audible";
   $("operatorReadout").textContent = `operator ${stack.audibleIndex} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
   $("ceilingReadout").textContent = formatRecursivePmFrequency(settings.maximumFrequencyHz);
   $("stageReadout").textContent = `${summary.label} · ${engine.running ? "ON" : "OFF"}`.toUpperCase();
-  $("scopeState").textContent = engine.running ? "SCOPE · LIVE" : "SCOPE · IDLE";
+  $("scopeState").textContent = engine.running ? "ANALYSIS · LIVE" : "ANALYSIS · IDLE";
   canvas.setAttribute(
     "aria-label",
     `Recursive PM algorithm with ${summary.actualDepth} recursive ${summary.actualDepth === 1 ? "operator" : "operators"}. Audio ${engine.running ? "on" : "off"}.`,
@@ -356,9 +372,17 @@ function drawScope(context, waveform, width, height) {
 function drawVisualization() {
   canvasContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   canvasContext.clearRect(0, 0, cssWidth, cssHeight);
-  const stack = currentStack();
-  drawAlgorithm(canvasContext, stack, cssWidth, cssHeight);
-  drawScope(canvasContext, engine.readWaveform(), cssWidth, cssHeight);
+  drawChaoticAnalysis(canvasContext, {
+    analyser: engine.analyser,
+    audioOn: engine.running,
+    glow: "rgba(255, 143, 216, 0.35)",
+    height: cssHeight,
+    hue: 322,
+    spectrogram,
+    stroke: "#ff8fd8",
+    waveform: engine.readWaveform(),
+    width: cssWidth,
+  });
 }
 
 function visualizationFrame(timestamp) {
