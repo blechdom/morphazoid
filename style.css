@@ -204,6 +204,15 @@ a {
   transition: transform 150ms ease;
 }
 
+.tools-menu-chevron::before {
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  content: "";
+  transform: translateY(-2px) rotate(45deg);
+}
+
 .tools-menu[open] .tools-menu-chevron {
   transform: rotate(180deg);
 }

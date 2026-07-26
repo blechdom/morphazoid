@@ -167,9 +167,9 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ),
     [
       { id: "shepard-risset", href: "shepard-risset.html" },
-      { id: "candy-coil-delay", href: "candy-coil-delay.html" },
-      { id: "striped-sludge-delay", href: "striped-sludge-delay.html" },
       { id: "sandy-syrup-delay", href: "sandy-syrup-delay.html" },
+      { id: "striped-sludge-delay", href: "striped-sludge-delay.html" },
+      { id: "candy-coil-delay", href: "candy-coil-delay.html" },
     ],
   );
   assert.deepEqual(
@@ -226,6 +226,11 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
     summary.findAll((node) => node.className === "tools-menu-current")[0]?.textContent,
     "Julia",
   );
+  const menuIcon = summary.findAll(
+    (node) => node.className === "tools-menu-chevron",
+  )[0];
+  assert.equal(menuIcon?.textContent, "");
+  assert.equal(menuIcon?.getAttribute("aria-hidden"), "true");
 
   const sections = details.findAll((node) => node.tagName === "SECTION");
   assert.equal(sections.length, TOOL_GROUPS.length);

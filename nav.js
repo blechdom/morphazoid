@@ -33,13 +33,13 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
   freezeGroup("barber-shop-poles", "Barber Shop Poles", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },
-    { id: "candy-coil-delay", label: "Candy Coil Delay", href: "candy-coil-delay.html" },
+    { id: "sandy-syrup-delay", label: "Sandy Syrup Delay", href: "sandy-syrup-delay.html" },
     {
       id: "striped-sludge-delay",
       label: "Striped Sludge Delay",
       href: "striped-sludge-delay.html",
     },
-    { id: "sandy-syrup-delay", label: "Sandy Syrup Delay", href: "sandy-syrup-delay.html" },
+    { id: "candy-coil-delay", label: "Candy Coil Delay", href: "candy-coil-delay.html" },
   ]),
   freezeGroup("chaotic-synths", "Chaotic Synths", [
     { id: "recursive-fm", label: "Recursive FM", href: "recursive-fm.html" },
@@ -142,7 +142,7 @@ function createToolsDisclosure(doc, activeTool, siteRoot, index) {
     element(doc, "span", "tools-menu-label", "Tools"),
     element(doc, "strong", "tools-menu-current", activeTool?.label ?? "Choose"),
   );
-  const chevron = element(doc, "span", "tools-menu-chevron", "⌄");
+  const chevron = element(doc, "span", "tools-menu-chevron");
   chevron.setAttribute("aria-hidden", "true");
   summary.append(chevron);
 
