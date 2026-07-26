@@ -91,16 +91,16 @@
         <details class="group control-section barber-delay-source" data-section="play" open>
           <summary class="group-summary">
             <h2 class="group-title">Source</h2>
-            <span class="section-state" id="sourceSummary">file · choose audio</span>
+            <span class="section-state" id="sourceSummary">microphone · headphones</span>
           </summary>
           <div class="group-body">
             <span class="field-label">Input</span>
-            <div class="choice-switch" id="sourceChoice" role="group" aria-label="Audio source">
-              <button id="sourceMic" type="button" data-source="microphone" aria-pressed="false">Mic</button>
-              <button id="sourceFile" type="button" data-source="file" aria-pressed="true">File</button>
+            <div class="choice-switch" id="sourceChoice" role="group" aria-label="Audio source" aria-describedby="sourceNote">
+              <button id="sourceMic" type="button" data-source="microphone" aria-pressed="true">Mic</button>
+              <button id="sourceFile" type="button" data-source="file" aria-pressed="false">File</button>
             </div>
 
-            <div class="barber-file-row" id="fileControls">
+            <div class="barber-file-row" id="fileControls" hidden>
               <label class="barber-file-picker" for="filePicker">
                 <input id="filePicker" type="file" accept="audio/*" />
                 <span id="fileName">Choose local audio…</span>
@@ -118,7 +118,7 @@
             </div>
             <audio id="fileAudio" loop preload="metadata"></audio>
             <p class="barber-delay-note" id="sourceNote">
-              Pick a local file, then switch Audio on. The file stays in this browser.
+              Switch Audio on to allow microphone access. Use headphones—speaker-to-microphone feedback can become loud even with the internal loop bounded.
             </p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
