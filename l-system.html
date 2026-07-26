@@ -38,7 +38,12 @@
               <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Grow bifurcating L-system playheads"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
               <label class="control position-control" for="position"><span><b>Growth position</b><output id="positionOut" for="position">0.0%</output></span><input id="position" type="range" min="0" max="1" step="0.0005" value="0" /></label>
             </div>
-            <label class="control" for="speed"><span><b>Traversal rate</b><output id="speedOut" for="speed">0.08 cyc/s</output></span><input id="speed" type="range" min="0.01" max="1" step="0.01" value="0.08" /></label>
+            <label class="select-control" for="speedUnit"><span class="field-label">Traversal units</span><span class="select-shell"><select id="speedUnit"><option value="cycles" selected>Cycles / second</option><option value="milliseconds">Milliseconds / cycle</option></select></span></label>
+            <label class="control" for="speed"><span><b>Traversal speed</b><output id="speedOut" for="speed">0.08 cyc/s</output></span><input id="speed" type="range" min="0.01" max="1" step="0.01" value="0.08" /></label>
+            <div class="choice-switch traversal-mode-switch" id="traversalMode" role="group" aria-label="Traversal repeat behavior">
+              <button id="traversalLoop" type="button" aria-pressed="true" title="Loop from the tree end to its beginning"><span aria-hidden="true">↻</span><span>Loop</span></button>
+              <button id="traversalPingPong" type="button" aria-pressed="false" title="Reverse at each end of the tree"><span aria-hidden="true">↔</span><span>Ping-pong</span></button>
+            </div>
             <button class="mini-action direction-action" id="directionButton" type="button">Direction · forward</button>
           </div>
         </details>
@@ -46,14 +51,7 @@
         <details class="group control-section" id="structureSection" data-section="structure">
           <summary class="group-summary"><h2 class="group-title">Structure</h2><span class="section-state" id="structureSummary">final · I7</span></summary>
           <div class="group-body">
-            <div class="field-label">Iteration playback</div>
-            <div class="choice-switch structure-mode-switch" id="structureMode" role="group" aria-label="Iteration playback structure">
-              <button id="structureFinal" type="button" data-value="final" aria-pressed="true">Final tree</button>
-              <button id="structureSequence" type="button" data-value="sequence" aria-pressed="false">In sequence</button>
-              <button id="structureTogether" type="button" data-value="together" aria-pressed="false">Together</button>
-              <button id="structureAccumulate" type="button" data-value="accumulate" aria-pressed="false">Accumulate</button>
-              <button id="structureCanon" type="button" data-value="canon" aria-pressed="false">Canon</button>
-            </div>
+            <label class="select-control" for="structureMode"><span class="field-label">Iteration playback</span><span class="select-shell"><select id="structureMode"><option value="final" selected>Final tree</option><option value="sequence">In sequence</option><option value="together">Together</option><option value="accumulate">Accumulate</option><option value="canon">Canon</option></select></span></label>
             <div class="structure-readout"><b>Schedule</b><output id="structureReadout">I7 only</output></div>
             <p class="structure-description" id="structureDescription">Read the final expanded tree as one bifurcating structure.</p>
           </div>
@@ -79,7 +77,7 @@
           <summary class="group-summary"><h2 class="group-title">Mapping</h2><span class="section-state" id="mappingSummary">angle → pitch</span></summary>
           <div class="group-body">
             <label class="select-control" for="pitchSource"><span class="field-label">Pitch data</span><span class="select-shell"><select id="pitchSource"><option value="angle" selected>Cumulative branch angle</option><option value="height">Vertical position</option><option value="depth">Branch depth</option><option value="progress">Growth progress</option></select></span></label>
-            <label class="control" for="baseFrequency"><span><b>Trunk frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" /></label>
+            <label class="control" for="baseFrequency"><span><b>Trunk frequency</b><output id="baseFrequencyOut" for="baseFrequency">220 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="220" /></label>
             <label class="control" for="pitchRange"><span><b>Angle pitch scale</b><output id="pitchRangeOut" for="pitchRange">2.00 oct / turn</output></span><input id="pitchRange" type="range" min="0" max="7" step="0.05" value="2" /></label>
             <small class="form-count-key">Each fork inherits its parent pitch, then turns it up or down. Voice power is divided across every active branch.</small>
             <label class="control" for="depthAmount"><span><b>Depth → timbre</b><output id="depthAmountOut" for="depthAmount">65%</output></span><input id="depthAmount" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
@@ -91,6 +89,7 @@
           <div class="group-body">
             <label class="select-control" for="soundMode"><span class="field-label">Voice</span><span class="select-shell"><select id="soundMode"><option value="sine" selected>Sine · bifurcating branches</option><option value="fm">FM · branch depth</option><option value="pm">PM · branch depth</option><option value="shepard">Shepard · endless path</option></select></span></label>
             <label class="control" for="modulationIndex"><span><b>Modulation depth</b><output id="modulationIndexOut" for="modulationIndex">3.00 max</output></span><input id="modulationIndex" type="range" min="0" max="12" step="0.05" value="3" /></label>
+            <label class="control" for="stereoSpread"><span><b>Stereo spread</b><output id="stereoSpreadOut" for="stereoSpread">90%</output></span><input id="stereoSpread" type="range" min="0" max="1" step="0.01" value="0.9" /></label>
             <div id="amplitudeControl" aria-label="Editable branch amplitude envelope"></div>
             <div class="structure-readout"><b>Voice ceiling</b><output id="polyphonyReadout">AUTO CHECK · 128 ready</output></div>
             <p class="structure-description" id="polyphonyDescription">The ceiling rises only when this structure asks for more voices and measured render load has safe headroom, up to a mode-dependent hard guard.</p>
@@ -98,7 +97,15 @@
           </div>
         </details>
 
-        <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button></div>
+        <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all>Reset all parameters</button></div>
+
+        <details class="group control-section" id="playbackSettingsSection" data-section="settings">
+          <summary class="group-summary"><h2 class="group-title">Current settings</h2><span class="section-state" id="currentSettingsSummary">final tree · 12,500 ms</span></summary>
+          <div class="group-body">
+            <div class="structure-readout"><b>Traversal</b><output id="currentTraversalReadout">0.08 cyc/s · 12,500 ms · loop</output></div>
+            <div class="structure-readout"><b>Voicing</b><output id="currentVoicingReadout">220 Hz trunk · 90% stereo</output></div>
+          </div>
+        </details>
       </aside>
       <p class="sr-only" id="canvasInstructions">The L-system advances by path distance rather than screen position. Structure controls can read the final tree, give every iteration equal sequential time, phase-lock all iterations, accumulate rewrite layers, or stagger them as a canon.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>

@@ -355,11 +355,63 @@ export function branchingPlayheadsAtPhase(trace, phase) {
 
 const STRUCTURE_MODES = new Set(["final", "sequence", "together", "accumulate", "canon"]);
 
-/** Convert per-iteration traversal speed to the normalized UI phase rate. */
+/** Traversal speed always describes one complete selected playback cycle. */
 export function iterationPlaybackPhaseRate(mode, iterationCount, traversalsPerSecond) {
-  const count = Math.max(1, Math.floor(safeNumber(iterationCount, 1)));
+  void mode;
+  void iterationCount;
   const speed = safeNumber(traversalsPerSecond, 0);
-  return mode === "sequence" || mode === "accumulate" ? speed / count : speed;
+  return speed;
+}
+
+/**
+ * Advance a normalized traversal with either wrapping or reflected endpoints.
+ * Ping-pong returns the new physical direction so audio and graphics reverse
+ * together without jumping from a complete canopy to the trunk.
+ */
+export function advanceLSystemTraversal(
+  position,
+  direction,
+  distance,
+  behavior = "loop",
+) {
+  const phase = Math.min(1, Math.max(0, safeNumber(position, 0)));
+  const sign = safeNumber(direction, 1) < 0 ? -1 : 1;
+  const travel = Math.max(0, safeNumber(distance, 0));
+  if (behavior !== "ping-pong") {
+    return Object.freeze({
+      position: ((phase + sign * travel) % 1 + 1) % 1,
+      direction: sign,
+    });
+  }
+  const unfoldedStart = sign > 0 ? phase : 2 - phase;
+  const unfolded = ((unfoldedStart + travel) % 2 + 2) % 2;
+  return Object.freeze({
+    position: unfolded <= 1 ? unfolded : 2 - unfolded,
+    direction: unfolded < 1 ? 1 : -1,
+  });
+}
+
+/**
+ * Fade ordinary loop endpoints so unrelated terminal and trunk voice keys
+ * never exchange at full gain. Reflected playback preserves the same voices
+ * through its turn and therefore does not need an endpoint dip.
+ */
+export function lSystemTraversalBoundaryGain(
+  phase,
+  behavior = "loop",
+  fadeFraction = 0.025,
+) {
+  if (behavior === "ping-pong") return 1;
+  const position = Math.min(1, Math.max(0, safeNumber(phase, 0)));
+  const width = Math.min(0.2, Math.max(0.001, safeNumber(fadeFraction, 0.025)));
+  const smoothstep = (value) => {
+    const amount = Math.min(1, Math.max(0, value));
+    return amount * amount * (3 - 2 * amount);
+  };
+  return Math.min(
+    smoothstep(position / width),
+    smoothstep((1 - position) / width),
+  );
 }
 
 /**
@@ -533,11 +585,11 @@ export function branchVoiceGain(powerShare, activePower = 1, combinedGain = 0.38
 /** Map inherited turtle heading to pitch without treating screen X as time. */
 export function branchAngleFrequency(
   headingRadians,
-  trunkFrequency = 110,
+  trunkFrequency = 220,
   octavesPerTurn = 2,
 ) {
   const heading = safeNumber(headingRadians, 0);
-  const base = Math.max(0.0001, safeNumber(trunkFrequency, 110));
+  const base = Math.max(0.0001, safeNumber(trunkFrequency, 220));
   const scale = safeNumber(octavesPerTurn, 2);
   return Math.min(20_000, Math.max(20, base * 2 ** (heading / (Math.PI * 2) * scale)));
 }

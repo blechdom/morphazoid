@@ -110,6 +110,7 @@ test("L-system app draws and drives adaptively capped bifurcating sine voices", 
 
   await import(`../l-system-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
+  assert.equal(elements.get("baseFrequencyOut").textContent, "220 Hz");
   let now = performance.now() + 20;
   queuedFrame(now);
   assert.match(elements.get("stageReadout").textContent, /PYTHAGOREAN TREE · FINAL I7 · 1 HEAD · AUDIO OFF/);
@@ -156,15 +157,35 @@ test("L-system app draws and drives adaptively capped bifurcating sine voices", 
   assert.equal(elements.get("angle").value, "45");
   assert.equal(elements.get("lengthScale").value, "0.72");
 
-  listeners.get("structureSequence:click")();
+  elements.get("structureMode").value = "sequence";
+  listeners.get("structureMode:change")({
+    currentTarget: elements.get("structureMode"),
+  });
   elements.get("position").value = String(1.5 / 7);
   listeners.get("position:input")();
   queuedFrame(now + 10);
-  assert.equal(elements.get("speedOut").textContent, "0.08 iter/s");
+  assert.equal(elements.get("speedOut").textContent, "0.08 cyc/s");
   assert.match(elements.get("structureSummary").textContent, /sequence · I2\/7/);
   assert.equal(elements.get("positionOut").textContent, "I2 · 50.0%");
 
-  listeners.get("structureFinal:click")();
+  elements.get("structureMode").value = "final";
+  listeners.get("structureMode:change")({
+    currentTarget: elements.get("structureMode"),
+  });
+
+  elements.get("speedUnit").value = "milliseconds";
+  listeners.get("speedUnit:change")({
+    currentTarget: elements.get("speedUnit"),
+  });
+  assert.equal(elements.get("speedOut").textContent, "12,500 ms / cycle");
+  elements.get("speedUnit").value = "cycles";
+  listeners.get("speedUnit:change")({
+    currentTarget: elements.get("speedUnit"),
+  });
+  listeners.get("traversalPingPong:click")();
+  assert.equal(attributes.get("traversalPingPong:aria-pressed"), "true");
+  assert.match(elements.get("currentTraversalReadout").textContent, /ping-pong/);
+  listeners.get("traversalLoop:click")();
 
   elements.get("soundMode").value = "shepard";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
@@ -178,7 +199,10 @@ test("L-system app draws and drives adaptively capped bifurcating sine voices", 
   queuedFrame(now + 20);
   assert.match(elements.get("stageReadout").textContent, /FINAL I7 · 128 HEADS · AUDIO OFF/);
 
-  listeners.get("structureTogether:click")();
+  elements.get("structureMode").value = "together";
+  listeners.get("structureMode:change")({
+    currentTarget: elements.get("structureMode"),
+  });
   queuedFrame(now + 40);
   assert.match(elements.get("stageReadout").textContent, /7 ITERATIONS TOGETHER · 254 HEADS · AUDIO OFF/);
   assert.match(elements.get("structureReadout").textContent, /I1 \+ I2[\s\S]*I7 · phase locked/);

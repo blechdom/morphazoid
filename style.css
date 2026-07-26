@@ -1783,15 +1783,6 @@ input[type="range"]::-moz-range-thumb {
   font: 10px/1.45 var(--mono);
 }
 
-.structure-mode-switch {
-  grid-auto-flow: row;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.structure-mode-switch #structureCanon {
-  grid-column: 1 / -1;
-}
-
 .structure-readout {
   display: flex;
   min-height: 31px;
@@ -1954,6 +1945,18 @@ input[type="range"]::-moz-range-thumb {
 
 .choice-switch.compact button {
   font-size: 9px;
+}
+
+.traversal-mode-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.traversal-mode-switch button > span[aria-hidden="true"] {
+  font-size: 15px;
+  line-height: 1;
 }
 
 .depth-effects {

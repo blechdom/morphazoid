@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   L_SYSTEM_PRESETS,
+  advanceLSystemTraversal,
   allocateIterationVoiceHeads,
   bifurcatingVoiceGain,
   branchAngleFrequency,
@@ -12,6 +13,7 @@ import {
   expandLSystem,
   iterationPlaybackAtPhase,
   iterationPlaybackPhaseRate,
+  lSystemTraversalBoundaryGain,
   normalizeLSystemPoint,
   pointOnLSystem,
   progressiveSampleIndices,
@@ -127,6 +129,7 @@ test("bifurcating oscillators preserve power and inherit angle as pitch", () => 
   const tinyGains = tinyShares.map((share) => branchVoiceGain(share, tinyPower, totalGain));
   assert.ok(Math.abs(Math.hypot(...tinyGains) - totalGain) < 1e-12);
   assert.equal(branchAngleFrequency(0, 110, 2), 110);
+  assert.equal(branchAngleFrequency(0), 220);
   assert.ok(Math.abs(branchAngleFrequency(Math.PI / 4, 110, 2) - 110 * 2 ** 0.25) < 1e-9);
   assert.ok(Math.abs(branchAngleFrequency(-Math.PI / 4, 110, 2) - 110 * 2 ** -0.25) < 1e-9);
 });
@@ -245,7 +248,7 @@ test("iteration structures play for equal time in sequence or phase-lock togethe
   )));
   const traversalSpeed = 0.2;
   const sequencePhaseRate = iterationPlaybackPhaseRate("sequence", traces.length, traversalSpeed);
-  assert.equal((1 / traces.length) / sequencePhaseRate, 1 / traversalSpeed);
+  assert.equal(sequencePhaseRate, traversalSpeed);
   assert.equal(iterationPlaybackPhaseRate("together", traces.length, traversalSpeed), traversalSpeed);
 
   const accumulate = [0, 1, 2].map((index) => (
@@ -277,6 +280,23 @@ test("iteration structures play for equal time in sequence or phase-lock togethe
   const allocated = allocateIterationVoiceHeads(denseHeads, 7);
   assert.equal(allocated.length, 7);
   assert.deepEqual([...new Set(allocated.map((head) => head.iteration))], [1, 2, 3]);
+});
+
+test("loop endpoints fade while ping-pong reflects without a topology jump", () => {
+  assert.equal(lSystemTraversalBoundaryGain(0, "loop"), 0);
+  assert.equal(lSystemTraversalBoundaryGain(0.5, "loop"), 1);
+  assert.equal(lSystemTraversalBoundaryGain(1, "loop"), 0);
+  assert.equal(lSystemTraversalBoundaryGain(0, "ping-pong"), 1);
+  const reflectedAtEnd = advanceLSystemTraversal(0.95, 1, 0.1, "ping-pong");
+  assert.equal(reflectedAtEnd.direction, -1);
+  assert.ok(Math.abs(reflectedAtEnd.position - 0.95) < 1e-12);
+  const reflectedAtStart = advanceLSystemTraversal(0.05, -1, 0.1, "ping-pong");
+  assert.equal(reflectedAtStart.direction, 1);
+  assert.ok(Math.abs(reflectedAtStart.position - 0.05) < 1e-12);
+  assert.deepEqual(
+    advanceLSystemTraversal(0.95, 1, 0.1, "loop"),
+    { position: 0.050000000000000044, direction: 1 },
+  );
 });
 
 test("raising the branch ceiling adds stable, progressively spaced voices", () => {
@@ -315,9 +335,11 @@ test("L-system page exposes presets, traversal, mapping, adaptive synthesis, and
   for (const name of ["Koch snowflake", "Sierpiński triangle", "Hilbert curve", "Gosper curve", "Cantor set", "Lévy C curve", "Terdragon"]) {
     assert.match(html, new RegExp(name));
   }
-  for (const id of ["playButton", "position", "speed", "structureMode", "structureFinal", "structureSequence", "structureTogether", "structureAccumulate", "structureCanon", "preset", "iterations", "angle", "turnAsymmetry", "turnAsymmetryNote", "lengthScale", "taperNote", "pitchSource", "baseFrequency", "pitchRange", "soundMode", "modulationIndex", "polyphonyReadout", "polyphonyDescription"]) {
+  for (const id of ["playButton", "position", "speed", "speedUnit", "traversalLoop", "traversalPingPong", "structureMode", "preset", "iterations", "angle", "turnAsymmetry", "turnAsymmetryNote", "lengthScale", "taperNote", "pitchSource", "baseFrequency", "pitchRange", "soundMode", "modulationIndex", "stereoSpread", "polyphonyReadout", "polyphonyDescription", "currentSettingsSummary"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
+  assert.match(html, /id="structureMode"[\s\S]*?<option value="final" selected>Final tree/);
+  assert.match(html, /id="baseFrequency"[^>]+value="220"/);
   assert.match(html, /Branch length taper/);
   assert.match(html, /Length only—not line width or loudness/);
   assert.match(html, /hyper<\/a><a class="tab active"[^>]+>l-system<\/a><a class="tab recursion-tab"[^>]+>recursion<\/a><a class="tab"[^>]+>julia<\/a><a class="tab"[^>]+>lumber<\/a>/);
