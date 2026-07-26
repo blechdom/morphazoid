@@ -32,9 +32,6 @@ test("site builder publishes runtime files without development material", async 
       "app.js",
       "src/audio.js",
       "src/contour-synth-processor.js",
-      "analyzer.html",
-      "analyzer-app.js",
-      "src/analyzer.js",
       "shepard-risset.html",
       "shepard-risset-app.js",
       "src/shepard-risset.js",
@@ -77,6 +74,9 @@ test("site builder publishes runtime files without development material", async 
       ".throatazoid-preview.png",
       "audio-engine-lab.html",
       "src/audio-engine-lab.js",
+      "analyzer.html",
+      "analyzer-app.js",
+      "src/analyzer.js",
     ]) {
       assert.equal(await exists(join(output, path)), false, `published ${path}`);
     }

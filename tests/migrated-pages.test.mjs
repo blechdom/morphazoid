@@ -6,13 +6,6 @@ const root = new URL("../", import.meta.url);
 
 const migratedPages = [
   {
-    id: "analyzer",
-    html: "analyzer.html",
-    app: "analyzer-app.js",
-    source: "src/analyzer.js",
-    requiredCopy: ["Oscilloscope", "Spectrum", "Spectrogram"],
-  },
-  {
     id: "shepard-risset",
     html: "shepard-risset.html",
     app: "shepard-risset-app.js",

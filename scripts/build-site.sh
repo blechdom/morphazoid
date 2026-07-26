@@ -57,9 +57,6 @@ required_files=(
   favicon.svg
   src/audio.js
   src/contour-synth-processor.js
-  analyzer.html
-  analyzer-app.js
-  src/analyzer.js
   shepard-risset.html
   shepard-risset-app.js
   src/shepard-risset.js

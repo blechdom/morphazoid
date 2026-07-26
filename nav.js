@@ -53,13 +53,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "chaotic-fm", label: "Chaotic FM", href: "chaotic-fm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
   ]),
-  freezeGroup("analysis", "Analysis", [
-    {
-      id: "analyzer",
-      label: "Oscilloscope + Spectrogram",
-      href: "analyzer.html",
-    },
-  ]),
   freezeGroup("workbench", "Workbench", [
     {
       id: "morphazoidical",

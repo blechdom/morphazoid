@@ -134,12 +134,11 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       "Fractals & Recursion",
       "Barber Shop Poles",
       "Chaotic Synths",
-      "Analysis",
       "Workbench",
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 22);
+  assert.equal(tools.length, 21);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -199,7 +198,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}recursive-pm.html`, SITE_ROOT)?.id, "recursive-pm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}chaotic-fm.html`, SITE_ROOT)?.id, "chaotic-fm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}weierstrass.html`, SITE_ROOT)?.id, "weierstrass");
-  assert.equal(resolveActiveTool(`${SITE_ROOT}analyzer.html`, SITE_ROOT)?.id, "analyzer");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}analyzer.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}unknown.html`, SITE_ROOT), null);
@@ -246,7 +245,7 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
     TOOL_GROUPS.map((group) => group.label),
   );
   const links = details.findAll((node) => node.tagName === "A");
-  assert.equal(links.length, 22);
+  assert.equal(links.length, 21);
   const currentLinks = links.filter((link) => link.getAttribute("aria-current") === "page");
   assert.equal(currentLinks.length, 1);
   assert.equal(currentLinks[0].getAttribute("data-tool-id"), "julia");
