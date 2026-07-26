@@ -234,7 +234,6 @@ function updateReadouts(stack = currentStack()) {
     `${stack.operatorCount} operators`,
     `audio ${state.audioOn ? "on" : "off"}`,
   ].join(" · ").toUpperCase();
-  $("scopeState").textContent = state.audioOn ? "ANALYSIS · LIVE" : "ANALYSIS · IDLE";
   canvas.setAttribute(
     "aria-label",
     `Chaotic FM analysis with ${settings.depth} nonlinear ${recursionWord}. Audio ${state.audioOn ? "on" : "off"}.`,

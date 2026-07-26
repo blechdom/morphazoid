@@ -126,7 +126,7 @@ test("Recursive FM page is internal and uses a gesture-controlled audio button",
   assert.match(html, /id="stage"/);
   assert.match(html, /href="chaotic-synth-ui\.css"/);
   assert.match(html, /class="chaotic-signal-flow"/);
-  assert.match(html, /SPECTROGRAM · LOG FREQUENCY/);
+  assert.doesNotMatch(html, /SPECTROGRAM · LOG FREQUENCY|signal → frequency → signal/);
   for (const id of ["flowCarrierValue", "flowEntryValue", "flowRecursionValue", "flowOutputValue"]) {
     assert.match(html, new RegExp(`id="${id}"`));
     assert.match(app, new RegExp(`\\$\\("${id}"\\)\\.textContent`));

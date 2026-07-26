@@ -388,7 +388,6 @@ function updateControlOutputs(stack = currentStack()) {
     stack.audibleIndex
   } · ${(stack.normalizedGain * 100).toFixed(0)}%`;
   $("stageReadout").textContent = `${summary.label} · ${engine.running ? "ON" : "OFF"}`.toUpperCase();
-  $("scopeState").textContent = engine.running ? "ANALYSIS · LIVE" : "ANALYSIS · IDLE";
   canvas.setAttribute(
     "aria-label",
     `Recursive FM algorithm with ${summary.recursiveTurns} recursive ${summary.recursiveTurns === 1 ? "operator" : "operators"}. Audio ${engine.running ? "on" : "off"}.`,

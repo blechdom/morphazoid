@@ -671,7 +671,7 @@ test("native page exposes Wave, FM, and source-faithful PM with bounded ledgers"
   assert.match(app, /fmMemory/);
   assert.match(app, /pmMemory/);
   assert.match(app, /PM source “fundamental” ÷ 8/);
-  assert.match(app, /sin\(2π wrap\(W \+ I sin φc\)\)/);
+  assert.match(app, /sin\(2π · wrap\(W \+ I · sin φ\)\)/);
   assert.match(app, /Shared lattice preserved/);
   assert.match(app, /addEventListener\("pagehide"/);
   assert.match(app, /audio\.close\(\)/);

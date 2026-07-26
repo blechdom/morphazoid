@@ -384,11 +384,6 @@ function updateReadouts(
     : settings.mode === "pm"
       ? "sin(2π · wrap(W + I · sin φ))"
       : "normalized active Wave bank";
-  $("formulaReadout").textContent = settings.mode === "fm"
-    ? "sin(∫(fOffset + D · W)dt)"
-    : settings.mode === "pm"
-      ? "sin(2π wrap(W + I sin φc))"
-      : "Σ aⁿ cos(2π f₀ bⁿ t)";
   $("frequencyPolicyNote").textContent = settings.mode === "pm"
     ? "Logarithmic · PM source “fundamental” ÷ 8 because its phasor reset over 240 seconds"
     : "Logarithmic · source “fundamental” ÷ 2 because its π phasor ran at half-rate";
@@ -454,7 +449,6 @@ function updateReadouts(
     `${bank.activeCount} active`,
     `audio ${state.audioOn ? "on" : "off"}`,
   ].join(" · ").toUpperCase();
-  $("scopeState").textContent = state.audioOn ? "SCOPE · LIVE" : "SCOPE · IDLE";
   canvas.setAttribute(
     "aria-label",
     `Weierstrass ${label} bank with ${bank.requestedCount} requested, `

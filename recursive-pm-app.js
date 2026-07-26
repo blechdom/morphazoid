@@ -159,7 +159,6 @@ function updateControlOutputs(stack = currentStack()) {
   $("operatorReadout").textContent = `operator ${stack.audibleIndex} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
   $("ceilingReadout").textContent = formatRecursivePmFrequency(settings.maximumFrequencyHz);
   $("stageReadout").textContent = `${summary.label} · ${engine.running ? "ON" : "OFF"}`.toUpperCase();
-  $("scopeState").textContent = engine.running ? "ANALYSIS · LIVE" : "ANALYSIS · IDLE";
   canvas.setAttribute(
     "aria-label",
     `Recursive PM algorithm with ${summary.actualDepth} recursive ${summary.actualDepth === 1 ? "operator" : "operators"}. Audio ${engine.running ? "on" : "off"}.`,
