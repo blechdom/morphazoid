@@ -354,20 +354,23 @@ function updatePresetButtons() {
 function updateSignalFlow(stack) {
   const flow = $("recursiveFmFlow");
   const operators = stack.operators;
+  const graphWidth = Math.max(780, operators.length * 112 + 220);
   const left = 58;
-  const right = 810;
-  const nodeY = 76;
-  const busY = 151;
+  const outputX = graphWidth - 130;
+  const busEnd = outputX - 45;
+  const right = busEnd - 100;
+  const nodeY = 88;
+  const busY = 170;
   const spacing = operators.length > 1
     ? (right - left) / (operators.length - 1)
     : 0;
   const nodeWidth = Math.max(40, Math.min(92, spacing * 0.64));
-  const nodeHeight = 46;
+  const nodeHeight = 52;
   const positions = operators.map((_, index) => left + spacing * index);
   const edgeMarkup = operators.slice(1).map((operator, edgeIndex) => {
     const sourceX = positions[edgeIndex];
     const targetX = positions[edgeIndex + 1];
-    const archY = edgeIndex % 2 === 0 ? 22 : 34;
+    const archY = edgeIndex % 2 === 0 ? 30 : 44;
     return `
       <path class="recursive-fm-mod-edge" marker-end="url(#recursiveFmArrow)"
         d="M ${sourceX + nodeWidth * 0.5} ${nodeY}
@@ -405,7 +408,7 @@ function updateSignalFlow(stack) {
     `;
   }).join("");
   flow.innerHTML = `
-    <svg viewBox="0 0 1080 190" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <svg viewBox="0 0 ${graphWidth} 210" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <defs>
         <marker id="recursiveFmArrow" viewBox="0 0 8 8" refX="7" refY="4"
           markerWidth="6" markerHeight="6" orient="auto">
@@ -414,16 +417,16 @@ function updateSignalFlow(stack) {
       </defs>
       ${edgeMarkup}
       ${nodeMarkup}
-      <path class="recursive-fm-output-bus" d="M ${left} ${busY} L 900 ${busY}" />
-      <text class="recursive-fm-bus-label" x="${left}" y="176">
+      <path class="recursive-fm-output-bus" d="M ${left} ${busY} L ${busEnd} ${busY}" />
+      <text class="recursive-fm-bus-label" x="${left}" y="199">
         oscillator taps · only operator ${stack.audibleIndex} is open
       </text>
       <path class="recursive-fm-audio-edge" marker-end="url(#recursiveFmArrow)"
-        d="M 900 ${busY} L 934 ${busY}" />
+        d="M ${busEnd} ${busY} L ${outputX - 6} ${busY}" />
       <g class="recursive-fm-output-node">
-        <rect x="940" y="124" width="116" height="54" rx="4" />
-        <text x="998" y="145">NORMALIZE</text>
-        <text class="recursive-fm-output-value" x="998" y="161">
+        <rect x="${outputX}" y="143" width="116" height="54" rx="4" />
+        <text x="${outputX + 58}" y="164">NORMALIZE</text>
+        <text class="recursive-fm-output-value" x="${outputX + 58}" y="181">
           ${(stack.normalizedGain * 100).toFixed(0)}% → AUDIO
         </text>
       </g>
