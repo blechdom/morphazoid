@@ -117,6 +117,17 @@
   background: repeating-linear-gradient(90deg, #ff826f 0 3px, transparent 3px 6px);
 }
 
+.graph-key i.output-guide {
+  height: 2px;
+  background: repeating-linear-gradient(90deg, #e8c46b 0 1px, transparent 1px 6px);
+}
+
+.graph-delay-page #delaySection .recursion-parameter-cluster:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .graph-metrics {
   display: grid;
   margin-top: 12px;

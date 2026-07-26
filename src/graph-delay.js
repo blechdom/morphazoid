@@ -64,8 +64,286 @@ export const GRAPH_PRESETS = Object.freeze({
   }),
 });
 
+export const GRAPH_DELAY_PATCHES = Object.freeze({
+  clearSteps: Object.freeze({
+    label: "Clear Steps",
+    family: "Acyclic",
+    description: "Eight clean serial echoes with restrained pitch turns.",
+    topology: "chain", nodeCount: 8, density: 0, seed: 11,
+    baseDelay: 170, timeScale: 45, timeCurve: 1, nodePass: 0.98,
+    pitchScale: 0.2, pitchAsymmetry: 0, pitchCurve: 1, pitchSlew: 90, feedback: 0.5,
+    damping: 7_200, wet: 0.76, dry: 0.08, spread: 0.58,
+  }),
+  lowLadder: Object.freeze({
+    label: "Low Ladder",
+    family: "Acyclic",
+    description: "A slow twelve-stage chain biased toward downward turns.",
+    topology: "chain", nodeCount: 12, density: 0, seed: 23,
+    baseDelay: 310, timeScale: 80, timeCurve: 0.85, nodePass: 0.99,
+    pitchScale: 0.35, pitchAsymmetry: -0.25, pitchCurve: 1.2, pitchSlew: 130, feedback: 0.5,
+    damping: 4_200, wet: 0.86, dry: 0.04, spread: 0.74,
+  }),
+  branchChoir: Object.freeze({
+    label: "Branch Choir",
+    family: "Acyclic",
+    description: "A balanced tree whose sibling turns form widening intervals.",
+    topology: "tree", nodeCount: 15, density: 0.3, seed: 17,
+    baseDelay: 190, timeScale: 85, timeCurve: 1, nodePass: 0.96,
+    pitchScale: 0.55, pitchAsymmetry: 0, pitchCurve: 1.15, pitchSlew: 80, feedback: 0.55,
+    damping: 6_400, wet: 0.8, dry: 0.06, spread: 0.9,
+  }),
+  glassCanopy: Object.freeze({
+    label: "Glass Canopy",
+    family: "Acyclic",
+    description: "A bright compact tree with quick, high relative turns.",
+    topology: "tree", nodeCount: 11, density: 0.3, seed: 31,
+    baseDelay: 105, timeScale: 40, timeCurve: 1.2, nodePass: 0.94,
+    pitchScale: 0.9, pitchAsymmetry: 0.1, pitchCurve: 0.9, pitchSlew: 40, feedback: 0.5,
+    damping: 9_200, wet: 0.72, dry: 0.1, spread: 0.82,
+  }),
+  layeredGlass: Object.freeze({
+    label: "Layered Glass",
+    family: "Acyclic",
+    description: "The balanced default: crossing DAG paths with closely related delays.",
+    topology: "dag", nodeCount: 10, density: 0.34, seed: 17,
+    baseDelay: 220, timeScale: 60, timeCurve: 1, nodePass: 0.96,
+    pitchScale: 0.5, pitchAsymmetry: 0, pitchCurve: 1, pitchSlew: 80, feedback: 0.72,
+    damping: 4_800, wet: 0.82, dry: 0.06, spread: 0.8,
+  }),
+  rainLattice: Object.freeze({
+    label: "Rain Lattice",
+    family: "Acyclic",
+    description: "A denser layered graph of short staggered droplets.",
+    topology: "dag", nodeCount: 14, density: 0.52, seed: 47,
+    baseDelay: 125, timeScale: 95, timeCurve: 0.75, nodePass: 0.93,
+    pitchScale: 0.85, pitchAsymmetry: 0.1, pitchCurve: 1.2, pitchSlew: 55, feedback: 0.6,
+    damping: 7_600, wet: 0.78, dry: 0.05, spread: 0.94,
+  }),
+  twinBanks: Object.freeze({
+    label: "Twin Banks",
+    family: "Acyclic",
+    description: "Two node fields exchange a broad fan of parallel delayed voices.",
+    topology: "bipartite", nodeCount: 12, density: 0.42, seed: 29,
+    baseDelay: 245, timeScale: 55, timeCurve: 1, nodePass: 0.97,
+    pitchScale: 0.65, pitchAsymmetry: 0, pitchCurve: 1.1, pitchSlew: 90, feedback: 0.55,
+    damping: 5_600, wet: 0.84, dry: 0.04, spread: 1,
+  }),
+  haloRing: Object.freeze({
+    label: "Halo Ring",
+    family: "Cyclic",
+    description: "A gentle nine-node orbit with a controlled repeating pitch spiral.",
+    topology: "ring", nodeCount: 9, density: 0.2, seed: 13,
+    baseDelay: 185, timeScale: 50, timeCurve: 1, nodePass: 0.98,
+    pitchScale: 0.4, pitchAsymmetry: -0.1, pitchCurve: 1.2, pitchSlew: 110, feedback: 0.58,
+    damping: 5_200, wet: 0.8, dry: 0.05, spread: 0.88,
+  }),
+  slowOrbit: Object.freeze({
+    label: "Slow Orbit",
+    family: "Cyclic",
+    description: "A dark twelve-stage ring with long decaying revolutions.",
+    topology: "ring", nodeCount: 12, density: 0.2, seed: 37,
+    baseDelay: 380, timeScale: 70, timeCurve: 0.9, nodePass: 0.99,
+    pitchScale: 0.3, pitchAsymmetry: -0.2, pitchCurve: 1.4, pitchSlew: 160, feedback: 0.76,
+    damping: 2_900, wet: 0.88, dry: 0.03, spread: 0.72,
+  }),
+  shortcutChorus: Object.freeze({
+    label: "Shortcut Chorus",
+    family: "Cyclic",
+    description: "A small-world ring with a few shortcuts and chorused return times.",
+    topology: "smallworld", nodeCount: 13, density: 0.38, seed: 41,
+    baseDelay: 155, timeScale: 110, timeCurve: 0.8, nodePass: 0.94,
+    pitchScale: 1.1, pitchAsymmetry: 0.12, pitchCurve: 1.05, pitchSlew: 60, feedback: 0.63,
+    damping: 5_900, wet: 0.82, dry: 0.05, spread: 0.96,
+  }),
+  hubScatter: Object.freeze({
+    label: "Hub Scatter",
+    family: "Cyclic",
+    description: "Ten spokes scatter through one central merge without overwhelming it.",
+    topology: "hub", nodeCount: 10, density: 0.38, seed: 19,
+    baseDelay: 135, timeScale: 125, timeCurve: 0.9, nodePass: 0.92,
+    pitchScale: 0.8, pitchAsymmetry: 0, pitchCurve: 1.15, pitchSlew: 70, feedback: 0.54,
+    damping: 6_800, wet: 0.76, dry: 0.07, spread: 1,
+  }),
+  softMesh: Object.freeze({
+    label: "Soft Mesh",
+    family: "Cyclic",
+    description: "A twelve-node neighbor mesh with muted, well-damped returns.",
+    topology: "mesh", nodeCount: 12, density: 0.32, seed: 53,
+    baseDelay: 205, timeScale: 65, timeCurve: 1.1, nodePass: 0.94,
+    pitchScale: 0.6, pitchAsymmetry: 0, pitchCurve: 1.35, pitchSlew: 110, feedback: 0.48,
+    damping: 3_600, wet: 0.8, dry: 0.05, spread: 0.86,
+  }),
+  islandSignals: Object.freeze({
+    label: "Island Signals",
+    family: "Cyclic",
+    description: "Three cyclic communities pass softened echoes across sparse bridges.",
+    topology: "modular", nodeCount: 15, density: 0.3, seed: 61,
+    baseDelay: 270, timeScale: 90, timeCurve: 1, nodePass: 0.96,
+    pitchScale: 0.5, pitchAsymmetry: -0.15, pitchCurve: 1.3, pitchSlew: 140, feedback: 0.64,
+    damping: 4_100, wet: 0.86, dry: 0.03, spread: 0.92,
+  }),
+  dustPaths: Object.freeze({
+    label: "Dust Paths",
+    family: "Generative",
+    description: "A sparse seeded network with airy, unpredictable path mergers.",
+    topology: "random", nodeCount: 11, density: 0.28, seed: 73,
+    baseDelay: 175, timeScale: 145, timeCurve: 0.75, nodePass: 0.95,
+    pitchScale: 0.7, pitchAsymmetry: -0.1, pitchCurve: 1.1, pitchSlew: 85, feedback: 0.5,
+    damping: 7_000, wet: 0.78, dry: 0.07, spread: 0.98,
+  }),
+});
+
 export function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, Number(value) || 0));
+}
+
+function wrapRadians(value) {
+  const number = Number(value) || 0;
+  const wrapped = Math.atan2(Math.sin(number), Math.cos(number));
+  return Object.is(wrapped, -0) ? 0 : wrapped;
+}
+
+export function directedHeading(from, to) {
+  const angle = Math.atan2(
+    -((to?.y ?? 0) - (from?.y ?? 0)),
+    (to?.x ?? 0) - (from?.x ?? 0),
+  );
+  return Object.is(angle, -0) ? 0 : angle;
+}
+
+export function relativeTurnRadians(previousFrom, pivot, nextTo) {
+  return wrapRadians(
+    directedHeading(pivot, nextTo) - directedHeading(previousFrom, pivot),
+  );
+}
+
+/**
+ * Convert a signed relative turn into a local pitch interval. A straight path
+ * is always unshifted. Pitch scale is the number of octaves spanned by a
+ * half-turn, so every incoming frequency is multiplied proportionally without
+ * pretending the microphone has one fixed reference pitch.
+ */
+export function turnPitchSemitones(turnRadians, {
+  pitchScale = 0.5,
+  pitchAsymmetry = 0,
+  pitchCurve = 1,
+} = {}) {
+  const turn = wrapRadians(turnRadians);
+  const direction = Math.sign(turn);
+  const octaveSpan = clamp(pitchScale, 0, 2);
+  const asymmetry = clamp(pitchAsymmetry, -0.8, 0.8);
+  const response = clamp(pitchCurve, 0.5, 2);
+  const angleAmount = (Math.abs(turn) / Math.PI) ** response;
+  // Negative screen-space turns bend right; positive turns bend left.
+  const directionScale = direction < 0 ? 1 + asymmetry : 1 - asymmetry;
+  const semitones = direction * 12 * octaveSpan * directionScale * angleAmount;
+  return clamp(semitones, -48, 48);
+}
+
+/**
+ * Describe every incoming-source → outgoing-edge turn at one node. Input is a
+ * pseudo incoming segment for source nodes (and node zero in an all-cyclic
+ * graph). The stable source/output indices are also the AudioWorklet routing
+ * contract.
+ */
+export function nodeTurnRouting(graph, nodeId, {
+  inputPosition = { x: 0, y: 0.5 },
+  pitchScale = 0.5,
+  pitchAsymmetry = 0,
+  pitchCurve = 1,
+} = {}) {
+  const node = graph.nodes[nodeId];
+  if (!node) return { nodeId, sources: [], outputs: [], turns: [] };
+  const injectedNodes = new Set(graph.entries?.length ? graph.entries : [0]);
+  const incoming = graph.edges.filter((edge) => edge.to === nodeId);
+  const sources = [
+    ...(injectedNodes.has(nodeId)
+      ? [{ kind: "input", key: `input:${nodeId}`, edgeId: null, from: inputPosition }]
+      : []),
+    ...incoming.map((edge) => ({
+      kind: "edge",
+      key: `edge:${edge.id}`,
+      edgeId: edge.id,
+      from: graph.nodes[edge.from],
+    })),
+  ];
+  const outputs = graph.edges
+    .filter((edge) => edge.from === nodeId)
+    .map((edge) => ({ key: `edge:${edge.id}`, edgeId: edge.id, to: graph.nodes[edge.to] }));
+  const pitchOptions = { pitchScale, pitchAsymmetry, pitchCurve };
+  const turns = sources.flatMap((source, sourceIndex) => (
+    outputs.map((output, outputIndex) => {
+      const radians = relativeTurnRadians(source.from, node, output.to);
+      return {
+        nodeId,
+        sourceIndex,
+        outputIndex,
+        previousEdgeId: source.edgeId,
+        nextEdgeId: output.edgeId,
+        radians,
+        semitones: turnPitchSemitones(radians, pitchOptions),
+      };
+    })
+  ));
+  return { nodeId, sources, outputs, turns };
+}
+
+export function graphTurnRoutings(graph, options = {}) {
+  return graph.nodes.map((node) => nodeTurnRouting(graph, node.id, options));
+}
+
+export function graphOutputNodeIds(graph) {
+  if (!Array.isArray(graph.components) || !graph.components.length) {
+    return graph.nodes
+      .filter((node) => graph.outdegree[node.id] === 0)
+      .map((node) => node.id);
+  }
+  const componentByNode = new Map();
+  graph.components.forEach((component, index) => {
+    for (const nodeId of component) componentByNode.set(nodeId, index);
+  });
+  const componentsWithOutputs = new Set();
+  for (const edge of graph.edges) {
+    const fromComponent = componentByNode.get(edge.from);
+    const toComponent = componentByNode.get(edge.to);
+    if (fromComponent !== toComponent) componentsWithOutputs.add(fromComponent);
+  }
+  return graph.components
+    .map((component, index) => ({ component, index }))
+    .filter(({ index }) => !componentsWithOutputs.has(index))
+    .map(({ component }) => Math.max(...component))
+    .sort((first, second) => first - second);
+}
+
+/**
+ * Pan only the audible terminal taps. Horizontal position describes progress
+ * toward the fixed speaker, so using it for stereo biases every completed path
+ * right. Vertical position carries the branch separation, recentered around
+ * the active outputs so one terminal is mono and multiple terminals stay
+ * balanced as a group.
+ */
+export function graphOutputPans(graph, spread = 1) {
+  const pans = Array(graph.nodes.length).fill(0);
+  const outputs = graphOutputNodeIds(graph);
+  if (outputs.length < 2) return pans;
+  const center = outputs.reduce(
+    (sum, nodeId) => sum + (graph.nodes[nodeId]?.y ?? 0.5),
+    0,
+  ) / outputs.length;
+  const maximumDeviation = Math.max(
+    ...outputs.map((nodeId) => Math.abs((graph.nodes[nodeId]?.y ?? center) - center)),
+  );
+  // Avoid turning tiny vertical differences into hard-left/hard-right jumps.
+  const extent = Math.max(0.25, maximumDeviation);
+  const amount = clamp(spread, 0, 1);
+  for (const nodeId of outputs) {
+    pans[nodeId] = clamp(
+      ((graph.nodes[nodeId]?.y ?? center) - center) / extent * amount,
+      -amount,
+      amount,
+    );
+  }
+  return pans;
 }
 
 function seededRandom(seed = 1) {
@@ -270,10 +548,17 @@ export function generateGraph(options = {}) {
   }
 
   const annotated = annotateCycles(count, edges);
+  // Any directed cycle must contain at least one edge that returns in this
+  // stable node ordering. Those are the only edges that apply feedback decay;
+  // the other edges inside an SCC pass signal onward like ordinary nodes.
+  const routedEdges = annotated.edges.map((edge) => ({
+    ...edge,
+    feedbackEdge: edge.cyclic && edge.to <= edge.from,
+  }));
   const indegree = Array(count).fill(0);
   const outdegree = Array(count).fill(0);
   const cyclicIndegree = Array(count).fill(0);
-  for (const edge of annotated.edges) {
+  for (const edge of routedEdges) {
     indegree[edge.to] += 1;
     outdegree[edge.from] += 1;
     if (edge.cyclic) cyclicIndegree[edge.to] += 1;
@@ -281,7 +566,7 @@ export function generateGraph(options = {}) {
   return {
     type,
     nodes,
-    edges: annotated.edges.map((edge, index) => ({ ...edge, id: index })),
+    edges: routedEdges.map((edge, index) => ({ ...edge, id: index })),
     components: annotated.components,
     cyclic: annotated.cyclic,
     indegree,
@@ -295,6 +580,8 @@ export function edgeAudioParameters(graph, {
   baseDelay = 180,
   dispersion = 0.45,
   timeScale = null,
+  timeCurve = 1,
+  nodePass = 0.96,
   feedback = 0.72,
 } = {}) {
   return graph.edges.map((edge, index) => {
@@ -309,23 +596,24 @@ export function edgeAudioParameters(graph, {
       1,
     );
     const geometricDelay = Number.isFinite(Number(timeScale))
-      ? clamp(baseDelay, 4, 600) + normalizedLength * clamp(timeScale, 0, 1600)
+      ? clamp(baseDelay, 4, 600)
+        + normalizedLength ** clamp(timeCurve, 0.25, 3) * clamp(timeScale, 0, 1600)
       : clamp(baseDelay, 8, 1600) * (1 + variation);
     const delaySeconds = clamp(
       geometricDelay / 1000,
       0.004,
       2,
     );
-    const incoming = edge.cyclic
-      ? Math.max(1, graph.cyclicIndegree[edge.to])
-      : Math.max(1, graph.indegree[edge.to]);
+    const incoming = Math.max(1, graph.indegree[edge.to]);
+    const outgoing = Math.max(1, graph.outdegree[edge.from]);
+    const normalizedPass = clamp(nodePass, 0, 1) / Math.sqrt(incoming * outgoing);
     return {
       ...edge,
       normalizedLength,
       delaySeconds,
-      gain: edge.cyclic
-        ? clamp(feedback, 0, MAX_GRAPH_FEEDBACK) / incoming
-        : 0.78 / Math.sqrt(incoming * Math.max(1, graph.outdegree[edge.from])),
+      gain: edge.feedbackEdge
+        ? normalizedPass * clamp(feedback, 0, MAX_GRAPH_FEEDBACK)
+        : normalizedPass,
     };
   });
 }

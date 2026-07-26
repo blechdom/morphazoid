@@ -1,8 +1,13 @@
 import {
+  GRAPH_DELAY_PATCHES,
   GRAPH_PRESETS,
   edgeAudioParameters,
   generateGraph,
-} from "./src/graph-delay.js?v=20260724-coherent-edge-time";
+  graphOutputNodeIds,
+  graphOutputPans,
+  graphTurnRoutings,
+  nodeTurnRouting,
+} from "./src/graph-delay.js?v=20260726-node-flow";
 
 const $ = (id) => document.getElementById(id);
 const EDGE_COLORS = [
@@ -14,16 +19,22 @@ const EDGE_COLORS = [
   "#ff826f",
   "#e8c46b",
 ];
+const MAX_LIVE_TURN_ROUTES = 192;
+const SPEAKER_POSITION = Object.freeze({ x: 0.965, y: 0.5 });
 const state = {
+  graphPatch: "layeredGlass",
   topology: "dag",
   nodeCount: 10,
   density: 0.34,
   seed: 17,
   baseDelay: 220,
   timeScale: 60,
-  inputPitchReference: 110,
-  pitchFloor: 40,
-  pitchCeiling: 1_280,
+  timeCurve: 1,
+  nodePass: 0.96,
+  pitchScale: 0.5,
+  pitchAsymmetry: 0,
+  pitchCurve: 1,
+  pitchSlew: 80,
   nodeMotionMode: "wiggle",
   nodeMotionSpeed: 0.12,
   nodeMotionAmount: 0.07,
@@ -36,8 +47,6 @@ const state = {
   micMoving: false,
   inputX: 0.08,
   inputY: 0.5,
-  outputX: 0.965,
-  outputY: 0.5,
   feedback: 0.72,
   damping: 4800,
   wet: 0.82,
@@ -48,6 +57,32 @@ const state = {
   mic: false,
   starting: false,
 };
+const GRAPH_CONFIGURATION_KEYS = Object.freeze([
+  "graphPatch",
+  "topology",
+  "nodeCount",
+  "density",
+  "seed",
+  "baseDelay",
+  "timeScale",
+  "timeCurve",
+  "nodePass",
+  "pitchScale",
+  "pitchAsymmetry",
+  "pitchCurve",
+  "pitchSlew",
+  "feedback",
+  "damping",
+  "wet",
+  "dry",
+  "spread",
+]);
+
+function graphConfigurationSnapshot() {
+  return Object.fromEntries(
+    GRAPH_CONFIGURATION_KEYS.map((key) => [key, state[key]]),
+  );
+}
 
 const canvas = $("stage");
 const context = canvas.getContext("2d");
@@ -60,6 +95,7 @@ let audioContext = null;
 let audioGraph = null;
 let mediaStream = null;
 let microphoneSource = null;
+let microphoneStartToken = 0;
 let inputWave = new Float32Array(512);
 let inputPeak = 0;
 let currentLevel = 0;
@@ -69,9 +105,17 @@ let draggingNodeId = null;
 let draggingTerminal = null;
 let pitchProcessorReady = false;
 let pitchProcessorAttempted = false;
+let pitchProcessorContext = null;
 let lastMotionFrame = performance.now();
 let lastMotionAudioUpdate = -Infinity;
 let graphRebuildTimer = null;
+let lastAppliedStructure = {
+  topology: state.topology,
+  nodeCount: state.nodeCount,
+  density: state.density,
+  seed: state.seed,
+};
+let lastAppliedConfiguration = graphConfigurationSnapshot();
 const retiringAudioGraphs = new Set();
 let micRandomVelocityX = 0.07;
 let micRandomVelocityY = -0.04;
@@ -252,18 +296,7 @@ function bakeNodeMotion() {
 function endpointPosition(kind) {
   return kind === "input"
     ? { x: state.inputX, y: state.inputY }
-    : { x: state.outputX, y: state.outputY };
-}
-
-function exitNodeIds() {
-  const sinks = model.nodes
-    .filter((node) => model.outdegree[node.id] === 0)
-    .map((node) => node.id);
-  return sinks.length ? sinks : [Math.floor(model.nodes.length / 2)];
-}
-
-function audibleOutputNodeIds() {
-  return model.nodes.map((node) => node.id);
+    : SPEAKER_POSITION;
 }
 
 function terminalDelaySeconds(from, to) {
@@ -273,58 +306,52 @@ function terminalDelaySeconds(from, to) {
   return (terminalBase + terminalVariation) / 1_000;
 }
 
-function nodePitchSemitones(nodeId) {
-  const geometry = geometryModel();
-  const node = geometry.nodes[nodeId];
-  if (!node) return 0;
-  const incoming = geometry.edges.filter((edge) => edge.to === nodeId);
-  const sourceHz = incoming.length
-    ? Math.exp(incoming.reduce(
-      (sum, edge) => sum + Math.log(nodePitchTargetHz(edge.from, geometry)),
-      0,
-    ) / incoming.length)
-    : state.inputPitchReference;
-  const targetHz = nodePitchTargetHz(nodeId, geometry);
-  return Math.max(
-    -36,
-    Math.min(36, 12 * Math.log2(targetHz / Math.max(20, sourceHz))),
+function turnRoutingOptions() {
+  return {
+    inputPosition: endpointPosition("input"),
+    pitchScale: state.pitchScale,
+    pitchAsymmetry: state.pitchAsymmetry,
+    pitchCurve: state.pitchCurve,
+  };
+}
+
+function turnSemitoneMatrix(routing) {
+  const matrix = Array.from(
+    { length: routing.sources.length },
+    () => Array(routing.outputs.length).fill(0),
   );
-}
-
-function nodeRelationAngle(nodeId, geometry = geometryModel()) {
-  const node = geometry.nodes[nodeId];
-  if (!node) return 0;
-  const incoming = geometry.edges.filter((edge) => edge.to === nodeId);
-  const sources = incoming.length
-    ? incoming.map((edge) => geometry.nodes[edge.from]).filter(Boolean)
-    : [endpointPosition("input")];
-  let sine = 0;
-  let cosine = 0;
-  for (const source of sources) {
-    const angle = Math.atan2(source.y - node.y, node.x - source.x);
-    sine += Math.sin(angle);
-    cosine += Math.cos(angle);
+  for (const turn of routing.turns) {
+    matrix[turn.sourceIndex][turn.outputIndex] = turn.semitones;
   }
-  return Math.atan2(sine, cosine);
+  return matrix;
 }
 
-function nodePitchTargetHz(nodeId, geometry = geometryModel()) {
-  const node = geometry.nodes[nodeId];
-  if (!node) return state.inputPitchReference;
-  const floor = Math.max(20, Math.min(state.pitchFloor, state.pitchCeiling));
-  const ceiling = Math.max(floor, state.pitchCeiling);
-  const angle = nodeRelationAngle(nodeId, geometry);
-  const anglePosition = (angle + Math.PI) / TAU;
-  return floor * (ceiling / floor) ** anglePosition;
+function nodeTurnReadout(nodeId, geometry = geometryModel()) {
+  const routing = nodeTurnRouting(geometry, nodeId, turnRoutingOptions());
+  if (!routing.turns.length) return `node ${nodeId + 1} · no outgoing turn`;
+  const ratios = routing.turns.map((turn) => 2 ** (turn.semitones / 12));
+  const semitones = routing.turns.map((turn) => turn.semitones);
+  const ratioRange = ratios.length === 1
+    ? `${ratios[0].toFixed(2)}× Hz`
+    : `${Math.min(...ratios).toFixed(2)}–${Math.max(...ratios).toFixed(2)}× Hz`;
+  const intervalRange = semitones.length === 1
+    ? `${semitones[0] >= 0 ? "+" : ""}${semitones[0].toFixed(1)} st`
+    : `${Math.min(...semitones).toFixed(1)}–${Math.max(...semitones).toFixed(1)} st`;
+  return `node ${nodeId + 1} · ${routing.turns.length} turns · ${intervalRange} · ${ratioRange}`;
 }
 
 async function preparePitchProcessor(audio) {
+  if (pitchProcessorContext !== audio) {
+    pitchProcessorContext = audio;
+    pitchProcessorAttempted = false;
+    pitchProcessorReady = false;
+  }
   if (pitchProcessorAttempted) return pitchProcessorReady;
   pitchProcessorAttempted = true;
   if (!audio.audioWorklet?.addModule || !globalThis.AudioWorkletNode) return false;
   try {
     await audio.audioWorklet.addModule(
-      new URL("./src/graph-pitch-processor.js?v=20260724-hz-pitch-map", import.meta.url),
+      new URL("./src/graph-turn-processor.js?v=20260726-node-flow", import.meta.url),
     );
     pitchProcessorReady = true;
   } catch {
@@ -357,17 +384,50 @@ function disconnectGraph() {
   for (const target of [...retiringAudioGraphs]) disposeAudioGraph(target);
 }
 
-function buildAudioGraph(audio, { outputGain = state.level } = {}) {
-  const input = audio.createGain();
-  const dry = audio.createGain();
-  const wet = audio.createGain();
-  const output = audio.createGain();
-  const analyser = audio.createAnalyser();
-  const compressor = audio.createDynamicsCompressor();
-  const clipper = audio.createWaveShaper();
-  const geometry = geometryModel();
+function buildAudioGraph(audio, options = {}) {
+  const ownedNodes = [];
+  const own = (node) => {
+    ownedNodes.push(node);
+    return node;
+  };
+  try {
+    return buildAudioGraphNodes(audio, options, own, ownedNodes);
+  } catch (error) {
+    for (const node of ownedNodes) {
+      try { node.disconnect(); } catch { /* partially connected */ }
+      try { node.port?.close?.(); } catch { /* not an AudioWorkletNode */ }
+    }
+    throw error;
+  }
+}
+
+function buildAudioGraphNodes(
+  audio,
+  {
+    crossfadeGain = 1,
+    geometry = geometryModel(),
+  } = {},
+  own,
+  ownedNodes,
+) {
+  const turnRouteCount = graphTurnRoutings(geometry, turnRoutingOptions())
+    .reduce((count, routing) => count + routing.turns.length, 0);
+  if (turnRouteCount > MAX_LIVE_TURN_ROUTES) {
+    throw new RangeError(
+      `${turnRouteCount} relative-turn routes exceed the live safety limit of ${MAX_LIVE_TURN_ROUTES}`,
+    );
+  }
+  const input = own(audio.createGain());
+  const dry = own(audio.createGain());
+  const wet = own(audio.createGain());
+  const output = own(audio.createGain());
+  const crossfade = own(audio.createGain());
+  const analyser = own(audio.createAnalyser());
+  const compressor = own(audio.createDynamicsCompressor());
+  const clipper = own(audio.createWaveShaper());
   const parameters = edgeAudioParameters(geometry, state);
-  const exits = audibleOutputNodeIds();
+  const exits = graphOutputNodeIds(geometry);
+  const outputPans = graphOutputPans(geometry, state.spread);
   analyser.fftSize = 1024;
   compressor.threshold.value = -18;
   compressor.knee.value = 12;
@@ -378,104 +438,164 @@ function buildAudioGraph(audio, { outputGain = state.level } = {}) {
   clipper.oversample = "2x";
   dry.gain.value = state.dry;
   wet.gain.value = state.wet;
-  output.gain.value = outputGain;
+  output.gain.value = state.level;
+  crossfade.gain.value = crossfadeGain;
 
   const nodes = geometry.nodes.map((spec) => {
-    const sum = audio.createGain();
-    const delay = audio.createDelay(2.2);
-    const pitch = pitchProcessorReady
-      ? new AudioWorkletNode(audio, "morphazoid-graph-pitch", {
-        numberOfInputs: 1,
-        numberOfOutputs: 1,
-        outputChannelCount: [1],
-      })
-      : audio.createGain();
-    const filter = audio.createBiquadFilter();
-    const tap = audio.createGain();
-    const pan = audio.createStereoPanner();
-    delay.delayTime.value = 0.004;
-    pitch.parameters?.get("semitones")?.setValueAtTime(nodePitchSemitones(spec.id), audio.currentTime);
-    filter.type = "lowpass";
-    filter.frequency.value = state.damping;
-    filter.Q.value = 0.45;
+    const sum = own(audio.createGain());
+    const tap = own(audio.createGain());
+    const pan = own(audio.createStereoPanner());
     tap.gain.value = 0.9 / Math.sqrt(exits.length);
-    pan.pan.value = (spec.x * 2 - 1) * state.spread;
-    sum.connect(delay).connect(pitch).connect(filter).connect(tap).connect(pan);
-    return { sum, delay, pitch, filter, tap, pan };
+    pan.pan.value = outputPans[spec.id];
+    sum.connect(tap).connect(pan);
+    return { sum, tap, pan };
   });
 
   const edgeNodes = parameters.map((edge) => {
-    const delay = audio.createDelay(2.2);
-    const gain = audio.createGain();
+    const inputBus = own(audio.createGain());
+    const delay = own(audio.createDelay(2.2));
+    const gain = own(audio.createGain());
     delay.delayTime.value = edge.delaySeconds;
     gain.gain.value = edge.gain;
-    nodes[edge.from].filter.connect(delay).connect(gain).connect(nodes[edge.to].sum);
-    return { ...edge, delay, gain };
+    const filter = edge.feedbackEdge ? own(audio.createBiquadFilter()) : null;
+    if (filter) {
+      filter.type = "lowpass";
+      filter.frequency.value = state.damping;
+      filter.Q.value = 0.45;
+      inputBus.connect(delay).connect(gain).connect(filter).connect(nodes[edge.to].sum);
+    } else {
+      inputBus.connect(delay).connect(gain).connect(nodes[edge.to].sum);
+    }
+    return {
+      ...edge,
+      inputBus,
+      delay,
+      gain,
+      filter,
+      outputNode: filter ?? gain,
+    };
   });
 
-  const entries = model.entries.length ? model.entries : [0];
+  const entries = geometry.entries.length ? geometry.entries : [0];
   const inputRoutes = entries.map((nodeId) => {
-    const delay = audio.createDelay(2.2);
-    const gain = audio.createGain();
+    const delay = own(audio.createDelay(2.2));
+    const gain = own(audio.createGain());
     delay.delayTime.value = terminalDelaySeconds(endpointPosition("input"), geometry.nodes[nodeId]);
     gain.gain.value = 1 / Math.sqrt(entries.length);
     input.connect(delay).connect(gain).connect(nodes[nodeId].sum);
     return { nodeId, delay, gain };
   });
-  const outputRoutes = exits.map((nodeId) => {
-    const delay = audio.createDelay(2.2);
-    delay.delayTime.value = terminalDelaySeconds(geometry.nodes[nodeId], endpointPosition("output"));
-    nodes[nodeId].pan.connect(delay).connect(wet);
-    return { nodeId, delay };
+  const inputRouteByNode = new Map(inputRoutes.map((route) => [route.nodeId, route]));
+  const turnRouters = geometry.nodes.map((spec) => {
+    const routing = nodeTurnRouting(geometry, spec.id, turnRoutingOptions());
+    if (!routing.outputs.length || !routing.sources.length) {
+      return { nodeId: spec.id, routing, node: null, fallbackGains: [] };
+    }
+    const sourceNode = (source) => (
+      source.kind === "input"
+        ? inputRouteByNode.get(spec.id)?.gain
+        : edgeNodes[source.edgeId]?.outputNode
+    );
+    if (!pitchProcessorReady) {
+      const fallbackGains = routing.turns.map((turn) => {
+        const gain = own(audio.createGain());
+        gain.gain.value = 1;
+        sourceNode(routing.sources[turn.sourceIndex])
+          ?.connect(gain)
+          .connect(edgeNodes[turn.nextEdgeId].inputBus);
+        return gain;
+      });
+      return { nodeId: spec.id, routing, node: null, fallbackGains };
+    }
+    const node = own(new AudioWorkletNode(audio, "morphazoid-graph-turns", {
+      numberOfInputs: routing.sources.length,
+      numberOfOutputs: routing.outputs.length,
+      outputChannelCount: Array(routing.outputs.length).fill(1),
+      channelCount: 1,
+      channelCountMode: "explicit",
+      processorOptions: {
+        sourceCount: routing.sources.length,
+        outputCount: routing.outputs.length,
+        phaseSeed: spec.id,
+      },
+    }));
+    routing.sources.forEach((source, sourceIndex) => {
+      sourceNode(source)?.connect(node, 0, sourceIndex);
+    });
+    routing.outputs.forEach((route, outputIndex) => {
+      node.connect(edgeNodes[route.edgeId].inputBus, outputIndex, 0);
+    });
+    node.port.postMessage({
+      type: "turns",
+      semitones: turnSemitoneMatrix(routing),
+      smoothingMs: state.pitchSlew,
+    });
+    return { nodeId: spec.id, routing, node, fallbackGains: [] };
   });
-  const outputPan = audio.createStereoPanner();
-  outputPan.pan.value = (state.outputX * 2 - 1) * state.spread;
+  const outputRoutes = exits.map((nodeId) => {
+    nodes[nodeId].pan.connect(wet);
+    return { nodeId };
+  });
   input.connect(dry);
   dry.connect(output);
-  wet.connect(outputPan).connect(output);
-  output.connect(analyser).connect(compressor).connect(clipper).connect(audio.destination);
+  wet.connect(output);
+  output.connect(crossfade).connect(analyser).connect(compressor).connect(clipper).connect(audio.destination);
 
-  const disconnectables = [
-    input, dry, wet, output, outputPan, analyser, compressor, clipper,
-    ...nodes.flatMap((node) => Object.values(node)),
-    ...edgeNodes.flatMap((edge) => [edge.delay, edge.gain]),
-    ...inputRoutes.flatMap((route) => [route.delay, route.gain]),
-    ...outputRoutes.map((route) => route.delay),
-  ];
   return {
     input,
     dry,
     wet,
     output,
-    outputPan,
+    crossfade,
     analyser,
     nodes,
     edges: edgeNodes,
+    turnRouters,
     inputRoutes,
     outputRoutes,
-    disconnectables,
+    turnRouteCount,
+    disconnectables: ownedNodes,
   };
 }
 
 function applyAudioParameters() {
-  if (!audioGraph || !audioContext) return;
+  // Preset changes are transactional: do not retune the previous live graph
+  // while its replacement is still waiting to be built.
+  if (graphRebuildTimer !== null) return;
+  if (!audioGraph || !audioContext) {
+    lastAppliedConfiguration = graphConfigurationSnapshot();
+    return;
+  }
   const now = audioContext.currentTime;
+  const geometry = geometryModel();
+  const parameters = edgeAudioParameters(geometry, state);
+  const outputPans = graphOutputPans(geometry, state.spread);
+  if (
+    parameters.length !== audioGraph.edges.length
+    || geometry.nodes.length !== audioGraph.nodes.length
+  ) {
+    scheduleGraphRebuild();
+    return;
+  }
   audioGraph.dry.gain.setTargetAtTime(state.dry, now, 0.02);
   audioGraph.wet.gain.setTargetAtTime(state.wet, now, 0.02);
   audioGraph.output.gain.setTargetAtTime(state.level, now, 0.02);
-  const geometry = geometryModel();
-  const parameters = edgeAudioParameters(geometry, state);
   for (let index = 0; index < audioGraph.edges.length; index += 1) {
     audioGraph.edges[index].delay.delayTime.setTargetAtTime(parameters[index].delaySeconds, now, 0.03);
     audioGraph.edges[index].gain.gain.setTargetAtTime(parameters[index].gain, now, 0.03);
+    audioGraph.edges[index].filter?.frequency.setTargetAtTime(state.damping, now, 0.03);
   }
   for (let index = 0; index < audioGraph.nodes.length; index += 1) {
-    const spec = geometry.nodes[index];
-    audioGraph.nodes[index].delay.delayTime.setTargetAtTime(0.004, now, 0.03);
-    audioGraph.nodes[index].pitch.parameters?.get("semitones")
-      ?.setTargetAtTime(nodePitchSemitones(spec.id), now, 0.035);
-    audioGraph.nodes[index].filter.frequency.setTargetAtTime(state.damping, now, 0.03);
-    audioGraph.nodes[index].pan.pan.setTargetAtTime((spec.x * 2 - 1) * state.spread, now, 0.03);
+    audioGraph.nodes[index].pan.pan.setTargetAtTime(outputPans[index], now, 0.03);
+  }
+  for (const router of audioGraph.turnRouters) {
+    if (!router.node) continue;
+    const routing = nodeTurnRouting(geometry, router.nodeId, turnRoutingOptions());
+    router.node.port.postMessage({
+      type: "turns",
+      semitones: turnSemitoneMatrix(routing),
+      smoothingMs: state.pitchSlew,
+    });
   }
   for (const route of audioGraph.inputRoutes) {
     route.delay.delayTime.setTargetAtTime(
@@ -484,77 +604,127 @@ function applyAudioParameters() {
       0.035,
     );
   }
-  for (const route of audioGraph.outputRoutes) {
-    route.delay.delayTime.setTargetAtTime(
-      terminalDelaySeconds(geometry.nodes[route.nodeId], endpointPosition("output")),
-      now,
-      0.035,
-    );
-  }
-  audioGraph.outputPan.pan.setTargetAtTime(
-    (state.outputX * 2 - 1) * state.spread,
-    now,
-    0.035,
-  );
+  lastAppliedConfiguration = graphConfigurationSnapshot();
 }
 
 function connectMicrophoneToGraph(target = audioGraph) {
   if (!microphoneSource || !target || !audioContext) return;
   const trim = audioContext.createGain();
   trim.gain.value = state.inputTrim;
+  target.disconnectables.push(trim);
   microphoneSource.connect(trim).connect(target.input);
   target.inputTrimNode = trim;
-  target.disconnectables.push(trim);
 }
 
-function rebuildModel({ rebuildAudio = true } = {}) {
-  model = generateGraph({ ...state, type: state.topology });
+function requestedStructure() {
+  return {
+    topology: state.topology,
+    nodeCount: state.nodeCount,
+    density: state.density,
+    seed: state.seed,
+  };
+}
+
+function commitModel(candidate, structure) {
+  model = candidate;
+  lastAppliedStructure = { ...structure };
   state.nodeMotionPhase = 0;
   resetNodeWalkState();
   selectedNodeId = Math.min(selectedNodeId, model.nodes.length - 1);
-  if (rebuildAudio && audioContext && audioGraph) {
-    const previousGraph = audioGraph;
-    let nextGraph;
-    try {
-      nextGraph = buildAudioGraph(audioContext, { outputGain: 0 });
-    } catch (error) {
-      $("audioError").textContent = error instanceof Error
-        ? `Graph update failed: ${error.message}`
-        : "Graph update failed; the previous audio graph is still active.";
-      $("audioError").hidden = false;
-      updateUi();
-      return;
-    }
-    audioGraph = nextGraph;
-    if (microphoneSource) connectMicrophoneToGraph(nextGraph);
-    const now = audioContext.currentTime;
-    previousGraph.output.gain.cancelScheduledValues(now);
-    previousGraph.output.gain.setValueAtTime(previousGraph.output.gain.value, now);
-    previousGraph.output.gain.linearRampToValueAtTime(0, now + 0.065);
-    nextGraph.output.gain.cancelScheduledValues(now);
-    nextGraph.output.gain.setValueAtTime(0, now);
-    nextGraph.output.gain.linearRampToValueAtTime(state.level, now + 0.065);
-    retiringAudioGraphs.add(previousGraph);
-    setTimeout(() => {
-      try {
-        if (microphoneSource && previousGraph.inputTrimNode) {
-          microphoneSource.disconnect(previousGraph.inputTrimNode);
-        }
-      } catch {
-        // The microphone may have stopped during the crossfade.
-      }
-      disposeAudioGraph(previousGraph);
-    }, 110);
-  }
-  updateUi();
 }
 
-function scheduleGraphRebuild() {
+function graphRoutingSignature(graph) {
+  return [
+    graph.type,
+    graph.nodes.length,
+    graph.edges.map((edge) => `${edge.from}>${edge.to}:${edge.cyclic ? 1 : 0}`).join(","),
+  ].join("|");
+}
+
+function rebuildModel({ rebuildAudio = true } = {}) {
+  const structure = requestedStructure();
+  const candidate = generateGraph({ ...state, type: state.topology });
+  if (graphRoutingSignature(candidate) === graphRoutingSignature(model)) {
+    commitModel(candidate, structure);
+    applyAudioParameters();
+    updateUi();
+    if (GRAPH_DELAY_PATCHES[state.graphPatch]) {
+      $("liveStatus").textContent = `${GRAPH_DELAY_PATCHES[state.graphPatch].label} graph-delay preset loaded.`;
+    }
+    return true;
+  }
+  if (!rebuildAudio || !audioContext || !audioGraph) {
+    commitModel(candidate, structure);
+    lastAppliedConfiguration = graphConfigurationSnapshot();
+    updateUi();
+    if (GRAPH_DELAY_PATCHES[state.graphPatch]) {
+      $("liveStatus").textContent = `${GRAPH_DELAY_PATCHES[state.graphPatch].label} graph-delay preset loaded.`;
+    }
+    return true;
+  }
+
+  // A rapid sequence should never leave several silent worklet graphs running
+  // while another expensive replacement is constructed.
+  for (const retiring of [...retiringAudioGraphs]) disposeAudioGraph(retiring);
+
+  const previousGraph = audioGraph;
+  let nextGraph = null;
+  try {
+    nextGraph = buildAudioGraph(audioContext, {
+      crossfadeGain: 0,
+      geometry: candidate,
+    });
+    if (microphoneSource) connectMicrophoneToGraph(nextGraph);
+  } catch (error) {
+    disposeAudioGraph(nextGraph);
+    Object.assign(state, lastAppliedConfiguration);
+    $("audioError").textContent = error instanceof Error
+      ? `Graph update failed: ${error.message}. The previous graph is still playing.`
+      : "Graph update failed; the previous graph is still playing.";
+    $("audioError").hidden = false;
+    updateUi();
+    return false;
+  }
+
+  commitModel(candidate, structure);
+  audioGraph = nextGraph;
+  lastAppliedConfiguration = graphConfigurationSnapshot();
+  $("audioError").hidden = true;
+  const now = audioContext.currentTime;
+  if (previousGraph.crossfade.gain.cancelAndHoldAtTime) {
+    previousGraph.crossfade.gain.cancelAndHoldAtTime(now);
+  } else {
+    previousGraph.crossfade.gain.cancelScheduledValues(now);
+    previousGraph.crossfade.gain.setValueAtTime(previousGraph.crossfade.gain.value, now);
+  }
+  previousGraph.crossfade.gain.linearRampToValueAtTime(0, now + 0.065);
+  nextGraph.crossfade.gain.cancelScheduledValues(now);
+  nextGraph.crossfade.gain.setValueAtTime(0, now);
+  nextGraph.crossfade.gain.linearRampToValueAtTime(1, now + 0.065);
+  retiringAudioGraphs.add(previousGraph);
+  setTimeout(() => {
+    try {
+      if (microphoneSource && previousGraph.inputTrimNode) {
+        microphoneSource.disconnect(previousGraph.inputTrimNode);
+      }
+    } catch {
+      // The microphone may have stopped during the crossfade.
+    }
+    disposeAudioGraph(previousGraph);
+  }, 110);
+  updateUi();
+  if (GRAPH_DELAY_PATCHES[state.graphPatch]) {
+    $("liveStatus").textContent = `${GRAPH_DELAY_PATCHES[state.graphPatch].label} graph-delay preset loaded.`;
+  }
+  return true;
+}
+
+function scheduleGraphRebuild(delay = 140) {
   if (graphRebuildTimer !== null) clearTimeout(graphRebuildTimer);
   graphRebuildTimer = setTimeout(() => {
     graphRebuildTimer = null;
     rebuildModel();
-  }, 140);
+  }, delay);
 }
 
 function flushGraphRebuild() {
@@ -571,6 +741,7 @@ function cancelScheduledGraphRebuild() {
 
 async function startMicrophone() {
   if (state.starting || state.mic) return;
+  const startToken = ++microphoneStartToken;
   state.starting = true;
   updateUi();
   try {
@@ -581,13 +752,22 @@ async function startMicrophone() {
     await audioContext.resume();
     await preparePitchProcessor(audioContext);
     if (!audioGraph) audioGraph = buildAudioGraph(audioContext);
-    mediaStream = await navigator.mediaDevices.getUserMedia({
+    const requestedStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: { ideal: false },
         noiseSuppression: { ideal: false },
         autoGainControl: { ideal: false },
       },
     });
+    if (
+      startToken !== microphoneStartToken
+      || !audioContext
+      || audioContext.state === "closed"
+    ) {
+      for (const track of requestedStream.getTracks?.() ?? []) track.stop();
+      return;
+    }
+    mediaStream = requestedStream;
     microphoneSource = audioContext.createMediaStreamSource(mediaStream);
     connectMicrophoneToGraph();
     state.mic = true;
@@ -597,12 +777,15 @@ async function startMicrophone() {
     $("audioError").textContent = error instanceof Error ? error.message : "Microphone could not be started.";
     $("audioError").hidden = false;
   } finally {
-    state.starting = false;
-    updateUi();
+    if (startToken === microphoneStartToken) {
+      state.starting = false;
+      updateUi();
+    }
   }
 }
 
 function panic(message = "Panic stop. Microphone and every graph feedback tail are off.") {
+  microphoneStartToken += 1;
   try { microphoneSource?.disconnect(); } catch { /* already disconnected */ }
   for (const track of mediaStream?.getTracks?.() ?? []) track.stop();
   mediaStream = null;
@@ -610,6 +793,9 @@ function panic(message = "Panic stop. Microphone and every graph feedback tail a
   disconnectGraph();
   if (audioContext && audioContext.state !== "closed") void audioContext.close();
   audioContext = null;
+  pitchProcessorContext = null;
+  pitchProcessorAttempted = false;
+  pitchProcessorReady = false;
   state.mic = false;
   state.starting = false;
   currentLevel = 0;
@@ -743,7 +929,7 @@ function drawVibratingEdge(from, to, edge, timestamp, startDelay = 0) {
     });
   };
 
-  if (edge.cyclic) {
+  if (edge.feedbackEdge) {
     tracePath();
     context.strokeStyle = "#ff826f";
     context.globalAlpha = 0.2 + peakEnergy * 0.28;
@@ -791,7 +977,7 @@ function drawVibratingEdge(from, to, edge, timestamp, startDelay = 0) {
   context.lineTo(end.x - ux * 7 + uy * 4, end.y - uy * 7 - ux * 4);
   context.lineTo(end.x - ux * 7 - uy * 4, end.y - uy * 7 + ux * 4);
   context.closePath();
-  context.fillStyle = edge.cyclic ? "#ff826f" : endColor;
+  context.fillStyle = edge.feedbackEdge ? "#ff826f" : endColor;
   context.fill();
   context.globalAlpha = 1;
 }
@@ -843,6 +1029,25 @@ function drawTerminalRoute(from, to, color, timestamp, delaySeconds, startDelay 
   context.fillStyle = color;
   context.fill();
   context.globalAlpha = 1;
+}
+
+function drawSpeakerConnection(from, to) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distance = Math.max(1, Math.hypot(dx, dy));
+  const ux = dx / distance;
+  const uy = dy / distance;
+  context.save();
+  context.beginPath();
+  context.moveTo(from.x + ux * 10, from.y + uy * 10);
+  context.lineTo(to.x - ux * 18, to.y - uy * 18);
+  context.strokeStyle = "#e8c46b";
+  context.globalAlpha = 0.62;
+  context.lineWidth = 1.2;
+  context.lineCap = "round";
+  context.setLineDash([1, 6]);
+  context.stroke();
+  context.restore();
 }
 
 function drawTerminal(position, kind) {
@@ -951,15 +1156,8 @@ function draw(now) {
       arrivalTimes[edge.from],
     );
   }
-  for (const nodeId of exitNodeIds()) {
-    drawTerminalRoute(
-      points[nodeId],
-      outputTerminal,
-      "#e8c46b",
-      now,
-      terminalDelaySeconds(geometry.nodes[nodeId], endpointPosition("output")),
-      arrivalTimes[nodeId],
-    );
+  for (const nodeId of graphOutputNodeIds(geometry)) {
+    drawSpeakerConnection(points[nodeId], outputTerminal);
   }
   points.forEach((position, index) => {
     const energy = Math.min(1, currentLevel * 12);
@@ -1029,12 +1227,66 @@ function percent(value) {
   return `${Math.round(value * 100)}%`;
 }
 
+const STATE_CONTROL_IDS = [
+  "level",
+  "inputTrim",
+  "nodeCount",
+  "density",
+  "seed",
+  "nodeMotionSpeed",
+  "nodeMotionAmount",
+  "micMotionSpeed",
+  "micMotionSize",
+  "baseDelay",
+  "timeScale",
+  "timeCurve",
+  "nodePass",
+  "pitchScale",
+  "pitchAsymmetry",
+  "pitchCurve",
+  "pitchSlew",
+  "feedback",
+  "damping",
+  "wet",
+  "dry",
+  "spread",
+];
+
+function syncControlsFromState() {
+  $("graphPatch").value = Object.hasOwn(GRAPH_DELAY_PATCHES, state.graphPatch)
+    ? state.graphPatch
+    : "custom";
+  $("topology").value = state.topology;
+  $("nodeMotionMode").value = state.nodeMotionMode;
+  $("micMotionMode").value = state.micMotionMode;
+  for (const id of STATE_CONTROL_IDS) {
+    if ($(id)) $(id).value = String(state[id]);
+  }
+}
+
+function loadGraphPatch(name) {
+  const patch = GRAPH_DELAY_PATCHES[name];
+  if (!patch) return;
+  cancelScheduledGraphRebuild();
+  Object.assign(state, patch, { graphPatch: name });
+  syncControlsFromState();
+  scheduleGraphRebuild(120);
+  updateUi();
+  $("liveStatus").textContent = `${patch.label} graph-delay preset queued.`;
+}
+
 function updateUi() {
   const preset = GRAPH_PRESETS[state.topology];
+  const activePreset = GRAPH_PRESETS[model.type];
+  const patch = GRAPH_DELAY_PATCHES[state.graphPatch];
+  const graphPending = graphRebuildTimer !== null;
   const geometry = geometryModel();
-  const cycleEdges = model.edges.filter((edge) => edge.cyclic).length;
-  const selectedPitchHz = nodePitchTargetHz(selectedNodeId, geometry);
-  const selectedAngle = nodeRelationAngle(selectedNodeId, geometry) * 180 / Math.PI;
+  const cycleEdges = model.edges.filter((edge) => edge.feedbackEdge).length;
+  const turnRoutings = graphTurnRoutings(geometry, turnRoutingOptions());
+  const turnRouteCount = turnRoutings.reduce(
+    (count, routing) => count + routing.turns.length,
+    0,
+  );
   const selectedEdges = edgeAudioParameters(geometry, state)
     .filter((edge) => edge.from === selectedNodeId || edge.to === selectedNodeId);
   const selectedTimes = selectedEdges.map((edge) => Math.round(edge.delaySeconds * 1_000));
@@ -1051,19 +1303,27 @@ function updateUi() {
   $("micButtonLabel").textContent = state.mic ? "Input live" : state.starting ? "Starting…" : "Start input";
   $("micButtonHint").textContent = state.mic ? "microphone → graph → output" : "allow microphone access";
   $("listenSummary").textContent = `microphone ${audioLabel}`;
+  $("graphPatchDescription").textContent = patch?.description
+    ?? "Custom graph, timing, pitch, feedback, and mix settings.";
   $("topologyDescription").textContent = preset.description;
-  $("topologySummary").textContent = `${preset.label} · ${model.cyclic ? "cyclic" : "acyclic"}`;
+  $("topologySummary").textContent = graphPending
+    ? `${patch?.label ?? "Custom"} · updating…`
+    : `${patch?.label ?? "Custom"} · ${activePreset.label} · ${model.cyclic ? "cyclic" : "acyclic"}`;
   $("motionSummary").textContent = `nodes ${state.nodeMoving ? `${state.nodeMotionMode} playing` : "paused"} · mic ${state.micMoving ? `${state.micMotionMode} playing` : "paused"}`;
-  $("delaySummary").textContent = `length → ${state.baseDelay}–${state.baseDelay + state.timeScale} ms · angle → ${state.pitchFloor}–${state.pitchCeiling} Hz`;
+  $("delaySummary").textContent = `${state.baseDelay}–${state.baseDelay + state.timeScale} ms · angle → ${Math.round(state.pitchScale * 100)}% octave`;
   $("mixSummary").textContent = `${percent(state.wet)} graph · ${percent(state.dry)} direct`;
-  $("structureReadout").textContent = `${model.nodes.length} nodes · ${model.edges.length} edges`;
-  $("cycleReadout").textContent = model.cyclic ? `${cycleEdges} feedback edges · bounded` : "none · finite tail";
-  $("stageReadout").textContent = `MIC IN → ${preset.label.toUpperCase()} → SPEAKERS OUT · ${model.nodes.length} NODES · ${model.cyclic ? "FEEDBACK BOUNDED" : "ACYCLIC"}`;
+  const routeLoad = turnRouteCount > MAX_LIVE_TURN_ROUTES
+    ? " · over live limit"
+    : turnRouteCount > 128 ? " · high DSP" : "";
+  $("structureReadout").textContent = `${model.nodes.length} nodes · ${model.edges.length} edges · ${graphOutputNodeIds(model).length} outputs · ${turnRouteCount} turns${routeLoad}`;
+  $("cycleReadout").textContent = model.cyclic ? `${cycleEdges} cycle-closing edges · bounded` : "none · finite tail";
+  $("stageReadout").textContent = `MIC IN → ${activePreset.label.toUpperCase()} → SPEAKERS OUT · ${model.nodes.length} NODES · ${model.cyclic ? "FEEDBACK BOUNDED" : "ACYCLIC"}`;
   $("feedback").disabled = !model.cyclic;
+  $("damping").disabled = !model.cyclic;
   $("feedbackSafetyNote").textContent = model.cyclic
-    ? `Feedback is divided across each cycle's incoming edges; every return sum is capped at ${percent(state.feedback)} (< 100%), then damped, compressed, and soft-clipped.`
-    : "This graph is acyclic, so the feedback control is dormant. Cyclic presets normalize all returning gains below unity.";
-  canvas.setAttribute("aria-label", `${preset.label}, ${model.nodes.length} nodes and ${model.edges.length} directed edges. ${model.cyclic ? "Bounded cyclic feedback." : "Acyclic."} Microphone ${audioLabel}.`);
+    ? `cyclic · returns bounded to ${percent(state.feedback)} + damped`
+    : "acyclic · feedback dormant";
+  canvas.setAttribute("aria-label", `${activePreset.label}, ${model.nodes.length} nodes and ${model.edges.length} directed edges. ${model.cyclic ? "Bounded cyclic feedback." : "Acyclic."} Microphone ${audioLabel}.`);
   $("levelOut").textContent = percent(state.level);
   $("inputTrimOut").textContent = percent(state.inputTrim);
   $("nodeCountOut").textContent = String(state.nodeCount);
@@ -1081,10 +1341,23 @@ function updateUi() {
   $("micMotionPlayButton").setAttribute("aria-pressed", String(state.micMoving));
   $("micMotionPlayButton").setAttribute("aria-label", state.micMoving ? "Pause microphone motion" : "Play microphone motion");
   $("timeScaleOut").textContent = `+${state.timeScale} ms longest edge`;
-  $("inputPitchReferenceOut").textContent = `${state.inputPitchReference} Hz`;
-  $("pitchFloorOut").textContent = `${state.pitchFloor} Hz`;
-  $("pitchCeilingOut").textContent = `${state.pitchCeiling} Hz`;
-  $("selectedNodeOut").textContent = `node ${selectedNodeId + 1} · ${Math.round(selectedPitchHz)} Hz · ${Math.round(selectedAngle)}° incoming`;
+  $("timeCurveOut").textContent = Math.abs(state.timeCurve - 1) < 0.005
+    ? "linear"
+    : state.timeCurve < 1
+      ? `${state.timeCurve.toFixed(2)} · broad`
+      : `${state.timeCurve.toFixed(2)} · long-edge bias`;
+  $("nodePassOut").textContent = `${percent(state.nodePass)} per node`;
+  $("pitchScaleOut").textContent = `${Math.round(state.pitchScale * 100)}% octave / 180°`;
+  $("pitchAsymmetryOut").textContent = Math.abs(state.pitchAsymmetry) < 0.005
+    ? "even"
+    : `${state.pitchAsymmetry < 0 ? "left" : "right"} ${Math.round(Math.abs(state.pitchAsymmetry) * 100)}% wider`;
+  $("pitchCurveOut").textContent = Math.abs(state.pitchCurve - 1) < 0.005
+    ? "linear"
+    : state.pitchCurve < 1
+      ? `${state.pitchCurve.toFixed(2)} · quicker small turns`
+      : `${state.pitchCurve.toFixed(2)} · gentler small turns`;
+  $("pitchSlewOut").textContent = `${Math.round(state.pitchSlew)} ms`;
+  $("selectedNodeOut").textContent = nodeTurnReadout(selectedNodeId, geometry);
   $("selectedTimeOut").textContent = selectedTimes.length
     ? `${Math.min(...selectedTimes)}–${Math.max(...selectedTimes)} ms · ${selectedTimes.length} edges`
     : "no connected edges";
@@ -1093,12 +1366,18 @@ function updateUi() {
   $("wetOut").textContent = percent(state.wet);
   $("dryOut").textContent = percent(state.dry);
   $("spreadOut").textContent = percent(state.spread);
+  syncControlsFromState();
 }
 
-function bindRange(id, property, { graph = false, audio = true } = {}) {
+function bindRange(id, property, {
+  graph = false,
+  audio = true,
+  marksPatchCustom = false,
+} = {}) {
   const control = $(id);
   control.addEventListener("input", (event) => {
     state[property] = Number(event.currentTarget.value);
+    if (marksPatchCustom) state.graphPatch = "custom";
     if (id === "inputTrim" && audioGraph?.inputTrimNode && audioContext) {
       audioGraph.inputTrimNode.gain.setTargetAtTime(state.inputTrim, audioContext.currentTime, 0.02);
     } else if (graph) {
@@ -1135,35 +1414,28 @@ function moveSelectedNode(position) {
 }
 
 function moveTerminal(position) {
-  if (!draggingTerminal) return;
+  if (draggingTerminal !== "input") return;
   const x = Math.max(0.01, Math.min(0.99, (position.x - 56) / Math.max(1, cssWidth - 102)));
   const y = Math.max(0.02, Math.min(0.98, (position.y - 34) / Math.max(1, cssHeight - 68)));
-  if (draggingTerminal === "input") {
-    state.inputX = x;
-    state.inputY = y;
-  } else {
-    state.outputX = x;
-    state.outputY = y;
-  }
+  state.inputX = x;
+  state.inputY = y;
   applyAudioParameters();
   updateUi();
 }
 
 canvas.addEventListener("pointerdown", (event) => {
   const position = canvasPointer(event);
-  for (const kind of ["input", "output"]) {
-    const terminal = point(endpointPosition(kind));
-    if (Math.hypot(terminal.x - position.x, terminal.y - position.y) <= 28) {
-      event.preventDefault();
-      draggingTerminal = kind;
-      if (kind === "input") state.micMoving = false;
-      draggingNodeId = null;
-      canvas.classList.add("is-dragging");
-      canvas.setPointerCapture?.(event.pointerId);
-      canvas.focus({ preventScroll: true });
-      updateUi();
-      return;
-    }
+  const inputTerminal = point(endpointPosition("input"));
+  if (Math.hypot(inputTerminal.x - position.x, inputTerminal.y - position.y) <= 28) {
+    event.preventDefault();
+    draggingTerminal = "input";
+    state.micMoving = false;
+    draggingNodeId = null;
+    canvas.classList.add("is-dragging");
+    canvas.setPointerCapture?.(event.pointerId);
+    canvas.focus({ preventScroll: true });
+    updateUi();
+    return;
   }
   let closest = null;
   for (const node of geometryModel().nodes) {
@@ -1198,13 +1470,13 @@ canvas.addEventListener("pointermove", (event) => {
 function finishNodeDrag(event) {
   if (draggingNodeId === null && !draggingTerminal) return;
   canvas.releasePointerCapture?.(event.pointerId);
-  const terminal = draggingTerminal;
+  const terminalMoved = draggingTerminal === "input";
   draggingNodeId = null;
   draggingTerminal = null;
   canvas.classList.remove("is-dragging");
-  $("liveStatus").textContent = terminal
-    ? `${terminal === "input" ? "Microphone input" : "Speaker output"} terminal moved; route time${terminal === "output" ? " and output pan" : ""} updated.`
-    : `Node ${selectedNodeId + 1} moved to ${Math.round(nodePitchTargetHz(selectedNodeId))} hertz; connected edge times updated.`;
+  $("liveStatus").textContent = terminalMoved
+    ? "Microphone input moved; entry route time and first turn updated."
+    : `Node ${selectedNodeId + 1} moved; relative turn pitches and connected edge times updated.`;
 }
 
 canvas.addEventListener("pointerup", finishNodeDrag);
@@ -1223,16 +1495,26 @@ canvas.addEventListener("keydown", (event) => {
   updateUi();
 });
 
+$("graphPatch").addEventListener("change", (event) => {
+  if (event.currentTarget.value === "custom") {
+    state.graphPatch = "custom";
+    updateUi();
+    return;
+  }
+  loadGraphPatch(event.currentTarget.value);
+});
 $("topology").addEventListener("change", (event) => {
-  cancelScheduledGraphRebuild();
   state.topology = event.currentTarget.value;
-  rebuildModel();
+  state.graphPatch = "custom";
+  scheduleGraphRebuild(120);
+  updateUi();
 });
 $("newGraphButton").addEventListener("click", () => {
-  cancelScheduledGraphRebuild();
   state.seed = state.seed >= 99 ? 1 : state.seed + 1;
+  state.graphPatch = "custom";
   $("seed").value = String(state.seed);
-  rebuildModel();
+  scheduleGraphRebuild(120);
+  updateUi();
 });
 $("nodeMotionPlayButton").addEventListener("click", () => {
   if (state.nodeMoving) {
@@ -1287,30 +1569,31 @@ $("resetViewButton").addEventListener("click", () => {
   state.micMotionPhase = 0.5;
   state.inputX = 0.08;
   state.inputY = 0.5;
-  state.outputX = 0.965;
-  state.outputY = 0.5;
   applyAudioParameters();
   updateUi();
-  $("liveStatus").textContent = "Node motion stopped; microphone input and speaker output positions reset.";
+  $("liveStatus").textContent = "Node motion stopped and microphone input position reset.";
 });
 bindRange("level", "level");
 bindRange("inputTrim", "inputTrim");
-bindRange("nodeCount", "nodeCount", { graph: true });
-bindRange("density", "density", { graph: true });
-bindRange("seed", "seed", { graph: true });
+bindRange("nodeCount", "nodeCount", { graph: true, marksPatchCustom: true });
+bindRange("density", "density", { graph: true, marksPatchCustom: true });
+bindRange("seed", "seed", { graph: true, marksPatchCustom: true });
 bindRange("nodeMotionSpeed", "nodeMotionSpeed", { audio: false });
 bindRange("nodeMotionAmount", "nodeMotionAmount");
 bindRange("micMotionSpeed", "micMotionSpeed", { audio: false });
-bindRange("baseDelay", "baseDelay");
-bindRange("timeScale", "timeScale");
-bindRange("inputPitchReference", "inputPitchReference");
-bindRange("pitchFloor", "pitchFloor");
-bindRange("pitchCeiling", "pitchCeiling");
-bindRange("feedback", "feedback");
-bindRange("damping", "damping");
-bindRange("wet", "wet");
-bindRange("dry", "dry");
-bindRange("spread", "spread");
+bindRange("baseDelay", "baseDelay", { marksPatchCustom: true });
+bindRange("timeScale", "timeScale", { marksPatchCustom: true });
+bindRange("timeCurve", "timeCurve", { marksPatchCustom: true });
+bindRange("nodePass", "nodePass", { marksPatchCustom: true });
+bindRange("pitchScale", "pitchScale", { marksPatchCustom: true });
+bindRange("pitchAsymmetry", "pitchAsymmetry", { marksPatchCustom: true });
+bindRange("pitchCurve", "pitchCurve", { marksPatchCustom: true });
+bindRange("pitchSlew", "pitchSlew", { marksPatchCustom: true });
+bindRange("feedback", "feedback", { marksPatchCustom: true });
+bindRange("damping", "damping", { marksPatchCustom: true });
+bindRange("wet", "wet", { marksPatchCustom: true });
+bindRange("dry", "dry", { marksPatchCustom: true });
+bindRange("spread", "spread", { marksPatchCustom: true });
 for (const id of ["audioButton", "micButton", "seedMicButton"]) $(id).addEventListener("click", () => {
   if (state.mic) panic("Microphone and graph delay stopped.");
   else void startMicrophone();
