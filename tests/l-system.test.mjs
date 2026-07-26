@@ -340,7 +340,7 @@ test("L-system page exposes presets, traversal, mapping, adaptive synthesis, and
   }
   assert.match(html, /id="structureMode"[\s\S]*?<option value="final" selected>Final tree/);
   assert.match(html, /id="baseFrequency"[^>]+value="220"/);
-  assert.match(html, /id="speed"[^>]+value="3"/);
+  assert.match(html, /id="speed"[^>]+min="0"[^>]+max="1"[^>]+value="0\.531"/);
   assert.doesNotMatch(html, /id="speedUnit"/);
   assert.match(html, /Branch length taper/);
   assert.match(html, /Length only—not line width or loudness/);
@@ -353,6 +353,8 @@ test("L-system page exposes presets, traversal, mapping, adaptive synthesis, and
   assert.match(app, /branchAngleFrequency/);
   assert.match(app, /pitch01ToFrequency/);
   assert.match(app, /pool\.setVoiceTrajectory/);
+  assert.match(app, /speed:\s*1\s*\/\s*3/);
+  assert.match(app, /MAX_TRAVERSAL_SPEED\s*\/\s*MIN_TRAVERSAL_SPEED/);
   assert.match(app, /gainSmoothingSeconds:\s*0\.018/);
   assert.match(app, /releaseVoiceAllowance:\s*Math\.min\(256,\s*voiceLimit\)/);
   assert.doesNotMatch(app, /createOscillator/);

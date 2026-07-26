@@ -25,6 +25,8 @@ const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
 const INITIAL_L_SYSTEM_VOICES = 128;
 const MAX_L_SYSTEM_VOICES = 4096;
+const MIN_TRAVERSAL_SPEED = 0.02;
+const MAX_TRAVERSAL_SPEED = 4;
 const pool = new VoicePool(INITIAL_L_SYSTEM_VOICES, {
   adaptive: true,
   maxVoices: MAX_L_SYSTEM_VOICES,
@@ -39,7 +41,7 @@ const DEFAULT_L_SYSTEM_STATE = Object.freeze({
   lengthScale: 0.72,
   position: 0,
   continuousPosition: 0,
-  speed: 3,
+  speed: 1 / 3,
   direction: 1,
   traversalBehavior: "loop",
   playing: false,
@@ -165,15 +167,34 @@ bindRange(
   paintCurrentSettings,
 );
 
+function traversalSpeedFromSlider(position) {
+  const amount = clamp(Number(position), 0, 1);
+  return MIN_TRAVERSAL_SPEED
+    * (MAX_TRAVERSAL_SPEED / MIN_TRAVERSAL_SPEED) ** amount;
+}
+
+function traversalSliderFromSpeed(speed) {
+  return Math.log(
+    clamp(Number(speed), MIN_TRAVERSAL_SPEED, MAX_TRAVERSAL_SPEED)
+      / MIN_TRAVERSAL_SPEED,
+  ) / Math.log(MAX_TRAVERSAL_SPEED / MIN_TRAVERSAL_SPEED);
+}
+
+function formatTraversalDuration(speed = state.speed) {
+  const seconds = 1 / Math.max(MIN_TRAVERSAL_SPEED, speed);
+  return `${seconds < 10 ? seconds.toFixed(2) : seconds.toFixed(1)} s / cycle`;
+}
+
 function paintTraversalSpeed() {
   const input = $("speed");
-  input.value = String(state.speed);
-  $("speedOut").textContent = `${state.speed.toFixed(2)} cyc/s`;
-  input.setAttribute("aria-valuetext", `${state.speed.toFixed(2)} cycles per second`);
+  input.value = String(traversalSliderFromSpeed(state.speed));
+  const duration = formatTraversalDuration();
+  $("speedOut").textContent = duration;
+  input.setAttribute("aria-valuetext", duration);
 }
 
 $("speed").addEventListener("input", (event) => {
-  state.speed = Number(event.currentTarget.value);
+  state.speed = traversalSpeedFromSlider(event.currentTarget.value);
   paintTraversalSpeed();
   paintCurrentSettings();
   scheduleFrame();
@@ -342,9 +363,9 @@ function paintCurrentSettings() {
       : "loop reverse";
   $("currentSettingsSummary").textContent = `${
     structureLabels[state.structureMode] ?? structureLabels.final
-  } · ${state.speed.toFixed(2)} cyc/s`;
+  } · ${formatTraversalDuration()}`;
   $("currentTraversalReadout").textContent = [
-    `${state.speed.toFixed(2)} cyc/s`,
+    formatTraversalDuration(),
     behavior,
   ].join(" · ");
   $("currentVoicingReadout").textContent = [
