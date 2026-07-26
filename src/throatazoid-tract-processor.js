@@ -8,6 +8,7 @@ const MAX_TONGUES = 5;
 const MAX_PRESSURE_SOURCES = 4;
 const PRESSURE_DUCT_LENGTHS = Object.freeze([3, 5, 7, 11]);
 const SUBSTEPS = 2;
+const GLOTTAL_REFLECTION = 0.75;
 const LIP_REFLECTION = -0.85;
 const OPEN_SOURCE_REFLECTION = 0.72;
 const CLOSED_SOURCE_REFLECTION = 0.9985;
@@ -151,14 +152,23 @@ class RootAirway {
   configure(config, immediate = false) {
     const bodyLength = unit(config.bodyLength, 0.56);
     const tension = unit(config.tension, 0.58);
+    const classicTopology = Boolean(config.classicTopology);
     const glottalClosure = unit(config.glottalClosure);
     const gateDiameter = DIAMETER_MINIMUM + (1 - glottalClosure) * 0.579;
     for (let index = 0; index < ROOT_LENGTH; index += 1) {
       const progress = index / (ROOT_LENGTH - 1);
-      const base = index < 6 ? 0.58 : 1.08;
+      const base = classicTopology
+        ? index < 7 ? 0.6 : 1.1
+        : index < 6 ? 0.58 : 1.08;
+      const geometryScale = classicTopology
+        ? 1 + (bodyLength - 0.55) * 0.12
+        : 0.92 + bodyLength * 0.12;
+      const tensionWarp = classicTopology
+        ? (tension - 0.56) * 0.06
+        : tension * 0.06;
       this.targetDiameter[index] = base
-        * (0.92 + bodyLength * 0.12)
-        * (1 + Math.sin(progress * Math.PI) * tension * 0.06);
+        * geometryScale
+        * (1 + Math.sin(progress * Math.PI) * tensionWarp);
     }
     this.targetDiameter[0] = Math.min(this.targetDiameter[0], gateDiameter);
     this.targetDiameter[1] = Math.min(
@@ -217,6 +227,7 @@ class RootAirway {
 class PressureGland {
   constructor(index) {
     this.index = index;
+    this.connected = index === 0;
     this.length = PRESSURE_DUCT_LENGTHS[index];
     this.right = new Float64Array(this.length);
     this.left = new Float64Array(this.length);
@@ -249,6 +260,9 @@ class PressureGland {
   }
 
   configure(source, connected) {
+    const wasConnected = this.connected;
+    this.connected = Boolean(connected);
+    if (wasConnected && !this.connected) this.reset();
     this.targetValve = connected && source.open !== false ? 1 : 0;
     this.targetLevel = unit(source.level, 0.86 - this.index * 0.08);
   }
@@ -478,10 +492,15 @@ class MouthAirway {
     const mouthAperture = unit(mouth.aperture, 0.5);
     const mouthLength = unit(mouth.length, 0.5);
     const mutation = unit(config.mutation, 0.3);
-    const scale = 0.92 + bodyLength * 0.13 + mouthLength * 0.08;
+    const classicTopology = Boolean(config.classicTopology);
+    const scale = classicTopology
+      ? 1 + (bodyLength - 0.55) * 0.13 + (mouthLength - 0.56) * 0.08
+      : 0.92 + bodyLength * 0.13 + mouthLength * 0.08;
     for (let localIndex = 0; localIndex < MOUTH_LENGTH; localIndex += 1) {
       const globalIndex = localIndex + ROOT_LENGTH;
-      const base = globalIndex < 12 ? 1.08 : 1.5;
+      const base = globalIndex < 12
+        ? classicTopology ? 1.1 : 1.08
+        : 1.5;
       const lipProgress = clamp((globalIndex - 35) / 8);
       const individualWarp = 1 + Math.sin(
         (mouthIndex + 1) * 1.93 + globalIndex * 0.31,
@@ -515,11 +534,25 @@ class MouthAirway {
         const angle = 1.1 * Math.PI * interpolation;
         const normalizedDiameter = 2 + (tongueDiameter - 2) / 1.5;
         let curve = (1.5 - normalizedDiameter + 1.7) * Math.cos(angle);
+        if (globalIndex === 38) curve *= 0.8;
         if (globalIndex === 10 || globalIndex === 37) curve *= 0.94;
-        this.targetDiameter[localIndex] = Math.min(
-          this.targetDiameter[localIndex],
-          Math.max(0.12, 1.5 - curve),
+        const individualWarp = 1 + Math.sin(
+          (mouthIndex + 1) * 1.93 + globalIndex * 0.31,
+        ) * mutation * 0.025;
+        const tongueShape = Math.max(
+          DIAMETER_MINIMUM,
+          (1.5 - curve)
+            * scale
+            * individualWarp
+            * (1 - clamp((globalIndex - 35) / 8) * (1 - mouthAperture) * 0.34),
         );
+        // Pink Trombone's vowel model replaces the neutral tube with the
+        // tongue curve. Clipping it with Math.min() removes every widened
+        // cavity and collapses the vowel formants. Extra alien tongues still
+        // combine as additional constrictions.
+        this.targetDiameter[localIndex] = tongueNumber === 0
+          ? tongueShape
+          : Math.min(this.targetDiameter[localIndex], tongueShape);
       }
     }
 
@@ -546,10 +579,11 @@ class MouthAirway {
     if (articulateThisMouth && this.targetConstrictionDiameter < 3) {
       const center = this.constrictionIndex;
       const globalCenter = center + ROOT_LENGTH;
-      const normalized = globalCenter / FULL_TRACT_LENGTH;
-      const radius = normalized < 25 / 44
-        ? 8.5
-        : 8.5 - clamp((normalized - 25 / 44) / (32 / 44 - 25 / 44)) * 4.2;
+      const radius = globalCenter < 25
+        ? 10
+        : globalCenter >= 32
+          ? 5
+          : 10 - 5 * (globalCenter - 25) / 7;
       const start = Math.max(1, Math.floor(center - radius - 1));
       const end = Math.min(MOUTH_LENGTH - 1, Math.ceil(center + radius + 1));
       for (let localIndex = start; localIndex <= end; localIndex += 1) {
@@ -780,6 +814,7 @@ class ThroatazoidTractProcessor extends AudioWorkletProcessor {
     this.sourceHubAreas = new Float64Array(MAX_PRESSURE_SOURCES + 1);
     this.sourceHubOutgoing = new Float64Array(MAX_PRESSURE_SOURCES + 1);
     this.sourceDrive = new Float64Array(MAX_PRESSURE_SOURCES);
+    this.sourcePortIndex = new Int8Array(MAX_PRESSURE_SOURCES);
     this.mouthIncoming = new Float64Array(MAX_MOUTHS + 1);
     this.mouthAreas = new Float64Array(MAX_MOUTHS + 1);
     this.mouthOutgoing = new Float64Array(MAX_MOUTHS + 1);
@@ -825,14 +860,19 @@ class ThroatazoidTractProcessor extends AudioWorkletProcessor {
   scatterSourceHub(rawSource) {
     this.sourceHubIncoming[0] = this.root.incomingAtSourceHub;
     this.sourceHubAreas[0] = this.root.sourceHubArea;
+    this.sourcePortIndex.fill(-1);
+    let portCount = 1;
     let gainSum = 0;
     for (let index = 0; index < MAX_PRESSURE_SOURCES; index += 1) {
       const gland = this.glands[index];
       const gain = gland.advanceControl();
-      this.sourceDrive[index] = gain;
+      this.sourceDrive[index] = gland.connected ? gain : 0;
+      if (!gland.connected) continue;
       gainSum += Math.abs(gain);
-      this.sourceHubIncoming[index + 1] = gland.incomingAtHub;
-      this.sourceHubAreas[index + 1] = gland.hubArea;
+      this.sourcePortIndex[index] = portCount;
+      this.sourceHubIncoming[portCount] = gland.incomingAtHub;
+      this.sourceHubAreas[portCount] = gland.hubArea;
+      portCount += 1;
     }
     const normalization = Math.max(1, gainSum);
     this.driveMagnitude = 0;
@@ -844,13 +884,21 @@ class ThroatazoidTractProcessor extends AudioWorkletProcessor {
       this.sourceHubIncoming,
       this.sourceHubAreas,
       this.sourceHubOutgoing,
-      MAX_PRESSURE_SOURCES + 1,
+      portCount,
     );
   }
 
   scatterMouthManifold() {
     const coupling = clamp(unit(this.config.coupling, 0.36) / 0.72);
-    const returnScale = 0.12 + coupling * 0.88;
+    const participatingMouths = this.mouths.reduce(
+      (sum, mouth) => sum + (mouth.participating ? 1 : 0),
+      0,
+    );
+    // A single mouth is one continuous tract, not a cross-coupled network.
+    // Attenuating its returning wave breaks the resonator and masks vowels.
+    const returnScale = participatingMouths <= 1
+      ? 1
+      : 0.12 + coupling * 0.88;
     this.mouthIncoming[0] = this.root.incomingAtMouthManifold;
     this.mouthAreas[0] = this.root.mouthManifoldArea;
     let portCount = 1;
@@ -907,6 +955,9 @@ class ThroatazoidTractProcessor extends AudioWorkletProcessor {
     const performanceGate = unit(this.config.performanceGate, 1);
     const articulationVoicing = unit(this.config.articulationVoicing, 0.94);
     const exciterIntensity = unit(this.config.exciterIntensity, 0.72);
+    const classicDirect = Boolean(this.config.classicTopology)
+      && integer(this.config.mouthCount ?? this.config.throatCount, 1, MAX_MOUTHS, 1) === 1
+      && integer(this.config.pressureSourceCount, 1, MAX_PRESSURE_SOURCES, 1) === 1;
     const effectiveMouths = Math.max(
       1,
       this.mouths.reduce(
@@ -926,14 +977,32 @@ class ThroatazoidTractProcessor extends AudioWorkletProcessor {
       let rightAccumulator = 0;
 
       for (let substep = 0; substep < SUBSTEPS; substep += 1) {
-        this.scatterSourceHub(rawSource);
-        this.scatterMouthManifold();
-        this.root.process(this.sourceHubOutgoing[0], this.mouthOutgoing[0]);
-        for (let index = 0; index < MAX_PRESSURE_SOURCES; index += 1) {
-          this.glands[index].process(
-            this.sourceDrive[index],
-            this.sourceHubOutgoing[index + 1],
+        if (classicDirect) {
+          this.scatterMouthManifold();
+          let classicSourceGain = 0;
+          for (let index = 0; index < this.glands.length; index += 1) {
+            const gland = this.glands[index];
+            const gain = gland.advanceControl();
+            if (index === 0 && gland.connected) classicSourceGain = gain;
+            gland.process(0, 0);
+          }
+          const classicDrive = rawSource * classicSourceGain;
+          this.driveMagnitude = Math.abs(classicDrive);
+          this.root.process(
+            this.root.incomingAtSourceHub * GLOTTAL_REFLECTION + classicDrive,
+            this.mouthOutgoing[0],
           );
+        } else {
+          this.scatterSourceHub(rawSource);
+          this.scatterMouthManifold();
+          this.root.process(this.sourceHubOutgoing[0], this.mouthOutgoing[0]);
+          for (let index = 0; index < MAX_PRESSURE_SOURCES; index += 1) {
+            const portIndex = this.sourcePortIndex[index];
+            this.glands[index].process(
+              this.sourceDrive[index],
+              portIndex > 0 ? this.sourceHubOutgoing[portIndex] : 0,
+            );
+          }
         }
 
         const sourceModulator = clamp(Math.max(
@@ -982,6 +1051,10 @@ class ThroatazoidTractProcessor extends AudioWorkletProcessor {
       const mouthPressures = this.mouths.map((mouth) => (
         mouth.participating ? clamp(mouth.pressure) : 0
       ));
+      const sourcePressures = this.glands.map((gland) => clamp(gland.pressure));
+      if (classicDirect) {
+        sourcePressures[0] = clamp(Math.max(sourcePressures[0], this.driveMagnitude * 4));
+      }
       const rootPressure = clamp(
         this.root.pressure()
           + Math.max(0, ...mouthPressures) * 0.68,
@@ -990,7 +1063,7 @@ class ThroatazoidTractProcessor extends AudioWorkletProcessor {
         type: "pressure",
         value: rootPressure,
         mouths: mouthPressures,
-        sources: this.glands.map((gland) => clamp(gland.pressure)),
+        sources: sourcePressures,
       });
     }
     return true;

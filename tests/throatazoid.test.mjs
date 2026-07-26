@@ -62,17 +62,24 @@ test("the mega bank starts with eighteen distinct audition-ready voices", () => 
   ]);
 
   const clear = voicePresetState("clear");
+  assert.equal(VOICE_PRESETS.clear.name, "Playable default");
+  assert.equal(VOICE_PRESETS.clear.description, "classic 44-section voice");
   assert.equal(clear.sourceMode, "glottis");
   assert.equal(clear.phoneme, "a");
   assert.equal(clear.throatCount, 1);
   assert.equal(clear.tongueCount, 1);
   assert.equal(clear.noseCount, 1);
   assert.equal(clear.pressureSourceCount, 1);
+  assert.equal(clear.pressureSources[0].level, 1);
   assert.equal(clear.mutation, 0);
   assert.equal(clear.coupling, 0);
   assert.equal(clear.growl, 0);
   assert.equal(clear.wet, 1);
   assert.equal(clear.dry, 0);
+  assert.equal(clear.exciterPitch, 140);
+  assert.equal(clear.exciterIntensity, 1);
+  assert.equal(clear.exciterTenseness, 0.6);
+  assert.equal(clear.classicTopology, true);
 
   const fingerprints = [];
   for (const [key, preset] of Object.entries(VOICE_PRESETS)) {
@@ -154,7 +161,7 @@ test("vowels use one calibrated tongue and independent rounded lips", () => {
   assert.ok(Math.abs(tractCoordinates.u.diameter - 2.1) < 0.03);
   assert.equal(tractCoordinates.a.lipDiameter, 3);
   assert.ok(tractCoordinates.o.lipDiameter < 1.1);
-  assert.ok(tractCoordinates.u.lipDiameter < tractCoordinates.o.lipDiameter);
+  assert.equal(tractCoordinates.u.lipDiameter, 0.5);
 
   assert.equal(CONSONANTS.sh.constrictionDiameter, 0.6);
   assert.equal(CONSONANTS.s.constrictionDiameter, 0.6);

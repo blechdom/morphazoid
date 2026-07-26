@@ -649,7 +649,8 @@ export const PHONEMES = Object.freeze({
     tongueCount: 1,
     noseCount: 1,
     oralClosure: 0,
-    lipDiameter: 0.62,
+    // Pink's rounded U gesture constricts the lip section to about 0.5 cm.
+    lipDiameter: 0.5,
     tongues: [
       // Pink-style /u/: tract index 23, tongue diameter 2.10.
       { position: 0.577, height: 0.966, curl: 0.28 },
@@ -1245,8 +1246,8 @@ function defineVoicePreset(preset) {
 // deeper alien-anatomy bank; this set starts with intelligible one-mouth speech.
 export const VOICE_PRESETS = Object.freeze({
   clear: defineVoicePreset({
-    name: "Clear",
-    description: "neutral speech",
+    name: "Playable default",
+    description: "classic 44-section voice",
     specimen: "oracle",
     phoneme: "a",
     parameters: {
@@ -1259,15 +1260,16 @@ export const VOICE_PRESETS = Object.freeze({
       wet: 1,
       dry: 0,
       spread: 0,
-      exciterPitch: 120,
-      exciterIntensity: 0.78,
-      exciterTenseness: 0.62,
-      exciterBreath: 0.08,
-      exciterVibrato: 0.03,
-      exciterWobble: 0.02,
+      exciterPitch: 140,
+      exciterIntensity: 1,
+      exciterTenseness: 0.6,
+      exciterBreath: 0.12,
+      exciterVibrato: 0.12,
+      exciterWobble: 0.03,
+      classicTopology: true,
       voiceMode: "shared",
     },
-    throats: [{ aperture: 0.88, length: 0.56 }],
+    throats: [{ aperture: 1, length: 0.56 }],
   }),
   deep: defineVoicePreset({
     name: "Deep",
@@ -1734,7 +1736,9 @@ export function voicePresetState(name = "clear") {
     pressureSourceCount,
     pressureSources: Array.from({ length: MAX_PRESSURE_SOURCES }, (_, index) => ({
       open: index < pressureSourceCount,
-      level: clamp(0.94 - index * 0.1),
+      level: parameters.classicTopology && index === 0
+        ? 1
+        : clamp(0.94 - index * 0.1),
     })),
     articulationPlace: phoneme.tongues[0]?.position ?? 0.48,
     articulationAperture: 1,

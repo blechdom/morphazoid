@@ -98,7 +98,6 @@ let burstFlashUntil = 0;
 let burstFlashPlace = 0.5;
 let mouthPressures = new Float32Array(MAX_THROATS);
 let sourcePressures = new Float32Array(4);
-let stageKeyboardFocus = false;
 let beatboxReturnState = null;
 let carrierVowel = "a";
 let pointerPhonemeSession = null;
@@ -768,6 +767,7 @@ function physicalTractState(sounding) {
     fricationGain: consonant?.fricationGain ?? 1,
     burstGain: consonant?.burstGain ?? 0,
     exciterIntensity: state.exciterIntensity,
+    classicTopology: Boolean(state.classicTopology),
     voiceMode: state.voiceMode,
     performanceGate: sounding ? 1 : 0,
     pressureSourceCount: state.pressureSourceCount,
@@ -925,7 +925,7 @@ function applyAudioParameters(immediate = false) {
       active
         ? voice.gain
           * (voice.oralGain ?? 1)
-          * (graph.physicalTract ? 0.1 : 1)
+          * (graph.physicalTract ? 0 : 1)
           * unvoicedCarrier
           * (1 - clamp(state.glottalClosure))
         : 0,
@@ -987,7 +987,7 @@ function applyAudioParameters(immediate = false) {
       nose.gate.gain,
       active
         ? voice.gain
-          * (graph.physicalTract ? 0.08 : 1)
+          * (graph.physicalTract ? 0 : 1)
           * (1 - clamp(state.glottalClosure))
         : 0,
       immediate,
@@ -1294,6 +1294,7 @@ function loadVoiceProfile(next) {
   state.exciterBreath = next.exciterBreath;
   state.exciterVibrato = next.exciterVibrato;
   state.exciterWobble = next.exciterWobble;
+  state.classicTopology = Boolean(next.classicTopology);
   state.voiceMode = next.voiceMode;
   state.voiceIntervals = [...next.voiceIntervals];
   state.voiceDetunes = [...next.voiceDetunes];
@@ -1675,15 +1676,22 @@ function heldKeyLabel(entry) {
     ?? String(entry?.phoneme ?? "").toUpperCase();
 }
 
-function isEditableTypingTarget(target) {
-  const editableConstructors = [
-    globalThis.HTMLInputElement,
-    globalThis.HTMLSelectElement,
-    globalThis.HTMLTextAreaElement,
-  ].filter(Boolean);
-  if (editableConstructors.some((Constructor) => target instanceof Constructor)) return true;
+function isProtectedTypingTarget(target) {
+  const Input = globalThis.HTMLInputElement;
+  const Select = globalThis.HTMLSelectElement;
+  const Textarea = globalThis.HTMLTextAreaElement;
+  if (Input && target instanceof Input) {
+    return String(target.type || "text").toLowerCase() !== "range";
+  }
+  if ((Select && target instanceof Select) || (Textarea && target instanceof Textarea)) {
+    return true;
+  }
   if (target?.isContentEditable) return true;
-  return Boolean(target?.closest?.('[contenteditable="true"], [role="textbox"]'));
+  return Boolean(target?.closest?.(
+    '[contenteditable]:not([contenteditable="false"]), '
+      + '[role="textbox"], [role="searchbox"], [role="combobox"], '
+      + '[role="listbox"], [role="menu"], [role="tree"], [role="grid"]',
+  ));
 }
 
 function typingEventIsModified(event) {
@@ -1748,18 +1756,15 @@ function restoreBeatboxArticulation() {
 function handleTypingKeyDown(event) {
   if (typingEventIsModified(event)) return false;
   const phoneme = keyboardArticulation(event.key);
-  const stageKey = stageKeyboardFocus && Boolean(phoneme);
   if (
-    (!state.typingMode && !stageKey)
-    || !phoneme
-    || isEditableTypingTarget(event.target)
+    !phoneme
+    || isProtectedTypingTarget(event.target)
   ) return false;
   event.preventDefault();
   const identity = typingKeyIdentity(event, phoneme);
   if (event.repeat || heldPhonemeKeys.has(identity)) return true;
   if (
-    stageKey
-    && !state.typingMode
+    !state.typingMode
     && heldPhonemeKeys.size === 0
     && !beatboxReturnState
   ) {
@@ -1852,7 +1857,7 @@ function toggleTypingMode() {
     if (active?.phoneme && !isStopArticulation(active.phoneme)) state.phoneme = active.phoneme;
     markAudioDirty();
     updateUi();
-    announce("Type-to-speak off. Continuous articulation restored.");
+    announce("Keyboard gate off. Keys now return to the prior mouth shape on release.");
     return;
   }
 
@@ -1865,7 +1870,7 @@ function toggleTypingMode() {
   markAudioDirty();
   updateUi();
   announce(
-    "Type-to-speak armed. Every letter A through Z reshapes the tract; hold keys "
+    "Keyboard gate armed. Every letter A through Z reshapes the tract; hold keys "
       + "to sustain and release stops to burst. Apostrophe or question mark makes ʔ.",
   );
 }
@@ -2081,10 +2086,8 @@ function updateUi() {
   );
   for (const button of $("phonemeButtons").querySelectorAll("[data-phoneme]")) {
     setPressed(button, button.dataset.phoneme === state.phoneme);
-    const held = (
-      (state.typingMode || stageKeyboardFocus)
-      && heldPhonemes.has(button.dataset.phoneme)
-    ) || pointerPhonemeSession?.phoneme === button.dataset.phoneme;
+    const held = heldPhonemes.has(button.dataset.phoneme)
+      || pointerPhonemeSession?.phoneme === button.dataset.phoneme;
     button.dataset.held = String(held);
     button.classList.toggle("is-held", held);
   }
@@ -2100,7 +2103,7 @@ function updateUi() {
     ? activeTypingKey
       ? `${heldKeyLabel(activeTypingKey)} held`
       : "armed"
-    : "off";
+    : "momentary";
   const name = specimenLabel();
   $("sourceSummary").textContent = `${sourceName.toLowerCase()} excitation`;
   $("listenSummary").textContent = starting
@@ -2278,20 +2281,75 @@ function tractPoint(geometry, progress, diameter = 0) {
 
 function tractDiameterProfile() {
   const diameters = new Float32Array(44);
+  const classicTopology = Boolean(state.classicTopology);
+  const bodyLength = clamp(state.bodyLength);
+  const tension = clamp(state.tension);
+  const mutation = clamp(state.mutation);
+  const mouth = state.throats[selectedThroat] ?? state.throats[0] ?? {
+    aperture: 0.5,
+    length: 0.5,
+  };
+  const mouthLength = clamp(mouth.length);
+  const mouthAperture = clamp(mouth.aperture);
+  const mouthScale = classicTopology
+    ? 1 + (bodyLength - 0.55) * 0.13 + (mouthLength - 0.56) * 0.08
+    : 0.92 + bodyLength * 0.13 + mouthLength * 0.08;
   for (let index = 0; index < diameters.length; index += 1) {
-    diameters[index] = index < 7 ? 0.58 : index < 12 ? 1.08 : 1.5;
+    if (index < 8) {
+      const base = classicTopology
+        ? index < 7 ? 0.6 : 1.1
+        : index < 6 ? 0.58 : 1.08;
+      const geometryScale = classicTopology
+        ? 1 + (bodyLength - 0.55) * 0.12
+        : 0.92 + bodyLength * 0.12;
+      const tensionWarp = classicTopology
+        ? (tension - 0.56) * 0.06
+        : tension * 0.06;
+      diameters[index] = base
+        * geometryScale
+        * (1 + Math.sin(index / 7 * Math.PI) * tensionWarp);
+      continue;
+    }
+    const base = index < 12
+      ? classicTopology ? 1.1 : 1.08
+      : 1.5;
+    const lipProgress = clamp((index - 35) / 8);
+    const individualWarp = 1 + Math.sin(
+      (selectedThroat + 1) * 1.93 + index * 0.31,
+    ) * mutation * 0.025;
+    diameters[index] = base
+      * mouthScale
+      * individualWarp
+      * (1 - lipProgress * (1 - mouthAperture) * 0.34);
   }
 
-  const primary = state.tongues[0] ?? { position: 0.38, height: 0.18 };
-  const tongueIndex = 12.9 + clamp(primary.position) * 17.5;
-  const tongueDiameter = 3.5 - clamp(primary.height) * 1.45;
-  for (let index = 10; index < 39; index += 1) {
-    const interpolation = (tongueIndex - index) / 22;
-    const angle = 1.1 * Math.PI * interpolation;
-    const normalizedDiameter = 2 + (tongueDiameter - 2) / 1.5;
-    let curve = (1.5 - normalizedDiameter + 1.7) * Math.cos(angle);
-    if (index === 10 || index === 37) curve *= 0.94;
-    diameters[index] = Math.min(diameters[index], Math.max(0.12, 1.5 - curve));
+  for (let tongueNumber = 0; tongueNumber < state.tongueCount; tongueNumber += 1) {
+    const tongue = state.tongues[tongueNumber]
+      ?? state.tongues[0]
+      ?? { position: 0.38, height: 0.18 };
+    const tongueIndex = 12.9 + clamp(tongue.position) * 17.5;
+    const tongueDiameter = 3.5 - clamp(tongue.height) * 1.45;
+    for (let index = 10; index < 39; index += 1) {
+      const interpolation = (tongueIndex - index) / 22;
+      const angle = 1.1 * Math.PI * interpolation;
+      const normalizedDiameter = 2 + (tongueDiameter - 2) / 1.5;
+      let curve = (1.5 - normalizedDiameter + 1.7) * Math.cos(angle);
+      if (index === 38) curve *= 0.8;
+      if (index === 10 || index === 37) curve *= 0.94;
+      const individualWarp = 1 + Math.sin(
+        (selectedThroat + 1) * 1.93 + index * 0.31,
+      ) * mutation * 0.025;
+      const tongueShape = Math.max(
+        0.001,
+        (1.5 - curve)
+          * mouthScale
+          * individualWarp
+          * (1 - clamp((index - 35) / 8) * (1 - mouthAperture) * 0.34),
+      );
+      diameters[index] = tongueNumber === 0
+        ? tongueShape
+        : Math.min(diameters[index], tongueShape);
+    }
   }
 
   const requestedLipDiameter = Number(state.lipDiameter);
@@ -2315,10 +2373,11 @@ function tractDiameterProfile() {
   if (aperture < 0.92) {
     const center = currentArticulationIndex();
     const target = Math.max(0, aperture * 1.38 - 0.035);
-    const normalized = center / 44;
-    const radius = normalized < 25 / 44
-      ? 8.5
-      : 8.5 - clamp((normalized - 25 / 44) / (32 / 44 - 25 / 44)) * 4.2;
+    const radius = center < 25
+      ? 10
+      : center >= 32
+        ? 5
+        : 10 - 5 * (center - 25) / 7;
     for (
       let index = Math.max(1, Math.floor(center - radius - 1));
       index <= Math.min(43, Math.ceil(center + radius + 1));
@@ -4018,7 +4077,6 @@ function toggleMouthGate(index) {
 
 function beginDrag(event) {
   canvas.focus?.({ preventScroll: true });
-  stageKeyboardFocus = true;
   const point = pointerPosition(event);
   if (!currentTract) currentTract = tractGeometry();
   if (!currentTongues.length) currentTongues = currentTract.tongueHandles;
@@ -4719,26 +4777,19 @@ canvas.addEventListener("pointerleave", () => {
 canvas.addEventListener("dblclick", selectNearbyHandle);
 canvas.addEventListener("keydown", handleCanvasKey);
 stageWrap.addEventListener("pointerdown", () => {
-  stageKeyboardFocus = true;
   stageWrap.classList.add("is-beatbox-focused");
 });
 stageWrap.addEventListener("focusin", () => {
-  stageKeyboardFocus = true;
   stageWrap.classList.add("is-beatbox-focused");
 });
 stageWrap.addEventListener("focusout", (event) => {
   if (stageWrap.contains?.(event.relatedTarget)) return;
-  stageKeyboardFocus = false;
   stageWrap.classList.remove("is-beatbox-focused");
-  if (!state.typingMode && heldPhonemeKeys.size) {
-    clearHeldPhonemes({ burst: isAwake() });
-  }
 });
 canvas.addEventListener("focus", () => {
-  stageKeyboardFocus = true;
   stageWrap.classList.add("is-beatbox-focused");
   announce(
-    "Stage keyboard focused. Every letter A through Z now plays an approximate speech shape.",
+    "Stage focused. Every letter A through Z works throughout Throatazoid.",
   );
 });
 

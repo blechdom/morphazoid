@@ -77,13 +77,16 @@
       </div>
     </header>
 
-    <main class="shell" id="throatazoid">
+    <main
+      class="shell"
+      id="throatazoid"
+      aria-keyshortcuts="A B C D E F G H I J K L M N O P Q R S T U V W X Y Z"
+    >
       <section class="stage throatazoid-stage" aria-label="Throatazoid anatomy">
         <div class="stage-wrap" id="stageWrap">
           <canvas
             id="stage"
             tabindex="0"
-            aria-keyshortcuts="A B C D E F G H I J K L M N O P Q R S T U V W X Y Z"
             aria-label="Interactive alien root airway branching through one manifold into multiple cross-coupled mouths. Drag mouth, tongue, and nose handles, or use the direct articulation controls."
             aria-describedby="canvasInstructions liveStatus"
           >
@@ -294,7 +297,7 @@
             <span><i>1</i> start the synth voice — no microphone needed</span>
             <span><i>2</i> press any A–Z key — every letter reshapes the tract</span>
             <span><i>3</i> hold to sustain — stops and affricates burst on release</span>
-            <span><i>keys</i> focus this stage or arm Type to speak anywhere</span>
+            <span><i>keys</i> A–Z works across the UI · text fields and menus keep typing</span>
           </div>
 
           <section
@@ -403,7 +406,7 @@
           </div>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">DORMANT · CLEAR · 1P/1M/1G/1N</span>
+            <span id="stageReadout">DORMANT · PLAYABLE DEFAULT · 1P/1M/1G/1N</span>
           </div>
 
           <button class="throatazoid-panic" id="panicButton" type="button" disabled>
@@ -446,7 +449,7 @@
               <b>Core voices</b><small>clear speech foundations</small>
             </span>
             <button type="button" data-voice-preset="clear" aria-pressed="true">
-              <b>Clear</b><small>neutral speech</small>
+              <b>Playable default</b><small>classic 44-section voice</small>
             </button>
             <button type="button" data-voice-preset="deep" aria-pressed="false">
               <b>Deep</b><small>low rounded O</small>
@@ -579,7 +582,8 @@
               rel="noopener noreferrer"
             >Pink Trombone</a>. Its playful direct control of a synthetic vocal tract is
             foundational here; THROATAZOID mutates that idea into coupled alien airways
-            and multiple mouths.
+            and multiple mouths. The Playable default adapts its MIT-licensed 44-section
+            geometry; see the <a href="THIRD_PARTY_NOTICES.md">license notice</a>.
           </p>
         </section>
 
@@ -737,7 +741,7 @@
                 <label class="control" for="exciterPitch">
                   <span>
                     <b>Pitch</b>
-                    <output id="exciterPitchOut" for="exciterPitch">120 Hz</output>
+                    <output id="exciterPitchOut" for="exciterPitch">140 Hz</output>
                   </span>
                   <input
                     id="exciterPitch"
@@ -745,13 +749,13 @@
                     min="40"
                     max="420"
                     step="1"
-                    value="120"
+                    value="140"
                   />
                 </label>
                 <label class="control" for="exciterIntensity">
                   <span>
                     <b>Intensity</b>
-                    <output id="exciterIntensityOut" for="exciterIntensity">78%</output>
+                    <output id="exciterIntensityOut" for="exciterIntensity">100%</output>
                   </span>
                   <input
                     id="exciterIntensity"
@@ -759,13 +763,13 @@
                     min="0"
                     max="1"
                     step="0.01"
-                    value="0.78"
+                    value="1"
                   />
                 </label>
                 <label class="control" for="exciterTenseness">
                   <span>
                     <b>Tenseness</b>
-                    <output id="exciterTensenessOut" for="exciterTenseness">62%</output>
+                    <output id="exciterTensenessOut" for="exciterTenseness">60%</output>
                   </span>
                   <input
                     id="exciterTenseness"
@@ -773,13 +777,13 @@
                     min="0"
                     max="1"
                     step="0.01"
-                    value="0.62"
+                    value="0.6"
                   />
                 </label>
                 <label class="control" for="exciterBreath">
                   <span>
                     <b>Breath</b>
-                    <output id="exciterBreathOut" for="exciterBreath">8%</output>
+                    <output id="exciterBreathOut" for="exciterBreath">12%</output>
                   </span>
                   <input
                     id="exciterBreath"
@@ -787,13 +791,13 @@
                     min="0"
                     max="1"
                     step="0.01"
-                    value="0.08"
+                    value="0.12"
                   />
                 </label>
                 <label class="control" for="exciterVibrato">
                   <span>
                     <b>Vibrato</b>
-                    <output id="exciterVibratoOut" for="exciterVibrato">3%</output>
+                    <output id="exciterVibratoOut" for="exciterVibrato">12%</output>
                   </span>
                   <input
                     id="exciterVibrato"
@@ -801,13 +805,13 @@
                     min="0"
                     max="1"
                     step="0.01"
-                    value="0.03"
+                    value="0.12"
                   />
                 </label>
                 <label class="control" for="exciterWobble">
                   <span>
                     <b>Wobble</b>
-                    <output id="exciterWobbleOut" for="exciterWobble">2%</output>
+                    <output id="exciterWobbleOut" for="exciterWobble">3%</output>
                   </span>
                   <input
                     id="exciterWobble"
@@ -815,7 +819,7 @@
                     min="0"
                     max="1"
                     step="0.01"
-                    value="0.02"
+                    value="0.03"
                   />
                 </label>
               </div>
@@ -838,7 +842,7 @@
         <details class="group control-section" id="anatomySection" data-section="anatomy">
           <summary class="group-summary">
             <h2 class="group-title">Anatomy</h2>
-            <span class="section-state" id="anatomySummary">Clear · 1 mouth</span>
+            <span class="section-state" id="anatomySummary">Playable default · 1 mouth</span>
           </summary>
           <div class="group-body">
             <label class="control" for="throatCount">
@@ -961,8 +965,8 @@
                 <span class="throatazoid-typing-title">
                   <i class="throatazoid-typing-sigil" aria-hidden="true"></i>
                   <span>
-                    <b id="typingModeLabel">Type to speak</b>
-                    <small id="typingModeHelp">All A–Z play approximate speech · hold to sustain · release stops to burst</small>
+                    <b id="typingModeLabel">Keyboard gate</b>
+                    <small id="typingModeHelp">A–Z works across the instrument · arm to silence between keys · hold to sustain</small>
                   </span>
                 </span>
                 <button
@@ -975,7 +979,7 @@
                   aria-describedby="typingModeHelp"
                 >
                   <i aria-hidden="true"><b></b></i>
-                  <span id="typingModeState">off</span>
+                  <span id="typingModeState">momentary</span>
                 </button>
               </div>
               <div
@@ -1328,8 +1332,8 @@
         mouth airway has its own closable gate. Drag tongue diamonds and blue nose gates to
         shape articulation. Use the Anatomy and Articulation controls for keyboard-accessible
         adjustment. On the canvas, Left and Right select a mouth, Up and Down change aperture,
-        brackets change branch length, and Enter seals or opens the selected mouth. Click or
-        focus the stage, then every letter A through Z selects an approximate vowel,
+        brackets change branch length, and Enter seals or opens the selected mouth. Throughout
+        the instrument, every letter A through Z selects an approximate vowel,
         stop, fricative, nasal, affricate, or approximant; holding a key sustains it
         and releasing a stop creates its burst. Question mark or apostrophe plays the
         glottal stop. The direct stage

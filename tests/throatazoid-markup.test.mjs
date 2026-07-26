@@ -5,10 +5,11 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument", async () => {
-  const [html, css, app] = await Promise.all([
+  const [html, css, app, notices] = await Promise.all([
     readFile(new URL("throatazoid.html", root), "utf8"),
     readFile(new URL("throatazoid.css", root), "utf8"),
     readFile(new URL("throatazoid-app.js", root), "utf8"),
+    readFile(new URL("THIRD_PARTY_NOTICES.md", root), "utf8"),
   ]);
 
   assert.match(html, /<title>THROATAZOID<\/title>/);
@@ -19,10 +20,22 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
   );
   assert.match(html, /<option value="throatazoid\.html" selected>throatazoid<\/option>/);
   assert.match(html, /id="stage"[\s\S]*?aria-describedby="canvasInstructions liveStatus"/);
-  assert.match(html, /id="stageReadout">DORMANT · CLEAR · 1P\/1M\/1G\/1N<\/span>/);
+  assert.match(
+    html,
+    /id="stageReadout">DORMANT · PLAYABLE DEFAULT · 1P\/1M\/1G\/1N<\/span>/,
+  );
   assert.match(
     html,
     /aria-keyshortcuts="A B C D E F G H I J K L M N O P Q R S T U V W X Y Z"/,
+  );
+  assert.match(
+    html,
+    /<main[\s\S]*?id="throatazoid"[\s\S]*?aria-keyshortcuts="A B C D E F G H I J K L M N O P Q R S T U V W X Y Z"/,
+    "the whole instrument, not only the canvas, owns the A-Z shortcuts",
+  );
+  assert.doesNotMatch(
+    html.match(/<canvas[\s\S]*?id="stage"[\s\S]*?>/)?.[0] ?? "",
+    /aria-keyshortcuts=/,
   );
   assert.match(html, /id="awakenButton"[\s\S]*?aria-pressed="false"/);
   assert.match(html, /<b id="awakenLabel">Start synth voice<\/b>/);
@@ -46,6 +59,13 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
     "the canonical Pink Trombone URL should appear exactly once",
   );
   assert.match(html, /rel="noopener noreferrer"/);
+  assert.match(
+    html,
+    /href="THIRD_PARTY_NOTICES\.md">license notice<\/a>/,
+    "the MIT adaptation notice must be reachable from the page",
+  );
+  assert.match(notices, /Copyright 2017 Neil Thapen/);
+  assert.match(notices, /Permission is hereby granted, free of charge/);
   assert.match(html, /src="nav\.js"/);
   assert.match(html, /src="throatazoid-app\.js"/);
   assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/);
@@ -94,7 +114,11 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
   assert.match(
     html,
     /data-voice-preset="clear"\s+aria-pressed="true"/,
-    "Clear must be the first, selected voice",
+    "the Pink-aligned playable default must be the first selected voice",
+  );
+  assert.match(
+    html,
+    /data-voice-preset="clear"[\s\S]*?<b>Playable default<\/b>[\s\S]*?classic 44-section voice/,
   );
   assert.match(html, /the synth voice is the clearest way to hear vowels/i);
   assert.match(html, /click a vowel[\s\S]*hold friction[\s\S]*press and release/i);
@@ -133,10 +157,11 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
     html,
     /id="typingModeButton"[\s\S]*?role="switch"[\s\S]*?aria-checked="false"/,
   );
-  assert.match(html, /\bid="typingModeState">off<\/span>/);
-  assert.match(html, /Type to speak/i);
-  assert.match(html, /All A(?:–|-)Z play approximate speech/i);
-  assert.match(html, /release stops to burst/i);
+  assert.match(html, /\bid="typingModeState">momentary<\/span>/);
+  assert.match(html, /Keyboard gate/i);
+  assert.match(html, /A(?:–|-)Z works across the instrument/i);
+  assert.match(html, /arm to silence between keys/i);
+  assert.match(html, /A(?:–|-)Z works across the UI/i);
   assert.match(html, /\bid="alphabetKeyMap"/);
   const alphabetKeys = [...html.matchAll(
     /<kbd\b[^>]*\bdata-letter="([a-z])"[^>]*>/g,
