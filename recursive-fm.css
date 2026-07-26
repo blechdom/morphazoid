@@ -78,6 +78,20 @@
   pointer-events: none;
 }
 
+.recursive-fm-spectrogram-label {
+  position: absolute;
+  z-index: 2;
+  top: 45%;
+  right: clamp(18px, 3vw, 40px);
+  left: clamp(20px, 4vw, 58px);
+  display: flex;
+  color: var(--faint);
+  justify-content: space-between;
+  font-size: 7px;
+  letter-spacing: 0.15em;
+  pointer-events: none;
+}
+
 .recursive-fm-panel {
   background:
     linear-gradient(180deg, color-mix(in oklab, var(--accent) 3%, transparent), transparent 270px),
@@ -194,6 +208,13 @@
 }
 
 @media (max-width: 650px) {
+  .recursive-fm-spectrogram-label {
+    top: 46%;
+    right: 13px;
+    left: 13px;
+    font-size: 6px;
+  }
+
   .recursive-fm-heading {
     top: 20px;
     left: 16px;

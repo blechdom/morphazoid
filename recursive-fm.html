@@ -93,8 +93,12 @@
           </div>
 
           <div class="recursive-fm-scope-labels chaotic-analysis-labels" aria-hidden="true">
-            <span>OSCILLOSCOPE · SPECTROGRAM</span>
+            <span>OSCILLOSCOPE</span>
             <span id="scopeState">ANALYSIS · IDLE</span>
+          </div>
+          <div class="recursive-fm-spectrogram-label" aria-hidden="true">
+            <span>SPECTROGRAM · LOG FREQUENCY</span>
+            <span>HIGH ↑ · HISTORY →</span>
           </div>
 
           <div
@@ -102,13 +106,13 @@
             role="img"
             aria-label="Recursive FM flow: carrier sine, entry frequency modulation, recursive frequency modulation, output."
           >
-            <span class="chaotic-flow-node"><b>Carrier sine</b><small>slow seed oscillator</small></span>
+            <span class="chaotic-flow-node"><b>Carrier sine</b><small id="flowCarrierValue">3.32 Hz</small></span>
             <i class="chaotic-flow-arrow" aria-hidden="true"></i>
-            <span class="chaotic-flow-node"><b>Entry FM</b><small>offset + bipolar deviation</small></span>
+            <span class="chaotic-flow-node"><b>Entry FM</b><small id="flowEntryValue">0 Hz → 7.31 kHz</small></span>
             <i class="chaotic-flow-arrow" aria-hidden="true"></i>
-            <span class="chaotic-flow-node"><b>Recurse</b><small>previous sine drives frequency</small></span>
+            <span class="chaotic-flow-node"><b>Recurse</b><small id="flowRecursionValue">3 turns · ÷3.68</small></span>
             <i class="chaotic-flow-arrow" aria-hidden="true"></i>
-            <span class="chaotic-flow-node"><b>Output</b><small>selected depth · normalized</small></span>
+            <span class="chaotic-flow-node"><b>Output</b><small id="flowOutputValue">operator 4 · 31%</small></span>
           </div>
         </div>
       </section>

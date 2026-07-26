@@ -375,6 +375,18 @@ function updateControlOutputs(stack = currentStack()) {
     : "none · entry is audible";
   $("operatorReadout").textContent = `operator ${stack.audibleIndex} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
   $("ceilingReadout").textContent = formatRecursiveFmFrequency(settings.maximumFrequencyHz);
+  $("flowCarrierValue").textContent = formatRecursiveFmFrequency(settings.carrierHz);
+  $("flowEntryValue").textContent = `${
+    formatRecursiveFmFrequency(settings.offsetHz)
+  } → ${formatRecursiveFmFrequency(settings.offsetHz + settings.modulationHz)}`;
+  $("flowRecursionValue").textContent = `${
+    summary.recursiveTurns
+  } ${summary.recursiveTurns === 1 ? "turn" : "turns"} · ÷${
+    settings.divisor.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")
+  }`;
+  $("flowOutputValue").textContent = `operator ${
+    stack.audibleIndex
+  } · ${(stack.normalizedGain * 100).toFixed(0)}%`;
   $("stageReadout").textContent = `${summary.label} · ${engine.running ? "ON" : "OFF"}`.toUpperCase();
   $("scopeState").textContent = engine.running ? "ANALYSIS · LIVE" : "ANALYSIS · IDLE";
   canvas.setAttribute(
