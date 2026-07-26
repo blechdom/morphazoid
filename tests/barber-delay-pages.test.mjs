@@ -95,6 +95,25 @@ test("all three barber delays are native internal Morphazoid pages", async () =>
     assert.match(markup, /id="dryWet"/);
     assert.match(markup, /id="inputGain"/);
     assert.match(markup, /id="outputLevel"/);
+    assert.match(
+      markup,
+      /id="speed"[\s\S]*?min="0"[\s\S]*?max="1"[\s\S]*?data-value-min="0"[\s\S]*?data-value-max="5"[\s\S]*?data-curve="2"[\s\S]*?aria-valuetext=/,
+    );
+    assert.match(
+      markup,
+      /id="feedbackTime"[\s\S]*?min="0"[\s\S]*?max="1"[\s\S]*?data-curve="2"[\s\S]*?aria-valuetext="\d+ ms"/,
+    );
+    assert.match(markup, /class="group control-section barber-delay-analysis"/);
+    assert.match(markup, /id="pitchRelationshipSummary"/);
+    assert.ok(
+      markup.indexOf("barber-delay-analysis")
+      > markup.indexOf("barber-delay-sound"),
+      `${page.file} keeps pitch relationships in the bottom section`,
+    );
+    const motionSection = markup.match(
+      /class="group control-section barber-delay-motion"[\s\S]*?<\/details>/,
+    )?.[0] ?? "";
+    assert.doesNotMatch(motionSection, /barber-rate-card/);
     assert.match(markup, /data-reset-all/);
     assert.match(markup, /headphones/i);
     assert.match(markup, /Switch Audio on to allow microphone access/i);
@@ -119,8 +138,19 @@ test("Candy keeps tap range and one-to-one lock while Sludge stays centered-hump
   assert.match(candy, /id="tapRange"/);
   assert.match(candy, /id="ratioLock"/);
   assert.match(candy, /range = 1 ÷ speed/);
+  assert.match(
+    candy,
+    /id="range"[\s\S]*?data-value-min="0\.1"[\s\S]*?data-value-max="10"[\s\S]*?data-value-step="0\.001"[\s\S]*?data-curve="3"/,
+  );
+  assert.match(candy, /id="rangeOut"[^>]*>1000 ms</);
   assert.doesNotMatch(sludge, /id="tapRange"/);
   assert.doesNotMatch(sludge, /id="ratioLock"/);
+  assert.match(
+    sludge,
+    /id="range"[\s\S]*?data-value-min="0\.1"[\s\S]*?data-value-max="10"[\s\S]*?data-value-step="0\.001"[\s\S]*?data-curve="3"/,
+  );
+  assert.match(sludge, /id="rangeOut"[^>]*>2000 ms</);
+  assert.match(sludge, /id="feedbackTimeOut"[^>]*>1000 ms</);
   assert.match(sludge, /below → original → above/);
   assert.match(sludge, /crosses the original pitch at its loudest/i);
 });
@@ -132,8 +162,16 @@ test("Sandy keeps pitch span, history, and grain texture as separate controls", 
   );
   assert.match(sandy, /data-delay-mode="sandy"/);
   assert.match(sandy, /id="pitchOctaves"[^>]+min="0\.5"[^>]+max="10"/);
-  assert.match(sandy, /id="feedbackTime"[^>]+min="0\.1"[^>]+max="15"/);
-  assert.match(sandy, /id="grainSize"[^>]+min="0\.005"[^>]+max="0\.5"/);
+  assert.match(
+    sandy,
+    /id="feedbackTime"[\s\S]*?data-value-min="0\.1"[\s\S]*?data-value-max="15"[\s\S]*?data-value-step="0\.01"[\s\S]*?data-curve="2"/,
+  );
+  assert.match(
+    sandy,
+    /id="grainSize"[\s\S]*?data-value-min="0\.005"[\s\S]*?data-value-max="0\.5"[\s\S]*?data-value-step="0\.001"[\s\S]*?data-curve="2"/,
+  );
+  assert.match(sandy, /id="feedbackTimeOut"[^>]*>4000 ms</);
+  assert.match(sandy, /id="grainSizeOut"[^>]*>50 ms</);
   assert.match(sandy, /id="blend"[^>]+min="0"[^>]+max="1"/);
   assert.match(sandy, /Sand · held rate/);
   assert.match(sandy, /Syrup · live rate/);
@@ -160,6 +198,11 @@ test("the shared controller keeps audio behind the menu gesture and cleans resou
   ]);
 
   assert.match(app, /from "\.\/src\/barber-delay\.js"/);
+  assert.match(app, /barberDelaySliderPosition/);
+  assert.match(app, /barberDelaySliderValue/);
+  assert.match(app, /function formatMilliseconds/);
+  assert.doesNotMatch(app, /function formatSeconds/);
+  assert.doesNotMatch(app, /toFixed\([^)]*\) s history|toFixed\([^)]*\) S HISTORY/);
   assert.match(app, /new BarberDelayAudio\(mode, globalThis\)/);
   assert.match(app, /source: "microphone"/);
   assert.match(app, /audioButton"\)\.addEventListener\("click", toggleAudio\)/);

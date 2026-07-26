@@ -9,6 +9,8 @@ import {
   BarberDelayAudio,
   barberDelayCurve,
   barberDelayPitchEstimate,
+  barberDelaySliderPosition,
+  barberDelaySliderValue,
   barberDelayWindow,
   createBarberSoftCeilingCurve,
   createBarberTransparentCeilingCurve,
@@ -16,6 +18,56 @@ import {
   sanitizeBarberDelayMode,
   sanitizeBarberDelayParams,
 } from "../src/barber-delay.js";
+
+test("barber controls retain Morphisma's low-range power curves", () => {
+  assert.equal(barberDelaySliderValue(0, 0, 5, 2), 0);
+  assert.equal(barberDelaySliderValue(1, 0, 5, 2), 5);
+  assert.equal(barberDelaySliderValue(0.25, 0, 5, 2), 0.3125);
+  assert.ok(
+    Math.abs(barberDelaySliderValue(0.5, 0.1, 10, 3) - 1.3375) < 1e-12,
+  );
+  assert.equal(
+    barberDelaySliderValue(0.5, 0.1, 10, 3, 0.001),
+    1.338,
+  );
+
+  const candyRangePosition = barberDelaySliderPosition(1, 0.1, 10, 3);
+  assert.ok(Math.abs(candyRangePosition - 0.449644313) < 1e-8);
+  assert.equal(
+    barberDelaySliderValue(candyRangePosition, 0.1, 10, 3, 0.001),
+    1,
+  );
+
+  for (const [mode, bank] of Object.entries(BARBER_DELAY_PRESETS)) {
+    for (const preset of bank) {
+      const controls = [
+        [preset.settings.speed, 0, 5, 2, 0.001],
+        [preset.settings.fbDelay, mode === "sandy" ? 0.1 : 0.001, mode === "sandy" ? 15 : 8, 2, mode === "sandy" ? 0.01 : 0.001],
+      ];
+      if (mode === "sandy") {
+        controls.push([preset.settings.grainSize, 0.005, 0.5, 2, 0.001]);
+      } else {
+        controls.push([preset.settings.range, 0.1, 10, 3, 0.001]);
+      }
+      for (const [value, minimum, maximum, curve, step] of controls) {
+        const position = barberDelaySliderPosition(
+          value,
+          minimum,
+          maximum,
+          curve,
+        );
+        const roundTrip = barberDelaySliderValue(
+          position,
+          minimum,
+          maximum,
+          curve,
+          step,
+        );
+        assert.ok(Math.abs(roundTrip - value) <= step / 2 + 1e-12);
+      }
+    }
+  }
+});
 
 test("barber-delay parameters are finite, bounded, and share a feedback budget", () => {
   const safe = sanitizeBarberDelayParams({

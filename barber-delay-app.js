@@ -3,6 +3,8 @@ import {
   BARBER_DELAY_PRESETS,
   BarberDelayAudio,
   barberDelayPitchEstimate,
+  barberDelaySliderPosition,
+  barberDelaySliderValue,
   barberDelayWindow,
   sanitizeBarberDelayParams,
 } from "./src/barber-delay.js";
@@ -76,10 +78,53 @@ function clearAudioError() {
   $("audioError").textContent = "";
 }
 
-function formatSeconds(seconds) {
-  if (seconds < 0.1) return `${Math.round(seconds * 1_000)} ms`;
-  if (seconds < 1) return `${seconds.toFixed(3)} s`;
-  return `${seconds.toFixed(2)} s`;
+function formatMilliseconds(seconds) {
+  return `${Math.round(seconds * 1_000)} ms`;
+}
+
+function formatSpeed(speed) {
+  return `${speed < 1 ? speed.toFixed(3) : speed.toFixed(2)} Hz`;
+}
+
+function controlScale(input) {
+  return {
+    minimum: Number(input.dataset.valueMin ?? input.min),
+    maximum: Number(input.dataset.valueMax ?? input.max),
+    step: Number(input.dataset.valueStep ?? input.step),
+    curve: Number(input.dataset.curve ?? 1),
+    curved: Object.hasOwn(input.dataset, "curve"),
+  };
+}
+
+function readControlValue(input) {
+  const scale = controlScale(input);
+  if (!scale.curved) return Number(input.value);
+  return barberDelaySliderValue(
+    input.value,
+    scale.minimum,
+    scale.maximum,
+    scale.curve,
+    scale.step,
+  );
+}
+
+function writeControlValue(id, value) {
+  const input = $(id);
+  const scale = controlScale(input);
+  input.value = String(
+    scale.curved
+      ? barberDelaySliderPosition(
+        value,
+        scale.minimum,
+        scale.maximum,
+        scale.curve,
+      )
+      : value,
+  );
+}
+
+function setControlValueText(id, value) {
+  $(id)?.setAttribute("aria-valuetext", value);
 }
 
 function signed(value) {
@@ -89,7 +134,8 @@ function signed(value) {
 
 function clampToInput(id, value) {
   const input = $(id);
-  return Math.min(Number(input.max), Math.max(Number(input.min), value));
+  const scale = controlScale(input);
+  return Math.min(scale.maximum, Math.max(scale.minimum, value));
 }
 
 function updateAudioParameters() {
@@ -107,6 +153,7 @@ function updatePitchReadout() {
     $("productOut").textContent = `${estimate.octaves.toFixed(2)} oct`;
     $("ratioOut").textContent = "1.00×";
     $("semitonesOut").textContent = `${estimate.lowRatio.toFixed(2)}× → ${estimate.highRatio.toFixed(2)}×`;
+    $("pitchRelationshipSummary").textContent = `±${semitoneSpan} st`;
     $("pitchReadout").textContent = `≈ ±${semitoneSpan} st`;
     $("pitchCaption").textContent = `${estimate.lowRatio.toFixed(2)}× → 1.00× → ${estimate.highRatio.toFixed(2)}×`;
     return;
@@ -119,6 +166,7 @@ function updatePitchReadout() {
     ? "1.00×"
     : `${estimate.ratio.toFixed(2)}×`;
   $("semitonesOut").textContent = semitoneCopy;
+  $("pitchRelationshipSummary").textContent = semitoneCopy;
   $("pitchReadout").textContent = `≈ ${semitoneCopy}`;
   $("pitchCaption").textContent = estimate.symmetric
     ? `${estimate.lowRatio.toFixed(2)}× → 1.00× → ${estimate.highRatio.toFixed(2)}×`
@@ -136,48 +184,60 @@ function updateInterface({ drawNow = true } = {}) {
   setPressed($("ratioLock"), state.ratioLock);
   setPressed($("audioButton"), state.audioOn);
 
-  $("speed").value = String(settings.speed);
+  writeControlValue("speed", settings.speed);
   if (isSandy) {
-    $("pitchOctaves").value = String(settings.pitchOctaves);
-    $("grainSize").value = String(settings.grainSize);
-    $("blend").value = String(settings.blend);
+    writeControlValue("pitchOctaves", settings.pitchOctaves);
+    writeControlValue("grainSize", settings.grainSize);
+    writeControlValue("blend", settings.blend);
   } else {
-    $("range").value = String(settings.range);
+    writeControlValue("range", settings.range);
   }
-  $("voices").value = String(settings.numVoices);
-  $("tilt").value = String(settings.tilt);
-  $("feedback").value = String(settings.feedback);
-  $("feedbackTime").value = String(settings.fbDelay);
-  $("dryWet").value = String(settings.dryWet);
-  $("inputGain").value = String(settings.inputGain);
-  $("outputLevel").value = String(settings.outputLevel);
+  writeControlValue("voices", settings.numVoices);
+  writeControlValue("tilt", settings.tilt);
+  writeControlValue("feedback", settings.feedback);
+  writeControlValue("feedbackTime", settings.fbDelay);
+  writeControlValue("dryWet", settings.dryWet);
+  writeControlValue("inputGain", settings.inputGain);
+  writeControlValue("outputLevel", settings.outputLevel);
 
-  $("speedOut").textContent = `${settings.speed.toFixed(2)} Hz`;
+  const speedText = formatSpeed(settings.speed);
+  $("speedOut").textContent = speedText;
+  setControlValueText("speed", speedText);
   if (isSandy) {
-    $("pitchOctavesOut").textContent = `${settings.pitchOctaves.toFixed(2)} oct`;
-    $("grainSizeOut").textContent = formatSeconds(settings.grainSize);
-    $("blendOut").textContent = settings.blend <= 0.005
+    const pitchOctavesText = `${settings.pitchOctaves.toFixed(2)} oct`;
+    const grainSizeText = formatMilliseconds(settings.grainSize);
+    const blendText = settings.blend <= 0.005
       ? "Sand"
       : settings.blend >= 0.995
         ? "Syrup"
         : `${Math.round(settings.blend * 100)}% syrup`;
+    $("pitchOctavesOut").textContent = pitchOctavesText;
+    $("grainSizeOut").textContent = grainSizeText;
+    $("blendOut").textContent = blendText;
+    setControlValueText("pitchOctaves", pitchOctavesText);
+    setControlValueText("grainSize", grainSizeText);
+    setControlValueText("blend", blendText);
   } else {
-    $("rangeOut").textContent = formatSeconds(settings.range);
+    const rangeText = formatMilliseconds(settings.range);
+    $("rangeOut").textContent = rangeText;
+    setControlValueText("range", rangeText);
   }
   $("voicesOut").textContent = String(settings.numVoices);
   $("tiltOut").textContent = Math.abs(settings.tilt) < 0.005
     ? "centered"
     : `${Math.round(Math.abs(settings.tilt) * 100)}% ${settings.tilt < 0 ? "early" : "late"}`;
   $("feedbackOut").textContent = `${Math.round(settings.feedback * 100)}%`;
-  $("feedbackTimeOut").textContent = formatSeconds(settings.fbDelay);
+  const feedbackTimeText = formatMilliseconds(settings.fbDelay);
+  $("feedbackTimeOut").textContent = feedbackTimeText;
   $("dryWetOut").textContent = `${Math.round(settings.dryWet * 100)}% wet`;
   $("inputGainOut").textContent = `${Math.round(settings.inputGain * 100)}%`;
   $("outputLevelOut").textContent = `${Math.round(settings.outputLevel * 100)}%`;
+  setControlValueText("feedbackTime", feedbackTimeText);
   $("audioState").textContent = state.audioOn ? "on" : "off";
 
   $("motionSummary").textContent = isSandy
-    ? `${directionGlyph} · ${settings.speed.toFixed(2)} Hz · ${settings.pitchOctaves.toFixed(1)} oct`
-    : `${directionGlyph} · ${settings.speed.toFixed(2)} Hz · ${settings.range.toFixed(2)} s`;
+    ? `${directionGlyph} · ${formatSpeed(settings.speed)} · ${settings.pitchOctaves.toFixed(1)} oct`
+    : `${directionGlyph} · ${formatSpeed(settings.speed)} · ${formatMilliseconds(settings.range)}`;
   $("soundSummary").textContent = isSandy
     ? `${Math.round(settings.blend * 100)}% syrup · ${Math.round(settings.dryWet * 100)}% wet`
     : `${Math.round(settings.feedback * 100)}% feedback · ${Math.round(settings.dryWet * 100)}% wet`;
@@ -200,10 +260,10 @@ function updateInterface({ drawNow = true } = {}) {
 
   $("stageReadout").textContent = [
     `${settings.numVoices} HEADS`,
-    `${directionGlyph} ${settings.speed.toFixed(2)} HZ`,
+    `${directionGlyph} ${formatSpeed(settings.speed).toUpperCase()}`,
     isSandy
-      ? `${settings.pitchOctaves.toFixed(1)} OCT · ${settings.fbDelay.toFixed(1)} S HISTORY`
-      : `${settings.range.toFixed(2)} S`,
+      ? `${settings.pitchOctaves.toFixed(1)} OCT · ${formatMilliseconds(settings.fbDelay).toUpperCase()} HISTORY`
+      : formatMilliseconds(settings.range).toUpperCase(),
     state.audioOn ? "AUDIO ON" : "AUDIO OFF",
   ].join(" · ");
   $("scopeState").textContent = state.audioOn ? "SCOPE · LIVE" : "SCOPE · IDLE";
@@ -232,8 +292,8 @@ function renderPresets() {
     button.title = [
       `${preset.settings.speed} Hz`,
       isSandy
-        ? `${preset.settings.pitchOctaves} oct · ${preset.settings.fbDelay} s history`
-        : `${preset.settings.range} s`,
+        ? `${preset.settings.pitchOctaves} oct · ${formatMilliseconds(preset.settings.fbDelay)} history`
+        : formatMilliseconds(preset.settings.range),
       `${preset.settings.numVoices} heads`,
     ].join(" · ");
     button.addEventListener("click", () => applyPreset(preset.id));
@@ -271,7 +331,7 @@ function setParameter(key, value) {
 
 function bindRange(id, key, transform = Number) {
   $(id)?.addEventListener("input", (event) => {
-    const value = transform(event.currentTarget.value);
+    const value = transform(readControlValue(event.currentTarget));
     if (isCandy && state.ratioLock && key === "speed" && value > 0) {
       state.settings = {
         ...sanitizeBarberDelayParams({
@@ -360,9 +420,9 @@ $("tapRange")?.addEventListener("click", () => {
     }, mode),
   };
   markCustom();
-  $("tapRangeState").textContent = formatSeconds(range);
+  $("tapRangeState").textContent = formatMilliseconds(range);
   updateInterface();
-  announce(`Delay range tapped at ${formatSeconds(range)}.`);
+  announce(`Delay range tapped at ${formatMilliseconds(range)}.`);
 });
 
 $("ratioLock")?.addEventListener("click", () => {

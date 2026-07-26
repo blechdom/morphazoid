@@ -72,7 +72,7 @@
           </div>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">8 HEADS · ↑ 0.05 HZ · 4.0 OCT · 4.0 S HISTORY · AUDIO OFF</span>
+            <span id="stageReadout">8 HEADS · ↑ 0.050 HZ · 4.0 OCT · 4000 MS HISTORY · AUDIO OFF</span>
           </div>
 
           <div class="barber-delay-interpretation" aria-hidden="true">
@@ -152,8 +152,20 @@
             </div>
 
             <label class="control" for="speed">
-              <span><b>Sweep speed</b><output id="speedOut" for="speed">0.05 Hz</output></span>
-              <input id="speed" type="range" min="0" max="5" step="0.001" value="0.05" />
+              <span><b>Sweep speed</b><output id="speedOut" for="speed">0.050 Hz</output></span>
+              <input
+                id="speed"
+                type="range"
+                min="0"
+                max="1"
+                step="0.00025"
+                value="0.1"
+                data-value-min="0"
+                data-value-max="5"
+                data-value-step="0.001"
+                data-curve="2"
+                aria-valuetext="0.050 Hz"
+              />
             </label>
 
             <label class="control" for="pitchOctaves">
@@ -171,11 +183,6 @@
               <input id="tilt" type="range" min="-1" max="1" step="0.01" value="0" />
             </label>
 
-            <div class="barber-rate-card" aria-label="Granular pitch relationship">
-              <span><b>Pitch span</b><output id="productOut">4.00 oct</output></span>
-              <span><b>Center rate</b><output id="ratioOut">1.00×</output></span>
-              <span><b>Edge rates</b><output id="semitonesOut">0.25× → 4.00×</output></span>
-            </div>
           </div>
         </details>
 
@@ -186,13 +193,37 @@
           </summary>
           <div class="group-body">
             <label class="control" for="feedbackTime">
-              <span><b>History</b><output id="feedbackTimeOut" for="feedbackTime">4.00 s</output></span>
-              <input id="feedbackTime" type="range" min="0.1" max="15" step="0.01" value="4" />
+              <span><b>History</b><output id="feedbackTimeOut" for="feedbackTime">4000 ms</output></span>
+              <input
+                id="feedbackTime"
+                type="range"
+                min="0"
+                max="1"
+                step="0.00025"
+                value="0.51161017"
+                data-value-min="0.1"
+                data-value-max="15"
+                data-value-step="0.01"
+                data-curve="2"
+                aria-valuetext="4000 ms"
+              />
             </label>
 
             <label class="control" for="grainSize">
               <span><b>Grain size</b><output id="grainSizeOut" for="grainSize">50 ms</output></span>
-              <input id="grainSize" type="range" min="0.005" max="0.5" step="0.001" value="0.05" />
+              <input
+                id="grainSize"
+                type="range"
+                min="0"
+                max="1"
+                step="0.00025"
+                value="0.30151134"
+                data-value-min="0.005"
+                data-value-max="0.5"
+                data-value-step="0.001"
+                data-curve="2"
+                aria-valuetext="50 ms"
+              />
             </label>
 
             <label class="control" for="blend">
@@ -231,6 +262,24 @@
             </p>
           </div>
         </details>
+
+        <section
+          class="group control-section barber-delay-analysis"
+          data-section="mapping"
+          aria-labelledby="pitchRelationshipTitle"
+        >
+          <div class="group-summary static-group-summary">
+            <h2 class="group-title" id="pitchRelationshipTitle">Pitch relationship</h2>
+            <span class="section-state" id="pitchRelationshipSummary">±24 st</span>
+          </div>
+          <div class="group-body">
+            <div class="barber-rate-card" aria-label="Granular pitch relationship">
+              <span><b>Pitch span</b><output id="productOut">4.00 oct</output></span>
+              <span><b>Center rate</b><output id="ratioOut">1.00×</output></span>
+              <span><b>Edge rates</b><output id="semitonesOut">0.25× → 4.00×</output></span>
+            </div>
+          </div>
+        </section>
 
         <div class="reset-all-row">
           <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>

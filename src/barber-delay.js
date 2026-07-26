@@ -102,6 +102,58 @@ function clamp(value, minimum, maximum, fallback = minimum) {
   );
 }
 
+/**
+ * Convert a normalized range-input position to a physical barber parameter.
+ * Morphisma's original controls used power curves to devote more track travel
+ * to low speed, short delay, and small grain values.
+ */
+export function barberDelaySliderValue(
+  position,
+  minimum,
+  maximum,
+  curve = 1,
+  step = 0,
+) {
+  const safeMinimum = finiteNumber(minimum, 0);
+  const safeMaximum = Math.max(
+    safeMinimum,
+    finiteNumber(maximum, safeMinimum),
+  );
+  const safeCurve = Math.max(Number.EPSILON, finiteNumber(curve, 1));
+  const normalized = clamp(position, 0, 1, 0);
+  const rawValue = safeMinimum + (
+    (safeMaximum - safeMinimum) * normalized ** safeCurve
+  );
+  const safeStep = Math.max(0, finiteNumber(step, 0));
+  const value = safeStep > 0
+    ? Math.round(rawValue / safeStep) * safeStep
+    : rawValue;
+  return clamp(value, safeMinimum, safeMaximum, safeMinimum);
+}
+
+/**
+ * Convert a physical barber parameter back to its normalized thumb position.
+ */
+export function barberDelaySliderPosition(
+  value,
+  minimum,
+  maximum,
+  curve = 1,
+) {
+  const safeMinimum = finiteNumber(minimum, 0);
+  const safeMaximum = Math.max(
+    safeMinimum,
+    finiteNumber(maximum, safeMinimum),
+  );
+  const span = safeMaximum - safeMinimum;
+  if (span <= 0) return 0;
+  const safeCurve = Math.max(Number.EPSILON, finiteNumber(curve, 1));
+  const normalized = (
+    clamp(value, safeMinimum, safeMaximum, safeMinimum) - safeMinimum
+  ) / span;
+  return normalized ** (1 / safeCurve);
+}
+
 function barberRecordSample(value) {
   const sample = finiteNumber(value, 0);
   const magnitude = Math.abs(sample);

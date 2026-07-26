@@ -377,6 +377,14 @@
   background: color-mix(in oklab, var(--panel-high) 86%, transparent);
 }
 
+.barber-delay-analysis .group-body {
+  padding-bottom: 15px;
+}
+
+.barber-delay-analysis .barber-rate-card {
+  margin: 0;
+}
+
 .barber-rate-card > span {
   display: grid;
   min-width: 0;
