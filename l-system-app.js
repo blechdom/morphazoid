@@ -25,8 +25,9 @@ const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
 const INITIAL_L_SYSTEM_VOICES = 128;
 const MAX_L_SYSTEM_VOICES = 4096;
-const MIN_TRAVERSAL_SPEED = 0.02;
+const MIN_TRAVERSAL_SPEED = 0.01;
 const MAX_TRAVERSAL_SPEED = 4;
+const TRAVERSAL_SPEED_CURVE = 3;
 const pool = new VoicePool(INITIAL_L_SYSTEM_VOICES, {
   adaptive: true,
   maxVoices: MAX_L_SYSTEM_VOICES,
@@ -41,7 +42,7 @@ const DEFAULT_L_SYSTEM_STATE = Object.freeze({
   lengthScale: 0.72,
   position: 0,
   continuousPosition: 0,
-  speed: 1 / 3,
+  speed: 0.3,
   direction: 1,
   traversalBehavior: "loop",
   playing: false,
@@ -170,27 +171,28 @@ bindRange(
 function traversalSpeedFromSlider(position) {
   const amount = clamp(Number(position), 0, 1);
   return MIN_TRAVERSAL_SPEED
-    * (MAX_TRAVERSAL_SPEED / MIN_TRAVERSAL_SPEED) ** amount;
+    + (MAX_TRAVERSAL_SPEED - MIN_TRAVERSAL_SPEED)
+      * amount ** TRAVERSAL_SPEED_CURVE;
 }
 
 function traversalSliderFromSpeed(speed) {
-  return Math.log(
+  const normalized = (
     clamp(Number(speed), MIN_TRAVERSAL_SPEED, MAX_TRAVERSAL_SPEED)
-      / MIN_TRAVERSAL_SPEED,
-  ) / Math.log(MAX_TRAVERSAL_SPEED / MIN_TRAVERSAL_SPEED);
+      - MIN_TRAVERSAL_SPEED
+  ) / (MAX_TRAVERSAL_SPEED - MIN_TRAVERSAL_SPEED);
+  return normalized ** (1 / TRAVERSAL_SPEED_CURVE);
 }
 
-function formatTraversalDuration(speed = state.speed) {
-  const seconds = 1 / Math.max(MIN_TRAVERSAL_SPEED, speed);
-  return `${seconds < 10 ? seconds.toFixed(2) : seconds.toFixed(1)} s / cycle`;
+function formatTraversalSpeed(speed = state.speed) {
+  return `${speed.toFixed(2)} cyc/s`;
 }
 
 function paintTraversalSpeed() {
   const input = $("speed");
   input.value = String(traversalSliderFromSpeed(state.speed));
-  const duration = formatTraversalDuration();
-  $("speedOut").textContent = duration;
-  input.setAttribute("aria-valuetext", duration);
+  const speed = formatTraversalSpeed();
+  $("speedOut").textContent = speed;
+  input.setAttribute("aria-valuetext", `${state.speed.toFixed(2)} cycles per second`);
 }
 
 $("speed").addEventListener("input", (event) => {
@@ -363,9 +365,9 @@ function paintCurrentSettings() {
       : "loop reverse";
   $("currentSettingsSummary").textContent = `${
     structureLabels[state.structureMode] ?? structureLabels.final
-  } · ${formatTraversalDuration()}`;
+  } · ${formatTraversalSpeed()}`;
   $("currentTraversalReadout").textContent = [
-    formatTraversalDuration(),
+    formatTraversalSpeed(),
     behavior,
   ].join(" · ");
   $("currentVoicingReadout").textContent = [

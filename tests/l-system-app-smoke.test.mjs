@@ -164,7 +164,7 @@ test("L-system app draws and drives adaptively capped bifurcating sine voices", 
   elements.get("position").value = String(1.5 / 7);
   listeners.get("position:input")();
   queuedFrame(now + 10);
-  assert.equal(elements.get("speedOut").textContent, "3.00 s / cycle");
+  assert.equal(elements.get("speedOut").textContent, "0.30 cyc/s");
   elements.get("speed").value = "0.05";
   listeners.get("speed:input")({ currentTarget: elements.get("speed") });
   assert.match(elements.get("structureSummary").textContent, /sequence · I2\/7/);
