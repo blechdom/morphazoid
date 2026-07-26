@@ -125,12 +125,17 @@ test("Recursive FM page is internal and uses a gesture-controlled audio button",
   assert.match(html, /id="level"/);
   assert.match(html, /id="stage"/);
   assert.match(html, /href="chaotic-synth-ui\.css"/);
-  assert.match(html, /class="chaotic-signal-flow"/);
+  assert.match(html, /class="recursive-fm-signal-graph"/);
+  assert.match(html, /id="recursiveFmFlow"/);
+  assert.match(html, /carrier modulates the entry oscillator frequency/i);
   assert.doesNotMatch(html, /SPECTROGRAM · LOG FREQUENCY|signal → frequency → signal/);
-  for (const id of ["flowCarrierValue", "flowEntryValue", "flowRecursionValue", "flowOutputValue"]) {
-    assert.match(html, new RegExp(`id="${id}"`));
-    assert.match(app, new RegExp(`\\$\\("${id}"\\)\\.textContent`));
-  }
+  assert.doesNotMatch(html, /flowCarrierValue|flowEntryValue|flowRecursionValue|flowOutputValue/);
+  assert.match(app, /function updateSignalFlow\(stack\)/);
+  assert.match(app, /recursive-fm-mod-edge/);
+  assert.match(app, /recursive-fm-tap-switch/);
+  assert.match(app, /operator\.modulationHz/);
+  assert.match(app, /operators\[0\]\.biasHz < 20/);
+  assert.match(app, /updateSignalFlow\(stack\)/);
   assert.match(html, /id="turnsReadout"/);
   assert.doesNotMatch(html, />Turn \d+</);
   assert.match(html, /src="recursive-fm-app\.js"/);

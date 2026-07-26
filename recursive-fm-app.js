@@ -351,6 +351,94 @@ function updatePresetButtons() {
     ?? "A custom recursive operator stack.";
 }
 
+function updateSignalFlow(stack) {
+  const flow = $("recursiveFmFlow");
+  const operators = stack.operators;
+  const left = 58;
+  const right = 810;
+  const nodeY = 76;
+  const busY = 151;
+  const spacing = operators.length > 1
+    ? (right - left) / (operators.length - 1)
+    : 0;
+  const nodeWidth = Math.max(40, Math.min(92, spacing * 0.64));
+  const nodeHeight = 46;
+  const positions = operators.map((_, index) => left + spacing * index);
+  const edgeMarkup = operators.slice(1).map((operator, edgeIndex) => {
+    const sourceX = positions[edgeIndex];
+    const targetX = positions[edgeIndex + 1];
+    const archY = edgeIndex % 2 === 0 ? 22 : 34;
+    return `
+      <path class="recursive-fm-mod-edge" marker-end="url(#recursiveFmArrow)"
+        d="M ${sourceX + nodeWidth * 0.5} ${nodeY}
+           C ${sourceX + spacing * 0.45} ${archY},
+             ${targetX - spacing * 0.45} ${archY},
+             ${targetX - nodeWidth * 0.5} ${nodeY}" />
+      <text class="recursive-fm-edge-value" x="${(sourceX + targetX) * 0.5}" y="${archY - 5}">
+        ∿ × ${formatRecursiveFmFrequency(operator.modulationHz)}
+      </text>
+      <circle class="recursive-fm-frequency-port" cx="${targetX - nodeWidth * 0.5}" cy="${nodeY}" r="4" />
+    `;
+  }).join("");
+  const nodeMarkup = operators.map((operator, index) => {
+    const x = positions[index];
+    const audible = index === stack.audibleIndex;
+    const title = operator.kind === "carrier"
+      ? (operator.biasHz < 20 ? "LFO / CARRIER" : "CARRIER")
+      : operator.kind === "offset-operator"
+        ? "ENTRY OSC"
+        : `RECURSIVE ${operator.turn}`;
+    const value = operator.kind === "carrier"
+      ? `${formatRecursiveFmFrequency(operator.biasHz)} sine`
+      : `bias ${formatRecursiveFmFrequency(operator.biasHz)}`;
+    return `
+      <g class="recursive-fm-operator${index === 0 ? " is-carrier" : ""}${audible ? " is-audible" : ""}">
+        <rect x="${x - nodeWidth * 0.5}" y="${nodeY - nodeHeight * 0.5}"
+          width="${nodeWidth}" height="${nodeHeight}" rx="4" />
+        <text class="recursive-fm-operator-title" x="${x}" y="${nodeY - 5}">${title}</text>
+        <text class="recursive-fm-operator-value" x="${x}" y="${nodeY + 10}">${value}</text>
+        <path class="recursive-fm-tap${audible ? " is-open" : ""}"
+          d="M ${x} ${nodeY + nodeHeight * 0.5} L ${x} ${busY}" />
+        <circle class="recursive-fm-tap-switch${audible ? " is-open" : ""}"
+          cx="${x}" cy="${busY}" r="4" />
+      </g>
+    `;
+  }).join("");
+  flow.innerHTML = `
+    <svg viewBox="0 0 1080 190" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <defs>
+        <marker id="recursiveFmArrow" viewBox="0 0 8 8" refX="7" refY="4"
+          markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 8 4 L 0 8 z" />
+        </marker>
+      </defs>
+      ${edgeMarkup}
+      ${nodeMarkup}
+      <path class="recursive-fm-output-bus" d="M ${left} ${busY} L 900 ${busY}" />
+      <text class="recursive-fm-bus-label" x="${left}" y="176">
+        oscillator taps · only operator ${stack.audibleIndex} is open
+      </text>
+      <path class="recursive-fm-audio-edge" marker-end="url(#recursiveFmArrow)"
+        d="M 900 ${busY} L 934 ${busY}" />
+      <g class="recursive-fm-output-node">
+        <rect x="940" y="124" width="116" height="54" rx="4" />
+        <text x="998" y="145">NORMALIZE</text>
+        <text class="recursive-fm-output-value" x="998" y="161">
+          ${(stack.normalizedGain * 100).toFixed(0)}% → AUDIO
+        </text>
+      </g>
+    </svg>
+  `;
+  flow.setAttribute(
+    "aria-label",
+    `${
+      operators[0].biasHz < 20 ? "LFO carrier" : "Carrier"
+    } at ${formatRecursiveFmFrequency(operators[0].biasHz)} modulates the entry oscillator. `
+      + `${operators.length - 1} frequency-modulation connections recursively nest each sine into the next oscillator. `
+      + `Only operator ${stack.audibleIndex} reaches the normalized audio output.`,
+  );
+}
+
 function updateControlOutputs(stack = currentStack()) {
   const { settings } = stack;
   controls.depth.output.textContent = String(settings.depth);
@@ -375,18 +463,7 @@ function updateControlOutputs(stack = currentStack()) {
     : "none · entry is audible";
   $("operatorReadout").textContent = `operator ${stack.audibleIndex} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
   $("ceilingReadout").textContent = formatRecursiveFmFrequency(settings.maximumFrequencyHz);
-  $("flowCarrierValue").textContent = formatRecursiveFmFrequency(settings.carrierHz);
-  $("flowEntryValue").textContent = `${
-    formatRecursiveFmFrequency(settings.offsetHz)
-  } → ${formatRecursiveFmFrequency(settings.offsetHz + settings.modulationHz)}`;
-  $("flowRecursionValue").textContent = `${
-    summary.recursiveTurns
-  } ${summary.recursiveTurns === 1 ? "turn" : "turns"} · ÷${
-    settings.divisor.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")
-  }`;
-  $("flowOutputValue").textContent = `operator ${
-    stack.audibleIndex
-  } · ${(stack.normalizedGain * 100).toFixed(0)}%`;
+  updateSignalFlow(stack);
   $("stageReadout").textContent = `${summary.label} · ${engine.running ? "ON" : "OFF"}`.toUpperCase();
   canvas.setAttribute(
     "aria-label",

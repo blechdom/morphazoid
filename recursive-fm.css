@@ -64,6 +64,136 @@
   letter-spacing: 0.11em;
 }
 
+.recursive-fm-signal-graph {
+  position: absolute;
+  z-index: 2;
+  top: 64%;
+  right: clamp(12px, 2vw, 28px);
+  bottom: 3%;
+  left: clamp(12px, 2vw, 28px);
+  pointer-events: none;
+}
+
+.recursive-fm-signal-graph svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.recursive-fm-mod-edge {
+  fill: none;
+  stroke: var(--recursive-fm-entry);
+  stroke-width: 1.35;
+  opacity: 0.78;
+}
+
+#recursiveFmArrow path {
+  fill: var(--recursive-fm-entry);
+}
+
+.recursive-fm-edge-value,
+.recursive-fm-operator-title,
+.recursive-fm-operator-value,
+.recursive-fm-bus-label,
+.recursive-fm-output-node text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-anchor: middle;
+}
+
+.recursive-fm-edge-value {
+  fill: var(--recursive-fm-entry);
+  font-size: 8px;
+}
+
+.recursive-fm-frequency-port {
+  fill: var(--bg-deep);
+  stroke: var(--recursive-fm-entry);
+  stroke-width: 1.4;
+}
+
+.recursive-fm-operator rect {
+  fill: color-mix(in oklab, var(--bg-deep) 90%, transparent);
+  stroke: var(--recursive-fm-turn);
+  stroke-width: 1;
+}
+
+.recursive-fm-operator.is-carrier rect {
+  stroke: var(--recursive-fm-carrier);
+}
+
+.recursive-fm-operator.is-audible rect {
+  fill: color-mix(in oklab, var(--recursive-fm-output) 8%, var(--bg-deep));
+  stroke: var(--recursive-fm-output);
+  stroke-width: 1.8;
+}
+
+.recursive-fm-operator-title {
+  fill: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.recursive-fm-operator-value {
+  fill: var(--muted);
+  font-size: 7px;
+}
+
+.recursive-fm-tap {
+  fill: none;
+  stroke: var(--faint);
+  stroke-dasharray: 3 4;
+  stroke-width: 1;
+  opacity: 0.2;
+}
+
+.recursive-fm-tap.is-open {
+  stroke: var(--recursive-fm-output);
+  stroke-dasharray: none;
+  stroke-width: 1.8;
+  opacity: 1;
+}
+
+.recursive-fm-tap-switch {
+  fill: var(--bg-deep);
+  stroke: var(--faint);
+  opacity: 0.35;
+}
+
+.recursive-fm-tap-switch.is-open {
+  fill: var(--recursive-fm-output);
+  stroke: var(--recursive-fm-output);
+  opacity: 1;
+}
+
+.recursive-fm-output-bus,
+.recursive-fm-audio-edge {
+  fill: none;
+  stroke: var(--recursive-fm-output);
+  stroke-width: 1.25;
+  opacity: 0.72;
+}
+
+.recursive-fm-bus-label {
+  fill: var(--faint);
+  font-size: 7px;
+  text-anchor: start;
+}
+
+.recursive-fm-output-node rect {
+  fill: color-mix(in oklab, var(--recursive-fm-output) 8%, var(--bg-deep));
+  stroke: var(--recursive-fm-output);
+}
+
+.recursive-fm-output-node text {
+  fill: var(--recursive-fm-output);
+  font-size: 8px;
+}
+
+.recursive-fm-output-node .recursive-fm-output-value {
+  fill: var(--muted);
+  font-size: 7px;
+}
+
 .recursive-fm-scope-labels {
   position: absolute;
   z-index: 2;
@@ -208,13 +338,6 @@
 }
 
 @media (max-width: 650px) {
-  .recursive-fm-spectrogram-label {
-    top: 46%;
-    right: 13px;
-    left: 13px;
-    font-size: 6px;
-  }
-
   .recursive-fm-heading {
     top: 20px;
     left: 16px;
@@ -224,14 +347,11 @@
     display: none;
   }
 
-  .recursive-fm-heading span {
-    font-size: 6px;
-  }
-
-  .recursive-fm-scope-labels {
-    right: 13px;
-    bottom: 11px;
-    left: 13px;
+  .recursive-fm-signal-graph {
+    top: 62%;
+    right: 5px;
+    bottom: 2%;
+    left: 5px;
   }
 }
 

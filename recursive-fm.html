@@ -92,18 +92,11 @@
           </div>
 
           <div
-            class="chaotic-signal-flow"
+            class="recursive-fm-signal-graph"
+            id="recursiveFmFlow"
             role="img"
-            aria-label="Recursive FM flow: carrier sine, entry frequency modulation, recursive frequency modulation, output."
-          >
-            <span class="chaotic-flow-node"><b>Carrier sine</b><small id="flowCarrierValue">3.32 Hz</small></span>
-            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
-            <span class="chaotic-flow-node"><b>Entry FM</b><small id="flowEntryValue">0 Hz → 7.31 kHz</small></span>
-            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
-            <span class="chaotic-flow-node"><b>Recurse</b><small id="flowRecursionValue">3 turns · ÷3.68</small></span>
-            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
-            <span class="chaotic-flow-node"><b>Output</b><small id="flowOutputValue">operator 4 · 31%</small></span>
-          </div>
+            aria-label="Recursive FM operator graph. The carrier modulates the entry oscillator frequency; every sine output then modulates the next oscillator, and only the selected final tap reaches audio."
+          ></div>
         </div>
       </section>
 
@@ -189,7 +182,7 @@
       </aside>
 
       <p class="sr-only" id="recursiveFmDescription">
-        A live oscilloscope and rolling spectrogram sit above a simple carrier-to-output flow chart. Detailed recursion values are listed below the sliders.
+        A live oscilloscope and rolling spectrogram sit above the complete nested FM operator graph. Curved connections show each sine output scaled into the next oscillator's frequency input; tap branches show that only the selected final operator reaches audio.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
