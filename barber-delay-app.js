@@ -6,6 +6,8 @@ import {
   barberDelaySliderPosition,
   barberDelaySliderValue,
   barberDelayWindow,
+  sandySyrupBaseDelay,
+  sandySyrupTargetRate,
   sanitizeBarberDelayParams,
 } from "./src/barber-delay.js";
 
@@ -272,7 +274,7 @@ function updateInterface({ drawNow = true } = {}) {
     isCandy
       ? `Unboxed red, pink, cream, lime, and purple winding delay stripes with small waveform fragments moving ${settings.directionUp ? "upward" : "downward"} and fading into the stage edges. Audio ${state.audioOn ? "on" : "off"}.`
       : isSandy
-        ? `Unboxed teal, violet, cyan, dark-purple, and green liquid grain stripes with small waveform fragments moving ${settings.directionUp ? "upward" : "downward"} and fading into the stage edges. Audio ${state.audioOn ? "on" : "off"}.`
+        ? `A ${settings.pitchOctaves.toFixed(1)} octave log-pitch path moving ${settings.directionUp ? "upward" : "downward"}, with ${settings.numVoices} paired grain markers, ${formatMilliseconds(settings.grainSize)} grains, and feedback echoes. Audio ${state.audioOn ? "on" : "off"}.`
         : `Unboxed olive, cyan, cream, and earth centered-hump delay paths with small waveform fragments moving ${settings.directionUp ? "upward" : "downward"} and fading into the stage edges. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 
@@ -315,6 +317,7 @@ function applyPreset(id) {
   };
   state.preset = preset.id;
   updateInterface();
+  if (isSandy) audio.reseedSandyGrains();
   announce(`${preset.label} preset loaded.`);
 }
 
@@ -755,76 +758,123 @@ function drawSludgeField(ctx, width, height) {
 }
 
 function drawSandyField(ctx, width, height) {
-  const fieldWidth = Math.min(width * 0.84, 940);
-  const fieldHeight = Math.min(height * 0.72, 610);
+  const fieldWidth = Math.min(width * 0.82, 900);
+  const fieldHeight = Math.min(height * 0.48, 390);
   const left = (width - fieldWidth) * 0.5;
-  const top = (height - fieldHeight) * 0.5;
-  const bandHeight = Math.max(14, fieldHeight / 20);
-  const direction = state.settings.directionUp ? 1 : -1;
-  const grit = 1 - state.settings.blend;
+  const top = Math.max(126, height * 0.25);
+  const centerY = top + fieldHeight * 0.5;
+  const pitchSpan = fieldHeight * (
+    0.22 + 0.72 * Math.sqrt(state.settings.pitchOctaves / 10)
+  );
+  const grainScale = (
+    (Math.sqrt(state.settings.grainSize) - Math.sqrt(0.005))
+    / (Math.sqrt(0.5) - Math.sqrt(0.005))
+  );
+  const pathWidth = 1.2 + grainScale * 8;
+  const blend = state.settings.blend;
+
+  const pointAtPhase = (phase) => {
+    const rate = sandySyrupTargetRate(
+      state.settings.pitchOctaves,
+      phase,
+      state.settings.directionUp,
+    );
+    const normalizedPitch = (
+      Math.log2(rate) / Math.max(0.25, state.settings.pitchOctaves * 0.5)
+    );
+    return {
+      x: left + phase * fieldWidth,
+      y: centerY - normalizedPitch * pitchSpan * 0.5,
+    };
+  };
 
   ctx.save();
-  ctx.translate(width * 0.5, height * 0.5);
-  ctx.rotate(direction * -0.72);
-  const diagonal = width + height;
-  const travel = state.visualPhase * bandHeight * 5;
-  for (let band = -42; band <= 42; band += 1) {
-    const stripeY = band * bandHeight + travel;
-    ctx.beginPath();
-    for (let step = 0; step <= 54; step += 1) {
-      const progress = step / 54;
-      const x = -diagonal + progress * diagonal * 2;
-      const slowWave = Math.sin((x / 92) + band * 0.82) * 10;
-      const sandRipple = Math.sin((x / 13) + band * 1.7) * 2.8 * grit;
-      const y = stripeY + slowWave + sandRipple;
-      if (step === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    for (let step = 54; step >= 0; step -= 1) {
-      const progress = step / 54;
-      const x = -diagonal + progress * diagonal * 2;
-      const slowWave = Math.sin((x / 92) + band * 0.82) * 10;
-      const sandRipple = Math.sin((x / 13) + band * 1.7) * 2.8 * grit;
-      ctx.lineTo(x, stripeY + bandHeight * 0.72 + slowWave + sandRipple);
-    }
-    ctx.closePath();
-    ctx.fillStyle = colors[((band % colors.length) + colors.length) % colors.length];
-    ctx.globalAlpha = 0.27 + state.settings.blend * 0.09;
-    ctx.fill();
+
+  // The foreground path is log pitch over one sweep. Sand breaks it into
+  // grain-sized pieces; Syrup joins the same path continuously.
+  const pathGradient = ctx.createLinearGradient(
+    left,
+    centerY,
+    left + fieldWidth,
+    centerY,
+  );
+  for (let index = 0; index < colors.length; index += 1) {
+    pathGradient.addColorStop(index / (colors.length - 1), colors[index]);
   }
-  ctx.restore();
+  const segmentCount = Math.max(
+    16,
+    Math.min(180, Math.round(1 / Math.max(0.005, state.settings.grainSize))),
+  );
+  for (let segment = 0; segment < segmentCount; segment += 1) {
+    const startPhase = segment / segmentCount;
+    const endPhase = Math.min(
+      1,
+      startPhase + (0.35 + blend * 0.65) / segmentCount,
+    );
+    const start = pointAtPhase(startPhase);
+    const end = pointAtPhase(endPhase);
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.strokeStyle = pathGradient;
+    ctx.globalAlpha = 0.18 + blend * 0.34;
+    ctx.lineWidth = pathWidth;
+    ctx.lineCap = blend > 0.7 ? "round" : "butt";
+    ctx.stroke();
+  }
 
-  ctx.save();
   const heads = state.settings.numVoices;
   for (let index = 0; index < heads; index += 1) {
     const phase = wrapPhase(state.visualPhase + index / heads);
-    const centeredRate = (phase - 0.5) * direction;
-    const x = left + fieldWidth * (0.12 + phase * 0.76);
-    const y = top + fieldHeight * (
-      0.5 - centeredRate * 0.7
-      + Math.sin(phase * Math.PI * 4) * 0.035
+    const point = pointAtPhase(phase);
+    const history = sandySyrupBaseDelay(
+      state.settings.pitchOctaves,
+      phase,
+      state.settings.fbDelay,
     );
     const window = barberDelayWindow(phase, state.settings.tilt);
-    const grainPulse = 0.5 + 0.5 * Math.cos(
-      TAU * phase / Math.max(0.005, state.settings.grainSize),
-    );
     const color = colors[index % colors.length];
+
+    // Feedback is shown as fading prior grains, not as decorative background
+    // lines. Their separation follows the selected history length.
+    const echoes = Math.min(4, Math.ceil(state.settings.feedback * 4));
+    for (let echo = echoes; echo >= 1; echo -= 1) {
+      const echoPhase = wrapPhase(
+        phase - (
+          state.settings.directionUp ? 1 : -1
+        ) * echo * (0.018 + history / 15 * 0.028),
+      );
+      const echoPoint = pointAtPhase(echoPhase);
+      drawAudioFragment(
+        ctx,
+        echoPoint.x,
+        echoPoint.y,
+        2.4 + grainScale * 3,
+        color,
+        state.settings.feedback * (0.12 / echo),
+        index + echoPhase * 4,
+      );
+    }
+
+    const fragmentSize = 3.5 + grainScale * 8 + window * 2.5;
     drawAudioFragment(
       ctx,
-      x,
-      y,
-      3.2 + window * 3.8 + grainPulse,
+      point.x,
+      point.y,
+      fragmentSize,
       color,
-      0.2 + window * 0.72,
+      0.3 + window * 0.68,
       index + phase * 3,
     );
+
+    // The second marker is the complementary Hann grain stream.
     drawAudioFragment(
       ctx,
-      x + (direction * 7),
-      y + 5,
-      2 + window * 1.8,
+      point.x + (state.settings.directionUp ? 1 : -1) * (4 + grainScale * 8),
+      point.y + 5,
+      fragmentSize * 0.62,
       color,
-      0.14 + window * 0.48,
+      0.2 + (1 - window) * 0.48,
       index + phase * 5 + 0.5,
     );
   }

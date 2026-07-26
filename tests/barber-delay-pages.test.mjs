@@ -175,6 +175,8 @@ test("Sandy keeps pitch span, history, and grain texture as separate controls", 
   assert.match(sandy, /id="blend"[^>]+min="0"[^>]+max="1"/);
   assert.match(sandy, /Sand · held rate/);
   assert.match(sandy, /Syrup · live rate/);
+  assert.match(sandy, /PITCH PATH · GRAIN WINDOWS/);
+  assert.doesNotMatch(sandy, /liquid grain stripes/i);
   assert.doesNotMatch(sandy, /id="range"/);
   assert.doesNotMatch(sandy, /id="tapRange"/);
   assert.doesNotMatch(sandy, /id="ratioLock"/);
@@ -210,6 +212,9 @@ test("the shared controller keeps audio behind the menu gesture and cleans resou
   assert.match(app, /getTimeDomainData\(waveform\)/);
   assert.match(app, /1_000 \/ 30/);
   assert.match(app, /function drawAudioFragment/);
+  assert.match(app, /sandySyrupTargetRate/);
+  assert.match(app, /sandySyrupBaseDelay/);
+  assert.match(app, /audio\.reseedSandyGrains\(\)/);
   assert.match(app, /globalCompositeOperation = "destination-in"/);
   assert.doesNotMatch(app, /roundedRectPath|\.(?:arc|arcTo)\(/);
   assert.match(app, /addEventListener\("pagehide"/);

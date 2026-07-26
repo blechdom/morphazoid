@@ -59,10 +59,10 @@
             id="stage"
             tabindex="0"
             role="img"
-            aria-label="Unboxed teal, violet, cyan, dark-purple, and green liquid grain stripes with waveform fragments fading into the stage edges. Audio off."
+            aria-label="A log-pitch sweep path with paired grain markers and feedback echoes. Audio off."
             aria-describedby="delayDescription liveStatus"
           >
-            Liquid-colored grain stripes and waveform fragments show phase-staggered pitch and history paths.
+            A log-pitch path shows the active grain streams, pitch direction, grain size, and feedback history.
           </canvas>
 
           <div class="barber-delay-heading">
@@ -81,7 +81,7 @@
           </div>
 
           <div class="barber-delay-scope-labels" aria-hidden="true">
-            <span>GRANULAR LIQUID FIELD</span>
+            <span>PITCH PATH · GRAIN WINDOWS</span>
             <span id="scopeState">SCOPE · IDLE</span>
           </div>
         </div>
@@ -287,7 +287,7 @@
       </aside>
 
       <p class="sr-only" id="delayDescription">
-        Sandy Syrup uses twelve phase-staggered voices with two complementary Hann-windowed grain streams each. Waveform fragments mark the grains in an unboxed field; Sand holds a rate at each grain boundary and Syrup continuously follows the pitch sweep.
+        Sandy Syrup uses twelve phase-staggered voices with two complementary Hann-windowed grain streams each. The foreground path plots log pitch over one sweep: Sand breaks the path into held-rate grain segments, while Syrup joins it continuously. Paired waveform markers show active grains and fading copies show feedback history.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

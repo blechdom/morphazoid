@@ -7,7 +7,7 @@ const BARBER_RECORD_LINEAR_LIMIT = 16;
 const BARBER_RECORD_CEILING = 64;
 const SANDY_BUFFER_SECONDS = 16;
 const SANDY_STREAM_COUNT = 24;
-const SANDY_READ_GUARD_SAMPLES = 4;
+const SANDY_READ_GUARD_SAMPLES = 1;
 
 export const BARBER_DELAY_PROCESSOR_NAME = PROCESSOR_NAME;
 
@@ -439,6 +439,41 @@ export function clampSandySyrupCursor(
   )));
 }
 
+/**
+ * Place a new grain at Morphisma's exponential history position.
+ * Faster-than-live grains are allowed to catch the write head and are then
+ * held at the read guard, matching the source graph's max(rawDelay, 1 sample)
+ * behavior. Reserving an entire grain traversal here changes the pitch and
+ * makes otherwise distinct presets converge on the oldest available history.
+ */
+export function sandySyrupInitialCursor(
+  absoluteWriteIndex,
+  pitchOctaves,
+  phase,
+  historySeconds,
+  sampleRate,
+  bufferLength,
+  guardSamples = SANDY_READ_GUARD_SAMPLES,
+) {
+  const safeSampleRate = clamp(
+    sampleRate,
+    8_000,
+    384_000,
+    DEFAULT_SAMPLE_RATE,
+  );
+  const delaySamples = sandySyrupBaseDelay(
+    pitchOctaves,
+    phase,
+    historySeconds,
+  ) * safeSampleRate;
+  return clampSandySyrupCursor(
+    finiteNumber(absoluteWriteIndex, 0) - delaySamples,
+    absoluteWriteIndex,
+    bufferLength,
+    guardSamples,
+  );
+}
+
 export function barberDelayPitchEstimate(params = {}, mode = "candy") {
   const safeMode = sanitizeBarberDelayMode(mode);
   const safe = sanitizeBarberDelayParams(params, safeMode);
@@ -816,6 +851,13 @@ function createProcessorClass(AudioWorkletBase) {
           this.globalFeedbackBuffers[0].fill(0);
           this.globalFeedbackBuffers[1].fill(0);
           this.globalFeedbackIndex = 0;
+        } else if (message?.type === "reseed-sandy-grains" && this.isSandy) {
+          // Preserve captured audio while making a new preset's grain size,
+          // history position, and held rates audible immediately.
+          this.streamCursors.fill(0);
+          this.streamHeldRates.fill(1);
+          this.streamInitialized.fill(0);
+          this.streamPhases.fill(0);
         }
       };
     }
@@ -857,44 +899,13 @@ function createProcessorClass(AudioWorkletBase) {
       targetRate,
       absoluteWriteIndex,
     ) {
-      const octaves = this.current.pitchOctaves;
-      const octaveSpan = 2 ** octaves;
-      const baseDelaySamples = (
-        this.current.fbDelay
-        * this.sampleRate
-        * (((2 ** (octaves * (1 - voicePhase))) - 1)
-          / (octaveSpan - 1))
-      );
-      const grainSamples = Math.max(
-        1,
-        this.current.grainSize * this.sampleRate,
-      );
-      const sweepTravel = this.current.speed * this.current.grainSize;
-      const grainEnd = voicePhase + sweepTravel;
-      let maximumRate;
-      if (sweepTravel >= 1 || grainEnd >= 1) {
-        maximumRate = 2 ** (octaves * 0.5);
-      } else {
-        // Direction changes are smoothed during a grain. Bounding by distance
-        // from the center protects either direction without discontinuities.
-        const farthestFromCenter = Math.max(
-          Math.abs(voicePhase - 0.5),
-          Math.abs(grainEnd - 0.5),
-        );
-        maximumRate = 2 ** (octaves * farthestFromCenter);
-      }
-      const traversalReserve = Math.max(
-        0,
-        maximumRate - 1,
-      ) * grainSamples;
-      const lookbehind = (
-        Math.max(baseDelaySamples, traversalReserve)
-        + SANDY_READ_GUARD_SAMPLES
-      );
       this.streamHeldRates[streamIndex] = targetRate;
-      this.streamCursors[streamIndex] = clampSandySyrupCursor(
-        absoluteWriteIndex - lookbehind,
+      this.streamCursors[streamIndex] = sandySyrupInitialCursor(
         absoluteWriteIndex,
+        this.current.pitchOctaves,
+        voicePhase,
+        this.current.fbDelay,
+        this.sampleRate,
         this.bufferLength,
       );
       this.streamInitialized[streamIndex] = 1;
@@ -1395,6 +1406,11 @@ export class BarberDelayAudio {
       parameters: this.params,
     });
     return Object.freeze({ ...this.params });
+  }
+
+  reseedSandyGrains() {
+    if (this.mode !== "sandy") return;
+    this.node?.port.postMessage({ type: "reseed-sandy-grains" });
   }
 
   getTimeDomainData(target) {

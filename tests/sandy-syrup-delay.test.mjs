@@ -13,6 +13,7 @@ import {
   sandySyrupComplementaryHann,
   sandySyrupEffectiveRate,
   sandySyrupHann,
+  sandySyrupInitialCursor,
   sandySyrupTargetRate,
   sandySyrupVoiceGain,
   sanitizeBarberDelayMode,
@@ -64,6 +65,34 @@ test("Sand holds grain rate, Syrup follows it, and cursor integration is absolut
 
   assert.equal(clampSandySyrupCursor(10_000, 1_000, 800, 4), 996);
   assert.equal(clampSandySyrupCursor(-10_000, 1_000, 800, 4), 202);
+});
+
+test("new grains begin at the source-faithful exponential history position", () => {
+  const sampleRate = 48_000;
+  const write = 20 * sampleRate;
+  const bufferLength = 16 * sampleRate;
+  assert.equal(
+    sandySyrupInitialCursor(
+      write,
+      4,
+      0,
+      4,
+      sampleRate,
+      bufferLength,
+    ),
+    write - (4 * sampleRate),
+  );
+  assert.equal(
+    sandySyrupInitialCursor(
+      write,
+      4,
+      1,
+      4,
+      sampleRate,
+      bufferLength,
+    ),
+    write - BARBER_DELAY_LIMITS.sandyReadGuardSamples,
+  );
 });
 
 test("all 12 exact Sandy Syrup presets survive safe parameter bounds", () => {
@@ -224,9 +253,43 @@ test("Sandy worklet preallocates 24 streams, reserves traversal, and renders fin
     assert.ok(peak < 128, `unexpected unprotected worklet peak ${peak}`);
 
     assert.ok(
-      initialMaximumLag > 15.4 * 48_000,
-      `high-rate grain did not reserve traversal history: ${initialMaximumLag}`,
+      initialMaximumLag <= 15 * 48_000,
+      `grain start moved behind its requested history: ${initialMaximumLag}`,
     );
+
+    processor.streamInitialized.fill(1);
+    processor.buffers[0][0] = 0.25;
+    processor.port.onmessage({ data: { type: "reseed-sandy-grains" } });
+    assert.ok(processor.streamInitialized.every((value) => value === 0));
+    assert.equal(
+      processor.buffers[0][0],
+      0.25,
+      "preset reseeding must preserve captured source history",
+    );
+
+    const robot = BARBER_DELAY_PRESETS.sandy.find(
+      ({ id }) => id === "robot-grind",
+    );
+    processor.port.onmessage({
+      data: { type: "parameters", parameters: robot.settings },
+    });
+    assert.equal(processor.target.speed, 1.2);
+    assert.equal(processor.target.pitchOctaves, 1);
+    assert.equal(processor.target.numVoices, 2);
+    assert.equal(processor.target.grainSize, 0.015);
+    assert.equal(processor.target.blend, 0);
+
+    const spectrum = BARBER_DELAY_PRESETS.sandy.find(
+      ({ id }) => id === "full-spectrum",
+    );
+    processor.port.onmessage({
+      data: { type: "parameters", parameters: spectrum.settings },
+    });
+    assert.equal(processor.target.speed, 0.04);
+    assert.equal(processor.target.pitchOctaves, 10);
+    assert.equal(processor.target.numVoices, 12);
+    assert.equal(processor.target.grainSize, 0.03);
+    assert.equal(processor.target.blend, 0.8);
 
     const feedbackLatency = new Processor({
       processorOptions: {
