@@ -20,7 +20,7 @@ function pitchKey(semitones) {
 
 /**
  * Maps an arbitrary L-system voice set onto 24 audible pitch classes, then
- * delegates every branch to mic(mic)'s single raw-history granular worklet.
+ * delegates every branch to L-mic's single raw-history granular worklet.
  *
  * Unlike a bank of pre-pitched delay histories, every branch reads the raw
  * microphone history at its current delay and rate. A pitch gesture therefore

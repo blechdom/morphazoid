@@ -28,7 +28,7 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
   freezeGroup("audio-mic", "Audio & Mic", [
     { id: "lumber", label: "Lumber", href: "lumber.html" },
-    { id: "micmic", label: "Mic(mic)", href: "micmic.html" },
+    { id: "micmic", label: "L-mic", href: "l-mic.html" },
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
   ]),

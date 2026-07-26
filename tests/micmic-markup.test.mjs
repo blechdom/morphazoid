@@ -4,16 +4,26 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("mic(mic) exposes live recursion, current settings, safety, and an echo-tree stage", async () => {
-  const [html, app, css] = await Promise.all([
+test("L-mic exposes live recursion, current settings, safety, and an echo-tree stage", async () => {
+  const [html, legacyRedirect, app, css] = await Promise.all([
+    readFile(new URL("l-mic.html", root), "utf8"),
     readFile(new URL("micmic.html", root), "utf8"),
     readFile(new URL("micmic-app.js", root), "utf8"),
     readFile(new URL("micmic.css", root), "utf8"),
   ]);
 
+  assert.match(html, /<title>L-mic — Morphazoid<\/title>/);
+  assert.match(html, /<link rel="canonical" href="l-mic\.html"/);
   assert.match(html, /<body class="micmic-page">/);
-  assert.match(html, /class="tab micmic-tab active"[^>]*aria-current="page">mic\(mic\)/);
-  assert.match(html, /<option value="micmic\.html" selected>mic\(mic\)<\/option>/);
+  assert.match(html, /class="tab micmic-tab active"[^>]*href="l-mic\.html"[^>]*aria-current="page">L-mic/);
+  assert.match(html, /<option value="l-mic\.html" selected>L-mic<\/option>/);
+  assert.doesNotMatch(html, /mic\(mic\)/i);
+  assert.match(legacyRedirect, /http-equiv="refresh" content="0; url=l-mic\.html"/);
+  assert.match(legacyRedirect, /<link rel="canonical" href="l-mic\.html"/);
+  assert.match(
+    legacyRedirect,
+    /window\.location\.replace\(`l-mic\.html\$\{window\.location\.search\}\$\{window\.location\.hash\}`\)/,
+  );
   assert.match(html, /<span class="audio-copy"><b>Audio<\/b>/);
   assert.match(html, /src="micmic-app\.js(?:\?[^"]+)?"/);
   assert.match(html, /href="micmic\.css"/);
@@ -205,8 +215,8 @@ test("mic(mic) exposes live recursion, current settings, safety, and an echo-tre
   assert.match(css, /@media \(max-width: 650px\)/);
 });
 
-test("mic(mic) markup has unique ids and labelled controls", async () => {
-  const html = await readFile(new URL("micmic.html", root), "utf8");
+test("L-mic markup has unique ids and labelled controls", async () => {
+  const html = await readFile(new URL("l-mic.html", root), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
   for (const id of ["level", "inputTrim", "generations", "pruningBias", "depth", "interval", "timeRatio", "generationAngle", "generationAsymmetry", "generationPitchScale", "mutation", "wet", "dry", "spread"]) {

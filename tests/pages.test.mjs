@@ -7,7 +7,7 @@ const root = new URL("../", import.meta.url);
 test("all instrument pages share desktop and mobile navigation", async () => {
   const files = [
     "index.html", "lattice.html", "spiral.html", "solid.html", "hyper.html",
-    "l-system.html", "recursion.html", "julia.html", "lumber.html", "micmic.html",
+    "l-system.html", "recursion.html", "julia.html", "lumber.html", "l-mic.html",
     "graph-delay.html",
     "throatazoid.html",
   ];
@@ -19,7 +19,7 @@ test("all instrument pages share desktop and mobile navigation", async () => {
   for (const [index, html] of pages.entries()) {
     for (const label of [
       "shape", "lattice", "spiral", "solid", "hyper",
-      "l-system", "recursion", "julia", "lumber", "mic(mic)", "graph-delay", "throatazoid",
+      "l-system", "recursion", "julia", "lumber", "L-mic", "graph-delay", "throatazoid",
       "morphazoidical",
     ]) {
       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

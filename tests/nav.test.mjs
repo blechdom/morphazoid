@@ -161,6 +161,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "micmic"),
+    {
+      id: "micmic",
+      label: "L-mic",
+      href: "l-mic.html",
+    },
+  );
+  assert.deepEqual(
     TOOL_GROUPS.find((group) => group.id === "barber-shop-poles")?.tools.map(
       ({ id, href }) => ({ id, href }),
     ),
@@ -188,6 +196,8 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(normalizeNavigationPath(`${SITE_ROOT}index.html?mode=test`, SITE_ROOT), "/blechdom/morphazoid/");
   assert.equal(resolveActiveTool("https://example.test/blechdom/morphazoid", SITE_ROOT)?.id, "shape");
   assert.equal(resolveActiveTool(`${SITE_ROOT}spiral.html#reader`, SITE_ROOT)?.id, "spiral");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}l-mic.html`, SITE_ROOT)?.id, "micmic");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}micmic.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}graph-delay.html`, SITE_ROOT)?.id, "graph-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}audio-engine-lab.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}shepard-risset.html`, SITE_ROOT)?.id, "shepard-risset");

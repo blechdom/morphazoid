@@ -4,8 +4,8 @@ import test from "node:test";
 
 import { sliderFromTimeFold } from "../src/micmic.js";
 
-test("mic(mic) renders and drives a recursive microphone graph", async () => {
-  const html = await readFile(new URL("../micmic.html", import.meta.url), "utf8");
+test("L-mic renders and drives a recursive microphone graph", async () => {
+  const html = await readFile(new URL("../l-mic.html", import.meta.url), "utf8");
   const tags = new Map(
     [...html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)].map((match) => [match[1], match[0]]),
   );
@@ -561,7 +561,7 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.equal(
     workletNodes.some((node) => node.name === "morphazoid-mic-branches"),
     false,
-    "Recursive Bounce is no longer part of mic(mic)",
+    "Recursive Bounce is no longer part of L-mic",
   );
 
   listeners.get("generationPreset-binary:click")();

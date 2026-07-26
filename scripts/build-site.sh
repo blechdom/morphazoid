@@ -57,6 +57,10 @@ required_files=(
   favicon.svg
   src/audio.js
   src/contour-synth-processor.js
+  l-mic.html
+  micmic.html
+  micmic-app.js
+  micmic.css
   shepard-risset.html
   shepard-risset-app.js
   src/shepard-risset.js
