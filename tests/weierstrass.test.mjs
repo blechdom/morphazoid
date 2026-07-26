@@ -632,6 +632,9 @@ test("native page exposes Wave, FM, and source-faithful PM with bounded ledgers"
   assert.match(markup, />Frequency offset</);
   assert.match(markup, />Phase oscillator</);
   assert.match(markup, />Phase index</);
+  assert.match(markup, /Each node is one sine partial/);
+  assert.match(markup, /id="visualZoom"[^>]+min="1"[^>]+max="8"/);
+  assert.match(markup, /Visual only—the sounding frequencies and pitch do not change/);
   assert.match(
     markup,
     /wrap\(W \+ index × sin\(oscillator phase\)\) in cycles/,
@@ -659,6 +662,15 @@ test("native page exposes Wave, FM, and source-faithful PM with bounded ledgers"
   assert.doesNotMatch(markup, /Listening/);
 
   assert.match(app, /FRAME_INTERVAL = 1_000 \/ 30/);
+  assert.match(app, /createChaoticSpectrogram/);
+  assert.match(app, /drawChaoticScope/);
+  assert.match(app, /drawChaoticSpectrogram/);
+  assert.match(app, /state\.visualZoom/);
+  const zoomHandler = app.match(
+    /\$\("visualZoom"\)\.addEventListener\("input",[\s\S]*?\n}\);/,
+  )?.[0] ?? "";
+  assert.match(zoomHandler, /visualizationDirty = true/);
+  assert.doesNotMatch(zoomHandler, /applySettings|audio\.setParameters/);
   assert.match(app, /deriveWeierstrassFmHeadroom/);
   assert.match(app, /deriveWeierstrassPmHeadroom/);
   assert.match(app, /requestedDepthHz/);

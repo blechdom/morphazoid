@@ -17,6 +17,12 @@ import {
   quadraticSliderValue,
   sanitizeWeierstrassParams,
 } from "./src/weierstrass.js";
+import {
+  createChaoticSpectrogram,
+  drawChaoticScope,
+  drawChaoticSpectrogram,
+  updateChaoticSpectrogram,
+} from "./src/chaotic-synth-visuals.js";
 
 const $ = (id) => document.getElementById(id);
 const FRAME_INTERVAL = 1_000 / 30;
@@ -29,6 +35,10 @@ const context2d = canvas.getContext("2d", {
 });
 const stageWrap = $("stageWrap");
 const waveform = new Float32Array(512);
+const spectrogram = createChaoticSpectrogram(document, {
+  width: 360,
+  height: 96,
+});
 const reducedMotion = globalThis.matchMedia?.(
   "(prefers-reduced-motion: reduce)",
 )?.matches ?? false;
@@ -59,6 +69,7 @@ const state = {
   activePresetId: defaultPreset.id,
   audioOn: false,
   audioStarting: false,
+  visualZoom: 1,
 };
 
 let frameId = null;
@@ -571,6 +582,13 @@ $("output").addEventListener("input", () => {
   updateReadouts();
 });
 
+$("visualZoom").addEventListener("input", () => {
+  state.visualZoom = Number($("visualZoom").value);
+  $("visualZoomOut").textContent = `${state.visualZoom.toFixed(1)}×`;
+  visualizationDirty = true;
+  scheduleVisualization();
+});
+
 async function toggleAudio() {
   if (state.audioStarting) return;
   clearError();
@@ -656,13 +674,60 @@ function logarithmicX(frequency, minimum, maximum, left, right) {
   return left + position * (right - left);
 }
 
+function latticeFrequencyBounds(bank) {
+  const fullMinimum = WEIERSTRASS_LIMITS.minBaseFrequencyHz;
+  const fullMaximum = bank.settings.maximumFrequencyHz;
+  const fullMinimumLog = Math.log(fullMinimum);
+  const fullMaximumLog = Math.log(fullMaximum);
+  if (state.visualZoom <= 1) {
+    return { minimum: fullMinimum, maximum: fullMaximum };
+  }
+  const activeRange = activeFrequencyRange(bank);
+  const center = activeRange
+    ? (Math.log(activeRange.minimum) + Math.log(activeRange.maximum)) * 0.5
+    : (fullMinimumLog + fullMaximumLog) * 0.5;
+  const span = (fullMaximumLog - fullMinimumLog) / state.visualZoom;
+  const minimumLog = Math.min(
+    fullMaximumLog - span,
+    Math.max(fullMinimumLog, center - span * 0.5),
+  );
+  return {
+    minimum: Math.exp(minimumLog),
+    maximum: Math.exp(minimumLog + span),
+  };
+}
+
+function analysisRegions(width, height) {
+  const left = Math.max(24, width * 0.045);
+  const right = width - left;
+  const scopeTop = Math.max(108, Math.min(height * 0.19, 146));
+  const scopeBottom = Math.max(
+    scopeTop + 48,
+    Math.min(height * 0.3, scopeTop + 96),
+  );
+  const spectrogramTop = scopeBottom + 8;
+  const spectrogramBottom = Math.max(
+    spectrogramTop + 42,
+    Math.min(height * 0.43, spectrogramTop + 96),
+  );
+  return {
+    left,
+    right,
+    scopeTop,
+    scopeBottom,
+    spectrogramTop,
+    spectrogramBottom,
+  };
+}
+
 function drawPartialLattice(context, bank, width, height, timestamp) {
   const left = Math.max(28, width * 0.055);
   const right = width - left;
-  const top = Math.max(132, Math.min(height * 0.24, 176));
-  const bottom = Math.max(top + 80, Math.min(height * 0.61, height - 150));
-  const minimumHz = WEIERSTRASS_LIMITS.minBaseFrequencyHz;
-  const maximumHz = bank.settings.maximumFrequencyHz;
+  const top = Math.max(250, height * 0.51);
+  const bottom = Math.max(top + 80, height - 54);
+  const frequencyBounds = latticeFrequencyBounds(bank);
+  const minimumHz = frequencyBounds.minimum;
+  const maximumHz = frequencyBounds.maximum;
   const motion = state.audioOn && !reducedMotion
     ? timestamp * 0.00018
     : 0;
@@ -672,6 +737,7 @@ function drawPartialLattice(context, bank, width, height, timestamp) {
   context.strokeStyle = "rgba(214, 232, 226, 0.08)";
   context.beginPath();
   for (let octave = 0.001; octave <= maximumHz; octave *= 10) {
+    if (octave < minimumHz) continue;
     const x = logarithmicX(octave, minimumHz, maximumHz, left, right);
     context.moveTo(x, top);
     context.lineTo(x, bottom);
@@ -751,6 +817,12 @@ function drawPartialLattice(context, bank, width, height, timestamp) {
     }
     context.fill();
     context.stroke();
+    if (bank.requestedCount <= 16 || partial.index % 4 === 0) {
+      context.fillStyle = partial.active ? "#aebbb5" : "#59625e";
+      context.font = "7px ui-monospace, SFMono-Regular, Menlo, monospace";
+      context.textAlign = "center";
+      context.fillText(`n${partial.exponent}`, x, y - radius - 7);
+    }
   }
 
   context.fillStyle = "#77837e";
@@ -762,56 +834,40 @@ function drawPartialLattice(context, bank, width, height, timestamp) {
   context.restore();
 }
 
-function drawScope(context, width, height) {
-  const left = Math.max(24, width * 0.045);
-  const right = width - left;
-  const top = Math.max(height * 0.71, 250);
-  const bottom = Math.max(top + 24, height - 43);
-  const center = (top + bottom) * 0.5;
+function drawAnalysis(context, width, height) {
+  const regions = analysisRegions(width, height);
   const hasWaveform = state.audioOn && audio.getWaveform(waveform);
-
-  context.save();
-  context.strokeStyle = "rgba(214, 232, 226, 0.08)";
-  context.lineWidth = 1;
-  context.beginPath();
-  context.moveTo(left, center);
-  context.lineTo(right, center);
-  context.stroke();
-
-  context.beginPath();
-  if (hasWaveform) {
-    const slice = (right - left) / Math.max(1, waveform.length - 1);
-    for (let index = 0; index < waveform.length; index += 1) {
-      const x = left + index * slice;
-      const y = center - waveform[index] * (bottom - top) * 0.46;
-      if (index === 0) context.moveTo(x, y);
-      else context.lineTo(x, y);
-    }
-    context.strokeStyle = state.settings.mode === "fm"
-      ? "#c79bff"
-      : state.settings.mode === "pm"
-        ? "#ff9f73"
-        : "#7db4ff";
-    context.shadowColor = state.settings.mode === "fm"
-      ? "rgba(199, 155, 255, 0.4)"
-      : state.settings.mode === "pm"
-        ? "rgba(255, 159, 115, 0.4)"
-        : "rgba(125, 180, 255, 0.4)";
-    context.shadowBlur = 8;
-  } else {
-    context.moveTo(left, center);
-    context.lineTo(right, center);
-    context.strokeStyle = "rgba(119, 131, 126, 0.48)";
+  const stroke = state.settings.mode === "fm"
+    ? "#c79bff"
+    : state.settings.mode === "pm"
+      ? "#ff9f73"
+      : "#7db4ff";
+  const glow = state.settings.mode === "fm"
+    ? "rgba(199, 155, 255, 0.4)"
+    : state.settings.mode === "pm"
+      ? "rgba(255, 159, 115, 0.4)"
+      : "rgba(125, 180, 255, 0.4)";
+  if (state.audioOn) {
+    updateChaoticSpectrogram(spectrogram, audio.analyser, {
+      hue: state.settings.mode === "fm"
+        ? 270
+        : state.settings.mode === "pm"
+          ? 18
+          : 215,
+    });
   }
-  context.lineWidth = 1.25;
-  context.stroke();
-  context.restore();
+  drawChaoticScope(context, hasWaveform ? waveform : null, regions, {
+    stroke,
+    glow,
+  });
+  drawChaoticSpectrogram(context, spectrogram, regions);
 }
 
 function draw(timestamp) {
   if (!context2d || disposed) return;
   context2d.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context2d.clearRect(0, 0, cssWidth, cssHeight);
+  drawAnalysis(context2d, cssWidth, cssHeight);
   drawPartialLattice(
     context2d,
     currentBank(),
@@ -819,7 +875,6 @@ function draw(timestamp) {
     cssHeight,
     timestamp,
   );
-  drawScope(context2d, cssWidth, cssHeight);
 }
 
 function visualizationFrame(timestamp) {

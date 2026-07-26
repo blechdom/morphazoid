@@ -152,6 +152,85 @@
   background: color-mix(in oklab, var(--weierstrass-pm) 12%, transparent);
 }
 
+.weierstrass-node-guide {
+  display: grid;
+  margin: 0 0 14px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--bg-deep) 86%, transparent);
+  gap: 8px;
+}
+
+.weierstrass-node-guide p,
+.weierstrass-node-guide small {
+  margin: 0;
+}
+
+.weierstrass-node-guide p {
+  color: var(--ink);
+  font-size: 9px;
+}
+
+.weierstrass-node-guide dl {
+  display: grid;
+  margin: 0;
+  gap: 4px;
+}
+
+.weierstrass-node-guide dl div {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.weierstrass-node-guide dt,
+.weierstrass-node-guide dd,
+.weierstrass-node-guide small,
+.weierstrass-node-colors {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.weierstrass-node-guide dt {
+  color: var(--faint);
+  text-transform: uppercase;
+}
+
+.weierstrass-node-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.weierstrass-node-colors span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.weierstrass-node-colors i {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--weierstrass-wave);
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--weierstrass-wave) 24%, transparent);
+}
+
+.weierstrass-node-colors i[data-status="tapered"] {
+  border-color: var(--weierstrass-taper);
+  background: color-mix(in oklab, var(--weierstrass-taper) 24%, transparent);
+}
+
+.weierstrass-node-colors i[data-status="culled"] {
+  border-color: var(--weierstrass-cull);
+  background: color-mix(in oklab, var(--weierstrass-cull) 12%, transparent);
+}
+
+.weierstrass-node-guide .control {
+  margin-top: 2px;
+}
+
 .weierstrass-preset-grid {
   display: grid;
   padding: 3px;

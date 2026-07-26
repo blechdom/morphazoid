@@ -109,6 +109,24 @@
             <p class="weierstrass-preset-description" id="presetDescription">
               Nine tapering terms climb through a steep, crystalline 7.07× lattice.
             </p>
+            <div class="weierstrass-node-guide" aria-label="Partial-node guide">
+              <p><b>Each node is one sine partial.</b></p>
+              <dl>
+                <div><dt>Across</dt><dd>frequency · logarithmic</dd></div>
+                <div><dt>Up</dt><dd>term exponent n</dd></div>
+                <div><dt>Size</dt><dd>normalized amplitude</dd></div>
+              </dl>
+              <div class="weierstrass-node-colors" aria-label="Node status colors">
+                <span><i data-status="active"></i> sounding</span>
+                <span><i data-status="tapered"></i> tapered</span>
+                <span><i data-status="culled"></i> culled</span>
+              </div>
+              <label class="control" for="visualZoom">
+                <span><b>Display zoom</b><output id="visualZoomOut" for="visualZoom">1.0×</output></span>
+                <input id="visualZoom" type="range" min="1" max="8" step="0.1" value="1" />
+              </label>
+              <small>Visual only—the sounding frequencies and pitch do not change.</small>
+            </div>
           </div>
         </details>
 
@@ -212,7 +230,7 @@
       </aside>
 
       <p class="sr-only" id="weierstrassDescription">
-        The upper diagram places every requested term on a logarithmic frequency lattice, distinguishing active, tapered, and culled terms. The lower trace is a live oscilloscope when audio is on.
+        A live oscilloscope and scrolling log-frequency spectrogram sit above the partial lattice. Each lattice node is one sine partial: horizontal position is frequency, vertical position is exponent, and size is normalized amplitude. Display zoom does not change pitch.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
