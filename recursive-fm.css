@@ -90,7 +90,7 @@
   top: 7px;
   left: 10px;
   color: var(--recursive-fm-entry);
-  content: "ACTUAL SIGNAL PATH · EACH SINE MODULATES THE NEXT FREQUENCY";
+  content: "ACTUAL SIGNAL PATH · SINE × MODULATION + BIAS → NEXT OSCILLATOR FREQUENCY";
   font-size: 7px;
   letter-spacing: 0.12em;
   opacity: 0.78;
@@ -103,18 +103,26 @@
   overflow: visible;
 }
 
-.recursive-fm-mod-edge {
+.recursive-fm-signal-wire,
+.recursive-fm-bias-wire {
   fill: none;
   stroke: var(--recursive-fm-entry);
-  stroke-width: 2;
+  stroke-width: 1.6;
   opacity: 0.92;
+}
+
+.recursive-fm-bias-wire {
+  stroke: var(--recursive-fm-carrier);
+  stroke-dasharray: 3 3;
+  opacity: 0.72;
 }
 
 #recursiveFmArrow path {
   fill: var(--recursive-fm-entry);
 }
 
-.recursive-fm-edge-value,
+.recursive-fm-block-title,
+.recursive-fm-block-value,
 .recursive-fm-operator-title,
 .recursive-fm-operator-value,
 .recursive-fm-bus-label,
@@ -123,15 +131,43 @@
   text-anchor: middle;
 }
 
-.recursive-fm-edge-value {
-  fill: var(--recursive-fm-entry);
-  font-size: 10px;
+.recursive-fm-modulator rect,
+.recursive-fm-bias rect {
+  fill: color-mix(in oklab, var(--bg-deep) 92%, transparent);
+  stroke-width: 1.3;
 }
 
-.recursive-fm-frequency-port {
+.recursive-fm-modulator rect {
+  stroke: var(--recursive-fm-entry);
+}
+
+.recursive-fm-bias rect {
+  stroke: var(--recursive-fm-carrier);
+}
+
+.recursive-fm-block-title {
+  fill: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.recursive-fm-block-value {
+  fill: var(--muted);
+  font-size: 8px;
+}
+
+.recursive-fm-input-junction circle {
   fill: var(--bg-deep);
   stroke: var(--recursive-fm-entry);
   stroke-width: 2;
+}
+
+.recursive-fm-input-junction text {
+  fill: var(--recursive-fm-entry);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-anchor: middle;
 }
 
 .recursive-fm-operator rect {

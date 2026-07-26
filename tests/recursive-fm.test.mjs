@@ -131,7 +131,9 @@ test("Recursive FM page is internal and uses a gesture-controlled audio button",
   assert.doesNotMatch(html, /SPECTROGRAM · LOG FREQUENCY|signal → frequency → signal/);
   assert.doesNotMatch(html, /flowCarrierValue|flowEntryValue|flowRecursionValue|flowOutputValue/);
   assert.match(app, /function updateSignalFlow\(stack\)/);
-  assert.match(app, /recursive-fm-mod-edge/);
+  assert.match(app, /recursive-fm-modulator/);
+  assert.match(app, /recursive-fm-bias/);
+  assert.match(app, /recursive-fm-input-junction/);
   assert.match(app, /recursive-fm-tap-switch/);
   assert.match(app, /operator\.modulationHz/);
   assert.match(app, /operators\[0\]\.biasHz < 20/);

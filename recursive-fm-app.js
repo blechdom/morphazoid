@@ -354,33 +354,53 @@ function updatePresetButtons() {
 function updateSignalFlow(stack) {
   const flow = $("recursiveFmFlow");
   const operators = stack.operators;
-  const graphWidth = Math.max(780, operators.length * 112 + 220);
+  const graphWidth = Math.max(960, operators.length * 150 + 210);
   const left = 58;
   const outputX = graphWidth - 130;
   const busEnd = outputX - 45;
   const right = busEnd - 100;
-  const nodeY = 88;
-  const busY = 170;
+  const nodeY = 108;
+  const busY = 182;
   const spacing = operators.length > 1
     ? (right - left) / (operators.length - 1)
     : 0;
   const nodeWidth = Math.max(40, Math.min(92, spacing * 0.64));
-  const nodeHeight = 52;
+  const nodeHeight = 48;
   const positions = operators.map((_, index) => left + spacing * index);
-  const edgeMarkup = operators.slice(1).map((operator, edgeIndex) => {
+  const inputMarkup = operators.slice(1).map((operator, edgeIndex) => {
     const sourceX = positions[edgeIndex];
     const targetX = positions[edgeIndex + 1];
-    const archY = edgeIndex % 2 === 0 ? 30 : 44;
+    const sourceEdge = sourceX + nodeWidth * 0.5;
+    const frequencyInputX = targetX - nodeWidth * 0.5;
+    const multiplierX = (sourceEdge + frequencyInputX) * 0.5;
+    const multiplierWidth = Math.max(38, Math.min(66, spacing * 0.34));
+    const biasWidth = Math.max(46, Math.min(68, nodeWidth * 0.82));
     return `
-      <path class="recursive-fm-mod-edge" marker-end="url(#recursiveFmArrow)"
-        d="M ${sourceX + nodeWidth * 0.5} ${nodeY}
-           C ${sourceX + spacing * 0.45} ${archY},
-             ${targetX - spacing * 0.45} ${archY},
-             ${targetX - nodeWidth * 0.5} ${nodeY}" />
-      <text class="recursive-fm-edge-value" x="${(sourceX + targetX) * 0.5}" y="${archY - 5}">
-        ∿ × ${formatRecursiveFmFrequency(operator.modulationHz)}
-      </text>
-      <circle class="recursive-fm-frequency-port" cx="${targetX - nodeWidth * 0.5}" cy="${nodeY}" r="4" />
+      <path class="recursive-fm-signal-wire"
+        d="M ${sourceEdge} ${nodeY} L ${multiplierX - multiplierWidth * 0.5} ${nodeY}
+           M ${multiplierX + multiplierWidth * 0.5} ${nodeY} L ${frequencyInputX} ${nodeY}" />
+      <g class="recursive-fm-modulator">
+        <rect x="${multiplierX - multiplierWidth * 0.5}" y="${nodeY - 18}"
+          width="${multiplierWidth}" height="36" rx="3" />
+        <text class="recursive-fm-block-title" x="${multiplierX}" y="${nodeY - 4}">× MOD</text>
+        <text class="recursive-fm-block-value" x="${multiplierX}" y="${nodeY + 10}">
+          ${formatRecursiveFmFrequency(operator.modulationHz)}
+        </text>
+      </g>
+      <g class="recursive-fm-bias">
+        <rect x="${frequencyInputX - biasWidth * 0.5}" y="39"
+          width="${biasWidth}" height="34" rx="3" />
+        <text class="recursive-fm-block-title" x="${frequencyInputX}" y="52">BIAS</text>
+        <text class="recursive-fm-block-value" x="${frequencyInputX}" y="66">
+          ${formatRecursiveFmFrequency(operator.biasHz)}
+        </text>
+      </g>
+      <path class="recursive-fm-bias-wire"
+        d="M ${frequencyInputX} 73 L ${frequencyInputX} ${nodeY}" />
+      <g class="recursive-fm-input-junction">
+        <circle cx="${frequencyInputX}" cy="${nodeY}" r="7" />
+        <text x="${frequencyInputX}" y="${nodeY + 3}">+</text>
+      </g>
     `;
   }).join("");
   const nodeMarkup = operators.map((operator, index) => {
@@ -393,7 +413,7 @@ function updateSignalFlow(stack) {
         : `RECURSIVE ${operator.turn}`;
     const value = operator.kind === "carrier"
       ? `${formatRecursiveFmFrequency(operator.biasHz)} sine`
-      : `bias ${formatRecursiveFmFrequency(operator.biasHz)}`;
+      : "sine oscillator";
     return `
       <g class="recursive-fm-operator${index === 0 ? " is-carrier" : ""}${audible ? " is-audible" : ""}">
         <rect x="${x - nodeWidth * 0.5}" y="${nodeY - nodeHeight * 0.5}"
@@ -415,7 +435,7 @@ function updateSignalFlow(stack) {
           <path d="M 0 0 L 8 4 L 0 8 z" />
         </marker>
       </defs>
-      ${edgeMarkup}
+      ${inputMarkup}
       ${nodeMarkup}
       <path class="recursive-fm-output-bus" d="M ${left} ${busY} L ${busEnd} ${busY}" />
       <text class="recursive-fm-bus-label" x="${left}" y="199">
@@ -436,8 +456,9 @@ function updateSignalFlow(stack) {
     "aria-label",
     `${
       operators[0].biasHz < 20 ? "LFO carrier" : "Carrier"
-    } at ${formatRecursiveFmFrequency(operators[0].biasHz)} modulates the entry oscillator. `
-      + `${operators.length - 1} frequency-modulation connections recursively nest each sine into the next oscillator. `
+    } at ${formatRecursiveFmFrequency(operators[0].biasHz)} feeds the first modulation multiplier. `
+      + `At each of ${operators.length - 1} stages, the previous sine is multiplied by the displayed modulation amount, `
+      + `then added to the displayed bias at the next oscillator's frequency input. `
       + `Only operator ${stack.audibleIndex} reaches the normalized audio output.`,
   );
 }
