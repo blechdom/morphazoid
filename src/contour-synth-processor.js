@@ -67,6 +67,7 @@ function sanitizeSpec(spec, index) {
     shepardTravel: Number.isFinite(spec.shepardTravel)
       ? spec.shepardTravel
       : null,
+    gainSmoothingSeconds: clamp(spec.gainSmoothingSeconds ?? 0.004, 0.002, 0.08),
   };
 }
 
@@ -180,6 +181,7 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
           event.data.voices,
           event.data.nextVoices,
           event.data.durationSeconds,
+          event.data.releaseVoiceAllowance,
         );
         const endedAt = clockMilliseconds();
         if (startedAt !== null && endedAt !== null) {
@@ -204,7 +206,12 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
     }
   }
 
-  setVoiceTargets(specs, nextSpecs, durationSeconds = 0) {
+  setVoiceTargets(
+    specs,
+    nextSpecs,
+    durationSeconds = 0,
+    requestedReleaseAllowance = 0,
+  ) {
     const targetLimit = Math.min(this.maxVoices, this.runtimeLimit);
     const sanitized = Array.isArray(specs)
       ? specs.slice(0, targetLimit).map(sanitizeSpec)
@@ -239,7 +246,14 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
       this.voices.set(spec.key, voice);
     }
     this.activeTargetCount = sanitized.length;
-    const releaseAllowance = Math.min(64, Math.ceil(targetLimit * 0.125));
+    const defaultReleaseAllowance = Math.min(64, Math.ceil(targetLimit * 0.125));
+    const releaseAllowance = Math.min(
+      this.maxVoices - targetLimit,
+      Math.max(
+        defaultReleaseAllowance,
+        Math.floor(Number(requestedReleaseAllowance) || 0),
+      ),
+    );
     this.pruneReleasingVoices(Math.min(
       this.maxVoices,
       targetLimit + releaseAllowance,
@@ -358,7 +372,6 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
     left.fill(0);
     if (right !== left) right.fill(0);
 
-    const gainSlew = 1 - Math.exp(-1 / (sampleRate * 0.004));
     const frequencySlew = 1 - Math.exp(-1 / (sampleRate * 0.018));
     const parameterSlew = 1 - Math.exp(-1 / (sampleRate * 0.025));
     const modulationSlew = 1 - Math.exp(-1 / (sampleRate * 0.012));
@@ -384,6 +397,9 @@ class MorphazoidContourSynth extends AudioWorkletProcessor {
           ? Math.min(1, (voice.trajectorySample + index) / voice.trajectorySamples)
           : 0;
         const gainTarget = target.gain + (nextTarget.gain - target.gain) * trajectoryAmount;
+        const gainSlew = 1 - Math.exp(
+          -1 / (sampleRate * target.gainSmoothingSeconds),
+        );
         const frequencyTarget = target.frequency
           + (nextTarget.frequency - target.frequency) * trajectoryAmount;
         const panTarget = target.pan + (nextTarget.pan - target.pan) * trajectoryAmount;

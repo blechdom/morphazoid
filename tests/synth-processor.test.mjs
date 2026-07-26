@@ -123,6 +123,37 @@ test("worklet registers one stereo contour synth processor", () => {
   assert.equal(typeof ProcessorConstructor, "function");
 });
 
+test("worklet keeps outgoing voices alive during an explicitly budgeted crossfade", () => {
+  const processor = new ProcessorConstructor({ processorOptions: { maxVoices: 4 } });
+  const voice = (key) => ({
+    key,
+    mode: "sine",
+    frequency: 220,
+    gain: 0.25,
+    pan: 0,
+    gainSmoothingSeconds: 0.018,
+  });
+  processor.port.onmessage({
+    data: {
+      type: "voices",
+      voices: [voice("old:a"), voice("old:b")],
+      voiceLimit: 2,
+    },
+  });
+  processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+  processor.port.onmessage({
+    data: {
+      type: "voices",
+      voices: [voice("new:a"), voice("new:b")],
+      voiceLimit: 2,
+      releaseVoiceAllowance: 2,
+    },
+  });
+  assert.equal(processor.voices.size, 4);
+  assert.equal(processor.voices.get("old:a").releasing, true);
+  assert.equal(processor.voices.get("old:b").releasing, true);
+});
+
 test("worklet admits a runtime-selected voice count and reports render load", () => {
   const processor = new ProcessorConstructor({ processorOptions: { maxVoices: 512 } });
   const voices = Array.from({ length: 300 }, (_, index) => ({

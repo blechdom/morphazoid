@@ -600,6 +600,7 @@ function voiceForPlayhead(playhead, activePower, combinedGain) {
       ),
     pan: clamp((normalized.x * 2 - 1) * state.stereoSpread, -1, 1),
     waveform: "sine",
+    gainSmoothingSeconds: 0.018,
     ...synthParametersForMode(state.soundMode, drive, {
       fmIndex: state.modulationIndex,
       fmRatio: 1.5,
@@ -736,6 +737,7 @@ function frame(now) {
           requestedVoiceCount: requestedVoices,
           mode: state.soundMode,
           voiceLimit,
+          releaseVoiceAllowance: Math.min(256, voiceLimit),
         },
       );
       lastVoiceSubmissionTime = controlTime;

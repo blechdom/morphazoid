@@ -26,6 +26,7 @@ import {
  * @property {number} [shepardWidth]
  * @property {number|null} [shepardPosition]
  * @property {number|null} [shepardTravel]
+ * @property {number} [gainSmoothingSeconds]
  */
 
 const DEFAULT_VOICE_COUNT = 32;
@@ -479,6 +480,7 @@ function sanitizeVoice(voice) {
     shepardTravel: Number.isFinite(voice.shepardTravel)
       ? voice.shepardTravel
       : null,
+    gainSmoothingSeconds: clamp(voice.gainSmoothingSeconds ?? 0.004, 0.002, 0.08),
   };
 }
 
@@ -982,7 +984,7 @@ export class VoicePool {
   /**
    * Steer the oscillator pool; excess contacts are reduced and gains normalized.
    * @param {readonly VoiceSpec[]} voices
-   * @param {{requestedVoiceCount?: number, mode?: string, voiceLimit?: number}} [options]
+   * @param {{requestedVoiceCount?: number, mode?: string, voiceLimit?: number, releaseVoiceAllowance?: number}} [options]
    */
   setVoices(voices, options = {}) {
     const mode = CONTINUOUS_SYNTH_MODES.has(options.mode)
@@ -1048,6 +1050,10 @@ export class VoicePool {
       voices: current,
       nextVoices: future,
       durationSeconds: clamp(durationSeconds, 0.01, 0.25),
+      releaseVoiceAllowance: Math.max(
+        0,
+        Math.floor(Number(options.releaseVoiceAllowance) || 0),
+      ),
       requestedVoiceCount: requested,
       mode,
       voiceLimit: limit,

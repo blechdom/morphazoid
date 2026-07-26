@@ -353,5 +353,7 @@ test("L-system page exposes presets, traversal, mapping, adaptive synthesis, and
   assert.match(app, /branchAngleFrequency/);
   assert.match(app, /pitch01ToFrequency/);
   assert.match(app, /pool\.setVoiceTrajectory/);
+  assert.match(app, /gainSmoothingSeconds:\s*0\.018/);
+  assert.match(app, /releaseVoiceAllowance:\s*Math\.min\(256,\s*voiceLimit\)/);
   assert.doesNotMatch(app, /createOscillator/);
 });

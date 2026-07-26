@@ -707,16 +707,20 @@ test("continuous synth specs use one worklet while native fallback voices stay s
       gain: 0.2,
       mode: "fm",
       modulationIndex: 1,
+      gainSmoothingSeconds: 0.018,
     }], [{
       key: "shape:contact:0",
       frequency: 440,
       gain: 0.16,
       mode: "fm",
       modulationIndex: 5,
-    }], 0.075);
+      gainSmoothingSeconds: 0.018,
+    }], 0.075, { releaseVoiceAllowance: 48 });
     const trajectory = messages.at(-1);
     assert.equal(trajectory.durationSeconds, 0.075);
+    assert.equal(trajectory.releaseVoiceAllowance, 48);
     assert.equal(trajectory.voices[0].frequency, 330);
+    assert.equal(trajectory.voices[0].gainSmoothingSeconds, 0.018);
     assert.equal(trajectory.nextVoices[0].frequency, 440);
     assert.equal(trajectory.nextVoices[0].modulationIndex, 5);
 
