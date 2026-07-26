@@ -340,33 +340,105 @@ function signatureDistance(first, second) {
   return Math.sqrt(difference / Math.max(1e-20, reference));
 }
 
+const VOWEL_KEYS = Object.freeze(["a", "e", "i", "o", "u"]);
+const SPECTRAL_PERIOD = 8_192;
+const SPECTRAL_CAPTURE_BLOCKS = SPECTRAL_PERIOD / BLOCK_SIZE;
+const SPECTRAL_BINS = Object.freeze(
+  Array.from({ length: 50 }, (_, index) => 17 * (index + 1)),
+);
+const SPECTRAL_PHASES = Object.freeze(
+  SPECTRAL_BINS.map(
+    (_, index) => Math.PI * index * (index + 1) / SPECTRAL_BINS.length,
+  ),
+);
+
+function vowelConfiguration(key, overrides = {}) {
+  const vowel = PHONEMES[key];
+  assert.equal(vowel?.kind, "vowel", `${key} must name a calibrated vowel`);
+  return baseConfiguration({
+    mouthCount: 1,
+    throatCount: 1,
+    bodyLength: 0.55,
+    mutation: 0,
+    coupling: 0,
+    oralClosure: 0,
+    lipDiameter: vowel.lipDiameter,
+    articulationAperture: 1,
+    articulationIndex: 26,
+    articulationVoicing: 0.94,
+    tongueCount: 1,
+    noseCount: 1,
+    tongues: vowel.tongues.map((tongue) => ({ ...tongue })),
+    noses: vowel.noses.map((nose) => ({ ...nose })),
+    mouths: [{ aperture: 1, length: 0.56, closed: false }],
+    throats: [{ aperture: 1, length: 0.56, muted: false }],
+    pressureSourceCount: 1,
+    pressureSources: pressureSources(0),
+    ...overrides,
+  });
+}
+
+function spectralMultisine(frame) {
+  const periodFrame = frame % SPECTRAL_PERIOD;
+  let sample = 0;
+  for (let index = 0; index < SPECTRAL_BINS.length; index += 1) {
+    sample += Math.sin(
+      2 * Math.PI * SPECTRAL_BINS[index] * periodFrame / SPECTRAL_PERIOD
+        + SPECTRAL_PHASES[index],
+    );
+  }
+  return sample * 0.0014;
+}
+
+function logarithmicBinMagnitude(samples, bin) {
+  assert.equal(samples.length, SPECTRAL_PERIOD);
+  let real = 0;
+  let imaginary = 0;
+  for (let index = 0; index < samples.length; index += 1) {
+    const phase = 2 * Math.PI * bin * index / samples.length;
+    real += samples[index] * Math.cos(phase);
+    imaginary -= samples[index] * Math.sin(phase);
+  }
+  return 20 * Math.log10(
+    Math.max(1e-12, Math.hypot(real, imaginary) / samples.length),
+  );
+}
+
+function vowelSpectralSignature(key) {
+  const processor = loadProcessor();
+  configure(processor, vowelConfiguration(key, { classicTopology: true }));
+  const rendered = runBlocks(processor, SPECTRAL_CAPTURE_BLOCKS * 5, {
+    inputSample: spectralMultisine,
+    captureBlocks: SPECTRAL_CAPTURE_BLOCKS,
+  });
+  const left = rendered.samples.filter((_, index) => index % 2 === 0);
+  assert.equal(left.length, SPECTRAL_PERIOD);
+  return SPECTRAL_BINS.map((bin) => logarithmicBinMagnitude(left, bin));
+}
+
+function normalizedLogSpectralDistance(first, second) {
+  assert.equal(first.length, second.length);
+  const meanDifference = first.reduce(
+    (sum, value, index) => sum + value - second[index],
+    0,
+  ) / first.length;
+  const squareDifference = first.reduce(
+    (sum, value, index) => (
+      sum + (value - second[index] - meanDifference) ** 2
+    ),
+    0,
+  );
+  return Math.sqrt(squareDifference / first.length);
+}
+
 test("calibrated vowels carve distinct physical tracts, including O and U lips", () => {
   const rendered = new Map();
   const lipDiameters = new Map();
 
-  for (const key of ["a", "e", "i", "o", "u"]) {
+  for (const key of VOWEL_KEYS) {
     const vowel = PHONEMES[key];
     const processor = loadProcessor();
-    configure(processor, baseConfiguration({
-      mouthCount: 1,
-      throatCount: 1,
-      bodyLength: 0.55,
-      mutation: 0,
-      coupling: 0,
-      oralClosure: 0,
-      lipDiameter: vowel.lipDiameter,
-      articulationAperture: 1,
-      articulationIndex: 26,
-      articulationVoicing: 0.94,
-      tongueCount: 1,
-      noseCount: 1,
-      tongues: vowel.tongues.map((tongue) => ({ ...tongue })),
-      noses: vowel.noses.map((nose) => ({ ...nose })),
-      mouths: [{ aperture: 0.88, length: 0.56, closed: false }],
-      throats: [{ aperture: 0.88, length: 0.56, muted: false }],
-      pressureSourceCount: 1,
-      pressureSources: pressureSources(0),
-    }));
+    configure(processor, vowelConfiguration(key));
 
     const mouth = processor.mouths[0];
     const tongueIndex = 12.9 + vowel.tongues[0].position * 17.5;
@@ -374,6 +446,10 @@ test("calibrated vowels carve distinct physical tracts, including O and U lips",
     assert.ok(
       mouth.targetDiameter[localTongueIndex] < 1.6,
       `${key.toUpperCase()} must deform its requested tongue region`,
+    );
+    assert.ok(
+      Math.max(...mouth.targetDiameter.slice(2, 31)) > 1.65,
+      `${key.toUpperCase()} must preserve a widened tongue cavity, not only constrictions`,
     );
     lipDiameters.set(key, mouth.targetDiameter[41 - 8]);
 
@@ -406,6 +482,71 @@ test("calibrated vowels carve distinct physical tracts, including O and U lips",
       `${first.toUpperCase()} and ${second.toUpperCase()} need distinct physical output`,
     );
   }
+});
+
+test("single-mouth resonance is invariant to cross-mouth coupling", () => {
+  const rendered = new Map();
+  for (const coupling of [0, 0.72]) {
+    const processor = loadProcessor();
+    configure(processor, vowelConfiguration("a", { coupling }));
+    rendered.set(
+      coupling,
+      runBlocks(processor, 190, {
+        collectAfter: 64,
+        captureBlocks: 6,
+      }).samples,
+    );
+  }
+
+  const distance = signatureDistance(rendered.get(0), rendered.get(0.72));
+  assert.ok(
+    distance < 1e-6,
+    `one mouth has nothing to cross-couple, but coupling changed it by ${distance}`,
+  );
+});
+
+test("the playable default still obeys its pressure-source gate", () => {
+  const processor = loadProcessor();
+  configure(processor, vowelConfiguration("a", {
+    classicTopology: true,
+    pressureSources: pressureSources(-1),
+  }));
+  const result = runBlocks(processor, 120);
+  assert.ok(
+    result.peak < 1e-7,
+    "closing P1 must silence the direct classic glottal inlet",
+  );
+});
+
+test("calibrated vowels remain separated across the rendered spectrum", () => {
+  const signatures = new Map(
+    VOWEL_KEYS.map((key) => [key, vowelSpectralSignature(key)]),
+  );
+  for (const [first, second] of [
+    ["a", "e"],
+    ["e", "i"],
+    ["i", "o"],
+    ["o", "u"],
+  ]) {
+    const distance = normalizedLogSpectralDistance(
+      signatures.get(first),
+      signatures.get(second),
+    );
+    assert.ok(
+      distance >= 7.5,
+      `${first.toUpperCase()}/${second.toUpperCase()} spectral separation `
+        + `must be at least 7.5 dB; received ${distance.toFixed(2)} dB`,
+    );
+  }
+
+  const span = normalizedLogSpectralDistance(
+    signatures.get("a"),
+    signatures.get("u"),
+  );
+  assert.ok(
+    span >= 9.5,
+    `A/U vowel-space span must be at least 9.5 dB; received ${span.toFixed(2)} dB`,
+  );
 });
 
 test("a direct mouth input excites its airway with a silent common input", () => {

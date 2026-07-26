@@ -258,6 +258,7 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
   const analysers = [];
   const bufferSources = [];
   const periodicWaves = [];
+  const gainNodes = [];
   globalThis.AudioContext = class {
     constructor() {
       this.currentTime = 0;
@@ -267,7 +268,11 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
       contexts.push(this);
     }
     addEventListener() {}
-    createGain() { return audioNode({ gain: audioParam(0) }); }
+    createGain() {
+      const node = audioNode({ gain: audioParam(0) });
+      gainNodes.push(node);
+      return node;
+    }
     createBiquadFilter() {
       return audioNode({
         type: "lowpass",
@@ -371,9 +376,11 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
   assert.ok(fills > 5, "the organism should render solid black chambers");
   assert.equal(
     elements.get("stageReadout").textContent,
-    "DORMANT · CLEAR · 1P/1M/1G/1N",
+    "DORMANT · PLAYABLE DEFAULT · 1P/1M/1G/1N",
   );
   assert.equal(elements.get("audioState").textContent, "off");
+  assert.equal(elements.get("level").value, "0.46");
+  assert.equal(elements.get("levelOut").textContent, "46%");
   assert.equal(elements.get("stage").width, 940);
   assert.equal(elements.get("stage").height, 610);
   assert.deepEqual(sourceButtons.map((button) => button.dataset.source), [
@@ -438,6 +445,10 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
   assert.equal(attributes.get("voice-preset-clear:aria-pressed"), "true");
   assert.equal(attributes.get("phoneme-a:aria-pressed"), "true");
   assert.equal(elements.get("pressureSourceCount").value, "1");
+  assert.equal(elements.get("exciterPitch").value, "140");
+  assert.equal(elements.get("exciterIntensity").value, "1");
+  assert.equal(elements.get("exciterTenseness").value, "0.6");
+  assert.equal(elements.get("exciterVibrato").value, "0.12");
   assert.equal(elements.get("pressureSourceCountOut").textContent, "1");
   assert.deepEqual(
     pressureSourceButtons.map((button) => ({
@@ -532,13 +543,18 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
   assert.equal(typeof keydown, "function", "type-to-speak needs a document keydown listener");
   assert.equal(typeof keyup, "function", "type-to-speak needs a document keyup listener");
   assert.equal(attributes.get("typingModeButton:aria-checked"), "false");
-  assert.equal(elements.get("typingModeState").textContent, "off");
+  assert.equal(elements.get("typingModeState").textContent, "momentary");
   assert.equal(attributes.get("source-glottis:aria-pressed"), "true");
   assert.equal(attributes.get("source-mic:aria-pressed"), "false");
 
   const typingOffEvent = keyEvent("i");
   keydown(typingOffEvent);
-  assert.equal(typingOffEvent.defaultPrevented, false);
+  assert.equal(typingOffEvent.defaultPrevented, true);
+  assert.equal(attributes.get("phoneme-a:aria-pressed"), "false");
+  assert.equal(attributes.get("phoneme-i:aria-pressed"), "true");
+  const typingOffRelease = keyEvent("i");
+  keyup(typingOffRelease);
+  assert.equal(typingOffRelease.defaultPrevented, true);
   assert.equal(attributes.get("phoneme-a:aria-pressed"), "true");
   assert.equal(attributes.get("phoneme-i:aria-pressed"), "false");
 
@@ -546,7 +562,7 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
   assert.equal(typeof stageFocus, "function", "the canvas needs a beatbox focus listener");
   stageFocus();
   assert.equal(elements.get("stageWrap").classList.contains("is-beatbox-focused"), true);
-  assert.match(elements.get("liveStatus").textContent, /stage keyboard focused/i);
+  assert.match(elements.get("liveStatus").textContent, /works throughout Throatazoid/i);
 
   const dockMappings = {
     K: "k",
@@ -567,7 +583,7 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
     assert.equal(down.defaultPrevented, true, `${key} should be claimed by the stage`);
     assert.equal(button.getAttribute("aria-pressed"), "true");
     assert.ok(isHeld(button), `${articulation} should show held feedback`);
-    assert.equal(elements.get("typingModeState").textContent, "off");
+    assert.equal(elements.get("typingModeState").textContent, "momentary");
 
     const up = keyEvent(key, { target: elements.get("stage") });
     keyup(up);
@@ -644,6 +660,12 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(contexts.length, 1, "the first stage phoneme should start the synth voice");
   assert.equal(getUserMediaCalls, 0);
+  assert.ok(
+    gainNodes.some(
+      (node) => Math.abs(node.gain.value - Math.sqrt(0.46) * 0.82) < 1e-12,
+    ),
+    "the live master output must include the calibrated -1.72 dB trim",
+  );
 
   for (const vowel of ["A", "E", "I", "O", "U"]) {
     const down = keyEvent(vowel, { target: elements.get("stage") });
@@ -746,11 +768,57 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
   assert.equal(elements.get("articulationApertureOut").textContent, "94%");
 
   const editableTarget = new HTMLInputElement();
+  editableTarget.type = "text";
   editableTarget.isContentEditable = false;
   const editableEvent = keyEvent("o", { target: editableTarget });
   keydown(editableEvent);
   assert.equal(editableEvent.defaultPrevented, false);
   assert.equal(attributes.get("phoneme-o:aria-pressed"), "false");
+
+  const rangeTarget = new HTMLInputElement();
+  rangeTarget.type = "range";
+  const rangeLetter = keyEvent("u", { target: rangeTarget });
+  keydown(rangeLetter);
+  assert.equal(rangeLetter.defaultPrevented, true);
+  assert.equal(attributes.get("phoneme-u:aria-pressed"), "true");
+  assert.equal(
+    isHeld(phonemeButtons.find((button) => button.dataset.phoneme === "u")),
+    true,
+    "letters must play while a range control has focus",
+  );
+  const rangeRelease = keyEvent("u", { target: rangeTarget });
+  keyup(rangeRelease);
+  assert.equal(rangeRelease.defaultPrevented, true);
+  assert.equal(attributes.get("phoneme-u:aria-pressed"), "false");
+
+  const rangeArrow = keyEvent("ArrowRight", { target: rangeTarget });
+  keydown(rangeArrow);
+  assert.equal(rangeArrow.defaultPrevented, false, "range arrow keys retain native behavior");
+
+  const buttonTarget = elements.get("quickSynthButton");
+  const buttonLetter = keyEvent("e", { target: buttonTarget });
+  keydown(buttonLetter);
+  assert.equal(buttonLetter.defaultPrevented, true);
+  assert.equal(attributes.get("phoneme-e:aria-pressed"), "true");
+  keyup(keyEvent("e", { target: buttonTarget }));
+  const buttonEnter = keyEvent("Enter", { target: buttonTarget });
+  keydown(buttonEnter);
+  assert.equal(buttonEnter.defaultPrevented, false, "button activation keys stay native");
+
+  for (const protectedTarget of [
+    new HTMLSelectElement(),
+    new HTMLTextAreaElement(),
+    {
+      isContentEditable: false,
+      closest(selector) {
+        return selector.includes('[role="combobox"]') ? this : null;
+      },
+    },
+  ]) {
+    const protectedEvent = keyEvent("e", { target: protectedTarget });
+    keydown(protectedEvent);
+    assert.equal(protectedEvent.defaultPrevented, false);
+  }
 
   const contentEditableEvent = keyEvent("u", { target: { isContentEditable: true } });
   keydown(contentEditableEvent);
@@ -773,6 +841,14 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
   keydown(typedM);
   assert.equal(typedM.defaultPrevented, true);
   assert.equal(attributes.get("phoneme-m:aria-pressed"), "true");
+  const stageFocusOut = listeners.get("stageWrap:focusout");
+  assert.equal(typeof stageFocusOut, "function");
+  stageFocusOut({ relatedTarget: elements.get("quickSynthButton") });
+  assert.equal(
+    attributes.get("phoneme-m:aria-pressed"),
+    "true",
+    "moving focus into the control UI must not cancel a held letter",
+  );
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(getUserMediaCalls, 0, "typed M must not invoke the microphone shortcut");
   keyup(keyEvent("m"));
@@ -804,7 +880,7 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
 
   typingToggle({ currentTarget: elements.get("typingModeButton"), preventDefault() {} });
   assert.equal(attributes.get("typingModeButton:aria-checked"), "false");
-  assert.equal(elements.get("typingModeState").textContent, "off");
+  assert.equal(elements.get("typingModeState").textContent, "momentary");
 
   inputControl("pressureSourceCount", 4);
   assert.equal(elements.get("pressureSourceCount").value, "4");
@@ -926,7 +1002,7 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
   assert.equal(elements.get("articulationLipOut").textContent, "100%");
   clickDataButton("phoneme", "u", "phonemeButtons", phonemeButtons);
   assert.equal(attributes.get("phoneme-u:aria-pressed"), "true");
-  assert.equal(elements.get("articulationLipOut").textContent, "10%");
+  assert.equal(elements.get("articulationLipOut").textContent, "6%");
   clickDataButton("phoneme", "i", "phonemeButtons", phonemeButtons);
   clickDataButton("phoneme", "m", "phonemeButtons", phonemeButtons);
   assert.equal(attributes.get("phoneme-i:aria-pressed"), "false");
