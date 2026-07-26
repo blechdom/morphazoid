@@ -36,7 +36,7 @@ const state = {
     ),
   },
   preset: initialPreset?.id ?? null,
-  source: "file",
+  source: "microphone",
   loopFile: true,
   fileUrl: null,
   fileLabel: null,
@@ -187,7 +187,7 @@ function updateInterface({ drawNow = true } = {}) {
       ? `file · ${state.loopFile ? "loop" : "once"}`
       : "file · choose audio";
   $("sourceNote").textContent = state.source === "microphone"
-    ? "Use headphones. Speaker-to-microphone feedback can become loud even with the internal loop bounded."
+    ? "Switch Audio on to allow microphone access. Use headphones—speaker-to-microphone feedback can become loud even with the internal loop bounded."
     : "Pick a local file, then switch Audio on. The file stays in this browser.";
   $("fileControls").hidden = state.source !== "file";
   $("fileName").textContent = state.fileLabel ?? "Choose local audio…";

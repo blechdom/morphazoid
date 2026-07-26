@@ -80,8 +80,14 @@ test("all three barber delays are native internal Morphazoid pages", async () =>
     assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);
     assert.match(markup, /id="audioState">off</);
     assert.doesNotMatch(markup, /id="audioState">listening</i);
-    assert.match(markup, /id="sourceMic"/);
-    assert.match(markup, /id="sourceFile"/);
+    assert.match(markup, /id="sourceSummary">microphone · headphones</);
+    assert.match(
+      markup,
+      /id="sourceChoice"[^>]+aria-describedby="sourceNote"/,
+    );
+    assert.match(markup, /id="sourceMic"[^>]+aria-pressed="true"/);
+    assert.match(markup, /id="sourceFile"[^>]+aria-pressed="false"/);
+    assert.match(markup, /id="fileControls"[^>]+hidden/);
     assert.match(markup, /id="filePicker"[^>]+accept="audio\/\*"/);
     assert.match(markup, /id="loopFile"/);
     assert.match(markup, /id="presetGrid"/);
@@ -91,6 +97,7 @@ test("all three barber delays are native internal Morphazoid pages", async () =>
     assert.match(markup, /id="outputLevel"/);
     assert.match(markup, /data-reset-all/);
     assert.match(markup, /headphones/i);
+    assert.match(markup, /Switch Audio on to allow microphone access/i);
     assert.doesNotMatch(markup, /https?:\/\//i);
     assert.doesNotMatch(markup, /<iframe\b/i);
     assert.doesNotMatch(markup, /target\s*=\s*["']_blank/i);
@@ -154,6 +161,7 @@ test("the shared controller keeps audio behind the menu gesture and cleans resou
 
   assert.match(app, /from "\.\/src\/barber-delay\.js"/);
   assert.match(app, /new BarberDelayAudio\(mode, globalThis\)/);
+  assert.match(app, /source: "microphone"/);
   assert.match(app, /audioButton"\)\.addEventListener\("click", toggleAudio\)/);
   assert.match(app, /audio\.start\(selectedSource\(\)\)/);
   assert.match(app, /getTimeDomainData\(waveform\)/);
