@@ -78,18 +78,12 @@
           </div>
 
           <div
-            class="chaotic-signal-flow"
+            class="chaotic-path-graph"
+            id="chaoticFmFlow"
             role="img"
-            aria-label="Chaotic FM flow: carrier sine, entry frequency modulation, tanh frequency shaping, recursive sine output."
-          >
-            <span class="chaotic-flow-node"><b>Carrier sine</b><small>seed oscillator</small></span>
-            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
-            <span class="chaotic-flow-node"><b>Entry FM</b><small>offset + bipolar deviation</small></span>
-            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
-            <span class="chaotic-flow-node"><b>tanh rate</b><small>shape + scale frequency</small></span>
-            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
-            <span class="chaotic-flow-node"><b>Output</b><small>recursive sine · bounded</small></span>
-          </div>
+            data-path-label="ACTUAL SIGNAL PATH · ENTRY SUM → SINE × AMOUNT → TANH × RATE → NEXT SINE"
+            aria-label="Chaotic FM operator graph. Entry modulation is added to a center frequency; every recursive sine is multiplied, shaped by tanh, scaled to a signed frequency, and sent to the next sine."
+          ></div>
         </div>
       </section>
 
@@ -181,7 +175,7 @@
       </aside>
 
       <p class="sr-only" id="chaoticFmDescription">
-        A live oscilloscope and rolling spectrogram sit above a simple carrier-to-output flow chart. Detailed recursion values are listed below the sliders.
+        A live oscilloscope and rolling spectrogram sit above the complete nonlinear frequency path. The entry sum and every amount, tanh, rate, and sine stage follow the rendered algorithm.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

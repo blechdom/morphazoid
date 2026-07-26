@@ -623,6 +623,8 @@ test("native page exposes Wave, FM, and source-faithful PM with bounded ledgers"
   assert.match(markup, /data-mode="wave"[^>]+>Wave</);
   assert.match(markup, /data-mode="fm"[^>]+>FM</);
   assert.match(markup, /data-mode="pm"[^>]+>PM</);
+  assert.match(markup, /href="chaotic-synth-ui\.css"/);
+  assert.match(markup, /id="weierstrassFlow"/);
   assert.match(markup, />Terms</);
   assert.match(markup, />Start exponent</);
   assert.match(markup, />Amplitude ratio a</);
@@ -673,6 +675,12 @@ test("native page exposes Wave, FM, and source-faithful PM with bounded ledgers"
   assert.doesNotMatch(zoomHandler, /applySettings|audio\.setParameters/);
   assert.match(app, /deriveWeierstrassFmHeadroom/);
   assert.match(app, /deriveWeierstrassPmHeadroom/);
+  assert.match(app, /function updateSignalFlow\(bank, headroom, pmHeadroom\)/);
+  assert.match(app, /FREQUENCY/);
+  assert.match(app, /WEIGHT/);
+  assert.match(app, /Σ PARTIALS/);
+  assert.match(app, /× FM DEPTH/);
+  assert.match(app, /SINE × INDEX/);
   assert.match(app, /requestedDepthHz/);
   assert.match(app, /effectiveDepthHz/);
   assert.match(app, /requestedIndexCycles/);

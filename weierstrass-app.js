@@ -351,6 +351,142 @@ function activeFrequencyRange(bank) {
   return { minimum, maximum };
 }
 
+function updateSignalFlow(bank, headroom, pmHeadroom) {
+  const flow = $("weierstrassFlow");
+  const { settings } = bank;
+  const commonInput = `
+    <g class="chaotic-path-block is-control">
+      <rect x="16" y="112" width="74" height="38" rx="3" />
+      <text class="chaotic-path-title" x="53" y="127">TERM n</text>
+      <text class="chaotic-path-value" x="53" y="141">
+        ${settings.startExponent}…${settings.startExponent + settings.terms - 1}
+      </text>
+    </g>
+    <path class="chaotic-path-control-wire"
+      d="M 53 112 L 53 61 L 104 61 M 90 131 L 109 131" />
+    <g class="chaotic-path-block">
+      <rect x="104" y="42" width="104" height="38" rx="3" />
+      <text class="chaotic-path-title" x="156" y="57">FREQUENCY</text>
+      <text class="chaotic-path-value" x="156" y="71">f × bⁿ → cos phase</text>
+    </g>
+    <g class="chaotic-path-block is-control">
+      <rect x="109" y="112" width="112" height="38" rx="3" />
+      <text class="chaotic-path-title" x="165" y="127">WEIGHT</text>
+      <text class="chaotic-path-value" x="165" y="141">aⁿ × anti-alias taper</text>
+    </g>
+    <path class="chaotic-path-wire"
+      d="M 208 61 L 250 61 L 250 83 M 221 131 L 250 131 L 250 97" />
+    <g class="chaotic-path-junction">
+      <circle cx="250" cy="90" r="9" />
+      <text x="250" y="94">×</text>
+    </g>
+    <path class="chaotic-path-wire" d="M 259 90 L 284 90" />
+    <g class="chaotic-path-operator">
+      <rect x="284" y="68" width="84" height="44" rx="4" />
+      <text class="chaotic-path-title" x="326" y="85">Σ PARTIALS</text>
+      <text class="chaotic-path-value" x="326" y="101">
+        ${bank.activeCount} active
+      </text>
+    </g>
+  `;
+  let modeMarkup;
+  let ariaLabel;
+  if (settings.mode === "fm") {
+    modeMarkup = `
+      <path class="chaotic-path-wire" d="M 368 90 L 396 90" />
+      <g class="chaotic-path-block">
+        <rect x="396" y="68" width="78" height="44" rx="3" />
+        <text class="chaotic-path-title" x="435" y="85">× FM DEPTH</text>
+        <text class="chaotic-path-value" x="435" y="101">
+          ${formatWeierstrassFrequency(headroom.effectiveDepthHz)}
+        </text>
+      </g>
+      <path class="chaotic-path-wire" d="M 474 90 L 496 90" />
+      <g class="chaotic-path-block is-control">
+        <rect x="459" y="126" width="74" height="34" rx="3" />
+        <text class="chaotic-path-title" x="496" y="140">OFFSET</text>
+        <text class="chaotic-path-value" x="496" y="153">
+          ${formatWeierstrassFrequency(settings.offsetHz)}
+        </text>
+      </g>
+      <path class="chaotic-path-control-wire" d="M 496 126 L 496 90" />
+      <g class="chaotic-path-junction">
+        <circle cx="496" cy="90" r="8" />
+        <text x="496" y="94">+</text>
+      </g>
+      <path class="chaotic-path-wire" d="M 504 90 L 522 90" />
+      <g class="chaotic-path-output">
+        <rect x="522" y="68" width="64" height="44" rx="4" />
+        <text class="chaotic-path-title" x="554" y="85">SINE OSC</text>
+        <text class="chaotic-path-value" x="554" y="101">→ AUDIO</text>
+      </g>
+    `;
+    ariaLabel = `Each of ${bank.activeCount} active terms branches into frequency f times b to n `
+      + `and weight a to n times its anti-alias taper. The products sum, multiply by `
+      + `${formatWeierstrassFrequency(headroom.effectiveDepthHz)} FM depth, add `
+      + `${formatWeierstrassFrequency(settings.offsetHz)}, and drive a sine oscillator.`;
+  } else if (settings.mode === "pm") {
+    modeMarkup = `
+      <path class="chaotic-path-wire" d="M 368 90 L 398 90" />
+      <g class="chaotic-path-block">
+        <rect x="398" y="42" width="82" height="38" rx="3" />
+        <text class="chaotic-path-title" x="439" y="57">× W SCALE</text>
+        <text class="chaotic-path-value" x="439" y="71">
+          ${Math.round(pmHeadroom.bankScale * 100)}%
+        </text>
+      </g>
+      <g class="chaotic-path-block is-control">
+        <rect x="385" y="119" width="96" height="42" rx="3" />
+        <text class="chaotic-path-title" x="433" y="135">SINE × INDEX</text>
+        <text class="chaotic-path-value" x="433" y="151">
+          ${formatWeierstrassFrequency(settings.pmCarrierFrequencyHz)} × ${formatCycleCount(pmHeadroom.effectiveIndexCycles)}
+        </text>
+      </g>
+      <path class="chaotic-path-control-wire"
+        d="M 481 140 L 505 140 L 505 98 M 480 61 L 505 61 L 505 82" />
+      <g class="chaotic-path-junction">
+        <circle cx="505" cy="90" r="8" />
+        <text x="505" y="94">+</text>
+      </g>
+      <path class="chaotic-path-wire" d="M 513 90 L 526 90" />
+      <g class="chaotic-path-output">
+        <rect x="526" y="65" width="62" height="50" rx="4" />
+        <text class="chaotic-path-title" x="557" y="82">WRAP</text>
+        <text class="chaotic-path-value" x="557" y="97">→ SINE</text>
+        <text class="chaotic-path-value" x="557" y="108">→ AUDIO</text>
+      </g>
+    `;
+    ariaLabel = `Each of ${bank.activeCount} active terms branches into frequency and weight, `
+      + "then the weighted partials sum. The bank phase and a separate carrier sine times "
+      + `${formatCycleCount(pmHeadroom.effectiveIndexCycles)} meet at a phase sum, wrap in cycles, and feed the output sine.`;
+  } else {
+    modeMarkup = `
+      <path class="chaotic-path-wire" d="M 368 90 L 418 90" />
+      <g class="chaotic-path-block">
+        <rect x="418" y="68" width="82" height="44" rx="3" />
+        <text class="chaotic-path-title" x="459" y="85">NORMALIZE</text>
+        <text class="chaotic-path-value" x="459" y="101">Σ |weight|</text>
+      </g>
+      <path class="chaotic-path-wire" d="M 500 90 L 526 90" />
+      <g class="chaotic-path-output">
+        <rect x="526" y="68" width="62" height="44" rx="4" />
+        <text class="chaotic-path-title" x="557" y="85">WAVE</text>
+        <text class="chaotic-path-value" x="557" y="101">→ AUDIO</text>
+      </g>
+    `;
+    ariaLabel = `Each of ${bank.activeCount} active terms branches into frequency f times b to n `
+      + "and weight a to n times its anti-alias taper. Each cosine is multiplied by its "
+      + "weight, all partials sum, normalize by absolute weight, and reach audio.";
+  }
+  flow.innerHTML = `
+    <svg viewBox="0 0 600 180" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      ${commonInput}
+      ${modeMarkup}
+    </svg>
+  `;
+  flow.setAttribute("aria-label", ariaLabel);
+}
+
 function updateReadouts(
   bank = currentBank(),
   headroom = currentHeadroom(),
@@ -454,6 +590,7 @@ function updateReadouts(
       ? `${formatWeierstrassFrequency(settings.maximumFrequencyHz)} · phase-rate budget`
       : `${formatWeierstrassFrequency(settings.maximumFrequencyHz)} · tapered + signed clamp`
   );
+  updateSignalFlow(bank, headroom, pmHeadroom);
   $("stageReadout").textContent = [
     label,
     `${bank.requestedCount} requested`,

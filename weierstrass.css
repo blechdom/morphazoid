@@ -7,6 +7,10 @@
   --weierstrass-pm: #ff9f73;
   --weierstrass-taper: #e8c46b;
   --weierstrass-cull: #77837e;
+  --chaotic-path-signal: #7db4ff;
+  --chaotic-path-control: #c79bff;
+  --chaotic-path-operator: #ff9f73;
+  --chaotic-path-output: #fff3d6;
 }
 
 .weierstrass-shell {
@@ -95,6 +99,42 @@
   --accent: #7db4ff;
   --accent-soft: color-mix(in oklab, #7db4ff 55%, transparent);
   --accent-glow: color-mix(in oklab, #7db4ff 20%, transparent);
+}
+
+.weierstrass-path-graph {
+  position: relative;
+  height: 154px;
+  margin: 0 0 16px;
+  overflow: hidden;
+  border-top: 1px solid color-mix(in oklab, var(--chaotic-path-signal) 28%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--chaotic-path-output) 14%, transparent);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+}
+
+.weierstrass-path-graph::before {
+  position: absolute;
+  z-index: 1;
+  top: 6px;
+  left: 8px;
+  color: var(--chaotic-path-signal);
+  content: "ACTUAL SIGNAL PATH";
+  font-size: 6px;
+  letter-spacing: 0.12em;
+  opacity: 0.78;
+}
+
+.weierstrass-path-graph svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.weierstrass-path-graph .chaotic-path-title {
+  font-size: 11px;
+}
+
+.weierstrass-path-graph .chaotic-path-value {
+  font-size: 10px;
 }
 
 .weierstrass-mode-buttons {

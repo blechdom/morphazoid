@@ -6,6 +6,10 @@
   --recursive-pm-turn: #ff8fd8;
   --recursive-pm-output: #fff1c7;
   --recursive-pm-warning: #ffbd73;
+  --chaotic-path-signal: #ff8fd8;
+  --chaotic-path-control: #65f0c7;
+  --chaotic-path-operator: #ff8fd8;
+  --chaotic-path-output: #fff1c7;
 }
 
 .recursive-pm-shell {

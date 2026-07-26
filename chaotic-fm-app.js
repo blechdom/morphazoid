@@ -186,6 +186,157 @@ function writeControls() {
   $("output").value = String(state.output);
 }
 
+function updateSignalFlow(stack) {
+  const flow = $("chaoticFmFlow");
+  const stages = [
+    {
+      kind: "carrier",
+      title: stack.carrier.frequencyHz < 20 ? "LFO / CARRIER" : "CARRIER",
+      value: `${formatChaoticFrequency(stack.carrier.frequencyHz)} sine`,
+    },
+    {
+      kind: "entry",
+      title: "ENTRY SINE",
+      value: "frequency oscillator",
+    },
+    ...stack.turns.map((turn) => ({
+      kind: "turn",
+      title: `TURN ${turn.index} SINE`,
+      value: "signed-frequency oscillator",
+      turn,
+    })),
+  ];
+  const graphWidth = Math.max(1_100, stages.length * 280 + 260);
+  const left = 60;
+  const outputX = graphWidth - 130;
+  const busEnd = outputX - 45;
+  const right = busEnd - 100;
+  const nodeY = 108;
+  const busY = 182;
+  const spacing = stages.length > 1
+    ? (right - left) / (stages.length - 1)
+    : 0;
+  const nodeWidth = 90;
+  const nodeHeight = 48;
+  const positions = stages.map((_, index) => left + spacing * index);
+  const connectionMarkup = stages.slice(1).map((stage, edgeIndex) => {
+    const sourceEdge = positions[edgeIndex] + nodeWidth * 0.5;
+    const frequencyInputX = positions[edgeIndex + 1] - nodeWidth * 0.5;
+    const gap = frequencyInputX - sourceEdge;
+    if (stage.kind === "entry") {
+      const modulatorX = sourceEdge + gap * 0.48;
+      return `
+        <path class="chaotic-path-wire"
+          d="M ${sourceEdge} ${nodeY} L ${modulatorX - 35} ${nodeY}
+             M ${modulatorX + 35} ${nodeY} L ${frequencyInputX} ${nodeY}" />
+        <g class="chaotic-path-block">
+          <rect x="${modulatorX - 35}" y="${nodeY - 18}" width="70" height="36" rx="3" />
+          <text class="chaotic-path-title" x="${modulatorX}" y="${nodeY - 4}">× DEVIATION</text>
+          <text class="chaotic-path-value" x="${modulatorX}" y="${nodeY + 10}">
+            ${formatChaoticFrequency(stack.entry.modulationAmount)}
+          </text>
+        </g>
+        <g class="chaotic-path-block is-control">
+          <rect x="${frequencyInputX - 38}" y="39" width="76" height="34" rx="3" />
+          <text class="chaotic-path-title" x="${frequencyInputX}" y="52">CENTER</text>
+          <text class="chaotic-path-value" x="${frequencyInputX}" y="66">
+            ${formatChaoticFrequency(stack.entry.centerFrequencyHz)}
+          </text>
+        </g>
+        <path class="chaotic-path-control-wire"
+          d="M ${frequencyInputX} 73 L ${frequencyInputX} ${nodeY}" />
+        <g class="chaotic-path-junction">
+          <circle cx="${frequencyInputX}" cy="${nodeY}" r="7" />
+          <text x="${frequencyInputX}" y="${nodeY + 3}">+</text>
+        </g>
+      `;
+    }
+    const { turn } = stage;
+    const amountX = sourceEdge + gap * 0.22;
+    const tanhX = sourceEdge + gap * 0.5;
+    const rateX = sourceEdge + gap * 0.78;
+    const blockWidth = Math.max(48, Math.min(68, gap * 0.23));
+    return `
+      <path class="chaotic-path-wire"
+        d="M ${sourceEdge} ${nodeY} L ${amountX - blockWidth * 0.5} ${nodeY}
+           M ${amountX + blockWidth * 0.5} ${nodeY} L ${tanhX - blockWidth * 0.5} ${nodeY}
+           M ${tanhX + blockWidth * 0.5} ${nodeY} L ${rateX - blockWidth * 0.5} ${nodeY}
+           M ${rateX + blockWidth * 0.5} ${nodeY} L ${frequencyInputX} ${nodeY}" />
+      <g class="chaotic-path-block">
+        <rect x="${amountX - blockWidth * 0.5}" y="${nodeY - 18}"
+          width="${blockWidth}" height="36" rx="3" />
+        <text class="chaotic-path-title" x="${amountX}" y="${nodeY - 4}">× AMOUNT</text>
+        <text class="chaotic-path-value" x="${amountX}" y="${nodeY + 10}">
+          ${formatChaoticFrequency(turn.amount)}
+        </text>
+      </g>
+      <g class="chaotic-path-block">
+        <rect x="${tanhX - blockWidth * 0.5}" y="${nodeY - 18}"
+          width="${blockWidth}" height="36" rx="3" />
+        <text class="chaotic-path-title" x="${tanhX}" y="${nodeY + 3}">TANH</text>
+      </g>
+      <g class="chaotic-path-block is-control">
+        <rect x="${rateX - blockWidth * 0.5}" y="${nodeY - 18}"
+          width="${blockWidth}" height="36" rx="3" />
+        <text class="chaotic-path-title" x="${rateX}" y="${nodeY - 4}">× RATE</text>
+        <text class="chaotic-path-value" x="${rateX}" y="${nodeY + 10}">
+          ${formatChaoticFrequency(turn.nonlinearityHz)}
+        </text>
+      </g>
+    `;
+  }).join("");
+  const operatorMarkup = stages.map((stage, index) => {
+    const x = positions[index];
+    const audible = index === stack.audibleOperator;
+    return `
+      <g class="chaotic-path-operator${index === 0 ? " is-seed" : ""}${audible ? " is-audible" : ""}">
+        <rect x="${x - nodeWidth * 0.5}" y="${nodeY - nodeHeight * 0.5}"
+          width="${nodeWidth}" height="${nodeHeight}" rx="4" />
+        <text class="chaotic-path-title" x="${x}" y="${nodeY - 4}">${stage.title}</text>
+        <text class="chaotic-path-value" x="${x}" y="${nodeY + 10}">${stage.value}</text>
+        <path class="chaotic-path-tap${audible ? " is-open" : ""}"
+          d="M ${x} ${nodeY + nodeHeight * 0.5} L ${x} ${busY}" />
+        <circle class="chaotic-path-tap-switch${audible ? " is-open" : ""}"
+          cx="${x}" cy="${busY}" r="4" />
+      </g>
+    `;
+  }).join("");
+  flow.innerHTML = `
+    <svg viewBox="0 0 ${graphWidth} 210" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <defs>
+        <marker class="chaotic-path-arrow" id="chaoticFmArrow" viewBox="0 0 8 8"
+          refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 8 4 L 0 8 z" />
+        </marker>
+      </defs>
+      ${connectionMarkup}
+      ${operatorMarkup}
+      <path class="chaotic-path-bus" d="M ${left} ${busY} L ${busEnd} ${busY}" />
+      <text class="chaotic-path-bus-label" x="${left}" y="201">
+        operator taps · only operator ${stack.audibleOperator} is open
+      </text>
+      <path class="chaotic-path-audio-wire" marker-end="url(#chaoticFmArrow)"
+        d="M ${busEnd} ${busY} L ${outputX - 6} ${busY}" />
+      <g class="chaotic-path-output">
+        <rect x="${outputX}" y="148" width="116" height="48" rx="4" />
+        <text class="chaotic-path-title" x="${outputX + 58}" y="166">DEPTH MIX</text>
+        <text class="chaotic-path-value" x="${outputX + 58}" y="181">
+          ${Math.round(state.output * 100)}% → AUDIO
+        </text>
+      </g>
+    </svg>
+  `;
+  flow.setAttribute(
+    "aria-label",
+    `${formatChaoticFrequency(stack.carrier.frequencyHz)} carrier sine is scaled by `
+      + `${formatChaoticFrequency(stack.entry.modulationAmount)} and added to a `
+      + `${formatChaoticFrequency(stack.entry.centerFrequencyHz)} center for the entry oscillator. `
+      + `Each of ${stack.turns.length} recursive turns multiplies the previous sine by its amount, `
+      + "applies tanh, scales the signed frequency by the displayed rate, and drives the next sine. "
+      + `Only operator ${stack.audibleOperator} reaches audio.`,
+  );
+}
+
 function updatePresetInterface() {
   for (const button of $("presetButtons").querySelectorAll("[data-preset]")) {
     setPressed(button, button.dataset.preset === state.activePresetId);
@@ -229,6 +380,7 @@ function updateReadouts(stack = currentStack()) {
     $("turnsReadout").textContent = "none · entry is audible";
   }
   $("operatorReadout").textContent = `operator ${stack.audibleOperator} · depth-crossfaded`;
+  updateSignalFlow(stack);
   $("stageReadout").textContent = [
     `${settings.depth} ${recursionWord}`,
     `${stack.operatorCount} operators`,

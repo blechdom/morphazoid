@@ -129,6 +129,114 @@ function updatePresetButtons() {
     ?? "A custom recursive phase-operator stack.";
 }
 
+function updateSignalFlow(stack) {
+  const flow = $("recursivePmFlow");
+  const operators = stack.operators;
+  const graphWidth = Math.max(960, operators.length * 150 + 210);
+  const left = 58;
+  const outputX = graphWidth - 130;
+  const busEnd = outputX - 45;
+  const right = busEnd - 100;
+  const nodeY = 108;
+  const busY = 182;
+  const spacing = operators.length > 1
+    ? (right - left) / (operators.length - 1)
+    : 0;
+  const nodeWidth = Math.max(44, Math.min(92, spacing * 0.58));
+  const nodeHeight = 48;
+  const positions = operators.map((_, index) => left + spacing * index);
+  const inputMarkup = operators.slice(1).map((operator, edgeIndex) => {
+    const sourceX = positions[edgeIndex];
+    const targetX = positions[edgeIndex + 1];
+    const sourceEdge = sourceX + nodeWidth * 0.5;
+    const phaseInputX = targetX - nodeWidth * 0.5;
+    const indexX = (sourceEdge + phaseInputX) * 0.5;
+    const indexWidth = Math.max(40, Math.min(68, spacing * 0.35));
+    const phasorWidth = Math.max(52, Math.min(76, nodeWidth * 0.86));
+    return `
+      <path class="chaotic-path-wire"
+        d="M ${sourceEdge} ${nodeY} L ${indexX - indexWidth * 0.5} ${nodeY}
+           M ${indexX + indexWidth * 0.5} ${nodeY} L ${phaseInputX} ${nodeY}" />
+      <g class="chaotic-path-block">
+        <rect x="${indexX - indexWidth * 0.5}" y="${nodeY - 18}"
+          width="${indexWidth}" height="36" rx="3" />
+        <text class="chaotic-path-title" x="${indexX}" y="${nodeY - 4}">× INDEX</text>
+        <text class="chaotic-path-value" x="${indexX}" y="${nodeY + 10}">
+          ${formatRecursivePmNumber(operator.phaseIndex)}
+        </text>
+      </g>
+      <g class="chaotic-path-block is-control">
+        <rect x="${phaseInputX - phasorWidth * 0.5}" y="39"
+          width="${phasorWidth}" height="34" rx="3" />
+        <text class="chaotic-path-title" x="${phaseInputX}" y="52">PHASOR</text>
+        <text class="chaotic-path-value" x="${phaseInputX}" y="66">
+          ${formatRecursivePmFrequency(operator.frequencyHz)}
+        </text>
+      </g>
+      <path class="chaotic-path-control-wire"
+        d="M ${phaseInputX} 73 L ${phaseInputX} ${nodeY}" />
+      <g class="chaotic-path-junction">
+        <circle cx="${phaseInputX}" cy="${nodeY}" r="7" />
+        <text x="${phaseInputX}" y="${nodeY + 3}">+</text>
+      </g>
+    `;
+  }).join("");
+  const operatorMarkup = operators.map((operator, index) => {
+    const x = positions[index];
+    const audible = index === stack.audibleIndex;
+    const title = operator.kind === "carrier"
+      ? "CARRIER SINE"
+      : `PM TURN ${operator.turn}`;
+    const value = operator.kind === "carrier"
+      ? formatRecursivePmFrequency(operator.frequencyHz)
+      : "sine operator";
+    return `
+      <g class="chaotic-path-operator${index === 0 ? " is-seed" : ""}${audible ? " is-audible" : ""}">
+        <rect x="${x - nodeWidth * 0.5}" y="${nodeY - nodeHeight * 0.5}"
+          width="${nodeWidth}" height="${nodeHeight}" rx="4" />
+        <text class="chaotic-path-title" x="${x}" y="${nodeY - 4}">${title}</text>
+        <text class="chaotic-path-value" x="${x}" y="${nodeY + 10}">${value}</text>
+        <path class="chaotic-path-tap${audible ? " is-open" : ""}"
+          d="M ${x} ${nodeY + nodeHeight * 0.5} L ${x} ${busY}" />
+        <circle class="chaotic-path-tap-switch${audible ? " is-open" : ""}"
+          cx="${x}" cy="${busY}" r="4" />
+      </g>
+    `;
+  }).join("");
+  flow.innerHTML = `
+    <svg viewBox="0 0 ${graphWidth} 210" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <defs>
+        <marker class="chaotic-path-arrow" id="recursivePmArrow" viewBox="0 0 8 8"
+          refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 8 4 L 0 8 z" />
+        </marker>
+      </defs>
+      ${inputMarkup}
+      ${operatorMarkup}
+      <path class="chaotic-path-bus" d="M ${left} ${busY} L ${busEnd} ${busY}" />
+      <text class="chaotic-path-bus-label" x="${left}" y="201">
+        operator taps · only operator ${stack.audibleIndex} is open
+      </text>
+      <path class="chaotic-path-audio-wire" marker-end="url(#recursivePmArrow)"
+        d="M ${busEnd} ${busY} L ${outputX - 6} ${busY}" />
+      <g class="chaotic-path-output">
+        <rect x="${outputX}" y="148" width="116" height="48" rx="4" />
+        <text class="chaotic-path-title" x="${outputX + 58}" y="166">NORMALIZE</text>
+        <text class="chaotic-path-value" x="${outputX + 58}" y="181">
+          ${(stack.normalizedGain * 100).toFixed(0)}% → AUDIO
+        </text>
+      </g>
+    </svg>
+  `;
+  flow.setAttribute(
+    "aria-label",
+    `Carrier sine at ${formatRecursivePmFrequency(operators[0].frequencyHz)} feeds `
+      + `${stack.actualDepth} phase-modulation stages. At each stage the previous sine `
+      + "is multiplied by the displayed index and added to the displayed phasor. "
+      + `Only operator ${stack.audibleIndex} reaches the normalized output.`,
+  );
+}
+
 function updateControlOutputs(stack = currentStack()) {
   const { settings } = stack;
   controls.depth.output.textContent = String(settings.depth);
@@ -158,6 +266,7 @@ function updateControlOutputs(stack = currentStack()) {
     : "none · carrier sine is audible";
   $("operatorReadout").textContent = `operator ${stack.audibleIndex} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
   $("ceilingReadout").textContent = formatRecursivePmFrequency(settings.maximumFrequencyHz);
+  updateSignalFlow(stack);
   $("stageReadout").textContent = `${summary.label} · ${engine.running ? "ON" : "OFF"}`.toUpperCase();
   canvas.setAttribute(
     "aria-label",

@@ -84,6 +84,163 @@
   white-space: normal;
 }
 
+.chaotic-path-graph {
+  position: absolute;
+  z-index: 4;
+  right: clamp(12px, 2vw, 28px);
+  bottom: clamp(16px, 3%, 28px);
+  left: clamp(12px, 2vw, 28px);
+  height: clamp(150px, 29%, 220px);
+  overflow: hidden;
+  border-top: 1px solid color-mix(in oklab, var(--chaotic-path-signal) 24%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--chaotic-path-output) 12%, transparent);
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--bg-deep) 94%, transparent),
+    color-mix(in oklab, var(--bg-deep) 78%, transparent),
+    color-mix(in oklab, var(--bg-deep) 94%, transparent)
+  );
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+.chaotic-path-graph::before {
+  position: absolute;
+  z-index: 1;
+  top: 7px;
+  left: 10px;
+  color: var(--chaotic-path-signal);
+  content: attr(data-path-label);
+  font-size: 7px;
+  letter-spacing: 0.12em;
+  opacity: 0.78;
+}
+
+.chaotic-path-graph svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.chaotic-path-wire,
+.chaotic-path-control-wire,
+.chaotic-path-tap,
+.chaotic-path-bus,
+.chaotic-path-audio-wire {
+  fill: none;
+  stroke: var(--chaotic-path-signal);
+  stroke-width: 1.6;
+}
+
+.chaotic-path-control-wire {
+  stroke: var(--chaotic-path-control);
+  stroke-dasharray: 3 3;
+  opacity: 0.72;
+}
+
+.chaotic-path-block rect,
+.chaotic-path-operator rect,
+.chaotic-path-output rect {
+  fill: color-mix(in oklab, var(--bg-deep) 92%, transparent);
+  stroke-width: 1.4;
+}
+
+.chaotic-path-block rect {
+  stroke: var(--chaotic-path-signal);
+}
+
+.chaotic-path-block.is-control rect {
+  stroke: var(--chaotic-path-control);
+}
+
+.chaotic-path-operator rect {
+  stroke: var(--chaotic-path-operator);
+}
+
+.chaotic-path-operator.is-seed rect {
+  stroke: var(--chaotic-path-control);
+}
+
+.chaotic-path-operator.is-audible rect,
+.chaotic-path-output rect {
+  fill: color-mix(in oklab, var(--chaotic-path-output) 8%, var(--bg-deep));
+  stroke: var(--chaotic-path-output);
+  stroke-width: 1.8;
+}
+
+.chaotic-path-title,
+.chaotic-path-value,
+.chaotic-path-bus-label,
+.chaotic-path-junction text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-anchor: middle;
+}
+
+.chaotic-path-title {
+  fill: var(--ink);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.chaotic-path-value {
+  fill: var(--muted);
+  font-size: 8px;
+}
+
+.chaotic-path-junction circle {
+  fill: var(--bg-deep);
+  stroke: var(--chaotic-path-signal);
+  stroke-width: 2;
+}
+
+.chaotic-path-junction text {
+  fill: var(--chaotic-path-signal);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.chaotic-path-tap {
+  stroke: var(--faint);
+  stroke-dasharray: 3 4;
+  opacity: 0.2;
+}
+
+.chaotic-path-tap.is-open {
+  stroke: var(--chaotic-path-output);
+  stroke-dasharray: none;
+  stroke-width: 1.8;
+  opacity: 1;
+}
+
+.chaotic-path-tap-switch {
+  fill: var(--bg-deep);
+  stroke: var(--faint);
+  opacity: 0.35;
+}
+
+.chaotic-path-tap-switch.is-open {
+  fill: var(--chaotic-path-output);
+  stroke: var(--chaotic-path-output);
+  opacity: 1;
+}
+
+.chaotic-path-bus,
+.chaotic-path-audio-wire {
+  stroke: var(--chaotic-path-output);
+  stroke-width: 1.25;
+  opacity: 0.72;
+}
+
+.chaotic-path-bus-label {
+  fill: var(--faint);
+  font-size: 8px;
+  text-anchor: start;
+}
+
+.chaotic-path-arrow path {
+  fill: var(--chaotic-path-output);
+}
+
 @media (max-width: 650px) {
   .chaotic-analysis-labels {
     top: 88px;
@@ -107,5 +264,17 @@
 
   .chaotic-flow-arrow {
     width: 10px;
+  }
+
+  .chaotic-path-graph {
+    right: 5px;
+    bottom: 8px;
+    left: 5px;
+    height: 132px;
+  }
+
+  .chaotic-path-graph::before {
+    top: 4px;
+    font-size: 6px;
   }
 }

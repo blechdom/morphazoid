@@ -7,6 +7,10 @@
   --chaotic-turn: #ff7aa6;
   --chaotic-output: #fff3d6;
   --chaotic-caution: #e8c46b;
+  --chaotic-path-signal: #ff7aa6;
+  --chaotic-path-control: #5fe8c4;
+  --chaotic-path-operator: #ffb86b;
+  --chaotic-path-output: #fff3d6;
 }
 
 .chaotic-fm-shell {

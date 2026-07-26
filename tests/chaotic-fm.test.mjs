@@ -417,7 +417,14 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   assert.match(markup, /id="audioState">off</);
   assert.match(markup, /id="output"/);
   assert.match(markup, /href="chaotic-synth-ui\.css"/);
-  assert.match(markup, /class="chaotic-signal-flow"/);
+  assert.match(markup, /class="chaotic-path-graph"/);
+  assert.match(markup, /id="chaoticFmFlow"/);
+  assert.match(app, /function updateSignalFlow\(stack\)/);
+  assert.match(app, /× DEVIATION/);
+  assert.match(app, /× AMOUNT/);
+  assert.match(app, />TANH</);
+  assert.match(app, /× RATE/);
+  assert.match(app, /chaotic-path-junction/);
   assert.match(markup, /id="turnsReadout"/);
   assert.doesNotMatch(markup, />Turn \d+</);
   assert.match(markup, />Nonlinearity rate</);

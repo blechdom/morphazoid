@@ -12,6 +12,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="weierstrass.css" />
+    <link rel="stylesheet" href="chaotic-synth-ui.css" />
   </head>
   <body class="weierstrass-page">
     <header class="masthead">
@@ -136,6 +137,13 @@
             <span class="section-state" id="algorithmState">Wave · normalized</span>
           </summary>
           <div class="group-body">
+            <div
+              class="weierstrass-path-graph"
+              id="weierstrassFlow"
+              role="img"
+              aria-label="Weierstrass Wave signal path. Frequency and weight branches form each partial, active partials sum, normalize, and reach audio."
+            ></div>
+
             <label class="control" for="terms">
               <span><b>Terms</b><output id="termsOut" for="terms">9</output></span>
               <input id="terms" type="range" min="1" max="48" step="1" value="9" />

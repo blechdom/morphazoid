@@ -94,18 +94,12 @@
           </div>
 
           <div
-            class="chaotic-signal-flow"
+            class="chaotic-path-graph"
+            id="recursivePmFlow"
             role="img"
-            aria-label="Recursive PM flow: carrier sine, phase addition, divided recursive phase turns, output."
-          >
-            <span class="chaotic-flow-node"><b>Carrier sine</b><small>base phasor</small></span>
-            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
-            <span class="chaotic-flow-node"><b>Add phase</b><small>phasor + previous × index</small></span>
-            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
-            <span class="chaotic-flow-node"><b>Recurse</b><small>divide frequency + index</small></span>
-            <i class="chaotic-flow-arrow" aria-hidden="true"></i>
-            <span class="chaotic-flow-node"><b>Output</b><small>selected depth · normalized</small></span>
-          </div>
+            data-path-label="ACTUAL SIGNAL PATH · PREVIOUS SINE × INDEX + PHASOR → NEXT SINE"
+            aria-label="Recursive PM operator graph. Each previous sine is multiplied by a phase index and added to a separate phasor before the next sine operator."
+          ></div>
         </div>
       </section>
 
@@ -188,7 +182,7 @@
       </aside>
 
       <p class="sr-only" id="recursivePmDescription">
-        A live oscilloscope and rolling spectrogram sit above a simple carrier-to-output flow chart. Detailed recursion values are listed below the sliders.
+        A live oscilloscope and rolling spectrogram sit above the complete recursive phase path. Every turn shows the previous sine multiplied by its index and added to its independent phasor before the next sine operator.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
