@@ -134,12 +134,18 @@ function staticCurrentHref(doc) {
 function createToolsDisclosure(doc, activeTool, siteRoot, index) {
   const details = element(doc, "details", "tools-menu");
   const summary = element(doc, "summary", "tools-menu-trigger");
+  const activeGroup = TOOL_GROUPS.find(
+    (group) => group.tools.some((tool) => tool.id === activeTool?.id),
+  );
+  const menuLabel = activeGroup?.label ?? "Tools";
   summary.setAttribute(
     "aria-label",
-    activeTool ? `Tools. Current tool: ${activeTool.label}` : "Tools. Choose a tool",
+    activeTool
+      ? `${menuLabel}. Current tool: ${activeTool.label}`
+      : "Tools. Choose a tool",
   );
   summary.append(
-    element(doc, "span", "tools-menu-label", "Tools"),
+    element(doc, "span", "tools-menu-label", menuLabel),
     element(doc, "strong", "tools-menu-current", activeTool?.label ?? "Choose"),
   );
   const chevron = element(doc, "span", "tools-menu-chevron");

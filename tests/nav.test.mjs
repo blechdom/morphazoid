@@ -221,7 +221,14 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
   assert.equal(details.tagName, "DETAILS");
   const summary = details.children[0];
   assert.equal(summary.tagName, "SUMMARY");
-  assert.equal(summary.getAttribute("aria-label"), "Tools. Current tool: Julia");
+  assert.equal(
+    summary.getAttribute("aria-label"),
+    "Fractals & Recursion. Current tool: Julia",
+  );
+  assert.equal(
+    summary.findAll((node) => node.className === "tools-menu-label")[0]?.textContent,
+    "Fractals & Recursion",
+  );
   assert.equal(
     summary.findAll((node) => node.className === "tools-menu-current")[0]?.textContent,
     "Julia",
