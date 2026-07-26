@@ -4,6 +4,7 @@
   --accent-glow: color-mix(in oklab, #7db4ff 22%, transparent);
   --weierstrass-wave: #7db4ff;
   --weierstrass-fm: #c79bff;
+  --weierstrass-pm: #ff9f73;
   --weierstrass-taper: #e8c46b;
   --weierstrass-cull: #77837e;
 }
@@ -102,7 +103,7 @@
   padding: 3px;
   border: 1px solid var(--line-strong);
   background: var(--bg-deep);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 3px;
 }
 
@@ -145,6 +146,12 @@
   background: color-mix(in oklab, var(--weierstrass-fm) 12%, transparent);
 }
 
+.weierstrass-mode-buttons button[data-mode="pm"][aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--weierstrass-pm) 65%, transparent);
+  color: var(--weierstrass-pm);
+  background: color-mix(in oklab, var(--weierstrass-pm) 12%, transparent);
+}
+
 .weierstrass-preset-grid {
   display: grid;
   padding: 3px;
@@ -155,6 +162,10 @@
 }
 
 .weierstrass-preset-grid button[data-preset="prism-engine"] {
+  grid-column: 1 / -1;
+}
+
+.weierstrass-preset-grid button[data-preset="phase-bloom"] {
   grid-column: 1 / -1;
 }
 
@@ -176,23 +187,33 @@
   text-transform: uppercase;
 }
 
-.weierstrass-page #fmControls {
+.weierstrass-page #fmControls,
+.weierstrass-page #pmControls {
   position: relative;
   margin: 15px 0 3px;
   padding: 13px 11px 1px;
-  border-left: 1px solid var(--weierstrass-fm);
+  border-left: 1px solid var(--mode-accent, var(--weierstrass-fm));
   background:
-    linear-gradient(90deg, color-mix(in oklab, var(--weierstrass-fm) 8%, transparent), transparent 74%),
+    linear-gradient(90deg, color-mix(in oklab, var(--mode-accent, var(--weierstrass-fm)) 8%, transparent), transparent 74%),
     var(--bg-deep);
 }
 
-.weierstrass-page #fmControls::before {
+.weierstrass-page #fmControls {
+  --mode-accent: var(--weierstrass-fm);
+}
+
+.weierstrass-page #pmControls {
+  --mode-accent: var(--weierstrass-pm);
+}
+
+.weierstrass-page #fmControls::before,
+.weierstrass-page #pmControls::before {
   position: absolute;
   top: 0;
   left: 0;
   width: 30px;
   height: 1px;
-  background: var(--weierstrass-fm);
+  background: var(--mode-accent, var(--weierstrass-fm));
   content: "";
 }
 
@@ -276,6 +297,10 @@
   }
 
   .weierstrass-preset-grid button[data-preset="prism-engine"] {
+    grid-column: auto;
+  }
+
+  .weierstrass-preset-grid button[data-preset="phase-bloom"] {
     grid-column: auto;
   }
 

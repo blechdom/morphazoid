@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="Morphazoid Weierstrass — normalized fractal Wave and frequency-modulation banks with bounded continuous phases."
+      content="Morphazoid Weierstrass — normalized fractal Wave, frequency-modulation, and source-faithful phase-modulation banks with bounded continuous phases."
     />
     <title>Weierstrass — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -72,7 +72,7 @@
           <div class="weierstrass-heading">
             <p>CHAOTIC SYNTHS · 04</p>
             <h1 id="weierstrassTitle">Weierstrass</h1>
-            <span>Σ aⁿ cos(2π f₀ bⁿ t)</span>
+            <span id="formulaReadout">Σ aⁿ cos(2π f₀ bⁿ t)</span>
           </div>
 
           <div class="stage-meta" aria-hidden="true">
@@ -96,6 +96,7 @@
             <div class="weierstrass-mode-buttons" id="modeButtons" role="group" aria-label="Weierstrass synthesis mode">
               <button type="button" data-mode="wave" aria-pressed="true">Wave</button>
               <button type="button" data-mode="fm" aria-pressed="false">FM</button>
+              <button type="button" data-mode="pm" aria-pressed="false">PM</button>
             </div>
 
             <div class="weierstrass-preset-grid" id="presetButtons" role="group" aria-label="Weierstrass character presets">
@@ -106,6 +107,9 @@
               <button type="button" data-preset="slow-ember" data-mode="fm" aria-pressed="false" hidden>Slow Ember</button>
               <button type="button" data-preset="twin-flare" data-mode="fm" aria-pressed="false" hidden>Twin Flare</button>
               <button type="button" data-preset="prism-engine" data-mode="fm" aria-pressed="false" hidden>Prism Engine</button>
+              <button type="button" data-preset="source-phase" data-mode="pm" aria-pressed="false" hidden>Source Phase</button>
+              <button type="button" data-preset="phase-thread" data-mode="pm" aria-pressed="false" hidden>Phase Thread</button>
+              <button type="button" data-preset="phase-bloom" data-mode="pm" aria-pressed="false" hidden>Phase Bloom</button>
             </div>
             <p class="weierstrass-preset-description" id="presetDescription">
               Nine tapering terms climb through a steep, crystalline 7.07× lattice.
@@ -167,17 +171,41 @@
               </label>
             </div>
 
+            <div id="pmControls" hidden>
+              <label class="control" for="pmCarrierFrequency">
+                <span><b>Phase oscillator</b><output id="pmCarrierFrequencyOut" for="pmCarrierFrequency">22 Hz</output></span>
+                <input id="pmCarrierFrequency" type="range" min="0" max="1" step="0.0001" value="0.658" />
+              </label>
+
+              <label class="control" for="pmIndex">
+                <span><b>Phase index</b><output id="pmIndexOut" for="pmIndex">1 cycle</output></span>
+                <input
+                  id="pmIndex"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.0001"
+                  value="0.224"
+                  aria-describedby="pmPolicyNote"
+                />
+              </label>
+              <small class="weierstrass-control-note" id="pmPolicyNote">
+                Source grammar · wrap(W + index × sin(oscillator phase)) in cycles
+              </small>
+            </div>
+
             <div class="grammar-card weierstrass-ledger" aria-label="Current bounded algorithm">
               <span><b>Mode</b><code id="modeReadout">normalized Wave bank</code></span>
               <span><b>Terms</b><code id="termReadout">9 requested · 4 active · 5 culled</code></span>
               <span><b>Range</b><code id="rangeReadout">45.2 Hz → 15.99 kHz</code></span>
               <span><b>Source</b><code id="sourceReadout">1.81 fundamental → 0.905 Hz</code></span>
               <span id="depthLedgerRow" hidden><b>FM depth</b><code id="depthReadout">1.03 kHz requested · 1.03 kHz rendered</code></span>
+              <span id="pmLedgerRow" hidden><b>PM budget</b><code id="pmReadout">1 cycle requested · 1 cycle rendered</code></span>
               <span><b>Ceiling</b><code id="ceilingReadout">20 kHz · tapered + clamped</code></span>
             </div>
 
             <p class="weierstrass-safety-note">
-              Every requested legacy tuple is retained in source metadata. Playable rates use the source’s actual half-rate, all terms are included, phases stay continuous, and above-band terms taper out before normalization.
+              Every requested legacy tuple is retained in source metadata. Wave/FM use the source’s actual half-rate; PM discloses its separate eighth-rate timing and original wrapped-phase grammar. All terms are included, phases stay continuous, and above-band energy is bounded.
             </p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>

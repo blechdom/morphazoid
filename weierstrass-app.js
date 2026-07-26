@@ -3,11 +3,13 @@ import {
   WEIERSTRASS_DEFAULTS,
   WEIERSTRASS_FM_PRESETS,
   WEIERSTRASS_LIMITS,
+  WEIERSTRASS_PM_PRESETS,
   WEIERSTRASS_PRESETS,
   WEIERSTRASS_WAVE_PRESETS,
   WeierstrassAudio,
   deriveWeierstrassBank,
   deriveWeierstrassFmHeadroom,
+  deriveWeierstrassPmHeadroom,
   formatWeierstrassFrequency,
   logarithmicSliderPosition,
   logarithmicSliderValue,
@@ -35,16 +37,23 @@ const defaultPreset = WEIERSTRASS_PRESETS.find(
   (preset) => preset.id === DEFAULT_WEIERSTRASS_PRESET_ID,
 ) ?? WEIERSTRASS_WAVE_PRESETS[0];
 const defaultFmPreset = WEIERSTRASS_FM_PRESETS[0];
+const defaultPmPreset = WEIERSTRASS_PM_PRESETS[0];
 
 const state = {
   settings: {
     ...defaultPreset.settings,
     fmDepthHz: defaultFmPreset.settings.fmDepthHz,
     offsetHz: defaultFmPreset.settings.offsetHz,
+    pmCarrierFrequencyHz: defaultPmPreset.settings.pmCarrierFrequencyHz,
+    pmIndexCycles: defaultPmPreset.settings.pmIndexCycles,
   },
   fmMemory: {
     fmDepthHz: defaultFmPreset.settings.fmDepthHz,
     offsetHz: defaultFmPreset.settings.offsetHz,
+  },
+  pmMemory: {
+    pmCarrierFrequencyHz: defaultPmPreset.settings.pmCarrierFrequencyHz,
+    pmIndexCycles: defaultPmPreset.settings.pmIndexCycles,
   },
   output: WEIERSTRASS_DEFAULTS.output,
   activePresetId: defaultPreset.id,
@@ -137,6 +146,36 @@ const controls = {
       ));
     },
   },
+  pmCarrierFrequencyHz: {
+    input: $("pmCarrierFrequency"),
+    output: $("pmCarrierFrequencyOut"),
+    read: (input) => logarithmicSliderValue(
+      Number(input.value),
+      WEIERSTRASS_LIMITS.minPmCarrierFrequencyHz,
+      WEIERSTRASS_LIMITS.maxPmCarrierFrequencyHz,
+    ),
+    write: (value, input) => {
+      input.value = String(logarithmicSliderPosition(
+        value,
+        WEIERSTRASS_LIMITS.minPmCarrierFrequencyHz,
+        WEIERSTRASS_LIMITS.maxPmCarrierFrequencyHz,
+      ));
+    },
+  },
+  pmIndexCycles: {
+    input: $("pmIndex"),
+    output: $("pmIndexOut"),
+    read: (input) => quadraticSliderValue(
+      Number(input.value),
+      WEIERSTRASS_LIMITS.maxPmIndexCycles,
+    ),
+    write: (value, input) => {
+      input.value = String(quadraticSliderPosition(
+        value,
+        WEIERSTRASS_LIMITS.maxPmIndexCycles,
+      ));
+    },
+  },
 };
 
 function setPressed(element, pressed) {
@@ -144,10 +183,16 @@ function setPressed(element, pressed) {
 }
 
 function compactNumber(value, maximumDigits = 3) {
-  return Number(value)
+  const compact = Number(value)
     .toFixed(maximumDigits)
     .replace(/0+$/, "")
     .replace(/\.$/, "");
+  return compact === "" || compact === "-" ? "0" : compact;
+}
+
+function formatCycleCount(value) {
+  const cycles = compactNumber(value, 3);
+  return `${cycles} ${Math.abs(Number(value) - 1) < 1e-9 ? "cycle" : "cycles"}`;
 }
 
 function presetById(id) {
@@ -155,9 +200,15 @@ function presetById(id) {
 }
 
 function presetsForMode(mode) {
-  return mode === "fm"
-    ? WEIERSTRASS_FM_PRESETS
-    : WEIERSTRASS_WAVE_PRESETS;
+  if (mode === "fm") return WEIERSTRASS_FM_PRESETS;
+  if (mode === "pm") return WEIERSTRASS_PM_PRESETS;
+  return WEIERSTRASS_WAVE_PRESETS;
+}
+
+function modeLabel(mode) {
+  if (mode === "fm") return "FM";
+  if (mode === "pm") return "PM";
+  return "Wave";
 }
 
 function settingsMatchPreset(settings, preset) {
@@ -172,11 +223,20 @@ function settingsMatchPreset(settings, preset) {
   if (sharedKeys.some((key) => settings[key] !== preset.settings[key])) {
     return false;
   }
-  if (settings.mode !== "fm") return true;
-  return (
-    settings.fmDepthHz === preset.settings.fmDepthHz
-    && settings.offsetHz === preset.settings.offsetHz
-  );
+  if (settings.mode === "fm") {
+    return (
+      settings.fmDepthHz === preset.settings.fmDepthHz
+      && settings.offsetHz === preset.settings.offsetHz
+    );
+  }
+  if (settings.mode === "pm") {
+    return (
+      settings.pmCarrierFrequencyHz
+        === preset.settings.pmCarrierFrequencyHz
+      && settings.pmIndexCycles === preset.settings.pmIndexCycles
+    );
+  }
+  return true;
 }
 
 function matchingPresetId(settings) {
@@ -204,6 +264,12 @@ function currentBank() {
 
 function currentHeadroom() {
   return deriveWeierstrassFmHeadroom(currentParameters(), {
+    sampleRate: currentSampleRate(),
+  });
+}
+
+function currentPmHeadroom() {
+  return deriveWeierstrassPmHeadroom(currentParameters(), {
     sampleRate: currentSampleRate(),
   });
 }
@@ -242,7 +308,9 @@ function updateModeInterface() {
     button.hidden = button.dataset.mode !== state.settings.mode;
   }
   $("fmControls").hidden = state.settings.mode !== "fm";
+  $("pmControls").hidden = state.settings.mode !== "pm";
   $("depthLedgerRow").hidden = state.settings.mode !== "fm";
+  $("pmLedgerRow").hidden = state.settings.mode !== "pm";
 }
 
 function updatePresetInterface() {
@@ -250,10 +318,14 @@ function updatePresetInterface() {
     setPressed(button, button.dataset.preset === state.activePresetId);
   }
   const preset = presetById(state.activePresetId);
-  const modeLabel = state.settings.mode === "fm" ? "FM" : "Wave";
-  $("presetState").textContent = preset?.label ?? `Custom ${modeLabel}`;
+  const label = modeLabel(state.settings.mode);
+  $("presetState").textContent = preset?.label ?? `Custom ${label}`;
   $("presetDescription").textContent = preset?.description
-    ?? `A custom normalized Weierstrass ${modeLabel} bank.`;
+    ?? (
+      state.settings.mode === "pm"
+        ? "A custom raw-phase Weierstrass PM bank."
+        : `A custom normalized Weierstrass ${label} bank.`
+    );
 }
 
 function activeFrequencyRange(bank) {
@@ -271,6 +343,7 @@ function activeFrequencyRange(bank) {
 function updateReadouts(
   bank = currentBank(),
   headroom = currentHeadroom(),
+  pmHeadroom = currentPmHeadroom(),
 ) {
   const settings = bank.settings;
   controls.terms.output.textContent = String(settings.terms);
@@ -292,15 +365,33 @@ function updateReadouts(
   controls.offsetHz.output.textContent = formatWeierstrassFrequency(
     settings.offsetHz,
   );
+  controls.pmCarrierFrequencyHz.output.textContent = (
+    formatWeierstrassFrequency(settings.pmCarrierFrequencyHz)
+  );
+  controls.pmIndexCycles.output.textContent = formatCycleCount(
+    settings.pmIndexCycles,
+  );
   $("outputOut").textContent = `${Math.round(state.output * 100)}%`;
 
-  const modeLabel = settings.mode === "fm" ? "FM" : "Wave";
+  const label = modeLabel(settings.mode);
   $("algorithmState").textContent = settings.mode === "fm"
     ? "FM · normalized + bounded"
-    : "Wave · normalized";
+    : settings.mode === "pm"
+      ? "PM · source wrap + bounded"
+      : "Wave · normalized";
   $("modeReadout").textContent = settings.mode === "fm"
     ? "normalized bank → signed oscillator Hz"
-    : "normalized active Wave bank";
+    : settings.mode === "pm"
+      ? "sin(2π · wrap(W + I · sin φ))"
+      : "normalized active Wave bank";
+  $("formulaReadout").textContent = settings.mode === "fm"
+    ? "sin(∫(fOffset + D · W)dt)"
+    : settings.mode === "pm"
+      ? "sin(2π wrap(W + I sin φc))"
+      : "Σ aⁿ cos(2π f₀ bⁿ t)";
+  $("frequencyPolicyNote").textContent = settings.mode === "pm"
+    ? "Logarithmic · PM source “fundamental” ÷ 8 because its phasor reset over 240 seconds"
+    : "Logarithmic · source “fundamental” ÷ 2 because its π phasor ran at half-rate";
   $("termReadout").textContent = [
     `${bank.requestedCount} requested`,
     `${bank.activeCount} active`,
@@ -317,15 +408,24 @@ function updateReadouts(
       `${compactNumber(preset.source.legacyFundamental)} source`,
       `→ ${formatWeierstrassFrequency(preset.source.baseFrequencyHz)}`,
     ];
-    if (preset.source.adaptation) {
+    if (
+      preset.source.legacyStartExponent
+      !== preset.source.playableStartExponent
+    ) {
       sourceParts.push(
         `· exponent ${preset.source.legacyStartExponent}→${preset.source.playableStartExponent}`,
       );
+    } else if (preset.source.origin === "native") {
+      sourceParts.push("· native PM tuple");
+    } else if (settings.mode === "pm") {
+      sourceParts.push("· source timing ÷ 8");
     }
     $("sourceReadout").textContent = sourceParts.join(" ");
   } else {
     $("sourceReadout").textContent = (
-      `π-source half-rate policy · ${formatWeierstrassFrequency(settings.baseFrequencyHz)}`
+      settings.mode === "pm"
+        ? `PM source eighth-rate policy · ${formatWeierstrassFrequency(settings.baseFrequencyHz)}`
+        : `π-source half-rate policy · ${formatWeierstrassFrequency(settings.baseFrequencyHz)}`
     );
   }
 
@@ -334,11 +434,22 @@ function updateReadouts(
     `${formatWeierstrassFrequency(headroom.requestedDepthHz)} requested`,
     `${formatWeierstrassFrequency(headroom.effectiveDepthHz)} ${depthStatus}`,
   ].join(" · ");
+  const pmStatus = pmHeadroom.limited ? "bounded" : "rendered";
+  const pmParts = [
+    `${formatCycleCount(pmHeadroom.requestedIndexCycles)} requested`,
+    `${formatCycleCount(pmHeadroom.effectiveIndexCycles)} ${pmStatus}`,
+  ];
+  if (pmHeadroom.bankScale + 1e-9 < 1) {
+    pmParts.push(`${Math.round(pmHeadroom.bankScale * 100)}% W scale`);
+  }
+  $("pmReadout").textContent = pmParts.join(" · ");
   $("ceilingReadout").textContent = (
-    `${formatWeierstrassFrequency(settings.maximumFrequencyHz)} · tapered + signed clamp`
+    settings.mode === "pm"
+      ? `${formatWeierstrassFrequency(settings.maximumFrequencyHz)} · phase-rate budget`
+      : `${formatWeierstrassFrequency(settings.maximumFrequencyHz)} · tapered + signed clamp`
   );
   $("stageReadout").textContent = [
-    modeLabel,
+    label,
     `${bank.requestedCount} requested`,
     `${bank.activeCount} active`,
     `audio ${state.audioOn ? "on" : "off"}`,
@@ -346,7 +457,7 @@ function updateReadouts(
   $("scopeState").textContent = state.audioOn ? "SCOPE · LIVE" : "SCOPE · IDLE";
   canvas.setAttribute(
     "aria-label",
-    `Weierstrass ${modeLabel} bank with ${bank.requestedCount} requested, `
+    `Weierstrass ${label} bank with ${bank.requestedCount} requested, `
       + `${bank.activeCount} active, and ${bank.culledCount} culled terms. `
       + `Audio ${state.audioOn ? "on" : "off"}.`,
   );
@@ -364,7 +475,8 @@ function updateInterface() {
   updatePresetInterface();
   const bank = currentBank();
   const headroom = currentHeadroom();
-  updateReadouts(bank, headroom);
+  const pmHeadroom = currentPmHeadroom();
+  updateReadouts(bank, headroom, pmHeadroom);
   audio.setParameters(currentParameters());
   visualizationDirty = true;
   scheduleVisualization();
@@ -379,9 +491,15 @@ function applySettings(settings, {
     ...state.settings,
     ...settings,
   };
-  if (nextMode === "wave") {
+  if (nextMode !== "fm") {
     mergedSettings.fmDepthHz = state.fmMemory.fmDepthHz;
     mergedSettings.offsetHz = state.fmMemory.offsetHz;
+  }
+  if (nextMode !== "pm") {
+    mergedSettings.pmCarrierFrequencyHz = (
+      state.pmMemory.pmCarrierFrequencyHz
+    );
+    mergedSettings.pmIndexCycles = state.pmMemory.pmIndexCycles;
   }
   const safe = sanitizeWeierstrassParams({
     ...mergedSettings,
@@ -398,10 +516,16 @@ function applySettings(settings, {
     baseFrequencyHz: safe.baseFrequencyHz,
     fmDepthHz: safe.fmDepthHz,
     offsetHz: safe.offsetHz,
+    pmCarrierFrequencyHz: safe.pmCarrierFrequencyHz,
+    pmIndexCycles: safe.pmIndexCycles,
   };
   if (safe.mode === "fm") {
     state.fmMemory.fmDepthHz = safe.fmDepthHz;
     state.fmMemory.offsetHz = safe.offsetHz;
+  }
+  if (safe.mode === "pm") {
+    state.pmMemory.pmCarrierFrequencyHz = safe.pmCarrierFrequencyHz;
+    state.pmMemory.pmIndexCycles = safe.pmIndexCycles;
   }
   state.activePresetId = presetId === undefined
     ? matchingPresetId(state.settings)
@@ -428,8 +552,10 @@ $("modeButtons").addEventListener("click", (event) => {
     mode: button.dataset.mode,
     fmDepthHz: state.fmMemory.fmDepthHz,
     offsetHz: state.fmMemory.offsetHz,
+    pmCarrierFrequencyHz: state.pmMemory.pmCarrierFrequencyHz,
+    pmIndexCycles: state.pmMemory.pmIndexCycles,
   }, {
-    message: `${button.dataset.mode === "fm" ? "FM" : "Wave"} mode selected. Shared lattice preserved.`,
+    message: `${modeLabel(button.dataset.mode)} mode selected. Shared lattice preserved.`,
   });
 });
 
@@ -441,7 +567,7 @@ $("presetButtons").addEventListener("click", (event) => {
   clearError();
   applySettings(preset.settings, {
     presetId: preset.id,
-    message: `${preset.label} ${preset.mode === "fm" ? "FM" : "Wave"} preset selected.`,
+    message: `${preset.label} ${modeLabel(preset.mode)} preset selected.`,
   });
 });
 
@@ -486,6 +612,10 @@ $("resetWeierstrass").addEventListener("click", () => {
   state.output = WEIERSTRASS_DEFAULTS.output;
   state.fmMemory.fmDepthHz = defaultFmPreset.settings.fmDepthHz;
   state.fmMemory.offsetHz = defaultFmPreset.settings.offsetHz;
+  state.pmMemory.pmCarrierFrequencyHz = (
+    defaultPmPreset.settings.pmCarrierFrequencyHz
+  );
+  state.pmMemory.pmIndexCycles = defaultPmPreset.settings.pmIndexCycles;
   applySettings(defaultPreset.settings, {
     presetId: defaultPreset.id,
     message: "Weierstrass parameters reset.",
@@ -616,10 +746,14 @@ function drawPartialLattice(context, bank, width, height, timestamp) {
     } else {
       context.fillStyle = state.settings.mode === "fm"
         ? "rgba(199, 155, 255, 0.2)"
-        : "rgba(125, 180, 255, 0.2)";
+        : state.settings.mode === "pm"
+          ? "rgba(255, 159, 115, 0.2)"
+          : "rgba(125, 180, 255, 0.2)";
       context.strokeStyle = state.settings.mode === "fm"
         ? "#c79bff"
-        : "#7db4ff";
+        : state.settings.mode === "pm"
+          ? "#ff9f73"
+          : "#7db4ff";
     }
     context.fill();
     context.stroke();
@@ -661,10 +795,14 @@ function drawScope(context, width, height) {
     }
     context.strokeStyle = state.settings.mode === "fm"
       ? "#c79bff"
-      : "#7db4ff";
+      : state.settings.mode === "pm"
+        ? "#ff9f73"
+        : "#7db4ff";
     context.shadowColor = state.settings.mode === "fm"
       ? "rgba(199, 155, 255, 0.4)"
-      : "rgba(125, 180, 255, 0.4)";
+      : state.settings.mode === "pm"
+        ? "rgba(255, 159, 115, 0.4)"
+        : "rgba(125, 180, 255, 0.4)";
     context.shadowBlur = 8;
   } else {
     context.moveTo(left, center);

@@ -8,16 +8,21 @@ import {
   WEIERSTRASS_FM_PRESETS,
   WEIERSTRASS_FREQUENCY_POLICY,
   WEIERSTRASS_LEGACY_FM_TUPLES,
+  WEIERSTRASS_LEGACY_PM_TUPLES,
   WEIERSTRASS_LEGACY_WAVE_TUPLES,
   WEIERSTRASS_LIMITS,
+  WEIERSTRASS_PM_FREQUENCY_POLICY,
+  WEIERSTRASS_PM_PRESETS,
   WEIERSTRASS_WAVE_PRESETS,
   WeierstrassAudio,
   antiAliasTaper,
   boundedWeierstrassFmFrequency,
   deriveWeierstrassBank,
   deriveWeierstrassFmHeadroom,
+  deriveWeierstrassPmHeadroom,
   finiteAbsoluteWeightSum,
   sanitizeWeierstrassParams,
+  weierstrassPmSample,
   weierstrassWaveAtTime,
 } from "../src/weierstrass.js";
 
@@ -34,35 +39,50 @@ const ORIGINAL_FM_TUPLES = [
   [5, 33, 0.49, 2.96, 0, 3_000, 100],
 ];
 
-test("all two Wave and five FM source tuples remain exact and immutable", () => {
+const ORIGINAL_PM_TUPLES = [
+  [100, 4, 0.5, 0.5, 1, 22, 1],
+];
+
+test("all legacy Wave, FM, and PM source tuples remain exact and immutable", () => {
   assert.deepEqual(WEIERSTRASS_LEGACY_WAVE_TUPLES, ORIGINAL_WAVE_TUPLES);
   assert.deepEqual(WEIERSTRASS_LEGACY_FM_TUPLES, ORIGINAL_FM_TUPLES);
+  assert.deepEqual(WEIERSTRASS_LEGACY_PM_TUPLES, ORIGINAL_PM_TUPLES);
   assert.equal(WEIERSTRASS_WAVE_PRESETS.length, 2);
   assert.equal(WEIERSTRASS_FM_PRESETS.length, 5);
+  assert.equal(WEIERSTRASS_PM_PRESETS.length, 3);
   assert.equal(DEFAULT_WEIERSTRASS_PRESET_ID, "salt-lattice");
 
   for (const tuple of [
     ...WEIERSTRASS_LEGACY_WAVE_TUPLES,
     ...WEIERSTRASS_LEGACY_FM_TUPLES,
+    ...WEIERSTRASS_LEGACY_PM_TUPLES,
   ]) {
     assert.ok(Object.isFrozen(tuple));
   }
   for (const preset of [
     ...WEIERSTRASS_WAVE_PRESETS,
     ...WEIERSTRASS_FM_PRESETS,
+    ...WEIERSTRASS_PM_PRESETS,
   ]) {
     assert.ok(Object.isFrozen(preset));
     assert.ok(Object.isFrozen(preset.settings));
     assert.ok(Object.isFrozen(preset.source));
-    assert.strictEqual(preset.sourceTuple, (
-      preset.mode === "wave"
+    assert.ok(Object.isFrozen(preset.sourceTuple));
+    if (preset.source.origin === "legacy") {
+      const sourceTuples = preset.mode === "wave"
         ? WEIERSTRASS_LEGACY_WAVE_TUPLES
-        : WEIERSTRASS_LEGACY_FM_TUPLES
-    ).find((tuple) => tuple === preset.sourceTuple));
+        : preset.mode === "fm"
+          ? WEIERSTRASS_LEGACY_FM_TUPLES
+          : WEIERSTRASS_LEGACY_PM_TUPLES;
+      assert.strictEqual(
+        preset.sourceTuple,
+        sourceTuples.find((tuple) => tuple === preset.sourceTuple),
+      );
+    }
   }
 });
 
-test("legacy π-phasor values convert transparently to actual base Hz", () => {
+test("legacy phasor policies convert transparently to actual base Hz", () => {
   assert.equal(
     WEIERSTRASS_FREQUENCY_POLICY.id,
     "legacy-pi-phasor-half-rate",
@@ -74,6 +94,77 @@ test("legacy π-phasor values convert transparently to actual base Hz", () => {
     [6.605, 42.605, 0.005, 1.455, 2.5],
   );
   assert.match(WEIERSTRASS_FREQUENCY_POLICY.description, /divided by two/i);
+  assert.equal(
+    WEIERSTRASS_PM_FREQUENCY_POLICY.id,
+    "legacy-pm-240-second-phasor-eighth-rate",
+  );
+  assert.equal(WEIERSTRASS_PM_PRESETS[0].settings.baseFrequencyHz, 12.5);
+  assert.match(
+    WEIERSTRASS_PM_FREQUENCY_POLICY.description,
+    /divided by eight/i,
+  );
+});
+
+test("PM presets preserve the source tuple and identify native extensions", () => {
+  assert.deepEqual(
+    WEIERSTRASS_PM_PRESETS.map(({ id }) => id),
+    ["source-phase", "phase-thread", "phase-bloom"],
+  );
+
+  const sourcePreset = WEIERSTRASS_PM_PRESETS[0];
+  assert.strictEqual(
+    sourcePreset.sourceTuple,
+    WEIERSTRASS_LEGACY_PM_TUPLES[0],
+  );
+  assert.deepEqual(sourcePreset.settings, {
+    mode: "pm",
+    baseFrequencyHz: 12.5,
+    terms: 4,
+    amplitudeRatio: 0.5,
+    frequencyRatio: 0.5,
+    startExponent: 1,
+    fmDepthHz: 0,
+    offsetHz: 0,
+    pmCarrierFrequencyHz: 22,
+    pmIndexCycles: 1,
+  });
+  assert.equal(sourcePreset.source.origin, "legacy");
+  assert.equal(sourcePreset.source.legacyPmCarrierFrequencyHz, 22);
+  assert.equal(sourcePreset.source.legacyPmIndexCycles, 1);
+  assert.equal(
+    sourcePreset.source.frequencyPolicy,
+    WEIERSTRASS_PM_FREQUENCY_POLICY.id,
+  );
+
+  for (const preset of WEIERSTRASS_PM_PRESETS.slice(1)) {
+    assert.equal(preset.mode, "pm");
+    assert.equal(preset.source.origin, "native");
+    assert.equal(preset.source.legacyPmCarrierFrequencyHz, null);
+    assert.equal(preset.source.legacyPmIndexCycles, null);
+    assert.match(preset.source.adaptation, /native Morphazoid PM/i);
+  }
+
+  const headroom = deriveWeierstrassPmHeadroom(sourcePreset.settings);
+  assert.equal(headroom.requestedIndexCycles, 1);
+  assert.equal(headroom.effectiveIndexCycles, 1);
+  assert.equal(headroom.bankScale, 1);
+  assert.equal(headroom.limited, false);
+  assert.ok(headroom.estimatedPeakFrequencyHz < headroom.maximumFrequencyHz);
+
+  const sourceGrammarSample = weierstrassPmSample(
+    0.125,
+    Math.PI / 2,
+    0.25,
+  );
+  assert.ok(
+    Math.abs(sourceGrammarSample - Math.sin(Math.PI * 0.75)) < 1e-12,
+  );
+  assert.ok(
+    Math.abs(
+      weierstrassPmSample(1.125, Math.PI / 2, 0.25)
+      - sourceGrammarSample
+    ) < 1e-12,
+  );
 });
 
 test("FM depth compensates exactly for normalized source-bank weights", () => {
@@ -517,7 +608,7 @@ test("audio graph is gesture-inert, resumes, suspends, and closes completely", a
   assert.equal(engine.analyser, null);
 });
 
-test("native page exposes only Wave and FM with a bounded transparent ledger", async () => {
+test("native page exposes Wave, FM, and source-faithful PM with bounded ledgers", async () => {
   const root = new URL("../", import.meta.url);
   const [markup, app, stylesheet, moduleSource] = await Promise.all([
     readFile(new URL("weierstrass.html", root), "utf8"),
@@ -531,7 +622,7 @@ test("native page exposes only Wave and FM with a bounded transparent ledger", a
   assert.match(markup, /id="output"/);
   assert.match(markup, /data-mode="wave"[^>]+>Wave</);
   assert.match(markup, /data-mode="fm"[^>]+>FM</);
-  assert.doesNotMatch(markup, /data-mode="pm"/i);
+  assert.match(markup, /data-mode="pm"[^>]+>PM</);
   assert.match(markup, />Terms</);
   assert.match(markup, />Start exponent</);
   assert.match(markup, />Amplitude ratio a</);
@@ -539,26 +630,48 @@ test("native page exposes only Wave and FM with a bounded transparent ledger", a
   assert.match(markup, />Base-term frequency</);
   assert.match(markup, />FM deviation</);
   assert.match(markup, />Frequency offset</);
+  assert.match(markup, />Phase oscillator</);
+  assert.match(markup, />Phase index</);
+  assert.match(
+    markup,
+    /wrap\(W \+ index × sin\(oscillator phase\)\) in cycles/,
+  );
+  assert.match(markup, /id="pmLedgerRow"[^>]*hidden><b>PM budget</);
   assert.match(markup, /requested · 4 active · 5 culled/);
   assert.match(markup, /requested · 1\.03 kHz rendered/);
+  assert.match(markup, /1 cycle requested · 1 cycle rendered/);
   assert.match(markup, /source “fundamental” ÷ 2/i);
-  assert.match(markup, /above-band terms taper out before normalization/i);
+  assert.match(markup, /PM discloses its separate eighth-rate timing/i);
+  assert.match(markup, /above-band energy is bounded/i);
   assert.match(markup, /role="img"/);
   assert.match(markup, /aria-live="polite"/);
   assert.match(markup, /src="weierstrass-app\.js"/);
-  assert.equal((markup.match(/data-preset="/g) ?? []).length, 7);
+  assert.equal((markup.match(/data-preset="/g) ?? []).length, 10);
+  assert.equal(
+    (markup.match(/data-preset="[^"]+" data-mode="pm"/g) ?? []).length,
+    3,
+  );
+  for (const presetId of ["source-phase", "phase-thread", "phase-bloom"]) {
+    assert.match(markup, new RegExp(`data-preset="${presetId}"`));
+  }
   assert.doesNotMatch(markup, /https?:\/\//);
   assert.doesNotMatch(markup, /\bexternal\b/i);
   assert.doesNotMatch(markup, /Listening/);
 
   assert.match(app, /FRAME_INTERVAL = 1_000 \/ 30/);
   assert.match(app, /deriveWeierstrassFmHeadroom/);
+  assert.match(app, /deriveWeierstrassPmHeadroom/);
   assert.match(app, /requestedDepthHz/);
   assert.match(app, /effectiveDepthHz/);
+  assert.match(app, /requestedIndexCycles/);
+  assert.match(app, /effectiveIndexCycles/);
   assert.match(app, /bank\.requestedCount/);
   assert.match(app, /bank\.activeCount/);
   assert.match(app, /bank\.culledCount/);
   assert.match(app, /fmMemory/);
+  assert.match(app, /pmMemory/);
+  assert.match(app, /PM source “fundamental” ÷ 8/);
+  assert.match(app, /sin\(2π wrap\(W \+ I sin φc\)\)/);
   assert.match(app, /Shared lattice preserved/);
   assert.match(app, /addEventListener\("pagehide"/);
   assert.match(app, /audio\.close\(\)/);
@@ -570,9 +683,15 @@ test("native page exposes only Wave and FM with a bounded transparent ledger", a
   assert.match(moduleSource, /createSoftCeilingCurve/);
   assert.match(moduleSource, /async start\(\)\s*\{\s*await this\.initialize\(\)/);
   assert.match(moduleSource, /frequencyCeiling/);
+  assert.match(moduleSource, /WEIERSTRASS_PM_FREQUENCY_POLICY/);
+  assert.match(moduleSource, /export function deriveWeierstrassPmHeadroom/);
+  assert.match(moduleSource, /export function weierstrassPmSample/);
+  assert.match(moduleSource, /Math\.sin\(TAU \* wrappedPmPhaseCycles\)/);
 
   assert.match(stylesheet, /@media \(max-width: 960px\)/);
   assert.match(stylesheet, /@media \(max-width: 390px\)/);
   assert.match(stylesheet, /prefers-reduced-motion/);
   assert.match(stylesheet, /min-height: 4[02]px/);
+  assert.match(stylesheet, /--weierstrass-pm:\s*#ff9f73/);
+  assert.match(stylesheet, /button\[data-mode="pm"\]\[aria-pressed="true"\]/);
 });

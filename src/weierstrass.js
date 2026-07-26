@@ -5,6 +5,8 @@ const MAX_AUDIBLE_FREQUENCY = 20_000;
 const MAX_TERMS = 48;
 const ANTI_ALIAS_TAPER_START = 0.72;
 const MATERIAL_WEIGHT_FLOOR = 0.001;
+const DEFAULT_PM_CARRIER_FREQUENCY_HZ = 22;
+const DEFAULT_PM_INDEX_CYCLES = 1;
 
 export const WEIERSTRASS_LIMITS = Object.freeze({
   minTerms: 1,
@@ -19,6 +21,9 @@ export const WEIERSTRASS_LIMITS = Object.freeze({
   maxBaseFrequencyHz: 2_000,
   maxFmDepthHz: 12_000,
   maxOffsetHz: 12_000,
+  minPmCarrierFrequencyHz: 0.01,
+  maxPmCarrierFrequencyHz: 1_200,
+  maxPmIndexCycles: 20,
   maxOutput: 0.82,
 });
 
@@ -39,6 +44,23 @@ export const WEIERSTRASS_FREQUENCY_POLICY = Object.freeze({
   },
 });
 
+/**
+ * The PM source used a 240-second ramp multiplied by `fundamental * 60`
+ * before its π phase term. Its continuous source-equivalent base rate is
+ * therefore fundamental / 8, not the Wave/FM source's fundamental / 2.
+ */
+export const WEIERSTRASS_PM_FREQUENCY_POLICY = Object.freeze({
+  id: "legacy-pm-240-second-phasor-eighth-rate",
+  label: "PM source fundamental ÷ 8",
+  description: (
+    "Playable PM base-term Hz equals the source tuple's fundamental divided "
+    + "by eight; continuous phases replace the old 240-second reset."
+  ),
+  convertLegacyFundamental(value) {
+    return Number(value) / 8;
+  },
+});
+
 const freezeTuple = (tuple) => Object.freeze([...tuple]);
 
 export const WEIERSTRASS_LEGACY_WAVE_TUPLES = Object.freeze([
@@ -52,6 +74,15 @@ export const WEIERSTRASS_LEGACY_FM_TUPLES = Object.freeze([
   freezeTuple([0.01, 23, 0.8, 5, 0, 500, 100]),
   freezeTuple([2.91, 2, 0.07, 6.55, 0, 640, 140]),
   freezeTuple([5, 33, 0.49, 2.96, 0, 3_000, 100]),
+]);
+
+export const WEIERSTRASS_LEGACY_PM_TUPLES = Object.freeze([
+  freezeTuple([100, 4, 0.5, 0.5, 1, 22, 1]),
+]);
+
+const WEIERSTRASS_NATIVE_PM_TUPLES = Object.freeze([
+  freezeTuple([72, 7, 0.68, 1.41, 0, 82, 0.22]),
+  freezeTuple([36, 12, 0.74, 1.73, 0, 196, 0.68]),
 ]);
 
 function finiteNumber(value, fallback) {
@@ -122,14 +153,23 @@ function sourceSettingsFromTuple(tuple, mode, {
   return {
     settings: {
       mode,
-      baseFrequencyHz: WEIERSTRASS_FREQUENCY_POLICY
-        .convertLegacyFundamental(tuple[0]),
+      baseFrequencyHz: (
+        mode === "pm"
+          ? WEIERSTRASS_PM_FREQUENCY_POLICY
+          : WEIERSTRASS_FREQUENCY_POLICY
+      ).convertLegacyFundamental(tuple[0]),
       terms: tuple[1],
       amplitudeRatio: tuple[2],
       frequencyRatio: tuple[3],
       startExponent: playableStartExponent,
       fmDepthHz: mode === "fm" ? tuple[5] * sourceWeightSum : 0,
       offsetHz: mode === "fm" ? tuple[6] : 0,
+      pmCarrierFrequencyHz: mode === "pm"
+        ? tuple[5]
+        : DEFAULT_PM_CARRIER_FREQUENCY_HZ,
+      pmIndexCycles: mode === "pm"
+        ? tuple[6]
+        : DEFAULT_PM_INDEX_CYCLES,
     },
     sourceWeightSum,
   };
@@ -143,6 +183,7 @@ function freezePreset({
   mode,
   playableStartExponent,
   adaptation = null,
+  origin = "legacy",
 }) {
   const converted = sourceSettingsFromTuple(tuple, mode, {
     playableStartExponent,
@@ -161,9 +202,18 @@ function freezePreset({
       normalizedFmDepthHz: mode === "fm"
         ? converted.settings.fmDepthHz
         : null,
+      legacyPmCarrierFrequencyHz: mode === "pm" && origin === "legacy"
+        ? tuple[5]
+        : null,
+      legacyPmIndexCycles: mode === "pm" && origin === "legacy"
+        ? tuple[6]
+        : null,
       legacyStartExponent: tuple[4],
       playableStartExponent: converted.settings.startExponent,
-      frequencyPolicy: WEIERSTRASS_FREQUENCY_POLICY.id,
+      frequencyPolicy: mode === "pm"
+        ? WEIERSTRASS_PM_FREQUENCY_POLICY.id
+        : WEIERSTRASS_FREQUENCY_POLICY.id,
+      origin,
       adaptation,
     }),
     settings: Object.freeze(converted.settings),
@@ -233,9 +283,47 @@ export const WEIERSTRASS_FM_PRESETS = Object.freeze([
   }),
 ]);
 
+export const WEIERSTRASS_PM_PRESETS = Object.freeze([
+  freezePreset({
+    id: "source-phase",
+    label: "Source Phase",
+    description: (
+      "The exact original four-term PM tuple folds a descending lattice "
+      + "around a 22 Hz phase oscillator."
+    ),
+    mode: "pm",
+    tuple: WEIERSTRASS_LEGACY_PM_TUPLES[0],
+  }),
+  freezePreset({
+    id: "phase-thread",
+    label: "Phase Thread",
+    description: (
+      "A restrained native phase index draws the lattice into a clear, "
+      + "slowly shifting harmonic thread."
+    ),
+    mode: "pm",
+    tuple: WEIERSTRASS_NATIVE_PM_TUPLES[0],
+    origin: "native",
+    adaptation: "Native Morphazoid PM voicing; not an original source tuple.",
+  }),
+  freezePreset({
+    id: "phase-bloom",
+    label: "Phase Bloom",
+    description: (
+      "Twelve rising terms and a wider index open into a bright, bounded "
+      + "phase-modulated bloom."
+    ),
+    mode: "pm",
+    tuple: WEIERSTRASS_NATIVE_PM_TUPLES[1],
+    origin: "native",
+    adaptation: "Native Morphazoid PM voicing; not an original source tuple.",
+  }),
+]);
+
 export const WEIERSTRASS_PRESETS = Object.freeze([
   ...WEIERSTRASS_WAVE_PRESETS,
   ...WEIERSTRASS_FM_PRESETS,
+  ...WEIERSTRASS_PM_PRESETS,
 ]);
 
 export const DEFAULT_WEIERSTRASS_PRESET_ID = "salt-lattice";
@@ -250,7 +338,9 @@ export function sanitizeWeierstrassParams(
   { sampleRate = DEFAULT_SAMPLE_RATE } = {},
 ) {
   const maximumFrequencyHz = sampleRateCeiling(sampleRate);
-  const mode = params.mode === "fm" ? "fm" : "wave";
+  const mode = params.mode === "fm" || params.mode === "pm"
+    ? params.mode
+    : "wave";
   return Object.freeze({
     mode,
     terms: Math.round(clamp(
@@ -317,6 +407,31 @@ export function sanitizeWeierstrassParams(
       0,
       Math.min(WEIERSTRASS_LIMITS.maxOffsetHz, maximumFrequencyHz),
       100,
+    ),
+    pmCarrierFrequencyHz: clamp(
+      legacyValue(
+        params,
+        "pmCarrierFrequencyHz",
+        "carrierFreq",
+        DEFAULT_PM_CARRIER_FREQUENCY_HZ,
+      ),
+      WEIERSTRASS_LIMITS.minPmCarrierFrequencyHz,
+      Math.min(
+        WEIERSTRASS_LIMITS.maxPmCarrierFrequencyHz,
+        maximumFrequencyHz,
+      ),
+      DEFAULT_PM_CARRIER_FREQUENCY_HZ,
+    ),
+    pmIndexCycles: clamp(
+      legacyValue(
+        params,
+        "pmIndexCycles",
+        "indexOfMod",
+        DEFAULT_PM_INDEX_CYCLES,
+      ),
+      0,
+      WEIERSTRASS_LIMITS.maxPmIndexCycles,
+      DEFAULT_PM_INDEX_CYCLES,
     ),
     output: clamp(
       params.output,
@@ -459,7 +574,7 @@ export function boundedWeierstrassFmFrequency(
  * effective depth keeps offset + deviation + modulator edge below the current
  * render ceiling. The sample loop also retains a final signed-frequency clamp.
  */
-function fmHeadroomFromBank(bank) {
+function highestMaterialPartialFrequency(bank) {
   let highestMaterialPartialHz = 0;
   for (let index = 0; index < bank.partials.length; index += 1) {
     const partial = bank.partials[index];
@@ -471,6 +586,11 @@ function fmHeadroomFromBank(bank) {
       highestMaterialPartialHz = partial.frequencyHz;
     }
   }
+  return highestMaterialPartialHz;
+}
+
+function fmHeadroomFromBank(bank) {
+  const highestMaterialPartialHz = highestMaterialPartialFrequency(bank);
   const availableDepthHz = Math.max(
     0,
     bank.settings.maximumFrequencyHz
@@ -497,6 +617,99 @@ export function deriveWeierstrassFmHeadroom(
   { sampleRate = DEFAULT_SAMPLE_RATE } = {},
 ) {
   return fmHeadroomFromBank(deriveWeierstrassBank(params, { sampleRate }));
+}
+
+/**
+ * Bound the source PM grammar without replacing it. W(t) and the sine
+ * oscillator are phase values in cycles, so their worst-case instantaneous
+ * phase rates are 2πΣ|raw tapered weight|f and 2π·index·carrier respectively.
+ * The source preset fits unmodified; only hostile/high-band settings reduce W
+ * or index.
+ */
+function pmHeadroomFromBank(bank) {
+  let requestedBankPhaseBandwidthHz = 0;
+  for (let index = 0; index < bank.partials.length; index += 1) {
+    const partial = bank.partials[index];
+    if (!partial.active) continue;
+    requestedBankPhaseBandwidthHz += (
+      TAU
+      * Math.abs(partial.effectiveWeight)
+      * partial.frequencyHz
+    );
+  }
+  const ceiling = bank.settings.maximumFrequencyHz;
+  const bankScale = requestedBankPhaseBandwidthHz > ceiling
+    ? ceiling / requestedBankPhaseBandwidthHz
+    : 1;
+  const effectiveBankPhaseBandwidthHz = (
+    requestedBankPhaseBandwidthHz * bankScale
+  );
+  const availableCarrierPhaseBandwidthHz = Math.max(
+    0,
+    ceiling - effectiveBankPhaseBandwidthHz,
+  );
+  const carrierFrequencyHz = bank.settings.pmCarrierFrequencyHz;
+  const maximumIndexCycles = carrierFrequencyHz > 0
+    ? availableCarrierPhaseBandwidthHz / (TAU * carrierFrequencyHz)
+    : 0;
+  const requestedIndexCycles = bank.settings.pmIndexCycles;
+  const effectiveIndexCycles = Math.min(
+    requestedIndexCycles,
+    maximumIndexCycles,
+  );
+  const estimatedPeakFrequencyHz = (
+    effectiveBankPhaseBandwidthHz
+    + TAU * effectiveIndexCycles * carrierFrequencyHz
+  );
+  return Object.freeze({
+    requestedIndexCycles,
+    effectiveIndexCycles,
+    maximumIndexCycles,
+    carrierFrequencyHz,
+    requestedBankPhaseBandwidthHz,
+    effectiveBankPhaseBandwidthHz,
+    bankScale,
+    estimatedPeakFrequencyHz,
+    maximumFrequencyHz: ceiling,
+    limited: (
+      effectiveIndexCycles + 1e-12 < requestedIndexCycles
+      || bankScale + 1e-12 < 1
+    ),
+  });
+}
+
+export function deriveWeierstrassPmHeadroom(
+  params = {},
+  { sampleRate = DEFAULT_SAMPLE_RATE } = {},
+) {
+  return pmHeadroomFromBank(deriveWeierstrassBank(params, { sampleRate }));
+}
+
+/**
+ * The authoritative source wraps phase cycles after adding its normalized
+ * Weierstrass trajectory and a sine oscillator scaled by the PM index.
+ */
+export function weierstrassPmSample(
+  bankPhaseCycles,
+  carrierPhaseRadians,
+  indexCycles,
+  bankScale = 1,
+) {
+  const safeBankPhase = finiteNumber(bankPhaseCycles, 0);
+  const safeCarrierPhase = finiteNumber(carrierPhaseRadians, 0);
+  const safeIndex = clamp(
+    indexCycles,
+    0,
+    WEIERSTRASS_LIMITS.maxPmIndexCycles,
+    0,
+  );
+  const safeBankScale = clamp(bankScale, 0, 1, 1);
+  const phaseCycles = (
+    safeBankPhase * safeBankScale
+    + Math.sin(safeCarrierPhase) * safeIndex
+  );
+  const wrappedPhaseCycles = phaseCycles - Math.floor(phaseCycles);
+  return Math.sin(TAU * wrappedPhaseCycles);
 }
 
 export function logarithmicSliderValue(position, minimum, maximum) {
@@ -571,16 +784,29 @@ function createProcessorClass(AudioWorkletBase) {
       });
       this.targetModeMix = initial.mode === "fm" ? 1 : 0;
       this.currentModeMix = this.targetModeMix;
+      this.targetPmMix = initial.mode === "pm" ? 1 : 0;
+      this.currentPmMix = this.targetPmMix;
+      this.targetMode = initial.mode;
       this.targetFmDepthHz = initial.fmDepthHz;
       this.currentFmDepthHz = initial.fmDepthHz;
       this.targetOffsetHz = initial.offsetHz;
       this.currentOffsetHz = initial.offsetHz;
+      this.targetPmCarrierFrequencyHz = initial.pmCarrierFrequencyHz;
+      this.currentPmCarrierFrequencyHz = initial.pmCarrierFrequencyHz;
+      this.requestedPmIndexCycles = initial.pmIndexCycles;
+      this.targetPmIndexCycles = initial.pmIndexCycles;
+      this.currentPmIndexCycles = initial.pmIndexCycles;
+      this.targetPmBankScale = 1;
+      this.currentPmBankScale = 1;
+      this.targetPmBankGain = 0;
+      this.currentPmBankGain = 0;
       this.targetFrequencies = new Float64Array(MAX_TERMS);
       this.currentFrequencies = new Float64Array(MAX_TERMS);
       this.targetWeights = new Float64Array(MAX_TERMS);
       this.currentWeights = new Float64Array(MAX_TERMS);
       this.phases = new Float64Array(MAX_TERMS);
       this.fmPhase = 0;
+      this.pmCarrierPhase = 0;
       this.activeTarget = 0;
       this.activeGain = 0;
       this.configureBank(initial, true);
@@ -589,9 +815,7 @@ function createProcessorClass(AudioWorkletBase) {
         if (message?.type === "parameters") {
           const parameters = message.parameters;
           const safe = sanitizeWeierstrassParams({
-            mode: parameters?.mode ?? (
-              this.targetModeMix >= 0.5 ? "fm" : "wave"
-            ),
+            mode: parameters?.mode ?? this.targetMode,
             terms: parameters?.terms,
             startExponent: parameters?.startExponent,
             amplitudeRatio: parameters?.amplitudeRatio,
@@ -599,12 +823,24 @@ function createProcessorClass(AudioWorkletBase) {
             baseFrequencyHz: parameters?.baseFrequencyHz,
             fmDepthHz: parameters?.fmDepthHz ?? this.targetFmDepthHz,
             offsetHz: parameters?.offsetHz ?? this.targetOffsetHz,
+            pmCarrierFrequencyHz: (
+              parameters?.pmCarrierFrequencyHz
+              ?? this.targetPmCarrierFrequencyHz
+            ),
+            pmIndexCycles: (
+              parameters?.pmIndexCycles
+              ?? this.requestedPmIndexCycles
+            ),
           }, {
             sampleRate: Number(globalThis.sampleRate) || DEFAULT_SAMPLE_RATE,
           });
+          this.targetMode = safe.mode;
           this.targetModeMix = safe.mode === "fm" ? 1 : 0;
+          this.targetPmMix = safe.mode === "pm" ? 1 : 0;
           this.targetFmDepthHz = safe.fmDepthHz;
           this.targetOffsetHz = safe.offsetHz;
+          this.targetPmCarrierFrequencyHz = safe.pmCarrierFrequencyHz;
+          this.requestedPmIndexCycles = safe.pmIndexCycles;
           this.configureBank(safe, false);
         } else if (message?.type === "active") {
           this.activeTarget = message.value ? 1 : 0;
@@ -617,8 +853,17 @@ function createProcessorClass(AudioWorkletBase) {
         sampleRate: Number(globalThis.sampleRate) || DEFAULT_SAMPLE_RATE,
       });
       const headroom = fmHeadroomFromBank(bank);
+      const pmHeadroom = pmHeadroomFromBank(bank);
       this.targetFmDepthHz = headroom.effectiveDepthHz;
+      this.targetPmIndexCycles = pmHeadroom.effectiveIndexCycles;
+      this.targetPmBankScale = pmHeadroom.bankScale;
+      this.targetPmBankGain = bank.activeAbsoluteWeightSum;
       if (immediate) this.currentFmDepthHz = headroom.effectiveDepthHz;
+      if (immediate) {
+        this.currentPmIndexCycles = pmHeadroom.effectiveIndexCycles;
+        this.currentPmBankScale = pmHeadroom.bankScale;
+        this.currentPmBankGain = bank.activeAbsoluteWeightSum;
+      }
       for (let index = 0; index < MAX_TERMS; index += 1) {
         const partial = bank.partials[index];
         const frequency = partial?.active ? partial.frequencyHz : 0;
@@ -655,12 +900,28 @@ function createProcessorClass(AudioWorkletBase) {
         this.currentModeMix += (
           this.targetModeMix - this.currentModeMix
         ) * parameterSlew;
+        this.currentPmMix += (
+          this.targetPmMix - this.currentPmMix
+        ) * parameterSlew;
         this.currentFmDepthHz += (
           this.targetFmDepthHz - this.currentFmDepthHz
         ) * parameterSlew;
         this.currentOffsetHz += (
           this.targetOffsetHz - this.currentOffsetHz
         ) * parameterSlew;
+        this.currentPmCarrierFrequencyHz += (
+          this.targetPmCarrierFrequencyHz
+          - this.currentPmCarrierFrequencyHz
+        ) * parameterSlew;
+        this.currentPmIndexCycles += (
+          this.targetPmIndexCycles - this.currentPmIndexCycles
+        ) * parameterSlew;
+        this.currentPmBankScale += (
+          this.targetPmBankScale - this.currentPmBankScale
+        ) * parameterSlew;
+        this.currentPmBankGain += (
+          this.targetPmBankGain - this.currentPmBankGain
+        ) * weightSlew;
         this.activeGain += (
           this.activeTarget - this.activeGain
         ) * activeSlew;
@@ -700,9 +961,25 @@ function createProcessorClass(AudioWorkletBase) {
           this.fmPhase + fmFrequency * phaseScale,
         );
         const fmSignal = Math.sin(this.fmPhase);
-        const modeSignal = (
+        this.pmCarrierPhase = wrapPhase(
+          this.pmCarrierPhase
+          + this.currentPmCarrierFrequencyHz * phaseScale,
+        );
+        const pmPhaseCycles = (
+          wave * this.currentPmBankGain * this.currentPmBankScale
+          + Math.sin(this.pmCarrierPhase) * this.currentPmIndexCycles
+        );
+        const wrappedPmPhaseCycles = (
+          pmPhaseCycles - Math.floor(pmPhaseCycles)
+        );
+        const pmSignal = Math.sin(TAU * wrappedPmPhaseCycles);
+        const waveFmSignal = (
           wave * (1 - this.currentModeMix)
           + fmSignal * this.currentModeMix
+        );
+        const modeSignal = (
+          waveFmSignal * (1 - this.currentPmMix)
+          + pmSignal * this.currentPmMix
         );
         const sample = modeSignal * this.activeGain * 0.48;
         left[sampleIndex] = Number.isFinite(sample) ? sample : 0;
@@ -867,6 +1144,8 @@ export class WeierstrassAudio {
       baseFrequencyHz: safe.baseFrequencyHz,
       fmDepthHz: safe.fmDepthHz,
       offsetHz: safe.offsetHz,
+      pmCarrierFrequencyHz: safe.pmCarrierFrequencyHz,
+      pmIndexCycles: safe.pmIndexCycles,
       output: safe.output,
     };
     if (!this.isInitialized) return;
@@ -881,6 +1160,8 @@ export class WeierstrassAudio {
         baseFrequencyHz: safe.baseFrequencyHz,
         fmDepthHz: safe.fmDepthHz,
         offsetHz: safe.offsetHz,
+        pmCarrierFrequencyHz: safe.pmCarrierFrequencyHz,
+        pmIndexCycles: safe.pmIndexCycles,
       },
     });
     if (this.enabled) {
