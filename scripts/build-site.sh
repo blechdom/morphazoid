@@ -43,11 +43,6 @@ while IFS= read -r -d '' source_path; do
 
   case "$source_path" in
     *.html|*.css|*.js|favicon.svg|morphazoidical/PLAN.md|\
-    vendor/elementary-audio/LICENSE|\
-    vendor/soundtouchjs-phase-vocoder/LICENSE|\
-    vendor/soundtouchjs/LICENSE|\
-    vendor/tone/LICENSE|\
-    vendor/tone/Tone.js.LICENSE.txt|\
     vendor/tactile/LICENSE|\
     vendor/signalsmith-stretch/SignalsmithStretch.mjs)
       copy_runtime_file "$source_path"

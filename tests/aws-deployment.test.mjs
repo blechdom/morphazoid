@@ -75,6 +75,8 @@ test("site builder publishes runtime files without development material", async 
       "README.md",
       ".preview-cdp.ps1",
       ".throatazoid-preview.png",
+      "audio-engine-lab.html",
+      "src/audio-engine-lab.js",
     ]) {
       assert.equal(await exists(join(output, path)), false, `published ${path}`);
     }
