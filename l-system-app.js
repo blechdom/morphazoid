@@ -39,8 +39,7 @@ const DEFAULT_L_SYSTEM_STATE = Object.freeze({
   lengthScale: 0.72,
   position: 0,
   continuousPosition: 0,
-  speed: 0.08,
-  speedUnit: "cycles",
+  speed: 3,
   direction: 1,
   traversalBehavior: "loop",
   playing: false,
@@ -166,46 +165,20 @@ bindRange(
   paintCurrentSettings,
 );
 
-function formatTraversalMilliseconds(speed = state.speed) {
-  return `${Math.round(1_000 / Math.max(0.0001, speed)).toLocaleString("en-US")} ms`;
-}
-
 function paintTraversalSpeed() {
   const input = $("speed");
-  if (state.speedUnit === "milliseconds") {
-    input.min = "1000";
-    input.max = "100000";
-    input.step = "100";
-    input.value = String(Math.round(1_000 / state.speed));
-    $("speedOut").textContent = `${formatTraversalMilliseconds()} / cycle`;
-    input.setAttribute("aria-valuetext", `${formatTraversalMilliseconds()} per cycle`);
-  } else {
-    input.min = "0.01";
-    input.max = "1";
-    input.step = "0.01";
-    input.value = String(state.speed);
-    $("speedOut").textContent = `${state.speed.toFixed(2)} cyc/s`;
-    input.setAttribute("aria-valuetext", `${state.speed.toFixed(2)} cycles per second`);
-  }
+  input.value = String(state.speed);
+  $("speedOut").textContent = `${state.speed.toFixed(2)} cyc/s`;
+  input.setAttribute("aria-valuetext", `${state.speed.toFixed(2)} cycles per second`);
 }
 
 $("speed").addEventListener("input", (event) => {
-  const value = Number(event.currentTarget.value);
-  state.speed = state.speedUnit === "milliseconds"
-    ? 1_000 / Math.max(1, value)
-    : value;
+  state.speed = Number(event.currentTarget.value);
   paintTraversalSpeed();
   paintCurrentSettings();
   scheduleFrame();
 });
 
-$("speedUnit").addEventListener("change", (event) => {
-  state.speedUnit = event.currentTarget.value === "milliseconds"
-    ? "milliseconds"
-    : "cycles";
-  paintTraversalSpeed();
-  paintCurrentSettings();
-});
 paintTraversalSpeed();
 
 function currentPreset() {
@@ -362,7 +335,6 @@ function paintTraversalBehavior() {
 }
 
 function paintCurrentSettings() {
-  const duration = formatTraversalMilliseconds();
   const behavior = state.traversalBehavior === "ping-pong"
     ? "ping-pong"
     : state.direction > 0
@@ -370,10 +342,9 @@ function paintCurrentSettings() {
       : "loop reverse";
   $("currentSettingsSummary").textContent = `${
     structureLabels[state.structureMode] ?? structureLabels.final
-  } · ${duration}`;
+  } · ${state.speed.toFixed(2)} cyc/s`;
   $("currentTraversalReadout").textContent = [
     `${state.speed.toFixed(2)} cyc/s`,
-    duration,
     behavior,
   ].join(" · ");
   $("currentVoicingReadout").textContent = [
@@ -484,7 +455,6 @@ $("resetAll").addEventListener("click", () => {
     $(id).value = String(value);
     $(`${id}Out`).textContent = text;
   }
-  $("speedUnit").value = state.speedUnit;
   $("structureMode").value = state.structureMode;
   $("pitchSource").value = state.pitchSource;
   $("soundMode").value = state.soundMode;

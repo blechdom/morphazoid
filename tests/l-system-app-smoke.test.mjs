@@ -164,7 +164,9 @@ test("L-system app draws and drives adaptively capped bifurcating sine voices", 
   elements.get("position").value = String(1.5 / 7);
   listeners.get("position:input")();
   queuedFrame(now + 10);
-  assert.equal(elements.get("speedOut").textContent, "0.08 cyc/s");
+  assert.equal(elements.get("speedOut").textContent, "3.00 cyc/s");
+  elements.get("speed").value = "0.05";
+  listeners.get("speed:input")({ currentTarget: elements.get("speed") });
   assert.match(elements.get("structureSummary").textContent, /sequence · I2\/7/);
   assert.equal(elements.get("positionOut").textContent, "I2 · 50.0%");
 
@@ -173,15 +175,6 @@ test("L-system app draws and drives adaptively capped bifurcating sine voices", 
     currentTarget: elements.get("structureMode"),
   });
 
-  elements.get("speedUnit").value = "milliseconds";
-  listeners.get("speedUnit:change")({
-    currentTarget: elements.get("speedUnit"),
-  });
-  assert.equal(elements.get("speedOut").textContent, "12,500 ms / cycle");
-  elements.get("speedUnit").value = "cycles";
-  listeners.get("speedUnit:change")({
-    currentTarget: elements.get("speedUnit"),
-  });
   listeners.get("traversalPingPong:click")();
   assert.equal(attributes.get("traversalPingPong:aria-pressed"), "true");
   assert.match(elements.get("currentTraversalReadout").textContent, /ping-pong/);

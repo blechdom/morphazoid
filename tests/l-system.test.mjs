@@ -335,11 +335,13 @@ test("L-system page exposes presets, traversal, mapping, adaptive synthesis, and
   for (const name of ["Koch snowflake", "Sierpiński triangle", "Hilbert curve", "Gosper curve", "Cantor set", "Lévy C curve", "Terdragon"]) {
     assert.match(html, new RegExp(name));
   }
-  for (const id of ["playButton", "position", "speed", "speedUnit", "traversalLoop", "traversalPingPong", "structureMode", "preset", "iterations", "angle", "turnAsymmetry", "turnAsymmetryNote", "lengthScale", "taperNote", "pitchSource", "baseFrequency", "pitchRange", "soundMode", "modulationIndex", "stereoSpread", "polyphonyReadout", "polyphonyDescription", "currentSettingsSummary"]) {
+  for (const id of ["playButton", "position", "speed", "traversalLoop", "traversalPingPong", "structureMode", "preset", "iterations", "angle", "turnAsymmetry", "turnAsymmetryNote", "lengthScale", "taperNote", "pitchSource", "baseFrequency", "pitchRange", "soundMode", "modulationIndex", "stereoSpread", "polyphonyReadout", "polyphonyDescription", "currentSettingsSummary"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(html, /id="structureMode"[\s\S]*?<option value="final" selected>Final tree/);
   assert.match(html, /id="baseFrequency"[^>]+value="220"/);
+  assert.match(html, /id="speed"[^>]+value="3"/);
+  assert.doesNotMatch(html, /id="speedUnit"/);
   assert.match(html, /Branch length taper/);
   assert.match(html, /Length only—not line width or loudness/);
   assert.match(html, /hyper<\/a><a class="tab active"[^>]+>l-system<\/a><a class="tab recursion-tab"[^>]+>recursion<\/a><a class="tab"[^>]+>julia<\/a><a class="tab"[^>]+>lumber<\/a>/);

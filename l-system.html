@@ -38,8 +38,7 @@
               <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Grow bifurcating L-system playheads"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
               <label class="control position-control" for="position"><span><b>Growth position</b><output id="positionOut" for="position">0.0%</output></span><input id="position" type="range" min="0" max="1" step="0.0005" value="0" /></label>
             </div>
-            <label class="select-control" for="speedUnit"><span class="field-label">Traversal units</span><span class="select-shell"><select id="speedUnit"><option value="cycles" selected>Cycles / second</option><option value="milliseconds">Milliseconds / cycle</option></select></span></label>
-            <label class="control" for="speed"><span><b>Traversal speed</b><output id="speedOut" for="speed">0.08 cyc/s</output></span><input id="speed" type="range" min="0.01" max="1" step="0.01" value="0.08" /></label>
+            <label class="control" for="speed"><span><b>Traversal speed</b><output id="speedOut" for="speed">3.00 cyc/s</output></span><input id="speed" type="range" min="0.05" max="10" step="0.05" value="3" /></label>
             <div class="choice-switch traversal-mode-switch" id="traversalMode" role="group" aria-label="Traversal repeat behavior">
               <button id="traversalLoop" type="button" aria-pressed="true" title="Loop from the tree end to its beginning"><span aria-hidden="true">↻</span><span>Loop</span></button>
               <button id="traversalPingPong" type="button" aria-pressed="false" title="Reverse at each end of the tree"><span aria-hidden="true">↔</span><span>Ping-pong</span></button>
@@ -100,9 +99,9 @@
         <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all>Reset all parameters</button></div>
 
         <details class="group control-section" id="playbackSettingsSection" data-section="settings">
-          <summary class="group-summary"><h2 class="group-title">Current settings</h2><span class="section-state" id="currentSettingsSummary">final tree · 12,500 ms</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Current settings</h2><span class="section-state" id="currentSettingsSummary">final tree · 3.00 cyc/s</span></summary>
           <div class="group-body">
-            <div class="structure-readout"><b>Traversal</b><output id="currentTraversalReadout">0.08 cyc/s · 12,500 ms · loop</output></div>
+            <div class="structure-readout"><b>Traversal</b><output id="currentTraversalReadout">3.00 cyc/s · loop</output></div>
             <div class="structure-readout"><b>Voicing</b><output id="currentVoicingReadout">220 Hz trunk · 90% stereo</output></div>
           </div>
         </details>
