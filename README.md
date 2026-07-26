@@ -2,6 +2,8 @@
 
 A growing collection of geometric, recursive, analytic, and transformed-audio instruments.
 
+**FM Drums** is a Workbench percussion lab with sixteen tunable, sample-free FM and shaped-noise voices. The QWER / ASDF / ZXCV / 1234 pad bank can be edited, saved locally, and copied as versioned JSON for reuse by later sonification instruments.
+
 **Shape** is a two-dimensional instrument: one to twelve point playheads trace the boundary, one to four independently orientable scan lines read contour intersections, or center-rooted radar rays rotate through every contour hit. Radar position is expressed as an angle from 0–360°. Every playhead type can loop or ping-pong, and shape rotation has its own direction and loop/ping-pong transport. Point and radar spacing markers carry independent forward/reverse arrows, while each line marker carries its own 90-degree orientation toggle. A Sides / points count of 1 is a vertex-free circle, 2 is an open line, and 3–32 can be polygons or stars.
 
 **Lattice** turns a curved isohedral tiling into one deduplicated edge field. A single centered line is the only playhead: the infinite pattern moves beneath it and sounds every edge it intersects simultaneously. Its independent motion bearing can snap from right-to-left to up-to-down or rotate continuously between them without changing the reader line angle. It never walks or serializes the lattice. All 72 Tactile isohedral families are available, with their native shape parameters and independently bendable J, U, and S edge classes; symmetry-locked I edges remain straight.

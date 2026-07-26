@@ -85,6 +85,10 @@ required_files=(
   weierstrass.css
   weierstrass-app.js
   src/weierstrass.js
+  fm-drums.html
+  fm-drums.css
+  fm-drums-app.js
+  src/fm-drums.js
   morphazoidical/index.html
   vendor/signalsmith-stretch/SignalsmithStretch.mjs
   vendor/tactile/tactile.js

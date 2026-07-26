@@ -54,6 +54,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
   ]),
   freezeGroup("workbench", "Workbench", [
+    { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
     {
       id: "morphazoidical",
       label: "Morphazoidical",
