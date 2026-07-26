@@ -1,4 +1,4 @@
-import { SignalsmithGenerationMixerDSP } from "./signalsmith-generation-mixer-dsp.js?v=20260724-pitch-detail";
+import { SignalsmithGenerationMixerDSP } from "./signalsmith-generation-mixer-dsp.js?v=20260724-economy-24";
 
 const LOAD_REPORT_BLOCKS = 96;
 const CLOCK_KIND = typeof globalThis.performance?.now === "function"
@@ -29,6 +29,7 @@ class SignalsmithGenerationMixerProcessor extends AudioWorkletProcessor {
     this.loadPeak = 0;
     this.pendingControlMilliseconds = 0;
     this.reportedTimingUnavailable = false;
+    this.monoInputs = new Array(this.renderer.maxInputs);
     this.port.onmessage = ({ data }) => {
       const startedAt = clockMilliseconds();
       if (data?.type === "voices") {
@@ -92,8 +93,14 @@ class SignalsmithGenerationMixerProcessor extends AudioWorkletProcessor {
     const output = outputs[0] ?? [];
     if (!output[0]) return true;
     const startedAt = clockMilliseconds();
-    const monoInputs = inputs.map((input) => input[0]);
-    const keepAlive = this.renderer.process(monoInputs, output[0], output[1] ?? output[0]);
+    for (let index = 0; index < this.monoInputs.length; index += 1) {
+      this.monoInputs[index] = inputs[index]?.[0];
+    }
+    const keepAlive = this.renderer.process(
+      this.monoInputs,
+      output[0],
+      output[1] ?? output[0],
+    );
     this.recordRenderLoad(startedAt, output[0].length);
     return keepAlive;
   }

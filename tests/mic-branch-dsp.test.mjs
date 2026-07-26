@@ -120,6 +120,6 @@ test("the microphone renderer obeys a changing runtime ceiling and bounds releas
     gain: 0.01,
   })), 128);
   assert.equal(renderer.activeTargetCount, 128);
-  assert.ok(renderer.voices.size <= 144, "release tails should add at most 12.5% load");
+  assert.ok(renderer.voices.size <= 256, "release tails should add at most 256 temporary voices");
   assert.equal(renderer.runtimeLimit, 128);
 });

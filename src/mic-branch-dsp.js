@@ -94,9 +94,13 @@ export class MicBranchDSP {
           releasing: false,
         });
     });
+    const nestedShrink = next.size <= this.activeTargetCount
+      && [...next.keys()].every((key) => this.voices.has(key));
+    const releaseAllowance = nestedShrink
+      ? this.voices.size
+      : Math.min(256, this.runtimeLimit);
     for (const [key, previous] of this.voices) {
       if (next.has(key)) continue;
-      const releaseAllowance = Math.min(64, Math.ceil(this.runtimeLimit * 0.125));
       if (next.size >= Math.min(this.maxVoices, this.runtimeLimit + releaseAllowance)) break;
       next.set(key, {
         ...previous,

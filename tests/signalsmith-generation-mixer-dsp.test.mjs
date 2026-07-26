@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { generationVoiceSpecs } from "../src/micmic.js";
 import { SignalsmithGenerationMixerDSP } from "../src/signalsmith-generation-mixer-dsp.js";
 
 test("fixed-pool mixer renders delayed taps without per-voice histories", () => {
@@ -104,4 +105,101 @@ test("mixer follows a changing runtime branch ceiling inside its hard guard", ()
   assert.equal(renderer.runtimeLimit, 64);
   assert.equal(renderer.activeTargetCount, 64);
   assert.equal(renderer.voices.size, 64);
+});
+
+test("mixer can expose hundreds of virtual read heads to device calibration", () => {
+  const renderer = new SignalsmithGenerationMixerDSP({
+    sampleRate: 8_000,
+    historySeconds: 4,
+    maxInputs: 2,
+    maxVoices: 512,
+  });
+  const voices = Array.from({ length: 512 }, (_, index) => ({
+    key: `branch:${index}`,
+    sourceIndex: index % 2,
+    delay: 0.02 + index / 100_000,
+    gain: 0.001,
+    pan: 0,
+  }));
+  renderer.setVoices(voices, 512);
+  assert.equal(renderer.maxVoices, 512);
+  assert.equal(renderer.runtimeLimit, 512);
+  assert.equal(renderer.activeTargetCount, 512);
+  assert.equal(renderer.voices.size, 512);
+});
+
+test("small pruning changes crossfade every outgoing virtual read head", () => {
+  const renderer = new SignalsmithGenerationMixerDSP({
+    sampleRate: 8_000,
+    historySeconds: 4,
+    maxInputs: 2,
+    maxVoices: 128,
+  });
+  const voices = (prefix) => Array.from({ length: 48 }, (_, index) => ({
+    key: `${prefix}:${index}`,
+    sourceIndex: index % 2,
+    delay: 0.02,
+    gain: 0.01,
+    pan: 0,
+  }));
+  renderer.setVoices(voices("depth"), 48);
+  renderer.setVoices(voices("breadth"), 48);
+  assert.equal(renderer.activeTargetCount, 48);
+  assert.equal(renderer.voices.size, 96);
+  assert.equal(
+    [...renderer.voices.values()].filter((voice) => voice.releasing).length,
+    48,
+  );
+});
+
+test("a large breadth-to-depth pruning jump releases every replaced branch", () => {
+  const renderer = new SignalsmithGenerationMixerDSP({
+    sampleRate: 8_000,
+    historySeconds: 4,
+    maxInputs: 2,
+    maxVoices: 1024,
+  });
+  const plan = (pruningBias) => generationVoiceSpecs({
+    generations: 12,
+    branching: 1,
+    timeRatio: 0.72,
+    angle: 45,
+    pruningBias,
+    maximumVoices: 256,
+  }).map((voice) => ({
+    ...voice,
+    sourceIndex: 0,
+  }));
+  renderer.setVoices(plan(0), 256);
+  renderer.setVoices(plan(1), 256);
+
+  const releasing = [...renderer.voices.values()]
+    .filter((voice) => voice.releasing);
+  assert.equal(releasing.length, 153);
+  assert.equal(renderer.voices.size, 409);
+});
+
+test("an emergency nested ceiling reduction fades the complete prior pool", () => {
+  const renderer = new SignalsmithGenerationMixerDSP({
+    sampleRate: 8_000,
+    historySeconds: 4,
+    maxInputs: 2,
+    maxVoices: 1024,
+  });
+  const voices = Array.from({ length: 512 }, (_, index) => ({
+    key: `branch:${index}`,
+    sourceIndex: 0,
+    delay: 0.02,
+    gain: 0.001,
+    pan: 0,
+  }));
+  renderer.setVoices(voices, 512);
+  renderer.setVoices(voices, 48);
+
+  assert.equal(renderer.activeTargetCount, 48);
+  assert.equal(renderer.voices.size, 512);
+  assert.equal(
+    [...renderer.voices.values()].filter((voice) => voice.releasing).length,
+    464,
+  );
 });

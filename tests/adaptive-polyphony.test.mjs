@@ -105,3 +105,69 @@ test("small adaptive pools never exceed their requested hard limit", () => {
   assert.equal(controller.limitFor("sine"), 2);
   assert.equal(controller.decision("sine").hardLimit, 2);
 });
+
+test("a capable device can calibrate beyond the former 64-voice ceiling", () => {
+  const controller = new AdaptivePolyphonyController({
+    initialVoices: 48,
+    minVoices: 32,
+    hardLimits: { sine: 1024, fm: 1024, pm: 1024, shepard: 1024 },
+    growBelow: 0.35,
+    growPeakBelow: 0.6,
+    targetLoad: 0.5,
+    growAfter: 4,
+    growthFactor: 1.25,
+  });
+  controller.setDemand("sine", 894);
+  let decision;
+  for (let index = 0; index < 12; index += 1) {
+    decision = controller.observe({
+      mode: "sine",
+      averageLoad: 0.12,
+      peakLoad: 0.2,
+      activeVoices: controller.limitFor("sine"),
+      requestedVoices: 894,
+      source: "render-capacity",
+    });
+  }
+  assert.ok(decision.limit > 64);
+  assert.ok(decision.limit <= 1024);
+});
+
+test("the same demand converges to different safe budgets on different devices", () => {
+  const calibrate = (perVoiceLoad) => {
+    const controller = new AdaptivePolyphonyController({
+      initialVoices: 48,
+      minVoices: 32,
+      hardLimits: { sine: 1024, fm: 1024, pm: 1024, shepard: 1024 },
+      growBelow: 0.35,
+      growPeakBelow: 0.6,
+      targetLoad: 0.5,
+      shrinkAbove: 0.65,
+      shrinkPeakAbove: 0.85,
+      growAfter: 4,
+      shrinkAfter: 2,
+      growthFactor: 1.25,
+      cooldownWindows: 20,
+    });
+    controller.setDemand("sine", 894);
+    for (let window = 0; window < 200; window += 1) {
+      const activeVoices = controller.limitFor("sine");
+      const averageLoad = 0.08 + activeVoices * perVoiceLoad;
+      controller.observe({
+        mode: "sine",
+        averageLoad,
+        peakLoad: averageLoad * 1.25,
+        activeVoices,
+        requestedVoices: 894,
+        source: "render-capacity",
+      });
+    }
+    return controller.decision("sine");
+  };
+
+  const powerful = calibrate(0.00035);
+  const modest = calibrate(0.0014);
+  assert.ok(powerful.limit > modest.limit * 3);
+  assert.ok(powerful.averageLoad < 0.5);
+  assert.ok(modest.averageLoad < 0.5);
+});

@@ -26,6 +26,13 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "solid", label: "Solid", href: "solid.html" },
     { id: "hyper", label: "Hyper", href: "hyper.html" },
   ]),
+  freezeGroup("audio-mic", "Audio & Mic", [
+    { id: "lumber", label: "Lumber", href: "lumber.html" },
+    { id: "micmic", label: "Mic(mic)", href: "micmic.html" },
+    { id: "audio-engine-lab", label: "Audio Engine Lab", href: "audio-engine-lab.html" },
+    { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
+    { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
+  ]),
   freezeGroup("fractals-recursion", "Fractals & Recursion", [
     { id: "l-system", label: "L-System", href: "l-system.html" },
     { id: "recursion", label: "Recursion", href: "recursion.html" },
@@ -46,13 +53,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "recursive-pm", label: "Recursive PM", href: "recursive-pm.html" },
     { id: "chaotic-fm", label: "Chaotic FM", href: "chaotic-fm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
-  ]),
-  freezeGroup("audio-mic", "Audio & Mic", [
-    { id: "lumber", label: "Lumber", href: "lumber.html" },
-    { id: "micmic", label: "Mic(mic)", href: "micmic.html" },
-    { id: "audio-engine-lab", label: "Audio Engine Lab", href: "audio-engine-lab.html" },
-    { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
-    { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
   ]),
   freezeGroup("analysis", "Analysis", [
     {

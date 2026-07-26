@@ -6,6 +6,12 @@
   --fracta-coral: #ff826f;
 }
 
+.micmic-page #presetSection {
+  --accent: #e8c46b;
+  --accent-soft: color-mix(in oklab, #e8c46b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #e8c46b 20%, transparent);
+}
+
 .micmic-page #listenSection {
   --accent: #55d9ff;
   --accent-soft: color-mix(in oklab, #55d9ff 55%, transparent);
@@ -24,10 +30,26 @@
   --accent-glow: color-mix(in oklab, #5fe8c4 20%, transparent);
 }
 
-.micmic-page #captureSection {
-  --accent: #ff826f;
-  --accent-soft: color-mix(in oklab, #ff826f 55%, transparent);
-  --accent-glow: color-mix(in oklab, #ff826f 20%, transparent);
+.micmic-page #settingsSection {
+  --accent: #7db4ff;
+  --accent-soft: color-mix(in oklab, #7db4ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #7db4ff 20%, transparent);
+}
+
+.micmic-headphone-warning {
+  min-width: 80px;
+  max-width: 340px;
+  margin: 0;
+  color: var(--muted);
+  flex: 1 1 260px;
+  font: 7px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.025em;
+  text-align: right;
+}
+
+.micmic-headphone-warning strong {
+  color: var(--fracta-coral);
+  font-weight: 600;
 }
 
 .micmic-page .stage-wrap {
@@ -185,36 +207,6 @@
 .fracta-panic:disabled {
   cursor: default;
   opacity: 0.24;
-}
-
-.fracta-recording-badge {
-  position: absolute;
-  z-index: 4;
-  top: 44px;
-  right: 18px;
-  display: flex;
-  padding: 5px 8px;
-  border: 1px solid rgba(255, 130, 111, 0.28);
-  color: #ffad9f;
-  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
-  align-items: center;
-  gap: 7px;
-  font-size: 8px;
-  letter-spacing: 0.1em;
-}
-
-.fracta-recording-badge i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ff826f;
-  box-shadow: 0 0 8px #ff826f;
-  animation: fracta-record-pulse 1s steps(2, end) infinite;
-}
-
-.fracta-recording-badge output {
-  color: var(--fracta-root);
-  font-variant-numeric: tabular-nums;
 }
 
 .fracta-generation-key {
@@ -423,6 +415,69 @@
   font-weight: 500;
 }
 
+.micmic-preset-grid {
+  display: grid;
+  margin: 0 0 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.micmic-preset-grid button {
+  display: grid;
+  min-width: 0;
+  min-height: 52px;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--bg-deep);
+  align-content: center;
+  gap: 3px;
+  text-align: left;
+}
+
+.micmic-preset-grid button:hover,
+.micmic-preset-grid button:focus-visible,
+.micmic-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.micmic-preset-grid b {
+  overflow: hidden;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.055em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.micmic-preset-grid small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.micmic-preset-grid [data-preset-band="robotic"] small {
+  color: #ff826f;
+}
+
+.micmic-preset-grid [data-preset-band="rhythmic"] small {
+  color: #e8c46b;
+}
+
+.micmic-preset-grid [data-preset-band="spacious"] small {
+  color: #55d9ff;
+}
+
+.micmic-preset-grid [data-preset-band="smooth"] small {
+  color: #c79bff;
+}
+
 .growth-preset-description {
   min-height: 2.9em;
   margin: -3px 0 3px;
@@ -447,14 +502,6 @@
   text-transform: uppercase;
 }
 
-.parameter-cluster-readout {
-  margin: -1px 0 3px;
-}
-
-.parameter-cluster-readout > span {
-  grid-template-columns: 76px minmax(0, 1fr);
-}
-
 .generation-safety-note {
   display: block;
   margin: -5px 0 12px;
@@ -462,187 +509,74 @@
   font: 7px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-.branch-renderer-toggle {
-  display: grid;
-  width: 100%;
-  margin: 0 0 13px;
-  padding: 9px 10px;
-  border: 1px solid var(--line);
-  cursor: pointer;
-  color: var(--ink);
-  background: var(--bg-deep);
-  grid-template-columns: 28px minmax(0, 1fr);
-  align-items: center;
-  gap: 4px 9px;
-  text-align: left;
-}
-
-.branch-renderer-toggle:hover,
-.branch-renderer-toggle:focus-visible,
-.branch-renderer-toggle[aria-checked="true"] {
-  border-color: var(--accent);
-  background: var(--accent-glow);
-}
-
-.branch-renderer-toggle:disabled {
-  cursor: not-allowed;
-  opacity: 0.42;
-}
-
-.branch-renderer-toggle > span:nth-child(2) {
-  display: grid;
-  gap: 2px;
-}
-
-.branch-renderer-toggle b {
-  font-size: 8px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.branch-renderer-toggle small,
-.branch-renderer-toggle output {
+.micmic-page .field-label small {
   color: var(--muted);
-  font-size: 7px;
-  line-height: 1.4;
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
 }
 
-.branch-renderer-toggle output {
-  grid-column: 2;
-}
-
-.branch-toggle-track {
-  position: relative;
-  width: 27px;
-  height: 14px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.025);
-}
-
-.branch-toggle-track i {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--muted);
-  transition: transform 120ms ease, background 120ms ease;
-}
-
-.branch-renderer-toggle[aria-checked="true"] .branch-toggle-track i {
-  transform: translateX(13px);
-  background: var(--accent);
-  box-shadow: 0 0 9px var(--accent-glow);
-}
-
-.fracta-record-button {
+.generation-control b {
   display: flex;
-  width: 100%;
-  min-height: 59px;
-  margin: 0 0 13px;
-  padding: 9px 13px;
-  border: 1px solid var(--line-strong);
-  cursor: pointer;
-  color: var(--ink);
-  background: var(--bg-deep);
-  align-items: center;
-  gap: 11px;
-  text-align: left;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px;
 }
 
-.fracta-record-button > span:last-child {
+.generation-control b small {
+  color: var(--faint);
+  font: 400 7px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0;
+}
+
+.current-settings-readout {
   display: grid;
-  gap: 3px;
-}
-
-.fracta-record-button b {
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.fracta-record-button small {
-  color: var(--muted);
-  font-size: 8px;
-}
-
-.fracta-record-button:hover,
-.fracta-record-button:focus-visible,
-.fracta-record-button[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: var(--accent-glow);
-}
-
-.fracta-record-button[aria-pressed="true"] .record-glyph {
-  border-radius: 1px;
-  background: #ff826f;
-  box-shadow: 0 0 12px rgba(255, 130, 111, 0.34);
-}
-
-.fracta-record-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.38;
-}
-
-.fracta-take {
-  display: grid;
-  margin: 0 0 13px;
+  margin: 0;
   border: 1px solid var(--line);
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: stretch;
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
 }
 
-.fracta-take > div {
+.current-settings-readout > div {
   display: grid;
   min-width: 0;
-  padding: 8px 10px;
-  gap: 2px;
+  padding: 10px;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px;
 }
 
-.fracta-take small {
+.current-settings-readout > div + div {
+  border-top: 1px solid var(--line);
+}
+
+.current-settings-readout dt {
   color: var(--muted);
-  font-size: 7px;
+  font-size: 8px;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.fracta-take output {
-  overflow: hidden;
+.current-settings-readout dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.current-settings-readout output {
+  overflow-wrap: anywhere;
   color: var(--ink);
-  font-size: 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.fracta-take .mini-action {
-  display: grid;
-  min-width: 67px;
-  min-height: 42px;
-  padding: 0 8px;
-  border: 0;
-  border-left: 1px solid var(--line);
-  color: var(--muted);
-  place-items: center;
-  font-size: 8px;
-  text-decoration: none;
-  text-transform: uppercase;
-}
-
-.fracta-take .mini-action:hover,
-.fracta-take .mini-action:focus-visible {
-  color: var(--accent);
-  background: var(--accent-glow);
-}
-
-@keyframes fracta-record-pulse {
-  50% { opacity: 0.2; }
+  font: 9px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @media (max-width: 650px) {
+  .micmic-headphone-warning {
+    max-width: 190px;
+    flex-basis: 100px;
+    font-size: 6.5px;
+    line-height: 1.25;
+    text-align: center;
+  }
+
   #seedMicButton small {
     display: none;
   }
@@ -656,13 +590,14 @@
     bottom: 12px;
   }
 
-  .fracta-recording-badge {
-    top: 39px;
-    right: 13px;
-  }
 }
 
 @media (max-width: 430px) {
+  .micmic-headphone-warning {
+    max-width: 96px;
+    line-height: 1.15;
+  }
+
   .fracta-listen-actions {
     grid-template-columns: 1fr;
   }
@@ -672,15 +607,15 @@
     min-height: 54px;
   }
 
+  .current-settings-readout > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .fracta-meter i,
   .fracta-meter em {
     transition: none;
-  }
-
-  .fracta-recording-badge i {
-    animation: none;
   }
 }

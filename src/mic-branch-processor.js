@@ -1,4 +1,4 @@
-import { MicBranchDSP } from "./mic-branch-dsp.js";
+import { MicBranchDSP } from "./mic-branch-dsp.js?v=20260724-adaptive-canopy";
 
 const LOAD_REPORT_BLOCKS = 96;
 const CLOCK_KIND = typeof globalThis.performance?.now === "function"

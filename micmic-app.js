@@ -6,24 +6,32 @@ import {
   MAX_GENERATION_STAGES,
   MAX_GENERATION_VOICES,
   clamp,
-  generationBounceVoiceSpecs,
   generationTopology,
   generationVoiceSpecs,
-  recorderExtension,
   recursionParameters,
-} from "./src/micmic.js?v=20260724-adaptive-branches";
+  sliderFromTimeFold,
+  timeFoldFromSlider,
+} from "./src/micmic.js?v=20260726-independent-timing";
 import { AdaptivePolyphonyController } from "./src/adaptive-polyphony.js";
-import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260724-pitch-detail";
-import { DEFAULT_SIGNALSMITH_PITCH_SOURCES } from "./src/signalsmith-generation-limits.js";
+import {
+  GRANULAR_ECONOMY_PITCH_CLASSES,
+  GranularEconomyRenderer,
+} from "./src/granular-economy-renderer.js?v=20260725-presets";
+import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260725-presets";
 
 const $ = (id) => document.getElementById(id);
 const GENERATION_COLORS = ["#fff3d6", "#55d9ff", "#5fe8c4", "#7db4ff", "#c79bff", "#ff826f", "#e8c46b"];
 const REDUCED_MOTION = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 const GENERATION_CAPACITY_MODE = "sine";
 const MIN_ADAPTIVE_GENERATION_VOICES = 32;
-const BRANCH_RENDERER_ENABLED = true;
-const BRANCH_RENDERER_READY_TIMEOUT = 1_200;
-const PITCH_DETAIL_OPTIONS = Object.freeze([3, 7, 10, 16]);
+const MAX_PARTIAL_TELEMETRY_VOICES = 256;
+const GENERATION_RENDERER_READY_TIMEOUT = 1_200;
+const GENERATION_HISTORY_SECONDS = 40;
+const SIGNALSMITH_PITCH_DETAIL_OPTIONS = Object.freeze([3, 7, 10, 16]);
+const PITCH_DETAIL_OPTIONS = Object.freeze([
+  ...SIGNALSMITH_PITCH_DETAIL_OPTIONS,
+  GRANULAR_ECONOMY_PITCH_CLASSES,
+]);
 const DEFAULT_STATE = Object.freeze({
   ...MICMIC_PRESETS.bloom,
   inputTrim: 0.85,
@@ -31,8 +39,6 @@ const DEFAULT_STATE = Object.freeze({
   mic: false,
   starting: false,
   frozen: false,
-  recording: false,
-  recursiveBounce: false,
   generations: GENERATION_RULE_PRESETS.pythagorean.generations,
   branching: FIXED_FORK_DENSITY,
   depth: GENERATION_RULE_PRESETS.pythagorean.depth,
@@ -43,7 +49,8 @@ const DEFAULT_STATE = Object.freeze({
   generationAngle: GENERATION_RULE_PRESETS.pythagorean.angle,
   generationAsymmetry: GENERATION_RULE_PRESETS.pythagorean.asymmetry,
   generationPitchScale: GENERATION_RULE_PRESETS.pythagorean.pitchScale,
-  pitchDetail: DEFAULT_SIGNALSMITH_PITCH_SOURCES,
+  pruningBias: 0,
+  pitchDetail: GRANULAR_ECONOMY_PITCH_CLASSES,
 });
 
 const state = { ...DEFAULT_STATE };
@@ -60,12 +67,6 @@ let mediaStream = null;
 let microphoneSource = null;
 let microphoneGeneration = 0;
 let audioChanging = false;
-let recorder = null;
-let recordingStartedAt = 0;
-let recordingMimeType = "";
-let lastTakeUrl = "";
-let lastTakeDuration = 0;
-let lastTakeMimeType = "";
 let inputWave = new Float32Array(1024);
 let safetyWave = new Float32Array(512);
 let inputPeakHold = 0;
@@ -84,19 +85,18 @@ let generationCapacityController = createGenerationCapacityController();
 let generationCapacityStatus = generationCapacityController.decision(GENERATION_CAPACITY_MODE);
 let generationVoiceLimit = MAX_GENERATION_VOICES;
 let generationVoiceDemand = 0;
+let generationStructuralDemand = 0;
 let generationRenderCapacity = null;
 let generationRenderCapacityActive = false;
 let generationRenderCapacityHasSample = false;
+let generationRenderCapacitySampleAt = -Infinity;
 let lastPlaybackStatsAt = -Infinity;
 let lastUnderrunEvents = 0;
 let lastUnderrunDuration = 0;
-let branchRendererRevision = 0;
-let branchRendererChanging = false;
-let branchRendererUnavailable = !BRANCH_RENDERER_ENABLED;
 let generationBankRevision = 0;
 let generationPitchDetailReport = null;
 let pitchDetailChanging = false;
-const ENVELOPE_HISTORY_SECONDS = 32;
+const ENVELOPE_HISTORY_SECONDS = 40;
 const ENVELOPE_HISTORY_CAPACITY = 65_536;
 const envelopeHistoryTimes = new Float64Array(ENVELOPE_HISTORY_CAPACITY);
 const envelopeHistoryValues = new Float32Array(ENVELOPE_HISTORY_CAPACITY);
@@ -114,12 +114,28 @@ function formatMilliseconds(value) {
   return `${Math.round(amount)} ms`;
 }
 
-function normalizePitchDetail(value, fallback = DEFAULT_SIGNALSMITH_PITCH_SOURCES) {
+function normalizePitchDetail(value, fallback = GRANULAR_ECONOMY_PITCH_CLASSES) {
   const amount = Math.round(Number(value));
   return PITCH_DETAIL_OPTIONS.includes(amount) ? amount : fallback;
 }
 
-function createGenerationCapacityController() {
+function isGranularPitchDetail(value = state.pitchDetail) {
+  return normalizePitchDetail(value) === GRANULAR_ECONOMY_PITCH_CLASSES;
+}
+
+function pitchDetailSelectionLabel(value = state.pitchDetail) {
+  return isGranularPitchDetail(value)
+    ? "Maximum"
+    : `${normalizePitchDetail(value)}-lane pitch detail`;
+}
+
+function createGenerationCapacityController(
+  initialVoices = MAX_GENERATION_VOICES,
+) {
+  const baseline = Math.max(
+    MIN_ADAPTIVE_GENERATION_VOICES,
+    Math.min(MAX_GENERATION_VOICES, Math.round(Number(initialVoices) || 0)),
+  );
   const hardLimits = Object.fromEntries(
     ["sine", "fm", "pm", "shepard"].map((mode) => [
       mode,
@@ -127,7 +143,7 @@ function createGenerationCapacityController() {
     ]),
   );
   return new AdaptivePolyphonyController({
-    initialVoices: MAX_GENERATION_VOICES,
+    initialVoices: baseline,
     minVoices: MIN_ADAPTIVE_GENERATION_VOICES,
     hardLimits,
     growBelow: 0.35,
@@ -142,12 +158,47 @@ function createGenerationCapacityController() {
   });
 }
 
+function hasFreshGenerationRenderCapacity() {
+  return generationRenderCapacityHasSample
+    && performance.now() - generationRenderCapacitySampleAt < 2_000;
+}
+
+function isPartialCapacitySource(source) {
+  return [
+    "signalsmith-mixer",
+    "granular-economy",
+    "granular-fallback",
+  ].includes(source);
+}
+
+function voiceLimitForCapacityDecision(decision) {
+  if (decision?.source === "playback-stats") {
+    return Math.max(
+      MIN_ADAPTIVE_GENERATION_VOICES,
+      Math.min(
+        MAX_ADAPTIVE_GENERATION_VOICES,
+        generationVoiceLimit,
+        decision?.limit ?? generationVoiceLimit,
+      ),
+    );
+  }
+  const telemetryGuard = (
+    decision?.source === "render-capacity"
+    && hasFreshGenerationRenderCapacity()
+  )
+    ? MAX_ADAPTIVE_GENERATION_VOICES
+    : decision?.telemetry === "available" && isPartialCapacitySource(decision?.source)
+      ? MAX_PARTIAL_TELEMETRY_VOICES
+      : MAX_GENERATION_VOICES;
+  return Math.max(
+    MIN_ADAPTIVE_GENERATION_VOICES,
+    Math.min(telemetryGuard, decision?.limit ?? MAX_GENERATION_VOICES),
+  );
+}
+
 function applyGenerationCapacityDecision(decision) {
   if (!decision) return;
-  const nextLimit = Math.max(
-    MIN_ADAPTIVE_GENERATION_VOICES,
-    Math.min(MAX_ADAPTIVE_GENERATION_VOICES, decision.limit),
-  );
+  const nextLimit = voiceLimitForCapacityDecision(decision);
   const limitChanged = nextLimit !== generationVoiceLimit;
   generationCapacityStatus = decision;
   generationVoiceLimit = nextLimit;
@@ -155,15 +206,30 @@ function applyGenerationCapacityDecision(decision) {
   updateUi();
 }
 
+function resetGenerationCapacityCalibration() {
+  const baseline = Math.max(
+    MIN_ADAPTIVE_GENERATION_VOICES,
+    Math.min(MAX_GENERATION_VOICES, generationVoiceLimit),
+  );
+  generationCapacityController = createGenerationCapacityController(baseline);
+  generationCapacityStatus = generationCapacityController.decision(
+    GENERATION_CAPACITY_MODE,
+  );
+  generationVoiceLimit = baseline;
+  generationRenderCapacityHasSample = false;
+  generationRenderCapacitySampleAt = -Infinity;
+  if (graph && audioContext) applyAudioParameters();
+}
+
 function currentTelemetryRenderer() {
-  if (graph?.branchRendererActive) return "recursive-bounce";
   return graph?.directRendererKind ?? "granular-fallback";
 }
 
 function observeGenerationRenderLoad(report) {
   if (report?.type !== "render-load") return;
   if (report.supported === false) {
-    if (!generationRenderCapacityHasSample) {
+    if (!hasFreshGenerationRenderCapacity()) {
+      generationRenderCapacityHasSample = false;
       generationCapacityController.setTelemetryUnavailable("safe-fallback");
       applyGenerationCapacityDecision(
         generationCapacityController.decision(GENERATION_CAPACITY_MODE),
@@ -171,7 +237,8 @@ function observeGenerationRenderLoad(report) {
     }
     return;
   }
-  if (generationRenderCapacityHasSample) return;
+  if (hasFreshGenerationRenderCapacity()) return;
+  generationRenderCapacityHasSample = false;
   if (report.timing !== "high-res") return;
   if (report.renderer && report.renderer !== currentTelemetryRenderer()) return;
   applyGenerationCapacityDecision(generationCapacityController.observe({
@@ -201,6 +268,7 @@ function startGenerationCapacityMonitoring(audio) {
       const peakLoad = Number(event?.peakLoad);
       if (!Number.isFinite(averageLoad) || !Number.isFinite(peakLoad)) return;
       generationRenderCapacityHasSample = true;
+      generationRenderCapacitySampleAt = performance.now();
       applyGenerationCapacityDecision(generationCapacityController.observe({
         mode: GENERATION_CAPACITY_MODE,
         averageLoad,
@@ -233,6 +301,7 @@ function stopGenerationCapacityMonitoring() {
   generationRenderCapacity = null;
   generationRenderCapacityActive = false;
   generationRenderCapacityHasSample = false;
+  generationRenderCapacitySampleAt = -Infinity;
 }
 
 function pollGenerationPlaybackStats() {
@@ -240,6 +309,16 @@ function pollGenerationPlaybackStats() {
   const now = Number(audioContext.currentTime) || 0;
   if (now - lastPlaybackStatsAt < 1) return;
   lastPlaybackStatsAt = now;
+  if (
+    generationRenderCapacityHasSample
+    && !hasFreshGenerationRenderCapacity()
+  ) {
+    generationRenderCapacityHasSample = false;
+    generationCapacityController.setTelemetryUnavailable("stale-render-capacity");
+    applyGenerationCapacityDecision(
+      generationCapacityController.decision(GENERATION_CAPACITY_MODE),
+    );
+  }
   let stats = null;
   try {
     stats = audioContext.playbackStats;
@@ -283,6 +362,23 @@ function generationTopologyKey() {
   ].join(":");
 }
 
+function currentGenerationVoiceSpecs(maximumVoices) {
+  return generationVoiceSpecs({
+    generations: state.generations,
+    interval: state.interval,
+    depth: state.depth,
+    branching: state.branching,
+    spread: state.spread,
+    mutation: state.mutation,
+    timeRatio: state.timeRatio,
+    angle: state.generationAngle,
+    asymmetry: state.generationAsymmetry,
+    pitchScale: state.generationPitchScale,
+    pruningBias: state.pruningBias,
+    maximumVoices,
+  });
+}
+
 function buildGenerationVisualModel() {
   const generationCount = state.generations;
   const topologyKey = generationTopologyKey();
@@ -300,20 +396,12 @@ function buildGenerationVisualModel() {
     };
   }
   const topology = generationTopologyCache.topology;
-  generationVoiceDemand = Math.max(0, topology.length - 1);
-  const voices = generationVoiceSpecs({
-    generations: generationCount,
-    interval: state.interval,
-    depth: state.depth,
-    branching: state.branching,
-    spread: state.spread,
-    mutation: state.mutation,
-    timeRatio: state.timeRatio,
-    angle: state.generationAngle,
-    asymmetry: state.generationAsymmetry,
-    pitchScale: state.generationPitchScale,
-    maximumVoices: generationVoiceLimit,
-  });
+  generationStructuralDemand = Math.max(0, topology.length - 1);
+  const allVoices = currentGenerationVoiceSpecs(MAX_ADAPTIVE_GENERATION_VOICES);
+  generationVoiceDemand = allVoices.length;
+  const voices = generationVoiceDemand <= generationVoiceLimit
+    ? allVoices
+    : currentGenerationVoiceSpecs(generationVoiceLimit);
   return {
     generationCount,
     topologyKey,
@@ -328,22 +416,44 @@ function buildGenerationVisualModel() {
 }
 
 function renderGenerationRules() {
-  const timing = Array.from({ length: 4 }, (_, generation) => (
+  const timing = Array.from({ length: Math.min(4, state.generations) }, (_, generation) => (
     state.interval * state.timeRatio ** generation
   ));
   const turns = generationTurns();
-  const toSemitones = (degrees) => degrees / 180 * 12 * state.generationPitchScale;
-  $("generationPreset").value = state.generationPreset;
+  const toOctavePercent = (degrees) => (
+    degrees / 180 * state.generationPitchScale * 100
+  );
+  for (const name of Object.keys(GENERATION_RULE_PRESETS)) {
+    setPressed($(`generationPreset-${name}`), state.generationPreset === name);
+  }
   $("generationPresetDescription").textContent = state.generationPreset === "custom"
     ? "Your current hand-shaped combination of recursion controls."
     : GENERATION_RULE_PRESETS[state.generationPreset]?.description ?? "";
-  $("generationTimingReadout").textContent = timing.map(formatMilliseconds).join(" → ");
-  $("generationPitchReadout").textContent = `${signed(turns.left, "°")} → ${signed(toSemitones(turns.left), " st")} · ${signed(turns.right, "°")} → ${signed(toSemitones(turns.right), " st")}`;
+  const finalTiming = state.interval * state.timeRatio ** state.generations;
+  $("generationTimingReadout").textContent = (
+    timing.map(formatMilliseconds).join(" → ")
+    + (state.generations > timing.length
+      ? ` … ${formatMilliseconds(finalTiming)} at G${state.generations}`
+      : "")
+  );
+  $("generationPitchReadout").textContent = (
+    `${signed(turns.left, "°")} → ${signed(toOctavePercent(turns.left), "% octave")}`
+    + ` · ${signed(turns.right, "°")} → ${signed(toOctavePercent(turns.right), "% octave")}`
+  );
   generationVisualModel = buildGenerationVisualModel();
   const generationCounts = Array.from({ length: state.generations + 1 }, (_, generation) => (
     generationVisualModel.topology.filter((node) => node.generation === generation).length
   ));
-  $("generationCountReadout").textContent = generationCounts.slice(0, 4).join(" → ");
+  const shownCounts = generationCounts.slice(0, 6);
+  $("generationCountReadout").textContent = (
+    shownCounts.join(" → ")
+    + (generationCounts.length > shownCounts.length
+      ? ` → … → ${generationCounts.at(-1)} at G${state.generations}`
+      : "")
+  );
+  $("currentSettingsSummary").textContent = (
+    `${state.generations} gen · ${formatMilliseconds(state.interval)} root fold`
+  );
 }
 
 function setPressed(element, pressed) {
@@ -369,12 +479,6 @@ function clearError() {
 
 function levelToGain(value) {
   return Math.sqrt(clamp(value));
-}
-
-function formatTime(seconds) {
-  const total = Math.max(0, Math.floor(Number(seconds) || 0));
-  const minutes = Math.floor(total / 60);
-  return `${minutes}:${String(total % 60).padStart(2, "0")}`;
 }
 
 function formatDecibels(rms) {
@@ -480,7 +584,6 @@ function buildAudioGraph(audio) {
   const panA = createPanner(audio, -0.9);
   const panB = createPanner(audio, 0.9);
   const currentRendererGain = audio.createGain();
-  const branchRendererGain = audio.createGain();
   const wetBus = audio.createGain();
   const wetGain = audio.createGain();
   const mixBus = audio.createGain();
@@ -488,10 +591,6 @@ function buildAudioGraph(audio) {
   const compressor = audio.createDynamicsCompressor();
   const ceiling = createShaper(audio, makeCeilingCurve());
   const masterGain = audio.createGain();
-  const outputAnalyser = audio.createAnalyser();
-  const recorderDestination = typeof audio.createMediaStreamDestination === "function"
-    ? audio.createMediaStreamDestination()
-    : null;
 
   input.gain.value = 0;
   highpass.type = "highpass";
@@ -505,14 +604,11 @@ function buildAudioGraph(audio) {
   branchAnalyserB.smoothingTimeConstant = 0.66;
   safetyAnalyser.fftSize = 1024;
   safetyAnalyser.smoothingTimeConstant = 0.5;
-  outputAnalyser.fftSize = 2048;
-  outputAnalyser.smoothingTimeConstant = 0.72;
   seedGate.gain.value = 0;
   dryGain.gain.value = 0;
   tapA.gain.value = 0.7;
   tapB.gain.value = 0.7;
   currentRendererGain.gain.value = 1;
-  branchRendererGain.gain.value = 0;
   wetGain.gain.value = 0;
   masterGain.gain.value = 0;
 
@@ -565,7 +661,6 @@ function buildAudioGraph(audio) {
   connect(feedbackBA, delayA);
 
   connect(currentRendererGain, wetBus);
-  connect(branchRendererGain, wetBus);
   connect(wetBus, wetGain);
   connect(wetGain, mixBus);
   connect(mixBus, safetyAnalyser);
@@ -573,9 +668,7 @@ function buildAudioGraph(audio) {
   setCompressorParameters(compressor, audio.currentTime);
   connect(compressor, ceiling);
   connect(ceiling, masterGain);
-  connect(masterGain, outputAnalyser);
-  outputAnalyser.connect(audio.destination);
-  if (recorderDestination) outputAnalyser.connect(recorderDestination);
+  masterGain.connect(audio.destination);
 
   let lfo = null;
   let modulationA = null;
@@ -619,42 +712,107 @@ function buildAudioGraph(audio) {
     panA,
     panB,
     currentRendererGain,
-    branchRendererGain,
     wetBus,
     wetGain,
     safetyAnalyser,
     masterGain,
-    outputAnalyser,
-    recorderDestination,
     lfo,
     modulationA,
     modulationB,
   };
 }
 
+function waitForGenerationRendererReady(node, expectedRenderer) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callback(value);
+    };
+    const timer = setTimeout(() => {
+      finish(reject, new Error("The granular audio renderer did not become ready."));
+    }, GENERATION_RENDERER_READY_TIMEOUT);
+    node.port.onmessage = (event) => {
+      const report = event?.data;
+      if (report?.type === "renderer-ready") {
+        if (report.renderer !== expectedRenderer) {
+          finish(reject, new Error("The granular audio renderer reported the wrong mode."));
+          return;
+        }
+        finish(resolve);
+        return;
+      }
+      observeGenerationRenderLoad(report);
+    };
+    node.onprocessorerror = () => {
+      finish(reject, new Error("The granular audio renderer could not start."));
+    };
+    node.port.start?.();
+  });
+}
+
+function handleEconomyRendererError(audio, audioGraph, node) {
+  if (
+    audioContext !== audio
+    || graph !== audioGraph
+    || audioGraph.generationNode !== node
+  ) return;
+  audioGraph.generationNode = null;
+  audioGraph.generationRenderer = null;
+  audioGraph.directRendererKind = "bounded-fallback";
+  audioGraph.pitchEngineState = "unavailable";
+  try {
+    audioGraph.seedGate.disconnect?.(node);
+    node.disconnect?.();
+    node.onprocessorerror = null;
+    node.port.onmessage = null;
+    node.port.close?.();
+  } catch {
+    // The failed processor may already have detached itself.
+  }
+  resetGenerationCapacityCalibration();
+  updateUi();
+  showError("Economy pitch stopped. The bounded audio fallback is still running.");
+  announce("Economy pitch stopped. The bounded audio fallback is active.");
+}
+
 async function prepareGenerationProcessor(audio, audioGraph) {
   const WorkletNode = globalThis.AudioWorkletNode;
   if (!audio.audioWorklet?.addModule || !WorkletNode) return;
+  const pitchSources = normalizePitchDetail(state.pitchDetail);
+  const useGranularEconomy = isGranularPitchDetail(pitchSources);
+  const directRendererKind = useGranularEconomy
+    ? "granular-economy"
+    : "granular-fallback";
+  let node = null;
   try {
     await audio.audioWorklet.addModule(
-      new URL("./src/micmic-generation-processor.js?v=20260724-adaptive-branches", import.meta.url),
+      new URL("./src/micmic-generation-processor.js?v=20260725-presets", import.meta.url),
     );
     if (audioContext !== audio || graph !== audioGraph || audio.state === "closed") return;
-    const node = new WorkletNode(audio, "morphazoid-micmic-generations", {
+    node = new WorkletNode(audio, "morphazoid-micmic-generations", {
       numberOfInputs: 1,
       numberOfOutputs: 1,
       outputChannelCount: [2],
       processorOptions: {
-        historySeconds: 30,
+        historySeconds: GENERATION_HISTORY_SECONDS,
         maxVoices: MAX_ADAPTIVE_GENERATION_VOICES,
+        renderer: directRendererKind,
       },
     });
     audioGraph.seedGate.connect(node);
     node.connect(audioGraph.currentRendererGain);
-    node.port.onmessage = (event) => observeGenerationRenderLoad(event?.data);
-    node.port.start?.();
+    await waitForGenerationRendererReady(node, directRendererKind);
+    if (audioContext !== audio || graph !== audioGraph || audio.state === "closed") {
+      node.disconnect?.();
+      node.port.onmessage = null;
+      node.port.close?.();
+      return;
+    }
     audioGraph.generationNode = node;
-    audioGraph.directRendererKind = "granular-fallback";
+    audioGraph.directRendererKind = directRendererKind;
     audioGraph.pitchEngineState = "loading";
     audioGraph.generationRenderer = {
       setVoices(voices, options = {}) {
@@ -662,11 +820,38 @@ async function prepareGenerationProcessor(audio, audioGraph) {
       },
     };
     const bankRevision = ++generationBankRevision;
-    const pitchSources = normalizePitchDetail(state.pitchDetail);
     generationPitchDetailReport = null;
 
-    // Keep the lightweight processor audible while the larger spectral WASM
-    // engine loads.  Once ready, switch atomically to the high-quality bank.
+    if (useGranularEconomy) {
+      let economyRenderer = null;
+      economyRenderer = new GranularEconomyRenderer(node, {
+        maxPitchSources: pitchSources,
+        maxVoices: MAX_ADAPTIVE_GENERATION_VOICES,
+        onPitchDetail(report) {
+          if (
+            bankRevision !== generationBankRevision
+            || audioContext !== audio
+            || graph !== audioGraph
+            || audioGraph.generationRenderer !== economyRenderer
+          ) return;
+          generationPitchDetailReport = report;
+          updateUi();
+        },
+      });
+      audioGraph.generationRenderer = economyRenderer;
+      audioGraph.pitchEngineState = "economy-ready";
+      node.onprocessorerror = () => handleEconomyRendererError(
+        audio,
+        audioGraph,
+        node,
+      );
+      announce(`Economy ${pitchSources}-class granular pitch engine ready.`);
+      updateUi();
+      return;
+    }
+
+    // Keep the fused granular processor audible while the larger spectral
+    // WASM pool loads, then switch atomically to the selected Silky bank.
     const bankCreation = SignalsmithGenerationBank.create(
       audio,
       audioGraph.seedGate,
@@ -674,7 +859,7 @@ async function prepareGenerationProcessor(audio, audioGraph) {
       {
         maxPitchSources: pitchSources,
         maxVoices: MAX_ADAPTIVE_GENERATION_VOICES,
-        historySeconds: 30,
+        historySeconds: GENERATION_HISTORY_SECONDS,
         onRenderLoad: observeGenerationRenderLoad,
         onPitchDetail(report) {
           if (
@@ -702,6 +887,7 @@ async function prepareGenerationProcessor(audio, audioGraph) {
       audioGraph.seedGate.disconnect?.(node);
       node.port.postMessage?.({ type: "voices", voices: [] });
       node.disconnect?.();
+      node.onprocessorerror = null;
       node.port.onmessage = null;
       node.port.close?.();
       audioGraph.generationBank = bank;
@@ -736,170 +922,22 @@ async function prepareGenerationProcessor(audio, audioGraph) {
     void managedBankCreation;
   } catch {
     // The bounded feedback matrix remains the compatible fallback.
+    try {
+      audioGraph.seedGate.disconnect?.(node);
+      node?.disconnect?.();
+      if (node) node.onprocessorerror = null;
+      if (node?.port) {
+        node.port.onmessage = null;
+        node.port.close?.();
+      }
+    } catch {
+      // A processor-constructor failure may already have detached the node.
+    }
     audioGraph.generationNode = null;
     audioGraph.generationRenderer = null;
+    audioGraph.directRendererKind = "bounded-fallback";
     audioGraph.pitchEngineState = "unavailable";
   }
-}
-
-function setRendererCrossfade(useBranchRenderer, immediate = false) {
-  if (!graph || !audioContext) return;
-  setAudioParam(graph.currentRendererGain?.gain, useBranchRenderer ? 0 : 1, immediate);
-  setAudioParam(graph.branchRendererGain?.gain, useBranchRenderer ? 1 : 0, immediate);
-  graph.branchRendererActive = Boolean(useBranchRenderer);
-}
-
-function branchRendererOptions() {
-  return {
-    requestedVoiceCount: generationVoiceDemand,
-    voiceLimit: generationVoiceLimit,
-  };
-}
-
-async function prepareBranchRenderer(audio, audioGraph) {
-  if (audioGraph.branchRenderer) return audioGraph.branchRenderer;
-  if (audioGraph.branchRendererPromise) return audioGraph.branchRendererPromise;
-  const WorkletNode = globalThis.AudioWorkletNode;
-  if (!BRANCH_RENDERER_ENABLED || !audio.audioWorklet?.addModule || !WorkletNode) {
-    throw new Error("Experimental recursive bounce requires AudioWorklet.");
-  }
-
-  audioGraph.branchRendererPromise = (async () => {
-    await audio.audioWorklet.addModule(
-      new URL("./src/mic-branch-processor.js?v=20260724-adaptive-branches", import.meta.url),
-    );
-    if (audioContext !== audio || graph !== audioGraph || audio.state === "closed") {
-      throw new Error("The audio graph changed while recursive bounce was loading.");
-    }
-    const node = new WorkletNode(audio, "morphazoid-mic-branches", {
-      numberOfInputs: 1,
-      numberOfOutputs: 1,
-      outputChannelCount: [2],
-      processorOptions: {
-        historySeconds: 20,
-        maxVoices: MAX_ADAPTIVE_GENERATION_VOICES,
-        maxBounces: 16,
-        bounceSeconds: 3,
-      },
-    });
-    let resolveReady;
-    const ready = new Promise((resolve) => { resolveReady = resolve; });
-    const renderer = {
-      node,
-      ready,
-      setVoices(voices, options = {}) {
-        node.port.postMessage({ type: "voices", voices, ...options });
-      },
-      silence() {
-        node.port.postMessage({
-          type: "voices",
-          voices: [],
-          requestedVoiceCount: 0,
-          voiceLimit: generationVoiceLimit,
-        });
-      },
-    };
-    node.port.onmessage = (event) => {
-      const report = event?.data;
-      if (report?.type === "history-ready") resolveReady?.();
-      if (report?.type === "render-load") observeGenerationRenderLoad(report);
-    };
-    node.port.start?.();
-    node.onprocessorerror = () => {
-      if (graph !== audioGraph) return;
-      branchRendererUnavailable = true;
-      state.recursiveBounce = false;
-      branchRendererChanging = false;
-      branchRendererRevision += 1;
-      setRendererCrossfade(false);
-      renderer.silence();
-      updateUi();
-      showError("Experimental recursive bounce stopped. The current silky engine is still running.");
-    };
-    audioGraph.seedGate.connect(node);
-    node.connect(audioGraph.branchRendererGain);
-    node.port.postMessage({ type: "feedback", value: 0 });
-    audioGraph.branchRenderer = renderer;
-    return renderer;
-  })();
-
-  try {
-    return await audioGraph.branchRendererPromise;
-  } finally {
-    audioGraph.branchRendererPromise = null;
-  }
-}
-
-function waitForBranchRendererReady(renderer) {
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, BRANCH_RENDERER_READY_TIMEOUT);
-    renderer.ready.then(() => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
-}
-
-async function activateBranchRenderer() {
-  if (!state.recursiveBounce || !audioContext || !graph) return;
-  const audio = audioContext;
-  const audioGraph = graph;
-  const revision = ++branchRendererRevision;
-  branchRendererChanging = true;
-  branchRendererUnavailable = false;
-  updateUi();
-  try {
-    const renderer = await prepareBranchRenderer(audio, audioGraph);
-    if (
-      revision !== branchRendererRevision
-      || !state.recursiveBounce
-      || graph !== audioGraph
-    ) return;
-    renderer.setVoices(audioGraph.branchVoices ?? [], branchRendererOptions());
-    await waitForBranchRendererReady(renderer);
-    if (
-      revision !== branchRendererRevision
-      || !state.recursiveBounce
-      || graph !== audioGraph
-    ) return;
-    setRendererCrossfade(true);
-    branchRendererChanging = false;
-    updateUi();
-    announce("Experimental recursive bounce on. The current silky engine remains ready underneath.");
-  } catch (error) {
-    if (revision !== branchRendererRevision) return;
-    branchRendererUnavailable = true;
-    state.recursiveBounce = false;
-    branchRendererChanging = false;
-    setRendererCrossfade(false);
-    updateUi();
-    showError(error instanceof Error ? error.message : "Experimental recursive bounce could not start.");
-    announce("Recursive bounce unavailable. The current silky engine is unchanged.");
-  }
-}
-
-function setBranchRendererEnabled(enabled) {
-  const next = Boolean(enabled) && BRANCH_RENDERER_ENABLED && !branchRendererUnavailable;
-  state.recursiveBounce = next;
-  if (!next) {
-    const revision = ++branchRendererRevision;
-    branchRendererChanging = false;
-    setRendererCrossfade(false);
-    updateUi();
-    announce("Experimental recursive bounce off. Current silky engine restored.");
-    setTimeout(() => {
-      if (revision === branchRendererRevision && !state.recursiveBounce) {
-        graph?.branchRenderer?.silence();
-      }
-    }, 180);
-    return;
-  }
-  updateUi();
-  if (!graph || !audioContext) {
-    announce("Experimental recursive bounce will prepare when audio starts.");
-    return;
-  }
-  void activateBranchRenderer();
 }
 
 async function ensureAudioGraph() {
@@ -922,9 +960,6 @@ async function ensureAudioGraph() {
     startGenerationCapacityMonitoring(audioContext);
   }
   if (audioContext.state !== "running") await audioContext.resume();
-  if (state.recursiveBounce && !graph.branchRendererActive && !branchRendererChanging) {
-    void activateBranchRenderer();
-  }
   return audioContext;
 }
 
@@ -947,7 +982,7 @@ async function changePitchDetail(value) {
   const closingGraph = graph;
   if (!closingAudio || closingAudio.state === "closed") {
     updateUi();
-    announce(`${nextDetail}-lane pitch detail selected. It will load when audio starts.`);
+    announce(`${pitchDetailSelectionLabel(nextDetail)} selected. It will load when audio starts.`);
     return;
   }
 
@@ -955,13 +990,10 @@ async function changePitchDetail(value) {
   audioChanging = true;
   ++microphoneGeneration;
   ++generationBankRevision;
-  branchRendererRevision += 1;
-  branchRendererChanging = false;
   stopGenerationCapacityMonitoring();
   updateUi();
 
   try {
-    closingGraph?.branchRenderer?.silence();
     closingGraph?.lfo?.stop?.();
   } catch {
     // The stopped graph may already have released its processors.
@@ -986,7 +1018,7 @@ async function changePitchDetail(value) {
     pitchDetailChanging = false;
     audioChanging = false;
     updateUi();
-    announce(`${nextDetail}-lane pitch detail selected. It will load on the next Start.`);
+    announce(`${pitchDetailSelectionLabel(nextDetail)} selected. It will load on the next Start.`);
   }
 }
 
@@ -1040,40 +1072,29 @@ function applyAudioParameters(immediate = false) {
     angle: state.generationAngle,
     asymmetry: state.generationAsymmetry,
   });
-  generationVoiceDemand = Math.max(0, topology.length - 1);
+  generationStructuralDemand = Math.max(0, topology.length - 1);
+  const allGenerationVoices = currentGenerationVoiceSpecs(
+    MAX_ADAPTIVE_GENERATION_VOICES,
+  );
+  generationVoiceDemand = allGenerationVoices.length;
   const capacityDecision = generationCapacityController.setDemand(
     GENERATION_CAPACITY_MODE,
     active ? generationVoiceDemand : 0,
   );
   generationCapacityStatus = capacityDecision;
-  generationVoiceLimit = capacityDecision.limit;
-  const generationVoices = active ? generationVoiceSpecs({
-      generations: state.generations,
-      interval: state.interval,
-      depth: state.depth,
-      branching: state.branching,
-      spread: state.spread,
-      mutation: state.mutation,
-      timeRatio: state.timeRatio,
-      angle: state.generationAngle,
-      asymmetry: state.generationAsymmetry,
-      pitchScale: state.generationPitchScale,
-      maximumVoices: generationVoiceLimit,
-    }) : [];
+  generationVoiceLimit = voiceLimitForCapacityDecision(capacityDecision);
+  const generationVoices = !active
+    ? []
+    : generationVoiceDemand <= generationVoiceLimit
+      ? allGenerationVoices
+      : currentGenerationVoiceSpecs(generationVoiceLimit);
   const voiceOptions = {
     requestedVoiceCount: active ? generationVoiceDemand : 0,
     voiceLimit: generationVoiceLimit,
   };
-  const branchVoices = active ? generationBounceVoiceSpecs(generationVoices, {
-    depth: state.depth,
-    pitchScale: state.generationPitchScale,
-  }) : [];
   graph.generationVoices = generationVoices;
   graph.generationVoiceOptions = voiceOptions;
-  graph.branchVoices = branchVoices;
   graph.generationRenderer?.setVoices(generationVoices, voiceOptions);
-  if (state.recursiveBounce) graph.branchRenderer?.setVoices(branchVoices, voiceOptions);
-  else graph.branchRenderer?.silence();
 }
 
 async function startMicrophone() {
@@ -1146,7 +1167,6 @@ function stopMicrophone(message = "mic(mic) microphone off.", shouldAnnounce = t
   audioChanging = false;
   applyAudioParameters(true);
   releaseMicrophone();
-  if (state.recording) stopRecording();
   hotSince = 0;
   clearEnvelopeHistory();
   updateUi();
@@ -1190,101 +1210,6 @@ async function toggleInput() {
   if (state.starting) return;
   if (!state.mic) await startMicrophone();
   else toggleFreeze();
-}
-
-function supportedRecorderMimeType() {
-  if (!globalThis.MediaRecorder) return "";
-  const choices = [
-    "audio/webm;codecs=opus",
-    "audio/ogg;codecs=opus",
-    "audio/mp4;codecs=mp4a.40.2",
-    "audio/webm",
-  ];
-  if (typeof MediaRecorder.isTypeSupported !== "function") return "";
-  return choices.find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
-}
-
-function startRecording() {
-  if (!state.mic || state.recording) return;
-  if (!globalThis.MediaRecorder || !graph?.recorderDestination) {
-    showError("Processed-output recording is not supported in this browser.");
-    return;
-  }
-  clearError();
-  recordingMimeType = supportedRecorderMimeType();
-  try {
-    recorder = recordingMimeType
-      ? new MediaRecorder(graph.recorderDestination.stream, { mimeType: recordingMimeType })
-      : new MediaRecorder(graph.recorderDestination.stream);
-  } catch (error) {
-    showError(error instanceof Error ? error.message : "Recording could not start.");
-    return;
-  }
-
-  const activeRecorder = recorder;
-  const activeChunks = [];
-  const activeStartedAt = performance.now();
-  const requestedMimeType = recordingMimeType;
-  activeRecorder.addEventListener("dataavailable", (event) => {
-    if (event.data?.size) activeChunks.push(event.data);
-  });
-  activeRecorder.addEventListener("error", () => {
-    if (recorder !== activeRecorder) return;
-    state.recording = false;
-    updateUi();
-    showError("The browser stopped the processed recording.");
-  });
-  activeRecorder.addEventListener("stop", () => {
-    if (recorder === activeRecorder) {
-      state.recording = false;
-      recorder = null;
-    }
-    const duration = Math.max(0, (performance.now() - activeStartedAt) / 1000);
-    const mimeType = activeRecorder.mimeType || requestedMimeType || "audio/webm";
-    if (!activeChunks.length) {
-      updateUi();
-      return;
-    }
-    if (lastTakeUrl) URL.revokeObjectURL(lastTakeUrl);
-    const blob = new Blob(activeChunks, { type: mimeType });
-    lastTakeUrl = URL.createObjectURL(blob);
-    lastTakeDuration = duration;
-    lastTakeMimeType = mimeType;
-    const extension = recorderExtension(mimeType);
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    $("downloadTake").href = lastTakeUrl;
-    $("downloadTake").download = `micmic-${stamp}.${extension}`;
-    updateUi();
-    announce("Recursive recording ready to download.");
-  }, { once: true });
-
-  recordingStartedAt = activeStartedAt;
-  activeRecorder.start(250);
-  state.recording = true;
-  updateUi();
-  announce("Recording the processed mic(mic) output.");
-}
-
-function stopRecording() {
-  if (!state.recording) return;
-  state.recording = false;
-  if (recorder?.state && recorder.state !== "inactive") recorder.stop();
-  updateUi();
-}
-
-function toggleRecording() {
-  if (state.recording) stopRecording();
-  else startRecording();
-}
-
-function clearLastTake() {
-  if (lastTakeUrl) URL.revokeObjectURL(lastTakeUrl);
-  lastTakeUrl = "";
-  lastTakeDuration = 0;
-  lastTakeMimeType = "";
-  $("downloadTake").removeAttribute("href");
-  updateUi();
-  announce("Last recursive recording cleared.");
 }
 
 function readAnalyser(analyser, samples) {
@@ -1635,12 +1560,6 @@ function frame(timestamp) {
   updateMeters(timestamp);
   recordInputEnvelope(timestamp);
   drawStage(timestamp);
-  if (state.recording) {
-    const duration = (timestamp - recordingStartedAt) / 1000;
-    $("stageRecordTime").textContent = formatTime(duration);
-    $("recordHint").textContent = `${formatTime(duration)} · click to finish`;
-    $("captureSummary").textContent = `recording · ${formatTime(duration)}`;
-  }
   requestAnimationFrame(frame);
 }
 
@@ -1664,56 +1583,86 @@ function presetLabel() {
 }
 
 function paintGenerationCapacity() {
-  const status = generationCapacityStatus;
-  const load = Number.isFinite(status?.averageLoad)
-    ? ` · DSP ${Math.round(status.averageLoad * 100)}%`
-    : "";
-  const label = status?.status === "fallback"
-    ? "SAFE"
-    : status?.status === "probing"
-      ? "AUTO TEST"
-      : status?.status === "capped"
-        ? "AUTO CAP"
-        : status?.status === "warming"
-          ? "AUTO CHECK"
-          : "AUTO";
-  $("generationCapacityNote").textContent = (
-    `${label} · ${generationVoiceLimit} / ${generationVoiceDemand} audible branches`
-    + `${load} · hard guard ${MAX_ADAPTIVE_GENERATION_VOICES}`
+  const structuralDemand = Math.max(
+    generationStructuralDemand,
+    (generationVisualModel?.topology.length ?? 1) - 1,
   );
+  const inHistoryDemand = Math.min(generationVoiceDemand, structuralDemand);
+  const renderedVoiceCount = Math.min(generationVoiceLimit, inHistoryDemand);
+  const adjusted = renderedVoiceCount < inHistoryDemand
+    ? " · device-adjusted"
+    : "";
+  const historyLimited = inHistoryDemand < structuralDemand
+    ? ` · ${(structuralDemand - inHistoryDemand).toLocaleString("en-US")} beyond 39 s`
+    : "";
+  $("generationCapacityInline").textContent = (
+    `${renderedVoiceCount} of ${inHistoryDemand.toLocaleString("en-US")} branches`
+    + ` ${state.mic ? "active" : "ready"}`
+    + ` · ${pruningBiasLabel(state.pruningBias)} pruning${adjusted}${historyLimited}`
+  );
+}
+
+function pruningBiasLabel(value) {
+  const amount = clamp(value);
+  if (amount <= 0.02) return "breadth first";
+  if (amount >= 0.98) return "depth first";
+  if (Math.abs(amount - 0.5) <= 0.02) return "balanced";
+  return `${Math.round(amount * 100)}% depth`;
 }
 
 function paintPitchDetail() {
   const control = $("pitchDetail");
+  const granularEconomy = isGranularPitchDetail();
   control.value = String(state.pitchDetail);
   control.disabled = Boolean(
     state.mic || state.starting || pitchDetailChanging || audioChanging,
   );
-  $("pitchDetailHelp").textContent = state.mic
-    ? "Stop audio to change Pitch Detail. Each lane preserves one distinct non-zero pitch; unison stays exact and separate."
-    : "Each lane preserves one distinct non-zero pitch; unison stays exact and separate. Higher detail uses more CPU and memory.";
 
-  let status = `${state.pitchDetail} shifted lanes · exact unison`;
+  let status = granularEconomy
+    ? "Maximum economy · 0 active shifted pitches · exact unison"
+    : `${state.pitchDetail} shifted lanes · exact unison`;
   if (pitchDetailChanging) {
-    status = `Retiring the old pitch engine · ${state.pitchDetail} lanes next`;
-  } else if (state.mic && graph?.directRendererKind === "signalsmith-mixer") {
+    status = granularEconomy
+      ? "Retiring the old pitch engine · Maximum economy next"
+      : `Retiring the old pitch engine · ${state.pitchDetail} lanes next`;
+  } else if (
+    state.mic
+    && ["signalsmith-mixer", "granular-economy"].includes(
+      graph?.directRendererKind,
+    )
+  ) {
     const report = generationPitchDetailReport;
     if (report?.requestedPitchClasses > 0) {
-      status = `${report.requestedPitchClasses} requested · ${report.renderedPitchClasses} distinct rendered`;
+      status = granularEconomy
+        ? `Maximum economy · ${report.exactShiftedPitches} active shifted pitches`
+        : `${report.requestedPitchClasses} requested · ${report.renderedPitchClasses} distinct rendered`;
+      if (granularEconomy && report.requestedShiftedPitches > 0) {
+        status += ` of ${report.requestedShiftedPitches} requested`;
+      }
       if (report.mergedShiftedPitches > 0) {
         status += ` · ${report.mergedShiftedPitches} merged`;
       }
       if (report.unisonActive) status += " · exact unison";
     } else {
-      status = `${state.pitchDetail} shifted lanes · measuring pitch map…`;
+      status = granularEconomy
+        ? "Maximum economy · 0 active shifted pitches · measuring pitch map…"
+        : `${state.pitchDetail} shifted lanes · measuring pitch map…`;
     }
+  } else if (
+    granularEconomy
+    && state.mic
+    && graph?.pitchEngineState === "unavailable"
+  ) {
+    status = "Maximum economy unavailable · bounded audio fallback";
   } else if (
     state.mic
     && ["fallback", "unavailable"].includes(graph?.pitchEngineState)
   ) {
     status = `${state.pitchDetail}-lane silky engine unavailable · granular fallback`;
   } else if (state.mic) {
-    status = `${state.pitchDetail} shifted lanes selected · silky engine loading…`;
+    status = granularEconomy
+      ? "Maximum economy loading · 0 active shifted pitches"
+      : `${state.pitchDetail} shifted lanes selected · silky engine loading…`;
   }
   $("pitchDetailStatus").textContent = status;
 }
@@ -1724,12 +1673,16 @@ function paintControls() {
     inputTrim: [state.inputTrim, `${Math.round(state.inputTrim * 100)}%`],
     generations: [state.generations, `${state.generations} / ${MAX_GENERATION_STAGES}`],
     depth: [state.depth, `${Math.round(state.depth * 100)}%`],
-    interval: [state.interval, formatMilliseconds(state.interval)],
+    interval: [Math.round(sliderFromTimeFold(state.interval)), formatMilliseconds(state.interval)],
     mutation: [state.mutation, `${Math.round(state.mutation * 100)}% rule variance`],
     timeRatio: [state.timeRatio, `${state.timeRatio.toFixed(2)}× per generation`],
     generationAngle: [state.generationAngle, `${Number(state.generationAngle.toFixed(1))}°`],
     generationAsymmetry: [state.generationAsymmetry, state.generationAsymmetry === 0 ? "even" : `${Math.round(Math.abs(state.generationAsymmetry) * 100)}% ${state.generationAsymmetry < 0 ? "left wider" : "right wider"}`],
-    generationPitchScale: [state.generationPitchScale, `${state.generationPitchScale.toFixed(2)} oct / 180°`],
+    generationPitchScale: [
+      state.generationPitchScale,
+      `${Math.round(state.generationPitchScale * 100)}% / 180°`,
+    ],
+    pruningBias: [state.pruningBias, pruningBiasLabel(state.pruningBias)],
     wet: [state.wet, `${Math.round(state.wet * 100)}%`],
     dry: [state.dry, state.dry <= 0.001 ? "muted" : `${Math.round(state.dry * 100)}%`],
     spread: [state.spread, `${Math.round(state.spread * 100)}%`],
@@ -1738,6 +1691,18 @@ function paintControls() {
     $(id).value = String(value);
     $(`${id}Out`).textContent = output;
   }
+  $("pruningBias").setAttribute(
+    "aria-valuetext",
+    pruningBiasLabel(state.pruningBias),
+  );
+  $("interval").setAttribute(
+    "aria-valuetext",
+    formatMilliseconds(state.interval),
+  );
+  $("timeRatio").setAttribute(
+    "aria-valuetext",
+    `${state.timeRatio.toFixed(2)}× per generation`,
+  );
 }
 
 function updateUi() {
@@ -1761,14 +1726,14 @@ function updateUi() {
     ? "Allow microphone"
     : live ? (state.frozen ? "Resume input" : "Pause input") : "Start input";
   $("micButtonHint").textContent = starting
-    ? "waiting for permission"
+    ? "permission pending"
     : live
-      ? (state.frozen ? "feed the tree again" : "tail continues while paused")
-      : "allow microphone access";
+      ? (state.frozen ? "input paused" : "microphone live")
+      : "microphone off";
   setPressed($("freezeButton"), false);
   $("freezeButton").disabled = !live;
   $("freezeLabel").textContent = "Stop audio";
-  $("freezeHint").textContent = "disconnect and clear the tail";
+  $("freezeHint").textContent = live ? "recursive tail active" : "tail clear";
   $("panicButton").disabled = !live && !starting;
   $("seedMicButton").disabled = controlsChanging;
   setPressed($("seedMicButton"), live && !state.frozen);
@@ -1777,19 +1742,6 @@ function updateUi() {
     : live ? (state.frozen ? "Resume input" : "Pause input") : "Start input";
   $("seedMicButton").querySelector("b").textContent = seedLabel;
   $("seedMicButton").setAttribute("aria-label", seedLabel);
-  const branchSwitch = $("branchRendererToggle");
-  branchSwitch.setAttribute("aria-checked", String(Boolean(state.recursiveBounce)));
-  branchSwitch.disabled = branchRendererUnavailable;
-  $("branchRendererState").textContent = branchRendererUnavailable
-    ? "Unavailable · current silky engine"
-    : branchRendererChanging
-      ? "Preparing branch history…"
-      : graph?.branchRendererActive
-        ? "On · experimental bounce engine"
-        : state.recursiveBounce
-          ? "On when audio starts"
-          : "Off · current silky engine";
-
   $("listenSummary").textContent = pitchDetailChanging
     ? "changing pitch engine"
     : starting
@@ -1797,6 +1749,7 @@ function updateUi() {
       : live
         ? (state.frozen ? "input paused · tail live" : "microphone live")
         : "microphone off";
+  $("presetSummary").textContent = `${label} · ${pitchDetailSelectionLabel()}`;
   $("recursionSummary").textContent = `${label} · ${generations} generations`;
   $("mixSummary").textContent = `${Math.round(state.wet * 100)}% descendants · ${state.dry ? `${Math.round(state.dry * 100)}% root` : "root muted"}`;
   $("generationKeyEnd").textContent = `G${generations} DESCENDANT`;
@@ -1807,22 +1760,7 @@ function updateUi() {
     voice.gain * state.wet > 0.00001
   )).length ?? 0;
   canvas.setAttribute("aria-label", `Live fitted mic(mic) L-system tree. ${live ? state.frozen ? "Input paused; recursive tail live" : "Microphone live" : "Microphone off"}.`);
-  $("treeDescription").textContent = `${label}. ${generations} generations and ${segmentCount} connected segments; ${audibleCount} of ${voiceCount} bounded delayed descendant paths carry audible gain. Microphone loudness travels outward from the seed by vibrating the branches.`;
-
-  const canRecord = live && Boolean(graph?.recorderDestination) && Boolean(globalThis.MediaRecorder);
-  setPressed($("recordButton"), state.recording);
-  $("recordButton").disabled = !canRecord;
-  $("recordLabel").textContent = state.recording ? "Finish recording" : "Record recursion";
-  if (!state.recording) $("recordHint").textContent = canRecord ? "records while you listen" : "start audio first";
-  $("recordingBadge").hidden = !state.recording;
-  $("captureSummary").textContent = state.recording
-    ? `recording · ${formatTime((performance.now() - recordingStartedAt) / 1000)}`
-    : lastTakeUrl ? "last take ready" : "ready to record output";
-  $("lastTake").hidden = !lastTakeUrl;
-  if (lastTakeUrl) {
-    const extension = recorderExtension(lastTakeMimeType).toUpperCase();
-    $("lastTakeOut").textContent = `${formatTime(lastTakeDuration)} · ${extension}`;
-  }
+  $("treeDescription").textContent = `${label}. ${generations} generations and ${segmentCount} connected segments; ${audibleCount} of ${voiceCount} ${pruningBiasLabel(state.pruningBias)} delayed descendant paths carry audible gain. Microphone loudness travels outward from the seed by vibrating the branches.`;
 }
 
 function bindRange(id, key, marksGrowthCustom = false) {
@@ -1834,9 +1772,16 @@ function bindRange(id, key, marksGrowthCustom = false) {
   });
 }
 
-for (const id of ["generations", "depth", "interval", "mutation"]) {
+for (const id of ["generations", "depth", "mutation"]) {
   bindRange(id, id, true);
 }
+$("interval").addEventListener("input", () => {
+  state.interval = timeFoldFromSlider($("interval").value);
+  state.generationPreset = "custom";
+  applyAudioParameters();
+  updateUi();
+});
+bindRange("pruningBias", "pruningBias");
 for (const id of ["wet", "dry", "spread"]) {
   bindRange(id, id);
 }
@@ -1864,7 +1809,11 @@ function loadGenerationPreset(name, shouldAnnounce = true) {
   if (shouldAnnounce) announce(`${preset.label} recursion preset loaded.`);
 }
 
-$("generationPreset").addEventListener("change", (event) => loadGenerationPreset(event.currentTarget.value));
+for (const name of Object.keys(GENERATION_RULE_PRESETS)) {
+  $(`generationPreset-${name}`).addEventListener("click", () => (
+    loadGenerationPreset(name)
+  ));
+}
 $("resetGenerationRules").addEventListener("click", () => loadGenerationPreset(state.generationPreset));
 $("pitchDetail").addEventListener("change", (event) => {
   void changePitchDetail(event.currentTarget.value);
@@ -1884,11 +1833,6 @@ $("seedMicButton").addEventListener("click", () => void toggleInput());
 $("micButton").addEventListener("click", () => void toggleInput());
 $("freezeButton").addEventListener("click", () => stopMicrophone());
 $("panicButton").addEventListener("click", () => panic());
-$("branchRendererToggle").addEventListener("click", () => {
-  setBranchRendererEnabled(!state.recursiveBounce);
-});
-$("recordButton").addEventListener("click", toggleRecording);
-$("clearTake").addEventListener("click", clearLastTake);
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
@@ -1900,7 +1844,6 @@ document.addEventListener("keydown", (event) => {
   if (event.repeat) return;
   if (event.key.toLowerCase() === "m") void toggleInput();
   if (event.key.toLowerCase() === "f" && state.mic) stopMicrophone();
-  if (event.key.toLowerCase() === "r" && state.mic) toggleRecording();
 });
 
 document.addEventListener("visibilitychange", () => {
@@ -1912,9 +1855,7 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", () => {
   ++microphoneGeneration;
   generationBankRevision += 1;
-  branchRendererRevision += 1;
   stopGenerationCapacityMonitoring();
-  if (state.recording) stopRecording();
   state.mic = false;
   applyAudioParameters(true);
   releaseMicrophone();
@@ -1923,9 +1864,7 @@ window.addEventListener("pagehide", () => {
   } catch {
     // The oscillator may already have stopped during browser teardown.
   }
-  graph?.branchRenderer?.silence();
   void audioContext?.close?.();
-  if (lastTakeUrl) URL.revokeObjectURL(lastTakeUrl);
 });
 
 new ResizeObserver(resizeStage).observe(stageWrap);

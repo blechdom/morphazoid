@@ -1,40 +1,51 @@
-export const MAX_RECURSION_FEEDBACK = 0.86;
-export const MAX_GENERATION_STAGES = 12;
+export const MAX_RECURSION_FEEDBACK = 0.96;
+export const MAX_GENERATION_STAGES = 13;
 export const MAX_GENERATION_VOICES = 48;
-export const MAX_ADAPTIVE_GENERATION_VOICES = 64;
+export const MAX_ADAPTIVE_GENERATION_VOICES = 1024;
 export const MAX_BRANCHES_PER_GENERATION = 128;
 export const FIXED_FORK_DENSITY = 1;
+export const MIN_TIME_FOLD_MS = 1;
+export const MAX_TIME_FOLD_MS = 3_000;
+export const TIME_FOLD_SLIDER_STEPS = 1_000;
+export const TIME_FOLD_LOW_MS = 50;
+export const TIME_FOLD_HIGH_MS = 1_000;
+export const TIME_FOLD_LOW_SLIDER = 150;
+export const TIME_FOLD_HIGH_SLIDER = 900;
+export const MIN_CHILD_TIME_RATIO = 0.2;
+export const MAX_CHILD_TIME_RATIO = 2;
+export const MAX_GENERATION_DELAY_SECONDS = 39;
+const MAX_VISUAL_CHILD_TIME_RATIO = 1.08;
 export const GENERATION_RULE_PRESETS = Object.freeze({
   clean: Object.freeze({
     label: "Bamboo Shoot",
-    description: "A nearly straight stalk of spacious, one-to-one echoes.",
+    description: "Pure, unpitched repeats rise slowly at a long one-to-one interval.",
     generations: 5,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.56,
-    interval: 480,
-    mutation: 0.02,
+    depth: 0.55,
+    interval: 1_650,
+    mutation: 0,
     timeRatio: 1,
     angle: 0,
     asymmetry: 0,
-    pitchScale: 0.2,
+    pitchScale: 0,
   }),
   binary: Object.freeze({
     label: "Silver Birch",
-    description: "A crisp, even fork that halves its timing at every crown.",
+    description: "An 85 ms clockwork fork halves its timing cleanly at every crown.",
     generations: 9,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.64,
-    interval: 360,
+    depth: 0.68,
+    interval: 85,
     mutation: 0.02,
     timeRatio: 0.5,
-    angle: 28,
+    angle: 30,
     asymmetry: 0,
-    pitchScale: 0.85,
+    pitchScale: 0.9,
   }),
   pythagorean: Object.freeze({
     label: "Pythagorean Pine",
-    description: "The balanced reference tree: clear forks, tapering time, and mirrored pitch.",
-    generations: 7,
+    description: "The full reference canopy: clear forks, tapering time, and mirrored pitch.",
+    generations: MAX_GENERATION_STAGES,
     branching: FIXED_FORK_DENSITY,
     depth: 0.72,
     interval: 240,
@@ -46,90 +57,90 @@ export const GENERATION_RULE_PRESETS = Object.freeze({
   }),
   plant: Object.freeze({
     label: "Fern Frond",
-    description: "Fine, gently biased leaflets with lively but controlled variation.",
+    description: "A bouncing 420 ms organic rhythm grows gently biased, lightly varied leaflets.",
     generations: 10,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.74,
-    interval: 180,
-    mutation: 0.18,
-    timeRatio: 0.74,
-    angle: 22.5,
+    depth: 0.76,
+    interval: 420,
+    mutation: 0.16,
+    timeRatio: 0.78,
+    angle: 23,
     asymmetry: 0.18,
-    pitchScale: 1.1,
+    pitchScale: 1.05,
   }),
   willow: Object.freeze({
     label: "Weeping Willow",
-    description: "Long, dark cascades leaning to one side with a lingering tail.",
+    description: "A smooth 2.3 second fold droops into a long, dark, gently pitched cascade.",
     generations: 9,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.79,
-    interval: 520,
-    mutation: 0.26,
-    timeRatio: 0.84,
-    angle: 32,
-    asymmetry: -0.38,
-    pitchScale: 0.6,
+    depth: 0.88,
+    interval: 2_300,
+    mutation: 0.12,
+    timeRatio: 0.88,
+    angle: 30,
+    asymmetry: -0.42,
+    pitchScale: 0.45,
   }),
   ivy: Object.freeze({
     label: "Midnight Ivy",
-    description: "Twelve generations of climbing, skewed tendrils and quick echoes.",
+    description: "A tight 38 ms motor widens its spacing 1.35× through twelve skewed generations.",
     generations: 12,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.76,
-    interval: 88,
-    mutation: 0.42,
-    timeRatio: 0.9,
+    depth: 0.81,
+    interval: 38,
+    mutation: 0.55,
+    timeRatio: 1.35,
     angle: 18,
-    asymmetry: 0.54,
-    pitchScale: 1.65,
+    asymmetry: 0.6,
+    pitchScale: 1.7,
   }),
   mangrove: Object.freeze({
     label: "Mangrove Roots",
-    description: "Broad, low forks with heavy overlap and a slow submerged pulse.",
+    description: "Broad low forks emerge from a smooth 2.7 second submerged pulse.",
     generations: 8,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.82,
-    interval: 880,
-    mutation: 0.31,
-    timeRatio: 0.68,
-    angle: 52,
-    asymmetry: -0.14,
-    pitchScale: 0.72,
+    depth: 0.86,
+    interval: 2_700,
+    mutation: 0.1,
+    timeRatio: 0.76,
+    angle: 55,
+    asymmetry: -0.16,
+    pitchScale: 0.35,
   }),
   sequoia: Object.freeze({
     label: "Giant Sequoia",
-    description: "A deep twelve-generation canopy unfolding in monumental slow motion.",
-    generations: 12,
+    description: "The longest smooth preset unfolds thirteen persistent generations over a 3 second fold.",
+    generations: MAX_GENERATION_STAGES,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.84,
-    interval: 1_400,
-    mutation: 0.06,
-    timeRatio: 0.81,
-    angle: 15,
+    depth: 0.94,
+    interval: MAX_TIME_FOLD_MS,
+    mutation: 0.02,
+    timeRatio: 0.97,
+    angle: 12,
     asymmetry: 0,
-    pitchScale: 0.32,
+    pitchScale: 0.18,
   }),
   coral: Object.freeze({
     label: "Staghorn Coral",
-    description: "A bright, branching colony with a leftward bias and colorful pitch spread.",
+    description: "A bright 160 ms ping lattice flickers with colorful mutation and a leftward bias.",
     generations: 9,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.7,
-    interval: 120,
-    mutation: 0.28,
-    timeRatio: 0.72,
-    angle: 36,
-    asymmetry: -0.22,
-    pitchScale: 1.4,
+    depth: 0.71,
+    interval: 160,
+    mutation: 0.52,
+    timeRatio: 0.66,
+    angle: 44,
+    asymmetry: -0.28,
+    pitchScale: 1.55,
   }),
   dragon: Object.freeze({
     label: "Dragon Tree",
-    description: "Sparse right-angle limbs that turn dramatically without rushing.",
+    description: "Measured 1.05 second pulses travel through dramatic right-angle limbs.",
     generations: 8,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.67,
-    interval: 640,
-    mutation: 0.12,
+    depth: 0.65,
+    interval: 1_050,
+    mutation: 0.08,
     timeRatio: Math.SQRT1_2,
     angle: 90,
     asymmetry: 0,
@@ -137,12 +148,12 @@ export const GENERATION_RULE_PRESETS = Object.freeze({
   }),
   koch: Object.freeze({
     label: "Frosted Agave",
-    description: "Geometric sixty-degree blades with sharply folded child timing.",
+    description: "A 1.35 second geometric fold contracts into exact timing thirds.",
     generations: 7,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.61,
-    interval: 720,
-    mutation: 0.05,
+    depth: 0.62,
+    interval: 1_350,
+    mutation: 0.03,
     timeRatio: 1 / 3,
     angle: 60,
     asymmetry: 0,
@@ -150,68 +161,68 @@ export const GENERATION_RULE_PRESETS = Object.freeze({
   }),
   orchid: Object.freeze({
     label: "Ghost Orchid",
-    description: "A sparse, delicate bloom with wide intervals and floating high turns.",
+    description: "A sparse 1.95 second bloom floats through wide, smooth harmonic turns.",
     generations: 6,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.59,
-    interval: 960,
-    mutation: 0.24,
-    timeRatio: 0.63,
-    angle: 76,
-    asymmetry: -0.44,
-    pitchScale: 2.7,
+    depth: 0.6,
+    interval: 1_950,
+    mutation: 0.08,
+    timeRatio: 0.68,
+    angle: 80,
+    asymmetry: -0.45,
+    pitchScale: 1.2,
   }),
   kelp: Object.freeze({
     label: "Kelp Forest",
-    description: "Deep, swaying branches with broad stereo-like pitch motion.",
-    generations: 9,
+    description: "A rolling 750 ms smear expands gently through deep branches and broad pitch motion.",
+    generations: 10,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.8,
-    interval: 300,
-    mutation: 0.48,
-    timeRatio: 0.88,
-    angle: 38,
-    asymmetry: 0.46,
-    pitchScale: 0.9,
+    depth: 0.84,
+    interval: 750,
+    mutation: 0.55,
+    timeRatio: 1.08,
+    angle: 35,
+    asymmetry: 0.48,
+    pitchScale: 0.7,
   }),
   moss: Object.freeze({
     label: "Moss Carpet",
-    description: "Tiny rapid folds accumulate into a low, diffuse recursive field.",
-    generations: 12,
+    description: "A metallic 1 ms micro-comb doubles its spacing into a long robotic canopy.",
+    generations: MAX_GENERATION_STAGES,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.69,
-    interval: 16,
-    mutation: 0.66,
-    timeRatio: 0.93,
-    angle: 12,
-    asymmetry: -0.18,
-    pitchScale: 0.22,
+    depth: 0.86,
+    interval: MIN_TIME_FOLD_MS,
+    mutation: 0.18,
+    timeRatio: 2,
+    angle: 6,
+    asymmetry: -0.1,
+    pitchScale: 0.2,
   }),
   bramble: Object.freeze({
     label: "Blackberry Bramble",
-    description: "Fast, thorny forks with strong pitch turns and unruly mutation.",
+    description: "A shredded 4 ms robot swarm expands 1.65× through thorny, unruly forks.",
     generations: 11,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.68,
-    interval: 42,
-    mutation: 0.74,
-    timeRatio: 0.57,
-    angle: 67,
-    asymmetry: 0.28,
-    pitchScale: 2.2,
+    depth: 0.74,
+    interval: 4,
+    mutation: 0.86,
+    timeRatio: 1.65,
+    angle: 72,
+    asymmetry: 0.38,
+    pitchScale: 2.4,
   }),
   venus: Object.freeze({
     label: "Venus Flytrap",
-    description: "Extreme folding jaws snap across a three-octave angle mapping.",
+    description: "Hard 14 ms servo jaws double their spacing across an extreme pitch span.",
     generations: 7,
     branching: FIXED_FORK_DENSITY,
-    depth: 0.69,
-    interval: 210,
-    mutation: 0.4,
-    timeRatio: 0.61,
-    angle: 110,
-    asymmetry: 0.14,
-    pitchScale: 3.2,
+    depth: 0.62,
+    interval: 14,
+    mutation: 0.32,
+    timeRatio: 2,
+    angle: 135,
+    asymmetry: 0.25,
+    pitchScale: 3.6,
   }),
 });
 
@@ -262,6 +273,90 @@ export function clamp(value, minimum = 0, maximum = 1) {
   return Math.min(maximum, Math.max(minimum, Number(value) || 0));
 }
 
+export function timeFoldFromSlider(position) {
+  const slider = clamp(position, 0, TIME_FOLD_SLIDER_STEPS);
+  if (slider <= TIME_FOLD_LOW_SLIDER) {
+    const normalized = slider / TIME_FOLD_LOW_SLIDER;
+    return Math.round(
+      MIN_TIME_FOLD_MS
+        + (TIME_FOLD_LOW_MS - MIN_TIME_FOLD_MS) * normalized,
+    );
+  }
+  if (slider <= TIME_FOLD_HIGH_SLIDER) {
+    const normalized = (slider - TIME_FOLD_LOW_SLIDER)
+      / (TIME_FOLD_HIGH_SLIDER - TIME_FOLD_LOW_SLIDER);
+    return Math.round(
+      TIME_FOLD_LOW_MS
+        + (TIME_FOLD_HIGH_MS - TIME_FOLD_LOW_MS) * normalized,
+    );
+  }
+  const normalized = (slider - TIME_FOLD_HIGH_SLIDER)
+    / (TIME_FOLD_SLIDER_STEPS - TIME_FOLD_HIGH_SLIDER);
+  return Math.round(
+    TIME_FOLD_HIGH_MS
+      + (MAX_TIME_FOLD_MS - TIME_FOLD_HIGH_MS) * normalized,
+  );
+}
+
+export function sliderFromTimeFold(milliseconds) {
+  const value = Math.round(clamp(
+    milliseconds,
+    MIN_TIME_FOLD_MS,
+    MAX_TIME_FOLD_MS,
+  ));
+  if (value <= TIME_FOLD_LOW_MS) {
+    return (value - MIN_TIME_FOLD_MS)
+      / (TIME_FOLD_LOW_MS - MIN_TIME_FOLD_MS)
+      * TIME_FOLD_LOW_SLIDER;
+  }
+  if (value <= TIME_FOLD_HIGH_MS) {
+    return TIME_FOLD_LOW_SLIDER
+      + (value - TIME_FOLD_LOW_MS)
+        / (TIME_FOLD_HIGH_MS - TIME_FOLD_LOW_MS)
+        * (TIME_FOLD_HIGH_SLIDER - TIME_FOLD_LOW_SLIDER);
+  }
+  return TIME_FOLD_HIGH_SLIDER
+    + (value - TIME_FOLD_HIGH_MS)
+      / (MAX_TIME_FOLD_MS - TIME_FOLD_HIGH_MS)
+      * (TIME_FOLD_SLIDER_STEPS - TIME_FOLD_HIGH_SLIDER);
+}
+
+export function generationTailSeconds({
+  interval = 240,
+  generations = 8,
+  timeRatio = 0.5,
+} = {}) {
+  const baseInterval = clamp(
+    interval,
+    MIN_TIME_FOLD_MS,
+    MAX_TIME_FOLD_MS,
+  ) / 1000;
+  const count = Math.max(
+    1,
+    Math.min(MAX_GENERATION_STAGES, Math.round(Number(generations) || 1)),
+  );
+  const ratio = clamp(
+    timeRatio,
+    MIN_CHILD_TIME_RATIO,
+    MAX_CHILD_TIME_RATIO,
+  );
+  let tail = 0;
+  for (let generation = 1; generation <= count; generation += 1) {
+    tail += baseInterval * ratio ** generation;
+  }
+  return tail;
+}
+
+function visualChildTimeRatio(timeRatio) {
+  const ratio = clamp(
+    timeRatio,
+    MIN_CHILD_TIME_RATIO,
+    MAX_CHILD_TIME_RATIO,
+  );
+  if (ratio <= 1) return ratio;
+  return 1 + Math.log2(ratio) * (MAX_VISUAL_CHILD_TIME_RATIO - 1);
+}
+
 export function estimateGenerations(feedback, silenceFloor = 0.04) {
   const gain = clamp(feedback, 0, MAX_RECURSION_FEEDBACK);
   const floor = clamp(silenceFloor, 0.0001, 0.5);
@@ -275,7 +370,11 @@ export function generationCountForDepth(feedback, silenceFloor = 0.04) {
 }
 
 export function recursionParameters(values = {}) {
-  const interval = clamp(values.interval ?? 240, 0.2, 2_400);
+  const interval = clamp(
+    values.interval ?? 240,
+    MIN_TIME_FOLD_MS,
+    MAX_TIME_FOLD_MS,
+  );
   const depth = clamp(values.depth ?? 0.72, 0, MAX_RECURSION_FEEDBACK);
   const branching = clamp(values.branching ?? 0.84);
   const mutation = clamp(values.mutation ?? 0.3);
@@ -319,8 +418,7 @@ function evenlyBounded(candidates, maximum) {
   ));
 }
 
-function boundedConnectedVoices(voices, maximum, deepestGeneration) {
-  if (voices.length <= maximum) return voices;
+function deepestConnectedVoiceOrder(voices, deepestGeneration) {
   const voiceId = (voice) => voice.key.replace(/^generation:/, "");
   const byId = new Map(voices.map((voice) => [voiceId(voice), voice]));
   const selected = new Set();
@@ -348,8 +446,7 @@ function boundedConnectedVoices(voices, maximum, deepestGeneration) {
   }
 
   // Append any non-deep descendants in topological order. Because parents are
-  // always admitted before children, every prefix is a valid connected tree;
-  // adaptive 32 → 48 → 64 changes therefore add voices without replacing keys.
+  // always admitted before children, every prefix is a valid connected tree.
   for (const voice of voices) {
     const id = voiceId(voice);
     if (selected.has(id)) continue;
@@ -358,7 +455,97 @@ function boundedConnectedVoices(voices, maximum, deepestGeneration) {
       ordered.push(voice);
     }
   }
-  return ordered.slice(0, maximum);
+  return ordered;
+}
+
+function blendedConnectedVoiceOrder(voices, deepestGeneration, pruningBias) {
+  const depthBias = clamp(pruningBias, 0, 1);
+  if (depthBias <= 0) return voices;
+  const depthOrder = deepestConnectedVoiceOrder(voices, deepestGeneration);
+  if (depthBias >= 1) return depthOrder;
+
+  const voiceId = (voice) => voice.key.replace(/^generation:/, "");
+  const countScale = 1 / Math.max(1, voices.length - 1);
+  const breadthRank = new Map(voices.map((voice, index) => [
+    voice.key,
+    index * countScale,
+  ]));
+  const depthRank = new Map(depthOrder.map((voice, index) => [
+    voice.key,
+    index * countScale,
+  ]));
+  const priority = new Map(voices.map((voice) => [
+    voice.key,
+    (breadthRank.get(voice.key) ?? 1) * (1 - depthBias)
+      + (depthRank.get(voice.key) ?? 1) * depthBias,
+  ]));
+  const children = new Map();
+  for (const voice of voices) {
+    const siblings = children.get(voice.parentId) ?? [];
+    siblings.push(voice);
+    children.set(voice.parentId, siblings);
+  }
+  const compare = (left, right) => (
+    (priority.get(left.key) ?? 1) - (priority.get(right.key) ?? 1)
+    || (breadthRank.get(left.key) ?? 1) - (breadthRank.get(right.key) ?? 1)
+  );
+  const eligible = [];
+  const push = (voice) => {
+    eligible.push(voice);
+    let index = eligible.length - 1;
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2);
+      if (compare(eligible[parent], eligible[index]) <= 0) break;
+      [eligible[parent], eligible[index]] = [eligible[index], eligible[parent]];
+      index = parent;
+    }
+  };
+  const pop = () => {
+    const first = eligible[0];
+    const last = eligible.pop();
+    if (eligible.length && last) {
+      eligible[0] = last;
+      let index = 0;
+      while (true) {
+        const left = index * 2 + 1;
+        const right = left + 1;
+        let smallest = index;
+        if (left < eligible.length && compare(eligible[left], eligible[smallest]) < 0) {
+          smallest = left;
+        }
+        if (right < eligible.length && compare(eligible[right], eligible[smallest]) < 0) {
+          smallest = right;
+        }
+        if (smallest === index) break;
+        [eligible[index], eligible[smallest]] = [eligible[smallest], eligible[index]];
+        index = smallest;
+      }
+    }
+    return first;
+  };
+
+  for (const root of children.get("trunk") ?? []) push(root);
+  const ordered = [];
+  while (eligible.length) {
+    const voice = pop();
+    ordered.push(voice);
+    for (const child of children.get(voiceId(voice)) ?? []) push(child);
+  }
+  return ordered;
+}
+
+function boundedConnectedVoices(
+  voices,
+  maximum,
+  deepestGeneration,
+  pruningBias = 0,
+) {
+  if (voices.length <= maximum) return voices;
+  return blendedConnectedVoiceOrder(
+    voices,
+    deepestGeneration,
+    pruningBias,
+  ).slice(0, maximum);
 }
 
 /**
@@ -378,7 +565,12 @@ export function generationTopology({
   const count = Math.max(1, Math.min(MAX_GENERATION_STAGES, Math.round(Number(generations) || 1)));
   const branchAmount = clamp(branching);
   const mutationAmount = clamp(mutation);
-  const taper = clamp(timeRatio, 0.2, 1);
+  const taper = clamp(
+    timeRatio,
+    MIN_CHILD_TIME_RATIO,
+    MAX_CHILD_TIME_RATIO,
+  );
+  const visualTaper = visualChildTimeRatio(taper);
   const turn = clamp(angle, 0, 180);
   const skew = clamp(asymmetry, -0.8, 0.8);
   const turnA = -turn * (1 - skew);
@@ -419,19 +611,23 @@ export function generationTopology({
         : [{ name: "C", turn: 0 }];
       for (const rule of rules) {
         // Stable, per-rewrite variations keep slider gestures deterministic.
-        // The same mutated turn and length feed both the drawing and audio.
+        // The same mutation feeds exact audio timing and its compressed drawing.
         const identity = `${parent.id}/${rule.name}`;
         const turnVariation = (hashUnit(`${identity}:turn`) * 2 - 1)
           * turn * mutationAmount * 0.5;
-        // Mutated timing may fold earlier, never beyond the selected Time
-        // Fold × Child Time Ratio envelope, so the 12-generation safety cap
-        // always fits the bounded audio history.
+        // Mutation can shorten, but never lengthen, the exact timing rewrite.
+        // Drawing compresses ratios above one so the fixed trunk stays visible;
+        // audio retains the literal expanding ratio in `timeScale`.
         const lengthVariation = hashUnit(`${identity}:length`)
           * mutationAmount * 0.3;
         const mutatedTurn = rule.turn + turnVariation;
         const headingDegrees = parent.headingDegrees + mutatedTurn;
         const heading = headingDegrees * Math.PI / 180;
-        const length = Math.max(0.02, taper ** generation * (1 - lengthVariation));
+        const timeScale = taper ** generation * (1 - lengthVariation);
+        const length = Math.max(
+          0.02,
+          visualTaper ** generation * (1 - lengthVariation),
+        );
         candidates.push({
           id: identity,
           parentId: parent.id,
@@ -440,6 +636,7 @@ export function generationTopology({
           rule: rule.name,
           turnDegrees: mutatedTurn,
           headingDegrees,
+          timeScale,
           length,
           startX: parent.x,
           startY: parent.y,
@@ -466,14 +663,20 @@ export function generationVoiceSpecs({
   angle = 30,
   asymmetry = 0,
   pitchScale = 1,
+  pruningBias = 0,
   maximumVoices = MAX_GENERATION_VOICES,
 } = {}) {
   const octaveScale = clamp(pitchScale, 0, 4);
+  const exactTimeRatio = clamp(
+    timeRatio,
+    MIN_CHILD_TIME_RATIO,
+    MAX_CHILD_TIME_RATIO,
+  );
   const layout = generationTopology({
     generations,
     branching,
     mutation,
-    timeRatio,
+    timeRatio: exactTimeRatio,
     angle,
     asymmetry,
   });
@@ -483,7 +686,11 @@ export function generationVoiceSpecs({
     group.push(node);
     perGeneration.set(node.generation, group);
   }
-  const baseInterval = clamp(interval, 0.2, 2_400) / 1000;
+  const baseInterval = clamp(
+    interval,
+    MIN_TIME_FOLD_MS,
+    MAX_TIME_FOLD_MS,
+  ) / 1000;
   const depthAmount = clamp(depth, 0, MAX_RECURSION_FEEDBACK);
   const lineage = new Map([["trunk", { delay: 0, interval: baseInterval, semitones: 0 }]]);
   const voices = [];
@@ -494,10 +701,11 @@ export function generationVoiceSpecs({
     for (const node of nodes) {
       const parent = lineage.get(node.parentId) ?? lineage.get("trunk");
       const branchTurn = node.turnDegrees;
-      const nextInterval = baseInterval * node.length;
+      const nextInterval = baseInterval * (node.timeScale ?? node.length);
       const cumulativeDelay = parent.delay + nextInterval;
       const cumulativeSemitones = parent.semitones + branchTurn / 180 * 12 * octaveScale;
       lineage.set(node.id, { delay: cumulativeDelay, interval: nextInterval, semitones: cumulativeSemitones });
+      if (cumulativeDelay > MAX_GENERATION_DELAY_SECONDS + 1e-9) continue;
       voices.push({
         key: `generation:${node.id}`,
         generation,
@@ -516,7 +724,12 @@ export function generationVoiceSpecs({
     MAX_ADAPTIVE_GENERATION_VOICES,
     Math.round(Number(maximumVoices) || MAX_GENERATION_VOICES),
   ));
-  const selected = boundedConnectedVoices(voices, voiceLimit, count);
+  const selected = boundedConnectedVoices(
+    voices,
+    voiceLimit,
+    count,
+    pruningBias,
+  );
   const selectedPerGeneration = new Map();
   for (const voice of selected) {
     selectedPerGeneration.set(
@@ -530,49 +743,6 @@ export function generationVoiceSpecs({
       * Math.pow(depthAmount, voice.generation * 0.72)
       / Math.sqrt(selectedPerGeneration.get(voice.generation) ?? 1),
   }));
-}
-
-/**
- * Translate the current visual/audio rewrite into the dormant recursive-bounce
- * worklet contract. Each generation reads the previous generation's mono stem,
- * applies its local child turn and interval, then writes one shared next stem.
- * This is intentionally separate from the default silky renderer.
- */
-export function generationBounceVoiceSpecs(
-  voices,
-  {
-    depth = 0.72,
-    pitchScale = 1,
-  } = {},
-) {
-  const source = Array.isArray(voices) ? voices : [];
-  const maximumGeneration = Math.max(0, ...source.map((voice) => (
-    Math.max(0, Math.round(Number(voice?.generation) || 0))
-  )));
-  const perGeneration = new Map();
-  for (const voice of source) {
-    const generation = Math.max(1, Math.round(Number(voice?.generation) || 1));
-    perGeneration.set(generation, (perGeneration.get(generation) ?? 0) + 1);
-  }
-  const stageDecay = Math.pow(clamp(depth, 0, MAX_RECURSION_FEEDBACK), 0.72);
-  const octaveScale = clamp(pitchScale, 0, 4);
-
-  return source.map((voice, index) => {
-    const generation = Math.max(1, Math.round(Number(voice?.generation) || 1));
-    const localSemitones = clamp(voice?.turnDegrees, -180, 180) / 180
-      * 12
-      * octaveScale;
-    return {
-      key: `bounce:${typeof voice?.key === "string" ? voice.key : index}`,
-      rate: clamp(2 ** (localSemitones / 12), 0.25, 4),
-      gain: 0.5 * stageDecay / Math.sqrt(perGeneration.get(generation) ?? 1),
-      pan: clamp(voice?.pan, -1, 1),
-      depth: generation,
-      delay: clamp(voice?.interval, 0.00002, 2.4),
-      sourceKey: generation === 1 ? "base" : `generation:${generation - 1}`,
-      bounceKey: generation < maximumGeneration ? `generation:${generation}` : null,
-    };
-  });
 }
 
 export function echoTreeLayout(
@@ -612,12 +782,4 @@ export function echoTreeLayout(
     previous = current;
   }
   return nodes;
-}
-
-export function recorderExtension(mimeType = "") {
-  const value = String(mimeType).toLowerCase();
-  if (value.includes("ogg")) return "ogg";
-  if (value.includes("mp4")) return "m4a";
-  if (value.includes("wav")) return "wav";
-  return "webm";
 }

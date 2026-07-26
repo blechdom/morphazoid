@@ -33,7 +33,7 @@ export class SignalsmithGenerationMixerDSP {
       1,
       Math.round(clamp(maxInputs, 1, MAX_SIGNALSMITH_MIXER_INPUTS, 4)),
     );
-    this.maxVoices = Math.max(1, Math.round(clamp(maxVoices, 1, 96, 48)));
+    this.maxVoices = Math.max(1, Math.round(clamp(maxVoices, 1, 1024, 48)));
     this.historyLength = Math.ceil(clamp(historySeconds, 4, 40, 30) * this.sampleRate);
     this.maximumDelay = (this.historyLength - 3) / this.sampleRate;
     this.histories = Array.from(
@@ -92,11 +92,18 @@ export class SignalsmithGenerationMixerDSP {
         }
         next.set(target.key, { ...prior, target, releasing: false });
       });
-    const releaseAllowance = Math.min(12, Math.ceil(this.runtimeLimit * 0.125));
+    const nestedShrink = next.size <= this.activeTargetCount
+      && [...next.keys()].every((key) => this.voices.has(key));
+    // A ceiling reduction retains the already-running pool while it fades, so
+    // it never exceeds the prior CPU cost. Pruning may introduce new keys;
+    // 256 covers its largest endpoint replacement in the bounded topology.
+    const releaseAllowance = nestedShrink
+      ? this.voices.size
+      : Math.min(256, this.runtimeLimit);
     for (const [key, prior] of this.voices) {
       if (
         next.has(key)
-        || next.size >= Math.min(this.maxVoices + 12, this.runtimeLimit + releaseAllowance)
+        || next.size >= Math.min(this.maxVoices, this.runtimeLimit + releaseAllowance)
       ) continue;
       next.set(key, {
         ...prior,

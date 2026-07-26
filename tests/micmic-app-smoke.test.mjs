@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { sliderFromTimeFold } from "../src/micmic.js";
+
 test("mic(mic) renders and drives a recursive microphone graph", async () => {
   const html = await readFile(new URL("../micmic.html", import.meta.url), "utf8");
   const tags = new Map(
@@ -178,6 +180,12 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
         emit: (data) => this.port.onmessage?.({ data }),
       };
       workletNodes.push(this);
+      if (name === "morphazoid-micmic-generations") {
+        queueMicrotask(() => this.port.emit({
+          type: "renderer-ready",
+          renderer: options.processorOptions?.renderer ?? "granular-fallback",
+        }));
+      }
       if (name === "signalsmith-stretch") {
         if (signalsmithReadyEnabled) readySignalsmithNode(this);
         else pendingSignalsmithNodes.push(this);
@@ -239,7 +247,6 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
         release: audioParam(0),
       });
     }
-    createMediaStreamDestination() { return audioNode({ stream: { id: "processed-output" } }); }
     createOscillator() {
       return audioNode({
         type: "sine",
@@ -272,29 +279,6 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
       },
     },
   });
-  const mediaRecorders = [];
-  globalThis.MediaRecorder = class {
-    static isTypeSupported(type) { return type.startsWith("audio/webm"); }
-    constructor(stream, options = {}) {
-      this.stream = stream;
-      this.mimeType = options.mimeType || "audio/webm";
-      this.state = "inactive";
-      this.listeners = new Map();
-      mediaRecorders.push(this);
-    }
-    addEventListener(type, listener) { this.listeners.set(type, listener); }
-    start() { this.state = "recording"; }
-    stop() {
-      this.state = "inactive";
-      this.listeners.get("dataavailable")?.({
-        data: new Blob(["recursive audio"], { type: this.mimeType }),
-      });
-    }
-    finishStop() {
-      this.listeners.get("stop")?.();
-    }
-  };
-
   await import(`../micmic-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
   queuedFrame(performance.now() + 120);
@@ -316,35 +300,72 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.ok(initialBounds.minX >= 0 && initialBounds.maxX <= 900);
   assert.ok(initialBounds.minY >= 0 && initialBounds.maxY <= 600);
   assert.equal(arcs, 0, "the unified tree should not draw detached travelling dots");
-  assert.equal(elements.get("stageReadout").textContent, "MIC OFF · PYTHAGOREAN PINE · 7 GENERATIONS");
-  assert.equal(elements.get("recursionSummary").textContent, "Pythagorean Pine · 7 generations");
+  assert.equal(elements.get("stageReadout").textContent, "MIC OFF · PYTHAGOREAN PINE · 13 GENERATIONS");
+  assert.equal(elements.get("presetSummary").textContent, "Pythagorean Pine · Maximum");
+  assert.equal(elements.get("recursionSummary").textContent, "Pythagorean Pine · 13 generations");
   assert.equal(elements.get("mixSummary").textContent, "76% descendants · root muted");
   assert.equal(elements.get("depthOut").textContent, "72%");
-  assert.equal(elements.get("generationsOut").textContent, "7 / 12");
+  assert.equal(elements.get("generationsOut").textContent, "13 / 13");
   assert.equal(elements.get("mutationOut").textContent, "0% rule variance");
-  assert.match(elements.get("generationPresetDescription").textContent, /balanced reference tree/);
-  assert.equal(elements.get("pitchDetail").value, "3");
+  assert.equal(elements.get("timeRatioOut").textContent, "0.72× per generation");
+  assert.equal(elements.get("pruningBias").value, "0");
+  assert.equal(elements.get("pruningBiasOut").textContent, "breadth first");
+  assert.equal(attributes.get("pruningBias:aria-valuetext"), "breadth first");
+  assert.match(elements.get("generationPresetDescription").textContent, /full reference canopy/);
+  assert.equal(attributes.get("generationPreset-pythagorean:aria-pressed"), "true");
+  assert.equal(elements.get("pitchDetail").value, "24");
   assert.equal(elements.get("pitchDetail").disabled, false);
   assert.equal(elements.get("audioState").textContent, "off");
-  assert.equal(elements.get("recordButton").disabled, true);
+  assert.equal(listeners.has("recordButton:click"), false);
   assert.equal(seedButtonLabel.textContent, "Start input");
   const initialSeedLeft = Number.parseFloat(elements.get("seedControl").style.left);
   const initialSeedTop = Number.parseFloat(elements.get("seedControl").style.top);
   assert.ok(initialSeedLeft > 0 && initialSeedLeft < 900);
   assert.ok(initialSeedTop > 0 && initialSeedTop < 600);
   assert.equal(elements.get("seedControl").style.width, elements.get("seedControl").style.height);
-  assert.match(elements.get("treeDescription").textContent, /7 generations and 255 connected segments; 48 of 48 bounded delayed descendant paths carry audible gain/);
-  elements.get("pitchDetail").value = "7";
-  listeners.get("pitchDetail:change")({
-    currentTarget: elements.get("pitchDetail"),
-  });
-  assert.equal(elements.get("pitchDetail").value, "7");
+  assert.match(elements.get("treeDescription").textContent, /13 generations and 1023 connected segments; 48 of 48 breadth first delayed descendant paths carry audible gain/);
+  assert.match(elements.get("generationCapacityInline").textContent, /48 of 1,022 branches ready · breadth first pruning · device-adjusted/);
+  assert.equal(elements.get("currentSettingsSummary").textContent, "13 gen · 240 ms root fold");
+  assert.equal(
+    elements.get("generationCountReadout").textContent,
+    "1 → 2 → 4 → 8 → 16 → 32 → … → 128 at G13",
+  );
+  assert.equal(
+    elements.get("generationTimingReadout").textContent,
+    "240 ms → 173 ms → 124 ms → 90 ms … 3.35 ms at G13",
+  );
+  assert.equal(
+    elements.get("generationPitchReadout").textContent,
+    "-45° → -25% octave · +45° → +25% octave",
+  );
+  assert.equal(elements.get("generationPitchScaleOut").textContent, "100% / 180°");
   listeners.get("resetGenerationRules:click")();
   assert.equal(
     elements.get("pitchDetail").value,
-    "7",
+    "24",
     "reloading a growth preset must preserve renderer pitch detail",
   );
+  listeners.get("generationPreset-moss:click")();
+  assert.equal(elements.get("timeRatio").value, "2");
+  assert.equal(elements.get("timeRatioOut").textContent, "2.00× per generation");
+  assert.match(elements.get("generationPresetDescription").textContent, /doubles its spacing/);
+  queuedFrame(performance.now() + 125);
+  const [trunkStart, trunkEnd] = framePoints;
+  assert.ok(
+    Math.hypot(trunkEnd[0] - trunkStart[0], trunkEnd[1] - trunkStart[1]) >= 20,
+    "compressed 2× drawing should keep the trunk visible",
+  );
+  elements.get("interval").value = String(sliderFromTimeFold(3_000));
+  listeners.get("interval:input")();
+  assert.equal(elements.get("intervalOut").textContent, "3000 ms");
+  assert.equal(elements.get("timeRatio").value, "2");
+  assert.equal(
+    attributes.has("timeRatio:max"),
+    false,
+    "Time Fold must not rewrite the Child Time Ratio ceiling",
+  );
+  assert.equal(elements.get("timeRatioOut").textContent, "2.00× per generation");
+  listeners.get("generationPreset-pythagorean:click")();
   elements.get("timeRatio").value = "0.2";
   listeners.get("timeRatio:input")();
   queuedFrame(performance.now() + 130);
@@ -356,17 +377,16 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
     compactWidth > 760 || compactHeight > 480,
     "even an aggressively folded tree should fill one available stage dimension",
   );
-  elements.get("generationPreset").value = "pythagorean";
-  listeners.get("generationPreset:change")({ currentTarget: elements.get("generationPreset") });
-  elements.get("depth").value = "0.86";
+  listeners.get("generationPreset-pythagorean:click")();
+  elements.get("depth").value = "0.96";
   listeners.get("depth:input")();
-  assert.match(elements.get("treeDescription").textContent, /7 generations and 255 connected segments/);
+  assert.match(elements.get("treeDescription").textContent, /13 generations and 1023 connected segments/);
   elements.get("depth").value = "0.72";
   listeners.get("depth:input")();
-  elements.get("generations").value = "12";
-  listeners.get("generations:input")();
-  assert.match(elements.get("treeDescription").textContent, /12 generations/);
   elements.get("generations").value = "7";
+  listeners.get("generations:input")();
+  assert.match(elements.get("treeDescription").textContent, /7 generations/);
+  elements.get("generations").value = "13";
   listeners.get("generations:input")();
 
   listeners.get("seedMicButton:click")();
@@ -388,11 +408,16 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   const directNode = workletNodes.find((node) => (
     node.name === "morphazoid-micmic-generations"
   ));
+  assert.equal(directNode.options.processorOptions.renderer, "granular-economy");
+  assert.equal(directNode.options.processorOptions.historySeconds, 40);
+  assert.equal(
+    workletNodes.filter((node) => node.name === "signalsmith-stretch").length,
+    0,
+    "the default Economy renderer must not allocate Signalsmith lanes",
+  );
   const currentRendererGain = directNode.connections[0];
   assert.equal(currentRendererGain.gain.value, 1, "the current renderer must own startup audio");
   assert.equal(gains[0].gain.value, 0.85, "input trim should reach the live graph");
-  assert.equal(elements.get("recordButton").disabled, false);
-  assert.equal(elements.get("recordHint").textContent, "records while you listen");
   assert.equal(elements.get("micButtonLabel").textContent, "Pause input");
   const initialGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
   assert.ok(initialGenerations.voices.length > 8);
@@ -406,9 +431,42 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
     voice.parentId === "trunk" || initiallyAudible.has(voice.parentId)
   )), "every audible branch should retain its parent");
 
+  queuedFrame(performance.now() + 145);
+  const breadthFirstFrame = framePoints.slice();
+  const presetBeforePruning = elements.get("recursionSummary").textContent;
+  elements.get("pruningBias").value = "1";
+  listeners.get("pruningBias:input")();
+  const depthGenerations = generationMessages
+    .filter((message) => message.type === "voices")
+    .at(-1);
+  const depthIds = new Set(depthGenerations.voices.map((voice) => (
+    voice.key.replace(/^generation:/, "")
+  )));
+  assert.equal(Math.max(...depthGenerations.voices.map((voice) => voice.generation)), 13);
+  assert.ok(depthGenerations.voices.every((voice) => (
+    voice.parentId === "trunk" || depthIds.has(voice.parentId)
+  )));
+  assert.equal(elements.get("pruningBiasOut").textContent, "depth first");
+  assert.equal(attributes.get("pruningBias:aria-valuetext"), "depth first");
+  assert.equal(elements.get("recursionSummary").textContent, presetBeforePruning);
+  assert.match(elements.get("treeDescription").textContent, /depth first delayed descendant paths/);
+  queuedFrame(performance.now() + 148);
+  assert.notDeepEqual(framePoints, breadthFirstFrame, "pruning must recolor the live graph immediately");
+
+  elements.get("pruningBias").value = "0";
+  listeners.get("pruningBias:input")();
+  const restoredBreadthGenerations = generationMessages
+    .filter((message) => message.type === "voices")
+    .at(-1);
+  assert.equal(Math.max(...restoredBreadthGenerations.voices.map((voice) => voice.generation)), 5);
+  assert.deepEqual(
+    restoredBreadthGenerations.voices.map(({ key }) => key),
+    initialGenerations.voices.map(({ key }) => key),
+  );
+
   elements.get("depth").value = "0";
   listeners.get("depth:input")();
-  assert.match(elements.get("treeDescription").textContent, /0 of 48 bounded delayed descendant paths carry audible gain/);
+  assert.match(elements.get("treeDescription").textContent, /0 of 48 breadth first delayed descendant paths carry audible gain/);
   queuedFrame(performance.now() + 150);
   assert.equal(
     frameStrokes,
@@ -432,29 +490,27 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   elements.get("mutation").value = "0";
   listeners.get("mutation:input")();
 
-  elements.get("generations").value = "12";
+  elements.get("generations").value = "13";
   listeners.get("generations:input")();
   const cappedGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
   assert.ok(cappedGenerations.voices.length <= 48);
-  assert.equal(Math.max(...cappedGenerations.voices.map((voice) => voice.generation)), 12);
-  elements.get("generations").value = "7";
-  listeners.get("generations:input")();
+  assert.equal(cappedGenerations.requestedVoiceCount, 1_022);
+  assert.equal(Math.max(...cappedGenerations.voices.map((voice) => voice.generation)), 5);
 
   elements.get("generationAngle").value = "60";
   listeners.get("generationAngle:input")();
   const pitchedGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
   assert.ok(pitchedGenerations.voices.find((voice) => voice.generation === 1 && voice.rule === "A").rate < 1);
   assert.ok(pitchedGenerations.voices.find((voice) => voice.generation === 1 && voice.rule === "B").rate > 1);
-  assert.match(elements.get("generationPitchReadout").textContent, /-60° → -4 st · \+60° → \+4 st/);
+  assert.match(elements.get("generationPitchReadout").textContent, /-60° → -33\.33% octave · \+60° → \+33\.33% octave/);
 
-  elements.get("generationPreset").value = "pythagorean";
-  listeners.get("generationPreset:change")({ currentTarget: elements.get("generationPreset") });
+  listeners.get("generationPreset-pythagorean:click")();
   const forkedGenerations = generationMessages.filter((message) => message.type === "voices").at(-1);
   const firstFork = forkedGenerations.voices.filter((voice) => voice.generation === 1);
   assert.deepEqual(firstFork.map((voice) => voice.rule), ["A", "B"]);
   assert.equal(elements.get("timeRatioOut").textContent, "0.72× per generation");
   assert.equal(elements.get("generationAngleOut").textContent, "45°");
-  assert.equal(elements.get("generationsOut").textContent, "7 / 12");
+  assert.equal(elements.get("generationsOut").textContent, "13 / 13");
   assert.equal(elements.get("mutationOut").textContent, "0% rule variance");
   assert.equal(elements.get("depthOut").textContent, "72%");
   assert.equal(elements.get("intervalOut").textContent, "240 ms");
@@ -472,8 +528,21 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
     .at(-1);
   assert.equal(expandedGenerations.voiceLimit, 64);
   assert.equal(expandedGenerations.voices.length, 64);
-  assert.match(elements.get("generationCapacityNote").textContent, /64 \/ 254 audible branches/);
-  assert.match(elements.get("generationCapacityNote").textContent, /DSP 20%/);
+  assert.match(elements.get("generationCapacityInline").textContent, /64 of 1,022 branches active · breadth first pruning · device-adjusted/);
+  assert.doesNotMatch(elements.get("generationCapacityInline").textContent, /AUTO|CAP|underrun|guard|load/i);
+
+  for (let index = 0; index < 4; index += 1) {
+    renderCapacities[0].onupdate({
+      averageLoad: 0.18,
+      peakLoad: 0.28,
+      underrunRatio: 0,
+    });
+  }
+  const beyondFormerCeiling = generationMessages
+    .filter((message) => message.type === "voices")
+    .at(-1);
+  assert.equal(beyondFormerCeiling.voiceLimit, 80);
+  assert.equal(beyondFormerCeiling.voices.length, 80);
 
   for (let index = 0; index < 2; index += 1) {
     renderCapacities[0].onupdate({
@@ -485,47 +554,23 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   const rolledBackGenerations = generationMessages
     .filter((message) => message.type === "voices")
     .at(-1);
-  assert.equal(rolledBackGenerations.voiceLimit, 48);
-  assert.equal(rolledBackGenerations.voices.length, 48);
-  assert.match(elements.get("generationCapacityNote").textContent, /AUTO CAP · 48 \/ 254/);
+  assert.equal(rolledBackGenerations.voiceLimit, 64);
+  assert.equal(rolledBackGenerations.voices.length, 64);
+  assert.match(elements.get("generationCapacityInline").textContent, /64 of 1,022 branches active · breadth first pruning · device-adjusted/);
 
-  assert.equal(attributes.get("branchRendererToggle:aria-checked"), "false");
-  listeners.get("branchRendererToggle:click")();
-  await new Promise((resolve) => setImmediate(resolve));
-  const branchNode = workletNodes.find((node) => node.name === "morphazoid-mic-branches");
-  assert.ok(branchNode, "experimental renderer should be created lazily");
-  const branchRendererGain = branchNode.connections[0];
-  assert.equal(currentRendererGain.gain.value, 1, "warm-up must not interrupt the current renderer");
-  assert.equal(branchRendererGain.gain.value, 0, "the experimental renderer must warm silently");
-  const branchVoices = branchNode.port.messages.find((message) => (
-    message.type === "voices" && message.voices.length > 0
-  ));
-  assert.ok(branchVoices.voices.every((voice) => (
-    typeof voice.sourceKey === "string"
-    && (voice.bounceKey === null || typeof voice.bounceKey === "string")
-  )));
-  branchNode.port.emit({ type: "history-ready", renderer: "recursive-bounce" });
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(attributes.get("branchRendererToggle:aria-checked"), "true");
-  assert.match(elements.get("branchRendererState").textContent, /experimental bounce engine/);
-  assert.equal(currentRendererGain.gain.value, 0);
-  assert.equal(branchRendererGain.gain.value, 1);
-  assert.equal(audioContexts.length, 1, "the alternate renderer must reuse the current AudioContext");
-  assert.equal(microphoneRequests, 1, "the alternate renderer must reuse the current microphone");
+  assert.equal(
+    workletNodes.some((node) => node.name === "morphazoid-mic-branches"),
+    false,
+    "Recursive Bounce is no longer part of mic(mic)",
+  );
 
-  listeners.get("branchRendererToggle:click")();
-  assert.equal(attributes.get("branchRendererToggle:aria-checked"), "false");
-  assert.equal(elements.get("branchRendererState").textContent, "Off · current silky engine");
-  assert.equal(currentRendererGain.gain.value, 1, "switching off must restore the current renderer");
-  assert.equal(branchRendererGain.gain.value, 0);
-
-  elements.get("generationPreset").value = "binary";
-  listeners.get("generationPreset:change")({ currentTarget: elements.get("generationPreset") });
-  assert.equal(elements.get("generationsOut").textContent, "9 / 12");
-  assert.equal(elements.get("depthOut").textContent, "64%");
-  assert.equal(elements.get("intervalOut").textContent, "360 ms");
-  assert.equal(elements.get("generationAngleOut").textContent, "28°");
+  listeners.get("generationPreset-binary:click")();
+  assert.equal(elements.get("generationsOut").textContent, "9 / 13");
+  assert.equal(elements.get("depthOut").textContent, "68%");
+  assert.equal(elements.get("intervalOut").textContent, "85 ms");
+  assert.equal(elements.get("generationAngleOut").textContent, "30°");
   assert.match(elements.get("generationPresetDescription").textContent, /halves its timing/);
+  assert.equal(attributes.get("generationPreset-binary:aria-pressed"), "true");
 
   listeners.get("micButton:click")();
   assert.equal(elements.get("audioState").textContent, "on");
@@ -548,13 +593,14 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
     left: elements.get("seedControl").style.left,
     top: elements.get("seedControl").style.top,
   };
-  elements.get("interval").value = "500";
+  elements.get("interval").value = String(sliderFromTimeFold(500));
   listeners.get("interval:input")();
   assert.equal(elements.get("intervalOut").textContent, "500 ms");
-  assert.equal(elements.get("generationTimingReadout").textContent, "500 ms → 250 ms → 125 ms → 63 ms");
-  assert.equal(elements.get("generationPreset").value, "custom");
+  assert.equal(elements.get("generationTimingReadout").textContent, "500 ms → 250 ms → 125 ms → 63 ms … 0.98 ms at G9");
+  assert.equal(attributes.get("generationPreset-binary:aria-pressed"), "false");
+  assert.equal(elements.get("presetSummary").textContent, "Custom growth · Maximum");
   assert.equal(elements.get("recursionSummary").textContent, "Custom growth · 9 generations");
-  assert.equal(delays[0].delayTime.value, 0.5);
+  assert.ok(Math.abs(delays[0].delayTime.value - 0.5) < 1e-9);
   assert.ok(Math.abs(delays[1].delayTime.value - 0.809) < 1e-9);
   queuedFrame(intervalFrameTime);
   assert.deepEqual(
@@ -573,20 +619,19 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   assert.equal(arcs, 0, "live audio should remain embodied in branches rather than detached dots");
   assert.notEqual(elements.get("inputMeterOut").textContent, "silent");
 
-  listeners.get("recordButton:click")();
-  assert.equal(attributes.get("recordButton:aria-pressed"), "true");
-  assert.equal(elements.get("recordingBadge").hidden, false);
-  assert.equal(elements.get("audioState").textContent, "on", "recording should not stop monitoring");
-  listeners.get("recordButton:click")();
-  assert.equal(elements.get("recordingBadge").hidden, true);
-  listeners.get("recordButton:click")();
-  assert.equal(mediaRecorders.length, 2, "a new take may begin while the previous take finalizes");
-  mediaRecorders[0].finishStop();
-  assert.equal(attributes.get("recordButton:aria-pressed"), "true", "an older stop event must not stop the new take");
-  listeners.get("recordButton:click")();
-  mediaRecorders[1].finishStop();
-  assert.equal(elements.get("lastTake").hidden, false);
-  assert.match(elements.get("downloadTake").download, /^micmic-.+\.webm$/);
+  audioContexts[0].playbackStats = {
+    underrunEvents: 1,
+    underrunDuration: 0.01,
+  };
+  audioContexts[0].currentTime = 2;
+  queuedFrame(performance.now() + 230);
+  const underrunRollback = directNode.port.messages
+    .filter((message) => message.type === "voices")
+    .at(-1);
+  assert.ok(underrunRollback.voiceLimit <= 48);
+  assert.equal(underrunRollback.voices.length, underrunRollback.voiceLimit);
+  assert.match(elements.get("generationCapacityInline").textContent, /\d+ of 510 branches active · breadth first pruning · device-adjusted/);
+  assert.doesNotMatch(elements.get("generationCapacityInline").textContent, /underrun|rollback|rechecking/i);
 
   listeners.get("audioButton:click")();
   assert.equal(elements.get("audioState").textContent, "off");
@@ -611,10 +656,11 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   const firstSignalsmithNodes = workletNodes.filter((node) => (
     node.context === firstAudioContext && node.name === "signalsmith-stretch"
   ));
-  assert.ok(firstSignalsmithNodes.length > 0);
-  assert.ok(firstSignalsmithNodes.every((node) => (
-    node.port.messages.some((message) => Array.isArray(message) && message[1] === "stop")
-  )), "every old Signalsmith lane must be explicitly stopped before context close");
+  assert.equal(
+    firstSignalsmithNodes.length,
+    0,
+    "the retired default Economy context must not contain Signalsmith lanes",
+  );
   assert.equal(audioContexts.length, 1, "Pitch Detail should wait for Start before creating a new graph");
   assert.equal(microphoneRequests, 1, "changing a stopped renderer must not request the microphone");
   assert.equal(stoppedTracks, 1, "changing a stopped renderer must not implicitly stop the microphone again");
@@ -631,4 +677,97 @@ test("mic(mic) renders and drives a recursive microphone graph", async () => {
   listeners.get("audioButton:click")();
   assert.equal(elements.get("audioState").textContent, "off");
   assert.equal(stoppedTracks, 2);
+
+  const secondAudioContext = audioContexts[1];
+  const signalsmithCountBeforeEconomy = workletNodes.filter((node) => (
+    node.name === "signalsmith-stretch"
+  )).length;
+  elements.get("pitchDetail").value = "24";
+  listeners.get("pitchDetail:change")({
+    currentTarget: elements.get("pitchDetail"),
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(secondAudioContext.state, "closed");
+  const retiredSignalsmithNodes = workletNodes.filter((node) => (
+    node.context === secondAudioContext && node.name === "signalsmith-stretch"
+  ));
+  assert.equal(retiredSignalsmithNodes.length, 16);
+  assert.ok(retiredSignalsmithNodes.every((node) => (
+    node.port.messages.some((message) => Array.isArray(message) && message[1] === "stop")
+  )), "every stopped Silky lane must be explicitly released");
+  assert.equal(elements.get("pitchDetail").value, "24");
+  assert.match(elements.get("pitchDetailStatus").textContent, /Maximum economy.*0 active shifted pitches/i);
+  assert.equal(audioContexts.length, 2, "selecting Economy must wait for the next Start");
+  assert.equal(microphoneRequests, 2);
+
+  listeners.get("audioButton:click")();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(audioContexts.length, 3);
+  assert.equal(microphoneRequests, 3);
+  const economyContext = audioContexts[2];
+  const economyNodes = workletNodes.filter((node) => (
+    node.context === economyContext
+    && node.name === "morphazoid-micmic-generations"
+  ));
+  assert.equal(economyNodes.length, 1, "Economy must use one fused granular worklet");
+  assert.equal(economyNodes[0].options.numberOfOutputs, 1);
+  assert.equal(
+    economyNodes[0].options.processorOptions.renderer,
+    "granular-economy",
+  );
+  assert.equal(
+    workletNodes.filter((node) => (
+      node.context === economyContext && node.name === "signalsmith-stretch"
+    )).length,
+    0,
+    "Economy must not allocate any Signalsmith pitch processors",
+  );
+  assert.equal(
+    workletNodes.filter((node) => node.name === "signalsmith-stretch").length,
+    signalsmithCountBeforeEconomy,
+  );
+  assert.equal(
+    workletNodes.filter((node) => (
+      node.context === economyContext
+      && node.name === "morphazoid-signalsmith-generation-mixer"
+    )).length,
+    0,
+    "Economy must not allocate the long per-pitch history mixer",
+  );
+  const economyVoiceMessage = economyNodes[0].port.messages
+    .filter((message) => message.type === "voices" && message.voices.length > 0)
+    .at(-1);
+  assert.ok(economyVoiceMessage);
+  assert.ok(
+    economyVoiceMessage.voices.length > 24,
+    "24 pitch classes must still carry more than 24 audible branches",
+  );
+  assert.ok(
+    new Set(
+      economyVoiceMessage.voices
+        .filter((voice) => Math.abs(voice.rate - 1) > 0.0001)
+        .map((voice) => voice.rate),
+    ).size <= 24,
+  );
+  assert.match(elements.get("pitchDetailStatus").textContent, /Maximum economy.*\d+ active shifted pitches/i);
+  economyNodes[0].port.emit({
+    type: "render-load",
+    supported: true,
+    timing: "high-res",
+    averageLoad: 0.16,
+    peakLoad: 0.28,
+    renderer: "granular-economy",
+    activeVoices: economyVoiceMessage.voices.length,
+    renderedVoices: economyVoiceMessage.voices.length,
+    requestedVoices: economyVoiceMessage.requestedVoiceCount,
+    voiceLimit: economyVoiceMessage.voiceLimit,
+  });
+  assert.match(elements.get("generationCapacityInline").textContent, /\d+ of 510 branches active · breadth first pruning · device-adjusted/);
+
+  economyNodes[0].onprocessorerror();
+  assert.match(elements.get("pitchDetailStatus").textContent, /bounded audio fallback/i);
+
+  listeners.get("audioButton:click")();
+  assert.equal(elements.get("audioState").textContent, "off");
+  assert.equal(stoppedTracks, 3);
 });

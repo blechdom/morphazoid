@@ -130,10 +130,10 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     TOOL_GROUPS.map((group) => group.label),
     [
       "Geometry",
+      "Audio & Mic",
       "Fractals & Recursion",
       "Barber Shop Poles",
       "Chaotic Synths",
-      "Audio & Mic",
       "Analysis",
       "Workbench",
     ],

@@ -5,10 +5,10 @@ function clamp(value, low, high, fallback = low) {
   return Number.isFinite(number) ? Math.min(high, Math.max(low, number)) : fallback;
 }
 
-function sanitizeVoice(voice, index) {
+function sanitizeVoice(voice, index, maximumDelay) {
   return {
     key: typeof voice?.key === "string" ? voice.key : `generation:${index}`,
-    delay: clamp(voice?.delay, 0.000005, 58, 0.2),
+    delay: clamp(voice?.delay, 0.000005, maximumDelay, 0.2),
     rate: clamp(voice?.rate, 0.125, 8, 1),
     gain: clamp(voice?.gain, 0, 1, 0),
     pan: clamp(voice?.pan, -1, 1, 0),
@@ -29,7 +29,8 @@ export class MicmicGenerationDSP {
   constructor({ sampleRate = DEFAULT_SAMPLE_RATE, historySeconds = 60, maxVoices = 64 } = {}) {
     this.sampleRate = clamp(sampleRate, 8_000, 192_000, DEFAULT_SAMPLE_RATE);
     this.history = new Float32Array(Math.ceil(clamp(historySeconds, 4, 64, 60) * this.sampleRate));
-    this.maxVoices = Math.max(1, Math.floor(clamp(maxVoices, 1, 128, 64)));
+    this.maximumDelay = (this.history.length - 3) / this.sampleRate;
+    this.maxVoices = Math.max(1, Math.floor(clamp(maxVoices, 1, 1024, 64)));
     this.minimumGrainSamples = Math.max(64, Math.round(this.sampleRate * 0.008));
     this.maximumGrainSamples = Math.max(this.minimumGrainSamples, Math.round(this.sampleRate * 0.11));
     this.writeIndex = 0;
@@ -47,7 +48,7 @@ export class MicmicGenerationDSP {
     const next = new Map();
     const source = (Array.isArray(specs) ? specs : []).slice(0, this.runtimeLimit);
     source.forEach((candidate, index) => {
-      const target = sanitizeVoice(candidate, index);
+      const target = sanitizeVoice(candidate, index, this.maximumDelay);
       const prior = this.voices.get(target.key);
       if (prior) {
         const currentLane = prior.delayFade >= 0.5 ? prior.delayTo : prior.delayFrom;
@@ -75,11 +76,15 @@ export class MicmicGenerationDSP {
         });
       }
     });
-    const releaseAllowance = Math.min(16, Math.ceil(this.runtimeLimit * 0.125));
+    const nestedShrink = next.size <= this.activeTargetCount
+      && [...next.keys()].every((key) => this.voices.has(key));
+    const releaseAllowance = nestedShrink
+      ? this.voices.size
+      : Math.min(256, this.runtimeLimit);
     for (const [key, prior] of this.voices) {
       if (
         next.has(key)
-        || next.size >= Math.min(this.maxVoices + 16, this.runtimeLimit + releaseAllowance)
+        || next.size >= Math.min(this.maxVoices, this.runtimeLimit + releaseAllowance)
       ) continue;
       next.set(key, { ...prior, target: { ...prior.target, gain: 0 }, releasing: true });
     }

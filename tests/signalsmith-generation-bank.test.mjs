@@ -303,3 +303,27 @@ test("generation bank forwards adaptive demand and render-load telemetry without
   assert.equal(reports.length, 1);
   assert.equal(reports[0].averageLoad, 0.2);
 });
+
+test("generation bank leaves the complete virtual branch range available to calibration", async () => {
+  const fixture = harness();
+  const bank = await initializedBank(fixture, {
+    maxPitchSources: 1,
+    maxVoices: 512,
+  });
+  const voices = Array.from({ length: 512 }, (_, index) => ({
+    key: `branch:${index}`,
+    rate: 1,
+    delay: 0.2 + index / 10_000,
+    gain: 0.001,
+    pan: 0,
+  }));
+  bank.setVoices(voices, { requestedVoiceCount: 894, voiceLimit: 512 });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const mixer = fixture.created.mixers[0];
+  const message = mixer.port.messages.at(-1);
+  assert.equal(bank.maxVoices, 512);
+  assert.equal(mixer.options.maxVoices, 512);
+  assert.equal(message.voices.length, 512);
+  assert.equal(message.voiceLimit, 512);
+});

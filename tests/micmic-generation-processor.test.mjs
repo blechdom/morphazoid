@@ -26,6 +26,10 @@ test("fallback generation processor reports measured load and its adaptive ceili
   const processor = new ProcessorConstructor({
     processorOptions: { maxVoices: 64, historySeconds: 4 },
   });
+  assert.deepEqual(
+    processor.port.messages[0],
+    { type: "renderer-ready", renderer: "granular-fallback" },
+  );
   const voices = Array.from({ length: 64 }, (_, index) => ({
     key: `voice:${index}`,
     delay: 0.02,
@@ -58,4 +62,29 @@ test("fallback generation processor reports measured load and its adaptive ceili
   assert.equal(report.voiceLimit, 32);
   assert.ok(Number.isFinite(report.averageLoad));
   assert.ok(Number.isFinite(report.peakLoad));
+});
+
+test("economy renderer identifies its complete fused-worklet load", () => {
+  const processor = new ProcessorConstructor({
+    processorOptions: {
+      maxVoices: 64,
+      historySeconds: 4,
+      renderer: "granular-economy",
+    },
+  });
+  assert.deepEqual(
+    processor.port.messages[0],
+    { type: "renderer-ready", renderer: "granular-economy" },
+  );
+
+  for (let block = 0; block < 96; block += 1) {
+    const input = new Float32Array(128);
+    processor.process(
+      [[input]],
+      [[new Float32Array(128), new Float32Array(128)]],
+    );
+  }
+  const report = processor.port.messages.find((message) => message.type === "render-load");
+  assert.equal(report.renderer, "granular-economy");
+  assert.equal(report.supported, true);
 });

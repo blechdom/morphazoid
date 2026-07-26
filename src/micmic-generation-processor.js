@@ -1,4 +1,4 @@
-import { MicmicGenerationDSP } from "./micmic-generation-dsp.js";
+import { MicmicGenerationDSP } from "./micmic-generation-dsp.js?v=20260724-adaptive-canopy";
 
 const LOAD_REPORT_BLOCKS = 96;
 const CLOCK_KIND = typeof globalThis.performance?.now === "function"
@@ -17,6 +17,9 @@ function clockMilliseconds() {
 class MicmicGenerationProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
+    this.rendererKind = options.processorOptions?.renderer === "granular-economy"
+      ? "granular-economy"
+      : "granular-fallback";
     this.renderer = new MicmicGenerationDSP({
       sampleRate,
       historySeconds: options.processorOptions?.historySeconds,
@@ -49,6 +52,10 @@ class MicmicGenerationProcessor extends AudioWorkletProcessor {
         this.pendingControlMilliseconds += Math.max(0, endedAt - startedAt);
       }
     };
+    this.port.postMessage?.({
+      type: "renderer-ready",
+      renderer: this.rendererKind,
+    });
   }
 
   recordRenderLoad(startedAt, frameCount) {
@@ -80,7 +87,7 @@ class MicmicGenerationProcessor extends AudioWorkletProcessor {
       requestedVoices: this.requestedVoices,
       voiceLimit: this.renderer.runtimeLimit,
       mode: "sine",
-      renderer: "granular-fallback",
+      renderer: this.rendererKind,
     });
     this.loadBlocks = 0;
     this.loadTotal = 0;
