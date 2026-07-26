@@ -8,7 +8,6 @@ const BARBER_RECORD_CEILING = 64;
 const SANDY_BUFFER_SECONDS = 16;
 const SANDY_STREAM_COUNT = 24;
 const SANDY_READ_GUARD_SAMPLES = 4;
-const SANDY_NORMALIZATION_FLOOR = 0.5;
 
 export const BARBER_DELAY_PROCESSOR_NAME = PROCESSOR_NAME;
 
@@ -348,9 +347,14 @@ export function integrateSandySyrupCursor(
   );
 }
 
-export function sandySyrupWetNormalizationGain(windowWeight) {
-  const weight = Math.max(0, finiteNumber(windowWeight, 0));
-  return 1 / Math.max(SANDY_NORMALIZATION_FLOOR, weight);
+export function sandySyrupVoiceGain(numVoices) {
+  const voices = clamp(
+    numVoices,
+    BARBER_DELAY_LIMITS.minimumVoices,
+    BARBER_DELAY_LIMITS.maximumVoices,
+    SANDY_DEFAULTS.numVoices,
+  );
+  return 2 / voices;
 }
 
 /**
@@ -721,9 +725,7 @@ function createProcessorClass(AudioWorkletBase) {
       this.streamPhases = new Float64Array(SANDY_STREAM_COUNT);
       this.streamHeldRates = new Float64Array(SANDY_STREAM_COUNT);
       this.streamInitialized = new Uint8Array(SANDY_STREAM_COUNT);
-      for (let streamIndex = 1; streamIndex < SANDY_STREAM_COUNT; streamIndex += 2) {
-        this.streamPhases[streamIndex] = 0.5;
-      }
+      this.sandyVoiceCount = Math.max(1, Math.round(initial.numVoices));
       this.globalFeedbackBuffers = [
         new Float32Array(RENDER_QUANTUM),
         new Float32Array(RENDER_QUANTUM),
@@ -755,13 +757,10 @@ function createProcessorClass(AudioWorkletBase) {
           this.streamHeldRates.fill(1);
           this.streamInitialized.fill(0);
           this.streamPhases.fill(0);
-          for (
-            let streamIndex = 1;
-            streamIndex < SANDY_STREAM_COUNT;
-            streamIndex += 2
-          ) {
-            this.streamPhases[streamIndex] = 0.5;
-          }
+          this.sandyVoiceCount = Math.max(
+            1,
+            Math.round(this.current.numVoices),
+          );
           this.globalFeedbackBuffers[0].fill(0);
           this.globalFeedbackBuffers[1].fill(0);
           this.globalFeedbackIndex = 0;
@@ -788,6 +787,16 @@ function createProcessorClass(AudioWorkletBase) {
       const after = before + 1 === this.bufferLength ? 0 : before + 1;
       const fraction = readPosition - before;
       return buffer[before] + ((buffer[after] - buffer[before]) * fraction);
+    }
+
+    initialSandyGrainPhase(voicePhase, streamOffset) {
+      const speed = Math.max(0, this.target.speed);
+      const grainSize = Math.max(0.005, this.target.grainSize);
+      const sweepDuration = speed > 0 ? 1 / speed : 10;
+      const grainsPerSweep = sweepDuration / grainSize;
+      return wrapBarberPhase(
+        (voicePhase * grainsPerSweep) + streamOffset,
+      );
     }
 
     resetSandyStream(
@@ -954,18 +963,27 @@ function createProcessorClass(AudioWorkletBase) {
         this.buffers[1][this.writeIndex] = recordRight;
 
         const voiceCount = Math.max(1, this.current.numVoices);
+        if (isSandy) {
+          const nextSandyVoiceCount = Math.max(1, Math.round(voiceCount));
+          if (nextSandyVoiceCount !== this.sandyVoiceCount) {
+            this.sandyVoiceCount = nextSandyVoiceCount;
+            this.streamInitialized.fill(0);
+          }
+        }
         const skew = 2 ** (this.current.tilt * 2);
         let wetLeft = 0;
         let wetRight = 0;
         if (isSandy) {
           const octaves = this.current.pitchOctaves;
           const directionSign = (this.current.directionMix * 2) - 1;
-          const grainStep = 1 / Math.max(
-            1,
-            this.current.grainSize * this.sampleRate,
-          );
+          const grainStep = this.target.speed > 0
+            ? 1 / Math.max(
+              1,
+              this.current.grainSize * this.sampleRate,
+            )
+            : 0;
           const blend = this.current.blend;
-          let wetWeight = 0;
+          const voiceGain = sandySyrupVoiceGain(voiceCount);
 
           for (
             let voiceIndex = 0;
@@ -993,6 +1011,11 @@ function createProcessorClass(AudioWorkletBase) {
               const streamIndex = voiceIndex * 2 + stream;
               let grainPhase = this.streamPhases[streamIndex];
               if (!this.streamInitialized[streamIndex]) {
+                grainPhase = this.initialSandyGrainPhase(
+                  voicePhase,
+                  stream * 0.5,
+                );
+                this.streamPhases[streamIndex] = grainPhase;
                 this.resetSandyStream(
                   streamIndex,
                   voicePhase,
@@ -1040,15 +1063,10 @@ function createProcessorClass(AudioWorkletBase) {
               this.streamPhases[streamIndex] = grainPhase;
             }
 
-            const gain = sweepWindow * voiceActivation;
+            const gain = sweepWindow * voiceActivation * voiceGain;
             wetLeft += voiceLeft * gain;
             wetRight += voiceRight * gain;
-            wetWeight += gain;
           }
-
-          const wetNormalization = sandySyrupWetNormalizationGain(wetWeight);
-          wetLeft *= wetNormalization;
-          wetRight *= wetNormalization;
         } else {
           const voiceGain = 2 / voiceCount;
           const rangeSamples = this.current.range * this.sampleRate;

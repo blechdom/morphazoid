@@ -14,7 +14,7 @@ import {
   sandySyrupEffectiveRate,
   sandySyrupHann,
   sandySyrupTargetRate,
-  sandySyrupWetNormalizationGain,
+  sandySyrupVoiceGain,
   sanitizeBarberDelayMode,
   sanitizeBarberDelayParams,
 } from "../src/barber-delay.js";
@@ -47,11 +47,11 @@ test("paired grain Hann windows are complementary across their full turn", () =>
   }
 });
 
-test("wet normalization preserves a one-voice Hann fade at the sweep seam", () => {
-  assert.equal(0 * sandySyrupWetNormalizationGain(0), 0);
-  assert.equal(0.25 * sandySyrupWetNormalizationGain(0.25), 0.5);
-  assert.equal(0.5 * sandySyrupWetNormalizationGain(0.5), 1);
-  assert.equal(1 * sandySyrupWetNormalizationGain(1), 1);
+test("Sandy retains Morphisma's fixed 2/N wet gain", () => {
+  assert.equal(sandySyrupVoiceGain(1), 2);
+  assert.equal(sandySyrupVoiceGain(2), 1);
+  assert.equal(sandySyrupVoiceGain(8), 0.25);
+  assert.equal(sandySyrupVoiceGain(12), 1 / 6);
 });
 
 test("Sand holds grain rate, Syrup follows it, and cursor integration is absolute", () => {
@@ -220,11 +220,110 @@ test("Sandy worklet preallocates 24 streams, reserves traversal, and renders fin
     }
     const elapsed = performance.now() - startedAt;
     assert.ok(elapsed < 2_500, `extreme Sandy render took ${elapsed.toFixed(1)} ms`);
-    assert.ok(peak <= 0.981);
+    assert.ok(Number.isFinite(peak));
+    assert.ok(peak < 128, `unexpected unprotected worklet peak ${peak}`);
 
     assert.ok(
       initialMaximumLag > 15.4 * 48_000,
       `high-rate grain did not reserve traversal history: ${initialMaximumLag}`,
+    );
+
+    const feedbackLatency = new Processor({
+      processorOptions: {
+        mode: "sandy",
+        parameters: {
+          numVoices: 1,
+          speed: 0,
+          pitchOctaves: 4,
+          feedback: 0.5,
+          fbDelay: 0.1,
+          globalFeedback: 0,
+          dryWet: 1,
+          inputGain: 1,
+          outputLevel: 0.5,
+          grainSize: 0.05,
+          blend: 0.5,
+        },
+      },
+    });
+    const feedbackInput = new Float32Array(4_929);
+    feedbackInput[0] = 1;
+    feedbackLatency.process(
+      [[feedbackInput]],
+      [[new Float32Array(4_929), new Float32Array(4_929)]],
+    );
+    assert.equal(feedbackLatency.buffers[0][4_800], 0);
+    assert.ok(
+      Math.abs(feedbackLatency.buffers[0][4_928] - 0.5) < 1e-6,
+      "Sandy feedback must include Morphisma's 128-sample tap block",
+    );
+
+    const staggeredGrains = new Processor({
+      processorOptions: {
+        mode: "sandy",
+        parameters: {
+          numVoices: 8,
+          speed: 0.1,
+          pitchOctaves: 3,
+          feedback: 0,
+          fbDelay: 4,
+          grainSize: 0.08,
+          blend: 0,
+        },
+      },
+    });
+    staggeredGrains.process(
+      [[new Float32Array(1)]],
+      [[new Float32Array(1), new Float32Array(1)]],
+    );
+    const streamAPhases = [];
+    for (let voiceIndex = 0; voiceIndex < 8; voiceIndex += 1) {
+      const streamA = staggeredGrains.streamPhases[voiceIndex * 2];
+      const streamB = staggeredGrains.streamPhases[(voiceIndex * 2) + 1];
+      streamAPhases.push(streamA);
+      assert.ok(
+        Math.abs((((streamB - streamA) + 1) % 1) - 0.5) < 1e-9,
+        `voice ${voiceIndex} grain streams lost their half-turn spacing`,
+      );
+    }
+    assert.ok(
+      new Set(streamAPhases.map((phase) => phase.toFixed(6))).size > 1,
+      "Sandy voices must not force every grain renewal onto one clock",
+    );
+
+    const fixedGain = new Processor({
+      processorOptions: {
+        mode: "sandy",
+        parameters: {
+          numVoices: 1,
+          speed: 0,
+          pitchOctaves: 4,
+          directionUp: true,
+          tilt: 0,
+          feedback: 0,
+          globalFeedback: 0,
+          fbDelay: 4,
+          dryWet: 1,
+          inputGain: 1,
+          outputLevel: 1,
+          grainSize: 0.05,
+          blend: 0.5,
+        },
+      },
+    });
+    fixedGain.buffers[0].fill(0.75);
+    fixedGain.buffers[1].fill(0.75);
+    fixedGain.phase = 0.5;
+    fixedGain.activeGain = 1;
+    fixedGain.activeTarget = 1;
+    const fixedGainOutput = new Float32Array(1);
+    fixedGain.process(
+      [[new Float32Array(1)]],
+      [[fixedGainOutput, new Float32Array(1)]],
+    );
+    assert.ok(
+      fixedGainOutput[0] > 1.49 && fixedGainOutput[0] < 1.51,
+      `Sandy's 2/N gain or unclipped worklet path changed: ${fixedGainOutput[0]}`,
     );
 
     const frozenSweep = new Processor({
@@ -239,13 +338,17 @@ test("Sandy worklet preallocates 24 streams, reserves traversal, and renders fin
         },
       },
     });
-    const initialGrainPhase = frozenSweep.streamPhases[0];
+    frozenSweep.process(
+      [[new Float32Array(128)]],
+      [[new Float32Array(128), new Float32Array(128)]],
+    );
+    const frozenGrainPhase = frozenSweep.streamPhases[0];
     frozenSweep.process(
       [[new Float32Array(128)]],
       [[new Float32Array(128), new Float32Array(128)]],
     );
     assert.equal(frozenSweep.phase, 0);
-    assert.ok(frozenSweep.streamPhases[0] > initialGrainPhase);
+    assert.equal(frozenSweep.streamPhases[0], frozenGrainPhase);
   } finally {
     if (previousProcessor === undefined) delete globalThis.AudioWorkletProcessor;
     else globalThis.AudioWorkletProcessor = previousProcessor;
