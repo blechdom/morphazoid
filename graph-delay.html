@@ -9,7 +9,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="micmic.css" />
-    <link rel="stylesheet" href="graph-delay.css?v=20260726-node-flow" />
+    <link rel="stylesheet" href="graph-delay.css?v=20260726-switch-shapes" />
   </head>
   <body class="micmic-page graph-delay-page">
     <header class="masthead">
@@ -56,8 +56,8 @@
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
         <label class="header-level" for="level">
-          <span><b>Output</b><output id="levelOut" for="level">52%</output></span>
-          <input id="level" aria-label="graph delay output level" type="range" min="0" max="0.9" step="0.01" value="0.52" />
+          <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
+          <input id="level" aria-label="graph delay output level" type="range" min="0" max="0.9" step="0.01" value="0.58" />
         </label>
       </div>
     </header>
@@ -65,7 +65,7 @@
     <main class="shell" id="graphDelay">
       <section class="stage fracta-stage" aria-label="Generated directed delay graph">
         <div class="stage-wrap" id="stageWrap">
-          <canvas id="stage" tabindex="0" role="img" aria-label="Layered directed acyclic delay graph. Microphone off." aria-describedby="graphDescription canvasInstructions liveStatus">
+          <canvas id="stage" tabindex="0" role="application" aria-roledescription="interactive audio graph" aria-label="Layered directed acyclic delay graph. Microphone off." aria-describedby="graphDescription canvasInstructions liveStatus">
             A generated directed graph whose nodes and edges form a live microphone delay network.
           </canvas>
           <div class="fracta-seed-control graph-seed-control" id="seedControl">
@@ -78,13 +78,68 @@
           <div class="graph-key" aria-hidden="true">
             <span><i class="feed-forward"></i> feed-forward</span>
             <span><i class="feedback"></i> cycle feedback</span>
-            <span><i class="output-guide"></i> output tap</span>
+            <span><i class="route-switch"></i> click switch</span>
+            <span><i class="output-guide"></i> speaker tap route</span>
           </div>
-          <div class="stage-meta" aria-hidden="true"><span id="stageReadout">LAYERED DAG · 10 NODES · 12 EDGES · ACYCLIC</span></div>
+          <div class="stage-meta" aria-hidden="true"><span id="stageReadout">MIC IN → LAYERED DAG → SPEAKERS OUT · 12/12 ROUTES OPEN · 1 SINK TAP</span></div>
         </div>
       </section>
 
       <aside class="panel" aria-label="graph delay controls">
+        <details class="group control-section" id="topologySection" data-section="topology">
+          <summary class="group-summary"><h2 class="group-title">Topology</h2><span class="section-state" id="topologySummary">Layered Glass · Layered DAG</span></summary>
+          <div class="group-body">
+            <input id="graphPatch" type="hidden" value="layeredGlass" />
+            <div class="micmic-preset-grid graph-preset-grid" id="graphPatchGrid" role="group" aria-label="Graph delay presets">
+              <button id="graphPatch-clearSteps" type="button" data-graph-patch="clearSteps" data-preset-band="clean" aria-pressed="false"><b>Clear Steps</b><small>CHAIN · 75–225 MS · UNISON</small></button>
+              <button id="graphPatch-lowLadder" type="button" data-graph-patch="lowLadder" data-preset-band="rhythmic" aria-pressed="false"><b>Low Ladder</b><small>LOW DAG · 125–770 MS · ±2 ST</small></button>
+              <button id="graphPatch-branchChoir" type="button" data-graph-patch="branchChoir" data-preset-band="spacious" aria-pressed="false"><b>Branch Choir</b><small>TREE · 175–525 MS · ±2 ST</small></button>
+              <button id="graphPatch-glassCanopy" type="button" data-graph-patch="glassCanopy" data-preset-band="wild" aria-pressed="false"><b>Glass Canopy</b><small>TREE · 55–175 MS · ±2.5 ST</small></button>
+              <button id="graphPatch-layeredGlass" type="button" data-graph-patch="layeredGlass" data-preset-band="rhythmic" aria-pressed="true"><b>Layered Glass</b><small>DAG · 70–440 MS · ±2 ST</small></button>
+              <button id="graphPatch-rainLattice" type="button" data-graph-patch="rainLattice" data-preset-band="wild" aria-pressed="false"><b>Rain Lattice</b><small>DENSE DAG · 55–190 MS · ±3 ST</small></button>
+              <button id="graphPatch-twinBanks" type="button" data-graph-patch="twinBanks" data-preset-band="spacious" aria-pressed="false"><b>Twin Banks</b><small>WIDE · 335 MS · ±3 ST</small></button>
+              <button id="graphPatch-haloRing" type="button" data-graph-patch="haloRing" data-preset-band="feedback" aria-pressed="false"><b>Halo Ring</b><small>RING · 50 MS TAPS · FALLING</small></button>
+              <button id="graphPatch-slowOrbit" type="button" data-graph-patch="slowOrbit" data-preset-band="feedback" aria-pressed="false"><b>Slow Orbit</b><small>RING · 130 MS TAPS · DARK</small></button>
+              <button id="graphPatch-shortcutChorus" type="button" data-graph-patch="shortcutChorus" data-preset-band="feedback" aria-pressed="false"><b>Shortcut Chorus</b><small>SHORTCUTS · 85–615 MS · ±4 ST</small></button>
+              <button id="graphPatch-hubScatter" type="button" data-graph-patch="hubScatter" data-preset-band="wild" aria-pressed="false"><b>Hub Scatter</b><small>HUB · 105 MS · ±4.5 ST</small></button>
+              <button id="graphPatch-softMesh" type="button" data-graph-patch="softMesh" data-preset-band="feedback" aria-pressed="false"><b>Soft Mesh</b><small>MESH · 70–370 MS · ±2.5 ST</small></button>
+              <button id="graphPatch-islandSignals" type="button" data-graph-patch="islandSignals" data-preset-band="spacious" aria-pressed="false"><b>Island Signals</b><small>3 LOOPS · 60–840 MS · FALLING</small></button>
+              <button id="graphPatch-dustPaths" type="button" data-graph-patch="dustPaths" data-preset-band="wild" aria-pressed="false"><b>Dust Paths</b><small>RANDOM · 100–670 MS · FALLING</small></button>
+            </div>
+            <p class="growth-preset-description" id="graphPatchDescription">The punchy default: crossing DAG taps with close times and restrained pitch.</p>
+            <section class="recursion-parameter-cluster graph-generator-cluster">
+              <h3 class="parameter-cluster-title">Graph generator</h3>
+              <label class="select-control" for="topology">
+                <span class="field-label">Graph shape</span>
+                <span class="select-shell">
+                  <select id="topology" aria-describedby="topologyDescription">
+                    <optgroup label="Directed acyclic graphs">
+                      <option value="chain">Delay Chain</option>
+                      <option value="tree">Branching Tree</option>
+                      <option value="dag" selected>Layered DAG</option>
+                      <option value="bipartite">Bipartite Field</option>
+                    </optgroup>
+                    <optgroup label="Cyclic and network graphs">
+                      <option value="ring">Directed Ring</option>
+                      <option value="smallworld">Small World</option>
+                      <option value="hub">Hub + Spokes</option>
+                      <option value="mesh">Feedback Mesh</option>
+                      <option value="modular">Modular Islands</option>
+                      <option value="random">Seeded Random</option>
+                    </optgroup>
+                  </select>
+                </span>
+              </label>
+              <p class="sr-only" id="topologyDescription">Several forward-only paths cross between ordered layers.</p>
+              <label class="control" for="nodeCount"><span><b>Nodes</b><output id="nodeCountOut" for="nodeCount">10</output></span><input id="nodeCount" type="range" min="3" max="24" step="1" value="10" /></label>
+              <label class="control" for="density"><span><b>Connection density</b><output id="densityOut" for="density">34%</output></span><input id="density" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
+              <label class="control" for="seed"><span><b>Graph seed</b><output id="seedOut" for="seed">17</output></span><input id="seed" type="range" min="1" max="99" step="1" value="17" /></label>
+              <button class="mini-action" id="newGraphButton" type="button">New seeded graph</button>
+              <button class="mini-action" id="openAllSwitchesButton" type="button" disabled>Open all graph switches</button>
+            </section>
+          </div>
+        </details>
+
         <details class="group control-section performance-group" id="listenSection" data-section="listen">
           <summary class="group-summary"><h2 class="group-title">Listen</h2><span class="section-state" id="listenSummary">microphone off</span></summary>
           <div class="group-body">
@@ -108,109 +163,39 @@
         </details>
 
         <details class="group control-section" id="delaySection" data-section="delay">
-          <summary class="group-summary"><h2 class="group-title">Time + pitch</h2><span class="section-state" id="delaySummary">220–280 ms · angle → 50% octave</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Time + pitch</h2><span class="section-state" id="delaySummary">62–120 ms · angle → 26% octave</span></summary>
           <div class="group-body">
             <section class="recursion-parameter-cluster">
               <h3 class="parameter-cluster-title">Signal flow</h3>
-              <label class="control" for="nodePass"><span><b>Node pass-through</b><output id="nodePassOut" for="nodePass">96% per node</output></span><input id="nodePass" type="range" min="0" max="1" step="0.01" value="0.96" /></label>
+              <label class="control" for="nodePass"><span><b>Node pass-through</b><output id="nodePassOut" for="nodePass">100% per node</output></span><input id="nodePass" type="range" min="0" max="1" step="0.01" value="1" /></label>
             </section>
             <section class="recursion-parameter-cluster">
               <h3 class="parameter-cluster-title">Timing</h3>
-              <label class="control" for="baseDelay"><span><b>Shared edge delay</b><output id="baseDelayOut" for="baseDelay">220 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="220" /></label>
-              <label class="control" for="timeScale"><span><b>Edge-length variation</b><output id="timeScaleOut" for="timeScale">+60 ms longest edge</output></span><input id="timeScale" type="range" min="0" max="800" step="5" value="60" /></label>
-              <label class="control" for="timeCurve"><span><b>Length response</b><output id="timeCurveOut" for="timeCurve">linear</output></span><input id="timeCurve" type="range" min="0.25" max="3" step="0.05" value="1" /></label>
+              <label class="control" for="baseDelay"><span><b>Shared edge delay</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" /></label>
+              <label class="control" for="timeScale"><span><b>Edge-length variation</b><output id="timeScaleOut" for="timeScale">+58 ms longest edge</output></span><input id="timeScale" type="range" min="0" max="800" step="1" value="58" /></label>
+              <label class="control" for="timeCurve"><span><b>Length response</b><output id="timeCurveOut" for="timeCurve">0.90 · broad</output></span><input id="timeCurve" type="range" min="0.25" max="3" step="0.05" value="0.9" /></label>
             </section>
             <section class="recursion-parameter-cluster">
               <h3 class="parameter-cluster-title">Pitch</h3>
-              <label class="control" for="pitchScale"><span><b>Angle → octave span</b><output id="pitchScaleOut" for="pitchScale">50% octave / 180°</output></span><input id="pitchScale" type="range" min="0" max="2" step="0.01" value="0.5" /></label>
+              <label class="control" for="pitchScale"><span><b>Angle → octave span</b><output id="pitchScaleOut" for="pitchScale">26% octave / 180°</output></span><input id="pitchScale" type="range" min="0" max="2" step="0.01" value="0.26" /></label>
               <label class="control signed-form-range" for="pitchAsymmetry"><span><b>Turn asymmetry</b><output id="pitchAsymmetryOut" for="pitchAsymmetry">even</output></span><input id="pitchAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
-              <label class="control" for="pitchCurve"><span><b>Angle response</b><output id="pitchCurveOut" for="pitchCurve">linear</output></span><input id="pitchCurve" type="range" min="0.5" max="2" step="0.05" value="1" /></label>
-              <label class="control" for="pitchSlew"><span><b>Pitch glide</b><output id="pitchSlewOut" for="pitchSlew">80 ms</output></span><input id="pitchSlew" type="range" min="10" max="500" step="5" value="80" /></label>
+              <label class="control" for="pitchCurve"><span><b>Angle response</b><output id="pitchCurveOut" for="pitchCurve">1.35 · gentler small turns</output></span><input id="pitchCurve" type="range" min="0.5" max="2" step="0.05" value="1.35" /></label>
+              <label class="control" for="pitchSlew"><span><b>Pitch glide</b><output id="pitchSlewOut" for="pitchSlew">165 ms</output></span><input id="pitchSlew" type="range" min="10" max="500" step="5" value="165" /></label>
             </section>
             <section class="recursion-parameter-cluster">
               <h3 class="parameter-cluster-title">Feedback</h3>
               <label class="control" for="feedback"><span><b>Feedback decay</b><output id="feedbackOut" for="feedback">72%</output></span><input id="feedback" type="range" min="0" max="0.92" step="0.01" value="0.72" /></label>
               <label class="control" for="damping"><span><b>Feedback damping</b><output id="dampingOut" for="damping">4.8 kHz</output></span><input id="damping" type="range" min="500" max="12000" step="50" value="4800" /></label>
             </section>
-            <div class="grammar-card graph-metrics selected-node-card" aria-live="polite">
-              <span><b>Selected node</b><code id="selectedNodeOut">node 1 · relative turn routes</code></span>
-              <span><b>Connected time</b><code id="selectedTimeOut">drag a node</code></span>
-              <span><b>Feedback</b><code id="feedbackSafetyNote">acyclic · feedback dormant</code></span>
-            </div>
           </div>
         </details>
 
         <details class="group control-section" id="mixSection" data-section="mix">
-          <summary class="group-summary"><h2 class="group-title">Mix</h2><span class="section-state" id="mixSummary">82% graph · 6% direct</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Mix</h2><span class="section-state" id="mixSummary">116% graph · 20% direct</span></summary>
           <div class="group-body">
-            <label class="control" for="wet"><span><b>Graph signal</b><output id="wetOut" for="wet">82%</output></span><input id="wet" type="range" min="0" max="1" step="0.01" value="0.82" /></label>
-            <label class="control" for="dry"><span><b>Direct microphone</b><output id="dryOut" for="dry">6%</output></span><input id="dry" type="range" min="0" max="0.5" step="0.01" value="0.06" /></label>
-            <label class="control" for="spread"><span><b>Stereo spread</b><output id="spreadOut" for="spread">80%</output></span><input id="spread" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
-          </div>
-        </details>
-
-        <details class="group control-section" id="topologySection" data-section="topology">
-          <summary class="group-summary"><h2 class="group-title">Topology</h2><span class="section-state" id="topologySummary">Layered DAG · acyclic</span></summary>
-          <div class="group-body">
-            <label class="select-control" for="graphPatch">
-              <span class="field-label">Instrument preset</span>
-              <span class="select-shell">
-                <select id="graphPatch" aria-describedby="graphPatchDescription">
-                  <option value="custom">Custom</option>
-                  <optgroup label="Acyclic">
-                    <option value="clearSteps">Clear Steps</option>
-                    <option value="lowLadder">Low Ladder</option>
-                    <option value="branchChoir">Branch Choir</option>
-                    <option value="glassCanopy">Glass Canopy</option>
-                    <option value="layeredGlass" selected>Layered Glass</option>
-                    <option value="rainLattice">Rain Lattice</option>
-                    <option value="twinBanks">Twin Banks</option>
-                  </optgroup>
-                  <optgroup label="Cyclic">
-                    <option value="haloRing">Halo Ring</option>
-                    <option value="slowOrbit">Slow Orbit</option>
-                    <option value="shortcutChorus">Shortcut Chorus</option>
-                    <option value="hubScatter">Hub Scatter</option>
-                    <option value="softMesh">Soft Mesh</option>
-                    <option value="islandSignals">Island Signals</option>
-                  </optgroup>
-                  <optgroup label="Generative">
-                    <option value="dustPaths">Dust Paths</option>
-                  </optgroup>
-                </select>
-              </span>
-            </label>
-            <p class="growth-preset-description" id="graphPatchDescription">The balanced default: crossing DAG paths with closely related delays.</p>
-            <label class="select-control" for="topology">
-              <span class="field-label">Graph shape</span>
-              <span class="select-shell">
-                <select id="topology" aria-describedby="topologyDescription">
-                  <optgroup label="Directed acyclic graphs">
-                    <option value="chain">Delay Chain</option>
-                    <option value="tree">Branching Tree</option>
-                    <option value="dag" selected>Layered DAG</option>
-                    <option value="bipartite">Bipartite Field</option>
-                  </optgroup>
-                  <optgroup label="Cyclic and network graphs">
-                    <option value="ring">Directed Ring</option>
-                    <option value="smallworld">Small World</option>
-                    <option value="hub">Hub + Spokes</option>
-                    <option value="mesh">Feedback Mesh</option>
-                    <option value="modular">Modular Islands</option>
-                    <option value="random">Seeded Random</option>
-                  </optgroup>
-                </select>
-              </span>
-            </label>
-            <p class="sr-only" id="topologyDescription">Several forward-only paths cross between ordered layers.</p>
-            <label class="control" for="nodeCount"><span><b>Nodes</b><output id="nodeCountOut" for="nodeCount">10</output></span><input id="nodeCount" type="range" min="3" max="24" step="1" value="10" /></label>
-            <label class="control" for="density"><span><b>Connection density</b><output id="densityOut" for="density">34%</output></span><input id="density" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
-            <label class="control" for="seed"><span><b>Graph seed</b><output id="seedOut" for="seed">17</output></span><input id="seed" type="range" min="1" max="99" step="1" value="17" /></label>
-            <button class="mini-action" id="newGraphButton" type="button">New seeded graph</button>
-            <div class="grammar-card graph-metrics" aria-label="Graph metrics">
-              <span><b>Structure</b><code id="structureReadout">10 nodes · 12 edges · 1 output</code></span>
-              <span><b>Cycles</b><code id="cycleReadout">none</code></span>
-            </div>
+            <label class="control" for="wet"><span><b>Graph presence</b><output id="wetOut" for="wet">116%</output></span><input id="wet" type="range" min="0" max="1.5" step="0.01" value="1.16" /></label>
+            <label class="control" for="dry"><span><b>Direct microphone</b><output id="dryOut" for="dry">20%</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
+            <label class="control" for="spread"><span><b>Stereo spread</b><output id="spreadOut" for="spread">82%</output></span><input id="spread" type="range" min="0" max="1" step="0.01" value="0.82" /></label>
           </div>
         </details>
 
@@ -260,14 +245,29 @@
             <button class="mini-action" id="resetViewButton" type="button">Stop motion + reset mic</button>
           </div>
         </details>
-        <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button></div>
+
+        <div class="reset-all-row"><button class="reset-all-button" id="graphResetButton" type="button" data-reset-in-place data-reset-all>Reset all parameters</button></div>
+
+        <details class="group control-section" id="graphInfoSection" data-section="info">
+          <summary class="group-summary"><h2 class="group-title">Current graph</h2><span class="section-state" id="graphInfoSummary">10 nodes · 12/12 routes open · 1 tap</span></summary>
+          <div class="group-body">
+            <dl class="current-settings-readout graph-info-readout" aria-live="polite">
+              <div><dt>Structure</dt><dd><output id="structureReadout">10 nodes · 12 edges · 12/12 routes open · 1 sink tap · 1 speaker route</output></dd></div>
+              <div><dt>Tap arrival</dt><dd><output id="pathReadout">380 ms first-pass</output></dd></div>
+              <div><dt>Cycles</dt><dd><output id="cycleReadout">none · finite tail</output></dd></div>
+              <div><dt>Selected node</dt><dd><output id="selectedNodeOut">node 1 · relative turn routes</output></dd></div>
+              <div><dt>Connected time</dt><dd><output id="selectedTimeOut">drag a node</output></dd></div>
+              <div><dt>Feedback</dt><dd><output id="feedbackSafetyNote">acyclic · feedback dormant</output></dd></div>
+            </dl>
+          </div>
+        </details>
       </aside>
 
-      <p class="sr-only" id="graphDescription">A draggable directed delay network with independently moving nodes. A cyan microphone terminal enters the network. Every true end node connects to the fixed gold speaker terminal with a dotted visual-only output tap; cyclic graphs expose one monitor tap. Rainbow vibrating edges move audio forward. Coral dashed edges carry normalized feedback below unity. Edge length controls time and each signed relative turn adds a proportional pitch interval.</p>
-      <p class="sr-only" id="canvasInstructions">Drag graph nodes or MIC IN. Use Motion to move nodes automatically. SPEAKERS OUT stays fixed. Start microphone input while wearing headphones. Press Escape for panic.</p>
+      <p class="sr-only" id="graphDescription">A draggable directed delay network with independently moving circular nodes. A cyan microphone terminal enters the network. Only forward sink and leaf nodes are audible and connect to the fixed gold speaker terminal by dotted visual-only routes. Rainbow vibrating edges move audio forward. Coral dashed edges carry normalized feedback below unity. Small rectangular knife switches control individual routes without rebuilding the graph. Edge length controls time and each signed relative turn adds a proportional pitch interval.</p>
+      <p class="sr-only" id="canvasInstructions">Click a rectangular connection switch to open or close that route. At a branch, independently switching its outgoing routes selects the left branch, right branch, both, or neither. With keyboard focus on the graph, use left and right bracket to select a switch, then Enter or Space to toggle it. Drag graph nodes or MIC IN. SPEAKERS OUT stays fixed. Start microphone input while wearing headphones. Press Escape for panic.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="graph-delay-app.js?v=20260726-node-flow"></script>
+    <script type="module" src="graph-delay-app.js?v=20260726-switch-shapes"></script>
   </body>
 </html>

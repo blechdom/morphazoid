@@ -19,12 +19,25 @@ const freezeGroup = (id, label, tools) => Object.freeze({
  * associated with the same top-level tool.
  */
 export const TOOL_GROUPS = Object.freeze([
-  freezeGroup("geometry", "Geometry", [
+  freezeGroup("geometry", "Geometry Synths", [
     { id: "shape", label: "Shape", href: "./" },
     { id: "lattice", label: "Lattice", href: "lattice.html" },
     { id: "spiral", label: "Spiral", href: "spiral.html" },
     { id: "solid", label: "Solid", href: "solid.html" },
     { id: "hyper", label: "Hyper", href: "hyper.html" },
+  ]),
+  freezeGroup("geometry-drums", "Geometry Drum Machines", [
+    { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
+    {
+      id: "lattice-drums",
+      label: "Lattice Drum Machine",
+      href: "lattice-drums.html",
+    },
+    {
+      id: "spiral-drums",
+      label: "Spiral Drum Machine",
+      href: "spiral-drums.html",
+    },
   ]),
   freezeGroup("audio-mic", "Audio & Mic", [
     { id: "lumber", label: "Lumber", href: "lumber.html" },
@@ -54,7 +67,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
   ]),
   freezeGroup("workbench", "Workbench", [
-    { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
     {
       id: "morphazoidical",
       label: "Morphazoidical",
@@ -276,6 +288,7 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
   }
 
   for (const button of doc?.querySelectorAll?.("[data-reset-all]") ?? []) {
+    if (button.hasAttribute?.("data-reset-in-place")) continue;
     button.addEventListener("click", () => {
       preserveShapeSides(doc, runtimeStorage(runtime, "sessionStorage"));
       clearLegacySettings(runtimeStorage(runtime, "localStorage"));

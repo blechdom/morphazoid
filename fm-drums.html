@@ -20,6 +20,7 @@
       <nav class="tabs" aria-label="Instrument">
         <a class="tab" href="./">shape</a>
         <a class="tab active" href="fm-drums.html" aria-current="page">fm drums</a>
+        <a class="tab" href="spiral-drums.html">spiral drums</a>
         <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
       </nav>
       <label class="mobile-instrument-nav">
@@ -27,6 +28,7 @@
         <select class="mobile-instrument-select" aria-label="Instrument">
           <option value="./">shape</option>
           <option value="fm-drums.html" selected>fm drums</option>
+          <option value="spiral-drums.html">spiral drums</option>
           <option value="morphazoidical/">morphazoidical</option>
         </select>
       </label>
@@ -49,15 +51,17 @@
           <p class="fm-drums-kicker">WORKBENCH · 02 / PERCUSSION LAB</p>
           <h1 id="fmDrumsTitle">FM Drums</h1>
           <p class="fm-drums-lede">
-            Sixteen live-synthesized voices. Play the pads or use QWER · ASDF · ZXCV · 1234.
+            Sixteen live-synthesized voices. Play the pads or use 1234 · QWER · ASDF · ZXCV.
             Tune a bank here, then reuse the same preset data in another instrument.
           </p>
         </div>
         <div class="fm-bank-actions" aria-label="Preset bank actions">
           <button type="button" id="randomizeVoice">Randomize voice</button>
-          <button type="button" id="resetBank">Reset bank</button>
+          <button type="button" id="randomizeSet">Randomize set</button>
+          <button type="button" id="resetSet">Reset set</button>
           <button type="button" id="copyBank">Copy JSON</button>
-          <button type="button" id="saveBank" class="is-primary">Save bank</button>
+          <button type="button" id="downloadBank">Download JSON</button>
+          <button type="button" id="saveBank" class="is-primary">Save set</button>
         </div>
       </section>
 

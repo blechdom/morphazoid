@@ -1,22 +1,22 @@
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
 const VOICES = [
-  ["sub-kick", "Sub Kick", "q", "kick", "#ff8a61", 48, .002, .62, 1, 4.8, 2.6, .02, .34, .92],
-  ["fm-kick", "FM Kick", "w", "kick", "#ffad69", 63, .001, .34, 1.5, 7.2, 3.8, .03, .55, .86],
-  ["snap-snare", "Snap Snare", "e", "snare", "#ff7aa6", 176, .002, .28, 1.82, 6.4, 1.1, .68, .62, .74],
-  ["wide-clap", "Wide Clap", "r", "snare", "#de75b8", 238, .006, .19, 2.7, 3.1, .35, .92, .76, .68],
-  ["low-tom", "Low Tom", "a", "tom", "#e8c46b", 82, .003, .52, 1.37, 4.4, 1.6, .04, .43, .82],
-  ["mid-tom", "Mid Tom", "s", "tom", "#dbd86b", 124, .003, .42, 1.41, 5.1, 1.35, .035, .51, .78],
-  ["high-tom", "High Tom", "d", "tom", "#b8df77", 191, .002, .31, 1.58, 5.8, 1.1, .025, .61, .74],
-  ["closed-hat", "Closed Hat", "f", "hat", "#5fe8c4", 4820, .001, .075, 1.414, 9.2, 0, .74, .88, .42],
-  ["open-hat", "Open Hat", "z", "hat", "#55d6d0", 4210, .002, .44, 1.618, 8.1, 0, .66, .8, .4],
-  ["rim-shot", "Rim Shot", "x", "metal", "#70d8e7", 510, .001, .105, 2.91, 5.7, .15, .12, .72, .62],
-  ["cowbell", "Cowbell", "c", "metal", "#7db4ff", 563, .002, .29, 1.48, 3.4, 0, .03, .67, .56],
-  ["glass-bell", "Glass Bell", "v", "bell", "#91a6ff", 784, .004, 1.25, 2.76, 6.8, 0, .01, .82, .5],
-  ["soft-chime", "Soft Chime", "1", "bell", "#b299ff", 1047, .018, 1.8, 3.03, 4.6, -.08, 0, .72, .44],
-  ["bronze-gong", "Bronze Gong", "2", "bell", "#c79bff", 147, .012, 2.35, 1.71, 12.8, -.12, .035, .46, .62],
-  ["laser-zap", "Laser Zap", "3", "effect", "#e883ee", 329, .001, .38, 4.2, 10.6, 5.2, .02, .74, .56],
-  ["scrap-metal", "Scrap Metal", "4", "metal", "#ff82c8", 927, .001, .64, 2.23, 14.2, -.35, .28, .84, .46],
+  ["sub-kick", "Sub Kick", "1", "kick", "#ff8a61", 48, .002, .62, 1, 4.8, 2.6, .02, .34, .92],
+  ["fm-kick", "FM Kick", "2", "kick", "#ffad69", 63, .001, .34, 1.5, 7.2, 3.8, .03, .55, .86],
+  ["snap-snare", "Snap Snare", "3", "snare", "#ff7aa6", 176, .002, .28, 1.82, 6.4, 1.1, .68, .62, .74],
+  ["wide-clap", "Wide Clap", "4", "snare", "#de75b8", 238, .006, .19, 2.7, 3.1, .35, .92, .76, .68],
+  ["low-tom", "Low Tom", "q", "tom", "#e8c46b", 82, .003, .52, 1.37, 4.4, 1.6, .04, .43, .82],
+  ["mid-tom", "Mid Tom", "w", "tom", "#dbd86b", 124, .003, .42, 1.41, 5.1, 1.35, .035, .51, .78],
+  ["high-tom", "High Tom", "e", "tom", "#b8df77", 191, .002, .31, 1.58, 5.8, 1.1, .025, .61, .74],
+  ["closed-hat", "Closed Hat", "r", "hat", "#5fe8c4", 4820, .001, .075, 1.414, 9.2, 0, .74, .88, .42],
+  ["open-hat", "Open Hat", "a", "hat", "#55d6d0", 4210, .002, .44, 1.618, 8.1, 0, .66, .8, .4],
+  ["rim-shot", "Rim Shot", "s", "metal", "#70d8e7", 510, .001, .105, 2.91, 5.7, .15, .12, .72, .62],
+  ["cowbell", "Cowbell", "d", "metal", "#7db4ff", 563, .002, .29, 1.48, 3.4, 0, .03, .67, .56],
+  ["glass-bell", "Glass Bell", "f", "bell", "#91a6ff", 784, .004, 1.25, 2.76, 6.8, 0, .01, .82, .5],
+  ["soft-chime", "Soft Chime", "z", "bell", "#b299ff", 1047, .018, 1.8, 3.03, 4.6, -.08, 0, .72, .44],
+  ["bronze-gong", "Bronze Gong", "x", "bell", "#c79bff", 147, .012, 2.35, 1.71, 12.8, -.12, .035, .46, .62],
+  ["laser-zap", "Laser Zap", "c", "effect", "#e883ee", 329, .001, .38, 4.2, 10.6, 5.2, .02, .74, .56],
+  ["scrap-metal", "Scrap Metal", "v", "metal", "#ff82c8", 927, .001, .64, 2.23, 14.2, -.35, .28, .84, .46],
 ];
 
 export const FM_DRUM_STORAGE_KEY = "morphazoid:fm-drums:bank:v1";

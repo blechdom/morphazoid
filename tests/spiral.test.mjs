@@ -152,6 +152,7 @@ test("Spiral page exposes intrinsic time paths and tactile winding controls", as
   );
   assert.match(html, /id="spiralA"[^>]+value="1"/);
   assert.match(html, /id="spiralB"[^>]+value="5"/);
+  assert.doesNotMatch(html, /id="intersectionDecay(?:Control|Out)?"/);
   assert.match(html, /id="loopPhase"/);
   assert.match(html, /id="loopPlayButton"/);
   assert.match(html, /Deep zoom &middot; in &harr; out/);
@@ -160,6 +161,12 @@ test("Spiral page exposes intrinsic time paths and tactile winding controls", as
   assert.match(app, /contactsForSpiralReader/);
   assert.match(app, /phaseForSpiralPoint/);
   assert.match(app, /scaleRateForSpiralRadius/);
+  assert.doesNotMatch(app, /intersectionDecay/);
+  assert.match(app, /timing:\s*"milliseconds"/);
+  assert.match(
+    app,
+    /amplitudeControl\.sampleAtTime\(\s*contact\.age\s*\/\s*durationScale,\s*0\.75,\s*\)/,
+  );
   assert.match(
     app,
     /setLoopPlaying\(true\);\s+if \(!state\.audio\) void enableAudio\(\);/,

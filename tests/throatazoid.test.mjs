@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
   ARTICULATIONS,
+  CAPITAL_EXPRESSIONS,
   CONSONANTS,
+  DIGIT_PRESET_SHORTCUTS,
   LETTER_ARTICULATIONS,
   MAX_MOUTHS,
   MAX_NOSES,
@@ -13,10 +15,16 @@ import {
   PHONEMES,
   SPECIMENS,
   THROATAZOID_OUTPUT_TRIM,
+  TRACT_SECTION_COUNT,
   VOICE_PRESETS,
+  alienTongueDeformations,
+  applyTractHeightDeformations,
   anatomyLayout,
+  anatomyMotionPhases,
   articulationKey,
   calibratedOutputGain,
+  capitalExpression,
+  capitalizedPerformanceState,
   consonantKey,
   consonantVoiceParameters,
   coupleMouthPressures,
@@ -26,20 +34,138 @@ import {
   glottalSample,
   keyboardArticulation,
   keyboardPhoneme,
+  keyboardPresetShortcut,
   mouthCouplingMatrix,
   mouthManifold,
   noseVoiceParameters,
   normalizePressureSources,
   oralOpening,
+  roundedAirwayPath,
   routeMouthPressure,
+  sampleDiameterProfile,
   singingVoiceParameters,
   smoothEnvelope,
+  smoothTractDiameters,
   specimenState,
   throatSlots,
   throatVoiceParameters,
+  tongueFromTractCoordinates,
+  tongueTractCoordinates,
   voicePresetState,
   waveformLevel,
 } from "../src/throatazoid.js";
+
+test("tongue controls round-trip through the same tract coordinates as the DSP", () => {
+  for (const position of [0, 0.18, 0.5, 0.82, 1]) {
+    const coordinates = tongueTractCoordinates({ position, height: 1 });
+    const tongue = tongueFromTractCoordinates(
+      coordinates.index,
+      coordinates.diameter,
+    );
+    assert.ok(Math.abs(tongue.position - position) < 1e-12);
+    assert.equal(tongue.height, 1);
+  }
+  for (const height of [0, 0.2, 0.5, 0.8, 1]) {
+    const coordinates = tongueTractCoordinates({ position: 0.5, height });
+    const tongue = tongueFromTractCoordinates(
+      coordinates.index,
+      coordinates.diameter,
+    );
+    assert.ok(Math.abs(tongue.position - 0.5) < 1e-12);
+    assert.ok(Math.abs(tongue.height - height) < 1e-12);
+  }
+
+  const lowTongue = tongueFromTractCoordinates(12.9, 3.5);
+  assert.ok(Math.abs(lowTongue.position - 0.5) < 1e-12);
+  assert.equal(lowTongue.height, 0);
+  assert.equal(tongueFromTractCoordinates(-100, 2.05).position, 0);
+  assert.equal(tongueFromTractCoordinates(100, 2.05).position, 1);
+});
+
+test("rounded airway paths preserve endpoints while removing hard corner normals", () => {
+  const controls = [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+    { x: 20, y: 20 },
+    { x: 50, y: 20 },
+  ];
+  const rounded = roundedAirwayPath(controls, 3);
+  assert.deepEqual(rounded[0], controls[0]);
+  assert.deepEqual(rounded.at(-1), controls.at(-1));
+  assert.ok(rounded.length > controls.length * 4);
+  assert.ok(
+    rounded.some((point) => point.x > 15 && point.x < 20 && point.y > 0 && point.y < 5),
+  );
+  assert.equal(sampleDiameterProfile(new Float32Array([1, 3]), 0.25), 1.5);
+});
+
+test("alien tract lobes are smooth, bounded, local, and order independent", () => {
+  const base = new Float32Array(TRACT_SECTION_COUNT).fill(1.5);
+  const deformations = [
+    { center: 14, radius: 3, height: 0.9 },
+    { center: 24, radius: 4, height: -1.2 },
+    { center: 34, radius: 3, height: 0.6 },
+  ];
+  const snapshot = [...base];
+  const profile = applyTractHeightDeformations(base, deformations);
+  const reversed = applyTractHeightDeformations(base, [...deformations].reverse());
+  assert.deepEqual([...base], snapshot);
+  assert.equal(profile.length, TRACT_SECTION_COUNT);
+  assert.ok(profile[14] > base[14]);
+  assert.ok(profile[24] < base[24]);
+  assert.ok(profile[34] > base[34]);
+  assert.equal(profile[5], base[5]);
+  for (let index = 0; index < profile.length; index += 1) {
+    assert.ok(Number.isFinite(profile[index]));
+    assert.ok(profile[index] >= 0.001 && profile[index] <= 4);
+    assert.ok(Math.abs(profile[index] - reversed[index]) < 1e-6);
+  }
+
+  const ridge = applyTractHeightDeformations(base, [
+    { center: 21.5, radius: 8, height: -1.2 },
+  ]);
+  let maximumAdjacentDifference = 0;
+  for (let index = 1; index < ridge.length; index += 1) {
+    maximumAdjacentDifference = Math.max(
+      maximumAdjacentDifference,
+      Math.abs(ridge[index] - ridge[index - 1]),
+    );
+  }
+  assert.ok(maximumAdjacentDifference < 0.25);
+
+  assert.deepEqual(alienTongueDeformations({
+    mutation: 0,
+    tongueCount: 1,
+    tongues: [{ position: 0.5, height: 0.5, curl: 0.5 }],
+  }), []);
+  const alien = alienTongueDeformations({
+    mutation: 0.8,
+    tongueCount: 3,
+    tongues: [
+      { position: 0.2, height: 0.6, curl: 0.1 },
+      { position: 0.5, height: 0.7, curl: 0.6 },
+      { position: 0.8, height: 0.5, curl: 0.9 },
+    ],
+  });
+  assert.equal(alien.length, 3);
+  assert.ok(alien.some(({ height }) => height < 0));
+  assert.ok(alien.some(({ height }) => height > 0));
+});
+
+test("displayed tract heights use Pink-style asymmetric regional movement", () => {
+  const current = new Float32Array(TRACT_SECTION_COUNT).fill(1.5);
+  const target = Float32Array.from(current);
+  target[10] = 3;
+  target[25] = 3;
+  target[40] = 3;
+  target[20] = 0.1;
+  const next = smoothTractDiameters(current, target, 1_000 / 60);
+  assert.ok(Math.abs(next[10] - 1.65) < 1e-6);
+  assert.ok(Math.abs(next[25] - 1.7033333) < 1e-5);
+  assert.ok(Math.abs(next[40] - 1.75) < 1e-6);
+  assert.ok(Math.abs(next[20] - 1) < 1e-6);
+  assert.equal(next[30], 1.5);
+});
 
 test("final output calibration gently aligns Throatazoid with neighboring pages", () => {
   assert.equal(THROATAZOID_OUTPUT_TRIM, 0.82);
@@ -673,6 +799,47 @@ test("typing maps only playable letter keys to phoneme gestures", () => {
   }
 });
 
+test("number keys map exactly to the ten global specimen shortcuts", () => {
+  const expected = {
+    "1": { kind: "specimen", id: "triune", name: "Triune" },
+    "2": { kind: "specimen", id: "oracle", name: "Oracle" },
+    "3": { kind: "specimen", id: "hive", name: "Hive" },
+    "4": { kind: "specimen", id: "hydra", name: "Hydra" },
+    "5": { kind: "specimen", id: "razor", name: "Razor" },
+    "6": { kind: "specimen", id: "monolith", name: "Monolith" },
+    "7": { kind: "specimen", id: "siren", name: "Siren" },
+    "8": { kind: "specimen", id: "larva", name: "Larva" },
+    "9": { kind: "specimen", id: "cathedral", name: "Cathedral" },
+    "0": { kind: "specimen", id: "singing", name: "Singing" },
+  };
+  assert.deepEqual(DIGIT_PRESET_SHORTCUTS, expected);
+  assert.ok(Object.isFrozen(DIGIT_PRESET_SHORTCUTS));
+
+  for (const digit of Object.keys(expected)) {
+    const shortcut = expected[digit];
+    assert.deepEqual(keyboardPresetShortcut(digit), shortcut);
+    assert.deepEqual(keyboardPresetShortcut("", `Digit${digit}`), shortcut);
+    assert.deepEqual(keyboardPresetShortcut("", `Numpad${digit}`), shortcut);
+    assert.deepEqual(
+      keyboardPresetShortcut("not-the-key", `Digit${digit}`),
+      shortcut,
+      "the physical key code should survive shifted or localized key values",
+    );
+    assert.ok(Object.isFrozen(DIGIT_PRESET_SHORTCUTS[digit]));
+  }
+
+  for (const [value, code] of [
+    ["", ""],
+    ["10", ""],
+    ["a", "KeyA"],
+    ["", "Digit10"],
+    [1, "DigitA"],
+    [null, null],
+  ]) {
+    assert.equal(keyboardPresetShortcut(value, code), null);
+  }
+});
+
 test("every alphabet key maps to its own playable approximation", () => {
   assert.deepEqual(
     Object.keys(LETTER_ARTICULATIONS),
@@ -707,6 +874,167 @@ test("every alphabet key maps to its own playable approximation", () => {
   assert.equal(keyboardArticulation("'"), "glottal");
   for (const invalid of ["", "1", "sh", "ng", "Enter", 1, null, undefined]) {
     assert.equal(keyboardArticulation(invalid), "");
+  }
+});
+
+function capitalPerformanceFingerprint(state) {
+  return JSON.stringify({
+    exciterPitch: state.exciterPitch,
+    exciterIntensity: state.exciterIntensity,
+    exciterBreath: state.exciterBreath,
+    exciterVibrato: state.exciterVibrato,
+    exciterWobble: state.exciterWobble,
+    bodyLength: state.bodyLength,
+    tension: state.tension,
+    mutation: state.mutation,
+    coupling: state.coupling,
+    growl: state.growl,
+    spread: state.spread,
+    nasalCoupling: state.nasalCoupling,
+    lipDiameter: state.lipDiameter,
+    throatCount: state.throatCount,
+    tongueCount: state.tongueCount,
+    noseCount: state.noseCount,
+    pressureSourceCount: state.pressureSourceCount,
+    burstScale: state.burstScale,
+    throats: state.throats.slice(0, state.throatCount),
+    tongues: state.tongues.slice(0, state.tongueCount),
+    noses: state.noses.slice(0, state.noseCount),
+    pressureSources: state.pressureSources.slice(
+      0,
+      state.pressureSourceCount,
+    ),
+  });
+}
+
+test("Shift+A through Shift+Z apply 26 named, distinct capital expressions", () => {
+  const alphabet = [..."abcdefghijklmnopqrstuvwxyz"];
+  assert.deepEqual(Object.keys(CAPITAL_EXPRESSIONS), alphabet);
+  assert.ok(Object.isFrozen(CAPITAL_EXPRESSIONS));
+
+  const base = voicePresetState("clear");
+  const baseSnapshot = JSON.stringify(base);
+  const baseFingerprint = capitalPerformanceFingerprint(base);
+  const performanceFingerprints = [];
+  const expressionFingerprints = [];
+
+  for (const letter of alphabet) {
+    const expression = CAPITAL_EXPRESSIONS[letter];
+    assert.equal(capitalExpression(letter), expression);
+    assert.equal(capitalExpression(letter.toUpperCase()), expression);
+    assert.equal(typeof expression.name, "string");
+    assert.ok(expression.name.length > 0, `${letter} needs a readable expression name`);
+    assert.ok(Object.isFrozen(expression), `${letter} expression must be immutable`);
+    assert.ok(
+      Array.isArray(expression.motionTargets)
+        && expression.motionTargets.length > 0,
+      `${letter} needs at least one visible motion target`,
+    );
+    assert.ok(Object.isFrozen(expression.motionTargets));
+    assert.ok(
+      expression.motionTargets.every((target) => (
+        ["mouths", "tongues", "noses", "pressure"].includes(target)
+      )),
+      `${letter} has an unknown anatomy motion target`,
+    );
+
+    const performance = capitalizedPerformanceState(base, letter.toUpperCase());
+    assert.notEqual(performance, base);
+    assert.notEqual(performance.throats, base.throats);
+    assert.notEqual(performance.tongues, base.tongues);
+    assert.notEqual(performance.noses, base.noses);
+    assert.notEqual(performance.pressureSources, base.pressureSources);
+    assert.equal(performance.capitalExpression, expression.name);
+    assert.equal(performance.capitalMotionDepth, expression.motionDepth);
+    assert.deepEqual(performance.capitalMotionTargets, expression.motionTargets);
+    assert.notEqual(
+      capitalPerformanceFingerprint(performance),
+      baseFingerprint,
+      `${letter.toUpperCase()} must change an audible or anatomical parameter`,
+    );
+    performanceFingerprints.push(capitalPerformanceFingerprint(performance));
+
+    const { name, motionTargets, ...parameters } = expression;
+    expressionFingerprints.push(JSON.stringify({ parameters, motionTargets }));
+    assert.equal(
+      JSON.stringify(base),
+      baseSnapshot,
+      `${letter.toUpperCase()} must not mutate the underlying preset`,
+    );
+  }
+
+  assert.equal(
+    new Set(performanceFingerprints).size,
+    alphabet.length,
+    "each capital should reach a distinct performance state",
+  );
+  assert.equal(
+    new Set(expressionFingerprints).size,
+    alphabet.length,
+    "each capital expression should have its own parameter fingerprint",
+  );
+  assert.equal(capitalExpression(""), null);
+  assert.equal(capitalExpression("AA"), null);
+  assert.equal(capitalExpression("1"), null);
+  assert.equal(capitalExpression(null), null);
+  assert.equal(capitalizedPerformanceState(base, "1"), base);
+  assert.equal(capitalizedPerformanceState(null, "A"), null);
+});
+
+test("anatomy motion phases are deterministic, bounded, and component-separated", () => {
+  const animated = {
+    motionDepth: 0.82,
+    exciterVibrato: 0.64,
+    exciterWobble: 0.49,
+  };
+  const first = anatomyMotionPhases(1_234.5, animated, 2);
+  const repeated = anatomyMotionPhases(1_234.5, animated, 2);
+  assert.deepEqual(repeated, first);
+  assert.ok(Object.isFrozen(first));
+  for (const component of ["fast", "slow", "combined"]) {
+    assert.ok(Number.isFinite(first[component]));
+    assert.ok(
+      first[component] >= -1 && first[component] <= 1,
+      `${component} must remain a safe unit displacement`,
+    );
+  }
+
+  const adjacent = anatomyMotionPhases(1_234.5, animated, 3);
+  assert.notEqual(adjacent.fast, first.fast);
+  assert.notEqual(adjacent.slow, first.slow);
+  assert.notEqual(adjacent.combined, first.combined);
+
+  const fastOnly = anatomyMotionPhases(777, {
+    motionDepth: 1,
+    exciterVibrato: 1,
+    exciterWobble: 0,
+  }, 1);
+  assert.ok(Math.abs(fastOnly.fast) > 0.01);
+  assert.equal(Math.abs(fastOnly.slow), 0);
+
+  const slowOnly = anatomyMotionPhases(777, {
+    motionDepth: 1,
+    exciterVibrato: 0,
+    exciterWobble: 1,
+  }, 1);
+  assert.equal(Math.abs(slowOnly.fast), 0);
+  assert.ok(Math.abs(slowOnly.slow) > 0.01);
+
+  for (const still of [
+    anatomyMotionPhases(777, {
+      motionDepth: 0,
+      exciterVibrato: 1,
+      exciterWobble: 1,
+    }, 4),
+    anatomyMotionPhases(777, {
+      motionDepth: 1,
+      exciterVibrato: 0,
+      exciterWobble: 0,
+    }, 4),
+  ]) {
+    assert.equal(Math.abs(still.fast), 0);
+    assert.equal(Math.abs(still.slow), 0);
+    assert.equal(Math.abs(still.combined), 0);
   }
 });
 

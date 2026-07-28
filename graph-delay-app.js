@@ -1,13 +1,16 @@
 import {
   GRAPH_DELAY_PATCHES,
   GRAPH_PRESETS,
+  MAX_GRAPH_TURN_ROUTES,
   edgeAudioParameters,
   generateGraph,
-  graphOutputNodeIds,
-  graphOutputPans,
+  generateGraphWithinTurnBudget,
+  graphEdgeSwitchMultipliers,
+  graphNodePans,
+  graphSinkNodeIds,
   graphTurnRoutings,
   nodeTurnRouting,
-} from "./src/graph-delay.js?v=20260726-node-flow";
+} from "./src/graph-delay.js?v=20260726-edge-switches";
 
 const $ = (id) => document.getElementById(id);
 const EDGE_COLORS = [
@@ -19,22 +22,28 @@ const EDGE_COLORS = [
   "#ff826f",
   "#e8c46b",
 ];
-const MAX_LIVE_TURN_ROUTES = 192;
+const MAX_LIVE_TURN_ROUTES = MAX_GRAPH_TURN_ROUTES;
+const GRAPH_CROSSFADE_SECONDS = 0.3;
+const GRAPH_PITCH_PREROLL_SECONDS = 0.12;
+const EDGE_SWITCH_RAMP_SECONDS = 0.025;
+const EDGE_SWITCH_HIT_RADIUS = 13;
+const NODE_RADIUS = 9;
+const NODE_HIT_RADIUS = 23;
 const SPEAKER_POSITION = Object.freeze({ x: 0.965, y: 0.5 });
-const state = {
+const INITIAL_STATE = Object.freeze({
   graphPatch: "layeredGlass",
   topology: "dag",
   nodeCount: 10,
   density: 0.34,
   seed: 17,
-  baseDelay: 220,
-  timeScale: 60,
-  timeCurve: 1,
-  nodePass: 0.96,
-  pitchScale: 0.5,
+  baseDelay: 62,
+  timeScale: 58,
+  timeCurve: 0.9,
+  nodePass: 1,
+  pitchScale: 0.26,
   pitchAsymmetry: 0,
-  pitchCurve: 1,
-  pitchSlew: 80,
+  pitchCurve: 1.35,
+  pitchSlew: 165,
   nodeMotionMode: "wiggle",
   nodeMotionSpeed: 0.12,
   nodeMotionAmount: 0.07,
@@ -49,14 +58,15 @@ const state = {
   inputY: 0.5,
   feedback: 0.72,
   damping: 4800,
-  wet: 0.82,
-  dry: 0.06,
-  spread: 0.8,
+  wet: 1.16,
+  dry: 0.2,
+  spread: 0.82,
   inputTrim: 0.8,
-  level: 0.52,
+  level: 0.58,
   mic: false,
   starting: false,
-};
+});
+const state = { ...INITIAL_STATE };
 const GRAPH_CONFIGURATION_KEYS = Object.freeze([
   "graphPatch",
   "topology",
@@ -91,10 +101,15 @@ let cssWidth = 1;
 let cssHeight = 1;
 let pixelRatio = 1;
 let model = generateGraph({ ...state, type: state.topology });
+let edgeSwitchStates = new Map(
+  model.edges.map((edge) => [`${edge.from}>${edge.to}`, true]),
+);
+let resetEdgeSwitchesOnNextCommit = false;
 let audioContext = null;
 let audioGraph = null;
 let mediaStream = null;
 let microphoneSource = null;
+let inputAnalyser = null;
 let microphoneStartToken = 0;
 let inputWave = new Float32Array(512);
 let inputPeak = 0;
@@ -103,12 +118,18 @@ let lastFrame = performance.now();
 let selectedNodeId = 0;
 let draggingNodeId = null;
 let draggingTerminal = null;
+let hoveredEdgeId = null;
+let focusedEdgeId = null;
 let pitchProcessorReady = false;
 let pitchProcessorAttempted = false;
 let pitchProcessorContext = null;
 let lastMotionFrame = performance.now();
 let lastMotionAudioUpdate = -Infinity;
 let graphRebuildTimer = null;
+let graphTransitionTimer = null;
+let graphRebuildQueued = false;
+let audioParameterUpdateQueued = false;
+let activeDensityLimit = null;
 let lastAppliedStructure = {
   topology: state.topology,
   nodeCount: state.nodeCount,
@@ -306,6 +327,47 @@ function terminalDelaySeconds(from, to) {
   return (terminalBase + terminalVariation) / 1_000;
 }
 
+function firstAudibleTapSeconds(geometry) {
+  const parameters = edgeAudioParameters(geometry, state);
+  const arrivals = Array(geometry.nodes.length).fill(Infinity);
+  const entries = geometry.entries.length ? geometry.entries : [0];
+  for (const nodeId of entries) {
+    arrivals[nodeId] = terminalDelaySeconds(
+      endpointPosition("input"),
+      geometry.nodes[nodeId],
+    );
+  }
+  const visited = new Set();
+  while (visited.size < geometry.nodes.length) {
+    let current = -1;
+    for (const node of geometry.nodes) {
+      if (
+        !visited.has(node.id)
+        && Number.isFinite(arrivals[node.id])
+        && (current < 0 || arrivals[node.id] < arrivals[current])
+      ) current = node.id;
+    }
+    if (current < 0) break;
+    visited.add(current);
+    for (const edge of parameters) {
+      if (edge.from !== current || !edgeSwitchEnabled(edge)) continue;
+      arrivals[edge.to] = Math.min(
+        arrivals[edge.to],
+        arrivals[current] + edge.delaySeconds,
+      );
+    }
+  }
+  const firstTap = Math.min(
+    ...graphSinkNodeIds(geometry)
+      .map((nodeId) => arrivals[nodeId])
+      .filter(Number.isFinite),
+  );
+  if (!Number.isFinite(firstTap)) return 0;
+  return firstTap + (pitchProcessorReady && state.pitchScale > 0
+    ? GRAPH_PITCH_PREROLL_SECONDS
+    : 0);
+}
+
 function turnRoutingOptions() {
   return {
     inputPosition: endpointPosition("input"),
@@ -351,7 +413,7 @@ async function preparePitchProcessor(audio) {
   if (!audio.audioWorklet?.addModule || !globalThis.AudioWorkletNode) return false;
   try {
     await audio.audioWorklet.addModule(
-      new URL("./src/graph-turn-processor.js?v=20260726-node-flow", import.meta.url),
+      new URL("./src/graph-turn-processor.js?v=20260726-edge-switches", import.meta.url),
     );
     pitchProcessorReady = true;
   } catch {
@@ -369,8 +431,40 @@ function makeSoftClipCurve(size = 2048) {
   return curve;
 }
 
+function audibleTapGain(count) {
+  // Sink taps occur at different times, so a gentle fourth-root normalization
+  // keeps branched outputs present without forcing them into the limiter.
+  return 0.9 / Math.max(1, count) ** 0.25;
+}
+
+function edgeSwitchKey(edge) {
+  return `${edge.from}>${edge.to}`;
+}
+
+function edgeSwitchEnabled(edge) {
+  return edgeSwitchStates.get(edgeSwitchKey(edge)) ?? true;
+}
+
+function edgeSwitchEnabledFlags(graph, { forceOpen = false } = {}) {
+  return graph.edges.map((edge) => forceOpen || edgeSwitchEnabled(edge));
+}
+
+function rampEdgeSwitch(parameter, value, now) {
+  if (parameter.cancelAndHoldAtTime) {
+    parameter.cancelAndHoldAtTime(now);
+  } else {
+    parameter.cancelScheduledValues(now);
+    parameter.setValueAtTime(parameter.value, now);
+  }
+  parameter.linearRampToValueAtTime(value, now + EDGE_SWITCH_RAMP_SECONDS);
+}
+
 function disposeAudioGraph(target) {
   if (!target) return;
+  if (target.inputTrimNode) {
+    try { inputAnalyser?.disconnect(target.inputTrimNode); } catch { /* already disconnected */ }
+    try { microphoneSource?.disconnect(target.inputTrimNode); } catch { /* fallback source */ }
+  }
   for (const node of target.disconnectables) {
     try { node.disconnect(); } catch { /* already disconnected */ }
     try { node.port?.close?.(); } catch { /* not an AudioWorkletNode */ }
@@ -422,18 +516,22 @@ function buildAudioGraphNodes(
   const wet = own(audio.createGain());
   const output = own(audio.createGain());
   const crossfade = own(audio.createGain());
-  const analyser = own(audio.createAnalyser());
   const compressor = own(audio.createDynamicsCompressor());
   const clipper = own(audio.createWaveShaper());
   const parameters = edgeAudioParameters(geometry, state);
-  const exits = graphOutputNodeIds(geometry);
-  const outputPans = graphOutputPans(geometry, state.spread);
-  analyser.fftSize = 1024;
-  compressor.threshold.value = -18;
-  compressor.knee.value = 12;
-  compressor.ratio.value = 10;
-  compressor.attack.value = 0.003;
-  compressor.release.value = 0.22;
+  const audibleTaps = graphSinkNodeIds(geometry);
+  const audibleTapSet = new Set(audibleTaps);
+  const tapGain = audibleTapGain(audibleTaps.length);
+  const outputPans = graphNodePans(geometry, audibleTaps, state.spread);
+  const switchEnabledFlags = edgeSwitchEnabledFlags(geometry, {
+    forceOpen: resetEdgeSwitchesOnNextCommit,
+  });
+  const switchGains = graphEdgeSwitchMultipliers(geometry, switchEnabledFlags);
+  compressor.threshold.value = -10;
+  compressor.knee.value = 6;
+  compressor.ratio.value = 6;
+  compressor.attack.value = 0.008;
+  compressor.release.value = 0.18;
   clipper.curve = makeSoftClipCurve();
   clipper.oversample = "2x";
   dry.gain.value = state.dry;
@@ -445,16 +543,18 @@ function buildAudioGraphNodes(
     const sum = own(audio.createGain());
     const tap = own(audio.createGain());
     const pan = own(audio.createStereoPanner());
-    tap.gain.value = 0.9 / Math.sqrt(exits.length);
+    tap.gain.value = audibleTapSet.has(spec.id) ? tapGain : 0;
     pan.pan.value = outputPans[spec.id];
     sum.connect(tap).connect(pan);
     return { sum, tap, pan };
   });
 
-  const edgeNodes = parameters.map((edge) => {
+  const edgeNodes = parameters.map((edge, index) => {
     const inputBus = own(audio.createGain());
+    const switchGain = own(audio.createGain());
     const delay = own(audio.createDelay(2.2));
     const gain = own(audio.createGain());
+    switchGain.gain.value = switchGains[index];
     delay.delayTime.value = edge.delaySeconds;
     gain.gain.value = edge.gain;
     const filter = edge.feedbackEdge ? own(audio.createBiquadFilter()) : null;
@@ -462,13 +562,15 @@ function buildAudioGraphNodes(
       filter.type = "lowpass";
       filter.frequency.value = state.damping;
       filter.Q.value = 0.45;
-      inputBus.connect(delay).connect(gain).connect(filter).connect(nodes[edge.to].sum);
+      inputBus.connect(switchGain).connect(delay).connect(gain).connect(filter).connect(nodes[edge.to].sum);
     } else {
-      inputBus.connect(delay).connect(gain).connect(nodes[edge.to].sum);
+      inputBus.connect(switchGain).connect(delay).connect(gain).connect(nodes[edge.to].sum);
     }
     return {
       ...edge,
+      switchEnabled: switchEnabledFlags[index],
       inputBus,
+      switchGain,
       delay,
       gain,
       filter,
@@ -532,14 +634,14 @@ function buildAudioGraphNodes(
     });
     return { nodeId: spec.id, routing, node, fallbackGains: [] };
   });
-  const outputRoutes = exits.map((nodeId) => {
+  const tapRoutes = audibleTaps.map((nodeId) => {
     nodes[nodeId].pan.connect(wet);
     return { nodeId };
   });
   input.connect(dry);
   dry.connect(output);
   wet.connect(output);
-  output.connect(crossfade).connect(analyser).connect(compressor).connect(clipper).connect(audio.destination);
+  output.connect(crossfade).connect(compressor).connect(clipper).connect(audio.destination);
 
   return {
     input,
@@ -547,13 +649,13 @@ function buildAudioGraphNodes(
     wet,
     output,
     crossfade,
-    analyser,
     nodes,
     edges: edgeNodes,
     turnRouters,
     inputRoutes,
-    outputRoutes,
+    tapRoutes,
     turnRouteCount,
+    geometry,
     disconnectables: ownedNodes,
   };
 }
@@ -561,7 +663,15 @@ function buildAudioGraphNodes(
 function applyAudioParameters() {
   // Preset changes are transactional: do not retune the previous live graph
   // while its replacement is still waiting to be built.
-  if (graphRebuildTimer !== null) return;
+  if (
+    graphRebuildTimer !== null
+    || graphRebuildQueued
+    || graphTransitionTimer !== null
+  ) {
+    audioParameterUpdateQueued = true;
+    return;
+  }
+  audioParameterUpdateQueued = false;
   if (!audioGraph || !audioContext) {
     lastAppliedConfiguration = graphConfigurationSnapshot();
     return;
@@ -569,7 +679,12 @@ function applyAudioParameters() {
   const now = audioContext.currentTime;
   const geometry = geometryModel();
   const parameters = edgeAudioParameters(geometry, state);
-  const outputPans = graphOutputPans(geometry, state.spread);
+  const audibleTaps = graphSinkNodeIds(geometry);
+  const audibleTapSet = new Set(audibleTaps);
+  const tapGain = audibleTapGain(audibleTaps.length);
+  const outputPans = graphNodePans(geometry, audibleTaps, state.spread);
+  const switchEnabledFlags = edgeSwitchEnabledFlags(geometry);
+  const switchGains = graphEdgeSwitchMultipliers(geometry, switchEnabledFlags);
   if (
     parameters.length !== audioGraph.edges.length
     || geometry.nodes.length !== audioGraph.nodes.length
@@ -580,12 +695,21 @@ function applyAudioParameters() {
   audioGraph.dry.gain.setTargetAtTime(state.dry, now, 0.02);
   audioGraph.wet.gain.setTargetAtTime(state.wet, now, 0.02);
   audioGraph.output.gain.setTargetAtTime(state.level, now, 0.02);
+  audioGraph.inputTrimNode?.gain.setTargetAtTime(state.inputTrim, now, 0.02);
   for (let index = 0; index < audioGraph.edges.length; index += 1) {
     audioGraph.edges[index].delay.delayTime.setTargetAtTime(parameters[index].delaySeconds, now, 0.03);
     audioGraph.edges[index].gain.gain.setTargetAtTime(parameters[index].gain, now, 0.03);
+    audioGraph.edges[index].switchEnabled = switchEnabledFlags[index];
+    rampEdgeSwitch(audioGraph.edges[index].switchGain.gain, switchGains[index], now);
     audioGraph.edges[index].filter?.frequency.setTargetAtTime(state.damping, now, 0.03);
   }
+  audioGraph.geometry = geometry;
   for (let index = 0; index < audioGraph.nodes.length; index += 1) {
+    audioGraph.nodes[index].tap.gain.setTargetAtTime(
+      audibleTapSet.has(index) ? tapGain : 0,
+      now,
+      0.03,
+    );
     audioGraph.nodes[index].pan.pan.setTargetAtTime(outputPans[index], now, 0.03);
   }
   for (const router of audioGraph.turnRouters) {
@@ -607,12 +731,73 @@ function applyAudioParameters() {
   lastAppliedConfiguration = graphConfigurationSnapshot();
 }
 
+function rampAudioGraphSwitches(target, now) {
+  const multipliers = graphEdgeSwitchMultipliers(
+    target.geometry,
+    target.edges.map((edge) => edge.switchEnabled),
+  );
+  target.edges.forEach((edge, index) => {
+    rampEdgeSwitch(edge.switchGain.gain, multipliers[index], now);
+  });
+}
+
+function applyEdgeSwitchByKey(key, enabled) {
+  if (!audioContext) return;
+  const now = audioContext.currentTime;
+  for (const target of [audioGraph, ...retiringAudioGraphs]) {
+    if (!target) continue;
+    const matchingEdge = target.edges.find((edge) => edgeSwitchKey(edge) === key);
+    if (matchingEdge) {
+      matchingEdge.switchEnabled = Boolean(enabled);
+      rampAudioGraphSwitches(target, now);
+    }
+  }
+}
+
+function setEdgeSwitch(edgeId, enabled) {
+  const edge = model.edges[edgeId];
+  if (!edge) return;
+  const key = edgeSwitchKey(edge);
+  edgeSwitchStates.set(key, Boolean(enabled));
+  applyEdgeSwitchByKey(key, enabled);
+  updateUi();
+  $("liveStatus").textContent = enabled
+    ? `Connection ${edge.from + 1} → ${edge.to + 1} opened.`
+    : `Connection ${edge.from + 1} → ${edge.to + 1} closed; its delay tail is draining.`;
+}
+
+function openAllEdgeSwitches() {
+  edgeSwitchStates = new Map(
+    model.edges.map((edge) => [edgeSwitchKey(edge), true]),
+  );
+  if (audioContext) {
+    const now = audioContext.currentTime;
+    const activeKeys = new Set(model.edges.map(edgeSwitchKey));
+    for (const target of [audioGraph, ...retiringAudioGraphs]) {
+      if (!target) continue;
+      let changed = false;
+      for (const edge of target.edges) {
+        if (!activeKeys.has(edgeSwitchKey(edge))) continue;
+        edge.switchEnabled = true;
+        changed = true;
+      }
+      if (changed) rampAudioGraphSwitches(target, now);
+    }
+  }
+  updateUi();
+  $("liveStatus").textContent = "Every graph connection opened.";
+}
+
+function resetEdgeSwitchesForNextGraph() {
+  resetEdgeSwitchesOnNextCommit = true;
+}
+
 function connectMicrophoneToGraph(target = audioGraph) {
   if (!microphoneSource || !target || !audioContext) return;
   const trim = audioContext.createGain();
   trim.gain.value = state.inputTrim;
   target.disconnectables.push(trim);
-  microphoneSource.connect(trim).connect(target.input);
+  (inputAnalyser ?? microphoneSource).connect(trim).connect(target.input);
   target.inputTrimNode = trim;
 }
 
@@ -625,12 +810,35 @@ function requestedStructure() {
   };
 }
 
-function commitModel(candidate, structure) {
+function commitModel(candidate, structure, densityLimit = null) {
+  edgeSwitchStates = new Map(
+    candidate.edges.map((edge) => [
+      edgeSwitchKey(edge),
+      resetEdgeSwitchesOnNextCommit
+        ? true
+        : edgeSwitchStates.get(edgeSwitchKey(edge)) ?? true,
+    ]),
+  );
+  resetEdgeSwitchesOnNextCommit = false;
   model = candidate;
+  activeDensityLimit = densityLimit;
   lastAppliedStructure = { ...structure };
   state.nodeMotionPhase = 0;
   resetNodeWalkState();
   selectedNodeId = Math.min(selectedNodeId, model.nodes.length - 1);
+  focusedEdgeId = null;
+  hoveredEdgeId = null;
+  canvas.classList.remove("is-switch-hover");
+}
+
+function announceGraphUpdate(densityLimit) {
+  if (densityLimit) {
+    $("liveStatus").textContent = `Connection density automatically limited from ${percent(densityLimit.requested)} to ${percent(densityLimit.applied)} so the graph stays live.`;
+    return;
+  }
+  if (GRAPH_DELAY_PATCHES[state.graphPatch]) {
+    $("liveStatus").textContent = `${GRAPH_DELAY_PATCHES[state.graphPatch].label} graph-delay preset loaded.`;
+  }
 }
 
 function graphRoutingSignature(graph) {
@@ -642,29 +850,36 @@ function graphRoutingSignature(graph) {
 }
 
 function rebuildModel({ rebuildAudio = true } = {}) {
+  const safeResult = generateGraphWithinTurnBudget(
+    { ...state, type: state.topology },
+    MAX_LIVE_TURN_ROUTES,
+  );
+  const candidate = safeResult.graph;
+  const densityLimit = safeResult.limited
+    ? { requested: safeResult.requestedDensity, applied: safeResult.density }
+    : null;
+  if (densityLimit) {
+    state.density = safeResult.density;
+    state.graphPatch = "custom";
+  }
   const structure = requestedStructure();
-  const candidate = generateGraph({ ...state, type: state.topology });
   if (graphRoutingSignature(candidate) === graphRoutingSignature(model)) {
-    commitModel(candidate, structure);
+    commitModel(candidate, structure, densityLimit);
     applyAudioParameters();
     updateUi();
-    if (GRAPH_DELAY_PATCHES[state.graphPatch]) {
-      $("liveStatus").textContent = `${GRAPH_DELAY_PATCHES[state.graphPatch].label} graph-delay preset loaded.`;
-    }
+    announceGraphUpdate(densityLimit);
     return true;
   }
   if (!rebuildAudio || !audioContext || !audioGraph) {
-    commitModel(candidate, structure);
+    commitModel(candidate, structure, densityLimit);
     lastAppliedConfiguration = graphConfigurationSnapshot();
     updateUi();
-    if (GRAPH_DELAY_PATCHES[state.graphPatch]) {
-      $("liveStatus").textContent = `${GRAPH_DELAY_PATCHES[state.graphPatch].label} graph-delay preset loaded.`;
-    }
+    announceGraphUpdate(densityLimit);
     return true;
   }
 
-  // A rapid sequence should never leave several silent worklet graphs running
-  // while another expensive replacement is constructed.
+  // Transitions are serialized, so every retiring graph is silent by the time
+  // a queued structural update reaches this point.
   for (const retiring of [...retiringAudioGraphs]) disposeAudioGraph(retiring);
 
   const previousGraph = audioGraph;
@@ -677,66 +892,123 @@ function rebuildModel({ rebuildAudio = true } = {}) {
     if (microphoneSource) connectMicrophoneToGraph(nextGraph);
   } catch (error) {
     disposeAudioGraph(nextGraph);
+    resetEdgeSwitchesOnNextCommit = false;
     Object.assign(state, lastAppliedConfiguration);
-    $("audioError").textContent = error instanceof Error
+    audioParameterUpdateQueued = false;
+    const message = error instanceof Error
       ? `Graph update failed: ${error.message}. The previous graph is still playing.`
       : "Graph update failed; the previous graph is still playing.";
+    $("audioError").textContent = message;
     $("audioError").hidden = false;
     updateUi();
+    $("topologySummary").textContent = "Update failed · previous graph still live";
+    $("liveStatus").textContent = message;
     return false;
   }
 
-  commitModel(candidate, structure);
+  commitModel(candidate, structure, densityLimit);
   audioGraph = nextGraph;
   lastAppliedConfiguration = graphConfigurationSnapshot();
   $("audioError").hidden = true;
+  const transitionContext = audioContext;
   const now = audioContext.currentTime;
+  const preRoll = firstAudibleTapSeconds(candidate);
+  const fadeStart = now + preRoll;
+  const fadeEnd = fadeStart + GRAPH_CROSSFADE_SECONDS;
   if (previousGraph.crossfade.gain.cancelAndHoldAtTime) {
     previousGraph.crossfade.gain.cancelAndHoldAtTime(now);
   } else {
     previousGraph.crossfade.gain.cancelScheduledValues(now);
     previousGraph.crossfade.gain.setValueAtTime(previousGraph.crossfade.gain.value, now);
   }
-  previousGraph.crossfade.gain.linearRampToValueAtTime(0, now + 0.065);
+  previousGraph.crossfade.gain.setValueAtTime(previousGraph.crossfade.gain.value, fadeStart);
+  previousGraph.crossfade.gain.linearRampToValueAtTime(0, fadeEnd);
   nextGraph.crossfade.gain.cancelScheduledValues(now);
   nextGraph.crossfade.gain.setValueAtTime(0, now);
-  nextGraph.crossfade.gain.linearRampToValueAtTime(1, now + 0.065);
+  nextGraph.crossfade.gain.setValueAtTime(0, fadeStart);
+  nextGraph.crossfade.gain.linearRampToValueAtTime(1, fadeEnd);
   retiringAudioGraphs.add(previousGraph);
-  setTimeout(() => {
-    try {
-      if (microphoneSource && previousGraph.inputTrimNode) {
-        microphoneSource.disconnect(previousGraph.inputTrimNode);
+  if (graphTransitionTimer !== null) clearTimeout(graphTransitionTimer);
+  const finishTransition = () => {
+    if (
+      audioContext === transitionContext
+      && audioContext.state !== "closed"
+      && audioGraph === nextGraph
+    ) {
+      const remaining = fadeEnd - audioContext.currentTime;
+      if (remaining > 0.005) {
+        graphTransitionTimer = setTimeout(
+          finishTransition,
+          Math.max(16, Math.ceil(remaining * 1_000) + 8),
+        );
+        return;
       }
-    } catch {
-      // The microphone may have stopped during the crossfade.
+      const settledAt = audioContext.currentTime;
+      previousGraph.crossfade.gain.cancelScheduledValues(settledAt);
+      previousGraph.crossfade.gain.setValueAtTime(0, settledAt);
+      nextGraph.crossfade.gain.cancelScheduledValues(settledAt);
+      nextGraph.crossfade.gain.setValueAtTime(1, settledAt);
     }
     disposeAudioGraph(previousGraph);
-  }, 110);
+    graphTransitionTimer = null;
+    if (graphRebuildQueued) {
+      graphRebuildQueued = false;
+      audioParameterUpdateQueued = false;
+      rebuildModel();
+    } else {
+      if (audioParameterUpdateQueued) {
+        audioParameterUpdateQueued = false;
+        applyAudioParameters();
+      }
+      updateUi();
+    }
+  };
+  graphTransitionTimer = setTimeout(
+    finishTransition,
+    Math.ceil((preRoll + GRAPH_CROSSFADE_SECONDS) * 1_000) + 16,
+  );
   updateUi();
-  if (GRAPH_DELAY_PATCHES[state.graphPatch]) {
-    $("liveStatus").textContent = `${GRAPH_DELAY_PATCHES[state.graphPatch].label} graph-delay preset loaded.`;
-  }
+  announceGraphUpdate(densityLimit);
   return true;
 }
 
 function scheduleGraphRebuild(delay = 140) {
   if (graphRebuildTimer !== null) clearTimeout(graphRebuildTimer);
+  if (graphTransitionTimer !== null) {
+    graphRebuildTimer = null;
+    graphRebuildQueued = true;
+    return;
+  }
   graphRebuildTimer = setTimeout(() => {
     graphRebuildTimer = null;
+    if (graphTransitionTimer !== null) {
+      graphRebuildQueued = true;
+      updateUi();
+      return;
+    }
     rebuildModel();
   }, delay);
 }
 
 function flushGraphRebuild() {
-  if (graphRebuildTimer === null) return;
-  clearTimeout(graphRebuildTimer);
+  const hadPendingRebuild = graphRebuildTimer !== null || graphRebuildQueued;
+  if (graphRebuildTimer !== null) clearTimeout(graphRebuildTimer);
   graphRebuildTimer = null;
+  if (graphTransitionTimer !== null) {
+    graphRebuildQueued = hadPendingRebuild;
+    updateUi();
+    return;
+  }
+  if (!hadPendingRebuild) return;
+  graphRebuildQueued = false;
   rebuildModel();
 }
 
 function cancelScheduledGraphRebuild() {
   if (graphRebuildTimer !== null) clearTimeout(graphRebuildTimer);
   graphRebuildTimer = null;
+  graphRebuildQueued = false;
+  audioParameterUpdateQueued = false;
 }
 
 async function startMicrophone() {
@@ -769,6 +1041,9 @@ async function startMicrophone() {
     }
     mediaStream = requestedStream;
     microphoneSource = audioContext.createMediaStreamSource(mediaStream);
+    inputAnalyser = audioContext.createAnalyser();
+    inputAnalyser.fftSize = 1024;
+    microphoneSource.connect(inputAnalyser);
     connectMicrophoneToGraph();
     state.mic = true;
     $("audioError").hidden = true;
@@ -786,10 +1061,16 @@ async function startMicrophone() {
 
 function panic(message = "Panic stop. Microphone and every graph feedback tail are off.") {
   microphoneStartToken += 1;
+  cancelScheduledGraphRebuild();
+  if (graphTransitionTimer !== null) clearTimeout(graphTransitionTimer);
+  graphTransitionTimer = null;
+  audioParameterUpdateQueued = false;
   try { microphoneSource?.disconnect(); } catch { /* already disconnected */ }
+  try { inputAnalyser?.disconnect(); } catch { /* already disconnected */ }
   for (const track of mediaStream?.getTracks?.() ?? []) track.stop();
   mediaStream = null;
   microphoneSource = null;
+  inputAnalyser = null;
   disconnectGraph();
   if (audioContext && audioContext.state !== "closed") void audioContext.close();
   audioContext = null;
@@ -856,7 +1137,7 @@ function envelopeAt(time) {
 
 function visualArrivalTimes(geometry, edgeParameters) {
   const arrivals = Array(geometry.nodes.length).fill(Infinity);
-  const entries = model.entries.length ? model.entries : [0];
+  const entries = geometry.entries.length ? geometry.entries : [0];
   for (const nodeId of entries) arrivals[nodeId] = 0;
   const visited = new Set();
   while (visited.size < geometry.nodes.length) {
@@ -871,21 +1152,28 @@ function visualArrivalTimes(geometry, edgeParameters) {
     if (current < 0) break;
     visited.add(current);
     for (const edge of edgeParameters) {
-      if (edge.from !== current) continue;
+      if (edge.from !== current || !edgeSwitchEnabled(edge)) continue;
       arrivals[edge.to] = Math.min(arrivals[edge.to], earliest + edge.delaySeconds);
     }
   }
-  return arrivals.map((arrival) => Number.isFinite(arrival) ? arrival : 0);
+  return arrivals;
 }
 
-function drawVibratingEdge(from, to, edge, timestamp, startDelay = 0) {
+function drawVibratingEdge(
+  from,
+  to,
+  edge,
+  timestamp,
+  startDelay = 0,
+  enabled = true,
+) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const distance = Math.max(1, Math.hypot(dx, dy));
   const ux = dx / distance;
   const uy = dy / distance;
-  const start = { x: from.x + ux * 9, y: from.y + uy * 9 };
-  const end = { x: to.x - ux * 12, y: to.y - uy * 12 };
+  const start = { x: from.x + ux * 12, y: from.y + uy * 12 };
+  const end = { x: to.x - ux * 15, y: to.y - uy * 15 };
   const normalX = -uy;
   const normalY = ux;
   const startColor = EDGE_COLORS[edge.from % EDGE_COLORS.length];
@@ -902,7 +1190,7 @@ function drawVibratingEdge(from, to, edge, timestamp, startDelay = 0) {
   for (let index = 0; index <= steps; index += 1) {
     const progress = index / steps;
     const travelDelay = startDelay + edge.delaySeconds * progress;
-    const energy = state.mic
+    const energy = state.mic && enabled
       ? Math.min(1, envelopeAt(now - travelDelay) * 9)
       : 0;
     const carrier = Math.sin(
@@ -932,7 +1220,7 @@ function drawVibratingEdge(from, to, edge, timestamp, startDelay = 0) {
   if (edge.feedbackEdge) {
     tracePath();
     context.strokeStyle = "#ff826f";
-    context.globalAlpha = 0.2 + peakEnergy * 0.28;
+    context.globalAlpha = enabled ? 0.2 + peakEnergy * 0.28 : 0.08;
     context.lineWidth = 2.2 + peakEnergy * 1.5;
     context.setLineDash([3, 5]);
     context.stroke();
@@ -941,14 +1229,16 @@ function drawVibratingEdge(from, to, edge, timestamp, startDelay = 0) {
 
   tracePath();
   context.strokeStyle = edgeGradient;
-  context.globalAlpha = 0.4 + peakEnergy * 0.52;
+  context.globalAlpha = enabled ? 0.4 + peakEnergy * 0.52 : 0.12;
   context.lineWidth = 1.15 + peakEnergy * 2.6;
   context.lineCap = "round";
   context.lineJoin = "round";
+  if (!enabled) context.setLineDash([2, 6]);
   context.shadowColor = endColor;
   context.shadowBlur = peakEnergy * 15;
   context.stroke();
   context.shadowBlur = 0;
+  context.setLineDash([]);
 
   if (peakEnergy > 0.018) {
     let connected = false;
@@ -978,8 +1268,71 @@ function drawVibratingEdge(from, to, edge, timestamp, startDelay = 0) {
   context.lineTo(end.x - ux * 7 - uy * 4, end.y - uy * 7 + ux * 4);
   context.closePath();
   context.fillStyle = edge.feedbackEdge ? "#ff826f" : endColor;
+  context.globalAlpha = enabled ? 1 : 0.2;
   context.fill();
   context.globalAlpha = 1;
+}
+
+function edgeSwitchPosition(from, to, edge, edges) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distance = Math.max(1, Math.hypot(dx, dy));
+  const shortEdge = distance < 64;
+  const progress = shortEdge ? 0.5 : 0.28;
+  const reciprocal = shortEdge && edges.some(
+    (candidate) => candidate.from === edge.to && candidate.to === edge.from,
+  );
+  const offset = reciprocal ? 7 : 0;
+  return {
+    x: from.x + dx * progress + (-dy / distance) * offset,
+    y: from.y + dy * progress + (dx / distance) * offset,
+  };
+}
+
+function drawEdgeSwitch(position, from, to, enabled, edge, hovered = false) {
+  const color = edge.feedbackEdge
+    ? "#ff826f"
+    : EDGE_COLORS[edge.to % EDGE_COLORS.length];
+  const angle = Math.atan2(to.y - from.y, to.x - from.x);
+  context.save();
+  context.translate(position.x, position.y);
+  context.rotate(angle);
+  if (hovered) {
+    context.beginPath();
+    context.rect(-8, -6.5, 16, 13);
+    context.strokeStyle = color;
+    context.globalAlpha = 0.24;
+    context.lineWidth = 2.5;
+    context.stroke();
+  }
+  context.beginPath();
+  context.rect(-5, -3.75, 10, 7.5);
+  context.fillStyle = "#071011";
+  context.globalAlpha = 0.96;
+  context.fill();
+  context.strokeStyle = color;
+  context.globalAlpha = enabled ? 0.95 : 0.48;
+  context.lineWidth = enabled ? 2 : 1.25;
+  context.stroke();
+
+  context.fillStyle = enabled ? color : "#8ca1a5";
+  context.globalAlpha = enabled ? 1 : 0.58;
+  context.fillRect(-3.8, -1.15, 2.1, 2.3);
+  context.fillRect(1.7, -1.15, 2.1, 2.3);
+  context.beginPath();
+  if (enabled) {
+    context.moveTo(-2.2, 0);
+    context.lineTo(2.2, 0);
+  } else {
+    context.moveTo(-2.2, 0);
+    context.lineTo(1.15, -2.35);
+  }
+  context.strokeStyle = enabled ? color : "#8ca1a5";
+  context.globalAlpha = enabled ? 1 : 0.72;
+  context.lineWidth = 1.5;
+  context.lineCap = "square";
+  context.stroke();
+  context.restore();
 }
 
 function drawTerminalRoute(from, to, color, timestamp, delaySeconds, startDelay = 0) {
@@ -1148,36 +1501,53 @@ function draw(now) {
     );
   }
   for (const edge of edgeParameters) {
+    const enabled = edgeSwitchEnabled(edge);
     drawVibratingEdge(
       points[edge.from],
       points[edge.to],
       edge,
       now,
       arrivalTimes[edge.from],
+      enabled,
     );
   }
-  for (const nodeId of graphOutputNodeIds(geometry)) {
+  for (const nodeId of graphSinkNodeIds(geometry)) {
     drawSpeakerConnection(points[nodeId], outputTerminal);
+  }
+  for (const edge of edgeParameters) {
+    drawEdgeSwitch(
+      edgeSwitchPosition(
+        points[edge.from],
+        points[edge.to],
+        edge,
+        edgeParameters,
+      ),
+      points[edge.from],
+      points[edge.to],
+      edgeSwitchEnabled(edge),
+      edge,
+      edge.id === hoveredEdgeId || edge.id === focusedEdgeId,
+    );
   }
   points.forEach((position, index) => {
     const energy = Math.min(1, currentLevel * 12);
     const pulse = energy * (0.3 + 0.7 * Math.max(0, Math.sin(now * 0.004 - index * 0.7)));
     context.beginPath();
-    context.arc(position.x, position.y, 6 + pulse * 7, 0, Math.PI * 2);
+    context.arc(position.x, position.y, NODE_RADIUS + pulse * 8, 0, Math.PI * 2);
     context.fillStyle = index === selectedNodeId ? "#fff3d6" : "#0a1113";
     context.fill();
     context.strokeStyle = index === selectedNodeId
       ? "#fff3d6"
       : EDGE_COLORS[index % EDGE_COLORS.length];
     context.globalAlpha = 0.62 + pulse * 0.38;
-    context.lineWidth = 1.4 + pulse * 1.8;
+    context.lineWidth = 1.7 + pulse * 2;
     context.shadowColor = EDGE_COLORS[index % EDGE_COLORS.length];
     context.shadowBlur = pulse * 15;
     context.stroke();
     context.shadowBlur = 0;
     context.globalAlpha = 1;
     context.fillStyle = index === selectedNodeId ? "#071011" : "#8ca1a5";
-    context.font = "7px ui-monospace, monospace";
+    context.font = "8px ui-monospace, monospace";
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillText(String(index + 1), position.x, position.y + 0.5);
@@ -1189,8 +1559,8 @@ function draw(now) {
 function updateMeter(now) {
   const delta = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
-  if (audioGraph?.analyser && state.mic) {
-    audioGraph.analyser.getFloatTimeDomainData(inputWave);
+  if (inputAnalyser && state.mic) {
+    inputAnalyser.getFloatTimeDomainData(inputWave);
     let sum = 0;
     for (const sample of inputWave) sum += sample * sample;
     const rms = Math.sqrt(sum / inputWave.length);
@@ -1256,6 +1626,12 @@ function syncControlsFromState() {
   $("graphPatch").value = Object.hasOwn(GRAPH_DELAY_PATCHES, state.graphPatch)
     ? state.graphPatch
     : "custom";
+  for (const name of Object.keys(GRAPH_DELAY_PATCHES)) {
+    $(`graphPatch-${name}`)?.setAttribute(
+      "aria-pressed",
+      String(state.graphPatch === name),
+    );
+  }
   $("topology").value = state.topology;
   $("nodeMotionMode").value = state.nodeMotionMode;
   $("micMotionMode").value = state.micMotionMode;
@@ -1268,6 +1644,7 @@ function loadGraphPatch(name) {
   const patch = GRAPH_DELAY_PATCHES[name];
   if (!patch) return;
   cancelScheduledGraphRebuild();
+  resetEdgeSwitchesForNextGraph();
   Object.assign(state, patch, { graphPatch: name });
   syncControlsFromState();
   scheduleGraphRebuild(120);
@@ -1279,15 +1656,24 @@ function updateUi() {
   const preset = GRAPH_PRESETS[state.topology];
   const activePreset = GRAPH_PRESETS[model.type];
   const patch = GRAPH_DELAY_PATCHES[state.graphPatch];
-  const graphPending = graphRebuildTimer !== null;
+  const graphPending = graphRebuildTimer !== null || graphRebuildQueued;
   const geometry = geometryModel();
   const cycleEdges = model.edges.filter((edge) => edge.feedbackEdge).length;
+  const edgeParameters = edgeAudioParameters(geometry, state);
+  const audibleTaps = graphSinkNodeIds(geometry);
+  const openSwitchCount = model.edges.filter(edgeSwitchEnabled).length;
+  const closedSwitchCount = model.edges.length - openSwitchCount;
+  const arrivals = visualArrivalTimes(geometry, edgeParameters);
+  const tapArrivals = audibleTaps
+    .map((nodeId) => arrivals[nodeId])
+    .filter(Number.isFinite)
+    .map((seconds) => Math.round(seconds * 1_000));
   const turnRoutings = graphTurnRoutings(geometry, turnRoutingOptions());
   const turnRouteCount = turnRoutings.reduce(
     (count, routing) => count + routing.turns.length,
     0,
   );
-  const selectedEdges = edgeAudioParameters(geometry, state)
+  const selectedEdges = edgeParameters
     .filter((edge) => edge.from === selectedNodeId || edge.to === selectedNodeId);
   const selectedTimes = selectedEdges.map((edge) => Math.round(edge.delaySeconds * 1_000));
   const audioLabel = state.starting ? "starting" : state.mic ? "live" : "off";
@@ -1308,22 +1694,38 @@ function updateUi() {
   $("topologyDescription").textContent = preset.description;
   $("topologySummary").textContent = graphPending
     ? `${patch?.label ?? "Custom"} · updating…`
-    : `${patch?.label ?? "Custom"} · ${activePreset.label} · ${model.cyclic ? "cyclic" : "acyclic"}`;
+    : `${patch?.label ?? "Custom"} · ${activePreset.label} · ${model.cyclic ? "cyclic" : "acyclic"}${activeDensityLimit ? ` · auto-safe ${percent(activeDensityLimit.applied)}` : ""}`;
   $("motionSummary").textContent = `nodes ${state.nodeMoving ? `${state.nodeMotionMode} playing` : "paused"} · mic ${state.micMoving ? `${state.micMotionMode} playing` : "paused"}`;
   $("delaySummary").textContent = `${state.baseDelay}–${state.baseDelay + state.timeScale} ms · angle → ${Math.round(state.pitchScale * 100)}% octave`;
   $("mixSummary").textContent = `${percent(state.wet)} graph · ${percent(state.dry)} direct`;
   const routeLoad = turnRouteCount > MAX_LIVE_TURN_ROUTES
     ? " · over live limit"
     : turnRouteCount > 128 ? " · high DSP" : "";
-  $("structureReadout").textContent = `${model.nodes.length} nodes · ${model.edges.length} edges · ${graphOutputNodeIds(model).length} outputs · ${turnRouteCount} turns${routeLoad}`;
+  const densitySafety = activeDensityLimit
+    ? ` · density auto-limited from ${percent(activeDensityLimit.requested)}`
+    : "";
+  const speakerRouteCount = audibleTaps.length;
+  const tapLabel = `${audibleTaps.length} ${audibleTaps.length === 1 ? "tap" : "taps"}`;
+  const sinkTapLabel = `${audibleTaps.length} sink ${audibleTaps.length === 1 ? "tap" : "taps"}`;
+  const speakerRouteLabel = `${speakerRouteCount} speaker ${speakerRouteCount === 1 ? "route" : "routes"}`;
+  $("graphInfoSummary").textContent = `${model.nodes.length} nodes · ${openSwitchCount}/${model.edges.length} routes open · ${tapLabel}`;
+  $("structureReadout").textContent = `${model.nodes.length} nodes · ${model.edges.length} edges · ${openSwitchCount}/${model.edges.length} routes open · ${sinkTapLabel} · ${speakerRouteLabel} · ${turnRouteCount} turns${routeLoad}${densitySafety}`;
+  const firstTap = tapArrivals.length ? Math.min(...tapArrivals) : null;
+  const lastTap = tapArrivals.length ? Math.max(...tapArrivals) : null;
+  $("pathReadout").textContent = firstTap === null
+    ? "no reachable sink tap"
+    : firstTap === lastTap
+      ? `${firstTap} ms first-pass`
+      : `${firstTap}–${lastTap} ms first-pass`;
   $("cycleReadout").textContent = model.cyclic ? `${cycleEdges} cycle-closing edges · bounded` : "none · finite tail";
-  $("stageReadout").textContent = `MIC IN → ${activePreset.label.toUpperCase()} → SPEAKERS OUT · ${model.nodes.length} NODES · ${model.cyclic ? "FEEDBACK BOUNDED" : "ACYCLIC"}`;
+  $("stageReadout").textContent = `MIC IN → ${activePreset.label.toUpperCase()} → SPEAKERS OUT · ${openSwitchCount}/${model.edges.length} ROUTES OPEN · ${sinkTapLabel.toUpperCase()}`;
   $("feedback").disabled = !model.cyclic;
   $("damping").disabled = !model.cyclic;
+  $("openAllSwitchesButton").disabled = closedSwitchCount === 0;
   $("feedbackSafetyNote").textContent = model.cyclic
     ? `cyclic · returns bounded to ${percent(state.feedback)} + damped`
     : "acyclic · feedback dormant";
-  canvas.setAttribute("aria-label", `${activePreset.label}, ${model.nodes.length} nodes and ${model.edges.length} directed edges. ${model.cyclic ? "Bounded cyclic feedback." : "Acyclic."} Microphone ${audioLabel}.`);
+  canvas.setAttribute("aria-label", `${activePreset.label}, ${model.nodes.length} nodes, ${openSwitchCount} of ${model.edges.length} directed routes open, ${closedSwitchCount} closed, and ${sinkTapLabel}. ${model.cyclic ? "Bounded cyclic feedback." : "Acyclic."} Microphone ${audioLabel}.`);
   $("levelOut").textContent = percent(state.level);
   $("inputTrimOut").textContent = percent(state.inputTrim);
   $("nodeCountOut").textContent = String(state.nodeCount);
@@ -1381,6 +1783,7 @@ function bindRange(id, property, {
     if (id === "inputTrim" && audioGraph?.inputTrimNode && audioContext) {
       audioGraph.inputTrimNode.gain.setTargetAtTime(state.inputTrim, audioContext.currentTime, 0.02);
     } else if (graph) {
+      resetEdgeSwitchesForNextGraph();
       scheduleGraphRebuild();
       updateUi();
       return;
@@ -1398,6 +1801,31 @@ function canvasPointer(event) {
     x: (event.clientX - bounds.left) * (cssWidth / Math.max(1, bounds.width)),
     y: (event.clientY - bounds.top) * (cssHeight / Math.max(1, bounds.height)),
   };
+}
+
+function edgeSwitchAt(position) {
+  const geometry = geometryModel();
+  const points = geometry.nodes.map(point);
+  let closest = null;
+  for (const edge of geometry.edges) {
+    const switchPosition = edgeSwitchPosition(
+      points[edge.from],
+      points[edge.to],
+      edge,
+      geometry.edges,
+    );
+    const distance = Math.hypot(
+      switchPosition.x - position.x,
+      switchPosition.y - position.y,
+    );
+    if (
+      distance <= EDGE_SWITCH_HIT_RADIUS
+      && (!closest || distance < closest.distance)
+    ) {
+      closest = { edge, distance };
+    }
+  }
+  return closest?.edge ?? null;
 }
 
 function moveSelectedNode(position) {
@@ -1437,11 +1865,20 @@ canvas.addEventListener("pointerdown", (event) => {
     updateUi();
     return;
   }
+  const switchedEdge = edgeSwitchAt(position);
+  if (switchedEdge) {
+    event.preventDefault();
+    hoveredEdgeId = switchedEdge.id;
+    focusedEdgeId = switchedEdge.id;
+    setEdgeSwitch(switchedEdge.id, !edgeSwitchEnabled(switchedEdge));
+    canvas.focus({ preventScroll: true });
+    return;
+  }
   let closest = null;
   for (const node of geometryModel().nodes) {
     const projected = point(node);
     const distance = Math.hypot(projected.x - position.x, projected.y - position.y);
-    if (distance <= 19 && (!closest || distance < closest.distance)) {
+    if (distance <= NODE_HIT_RADIUS && (!closest || distance < closest.distance)) {
       closest = { id: node.id, distance };
     }
   }
@@ -1462,9 +1899,22 @@ canvas.addEventListener("pointermove", (event) => {
     moveTerminal(canvasPointer(event));
     return;
   }
-  if (draggingNodeId === null || draggingNodeId !== selectedNodeId) return;
-  event.preventDefault();
-  moveSelectedNode(canvasPointer(event));
+  if (draggingNodeId !== null && draggingNodeId === selectedNodeId) {
+    event.preventDefault();
+    moveSelectedNode(canvasPointer(event));
+    return;
+  }
+  const nextHoveredEdgeId = edgeSwitchAt(canvasPointer(event))?.id ?? null;
+  if (nextHoveredEdgeId === hoveredEdgeId) return;
+  hoveredEdgeId = nextHoveredEdgeId;
+  if (hoveredEdgeId === null) canvas.classList.remove("is-switch-hover");
+  else canvas.classList.add("is-switch-hover");
+});
+
+canvas.addEventListener("pointerleave", () => {
+  if (draggingNodeId !== null || draggingTerminal) return;
+  hoveredEdgeId = null;
+  canvas.classList.remove("is-switch-hover");
 });
 
 function finishNodeDrag(event) {
@@ -1482,6 +1932,24 @@ function finishNodeDrag(event) {
 canvas.addEventListener("pointerup", finishNodeDrag);
 canvas.addEventListener("pointercancel", finishNodeDrag);
 canvas.addEventListener("keydown", (event) => {
+  if (["[", "]"].includes(event.key) && model.edges.length) {
+    event.preventDefault();
+    const direction = event.key === "]" ? 1 : -1;
+    const currentIndex = model.edges.findIndex((edge) => edge.id === focusedEdgeId);
+    const nextIndex = currentIndex < 0
+      ? direction > 0 ? 0 : model.edges.length - 1
+      : (currentIndex + direction + model.edges.length) % model.edges.length;
+    focusedEdgeId = model.edges[nextIndex].id;
+    const edge = model.edges[nextIndex];
+    $("liveStatus").textContent = `Connection ${edge.from + 1} → ${edge.to + 1} selected; press Enter or Space to switch it.`;
+    return;
+  }
+  if (["Enter", " "].includes(event.key) && focusedEdgeId !== null) {
+    event.preventDefault();
+    const edge = model.edges.find((candidate) => candidate.id === focusedEdgeId);
+    if (edge) setEdgeSwitch(edge.id, !edgeSwitchEnabled(edge));
+    return;
+  }
   const movement = event.shiftKey ? 0.05 : 0.01;
   const node = model.nodes[selectedNodeId];
   if (!node || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
@@ -1503,19 +1971,25 @@ $("graphPatch").addEventListener("change", (event) => {
   }
   loadGraphPatch(event.currentTarget.value);
 });
+for (const name of Object.keys(GRAPH_DELAY_PATCHES)) {
+  $(`graphPatch-${name}`)?.addEventListener("click", () => loadGraphPatch(name));
+}
 $("topology").addEventListener("change", (event) => {
   state.topology = event.currentTarget.value;
   state.graphPatch = "custom";
+  resetEdgeSwitchesForNextGraph();
   scheduleGraphRebuild(120);
   updateUi();
 });
 $("newGraphButton").addEventListener("click", () => {
   state.seed = state.seed >= 99 ? 1 : state.seed + 1;
   state.graphPatch = "custom";
+  resetEdgeSwitchesForNextGraph();
   $("seed").value = String(state.seed);
   scheduleGraphRebuild(120);
   updateUi();
 });
+$("openAllSwitchesButton").addEventListener("click", openAllEdgeSwitches);
 $("nodeMotionPlayButton").addEventListener("click", () => {
   if (state.nodeMoving) {
     bakeNodeMotion();
@@ -1572,6 +2046,16 @@ $("resetViewButton").addEventListener("click", () => {
   applyAudioParameters();
   updateUi();
   $("liveStatus").textContent = "Node motion stopped and microphone input position reset.";
+});
+$("graphResetButton").addEventListener("click", () => {
+  const liveState = { mic: state.mic, starting: state.starting };
+  Object.assign(state, INITIAL_STATE, liveState);
+  resetEdgeSwitchesForNextGraph();
+  selectedNodeId = 0;
+  syncControlsFromState();
+  scheduleGraphRebuild(0);
+  updateUi();
+  $("liveStatus").textContent = "Graph-delay parameters reset in place; microphone remains connected.";
 });
 bindRange("level", "level");
 bindRange("inputTrim", "inputTrim");

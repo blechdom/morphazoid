@@ -1322,11 +1322,7 @@ function amplitudeTimingReference(path) {
   const intervalFractions = approximate && edgeFractions.length
     ? [1 / edgeFractions.length]
     : edgeFractions;
-  const travelMultiplier = state.playMethod === "trace"
-    && !path.closed
-    && state.motionMode === "loop"
-    ? 2
-    : 1;
+  const travelMultiplier = 1;
   const timedFractions = state.cornerSwell
     ? intervalFractions.map((fraction) => fraction * 0.5)
     : intervalFractions;
@@ -1896,10 +1892,7 @@ function phaseForHead(position, headIndex, headCount, method = "trace") {
 }
 
 function traceContact(path, phase) {
-  if (path.closed) return pointAtPath(path, phase);
-  return state.motionMode === "pingpong"
-    ? pointAtPath(path, phase)
-    : pointAtPath(path, phase * 2, { pingPong: true });
+  return pointAtPath(path, phase);
 }
 
 function scanAxisForHead(headIndex) {
@@ -2370,9 +2363,7 @@ function pointContourDirection(contact, path) {
   if (state.motionMode === "pingpong") {
     return pingPongMotionDirection(contact.headTravel, 1, relativeDirection);
   }
-  return path.closed
-    ? state.traversalDirection * relativeDirection
-    : pingPongMotionDirection(contact.headTravel, 2, relativeDirection);
+  return state.traversalDirection * relativeDirection;
 }
 
 function contactContourDirection(contact, path) {
@@ -2578,7 +2569,7 @@ function makeCornerSnapshot(
       turn: path.cornerTurns[vertexIndex] ?? 0,
       pathPhase: path.closed
         ? path.vertexDistances[vertexIndex] / Math.max(path.totalLength, 1e-9)
-        : vertexIndex === 0 ? 0 : state.motionMode === "pingpong" ? 1 : 0.5,
+        : vertexIndex === 0 ? 0 : 1,
     };
   });
   const heads = Array.from({ length: count }, (_, headIndex) => ({

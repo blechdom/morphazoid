@@ -1035,14 +1035,27 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("closedShapeControl").hidden, true);
   assert.equal(elements.get("curvatureControl").hidden, false);
   listeners.get("traceMode:click")();
+  listeners.get("loopMotion:click")();
+  elements.get("position").value = "0.25";
+  listeners.get("position:input")();
   queuedFrame(3_011);
-  assert.match(elements.get("amplitudeNodeReadout").textContent, /^A @ 7\.5 ms/);
-  listeners.get("pingPongMotion:click")();
+  assert.equal(elements.get("markPhaseOut").textContent, "0.250");
+  assert.match(elements.get("amplitudeNodeReadout").textContent, /^A @ 15 ms/);
+  elements.get("position").value = "0.75";
+  listeners.get("position:input")();
   queuedFrame(3_012);
+  assert.equal(
+    elements.get("markPhaseOut").textContent,
+    "0.750",
+    "looping Point playheads should continue left-to-right before wrapping to the start",
+  );
+  listeners.get("pingPongMotion:click")();
+  queuedFrame(3_013);
+  assert.equal(elements.get("markPhaseOut").textContent, "0.750");
   assert.match(elements.get("amplitudeNodeReadout").textContent, /^A @ 15 ms/);
   listeners.get("loopMotion:click")();
   listeners.get("scanMode:click")();
-  queuedFrame(3_013);
+  queuedFrame(3_014);
   elements.get("sides").value = "3";
   listeners.get("sides:input")();
   assert.equal(elements.get("sidesOut").textContent, "3 · polygon");

@@ -1,107 +1,87 @@
 import {
-  VoicePool,
-  clamp,
-  cornerAttackSeconds,
-  cornerDecaySeconds,
-  normalizeStrikeGains,
-  pitch01ToFrequency,
-  synthParametersForMode,
-} from "./src/audio.js";
-import {
   TILING_TYPES,
   buildPrototile,
   constrainPrototileEdit,
   edgeShapeName,
-  evenlySelectContacts,
   parametersForDraggedVertex,
   tilingInfo,
   tilingParameterRange,
 } from "./src/lattice.js";
 import {
-  angleShapePitchForSpiralContact,
   buildSpiralTessellation,
   contactsForSpiralReader,
   createSpiralReader,
   phaseForSpiralPoint,
-  scaleRateForSpiralRadius,
-  shapePitchForSpiralContact,
   spiralLoopLogOffset,
 } from "./src/spiral.js";
+import {
+  cloneDefaultFmDrumVoices,
+  FM_DRUM_STORAGE_KEY,
+  FmDrumAudio,
+  sanitizeFmDrumVoice,
+} from "./src/fm-drums.js";
+import {
+  SPIRAL_DRUM_MAPPING_MODES,
+  mappedSpiralDrumVoice,
+  normalizedSpiralContact,
+  spiralDrumVoiceIndex,
+} from "./src/spiral-drums.js";
 import { EdgeShape } from "./vendor/tactile/tactile.js";
-import { createAmplitudeControl } from "./src/amplitude-control.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
-const MAX_VOICES = 16;
 const MAX_PARAMETERS = 6;
 const MAX_EDGE_CLASSES = 5;
 const DEFAULT_TILING_TYPE = 20;
-const CONTACT_REENTRY_GRACE_SECONDS = 0.08;
 const GEOMETRY_EDIT_SETTLE_MS = 180;
-const OPEN_ENVELOPE_GAIN = 0.00001;
 const TILE_COLORS = [
   "rgba(95,232,196,.050)",
   "rgba(232,196,107,.050)",
   "rgba(125,180,255,.045)",
   "rgba(255,130,111,.042)",
 ];
-const SOUND_LABELS = {
-  sine: "Sine",
-  percussion: "Percussion",
-  shepard: "Shepard",
-  fm: "FM",
-  pm: "PM",
-};
-
-const defaultInfo = tilingInfo(DEFAULT_TILING_TYPE);
-const state = {
+const defaults = Object.freeze({
   tilingType: DEFAULT_TILING_TYPE,
-  parameters: [...defaultInfo.defaultParameters],
-  edgeCurves: defaultInfo.edgeShapes.map(() => 0),
   spiralA: 1,
   spiralB: 5,
   patternScale: 0,
   patternRotation: 0,
   timePath: "radius",
   position: 0,
-  continuousPosition: 0,
   loopPhase: 0,
-  continuousLoopPhase: 0,
-  speed: 0.12,
+  speed: .12,
   direction: 1,
-  loopSpeed: 0.05,
+  loopSpeed: .05,
   loopDirection: 1,
   readerTurns: 2,
+  sizeCoupling: false,
+  mappingMode: "radius-angle",
+  pitchDepth: 12,
+  characterDepth: .7,
+  strikeLimit: 6,
+  output: .65,
+});
+const defaultInfo = tilingInfo(DEFAULT_TILING_TYPE);
+const state = {
+  ...defaults,
+  parameters: [...defaultInfo.defaultParameters],
+  edgeCurves: defaultInfo.edgeShapes.map(() => 0),
+  continuousPosition: defaults.position,
+  continuousLoopPhase: defaults.loopPhase,
   playing: false,
   loopPlaying: false,
-  audio: false,
-  level: 0.65,
-  soundMode: "sine",
-  baseFrequency: 110,
-  pitchRange: 3.5,
-  contactLevel: 0.38,
-  percussionAttack: 3,
-  percussionDecay: 180,
-  voiceCap: 8,
-  stereoWidth: 0.8,
-  pitchSource: "angleShape",
-  sizeCoupling: false,
+  audioOn: false,
 };
 
+const audio = new FmDrumAudio(globalThis);
+const voices = loadDrumBank();
 const canvas = $("stage");
 const context = canvas.getContext("2d");
 const stageWrap = $("stageWrap");
 const tileEditorCanvas = $("tileEditorCanvas");
 const tileEditorContext = tileEditorCanvas.getContext("2d");
-const pool = new VoicePool(MAX_VOICES);
-const amplitudeControl = createAmplitudeControl($("amplitudeControl"), {
-  timing: "milliseconds",
-  onChange() {
-    suppressContactOnsets();
-    scheduleFrame();
-  },
-});
-
+const lastStrikeTimes = new Map();
+const movableVertexCache = new Map();
 let cssWidth = 1;
 let cssHeight = 1;
 let pixelRatio = 1;
@@ -114,16 +94,21 @@ let tileEditorView = null;
 let pointerDrag = null;
 let scheduledFrame = 0;
 let lastFrameTime = performance.now();
-let audioChanging = false;
-const contactOnsets = new Map();
-const contactLastSeen = new Map();
-const movableVertexCache = new Map();
-let suppressContactOnsetsUntil = 0;
-let suppressContactOnsetFrames = 0;
-let geometryWasEditing = false;
+let previousContactKeys = new Set();
+let suppressStrikesUntil = 0;
+let suppressStrikeFrames = 2;
+
+function clamp(value, minimum = 0, maximum = 1) {
+  const numeric = Number(value);
+  return Math.min(maximum, Math.max(minimum, Number.isFinite(numeric) ? numeric : 0));
+}
 
 function wrap01(value) {
   return ((value % 1) + 1) % 1;
+}
+
+function plural(count, singular, pluralForm = `${singular}s`) {
+  return count === 1 ? singular : pluralForm;
 }
 
 function setPressed(element, pressed) {
@@ -131,53 +116,73 @@ function setPressed(element, pressed) {
 }
 
 function announce(message) {
-  $("liveStatus").textContent = message;
+  $("liveStatus").textContent = "";
+  requestAnimationFrame(() => {
+    $("liveStatus").textContent = message;
+  });
+}
+
+function showError(error) {
+  $("audioError").textContent = error instanceof Error ? error.message : String(error);
+  $("audioError").hidden = false;
 }
 
 function scheduleFrame() {
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
 
-function plural(count, singular, pluralForm = `${singular}s`) {
-  return count === 1 ? singular : pluralForm;
-}
-
-function resetContactTracking() {
-  contactOnsets.clear();
-  contactLastSeen.clear();
-}
-
-function suppressContactOnsets(duration = GEOMETRY_EDIT_SETTLE_MS) {
+function suppressContactStrikes(duration = GEOMETRY_EDIT_SETTLE_MS) {
   const interactionTime = Math.max(performance.now(), lastFrameTime);
-  suppressContactOnsetsUntil = Math.max(
-    suppressContactOnsetsUntil,
-    interactionTime + duration,
-  );
-  suppressContactOnsetFrames = Math.max(suppressContactOnsetFrames, 2);
+  suppressStrikesUntil = Math.max(suppressStrikesUntil, interactionTime + duration);
+  suppressStrikeFrames = Math.max(suppressStrikeFrames, 2);
 }
 
-function clearContactOnsetSuppression() {
-  suppressContactOnsetsUntil = 0;
-  suppressContactOnsetFrames = 0;
-  geometryWasEditing = false;
-}
-
-function releaseSettledContactOnsets() {
-  const openVoiceKeys = new Set(pool.pendingVoices
-    .filter((voice) => voice.gain > OPEN_ENVELOPE_GAIN)
-    .map((voice) => voice.key));
-  for (const key of contactOnsets.keys()) {
-    if (openVoiceKeys.has(`spiral:${key}`)) continue;
-    contactOnsets.delete(key);
-    contactLastSeen.delete(key);
-  }
+function clearStrikeSuppression() {
+  suppressStrikesUntil = 0;
+  suppressStrikeFrames = 0;
 }
 
 function invalidateGeometry() {
   geometryDirty = true;
   tileEditorDirty = true;
-  suppressContactOnsets();
+  suppressContactStrikes();
   scheduleFrame();
+}
+
+function loadDrumBank() {
+  const fallback = cloneDefaultFmDrumVoices();
+  try {
+    const stored = JSON.parse(localStorage.getItem(FM_DRUM_STORAGE_KEY));
+    if (!Array.isArray(stored) || stored.length !== fallback.length) return fallback;
+    return fallback.map((voice) => {
+      const saved = stored.find((candidate) => candidate?.id === voice.id);
+      return sanitizeFmDrumVoice({ ...voice, ...saved, id: voice.id, key: voice.key });
+    });
+  } catch {
+    return fallback;
+  }
+}
+
+function setAudioState(enabled) {
+  state.audioOn = Boolean(enabled);
+  setPressed($("audioButton"), state.audioOn);
+  $("audioState").textContent = state.audioOn ? "on" : "off";
+  audio.setOutput(state.audioOn ? state.output : 0);
+}
+
+async function enableAudio() {
+  try {
+    $("audioError").hidden = true;
+    await audio.start();
+    setAudioState(true);
+    previousContactKeys.clear();
+    lastStrikeTimes.clear();
+    scheduleFrame();
+    return true;
+  } catch (error) {
+    showError(error);
+    return false;
+  }
 }
 
 function bindRange(id, key, formatter, afterChange) {
@@ -199,20 +204,22 @@ function bindRange(id, key, formatter, afterChange) {
 
 bindRange("speed", "speed", (value) => `${value.toFixed(3)} cyc/s`);
 bindRange("loopSpeed", "loopSpeed", (value) => `${value.toFixed(3)} cyc/s`);
-bindRange("readerTurns", "readerTurns", (value) => `${value.toFixed(2)} turns`, suppressContactOnsets);
-bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
-bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
-bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
-bindRange("contactLevel", "contactLevel", (value) => `${Math.round(value * 100)}%`);
-bindRange("percussionAttack", "percussionAttack", (value) => `${Number(value).toFixed(value % 1 ? 1 : 0)} ms`);
-bindRange("percussionDecay", "percussionDecay", (value) => `${Math.round(value)} ms`);
 bindRange(
-  "voiceCap",
-  "voiceCap",
-  (value) => `${Math.round(value)} ${plural(Math.round(value), "voice")}`,
-  suppressContactOnsets,
+  "readerTurns",
+  "readerTurns",
+  (value) => `${value.toFixed(2)} turns`,
+  suppressContactStrikes,
 );
-bindRange("stereoWidth", "stereoWidth", (value) => `${Math.round(value * 100)}%`);
+bindRange("output", "output", (value) => `${Math.round(value * 100)}%`, () => {
+  if (state.audioOn) audio.setOutput(state.output);
+});
+bindRange("pitchDepth", "pitchDepth", (value) => `±${Math.round(value)} st`);
+bindRange(
+  "characterDepth",
+  "characterDepth",
+  (value) => `${Math.round(value * 100)}%`,
+);
+bindRange("strikeLimit", "strikeLimit", (value) => String(Math.round(value)));
 bindRange("spiralA", "spiralA", (value) => String(Math.round(value)), () => {
   state.spiralA = Math.round(state.spiralA);
   if (state.spiralA === 0 && state.spiralB === 0) {
@@ -233,33 +240,37 @@ bindRange("spiralB", "spiralB", (value) => String(Math.round(value)), () => {
   invalidateGeometry();
   updateSummaries();
 });
-bindRange("patternScale", "patternScale", (value) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}`, invalidateGeometry);
-bindRange("patternRotation", "patternRotation", (value) => `${Math.round(value)}°`, invalidateGeometry);
+bindRange(
+  "patternScale",
+  "patternScale",
+  (value) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}`,
+  invalidateGeometry,
+);
+bindRange(
+  "patternRotation",
+  "patternRotation",
+  (value) => `${Math.round(value)}°`,
+  invalidateGeometry,
+);
 
 function setLoopPhase(value) {
-  state.loopPhase = clamp(Number(value) || 0, 0, 1);
+  state.loopPhase = clamp(value);
   state.continuousLoopPhase = state.loopPhase;
   $("loopPhase").value = String(state.loopPhase);
   paintLoopPhase();
   geometryDirty = true;
-  suppressContactOnsets();
+  suppressContactStrikes();
   scheduleFrame();
 }
 
-$("loopPhase").addEventListener("input", () => setLoopPhase($("loopPhase").value));
-
 function paintLoopPhase() {
   const offset = spiralLoopLogOffset(state.loopPhase);
-  const phaseDirection = state.loopPhase < 0.5 ? 1 : -1;
+  const phaseDirection = state.loopPhase < .5 ? 1 : -1;
   const zoomingIn = phaseDirection * state.loopDirection > 0;
   $("loopPhaseOut").textContent = `${offset.toFixed(2)} · ${zoomingIn ? "IN" : "OUT"}`;
 }
 
-function formatBend(value, rigid = false) {
-  if (rigid) return "fixed straight";
-  if (Math.abs(value) < 0.005) return "straight";
-  return `${Math.round(Math.abs(value) * 100)}% ${value < 0 ? "reverse" : "forward"}`;
-}
+$("loopPhase").addEventListener("input", () => setLoopPhase($("loopPhase").value));
 
 const tilingSelect = $("tilingType");
 tilingSelect.innerHTML = [...new Set(TILING_TYPES.map((info) => info.family))]
@@ -272,6 +283,12 @@ tilingSelect.innerHTML = [...new Set(TILING_TYPES.map((info) => info.family))]
   })
   .join("");
 tilingSelect.value = String(state.tilingType);
+
+function formatBend(value, rigid = false) {
+  if (rigid) return "fixed straight";
+  if (Math.abs(value) < .005) return "straight";
+  return `${Math.round(Math.abs(value) * 100)}% ${value < 0 ? "reverse" : "forward"}`;
+}
 
 function paintParameterControl(index) {
   const value = state.parameters[index] ?? 0;
@@ -289,24 +306,34 @@ function paintEdgeControl(index) {
 
 function configureTilingControls() {
   const info = tilingInfo(state.tilingType);
-  $("parameterCount").textContent = `${info.defaultParameters.length} ${plural(info.defaultParameters.length, "parameter")} · guarded`;
+  $("parameterCount").textContent = [
+    info.defaultParameters.length,
+    plural(info.defaultParameters.length, "parameter"),
+    "· guarded",
+  ].join(" ");
   for (let index = 0; index < MAX_PARAMETERS; index += 1) {
     const visible = index < info.defaultParameters.length;
     const wrapper = $(`parameterControl${index}`);
+    const input = $(`parameter${index}`);
     wrapper.hidden = !visible;
     if (!visible) continue;
     const range = tilingParameterRange(info.type, index);
-    const input = $(`parameter${index}`);
     input.min = String(range.min);
     input.max = String(range.max);
-    $("parameterLabel" + index).textContent = `Shape ${index + 1}`;
+    input.step = ".005";
+    $(`parameterLabel${index}`).textContent = `Shape ${index + 1}`;
     paintParameterControl(index);
   }
   const bendableCount = info.edgeShapes.filter((shape) => shape !== EdgeShape.I).length;
-  $("edgeCount").textContent = `${bendableCount} bendable ${plural(bendableCount, "class", "classes")}`;
+  $("edgeCount").textContent = `${bendableCount} bendable ${plural(
+    bendableCount,
+    "class",
+    "classes",
+  )}`;
   for (let index = 0; index < MAX_EDGE_CLASSES; index += 1) {
     const exists = index < info.edgeShapes.length;
     const wrapper = $(`edgeControl${index}`);
+    const input = $(`edgeCurve${index}`);
     if (!exists) {
       wrapper.hidden = true;
       continue;
@@ -314,14 +341,19 @@ function configureTilingControls() {
     const shape = info.edgeShapes[index];
     const rigid = shape === EdgeShape.I;
     wrapper.hidden = rigid;
-    $(`edgeCurve${index}`).disabled = rigid;
-    $(`edgeLabel${index}`).textContent = `Edge ${String.fromCharCode(65 + index)} · ${edgeShapeName(shape)}`;
+    input.disabled = rigid;
+    $(`edgeLabel${index}`).textContent = [
+      `Edge ${String.fromCharCode(65 + index)}`,
+      `· ${edgeShapeName(shape)}${rigid ? " rigid" : ""}`,
+    ].join(" ");
     paintEdgeControl(index);
   }
   const editable = info.defaultParameters.length > 0;
   $("resetTileVertices").disabled = !editable;
   tileEditorCanvas.setAttribute("aria-disabled", String(!editable));
-  $("tileEditorLegend").textContent = editable ? "movable corner" : "symmetry-locked corners";
+  $("tileEditorLegend").textContent = editable
+    ? "movable corner"
+    : "symmetry-locked corners";
   tileEditorDirty = true;
 }
 
@@ -337,13 +369,13 @@ function movableVerticesFor(model) {
       type: model.type,
       parameters: model.parameters,
       vertexIndex,
-      target: { x: vertex.x + 0.025, y: vertex.y },
+      target: { x: vertex.x + .025, y: vertex.y },
     });
     const vertical = parametersForDraggedVertex({
       type: model.type,
       parameters: model.parameters,
       vertexIndex,
-      target: { x: vertex.x, y: vertex.y + 0.025 },
+      target: { x: vertex.x, y: vertex.y + .025 },
     });
     return parametersChanged(model.parameters, horizontal)
       || parametersChanged(model.parameters, vertical);
@@ -397,8 +429,10 @@ function drawTileEditor(lockedView = tileEditorDrag?.view) {
   const width = Math.round(clamp(bounds.width || 320, 220, 480));
   const height = Math.round(clamp(bounds.height || 220, 160, 330));
   const ratio = Math.min(window.devicePixelRatio || 1, 2.5);
-  tileEditorCanvas.width = Math.round(width * ratio);
-  tileEditorCanvas.height = Math.round(height * ratio);
+  const pixelWidth = Math.round(width * ratio);
+  const pixelHeight = Math.round(height * ratio);
+  if (tileEditorCanvas.width !== pixelWidth) tileEditorCanvas.width = pixelWidth;
+  if (tileEditorCanvas.height !== pixelHeight) tileEditorCanvas.height = pixelHeight;
   tileEditorContext.setTransform(ratio, 0, 0, ratio, 0, 0);
   tileEditorContext.clearRect(0, 0, width, height);
   const view = lockedView && lockedView.width === width && lockedView.height === height
@@ -411,8 +445,8 @@ function drawTileEditor(lockedView = tileEditorDrag?.view) {
         y: (model.bounds.minY + model.bounds.maxY) / 2,
       },
       scale: Math.min(
-        (width - 54) / Math.max(model.bounds.maxX - model.bounds.minX, 0.2),
-        (height - 54) / Math.max(model.bounds.maxY - model.bounds.minY, 0.2),
+        (width - 54) / Math.max(model.bounds.maxX - model.bounds.minX, .2),
+        (height - 54) / Math.max(model.bounds.maxY - model.bounds.minY, .2),
       ),
     };
   traceEditorPoints(model.outline, view, true);
@@ -422,15 +456,22 @@ function drawTileEditor(lockedView = tileEditorDrag?.view) {
   tileEditorContext.lineWidth = 1.2;
   tileEditorContext.lineJoin = "round";
   tileEditorContext.stroke();
+  traceEditorPoints(model.vertices, view, true);
+  tileEditorContext.strokeStyle = "rgba(255,130,111,.24)";
+  tileEditorContext.lineWidth = .8;
+  tileEditorContext.stroke();
   const movable = movableVerticesFor(model);
   model.vertices.forEach((vertex, index) => {
     const point = editorScreenPoint(vertex, view);
     tileEditorContext.beginPath();
     tileEditorContext.arc(point.x, point.y, movable[index] ? 6 : 3.5, 0, TAU);
-    tileEditorContext.fillStyle = movable[index] ? "#ff826f" : "rgba(214,232,226,.38)";
+    tileEditorContext.fillStyle = movable[index]
+      ? "#ff826f"
+      : "rgba(214,232,226,.38)";
     tileEditorContext.fill();
     if (movable[index]) {
       tileEditorContext.strokeStyle = "#fff3d6";
+      tileEditorContext.lineWidth = 1;
       tileEditorContext.stroke();
     }
   });
@@ -462,7 +503,12 @@ tileEditorCanvas.addEventListener("pointerdown", (event) => {
       nearestDistance = distance;
     }
   });
-  if (nearest < 0) return;
+  if (nearest < 0) {
+    announce(tileEditorView.model.parameters.length
+      ? "Choose a coral movable corner."
+      : "This tile's corners are fixed by symmetry.");
+    return;
+  }
   tileEditorDrag = {
     vertexIndex: nearest,
     constrained: false,
@@ -475,6 +521,7 @@ tileEditorCanvas.addEventListener("pointerdown", (event) => {
   };
   tileEditorCanvas.style.cursor = "grabbing";
   tileEditorCanvas.setPointerCapture(event.pointerId);
+  tileEditorCanvas.focus();
   event.preventDefault?.();
 });
 
@@ -503,7 +550,9 @@ function finishTileEditorDrag() {
   tileEditorCanvas.style.cursor = "";
   tileEditorDirty = true;
   drawTileEditor();
-  announce(constrained ? "Overlap guard limited the vertex edit." : "Spiral tile updated.");
+  announce(constrained
+    ? "Overlap guard limited the vertex edit."
+    : "Spiral tile updated.");
 }
 
 tileEditorCanvas.addEventListener("pointerup", finishTileEditorDrag);
@@ -517,6 +566,7 @@ for (let index = 0; index < MAX_PARAMETERS; index += 1) {
     state.parameters = guarded.parameters;
     state.edgeCurves = guarded.edgeCurves;
     state.parameters.forEach((_, controlIndex) => paintParameterControl(controlIndex));
+    if (guarded.constrained) announce("Overlap guard limited the shape parameter.");
     invalidateGeometry();
   });
 }
@@ -531,6 +581,7 @@ for (let index = 0; index < MAX_EDGE_CLASSES; index += 1) {
     state.parameters = guarded.parameters;
     state.edgeCurves = guarded.edgeCurves;
     state.edgeCurves.forEach((_, controlIndex) => paintEdgeControl(controlIndex));
+    if (guarded.constrained) announce("Overlap guard limited the edge bend.");
     invalidateGeometry();
   });
 }
@@ -547,24 +598,36 @@ function setTilingType(type, shouldAnnounce = true) {
   if (shouldAnnounce) announce(`${info.label} selected with straight matching edges.`);
 }
 
-tilingSelect.addEventListener("change", () => setTilingType(Number(tilingSelect.value)));
+tilingSelect.addEventListener("change", () => {
+  setTilingType(Number(tilingSelect.value));
+});
 
 $("resetTileVertices").addEventListener("click", () => {
   state.parameters = [...tilingInfo(state.tilingType).defaultParameters];
   state.parameters.forEach((_, index) => paintParameterControl(index));
   invalidateGeometry();
+  announce("Tile vertices reset to this family's defaults.");
 });
 
 $("straightenEdges").addEventListener("click", () => {
   state.edgeCurves = tilingInfo(state.tilingType).edgeShapes.map(() => 0);
   state.edgeCurves.forEach((_, index) => paintEdgeControl(index));
   invalidateGeometry();
+  announce("All bendable edges straightened.");
 });
 
-$("resetForm").addEventListener("click", () => setTilingType(DEFAULT_TILING_TYPE, false));
+$("resetForm").addEventListener("click", () => {
+  setTilingType(DEFAULT_TILING_TYPE, false);
+  announce("Spiral tile reset to IH20.");
+});
 
 $("resetWinding").addEventListener("click", () => {
-  Object.assign(state, { spiralA: 1, spiralB: 5, patternScale: 0, patternRotation: 0 });
+  Object.assign(state, {
+    spiralA: defaults.spiralA,
+    spiralB: defaults.spiralB,
+    patternScale: defaults.patternScale,
+    patternRotation: defaults.patternRotation,
+  });
   for (const key of ["spiralA", "spiralB", "patternScale", "patternRotation"]) {
     $(key).value = String(state[key]);
   }
@@ -574,15 +637,14 @@ $("resetWinding").addEventListener("click", () => {
   $("patternRotationOut").textContent = "0°";
   updateSummaries();
   invalidateGeometry();
+  announce("Spiral winding reset.");
 });
 
 function directionLabel() {
-  if (state.timePath === "radius") return state.direction > 0 ? "Out → In" : "In → Out";
+  if (state.timePath === "radius") {
+    return state.direction > 0 ? "Out → In" : "In → Out";
+  }
   return state.direction > 0 ? "Clockwise" : "Counterclockwise";
-}
-
-function loopDirectionLabel() {
-  return "Reverse zoom";
 }
 
 function coordinateLabel() {
@@ -591,28 +653,45 @@ function coordinateLabel() {
   return "LOG R + THETA";
 }
 
+function updateSummaries() {
+  const timeName = state.timePath[0].toUpperCase() + state.timePath.slice(1);
+  const active = [
+    state.playing ? "time" : "",
+    state.loopPlaying ? "loop" : "",
+  ].filter(Boolean).join(" + ");
+  $("playSummary").textContent = `${timeName} · ${active || "paused"}`;
+  $("formSummary").textContent = tilingInfo(state.tilingType).label;
+  $("windingSummary").textContent = `A${state.spiralA} · B${state.spiralB}`;
+  const mode = SPIRAL_DRUM_MAPPING_MODES.find(({ id }) => id === state.mappingMode);
+  $("mappingSummary").textContent = mode?.label.toLowerCase() ?? "custom";
+  $("mappingDescription").textContent = mode?.description ?? "";
+}
+
 function updateTimeControls() {
   for (const button of $("timePath").querySelectorAll("button")) {
     setPressed(button, button.dataset.value === state.timePath);
   }
   $("readerTurnsControl").hidden = state.timePath !== "spiral";
   $("timeDirection").textContent = directionLabel();
-  $("loopDirection").textContent = loopDirectionLabel();
+  $("loopDirection").textContent = "Reverse zoom";
   $("coordinateReadout").textContent = `${coordinateLabel()} · ${directionLabel().toUpperCase()}`;
   setPressed($("sizeCoupling"), state.sizeCoupling);
-  $("sizeCoupling").textContent = `Size affects time + pitch · ${state.sizeCoupling ? "on" : "off"}`;
+  $("sizeCoupling").textContent = [
+    "Size affects reader time",
+    `· ${state.sizeCoupling ? "on" : "off"}`,
+  ].join(" ");
   $("sizeCoupling").setAttribute(
     "aria-label",
-    `Size affects time and pitch ${state.sizeCoupling ? "on" : "off"}`,
+    `Size affects reader time ${state.sizeCoupling ? "on" : "off"}`,
   );
-  updateMappingSummary();
   updateSummaries();
 }
 
 for (const button of $("timePath").querySelectorAll("button")) {
   button.addEventListener("click", () => {
     state.timePath = button.dataset.value;
-    resetContactTracking();
+    previousContactKeys.clear();
+    suppressContactStrikes();
     updateTimeControls();
     announce(`${button.textContent} time selected.`);
     scheduleFrame();
@@ -632,28 +711,16 @@ $("loopDirection").addEventListener("click", () => {
   announce("Zoom direction reversed.");
 });
 
-function setPosition(value) {
-  state.position = clamp(Number(value) || 0, 0, 1);
+function setPosition(value, suppress = true) {
+  state.position = clamp(value);
   state.continuousPosition = state.position;
   $("position").value = String(state.position);
   $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
-  suppressContactOnsets();
+  if (suppress) suppressContactStrikes();
   scheduleFrame();
 }
 
 $("position").addEventListener("input", () => setPosition($("position").value));
-
-function updateSummaries() {
-  const timeName = state.timePath[0].toUpperCase() + state.timePath.slice(1);
-  const active = [
-    state.playing ? "time" : "",
-    state.loopPlaying ? "loop" : "",
-  ].filter(Boolean).join(" + ");
-  $("playSummary").textContent = `${timeName} · ${active || "paused"}`;
-  $("formSummary").textContent = tilingInfo(state.tilingType).label;
-  $("windingSummary").textContent = `A${state.spiralA} · B${state.spiralB}`;
-  $("soundSummary").textContent = SOUND_LABELS[state.soundMode];
-}
 
 function paintPlayback() {
   setPressed($("playButton"), state.playing);
@@ -672,9 +739,8 @@ function paintPlayback() {
 function setPlaying(playing) {
   state.playing = Boolean(playing);
   lastFrameTime = performance.now();
-  resetContactTracking();
-  clearContactOnsetSuppression();
-  if (!state.playing && !state.loopPlaying) pool.setVoices([]);
+  previousContactKeys.clear();
+  clearStrikeSuppression();
   paintPlayback();
   scheduleFrame();
 }
@@ -682,90 +748,30 @@ function setPlaying(playing) {
 function setLoopPlaying(playing) {
   state.loopPlaying = Boolean(playing);
   lastFrameTime = performance.now();
-  resetContactTracking();
-  clearContactOnsetSuppression();
-  if (!state.playing && !state.loopPlaying) pool.setVoices([]);
+  previousContactKeys.clear();
+  clearStrikeSuppression();
   paintPlayback();
   scheduleFrame();
 }
 
-function paintAudio() {
-  setPressed($("audioButton"), state.audio);
-  $("audioState").textContent = state.audio ? "on" : "off";
-}
-
-async function enableAudio() {
-  if (state.audio || audioChanging) return;
-  audioChanging = true;
-  $("audioButton").disabled = true;
-  paintAudio();
-  $("audioError").hidden = true;
-  try {
-    await pool.enable();
-    pool.setLevel(state.level);
-    pool.setVoices([]);
-    state.audio = true;
-    paintAudio();
-  } catch (error) {
-    $("audioError").textContent = error instanceof Error ? error.message : "Web Audio could not start.";
-    $("audioError").hidden = false;
-    paintAudio();
-  } finally {
-    audioChanging = false;
-    $("audioButton").disabled = false;
-  }
-}
-
-function disableAudio() {
-  state.audio = false;
-  pool.disable();
-  paintAudio();
-}
-
 $("audioButton").addEventListener("click", async () => {
-  if (state.audio) disableAudio();
-  else await enableAudio();
+  if (state.audioOn) {
+    setAudioState(false);
+    announce("Spiral drums audio off.");
+  } else if (await enableAudio()) {
+    announce("Spiral drums audio on.");
+  }
   scheduleFrame();
 });
 
 $("playButton").addEventListener("click", () => {
-  if (state.playing) setPlaying(false);
-  else {
-    setPlaying(true);
-    if (!state.audio) void enableAudio();
-  }
+  setPlaying(!state.playing);
+  if (state.playing && !state.audioOn) void enableAudio();
 });
 
 $("loopPlayButton").addEventListener("click", () => {
-  if (state.loopPlaying) setLoopPlaying(false);
-  else {
-    setLoopPlaying(true);
-    if (!state.audio) void enableAudio();
-  }
-});
-
-$("soundMode").addEventListener("change", () => {
-  state.soundMode = $("soundMode").value;
-  amplitudeControl.setVisible(state.soundMode !== "percussion");
-  $("percussionArticulation").hidden = state.soundMode !== "percussion";
-  pool.silence();
-  resetContactTracking();
-  clearContactOnsetSuppression();
-  updateSummaries();
-  scheduleFrame();
-});
-
-function updateMappingSummary() {
-  const label = $("pitchSource").selectedOptions?.[0]?.textContent ?? state.pitchSource;
-  $("mappingSummary").textContent = state.sizeCoupling
-    ? `${label} + size → pitch/time`
-    : `${label} → pitch`;
-}
-
-$("pitchSource").addEventListener("change", () => {
-  state.pitchSource = $("pitchSource").value;
-  updateMappingSummary();
-  scheduleFrame();
+  setLoopPlaying(!state.loopPlaying);
+  if (state.loopPlaying && !state.audioOn) void enableAudio();
 });
 
 $("sizeCoupling").addEventListener("click", () => {
@@ -786,12 +792,43 @@ $("sizeCoupling").addEventListener("click", () => {
       sizeCoupled: state.sizeCoupling,
     }));
   }
-  pool.silence();
-  resetContactTracking();
-  clearContactOnsetSuppression();
+  previousContactKeys.clear();
+  suppressContactStrikes();
   updateTimeControls();
   scheduleFrame();
-  announce(`Shape size ${state.sizeCoupling ? "now" : "no longer"} affects time and pitch.`);
+  announce(`Shape size ${state.sizeCoupling ? "now" : "no longer"} affects reader time.`);
+});
+
+function populateMappingModes() {
+  $("mappingMode").innerHTML = SPIRAL_DRUM_MAPPING_MODES
+    .map((mode) => `<option value="${mode.id}">${mode.label}</option>`)
+    .join("");
+  $("mappingMode").value = state.mappingMode;
+}
+
+function renderDrumMap() {
+  $("drumMap").innerHTML = voices.map((voice, index) => [
+    `<span class="spiral-drum-cell" data-voice-index="${index}"`,
+    ` style="--voice-color:${voice.color}">`,
+    `<b>${voice.name}</b><small>${voice.key.toUpperCase()}</small></span>`,
+  ].join("")).join("");
+}
+
+function flashVoice(index) {
+  const cell = $("drumMap").querySelector(`[data-voice-index="${index}"]`);
+  if (!cell) return;
+  cell.classList.add("is-active");
+  clearTimeout(Number(cell.dataset.clearTimer) || 0);
+  const timer = setTimeout(() => cell.classList.remove("is-active"), 150);
+  cell.dataset.clearTimer = String(timer);
+}
+
+$("mappingMode").addEventListener("change", () => {
+  state.mappingMode = $("mappingMode").value;
+  previousContactKeys.clear();
+  suppressContactStrikes(80);
+  updateSummaries();
+  scheduleFrame();
 });
 
 function resizeCanvas() {
@@ -801,12 +838,12 @@ function resizeCanvas() {
   pixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
   canvas.width = Math.round(cssWidth * pixelRatio);
   canvas.height = Math.round(cssHeight * pixelRatio);
-  worldScale = Math.min(cssWidth, cssHeight) * 0.455;
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
+  worldScale = Math.min(cssWidth, cssHeight) * .455;
+  tileEditorDirty = true;
   scheduleFrame();
 }
-
-new ResizeObserver(resizeCanvas).observe(stageWrap);
-resizeCanvas();
 
 function rebuildGeometry() {
   tessellation = buildSpiralTessellation({
@@ -843,7 +880,15 @@ function traceWorldPoints(points, close = false) {
   if (close) context.closePath();
 }
 
-function drawScene(reader, contacts, voicedContacts) {
+function drumMappingOptions(contactCount = 1) {
+  return {
+    mode: state.mappingMode,
+    bounds: tessellation?.bounds,
+    contactCount,
+  };
+}
+
+function drawScene(reader, contacts) {
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context.clearRect(0, 0, cssWidth, cssHeight);
   for (const tile of tessellation.tiles) {
@@ -856,7 +901,7 @@ function drawScene(reader, contacts, voicedContacts) {
   for (const edge of tessellation.edges) {
     traceWorldPoints(edge.points);
     context.strokeStyle = "rgba(214,232,226,.22)";
-    context.lineWidth = 0.75;
+    context.lineWidth = .75;
     context.stroke();
   }
   const center = screenPoint({ x: 0, y: 0 });
@@ -871,137 +916,70 @@ function drawScene(reader, contacts, voicedContacts) {
   traceWorldPoints(reader.points);
   context.strokeStyle = "rgba(255,196,107,.92)";
   context.lineWidth = 1.8;
-  context.shadowColor = "rgba(255,184,107,.35)";
+  context.shadowColor = "rgba(255,130,111,.35)";
   context.shadowBlur = 9;
   context.stroke();
   context.shadowBlur = 0;
 
-  const voicedKeys = new Set(voicedContacts.map((contact) => contact.voiceKey));
   for (const contact of contacts) {
     const point = screenPoint(contact);
-    context.beginPath();
-    context.arc(point.x, point.y, voicedKeys.has(contact.voiceKey) ? 3.8 : 2.2, 0, TAU);
-    context.fillStyle = voicedKeys.has(contact.voiceKey) ? "#fff3d6" : "rgba(125,180,255,.72)";
-    context.fill();
-  }
-}
-
-function addContactEnvelopes(contacts, nowSeconds, suppressOnsets = false) {
-  const active = new Set();
-  const result = contacts.map((contact) => {
-    active.add(contact.voiceKey);
-    const tracked = contactOnsets.has(contact.voiceKey);
-    const onset = !suppressOnsets && !tracked;
-    if (onset) contactOnsets.set(contact.voiceKey, nowSeconds);
-    if (tracked || onset) contactLastSeen.set(contact.voiceKey, nowSeconds);
-    return {
-      ...contact,
-      onset,
-      age: tracked
-        ? Math.max(0, nowSeconds - contactOnsets.get(contact.voiceKey))
-        : suppressOnsets ? Number.POSITIVE_INFINITY : 0,
-    };
-  });
-  for (const key of contactOnsets.keys()) {
-    if (active.has(key)) continue;
-    if (nowSeconds - (contactLastSeen.get(key) ?? -Infinity) <= CONTACT_REENTRY_GRACE_SECONDS) continue;
-    contactOnsets.delete(key);
-    contactLastSeen.delete(key);
-  }
-  return result;
-}
-
-function pitchMark(contact) {
-  if (state.pitchSource === "angleShape") return angleShapePitchForSpiralContact(contact);
-  if (state.pitchSource === "shape") return shapePitchForSpiralContact(contact);
-  if (state.pitchSource === "angle") return contact.angle01;
-  if (state.pitchSource === "reader") return contact.along01;
-  if (state.pitchSource === "orientation") return contact.orientation;
-  return clamp(
-    (tessellation.logOuter - Math.log(Math.max(tessellation.bounds.innerRadius, contact.radius)))
-      / Math.max(1e-9, tessellation.logOuter - tessellation.logInner),
-    0,
-    1,
-  );
-}
-
-function voiceData(contacts) {
-  return contacts.map((contact) => {
-    const pitch = pitchMark(contact);
-    const sizeRate = state.sizeCoupling
-      ? scaleRateForSpiralRadius(
-        contact.radius,
-        tessellation.bounds.innerRadius,
-        tessellation.bounds.outerRadius,
-      )
-      : 1;
-    const durationScale = 1 / sizeRate;
-    const pitchScale = state.sizeCoupling
-      ? (state.pitchSource === "radius" ? Math.sqrt(sizeRate) : sizeRate)
-      : 1;
-    const gain = state.contactLevel * 0.13
-      * (0.25 + 0.75 * contact.incidence)
-      * amplitudeControl.sampleAtTime(
-        contact.age / durationScale,
-        0.75,
-      );
-    const synth = synthParametersForMode(state.soundMode, contact.incidence, {
-      fmIndex: 4,
-      fmRatio: 2,
-      pmIndex: 2.4,
-      pmRatio: 1,
-      shepardRate: state.playing
-        ? state.speed * state.direction * sizeRate
-        : state.loopPlaying ? state.loopSpeed * state.loopDirection * sizeRate : 0,
-      shepardWidth: 4,
-    });
-    return {
+    const voiceIndex = spiralDrumVoiceIndex(
       contact,
-      frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange) * pitchScale,
-      gain,
-      pan: clamp(contact.x / tessellation.bounds.outerRadius, -1, 1) * state.stereoWidth,
-      synth,
-      sizeRate,
-      durationScale,
-    };
-  });
+      drumMappingOptions(contacts.length),
+    );
+    context.beginPath();
+    context.arc(point.x, point.y, 3.2, 0, TAU);
+    context.fillStyle = voices[voiceIndex].color;
+    context.fill();
+    context.strokeStyle = "#fff3d6";
+    context.lineWidth = .6;
+    context.stroke();
+  }
 }
 
-function updateAudio(data, suppressVoiceStarts = false) {
-  if (!state.audio) return;
-  if (state.soundMode === "percussion") {
-    pool.setVoices([]);
-    const strikeItems = data.filter((item) => item.contact.onset);
-    const intents = strikeItems.map((item) => ({
-      key: `spiral:strike:${item.contact.voiceKey}`,
-      frequency: item.frequency,
-      gain: state.contactLevel * 0.55 * (0.25 + 0.75 * item.contact.incidence),
-      pan: item.pan,
-      waveform: "sine",
-    }));
-    const normalized = normalizeStrikeGains(intents, pool.availableStrikeHeadroom(0.78));
-    normalized.forEach((spec, index) => {
-      const durationScale = strikeItems[index]?.durationScale ?? 1;
-      pool.strike(spec, {
-        attackSeconds: cornerAttackSeconds(state.percussionAttack * durationScale),
-        decaySeconds: cornerDecaySeconds(state.percussionDecay * durationScale),
-      });
+function updateMappingReadout(contact, voice) {
+  const normalized = normalizedSpiralContact(contact, tessellation.bounds);
+  $("mappingReadout").textContent = [
+    `${Math.round(normalized.radius01 * 100)}% SCALE`,
+    `${Math.round(normalized.angle01 * 360)}°`,
+    `→ ${voice.name}`,
+    `${Math.round(voice.frequency)} HZ`,
+  ].join(" · ");
+}
+
+function triggerContacts(contacts, now, suppressed) {
+  if (
+    !state.audioOn
+    || (!state.playing && !state.loopPlaying)
+    || suppressed
+  ) return;
+  const onsets = contacts.filter((contact) => !previousContactKeys.has(contact.voiceKey));
+  let emitted = 0;
+  for (const contact of onsets) {
+    if (emitted >= state.strikeLimit) break;
+    const voiceIndex = spiralDrumVoiceIndex(
+      contact,
+      drumMappingOptions(contacts.length),
+    );
+    const lastStrike = lastStrikeTimes.get(voiceIndex) ?? Number.NEGATIVE_INFINITY;
+    if (now - lastStrike < 75) continue;
+    lastStrikeTimes.set(voiceIndex, now);
+    const voice = mappedSpiralDrumVoice(voices[voiceIndex], contact, {
+      bounds: tessellation.bounds,
+      pitchDepth: state.pitchDepth,
+      characterDepth: state.characterDepth,
+      contactCount: contacts.length,
     });
-  } else if (state.playing || state.loopPlaying) {
-    pool.setVoices(data.map((item) => ({
-      key: `spiral:${item.contact.voiceKey}`,
-      frequency: item.frequency,
-      gain: item.gain,
-      pan: item.pan,
-      waveform: "sine",
-      ...item.synth,
-    })), { allowVoiceStarts: !suppressVoiceStarts });
-  } else pool.setVoices([]);
+    audio.trigger(voice).catch(showError);
+    flashVoice(voiceIndex);
+    updateMappingReadout(contact, voice);
+    emitted += 1;
+  }
 }
 
 function frame(now) {
   scheduledFrame = 0;
-  const delta = Math.min(0.1, Math.max(0, (now - lastFrameTime) / 1000));
+  const delta = Math.min(.1, Math.max(0, (now - lastFrameTime) / 1_000));
   lastFrameTime = now;
   if (state.playing) {
     state.continuousPosition += state.direction * state.speed * delta;
@@ -1010,6 +988,7 @@ function frame(now) {
   if (state.loopPlaying) {
     state.continuousLoopPhase += state.loopDirection * state.loopSpeed * delta;
     state.loopPhase = wrap01(state.continuousLoopPhase);
+    // Animated zoom is musical motion, not a manual edit: keep onsets enabled.
     geometryDirty = true;
   }
   if (geometryDirty || !tessellation) rebuildGeometry();
@@ -1021,21 +1000,26 @@ function frame(now) {
     sizeCoupled: state.sizeCoupling,
   });
   const contacts = contactsForSpiralReader(tessellation, reader);
-  const selected = evenlySelectContacts(contacts, state.voiceCap);
-  const geometryEditing = suppressContactOnsetFrames > 0 || now < suppressContactOnsetsUntil;
-  if (suppressContactOnsetFrames > 0) suppressContactOnsetFrames -= 1;
-  if (!geometryEditing && geometryWasEditing) releaseSettledContactOnsets();
-  geometryWasEditing = geometryEditing;
-  const enveloped = addContactEnvelopes(selected, now / 1000, geometryEditing);
-  const data = voiceData(enveloped);
-  drawScene(reader, contacts, selected);
+  const suppressed = suppressStrikeFrames > 0 || now < suppressStrikesUntil;
+  triggerContacts(contacts, now, suppressed);
+  previousContactKeys = new Set(contacts.map(({ voiceKey }) => voiceKey));
+  if (suppressStrikeFrames > 0) suppressStrikeFrames -= 1;
+  drawScene(reader, contacts);
   if (tileEditorDirty) drawTileEditor();
-  updateAudio(data, geometryEditing);
   $("position").value = String(state.position);
   $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
   $("loopPhase").value = String(state.loopPhase);
   paintLoopPhase();
-  $("stageReadout").textContent = `${state.timePath.toUpperCase()} · ${contacts.length} ${plural(contacts.length, "CONTACT", "CONTACTS")} · ${state.audio ? `${data.length} ${plural(data.length, "VOICE", "VOICES")}` : "AUDIO OFF"}`;
+  const motion = [
+    state.playing ? "TIME" : "",
+    state.loopPlaying ? "LOOP" : "",
+  ].filter(Boolean).join(" + ") || "PAUSED";
+  $("stageReadout").textContent = [
+    state.timePath.toUpperCase(),
+    `${contacts.length} ${plural(contacts.length, "CONTACT", "CONTACTS")}`,
+    motion,
+    state.audioOn ? "AUDIO ON" : "AUDIO OFF",
+  ].join(" · ");
   if (state.playing || state.loopPlaying) scheduleFrame();
 }
 
@@ -1043,7 +1027,10 @@ function canvasWorldPoint(event) {
   const bounds = canvas.getBoundingClientRect();
   const x = (event.clientX - bounds.left) * cssWidth / Math.max(1, bounds.width);
   const y = (event.clientY - bounds.top) * cssHeight / Math.max(1, bounds.height);
-  return { x: (x - cssWidth / 2) / worldScale, y: (cssHeight / 2 - y) / worldScale };
+  return {
+    x: (x - cssWidth / 2) / worldScale,
+    y: (cssHeight / 2 - y) / worldScale,
+  };
 }
 
 function scrubFromPointer(event) {
@@ -1061,45 +1048,103 @@ canvas.addEventListener("pointerdown", (event) => {
   pointerDrag = event.pointerId;
   stageWrap.classList.add("is-scrubbing");
   canvas.setPointerCapture(event.pointerId);
+  canvas.focus();
   scrubFromPointer(event);
 });
+
 canvas.addEventListener("pointermove", (event) => {
   if (pointerDrag !== event.pointerId) return;
   scrubFromPointer(event);
 });
-const endPointer = (event) => {
+
+function finishStagePointer(event) {
   if (pointerDrag !== event.pointerId) return;
   pointerDrag = null;
   stageWrap.classList.remove("is-scrubbing");
-};
-canvas.addEventListener("pointerup", endPointer);
-canvas.addEventListener("pointercancel", endPointer);
+}
+
+canvas.addEventListener("pointerup", finishStagePointer);
+canvas.addEventListener("pointercancel", finishStagePointer);
 canvas.addEventListener("keydown", (event) => {
   if (event.key === " ") {
     event.preventDefault();
     $("playButton").click();
   } else if (event.key === "ArrowLeft") {
     event.preventDefault();
-    setPosition(state.position - (event.shiftKey ? 0.05 : 0.01));
+    setPosition(state.position - (event.shiftKey ? .05 : .01));
   } else if (event.key === "ArrowRight") {
     event.preventDefault();
-    setPosition(state.position + (event.shiftKey ? 0.05 : 0.01));
+    setPosition(state.position + (event.shiftKey ? .05 : .01));
   }
 });
 
+function reset() {
+  Object.assign(state, defaults, {
+    parameters: [...tilingInfo(DEFAULT_TILING_TYPE).defaultParameters],
+    edgeCurves: tilingInfo(DEFAULT_TILING_TYPE).edgeShapes.map(() => 0),
+    continuousPosition: defaults.position,
+    continuousLoopPhase: defaults.loopPhase,
+    playing: false,
+    loopPlaying: false,
+  });
+  tilingSelect.value = String(state.tilingType);
+  for (const key of [
+    "speed",
+    "loopSpeed",
+    "readerTurns",
+    "output",
+    "pitchDepth",
+    "characterDepth",
+    "strikeLimit",
+    "spiralA",
+    "spiralB",
+    "patternScale",
+    "patternRotation",
+  ]) {
+    $(key).value = String(state[key]);
+  }
+  $("speedOut").textContent = `${state.speed.toFixed(3)} cyc/s`;
+  $("loopSpeedOut").textContent = `${state.loopSpeed.toFixed(3)} cyc/s`;
+  $("readerTurnsOut").textContent = `${state.readerTurns.toFixed(2)} turns`;
+  $("outputOut").textContent = `${Math.round(state.output * 100)}%`;
+  $("pitchDepthOut").textContent = `±${state.pitchDepth} st`;
+  $("characterDepthOut").textContent = `${Math.round(state.characterDepth * 100)}%`;
+  $("strikeLimitOut").textContent = String(state.strikeLimit);
+  $("spiralAOut").textContent = String(state.spiralA);
+  $("spiralBOut").textContent = String(state.spiralB);
+  $("patternScaleOut").textContent = "+0.00";
+  $("patternRotationOut").textContent = "0°";
+  $("mappingMode").value = state.mappingMode;
+  setPosition(state.position, false);
+  state.loopPhase = defaults.loopPhase;
+  state.continuousLoopPhase = defaults.loopPhase;
+  $("loopPhase").value = String(state.loopPhase);
+  paintLoopPhase();
+  configureTilingControls();
+  updateTimeControls();
+  paintPlayback();
+  previousContactKeys.clear();
+  lastStrikeTimes.clear();
+  if (state.audioOn) audio.setOutput(state.output);
+  invalidateGeometry();
+  announce("Spiral Drum Machine reset.");
+}
+
+$("resetSpiralDrums").addEventListener("click", reset);
+
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) pool.silence();
+  if (document.hidden) setAudioState(false);
   else scheduleFrame();
 });
-window.addEventListener("pagehide", (event) => {
-  if (event.persisted) pool.disable();
-  else void pool.close();
+
+window.addEventListener("pageshow", scheduleFrame);
+window.addEventListener("pagehide", () => {
+  if (audio.context && audio.context.state !== "closed") void audio.context.close();
 });
 
+populateMappingModes();
+renderDrumMap();
 configureTilingControls();
-setPosition(state.position);
-setLoopPhase(state.loopPhase);
-updateTimeControls();
-paintPlayback();
-paintAudio();
-scheduleFrame();
+new ResizeObserver(resizeCanvas).observe(stageWrap);
+resizeCanvas();
+reset();

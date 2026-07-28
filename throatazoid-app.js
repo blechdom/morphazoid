@@ -7,20 +7,32 @@ import {
   PHONEMES,
   SPECIMENS,
   VOICE_PRESETS,
+  alienTongueDeformations,
+  applyTractHeightDeformations,
+  anatomyMotionPhases,
   anatomyLayout,
   articulationKey,
   calibratedOutputGain,
+  capitalExpression,
+  capitalizedPerformanceState,
   clamp,
   consonantVoiceParameters,
   fricationOpening,
   glottalHarmonics,
   keyboardArticulation,
+  keyboardPresetShortcut,
+  mouthOrganRoutes,
   noseVoiceParameters,
   oralOpening,
+  roundedAirwayPath,
+  sampleDiameterProfile,
   singingVoiceParameters,
   smoothEnvelope,
+  smoothTractDiameters,
   specimenState,
   throatVoiceParameters,
+  tongueFromTractCoordinates,
+  tongueTractCoordinates,
   voicePresetState,
   waveformLevel,
 } from "./src/throatazoid.js";
@@ -36,6 +48,12 @@ const DEFAULTS = Object.freeze({
   inputTrim: 0.88,
   level: 0.46,
   inputStability: 0.72,
+  motionEnabled: false,
+  motionDepth: 0.55,
+  motionMouths: true,
+  motionTongues: true,
+  motionNoses: true,
+  motionPressure: true,
   typingMode: false,
   awake: false,
   mic: false,
@@ -97,12 +115,22 @@ let fallbackPressure = 0;
 let closureStartedAt = 0;
 let burstFlashUntil = 0;
 let burstFlashPlace = 0.5;
+let keyboardPulse = {
+  startedAt: Number.NEGATIVE_INFINITY,
+  place: 0.5,
+  capital: false,
+  letter: "",
+};
+let keyboardAccentTimer = 0;
+let performanceTime = 0;
 let mouthPressures = new Float32Array(MAX_THROATS);
 let sourcePressures = new Float32Array(4);
 let beatboxReturnState = null;
 let carrierVowel = "a";
 let pointerPhonemeSession = null;
 let pointerPhonemeTimer = 0;
+let displayedTractDiameters = null;
+let previousTractFrameTime = 0;
 const heldPhonemeKeys = new Map();
 
 const SOURCE_LABELS = Object.freeze({
@@ -129,6 +157,13 @@ function lipOpening(diameter = state.lipDiameter) {
 
 function lipDiameterFromOpening(opening) {
   return 0.35 + clamp(opening) * 2.65;
+}
+
+function perceptualNoseOpening(value) {
+  const openness = clamp(value);
+  return openness <= 0.03
+    ? 0
+    : Math.pow(clamp((openness - 0.03) / 0.97), 0.72);
 }
 
 function formatTime(seconds) {
@@ -683,7 +718,7 @@ function setAudioParam(parameter, value, immediate = false, timeConstant = 0.025
   else parameter.setTargetAtTime?.(value, now, timeConstant);
 }
 
-function updateGlottalWaveform() {
+function updateGlottalWaveform(performance = state) {
   const oscillators = [
     graph?.exciter?.pulse,
     ...(graph?.singingVoices ?? []).map((voice) => voice.oscillator),
@@ -692,7 +727,7 @@ function updateGlottalWaveform() {
     oscillators.length === 0
     || typeof audioContext?.createPeriodicWave !== "function"
   ) return;
-  const key = (Math.round(clamp(state.exciterTenseness) * 24) / 24).toFixed(3);
+  const key = (Math.round(clamp(performance.exciterTenseness) * 24) / 24).toFixed(3);
   if (graph.exciter.waveKey === key) return;
   try {
     let wave = periodicWaveCache.get(key);
@@ -735,65 +770,176 @@ const ARTICULATION_TRACT_INDICES = Object.freeze({
   w: 22,
 });
 
-function currentArticulationIndex() {
-  return ARTICULATION_TRACT_INDICES[state.phoneme]
-    ?? clamp(12 + clamp(state.articulationPlace) * 30, 2, 42);
+function currentArticulationIndex(performance = state) {
+  return ARTICULATION_TRACT_INDICES[performance.phoneme]
+    ?? clamp(12 + clamp(performance.articulationPlace) * 30, 2, 42);
 }
 
-function physicalTractState(sounding) {
+function selectMouth(index, { syncOrgans = true } = {}) {
+  selectedThroat = Math.round(clamp(index, 0, state.throatCount - 1));
+  if (!syncOrgans) return null;
+  const route = mouthOrganRoutes(state)[selectedThroat];
+  if (route?.tongueIndex >= 0) selectedTongue = route.tongueIndex;
+  if (route?.noseIndex >= 0) selectedNose = route.noseIndex;
+  return route ?? null;
+}
+
+function clonePerformanceState(performance) {
+  return {
+    ...performance,
+    throats: performance.throats.map((throat) => ({ ...throat })),
+    tongues: performance.tongues.map((tongue) => ({ ...tongue })),
+    noses: performance.noses.map((nose) => ({ ...nose })),
+    pressureSources: performance.pressureSources.map((source) => ({ ...source })),
+  };
+}
+
+function activeCapitalVariant() {
+  const entry = activeHeldPhoneme();
+  if (!entry?.capital) return null;
+  return {
+    entry,
+    expression: capitalExpression(entry.letter),
+  };
+}
+
+function performanceStateAt(time = performanceTime, { animate = false } = {}) {
+  const capital = activeCapitalVariant();
+  let performance = capital
+    ? capitalizedPerformanceState(state, capital.entry.letter)
+    : state;
+  const accentAge = time - keyboardPulse.startedAt;
+  if (accentAge >= 0 && accentAge < 95 && keyboardPulse.letter) {
+    if (performance === state) performance = clonePerformanceState(performance);
+    const letterIndex = keyboardPulse.letter.charCodeAt(0) - 97;
+    const direction = letterIndex % 2 ? -1 : 1;
+    const cents = (9 + letterIndex % 6 * 3) * direction
+      * (keyboardPulse.capital ? 1.8 : 1);
+    performance.exciterPitch = clamp(
+      performance.exciterPitch * Math.pow(2, cents / 1_200),
+      40,
+      420,
+    );
+    performance.exciterBreath = clamp(
+      performance.exciterBreath + (keyboardPulse.capital ? 0.12 : 0.045),
+    );
+  }
+  const motionEnabled = animate
+    && !prefersReducedMotion
+    && !pointerDrag
+    && (
+      state.motionEnabled
+      || Boolean(capital?.expression?.motionDepth)
+    );
+  if (!motionEnabled) return performance;
+
+  performance = clonePerformanceState(performance);
+  const targets = new Set();
+  if (state.motionEnabled) {
+    if (state.motionMouths) targets.add("mouths");
+    if (state.motionTongues) targets.add("tongues");
+    if (state.motionNoses) targets.add("noses");
+    if (state.motionPressure) targets.add("pressure");
+  }
+  for (const target of capital?.expression?.motionTargets ?? []) targets.add(target);
+  performance.motionDepth = Math.max(
+    state.motionEnabled ? clamp(state.motionDepth) : 0,
+    clamp(capital?.expression?.motionDepth),
+  );
+
+  if (targets.has("mouths")) {
+    for (let index = 0; index < performance.throatCount; index += 1) {
+      const mouth = performance.throats[index];
+      const phase = anatomyMotionPhases(time, performance, index);
+      mouth.aperture = clamp(mouth.aperture + phase.fast * 0.16, 0.05, 1);
+      mouth.length = clamp(mouth.length + phase.slow * 0.05);
+    }
+  }
+  if (targets.has("tongues")) {
+    for (let index = 0; index < performance.tongueCount; index += 1) {
+      const tongue = performance.tongues[index];
+      const phase = anatomyMotionPhases(time, performance, index + 7);
+      tongue.position = clamp(tongue.position + phase.slow * 0.045);
+      tongue.height = clamp(tongue.height + phase.fast * 0.1);
+      tongue.curl = clamp(tongue.curl + phase.combined * 0.08);
+    }
+  }
+  if (targets.has("noses")) {
+    for (let index = 0; index < performance.noseCount; index += 1) {
+      const nose = performance.noses[index];
+      const phase = anatomyMotionPhases(time, performance, index + 13);
+      nose.openness = clamp(nose.openness + phase.fast * 0.08);
+      nose.resonance = clamp(nose.resonance + phase.slow * 0.1);
+      nose.length = clamp(nose.length + phase.slow * 0.035);
+    }
+  }
+  if (targets.has("pressure")) {
+    for (let index = 0; index < performance.pressureSourceCount; index += 1) {
+      const source = performance.pressureSources[index];
+      const phase = anatomyMotionPhases(time, performance, index + 19);
+      source.level = clamp(source.level + phase.combined * 0.16);
+    }
+  }
+  return performance;
+}
+
+function physicalTractState(sounding, performance = state) {
   const consonant = consonantVoiceParameters(
-    state.phoneme,
+    performance.phoneme,
     "hold",
     audioContext?.sampleRate || 48_000,
   );
   return {
-    mouthCount: state.throatCount,
-    throatCount: state.throatCount,
+    mouthCount: performance.throatCount,
+    throatCount: performance.throatCount,
     selectedMouth: selectedThroat,
-    articulateAll: Boolean(state.phoneme),
-    bodyLength: state.bodyLength,
-    tension: state.tension,
-    mutation: state.mutation,
-    coupling: state.coupling,
-    spread: state.spread,
-    oralClosure: state.oralClosure,
-    lipDiameter: state.lipDiameter,
-    articulationPlace: state.articulationPlace,
-    articulationIndex: currentArticulationIndex(),
-    articulationAperture: state.articulationAperture,
-    articulationVoicing: state.articulationVoicing,
-    glottalClosure: state.glottalClosure,
-    nasalCoupling: state.nasalCoupling,
-    articulationManner: state.articulationManner,
+    // The foreground tract is intentionally one shared cartoon mouth shape.
+    // Local mouth pods still keep their own aperture, length, and gate.
+    articulateAll: true,
+    bodyLength: performance.bodyLength,
+    tension: performance.tension,
+    mutation: performance.mutation,
+    coupling: performance.coupling,
+    spread: performance.spread,
+    oralClosure: performance.oralClosure,
+    lipDiameter: performance.lipDiameter,
+    articulationPlace: performance.articulationPlace,
+    articulationIndex: currentArticulationIndex(performance),
+    articulationAperture: performance.articulationAperture,
+    articulationVoicing: performance.articulationVoicing,
+    glottalClosure: performance.glottalClosure,
+    nasalCoupling: performance.nasalCoupling,
+    articulationManner: performance.articulationManner,
     fricationGain: consonant?.fricationGain ?? 1,
     burstGain: consonant?.burstGain ?? 0,
-    exciterIntensity: state.exciterIntensity,
-    classicTopology: Boolean(state.classicTopology),
-    voiceMode: state.voiceMode,
+    exciterIntensity: performance.exciterIntensity,
+    classicTopology: Boolean(performance.classicTopology),
+    voiceMode: performance.voiceMode,
     performanceGate: sounding ? 1 : 0,
-    pressureSourceCount: state.pressureSourceCount,
-    pressureSources: state.pressureSources.map((source) => ({
+    pressureSourceCount: performance.pressureSourceCount,
+    pressureSources: performance.pressureSources.map((source) => ({
       open: Boolean(source.open),
       level: source.level,
     })),
-    tongueCount: state.tongueCount,
-    noseCount: state.noseCount,
-    mouths: state.throats.map((mouth) => ({
+    tongueCount: performance.tongueCount,
+    noseCount: performance.noseCount,
+    mouths: performance.throats.map((mouth) => ({
       aperture: mouth.aperture,
       length: mouth.length,
       closed: Boolean(mouth.muted),
     })),
-    throats: state.throats.map((throat) => ({
+    throats: performance.throats.map((throat) => ({
       aperture: throat.aperture,
       length: throat.length,
       muted: Boolean(throat.muted),
     })),
-    tongues: state.tongues.map((tongue) => ({
+    tongues: performance.tongues.map((tongue) => ({
       position: tongue.position,
       height: tongue.height,
       curl: tongue.curl,
     })),
-    noses: state.noses.map((nose) => ({
+    tractDeformations: alienTongueDeformations(performance),
+    noses: performance.noses.map((nose) => ({
       openness: nose.openness,
       length: nose.length,
       resonance: nose.resonance,
@@ -803,13 +949,14 @@ function physicalTractState(sounding) {
 
 function applyAudioParameters(immediate = false) {
   if (!graph || !audioContext) return;
+  const performance = performanceStateAt(performanceTime);
   const live = isAwake();
   const sounding = live && (
     !state.typingMode
     || heldPhonemeKeys.size > 0
     || Boolean(state.phoneme)
   );
-  const oralClosure = clamp(state.oralClosure);
+  const oralClosure = clamp(performance.oralClosure);
   const mouthGain = oralOpening(oralClosure);
   const fricationGain = fricationOpening(oralClosure);
   const micLive = live
@@ -819,14 +966,14 @@ function applyAudioParameters(immediate = false) {
     && (state.sourceMode === "glottis" || state.sourceMode === "hybrid");
   const sampleRate = audioContext.sampleRate || 48_000;
   const hybridScale = state.sourceMode === "hybrid" ? 0.68 : 1;
-  const polyphonic = state.voiceMode === "polyphonic";
+  const polyphonic = performance.voiceMode === "polyphonic";
   const polyphonicLive = polyphonic && glottisLive && sounding;
   setAudioParam(graph.micSelect.gain, micLive ? hybridScale : 0, immediate, 0.035);
   setAudioParam(graph.internalSelect.gain, glottisLive ? hybridScale : 0, immediate, 0.035);
   setAudioParam(graph.inputTrim.gain, live ? state.inputTrim : 0, immediate);
   setAudioParam(
     graph.dryGain.gain,
-    sounding ? state.dry * mouthGain * (1 - clamp(state.glottalClosure)) : 0,
+    sounding ? state.dry * mouthGain * (1 - clamp(performance.glottalClosure)) : 0,
     immediate,
   );
   setAudioParam(graph.wetGain.gain, live ? state.wet : 0, immediate);
@@ -835,20 +982,20 @@ function applyAudioParameters(immediate = false) {
   setAudioParam(graph.micCompressor.ratio, 2.2 + state.inputStability * 3.1, immediate);
   setAudioParam(graph.micCompressor.release, 0.14 + state.inputStability * 0.42, immediate);
 
-  updateGlottalWaveform();
-  const pitch = clamp(state.exciterPitch, 40, 420);
-  const intensity = clamp(state.exciterIntensity);
-  const tenseness = clamp(state.exciterTenseness);
-  const breath = clamp(state.exciterBreath);
-  const vibratoCents = clamp(state.exciterVibrato) * 72;
-  const wobbleCents = clamp(state.exciterWobble) * 145;
+  updateGlottalWaveform(performance);
+  const pitch = clamp(performance.exciterPitch, 40, 420);
+  const intensity = clamp(performance.exciterIntensity);
+  const tenseness = clamp(performance.exciterTenseness);
+  const breath = clamp(performance.exciterBreath);
+  const vibratoCents = clamp(performance.exciterVibrato) * 72;
+  const wobbleCents = clamp(performance.exciterWobble) * 145;
   setAudioParam(graph.exciter.pulse?.frequency, pitch, immediate, 0.035);
   setAudioParam(
     graph.exciter.pulseGain.gain,
     (polyphonic ? 0 : 1)
       * intensity
       * (0.2 + tenseness * 0.32)
-      * (0.12 + clamp(state.articulationVoicing) * 0.88),
+      * (0.12 + clamp(performance.articulationVoicing) * 0.88),
     immediate,
     0.05,
   );
@@ -878,9 +1025,9 @@ function applyAudioParameters(immediate = false) {
 
   for (let index = 0; index < graph.singingVoices.length; index += 1) {
     const singer = graph.singingVoices[index];
-    const voice = singingVoiceParameters(state, index);
+    const voice = singingVoiceParameters(performance, index);
     const active = polyphonicLive
-      && index < state.throatCount
+      && index < performance.throatCount
       && voice.gain > 0;
     setAudioParam(singer.oscillator?.frequency, voice.frequency, immediate, 0.045);
     setAudioParam(singer.oscillator?.detune, voice.detune, immediate, 0.055);
@@ -894,16 +1041,16 @@ function applyAudioParameters(immediate = false) {
           * voice.gain
           * intensity
           * (0.2 + tenseness * 0.32)
-          * (0.12 + clamp(state.articulationVoicing) * 0.88)
-          * (1 - clamp(state.glottalClosure))
+          * (0.12 + clamp(performance.articulationVoicing) * 0.88)
+          * (1 - clamp(performance.glottalClosure))
         : 0,
-      immediate || !active || state.glottalClosure >= 0.84,
+      immediate || !active || performance.glottalClosure >= 0.84,
       0.018,
     );
   }
 
   const consonantAudio = consonantVoiceParameters(
-    state.phoneme,
+    performance.phoneme,
     "hold",
     sampleRate,
   );
@@ -918,9 +1065,9 @@ function applyAudioParameters(immediate = false) {
     : 1;
 
   for (let index = 0; index < MAX_THROATS; index += 1) {
-    const voice = throatVoiceParameters(state, index, sampleRate);
+    const voice = throatVoiceParameters(performance, index, sampleRate);
     const throat = graph.throats[index];
-    const active = sounding && index < state.throatCount;
+    const active = sounding && index < performance.throatCount;
     setAudioParam(
       throat.inlet.gain,
       active
@@ -928,12 +1075,12 @@ function applyAudioParameters(immediate = false) {
           * (voice.oralGain ?? 1)
           * (graph.physicalTract ? 0 : 1)
           * unvoicedCarrier
-          * (1 - clamp(state.glottalClosure))
+          * (1 - clamp(performance.glottalClosure))
         : 0,
       immediate,
     );
     setAudioParam(throat.highpass.frequency, voice.highpass, immediate);
-    setAudioParam(throat.highpass.Q, 0.68 + state.tension * 0.45, immediate);
+    setAudioParam(throat.highpass.Q, 0.68 + performance.tension * 0.45, immediate);
     for (let formantIndex = 0; formantIndex < throat.formants.length; formantIndex += 1) {
       const filter = throat.formants[formantIndex];
       setAudioParam(filter.frequency, voice.formants[formantIndex], immediate);
@@ -941,13 +1088,17 @@ function applyAudioParameters(immediate = false) {
       setAudioParam(filter.gain, voice.peakGains[formantIndex], immediate);
     }
     setAudioParam(throat.lowpass.frequency, voice.lowpass, immediate);
-    setAudioParam(throat.drive.gain, 0.72 + state.tension * 0.72 + state.mutation * 0.46, immediate);
+    setAudioParam(
+      throat.drive.gain,
+      0.72 + performance.tension * 0.72 + performance.mutation * 0.46,
+      immediate,
+    );
     setAudioParam(throat.delay?.delayTime, voice.delay, immediate, 0.045);
     setAudioParam(throat.normalGain.gain, voice.normalMix, immediate);
     setAudioParam(throat.ringDepth.gain, voice.ringMix, immediate);
     setAudioParam(throat.oscillator?.frequency, voice.ringFrequency, immediate, 0.04);
-    setAudioParam(throat.panner.pan, voice.pan * state.spread, immediate);
-    const aperture = state.throats[index]?.aperture ?? 1;
+    setAudioParam(throat.panner.pan, voice.pan * performance.spread, immediate);
+    const aperture = performance.throats[index]?.aperture ?? 1;
     const constriction = clamp((0.34 - aperture) / 0.29);
     const contact = clamp(voice.contact ?? 0);
     const tongueNoise = contact * (1 - contact * 0.82);
@@ -970,7 +1121,7 @@ function applyAudioParameters(immediate = false) {
       throat.turbulenceGain.gain,
       active && voice.gain > 0
         ? Math.max(
-          constriction * (0.012 + state.mutation * 0.055),
+          constriction * (0.012 + performance.mutation * 0.055),
           tongueNoise * 0.11,
           (consonantAudio?.fricationGain ?? 0) * 0.16,
         ) * fricationGain * voice.gain
@@ -982,14 +1133,14 @@ function applyAudioParameters(immediate = false) {
 
   for (let index = 0; index < graph.noses.length; index += 1) {
     const nose = graph.noses[index];
-    const voice = noseVoiceParameters(state, index, sampleRate);
-    const active = sounding && index < state.noseCount;
+    const voice = noseVoiceParameters(performance, index, sampleRate);
+    const active = sounding && index < performance.noseCount;
     setAudioParam(
       nose.gate.gain,
       active
         ? voice.gain
           * (graph.physicalTract ? 0 : 1)
-          * (1 - clamp(state.glottalClosure))
+          * (1 - clamp(performance.glottalClosure))
         : 0,
       immediate,
       0.045,
@@ -1005,7 +1156,7 @@ function applyAudioParameters(immediate = false) {
   }
   graph.physicalTract?.port?.postMessage?.({
     type: "configure",
-    state: physicalTractState(sounding),
+    state: physicalTractState(sounding, performance),
   });
   audioDirty = false;
 }
@@ -1131,6 +1282,8 @@ async function activateSource(mode = state.sourceMode) {
 
 async function severAudio(message = "Throatazoid severed.") {
   microphoneGeneration += 1;
+  if (keyboardAccentTimer) clearTimeout(keyboardAccentTimer);
+  keyboardAccentTimer = 0;
   if (pointerPhonemeTimer) clearTimeout(pointerPhonemeTimer);
   pointerPhonemeTimer = 0;
   pointerPhonemeSession = null;
@@ -1309,12 +1462,7 @@ function loadVoiceProfile(next) {
   state.articulationAperture = next.articulationAperture ?? 1 - next.oralClosure;
   state.articulationVoicing = next.articulationVoicing ?? 0.92;
   state.glottalClosure = next.glottalClosure ?? 0;
-  state.nasalCoupling = next.nasalCoupling ?? (
-    next.noses
-      .slice(0, next.noseCount)
-      .reduce((sum, nose) => sum + clamp(nose.openness), 0)
-      / Math.max(1, next.noseCount)
-  );
+  state.nasalCoupling = next.nasalCoupling ?? 0;
   state.articulationManner = next.articulationManner ?? "vowel";
   state.throats = next.throats.map((throat) => ({ ...throat }));
   state.tongues = next.tongues.map((tongue) => ({ ...tongue }));
@@ -1332,9 +1480,7 @@ function loadVoiceProfile(next) {
     }));
   state.phoneme = next.phoneme ?? "";
   carrierVowel = PHONEMES[state.phoneme] ? state.phoneme : carrierVowel;
-  selectedThroat = Math.min(selectedThroat, state.throatCount - 1);
-  selectedTongue = Math.min(selectedTongue, state.tongueCount - 1);
-  selectedNose = Math.min(selectedNose, state.noseCount - 1);
+  selectMouth(Math.min(selectedThroat, state.throatCount - 1));
 }
 
 function applySpecimen(name) {
@@ -1349,19 +1495,16 @@ function applySpecimen(name) {
   state.voicePreset = "";
   markAudioDirty();
   updateUi();
-  if (name === "singing" && state.sourceMode === "mic") {
-    selectSourceMode("glottis");
-  }
   announce(
     name === "singing"
       ? `Singing loaded: ${state.throatCount} independently pitched mouths. `
-        + "Glottis excitation selected; close a mouth gate to mute its singer."
+        + "Close a mouth gate to mute its singer."
       : `${SPECIMENS[name].name} loaded: ${state.pressureSourceCount} pressure glands feeding `
         + `${state.throatCount} mouths, ${state.tongueCount} tongues, and ${state.noseCount} noses.`,
   );
 }
 
-function applyVoicePreset(name, { startSound = true } = {}) {
+function applyVoicePreset(name) {
   if (pointerPhonemeTimer) clearTimeout(pointerPhonemeTimer);
   pointerPhonemeTimer = 0;
   pointerPhonemeSession = null;
@@ -1372,7 +1515,6 @@ function applyVoicePreset(name, { startSound = true } = {}) {
   const next = voicePresetState(key);
   loadVoiceProfile(next);
   state.voicePreset = key;
-  state.sourceMode = preset.sourceMode;
   carrierVowel = preset.phoneme;
   selectedThroat = 0;
   selectedTongue = 0;
@@ -1383,7 +1525,6 @@ function applyVoicePreset(name, { startSound = true } = {}) {
     `${preset.name} voice loaded on ${preset.phoneme.toUpperCase()}. `
       + "Click a vowel, then hold a consonant and release it back into the vowel.",
   );
-  if (startSound) void activateSource(preset.sourceMode);
 }
 
 function isStopArticulation(id) {
@@ -1447,10 +1588,10 @@ function applyPhoneme(
   }
   const isVowel = !consonant && gesture.kind === "vowel";
   state.phoneme = key;
+  state.tongueCount = Math.round(clamp(gesture.tongueCount, 1, MAX_TONGUES));
+  state.noseCount = Math.round(clamp(gesture.noseCount, 1, MAX_NOSES));
   if (isVowel) {
     carrierVowel = key;
-    state.tongueCount = Math.round(clamp(gesture.tongueCount, 1, MAX_TONGUES));
-    state.noseCount = Math.round(clamp(gesture.noseCount, 1, MAX_NOSES));
     state.lipDiameter = gesture.lipDiameter ?? 3;
   }
   state.oralClosure = clamp(consonant?.oralClosure ?? gesture.oralClosure);
@@ -1479,16 +1620,14 @@ function applyPhoneme(
       ?? PHONEMES[carrierVowel]?.lipDiameter
       ?? state.lipDiameter;
   }
-  if (isVowel) {
-    state.tongues = Array.from({ length: MAX_TONGUES }, (_, index) => ({
-      ...state.tongues[index],
-      ...(gesture.tongues?.[index] ?? {}),
-    }));
-    state.noses = Array.from({ length: MAX_NOSES }, (_, index) => ({
-      ...state.noses[index],
-      ...(gesture.noses?.[index] ?? {}),
-    }));
-  }
+  state.tongues = Array.from({ length: MAX_TONGUES }, (_, index) => ({
+    ...state.tongues[index],
+    ...(gesture.tongues?.[index] ?? {}),
+  }));
+  state.noses = Array.from({ length: MAX_NOSES }, (_, index) => ({
+    ...state.noses[index],
+    ...(gesture.noses?.[index] ?? {}),
+  }));
   selectedTongue = Math.min(selectedTongue, state.tongueCount - 1);
   selectedNose = Math.min(selectedNose, state.noseCount - 1);
   markAudioDirty();
@@ -1672,7 +1811,9 @@ function typingKeyIdentity(event, phoneme) {
 
 function heldKeyLabel(entry) {
   const letter = String(entry?.letter ?? "");
-  if (/^[a-z]$/i.test(letter)) return letter.toUpperCase();
+  if (/^[a-z]$/i.test(letter)) {
+    return `${entry?.capital ? "SHIFT+" : ""}${letter.toUpperCase()}`;
+  }
   return CONSONANTS[entry?.phoneme]?.symbol
     ?? String(entry?.phoneme ?? "").toUpperCase();
 }
@@ -1703,6 +1844,22 @@ function typingEventIsModified(event) {
       || event.metaKey
       || event.altKey,
   );
+}
+
+function handlePresetShortcut(event) {
+  if (typingEventIsModified(event) || isProtectedTypingTarget(event.target)) return false;
+  const shortcut = keyboardPresetShortcut(event.key, event.code);
+  if (!shortcut) return false;
+  event.preventDefault();
+  if (event.repeat) return true;
+  if (heldPhonemeKeys.size) clearHeldPhonemes({ burst: false });
+  beatboxReturnState = null;
+  if (shortcut.kind === "specimen") applySpecimen(shortcut.id);
+  announce(
+    `${event.code?.replace(/^(?:Digit|Numpad)/, "") || event.key} loaded `
+      + `${shortcut.name}. Number presets work throughout Throatazoid.`,
+  );
+  return true;
 }
 
 function captureArticulationState() {
@@ -1777,13 +1934,36 @@ function handleTypingKeyDown(event) {
     releaseStopClosure(previous.phoneme, { announceRelease: false });
   }
   const letter = String(event.key).toLowerCase();
-  heldPhonemeKeys.set(identity, { identity, phoneme, letter });
+  const capital = /^[a-z]$/i.test(event.key)
+    && (Boolean(event.shiftKey) || event.key === event.key.toUpperCase());
+  const entry = { identity, phoneme, letter, capital };
+  heldPhonemeKeys.set(identity, entry);
   applyPhoneme(phoneme, { sustainStop: true, announceGesture: false });
+  const now = globalThis.performance?.now?.() ?? Date.now();
+  performanceTime = now;
+  keyboardPulse = {
+    startedAt: now,
+    place: state.articulationPlace,
+    capital,
+    letter: /^[a-z]$/.test(letter) ? letter : "",
+  };
+  if (keyboardAccentTimer) clearTimeout(keyboardAccentTimer);
+  keyboardAccentTimer = globalThis.setTimeout?.(() => {
+    keyboardAccentTimer = 0;
+    performanceTime = globalThis.performance?.now?.() ?? Date.now();
+    markAudioDirty();
+  }, 95) ?? 0;
   if (!isAwake() && !state.starting) void activateSource(state.sourceMode);
+  const variant = capital ? capitalExpression(letter) : null;
   announce(
     isAwake()
-      ? `${letter.toUpperCase()} held. Release the key to end its voice.`
-      : `${letter.toUpperCase()} formed. Starting ${SOURCE_LABELS[state.sourceMode]} sound.`,
+      ? variant
+        ? `SHIFT+${letter.toUpperCase()} · ${variant.name} held. Release to return.`
+        : `${letter.toUpperCase()} held. Release the key to end its voice.`
+      : variant
+        ? `SHIFT+${letter.toUpperCase()} formed ${variant.name}. Starting `
+          + `${SOURCE_LABELS[state.sourceMode]} sound.`
+        : `${letter.toUpperCase()} formed. Starting ${SOURCE_LABELS[state.sourceMode]} sound.`,
   );
   return true;
 }
@@ -1872,14 +2052,18 @@ function toggleTypingMode() {
   updateUi();
   announce(
     "Keyboard gate armed. Every letter A through Z reshapes the tract; hold keys "
-      + "to sustain and release stops to burst. Apostrophe or question mark makes ʔ.",
+      + "to sustain, use Shift for a larger mutation, and release stops to burst. "
+      + "Numbers zero through nine load anatomies. Apostrophe or question mark makes ʔ.",
   );
 }
 
 function updateSelectedThroatUi() {
   selectedThroat = Math.round(clamp(selectedThroat, 0, state.throatCount - 1));
   const throat = state.throats[selectedThroat];
-  $("selectedThroatName").textContent = `MOUTH ${String(selectedThroat + 1).padStart(2, "0")}`;
+  const route = mouthOrganRoutes(state)[selectedThroat];
+  $("selectedThroatName").textContent = `MOUTH ${
+    String(selectedThroat + 1).padStart(2, "0")
+  } · FOCUS T${(route?.tongueIndex ?? 0) + 1}/N${(route?.noseIndex ?? 0) + 1}`;
   $("selectedAperture").value = String(throat.aperture);
   $("selectedApertureOut").textContent = percentage(throat.aperture);
   $("selectedLength").value = String(throat.length);
@@ -2003,6 +2187,20 @@ function updateUi() {
   $("tensionOut").textContent = percentage(state.tension);
   $("mutation").value = String(state.mutation);
   $("mutationOut").textContent = percentage(state.mutation);
+  $("motionButton").setAttribute("aria-checked", String(state.motionEnabled));
+  $("motionState").textContent = prefersReducedMotion
+    ? "reduced"
+    : state.motionEnabled
+      ? "live"
+      : "off";
+  $("motionDepth").value = String(state.motionDepth);
+  $("motionDepthOut").textContent = percentage(state.motionDepth);
+  for (const button of $("motionTargetButtons").querySelectorAll("[data-motion-target]")) {
+    const property = `motion${button.dataset.motionTarget[0].toUpperCase()}${
+      button.dataset.motionTarget.slice(1)
+    }`;
+    setPressed(button, Boolean(state[property]));
+  }
   $("tongueCount").value = String(state.tongueCount);
   $("tongueCountOut").textContent = String(state.tongueCount);
   $("noseCount").value = String(state.noseCount);
@@ -2068,7 +2266,11 @@ function updateUi() {
     : articulation
       ? articulation.kind
       : `${articulationPlaceLabel().toLowerCase()} ${articulationMannerLabel().toLowerCase()}`;
-  $("articulationGestureOut").textContent = `${symbol || "MANUAL"} · ${description}`.toUpperCase();
+  const capitalVariant = activeCapitalVariant();
+  $("articulationGestureOut").textContent = (
+    `${symbol || "MANUAL"} · ${description}`
+      + (capitalVariant?.expression ? ` · ${capitalVariant.expression.name}` : "")
+  ).toUpperCase();
 
   for (const button of $("presetButtons").querySelectorAll("[data-specimen]")) {
     setPressed(
@@ -2092,19 +2294,24 @@ function updateUi() {
     button.dataset.held = String(held);
     button.classList.toggle("is-held", held);
   }
-  const heldLetters = new Set(
-    [...heldPhonemeKeys.values()].map((entry) => entry.letter),
+  const heldLetters = new Map(
+    [...heldPhonemeKeys.values()].map((entry) => [entry.letter, entry]),
   );
   for (const keycap of $("alphabetKeyMap").querySelectorAll("[data-letter]")) {
-    keycap.classList.toggle("is-held", heldLetters.has(keycap.dataset.letter));
+    const entry = heldLetters.get(keycap.dataset.letter);
+    keycap.classList.toggle("is-held", Boolean(entry));
+    keycap.classList.toggle("is-capital", Boolean(entry?.capital));
   }
   $("typingModeButton").setAttribute("aria-checked", String(state.typingMode));
   const activeTypingKey = activeHeldPhoneme();
-  $("typingModeState").textContent = state.typingMode
-    ? activeTypingKey
-      ? `${heldKeyLabel(activeTypingKey)} held`
-      : "armed"
-    : "momentary";
+  const activeExpression = activeTypingKey?.capital
+    ? capitalExpression(activeTypingKey.letter)
+    : null;
+  $("typingModeState").textContent = activeTypingKey
+    ? `${heldKeyLabel(activeTypingKey)}${activeExpression ? ` · ${activeExpression.name}` : ""}`
+    : state.typingMode
+      ? "armed"
+      : "momentary";
   const name = specimenLabel();
   $("sourceSummary").textContent = `${sourceName.toLowerCase()} excitation`;
   $("listenSummary").textContent = starting
@@ -2117,7 +2324,9 @@ function updateUi() {
   $("anatomySummary").textContent = polyphonic
     ? `${name} · ${state.throatCount} mouths · ${state.throatCount} voices`
     : `${name} · ${state.throatCount} mouth${state.throatCount === 1 ? "" : "s"}`;
-  $("articulationSummary").textContent = `${state.tongueCount} tongue${state.tongueCount === 1 ? "" : "s"} · ${state.noseCount} nose${state.noseCount === 1 ? "" : "s"}`;
+  $("articulationSummary").textContent = `SHARED · ${state.tongueCount} tongue${
+    state.tongueCount === 1 ? "" : "s"
+  } + ${state.noseCount} nose${state.noseCount === 1 ? "" : "s"}`;
   $("voiceSummary").textContent = polyphonic
     ? `${state.throatCount} pitched voices · ${percentage(state.wet)} organism`
     : `${percentage(state.wet)} organism · ${percentage(state.dry)} source`;
@@ -2128,7 +2337,9 @@ function updateUi() {
       ? "VOCAL"
       : "QUIET"
     : "DORMANT";
-  $("stageReadout").textContent = `${signalState} · ${name.toUpperCase()} · ${state.pressureSourceCount}P/${state.throatCount}M/${state.tongueCount}G/${state.noseCount}N${polyphonic ? `/${state.throatCount}V` : ""}`;
+  $("stageReadout").textContent = `${signalState} · ${name.toUpperCase()}${
+    capitalVariant?.expression ? ` · ${capitalVariant.expression.name.toUpperCase()}` : ""
+  } · ${state.pressureSourceCount}P/${state.throatCount}M/${state.tongueCount}G/${state.noseCount}N${polyphonic ? `/${state.throatCount}V` : ""}`;
   updateSelectedThroatUi();
   updateSelectedArticulationUi();
 
@@ -2280,13 +2491,13 @@ function tractPoint(geometry, progress, diameter = 0) {
   };
 }
 
-function tractDiameterProfile() {
+function tractDiameterProfile(performance = state) {
   const diameters = new Float32Array(44);
-  const classicTopology = Boolean(state.classicTopology);
-  const bodyLength = clamp(state.bodyLength);
-  const tension = clamp(state.tension);
-  const mutation = clamp(state.mutation);
-  const mouth = state.throats[selectedThroat] ?? state.throats[0] ?? {
+  const classicTopology = Boolean(performance.classicTopology);
+  const bodyLength = clamp(performance.bodyLength);
+  const tension = clamp(performance.tension);
+  const mutation = clamp(performance.mutation);
+  const mouth = performance.throats[selectedThroat] ?? performance.throats[0] ?? {
     aperture: 0.5,
     length: 0.5,
   };
@@ -2321,12 +2532,16 @@ function tractDiameterProfile() {
     diameters[index] = base
       * mouthScale
       * individualWarp
-      * (1 - lipProgress * (1 - mouthAperture) * 0.34);
+      * (1 - lipProgress * (1 - mouthAperture) * 0.68);
   }
 
-  for (let tongueNumber = 0; tongueNumber < state.tongueCount; tongueNumber += 1) {
-    const tongue = state.tongues[tongueNumber]
-      ?? state.tongues[0]
+  for (
+    let tongueNumber = 0;
+    tongueNumber < performance.tongueCount;
+    tongueNumber += 1
+  ) {
+    const tongue = performance.tongues[tongueNumber]
+      ?? performance.tongues[0]
       ?? { position: 0.38, height: 0.18 };
     const tongueIndex = 12.9 + clamp(tongue.position) * 17.5;
     const tongueDiameter = 3.5 - clamp(tongue.height) * 1.45;
@@ -2345,7 +2560,7 @@ function tractDiameterProfile() {
         (1.5 - curve)
           * mouthScale
           * individualWarp
-          * (1 - clamp((index - 35) / 8) * (1 - mouthAperture) * 0.34),
+          * (1 - clamp((index - 35) / 8) * (1 - mouthAperture) * 0.68),
       );
       diameters[index] = tongueNumber === 0
         ? tongueShape
@@ -2353,7 +2568,12 @@ function tractDiameterProfile() {
     }
   }
 
-  const requestedLipDiameter = Number(state.lipDiameter);
+  diameters.set(applyTractHeightDeformations(
+    diameters,
+    alienTongueDeformations(performance),
+  ));
+
+  const requestedLipDiameter = Number(performance.lipDiameter);
   const lipDiameter = Number.isFinite(requestedLipDiameter)
     ? clamp(requestedLipDiameter, 0.35, 3)
     : 3;
@@ -2370,9 +2590,9 @@ function tractDiameterProfile() {
     }
   }
 
-  const aperture = clamp(state.articulationAperture);
+  const aperture = clamp(performance.articulationAperture);
   if (aperture < 0.92) {
-    const center = currentArticulationIndex();
+    const center = currentArticulationIndex(performance);
     const target = Math.max(0, aperture * 1.38 - 0.035);
     const radius = center < 25
       ? 10
@@ -2395,13 +2615,34 @@ function tractDiameterProfile() {
   return diameters;
 }
 
-function tractGeometry() {
+function animatedTractDiameterProfile(performance, time) {
+  const target = tractDiameterProfile(performance);
+  if (
+    prefersReducedMotion
+    || !displayedTractDiameters
+    || displayedTractDiameters.length !== target.length
+    || !previousTractFrameTime
+  ) {
+    displayedTractDiameters = Float32Array.from(target);
+  } else {
+    displayedTractDiameters = smoothTractDiameters(
+      displayedTractDiameters,
+      target,
+      time - previousTractFrameTime,
+    );
+  }
+  previousTractFrameTime = time;
+  return displayedTractDiameters;
+}
+
+function tractGeometry(performance = state, diameterProfile = null) {
   const compact = cssWidth < 680 || cssHeight < 360;
-  const count = Math.max(1, state.throatCount);
+  const count = Math.max(1, performance.throatCount);
   const slots = Array.from(
     { length: count },
     (_, index) => count <= 1 ? 0 : index / (count - 1) * 2 - 1,
   );
+  const routes = mouthOrganRoutes(performance);
   const selectedSlot = slots[selectedThroat] ?? 0;
   const centerY = cssHeight * (compact ? 0.55 : 0.53);
   const sourceHub = {
@@ -2432,7 +2673,7 @@ function tractGeometry() {
   };
   const mouthGeometries = slots.map((slot, index) => {
     const end = {
-      x: cssWidth * (0.79 + clamp(state.throats[index]?.length) * 0.075),
+      x: cssWidth * (0.79 + clamp(performance.throats[index]?.length) * 0.075),
       y: centerY + slot * cssHeight * (compact ? 0.245 : 0.285),
     };
     const bendA = {
@@ -2440,7 +2681,7 @@ function tractGeometry() {
       y: centerY + slot * cssHeight * 0.068,
     };
     const bendB = {
-      x: cssWidth * (0.605 + clamp(state.throats[index]?.length) * 0.042),
+      x: cssWidth * (0.605 + clamp(performance.throats[index]?.length) * 0.042),
       y: centerY + slot * cssHeight * 0.195
         + (index % 2 ? -1 : 1) * cssHeight * 0.016,
     };
@@ -2448,10 +2689,10 @@ function tractGeometry() {
     const branchSegments = segmentize(path);
     const lastAngle = Math.atan2(end.y - bendB.y, end.x - bendB.x);
     const outward = Math.abs(slot) < 0.01 ? -1 : Math.sign(slot);
-    const tongueIndex = index % Math.max(1, state.tongueCount);
-    const noseIndex = index % Math.max(1, state.noseCount);
-    const tongue = state.tongues[tongueIndex] ?? {};
-    const nose = state.noses[noseIndex] ?? {};
+    const tongueIndex = routes[index]?.tongueIndex ?? 0;
+    const noseIndex = routes[index]?.noseIndex ?? 0;
+    const tongue = performance.tongues[tongueIndex] ?? {};
+    const nose = performance.noses[noseIndex] ?? {};
     const tongueBase = {
       x: bendB.x + (end.x - bendB.x) * (0.5 + clamp(tongue.position) * 0.18),
       y: bendB.y + (end.y - bendB.y) * (0.5 + clamp(tongue.position) * 0.18),
@@ -2474,11 +2715,14 @@ function tractGeometry() {
     };
     return {
       index,
+      route: routes[index],
       slot,
       path,
       segments: branchSegments.segments,
       pathLength: branchSegments.length,
       handle: bendB,
+      grabHandle: end,
+      angle: lastAngle,
       gate: {
         x: manifold.x + (bendA.x - manifold.x) * 0.24,
         y: manifold.y + (bendA.y - manifold.y) * 0.24,
@@ -2489,9 +2733,9 @@ function tractGeometry() {
       noseIndex,
       noseAnchor,
       noseHandle,
-      aperture: clamp(state.throats[index]?.aperture),
-      length: clamp(state.throats[index]?.length),
-      muted: Boolean(state.throats[index]?.muted),
+      aperture: clamp(performance.throats[index]?.aperture),
+      length: clamp(performance.throats[index]?.length),
+      muted: Boolean(performance.throats[index]?.muted),
       outerSign: outward,
     };
   });
@@ -2500,15 +2744,19 @@ function tractGeometry() {
     x: cssWidth * (compact ? 0.235 : 0.225),
     y: centerY + (selectedThroat % 2 ? -1 : 1) * cssHeight * 0.045,
   };
-  const path = [
+  const pathAnchors = [
     sourceHub,
     rootKnee,
     manifold,
     ...selectedBranch.path.slice(1),
   ];
+  // The exposed network remains angular, but its living lumen uses one
+  // continuous local tangent/normal so height gestures never snap at a bend.
+  const path = roundedAirwayPath(pathAnchors, 3);
   const selectedSegments = segmentize(path);
   const geometry = {
     path,
+    pathAnchors,
     segments: selectedSegments.segments,
     pathLength: selectedSegments.length,
     sourceHub,
@@ -2516,7 +2764,9 @@ function tractGeometry() {
     manifold,
     mouths: mouthGeometries,
     scale: Math.max(13, Math.min(cssWidth * 0.028, cssHeight * 0.042)),
-    diameters: tractDiameterProfile(),
+    diameters: diameterProfile
+      ? Float32Array.from(diameterProfile)
+      : tractDiameterProfile(performance),
   };
   geometry.baseline = Array.from(
     geometry.diameters,
@@ -2526,12 +2776,12 @@ function tractGeometry() {
     geometry.diameters,
     (diameter, index) => tractPoint(geometry, index / 43, diameter),
   );
-  geometry.constrictionProgress = clamp(currentArticulationIndex() / 43);
-  const station = Math.round(geometry.constrictionProgress * 43);
+  geometry.constrictionProgress = clamp(currentArticulationIndex(performance) / 43);
+  const station = geometry.constrictionProgress * 43;
   geometry.constriction = tractPoint(
     geometry,
     geometry.constrictionProgress,
-    geometry.diameters[station],
+    sampleDiameterProfile(geometry.diameters, station),
   );
   geometry.glottis = tractPoint(geometry, 0.025, geometry.diameters[1] * 0.52);
   geometry.velum = tractPoint(
@@ -2553,62 +2803,82 @@ function tractGeometry() {
         x: sourceHub.x - cssWidth * (0.03 + index * 0.004),
         y: handle.y,
       },
-      open: index < state.pressureSourceCount && state.pressureSources[index]?.open,
-      level: state.pressureSources[index]?.level ?? 0,
+      open: index < performance.pressureSourceCount
+        && performance.pressureSources[index]?.open,
+      level: performance.pressureSources[index]?.level ?? 0,
     };
   });
-  geometry.tongueHandles = Array.from({ length: state.tongueCount }, (_, index) => {
-    const tongue = state.tongues[index];
-    const progress = clamp((12 + clamp(tongue.position) * 29) / 43);
-    const handle = tractPoint(geometry, progress, 1.72 + clamp(tongue.height) * 0.36);
-    return {
-      index,
-      side: 1,
-      handle,
-      curlHandle: {
-        x: handle.x + (clamp(tongue.curl) - 0.5) * geometry.scale * 1.2,
-        y: handle.y - geometry.scale * 0.56,
-      },
-      control: "shape",
-    };
-  });
-  geometry.noseHandles = Array.from({ length: state.noseCount }, (_, index) => {
-    const nose = state.noses[index];
-    const length = clamp(nose.length);
-    const resonance = clamp(nose.resonance);
-    const openness = clamp(nose.openness);
-    const base = tractPoint(
-      geometry,
-      clamp((17 + index * 0.45) / 43),
-      geometry.diameters[17] + 0.42 + index * 0.13,
-    );
-    const tangent = { x: Math.cos(base.angle), y: Math.sin(base.angle) };
-    const handle = {
-      x: base.x
-        + tangent.x * geometry.scale * (0.45 + length * 1.2)
-        + base.normal.x * geometry.scale * (
-          0.42 + length * 0.72 + openness * 0.52 + index * 0.42
-        ),
-      y: base.y
-        + tangent.y * geometry.scale * (0.45 + length * 1.2)
-        + base.normal.y * geometry.scale * (
-          0.42 + length * 0.72 + openness * 0.52 + index * 0.42
-        ),
-    };
-    return {
-      index,
-      side: -1,
-      anchor: base,
-      chamber: base,
-      handle,
-      resonanceHandle: {
-        x: handle.x + tangent.x * geometry.scale * (0.34 + resonance * 0.58),
-        y: handle.y + tangent.y * geometry.scale * (0.34 + resonance * 0.58),
-      },
-      radius: geometry.scale * (0.2 + resonance * 0.28),
-      control: "shape",
-    };
-  });
+  geometry.tongueHandles = Array.from(
+    { length: performance.tongueCount },
+    (_, index) => {
+      const tongue = performance.tongues[index];
+      const control = tongueTractCoordinates(tongue);
+      const progress = clamp(control.index / 43);
+      const handle = tractPoint(
+        geometry,
+        progress,
+        control.diameter,
+      );
+      const tangent = {
+        x: Math.cos(handle.angle),
+        y: Math.sin(handle.angle),
+      };
+      return {
+        index,
+        side: 1,
+        handle,
+        curlHandle: {
+          x: handle.x
+            + tangent.x * (clamp(tongue.curl) - 0.5) * geometry.scale * 1.25
+            + handle.normal.x * geometry.scale * 0.5,
+          y: handle.y
+            + tangent.y * (clamp(tongue.curl) - 0.5) * geometry.scale * 1.25
+            + handle.normal.y * geometry.scale * 0.5,
+        },
+        control: "shape",
+      };
+    },
+  );
+  geometry.noseHandles = Array.from(
+    { length: performance.noseCount },
+    (_, index) => {
+      const nose = performance.noses[index];
+      const length = clamp(nose.length);
+      const resonance = clamp(nose.resonance);
+      const openness = perceptualNoseOpening(nose.openness);
+      const base = tractPoint(
+        geometry,
+        clamp((17 + index * 0.45) / 43),
+        geometry.diameters[17] + 0.42 + index * 0.13,
+      );
+      const tangent = { x: Math.cos(base.angle), y: Math.sin(base.angle) };
+      const handle = {
+        x: base.x
+          + tangent.x * geometry.scale * (0.45 + length * 1.2)
+          + base.normal.x * geometry.scale * (
+            0.42 + length * 0.72 + openness * 0.52 + index * 0.42
+          ),
+        y: base.y
+          + tangent.y * geometry.scale * (0.45 + length * 1.2)
+          + base.normal.y * geometry.scale * (
+            0.42 + length * 0.72 + openness * 0.52 + index * 0.42
+          ),
+      };
+      return {
+        index,
+        side: -1,
+        anchor: base,
+        chamber: base,
+        handle,
+        resonanceHandle: {
+          x: handle.x + tangent.x * geometry.scale * (0.34 + resonance * 0.58),
+          y: handle.y + tangent.y * geometry.scale * (0.34 + resonance * 0.58),
+        },
+        radius: geometry.scale * (0.2 + resonance * 0.28),
+        control: "shape",
+      };
+    },
+  );
   geometry.bodyHandles = [
     {
       control: "membrane",
@@ -2644,6 +2914,25 @@ function tracePolyline(points) {
     if (index === 0) drawing.moveTo(point.x, point.y);
     else drawing.lineTo(point.x, point.y);
   });
+}
+
+function traceSmoothPolyline(points, { begin = true } = {}) {
+  if (!points.length) return;
+  if (begin) drawing.beginPath();
+  if (begin) drawing.moveTo(points[0].x, points[0].y);
+  else drawing.lineTo(points[0].x, points[0].y);
+  if (points.length === 1) return;
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const point = points[index];
+    const next = points[index + 1];
+    drawing.quadraticCurveTo(
+      point.x,
+      point.y,
+      (point.x + next.x) * 0.5,
+      (point.y + next.y) * 0.5,
+    );
+  }
+  drawing.lineTo(points.at(-1).x, points.at(-1).y);
 }
 
 function segmentedPathPoint(pathGeometry, progress) {
@@ -2690,7 +2979,182 @@ function drawAngularNode(
   drawing.restore();
 }
 
-function drawNetworkTopology(geometry, time, liveAlpha) {
+function drawCartoonGrabber(
+  point,
+  radius,
+  color,
+  label,
+  {
+    selected = false,
+    time = 0,
+    aspect = 0.8,
+    alpha = 1,
+  } = {},
+) {
+  const bob = prefersReducedMotion
+    ? 0
+    : Math.sin(time * 0.003 + point.x * 0.02) * (selected ? 1.2 : 0.45);
+  const size = radius * (selected ? 1.08 : 1);
+  drawing.save();
+  drawing.globalAlpha = alpha;
+  drawing.translate(point.x, point.y + bob);
+  drawing.rotate(selected ? Math.sin(time * 0.0017) * 0.05 : 0);
+  drawing.shadowColor = selected ? color : "transparent";
+  drawing.shadowBlur = selected ? 16 : 0;
+  drawing.beginPath();
+  drawing.ellipse(0, 0, size, size * aspect, 0, 0, Math.PI * 2);
+  drawing.fillStyle = color;
+  drawing.fill();
+  drawing.shadowBlur = 0;
+  drawing.strokeStyle = selected ? "#f7faef" : "rgba(232,237,223,.62)";
+  drawing.lineWidth = selected ? 3.2 : 1.6;
+  drawing.stroke();
+
+  drawing.beginPath();
+  drawing.ellipse(
+    -size * 0.28,
+    -size * aspect * 0.28,
+    Math.max(1.5, size * 0.2),
+    Math.max(1, size * aspect * 0.13),
+    -0.35,
+    0,
+    Math.PI * 2,
+  );
+  drawing.fillStyle = "rgba(255,255,255,.5)";
+  drawing.fill();
+
+  if (drawing.fillText) {
+    drawing.font = `${selected ? 8 : 6}px monospace`;
+    drawing.textAlign = "center";
+    drawing.fillStyle = selected ? "#020302" : "rgba(2,3,2,.8)";
+    drawing.fillText(label, 0, 2.5);
+    if (selected) {
+      drawing.fillStyle = color;
+      drawing.font = "7px monospace";
+      drawing.fillText("GRAB", 0, size * aspect + 12);
+    }
+  }
+  drawing.restore();
+}
+
+function drawCartoonMouthPod(mouth, {
+  selected = false,
+  pressure = 0,
+  time = 0,
+} = {}) {
+  const scale = selected ? 1.28 : 1;
+  const opening = 4 + mouth.aperture * 9;
+  const pulse = prefersReducedMotion
+    ? 0
+    : Math.sin(time * 0.004 + mouth.index * 1.37) * pressure * 1.8;
+  drawing.save();
+  drawing.translate(mouth.mouth.x, mouth.mouth.y);
+  drawing.rotate(mouth.angle);
+  drawing.scale?.(scale, scale);
+  drawing.shadowColor = selected ? "rgba(216,255,87,.55)" : "transparent";
+  drawing.shadowBlur = selected ? 18 : 0;
+
+  drawing.beginPath();
+  drawing.ellipse(-2, 0, 17 + pulse, 13 - pulse * 0.25, 0, 0, Math.PI * 2);
+  drawing.fillStyle = mouth.muted ? "#19090c" : "#070807";
+  drawing.fill();
+  drawing.shadowBlur = 0;
+  drawing.strokeStyle = mouth.muted
+    ? "#ff745f"
+    : selected
+      ? "#d8ff57"
+      : "rgba(232,237,223,.5)";
+  drawing.lineWidth = selected ? 3 : 1.5;
+  drawing.stroke();
+
+  drawing.beginPath();
+  drawing.ellipse(4, 0, 11.5, opening, 0, 0, Math.PI * 2);
+  drawing.fillStyle = mouth.muted ? "#080303" : "#351127";
+  drawing.fill();
+  drawing.strokeStyle = mouth.muted
+    ? "rgba(255,116,95,.68)"
+    : "rgba(255,159,195,.75)";
+  drawing.lineWidth = 1.5;
+  drawing.stroke();
+
+  drawing.beginPath();
+  drawing.ellipse(5, opening * 0.36, 7.5, Math.max(1.7, opening * 0.32), 0, 0, Math.PI);
+  drawing.fillStyle = "#c6a0ff";
+  drawing.fill();
+
+  for (const direction of [-1, 1]) {
+    drawing.beginPath();
+    drawing.moveTo(-1, direction * (opening - 0.6));
+    drawing.quadraticCurveTo(4, direction * (opening - 3.2), 9, direction * (opening - 0.8));
+    drawing.strokeStyle = "rgba(247,250,239,.9)";
+    drawing.lineWidth = 2.2;
+    drawing.stroke();
+  }
+  drawing.restore();
+
+  if (drawing.fillText) {
+    drawing.save();
+    drawing.textAlign = "center";
+    drawing.fillStyle = mouth.muted
+      ? "#ff745f"
+      : selected
+        ? "#d8ff57"
+        : "rgba(232,237,223,.68)";
+    drawing.font = `${selected ? 9 : 7}px monospace`;
+    drawing.fillText(
+      selected ? `M${mouth.index + 1} · DRAG ME` : `M${mouth.index + 1}`,
+      mouth.mouth.x,
+      mouth.mouth.y - (selected ? 25 : 18),
+    );
+    drawing.restore();
+  }
+}
+
+function drawSharedShapeBadge(geometry) {
+  if (!drawing.fillText) return;
+  const anchor = tractPoint(geometry, 0.56, 0.2);
+  const width = Math.min(228, cssWidth * 0.28);
+  const height = 38;
+  const x = clamp(
+    anchor.x - width * 0.46,
+    cssWidth * 0.3,
+    cssWidth - width - 12,
+  );
+  const y = clamp(
+    anchor.y - geometry.scale * 4.3,
+    64,
+    cssHeight - height - 84,
+  );
+  drawing.save();
+  drawing.beginPath();
+  if (drawing.roundRect) drawing.roundRect(x, y, width, height, 14);
+  else drawing.rect(x, y, width, height);
+  drawing.fillStyle = "rgba(2,3,2,.9)";
+  drawing.fill();
+  drawing.strokeStyle = "rgba(232,237,223,.42)";
+  drawing.lineWidth = 2;
+  drawing.stroke();
+  drawing.beginPath();
+  drawing.moveTo(x + width * 0.55, y + height);
+  drawing.lineTo(anchor.x, anchor.y);
+  drawing.strokeStyle = "rgba(232,237,223,.32)";
+  drawing.lineWidth = 2;
+  drawing.stroke();
+  drawing.textAlign = "center";
+  drawing.font = "8px monospace";
+  drawing.fillStyle = "#f7faef";
+  drawing.fillText("SHARED MOUTH SHAPE", x + width * 0.5, y + 14);
+  drawing.font = "7px monospace";
+  drawing.fillStyle = "#c6a0ff";
+  drawing.fillText("PURPLE", x + width * 0.31, y + 28);
+  drawing.fillStyle = "#79dcff";
+  drawing.fillText("+ BLUE", x + width * 0.5, y + 28);
+  drawing.fillStyle = "rgba(232,237,223,.72)";
+  drawing.fillText("→ ALL MOUTHS", x + width * 0.74, y + 28);
+  drawing.restore();
+}
+
+function drawNetworkTopology(geometry, time, liveAlpha, performance = state) {
   drawing.save();
   drawing.lineJoin = "miter";
   drawing.lineCap = "square";
@@ -2759,54 +3223,27 @@ function drawNetworkTopology(geometry, time, liveAlpha) {
         "rgba(216,255,87,.42)",
         { sides: 4, rotation: Math.PI / 4 },
       );
-      if (state.coupling > 0.08) {
+      if (performance.coupling > 0.08) {
         drawAngularNode(
           returning,
-          1.3 + state.coupling * 2.1,
-          `rgba(198,160,255,${0.15 + state.coupling * 0.52})`,
+          1.3 + performance.coupling * 2.1,
+          `rgba(198,160,255,${0.15 + performance.coupling * 0.52})`,
           "rgba(198,160,255,.36)",
           { sides: 4, rotation: Math.PI / 4 },
         );
       }
     }
 
-    drawing.beginPath();
-    drawing.moveTo(mouth.noseAnchor.x, mouth.noseAnchor.y);
-    drawing.lineTo(mouth.noseHandle.x, mouth.noseHandle.y);
-    drawing.strokeStyle = mouth.muted
-      ? "rgba(121,220,255,.08)"
-      : "rgba(121,220,255,.34)";
-    drawing.lineWidth = 1.1 + clamp(state.noses[mouth.noseIndex]?.openness) * 2.3;
-    drawing.stroke();
-    drawAngularNode(
-      mouth.noseHandle,
-      2.8,
-      "rgba(4,13,17,.94)",
-      mouth.muted ? "rgba(121,220,255,.18)" : "rgba(121,220,255,.62)",
-      { sides: 5, rotation: -Math.PI / 2 },
-    );
-
-    drawAngularNode(
-      mouth.tongueHandle,
-      selected ? 4 : 3,
-      "rgba(17,8,20,.96)",
-      selected ? "#c6a0ff" : "rgba(198,160,255,.54)",
-      { sides: 3, rotation: -Math.PI / 2 },
-    );
-
-    const jaw = 5 + mouth.aperture * 8;
-    drawing.beginPath();
-    drawing.moveTo(mouth.mouth.x - jaw, mouth.mouth.y - jaw * 0.72);
-    drawing.lineTo(mouth.mouth.x + jaw * 0.95, mouth.mouth.y);
-    drawing.lineTo(mouth.mouth.x - jaw, mouth.mouth.y + jaw * 0.72);
-    drawing.strokeStyle = mouth.muted ? "#ff745f" : "rgba(232,237,223,.72)";
-    drawing.lineWidth = selected ? 2 : 1.1;
-    drawing.stroke();
+    drawCartoonMouthPod(mouth, {
+      selected,
+      pressure,
+      time,
+    });
   }
   drawing.restore();
 }
 
-function drawNetworkJunctions(geometry, time) {
+function drawNetworkJunctions(geometry, time, performance = state) {
   drawing.save();
   drawing.textAlign = "center";
   drawing.font = "7px monospace";
@@ -2814,7 +3251,7 @@ function drawNetworkJunctions(geometry, time) {
     const energy = clamp(sourcePressures[source.index] ?? 0);
     drawAngularNode(
       source.handle,
-      7.5,
+      7.5 + clamp(source.level) * 1.8,
       source.open ? "rgba(4,17,20,.98)" : "rgba(16,8,10,.96)",
       source.open ? "#79dcff" : "rgba(255,116,95,.55)",
       {
@@ -2843,14 +3280,14 @@ function drawNetworkJunctions(geometry, time) {
   );
   drawAngularNode(
     geometry.manifold,
-    12 + state.coupling * 9,
+    12 + performance.coupling * 9,
     "rgba(8,5,10,.98)",
     "rgba(198,160,255,.82)",
     {
-      sides: Math.max(5, state.throatCount + 2),
+      sides: Math.max(5, performance.throatCount + 2),
       rotation: time * (prefersReducedMotion ? 0 : 0.00008),
       lineWidth: 1.5,
-      glow: state.coupling * 12,
+      glow: performance.coupling * 12,
     },
   );
   drawing.fillStyle = "rgba(198,160,255,.88)";
@@ -2868,12 +3305,6 @@ function drawNetworkJunctions(geometry, time) {
         glow: mouth.muted ? 0 : clamp(mouthPressures[mouth.index] ?? 0) * 7,
       },
     );
-    drawing.fillStyle = mouth.muted ? "rgba(255,116,95,.78)" : "rgba(216,255,87,.72)";
-    drawing.fillText(
-      `M${mouth.index + 1}`,
-      mouth.mouth.x + 2,
-      mouth.mouth.y - 12,
-    );
   }
 
   drawing.textAlign = "left";
@@ -2881,38 +3312,50 @@ function drawNetworkJunctions(geometry, time) {
   drawing.fillText("PRESSURE BANK", geometry.pressureSources[0].handle.x - 14, cssHeight * 0.09);
   drawing.fillStyle = "rgba(198,160,255,.5)";
   drawing.fillText(
-    `AIRWAY CROSS-FEED ${Math.round(state.coupling / 0.72 * 100)}%`,
+    `AIRWAY CROSS-FEED ${Math.round(performance.coupling / 0.72 * 100)}%`,
     geometry.manifold.x - 34,
     geometry.manifold.y + 28,
   );
   drawing.restore();
 }
 
-function drawPhysicalTract(time, liveAlpha) {
-  const geometry = tractGeometry();
+function drawPhysicalTract(time, liveAlpha, performance = state) {
+  const geometry = tractGeometry(
+    performance,
+    animatedTractDiameterProfile(performance, time),
+  );
   currentTract = geometry;
   currentTongues = geometry.tongueHandles;
   currentNoses = geometry.noseHandles;
   currentBodyHandles = geometry.bodyHandles;
   const pressure = clamp(tractPressure);
-  const aperture = clamp(state.articulationAperture);
-  const closed = aperture < 0.04 || state.glottalClosure > 0.84;
+  const aperture = clamp(performance.articulationAperture);
+  const closed = aperture < 0.04 || performance.glottalClosure > 0.84;
   const fricating = aperture > 0.2 && aperture < 0.55;
+  const membraneDisplacement = (station) => (
+    prefersReducedMotion
+      ? 0
+      : liveAlpha
+        * 0.032
+        * Math.sin(station * 1.87 - time * 0.005)
+        * station / 43
+  );
+  const livingWall = Array.from(
+    geometry.diameters,
+    (diameter, station) => tractPoint(
+      geometry,
+      station / 43,
+      diameter + membraneDisplacement(station),
+    ),
+  );
 
   drawing.save();
   drawing.lineJoin = "round";
   drawing.lineCap = "round";
-  drawNetworkTopology(geometry, time, liveAlpha);
+  drawNetworkTopology(geometry, time, liveAlpha, performance);
 
-  drawing.beginPath();
-  geometry.baseline.forEach((point, index) => {
-    if (index === 0) drawing.moveTo(point.x, point.y);
-    else drawing.lineTo(point.x, point.y);
-  });
-  for (let index = geometry.wall.length - 1; index >= 0; index -= 1) {
-    const point = geometry.wall[index];
-    drawing.lineTo(point.x, point.y);
-  }
+  traceSmoothPolyline(geometry.baseline);
+  traceSmoothPolyline([...livingWall].reverse(), { begin: false });
   drawing.closePath();
   const tractGradient = drawing.createLinearGradient?.(
     cssWidth * 0.08,
@@ -2936,9 +3379,9 @@ function drawPhysicalTract(time, liveAlpha) {
   drawing.lineWidth = 1.35;
   drawing.stroke();
 
-  for (let index = 1; index < 43; index += 1) {
+  for (let index = 2; index < 43; index += 2) {
     const baseline = geometry.baseline[index];
-    const wall = geometry.wall[index];
+    const wall = livingWall[index];
     const behindClosure = index / 43 < geometry.constrictionProgress;
     const sectionEnergy = isAwake()
       ? 0.06 + liveAlpha * (0.1 + 0.16 * Math.sin(time * 0.004 - index * 0.74) ** 2)
@@ -2953,25 +3396,26 @@ function drawPhysicalTract(time, liveAlpha) {
     drawing.stroke();
   }
 
-  drawing.beginPath();
-  geometry.wall.forEach((point, index) => {
-    if (index === 0) drawing.moveTo(point.x, point.y);
-    else drawing.lineTo(point.x, point.y);
-  });
+  traceSmoothPolyline(livingWall);
   drawing.strokeStyle = "rgba(198,160,255,.82)";
   drawing.lineWidth = 2.3;
   drawing.stroke();
 
-  const tongueStart = tractPoint(geometry, 11 / 43, 1.78);
-  const tongueMid = tractPoint(
-    geometry,
-    clamp((12.9 + clamp(state.tongues[0]?.position) * 17.5) / 43),
-    1.84 + clamp(state.tongues[0]?.height) * 0.35,
-  );
-  const tongueEnd = tractPoint(geometry, 33 / 43, 1.74);
-  drawing.beginPath();
-  drawing.moveTo(tongueStart.x, tongueStart.y);
-  drawing.quadraticCurveTo(tongueMid.x, tongueMid.y, tongueEnd.x, tongueEnd.y);
+  const tongueMembrane = Array.from({ length: 25 }, (_, offset) => {
+    const station = offset + 10;
+    const mutation = clamp(performance.mutation);
+    const mutationLobe = Math.sin(
+      station * 0.74 + mutation * 5.2,
+    ) * mutation * 0.045;
+    return tractPoint(
+      geometry,
+      station / 43,
+      geometry.diameters[station] * (0.72 + mutationLobe)
+        + 0.22
+        + membraneDisplacement(station) * 0.68,
+    );
+  });
+  traceSmoothPolyline(tongueMembrane);
   drawing.strokeStyle = "rgba(198,160,255,.2)";
   drawing.lineWidth = Math.max(18, geometry.scale * 0.42);
   drawing.stroke();
@@ -2979,51 +3423,34 @@ function drawPhysicalTract(time, liveAlpha) {
   drawing.lineWidth = 1;
   drawing.stroke();
 
-  for (let index = 0; index < state.tongueCount; index += 1) {
+  for (let index = 0; index < performance.tongueCount; index += 1) {
     const tongueGeometry = geometry.tongueHandles[index];
     const point = tongueGeometry.handle;
-    drawSoftNode(
+    drawCartoonGrabber(
       point,
-      index === selectedTongue ? 5.8 : 3.5,
-      index === selectedTongue ? "#c6a0ff" : "rgba(198,160,255,.52)",
-      "#020302",
-      { selected: index === selectedTongue && pointerDrag?.type === "tongue", time },
+      index === selectedTongue ? 13 : 7,
+      "#c6a0ff",
+      `T${index + 1}`,
+      {
+        selected: index === selectedTongue,
+        time,
+        aspect: 0.72,
+        alpha: index === selectedTongue ? 1 : 0.34,
+      },
     );
-    drawing.beginPath();
-    drawing.moveTo(point.x, point.y);
-    drawing.lineTo(tongueGeometry.curlHandle.x, tongueGeometry.curlHandle.y);
-    drawing.strokeStyle = index === selectedTongue
-      ? "rgba(198,160,255,.58)"
-      : "rgba(198,160,255,.18)";
-    drawing.lineWidth = 0.8;
-    drawing.stroke();
-    drawAngularNode(
-      tongueGeometry.curlHandle,
-      index === selectedTongue ? 3.7 : 2.2,
-      "rgba(10,5,12,.96)",
-      index === selectedTongue ? "#c6a0ff" : "rgba(198,160,255,.34)",
-      { sides: 3, rotation: -Math.PI / 2 },
-    );
-    if (drawing.fillText) {
-      drawing.fillStyle = "rgba(198,160,255,.6)";
-      drawing.font = "6px monospace";
-      drawing.fillText(`T${index + 1}`, point.x + 7, point.y - 5);
-    }
   }
 
-  const averageNoseOpen = state.noses
-    .slice(0, state.noseCount)
-    .reduce((sum, nose) => sum + clamp(nose.openness), 0) / Math.max(1, state.noseCount);
-  for (let index = 0; index < state.noseCount; index += 1) {
-    const openness = clamp(state.noses[index]?.openness);
+  for (let index = 0; index < performance.noseCount; index += 1) {
+    const openness = Math.max(
+      clamp(performance.nasalCoupling),
+      clamp(performance.noses[index]?.openness),
+    );
     const noseGeometry = geometry.noseHandles[index];
     drawing.beginPath();
     drawing.moveTo(noseGeometry.anchor.x, noseGeometry.anchor.y);
-    drawing.lineTo(noseGeometry.chamber.x, noseGeometry.chamber.y);
     drawing.lineTo(noseGeometry.handle.x, noseGeometry.handle.y);
-    drawing.lineTo(noseGeometry.resonanceHandle.x, noseGeometry.resonanceHandle.y);
     drawing.strokeStyle = `rgba(121,220,255,${0.16 + openness * 0.58})`;
-    drawing.lineWidth = 1.2 + openness * 4.2;
+    drawing.lineWidth = 3 + openness * 6;
     drawing.stroke();
     drawing.beginPath();
     drawing.arc(
@@ -3033,48 +3460,35 @@ function drawPhysicalTract(time, liveAlpha) {
       0,
       Math.PI * 2,
     );
-    drawing.strokeStyle = `rgba(121,220,255,${0.14 + clamp(state.noses[index]?.resonance) * 0.46})`;
+    drawing.strokeStyle = `rgba(121,220,255,${
+      0.14 + clamp(performance.noses[index]?.resonance) * 0.46
+    })`;
     drawing.lineWidth = 1;
     drawing.stroke();
-    drawSoftNode(
+    drawCartoonGrabber(
       noseGeometry.handle,
-      3.2 + openness * 2.2,
+      (selectedNose === index ? 12 : 7) + openness * 2.5,
       "#79dcff",
-      "#020302",
-      { selected: selectedNose === index && pointerDrag?.type === "nose", time },
+      `N${index + 1}`,
+      {
+        selected: selectedNose === index,
+        time,
+        aspect: 0.88,
+        alpha: selectedNose === index ? 1 : 0.34,
+      },
     );
-    drawAngularNode(
-      noseGeometry.resonanceHandle,
-      selectedNose === index ? 4.2 : 3,
-      "rgba(4,11,14,.98)",
-      "#79dcff",
-      { sides: 4, rotation: Math.PI / 4 },
-    );
-    if (drawing.fillText) {
-      drawing.fillStyle = "rgba(121,220,255,.68)";
-      drawing.font = "6px monospace";
-      drawing.fillText(
-        `N${index + 1}`,
-        noseGeometry.resonanceHandle.x + 7,
-        noseGeometry.resonanceHandle.y - 5,
-      );
-    }
   }
 
-  const velumColor = averageNoseOpen > 0.55 ? "#79dcff" : "#ff745f";
-  drawSoftNode(
-    geometry.velum,
-    6.4,
-    velumColor,
-    "#020302",
-    { selected: pointerDrag?.type === "tract-velum", time, aspect: 0.78 },
-  );
-  drawSoftNode(
+  drawCartoonGrabber(
     geometry.glottis,
-    8,
-    state.glottalClosure > 0.84 ? "#ff745f" : "#d8ff57",
-    "#020302",
-    { selected: pointerDrag?.type === "tract-glottis", time, aspect: 1.25 },
+    12,
+    performance.glottalClosure > 0.84 ? "#ff745f" : "#d8ff57",
+    "VOICE",
+    {
+      selected: pointerDrag?.type === "tract-glottis",
+      time,
+      aspect: 0.82,
+    },
   );
 
   const constrictionColor = closed
@@ -3138,7 +3552,45 @@ function drawPhysicalTract(time, liveAlpha) {
     drawing.stroke();
   }
 
-  drawNetworkJunctions(geometry, time);
+  const pulseAge = time - keyboardPulse.startedAt;
+  if (pulseAge >= 0 && pulseAge < 360 && keyboardPulse.letter) {
+    const progress = clamp(pulseAge / 360);
+    const pulsePoint = tractPoint(
+      geometry,
+      clamp((12 + keyboardPulse.place * 30) / 43),
+      0.54,
+    );
+    const pulseColor = keyboardPulse.capital ? "198,160,255" : "216,255,87";
+    for (let ring = 0; ring < (keyboardPulse.capital ? 3 : 2); ring += 1) {
+      const ringProgress = clamp(progress - ring * 0.075);
+      drawing.beginPath();
+      drawing.arc(
+        pulsePoint.x,
+        pulsePoint.y,
+        7 + ringProgress * (keyboardPulse.capital ? 42 : 31) + ring * 5,
+        0,
+        Math.PI * 2,
+      );
+      drawing.strokeStyle = `rgba(${pulseColor},${(1 - ringProgress) * (0.68 - ring * 0.12)})`;
+      drawing.lineWidth = keyboardPulse.capital ? 1.7 : 1.2;
+      drawing.stroke();
+    }
+    if (drawing.fillText) {
+      drawing.fillStyle = `rgba(${pulseColor},${1 - progress})`;
+      drawing.font = `${keyboardPulse.capital ? 11 : 9}px monospace`;
+      drawing.textAlign = "center";
+      drawing.fillText(
+        keyboardPulse.capital
+          ? `SHIFT+${keyboardPulse.letter.toUpperCase()}`
+          : keyboardPulse.letter.toUpperCase(),
+        pulsePoint.x,
+        pulsePoint.y - 16 - progress * 12,
+      );
+    }
+  }
+
+  drawNetworkJunctions(geometry, time, performance);
+  drawSharedShapeBadge(geometry);
 
   drawTractText(geometry, 0.035, -0.34, "GLOTTIS", 0.68);
   drawTractText(geometry, 20 / 43, -0.42, "K · NG", 0.5);
@@ -3666,12 +4118,14 @@ function drawPressure(layout, time, liveAlpha) {
 }
 
 function drawStage(time) {
+  performanceTime = time;
+  const visualPerformance = performanceStateAt(time, { animate: true });
   drawing.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   drawing.clearRect(0, 0, cssWidth, cssHeight);
-  currentLayout = anatomyLayout(cssWidth, cssHeight, state);
+  currentLayout = anatomyLayout(cssWidth, cssHeight, visualPerformance);
   const liveAlpha = clamp(Math.max(inputLevel.rms, outputLevel.rms) * 10);
   drawVoidGeometry(time);
-  drawPhysicalTract(time, liveAlpha);
+  drawPhysicalTract(time, liveAlpha, visualPerformance);
 }
 
 function readAnalyser(analyser, samples) {
@@ -3784,20 +4238,22 @@ function pointerPosition(event) {
   };
 }
 
-function nearestBranchHandle(point, maximumDistance = 42) {
+function nearestBranchHandle(point, maximumDistance = 62) {
   let match = null;
   let distance = maximumDistance;
   for (const branch of currentTract?.mouths ?? []) {
-    const nextDistance = Math.hypot(point.x - branch.handle.x, point.y - branch.handle.y);
-    if (nextDistance < distance) {
-      distance = nextDistance;
-      match = branch;
+    for (const handle of [branch.grabHandle ?? branch.mouth, branch.handle]) {
+      const nextDistance = Math.hypot(point.x - handle.x, point.y - handle.y);
+      if (nextDistance < distance) {
+        distance = nextDistance;
+        match = { ...branch, handle };
+      }
     }
   }
   return match;
 }
 
-function nearestPressureSource(point, maximumDistance = 24) {
+function nearestPressureSource(point, maximumDistance = 32) {
   return nearestGraphicHandle(
     point,
     currentTract?.pressureSources ?? [],
@@ -3805,7 +4261,7 @@ function nearestPressureSource(point, maximumDistance = 24) {
   );
 }
 
-function nearestMouthGate(point, maximumDistance = 22) {
+function nearestMouthGate(point, maximumDistance = 30) {
   return nearestGraphicHandle(
     point,
     (currentTract?.mouths ?? []).map((mouth) => ({
@@ -3858,34 +4314,55 @@ function tractCoordinates(point, geometry = currentTract) {
     }
   }
   if (!closest) return null;
+  const constrictionDiameter = Math.max(0, closest.diameter - 0.3);
   return {
     progress: closest.progress,
     diameter: closest.diameter,
+    constrictionDiameter,
     place: clamp((closest.progress * 43 - 12) / 30),
     aperture: clamp((closest.diameter + 0.035) / 1.38),
+    constrictionAperture: clamp((constrictionDiameter + 0.035) / 1.38),
   };
 }
 
-function nearestTractControl(point) {
+function nearestTractControl(point, mode = "all") {
   if (!currentTract) return null;
-  for (const [control, handle, distance] of [
-    ["glottis", currentTract.glottis, 34],
-    ["velum", currentTract.velum, 34],
-    ["constriction", currentTract.constriction, 46],
-  ]) {
-    if (Math.hypot(point.x - handle.x, point.y - handle.y) < distance) {
-      return { control, handle };
+  if (mode === "all" || mode === "valves") {
+    for (const [control, handle, distance] of [
+      ["glottis", currentTract.glottis, 46],
+    ]) {
+      if (Math.hypot(point.x - handle.x, point.y - handle.y) < distance) {
+        return { control, handle };
+      }
     }
   }
+  if (
+    (mode === "all" || mode === "constriction")
+    && Math.hypot(
+      point.x - currentTract.constriction.x,
+      point.y - currentTract.constriction.y,
+    ) < 34
+  ) {
+    return { control: "constriction", handle: currentTract.constriction };
+  }
+  if (mode !== "all" && mode !== "surface") return null;
   const position = tractCoordinates(point);
   if (
     position
     && position.progress >= -0.015
     && position.progress <= 1.03
     && position.diameter >= -0.38
-    && position.diameter <= 2.2
+    && position.diameter <= 4.05
   ) {
-    return { control: "constriction", handle: point, position };
+    const station = position.progress * 43;
+    const tongueZone = station >= 9
+      && station <= 33
+      && position.diameter >= 1.45;
+    return {
+      control: tongueZone ? "tongue" : "constriction",
+      handle: point,
+      position,
+    };
   }
   return null;
 }
@@ -3895,15 +4372,7 @@ function nearestTongueControl(point) {
     ...tongue,
     control: "shape",
   }));
-  const selected = currentTongues[selectedTongue];
-  if (selected) {
-    targets.push({
-      ...selected,
-      control: "curl",
-      handle: selected.curlHandle,
-    });
-  }
-  return nearestGraphicHandle(point, targets, 38);
+  return nearestGraphicHandle(point, targets, 56);
 }
 
 function nearestNoseControl(point) {
@@ -3911,15 +4380,7 @@ function nearestNoseControl(point) {
     ...nose,
     control: "shape",
   }));
-  const selected = currentNoses[selectedNose];
-  if (selected) {
-    targets.push({
-      ...selected,
-      control: "resonance",
-      handle: selected.resonanceHandle,
-    });
-  }
-  return nearestGraphicHandle(point, targets, 38);
+  return nearestGraphicHandle(point, targets, 56);
 }
 
 function positionHandleReadout(handle) {
@@ -3932,7 +4393,7 @@ function positionHandleReadout(handle) {
 }
 
 function showThroatHandleReadout(branch) {
-  $("handleName").textContent = `MOUTH AIRWAY ${String(branch.index + 1).padStart(2, "0")}`;
+  $("handleName").textContent = `LOCAL MOUTH ${String(branch.index + 1).padStart(2, "0")}`;
   const throat = state.throats[branch.index];
   $("handleValue").textContent = `${percentage(throat.aperture)} OPEN · ${percentage(throat.length)} LONG`;
   positionHandleReadout(branch.handle);
@@ -3954,19 +4415,19 @@ function showMouthGateReadout(mouth) {
 
 function showTongueHandleReadout(geometry) {
   const tongue = state.tongues[geometry.index];
-  $("handleName").textContent = `TONGUE ${String(geometry.index + 1).padStart(2, "0")}`;
+  $("handleName").textContent = `SHARED TONGUE COLONY · LEAD T${geometry.index + 1}`;
   $("handleValue").textContent = geometry.control === "curl"
     ? `${percentage(tongue.curl)} CURL · DRAG SIDEWAYS`
-    : `${percentage(tongue.position)} FRONT · ${percentage(tongue.height)} CONTACT`;
+    : `${percentage(tongue.position)} FRONT · ${percentage(tongue.height)} HIGH · ALL MOUTHS`;
   positionHandleReadout(geometry.handle);
 }
 
 function showNoseHandleReadout(geometry) {
   const nose = state.noses[geometry.index];
-  $("handleName").textContent = `NOSE ${String(geometry.index + 1).padStart(2, "0")}`;
+  $("handleName").textContent = `SHARED NOSE COLONY · LEAD N${geometry.index + 1}`;
   $("handleValue").textContent = geometry.control === "resonance"
     ? `${percentage(nose.resonance)} RESONANCE · DRAG OUTWARD`
-    : `${percentage(nose.openness)} VELUM · ${percentage(nose.length)} LONG`;
+    : `${percentage(nose.openness)} OPEN · ${percentage(nose.resonance)} RING · ALL MOUTHS`;
   positionHandleReadout(geometry.handle);
 }
 
@@ -4010,8 +4471,8 @@ function showTractHandleReadout(geometry) {
     $("handleName").textContent = "VELUM · NASAL ARRAY";
     $("handleValue").textContent = `${percentage(state.nasalCoupling)} OPEN · ${state.noseCount} NOSES`;
   } else {
-    $("handleName").textContent = `${articulationPlaceLabel()} CONSTRICTION`;
-    $("handleValue").textContent = `${percentage(state.articulationAperture)} APERTURE · ${articulationMannerLabel()}`;
+    $("handleName").textContent = `SHARED ${articulationPlaceLabel()} PINCH`;
+    $("handleValue").textContent = `${percentage(state.articulationAperture)} OPEN · ${articulationMannerLabel()} · ALL MOUTHS`;
   }
   positionHandleReadout(geometry.handle);
 }
@@ -4025,18 +4486,33 @@ function hoverNearbyHandle(event) {
   const source = nearestPressureSource(point);
   const gate = nearestMouthGate(point);
   const body = nearestGraphicHandle(point, currentBodyHandles, 38);
-  const tract = body ? null : nearestTractControl(point);
-  const tongue = nearestTongueControl(point);
-  const nose = nearestNoseControl(point);
+  const tractValve = body ? null : nearestTractControl(point, "valves");
+  const tongue = body || tractValve ? null : nearestTongueControl(point);
+  const nose = body || tractValve || tongue ? null : nearestNoseControl(point);
+  const tractNode = body || tractValve || tongue || nose
+    ? null
+    : nearestTractControl(point, "constriction");
+  const tractSurface = body || tractValve || tongue || nose || tractNode
+    ? null
+    : nearestTractControl(point, "surface");
+  const tract = tractValve || tractNode || tractSurface;
   const branch = nearestBranchHandle(point);
-  const found = source || gate || tract || tongue || nose || body || branch;
+  const found = source || gate || body || tractValve || tongue || nose
+    || tractNode || tractSurface || branch;
   canvas.classList.toggle("is-handle-hovered", Boolean(found));
   if (source) showPressureSourceReadout(source);
   else if (gate) showMouthGateReadout(gate);
   else if (body) showBodyHandleReadout(body);
-  else if (tract) showTractHandleReadout(tract);
+  else if (tractValve) showTractHandleReadout(tractValve);
   else if (tongue) showTongueHandleReadout(tongue);
   else if (nose) showNoseHandleReadout(nose);
+  else if (tract?.control === "tongue") {
+    showTongueHandleReadout({
+      index: selectedTongue,
+      control: "shape",
+      handle: tract.handle,
+    });
+  } else if (tract) showTractHandleReadout(tract);
   else if (branch) showThroatHandleReadout(branch);
   else hideHandleReadout();
 }
@@ -4061,7 +4537,7 @@ function togglePressureSource(index) {
 
 function toggleMouthGate(index) {
   const mouthIndex = Math.round(clamp(index, 0, state.throatCount - 1));
-  selectedThroat = mouthIndex;
+  const route = selectMouth(mouthIndex);
   const mouth = state.throats[mouthIndex];
   const wasMuted = Boolean(mouth.muted);
   mouth.muted = !wasMuted;
@@ -4072,7 +4548,9 @@ function toggleMouthGate(index) {
   updateUi();
   announce(
     `Mouth ${mouthIndex + 1} airway ${mouth.muted ? "sealed" : "opened"}; `
-      + "the manifold pressure has been redistributed.",
+      + `the manifold pressure has been redistributed. Focus is tongue ${
+        (route?.tongueIndex ?? 0) + 1
+      } and nose ${(route?.noseIndex ?? 0) + 1}.`,
   );
 }
 
@@ -4086,9 +4564,29 @@ function beginDrag(event) {
   const pressureSource = nearestPressureSource(point);
   const mouthGate = nearestMouthGate(point);
   const bodyGeometryMatch = nearestGraphicHandle(point, currentBodyHandles, 38);
-  const tractGeometryMatch = bodyGeometryMatch ? null : nearestTractControl(point);
-  const tongueGeometryMatch = nearestTongueControl(point);
-  const noseGeometryMatch = nearestNoseControl(point);
+  const tractValveMatch = bodyGeometryMatch
+    ? null
+    : nearestTractControl(point, "valves");
+  const tongueGeometryMatch = bodyGeometryMatch || tractValveMatch
+    ? null
+    : nearestTongueControl(point);
+  const noseGeometryMatch = bodyGeometryMatch || tractValveMatch || tongueGeometryMatch
+    ? null
+    : nearestNoseControl(point);
+  const tractNodeMatch = bodyGeometryMatch
+    || tractValveMatch
+    || tongueGeometryMatch
+    || noseGeometryMatch
+    ? null
+    : nearestTractControl(point, "constriction");
+  const tractSurfaceMatch = bodyGeometryMatch
+    || tractValveMatch
+    || tongueGeometryMatch
+    || noseGeometryMatch
+    || tractNodeMatch
+    ? null
+    : nearestTractControl(point, "surface");
+  const tractGeometryMatch = tractValveMatch || tractNodeMatch || tractSurfaceMatch;
   const branch = nearestBranchHandle(point);
   if (
     !pressureSource
@@ -4114,6 +4612,7 @@ function beginDrag(event) {
     const position = tractGeometryMatch.position ?? tractCoordinates(point);
     pointerDrag = {
       type: `tract-${tractGeometryMatch.control}`,
+      index: selectedTongue,
       pointerId: event.pointerId,
       startX: point.x,
       startY: point.y,
@@ -4125,14 +4624,26 @@ function beginDrag(event) {
     };
     if (tractGeometryMatch.control === "constriction" && position) {
       setDirectConstriction(position);
+    } else if (tractGeometryMatch.control === "tongue" && position) {
+      setDirectTongue(position, selectedTongue);
     }
-    showTractHandleReadout({
-      ...tractGeometryMatch,
-      handle: currentTract[tractGeometryMatch.control] ?? point,
-    });
+    if (tractGeometryMatch.control === "tongue") {
+      showTongueHandleReadout({
+        index: selectedTongue,
+        control: "shape",
+        handle: currentTract.tongueHandles[selectedTongue]?.handle ?? point,
+      });
+    } else {
+      showTractHandleReadout({
+        ...tractGeometryMatch,
+        handle: currentTract[tractGeometryMatch.control] ?? point,
+      });
+    }
     announce(
-      tractGeometryMatch.control === "constriction"
-        ? "Selected mouth tract. Drag along the angular airway for place and across it for aperture."
+      tractGeometryMatch.control === "tongue"
+        ? "Tongue membrane selected. Drag along the airway for vowel position and across it for height."
+        : tractGeometryMatch.control === "constriction"
+          ? "Selected mouth tract. Drag along the airway for consonant place and across it for aperture."
         : tractGeometryMatch.control === "glottis"
           ? "Glottal valve selected. Drag down to seal the excitation source."
           : "Velum selected. Drag upward to open all nasal branches.",
@@ -4141,7 +4652,7 @@ function beginDrag(event) {
     selectedTongue = tongueGeometryMatch.index;
     const tongue = state.tongues[selectedTongue];
     pointerDrag = {
-      type: tongueGeometryMatch.control === "curl" ? "tongue-curl" : "tongue",
+      type: tongueGeometryMatch.control === "curl" ? "tongue-curl" : "tract-tongue",
       index: selectedTongue,
       pointerId: event.pointerId,
       startX: point.x,
@@ -4151,9 +4662,12 @@ function beginDrag(event) {
       curl: tongue.curl,
       side: tongueGeometryMatch.side,
     };
+    if (pointerDrag.type === "tract-tongue") {
+      setDirectTongue(tractCoordinates(point), selectedTongue);
+    }
     showTongueHandleReadout(tongueGeometryMatch);
     updateSelectedArticulationUi();
-    announce(`Tongue ${selectedTongue + 1} selected. Drag sideways for position and vertically for contact.`);
+    announce(`Tongue ${selectedTongue + 1} selected. Drag along and across its airway to reshape the vowel.`);
   } else if (noseGeometryMatch) {
     selectedNose = noseGeometryMatch.index;
     const nose = state.noses[selectedNose];
@@ -4189,7 +4703,7 @@ function beginDrag(event) {
         : "Airway manifold selected. Drag sideways for cross-coupling and vertically for a global mouth seal.",
     );
   } else {
-    selectedThroat = branch.index;
+    const route = selectMouth(branch.index);
     const throat = state.throats[selectedThroat];
     pointerDrag = {
       type: "throat",
@@ -4203,7 +4717,11 @@ function beginDrag(event) {
     };
     showThroatHandleReadout(branch);
     updateSelectedThroatUi();
-    announce(`Mouth ${selectedThroat + 1} selected. Aperture ${percentage(throat.aperture)}, airway length ${percentage(throat.length)}.`);
+    announce(
+      `Mouth ${selectedThroat + 1} selected with tongue ${
+        (route?.tongueIndex ?? 0) + 1
+      } and nose ${(route?.noseIndex ?? 0) + 1}. Drag the mouth to change its local opening.`,
+    );
   }
   canvas.setPointerCapture?.(event.pointerId);
   canvas.classList.add("is-dragging");
@@ -4212,7 +4730,9 @@ function beginDrag(event) {
 function setDirectConstriction(position) {
   const previousAperture = state.articulationAperture;
   state.articulationPlace = clamp(position.place);
-  state.articulationAperture = clamp(position.aperture);
+  state.articulationAperture = clamp(
+    position.constrictionAperture ?? position.aperture,
+  );
   state.oralClosure = 1 - state.articulationAperture;
   state.glottalClosure = 0;
   state.nasalCoupling = 0;
@@ -4238,6 +4758,58 @@ function setDirectConstriction(position) {
   updateUi();
 }
 
+function setDirectTongue(position, tongueIndex = selectedTongue) {
+  if (!position) return;
+  const index = Math.round(clamp(tongueIndex, 0, state.tongueCount - 1));
+  const tongue = state.tongues[index];
+  if (!tongue) return;
+  const previousPosition = tongue.position;
+  const previousHeight = tongue.height;
+  const control = tongueFromTractCoordinates(
+    clamp(position.progress) * 43,
+    position.diameter,
+  );
+  selectedTongue = index;
+  tongue.position = control.position;
+  tongue.height = control.height;
+  const positionDelta = tongue.position - previousPosition;
+  const heightDelta = tongue.height - previousHeight;
+  tongue.curl = clamp(
+    tongue.curl + positionDelta * 0.5 + heightDelta * 0.24,
+  );
+  for (let follower = 0; follower < state.tongueCount; follower += 1) {
+    if (follower === index) continue;
+    const linked = state.tongues[follower];
+    linked.position = clamp(linked.position + positionDelta * 0.48);
+    linked.height = clamp(linked.height + heightDelta * 0.58);
+    linked.curl = clamp(
+      linked.curl + positionDelta * 0.28 + heightDelta * 0.16,
+    );
+  }
+  state.articulationPlace = clamp((control.index - 12) / 30);
+  state.articulationAperture = 1;
+  state.oralClosure = 0;
+  state.glottalClosure = 0;
+  state.articulationManner = "vowel";
+  state.phoneme = "";
+  state.specimen = "mutant";
+  if (previousHeight > 0.92 && tongue.height < 0.78) {
+    triggerReleaseBurst(index, {
+      place: state.articulationPlace,
+      strength: 0.42,
+    });
+  }
+  currentTract = tractGeometry();
+  currentTongues = currentTract.tongueHandles;
+  currentNoses = currentTract.noseHandles;
+  showTongueHandleReadout({
+    ...currentTongues[index],
+    control: "shape",
+  });
+  markAudioDirty();
+  updateUi();
+}
+
 function continueDrag(event) {
   if (!pointerDrag) {
     hoverNearbyHandle(event);
@@ -4249,6 +4821,8 @@ function continueDrag(event) {
   if (pointerDrag.type === "tract-constriction") {
     const position = tractCoordinates(point);
     if (position) setDirectConstriction(position);
+  } else if (pointerDrag.type === "tract-tongue") {
+    setDirectTongue(tractCoordinates(point), pointerDrag.index);
   } else if (pointerDrag.type === "tract-glottis") {
     state.glottalClosure = clamp(
       pointerDrag.glottalClosure
@@ -4272,25 +4846,6 @@ function continueDrag(event) {
     currentTract = tractGeometry();
     showTractHandleReadout({ control: "velum", handle: currentTract.velum });
     updateUi();
-  } else if (pointerDrag.type === "tongue") {
-    const tongue = state.tongues[pointerDrag.index];
-    const previousHeight = tongue.height;
-    tongue.position = clamp(
-      pointerDrag.position
-        + (point.x - pointerDrag.startX) / Math.max(80, currentLayout.junction.x - currentLayout.root.x),
-    );
-    tongue.height = clamp(
-      pointerDrag.height
-        - (point.y - pointerDrag.startY) * pointerDrag.side / Math.max(54, currentLayout.bodyRadius * 1.25),
-    );
-    if (previousHeight > 0.92 && tongue.height < 0.78) triggerReleaseBurst(pointerDrag.index);
-    state.phoneme = "";
-    state.specimen = "mutant";
-    currentTract = tractGeometry();
-    currentTongues = currentTract.tongueHandles;
-    currentNoses = currentTract.noseHandles;
-    showTongueHandleReadout(currentTongues[pointerDrag.index]);
-    updateSelectedArticulationUi();
   } else if (pointerDrag.type === "tongue-curl") {
     const tongue = state.tongues[pointerDrag.index];
     tongue.curl = clamp(
@@ -4310,14 +4865,33 @@ function continueDrag(event) {
     updateSelectedArticulationUi();
   } else if (pointerDrag.type === "nose") {
     const nose = state.noses[pointerDrag.index];
+    const previousLength = nose.length;
+    const previousOpenness = nose.openness;
+    const previousResonance = nose.resonance;
     nose.length = clamp(
       pointerDrag.length
-        + (point.x - pointerDrag.startX) / Math.max(58, currentLayout.bodyRadius * 1.4),
+        + (point.x - pointerDrag.startX) / Math.max(42, currentLayout.bodyRadius),
     );
     nose.openness = clamp(
       pointerDrag.openness
-        + (point.y - pointerDrag.startY) * pointerDrag.side / Math.max(58, currentLayout.bodyRadius * 1.5),
+        + (point.y - pointerDrag.startY) * pointerDrag.side
+          / Math.max(42, currentLayout.bodyRadius * 1.05),
     );
+    nose.resonance = clamp(
+      pointerDrag.resonance
+        + (point.x - pointerDrag.startX) / Math.max(52, currentLayout.bodyRadius * 1.2),
+    );
+    const lengthDelta = nose.length - previousLength;
+    const opennessDelta = nose.openness - previousOpenness;
+    const resonanceDelta = nose.resonance - previousResonance;
+    for (let follower = 0; follower < state.noseCount; follower += 1) {
+      if (follower === pointerDrag.index) continue;
+      const linked = state.noses[follower];
+      linked.length = clamp(linked.length + lengthDelta * 0.52);
+      linked.openness = clamp(linked.openness + opennessDelta * 0.68);
+      linked.resonance = clamp(linked.resonance + resonanceDelta * 0.58);
+    }
+    state.nasalCoupling = 0;
     state.phoneme = "";
     state.specimen = "mutant";
     currentTract = tractGeometry();
@@ -4377,13 +4951,16 @@ function continueDrag(event) {
     updateUi();
   } else {
     const throat = state.throats[pointerDrag.index];
-    throat.length = clamp(pointerDrag.length + (point.x - pointerDrag.startX) / (cssWidth * 0.24));
+    throat.length = clamp(
+      pointerDrag.length + (point.x - pointerDrag.startX) / (cssWidth * 0.17),
+    );
     throat.aperture = clamp(
-      pointerDrag.aperture + (point.y - pointerDrag.startY) * pointerDrag.outerSign / (cssHeight * 0.15),
+      pointerDrag.aperture
+        + (point.y - pointerDrag.startY) * pointerDrag.outerSign / (cssHeight * 0.11),
       0.05,
       1,
     );
-    selectedThroat = pointerDrag.index;
+    selectMouth(pointerDrag.index);
     currentLayout = anatomyLayout(cssWidth, cssHeight, state);
     currentTract = tractGeometry();
     currentTongues = currentTract.tongueHandles;
@@ -4431,7 +5008,7 @@ function selectNearbyHandle(event) {
     return;
   }
   if (!branch) return;
-  selectedThroat = branch.index;
+  selectMouth(branch.index);
   state.throats[selectedThroat] = { ...reset.throats[selectedThroat] };
   markAudioDirty();
   updateUi();
@@ -4452,9 +5029,16 @@ function handleCanvasKey(event) {
   if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     event.preventDefault();
     const direction = event.key === "ArrowRight" ? 1 : -1;
-    selectedThroat = (selectedThroat + direction + state.throatCount) % state.throatCount;
+    const route = selectMouth(
+      (selectedThroat + direction + state.throatCount) % state.throatCount,
+    );
     updateSelectedThroatUi();
-    announce(`Throat ${selectedThroat + 1} selected.`);
+    updateSelectedArticulationUi();
+    announce(
+      `Mouth ${selectedThroat + 1} selected; focus tongue ${
+        (route?.tongueIndex ?? 0) + 1
+      }, nose ${(route?.noseIndex ?? 0) + 1}.`,
+    );
     return;
   }
   if (event.key === "ArrowUp" || event.key === "ArrowDown") {
@@ -4476,11 +5060,6 @@ function handleCanvasKey(event) {
     updateUi();
     announce(`Throat ${selectedThroat + 1} ${state.throats[selectedThroat].muted ? "sealed" : "opened"}.`);
     return;
-  }
-  const presets = Object.keys(SPECIMENS).slice(0, 9);
-  if (/^[1-9]$/.test(event.key) && presets[Number(event.key) - 1]) {
-    event.preventDefault();
-    applySpecimen(presets[Number(event.key) - 1]);
   }
 }
 
@@ -4533,6 +5112,36 @@ for (const button of $("phonemeButtons").querySelectorAll("[data-phoneme]")) {
 
 $("typingModeButton").addEventListener("click", toggleTypingMode);
 
+function updateMotionTarget(button) {
+  const target = String(button.dataset.motionTarget ?? "");
+  const property = `motion${target[0]?.toUpperCase() ?? ""}${target.slice(1)}`;
+  if (!Object.prototype.hasOwnProperty.call(state, property)) return;
+  state[property] = !state[property];
+  updateUi();
+  announce(
+    `${target} anatomy motion ${state[property] ? "enabled" : "frozen"}.`,
+  );
+}
+
+$("motionButton").addEventListener("click", () => {
+  state.motionEnabled = !state.motionEnabled;
+  updateUi();
+  announce(
+    prefersReducedMotion
+      ? "Anatomy motion remains still because reduced motion is enabled."
+      : `Anatomy motion ${state.motionEnabled ? "enabled" : "disabled"}.`,
+  );
+});
+
+$("motionDepth").addEventListener("input", () => {
+  state.motionDepth = clamp(Number($("motionDepth").value));
+  updateUi();
+});
+
+for (const button of $("motionTargetButtons").querySelectorAll("[data-motion-target]")) {
+  button.addEventListener("click", () => updateMotionTarget(button));
+}
+
 for (const button of $("tongueButtons").querySelectorAll("[data-tongue]")) {
   button.addEventListener("click", () => {
     const index = Number(button.dataset.tongue);
@@ -4573,7 +5182,7 @@ $("pressureSourceCount").addEventListener("input", () => {
 
 $("throatCount").addEventListener("input", () => {
   state.throatCount = Math.round(clamp(Number($("throatCount").value), 1, MAX_THROATS));
-  selectedThroat = Math.min(selectedThroat, state.throatCount - 1);
+  selectMouth(Math.min(selectedThroat, state.throatCount - 1));
   state.specimen = "mutant";
   markAudioDirty();
   updateUi();
@@ -4790,7 +5399,8 @@ stageWrap.addEventListener("focusout", (event) => {
 canvas.addEventListener("focus", () => {
   stageWrap.classList.add("is-beatbox-focused");
   announce(
-    "Stage focused. Every letter A through Z works throughout Throatazoid.",
+    "Stage focused. A through Z speaks, Shift mutates, and zero through nine "
+      + "loads anatomy presets throughout Throatazoid.",
   );
 });
 
@@ -4800,6 +5410,7 @@ document.addEventListener("keydown", (event) => {
     void severAudio("Emergency sever complete.");
     return;
   }
+  if (handlePresetShortcut(event)) return;
   if (handleTypingKeyDown(event)) return;
 });
 
@@ -4820,6 +5431,8 @@ globalThis.addEventListener?.("blur", () => {
 });
 
 globalThis.addEventListener?.("pagehide", () => {
+  if (keyboardAccentTimer) clearTimeout(keyboardAccentTimer);
+  keyboardAccentTimer = 0;
   void severAudio();
   clearLastTake();
   for (const throat of graph?.throats ?? []) {

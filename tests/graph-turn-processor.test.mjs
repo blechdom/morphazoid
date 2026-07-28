@@ -164,6 +164,21 @@ test("graph turn processor accepts the UI pitch-glide time", () => {
   assert.equal(processor.parameterSmoothingSeconds, 0.24);
 });
 
+test("small pitch intervals fade into granular processing instead of hard-switching", () => {
+  const subtle = new ProcessorConstructor({
+    processorOptions: { sourceCount: 1, outputCount: 1 },
+  });
+  renderTone(subtle, { semitones: 0.3, seconds: 1 });
+  assert.ok(subtle.shiftMixes[0] > 0.02);
+  assert.ok(subtle.shiftMixes[0] < 0.25);
+
+  const explicit = new ProcessorConstructor({
+    processorOptions: { sourceCount: 1, outputCount: 1 },
+  });
+  renderTone(explicit, { semitones: 1.5, seconds: 1 });
+  assert.ok(explicit.shiftMixes[0] > 0.95);
+});
+
 test("graph turn grains remain 110 ms at every context sample rate", () => {
   globalThis.sampleRate = 48_000;
   const standard = new ProcessorConstructor({

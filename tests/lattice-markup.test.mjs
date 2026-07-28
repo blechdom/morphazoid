@@ -60,7 +60,8 @@ test("Lattice is one centered line instrument with no walk controls", async () =
   assert.match(app, /new VoicePool\(MAX_VOICES\)/);
   assert.match(app, /traversalDirection: -1/);
   assert.match(app, /\$\("resetLineAngle"\)\.addEventListener\("click"/);
-  assert.match(app, /continuousMode && state\.playing \? data\.map/);
+  assert.match(app, /if \(continuousMode && state\.playing\)/);
+  assert.match(app, /pool\.setVoices\(data\.map/);
 });
 
 test("Lattice exposes complete shape controls and single-patch synth modes", async () => {
@@ -73,8 +74,11 @@ test("Lattice exposes complete shape controls and single-patch synth modes", asy
   assert.match(html, /id="edgeCurve4"/);
   assert.match(html, /id="straightenEdges"/);
   assert.match(html, /id="intersectionAccent"/);
-  assert.match(html, /id="intersectionDecay"[^>]+value="100"/);
-  assert.match(html, />Amplitude decay</);
+  assert.doesNotMatch(html, /intersectionDecay|Amplitude decay/);
+  assert.match(app, /amplitudeControl\.sampleAtTime\(\s*contact\.accentAge/);
+  assert.match(app, /amplitudeControl\.envelopeValueAtTime\(age\)/);
+  assert.match(app, /amplitudeControl\.durationSeconds\(\)/);
+  assert.match(app, /timing: "milliseconds"/);
   assert.match(html, /id="density"[^>]+max="0\.8"/);
   assert.match(html, /id="voiceCap"[^>]+max="12"[^>]+value="8"/);
   assert.doesNotMatch(html, /class="control-note"|class="sine-voice"/);
@@ -115,7 +119,7 @@ test("Lattice markup has unique ids and complete control labels", async () => {
     "parameter0", "parameter1", "parameter2", "parameter3", "parameter4", "parameter5",
     "edgeCurve0", "edgeCurve1", "edgeCurve2", "edgeCurve3", "edgeCurve4",
     "baseFrequency", "pitchRange", "contactLevel", "intersectionAccent",
-    "intersectionDecay", "voiceCap",
+    "voiceCap",
     "soundMode", "percussionAttack", "percussionDecay", "shepardCycles",
     "shepardDirection", "shepardWidth", "fmIndex", "fmRatio", "pmIndex", "pmRatio",
     "pitchSource", "pitchCurve", "synthSource", "levelSource", "levelCurve", "stereoWidth",

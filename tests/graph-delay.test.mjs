@@ -5,10 +5,16 @@ import {
   GRAPH_DELAY_PATCHES,
   GRAPH_PRESETS,
   MAX_GRAPH_FEEDBACK,
+  MAX_GRAPH_TURN_ROUTES,
   directedHeading,
   edgeAudioParameters,
   generateGraph,
+  generateGraphWithinTurnBudget,
+  graphEdgeSwitchMultipliers,
+  graphNodePans,
   graphOutputNodeIds,
+  graphSinkNodeIds,
+  graphTurnRouteCount,
   graphTurnRoutings,
   nodeTurnRouting,
   relativeTurnRadians,
@@ -26,6 +32,32 @@ function spectralRadius(nodeCount, edges, iterations = 500) {
     vector = next.map((value) => value / norm);
   }
   return norm;
+}
+
+function firstArrivalTimes(graph, edges) {
+  const arrivals = Array(graph.nodes.length).fill(Infinity);
+  const visited = new Set();
+  for (const nodeId of (graph.entries.length ? graph.entries : [0])) arrivals[nodeId] = 0;
+  while (visited.size < graph.nodes.length) {
+    let current = -1;
+    for (const node of graph.nodes) {
+      if (
+        !visited.has(node.id)
+        && Number.isFinite(arrivals[node.id])
+        && (current < 0 || arrivals[node.id] < arrivals[current])
+      ) current = node.id;
+    }
+    if (current < 0) break;
+    visited.add(current);
+    for (const edge of edges) {
+      if (edge.from !== current) continue;
+      arrivals[edge.to] = Math.min(
+        arrivals[edge.to],
+        arrivals[current] + edge.delaySeconds,
+      );
+    }
+  }
+  return arrivals;
 }
 
 test("graph-delay offers acyclic, cyclic, community, and random topology families", () => {
@@ -49,19 +81,33 @@ test("graph-delay defaults cover many safe acyclic, cyclic, and generative sound
   for (const patch of Object.values(GRAPH_DELAY_PATCHES)) {
     families.add(patch.family);
     const graph = generateGraph({ ...patch, type: patch.topology });
-    const turnRoutes = graphTurnRoutings(graph).reduce(
+    const routings = graphTurnRoutings(graph, patch);
+    const turnRoutes = routings.reduce(
       (count, routing) => count + routing.turns.length,
       0,
+    );
+    const edgeParameters = edgeAudioParameters(graph, patch);
+    const arrivals = firstArrivalTimes(graph, edgeParameters);
+    const tapArrivals = graphSinkNodeIds(graph).map((nodeId) => arrivals[nodeId]);
+    const maximumLocalPitch = Math.max(
+      0,
+      ...routings.flatMap((routing) => routing.turns.map((turn) => Math.abs(turn.semitones))),
     );
     assert.equal(graph.nodes.length, patch.nodeCount);
     assert.ok(turnRoutes <= 192, `${patch.label} requests ${turnRoutes} turn routes`);
     assert.ok(patch.baseDelay >= 20 && patch.baseDelay <= 600);
     assert.ok(patch.feedback >= 0 && patch.feedback <= MAX_GRAPH_FEEDBACK);
     assert.ok(patch.nodePass >= 0 && patch.nodePass <= 1);
+    assert.equal(patch.nodePass, 1);
     assert.ok(patch.pitchScale >= 0 && patch.pitchScale <= 2);
     assert.ok(patch.pitchAsymmetry >= -0.8 && patch.pitchAsymmetry <= 0.8);
     assert.ok(patch.pitchCurve >= 0.5 && patch.pitchCurve <= 2);
     assert.ok(patch.pitchSlew >= 10 && patch.pitchSlew <= 500);
+    assert.ok(patch.wet > 0 && patch.wet <= 1.5);
+    assert.ok(patch.dry >= 0 && patch.dry <= 1);
+    assert.ok(Math.min(...tapArrivals) <= 0.9, `${patch.label} starts too late`);
+    assert.ok(Math.max(...tapArrivals) <= 0.95, `${patch.label} spreads beyond one second`);
+    assert.ok(maximumLocalPitch <= 5, `${patch.label} has a ${maximumLocalPitch} st local jump`);
   }
   assert.deepEqual([...families].sort(), ["Acyclic", "Cyclic", "Generative"]);
 });
@@ -124,15 +170,148 @@ test("node pass-through replaces the hidden 78% feed-forward loss", () => {
   assert.deepEqual(softened.map((edge) => edge.gain), [0.5, 0.5, 0.5]);
 });
 
-test("only graph sinks reach speakers, with a deterministic cyclic monitor tap", () => {
+test("only forward sinks are audible while feedback returns stay cycle-closing", () => {
   const chain = generateGraph({ type: "chain", nodeCount: 6 });
   assert.deepEqual(graphOutputNodeIds(chain), [5]);
+  assert.deepEqual(graphSinkNodeIds(chain), [5]);
 
   const tree = generateGraph({ type: "tree", nodeCount: 7 });
   assert.deepEqual(graphOutputNodeIds(tree), [3, 4, 5, 6]);
+  assert.deepEqual(graphSinkNodeIds(tree), [3, 4, 5, 6]);
 
   const ring = generateGraph({ type: "ring", nodeCount: 8 });
   assert.deepEqual(graphOutputNodeIds(ring), [7]);
+  assert.deepEqual(graphSinkNodeIds(ring), [7]);
+  assert.equal(ring.edges.find((edge) => edge.from === 7)?.feedbackEdge, true);
+});
+
+test("hub nodes add edges monotonically while staying inside the live turn budget", () => {
+  let previousEdgeCount = 0;
+  for (let nodeCount = 3; nodeCount <= 24; nodeCount += 1) {
+    const hub = generateGraph({
+      type: "hub",
+      nodeCount,
+      density: GRAPH_DELAY_PATCHES.hubScatter.density,
+      seed: GRAPH_DELAY_PATCHES.hubScatter.seed,
+    });
+    const turnRoutes = graphTurnRoutings(hub, GRAPH_DELAY_PATCHES.hubScatter)
+      .reduce((count, routing) => count + routing.turns.length, 0);
+    assert.ok(hub.edges.length > previousEdgeCount);
+    assert.ok(turnRoutes <= MAX_GRAPH_TURN_ROUTES);
+    assert.deepEqual(
+      graphSinkNodeIds(hub),
+      Array.from({ length: nodeCount - 1 }, (_, index) => index + 1),
+    );
+    previousEdgeCount = hub.edges.length;
+  }
+  const sparse = generateGraph({ type: "hub", nodeCount: 24, density: 0, seed: 19 });
+  const dense = generateGraph({ type: "hub", nodeCount: 24, density: 1, seed: 19 });
+  assert.ok(dense.edges.length > sparse.edges.length);
+  assert.equal(dense.edges.length, 30);
+});
+
+test("every dense graph setting simplifies to the greatest safe density", () => {
+  for (const type of ["dag", "mesh", "random"]) {
+    for (const nodeCount of [14, 17, 20, 24]) {
+      for (const seed of [1, 17, 99]) {
+        const result = generateGraphWithinTurnBudget({
+          type,
+          nodeCount,
+          density: 1,
+          seed,
+        });
+        assert.equal(result.graph.nodes.length, nodeCount);
+        assert.ok(result.density >= 0 && result.density <= 1);
+        assert.ok(result.turnRouteCount <= MAX_GRAPH_TURN_ROUTES);
+        assert.equal(graphTurnRouteCount(result.graph), result.turnRouteCount);
+        if (graphTurnRouteCount(generateGraph({ type, nodeCount, density: 1, seed }))
+          > MAX_GRAPH_TURN_ROUTES) {
+          assert.equal(result.limited, true);
+          assert.ok(result.density < 1);
+        }
+      }
+    }
+  }
+});
+
+test("stereo spread is centered on vertical tap geometry instead of right-side progress", () => {
+  const graph = generateGraph({ type: "tree", nodeCount: 7 });
+  const taps = graphSinkNodeIds(graph);
+  const before = graphNodePans(graph, taps, 0.8);
+  const active = taps.map((nodeId) => before[nodeId]);
+  assert.ok(active.some((pan) => pan < 0));
+  assert.ok(active.some((pan) => pan > 0));
+  assert.ok(Math.abs(active.reduce((sum, pan) => sum + pan, 0)) < 1e-12);
+  assert.ok(active.every((pan) => Math.abs(pan) <= 0.8));
+  graph.nodes.forEach((node) => { node.x = 0.98; });
+  assert.deepEqual(graphNodePans(graph, taps, 0.8), before);
+  assert.ok(graphNodePans(graph, taps, 0).every((pan) => pan === 0));
+});
+
+test("edge switches preserve outgoing branch energy without boosting merges", () => {
+  const tree = generateGraph({ type: "tree", nodeCount: 7 });
+  const allOpen = graphEdgeSwitchMultipliers(tree);
+  assert.deepEqual(allOpen, Array(tree.edges.length).fill(1));
+
+  const rootEdges = tree.edges.filter((edge) => edge.from === 0);
+  assert.equal(rootEdges.length, 2);
+  const enabled = Array(tree.edges.length).fill(true);
+  enabled[rootEdges[0].id] = false;
+  const switched = graphEdgeSwitchMultipliers(tree, enabled);
+  assert.equal(switched[rootEdges[0].id], 0);
+  assert.ok(Math.abs(switched[rootEdges[1].id] - Math.SQRT2) < 1e-12);
+  const base = edgeAudioParameters(tree, { nodePass: 1 });
+  assert.ok(
+    Math.abs(base[rootEdges[1].id].gain * switched[rootEdges[1].id] - 1) < 1e-12,
+  );
+
+  const allClosed = graphEdgeSwitchMultipliers(
+    tree,
+    Array(tree.edges.length).fill(false),
+  );
+  assert.ok(allClosed.every((gain) => Number.isFinite(gain) && gain === 0));
+
+  const merge = generateGraph({ type: "dag", nodeCount: 10, density: 0.6, seed: 17 });
+  const mergeTarget = merge.nodes.find((node) => merge.indegree[node.id] > 1);
+  assert.ok(mergeTarget);
+  const incoming = merge.edges.filter((edge) => edge.to === mergeTarget.id);
+  const mergeEnabled = Array(merge.edges.length).fill(true);
+  mergeEnabled[incoming[0].id] = false;
+  const mergeMultipliers = graphEdgeSwitchMultipliers(merge, mergeEnabled);
+  assert.equal(
+    mergeMultipliers[incoming[1].id],
+    1,
+    "closing another source must not amplify an incoming merge route",
+  );
+});
+
+test("masked cyclic presets remain below unity", () => {
+  for (const patch of Object.values(GRAPH_DELAY_PATCHES).filter(
+    (candidate) => generateGraph({ ...candidate, type: candidate.topology }).cyclic,
+  )) {
+    const graph = generateGraph({ ...patch, type: patch.topology });
+    const parameters = edgeAudioParameters(graph, {
+      ...patch,
+      nodePass: 1,
+      feedback: MAX_GRAPH_FEEDBACK,
+    });
+    const masks = [
+      Array(graph.edges.length).fill(true),
+      graph.edges.map((_edge, index) => index % 2 === 0),
+      graph.edges.map((_edge, index) => index % 3 !== 0),
+    ];
+    for (const enabled of masks) {
+      const multipliers = graphEdgeSwitchMultipliers(graph, enabled);
+      const effective = parameters.map((edge, index) => ({
+        ...edge,
+        gain: edge.gain * multipliers[index],
+      }));
+      assert.ok(
+        spectralRadius(graph.nodes.length, effective) < 1,
+        `${patch.label} gate mask must keep cyclic gain below unity`,
+      );
+    }
+  }
 });
 
 test("edge length maps monotonically to time while node positions remain editable", () => {
@@ -221,18 +400,30 @@ test("graph-delay page exposes microphone, topology, feedback safety, and panic 
   ]);
   assert.match(html, /<body class="micmic-page graph-delay-page">/);
   assert.match(html, /graph-delay-tab active/);
-  for (const id of ["stage", "audioButton", "micButton", "panicButton", "graphPatch", "topology", "nodeCount", "density", "seed", "nodeMotionPlayButton", "nodeMotionMode", "nodeMotionSpeed", "nodeMotionAmount", "micMotionPlayButton", "micMotionMode", "micMotionSpeed", "micMotionSize", "resetViewButton", "nodePass", "baseDelay", "timeScale", "timeCurve", "pitchScale", "pitchAsymmetry", "pitchCurve", "pitchSlew", "feedback", "damping", "wet", "dry", "spread"]) {
+  for (const id of ["stage", "audioButton", "micButton", "panicButton", "graphPatch", "topology", "nodeCount", "density", "seed", "openAllSwitchesButton", "nodeMotionPlayButton", "nodeMotionMode", "nodeMotionSpeed", "nodeMotionAmount", "micMotionPlayButton", "micMotionMode", "micMotionSpeed", "micMotionSize", "resetViewButton", "nodePass", "baseDelay", "timeScale", "timeCurve", "pitchScale", "pitchAsymmetry", "pitchCurve", "pitchSlew", "feedback", "damping", "wet", "dry", "spread"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   for (const label of ["Delay Chain", "Branching Tree", "Layered DAG", "Bipartite Field", "Directed Ring", "Small World", "Hub \\+ Spokes", "Feedback Mesh", "Modular Islands", "Seeded Random"]) {
     assert.match(html, new RegExp(`>${label}<`));
   }
-  for (const patch of Object.values(GRAPH_DELAY_PATCHES)) {
+  for (const [name, patch] of Object.entries(GRAPH_DELAY_PATCHES)) {
     assert.match(html, new RegExp(`>${patch.label}<`));
+    assert.match(
+      html,
+      new RegExp(`id="graphPatch-${name}"[^>]*data-graph-patch="${name}"`),
+    );
   }
+  assert.ok(html.indexOf('id="topologySection"') < html.indexOf('id="listenSection"'));
+  assert.ok(html.indexOf('id="graphInfoSection"') > html.indexOf('id="graphResetButton"'));
+  assert.match(html, /id="graphResetButton"[^>]*data-reset-in-place[^>]*data-reset-all/);
+  assert.match(html, /id="graphPatch" type="hidden"/);
+  assert.match(html, /id="graphPatchGrid"/);
+  assert.match(html, /id="pathReadout"/);
   assert.match(html, /Use headphones/);
   assert.match(html, /SPEAKERS OUT stays fixed/);
-  assert.match(html, /Use Motion to move nodes automatically/);
+  assert.match(html, /Click a rectangular connection switch/);
+  assert.match(html, /left branch, right branch, both, or neither/);
+  assert.match(html, /role="application" aria-roledescription="interactive audio graph"/);
   assert.match(html, /Press Escape for panic/);
   assert.match(app, /getUserMedia/);
   assert.match(app, /createDelay\(2\.2\)/);
@@ -243,30 +434,49 @@ test("graph-delay page exposes microphone, topology, feedback safety, and panic 
   assert.match(app, /nodeTurnRouting/);
   assert.match(app, /function turnSemitoneMatrix/);
   assert.match(app, /turnRouters/);
-  assert.match(html, /id="pitchScale"[^>]*min="0"[^>]*max="2"[^>]*value="0.5"/);
+  assert.match(html, /id="pitchScale"[^>]*min="0"[^>]*max="2"[^>]*value="0.26"/);
   assert.doesNotMatch(html, /id="inputPitchReference"|id="pitchFloor"|id="pitchCeiling"/);
-  assert.match(html, /id="baseDelay"[^>]*value="220"/);
-  assert.match(html, /id="timeScale"[^>]*value="60"/);
+  assert.match(html, /id="baseDelay"[^>]*value="62"/);
+  assert.match(html, /id="timeScale"[^>]*value="58"/);
+  assert.match(html, /id="wet"[^>]*max="1.5"[^>]*value="1.16"/);
   assert.match(html, /Angle → octave span/);
   assert.match(app, /graph-turn-processor/);
   assert.match(turnProcessor, /morphazoid-graph-turns/);
   assert.match(turnProcessor, /this\.sourceCount/);
   assert.match(turnProcessor, /this\.outputCount/);
   assert.match(app, /function geometryModel/);
-  assert.match(app, /graphOutputNodeIds/);
+  assert.match(app, /for \(const nodeId of graphSinkNodeIds\(geometry\)\)/);
+  assert.match(app, /graphSinkNodeIds/);
+  assert.match(app, /graphNodePans/);
   assert.match(app, /function drawSpeakerConnection/);
   assert.doesNotMatch(app, /state\.output[XY]|audibleOutputNodeIds/);
   assert.match(app, /function terminalDelaySeconds/);
   assert.match(app, /function scheduleGraphRebuild/);
+  assert.match(app, /generateGraphWithinTurnBudget/);
+  assert.match(app, /function firstAudibleTapSeconds/);
+  assert.match(app, /graphRebuildQueued/);
+  assert.match(app, /inputAnalyser\.getFloatTimeDomainData/);
   assert.match(app, /function flushGraphRebuild/);
   assert.match(app, /nextGraph\.crossfade\.gain\.linearRampToValueAtTime\(1/);
-  assert.match(app, /MAX_LIVE_TURN_ROUTES = 192/);
+  assert.match(app, /MAX_LIVE_TURN_ROUTES = MAX_GRAPH_TURN_ROUTES/);
+  assert.match(html, /speaker tap route/);
   assert.match(app, /geometry: candidate/);
   assert.match(app, /Object\.assign\(state, lastAppliedConfiguration\)/);
   assert.match(app, /function graphRoutingSignature/);
+  assert.match(app, /function edgeSwitchAt/);
+  assert.match(app, /function setEdgeSwitch/);
+  assert.match(app, /const switchGain = own\(audio\.createGain\(\)\)/);
+  assert.match(app, /inputBus\.connect\(switchGain\)\.connect\(delay\)/);
+  assert.match(app, /linearRampToValueAtTime\(value, now \+ EDGE_SWITCH_RAMP_SECONDS\)/);
+  assert.match(app, /function drawEdgeSwitch/);
+  assert.match(html, /click switch/);
+  assert.match(html, /Only forward sink and leaf nodes are audible/);
+  assert.match(html, /1 sink tap · 1 speaker route/);
   assert.match(app, /function loadGraphPatch/);
   assert.match(app, /node\.port\?\.close/);
-  assert.match(app, /0\.9 \/ Math\.sqrt\(exits\.length\)/);
+  assert.match(app, /function audibleTapGain\(count\)/);
+  assert.match(app, /audibleTapSet\.has\(spec\.id\) \? tapGain : 0/);
+  assert.match(app, /audibleTapSet\.has\(index\) \? tapGain : 0/);
   assert.match(app, /draggingTerminal/);
   assert.match(app, /function advanceNodeMotion/);
   assert.match(app, /function bakeNodeMotion/);

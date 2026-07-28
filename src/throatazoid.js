@@ -3,6 +3,11 @@ export const MAX_MOUTHS = MAX_THROATS;
 export const MAX_TONGUES = 5;
 export const MAX_NOSES = 3;
 export const MAX_PRESSURE_SOURCES = 4;
+export const TRACT_SECTION_COUNT = 44;
+export const TONGUE_TRACT_START = 12.9;
+export const TONGUE_TRACT_END = 30.4;
+export const TONGUE_DIAMETER_INNER = 2.05;
+export const TONGUE_DIAMETER_OUTER = 3.5;
 const SINGING_INTERVAL_FALLBACKS = Object.freeze([-12, 0, 7, 12, 19, 24, 31]);
 const SINGING_DETUNE_FALLBACKS = Object.freeze([-8, 5, -4, 7, -6, 3, -2]);
 
@@ -387,6 +392,182 @@ export const SPECIMENS = Object.freeze({
 
 export function clamp(value, minimum = 0, maximum = 1) {
   return Math.min(maximum, Math.max(minimum, Number(value) || 0));
+}
+
+export function tongueTractCoordinates(tongue = {}) {
+  const position = clamp(tongue.position);
+  const height = clamp(tongue.height);
+  return {
+    index: TONGUE_TRACT_START
+      + position * (TONGUE_TRACT_END - TONGUE_TRACT_START),
+    diameter: TONGUE_DIAMETER_OUTER
+      - height * (TONGUE_DIAMETER_OUTER - TONGUE_DIAMETER_INNER),
+  };
+}
+
+export function tongueFromTractCoordinates(index, diameter) {
+  const lower = TONGUE_TRACT_START;
+  const upper = TONGUE_TRACT_END;
+  const centre = (lower + upper) * 0.5;
+  const controlDiameter = clamp(
+    diameter,
+    TONGUE_DIAMETER_INNER,
+    TONGUE_DIAMETER_OUTER,
+  );
+  let reach = (
+    TONGUE_DIAMETER_OUTER - controlDiameter
+  ) / (
+    TONGUE_DIAMETER_OUTER - TONGUE_DIAMETER_INNER
+  );
+  reach = Math.pow(clamp(reach), 0.58) - 0.2 * (reach * reach - reach);
+  const halfRange = reach * 0.5 * (upper - lower);
+  const constrainedIndex = clamp(
+    index,
+    centre - halfRange,
+    centre + halfRange,
+  );
+  return {
+    position: clamp((constrainedIndex - lower) / (upper - lower)),
+    height: clamp(
+      (TONGUE_DIAMETER_OUTER - controlDiameter)
+        / (TONGUE_DIAMETER_OUTER - TONGUE_DIAMETER_INNER),
+    ),
+    index: constrainedIndex,
+    diameter: controlDiameter,
+  };
+}
+
+export function roundedAirwayPath(points, iterations = 3) {
+  const source = Array.from(points ?? [], (point) => ({
+    x: Number.isFinite(Number(point?.x)) ? Number(point.x) : 0,
+    y: Number.isFinite(Number(point?.y)) ? Number(point.y) : 0,
+  }));
+  if (source.length < 2) return source;
+  let path = source;
+  const passes = Math.round(clamp(iterations, 0, 6));
+  for (let pass = 0; pass < passes; pass += 1) {
+    const rounded = [path[0]];
+    for (let index = 0; index < path.length - 1; index += 1) {
+      const from = path[index];
+      const to = path[index + 1];
+      rounded.push(
+        {
+          x: from.x * 0.75 + to.x * 0.25,
+          y: from.y * 0.75 + to.y * 0.25,
+        },
+        {
+          x: from.x * 0.25 + to.x * 0.75,
+          y: from.y * 0.25 + to.y * 0.75,
+        },
+      );
+    }
+    rounded.push(path[path.length - 1]);
+    path = rounded;
+  }
+  return path;
+}
+
+export function sampleDiameterProfile(profile, index) {
+  if (!profile?.length) return 0;
+  const position = clamp(index, 0, profile.length - 1);
+  const lower = Math.floor(position);
+  const upper = Math.min(profile.length - 1, lower + 1);
+  const blend = position - lower;
+  const from = Number(profile[lower]) || 0;
+  const to = Number(profile[upper]) || 0;
+  return from + (to - from) * blend;
+}
+
+export function applyTractHeightDeformations(
+  baseDiameters,
+  deformations = [],
+  { minimum = 0.001, maximum = 4 } = {},
+) {
+  const source = Array.from(baseDiameters ?? []);
+  const result = Float32Array.from(source, (diameter) => (
+    clamp(diameter, minimum, maximum)
+  ));
+  for (let index = 0; index < result.length; index += 1) {
+    let displacement = 0;
+    for (const deformation of deformations ?? []) {
+      const center = Number(deformation?.center);
+      const radius = Math.max(0.0001, Number(deformation?.radius) || 0);
+      const height = Number(deformation?.height);
+      const strength = Number.isFinite(Number(deformation?.strength))
+        ? Number(deformation.strength)
+        : 1;
+      if (!Number.isFinite(center) || !Number.isFinite(height)) continue;
+      const distance = Math.abs(index - center);
+      if (distance >= radius) continue;
+      const weight = 0.5 * (1 + Math.cos(Math.PI * distance / radius));
+      displacement += height * strength * weight;
+    }
+    result[index] = clamp(result[index] + displacement, minimum, maximum);
+  }
+  return result;
+}
+
+export function alienTongueDeformations(state = {}) {
+  const mutation = unitValue(state.mutation);
+  if (mutation <= 0.001) return [];
+  const tongues = state.tongues ?? [];
+  const count = boundedInteger(
+    state.tongueCount,
+    1,
+    MAX_TONGUES,
+    tongues.length || 1,
+  );
+  return Array.from({ length: count }, (_, index) => {
+    const tongue = tongues[index] ?? tongues[0] ?? {};
+    const control = tongueTractCoordinates(tongue);
+    const curl = unitValue(tongue.curl, 0.5);
+    const polarity = index % 2 ? 1 : -1;
+    return {
+      center: clamp(
+        control.index + (curl - 0.5) * (2.5 + index * 0.65),
+        9,
+        37,
+      ),
+      radius: 2.6 + mutation * 2.4 + index * 0.24,
+      height: (
+        (curl - 0.5) * 0.58
+        + (index > 0 ? polarity * 0.16 : 0)
+      ) * mutation,
+      strength: 0.72 + index * 0.06,
+    };
+  });
+}
+
+export function smoothTractDiameters(
+  currentDiameters,
+  targetDiameters,
+  deltaMilliseconds,
+  {
+    movementSpeed = 15,
+    noseStart = 17,
+    tipStart = 32,
+  } = {},
+) {
+  const target = Array.from(targetDiameters ?? []);
+  const current = Array.from(currentDiameters ?? []);
+  const elapsed = clamp(deltaMilliseconds, 0, 100) / 1_000;
+  const amount = Math.max(0, Number(movementSpeed) || 0) * elapsed;
+  return Float32Array.from(target, (requested, index) => {
+    const destination = clamp(Number(requested) || 0.001, 0.001, 4);
+    const present = clamp(
+      Number.isFinite(Number(current[index])) ? Number(current[index]) : destination,
+      0.001,
+      4,
+    );
+    const slowReturn = index < noseStart
+      ? 0.6
+      : index >= tipStart
+        ? 1
+        : 0.6 + 0.4 * (index - noseStart) / Math.max(1, tipStart - noseStart);
+    return present < destination
+      ? Math.min(present + slowReturn * amount, destination)
+      : Math.max(present - 2 * amount, destination);
+  });
 }
 
 export const THROATAZOID_OUTPUT_TRIM = 0.82;
@@ -1896,6 +2077,344 @@ export function keyboardPhoneme(value) {
   return Object.prototype.hasOwnProperty.call(PHONEMES, key) ? key : "";
 }
 
+function shortcut(kind, id, name) {
+  return Object.freeze({ kind, id, name });
+}
+
+export const DIGIT_PRESET_SHORTCUTS = Object.freeze({
+  "1": shortcut("specimen", "triune", "Triune"),
+  "2": shortcut("specimen", "oracle", "Oracle"),
+  "3": shortcut("specimen", "hive", "Hive"),
+  "4": shortcut("specimen", "hydra", "Hydra"),
+  "5": shortcut("specimen", "razor", "Razor"),
+  "6": shortcut("specimen", "monolith", "Monolith"),
+  "7": shortcut("specimen", "siren", "Siren"),
+  "8": shortcut("specimen", "larva", "Larva"),
+  "9": shortcut("specimen", "cathedral", "Cathedral"),
+  "0": shortcut("specimen", "singing", "Singing"),
+});
+
+export function keyboardPresetShortcut(value, code = "") {
+  const suppliedCode = typeof code === "string" ? code : "";
+  const codeMatch = /^(?:Digit|Numpad)([0-9])$/.exec(suppliedCode);
+  const key = codeMatch?.[1]
+    ?? (typeof value === "string" && /^[0-9]$/.test(value) ? value : "");
+  return DIGIT_PRESET_SHORTCUTS[key] ?? null;
+}
+
+function expression(name, parameters) {
+  return Object.freeze({
+    name,
+    ...parameters,
+    motionTargets: Object.freeze([...(parameters.motionTargets ?? [])]),
+  });
+}
+
+export const CAPITAL_EXPRESSIONS = Object.freeze({
+  a: expression("Abyss", {
+    pitchRatio: 0.5,
+    bodyLength: 0.96,
+    mutation: 0.18,
+    motionDepth: 0.7,
+    motionTargets: ["mouths", "tongues", "noses"],
+  }),
+  b: expression("Blast", {
+    pitchRatio: 0.84,
+    pressureSourceCount: 4,
+    pressureLevel: 1,
+    intensity: 1,
+    burstScale: 1.45,
+    motionDepth: 0.82,
+    motionTargets: ["pressure", "mouths"],
+  }),
+  c: expression("Chitter", {
+    wobble: 0.72,
+    mutation: 0.55,
+    breath: 0.36,
+    motionDepth: 0.86,
+    motionTargets: ["tongues", "mouths"],
+  }),
+  d: expression("Double", {
+    pitchRatio: 0.94,
+    throatCount: 2,
+    coupling: 0.35,
+    spread: 0.75,
+    motionDepth: 0.68,
+    motionTargets: ["mouths"],
+  }),
+  e: expression("Electric", {
+    pitchRatio: 1.5,
+    tension: 0.9,
+    vibrato: 0.35,
+    motionDepth: 0.72,
+    motionTargets: ["tongues"],
+  }),
+  f: expression("Flood", {
+    breath: 1,
+    intensity: 1,
+    mutation: 0.18,
+    motionDepth: 0.8,
+    motionTargets: ["mouths", "noses"],
+  }),
+  g: expression("Growl", {
+    pitchRatio: 0.75,
+    growl: 1,
+    mutation: 0.5,
+    motionDepth: 0.78,
+    motionTargets: ["mouths", "tongues"],
+  }),
+  h: expression("Hurricane", {
+    breath: 1,
+    wobble: 0.3,
+    motionDepth: 0.9,
+    motionTargets: ["pressure", "mouths"],
+  }),
+  i: expression("Ion", {
+    pitchRatio: 2,
+    vibrato: 0.4,
+    tension: 0.82,
+    motionDepth: 0.72,
+    motionTargets: ["tongues"],
+  }),
+  j: expression("Jitter", {
+    vibrato: 1,
+    wobble: 0.45,
+    mutation: 0.35,
+    motionDepth: 1,
+    motionTargets: ["tongues", "noses"],
+  }),
+  k: expression("Kick", {
+    pitchRatio: 0.8,
+    pressureSourceCount: 4,
+    pressureLevel: 1,
+    intensity: 1,
+    burstScale: 1.6,
+    motionDepth: 0.9,
+    motionTargets: ["pressure"],
+  }),
+  l: expression("Long", {
+    bodyLength: 1,
+    mouthLength: 1,
+    motionDepth: 0.72,
+    motionTargets: ["mouths"],
+  }),
+  m: expression("Many", {
+    throatCount: 3,
+    noseCount: 3,
+    nasalCoupling: 1,
+    noseOpenness: 1,
+    coupling: 0.42,
+    motionDepth: 0.8,
+    motionTargets: ["mouths", "noses"],
+  }),
+  n: expression("Nose swarm", {
+    noseCount: 3,
+    nasalCoupling: 1,
+    noseOpenness: 1,
+    noseResonance: 0.9,
+    motionDepth: 0.9,
+    motionTargets: ["noses"],
+  }),
+  o: expression("Orbit", {
+    lipDiameter: 0.35,
+    wobble: 0.35,
+    coupling: 0.2,
+    motionDepth: 0.82,
+    motionTargets: ["mouths", "tongues"],
+  }),
+  p: expression("Pressure", {
+    pitchRatio: 0.9,
+    pressureSourceCount: 4,
+    pressureLevel: 1,
+    intensity: 1,
+    burstScale: 1.7,
+    motionDepth: 0.92,
+    motionTargets: ["pressure"],
+  }),
+  q: expression("Quad", {
+    throatCount: 4,
+    coupling: 0.55,
+    spread: 1,
+    lipDiameter: 0.48,
+    motionDepth: 0.78,
+    motionTargets: ["mouths"],
+  }),
+  r: expression("Rattle", {
+    wobble: 1,
+    growl: 0.6,
+    mutation: 0.3,
+    motionDepth: 1,
+    motionTargets: ["tongues", "mouths"],
+  }),
+  s: expression("Scream", {
+    pitchRatio: 1.5,
+    breath: 0.75,
+    intensity: 1,
+    motionDepth: 0.78,
+    motionTargets: ["tongues"],
+  }),
+  t: expression("Tense", {
+    pitchRatio: 1.2,
+    tension: 1,
+    intensity: 1,
+    burstScale: 1.4,
+    motionDepth: 0.82,
+    motionTargets: ["pressure", "tongues"],
+  }),
+  u: expression("Underworld", {
+    pitchRatio: 0.5,
+    bodyLength: 1,
+    lipDiameter: 0.35,
+    motionDepth: 0.86,
+    motionTargets: ["mouths", "tongues", "noses"],
+  }),
+  v: expression("Vibrato", {
+    vibrato: 1,
+    motionDepth: 1,
+    motionTargets: ["tongues", "noses"],
+  }),
+  w: expression("Wobble", {
+    wobble: 1,
+    motionDepth: 1,
+    motionTargets: ["mouths", "noses"],
+  }),
+  x: expression("Cross-feed", {
+    throatCount: 3,
+    coupling: 0.72,
+    mutation: 0.8,
+    spread: 1,
+    motionDepth: 0.92,
+    motionTargets: ["mouths", "tongues", "noses", "pressure"],
+  }),
+  y: expression("Yodel", {
+    pitchRatio: 2,
+    vibrato: 0.65,
+    motionDepth: 0.88,
+    motionTargets: ["tongues"],
+  }),
+  z: expression("Zapper", {
+    pitchRatio: 1.15,
+    tension: 1,
+    growl: 0.5,
+    mutation: 0.65,
+    motionDepth: 0.86,
+    motionTargets: ["tongues", "mouths"],
+  }),
+});
+
+export function capitalExpression(value) {
+  if (typeof value !== "string" || value.length !== 1) return null;
+  return CAPITAL_EXPRESSIONS[value.toLowerCase()] ?? null;
+}
+
+export function capitalizedPerformanceState(baseState, value) {
+  const variant = capitalExpression(value);
+  if (!variant || !baseState || typeof baseState !== "object") return baseState;
+  const next = {
+    ...baseState,
+    throats: (baseState.throats ?? []).map((throat) => ({ ...throat })),
+    tongues: (baseState.tongues ?? []).map((tongue) => ({ ...tongue })),
+    noses: (baseState.noses ?? []).map((nose) => ({ ...nose })),
+    pressureSources: (baseState.pressureSources ?? []).map((source) => ({ ...source })),
+  };
+  const scalarFields = {
+    bodyLength: "bodyLength",
+    tension: "tension",
+    mutation: "mutation",
+    coupling: "coupling",
+    growl: "growl",
+    spread: "spread",
+    intensity: "exciterIntensity",
+    breath: "exciterBreath",
+    vibrato: "exciterVibrato",
+    wobble: "exciterWobble",
+    nasalCoupling: "nasalCoupling",
+    lipDiameter: "lipDiameter",
+  };
+  for (const [expressionField, stateField] of Object.entries(scalarFields)) {
+    if (Number.isFinite(variant[expressionField])) {
+      next[stateField] = clamp(variant[expressionField]);
+    }
+  }
+  if (Number.isFinite(variant.pitchRatio)) {
+    next.exciterPitch = clamp(
+      Number(baseState.exciterPitch || 140) * variant.pitchRatio,
+      40,
+      420,
+    );
+  }
+  if (Number.isFinite(variant.throatCount)) {
+    next.throatCount = boundedInteger(variant.throatCount, 1, MAX_THROATS, 1);
+    next.classicTopology = next.throatCount === 1 && Boolean(baseState.classicTopology);
+    for (let index = 0; index < next.throatCount; index += 1) {
+      if (!next.throats[index]) next.throats[index] = defaultThroat(index);
+      next.throats[index].muted = false;
+    }
+  }
+  if (Number.isFinite(variant.noseCount)) {
+    next.noseCount = boundedInteger(variant.noseCount, 1, MAX_NOSES, 1);
+  }
+  if (Number.isFinite(variant.tongueCount)) {
+    next.tongueCount = boundedInteger(variant.tongueCount, 1, MAX_TONGUES, 1);
+  }
+  if (Number.isFinite(variant.mouthLength)) {
+    for (let index = 0; index < Math.min(next.throatCount, next.throats.length); index += 1) {
+      next.throats[index].length = clamp(variant.mouthLength);
+    }
+  }
+  if (Number.isFinite(variant.noseOpenness)) {
+    for (let index = 0; index < Math.min(next.noseCount, next.noses.length); index += 1) {
+      next.noses[index].openness = clamp(variant.noseOpenness);
+    }
+  }
+  if (Number.isFinite(variant.noseResonance)) {
+    for (let index = 0; index < Math.min(next.noseCount, next.noses.length); index += 1) {
+      next.noses[index].resonance = clamp(variant.noseResonance);
+    }
+  }
+  if (Number.isFinite(variant.pressureSourceCount)) {
+    next.pressureSourceCount = boundedInteger(
+      variant.pressureSourceCount,
+      1,
+      MAX_PRESSURE_SOURCES,
+      1,
+    );
+    while (next.pressureSources.length < MAX_PRESSURE_SOURCES) {
+      next.pressureSources.push({ open: false, level: 0 });
+    }
+    for (let index = 0; index < next.pressureSourceCount; index += 1) {
+      next.pressureSources[index].open = true;
+      next.pressureSources[index].level = clamp(
+        variant.pressureLevel ?? next.pressureSources[index].level ?? 1,
+      );
+    }
+  }
+  next.capitalExpression = variant.name;
+  next.capitalMotionDepth = clamp(variant.motionDepth);
+  next.capitalMotionTargets = [...variant.motionTargets];
+  next.burstScale = clamp(variant.burstScale ?? 1, 0, 2);
+  return next;
+}
+
+export function anatomyMotionPhases(timeMs, motionState = {}, index = 0) {
+  const time = Number.isFinite(Number(timeMs)) ? Number(timeMs) : 0;
+  const phaseIndex = Number.isFinite(Number(index)) ? Number(index) : 0;
+  const depth = clamp(motionState.motionDepth);
+  const vibrato = Math.sqrt(clamp(motionState.exciterVibrato));
+  const wobble = Math.sqrt(clamp(motionState.exciterWobble));
+  const fast = Math.sin(
+    time * Math.PI * 2 * 5.2 / 1_000 + phaseIndex * 0.73,
+  ) * vibrato * depth;
+  const slow = Math.sin(
+    time * Math.PI * 2 * 0.43 / 1_000 + phaseIndex * 1.17,
+  ) * wobble * depth;
+  return Object.freeze({
+    fast,
+    slow,
+    combined: clamp((fast + slow) * 0.5, -1, 1),
+  });
+}
+
 function defaultThroat(index) {
   return {
     aperture: clamp(0.36 + ((index * 0.19) % 0.38)),
@@ -2192,6 +2711,14 @@ export function mouthManifold(state = {}) {
     couplingMatrix: mouthCouplingMatrix(mouthCount, coupling),
     ...pressureState,
   };
+}
+
+export function mouthOrganRoutes(state = {}) {
+  return mouthManifold(state).mouths.map((mouth) => Object.freeze({
+    mouthIndex: mouth.index,
+    tongueIndex: mouth.tongueAssignment,
+    noseIndex: mouth.noseAssignment,
+  }));
 }
 
 export function routeMouthPressure(state = {}, rootPressure = 1) {
@@ -2644,7 +3171,8 @@ export function noseVoiceParameters(state, index, sampleRate = 48_000) {
   const gain = active
     ? clamp(
       nose.openness
-        * (0.1 + coupling * 0.5)
+        * (0.28 + coupling * 0.55)
+        * (0.85 + nose.resonance * 0.35)
         / Math.sqrt(Math.max(1, noseCount)),
     )
     : 0;

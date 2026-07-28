@@ -3330,5 +3330,6 @@ select:hover {
 .shared-amplitude-editor path { fill:none; stroke:var(--accent); stroke-width:1.5; vector-effect:non-scaling-stroke; }
 .shared-amplitude-editor button { position:absolute; width:22px; height:22px; padding:0; transform:translate(-50%,-50%); border:1px solid var(--accent); border-radius:50%; color:var(--ink); background:var(--bg-deep); font-size:7px; }
 .shared-amplitude-editor.is-disabled { opacity:.3; }
+.shared-amplitude-time-axis { display:flex; justify-content:space-between; margin:-4px 7px 2px; color:var(--faint); font:6px/1.2 var(--mono); text-transform:uppercase; letter-spacing:.04em; }
 .shared-amplitude-level { margin-top:0; }
 .shared-amplitude-control > small { color:var(--faint); font-size:7px; }

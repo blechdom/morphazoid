@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { GRAPH_DELAY_PATCHES } from "../src/graph-delay.js";
 
-test("graph-delay safely coalesces presets, rolls back failed builds, and rejects unsafe graphs", async () => {
+test("graph-delay keeps live settings safe, coalesces transitions, and rolls back failed builds", async () => {
   const html = await readFile(new URL("../graph-delay.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const elements = new Map();
@@ -48,6 +48,7 @@ test("graph-delay safely coalesces presets, rolls back failed builds, and reject
 
   const originalSetTimeout = globalThis.setTimeout;
   const originalClearTimeout = globalThis.clearTimeout;
+  const audioContexts = [];
   let nextTimerId = 1;
   const timers = new Map();
   globalThis.setTimeout = (callback, delay = 0) => {
@@ -57,16 +58,22 @@ test("graph-delay safely coalesces presets, rolls back failed builds, and reject
     return id;
   };
   globalThis.clearTimeout = (id) => timers.delete(id);
+  const advanceAudioTime = (delay) => {
+    for (const context of audioContexts) context.currentTime += delay / 1_000;
+  };
   const runNextTimer = (delay) => {
     const entry = [...timers].find(([, timer]) => timer.delay === delay);
     assert.ok(entry, `expected a ${delay} ms timer`);
     timers.delete(entry[0]);
+    advanceAudioTime(entry[1].delay);
     entry[1].callback();
   };
   const runAllTimers = () => {
     while (timers.size) {
-      const [id, timer] = [...timers][0];
+      const [id, timer] = [...timers]
+        .sort((first, second) => first[1].delay - second[1].delay)[0];
       timers.delete(id);
+      advanceAudioTime(timer.delay);
       timer.callback();
     }
   };
@@ -134,15 +141,17 @@ test("graph-delay safely coalesces presets, rolls back failed builds, and reject
       this.state = "running";
       this.destination = audioNode();
       this.audioWorklet = { async addModule() {} };
+      audioContexts.push(this);
     }
     createGain() { return audioNode({ gain: audioParam(1) }); }
     createDelay() { return audioNode({ kind: "delay", delayTime: audioParam(0) }); }
     createBiquadFilter() {
       return audioNode({ frequency: audioParam(0), Q: audioParam(0), type: "lowpass" });
     }
-    createStereoPanner() { return audioNode({ pan: audioParam(0) }); }
+    createStereoPanner() { return audioNode({ kind: "panner", pan: audioParam(0) }); }
     createAnalyser() {
       return audioNode({
+        kind: "analyser",
         fftSize: 1024,
         getFloatTimeDomainData(array) { array.fill(0); },
       });
@@ -171,11 +180,60 @@ test("graph-delay safely coalesces presets, rolls back failed builds, and reject
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(elements.get("audioState").textContent, "live");
     assert.ok(worklets.length > 0);
+    assert.equal(audioNodes.filter((node) => node.kind === "analyser").length, 1);
     assert.equal(
       audioNodes.filter((node) => node.kind === "delay").length,
       13,
       "default graph should allocate edge and microphone-entry delays, but no speaker delay",
     );
+    const initialPans = audioNodes
+      .filter((node) => node.kind === "panner")
+      .slice(0, 10)
+      .map((node) => node.pan.value);
+    assert.ok(initialPans.every((pan) => pan === 0));
+    assert.match(
+      elements.get("structureReadout").textContent,
+      /12\/12 routes open · 1 sink tap · 1 speaker route/,
+    );
+    assert.match(elements.get("graphInfoSummary").textContent, /1 taps?/);
+
+    const delaysBeforeSwitch = audioNodes.filter((node) => node.kind === "delay").length;
+    const workletsBeforeSwitch = worklets.length;
+    const timersBeforeSwitch = timers.size;
+    let switchPrevented = false;
+    listeners.get("stage:pointerdown")({
+      clientX: 152,
+      clientY: 233,
+      pointerId: 40,
+      preventDefault() { switchPrevented = true; },
+    });
+    assert.equal(switchPrevented, true);
+    assert.match(elements.get("liveStatus").textContent, /Connection 1 → 2 closed/);
+    assert.match(elements.get("structureReadout").textContent, /11\/12 routes open/);
+    assert.equal(audioNodes.filter((node) => node.kind === "delay").length, delaysBeforeSwitch);
+    assert.equal(worklets.length, workletsBeforeSwitch);
+    assert.equal(timers.size, timersBeforeSwitch);
+    assert.equal(elements.get("audioState").textContent, "live");
+    listeners.get("stage:pointerdown")({
+      clientX: 152,
+      clientY: 326,
+      pointerId: 41,
+      preventDefault() {},
+    });
+    assert.match(elements.get("structureReadout").textContent, /10\/12 routes open/);
+    assert.equal(elements.get("openAllSwitchesButton").disabled, false);
+    listeners.get("openAllSwitchesButton:click")();
+    assert.match(elements.get("structureReadout").textContent, /12\/12 routes open/);
+    assert.equal(elements.get("openAllSwitchesButton").disabled, true);
+    assert.match(elements.get("liveStatus").textContent, /Every graph connection opened/);
+    listeners.get("stage:pointerdown")({
+      clientX: 152,
+      clientY: 233,
+      pointerId: 42,
+      preventDefault() {},
+    });
+    assert.match(elements.get("structureReadout").textContent, /11\/12 routes open/);
+
     let speakerPrevented = false;
     listeners.get("stage:pointerdown")({
       clientX: 826,
@@ -200,6 +258,11 @@ test("graph-delay safely coalesces presets, rolls back failed builds, and reject
     });
     listeners.get("stage:pointerup")({ pointerId: 2 });
     assert.notEqual(elements.get("selectedTimeOut").textContent, initialSelectedTime);
+    assert.match(
+      elements.get("structureReadout").textContent,
+      /11\/12 routes open/,
+      "node motion and parameter updates should preserve the played gate state",
+    );
     elements.get("graphPatch").value = "layeredGlass";
     listeners.get("graphPatch:change")({ currentTarget: elements.get("graphPatch") });
     runNextTimer(120);
@@ -208,6 +271,35 @@ test("graph-delay safely coalesces presets, rolls back failed builds, and reject
       initialSelectedTime,
       "reloading a preset should restore its geometry even when its edge routing is unchanged",
     );
+    assert.match(
+      elements.get("structureReadout").textContent,
+      /12\/12 routes open/,
+      "loading a graph should reset its connection gates",
+    );
+    runAllTimers();
+
+    listeners.get("graphPatch-glassCanopy:click")();
+    runNextTimer(120);
+    assert.equal(elements.get("graphPatch").value, "glassCanopy");
+    assert.equal(elements.get("baseDelay").value, String(GRAPH_DELAY_PATCHES.glassCanopy.baseDelay));
+    const workletsDuringTransition = worklets.length;
+    listeners.get("graphPatch-haloRing:click")();
+    assert.equal(worklets.length, workletsDuringTransition);
+    assert.match(elements.get("topologySummary").textContent, /updating/);
+    runAllTimers();
+    assert.equal(elements.get("graphPatch").value, "haloRing");
+
+    listeners.get("graphPatch-hubScatter:click")();
+    runNextTimer(120);
+    runAllTimers();
+    elements.get("nodeCount").value = "24";
+    listeners.get("nodeCount:input")({ currentTarget: elements.get("nodeCount") });
+    listeners.get("nodeCount:change")();
+    assert.match(
+      elements.get("structureReadout").textContent,
+      /24 nodes · 30 edges · 30\/30 routes open · 23 sink taps · 23 speaker routes · 191 turns/,
+    );
+    assert.equal(elements.get("audioError").hidden, true);
     runAllTimers();
 
     const patchNames = Object.keys(GRAPH_DELAY_PATCHES);
@@ -224,6 +316,9 @@ test("graph-delay safely coalesces presets, rolls back failed builds, and reject
     assert.match(elements.get("topologySummary").textContent, new RegExp(finalPatch.label));
     assert.equal(elements.get("audioError").hidden, true);
 
+    listeners.get("stage:keydown")({ key: "]", preventDefault() {} });
+    listeners.get("stage:keydown")({ key: " ", preventDefault() {} });
+    assert.match(elements.get("liveStatus").textContent, /closed/);
     const stableStructure = elements.get("structureReadout").textContent;
     const stableTopology = elements.get("topology").value;
     const stablePatchName = elements.get("graphPatch").value;
@@ -243,6 +338,7 @@ test("graph-delay safely coalesces presets, rolls back failed builds, and reject
     assert.equal(elements.get("structureReadout").textContent, stableStructure);
     assert.match(elements.get("audioError").textContent, /injected worklet construction failure/);
     assert.equal(elements.get("audioError").hidden, false);
+    assert.match(elements.get("topologySummary").textContent, /previous graph still live/);
     assert.ok(
       worklets.slice(workletsBeforeFailure).every(
         (worklet) => worklet.disconnected && worklet.port.closed,
@@ -258,9 +354,20 @@ test("graph-delay safely coalesces presets, rolls back failed builds, and reject
     elements.get("density").value = "1";
     listeners.get("density:input")({ currentTarget: elements.get("density") });
     listeners.get("density:change")();
-    assert.equal(elements.get("structureReadout").textContent, stableStructure);
-    assert.match(elements.get("audioError").textContent, /exceed the live safety limit of 192/);
-    assert.equal(elements.get("topology").value, stableTopology);
+    assert.match(elements.get("structureReadout").textContent, /24 nodes/);
+    assert.match(elements.get("structureReadout").textContent, /density auto-limited from 100%/);
+    assert.ok(Number(elements.get("density").value) < 1);
+    assert.equal(elements.get("topology").value, "random");
+    assert.equal(elements.get("audioError").hidden, true);
+    assert.equal(elements.get("audioState").textContent, "live");
+    runAllTimers();
+
+    listeners.get("graphResetButton:click")();
+    runAllTimers();
+    assert.equal(elements.get("graphPatch").value, "layeredGlass");
+    assert.equal(elements.get("topology").value, "dag");
+    assert.equal(elements.get("audioState").textContent, "live");
+    assert.ok(tracks.every((track) => !track.stopped));
 
     listeners.get("panicButton:click")();
     assert.equal(elements.get("audioState").textContent, "off");

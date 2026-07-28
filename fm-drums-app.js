@@ -148,7 +148,6 @@ function renderPads() {
     hit.innerHTML = `
       <span class="fm-pad-index">${String(index + 1).padStart(2, "0")}</span>
       <span class="fm-pad-key">${voice.key.toUpperCase()}</span>
-      <span class="fm-pad-signal" aria-hidden="true"><i></i><i></i><i></i></span>
       <strong>${voice.name}</strong>
       <small><span data-voice-family>${voice.family}</span> / <span data-voice-frequency>${Math.round(voice.frequency)}</span> Hz</small>
     `;
@@ -265,26 +264,58 @@ $("copyBank").addEventListener("click", async () => {
   }
 });
 
-$("resetBank").addEventListener("click", () => {
+$("resetSet").addEventListener("click", () => {
   state.voices = cloneDefaultFmDrumVoices();
   state.selectedId = state.voices[0].id;
   localStorage.removeItem(FM_DRUM_STORAGE_KEY);
   renderPads();
   renderEditor();
-  announce("FM drum bank reset.");
+  announce("FM drum set reset.");
 });
 
-$("randomizeVoice").addEventListener("click", () => {
-  const voice = selectedVoice();
+function randomizeVoiceSettings(voice) {
   voice.frequency = Math.round(Math.min(6_000, Math.max(35, voice.frequency * (.72 + Math.random() * .6))));
   voice.decay = Math.min(3, Math.max(.04, voice.decay * (.65 + Math.random() * .8)));
   voice.modRatio = Math.min(8, Math.max(.25, voice.modRatio + (Math.random() - .5) * 1.5));
   voice.modIndex = Math.min(20, Math.max(0, voice.modIndex + (Math.random() - .5) * 6));
   voice.tone = Math.random();
+  return voice;
+}
+
+$("randomizeVoice").addEventListener("click", () => {
+  const voice = randomizeVoiceSettings(selectedVoice());
   renderPads();
   renderEditor();
   triggerVoice(voice);
   announce(`${voice.name} randomized.`);
+});
+
+$("randomizeSet").addEventListener("click", () => {
+  state.voices.forEach(randomizeVoiceSettings);
+  renderPads();
+  renderEditor();
+  announce("All sixteen FM drum voices randomized.");
+});
+
+$("downloadBank").addEventListener("click", () => {
+  try {
+    const data = JSON.stringify(state.voices, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `morphazoid-fm-drums-${date}.json`;
+    link.hidden = true;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    setTemporaryButtonText($("downloadBank"), "Downloaded ✓");
+    announce("FM drum set downloaded as JSON.");
+  } catch (error) {
+    showError(error);
+  }
 });
 
 document.addEventListener("keydown", (event) => {

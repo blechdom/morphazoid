@@ -16,7 +16,7 @@ test("FM Drums exposes sixteen uniquely keyed reusable voices", () => {
   assert.equal(new Set(DEFAULT_FM_DRUM_VOICES.map(({ id }) => id)).size, 16);
   assert.deepEqual(
     DEFAULT_FM_DRUM_VOICES.map(({ key }) => key).join(""),
-    "qwerasdfzxcv1234",
+    "1234qwerasdfzxcv",
   );
   assert.equal(DEFAULT_FM_DRUM_VOICES.some(({ family }) => family === "kick"), true);
   assert.equal(DEFAULT_FM_DRUM_VOICES.some(({ family }) => family === "snare"), true);
@@ -72,8 +72,13 @@ test("FM Drums page belongs to the Morphazoid workbench shell", async () => {
   assert.match(html, /class="masthead"/);
   assert.match(html, /class="mobile-instrument-select"/);
   assert.match(html, /id="padGrid"/);
+  assert.match(html, /id="randomizeSet"/);
+  assert.match(html, /id="resetSet"/);
+  assert.match(html, /id="downloadBank"/);
   assert.match(html, /src="nav\.js"/);
   assert.match(html, /src="fm-drums-app\.js"/);
   assert.match(css, /\.fm-pad-grid[\s\S]*grid-template-columns: repeat\(4/);
   assert.match(app, /FM_DRUM_STORAGE_KEY/);
+  assert.match(app, /new Blob\(\[data\], \{ type: "application\/json" \}\)/);
+  assert.match(app, /morphazoid-fm-drums-\$\{date\}\.json/);
 });

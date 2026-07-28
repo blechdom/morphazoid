@@ -184,7 +184,8 @@ test("lattice app renders and plays line contacts", async () => {
   assert.equal(elements.get("edgeCurve0Out").textContent, "straight");
   assert.equal(elements.get("contactLevelOut").textContent, "35%");
   assert.equal(elements.get("intersectionAccentOut").textContent, "75%");
-  assert.equal(elements.get("intersectionDecayOut").textContent, "100 ms");
+  assert.equal(elements.has("intersectionDecay"), false);
+  assert.equal(elements.has("intersectionDecayOut"), false);
   assert.equal(elements.get("voiceCapOut").textContent, "8 voices");
   assert.equal(
     (elements.get("tilingType").innerHTML.match(/<option /g) ?? []).length,
@@ -293,6 +294,17 @@ test("lattice app renders and plays line contacts", async () => {
   queuedFrame(now);
   assert.match(elements.get("stageReadout").textContent, /VOICE/);
   assert.ok(Number.isFinite(Math.hypot(...voiceGains.map((gain) => gain.gain.value))));
+  now += 1500;
+  queuedFrame(now);
+  assert.ok(
+    voiceGains.every((gain) => gain.gain.value === 0),
+    "the editable envelope release must silence continuously tracked contacts",
+  );
+  assert.notDeepEqual(
+    oscillators.map((oscillator) => oscillator.frequency.value),
+    onsetFrequencies,
+    "curve motion must keep steering pitch after the amplitude envelope ends",
+  );
   elements.get("soundMode").value = "percussion";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
   assert.equal(elements.get("amplitudeControl").hidden, true);
@@ -300,11 +312,6 @@ test("lattice app renders and plays line contacts", async () => {
   elements.get("percussionDecay").value = "650";
   listeners.get("percussionDecay:input")();
   assert.equal(elements.get("percussionDecayOut").textContent, "650 ms");
-  assert.notDeepEqual(
-    oscillators.map((oscillator) => oscillator.frequency.value),
-    onsetFrequencies,
-    "curve motion must keep steering pitch after the amplitude envelope ends",
-  );
 
   elements.get("soundMode").value = "fm";
   listeners.get("soundMode:change")({ currentTarget: elements.get("soundMode") });
@@ -487,9 +494,6 @@ test("lattice app renders and plays line contacts", async () => {
   elements.get("intersectionAccent").value = "0.8";
   listeners.get("intersectionAccent:input")();
   assert.equal(elements.get("intersectionAccentOut").textContent, "80%");
-  elements.get("intersectionDecay").value = "180";
-  listeners.get("intersectionDecay:input")();
-  assert.equal(elements.get("intersectionDecayOut").textContent, "180 ms");
   elements.get("synthSource").value = "orientation";
   listeners.get("synthSource:change")();
   elements.get("pmIndex").value = "3.5";

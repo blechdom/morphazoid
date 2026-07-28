@@ -129,7 +129,8 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
   assert.deepEqual(
     TOOL_GROUPS.map((group) => group.label),
     [
-      "Geometry",
+      "Geometry Synths",
+      "Geometry Drum Machines",
       "Audio & Mic",
       "Fractals & Recursion",
       "Barber Shop Poles",
@@ -138,7 +139,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 22);
+  assert.equal(tools.length, 24);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -158,6 +159,38 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       label: "FM Drums",
       href: "fm-drums.html",
     },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "lattice-drums"),
+    {
+      id: "lattice-drums",
+      label: "Lattice Drum Machine",
+      href: "lattice-drums.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "spiral-drums"),
+    {
+      id: "spiral-drums",
+      label: "Spiral Drum Machine",
+      href: "spiral-drums.html",
+    },
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "geometry-drums")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [
+      { id: "fm-drums", href: "fm-drums.html" },
+      { id: "lattice-drums", href: "lattice-drums.html" },
+      { id: "spiral-drums", href: "spiral-drums.html" },
+    ],
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "workbench")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [{ id: "morphazoidical", href: "morphazoidical/" }],
   );
   assert.deepEqual(
     tools.find((tool) => tool.id === "morphazoidical"),
@@ -217,6 +250,8 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}chaotic-fm.html`, SITE_ROOT)?.id, "chaotic-fm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}weierstrass.html`, SITE_ROOT)?.id, "weierstrass");
   assert.equal(resolveActiveTool(`${SITE_ROOT}fm-drums.html`, SITE_ROOT)?.id, "fm-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}lattice-drums.html`, SITE_ROOT)?.id, "lattice-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}spiral-drums.html`, SITE_ROOT)?.id, "spiral-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}analyzer.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");
@@ -264,7 +299,7 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
     TOOL_GROUPS.map((group) => group.label),
   );
   const links = details.findAll((node) => node.tagName === "A");
-  assert.equal(links.length, 22);
+  assert.equal(links.length, 24);
   const currentLinks = links.filter((link) => link.getAttribute("aria-current") === "page");
   assert.equal(currentLinks.length, 1);
   assert.equal(currentLinks[0].getAttribute("data-tool-id"), "julia");
@@ -344,6 +379,28 @@ test("Reset all preserves Shape sides for one reload", () => {
     "morphazoid:lattice:audio:v2",
     "morphazoid:lumber:audio:v2",
   ]);
+});
+
+test("shared reset leaves in-place instrument resets to their page app", () => {
+  let sharedListenerAdded = false;
+  const resetButton = {
+    hasAttribute(name) {
+      return name === "data-reset-in-place";
+    },
+    addEventListener() {
+      sharedListenerAdded = true;
+    },
+  };
+  const doc = {
+    getElementById() { return null; },
+    querySelectorAll(selector) {
+      return selector === "[data-reset-all]" ? [resetButton] : [];
+    },
+  };
+  initializeSharedNavigation(doc, {
+    location: { href: "", reload() {} },
+  });
+  assert.equal(sharedListenerAdded, false);
 });
 
 test("storage accessors cannot abort navigation setup or reset", () => {

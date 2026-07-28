@@ -143,6 +143,10 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
 
   await import(`../spiral-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
+  assert.equal(elements.has("intersectionDecay"), false);
+  assert.equal(elements.has("intersectionDecayControl"), false);
+  assert.match(elements.get("amplitudeControl").innerHTML, /Release 1400 ms/);
+  assert.match(elements.get("amplitudeControl").innerHTML, /Node positions are milliseconds/);
   let now = performance.now() + 20;
   queuedFrame(now);
 
@@ -199,6 +203,15 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   ))).size > 3);
   assert.match(elements.get("stageReadout").textContent, /VOICE/);
 
+  elements.get("speed").value = "0";
+  listeners.get("speed:input")();
+  now += 1_500;
+  queuedFrame(now);
+  assert.ok(
+    voiceGains.every((gain) => gain.gain.value === 0),
+    "the timed Sustain envelope must be silent after its 1400 ms Release",
+  );
+
   await listeners.get("playButton:click")();
   const stationaryPosition = Number(elements.get("position").value);
   await listeners.get("loopPlayButton:click")();
@@ -225,7 +238,6 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   elements.get("soundMode").value = "percussion";
   listeners.get("soundMode:change")();
   assert.equal(elements.get("amplitudeControl").hidden, true);
-  assert.equal(elements.get("intersectionDecayControl").hidden, true);
   assert.equal(elements.get("percussionArticulation").hidden, false);
   elements.get("percussionDecay").value = "720";
   listeners.get("percussionDecay:input")();

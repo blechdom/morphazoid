@@ -50,6 +50,21 @@ while IFS= read -r -d '' source_path; do
   esac
 done < <(git -C "$repo_root" ls-files -z)
 
+# Allow the new Workbench page to enter local release artifacts before its
+# first commit; after tracking, these copies simply refresh the same paths.
+for worktree_runtime_file in \
+  lattice-drums.html \
+  lattice-drums.css \
+  lattice-drums-app.js \
+  src/lattice-drums.js \
+  spiral-drums.html \
+  spiral-drums.css \
+  spiral-drums-app.js \
+  src/spiral-drums.js
+do
+  [[ -f "$repo_root/$worktree_runtime_file" ]] && copy_runtime_file "$worktree_runtime_file"
+done
+
 required_files=(
   index.html
   app.js
@@ -89,6 +104,14 @@ required_files=(
   fm-drums.css
   fm-drums-app.js
   src/fm-drums.js
+  lattice-drums.html
+  lattice-drums.css
+  lattice-drums-app.js
+  src/lattice-drums.js
+  spiral-drums.html
+  spiral-drums.css
+  spiral-drums-app.js
+  src/spiral-drums.js
   morphazoidical/index.html
   vendor/signalsmith-stretch/SignalsmithStretch.mjs
   vendor/tactile/tactile.js

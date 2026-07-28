@@ -20,12 +20,14 @@ import {
   percussionEnvelopeTimeMs,
   reduceVoiceContacts,
   sampleAmplitudeEnvelope,
+  sampleTimedAmplitudeEnvelope,
   sanitizeAmplitudeEnvelope,
   sanitizePercussionEnvelope,
   scaleShapeVoiceGains,
   sineCornerEnvelopeGain,
   synthParametersForMode,
   timbreParametersForMode,
+  timedAmplitudeEnvelopeDurationMs,
   VoicePool,
   waveformForIndex,
   updateAmplitudeEnvelopeNode,
@@ -404,6 +406,23 @@ test("percussion envelope presets map exact millisecond landmarks into logarithm
   editable[2].y = 1;
   assert.equal(PERCUSSION_ENVELOPE_PRESETS.pluck[2].y, 0.28);
   assert.deepEqual(percussionEnvelopePreset("missing"), percussionEnvelopePreset("pluck"));
+});
+
+test("timed amplitude envelopes interpolate in milliseconds and end at Release", () => {
+  const sustain = percussionEnvelopePreset("sustain");
+  nearAudio(timedAmplitudeEnvelopeDurationMs(sustain), 1_400);
+  assert.equal(sampleTimedAmplitudeEnvelope(0, sustain), 0);
+  assert.equal(sampleTimedAmplitudeEnvelope(30, sustain), 1);
+  nearAudio(sampleTimedAmplitudeEnvelope(105, sustain), 0.89);
+  nearAudio(sampleTimedAmplitudeEnvelope(900, sustain), 0.78);
+  nearAudio(sampleTimedAmplitudeEnvelope(1_150, sustain), 0.39);
+  nearAudio(sampleTimedAmplitudeEnvelope(1_400, sustain), 0);
+  assert.equal(sampleTimedAmplitudeEnvelope(4_000, sustain), 0);
+
+  const heldRelease = sustain.map((point, index) => (
+    index === sustain.length - 1 ? { ...point, y: 0.25 } : point
+  ));
+  assert.equal(sampleTimedAmplitudeEnvelope(2_000, heldRelease), 0.25);
 });
 
 test("percussion envelope editing preserves semantic order and fixed T/A/R levels", () => {
@@ -860,6 +879,46 @@ test("keyed voices keep their oscillator slots when specs reorder", () => {
   ]);
   assert.equal(pool.voices[upperSlot].key, "upper");
   assert.equal(pool.voices[lowerSlot].key, "lower");
+});
+
+test("gesture updates steer open voices without starting closed or new voices", () => {
+  const pool = new VoicePool(8);
+  pool.setVoices([
+    { key: "open", frequency: 220, gain: 0.2, pan: -0.25 },
+    { key: "closed", frequency: 330, gain: 0, pan: 0 },
+  ]);
+
+  pool.setVoices([
+    { key: "open", frequency: 440, gain: 0.15, pan: 0.5 },
+    { key: "closed", frequency: 550, gain: 0.25, pan: 0.25 },
+    { key: "new", frequency: 660, gain: 0.3, pan: -0.5 },
+  ], { allowVoiceStarts: false });
+
+  assert.deepEqual(
+    pool.pendingVoices.map(({ key, frequency, gain, pan }) => ({
+      key, frequency, gain, pan,
+    })),
+    [{ key: "open", frequency: 440, gain: 0.15, pan: 0.5 }],
+  );
+
+  pool.setVoices([
+    { key: "new", frequency: 770, gain: 0.3 },
+  ], { allowVoiceStarts: false });
+  assert.deepEqual(
+    pool.pendingVoices.map(({ key, frequency, gain }) => ({ key, frequency, gain })),
+    [{ key: "open", frequency: 440, gain: 0.15 }],
+    "an open voice may remain while edited geometry temporarily loses its key",
+  );
+
+  pool.setVoices([
+    { key: "closed", frequency: 550, gain: 0.25 },
+    { key: "new", frequency: 770, gain: 0.3 },
+  ]);
+  assert.deepEqual(
+    pool.pendingVoices.map(({ key }) => key),
+    ["closed", "new"],
+    "closed and final new keys become eligible after the gesture settles",
+  );
 });
 
 test("same-key strikes debounce clicks but overlap naturally after 12 ms", () => {

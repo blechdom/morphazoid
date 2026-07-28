@@ -19,6 +19,39 @@
   --accent-soft: color-mix(in oklab, #e8c46b 55%, transparent);
 }
 
+.graph-delay-page #graphInfoSection {
+  --accent: #c79bff;
+  --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
+}
+
+.graph-preset-grid button {
+  min-height: 56px;
+}
+
+.graph-preset-grid button[aria-pressed="true"] {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.graph-preset-grid [data-preset-band="clean"] small {
+  color: #5fe8c4;
+}
+
+.graph-preset-grid [data-preset-band="feedback"] small {
+  color: #c79bff;
+}
+
+.graph-preset-grid [data-preset-band="wild"] small {
+  color: #ff826f;
+}
+
+.graph-generator-cluster {
+  margin-bottom: 0;
+}
+
+.graph-info-readout > div {
+  grid-template-columns: 92px minmax(0, 1fr);
+}
+
 .motion-play-button[aria-pressed="true"] .transport-play,
 .motion-play-button[aria-pressed="false"] .transport-pause {
   display: none;
@@ -80,6 +113,10 @@
   cursor: grabbing;
 }
 
+.graph-delay-page #stage.is-switch-hover:not(.is-dragging) {
+  cursor: pointer;
+}
+
 .graph-delay-page #seedMicButton {
   border-color: rgba(104, 224, 210, 0.22);
 }
@@ -92,6 +129,7 @@
   left: 18px;
   display: flex;
   color: var(--faint);
+  flex-wrap: wrap;
   gap: 16px;
   font-size: 7px;
   letter-spacing: 0.08em;
@@ -120,6 +158,21 @@
 .graph-key i.output-guide {
   height: 2px;
   background: repeating-linear-gradient(90deg, #e8c46b 0 1px, transparent 1px 6px);
+}
+
+.graph-key i.route-switch {
+  width: 12px;
+  height: 7px;
+  border: 2px solid #5fe8c4;
+  border-radius: 1px;
+  background: #071011;
+  box-sizing: border-box;
+  transform: skewX(-16deg);
+}
+
+.graph-delay-page #openAllSwitchesButton:disabled {
+  cursor: default;
+  opacity: 0.38;
 }
 
 .graph-delay-page #delaySection .recursion-parameter-cluster:first-child {

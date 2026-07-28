@@ -42,6 +42,7 @@ const MAX_TILES_PER_WORLD_AREA = 70;
 const GEOMETRY_EDIT_SETTLE_MS = 180;
 const CONTACT_REENTRY_GRACE_SECONDS = 0.08;
 const STRIKE_BATCH_CEILING = 0.78;
+const OPEN_ENVELOPE_GAIN = 0.00001;
 const SOUND_MODE_LABELS = {
   sine: "Sine",
   percussion: "Percussion",
@@ -78,7 +79,6 @@ const state = {
   pitchRange: 3.5,
   contactLevel: 0.35,
   intersectionAccent: 0.75,
-  intersectionDecay: 100,
   voiceCap: 8,
   soundMode: "sine",
   synthSource: "incidence",
@@ -103,7 +103,6 @@ state.baseFrequency = clamp(state.baseFrequency, 20, 440);
 state.pitchRange = clamp(state.pitchRange, 0, 6);
 state.contactLevel = clamp(state.contactLevel, 0, 1);
 state.intersectionAccent = clamp(state.intersectionAccent, 0, 1);
-state.intersectionDecay = clamp(state.intersectionDecay, 20, 2000);
 state.voiceCap = Math.round(clamp(state.voiceCap, 1, MAX_VOICES));
 state.patternDirectionAngle = clamp(state.patternDirectionAngle, 0, 90);
 state.soundMode = SOUND_MODES.has(state.soundMode) ? state.soundMode : "sine";
@@ -136,7 +135,13 @@ const stageWrap = $("stageWrap");
 const tileEditorCanvas = $("tileEditorCanvas");
 const tileEditorContext = tileEditorCanvas.getContext("2d");
 const pool = new VoicePool(MAX_VOICES);
-const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
+const amplitudeControl = createAmplitudeControl($("amplitudeControl"), {
+  timing: "milliseconds",
+  onChange() {
+    suppressGeometryOnsets();
+    scheduleFrame();
+  },
+});
 
 let cssWidth = 1;
 let cssHeight = 1;
@@ -158,6 +163,7 @@ const contactLastSeen = new Map();
 const movableVertexCache = new Map();
 let suppressContactOnsetsUntil = 0;
 let suppressContactOnsetFrames = 0;
+let geometryWasEditing = false;
 
 function wrap01(value) {
   const wrapped = value % 1;
@@ -198,12 +204,14 @@ function restartContinuousEnvelopes() {
   resetContactTracking();
   suppressContactOnsetsUntil = 0;
   suppressContactOnsetFrames = 0;
+  geometryWasEditing = false;
 }
 
 function suppressGeometryOnsets(duration = GEOMETRY_EDIT_SETTLE_MS) {
+  const interactionTime = Math.max(performance.now(), lastFrameTime);
   suppressContactOnsetsUntil = Math.max(
     suppressContactOnsetsUntil,
-    performance.now() + duration,
+    interactionTime + duration,
   );
   suppressContactOnsetFrames = Math.max(suppressContactOnsetFrames, 2);
 }
@@ -213,6 +221,17 @@ function invalidateGeometry() {
   tileEditorDirty = true;
   suppressGeometryOnsets();
   scheduleFrame();
+}
+
+function releaseSettledContactOnsets() {
+  const openVoiceKeys = new Set(pool.pendingVoices
+    .filter((voice) => voice.gain > OPEN_ENVELOPE_GAIN)
+    .map((voice) => voice.key));
+  for (const key of contactOnsets.keys()) {
+    if (openVoiceKeys.has(`lattice:${key}`)) continue;
+    contactOnsets.delete(key);
+    contactLastSeen.delete(key);
+  }
 }
 
 function plural(count, singular, pluralForm = `${singular}s`) {
@@ -300,10 +319,9 @@ bindRange(
   "intersectionAccent",
   (value) => `${Math.round(value * 100)}%`,
 );
-bindRange("intersectionDecay", "intersectionDecay", (value) => `${Math.round(value)} ms`);
 bindRange("voiceCap", "voiceCap", (value) => (
   `${Math.round(value)} ${plural(Math.round(value), "voice")}`
-));
+), suppressGeometryOnsets);
 bindRange("percussionAttack", "percussionAttack", (value) => `${Number(value).toFixed(value % 1 ? 1 : 0)} ms`);
 bindRange("percussionDecay", "percussionDecay", (value) => `${Math.round(value)} ms`);
 bindRange("shepardCycles", "shepardCycles", (value) => `${value.toFixed(2)} oct / loop`);
@@ -721,6 +739,7 @@ function setPosition(value) {
   state.continuousPosition = state.position;
   $("position").value = String(state.position);
   $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
+  suppressGeometryOnsets();
   scheduleFrame();
 }
 
@@ -729,6 +748,7 @@ function setContinuousPosition(value) {
   state.position = state.scanMotion === "pingpong"
     ? pingPong01(state.continuousPosition)
     : wrap01(state.continuousPosition);
+  suppressGeometryOnsets();
   scheduleFrame();
 }
 
@@ -1091,10 +1111,8 @@ function mappingForContact(contact) {
     pitch,
     levelMark,
     frequency: pitch01ToFrequency(pitch, state.baseFrequency, state.pitchRange),
-    gain: baseGain * amplitudeControl.sample(
-      Number.isFinite(contact.accentAge)
-        ? clamp(contact.accentAge / (state.intersectionDecay / 1000), 0, 1)
-        : (amplitudeControl.state.points[2]?.x ?? 0.25),
+    gain: baseGain * amplitudeControl.sampleAtTime(
+      contact.accentAge,
       1 + 1.25 * state.intersectionAccent,
     ),
     strikeGain: state.contactLevel
@@ -1106,27 +1124,37 @@ function mappingForContact(contact) {
   };
 }
 
+function visualAccentAtAge(ageSeconds, durationSeconds) {
+  if (amplitudeControl.state.enabled === false) return 0;
+  const age = Number(ageSeconds);
+  const duration = Number(durationSeconds);
+  if (
+    !Number.isFinite(age)
+    || age < 0
+    || !Number.isFinite(duration)
+    || duration <= 0
+    || age >= duration
+  ) return 0;
+  return clamp(amplitudeControl.envelopeValueAtTime(age), 0, 1);
+}
+
 function addIntersectionAccents(contacts, nowSeconds, suppressOnsets = false) {
   const activeKeys = new Set();
+  const envelopeDuration = amplitudeControl.durationSeconds();
   const accented = contacts.map((contact) => {
     const key = contact.voiceKey;
     activeKeys.add(key);
     const tracked = contactOnsets.has(key);
     const onset = !suppressOnsets && !tracked;
-    if (!tracked) contactOnsets.set(key, suppressOnsets ? nowSeconds - 1 : nowSeconds);
-    else if (suppressOnsets) {
-      contactOnsets.set(key, Math.min(contactOnsets.get(key), nowSeconds - 1));
-    }
-    contactLastSeen.set(key, nowSeconds);
-    const accentAge = suppressOnsets
-      ? Number.POSITIVE_INFINITY
-      : Math.max(0, nowSeconds - contactOnsets.get(key));
+    if (onset) contactOnsets.set(key, nowSeconds);
+    if (tracked || onset) contactLastSeen.set(key, nowSeconds);
+    const accentAge = tracked
+      ? Math.max(0, nowSeconds - contactOnsets.get(key))
+      : suppressOnsets ? Number.POSITIVE_INFINITY : 0;
     return {
       ...contact,
       accentAge,
-      accent: Number.isFinite(accentAge)
-        ? Math.exp(-accentAge / (state.intersectionDecay / 1000))
-        : 0,
+      accent: visualAccentAtAge(accentAge, envelopeDuration),
       onset,
     };
   });
@@ -1292,6 +1320,8 @@ function frame(now) {
   const rawContacts = contactsForLine(lattice, scan, undefined, offset);
   const geometryEditing = suppressContactOnsetFrames > 0 || now < suppressContactOnsetsUntil;
   if (suppressContactOnsetFrames > 0) suppressContactOnsetFrames -= 1;
+  if (!geometryEditing && geometryWasEditing) releaseSettledContactOnsets();
+  geometryWasEditing = geometryEditing;
   const contacts = addIntersectionAccents(rawContacts, now / 1000, geometryEditing);
   const voicedContacts = centeredContactWindow(contacts, state.voiceCap);
   const data = voiceData(voicedContacts);
@@ -1301,7 +1331,11 @@ function frame(now) {
 
   const continuousMode = state.soundMode !== "percussion";
   if (state.audio && !document.hidden) {
-    pool.setVoices(continuousMode && state.playing ? data.map((item) => item.voice) : []);
+    if (continuousMode && state.playing) {
+      pool.setVoices(data.map((item) => item.voice), {
+        allowVoiceStarts: !geometryEditing,
+      });
+    } else pool.setVoices([]);
   }
   if (!state.playing || now - lastUiUpdate > 60) {
     const voiceCount = continuousMode

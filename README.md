@@ -2,7 +2,11 @@
 
 A growing collection of geometric, recursive, analytic, and transformed-audio instruments.
 
-**FM Drums** is a Workbench percussion lab with sixteen tunable, sample-free FM and shaped-noise voices. The QWER / ASDF / ZXCV / 1234 pad bank can be edited, saved locally, and copied as versioned JSON for reuse by later sonification instruments.
+**FM Drums** is the editable percussion lab behind the Geometry Drum Machines, with sixteen tunable, sample-free FM and shaped-noise voices. The 1234 / QWER / ASDF / ZXCV pad bank can be edited, saved locally, and copied as versioned JSON for reuse by later sonification instruments.
+
+**Lattice Drum Machine** maps a moving isohedral edge field onto that FM percussion bank. Edge class and orientation select voices, contact height retunes them, incidence shapes character and impact, and simultaneous-contact density protects output headroom; alternate position-grid and incidence-density assignments make those relationships easy to compare.
+
+**Spiral Drum Machine** maps an editable log-polar isohedral field onto the same sixteen-voice FM percussion bank, turning spiral-reader contacts and geometric characteristics into playable drum assignments.
 
 **Shape** is a two-dimensional instrument: one to twelve point playheads trace the boundary, one to four independently orientable scan lines read contour intersections, or center-rooted radar rays rotate through every contour hit. Radar position is expressed as an angle from 0–360°. Every playhead type can loop or ping-pong, and shape rotation has its own direction and loop/ping-pong transport. Point and radar spacing markers carry independent forward/reverse arrows, while each line marker carries its own 90-degree orientation toggle. A Sides / points count of 1 is a vertex-free circle, 2 is an open line, and 3–32 can be polygons or stars.
 

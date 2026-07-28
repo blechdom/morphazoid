@@ -79,17 +79,35 @@
       </div>
     </header>
 
+    <section
+      class="throatazoid-inspiration-note is-top"
+      aria-labelledby="inspirationDisclosureTitle"
+    >
+      <b id="inspirationDisclosureTitle">Inspired by Pink Trombone</b>
+      <p>
+        THROATAZOID is very, very inspired by
+        <a
+          href="https://dood.al/pinktrombone/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >Pink Trombone</a>. Its playful direct control of a synthetic vocal tract is
+        foundational here; THROATAZOID mutates that idea into coupled alien airways
+        and multiple mouths. The Playable default adapts its MIT-licensed 44-section
+        geometry; see the <a href="THIRD_PARTY_NOTICES.md">license notice</a>.
+      </p>
+    </section>
+
     <main
       class="shell"
       id="throatazoid"
-      aria-keyshortcuts="A B C D E F G H I J K L M N O P Q R S T U V W X Y Z"
+      aria-keyshortcuts="0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P Q R S T U V W X Y Z Shift+A Shift+B Shift+C Shift+D Shift+E Shift+F Shift+G Shift+H Shift+I Shift+J Shift+K Shift+L Shift+M Shift+N Shift+O Shift+P Shift+Q Shift+R Shift+S Shift+T Shift+U Shift+V Shift+W Shift+X Shift+Y Shift+Z"
     >
       <section class="stage throatazoid-stage" aria-label="Throatazoid anatomy">
         <div class="stage-wrap" id="stageWrap">
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Interactive alien root airway branching through one manifold into multiple cross-coupled mouths. Drag mouth, tongue, and nose handles, or use the direct articulation controls."
+            aria-label="Interactive alien airway. Drag the purple tongue membrane for smooth vowels, the front airway for consonants, and the blue gates for nasal sound."
             aria-describedby="canvasInstructions liveStatus"
           >
             An interactive polygonal organism with one root airway, a shared manifold,
@@ -106,7 +124,7 @@
           >
             <div class="throatazoid-phoneme-heading">
               <b id="phonemeDockLabel">Play the voice</b>
-              <small>A–Z reshapes · hold keys</small>
+              <small>A–Z shapes · Shift mutates · 0–9 presets</small>
             </div>
 
             <div
@@ -295,11 +313,12 @@
           </div>
 
           <div class="throatazoid-stage-guide" id="stageGuide" role="note">
-            <b>How to play</b>
-            <span><i>1</i> start the synth voice — no microphone needed</span>
-            <span><i>2</i> press any A–Z key — every letter reshapes the tract</span>
-            <span><i>3</i> hold to sustain — stops and affricates burst on release</span>
-            <span><i>keys</i> A–Z works across the UI · text fields and menus keep typing</span>
+            <b>Grab the cartoon organs</b>
+            <span class="is-purple"><i>purple</i> one big tongue handle shapes every open mouth</span>
+            <span class="is-blue"><i>blue</i> nose handles add shared nasal color</span>
+            <span class="is-lime"><i>mouths</i> drag a mouth pod for its own opening and length</span>
+            <span><i>keys</i> A–Z speaks · Shift mutates · 0–9 changes anatomy</span>
+            <span><i>0–9</i> loads alien anatomy presets across the UI</span>
           </div>
 
           <section
@@ -514,41 +533,43 @@
             </button>
 
             <span class="throatazoid-preset-bank-label">
-              <b>Alien anatomies</b><small>complete multi-airway organisms</small>
+              <b>Alien anatomies</b><small>0–9 loads these organisms anywhere</small>
             </span>
-            <button type="button" data-specimen="triune" aria-pressed="false">
+            <button type="button" data-specimen="triune" data-shortcut="1" aria-keyshortcuts="1" aria-pressed="false">
               <i aria-hidden="true"></i><span>Triune</span><small>three linked mouths</small>
             </button>
             <button
               type="button"
               data-specimen="singing"
+              data-shortcut="0"
+              aria-keyshortcuts="0"
               aria-label="Singing anatomy, five independently pitched mouths"
               aria-pressed="false"
             >
               <i aria-hidden="true"></i><span>Singing</span><small>anatomy · five voices</small>
             </button>
-            <button type="button" data-specimen="oracle" aria-pressed="false">
+            <button type="button" data-specimen="oracle" data-shortcut="2" aria-keyshortcuts="2" aria-pressed="false">
               <i aria-hidden="true"></i><span>Oracle</span><small>one deep mouth</small>
             </button>
-            <button type="button" data-specimen="hive" aria-pressed="false">
+            <button type="button" data-specimen="hive" data-shortcut="3" aria-keyshortcuts="3" aria-pressed="false">
               <i aria-hidden="true"></i><span>Hive</span><small>five coupled mouths</small>
             </button>
-            <button type="button" data-specimen="hydra" aria-pressed="false">
+            <button type="button" data-specimen="hydra" data-shortcut="4" aria-keyshortcuts="4" aria-pressed="false">
               <i aria-hidden="true"></i><span>Hydra</span><small>seven cross-fed mouths</small>
             </button>
-            <button type="button" data-specimen="razor" aria-pressed="false">
+            <button type="button" data-specimen="razor" data-shortcut="5" aria-keyshortcuts="5" aria-pressed="false">
               <i aria-hidden="true"></i><span>Razor</span><small>four toothed mouths</small>
             </button>
-            <button type="button" data-specimen="monolith" aria-pressed="false">
+            <button type="button" data-specimen="monolith" data-shortcut="6" aria-keyshortcuts="6" aria-pressed="false">
               <i aria-hidden="true"></i><span>Monolith</span><small>one stone mouth</small>
             </button>
-            <button type="button" data-specimen="siren" aria-pressed="false">
+            <button type="button" data-specimen="siren" data-shortcut="7" aria-keyshortcuts="7" aria-pressed="false">
               <i aria-hidden="true"></i><span>Siren</span><small>two mirrored mouths</small>
             </button>
-            <button type="button" data-specimen="larva" aria-pressed="false">
+            <button type="button" data-specimen="larva" data-shortcut="8" aria-keyshortcuts="8" aria-pressed="false">
               <i aria-hidden="true"></i><span>Larva</span><small>two soft mouths</small>
             </button>
-            <button type="button" data-specimen="cathedral" aria-pressed="false">
+            <button type="button" data-specimen="cathedral" data-shortcut="9" aria-keyshortcuts="9" aria-pressed="false">
               <i aria-hidden="true"></i><span>Cathedral</span><small>five hollow mouths</small>
             </button>
             <button type="button" data-specimen="needle" aria-pressed="false">
@@ -567,25 +588,8 @@
 
           <p>
             <b>Then play above:</b> click a vowel · hold friction or a nasal ·
-            press and release P, T, K, or ʔ.
-          </p>
-        </section>
-
-        <section
-          class="throatazoid-inspiration-note"
-          aria-labelledby="inspirationDisclosureTitle"
-        >
-          <b id="inspirationDisclosureTitle">Inspired by Pink Trombone</b>
-          <p>
-            THROATAZOID is very, very inspired by
-            <a
-              href="https://dood.al/pinktrombone/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >Pink Trombone</a>. Its playful direct control of a synthetic vocal tract is
-            foundational here; THROATAZOID mutates that idea into coupled alien airways
-            and multiple mouths. The Playable default adapts its MIT-licensed 44-section
-            geometry; see the <a href="THIRD_PARTY_NOTICES.md">license notice</a>.
+            press and release P, T, K, or ʔ · use 0–9 for anatomy presets ·
+            hold Shift with any letter for its mutated expression.
           </p>
         </section>
 
@@ -922,10 +926,66 @@
               <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" />
             </label>
 
+            <section
+              class="throatazoid-motion"
+              aria-labelledby="motionTitle"
+              aria-describedby="motionHelp"
+            >
+              <header class="throatazoid-motion-heading">
+                <span class="throatazoid-motion-title">
+                  <i class="throatazoid-motion-sigil" aria-hidden="true"><b></b></i>
+                  <b id="motionTitle">Anatomy motion</b>
+                </span>
+                <button
+                  class="throatazoid-motion-toggle"
+                  id="motionButton"
+                  type="button"
+                  role="switch"
+                  aria-checked="false"
+                  aria-labelledby="motionTitle motionState"
+                  aria-describedby="motionHelp"
+                >
+                  <i aria-hidden="true"><b></b></i>
+                  <span id="motionState">off</span>
+                </button>
+              </header>
+              <label class="throatazoid-motion-depth" for="motionDepth">
+                <span>
+                  <b>Motion depth</b>
+                  <output id="motionDepthOut" for="motionDepth">55%</output>
+                </span>
+                <input
+                  id="motionDepth"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value="0.55"
+                  aria-describedby="motionHelp"
+                />
+              </label>
+              <span class="field-label" id="motionTargetLabel">Moving anatomy</span>
+              <div
+                class="throatazoid-motion-targets"
+                id="motionTargetButtons"
+                role="group"
+                aria-labelledby="motionTargetLabel"
+              >
+                <button type="button" data-motion-target="mouths" aria-pressed="true">Mouths</button>
+                <button type="button" data-motion-target="tongues" aria-pressed="true">Tongues</button>
+                <button type="button" data-motion-target="noses" aria-pressed="true">Noses</button>
+                <button type="button" data-motion-target="pressure" aria-pressed="true">Pressure</button>
+              </div>
+              <small id="motionHelp">
+                Fast motion follows Vibrato; slow drift follows Wobble. Drawing only —
+                the sounding tract stays precise.
+              </small>
+            </section>
+
             <div class="throatazoid-selected">
               <div>
                 <span>Selected mouth airway</span>
-                <b id="selectedThroatName">MOUTH 01</b>
+                <b id="selectedThroatName">MOUTH 01 · FOCUS T1/N1</b>
               </div>
               <button id="muteThroatButton" type="button" aria-pressed="false">CLOSE AIRWAY</button>
             </div>
@@ -938,7 +998,8 @@
               <input id="selectedLength" type="range" min="0" max="1" step="0.01" value="0.56" />
             </label>
             <p class="control-note">
-              Drag a mouth diamond outward to open it; drag sideways to lengthen its branch airway.
+              Drag a big mouth pod outward to open it and sideways to lengthen its branch.
+              These are local controls; the purple and blue organs above are shared.
             </p>
           </div>
         </details>
@@ -950,12 +1011,14 @@
         >
           <summary class="group-summary">
             <h2 class="group-title">Articulation</h2>
-            <span class="section-state" id="articulationSummary">1 tongue · 1 nose</span>
+            <span class="section-state" id="articulationSummary">SHARED · 1 tongue + 1 nose</span>
           </summary>
           <div class="group-body">
             <p class="throatazoid-articulation-intro">
-              Each complete mouth carries its own tongue path and nasal gates. Drag them
-              directly on the organism, or tune the shared colony precisely below.
+              The large foreground tract is the shared mouth shape. Its purple tongue and
+              blue noses color every open mouth; the small mouth pods only control their
+              own branch. Drag the purple handle for vowels, blue for nasal color, or the
+              lip end inward for consonants.
             </p>
 
             <section
@@ -968,7 +1031,7 @@
                   <i class="throatazoid-typing-sigil" aria-hidden="true"></i>
                   <span>
                     <b id="typingModeLabel">Keyboard gate</b>
-                    <small id="typingModeHelp">A–Z works across the instrument · arm to silence between keys · hold to sustain</small>
+                    <small id="typingModeHelp">A–Z works across the instrument · A–Z and 0–9 work across the UI · Shift mutates each letter · arm to silence between keys · hold to sustain</small>
                   </span>
                 </span>
                 <button
@@ -1022,7 +1085,7 @@
                   <kbd data-letter="n" title="N · alveolar nasal">N<small>N</small></kbd>
                   <kbd data-letter="m" title="M · bilabial nasal">M<small>M</small></kbd>
                 </div>
-                <small>All A–Z approximate speech · hold to sustain · release stops to burst · ? or ’ = ʔ</small>
+                <small>All A–Z approximate speech · Shift+A–Z triggers bigger expressions · 0–9 loads anatomies · hold to sustain · release stops to burst · ? or ’ = ʔ</small>
               </div>
             </section>
 
@@ -1331,13 +1394,19 @@
         left or right to change its branch-airway length and toward or away from its center
         line to change aperture. Cross-coupling leaks breath and resonance between adjacent
         mouth airways. Pressure glands inject independent pulses before the manifold, and each
-        mouth airway has its own closable gate. Drag tongue diamonds and blue nose gates to
-        shape articulation. Use the Anatomy and Articulation controls for keyboard-accessible
+        mouth airway has its own closable gate. Drag the purple tongue membrane along and
+        across the curved airway for vowel position and height. Drag the front or lip airway
+        inward for consonant constrictions, and drag blue nose gates for nasal articulation.
+        Use the Anatomy and Articulation controls for keyboard-accessible
         adjustment. On the canvas, Left and Right select a mouth, Up and Down change aperture,
         brackets change branch length, and Enter seals or opens the selected mouth. Throughout
-        the instrument, every letter A through Z selects an approximate vowel,
+        the instrument, number keys zero through nine load mapped alien anatomy presets.
+        Every letter A through Z selects an approximate vowel,
         stop, fricative, nasal, affricate, or approximant; holding a key sustains it
-        and releasing a stop creates its burst. Question mark or apostrophe plays the
+        and releasing a stop creates its burst. Holding Shift with any letter applies
+        that letter's larger expressive mutation. Anatomy motion can make mouths, tongues,
+        noses, and pressure sources follow Vibrato and Wobble visually without changing
+        the sounding tract. Question mark or apostrophe plays the
         glottal stop. The direct stage
         controls adjust articulation place, aperture, and voicing while the pressure meter
         reports stored tract pressure. Press Escape to sever audio.

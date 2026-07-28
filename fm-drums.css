@@ -97,7 +97,7 @@
   background:
     linear-gradient(145deg, color-mix(in oklab, var(--voice-color) 3%, transparent), transparent 58%),
     var(--panel);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, .18);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .16);
   transition: border-color 120ms ease, transform 80ms ease;
 }
 
@@ -131,14 +131,14 @@
 .fm-pad-hit {
   display: grid;
   width: 100%;
-  min-height: 138px;
-  padding: 14px 15px 11px;
+  min-height: 82px;
+  padding: 11px 12px 8px;
   cursor: pointer;
   border: 0;
   color: inherit;
   background: transparent;
   grid-template-columns: 1fr auto;
-  grid-template-rows: auto 1fr auto auto;
+  grid-template-rows: auto 1fr auto;
   text-align: left;
   touch-action: manipulation;
 }
@@ -162,25 +162,8 @@
   place-items: center;
 }
 
-.fm-pad-signal {
-  display: flex;
-  padding: 17px 0 9px;
-  grid-column: 1 / -1;
-  align-items: center;
-  gap: 4px;
-}
-
-.fm-pad-signal i {
-  display: block;
-  height: 1px;
-  background: var(--voice-color);
-}
-
-.fm-pad-signal i:nth-child(1) { width: 18%; }
-.fm-pad-signal i:nth-child(2) { width: 42%; opacity: .7; }
-.fm-pad-signal i:nth-child(3) { width: 9%; opacity: .4; }
-
 .fm-pad-hit strong {
+  align-self: end;
   font-size: clamp(11px, 1.15vw, 15px);
   font-style: italic;
   letter-spacing: -.035em;
@@ -200,8 +183,8 @@
 
 .fm-pad-controls {
   display: grid;
-  height: 58px;
-  padding: 7px 12px 10px;
+  height: 47px;
+  padding: 6px 10px 8px;
   border-top: 1px solid var(--line);
   background: color-mix(in oklab, var(--bg-deep) 38%, transparent);
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -214,7 +197,7 @@
 
 .fm-mini-control span {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: var(--faint);
   font-size: 7px;
   font-weight: 700;
@@ -359,8 +342,8 @@
   }
 
   .fm-pad-hit {
-    min-height: 128px;
-    padding: 12px 11px 9px;
+    min-height: 78px;
+    padding: 10px 9px 7px;
   }
 
   .fm-pad-controls {

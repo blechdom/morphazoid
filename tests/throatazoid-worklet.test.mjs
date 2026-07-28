@@ -484,6 +484,31 @@ test("calibrated vowels carve distinct physical tracts, including O and U lips",
   }
 });
 
+test("signed alien height lobes reach the physical airway target", () => {
+  const configuration = vowelConfiguration("a", {
+    mutation: 0.72,
+    articulationAperture: 1,
+  });
+  const baselineProcessor = loadProcessor();
+  configure(baselineProcessor, configuration);
+  const alienProcessor = loadProcessor();
+  configure(alienProcessor, {
+    ...configuration,
+    tractDeformations: [
+      { center: 20, radius: 3, height: -0.72, strength: 1 },
+      { center: 31, radius: 3, height: 0.58, strength: 1 },
+    ],
+  });
+  const baseline = baselineProcessor.mouths[0].targetDiameter;
+  const alien = alienProcessor.mouths[0].targetDiameter;
+  assert.ok(alien[20 - 8] < baseline[20 - 8] - 0.7);
+  assert.ok(alien[31 - 8] > baseline[31 - 8] + 0.56);
+  for (const diameter of alien) {
+    assert.ok(Number.isFinite(diameter));
+    assert.ok(diameter >= 0.001 && diameter <= 4);
+  }
+});
+
 test("single-mouth resonance is invariant to cross-mouth coupling", () => {
   const rendered = new Map();
   for (const coupling of [0, 0.72]) {

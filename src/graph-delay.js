@@ -1,5 +1,14 @@
 export const MAX_GRAPH_NODES = 24;
 export const MAX_GRAPH_FEEDBACK = 0.92;
+export const MAX_GRAPH_TURN_ROUTES = 192;
+
+// A hub's center routes every returning spoke to every outgoing spoke. Seven
+// feedback spokes keep that all-to-all matrix within the live route budget
+// even when all 24 graph nodes are in use.
+const MAX_HUB_FEEDBACK_SPOKES = Math.max(
+  1,
+  Math.floor((MAX_GRAPH_TURN_ROUTES + 1) / MAX_GRAPH_NODES) - 1,
+);
 
 export const GRAPH_PRESETS = Object.freeze({
   chain: Object.freeze({
@@ -68,128 +77,128 @@ export const GRAPH_DELAY_PATCHES = Object.freeze({
   clearSteps: Object.freeze({
     label: "Clear Steps",
     family: "Acyclic",
-    description: "Eight clean serial echoes with restrained pitch turns.",
-    topology: "chain", nodeCount: 8, density: 0, seed: 11,
-    baseDelay: 170, timeScale: 45, timeCurve: 1, nodePass: 0.98,
-    pitchScale: 0.2, pitchAsymmetry: 0, pitchCurve: 1, pitchSlew: 90, feedback: 0.5,
-    damping: 7_200, wet: 0.76, dry: 0.08, spread: 0.58,
+    description: "Four centered, unpitched taps make a crisp rhythmic slap.",
+    topology: "chain", nodeCount: 4, density: 0, seed: 11,
+    baseDelay: 72, timeScale: 18, timeCurve: 1, nodePass: 1,
+    pitchScale: 0, pitchAsymmetry: 0, pitchCurve: 1, pitchSlew: 180, feedback: 0.5,
+    damping: 7_200, wet: 1.04, dry: 0.28, spread: 0.5,
   }),
   lowLadder: Object.freeze({
     label: "Low Ladder",
     family: "Acyclic",
-    description: "A slow twelve-stage chain biased toward downward turns.",
-    topology: "chain", nodeCount: 12, density: 0, seed: 23,
-    baseDelay: 310, timeScale: 80, timeCurve: 0.85, nodePass: 0.99,
-    pitchScale: 0.35, pitchAsymmetry: -0.25, pitchCurve: 1.2, pitchSlew: 130, feedback: 0.5,
-    damping: 4_200, wet: 0.86, dry: 0.04, spread: 0.74,
+    description: "A sparse low DAG steps through warm, gently descending intervals.",
+    topology: "dag", nodeCount: 7, density: 0.18, seed: 23,
+    baseDelay: 118, timeScale: 48, timeCurve: 1, nodePass: 1,
+    pitchScale: 0.24, pitchAsymmetry: -0.22, pitchCurve: 1.35, pitchSlew: 180, feedback: 0.5,
+    damping: 4_200, wet: 1.08, dry: 0.24, spread: 0.72,
   }),
   branchChoir: Object.freeze({
     label: "Branch Choir",
     family: "Acyclic",
-    description: "A balanced tree whose sibling turns form widening intervals.",
+    description: "A broad tree answers in mirrored, widening pitched branches.",
     topology: "tree", nodeCount: 15, density: 0.3, seed: 17,
-    baseDelay: 190, timeScale: 85, timeCurve: 1, nodePass: 0.96,
-    pitchScale: 0.55, pitchAsymmetry: 0, pitchCurve: 1.15, pitchSlew: 80, feedback: 0.55,
-    damping: 6_400, wet: 0.8, dry: 0.06, spread: 0.9,
+    baseDelay: 145, timeScale: 120, timeCurve: 0.85, nodePass: 1,
+    pitchScale: 0.78, pitchAsymmetry: 0, pitchCurve: 0.9, pitchSlew: 155, feedback: 0.55,
+    damping: 6_400, wet: 1.08, dry: 0.18, spread: 1,
   }),
   glassCanopy: Object.freeze({
     label: "Glass Canopy",
     family: "Acyclic",
-    description: "A bright compact tree with quick, high relative turns.",
+    description: "A compact bright tree flickers through quick prismatic turns.",
     topology: "tree", nodeCount: 11, density: 0.3, seed: 31,
-    baseDelay: 105, timeScale: 40, timeCurve: 1.2, nodePass: 0.94,
-    pitchScale: 0.9, pitchAsymmetry: 0.1, pitchCurve: 0.9, pitchSlew: 40, feedback: 0.5,
-    damping: 9_200, wet: 0.72, dry: 0.1, spread: 0.82,
+    baseDelay: 48, timeScale: 72, timeCurve: 1.3, nodePass: 1,
+    pitchScale: 0.7, pitchAsymmetry: 0.12, pitchCurve: 1.05, pitchSlew: 130, feedback: 0.5,
+    damping: 9_200, wet: 1.16, dry: 0.16, spread: 0.9,
   }),
   layeredGlass: Object.freeze({
     label: "Layered Glass",
     family: "Acyclic",
-    description: "The balanced default: crossing DAG paths with closely related delays.",
+    description: "The punchy default: crossing DAG taps with close times and restrained pitch.",
     topology: "dag", nodeCount: 10, density: 0.34, seed: 17,
-    baseDelay: 220, timeScale: 60, timeCurve: 1, nodePass: 0.96,
-    pitchScale: 0.5, pitchAsymmetry: 0, pitchCurve: 1, pitchSlew: 80, feedback: 0.72,
-    damping: 4_800, wet: 0.82, dry: 0.06, spread: 0.8,
+    baseDelay: 62, timeScale: 58, timeCurve: 0.9, nodePass: 1,
+    pitchScale: 0.26, pitchAsymmetry: 0, pitchCurve: 1.35, pitchSlew: 165, feedback: 0.72,
+    damping: 4_800, wet: 1.16, dry: 0.2, spread: 0.82,
   }),
   rainLattice: Object.freeze({
     label: "Rain Lattice",
     family: "Acyclic",
-    description: "A denser layered graph of short staggered droplets.",
+    description: "A dense DAG scatters fast droplets across a restrained pitch lattice.",
     topology: "dag", nodeCount: 14, density: 0.52, seed: 47,
-    baseDelay: 125, timeScale: 95, timeCurve: 0.75, nodePass: 0.93,
-    pitchScale: 0.85, pitchAsymmetry: 0.1, pitchCurve: 1.2, pitchSlew: 55, feedback: 0.6,
-    damping: 7_600, wet: 0.78, dry: 0.05, spread: 0.94,
+    baseDelay: 38, timeScale: 82, timeCurve: 0.7, nodePass: 1,
+    pitchScale: 0.28, pitchAsymmetry: -0.12, pitchCurve: 1.4, pitchSlew: 155, feedback: 0.6,
+    damping: 7_600, wet: 1.24, dry: 0.15, spread: 0.96,
   }),
   twinBanks: Object.freeze({
     label: "Twin Banks",
     family: "Acyclic",
-    description: "Two node fields exchange a broad fan of parallel delayed voices.",
+    description: "Two wide node banks throw a fan of parallel echoes across the stereo field.",
     topology: "bipartite", nodeCount: 12, density: 0.42, seed: 29,
-    baseDelay: 245, timeScale: 55, timeCurve: 1, nodePass: 0.97,
-    pitchScale: 0.65, pitchAsymmetry: 0, pitchCurve: 1.1, pitchSlew: 90, feedback: 0.55,
-    damping: 5_600, wet: 0.84, dry: 0.04, spread: 1,
+    baseDelay: 220, timeScale: 210, timeCurve: 1, nodePass: 1,
+    pitchScale: 0.48, pitchAsymmetry: 0, pitchCurve: 1.2, pitchSlew: 180, feedback: 0.55,
+    damping: 5_600, wet: 1.12, dry: 0.18, spread: 1,
   }),
   haloRing: Object.freeze({
     label: "Halo Ring",
     family: "Cyclic",
-    description: "A gentle nine-node orbit with a controlled repeating pitch spiral.",
+    description: "A quick nine-node orbit repeats as a softly falling pitch halo.",
     topology: "ring", nodeCount: 9, density: 0.2, seed: 13,
-    baseDelay: 185, timeScale: 50, timeCurve: 1, nodePass: 0.98,
-    pitchScale: 0.4, pitchAsymmetry: -0.1, pitchCurve: 1.2, pitchSlew: 110, feedback: 0.58,
-    damping: 5_200, wet: 0.8, dry: 0.05, spread: 0.88,
+    baseDelay: 46, timeScale: 28, timeCurve: 1, nodePass: 1,
+    pitchScale: 0.12, pitchAsymmetry: -0.1, pitchCurve: 1.3, pitchSlew: 190, feedback: 0.82,
+    damping: 5_200, wet: 1.16, dry: 0.16, spread: 0.9,
   }),
   slowOrbit: Object.freeze({
     label: "Slow Orbit",
     family: "Cyclic",
-    description: "A dark twelve-stage ring with long decaying revolutions.",
-    topology: "ring", nodeCount: 12, density: 0.2, seed: 37,
-    baseDelay: 380, timeScale: 70, timeCurve: 0.9, nodePass: 0.99,
-    pitchScale: 0.3, pitchAsymmetry: -0.2, pitchCurve: 1.4, pitchSlew: 160, feedback: 0.76,
-    damping: 2_900, wet: 0.88, dry: 0.03, spread: 0.72,
+    description: "A dark eight-stage ring circles slowly beneath a steady direct signal.",
+    topology: "ring", nodeCount: 8, density: 0.2, seed: 37,
+    baseDelay: 118, timeScale: 42, timeCurve: 0.9, nodePass: 1,
+    pitchScale: 0.08, pitchAsymmetry: -0.2, pitchCurve: 1.5, pitchSlew: 240, feedback: 0.86,
+    damping: 2_400, wet: 1.18, dry: 0.24, spread: 0.76,
   }),
   shortcutChorus: Object.freeze({
     label: "Shortcut Chorus",
     family: "Cyclic",
-    description: "A small-world ring with a few shortcuts and chorused return times.",
+    description: "A small-world ring jumps through bright shortcut echoes and gentle chorus.",
     topology: "smallworld", nodeCount: 13, density: 0.38, seed: 41,
-    baseDelay: 155, timeScale: 110, timeCurve: 0.8, nodePass: 0.94,
-    pitchScale: 1.1, pitchAsymmetry: 0.12, pitchCurve: 1.05, pitchSlew: 60, feedback: 0.63,
-    damping: 5_900, wet: 0.82, dry: 0.05, spread: 0.96,
+    baseDelay: 58, timeScale: 128, timeCurve: 0.75, nodePass: 1,
+    pitchScale: 0.28, pitchAsymmetry: 0.12, pitchCurve: 1.35, pitchSlew: 180, feedback: 0.72,
+    damping: 5_900, wet: 1.2, dry: 0.16, spread: 0.98,
   }),
   hubScatter: Object.freeze({
     label: "Hub Scatter",
     family: "Cyclic",
-    description: "Ten spokes scatter through one central merge without overwhelming it.",
-    topology: "hub", nodeCount: 10, density: 0.38, seed: 19,
-    baseDelay: 135, timeScale: 125, timeCurve: 0.9, nodePass: 0.92,
-    pitchScale: 0.8, pitchAsymmetry: 0, pitchCurve: 1.15, pitchSlew: 70, feedback: 0.54,
-    damping: 6_800, wet: 0.76, dry: 0.07, spread: 1,
+    description: "Ten quick spokes throw colored echoes through a central feedback hub.",
+    topology: "hub", nodeCount: 10, density: 1, seed: 19,
+    baseDelay: 74, timeScale: 105, timeCurve: 0.9, nodePass: 1,
+    pitchScale: 0.38, pitchAsymmetry: 0, pitchCurve: 1.35, pitchSlew: 165, feedback: 0.66,
+    damping: 6_800, wet: 1.16, dry: 0.18, spread: 1,
   }),
   softMesh: Object.freeze({
     label: "Soft Mesh",
     family: "Cyclic",
-    description: "A twelve-node neighbor mesh with muted, well-damped returns.",
+    description: "A compact neighbor mesh makes soft clustered taps with damped returns.",
     topology: "mesh", nodeCount: 12, density: 0.32, seed: 53,
-    baseDelay: 205, timeScale: 65, timeCurve: 1.1, nodePass: 0.94,
-    pitchScale: 0.6, pitchAsymmetry: 0, pitchCurve: 1.35, pitchSlew: 110, feedback: 0.48,
-    damping: 3_600, wet: 0.8, dry: 0.05, spread: 0.86,
+    baseDelay: 64, timeScale: 62, timeCurve: 1.15, nodePass: 1,
+    pitchScale: 0.2, pitchAsymmetry: 0, pitchCurve: 1.5, pitchSlew: 210, feedback: 0.7,
+    damping: 3_600, wet: 1.18, dry: 0.18, spread: 0.88,
   }),
   islandSignals: Object.freeze({
     label: "Island Signals",
     family: "Cyclic",
-    description: "Three cyclic communities pass softened echoes across sparse bridges.",
+    description: "Three linked loops trade softened echoes across sparse island bridges.",
     topology: "modular", nodeCount: 15, density: 0.3, seed: 61,
-    baseDelay: 270, timeScale: 90, timeCurve: 1, nodePass: 0.96,
-    pitchScale: 0.5, pitchAsymmetry: -0.15, pitchCurve: 1.3, pitchSlew: 140, feedback: 0.64,
-    damping: 4_100, wet: 0.86, dry: 0.03, spread: 0.92,
+    baseDelay: 52, timeScale: 72, timeCurve: 1, nodePass: 1,
+    pitchScale: 0.18, pitchAsymmetry: -0.15, pitchCurve: 1.5, pitchSlew: 230, feedback: 0.78,
+    damping: 4_100, wet: 1.2, dry: 0.2, spread: 0.94,
   }),
   dustPaths: Object.freeze({
     label: "Dust Paths",
     family: "Generative",
-    description: "A sparse seeded network with airy, unpredictable path mergers.",
+    description: "A sparse random graph flickers through airy taps and crooked pitch turns.",
     topology: "random", nodeCount: 11, density: 0.28, seed: 73,
-    baseDelay: 175, timeScale: 145, timeCurve: 0.75, nodePass: 0.95,
-    pitchScale: 0.7, pitchAsymmetry: -0.1, pitchCurve: 1.1, pitchSlew: 85, feedback: 0.5,
-    damping: 7_000, wet: 0.78, dry: 0.07, spread: 0.98,
+    baseDelay: 58, timeScale: 150, timeCurve: 0.65, nodePass: 1,
+    pitchScale: 0.28, pitchAsymmetry: -0.1, pitchCurve: 1.4, pitchSlew: 175, feedback: 0.66,
+    damping: 7_000, wet: 1.2, dry: 0.16, spread: 1,
   }),
 });
 
@@ -316,27 +325,56 @@ export function graphOutputNodeIds(graph) {
 }
 
 /**
- * Pan only the audible terminal taps. Horizontal position describes progress
- * toward the fixed speaker, so using it for stereo biases every completed path
- * right. Vertical position carries the branch separation, recentered around
- * the active outputs so one terminal is mono and multiple terminals stay
- * balanced as a group.
+ * Audible outputs are leaves of the forward signal-flow graph. Cycle-closing
+ * feedback edges do not disqualify a node: a ring's last node can feed the
+ * speaker and return into the ring at the same time.
  */
-export function graphOutputPans(graph, spread = 1) {
+export function graphSinkNodeIds(graph) {
+  const sinks = graph.nodes
+    .filter((node) => {
+      const processed = (graph.indegree?.[node.id] ?? 0) > 0;
+      const hasForwardOutput = graph.edges.some(
+        (edge) => edge.from === node.id && !edge.feedbackEdge,
+      );
+      return processed && !hasForwardOutput;
+    })
+    .map((node) => node.id);
+  return sinks.length ? sinks : graphOutputNodeIds(graph);
+}
+
+/**
+ * Return every processed non-entry node for analysis and legacy visualizers.
+ * Graph-delay's speaker bus uses graphSinkNodeIds() instead.
+ */
+export function graphAudibleNodeIds(graph) {
+  const injected = new Set(graph.entries?.length ? graph.entries : [0]);
+  const taps = graph.nodes
+    .filter((node) => !injected.has(node.id) && (graph.indegree?.[node.id] ?? 0) > 0)
+    .map((node) => node.id);
+  return taps.length ? taps : graphOutputNodeIds(graph);
+}
+
+/**
+ * Pan active taps by vertical branch position. Horizontal position describes
+ * time/progress toward the fixed speaker, so using it for stereo biases a
+ * completed graph right. Recentering the active taps guarantees no global
+ * left/right bias while preserving geometric spread.
+ */
+export function graphNodePans(graph, nodeIds, spread = 1) {
   const pans = Array(graph.nodes.length).fill(0);
-  const outputs = graphOutputNodeIds(graph);
-  if (outputs.length < 2) return pans;
-  const center = outputs.reduce(
+  const active = [...new Set(nodeIds)].filter((nodeId) => graph.nodes[nodeId]);
+  if (active.length < 2) return pans;
+  const center = active.reduce(
     (sum, nodeId) => sum + (graph.nodes[nodeId]?.y ?? 0.5),
     0,
-  ) / outputs.length;
+  ) / active.length;
   const maximumDeviation = Math.max(
-    ...outputs.map((nodeId) => Math.abs((graph.nodes[nodeId]?.y ?? center) - center)),
+    ...active.map((nodeId) => Math.abs((graph.nodes[nodeId]?.y ?? center) - center)),
   );
   // Avoid turning tiny vertical differences into hard-left/hard-right jumps.
   const extent = Math.max(0.25, maximumDeviation);
   const amount = clamp(spread, 0, 1);
-  for (const nodeId of outputs) {
+  for (const nodeId of active) {
     pans[nodeId] = clamp(
       ((graph.nodes[nodeId]?.y ?? center) - center) / extent * amount,
       -amount,
@@ -344,6 +382,10 @@ export function graphOutputPans(graph, spread = 1) {
     );
   }
   return pans;
+}
+
+export function graphOutputPans(graph, spread = 1) {
+  return graphNodePans(graph, graphOutputNodeIds(graph), spread);
 }
 
 function seededRandom(seed = 1) {
@@ -504,9 +546,23 @@ export function generateGraph(options = {}) {
   } else if (type === "hub") {
     nodes = [{ id: 0, x: 0.5, y: 0.5 }, ...circleLayout(count - 1, 0.38)
       .map((node, index) => ({ ...node, id: index + 1 }))];
+    const feedbackLimit = Math.min(count - 1, MAX_HUB_FEEDBACK_SPOKES);
+    const feedbackCount = Math.max(
+      1,
+      Math.round((0.35 + amount * 0.65) * feedbackLimit),
+    );
+    const feedbackNodes = new Set(
+      Array.from({ length: count - 1 }, (_, index) => ({
+        node: index + 1,
+        rank: random(),
+      }))
+        .sort((first, second) => first.rank - second.rank || first.node - second.node)
+        .slice(0, feedbackCount)
+        .map(({ node }) => node),
+    );
     for (let node = 1; node < count; node += 1) {
       addEdge(edges, seen, 0, node);
-      if (random() < 0.35 + amount * 0.65) addEdge(edges, seen, node, 0);
+      if (feedbackNodes.has(node)) addEdge(edges, seen, node, 0);
     }
   } else if (type === "mesh") {
     const columns = Math.ceil(Math.sqrt(count));
@@ -574,6 +630,85 @@ export function generateGraph(options = {}) {
     cyclicIndegree,
     entries: nodes.filter((node) => indegree[node.id] === 0).map((node) => node.id),
   };
+}
+
+export function graphTurnRouteCount(graph) {
+  return graphTurnRoutings(graph)
+    .reduce((count, routing) => count + routing.turns.length, 0);
+}
+
+/**
+ * Generate the requested graph at the greatest 1% density that fits the live
+ * pitch-routing budget. Structural controls can therefore simplify an
+ * expensive graph instead of rejecting it and appearing to stop the audio.
+ */
+export function generateGraphWithinTurnBudget(
+  options = {},
+  maxTurnRoutes = MAX_GRAPH_TURN_ROUTES,
+) {
+  const requestedDensity = clamp(options.density ?? 0.34, 0, 1);
+  const budget = Math.max(1, Math.round(Number(maxTurnRoutes) || MAX_GRAPH_TURN_ROUTES));
+  const build = (density) => {
+    const graph = generateGraph({ ...options, density });
+    return {
+      graph,
+      density,
+      turnRouteCount: graphTurnRouteCount(graph),
+    };
+  };
+  const requested = build(requestedDensity);
+  if (requested.turnRouteCount <= budget) {
+    return {
+      ...requested,
+      requestedDensity,
+      limited: false,
+    };
+  }
+
+  const firstStep = Math.min(
+    99,
+    Math.floor(requestedDensity * 100 - 1e-7),
+  );
+  for (let step = firstStep; step >= 0; step -= 1) {
+    const candidate = build(step / 100);
+    if (candidate.turnRouteCount <= budget) {
+      return {
+        ...candidate,
+        requestedDensity,
+        limited: true,
+      };
+    }
+  }
+
+  // Every built-in topology has a safe zero-density backbone. Keep this
+  // defensive result explicit in case a future topology violates that rule.
+  return {
+    ...build(0),
+    requestedDensity,
+    limited: true,
+  };
+}
+
+/**
+ * Gate multipliers preserve a node's outgoing split energy when some of its
+ * routes are closed. Incoming merge normalization intentionally stays based
+ * on the full graph, so removing one source never boosts the other sources.
+ */
+export function graphEdgeSwitchMultipliers(graph, enabledEdges = null) {
+  const enabled = graph.edges.map(
+    (_edge, index) => enabledEdges?.[index] ?? true,
+  );
+  const activeOutdegree = Array(graph.nodes.length).fill(0);
+  graph.edges.forEach((edge, index) => {
+    if (enabled[index]) activeOutdegree[edge.from] += 1;
+  });
+  return graph.edges.map((edge, index) => {
+    if (!enabled[index]) return 0;
+    return Math.sqrt(
+      Math.max(1, graph.outdegree[edge.from])
+      / Math.max(1, activeOutdegree[edge.from]),
+    );
+  });
 }
 
 export function edgeAudioParameters(graph, {

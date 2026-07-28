@@ -90,6 +90,27 @@ function smoothTube(diameter, target, amount) {
   return changed;
 }
 
+function smoothMouthTube(diameter, target, frameCount) {
+  let changed = false;
+  const amount = Math.max(1, frameCount) / Math.max(1, sampleRate) * 15;
+  for (let localIndex = 0; localIndex < diameter.length; localIndex += 1) {
+    const globalIndex = localIndex + ROOT_LENGTH;
+    const slowReturn = globalIndex < 17
+      ? 0.6
+      : globalIndex >= 32
+        ? 1
+        : 0.6 + 0.4 * (globalIndex - 17) / (32 - 17);
+    const current = diameter[localIndex];
+    const destination = target[localIndex];
+    const next = current < destination
+      ? Math.min(current + slowReturn * amount, destination)
+      : Math.max(current - 2 * amount, destination);
+    if (Math.abs(next - current) > 0.000001) changed = true;
+    diameter[localIndex] = Math.max(DIAMETER_MINIMUM, next);
+  }
+  return changed;
+}
+
 /*
  * These arrays carry volume-flow waves. For an N-port lossless junction,
  * qOut_i = -qIn_i + 2*A_i/sum(A)*sum(qIn). This is deliberately not the
@@ -340,9 +361,17 @@ class NasalAirway {
     const noseCount = integer(config.noseCount, 1, MAX_NOSES, noses.length || 1);
     const nose = noses[noseIndex] ?? noses[0] ?? {};
     this.active = noseIndex < noseCount;
-    const openness = this.active
-      ? Math.max(unit(config.nasalCoupling), unit(nose.openness))
+    const requestedOpenness = Number(nose.openness);
+    const rawOpenness = this.active
+      ? unit(
+        Number.isFinite(requestedOpenness)
+          ? requestedOpenness
+          : config.nasalCoupling,
+      )
       : 0;
+    const openness = rawOpenness <= 0.03
+      ? 0
+      : Math.pow(clamp((rawOpenness - 0.03) / 0.97), 0.72);
     const resonance = unit(nose.resonance, 0.5);
     const length = unit(nose.length, 0.5);
     const mutation = unit(config.mutation, 0.3);
@@ -350,15 +379,15 @@ class NasalAirway {
     for (let index = 0; index < NOSE_LENGTH; index += 1) {
       const progress = index / (NOSE_LENGTH - 1);
       const chamber = 0.48
-        + Math.sin(progress * Math.PI) * (0.5 + resonance * 0.34);
+        + Math.sin(progress * Math.PI) * (0.42 + resonance * 0.62);
       const mouthWarp = 1 + Math.sin(
         mouthIndex * 1.71 + noseIndex * 2.19 + index * 0.24,
       ) * mutation * 0.018;
       this.targetDiameter[index] = index === 0
-        ? DIAMETER_MINIMUM + openness * (0.34 + noseIndex * 0.035)
+        ? DIAMETER_MINIMUM + openness * (0.48 + noseIndex * 0.05)
         : Math.max(
           0.16,
-          chamber * (0.82 + length * 0.32) * mouthWarp,
+          chamber * (0.68 + length * 0.65) * mouthWarp,
         );
     }
     if (immediate) {
@@ -388,7 +417,7 @@ class NasalAirway {
       this.left[index] = cleanWave(this.leftJunction[index + 1] * TUBE_LOSS);
       this.right[index] = cleanWave(this.rightJunction[index] * TUBE_LOSS);
     }
-    return this.right[NOSE_LENGTH - 1] * clamp(this.opening * 2.3);
+    return this.right[NOSE_LENGTH - 1] * clamp(this.opening * 3.2);
   }
 
   reset() {
@@ -510,7 +539,7 @@ class MouthAirway {
         base
           * scale
           * individualWarp
-          * (1 - lipProgress * (1 - mouthAperture) * 0.34),
+          * (1 - lipProgress * (1 - mouthAperture) * 0.68),
       );
     }
 
@@ -544,7 +573,7 @@ class MouthAirway {
           (1.5 - curve)
             * scale
             * individualWarp
-            * (1 - clamp((globalIndex - 35) / 8) * (1 - mouthAperture) * 0.34),
+            * (1 - clamp((globalIndex - 35) / 8) * (1 - mouthAperture) * 0.68),
         );
         // Pink Trombone's vowel model replaces the neutral tube with the
         // tongue curve. Clipping it with Math.min() removes every widened
@@ -554,6 +583,30 @@ class MouthAirway {
           ? tongueShape
           : Math.min(this.targetDiameter[localIndex], tongueShape);
       }
+    }
+
+    const tractDeformations = config.tractDeformations ?? [];
+    for (let localIndex = 0; localIndex < MOUTH_LENGTH; localIndex += 1) {
+      const globalIndex = localIndex + ROOT_LENGTH;
+      let displacement = 0;
+      for (const deformation of tractDeformations) {
+        const center = Number(deformation?.center);
+        const radius = Math.max(0.0001, Number(deformation?.radius) || 0);
+        const height = Number(deformation?.height);
+        const strength = Number.isFinite(Number(deformation?.strength))
+          ? Number(deformation.strength)
+          : 1;
+        if (!Number.isFinite(center) || !Number.isFinite(height)) continue;
+        const distance = Math.abs(globalIndex - center);
+        if (distance >= radius) continue;
+        const weight = 0.5 * (1 + Math.cos(Math.PI * distance / radius));
+        displacement += height * strength * weight;
+      }
+      this.targetDiameter[localIndex] = clamp(
+        this.targetDiameter[localIndex] + displacement,
+        DIAMETER_MINIMUM,
+        4,
+      );
     }
 
     const requestedLipDiameter = Number(config.lipDiameter);
@@ -627,9 +680,8 @@ class MouthAirway {
 
   prepareBlock(frameCount) {
     this.pendingTransientStrength = 0;
-    const amount = blockAlpha(frameCount, 22);
     this.activity += (this.activeTarget - this.activity) * blockAlpha(frameCount, 42);
-    if (smoothTube(this.diameter, this.targetDiameter, amount)) {
+    if (smoothMouthTube(this.diameter, this.targetDiameter, frameCount)) {
       updateTubeReflections(this.diameter, this.area, this.reflection);
     }
     for (const nose of this.noses) nose.prepareBlock(frameCount);

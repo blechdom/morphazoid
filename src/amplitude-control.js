@@ -1,7 +1,11 @@
 import {
   amplitudeEnvelopePreset,
   mirroredAmplitudeEnvelopePhase,
+  percussionEnvelopePreset,
+  percussionEnvelopeTimeMs,
   sampleAmplitudeEnvelope,
+  sampleTimedAmplitudeEnvelope,
+  timedAmplitudeEnvelopeDurationMs,
   updateAmplitudeEnvelopeNode,
 } from "./audio.js";
 
@@ -12,13 +16,21 @@ function clamp(value, low = 0, high = 1) {
   return Math.min(high, Math.max(low, Number(value) || 0));
 }
 
-export function createAmplitudeControl(host, { onChange = () => {}, label = "Contact Amplitude ADSR" } = {}) {
+export function createAmplitudeControl(host, {
+  onChange = () => {},
+  label = "Contact Amplitude ADSR",
+  timing = "phase",
+} = {}) {
+  const usesMilliseconds = timing === "milliseconds";
+  const presetPoints = (name) => (
+    usesMilliseconds ? percussionEnvelopePreset(name) : amplitudeEnvelopePreset(name)
+  );
   const state = {
     enabled: true,
     swell: false,
     preset: "sustain",
     level: 1,
-    points: amplitudeEnvelopePreset("sustain"),
+    points: presetPoints("sustain"),
   };
   let dragging = null;
 
@@ -36,6 +48,31 @@ export function createAmplitudeControl(host, { onChange = () => {}, label = "Con
         : amount;
       return peakLevel * state.level * sampleAmplitudeEnvelope(envelopePhase, state.points);
     },
+    sampleAtTime(elapsedSeconds, peak = 1) {
+      const rawMilliseconds = Number.isFinite(elapsedSeconds)
+        ? Math.max(0, elapsedSeconds * 1000)
+        : Number.POSITIVE_INFINITY;
+      // Keep a new zero-level contact assigned to a voice so its attack can
+      // rise on the following animation frame.
+      const milliseconds = state.enabled && rawMilliseconds === 0
+        ? 0.01
+        : rawMilliseconds;
+      const peakLevel = clamp(peak, 0, 4);
+      if (!state.enabled) return peakLevel * state.level;
+      return peakLevel
+        * state.level
+        * sampleTimedAmplitudeEnvelope(milliseconds, state.points);
+    },
+    envelopeValueAtTime(elapsedSeconds) {
+      if (!state.enabled || !Number.isFinite(elapsedSeconds)) return 0;
+      return sampleTimedAmplitudeEnvelope(
+        Math.max(0, elapsedSeconds * 1000),
+        state.points,
+      );
+    },
+    durationSeconds() {
+      return timedAmplitudeEnvelopeDurationMs(state.points) / 1000;
+    },
     setVisible(visible) {
       if (host) host.hidden = !visible;
     },
@@ -44,7 +81,7 @@ export function createAmplitudeControl(host, { onChange = () => {}, label = "Con
       state.swell = false;
       state.preset = "sustain";
       state.level = 1;
-      state.points = amplitudeEnvelopePreset("sustain");
+      state.points = presetPoints("sustain");
       render();
       onChange(controller);
     },
@@ -56,17 +93,34 @@ export function createAmplitudeControl(host, { onChange = () => {}, label = "Con
     )).join(" ");
   }
 
+  function formatTime(milliseconds) {
+    if (milliseconds < 10) return `${milliseconds.toFixed(1).replace(/\.0$/, "")} ms`;
+    return `${Math.round(milliseconds)} ms`;
+  }
+
+  function nodeDescription(point, index) {
+    const level = `${Math.round(point.y * 100)}%`;
+    return usesMilliseconds
+      ? `${LABELS[index]} · ${formatTime(percussionEnvelopeTimeMs(point.x))} · ${level}`
+      : `${LABELS[index]} · ${Math.round(point.x * 100)}% · ${level}`;
+  }
+
   function render() {
     if (!host) return;
     host.className = "shared-amplitude-control";
-    host.innerHTML = `<div class="shared-amplitude-heading"><span class="field-label">${label}</span><div><button type="button" data-action="toggle" aria-pressed="${state.enabled}">${state.enabled ? "On" : "Off"}</button><button type="button" data-action="swell" aria-pressed="${state.swell}" ${state.enabled ? "" : "disabled"}>${state.swell ? "Swell on" : "Swell off"}</button></div></div>
+    const releaseTime = formatTime(timedAmplitudeEnvelopeDurationMs(state.points));
+    host.innerHTML = `<div class="shared-amplitude-heading"><span class="field-label">${label}</span><div><button type="button" data-action="toggle" aria-pressed="${state.enabled}">${state.enabled ? "On" : "Off"}</button>${usesMilliseconds ? "" : `<button type="button" data-action="swell" aria-pressed="${state.swell}" ${state.enabled ? "" : "disabled"}>${state.swell ? "Swell on" : "Swell off"}</button>`}</div></div>
       <div class="shared-amplitude-presets">${PRESETS.map((preset) => `<button type="button" data-preset="${preset}" aria-pressed="${state.preset === preset}" ${state.enabled ? "" : "disabled"}>${preset}</button>`).join("")}</div>
-      <div class="shared-amplitude-editor ${state.enabled ? "" : "is-disabled"}" data-editor>
+      <div class="shared-amplitude-editor ${usesMilliseconds ? "is-timed" : ""} ${state.enabled ? "" : "is-disabled"}" data-editor>
         <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true"><path d="${pathData()}" /></svg>
-        ${state.points.map((point, index) => `<button type="button" data-node="${index}" role="slider" aria-label="${LABELS[index]} envelope node" style="left:${point.x * 100}%;top:${(1 - point.y) * 100}%" ${state.enabled ? "" : "disabled"}>${LABELS[index]}</button>`).join("")}
+        ${state.points.map((point, index) => {
+          const description = nodeDescription(point, index);
+          return `<button type="button" data-node="${index}" role="slider" aria-label="${LABELS[index]} envelope node" aria-valuetext="${description}" title="${description}" style="left:${point.x * 100}%;top:${(1 - point.y) * 100}%" ${state.enabled ? "" : "disabled"}>${LABELS[index]}</button>`;
+        }).join("")}
       </div>
+      ${usesMilliseconds ? `<div class="shared-amplitude-time-axis"><span>0 ms</span><span>log time</span><span>Release ${releaseTime}</span></div>` : ""}
       <label class="control shared-amplitude-level"><span><b>Envelope level</b><output>${Math.round(state.level * 100)}%</output></span><input data-level type="range" min="0" max="1" step="0.01" value="${state.level}" /></label>
-      <small>${state.swell ? "Edge midpoint → corner peak → midpoint" : "Contact/corner trigger → release"}</small>`;
+      <small>${usesMilliseconds ? "Node positions are milliseconds · Release sets total duration" : state.swell ? "Edge midpoint → corner peak → midpoint" : "Contact/corner trigger → release"}</small>`;
   }
 
   function pointFromEvent(event) {
@@ -87,7 +141,7 @@ export function createAmplitudeControl(host, { onChange = () => {}, label = "Con
     } else if (action === "swell" && state.enabled) state.swell = !state.swell;
     else if (preset && state.enabled) {
       state.preset = PRESETS.includes(preset) ? preset : "note";
-      state.points = amplitudeEnvelopePreset(state.preset);
+      state.points = presetPoints(state.preset);
     } else return;
     render();
     onChange(controller);

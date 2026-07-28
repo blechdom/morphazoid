@@ -43,6 +43,7 @@ const RELEASE_TIME_CONSTANT = 0.025;
 const PAN_TIME_CONSTANT = 0.025;
 const MASTER_TIME_CONSTANT = 0.03;
 const STRIKE_GAIN_FLOOR = 0.0001;
+const CONTINUOUS_VOICE_OPEN_FLOOR = 0.00001;
 const PERCUSSION_ENVELOPE_MAX_MS = 4_000;
 const ATTACK_NOISE_SECONDS = 0.04;
 const CONTINUOUS_SYNTH_MODES = new Set(["sine", "shepard", "fm", "pm"]);
@@ -286,6 +287,40 @@ export function sampleAmplitudeEnvelope(phase, points) {
 }
 
 /**
+ * Sample an editable envelope whose X axis represents logarithmically spaced
+ * milliseconds. Interpolation remains linear in real time between nodes.
+ * After Release, its final level is held until the contact is retriggered.
+ * @param {number} elapsedMilliseconds
+ * @param {unknown} points
+ */
+export function sampleTimedAmplitudeEnvelope(elapsedMilliseconds, points) {
+  const envelope = sanitizeAmplitudeEnvelope(points);
+  const elapsed = typeof elapsedMilliseconds === "number"
+    && !Number.isNaN(elapsedMilliseconds)
+    ? Math.max(0, elapsedMilliseconds)
+    : 0;
+  const times = envelope.map((point) => percussionEnvelopeTimeMs(point.x));
+  if (elapsed <= times[0]) return envelope[0].y;
+
+  for (let index = 1; index < envelope.length; index += 1) {
+    const leftTime = times[index - 1];
+    const rightTime = times[index];
+    if (elapsed > rightTime) continue;
+    if (rightTime <= leftTime) return envelope[index].y;
+    const progress = (elapsed - leftTime) / (rightTime - leftTime);
+    return envelope[index - 1].y
+      + (envelope[index].y - envelope[index - 1].y) * progress;
+  }
+
+  return envelope.at(-1).y;
+}
+
+/** Return the Release-node time for a millisecond envelope. */
+export function timedAmplitudeEnvelopeDurationMs(points) {
+  return percussionEnvelopeTimeMs(sanitizeAmplitudeEnvelope(points).at(-1).x);
+}
+
+/**
  * Convert local mirrored distance (corner 0 → adjacent midpoint 1) to the
  * envelope phase used by corner Swell. The attack node is the corner peak;
  * decay, sustain, and release then run outward in either direction.
@@ -526,6 +561,38 @@ export function normalizeVoiceGains(voices, maxCombinedGain = 1) {
   );
   const scale = combined > ceiling && combined > 0 ? ceiling / combined : 1;
   return sanitized.map((voice) => ({ ...voice, gain: voice.gain * scale }));
+}
+
+/**
+ * Retarget voices that were already audibly open without admitting a new or
+ * previously closed key. Open keys missing from the new geometry are retained
+ * at their last target until the interaction settles.
+ * @param {readonly VoiceSpec[]} voices
+ * @param {readonly VoiceSpec[]} previousVoices
+ * @returns {VoiceSpec[]}
+ */
+function updateStartedVoicesOnly(voices, previousVoices) {
+  const previousByKey = new Map(previousVoices.map((voice, index) => [
+    typeof voice.key === "string" ? voice.key : `index:${index}`,
+    voice,
+  ]));
+  const updatedKeys = new Set();
+  const held = [];
+
+  voices.forEach((voice, index) => {
+    const key = typeof voice.key === "string" ? voice.key : `index:${index}`;
+    const previous = previousByKey.get(key);
+    if (!previous || previous.gain <= CONTINUOUS_VOICE_OPEN_FLOOR) return;
+    held.push({ ...voice, key });
+    updatedKeys.add(key);
+  });
+
+  previousVoices.forEach((voice, index) => {
+    const key = typeof voice.key === "string" ? voice.key : `index:${index}`;
+    if (updatedKeys.has(key) || voice.gain <= CONTINUOUS_VOICE_OPEN_FLOOR) return;
+    held.push({ ...voice, key });
+  });
+  return held;
 }
 
 /**
@@ -984,7 +1051,7 @@ export class VoicePool {
   /**
    * Steer the oscillator pool; excess contacts are reduced and gains normalized.
    * @param {readonly VoiceSpec[]} voices
-   * @param {{requestedVoiceCount?: number, mode?: string, voiceLimit?: number, releaseVoiceAllowance?: number}} [options]
+   * @param {{requestedVoiceCount?: number, mode?: string, voiceLimit?: number, releaseVoiceAllowance?: number, allowVoiceStarts?: boolean}} [options]
    */
   setVoices(voices, options = {}) {
     const mode = CONTINUOUS_SYNTH_MODES.has(options.mode)
@@ -998,7 +1065,10 @@ export class VoicePool {
     const limit = this.synthNode
       ? Math.min(this.voiceLimitFor(mode), this.maxVoiceLimit)
       : this.size;
-    const reduced = reduceVoiceContacts(voices, limit);
+    const sourceVoices = options.allowVoiceStarts === false
+      ? updateStartedVoicesOnly(voices, this.pendingVoices)
+      : voices;
+    const reduced = reduceVoiceContacts(sourceVoices, limit);
     this.pendingVoices = normalizeVoiceGains(reduced);
     this.lastSubmittedVoiceCount = this.pendingVoices.length;
     this.pollPlaybackStats();
