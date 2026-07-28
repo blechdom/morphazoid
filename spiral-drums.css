@@ -4,33 +4,6 @@
   --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
 }
 
-.spiral-drums-heading {
-  position: absolute;
-  z-index: 2;
-  top: 22px;
-  left: 24px;
-  pointer-events: none;
-}
-
-.spiral-drums-heading p {
-  margin: 0 0 8px;
-  color: var(--accent);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: .15em;
-}
-
-.spiral-drums-heading h1 {
-  margin: 0;
-  color: color-mix(in oklab, var(--ink) 92%, transparent);
-  font-size: clamp(26px, 4vw, 58px);
-  font-style: italic;
-  font-weight: 650;
-  letter-spacing: -.075em;
-  line-height: .84;
-  text-transform: uppercase;
-}
-
 .spiral-mapping-readout {
   position: absolute;
   z-index: 2;
@@ -167,18 +140,7 @@
   transform: translateY(1px);
 }
 
-@media (max-width: 900px) {
-  .spiral-drums-heading h1 {
-    font-size: clamp(24px, 8vw, 48px);
-  }
-}
-
 @media (max-width: 520px) {
-  .spiral-drums-heading {
-    top: 16px;
-    left: 15px;
-  }
-
   .spiral-map-legend {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

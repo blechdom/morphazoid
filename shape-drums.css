@@ -1,10 +1,10 @@
-.lattice-drums-page {
-  --accent: #ffb86b;
+.shape-drums-page {
+  --accent: #e8c46b;
   --accent-soft: color-mix(in oklab, var(--accent) 55%, transparent);
   --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
 }
 
-.lattice-mapping-readout {
+.shape-mapping-readout {
   position: absolute;
   z-index: 2;
   right: 18px;
@@ -21,11 +21,11 @@
   text-transform: uppercase;
 }
 
-.lattice-drums-panel .group-body {
+.shape-drums-panel .group-body {
   padding-bottom: 14px;
 }
 
-.lattice-mapping-description {
+.shape-mapping-description {
   min-height: 34px;
   margin: 8px 0 11px;
   color: var(--muted);
@@ -33,7 +33,7 @@
   line-height: 1.5;
 }
 
-.lattice-map-legend {
+.shape-map-legend {
   display: grid;
   margin: 0 0 14px;
   border-top: 1px solid var(--line);
@@ -41,7 +41,7 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-.lattice-map-legend span {
+.shape-map-legend span {
   display: grid;
   min-width: 0;
   min-height: 49px;
@@ -52,14 +52,14 @@
   gap: 3px;
 }
 
-.lattice-map-legend b,
-.lattice-map-legend small {
+.shape-map-legend b,
+.shape-map-legend small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.lattice-map-legend b {
+.shape-map-legend b {
   color: var(--ink);
   font-size: 7px;
   font-weight: 600;
@@ -67,19 +67,19 @@
   text-transform: uppercase;
 }
 
-.lattice-map-legend small {
+.shape-map-legend small {
   color: var(--faint);
   font-size: 7px;
 }
 
-.lattice-drum-map {
+.shape-drum-map {
   display: grid;
   margin-top: 14px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
 }
 
-.lattice-drum-cell {
+.shape-drum-cell {
   --voice-color: var(--accent);
   position: relative;
   display: grid;
@@ -91,10 +91,11 @@
   color: var(--muted);
   background: color-mix(in oklab, var(--voice-color) 3%, var(--panel));
   align-content: center;
+  cursor: pointer;
   transition: 80ms ease;
 }
 
-.lattice-drum-cell::before {
+.shape-drum-cell::before {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -105,14 +106,14 @@
   opacity: .72;
 }
 
-.lattice-drum-cell b,
-.lattice-drum-cell small {
+.shape-drum-cell b,
+.shape-drum-cell small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.lattice-drum-cell b {
+.shape-drum-cell b {
   color: var(--ink);
   font-size: 7px;
   font-weight: 600;
@@ -120,12 +121,17 @@
   text-transform: uppercase;
 }
 
-.lattice-drum-cell small {
+.shape-drum-cell small {
   color: var(--voice-color);
   font-size: 7px;
 }
 
-.lattice-drum-cell.is-active {
+.shape-drum-cell:hover,
+.shape-drum-cell:focus-visible {
+  border-color: color-mix(in oklab, var(--voice-color) 64%, var(--line));
+}
+
+.shape-drum-cell.is-active {
   border-color: var(--voice-color);
   color: var(--ink);
   background: color-mix(in oklab, var(--voice-color) 20%, var(--panel));
@@ -134,11 +140,11 @@
 }
 
 @media (max-width: 520px) {
-  .lattice-map-legend {
+  .shape-map-legend {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .lattice-mapping-readout {
+  .shape-mapping-readout {
     left: 12px;
     max-width: none;
     text-align: left;
@@ -146,7 +152,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lattice-drum-cell {
+  .shape-drum-cell {
     transition: none;
   }
 }

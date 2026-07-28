@@ -27,7 +27,11 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "hyper", label: "Hyper", href: "hyper.html" },
   ]),
   freezeGroup("geometry-drums", "Geometry Drum Machines", [
-    { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
+    {
+      id: "shape-drums",
+      label: "Shape Drum Machine",
+      href: "shape-drums.html",
+    },
     {
       id: "lattice-drums",
       label: "Lattice Drum Machine",
@@ -37,6 +41,16 @@ export const TOOL_GROUPS = Object.freeze([
       id: "spiral-drums",
       label: "Spiral Drum Machine",
       href: "spiral-drums.html",
+    },
+    {
+      id: "solid-drums",
+      label: "Solid Drum Machine",
+      href: "solid-drums.html",
+    },
+    {
+      id: "hyper-drums",
+      label: "Hyper Drum Machine",
+      href: "hyper-drums.html",
     },
   ]),
   freezeGroup("audio-mic", "Audio & Mic", [
@@ -66,7 +80,8 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "chaotic-fm", label: "Chaotic FM", href: "chaotic-fm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
   ]),
-  freezeGroup("workbench", "Workbench", [
+  freezeGroup("tools", "Tools", [
+    { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
     {
       id: "morphazoidical",
       label: "Morphazoidical",

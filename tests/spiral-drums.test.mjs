@@ -95,6 +95,20 @@ test("radial pitch, incidence character, and polyphonic headroom remain bounded"
   assert.ok(outer.level >= 0 && outer.level <= 1);
 });
 
+test("bell voices become shorter and quieter geometry percussion", () => {
+  const bell = DEFAULT_FM_DRUM_VOICES.find(({ id }) => id === "bronze-gong");
+  const voice = mappedSpiralDrumVoice(
+    bell,
+    { radius: Math.sqrt(bounds.innerRadius * bounds.outerRadius), incidence: 1 },
+    { bounds, pitchDepth: 0, characterDepth: 0, contactCount: 1 },
+  );
+  assert.equal(voice.attack, 0.006);
+  assert.equal(voice.decay, 0.58);
+  assert.ok(voice.modIndex < bell.modIndex);
+  assert.ok(voice.level < bell.level);
+  assert.equal(bell.decay, 2.35);
+});
+
 test("every intrinsic Spiral reader resolves contacts through every drum mapping", () => {
   const tessellation = buildSpiralTessellation({
     type: 20,
@@ -162,6 +176,8 @@ test("Spiral Drum Machine keeps the full geometry UI and excludes legacy sound p
   ]) {
     assert.match(html, new RegExp(`id="${id}"`), `missing ${id}`);
   }
+  assert.doesNotMatch(html, /id="spiralDrumsTitle"|class="spiral-drums-heading"/);
+  assert.doesNotMatch(css, /\.spiral-drums-heading/);
   assert.match(html, /src="spiral-drums-app\.js"/);
   assert.match(css, /\.spiral-drum-map[\s\S]*grid-template-columns: repeat\(4/);
   assert.match(app, /buildSpiralTessellation/);

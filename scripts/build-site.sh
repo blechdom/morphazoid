@@ -53,6 +53,10 @@ done < <(git -C "$repo_root" ls-files -z)
 # Allow the new Workbench page to enter local release artifacts before its
 # first commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
+  shape-drums.html \
+  shape-drums.css \
+  shape-drums-app.js \
+  src/shape-drums.js \
   lattice-drums.html \
   lattice-drums.css \
   lattice-drums-app.js \
@@ -60,7 +64,15 @@ for worktree_runtime_file in \
   spiral-drums.html \
   spiral-drums.css \
   spiral-drums-app.js \
-  src/spiral-drums.js
+  src/spiral-drums.js \
+  solid-drums.html \
+  solid-drums.css \
+  solid-drums-app.js \
+  src/solid-drums.js \
+  hyper-drums.html \
+  hyper-drums.css \
+  hyper-drums-app.js \
+  src/hyper-drums.js
 do
   [[ -f "$repo_root/$worktree_runtime_file" ]] && copy_runtime_file "$worktree_runtime_file"
 done
@@ -104,6 +116,10 @@ required_files=(
   fm-drums.css
   fm-drums-app.js
   src/fm-drums.js
+  shape-drums.html
+  shape-drums.css
+  shape-drums-app.js
+  src/shape-drums.js
   lattice-drums.html
   lattice-drums.css
   lattice-drums-app.js
@@ -112,6 +128,14 @@ required_files=(
   spiral-drums.css
   spiral-drums-app.js
   src/spiral-drums.js
+  solid-drums.html
+  solid-drums.css
+  solid-drums-app.js
+  src/solid-drums.js
+  hyper-drums.html
+  hyper-drums.css
+  hyper-drums-app.js
+  src/hyper-drums.js
   morphazoidical/index.html
   vendor/signalsmith-stretch/SignalsmithStretch.mjs
   vendor/tactile/tactile.js

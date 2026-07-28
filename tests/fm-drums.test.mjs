@@ -62,13 +62,12 @@ test("FM drum tuning slider is logarithmic and reversible", () => {
   }
 });
 
-test("FM Drums page belongs to the Morphazoid workbench shell", async () => {
+test("FM Drums keeps compact preset controls without a page title block", async () => {
   const [html, css, app] = await Promise.all([
     readFile(new URL("fm-drums.html", root), "utf8"),
     readFile(new URL("fm-drums.css", root), "utf8"),
     readFile(new URL("fm-drums-app.js", root), "utf8"),
   ]);
-  assert.match(html, /WORKBENCH · 02/);
   assert.match(html, /class="masthead"/);
   assert.match(html, /class="mobile-instrument-select"/);
   assert.match(html, /id="padGrid"/);
@@ -77,6 +76,8 @@ test("FM Drums page belongs to the Morphazoid workbench shell", async () => {
   assert.match(html, /id="downloadBank"/);
   assert.match(html, /src="nav\.js"/);
   assert.match(html, /src="fm-drums-app\.js"/);
+  assert.doesNotMatch(html, /id="fmDrumsTitle"|fm-drums-kicker|fm-drums-lede/);
+  assert.doesNotMatch(css, /\.fm-drums-kicker|\.fm-drums-lede|\.fm-drums-intro h1/);
   assert.match(css, /\.fm-pad-grid[\s\S]*grid-template-columns: repeat\(4/);
   assert.match(app, /FM_DRUM_STORAGE_KEY/);
   assert.match(app, /new Blob\(\[data\], \{ type: "application\/json" \}\)/);

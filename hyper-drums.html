@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Hyper Drum Machine — map a moving 4D wireframe and W hyperplane to sixteen FM percussion voices."
+    />
+    <title>Hyper Drum Machine — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="hyper-drums.css" />
+  </head>
+  <body class="hyper-page hyper-drums-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="fm-drums.html">fm drums</a>
+        <a class="tab" href="lattice-drums.html">lattice drums</a>
+        <a class="tab" href="spiral-drums.html">spiral drums</a>
+        <a class="tab active" href="hyper-drums.html" aria-current="page">hyper drums</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="hyper.html">hyper</option>
+          <option value="fm-drums.html">fm drums</option>
+          <option value="lattice-drums.html">lattice drums</option>
+          <option value="spiral-drums.html">spiral drums</option>
+          <option value="hyper-drums.html" selected>hyper drums</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◇</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">65%</output></span>
+          <input
+            id="output"
+            aria-label="Drum output level"
+            type="range"
+            min="0"
+            max=".9"
+            step=".01"
+            value=".65"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell hyper-drums-shell" id="hyperDrums">
+      <section class="stage" aria-label="Hyper Drum Machine stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="A draggable four-dimensional wireframe whose moving W hyperplane triggers FM drums."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A projected four-dimensional wireframe mapped to sixteen FM drum voices.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">TESSERACT · 0 CONTACTS · PAUSED · AUDIO OFF</span>
+          </div>
+          <div class="hyper-mapping-readout" id="mappingReadout" aria-hidden="true">
+            W EDGE · CENTER DEPTH → SUB KICK
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel hyper-drums-panel" aria-label="Hyper Drum Machine controls">
+        <details class="group control-section" data-section="play">
+          <summary class="group-summary">
+            <h2 class="group-title">Play</h2>
+            <span class="section-state" id="playSummary">W plane · paused</span>
+          </summary>
+          <div class="group-body">
+            <div class="position-row">
+              <button
+                class="play-button"
+                id="playButton"
+                type="button"
+                aria-pressed="false"
+                aria-label="Play hyperplane"
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="position">
+                <span><b>W position</b><output id="positionOut" for="position">0.0%</output></span>
+                <input id="position" type="range" min="0" max="1" step=".001" value=".5" />
+              </label>
+            </div>
+            <label class="control" for="speed">
+              <span><b>Hyperplane speed</b><output id="speedOut" for="speed">0.10 cyc/s</output></span>
+              <input id="speed" type="range" min=".01" max="2" step=".01" value=".1" />
+            </label>
+            <button class="mini-action direction-action" id="directionButton" type="button">
+              Direction · forward
+            </button>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form">
+          <summary class="group-summary">
+            <h2 class="group-title">Form</h2>
+            <span class="section-state" id="formSummary">Tesseract</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="hyperShape">
+              <span class="field-label">4D wireframe</span>
+              <span class="select-shell">
+                <select id="hyperShape">
+                  <option value="tesseract" selected>Tesseract</option>
+                  <option value="hypersphere">Hypersphere</option>
+                  <option value="hyperpyramid">Hyperpyramid</option>
+                  <option value="klein">Klein bottle · 4D embedding</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="hyperScaleX"><span><b>X stretch</b><output id="hyperScaleXOut" for="hyperScaleX">1.00×</output></span><input id="hyperScaleX" type="range" min=".5" max="1.5" step=".01" value="1" /></label>
+            <label class="control" for="hyperScaleY"><span><b>Y stretch</b><output id="hyperScaleYOut" for="hyperScaleY">1.00×</output></span><input id="hyperScaleY" type="range" min=".5" max="1.5" step=".01" value="1" /></label>
+            <label class="control" for="hyperScaleZ"><span><b>Z stretch</b><output id="hyperScaleZOut" for="hyperScaleZ">1.00×</output></span><input id="hyperScaleZ" type="range" min=".5" max="1.5" step=".01" value="1" /></label>
+            <label class="control" for="hyperScaleW"><span><b>W stretch</b><output id="hyperScaleWOut" for="hyperScaleW">1.00×</output></span><input id="hyperScaleW" type="range" min=".5" max="1.5" step=".01" value="1" /></label>
+            <button class="mini-action reset-form" id="resetHyperForm" type="button">Reset form</button>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="rotation">
+          <summary class="group-summary">
+            <h2 class="group-title">4D Rotation</h2>
+            <span class="section-state" id="rotationSummary">paused</span>
+          </summary>
+          <div class="group-body">
+            <div class="axis-control-group">
+              <label class="control" for="rotationXW"><span><b>X–W plane</b><output id="rotationXWOut" for="rotationXW">24°</output></span><input id="rotationXW" type="range" min="-180" max="180" step="1" value="24" /></label>
+              <div class="axis-motion-row">
+                <button class="mini-action axis-play-button" id="rotationXWPlay" type="button" aria-pressed="false" aria-label="Play X-W rotation"><span aria-hidden="true">▶</span><small>X–W</small></button>
+                <label class="control" for="rotationXWSpeed"><span><b>X–W speed</b><output id="rotationXWSpeedOut" for="rotationXWSpeed">+0.06 rev/s</output></span><input id="rotationXWSpeed" type="range" min="-.5" max=".5" step=".01" value=".06" /></label>
+              </div>
+            </div>
+            <div class="axis-control-group">
+              <label class="control" for="rotationYW"><span><b>Y–W plane</b><output id="rotationYWOut" for="rotationYW">−18°</output></span><input id="rotationYW" type="range" min="-180" max="180" step="1" value="-18" /></label>
+              <div class="axis-motion-row">
+                <button class="mini-action axis-play-button" id="rotationYWPlay" type="button" aria-pressed="false" aria-label="Play Y-W rotation"><span aria-hidden="true">▶</span><small>Y–W</small></button>
+                <label class="control" for="rotationYWSpeed"><span><b>Y–W speed</b><output id="rotationYWSpeedOut" for="rotationYWSpeed">+0.04 rev/s</output></span><input id="rotationYWSpeed" type="range" min="-.5" max=".5" step=".01" value=".04" /></label>
+              </div>
+            </div>
+            <div class="axis-control-group">
+              <label class="control" for="rotationZW"><span><b>Z–W plane</b><output id="rotationZWOut" for="rotationZW">12°</output></span><input id="rotationZW" type="range" min="-180" max="180" step="1" value="12" /></label>
+              <div class="axis-motion-row">
+                <button class="mini-action axis-play-button" id="rotationZWPlay" type="button" aria-pressed="false" aria-label="Play Z-W rotation"><span aria-hidden="true">▶</span><small>Z–W</small></button>
+                <label class="control" for="rotationZWSpeed"><span><b>Z–W speed</b><output id="rotationZWSpeedOut" for="rotationZWSpeed">−0.02 rev/s</output></span><input id="rotationZWSpeed" type="range" min="-.5" max=".5" step=".01" value="-.02" /></label>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="mapping">
+          <summary class="group-summary">
+            <h2 class="group-title">Drum mapping</h2>
+            <span class="section-state" id="mappingSummary">edge axis × depth</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="mappingMode">
+              <span class="field-label">Voice selection</span>
+              <span class="select-shell"><select id="mappingMode"></select></span>
+            </label>
+            <p class="hyper-mapping-description" id="mappingDescription">
+              The edge's 4D axis chooses the drum row; projected depth chooses the column.
+            </p>
+
+            <div class="hyper-map-legend" aria-label="Current contact mappings">
+              <span><b>Edge axis</b><small>drum row</small></span>
+              <span><b>Depth</b><small>voice column</small></span>
+              <span><b>Height</b><small>tuning</small></span>
+              <span><b>W incidence</b><small>tone + force</small></span>
+              <span><b>Contacts</b><small>headroom</small></span>
+            </div>
+
+            <label class="control" for="pitchDepth">
+              <span><b>Height → tuning</b><output id="pitchDepthOut" for="pitchDepth">±12 st</output></span>
+              <input id="pitchDepth" type="range" min="0" max="24" step="1" value="12" />
+            </label>
+            <label class="control" for="characterDepth">
+              <span><b>W incidence → character</b><output id="characterDepthOut" for="characterDepth">70%</output></span>
+              <input id="characterDepth" type="range" min="0" max="1" step=".01" value=".7" />
+            </label>
+            <label class="control" for="strikeLimit">
+              <span><b>Strikes per frame</b><output id="strikeLimitOut" for="strikeLimit">6</output></span>
+              <input id="strikeLimit" type="range" min="1" max="16" step="1" value="6" />
+            </label>
+
+            <div class="hyper-drum-map" id="drumMap" aria-label="Sixteen mapped drum voices"></div>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetHyperDrums" type="button">
+            Reset hyper drums
+          </button>
+        </div>
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Drag horizontally to set Y–W and vertically to set X–W. Space toggles the
+        hyperplane. Left and right arrows move its W position.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="hyper-drums-app.js"></script>
+  </body>
+</html>

@@ -46,6 +46,20 @@ test("contact normalization and drum modulation remain bounded", () => {
   assert.ok(voice.level > 0 && voice.level <= .4);
 });
 
+test("bell voices become shorter and quieter geometry percussion", () => {
+  const bell = DEFAULT_FM_DRUM_VOICES.find(({ id }) => id === "soft-chime");
+  const voice = mappedLatticeDrumVoice(
+    bell,
+    { x: 0, y: 0, incidence: 1 },
+    { bounds, pitchDepth: 0, characterDepth: 0, contactCount: 1 },
+  );
+  assert.equal(voice.attack, 0.006);
+  assert.equal(voice.decay, 0.58);
+  assert.ok(voice.modIndex < bell.modIndex);
+  assert.ok(voice.level < bell.level);
+  assert.equal(bell.decay, 1.8);
+});
+
 test("real lattice contacts resolve to playable FM drum voices", () => {
   const lattice = buildLattice({ type: 20, bounds, scale: .3 });
   const contacts = contactsForLine(lattice, createScanLine(bounds, .5, 90));
@@ -74,6 +88,8 @@ test("Lattice Drum Machine uses the lattice core and compact FM drum bank", asyn
   ]);
   assert.match(html, /Lattice Drum Machine/);
   assert.match(html, /id="stage"/);
+  assert.doesNotMatch(html, /id="latticeDrumsTitle"|class="lattice-drums-heading"/);
+  assert.doesNotMatch(css, /\.lattice-drums-heading/);
   assert.match(html, /id="formSection" data-section="form"/);
   assert.match(html, /id="tileEditorCanvas"/);
   assert.match(html, /id="parameter5"/);

@@ -135,11 +135,11 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       "Fractals & Recursion",
       "Barber Shop Poles",
       "Chaotic Synths",
-      "Workbench",
+      "Tools",
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 24);
+  assert.equal(tools.length, 27);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -161,6 +161,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "shape-drums"),
+    {
+      id: "shape-drums",
+      label: "Shape Drum Machine",
+      href: "shape-drums.html",
+    },
+  );
+  assert.deepEqual(
     tools.find((tool) => tool.id === "lattice-drums"),
     {
       id: "lattice-drums",
@@ -177,20 +185,41 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "solid-drums"),
+    {
+      id: "solid-drums",
+      label: "Solid Drum Machine",
+      href: "solid-drums.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "hyper-drums"),
+    {
+      id: "hyper-drums",
+      label: "Hyper Drum Machine",
+      href: "hyper-drums.html",
+    },
+  );
+  assert.deepEqual(
     TOOL_GROUPS.find((group) => group.id === "geometry-drums")?.tools.map(
       ({ id, href }) => ({ id, href }),
     ),
     [
-      { id: "fm-drums", href: "fm-drums.html" },
+      { id: "shape-drums", href: "shape-drums.html" },
       { id: "lattice-drums", href: "lattice-drums.html" },
       { id: "spiral-drums", href: "spiral-drums.html" },
+      { id: "solid-drums", href: "solid-drums.html" },
+      { id: "hyper-drums", href: "hyper-drums.html" },
     ],
   );
   assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "workbench")?.tools.map(
+    TOOL_GROUPS.find((group) => group.id === "tools")?.tools.map(
       ({ id, href }) => ({ id, href }),
     ),
-    [{ id: "morphazoidical", href: "morphazoidical/" }],
+    [
+      { id: "fm-drums", href: "fm-drums.html" },
+      { id: "morphazoidical", href: "morphazoidical/" },
+    ],
   );
   assert.deepEqual(
     tools.find((tool) => tool.id === "morphazoidical"),
@@ -250,8 +279,11 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}chaotic-fm.html`, SITE_ROOT)?.id, "chaotic-fm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}weierstrass.html`, SITE_ROOT)?.id, "weierstrass");
   assert.equal(resolveActiveTool(`${SITE_ROOT}fm-drums.html`, SITE_ROOT)?.id, "fm-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}shape-drums.html`, SITE_ROOT)?.id, "shape-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}lattice-drums.html`, SITE_ROOT)?.id, "lattice-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}spiral-drums.html`, SITE_ROOT)?.id, "spiral-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}solid-drums.html`, SITE_ROOT)?.id, "solid-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-drums.html`, SITE_ROOT)?.id, "hyper-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}analyzer.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");
@@ -299,7 +331,7 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
     TOOL_GROUPS.map((group) => group.label),
   );
   const links = details.findAll((node) => node.tagName === "A");
-  assert.equal(links.length, 24);
+  assert.equal(links.length, 27);
   const currentLinks = links.filter((link) => link.getAttribute("aria-current") === "page");
   assert.equal(currentLinks.length, 1);
   assert.equal(currentLinks[0].getAttribute("data-tool-id"), "julia");

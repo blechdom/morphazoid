@@ -165,6 +165,7 @@ test("lattice drum app starts with the complete editable isohedral form", async 
   assert.match(elements.get("formSummary").textContent, /Pentagon · IH20/);
   assert.equal(elements.get("parameterCount").textContent, "2 parameters · guarded");
   assert.equal(elements.get("edgeCount").textContent, "3 bendable classes");
+  assert.equal(elements.get("drumMap").children.length, 16);
   assert.equal(tileEditorCanvas.width, 640);
   assert.equal(tileEditorCanvas.height, 440);
   assert.equal(typeof listeners.get("tileEditorCanvas:pointerdown"), "function");

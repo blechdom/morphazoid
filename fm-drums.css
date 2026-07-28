@@ -12,14 +12,11 @@
 
 .fm-drums-intro {
   display: flex;
-  padding: 2px 0 26px;
+  padding: 0 0 14px;
   border-bottom: 1px solid var(--line);
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 32px;
+  justify-content: flex-end;
 }
 
-.fm-drums-kicker,
 .fm-editor-identity > p {
   margin: 0 0 8px;
   color: var(--accent);
@@ -28,28 +25,9 @@
   letter-spacing: .16em;
 }
 
-.fm-drums-intro h1 {
-  margin: 0;
-  color: var(--ink);
-  font-size: clamp(31px, 4vw, 56px);
-  font-style: italic;
-  font-weight: 700;
-  letter-spacing: -.075em;
-  line-height: .95;
-  text-transform: uppercase;
-}
-
-.fm-drums-lede {
-  max-width: 690px;
-  margin: 14px 0 0;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.6;
-}
-
 .fm-bank-actions {
   display: flex;
-  flex: 0 0 auto;
+  width: 100%;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 7px;
@@ -314,15 +292,6 @@
 }
 
 @media (max-width: 920px) {
-  .fm-drums-intro {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .fm-bank-actions {
-    justify-content: flex-start;
-  }
-
   .fm-pad-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

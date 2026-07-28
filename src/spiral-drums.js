@@ -119,20 +119,25 @@ export function mappedSpiralDrumVoice(baseVoice, contact = {}, {
   const baseModIndex = clamp(baseVoice?.modIndex, 0, 20);
   const baseLevel = clamp(baseVoice?.level);
   const headroom = 1 / Math.sqrt(Math.max(1, (Number(contactCount) || 1) / 4));
+  const isBell = baseVoice?.family === "bell";
+  const mappedModIndex = clamp(
+    baseModIndex * (1 - character * 0.45)
+      + baseModIndex * (0.55 + normalized.incidence * 0.9) * character,
+    0,
+    20,
+  );
+  const mappedLevel = clamp(
+    baseLevel * (0.38 + normalized.incidence * 0.62) * headroom,
+  );
   return {
     ...baseVoice,
+    attack: isBell ? Math.min(Number(baseVoice.attack) || 0.001, 0.006) : baseVoice.attack,
+    decay: isBell ? Math.min(Number(baseVoice.decay) || 0.1, 0.58) : baseVoice.decay,
     frequency: clamp(baseFrequency * (2 ** (semitones / 12)), 20, 12_000),
     tone: clamp(
       baseTone * (1 - character) + normalized.incidence * character,
     ),
-    modIndex: clamp(
-      baseModIndex * (1 - character * 0.45)
-        + baseModIndex * (0.55 + normalized.incidence * 0.9) * character,
-      0,
-      20,
-    ),
-    level: clamp(
-      baseLevel * (0.38 + normalized.incidence * 0.62) * headroom,
-    ),
+    modIndex: isBell ? mappedModIndex * 0.68 : mappedModIndex,
+    level: isBell ? mappedLevel * 0.62 : mappedLevel,
   };
 }

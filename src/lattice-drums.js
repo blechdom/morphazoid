@@ -66,16 +66,23 @@ export function mappedLatticeDrumVoice(baseVoice, contact, {
   const semitones = (position.y * 2 - 1) * clamp(pitchDepth, 0, 24);
   const character = clamp(characterDepth);
   const headroom = 1 / Math.sqrt(Math.max(1, Number(contactCount) / 4));
+  const isBell = baseVoice?.family === "bell";
+  const mappedModIndex = clamp(
+    baseVoice.modIndex * (1 - character * 0.45)
+      + baseVoice.modIndex * (0.55 + incidence * 0.9) * character,
+    0,
+    20,
+  );
+  const mappedLevel = clamp(
+    baseVoice.level * (0.38 + incidence * 0.62) * headroom,
+  );
   return {
     ...baseVoice,
+    attack: isBell ? Math.min(Number(baseVoice.attack) || 0.001, 0.006) : baseVoice.attack,
+    decay: isBell ? Math.min(Number(baseVoice.decay) || 0.1, 0.58) : baseVoice.decay,
     frequency: clamp(baseVoice.frequency * (2 ** (semitones / 12)), 20, 12_000),
     tone: clamp(baseVoice.tone * (1 - character) + incidence * character),
-    modIndex: clamp(
-      baseVoice.modIndex * (1 - character * 0.45)
-        + baseVoice.modIndex * (0.55 + incidence * 0.9) * character,
-      0,
-      20,
-    ),
-    level: clamp(baseVoice.level * (0.38 + incidence * 0.62) * headroom),
+    modIndex: isBell ? mappedModIndex * 0.68 : mappedModIndex,
+    level: isBell ? mappedLevel * 0.62 : mappedLevel,
   };
 }
