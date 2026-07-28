@@ -4,21 +4,66 @@ const clamp = (value, minimum = 0, maximum = 1) => (
 
 const TAU = Math.PI * 2;
 
+const mappingLegend = (...items) => Object.freeze(
+  items.map(([source, target]) => Object.freeze({ source, target })),
+);
+
+export function shapeRotationTravelForAngle(angle, mode = "loop") {
+  const normalized = ((Number(angle) + 180) % 360 + 360) % 360 - 180;
+  return mode === "pingpong" ? (normalized + 180) / 360 : normalized / 360;
+}
+
+export function reversedShapeHeadState({
+  position = 0,
+  direction = 1,
+  offset = 0,
+  adjustment = 0,
+} = {}) {
+  const currentDirection = Number(direction) < 0 ? -1 : 1;
+  const nextDirection = -currentDirection;
+  const travel = currentDirection * Number(position) + Number(offset) + Number(adjustment);
+  return {
+    direction: nextDirection,
+    adjustment: travel - nextDirection * Number(position) - Number(offset),
+  };
+}
+
 export const SHAPE_DRUM_MAPPING_MODES = Object.freeze([
   Object.freeze({
     id: "contour-corner",
-    label: "Contour × corner",
-    description: "Contour segment chooses the row; tangent direction chooses the column.",
+    label: "Side × tangent",
+    description: "Polygon side regions choose the drum row; tangent direction chooses the column.",
+    legend: mappingLegend(
+      ["Side / sub", "drum row"],
+      ["Tangent", "voice column"],
+      ["Height", "tuning"],
+      ["Corner", "tone + force"],
+      ["Incidence", "character + force"],
+    ),
   }),
   Object.freeze({
     id: "position-grid",
     label: "Contact position",
     description: "The contact's 4 × 4 position inside the shape bounds chooses the drum.",
+    legend: mappingLegend(
+      ["Vertical position", "row + tuning"],
+      ["Horizontal position", "voice column"],
+      ["Corner", "tone + force"],
+      ["Incidence", "character + force"],
+      ["Contact count", "level headroom"],
+    ),
   }),
   Object.freeze({
     id: "incidence-playhead",
     label: "Playhead × incidence",
     description: "Playhead identity chooses the row; crossing incidence chooses the column.",
+    legend: mappingLegend(
+      ["Playhead", "drum row"],
+      ["Incidence", "column + character"],
+      ["Height", "tuning"],
+      ["Corner", "tone + force"],
+      ["Contact count", "level headroom"],
+    ),
   }),
 ]);
 
@@ -46,9 +91,107 @@ function angularQuadrant(angle) {
   return Math.min(3, Math.floor(wrapped / TAU * 4));
 }
 
+export function sanitizeShapeSideSubdivisions(value) {
+  const numeric = Number(value);
+  return Math.min(16, Math.max(
+    1,
+    Number.isFinite(numeric) ? Math.round(numeric) : 1,
+  ));
+}
+
+/**
+ * Resolve a contact to an actual polygon side and an equal-arclength bin on
+ * that side. Circles have no declared vertices, so they deliberately return
+ * null and retain their continuous phase mapping.
+ */
+export function shapeSideSubdivision(contact = {}, path = {}, subdivisions = 1) {
+  const vertexDistances = Array.isArray(path?.vertexDistances)
+    ? path.vertexDistances
+    : [];
+  const totalLength = Number(path?.totalLength);
+  const closed = Boolean(path?.closed);
+  const sideCount = closed
+    ? vertexDistances.length
+    : Math.max(0, vertexDistances.length - 1);
+  if (!sideCount || !Number.isFinite(totalLength) || totalLength <= 0) return null;
+
+  let distance = Number(contact?.distance);
+  if (!Number.isFinite(distance)) {
+    const phase = Number(contact?.u);
+    distance = (Number.isFinite(phase) ? phase : 0) * totalLength;
+  }
+  if (closed) {
+    distance = ((distance % totalLength) + totalLength) % totalLength;
+  } else {
+    distance = Math.min(totalLength, Math.max(0, distance));
+  }
+
+  let sideIndex = sideCount - 1;
+  if (!closed && distance >= totalLength) {
+    sideIndex = sideCount - 1;
+  } else {
+    for (let index = 0; index < sideCount; index += 1) {
+      const end = index + 1 < vertexDistances.length
+        ? Number(vertexDistances[index + 1])
+        : totalLength;
+      if (distance < end) {
+        sideIndex = index;
+        break;
+      }
+    }
+  }
+
+  const start = Number(vertexDistances[sideIndex]) || 0;
+  const end = sideIndex + 1 < vertexDistances.length
+    ? Number(vertexDistances[sideIndex + 1])
+    : totalLength;
+  const local = clamp((distance - start) / Math.max(1e-9, end - start));
+  const count = sanitizeShapeSideSubdivisions(subdivisions);
+  const subdivisionIndex = Math.min(count - 1, Math.floor(local * count));
+  return {
+    sideIndex,
+    sideCount,
+    subdivisionIndex,
+    subdivisions: count,
+    globalIndex: sideIndex * count + subdivisionIndex,
+    local,
+  };
+}
+
+export function limitShapeDrumHits(hits = [], limit = 6) {
+  const maximum = Math.min(16, Math.max(
+    1,
+    Number.isFinite(Number(limit)) ? Math.round(Number(limit)) : 6,
+  ));
+  return Array.from(hits).slice(0, maximum);
+}
+
+export function shapeDrumEventToken(
+  contact = {},
+  path = {},
+  sideSubdivisions = 1,
+  voiceIndex = 0,
+) {
+  const subdivision = shapeSideSubdivision(contact, path, sideSubdivisions);
+  if (subdivision) {
+    return `side:${subdivision.sideIndex}:sub:${subdivision.subdivisionIndex}`;
+  }
+  const resolution = Math.max(4, Number(path?.vertexCount) || 16);
+  const phase = ((Number(contact?.u) || 0) % 1 + 1) % 1;
+  const phaseBand = Math.min(
+    resolution - 1,
+    Math.floor(phase * resolution),
+  );
+  const corner = Math.trunc(Number(contact?.cornerIndex));
+  const feature = Number.isFinite(corner) && corner >= 0 ? corner : phaseBand;
+  return `${feature}:${phaseBand}:${Math.trunc(Number(voiceIndex) || 0)}`;
+}
+
 export function shapeDrumVoiceIndex(contact, {
   mode = "contour-corner",
   bounds = { minX: -1, minY: -1, maxX: 1, maxY: 1, width: 2, height: 2 },
+  path = null,
+  sideSubdivisions = 1,
 } = {}) {
   if (mode === "position-grid") {
     const position = normalizedShapeContact(contact, bounds);
@@ -60,7 +203,11 @@ export function shapeDrumVoiceIndex(contact, {
   }
   const phaseRow = quadrant(contact?.u ?? contact?.headPhase);
   const corner = Math.trunc(Number(contact?.cornerIndex));
-  const row = Number.isFinite(corner) && corner >= 0 ? Math.abs(corner) % 4 : phaseRow;
+  const currentRow = Number.isFinite(corner) && corner >= 0
+    ? Math.abs(corner) % 4
+    : phaseRow;
+  const subdivision = shapeSideSubdivision(contact, path, sideSubdivisions);
+  const row = subdivision ? subdivision.globalIndex % 4 : currentRow;
   return row * 4 + angularQuadrant(contact?.tangentAngle);
 }
 

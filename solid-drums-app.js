@@ -21,6 +21,9 @@ import {
   normalizedSolidContact,
   solidDrumBounds,
   solidDrumContacts,
+  solidDrumProjectedPosition,
+  solidDrumSubdivisionCount,
+  solidDrumSubdivisionMarkers,
   solidDrumVoiceIndex,
 } from "./src/solid-drums.js";
 
@@ -48,6 +51,7 @@ const defaults = {
   formSkewX: 0,
   formSkewZ: 0,
   mappingMode: "edge-axis",
+  subdivisions: 2,
   pitchDepth: 12,
   characterDepth: 0.7,
   strikeLimit: 6,
@@ -171,6 +175,14 @@ for (const key of ["formSkewX", "formSkewZ"]) {
 bindRange("pitchDepth", "pitchDepth", (value) => `±${Math.round(value)} st`);
 bindRange("characterDepth", "characterDepth", (value) => `${Math.round(value * 100)}%`);
 bindRange("strikeLimit", "strikeLimit", (value) => String(Math.round(value)));
+bindRange("subdivisions", "subdivisions", (value) => (
+  String(solidDrumSubdivisionCount(value))
+), () => {
+  state.subdivisions = solidDrumSubdivisionCount(state.subdivisions);
+  previousContactKeys.clear();
+  suppressStrikesUntil = performance.now() + 80;
+  updateSummaries();
+});
 
 function setAudioState(enabled) {
   state.audioOn = Boolean(enabled);
@@ -235,8 +247,8 @@ function paintTransport() {
     state.planePitchPlaying ? "pitch" : "",
   ].filter(Boolean);
   $("playSummary").textContent = state.playing || surfaceAxes.length
-    ? `plane · ${[state.playing ? "position" : "", ...surfaceAxes].filter(Boolean).join("+")}`
-    : "plane · paused";
+    ? `surface reader · ${[state.playing ? "position" : "", ...surfaceAxes].filter(Boolean).join("+")}`
+    : "surface reader · paused";
 }
 
 const AXIS_MOTIONS = [
@@ -318,8 +330,16 @@ function renderDrumMap() {
 function updateSummaries() {
   $("formSummary").textContent = state.solidType;
   const mode = SOLID_DRUM_MAPPING_MODES.find(({ id }) => id === state.mappingMode);
-  $("mappingSummary").textContent = mode?.label.toLowerCase() ?? "custom";
+  const subdivisions = solidDrumSubdivisionCount(state.subdivisions);
+  $("mappingSummary").textContent = [
+    `surface → ${mode?.label.toLowerCase() ?? "custom"}`,
+    `${subdivisions}/side`,
+  ].join(" · ");
   $("mappingDescription").textContent = mode?.description ?? "";
+  $("solidMappingSourceText").textContent = mode?.source ?? "3D surface contact → drum voice";
+  $("triggerSourceDescription").textContent = subdivisions === 1
+    ? "Trigger source: the moving surface reader crossing the single segment of a projected solid side (edge)."
+    : `Trigger source: the moving surface reader crossing a new one of ${subdivisions} equal segments on a projected solid side (edge).`;
 }
 
 $("mappingMode").addEventListener("change", () => {
@@ -327,6 +347,8 @@ $("mappingMode").addEventListener("change", () => {
   previousContactKeys.clear();
   suppressStrikesUntil = performance.now() + 80;
   updateSummaries();
+  const mode = SOLID_DRUM_MAPPING_MODES.find(({ id }) => id === state.mappingMode);
+  announce(`${mode?.label ?? "Custom"} drum mapping selected. ${mode?.source ?? ""}`.trim());
   scheduleFrame();
 });
 
@@ -376,6 +398,19 @@ function projected(point, transform) {
   return { ...result, canvasX: transform.x(result.x), canvasY: transform.y(result.y) };
 }
 
+function contactWithProjectedPosition(contact, solid) {
+  const edge = solid.edges[contact.edgeIndex];
+  if (!edge) return { ...contact, segmentPosition: contact.t };
+  return {
+    ...contact,
+    segmentPosition: solidDrumProjectedPosition(
+      { ...projectPoint3(contact), t: contact.t },
+      projectPoint3(solid.vertices[edge.a]),
+      projectPoint3(solid.vertices[edge.b]),
+    ),
+  };
+}
+
 function planeCorners(plane, transform) {
   const { u, v } = planeBasis(plane.normal);
   const center = {
@@ -421,11 +456,34 @@ function mappingOptions(bounds) {
   return { mode: state.mappingMode, bounds };
 }
 
+function drawEdgeSubdivisionMarkers(a, b, markers) {
+  if (!markers.length) return;
+  const dx = b.canvasX - a.canvasX;
+  const dy = b.canvasY - a.canvasY;
+  const length = Math.hypot(dx, dy);
+  if (length < 1) return;
+  const normalX = -dy / length;
+  const normalY = dx / length;
+  context.save();
+  context.strokeStyle = "rgba(232,196,107,.28)";
+  context.lineWidth = 0.65;
+  context.beginPath();
+  for (const fraction of markers) {
+    const x = a.canvasX + dx * fraction;
+    const y = a.canvasY + dy * fraction;
+    context.moveTo(x - normalX * 2.2, y - normalY * 2.2);
+    context.lineTo(x + normalX * 2.2, y + normalY * 2.2);
+  }
+  context.stroke();
+  context.restore();
+}
+
 function drawScene(solid, plane, contacts, bounds) {
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context.clearRect(0, 0, cssWidth, cssHeight);
   const transform = projectionTransform();
   drawPlane(plane, transform);
+  const subdivisionMarkers = solidDrumSubdivisionMarkers(state.subdivisions);
   const edges = solid.edges.map((item) => ({
     item,
     depth: (solid.vertices[item.a].z + solid.vertices[item.b].z) * 0.5,
@@ -440,6 +498,7 @@ function drawScene(solid, plane, contacts, bounds) {
     context.strokeStyle = `rgba(232,196,107,${alpha})`;
     context.lineWidth = 1.2;
     context.stroke();
+    drawEdgeSubdivisionMarkers(a, b, subdivisionMarkers);
   }
   for (const vertex of solid.vertices) {
     const point = projected(vertex, transform);
@@ -480,7 +539,9 @@ function updateMappingReadout(contact, voice, bounds) {
   const normalized = normalizedSolidContact(contact, bounds);
   const axis = ["X", "Y", "Z", "DIAGONAL"][normalized.axisIndex];
   $("mappingReadout").textContent = [
+    "SURFACE",
     `EDGE ${(contact.edgeIndex ?? 0) + 1}`,
+    `SEGMENT ${(contact.segmentIndex ?? 0) + 1}/${contact.segmentCount ?? 1}`,
     `${axis} AXIS`,
     `${Math.round(normalized.incidence * 100)}% INCIDENCE`,
     `→ ${voice.name}`,
@@ -488,8 +549,8 @@ function updateMappingReadout(contact, voice, bounds) {
   ].join(" · ");
 }
 
-function triggerContacts(contacts, bounds, now) {
-  if (!state.audioOn || now < suppressStrikesUntil) return;
+function triggerContacts(contacts, bounds, now, moving) {
+  if (!state.audioOn || !moving || now < suppressStrikesUntil) return;
   const onsets = contacts.filter((contact) => !previousContactKeys.has(contact.voiceKey));
   let emitted = 0;
   for (const contact of onsets) {
@@ -551,13 +612,20 @@ function frame(now) {
   const solid = transformedSolid();
   const plane = currentPlane(state.continuousPosition, state.planeYaw, state.planePitch, solid);
   const bounds = solidDrumBounds(solid);
-  const contacts = solidDrumContacts(
-    planeIntersections(solid, plane.normal, plane.offset),
+  const rawContacts = planeIntersections(
     solid,
     plane.normal,
+    plane.offset,
+  ).map((contact) => contactWithProjectedPosition(contact, solid));
+  const contacts = solidDrumContacts(
+    rawContacts,
+    solid,
+    plane.normal,
+    state.subdivisions,
   );
+  const moving = motionIsActive() || Boolean(pointer);
   drawScene(solid, plane, contacts, bounds);
-  triggerContacts(contacts, bounds, now);
+  triggerContacts(contacts, bounds, now, moving);
   previousContactKeys = new Set(contacts.map(({ voiceKey }) => voiceKey));
 
   $("position").value = String(state.position);
@@ -572,6 +640,8 @@ function frame(now) {
   $("planePitchOut").textContent = `${Math.round(state.planePitch)}°`;
   $("stageReadout").textContent = [
     state.solidType.toUpperCase(),
+    "SURFACE READER",
+    `${state.subdivisions} SEGMENT${state.subdivisions === 1 ? "" : "S"}/SIDE`,
     `${contacts.length} CONTACT${contacts.length === 1 ? "" : "S"}`,
     state.audioOn ? "AUDIO ON" : "AUDIO OFF",
   ].join(" · ");
@@ -698,7 +768,7 @@ function reset() {
     "rotationX", "rotationY", "rotationZ",
     "rotationXSpeed", "rotationYSpeed", "rotationZSpeed",
     "formScaleX", "formScaleY", "formScaleZ", "formSkewX", "formSkewZ",
-    "pitchDepth", "characterDepth", "strikeLimit",
+    "pitchDepth", "characterDepth", "strikeLimit", "subdivisions",
   ]) {
     $(key).value = String(state[key]);
   }
@@ -724,6 +794,7 @@ function reset() {
   $("pitchDepthOut").textContent = `±${state.pitchDepth} st`;
   $("characterDepthOut").textContent = `${Math.round(state.characterDepth * 100)}%`;
   $("strikeLimitOut").textContent = String(state.strikeLimit);
+  $("subdivisionsOut").textContent = String(state.subdivisions);
   $("directionButton").textContent = "Direction · forward";
   previousContactKeys.clear();
   lastStrikeTimes.clear();

@@ -18,16 +18,19 @@ export const SOLID_DRUM_MAPPING_MODES = Object.freeze([
     id: "edge-axis",
     label: "Edge × axis",
     description: "Edge identity chooses the row; its X, Y, Z, or diagonal direction chooses the column.",
+    source: "Edge number modulo 4 → drum row · X / Y / Z / diagonal direction → voice column",
   }),
   Object.freeze({
     id: "position-grid",
     label: "3D position",
     description: "The intersection's height chooses the row and horizontal position chooses the column.",
+    source: "3D height (Y) → drum row · 3D horizontal position (X) → voice column",
   }),
   Object.freeze({
     id: "incidence-depth",
     label: "Incidence × depth",
     description: "Crossing incidence chooses the row; front-to-back depth chooses the column.",
+    source: "Surface-crossing incidence → drum row · front-to-back position (Z) → voice column",
   }),
 ]);
 
@@ -73,10 +76,38 @@ export function normalizedSolidContact(contact = {}, bounds = solidDrumBounds())
   };
 }
 
-export function solidDrumContactKey(contact = {}, subdivisions = 4) {
+export function solidDrumSubdivisionCount(value = 1) {
+  const numeric = Number(value);
+  return Math.min(
+    16,
+    Math.max(1, Number.isFinite(numeric) ? Math.trunc(numeric) : 1),
+  );
+}
+
+export function solidDrumSubdivisionMarkers(subdivisions = 1) {
+  const count = solidDrumSubdivisionCount(subdivisions);
+  return Array.from({ length: count - 1 }, (_, index) => (index + 1) / count);
+}
+
+export function solidDrumProjectedPosition(point = {}, start = {}, end = {}) {
+  const dx = finiteCoordinate(end.x) - finiteCoordinate(start.x);
+  const dy = finiteCoordinate(end.y) - finiteCoordinate(start.y);
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared <= EPSILON) return clamp(point?.t);
+  return clamp((
+    (finiteCoordinate(point.x) - finiteCoordinate(start.x)) * dx
+    + (finiteCoordinate(point.y) - finiteCoordinate(start.y)) * dy
+  ) / lengthSquared);
+}
+
+export function solidDrumContactKey(contact = {}, subdivisions = 1) {
   const edgeIndex = Math.max(0, Math.trunc(Number(contact.edgeIndex) || 0));
-  const divisionCount = Math.max(1, Math.trunc(Number(subdivisions) || 4));
-  const segment = Math.min(divisionCount - 1, Math.floor(clamp(contact.t) * divisionCount));
+  const divisionCount = solidDrumSubdivisionCount(subdivisions);
+  const segmentPosition = clamp(contact.segmentPosition ?? contact.t);
+  const segment = Math.min(
+    divisionCount - 1,
+    Math.floor(segmentPosition * divisionCount),
+  );
   return `edge:${edgeIndex}:segment:${segment}`;
 }
 
@@ -96,9 +127,15 @@ function dominantAxis(vector) {
  * Attach the edge direction and its incidence to the moving reader plane.
  * This keeps the audio mapping pure while leaving Solid's geometry untouched.
  */
-export function solidDrumContacts(contacts = [], solid = {}, normal = {}) {
+export function solidDrumContacts(
+  contacts = [],
+  solid = {},
+  normal = {},
+  subdivisions = 1,
+) {
   const edges = Array.isArray(solid?.edges) ? solid.edges : [];
   const vertices = Array.isArray(solid?.vertices) ? solid.vertices : [];
+  const segmentCount = solidDrumSubdivisionCount(subdivisions);
   const normalLength = Math.hypot(
     finiteCoordinate(normal.x),
     finiteCoordinate(normal.y),
@@ -130,10 +167,17 @@ export function solidDrumContacts(contacts = [], solid = {}, normal = {}) {
       edgeIndex,
       axisIndex: dominantAxis(vector),
       incidence: clamp(incidence),
+      segmentPosition: clamp(contact?.segmentPosition ?? contact?.t),
     };
+    const segmentIndex = Math.min(
+      segmentCount - 1,
+      Math.floor(enriched.segmentPosition * segmentCount),
+    );
     return {
       ...enriched,
-      voiceKey: solidDrumContactKey(enriched),
+      segmentIndex,
+      segmentCount,
+      voiceKey: solidDrumContactKey(enriched, segmentCount),
     };
   });
 }

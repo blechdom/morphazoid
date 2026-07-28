@@ -178,7 +178,7 @@ test("lattice app renders and plays line contacts", async () => {
   assert.match(elements.get("stageReadout").textContent, /^1 LINE .+ CONTACT/);
   assert.doesNotMatch(elements.get("stageReadout").textContent, /WALK/);
   assert.match(elements.get("formSummary").textContent, /Pentagon .+ IH20/);
-  assert.equal(elements.get("angleOut").textContent, "90\u00b0");
+  assert.equal(elements.get("angleOut").textContent, "90.0\u00b0");
   assert.equal(elements.get("parameterCount").textContent, "2 parameters · guarded");
   assert.equal(elements.get("edgeCount").textContent, "3 bendable classes");
   assert.equal(elements.get("edgeCurve0Out").textContent, "straight");
@@ -200,11 +200,11 @@ test("lattice app renders and plays line contacts", async () => {
   assert.equal(elements.get("patternDirectionAngle").value, "90");
   assert.equal(elements.get("patternDirectionGlyph").textContent, "\u2193");
   assert.equal(elements.get("patternDirectionAngleOut").textContent, "U→D");
-  assert.equal(elements.get("angleOut").textContent, "90\u00b0");
-  elements.get("patternDirectionAngle").value = "37";
+  assert.equal(elements.get("angleOut").textContent, "90.0\u00b0");
+  elements.get("patternDirectionAngle").value = "37.3";
   listeners.get("patternDirectionAngle:input")();
-  assert.equal(elements.get("patternDirectionAngleOut").textContent, "37\u00b0");
-  assert.equal(elements.get("angleOut").textContent, "90\u00b0");
+  assert.equal(elements.get("patternDirectionAngleOut").textContent, "37.3\u00b0");
+  assert.equal(elements.get("angleOut").textContent, "90.0\u00b0");
   listeners.get("patternDirection:click")();
   listeners.get("patternDirection:click")();
   assert.equal(elements.get("patternDirectionAngleOut").textContent, "R→L");
@@ -422,15 +422,15 @@ test("lattice app renders and plays line contacts", async () => {
     "global shortcuts must not double-activate focused controls",
   );
 
-  elements.get("angle").value = "71";
+  elements.get("angle").value = "71.4";
   listeners.get("angle:input")();
-  assert.equal(elements.get("angleOut").textContent, "71\u00b0");
+  assert.equal(elements.get("angleOut").textContent, "71.4\u00b0");
   now += 20;
   queuedFrame(now);
   assert.ok(drawnArcs > 4);
   listeners.get("resetLineAngle:click")();
   assert.equal(elements.get("angle").value, "90");
-  assert.equal(elements.get("angleOut").textContent, "90\u00b0");
+  assert.equal(elements.get("angleOut").textContent, "90.0\u00b0");
 
   elements.get("tilingType").value = "1";
   listeners.get("tilingType:change")();
@@ -484,7 +484,7 @@ test("lattice app renders and plays line contacts", async () => {
   queuedFrame(now);
   assert.match(elements.get("formSummary").textContent, /Pentagon .+ IH20/);
   assert.equal(elements.get("tilingType").value, "20");
-  assert.equal(elements.get("angleOut").textContent, "90\u00b0");
+  assert.equal(elements.get("angleOut").textContent, "90.0\u00b0");
   assert.equal(elements.get("positionOut").textContent, "50.0%");
   assert.equal(elements.get("edgeCurve0Out").textContent, "straight");
 

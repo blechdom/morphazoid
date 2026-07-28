@@ -69,7 +69,11 @@ export class FmDrumAudio {
   }
 
   async start() {
-    if (!this.context) {
+    if (!this.context || this.context.state === "closed") {
+      this.context = null;
+      this.input = null;
+      this.master = null;
+      this.analyser = null;
       const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
       if (!Context) throw new Error("Web Audio is not available in this browser.");
       this.context = new Context();

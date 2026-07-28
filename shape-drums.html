@@ -25,6 +25,8 @@
         <a class="tab active" href="shape-drums.html" aria-current="page">shape drums</a>
         <a class="tab" href="lattice-drums.html">lattice drums</a>
         <a class="tab" href="spiral-drums.html">spiral drums</a>
+        <a class="tab" href="solid-drums.html">solid drums</a>
+        <a class="tab" href="hyper-drums.html">hyper drums</a>
         <a class="tab" href="fm-drums.html">fm drums</a>
       </nav>
       <label class="mobile-instrument-nav">
@@ -34,6 +36,8 @@
           <option value="shape-drums.html" selected>shape drums</option>
           <option value="lattice-drums.html">lattice drums</option>
           <option value="spiral-drums.html">spiral drums</option>
+          <option value="solid-drums.html">solid drums</option>
+          <option value="hyper-drums.html">hyper drums</option>
           <option value="fm-drums.html">fm drums</option>
         </select>
       </label>
@@ -64,8 +68,8 @@
           <div class="stage-meta" aria-hidden="true">
             <span id="stageReadout">1 POINT · 1 CONTACT · PAUSED · AUDIO OFF</span>
           </div>
-          <div class="shape-mapping-readout" id="mappingReadout" aria-hidden="true">
-            CONTOUR 1 · UP → SUB KICK
+          <div class="shape-mapping-readout" id="mappingReadout" aria-label="Latest drum mapping" aria-live="off">
+            SIDE 1 · SUB 1/2 · 0° → SUB KICK · HITS 0/6
           </div>
         </div>
       </section>
@@ -101,6 +105,22 @@
                 </div>
               </div>
             </div>
+
+            <label class="control" id="sideSubdivisionsControl" for="sideSubdivisions">
+              <span><b>Subdivisions / side</b><output id="sideSubdivisionsOut" for="sideSubdivisions">2</output></span>
+              <input
+                id="sideSubdivisions"
+                type="range"
+                min="1"
+                max="16"
+                step="1"
+                value="2"
+                aria-describedby="sideSubdivisionsHelp"
+              />
+            </label>
+            <p class="shape-control-help" id="sideSubdivisionsHelp">
+              Each polygon side has 2 equal strike regions.
+            </p>
 
             <div class="field-label">Playhead type</div>
             <div class="choice-switch" id="playMethod" role="group" aria-label="Reading method">
@@ -245,22 +265,27 @@
         <details class="group control-section" id="mappingSection" data-section="mapping">
           <summary class="group-summary">
             <h2 class="group-title">Drum mapping</h2>
-            <span class="section-state" id="mappingSummary">contour × corner</span>
+            <span class="section-state" id="mappingSummary">side × tangent · 2/side</span>
           </summary>
           <div class="group-body">
             <label class="select-control" for="mappingMode">
               <span class="field-label">Voice selection</span>
-              <span class="select-shell"><select id="mappingMode"></select></span>
+              <span class="select-shell">
+                <select id="mappingMode" aria-describedby="mappingDescription mappingOrigin"></select>
+              </span>
             </label>
             <p class="shape-mapping-description" id="mappingDescription">
-              Contour segment chooses the row; tangent direction chooses the column.
+              Polygon side regions choose the drum row; tangent direction chooses the column.
             </p>
-            <div class="shape-map-legend" aria-label="Current contact mappings">
-              <span><b>Contour</b><small>drum row</small></span>
-              <span><b>Tangent</b><small>voice column</small></span>
-              <span><b>Height</b><small>tuning</small></span>
-              <span><b>Corner</b><small>tone + force</small></span>
-              <span><b>Incidence</b><small>character</small></span>
+            <p class="shape-mapping-origin" id="mappingOrigin">
+              Origin: side 1 begins at the top marker and follows the contour clockwise.
+            </p>
+            <div class="shape-map-legend" id="mappingLegend" aria-label="Side by tangent contact mappings">
+              <span><b id="mappingLegendSource0">Side / sub</b><small id="mappingLegendTarget0">drum row</small></span>
+              <span><b id="mappingLegendSource1">Tangent</b><small id="mappingLegendTarget1">voice column</small></span>
+              <span><b id="mappingLegendSource2">Height</b><small id="mappingLegendTarget2">tuning</small></span>
+              <span><b id="mappingLegendSource3">Corner</b><small id="mappingLegendTarget3">tone + force</small></span>
+              <span><b id="mappingLegendSource4">Incidence</b><small id="mappingLegendTarget4">character + force</small></span>
             </div>
             <label class="control" for="pitchDepth">
               <span><b>Height → tuning</b><output id="pitchDepthOut" for="pitchDepth">±12 st</output></span>
@@ -271,9 +296,15 @@
               <input id="characterDepth" type="range" min="0" max="1" step=".01" value=".7" />
             </label>
             <label class="control" for="strikeLimit">
-              <span><b>Strikes per frame</b><output id="strikeLimitOut" for="strikeLimit">6</output></span>
-              <input id="strikeLimit" type="range" min="1" max="16" step="1" value="6" />
+              <span><b>Simultaneous hit cap</b><output id="strikeLimitOut" for="strikeLimit">6 max</output></span>
+              <input id="strikeLimit" type="range" min="1" max="16" step="1" value="6" aria-describedby="strikeLimitHelp hitCapStatus" />
             </label>
+            <p class="shape-control-help" id="strikeLimitHelp">
+              Caps new geometry contacts sounded together; manual pad previews are not limited.
+            </p>
+            <p class="shape-hit-cap-status" id="hitCapStatus">
+              Up to 6 new geometry contacts can sound together.
+            </p>
             <div class="shape-drum-map" id="drumMap" aria-label="Sixteen mapped drum voices"></div>
           </div>
         </details>

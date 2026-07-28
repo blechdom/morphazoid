@@ -5,6 +5,7 @@ import test from "node:test";
 import { DEFAULT_FM_DRUM_VOICES } from "../src/fm-drums.js";
 import {
   HYPER_DRUM_MAPPING_MODES,
+  hyperContactSegmentIndex,
   hyperContactVoiceKey,
   hyperDrumVoiceIndex,
   mappedHyperDrumVoice,
@@ -32,6 +33,10 @@ test("Hyper drum mappings cover edge axes, projection, W depth, and incidence", 
     HYPER_DRUM_MAPPING_MODES.map(({ id }) => id),
     ["axis-depth", "projected-position", "w-incidence"],
   );
+  for (const mode of HYPER_DRUM_MAPPING_MODES) {
+    assert.equal(mode.legend.length, 5);
+    assert.ok(mode.legend.every(({ label, detail }) => label && detail));
+  }
   assert.equal(hyperDrumVoiceIndex(
     { axis: "z", projectedDepth: 0.75 },
     { mode: "axis-depth", bounds },
@@ -54,12 +59,30 @@ test("Hyper drum mappings cover edge axes, projection, W depth, and incidence", 
   ), 4);
 });
 
-test("Hyper edge contacts advance through four deduplicated rhythm segments", () => {
+test("Hyper edge contacts default to one region and follow projected subdivisions", () => {
   assert.equal(hyperContactVoiceKey({ edgeIndex: 7, t: 0 }), "hyper:7:0");
-  assert.equal(hyperContactVoiceKey({ edgeIndex: 7, t: 0.249 }), "hyper:7:0");
-  assert.equal(hyperContactVoiceKey({ edgeIndex: 7, t: 0.25 }), "hyper:7:1");
-  assert.equal(hyperContactVoiceKey({ edgeIndex: 7, t: 0.75 }), "hyper:7:3");
-  assert.equal(hyperContactVoiceKey({ edgeIndex: 7, t: 1 }), "hyper:7:3");
+  assert.equal(hyperContactVoiceKey({ edgeIndex: 7, t: 1 }), "hyper:7:0");
+  assert.equal(hyperContactVoiceKey({ edgeIndex: 7, t: 0.249 }, 4), "hyper:7:0");
+  assert.equal(hyperContactVoiceKey({ edgeIndex: 7, t: 0.25 }, 4), "hyper:7:1");
+  assert.equal(hyperContactVoiceKey({ edgeIndex: 7, t: 0.75 }, 4), "hyper:7:3");
+  assert.equal(hyperContactVoiceKey({ edgeIndex: 7, t: 1 }, 4), "hyper:7:3");
+  assert.equal(
+    hyperContactSegmentIndex({ t: 0, projectedAlong: 0.51 }, 4),
+    2,
+    "projected edge progress should define the visible trigger region",
+  );
+});
+
+test("Hyper segment bins clamp endpoints and requested density to sixteen", () => {
+  assert.equal(hyperContactSegmentIndex({ projectedAlong: 0 }, 16), 0);
+  assert.equal(hyperContactSegmentIndex({ projectedAlong: 1 / 16 }, 16), 1);
+  assert.equal(hyperContactSegmentIndex({ projectedAlong: 15 / 16 }, 16), 15);
+  assert.equal(hyperContactSegmentIndex({ projectedAlong: 1 }, 16), 15);
+  assert.equal(hyperContactSegmentIndex({ projectedAlong: 1 }, 99), 15);
+  assert.equal(
+    hyperContactVoiceKey({ edgeIndex: 3, projectedAlong: 1 }, 99),
+    "hyper:3:15",
+  );
 });
 
 test("Hyper contact normalization and FM modulation remain finite and bounded", () => {
@@ -175,6 +198,10 @@ test("Hyper Drum Machine keeps the complete 4D UI and excludes legacy synth pane
     "rotationYWSpeed",
     "rotationZWSpeed",
     "mappingMode",
+    "mappingSource",
+    "mappingLegendLabel0",
+    "mappingLegendDetail4",
+    "subdivisions",
     "drumMap",
   ]) {
     assert.match(html, new RegExp(`id="${id}"`), `missing ${id}`);
@@ -186,12 +213,40 @@ test("Hyper Drum Machine keeps the complete 4D UI and excludes legacy synth pane
     html,
     /soundMode|amplitudeControl|baseFrequency|pitchRange|fmControls|percussionArticulation/,
   );
+  assert.match(html, /<b>Subdivisions \/ side<\/b>/);
+  assert.match(
+    html,
+    /id="subdivisions"[\s\S]*?min="1"[\s\S]*?max="16"[\s\S]*?step="1"[\s\S]*?value="2"/,
+  );
+  assert.ok(
+    html.indexOf('id="speed"') < html.indexOf('id="subdivisions"')
+      && html.indexOf('id="subdivisions"') < html.indexOf('id="directionButton"'),
+    "Subdivisions should sit directly after hyperplane speed in Play",
+  );
+  assert.ok(
+    html.indexOf('id="subdivisions"') < html.indexOf('data-section="form"'),
+    "Subdivisions should not remain in Drum mapping",
+  );
+  assert.match(html, /id="mappingSource"[\s\S]*?<b>Drum source<\/b>/);
+  assert.match(
+    html,
+    /id="mappingMode"[\s\S]*?aria-describedby="mappingDescription mappingSource"/,
+  );
+  assert.match(html, /id="mappingSummary">edge axis × depth · 2\/side</);
   assert.match(css, /\.hyper-drum-map[\s\S]*grid-template-columns: repeat\(4/);
+  assert.match(css, /\.hyper-mapping-source/);
   assert.match(app, /FM_DRUM_STORAGE_KEY/);
   assert.match(app, /new FmDrumAudio\(globalThis\)/);
   assert.match(app, /hyperplaneIntersections/);
-  assert.match(app, /hyperContactVoiceKey\(contact\)/);
+  assert.match(app, /hyperplaneOffsetForShapePhase\(shape, phase\)/);
+  assert.match(app, /if \(looped\) previousContactKeys\.clear\(\)/);
+  assert.doesNotMatch(app, /1\.25 \* state\.hyperScaleW/);
+  assert.match(app, /hyperContactVoiceKey\(enriched, state\.subdivisions\)/);
+  assert.match(app, /SEGMENT \$\{\(contact\.segmentIndex \?\? 0\) \+ 1\}\/\$\{state\.subdivisions\}/);
+  assert.match(app, /if \(state\.subdivisions > 1\)/);
   assert.match(app, /!previousContactKeys\.has\(voiceKey\)/);
   assert.match(app, /now - lastStrike < 75/);
   assert.match(app, /mappedHyperDrumVoice/);
+  assert.match(app, /mode\.legend\.forEach/);
+  assert.match(app, /announce\(`\$\{mode\.label\} mapping\. \$\{mode\.description\}`\)/);
 });

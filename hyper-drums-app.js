@@ -1,7 +1,8 @@
 import { projectPoint3, rotatePoint3 } from "./src/solid.js";
 import {
+  crossedHyperplaneLoop,
   hyperplaneIntersections,
-  hyperplaneOffsetForPhase,
+  hyperplaneOffsetForShapePhase,
   projectPoint4,
   transformedHyperShape,
 } from "./src/hyper.js";
@@ -13,6 +14,7 @@ import {
 } from "./src/fm-drums.js";
 import {
   HYPER_DRUM_MAPPING_MODES,
+  hyperContactSegmentIndex,
   hyperContactVoiceKey,
   hyperDrumVoiceIndex,
   mappedHyperDrumVoice,
@@ -40,6 +42,7 @@ const defaults = Object.freeze({
   mappingMode: "axis-depth",
   pitchDepth: 12,
   characterDepth: 0.7,
+  subdivisions: 2,
   strikeLimit: 6,
   output: 0.65,
 });
@@ -165,6 +168,12 @@ bindRange(
   "characterDepth",
   (value) => `${Math.round(value * 100)}%`,
 );
+bindRange("subdivisions", "subdivisions", (value) => String(Math.round(value)), () => {
+  state.subdivisions = Math.round(clamp(state.subdivisions, 1, 16));
+  clearContactHistory(1);
+  paintSubdivisionHelp();
+  updateMappingSummary();
+});
 bindRange("strikeLimit", "strikeLimit", (value) => String(Math.round(value)));
 for (const axis of ["XW", "YW", "ZW"]) {
   bindRange(
@@ -312,15 +321,37 @@ function populateMappingModes() {
 }
 
 function updateMappingSummary() {
-  const mode = HYPER_DRUM_MAPPING_MODES.find(({ id }) => id === state.mappingMode);
-  $("mappingSummary").textContent = mode?.label.toLowerCase() ?? "custom";
-  $("mappingDescription").textContent = mode?.description ?? "";
+  const mode = currentMappingMode();
+  $("mappingSummary").textContent = [
+    mode.label.toLowerCase(),
+    `${state.subdivisions}/side`,
+  ].join(" · ");
+  $("mappingDescription").textContent = mode.description;
+  $("mappingSource").querySelector("span").textContent = mode.source;
+  mode.legend.forEach(({ label, detail }, index) => {
+    $(`mappingLegendLabel${index}`).textContent = label;
+    $(`mappingLegendDetail${index}`).textContent = detail;
+  });
+}
+
+function currentMappingMode() {
+  return HYPER_DRUM_MAPPING_MODES.find(({ id }) => id === state.mappingMode)
+    ?? HYPER_DRUM_MAPPING_MODES[0];
+}
+
+function paintSubdivisionHelp() {
+  const count = Math.round(state.subdivisions);
+  $("subdivisionsHelp").textContent = count === 1
+    ? "Each projected 4D edge (side) is one trigger region. Raise this for repeated hits along a side."
+    : `Each projected 4D edge (side) has ${count} equal trigger regions, marked on the wireframe.`;
 }
 
 $("mappingMode").addEventListener("change", () => {
   state.mappingMode = $("mappingMode").value;
   clearContactHistory(1);
   updateMappingSummary();
+  const mode = currentMappingMode();
+  announce(`${mode.label} mapping. ${mode.description}`);
   scheduleFrame();
 });
 
@@ -364,11 +395,8 @@ function currentHyperShape() {
   return transformedHyperShape(state.shapeType, rotation(), hyperForm());
 }
 
-function currentHyperplaneOffset() {
-  return hyperplaneOffsetForPhase(
-    state.continuousPosition,
-    1.25 * state.hyperScaleW,
-  );
+function currentHyperplaneOffset(shape, phase = state.continuousPosition) {
+  return hyperplaneOffsetForShapePhase(shape, phase);
 }
 
 function viewPoint(point) {
@@ -423,13 +451,29 @@ function enrichContacts(shape, contacts) {
     const dz = pointB.z - pointA.z;
     const dw = pointB.w - pointA.w;
     const viewed = viewPoint(contact);
-    return {
+    const viewedA = viewPoint(pointA);
+    const viewedB = viewPoint(pointB);
+    const projectedDX = viewedB.x - viewedA.x;
+    const projectedDY = viewedB.y - viewedA.y;
+    const projectedLengthSquared = projectedDX ** 2 + projectedDY ** 2;
+    const projectedAlong = clamp(
+      (
+        (viewed.x - viewedA.x) * projectedDX
+        + (viewed.y - viewedA.y) * projectedDY
+      ) / Math.max(1e-9, projectedLengthSquared),
+    );
+    const enriched = {
       ...contact,
       projectedX: viewed.x,
       projectedY: viewed.y,
       projectedDepth: viewed.z,
+      projectedAlong,
       incidence: clamp(Math.abs(dw) / Math.max(1e-9, Math.hypot(dx, dy, dz, dw))),
-      voiceKey: hyperContactVoiceKey(contact),
+    };
+    return {
+      ...enriched,
+      segmentIndex: hyperContactSegmentIndex(enriched, state.subdivisions),
+      voiceKey: hyperContactVoiceKey(enriched, state.subdivisions),
     };
   });
 }
@@ -467,6 +511,23 @@ function drawScene(shape, contacts, offset, bounds) {
     if (wAxis) context.setLineDash([3, 4]);
     context.stroke();
     context.setLineDash([]);
+  }
+
+  if (state.subdivisions > 1) {
+    context.beginPath();
+    for (const edge of shape.edges) {
+      const a = canvasPoint(shape.vertices[edge.a]);
+      const b = canvasPoint(shape.vertices[edge.b]);
+      for (let division = 1; division < state.subdivisions; division += 1) {
+        const along = division / state.subdivisions;
+        const x = a.canvasX + (b.canvasX - a.canvasX) * along;
+        const y = a.canvasY + (b.canvasY - a.canvasY) * along;
+        context.moveTo(x + 1.25, y);
+        context.arc(x, y, 1.25, 0, TAU);
+      }
+    }
+    context.fillStyle = "rgba(255,243,214,.34)";
+    context.fill();
   }
 
   const planeY = cssHeight * (0.5 - offset * 0.08);
@@ -523,6 +584,7 @@ function updateMappingReadout(contact, voice, bounds) {
   const normalized = normalizedHyperContact(contact, bounds);
   $("mappingReadout").textContent = [
     `${String(contact.axis || "4D").toUpperCase()} EDGE`,
+    `SEGMENT ${(contact.segmentIndex ?? 0) + 1}/${state.subdivisions}`,
     `${Math.round(normalized.depth * 100)}% DEPTH`,
     `→ ${voice.name}`,
     `${Math.round(voice.frequency)} HZ`,
@@ -570,10 +632,15 @@ function frame(now) {
   scheduledFrame = 0;
   const delta = Math.min(0.1, Math.max(0, (now - lastFrameTime) / 1_000));
   lastFrameTime = now;
+  const previousPosition = state.continuousPosition;
   if (state.playing) {
     state.continuousPosition += state.direction * state.speed * delta;
     state.position = wrap01(state.continuousPosition);
   }
+  const looped = state.playing && crossedHyperplaneLoop(
+    previousPosition,
+    state.continuousPosition,
+  );
   for (const axis of ["XW", "YW", "ZW"]) {
     if (!state[`rotation${axis}Playing`]) continue;
     state[`rotation${axis}`] = normalizeDegrees(
@@ -583,13 +650,14 @@ function frame(now) {
   }
 
   const shape = currentHyperShape();
-  const offset = currentHyperplaneOffset();
+  const offset = currentHyperplaneOffset(shape);
   const bounds = boundsForShape(shape);
   const contacts = enrichContacts(
     shape,
     hyperplaneIntersections(shape, offset),
   );
   const moving = state.playing || rotationIsMoving() || Boolean(canvasDrag);
+  if (looped) previousContactKeys.clear();
   triggerContacts(contacts, now, bounds, moving);
   previousContactKeys.clear();
   for (const { voiceKey } of contacts) previousContactKeys.add(voiceKey);
@@ -603,6 +671,7 @@ function frame(now) {
     $(`rotation${axis}Out`).textContent = `${Math.round(state[`rotation${axis}`])}°`;
   }
   const shapeLabel = (SHAPE_LABELS[state.shapeType] ?? "Tesseract").toUpperCase();
+  const mappingStatus = currentMappingMode().status;
   const motion = [
     state.playing ? "W PLANE" : "",
     rotationIsMoving() ? "ROTATION" : "",
@@ -610,6 +679,8 @@ function frame(now) {
   ].filter(Boolean).join(" + ") || "PAUSED";
   $("stageReadout").textContent = [
     shapeLabel,
+    mappingStatus,
+    `${state.subdivisions} SEG/SIDE`,
     `${contacts.length} CONTACT${contacts.length === 1 ? "" : "S"}`,
     motion,
     state.audioOn ? "AUDIO ON" : "AUDIO OFF",
@@ -696,6 +767,7 @@ function reset() {
     "output",
     "pitchDepth",
     "characterDepth",
+    "subdivisions",
     "strikeLimit",
     "rotationXW",
     "rotationYW",
@@ -715,6 +787,7 @@ function reset() {
   $("outputOut").textContent = "65%";
   $("pitchDepthOut").textContent = "±12 st";
   $("characterDepthOut").textContent = "70%";
+  $("subdivisionsOut").textContent = String(state.subdivisions);
   $("strikeLimitOut").textContent = "6";
   for (const axis of ["XW", "YW", "ZW"]) {
     $(`rotation${axis}Out`).textContent = `${Math.round(state[`rotation${axis}`])}°`;
@@ -731,6 +804,7 @@ function reset() {
   paintPlayback();
   paintRotation();
   updateMappingSummary();
+  paintSubdivisionHelp();
   lastStrikeTimes.clear();
   clearContactHistory(2);
   if (state.audioOn) audio.setOutput(state.output);

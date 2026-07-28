@@ -20,9 +20,15 @@ import {
   sanitizeFmDrumVoice,
 } from "./src/fm-drums.js";
 import {
+  limitShapeDrumHits,
   mappedShapeDrumVoice,
+  reversedShapeHeadState,
+  sanitizeShapeSideSubdivisions,
   SHAPE_DRUM_MAPPING_MODES,
+  shapeDrumEventToken,
   shapeDrumVoiceIndex,
+  shapeRotationTravelForAngle,
+  shapeSideSubdivision,
 } from "./src/shape-drums.js";
 
 const $ = (id) => document.getElementById(id);
@@ -50,6 +56,7 @@ const defaults = {
   speed: .06,
   traversalDirection: 1,
   mappingMode: "contour-corner",
+  sideSubdivisions: 2,
   pitchDepth: 12,
   characterDepth: .7,
   strikeLimit: 6,
@@ -65,6 +72,8 @@ const state = {
   scanLineAxes: Array(4).fill("vertical"),
   traceHeadDirections: Array(12).fill(1),
   radialHeadDirections: Array(12).fill(1),
+  traceHeadDirectionAdjustments: Array(12).fill(0),
+  radialHeadDirectionAdjustments: Array(12).fill(0),
   playing: false,
   autoRotate: false,
   audioOn: false,
@@ -183,6 +192,27 @@ function directionsForMethod(method = state.playMethod) {
   return method === "radial" ? state.radialHeadDirections : state.traceHeadDirections;
 }
 
+function directionAdjustmentsForMethod(method = state.playMethod) {
+  return method === "radial"
+    ? state.radialHeadDirectionAdjustments
+    : state.traceHeadDirectionAdjustments;
+}
+
+function alignDirectionAdjustments(method) {
+  if (method === "scan") return;
+  const directions = directionsForMethod(method);
+  const adjustments = directionAdjustmentsForMethod(method);
+  for (let index = 0; index < state.heads; index += 1) {
+    const direction = directions[index] < 0 ? -1 : 1;
+    adjustments[index] = (1 - direction) * state.continuousPosition;
+  }
+}
+
+function alignPointAndRadarDirections() {
+  alignDirectionAdjustments("trace");
+  alignDirectionAdjustments("radial");
+}
+
 function headDirection(headIndex, method = state.playMethod) {
   if (method === "scan") return 1;
   return directionsForMethod(method)[headIndex] < 0 ? -1 : 1;
@@ -194,7 +224,9 @@ function phaseOffsetForHead(headIndex, method = state.playMethod) {
 }
 
 function directionalHeadTravel(position, headIndex, method = state.playMethod) {
-  return headDirection(headIndex, method) * position + phaseOffsetForHead(headIndex, method);
+  return headDirection(headIndex, method) * position
+    + phaseOffsetForHead(headIndex, method)
+    + (directionAdjustmentsForMethod(method)[headIndex] ?? 0);
 }
 
 function phaseForHead(position, headIndex, method = state.playMethod) {
@@ -393,33 +425,95 @@ async function previewVoice(index) {
 }
 
 function mappingOptions(path) {
-  return { mode: state.mappingMode, bounds: path.bounds };
+  return {
+    mode: state.mappingMode,
+    bounds: path.bounds,
+    path,
+    sideSubdivisions: state.sideSubdivisions,
+  };
 }
 
-function contactEventToken(contact, path, voiceIndex) {
-  const resolution = Math.max(4, path.vertexCount || 16);
-  const phaseBand = Math.min(resolution - 1, Math.floor(wrap01(contact.u) * resolution));
-  const feature = path.vertexCount ? contact.cornerIndex : phaseBand;
-  return `${feature}:${phaseBand}:${voiceIndex}`;
+function mappingOriginText() {
+  const strikeOrigin = state.sides === 1
+    ? "Circles have no sides, so subdivisions are inactive."
+    : state.sides === 2
+      ? "Side 1 begins at marker 1 and follows the open line."
+      : "Side 1 begins at marker 1 and follows the contour clockwise.";
+  if (state.mappingMode === "position-grid") {
+    return `Voice-grid origin is upper-left; rows run down and columns run right. ${strikeOrigin}`;
+  }
+  if (state.mappingMode === "incidence-playhead") {
+    return `Voice rows begin with playhead 1; columns run from glancing to direct. ${strikeOrigin}`;
+  }
+  return `Origin: ${strikeOrigin} Subdivisions count forward from each side's first corner.`;
+}
+
+function updateMappingLegend(mode) {
+  for (let index = 0; index < 5; index += 1) {
+    const item = mode?.legend?.[index];
+    $(`mappingLegendSource${index}`).textContent = item?.source ?? "";
+    $(`mappingLegendTarget${index}`).textContent = item?.target ?? "";
+  }
+  $("mappingLegend").setAttribute(
+    "aria-label",
+    `${mode?.label ?? "Current"} contact mappings`,
+  );
+}
+
+function contactSubdivisionLabel(contact, path) {
+  const subdivision = shapeSideSubdivision(contact, path, state.sideSubdivisions);
+  if (subdivision) {
+    return [
+      `SIDE ${subdivision.sideIndex + 1}`,
+      `SUB ${subdivision.subdivisionIndex + 1}/${subdivision.subdivisions}`,
+    ].join(" · ");
+  }
+  return `PHASE ${Math.round(wrap01(contact?.u) * 100)}%`;
+}
+
+function updateHitCapStatus(sounded = null, candidates = null) {
+  const limit = Math.round(state.strikeLimit);
+  const output = $("hitCapStatus");
+  output.classList.remove("is-limited");
+  if (!Number.isFinite(sounded) || !Number.isFinite(candidates)) {
+    output.textContent = `Up to ${limit} new geometry ${plural(limit, "contact")} can sound together.`;
+    return;
+  }
+  const skipped = Math.max(0, candidates - sounded);
+  output.textContent = skipped
+    ? `${sounded} sounded · ${skipped} skipped by the ${limit}-hit cap.`
+    : `${sounded} ${plural(sounded, "hit")} sounded together · cap ${limit}.`;
+  if (skipped) output.classList.add("is-limited");
 }
 
 function triggerContacts(contacts, path, now) {
   const nextTokens = new Map();
-  let emitted = 0;
+  const frameVoices = new Set();
+  const candidates = [];
   for (const contact of contacts) {
     const voiceIndex = shapeDrumVoiceIndex(contact, mappingOptions(path));
-    const token = contactEventToken(contact, path, voiceIndex);
+    const token = shapeDrumEventToken(
+      contact,
+      path,
+      state.sideSubdivisions,
+      voiceIndex,
+    );
     nextTokens.set(contact.voiceKey, token);
     if (
       !state.audioOn
       || suppressStrikes > 0
       || lastEventTokens.get(contact.voiceKey) === token
-      || emitted >= state.strikeLimit
     ) {
       continue;
     }
     const lastStrike = lastStrikeTimes.get(voiceIndex) ?? Number.NEGATIVE_INFINITY;
-    if (now - lastStrike < 70) continue;
+    if (now - lastStrike < 70 || frameVoices.has(voiceIndex)) continue;
+    frameVoices.add(voiceIndex);
+    candidates.push({ contact, voiceIndex });
+  }
+
+  const selected = limitShapeDrumHits(candidates, state.strikeLimit);
+  for (const { contact, voiceIndex } of selected) {
     lastStrikeTimes.set(voiceIndex, now);
     const voice = mappedShapeDrumVoice(voices[voiceIndex], contact, {
       bounds: path.bounds,
@@ -430,13 +524,14 @@ function triggerContacts(contacts, path, now) {
     audio.trigger(voice).catch(showError);
     flashVoice(voiceIndex);
     $("mappingReadout").textContent = [
-      `CONTOUR ${Math.max(0, contact.cornerIndex) + 1}`,
+      contactSubdivisionLabel(contact, path),
       `${Math.round((contact.tangentAngle || 0) * 180 / Math.PI)}°`,
       `→ ${voice.name}`,
       `${Math.round(voice.frequency)} HZ`,
+      `HITS ${selected.length}/${Math.round(state.strikeLimit)}`,
     ].join(" · ");
-    emitted += 1;
   }
+  if (candidates.length) updateHitCapStatus(selected.length, candidates.length);
   lastEventTokens.clear();
   for (const [key, token] of nextTokens) lastEventTokens.set(key, token);
 }
@@ -469,6 +564,33 @@ function drawShape(path, transform) {
   drawing.lineCap = "round";
   drawing.stroke();
 
+  if (state.sideSubdivisions > 1 && path.vertexDistances.length) {
+    const sideCount = path.closed
+      ? path.vertexDistances.length
+      : Math.max(0, path.vertexDistances.length - 1);
+    drawing.save();
+    drawing.beginPath();
+    for (let sideIndex = 0; sideIndex < sideCount; sideIndex += 1) {
+      const start = path.vertexDistances[sideIndex];
+      const end = sideIndex + 1 < path.vertexDistances.length
+        ? path.vertexDistances[sideIndex + 1]
+        : path.totalLength;
+      for (let subdivision = 1; subdivision < state.sideSubdivisions; subdivision += 1) {
+        const distance = start + (end - start) * subdivision / state.sideSubdivisions;
+        const contact = pointAtPath(path, distance / path.totalLength);
+        const x = transform.x(contact.x);
+        const y = transform.y(contact.y);
+        const normal = { x: -contact.tangent.y, y: contact.tangent.x };
+        drawing.moveTo(x - normal.x * 2.7, y - normal.y * 2.7);
+        drawing.lineTo(x + normal.x * 2.7, y + normal.y * 2.7);
+      }
+    }
+    drawing.strokeStyle = "rgba(232, 196, 107, .42)";
+    drawing.lineWidth = 1;
+    drawing.stroke();
+    drawing.restore();
+  }
+
   path.vertexIndices.forEach((pointIndex, index) => {
     const point = path.points[pointIndex];
     drawing.beginPath();
@@ -481,6 +603,25 @@ function drawShape(path, transform) {
     drawing.lineWidth = 1;
     drawing.stroke();
   });
+
+  const originIndex = path.vertexIndices[0];
+  const origin = path.points[originIndex];
+  if (origin) {
+    const x = transform.x(origin.x);
+    const y = transform.y(origin.y);
+    drawing.beginPath();
+    drawing.arc(x, y, 7, 0, TAU);
+    drawing.strokeStyle = "rgba(255, 243, 214, .88)";
+    drawing.lineWidth = 1;
+    drawing.stroke();
+    if (typeof drawing.fillText === "function") {
+      drawing.fillStyle = "#fff3d6";
+      drawing.font = "8px ui-monospace, monospace";
+      drawing.textAlign = "left";
+      drawing.textBaseline = "bottom";
+      drawing.fillText("1", x + 6, y - 5);
+    }
+  }
 }
 
 function addScannerPath(scanner, transform, extent = 1.14) {
@@ -565,8 +706,29 @@ function updateSectionSummaries(contacts = []) {
       ? "open line"
       : `${state.sides}-point ${state.closedShapeType}`;
   const mode = SHAPE_DRUM_MAPPING_MODES.find(({ id }) => id === state.mappingMode);
-  $("mappingSummary").textContent = mode?.label.toLowerCase() ?? "custom";
+  const subdivisionSummary = state.sides === 1
+    ? "circle"
+    : `${state.sideSubdivisions}/side`;
+  $("mappingSummary").textContent = `${mode?.label.toLowerCase() ?? "custom"} · ${subdivisionSummary}`;
   $("mappingDescription").textContent = mode?.description ?? "";
+  $("mappingOrigin").textContent = mappingOriginText();
+  updateMappingLegend(mode);
+  const circle = state.sides === 1;
+  const subdivisionsControl = $("sideSubdivisionsControl");
+  $("sideSubdivisions").disabled = circle;
+  subdivisionsControl.classList[circle ? "add" : "remove"]("is-disabled");
+  $("sideSubdivisionsOut").textContent = circle
+    ? "inactive"
+    : String(state.sideSubdivisions);
+  $("sideSubdivisions").setAttribute(
+    "aria-valuetext",
+    circle
+      ? "Unavailable for circles"
+      : `${state.sideSubdivisions} ${plural(state.sideSubdivisions, "subdivision")} per side`,
+  );
+  $("sideSubdivisionsHelp").textContent = circle
+    ? "Circles have no polygon sides; continuous contour phase selects their rows."
+    : `Each side has ${state.sideSubdivisions} equal ${plural(state.sideSubdivisions, "strike region")}.`;
   const count = effectiveHeadCount();
   const noun = state.playMethod === "scan"
     ? "LINE"
@@ -695,6 +857,7 @@ function changePlayheadCount(delta) {
   } else {
     state.heads = Math.round(clamp(state.heads + delta, 1, 12));
     state.traceHeadOffsets = canonicalHeadOffsets(state.heads);
+    alignPointAndRadarDirections();
   }
   updatePlayheadControls();
   lastEventTokens.clear();
@@ -714,7 +877,10 @@ function setPosition(value) {
 
 function setRotationAngle(value, shouldAnnounce = false) {
   state.rotation = normalizeDegrees(value);
-  state.continuousRotation = state.rotation / 360;
+  state.continuousRotation = shapeRotationTravelForAngle(
+    state.rotation,
+    state.rotationMotionMode,
+  );
   $("rotation").value = String(state.rotation);
   $("rotationOut").textContent = `${Math.round(state.rotation)}°`;
   invalidateGeometry();
@@ -803,6 +969,8 @@ function reset() {
     scanLineAxes: Array(4).fill("vertical"),
     traceHeadDirections: Array(12).fill(1),
     radialHeadDirections: Array(12).fill(1),
+    traceHeadDirectionAdjustments: Array(12).fill(0),
+    radialHeadDirectionAdjustments: Array(12).fill(0),
     playing: false,
     autoRotate: false,
     audioOn,
@@ -813,19 +981,31 @@ function reset() {
     ["speed", sliderFromSpeed(state.speed)],
     ["rotation", state.rotation],
     ["rotationSpeed", state.rotationSpeed],
+    ["sideSubdivisions", state.sideSubdivisions],
     ["pitchDepth", state.pitchDepth],
     ["characterDepth", state.characterDepth],
     ["strikeLimit", state.strikeLimit],
     ["output", state.output],
   ]) $(id).value = String(value);
+  $("sideSubdivisionsOut").textContent = String(state.sideSubdivisions);
+  $("sideSubdivisions").setAttribute(
+    "aria-valuetext",
+    `${state.sideSubdivisions} ${plural(state.sideSubdivisions, "subdivision")} per side`,
+  );
   $("pitchDepthOut").textContent = `±${state.pitchDepth} st`;
   $("characterDepthOut").textContent = `${Math.round(state.characterDepth * 100)}%`;
-  $("strikeLimitOut").textContent = String(state.strikeLimit);
+  $("strikeLimitOut").textContent = `${state.strikeLimit} max`;
+  $("strikeLimit").setAttribute(
+    "aria-valuetext",
+    `${state.strikeLimit} simultaneous ${plural(state.strikeLimit, "hit")} maximum`,
+  );
   $("outputOut").textContent = `${Math.round(state.output * 100)}%`;
   $("rotationSpeedOut").textContent = `${state.rotationSpeed.toFixed(2)} rev/s`;
   $("mappingMode").value = state.mappingMode;
   setPressed($("playButton"), false);
   setPressed($("rotationPlayButton"), false);
+  $("playButton").setAttribute("aria-label", "Play playhead");
+  $("rotationPlayButton").setAttribute("aria-label", "Start rotation");
   for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
     setPressed(button, button.dataset.value === state.motionMode);
   }
@@ -837,6 +1017,9 @@ function reset() {
   resetForm(false);
   updatePlayheadControls();
   if (state.audioOn) audio.setOutput(state.output);
+  lastStrikeTimes.clear();
+  $("mappingReadout").textContent = "SIDE 1 · SUB 1/2 · 0° → SUB KICK · HITS 0/6";
+  updateHitCapStatus();
   invalidateGeometry();
   announce("Shape Drum Machine reset.");
 }
@@ -896,6 +1079,7 @@ $("addPlayhead").addEventListener("click", () => changePlayheadCount(1));
 $("heads").addEventListener("input", () => {
   state.heads = Math.round(clamp(Number($("heads").value), 1, 12));
   state.traceHeadOffsets = canonicalHeadOffsets(state.heads);
+  alignPointAndRadarDirections();
   updatePlayheadControls();
   invalidateGeometry();
 });
@@ -912,7 +1096,15 @@ for (let index = 0; index < 12; index += 1) {
       state.scanLineAxes[index] = scanAxisForHead(index) === "vertical" ? "horizontal" : "vertical";
     } else {
       const directions = directionsForMethod();
-      directions[index] = directions[index] < 0 ? 1 : -1;
+      const adjustments = directionAdjustmentsForMethod();
+      const reversed = reversedShapeHeadState({
+        position: state.continuousPosition,
+        direction: directions[index],
+        offset: phaseOffsetForHead(index),
+        adjustment: adjustments[index],
+      });
+      directions[index] = reversed.direction;
+      adjustments[index] = reversed.adjustment;
     }
     renderHeadLayout();
     lastEventTokens.clear();
@@ -952,6 +1144,7 @@ $("headLayoutTrack").addEventListener("pointerup", endHeadDrag);
 $("headLayoutTrack").addEventListener("pointercancel", endHeadDrag);
 $("resetHeadSpacing").addEventListener("click", () => {
   setOffsetsForMethod(state.playMethod, canonicalHeadOffsets(effectiveHeadCount()));
+  if (state.playMethod !== "scan") alignPointAndRadarDirections();
   renderHeadLayout();
   invalidateGeometry();
   announce("Playheads reset to equal spacing.");
@@ -974,9 +1167,10 @@ $("rotationDirection").addEventListener("click", () => {
 for (const button of $("rotationMotion").querySelectorAll("button[data-value]")) {
   button.addEventListener("click", () => {
     state.rotationMotionMode = button.dataset.value === "pingpong" ? "pingpong" : "loop";
-    state.continuousRotation = state.rotationMotionMode === "pingpong"
-      ? (state.rotation + 180) / 360
-      : state.rotation / 360;
+    state.continuousRotation = shapeRotationTravelForAngle(
+      state.rotation,
+      state.rotationMotionMode,
+    );
     for (const choice of $("rotationMotion").querySelectorAll("button[data-value]")) {
       setPressed(choice, choice === button);
     }
@@ -1026,6 +1220,21 @@ $("mappingMode").addEventListener("change", () => {
   lastEventTokens.clear();
   suppressStrikes = 2;
   updateSectionSummaries();
+  const mode = SHAPE_DRUM_MAPPING_MODES.find(({ id }) => id === state.mappingMode);
+  announce(`${mode?.label ?? "Mapping changed"}. ${mode?.description ?? ""} ${mappingOriginText()}`);
+  scheduleFrame();
+});
+$("sideSubdivisions").addEventListener("input", () => {
+  state.sideSubdivisions = sanitizeShapeSideSubdivisions($("sideSubdivisions").value);
+  $("sideSubdivisions").value = String(state.sideSubdivisions);
+  $("sideSubdivisionsOut").textContent = String(state.sideSubdivisions);
+  $("sideSubdivisions").setAttribute(
+    "aria-valuetext",
+    `${state.sideSubdivisions} ${plural(state.sideSubdivisions, "subdivision")} per side`,
+  );
+  lastEventTokens.clear();
+  suppressStrikes = 1;
+  updateSectionSummaries();
   scheduleFrame();
 });
 $("pitchDepth").addEventListener("input", () => {
@@ -1037,8 +1246,20 @@ $("characterDepth").addEventListener("input", () => {
   $("characterDepthOut").textContent = `${Math.round(state.characterDepth * 100)}%`;
 });
 $("strikeLimit").addEventListener("input", () => {
-  state.strikeLimit = Number($("strikeLimit").value);
-  $("strikeLimitOut").textContent = String(state.strikeLimit);
+  state.strikeLimit = Math.min(16, Math.max(
+    1,
+    Math.round(Number($("strikeLimit").value) || defaults.strikeLimit),
+  ));
+  $("strikeLimit").value = String(state.strikeLimit);
+  $("strikeLimit").setAttribute(
+    "aria-valuetext",
+    `${state.strikeLimit} simultaneous ${plural(state.strikeLimit, "hit")} maximum`,
+  );
+  $("strikeLimitOut").textContent = `${state.strikeLimit} max`;
+  updateHitCapStatus();
+});
+$("strikeLimit").addEventListener("change", () => {
+  announce(`Simultaneous hit cap set to ${state.strikeLimit}.`);
 });
 $("output").addEventListener("input", () => {
   state.output = Number($("output").value);

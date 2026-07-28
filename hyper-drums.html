@@ -24,8 +24,10 @@
         <a class="tab" href="./">shape</a>
         <a class="tab" href="hyper.html">hyper</a>
         <a class="tab" href="fm-drums.html">fm drums</a>
+        <a class="tab" href="shape-drums.html">shape drums</a>
         <a class="tab" href="lattice-drums.html">lattice drums</a>
         <a class="tab" href="spiral-drums.html">spiral drums</a>
+        <a class="tab" href="solid-drums.html">solid drums</a>
         <a class="tab active" href="hyper-drums.html" aria-current="page">hyper drums</a>
       </nav>
       <label class="mobile-instrument-nav">
@@ -34,8 +36,10 @@
           <option value="./">shape</option>
           <option value="hyper.html">hyper</option>
           <option value="fm-drums.html">fm drums</option>
+          <option value="shape-drums.html">shape drums</option>
           <option value="lattice-drums.html">lattice drums</option>
           <option value="spiral-drums.html">spiral drums</option>
+          <option value="solid-drums.html">solid drums</option>
           <option value="hyper-drums.html" selected>hyper drums</option>
         </select>
       </label>
@@ -72,10 +76,10 @@
             A projected four-dimensional wireframe mapped to sixteen FM drum voices.
           </canvas>
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">TESSERACT · 0 CONTACTS · PAUSED · AUDIO OFF</span>
+            <span id="stageReadout">TESSERACT · AXIS × DEPTH · 2 SEG/SIDE · PAUSED · AUDIO OFF</span>
           </div>
-          <div class="hyper-mapping-readout" id="mappingReadout" aria-hidden="true">
-            W EDGE · CENTER DEPTH → SUB KICK
+          <div class="hyper-mapping-readout" id="mappingReadout" aria-label="Latest drum mapping" aria-live="off">
+            W EDGE · SEGMENT 1/2 · CENTER DEPTH → SUB KICK
           </div>
         </div>
       </section>
@@ -107,6 +111,21 @@
               <span><b>Hyperplane speed</b><output id="speedOut" for="speed">0.10 cyc/s</output></span>
               <input id="speed" type="range" min=".01" max="2" step=".01" value=".1" />
             </label>
+            <label class="control" for="subdivisions">
+              <span><b>Subdivisions / side</b><output id="subdivisionsOut" for="subdivisions">2</output></span>
+              <input
+                id="subdivisions"
+                type="range"
+                min="1"
+                max="16"
+                step="1"
+                value="2"
+                aria-describedby="subdivisionsHelp"
+              />
+            </label>
+            <p class="hyper-subdivision-help" id="subdivisionsHelp">
+              Each projected 4D edge (side) has 2 equal trigger regions, marked on the wireframe.
+            </p>
             <button class="mini-action direction-action" id="directionButton" type="button">
               Direction · forward
             </button>
@@ -171,23 +190,32 @@
         <details class="group control-section" data-section="mapping">
           <summary class="group-summary">
             <h2 class="group-title">Drum mapping</h2>
-            <span class="section-state" id="mappingSummary">edge axis × depth</span>
+            <span class="section-state" id="mappingSummary">edge axis × depth · 2/side</span>
           </summary>
           <div class="group-body">
             <label class="select-control" for="mappingMode">
               <span class="field-label">Voice selection</span>
-              <span class="select-shell"><select id="mappingMode"></select></span>
+              <span class="select-shell">
+                <select
+                  id="mappingMode"
+                  aria-describedby="mappingDescription mappingSource"
+                ></select>
+              </span>
             </label>
             <p class="hyper-mapping-description" id="mappingDescription">
               The edge's 4D axis chooses the drum row; projected depth chooses the column.
             </p>
+            <div class="hyper-mapping-source" id="mappingSource">
+              <b>Drum source</b>
+              <span>4D edge axis → drum row · projected depth → voice column</span>
+            </div>
 
             <div class="hyper-map-legend" aria-label="Current contact mappings">
-              <span><b>Edge axis</b><small>drum row</small></span>
-              <span><b>Depth</b><small>voice column</small></span>
-              <span><b>Height</b><small>tuning</small></span>
-              <span><b>W incidence</b><small>tone + force</small></span>
-              <span><b>Contacts</b><small>headroom</small></span>
+              <span><b id="mappingLegendLabel0">4D edge axis</b><small id="mappingLegendDetail0">drum row</small></span>
+              <span><b id="mappingLegendLabel1">Projected depth</b><small id="mappingLegendDetail1">voice column</small></span>
+              <span><b id="mappingLegendLabel2">Projected height</b><small id="mappingLegendDetail2">tuning</small></span>
+              <span><b id="mappingLegendLabel3">W incidence</b><small id="mappingLegendDetail3">tone + force</small></span>
+              <span><b id="mappingLegendLabel4">Contacts</b><small id="mappingLegendDetail4">headroom</small></span>
             </div>
 
             <label class="control" for="pitchDepth">
@@ -217,7 +245,10 @@
 
       <p class="sr-only" id="canvasInstructions">
         Drag horizontally to set Y–W and vertically to set X–W. Space toggles the
-        hyperplane. Left and right arrows move its W position.
+        hyperplane. Left and right arrows move its W position. The Drum source
+        readout identifies which geometry chooses the drum row and column.
+        Hyper sides are its 4D edges; Subdivisions divide each projected side
+        into equal trigger regions.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

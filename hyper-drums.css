@@ -33,6 +33,36 @@
   line-height: 1.5;
 }
 
+.hyper-mapping-source {
+  display: grid;
+  margin: 0 0 11px;
+  padding: 8px 9px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--accent) 5%, var(--bg-deep));
+  gap: 3px;
+}
+
+.hyper-mapping-source b {
+  color: var(--accent);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.hyper-mapping-source span {
+  color: var(--ink);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.hyper-subdivision-help {
+  margin: -4px 0 12px;
+  color: var(--faint);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
 .hyper-map-legend {
   display: grid;
   margin: 0 0 14px;

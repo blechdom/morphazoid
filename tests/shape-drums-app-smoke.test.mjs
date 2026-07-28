@@ -187,6 +187,19 @@ test("shape drum app starts with the complete Shape form and sixteen drum previe
   assert.equal(elements.get("drumMap").children.length, 16);
   assert.equal(elements.get("mappingMode").children.length, 3);
   assert.equal(elements.get("mappingMode").value, "contour-corner");
+  assert.equal(elements.get("sideSubdivisions").value, "2");
+  assert.equal(elements.get("sideSubdivisionsOut").textContent, "2");
+  assert.equal(elements.get("sideSubdivisions").disabled, false);
+  assert.equal(
+    attributes.get("sideSubdivisions:aria-valuetext"),
+    "2 subdivisions per side",
+  );
+  assert.match(elements.get("sideSubdivisionsHelp").textContent, /2 equal strike regions/);
+  assert.match(elements.get("mappingSummary").textContent, /2\/side/);
+  assert.equal(
+    attributes.get("strikeLimit:aria-valuetext"),
+    "6 simultaneous hits maximum",
+  );
   assert.equal(elements.get("sides").value, "4");
   assert.match(elements.get("formSummary").textContent, /4-point polygon/);
   assert.equal(elements.get("headsControl").hidden, false);
@@ -206,6 +219,19 @@ test("shape drum app starts with the complete Shape form and sixteen drum previe
   assert.match(elements.get("formSummary").textContent, /7-point star/);
   assert.equal(elements.get("starDepthControl").hidden, false);
 
+  elements.get("sideSubdivisions").value = "4";
+  listeners.get("sideSubdivisions:input")();
+  assert.equal(elements.get("sideSubdivisionsOut").textContent, "4");
+  assert.match(elements.get("mappingSummary").textContent, /4\/side/);
+  assert.match(elements.get("mappingOrigin").textContent, /marker 1/);
+
+  elements.get("strikeLimit").value = "2";
+  listeners.get("strikeLimit:input")();
+  assert.equal(elements.get("strikeLimitOut").textContent, "2 max");
+  assert.match(elements.get("hitCapStatus").textContent, /Up to 2/);
+  listeners.get("strikeLimit:change")();
+  assert.equal(elements.get("liveStatus").textContent, "Simultaneous hit cap set to 2.");
+
   listeners.get("scanMode:click")();
   assert.equal(elements.get("headsControl").hidden, true);
   assert.equal(elements.get("lineCountControl").hidden, false);
@@ -218,6 +244,33 @@ test("shape drum app starts with the complete Shape form and sixteen drum previe
   elements.get("mappingMode").value = "position-grid";
   listeners.get("mappingMode:change")();
   assert.match(elements.get("mappingSummary").textContent, /contact position/);
+  assert.equal(elements.get("mappingLegendSource0").textContent, "Vertical position");
+  assert.equal(elements.get("mappingLegendTarget0").textContent, "row + tuning");
+  assert.match(elements.get("liveStatus").textContent, /4 × 4 position/);
+
+  elements.get("sides").value = "1";
+  listeners.get("sides:input")();
+  assert.equal(elements.get("sideSubdivisions").disabled, true);
+  assert.equal(elements.get("sideSubdivisionsOut").textContent, "inactive");
+  assert.equal(
+    attributes.get("sideSubdivisions:aria-valuetext"),
+    "Unavailable for circles",
+  );
+
+  listeners.get("resetShapeDrums:click")();
+  flushAnimationFrame();
+  assert.equal(elements.get("sideSubdivisions").value, "2");
+  assert.equal(elements.get("sideSubdivisionsOut").textContent, "2");
+  assert.equal(
+    attributes.get("sideSubdivisions:aria-valuetext"),
+    "2 subdivisions per side",
+  );
+  assert.match(elements.get("sideSubdivisionsHelp").textContent, /2 equal strike regions/);
+  assert.match(elements.get("mappingSummary").textContent, /2\/side/);
+  assert.equal(
+    attributes.get("strikeLimit:aria-valuetext"),
+    "6 simultaneous hits maximum",
+  );
 
   for (const oldSoundId of [
     "soundMode",

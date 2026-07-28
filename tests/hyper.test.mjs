@@ -8,7 +8,11 @@ import {
   buildKleinBottle,
   buildHyperShape,
   buildTesseract,
+  crossedHyperplaneLoop,
+  crossedHyperplaneVertex,
   hyperplaneIntersections,
+  hyperplaneOffsetForShapePhase,
+  hyperplaneWRange,
   projectPoint4,
   transformedHyperShape,
   transformedTesseract,
@@ -64,6 +68,54 @@ test("4D form stretch changes geometry before rotation", () => {
     > Math.max(...native.vertices.map(({ x }) => Math.abs(x))));
 });
 
+test("rotated Hyper loop phases span only the occupied W range and wrap at the shape", () => {
+  const scenarios = [
+    [{}, {}],
+    [
+      { xw: 90, yw: 37, zw: -61, xy: 16, yz: -9 },
+      { x: 1.6, y: 0.4, z: 1.3, w: 0.55 },
+    ],
+    [
+      { xw: 67, yw: -41, zw: 29, xy: 16, yz: -9 },
+      { x: 1.3, y: 0.7, z: 1.5, w: 0.6 },
+    ],
+  ];
+  for (const type of ["tesseract", "hyperpyramid", "hypersphere", "klein"]) {
+    for (const [rotation, form] of scenarios) {
+      const shape = transformedHyperShape(type, rotation, form);
+      const { minW, maxW, span } = hyperplaneWRange(shape);
+      assert.equal(minW, Math.min(...shape.vertices.map(({ w }) => w)));
+      assert.equal(maxW, Math.max(...shape.vertices.map(({ w }) => w)));
+      assert.equal(span, maxW - minW);
+      assert.equal(hyperplaneOffsetForShapePhase(shape, 0), minW);
+      assert.equal(hyperplaneOffsetForShapePhase(shape, 1), minW);
+      assert.equal(hyperplaneOffsetForShapePhase(shape, -1), minW);
+      assert.equal(
+        hyperplaneOffsetForShapePhase(shape, 0.5),
+        minW + (maxW - minW) * 0.5,
+      );
+      for (let step = 0; step < 32; step += 1) {
+        const offset = hyperplaneOffsetForShapePhase(shape, step / 32);
+        assert.ok(offset >= minW && offset <= maxW);
+        assert.ok(
+          hyperplaneIntersections(shape, offset).length > 0,
+          `${type} phase ${step}/32 should stay on the shape`,
+        );
+      }
+    }
+  }
+  assert.deepEqual(hyperplaneWRange({ vertices: [] }), { minW: 0, maxW: 0, span: 0 });
+  assert.equal(hyperplaneOffsetForShapePhase({ vertices: [] }, 0.75), 0);
+  assert.equal(crossedHyperplaneLoop(0.999, 1.001), true);
+  assert.equal(crossedHyperplaneLoop(0.001, -0.001), true);
+  assert.equal(crossedHyperplaneLoop(1.1, 1.9), false);
+  assert.equal(crossedHyperplaneLoop(Number.NaN, 1), false);
+  assert.equal(crossedHyperplaneVertex(0.2, -0.2), true);
+  assert.equal(crossedHyperplaneVertex(0.2, 0), false);
+  assert.equal(crossedHyperplaneVertex(0, -0.2), true);
+  assert.equal(crossedHyperplaneVertex(-0.2, -0.1), false);
+});
+
 test("Hyper exposes independent axis motion and maps canvas drag to XW/YW", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("../hyper.html", import.meta.url), "utf8"),
@@ -86,6 +138,10 @@ test("Hyper exposes independent axis motion and maps canvas drag to XW/YW", asyn
   assert.match(app, /const moving = state\.playing \|\| rotationIsMoving\(\)/);
   assert.match(app, /else pool\.setVoices\(\[\]\)/);
   assert.match(app, /transformedHyperShape\(state\.shapeType, nextRotation, hyperForm\(\)\)/);
+  assert.match(app, /hyperplaneOffsetForShapePhase\(shape, phase\)/);
+  assert.match(app, /crossedHyperplaneLoop/);
+  assert.match(app, /state\.direction > 0 \? minW : maxW/);
+  assert.doesNotMatch(app, /1\.25 \* state\.hyperScaleW/);
   assert.match(app, /MAX_HYPER_VOICES = 20/);
   assert.match(app, /evenlySelect\(contacts, MAX_HYPER_VOICES\)/);
   assert.match(app, /canvas\.addEventListener\("pointerdown"/);

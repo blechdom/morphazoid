@@ -46,10 +46,12 @@ test("Lattice is one centered line instrument with no walk controls", async () =
   assert.equal((html.match(/<canvas[^>]+id="stage"/g) ?? []).length, 1);
   assert.equal((html.match(/<canvas\b/g) ?? []).length, 2);
   assert.match(html, /id="angle"[^>]+value="90"/);
+  assert.match(html, /id="angle"[^>]+max="179\.9"[^>]+step="0\.1"/);
   assert.match(html, /id="resetLineAngle"[^>]*>Reset 90&deg;<\/button>/);
   assert.match(html, /id="position"/);
   assert.match(html, /id="patternDirection"/);
   assert.match(html, /id="patternDirectionAngle"[^>]+value="0"/);
+  assert.match(html, /id="patternDirectionAngle"[^>]+step="0\.1"/);
   assert.match(html, /id="voiceCap"/);
   assert.match(html, /src="lattice-app\.js"/);
   assert.doesNotMatch(html, /walk dot|walk length|turn bias/i);

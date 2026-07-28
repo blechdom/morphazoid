@@ -96,6 +96,8 @@ test("Lattice Drum Machine uses the lattice core and compact FM drum bank", asyn
   assert.match(html, /id="edgeCurve4"/);
   assert.match(html, /id="straightenEdges"/);
   assert.match(html, /id="resetForm"/);
+  assert.match(html, /id="patternAngle"[^>]+step="0\.1"/);
+  assert.match(html, /id="lineAngle"[^>]+max="179\.9"[^>]+step="0\.1"/);
   assert.match(html, /id="drumMap"/);
   assert.match(html, /src="lattice-drums-app\.js"/);
   assert.match(css, /\.lattice-drum-map[\s\S]*grid-template-columns: repeat\(4/);

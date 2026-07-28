@@ -10,6 +10,9 @@ import {
   solidDrumBounds,
   solidDrumContactKey,
   solidDrumContacts,
+  solidDrumProjectedPosition,
+  solidDrumSubdivisionCount,
+  solidDrumSubdivisionMarkers,
   solidDrumVoiceIndex,
 } from "../src/solid-drums.js";
 import {
@@ -57,14 +60,53 @@ test("solid contacts expose stable edge-segment keys, axis, and plane incidence"
   assert.equal(contacts.length, 4);
   assert.ok(contacts.every(({ axisIndex }) => axisIndex === 0));
   assert.ok(contacts.every(({ incidence }) => Math.abs(incidence - 1) < 1e-12));
+  assert.ok(contacts.every(({ segmentIndex }) => segmentIndex === 0));
+  assert.ok(contacts.every(({ segmentCount }) => segmentCount === 1));
   assert.equal(new Set(contacts.map(({ voiceKey }) => voiceKey)).size, contacts.length);
   assert.deepEqual(
     new Set(contacts.map(({ voiceKey }) => voiceKey)),
     new Set(reversed.map(({ voiceKey }) => voiceKey)),
   );
   assert.equal(solidDrumContactKey({ edgeIndex: 3, t: 0 }), "edge:3:segment:0");
-  assert.equal(solidDrumContactKey({ edgeIndex: 3, t: 0.5 }), "edge:3:segment:2");
-  assert.equal(solidDrumContactKey({ edgeIndex: 3, t: 1 }), "edge:3:segment:3");
+  assert.equal(solidDrumContactKey({ edgeIndex: 3, t: 0.5 }), "edge:3:segment:0");
+  assert.equal(solidDrumContactKey({ edgeIndex: 3, t: 1 }), "edge:3:segment:0");
+  assert.equal(solidDrumContactKey({ edgeIndex: 3, t: 0.5 }, 4), "edge:3:segment:2");
+  assert.equal(solidDrumContactKey({ edgeIndex: 3, t: 1 }, 4), "edge:3:segment:3");
+  assert.equal(
+    solidDrumContactKey({ edgeIndex: 3, t: 0.1, segmentPosition: 0.74 }, 4),
+    "edge:3:segment:2",
+  );
+});
+
+test("Solid side subdivisions are bounded, projected evenly, and carried by contacts", () => {
+  assert.equal(solidDrumSubdivisionCount(undefined), 1);
+  assert.equal(solidDrumSubdivisionCount(0), 1);
+  assert.equal(solidDrumSubdivisionCount(3.9), 3);
+  assert.equal(solidDrumSubdivisionCount(40), 16);
+  assert.deepEqual(solidDrumSubdivisionMarkers(1), []);
+  assert.deepEqual(solidDrumSubdivisionMarkers(4), [0.25, 0.5, 0.75]);
+  assert.equal(solidDrumSubdivisionMarkers(16).length, 15);
+  assert.equal(
+    solidDrumProjectedPosition(
+      { x: 35, y: 12 },
+      { x: 10, y: 12 },
+      { x: 110, y: 12 },
+    ),
+    0.25,
+  );
+
+  const cube = buildSolid("cube");
+  const normal = planeNormal(0, 0);
+  const contacts = solidDrumContacts(
+    planeIntersections(cube, normal, 0),
+    cube,
+    normal,
+    4,
+  );
+  assert.ok(contacts.every(({ segmentPosition }) => segmentPosition === 0.5));
+  assert.ok(contacts.every(({ segmentIndex }) => segmentIndex === 2));
+  assert.ok(contacts.every(({ segmentCount }) => segmentCount === 4));
+  assert.ok(contacts.every(({ voiceKey }) => voiceKey.endsWith(":segment:2")));
 });
 
 test("solid contact normalization and tuning remain bounded without mutating presets", () => {
@@ -206,6 +248,7 @@ test("Solid Drum Machine keeps Solid controls and excludes legacy synth panels",
     "rotationXPlay",
     "rotationYPlay",
     "rotationZPlay",
+    "subdivisions",
     "mappingMode",
     "drumMap",
   ]) {
@@ -214,10 +257,31 @@ test("Solid Drum Machine keeps Solid controls and excludes legacy synth panels",
   assert.doesNotMatch(html, /<h1|subtitle|solid-drums-heading/);
   assert.doesNotMatch(html, /data-section="mapping" open/);
   assert.match(html, /src="solid-drums-app\.js"/);
+  assert.match(
+    html,
+    /<b>Subdivisions \/ side<\/b>[\s\S]*?id="subdivisions"[\s\S]*?min="1"[\s\S]*?max="16"[\s\S]*?step="1"[\s\S]*?value="2"/,
+  );
+  assert.ok(
+    html.indexOf('id="speed"') < html.indexOf('id="subdivisions"')
+      && html.indexOf('id="subdivisions"') < html.indexOf('id="directionButton"'),
+    "Subdivisions should sit directly after surface speed in Play",
+  );
+  assert.ok(
+    html.indexOf('id="subdivisions"') < html.indexOf('data-section="form"'),
+    "Subdivisions should not remain in Drum Mapping",
+  );
+  assert.match(html, /moving surface reader crossing[\s\S]*?projected solid side \(edge\)/);
+  assert.match(html, /id="mappingMode" aria-describedby="mappingDescription solidMappingSourceText"/);
+  assert.match(html, /id="solidMappingSourceText"/);
   assert.match(css, /\.solid-drum-map[\s\S]*grid-template-columns: repeat\(4/);
+  assert.match(css, /\.solid-trigger-source/);
+  assert.match(css, /\.solid-mapping-source/);
   assert.match(app, /FM_DRUM_STORAGE_KEY/);
   assert.match(app, /FmDrumAudio/);
   assert.match(app, /solidDrumContacts/);
+  assert.match(app, /solidDrumProjectedPosition/);
+  assert.match(app, /drawEdgeSubdivisionMarkers/);
+  assert.match(app, /SEGMENT \$\{\(contact\.segmentIndex/);
   assert.match(app, /mappedSolidDrumVoice/);
   assert.match(app, /pickRotationTarget/);
   assert.doesNotMatch(

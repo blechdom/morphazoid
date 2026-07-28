@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   cloneDefaultFmDrumVoices,
   DEFAULT_FM_DRUM_VOICES,
+  FmDrumAudio,
   frequencyFromSlider,
   frequencySliderPosition,
   sanitizeFmDrumVoice,
@@ -60,6 +61,47 @@ test("FM drum tuning slider is logarithmic and reversible", () => {
   for (const frequency of [48, 176, 784, 4_820]) {
     assert.ok(Math.abs(frequencyFromSlider(frequencySliderPosition(frequency)) - frequency) < 1e-8);
   }
+});
+
+test("FM drum audio recreates a context after page lifecycle closure", async () => {
+  let contextCount = 0;
+  const node = (properties = {}) => ({
+    ...properties,
+    connect(destination) {
+      return destination;
+    },
+  });
+  class FakeContext {
+    constructor() {
+      contextCount += 1;
+      this.state = "running";
+      this.destination = node();
+    }
+
+    createDynamicsCompressor() {
+      return node({
+        threshold: {},
+        knee: {},
+        ratio: {},
+        attack: {},
+        release: {},
+      });
+    }
+
+    createGain() {
+      return node({ gain: { value: 0 } });
+    }
+
+    createAnalyser() {
+      return node({ fftSize: 0 });
+    }
+  }
+  const audio = new FmDrumAudio({ AudioContext: FakeContext });
+  const first = await audio.start();
+  first.state = "closed";
+  const second = await audio.start();
+  assert.notEqual(second, first);
+  assert.equal(contextCount, 2);
 });
 
 test("FM Drums keeps compact preset controls without a page title block", async () => {

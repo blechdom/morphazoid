@@ -16,16 +16,43 @@ export const HYPER_DRUM_MAPPING_MODES = Object.freeze([
     id: "axis-depth",
     label: "Edge axis × depth",
     description: "The edge's 4D axis chooses the drum row; projected depth chooses the column.",
+    source: "4D edge axis → drum row · projected depth → voice column",
+    status: "AXIS × DEPTH",
+    legend: Object.freeze([
+      Object.freeze({ label: "4D edge axis", detail: "drum row" }),
+      Object.freeze({ label: "Projected depth", detail: "voice column" }),
+      Object.freeze({ label: "Projected height", detail: "tuning" }),
+      Object.freeze({ label: "W incidence", detail: "tone + force" }),
+      Object.freeze({ label: "Contacts", detail: "headroom" }),
+    ]),
   }),
   Object.freeze({
     id: "projected-position",
     label: "Projected position",
     description: "The contact's projected 4 × 4 position chooses the drum.",
+    source: "Projected Y → drum row · projected X → voice column",
+    status: "PROJECTED X/Y",
+    legend: Object.freeze([
+      Object.freeze({ label: "Projected Y", detail: "drum row" }),
+      Object.freeze({ label: "Projected X", detail: "voice column" }),
+      Object.freeze({ label: "Projected height", detail: "tuning" }),
+      Object.freeze({ label: "W incidence", detail: "tone + force" }),
+      Object.freeze({ label: "Contacts", detail: "headroom" }),
+    ]),
   }),
   Object.freeze({
     id: "w-incidence",
     label: "W depth × incidence",
     description: "W position chooses the row; alignment with the W plane chooses the column.",
+    source: "W-plane depth → drum row · edge W incidence → voice column",
+    status: "W × INCIDENCE",
+    legend: Object.freeze([
+      Object.freeze({ label: "W-plane depth", detail: "drum row" }),
+      Object.freeze({ label: "Edge W incidence", detail: "voice column" }),
+      Object.freeze({ label: "Projected height", detail: "tuning" }),
+      Object.freeze({ label: "W incidence", detail: "tone + force" }),
+      Object.freeze({ label: "Contacts", detail: "headroom" }),
+    ]),
   }),
 ]);
 
@@ -54,7 +81,7 @@ export function normalizedHyperContact(contact = {}, bounds = {}) {
     ),
     w: normalizedCoordinate(contact.w, bounds.minW, bounds.maxW),
     incidence: clamp(contact.incidence),
-    along: clamp(contact.t),
+    along: clamp(contact.projectedAlong ?? contact.t),
   };
 }
 
@@ -69,12 +96,19 @@ function axisRow(axis) {
   return Math.abs(Math.trunc(coordinate(axis))) % 4;
 }
 
-export function hyperContactVoiceKey(contact, segmentCount = 4) {
-  const segments = Math.max(1, Math.trunc(coordinate(segmentCount, 4)));
-  const segment = Math.min(
-    segments - 1,
-    Math.floor(clamp(contact?.t) * segments),
+export function hyperContactSegmentIndex(contact, segmentCount = 1) {
+  const segments = Math.min(
+    16,
+    Math.max(1, Math.trunc(coordinate(segmentCount, 1))),
   );
+  return Math.min(
+    segments - 1,
+    Math.floor(clamp(contact?.projectedAlong ?? contact?.t) * segments),
+  );
+}
+
+export function hyperContactVoiceKey(contact, segmentCount = 1) {
+  const segment = hyperContactSegmentIndex(contact, segmentCount);
   return `hyper:${Math.abs(Math.trunc(coordinate(contact?.edgeIndex)))}:${segment}`;
 }
 

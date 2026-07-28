@@ -49,8 +49,9 @@ test("Hyper Drum Machine starts, renders sixteen voices, and strikes on motion",
   for (const id of ids) element(id);
 
   const gradient = { addColorStop() {} };
+  let drawnArcs = 0;
   const drawingContext = {
-    arc() {},
+    arc() { drawnArcs += 1; },
     beginPath() {},
     clearRect() {},
     createLinearGradient() { return gradient; },
@@ -194,7 +195,10 @@ test("Hyper Drum Machine starts, renders sixteen voices, and strikes on motion",
 
   assert.equal(canvas.width, 1800);
   assert.equal(canvas.height, 1200);
-  assert.match(elements.get("stageReadout").textContent, /^TESSERACT · \d+ CONTACT/);
+  assert.match(
+    elements.get("stageReadout").textContent,
+    /^TESSERACT · AXIS × DEPTH · 2 SEG\/SIDE · \d+ CONTACT/,
+  );
   assert.equal(
     (elements.get("drumMap").innerHTML.match(/class="hyper-drum-cell"/g) ?? []).length,
     16,
@@ -205,6 +209,37 @@ test("Hyper Drum Machine starts, renders sixteen voices, and strikes on motion",
   );
   assert.equal(attributes.get("playButton:aria-pressed"), "false");
   assert.equal(attributes.get("rotationXWPlay:aria-pressed"), "false");
+  assert.equal(elements.get("subdivisions").value, "2");
+  assert.equal(elements.get("subdivisionsOut").textContent, "2");
+  assert.match(elements.get("subdivisionsHelp").textContent, /2 equal trigger regions/);
+  assert.match(elements.get("mappingSummary").textContent, /edge axis × depth · 2\/side/);
+  assert.equal(elements.get("mappingLegendLabel0").textContent, "4D edge axis");
+  assert.equal(elements.get("mappingLegendLabel1").textContent, "Projected depth");
+
+  const arcsInDefaultFrame = drawnArcs;
+  drawnArcs = 0;
+  elements.get("subdivisions").value = "4";
+  listeners.get("subdivisions:input")();
+  flushAnimationFrames();
+  assert.equal(elements.get("subdivisionsOut").textContent, "4");
+  assert.match(elements.get("subdivisionsHelp").textContent, /4 equal trigger regions/);
+  assert.match(elements.get("mappingSummary").textContent, /4\/side/);
+  assert.ok(
+    drawnArcs > arcsInDefaultFrame,
+    "a subdivided frame should include additional boundary markers",
+  );
+
+  elements.get("mappingMode").value = "w-incidence";
+  listeners.get("mappingMode:change")();
+  flushAnimationFrames();
+  assert.match(elements.get("mappingSummary").textContent, /w depth × incidence · 4\/side/);
+  assert.equal(elements.get("mappingLegendLabel0").textContent, "W-plane depth");
+  assert.equal(elements.get("mappingLegendLabel1").textContent, "Edge W incidence");
+  assert.match(
+    elements.get("mappingSource").querySelector("span").textContent,
+    /W-plane depth.*drum row/,
+  );
+  assert.match(elements.get("liveStatus").textContent, /W depth × incidence mapping/);
 
   listeners.get("playButton:click")();
   await new Promise((resolve) => setImmediate(resolve));
@@ -213,6 +248,7 @@ test("Hyper Drum Machine starts, renders sixteen voices, and strikes on motion",
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
   assert.ok(oscillators.length > 0, "starting the W plane should trigger FM drums");
+  assert.match(elements.get("mappingReadout").textContent, /SEGMENT \d\/4/);
 
   elements.get("hyperShape").value = "klein";
   listeners.get("hyperShape:change")();
@@ -222,4 +258,11 @@ test("Hyper Drum Machine starts, renders sixteen voices, and strikes on motion",
   listeners.get("rotationZWPlay:click")();
   assert.equal(attributes.get("rotationZWPlay:aria-pressed"), "true");
   assert.equal(elements.get("rotationSummary").textContent, "ZW");
+
+  listeners.get("resetHyperDrums:click")();
+  flushAnimationFrames();
+  assert.equal(elements.get("subdivisions").value, "2");
+  assert.equal(elements.get("subdivisionsOut").textContent, "2");
+  assert.match(elements.get("subdivisionsHelp").textContent, /2 equal trigger regions/);
+  assert.match(elements.get("mappingSummary").textContent, /edge axis × depth · 2\/side/);
 });

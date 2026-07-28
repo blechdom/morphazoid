@@ -118,13 +118,13 @@
 
             <label class="control pattern-direction-control" for="patternDirectionAngle">
               <span><b>Pattern direction</b><output id="patternDirectionAngleOut" for="patternDirectionAngle">R→L</output></span>
-              <input id="patternDirectionAngle" type="range" min="0" max="90" step="1" value="0" />
+              <input id="patternDirectionAngle" type="range" min="0" max="90" step="0.1" value="0" />
             </label>
 
             <div class="lattice-angle-control">
               <label class="control" for="angle">
-                <span><b>Line angle</b><output id="angleOut" for="angle">90&deg;</output></span>
-                <input id="angle" type="range" min="0" max="179" step="1" value="90" />
+                <span><b>Line angle</b><output id="angleOut" for="angle">90.0&deg;</output></span>
+                <input id="angle" type="range" min="0" max="179.9" step="0.1" value="90" />
               </label>
               <button class="mini-action" id="resetLineAngle" type="button">Reset 90&deg;</button>
             </div>

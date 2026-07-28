@@ -51,6 +51,11 @@ const SOUND_MODE_LABELS = {
   pm: "PM",
 };
 const SOUND_MODES = new Set(Object.keys(SOUND_MODE_LABELS));
+const formatDegrees = (value) => `${Number(value).toFixed(1)}\u00b0`;
+const wrapLineAngle = (value) => {
+  const wrapped = ((Number(value) % 180) + 180) % 180;
+  return Math.round(wrapped * 10) / 10;
+};
 const TILE_COLORS = [
   "rgba(255, 184, 107, 0.070)",
   "rgba(125, 180, 255, 0.052)",
@@ -298,7 +303,7 @@ const paintDensity = bindRange("density", "density", (value) => {
 const paintAngle = bindRange(
   "angle",
   "angle",
-  (value) => `${Math.round(value)}\u00b0`,
+  formatDegrees,
   () => suppressGeometryOnsets(),
 );
 $("resetLineAngle").addEventListener("click", () => {
@@ -755,9 +760,9 @@ function setContinuousPosition(value) {
 $("position").addEventListener("input", () => setPosition($("position").value));
 
 function patternDirectionName(angle = state.patternDirectionAngle) {
-  if (angle <= 0.5) return "R→L";
-  if (angle >= 89.5) return "U→D";
-  return `${Math.round(angle)}°`;
+  if (angle <= 0.05) return "R→L";
+  if (angle >= 89.95) return "U→D";
+  return formatDegrees(angle);
 }
 
 function paintPatternDirection() {
@@ -765,7 +770,7 @@ function paintPatternDirection() {
   const name = patternDirectionName(angle);
   $("patternDirectionAngle").value = String(angle);
   $("patternDirectionAngleOut").textContent = name;
-  $("patternDirectionGlyph").textContent = angle <= 0.5 ? "\u2190" : angle >= 89.5 ? "\u2193" : "\u2199";
+  $("patternDirectionGlyph").textContent = angle <= 0.05 ? "\u2190" : angle >= 89.95 ? "\u2193" : "\u2199";
   $("patternDirectionText").textContent = name;
   $("patternDirection").setAttribute(
     "aria-label",
@@ -1393,12 +1398,12 @@ window.addEventListener("keydown", (event) => {
   else if (event.key === "ArrowLeft") setPosition(state.position - (event.shiftKey ? 0.05 : 0.01));
   else if (event.key === "ArrowRight") setPosition(state.position + (event.shiftKey ? 0.05 : 0.01));
   else if (event.key === "ArrowUp") {
-    state.angle = (state.angle + 1) % 180;
+    state.angle = wrapLineAngle(state.angle + (event.shiftKey ? 1 : 0.1));
     paintAngle();
     suppressGeometryOnsets();
     scheduleFrame();
   } else if (event.key === "ArrowDown") {
-    state.angle = (state.angle + 179) % 180;
+    state.angle = wrapLineAngle(state.angle - (event.shiftKey ? 1 : 0.1));
     paintAngle();
     suppressGeometryOnsets();
     scheduleFrame();

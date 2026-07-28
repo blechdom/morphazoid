@@ -28,6 +28,11 @@ const $ = (id) => document.getElementById(id);
 const DEFAULT_TILING = 20;
 const MAX_PARAMETERS = 6;
 const MAX_EDGE_CLASSES = 5;
+const formatDegrees = (value) => `${Number(value).toFixed(1)}°`;
+const wrapLineAngle = (value) => {
+  const wrapped = ((Number(value) % 180) + 180) % 180;
+  return Math.round(wrapped * 10) / 10;
+};
 const OPEN_TILE_SCALE = .46;
 const DENSE_TILE_SCALE = .14;
 const TILE_COLORS = [
@@ -40,7 +45,7 @@ const TILE_COLORS = [
 const audio = new FmDrumAudio(globalThis);
 const defaults = {
   position: .5,
-  speed: .08,
+  speed: .36,
   patternAngle: 0,
   lineAngle: 90,
   direction: -1,
@@ -766,8 +771,8 @@ function reset() {
   $("output").value = String(state.output);
   $("outputOut").textContent = `${Math.round(state.output * 100)}%`;
   $("speedOut").textContent = `${state.speed.toFixed(3)} cyc/s`;
-  $("patternAngleOut").textContent = `${state.patternAngle}°`;
-  $("lineAngleOut").textContent = `${state.lineAngle}°`;
+  $("patternAngleOut").textContent = formatDegrees(state.patternAngle);
+  $("lineAngleOut").textContent = formatDegrees(state.lineAngle);
   $("pitchDepthOut").textContent = `±${state.pitchDepth} st`;
   $("characterDepthOut").textContent = `${Math.round(state.characterDepth * 100)}%`;
   $("strikeLimitOut").textContent = String(state.strikeLimit);
@@ -807,12 +812,12 @@ $("speed").addEventListener("input", () => {
 });
 $("patternAngle").addEventListener("input", () => {
   state.patternAngle = Number($("patternAngle").value);
-  $("patternAngleOut").textContent = `${state.patternAngle}°`;
+  $("patternAngleOut").textContent = formatDegrees(state.patternAngle);
   invalidateGeometry();
 });
 $("lineAngle").addEventListener("input", () => {
   state.lineAngle = Number($("lineAngle").value);
-  $("lineAngleOut").textContent = `${state.lineAngle}°`;
+  $("lineAngleOut").textContent = formatDegrees(state.lineAngle);
   suppressStrikes = 2;
   scheduleFrame();
 });
@@ -868,7 +873,7 @@ $("resetForm").addEventListener("click", () => {
   state.lineAngle = defaults.lineAngle;
   $("density").value = String(state.density);
   $("lineAngle").value = String(state.lineAngle);
-  $("lineAngleOut").textContent = `${state.lineAngle}°`;
+  $("lineAngleOut").textContent = formatDegrees(state.lineAngle);
   setPosition(defaults.position);
   setTilingType(DEFAULT_TILING, false);
   announce("Lattice reset to IH20, straight edges, and a 90 degree centered line.");
@@ -913,14 +918,14 @@ window.addEventListener("keydown", (event) => {
   } else if (event.key === "ArrowRight") {
     setPosition(state.position + (event.shiftKey ? .05 : .01));
   } else if (event.key === "ArrowUp") {
-    state.lineAngle = (state.lineAngle + 1) % 180;
+    state.lineAngle = wrapLineAngle(state.lineAngle + (event.shiftKey ? 1 : .1));
     $("lineAngle").value = String(state.lineAngle);
-    $("lineAngleOut").textContent = `${state.lineAngle}°`;
+    $("lineAngleOut").textContent = formatDegrees(state.lineAngle);
     scheduleFrame();
   } else if (event.key === "ArrowDown") {
-    state.lineAngle = (state.lineAngle + 179) % 180;
+    state.lineAngle = wrapLineAngle(state.lineAngle - (event.shiftKey ? 1 : .1));
     $("lineAngle").value = String(state.lineAngle);
-    $("lineAngleOut").textContent = `${state.lineAngle}°`;
+    $("lineAngleOut").textContent = formatDegrees(state.lineAngle);
     scheduleFrame();
   } else return;
   event.preventDefault();

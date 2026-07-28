@@ -21,18 +21,22 @@
       </a>
       <nav class="tabs" aria-label="Instrument">
         <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="shape-drums.html">shape drums</a>
         <a class="tab active" href="solid-drums.html" aria-current="page">solid drums</a>
         <a class="tab" href="lattice-drums.html">lattice drums</a>
         <a class="tab" href="spiral-drums.html">spiral drums</a>
+        <a class="tab" href="hyper-drums.html">hyper drums</a>
         <a class="tab" href="fm-drums.html">fm drums</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
           <option value="solid.html">solid</option>
+          <option value="shape-drums.html">shape drums</option>
           <option value="solid-drums.html" selected>solid drums</option>
           <option value="lattice-drums.html">lattice drums</option>
           <option value="spiral-drums.html">spiral drums</option>
+          <option value="hyper-drums.html">hyper drums</option>
           <option value="fm-drums.html">fm drums</option>
         </select>
       </label>
@@ -55,26 +59,27 @@
             id="stage"
             tabindex="0"
             aria-label="Drag to rotate a wireframe solid or its moving intersection surface."
-            aria-describedby="liveStatus"
+            aria-describedby="canvasInstructions liveStatus"
           >
-            A projected 3D wireframe and moving surface mapped to sixteen FM drum voices.
+            A projected 3D wireframe whose moving surface reader maps edge
+            segments to sixteen FM drum voices.
           </canvas>
           <div class="solid-target-switch" role="group" aria-label="3D rotation target">
             <button id="selectSolid" type="button" aria-pressed="true">Shape</button>
             <button id="selectSurface" type="button" aria-pressed="false">Surface</button>
           </div>
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">CUBE · 0 CONTACTS · AUDIO OFF</span>
+            <span id="stageReadout">CUBE · SURFACE READER · 2 SEGMENTS/SIDE · 0 CONTACTS · AUDIO OFF</span>
           </div>
-          <div class="solid-mapping-readout" id="mappingReadout" aria-hidden="true">
-            EDGE 1 · X AXIS → SUB KICK
+          <div class="solid-mapping-readout" id="mappingReadout" aria-label="Latest drum mapping" aria-live="off">
+            SURFACE · EDGE 1 · SEGMENT 1/2 · X AXIS → SUB KICK
           </div>
         </div>
       </section>
 
       <aside class="panel solid-drums-panel" aria-label="Solid Drum Machine controls">
         <details class="group control-section" data-section="play">
-          <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">plane · paused</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">surface reader · paused</span></summary>
           <div class="group-body">
             <div class="position-row">
               <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play surface">
@@ -87,6 +92,22 @@
               </label>
             </div>
             <label class="control" for="speed"><span><b>Surface speed</b><output id="speedOut" for="speed">0.12 cyc/s</output></span><input id="speed" type="range" min="0.01" max="2" step="0.01" value="0.12" /></label>
+            <label class="control" for="subdivisions">
+              <span><b>Subdivisions / side</b><output id="subdivisionsOut" for="subdivisions">2</output></span>
+              <input
+                id="subdivisions"
+                type="range"
+                min="1"
+                max="16"
+                step="1"
+                value="2"
+                aria-describedby="triggerSourceDescription"
+              />
+            </label>
+            <p class="solid-trigger-source" id="triggerSourceDescription">
+              Trigger source: the moving surface reader crossing one of 2 equal
+              segments on a projected solid side (edge).
+            </p>
             <button class="mini-action direction-action" id="directionButton" type="button">Direction · forward</button>
             <div class="axis-control-group">
               <label class="control" for="planeYaw"><span><b>Surface yaw</b><output id="planeYawOut" for="planeYaw">45°</output></span><input id="planeYaw" type="range" min="-180" max="180" step="1" value="45" /></label>
@@ -122,10 +143,14 @@
         </details>
 
         <details class="group control-section" data-section="mapping">
-          <summary class="group-summary"><h2 class="group-title">Drum Mapping</h2><span class="section-state" id="mappingSummary">edge × axis</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Drum Mapping</h2><span class="section-state" id="mappingSummary">surface → edge × axis · 2/side</span></summary>
           <div class="group-body">
-            <label class="select-control" for="mappingMode"><span class="field-label">Contact mapping</span><span class="select-shell"><select id="mappingMode"><option value="edge-axis" selected>Edge × axis</option><option value="position-grid">3D position</option><option value="incidence-depth">Incidence × depth</option></select></span></label>
+            <label class="select-control" for="mappingMode"><span class="field-label">Contact mapping</span><span class="select-shell"><select id="mappingMode" aria-describedby="mappingDescription solidMappingSourceText"><option value="edge-axis" selected>Edge × axis</option><option value="position-grid">3D position</option><option value="incidence-depth">Incidence × depth</option></select></span></label>
             <p class="solid-mapping-description" id="mappingDescription">Edge identity chooses the row; its X, Y, Z, or diagonal direction chooses the column.</p>
+            <div class="solid-mapping-source">
+              <b>Drum source</b>
+              <span id="solidMappingSourceText">Edge number modulo 4 → drum row · X / Y / Z / diagonal direction → voice column</span>
+            </div>
             <label class="control" for="pitchDepth"><span><b>Height tuning</b><output id="pitchDepthOut" for="pitchDepth">±12 st</output></span><input id="pitchDepth" type="range" min="0" max="24" step="1" value="12" /></label>
             <label class="control" for="characterDepth"><span><b>Incidence character</b><output id="characterDepthOut" for="characterDepth">70%</output></span><input id="characterDepth" type="range" min="0" max="1" step=".01" value=".7" /></label>
             <label class="control" for="strikeLimit"><span><b>Strike limit</b><output id="strikeLimitOut" for="strikeLimit">6</output></span><input id="strikeLimit" type="range" min="1" max="12" step="1" value="6" /></label>
@@ -137,6 +162,11 @@
         </div>
         <p class="audio-error" id="audioError" role="alert" hidden></p>
       </aside>
+      <p class="sr-only" id="canvasInstructions">
+        Drag to rotate the selected solid or surface. Space toggles playback.
+        Left and right arrows move the surface position. Subdivisions split
+        every projected solid edge into equal trigger segments.
+      </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>

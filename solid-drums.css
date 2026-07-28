@@ -33,6 +33,36 @@
   line-height: 1.5;
 }
 
+.solid-trigger-source {
+  margin: 2px 0 12px;
+  color: var(--accent);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.solid-mapping-source {
+  display: grid;
+  margin: -2px 0 12px;
+  padding: 8px 9px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--accent) 5%, var(--bg-deep));
+  gap: 3px;
+}
+
+.solid-mapping-source b {
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.solid-mapping-source span {
+  color: var(--ink);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
 .solid-drum-map {
   display: grid;
   margin-top: 12px;

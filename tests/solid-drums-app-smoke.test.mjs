@@ -211,9 +211,22 @@ test("solid drum app starts, renders sixteen voices, and plays plane intersectio
 
   assert.equal(canvas.width, 1800);
   assert.equal(canvas.height, 1200);
-  assert.match(elements.get("stageReadout").textContent, /^CUBE · \d+ CONTACT/);
+  assert.match(
+    elements.get("stageReadout").textContent,
+    /^CUBE · SURFACE READER · 2 SEGMENTS\/SIDE · \d+ CONTACT/,
+  );
   assert.equal(elements.get("formSummary").textContent, "cube");
-  assert.equal(elements.get("mappingSummary").textContent, "edge × axis");
+  assert.equal(
+    elements.get("mappingSummary").textContent,
+    "surface → edge × axis · 2/side",
+  );
+  assert.match(elements.get("solidMappingSourceText").textContent, /Edge number modulo 4/);
+  assert.equal(elements.get("subdivisions").value, "2");
+  assert.equal(elements.get("subdivisionsOut").textContent, "2");
+  assert.match(
+    elements.get("triggerSourceDescription").textContent,
+    /2 equal segments on a projected solid side \(edge\)/,
+  );
   assert.equal(
     (elements.get("mappingMode").innerHTML.match(/<option /g) ?? []).length,
     3,
@@ -232,16 +245,41 @@ test("solid drum app starts, renders sixteen voices, and plays plane intersectio
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
   assert.ok(oscillators.length > 0, "starting the surface should trigger FM drums");
+  assert.match(
+    elements.get("mappingReadout").textContent,
+    /^SURFACE · EDGE \d+ · SEGMENT [12]\/2 · /,
+  );
 
   elements.get("mappingMode").value = "position-grid";
   listeners.get("mappingMode:change")();
-  assert.equal(elements.get("mappingSummary").textContent, "3d position");
+  assert.equal(
+    elements.get("mappingSummary").textContent,
+    "surface → 3d position · 2/side",
+  );
+  assert.match(elements.get("solidMappingSourceText").textContent, /3D height \(Y\)/);
+
+  elements.get("subdivisions").value = "4";
+  listeners.get("subdivisions:input")();
+  flushAnimationFrames(performance.now() + 320);
+  assert.equal(elements.get("subdivisionsOut").textContent, "4");
+  assert.equal(
+    elements.get("mappingSummary").textContent,
+    "surface → 3d position · 4/side",
+  );
+  assert.match(
+    elements.get("triggerSourceDescription").textContent,
+    /4 equal segments on a projected solid side \(edge\)/,
+  );
+  assert.match(elements.get("stageReadout").textContent, /4 SEGMENTS\/SIDE/);
 
   elements.get("solidType").value = "octahedron";
   listeners.get("solidType:change")({ currentTarget: elements.get("solidType") });
   flushAnimationFrames(performance.now() + 400);
   assert.equal(elements.get("formSummary").textContent, "octahedron");
-  assert.match(elements.get("stageReadout").textContent, /^OCTAHEDRON · \d+ CONTACT/);
+  assert.match(
+    elements.get("stageReadout").textContent,
+    /^OCTAHEDRON · SURFACE READER · 4 SEGMENTS\/SIDE · \d+ CONTACT/,
+  );
 
   listeners.get("rotationYPlay:click")();
   assert.equal(attributes.get("rotationYPlay:aria-pressed"), "true");
@@ -251,6 +289,15 @@ test("solid drum app starts, renders sixteen voices, and plays plane intersectio
   flushAnimationFrames();
   assert.equal(attributes.get("playButton:aria-pressed"), "false");
   assert.equal(elements.get("rotationSummary").textContent, "paused");
-  assert.equal(elements.get("mappingSummary").textContent, "edge × axis");
+  assert.equal(
+    elements.get("mappingSummary").textContent,
+    "surface → edge × axis · 2/side",
+  );
   assert.equal(elements.get("formSummary").textContent, "cube");
+  assert.equal(elements.get("subdivisions").value, "2");
+  assert.equal(elements.get("subdivisionsOut").textContent, "2");
+  assert.match(
+    elements.get("triggerSourceDescription").textContent,
+    /2 equal segments on a projected solid side \(edge\)/,
+  );
 });

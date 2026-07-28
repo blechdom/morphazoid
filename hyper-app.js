@@ -9,8 +9,11 @@ import {
 } from "./src/audio.js";
 import { projectPoint3, rotatePoint3 } from "./src/solid.js";
 import {
+  crossedHyperplaneLoop,
+  crossedHyperplaneVertex,
   hyperplaneIntersections,
-  hyperplaneOffsetForPhase,
+  hyperplaneOffsetForShapePhase,
+  hyperplaneWRange,
   projectPoint4,
   transformedHyperShape,
 } from "./src/hyper.js";
@@ -312,8 +315,8 @@ function currentHyperShape(nextRotation = rotation()) {
   return transformedHyperShape(state.shapeType, nextRotation, hyperForm());
 }
 
-function currentHyperplaneOffset(phase = state.continuousPosition) {
-  return hyperplaneOffsetForPhase(phase, 1.25 * state.hyperScaleW);
+function currentHyperplaneOffset(shape, phase = state.continuousPosition) {
+  return hyperplaneOffsetForShapePhase(shape, phase);
 }
 
 function viewPoint(point) {
@@ -423,7 +426,7 @@ function emitCorners(tesseract, offset) {
   if (state.audio && state.soundMode === "percussion" && previousSigns) {
     const intents = [];
     signs.forEach((sign, index) => {
-      if ((previousSigns[index] ?? sign) * sign > 0) return;
+      if (!crossedHyperplaneVertex(previousSigns[index], sign)) return;
       const point = tesseract.vertices[index];
       const projected = viewPoint(point);
       intents.push({
@@ -459,10 +462,15 @@ function transportDelta(now) {
 function frame(now) {
   scheduledFrame = 0;
   const delta = transportDelta(now);
+  const previousPosition = state.continuousPosition;
   if (state.playing) {
     state.continuousPosition += state.direction * state.speed * delta;
     state.position = ((state.continuousPosition % 1) + 1) % 1;
   }
+  const looped = state.playing && crossedHyperplaneLoop(
+    previousPosition,
+    state.continuousPosition,
+  );
   for (const axis of ["XW", "YW", "ZW"]) {
     if (!state[`rotation${axis}Playing`]) continue;
     state[`rotation${axis}`] = normalizeDegrees(
@@ -471,11 +479,18 @@ function frame(now) {
   }
 
   const tesseract = currentHyperShape();
-  const offset = currentHyperplaneOffset();
+  const offset = currentHyperplaneOffset(tesseract);
   const contacts = hyperplaneIntersections(tesseract, offset);
   drawScene(tesseract, contacts, offset);
   const moving = state.playing || rotationIsMoving();
-  if (moving) emitCorners(tesseract, offset);
+  if (moving) {
+    if (looped) {
+      const { minW, maxW } = hyperplaneWRange(tesseract);
+      const entryOffset = state.direction > 0 ? minW : maxW;
+      previousSigns = tesseract.vertices.map((point) => point.w - entryOffset);
+    }
+    emitCorners(tesseract, offset);
+  }
   const continuous = state.soundMode !== "percussion";
   const voicedContacts = evenlySelect(contacts, MAX_HYPER_VOICES);
   const voices = continuous ? voicedContacts.map(contactVoice) : [];
@@ -488,7 +503,10 @@ function frame(now) {
         yw: state.rotationYW + (state.rotationYWPlaying ? state.rotationYWSpeed * 360 * lookahead : 0),
         zw: state.rotationZW + (state.rotationZWPlaying ? state.rotationZWSpeed * 360 * lookahead : 0),
       }));
-      const futureContacts = hyperplaneIntersections(future, currentHyperplaneOffset(futurePhase));
+      const futureContacts = hyperplaneIntersections(
+        future,
+        currentHyperplaneOffset(future, futurePhase),
+      );
       const futureVoices = evenlySelect(futureContacts, MAX_HYPER_VOICES).map(contactVoice);
       pool.setVoiceTrajectory(voices, futureVoices, lookahead);
     } else pool.setVoices([]);

@@ -162,6 +162,9 @@ test("lattice drum app starts with the complete editable isohedral form", async 
     .filter((node) => node.tagName === "OPTION");
   assert.equal(tilingOptions.length, 72, "the selector should expose every isohedral preset");
   assert.equal(elements.get("tilingType").value, "20");
+  assert.equal(elements.get("speed").value, "0.36");
+  assert.equal(elements.get("speedOut").textContent, "0.360 cyc/s");
+  assert.equal(elements.get("motionSummary").textContent, "paused · 0.360 cyc/s");
   assert.match(elements.get("formSummary").textContent, /Pentagon · IH20/);
   assert.equal(elements.get("parameterCount").textContent, "2 parameters · guarded");
   assert.equal(elements.get("edgeCount").textContent, "3 bendable classes");
@@ -241,15 +244,29 @@ test("lattice drum app starts with the complete editable isohedral form", async 
 
   elements.get("density").value = "0.7";
   listeners.get("density:input")();
-  elements.get("lineAngle").value = "42";
+  elements.get("patternAngle").value = "17.6";
+  listeners.get("patternAngle:input")();
+  assert.equal(elements.get("patternAngleOut").textContent, "17.6°");
+  elements.get("lineAngle").value = "42.3";
   listeners.get("lineAngle:input")();
+  assert.equal(elements.get("lineAngleOut").textContent, "42.3°");
   listeners.get("resetForm:click")();
   flushAnimationFrame();
   assert.equal(elements.get("tilingType").value, "20");
   assert.equal(elements.get("density").value, "0.52");
   assert.equal(elements.get("lineAngle").value, "90");
+  assert.equal(elements.get("lineAngleOut").textContent, "90.0°");
   assert.equal(elements.get("position").value, "0.5");
   assert.match(elements.get("formSummary").textContent, /Pentagon · IH20/);
+
+  elements.get("speed").value = "0.1";
+  listeners.get("speed:input")();
+  assert.equal(elements.get("speedOut").textContent, "0.100 cyc/s");
+  listeners.get("resetLatticeDrums:click")();
+  flushAnimationFrame();
+  assert.equal(elements.get("speed").value, "0.36");
+  assert.equal(elements.get("speedOut").textContent, "0.360 cyc/s");
+  assert.equal(elements.get("motionSummary").textContent, "paused · 0.360 cyc/s");
 
   for (const oldSoundId of [
     "soundMode",

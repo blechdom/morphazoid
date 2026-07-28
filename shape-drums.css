@@ -27,10 +27,38 @@
 
 .shape-mapping-description {
   min-height: 34px;
-  margin: 8px 0 11px;
+  margin: 8px 0 5px;
   color: var(--muted);
   font-size: 9px;
   line-height: 1.5;
+}
+
+.shape-mapping-origin,
+.shape-control-help,
+.shape-hit-cap-status {
+  margin: 0;
+  color: var(--faint);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.shape-mapping-origin {
+  min-height: 25px;
+  margin-bottom: 11px;
+  color: var(--accent);
+}
+
+.shape-control-help {
+  margin: -5px 0 10px;
+}
+
+.shape-hit-cap-status {
+  min-height: 12px;
+  color: var(--muted);
+}
+
+.shape-hit-cap-status.is-limited {
+  color: var(--accent);
 }
 
 .shape-map-legend {
@@ -61,7 +89,7 @@
 
 .shape-map-legend b {
   color: var(--ink);
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 600;
   letter-spacing: .05em;
   text-transform: uppercase;
@@ -69,7 +97,18 @@
 
 .shape-map-legend small {
   color: var(--faint);
-  font-size: 7px;
+  font-size: 8px;
+}
+
+#sideSubdivisionsControl.is-disabled > span,
+#sideSubdivisionsControl.is-disabled output {
+  color: var(--faint);
+}
+
+#sideSubdivisionsControl input:disabled {
+  opacity: .32;
+  cursor: not-allowed;
+  filter: grayscale(1);
 }
 
 .shape-drum-map {

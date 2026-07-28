@@ -167,6 +167,46 @@ export function hyperplaneOffsetForPhase(phase, radius = 1.25) {
   return (wrapped * 2 - 1) * radius;
 }
 
+export function hyperplaneWRange(shape = {}) {
+  const values = Array.isArray(shape?.vertices)
+    ? shape.vertices
+      .map(({ w }) => Number(w))
+      .filter(Number.isFinite)
+    : [];
+  if (!values.length) return { minW: 0, maxW: 0, span: 0 };
+  const minW = Math.min(...values);
+  const maxW = Math.max(...values);
+  return { minW, maxW, span: maxW - minW };
+}
+
+/**
+ * Move a looping W-plane across exactly the occupied extent of a transformed
+ * shape. Rotation can make that extent narrower, wider, or asymmetric, so a
+ * fixed radius would introduce silent travel or miss the shape's extremes.
+ */
+export function hyperplaneOffsetForShapePhase(shape, phase) {
+  const wrapped = ((Number(phase) % 1) + 1) % 1;
+  const { minW, maxW } = hyperplaneWRange(shape);
+  return minW + (maxW - minW) * wrapped;
+}
+
+export function crossedHyperplaneLoop(previousPhase, nextPhase) {
+  const previous = Number(previousPhase);
+  const next = Number(nextPhase);
+  if (!Number.isFinite(previous) || !Number.isFinite(next)) return false;
+  return Math.floor(previous) !== Math.floor(next);
+}
+
+export function crossedHyperplaneVertex(previousDistance, nextDistance, epsilon = 1e-7) {
+  const previous = Number(previousDistance);
+  const next = Number(nextDistance);
+  if (!Number.isFinite(previous) || !Number.isFinite(next)) return false;
+  const threshold = Math.max(EPSILON, Math.abs(Number(epsilon) || 0));
+  if (Math.abs(next) <= threshold) return false;
+  if (Math.abs(previous) <= threshold) return true;
+  return previous * next < 0;
+}
+
 export function transformedTesseract(rotation) {
   return transformedHyperShape("tesseract", rotation);
 }
