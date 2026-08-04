@@ -29,6 +29,8 @@ test("site builder publishes runtime files without development material", async 
 
     for (const path of [
       "index.html",
+      "about.html",
+      "about.css",
       "app.js",
       "src/audio.js",
       "src/contour-synth-processor.js",
@@ -74,6 +76,7 @@ test("site builder publishes runtime files without development material", async 
       "src/hyper-drums.js",
       "morphazoidical/index.html",
       "morphazoidical/PLAN.md",
+      "vendor/signalsmith-stretch/LICENSE",
       "vendor/signalsmith-stretch/SignalsmithStretch.mjs",
       "vendor/tactile/tactile.js",
     ]) {

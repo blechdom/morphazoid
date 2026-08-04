@@ -1,0 +1,233 @@
+{
+  "schemaVersion": 2,
+  "instrument": "morphazoid.chaotic-fm",
+  "parameters": [
+    {
+      "id": "synthesis.depth",
+      "key": "depth",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10,
+      "default": 1,
+      "curve": "linear"
+    },
+    {
+      "id": "synthesis.carrierHz",
+      "key": "carrierHz",
+      "type": "number",
+      "unit": "Hz",
+      "minimum": 0.01,
+      "maximum": 4800,
+      "default": 10.5,
+      "curve": "log"
+    },
+    {
+      "id": "synthesis.offsetHz",
+      "key": "offsetHz",
+      "type": "number",
+      "unit": "Hz",
+      "minimum": 0,
+      "maximum": 4800,
+      "default": 0,
+      "curve": "quadratic"
+    },
+    {
+      "id": "synthesis.modulationAmount",
+      "key": "modulationAmount",
+      "type": "number",
+      "unit": "Hz",
+      "minimum": 0,
+      "maximum": 4800,
+      "default": 350,
+      "curve": "quadratic"
+    },
+    {
+      "id": "synthesis.amountDivisor",
+      "key": "amountDivisor",
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 8,
+      "default": 0.4,
+      "curve": "log"
+    },
+    {
+      "id": "synthesis.nonlinearityHz",
+      "key": "nonlinearityHz",
+      "type": "number",
+      "unit": "Hz",
+      "minimum": 0.001,
+      "maximum": 4000,
+      "default": 256,
+      "curve": "log"
+    },
+    {
+      "id": "performance.playMode",
+      "key": "playMode",
+      "type": "enum",
+      "values": ["drone", "midi"],
+      "default": "midi"
+    },
+    {
+      "id": "performance.rootMidiNote",
+      "key": "rootMidiNote",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 127,
+      "default": 60,
+      "curve": "linear"
+    },
+    {
+      "id": "performance.pitchBendRangeSemitones",
+      "key": "pitchBendRangeSemitones",
+      "type": "integer",
+      "unit": "semitones",
+      "minimum": 0,
+      "maximum": 24,
+      "default": 2,
+      "curve": "linear"
+    },
+    {
+      "id": "performance.ampAttackMs",
+      "key": "ampAttackMs",
+      "type": "number",
+      "unit": "ms",
+      "minimum": 0,
+      "minimumNonzero": 0.5,
+      "maximum": 5000,
+      "default": 8,
+      "curve": "log-zero"
+    },
+    {
+      "id": "performance.ampDecayMs",
+      "key": "ampDecayMs",
+      "type": "number",
+      "unit": "ms",
+      "minimum": 0,
+      "minimumNonzero": 1,
+      "maximum": 5000,
+      "default": 120,
+      "curve": "log-zero"
+    },
+    {
+      "id": "performance.ampSustainLevel",
+      "key": "ampSustainLevel",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.72,
+      "curve": "linear"
+    },
+    {
+      "id": "performance.ampReleaseMs",
+      "key": "ampReleaseMs",
+      "type": "number",
+      "unit": "ms",
+      "minimum": 2,
+      "maximum": 10000,
+      "default": 180,
+      "curve": "log"
+    },
+    {
+      "id": "performance.glideTimeMs",
+      "key": "glideTimeMs",
+      "type": "number",
+      "unit": "ms",
+      "minimum": 0,
+      "minimumNonzero": 10,
+      "maximum": 2000,
+      "default": 0,
+      "curve": "log-zero"
+    },
+    {
+      "id": "performance.glideMode",
+      "key": "glideMode",
+      "type": "enum",
+      "values": ["off", "legato", "always"],
+      "default": "off"
+    },
+    {
+      "id": "output.level",
+      "key": "output",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 0.82,
+      "default": 0.42,
+      "curve": "linear"
+    }
+  ],
+  "runtimeControls": [
+    {
+      "id": "performance.expression",
+      "default": 1,
+      "minimum": 0,
+      "maximum": 1
+    },
+    {
+      "id": "performance.sustain",
+      "default": false
+    },
+    {
+      "id": "performance.glideEnabled",
+      "default": true
+    }
+  ],
+  "factoryMidi": [
+    {
+      "cc": 5,
+      "target": "performance.glideTimeMs",
+      "curve": "morphazoid-glide-v1",
+      "learnable": true
+    },
+    {
+      "cc": 11,
+      "target": "performance.expression",
+      "curve": "linear",
+      "learnable": true
+    },
+    {
+      "cc": 64,
+      "target": "performance.sustain",
+      "curve": "switch-64",
+      "learnable": false
+    },
+    {
+      "cc": 65,
+      "target": "performance.glideEnabled",
+      "curve": "switch-64",
+      "learnable": false
+    },
+    {
+      "cc": 72,
+      "target": "performance.ampReleaseMs",
+      "curve": "log",
+      "learnable": true
+    },
+    {
+      "cc": 73,
+      "target": "performance.ampAttackMs",
+      "curve": "log-zero",
+      "learnable": true
+    },
+    {
+      "cc": 75,
+      "target": "performance.ampDecayMs",
+      "curve": "log-zero",
+      "learnable": true
+    },
+    {
+      "cc": 120,
+      "action": "allSoundOff",
+      "learnable": false
+    },
+    {
+      "cc": 121,
+      "action": "resetAllControllers",
+      "learnable": false
+    },
+    {
+      "cc": 123,
+      "action": "allNotesOff",
+      "learnable": false
+    }
+  ]
+}

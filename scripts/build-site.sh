@@ -44,15 +44,19 @@ while IFS= read -r -d '' source_path; do
   case "$source_path" in
     *.html|*.css|*.js|favicon.svg|morphazoidical/PLAN.md|\
     vendor/tactile/LICENSE|\
+    vendor/signalsmith-stretch/LICENSE|\
     vendor/signalsmith-stretch/SignalsmithStretch.mjs)
       copy_runtime_file "$source_path"
       ;;
   esac
 done < <(git -C "$repo_root" ls-files -z)
 
-# Allow the new Workbench page to enter local release artifacts before its
-# first commit; after tracking, these copies simply refresh the same paths.
+# Allow new public pages to enter local release artifacts before their first
+# commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
+  about.html \
+  about.css \
+  vendor/signalsmith-stretch/LICENSE \
   shape-drums.html \
   shape-drums.css \
   shape-drums-app.js \
@@ -79,6 +83,8 @@ done
 
 required_files=(
   index.html
+  about.html
+  about.css
   app.js
   style.css
   favicon.svg
@@ -137,6 +143,7 @@ required_files=(
   hyper-drums-app.js
   src/hyper-drums.js
   morphazoidical/index.html
+  vendor/signalsmith-stretch/LICENSE
   vendor/signalsmith-stretch/SignalsmithStretch.mjs
   vendor/tactile/tactile.js
 )

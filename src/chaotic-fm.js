@@ -18,6 +18,55 @@ export const CHAOTIC_FM_LIMITS = Object.freeze({
   maxOutput: 0.82,
 });
 
+export const CHAOTIC_FM_PERFORMANCE_LIMITS = Object.freeze({
+  minRootMidiNote: 0,
+  maxRootMidiNote: 127,
+  minPitchBendRangeSemitones: 0,
+  maxPitchBendRangeSemitones: 24,
+  minAmpAttackMs: 0,
+  maxAmpAttackMs: 5_000,
+  minAmpDecayMs: 0,
+  maxAmpDecayMs: 5_000,
+  minAmpReleaseMs: 2,
+  maxAmpReleaseMs: 10_000,
+  minGlideTimeMs: 0,
+  maxGlideTimeMs: 2_000,
+});
+
+export const CHAOTIC_FM_PARAMETER_IDS = Object.freeze({
+  depth: "synthesis.depth",
+  carrierHz: "synthesis.carrierHz",
+  offsetHz: "synthesis.offsetHz",
+  modulationAmount: "synthesis.modulationAmount",
+  amountDivisor: "synthesis.amountDivisor",
+  nonlinearityHz: "synthesis.nonlinearityHz",
+  output: "output.level",
+  playMode: "performance.playMode",
+  rootMidiNote: "performance.rootMidiNote",
+  pitchBendRangeSemitones: "performance.pitchBendRangeSemitones",
+  ampAttackMs: "performance.ampAttackMs",
+  ampDecayMs: "performance.ampDecayMs",
+  ampSustainLevel: "performance.ampSustainLevel",
+  ampReleaseMs: "performance.ampReleaseMs",
+  glideTimeMs: "performance.glideTimeMs",
+  glideMode: "performance.glideMode",
+});
+
+export const CHAOTIC_FM_PERFORMANCE_DEFAULTS = Object.freeze({
+  playMode: "midi",
+  rootMidiNote: 60,
+  pitchBendRangeSemitones: 2,
+  ampAttackMs: 8,
+  ampDecayMs: 120,
+  ampSustainLevel: 0.72,
+  ampReleaseMs: 180,
+  glideTimeMs: 0,
+  glideMode: "off",
+});
+
+const PLAY_MODES = new Set(["drone", "midi"]);
+const GLIDE_MODES = new Set(["off", "legato", "always"]);
+
 const freezePreset = (preset) => Object.freeze({
   ...preset,
   settings: Object.freeze({ ...preset.settings }),
@@ -200,6 +249,275 @@ export function sanitizeChaoticFmParams(
   });
 }
 
+export function sanitizeChaoticFmPerformance(params = {}) {
+  const playMode = String(
+    params.playMode ?? CHAOTIC_FM_PERFORMANCE_DEFAULTS.playMode,
+  ).toLowerCase();
+  const glideMode = String(
+    params.glideMode ?? CHAOTIC_FM_PERFORMANCE_DEFAULTS.glideMode,
+  ).toLowerCase();
+  return Object.freeze({
+    playMode: PLAY_MODES.has(playMode)
+      ? playMode
+      : CHAOTIC_FM_PERFORMANCE_DEFAULTS.playMode,
+    rootMidiNote: Math.round(clamp(
+      params.rootMidiNote,
+      CHAOTIC_FM_PERFORMANCE_LIMITS.minRootMidiNote,
+      CHAOTIC_FM_PERFORMANCE_LIMITS.maxRootMidiNote,
+      CHAOTIC_FM_PERFORMANCE_DEFAULTS.rootMidiNote,
+    )),
+    pitchBendRangeSemitones: clamp(
+      params.pitchBendRangeSemitones,
+      CHAOTIC_FM_PERFORMANCE_LIMITS.minPitchBendRangeSemitones,
+      CHAOTIC_FM_PERFORMANCE_LIMITS.maxPitchBendRangeSemitones,
+      CHAOTIC_FM_PERFORMANCE_DEFAULTS.pitchBendRangeSemitones,
+    ),
+    ampAttackMs: clamp(
+      params.ampAttackMs,
+      CHAOTIC_FM_PERFORMANCE_LIMITS.minAmpAttackMs,
+      CHAOTIC_FM_PERFORMANCE_LIMITS.maxAmpAttackMs,
+      CHAOTIC_FM_PERFORMANCE_DEFAULTS.ampAttackMs,
+    ),
+    ampDecayMs: clamp(
+      params.ampDecayMs,
+      CHAOTIC_FM_PERFORMANCE_LIMITS.minAmpDecayMs,
+      CHAOTIC_FM_PERFORMANCE_LIMITS.maxAmpDecayMs,
+      CHAOTIC_FM_PERFORMANCE_DEFAULTS.ampDecayMs,
+    ),
+    ampSustainLevel: clamp(
+      params.ampSustainLevel,
+      0,
+      1,
+      CHAOTIC_FM_PERFORMANCE_DEFAULTS.ampSustainLevel,
+    ),
+    ampReleaseMs: clamp(
+      params.ampReleaseMs,
+      CHAOTIC_FM_PERFORMANCE_LIMITS.minAmpReleaseMs,
+      CHAOTIC_FM_PERFORMANCE_LIMITS.maxAmpReleaseMs,
+      CHAOTIC_FM_PERFORMANCE_DEFAULTS.ampReleaseMs,
+    ),
+    glideTimeMs: clamp(
+      params.glideTimeMs,
+      CHAOTIC_FM_PERFORMANCE_LIMITS.minGlideTimeMs,
+      CHAOTIC_FM_PERFORMANCE_LIMITS.maxGlideTimeMs,
+      CHAOTIC_FM_PERFORMANCE_DEFAULTS.glideTimeMs,
+    ),
+    glideMode: GLIDE_MODES.has(glideMode)
+      ? glideMode
+      : CHAOTIC_FM_PERFORMANCE_DEFAULTS.glideMode,
+  });
+}
+
+function midiByte(data, index) {
+  return Math.round(clamp(data?.[index], 0, 127, 0));
+}
+
+function geometricMidiValue(value, minimum, maximum, { zero = false } = {}) {
+  const safeValue = midiByte([value], 0);
+  if (zero && safeValue === 0) return 0;
+  const position = zero ? (safeValue - 1) / 126 : safeValue / 127;
+  return minimum * ((maximum / minimum) ** position);
+}
+
+export function chaoticFmFactoryControlChange(controller, value) {
+  const cc = midiByte([controller], 0);
+  const safeValue = midiByte([value], 0);
+  if (cc === 5) {
+    return {
+      type: "parameter",
+      key: "glideTimeMs",
+      parameterId: CHAOTIC_FM_PARAMETER_IDS.glideTimeMs,
+      value: geometricMidiValue(safeValue, 10, 2_000, { zero: true }),
+    };
+  }
+  if (cc === 11) return { type: "expression", value: safeValue / 127 };
+  if (cc === 64) return { type: "sustain", down: safeValue >= 64 };
+  if (cc === 65) return { type: "glideEnabled", enabled: safeValue >= 64 };
+  if (cc === 72) {
+    return {
+      type: "parameter",
+      key: "ampReleaseMs",
+      parameterId: CHAOTIC_FM_PARAMETER_IDS.ampReleaseMs,
+      value: geometricMidiValue(safeValue, 2, 10_000),
+    };
+  }
+  if (cc === 73) {
+    return {
+      type: "parameter",
+      key: "ampAttackMs",
+      parameterId: CHAOTIC_FM_PARAMETER_IDS.ampAttackMs,
+      value: geometricMidiValue(safeValue, 0.5, 5_000, { zero: true }),
+    };
+  }
+  if (cc === 75) {
+    return {
+      type: "parameter",
+      key: "ampDecayMs",
+      parameterId: CHAOTIC_FM_PARAMETER_IDS.ampDecayMs,
+      value: geometricMidiValue(safeValue, 1, 5_000, { zero: true }),
+    };
+  }
+  if (cc === 120) return { type: "allSoundOff" };
+  if (cc === 121) return { type: "resetControllers" };
+  if (cc === 123) return { type: "allNotesOff" };
+  return null;
+}
+
+/**
+ * Convert one MIDI 1.0 channel message into the platform-neutral actions used
+ * by the worklet and later native implementations. System and SysEx messages
+ * are intentionally ignored.
+ */
+export function decodeChaoticFmMidiMessage(data) {
+  if (!data || data.length < 1) return null;
+  const status = Math.round(clamp(data[0], 0, 255, 0));
+  if (status < 0x80 || status >= 0xf0) return null;
+  const command = status & 0xf0;
+  const channel = status & 0x0f;
+  const data1 = midiByte(data, 1);
+  const data2 = midiByte(data, 2);
+
+  if (command === 0x90 && data2 > 0) {
+    return { type: "noteOn", note: data1, velocity: data2, channel };
+  }
+  if (command === 0x80 || command === 0x90) {
+    return { type: "noteOff", note: data1, velocity: data2, channel };
+  }
+  if (command === 0xe0) {
+    const raw = data1 | (data2 << 7);
+    const distance = raw - 8_192;
+    return {
+      type: "pitchBend",
+      normalized: distance < 0 ? distance / 8_192 : distance / 8_191,
+      channel,
+    };
+  }
+  if (command !== 0xb0) return null;
+  return { type: "controlChange", controller: data1, value: data2, channel };
+}
+
+function dispatchChaoticFmMidiAction(target, action) {
+  if (!target || !action) return;
+  if (action.type === "noteOn") {
+    target.noteOn?.(action.note, action.velocity, action.channel);
+  } else if (action.type === "noteOff") {
+    target.noteOff?.(action.note, action.channel);
+  }
+  else if (action.type === "pitchBend") target.pitchBend?.(action.normalized);
+  else if (action.type === "controlChange") {
+    target.controlChange?.(action.controller, action.value);
+  }
+}
+
+/**
+ * Permission-conscious Web MIDI adapter. Merely constructing it never prompts;
+ * requestMIDIAccess is called only from enable(), which the UI binds to an
+ * explicit user action.
+ */
+export class ChaoticFmWebMidi {
+  constructor(runtime = globalThis, {
+    target = null,
+    onAction = null,
+    onStatus = null,
+  } = {}) {
+    this.runtime = runtime;
+    this.target = target;
+    this.onAction = onAction;
+    this.onStatus = onStatus;
+    this.access = null;
+    this.inputs = new Set();
+    this.boundMessage = (event) => this.handleMessage(event);
+    this.boundStateChange = () => this.refreshInputs();
+  }
+
+  get supported() {
+    return typeof this.runtime.navigator?.requestMIDIAccess === "function";
+  }
+
+  get enabled() {
+    return Boolean(this.access);
+  }
+
+  status() {
+    return Object.freeze({
+      supported: this.supported,
+      enabled: this.enabled,
+      inputCount: this.inputs.size,
+    });
+  }
+
+  notifyStatus() {
+    this.onStatus?.(this.status());
+  }
+
+  async enable() {
+    if (!this.supported) {
+      throw new Error("Web MIDI is not available in this browser.");
+    }
+    if (this.access) return this.access;
+    this.access = await this.runtime.navigator.requestMIDIAccess({ sysex: false });
+    if (typeof this.access.addEventListener === "function") {
+      this.access.addEventListener("statechange", this.boundStateChange);
+    } else {
+      this.access.onstatechange = this.boundStateChange;
+    }
+    this.refreshInputs();
+    return this.access;
+  }
+
+  refreshInputs() {
+    const available = new Set();
+    for (const input of this.access?.inputs?.values?.() ?? []) {
+      if (input?.state !== "disconnected") available.add(input);
+    }
+    for (const input of this.inputs) {
+      if (available.has(input)) continue;
+      if (typeof input.removeEventListener === "function") {
+        input.removeEventListener("midimessage", this.boundMessage);
+      } else if (input.onmidimessage === this.boundMessage) {
+        input.onmidimessage = null;
+      }
+      this.inputs.delete(input);
+    }
+    for (const input of available) {
+      if (this.inputs.has(input) || input?.state === "disconnected") continue;
+      if (typeof input.addEventListener === "function") {
+        input.addEventListener("midimessage", this.boundMessage);
+      } else {
+        input.onmidimessage = this.boundMessage;
+      }
+      this.inputs.add(input);
+    }
+    this.notifyStatus();
+  }
+
+  handleMessage(event) {
+    const action = decodeChaoticFmMidiMessage(event?.data);
+    if (!action) return null;
+    dispatchChaoticFmMidiAction(this.target, action);
+    this.onAction?.(action, event);
+    return action;
+  }
+
+  close() {
+    for (const input of this.inputs) {
+      if (typeof input.removeEventListener === "function") {
+        input.removeEventListener("midimessage", this.boundMessage);
+      } else if (input.onmidimessage === this.boundMessage) {
+        input.onmidimessage = null;
+      }
+    }
+    this.inputs.clear();
+    if (typeof this.access?.removeEventListener === "function") {
+      this.access.removeEventListener("statechange", this.boundStateChange);
+    } else if (this.access?.onstatechange === this.boundStateChange) {
+      this.access.onstatechange = null;
+    }
+    this.access = null;
+    this.notifyStatus();
+  }
+}
+
 function boundedRecursiveAmount(value) {
   return clamp(value, 0, 1e12, 0);
 }
@@ -360,6 +678,7 @@ function createProcessorClass(AudioWorkletBase) {
     constructor(options = {}) {
       super();
       const initial = sanitizeChaoticFmParams(options.processorOptions);
+      const performance = sanitizeChaoticFmPerformance(options.processorOptions);
       this.targetDepth = initial.depth;
       this.targetCarrierHz = initial.carrierHz;
       this.targetOffsetHz = initial.offsetHz;
@@ -378,6 +697,53 @@ function createProcessorClass(AudioWorkletBase) {
       for (let index = 0; index < this.phases.length; index += 1) {
         this.phases[index] = (index * 0.618033988749895 % 1) * TAU;
       }
+
+      this.playMode = performance.playMode;
+      this.rootMidiNote = performance.rootMidiNote;
+      this.pitchBendRangeSemitones = performance.pitchBendRangeSemitones;
+      this.ampAttackMs = performance.ampAttackMs;
+      this.ampDecayMs = performance.ampDecayMs;
+      this.ampSustainLevel = performance.ampSustainLevel;
+      this.ampReleaseMs = performance.ampReleaseMs;
+      this.glideTimeMs = performance.glideTimeMs;
+      this.glideMode = performance.glideMode;
+      this.glideEnabled = true;
+
+      this.noteHeld = new Uint8Array(128);
+      this.noteSustained = new Uint8Array(128);
+      this.noteVelocity = new Float64Array(128);
+      this.noteChannel = new Uint8Array(128);
+      this.noteOrder = new Uint32Array(128);
+      this.noteOrderCounter = 0;
+      this.selectedNote = -1;
+      this.hasEverNote = false;
+      this.sustainDown = false;
+
+      this.currentBaseSemitones = 0;
+      this.targetBaseSemitones = 0;
+      this.baseGlideStart = 0;
+      this.baseGlideElapsed = 0;
+      this.baseGlideDuration = 0;
+      this.pitchBendNormalized = 0;
+      this.currentBendSemitones = 0;
+      this.targetBendSemitones = 0;
+      this.bendStart = 0;
+      this.bendElapsed = 0;
+      this.bendDuration = 0;
+
+      this.currentVelocity = 1;
+      this.targetVelocity = 1;
+      this.currentExpression = 1;
+      this.targetExpression = 1;
+
+      // 0 idle, 1 attack, 2 decay, 3 sustain, 4 release, 5 hard fade.
+      this.envelopeStage = 0;
+      this.envelopeLevel = 0;
+      this.envelopeStart = 0;
+      this.envelopeTarget = 0;
+      this.envelopeElapsed = 0;
+      this.envelopeDuration = 0;
+
       this.activeTarget = 0;
       this.activeGain = 0;
       this.port.onmessage = (event) => {
@@ -406,10 +772,301 @@ function createProcessorClass(AudioWorkletBase) {
           this.targetModulationAmount = safe.modulationAmount;
           this.targetAmountDivisor = safe.amountDivisor;
           this.targetNonlinearityHz = safe.nonlinearityHz;
+        } else if (message?.type === "performance") {
+          this.setPerformance(message.parameters);
+        } else if (message?.type === "noteOn") {
+          this.noteOn(message.note, message.velocity, message.channel);
+        } else if (message?.type === "noteOff") {
+          this.noteOff(message.note);
+        } else if (message?.type === "pitchBend") {
+          this.setPitchBend(message.normalized);
+        } else if (message?.type === "expression") {
+          this.targetExpression = clamp(message.value, 0, 1, 1);
+        } else if (message?.type === "sustain") {
+          this.setSustain(message.down);
+        } else if (message?.type === "glideEnabled") {
+          this.glideEnabled = Boolean(message.enabled);
+        } else if (message?.type === "allNotesOff") {
+          this.allNotesOff(false);
+        } else if (message?.type === "allSoundOff") {
+          this.allNotesOff(true);
+        } else if (message?.type === "resetControllers") {
+          this.resetControllers();
         } else if (message?.type === "active") {
           this.activeTarget = message.value ? 1 : 0;
         }
       };
+    }
+
+    sampleCount(milliseconds, minimum = 0) {
+      const workletSampleRate = Number(globalThis.sampleRate) || DEFAULT_SAMPLE_RATE;
+      return Math.max(minimum, Math.round(milliseconds * workletSampleRate / 1_000));
+    }
+
+    setPerformance(parameters = {}) {
+      const previousRootMidiNote = this.rootMidiNote;
+      const previousPitchBendRange = this.pitchBendRangeSemitones;
+      const safe = sanitizeChaoticFmPerformance({
+        playMode: parameters.playMode ?? this.playMode,
+        rootMidiNote: parameters.rootMidiNote ?? this.rootMidiNote,
+        pitchBendRangeSemitones: (
+          parameters.pitchBendRangeSemitones
+          ?? this.pitchBendRangeSemitones
+        ),
+        ampAttackMs: parameters.ampAttackMs ?? this.ampAttackMs,
+        ampDecayMs: parameters.ampDecayMs ?? this.ampDecayMs,
+        ampSustainLevel: parameters.ampSustainLevel ?? this.ampSustainLevel,
+        ampReleaseMs: parameters.ampReleaseMs ?? this.ampReleaseMs,
+        glideTimeMs: parameters.glideTimeMs ?? this.glideTimeMs,
+        glideMode: parameters.glideMode ?? this.glideMode,
+      });
+      this.playMode = safe.playMode;
+      this.rootMidiNote = safe.rootMidiNote;
+      this.pitchBendRangeSemitones = safe.pitchBendRangeSemitones;
+      this.ampAttackMs = safe.ampAttackMs;
+      this.ampDecayMs = safe.ampDecayMs;
+      this.ampSustainLevel = safe.ampSustainLevel;
+      this.ampReleaseMs = safe.ampReleaseMs;
+      this.glideTimeMs = safe.glideTimeMs;
+      this.glideMode = safe.glideMode;
+      if (this.envelopeStage === 3) this.envelopeLevel = this.ampSustainLevel;
+      if (this.selectedNote >= 0 && safe.rootMidiNote !== previousRootMidiNote) {
+        this.currentBaseSemitones = this.selectedNote - this.rootMidiNote;
+        this.targetBaseSemitones = this.currentBaseSemitones;
+        this.baseGlideDuration = 0;
+      }
+      if (safe.pitchBendRangeSemitones !== previousPitchBendRange) {
+        this.beginBend(this.pitchBendNormalized * this.pitchBendRangeSemitones);
+      }
+    }
+
+    newestNote({ physicallyHeldOnly = false } = {}) {
+      let newest = -1;
+      let newestOrder = 0;
+      for (let note = 0; note < 128; note += 1) {
+        const eligible = this.noteHeld[note]
+          || (!physicallyHeldOnly && this.noteSustained[note]);
+        if (eligible && (newest < 0 || this.noteOrder[note] >= newestOrder)) {
+          newest = note;
+          newestOrder = this.noteOrder[note];
+        }
+      }
+      return newest;
+    }
+
+    beginBasePitch(note, legatoEligible) {
+      const target = note - this.rootMidiNote;
+      const shouldGlide = this.hasEverNote
+        && this.glideEnabled
+        && this.glideTimeMs > 0
+        && (
+          this.glideMode === "always"
+          || (this.glideMode === "legato" && legatoEligible)
+        );
+      this.targetBaseSemitones = target;
+      if (shouldGlide) {
+        this.baseGlideStart = this.currentBaseSemitones;
+        this.baseGlideElapsed = 0;
+        this.baseGlideDuration = this.sampleCount(this.glideTimeMs, 1);
+      } else {
+        this.currentBaseSemitones = target;
+        this.baseGlideStart = target;
+        this.baseGlideElapsed = 0;
+        this.baseGlideDuration = 0;
+      }
+      this.hasEverNote = true;
+    }
+
+    selectNote(note, { legatoEligible = false, smoothVelocity = true } = {}) {
+      this.selectedNote = note;
+      this.beginBasePitch(note, legatoEligible);
+      const velocity = this.noteVelocity[note];
+      this.targetVelocity = velocity;
+      if (!smoothVelocity) this.currentVelocity = velocity;
+    }
+
+    beginDecay() {
+      this.envelopeLevel = 1;
+      this.envelopeStart = 1;
+      this.envelopeTarget = this.ampSustainLevel;
+      this.envelopeElapsed = 0;
+      this.envelopeDuration = this.sampleCount(this.ampDecayMs);
+      if (this.envelopeDuration === 0) {
+        this.envelopeLevel = this.envelopeTarget;
+        this.envelopeStage = 3;
+      } else {
+        this.envelopeStage = 2;
+      }
+    }
+
+    beginAttack() {
+      this.envelopeStart = this.envelopeLevel;
+      this.envelopeElapsed = 0;
+      this.envelopeDuration = this.sampleCount(this.ampAttackMs);
+      if (this.envelopeDuration === 0) this.beginDecay();
+      else this.envelopeStage = 1;
+    }
+
+    beginRelease({ hard = false } = {}) {
+      if (this.envelopeStage === 0 || this.envelopeLevel <= 0) {
+        this.envelopeLevel = 0;
+        this.envelopeStage = 0;
+        return;
+      }
+      this.envelopeStart = this.envelopeLevel;
+      this.envelopeTarget = 0;
+      this.envelopeElapsed = 0;
+      this.envelopeDuration = this.sampleCount(hard ? 2 : this.ampReleaseMs, 1);
+      this.envelopeStage = hard ? 5 : 4;
+    }
+
+    noteOn(noteValue, velocityValue, channelValue = 0) {
+      const note = Math.round(clamp(noteValue, 0, 127, 60));
+      const velocity = Math.round(clamp(velocityValue, 0, 127, 0));
+      if (velocity === 0) {
+        this.noteOff(note);
+        return;
+      }
+      const hadPhysicalNote = this.newestNote({ physicallyHeldOnly: true }) >= 0;
+      const voiceWasSustaining = this.selectedNote >= 0
+        && this.envelopeStage !== 0
+        && this.envelopeStage !== 4
+        && this.envelopeStage !== 5;
+      this.noteHeld[note] = 1;
+      this.noteSustained[note] = 0;
+      this.noteVelocity[note] = velocity / 127;
+      this.noteChannel[note] = Math.round(clamp(channelValue, 0, 15, 0));
+      this.noteOrderCounter = (this.noteOrderCounter + 1) >>> 0;
+      if (this.noteOrderCounter === 0) this.noteOrderCounter = 1;
+      this.noteOrder[note] = this.noteOrderCounter;
+      this.selectNote(note, {
+        legatoEligible: hadPhysicalNote,
+        smoothVelocity: voiceWasSustaining,
+      });
+      if (!voiceWasSustaining) this.beginAttack();
+    }
+
+    noteOff(noteValue) {
+      const note = Math.round(clamp(noteValue, 0, 127, 60));
+      if (!this.noteHeld[note] && !this.noteSustained[note]) return;
+      this.noteHeld[note] = 0;
+      this.noteSustained[note] = this.sustainDown ? 1 : 0;
+      if (note !== this.selectedNote) return;
+      const fallback = this.newestNote({ physicallyHeldOnly: true });
+      if (fallback >= 0) {
+        this.selectNote(fallback, { legatoEligible: true, smoothVelocity: true });
+      } else if (this.sustainDown) {
+        // The released current note is sustained only when no physical key is
+        // available. Physical keys always retain monophonic last-note priority.
+        return;
+      } else {
+        this.selectedNote = -1;
+        this.beginRelease();
+      }
+    }
+
+    setSustain(down) {
+      const next = Boolean(down);
+      if (next === this.sustainDown) return;
+      this.sustainDown = next;
+      if (next) return;
+      for (let note = 0; note < 128; note += 1) this.noteSustained[note] = 0;
+      if (this.selectedNote >= 0 && this.noteHeld[this.selectedNote]) return;
+      const fallback = this.newestNote({ physicallyHeldOnly: true });
+      if (fallback >= 0) {
+        this.selectNote(fallback, { legatoEligible: true, smoothVelocity: true });
+      } else if (this.selectedNote >= 0) {
+        this.selectedNote = -1;
+        this.beginRelease();
+      }
+    }
+
+    clearNoteState() {
+      this.noteHeld.fill(0);
+      this.noteSustained.fill(0);
+      this.selectedNote = -1;
+    }
+
+    allNotesOff(hard) {
+      this.clearNoteState();
+      if (hard) {
+        this.sustainDown = false;
+        this.beginRelease({ hard: true });
+      } else {
+        this.beginRelease();
+      }
+    }
+
+    beginBend(targetSemitones) {
+      this.bendStart = this.currentBendSemitones;
+      this.targetBendSemitones = targetSemitones;
+      this.bendElapsed = 0;
+      this.bendDuration = this.sampleCount(8, 1);
+    }
+
+    setPitchBend(normalized) {
+      this.pitchBendNormalized = clamp(normalized, -1, 1, 0);
+      this.beginBend(
+        this.pitchBendNormalized * this.pitchBendRangeSemitones,
+      );
+    }
+
+    resetControllers() {
+      this.targetExpression = 1;
+      this.glideEnabled = true;
+      this.setPitchBend(0);
+      this.setSustain(false);
+    }
+
+    advanceEnvelope() {
+      if (this.envelopeStage === 0) return 0;
+      if (this.envelopeStage === 3) {
+        this.envelopeLevel = this.ampSustainLevel;
+        return this.envelopeLevel;
+      }
+      this.envelopeElapsed += 1;
+      const progress = Math.min(
+        1,
+        this.envelopeElapsed / Math.max(1, this.envelopeDuration),
+      );
+      const remaining = 1 - progress;
+      if (this.envelopeStage === 1) {
+        this.envelopeLevel = this.envelopeStart
+          + (1 - this.envelopeStart) * (1 - remaining * remaining);
+        if (progress >= 1) this.beginDecay();
+      } else if (this.envelopeStage === 2) {
+        this.envelopeLevel = this.envelopeTarget
+          + (1 - this.envelopeTarget) * remaining * remaining;
+        if (progress >= 1) {
+          this.envelopeLevel = this.envelopeTarget;
+          this.envelopeStage = 3;
+        }
+      } else {
+        this.envelopeLevel = this.envelopeStart * remaining * remaining;
+        if (progress >= 1) {
+          this.envelopeLevel = 0;
+          this.envelopeStage = 0;
+        }
+      }
+      return this.envelopeLevel;
+    }
+
+    advancePitch() {
+      if (this.baseGlideDuration > 0) {
+        this.baseGlideElapsed += 1;
+        const progress = Math.min(1, this.baseGlideElapsed / this.baseGlideDuration);
+        this.currentBaseSemitones = this.baseGlideStart
+          + (this.targetBaseSemitones - this.baseGlideStart) * progress;
+        if (progress >= 1) this.baseGlideDuration = 0;
+      }
+      if (this.bendDuration > 0) {
+        this.bendElapsed += 1;
+        const progress = Math.min(1, this.bendElapsed / this.bendDuration);
+        this.currentBendSemitones = this.bendStart
+          + (this.targetBendSemitones - this.bendStart) * progress;
+        if (progress >= 1) this.bendDuration = 0;
+      }
+      return 2 ** ((this.currentBaseSemitones + this.currentBendSemitones) / 12);
     }
 
     process(_inputs, outputs) {
@@ -428,6 +1085,7 @@ function createProcessorClass(AudioWorkletBase) {
       const parameterSlew = 1 - Math.exp(-1 / (workletSampleRate * 0.028));
       const depthSlew = 1 - Math.exp(-1 / (workletSampleRate * 0.018));
       const activeSlew = 1 - Math.exp(-1 / (workletSampleRate * 0.008));
+      const performanceSlew = 1 - Math.exp(-1 / (workletSampleRate * 0.006));
       const phaseScale = TAU / workletSampleRate;
 
       for (let sampleIndex = 0; sampleIndex < left.length; sampleIndex += 1) {
@@ -449,6 +1107,14 @@ function createProcessorClass(AudioWorkletBase) {
         this.activeGain += (
           this.activeTarget - this.activeGain
         ) * activeSlew;
+        this.currentVelocity += (
+          this.targetVelocity - this.currentVelocity
+        ) * performanceSlew;
+        this.currentExpression += (
+          this.targetExpression - this.currentExpression
+        ) * performanceSlew;
+        const pitchRatio = this.playMode === "midi" ? this.advancePitch() : 1;
+        const envelope = this.advanceEnvelope();
 
         for (
           let depthIndex = 0;
@@ -462,7 +1128,10 @@ function createProcessorClass(AudioWorkletBase) {
         }
 
         this.phases[0] = wrapPhase(
-          this.phases[0] + this.currentCarrierHz * phaseScale,
+          this.phases[0] + Math.min(
+            frequencyCeiling,
+            this.currentCarrierHz * pitchRatio,
+          ) * phaseScale,
         );
         const carrierSignal = Math.sin(this.phases[0]);
         const halfAmount = this.currentModulationAmount * 0.5;
@@ -474,7 +1143,10 @@ function createProcessorClass(AudioWorkletBase) {
           ),
         );
         this.phases[1] = wrapPhase(
-          this.phases[1] + entryFrequency * phaseScale,
+          this.phases[1] + Math.min(
+            frequencyCeiling,
+            Math.max(-frequencyCeiling, entryFrequency * pitchRatio),
+          ) * phaseScale,
         );
         let previousSignal = Math.sin(this.phases[1]);
         this.depthSignals[0] = previousSignal;
@@ -497,7 +1169,10 @@ function createProcessorClass(AudioWorkletBase) {
             ),
           );
           this.phases[depthIndex + 1] = wrapPhase(
-            this.phases[depthIndex + 1] + recursiveFrequency * phaseScale,
+            this.phases[depthIndex + 1] + Math.min(
+              frequencyCeiling,
+              Math.max(-frequencyCeiling, recursiveFrequency * pitchRatio),
+            ) * phaseScale,
           );
           previousSignal = Math.sin(this.phases[depthIndex + 1]);
           this.depthSignals[depthIndex] = previousSignal;
@@ -523,7 +1198,10 @@ function createProcessorClass(AudioWorkletBase) {
             this.depthSignals[depthIndex] * this.depthGains[depthIndex]
           );
         }
-        const sample = mixedSignal * this.activeGain * 0.5;
+        const performanceGain = this.playMode === "midi"
+          ? envelope * this.currentVelocity * this.currentExpression
+          : 1;
+        const sample = mixedSignal * this.activeGain * performanceGain * 0.5;
         left[sampleIndex] = Number.isFinite(sample) ? sample : 0;
         if (right !== left) right[sampleIndex] = left[sampleIndex];
       }
@@ -558,6 +1236,7 @@ export class ChaoticFmAudio {
     this.master = null;
     this.analyser = null;
     this.params = { ...CHAOTIC_FM_DEFAULTS };
+    this.performance = { ...CHAOTIC_FM_PERFORMANCE_DEFAULTS };
     this.enabled = false;
     this.suspendTimer = null;
   }
@@ -595,7 +1274,10 @@ export class ChaoticFmAudio {
         numberOfInputs: 0,
         numberOfOutputs: 1,
         outputChannelCount: [2],
-        processorOptions: this.params,
+        processorOptions: {
+          ...this.params,
+          ...this.performance,
+        },
       });
       const highpass = context.createBiquadFilter();
       const compressor = context.createDynamicsCompressor();
@@ -614,8 +1296,10 @@ export class ChaoticFmAudio {
       ceiling.curve = createSoftCeilingCurve();
       ceiling.oversample = "2x";
       master.gain.value = 0;
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.62;
+      analyser.fftSize = 2_048;
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = 0;
+      analyser.smoothingTimeConstant = 0.45;
 
       node
         .connect(highpass)
@@ -633,6 +1317,7 @@ export class ChaoticFmAudio {
       this.master = master;
       this.analyser = analyser;
       this.setParameters(this.params);
+      this.setPerformanceParameters(this.performance);
     } catch (error) {
       await context.close().catch(() => {});
       throw error;
@@ -703,6 +1388,79 @@ export class ChaoticFmAudio {
         0.015,
       );
     }
+  }
+
+  setPerformanceParameters(params = {}) {
+    const safe = sanitizeChaoticFmPerformance({
+      ...this.performance,
+      ...params,
+    });
+    this.performance = { ...safe };
+    if (!this.isInitialized) return;
+    this.node.port.postMessage({
+      type: "performance",
+      parameters: this.performance,
+    });
+  }
+
+  postPerformanceAction(type, payload = {}) {
+    if (!this.isInitialized) return false;
+    this.node.port.postMessage({ type, ...payload });
+    return true;
+  }
+
+  noteOn(note, velocity = 127, channel = 0) {
+    return this.postPerformanceAction("noteOn", { note, velocity, channel });
+  }
+
+  noteOff(note, channel = 0) {
+    return this.postPerformanceAction("noteOff", { note, channel });
+  }
+
+  pitchBend(normalized) {
+    return this.postPerformanceAction("pitchBend", { normalized });
+  }
+
+  setExpression(value) {
+    return this.postPerformanceAction("expression", { value });
+  }
+
+  setSustain(down) {
+    return this.postPerformanceAction("sustain", { down });
+  }
+
+  setGlideEnabled(enabled) {
+    return this.postPerformanceAction("glideEnabled", { enabled });
+  }
+
+  allNotesOff() {
+    return this.postPerformanceAction("allNotesOff");
+  }
+
+  allSoundOff() {
+    return this.postPerformanceAction("allSoundOff");
+  }
+
+  resetControllers() {
+    return this.postPerformanceAction("resetControllers");
+  }
+
+  controlChange(controller, value) {
+    const action = chaoticFmFactoryControlChange(controller, value);
+    if (!action) return false;
+    if (action.type === "parameter") {
+      this.setPerformanceParameters({ [action.key]: action.value });
+      return true;
+    }
+    if (action.type === "expression") return this.setExpression(action.value);
+    if (action.type === "sustain") return this.setSustain(action.down);
+    if (action.type === "glideEnabled") {
+      return this.setGlideEnabled(action.enabled);
+    }
+    if (action.type === "allSoundOff") return this.allSoundOff();
+    if (action.type === "resetControllers") return this.resetControllers();
+    if (action.type === "allNotesOff") return this.allNotesOff();
+    return false;
   }
 
   getWaveform(target) {

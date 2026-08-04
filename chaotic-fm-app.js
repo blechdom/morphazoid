@@ -1,9 +1,13 @@
 import {
   CHAOTIC_FM_DEFAULTS,
   CHAOTIC_FM_LIMITS,
+  CHAOTIC_FM_PARAMETER_IDS,
+  CHAOTIC_FM_PERFORMANCE_DEFAULTS,
   CHAOTIC_FM_PRESETS,
   DEFAULT_CHAOTIC_FM_PRESET_ID,
   ChaoticFmAudio,
+  ChaoticFmWebMidi,
+  chaoticFmFactoryControlChange,
   deriveChaoticFmStack,
   formatChaoticFrequency,
   logarithmicSliderPosition,
@@ -11,10 +15,11 @@ import {
   quadraticSliderPosition,
   quadraticSliderValue,
   sanitizeChaoticFmParams,
+  sanitizeChaoticFmPerformance,
 } from "./src/chaotic-fm.js";
 import {
-  createChaoticSpectrogram,
-  drawChaoticAnalysis,
+  createChaoticSpectrum,
+  drawChaoticLiveAnalysis,
 } from "./src/chaotic-synth-visuals.js";
 
 const $ = (id) => document.getElementById(id);
@@ -28,7 +33,7 @@ const context2d = canvas.getContext("2d", {
 });
 const stageWrap = $("stageWrap");
 const waveform = new Float32Array(512);
-const spectrogram = createChaoticSpectrogram(document);
+const spectrum = createChaoticSpectrum();
 const reducedMotion = globalThis.matchMedia?.(
   "(prefers-reduced-motion: reduce)",
 )?.matches ?? false;
@@ -40,6 +45,18 @@ const defaultPreset = CHAOTIC_FM_PRESETS.find(
 const state = {
   settings: { ...defaultPreset.settings },
   output: CHAOTIC_FM_DEFAULTS.output,
+  // Keep the original page's immediate Audio-button sound. The portable
+  // engine and plugin default remains MIDI.
+  performance: {
+    ...CHAOTIC_FM_PERFORMANCE_DEFAULTS,
+    playMode: "drone",
+  },
+  expression: 1,
+  sustain: false,
+  bend: 0,
+  midiHeldNotes: new Map(),
+  midiEnabled: false,
+  midiStarting: false,
   activePresetId: defaultPreset.id,
   audioOn: false,
   audioStarting: false,
@@ -132,6 +149,86 @@ const controls = {
   },
 };
 
+function logarithmicZeroSliderValue(position, minimum, maximum) {
+  const normalized = Number(position);
+  if (!Number.isFinite(normalized) || normalized <= 0) return 0;
+  return logarithmicSliderValue(
+    Math.max(0, (normalized - 0.001) / 0.999),
+    minimum,
+    maximum,
+  );
+}
+
+function logarithmicZeroSliderPosition(value, minimum, maximum) {
+  if (Number(value) <= 0) return 0;
+  return 0.001 + logarithmicSliderPosition(value, minimum, maximum) * 0.999;
+}
+
+const performanceControls = {
+  ampAttackMs: {
+    input: $("ampAttackMs"),
+    output: $("ampAttackMsOut"),
+    read: (input) => logarithmicZeroSliderValue(input.value, 0.5, 5_000),
+    write: (value, input) => {
+      input.value = String(logarithmicZeroSliderPosition(value, 0.5, 5_000));
+    },
+  },
+  ampDecayMs: {
+    input: $("ampDecayMs"),
+    output: $("ampDecayMsOut"),
+    read: (input) => logarithmicZeroSliderValue(input.value, 1, 5_000),
+    write: (value, input) => {
+      input.value = String(logarithmicZeroSliderPosition(value, 1, 5_000));
+    },
+  },
+  ampSustainLevel: {
+    input: $("ampSustainLevel"),
+    output: $("ampSustainLevelOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => {
+      input.value = String(value);
+    },
+  },
+  ampReleaseMs: {
+    input: $("ampReleaseMs"),
+    output: $("ampReleaseMsOut"),
+    read: (input) => logarithmicSliderValue(Number(input.value), 2, 10_000),
+    write: (value, input) => {
+      input.value = String(logarithmicSliderPosition(value, 2, 10_000));
+    },
+  },
+  glideTimeMs: {
+    input: $("glideTimeMs"),
+    output: $("glideTimeMsOut"),
+    read: (input) => logarithmicZeroSliderValue(input.value, 10, 2_000),
+    write: (value, input) => {
+      input.value = String(logarithmicZeroSliderPosition(value, 10, 2_000));
+    },
+  },
+  rootMidiNote: {
+    input: $("rootMidiNote"),
+    output: $("rootMidiNoteOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => {
+      input.value = String(value);
+    },
+  },
+  pitchBendRangeSemitones: {
+    input: $("pitchBendRangeSemitones"),
+    output: $("pitchBendRangeSemitonesOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => {
+      input.value = String(value);
+    },
+  },
+};
+
+const midi = new ChaoticFmWebMidi(globalThis, {
+  target: audio,
+  onAction: handleMidiAction,
+  onStatus: handleMidiStatus,
+});
+
 function setPressed(element, pressed) {
   element.setAttribute("aria-pressed", String(Boolean(pressed)));
 }
@@ -152,6 +249,24 @@ function currentParameters() {
     ...state.settings,
     output: state.output,
   };
+}
+
+function currentPerformance() {
+  return { ...state.performance };
+}
+
+function formatMilliseconds(value) {
+  const milliseconds = Number(value);
+  if (milliseconds === 0) return "off";
+  if (milliseconds >= 1_000) return `${compactNumber(milliseconds / 1_000, 2)} s`;
+  if (milliseconds < 10) return `${compactNumber(milliseconds, 1)} ms`;
+  return `${Math.round(milliseconds)} ms`;
+}
+
+function midiNoteName(note) {
+  const names = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+  const safe = Math.max(0, Math.min(127, Math.round(Number(note) || 0)));
+  return `${names[safe % 12]}${Math.floor(safe / 12) - 1}`;
 }
 
 function currentStack() {
@@ -184,6 +299,132 @@ function writeControls() {
     control.write(state.settings[key], control.input);
   }
   $("output").value = String(state.output);
+}
+
+function updateAdsrPreview() {
+  const sustainY = 64 - state.performance.ampSustainLevel * 52;
+  $("adsrCurve").setAttribute(
+    "d",
+    `M 8 64 Q 31 12 52 8 Q 76 ${sustainY} 103 ${sustainY} L 171 ${sustainY} Q 202 ${sustainY} 232 64`,
+  );
+}
+
+function writePerformanceControls() {
+  for (const [key, control] of Object.entries(performanceControls)) {
+    control.write(state.performance[key], control.input);
+  }
+  $("glideMode").value = state.performance.glideMode;
+  setPressed($("playModeDrone"), state.performance.playMode === "drone");
+  setPressed($("playModeMidi"), state.performance.playMode === "midi");
+  performanceControls.ampAttackMs.output.textContent = formatMilliseconds(
+    state.performance.ampAttackMs,
+  );
+  performanceControls.ampDecayMs.output.textContent = formatMilliseconds(
+    state.performance.ampDecayMs,
+  );
+  performanceControls.ampSustainLevel.output.textContent = `${Math.round(
+    state.performance.ampSustainLevel * 100,
+  )}%`;
+  performanceControls.ampReleaseMs.output.textContent = formatMilliseconds(
+    state.performance.ampReleaseMs,
+  );
+  performanceControls.glideTimeMs.output.textContent = formatMilliseconds(
+    state.performance.glideTimeMs,
+  );
+  performanceControls.rootMidiNote.output.textContent = `${midiNoteName(
+    state.performance.rootMidiNote,
+  )} · ${state.performance.rootMidiNote}`;
+  performanceControls.pitchBendRangeSemitones.output.textContent = `±${compactNumber(
+    state.performance.pitchBendRangeSemitones,
+    1,
+  )} st`;
+  $("performanceState").textContent = state.performance.playMode === "drone"
+    ? "Drone · continuous"
+    : `${state.performance.glideMode} glide · mono`;
+  $("expressionValue").textContent = `${Math.round(state.expression * 100)}%`;
+  $("expressionMeter").style.setProperty("--expression", state.expression);
+  $("sustainState").textContent = state.sustain ? "held" : "up";
+  $("bendState").textContent = `${state.bend >= 0 ? "+" : ""}${compactNumber(
+    state.bend * state.performance.pitchBendRangeSemitones,
+    2,
+  )} st`;
+  const held = [...state.midiHeldNotes.keys()];
+  $("currentNote").textContent = held.length > 0
+    ? `${midiNoteName(held.at(-1))} · ${held.at(-1)}`
+    : "—";
+  updateAdsrPreview();
+}
+
+function handleMidiStatus(status) {
+  state.midiEnabled = status.enabled;
+  const button = $("midiButton");
+  button.disabled = state.midiStarting || !status.supported || status.enabled;
+  setPressed(button, status.enabled);
+  $("midiButtonLabel").textContent = status.enabled ? "MIDI enabled" : "Enable MIDI";
+  if (!status.supported) $("midiState").textContent = "not supported";
+  else if (!status.enabled) $("midiState").textContent = "permission required";
+  else if (status.inputCount === 0) $("midiState").textContent = "enabled · no inputs";
+  else $("midiState").textContent = `enabled · ${status.inputCount} input${status.inputCount === 1 ? "" : "s"}`;
+}
+
+function handleMidiAction(action) {
+  let activity = "MIDI";
+  if (action.type === "noteOn") {
+    state.midiHeldNotes.delete(action.note);
+    state.midiHeldNotes.set(action.note, action.velocity);
+    activity = `${midiNoteName(action.note)} · velocity ${action.velocity}`;
+  } else if (action.type === "noteOff") {
+    state.midiHeldNotes.delete(action.note);
+    activity = `${midiNoteName(action.note)} released`;
+  } else if (action.type === "pitchBend") {
+    state.bend = action.normalized;
+    activity = "Pitch bend";
+  } else if (action.type === "controlChange") {
+    const semantic = chaoticFmFactoryControlChange(
+      action.controller,
+      action.value,
+    );
+    activity = `CC${action.controller} · ${action.value}`;
+    if (semantic?.type === "parameter") {
+      state.performance = { ...sanitizeChaoticFmPerformance({
+        ...state.performance,
+        [semantic.key]: semantic.value,
+      }) };
+    } else if (semantic?.type === "expression") {
+      state.expression = semantic.value;
+    } else if (semantic?.type === "sustain") {
+      state.sustain = semantic.down;
+    } else if (semantic?.type === "allSoundOff" || semantic?.type === "allNotesOff") {
+      state.midiHeldNotes.clear();
+    } else if (semantic?.type === "resetControllers") {
+      state.expression = 1;
+      state.sustain = false;
+      state.bend = 0;
+    }
+  }
+  $("midiActivity").textContent = activity;
+  $("midiActivity").classList.remove("is-active");
+  requestAnimationFrame(() => $("midiActivity").classList.add("is-active"));
+  writePerformanceControls();
+}
+
+async function enableMidi() {
+  if (state.midiStarting || state.midiEnabled) return;
+  state.midiStarting = true;
+  $("midiError").hidden = true;
+  handleMidiStatus(midi.status());
+  try {
+    await midi.enable();
+    announce("Web MIDI enabled. Choose MIDI play mode and turn Audio on to perform.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    $("midiError").textContent = message;
+    $("midiError").hidden = false;
+    announce(`MIDI error: ${message}`);
+  } finally {
+    state.midiStarting = false;
+    handleMidiStatus(midi.status());
+  }
 }
 
 function updateSignalFlow(stack) {
@@ -384,11 +625,12 @@ function updateReadouts(stack = currentStack()) {
   $("stageReadout").textContent = [
     `${settings.depth} ${recursionWord}`,
     `${stack.operatorCount} operators`,
+    state.performance.playMode,
     `audio ${state.audioOn ? "on" : "off"}`,
   ].join(" · ").toUpperCase();
   canvas.setAttribute(
     "aria-label",
-    `Chaotic FM analysis with ${settings.depth} nonlinear ${recursionWord}. Audio ${state.audioOn ? "on" : "off"}.`,
+    `Chaotic FM layered spectrum-bar and oscilloscope analysis with ${settings.depth} nonlinear ${recursionWord}. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 }
 
@@ -400,12 +642,25 @@ function updateAudioInterface() {
 
 function updateInterface() {
   writeControls();
+  writePerformanceControls();
   updatePresetInterface();
   const stack = currentStack();
   updateReadouts(stack);
   audio.setParameters(currentParameters());
+  audio.setPerformanceParameters(currentPerformance());
   visualizationDirty = true;
   scheduleVisualization();
+}
+
+function applyPerformanceSettings(settings, { message = null } = {}) {
+  state.performance = { ...sanitizeChaoticFmPerformance({
+    ...state.performance,
+    ...settings,
+  }) };
+  audio.setPerformanceParameters(currentPerformance());
+  writePerformanceControls();
+  updateReadouts();
+  if (message) announce(message);
 }
 
 function applySettings(settings, {
@@ -433,6 +688,7 @@ function applySettings(settings, {
 }
 
 for (const [key, control] of Object.entries(controls)) {
+  control.input.dataset.parameterId = CHAOTIC_FM_PARAMETER_IDS[key];
   control.input.addEventListener("input", () => {
     applySettings({
       ...state.settings,
@@ -440,6 +696,42 @@ for (const [key, control] of Object.entries(controls)) {
     });
   });
 }
+
+
+for (const [key, control] of Object.entries(performanceControls)) {
+  control.input.dataset.parameterId = CHAOTIC_FM_PARAMETER_IDS[key];
+  control.input.addEventListener("input", () => {
+    applyPerformanceSettings({ [key]: control.read(control.input) });
+  });
+}
+
+$("output").dataset.parameterId = CHAOTIC_FM_PARAMETER_IDS.output;
+$("playModeDrone").dataset.parameterId = CHAOTIC_FM_PARAMETER_IDS.playMode;
+$("playModeMidi").dataset.parameterId = CHAOTIC_FM_PARAMETER_IDS.playMode;
+$("glideMode").dataset.parameterId = CHAOTIC_FM_PARAMETER_IDS.glideMode;
+
+$("playModeDrone").addEventListener("click", () => {
+  applyPerformanceSettings(
+    { playMode: "drone" },
+    { message: "Drone mode selected. ADSR and MIDI pitch are bypassed." },
+  );
+});
+
+$("playModeMidi").addEventListener("click", () => {
+  applyPerformanceSettings(
+    { playMode: "midi" },
+    { message: "Monophonic MIDI mode selected." },
+  );
+});
+
+$("glideMode").addEventListener("change", () => {
+  applyPerformanceSettings(
+    { glideMode: $("glideMode").value },
+    { message: `${$("glideMode").value} glide mode selected.` },
+  );
+});
+
+$("midiButton").addEventListener("click", enableMidi);
 
 $("presetButtons").addEventListener("click", (event) => {
   const button = event.target.closest("[data-preset]");
@@ -466,10 +758,12 @@ async function toggleAudio() {
   updateAudioInterface();
   try {
     if (state.audioOn) {
+      audio.allSoundOff();
       audio.stop();
       state.audioOn = false;
     } else {
       audio.setParameters(currentParameters());
+      audio.setPerformanceParameters(currentPerformance());
       await audio.start();
       state.audioOn = true;
     }
@@ -491,7 +785,17 @@ $("audioButton").addEventListener("click", toggleAudio);
 
 $("resetChaoticFm").addEventListener("click", () => {
   clearError();
+  audio.allSoundOff();
+  audio.resetControllers();
   state.output = CHAOTIC_FM_DEFAULTS.output;
+  state.performance = {
+    ...CHAOTIC_FM_PERFORMANCE_DEFAULTS,
+    playMode: "drone",
+  };
+  state.expression = 1;
+  state.sustain = false;
+  state.bend = 0;
+  state.midiHeldNotes.clear();
   applySettings(defaultPreset.settings, {
     presetId: defaultPreset.id,
     message: "Chaotic FM parameters reset.",
@@ -670,14 +974,15 @@ function draw(timestamp) {
   context2d.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context2d.clearRect(0, 0, cssWidth, cssHeight);
   const hasWaveform = state.audioOn && audio.getWaveform(waveform);
-  drawChaoticAnalysis(context2d, {
+  drawChaoticLiveAnalysis(context2d, {
     analyser: audio.analyser,
     audioOn: state.audioOn,
-    glow: "rgba(255, 122, 166, 0.38)",
     height: cssHeight,
-    hue: 340,
-    spectrogram,
-    stroke: "#ff7aa6",
+    scopeGlow: "rgba(255, 122, 166, 0.72)",
+    scopeStroke: "#fff3d6",
+    spectrum,
+    spectrumBarCap: "rgba(255, 184, 107, 0.72)",
+    spectrumBarFill: "rgba(255, 122, 166, 0.28)",
     waveform: hasWaveform ? waveform : null,
     width: cssWidth,
   });
@@ -718,6 +1023,7 @@ document.addEventListener("visibilitychange", () => {
 
 globalThis.addEventListener("keydown", (event) => {
   if (event.key !== "Escape" || !state.audioOn) return;
+  audio.allSoundOff();
   audio.stop();
   state.audioOn = false;
   updateAudioInterface();
@@ -729,6 +1035,7 @@ globalThis.addEventListener("keydown", (event) => {
 
 globalThis.addEventListener("pagehide", () => {
   disposed = true;
+  midi.close();
   if (frameId !== null) cancelAnimationFrame(frameId);
   resizeObserver?.disconnect();
   if (!resizeObserver) globalThis.removeEventListener("resize", resizeCanvas);
@@ -737,4 +1044,5 @@ globalThis.addEventListener("pagehide", () => {
 
 updateInterface();
 updateAudioInterface();
+handleMidiStatus(midi.status());
 resizeCanvas();

@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  SITE_LINKS,
   TOOL_GROUPS,
   enhanceSharedNavigation,
   initializeSharedNavigation,
   normalizeNavigationPath,
+  resolveActiveSiteLink,
   resolveActiveTool,
 } from "../nav.js";
 
@@ -260,6 +262,9 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "weierstrass", href: "weierstrass.html" },
     ],
   );
+  assert.deepEqual(SITE_LINKS, [
+    { id: "about", label: "About", href: "about.html" },
+  ]);
 });
 
 test("active tool resolution preserves GitHub Pages subpaths and nested workbench pages", () => {
@@ -288,6 +293,8 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}unknown.html`, SITE_ROOT), null);
+  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}about.html`, SITE_ROOT)?.id, "about");
+  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}julia.html`, SITE_ROOT), null);
 });
 
 test("shared navigation generates one grouped disclosure and grouped mobile options", () => {
@@ -298,8 +305,9 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
   });
 
   assert.equal(result.activeTool?.id, "julia");
+  assert.equal(result.activeSiteLink, null);
   assert.equal(result.disclosures.length, 1);
-  assert.equal(doc.tabs.getAttribute("aria-label"), "Morphazoid tools");
+  assert.equal(doc.tabs.getAttribute("aria-label"), "Morphazoid main menu");
   assert.equal(doc.tabs.classList.contains("tools-nav"), true);
 
   const details = result.disclosures[0];
@@ -332,19 +340,23 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
   );
   const links = details.findAll((node) => node.tagName === "A");
   assert.equal(links.length, 27);
+  const siteLinks = doc.tabs.children.filter((node) => node.classList.contains("site-nav-link"));
+  assert.equal(siteLinks.length, 1);
+  assert.equal(siteLinks[0].textContent, "About");
+  assert.equal(siteLinks[0].getAttribute("href"), `${SITE_ROOT}about.html`);
   const currentLinks = links.filter((link) => link.getAttribute("aria-current") === "page");
   assert.equal(currentLinks.length, 1);
   assert.equal(currentLinks[0].getAttribute("data-tool-id"), "julia");
 
-  assert.equal(doc.select.children.length, TOOL_GROUPS.length);
+  assert.equal(doc.select.children.length, TOOL_GROUPS.length + 1);
   assert.deepEqual(
     doc.select.children.map((group) => group.label),
-    TOOL_GROUPS.map((group) => group.label),
+    [...TOOL_GROUPS.map((group) => group.label), "Information"],
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);
   assert.equal(selectedOptions.length, 1);
   assert.equal(selectedOptions[0].textContent, "Julia");
-  assert.equal(doc.select.getAttribute("aria-label"), "Tool");
+  assert.equal(doc.select.getAttribute("aria-label"), "Morphazoid page");
 
   let prevented = false;
   details.open = true;
@@ -362,6 +374,29 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
   details.open = true;
   doc.dispatch("pointerdown", { target: summary });
   assert.equal(details.open, true);
+});
+
+test("About is current in both forms of the shared main menu", () => {
+  const doc = new FakeDocument();
+  const result = enhanceSharedNavigation(doc, {
+    currentHref: `${SITE_ROOT}about.html`,
+    siteRoot: SITE_ROOT,
+  });
+
+  assert.equal(result.activeTool, null);
+  assert.equal(result.activeSiteLink?.id, "about");
+
+  const currentDesktopLinks = doc.tabs.findAll(
+    (node) => node.tagName === "A" && node.getAttribute("aria-current") === "page",
+  );
+  assert.equal(currentDesktopLinks.length, 1);
+  assert.equal(currentDesktopLinks[0].textContent, "About");
+
+  const selectedOptions = doc.select.findAll(
+    (node) => node.tagName === "OPTION" && node.selected,
+  );
+  assert.equal(selectedOptions.length, 1);
+  assert.equal(selectedOptions[0].textContent, "About");
 });
 
 test("Reset all preserves Shape sides for one reload", () => {

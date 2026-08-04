@@ -82,3 +82,8 @@ Open <http://localhost:3435>.
 npm run verify
 npm run analyze:julia-similarity
 ```
+
+## License
+
+Morphazoid is available under the [MIT License](LICENSE). Bundled third-party
+components retain the terms listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

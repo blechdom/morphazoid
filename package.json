@@ -2,6 +2,7 @@
   "name": "morphazoid",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Morphazoid - geometric instruments for shape, lattice, spatial forms, and live audio loops.",
   "scripts": {

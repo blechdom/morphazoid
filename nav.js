@@ -91,6 +91,10 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
 ]);
 
+export const SITE_LINKS = Object.freeze([
+  Object.freeze({ id: "about", label: "About", href: "about.html" }),
+]);
+
 export const NAVIGATION_BASE_URL = new URL("./", import.meta.url).href;
 
 const allTools = () => TOOL_GROUPS.flatMap((group) => group.tools);
@@ -135,6 +139,14 @@ export function resolveActiveTool(currentUrl, siteRoot = NAVIGATION_BASE_URL) {
     }
   }
   return null;
+}
+
+export function resolveActiveSiteLink(currentUrl, siteRoot = NAVIGATION_BASE_URL) {
+  const currentPath = normalizeNavigationPath(currentUrl, siteRoot);
+  if (!currentPath) return null;
+  return SITE_LINKS.find(
+    (link) => normalizeNavigationPath(link.href, siteRoot) === currentPath,
+  ) ?? null;
 }
 
 function element(doc, tag, className, text) {
@@ -210,7 +222,17 @@ function createToolsDisclosure(doc, activeTool, siteRoot, index) {
   return details;
 }
 
-function populateMobileSelect(doc, select, activeTool, siteRoot) {
+function createSiteLink(doc, link, activeSiteLink, siteRoot) {
+  const anchor = element(doc, "a", "site-nav-link", link.label);
+  anchor.setAttribute("href", new URL(link.href, siteRoot).href);
+  if (link.id === activeSiteLink?.id) {
+    anchor.classList.add("is-current");
+    anchor.setAttribute("aria-current", "page");
+  }
+  return anchor;
+}
+
+function populateMobileSelect(doc, select, activeTool, activeSiteLink, siteRoot) {
   const groups = TOOL_GROUPS.map((group) => {
     const optgroup = element(doc, "optgroup");
     optgroup.label = group.label;
@@ -222,9 +244,19 @@ function populateMobileSelect(doc, select, activeTool, siteRoot) {
     }
     return optgroup;
   });
+  const information = element(doc, "optgroup");
+  information.label = "Information";
+  for (const link of SITE_LINKS) {
+    const option = element(doc, "option", "", link.label);
+    option.value = new URL(link.href, siteRoot).href;
+    if (link.id === activeSiteLink?.id) option.selected = true;
+    information.append(option);
+  }
+  groups.push(information);
   select.replaceChildren(...groups);
-  select.setAttribute("aria-label", "Tool");
+  select.setAttribute("aria-label", "Morphazoid page");
   if (activeTool) select.value = new URL(activeTool.href, siteRoot).href;
+  if (activeSiteLink) select.value = new URL(activeSiteLink.href, siteRoot).href;
 }
 
 /**
@@ -242,22 +274,27 @@ export function enhanceSharedNavigation(doc, {
   const fallbackHref = staticCurrentHref(doc);
   const activeTool = resolveActiveTool(currentHref, siteRoot)
     ?? (fallbackHref ? resolveActiveTool(fallbackHref, siteRoot) : null);
+  const activeSiteLink = resolveActiveSiteLink(currentHref, siteRoot);
   const disclosures = [];
 
   [...doc.querySelectorAll(".tabs")].forEach((nav, index) => {
     const disclosure = createToolsDisclosure(doc, activeTool, siteRoot, index);
-    nav.replaceChildren(disclosure);
+    const siteLinks = SITE_LINKS.map(
+      (link) => createSiteLink(doc, link, activeSiteLink, siteRoot),
+    );
+    nav.replaceChildren(disclosure, ...siteLinks);
     nav.classList.add("tools-nav");
-    nav.setAttribute("aria-label", "Morphazoid tools");
+    nav.setAttribute("aria-label", "Morphazoid main menu");
     disclosures.push(disclosure);
   });
 
   for (const select of doc.querySelectorAll(".mobile-instrument-select")) {
-    populateMobileSelect(doc, select, activeTool, siteRoot);
+    populateMobileSelect(doc, select, activeTool, activeSiteLink, siteRoot);
   }
 
   return Object.freeze({
     activeTool,
+    activeSiteLink,
     disclosures: Object.freeze(disclosures),
   });
 }

@@ -131,6 +131,42 @@ a {
   min-width: 0;
 }
 
+.site-nav-link {
+  position: relative;
+  display: flex;
+  min-width: 78px;
+  padding: 0 14px;
+  color: var(--muted);
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.site-nav-link:hover,
+.site-nav-link[aria-current="page"] {
+  color: var(--accent);
+}
+
+.site-nav-link::after {
+  position: absolute;
+  right: 14px;
+  bottom: -1px;
+  left: 14px;
+  height: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-soft);
+  content: "";
+  opacity: 0;
+}
+
+.site-nav-link[aria-current="page"]::after {
+  opacity: 1;
+}
+
 .tools-menu {
   position: relative;
   z-index: 60;
