@@ -642,10 +642,12 @@ test("audio graph is inert until start, resumes, suspends, and fully closes", as
 
 test("native page exposes binary gesture audio, accurate naming, and cleanup", async () => {
   const root = new URL("../", import.meta.url);
-  const [markup, app, moduleSource] = await Promise.all([
+  const [markup, app, moduleSource, flowSource, sharedUi] = await Promise.all([
     readFile(new URL("chaotic-fm.html", root), "utf8"),
     readFile(new URL("chaotic-fm-app.js", root), "utf8"),
     readFile(new URL("src/chaotic-fm.js", root), "utf8"),
+    readFile(new URL("src/chaotic-fm-flow.js", root), "utf8"),
+    readFile(new URL("chaotic-synth-ui.css", root), "utf8"),
   ]);
 
   assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);
@@ -673,17 +675,29 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   assert.match(markup, /href="chaotic-synth-ui\.css"/);
   assert.match(markup, /class="chaotic-path-graph"/);
   assert.match(markup, /id="chaoticFmFlow"/);
+  assert.match(markup, /tabindex="0"/);
+  assert.match(markup, /EACH SINE WAVE DRIVES THE NEXT SINE'S FREQUENCY/);
   assert.match(app, /function updateSignalFlow\(stack\)/);
-  assert.match(app, /× DEVIATION/);
-  assert.match(app, /× AMOUNT/);
-  assert.match(app, />TANH</);
-  assert.match(app, /× RATE/);
-  assert.match(app, /chaotic-path-junction/);
+  assert.match(app, /buildChaoticFmFlowDiagram/);
+  assert.match(flowSource, /× DEVIATION/);
+  assert.match(flowSource, /× AMOUNT/);
+  assert.match(flowSource, />TANH</);
+  assert.match(flowSource, /× RATE/);
+  assert.match(flowSource, /chaotic-path-junction/);
+  assert.match(flowSource, /chaotic-path-recursive-wire/);
+  assert.match(flowSource, /PREVIOUS SINE → NEXT FREQUENCY/);
+  assert.match(flowSource, /const sumX = inputX - 60/);
+  assert.match(sharedUi, /\.chaotic-fm-page \.chaotic-path-title[\s\S]*font-size: 11\.5px/);
+  assert.match(sharedUi, /\.chaotic-fm-page \.chaotic-path-tap[\s\S]*opacity: 0\.55/);
+  assert.match(sharedUi, /\.chaotic-fm-page \.chaotic-path-compact[\s\S]*display: block/);
   assert.match(markup, /id="turnsReadout"/);
   assert.doesNotMatch(markup, />Turn \d+</);
   assert.match(markup, />Nonlinearity rate</);
   assert.match(markup, /this is not an audio filter/i);
   assert.match(markup, /CHAOTIC SYNTHS · 03/);
+  assert.match(markup, /class="chaotic-fm-subtitle"/);
+  assert.match(markup, /Each oscillator’s waveform becomes the next oscillator’s signed frequency/);
+  assert.match(markup, /Saturation keeps this recursive cascade bounded/);
   assert.match(markup, /src="chaotic-fm-app\.js"/);
   assert.doesNotMatch(markup, /https?:\/\//);
   assert.doesNotMatch(markup, />\s*filter\s*</i);

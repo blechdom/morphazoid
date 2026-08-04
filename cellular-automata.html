@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Cellular Automata Scanner - elementary automata rows translated into sequenced tones."
+    />
+    <title>Cellular Automata Scanner - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="experiments.css" />
+  </head>
+  <body class="experiment-page" data-experiment="automata">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab active" href="cellular-automata.html" aria-current="page">cellular automata</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="cellular-automata.html" selected>cellular automata</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">48%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.48" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell experiment-shell" id="cellularAutomata">
+      <section class="stage" aria-label="Cellular Automata Scanner stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Elementary cellular automata rows scroll downward as the newest generation sounds."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Elementary cellular automata row scanner.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">CELLULAR AUTOMATA · RULE 30 · AUDIO OFF</span>
+          </div>
+          <div class="experiment-title" aria-hidden="true">
+            <h1>Cellular Automata</h1>
+            <small id="stageCaption">rule bits as sequencer rows</small>
+          </div>
+        </div>
+        <p class="sr-only" id="canvasInstructions">Scrolling elementary cellular automata grid.</p>
+        <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+      </section>
+
+      <aside class="panel experiment-panel" aria-label="Cellular Automata Scanner controls">
+        <section class="group experiment-card" aria-labelledby="experimentTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="experimentTitle">Experiment</h2>
+            <span class="section-state" id="experimentSummary">computation · emergence</span>
+          </div>
+          <dl class="experiment-meter-grid">
+            <div><dt>Density</dt><dd id="metricPrimary">50%</dd></div>
+            <div><dt>Transitions</dt><dd id="metricSecondary">0</dd></div>
+          </dl>
+        </section>
+
+        <section class="group control-section" aria-labelledby="automataRuleTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="automataRuleTitle">Rule</h2>
+            <span class="section-state" id="patternSummary">Rule 30</span>
+          </div>
+          <div class="group-body">
+            <div class="experiment-button-grid" role="group" aria-label="Elementary automata presets">
+              <button type="button" data-ca-rule="30" aria-pressed="true">Rule 30</button>
+              <button type="button" data-ca-rule="90" aria-pressed="false">Rule 90</button>
+              <button type="button" data-ca-rule="110" aria-pressed="false">Rule 110</button>
+              <button type="button" data-ca-rule="184" aria-pressed="false">Rule 184</button>
+            </div>
+            <button class="experiment-action" id="seedAutomata" type="button">New seed</button>
+            <label class="control" for="caRule">
+              <span><b>Rule number</b><output id="caRuleOut" for="caRule">30</output></span>
+              <input id="caRule" type="range" min="0" max="255" step="1" value="30" />
+            </label>
+            <label class="control" for="caWidth">
+              <span><b>Cell columns</b><output id="caWidthOut" for="caWidth">72</output></span>
+              <input id="caWidth" type="range" min="24" max="128" step="1" value="72" />
+            </label>
+            <label class="control" for="caRate">
+              <span><b>Generation rate</b><output id="caRateOut" for="caRate">8.0 rows/s</output></span>
+              <input id="caRate" type="range" min="1" max="24" step="0.1" value="8" />
+            </label>
+            <label class="control" for="caDensity">
+              <span><b>Seed density</b><output id="caDensityOut" for="caDensity">18%</output></span>
+              <input id="caDensity" type="range" min="0" max="1" step="0.01" value="0.18" />
+            </label>
+          </div>
+        </section>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="experiments-app.js"></script>
+  </body>
+</html>

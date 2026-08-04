@@ -1,0 +1,165 @@
+.experiment-page {
+  --experiment-cyan: #67e2d0;
+  --experiment-gold: #f0cb76;
+  --experiment-rose: #ff8f9c;
+  --experiment-green: #92dd7f;
+}
+
+.experiment-shell {
+  min-height: 0;
+}
+
+.experiment-stage .stage-wrap,
+.experiment-shell .stage-wrap {
+  overflow: hidden;
+}
+
+.experiment-title {
+  position: absolute;
+  top: clamp(18px, 3vw, 34px);
+  left: clamp(18px, 3vw, 34px);
+  display: grid;
+  max-width: min(480px, calc(100% - 44px));
+  gap: 4px;
+  pointer-events: none;
+}
+
+.experiment-title h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(24px, 4.4vw, 56px);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 0.96;
+  text-transform: uppercase;
+}
+
+.experiment-title small {
+  color: color-mix(in oklab, var(--ink) 72%, transparent);
+  font-size: clamp(10px, 1.2vw, 13px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.experiment-panel {
+  gap: 12px;
+}
+
+.experiment-card {
+  padding: 16px;
+}
+
+.experiment-card-heading {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.experiment-card-heading .group-title {
+  margin: 0;
+}
+
+.experiment-meter-grid {
+  display: grid;
+  margin: 14px 0 0;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.experiment-meter-grid div {
+  min-width: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.experiment-meter-grid dt {
+  margin: 0 0 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.experiment-meter-grid dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.experiment-action,
+.experiment-button-grid button {
+  min-height: 38px;
+  padding: 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--panel-high) 78%, transparent);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.experiment-action:hover,
+.experiment-button-grid button:hover,
+.experiment-button-grid button[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--accent) 62%, var(--line-strong));
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 12%, var(--panel-high));
+}
+
+.experiment-action {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.experiment-button-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.experiment-button-grid + .experiment-action {
+  margin-top: 10px;
+}
+
+.experiment-page .group-body {
+  padding-top: 14px;
+}
+
+.experiment-page .control {
+  margin-top: 12px;
+}
+
+.experiment-page .control:first-child {
+  margin-top: 0;
+}
+
+.experiment-page canvas {
+  background: #050608;
+}
+
+@media (max-width: 940px) {
+  .experiment-title h1 {
+    font-size: clamp(22px, 8vw, 38px);
+  }
+
+  .experiment-meter-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .experiment-page .stage-meta {
+    display: none;
+  }
+}

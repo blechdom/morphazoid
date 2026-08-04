@@ -62,6 +62,16 @@
   line-height: 1;
 }
 
+.chaotic-fm-heading .chaotic-fm-subtitle {
+  max-width: min(620px, 62vw);
+  margin-top: 8px;
+  color: color-mix(in oklab, var(--ink) 76%, var(--muted));
+  font-size: clamp(9px, 0.82vw, 12px);
+  letter-spacing: 0.015em;
+  line-height: 1.55;
+  text-transform: none;
+}
+
 .chaotic-fm-heading span {
   margin-top: 3px;
   color: var(--faint);
@@ -428,6 +438,10 @@
   .chaotic-fm-heading h1 {
     font-size: clamp(24px, 6vw, 40px);
   }
+
+  .chaotic-fm-heading .chaotic-fm-subtitle {
+    max-width: min(600px, 78vw);
+  }
 }
 
 @media (max-width: 650px) {
@@ -440,13 +454,20 @@
     display: none;
   }
 
+  .chaotic-fm-heading .chaotic-fm-subtitle {
+    display: block;
+    max-width: calc(100vw - 48px);
+    margin-top: 6px;
+    font-size: 8px;
+    line-height: 1.45;
+  }
+
   .chaotic-fm-heading span {
     font-size: 6px;
   }
 
   .chaotic-fm-stage .stage-meta {
-    top: 66px;
-    font-size: 7px;
+    display: none;
   }
 
   .chaotic-fm-scope-labels {

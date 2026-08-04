@@ -26,6 +26,17 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "solid", label: "Solid", href: "solid.html" },
     { id: "hyper", label: "Hyper", href: "hyper.html" },
   ]),
+  freezeGroup("geometric-physics", "Geometric Physics", [
+    { id: "gravity-walk", label: "Gravity Walk", href: "gravity-walk.html" },
+    { id: "ricochet", label: "Ricochet", href: "ricochet.html" },
+    { id: "rigidity", label: "Rigidity", href: "rigidity.html" },
+    { id: "rolling-measure", label: "Rolling Measure", href: "rolling-measure.html" },
+    { id: "falling-forms", label: "Falling Forms", href: "falling-forms.html" },
+    { id: "charge-garden", label: "Charge Garden", href: "charge-garden.html" },
+    { id: "packing-pressure", label: "Packing Pressure", href: "packing-pressure.html" },
+    { id: "geodesic-drift", label: "Geodesic Drift", href: "geodesic-drift.html" },
+    { id: "kinetic-hull", label: "Kinetic Hull", href: "kinetic-hull.html" },
+  ]),
   freezeGroup("geometry-drums", "Geometry Drum Machines", [
     {
       id: "shape-drums",
@@ -64,6 +75,9 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "recursion", label: "Recursion", href: "recursion.html" },
     { id: "julia", label: "Julia", href: "julia.html" },
   ]),
+  freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
+    { id: "search-algorithms", label: "Search", href: "algorithmic-sequencers.html" },
+  ]),
   freezeGroup("barber-shop-poles", "Barber Shop Poles", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },
     { id: "sandy-syrup-delay", label: "Sandy Syrup Delay", href: "sandy-syrup-delay.html" },
@@ -78,7 +92,28 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "recursive-fm", label: "Recursive FM", href: "recursive-fm.html" },
     { id: "recursive-pm", label: "Recursive PM", href: "recursive-pm.html" },
     { id: "chaotic-fm", label: "Chaotic FM", href: "chaotic-fm.html" },
+    { id: "chaotic-pm", label: "Chaotic PM", href: "chaotic-pm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
+  ]),
+  freezeGroup("quantum-synths", "Quantum Synths", [
+    { id: "order-tones", label: "Order Tones", href: "order-tones.html" },
+    { id: "bell-square", label: "Bell Square", href: "bell-square.html" },
+    { id: "annealogue", label: "Annealogue", href: "annealogue.html" },
+  ]),
+  freezeGroup("experiments", "Experiments", [
+    { id: "moire-organ", label: "Moire Organ", href: "moire-organ.html" },
+    { id: "chladni-plate", label: "Chladni Plate", href: "chladni-plate.html" },
+    { id: "spring-choir", label: "Spring Choir", href: "spring-choir.html" },
+    {
+      id: "gear-ratio-drums",
+      label: "Gear Ratio Drums",
+      href: "gear-ratio-drums.html",
+    },
+    {
+      id: "cellular-automata",
+      label: "Cellular Automata",
+      href: "cellular-automata.html",
+    },
   ]),
   freezeGroup("tools", "Tools", [
     { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },

@@ -1,0 +1,622 @@
+.quantum-page {
+  --quantum-cyan: #69e7ff;
+  --quantum-violet: #b59cff;
+  --quantum-cream: #fff3d6;
+  --quantum-lime: #b8ff6a;
+  --quantum-pink: #ff8fca;
+  --quantum-grid: color-mix(in oklab, var(--accent) 3.5%, transparent);
+  --quantum-panel-glow: color-mix(in oklab, var(--accent) 5%, transparent);
+}
+
+.order-tones-page {
+  --accent: var(--quantum-cyan);
+  --accent-soft: color-mix(in oklab, var(--quantum-cyan) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--quantum-cyan) 22%, transparent);
+}
+
+.bell-square-page {
+  --accent: var(--quantum-lime);
+  --accent-soft: color-mix(in oklab, var(--quantum-lime) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--quantum-lime) 20%, transparent);
+}
+
+.annealogue-page {
+  --accent: var(--quantum-pink);
+  --accent-soft: color-mix(in oklab, var(--quantum-pink) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--quantum-pink) 20%, transparent);
+}
+
+.quantum-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 28vw, 430px);
+}
+
+.quantum-stage .stage-wrap,
+.quantum-page .quantum-stage-wrap {
+  isolation: isolate;
+  background:
+    linear-gradient(var(--quantum-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--quantum-grid) 1px, transparent 1px),
+    radial-gradient(ellipse at 35% 42%, var(--accent-glow), transparent 42%),
+    radial-gradient(ellipse at 72% 64%, color-mix(in oklab, var(--quantum-violet) 7%, transparent), transparent 37%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto, auto;
+}
+
+.bell-square-page .quantum-stage .stage-wrap,
+.bell-square-page .quantum-stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--quantum-lime) 2.8%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--quantum-violet) 3.5%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 48%, color-mix(in oklab, var(--quantum-lime) 8%, transparent), transparent 48%),
+    var(--bg-deep);
+  background-size: 36px 36px, 36px 36px, auto, auto;
+}
+
+.annealogue-page .quantum-stage .stage-wrap,
+.annealogue-page .quantum-stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--quantum-pink) 2.6%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--quantum-violet) 3%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 52% 50%, color-mix(in oklab, var(--quantum-pink) 8%, transparent), transparent 48%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.quantum-page #stage {
+  cursor: crosshair;
+}
+
+.quantum-heading {
+  position: absolute;
+  z-index: 4;
+  top: clamp(38px, 7vh, 72px);
+  left: clamp(20px, 4vw, 58px);
+  display: grid;
+  max-width: min(540px, 58%);
+  pointer-events: none;
+  gap: 5px;
+}
+
+.quantum-heading p,
+.quantum-heading small,
+.quantum-heading span,
+.quantum-kicker {
+  margin: 0;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.quantum-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(28px, 4.5vw, 58px);
+  font-weight: 400;
+  letter-spacing: -0.06em;
+  line-height: 0.96;
+}
+
+.quantum-heading small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+.quantum-heading span,
+.quantum-heading .quantum-caption {
+  position: static;
+  display: block;
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.quantum-stage-label,
+.quantum-stage-caption,
+.quantum-caption,
+.quantum-disclaimer {
+  position: absolute;
+  z-index: 4;
+  right: clamp(16px, 2.5vw, 32px);
+  bottom: 18px;
+  left: clamp(16px, 2.5vw, 32px);
+  display: flex;
+  pointer-events: none;
+  color: var(--muted);
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  font-size: 7px;
+  letter-spacing: 0.12em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.quantum-stage-label b,
+.quantum-stage-caption b,
+.quantum-caption b,
+.quantum-disclaimer b {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.quantum-panel {
+  background:
+    linear-gradient(180deg, var(--quantum-panel-glow), transparent 320px),
+    var(--panel);
+}
+
+.quantum-simulation-notice,
+.simulation-notice,
+.quantum-note {
+  margin: 10px 0 12px;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line));
+  color: color-mix(in oklab, var(--ink) 78%, var(--muted));
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 6%, transparent), transparent),
+    color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  font-size: 8px;
+  letter-spacing: 0.055em;
+  line-height: 1.55;
+  text-transform: uppercase;
+}
+
+.quantum-stage .stage-wrap > .quantum-simulation-notice,
+.quantum-stage-wrap > .quantum-simulation-notice {
+  position: absolute;
+  z-index: 5;
+  bottom: 18px;
+  left: clamp(16px, 2.5vw, 32px);
+  max-width: min(560px, calc(100% - 64px));
+  margin: 0;
+  pointer-events: none;
+}
+
+.quantum-simulation-notice strong,
+.simulation-notice strong,
+.quantum-note strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.quantum-action-grid,
+.quantum-actions,
+.measurement-actions {
+  display: grid;
+  margin: 9px 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.quantum-transport-row,
+.order-transport-row {
+  display: grid;
+  margin: 7px 0 10px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.quantum-transport-row .control,
+.order-transport-row .control {
+  min-width: 0;
+}
+
+.order-transport-row > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.order-transport-row > div b {
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.order-transport-row > div small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-view-switch {
+  margin-bottom: 9px;
+}
+
+.order-shot-histogram {
+  display: grid;
+  min-height: 64px;
+  margin: 9px 0;
+  padding: 7px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(color-mix(in oklab, var(--accent) 3%, transparent) 1px, transparent 1px),
+    var(--bg-deep);
+  background-size: 100% 16px, auto;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(2px, 1fr);
+  align-items: end;
+  gap: 1px;
+}
+
+.order-shot-histogram > * {
+  min-height: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 5px var(--accent-glow);
+}
+
+.order-shot-histogram .order-shot-bar {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  height: 58px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  justify-items: stretch;
+  gap: 2px;
+}
+
+.order-shot-bar i {
+  width: 100%;
+  height: 100%;
+  min-height: 2px;
+  align-self: end;
+  transform: scaleY(var(--shot-height, 0));
+  transform-origin: bottom;
+  background: var(--accent);
+  box-shadow: 0 0 7px var(--accent-glow);
+}
+
+.order-shot-bar b,
+.order-shot-bar small {
+  overflow: hidden;
+  font: 6px/1 var(--mono);
+  text-align: center;
+  text-overflow: ellipsis;
+}
+
+.order-shot-bar b {
+  color: var(--ink);
+}
+
+.order-shot-bar:hover i,
+.order-shot-bar:focus-visible i {
+  background: var(--quantum-cream);
+}
+
+.quantum-method {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.quantum-method code {
+  color: color-mix(in oklab, var(--ink) 82%, var(--accent));
+  font-family: var(--mono);
+}
+
+.bell-probability-grid {
+  display: grid;
+  margin: 9px 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.bell-probability-grid > * {
+  display: grid;
+  min-width: 0;
+  min-height: 45px;
+  padding: 7px 5px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--bg-deep);
+  place-items: center;
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.bell-probability-grid [data-outcome="00"] {
+  border-color: color-mix(in oklab, var(--quantum-cyan) 38%, var(--line));
+}
+
+.bell-probability-grid [data-outcome="01"] {
+  border-color: color-mix(in oklab, var(--quantum-violet) 42%, var(--line));
+}
+
+.bell-probability-grid [data-outcome="10"] {
+  border-color: color-mix(in oklab, var(--quantum-lime) 38%, var(--line));
+}
+
+.bell-probability-grid [data-outcome="11"] {
+  border-color: color-mix(in oklab, var(--quantum-cream) 34%, var(--line));
+}
+
+.quantum-action-grid > button,
+.quantum-actions > button,
+.measurement-actions > button,
+.quantum-action,
+.quantum-page .action-button {
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.quantum-action-grid > button:hover,
+.quantum-action-grid > button:focus-visible,
+.quantum-actions > button:hover,
+.quantum-actions > button:focus-visible,
+.measurement-actions > button:hover,
+.measurement-actions > button:focus-visible,
+.quantum-action:hover,
+.quantum-action:focus-visible,
+.quantum-page .action-button:hover,
+.quantum-page .action-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.quantum-action-grid > button[aria-pressed="true"],
+.quantum-actions > button[aria-pressed="true"],
+.measurement-actions > button[aria-pressed="true"],
+.quantum-action[aria-pressed="true"],
+.quantum-page .action-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.quantum-ledger,
+.quantum-card,
+.result-card,
+.state-card,
+.correlation-card,
+.landscape-card {
+  display: grid;
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+  gap: 0;
+}
+
+.quantum-ledger > span,
+.quantum-ledger > div,
+.quantum-card > span,
+.quantum-card > div,
+.result-card > span,
+.result-card > div,
+.state-card > span,
+.state-card > div,
+.correlation-card > span,
+.correlation-card > div,
+.landscape-card > span,
+.landscape-card > div {
+  display: flex;
+  min-width: 0;
+  min-height: 29px;
+  border-bottom: 1px solid color-mix(in oklab, var(--line) 70%, transparent);
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.quantum-ledger > :last-child,
+.quantum-card > :last-child,
+.result-card > :last-child,
+.state-card > :last-child,
+.correlation-card > :last-child,
+.landscape-card > :last-child {
+  border-bottom: 0;
+}
+
+.quantum-ledger b,
+.quantum-card b,
+.result-card b,
+.state-card b,
+.correlation-card b,
+.landscape-card b {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.quantum-ledger code,
+.quantum-card code,
+.result-card code,
+.state-card code,
+.correlation-card code,
+.landscape-card code,
+.quantum-ledger output,
+.quantum-card output,
+.result-card output,
+.state-card output,
+.correlation-card output,
+.landscape-card output {
+  overflow: hidden;
+  color: var(--accent);
+  font: 9px/1.35 var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  text-overflow: ellipsis;
+}
+
+.order-result-card > p,
+#resultStatus {
+  margin: 8px 0 2px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.annealogue-page .quantum-action-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.quantum-readout-grid,
+.quantum-stat-grid,
+.outcome-grid,
+.shot-grid {
+  display: grid;
+  margin: 9px 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.quantum-readout-grid > *,
+.quantum-stat-grid > *,
+.outcome-grid > *,
+.shot-grid > * {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.quantum-page .audio-error {
+  margin: 10px 0 8px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 130, 111, 0.38);
+  color: #ffb2a8;
+  background: rgba(255, 130, 111, 0.06);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.quantum-control-note,
+.quantum-page .control-note {
+  display: block;
+  margin: -2px 0 9px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.quantum-page .field-label + .choice-switch,
+.quantum-page .field-label + .quantum-action-grid {
+  margin-top: 5px;
+}
+
+@media (max-width: 960px) {
+  .quantum-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .quantum-heading {
+    top: 34px;
+    left: 24px;
+  }
+
+  .quantum-heading h1 {
+    font-size: clamp(24px, 6vw, 42px);
+  }
+}
+
+@media (max-width: 650px) {
+  .quantum-shell {
+    grid-template-rows: clamp(280px, 40dvh, 340px) minmax(0, 1fr);
+  }
+
+  .quantum-heading {
+    top: 34px;
+    left: 14px;
+    max-width: 62%;
+  }
+
+  .quantum-heading h1 {
+    font-size: clamp(22px, 8vw, 34px);
+  }
+
+  .quantum-heading small {
+    display: none;
+  }
+
+  .quantum-heading span,
+  .quantum-heading .quantum-caption {
+    display: none;
+  }
+
+  .quantum-stage-label,
+  .quantum-stage-caption,
+  .quantum-caption,
+  .quantum-disclaimer {
+    right: 13px;
+    bottom: 11px;
+    left: 13px;
+  }
+
+  .quantum-stage .stage-wrap > .quantum-simulation-notice,
+  .quantum-stage-wrap > .quantum-simulation-notice {
+    bottom: 10px;
+    left: 13px;
+    max-width: calc(100% - 26px);
+    padding: 7px 8px;
+    font-size: 6px;
+  }
+}
+
+@media (max-width: 390px) {
+  .quantum-action-grid,
+  .quantum-actions,
+  .measurement-actions,
+  .quantum-readout-grid,
+  .quantum-stat-grid,
+  .outcome-grid,
+  .shot-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .annealogue-page .quantum-action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bell-probability-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quantum-page .stage-wrap {
+    scroll-behavior: auto;
+  }
+
+  .quantum-page canvas {
+    transition: none;
+  }
+}

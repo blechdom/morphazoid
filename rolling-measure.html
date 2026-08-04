@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Rolling Measure — polygons rolling without slip turn support geometry and centroid motion into rhythm." />
+    <title>Rolling Measure — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="physics.css" />
+  </head>
+  <body class="physics-page" data-physics-scene="rolling-measure">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+      <nav class="tabs" aria-label="Instrument"><a class="tab" href="./">shape</a><a class="tab active" href="rolling-measure.html" aria-current="page">rolling measure</a></nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="./">shape</option><option value="rolling-measure.html" selected>rolling measure</option></select></label>
+      <div class="audio-strip" aria-label="Audio controls"><button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">⬡</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button><label class="header-level" for="level"><span><b>Master level</b><output id="levelOut" for="level">56%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="1" step="0.01" value="0.56" /></label></div>
+    </header>
+    <nav class="physics-demo-nav" id="physicsDemoNav" aria-label="Physics demos">
+      <a class="physics-demo-link" href="gravity-walk.html"><b>Gravity Walk</b><small>Contour dynamics</small></a><a class="physics-demo-link" href="ricochet.html"><b>Ricochet</b><small>Polygonal billiards</small></a><a class="physics-demo-link" href="rigidity.html"><b>Rigidity</b><small>Bar-and-joint frames</small></a><a class="physics-demo-link" href="rolling-measure.html" aria-current="page"><b>Rolling Measure</b><small>No-slip rotation</small></a><a class="physics-demo-link" href="falling-forms.html"><b>Falling Forms</b><small>Rigid-body contact</small></a><a class="physics-demo-link" href="charge-garden.html"><b>Charge Garden</b><small>Potential fields</small></a><a class="physics-demo-link" href="packing-pressure.html"><b>Packing Pressure</b><small>Granular jamming</small></a><a class="physics-demo-link" href="geodesic-drift.html"><b>Geodesic Drift</b><small>Curved-space motion</small></a><a class="physics-demo-link" href="kinetic-hull.html"><b>Kinetic Hull</b><small>Moving topology</small></a>
+    </nav>
+    <main class="shell physics-demo" id="physics-demo">
+      <section class="stage" aria-labelledby="sceneTitle"><div class="stage-wrap" id="stageWrap">
+        <canvas id="stage" tabindex="0" role="img" aria-label="A regular polygon rolling without slipping along a horizontal ground line." aria-describedby="sceneInstruction sceneLesson">A polygon tips from one supporting vertex to the next as it rolls.</canvas>
+        <header class="physics-title-card"><p class="physics-kicker" id="sceneKicker">Physics · 04 · Polygonal rolling contact</p><h1 id="sceneTitle">Rolling Measure</h1><p class="physics-description" id="sceneDescription">A regular polygon measures the ground one pivot and one side at a time.</p></header>
+        <div class="stage-meta" aria-hidden="true"><span id="stageReadout">HEXAGON · SUPPORT 1 · READY · AUDIO OFF</span></div>
+        <div class="physics-transport" aria-label="Scene transport"><button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Run Rolling Measure"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button><button class="physics-stage-action" id="resetScene" type="button">Reset</button><button class="physics-stage-action" id="primaryAction" type="button">Nudge</button></div>
+      </div></section>
+      <aside class="panel" aria-label="Rolling Measure controls">
+        <details class="group control-section" id="physicsSection" data-section="physics"><summary class="group-summary"><h2 class="group-title">Physics</h2><span class="section-state" id="physicsSummary">6 sides · no slip</span></summary><div class="group-body" id="physicsControls"><p class="physics-control-note">Side count, size, slope, drive, and angular damping shape the roll.</p></div></details>
+        <details class="group control-section" data-section="sound"><summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state">support · height · cadence</span></summary><div class="group-body"><label class="control" for="baseFrequency"><span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" /></label><label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">3.0 oct</output></span><input id="pitchRange" type="range" min="0.5" max="5" step="0.1" value="3" /></label><label class="select-control" for="scale"><span class="field-label">Pitch scale</span><span class="select-shell"><select id="scale"><option value="free">Free</option><option value="chromatic">Chromatic</option><option value="major">Major</option><option value="pentatonic" selected>Pentatonic</option><option value="whole">Whole tone</option></select></span></label><p class="physics-audio-error" id="audioError" role="alert" hidden></p></div></details>
+        <details class="group control-section physics-concept" data-section="mapping"><summary class="group-summary"><h2 class="group-title">What it illustrates</h2><span class="section-state">turning angle · support</span></summary><div class="group-body physics-concept-body"><p class="physics-instruction" id="sceneInstruction">Swipe across the stage or use Nudge, then compare how side count changes the rise-and-fall rhythm.</p><p class="physics-lesson" id="sceneLesson">No-slip motion is a sequence of rotations about contact vertices. The centroid rises between impacts, then kinetic energy is lost when the pivot changes.</p><dl class="physics-metrics" id="sceneMetrics"><div><dt>Turns</dt><dd>0</dd></div><div><dt>Support</dt><dd>vertex 1</dd></div><div><dt>Centroid</dt><dd>0.720</dd></div><div><dt>Slip</dt><dd>0.000</dd></div></dl><dl class="physics-mapping" id="sceneMapping"><div><dt>Centroid lift</dt><dd>continuous pitch</dd></div><div><dt>Contact vertex</dt><dd>impact pitch</dd></div><div><dt>Impact loss</dt><dd>accent level</dd></div><div><dt>Roll phase</dt><dd>stereo</dd></div></dl></div></details>
+        <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset all parameters</button></div>
+      </aside><p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="nav.js"></script><script type="module" src="physics-app.js"></script>
+  </body>
+</html>

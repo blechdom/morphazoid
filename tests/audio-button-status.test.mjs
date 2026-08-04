@@ -20,7 +20,14 @@ const instrumentScripts = [
   "recursive-fm-app.js",
   "recursive-pm-app.js",
   "chaotic-fm-app.js",
+  "chaotic-pm-app.js",
   "weierstrass-app.js",
+  "algorithmic-sequencers-app.js",
+  "physics-app.js",
+  "order-tones-app.js",
+  "bell-square-app.js",
+  "annealogue-app.js",
+  "experiments-app.js",
   "morphazoidical/app.js",
 ];
 

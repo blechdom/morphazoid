@@ -1,0 +1,448 @@
+.chaotic-pm-page {
+  --accent: #b98cff;
+  --accent-soft: color-mix(in oklab, #b98cff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #b98cff 22%, transparent);
+  --chaotic-pm-carrier: #62ecc6;
+  --chaotic-pm-phase: #ffab65;
+  --chaotic-pm-warp: #b98cff;
+  --chaotic-pm-output: #fff0c7;
+  --chaotic-pm-caution: #f2bf67;
+  --chaotic-path-signal: #b98cff;
+  --chaotic-path-control: #62ecc6;
+  --chaotic-path-operator: #ffab65;
+  --chaotic-path-output: #fff0c7;
+}
+
+.chaotic-pm-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 27vw, 410px);
+}
+
+.chaotic-pm-stage .stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--chaotic-pm-warp) 2.7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--chaotic-pm-carrier) 2.2%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 52% 39%, color-mix(in oklab, var(--chaotic-pm-warp) 9%, transparent), transparent 50%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.chaotic-pm-page #stage {
+  cursor: default;
+}
+
+.chaotic-pm-heading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(38px, 7vh, 72px);
+  left: clamp(20px, 4vw, 58px);
+  display: grid;
+  pointer-events: none;
+  gap: 5px;
+}
+
+.chaotic-pm-heading p,
+.chaotic-pm-heading span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.chaotic-pm-heading p {
+  color: var(--accent);
+}
+
+.chaotic-pm-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(25px, 4vw, 52px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.chaotic-pm-heading span {
+  margin-top: 3px;
+  color: var(--faint);
+  letter-spacing: 0.11em;
+}
+
+.chaotic-pm-panel {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--accent) 3%, transparent), transparent 270px),
+    var(--panel);
+}
+
+.chaotic-pm-presets {
+  --accent: #62ecc6;
+  --accent-soft: color-mix(in oklab, #62ecc6 55%, transparent);
+  --accent-glow: color-mix(in oklab, #62ecc6 20%, transparent);
+}
+
+.chaotic-pm-algorithm {
+  --accent: #b98cff;
+  --accent-soft: color-mix(in oklab, #b98cff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #b98cff 20%, transparent);
+}
+
+.chaotic-pm-family {
+  --accent: #ffab65;
+  --accent-soft: color-mix(in oklab, #ffab65 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffab65 18%, transparent);
+}
+
+.chaotic-pm-preset-grid {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.chaotic-pm-preset-grid button {
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0.035em;
+}
+
+.chaotic-pm-preset-grid button:hover,
+.chaotic-pm-preset-grid button:focus-visible {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.chaotic-pm-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.chaotic-pm-preset-description {
+  min-height: 2.9em;
+  margin: 10px 0 3px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.chaotic-pm-repair-note {
+  margin: 8px 0 3px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in oklab, var(--chaotic-pm-caution) 28%, var(--line));
+  color: var(--muted);
+  background: color-mix(in oklab, var(--chaotic-pm-caution) 3%, transparent);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.chaotic-pm-repair-note summary {
+  cursor: pointer;
+  color: color-mix(in oklab, var(--chaotic-pm-caution) 78%, var(--ink));
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chaotic-pm-repair-note p {
+  margin: 8px 0 1px;
+}
+
+.chaotic-pm-control-note {
+  display: block;
+  margin: -8px 0 12px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.chaotic-pm-control-note code,
+.chaotic-pm-safety-note code {
+  color: var(--chaotic-pm-output);
+  font: inherit;
+}
+
+.chaotic-pm-warp-note {
+  color: color-mix(in oklab, var(--chaotic-pm-caution) 72%, var(--muted));
+}
+
+.chaotic-pm-ledger {
+  margin-top: 16px;
+}
+
+.chaotic-pm-ledger > span {
+  grid-template-columns: 66px minmax(0, 1fr);
+}
+
+.chaotic-pm-ledger code {
+  color: color-mix(in oklab, var(--ink) 88%, var(--accent));
+  font-variant-numeric: tabular-nums;
+}
+
+.chaotic-pm-safety-note {
+  margin: -4px 0 11px;
+  padding: 10px 11px;
+  border-left: 1px solid var(--chaotic-pm-caution);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--chaotic-pm-caution) 4%, transparent);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.chaotic-pm-page .audio-error {
+  margin: 11px 0 4px;
+  color: #ffb2a8;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.chaotic-pm-audio-glyph {
+  color: var(--accent);
+  font-size: 18px;
+}
+
+/* The turn is kept at an intrinsic width so the exact transfer remains
+   legible. Touch and keyboard users can pan this region horizontally. */
+.chaotic-pm-page .chaotic-pm-flow {
+  height: clamp(190px, 31%, 236px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-color: color-mix(in oklab, var(--chaotic-path-signal) 38%, transparent);
+  scrollbar-color: color-mix(in oklab, var(--chaotic-path-signal) 62%, transparent)
+    color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  pointer-events: auto;
+  touch-action: pan-x;
+}
+
+.chaotic-pm-page .chaotic-pm-flow:focus-visible {
+  outline: 1px solid var(--chaotic-path-control);
+  outline-offset: 2px;
+}
+
+.chaotic-pm-page .chaotic-pm-flow::before {
+  top: 8px;
+  left: 14px;
+  max-width: calc(100% - 28px);
+  color: color-mix(in oklab, var(--chaotic-path-signal) 82%, var(--ink));
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.085em;
+  line-height: 1.25;
+  opacity: 1;
+}
+
+.chaotic-pm-page .chaotic-pm-flow svg {
+  display: block;
+  width: max(100%, 1260px);
+  min-width: 1260px;
+  height: 100%;
+}
+
+.chaotic-pm-flow .chaotic-path-wire,
+.chaotic-pm-flow .chaotic-path-audio-wire {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  filter: drop-shadow(0 0 3px color-mix(in oklab, var(--chaotic-path-signal) 38%, transparent));
+}
+
+.chaotic-pm-flow .chaotic-path-control-wire {
+  stroke-width: 2;
+  stroke-dasharray: 5 3;
+  opacity: 0.9;
+}
+
+.chaotic-pm-flow .chaotic-path-block rect,
+.chaotic-pm-flow .chaotic-path-operator rect,
+.chaotic-pm-flow .chaotic-path-output rect {
+  fill: color-mix(in oklab, var(--bg-deep) 84%, #12101b);
+  stroke-width: 1.8;
+}
+
+.chaotic-pm-flow .chaotic-path-title {
+  fill: var(--ink);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.chaotic-pm-flow .chaotic-path-value {
+  fill: color-mix(in oklab, var(--ink) 72%, var(--muted));
+  font-size: 8.8px;
+  font-weight: 520;
+}
+
+.chaotic-pm-flow .chaotic-pm-flow-label,
+.chaotic-pm-flow .chaotic-pm-flow-note {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  paint-order: stroke fill;
+  stroke: color-mix(in oklab, var(--bg-deep) 92%, transparent);
+  stroke-linejoin: round;
+  stroke-width: 2px;
+  text-anchor: middle;
+}
+
+.chaotic-pm-flow .chaotic-pm-flow-label {
+  fill: var(--chaotic-pm-phase);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.chaotic-pm-flow .chaotic-pm-flow-note {
+  fill: var(--faint);
+  font-size: 8px;
+  text-anchor: start;
+}
+
+.chaotic-pm-flow .is-warp rect {
+  stroke: var(--chaotic-pm-warp);
+}
+
+.chaotic-pm-flow .is-phase rect {
+  stroke: var(--chaotic-pm-phase);
+}
+
+.chaotic-pm-flow .is-control rect {
+  stroke: var(--chaotic-pm-carrier);
+}
+
+.chaotic-pm-flow .chaotic-path-output rect {
+  fill: color-mix(in oklab, var(--chaotic-pm-output) 8%, var(--bg-deep));
+}
+
+.chaotic-pm-flow .chaotic-pm-repeat-bracket {
+  fill: none;
+  stroke: color-mix(in oklab, var(--chaotic-pm-phase) 72%, transparent);
+  stroke-dasharray: 4 4;
+  stroke-width: 1.4;
+}
+
+.chaotic-pm-family-grid {
+  display: grid;
+  margin: 0 0 7px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-deep) 82%, transparent);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chaotic-pm-family-grid article {
+  min-width: 0;
+  padding: 10px;
+}
+
+.chaotic-pm-family-grid article:nth-child(even) {
+  border-left: 1px solid var(--line);
+}
+
+.chaotic-pm-family-grid article:nth-child(n + 3) {
+  border-top: 1px solid var(--line);
+}
+
+.chaotic-pm-family-grid article[aria-current="true"] {
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.chaotic-pm-family-grid h3 {
+  margin: 0 0 5px;
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chaotic-pm-family-grid article[aria-current="true"] h3 {
+  color: var(--accent);
+}
+
+.chaotic-pm-family-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+@media (max-width: 960px) {
+  .chaotic-pm-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .chaotic-pm-heading {
+    top: 27px;
+  }
+
+  .chaotic-pm-heading h1 {
+    font-size: clamp(24px, 6vw, 40px);
+  }
+
+  .chaotic-pm-page .chaotic-pm-flow {
+    height: 158px;
+  }
+}
+
+@media (max-width: 650px) {
+  .chaotic-pm-heading {
+    top: 19px;
+    left: 16px;
+  }
+
+  .chaotic-pm-heading p,
+  .chaotic-pm-heading span {
+    display: none;
+  }
+
+  .chaotic-pm-page .chaotic-pm-flow {
+    right: 10px;
+    bottom: 9px;
+    left: 10px;
+    height: 126px;
+  }
+
+  .chaotic-pm-page .chaotic-pm-flow::before {
+    font-size: 7px;
+  }
+
+  .chaotic-pm-page .chaotic-pm-flow svg {
+    width: 1030px;
+    min-width: 1030px;
+  }
+}
+
+@media (max-width: 390px) {
+  .chaotic-pm-preset-grid,
+  .chaotic-pm-family-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chaotic-pm-preset-grid button {
+    min-height: 38px;
+  }
+
+  .chaotic-pm-family-grid article:nth-child(even) {
+    border-left: 0;
+  }
+
+  .chaotic-pm-family-grid article + article {
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chaotic-pm-page *,
+  .chaotic-pm-page *::before,
+  .chaotic-pm-page *::after {
+    scroll-behavior: auto !important;
+  }
+}

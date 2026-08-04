@@ -72,6 +72,9 @@
           <div class="chaotic-fm-heading">
             <p>CHAOTIC SYNTHS · 03</p>
             <h1 id="chaoticFmTitle">Chaotic FM</h1>
+            <p class="chaotic-fm-subtitle">
+              Each oscillator’s waveform becomes the next oscillator’s signed frequency, shaped through amount, tanh saturation, and rate stages. Unlike regular FM’s predictable sidebands, tiny phase and timing changes reshape every downstream frequency trajectory. Saturation keeps this recursive cascade bounded while producing highly sensitive, unstable, and surprising spectral motion.
+            </p>
           </div>
 
           <div class="stage-meta" aria-hidden="true">
@@ -82,8 +85,9 @@
             class="chaotic-path-graph"
             id="chaoticFmFlow"
             role="img"
-            data-path-label="ACTUAL SIGNAL PATH · ENTRY SUM → SINE × AMOUNT → TANH × RATE → NEXT SINE"
-            aria-label="Chaotic FM operator graph. Entry modulation is added to a center frequency; every recursive sine is multiplied, shaped by tanh, scaled to a signed frequency, and sent to the next sine."
+            tabindex="0"
+            data-path-label="RECURSIVE FM DRIVE · EACH SINE WAVE DRIVES THE NEXT SINE'S FREQUENCY"
+            aria-label="Chaotic FM operator graph. Entry modulation is added to a separated center-frequency sum. Each sine then drives the next sine's frequency through amount, tanh, and rate stages. Dotted vertical routes are audio depth taps."
           ></div>
         </div>
       </section>

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Moire Organ - sliding stripe interference mapped to audible beating."
+    />
+    <title>Moire Organ - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="experiments.css" />
+  </head>
+  <body class="experiment-page" data-experiment="moire">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab active" href="moire-organ.html" aria-current="page">moire organ</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="moire-organ.html" selected>moire organ</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">46%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.46" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell experiment-shell" id="moireOrgan">
+      <section class="stage" aria-label="Moire Organ stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Two sliding stripe lattices form wide moving moire bands."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Two sliding stripe fields interfere to create moire bands.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">MOIRE ORGAN · 8.0 DEG · AUDIO OFF</span>
+          </div>
+          <div class="experiment-title" aria-hidden="true">
+            <h1>Moire Organ</h1>
+            <small id="stageCaption">stripe interference as acoustic beating</small>
+          </div>
+        </div>
+        <p class="sr-only" id="canvasInstructions">Animated moire stripe field.</p>
+        <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+      </section>
+
+      <aside class="panel experiment-panel" aria-label="Moire Organ controls">
+        <section class="group experiment-card" aria-labelledby="experimentTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="experimentTitle">Experiment</h2>
+            <span class="section-state" id="experimentSummary">optics · interference</span>
+          </div>
+          <dl class="experiment-meter-grid">
+            <div><dt>Fringe span</dt><dd id="metricPrimary">258 px</dd></div>
+            <div><dt>Beat offset</dt><dd id="metricSecondary">0.7 Hz</dd></div>
+          </dl>
+        </section>
+
+        <section class="group control-section" aria-labelledby="moirePatternTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="moirePatternTitle">Pattern</h2>
+            <span class="section-state" id="patternSummary">two stripe fields</span>
+          </div>
+          <div class="group-body">
+            <label class="control" for="moireSpacing">
+              <span><b>Stripe spacing</b><output id="moireSpacingOut" for="moireSpacing">34 px</output></span>
+              <input id="moireSpacing" type="range" min="14" max="72" step="1" value="34" />
+            </label>
+            <label class="control" for="moireAngle">
+              <span><b>Relative angle</b><output id="moireAngleOut" for="moireAngle">8.0 deg</output></span>
+              <input id="moireAngle" type="range" min="0.5" max="24" step="0.1" value="8" />
+            </label>
+            <label class="control" for="moireDrift">
+              <span><b>Slide rate</b><output id="moireDriftOut" for="moireDrift">0.18 cyc/s</output></span>
+              <input id="moireDrift" type="range" min="0" max="1.4" step="0.01" value="0.18" />
+            </label>
+            <label class="control" for="moireTone">
+              <span><b>Tone center</b><output id="moireToneOut" for="moireTone">164 Hz</output></span>
+              <input id="moireTone" type="range" min="55" max="440" step="1" value="164" />
+            </label>
+          </div>
+        </section>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="experiments-app.js"></script>
+  </body>
+</html>

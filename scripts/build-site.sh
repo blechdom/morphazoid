@@ -76,7 +76,48 @@ for worktree_runtime_file in \
   hyper-drums.html \
   hyper-drums.css \
   hyper-drums-app.js \
-  src/hyper-drums.js
+  src/hyper-drums.js \
+  src/chaotic-fm-flow.js \
+  chaotic-pm.html \
+  chaotic-pm.css \
+  chaotic-pm-app.js \
+  src/chaotic-pm.js \
+  algorithmic-sequencers.html \
+  algorithmic-sequencers.css \
+  algorithmic-sequencers-app.js \
+  src/algorithmic-sequencers.js \
+  gravity-walk.html \
+  ricochet.html \
+  rigidity.html \
+  rolling-measure.html \
+  falling-forms.html \
+  charge-garden.html \
+  packing-pressure.html \
+  geodesic-drift.html \
+  kinetic-hull.html \
+  physics.css \
+  physics-app.js \
+  src/physics-common.js \
+  src/physics-scenes-shape.js \
+  src/physics-scenes-advanced.js \
+  src/physics-scenes.js \
+  quantum-synths.css \
+  order-tones.html \
+  order-tones-app.js \
+  src/order-tones.js \
+  bell-square.html \
+  bell-square-app.js \
+  src/bell-square.js \
+  annealogue.html \
+  annealogue-app.js \
+  src/annealogue.js \
+  moire-organ.html \
+  chladni-plate.html \
+  spring-choir.html \
+  gear-ratio-drums.html \
+  cellular-automata.html \
+  experiments.css \
+  experiments-app.js
 do
   [[ -f "$repo_root/$worktree_runtime_file" ]] && copy_runtime_file "$worktree_runtime_file"
 done
@@ -114,10 +155,51 @@ required_files=(
   chaotic-fm.css
   chaotic-fm-app.js
   src/chaotic-fm.js
+  src/chaotic-fm-flow.js
+  chaotic-pm.html
+  chaotic-pm.css
+  chaotic-pm-app.js
+  src/chaotic-pm.js
   weierstrass.html
   weierstrass.css
   weierstrass-app.js
   src/weierstrass.js
+  algorithmic-sequencers.html
+  algorithmic-sequencers.css
+  algorithmic-sequencers-app.js
+  src/algorithmic-sequencers.js
+  gravity-walk.html
+  ricochet.html
+  rigidity.html
+  rolling-measure.html
+  falling-forms.html
+  charge-garden.html
+  packing-pressure.html
+  geodesic-drift.html
+  kinetic-hull.html
+  physics.css
+  physics-app.js
+  src/physics-common.js
+  src/physics-scenes-shape.js
+  src/physics-scenes-advanced.js
+  src/physics-scenes.js
+  quantum-synths.css
+  order-tones.html
+  order-tones-app.js
+  src/order-tones.js
+  bell-square.html
+  bell-square-app.js
+  src/bell-square.js
+  annealogue.html
+  annealogue-app.js
+  src/annealogue.js
+  moire-organ.html
+  chladni-plate.html
+  spring-choir.html
+  gear-ratio-drums.html
+  cellular-automata.html
+  experiments.css
+  experiments-app.js
   fm-drums.html
   fm-drums.css
   fm-drums-app.js

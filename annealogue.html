@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Annealogue — an exact three-qubit classical simulation of a transverse-field annealing schedule, made audible."
+    />
+    <title>Annealogue — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="quantum-synths.css" />
+  </head>
+  <body class="quantum-page annealogue-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="order-tones.html">order tones</a>
+        <a class="tab" href="bell-square.html">bell square</a>
+        <a class="tab active" href="annealogue.html" aria-current="page">annealogue</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="order-tones.html">order tones</option>
+          <option value="bell-square.html">bell square</option>
+          <option value="annealogue.html" selected>annealogue</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">ψ</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">44%</output></span>
+          <input
+            id="output"
+            aria-label="Annealogue output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.44"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell quantum-shell" id="annealogue">
+      <section class="stage quantum-stage annealogue-stage" aria-labelledby="annealogueTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Annealogue three-qubit energy landscape. Eight equally probable basis states at schedule start. Audio off."
+            aria-describedby="annealogueDescription liveStatus"
+          >
+            An eight-vertex bitstring graph. Vertex height is cost energy, halo size is measurement probability, phase ticks show complex amplitude phase, and an amber line follows a classical greedy walk.
+          </canvas>
+
+          <div class="quantum-heading">
+            <p>QUANTUM SYNTHS · 03</p>
+            <h1 id="annealogueTitle">Annealogue</h1>
+            <span>EXACT THREE-QUBIT CLASSICAL SIMULATION · NO SPEEDUP CLAIM</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">S 0.000 · SUCCESS 12.5% · AUDIO OFF</span>
+          </div>
+
+          <p class="quantum-simulation-notice">
+            Exact three-qubit classical simulation · no QPU · no speedup claim
+          </p>
+        </div>
+      </section>
+
+      <aside class="panel quantum-panel annealogue-panel" aria-label="Annealogue controls">
+        <details class="group control-section" data-section="form" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Landscape</h2>
+            <span class="section-state" id="landscapeSummary">Single Basin</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="landscape">
+              <span class="field-label">Energy preset</span>
+              <span class="select-shell">
+                <select id="landscape">
+                  <option value="single-basin" selected>Single Basin</option>
+                  <option value="false-floor">False Floor</option>
+                  <option value="frustrated-ring">Frustrated Ring</option>
+                </select>
+              </span>
+            </label>
+            <p class="control-note" id="landscapeDescription">
+              One smooth descent toward |000>.
+            </p>
+
+            <div class="grammar-card quantum-ledger" aria-label="Landscape legend">
+              <span><b>Height</b><code>problem energy E(z)</code></span>
+              <span><b>Halo</b><code>measurement probability |a(z)|²</code></span>
+              <span><b>Tick</b><code>complex amplitude phase arg a(z)</code></span>
+              <span><b>Amber</b><code>classical steepest one-bit walk</code></span>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Schedule</h2>
+            <span class="section-state" id="scheduleSummary">ready · s 0.000</span>
+          </summary>
+          <div class="group-body">
+            <div class="position-row quantum-transport-row">
+              <button
+                class="play-button"
+                id="playButton"
+                type="button"
+                aria-pressed="false"
+                aria-label="Play annealing schedule"
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="progress">
+                <span><b>Schedule position</b><output id="progressOut" for="progress">0.0%</output></span>
+                <input id="progress" type="range" min="0" max="1" step="0.001" value="0" />
+              </label>
+            </div>
+
+            <div class="quantum-action-grid" role="group" aria-label="Schedule actions">
+              <button class="mini-action" id="restartButton" type="button">Restart</button>
+              <button class="mini-action" id="stepButton" type="button">Step +1%</button>
+              <button class="mini-action" id="measureButton" type="button">Measure</button>
+            </div>
+
+            <label class="control" for="duration">
+              <span><b>Anneal duration</b><output id="durationOut" for="duration">8.0 s</output></span>
+              <input id="duration" type="range" min="1" max="20" step="0.25" value="8" />
+            </label>
+
+            <label class="control" for="gamma">
+              <span><b>Transverse field Γ</b><output id="gammaOut" for="gamma">1.25</output></span>
+              <input id="gamma" type="range" min="0" max="3" step="0.01" value="1.25" />
+            </label>
+
+            <p class="control-note">
+              Space plays or pauses · arrows scrub · M measures · Escape mutes
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound">
+          <summary class="group-summary">
+            <h2 class="group-title">State</h2>
+            <span class="section-state" id="stateSummary">8 coherent amplitudes</span>
+          </summary>
+          <div class="group-body">
+            <div class="grammar-card quantum-ledger" aria-label="Live simulation values">
+              <span><b>Hamiltonian</b><code>H(s)=−(1−s)ΓΣXᵢ+sΣE(z)|z⟩⟨z|</code></span>
+              <span><b>Expected E</b><code id="expectedEnergy">1.500</code></span>
+              <span><b>Success</b><code id="successProbability">12.5%</code></span>
+              <span><b>Measure</b><code id="measurementReadout">not measured</code></span>
+              <span><b>Greedy</b><code id="greedyReadout">111 → 011 → 001 → 000 · ground</code></span>
+            </div>
+            <p class="control-note">
+              Eight bounded microtonal voices follow the eight basis-state probabilities. Cost energy brightens and lifts each voice; Γ opens their pitch spread. Measurement strikes the sampled state.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetAnnealogue" type="button" data-reset-all>
+            Reset all parameters
+          </button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="annealogueDescription">
+        Annealogue classically evolves all eight complex amplitudes of a closed three-qubit state with a symmetric split-step calculation. The cube edges join bitstrings that differ by one bit. This educational simulation neither runs on quantum hardware nor claims quantum speedup.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="annealogue-app.js"></script>
+  </body>
+</html>

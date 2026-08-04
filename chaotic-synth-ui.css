@@ -241,6 +241,169 @@
   fill: var(--chaotic-path-output);
 }
 
+/* Chaotic FM keeps the detailed graph at a readable intrinsic scale. Higher
+   recursion depths scroll horizontally instead of shrinking their labels. */
+.chaotic-fm-page .chaotic-path-graph {
+  height: clamp(190px, 31%, 240px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-color: color-mix(in oklab, var(--chaotic-path-signal) 38%, transparent);
+  scrollbar-color: color-mix(in oklab, var(--chaotic-path-signal) 62%, transparent)
+    color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  pointer-events: auto;
+  touch-action: pan-x;
+}
+
+.chaotic-fm-page .chaotic-path-graph:focus-visible {
+  outline: 1px solid var(--chaotic-path-control);
+  outline-offset: 2px;
+}
+
+.chaotic-fm-page .chaotic-path-graph::before {
+  top: 8px;
+  left: 14px;
+  max-width: calc(100% - 28px);
+  color: color-mix(in oklab, var(--chaotic-path-signal) 84%, var(--ink));
+  font-size: 9.5px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  line-height: 1.25;
+  opacity: 1;
+}
+
+.chaotic-fm-page .chaotic-path-detail {
+  display: block;
+  width: max(100%, var(--chaotic-graph-width));
+  height: 100%;
+}
+
+.chaotic-path-compact {
+  display: none;
+}
+
+.chaotic-fm-page .chaotic-path-block rect,
+.chaotic-fm-page .chaotic-path-operator rect,
+.chaotic-fm-page .chaotic-path-output rect {
+  fill: color-mix(in oklab, var(--bg-deep) 84%, #101720);
+  stroke-width: 1.8;
+}
+
+.chaotic-fm-page .chaotic-path-title,
+.chaotic-fm-page .chaotic-path-value,
+.chaotic-fm-page .chaotic-path-bus-label,
+.chaotic-fm-page .chaotic-path-entry-label,
+.chaotic-fm-page .chaotic-path-recursion-label,
+.chaotic-fm-page .chaotic-path-compact-detail,
+.chaotic-fm-page .chaotic-path-compact-heading {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  paint-order: stroke fill;
+  stroke: color-mix(in oklab, var(--bg-deep) 92%, transparent);
+  stroke-linejoin: round;
+  stroke-width: 2px;
+  text-anchor: middle;
+}
+
+.chaotic-fm-page .chaotic-path-title {
+  fill: var(--ink);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.015em;
+}
+
+.chaotic-fm-page .chaotic-path-value {
+  fill: color-mix(in oklab, var(--ink) 72%, var(--muted));
+  font-size: 9.8px;
+  font-weight: 520;
+}
+
+.chaotic-fm-page .chaotic-path-entry-wire,
+.chaotic-fm-page .chaotic-path-recursive-wire,
+.chaotic-fm-page .chaotic-path-compact-link {
+  fill: none;
+  stroke: var(--chaotic-path-signal);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 3px color-mix(in oklab, var(--chaotic-path-signal) 42%, transparent));
+  opacity: 1;
+}
+
+.chaotic-fm-page .chaotic-path-entry-wire {
+  stroke: color-mix(in oklab, var(--chaotic-path-signal) 78%, var(--chaotic-path-control));
+  stroke-width: 2.15;
+}
+
+.chaotic-fm-page .chaotic-path-control-wire {
+  stroke-width: 2;
+  stroke-dasharray: 5 3;
+  opacity: 0.92;
+}
+
+.chaotic-fm-page .chaotic-path-signal-arrow path {
+  fill: var(--chaotic-path-signal);
+}
+
+.chaotic-fm-page .chaotic-path-entry-label,
+.chaotic-fm-page .chaotic-path-recursion-label {
+  fill: color-mix(in oklab, var(--chaotic-path-signal) 82%, var(--ink));
+  font-size: 9.5px;
+  font-weight: 720;
+  letter-spacing: 0.055em;
+}
+
+.chaotic-fm-page .chaotic-path-entry-label {
+  fill: color-mix(in oklab, var(--chaotic-path-control) 72%, var(--ink));
+}
+
+.chaotic-fm-page .chaotic-path-input-port {
+  fill: var(--bg-deep);
+  stroke: var(--chaotic-path-signal);
+  stroke-width: 2;
+}
+
+.chaotic-fm-page .chaotic-path-tap {
+  stroke: color-mix(in oklab, var(--chaotic-path-output) 58%, var(--muted));
+  stroke-width: 1.7;
+  stroke-dasharray: 5 4;
+  opacity: 0.55;
+}
+
+.chaotic-fm-page .chaotic-path-tap.is-open {
+  stroke-width: 2.2;
+  opacity: 1;
+}
+
+.chaotic-fm-page .chaotic-path-tap-switch {
+  stroke: color-mix(in oklab, var(--chaotic-path-output) 58%, var(--muted));
+  stroke-width: 1.5;
+  opacity: 0.72;
+}
+
+.chaotic-fm-page .chaotic-path-bus,
+.chaotic-fm-page .chaotic-path-audio-wire {
+  stroke-width: 1.8;
+  opacity: 0.9;
+}
+
+.chaotic-fm-page .chaotic-path-bus-label {
+  fill: var(--muted);
+  font-size: 9.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-anchor: start;
+}
+
+.chaotic-fm-page .chaotic-path-compact-heading,
+.chaotic-fm-page .chaotic-path-compact-detail {
+  fill: color-mix(in oklab, var(--ink) 76%, var(--muted));
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.035em;
+  text-anchor: start;
+}
+
 @media (max-width: 650px) {
   .chaotic-analysis-labels {
     top: 88px;
@@ -276,5 +439,35 @@
   .chaotic-path-graph::before {
     top: 4px;
     font-size: 6px;
+  }
+
+  .chaotic-fm-page .chaotic-path-graph {
+    height: 160px;
+    overflow: hidden;
+    pointer-events: none;
+    touch-action: auto;
+  }
+
+  .chaotic-fm-page .chaotic-path-graph::before,
+  .chaotic-fm-page .chaotic-path-detail {
+    display: none;
+  }
+
+  .chaotic-fm-page .chaotic-path-compact {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .chaotic-fm-page .chaotic-path-title {
+    font-size: 11px;
+  }
+
+  .chaotic-fm-page .chaotic-path-value {
+    font-size: 9.5px;
+  }
+
+  .chaotic-fm-page .chaotic-path-recursion-label {
+    font-size: 9px;
   }
 }

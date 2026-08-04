@@ -40,7 +40,7 @@ test("scope normalization accepts byte and float analyser data", () => {
 test("live analysis layers the oscilloscope over the spectrum in one region", () => {
   for (const height of [380, 500, 800]) {
     const regions = chaoticLiveVisualRegions(1_000, height);
-    assert.ok(regions.spectrumTop >= 104);
+    assert.ok(regions.spectrumTop >= 145);
     assert.ok(regions.spectrumBottom > regions.spectrumTop);
     assert.equal(regions.scopeTop, regions.spectrumTop);
     assert.equal(regions.scopeBottom, regions.spectrumBottom);

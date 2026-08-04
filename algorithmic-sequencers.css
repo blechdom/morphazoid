@@ -1,0 +1,277 @@
+.algorithmic-sequencers-page {
+  --accent: #8de7ff;
+  --accent-soft: color-mix(in oklab, #8de7ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #8de7ff 22%, transparent);
+  --algorithmic-gold: #e8c46b;
+  --algorithmic-violet: #c79bff;
+  --algorithmic-coral: #ff826f;
+}
+
+.algorithmic-sequencers-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(342px, 25vw, 400px);
+}
+
+.algorithmic-sequencers-page .stage-wrap {
+  background:
+    linear-gradient(rgba(141, 231, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(199, 155, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(141, 231, 255, 0.05), transparent 36%, rgba(232, 196, 107, 0.04) 64%, transparent),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.algorithmic-sequencers-page #stage {
+  cursor: default;
+}
+
+.algorithmic-sequencers-tab {
+  min-width: 156px;
+  font-size: 9px;
+  letter-spacing: 0.025em;
+}
+
+.algorithmic-audio-glyph {
+  color: var(--algorithmic-gold);
+  font-weight: 700;
+}
+
+.algorithmic-sequencers-heading {
+  position: absolute;
+  z-index: 3;
+  top: 24px;
+  left: 28px;
+  max-width: min(520px, calc(100% - 56px));
+  pointer-events: none;
+}
+
+.algorithmic-sequencers-heading p {
+  margin: 0 0 8px;
+  color: var(--algorithmic-gold);
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.algorithmic-sequencers-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.algorithmic-sequencers-heading span {
+  display: block;
+  margin-top: 8px;
+  color: var(--accent);
+  font-size: 13px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.algorithmic-preset-grid {
+  display: grid;
+  margin-bottom: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.algorithmic-preset-grid button {
+  min-height: 42px;
+  padding: 8px 9px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.algorithmic-preset-grid button:last-child {
+  grid-column: 1 / -1;
+}
+
+.algorithmic-preset-grid button:hover,
+.algorithmic-preset-grid button:focus-visible {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.algorithmic-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 12px var(--accent-glow);
+}
+
+.algorithmic-description {
+  min-height: 3em;
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.algorithmic-ledger > span {
+  grid-template-columns: 62px minmax(0, 1fr);
+}
+
+.algorithmic-transport-row {
+  display: grid;
+  margin-bottom: 12px;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.algorithmic-transport-row .mini-action {
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+}
+
+.algorithmic-data-actions {
+  display: grid;
+  margin: 0 0 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.algorithmic-data-actions .mini-action {
+  min-width: 0;
+  min-height: 38px;
+}
+
+.algorithmic-curve-switch {
+  grid-auto-flow: initial;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.algorithmic-curve-switch button {
+  min-height: 36px;
+  font-size: 8px;
+  white-space: normal;
+}
+
+.algorithmic-candidate-list {
+  display: grid;
+  gap: 8px;
+}
+
+.algorithmic-candidate-list section {
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 8%, transparent), transparent 88%),
+    var(--bg-deep);
+}
+
+.algorithmic-candidate-list h3 {
+  margin: 0 0 6px;
+  color: var(--algorithmic-gold);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.algorithmic-candidate-list p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.algorithmic-sequencers-page .control-section[data-section="play"] {
+  --accent: #8de7ff;
+  --accent-soft: color-mix(in oklab, #8de7ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #8de7ff 22%, transparent);
+}
+
+.algorithmic-sequencers-page .control-section[data-section="structure"] {
+  --accent: #c79bff;
+  --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #c79bff 20%, transparent);
+}
+
+.algorithmic-sequencers-page .control-section[data-section="mapping"] {
+  --accent: #e8c46b;
+  --accent-soft: color-mix(in oklab, #e8c46b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #e8c46b 20%, transparent);
+}
+
+.algorithmic-sequencers-page .control-section[data-section="sound"] {
+  --accent: #ff826f;
+  --accent-soft: color-mix(in oklab, #ff826f 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff826f 20%, transparent);
+}
+
+.algorithmic-sequencers-page .control-section[data-section="output"] {
+  --accent: #75ef9d;
+  --accent-soft: color-mix(in oklab, #75ef9d 55%, transparent);
+  --accent-glow: color-mix(in oklab, #75ef9d 18%, transparent);
+}
+
+@media (max-width: 980px) {
+  .algorithmic-sequencers-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .algorithmic-sequencers-stage {
+    min-height: 54vh;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .algorithmic-sequencers-page .panel {
+    max-height: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .algorithmic-sequencers-page .stage-meta {
+    display: none;
+  }
+
+  .algorithmic-sequencers-heading {
+    top: 18px;
+    left: 18px;
+    max-width: calc(100% - 36px);
+  }
+
+  .algorithmic-sequencers-heading h1 {
+    font-size: 25px;
+  }
+
+  .algorithmic-sequencers-heading span {
+    font-size: 10px;
+  }
+
+  .algorithmic-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .algorithmic-preset-grid button:last-child {
+    grid-column: auto;
+  }
+
+  .algorithmic-transport-row {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .algorithmic-transport-row #restartSequence {
+    grid-column: 1 / -1;
+  }
+
+  .algorithmic-curve-switch {
+    grid-template-columns: 1fr;
+  }
+
+  .algorithmic-data-actions {
+    grid-template-columns: 1fr;
+  }
+}

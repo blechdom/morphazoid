@@ -1,0 +1,412 @@
+.physics-page {
+  --accent: #5fe8c4;
+  --accent-soft: color-mix(in oklab, var(--accent) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+.physics-page #stage {
+  cursor: crosshair;
+}
+
+.physics-page .stage-wrap.is-dragging #stage {
+  cursor: grabbing;
+}
+
+.physics-demo-nav {
+  display: flex;
+  min-height: 52px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel) 92%, var(--bg-deep));
+  flex: 0 0 auto;
+  scrollbar-color: var(--faint) transparent;
+  scrollbar-width: thin;
+}
+
+.physics-demo-link {
+  position: relative;
+  display: grid;
+  min-width: 128px;
+  padding: 8px 13px;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  align-content: center;
+  gap: 2px;
+  text-decoration: none;
+}
+
+.physics-demo-link b {
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.physics-demo-link small {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.physics-demo-link:hover,
+.physics-demo-link[aria-current="page"] {
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 5%, transparent);
+}
+
+.physics-demo-link[aria-current="page"]::after {
+  position: absolute;
+  right: 12px;
+  bottom: -1px;
+  left: 12px;
+  height: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 9px var(--accent-soft);
+  content: "";
+}
+
+.physics-title-card {
+  position: absolute;
+  z-index: 2;
+  top: 18px;
+  left: 19px;
+  width: min(430px, calc(100% - 190px));
+  pointer-events: none;
+}
+
+.physics-kicker {
+  margin: 0 0 5px;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+}
+
+.physics-title-card h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(17px, 2.1vw, 30px);
+  font-weight: 500;
+  letter-spacing: -.035em;
+  line-height: 1;
+}
+
+.physics-description {
+  max-width: 390px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.physics-page .stage-meta {
+  left: auto;
+  max-width: 44%;
+  justify-content: flex-end;
+  color: var(--accent);
+  text-align: right;
+}
+
+.physics-transport {
+  position: absolute;
+  z-index: 3;
+  right: 18px;
+  bottom: 16px;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.physics-transport .play-button,
+.physics-stage-action {
+  min-width: 48px;
+  min-height: 42px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+}
+
+.physics-transport .play-button {
+  display: grid;
+  place-items: center;
+}
+
+.physics-transport .play-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 1.5;
+}
+
+.physics-transport .transport-pause {
+  display: none;
+}
+
+.physics-transport .play-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.physics-transport .play-button[aria-pressed="true"] .transport-play {
+  display: none;
+}
+
+.physics-transport .play-button[aria-pressed="true"] .transport-pause {
+  display: block;
+}
+
+.physics-stage-action {
+  padding: 0 12px;
+  cursor: pointer;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.physics-stage-action:hover,
+.physics-stage-action:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.physics-control-note {
+  margin: -3px 0 13px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.physics-toggle {
+  display: grid;
+  margin: 1px 0 12px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.physics-toggle button {
+  min-height: 38px;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font-size: 9px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.physics-toggle button[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 0 1px var(--accent-soft);
+}
+
+.physics-concept {
+  --accent: #c79bff;
+  --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #c79bff 20%, transparent);
+}
+
+.physics-concept-body {
+  padding-bottom: 17px;
+}
+
+.physics-lesson,
+.physics-instruction {
+  margin: 0 0 13px;
+  color: var(--ink);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.physics-instruction {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--panel-high);
+}
+
+.physics-instruction::before {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent);
+  content: "GESTURE";
+  font-size: 8px;
+  letter-spacing: .11em;
+}
+
+.physics-metrics {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.physics-metrics > div {
+  min-width: 0;
+  padding: 8px 9px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.physics-metrics dt {
+  overflow: hidden;
+  margin: 0 0 3px;
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: .08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.physics-metrics dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--accent);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.physics-mapping {
+  display: grid;
+  margin: 14px 0 0;
+  border: 1px solid var(--line);
+}
+
+.physics-mapping > div {
+  display: grid;
+  padding: 7px 9px;
+  grid-template-columns: minmax(72px, .7fr) minmax(0, 1.3fr);
+  gap: 9px;
+}
+
+.physics-mapping > div + div {
+  border-top: 1px solid var(--line);
+}
+
+.physics-mapping dt,
+.physics-mapping dd {
+  margin: 0;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.physics-mapping dt {
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.physics-mapping dd {
+  color: var(--muted);
+}
+
+.physics-page .control-section[data-section="physics"] {
+  --accent: #e8c46b;
+  --accent-soft: color-mix(in oklab, #e8c46b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #e8c46b 20%, transparent);
+}
+
+.physics-page .select-control {
+  margin-bottom: 12px;
+}
+
+.physics-audio-error {
+  margin: 9px 0 4px;
+  color: #ff9e91;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+@media (max-width: 960px) {
+  .physics-page .shell {
+    grid-template-rows: clamp(285px, 50dvh, 440px) minmax(0, 1fr);
+  }
+
+  .physics-demo-nav {
+    min-height: 42px;
+  }
+
+  .physics-demo-link {
+    min-width: 112px;
+    padding: 6px 10px;
+  }
+}
+
+@media (max-width: 650px) {
+  .physics-page .shell {
+    grid-template-rows: clamp(245px, 43dvh, 330px) minmax(0, 1fr);
+  }
+
+  .physics-demo-nav {
+    min-height: 37px;
+  }
+
+  .physics-demo-link {
+    min-width: 102px;
+    padding: 5px 9px;
+  }
+
+  .physics-demo-link small,
+  .physics-description {
+    display: none;
+  }
+
+  .physics-title-card {
+    top: 12px;
+    left: 13px;
+    width: calc(100% - 150px);
+  }
+
+  .physics-title-card h1 {
+    font-size: 16px;
+  }
+
+  .physics-kicker {
+    font-size: 7px;
+  }
+
+  .physics-page .stage-meta {
+    max-width: 42%;
+  }
+
+  .physics-transport {
+    right: 12px;
+    bottom: 10px;
+  }
+
+  .physics-transport .play-button,
+  .physics-stage-action {
+    min-height: 36px;
+  }
+
+  .physics-stage-action {
+    padding: 0 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .physics-demo-link,
+  .physics-stage-action {
+    transition: none;
+  }
+}

@@ -132,16 +132,20 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     TOOL_GROUPS.map((group) => group.label),
     [
       "Geometry Synths",
+      "Geometric Physics",
       "Geometry Drum Machines",
       "Audio & Mic",
       "Fractals & Recursion",
+      "Algorithmic Sequencers",
       "Barber Shop Poles",
       "Chaotic Synths",
+      "Quantum Synths",
+      "Experiments",
       "Tools",
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 27);
+  assert.equal(tools.length, 46);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -203,6 +207,22 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "geometric-physics")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [
+      { id: "gravity-walk", href: "gravity-walk.html" },
+      { id: "ricochet", href: "ricochet.html" },
+      { id: "rigidity", href: "rigidity.html" },
+      { id: "rolling-measure", href: "rolling-measure.html" },
+      { id: "falling-forms", href: "falling-forms.html" },
+      { id: "charge-garden", href: "charge-garden.html" },
+      { id: "packing-pressure", href: "packing-pressure.html" },
+      { id: "geodesic-drift", href: "geodesic-drift.html" },
+      { id: "kinetic-hull", href: "kinetic-hull.html" },
+    ],
+  );
+  assert.deepEqual(
     TOOL_GROUPS.find((group) => group.id === "geometry-drums")?.tools.map(
       ({ id, href }) => ({ id, href }),
     ),
@@ -222,6 +242,22 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "fm-drums", href: "fm-drums.html" },
       { id: "morphazoidical", href: "morphazoidical/" },
     ],
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "algorithmic-sequencers")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [
+      { id: "search-algorithms", href: "algorithmic-sequencers.html" },
+    ],
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "search-algorithms"),
+    {
+      id: "search-algorithms",
+      label: "Search",
+      href: "algorithmic-sequencers.html",
+    },
   );
   assert.deepEqual(
     tools.find((tool) => tool.id === "morphazoidical"),
@@ -259,7 +295,30 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "recursive-fm", href: "recursive-fm.html" },
       { id: "recursive-pm", href: "recursive-pm.html" },
       { id: "chaotic-fm", href: "chaotic-fm.html" },
+      { id: "chaotic-pm", href: "chaotic-pm.html" },
       { id: "weierstrass", href: "weierstrass.html" },
+    ],
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "quantum-synths")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [
+      { id: "order-tones", href: "order-tones.html" },
+      { id: "bell-square", href: "bell-square.html" },
+      { id: "annealogue", href: "annealogue.html" },
+    ],
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "experiments")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [
+      { id: "moire-organ", href: "moire-organ.html" },
+      { id: "chladni-plate", href: "chladni-plate.html" },
+      { id: "spring-choir", href: "spring-choir.html" },
+      { id: "gear-ratio-drums", href: "gear-ratio-drums.html" },
+      { id: "cellular-automata", href: "cellular-automata.html" },
     ],
   );
   assert.deepEqual(SITE_LINKS, [
@@ -282,7 +341,26 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}recursive-fm.html`, SITE_ROOT)?.id, "recursive-fm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}recursive-pm.html`, SITE_ROOT)?.id, "recursive-pm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}chaotic-fm.html`, SITE_ROOT)?.id, "chaotic-fm");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}chaotic-pm.html`, SITE_ROOT)?.id, "chaotic-pm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}weierstrass.html`, SITE_ROOT)?.id, "weierstrass");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}gravity-walk.html`, SITE_ROOT)?.id, "gravity-walk");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}ricochet.html`, SITE_ROOT)?.id, "ricochet");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}rigidity.html`, SITE_ROOT)?.id, "rigidity");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}rolling-measure.html`, SITE_ROOT)?.id, "rolling-measure");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}falling-forms.html`, SITE_ROOT)?.id, "falling-forms");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}charge-garden.html`, SITE_ROOT)?.id, "charge-garden");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}packing-pressure.html`, SITE_ROOT)?.id, "packing-pressure");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}geodesic-drift.html`, SITE_ROOT)?.id, "geodesic-drift");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}kinetic-hull.html`, SITE_ROOT)?.id, "kinetic-hull");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}order-tones.html`, SITE_ROOT)?.id, "order-tones");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}bell-square.html`, SITE_ROOT)?.id, "bell-square");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}annealogue.html`, SITE_ROOT)?.id, "annealogue");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}moire-organ.html`, SITE_ROOT)?.id, "moire-organ");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}chladni-plate.html`, SITE_ROOT)?.id, "chladni-plate");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}spring-choir.html`, SITE_ROOT)?.id, "spring-choir");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}gear-ratio-drums.html`, SITE_ROOT)?.id, "gear-ratio-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}cellular-automata.html`, SITE_ROOT)?.id, "cellular-automata");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}algorithmic-sequencers.html`, SITE_ROOT)?.id, "search-algorithms");
   assert.equal(resolveActiveTool(`${SITE_ROOT}fm-drums.html`, SITE_ROOT)?.id, "fm-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}shape-drums.html`, SITE_ROOT)?.id, "shape-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}lattice-drums.html`, SITE_ROOT)?.id, "lattice-drums");
@@ -339,7 +417,7 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
     TOOL_GROUPS.map((group) => group.label),
   );
   const links = details.findAll((node) => node.tagName === "A");
-  assert.equal(links.length, 27);
+  assert.equal(links.length, 46);
   const siteLinks = doc.tabs.children.filter((node) => node.classList.contains("site-nav-link"));
   assert.equal(siteLinks.length, 1);
   assert.equal(siteLinks[0].textContent, "About");

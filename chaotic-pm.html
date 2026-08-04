@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Chaotic PM — playable audio-rate recursive phase modulation shaped by the original signed-remainder tanh transfer."
+    />
+    <title>Chaotic PM — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="chaotic-pm.css" />
+    <link rel="stylesheet" href="chaotic-synth-ui.css" />
+  </head>
+  <body class="chaotic-pm-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab" href="recursive-fm.html">recursive fm</a>
+        <a class="tab" href="recursive-pm.html">recursive pm</a>
+        <a class="tab" href="chaotic-fm.html">chaotic fm</a>
+        <a class="tab active" href="chaotic-pm.html" aria-current="page">chaotic pm</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="recursive-fm.html">recursive fm</option>
+          <option value="recursive-pm.html">recursive pm</option>
+          <option value="chaotic-fm.html">chaotic fm</option>
+          <option value="chaotic-pm.html" selected>chaotic pm</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph chaotic-pm-audio-glyph" aria-hidden="true">ϟ</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">58%</output></span>
+          <input
+            id="output"
+            data-parameter-id="output.level"
+            aria-label="Chaotic PM output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.58"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell chaotic-pm-shell" id="chaoticPm">
+      <section class="stage chaotic-pm-stage" aria-labelledby="chaoticPmTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Chaotic PM algorithm with one nonlinear phase turn. Audio off."
+            aria-describedby="chaoticPmDescription liveStatus"
+          >
+            A live oscilloscope and rolling spectrogram with the Chaotic PM signal-flow transfer.
+          </canvas>
+
+          <div class="chaotic-pm-heading">
+            <p>CHAOTIC SYNTHS · 04</p>
+            <h1 id="chaoticPmTitle">Chaotic PM</h1>
+            <span>recursive phase · signed remainder · nonlinear warp</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">1 TURN · 2 OPERATORS · AUDIO OFF</span>
+          </div>
+
+          <div
+            class="chaotic-path-graph chaotic-pm-flow"
+            id="chaoticPmFlow"
+            role="img"
+            tabindex="0"
+            data-path-label="LIVE TURN · PHASOR + PREVIOUS × INDEX → SIGNED %1 → × (WARP × f²) → TANH → × GAIN → SINE"
+            aria-label="Chaotic PM signal flow. A phasor is added to the previous sine times phase index, passed through signed remainder modulo one, multiplied by phase warp times frequency squared, shaped by tanh, multiplied by gain, and sent to a sine."
+          ></div>
+        </div>
+      </section>
+
+      <aside class="panel chaotic-pm-panel" aria-label="Chaotic PM controls">
+        <details class="group control-section chaotic-pm-presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Character</h2>
+            <span class="section-state" id="presetState">Forty Fold</span>
+          </summary>
+          <div class="group-body">
+            <div class="chaotic-pm-preset-grid" id="presetButtons" role="group" aria-label="Chaotic PM factory presets">
+              <button type="button" data-preset="subzero-thread" aria-pressed="false">Subzero Thread</button>
+              <button type="button" data-preset="forty-fold" aria-pressed="true">Forty Fold</button>
+              <button type="button" data-preset="still-glass" aria-pressed="false">Still Glass</button>
+              <button type="button" data-preset="runaway-stair" aria-pressed="false">Runaway Stair</button>
+              <button type="button" data-preset="braided-orbit" aria-pressed="false">Braided Orbit</button>
+              <button type="button" data-preset="low-ember" aria-pressed="false">Low Ember</button>
+              <button type="button" data-preset="kilohertz-veil" aria-pressed="false">Kilohertz Veil</button>
+              <button type="button" data-preset="chrome-cascade" aria-pressed="false">Chrome Cascade</button>
+            </div>
+            <p class="chaotic-pm-preset-description" id="presetDescription">
+              A 40 Hz phase shaper folds a 66.6 Hz carrier through a wide 6.66-cycle index.
+            </p>
+            <details class="chaotic-pm-repair-note">
+              <summary>Why these presets were retuned</summary>
+              <p>
+                The recovered work-in-progress values ended six of eight final turns below 4 Hz.
+                These buttons keep the same recursion and transfer but finish between 40 and
+                389.6 Hz. The eight exact source tuples remain preserved as legacy reference data.
+              </p>
+            </details>
+          </div>
+        </details>
+
+        <details class="group control-section chaotic-pm-algorithm" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Algorithm</h2>
+            <span class="section-state" id="algorithmState">1 turn · final 40 Hz</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="depth">
+              <span><b>Recursion depth</b><output id="depthOut" for="depth">1</output></span>
+              <input id="depth" data-parameter-id="synthesis.depth" type="range" min="0" max="10" step="1" value="1" />
+            </label>
+
+            <label class="control" for="carrier">
+              <span><b>Carrier</b><output id="carrierOut" for="carrier">66.6 Hz</output></span>
+              <input id="carrier" data-parameter-id="synthesis.carrierHz" type="range" min="0" max="1" step="0.0001" value="0.7934" aria-describedby="carrierNote" />
+            </label>
+            <small class="chaotic-pm-control-note" id="carrierNote">Logarithmic · 0.001 Hz to 1.2 kHz</small>
+
+            <label class="control" for="modFrequency">
+              <span><b>Starting mod frequency</b><output id="modFrequencyOut" for="modFrequency">40 Hz</output></span>
+              <input id="modFrequency" data-parameter-id="synthesis.startModFrequencyHz" type="range" min="0" max="1" step="0.0001" value="0.8215" aria-describedby="modFrequencyNote" />
+            </label>
+            <small class="chaotic-pm-control-note" id="modFrequencyNote">Logarithmic · 0.001 Hz to 400 Hz</small>
+
+            <label class="control" for="frequencyDivisor">
+              <span><b>Frequency divisor</b><output id="frequencyDivisorOut" for="frequencyDivisor">÷10</output></span>
+              <input id="frequencyDivisor" data-parameter-id="synthesis.frequencyDivisor" type="range" min="0.001" max="32" step="0.001" value="10" />
+            </label>
+
+            <label class="control" for="phaseIndex">
+              <span><b>Starting phase index</b><output id="phaseIndexOut" for="phaseIndex">6.66</output></span>
+              <input id="phaseIndex" data-parameter-id="synthesis.startPhaseIndex" type="range" min="0" max="64" step="0.001" value="6.66" />
+            </label>
+
+            <label class="control" for="indexDivisor">
+              <span><b>Index divisor</b><output id="indexDivisorOut" for="indexDivisor">÷6.5</output></span>
+              <input id="indexDivisor" data-parameter-id="synthesis.indexDivisor" type="range" min="0.001" max="32" step="0.001" value="6.5" />
+            </label>
+
+            <label class="control" for="phaseWarp">
+              <span><b>Phase warp</b><output id="phaseWarpOut" for="phaseWarp">0.016</output></span>
+              <input
+                id="phaseWarp"
+                data-parameter-id="synthesis.nonlinearity"
+                type="range"
+                min="0"
+                max="1"
+                step="0.001"
+                value="0.016"
+                aria-describedby="phaseWarpNote"
+              />
+            </label>
+            <small class="chaotic-pm-control-note chaotic-pm-warp-note" id="phaseWarpNote">
+              Legacy <code>filter</code> = Phase warp. It is not an audio filter.
+            </small>
+
+            <div class="grammar-card chaotic-pm-ledger chaotic-turn-ledger" aria-label="Current bounded Chaotic PM operator model">
+              <span><b>Carrier</b><code id="carrierReadout">66.6 Hz sine</code></span>
+              <span><b>Entry</b><code id="entryReadout">40 Hz · index 6.66</code></span>
+              <span><b>Turns</b><code id="turnsReadout">1: 40 Hz · I 6.66 · drive 25.6</code></span>
+              <span><b>Transfer</b><code id="transferReadout">signed %1 · tanh · gain 1.074</code></span>
+              <span><b>Output</b><code id="operatorReadout">operator 1 · 40 Hz · normalized</code></span>
+              <span><b>Ceiling</b><code id="ceilingReadout">20 kHz</code></span>
+            </div>
+
+            <p class="chaotic-pm-safety-note">
+              Each turn uses the previous sine as phase displacement, not frequency. Signed <code>% 1</code> intentionally preserves negative remainders before the asymmetric tanh warp. Live parameters glide; depth changes crossfade; an 18 Hz DC blocker, normalization, dynamics, and a soft ceiling protect the output.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section chaotic-pm-family">
+          <summary class="group-summary">
+            <h2 class="group-title">Family</h2>
+            <span class="section-state">FM / PM · linear / warped</span>
+          </summary>
+          <div class="group-body">
+            <div class="chaotic-pm-family-grid" aria-label="Comparison of four recursive and chaotic synthesis algorithms">
+              <article>
+                <h3>Recursive FM</h3>
+                <p>Linear signal → frequency. Each sine drives the next oscillator’s rate.</p>
+              </article>
+              <article>
+                <h3>Recursive PM</h3>
+                <p>Linear signal → phase. Each sine displaces the next oscillator’s phase.</p>
+              </article>
+              <article>
+                <h3>Chaotic FM</h3>
+                <p>Tanh signal → signed frequency. The nonlinear signal sets the next rate.</p>
+              </article>
+              <article aria-current="true">
+                <h3>Chaotic PM</h3>
+                <p>Tanh-warped whole phase → sine. The signed phase expression is reshaped before oscillation.</p>
+              </article>
+            </div>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetChaoticPm" type="button" data-reset-all>Reset parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="chaoticPmDescription">
+        A live oscilloscope and rolling spectrogram sit above the exact Chaotic PM turn. The previous sine times phase index is added to a phasor, passed through signed remainder modulo one, multiplied by phase warp times frequency squared, shaped by tanh and gain, and then sent through the next sine. The final turn is audible.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="chaotic-pm-app.js"></script>
+  </body>
+</html>

@@ -58,11 +58,25 @@ const migratedPages = [
     requiredCopy: ["Chaotic", "FM"],
   },
   {
+    id: "chaotic-pm",
+    html: "chaotic-pm.html",
+    app: "chaotic-pm-app.js",
+    source: "src/chaotic-pm.js",
+    requiredCopy: ["Chaotic", "PM"],
+  },
+  {
     id: "weierstrass",
     html: "weierstrass.html",
     app: "weierstrass-app.js",
     source: "src/weierstrass.js",
     requiredCopy: ["Weierstrass", "Wave", "FM"],
+  },
+  {
+    id: "algorithmic-sequencers",
+    html: "algorithmic-sequencers.html",
+    app: "algorithmic-sequencers-app.js",
+    source: "src/algorithmic-sequencers.js",
+    requiredCopy: ["Algorithmic", "Sequencers", "Search"],
   },
 ];
 

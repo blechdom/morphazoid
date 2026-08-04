@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Algorithmic Sequencers - search algorithms rendered as playable visual and sonic probe sequences."
+    />
+    <title>Algorithmic Sequencers - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="algorithmic-sequencers.css" />
+  </head>
+  <body class="algorithmic-sequencers-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">shape</a>
+        <a class="tab active algorithmic-sequencers-tab" href="algorithmic-sequencers.html" aria-current="page">algorithmic sequencers</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="./">shape</option>
+          <option value="algorithmic-sequencers.html" selected>algorithmic sequencers</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph algorithmic-audio-glyph" aria-hidden="true">S</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">48%</output></span>
+          <input
+            id="output"
+            aria-label="Algorithmic Sequencers output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.48"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell algorithmic-sequencers-shell" id="algorithmicSequencers">
+      <section class="stage algorithmic-sequencers-stage" aria-labelledby="algorithmicSequencersTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Search algorithm sequence with sortable values, target index, current probe, and range window. Audio off."
+            aria-describedby="algorithmicSequencersDescription liveStatus"
+          >
+            Search algorithms drawn as probe bars and step pulses.
+          </canvas>
+
+          <div class="algorithmic-sequencers-heading">
+            <p>ALGORITHMIC SEQUENCERS - SEARCH DEMOS</p>
+            <h1 id="algorithmicSequencersTitle">Algorithmic Sequencers</h1>
+            <span>Search Algorithms</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">BINARY - READY - AUDIO OFF</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel algorithmic-sequencers-panel" aria-label="Algorithmic Sequencers controls">
+        <details class="group control-section algorithmic-algorithm" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Algorithm</h2>
+            <span class="section-state" id="algorithmState">Binary - ready</span>
+          </summary>
+          <div class="group-body">
+            <div class="algorithmic-preset-grid" id="presetButtons" role="group" aria-label="Search algorithm demos">
+              <button type="button" data-algorithm="linear" aria-pressed="false">Linear Sweep</button>
+              <button type="button" data-algorithm="binary" aria-pressed="true">Binary Partition</button>
+              <button type="button" data-algorithm="jump" aria-pressed="false">Jump Blocks</button>
+              <button type="button" data-algorithm="interpolation" aria-pressed="false">Interpolation Probe</button>
+              <button type="button" data-algorithm="exponential" aria-pressed="false">Exponential Gate</button>
+            </div>
+            <p class="algorithmic-description" id="presetDescription">
+              The search window folds in half, turning uncertainty into octave-sized leaps.
+            </p>
+            <div class="grammar-card algorithmic-ledger" aria-label="Current search sequence">
+              <span><b>Target</b><code id="targetReadout">#34 - 0.723</code></span>
+              <span><b>Probe</b><code id="probeReadout">ready</code></span>
+              <span><b>Range</b><code id="rangeReadout">0 to 47</code></span>
+              <span><b>Compare</b><code id="comparisonReadout">waiting</code></span>
+              <span><b>Steps</b><code id="stepsReadout">6 probes</code></span>
+              <span><b>Sound</b><code id="signatureReadout">wide interval jumps</code></span>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section algorithmic-transport" data-section="structure" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Transport</h2>
+            <span class="section-state" id="transportState">paused</span>
+          </summary>
+          <div class="group-body">
+            <div class="algorithmic-transport-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play search sequence">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <button class="mini-action" id="stepButton" type="button">Step</button>
+              <button class="mini-action" id="restartSequence" type="button">Restart</button>
+            </div>
+
+            <label class="control" for="sequenceProgress">
+              <span><b>Sequence position</b><output id="sequenceProgressOut" for="sequenceProgress">ready</output></span>
+              <input id="sequenceProgress" type="range" min="0" max="0" step="1" value="0" />
+            </label>
+
+            <label class="control" for="tempo">
+              <span><b>Probe tempo</b><output id="tempoOut" for="tempo">8 steps/s</output></span>
+              <input id="tempo" type="range" min="0.5" max="28" step="0.1" value="8" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section algorithmic-data" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Data</h2>
+            <span class="section-state" id="dataState">48 cells - Linear</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="arraySize">
+              <span><b>Array size</b><output id="arraySizeOut" for="arraySize">48 cells</output></span>
+              <input id="arraySize" type="range" min="8" max="128" step="1" value="48" />
+            </label>
+
+            <label class="control" for="targetIndex">
+              <span><b>Target index</b><output id="targetIndexOut" for="targetIndex">#34</output></span>
+              <input id="targetIndex" type="range" min="0" max="47" step="1" value="34" />
+            </label>
+
+            <div class="algorithmic-data-actions">
+              <button class="mini-action" id="randomTarget" type="button">New target</button>
+              <button class="mini-action" id="randomInput" type="button">Randomize input</button>
+            </div>
+
+            <span class="field-label">Value field</span>
+            <div class="choice-switch compact algorithmic-curve-switch" id="curveButtons" role="group" aria-label="Sorted value field">
+              <button type="button" data-curve="linear" aria-pressed="true">Linear</button>
+              <button type="button" data-curve="clustered" aria-pressed="false">Clustered</button>
+              <button type="button" data-curve="sine-bend" aria-pressed="false">Sine Bend</button>
+              <button type="button" data-curve="random" aria-pressed="false">Random</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section algorithmic-sound" data-section="sound">
+          <summary class="group-summary">
+            <h2 class="group-title">Sound</h2>
+            <span class="section-state" id="soundState">180 Hz - 3.2 oct</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="baseFrequency">
+              <span><b>Base pitch</b><output id="baseFrequencyOut" for="baseFrequency">180 Hz</output></span>
+              <input id="baseFrequency" type="range" min="80" max="880" step="1" value="180" />
+            </label>
+
+            <label class="control" for="pitchSpan">
+              <span><b>Pitch span</b><output id="pitchSpanOut" for="pitchSpan">3.2 oct</output></span>
+              <input id="pitchSpan" type="range" min="0.5" max="5" step="0.1" value="3.2" />
+            </label>
+
+            <label class="control" for="noteLength">
+              <span><b>Probe length</b><output id="noteLengthOut" for="noteLength">110 ms</output></span>
+              <input id="noteLength" type="range" min="0.025" max="0.42" step="0.005" value="0.11" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section algorithmic-catalog" data-section="output">
+          <summary class="group-summary">
+            <h2 class="group-title">Next Scores</h2>
+            <span class="section-state">candidates</span>
+          </summary>
+          <div class="group-body">
+            <div class="algorithmic-candidate-list" aria-label="Algorithms that would be interesting to sonify">
+              <section>
+                <h3>Search</h3>
+                <p>linear, binary, jump, interpolation, exponential, ternary, hash lookup, Boyer-Moore, KMP, BFS, DFS, Dijkstra, A*, bidirectional search, minimax, Monte Carlo tree search</p>
+              </section>
+              <section>
+                <h3>Sorting</h3>
+                <p>bubble, insertion, selection, merge, quick, heap, radix, shell, cocktail shaker, bitonic, timsort, cycle, bogo</p>
+              </section>
+              <section>
+                <h3>Graphs</h3>
+                <p>connected components, Tarjan SCC, topological sort, Prim, Kruskal, Bellman-Ford, Floyd-Warshall, Edmonds-Karp, Ford-Fulkerson, min cut, maze generation</p>
+              </section>
+              <section>
+                <h3>Recursive</h3>
+                <p>N-Queens, Sudoku, knapsack, edit distance, longest common subsequence, fast exponentiation, FFT, cellular automata, Turing machine tapes</p>
+              </section>
+            </div>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetSequencer" type="button" data-reset-all data-reset-in-place>Reset sequencer</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="algorithmicSequencersDescription">
+        Search algorithm probes are displayed as a sorted bar field. The current algorithm chooses each probed index; sound maps the probed value to pitch, index to stereo position, and target comparison to a second reference tone.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="algorithmic-sequencers-app.js"></script>
+  </body>
+</html>

@@ -43,9 +43,11 @@ export function chaoticLiveVisualRegions(width, height) {
   const safeHeight = Math.max(1, finiteNumber(height, 1));
   const left = Math.max(38, safeWidth * 0.055);
   const right = safeWidth - Math.max(24, safeWidth * 0.045);
+  // Reserve the opening band for the title and explanatory subtitle. The
+  // analyzer still grows with the stage, but never rises into that copy.
   const analysisTop = Math.max(
-    104,
-    Math.min(safeHeight * 0.2, safeHeight - 235),
+    145,
+    Math.min(safeHeight * 0.31, safeHeight - 235),
   );
   const analysisBottom = Math.max(
     analysisTop + 120,
