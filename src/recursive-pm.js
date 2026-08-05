@@ -1,6 +1,7 @@
 const DEFAULT_SAMPLE_RATE = 48_000;
 const PARAMETER_SMOOTHING_SECONDS = 0.018;
 const DEPTH_SMOOTHING_SECONDS = 0.009;
+const PITCH_BEND_DEZIPPER_SECONDS = 0.008;
 const MAX_INTERNAL_PHASE_INDEX = 64;
 const TWO_PI = Math.PI * 2;
 
@@ -321,11 +322,23 @@ export class RecursivePmAudioEngine {
     this.context = null;
     this.worklet = null;
     this.normalizationGain = null;
+    this.articulationGain = null;
+    this.velocityGain = null;
     this.masterGain = null;
     this.analyser = null;
     this.waveform = null;
     this.nodes = [];
     this.stopping = false;
+    this.playMode = "drone";
+    this.performanceNotePitchRatio = 1;
+    this.performancePitchBendSemitones = 0;
+    this.performancePitchRatio = 1;
+    this.hasPlayedMidiNote = false;
+    this.gateActive = false;
+    this.sustainReachedAt = -Infinity;
+    this.currentSustainLevel = 0.72;
+    this.outputLevel = 0.58;
+    this.expression = 1;
   }
 
   get running() {
@@ -370,20 +383,28 @@ export class RecursivePmAudioEngine {
         },
       );
       const normalizationGain = context.createGain();
+      const articulationGain = context.createGain();
+      const velocityGain = context.createGain();
       const masterGain = context.createGain();
       const compressor = context.createDynamicsCompressor();
       const ceilingGain = context.createGain();
       const analyser = context.createAnalyser();
 
       normalizationGain.gain.value = 0;
+      articulationGain.gain.value = this.playMode === "midi" ? 0 : 1;
+      velocityGain.gain.value = 1;
       masterGain.gain.value = 0;
       ceilingGain.gain.value = 0.82;
       configureCompressor(compressor);
-      analyser.fftSize = 1_024;
-      analyser.smoothingTimeConstant = 0.62;
+      analyser.fftSize = 2_048;
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = 0;
+      analyser.smoothingTimeConstant = 0.45;
 
       worklet.connect(normalizationGain);
-      normalizationGain.connect(masterGain);
+      normalizationGain.connect(articulationGain);
+      articulationGain.connect(velocityGain);
+      velocityGain.connect(masterGain);
       masterGain.connect(compressor);
       compressor.connect(ceilingGain);
       ceilingGain.connect(analyser);
@@ -391,12 +412,18 @@ export class RecursivePmAudioEngine {
 
       this.worklet = worklet;
       this.normalizationGain = normalizationGain;
+      this.articulationGain = articulationGain;
+      this.velocityGain = velocityGain;
       this.masterGain = masterGain;
       this.analyser = analyser;
-      this.waveform = new Uint8Array(analyser.fftSize);
+      // Match Chaotic FM's 512-sample oscilloscope window independently from
+      // the 2048-point FFT used by the live spectrum.
+      this.waveform = new Uint8Array(512);
       this.nodes = [
         worklet,
         normalizationGain,
+        articulationGain,
+        velocityGain,
         masterGain,
         compressor,
         ceilingGain,
@@ -442,14 +469,175 @@ export class RecursivePmAudioEngine {
   }
 
   setLevel(level, { immediate = false } = {}) {
-    if (!this.context || !this.masterGain) return;
     const safeLevel = clamp(finiteNumber(level, 0), 0, 1);
+    this.outputLevel = safeLevel;
+    if (!this.context || !this.masterGain) return;
     smoothAudioParam(
       this.masterGain.gain,
-      safeLevel,
+      safeLevel * this.expression,
       this.context,
       immediate ? 0.001 : 0.012,
     );
+  }
+
+  setExpression(expression, { immediate = false } = {}) {
+    this.expression = clamp(finiteNumber(expression, 1), 0, 1);
+    this.setLevel(this.outputLevel, { immediate });
+  }
+
+  setPlayMode(mode, { immediate = false } = {}) {
+    this.playMode = mode === "midi" ? "midi" : "drone";
+    if (this.playMode === "drone") {
+      this.hasPlayedMidiNote = false;
+      this.gateActive = false;
+      this.setPitchRatio(1, { immediate });
+      this.setPitchBend(0, { immediate });
+    }
+    if (!this.context || !this.articulationGain) return;
+    smoothAudioParam(
+      this.articulationGain.gain,
+      this.playMode === "midi" ? 0 : 1,
+      this.context,
+      immediate ? 0.001 : 0.008,
+    );
+    smoothAudioParam(
+      this.velocityGain?.gain,
+      1,
+      this.context,
+      immediate ? 0.001 : 0.008,
+    );
+  }
+
+  setPitchRatio(
+    pitchRatio,
+    { glideSeconds = 0, immediate = false } = {},
+  ) {
+    this.performanceNotePitchRatio = clamp(
+      finiteNumber(pitchRatio, 1),
+      1 / 256,
+      256,
+    );
+    this.performancePitchRatio = this.performanceNotePitchRatio
+      * (2 ** (this.performancePitchBendSemitones / 12));
+    if (!this.worklet) return;
+    this.worklet.port.postMessage({
+      type: "note-pitch",
+      pitchRatio: this.performanceNotePitchRatio,
+      glideSeconds: clamp(finiteNumber(glideSeconds, 0), 0, 2),
+      immediate,
+    });
+  }
+
+  setPitchBend(bendSemitones, { immediate = false } = {}) {
+    this.performancePitchBendSemitones = clamp(
+      finiteNumber(bendSemitones, 0),
+      -24,
+      24,
+    );
+    this.performancePitchRatio = this.performanceNotePitchRatio
+      * (2 ** (this.performancePitchBendSemitones / 12));
+    if (!this.worklet) return;
+    this.worklet.port.postMessage({
+      type: "pitch-bend",
+      bendSemitones: this.performancePitchBendSemitones,
+      dezipperSeconds: PITCH_BEND_DEZIPPER_SECONDS,
+      immediate,
+    });
+  }
+
+  noteOn(
+    pitchRatio,
+    velocityGain,
+    {
+      attackMs = 8,
+      decayMs = 120,
+      sustainLevel = 0.72,
+      glideTimeMs = 0,
+      glide = false,
+      retrigger = true,
+      bendSemitones = this.performancePitchBendSemitones,
+    } = {},
+  ) {
+    const canGlide = glide && this.hasPlayedMidiNote && Boolean(this.worklet);
+    this.setPitchRatio(pitchRatio, {
+      glideSeconds: canGlide
+        ? clamp(glideTimeMs, 0, 2_000, 0) / 1_000
+        : 0,
+    });
+    this.setPitchBend(bendSemitones);
+    if (this.worklet) this.hasPlayedMidiNote = true;
+    this.currentSustainLevel = clamp(
+      finiteNumber(sustainLevel, 0.72),
+      0,
+      1,
+    );
+    if (this.playMode !== "midi"
+      || !this.context
+      || !this.articulationGain
+      || !this.velocityGain) return;
+    smoothAudioParam(
+      this.velocityGain.gain,
+      clamp(finiteNumber(velocityGain, 0), 0, 1),
+      this.context,
+      0.008,
+    );
+    const shouldRetrigger = retrigger || !this.gateActive;
+    if (!shouldRetrigger) return;
+    const gain = this.articulationGain.gain;
+    const now = this.context.currentTime;
+    const attack = clamp(finiteNumber(attackMs, 8), 0, 5_000) / 1_000;
+    const decay = clamp(finiteNumber(decayMs, 120), 0, 5_000) / 1_000;
+    this.gateActive = true;
+    this.sustainReachedAt = now + attack + decay;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(gain.value, now);
+    if (attack === 0) gain.setValueAtTime(1, now);
+    else gain.linearRampToValueAtTime(1, now + attack);
+    if (decay === 0) {
+      gain.setValueAtTime(this.currentSustainLevel, now + attack);
+    } else {
+      gain.linearRampToValueAtTime(
+        this.currentSustainLevel,
+        this.sustainReachedAt,
+      );
+    }
+  }
+
+  setSustainLevel(sustainLevel) {
+    this.currentSustainLevel = clamp(
+      finiteNumber(sustainLevel, 0.72),
+      0,
+      1,
+    );
+    if (!this.gateActive
+      || !this.context
+      || !this.articulationGain
+      || this.context.currentTime < this.sustainReachedAt) return;
+    smoothAudioParam(
+      this.articulationGain.gain,
+      this.currentSustainLevel,
+      this.context,
+      0.008,
+    );
+  }
+
+  noteOff(releaseMs = 180, { immediate = false } = {}) {
+    this.gateActive = false;
+    this.sustainReachedAt = -Infinity;
+    if (!this.context || !this.articulationGain) return;
+    const gain = this.articulationGain.gain;
+    const now = this.context.currentTime;
+    const release = immediate
+      ? 0
+      : clamp(finiteNumber(releaseMs, 180), 2, 10_000) / 1_000;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(gain.value, now);
+    if (release === 0) gain.setValueAtTime(0, now);
+    else gain.linearRampToValueAtTime(0, now + release);
+  }
+
+  allSoundOff() {
+    this.noteOff(2);
   }
 
   readWaveform() {
@@ -502,11 +690,16 @@ export class RecursivePmAudioEngine {
       this.context = null;
       this.worklet = null;
       this.normalizationGain = null;
+      this.articulationGain = null;
+      this.velocityGain = null;
       this.masterGain = null;
       this.analyser = null;
       this.waveform = null;
       this.nodes = [];
       this.stopping = false;
+      this.gateActive = false;
+      this.sustainReachedAt = -Infinity;
+      this.hasPlayedMidiNote = false;
     }
   }
 }
@@ -517,7 +710,7 @@ const ProcessorBase = globalThis.AudioWorkletProcessor ?? class {
   }
 };
 
-class RecursivePmProcessor extends ProcessorBase {
+export class RecursivePmProcessor extends ProcessorBase {
   constructor() {
     super();
     this.active = true;
@@ -535,10 +728,71 @@ class RecursivePmProcessor extends ProcessorBase {
       maximumFrequencyHz: sampleRateLimit(this.processorSampleRate),
     };
     this.target = { ...this.current };
+    this.currentNoteSemitones = 0;
+    this.targetNoteSemitones = 0;
+    this.noteGlideStartSemitones = 0;
+    this.noteGlideTotalSamples = 0;
+    this.noteGlideRemainingSamples = 0;
+    this.currentBendSemitones = 0;
+    this.targetBendSemitones = 0;
+    this.bendStartSemitones = 0;
+    this.bendDezipperTotalSamples = 0;
+    this.bendDezipperRemainingSamples = 0;
+    this.currentPitchRatio = 1;
 
     this.port.onmessage = ({ data }) => {
       if (data?.type === "shutdown") {
         this.active = false;
+        return;
+      }
+      if (data?.type === "note-pitch" || data?.type === "pitch-ratio") {
+        const pitchRatio = clamp(
+          finiteNumber(data.pitchRatio, 1),
+          1 / 256,
+          256,
+        );
+        this.noteGlideStartSemitones = this.currentNoteSemitones;
+        this.targetNoteSemitones = 12 * Math.log2(pitchRatio);
+        const glideSeconds = clamp(
+          finiteNumber(data.glideSeconds, 0),
+          0,
+          2,
+        );
+        const glideSamples = data.immediate
+          ? 0
+          : Math.round(glideSeconds * this.processorSampleRate);
+        this.noteGlideTotalSamples = glideSamples;
+        this.noteGlideRemainingSamples = glideSamples;
+        if (glideSamples === 0) {
+          this.currentNoteSemitones = this.targetNoteSemitones;
+        }
+        return;
+      }
+      if (data?.type === "pitch-bend") {
+        this.bendStartSemitones = this.currentBendSemitones;
+        this.targetBendSemitones = clamp(
+          finiteNumber(data.bendSemitones, this.targetBendSemitones),
+          -24,
+          24,
+        );
+        const dezipperSeconds = clamp(
+          finiteNumber(
+            data.dezipperSeconds,
+            PITCH_BEND_DEZIPPER_SECONDS,
+          ),
+          0,
+          0.1,
+        );
+        const dezipperSamples = data.immediate
+          ? 0
+          : Math.max(1, Math.round(
+            dezipperSeconds * this.processorSampleRate,
+          ));
+        this.bendDezipperTotalSamples = dezipperSamples;
+        this.bendDezipperRemainingSamples = dezipperSamples;
+        if (dezipperSamples === 0) {
+          this.currentBendSemitones = this.targetBendSemitones;
+        }
         return;
       }
       if (data?.type !== "settings") return;
@@ -584,12 +838,44 @@ class RecursivePmProcessor extends ProcessorBase {
       this.current.depth += (
         this.target.depth - this.current.depth
       ) * depthCoefficient;
+      if (this.noteGlideRemainingSamples > 0) {
+        const progress = (
+          this.noteGlideTotalSamples - this.noteGlideRemainingSamples + 1
+        ) / this.noteGlideTotalSamples;
+        this.currentNoteSemitones = this.noteGlideStartSemitones
+          + (this.targetNoteSemitones - this.noteGlideStartSemitones)
+            * progress;
+        this.noteGlideRemainingSamples -= 1;
+      } else {
+        this.currentNoteSemitones = this.targetNoteSemitones;
+      }
+      if (this.bendDezipperRemainingSamples > 0) {
+        const progress = (
+          this.bendDezipperTotalSamples
+            - this.bendDezipperRemainingSamples
+            + 1
+        ) / this.bendDezipperTotalSamples;
+        this.currentBendSemitones = this.bendStartSemitones
+          + (this.targetBendSemitones - this.bendStartSemitones) * progress;
+        this.bendDezipperRemainingSamples -= 1;
+      } else {
+        this.currentBendSemitones = this.targetBendSemitones;
+      }
+      this.currentPitchRatio = 2 ** ((
+        this.currentNoteSemitones + this.currentBendSemitones
+      ) / 12);
 
-      this.carrierPhase += this.current.carrierHz / this.processorSampleRate;
+      const scaledCarrierHz = clamp(
+        this.current.carrierHz * this.currentPitchRatio,
+        RECURSIVE_PM_LIMITS.minCarrierHz,
+        this.current.maximumFrequencyHz,
+      );
+      this.carrierPhase += scaledCarrierHz / this.processorSampleRate;
       this.carrierPhase -= Math.floor(this.carrierPhase);
       signals[0] = Math.sin(TWO_PI * this.carrierPhase);
 
-      let modFrequencyHz = this.current.startModFrequencyHz;
+      let modFrequencyHz = this.current.startModFrequencyHz
+        * this.currentPitchRatio;
       let phaseIndex = this.current.startPhaseIndex;
       let availableDepth = 0;
       for (

@@ -61,8 +61,8 @@ end
 
 local _, loaded_fx_name = reaper.TrackFX_GetFXName(track, fx_index, "")
 local parameter_count = reaper.TrackFX_GetNumParams(track, fx_index)
-if parameter_count < 19 then
-  fail("Chaotic FM loaded with fewer than its expected 19 slider parameters")
+if parameter_count < 27 then
+  fail("Chaotic FM loaded with fewer than its expected 27 slider parameters")
 end
 
 -- JSFX slider parameters are zero-based here: output, play mode, root, bend,
@@ -72,6 +72,17 @@ reaper.TrackFX_SetParam(track, fx_index, 8, 1)
 reaper.TrackFX_SetParam(track, fx_index, 9, 60)
 reaper.TrackFX_SetParam(track, fx_index, 10, 2)
 reaper.TrackFX_SetParam(track, fx_index, 16, 1)
+
+-- Exercise v0.3 host timing: synced eighth-note carrier, deterministic song
+-- phase, and a slewed sixteenth-note latch with an independent grid.
+reaper.TrackFX_SetParam(track, fx_index, 19, 1)
+reaper.TrackFX_SetParam(track, fx_index, 20, 6)
+reaper.TrackFX_SetParam(track, fx_index, 21, 0)
+reaper.TrackFX_SetParam(track, fx_index, 22, 1)
+reaper.TrackFX_SetParam(track, fx_index, 23, 0.125)
+reaper.TrackFX_SetParam(track, fx_index, 24, 2)
+reaper.TrackFX_SetParam(track, fx_index, 25, 7)
+reaper.TrackFX_SetParam(track, fx_index, 26, 8)
 
 local item = reaper.CreateNewMIDIItemInProj(track, 0, 4.5, false)
 local take = item and reaper.GetActiveTake(item) or nil

@@ -1,22 +1,65 @@
+import {
+  LATTICE_COLOR_PAIR_COUNT,
+  latticeColorPairIndex,
+  latticeTileColorIndex,
+} from "./lattice-colors.js";
+
 const clamp = (value, minimum = 0, maximum = 1) => (
   Math.min(maximum, Math.max(minimum, Number(value) || 0))
 );
+
+const legend = (...entries) => Object.freeze(entries.map(([label, detail]) => (
+  Object.freeze({ label, detail })
+)));
 
 export const LATTICE_DRUM_MAPPING_MODES = Object.freeze([
   Object.freeze({
     id: "edge-angle",
     label: "Edge class × angle",
     description: "Edge class chooses the row; edge orientation chooses the column.",
+    legend: legend(
+      ["Edge class", "drum row"],
+      ["Edge angle", "voice column"],
+      ["Height", "tuning"],
+      ["Incidence", "tone + force"],
+      ["Density", "headroom"],
+    ),
   }),
   Object.freeze({
     id: "position-grid",
     label: "Contact position",
     description: "The contact's 4 × 4 position in the stage chooses the drum.",
+    legend: legend(
+      ["Vertical", "drum row"],
+      ["Horizontal", "voice column"],
+      ["Height", "tuning"],
+      ["Incidence", "tone + force"],
+      ["Density", "headroom"],
+    ),
   }),
   Object.freeze({
     id: "incidence-density",
     label: "Incidence × density",
     description: "Line/edge incidence chooses the row; contact density chooses the column.",
+    legend: legend(
+      ["Incidence", "drum row"],
+      ["Density", "voice column"],
+      ["Height", "tuning"],
+      ["Incidence", "tone + force"],
+      ["Density", "headroom"],
+    ),
+  }),
+  Object.freeze({
+    id: "tile-color-pair",
+    label: "Tile color pair",
+    description: "The two tile colors touching across an edge choose the drum; pair order is ignored.",
+    legend: legend(
+      ["Tile pair", "voices 1–15"],
+      ["Junction", "voice 16"],
+      ["Height", "tuning"],
+      ["Incidence", "tone + force"],
+      ["Density", "headroom"],
+    ),
   }),
 ]);
 
@@ -33,12 +76,28 @@ function quadrant(value) {
   return Math.min(3, Math.floor(clamp(value) * 4));
 }
 
+export const LATTICE_JUNCTION_VOICE_INDEX = LATTICE_COLOR_PAIR_COUNT;
+
+export function latticeColorPairVoiceIndex(contact = {}) {
+  if (contact.isVertexContact || contact.junction) return LATTICE_JUNCTION_VOICE_INDEX;
+  const colors = Array.isArray(contact.adjacentColors)
+    ? contact.adjacentColors
+    : Array.isArray(contact.adjacentTiles)
+      ? contact.adjacentTiles.map((tile) => (
+        tile?.color ?? latticeTileColorIndex(tile?.aspect)
+      ))
+      : [];
+  if (colors.length !== 2) return LATTICE_JUNCTION_VOICE_INDEX;
+  return latticeColorPairIndex(colors);
+}
+
 export function latticeDrumVoiceIndex(contact, {
   mode = "edge-angle",
   bounds = { minX: -1, minY: -1, maxX: 1, maxY: 1 },
   contactCount = 1,
   densityCeiling = 16,
 } = {}) {
+  if (mode === "tile-color-pair") return latticeColorPairVoiceIndex(contact);
   if (mode === "position-grid") {
     const position = normalizedLatticeContact(contact, bounds);
     const row = 3 - quadrant(position.y);

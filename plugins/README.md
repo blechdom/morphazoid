@@ -22,6 +22,30 @@ The WebView is an editor. It never runs DSP or communicates with the audio
 thread directly. Native DSP writes decimated analysis data to a lock-free
 queue; the editor/message thread forwards it to the UI at display rate.
 
+## Product identity and bundles
+
+Recursive FM, Recursive PM, Chaotic FM, and Chaotic PM ship as separate
+instrument plug-ins. Each algorithm therefore keeps a stable plug-in ID,
+focused parameter list, independent presets, and predictable automation/state
+compatibility. Shared DSP utilities, MIDI behavior, analysis components, and
+editor styling live underneath those product boundaries.
+
+A future Morphazoid collection can bundle several separate plug-ins in one
+download or installer. The bundle is packaging, not a fifth multi-engine
+instrument, so adding or updating one algorithm cannot reinterpret another
+instrument's saved projects. A multi-engine performance instrument remains a
+possible later product with its own identity and parameter contract.
+
+## Browser MIDI baseline
+
+All four Chaotic Synths demos now expose the same monophonic performance
+baseline before their DAW ports are built: explicit Web MIDI permission,
+Drone/MIDI modes, last-note priority, velocity, bend, ADSR, sustain,
+expression, and portamento. Root C4 preserves each preset and pitch
+time-scales the complete oscillator system. The fixed factory CC set is shared;
+algorithm controls keep stable IDs for the later portable Learn layer. See
+`../contracts/chaotic-synths-midi-v1.md`.
+
 ## Sound parity
 
 The core oscillator algorithm is straightforward to port: double-precision

@@ -25,14 +25,17 @@ authoritative.
 
 1. Keep **Play mode** set to **MIDI** and **Root MIDI note** at 60.
 2. Turn the track output down before the first note.
-3. Record-arm the track and enable monitoring, or add a MIDI item.
-4. Play C4 (MIDI 60). It uses the browser preset without transposition.
-5. Play C3 and C5. The complete chaotic system should transpose down/up one
+3. Without a hardware controller, open **View > Virtual MIDI Keyboard**
+   (`Alt+B`) and set the track input to **MIDI > Virtual MIDI keyboard > All
+   channels**.
+4. Record-arm the track and enable monitoring, or add a MIDI item.
+5. Play C4 (MIDI 60). It uses the browser preset without transposition.
+6. Play C3 and C5. The complete chaotic system should transpose down/up one
    octave while retaining its overall spectral relationship.
-6. Check low and high velocities, overlapping notes, note release, pitch bend,
+7. Check low and high velocities, overlapping notes, note release, pitch bend,
    and two or more presets.
-7. Save, close, and reopen the REAPER project; control values should restore.
-8. Render a short selection and confirm the rendered file matches playback.
+8. Save, close, and reopen the REAPER project; control values should restore.
+9. Render a short selection and confirm the rendered file matches playback.
 
 Set **Play mode** to **Drone** to test the original continuously sounding
 browser behavior without MIDI.
@@ -62,6 +65,25 @@ Every visible control is backed by a JSFX slider parameter, so REAPER can
 automate it or map it with **Param > Learn**. REAPER-owned Learn assignments
 remain project state; they are separate from portable Morphazoid mappings.
 
+## Host clock and rhythmic latch
+
+Version 0.3 adds an eight-parameter timing block without moving the original
+nineteen parameter IDs. **Clock: Free** is the compatibility default and keeps
+Carrier in Hz. **Clock: Sync** turns Carrier into a host-tempo division from
+eight bars through 1/64 note, with straight, dotted, or triplet feel.
+
+**Phase** selects Free, Song, Transport, or Note behavior. Song follows
+REAPER's absolute beat position for deterministic seeking, looping, and
+offline rendering; Transport restarts on play; Note restarts only the Carrier
+when the selected mono note changes. None of these modes resets the recursive
+oscillator stack.
+
+**Latch** can be Off, Hold, or Slew. It samples the synchronized Carrier at an
+independent **Latch grid**, while **Latch smooth** controls a 0-50 ms
+transition between step targets. Choose different Carrier and Latch grids for
+changing steps—for example Carrier 1/4 with Latch 1/16. See
+`../../contracts/chaotic-fm-clock-v1.md` for the exact adapter contract.
+
 ## Custom interface and live analysis
 
 The branded interface layers both live analyzers in the same non-scrolling
@@ -80,12 +102,19 @@ The bars beneath the analyzer are interactive. Click or drag them to change
 the corresponding host parameter; the five preset names across the top are
 buttons.
 
+Starting with v0.2.3, every slider declaration uses REAPER's hidden
+parameter label prefix. The generic slider rows therefore stay out of the
+plug-in editor and the branded `@gfx` interface begins immediately below the
+host toolbar. The parameters remain available through **Param**, automation
+envelopes, MIDI Learn, saved projects, and control surfaces.
+
 ## Automated Linux host smoke
 
 `smoke/create-chaotic-fm-smoke.lua` creates a fresh REAPER project, loads the
-installed effect, inserts five notes, three pitch-bend events, and twelve
-controller events covering every factory expressive/channel-mode CC. It then
-configures a 4.5 second, 48 kHz stereo WAV render. From the repository root:
+installed effect, enables deterministic song phase and a slewed rhythmic
+latch, inserts five notes, three pitch-bend events, and twelve controller
+events covering every factory expressive/channel-mode CC. It then configures
+a 4.5 second, 48 kHz stereo WAV render. From the repository root:
 
 ```sh
 reaper -newinst -nosplash -new \
@@ -100,9 +129,9 @@ The creation report is written to
 `/tmp/morphazoid-chaotic-fm-smoke/chaotic-fm-smoke.wav`. Set
 `MORPHAZOID_SMOKE_DIR` to use another output directory.
 
-The v2 reference Linux run used REAPER 7.62, loaded 19 slider parameters, and
-produced a 4.5 second, 48 kHz, 24-bit stereo file with MIDI-gated ADSR/glide
-phrases and a peak near -12.3 dBFS.
+The v0.3 reference Linux run used REAPER 7.62, loaded 27 slider parameters,
+and produced a 4.5 second, 48 kHz, 24-bit stereo file with synchronized latch,
+MIDI-gated ADSR/glide phrases, and a peak near -13.2 dBFS.
 
 ## Browser and plugin MIDI
 

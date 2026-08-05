@@ -3,27 +3,23 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
-  SEARCH_ALGORITHM_PRESETS,
-  SEARCH_DATA_CURVES,
+  SORT_ALGORITHM_PRESETS,
   SONIFIABLE_ALGORITHM_CANDIDATES,
-  createSearchArray,
-  deriveSearchStepTone,
-  generateSearchSequence,
-  sanitizeSearchSequencerParams,
+  createOrderedSortValues,
+  deriveSortStepTone,
+  generateSortSequence,
+  sanitizeSortSequencerParams,
+  shuffleSortValues,
 } from "../src/algorithmic-sequencers.js";
 
-test("search algorithm sequencer exposes the first demo set and future candidates", () => {
+test("sorting sequencer exposes the first demo set and future candidates", () => {
   assert.deepEqual(
-    SEARCH_ALGORITHM_PRESETS.map(({ id }) => id),
-    ["linear", "binary", "jump", "interpolation", "exponential"],
-  );
-  assert.deepEqual(
-    SEARCH_DATA_CURVES.map(({ id }) => id),
-    ["linear", "clustered", "sine-bend", "random"],
+    SORT_ALGORITHM_PRESETS.map(({ id }) => id),
+    ["bubble", "insertion", "selection", "merge", "quick"],
   );
   assert.deepEqual(
     SONIFIABLE_ALGORITHM_CANDIDATES.map(({ family }) => family),
-    ["Search", "Sorting", "Graphs", "Recursive / Constraint"],
+    ["Sorting", "Search", "Graphs", "Recursive / Constraint"],
   );
   assert.ok(
     SONIFIABLE_ALGORITHM_CANDIDATES
@@ -32,144 +28,112 @@ test("search algorithm sequencer exposes the first demo set and future candidate
   );
 });
 
-test("random value fields are reproducible by seed and change with a new seed", () => {
-  const first = createSearchArray(64, "random", 1234);
-  const repeated = createSearchArray(64, "random", 1234);
-  const changed = createSearchArray(64, "random", 5678);
+test("randomization shuffles one fixed ordered value set reproducibly", () => {
+  const ordered = createOrderedSortValues(64);
+  const first = shuffleSortValues(64, 1234);
+  const repeated = shuffleSortValues(64, 1234);
+  const changed = shuffleSortValues(64, 5678);
 
   assert.deepEqual(first, repeated);
   assert.notDeepEqual(first, changed);
-  assert.equal(first[0], 0);
-  assert.equal(first.at(-1), 1);
-  for (let index = 1; index < first.length; index += 1) {
-    assert.ok(first[index] > first[index - 1]);
-  }
+  assert.notDeepEqual(first, ordered);
+  assert.deepEqual([...first].sort((left, right) => left - right), ordered);
+  assert.ok(Object.isFrozen(first));
 });
 
-test("generated value fields stay sorted for every curve", () => {
-  for (const curve of SEARCH_DATA_CURVES) {
-    const values = createSearchArray(64, curve.id);
-    assert.equal(values.length, 64);
-    assert.equal(values[0], 0);
-    assert.equal(values.at(-1), 1);
-    for (let index = 1; index < values.length; index += 1) {
-      assert.ok(values[index] > values[index - 1], `${curve.id} must stay strictly increasing`);
-    }
-    assert.ok(Object.isFrozen(values));
-  }
-});
-
-test("each search algorithm finds first, middle, and final targets on each data curve", () => {
-  for (const algorithm of SEARCH_ALGORITHM_PRESETS) {
-    for (const curve of SEARCH_DATA_CURVES) {
-      for (const targetIndex of [0, 31, 63]) {
-        const sequence = generateSearchSequence({
-          algorithmId: algorithm.id,
-          curveId: curve.id,
-          size: 64,
-          targetIndex,
-        });
-        assert.equal(sequence.algorithm.id, algorithm.id);
-        assert.equal(sequence.curve.id, curve.id);
-        assert.ok(sequence.steps.length > 0, `${algorithm.id} should emit probes`);
-        const found = sequence.steps[sequence.foundStepIndex];
-        assert.ok(found, `${algorithm.id} should find ${targetIndex} on ${curve.id}`);
-        assert.equal(found.found, true);
-        assert.equal(found.index, targetIndex);
-        assert.equal(found.compare, "eq");
-        assert.equal(found.value, sequence.targetValue);
-        assert.ok(Object.isFrozen(sequence.steps));
-      }
+test("every sorting algorithm restores the same ordered values", () => {
+  for (const algorithm of SORT_ALGORITHM_PRESETS) {
+    for (const dataSeed of [1, 1234, 0xffff_fffe]) {
+      const sequence = generateSortSequence({
+        algorithmId: algorithm.id,
+        dataSeed,
+        size: 32,
+      });
+      assert.equal(sequence.algorithm.id, algorithm.id);
+      assert.notDeepEqual(sequence.initialValues, createOrderedSortValues(32));
+      assert.deepEqual(sequence.finalValues, createOrderedSortValues(32));
+      assert.equal(sequence.steps.at(-1).operation, "complete");
+      assert.ok(sequence.steps.length > 1, `${algorithm.id} should emit sorting events`);
+      assert.ok(sequence.comparisons > 0, `${algorithm.id} should compare values`);
+      assert.ok(Object.isFrozen(sequence.steps));
     }
   }
 });
 
-test("binary and linear traces reveal different sonification rhythms", () => {
-  const linear = generateSearchSequence({
-    algorithmId: "linear",
-    size: 32,
-    targetIndex: 24,
-  });
-  const binary = generateSearchSequence({
-    algorithmId: "binary",
-    size: 32,
-    targetIndex: 24,
-  });
+test("sorting traces expose algorithm-specific operations", () => {
+  const bubble = generateSortSequence({ algorithmId: "bubble", size: 24, dataSeed: 42 });
+  const merge = generateSortSequence({ algorithmId: "merge", size: 24, dataSeed: 42 });
+  const quick = generateSortSequence({ algorithmId: "quick", size: 24, dataSeed: 42 });
 
-  assert.equal(linear.steps.at(-1).index, 24);
-  assert.deepEqual(
-    linear.steps.slice(0, 5).map(({ index }) => index),
-    [0, 1, 2, 3, 4],
-  );
-  assert.ok(binary.steps.length < linear.steps.length);
   assert.ok(
-    binary.steps.every((step, index, steps) => (
-      index === 0 || step.rangeWidth <= steps[index - 1].rangeWidth
-    )),
+    bubble.steps
+      .filter(({ comparison }) => comparison)
+      .every((step) => Math.abs(step.leftIndex - step.rightIndex) === 1),
   );
+  assert.ok(merge.steps.some(({ operation }) => operation === "write"));
+  assert.ok(quick.steps.some(({ operation }) => operation === "pivot"));
+  assert.notEqual(bubble.comparisons, quick.comparisons);
 });
 
-test("tone derivation maps value, target, and index into bounded audio parameters", () => {
-  const sequence = generateSearchSequence({
-    algorithmId: "interpolation",
-    curveId: "clustered",
+test("tone derivation maps both active values and indices into bounded audio parameters", () => {
+  const sequence = generateSortSequence({
+    algorithmId: "quick",
+    dataSeed: 88,
     size: 48,
-    targetIndex: 37,
     baseFrequencyHz: 220,
     pitchSpanOctaves: 4,
-    noteSeconds: 0.1,
+    noteSeconds: 0.06,
   });
-  const tone = deriveSearchStepTone(sequence.steps[0], sequence.settings);
-  const hitTone = deriveSearchStepTone(sequence.steps[sequence.foundStepIndex], sequence.settings);
+  const comparison = sequence.steps.find((step) => step.comparison);
+  const complete = sequence.steps.at(-1);
+  const tone = deriveSortStepTone(comparison, sequence.settings);
+  const completeTone = deriveSortStepTone(complete, sequence.settings);
 
-  assert.ok(tone.frequencyHz >= 80);
-  assert.ok(tone.frequencyHz <= 18_000);
-  assert.ok(tone.targetFrequencyHz >= 80);
-  assert.ok(tone.targetFrequencyHz <= 18_000);
-  assert.ok(tone.pan >= -1 && tone.pan <= 1);
-  assert.ok(hitTone.gain > tone.gain);
-  assert.ok(hitTone.durationSeconds > tone.durationSeconds);
+  assert.ok(tone.frequencyHz >= 80 && tone.frequencyHz <= 18_000);
+  assert.ok(tone.partnerFrequencyHz >= 80 && tone.partnerFrequencyHz <= 18_000);
+  assert.ok(tone.leftPan >= -1 && tone.leftPan <= 1);
+  assert.ok(tone.rightPan >= -1 && tone.rightPan <= 1);
+  assert.ok(completeTone.gain > tone.gain);
+  assert.ok(completeTone.durationSeconds > tone.durationSeconds);
 });
 
-test("sanitizer bounds hostile sequencer parameters", () => {
-  const safe = sanitizeSearchSequencerParams({
+test("sanitizer bounds hostile sorting parameters", () => {
+  const safe = sanitizeSortSequencerParams({
     algorithmId: "bogus",
-    curveId: "nope",
+    dataSeed: 0,
     size: 999,
-    targetIndex: 999,
     tempo: -4,
     baseFrequencyHz: 99_999,
     pitchSpanOctaves: -1,
     noteSeconds: 9,
     output: 9,
   });
-  assert.equal(safe.algorithmId, "binary");
-  assert.equal(safe.curveId, "linear");
+  assert.equal(safe.algorithmId, "quick");
   assert.equal(safe.dataSeed, 0x5eed1234);
   assert.equal(safe.size, 128);
-  assert.equal(safe.targetIndex, 127);
   assert.equal(safe.tempo, 0.5);
   assert.equal(safe.baseFrequencyHz, 880);
   assert.equal(safe.pitchSpanOctaves, 0.5);
-  assert.equal(safe.noteSeconds, 0.42);
+  assert.equal(safe.noteSeconds, 0.32);
   assert.equal(safe.output, 0.82);
   assert.ok(Object.isFrozen(safe));
 });
 
-test("Algorithmic Sequencers page is native and references the local app", async () => {
+test("Algorithmic Sequencers presents randomize first and runs local sorting demos", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("../algorithmic-sequencers.html", import.meta.url), "utf8"),
     readFile(new URL("../algorithmic-sequencers-app.js", import.meta.url), "utf8"),
   ]);
 
   assert.match(html, /<h1[^>]*>Algorithmic Sequencers<\/h1>/);
-  assert.match(html, /Search Algorithms/);
-  assert.match(html, /Linear Sweep[\s\S]*Binary Partition[\s\S]*Exponential Gate/);
-  assert.match(html, /id="randomInput"[\s\S]*Randomize input/);
-  assert.match(html, /data-curve="random"/);
+  assert.match(html, /Sorting Algorithms/);
+  assert.match(html, /Bubble Sort[\s\S]*Insertion Sort[\s\S]*Quick Sort/);
+  assert.match(html, /id="randomInput"[^>]*>Randomize order<\/button>/);
+  assert.ok(html.indexOf('id="randomInput"') < html.indexOf('id="presetButtons"'));
+  assert.doesNotMatch(html, /targetIndex|data-curve="random"/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
   assert.match(html, /<script type="module" src="algorithmic-sequencers-app\.js"><\/script>/);
-  assert.match(app, /\.\/src\/algorithmic-sequencers\.js/);
-  assert.match(app, /audioState/);
+  assert.match(app, /generateSortSequence/);
+  assert.match(app, /dataSeed: createRandomDataSeed\(\)/);
   assert.doesNotMatch(html, /https?:\/\//i);
 });

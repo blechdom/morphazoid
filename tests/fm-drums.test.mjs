@@ -65,6 +65,7 @@ test("FM drum tuning slider is logarithmic and reversible", () => {
 
 test("FM drum audio recreates a context after page lifecycle closure", async () => {
   let contextCount = 0;
+  let closeCount = 0;
   const node = (properties = {}) => ({
     ...properties,
     connect(destination) {
@@ -95,13 +96,83 @@ test("FM drum audio recreates a context after page lifecycle closure", async () 
     createAnalyser() {
       return node({ fftSize: 0 });
     }
+
+    async close() {
+      closeCount += 1;
+      this.state = "closed";
+    }
   }
   const audio = new FmDrumAudio({ AudioContext: FakeContext });
-  const first = await audio.start();
+  const firstStart = audio.start();
+  assert.equal(contextCount, 1, "the context is created synchronously inside the user gesture");
+  const first = await firstStart;
   first.state = "closed";
   const second = await audio.start();
   assert.notEqual(second, first);
   assert.equal(contextCount, 2);
+  await audio.close();
+  assert.equal(closeCount, 1);
+  assert.equal(audio.context, null);
+  assert.equal(audio.master, null);
+  const third = await audio.start();
+  assert.notEqual(third, second);
+  assert.equal(contextCount, 3);
+});
+
+test("FM drum audio cancels a suspended start when page lifecycle closure wins", async () => {
+  let resolveResume;
+  const resumeGate = new Promise((resolve) => {
+    resolveResume = resolve;
+  });
+  const node = (properties = {}) => ({
+    ...properties,
+    connect(destination) {
+      return destination;
+    },
+  });
+  class SuspendedContext {
+    constructor() {
+      this.state = "suspended";
+      this.destination = node();
+    }
+
+    createDynamicsCompressor() {
+      return node({
+        threshold: {}, knee: {}, ratio: {}, attack: {}, release: {},
+      });
+    }
+
+    createGain() {
+      return node({ gain: { value: 0 } });
+    }
+
+    createAnalyser() {
+      return node({ fftSize: 0 });
+    }
+
+    async resume() {
+      await resumeGate;
+      this.state = "running";
+    }
+
+    async close() {
+      this.state = "closed";
+    }
+  }
+
+  const audio = new FmDrumAudio({ AudioContext: SuspendedContext });
+  const pendingStart = audio.start();
+  const pendingContext = audio.context;
+  assert.equal(pendingContext.state, "suspended");
+
+  await audio.close();
+  assert.equal(audio.context, null);
+  resolveResume();
+  await assert.rejects(pendingStart, (error) => (
+    error?.name === "AbortError"
+    && /cancelled/i.test(error.message)
+  ));
+  assert.equal(audio.context, null, "the late resume must not restore a closed context");
 });
 
 test("FM Drums keeps compact preset controls without a page title block", async () => {
@@ -118,10 +189,31 @@ test("FM Drums keeps compact preset controls without a page title block", async 
   assert.match(html, /id="downloadBank"/);
   assert.match(html, /src="nav\.js"/);
   assert.match(html, /src="fm-drums-app\.js"/);
+  assert.match(html, /MIDI NOTES 36–51/);
+  assert.match(html, /Controller Macros 1–8 · tune · decay · FM ratio · FM index · pitch sweep · noise · tone · level/);
+  assert.match(html, /CC7 output · CC16 tune · CC73 attack · CC72 decay/);
+  assert.match(html, /Computer pads · turn MIDI on, then use 1–4 \/ Q–R \/ A–F \/ Z–V/);
   assert.doesNotMatch(html, /id="fmDrumsTitle"|fm-drums-kicker|fm-drums-lede/);
   assert.doesNotMatch(css, /\.fm-drums-kicker|\.fm-drums-lede|\.fm-drums-intro h1/);
   assert.match(css, /\.fm-pad-grid[\s\S]*grid-template-columns: repeat\(4/);
+  assert.match(css, /\.fm-midi-map-note/);
   assert.match(app, /FM_DRUM_STORAGE_KEY/);
+  assert.match(app, /getSharedMidiManager/);
+  assert.match(app, /registerClient\(\{/);
+  assert.match(app, /fmDrumMidiAction/);
+  assert.match(app, /createFmDrumMidiTriggerVoice/);
+  assert.match(app, /function refreshEditorControls\(voice\)/);
+  assert.match(app, /Object\.assign\(voice, updated\)/);
+  assert.match(app, /refreshPad\(voice\);[\s\S]+refreshEditorControls\(voice\)/);
+  assert.match(app, /onPrepareEnable:[\s\S]+enableAudio\(\)/);
+  assert.match(app, /let audioLifecycleGeneration = 0;/);
+  assert.match(app, /lifecycleGeneration !== audioLifecycleGeneration/);
+  assert.match(app, /pagehide[\s\S]+audioLifecycleGeneration \+= 1;[\s\S]+audioStartPromise = null;/);
+  assert.match(app, /if \(midiManager\.enabled\) return;/);
+  assert.match(app, /computerKeyboard: \{ layout: "pad-grid", baseNote: 36, velocity: 110 \}/);
+  assert.match(app, /pagehide[\s\S]+unregisterMidi\?\.\(\)[\s\S]+audio\.close\(\)/);
+  assert.match(app, /pageshow[\s\S]+registerMidiClient\(\)/);
+  assert.doesNotMatch(html, /id="midiButton"|id="playModeMidi"/);
   assert.match(app, /new Blob\(\[data\], \{ type: "application\/json" \}\)/);
   assert.match(app, /morphazoid-fm-drums-\$\{date\}\.json/);
 });

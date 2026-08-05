@@ -1,104 +1,60 @@
-const TAU = Math.PI * 2;
-
 const DEFAULT_SIZE = 48;
-const DEFAULT_TARGET_RATIO = 0.72;
-const DEFAULT_SAMPLE_RATE = 48_000;
 const DEFAULT_DATA_SEED = 0x5eed1234;
+const DEFAULT_SAMPLE_RATE = 48_000;
 
-export const SEARCH_SEQUENCE_LIMITS = Object.freeze({
+export const SORT_SEQUENCE_LIMITS = Object.freeze({
   minSize: 8,
   maxSize: 128,
   minTempo: 0.5,
-  maxTempo: 28,
+  maxTempo: 60,
   minBaseFrequencyHz: 80,
   maxBaseFrequencyHz: 880,
   minPitchSpanOctaves: 0.5,
   maxPitchSpanOctaves: 5,
-  minNoteSeconds: 0.025,
-  maxNoteSeconds: 0.42,
+  minNoteSeconds: 0.018,
+  maxNoteSeconds: 0.32,
   maxOutput: 0.82,
 });
 
-export const SEARCH_DATA_CURVES = Object.freeze([
+export const SORT_ALGORITHM_PRESETS = Object.freeze([
   Object.freeze({
-    id: "linear",
-    label: "Linear",
-    description: "Evenly spaced values make position and pitch climb together.",
+    id: "bubble",
+    label: "Bubble Sort",
+    shortLabel: "Bubble",
+    description: "Adjacent comparisons push larger values toward the end in repeated passes.",
+    signature: "rising adjacent sweeps",
   }),
   Object.freeze({
-    id: "clustered",
-    label: "Clustered",
-    description: "Dense low and high shelves expose how interpolation can overshoot.",
+    id: "insertion",
+    label: "Insertion Sort",
+    shortLabel: "Insertion",
+    description: "Each new value walks backward until it settles into the ordered prefix.",
+    signature: "backward runs and drops",
   }),
   Object.freeze({
-    id: "sine-bend",
-    label: "Sine Bend",
-    description: "A gently warped monotone field keeps the target searchable but less regular.",
+    id: "selection",
+    label: "Selection Sort",
+    shortLabel: "Selection",
+    description: "A scanning voice finds each minimum before swapping it into place.",
+    signature: "long scans with cadences",
   }),
   Object.freeze({
-    id: "random",
-    label: "Random",
-    description: "Fresh random values are sorted into an irregular searchable field.",
-  }),
-]);
-
-export const SEARCH_ALGORITHM_PRESETS = Object.freeze([
-  Object.freeze({
-    id: "linear",
-    label: "Linear Sweep",
-    shortLabel: "Linear",
-    description: "A single reader walks every cell until the target answers.",
-    signature: "steady pulse train",
+    id: "merge",
+    label: "Merge Sort",
+    shortLabel: "Merge",
+    description: "Small ordered phrases combine into progressively longer merged sections.",
+    signature: "layered split-and-join",
   }),
   Object.freeze({
-    id: "binary",
-    label: "Binary Partition",
-    shortLabel: "Binary",
-    description: "The search window folds in half, turning uncertainty into octave-sized leaps.",
-    signature: "wide interval jumps",
-  }),
-  Object.freeze({
-    id: "jump",
-    label: "Jump Blocks",
-    shortLabel: "Jump",
-    description: "Block probes make a coarse rhythm before a small local scan resolves the target.",
-    signature: "skip-and-fill rhythm",
-  }),
-  Object.freeze({
-    id: "interpolation",
-    label: "Interpolation Probe",
-    shortLabel: "Interp",
-    description: "A value-based estimate aims near the target, so uneven data becomes audible bias.",
-    signature: "rubbery estimate bends",
-  }),
-  Object.freeze({
-    id: "exponential",
-    label: "Exponential Gate",
-    shortLabel: "Expo",
-    description: "The boundary doubles outward, then a binary search locks into the discovered range.",
-    signature: "opening fanfare to click-lock",
+    id: "quick",
+    label: "Quick Sort",
+    shortLabel: "Quick",
+    description: "Pivot comparisons divide the field into recursively smaller partitions.",
+    signature: "pivot calls and replies",
   }),
 ]);
 
 export const SONIFIABLE_ALGORITHM_CANDIDATES = Object.freeze([
-  Object.freeze({
-    family: "Search",
-    algorithms: Object.freeze([
-      "linear search",
-      "binary search",
-      "jump search",
-      "interpolation search",
-      "exponential search",
-      "ternary search",
-      "hash lookup",
-      "Boyer-Moore / KMP string search",
-      "BFS / DFS",
-      "Dijkstra / A*",
-      "bidirectional search",
-      "minimax with alpha-beta pruning",
-      "Monte Carlo tree search",
-    ]),
-  }),
   Object.freeze({
     family: "Sorting",
     algorithms: Object.freeze([
@@ -115,6 +71,24 @@ export const SONIFIABLE_ALGORITHM_CANDIDATES = Object.freeze([
       "timsort",
       "cycle sort",
       "bogo sort",
+    ]),
+  }),
+  Object.freeze({
+    family: "Search",
+    algorithms: Object.freeze([
+      "linear search",
+      "binary search",
+      "jump search",
+      "interpolation search",
+      "exponential search",
+      "ternary search",
+      "hash lookup",
+      "Boyer-Moore / KMP string search",
+      "BFS / DFS",
+      "Dijkstra / A*",
+      "bidirectional search",
+      "minimax with alpha-beta pruning",
+      "Monte Carlo tree search",
     ]),
   }),
   Object.freeze({
@@ -165,19 +139,6 @@ function objectById(collection, id, fallbackIndex = 0) {
   return collection.find((item) => item.id === id) ?? collection[fallbackIndex];
 }
 
-function normalizeCurveValue(value) {
-  return clamp(value, 0, 1, 0);
-}
-
-function clusteredCurve(t) {
-  const shaped = 0.5 + Math.tanh((t - 0.5) * 2.8) / (2 * Math.tanh(1.4));
-  return normalizeCurveValue(shaped);
-}
-
-function sineBendCurve(t) {
-  return normalizeCurveValue(t + 0.024 * Math.sin(TAU * t * 2));
-}
-
 function normalizeDataSeed(value, fallback = DEFAULT_DATA_SEED) {
   const seed = Math.trunc(finiteNumber(value, fallback)) >>> 0;
   return seed || fallback;
@@ -193,334 +154,496 @@ function createSeededRandom(seed) {
   };
 }
 
-export function createSearchArray(
-  size = DEFAULT_SIZE,
-  curveId = "linear",
-  dataSeed = DEFAULT_DATA_SEED,
-) {
+export function createOrderedSortValues(size = DEFAULT_SIZE) {
   const safeSize = clampInteger(
     size,
-    SEARCH_SEQUENCE_LIMITS.minSize,
-    SEARCH_SEQUENCE_LIMITS.maxSize,
+    SORT_SEQUENCE_LIMITS.minSize,
+    SORT_SEQUENCE_LIMITS.maxSize,
     DEFAULT_SIZE,
   );
-  const curve = objectById(SEARCH_DATA_CURVES, curveId);
-  if (curve.id === "random") {
-    const random = createSeededRandom(dataSeed);
-    const interior = Array.from(
-      { length: Math.max(0, safeSize - 2) },
-      () => random(),
-    ).sort((left, right) => left - right);
-    return Object.freeze([0, ...interior, 1]);
-  }
+  return Object.freeze(Array.from(
+    { length: safeSize },
+    (_, index) => index / (safeSize - 1),
+  ));
+}
 
-  const values = Array.from({ length: safeSize }, (_, index) => {
-    const t = safeSize === 1 ? 0 : index / (safeSize - 1);
-    if (curve.id === "clustered") return clusteredCurve(t);
-    if (curve.id === "sine-bend") return sineBendCurve(t);
-    return t;
-  });
-
-  for (let index = 1; index < values.length; index += 1) {
-    if (values[index] <= values[index - 1]) {
-      values[index] = Math.min(1, values[index - 1] + 1e-6);
-    }
+export function shuffleSortValues(size = DEFAULT_SIZE, dataSeed = DEFAULT_DATA_SEED) {
+  const values = [...createOrderedSortValues(size)];
+  const random = createSeededRandom(dataSeed);
+  for (let index = values.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [values[index], values[swapIndex]] = [values[swapIndex], values[index]];
   }
-  values[0] = 0;
-  values[values.length - 1] = 1;
+  if (values.every((value, index) => index === 0 || value > values[index - 1])) {
+    values.push(values.shift());
+  }
   return Object.freeze(values);
 }
 
-export function sanitizeSearchSequencerParams(params = {}) {
-  const size = clampInteger(
-    params.size,
-    SEARCH_SEQUENCE_LIMITS.minSize,
-    SEARCH_SEQUENCE_LIMITS.maxSize,
-    DEFAULT_SIZE,
-  );
-  const defaultTarget = Math.round((size - 1) * DEFAULT_TARGET_RATIO);
+export function sanitizeSortSequencerParams(params = {}) {
   return Object.freeze({
-    algorithmId: objectById(SEARCH_ALGORITHM_PRESETS, params.algorithmId, 1).id,
-    curveId: objectById(SEARCH_DATA_CURVES, params.curveId).id,
+    algorithmId: objectById(SORT_ALGORITHM_PRESETS, params.algorithmId, 4).id,
     dataSeed: normalizeDataSeed(params.dataSeed),
-    size,
-    targetIndex: clampInteger(params.targetIndex, 0, size - 1, defaultTarget),
+    size: clampInteger(
+      params.size,
+      SORT_SEQUENCE_LIMITS.minSize,
+      SORT_SEQUENCE_LIMITS.maxSize,
+      DEFAULT_SIZE,
+    ),
     tempo: clamp(
       params.tempo,
-      SEARCH_SEQUENCE_LIMITS.minTempo,
-      SEARCH_SEQUENCE_LIMITS.maxTempo,
-      8,
+      SORT_SEQUENCE_LIMITS.minTempo,
+      SORT_SEQUENCE_LIMITS.maxTempo,
+      18,
     ),
     baseFrequencyHz: clamp(
       params.baseFrequencyHz,
-      SEARCH_SEQUENCE_LIMITS.minBaseFrequencyHz,
-      SEARCH_SEQUENCE_LIMITS.maxBaseFrequencyHz,
+      SORT_SEQUENCE_LIMITS.minBaseFrequencyHz,
+      SORT_SEQUENCE_LIMITS.maxBaseFrequencyHz,
       180,
     ),
     pitchSpanOctaves: clamp(
       params.pitchSpanOctaves,
-      SEARCH_SEQUENCE_LIMITS.minPitchSpanOctaves,
-      SEARCH_SEQUENCE_LIMITS.maxPitchSpanOctaves,
+      SORT_SEQUENCE_LIMITS.minPitchSpanOctaves,
+      SORT_SEQUENCE_LIMITS.maxPitchSpanOctaves,
       3.2,
     ),
     noteSeconds: clamp(
       params.noteSeconds,
-      SEARCH_SEQUENCE_LIMITS.minNoteSeconds,
-      SEARCH_SEQUENCE_LIMITS.maxNoteSeconds,
-      0.11,
+      SORT_SEQUENCE_LIMITS.minNoteSeconds,
+      SORT_SEQUENCE_LIMITS.maxNoteSeconds,
+      0.065,
     ),
-    output: clamp(params.output, 0, SEARCH_SEQUENCE_LIMITS.maxOutput, 0.48),
+    output: clamp(params.output, 0, SORT_SEQUENCE_LIMITS.maxOutput, 0.48),
   });
 }
 
-function compareSearchValue(value, targetValue) {
-  if (Math.abs(value - targetValue) < 1e-12) return "eq";
-  return value < targetValue ? "lt" : "gt";
+function compareValues(leftValue, rightValue) {
+  if (Math.abs(leftValue - rightValue) < 1e-12) return "eq";
+  return leftValue < rightValue ? "lt" : "gt";
 }
 
-function createStep(values, targetIndex, {
-  index,
-  low,
-  high,
-  phase,
+function appendSortStep(steps, values, {
   operation = "compare",
-}) {
-  const size = values.length;
-  const safeIndex = clampInteger(index, 0, size - 1, 0);
-  const safeLow = clampInteger(low, 0, size - 1, 0);
-  const safeHigh = clampInteger(high, 0, size - 1, size - 1);
-  const targetValue = values[targetIndex];
-  const value = values[safeIndex];
-  const compare = compareSearchValue(value, targetValue);
-  const found = compare === "eq";
-  return Object.freeze({
-    operation: found ? "found" : operation,
-    phase,
-    index: safeIndex,
-    value,
-    targetIndex,
-    targetValue,
-    low: Math.min(safeLow, safeHigh),
-    high: Math.max(safeLow, safeHigh),
-    compare,
-    found,
-    distance: size <= 1 ? 0 : Math.abs(safeIndex - targetIndex) / (size - 1),
-    rangeWidth: size <= 1 ? 1 : (Math.abs(safeHigh - safeLow) + 1) / size,
-  });
-}
-
-function linearSearchSteps(values, targetIndex) {
-  const steps = [];
-  for (let index = 0; index < values.length; index += 1) {
-    const step = createStep(values, targetIndex, {
-      index,
-      low: index,
-      high: values.length - 1,
-      phase: "scan",
-    });
-    steps.push(step);
-    if (step.found) break;
-  }
-  return steps;
-}
-
-function binarySearchSteps(values, targetIndex, {
+  leftIndex = 0,
+  rightIndex = leftIndex,
+  leftValue = values[leftIndex],
+  rightValue = values[rightIndex],
   low = 0,
   high = values.length - 1,
-  phase = "partition",
-} = {}) {
+  phase = "sort",
+  comparison = false,
+}) {
+  const lastIndex = values.length - 1;
+  const safeLeft = clampInteger(leftIndex, 0, lastIndex, 0);
+  const safeRight = clampInteger(rightIndex, 0, lastIndex, safeLeft);
+  const safeLow = clampInteger(low, 0, lastIndex, 0);
+  const safeHigh = clampInteger(high, 0, lastIndex, lastIndex);
+  steps.push(Object.freeze({
+    operation,
+    phase,
+    leftIndex: safeLeft,
+    rightIndex: safeRight,
+    leftValue,
+    rightValue,
+    low: Math.min(safeLow, safeHigh),
+    high: Math.max(safeLow, safeHigh),
+    relation: compareValues(leftValue, rightValue),
+    comparison,
+    values: Object.freeze([...values]),
+  }));
+}
+
+function appendCompleteStep(steps, values) {
+  appendSortStep(steps, values, {
+    operation: "complete",
+    leftIndex: 0,
+    rightIndex: values.length - 1,
+    leftValue: values[0],
+    rightValue: values.at(-1),
+    phase: "sorted",
+  });
+}
+
+function bubbleSortSteps(input) {
+  const values = [...input];
   const steps = [];
-  const targetValue = values[targetIndex];
-  let lo = low;
-  let hi = high;
-  while (lo <= hi) {
-    const index = Math.floor((lo + hi) / 2);
-    const step = createStep(values, targetIndex, {
-      index,
-      low: lo,
-      high: hi,
-      phase,
-    });
-    steps.push(step);
-    if (step.found) break;
-    if (values[index] < targetValue) lo = index + 1;
-    else hi = index - 1;
+  for (let high = values.length - 1; high > 0; high -= 1) {
+    let moved = false;
+    for (let index = 0; index < high; index += 1) {
+      const leftValue = values[index];
+      const rightValue = values[index + 1];
+      if (leftValue > rightValue) {
+        [values[index], values[index + 1]] = [rightValue, leftValue];
+        moved = true;
+        appendSortStep(steps, values, {
+          operation: "swap",
+          leftIndex: index,
+          rightIndex: index + 1,
+          leftValue,
+          rightValue,
+          low: 0,
+          high,
+          phase: "bubble pass",
+          comparison: true,
+        });
+      } else {
+        appendSortStep(steps, values, {
+          leftIndex: index,
+          rightIndex: index + 1,
+          leftValue,
+          rightValue,
+          low: 0,
+          high,
+          phase: "bubble pass",
+          comparison: true,
+        });
+      }
+    }
+    if (!moved) break;
   }
+  appendCompleteStep(steps, values);
   return steps;
 }
 
-function jumpSearchSteps(values, targetIndex) {
+function insertionSortSteps(input) {
+  const values = [...input];
   const steps = [];
-  const targetValue = values[targetIndex];
-  const block = Math.max(1, Math.floor(Math.sqrt(values.length)));
-  let low = 0;
-  let high = Math.min(block - 1, values.length - 1);
+  for (let index = 1; index < values.length; index += 1) {
+    const key = values[index];
+    let cursor = index - 1;
+    let moved = false;
+    while (cursor >= 0) {
+      const compared = values[cursor];
+      if (compared > key) {
+        values[cursor + 1] = compared;
+        moved = true;
+        appendSortStep(steps, values, {
+          operation: "shift",
+          leftIndex: cursor,
+          rightIndex: cursor + 1,
+          leftValue: compared,
+          rightValue: key,
+          low: 0,
+          high: index,
+          phase: "ordered prefix",
+          comparison: true,
+        });
+        cursor -= 1;
+      } else {
+        appendSortStep(steps, values, {
+          leftIndex: cursor,
+          rightIndex: cursor + 1,
+          leftValue: compared,
+          rightValue: key,
+          low: 0,
+          high: index,
+          phase: "ordered prefix",
+          comparison: true,
+        });
+        break;
+      }
+    }
+    values[cursor + 1] = key;
+    if (moved) {
+      appendSortStep(steps, values, {
+        operation: "write",
+        leftIndex: cursor + 1,
+        rightIndex: index,
+        leftValue: key,
+        rightValue: key,
+        low: 0,
+        high: index,
+        phase: "insert",
+      });
+    }
+  }
+  appendCompleteStep(steps, values);
+  return steps;
+}
 
-  while (values[high] < targetValue && high < values.length - 1) {
-    steps.push(createStep(values, targetIndex, {
-      index: high,
+function selectionSortSteps(input) {
+  const values = [...input];
+  const steps = [];
+  for (let start = 0; start < values.length - 1; start += 1) {
+    let minimum = start;
+    for (let scan = start + 1; scan < values.length; scan += 1) {
+      appendSortStep(steps, values, {
+        leftIndex: minimum,
+        rightIndex: scan,
+        low: start,
+        high: values.length - 1,
+        phase: "minimum scan",
+        comparison: true,
+      });
+      if (values[scan] < values[minimum]) minimum = scan;
+    }
+    if (minimum !== start) {
+      const leftValue = values[start];
+      const rightValue = values[minimum];
+      [values[start], values[minimum]] = [rightValue, leftValue];
+      appendSortStep(steps, values, {
+        operation: "swap",
+        leftIndex: start,
+        rightIndex: minimum,
+        leftValue,
+        rightValue,
+        low: start,
+        high: values.length - 1,
+        phase: "place minimum",
+      });
+    }
+  }
+  appendCompleteStep(steps, values);
+  return steps;
+}
+
+function mergeSortSteps(input) {
+  const values = [...input];
+  const steps = [];
+
+  function merge(low, middle, high) {
+    const left = values.slice(low, middle + 1);
+    const right = values.slice(middle + 1, high + 1);
+    let leftCursor = 0;
+    let rightCursor = 0;
+    let writeIndex = low;
+
+    while (leftCursor < left.length && rightCursor < right.length) {
+      const leftValue = left[leftCursor];
+      const rightValue = right[rightCursor];
+      appendSortStep(steps, values, {
+        leftIndex: low + leftCursor,
+        rightIndex: middle + 1 + rightCursor,
+        leftValue,
+        rightValue,
+        low,
+        high,
+        phase: "merge compare",
+        comparison: true,
+      });
+      if (leftValue <= rightValue) {
+        values[writeIndex] = leftValue;
+        leftCursor += 1;
+      } else {
+        values[writeIndex] = rightValue;
+        rightCursor += 1;
+      }
+      appendSortStep(steps, values, {
+        operation: "write",
+        leftIndex: writeIndex,
+        rightIndex: writeIndex,
+        leftValue: values[writeIndex],
+        rightValue: values[writeIndex],
+        low,
+        high,
+        phase: "merge write",
+      });
+      writeIndex += 1;
+    }
+
+    while (leftCursor < left.length) {
+      values[writeIndex] = left[leftCursor];
+      appendSortStep(steps, values, {
+        operation: "write",
+        leftIndex: writeIndex,
+        rightIndex: low + leftCursor,
+        leftValue: values[writeIndex],
+        rightValue: values[writeIndex],
+        low,
+        high,
+        phase: "merge tail",
+      });
+      leftCursor += 1;
+      writeIndex += 1;
+    }
+
+    while (rightCursor < right.length) {
+      values[writeIndex] = right[rightCursor];
+      appendSortStep(steps, values, {
+        operation: "write",
+        leftIndex: writeIndex,
+        rightIndex: middle + 1 + rightCursor,
+        leftValue: values[writeIndex],
+        rightValue: values[writeIndex],
+        low,
+        high,
+        phase: "merge tail",
+      });
+      rightCursor += 1;
+      writeIndex += 1;
+    }
+  }
+
+  function sort(low, high) {
+    if (low >= high) return;
+    const middle = Math.floor((low + high) / 2);
+    sort(low, middle);
+    sort(middle + 1, high);
+    merge(low, middle, high);
+  }
+
+  sort(0, values.length - 1);
+  appendCompleteStep(steps, values);
+  return steps;
+}
+
+function quickSortSteps(input) {
+  const values = [...input];
+  const steps = [];
+
+  function partition(low, high) {
+    const pivotValue = values[high];
+    appendSortStep(steps, values, {
+      operation: "pivot",
+      leftIndex: high,
+      rightIndex: high,
+      leftValue: pivotValue,
+      rightValue: pivotValue,
       low,
       high,
-      phase: "jump",
-    }));
-    low = high + 1;
-    high = Math.min(low + block - 1, values.length - 1);
-  }
-
-  for (let index = low; index <= high; index += 1) {
-    const step = createStep(values, targetIndex, {
-      index,
-      low,
-      high,
-      phase: "local scan",
+      phase: "choose pivot",
     });
-    steps.push(step);
-    if (step.found) break;
+    let store = low;
+    for (let scan = low; scan < high; scan += 1) {
+      const scanValue = values[scan];
+      appendSortStep(steps, values, {
+        leftIndex: scan,
+        rightIndex: high,
+        leftValue: scanValue,
+        rightValue: pivotValue,
+        low,
+        high,
+        phase: "partition",
+        comparison: true,
+      });
+      if (scanValue <= pivotValue) {
+        if (store !== scan) {
+          const storeValue = values[store];
+          [values[store], values[scan]] = [values[scan], values[store]];
+          appendSortStep(steps, values, {
+            operation: "swap",
+            leftIndex: store,
+            rightIndex: scan,
+            leftValue: storeValue,
+            rightValue: scanValue,
+            low,
+            high,
+            phase: "partition swap",
+          });
+        }
+        store += 1;
+      }
+    }
+    if (store !== high) {
+      const storeValue = values[store];
+      [values[store], values[high]] = [pivotValue, storeValue];
+      appendSortStep(steps, values, {
+        operation: "swap",
+        leftIndex: store,
+        rightIndex: high,
+        leftValue: storeValue,
+        rightValue: pivotValue,
+        low,
+        high,
+        phase: "place pivot",
+      });
+    }
+    return store;
   }
 
+  function sort(low, high) {
+    if (low >= high) return;
+    const pivot = partition(low, high);
+    sort(low, pivot - 1);
+    sort(pivot + 1, high);
+  }
+
+  sort(0, values.length - 1);
+  appendCompleteStep(steps, values);
   return steps;
 }
 
-function interpolationSearchSteps(values, targetIndex) {
-  const steps = [];
-  const targetValue = values[targetIndex];
-  let low = 0;
-  let high = values.length - 1;
-  let guard = 0;
-
-  while (
-    low <= high
-    && targetValue >= values[low]
-    && targetValue <= values[high]
-    && guard < values.length * 2
-  ) {
-    guard += 1;
-    const denominator = values[high] - values[low];
-    const estimate = denominator === 0
-      ? low
-      : low + ((targetValue - values[low]) / denominator) * (high - low);
-    const index = clampInteger(Math.floor(estimate), low, high, low);
-    const step = createStep(values, targetIndex, {
-      index,
-      low,
-      high,
-      phase: "estimate",
-    });
-    steps.push(step);
-    if (step.found) break;
-    if (values[index] < targetValue) low = index + 1;
-    else high = index - 1;
-  }
-
-  if (!steps.some((step) => step.found)) {
-    steps.push(...binarySearchSteps(values, targetIndex, { low, high, phase: "fallback" }));
-  }
-  return steps;
-}
-
-function exponentialSearchSteps(values, targetIndex) {
-  const steps = [];
-  if (targetIndex === 0) {
-    return [createStep(values, targetIndex, {
-      index: 0,
-      low: 0,
-      high: 0,
-      phase: "first",
-    })];
-  }
-
-  const targetValue = values[targetIndex];
-  let bound = 1;
-  while (bound < values.length && values[bound] < targetValue) {
-    steps.push(createStep(values, targetIndex, {
-      index: bound,
-      low: Math.floor(bound / 2),
-      high: Math.min(bound, values.length - 1),
-      phase: "expand",
-    }));
-    bound *= 2;
-  }
-
-  if (bound < values.length) {
-    const gate = createStep(values, targetIndex, {
-      index: bound,
-      low: Math.floor(bound / 2),
-      high: bound,
-      phase: "gate",
-    });
-    steps.push(gate);
-    if (gate.found) return steps;
-  }
-
-  const low = Math.floor(bound / 2) + 1;
-  const high = Math.min(bound - 1, values.length - 1);
-  steps.push(...binarySearchSteps(values, targetIndex, { low, high, phase: "binary lock" }));
-  return steps;
-}
-
-const SEARCH_RUNNERS = Object.freeze({
-  linear: linearSearchSteps,
-  binary: binarySearchSteps,
-  jump: jumpSearchSteps,
-  interpolation: interpolationSearchSteps,
-  exponential: exponentialSearchSteps,
+const SORT_RUNNERS = Object.freeze({
+  bubble: bubbleSortSteps,
+  insertion: insertionSortSteps,
+  selection: selectionSortSteps,
+  merge: mergeSortSteps,
+  quick: quickSortSteps,
 });
 
-export function generateSearchSequence(params = {}) {
-  const settings = sanitizeSearchSequencerParams(params);
-  const algorithm = objectById(SEARCH_ALGORITHM_PRESETS, settings.algorithmId, 1);
-  const values = createSearchArray(settings.size, settings.curveId, settings.dataSeed);
-  const runner = SEARCH_RUNNERS[algorithm.id] ?? SEARCH_RUNNERS.binary;
-  const steps = runner(values, settings.targetIndex).map((step, stepIndex) => Object.freeze({
+export function generateSortSequence(params = {}) {
+  const settings = sanitizeSortSequencerParams(params);
+  const algorithm = objectById(SORT_ALGORITHM_PRESETS, settings.algorithmId, 4);
+  const initialValues = shuffleSortValues(settings.size, settings.dataSeed);
+  const runner = SORT_RUNNERS[algorithm.id] ?? SORT_RUNNERS.quick;
+  const steps = runner(initialValues).map((step, stepIndex) => Object.freeze({
     ...step,
     stepIndex,
   }));
-  const foundStep = steps.find((step) => step.found) ?? null;
+  const finalValues = steps.at(-1)?.values ?? initialValues;
+  const comparisons = steps.filter((step) => step.comparison).length;
+  const swaps = steps.filter((step) => step.operation === "swap").length;
+  const writes = steps.reduce((total, step) => {
+    if (step.operation === "swap") return total + 2;
+    if (step.operation === "shift" || step.operation === "write") return total + 1;
+    return total;
+  }, 0);
 
   return Object.freeze({
     settings,
     algorithm,
-    curve: objectById(SEARCH_DATA_CURVES, settings.curveId),
-    values,
+    initialValues,
+    finalValues,
     steps: Object.freeze(steps),
-    targetIndex: settings.targetIndex,
-    targetValue: values[settings.targetIndex],
-    foundStepIndex: foundStep?.stepIndex ?? -1,
-    comparisons: steps.length,
+    comparisons,
+    swaps,
+    writes,
   });
 }
 
-export function deriveSearchStepTone(step, params = {}) {
-  const settings = sanitizeSearchSequencerParams(params);
-  const valueNorm = clamp(step?.value, 0, 1, 0);
-  const targetNorm = clamp(step?.targetValue, 0, 1, valueNorm);
-  const indexNorm = settings.size <= 1 ? 0.5 : clamp(step?.index, 0, settings.size - 1, 0) / (settings.size - 1);
-  const found = Boolean(step?.found);
-  const compareOffset = step?.compare === "gt" ? 1.012 : step?.compare === "lt" ? 0.988 : 1;
+export function deriveSortStepTone(step, params = {}) {
+  const settings = sanitizeSortSequencerParams(params);
+  const leftNorm = clamp(step?.leftValue, 0, 1, 0);
+  const rightNorm = clamp(step?.rightValue, 0, 1, leftNorm);
+  const denominator = Math.max(1, settings.size - 1);
+  const leftIndexNorm = clamp(step?.leftIndex, 0, settings.size - 1, 0) / denominator;
+  const rightIndexNorm = clamp(step?.rightIndex, 0, settings.size - 1, 0) / denominator;
   const maximumFrequencyHz = Math.min(18_000, DEFAULT_SAMPLE_RATE * 0.42);
-  const frequencyHz = Math.min(
-    maximumFrequencyHz,
-    settings.baseFrequencyHz * (2 ** (valueNorm * settings.pitchSpanOctaves)) * compareOffset,
-  );
-  const targetFrequencyHz = Math.min(
-    maximumFrequencyHz,
-    settings.baseFrequencyHz * (2 ** (targetNorm * settings.pitchSpanOctaves)),
-  );
+  const operationGain = step?.operation === "complete"
+    ? 0.24
+    : step?.operation === "swap"
+      ? 0.18
+      : step?.operation === "write" || step?.operation === "shift"
+        ? 0.14
+        : 0.11;
+
   return Object.freeze({
-    frequencyHz,
-    targetFrequencyHz,
-    pan: clamp(indexNorm * 2 - 1, -1, 1, 0),
-    gain: found ? 0.26 : 0.12 + (1 - clamp(step?.distance, 0, 1, 1)) * 0.06,
-    durationSeconds: found
-      ? Math.min(SEARCH_SEQUENCE_LIMITS.maxNoteSeconds, settings.noteSeconds * 2.2)
+    frequencyHz: Math.min(
+      maximumFrequencyHz,
+      settings.baseFrequencyHz * (2 ** (leftNorm * settings.pitchSpanOctaves)),
+    ),
+    partnerFrequencyHz: Math.min(
+      maximumFrequencyHz,
+      settings.baseFrequencyHz * (2 ** (rightNorm * settings.pitchSpanOctaves)),
+    ),
+    leftPan: clamp(leftIndexNorm * 2 - 1, -1, 1, 0),
+    rightPan: clamp(rightIndexNorm * 2 - 1, -1, 1, 0),
+    gain: operationGain,
+    durationSeconds: step?.operation === "complete"
+      ? Math.min(SORT_SEQUENCE_LIMITS.maxNoteSeconds, settings.noteSeconds * 2.6)
       : settings.noteSeconds,
-    compare: step?.compare ?? "eq",
+    operation: step?.operation ?? "compare",
   });
 }
 
-export function formatSearchComparison(step) {
+export function formatSortOperation(step) {
   if (!step) return "waiting";
-  if (step.compare === "eq") return `hit index ${step.index}`;
-  const relation = step.compare === "lt" ? "below target" : "above target";
-  return `index ${step.index} ${relation}`;
+  if (step.operation === "complete") return "sorted";
+  if (step.operation === "pivot") return `pivot at index ${step.leftIndex}`;
+  if (step.operation === "swap") return `swap indices ${step.leftIndex} and ${step.rightIndex}`;
+  if (step.operation === "shift") return `shift index ${step.leftIndex} right`;
+  if (step.operation === "write") return `write index ${step.leftIndex}`;
+  const relation = step.relation === "lt" ? "<" : step.relation === "gt" ? ">" : "=";
+  return `index ${step.leftIndex} ${relation} index ${step.rightIndex}`;
 }

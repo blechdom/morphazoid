@@ -1,20 +1,29 @@
 import {
   DEFAULT_RECURSIVE_FM_PRESET_ID,
   RECURSIVE_FM_LIMITS,
+  RECURSIVE_FM_PARAMETER_IDS,
+  RECURSIVE_FM_PERFORMANCE_DEFAULTS,
   RECURSIVE_FM_PRESETS,
+  RecursiveFmMonophonicState,
+  RecursiveFmWebMidi,
   deriveRecursiveFmStack,
+  deriveRecursiveFmSafePitchRatio,
   formatRecursiveFmFrequency,
   logarithmicSliderPosition,
   logarithmicSliderValue,
   quadraticSliderPosition,
   quadraticSliderValue,
+  recursiveFmFactoryControlChange,
+  recursiveFmPitchRatio,
+  sanitizeRecursiveFmPerformance,
   sanitizeRecursiveFmSettings,
   summarizeRecursiveFmStack,
 } from "./src/recursive-fm.js";
 import {
-  createChaoticSpectrogram,
-  drawChaoticAnalysis,
+  createChaoticSpectrum,
+  drawChaoticLiveAnalysis,
 } from "./src/chaotic-synth-visuals.js";
+import { getSharedMidiManager } from "./src/midi-manager.js";
 
 const $ = (id) => document.getElementById(id);
 const DEFAULT_LEVEL = 0.58;
@@ -27,6 +36,89 @@ function setAudioParam(param, value, context, timeConstant = PARAMETER_SMOOTHING
   param.cancelScheduledValues(now);
   param.setValueAtTime(param.value, now);
   param.setTargetAtTime(value, now, timeConstant);
+}
+
+function holdAudioParam(param, now) {
+  if (typeof param.cancelAndHoldAtTime === "function") {
+    param.cancelAndHoldAtTime(now);
+  } else {
+    param.cancelScheduledValues(now);
+    param.setValueAtTime(param.value, now);
+  }
+}
+
+function rampAudioParam(param, value, context, durationSeconds = 0) {
+  if (!param || !context) return;
+  const now = context.currentTime;
+  holdAudioParam(param, now);
+  if (durationSeconds > 0) {
+    param.linearRampToValueAtTime(value, now + durationSeconds);
+  } else {
+    param.setValueAtTime(value, now);
+  }
+}
+
+function quadraticEaseOut(progress) {
+  const safe = Math.min(1, Math.max(0, Number(progress) || 0));
+  return 1 - (1 - safe) ** 2;
+}
+
+function quadraticValueCurve(start, end, pointCount = 48) {
+  const count = Math.max(2, Math.round(pointCount));
+  const curve = new Float32Array(count);
+  for (let index = 0; index < count; index += 1) {
+    const shaped = quadraticEaseOut(index / (count - 1));
+    curve[index] = start + (end - start) * shaped;
+  }
+  curve[0] = start;
+  curve[count - 1] = end;
+  return curve;
+}
+
+function scheduleQuadraticAudioParam(param, value, context, durationSeconds) {
+  if (!param || !context) return;
+  const now = context.currentTime;
+  const duration = Math.max(0, Number(durationSeconds) || 0);
+  holdAudioParam(param, now);
+  if (duration === 0) {
+    param.setValueAtTime(value, now);
+  } else if (typeof param.setValueCurveAtTime === "function") {
+    param.setValueCurveAtTime(
+      quadraticValueCurve(param.value, value),
+      now,
+      duration,
+    );
+  } else {
+    param.linearRampToValueAtTime(value, now + duration);
+  }
+}
+
+function attackDecayValueCurve(
+  start,
+  sustain,
+  attackSeconds,
+  decaySeconds,
+) {
+  const attack = Math.max(0, Number(attackSeconds) || 0);
+  const decay = Math.max(0, Number(decaySeconds) || 0);
+  const duration = attack + decay;
+  const count = Math.max(32, Math.min(192, Math.ceil(duration * 250) + 2));
+  const curve = new Float32Array(count);
+  for (let index = 0; index < count; index += 1) {
+    const elapsed = duration * index / (count - 1);
+    if (attack > 0 && elapsed < attack) {
+      curve[index] = start + (1 - start) * quadraticEaseOut(elapsed / attack);
+    } else if (decay > 0) {
+      curve[index] = 1 + (sustain - 1) * quadraticEaseOut(
+        (elapsed - attack) / decay,
+      );
+    } else {
+      curve[index] = sustain;
+    }
+  }
+  curve[0] = attack > 0 ? start : 1;
+  curve[count - 1] = sustain;
+  return curve;
 }
 
 function setCompressorParameters(compressor) {
@@ -45,6 +137,8 @@ class RecursiveFmAudioEngine {
     this.tapGains = [];
     this.nodes = [];
     this.normalizationGain = null;
+    this.envelopeGain = null;
+    this.expressionGain = null;
     this.masterGain = null;
     this.compressor = null;
     this.ceilingGain = null;
@@ -52,6 +146,16 @@ class RecursiveFmAudioEngine {
     this.waveform = null;
     this.selectedOperator = -1;
     this.stopping = false;
+    this.settings = sanitizeRecursiveFmSettings();
+    this.performance = { ...RECURSIVE_FM_PERFORMANCE_DEFAULTS };
+    this.voice = new RecursiveFmMonophonicState();
+    this.expression = 1;
+    this.pitchBendNormalized = 0;
+    this.requestedPitchRatio = 1;
+    this.currentPitchRatio = 1;
+    this.currentVelocity = 1;
+    this.glideEnabled = true;
+    this.hasEverNote = false;
   }
 
   get running() {
@@ -62,9 +166,14 @@ class RecursiveFmAudioEngine {
     return this.context?.sampleRate ?? 48_000;
   }
 
-  async start(settings, level = DEFAULT_LEVEL) {
+  async start(
+    settings,
+    level = DEFAULT_LEVEL,
+    performance = this.performance,
+  ) {
     if (this.running) {
       if (this.context.state === "suspended") await this.context.resume();
+      this.updatePerformance(performance);
       this.updateSettings(settings);
       this.setLevel(level);
       return;
@@ -80,40 +189,57 @@ class RecursiveFmAudioEngine {
 
     const mixBus = context.createGain();
     const normalizationGain = context.createGain();
+    const envelopeGain = context.createGain();
+    const expressionGain = context.createGain();
     const masterGain = context.createGain();
     const compressor = context.createDynamicsCompressor();
     const ceilingGain = context.createGain();
     const analyser = context.createAnalyser();
 
     normalizationGain.gain.value = 0;
+    envelopeGain.gain.value = 1;
+    expressionGain.gain.value = 1;
     masterGain.gain.value = 0;
     ceilingGain.gain.value = 0.82;
     setCompressorParameters(compressor);
-    analyser.fftSize = 1_024;
-    analyser.smoothingTimeConstant = 0.62;
+    analyser.fftSize = 2_048;
+    analyser.minDecibels = -90;
+    analyser.maxDecibels = 0;
+    analyser.smoothingTimeConstant = 0.45;
 
     mixBus.connect(normalizationGain);
-    normalizationGain.connect(masterGain);
+    normalizationGain.connect(envelopeGain);
+    envelopeGain.connect(expressionGain);
+    expressionGain.connect(masterGain);
     masterGain.connect(compressor);
     compressor.connect(ceilingGain);
     ceilingGain.connect(analyser);
     analyser.connect(context.destination);
 
     this.normalizationGain = normalizationGain;
+    this.envelopeGain = envelopeGain;
+    this.expressionGain = expressionGain;
     this.masterGain = masterGain;
     this.compressor = compressor;
     this.ceilingGain = ceilingGain;
     this.analyser = analyser;
-    this.waveform = new Uint8Array(analyser.fftSize);
+    // Share Chaotic FM's 512-sample oscilloscope window while the analyser's
+    // longer FFT continues to provide the spectrum's frequency resolution.
+    this.waveform = new Uint8Array(512);
     this.nodes.push(
       mixBus,
       normalizationGain,
+      envelopeGain,
+      expressionGain,
       masterGain,
       compressor,
       ceilingGain,
       analyser,
     );
 
+    this.settings = sanitizeRecursiveFmSettings(settings, {
+      sampleRate: context.sampleRate,
+    });
     const maximumStack = deriveRecursiveFmStack({
       ...settings,
       depth: RECURSIVE_FM_LIMITS.maxDepth,
@@ -141,6 +267,17 @@ class RecursiveFmAudioEngine {
       this.nodes.push(modulationGain);
     }
 
+    this.voice = new RecursiveFmMonophonicState();
+    this.expression = 1;
+    this.pitchBendNormalized = 0;
+    this.requestedPitchRatio = 1;
+    this.currentPitchRatio = 1;
+    this.currentVelocity = 1;
+    this.glideEnabled = true;
+    this.hasEverNote = false;
+    this.updatePerformance(performance, { immediate: true });
+    envelopeGain.gain.value = this.performance.playMode === "drone" ? 1 : 0;
+    expressionGain.gain.value = 1;
     this.updateSettings(settings, { immediate: true });
     for (const oscillator of this.oscillators) oscillator.start();
     if (context.state === "suspended") await context.resume();
@@ -152,28 +289,37 @@ class RecursiveFmAudioEngine {
 
     const context = this.context;
     const stack = deriveRecursiveFmStack(settings, { sampleRate: context.sampleRate });
+    this.settings = stack.settings;
     const maximumStack = deriveRecursiveFmStack({
       ...stack.settings,
       depth: RECURSIVE_FM_LIMITS.maxDepth,
     }, { sampleRate: context.sampleRate });
     const timeConstant = immediate ? 0.001 : PARAMETER_SMOOTHING_SECONDS;
+    const requestedPitchRatio = this.performance.playMode === "midi"
+      ? this.requestedPitchRatio
+      : 1;
+    const pitchRatio = deriveRecursiveFmSafePitchRatio(
+      maximumStack,
+      requestedPitchRatio,
+    );
 
     maximumStack.operators.forEach((operator, index) => {
       setAudioParam(
         this.oscillators[index]?.frequency,
-        operator.biasHz,
+        operator.biasHz * pitchRatio,
         context,
         timeConstant,
       );
       if (index > 0) {
         setAudioParam(
           this.modulationGains[index]?.gain,
-          operator.modulationHz,
+          operator.modulationHz * pitchRatio,
           context,
           timeConstant,
         );
       }
     });
+    this.currentPitchRatio = pitchRatio;
 
     if (this.selectedOperator !== stack.audibleIndex) {
       this.tapGains.forEach((tap, index) => {
@@ -193,6 +339,265 @@ class RecursiveFmAudioEngine {
       timeConstant,
     );
     return stack;
+  }
+
+  updatePerformance(settings = {}, { immediate = false } = {}) {
+    const previous = this.performance;
+    const safe = sanitizeRecursiveFmPerformance({
+      ...previous,
+      ...settings,
+    });
+    this.performance = { ...safe };
+    if (!this.context) return safe;
+
+    if (safe.playMode !== previous.playMode) {
+      this.voice.allNotesOff({ hard: true });
+      this.hasEverNote = false;
+      this.requestedPitchRatio = 1;
+      this.currentPitchRatio = 1;
+      this.currentVelocity = 1;
+      this.expression = 1;
+      rampAudioParam(
+        this.envelopeGain?.gain,
+        safe.playMode === "drone" ? 1 : 0,
+        this.context,
+        immediate ? 0 : 0.008,
+      );
+      rampAudioParam(
+        this.expressionGain?.gain,
+        1,
+        this.context,
+        immediate ? 0 : 0.008,
+      );
+      this.scheduleOperatorPitch(1, immediate ? 0 : 8);
+    }
+
+    if (
+      safe.playMode === "midi"
+      && this.voice.selectedNote >= 0
+      && (
+        safe.rootMidiNote !== previous.rootMidiNote
+        || safe.pitchBendRangeSemitones !== previous.pitchBendRangeSemitones
+      )
+    ) {
+      this.scheduleSelectedPitch({ durationMs: immediate ? 0 : 8 });
+    }
+    return safe;
+  }
+
+  scheduleOperatorPitch(ratio, durationMs = 0) {
+    if (!this.context) return;
+    const requestedRatio = Math.max(0.0001, Number(ratio) || 1);
+    const maximumStack = deriveRecursiveFmStack({
+      ...this.settings,
+      depth: RECURSIVE_FM_LIMITS.maxDepth,
+    }, { sampleRate: this.context.sampleRate });
+    const safeRatio = deriveRecursiveFmSafePitchRatio(
+      maximumStack,
+      requestedRatio,
+    );
+    const durationSeconds = Math.max(0, Number(durationMs) || 0) / 1_000;
+    maximumStack.operators.forEach((operator, index) => {
+      rampAudioParam(
+        this.oscillators[index]?.frequency,
+        operator.biasHz * safeRatio,
+        this.context,
+        durationSeconds,
+      );
+      if (index > 0) {
+        rampAudioParam(
+          this.modulationGains[index]?.gain,
+          operator.modulationHz * safeRatio,
+          this.context,
+          durationSeconds,
+        );
+      }
+    });
+    this.requestedPitchRatio = requestedRatio;
+    this.currentPitchRatio = safeRatio;
+  }
+
+  scheduleSelectedPitch({ durationMs = 8 } = {}) {
+    if (this.voice.selectedNote < 0) return;
+    const ratio = recursiveFmPitchRatio(
+      this.voice.selectedNote,
+      this.performance.rootMidiNote,
+      this.pitchBendNormalized,
+      this.performance.pitchBendRangeSemitones,
+    );
+    this.scheduleOperatorPitch(ratio, durationMs);
+  }
+
+  beginEnvelope() {
+    if (!this.context || !this.envelopeGain) return;
+    const now = this.context.currentTime;
+    const attackSeconds = this.performance.ampAttackMs / 1_000;
+    const decaySeconds = this.performance.ampDecayMs / 1_000;
+    const gain = this.envelopeGain.gain;
+    holdAudioParam(gain, now);
+    const duration = attackSeconds + decaySeconds;
+    if (duration > 0 && typeof gain.setValueCurveAtTime === "function") {
+      gain.setValueCurveAtTime(
+        attackDecayValueCurve(
+          gain.value,
+          this.performance.ampSustainLevel,
+          attackSeconds,
+          decaySeconds,
+        ),
+        now,
+        duration,
+      );
+    } else if (duration > 0) {
+      if (attackSeconds > 0) {
+        gain.linearRampToValueAtTime(1, now + attackSeconds);
+      } else {
+        gain.setValueAtTime(1, now);
+      }
+      gain.linearRampToValueAtTime(
+        this.performance.ampSustainLevel,
+        now + duration,
+      );
+    } else {
+      gain.setValueAtTime(this.performance.ampSustainLevel, now);
+    }
+  }
+
+  releaseEnvelope({ hard = false } = {}) {
+    if (!this.context || !this.envelopeGain) return;
+    scheduleQuadraticAudioParam(
+      this.envelopeGain.gain,
+      0,
+      this.context,
+      (hard ? 2 : this.performance.ampReleaseMs) / 1_000,
+    );
+  }
+
+  updateExpressionGain({ immediate = false } = {}) {
+    if (!this.context || !this.expressionGain) return;
+    const value = this.performance.playMode === "midi"
+      ? this.currentVelocity * this.expression
+      : 1;
+    setAudioParam(
+      this.expressionGain.gain,
+      value,
+      this.context,
+      immediate ? 0.001 : 0.006,
+    );
+  }
+
+  applyVoiceAction(action) {
+    if (!action || this.performance.playMode !== "midi") return false;
+    if (action.type === "release") {
+      this.releaseEnvelope({ hard: action.hard });
+      return true;
+    }
+    if (action.type !== "select") return false;
+    const shouldGlide = this.hasEverNote
+      && this.glideEnabled
+      && this.performance.glideTimeMs > 0
+      && (
+        this.performance.glideMode === "always"
+        || (
+          this.performance.glideMode === "legato"
+          && action.legatoEligible
+        )
+      );
+    this.scheduleOperatorPitch(
+      recursiveFmPitchRatio(
+        action.note,
+        this.performance.rootMidiNote,
+        this.pitchBendNormalized,
+        this.performance.pitchBendRangeSemitones,
+      ),
+      shouldGlide ? this.performance.glideTimeMs : 0,
+    );
+    this.hasEverNote = true;
+    this.currentVelocity = action.velocity;
+    this.updateExpressionGain({ immediate: action.retrigger });
+    if (action.retrigger) this.beginEnvelope();
+    return true;
+  }
+
+  noteOn(note, velocity = 127, channel = 0, sourceId = null) {
+    if (!this.running || this.performance.playMode !== "midi") return false;
+    const owner = sourceId === null
+      ? channel
+      : `${String(sourceId)}\u0000${channel}`;
+    return this.applyVoiceAction(this.voice.noteOn(note, velocity, owner));
+  }
+
+  noteOff(note, channel = 0, sourceId = null) {
+    if (!this.running || this.performance.playMode !== "midi") return false;
+    const owner = sourceId === null
+      ? channel
+      : `${String(sourceId)}\u0000${channel}`;
+    return this.applyVoiceAction(this.voice.noteOff(note, owner));
+  }
+
+  get selectedMidiNote() {
+    return this.performance.playMode === "midi" ? this.voice.selectedNote : -1;
+  }
+
+  pitchBend(normalized) {
+    this.pitchBendNormalized = Math.min(1, Math.max(-1, Number(normalized) || 0));
+    if (this.running && this.performance.playMode === "midi") {
+      this.scheduleSelectedPitch({ durationMs: 8 });
+    }
+    return true;
+  }
+
+  setExpression(value) {
+    this.expression = Math.min(1, Math.max(0, Number(value) || 0));
+    this.updateExpressionGain();
+    return true;
+  }
+
+  setSustain(down) {
+    if (this.performance.playMode !== "midi") return false;
+    return this.applyVoiceAction(this.voice.setSustain(down));
+  }
+
+  setGlideEnabled(enabled) {
+    this.glideEnabled = Boolean(enabled);
+    return true;
+  }
+
+  allNotesOff() {
+    if (this.performance.playMode !== "midi") return false;
+    return this.applyVoiceAction(this.voice.allNotesOff());
+  }
+
+  allSoundOff() {
+    if (this.performance.playMode !== "midi") return false;
+    return this.applyVoiceAction(this.voice.allNotesOff({ hard: true }));
+  }
+
+  resetControllers() {
+    this.expression = 1;
+    this.glideEnabled = true;
+    this.pitchBendNormalized = 0;
+    this.applyVoiceAction(this.voice.setSustain(false));
+    this.updateExpressionGain();
+    this.scheduleSelectedPitch({ durationMs: 8 });
+    return true;
+  }
+
+  controlChange(controller, value) {
+    const action = recursiveFmFactoryControlChange(controller, value);
+    if (!action) return false;
+    if (action.type === "parameter") {
+      this.updatePerformance({ [action.key]: action.value });
+      return true;
+    }
+    if (action.type === "expression") return this.setExpression(action.value);
+    if (action.type === "sustain") return this.setSustain(action.down);
+    if (action.type === "glideEnabled") {
+      return this.setGlideEnabled(action.enabled);
+    }
+    if (action.type === "allSoundOff") return this.allSoundOff();
+    if (action.type === "resetControllers") return this.resetControllers();
+    if (action.type === "allNotesOff") return this.allNotesOff();
+    return false;
   }
 
   setLevel(level) {
@@ -254,12 +659,19 @@ class RecursiveFmAudioEngine {
       this.tapGains = [];
       this.nodes = [];
       this.normalizationGain = null;
+      this.envelopeGain = null;
+      this.expressionGain = null;
       this.masterGain = null;
       this.compressor = null;
       this.ceilingGain = null;
       this.analyser = null;
       this.waveform = null;
       this.selectedOperator = -1;
+      this.voice = new RecursiveFmMonophonicState();
+      this.requestedPitchRatio = 1;
+      this.currentPitchRatio = 1;
+      this.currentVelocity = 1;
+      this.hasEverNote = false;
       this.stopping = false;
     }
   }
@@ -271,15 +683,43 @@ const defaultPreset = RECURSIVE_FM_PRESETS.find(
 
 const state = {
   settings: { ...defaultPreset.settings },
+  // Preserve the original demo's immediate Audio-button drone. MIDI mode is
+  // explicitly selected when the page is played from a keyboard.
+  performance: {
+    ...RECURSIVE_FM_PERFORMANCE_DEFAULTS,
+    playMode: "drone",
+  },
   activePresetId: defaultPreset.id,
   level: DEFAULT_LEVEL,
+  expression: 1,
+  sustain: false,
+  bend: 0,
+  midiSelectedNote: -1,
   audioStarting: false,
 };
 
 const engine = new RecursiveFmAudioEngine();
+const midiBridge = new RecursiveFmWebMidi(globalThis, {
+  target: engine,
+  onAction: handleMidiAction,
+});
+const sharedMidiManager = getSharedMidiManager(globalThis);
+let sharedMidiEnabled = false;
+let unregisterMidiClient = null;
+
+function registerSharedMidiClient() {
+  if (unregisterMidiClient) return;
+  unregisterMidiClient = sharedMidiManager.registerClient({
+    id: "recursive-fm",
+    onMessage: handleSharedMidiMessage,
+    onEnabledChange: handleSharedMidiEnabled,
+    onPrepareEnable: prepareSharedMidiEnable,
+    onProfileChange: handleSharedMidiProfileChange,
+  });
+}
 const canvas = $("stage");
 const canvasContext = canvas.getContext("2d");
-const spectrogram = createChaoticSpectrogram(document);
+const spectrum = createChaoticSpectrum();
 const stageWrap = $("stageWrap");
 let pixelRatio = 1;
 let cssWidth = 1;
@@ -327,6 +767,312 @@ const controls = {
   },
 };
 
+function logarithmicZeroSliderValue(position, minimum, maximum) {
+  const normalized = Number(position);
+  if (!Number.isFinite(normalized) || normalized <= 0) return 0;
+  return logarithmicSliderValue(
+    Math.max(0, (normalized - 0.001) / 0.999),
+    minimum,
+    maximum,
+  );
+}
+
+function logarithmicZeroSliderPosition(value, minimum, maximum) {
+  if (Number(value) <= 0) return 0;
+  return 0.001 + logarithmicSliderPosition(value, minimum, maximum) * 0.999;
+}
+
+const performanceControls = {
+  ampAttackMs: {
+    input: $("ampAttackMs"),
+    output: $("ampAttackMsOut"),
+    read: (input) => logarithmicZeroSliderValue(input.value, 0.5, 5_000),
+    write: (value, input) => {
+      input.value = String(logarithmicZeroSliderPosition(value, 0.5, 5_000));
+    },
+  },
+  ampDecayMs: {
+    input: $("ampDecayMs"),
+    output: $("ampDecayMsOut"),
+    read: (input) => logarithmicZeroSliderValue(input.value, 1, 5_000),
+    write: (value, input) => {
+      input.value = String(logarithmicZeroSliderPosition(value, 1, 5_000));
+    },
+  },
+  ampSustainLevel: {
+    input: $("ampSustainLevel"),
+    output: $("ampSustainLevelOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => { input.value = String(value); },
+  },
+  ampReleaseMs: {
+    input: $("ampReleaseMs"),
+    output: $("ampReleaseMsOut"),
+    read: (input) => logarithmicSliderValue(Number(input.value), 2, 10_000),
+    write: (value, input) => {
+      input.value = String(logarithmicSliderPosition(value, 2, 10_000));
+    },
+  },
+  glideTimeMs: {
+    input: $("glideTimeMs"),
+    output: $("glideTimeMsOut"),
+    read: (input) => logarithmicZeroSliderValue(input.value, 10, 2_000),
+    write: (value, input) => {
+      input.value = String(logarithmicZeroSliderPosition(value, 10, 2_000));
+    },
+  },
+  rootMidiNote: {
+    input: $("rootMidiNote"),
+    output: $("rootMidiNoteOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => { input.value = String(value); },
+  },
+  pitchBendRangeSemitones: {
+    input: $("pitchBendRangeSemitones"),
+    output: $("pitchBendRangeSemitonesOut"),
+    read: (input) => Number(input.value),
+    write: (value, input) => { input.value = String(value); },
+  },
+};
+
+function compactNumber(value, maximumDigits = 3) {
+  return Number(value)
+    .toFixed(maximumDigits)
+    .replace(/0+$/, "")
+    .replace(/\.$/, "");
+}
+
+function formatMilliseconds(value) {
+  const milliseconds = Number(value);
+  if (milliseconds === 0) return "off";
+  if (milliseconds >= 1_000) {
+    return `${compactNumber(milliseconds / 1_000, 2)} s`;
+  }
+  if (milliseconds < 10) return `${compactNumber(milliseconds, 1)} ms`;
+  return `${Math.round(milliseconds)} ms`;
+}
+
+function midiNoteName(note) {
+  const names = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+  const safe = Math.max(0, Math.min(127, Math.round(Number(note) || 0)));
+  return `${names[safe % 12]}${Math.floor(safe / 12) - 1}`;
+}
+
+function updateAdsrPreview() {
+  const sustainY = 64 - state.performance.ampSustainLevel * 52;
+  $("adsrCurve").setAttribute(
+    "d",
+    `M 8 64 Q 31 12 52 8 Q 76 ${sustainY} 103 ${sustainY} L 171 ${sustainY} Q 202 ${sustainY} 232 64`,
+  );
+}
+
+function writePerformanceControls() {
+  for (const [key, control] of Object.entries(performanceControls)) {
+    control.write(state.performance[key], control.input);
+  }
+  $("glideMode").value = state.performance.glideMode;
+  performanceControls.ampAttackMs.output.textContent = formatMilliseconds(
+    state.performance.ampAttackMs,
+  );
+  performanceControls.ampDecayMs.output.textContent = formatMilliseconds(
+    state.performance.ampDecayMs,
+  );
+  performanceControls.ampSustainLevel.output.textContent = `${Math.round(
+    state.performance.ampSustainLevel * 100,
+  )}%`;
+  performanceControls.ampReleaseMs.output.textContent = formatMilliseconds(
+    state.performance.ampReleaseMs,
+  );
+  performanceControls.glideTimeMs.output.textContent = formatMilliseconds(
+    state.performance.glideTimeMs,
+  );
+  performanceControls.rootMidiNote.output.textContent = `${midiNoteName(
+    state.performance.rootMidiNote,
+  )} · ${state.performance.rootMidiNote}`;
+  performanceControls.pitchBendRangeSemitones.output.textContent = `±${compactNumber(
+    state.performance.pitchBendRangeSemitones,
+    1,
+  )} st`;
+  $("performanceState").textContent = state.performance.playMode === "drone"
+    ? "Drone · continuous"
+    : `${state.performance.glideMode} glide · mono`;
+  $("expressionValue").textContent = `${Math.round(state.expression * 100)}%`;
+  $("expressionMeter").style.setProperty("--expression", state.expression);
+  $("sustainState").textContent = state.sustain ? "held" : "up";
+  $("bendState").textContent = `${state.bend >= 0 ? "+" : ""}${compactNumber(
+    state.bend * state.performance.pitchBendRangeSemitones,
+    2,
+  )} st`;
+  $("currentNote").textContent = state.midiSelectedNote >= 0
+    ? `${midiNoteName(state.midiSelectedNote)} · ${state.midiSelectedNote}`
+    : "—";
+  updateAdsrPreview();
+}
+
+function clearMidiMonitorState(activity = "Waiting for MIDI") {
+  state.expression = 1;
+  state.sustain = false;
+  state.bend = 0;
+  state.midiSelectedNote = -1;
+  $("midiActivity").textContent = activity;
+  $("midiActivity").classList.remove("is-active");
+  writePerformanceControls();
+}
+
+function handleMidiAction(action) {
+  let activity = "MIDI";
+  const performanceActive = engine.running
+    && state.performance.playMode === "midi";
+  const inactiveReason = engine.running ? "drone mode" : "audio off";
+  if (action.type === "noteOn") {
+    activity = `${midiNoteName(action.note)} · velocity ${action.velocity}`
+      + (performanceActive ? "" : ` · ${inactiveReason}`);
+  } else if (action.type === "noteOff") {
+    activity = `${midiNoteName(action.note)} released`;
+  } else if (action.type === "pitchBend") {
+    if (performanceActive) state.bend = action.normalized;
+    activity = `Pitch bend${performanceActive ? "" : ` · ${inactiveReason}`}`;
+  } else if (action.type === "controlChange") {
+    const semantic = recursiveFmFactoryControlChange(
+      action.controller,
+      action.value,
+    );
+    activity = action.synthetic && action.reason === "input-disconnected"
+      ? "MIDI disconnected · all sound off"
+      : `CC${action.controller} · ${action.value}`;
+    if (semantic?.type === "parameter") {
+      state.performance = { ...sanitizeRecursiveFmPerformance({
+        ...state.performance,
+        [semantic.key]: semantic.value,
+      }) };
+    } else if (semantic?.type === "expression" && performanceActive) {
+      state.expression = semantic.value;
+    } else if (semantic?.type === "sustain" && performanceActive) {
+      state.sustain = semantic.down;
+    } else if (semantic?.type === "allSoundOff") {
+      state.midiSelectedNote = -1;
+      state.sustain = false;
+    } else if (semantic?.type === "allNotesOff") {
+      state.midiSelectedNote = -1;
+    } else if (semantic?.type === "resetControllers") {
+      state.expression = 1;
+      state.sustain = false;
+      state.bend = 0;
+    }
+  }
+  state.midiSelectedNote = performanceActive ? engine.selectedMidiNote : -1;
+  $("midiActivity").textContent = activity;
+  $("midiActivity").classList.remove("is-active");
+  requestAnimationFrame(() => $("midiActivity").classList.add("is-active"));
+  writePerformanceControls();
+}
+
+const MIDI_MACRO_TARGETS = Object.freeze([
+  { kind: "algorithm", key: "carrierHz", label: "carrier" },
+  { kind: "algorithm", key: "offsetHz", label: "offset" },
+  { kind: "algorithm", key: "modulationHz", label: "modulation" },
+  { kind: "algorithm", key: "divisor", label: "divisor" },
+  { kind: "performance", key: "ampAttackMs", label: "attack" },
+  { kind: "performance", key: "ampReleaseMs", label: "release" },
+  { kind: "performance", key: "glideTimeMs", label: "glide" },
+  { kind: "output", label: "output" },
+]);
+
+function writeNormalizedMidiInput(input, normalized) {
+  const minimum = Number(input.min) || 0;
+  const maximum = Number(input.max) || 1;
+  const safe = Math.min(1, Math.max(0, Number(normalized) || 0));
+  input.value = String(minimum + (maximum - minimum) * safe);
+}
+
+function applyLogicalMidiMacro(logical) {
+  if (logical?.type !== "macro") return false;
+  const target = MIDI_MACRO_TARGETS[logical.index];
+  if (!target) return false;
+  if (target.kind === "algorithm") {
+    const control = controls[target.key];
+    writeNormalizedMidiInput(control.input, logical.normalized);
+    applySettings({
+      ...state.settings,
+      [target.key]: control.read(control.input),
+    });
+  } else if (target.kind === "performance") {
+    const control = performanceControls[target.key];
+    writeNormalizedMidiInput(control.input, logical.normalized);
+    applyPerformanceSettings({ [target.key]: control.read(control.input) });
+  } else {
+    writeNormalizedMidiInput($("level"), logical.normalized);
+    state.level = Number($("level").value);
+    $("levelOut").textContent = `${Math.round(state.level * 100)}%`;
+    engine.setLevel(state.level);
+  }
+  $("midiActivity").textContent = `Macro ${logical.index + 1} · ${target.label}`;
+  $("midiActivity").classList.remove("is-active");
+  requestAnimationFrame(() => $("midiActivity").classList.add("is-active"));
+  return true;
+}
+
+function handleSharedMidiMessage(message, nativeEvent = null) {
+  if (!message) return null;
+  if (applyLogicalMidiMacro(message.logical)) return message;
+  if (message.raw?.length) {
+    return midiBridge.handleMessage({
+      data: message.raw,
+      nativeEvent,
+      sourceId: message.sourceId,
+    });
+  }
+  if (message.type === "noteOn") {
+    engine.noteOn(message.note, message.velocity, message.channel, message.sourceId);
+  } else if (message.type === "noteOff") {
+    engine.noteOff(message.note, message.channel, message.sourceId);
+  } else if (message.type === "pitchBend") {
+    engine.pitchBend(message.normalized);
+  } else if (message.type === "controlChange") {
+    engine.controlChange(message.controller, message.value);
+  }
+  handleMidiAction(message);
+  return message;
+}
+
+function handleSharedMidiEnabled(enabled) {
+  const nextEnabled = Boolean(enabled);
+  if (nextEnabled === sharedMidiEnabled) return;
+  sharedMidiEnabled = nextEnabled;
+  state.midiSelectedNote = -1;
+  state.sustain = false;
+  state.bend = 0;
+  state.expression = 1;
+  if (nextEnabled) {
+    applyPerformanceSettings(
+      { playMode: "midi" },
+      { message: "MIDI on · monophonic performance mode selected." },
+    );
+    $("midiActivity").textContent = engine.running
+      ? "Ready for MIDI"
+      : "MIDI on · turn Audio on to perform";
+  } else {
+    engine.allSoundOff();
+    applyPerformanceSettings(
+      { playMode: "drone" },
+      { message: "MIDI off · drone mode restored." },
+    );
+    $("midiActivity").textContent = "MIDI off · drone restored";
+  }
+  $("midiActivity").classList.remove("is-active");
+  writePerformanceControls();
+}
+
+function handleSharedMidiProfileChange(profileState) {
+  if (!sharedMidiEnabled) return;
+  const label = profileState?.selectedProfile?.label ?? "Generic MIDI";
+  $("midiActivity").textContent = `${label} mapping ready`;
+}
+
+function prepareSharedMidiEnable() {
+  return true;
+}
+
 function currentStack() {
   return deriveRecursiveFmStack(
     state.settings,
@@ -354,6 +1100,7 @@ function updatePresetButtons() {
 function updateSignalFlow(stack) {
   const flow = $("recursiveFmFlow");
   const operators = stack.operators;
+  const turnCount = stack.settings.depth;
   const graphWidth = Math.max(960, operators.length * 150 + 210);
   const left = 58;
   const outputX = graphWidth - 130;
@@ -428,7 +1175,7 @@ function updateSignalFlow(stack) {
     `;
   }).join("");
   flow.innerHTML = `
-    <svg viewBox="0 0 ${graphWidth} 210" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <svg class="recursive-fm-flow-detailed" viewBox="0 0 ${graphWidth} 210" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <defs>
         <marker id="recursiveFmArrow" viewBox="0 0 8 8" refX="7" refY="4"
           markerWidth="6" markerHeight="6" orient="auto">
@@ -450,6 +1197,32 @@ function updateSignalFlow(stack) {
           ${(stack.normalizedGain * 100).toFixed(0)}% → AUDIO
         </text>
       </g>
+    </svg>
+    <svg class="recursive-fm-flow-compact" viewBox="0 0 380 116" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <g class="recursive-fm-compact-node is-carrier">
+        <rect x="8" y="35" width="70" height="45" rx="3" />
+        <text class="recursive-fm-compact-title" x="43" y="53">CARRIER</text>
+        <text class="recursive-fm-compact-value" x="43" y="68">${formatRecursiveFmFrequency(operators[0].biasHz)}</text>
+      </g>
+      <text class="recursive-fm-compact-arrow" x="88" y="61">→</text>
+      <g class="recursive-fm-compact-node is-entry">
+        <rect x="100" y="35" width="70" height="45" rx="3" />
+        <text class="recursive-fm-compact-title" x="135" y="53">ENTRY</text>
+        <text class="recursive-fm-compact-value" x="135" y="68">SINE · OP 1</text>
+      </g>
+      <text class="recursive-fm-compact-arrow" x="180" y="61">→</text>
+      <g class="recursive-fm-compact-node is-recursive">
+        <rect x="192" y="35" width="88" height="45" rx="3" />
+        <text class="recursive-fm-compact-title" x="236" y="53">${turnCount === 0 ? "FINAL TAP" : `${turnCount} ${turnCount === 1 ? "TURN" : "TURNS"}`}</text>
+        <text class="recursive-fm-compact-value" x="236" y="68">OP ${stack.audibleIndex} OPEN</text>
+      </g>
+      <text class="recursive-fm-compact-arrow" x="290" y="61">→</text>
+      <g class="recursive-fm-compact-node is-output">
+        <rect x="302" y="35" width="70" height="45" rx="3" />
+        <text class="recursive-fm-compact-title" x="337" y="53">AUDIO</text>
+        <text class="recursive-fm-compact-value" x="337" y="68">NORMALIZED</text>
+      </g>
+      <text class="recursive-fm-compact-caption" x="8" y="101">SIGNED SINE × AMOUNT + BIAS → NEXT OSCILLATOR FREQUENCY</text>
     </svg>
   `;
   flow.setAttribute(
@@ -488,10 +1261,10 @@ function updateControlOutputs(stack = currentStack()) {
   $("operatorReadout").textContent = `operator ${stack.audibleIndex} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
   $("ceilingReadout").textContent = formatRecursiveFmFrequency(settings.maximumFrequencyHz);
   updateSignalFlow(stack);
-  $("stageReadout").textContent = `${summary.label} · ${engine.running ? "ON" : "OFF"}`.toUpperCase();
+  $("stageReadout").textContent = `${summary.label} · ${state.performance.playMode} · ${engine.running ? "ON" : "OFF"}`.toUpperCase();
   canvas.setAttribute(
     "aria-label",
-    `Recursive FM algorithm with ${summary.recursiveTurns} recursive ${summary.recursiveTurns === 1 ? "operator" : "operators"}. Audio ${engine.running ? "on" : "off"}.`,
+    `Recursive FM live spectrum bars with a foreground oscilloscope and ${summary.recursiveTurns} recursive ${summary.recursiveTurns === 1 ? "operator" : "operators"}. Audio ${engine.running ? "on" : "off"}.`,
   );
 }
 
@@ -499,6 +1272,17 @@ function writeControlsFromState() {
   for (const [name, control] of Object.entries(controls)) {
     control.write(state.settings[name], control.input);
   }
+}
+
+function applyPerformanceSettings(settings, { message = null } = {}) {
+  state.performance = { ...sanitizeRecursiveFmPerformance({
+    ...state.performance,
+    ...settings,
+  }) };
+  engine.updatePerformance(state.performance);
+  writePerformanceControls();
+  updateControlOutputs();
+  if (message) $("liveStatus").textContent = message;
 }
 
 function applySettings(settings, { presetId = null, announce = false } = {}) {
@@ -674,14 +1458,15 @@ function drawScope(context, waveform, width, height) {
 function drawVisualization() {
   canvasContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   canvasContext.clearRect(0, 0, cssWidth, cssHeight);
-  drawChaoticAnalysis(canvasContext, {
+  drawChaoticLiveAnalysis(canvasContext, {
     analyser: engine.analyser,
     audioOn: engine.running,
-    glow: "rgba(181, 156, 255, 0.35)",
     height: cssHeight,
-    hue: 260,
-    spectrogram,
-    stroke: "#b59cff",
+    scopeGlow: "rgba(181, 156, 255, 0.72)",
+    scopeStroke: "#fff3d6",
+    spectrum,
+    spectrumBarCap: "rgba(125, 180, 255, 0.72)",
+    spectrumBarFill: "rgba(181, 156, 255, 0.28)",
     waveform: engine.readWaveform(),
     width: cssWidth,
   });
@@ -708,6 +1493,7 @@ function scheduleVisualization() {
 }
 
 for (const [name, control] of Object.entries(controls)) {
+  control.input.dataset.parameterId = RECURSIVE_FM_PARAMETER_IDS[name];
   control.input.addEventListener("input", () => {
     const next = {
       ...state.settings,
@@ -716,6 +1502,23 @@ for (const [name, control] of Object.entries(controls)) {
     applySettings(next);
   });
 }
+
+for (const [name, control] of Object.entries(performanceControls)) {
+  control.input.dataset.parameterId = RECURSIVE_FM_PARAMETER_IDS[name];
+  control.input.addEventListener("input", () => {
+    applyPerformanceSettings({ [name]: control.read(control.input) });
+  });
+}
+
+$("level").dataset.parameterId = RECURSIVE_FM_PARAMETER_IDS.output;
+$("glideMode").dataset.parameterId = RECURSIVE_FM_PARAMETER_IDS.glideMode;
+
+$("glideMode").addEventListener("change", () => {
+  applyPerformanceSettings(
+    { glideMode: $("glideMode").value },
+    { message: `${$("glideMode").value} glide mode selected.` },
+  );
+});
 
 $("presetButtons").addEventListener("click", (event) => {
   const button = event.target.closest("[data-preset]");
@@ -740,9 +1543,15 @@ $("audioButton").addEventListener("click", async () => {
   try {
     if (engine.running) {
       await engine.stop();
+      clearMidiMonitorState("Audio off · MIDI activity only");
       $("liveStatus").textContent = "Recursive FM audio off.";
     } else {
-      await engine.start(state.settings, state.level);
+      clearMidiMonitorState(
+        state.performance.playMode === "midi"
+          ? "Ready for MIDI"
+          : "Drone mode · MIDI activity only",
+      );
+      await engine.start(state.settings, state.level, state.performance);
       $("liveStatus").textContent = "Recursive FM audio on.";
     }
   } catch (error) {
@@ -758,10 +1567,22 @@ $("audioButton").addEventListener("click", async () => {
 
 $("resetRecursiveFm").addEventListener("click", () => {
   clearError();
+  engine.allSoundOff();
+  engine.resetControllers();
   state.level = DEFAULT_LEVEL;
+  state.performance = {
+    ...RECURSIVE_FM_PERFORMANCE_DEFAULTS,
+    playMode: sharedMidiEnabled ? "midi" : "drone",
+  };
+  state.expression = 1;
+  state.sustain = false;
+  state.bend = 0;
+  state.midiSelectedNote = -1;
   $("level").value = String(DEFAULT_LEVEL);
   $("levelOut").textContent = `${Math.round(DEFAULT_LEVEL * 100)}%`;
   engine.setLevel(DEFAULT_LEVEL);
+  engine.updatePerformance(state.performance);
+  writePerformanceControls();
   applySettings(defaultPreset.settings, {
     presetId: defaultPreset.id,
     announce: true,
@@ -776,12 +1597,24 @@ document.addEventListener("visibilitychange", () => {
 });
 
 window.addEventListener("pagehide", () => {
+  unregisterMidiClient?.();
+  unregisterMidiClient = null;
+  engine.allSoundOff();
   engine.stop({ immediate: true });
+});
+
+window.addEventListener("pageshow", (event) => {
+  if (!event.persisted) return;
+  registerSharedMidiClient();
+  updateAudioUi();
+  visualizationDirty = true;
+  scheduleVisualization();
 });
 
 window.addEventListener("keydown", (event) => {
   if (event.key !== "Escape" || !engine.running) return;
   engine.stop({ immediate: true }).finally(() => {
+    clearMidiMonitorState("Audio off · MIDI activity only");
     state.audioStarting = false;
     updateAudioUi();
     visualizationDirty = true;
@@ -796,6 +1629,8 @@ if ("ResizeObserver" in window) {
 }
 
 writeControlsFromState();
+writePerformanceControls();
 updatePresetButtons();
 updateControlOutputs();
 resizeCanvas();
+registerSharedMidiClient();

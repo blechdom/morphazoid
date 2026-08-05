@@ -93,6 +93,22 @@
       </section>
 
       <aside class="panel chaotic-fm-panel" aria-label="Chaotic FM controls">
+        <section class="plugin-download-callout" aria-labelledby="chaoticFmPluginTitle">
+          <div class="plugin-download-callout-copy">
+            <p>DAW version available</p>
+            <h2 id="chaoticFmPluginTitle">Chaotic FM <span>JSFX v0.3.0 beta</span></h2>
+            <small>REAPER · MIDI · host clock · Linux tested</small>
+          </div>
+          <div class="plugin-download-callout-actions">
+            <a
+              class="plugin-download-callout-primary"
+              href="downloads/plugins/chaotic-fm/0.3.0/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx"
+              download="Morphazoid_Chaotic_FM-v0.3.0.jsfx"
+            >Download</a>
+            <a href="plugins.html#chaotic-fm">Install guide &amp; versions</a>
+          </div>
+        </section>
+
         <details class="group control-section chaotic-fm-presets" open>
           <summary class="group-summary">
             <h2 class="group-title">Character</h2>
@@ -118,33 +134,6 @@
             <span class="section-state" id="performanceState">Drone · continuous</span>
           </summary>
           <div class="group-body">
-            <div class="chaotic-mode-switch" role="group" aria-label="Play mode">
-              <button
-                id="playModeDrone"
-                type="button"
-                data-parameter-id="performance.playMode"
-                aria-pressed="true"
-              >Drone</button>
-              <button
-                id="playModeMidi"
-                type="button"
-                data-parameter-id="performance.playMode"
-                aria-pressed="false"
-              >MIDI</button>
-            </div>
-
-            <div class="chaotic-midi-connect">
-              <button id="midiButton" type="button" aria-pressed="false">
-                <span class="chaotic-midi-dot" aria-hidden="true"></span>
-                <span id="midiButtonLabel">Enable MIDI</span>
-              </button>
-              <span id="midiState">checking support</span>
-            </div>
-            <p class="chaotic-midi-permission-note">
-              Web MIDI permission is requested only when you press Enable MIDI. SysEx is never requested.
-            </p>
-            <p class="audio-error" id="midiError" role="alert" hidden></p>
-
             <div class="chaotic-midi-monitor" aria-label="Live MIDI performance state">
               <span><b>Note</b><output id="currentNote">—</output></span>
               <span><b>Bend</b><output id="bendState">+0 st</output></span>
@@ -206,7 +195,8 @@
             </label>
 
             <p class="chaotic-fm-control-note chaotic-midi-map-note">
-              Factory MIDI · CC5 glide · CC11 expression · CC64 sustain · CC65 portamento · CC72 release · CC73 attack · CC75 decay
+              Controller Macros 1–8 · carrier · offset · amount · nonlinearity · attack · release · glide · output.<br />
+              Standard performance MIDI · CC5 glide · CC11 expression · CC64 sustain · CC65 portamento · CC72 release · CC73 attack · CC75 decay
             </p>
           </div>
         </details>

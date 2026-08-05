@@ -6,6 +6,7 @@ import {
   buildLattice,
   contactsForLine,
   createScanLine,
+  latticeOffsetForPhase,
 } from "../src/lattice.js";
 import {
   LATTICE_DRUM_MAPPING_MODES,
@@ -18,7 +19,7 @@ const bounds = { minX: -2, minY: -1, maxX: 2, maxY: 1 };
 const root = new URL("../", import.meta.url);
 
 test("lattice drum mappings cover edge, angle, position, incidence, and density", () => {
-  assert.equal(LATTICE_DRUM_MAPPING_MODES.length, 3);
+  assert.equal(LATTICE_DRUM_MAPPING_MODES.length, 4);
   assert.equal(latticeDrumVoiceIndex({
     edgeShapeId: 2,
     orientation: 0.7,
@@ -80,6 +81,40 @@ test("real lattice contacts resolve to playable FM drum voices", () => {
   }
 });
 
+test("hexagon drum contacts keep changing physical onset keys", () => {
+  const lattice = buildLattice({
+    type: 1,
+    bounds,
+    scale: .26,
+    alignPeriodToDegrees: 180,
+  });
+  const scan = createScanLine(bounds, .5, 90);
+  let previousVoiceKeys = new Set();
+  let previousOnsetKeys = new Set();
+  let periodicVoiceChanges = 0;
+  let physicalOnsets = 0;
+
+  for (let step = 0; step < 48; step += 1) {
+    const contacts = contactsForLine(
+      lattice,
+      scan,
+      undefined,
+      latticeOffsetForPhase(lattice, step / 48),
+    );
+    const voiceKeys = new Set(contacts.map(({ voiceKey }) => voiceKey));
+    const onsetKeys = new Set(contacts.map(({ onsetKey }) => onsetKey));
+    if (step > 0) {
+      periodicVoiceChanges += [...voiceKeys].filter((key) => !previousVoiceKeys.has(key)).length;
+      physicalOnsets += [...onsetKeys].filter((key) => !previousOnsetKeys.has(key)).length;
+    }
+    previousVoiceKeys = voiceKeys;
+    previousOnsetKeys = onsetKeys;
+  }
+
+  assert.equal(periodicVoiceChanges, 0);
+  assert.ok(physicalOnsets > 0);
+});
+
 test("Lattice Drum Machine uses the lattice core and compact FM drum bank", async () => {
   const [html, css, app] = await Promise.all([
     readFile(new URL("lattice-drums.html", root), "utf8"),
@@ -108,6 +143,7 @@ test("Lattice Drum Machine uses the lattice core and compact FM drum bank", asyn
   assert.match(app, /configureTilingControls/);
   assert.match(app, /contactsForLine/);
   assert.match(app, /mappedLatticeDrumVoice/);
+  assert.match(app, /contactOnsetKey/);
   assert.doesNotMatch(
     html,
     /voiceEditor|editorControls|saveBank|soundMode|soundSection|synthMapping/,

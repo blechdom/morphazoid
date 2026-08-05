@@ -31,6 +31,17 @@ test("site builder publishes runtime files without development material", async 
       "index.html",
       "about.html",
       "about.css",
+      "plugins.html",
+      "plugins.css",
+      "plugins-app.js",
+      "src/plugin-catalog.js",
+      "src/midi-manager.js",
+      "src/shape-midi.js",
+      "src/fm-drums-midi.js",
+      "downloads/plugins/chaotic-fm/0.2.1/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx",
+      "downloads/plugins/chaotic-fm/0.2.2/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx",
+      "downloads/plugins/chaotic-fm/0.2.3/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx",
+      "downloads/plugins/chaotic-fm/0.3.0/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx",
       "app.js",
       "src/audio.js",
       "src/contour-synth-processor.js",
@@ -54,6 +65,7 @@ test("site builder publishes runtime files without development material", async 
       "recursive-pm.css",
       "recursive-pm-app.js",
       "src/recursive-pm.js",
+      "src/recursive-pm-midi.js",
       "chaotic-fm.html",
       "chaotic-fm.css",
       "chaotic-fm-app.js",
@@ -101,6 +113,16 @@ test("site builder publishes runtime files without development material", async 
       "spring-choir.html",
       "gear-ratio-drums.html",
       "cellular-automata.html",
+      "prime-sieve.html",
+      "lissajous-orbits.html",
+      "pendulum-wave.html",
+      "double-pendulum.html",
+      "reaction-diffusion.html",
+      "atomic-orbitals.html",
+      "dna-translator.html",
+      "neural-pulse.html",
+      "fourier-epicycles.html",
+      "gravity-lens.html",
       "experiments.css",
       "experiments-app.js",
       "shape-drums.html",
@@ -123,6 +145,13 @@ test("site builder publishes runtime files without development material", async 
     ]) {
       assert.equal(await exists(join(output, path)), true, `missing ${path}`);
     }
+
+    const publishedNavigation = await readFile(join(output, "nav.js"), "utf8");
+    assert.match(
+      publishedNavigation,
+      /from "\.\/src\/midi-manager\.js"/,
+      "the published navigation must resolve its shared MIDI manager import",
+    );
 
     for (const path of [
       "tests",

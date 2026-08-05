@@ -12,9 +12,16 @@ import {
   summarizeRecursivePmStack,
 } from "./src/recursive-pm.js";
 import {
-  createChaoticSpectrogram,
-  drawChaoticAnalysis,
+  createChaoticSpectrum,
+  drawChaoticLiveAnalysis,
 } from "./src/chaotic-synth-visuals.js";
+import {
+  RECURSIVE_PM_PERFORMANCE_DEFAULTS,
+  RecursivePmMidiPerformance,
+  recursivePmVelocityGain,
+  sanitizeRecursivePmPerformance,
+} from "./src/recursive-pm-midi.js";
+import { getSharedMidiManager } from "./src/midi-manager.js";
 
 const $ = (id) => document.getElementById(id);
 const DEFAULT_LEVEL = 0.58;
@@ -28,13 +35,19 @@ const state = {
   settings: { ...defaultPreset.settings },
   activePresetId: defaultPreset.id,
   level: DEFAULT_LEVEL,
+  performance: { ...RECURSIVE_PM_PERFORMANCE_DEFAULTS },
   audioStarting: false,
+  midiActive: false,
 };
 
 const engine = new RecursivePmAudioEngine(window);
+const midiPerformance = new RecursivePmMidiPerformance({
+  rootMidiNote: state.performance.rootMidiNote,
+  pitchBendRangeSemitones: state.performance.pitchBendRangeSemitones,
+});
 const canvas = $("stage");
 const canvasContext = canvas.getContext("2d");
-const spectrogram = createChaoticSpectrogram(document);
+const spectrum = createChaoticSpectrum();
 const stageWrap = $("stageWrap");
 let pixelRatio = 1;
 let cssWidth = 1;
@@ -104,6 +117,39 @@ const controls = {
     write: (value, input) => { input.value = String(value); },
   },
 };
+
+const performanceControls = {
+  ampAttackMs: { input: $("ampAttackMs"), output: $("ampAttackMsOut") },
+  ampDecayMs: { input: $("ampDecayMs"), output: $("ampDecayMsOut") },
+  ampSustainLevel: {
+    input: $("ampSustainLevel"),
+    output: $("ampSustainLevelOut"),
+  },
+  ampReleaseMs: { input: $("ampReleaseMs"), output: $("ampReleaseMsOut") },
+  glideTimeMs: { input: $("glideTimeMs"), output: $("glideTimeMsOut") },
+  rootMidiNote: { input: $("rootMidiNote"), output: $("rootMidiNoteOut") },
+  pitchBendRangeSemitones: {
+    input: $("pitchBendRangeSemitones"),
+    output: $("pitchBendRangeSemitonesOut"),
+  },
+};
+
+const MIDI_NOTE_NAMES = [
+  "C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B",
+];
+
+function midiNoteName(note) {
+  const safe = Math.max(0, Math.min(127, Math.round(Number(note) || 0)));
+  return `${MIDI_NOTE_NAMES[safe % 12]}${Math.floor(safe / 12) - 1}`;
+}
+
+function formatMilliseconds(value) {
+  const milliseconds = Math.max(0, Number(value) || 0);
+  if (milliseconds >= 1_000) {
+    return `${(milliseconds / 1_000).toFixed(milliseconds % 1_000 ? 2 : 0)} s`;
+  }
+  return milliseconds === 0 ? "off" : `${Math.round(milliseconds)} ms`;
+}
 
 function currentStack() {
   return deriveRecursivePmStack(
@@ -203,8 +249,9 @@ function updateSignalFlow(stack) {
       </g>
     `;
   }).join("");
+  const firstTurn = operators[1] ?? null;
   flow.innerHTML = `
-    <svg viewBox="0 0 ${graphWidth} 210" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <svg class="recursive-pm-flow-detailed" viewBox="0 0 ${graphWidth} 210" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <defs>
         <marker class="chaotic-path-arrow" id="recursivePmArrow" viewBox="0 0 8 8"
           refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
@@ -226,6 +273,32 @@ function updateSignalFlow(stack) {
           ${(stack.normalizedGain * 100).toFixed(0)}% → AUDIO
         </text>
       </g>
+    </svg>
+    <svg class="recursive-pm-flow-compact" viewBox="0 0 380 116" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <g class="recursive-pm-compact-node is-carrier">
+        <rect x="8" y="35" width="70" height="45" rx="3" />
+        <text class="recursive-pm-compact-title" x="43" y="53">CARRIER</text>
+        <text class="recursive-pm-compact-value" x="43" y="68">${formatRecursivePmFrequency(operators[0].frequencyHz)}</text>
+      </g>
+      <text class="recursive-pm-compact-arrow" x="88" y="61">→</text>
+      <g class="recursive-pm-compact-node is-phase">
+        <rect x="100" y="35" width="82" height="45" rx="3" />
+        <text class="recursive-pm-compact-title" x="141" y="53">INDEX + PHASOR</text>
+        <text class="recursive-pm-compact-value" x="141" y="68">${firstTurn ? `×${formatRecursivePmNumber(firstTurn.phaseIndex)} · ${formatRecursivePmFrequency(firstTurn.frequencyHz)}` : "CARRIER TAP"}</text>
+      </g>
+      <text class="recursive-pm-compact-arrow" x="192" y="61">→</text>
+      <g class="recursive-pm-compact-node is-turns">
+        <rect x="204" y="35" width="78" height="45" rx="3" />
+        <text class="recursive-pm-compact-title" x="243" y="53">${stack.actualDepth === 0 ? "FINAL TAP" : `${stack.actualDepth} PM ${stack.actualDepth === 1 ? "TURN" : "TURNS"}`}</text>
+        <text class="recursive-pm-compact-value" x="243" y="68">OP ${stack.audibleIndex} OPEN</text>
+      </g>
+      <text class="recursive-pm-compact-arrow" x="292" y="61">→</text>
+      <g class="recursive-pm-compact-node is-output">
+        <rect x="304" y="35" width="68" height="45" rx="3" />
+        <text class="recursive-pm-compact-title" x="338" y="53">AUDIO</text>
+        <text class="recursive-pm-compact-value" x="338" y="68">NORMALIZED</text>
+      </g>
+      <text class="recursive-pm-compact-caption" x="8" y="101">PREVIOUS SINE × INDEX + PHASOR → NEXT SINE</text>
     </svg>
   `;
   flow.setAttribute(
@@ -328,6 +401,254 @@ function showError(error) {
 function clearError() {
   $("audioError").hidden = true;
   $("audioError").textContent = "";
+}
+
+function updateAdsrPreview() {
+  const sustainY = 64 - state.performance.ampSustainLevel * 52;
+  $("adsrCurve").setAttribute(
+    "d",
+    `M 8 64 Q 31 12 52 8 Q 76 ${sustainY} 103 ${sustainY} L 171 ${sustainY} Q 202 ${sustainY} 232 64`,
+  );
+}
+
+function writePerformanceControls() {
+  for (const [key, control] of Object.entries(performanceControls)) {
+    control.input.value = String(state.performance[key]);
+  }
+  $("glideMode").value = state.performance.glideMode;
+  performanceControls.ampAttackMs.output.textContent = formatMilliseconds(
+    state.performance.ampAttackMs,
+  );
+  performanceControls.ampDecayMs.output.textContent = formatMilliseconds(
+    state.performance.ampDecayMs,
+  );
+  performanceControls.ampSustainLevel.output.textContent = `${Math.round(
+    state.performance.ampSustainLevel * 100,
+  )}%`;
+  performanceControls.ampReleaseMs.output.textContent = formatMilliseconds(
+    state.performance.ampReleaseMs,
+  );
+  performanceControls.glideTimeMs.output.textContent = formatMilliseconds(
+    state.performance.glideTimeMs,
+  );
+  performanceControls.rootMidiNote.output.textContent = `${midiNoteName(
+    state.performance.rootMidiNote,
+  )} · ${state.performance.rootMidiNote}`;
+  performanceControls.pitchBendRangeSemitones.output.textContent = `±${state.performance.pitchBendRangeSemitones} st`;
+
+  const glideOverride = midiPerformance.glideOverride;
+  const glideLabel = glideOverride === null
+    ? state.performance.glideMode
+    : `CC65 ${glideOverride ? "on" : "off"}`;
+  $("performanceState").textContent = state.performance.playMode === "drone"
+    ? "Drone · continuous"
+    : `${glideLabel} glide · mono`;
+  $("currentNote").textContent = midiPerformance.currentNote === null
+    ? "—"
+    : `${midiNoteName(midiPerformance.currentNote)} · ${midiPerformance.currentNote}`;
+  $("bendState").textContent = `${midiPerformance.bendNormalized >= 0 ? "+" : ""}${(
+    midiPerformance.bendNormalized
+      * state.performance.pitchBendRangeSemitones
+  ).toFixed(2)} st`;
+  $("sustainState").textContent = midiPerformance.sustain ? "held" : "up";
+  $("expressionValue").textContent = `${Math.round(
+    midiPerformance.expression * 100,
+  )}%`;
+  $("expressionMeter").style.setProperty(
+    "--expression",
+    midiPerformance.expression,
+  );
+  updateAdsrPreview();
+}
+
+function glideForGate(event) {
+  if (midiPerformance.glideOverride === false) return false;
+  if (midiPerformance.glideOverride === true) return event.legato;
+  return state.performance.glideMode === "always"
+    || (state.performance.glideMode === "legato" && event.legato);
+}
+
+function performGateOn(event) {
+  engine.noteOn(event.notePitchRatio, event.velocityGain, {
+    attackMs: state.performance.ampAttackMs,
+    decayMs: state.performance.ampDecayMs,
+    sustainLevel: state.performance.ampSustainLevel,
+    glideTimeMs: state.performance.glideTimeMs,
+    glide: glideForGate(event),
+    retrigger: !event.legato,
+    bendSemitones: event.bendSemitones,
+  });
+}
+
+function syncCurrentNoteToAudio() {
+  if (state.performance.playMode !== "midi"
+    || midiPerformance.currentNote === null) return;
+  performGateOn({
+    notePitchRatio: midiPerformance.currentNotePitchRatio(),
+    bendSemitones: midiPerformance.currentBendSemitones(),
+    velocityGain: recursivePmVelocityGain(midiPerformance.currentVelocity),
+    legato: false,
+  });
+}
+
+function applyMidiPerformanceEvent(event) {
+  if (event.type === "parameter") {
+    state.performance = {
+      ...sanitizeRecursivePmPerformance({
+        ...state.performance,
+        [event.key]: event.value,
+      }),
+    };
+    if (event.key === "ampSustainLevel") {
+      engine.setSustainLevel(state.performance.ampSustainLevel);
+    }
+    return;
+  }
+  if (event.type === "expression") {
+    if (state.performance.playMode === "midi") engine.setExpression(event.value);
+    return;
+  }
+  if (state.performance.playMode !== "midi") return;
+  if (event.type === "gateOn") performGateOn(event);
+  else if (event.type === "gateOff") engine.noteOff(state.performance.ampReleaseMs);
+  else if (event.type === "allSoundOff") engine.allSoundOff();
+  else if (event.type === "pitchBend") {
+    engine.setPitchBend(event.bendSemitones);
+  }
+  else if (event.type === "retune") {
+    engine.setPitchRatio(event.notePitchRatio, { glideSeconds: 0 });
+  }
+}
+
+function handleMidiAction(action) {
+  const events = midiPerformance.handle(action);
+  for (const event of events) applyMidiPerformanceEvent(event);
+
+  let activity = "MIDI";
+  if (action.type === "noteOn") {
+    activity = `${midiNoteName(action.note)} · velocity ${action.velocity}`;
+  } else if (action.type === "noteOff") {
+    activity = `${midiNoteName(action.note)} released`;
+  } else if (action.type === "pitchBend") {
+    activity = "Pitch bend";
+  } else if (action.type === "controlChange") {
+    activity = `CC${action.controller} · ${action.value}`;
+  }
+  $("midiActivity").textContent = activity;
+  $("midiActivity").classList.remove("is-active");
+  requestAnimationFrame(() => $("midiActivity").classList.add("is-active"));
+  writePerformanceControls();
+}
+
+const sharedMidiMacroTargets = [
+  { label: "Depth", input: controls.depth.input },
+  { label: "Mod frequency", input: controls.startModFrequencyHz.input },
+  { label: "Phase index", input: controls.startPhaseIndex.input },
+  { label: "Index divisor", input: controls.indexDivisor.input },
+  { label: "Attack", input: performanceControls.ampAttackMs.input },
+  { label: "Release", input: performanceControls.ampReleaseMs.input },
+  { label: "Glide", input: performanceControls.glideTimeMs.input },
+  { label: "Output", input: $("level") },
+];
+
+function applySharedMidiMacro(logical) {
+  if (logical?.type !== "macro") return false;
+  const index = Math.round(Number(logical.index));
+  const target = sharedMidiMacroTargets[index];
+  if (!target) return false;
+  const normalized = Math.min(1, Math.max(
+    0,
+    Number(logical.normalized ?? Number(logical.value) / 127) || 0,
+  ));
+  const minimum = Number(target.input.min) || 0;
+  const maximum = Number(target.input.max) || 1;
+  target.input.value = String(minimum + normalized * (maximum - minimum));
+  target.input.dispatchEvent(new Event("input", { bubbles: true }));
+  $("midiActivity").textContent = `Macro ${index + 1} · ${target.label}`;
+  $("midiActivity").classList.remove("is-active");
+  requestAnimationFrame(() => $("midiActivity").classList.add("is-active"));
+  return true;
+}
+
+function handleSharedMidiMessage(message) {
+  if (!state.midiActive || disposed || !message) return;
+  if (applySharedMidiMacro(message.logical)) return;
+  handleMidiAction(message);
+}
+
+function setPlayMode(mode, { announce = false } = {}) {
+  state.performance = {
+    ...sanitizeRecursivePmPerformance({
+      ...state.performance,
+      playMode: mode,
+    }),
+  };
+  engine.setPlayMode(state.performance.playMode);
+  engine.setExpression(
+    state.performance.playMode === "midi" ? midiPerformance.expression : 1,
+  );
+  if (state.performance.playMode === "midi") syncCurrentNoteToAudio();
+  writePerformanceControls();
+  if (announce) {
+    $("liveStatus").textContent = state.performance.playMode === "midi"
+      ? "Recursive PM MIDI mode. Play a connected keyboard; the last held note has priority."
+      : "Recursive PM Drone mode. Audio is continuous and presets retain their original carrier.";
+  }
+}
+
+function panicMidiPerformance() {
+  for (const controller of [120, 121]) {
+    const events = midiPerformance.handle({
+      type: "controlChange",
+      controller,
+      value: 0,
+      channel: 0,
+      sourceId: "shared-midi",
+    });
+    for (const event of events) applyMidiPerformanceEvent(event);
+  }
+}
+
+function prepareSharedMidiEnable() {
+  panicMidiPerformance();
+  $("midiActivity").textContent = "Enabling MIDI…";
+  writePerformanceControls();
+}
+
+function handleSharedMidiEnabledChange(enabled) {
+  const active = Boolean(enabled);
+  const changed = state.midiActive !== active;
+  if (!active && state.midiActive) panicMidiPerformance();
+  state.midiActive = active;
+  setPlayMode(active ? "midi" : "drone");
+  if (!changed) return;
+  $("midiActivity").textContent = active
+    ? "MIDI on · waiting for notes"
+    : "MIDI off · Drone mode";
+  $("liveStatus").textContent = active
+    ? "Shared MIDI on. Recursive PM is in monophonic MIDI mode."
+    : "Shared MIDI off. Recursive PM returned to Drone mode.";
+}
+
+function handleSharedMidiProfileChange(profileState) {
+  const label = profileState?.selectedProfile?.label
+    ?? profileState?.selectedProfileId
+    ?? "Auto";
+  $("midiActivity").title = `Controller profile: ${label}`;
+}
+
+const sharedMidiManager = getSharedMidiManager(globalThis);
+let unregisterMidiClient = null;
+
+function registerSharedMidiClient() {
+  if (unregisterMidiClient) return;
+  unregisterMidiClient = sharedMidiManager.registerClient({
+    id: "recursive-pm",
+    onMessage: handleSharedMidiMessage,
+    onEnabledChange: handleSharedMidiEnabledChange,
+    onPrepareEnable: prepareSharedMidiEnable,
+    onProfileChange: handleSharedMidiProfileChange,
+  });
 }
 
 function resizeCanvas() {
@@ -480,13 +801,14 @@ function drawScope(context, waveform, width, height) {
 function drawVisualization() {
   canvasContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   canvasContext.clearRect(0, 0, cssWidth, cssHeight);
-  drawChaoticAnalysis(canvasContext, {
+  drawChaoticLiveAnalysis(canvasContext, {
     analyser: engine.analyser,
     audioOn: engine.running,
     glow: "rgba(255, 143, 216, 0.35)",
     height: cssHeight,
-    hue: 322,
-    spectrogram,
+    spectrum,
+    spectrumBarCap: "rgba(255, 241, 199, 0.82)",
+    spectrumBarFill: "rgba(255, 143, 216, 0.28)",
     stroke: "#ff8fd8",
     waveform: engine.readWaveform(),
     width: cssWidth,
@@ -539,6 +861,40 @@ for (const [name, control] of Object.entries(controls)) {
   });
 }
 
+for (const [name, control] of Object.entries(performanceControls)) {
+  control.input.addEventListener("input", () => {
+    state.performance = {
+      ...sanitizeRecursivePmPerformance({
+        ...state.performance,
+        [name]: Number(control.input.value),
+      }),
+    };
+    if (name === "rootMidiNote"
+      || name === "pitchBendRangeSemitones") {
+      const events = name === "rootMidiNote"
+        ? midiPerformance.setRootMidiNote(state.performance.rootMidiNote)
+        : midiPerformance.setPitchBendRange(
+          state.performance.pitchBendRangeSemitones,
+        );
+      for (const event of events) applyMidiPerformanceEvent(event);
+    }
+    if (name === "ampSustainLevel") {
+      engine.setSustainLevel(state.performance.ampSustainLevel);
+    }
+    writePerformanceControls();
+  });
+}
+
+$("glideMode").addEventListener("change", () => {
+  state.performance = {
+    ...sanitizeRecursivePmPerformance({
+      ...state.performance,
+      glideMode: $("glideMode").value,
+    }),
+  };
+  writePerformanceControls();
+});
+
 $("presetButtons").addEventListener("click", (event) => {
   const button = event.target.closest("[data-preset]");
   if (!button) return;
@@ -565,6 +921,12 @@ $("audioButton").addEventListener("click", async () => {
       $("liveStatus").textContent = "Recursive PM audio off.";
     } else {
       await engine.start(state.settings, state.level);
+      engine.setPlayMode(state.performance.playMode, { immediate: true });
+      engine.setExpression(
+        state.performance.playMode === "midi" ? midiPerformance.expression : 1,
+        { immediate: true },
+      );
+      syncCurrentNoteToAudio();
       $("liveStatus").textContent = "Recursive PM audio on.";
     }
   } catch (error) {
@@ -580,6 +942,25 @@ $("audioButton").addEventListener("click", async () => {
 
 $("resetRecursivePm").addEventListener("click", () => {
   clearError();
+  for (const event of midiPerformance.handle({
+    type: "controlChange",
+    controller: 120,
+    value: 0,
+  })) applyMidiPerformanceEvent(event);
+  for (const event of midiPerformance.handle({
+    type: "controlChange",
+    controller: 121,
+    value: 0,
+  })) applyMidiPerformanceEvent(event);
+  state.performance = {
+    ...RECURSIVE_PM_PERFORMANCE_DEFAULTS,
+    playMode: state.midiActive ? "midi" : "drone",
+  };
+  midiPerformance.setPitchBendRange(
+    state.performance.pitchBendRangeSemitones,
+  );
+  midiPerformance.setRootMidiNote(state.performance.rootMidiNote);
+  setPlayMode(state.performance.playMode);
   state.level = DEFAULT_LEVEL;
   $("level").value = String(DEFAULT_LEVEL);
   $("levelOut").textContent = `${Math.round(DEFAULT_LEVEL * 100)}%`;
@@ -588,6 +969,7 @@ $("resetRecursivePm").addEventListener("click", () => {
     presetId: defaultPreset.id,
     announce: true,
   });
+  writePerformanceControls();
 });
 
 document.addEventListener("visibilitychange", () => {
@@ -604,6 +986,8 @@ window.addEventListener("pagehide", () => {
     visualFrameId = null;
   }
   endResizeObservation();
+  unregisterMidiClient?.();
+  unregisterMidiClient = null;
   engine.stop({ immediate: true });
 });
 
@@ -611,6 +995,7 @@ window.addEventListener("pageshow", (event) => {
   if (!event.persisted || !disposed) return;
   disposed = false;
   beginResizeObservation();
+  registerSharedMidiClient();
   visualizationDirty = true;
   updateAudioUi();
   resizeCanvas();
@@ -627,6 +1012,8 @@ window.addEventListener("keydown", (event) => {
 });
 
 writeControlsFromState();
+writePerformanceControls();
+registerSharedMidiClient();
 updatePresetButtons();
 updateControlOutputs();
 beginResizeObservation();

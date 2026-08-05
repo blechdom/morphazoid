@@ -21,7 +21,14 @@ import {
   LATTICE_DRUM_MAPPING_MODES,
   latticeDrumVoiceIndex,
   mappedLatticeDrumVoice,
+  normalizedLatticeContact,
 } from "./src/lattice-drums.js";
+import {
+  LATTICE_TILE_COLORS,
+  latticeColorPairForIndex,
+  latticeColorPairLabel,
+  normalizedLatticeColorPair,
+} from "./src/lattice-colors.js";
 import { EdgeShape } from "./vendor/tactile/tactile.js";
 
 const $ = (id) => document.getElementById(id);
@@ -35,13 +42,7 @@ const wrapLineAngle = (value) => {
 };
 const OPEN_TILE_SCALE = .46;
 const DENSE_TILE_SCALE = .14;
-const TILE_COLORS = [
-  "rgba(255, 184, 107, .07)",
-  "rgba(125, 180, 255, .052)",
-  "rgba(95, 232, 196, .042)",
-  "rgba(255, 239, 196, .045)",
-  "rgba(255, 132, 92, .04)",
-];
+const TILE_COLORS = LATTICE_TILE_COLORS.map(({ fill }) => fill);
 const audio = new FmDrumAudio(globalThis);
 const defaults = {
   position: .5,
@@ -530,6 +531,35 @@ function populateMappingModes() {
   $("mappingMode").value = state.mappingMode;
 }
 
+function currentMappingMode() {
+  return LATTICE_DRUM_MAPPING_MODES.find(({ id }) => id === state.mappingMode)
+    ?? LATTICE_DRUM_MAPPING_MODES[0];
+}
+
+function renderMappingLegend(mode = currentMappingMode()) {
+  const fragment = document.createDocumentFragment();
+  for (const item of mode.legend) {
+    const cell = document.createElement("span");
+    const label = document.createElement("b");
+    const detail = document.createElement("small");
+    label.textContent = item.label;
+    detail.textContent = item.detail;
+    cell.append(label, detail);
+    fragment.append(cell);
+  }
+  $("mappingLegend").replaceChildren(fragment);
+}
+
+function pairAssignment(index) {
+  const pair = latticeColorPairForIndex(index);
+  if (!pair) return null;
+  return {
+    pair,
+    label: latticeColorPairLabel(pair),
+    colors: pair.map((colorIndex) => LATTICE_TILE_COLORS[colorIndex]),
+  };
+}
+
 function renderDrumMap() {
   const fragment = document.createDocumentFragment();
   voices.forEach((voice, index) => {
@@ -538,13 +568,50 @@ function renderDrumMap() {
     cell.dataset.voiceIndex = String(index);
     cell.style.setProperty("--voice-color", voice.color);
     const name = document.createElement("b");
-    const key = document.createElement("small");
+    const assignment = document.createElement("small");
     name.textContent = voice.name;
-    key.textContent = voice.key.toUpperCase();
-    cell.append(name, key);
+    if (state.mappingMode === "tile-color-pair") {
+      assignment.className = "lattice-drum-assignment";
+      const mappedPair = pairAssignment(index);
+      if (mappedPair) {
+        const swatch = document.createElement("i");
+        const label = document.createElement("span");
+        swatch.className = "lattice-pair-swatch";
+        swatch.style.setProperty("--pair-first", mappedPair.colors[0].solid);
+        swatch.style.setProperty("--pair-second", mappedPair.colors[1].solid);
+        label.textContent = mappedPair.label;
+        assignment.append(swatch, label);
+        cell.setAttribute("aria-label", `${mappedPair.label}: ${voice.name}`);
+      } else {
+        assignment.textContent = "Junction";
+        cell.setAttribute("aria-label", `Junction: ${voice.name}`);
+      }
+    } else {
+      assignment.textContent = voice.key.toUpperCase();
+      cell.setAttribute("aria-label", `${voice.name}, key ${voice.key.toUpperCase()}`);
+    }
+    cell.append(name, assignment);
     fragment.append(cell);
   });
   $("drumMap").replaceChildren(fragment);
+  $("drumMap").dataset.mappingMode = state.mappingMode;
+}
+
+function mappingPlaceholder(mode = currentMappingMode()) {
+  if (mode.id === "tile-color-pair") return "TOUCHING TILE COLORS → DRUM VOICE";
+  if (mode.id === "position-grid") return "CONTACT POSITION → DRUM VOICE";
+  if (mode.id === "incidence-density") return "INCIDENCE + DENSITY → DRUM VOICE";
+  return "EDGE CLASS + ANGLE → DRUM VOICE";
+}
+
+function updateMappingControls(shouldAnnounce = false) {
+  const mode = currentMappingMode();
+  $("mappingSummary").textContent = mode.label.toLowerCase();
+  $("mappingDescription").textContent = mode.description;
+  $("mappingReadout").textContent = mappingPlaceholder(mode);
+  renderMappingLegend(mode);
+  renderDrumMap();
+  if (shouldAnnounce) announce(`${mode.label}. ${mode.description}`);
 }
 
 function flashVoice(index) {
@@ -565,9 +632,59 @@ function mappingOptions(contactCount) {
   };
 }
 
+function contactOnsetKey(contact) {
+  return contact.onsetKey ?? contact.voiceKey;
+}
+
+function contactTileColors(contact) {
+  return Array.isArray(contact?.adjacentTiles)
+    ? contact.adjacentTiles.map(({ color }) => color)
+    : [];
+}
+
+function mappingReadoutLead(contact, contactCount, voiceIndex) {
+  if (state.mappingMode === "tile-color-pair") {
+    if (contact.isVertexContact) {
+      const edgeCount = Math.max(2, contact.edgeKeys?.length ?? 0);
+      return ["JUNCTION", `${edgeCount} EDGES`];
+    }
+    const colors = contactTileColors(contact);
+    if (colors.length !== 2) return ["OPEN BOUNDARY", "JUNCTION VOICE"];
+    return [
+      latticeColorPairLabel(colors).toUpperCase(),
+      `PAIR ${String(voiceIndex + 1).padStart(2, "0")}`,
+    ];
+  }
+  if (state.mappingMode === "position-grid") {
+    const position = normalizedLatticeContact(contact, viewBounds);
+    return [
+      `X ${Math.round(position.x * 100)}%`,
+      `Y ${Math.round(position.y * 100)}%`,
+    ];
+  }
+  if (state.mappingMode === "incidence-density") {
+    return [
+      `INCIDENCE ${Math.round(clamp(contact.incidence) * 100)}%`,
+      `${contactCount} CONTACTS`,
+    ];
+  }
+  return [
+    `EDGE ${String.fromCharCode(65 + (Math.abs(contact.edgeShapeId || 0) % 4))}`,
+    `${Math.round(contact.orientation * 180)}°`,
+  ];
+}
+
+function updateMappingReadout(contact, contactCount, voiceIndex, voice) {
+  $("mappingReadout").textContent = [
+    ...mappingReadoutLead(contact, contactCount, voiceIndex),
+    `→ ${voice.name}`,
+    `${Math.round(voice.frequency)} HZ`,
+  ].join(" · ");
+}
+
 function triggerContacts(contacts, now) {
   if (!state.playing || !state.audioOn || suppressStrikes > 0) return;
-  const onsets = contacts.filter((contact) => !previousContactKeys.has(contact.voiceKey));
+  const onsets = contacts.filter((contact) => !previousContactKeys.has(contactOnsetKey(contact)));
   let emitted = 0;
   for (const contact of onsets) {
     if (emitted >= state.strikeLimit) break;
@@ -583,12 +700,7 @@ function triggerContacts(contacts, now) {
     });
     audio.trigger(voice).catch(showError);
     flashVoice(voiceIndex);
-    $("mappingReadout").textContent = [
-      `EDGE ${String.fromCharCode(65 + (Math.abs(contact.edgeShapeId || 0) % 4))}`,
-      `${Math.round(contact.orientation * 180)}°`,
-      `→ ${voice.name}`,
-      `${Math.round(voice.frequency)} HZ`,
-    ].join(" · ");
+    updateMappingReadout(contact, contacts.length, voiceIndex, voice);
     emitted += 1;
   }
 }
@@ -650,6 +762,67 @@ function tracePoints(points, close = false) {
   if (close) drawing.closePath();
 }
 
+function drawContactMarker(contact, voiceIndex) {
+  const radius = 4.2 / worldScale;
+  const voiceColor = voices[voiceIndex].color;
+  const pairMode = state.mappingMode === "tile-color-pair";
+  const colors = contactTileColors(contact);
+  if (!pairMode) {
+    drawing.beginPath();
+    drawing.arc(contact.x, contact.y, radius, 0, Math.PI * 2);
+    drawing.fillStyle = voiceColor;
+    drawing.fill();
+    drawing.strokeStyle = "#fff3d6";
+    drawing.lineWidth = .8 / worldScale;
+    drawing.stroke();
+    return;
+  }
+
+  if (contact.isVertexContact || colors.length !== 2) {
+    drawing.beginPath();
+    drawing.arc(contact.x, contact.y, radius, 0, Math.PI * 2);
+    drawing.fillStyle = voiceColor;
+    drawing.fill();
+    drawing.strokeStyle = "#fff3d6";
+    drawing.lineWidth = .9 / worldScale;
+    drawing.stroke();
+    drawing.beginPath();
+    drawing.arc(contact.x, contact.y, radius * .52, 0, Math.PI * 2);
+    drawing.fillStyle = "#07090b";
+    drawing.fill();
+    drawing.strokeStyle = voiceColor;
+    drawing.lineWidth = .8 / worldScale;
+    drawing.stroke();
+    return;
+  }
+
+  const [first, second] = normalizedLatticeColorPair(colors);
+  const splitAngle = Math.atan2(contact.tangent.y, contact.tangent.x);
+  drawing.beginPath();
+  drawing.moveTo(contact.x, contact.y);
+  drawing.arc(contact.x, contact.y, radius, splitAngle, splitAngle + Math.PI);
+  drawing.closePath();
+  drawing.fillStyle = LATTICE_TILE_COLORS[first].solid;
+  drawing.fill();
+  drawing.beginPath();
+  drawing.moveTo(contact.x, contact.y);
+  drawing.arc(
+    contact.x,
+    contact.y,
+    radius,
+    splitAngle + Math.PI,
+    splitAngle + Math.PI * 2,
+  );
+  drawing.closePath();
+  drawing.fillStyle = LATTICE_TILE_COLORS[second].solid;
+  drawing.fill();
+  drawing.beginPath();
+  drawing.arc(contact.x, contact.y, radius, 0, Math.PI * 2);
+  drawing.strokeStyle = voiceColor;
+  drawing.lineWidth = 1.45 / worldScale;
+  drawing.stroke();
+}
+
 function drawLattice(scan, offset, contacts) {
   drawing.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   drawing.clearRect(0, 0, cssWidth, cssHeight);
@@ -696,13 +869,7 @@ function drawLattice(scan, offset, contacts) {
 
   for (const contact of contacts) {
     const voiceIndex = latticeDrumVoiceIndex(contact, mappingOptions(contacts.length));
-    drawing.beginPath();
-    drawing.arc(contact.x, contact.y, 4.2 / worldScale, 0, Math.PI * 2);
-    drawing.fillStyle = voices[voiceIndex].color;
-    drawing.fill();
-    drawing.strokeStyle = "#fff3d6";
-    drawing.lineWidth = .8 / worldScale;
-    drawing.stroke();
+    drawContactMarker(contact, voiceIndex);
   }
   drawing.restore();
 }
@@ -713,9 +880,6 @@ function updateInterface(contacts) {
   $("motionSummary").textContent = `${state.playing ? "playing" : "paused"} · ${state.speed.toFixed(3)} cyc/s`;
   const info = tilingInfo(state.tilingType);
   $("formSummary").textContent = info.label;
-  const mode = LATTICE_DRUM_MAPPING_MODES.find(({ id }) => id === state.mappingMode);
-  $("mappingSummary").textContent = mode?.label.toLowerCase() ?? "custom";
-  $("mappingDescription").textContent = mode?.description ?? "";
   $("stageReadout").textContent = [
     `${contacts.length} ${contacts.length === 1 ? "CONTACT" : "CONTACTS"}`,
     state.playing ? "PLAYING" : "PAUSED",
@@ -736,7 +900,7 @@ function frame(now) {
   const offset = latticeOffsetForPhase(lattice, state.position);
   const contacts = contactsForLine(lattice, scan, undefined, offset);
   triggerContacts(contacts, now);
-  previousContactKeys = new Set(contacts.map(({ voiceKey }) => voiceKey));
+  previousContactKeys = new Set(contacts.map(contactOnsetKey));
   if (suppressStrikes > 0) suppressStrikes -= 1;
   drawLattice(scan, offset, contacts);
   if (tileEditorDirty) drawTileEditor();
@@ -779,6 +943,7 @@ function reset() {
   for (const button of $("directionChoice").querySelectorAll("button")) {
     setPressed(button, Number(button.dataset.direction) === state.direction);
   }
+  updateMappingControls();
   configureTilingControls();
   if (state.audioOn) audio.setOutput(state.output);
   invalidateGeometry();
@@ -841,6 +1006,7 @@ $("mappingMode").addEventListener("change", () => {
   state.mappingMode = $("mappingMode").value;
   previousContactKeys.clear();
   suppressStrikes = 1;
+  updateMappingControls(true);
   scheduleFrame();
 });
 $("pitchDepth").addEventListener("input", () => {
@@ -941,6 +1107,5 @@ window.addEventListener("pagehide", () => {
 
 populateTilingTypes();
 populateMappingModes();
-renderDrumMap();
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 reset();

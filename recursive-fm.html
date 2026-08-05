@@ -76,10 +76,10 @@
             id="stage"
             tabindex="0"
             role="img"
-            aria-label="Recursive FM algorithm with three recursive operators. Audio off."
+            aria-label="Recursive FM live spectrum bars with a foreground oscilloscope, three recursive operators, and audio off."
             aria-describedby="recursiveFmDescription liveStatus"
           >
-            An oscilloscope, spectrogram, and signal-flow explanation for Recursive FM.
+            A live frequency spectrum, foreground oscilloscope, and signal-flow explanation for Recursive FM.
           </canvas>
 
           <div class="recursive-fm-heading">
@@ -117,6 +117,79 @@
             </div>
             <p class="recursive-fm-preset-description" id="presetDescription">
               The original default: three descending layers around a 3.32 Hz seed.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section recursive-fm-performance" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Performance</h2>
+            <span class="section-state" id="performanceState">Drone · continuous</span>
+          </summary>
+          <div class="group-body">
+            <div class="recursive-fm-midi-monitor" aria-label="Live MIDI performance state">
+              <span><b>Note</b><output id="currentNote">—</output></span>
+              <span><b>Bend</b><output id="bendState">+0 st</output></span>
+              <span><b>Sustain</b><output id="sustainState">up</output></span>
+              <span class="recursive-fm-expression-row">
+                <b>Expression</b>
+                <i id="expressionMeter" aria-hidden="true"></i>
+                <output id="expressionValue">100%</output>
+              </span>
+              <span class="recursive-fm-midi-activity" id="midiActivity" aria-live="polite">Waiting for MIDI</span>
+            </div>
+
+            <div class="recursive-fm-adsr-preview" aria-label="Amplitude ADSR shape">
+              <svg viewBox="0 0 240 72" role="img" aria-label="Attack, decay, sustain and release envelope">
+                <path class="recursive-fm-adsr-grid" d="M 8 64 H 232 M 8 8 V 64" />
+                <path id="adsrCurve" d="M 8 64 Q 31 12 52 8 Q 76 26 103 26 L 171 26 Q 202 26 232 64" />
+              </svg>
+              <span>A</span><span>D</span><span>S</span><span>R</span>
+            </div>
+
+            <label class="control" for="ampAttackMs">
+              <span><b>Attack</b><output id="ampAttackMsOut" for="ampAttackMs">8 ms</output></span>
+              <input id="ampAttackMs" data-parameter-id="performance.ampAttackMs" type="range" min="0" max="1" step="0.001" value="0.302" />
+            </label>
+            <label class="control" for="ampDecayMs">
+              <span><b>Decay</b><output id="ampDecayMsOut" for="ampDecayMs">120 ms</output></span>
+              <input id="ampDecayMs" data-parameter-id="performance.ampDecayMs" type="range" min="0" max="1" step="0.001" value="0.563" />
+            </label>
+            <label class="control" for="ampSustainLevel">
+              <span><b>Sustain level</b><output id="ampSustainLevelOut" for="ampSustainLevel">72%</output></span>
+              <input id="ampSustainLevel" data-parameter-id="performance.ampSustainLevel" type="range" min="0" max="1" step="0.01" value="0.72" />
+            </label>
+            <label class="control" for="ampReleaseMs">
+              <span><b>Release</b><output id="ampReleaseMsOut" for="ampReleaseMs">180 ms</output></span>
+              <input id="ampReleaseMs" data-parameter-id="performance.ampReleaseMs" type="range" min="0" max="1" step="0.001" value="0.528" />
+            </label>
+
+            <div class="recursive-fm-glide-row">
+              <label for="glideMode">
+                <span>Glide mode</span>
+                <select id="glideMode" data-parameter-id="performance.glideMode">
+                  <option value="off" selected>Off</option>
+                  <option value="legato">Legato</option>
+                  <option value="always">Always</option>
+                </select>
+              </label>
+            </div>
+            <label class="control" for="glideTimeMs">
+              <span><b>Glide time</b><output id="glideTimeMsOut" for="glideTimeMs">off</output></span>
+              <input id="glideTimeMs" data-parameter-id="performance.glideTimeMs" type="range" min="0" max="1" step="0.001" value="0" />
+            </label>
+            <label class="control" for="rootMidiNote">
+              <span><b>Root note</b><output id="rootMidiNoteOut" for="rootMidiNote">C4 · 60</output></span>
+              <input id="rootMidiNote" data-parameter-id="performance.rootMidiNote" type="range" min="0" max="127" step="1" value="60" />
+            </label>
+            <label class="control" for="pitchBendRangeSemitones">
+              <span><b>Pitch-bend range</b><output id="pitchBendRangeSemitonesOut" for="pitchBendRangeSemitones">±2 st</output></span>
+              <input id="pitchBendRangeSemitones" data-parameter-id="performance.pitchBendRangeSemitones" type="range" min="0" max="24" step="1" value="2" />
+            </label>
+
+            <p class="recursive-fm-control-note recursive-fm-midi-map-note">
+              Controller Macros 1–8 · carrier · offset · modulation · divisor · attack · release · glide · output.<br />
+              Standard performance MIDI · CC5 glide · CC11 expression · CC64 sustain · CC65 portamento · CC72 release · CC73 attack · CC75 decay · CC120/121/123 panic and reset
             </p>
           </div>
         </details>
@@ -182,7 +255,7 @@
       </aside>
 
       <p class="sr-only" id="recursiveFmDescription">
-        A live oscilloscope and rolling spectrogram sit above the complete nested FM operator graph. Curved connections show each sine output scaled into the next oscillator's frequency input; tap branches show that only the selected final operator reaches audio.
+        A bright live oscilloscope overlays non-scrolling, logarithmic frequency spectrum bars above the complete nested FM operator graph. Curved connections show each sine output scaled into the next oscillator's frequency input; tap branches show that only the selected final operator reaches audio.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

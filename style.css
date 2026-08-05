@@ -1503,6 +1503,245 @@ a {
   color: color-mix(in oklab, var(--bg-deep) 70%, transparent);
 }
 
+/* Shared Web MIDI */
+
+.midi-toolbar {
+  position: relative;
+  z-index: 62;
+  display: flex;
+  height: 44px;
+  min-width: 0;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.midi-toggle,
+.midi-profile-trigger {
+  min-height: 44px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+}
+
+.midi-toggle {
+  display: grid;
+  width: 74px;
+  min-width: 74px;
+  grid-template-columns: 8px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 7px;
+  text-align: left;
+}
+
+.midi-toggle:hover,
+.midi-profile-trigger:hover,
+.midi-profile-menu[open] .midi-profile-trigger {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.midi-toggle:disabled,
+.midi-profile-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.midi-status-dot {
+  width: 7px;
+  height: 7px;
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.midi-toggle b {
+  grid-column: 2;
+  color: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.midi-toggle small {
+  grid-column: 2;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.midi-toggle[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.midi-toggle[aria-pressed="true"] .midi-status-dot {
+  border-color: var(--bg-deep);
+  background: var(--bg-deep);
+  box-shadow: 0 0 6px color-mix(in oklab, var(--bg-deep) 50%, transparent);
+}
+
+.midi-toggle[aria-pressed="true"] small {
+  color: color-mix(in oklab, var(--bg-deep) 72%, transparent);
+}
+
+.midi-toolbar.is-error .midi-status-dot {
+  border-color: var(--orange);
+  background: var(--orange);
+  box-shadow: 0 0 7px color-mix(in oklab, var(--orange) 55%, transparent);
+}
+
+.midi-profile-menu {
+  position: relative;
+  height: 44px;
+}
+
+.midi-profile-trigger {
+  display: grid;
+  width: 64px;
+  height: 44px;
+  min-width: 64px;
+  padding-right: 7px;
+  padding-left: 7px;
+  align-content: center;
+  list-style: none;
+  text-align: left;
+}
+
+.midi-profile-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.midi-profile-trigger b,
+.midi-profile-trigger small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.midi-profile-trigger b {
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.midi-profile-trigger small {
+  margin-top: 4px;
+  color: var(--accent);
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.midi-profile-panel {
+  position: fixed;
+  z-index: 82;
+  top: 57px;
+  right: clamp(12px, 2.5vw, 32px);
+  display: grid;
+  width: min(390px, calc(100vw - 24px));
+  padding: 14px;
+  border: 1px solid var(--line-strong);
+  background:
+    linear-gradient(145deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 52%),
+    color-mix(in oklab, var(--bg-deep) 97%, transparent);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.52);
+  gap: 11px;
+}
+
+.midi-profile-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.midi-profile-heading b {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.midi-profile-heading span {
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.midi-profile-field {
+  display: grid;
+  gap: 6px;
+}
+
+.midi-profile-field > span {
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.midi-profile-field select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 34px 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--accent);
+  background: var(--panel);
+  font-size: 10px;
+}
+
+.midi-profile-status,
+.midi-profile-hint,
+.midi-keyboard-hint,
+.midi-profile-error {
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.midi-keyboard-hint {
+  padding: 9px;
+  border: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line));
+  color: var(--ink);
+  background: color-mix(in oklab, var(--accent) 5%, transparent);
+}
+
+.midi-profile-status {
+  color: var(--ink);
+}
+
+.midi-profile-hint {
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.midi-profile-error {
+  color: var(--orange);
+}
+
 .audio-button:disabled {
   cursor: wait;
   opacity: 0.55;
@@ -1650,6 +1889,96 @@ input[type="range"]::-moz-range-thumb {
   background: var(--panel);
   scrollbar-color: var(--faint) transparent;
   scrollbar-width: thin;
+}
+
+.plugin-download-callout {
+  display: grid;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line-strong);
+  background:
+    linear-gradient(120deg, color-mix(in oklab, var(--accent) 9%, transparent), transparent 64%),
+    color-mix(in oklab, var(--bg-deep) 56%, transparent);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.plugin-download-callout-copy {
+  min-width: 0;
+}
+
+.plugin-download-callout-copy p,
+.plugin-download-callout-copy h2,
+.plugin-download-callout-copy small {
+  margin: 0;
+}
+
+.plugin-download-callout-copy p {
+  color: var(--accent);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.plugin-download-callout-copy h2 {
+  margin-top: 4px;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+.plugin-download-callout-copy h2 span {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.plugin-download-callout-copy small {
+  display: block;
+  margin-top: 3px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+}
+
+.plugin-download-callout-actions {
+  display: grid;
+  justify-items: stretch;
+  gap: 5px;
+}
+
+.plugin-download-callout-actions a {
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.045em;
+  text-align: center;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 2px;
+}
+
+.plugin-download-callout-actions .plugin-download-callout-primary {
+  display: grid;
+  min-height: 29px;
+  padding: 0 10px;
+  border: 1px solid var(--accent);
+  color: var(--bg-deep);
+  background: var(--accent);
+  place-items: center;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.plugin-download-callout-actions .plugin-download-callout-primary:hover,
+.plugin-download-callout-actions .plugin-download-callout-primary:focus-visible {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--accent) 74%, transparent);
 }
 
 .reset-all-row {
@@ -3030,6 +3359,53 @@ select:hover {
   text-transform: uppercase;
 }
 
+.shape-midi-map-note {
+  display: grid;
+  margin: 0 0 13px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--purple);
+  background: color-mix(in oklab, var(--purple) 4%, transparent);
+  gap: 6px;
+}
+
+.shape-midi-map-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.shape-midi-map-heading h2,
+.shape-midi-map-heading span,
+.shape-midi-map-note p {
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.shape-midi-map-heading h2 {
+  color: var(--purple);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.shape-midi-map-heading span {
+  color: var(--faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.shape-midi-map-note p {
+  color: var(--muted);
+}
+
+.shape-midi-map-note b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 /* Responsive layout */
 
 @media (max-width: 960px) {
@@ -3250,6 +3626,19 @@ select:hover {
   }
 }
 
+@media (min-width: 651px) and (max-width: 900px) {
+  .masthead.has-midi-toolbar .wordmark,
+  .masthead.has-midi-toolbar .tabs.tools-nav {
+    display: none;
+  }
+
+  .masthead.has-midi-toolbar .tabs.tools-nav + .mobile-instrument-nav {
+    display: block;
+    width: clamp(104px, 20vw, 142px);
+    flex: 0 1 142px;
+  }
+}
+
 @media (max-width: 520px) {
   .masthead {
     padding-right: 10px;
@@ -3290,6 +3679,77 @@ select:hover {
   .group-summary {
     padding-right: 16px;
     padding-left: 16px;
+  }
+}
+
+@media (max-width: 650px) {
+  .midi-toolbar {
+    gap: 4px;
+  }
+
+  .midi-toggle {
+    width: 62px;
+    min-width: 62px;
+    padding-right: 6px;
+    padding-left: 6px;
+    column-gap: 5px;
+  }
+
+  .midi-profile-trigger {
+    width: 54px;
+    min-width: 54px;
+    text-align: center;
+  }
+
+  .midi-profile-trigger small {
+    font-size: 8px;
+  }
+
+  .midi-profile-panel {
+    top: 53px;
+    right: 8px;
+  }
+}
+
+@media (max-width: 520px) {
+  .masthead.has-midi-toolbar .mobile-instrument-nav {
+    width: clamp(78px, 27vw, 112px);
+    flex-basis: 112px;
+  }
+
+  .masthead.has-midi-toolbar .audio-strip {
+    width: 56px;
+    flex: 0 0 56px;
+    grid-template-columns: 56px;
+    gap: 0;
+  }
+
+  .masthead.has-midi-toolbar .header-level {
+    display: none;
+  }
+
+  .masthead.has-midi-toolbar .midi-toggle {
+    width: 58px;
+    min-width: 58px;
+  }
+
+  .masthead.has-midi-toolbar .midi-profile-trigger {
+    width: 50px;
+    min-width: 50px;
+    font-size: 8px;
+  }
+}
+
+@media (max-width: 360px) {
+  .masthead.has-midi-toolbar {
+    padding-right: 8px;
+    padding-left: 8px;
+    gap: 6px;
+  }
+
+  .masthead.has-midi-toolbar .mobile-instrument-nav {
+    width: 78px;
+    flex-basis: 78px;
   }
 }
 

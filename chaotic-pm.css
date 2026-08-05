@@ -86,6 +86,142 @@
   --accent-glow: color-mix(in oklab, #b98cff 20%, transparent);
 }
 
+.chaotic-pm-performance {
+  --accent: #ffab65;
+  --accent-soft: color-mix(in oklab, #ffab65 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffab65 18%, transparent);
+}
+
+.chaotic-midi-monitor {
+  display: grid;
+  padding: 9px 10px;
+  margin-bottom: 13px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-deep) 86%, transparent);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.chaotic-midi-monitor > span {
+  display: grid;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 8px;
+  gap: 3px;
+}
+
+.chaotic-midi-monitor b {
+  color: var(--faint);
+  font-size: 6px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.chaotic-midi-monitor output {
+  overflow: hidden;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chaotic-expression-row {
+  grid-column: 1 / -1;
+  grid-template-columns: 54px minmax(0, 1fr) 34px !important;
+  align-items: center;
+}
+
+.chaotic-expression-row i {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  background: var(--line-strong);
+}
+
+.chaotic-expression-row i::after {
+  position: absolute;
+  inset: 0;
+  width: calc(var(--expression, 1) * 100%);
+  content: "";
+  background: var(--chaotic-pm-carrier);
+}
+
+.chaotic-midi-activity {
+  color: var(--faint) !important;
+  grid-column: 1 / -1;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.chaotic-midi-activity.is-active {
+  color: var(--chaotic-pm-carrier) !important;
+}
+
+.chaotic-adsr-preview {
+  display: grid;
+  margin: 2px 0 12px;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.chaotic-adsr-preview svg {
+  width: 100%;
+  height: 74px;
+  grid-column: 1 / -1;
+}
+
+.chaotic-adsr-preview path:not(.chaotic-adsr-grid) {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 5px var(--accent-glow));
+}
+
+.chaotic-adsr-preview .chaotic-adsr-grid {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.chaotic-adsr-preview > span {
+  margin-top: -5px;
+  color: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.chaotic-glide-row {
+  margin: 2px 0 12px;
+}
+
+.chaotic-glide-row label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  color: var(--ink);
+  font-size: 9px;
+  gap: 10px;
+}
+
+.chaotic-glide-row select {
+  min-width: 106px;
+  height: 30px;
+  padding: 0 24px 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font: inherit;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.chaotic-midi-map-note {
+  margin-top: 3px;
+  line-height: 1.65;
+}
+
 .chaotic-pm-family {
   --accent: #ffab65;
   --accent-soft: color-mix(in oklab, #ffab65 55%, transparent);
@@ -242,11 +378,65 @@
   opacity: 1;
 }
 
-.chaotic-pm-page .chaotic-pm-flow svg {
+.chaotic-pm-page .chaotic-pm-flow .chaotic-pm-flow-detailed {
   display: block;
   width: max(100%, 1260px);
   min-width: 1260px;
   height: 100%;
+}
+
+.chaotic-pm-page .chaotic-pm-flow .chaotic-pm-flow-compact {
+  display: none;
+}
+
+.chaotic-pm-compact-node rect {
+  fill: color-mix(in oklab, var(--bg-deep) 90%, transparent);
+  stroke: var(--chaotic-pm-warp);
+  stroke-width: 1.3;
+}
+
+.chaotic-pm-compact-node.is-carrier rect {
+  stroke: var(--chaotic-pm-carrier);
+}
+
+.chaotic-pm-compact-node.is-phase rect {
+  stroke: var(--chaotic-pm-phase);
+}
+
+.chaotic-pm-compact-node.is-output rect {
+  fill: color-mix(in oklab, var(--chaotic-pm-output) 8%, var(--bg-deep));
+  stroke: var(--chaotic-pm-output);
+}
+
+.chaotic-pm-compact-title,
+.chaotic-pm-compact-value,
+.chaotic-pm-compact-caption,
+.chaotic-pm-compact-arrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-anchor: middle;
+}
+
+.chaotic-pm-compact-title {
+  fill: var(--ink);
+  font-size: 7.5px;
+  font-weight: 650;
+}
+
+.chaotic-pm-compact-value {
+  fill: var(--muted);
+  font-size: 5.9px;
+}
+
+.chaotic-pm-compact-arrow {
+  fill: var(--chaotic-pm-phase);
+  font-size: 15px;
+}
+
+.chaotic-pm-compact-caption {
+  fill: var(--faint);
+  font-size: 5.8px;
+  letter-spacing: 0.035em;
+  text-anchor: start;
 }
 
 .chaotic-pm-flow .chaotic-path-wire,
@@ -393,6 +583,10 @@
 }
 
 @media (max-width: 650px) {
+  .chaotic-pm-shell {
+    grid-template-rows: clamp(360px, 50dvh, 460px) minmax(0, 1fr);
+  }
+
   .chaotic-pm-heading {
     top: 19px;
     left: 16px;
@@ -404,19 +598,29 @@
   }
 
   .chaotic-pm-page .chaotic-pm-flow {
-    right: 10px;
-    bottom: 9px;
-    left: 10px;
-    height: 126px;
+    right: 5px;
+    bottom: 8px;
+    left: 5px;
+    /* Keep the graph below the shared analyzer at the 360px stage floor. */
+    height: clamp(0px, calc(100% - 274px), 118px);
+    overflow: hidden;
+    pointer-events: none;
+    touch-action: auto;
   }
 
   .chaotic-pm-page .chaotic-pm-flow::before {
-    font-size: 7px;
+    display: none;
   }
 
-  .chaotic-pm-page .chaotic-pm-flow svg {
-    width: 1030px;
-    min-width: 1030px;
+  .chaotic-pm-page .chaotic-pm-flow .chaotic-pm-flow-detailed {
+    display: none;
+  }
+
+  .chaotic-pm-page .chaotic-pm-flow .chaotic-pm-flow-compact {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
   }
 }
 

@@ -473,6 +473,25 @@ test("worklet renders finite extreme recursion and crossfades depth without rend
     envelopeProcessor.advanceEnvelope();
     assert.equal(envelopeProcessor.envelopeStage, 0);
     assert.equal(envelopeProcessor.envelopeLevel, 0);
+
+    const ownedProcessor = new Processor({
+      processorOptions: {
+        ...CHAOTIC_FM_PRESETS[0].settings,
+        playMode: "midi",
+      },
+    });
+    ownedProcessor.noteOn(60, 70, 0, "web-midi:hardware");
+    ownedProcessor.noteOn(64, 90, 0, "web-midi:hardware");
+    ownedProcessor.noteOn(60, 110, 0, "computer-keyboard");
+    assert.equal(ownedProcessor.noteHeld[60], 2);
+    ownedProcessor.noteOff(60, 0, "computer-keyboard");
+    assert.equal(ownedProcessor.selectedNote, 64);
+    assert.equal(ownedProcessor.noteHeld[60], 1);
+    ownedProcessor.noteOff(64, 0, "web-midi:hardware");
+    assert.equal(ownedProcessor.selectedNote, 60);
+    assert.equal(ownedProcessor.targetVelocity, 70 / 127);
+    ownedProcessor.noteOff(60, 0, "web-midi:hardware");
+    assert.equal(ownedProcessor.selectedNote, -1);
     globalThis.sampleRate = 48_000;
 
     const source = await readFile(
@@ -653,10 +672,9 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);
   assert.match(markup, /id="audioState">off</);
   assert.match(markup, /id="output"/);
-  assert.match(markup, /id="midiButton"[^>]+aria-pressed="false"/);
-  assert.match(markup, /SysEx is never requested/);
-  assert.match(markup, /id="playModeDrone"[\s\S]+aria-pressed="true"/);
-  assert.match(markup, /id="playModeMidi"[\s\S]+aria-pressed="false"/);
+  assert.doesNotMatch(markup, /id="midiButton"|id="midiState"|id="midiError"/);
+  assert.doesNotMatch(markup, /id="playModeDrone"|id="playModeMidi"/);
+  assert.match(markup, /id="midiActivity"/);
   for (const id of [
     "ampAttackMs",
     "ampDecayMs",
@@ -669,7 +687,8 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   ]) {
     assert.match(markup, new RegExp(`id="${id}"`));
   }
-  assert.match(markup, /Factory MIDI · CC5 glide · CC11 expression/);
+  assert.match(markup, /Standard performance MIDI · CC5 glide · CC11 expression/);
+  assert.match(markup, /Controller Macros 1–8 · carrier · offset · amount · nonlinearity · attack · release · glide · output/);
   assert.match(markup, /non-scrolling live spectrum/i);
   assert.match(markup, /frequency bars sits behind a brighter oscilloscope/i);
   assert.match(markup, /href="chaotic-synth-ui\.css"/);
@@ -698,6 +717,13 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   assert.match(markup, /class="chaotic-fm-subtitle"/);
   assert.match(markup, /Each oscillator’s waveform becomes the next oscillator’s signed frequency/);
   assert.match(markup, /Saturation keeps this recursive cascade bounded/);
+  assert.match(markup, /class="plugin-download-callout"/);
+  assert.match(markup, /JSFX v0\.3\.0 beta/);
+  assert.match(
+    markup,
+    /downloads\/plugins\/chaotic-fm\/0\.3\.0\/reaper-jsfx\/Morphazoid_Chaotic_FM\.jsfx/,
+  );
+  assert.match(markup, /href="plugins\.html#chaotic-fm"/);
   assert.match(markup, /src="chaotic-fm-app\.js"/);
   assert.doesNotMatch(markup, /https?:\/\//);
   assert.doesNotMatch(markup, />\s*filter\s*</i);
@@ -706,10 +732,23 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   assert.match(app, /drawChaoticLiveAnalysis/);
   assert.match(app, /createChaoticSpectrum/);
   assert.match(app, /new ChaoticFmWebMidi/);
-  assert.match(app, /midiButton"\)\.addEventListener\("click", enableMidi\)/);
+  assert.match(app, /getSharedMidiManager\(globalThis\)/);
+  assert.match(app, /sharedMidiManager\.registerClient/);
+  assert.match(app, /id: "chaotic-fm"/);
+  assert.match(app, /onMessage: handleSharedMidiMessage/);
+  assert.match(app, /onEnabledChange: handleSharedMidiEnabled/);
+  assert.match(app, /onPrepareEnable: prepareSharedMidiEnable/);
+  assert.match(app, /onProfileChange: handleSharedMidiProfileChange/);
+  assert.match(app, /midiBridge\.handleMessage/);
+  assert.doesNotMatch(app, /midiBridge\.enable\(/);
+  assert.match(app, /applyLogicalMidiMacro\(message\.logical\)/);
+  assert.match(app, /audio\.allSoundOff\(\);[\s\S]{0,180}playMode: "drone"/);
   assert.match(app, /playMode: "drone"/);
   assert.match(app, /FRAME_INTERVAL = 1_000 \/ 30/);
   assert.match(app, /addEventListener\("pagehide"/);
+  assert.match(app, /unregisterMidiClient\?\.\(\)/);
+  assert.match(app, /addEventListener\("pageshow"/);
+  assert.match(app, /registerSharedMidiClient\(\)/);
   assert.match(app, /audio\.close\(\)/);
   assert.doesNotMatch(app, /new AudioContext/);
 

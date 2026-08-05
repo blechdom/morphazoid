@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Lissajous Orbits - frequency ratios drawn and sounded together." />
+    <title>Lissajous Orbits - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" /><link rel="stylesheet" href="style.css" /><link rel="stylesheet" href="experiments.css" />
+  </head>
+  <body class="experiment-page" data-experiment="lissajous">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+      <nav class="tabs" aria-label="Morphazoid main menu"><a class="tab active" href="lissajous-orbits.html" aria-current="page">lissajous orbits</a></nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="lissajous-orbits.html" selected>lissajous orbits</option></select></label>
+      <div class="header-actions"><button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-dot" aria-hidden="true"></span><span>audio</span><strong id="audioState">off</strong></button><label class="header-level" for="level"><span><b>level</b><output id="levelOut" for="level">45%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.45" /></label></div>
+    </header>
+    <main class="shell experiment-shell" id="lissajousOrbits">
+      <section class="stage" aria-label="Lissajous Orbits stage"><div class="stage-wrap" id="stageWrap"><canvas id="stage" tabindex="0" role="img" aria-label="Two perpendicular oscillations trace a closed Lissajous curve." aria-describedby="canvasInstructions liveStatus">Lissajous frequency-ratio curve.</canvas><div class="stage-meta" aria-hidden="true"><span id="stageReadout">LISSAJOUS ORBITS &middot; 3:2 &middot; AUDIO OFF</span></div><div class="experiment-title" aria-hidden="true"><h1>Lissajous Orbits</h1><small>frequency ratio made visible</small></div></div><p class="sr-only" id="canvasInstructions">The moving point combines horizontal and vertical harmonic motion.</p><p class="sr-only" id="liveStatus" aria-live="polite"></p></section>
+      <aside class="panel experiment-panel" aria-label="Lissajous Orbits controls">
+        <section class="group experiment-card" aria-labelledby="experimentTitle"><div class="experiment-card-heading"><h2 class="group-title" id="experimentTitle">Experiment</h2><span class="section-state" id="experimentSummary">harmonics &middot; geometry</span></div><dl class="experiment-meter-grid"><div><dt>Reduced ratio</dt><dd id="metricPrimary">3:2</dd></div><div><dt>Repeat time</dt><dd id="metricSecondary">8.33 s</dd></div></dl></section>
+        <section class="group control-section" aria-labelledby="ratioTitle"><div class="experiment-card-heading"><h2 class="group-title" id="ratioTitle">Oscillators</h2><span class="section-state" id="patternSummary">3 by 2 oscillations</span></div><div class="group-body">
+          <label class="control" for="lissajousX"><span><b>Horizontal ratio</b><output id="lissajousXOut" for="lissajousX">3</output></span><input id="lissajousX" type="range" min="1" max="9" step="1" value="3" /></label>
+          <label class="control" for="lissajousY"><span><b>Vertical ratio</b><output id="lissajousYOut" for="lissajousY">2</output></span><input id="lissajousY" type="range" min="1" max="9" step="1" value="2" /></label>
+          <label class="control" for="lissajousPhase"><span><b>Phase offset</b><output id="lissajousPhaseOut" for="lissajousPhase">90 deg</output></span><input id="lissajousPhase" type="range" min="0" max="180" step="1" value="90" /></label>
+          <label class="control" for="lissajousRate"><span><b>Trace rate</b><output id="lissajousRateOut" for="lissajousRate">0.12 cyc/s</output></span><input id="lissajousRate" type="range" min="0.03" max="0.6" step="0.01" value="0.12" /></label>
+          <label class="control" for="lissajousTone"><span><b>Ratio unit</b><output id="lissajousToneOut" for="lissajousTone">55 Hz</output></span><input id="lissajousTone" type="range" min="30" max="180" step="1" value="55" /></label>
+        </div></section>
+        <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button></div>
+      </aside>
+    </main>
+    <script type="module" src="nav.js"></script><script type="module" src="experiments-app.js"></script>
+  </body>
+</html>

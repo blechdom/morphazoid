@@ -42,7 +42,7 @@ while IFS= read -r -d '' source_path; do
   esac
 
   case "$source_path" in
-    *.html|*.css|*.js|favicon.svg|morphazoidical/PLAN.md|\
+    *.html|*.css|*.js|favicon.svg|morphazoidical/PLAN.md|downloads/plugins/*|\
     vendor/tactile/LICENSE|\
     vendor/signalsmith-stretch/LICENSE|\
     vendor/signalsmith-stretch/SignalsmithStretch.mjs)
@@ -56,6 +56,18 @@ done < <(git -C "$repo_root" ls-files -z)
 for worktree_runtime_file in \
   about.html \
   about.css \
+  plugins.html \
+  plugins.css \
+  plugins-app.js \
+  src/plugin-catalog.js \
+  src/midi-manager.js \
+  src/shape-midi.js \
+  src/fm-drums-midi.js \
+  downloads/plugins/chaotic-fm/0.2.1/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx \
+  downloads/plugins/chaotic-fm/0.2.2/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx \
+  downloads/plugins/chaotic-fm/0.2.3/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx \
+  downloads/plugins/chaotic-fm/0.3.0/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx \
+  src/recursive-pm-midi.js \
   vendor/signalsmith-stretch/LICENSE \
   shape-drums.html \
   shape-drums.css \
@@ -116,6 +128,16 @@ for worktree_runtime_file in \
   spring-choir.html \
   gear-ratio-drums.html \
   cellular-automata.html \
+  prime-sieve.html \
+  lissajous-orbits.html \
+  pendulum-wave.html \
+  double-pendulum.html \
+  reaction-diffusion.html \
+  atomic-orbitals.html \
+  dna-translator.html \
+  neural-pulse.html \
+  fourier-epicycles.html \
+  gravity-lens.html \
   experiments.css \
   experiments-app.js
 do
@@ -126,6 +148,17 @@ required_files=(
   index.html
   about.html
   about.css
+  plugins.html
+  plugins.css
+  plugins-app.js
+  src/plugin-catalog.js
+  src/midi-manager.js
+  src/shape-midi.js
+  src/fm-drums-midi.js
+  downloads/plugins/chaotic-fm/0.2.1/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx
+  downloads/plugins/chaotic-fm/0.2.2/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx
+  downloads/plugins/chaotic-fm/0.2.3/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx
+  downloads/plugins/chaotic-fm/0.3.0/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx
   app.js
   style.css
   favicon.svg
@@ -151,6 +184,7 @@ required_files=(
   recursive-pm.css
   recursive-pm-app.js
   src/recursive-pm.js
+  src/recursive-pm-midi.js
   chaotic-fm.html
   chaotic-fm.css
   chaotic-fm-app.js
@@ -198,6 +232,16 @@ required_files=(
   spring-choir.html
   gear-ratio-drums.html
   cellular-automata.html
+  prime-sieve.html
+  lissajous-orbits.html
+  pendulum-wave.html
+  double-pendulum.html
+  reaction-diffusion.html
+  atomic-orbitals.html
+  dna-translator.html
+  neural-pulse.html
+  fourier-epicycles.html
+  gravity-lens.html
   experiments.css
   experiments-app.js
   fm-drums.html

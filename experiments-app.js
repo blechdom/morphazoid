@@ -1,6 +1,15 @@
 const TAU = Math.PI * 2;
 const MAX_CONTINUOUS_VOICES = 12;
 const PENTATONIC = [0, 2, 3, 5, 7, 10, 12, 14];
+const DNA_BASES = "TCAG";
+const CODON_CODES = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG";
+const REACTION_GRID_WIDTH = 112;
+const REACTION_GRID_HEIGHT = 76;
+const AMINO_NAMES = Object.freeze({
+  A: "Ala", C: "Cys", D: "Asp", E: "Glu", F: "Phe", G: "Gly", H: "His",
+  I: "Ile", K: "Lys", L: "Leu", M: "Met", N: "Asn", P: "Pro", Q: "Gln",
+  R: "Arg", S: "Ser", T: "Thr", V: "Val", W: "Trp", Y: "Tyr", "*": "Stop",
+});
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
@@ -14,6 +23,27 @@ function gcd(first, second) {
   let b = Math.abs(Math.round(second));
   while (b) [a, b] = [b, a % b];
   return a || 1;
+}
+
+function sigmoid(value) {
+  return 1 / (1 + Math.exp(-value));
+}
+
+function stageTopInset() {
+  return canvasWidth < 520 ? 112 : 82;
+}
+
+function hashUnit(index, salt = 0) {
+  const value = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453123;
+  return value - Math.floor(value);
+}
+
+function codonAmino(codon) {
+  if (!/^[ACGT]{3}$/.test(codon)) return "?";
+  const index = DNA_BASES.indexOf(codon[0]) * 16
+    + DNA_BASES.indexOf(codon[1]) * 4
+    + DNA_BASES.indexOf(codon[2]);
+  return CODON_CODES[index] ?? "?";
 }
 
 class ExperimentAudio {
@@ -166,6 +196,36 @@ const state = {
   caAccumulator: 0,
   caSeed: 1,
   caStats: { density: 0, transitions: 0 },
+  primeStatus: [],
+  primeList: [],
+  primeCursor: 2,
+  primeAccumulator: 0,
+  pendulumSigns: [],
+  chaosSystems: [],
+  chaosTrails: [[], []],
+  chaosElapsed: 0,
+  reactionA: null,
+  reactionB: null,
+  reactionNextA: null,
+  reactionNextB: null,
+  reactionStats: { coverage: 0, edges: 0 },
+  reactionAccumulator: 0,
+  orbitalN: 2,
+  orbitalL: 1,
+  orbitalM: 1,
+  orbitalLastSector: -1,
+  dnaSequence: "ATGGCTTACGAACTGCCATTCGGTAACTAG",
+  dnaIndex: 0,
+  dnaAccumulator: 0,
+  dnaAmino: "Met",
+  neuralWeights: [],
+  neuralBiases: [],
+  neuralLayers: [[1, 0, 0, 0], Array(6).fill(0), Array(3).fill(0)],
+  neuralInput: 0,
+  neuralPulseAge: 0,
+  neuralAccumulator: 0,
+  neuralSeed: 19,
+  fourierWave: "square",
 };
 
 let canvasWidth = 1;
@@ -615,6 +675,1053 @@ function drawAutomata() {
   ctx.strokeRect(x0, y0, gridWidth, rowsVisible * cell);
 }
 
+function resetPrimeSieve() {
+  const limit = Math.round(state.primeLimit || readControl("primeLimit", 120));
+  state.primeStatus = Array(limit + 1).fill(0);
+  state.primeStatus[0] = -1;
+  state.primeStatus[1] = -1;
+  state.primeList = [];
+  state.primeCursor = 2;
+  state.primeAccumulator = 0;
+}
+
+function stepPrimeSieve(audition = true) {
+  const limit = Math.round(state.primeLimit);
+  if (state.primeStatus.length !== limit + 1 || state.primeCursor > limit) {
+    resetPrimeSieve();
+  }
+  const value = state.primeCursor;
+  const isPrime = state.primeStatus[value] === 0;
+  if (isPrime) {
+    state.primeStatus[value] = 1;
+    state.primeList.push(value);
+    for (let multiple = value * value; multiple <= limit; multiple += value) {
+      if (state.primeStatus[multiple] === 0) state.primeStatus[multiple] = -1;
+    }
+  }
+  if (audition && state.audioOn) {
+    if (isPrime) {
+      const position = value / Math.max(2, limit);
+      audio.trigger({
+        frequency: state.primeRoot * 2 ** (position * state.primeSpread),
+        gain: 0.13,
+        duration: 0.14,
+        type: "triangle",
+        pan: position * 2 - 1,
+      });
+    } else if (value % 4 === 0) {
+      audio.trigger({
+        frequency: state.primeRoot * 0.5,
+        gain: 0.025,
+        duration: 0.035,
+        type: "square",
+        pan: -0.7 + 1.4 * (value / limit),
+      });
+    }
+  }
+  state.primeCursor += 1;
+}
+
+function updatePrimeSieve(dt) {
+  if (!state.primeStatus.length) resetPrimeSieve();
+  state.primeAccumulator += dt * state.primeRate;
+  let steps = 0;
+  while (state.primeAccumulator >= 1 && steps < 8) {
+    state.primeAccumulator -= 1;
+    stepPrimeSieve();
+    steps += 1;
+  }
+}
+
+function drawPrimeSieve() {
+  const ctx = context2d;
+  clearStage();
+  if (!state.primeStatus.length) resetPrimeSieve();
+  const limit = Math.round(state.primeLimit);
+  const top = stageTopInset() + 8;
+  const margin = canvasWidth < 520 ? 14 : 34;
+  const columns = clamp(Math.floor((canvasWidth - margin * 2) / (canvasWidth < 520 ? 30 : 42)), 6, 20);
+  const rows = Math.ceil(limit / columns);
+  const cellWidth = (canvasWidth - margin * 2) / columns;
+  const cellHeight = Math.min(cellWidth, (canvasHeight - top - 22) / Math.max(1, rows));
+  const gridHeight = rows * cellHeight;
+  const y0 = top + Math.max(0, (canvasHeight - top - gridHeight) * 0.45);
+  for (let value = 1; value <= limit; value += 1) {
+    const index = value - 1;
+    const x = margin + (index % columns) * cellWidth;
+    const y = y0 + Math.floor(index / columns) * cellHeight;
+    const status = state.primeStatus[value];
+    const current = value === Math.min(limit, state.primeCursor);
+    ctx.fillStyle = status === 1
+      ? "rgba(103, 226, 208, 0.9)"
+      : status === -1
+        ? "rgba(255, 143, 156, 0.13)"
+        : "rgba(219, 228, 224, 0.08)";
+    ctx.fillRect(x + 1, y + 1, Math.max(2, cellWidth - 3), Math.max(2, cellHeight - 3));
+    if (current) {
+      ctx.strokeStyle = "rgba(240, 203, 118, 0.95)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 1, y + 1, Math.max(2, cellWidth - 3), Math.max(2, cellHeight - 3));
+    }
+    if (cellHeight >= 16 && cellWidth >= 22) {
+      ctx.fillStyle = status === 1 ? "#07110f" : "rgba(219, 228, 224, 0.66)";
+      ctx.font = `${Math.max(8, Math.min(11, cellHeight * 0.42))}px ui-monospace, monospace`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(value), x + cellWidth / 2, y + cellHeight / 2);
+    }
+  }
+}
+
+function drawLissajous() {
+  const ctx = context2d;
+  clearStage();
+  const top = stageTopInset();
+  const centerX = canvasWidth / 2;
+  const centerY = top + (canvasHeight - top) * 0.5;
+  const radiusX = Math.min(canvasWidth * 0.4, 330);
+  const radiusY = Math.min((canvasHeight - top) * 0.4, 230);
+  const xRatio = Math.round(state.lissajousX);
+  const yRatio = Math.round(state.lissajousY);
+  const offset = state.lissajousPhase * Math.PI / 180;
+  ctx.strokeStyle = "rgba(219, 228, 224, 0.12)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(centerX - radiusX, centerY);
+  ctx.lineTo(centerX + radiusX, centerY);
+  ctx.moveTo(centerX, centerY - radiusY);
+  ctx.lineTo(centerX, centerY + radiusY);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(103, 226, 208, 0.82)";
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  for (let index = 0; index <= 900; index += 1) {
+    const phase = (index / 900) * TAU;
+    const x = centerX + Math.sin(xRatio * phase + offset) * radiusX;
+    const y = centerY + Math.sin(yRatio * phase) * radiusY;
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  const motion = state.time * state.lissajousRate * TAU;
+  const dotX = centerX + Math.sin(xRatio * motion + offset) * radiusX;
+  const dotY = centerY + Math.sin(yRatio * motion) * radiusY;
+  ctx.fillStyle = "rgba(255, 143, 156, 0.98)";
+  ctx.beginPath();
+  ctx.arc(dotX, dotY, 7, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(240, 203, 118, 0.35)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(centerX, centerY);
+  ctx.lineTo(dotX, dotY);
+  ctx.stroke();
+}
+
+function pendulumPeriods() {
+  const count = Math.round(state.pendulumCount);
+  const rephase = Math.max(4, state.pendulumRephase);
+  const step = Math.round(state.pendulumStep);
+  return Array.from({ length: count }, (_, index) => rephase / (12 + index * step));
+}
+
+function updatePendulums() {
+  const periods = pendulumPeriods();
+  if (state.pendulumSigns.length !== periods.length) state.pendulumSigns = Array(periods.length).fill(null);
+  periods.forEach((period, index) => {
+    const angle = Math.cos((state.time / period) * TAU);
+    const sign = angle >= 0;
+    if (state.pendulumSigns[index] !== null && sign !== state.pendulumSigns[index] && state.audioOn) {
+      audio.trigger({
+        frequency: state.pendulumTone * 2 ** (index / 12),
+        gain: 0.045,
+        duration: 0.075,
+        type: index % 2 ? "sine" : "triangle",
+        pan: periods.length === 1 ? 0 : (index / (periods.length - 1)) * 2 - 1,
+      });
+    }
+    state.pendulumSigns[index] = sign;
+  });
+}
+
+function pendulumCoherence() {
+  const periods = pendulumPeriods();
+  let x = 0;
+  let y = 0;
+  periods.forEach((period) => {
+    const phase = (state.time / period) * TAU;
+    x += Math.cos(phase);
+    y += Math.sin(phase);
+  });
+  return Math.hypot(x, y) / Math.max(1, periods.length);
+}
+
+function drawPendulums() {
+  const ctx = context2d;
+  clearStage();
+  const periods = pendulumPeriods();
+  const top = stageTopInset() + 12;
+  const margin = canvasWidth < 520 ? 22 : 48;
+  const width = canvasWidth - margin * 2;
+  const length = Math.min((canvasHeight - top) * 0.62, 260);
+  const pivotY = top + 18;
+  ctx.strokeStyle = "rgba(219, 228, 224, 0.24)";
+  ctx.beginPath();
+  ctx.moveTo(margin, pivotY);
+  ctx.lineTo(canvasWidth - margin, pivotY);
+  ctx.stroke();
+  periods.forEach((period, index) => {
+    const ratio = periods.length === 1 ? 0.5 : index / (periods.length - 1);
+    const pivotX = margin + ratio * width;
+    const phase = (state.time / period) * TAU;
+    const angle = Math.cos(phase) * state.pendulumSwing * Math.PI / 180;
+    const bobX = pivotX + Math.sin(angle) * length;
+    const bobY = pivotY + Math.cos(angle) * length;
+    ctx.strokeStyle = `rgba(103, 226, 208, ${0.28 + ratio * 0.58})`;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(pivotX, pivotY);
+    ctx.lineTo(bobX, bobY);
+    ctx.stroke();
+    ctx.fillStyle = ratio < 0.5 ? "rgba(103, 226, 208, 0.95)" : "rgba(240, 203, 118, 0.95)";
+    ctx.beginPath();
+    ctx.arc(bobX, bobY, Math.max(3, 6 - periods.length * 0.08), 0, TAU);
+    ctx.fill();
+  });
+}
+
+function resetDoublePendulum() {
+  const offset = (state.chaosOffset || readControl("chaosOffset", 0.35)) * Math.PI / 180;
+  state.chaosSystems = [
+    { a: 2.12, b: 1.34, av: 0, bv: 0 },
+    { a: 2.12 + offset, b: 1.34, av: 0, bv: 0 },
+  ];
+  state.chaosTrails = [[], []];
+  state.chaosElapsed = 0;
+}
+
+function doublePendulumAcceleration(system) {
+  const gravity = state.chaosGravity;
+  const lengthA = 1;
+  const lengthB = state.chaosLength;
+  const delta = system.a - system.b;
+  const denominator = 3 - Math.cos(2 * delta);
+  const aa = (
+    -3 * gravity * Math.sin(system.a)
+    - gravity * Math.sin(system.a - 2 * system.b)
+    - 2 * Math.sin(delta) * (system.bv ** 2 * lengthB + system.av ** 2 * lengthA * Math.cos(delta))
+  ) / (lengthA * denominator);
+  const ba = (
+    2 * Math.sin(delta) * (
+      2 * system.av ** 2 * lengthA
+      + 2 * gravity * Math.cos(system.a)
+      + system.bv ** 2 * lengthB * Math.cos(delta)
+    )
+  ) / (lengthB * denominator);
+  return { aa, ba };
+}
+
+function stepDoublePendulum(dt) {
+  if (!state.chaosSystems.length) resetDoublePendulum();
+  const totalStep = Math.min(0.035, dt * state.chaosSpeed);
+  const substeps = 5;
+  const step = totalStep / substeps;
+  for (let pass = 0; pass < substeps; pass += 1) {
+    state.chaosSystems.forEach((system) => {
+      const { aa, ba } = doublePendulumAcceleration(system);
+      system.av = clamp(system.av + aa * step, -18, 18);
+      system.bv = clamp(system.bv + ba * step, -18, 18);
+      system.a += system.av * step;
+      system.b += system.bv * step;
+    });
+  }
+  state.chaosElapsed += totalStep;
+}
+
+function chaosDivergence() {
+  if (state.chaosSystems.length < 2) return 0;
+  const [first, second] = state.chaosSystems;
+  return Math.hypot(first.a - second.a, first.b - second.b);
+}
+
+function drawDoublePendulum() {
+  const ctx = context2d;
+  clearStage();
+  if (!state.chaosSystems.length) resetDoublePendulum();
+  const top = stageTopInset();
+  const originX = canvasWidth / 2;
+  const lengthA = Math.min(canvasWidth * 0.21, (canvasHeight - top) * 0.29, 150);
+  const lengthB = lengthA * state.chaosLength;
+  const originY = top + Math.min(lengthA * 0.78, (canvasHeight - top) * 0.22);
+  const colors = ["rgba(103, 226, 208, 0.92)", "rgba(255, 143, 156, 0.88)"];
+  state.chaosSystems.forEach((system, index) => {
+    const x1 = originX + Math.sin(system.a) * lengthA;
+    const y1 = originY + Math.cos(system.a) * lengthA;
+    const x2 = x1 + Math.sin(system.b) * lengthB;
+    const y2 = y1 + Math.cos(system.b) * lengthB;
+    const trail = state.chaosTrails[index];
+    trail.push({ x: x2, y: y2 });
+    if (trail.length > 220) trail.shift();
+    ctx.strokeStyle = index === 0 ? "rgba(103, 226, 208, 0.24)" : "rgba(255, 143, 156, 0.22)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    trail.forEach((point, pointIndex) => {
+      if (pointIndex === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+    ctx.stroke();
+    ctx.strokeStyle = colors[index];
+    ctx.lineWidth = index === 0 ? 2 : 1.4;
+    ctx.beginPath();
+    ctx.moveTo(originX, originY);
+    ctx.lineTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.fillStyle = colors[index];
+    ctx.beginPath();
+    ctx.arc(x1, y1, 6, 0, TAU);
+    ctx.arc(x2, y2, 8, 0, TAU);
+    ctx.fill();
+  });
+  ctx.fillStyle = "rgba(240, 203, 118, 0.95)";
+  ctx.beginPath();
+  ctx.arc(originX, originY, 5, 0, TAU);
+  ctx.fill();
+}
+
+function seedReactionAt(normalizedX = 0.5, normalizedY = 0.5, radius = 5) {
+  if (!state.reactionB) return;
+  const centerX = Math.round(clamp(normalizedX, 0, 1) * (REACTION_GRID_WIDTH - 1));
+  const centerY = Math.round(clamp(normalizedY, 0, 1) * (REACTION_GRID_HEIGHT - 1));
+  for (let offsetY = -radius; offsetY <= radius; offsetY += 1) {
+    for (let offsetX = -radius; offsetX <= radius; offsetX += 1) {
+      if (offsetX * offsetX + offsetY * offsetY > radius * radius) continue;
+      const x = (centerX + offsetX + REACTION_GRID_WIDTH) % REACTION_GRID_WIDTH;
+      const y = (centerY + offsetY + REACTION_GRID_HEIGHT) % REACTION_GRID_HEIGHT;
+      const index = y * REACTION_GRID_WIDTH + x;
+      state.reactionA[index] = 0.45;
+      state.reactionB[index] = 0.92;
+    }
+  }
+}
+
+function resetReactionDiffusion() {
+  const size = REACTION_GRID_WIDTH * REACTION_GRID_HEIGHT;
+  state.reactionA = new Float32Array(size).fill(1);
+  state.reactionB = new Float32Array(size);
+  state.reactionNextA = new Float32Array(size);
+  state.reactionNextB = new Float32Array(size);
+  state.reactionAccumulator = 0;
+  for (let spot = 0; spot < 9; spot += 1) {
+    seedReactionAt(
+      0.16 + hashUnit(spot, 2) * 0.68,
+      0.2 + hashUnit(spot, 7) * 0.6,
+      3 + Math.floor(hashUnit(spot, 11) * 4),
+    );
+  }
+  for (let pass = 0; pass < 36; pass += 1) stepReactionGrid(false);
+}
+
+function stepReactionGrid(updateStats = true) {
+  if (!state.reactionA) return;
+  const width = REACTION_GRID_WIDTH;
+  const height = REACTION_GRID_HEIGHT;
+  const feed = state.reactionFeed;
+  const kill = state.reactionKill;
+  const diffusionB = state.reactionDiffusion;
+  let coverage = 0;
+  let edgeEnergy = 0;
+  for (let y = 0; y < height; y += 1) {
+    const north = (y - 1 + height) % height;
+    const south = (y + 1) % height;
+    for (let x = 0; x < width; x += 1) {
+      const west = (x - 1 + width) % width;
+      const east = (x + 1) % width;
+      const index = y * width + x;
+      const a = state.reactionA[index];
+      const b = state.reactionB[index];
+      const lapA = -a
+        + 0.2 * (
+          state.reactionA[north * width + x]
+          + state.reactionA[south * width + x]
+          + state.reactionA[y * width + west]
+          + state.reactionA[y * width + east]
+        )
+        + 0.05 * (
+          state.reactionA[north * width + west]
+          + state.reactionA[north * width + east]
+          + state.reactionA[south * width + west]
+          + state.reactionA[south * width + east]
+        );
+      const lapB = -b
+        + 0.2 * (
+          state.reactionB[north * width + x]
+          + state.reactionB[south * width + x]
+          + state.reactionB[y * width + west]
+          + state.reactionB[y * width + east]
+        )
+        + 0.05 * (
+          state.reactionB[north * width + west]
+          + state.reactionB[north * width + east]
+          + state.reactionB[south * width + west]
+          + state.reactionB[south * width + east]
+        );
+      const reaction = a * b * b;
+      state.reactionNextA[index] = clamp(a + lapA - reaction + feed * (1 - a), 0, 1);
+      state.reactionNextB[index] = clamp(b + diffusionB * lapB + reaction - (kill + feed) * b, 0, 1);
+      if (updateStats) {
+        coverage += b;
+        edgeEnergy += Math.abs(b - state.reactionB[y * width + east]);
+      }
+    }
+  }
+  [state.reactionA, state.reactionNextA] = [state.reactionNextA, state.reactionA];
+  [state.reactionB, state.reactionNextB] = [state.reactionNextB, state.reactionB];
+  if (updateStats) {
+    const size = width * height;
+    state.reactionStats = { coverage: coverage / size, edges: edgeEnergy / size };
+  }
+}
+
+function updateReactionDiffusion(dt) {
+  if (!state.reactionA) resetReactionDiffusion();
+  state.reactionAccumulator += dt * 38 * state.reactionSpeed;
+  let steps = 0;
+  while (state.reactionAccumulator >= 1 && steps < 6) {
+    state.reactionAccumulator -= 1;
+    stepReactionGrid();
+    steps += 1;
+  }
+}
+
+function drawReactionDiffusion() {
+  const ctx = context2d;
+  clearStage();
+  if (!state.reactionA) resetReactionDiffusion();
+  if (!patternCanvas) patternCanvas = document.createElement("canvas");
+  if (patternCanvas.width !== REACTION_GRID_WIDTH || patternCanvas.height !== REACTION_GRID_HEIGHT) {
+    patternCanvas.width = REACTION_GRID_WIDTH;
+    patternCanvas.height = REACTION_GRID_HEIGHT;
+  }
+  const pctx = patternCanvas.getContext("2d");
+  const image = pctx.createImageData(REACTION_GRID_WIDTH, REACTION_GRID_HEIGHT);
+  for (let index = 0; index < state.reactionB.length; index += 1) {
+    const b = state.reactionB[index];
+    const x = index % REACTION_GRID_WIDTH;
+    const neighbor = state.reactionB[
+      Math.floor(index / REACTION_GRID_WIDTH) * REACTION_GRID_WIDTH
+      + (x + 1) % REACTION_GRID_WIDTH
+    ];
+    const concentration = clamp(b * 2.15, 0, 1);
+    const edge = clamp(Math.abs(b - neighbor) * 12, 0, 1);
+    const pixel = index * 4;
+    image.data[pixel] = Math.round(6 + concentration * 225 + edge * 18);
+    image.data[pixel + 1] = Math.round(10 + concentration * 48 + edge * 176);
+    image.data[pixel + 2] = Math.round(16 + concentration * 72 + edge * 154);
+    image.data[pixel + 3] = 255;
+  }
+  pctx.putImageData(image, 0, 0);
+  const top = stageTopInset();
+  const margin = canvasWidth < 520 ? 12 : 34;
+  const targetWidth = canvasWidth - margin * 2;
+  const targetHeight = canvasHeight - top - 24;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(patternCanvas, margin, top, targetWidth, targetHeight);
+  ctx.strokeStyle = "rgba(219, 228, 224, 0.18)";
+  ctx.strokeRect(margin, top, targetWidth, targetHeight);
+}
+
+function associatedLaguerre(order, alpha, value) {
+  if (order <= 0) return 1;
+  if (order === 1) return 1 + alpha - value;
+  let previous = 1;
+  let current = 1 + alpha - value;
+  for (let index = 2; index <= order; index += 1) {
+    const next = ((2 * index - 1 + alpha - value) * current - (index - 1 + alpha) * previous) / index;
+    previous = current;
+    current = next;
+  }
+  return current;
+}
+
+function orbitalAmplitude(x, y) {
+  const rotation = state.orbitalRotation * Math.PI / 180;
+  const rotatedX = x * Math.cos(rotation) - y * Math.sin(rotation);
+  const rotatedY = x * Math.sin(rotation) + y * Math.cos(rotation);
+  const radius = Math.hypot(rotatedX, rotatedY);
+  const angle = Math.atan2(rotatedY, rotatedX);
+  const n = state.orbitalN;
+  const l = state.orbitalL;
+  const m = state.orbitalM;
+  const rho = (2 * radius) / Math.max(1, n);
+  const radial = Math.exp(-rho / 2) * rho ** l * associatedLaguerre(n - l - 1, 2 * l + 1, rho);
+  const angular = m === 0 ? 1 : Math.cos(m * angle);
+  return radial * angular;
+}
+
+function setOrbital(n, l, m) {
+  state.orbitalN = n;
+  state.orbitalL = l;
+  state.orbitalM = m;
+  state.orbitalLastSector = -1;
+  updateOrbitalButtons();
+  updateSummaries();
+}
+
+function updateOrbitalButtons() {
+  for (const button of document.querySelectorAll("[data-orbital]")) {
+    const [n, l, m] = button.dataset.orbital.split(":").map(Number);
+    button.setAttribute("aria-pressed", String(
+      n === state.orbitalN && l === state.orbitalL && m === state.orbitalM,
+    ));
+  }
+}
+
+function updateOrbital() {
+  const sectors = Math.max(1, state.orbitalM * 2);
+  const sector = Math.floor(wrap01(state.time * state.orbitalRate) * sectors);
+  if (sector !== state.orbitalLastSector && state.orbitalLastSector >= 0 && state.audioOn) {
+    audio.trigger({
+      frequency: state.orbitalTone * 2 ** ((state.orbitalN + sector) / 12),
+      gain: 0.065,
+      duration: 0.12,
+      type: state.orbitalL % 2 ? "triangle" : "sine",
+      pan: sectors === 1 ? 0 : (sector / (sectors - 1)) * 2 - 1,
+    });
+  }
+  state.orbitalLastSector = sector;
+}
+
+function drawAtomicOrbital() {
+  const ctx = context2d;
+  clearStage();
+  const gridWidth = 176;
+  const gridHeight = 132;
+  if (!patternCanvas) patternCanvas = document.createElement("canvas");
+  if (patternCanvas.width !== gridWidth || patternCanvas.height !== gridHeight) {
+    patternCanvas.width = gridWidth;
+    patternCanvas.height = gridHeight;
+  }
+  const amplitudes = new Float32Array(gridWidth * gridHeight);
+  let maximum = 0;
+  const scale = state.orbitalScale;
+  for (let y = 0; y < gridHeight; y += 1) {
+    for (let x = 0; x < gridWidth; x += 1) {
+      const px = ((x / (gridWidth - 1)) * 2 - 1) * scale;
+      const py = ((y / (gridHeight - 1)) * 2 - 1) * scale;
+      const amplitude = orbitalAmplitude(px, py);
+      amplitudes[y * gridWidth + x] = amplitude;
+      maximum = Math.max(maximum, Math.abs(amplitude));
+    }
+  }
+  const pctx = patternCanvas.getContext("2d");
+  const image = pctx.createImageData(gridWidth, gridHeight);
+  amplitudes.forEach((amplitude, index) => {
+    const amount = Math.pow(Math.abs(amplitude) / Math.max(1e-6, maximum), 0.42);
+    const pixel = index * 4;
+    image.data[pixel] = Math.round(8 + (amplitude < 0 ? amount * 240 : amount * 45));
+    image.data[pixel + 1] = Math.round(11 + amount * 200);
+    image.data[pixel + 2] = Math.round(16 + (amplitude >= 0 ? amount * 215 : amount * 75));
+    image.data[pixel + 3] = 255;
+  });
+  pctx.putImageData(image, 0, 0);
+  const top = stageTopInset();
+  const side = Math.min(canvasWidth * 0.82, canvasHeight - top - 24);
+  const x = (canvasWidth - side) / 2;
+  const y = top + (canvasHeight - top - side) / 2;
+  ctx.drawImage(patternCanvas, x, y, side, side);
+  const scan = state.time * state.orbitalRate * TAU;
+  ctx.strokeStyle = "rgba(240, 203, 118, 0.72)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(canvasWidth / 2, y + side / 2);
+  ctx.lineTo(canvasWidth / 2 + Math.cos(scan) * side * 0.48, y + side / 2 + Math.sin(scan) * side * 0.48);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(240, 203, 118, 0.95)";
+  ctx.beginPath();
+  ctx.arc(canvasWidth / 2, y + side / 2, 4, 0, TAU);
+  ctx.fill();
+}
+
+function sanitizeDna(value) {
+  return String(value).toUpperCase().replace(/[^ACGT]/g, "").slice(0, 120);
+}
+
+function setDnaSequence(value) {
+  state.dnaSequence = sanitizeDna(value) || "ATG";
+  state.dnaIndex = 0;
+  state.dnaAccumulator = 0;
+  const input = $("dnaSequence");
+  if (input && input.value !== state.dnaSequence) input.value = state.dnaSequence;
+  updateDnaCurrent();
+}
+
+function updateDnaCurrent() {
+  const sequence = state.dnaSequence;
+  const codonStart = Math.floor(state.dnaIndex / 3) * 3;
+  const codon = sequence.slice(codonStart, codonStart + 3);
+  const code = codonAmino(codon);
+  state.dnaCodon = codon.padEnd(3, "-");
+  state.dnaAmino = AMINO_NAMES[code] ?? "Incomplete";
+}
+
+function stepDna() {
+  const sequence = state.dnaSequence;
+  if (!sequence.length) return;
+  const base = sequence[state.dnaIndex];
+  const baseIndex = "ACGT".indexOf(base);
+  const codonBoundary = state.dnaIndex % 3 === 0;
+  updateDnaCurrent();
+  if (state.audioOn) {
+    audio.trigger({
+      frequency: state.dnaTone * [1, 9 / 8, 5 / 4, 3 / 2][Math.max(0, baseIndex)],
+      gain: 0.09,
+      duration: 0.11,
+      type: baseIndex % 2 ? "triangle" : "sine",
+      pan: -0.75 + baseIndex * 0.5,
+    });
+    if (codonBoundary) {
+      const aminoIndex = Math.max(0, "ACDEFGHIKLMNPQRSTVWY*".indexOf(codonAmino(state.dnaCodon)));
+      audio.trigger({
+        frequency: state.dnaTone * 0.5 * 2 ** (aminoIndex / 24),
+        gain: 0.075,
+        duration: 0.24,
+        type: "sine",
+        pan: 0,
+      });
+    }
+  }
+  state.dnaIndex = (state.dnaIndex + 1) % sequence.length;
+}
+
+function updateDna(dt) {
+  state.dnaAccumulator += dt * state.dnaRate;
+  let steps = 0;
+  while (state.dnaAccumulator >= 1 && steps < 5) {
+    state.dnaAccumulator -= 1;
+    stepDna();
+    steps += 1;
+  }
+  updateDnaCurrent();
+}
+
+function mutateDna() {
+  const sequence = state.dnaSequence.split("");
+  if (!sequence.length) return;
+  const index = Math.floor(Math.random() * sequence.length);
+  const choices = "ACGT".replace(sequence[index], "");
+  sequence[index] = choices[Math.floor(Math.random() * choices.length)];
+  setDnaSequence(sequence.join(""));
+  state.dnaIndex = index;
+  setText("liveStatus", `Base ${index + 1} mutated to ${sequence[index]}.`);
+}
+
+function drawDna() {
+  const ctx = context2d;
+  clearStage();
+  const sequence = state.dnaSequence;
+  if (!sequence.length) return;
+  const top = stageTopInset() + 12;
+  const bottom = canvasHeight - 54;
+  const centerY = top + (bottom - top) / 2;
+  const amplitude = Math.min(76, (bottom - top) * 0.3);
+  const visible = Math.min(sequence.length, Math.round(state.dnaWindow));
+  const x0 = canvasWidth < 520 ? 18 : 44;
+  const width = canvasWidth - x0 * 2;
+  const baseColors = {
+    A: "rgba(103, 226, 208, 0.95)",
+    C: "rgba(240, 203, 118, 0.95)",
+    G: "rgba(146, 221, 127, 0.95)",
+    T: "rgba(255, 143, 156, 0.95)",
+  };
+  const points = [];
+  for (let slot = 0; slot < visible; slot += 1) {
+    const offset = slot - Math.floor(visible / 2);
+    const index = (state.dnaIndex + offset + sequence.length) % sequence.length;
+    const x = x0 + (slot / Math.max(1, visible - 1)) * width;
+    const phase = slot * state.dnaTwist * 0.34;
+    const yA = centerY + Math.sin(phase) * amplitude;
+    const yB = centerY - Math.sin(phase) * amplitude;
+    points.push({ index, x, yA, yB, base: sequence[index], current: offset === 0 });
+  }
+  ctx.lineWidth = 2;
+  for (let strand = 0; strand < 2; strand += 1) {
+    ctx.strokeStyle = strand === 0 ? "rgba(103, 226, 208, 0.48)" : "rgba(255, 143, 156, 0.42)";
+    ctx.beginPath();
+    points.forEach((point, index) => {
+      const y = strand === 0 ? point.yA : point.yB;
+      if (index === 0) ctx.moveTo(point.x, y);
+      else ctx.lineTo(point.x, y);
+    });
+    ctx.stroke();
+  }
+  points.forEach((point) => {
+    ctx.strokeStyle = point.current ? "rgba(255, 255, 255, 0.86)" : "rgba(219, 228, 224, 0.18)";
+    ctx.lineWidth = point.current ? 2.5 : 1;
+    ctx.beginPath();
+    ctx.moveTo(point.x, point.yA);
+    ctx.lineTo(point.x, point.yB);
+    ctx.stroke();
+    ctx.fillStyle = baseColors[point.base];
+    ctx.beginPath();
+    ctx.arc(point.x, point.yA, point.current ? 7 : 4, 0, TAU);
+    ctx.arc(point.x, point.yB, point.current ? 7 : 4, 0, TAU);
+    ctx.fill();
+    if (point.current) {
+      ctx.fillStyle = "#f5f7f4";
+      ctx.font = "700 15px ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(point.base, point.x, centerY + 5);
+    }
+  });
+  ctx.fillStyle = "rgba(219, 228, 224, 0.7)";
+  ctx.font = "12px ui-monospace, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(`${state.dnaCodon}  ->  ${state.dnaAmino}`, canvasWidth / 2, canvasHeight - 22);
+}
+
+function neuralRandom() {
+  state.neuralSeed = (1664525 * state.neuralSeed + 1013904223) >>> 0;
+  return state.neuralSeed / 0x100000000;
+}
+
+function resetNeuralNetwork() {
+  state.neuralSeed = Math.floor(Math.random() * 0xffffffff) || 19;
+  state.neuralWeights = [
+    Array.from({ length: 6 }, () => Array.from({ length: 4 }, () => neuralRandom() * 2.4 - 1.2)),
+    Array.from({ length: 3 }, () => Array.from({ length: 6 }, () => neuralRandom() * 2.4 - 1.2)),
+  ];
+  state.neuralBiases = [
+    Array.from({ length: 6 }, () => neuralRandom() * 0.7 - 0.35),
+    Array.from({ length: 3 }, () => neuralRandom() * 0.7 - 0.35),
+  ];
+  fireNeuralInput(state.neuralInput, false);
+}
+
+function fireNeuralInput(inputIndex = state.neuralInput, audition = true) {
+  if (!state.neuralWeights.length) resetNeuralNetwork();
+  state.neuralInput = clamp(Math.round(inputIndex), 0, 3);
+  const input = Array.from({ length: 4 }, (_, index) => index === state.neuralInput ? 1 : 0.08);
+  const hidden = state.neuralWeights[0].map((weights, index) => sigmoid(
+    weights.reduce((sum, weight, source) => sum + weight * input[source], state.neuralBiases[0][index])
+      * state.neuralGain
+      + (hashUnit(index, state.neuralInput + state.time) - 0.5) * state.neuralNoise,
+  ));
+  const output = state.neuralWeights[1].map((weights, index) => sigmoid(
+    weights.reduce((sum, weight, source) => sum + weight * hidden[source], state.neuralBiases[1][index])
+      * state.neuralGain,
+  ));
+  state.neuralLayers = [input, hidden, output];
+  state.neuralPulseAge = 0;
+  state.neuralPulseCount = (state.neuralPulseCount || 0) + 1;
+  if (audition && state.audioOn) {
+    hidden.forEach((activation, index) => {
+      if (activation < state.neuralThreshold) return;
+      audio.trigger({
+        frequency: 118 * 2 ** (PENTATONIC[index] / 12),
+        gain: 0.035 + activation * 0.035,
+        duration: 0.09,
+        type: "triangle",
+        pan: -0.25,
+      });
+    });
+    output.forEach((activation, index) => {
+      if (activation < state.neuralThreshold) return;
+      audio.trigger({
+        frequency: 236 * 2 ** ([0, 3, 7][index] / 12),
+        gain: 0.055 + activation * 0.05,
+        duration: 0.2,
+        type: "sine",
+        pan: 0.52,
+      });
+    });
+  }
+  updateNeuralButtons();
+}
+
+function updateNeuralButtons() {
+  for (const button of document.querySelectorAll("[data-neural-input]")) {
+    button.setAttribute("aria-pressed", String(
+      Number(button.dataset.neuralInput) === state.neuralInput,
+    ));
+  }
+}
+
+function updateNeural(dt) {
+  if (!state.neuralWeights.length) resetNeuralNetwork();
+  state.neuralPulseAge += dt;
+  state.neuralAccumulator += dt * state.neuralRate;
+  if (state.neuralAccumulator >= 1) {
+    state.neuralAccumulator %= 1;
+    fireNeuralInput((state.neuralInput + 1) % 4);
+  }
+}
+
+function neuralNodePositions() {
+  const top = stageTopInset() + 8;
+  const bottom = canvasHeight - 30;
+  const xs = [canvasWidth * 0.2, canvasWidth * 0.52, canvasWidth * 0.82];
+  return state.neuralLayers.map((layer, layerIndex) => layer.map((activation, index) => ({
+    x: xs[layerIndex],
+    y: top + ((index + 1) / (layer.length + 1)) * (bottom - top),
+    activation,
+  })));
+}
+
+function drawNeuralNetwork() {
+  const ctx = context2d;
+  clearStage();
+  if (!state.neuralWeights.length) resetNeuralNetwork();
+  const positions = neuralNodePositions();
+  const travel = clamp(state.neuralPulseAge * state.neuralRate * 1.8, 0, 2);
+  for (let layer = 0; layer < 2; layer += 1) {
+    const sourceNodes = positions[layer];
+    const targetNodes = positions[layer + 1];
+    targetNodes.forEach((target, targetIndex) => {
+      sourceNodes.forEach((source, sourceIndex) => {
+        const weight = state.neuralWeights[layer][targetIndex][sourceIndex];
+        const activity = source.activation * target.activation;
+        ctx.strokeStyle = weight >= 0
+          ? `rgba(103, 226, 208, ${0.07 + activity * 0.42})`
+          : `rgba(255, 143, 156, ${0.07 + activity * 0.42})`;
+        ctx.lineWidth = 0.5 + Math.abs(weight) * 1.2;
+        ctx.beginPath();
+        ctx.moveTo(source.x, source.y);
+        ctx.lineTo(target.x, target.y);
+        ctx.stroke();
+        const localTravel = travel - layer;
+        if (localTravel >= 0 && localTravel <= 1 && activity > 0.16) {
+          ctx.fillStyle = "rgba(240, 203, 118, 0.9)";
+          ctx.beginPath();
+          ctx.arc(lerp(source.x, target.x, localTravel), lerp(source.y, target.y, localTravel), 2.5, 0, TAU);
+          ctx.fill();
+        }
+      });
+    });
+  }
+  positions.forEach((layer, layerIndex) => {
+    layer.forEach((node) => {
+      const active = node.activation >= state.neuralThreshold;
+      ctx.fillStyle = active
+        ? layerIndex === 2 ? "rgba(240, 203, 118, 0.96)" : "rgba(103, 226, 208, 0.94)"
+        : "rgba(22, 28, 31, 0.95)";
+      ctx.strokeStyle = active ? "rgba(245, 247, 244, 0.74)" : "rgba(219, 228, 224, 0.25)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, 8 + node.activation * 7, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+    });
+  });
+}
+
+function fourierCoefficient(wave, harmonic) {
+  if (wave === "sine") return harmonic === 1 ? 1 : 0;
+  if (wave === "square") return harmonic % 2 ? 4 / (Math.PI * harmonic) : 0;
+  if (wave === "triangle") {
+    if (harmonic % 2 === 0) return 0;
+    return (8 / (Math.PI ** 2 * harmonic ** 2)) * (harmonic % 4 === 1 ? 1 : -1);
+  }
+  return (2 / (Math.PI * harmonic)) * (harmonic % 2 === 1 ? 1 : -1);
+}
+
+function fourierPartials() {
+  const count = Math.round(state.fourierHarmonics);
+  const partials = [];
+  for (let harmonic = 1; harmonic <= count; harmonic += 1) {
+    const coefficient = fourierCoefficient(state.fourierWave, harmonic);
+    if (Math.abs(coefficient) > 1e-8) partials.push({ harmonic, coefficient });
+  }
+  return partials;
+}
+
+function fourierSample(phase) {
+  return fourierPartials().reduce(
+    (sum, partial) => sum + partial.coefficient * Math.sin(partial.harmonic * phase),
+    0,
+  );
+}
+
+function fourierTarget(phase) {
+  if (state.fourierWave === "sine") return Math.sin(phase);
+  if (state.fourierWave === "square") return Math.sin(phase) >= 0 ? 1 : -1;
+  if (state.fourierWave === "triangle") return (2 / Math.PI) * Math.asin(Math.sin(phase));
+  const wrapped = ((phase + Math.PI) % TAU + TAU) % TAU - Math.PI;
+  return wrapped / Math.PI;
+}
+
+function fourierError() {
+  let sum = 0;
+  const samples = 96;
+  for (let index = 0; index < samples; index += 1) {
+    const phase = (index / samples) * TAU - Math.PI;
+    const error = fourierSample(phase) - fourierTarget(phase);
+    sum += error * error;
+  }
+  return Math.sqrt(sum / samples);
+}
+
+function setFourierWave(wave) {
+  state.fourierWave = wave;
+  updateFourierButtons();
+  updateSummaries();
+}
+
+function updateFourierButtons() {
+  for (const button of document.querySelectorAll("[data-fourier-wave]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.fourierWave === state.fourierWave));
+  }
+}
+
+function drawFourierEpicycles() {
+  const ctx = context2d;
+  clearStage();
+  const top = stageTopInset();
+  const centerY = top + (canvasHeight - top) * 0.5;
+  const centerX = canvasWidth < 600 ? canvasWidth * 0.31 : canvasWidth * 0.32;
+  const traceX = canvasWidth < 600 ? canvasWidth * 0.62 : canvasWidth * 0.58;
+  const traceWidth = canvasWidth - traceX - 18;
+  const scale = Math.min(canvasWidth * 0.2, (canvasHeight - top) * 0.29, 150);
+  const phase = state.time * state.fourierRate * TAU;
+  let x = centerX;
+  let y = centerY;
+  fourierPartials().forEach(({ harmonic, coefficient }, index) => {
+    const radius = Math.abs(coefficient) * scale;
+    const direction = coefficient < 0 ? -1 : 1;
+    const nextX = x + Math.cos(harmonic * phase) * radius * direction;
+    const nextY = y + Math.sin(harmonic * phase) * radius * direction;
+    ctx.strokeStyle = `rgba(219, 228, 224, ${0.1 + 0.22 * (1 - index / Math.max(1, state.fourierHarmonics))})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, TAU);
+    ctx.stroke();
+    ctx.strokeStyle = index % 2 ? "rgba(255, 143, 156, 0.72)" : "rgba(103, 226, 208, 0.78)";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(nextX, nextY);
+    ctx.stroke();
+    x = nextX;
+    y = nextY;
+  });
+  ctx.strokeStyle = "rgba(240, 203, 118, 0.42)";
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(traceX, y);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(240, 203, 118, 0.92)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const traceAmplitude = Math.min((canvasHeight - top) * 0.34, 170);
+  for (let index = 0; index <= 220; index += 1) {
+    const amount = index / 220;
+    const sample = fourierSample(phase - amount * TAU * 1.5);
+    const px = traceX + amount * traceWidth;
+    const py = centerY + sample * traceAmplitude * 0.62;
+    if (index === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.fillStyle = "rgba(245, 247, 244, 0.95)";
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, TAU);
+  ctx.fill();
+}
+
+function lensGeometry() {
+  const thetaE = Math.sqrt(Math.max(0.02, state.lensMass));
+  const beta = state.lensOffset + Math.sin(state.time * state.lensRate * TAU) * state.lensOrbit;
+  const discriminant = Math.sqrt(beta * beta + 4 * thetaE * thetaE);
+  const positive = (beta + discriminant) / 2;
+  const negative = (beta - discriminant) / 2;
+  const u = Math.max(0.025, Math.abs(beta) / thetaE);
+  const totalMagnification = (u * u + 2) / (u * Math.sqrt(u * u + 4));
+  const majorMagnification = (totalMagnification + 1) / 2;
+  const minorMagnification = Math.max(0, (totalMagnification - 1) / 2);
+  const potential = (theta) => 0.5 * (theta - beta) ** 2 - thetaE ** 2 * Math.log(Math.max(0.001, Math.abs(theta)));
+  return {
+    thetaE,
+    beta,
+    positive,
+    negative,
+    majorMagnification,
+    minorMagnification,
+    delay: Math.abs(potential(positive) - potential(negative)),
+  };
+}
+
+function drawGravityLens() {
+  const ctx = context2d;
+  clearStage();
+  const top = stageTopInset();
+  const centerX = canvasWidth / 2;
+  const centerY = top + (canvasHeight - top) * 0.5;
+  const available = Math.min(canvasWidth, canvasHeight - top);
+  const scale = available * 0.19;
+  for (let index = 0; index < 90; index += 1) {
+    const x = hashUnit(index, 3) * canvasWidth;
+    const y = top + hashUnit(index, 9) * (canvasHeight - top);
+    const glow = hashUnit(index, 14);
+    ctx.fillStyle = `rgba(219, 228, 224, ${0.1 + glow * 0.42})`;
+    ctx.fillRect(x, y, glow > 0.86 ? 2 : 1, glow > 0.86 ? 2 : 1);
+  }
+  const geometry = lensGeometry();
+  const angle = -0.28 + Math.sin(state.time * state.lensRate * 0.37) * 0.2;
+  const axisX = Math.cos(angle);
+  const axisY = Math.sin(angle);
+  const sourceX = centerX + geometry.beta * scale * axisX;
+  const sourceY = centerY + geometry.beta * scale * axisY;
+  ctx.strokeStyle = "rgba(146, 221, 127, 0.42)";
+  ctx.setLineDash([4, 5]);
+  ctx.beginPath();
+  ctx.moveTo(centerX, centerY);
+  ctx.lineTo(sourceX, sourceY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "rgba(103, 226, 208, 0.32)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, geometry.thetaE * scale, 0, TAU);
+  ctx.stroke();
+  const images = [
+    { theta: geometry.positive, magnification: geometry.majorMagnification, color: "rgba(103, 226, 208, 0.94)" },
+    { theta: geometry.negative, magnification: geometry.minorMagnification, color: "rgba(255, 143, 156, 0.9)" },
+  ];
+  images.forEach((image, index) => {
+    const radius = Math.abs(image.theta) * scale;
+    const imageAngle = image.theta >= 0 ? angle : angle + Math.PI;
+    const arc = clamp(0.18 + Math.log1p(image.magnification) * 0.34, 0.18, 1.1);
+    ctx.strokeStyle = image.color;
+    ctx.lineWidth = 3 + Math.min(9, Math.log1p(image.magnification) * 3);
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, imageAngle - arc / 2, imageAngle + arc / 2);
+    ctx.stroke();
+    const x = centerX + Math.cos(imageAngle) * radius;
+    const y = centerY + Math.sin(imageAngle) * radius;
+    ctx.fillStyle = image.color;
+    ctx.beginPath();
+    ctx.arc(x, y, index === 0 ? 5 : 3.5, 0, TAU);
+    ctx.fill();
+  });
+  const lensRadius = 10 + geometry.thetaE * 4;
+  const lensGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, lensRadius * 2.4);
+  lensGradient.addColorStop(0, "rgba(2, 2, 3, 1)");
+  lensGradient.addColorStop(0.48, "rgba(7, 8, 10, 0.98)");
+  lensGradient.addColorStop(1, "rgba(240, 203, 118, 0)");
+  ctx.fillStyle = lensGradient;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, lensRadius * 2.4, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(240, 203, 118, 0.66)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, lensRadius, 0, TAU);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(146, 221, 127, 0.72)";
+  ctx.beginPath();
+  ctx.arc(sourceX, sourceY, 3, 0, TAU);
+  ctx.fill();
+}
+
 function springModeAmplitudes() {
   ensureSpringState();
   const count = state.springCount;
@@ -799,11 +1906,357 @@ const EXPERIMENTS = {
       updateAutomataButtons();
     },
   },
+  primes: {
+    bind() {
+      bindRange("primeLimit", "primeLimit", (value) => `${Math.round(value)}`);
+      bindRange("primeRate", "primeRate", (value) => `${compact(value, 1)} n/s`);
+      bindRange("primeRoot", "primeRoot", (value) => `${Math.round(value)} Hz`);
+      bindRange("primeSpread", "primeSpread", (value) => `${compact(value, 1)} oct`);
+      $("primeLimit")?.addEventListener("input", resetPrimeSieve);
+      $("restartPrimes")?.addEventListener("click", resetPrimeSieve);
+      resetPrimeSieve();
+    },
+    update: updatePrimeSieve,
+    draw: drawPrimeSieve,
+    drone() {
+      const tested = Math.max(1, state.primeCursor - 2);
+      const density = state.primeList.length / tested;
+      const latest = state.primeList[state.primeList.length - 1] || 2;
+      return [
+        { frequency: state.primeRoot * 0.5, gain: 0.018 + density * 0.045, type: "sine", pan: -0.15 },
+        { frequency: state.primeRoot * 0.5 + latest % 12, gain: 0.014 + density * 0.03, type: "triangle", pan: 0.15 },
+      ];
+    },
+    summary() {
+      const tested = Math.max(0, Math.min(state.primeLimit - 1, state.primeCursor - 2));
+      setText("metricPrimary", `${state.primeList.length}`);
+      setText("metricSecondary", `${Math.min(state.primeCursor, state.primeLimit)} / ${Math.round(state.primeLimit)}`);
+      setText("patternSummary", `${tested} tested`);
+      setText("stageReadout", `PRIME SIEVE · N ${Math.min(state.primeCursor, state.primeLimit)} · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+    },
+  },
+  lissajous: {
+    bind() {
+      bindRange("lissajousX", "lissajousX", (value) => `${Math.round(value)}`);
+      bindRange("lissajousY", "lissajousY", (value) => `${Math.round(value)}`);
+      bindRange("lissajousPhase", "lissajousPhase", (value) => `${Math.round(value)} deg`);
+      bindRange("lissajousRate", "lissajousRate", (value) => `${compact(value, 2)} cyc/s`);
+      bindRange("lissajousTone", "lissajousTone", (value) => `${Math.round(value)} Hz`);
+    },
+    update() {},
+    draw: drawLissajous,
+    drone() {
+      return [
+        { frequency: state.lissajousTone * state.lissajousX, gain: 0.09, type: "sine", pan: -0.38 },
+        { frequency: state.lissajousTone * state.lissajousY, gain: 0.09, type: "sine", pan: 0.38 },
+        { frequency: state.lissajousTone, gain: 0.028, type: "triangle", pan: 0 },
+      ];
+    },
+    summary() {
+      const x = Math.round(state.lissajousX);
+      const y = Math.round(state.lissajousY);
+      const divisor = gcd(x, y);
+      setText("metricPrimary", `${x / divisor}:${y / divisor}`);
+      setText("metricSecondary", `${compact(1 / Math.max(0.01, state.lissajousRate), 2)} s`);
+      setText("patternSummary", `${x} by ${y} oscillations`);
+      setText("stageReadout", `LISSAJOUS ORBITS · ${x}:${y} · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+    },
+  },
+  pendulums: {
+    bind() {
+      bindRange("pendulumCount", "pendulumCount", (value) => `${Math.round(value)}`);
+      bindRange("pendulumRephase", "pendulumRephase", (value) => `${compact(value, 1)} s`);
+      bindRange("pendulumStep", "pendulumStep", (value) => `${Math.round(value)} cycle`);
+      bindRange("pendulumSwing", "pendulumSwing", (value) => `${Math.round(value)} deg`);
+      bindRange("pendulumTone", "pendulumTone", (value) => `${Math.round(value)} Hz`);
+    },
+    update() {
+      updatePendulums();
+    },
+    draw: drawPendulums,
+    drone() {
+      const coherence = pendulumCoherence();
+      return [
+        { frequency: state.pendulumTone * 0.5, gain: 0.012 + coherence * 0.052, type: "sine", pan: 0 },
+        { frequency: state.pendulumTone * (1 + coherence * 0.5), gain: 0.012 + coherence * 0.025, type: "triangle", pan: 0 },
+      ];
+    },
+    summary() {
+      const rephase = Math.max(1, state.pendulumRephase);
+      const remaining = rephase - (state.time % rephase);
+      setText("metricPrimary", percent(pendulumCoherence()));
+      setText("metricSecondary", `${compact(remaining, 1)} s`);
+      setText("patternSummary", `${Math.round(state.pendulumCount)} periods`);
+      setText("stageReadout", `PENDULUM WAVE · ${Math.round(state.pendulumCount)} BOBS · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+    },
+  },
+  doublependulum: {
+    bind() {
+      bindRange("chaosGravity", "chaosGravity", (value) => `${compact(value, 2)} m/s2`);
+      bindRange("chaosLength", "chaosLength", (value) => `${compact(value, 2)} x`);
+      bindRange("chaosOffset", "chaosOffset", (value) => `${compact(value, 2)} deg`);
+      bindRange("chaosSpeed", "chaosSpeed", (value) => `${compact(value, 2)} x`);
+      bindRange("chaosTone", "chaosTone", (value) => `${Math.round(value)} Hz`);
+      $("chaosOffset")?.addEventListener("input", resetDoublePendulum);
+      $("releaseChaos")?.addEventListener("click", resetDoublePendulum);
+      resetDoublePendulum();
+    },
+    update: stepDoublePendulum,
+    draw: drawDoublePendulum,
+    drone() {
+      const divergence = clamp(chaosDivergence(), 0, Math.PI * 2);
+      const energy = state.chaosSystems.reduce(
+        (sum, system) => sum + system.av * system.av + system.bv * system.bv,
+        0,
+      ) / Math.max(1, state.chaosSystems.length);
+      return [
+        { frequency: state.chaosTone + Math.sqrt(energy) * 3, gain: 0.07, type: "triangle", pan: -0.32 },
+        { frequency: state.chaosTone + Math.sqrt(energy) * 3 + divergence * 13, gain: 0.07, type: "sine", pan: 0.32 },
+      ];
+    },
+    summary() {
+      const degrees = chaosDivergence() * 180 / Math.PI;
+      setText("metricPrimary", `${compact(degrees, 2)} deg`);
+      setText("metricSecondary", `${compact(state.chaosElapsed, 1)} s`);
+      setText("patternSummary", `${compact(state.chaosOffset, 2)} deg apart`);
+      setText("stageReadout", `DOUBLE PENDULUM · DIVERGENCE ${compact(degrees, 1)} DEG · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+    },
+  },
+  reaction: {
+    bind() {
+      bindRange("reactionFeed", "reactionFeed", (value) => compact(value, 4));
+      bindRange("reactionKill", "reactionKill", (value) => compact(value, 4));
+      bindRange("reactionDiffusion", "reactionDiffusion", (value) => compact(value, 2));
+      bindRange("reactionSpeed", "reactionSpeed", (value) => `${compact(value, 1)} x`);
+      for (const button of document.querySelectorAll("[data-reaction]")) {
+        button.addEventListener("click", () => {
+          const [feed, kill] = button.dataset.reaction.split(":").map(Number);
+          const feedInput = $("reactionFeed");
+          const killInput = $("reactionKill");
+          if (feedInput) feedInput.value = String(feed);
+          if (killInput) killInput.value = String(kill);
+          controls.get("reactionFeed")?.();
+          controls.get("reactionKill")?.();
+          resetReactionDiffusion();
+          updateReactionButtons();
+        });
+      }
+      $("seedReaction")?.addEventListener("click", resetReactionDiffusion);
+      canvas?.addEventListener("pointerdown", (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const top = stageTopInset();
+        seedReactionAt(
+          (event.clientX - rect.left) / Math.max(1, rect.width),
+          (event.clientY - rect.top - top) / Math.max(1, rect.height - top),
+          6,
+        );
+      });
+      resetReactionDiffusion();
+      updateReactionButtons();
+    },
+    update: updateReactionDiffusion,
+    draw: drawReactionDiffusion,
+    drone() {
+      const coverage = state.reactionStats.coverage;
+      const edges = state.reactionStats.edges;
+      return [
+        { frequency: 72 + coverage * 680, gain: 0.035 + coverage * 0.08, type: "sine", pan: -0.28 },
+        { frequency: 118 + edges * 3100, gain: 0.025 + edges * 0.4, type: "triangle", pan: 0.28 },
+        { frequency: 54 + (state.reactionFeed + state.reactionKill) * 720, gain: 0.025, type: "sine", pan: 0 },
+      ];
+    },
+    summary() {
+      setText("metricPrimary", percent(state.reactionStats.coverage * 2.5));
+      setText("metricSecondary", compact(state.reactionStats.edges, 3));
+      setText("patternSummary", `F ${compact(state.reactionFeed, 4)} · K ${compact(state.reactionKill, 4)}`);
+      setText("stageReadout", `REACTION-DIFFUSION · F ${compact(state.reactionFeed, 4)} · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+      updateReactionButtons();
+    },
+  },
+  orbitals: {
+    bind() {
+      bindRange("orbitalScale", "orbitalScale", (value) => `${compact(value, 1)} a0`);
+      bindRange("orbitalRotation", "orbitalRotation", (value) => `${Math.round(value)} deg`);
+      bindRange("orbitalRate", "orbitalRate", (value) => `${compact(value, 2)} rev/s`);
+      bindRange("orbitalTone", "orbitalTone", (value) => `${Math.round(value)} Hz`);
+      for (const button of document.querySelectorAll("[data-orbital]")) {
+        button.addEventListener("click", () => {
+          const [n, l, m] = button.dataset.orbital.split(":").map(Number);
+          setOrbital(n, l, m);
+        });
+      }
+      setOrbital(2, 1, 1);
+    },
+    update: updateOrbital,
+    draw: drawAtomicOrbital,
+    drone() {
+      const root = state.orbitalTone * (1 + state.orbitalL * 0.22);
+      const nodeGain = 0.045 / Math.max(1, state.orbitalN);
+      return Array.from({ length: Math.min(6, state.orbitalN + state.orbitalL) }, (_, index) => ({
+        frequency: root * (index + 1),
+        gain: nodeGain / Math.sqrt(index + 1),
+        type: index % 2 ? "triangle" : "sine",
+        pan: lerp(-0.45, 0.45, index / Math.max(1, state.orbitalN + state.orbitalL - 1)),
+      }));
+    },
+    summary() {
+      const label = `${state.orbitalN}${["s", "p", "d", "f"][state.orbitalL] ?? "?"}`;
+      setText("metricPrimary", `${compact(-13.6 / (state.orbitalN ** 2), 2)} eV`);
+      setText("metricSecondary", `${state.orbitalN - 1}`);
+      setText("patternSummary", `${label} slice · m ${state.orbitalM}`);
+      setText("stageReadout", `ATOMIC ORBITALS · ${label.toUpperCase()} · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+      updateOrbitalButtons();
+    },
+  },
+  dna: {
+    bind() {
+      bindRange("dnaRate", "dnaRate", (value) => `${compact(value, 1)} bases/s`);
+      bindRange("dnaTone", "dnaTone", (value) => `${Math.round(value)} Hz`);
+      bindRange("dnaWindow", "dnaWindow", (value) => `${Math.round(value)} bases`);
+      bindRange("dnaTwist", "dnaTwist", (value) => compact(value, 2));
+      const sequence = $("dnaSequence");
+      sequence?.addEventListener("input", () => setDnaSequence(sequence.value));
+      $("mutateDna")?.addEventListener("click", mutateDna);
+      $("restartDna")?.addEventListener("click", () => {
+        state.dnaIndex = 0;
+        state.dnaAccumulator = 0;
+        updateDnaCurrent();
+      });
+      setDnaSequence(sequence?.value || state.dnaSequence);
+    },
+    update: updateDna,
+    draw: drawDna,
+    drone() {
+      const counts = { A: 0, C: 0, G: 0, T: 0 };
+      for (const base of state.dnaSequence) counts[base] += 1;
+      const total = Math.max(1, state.dnaSequence.length);
+      return "ACGT".split("").map((base, index) => ({
+        frequency: state.dnaTone * [1, 9 / 8, 5 / 4, 3 / 2][index] * 0.5,
+        gain: 0.008 + (counts[base] / total) * 0.055,
+        type: index % 2 ? "triangle" : "sine",
+        pan: -0.6 + index * 0.4,
+      }));
+    },
+    summary() {
+      setText("metricPrimary", state.dnaCodon);
+      setText("metricSecondary", state.dnaAmino);
+      setText("patternSummary", `${state.dnaSequence.length} bases`);
+      setText("stageReadout", `DNA TRANSLATOR · BASE ${state.dnaIndex + 1} · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+    },
+  },
+  neural: {
+    bind() {
+      bindRange("neuralThreshold", "neuralThreshold", percent);
+      bindRange("neuralGain", "neuralGain", (value) => `${compact(value, 1)} x`);
+      bindRange("neuralRate", "neuralRate", (value) => `${compact(value, 2)} pulse/s`);
+      bindRange("neuralNoise", "neuralNoise", percent);
+      for (const button of document.querySelectorAll("[data-neural-input]")) {
+        button.addEventListener("click", () => fireNeuralInput(Number(button.dataset.neuralInput)));
+      }
+      $("randomizeNeural")?.addEventListener("click", resetNeuralNetwork);
+      resetNeuralNetwork();
+      updateNeuralButtons();
+    },
+    update: updateNeural,
+    draw: drawNeuralNetwork,
+    drone() {
+      return state.neuralLayers[2].map((activation, index) => ({
+        frequency: 72 * 2 ** ([0, 4, 7][index] / 12),
+        gain: 0.012 + activation * 0.035,
+        type: index % 2 ? "triangle" : "sine",
+        pan: -0.4 + index * 0.4,
+      }));
+    },
+    summary() {
+      const active = state.neuralLayers.flat().filter((value) => value >= state.neuralThreshold).length;
+      const confidence = Math.max(...state.neuralLayers[2]);
+      setText("metricPrimary", `${active}`);
+      setText("metricSecondary", percent(confidence));
+      setText("patternSummary", `input ${state.neuralInput + 1} · fixed weights`);
+      setText("stageReadout", `NEURAL PULSE · INPUT ${state.neuralInput + 1} · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+      updateNeuralButtons();
+    },
+  },
+  fourier: {
+    bind() {
+      bindRange("fourierHarmonics", "fourierHarmonics", (value) => `${Math.round(value)}`);
+      bindRange("fourierRate", "fourierRate", (value) => `${compact(value, 2)} cyc/s`);
+      bindRange("fourierTone", "fourierTone", (value) => `${Math.round(value)} Hz`);
+      for (const button of document.querySelectorAll("[data-fourier-wave]")) {
+        button.addEventListener("click", () => setFourierWave(button.dataset.fourierWave));
+      }
+      setFourierWave("square");
+    },
+    update() {},
+    draw: drawFourierEpicycles,
+    drone() {
+      const partials = fourierPartials();
+      const total = partials.reduce((sum, partial) => sum + Math.abs(partial.coefficient), 0) || 1;
+      return partials.map(({ harmonic, coefficient }) => ({
+        frequency: state.fourierTone * harmonic,
+        gain: 0.19 * Math.abs(coefficient) / Math.sqrt(total),
+        type: "sine",
+        pan: clamp((harmonic / Math.max(1, state.fourierHarmonics)) * 1.2 - 0.6, -0.6, 0.6),
+      }));
+    },
+    summary() {
+      setText("metricPrimary", `${fourierPartials().length}`);
+      setText("metricSecondary", compact(fourierError(), 3));
+      setText("patternSummary", `${state.fourierWave} series`);
+      setText("stageReadout", `FOURIER EPICYCLES · ${state.fourierWave.toUpperCase()} · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+      updateFourierButtons();
+    },
+  },
+  lensing: {
+    bind() {
+      bindRange("lensMass", "lensMass", (value) => `${compact(value, 2)} M`);
+      bindRange("lensOffset", "lensOffset", (value) => compact(value, 2));
+      bindRange("lensOrbit", "lensOrbit", (value) => compact(value, 2));
+      bindRange("lensRate", "lensRate", (value) => `${compact(value, 2)} cyc/s`);
+      bindRange("lensTone", "lensTone", (value) => `${Math.round(value)} Hz`);
+    },
+    update() {},
+    draw: drawGravityLens,
+    drone() {
+      const geometry = lensGeometry();
+      const total = Math.max(1, geometry.majorMagnification + geometry.minorMagnification);
+      return [
+        {
+          frequency: state.lensTone * 2 ** (clamp(geometry.positive, -2, 2) / 12),
+          gain: clamp(0.16 * geometry.majorMagnification / total, 0.018, 0.14),
+          type: "sine",
+          pan: 0.48,
+        },
+        {
+          frequency: state.lensTone * 2 ** (clamp(geometry.negative, -2, 2) / 12),
+          gain: clamp(0.16 * geometry.minorMagnification / total, 0.012, 0.12),
+          type: "triangle",
+          pan: -0.48,
+        },
+      ];
+    },
+    summary() {
+      const geometry = lensGeometry();
+      setText("metricPrimary", compact(geometry.thetaE, 2));
+      setText("metricSecondary", compact(geometry.delay, 3));
+      setText("patternSummary", `source beta ${compact(geometry.beta, 2)}`);
+      setText("stageReadout", `GRAVITY LENS · TWO IMAGES · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+    },
+  },
 };
 
 function updateAutomataButtons() {
   for (const button of document.querySelectorAll("[data-ca-rule]")) {
     button.setAttribute("aria-pressed", String(Number(button.dataset.caRule) === Math.round(state.caRule)));
+  }
+}
+
+function updateReactionButtons() {
+  for (const button of document.querySelectorAll("[data-reaction]")) {
+    const [feed, kill] = button.dataset.reaction.split(":").map(Number);
+    const selected = Math.abs(feed - state.reactionFeed) < 0.00005
+      && Math.abs(kill - state.reactionKill) < 0.00005;
+    button.setAttribute("aria-pressed", String(selected));
   }
 }
 

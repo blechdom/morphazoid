@@ -189,13 +189,15 @@
           <div class="group-body">
             <label class="select-control" for="mappingMode">
               <span class="field-label">Voice selection</span>
-              <span class="select-shell"><select id="mappingMode"></select></span>
+              <span class="select-shell">
+                <select id="mappingMode" aria-describedby="mappingDescription"></select>
+              </span>
             </label>
             <p class="lattice-mapping-description" id="mappingDescription">
               Edge class chooses the row; edge orientation chooses the column.
             </p>
 
-            <div class="lattice-map-legend" aria-label="Current contact mappings">
+            <div class="lattice-map-legend" id="mappingLegend" aria-label="Current contact mappings">
               <span><b>Edge class</b><small>drum row</small></span>
               <span><b>Edge angle</b><small>voice column</small></span>
               <span><b>Height</b><small>tuning</small></span>

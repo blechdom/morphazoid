@@ -81,7 +81,7 @@
             aria-label="Recursive PM algorithm with three recursive operators. Audio off."
             aria-describedby="recursivePmDescription liveStatus"
           >
-            An oscilloscope, spectrogram, and signal-flow explanation for Recursive PM.
+            A bright oscilloscope over a live log-frequency spectrum, plus a signal-flow explanation for Recursive PM.
           </canvas>
 
           <div class="recursive-pm-heading">
@@ -119,6 +119,78 @@
             </div>
             <p class="recursive-pm-preset-description" id="presetDescription">
               The original default: a sub-audio carrier folded by a fast 372.64 Hz phase orbit.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section recursive-pm-performance" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Performance</h2>
+            <span class="section-state" id="performanceState">Drone · continuous</span>
+          </summary>
+          <div class="group-body">
+            <div class="chaotic-midi-monitor" aria-label="Live MIDI performance state">
+              <span><b>Note</b><output id="currentNote">—</output></span>
+              <span><b>Bend</b><output id="bendState">+0 st</output></span>
+              <span><b>Sustain</b><output id="sustainState">up</output></span>
+              <span class="chaotic-expression-row">
+                <b>Expression</b>
+                <i id="expressionMeter" aria-hidden="true"></i>
+                <output id="expressionValue">100%</output>
+              </span>
+              <span class="chaotic-midi-activity" id="midiActivity" aria-live="polite">Waiting for MIDI</span>
+            </div>
+
+            <div class="chaotic-adsr-preview" aria-label="Amplitude ADSR shape">
+              <svg viewBox="0 0 240 72" role="img" aria-label="Attack, decay, sustain and release envelope">
+                <path class="chaotic-adsr-grid" d="M 8 64 H 232 M 8 8 V 64" />
+                <path id="adsrCurve" d="M 8 64 Q 31 12 52 8 Q 76 26 103 26 L 171 26 Q 202 26 232 64" />
+              </svg>
+              <span>A</span><span>D</span><span>S</span><span>R</span>
+            </div>
+
+            <label class="control" for="ampAttackMs">
+              <span><b>Attack</b><output id="ampAttackMsOut" for="ampAttackMs">8 ms</output></span>
+              <input id="ampAttackMs" data-parameter-id="performance.ampAttackMs" type="range" min="0" max="5000" step="1" value="8" />
+            </label>
+            <label class="control" for="ampDecayMs">
+              <span><b>Decay</b><output id="ampDecayMsOut" for="ampDecayMs">120 ms</output></span>
+              <input id="ampDecayMs" data-parameter-id="performance.ampDecayMs" type="range" min="0" max="5000" step="1" value="120" />
+            </label>
+            <label class="control" for="ampSustainLevel">
+              <span><b>Sustain level</b><output id="ampSustainLevelOut" for="ampSustainLevel">72%</output></span>
+              <input id="ampSustainLevel" data-parameter-id="performance.ampSustainLevel" type="range" min="0" max="1" step="0.01" value="0.72" />
+            </label>
+            <label class="control" for="ampReleaseMs">
+              <span><b>Release</b><output id="ampReleaseMsOut" for="ampReleaseMs">180 ms</output></span>
+              <input id="ampReleaseMs" data-parameter-id="performance.ampReleaseMs" type="range" min="2" max="10000" step="1" value="180" />
+            </label>
+
+            <div class="chaotic-glide-row">
+              <label for="glideMode">
+                <span>Glide mode</span>
+                <select id="glideMode" data-parameter-id="performance.glideMode">
+                  <option value="off" selected>Off</option>
+                  <option value="legato">Legato</option>
+                  <option value="always">Always</option>
+                </select>
+              </label>
+            </div>
+            <label class="control" for="glideTimeMs">
+              <span><b>Glide time</b><output id="glideTimeMsOut" for="glideTimeMs">off</output></span>
+              <input id="glideTimeMs" data-parameter-id="performance.glideTimeMs" type="range" min="0" max="2000" step="1" value="0" />
+            </label>
+            <label class="control" for="rootMidiNote">
+              <span><b>Root note</b><output id="rootMidiNoteOut" for="rootMidiNote">C4 · 60</output></span>
+              <input id="rootMidiNote" data-parameter-id="performance.rootMidiNote" type="range" min="0" max="127" step="1" value="60" />
+            </label>
+            <label class="control" for="pitchBendRangeSemitones">
+              <span><b>Pitch-bend range</b><output id="pitchBendRangeSemitonesOut" for="pitchBendRangeSemitones">±2 st</output></span>
+              <input id="pitchBendRangeSemitones" data-parameter-id="performance.pitchBendRangeSemitones" type="range" min="0" max="24" step="1" value="2" />
+            </label>
+
+            <p class="recursive-pm-control-note recursive-pm-midi-map-note">
+              Controller macros · 1 Depth · 2 Mod frequency · 3 Phase index · 4 Index divisor · 5 Attack · 6 Release · 7 Glide · 8 Output. Standard MIDI · CC5 glide · CC11 expression · CC64 sustain · CC65 portamento · CC72 release · CC73 attack · CC75 decay · CC120/121/123 panic and reset.
             </p>
           </div>
         </details>
@@ -182,7 +254,7 @@
       </aside>
 
       <p class="sr-only" id="recursivePmDescription">
-        A live oscilloscope and rolling spectrogram sit above the complete recursive phase path. Every turn shows the previous sine multiplied by its index and added to its independent phasor before the next sine operator.
+        A live, non-scrolling log-frequency spectrum uses rectangular level bars behind a bright oscilloscope trace. The complete recursive phase path shows every previous sine multiplied by its index and added to an independent phasor before the next sine operator.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

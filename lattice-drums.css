@@ -125,6 +125,37 @@
   font-size: 7px;
 }
 
+.lattice-drum-assignment {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.lattice-drum-assignment span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lattice-pair-swatch {
+  display: block;
+  width: 20px;
+  min-width: 20px;
+  height: 7px;
+  border: 1px solid color-mix(in oklab, var(--ink) 42%, transparent);
+  background: linear-gradient(
+    90deg,
+    var(--pair-first) 0 50%,
+    var(--pair-second) 50% 100%
+  );
+}
+
+.lattice-drum-map[data-mapping-mode="tile-color-pair"] .lattice-drum-cell {
+  min-height: 50px;
+}
+
 .lattice-drum-cell.is-active {
   border-color: var(--voice-color);
   color: var(--ink);
@@ -142,6 +173,15 @@
     left: 12px;
     max-width: none;
     text-align: left;
+  }
+
+  .lattice-map-legend b,
+  .lattice-map-legend small {
+    font-size: 8px;
+  }
+
+  .lattice-drum-map[data-mapping-mode="tile-color-pair"] .lattice-drum-cell {
+    min-height: 52px;
   }
 }
 

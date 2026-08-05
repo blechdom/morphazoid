@@ -76,7 +76,7 @@ const migratedPages = [
     html: "algorithmic-sequencers.html",
     app: "algorithmic-sequencers-app.js",
     source: "src/algorithmic-sequencers.js",
-    requiredCopy: ["Algorithmic", "Sequencers", "Search"],
+    requiredCopy: ["Algorithmic", "Sequencers", "Sorting"],
   },
 ];
 

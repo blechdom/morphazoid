@@ -81,6 +81,56 @@
   pointer-events: none;
 }
 
+.recursive-pm-page .chaotic-path-graph .recursive-pm-flow-compact {
+  display: none;
+}
+
+.recursive-pm-compact-node rect {
+  fill: color-mix(in oklab, var(--bg-deep) 90%, transparent);
+  stroke: var(--recursive-pm-turn);
+  stroke-width: 1.3;
+}
+
+.recursive-pm-compact-node.is-carrier rect {
+  stroke: var(--recursive-pm-carrier);
+}
+
+.recursive-pm-compact-node.is-output rect {
+  fill: color-mix(in oklab, var(--recursive-pm-output) 8%, var(--bg-deep));
+  stroke: var(--recursive-pm-output);
+}
+
+.recursive-pm-compact-title,
+.recursive-pm-compact-value,
+.recursive-pm-compact-caption,
+.recursive-pm-compact-arrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-anchor: middle;
+}
+
+.recursive-pm-compact-title {
+  fill: var(--ink);
+  font-size: 7.5px;
+  font-weight: 600;
+}
+
+.recursive-pm-compact-value {
+  fill: var(--muted);
+  font-size: 6px;
+}
+
+.recursive-pm-compact-arrow {
+  fill: var(--recursive-pm-turn);
+  font-size: 15px;
+}
+
+.recursive-pm-compact-caption {
+  fill: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.04em;
+  text-anchor: start;
+}
+
 .recursive-pm-panel {
   background:
     linear-gradient(180deg, color-mix(in oklab, var(--accent) 3%, transparent), transparent 270px),
@@ -97,6 +147,143 @@
   --accent: #ff8fd8;
   --accent-soft: color-mix(in oklab, #ff8fd8 55%, transparent);
   --accent-glow: color-mix(in oklab, #ff8fd8 20%, transparent);
+}
+
+.recursive-pm-performance {
+  --accent: #ffbd73;
+  --accent-soft: color-mix(in oklab, #ffbd73 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffbd73 18%, transparent);
+  --chaotic-carrier: var(--recursive-pm-carrier);
+}
+
+.recursive-pm-page .chaotic-midi-monitor {
+  display: grid;
+  padding: 9px 10px;
+  margin-bottom: 13px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-deep) 86%, transparent);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.recursive-pm-page .chaotic-midi-monitor > span {
+  display: grid;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 8px;
+  gap: 3px;
+}
+
+.recursive-pm-page .chaotic-midi-monitor b {
+  color: var(--faint);
+  font-size: 6px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.recursive-pm-page .chaotic-midi-monitor output {
+  overflow: hidden;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recursive-pm-page .chaotic-expression-row {
+  grid-column: 1 / -1;
+  grid-template-columns: 54px minmax(0, 1fr) 34px !important;
+  align-items: center;
+}
+
+.recursive-pm-page .chaotic-expression-row i {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  background: var(--line-strong);
+}
+
+.recursive-pm-page .chaotic-expression-row i::after {
+  position: absolute;
+  inset: 0;
+  width: calc(var(--expression, 1) * 100%);
+  content: "";
+  background: var(--recursive-pm-carrier);
+}
+
+.recursive-pm-page .chaotic-midi-activity {
+  color: var(--faint) !important;
+  grid-column: 1 / -1;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.recursive-pm-page .chaotic-midi-activity.is-active {
+  color: var(--recursive-pm-carrier) !important;
+}
+
+.recursive-pm-page .chaotic-adsr-preview {
+  display: grid;
+  margin: 2px 0 12px;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.recursive-pm-page .chaotic-adsr-preview svg {
+  width: 100%;
+  height: 74px;
+  grid-column: 1 / -1;
+}
+
+.recursive-pm-page .chaotic-adsr-preview path:not(.chaotic-adsr-grid) {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 5px var(--accent-glow));
+}
+
+.recursive-pm-page .chaotic-adsr-preview .chaotic-adsr-grid {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.recursive-pm-page .chaotic-adsr-preview > span {
+  margin-top: -5px;
+  color: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.recursive-pm-page .chaotic-glide-row {
+  margin: 2px 0 12px;
+}
+
+.recursive-pm-page .chaotic-glide-row label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  color: var(--ink);
+  font-size: 9px;
+  gap: 10px;
+}
+
+.recursive-pm-page .chaotic-glide-row select {
+  min-width: 106px;
+  height: 30px;
+  padding: 0 24px 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font: inherit;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.recursive-pm-midi-map-note {
+  margin-top: 3px;
+  line-height: 1.65;
 }
 
 .recursive-pm-preset-grid {
@@ -185,6 +372,7 @@
 @media (max-width: 960px) {
   .recursive-pm-shell {
     grid-template-columns: 1fr;
+    grid-template-rows: clamp(360px, 50dvh, 460px) minmax(0, 1fr);
   }
 
   .recursive-pm-heading {
@@ -210,10 +398,22 @@
     font-size: 6px;
   }
 
+  .recursive-pm-stage .stage-meta,
   .recursive-pm-scope-labels {
-    right: 13px;
-    bottom: 11px;
-    left: 13px;
+    display: none;
+  }
+
+  .recursive-pm-page .chaotic-path-graph {
+    /* Keep the graph below the shared analyzer at the 360px stage floor. */
+    height: clamp(0px, calc(100% - 274px), 132px);
+  }
+
+  .recursive-pm-page .chaotic-path-graph .recursive-pm-flow-detailed {
+    display: none;
+  }
+
+  .recursive-pm-page .chaotic-path-graph .recursive-pm-flow-compact {
+    display: block;
   }
 }
 

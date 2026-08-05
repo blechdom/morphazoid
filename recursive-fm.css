@@ -103,6 +103,60 @@
   overflow: visible;
 }
 
+.recursive-fm-signal-graph .recursive-fm-flow-compact {
+  display: none;
+}
+
+.recursive-fm-compact-node rect {
+  fill: color-mix(in oklab, var(--bg-deep) 90%, transparent);
+  stroke: var(--recursive-fm-turn);
+  stroke-width: 1.3;
+}
+
+.recursive-fm-compact-node.is-carrier rect {
+  stroke: var(--recursive-fm-carrier);
+}
+
+.recursive-fm-compact-node.is-entry rect {
+  stroke: var(--recursive-fm-entry);
+}
+
+.recursive-fm-compact-node.is-output rect {
+  fill: color-mix(in oklab, var(--recursive-fm-output) 8%, var(--bg-deep));
+  stroke: var(--recursive-fm-output);
+}
+
+.recursive-fm-compact-title,
+.recursive-fm-compact-value,
+.recursive-fm-compact-caption,
+.recursive-fm-compact-arrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-anchor: middle;
+}
+
+.recursive-fm-compact-title {
+  fill: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.recursive-fm-compact-value {
+  fill: var(--muted);
+  font-size: 6.5px;
+}
+
+.recursive-fm-compact-arrow {
+  fill: var(--recursive-fm-entry);
+  font-size: 15px;
+}
+
+.recursive-fm-compact-caption {
+  fill: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.04em;
+  text-anchor: start;
+}
+
 .recursive-fm-signal-wire,
 .recursive-fm-bias-wire {
   fill: none;
@@ -267,20 +321,6 @@
   pointer-events: none;
 }
 
-.recursive-fm-spectrogram-label {
-  position: absolute;
-  z-index: 2;
-  top: 45%;
-  right: clamp(18px, 3vw, 40px);
-  left: clamp(20px, 4vw, 58px);
-  display: flex;
-  color: var(--faint);
-  justify-content: space-between;
-  font-size: 7px;
-  letter-spacing: 0.15em;
-  pointer-events: none;
-}
-
 .recursive-fm-panel {
   background:
     linear-gradient(180deg, color-mix(in oklab, var(--accent) 3%, transparent), transparent 270px),
@@ -297,6 +337,142 @@
   --accent: #b59cff;
   --accent-soft: color-mix(in oklab, #b59cff 55%, transparent);
   --accent-glow: color-mix(in oklab, #b59cff 20%, transparent);
+}
+
+.recursive-fm-performance {
+  --accent: #ffb86b;
+  --accent-soft: color-mix(in oklab, #ffb86b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffb86b 18%, transparent);
+}
+
+.recursive-fm-midi-monitor {
+  display: grid;
+  padding: 9px 10px;
+  margin-bottom: 13px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-deep) 86%, transparent);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.recursive-fm-midi-monitor > span {
+  display: grid;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 8px;
+  gap: 3px;
+}
+
+.recursive-fm-midi-monitor b {
+  color: var(--faint);
+  font-size: 6px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.recursive-fm-midi-monitor output {
+  overflow: hidden;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recursive-fm-expression-row {
+  grid-column: 1 / -1;
+  grid-template-columns: 54px minmax(0, 1fr) 34px !important;
+  align-items: center;
+}
+
+.recursive-fm-expression-row i {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  background: var(--line-strong);
+}
+
+.recursive-fm-expression-row i::after {
+  position: absolute;
+  inset: 0;
+  width: calc(var(--expression, 1) * 100%);
+  content: "";
+  background: var(--recursive-fm-carrier);
+}
+
+.recursive-fm-midi-activity {
+  color: var(--faint) !important;
+  grid-column: 1 / -1;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.recursive-fm-midi-activity.is-active {
+  color: var(--recursive-fm-carrier) !important;
+}
+
+.recursive-fm-adsr-preview {
+  display: grid;
+  margin: 2px 0 12px;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.recursive-fm-adsr-preview svg {
+  width: 100%;
+  height: 74px;
+  grid-column: 1 / -1;
+}
+
+.recursive-fm-adsr-preview path:not(.recursive-fm-adsr-grid) {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 5px var(--accent-glow));
+}
+
+.recursive-fm-adsr-preview .recursive-fm-adsr-grid {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.recursive-fm-adsr-preview > span {
+  margin-top: -5px;
+  color: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.recursive-fm-glide-row {
+  margin: 2px 0 12px;
+}
+
+.recursive-fm-glide-row label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  color: var(--ink);
+  font-size: 9px;
+  gap: 10px;
+}
+
+.recursive-fm-glide-row select {
+  min-width: 106px;
+  height: 30px;
+  padding: 0 24px 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font: inherit;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.recursive-fm-midi-map-note {
+  margin-top: 3px;
+  line-height: 1.65;
 }
 
 .recursive-fm-preset-grid {
@@ -385,6 +561,7 @@
 @media (max-width: 960px) {
   .recursive-fm-shell {
     grid-template-columns: 1fr;
+    grid-template-rows: clamp(360px, 50dvh, 460px) minmax(0, 1fr);
   }
 
   .recursive-fm-heading {
@@ -406,16 +583,29 @@
     display: none;
   }
 
+  .recursive-fm-stage .stage-meta {
+    display: none;
+  }
+
   .recursive-fm-signal-graph {
     right: 5px;
     bottom: 8px;
     left: 5px;
-    height: 132px;
+    /* The mobile analyser ends at y=265; retain a clear pixel at 360px. */
+    height: clamp(0px, calc(100% - 274px), 132px);
   }
 
   .recursive-fm-signal-graph::before {
     top: 4px;
     font-size: 6px;
+  }
+
+  .recursive-fm-signal-graph .recursive-fm-flow-detailed {
+    display: none;
+  }
+
+  .recursive-fm-signal-graph .recursive-fm-flow-compact {
+    display: block;
   }
 }
 

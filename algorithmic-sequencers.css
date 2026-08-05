@@ -76,6 +76,27 @@
   gap: 7px;
 }
 
+.algorithmic-randomize-bar {
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, var(--accent-glow), transparent 72%);
+}
+
+.algorithmic-randomize-top {
+  width: 100%;
+  min-height: 42px;
+  margin: 0;
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.algorithmic-randomize-top:hover,
+.algorithmic-randomize-top:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
 .algorithmic-preset-grid button {
   min-height: 42px;
   padding: 8px 9px;
@@ -131,29 +152,6 @@
   min-width: 0;
   height: 40px;
   min-height: 40px;
-}
-
-.algorithmic-data-actions {
-  display: grid;
-  margin: 0 0 14px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.algorithmic-data-actions .mini-action {
-  min-width: 0;
-  min-height: 38px;
-}
-
-.algorithmic-curve-switch {
-  grid-auto-flow: initial;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.algorithmic-curve-switch button {
-  min-height: 36px;
-  font-size: 8px;
-  white-space: normal;
 }
 
 .algorithmic-candidate-list {
@@ -232,6 +230,12 @@
   }
 }
 
+@media (max-width: 960px) {
+  .algorithmic-sequencers-stage {
+    min-height: 0;
+  }
+}
+
 @media (max-width: 620px) {
   .algorithmic-sequencers-page .stage-meta {
     display: none;
@@ -267,11 +271,4 @@
     grid-column: 1 / -1;
   }
 
-  .algorithmic-curve-switch {
-    grid-template-columns: 1fr;
-  }
-
-  .algorithmic-data-actions {
-    grid-template-columns: 1fr;
-  }
 }

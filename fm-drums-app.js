@@ -6,9 +6,16 @@ import {
   frequencySliderPosition,
   sanitizeFmDrumVoice,
 } from "./src/fm-drums.js";
+import {
+  createFmDrumMidiTriggerVoice,
+  fmDrumMidiAction,
+  updateFmDrumVoiceFromMidi,
+} from "./src/fm-drums-midi.js";
+import { getSharedMidiManager } from "./src/midi-manager.js";
 
 const $ = (id) => document.getElementById(id);
 const audio = new FmDrumAudio(globalThis);
+const midiManager = getSharedMidiManager(globalThis);
 const defaultVoices = cloneDefaultFmDrumVoices();
 const PARAMETER_KEYS = [
   "frequency", "attack", "decay", "modRatio", "modIndex",
@@ -32,6 +39,8 @@ const state = {
   selectedId: defaultVoices[0].id,
   audioOn: false,
 };
+let audioLifecycleGeneration = 0;
+let audioStartPromise = null;
 
 function loadBank() {
   try {
@@ -75,28 +84,49 @@ function setAudioState(enabled) {
   audio.setOutput(enabled ? Number($("output").value) : 0);
 }
 
-async function enableAudio() {
-  try {
-    $("audioError").hidden = true;
-    await audio.start();
+function enableAudio() {
+  if (state.audioOn && audio.context) return Promise.resolve(true);
+  if (audioStartPromise) return audioStartPromise;
+  const lifecycleGeneration = audioLifecycleGeneration;
+  $("audioError").hidden = true;
+  let pending;
+  pending = audio.start().then((context) => {
+    if (
+      lifecycleGeneration !== audioLifecycleGeneration
+      || context !== audio.context
+    ) return false;
     setAudioState(true);
     return true;
-  } catch (error) {
+  }).catch((error) => {
+    if (
+      lifecycleGeneration !== audioLifecycleGeneration
+      || error?.name === "AbortError"
+    ) return false;
     showError(error);
     return false;
-  }
+  }).finally(() => {
+    if (audioStartPromise === pending) audioStartPromise = null;
+  });
+  audioStartPromise = pending;
+  return pending;
 }
 
 async function triggerVoice(voice) {
-  if (!state.audioOn && !await enableAudio()) return;
+  const lifecycleGeneration = audioLifecycleGeneration;
+  if ((!state.audioOn || !audio.context) && !await enableAudio()) return;
+  if (lifecycleGeneration !== audioLifecycleGeneration) return;
   try {
     await audio.trigger(voice);
+    if (lifecycleGeneration !== audioLifecycleGeneration) return;
     const pad = $("padGrid").querySelector(`[data-voice-id="${voice.id}"]`);
     pad?.classList.add("is-active");
     setTimeout(() => pad?.classList.remove("is-active"), Math.min(520, voice.decay * 1_000 + 80));
     announce(`${voice.name} triggered.`);
   } catch (error) {
-    showError(error);
+    if (
+      lifecycleGeneration === audioLifecycleGeneration
+      && error?.name !== "AbortError"
+    ) showError(error);
   }
 }
 
@@ -122,6 +152,7 @@ function makeMiniControl(voice, key, label, minimum, maximum, step, {
   input.max = String(maximum);
   input.step = String(step);
   input.value = String(write(voice[key]));
+  input.dataset.parameterKey = key;
   input.setAttribute("aria-label", `${voice.name} ${label}`);
   input.addEventListener("pointerdown", (event) => event.stopPropagation());
   input.addEventListener("input", () => {
@@ -178,6 +209,12 @@ function refreshPad(voice) {
   const pad = $("padGrid").querySelector(`[data-voice-id="${voice.id}"]`);
   const frequency = pad?.querySelector("[data-voice-frequency]");
   if (frequency) frequency.textContent = String(Math.round(voice.frequency));
+  for (const input of pad?.querySelectorAll("[data-parameter-key]") ?? []) {
+    const key = input.dataset.parameterKey;
+    input.value = String(key === "frequency"
+      ? frequencySliderPosition(voice.frequency)
+      : voice[key]);
+  }
 }
 
 function renderEditorIdentity() {
@@ -208,6 +245,7 @@ function renderEditor() {
     input.max = String(spec.max);
     input.step = String(spec.step);
     input.value = String(spec.write ? spec.write(voice[spec.key]) : voice[spec.key]);
+    input.dataset.parameterKey = spec.key;
     input.addEventListener("input", () => {
       voice[spec.key] = spec.read ? spec.read(Number(input.value)) : Number(input.value);
       output.textContent = spec.format(voice[spec.key]);
@@ -219,12 +257,56 @@ function renderEditor() {
   $("editorControls").replaceChildren(fragment);
 }
 
+function refreshEditorControls(voice) {
+  renderEditorIdentity();
+  for (const spec of editorSpecs) {
+    const input = $("editorControls").querySelector(
+      `[data-parameter-key="${spec.key}"]`,
+    );
+    if (!input) continue;
+    input.value = String(spec.write ? spec.write(voice[spec.key]) : voice[spec.key]);
+    const output = input.closest(".fm-editor-control")?.querySelector("output");
+    if (output) output.textContent = spec.format(voice[spec.key]);
+  }
+}
+
 function setTemporaryButtonText(button, text, delay = 1_500) {
   const original = button.textContent;
   button.textContent = text;
   setTimeout(() => {
     button.textContent = original;
   }, delay);
+}
+
+function applyMidiVoiceUpdate(action) {
+  const index = state.voices.findIndex((voice) => voice.id === state.selectedId);
+  if (index < 0) return;
+  const voice = state.voices[index];
+  const updated = updateFmDrumVoiceFromMidi(voice, action);
+  if (updated !== voice) Object.assign(voice, updated);
+  refreshPad(voice);
+  refreshEditorControls(voice);
+  announce(`${voice.name} ${action.key} mapped from MIDI.`);
+}
+
+function handleMidiMessage(message) {
+  const action = fmDrumMidiAction(message);
+  if (!action) return;
+  if (action.type === "trigger") {
+    const voice = state.voices[action.voiceIndex];
+    if (!voice) return;
+    selectVoice(voice.id);
+    const trigger = createFmDrumMidiTriggerVoice(voice, action.velocityGain);
+    if (trigger) void triggerVoice(trigger);
+    return;
+  }
+  if (action.type === "master") {
+    $("output").value = String(action.value);
+    $("output").dispatchEvent(new Event("input", { bubbles: true }));
+    announce(`FM drums output ${Math.round(action.value / 0.9 * 100)} percent.`);
+    return;
+  }
+  applyMidiVoiceUpdate(action);
 }
 
 $("audioButton").addEventListener("click", async () => {
@@ -319,6 +401,7 @@ $("downloadBank").addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (midiManager.enabled) return;
   if (event.repeat || ["INPUT", "BUTTON", "SELECT"].includes(event.target?.tagName)) return;
   const voice = state.voices.find((item) => item.key === event.key.toLowerCase());
   if (!voice) return;
@@ -329,3 +412,37 @@ document.addEventListener("keydown", (event) => {
 
 renderPads();
 renderEditor();
+
+let unregisterMidi = null;
+
+function registerMidiClient() {
+  if (unregisterMidi) return;
+  unregisterMidi = midiManager.registerClient({
+    id: "fm-drums",
+    computerKeyboard: { layout: "pad-grid", baseNote: 36, velocity: 110 },
+    onPrepareEnable: () => {
+      if (!state.audioOn) void enableAudio();
+    },
+    onMessage: handleMidiMessage,
+    onEnabledChange: (enabled) => {
+      if (enabled) announce("MIDI ready. Pads or notes 36 through 51 play the sixteen FM voices.");
+    },
+  });
+}
+
+window.addEventListener("pagehide", () => {
+  audioLifecycleGeneration += 1;
+  audioStartPromise = null;
+  unregisterMidi?.();
+  unregisterMidi = null;
+  setAudioState(false);
+  void audio.close().catch(() => {});
+});
+
+window.addEventListener("pageshow", (event) => {
+  if (!event.persisted) return;
+  registerMidiClient();
+  setAudioState(false);
+});
+
+registerMidiClient();

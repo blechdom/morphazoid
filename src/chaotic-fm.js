@@ -399,9 +399,17 @@ export function decodeChaoticFmMidiMessage(data) {
 function dispatchChaoticFmMidiAction(target, action) {
   if (!target || !action) return;
   if (action.type === "noteOn") {
-    target.noteOn?.(action.note, action.velocity, action.channel);
+    if (action.sourceId === undefined) {
+      target.noteOn?.(action.note, action.velocity, action.channel);
+    } else {
+      target.noteOn?.(action.note, action.velocity, action.channel, action.sourceId);
+    }
   } else if (action.type === "noteOff") {
-    target.noteOff?.(action.note, action.channel);
+    if (action.sourceId === undefined) {
+      target.noteOff?.(action.note, action.channel);
+    } else {
+      target.noteOff?.(action.note, action.channel, action.sourceId);
+    }
   }
   else if (action.type === "pitchBend") target.pitchBend?.(action.normalized);
   else if (action.type === "controlChange") {
@@ -492,8 +500,11 @@ export class ChaoticFmWebMidi {
   }
 
   handleMessage(event) {
-    const action = decodeChaoticFmMidiMessage(event?.data);
-    if (!action) return null;
+    const decoded = decodeChaoticFmMidiMessage(event?.data);
+    if (!decoded) return null;
+    const action = event?.sourceId === undefined
+      ? decoded
+      : Object.freeze({ ...decoded, sourceId: String(event.sourceId) });
     dispatchChaoticFmMidiAction(this.target, action);
     this.onAction?.(action, event);
     return action;
@@ -709,12 +720,14 @@ function createProcessorClass(AudioWorkletBase) {
       this.glideMode = performance.glideMode;
       this.glideEnabled = true;
 
-      this.noteHeld = new Uint8Array(128);
-      this.noteSustained = new Uint8Array(128);
+      this.noteHeld = new Uint32Array(128);
+      this.noteSustained = new Uint32Array(128);
       this.noteVelocity = new Float64Array(128);
       this.noteChannel = new Uint8Array(128);
       this.noteOrder = new Uint32Array(128);
       this.noteOrderCounter = 0;
+      this.noteEvents = [];
+      this.selectedEventId = 0;
       this.selectedNote = -1;
       this.hasEverNote = false;
       this.sustainDown = false;
@@ -775,9 +788,14 @@ function createProcessorClass(AudioWorkletBase) {
         } else if (message?.type === "performance") {
           this.setPerformance(message.parameters);
         } else if (message?.type === "noteOn") {
-          this.noteOn(message.note, message.velocity, message.channel);
+          this.noteOn(
+            message.note,
+            message.velocity,
+            message.channel,
+            message.sourceId,
+          );
         } else if (message?.type === "noteOff") {
-          this.noteOff(message.note);
+          this.noteOff(message.note, message.channel, message.sourceId);
         } else if (message?.type === "pitchBend") {
           this.setPitchBend(message.normalized);
         } else if (message?.type === "expression") {
@@ -840,18 +858,18 @@ function createProcessorClass(AudioWorkletBase) {
       }
     }
 
-    newestNote({ physicallyHeldOnly = false } = {}) {
-      let newest = -1;
-      let newestOrder = 0;
-      for (let note = 0; note < 128; note += 1) {
-        const eligible = this.noteHeld[note]
-          || (!physicallyHeldOnly && this.noteSustained[note]);
-        if (eligible && (newest < 0 || this.noteOrder[note] >= newestOrder)) {
-          newest = note;
-          newestOrder = this.noteOrder[note];
-        }
+    newestEvent({ physicallyHeldOnly = false } = {}) {
+      let newest = null;
+      for (const event of this.noteEvents) {
+        const eligible = event.held
+          || (!physicallyHeldOnly && event.sustained);
+        if (eligible && (!newest || event.order >= newest.order)) newest = event;
       }
       return newest;
+    }
+
+    newestNote({ physicallyHeldOnly = false } = {}) {
+      return this.newestEvent({ physicallyHeldOnly })?.note ?? -1;
     }
 
     beginBasePitch(note, legatoEligible) {
@@ -877,12 +895,12 @@ function createProcessorClass(AudioWorkletBase) {
       this.hasEverNote = true;
     }
 
-    selectNote(note, { legatoEligible = false, smoothVelocity = true } = {}) {
-      this.selectedNote = note;
-      this.beginBasePitch(note, legatoEligible);
-      const velocity = this.noteVelocity[note];
-      this.targetVelocity = velocity;
-      if (!smoothVelocity) this.currentVelocity = velocity;
+    selectNote(event, { legatoEligible = false, smoothVelocity = true } = {}) {
+      this.selectedEventId = event.id;
+      this.selectedNote = event.note;
+      this.beginBasePitch(event.note, legatoEligible);
+      this.targetVelocity = event.velocity;
+      if (!smoothVelocity) this.currentVelocity = event.velocity;
     }
 
     beginDecay() {
@@ -920,46 +938,74 @@ function createProcessorClass(AudioWorkletBase) {
       this.envelopeStage = hard ? 5 : 4;
     }
 
-    noteOn(noteValue, velocityValue, channelValue = 0) {
+    noteOn(noteValue, velocityValue, channelValue = 0, sourceIdValue = "default") {
       const note = Math.round(clamp(noteValue, 0, 127, 60));
       const velocity = Math.round(clamp(velocityValue, 0, 127, 0));
+      const channel = Math.round(clamp(channelValue, 0, 15, 0));
+      const sourceId = String(sourceIdValue ?? "default");
       if (velocity === 0) {
-        this.noteOff(note);
+        this.noteOff(note, channel, sourceId);
         return;
       }
-      const hadPhysicalNote = this.newestNote({ physicallyHeldOnly: true }) >= 0;
+      const hadPhysicalNote = Boolean(this.newestEvent({ physicallyHeldOnly: true }));
       const voiceWasSustaining = this.selectedNote >= 0
         && this.envelopeStage !== 0
         && this.envelopeStage !== 4
         && this.envelopeStage !== 5;
-      this.noteHeld[note] = 1;
-      this.noteSustained[note] = 0;
-      this.noteVelocity[note] = velocity / 127;
-      this.noteChannel[note] = Math.round(clamp(channelValue, 0, 15, 0));
       this.noteOrderCounter = (this.noteOrderCounter + 1) >>> 0;
       if (this.noteOrderCounter === 0) this.noteOrderCounter = 1;
-      this.noteOrder[note] = this.noteOrderCounter;
-      this.selectNote(note, {
+      const event = {
+        channel,
+        held: true,
+        id: this.noteOrderCounter,
+        note,
+        order: this.noteOrderCounter,
+        sourceId,
+        sustained: false,
+        velocity: velocity / 127,
+      };
+      this.noteEvents.push(event);
+      this.noteHeld[note] += 1;
+      this.noteSustained[note] = 0;
+      this.noteVelocity[note] = event.velocity;
+      this.noteChannel[note] = channel;
+      this.noteOrder[note] = event.order;
+      this.selectNote(event, {
         legatoEligible: hadPhysicalNote,
         smoothVelocity: voiceWasSustaining,
       });
       if (!voiceWasSustaining) this.beginAttack();
     }
 
-    noteOff(noteValue) {
+    noteOff(noteValue, channelValue = 0, sourceIdValue = "default") {
       const note = Math.round(clamp(noteValue, 0, 127, 60));
-      if (!this.noteHeld[note] && !this.noteSustained[note]) return;
-      this.noteHeld[note] = 0;
-      this.noteSustained[note] = this.sustainDown ? 1 : 0;
-      if (note !== this.selectedNote) return;
-      const fallback = this.newestNote({ physicallyHeldOnly: true });
-      if (fallback >= 0) {
+      const channel = Math.round(clamp(channelValue, 0, 15, 0));
+      const sourceId = String(sourceIdValue ?? "default");
+      const event = this.noteEvents.find((candidate) => (
+        candidate.note === note
+        && candidate.channel === channel
+        && candidate.sourceId === sourceId
+        && candidate.held
+      ));
+      if (!event) return;
+      event.held = false;
+      this.noteHeld[note] = Math.max(0, this.noteHeld[note] - 1);
+      if (this.sustainDown) {
+        event.sustained = true;
+        this.noteSustained[note] += 1;
+      } else {
+        this.noteEvents = this.noteEvents.filter((candidate) => candidate !== event);
+      }
+      if (event.id !== this.selectedEventId) return;
+      const fallback = this.newestEvent({ physicallyHeldOnly: true });
+      if (fallback) {
         this.selectNote(fallback, { legatoEligible: true, smoothVelocity: true });
       } else if (this.sustainDown) {
         // The released current note is sustained only when no physical key is
         // available. Physical keys always retain monophonic last-note priority.
         return;
       } else {
+        this.selectedEventId = 0;
         this.selectedNote = -1;
         this.beginRelease();
       }
@@ -970,12 +1016,17 @@ function createProcessorClass(AudioWorkletBase) {
       if (next === this.sustainDown) return;
       this.sustainDown = next;
       if (next) return;
-      for (let note = 0; note < 128; note += 1) this.noteSustained[note] = 0;
-      if (this.selectedNote >= 0 && this.noteHeld[this.selectedNote]) return;
-      const fallback = this.newestNote({ physicallyHeldOnly: true });
-      if (fallback >= 0) {
+      const selectedWasSustained = this.noteEvents.some(
+        (event) => event.id === this.selectedEventId && event.sustained,
+      );
+      this.noteEvents = this.noteEvents.filter((event) => !event.sustained);
+      this.noteSustained.fill(0);
+      if (!selectedWasSustained && this.selectedNote >= 0) return;
+      const fallback = this.newestEvent({ physicallyHeldOnly: true });
+      if (fallback) {
         this.selectNote(fallback, { legatoEligible: true, smoothVelocity: true });
       } else if (this.selectedNote >= 0) {
+        this.selectedEventId = 0;
         this.selectedNote = -1;
         this.beginRelease();
       }
@@ -984,6 +1035,8 @@ function createProcessorClass(AudioWorkletBase) {
     clearNoteState() {
       this.noteHeld.fill(0);
       this.noteSustained.fill(0);
+      this.noteEvents = [];
+      this.selectedEventId = 0;
       this.selectedNote = -1;
     }
 
@@ -1409,12 +1462,16 @@ export class ChaoticFmAudio {
     return true;
   }
 
-  noteOn(note, velocity = 127, channel = 0) {
-    return this.postPerformanceAction("noteOn", { note, velocity, channel });
+  noteOn(note, velocity = 127, channel = 0, sourceId = "default") {
+    return this.postPerformanceAction("noteOn", {
+      note, velocity, channel, sourceId: String(sourceId),
+    });
   }
 
-  noteOff(note, channel = 0) {
-    return this.postPerformanceAction("noteOff", { note, channel });
+  noteOff(note, channel = 0, sourceId = "default") {
+    return this.postPerformanceAction("noteOff", {
+      note, channel, sourceId: String(sourceId),
+    });
   }
 
   pitchBend(normalized) {

@@ -132,6 +132,45 @@
   margin-top: 10px;
 }
 
+.experiment-button-grid-five {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.experiment-text-field {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.experiment-text-field textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--panel-high) 82%, transparent);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.experiment-text-field textarea:focus {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in oklab, var(--accent) 22%, transparent);
+  outline-offset: 1px;
+}
+
+.experiment-page[data-experiment="reaction"] .experiment-title h1,
+.experiment-page[data-experiment="fourier"] .experiment-title h1,
+.experiment-page[data-experiment="doublependulum"] .experiment-title h1 {
+  font-size: 40px;
+}
+
 .experiment-page .group-body {
   padding-top: 14px;
 }
@@ -161,5 +200,11 @@
 @media (max-width: 650px) {
   .experiment-page .stage-meta {
     display: none;
+  }
+
+  .experiment-page[data-experiment="reaction"] .experiment-title h1,
+  .experiment-page[data-experiment="fourier"] .experiment-title h1,
+  .experiment-page[data-experiment="doublependulum"] .experiment-title h1 {
+    font-size: 26px;
   }
 }

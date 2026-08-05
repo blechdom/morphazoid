@@ -33,6 +33,10 @@ test("the mobile instrument markup exposes the complete compact control surface"
   for (const title of ["Play", "Form", "Sound", "Mapping", "Output"]) {
     assert.match(html, new RegExp(`<h2[^>]*>${title}<\\/h2>`));
   }
+  assert.match(html, /id="shapeMidiMapTitle">MIDI map<\/h2>/);
+  assert.match(html, /Computer piano[\s\S]+Q starts at C4/);
+  assert.match(html, /Macros 1–8[\s\S]+sound character · stereo width/);
+  assert.match(html, /Pads 1–16[\s\S]+remove\/add heads/);
   assert.doesNotMatch(html, />\s*Advanced\s*</i);
   assert.equal((html.match(/class="group-summary"/g) ?? []).length, sectionIds.length);
 
@@ -321,7 +325,11 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(html, /aria-label="Realtime mapping values"/);
   assert.match(html, /<dt[^>]*>Pitch source value<\/dt>/);
   assert.match(html, /<dt>Timbre source value<\/dt>/);
-  assert.match(html, /Web MIDI · planned/);
+  assert.match(html, /Web MIDI · mapped/);
+  assert.match(app, /getSharedMidiManager/);
+  assert.match(app, /ShapeMidiPerformance/);
+  assert.match(app, /shapeMidiMacroAction/);
+  assert.match(app, /registerClient\(\{/);
   assert.match(html, /OSC · planned/);
   assert.match(html, /JSON stream · planned/);
 

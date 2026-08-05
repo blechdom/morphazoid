@@ -277,6 +277,15 @@
 .fm-editor-control b { color: var(--muted); }
 .fm-editor-control output { color: var(--ink); }
 
+.fm-midi-map-note {
+  margin: 12px 2px 0;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: .045em;
+  line-height: 1.65;
+  text-transform: uppercase;
+}
+
 .fm-drums-footer {
   display: flex;
   padding: 16px 2px 0;

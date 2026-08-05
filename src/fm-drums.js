@@ -1,5 +1,11 @@
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
+function cancelledAudioStart() {
+  const error = new Error("FM Drum audio start was cancelled.");
+  error.name = "AbortError";
+  return error;
+}
+
 const VOICES = [
   ["sub-kick", "Sub Kick", "1", "kick", "#ff8a61", 48, .002, .62, 1, 4.8, 2.6, .02, .34, .92],
   ["fm-kick", "FM Kick", "2", "kick", "#ffad69", 63, .001, .34, 1.5, 7.2, 3.8, .03, .55, .86],
@@ -66,34 +72,43 @@ export class FmDrumAudio {
     this.master = null;
     this.analyser = null;
     this.output = .72;
+    this.lifecycleGeneration = 0;
   }
 
   async start() {
-    if (!this.context || this.context.state === "closed") {
+    const lifecycleGeneration = this.lifecycleGeneration;
+    let context = this.context;
+    if (!context || context.state === "closed") {
       this.context = null;
       this.input = null;
       this.master = null;
       this.analyser = null;
       const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
       if (!Context) throw new Error("Web Audio is not available in this browser.");
-      this.context = new Context();
-      const compressor = this.context.createDynamicsCompressor();
+      context = new Context();
+      this.context = context;
+      const compressor = context.createDynamicsCompressor();
       compressor.threshold.value = -12;
       compressor.knee.value = 12;
       compressor.ratio.value = 8;
       compressor.attack.value = .002;
       compressor.release.value = .18;
-      this.master = this.context.createGain();
+      this.master = context.createGain();
       this.master.gain.value = this.output;
-      this.analyser = this.context.createAnalyser();
+      this.analyser = context.createAnalyser();
       this.analyser.fftSize = 256;
       compressor.connect(this.master);
       this.master.connect(this.analyser);
-      this.analyser.connect(this.context.destination);
+      this.analyser.connect(context.destination);
       this.input = compressor;
     }
-    if (this.context.state === "suspended") await this.context.resume();
-    return this.context;
+    if (context.state === "suspended") await context.resume();
+    if (
+      lifecycleGeneration !== this.lifecycleGeneration
+      || context !== this.context
+      || context.state === "closed"
+    ) throw cancelledAudioStart();
+    return context;
   }
 
   setOutput(value) {
@@ -103,9 +118,24 @@ export class FmDrumAudio {
     }
   }
 
+  async close() {
+    this.lifecycleGeneration += 1;
+    const context = this.context;
+    this.context = null;
+    this.input = null;
+    this.master = null;
+    this.analyser = null;
+    if (context && context.state !== "closed" && typeof context.close === "function") {
+      await context.close();
+    }
+  }
+
   async trigger(sourceVoice) {
     const voice = sanitizeFmDrumVoice(sourceVoice);
     const context = await this.start();
+    if (context !== this.context || context.state === "closed") {
+      throw cancelledAudioStart();
+    }
     const now = context.currentTime;
     const stopAt = now + Math.max(.12, voice.attack + voice.decay * 1.35);
 

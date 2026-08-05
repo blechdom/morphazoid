@@ -1,23 +1,21 @@
 import {
-  SEARCH_ALGORITHM_PRESETS,
-  SEARCH_DATA_CURVES,
-  deriveSearchStepTone,
-  formatSearchComparison,
-  generateSearchSequence,
-  sanitizeSearchSequencerParams,
+  SORT_ALGORITHM_PRESETS,
+  deriveSortStepTone,
+  formatSortOperation,
+  generateSortSequence,
+  sanitizeSortSequencerParams,
 } from "./src/algorithmic-sequencers.js";
 
 const $ = (id) => document.getElementById(id);
 const FRAME_INTERVAL = 1_000 / 30;
-const DEFAULTS = sanitizeSearchSequencerParams({
-  algorithmId: "binary",
-  curveId: "linear",
+const DEFAULTS = sanitizeSortSequencerParams({
+  algorithmId: "quick",
+  dataSeed: 0x5eed1234,
   size: 48,
-  targetIndex: 34,
-  tempo: 8,
+  tempo: 18,
   baseFrequencyHz: 180,
   pitchSpanOctaves: 3.2,
-  noteSeconds: 0.11,
+  noteSeconds: 0.065,
   output: 0.48,
 });
 
@@ -35,8 +33,6 @@ const stageReadout = $("stageReadout");
 const controls = {
   arraySize: $("arraySize"),
   arraySizeOut: $("arraySizeOut"),
-  targetIndex: $("targetIndex"),
-  targetIndexOut: $("targetIndexOut"),
   tempo: $("tempo"),
   tempoOut: $("tempoOut"),
   baseFrequency: $("baseFrequency"),
@@ -57,10 +53,10 @@ const readouts = {
   dataState: $("dataState"),
   soundState: $("soundState"),
   presetDescription: $("presetDescription"),
-  targetReadout: $("targetReadout"),
-  probeReadout: $("probeReadout"),
+  inputReadout: $("inputReadout"),
+  pairReadout: $("pairReadout"),
   rangeReadout: $("rangeReadout"),
-  comparisonReadout: $("comparisonReadout"),
+  operationReadout: $("operationReadout"),
   stepsReadout: $("stepsReadout"),
   signatureReadout: $("signatureReadout"),
 };
@@ -69,7 +65,6 @@ const buttons = {
   play: $("playButton"),
   step: $("stepButton"),
   restart: $("restartSequence"),
-  randomTarget: $("randomTarget"),
   randomInput: $("randomInput"),
   reset: $("resetSequencer"),
 };
@@ -80,7 +75,7 @@ const reducedMotion = globalThis.matchMedia?.(
 
 const state = {
   settings: { ...DEFAULTS },
-  sequence: generateSearchSequence(DEFAULTS),
+  sequence: generateSortSequence(DEFAULTS),
   cursor: -1,
   playing: false,
   audioOn: false,
@@ -102,12 +97,8 @@ function compactNumber(value, maximumDigits = 2) {
 }
 
 function algorithmById(id) {
-  return SEARCH_ALGORITHM_PRESETS.find((algorithm) => algorithm.id === id)
-    ?? SEARCH_ALGORITHM_PRESETS[1];
-}
-
-function curveById(id) {
-  return SEARCH_DATA_CURVES.find((curve) => curve.id === id) ?? SEARCH_DATA_CURVES[0];
+  return SORT_ALGORITHM_PRESETS.find((algorithm) => algorithm.id === id)
+    ?? SORT_ALGORITHM_PRESETS[4];
 }
 
 function createRandomDataSeed() {
@@ -121,16 +112,16 @@ function activeStep() {
   return state.sequence.steps[state.cursor] ?? null;
 }
 
+function activeValues() {
+  return activeStep()?.values ?? state.sequence.initialValues;
+}
+
 function setPressed(element, pressed) {
   element?.setAttribute("aria-pressed", String(Boolean(pressed)));
 }
 
 function setText(element, value) {
   if (element) element.textContent = String(value);
-}
-
-function setHidden(element, hidden) {
-  if (element) element.hidden = Boolean(hidden);
 }
 
 function updateAudioStatus() {
@@ -150,7 +141,10 @@ function resizeCanvas() {
   const rect = stageWrap.getBoundingClientRect();
   const width = Math.max(1, Math.floor(rect.width || 1));
   const height = Math.max(1, Math.floor(rect.height || 1));
-  const pixelRatio = Math.min(2, Math.max(1, globalThis.devicePixelRatio || globalThis.window?.devicePixelRatio || 1));
+  const pixelRatio = Math.min(
+    2,
+    Math.max(1, globalThis.devicePixelRatio || globalThis.window?.devicePixelRatio || 1),
+  );
   if (
     canvas.width !== Math.floor(width * pixelRatio)
     || canvas.height !== Math.floor(height * pixelRatio)
@@ -167,10 +161,7 @@ function resizeCanvas() {
 function updateControlValues() {
   const settings = state.settings;
   controls.arraySize.value = String(settings.size);
-  controls.arraySizeOut.value = `${settings.size} cells`;
-  controls.targetIndex.max = String(settings.size - 1);
-  controls.targetIndex.value = String(settings.targetIndex);
-  controls.targetIndexOut.value = `#${settings.targetIndex}`;
+  controls.arraySizeOut.value = `${settings.size} values`;
   controls.tempo.value = String(settings.tempo);
   controls.tempoOut.value = `${compactNumber(settings.tempo, 1)} steps/s`;
   controls.baseFrequency.value = String(settings.baseFrequencyHz);
@@ -192,33 +183,46 @@ function updateButtonGroups() {
   document.querySelectorAll("[data-algorithm]").forEach((button) => {
     setPressed(button, button.dataset.algorithm === state.settings.algorithmId);
   });
-  document.querySelectorAll("[data-curve]").forEach((button) => {
-    setPressed(button, button.dataset.curve === state.settings.curveId);
-  });
 }
 
 function updateReadouts() {
   const algorithm = state.sequence.algorithm;
-  const curve = state.sequence.curve;
   const step = activeStep();
-  const hitText = state.sequence.foundStepIndex >= 0
-    ? `${state.sequence.foundStepIndex + 1} probes`
-    : "not found";
-  const targetValue = compactNumber(state.sequence.targetValue, 3);
+  const complete = step?.operation === "complete";
+  const progress = state.cursor < 0
+    ? "READY"
+    : complete
+      ? "SORTED"
+      : `STEP ${state.cursor + 1}/${state.sequence.steps.length}`;
 
-  setText(readouts.algorithmState, `${algorithm.shortLabel} - ${hitText}`);
-  setText(readouts.transportState, state.playing ? "running" : "paused");
-  setText(readouts.dataState, `${state.settings.size} cells - ${curve.label}`);
-  setText(readouts.soundState, `${Math.round(state.settings.baseFrequencyHz)} Hz - ${compactNumber(state.settings.pitchSpanOctaves, 1)} oct`);
+  setText(readouts.algorithmState, `${algorithm.shortLabel} - ${state.sequence.comparisons} comps`);
+  setText(readouts.transportState, state.playing ? "running" : complete ? "sorted" : "paused");
+  setText(readouts.dataState, `${state.settings.size} values - shuffled`);
+  setText(
+    readouts.soundState,
+    `${Math.round(state.settings.baseFrequencyHz)} Hz - ${compactNumber(state.settings.pitchSpanOctaves, 1)} oct`,
+  );
   setText(readouts.presetDescription, algorithm.description);
-  setText(readouts.targetReadout, `#${state.settings.targetIndex} - ${targetValue}`);
-  setText(readouts.probeReadout, step ? `#${step.index} - ${compactNumber(step.value, 3)}` : "ready");
-  setText(readouts.rangeReadout, step ? `${step.low} to ${step.high}` : `0 to ${state.settings.size - 1}`);
-  setText(readouts.comparisonReadout, formatSearchComparison(step));
-  setText(readouts.stepsReadout, `${state.sequence.steps.length} probes`);
+  setText(readouts.inputReadout, `${state.settings.size} fixed values`);
+  setText(
+    readouts.pairReadout,
+    step && !complete ? `#${step.leftIndex} + #${step.rightIndex}` : complete ? "complete" : "ready",
+  );
+  setText(
+    readouts.rangeReadout,
+    step ? `${step.low} to ${step.high}` : `0 to ${state.settings.size - 1}`,
+  );
+  setText(readouts.operationReadout, formatSortOperation(step));
+  setText(readouts.stepsReadout, `${state.sequence.steps.length - 1} events`);
   setText(readouts.signatureReadout, algorithm.signature);
-  setText(stageReadout, `${algorithm.shortLabel.toUpperCase()} - ${state.cursor < 0 ? "READY" : `STEP ${state.cursor + 1}/${state.sequence.steps.length}`} - AUDIO ${state.audioOn ? "ON" : "OFF"}`);
-  setText(liveStatus, step ? `${algorithm.label}: ${formatSearchComparison(step)}` : `${algorithm.label} ready`);
+  setText(
+    stageReadout,
+    `${algorithm.shortLabel.toUpperCase()} - ${progress} - AUDIO ${state.audioOn ? "ON" : "OFF"}`,
+  );
+  setText(
+    liveStatus,
+    step ? `${algorithm.label}: ${formatSortOperation(step)}` : `${algorithm.label} ready`,
+  );
   setPressed(buttons.play, state.playing);
   updateControlValues();
   updateButtonGroups();
@@ -226,8 +230,8 @@ function updateReadouts() {
 }
 
 function regenerateSequence({ keepCursor = false } = {}) {
-  state.settings = { ...sanitizeSearchSequencerParams(state.settings) };
-  state.sequence = generateSearchSequence(state.settings);
+  state.settings = { ...sanitizeSortSequencerParams(state.settings) };
+  state.sequence = generateSortSequence(state.settings);
   if (keepCursor) {
     state.cursor = Math.min(state.cursor, state.sequence.steps.length - 1);
   } else {
@@ -237,11 +241,12 @@ function regenerateSequence({ keepCursor = false } = {}) {
 }
 
 function setSettings(patch, options) {
-  const next = sanitizeSearchSequencerParams({
-    ...state.settings,
-    ...patch,
-  });
-  state.settings = { ...next };
+  state.settings = {
+    ...sanitizeSortSequencerParams({
+      ...state.settings,
+      ...patch,
+    }),
+  };
   regenerateSequence(options);
 }
 
@@ -256,7 +261,7 @@ function advanceTo(index, { audible = false } = {}) {
   state.cursor = Math.max(0, Math.min(lastIndex, Math.round(index)));
   const step = activeStep();
   if (audible && step) playStepTone(step);
-  if (step?.found || state.cursor >= lastIndex) {
+  if (step?.operation === "complete" || state.cursor >= lastIndex) {
     state.playing = false;
     state.lastAdvanceTime = 0;
   }
@@ -352,7 +357,7 @@ function playOscillator({
   oscillator.type = type;
   oscillator.frequency.setValueAtTime(frequencyHz, startTime);
   envelope.gain.setValueAtTime(0, startTime);
-  envelope.gain.linearRampToValueAtTime(gain, startTime + 0.006);
+  envelope.gain.linearRampToValueAtTime(gain, startTime + 0.004);
   envelope.gain.exponentialRampToValueAtTime(0.0001, endTime);
   connectWithOptionalPanner(oscillator, envelope, pan);
   oscillator.start(startTime);
@@ -361,22 +366,25 @@ function playOscillator({
 
 function playStepTone(step) {
   if (!state.audioOn || !state.audioContext) return;
-  const tone = deriveSearchStepTone(step, state.settings);
+  const tone = deriveSortStepTone(step, state.settings);
+  const wave = step.operation === "swap" || step.operation === "complete" ? "triangle" : "sine";
   playOscillator({
     frequencyHz: tone.frequencyHz,
     gain: tone.gain,
     durationSeconds: tone.durationSeconds,
-    pan: tone.pan,
-    type: step.found ? "triangle" : "sine",
+    pan: tone.leftPan,
+    type: wave,
   });
-  playOscillator({
-    frequencyHz: tone.targetFrequencyHz,
-    gain: step.found ? tone.gain * 0.54 : tone.gain * 0.28,
-    durationSeconds: tone.durationSeconds * 0.82,
-    pan: 0,
-    type: "triangle",
-    delaySeconds: step.found ? 0.035 : 0,
-  });
+  if (step.leftIndex !== step.rightIndex || step.operation === "complete") {
+    playOscillator({
+      frequencyHz: tone.partnerFrequencyHz,
+      gain: tone.gain * 0.82,
+      durationSeconds: tone.durationSeconds,
+      pan: tone.rightPan,
+      type: wave,
+      delaySeconds: step.operation === "complete" ? 0.035 : 0,
+    });
+  }
 }
 
 function drawText(text, x, y, color, size = 10, align = "left") {
@@ -392,8 +400,7 @@ function drawStage(now) {
   const width = state.cssWidth;
   const height = state.cssHeight;
   const step = activeStep();
-  const values = state.sequence.values;
-  const targetIndex = state.sequence.targetIndex;
+  const values = activeValues();
   const padX = Math.max(34, Math.min(70, width * 0.06));
   const top = Math.max(84, height * 0.16);
   const bottom = Math.max(70, height * 0.13);
@@ -403,10 +410,11 @@ function drawStage(now) {
   const accent = "#8de7ff";
   const gold = "#e8c46b";
   const violet = "#c79bff";
+  const coral = "#ff826f";
   const ink = "#dbe4e0";
   const muted = "rgba(219, 228, 224, 0.45)";
   const faint = "rgba(219, 228, 224, 0.12)";
-  const currentPulse = reducedMotion ? 0.65 : 0.55 + Math.sin(now * 0.012) * 0.18;
+  const currentPulse = reducedMotion ? 0.68 : 0.58 + Math.sin(now * 0.012) * 0.16;
 
   context2d.clearRect(0, 0, width, height);
   context2d.save();
@@ -421,12 +429,12 @@ function drawStage(now) {
     context2d.stroke();
   }
 
-  if (step) {
+  if (step && step.operation !== "complete") {
     const lowX = padX + (plotWidth * step.low) / Math.max(1, values.length - 1);
     const highX = padX + (plotWidth * step.high) / Math.max(1, values.length - 1);
-    context2d.fillStyle = "rgba(141, 231, 255, 0.07)";
+    context2d.fillStyle = "rgba(141, 231, 255, 0.06)";
     context2d.fillRect(lowX, top, Math.max(2, highX - lowX), plotHeight);
-    context2d.strokeStyle = "rgba(141, 231, 255, 0.42)";
+    context2d.strokeStyle = "rgba(141, 231, 255, 0.38)";
     context2d.beginPath();
     context2d.moveTo(lowX, top - 12);
     context2d.lineTo(highX, top - 12);
@@ -437,48 +445,49 @@ function drawStage(now) {
     context2d.stroke();
   }
 
-  const targetX = padX + (plotWidth * targetIndex) / Math.max(1, values.length - 1);
-  context2d.strokeStyle = "rgba(232, 196, 107, 0.62)";
-  context2d.beginPath();
-  context2d.moveTo(targetX, top - 24);
-  context2d.lineTo(targetX, baseY + 14);
-  context2d.stroke();
-
-  const barWidth = Math.max(2, Math.min(10, plotWidth / values.length * 0.62));
-  const history = new Set(
-    state.sequence.steps.slice(0, Math.max(0, state.cursor + 1)).map((entry) => entry.index),
+  const recentStart = Math.max(0, state.cursor - 12);
+  const recentIndices = new Set(
+    state.sequence.steps
+      .slice(recentStart, Math.max(0, state.cursor))
+      .flatMap((entry) => [entry.leftIndex, entry.rightIndex]),
   );
+  const barWidth = Math.max(2, Math.min(10, (plotWidth / values.length) * 0.62));
   for (let index = 0; index < values.length; index += 1) {
     const x = padX + (plotWidth * index) / Math.max(1, values.length - 1);
     const barHeight = Math.max(2, values[index] * (plotHeight - 12));
-    const isTarget = index === targetIndex;
-    const isCurrent = step?.index === index;
-    const isHistory = history.has(index);
-    context2d.fillStyle = isCurrent
+    const isLeft = step?.operation !== "complete" && step?.leftIndex === index;
+    const isRight = step?.operation !== "complete" && step?.rightIndex === index;
+    context2d.fillStyle = isLeft
       ? `rgba(141, 231, 255, ${currentPulse})`
-      : isTarget
-        ? "rgba(232, 196, 107, 0.82)"
-        : isHistory
-          ? "rgba(199, 155, 255, 0.46)"
-          : "rgba(219, 228, 224, 0.25)";
+      : isRight
+        ? `rgba(255, 130, 111, ${currentPulse})`
+        : step?.operation === "complete"
+          ? "rgba(232, 196, 107, 0.72)"
+          : recentIndices.has(index)
+            ? "rgba(199, 155, 255, 0.43)"
+            : "rgba(219, 228, 224, 0.27)";
     context2d.fillRect(x - barWidth / 2, baseY - barHeight, barWidth, barHeight);
   }
 
-  if (step) {
-    const x = padX + (plotWidth * step.index) / Math.max(1, values.length - 1);
-    const y = baseY - step.value * (plotHeight - 12);
-    context2d.strokeStyle = step.found ? gold : accent;
-    context2d.fillStyle = step.found ? "rgba(232, 196, 107, 0.2)" : "rgba(141, 231, 255, 0.14)";
+  if (step && step.operation !== "complete") {
+    const leftX = padX + (plotWidth * step.leftIndex) / Math.max(1, values.length - 1);
+    const rightX = padX + (plotWidth * step.rightIndex) / Math.max(1, values.length - 1);
+    const leftY = baseY - values[step.leftIndex] * (plotHeight - 12);
+    const rightY = baseY - values[step.rightIndex] * (plotHeight - 12);
     context2d.lineWidth = 1.5;
+    context2d.strokeStyle = step.operation === "swap" ? gold : "rgba(232, 196, 107, 0.42)";
     context2d.beginPath();
-    context2d.arc(x, y, step.found ? 18 : 13, 0, Math.PI * 2);
-    context2d.fill();
+    context2d.moveTo(leftX, leftY);
+    context2d.lineTo(rightX, rightY);
     context2d.stroke();
-    context2d.beginPath();
-    context2d.moveTo(x, y);
-    context2d.lineTo(targetX, baseY + 28);
-    context2d.strokeStyle = "rgba(232, 196, 107, 0.28)";
-    context2d.stroke();
+    for (const [x, y, color] of [[leftX, leftY, accent], [rightX, rightY, coral]]) {
+      context2d.strokeStyle = color;
+      context2d.fillStyle = `${color}24`;
+      context2d.beginPath();
+      context2d.arc(x, y, step.operation === "swap" ? 16 : 12, 0, Math.PI * 2);
+      context2d.fill();
+      context2d.stroke();
+    }
   }
 
   const railY = height - 42;
@@ -489,24 +498,30 @@ function drawStage(now) {
   context2d.moveTo(railStart, railY);
   context2d.lineTo(railEnd, railY);
   context2d.stroke();
-  state.sequence.steps.forEach((entry, index) => {
-    const x = railStart + ((railEnd - railStart) * index) / Math.max(1, state.sequence.steps.length - 1);
-    context2d.fillStyle = index <= state.cursor
-      ? entry.found
+  const markerCount = Math.min(180, state.sequence.steps.length);
+  for (let marker = 0; marker < markerCount; marker += 1) {
+    const stepIndex = Math.round(
+      (marker * (state.sequence.steps.length - 1)) / Math.max(1, markerCount - 1),
+    );
+    const entry = state.sequence.steps[stepIndex];
+    const x = railStart + ((railEnd - railStart) * marker) / Math.max(1, markerCount - 1);
+    context2d.fillStyle = stepIndex <= state.cursor
+      ? entry.operation === "complete"
         ? gold
-        : violet
+        : entry.operation === "swap"
+          ? coral
+          : violet
       : "rgba(219, 228, 224, 0.2)";
     context2d.beginPath();
-    context2d.arc(x, railY, entry.found ? 4.2 : 2.8, 0, Math.PI * 2);
+    context2d.arc(x, railY, entry.operation === "complete" ? 4.2 : 2.3, 0, Math.PI * 2);
     context2d.fill();
-  });
+  }
 
-  drawText("target", targetX, baseY + 32, gold, 9, "center");
   if (width > 620) {
     drawText(state.sequence.algorithm.label.toUpperCase(), width - padX, top - 36, muted, 10, "right");
   }
-  drawText(formatSearchComparison(step).toUpperCase(), padX, height - 20, ink, 10);
-  drawText(`${state.sequence.steps.length} PROBES`, width - padX, height - 20, muted, 10, "right");
+  drawText(formatSortOperation(step).toUpperCase(), padX, height - 20, ink, 10);
+  drawText(`${state.sequence.comparisons} COMPARISONS`, width - padX, height - 20, muted, 10, "right");
 
   context2d.restore();
 }
@@ -518,7 +533,7 @@ function animationFrame(now) {
     const interval = 1_000 / state.settings.tempo;
     if (!state.lastAdvanceTime) state.lastAdvanceTime = now;
     if (now - state.lastAdvanceTime >= interval) {
-      const skipped = Math.min(4, Math.floor((now - state.lastAdvanceTime) / interval));
+      const skipped = Math.min(8, Math.floor((now - state.lastAdvanceTime) / interval));
       for (let count = 0; count < skipped && state.playing; count += 1) {
         advanceTo(state.cursor + 1, { audible: true });
       }
@@ -537,16 +552,9 @@ function installEventHandlers() {
   buttons.play.addEventListener("click", togglePlayback);
   buttons.step.addEventListener("click", stepOnce);
   buttons.restart.addEventListener("click", restartSequence);
-  buttons.randomTarget.addEventListener("click", () => {
-    const targetIndex = Math.floor(Math.random() * state.settings.size);
-    setSettings({ targetIndex });
-  });
   buttons.randomInput.addEventListener("click", () => {
     stopPlayback();
-    setSettings({
-      curveId: "random",
-      dataSeed: createRandomDataSeed(),
-    });
+    setSettings({ dataSeed: createRandomDataSeed() });
   });
   buttons.reset.addEventListener("click", () => {
     state.settings = { ...DEFAULTS };
@@ -560,25 +568,9 @@ function installEventHandlers() {
       setSettings({ algorithmId: button.dataset.algorithm });
     });
   });
-  document.querySelectorAll("[data-curve]").forEach((button) => {
-    button.addEventListener("click", () => {
-      stopPlayback();
-      setSettings({
-        curveId: button.dataset.curve,
-        ...(button.dataset.curve === "random" ? { dataSeed: createRandomDataSeed() } : {}),
-      });
-    });
-  });
 
   controls.arraySize.addEventListener("input", () => {
-    const size = Number(controls.arraySize.value);
-    setSettings({
-      size,
-      targetIndex: Math.min(state.settings.targetIndex, size - 1),
-    });
-  });
-  controls.targetIndex.addEventListener("input", () => {
-    setSettings({ targetIndex: Number(controls.targetIndex.value) });
+    setSettings({ size: Number(controls.arraySize.value) });
   });
   controls.tempo.addEventListener("input", () => {
     setSettings({ tempo: Number(controls.tempo.value) }, { keepCursor: true });
@@ -615,10 +607,6 @@ function populateStaticLabels() {
   document.querySelectorAll("[data-algorithm]").forEach((button) => {
     const algorithm = algorithmById(button.dataset.algorithm);
     button.title = `${algorithm.label}: ${algorithm.signature}`;
-  });
-  document.querySelectorAll("[data-curve]").forEach((button) => {
-    const curve = curveById(button.dataset.curve);
-    button.title = curve.description;
   });
 }
 

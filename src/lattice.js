@@ -10,6 +10,7 @@ import {
   mul,
   tilingTypes,
 } from "../vendor/tactile/tactile.js";
+import { latticeTileColorIndex } from "./lattice-colors.js";
 
 const SAMPLES_PER_EDGE = 12;
 const KEY_PRECISION = 1e7;
@@ -538,6 +539,8 @@ export function buildLattice({
   const allTiles = [];
   const allEdges = new Map();
   for (const instance of instances) {
+    const tileKey = `${instance.t1},${instance.t2},${instance.aspect}`;
+    const tileColor = latticeTileColorIndex(instance.aspect);
     const outline = [];
     let edgeIndex = 0;
     for (const segment of tiling.shape()) {
@@ -557,22 +560,32 @@ export function buildLattice({
         const periodicKey = periodicFirst > periodicLast
           ? `${periodicLast}|${periodicFirst}`
           : `${periodicFirst}|${periodicLast}`;
-        const claim = `${instance.t1},${instance.t2},${instance.aspect},${edgeIndex}`;
+        const midpoint = naturalPoints[Math.floor((naturalPoints.length - 1) / 2)];
+        const adjacencyKey = `${periodicKey}@${periodicPointKey(midpoint)}`;
+        const adjacentTile = {
+          key: tileKey,
+          t1: instance.t1,
+          t2: instance.t2,
+          aspect: instance.aspect,
+          color: tileColor,
+          edgeIndex,
+        };
         const existing = allEdges.get(key);
         if (existing) {
-          existing.claims.push(claim);
+          existing.adjacentTiles.push(adjacentTile);
         } else {
           const points = reversed ? worldPoints.slice().reverse() : worldPoints;
           allEdges.set(key, {
             key,
             periodicKey,
+            adjacencyKey,
             points,
             bounds: pointsBounds(points),
             aspect: instance.aspect,
             edgeIndex,
             edgeShapeId: segment.id,
             edgeShape: segment.shape,
-            claims: [claim],
+            adjacentTiles: [adjacentTile],
           });
         }
       }
@@ -587,9 +600,10 @@ export function buildLattice({
     const tileBounds = pointsBounds(outline);
     if (boundsOverlap(tileBounds, sourceBounds, tileScale * 0.1)) {
       allTiles.push({
+        key: tileKey,
         points: outline,
         bounds: tileBounds,
-        color: Math.abs(instance.aspect),
+        color: tileColor,
         aspect: instance.aspect,
       });
     }
@@ -654,10 +668,12 @@ export function createScanLine(bounds, position = 0.5, angleDegrees = 90) {
 }
 
 function intersectSegmentWithLine(start, end, scan) {
-  const distanceStart = (start.x - scan.origin.x) * scan.normal.x
+  const rawDistanceStart = (start.x - scan.origin.x) * scan.normal.x
     + (start.y - scan.origin.y) * scan.normal.y;
-  const distanceEnd = (end.x - scan.origin.x) * scan.normal.x
+  const rawDistanceEnd = (end.x - scan.origin.x) * scan.normal.x
     + (end.y - scan.origin.y) * scan.normal.y;
+  const distanceStart = Math.abs(rawDistanceStart) < EPSILON ? 0 : rawDistanceStart;
+  const distanceEnd = Math.abs(rawDistanceEnd) < EPSILON ? 0 : rawDistanceEnd;
   const denominator = distanceStart - distanceEnd;
   if (Math.abs(denominator) < EPSILON || distanceStart * distanceEnd > 0) return null;
   const amount = distanceStart / denominator;
@@ -685,6 +701,13 @@ function contactForSegment(edge, segmentIndex, scan) {
     + (point.y - scan.center.y) * scan.tangent.y;
   let angle = Math.atan2(tangent.y, tangent.x);
   angle = ((angle % Math.PI) + Math.PI) % Math.PI;
+  const isVertexContact = (
+    (segmentIndex === 0 && point.amount <= EPSILON)
+    || (
+      segmentIndex === edge.points.length - 2
+      && point.amount >= 1 - EPSILON
+    )
+  );
   return {
     ...point,
     along,
@@ -695,7 +718,11 @@ function contactForSegment(edge, segmentIndex, scan) {
     orientation: angle / Math.PI,
     tangent,
     edgeKey: edge.key,
+    onsetKey: edge.key,
     voiceKey: edge.periodicKey,
+    adjacencyKey: edge.adjacencyKey,
+    adjacentTiles: edge.adjacentTiles,
+    isVertexContact,
     aspect: edge.aspect,
     edgeIndex: edge.edgeIndex,
     edgeShapeId: edge.edgeShapeId,
@@ -709,12 +736,19 @@ function mergeContact(group) {
   ));
   const edgeKeys = [...new Set(group.map((contact) => contact.edgeKey))].sort();
   const voiceKeys = [...new Set(group.map((contact) => contact.voiceKey))].sort();
+  const adjacentTiles = [...new Map(
+    group.flatMap((contact) => contact.adjacentTiles ?? [])
+      .map((tile) => [tile.key, tile]),
+  ).values()];
   return {
     ...strongest,
     x: group.reduce((sum, contact) => sum + contact.x, 0) / group.length,
     y: group.reduce((sum, contact) => sum + contact.y, 0) / group.length,
     edgeKeys,
+    onsetKey: edgeKeys.join("&"),
     voiceKey: voiceKeys.join("&"),
+    adjacentTiles,
+    isVertexContact: group.some((contact) => contact.isVertexContact),
   };
 }
 

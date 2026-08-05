@@ -281,6 +281,7 @@ test("audio engine starts once, updates smoothly, analyses, and fully closes", a
 
   await engine.start(firstSettings, 0.58);
   assert.equal(engine.running, true);
+  assert.equal(engine.waveform.length, 512, "scope window matches Chaotic FM");
   assert.equal(FakeAudioContext.instances.length, 1);
   assert.equal(engine.context.options.latencyHint, "interactive");
   assert.match(engine.context.modules[0], /src\/recursive-pm\.js$/);
@@ -317,15 +318,18 @@ test("worklet uses exact recursive phase modulation without render allocations",
 
   assert.match(source, /signals\[turn\] \* safeIndex/);
   assert.match(source, /Math\.sin\(TWO_PI \* wrappedPhase\)/);
+  assert.match(source, /this\.current\.carrierHz \* this\.currentPitchRatio/);
+  assert.match(source, /this\.current\.startModFrequencyHz\s*\n\s*\* this\.currentPitchRatio/);
   assert.match(source, /this\.signals = new Float64Array/);
   assert.doesNotMatch(processBody, /new (?:Array|Float(?:32|64)Array)/);
   assert.match(processBody, /this\.current\.depth \+=/);
 });
 
 test("Recursive PM page is internal, gesture controlled, and cleans up audio", async () => {
-  const [html, app] = await Promise.all([
+  const [html, app, css] = await Promise.all([
     readFile(new URL("../recursive-pm.html", import.meta.url), "utf8"),
     readFile(new URL("../recursive-pm-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../recursive-pm.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(html, /id="audioButton"/);
@@ -338,6 +342,9 @@ test("Recursive PM page is internal, gesture controlled, and cleans up audio", a
   assert.match(app, /× INDEX/);
   assert.match(app, />PHASOR</);
   assert.match(app, /chaotic-path-junction/);
+  assert.match(app, /class="recursive-pm-flow-detailed"/);
+  assert.match(app, /class="recursive-pm-flow-compact"/);
+  assert.match(app, /PREVIOUS SINE × INDEX \+ PHASOR → NEXT SINE/);
   assert.match(app, /updateSignalFlow\(stack\)/);
   assert.match(html, /id="turnsReadout"/);
   assert.doesNotMatch(html, />Turn \d+</);
@@ -345,8 +352,8 @@ test("Recursive PM page is internal, gesture controlled, and cleans up audio", a
   assert.match(html, /src="recursive-pm-app\.js"/);
   assert.doesNotMatch(html, /https?:\/\//);
   assert.match(app, /new RecursivePmAudioEngine\(window\)/);
-  assert.match(app, /drawChaoticAnalysis/);
-  assert.match(app, /createChaoticSpectrogram/);
+  assert.match(app, /drawChaoticLiveAnalysis/);
+  assert.match(app, /createChaoticSpectrum/);
   assert.match(app, /\$\("audioButton"\)\.addEventListener\("click"/);
   assert.match(app, /VISUAL_FRAME_INTERVAL = 1_000 \/ 30/);
   assert.match(app, /pagehide/);
@@ -355,4 +362,8 @@ test("Recursive PM page is internal, gesture controlled, and cleans up audio", a
   assert.match(app, /removeEventListener\("resize", resizeCanvas\)/);
   assert.match(app, /audioState"\)\.textContent = active \? "on" : "off"/);
   assert.doesNotMatch(app, /updatePreset.+audio/i);
+  assert.match(css, /grid-template-rows: clamp\(360px, 50dvh, 460px\)/);
+  assert.match(css, /height: clamp\(0px, calc\(100% - 274px\), 132px\)/);
+  assert.match(css, /\.recursive-pm-flow-detailed\s*\{\s*display: none;/);
+  assert.match(css, /\.recursive-pm-flow-compact\s*\{\s*display: block;/);
 });

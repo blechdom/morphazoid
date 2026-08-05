@@ -45,6 +45,12 @@ import {
   mappingCurvePreset,
   updateMappingCurveNode,
 } from "./src/mapping.js";
+import { getSharedMidiManager } from "./src/midi-manager.js";
+import {
+  ShapeMidiPerformance,
+  shapeMidiMacroAction,
+  shapeMidiPadAction,
+} from "./src/shape-midi.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -249,6 +255,9 @@ const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
 const pool = new VoicePool(MAX_CONTINUOUS_VOICES);
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const shapeMidiPerformance = new ShapeMidiPerformance();
+let shapeMidiSnapshot = shapeMidiPerformance.snapshot();
+const SHAPE_MIDI_CLIENT_KEY = Symbol.for("morphazoid.shape.midiClient");
 
 let cssWidth = 1;
 let cssHeight = 1;
@@ -265,6 +274,7 @@ let lastAudioUpdate = -Infinity;
 let cachedShape = null;
 let cachedShapeKey = "";
 let audioChanging = false;
+let audioLifecycleGeneration = 0;
 let scheduledFrame = 0;
 let cornerSnapshot = null;
 let pendingCornerStrikes = [];
@@ -1768,11 +1778,16 @@ async function toggleAudio() {
   }
 
   audioChanging = true;
+  const lifecycleGeneration = audioLifecycleGeneration;
   $("audioButton").disabled = true;
   paintAudioState();
   $("audioError").hidden = true;
   try {
     await pool.enable();
+    if (lifecycleGeneration !== audioLifecycleGeneration) {
+      pool.disable();
+      return;
+    }
     pool.setVoices([]);
     pool.setLevel(state.level);
     state.audio = true;
@@ -1781,6 +1796,7 @@ async function toggleAudio() {
     dismissHelp();
   } catch (error) {
     state.audio = false;
+    if (lifecycleGeneration !== audioLifecycleGeneration) return;
     paintAudioState();
     $("audioError").textContent = error instanceof Error ? error.message : "Web Audio could not start.";
     $("audioError").hidden = false;
@@ -2336,9 +2352,10 @@ function mappingForContact(contact, path, headIndex = contact.headIndex ?? 0) {
 }
 
 function synthFrequencyForMapping(mapping) {
-  return state.soundMode === "shepard"
+  const geometricFrequency = state.soundMode === "shepard"
     ? state.baseFrequency
     : pitch01ToFrequency(mapping.pitch, state.baseFrequency, state.pitchRange);
+  return clamp(geometricFrequency * shapeMidiSnapshot.pitchRatio, 10, 20_000);
 }
 
 function pingPongMotionDirection(travelPosition, multiplier = 1, relativeDirection = 1) {
@@ -2545,7 +2562,7 @@ function continuousSynthVoices(contacts, path) {
     return {
       key: `shape:${contact.voiceKey}`,
       frequency: synthFrequencyForMapping(mapping),
-      gain: amplitudeGainForContact(contact, path),
+      gain: amplitudeGainForContact(contact, path) * shapeMidiSnapshot.gain,
       pan: mapping.pan,
       waveform: "sine",
       ...synth,
@@ -2630,13 +2647,13 @@ function strikeCorner(path, vertex, headIndex, time01 = 0, head = null) {
     attackNoise: state.percussionAttackNoise,
     retriggerMode: "crossfade",
   };
-  const frequency = pitch01ToFrequency(mapping.pitch, state.baseFrequency, state.pitchRange);
+  const frequency = synthFrequencyForMapping(mapping);
 
   pendingCornerStrikes.push({
     spec: {
       key: `corner:${state.playMethod}:${headIndex}:${vertex.vertexIndex}`,
       frequency,
-      gain: peak,
+      gain: peak * shapeMidiSnapshot.gain,
       pan: mapping.pan,
       waveform: "sine",
     },
@@ -2846,9 +2863,10 @@ function displayTurn(turn) {
 function contactOutputGain(contact, path) {
   if (state.soundMode === "percussion") {
     if ((contact.cornerStrength ?? 0) <= 0) return 0;
-    return cornerStrikePeak(percussionLevelValue(contact, path), state.percussionStrikeLevel);
+    return cornerStrikePeak(percussionLevelValue(contact, path), state.percussionStrikeLevel)
+      * shapeMidiSnapshot.gain;
   }
-  return amplitudeGainForContact(contact, path);
+  return amplitudeGainForContact(contact, path) * shapeMidiSnapshot.gain;
 }
 
 function synthValueLabel(parameters) {
@@ -3198,19 +3216,131 @@ window.addEventListener("keydown", (event) => {
   }
 });
 
+function applyShapeMidiRange(action) {
+  if (!action || action.type !== "range") return;
+  if (action.id === "rotation") {
+    setRotationAngle(action.value, true);
+    return;
+  }
+  const input = $(action.id);
+  if (!input) return;
+  input.value = String(action.value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function runShapeMidiCommand(command) {
+  if (command.startsWith("sound-")) {
+    setSoundMode(command.slice(6));
+  } else if (command.startsWith("playhead-")) {
+    setPlayMethod(command.slice(9));
+  } else if (command === "toggle-play") {
+    setPlaying(!state.playing);
+  } else if (command === "toggle-rotation") {
+    setRotationPlaying(!state.autoRotate);
+  } else if (command === "reverse") {
+    setTraversalDirection(-state.traversalDirection);
+  } else if (command === "toggle-motion") {
+    setMotionMode(state.motionMode === "loop" ? "pingpong" : "loop");
+  } else if (command === "toggle-star") {
+    if (state.sides < 3) applyShapeMidiRange({ type: "range", id: "sides", value: 4 });
+    setClosedShapeType(state.closedShapeType === "star" ? "polygon" : "star");
+  } else if (command === "reset-form") {
+    $("resetForm").click();
+  } else if (command === "remove-head") {
+    changePlayheadCount(-1);
+  } else if (command === "add-head") {
+    changePlayheadCount(1);
+  }
+}
+
+function standardShapeMacroForCc(controller) {
+  return new Map([
+    [74, 0],
+    [71, 1],
+    [76, 4],
+    [1, 6],
+    [77, 6],
+    [10, 7],
+  ]).get(Number(controller));
+}
+
+function handleShapeMidiMessage(message) {
+  if (message.logical?.type === "pad") {
+    if (message.type === "noteOn") {
+      const action = shapeMidiPadAction(message.logical.index);
+      if (action) runShapeMidiCommand(action.command);
+    }
+    return;
+  }
+  if (message.logical?.type === "macro") {
+    applyShapeMidiRange(shapeMidiMacroAction(
+      message.logical.index,
+      message.logical.normalized ?? Number(message.value) / 127,
+      state.soundMode,
+    ));
+    return;
+  }
+  if (message.type === "controlChange") {
+    if (Number(message.controller) === 7) {
+      applyShapeMidiRange({ type: "range", id: "level", value: Number(message.value) / 127 });
+    } else {
+      const macro = standardShapeMacroForCc(message.controller);
+      if (macro !== undefined) {
+        applyShapeMidiRange(shapeMidiMacroAction(macro, Number(message.value) / 127, state.soundMode));
+      }
+    }
+  }
+  shapeMidiSnapshot = shapeMidiPerformance.handle(message);
+  invalidate();
+}
+
+const midiManager = getSharedMidiManager(globalThis);
+let unregisterShapeMidi = null;
+
+function registerShapeMidiClient() {
+  if (unregisterShapeMidi) return;
+  globalThis[SHAPE_MIDI_CLIENT_KEY]?.();
+  unregisterShapeMidi = midiManager.registerClient({
+    id: "shape",
+    onPrepareEnable: () => {
+      if (!state.audio) void toggleAudio();
+    },
+    onMessage: handleShapeMidiMessage,
+    onEnabledChange: (enabled) => {
+      if (!enabled) {
+        shapeMidiSnapshot = shapeMidiPerformance.reset();
+        invalidate();
+        return;
+      }
+      announce("MIDI ready. Keys transpose the geometry; mapped knobs reshape it.");
+    },
+  });
+  globalThis[SHAPE_MIDI_CLIENT_KEY] = unregisterShapeMidi;
+}
+
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) pool.silence();
   else invalidate();
 });
 
 window.addEventListener("pagehide", (event) => {
+  audioLifecycleGeneration += 1;
+  unregisterShapeMidi?.();
+  if (globalThis[SHAPE_MIDI_CLIENT_KEY] === unregisterShapeMidi) {
+    delete globalThis[SHAPE_MIDI_CLIENT_KEY];
+  }
+  unregisterShapeMidi = null;
+  shapeMidiSnapshot = shapeMidiPerformance.reset();
   state.audio = false;
   paintAudioState();
   if (event.persisted) pool.disable();
   else void pool.close();
 });
 
-window.addEventListener("pageshow", () => invalidate());
+window.addEventListener("pageshow", () => {
+  registerShapeMidiClient();
+  invalidate();
+});
 
 $("shape").addEventListener("input", dismissHelp);
 
@@ -3235,3 +3365,5 @@ updateSectionSummaries();
 updatePlayheadReadouts();
 lastFrameTime = performance.now();
 scheduleFrame();
+
+registerShapeMidiClient();

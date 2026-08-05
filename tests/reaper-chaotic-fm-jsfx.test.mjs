@@ -14,7 +14,7 @@ const smokeUrl = new URL(
 );
 
 function presetBlock(source, index) {
-  const startMarker = `selected_preset == ${index} ? (`;
+  const startMarker = `preset_index == ${index} ? (`;
   const start = source.indexOf(startMarker);
   assert.ok(start >= 0, `missing JSFX preset block ${index}`);
   const bodyStart = start + startMarker.length;
@@ -33,16 +33,17 @@ test("REAPER Chaotic FM JSFX exposes a stereo MIDI instrument", async () => {
   const source = await readFile(jsfxUrl, "utf8");
 
   assert.match(source, /^desc:Morphazoid: Chaotic FM$/m);
+  assert.match(source, /^\/\/ @version 0\.3\.0$/m);
   assert.match(source, /^tags:.*\binstrument\b/m);
   assert.match(source, /^in_pin:none$/m);
   assert.match(source, /^out_pin:Left$/m);
   assert.match(source, /^out_pin:Right$/m);
-  assert.equal(source.match(/^slider\d+:/gm)?.length, 19);
+  assert.equal(source.match(/^slider\d+:/gm)?.length, 27);
   assert.match(source, /^@init$/m);
   assert.match(source, /^@slider$/m);
   assert.match(source, /^@block$/m);
   assert.match(source, /^@sample$/m);
-  assert.match(source, /^@gfx 920 620$/m);
+  assert.match(source, /^@gfx 920 760$/m);
   assert.doesNotMatch(
     source,
     /\b\d+(?:\.\d+)?[eE][+-]?\d+\b/,
@@ -145,6 +146,57 @@ test("REAPER Chaotic FM implements expressive mono performance v2", async () => 
   assert.match(source, /cc_number == 123 \?[\s\S]*begin_release\(\)/);
 });
 
+test("REAPER Chaotic FM adds deterministic host clock and rhythmic latch parameters", async () => {
+  const source = await readFile(jsfxUrl, "utf8");
+
+  // The original nineteen IDs are frozen; all clock parameters are additive.
+  assert.match(source, /^slider20:clock_mode=0<0,1,1\{Free,Sync\}>/m);
+  assert.match(source, /^slider21:clock_division=6<0,9,1\{8 bars,/m);
+  assert.match(source, /^slider22:clock_feel=0<0,2,1\{Straight,Dotted,Triplet\}>/m);
+  assert.match(source, /^slider23:clock_phase_mode=0<0,3,1\{Free,Song,Transport,Note\}>/m);
+  assert.match(source, /^slider24:clock_phase_offset=0<0,1,/m);
+  assert.match(source, /^slider25:latch_mode=0<0,2,1\{Off,Hold,Slew\}>/m);
+  assert.match(source, /^slider26:latch_division=7<0,9,1\{8 bars,/m);
+  assert.match(source, /^slider27:latch_smooth_ms=8<0,50,/m);
+
+  for (const hostVariable of [
+    "tempo",
+    "beat_position",
+    "play_state",
+    "ts_num",
+    "ts_denom",
+  ]) {
+    assert.match(source, new RegExp(`\\b${hostVariable}\\b`));
+  }
+  assert.match(source, /function clock_division_beats\(/);
+  assert.match(source, /function clock_feel_multiplier\(/);
+  assert.match(source, /clock_transport_started/);
+  assert.match(source, /clock_block_beat_position = beat_position/);
+  assert.match(source, /block_sample_index \* clock_beat_increment/);
+  assert.match(source, /clock_phase_beat = clock_song_beat/);
+  assert.match(source, /clock_note_beat = 0/);
+  assert.match(source, /clock_latch_step = floor\(/);
+  assert.match(source, /clock_latch_boundary_beat/);
+  assert.match(source, /clock_latched_signal \+=/);
+  assert.match(source, /clock_latch_slew/);
+
+  const freeBranch = source.slice(
+    source.indexOf("clock_mode < 0.5 ? ("),
+    source.indexOf("// Keep all internal musical phase sources warm"),
+  );
+  assert.match(freeBranch, /phases\[0\] \+= carrier_frequency \* phase_scale/);
+  assert.match(freeBranch, /carrier_signal = sin\(phases\[0\]\)/);
+  assert.ok(
+    freeBranch.indexOf("phases[0] +=") < freeBranch.indexOf(") : ("),
+    "legacy free-running oscillator must remain the default branch",
+  );
+  assert.doesNotMatch(
+    source.slice(source.indexOf("clock_mode < 0.5 ? (")),
+    /clock_carrier_cycle_beats[^\n]*safe_pitch_ratio/,
+    "the tempo-locked carrier must not be repitched away from the host grid",
+  );
+});
+
 test("REAPER Chaotic FM has simultaneous layered live analyzers and backed UI", async () => {
   const source = await readFile(jsfxUrl, "utf8");
 
@@ -158,7 +210,7 @@ test("REAPER Chaotic FM has simultaneous layered live analyzers and backed UI", 
   assert.match(source, /fft_db = min\(0, max\(-90, fft_db\)\)/);
   assert.match(
     source,
-    /^slider19:analysis_view=.*\{Combined,Scope focus\}>Analyzer emphasis$/m,
+    /^slider19:analysis_view=.*\{Combined,Scope focus\}>-Analyzer emphasis$/m,
   );
   assert.match(source, /spectrum_bar_count = 56/);
   assert.match(source, /spectrum_bar_alpha = analysis_view < 0\.5 \? 0\.30 : 0\.13/);
@@ -187,13 +239,65 @@ test("REAPER Chaotic FM has simultaneous layered live analyzers and backed UI", 
   assert.match(source, /slider_automate\(attack_ms\)/);
   assert.match(source, /slider_automate\(glide_time_ms\)/);
   assert.match(source, /slider_automate\(analysis_view\)/);
+  assert.match(source, /gfx_x = x \+ width - 104/);
   assert.doesNotMatch(source, /spectrogram|scrolling history/i);
+});
+
+test("REAPER custom controls and presets synchronize into the audio block", async () => {
+  const source = await readFile(jsfxUrl, "utf8");
+  const block = source.slice(source.indexOf("@block"), source.indexOf("@sample"));
+  const gfx = source.slice(source.indexOf("@gfx"));
+
+  assert.match(source, /function apply_factory_preset\(preset_index\)/);
+  assert.match(source, /function apply_pending_preset\(\)/);
+  assert.match(source, /function sync_slider_state\(\)/);
+  assert.match(
+    source,
+    /\(selected_preset != last_preset\) \|\| preset_apply_requested/,
+  );
+  assert.match(block, /apply_pending_preset\(\);\s*sync_slider_state\(\);/);
+  for (const target of [
+    "target_depth",
+    "target_carrier_hz",
+    "target_offset_hz",
+    "target_modulation_amount",
+    "target_amount_divisor",
+    "target_nonlinearity_hz",
+    "target_output_level",
+  ]) {
+    assert.match(source, new RegExp(`\\b${target}\\s*=`));
+  }
+  assert.match(
+    gfx,
+    /preset = active_ui_control - 20;\s*preset_apply_requested = 1;\s*slider_automate\(preset\);/,
+  );
+});
+
+test("REAPER hides built-in slider rows while preserving all host parameters", async () => {
+  const source = await readFile(jsfxUrl, "utf8");
+  const sliderDefinitions = source.match(/^slider\d+:[^\n]+$/gm) ?? [];
+
+  assert.equal(sliderDefinitions.length, 27);
+  for (const definition of sliderDefinitions) {
+    assert.match(
+      definition,
+      />-/,
+      `built-in row is still visible: ${definition}`,
+    );
+  }
+  assert.match(source, /^@gfx 920 760$/m);
 });
 
 test("REAPER smoke project exercises all factory performance MIDI", async () => {
   const source = await readFile(smokeUrl, "utf8");
 
-  assert.match(source, /parameter_count < 19/);
+  assert.match(source, /parameter_count < 27/);
+  for (const parameterIndex of [19, 20, 21, 22, 23, 24, 25, 26]) {
+    assert.match(
+      source,
+      new RegExp(`TrackFX_SetParam\\(track, fx_index, ${parameterIndex},`),
+    );
+  }
   assert.match(source, /midi_note_count=/);
   for (const cc of [5, 11, 64, 65, 72, 73, 75, 120, 121, 123]) {
     assert.match(source, new RegExp(`control_change\\([^\\n]+, ${cc},`));

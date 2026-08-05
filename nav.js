@@ -1,3 +1,10 @@
+import {
+  COMPUTER_KEYBOARD_DEFAULTS,
+  MIDI_PROFILES,
+  MIDI_PROFILE_REGISTRY,
+  getSharedMidiManager,
+} from "./src/midi-manager.js";
+
 const LEGACY_SETTINGS_KEYS = [
   "morphazoid:shape:audio:v1",
   "morphazoid:lattice:audio:v2",
@@ -76,7 +83,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "julia", label: "Julia", href: "julia.html" },
   ]),
   freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
-    { id: "search-algorithms", label: "Search", href: "algorithmic-sequencers.html" },
+    { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },
   ]),
   freezeGroup("barber-shop-poles", "Barber Shop Poles", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },
@@ -114,6 +121,36 @@ export const TOOL_GROUPS = Object.freeze([
       label: "Cellular Automata",
       href: "cellular-automata.html",
     },
+    { id: "prime-sieve", label: "Prime Sieve", href: "prime-sieve.html" },
+    {
+      id: "lissajous-orbits",
+      label: "Lissajous Orbits",
+      href: "lissajous-orbits.html",
+    },
+    { id: "pendulum-wave", label: "Pendulum Wave", href: "pendulum-wave.html" },
+    {
+      id: "double-pendulum",
+      label: "Double Pendulum",
+      href: "double-pendulum.html",
+    },
+    {
+      id: "reaction-diffusion",
+      label: "Reaction-Diffusion",
+      href: "reaction-diffusion.html",
+    },
+    {
+      id: "atomic-orbitals",
+      label: "Atomic Orbitals",
+      href: "atomic-orbitals.html",
+    },
+    { id: "dna-translator", label: "DNA Translator", href: "dna-translator.html" },
+    { id: "neural-pulse", label: "Neural Pulse", href: "neural-pulse.html" },
+    {
+      id: "fourier-epicycles",
+      label: "Fourier Epicycles",
+      href: "fourier-epicycles.html",
+    },
+    { id: "gravity-lens", label: "Gravity Lens", href: "gravity-lens.html" },
   ]),
   freezeGroup("tools", "Tools", [
     { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
@@ -127,6 +164,7 @@ export const TOOL_GROUPS = Object.freeze([
 ]);
 
 export const SITE_LINKS = Object.freeze([
+  Object.freeze({ id: "plugins", label: "Plug-ins", href: "plugins.html" }),
   Object.freeze({ id: "about", label: "About", href: "about.html" }),
 ]);
 
@@ -267,6 +305,271 @@ function createSiteLink(doc, link, activeSiteLink, siteRoot) {
   return anchor;
 }
 
+function insertBeforeOrAppend(parent, node, reference) {
+  if (reference && typeof parent.insertBefore === "function") parent.insertBefore(node, reference);
+  else parent.append?.(node);
+}
+
+function midiInputSummary(status) {
+  if (!status.supported) return "Web MIDI is unavailable in this browser.";
+  if (!status.enabled) return "Off · computer keys and hardware MIDI are inactive.";
+  const sources = [];
+  if (status.computerKeyboard?.active) sources.push("computer keys ready");
+  if (status.enabling) sources.push("waiting for hardware MIDI permission…");
+  if (status.hardwareError) sources.push(`hardware MIDI: ${status.hardwareError}`);
+  const names = status.inputs.map((input) => {
+    const name = input.name || input.manufacturer || "MIDI input";
+    return input.profileLabel ? `${name} — ${input.profileLabel}` : name;
+  });
+  sources.push(...names);
+  if (
+    status.webMidiSupported
+    && !status.enabling
+    && !status.hardwareError
+    && names.length === 0
+  ) sources.push("no hardware inputs connected");
+  return `On · ${sources.join(" · ") || "ready"}`;
+}
+
+function computerKeyboardPresentation(status) {
+  const clients = status.computerKeyboard?.clients ?? [];
+  const layouts = new Set(clients.map(({ layout }) => layout));
+  if (layouts.size === 0) return null;
+  if (layouts.size === 1 && layouts.has("pad-grid")) {
+    return { compact: "Pads", spoken: "pads", kind: "pad-grid" };
+  }
+  if (layouts.size === 1 && layouts.has("piano")) {
+    return { compact: "Piano", spoken: "piano", kind: "piano" };
+  }
+  return { compact: "Mixed", spoken: "piano and pads", kind: "mixed" };
+}
+
+function effectiveComputerKeyboardVelocity(status, clients) {
+  const sharedVelocity = Number(status.computerKeyboard?.velocity)
+    || COMPUTER_KEYBOARD_DEFAULTS.velocity;
+  const values = clients.map((client) => Math.max(1, Math.min(
+    127,
+    Math.round(
+      Number(client.velocity ?? COMPUTER_KEYBOARD_DEFAULTS.velocity)
+      + sharedVelocity
+      - COMPUTER_KEYBOARD_DEFAULTS.velocity,
+    ),
+  )));
+  if (values.length === 0) return sharedVelocity;
+  const unique = [...new Set(values)].sort((left, right) => left - right);
+  return unique.length === 1 ? unique[0] : `${unique[0]}–${unique.at(-1)}`;
+}
+
+function computerKeyboardHint(status) {
+  const clients = status.computerKeyboard?.clients ?? [];
+  const presentation = computerKeyboardPresentation(status);
+  if (!presentation) return "Computer keyboard input is disabled for this instrument.";
+  const octave = status.computerKeyboard?.octave ?? 0;
+  const velocity = effectiveComputerKeyboardVelocity(status, clients);
+  const tuning = `Octave ${octave >= 0 ? "+" : ""}${octave} · velocity ${velocity}`;
+  if (presentation.kind === "pad-grid") {
+    return `Computer pads · 1 2 3 4 / Q W E R / A S D F / Z X C V. [ ] octave · - / = velocity. ${tuning}.`;
+  }
+  if (presentation.kind === "mixed") {
+    return `Computer piano + pads · piano uses Z–M and Q–U; pads use 1–4 / Q–R / A–F / Z–V. [ ] octave · - / = velocity. ${tuning}.`;
+  }
+  return `Computer piano · Z S X D C V G B H N J M / Q 2 W 3 E R 5 T 6 Y 7 U. Q is C4. [ ] octave · - / = velocity. ${tuning}.`;
+}
+
+function midiProfileHint(status, selectedProfile) {
+  if (selectedProfile.id !== "auto" || status.inputs.length === 0) {
+    return selectedProfile.setupHint || selectedProfile.description;
+  }
+  const resolved = [...new Set(status.inputs.map(({ profileId }) => profileId))]
+    .map((profileId) => MIDI_PROFILE_REGISTRY[profileId])
+    .filter(Boolean);
+  if (resolved.length === 0) return selectedProfile.setupHint || selectedProfile.description;
+  return resolved.map((profile) => (
+    `${profile.shortLabel}: ${profile.setupHint || profile.description}`
+  )).join(" ");
+}
+
+/** Build the one site-level MIDI control used by every mapped instrument. */
+export function createMidiToolbar(
+  doc,
+  runtime,
+  manager = getSharedMidiManager(runtime),
+  { idSuffix = "" } = {},
+) {
+  const suffix = idSuffix ? `-${String(idSuffix).replace(/[^a-z\d_-]/gi, "-")}` : "";
+  const toolbar = element(doc, "div", "midi-toolbar");
+  toolbar.setAttribute("role", "group");
+  toolbar.setAttribute("aria-label", "MIDI and computer keyboard controls");
+  toolbar.hidden = true;
+
+  const toggle = element(doc, "button", "midi-toggle");
+  toggle.type = "button";
+  toggle.id = `sharedMidiToggle${suffix}`;
+  toggle.setAttribute("aria-pressed", "false");
+  const dot = element(doc, "span", "midi-status-dot");
+  dot.setAttribute("aria-hidden", "true");
+  const toggleTitle = element(doc, "b", "", "MIDI");
+  const toggleState = element(doc, "small", "", "off");
+  toggle.append(dot, toggleTitle, toggleState);
+
+  const details = element(doc, "details", "midi-profile-menu");
+  const summary = element(doc, "summary", "midi-profile-trigger");
+  summary.setAttribute("aria-label", "MIDI mapping: Auto");
+  summary.setAttribute("aria-controls", `midiProfilePanel${suffix}`);
+  const summaryTitle = element(doc, "b", "", "Map");
+  const summaryProfile = element(doc, "small", "", "Auto");
+  summary.append(summaryTitle, summaryProfile);
+
+  const panel = element(doc, "div", "midi-profile-panel");
+  panel.id = `midiProfilePanel${suffix}`;
+  const heading = element(doc, "div", "midi-profile-heading");
+  heading.append(
+    element(doc, "b", "", "Controller mapping"),
+    element(doc, "span", "", "Keys + hardware · no SysEx"),
+  );
+  const keyboardHint = element(doc, "p", "midi-keyboard-hint");
+  const field = element(doc, "label", "midi-profile-field");
+  field.append(element(doc, "span", "", "Controller profile"));
+  const select = element(doc, "select", "");
+  select.id = `midiProfileSelect${suffix}`;
+  select.setAttribute("aria-label", "MIDI controller profile");
+  for (const profile of MIDI_PROFILES) {
+    const option = element(doc, "option", "", profile.label);
+    option.value = profile.id;
+    select.append(option);
+  }
+  field.append(select);
+  const statusLine = element(doc, "p", "midi-profile-status", "MIDI off");
+  statusLine.id = `sharedMidiStatus${suffix}`;
+  statusLine.setAttribute("aria-live", "polite");
+  const hint = element(doc, "p", "midi-profile-hint");
+  const error = element(doc, "p", "midi-profile-error");
+  error.id = `sharedMidiError${suffix}`;
+  error.setAttribute("role", "alert");
+  error.hidden = true;
+  panel.append(heading, keyboardHint, field, statusLine, hint, error);
+  details.append(summary, panel);
+  toolbar.append(toggle, details);
+
+  const paint = (status) => {
+    const clientCount = Number(status.clientCount) || 0;
+    const visible = clientCount > 0;
+    toolbar.hidden = !visible;
+    if (visible) toolbar.parentNode?.classList?.add("has-midi-toolbar");
+    else {
+      toolbar.parentNode?.classList?.remove("has-midi-toolbar");
+      details.open = false;
+      toolbar.classList.remove("is-error");
+      error.textContent = "";
+      error.hidden = true;
+    }
+    toggle.disabled = !status.supported || clientCount === 0;
+    toggle.setAttribute("aria-pressed", String(Boolean(status.enabled)));
+    toggleState.textContent = status.enabled
+      ? status.computerKeyboard?.active
+        ? status.inputCount ? `keys+${status.inputCount}` : "keys"
+        : `${status.inputCount} in`
+      : status.enabling ? "wait" : status.supported ? "off" : "n/a";
+    select.value = status.selectedProfileId;
+    const profile = MIDI_PROFILE_REGISTRY[status.selectedProfileId] ?? MIDI_PROFILE_REGISTRY.auto;
+    const keyboardPresentation = computerKeyboardPresentation(status);
+    summaryProfile.textContent = keyboardPresentation?.compact ?? profile.shortLabel;
+    const keyboardDescription = keyboardPresentation
+      ? `; computer keys: ${keyboardPresentation.spoken}`
+      : "";
+    summary.setAttribute("aria-label", `MIDI mapping: ${profile.label}${keyboardDescription}`);
+    summary.title = keyboardPresentation
+      ? `${profile.label} · Computer ${keyboardPresentation.spoken}`
+      : profile.label;
+    keyboardHint.textContent = computerKeyboardHint(status);
+    statusLine.textContent = midiInputSummary(status);
+    hint.textContent = midiProfileHint(status, profile);
+    if (status.enabled) {
+      toolbar.classList.remove("is-error");
+      error.textContent = "";
+      error.hidden = true;
+    }
+  };
+
+  const unsubscribe = manager.subscribeStatus(paint);
+  const clearError = () => {
+    toolbar.classList.remove("is-error");
+    error.textContent = "";
+    error.hidden = true;
+  };
+  const showError = (reason) => {
+    error.textContent = reason instanceof Error ? reason.message : String(reason);
+    error.hidden = false;
+    toolbar.classList.add("is-error");
+    details.open = true;
+  };
+  const handleToggle = async () => {
+    clearError();
+    try {
+      if (manager.enabled) manager.disable();
+      else await manager.enable();
+      clearError();
+    } catch (reason) {
+      showError(reason);
+    }
+  };
+  const handleProfileChange = () => {
+    clearError();
+    try {
+      manager.setProfile(select.value);
+    } catch (reason) {
+      select.value = manager.selectedProfileId;
+      showError(reason);
+    }
+  };
+  const handleDetailsKeydown = (event) => {
+    if (event.key !== "Escape" || !details.open) return;
+    event.preventDefault?.();
+    details.open = false;
+    summary.focus?.();
+  };
+  const handleDocumentPointerdown = (event) => {
+    if (details.open && !details.contains(event.target)) details.open = false;
+  };
+  let disposed = false;
+  const destroy = () => {
+    if (disposed) return;
+    disposed = true;
+    unsubscribe();
+    toggle.removeEventListener?.("click", handleToggle);
+    select.removeEventListener?.("change", handleProfileChange);
+    details.removeEventListener?.("keydown", handleDetailsKeydown);
+    doc.removeEventListener?.("pointerdown", handleDocumentPointerdown);
+    runtime.removeEventListener?.("pagehide", handlePageHide);
+  };
+  const handlePageHide = (event) => {
+    manager.disable();
+    if (!event?.persisted) destroy();
+  };
+  toggle.addEventListener("click", handleToggle);
+  select.addEventListener("change", handleProfileChange);
+  details.addEventListener("keydown", handleDetailsKeydown);
+  doc.addEventListener?.("pointerdown", handleDocumentPointerdown);
+  runtime.addEventListener?.("pagehide", handlePageHide);
+
+  return Object.freeze({ toolbar, toggle, details, select, unsubscribe: destroy, destroy });
+}
+
+export function initializeMidiToolbars(doc, runtime, manager = getSharedMidiManager(runtime)) {
+  const controls = [];
+  const mastheads = [...(doc?.querySelectorAll?.(".masthead") ?? [])];
+  for (const [index, masthead] of mastheads.entries()) {
+    if (masthead.querySelector?.(".midi-toolbar")) continue;
+    const control = createMidiToolbar(doc, runtime, manager, {
+      idSuffix: index === 0 ? "" : String(index + 1),
+    });
+    insertBeforeOrAppend(masthead, control.toolbar, masthead.querySelector?.(".audio-strip"));
+    if (manager.status().clientCount > 0) masthead.classList?.add("has-midi-toolbar");
+    controls.push(control);
+  }
+  return Object.freeze(controls);
+}
+
 function populateMobileSelect(doc, select, activeTool, activeSiteLink, siteRoot) {
   const groups = TOOL_GROUPS.map((group) => {
     const optgroup = element(doc, "optgroup");
@@ -367,6 +670,8 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
     currentHref: runtime.location?.href || doc?.baseURI || NAVIGATION_BASE_URL,
     siteRoot: NAVIGATION_BASE_URL,
   });
+
+  initializeMidiToolbars(doc, runtime);
 
   for (const select of doc?.querySelectorAll?.(".mobile-instrument-select") ?? []) {
     select.addEventListener("change", () => {

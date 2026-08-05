@@ -1,15 +1,21 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
   SITE_LINKS,
   TOOL_GROUPS,
   enhanceSharedNavigation,
+  initializeMidiToolbars,
   initializeSharedNavigation,
   normalizeNavigationPath,
   resolveActiveSiteLink,
   resolveActiveTool,
 } from "../nav.js";
+import {
+  MIDI_PROFILES,
+  WebMidiManager,
+} from "../src/midi-manager.js";
 
 const SITE_ROOT = "https://example.test/blechdom/morphazoid/";
 
@@ -25,6 +31,12 @@ class FakeClassList {
   add(...tokens) {
     const values = this.values();
     tokens.forEach((token) => values.add(token));
+    this.owner.className = [...values].join(" ");
+  }
+
+  remove(...tokens) {
+    const values = this.values();
+    tokens.forEach((token) => values.delete(token));
     this.owner.className = [...values].join(" ");
   }
 
@@ -60,6 +72,16 @@ class FakeNode {
     this.append(...nodes);
   }
 
+  insertBefore(node, reference) {
+    const index = this.children.indexOf(reference);
+    if (index < 0) {
+      this.append(node);
+      return;
+    }
+    node.parentNode = this;
+    this.children.splice(index, 0, node);
+  }
+
   setAttribute(name, value) {
     this.attributes.set(name, String(value));
   }
@@ -73,6 +95,11 @@ class FakeNode {
     this.listeners.get(type).push(listener);
   }
 
+  removeEventListener(type, listener) {
+    const listeners = this.listeners.get(type) ?? [];
+    this.listeners.set(type, listeners.filter((candidate) => candidate !== listener));
+  }
+
   dispatch(type, event = {}) {
     for (const listener of this.listeners.get(type) ?? []) listener(event);
   }
@@ -83,6 +110,18 @@ class FakeNode {
 
   focus() {
     this.focused = true;
+  }
+
+  querySelector(selector) {
+    if (selector.startsWith(".")) {
+      const className = selector.slice(1);
+      return this.findAll((node) => node.classList.contains(className))[0] ?? null;
+    }
+    if (selector.startsWith("#")) {
+      const id = selector.slice(1);
+      return this.findAll((node) => node.id === id)[0] ?? null;
+    }
+    return null;
   }
 
   findAll(predicate) {
@@ -122,6 +161,11 @@ class FakeDocument {
     this.listeners.get(type).push(listener);
   }
 
+  removeEventListener(type, listener) {
+    const listeners = this.listeners.get(type) ?? [];
+    this.listeners.set(type, listeners.filter((candidate) => candidate !== listener));
+  }
+
   dispatch(type, event = {}) {
     for (const listener of this.listeners.get(type) ?? []) listener(event);
   }
@@ -145,7 +189,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 46);
+  assert.equal(tools.length, 56);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -248,14 +292,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       ({ id, href }) => ({ id, href }),
     ),
     [
-      { id: "search-algorithms", href: "algorithmic-sequencers.html" },
+      { id: "sorting-algorithms", href: "algorithmic-sequencers.html" },
     ],
   );
   assert.deepEqual(
-    tools.find((tool) => tool.id === "search-algorithms"),
+    tools.find((tool) => tool.id === "sorting-algorithms"),
     {
-      id: "search-algorithms",
-      label: "Search",
+      id: "sorting-algorithms",
+      label: "Sorting",
       href: "algorithmic-sequencers.html",
     },
   );
@@ -319,9 +363,20 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "spring-choir", href: "spring-choir.html" },
       { id: "gear-ratio-drums", href: "gear-ratio-drums.html" },
       { id: "cellular-automata", href: "cellular-automata.html" },
+      { id: "prime-sieve", href: "prime-sieve.html" },
+      { id: "lissajous-orbits", href: "lissajous-orbits.html" },
+      { id: "pendulum-wave", href: "pendulum-wave.html" },
+      { id: "double-pendulum", href: "double-pendulum.html" },
+      { id: "reaction-diffusion", href: "reaction-diffusion.html" },
+      { id: "atomic-orbitals", href: "atomic-orbitals.html" },
+      { id: "dna-translator", href: "dna-translator.html" },
+      { id: "neural-pulse", href: "neural-pulse.html" },
+      { id: "fourier-epicycles", href: "fourier-epicycles.html" },
+      { id: "gravity-lens", href: "gravity-lens.html" },
     ],
   );
   assert.deepEqual(SITE_LINKS, [
+    { id: "plugins", label: "Plug-ins", href: "plugins.html" },
     { id: "about", label: "About", href: "about.html" },
   ]);
 });
@@ -360,7 +415,17 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}spring-choir.html`, SITE_ROOT)?.id, "spring-choir");
   assert.equal(resolveActiveTool(`${SITE_ROOT}gear-ratio-drums.html`, SITE_ROOT)?.id, "gear-ratio-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}cellular-automata.html`, SITE_ROOT)?.id, "cellular-automata");
-  assert.equal(resolveActiveTool(`${SITE_ROOT}algorithmic-sequencers.html`, SITE_ROOT)?.id, "search-algorithms");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}prime-sieve.html`, SITE_ROOT)?.id, "prime-sieve");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}lissajous-orbits.html`, SITE_ROOT)?.id, "lissajous-orbits");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}pendulum-wave.html`, SITE_ROOT)?.id, "pendulum-wave");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}double-pendulum.html`, SITE_ROOT)?.id, "double-pendulum");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}reaction-diffusion.html`, SITE_ROOT)?.id, "reaction-diffusion");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}atomic-orbitals.html`, SITE_ROOT)?.id, "atomic-orbitals");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}dna-translator.html`, SITE_ROOT)?.id, "dna-translator");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}neural-pulse.html`, SITE_ROOT)?.id, "neural-pulse");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}fourier-epicycles.html`, SITE_ROOT)?.id, "fourier-epicycles");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}gravity-lens.html`, SITE_ROOT)?.id, "gravity-lens");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}algorithmic-sequencers.html`, SITE_ROOT)?.id, "sorting-algorithms");
   assert.equal(resolveActiveTool(`${SITE_ROOT}fm-drums.html`, SITE_ROOT)?.id, "fm-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}shape-drums.html`, SITE_ROOT)?.id, "shape-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}lattice-drums.html`, SITE_ROOT)?.id, "lattice-drums");
@@ -371,6 +436,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}unknown.html`, SITE_ROOT), null);
+  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}plugins.html`, SITE_ROOT)?.id, "plugins");
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}about.html`, SITE_ROOT)?.id, "about");
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}julia.html`, SITE_ROOT), null);
 });
@@ -417,11 +483,13 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
     TOOL_GROUPS.map((group) => group.label),
   );
   const links = details.findAll((node) => node.tagName === "A");
-  assert.equal(links.length, 46);
+  assert.equal(links.length, 56);
   const siteLinks = doc.tabs.children.filter((node) => node.classList.contains("site-nav-link"));
-  assert.equal(siteLinks.length, 1);
-  assert.equal(siteLinks[0].textContent, "About");
-  assert.equal(siteLinks[0].getAttribute("href"), `${SITE_ROOT}about.html`);
+  assert.equal(siteLinks.length, 2);
+  assert.equal(siteLinks[0].textContent, "Plug-ins");
+  assert.equal(siteLinks[0].getAttribute("href"), `${SITE_ROOT}plugins.html`);
+  assert.equal(siteLinks[1].textContent, "About");
+  assert.equal(siteLinks[1].getAttribute("href"), `${SITE_ROOT}about.html`);
   const currentLinks = links.filter((link) => link.getAttribute("aria-current") === "page");
   assert.equal(currentLinks.length, 1);
   assert.equal(currentLinks[0].getAttribute("data-tool-id"), "julia");
@@ -475,6 +543,374 @@ test("About is current in both forms of the shared main menu", () => {
   );
   assert.equal(selectedOptions.length, 1);
   assert.equal(selectedOptions[0].textContent, "About");
+});
+
+test("Plug-ins is current in both forms of the shared main menu", () => {
+  const doc = new FakeDocument();
+  const result = enhanceSharedNavigation(doc, {
+    currentHref: `${SITE_ROOT}plugins.html`,
+    siteRoot: SITE_ROOT,
+  });
+
+  assert.equal(result.activeTool, null);
+  assert.equal(result.activeSiteLink?.id, "plugins");
+
+  const currentDesktopLinks = doc.tabs.findAll(
+    (node) => node.tagName === "A" && node.getAttribute("aria-current") === "page",
+  );
+  assert.equal(currentDesktopLinks.length, 1);
+  assert.equal(currentDesktopLinks[0].textContent, "Plug-ins");
+
+  const selectedOptions = doc.select.findAll(
+    (node) => node.tagName === "OPTION" && node.selected,
+  );
+  assert.equal(selectedOptions.length, 1);
+  assert.equal(selectedOptions[0].textContent, "Plug-ins");
+});
+
+test("one header MIDI control owns connection and controller profile selection", async () => {
+  const doc = new FakeDocument();
+  const masthead = new FakeNode("header");
+  masthead.className = "masthead";
+  const audioStrip = new FakeNode("div");
+  audioStrip.className = "audio-strip";
+  masthead.append(audioStrip);
+  const baseQuerySelectorAll = doc.querySelectorAll.bind(doc);
+  doc.querySelectorAll = (selector) => (
+    selector === ".masthead" ? [masthead] : baseQuerySelectorAll(selector)
+  );
+
+  const inputListeners = new Map();
+  const input = {
+    id: "keys",
+    name: "Komplete Kontrol S49 MK2",
+    manufacturer: "Native Instruments",
+    state: "connected",
+    addEventListener(type, listener) { inputListeners.set(type, listener); },
+    removeEventListener(type, listener) {
+      if (inputListeners.get(type) === listener) inputListeners.delete(type);
+    },
+  };
+  const access = {
+    inputs: new Map([[input.id, input]]),
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const requests = [];
+  const stored = new Map();
+  const runtime = {
+    navigator: {
+      async requestMIDIAccess(options) {
+        requests.push(options);
+        return access;
+      },
+    },
+    localStorage: {
+      getItem(key) { return stored.get(key) ?? null; },
+      setItem(key, value) { stored.set(key, String(value)); },
+    },
+    addEventListener() {},
+  };
+  const manager = new WebMidiManager(runtime);
+  const [control] = initializeMidiToolbars(doc, runtime, manager);
+
+  assert.equal(control.toolbar.hidden, true, "unmapped pages do not show a dead MIDI control");
+  assert.equal(masthead.classList.contains("has-midi-toolbar"), false);
+  assert.equal(control.select.children.length, MIDI_PROFILES.length);
+  const messages = [];
+  const unregisterClient = manager.registerClient({
+    id: "test-instrument",
+    onMessage: (message) => messages.push(message),
+  });
+  assert.equal(control.toolbar.hidden, false);
+  assert.equal(masthead.classList.contains("has-midi-toolbar"), true);
+  assert.equal(masthead.children[0], control.toolbar);
+  assert.equal(masthead.children[1], audioStrip);
+  assert.equal(initializeMidiToolbars(doc, runtime, manager).length, 0);
+  assert.equal(masthead.findAll((node) => node.className === "midi-toolbar").length, 1);
+
+  await control.toggle.listeners.get("click")[0]();
+  assert.deepEqual(requests, [{ sysex: false }]);
+  assert.equal(control.toggle.getAttribute("aria-pressed"), "true");
+  assert.equal(control.toggle.getAttribute("aria-controls"), null);
+  assert.equal(manager.status().inputs[0].profileId, "ni-komplete-kontrol-s49-mk2");
+  const profileSummary = control.details.children[0];
+  assert.equal(
+    profileSummary.getAttribute("aria-label"),
+    "MIDI mapping: Auto (per device); computer keys: piano",
+  );
+  assert.equal(profileSummary.title, "Auto (per device) · Computer piano");
+  assert.equal(profileSummary.children[1].textContent, "Piano");
+  assert.equal(control.toggle.children[2].textContent, "keys+1");
+  const keyboardHint = control.details.findAll(
+    (node) => node.className === "midi-keyboard-hint",
+  )[0];
+  assert.match(keyboardHint.textContent, /Computer piano/);
+  assert.match(keyboardHint.textContent, /Q is C4/);
+  assert.match(keyboardHint.textContent, /Octave \+0 · velocity 100/);
+  const statusLine = control.details.findAll(
+    (node) => node.className === "midi-profile-status",
+  )[0];
+  assert.match(statusLine.textContent, /computer keys ready/);
+  assert.match(statusLine.textContent, /Komplete Kontrol S49 MK2/);
+  const hint = control.details.findAll((node) => node.className === "midi-profile-hint")[0];
+  assert.match(hint.textContent, /Morphazoid MIDI-mode template/);
+  assert.match(hint.textContent, /not Native Instruments factory defaults/);
+
+  control.select.value = "arturia-minilab-3";
+  control.select.dispatch("change");
+  assert.equal(manager.selectedProfileId, "arturia-minilab-3");
+  assert.equal(stored.get("morphazoid:midi:profile:v1"), "arturia-minilab-3");
+
+  await control.toggle.listeners.get("click")[0]();
+  assert.equal(control.toggle.getAttribute("aria-pressed"), "false");
+  assert.equal(inputListeners.has("midimessage"), false);
+  assert.equal(messages.at(-1).controller, 120);
+  assert.equal(messages.at(-1).reason, "manager-disabled");
+  unregisterClient();
+  assert.equal(control.toolbar.hidden, true);
+  assert.equal(masthead.classList.contains("has-midi-toolbar"), false);
+  control.destroy();
+});
+
+test("MIDI toolbar IDs stay unique and repeated initialization adds no subscriptions", () => {
+  const doc = new FakeDocument();
+  const mastheads = [new FakeNode("header"), new FakeNode("header")];
+  for (const masthead of mastheads) {
+    masthead.className = "masthead";
+    const audioStrip = new FakeNode("div");
+    audioStrip.className = "audio-strip";
+    masthead.append(audioStrip);
+  }
+  const baseQuerySelectorAll = doc.querySelectorAll.bind(doc);
+  doc.querySelectorAll = (selector) => (
+    selector === ".masthead" ? mastheads : baseQuerySelectorAll(selector)
+  );
+  const { runtime } = (() => {
+    const runtimeListeners = new Map();
+    return {
+      runtime: {
+        navigator: {},
+        addEventListener(type, listener) {
+          if (!runtimeListeners.has(type)) runtimeListeners.set(type, []);
+          runtimeListeners.get(type).push(listener);
+        },
+        removeEventListener(type, listener) {
+          runtimeListeners.set(
+            type,
+            (runtimeListeners.get(type) ?? []).filter((candidate) => candidate !== listener),
+          );
+        },
+      },
+    };
+  })();
+  const manager = new WebMidiManager(runtime);
+  const controls = initializeMidiToolbars(doc, runtime, manager);
+  assert.equal(controls.length, 2);
+  assert.equal(controls[0].toggle.id, "sharedMidiToggle");
+  assert.equal(controls[1].toggle.id, "sharedMidiToggle-2");
+  assert.equal(
+    controls[1].details.children[0].getAttribute("aria-controls"),
+    "midiProfilePanel-2",
+  );
+  assert.equal(new Set(controls.map(({ select }) => select.id)).size, 2);
+  assert.equal(manager.statusSubscribers.size, 2);
+  assert.equal(initializeMidiToolbars(doc, runtime, manager).length, 0);
+  assert.equal(manager.statusSubscribers.size, 2);
+  const unregister = manager.registerClient({
+    id: "fm-drums",
+    computerKeyboard: { layout: "pad-grid", baseNote: 36, velocity: 72 },
+  });
+  for (const control of controls) {
+    assert.equal(control.details.children[0].children[1].textContent, "Pads");
+    const keyboardHint = control.details.findAll(
+      (node) => node.className === "midi-keyboard-hint",
+    )[0];
+    assert.match(keyboardHint.textContent, /Computer pads/);
+    assert.match(keyboardHint.textContent, /1 2 3 4 \/ Q W E R \/ A S D F \/ Z X C V/);
+    assert.match(keyboardHint.textContent, /Octave \+0 · velocity 72/);
+  }
+  manager.setComputerKeyboardVelocity(108);
+  for (const control of controls) {
+    const keyboardHint = control.details.findAll(
+      (node) => node.className === "midi-keyboard-hint",
+    )[0];
+    assert.match(
+      keyboardHint.textContent,
+      /velocity 80/,
+      "the hint reports the effective custom velocity, including shared adjustments",
+    );
+  }
+  unregister();
+  controls.forEach(({ destroy }) => destroy());
+  assert.equal(manager.statusSubscribers.size, 0);
+});
+
+test("MIDI toolbar keeps computer keys active when hardware permission fails and can retry cleanly", async () => {
+  const doc = new FakeDocument();
+  const masthead = new FakeNode("header");
+  masthead.className = "masthead";
+  const audioStrip = new FakeNode("div");
+  audioStrip.className = "audio-strip";
+  masthead.append(audioStrip);
+  const baseQuerySelectorAll = doc.querySelectorAll.bind(doc);
+  doc.querySelectorAll = (selector) => (
+    selector === ".masthead" ? [masthead] : baseQuerySelectorAll(selector)
+  );
+  const input = {
+    id: "keys",
+    name: "Keyboard",
+    state: "connected",
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const access = {
+    inputs: new Map([[input.id, input]]),
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  let attempts = 0;
+  const runtimeListeners = new Map();
+  const runtime = {
+    document: doc,
+    navigator: {
+      requestMIDIAccess() {
+        attempts += 1;
+        return attempts === 1 ? Promise.reject(new Error("Permission denied")) : access;
+      },
+    },
+    addEventListener(type, listener) {
+      if (!runtimeListeners.has(type)) runtimeListeners.set(type, []);
+      runtimeListeners.get(type).push(listener);
+    },
+    removeEventListener(type, listener) {
+      runtimeListeners.set(
+        type,
+        (runtimeListeners.get(type) ?? []).filter((candidate) => candidate !== listener),
+      );
+    },
+  };
+  const manager = new WebMidiManager(runtime);
+  const [control] = initializeMidiToolbars(doc, runtime, manager);
+  manager.registerClient({ id: "instrument" });
+  const error = control.details.querySelector("#sharedMidiError");
+
+  await control.toggle.listeners.get("click")[0]();
+  assert.equal(attempts, 1);
+  assert.equal(manager.enabled, true);
+  assert.equal(manager.status().computerKeyboard.active, true);
+  assert.equal(manager.status().hardwareError, "Permission denied");
+  assert.equal(control.toggle.children[2].textContent, "keys");
+  assert.equal(control.toolbar.classList.contains("is-error"), false);
+  assert.equal(error.hidden, true);
+  assert.equal(error.textContent, "");
+  const statusLine = control.details.findAll(
+    (node) => node.className === "midi-profile-status",
+  )[0];
+  assert.match(statusLine.textContent, /computer keys ready/);
+  assert.match(statusLine.textContent, /hardware MIDI: Permission denied/);
+  const keyboardHint = control.details.findAll(
+    (node) => node.className === "midi-keyboard-hint",
+  )[0];
+  assert.match(keyboardHint.textContent, /Z S X D C V G B H N J M/);
+  assert.match(keyboardHint.textContent, /\[ \] octave · - \/ = velocity/);
+
+  await control.toggle.listeners.get("click")[0]();
+  assert.equal(manager.enabled, false, "the second click explicitly disables the fallback");
+  await control.toggle.listeners.get("click")[0]();
+  assert.equal(attempts, 2);
+  assert.equal(manager.enabled, true);
+  assert.equal(manager.status().inputCount, 1);
+  assert.equal(manager.status().hardwareError, null);
+  assert.equal(control.toggle.children[2].textContent, "keys+1");
+  assert.equal(control.toolbar.classList.contains("is-error"), false);
+  assert.equal(error.hidden, true);
+  assert.equal(error.textContent, "");
+
+  control.select.value = "invalid-profile";
+  control.select.dispatch("change");
+  assert.equal(control.select.value, manager.selectedProfileId);
+  assert.equal(error.hidden, false);
+  assert.match(error.textContent, /Unknown MIDI profile/);
+  manager.disable();
+  control.destroy();
+});
+
+test("pagehide disables MIDI, retains BFCache painting, and destroys on final exit", async () => {
+  const doc = new FakeDocument();
+  const masthead = new FakeNode("header");
+  masthead.className = "masthead";
+  const audioStrip = new FakeNode("div");
+  audioStrip.className = "audio-strip";
+  masthead.append(audioStrip);
+  const baseQuerySelectorAll = doc.querySelectorAll.bind(doc);
+  doc.querySelectorAll = (selector) => (
+    selector === ".masthead" ? [masthead] : baseQuerySelectorAll(selector)
+  );
+  const input = {
+    id: "keys",
+    name: "Keyboard",
+    state: "connected",
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const access = {
+    inputs: new Map([[input.id, input]]),
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const runtimeListeners = new Map();
+  const runtime = {
+    navigator: { requestMIDIAccess: async () => access },
+    addEventListener(type, listener) {
+      if (!runtimeListeners.has(type)) runtimeListeners.set(type, []);
+      runtimeListeners.get(type).push(listener);
+    },
+    removeEventListener(type, listener) {
+      runtimeListeners.set(
+        type,
+        (runtimeListeners.get(type) ?? []).filter((candidate) => candidate !== listener),
+      );
+    },
+  };
+  const dispatchRuntime = (type, event) => {
+    for (const listener of [...(runtimeListeners.get(type) ?? [])]) listener(event);
+  };
+  const manager = new WebMidiManager(runtime);
+  manager.registerClient({ id: "instrument" });
+  const [control] = initializeMidiToolbars(doc, runtime, manager);
+  await manager.enable();
+  assert.equal(manager.enabled, true);
+  assert.equal(manager.statusSubscribers.size, 1);
+
+  dispatchRuntime("pagehide", { persisted: true });
+  assert.equal(manager.enabled, false);
+  assert.equal(manager.statusSubscribers.size, 1, "BFCache pages retain live status painting");
+  assert.equal(control.toggle.getAttribute("aria-pressed"), "false");
+
+  await manager.enable();
+  dispatchRuntime("pagehide", { persisted: false });
+  assert.equal(manager.enabled, false);
+  assert.equal(manager.statusSubscribers.size, 0);
+  assert.equal(runtimeListeners.get("pagehide").length, 0);
+  control.destroy();
+});
+
+test("mapped tablet and phone headers reserve space only while MIDI is visible", async () => {
+  const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
+  assert.match(
+    css,
+    /@media \(min-width: 651px\) and \(max-width: 900px\)[\s\S]+\.masthead\.has-midi-toolbar \.tabs\.tools-nav \+ \.mobile-instrument-nav/,
+  );
+  assert.match(
+    css,
+    /\.masthead\.has-midi-toolbar \.header-level \{\s+display: none;/,
+  );
+  assert.doesNotMatch(css, /\.midi-toolbar\[hidden\][\s\S]{0,80}display:\s*flex/);
+  assert.match(
+    css,
+    /@media \(max-width: 650px\)[\s\S]*?\.midi-profile-trigger small \{\s+font-size: 8px;/,
+  );
 });
 
 test("Reset all preserves Shape sides for one reload", () => {
