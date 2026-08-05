@@ -1,5 +1,24 @@
 # Third-party notices
 
+## Fluid Music Open Drums / Hyperreal TR-808 and TR-909 samples
+
+Sample Drums references version-pinned WAV files from the Fluid Music
+open-drums npm packages at runtime:
+
+- https://www.npmjs.com/package/%40fluid-music/tr-808
+- https://www.npmjs.com/package/%40fluid-music/tr-909
+- https://github.com/fluid-music/open-drums
+
+The TR-808 package is ISC-licensed and its README says the original Hyperreal
+samples were recorded by Michael Fischer with no licensing restrictions noted.
+
+The TR-909 package README says the samples were recorded by Jason Baker / Rob
+Roy Recordings and reproduces the original Hyperreal text allowing free copying
+and distribution while prohibiting distribution of the samples for profit.
+Because of that condition, Morphazoid does not vendor the TR-909 WAV files in
+this repository; it references the pinned package URLs from the browser and
+decodes them into memory during use.
+
 ## Pink Trombone
 
 Throatazoid's classic 44-section vocal-tract geometry, tongue-rest curve,

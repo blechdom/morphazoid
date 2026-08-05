@@ -9,6 +9,7 @@ import {
   CHAOTIC_PM_PARAMETER_IDS,
   CHAOTIC_PM_PERFORMANCE_DEFAULTS,
   CHAOTIC_PM_PRESETS,
+  CHAOTIC_PM_TRANSFER_MODES,
   DEFAULT_CHAOTIC_PM_PRESET_ID,
   ChaoticPmAudio,
   ChaoticPmWebMidi,
@@ -19,7 +20,9 @@ import {
   decodeChaoticPmMidiMessage,
   sanitizeChaoticPmParams,
   sanitizeChaoticPmPerformance,
+  smoothChaoticPmTurnSample,
 } from "../src/chaotic-pm.js";
+import { fft } from "../src/recursion-spectral-dsp.js";
 
 const LEGACY_PRESET_IDS = [
   "subzero-thread",
@@ -254,8 +257,17 @@ test("Chaotic PM preserves the eight WIP tuples apart from the playable bank", (
     LEGACY_PRESET_IDS,
   );
   assert.deepEqual(
-    CHAOTIC_PM_LEGACY_PRESETS.map(({ settings }) => settings),
+    CHAOTIC_PM_LEGACY_PRESETS.map(({ settings }) => {
+      const { transferMode: _transferMode, ...sourceTuple } = settings;
+      return sourceTuple;
+    }),
     LEGACY_SETTINGS,
+  );
+  assert.ok(
+    CHAOTIC_PM_LEGACY_PRESETS.every(
+      ({ settings }) => settings.transferMode === "legacy",
+    ),
+    "exported legacy presets must select their preserved Raw transfer",
   );
   assert.ok(Object.isFrozen(CHAOTIC_PM_LEGACY_PRESETS));
   assert.ok(CHAOTIC_PM_LEGACY_PRESETS.every(Object.isFrozen));
@@ -334,6 +346,78 @@ test("Chaotic PM accepts the original parameter names without altering presets",
   assert.equal(bounded.nonlinearity, CHAOTIC_PM_LIMITS.maxNonlinearity);
 });
 
+test("Chaotic PM defaults to Smooth and sanitizes explicit Legacy Raw mode", () => {
+  assert.deepEqual(CHAOTIC_PM_TRANSFER_MODES, {
+    smooth: "smooth",
+    legacy: "legacy",
+  });
+  assert.equal(sanitizeChaoticPmParams({}).transferMode, "smooth");
+  assert.equal(
+    sanitizeChaoticPmParams({ transferMode: "LEGACY" }).transferMode,
+    "legacy",
+  );
+  assert.equal(sanitizeChaoticPmParams({ mode: "raw" }).transferMode, "legacy");
+  assert.equal(
+    sanitizeChaoticPmParams({ transferMode: "unknown" }).transferMode,
+    "smooth",
+  );
+  assert.equal(CHAOTIC_PM_PARAMETER_IDS.transferMode, "synthesis.transferMode");
+});
+
+test("Smooth Chaotic PM is periodic and becomes Recursive PM at zero chaos", () => {
+  const epsilon = 1e-7;
+  const smoothLeft = smoothChaoticPmTurnSample(
+    0,
+    1 - epsilon,
+    40,
+    6.66,
+    0.016,
+  );
+  const smoothRight = smoothChaoticPmTurnSample(
+    0,
+    epsilon,
+    40,
+    6.66,
+    0.016,
+  );
+  assert.ok(
+    Math.abs(smoothLeft - smoothRight) < 2e-6,
+    "the production transfer must join continuously at a phasor wrap",
+  );
+  assert.ok(
+    Math.abs(
+      chaoticPmTurnSample(0, 1 - epsilon, 40, 6.66, 0.016)
+      - chaoticPmTurnSample(0, epsilon, 40, 6.66, 0.016)
+    ) > 0.4,
+    "the Legacy Raw seam remains available for comparison",
+  );
+
+  for (const values of [
+    [-0.75, 0.1, 3.5, 0.6, 0],
+    [0.37, 0.123, 440, 1.75, 0],
+    [0, 0.333, 40, 13.5, 0],
+  ]) {
+    const [previous, phase, _frequency, index] = values;
+    approximatelyEqual(
+      smoothChaoticPmTurnSample(...values),
+      Math.sin(Math.PI * 2 * phase + index * previous),
+    );
+  }
+
+  approximatelyEqual(
+    smoothChaoticPmTurnSample(0.42, 0.37, 40, 2.5, 0.7),
+    smoothChaoticPmTurnSample(0.42, 0.37, 400, 2.5, 0.7),
+  );
+  for (const values of [
+    [Infinity, -Infinity, Infinity, Infinity, Infinity],
+    [-10, 1e30, -1, -5, -4],
+  ]) {
+    const sample = smoothChaoticPmTurnSample(...values);
+    assert.ok(Number.isFinite(sample));
+    assert.ok(Math.abs(sample) <= 1);
+  }
+});
+
 test("one Chaotic PM turn matches the signed-remainder legacy transfer", () => {
   for (const values of [
     [0.25, 0.125, 40, 6.66, 0.512],
@@ -365,7 +449,10 @@ test("one Chaotic PM turn matches the signed-remainder legacy transfer", () => {
 });
 
 test("operator ledger divides frequency and index independently", () => {
-  const stack = deriveChaoticPmStack(LEGACY_SETTINGS[0]);
+  const stack = deriveChaoticPmStack({
+    ...LEGACY_SETTINGS[0],
+    transferMode: "legacy",
+  });
 
   assert.equal(stack.requestedDepth, 2);
   assert.equal(stack.actualDepth, 2);
@@ -380,10 +467,23 @@ test("operator ledger divides frequency and index independently", () => {
   assert.equal(stack.operators[1].frequencyHz, 0.035);
   assert.equal(stack.operators[1].phaseIndex, 0.625);
   assert.equal(stack.operators[1].nonlinearity, 0.34);
+  assert.equal(stack.operators[1].phaseIndexUnit, "cycles");
   approximatelyEqual(stack.operators[1].drive, 0.34 * 0.035 ** 2);
   approximatelyEqual(stack.operators[1].gain, 1.2 - Math.sqrt(0.34));
   approximatelyEqual(stack.operators[2].frequencyHz, 0.035 / 22);
   approximatelyEqual(stack.operators[2].phaseIndex, 0.625 / 6);
+});
+
+test("Smooth operator ledger uses a bounded pitch-independent chaos drive", () => {
+  const stack = deriveChaoticPmStack(CHAOTIC_PM_PRESETS[0].settings);
+  assert.equal(stack.settings.transferMode, "smooth");
+  assert.equal(stack.operators[1].phaseIndexUnit, "radians");
+  assert.equal(stack.operators[2].phaseIndexUnit, "radians");
+  approximatelyEqual(stack.operators[1].drive, 1 + 0.34 * 8);
+  approximatelyEqual(stack.operators[2].drive, 1 + 0.34 * 8);
+  assert.equal(stack.operators[1].gain, 1);
+  assert.equal(stack.operators[2].gain, 1);
+  assert.notEqual(stack.operators[1].frequencyHz, stack.operators[2].frequencyHz);
 });
 
 test("operator ledger omits a turn whose base frequency reaches the ceiling", () => {
@@ -437,8 +537,8 @@ test("every playable preset reaches an untruncated audio-rate final operator", (
       `${preset.id} final operator must remain below the render ceiling`,
     );
     assert.ok(
-      finalOperator.drive >= 0.25,
-      `${preset.id} terminal phase-warp drive ${finalOperator.drive} collapses toward silence`,
+      finalOperator.drive >= 1 && finalOperator.drive <= 9,
+      `${preset.id} dimensionless chaos drive ${finalOperator.drive} left its bounded range`,
     );
   }
 });
@@ -594,6 +694,15 @@ test("audio stays lazy, starts one worklet, and closes every node", async () => 
   assert.equal(CHAOTIC_PM_DC_BLOCKER_HZ, 18);
   assert.equal(audio.highpass.frequency.value, CHAOTIC_PM_DC_BLOCKER_HZ);
   assert.equal(audio.waveform.length, 512, "scope window matches Chaotic FM");
+  assert.equal(
+    worklet.messages.find(({ type }) => type === "settings")?.settings.transferMode,
+    "smooth",
+  );
+  audio.updateSettings({
+    ...LEGACY_SETTINGS[0],
+    transferMode: "legacy",
+  });
+  assert.equal(worklet.messages.at(-1).settings.transferMode, "legacy");
 
   audio.setPerformanceParameters({
     playMode: "midi",
@@ -710,6 +819,28 @@ function configureWorkletProcessor(Processor, settings, sampleRate) {
   return processor;
 }
 
+function powerFractionAbove(samples, sampleRate, cutoffHz) {
+  const mean = samples.reduce((sum, sample) => sum + sample, 0)
+    / samples.length;
+  const windowed = Float64Array.from(samples, (sample, index) => (
+    (sample - mean)
+    * (0.5 - 0.5 * Math.cos(
+      Math.PI * 2 * index / (samples.length - 1),
+    ))
+  ));
+  const spectrum = fft(windowed);
+  const nyquistBin = samples.length / 2;
+  const highStart = Math.ceil(cutoffHz * samples.length / sampleRate);
+  let totalPower = 0;
+  let highPower = 0;
+  for (let bin = 1; bin <= nyquistBin; bin += 1) {
+    const power = spectrum.real[bin] ** 2 + spectrum.imag[bin] ** 2;
+    totalPower += power;
+    if (bin >= highStart) highPower += power;
+  }
+  return totalPower > 0 ? highPower / totalPower : 0;
+}
+
 function renderAudibilityMetrics(Processor, settings, {
   sampleRate = 48_000,
   warmupSeconds = 0.25,
@@ -744,6 +875,10 @@ function renderAudibilityMetrics(Processor, settings, {
   let squareSum = 0;
   let postDcSquareSum = 0;
   let peak = 0;
+  let previousMeasuredSample = null;
+  let maxAdjacentDelta = 0;
+  let largeJumpCount = 0;
+  const spectralSamples = new Float64Array(4_096);
 
   while (renderedFrames < totalFrames) {
     const output = new Float32Array(128);
@@ -767,6 +902,15 @@ function renderAudibilityMetrics(Processor, settings, {
         squareSum += sample * sample;
         postDcSquareSum += postDc * postDc;
         peak = Math.max(peak, Math.abs(sample));
+        if (previousMeasuredSample !== null) {
+          const delta = Math.abs(sample - previousMeasuredSample);
+          maxAdjacentDelta = Math.max(maxAdjacentDelta, delta);
+          if (delta > 0.5) largeJumpCount += 1;
+        }
+        previousMeasuredSample = sample;
+        if (measuredFrames < spectralSamples.length) {
+          spectralSamples[measuredFrames] = sample;
+        }
         measuredFrames += 1;
       }
       renderedFrames += 1;
@@ -780,6 +924,13 @@ function renderAudibilityMetrics(Processor, settings, {
     peak,
     acRms: Math.sqrt(Math.max(0, squareSum / measuredFrames - mean * mean)),
     postDcRms: Math.sqrt(postDcSquareSum / measuredFrames),
+    maxAdjacentDelta,
+    largeJumpCount,
+    highFrequencyPowerFraction: powerFractionAbove(
+      spectralSamples,
+      sampleRate,
+      5_000,
+    ),
   };
 }
 
@@ -828,6 +979,164 @@ test("worklet renders both banks finitely and playable presets audibly", async (
     }
 
     globalThis.sampleRate = 48_000;
+    const smoothReferenceSettings = {
+      transferMode: "smooth",
+      depth: 1,
+      carrierHz: 173,
+      startModFrequencyHz: 229,
+      frequencyDivisor: 1,
+      startPhaseIndex: 2.4,
+      indexDivisor: 1,
+      nonlinearity: 0,
+    };
+    const smoothReference = configureWorkletProcessor(
+      Processor,
+      smoothReferenceSettings,
+      48_000,
+    );
+    let referenceCarrierPhase = 0;
+    let referenceOperatorPhase = 0;
+    for (let block = 0; block < 4; block += 1) {
+      const rendered = new Float32Array(128);
+      smoothReference.process([], [[rendered]]);
+      for (const sample of rendered) {
+        referenceCarrierPhase = (
+          referenceCarrierPhase + smoothReferenceSettings.carrierHz / 48_000
+        ) % 1;
+        referenceOperatorPhase = (
+          referenceOperatorPhase
+          + smoothReferenceSettings.startModFrequencyHz / 48_000
+        ) % 1;
+        const carrierSignal = Math.sin(Math.PI * 2 * referenceCarrierPhase);
+        const expected = Math.sin(
+          Math.PI * 2 * referenceOperatorPhase
+          + smoothReferenceSettings.startPhaseIndex * carrierSignal,
+        );
+        approximatelyEqual(sample, expected, 1e-6);
+      }
+    }
+
+    const rawReferenceSettings = {
+      ...LEGACY_SETTINGS[1],
+      transferMode: "legacy",
+      depth: 1,
+    };
+    const rawReference = configureWorkletProcessor(
+      Processor,
+      rawReferenceSettings,
+      48_000,
+    );
+    referenceCarrierPhase = 0;
+    referenceOperatorPhase = 0;
+    const rawRendered = new Float32Array(128);
+    rawReference.process([], [[rawRendered]]);
+    for (const sample of rawRendered) {
+      referenceCarrierPhase = (
+        referenceCarrierPhase + rawReferenceSettings.carrierHz / 48_000
+      ) % 1;
+      referenceOperatorPhase = (
+        referenceOperatorPhase
+        + rawReferenceSettings.startModFrequencyHz / 48_000
+      ) % 1;
+      const carrierSignal = Math.sin(Math.PI * 2 * referenceCarrierPhase);
+      approximatelyEqual(
+        sample,
+        chaoticPmTurnSample(
+          carrierSignal,
+          referenceOperatorPhase,
+          rawReferenceSettings.startModFrequencyHz,
+          rawReferenceSettings.startPhaseIndex,
+          rawReferenceSettings.nonlinearity,
+        ),
+        1e-6,
+      );
+    }
+
+    rawReference.port.onmessage({
+      data: {
+        type: "settings",
+        settings: { transferMode: "smooth" },
+      },
+    });
+    rawReference.process([], [[new Float32Array(128)]]);
+    approximatelyEqual(
+      rawReference.currentLegacyMix,
+      1 - 128 / (48_000 * 0.009),
+      1e-12,
+    );
+    const descendingMix = rawReference.currentLegacyMix;
+    rawReference.port.onmessage({
+      data: {
+        type: "settings",
+        settings: { transferMode: "legacy" },
+      },
+    });
+    rawReference.process([], [[new Float32Array(64)]]);
+    assert.ok(rawReference.currentLegacyMix > descendingMix);
+    assert.ok(rawReference.currentLegacyMix < 1);
+    const ascendingMix = rawReference.currentLegacyMix;
+    rawReference.port.onmessage({
+      data: {
+        type: "settings",
+        settings: { transferMode: "smooth" },
+      },
+    });
+    rawReference.process([], [[new Float32Array(64)]]);
+    assert.ok(rawReference.currentLegacyMix < ascendingMix);
+    for (let block = 0; block < 4; block += 1) {
+      rawReference.process([], [[new Float32Array(128)]]);
+    }
+    assert.equal(rawReference.currentLegacyMix, 0);
+    rawReference.port.onmessage({
+      data: {
+        type: "settings",
+        settings: { transferMode: "legacy" },
+      },
+    });
+    for (let block = 0; block < 4; block += 1) {
+      rawReference.process([], [[new Float32Array(128)]]);
+    }
+    assert.equal(rawReference.currentLegacyMix, 1);
+
+    const wrapFixture = {
+      depth: 1,
+      carrierHz: 100,
+      startModFrequencyHz: 40,
+      frequencyDivisor: 1,
+      startPhaseIndex: 0,
+      indexDivisor: 1,
+      nonlinearity: 0.016,
+    };
+    const maximumWorkletDelta = (processor, frameTotal) => {
+      let previous = null;
+      let maximum = 0;
+      let remaining = frameTotal;
+      while (remaining > 0) {
+        const output = new Float32Array(Math.min(128, remaining));
+        processor.process([], [[output]]);
+        for (const sample of output) {
+          if (previous !== null) {
+            maximum = Math.max(maximum, Math.abs(sample - previous));
+          }
+          previous = sample;
+        }
+        remaining -= output.length;
+      }
+      return maximum;
+    };
+    const rawWrap = configureWorkletProcessor(
+      Processor,
+      { ...wrapFixture, transferMode: "legacy" },
+      48_000,
+    );
+    const smoothWrap = configureWorkletProcessor(
+      Processor,
+      { ...wrapFixture, transferMode: "smooth" },
+      48_000,
+    );
+    assert.ok(maximumWorkletDelta(rawWrap, 1_400) > 0.4);
+    assert.ok(maximumWorkletDelta(smoothWrap, 1_400) < 0.01);
+
     const midiVoice = configureWorkletProcessor(
       Processor,
       CHAOTIC_PM_PRESETS[1].settings,
@@ -933,12 +1242,13 @@ test("worklet renders both banks finitely and playable presets audibly", async (
     });
     assert.equal(ownedVoice.selectedNote, -1);
 
-    const silentWarp = new Processor();
-    silentWarp.port.onmessage({
+    const smoothZeroChaos = new Processor();
+    smoothZeroChaos.port.onmessage({
       data: {
         type: "settings",
         settings: {
           ...LEGACY_SETTINGS[1],
+          transferMode: "smooth",
           depth: 1,
           nonlinearity: 0,
           maximumFrequencyHz: 20_000,
@@ -946,9 +1256,27 @@ test("worklet renders both banks finitely and playable presets audibly", async (
         immediate: true,
       },
     });
-    const silent = new Float32Array(128);
-    silentWarp.process([], [[silent]]);
-    assert.ok(silent.every((sample) => sample === 0));
+    const recursivePm = new Float32Array(128);
+    smoothZeroChaos.process([], [[recursivePm]]);
+    assert.ok(recursivePm.some((sample) => Math.abs(sample) > 0));
+
+    const legacyZeroWarp = new Processor();
+    legacyZeroWarp.port.onmessage({
+      data: {
+        type: "settings",
+        settings: {
+          ...LEGACY_SETTINGS[1],
+          transferMode: "legacy",
+          depth: 1,
+          nonlinearity: 0,
+          maximumFrequencyHz: 20_000,
+        },
+        immediate: true,
+      },
+    });
+    const legacySilence = new Float32Array(128);
+    legacyZeroWarp.process([], [[legacySilence]]);
+    assert.ok(legacySilence.every((sample) => sample === 0));
 
     const carrierOnly = new Processor();
     carrierOnly.port.onmessage({
@@ -984,6 +1312,19 @@ test("worklet renders both banks finitely and playable presets audibly", async (
           metrics.postDcRms >= 0.15,
           `${fixture} post-${CHAOTIC_PM_DC_BLOCKER_HZ} Hz DC-blocker RMS ${metrics.postDcRms} is effectively silent`,
         );
+        assert.equal(
+          metrics.largeJumpCount,
+          0,
+          `${fixture} produced ${metrics.largeJumpCount} discontinuity-sized jumps`,
+        );
+        assert.ok(
+          metrics.maxAdjacentDelta < 0.5,
+          `${fixture} adjacent-sample delta reached ${metrics.maxAdjacentDelta}`,
+        );
+        assert.ok(
+          metrics.highFrequencyPowerFraction < 0.05,
+          `${fixture} placed ${metrics.highFrequencyPowerFraction * 100}% of analyzed power above 5 kHz`,
+        );
       }
     }
   } finally {
@@ -1015,7 +1356,7 @@ test("worklet preallocates state and keeps its render loop allocation-free", asy
   assert.match(source, /Number\.isFinite/);
 });
 
-test("Chaotic PM uses shared header MIDI with mono performance, ADSR, and glide UI", async () => {
+test("Chaotic PM exposes Smooth and Legacy transfers with shared MIDI performance UI", async () => {
   const [markup, app, source, css] = await Promise.all([
     readFile(new URL("../chaotic-pm.html", import.meta.url), "utf8"),
     readFile(new URL("../chaotic-pm-app.js", import.meta.url), "utf8"),
@@ -1032,8 +1373,12 @@ test("Chaotic PM uses shared header MIDI with mono performance, ADSR, and glide 
   assert.match(markup, /id="ampSustainLevel"/);
   assert.match(markup, /id="ampReleaseMs"/);
   assert.match(markup, /id="glideMode"/);
+  assert.match(markup, /id="transferMode"/);
+  assert.match(markup, /<option value="smooth" selected>Smooth<\/option>/);
+  assert.match(markup, /<option value="legacy">Legacy \/ Raw<\/option>/);
+  assert.match(markup, /Smooth mode shapes the previous sine continuously/);
   assert.match(markup, /Controller macros · 1 Depth · 2 Mod frequency/);
-  assert.match(markup, /4 Phase warp · 5 Attack · 6 Release · 7 Glide · 8 Output/);
+  assert.match(markup, /4 Chaos \/ warp · 5 Attack · 6 Release · 7 Glide · 8 Output/);
   assert.match(markup, /CC11 expression · CC64 sustain/);
   assert.match(markup, /non-scrolling log-frequency spectrum/);
   assert.match(app, /getSharedMidiManager/);
@@ -1052,6 +1397,8 @@ test("Chaotic PM uses shared header MIDI with mono performance, ADSR, and glide 
   assert.match(app, /logical\?\.type !== "macro"/);
   assert.match(app, /controls\.depth\.input/);
   assert.match(app, /controls\.nonlinearity\.input/);
+  assert.match(app, /\$\("transferMode"\)\.addEventListener\("change"/);
+  assert.match(app, /TANH CONTROL · PM/);
   assert.match(app, /performanceControls\.ampAttackMs\.input/);
   assert.match(app, /performanceControls\.ampReleaseMs\.input/);
   assert.match(app, /performanceControls\.glideTimeMs\.input/);
@@ -1068,6 +1415,9 @@ test("Chaotic PM uses shared header MIDI with mono performance, ADSR, and glide 
   assert.match(app, /class="chaotic-pm-flow-compact"/);
   assert.match(app, />PHASE ENTRY</);
   assert.match(app, /%1 · TANH · SINE/);
+  assert.match(source, /new Float64Array\(CHAOTIC_PM_LIMITS\.maxDepth \+ 1\)/);
+  assert.match(source, /MAX_SMOOTH_CHAOS_DRIVE/);
+  assert.match(source, /this\.legacySignals/);
   assert.match(
     css,
     /grid-template-rows: clamp\(360px, 50dvh, 460px\) minmax\(0, 1fr\)/,

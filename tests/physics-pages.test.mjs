@@ -30,17 +30,37 @@ test("every geometric-physics demo is a first-class Morphazoid page", async () =
     assert.match(html, /id="audioState">off<\/small>/);
     assert.match(html, /data-reset-all data-reset-in-place/);
     assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/);
-    assert.equal((html.match(/class="physics-demo-link"/g) ?? []).length, pages.length);
-    const demoNavigation = html.match(/<nav class="physics-demo-nav"[\s\S]*?<\/nav>/)?.[0] ?? "";
-    assert.match(
-      demoNavigation,
-      new RegExp(`href="${id}\\.html" aria-current="page"`),
-      `${id} must identify itself in the physics collection`,
-    );
+    assert.doesNotMatch(html, /class="[^"]*\bphysics-demo-nav\b/);
+    assert.doesNotMatch(html, /class="[^"]*\bphysics-demo-link\b/);
+    assert.doesNotMatch(html, /\bid="sceneKicker"|class="[^"]*\bphysics-kicker\b/);
+    assert.doesNotMatch(html, /<select\b[^>]*\bid="scale"/);
+
+    const panel = html.match(/<aside\b[^>]*\bclass="[^"]*\bpanel\b[^"]*"[^>]*>[\s\S]*?<\/aside>/)?.[0] ?? "";
+    assert.ok(panel, `${id} must retain the standard Morphazoid control panel`);
+    const firstSectionTag = panel.match(/<details\b[^>]*>/)?.[0] ?? "";
+    assert.match(firstSectionTag, /\bdata-section="play"/, `${id} must put Play first in the panel`);
+    assert.doesNotMatch(firstSectionTag, /\sopen(?:\s|>)/, `${id} Play section must default collapsed`);
+
+    const playSection = panel.match(
+      /<details\b(?=[^>]*\bdata-section="play")[^>]*>[\s\S]*?<\/details>/,
+    )?.[0] ?? "";
+    assert.match(playSection, /<h2 class="group-title">Play<\/h2>/);
+    for (const controlId of ["playButton", "resetScene", "primaryAction"]) {
+      assert.match(
+        playSection,
+        new RegExp(`<button\\b(?=[^>]*\\bid="${controlId}")[^>]*>`),
+        `${id} must keep ${controlId} inside Play`,
+      );
+      assert.equal(
+        (html.match(new RegExp(`\\bid="${controlId}"`, "g")) ?? []).length,
+        1,
+        `${id} must expose exactly one ${controlId}`,
+      );
+    }
   }
 });
 
-test("physics shell exposes fixed-step simulation, direct manipulation, and shared audio", async () => {
+test("physics shell exposes fixed-step simulation, direct manipulation, and continuous free pitch", async () => {
   const [app, css] = await Promise.all([
     readFile(new URL("physics-app.js", root), "utf8"),
     readFile(new URL("physics.css", root), "utf8"),
@@ -50,7 +70,25 @@ test("physics shell exposes fixed-step simulation, direct manipulation, and shar
   assert.match(app, /pointerdown/);
   assert.match(app, /visibilitychange/);
   assert.match(app, /audioState[^;\n]*(?:"on"|"off")/);
-  assert.match(css, /\.physics-demo-nav/);
+  assert.match(app, /scene\.pointerUp\?\.\(payload\)\s*===\s*true/);
+  assert.match(app, /shouldStart\s*&&\s*!globalState\.playing\)\s*setPlaying\(true\)/);
+  assert.match(
+    app,
+    /frequency:\s*pitch01ToFrequency\(\s*clamp\(Number\(voice\.pitch01\)\)[\s\S]{0,120}globalState\.baseFrequency[\s\S]{0,80}globalState\.pitchRange[\s\S]{0,20}\)/,
+  );
+  assert.doesNotMatch(
+    app,
+    /SCALE_STEPS|quantizedFrequency|globalState\.scale|\$\(\s*["']scale["']\s*\)/,
+  );
   assert.match(css, /@media \(max-width: 650px\)/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
+test("Ricochet keeps its stage title concise without a visible subtitle", async () => {
+  const html = await readFile(new URL("ricochet.html", root), "utf8");
+  const titleCard = html.match(
+    /<header\b[^>]*\bclass="[^"]*\bphysics-title-card\b[^"]*"[^>]*>[\s\S]*?<\/header>/,
+  )?.[0] ?? "";
+
+  assert.match(titleCard, /<h1\b[^>]*\bid="sceneTitle"[^>]*>Ricochet<\/h1>/);
+  assert.doesNotMatch(titleCard, /<p\b|\bphysics-description\b|\bid="sceneDescription"/);
 });

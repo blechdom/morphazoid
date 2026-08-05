@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="Morphazoid Lattice Drum Machine — map isohedral lattice contacts to sixteen FM percussion voices."
+      content="Morphazoid Lattice Drum Machine - map isohedral lattice contacts to FM or sample-based percussion voices."
     />
     <title>Lattice Drum Machine — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -29,6 +29,7 @@
         <a class="tab" href="solid-drums.html">solid drums</a>
         <a class="tab" href="hyper-drums.html">hyper drums</a>
         <a class="tab" href="fm-drums.html">fm drums</a>
+        <a class="tab" href="sample-drums.html">sample drums</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
@@ -41,6 +42,7 @@
           <option value="solid-drums.html">solid drums</option>
           <option value="hyper-drums.html">hyper drums</option>
           <option value="fm-drums.html">fm drums</option>
+          <option value="sample-drums.html">sample drums</option>
         </select>
       </label>
 
@@ -62,10 +64,10 @@
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="A moving isohedral lattice crossing one fixed reader line and triggering FM drums."
+            aria-label="A moving isohedral lattice crossing one fixed reader line and triggering drums."
             aria-describedby="canvasInstructions liveStatus"
           >
-            A moving lattice mapped to sixteen FM drum voices.
+            A moving lattice mapped to sixteen drum voices.
           </canvas>
           <div class="stage-meta" aria-hidden="true">
             <span id="stageReadout">0 CONTACTS · PAUSED · AUDIO OFF</span>
@@ -187,6 +189,19 @@
             <span class="section-state" id="mappingSummary">edge × angle</span>
           </summary>
           <div class="group-body">
+            <label class="select-control" for="drumEngine">
+              <span class="field-label">Drum engine</span>
+              <span class="select-shell">
+                <select id="drumEngine">
+                  <option value="fm" selected>FM synth</option>
+                  <option value="samples">808/909 samples</option>
+                </select>
+              </span>
+            </label>
+            <div class="lattice-engine-row">
+              <p class="lattice-engine-status" id="engineStatus">FM synth · audio off</p>
+              <button class="mini-action" id="auditionEngine" type="button">Audition engine</button>
+            </div>
             <label class="select-control" for="mappingMode">
               <span class="field-label">Voice selection</span>
               <span class="select-shell">

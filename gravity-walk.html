@@ -39,18 +39,6 @@
       </div>
     </header>
 
-    <nav class="physics-demo-nav" id="physicsDemoNav" aria-label="Physics demos">
-      <a class="physics-demo-link" href="gravity-walk.html" aria-current="page"><b>Gravity Walk</b><small>Contour dynamics</small></a>
-      <a class="physics-demo-link" href="ricochet.html"><b>Ricochet</b><small>Polygonal billiards</small></a>
-      <a class="physics-demo-link" href="rigidity.html"><b>Rigidity</b><small>Bar-and-joint frames</small></a>
-      <a class="physics-demo-link" href="rolling-measure.html"><b>Rolling Measure</b><small>No-slip rotation</small></a>
-      <a class="physics-demo-link" href="falling-forms.html"><b>Falling Forms</b><small>Rigid-body contact</small></a>
-      <a class="physics-demo-link" href="charge-garden.html"><b>Charge Garden</b><small>Potential fields</small></a>
-      <a class="physics-demo-link" href="packing-pressure.html"><b>Packing Pressure</b><small>Granular jamming</small></a>
-      <a class="physics-demo-link" href="geodesic-drift.html"><b>Geodesic Drift</b><small>Curved-space motion</small></a>
-      <a class="physics-demo-link" href="kinetic-hull.html"><b>Kinetic Hull</b><small>Moving topology</small></a>
-    </nav>
-
     <main class="shell physics-demo" id="physics-demo">
       <section class="stage" aria-labelledby="sceneTitle">
         <div class="stage-wrap" id="stageWrap">
@@ -58,23 +46,30 @@
             A bead accelerates and settles while constrained to a closed contour.
           </canvas>
           <header class="physics-title-card">
-            <p class="physics-kicker" id="sceneKicker">Physics · 01 · Contour-constrained dynamics</p>
             <h1 id="sceneTitle">Gravity Walk</h1>
             <p class="physics-description" id="sceneDescription">A point falls around a closed contour. Shape becomes an energy landscape.</p>
           </header>
           <div class="stage-meta" aria-hidden="true"><span id="stageReadout">BEAD RESTING · POTENTIAL 50% · AUDIO OFF</span></div>
-          <div class="physics-transport" aria-label="Scene transport">
-            <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Run Gravity Walk">
-              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
-              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-            </button>
-            <button class="physics-stage-action" id="resetScene" type="button">Reset</button>
-            <button class="physics-stage-action" id="primaryAction" type="button">Kick</button>
-          </div>
         </div>
       </section>
 
       <aside class="panel" aria-label="Gravity Walk controls">
+        <details class="group control-section" data-section="play">
+          <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">bead · paused</span></summary>
+          <div class="group-body">
+            <div class="position-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Run Gravity Walk">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <div class="physics-play-actions" role="group" aria-label="Scene actions">
+                <button class="physics-stage-action" id="resetScene" type="button">Reset</button>
+                <button class="physics-stage-action" id="primaryAction" type="button">Kick</button>
+              </div>
+            </div>
+          </div>
+        </details>
+
         <details class="group control-section" id="physicsSection" data-section="physics">
           <summary class="group-summary"><h2 class="group-title">Physics</h2><span class="section-state" id="physicsSummary">gravity 0.72 · drag 0.08</span></summary>
           <div class="group-body" id="physicsControls"><p class="physics-control-note">Shape, gravity direction, force, drag, and restitution determine the bead's motion.</p></div>
@@ -85,7 +80,6 @@
           <div class="group-body">
             <label class="control" for="baseFrequency"><span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" /></label>
             <label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">3.0 oct</output></span><input id="pitchRange" type="range" min="0.5" max="5" step="0.1" value="3" /></label>
-            <label class="select-control" for="scale"><span class="field-label">Pitch scale</span><span class="select-shell"><select id="scale"><option value="free">Free</option><option value="chromatic">Chromatic</option><option value="major">Major</option><option value="pentatonic" selected>Pentatonic</option><option value="whole">Whole tone</option></select></span></label>
             <p class="physics-audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>

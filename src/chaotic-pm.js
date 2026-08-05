@@ -4,12 +4,18 @@ const PARAMETER_SMOOTHING_SECONDS = 0.018;
 const DEPTH_SMOOTHING_SECONDS = 0.009;
 const MAX_AUDIBLE_FREQUENCY = 20_000;
 const MAX_SHAPER_INPUT = 64;
+const MAX_SMOOTH_CHAOS_DRIVE = 9;
 const TWO_PI = Math.PI * 2;
 
 // The legacy transfer is asymmetric and can carry a substantial DC offset.
 // Once the final operators are in the audio band, 18 Hz removes that bias
 // without materially attenuating the playable bank.
 export const CHAOTIC_PM_DC_BLOCKER_HZ = 18;
+
+export const CHAOTIC_PM_TRANSFER_MODES = Object.freeze({
+  smooth: "smooth",
+  legacy: "legacy",
+});
 
 export const CHAOTIC_PM_LIMITS = Object.freeze({
   minDepth: 0,
@@ -62,6 +68,7 @@ const PLAY_MODES = new Set(["drone", "midi"]);
 const GLIDE_MODES = new Set(["off", "legato", "always"]);
 
 export const CHAOTIC_PM_PARAMETER_IDS = Object.freeze({
+  transferMode: "synthesis.transferMode",
   depth: "synthesis.depth",
   carrierHz: "synthesis.carrierHz",
   startModFrequencyHz: "synthesis.startModFrequencyHz",
@@ -98,6 +105,7 @@ export const CHAOTIC_PM_LEGACY_PRESETS = Object.freeze([
     label: "Subzero Thread",
     description: "Two almost-static phase turns leave a faint, slowly opening nonlinear thread.",
     settings: {
+      transferMode: "legacy",
       depth: 2,
       carrierHz: 0.06,
       startModFrequencyHz: 0.035,
@@ -112,6 +120,7 @@ export const CHAOTIC_PM_LEGACY_PRESETS = Object.freeze([
     label: "Forty Fold",
     description: "One 40 Hz phase shaper folds a slow carrier with a wide 6.66-cycle index.",
     settings: {
+      transferMode: "legacy",
       depth: 1,
       carrierHz: 0.666,
       startModFrequencyHz: 40,
@@ -126,6 +135,7 @@ export const CHAOTIC_PM_LEGACY_PRESETS = Object.freeze([
     label: "Still Glass",
     description: "Four matched millihertz phasors make a nearly frozen, glassy phase contour.",
     settings: {
+      transferMode: "legacy",
       depth: 4,
       carrierHz: 0.002,
       startModFrequencyHz: 0.002,
@@ -140,6 +150,7 @@ export const CHAOTIC_PM_LEGACY_PRESETS = Object.freeze([
     label: "Runaway Stair",
     description: "A divisor below one rockets the phase rate upward until the safety ceiling stops it.",
     settings: {
+      transferMode: "legacy",
       depth: 8,
       carrierHz: 0.006,
       startModFrequencyHz: 0.05,
@@ -154,6 +165,7 @@ export const CHAOTIC_PM_LEGACY_PRESETS = Object.freeze([
     label: "Braided Orbit",
     description: "Five equal-rate turns braid a 1.41 Hz seed through shrinking phase indices.",
     settings: {
+      transferMode: "legacy",
       depth: 5,
       carrierHz: 1.41,
       startModFrequencyHz: 1.14,
@@ -168,6 +180,7 @@ export const CHAOTIC_PM_LEGACY_PRESETS = Object.freeze([
     label: "Low Ember",
     description: "A strong phase warp smolders through four descending sub-audio turns.",
     settings: {
+      transferMode: "legacy",
       depth: 4,
       carrierHz: 3,
       startModFrequencyHz: 0.08,
@@ -182,6 +195,7 @@ export const CHAOTIC_PM_LEGACY_PRESETS = Object.freeze([
     label: "Kilohertz Veil",
     description: "A 1 kHz carrier hangs above four extremely slow, high-index phase turns.",
     settings: {
+      transferMode: "legacy",
       depth: 4,
       carrierHz: 1_000,
       startModFrequencyHz: 0.02,
@@ -196,6 +210,7 @@ export const CHAOTIC_PM_LEGACY_PRESETS = Object.freeze([
     label: "Chrome Cascade",
     description: "A 400 Hz entry and the original 64-cycle index collapse into a bright cascade.",
     settings: {
+      transferMode: "legacy",
       depth: 6,
       carrierHz: 0.144,
       startModFrequencyHz: 400,
@@ -208,10 +223,10 @@ export const CHAOTIC_PM_LEGACY_PRESETS = Object.freeze([
 ]);
 
 /**
- * Playable calibrations of the recovered WIP bank. The recursion and transfer
- * are unchanged: these values move every selected final turn to 40–390 Hz and
- * balance `nonlinearity * frequency²` so tanh does not collapse into a nearly
- * constant result. IDs stay stable for the existing UI and saved links.
+ * Playable calibrations of the recovered WIP bank. Frequencies keep every
+ * selected final turn at 40–390 Hz, while the source nonlinearities now drive
+ * a bounded continuous phase control instead of `nonlinearity * frequency²`.
+ * IDs stay stable for the existing UI and saved links.
  */
 export const CHAOTIC_PM_PRESETS = Object.freeze([
   freezePreset({
@@ -219,27 +234,29 @@ export const CHAOTIC_PM_PRESETS = Object.freeze([
     label: "Subzero Thread",
     description: "A 60 Hz seed passes through 330 and 110 Hz turns, leaving a taut nonlinear thread.",
     settings: {
+      transferMode: "smooth",
       depth: 2,
       carrierHz: 60,
       startModFrequencyHz: 330,
       frequencyDivisor: 3,
       startPhaseIndex: 0.625,
       indexDivisor: 6,
-      nonlinearity: 0.004,
+      nonlinearity: 0.34,
     },
   }),
   freezePreset({
     id: "forty-fold",
     label: "Forty Fold",
-    description: "A 40 Hz phase shaper folds a 66.6 Hz carrier through a wide 6.66-cycle index.",
+    description: "A 40 Hz phase shaper folds a 66.6 Hz carrier through a wide 6.66-radian index.",
     settings: {
+      transferMode: "smooth",
       depth: 1,
       carrierHz: 66.6,
       startModFrequencyHz: 40,
       frequencyDivisor: 10,
       startPhaseIndex: 6.66,
       indexDivisor: 6.5,
-      nonlinearity: 0.016,
+      nonlinearity: 0.512,
     },
   }),
   freezePreset({
@@ -247,13 +264,14 @@ export const CHAOTIC_PM_PRESETS = Object.freeze([
     label: "Still Glass",
     description: "Four matched 180 Hz turns polish a 120 Hz seed into a steady glassy contour.",
     settings: {
+      transferMode: "smooth",
       depth: 4,
       carrierHz: 120,
       startModFrequencyHz: 180,
       frequencyDivisor: 1,
       startPhaseIndex: 0.365,
       indexDivisor: 5.75,
-      nonlinearity: 0.001,
+      nonlinearity: 0.246,
     },
   }),
   freezePreset({
@@ -261,13 +279,14 @@ export const CHAOTIC_PM_PRESETS = Object.freeze([
     label: "Runaway Stair",
     description: "Eight expanding turns climb from 52 Hz to 389.6 Hz while the phase index holds steady.",
     settings: {
+      transferMode: "smooth",
       depth: 8,
       carrierHz: 52,
       startModFrequencyHz: 52,
       frequencyDivisor: 0.75,
       startPhaseIndex: 0.625,
       indexDivisor: 1,
-      nonlinearity: 0.001,
+      nonlinearity: 0.666,
     },
   }),
   freezePreset({
@@ -275,13 +294,14 @@ export const CHAOTIC_PM_PRESETS = Object.freeze([
     label: "Braided Orbit",
     description: "Five equal 114 Hz turns braid a 141 Hz seed through rapidly shrinking indices.",
     settings: {
+      transferMode: "smooth",
       depth: 5,
       carrierHz: 141,
       startModFrequencyHz: 114,
       frequencyDivisor: 1,
       startPhaseIndex: 0.864,
       indexDivisor: 6.75,
-      nonlinearity: 0.001,
+      nonlinearity: 0.41,
     },
   }),
   freezePreset({
@@ -289,13 +309,14 @@ export const CHAOTIC_PM_PRESETS = Object.freeze([
     label: "Low Ember",
     description: "Four descending turns fall from 320 Hz to a warm 40 Hz terminal ember.",
     settings: {
+      transferMode: "smooth",
       depth: 4,
       carrierHz: 96,
       startModFrequencyHz: 320,
       frequencyDivisor: 2,
       startPhaseIndex: 0.5,
       indexDivisor: 7,
-      nonlinearity: 0.004,
+      nonlinearity: 0.9,
     },
   }),
   freezePreset({
@@ -303,27 +324,29 @@ export const CHAOTIC_PM_PRESETS = Object.freeze([
     label: "Kilohertz Veil",
     description: "A 1 kHz seed hangs above four descending turns that resolve at 106.7 Hz.",
     settings: {
+      transferMode: "smooth",
       depth: 4,
       carrierHz: 1_000,
       startModFrequencyHz: 360,
       frequencyDivisor: 1.5,
       startPhaseIndex: 13.5,
       indexDivisor: 6.75,
-      nonlinearity: 0.003,
+      nonlinearity: 0.13,
     },
   }),
   freezePreset({
     id: "chrome-cascade",
     label: "Chrome Cascade",
-    description: "Six turns descend from 400 Hz to 131.1 Hz with a bright but bounded phase cascade.",
+    description: "Six turns descend from 400 Hz to 131.1 Hz through a restrained 3.25-radian cascade.",
     settings: {
+      transferMode: "smooth",
       depth: 6,
       carrierHz: 144,
       startModFrequencyHz: 400,
       frequencyDivisor: 1.25,
-      startPhaseIndex: 8,
+      startPhaseIndex: 3.25,
       indexDivisor: 1.5,
-      nonlinearity: 0.016,
+      nonlinearity: 0.279,
     },
   }),
 ]);
@@ -360,6 +383,13 @@ function settingValue(settings, modernName, legacyName, fallback) {
   return settings?.[modernName] ?? settings?.[legacyName] ?? fallback;
 }
 
+function sanitizeChaoticPmTransferMode(value) {
+  const mode = String(value ?? CHAOTIC_PM_TRANSFER_MODES.smooth).toLowerCase();
+  return mode === "legacy" || mode === "raw"
+    ? CHAOTIC_PM_TRANSFER_MODES.legacy
+    : CHAOTIC_PM_TRANSFER_MODES.smooth;
+}
+
 /**
  * Bound UI, preset, and legacy values before they enter the render thread.
  * The original `filter` parameter is a tanh phase-warp coefficient; there is
@@ -371,6 +401,14 @@ export function sanitizeChaoticPmParams(
 ) {
   const maximumFrequencyHz = sampleRateLimit(sampleRate);
   return Object.freeze({
+    transferMode: sanitizeChaoticPmTransferMode(
+      settingValue(
+        params,
+        "transferMode",
+        "mode",
+        CHAOTIC_PM_DEFAULTS.transferMode,
+      ),
+    ),
     depth: Math.round(clamp(
       settingValue(params, "depth", "steps", CHAOTIC_PM_DEFAULTS.depth),
       CHAOTIC_PM_LIMITS.minDepth,
@@ -751,6 +789,11 @@ export class ChaoticPmWebMidi {
 }
 
 function normalizedOutputGain(settings, actualDepth) {
+  if (settings.transferMode === CHAOTIC_PM_TRANSFER_MODES.smooth) {
+    // Smooth mode is centered and already bounded by the final sine. A small
+    // depth allowance leaves headroom while two depth taps crossfade.
+    return clamp(0.52 / Math.sqrt(1 + actualDepth * 0.025), 0.4, 0.52, 0.48);
+  }
   const gain = 1.2 - Math.sqrt(settings.nonlinearity);
   const depthPressure = Math.sqrt(1 + actualDepth * 0.14);
   const discontinuityPressure = 1 + settings.nonlinearity * 0.28;
@@ -763,15 +806,17 @@ function normalizedOutputGain(settings, actualDepth) {
 }
 
 /**
- * Unroll the original nested graph without changing its unusual transfer:
+ * Unroll either the continuous production graph or the recovered raw graph.
  *
  *   carrier = sin(TAU * carrierPhasor)
- *   phase[n] = (operatorPhasor[n] + previous * phaseIndex[n]) % 1
- *   drive[n] = nonlinearity * operatorFrequency[n]^2
- *   next = sin(TAU * (1.2 - sqrt(nonlinearity))
- *                    * tanh(phase[n] * drive[n]))
+ *   smooth = sin(TAU * operatorPhasor[n]
+ *                + phaseIndexRadians[n] * nonlinear(previous))
+ *   legacy = sin(TAU * (1.2 - sqrt(nonlinearity))
+ *                * tanh(((phasor + previous * indexCycles) % 1)
+ *                  * nonlinearity * operatorFrequency[n]^2))
  *
- * Frequency and phase index are divided independently after every turn.
+ * Smooth mode is periodic at the phasor boundary. Legacy mode deliberately
+ * preserves the source experiment's discontinuous signed remainder.
  */
 export function deriveChaoticPmStack(
   params = {},
@@ -794,7 +839,10 @@ export function deriveChaoticPmStack(
   let rawPhaseIndex = settings.startPhaseIndex;
   let boundedByFrequency = false;
   let boundedByIndex = false;
-  const gain = 1.2 - Math.sqrt(settings.nonlinearity);
+  const legacy = settings.transferMode === CHAOTIC_PM_TRANSFER_MODES.legacy;
+  const gain = legacy ? 1.2 - Math.sqrt(settings.nonlinearity) : 1;
+  const smoothDrive = 1
+    + settings.nonlinearity * (MAX_SMOOTH_CHAOS_DRIVE - 1);
 
   for (let turn = 1; turn <= settings.depth; turn += 1) {
     if (!Number.isFinite(frequencyHz)
@@ -818,7 +866,11 @@ export function deriveChaoticPmStack(
       phaseIndex,
       rawPhaseIndex,
       nonlinearity: settings.nonlinearity,
-      drive: settings.nonlinearity * frequencyHz * frequencyHz,
+      drive: legacy
+        ? settings.nonlinearity * frequencyHz * frequencyHz
+        : smoothDrive,
+      legacyDrive: settings.nonlinearity * frequencyHz * frequencyHz,
+      phaseIndexUnit: legacy ? "cycles" : "radians",
       gain,
     });
     frequencyHz /= settings.frequencyDivisor;
@@ -854,7 +906,40 @@ export function summarizeChaoticPmStack(stack) {
 }
 
 /**
- * Evaluate one exact legacy turn. JavaScript remainder semantics are
+ * Evaluate one continuous Chaotic PM turn. The previous operator is shaped as
+ * a bounded control signal, then applied inside a conventional periodic PM
+ * oscillator. At zero nonlinearity this is ordinary recursive PM.
+ */
+export function smoothChaoticPmTurnSample(
+  previousSignal,
+  basePhase,
+  _modFrequencyHz,
+  phaseIndexRadians,
+  nonlinearity,
+) {
+  const previous = clamp(previousSignal, -1, 1, 0);
+  const phase = finiteNumber(basePhase, 0);
+  const indexRadians = clamp(
+    phaseIndexRadians,
+    0,
+    CHAOTIC_PM_LIMITS.maxInternalPhaseIndex,
+    0,
+  );
+  const chaos = clamp(
+    nonlinearity,
+    CHAOTIC_PM_LIMITS.minNonlinearity,
+    CHAOTIC_PM_LIMITS.maxNonlinearity,
+    0,
+  );
+  const drive = 1 + chaos * (MAX_SMOOTH_CHAOS_DRIVE - 1);
+  const shaped = Math.tanh(previous * drive) / Math.tanh(drive);
+  const modulator = previous + (shaped - previous) * chaos;
+  const sample = Math.sin(TWO_PI * phase + indexRadians * modulator);
+  return Number.isFinite(sample) ? sample : 0;
+}
+
+/**
+ * Evaluate one exact Legacy/Raw turn. JavaScript remainder semantics are
  * intentional: negative phase modulation stays negative instead of wrapping
  * into [0, 1), which changes the asymmetric tanh result.
  */
@@ -1127,6 +1212,7 @@ export class ChaoticPmAudio {
   updateSettings(settings, { immediate = false } = {}) {
     const stack = deriveChaoticPmStack(settings, { sampleRate: this.sampleRate });
     this.pendingSettings = {
+      transferMode: stack.settings.transferMode,
       depth: stack.settings.depth,
       carrierHz: stack.settings.carrierHz,
       startModFrequencyHz: stack.settings.startModFrequencyHz,
@@ -1141,6 +1227,7 @@ export class ChaoticPmAudio {
     this.worklet.port.postMessage({
       type: "settings",
       settings: {
+        transferMode: stack.settings.transferMode,
         carrierHz: stack.settings.carrierHz,
         startModFrequencyHz: stack.settings.startModFrequencyHz,
         frequencyDivisor: stack.settings.frequencyDivisor,
@@ -1346,6 +1433,7 @@ class ChaoticPmProcessor extends ProcessorBase {
     this.carrierPhase = 0;
     this.operatorPhases = new Float64Array(CHAOTIC_PM_LIMITS.maxDepth);
     this.signals = new Float64Array(CHAOTIC_PM_LIMITS.maxDepth + 1);
+    this.legacySignals = new Float64Array(CHAOTIC_PM_LIMITS.maxDepth + 1);
     this.depthGains = new Float64Array(CHAOTIC_PM_LIMITS.maxDepth + 1);
     this.current = {
       carrierHz: defaults.carrierHz,
@@ -1358,6 +1446,9 @@ class ChaoticPmProcessor extends ProcessorBase {
       maximumFrequencyHz: sampleRateLimit(this.processorSampleRate),
     };
     this.target = { ...this.current };
+    this.currentLegacyMix = defaults.transferMode
+      === CHAOTIC_PM_TRANSFER_MODES.legacy ? 1 : 0;
+    this.targetLegacyMix = this.currentLegacyMix;
     this.depthGains[defaults.depth] = 1;
 
     const performance = sanitizeChaoticPmPerformance();
@@ -1452,6 +1543,12 @@ class ChaoticPmProcessor extends ProcessorBase {
       }
       if (data?.type !== "settings") return;
       const settings = data.settings;
+      const requestedTransferMode = settings?.transferMode ?? settings?.mode;
+      if (requestedTransferMode !== undefined) {
+        this.targetLegacyMix = sanitizeChaoticPmTransferMode(
+          requestedTransferMode,
+        ) === CHAOTIC_PM_TRANSFER_MODES.legacy ? 1 : 0;
+      }
       this.target.carrierHz = clamp(
         settings?.carrierHz,
         CHAOTIC_PM_LIMITS.minCarrierHz,
@@ -1501,6 +1598,7 @@ class ChaoticPmProcessor extends ProcessorBase {
         this.target.maximumFrequencyHz,
       );
       if (data.immediate) {
+        this.currentLegacyMix = this.targetLegacyMix;
         this.current.carrierHz = this.target.carrierHz;
         this.current.startModFrequencyHz = this.target.startModFrequencyHz;
         this.current.frequencyDivisor = this.target.frequencyDivisor;
@@ -1834,8 +1932,23 @@ class ChaoticPmProcessor extends ProcessorBase {
     const performanceCoefficient = 1 - Math.exp(
       -1 / (this.processorSampleRate * 0.006),
     );
+    const modeStep = 1 / Math.max(
+      1,
+      this.processorSampleRate * DEPTH_SMOOTHING_SECONDS,
+    );
 
     for (let frame = 0; frame < frameCount; frame += 1) {
+      if (this.currentLegacyMix < this.targetLegacyMix) {
+        this.currentLegacyMix = Math.min(
+          this.targetLegacyMix,
+          this.currentLegacyMix + modeStep,
+        );
+      } else if (this.currentLegacyMix > this.targetLegacyMix) {
+        this.currentLegacyMix = Math.max(
+          this.targetLegacyMix,
+          this.currentLegacyMix - modeStep,
+        );
+      }
       this.current.carrierHz += (
         this.target.carrierHz - this.current.carrierHz
       ) * parameterCoefficient;
@@ -1872,12 +1985,15 @@ class ChaoticPmProcessor extends ProcessorBase {
       if (!Number.isFinite(this.carrierPhase)) this.carrierPhase = 0;
       this.carrierPhase -= Math.floor(this.carrierPhase);
       this.signals[0] = Math.sin(TWO_PI * this.carrierPhase);
+      this.legacySignals[0] = this.signals[0];
 
       let frequencyHz = this.current.startModFrequencyHz;
       let phaseIndex = this.current.startPhaseIndex;
       let availableDepth = 0;
       const warp = clamp(this.current.nonlinearity, 0, 1, 0);
-      const shaperGain = 1.2 - Math.sqrt(warp);
+      const smoothDrive = 1 + warp * (MAX_SMOOTH_CHAOS_DRIVE - 1);
+      const smoothNormalization = Math.tanh(smoothDrive);
+      const legacyMix = this.currentLegacyMix;
 
       for (let turn = 0; turn < CHAOTIC_PM_LIMITS.maxDepth; turn += 1) {
         if (!Number.isFinite(frequencyHz)
@@ -1898,20 +2014,39 @@ class ChaoticPmProcessor extends ProcessorBase {
           CHAOTIC_PM_LIMITS.maxInternalPhaseIndex,
           CHAOTIC_PM_LIMITS.maxInternalPhaseIndex,
         );
-        const wrappedPhase = (
-          this.operatorPhases[turn] + this.signals[turn] * safeIndex
-        ) % 1;
-        const drive = warp * frequencyHz * frequencyHz;
-        const shaperInput = clamp(
-          wrappedPhase * drive,
-          -MAX_SHAPER_INPUT,
-          MAX_SHAPER_INPUT,
-          0,
-        );
-        const next = Math.sin(
-          TWO_PI * Math.tanh(shaperInput) * shaperGain,
-        );
-        this.signals[turn + 1] = Number.isFinite(next) ? next : 0;
+        let smoothNext = 0;
+        if (legacyMix < 1) {
+          const previous = this.signals[turn];
+          const shaped = Math.tanh(previous * smoothDrive)
+            / smoothNormalization;
+          const modulator = previous + (shaped - previous) * warp;
+          smoothNext = Math.sin(
+            TWO_PI * this.operatorPhases[turn] + safeIndex * modulator,
+          );
+          this.signals[turn + 1] = Number.isFinite(smoothNext)
+            ? smoothNext
+            : 0;
+        }
+        if (legacyMix > 0) {
+          const previous = this.legacySignals[turn];
+          const wrappedPhase = (
+            this.operatorPhases[turn] + previous * safeIndex
+          ) % 1;
+          const legacyDrive = warp * frequencyHz * frequencyHz;
+          const shaperInput = clamp(
+            wrappedPhase * legacyDrive,
+            -MAX_SHAPER_INPUT,
+            MAX_SHAPER_INPUT,
+            0,
+          );
+          const legacyGain = 1.2 - Math.sqrt(warp);
+          const legacyNext = Math.sin(
+            TWO_PI * Math.tanh(shaperInput) * legacyGain,
+          );
+          this.legacySignals[turn + 1] = Number.isFinite(legacyNext)
+            ? legacyNext
+            : 0;
+        }
         availableDepth = turn + 1;
         frequencyHz /= Math.max(
           CHAOTIC_PM_LIMITS.minFrequencyDivisor,
@@ -1930,7 +2065,15 @@ class ChaoticPmProcessor extends ProcessorBase {
         this.depthGains[depth] += (
           targetGain - this.depthGains[depth]
         ) * depthCoefficient;
-        mixed += this.signals[depth] * this.depthGains[depth];
+        let depthSignal = this.signals[depth];
+        if (legacyMix >= 1) {
+          depthSignal = this.legacySignals[depth];
+        } else if (legacyMix > 0) {
+          depthSignal += (
+            this.legacySignals[depth] - depthSignal
+          ) * legacyMix;
+        }
+        mixed += depthSignal * this.depthGains[depth];
       }
       const performanceGain = this.playMode === "midi"
         ? envelope * this.currentVelocity * this.currentExpression

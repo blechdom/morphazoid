@@ -1,5 +1,10 @@
 const TAU = Math.PI * 2;
-const MAX_CONTINUOUS_VOICES = 12;
+const MAX_CONTINUOUS_VOICES = 48;
+const MOIRE_DEFAULT_VOICES = 8;
+const MOIRE_BANK_GAIN = 0.12;
+const MOIRE_OCTAVES_PER_DEGREE_SECOND = 0.045;
+const MOIRE_RISING_COLORS = ["103, 226, 208", "146, 221, 127"];
+const MOIRE_FALLING_COLORS = ["255, 143, 156", "240, 203, 118"];
 const PENTATONIC = [0, 2, 3, 5, 7, 10, 12, 14];
 const DNA_BASES = "TCAG";
 const CODON_CODES = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG";
@@ -184,7 +189,16 @@ const state = {
   time: 0,
   lastFrame: 0,
   level: Number($("level")?.value) || 0.45,
-  moirePhase: 0,
+  moireUpPhase: 0,
+  moireDownPhase: 0,
+  moireInterval: 1,
+  moireVoices: MOIRE_DEFAULT_VOICES,
+  moireSecondPair: false,
+  moireLayerOffset: 0.6,
+  moireUpAngle: 4,
+  moireDownAngle: 4,
+  moireOverlap: 0.65,
+  moireTone: 164,
   springY: [],
   springV: [],
   springCount: 0,
@@ -302,61 +316,227 @@ function updateSummaries() {
 function drawMoire() {
   const ctx = context2d;
   clearStage();
-  const spacing = state.moireSpacing;
-  const angle = (state.moireAngle * Math.PI) / 180;
-  const phase = state.moirePhase * spacing;
-  const diagonal = Math.hypot(canvasWidth, canvasHeight) * 0.72;
+  const scene = moireScene();
+  const diagonal = Math.hypot(canvasWidth, canvasHeight);
   const centerX = canvasWidth / 2;
   const centerY = canvasHeight / 2;
 
-  function stripeSet(rotation, offset, strokeStyle, alpha, width = 2) {
+  function drawVoiceLine(voice) {
+    if (voice.weight < 0.0001 || voice.gain <= 0) return;
+    const { rotation, offset } = moireLineGeometry(voice);
+    const colors = voice.direction > 0 ? MOIRE_RISING_COLORS : MOIRE_FALLING_COLORS;
+    const color = colors[voice.layer] ?? colors[0];
+    const focus = clamp(state.moireOverlap / 2, 0, 1);
+    const opacity = Math.sqrt(voice.weight) * lerp(1, 0.26, focus);
     ctx.save();
     ctx.translate(centerX, centerY);
     ctx.rotate(rotation);
-    ctx.globalAlpha = alpha;
-    ctx.strokeStyle = strokeStyle;
-    ctx.lineWidth = width;
-    for (let x = -diagonal * 1.4; x <= diagonal * 1.4; x += spacing) {
-      const shifted = x + offset;
-      ctx.beginPath();
-      ctx.moveTo(shifted, -diagonal);
-      ctx.lineTo(shifted, diagonal);
-      ctx.stroke();
-    }
+    ctx.globalCompositeOperation = "screen";
+    ctx.strokeStyle = `rgba(${color}, ${0.04 + opacity * 0.13})`;
+    ctx.lineWidth = 7 + voice.weight * 8;
+    ctx.beginPath();
+    ctx.moveTo(-diagonal, offset);
+    ctx.lineTo(diagonal, offset);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(${color}, ${0.08 + opacity * 0.86})`;
+    ctx.lineWidth = 1 + voice.weight * 2;
+    ctx.beginPath();
+    ctx.moveTo(-diagonal, offset);
+    ctx.lineTo(diagonal, offset);
+    ctx.stroke();
     ctx.restore();
   }
 
-  const fringe = moireFringeSpan();
-  if (Number.isFinite(fringe) && fringe < 2200) {
+  for (const voice of scene.voices) drawVoiceLine(voice);
+
+  if (state.moireOverlap > 0) {
     ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.rotate(Math.PI / 2);
-    ctx.strokeStyle = "rgba(240, 203, 118, 0.16)";
-    ctx.lineWidth = Math.max(7, fringe * 0.035);
-    for (let x = -diagonal * 1.4; x <= diagonal * 1.4; x += fringe) {
+    ctx.globalCompositeOperation = "screen";
+    for (const crossing of scene.crossings) {
+      const intensity = clamp(crossing.strength * state.moireOverlap, 0, 1.6);
+      if (intensity < 0.015) continue;
+      const x = centerX + crossing.x;
+      const y = centerY + crossing.y;
+      const halfLength = 18 + intensity * 38;
+      const centerAlpha = Math.min(0.96, 0.18 + intensity * 0.62);
+      for (const rotation of crossing.rotations) {
+        const dx = Math.cos(rotation) * halfLength;
+        const dy = Math.sin(rotation) * halfLength;
+        const highlight = ctx.createLinearGradient(x - dx, y - dy, x + dx, y + dy);
+        highlight.addColorStop(0, "rgba(248, 251, 247, 0)");
+        highlight.addColorStop(0.5, `rgba(248, 251, 247, ${centerAlpha})`);
+        highlight.addColorStop(1, "rgba(248, 251, 247, 0)");
+        ctx.strokeStyle = highlight;
+        ctx.lineWidth = 1.2 + intensity * 2.2;
+        ctx.beginPath();
+        ctx.moveTo(x - dx, y - dy);
+        ctx.lineTo(x + dx, y + dy);
+        ctx.stroke();
+      }
+      const radius = 3 + intensity * 7;
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+      glow.addColorStop(0, `rgba(252, 253, 250, ${centerAlpha})`);
+      glow.addColorStop(0.35, `rgba(248, 251, 247, ${centerAlpha * 0.58})`);
+      glow.addColorStop(1, "rgba(248, 251, 247, 0)");
+      ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.moveTo(x + phase * 0.3, -diagonal);
-      ctx.lineTo(x + phase * 0.3, diagonal);
-      ctx.stroke();
+      ctx.arc(x, y, radius, 0, TAU);
+      ctx.fill();
     }
     ctx.restore();
   }
-
-  stripeSet(-angle / 2, phase, "rgba(103, 226, 208, 0.82)", 0.9, 1.7);
-  stripeSet(angle / 2, -phase * 0.72, "rgba(255, 143, 156, 0.76)", 0.9, 1.7);
-
-  ctx.fillStyle = "rgba(219, 228, 224, 0.07)";
-  ctx.fillRect(0, canvasHeight - 42, canvasWidth, 42);
 }
 
-function moireFringeSpan() {
-  const angle = Math.max(0.001, (state.moireAngle * Math.PI) / 180);
-  return state.moireSpacing / (2 * Math.sin(angle / 2));
+function wrapCentered(value, span) {
+  return (wrap01(value / span + 0.5) - 0.5) * span;
 }
 
-function moireBeatHz() {
-  const fringe = moireFringeSpan();
-  return clamp((state.moireDrift * state.moireSpacing) / Math.max(36, fringe) * 9, 0.02, 8);
+function moireSpectralWindow(octaveOffset, width) {
+  const distance = Math.abs(octaveOffset) / Math.max(0.001, width * 0.5);
+  if (distance >= 1) return 0;
+  return 0.5 + 0.5 * Math.cos(Math.PI * distance);
+}
+
+function moireAngleRate(angle) {
+  return Math.max(0, angle) * MOIRE_OCTAVES_PER_DEGREE_SECOND;
+}
+
+function moireAudibleFrequency(octaveOffset, registerShift) {
+  const minimum = Math.log2(20);
+  const maximum = Math.log2(12_000);
+  const shoulder = 0.7;
+  const raw = Math.log2(state.moireTone) + octaveOffset + registerShift;
+  let audible = raw;
+  if (raw < minimum + shoulder) {
+    audible = minimum + shoulder * Math.exp((raw - minimum - shoulder) / shoulder);
+  } else if (raw > maximum - shoulder) {
+    audible = maximum - shoulder * Math.exp((maximum - shoulder - raw) / shoulder);
+  }
+  return 2 ** audible;
+}
+
+function moireShepardVoices() {
+  const interval = clamp(state.moireInterval, 0.1, 2);
+  const voiceCount = clamp(Math.round(state.moireVoices), 4, 12);
+  const layerCount = state.moireSecondPair ? 2 : 1;
+  const cycleSpan = interval * voiceCount;
+  const halfSpan = cycleSpan * 0.5;
+  const lowerShift = Math.ceil(Math.log2(20 / state.moireTone) + halfSpan);
+  const upperShift = Math.floor(Math.log2(12_000 / state.moireTone) - halfSpan);
+  const centerShift = Math.round(
+    (Math.log2(20 / state.moireTone) + Math.log2(12_000 / state.moireTone)) * 0.5,
+  );
+  const registerShift = lowerShift <= upperShift
+    ? clamp(0, lowerShift, upperShift)
+    : centerShift;
+  const voices = [];
+
+  for (let layer = 0; layer < layerCount; layer += 1) {
+    const layerPosition = layerCount === 1 ? 0 : layer - (layerCount - 1) * 0.5;
+    const layerShift = layerPosition * state.moireLayerOffset * interval;
+    for (const direction of [1, -1]) {
+      for (let slot = 0; slot < voiceCount; slot += 1) {
+        const centeredSlot = slot - (voiceCount - 1) * 0.5;
+        const directionalPhase = direction > 0 ? state.moireUpPhase : state.moireDownPhase;
+        const octaveOffset = wrapCentered(
+          centeredSlot * interval + directionalPhase + layerShift,
+          cycleSpan,
+        );
+        const normalizedPosition = octaveOffset / halfSpan;
+        voices.push({
+          bank: `${layer}:${direction}`,
+          direction,
+          layer,
+          layerPosition,
+          slot,
+          octaveOffset,
+          normalizedPosition,
+          frequency: moireAudibleFrequency(octaveOffset, registerShift),
+          weight: moireSpectralWindow(octaveOffset, cycleSpan),
+          overlap: 0,
+          gain: 0,
+          pan: clamp(normalizedPosition * 0.72 + layerPosition * 0.12, -0.84, 0.84),
+        });
+      }
+    }
+  }
+  return voices;
+}
+
+function moireVisualSpan() {
+  const available = Math.min(canvasHeight * 0.88, canvasWidth * 0.72);
+  const intervalAmount = clamp((state.moireInterval - 0.1) / 1.9, 0, 1);
+  return available * lerp(0.46, 1, Math.sqrt(intervalAmount));
+}
+
+function moireLineGeometry(voice) {
+  const risingAngle = (state.moireUpAngle * Math.PI) / 180;
+  const fallingAngle = (-state.moireDownAngle * Math.PI) / 180;
+  const baseRotation = voice.direction > 0 ? risingAngle : fallingAngle;
+  const pairSeparation = risingAngle - fallingAngle;
+  return {
+    rotation: baseRotation + voice.layerPosition * pairSeparation * 0.35,
+    offset: -voice.normalizedPosition * moireVisualSpan() * 0.5,
+  };
+}
+
+function moireLineIntersection(first, second) {
+  const firstLine = moireLineGeometry(first);
+  const secondLine = moireLineGeometry(second);
+  const firstNormal = [-Math.sin(firstLine.rotation), Math.cos(firstLine.rotation)];
+  const secondNormal = [-Math.sin(secondLine.rotation), Math.cos(secondLine.rotation)];
+  const determinant = firstNormal[0] * secondNormal[1] - firstNormal[1] * secondNormal[0];
+  if (Math.abs(determinant) < 1e-5) return null;
+  return {
+    x: (firstLine.offset * secondNormal[1] - firstNormal[1] * secondLine.offset) / determinant,
+    y: (firstNormal[0] * secondLine.offset - firstLine.offset * secondNormal[0]) / determinant,
+    rotations: [firstLine.rotation, secondLine.rotation],
+  };
+}
+
+function moireScene() {
+  const voices = moireShepardVoices();
+  const rising = voices.filter((voice) => voice.direction > 0);
+  const falling = voices.filter((voice) => voice.direction < 0);
+  const crossings = [];
+  const halfWidth = canvasWidth * 0.52;
+  const halfHeight = canvasHeight * 0.52;
+
+  for (const upVoice of rising) {
+    for (const downVoice of falling) {
+      const point = moireLineIntersection(upVoice, downVoice);
+      if (!point || Math.abs(point.x) > halfWidth || Math.abs(point.y) > halfHeight) continue;
+      const edgeFade = Math.max(
+        0,
+        1 - Math.max(Math.abs(point.x) / halfWidth, Math.abs(point.y) / halfHeight),
+      );
+      const strength = Math.sqrt(upVoice.weight * downVoice.weight) * Math.sqrt(edgeFade);
+      if (strength < 0.005) continue;
+      upVoice.overlap = Math.max(upVoice.overlap, strength);
+      downVoice.overlap = Math.max(downVoice.overlap, strength);
+      crossings.push({ ...point, strength });
+    }
+  }
+
+  const bankGain = MOIRE_BANK_GAIN / Math.sqrt(state.moireSecondPair ? 2 : 1);
+  const focus = clamp(state.moireOverlap / 2, 0, 1);
+  const remoteLevel = lerp(1, 0.2, focus);
+  const banks = new Map();
+  for (const voice of voices) {
+    const crossingLift = voice.overlap * state.moireOverlap * 1.25;
+    const amplitude = voice.weight * (remoteLevel + crossingLift);
+    voice.amplitude = amplitude;
+    const bank = banks.get(voice.bank) ?? [];
+    bank.push(voice);
+    banks.set(voice.bank, bank);
+  }
+  for (const bank of banks.values()) {
+    const power = bank.reduce((sum, voice) => sum + voice.weight ** 2, 0);
+    const normalization = power > 1e-12 ? 1 / Math.sqrt(power) : 0;
+    for (const voice of bank) voice.gain = bankGain * voice.amplitude * normalization;
+  }
+
+  return { voices, crossings };
 }
 
 function chladniValue(x, y, n = state.chladniN, m = state.chladniM) {
@@ -1739,29 +1919,58 @@ function springModeAmplitudes() {
 const EXPERIMENTS = {
   moire: {
     bind() {
-      bindRange("moireSpacing", "moireSpacing", (value) => `${Math.round(value)} px`);
-      bindRange("moireAngle", "moireAngle", (value) => `${compact(value, 1)} deg`);
-      bindRange("moireDrift", "moireDrift", (value) => `${compact(value, 2)} cyc/s`);
+      bindRange("moireInterval", "moireInterval", (value) => `${compact(value, 2)} oct · ${compact(2 ** value, 2)}×`);
+      bindRange("moireVoices", "moireVoices", (value) => `${Math.round(value)} voices`);
+      const secondPair = $("moireSecondPair");
+      const pairOffset = $("moireLayerOffset");
+      if (secondPair) {
+        const syncSecondPair = () => {
+          state.moireSecondPair = secondPair.checked;
+          setText("moireSecondPairState", state.moireSecondPair ? "four lattices" : "two lattices");
+          if (pairOffset) pairOffset.disabled = !state.moireSecondPair;
+          pairOffset?.closest(".control")?.classList.toggle("is-disabled", !state.moireSecondPair);
+          updateSummaries();
+        };
+        secondPair.addEventListener("change", syncSecondPair);
+        syncSecondPair();
+      }
+      bindRange("moireLayerOffset", "moireLayerOffset", (value) => `${compact(value, 2)} intervals`);
+      bindRange("moireUpAngle", "moireUpAngle", (value) => `${compact(value, 1)} deg · ${compact(moireAngleRate(value), 3)} oct/s`);
+      bindRange("moireDownAngle", "moireDownAngle", (value) => `${compact(value, 1)} deg · ${compact(moireAngleRate(value), 3)} oct/s`);
+      bindRange("moireOverlap", "moireOverlap", (value) => `${Math.round(value * 100)}%`);
       bindRange("moireTone", "moireTone", (value) => `${Math.round(value)} Hz`);
     },
     update(dt) {
-      state.moirePhase = wrap01(state.moirePhase + state.moireDrift * dt);
+      const cycleSpan = state.moireInterval * Math.round(state.moireVoices);
+      state.moireUpPhase = wrapCentered(
+        state.moireUpPhase + moireAngleRate(state.moireUpAngle) * dt,
+        cycleSpan,
+      );
+      state.moireDownPhase = wrapCentered(
+        state.moireDownPhase - moireAngleRate(state.moireDownAngle) * dt,
+        cycleSpan,
+      );
     },
     draw: drawMoire,
     drone() {
-      const beat = moireBeatHz();
-      const base = state.moireTone;
-      return [
-        { frequency: base, gain: 0.13, type: "sine", pan: -0.32 },
-        { frequency: base + beat, gain: 0.13, type: "sine", pan: 0.32 },
-        { frequency: base * 2, gain: 0.045, type: "triangle", pan: 0 },
-      ];
+      return moireScene().voices.map((voice) => ({
+        frequency: voice.frequency,
+        gain: voice.gain,
+        type: "sine",
+        pan: voice.pan,
+      }));
     },
     summary() {
-      const fringe = moireFringeSpan();
-      setText("metricPrimary", `${Math.round(fringe)} px`);
-      setText("metricSecondary", `${compact(moireBeatHz(), 2)} Hz`);
-      setText("stageReadout", `MOIRE ORGAN · ${compact(state.moireAngle, 1)} DEG · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+      const voices = moireScene().voices;
+      const voiceCount = Math.round(state.moireVoices);
+      const pairCount = state.moireSecondPair ? 2 : 1;
+      const frequencies = voices.map((voice) => voice.frequency);
+      const minimum = Math.round(Math.min(...frequencies));
+      const maximum = Math.round(Math.max(...frequencies));
+      setText("metricPrimary", `${voices.length}`);
+      setText("metricSecondary", `${minimum}–${maximum} Hz`);
+      setText("patternSummary", `${voiceCount}+${voiceCount} · ${pairCount} ${pairCount === 1 ? "pair" : "pairs"}`);
+      setText("stageReadout", `MOIRE ORGAN · GREEN +${compact(moireAngleRate(state.moireUpAngle), 3)} · PINK -${compact(moireAngleRate(state.moireDownAngle), 3)} OCT/S · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
     },
   },
   chladni: {

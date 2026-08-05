@@ -183,6 +183,46 @@
   margin-top: 0;
 }
 
+.experiment-page .control.is-disabled {
+  opacity: 0.45;
+}
+
+.experiment-toggle {
+  display: flex;
+  min-height: 42px;
+  margin-top: 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.experiment-toggle span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.experiment-toggle b {
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.experiment-toggle small {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.experiment-toggle input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+
 .experiment-page canvas {
   background: #050608;
 }
@@ -200,6 +240,10 @@
 @media (max-width: 650px) {
   .experiment-page .stage-meta {
     display: none;
+  }
+
+  .experiment-page[data-experiment="moire"] #patternSummary {
+    padding-right: 8px;
   }
 
   .experiment-page[data-experiment="reaction"] .experiment-title h1,

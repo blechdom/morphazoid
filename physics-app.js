@@ -19,20 +19,12 @@ const sceneId = document.body.dataset.physicsScene;
 const scene = createPhysicsScene(sceneId);
 const fixedStepper = createFixedStepper();
 
-const SCALE_STEPS = Object.freeze({
-  chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-  major: [0, 2, 4, 5, 7, 9, 11],
-  pentatonic: [0, 2, 4, 7, 9],
-  whole: [0, 2, 4, 6, 8, 10],
-});
-
 const globalState = {
   audio: false,
   playing: false,
   level: 0.56,
   baseFrequency: 110,
   pitchRange: 3,
-  scale: "pentatonic",
   timeScale: 1,
 };
 
@@ -287,9 +279,9 @@ function renderSceneInformation(rebuildControls = false) {
     "--accent-glow",
     `color-mix(in oklab, ${scene.color} 22%, transparent)`,
   );
-  $("sceneKicker").textContent = scene.kicker;
   $("sceneTitle").textContent = scene.title;
-  $("sceneDescription").textContent = scene.description;
+  const description = $("sceneDescription");
+  if (description) description.textContent = scene.description;
   $("sceneInstruction").textContent = scene.instruction;
   $("sceneLesson").textContent = scene.lesson;
   $("primaryAction").textContent = scene.primaryActionLabel ?? "Impulse";
@@ -299,33 +291,14 @@ function renderSceneInformation(rebuildControls = false) {
   renderMetrics();
 }
 
-function quantizedFrequency(pitch01) {
-  const pitch = clamp(Number(pitch01));
-  if (globalState.scale === "free") {
-    return pitch01ToFrequency(pitch, globalState.baseFrequency, globalState.pitchRange);
-  }
-  const totalSemitones = pitch * globalState.pitchRange * 12;
-  const scale = SCALE_STEPS[globalState.scale] ?? SCALE_STEPS.pentatonic;
-  let nearest = 0;
-  let nearestDistance = Infinity;
-  const octave = Math.floor(totalSemitones / 12);
-  for (let octaveOffset = -1; octaveOffset <= 1; octaveOffset += 1) {
-    for (const step of scale) {
-      const candidate = (octave + octaveOffset) * 12 + step;
-      const candidateDistance = Math.abs(candidate - totalSemitones);
-      if (candidateDistance < nearestDistance) {
-        nearestDistance = candidateDistance;
-        nearest = candidate;
-      }
-    }
-  }
-  return clamp(globalState.baseFrequency * 2 ** (nearest / 12), 10, 20_000);
-}
-
 function mapVoice(voice, index = 0) {
   return {
     key: typeof voice.key === "string" ? `physics:${scene.id}:${voice.key}` : `physics:${scene.id}:${index}`,
-    frequency: quantizedFrequency(voice.pitch01),
+    frequency: pitch01ToFrequency(
+      clamp(Number(voice.pitch01)),
+      globalState.baseFrequency,
+      globalState.pitchRange,
+    ),
     gain: clamp(Number(voice.gain), 0, 1),
     pan: clamp(Number(voice.pan), -1, 1),
     waveform: voice.waveform ?? voice.wave ?? "sine",
@@ -394,6 +367,7 @@ function frame(now) {
 function paintTransport() {
   setPressed($("playButton"), globalState.playing);
   $("playButton").setAttribute("aria-label", globalState.playing ? "Pause simulation" : "Play simulation");
+  $("playSummary").textContent = `${scene.primaryActionLabel ?? "simulation"} · ${globalState.playing ? "playing" : "paused"}`;
 }
 
 function setPlaying(playing) {
@@ -472,12 +446,6 @@ bindGlobalRange("level", "level", (value) => `${Math.round(value * 100)}%`, () =
 bindGlobalRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindGlobalRange("pitchRange", "pitchRange", (value) => `${Number(value).toFixed(2)} oct`);
 
-$("scale").value = globalState.scale;
-$("scale").addEventListener("change", (event) => {
-  globalState.scale = event.currentTarget.value;
-  scheduleFrame();
-});
-
 function pointerPayload(event) {
   if (!lastPainter) lastPainter = createPainter(context, cssWidth, cssHeight, scene.color);
   const bounds = canvas.getBoundingClientRect();
@@ -518,11 +486,12 @@ canvas.addEventListener("pointermove", (event) => {
 function releasePointer(event) {
   if (!pointer || event.pointerId !== pointer.id) return;
   const payload = pointerPayload(event);
-  scene.pointerUp?.(payload);
+  const shouldStart = scene.pointerUp?.(payload) === true;
   pointer = null;
   stageWrap.classList.remove("is-dragging");
   canvas.releasePointerCapture?.(event.pointerId);
-  scheduleFrame();
+  if (shouldStart && !globalState.playing) setPlaying(true);
+  else scheduleFrame();
 }
 
 canvas.addEventListener("pointerup", releasePointer);
@@ -545,12 +514,10 @@ document.querySelector("[data-reset-all]")?.addEventListener("click", () => {
   globalState.level = 0.56;
   globalState.baseFrequency = 110;
   globalState.pitchRange = 3;
-  globalState.scale = "pentatonic";
   globalState.timeScale = 1;
   $("level").value = String(globalState.level);
   $("baseFrequency").value = String(globalState.baseFrequency);
   $("pitchRange").value = String(globalState.pitchRange);
-  $("scale").value = globalState.scale;
   $("levelOut").textContent = "56%";
   $("baseFrequencyOut").textContent = "110 Hz";
   $("pitchRangeOut").textContent = "3.00 oct";

@@ -416,7 +416,7 @@ const sharedMidiMacroTargets = [
   { label: "Depth", input: controls.depth.input },
   { label: "Mod frequency", input: controls.startModFrequencyHz.input },
   { label: "Phase index", input: controls.startPhaseIndex.input },
-  { label: "Phase warp", input: controls.nonlinearity.input },
+  { label: "Chaos / warp", input: controls.nonlinearity.input },
   { label: "Attack", input: performanceControls.ampAttackMs.input },
   { label: "Release", input: performanceControls.ampReleaseMs.input },
   { label: "Glide", input: performanceControls.glideTimeMs.input },
@@ -518,7 +518,7 @@ function updatePresetButtons() {
   const preset = presetById(state.activePresetId);
   $("presetState").textContent = preset?.label ?? "Custom";
   $("presetDescription").textContent = preset?.description
-    ?? "A custom stack of recursively warped phase operators.";
+    ?? "A custom stack of recursively shaped phase operators.";
 }
 
 function flowBlock(x, width, title, value, className = "is-warp") {
@@ -536,6 +536,7 @@ function updateSignalFlow(stack) {
   const operator = stack.operators[1] ?? null;
   const finalOperator = stack.operators[stack.audibleIndex];
   const active = Boolean(operator);
+  const legacy = stack.settings.transferMode === "legacy";
   const index = active ? formatChaoticPmNumber(operator.phaseIndex) : "bypassed";
   const frequency = active ? formatChaoticPmFrequency(operator.frequencyHz) : "no turn";
   const drive = active ? compactDrive(operator.drive) : "—";
@@ -543,6 +544,90 @@ function updateSignalFlow(stack) {
   const repeat = active
     ? `${stack.actualDepth} ${stack.actualDepth === 1 ? "turn" : "turns"} · f ÷ ${formatChaoticPmNumber(stack.settings.frequencyDivisor)} · I ÷ ${formatChaoticPmNumber(stack.settings.indexDivisor)}`
     : "0 turns · carrier sine goes directly to output";
+
+  if (!legacy) {
+    flow.dataset.pathLabel = "LIVE TURN · PREVIOUS → TANH CONTROL → CHAOS MIX → × INDEX (RAD) + PHASOR → SINE";
+    flow.innerHTML = `
+      <svg class="chaotic-pm-flow-detailed" viewBox="0 0 1260 210" preserveAspectRatio="xMinYMid meet" aria-hidden="true">
+        <defs>
+          <marker class="chaotic-path-arrow" id="chaoticPmArrow" viewBox="0 0 8 8"
+            refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 8 4 L 0 8 z" />
+          </marker>
+        </defs>
+
+        <g class="chaotic-path-operator is-seed">
+          <rect x="18" y="91" width="112" height="52" rx="4" />
+          <text class="chaotic-path-title" x="74" y="112">PREVIOUS SINE</text>
+          <text class="chaotic-path-value" x="74" y="129">${formatChaoticPmFrequency(stack.settings.carrierHz)}</text>
+        </g>
+        <path class="chaotic-path-wire" marker-end="url(#chaoticPmArrow)" d="M 130 117 H 157" />
+        ${flowBlock(162, 90, "TANH", active ? `k ${drive}` : "—", "is-warp")}
+        <path class="chaotic-path-wire" marker-end="url(#chaoticPmArrow)" d="M 252 117 H 279" />
+        ${flowBlock(284, 110, "CHAOS MIX", active ? formatChaoticPmNumber(stack.settings.nonlinearity) : "—", "is-warp")}
+        <path class="chaotic-path-wire" marker-end="url(#chaoticPmArrow)" d="M 394 117 H 421" />
+        ${flowBlock(426, 100, "× INDEX (RAD)", index, "is-phase")}
+        <path class="chaotic-path-wire" marker-end="url(#chaoticPmArrow)" d="M 526 117 H 553" />
+
+        <g class="chaotic-path-block is-control">
+          <rect x="521" y="35" width="88" height="42" rx="4" />
+          <text class="chaotic-path-title" x="565" y="52">PHASOR</text>
+          <text class="chaotic-path-value" x="565" y="67">${frequency}</text>
+        </g>
+        <path class="chaotic-path-control-wire" marker-end="url(#chaoticPmArrow)" d="M 565 77 V 106" />
+        <g class="chaotic-path-junction">
+          <circle cx="565" cy="117" r="10" />
+          <text x="565" y="121">+</text>
+        </g>
+        <path class="chaotic-path-wire" marker-end="url(#chaoticPmArrow)" d="M 575 117 H 602" />
+        ${flowBlock(607, 90, "SINE", active ? "next signal" : "carrier", "is-phase")}
+        <path class="chaotic-path-audio-wire" marker-end="url(#chaoticPmArrow)" d="M 697 117 H 735" />
+
+        <g class="chaotic-path-output">
+          <rect x="740" y="88" width="170" height="58" rx="4" />
+          <text class="chaotic-path-title" x="825" y="110">FINAL TURN → AUDIO</text>
+          <text class="chaotic-path-value" x="825" y="128">${formatChaoticPmFrequency(finalOperator.frequencyHz)} · ${(stack.normalizedGain * 100).toFixed(0)}%</text>
+        </g>
+        <path class="chaotic-pm-repeat-bracket" d="M 18 164 V 174 H 697 V 164" />
+        <text class="chaotic-pm-flow-note" x="18" y="191">${repeat} · continuous periodic phase</text>
+      </svg>
+      <svg class="chaotic-pm-flow-compact" viewBox="0 0 380 116" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <g class="chaotic-pm-compact-node is-carrier">
+          <rect x="8" y="34" width="70" height="46" rx="3" />
+          <text class="chaotic-pm-compact-title" x="43" y="52">CARRIER</text>
+          <text class="chaotic-pm-compact-value" x="43" y="68">${formatChaoticPmFrequency(stack.settings.carrierHz)}</text>
+        </g>
+        <text class="chaotic-pm-compact-arrow" x="88" y="61">→</text>
+        <g class="chaotic-pm-compact-node is-phase">
+          <rect x="100" y="34" width="78" height="46" rx="3" />
+          <text class="chaotic-pm-compact-title" x="139" y="52">PHASE ENTRY</text>
+          <text class="chaotic-pm-compact-value" x="139" y="68">${frequency} · I ${index}</text>
+        </g>
+        <text class="chaotic-pm-compact-arrow" x="188" y="61">→</text>
+        <g class="chaotic-pm-compact-node is-warp">
+          <rect x="200" y="34" width="80" height="46" rx="3" />
+          <text class="chaotic-pm-compact-title" x="240" y="52">${stack.actualDepth === 0 ? "BYPASS" : `${stack.actualDepth} ${stack.actualDepth === 1 ? "TURN" : "TURNS"}`}</text>
+          <text class="chaotic-pm-compact-value" x="240" y="68">${stack.actualDepth === 0 ? "CARRIER TAP" : "TANH CONTROL · PM"}</text>
+        </g>
+        <text class="chaotic-pm-compact-arrow" x="290" y="61">→</text>
+        <g class="chaotic-pm-compact-node is-output">
+          <rect x="302" y="34" width="70" height="46" rx="3" />
+          <text class="chaotic-pm-compact-title" x="337" y="52">AUDIO</text>
+          <text class="chaotic-pm-compact-value" x="337" y="68">OP ${stack.audibleIndex} · ${formatChaoticPmFrequency(finalOperator.frequencyHz)}</text>
+        </g>
+        <text class="chaotic-pm-compact-caption" x="8" y="101">PREVIOUS → TANH CONTROL → PHASE INDEX (RAD) + PHASOR → SINE</text>
+      </svg>
+    `;
+    flow.setAttribute(
+      "aria-label",
+      active
+        ? `Live Smooth Chaotic PM turn. The previous sine is continuously tanh-shaped with dimensionless drive ${drive}, mixed by chaos ${formatChaoticPmNumber(stack.settings.nonlinearity)}, multiplied by phase index ${index} radians, added to a ${frequency} phasor, and sent through sine. The path repeats for ${stack.actualDepth} turns; the final ${formatChaoticPmFrequency(finalOperator.frequencyHz)} operator is sent to normalized audio.`
+        : `Chaotic PM depth is zero. The ${formatChaoticPmFrequency(stack.settings.carrierHz)} carrier sine bypasses the nonlinear turn and reaches normalized audio directly.`,
+    );
+    return;
+  }
+
+  flow.dataset.pathLabel = "LIVE TURN · PHASOR + PREVIOUS × INDEX → SIGNED %1 → × (WARP × f²) → TANH → × GAIN → SINE";
 
   flow.innerHTML = `
     <svg class="chaotic-pm-flow-detailed" viewBox="0 0 1260 210" preserveAspectRatio="xMinYMid meet" aria-hidden="true">
@@ -632,6 +717,7 @@ function updateSignalFlow(stack) {
 
 function updateControlOutputs(stack = currentStack()) {
   const { settings } = stack;
+  const legacy = settings.transferMode === "legacy";
   const finalOperator = stack.operators[stack.audibleIndex];
   const finalFrequency = formatChaoticPmFrequency(finalOperator.frequencyHz);
   const finalBand = finalOperator.frequencyHz < 20 ? " · sub-audio" : "";
@@ -651,10 +737,10 @@ function updateControlOutputs(stack = currentStack()) {
     ? " · frequency bounded"
     : (stack.boundedByIndex ? " · index bounded" : "");
   $("algorithmState").textContent = stack.actualDepth === 0
-    ? `0 turns · carrier ${finalFrequency}${finalBand}`
-    : `${stack.actualDepth} ${stack.actualDepth === 1 ? "turn" : "turns"} · final ${finalFrequency}${finalBand}${bound}`;
+    ? `${legacy ? "Raw" : "Smooth"} · 0 turns · carrier ${finalFrequency}${finalBand}`
+    : `${legacy ? "Raw" : "Smooth"} · ${stack.actualDepth} ${stack.actualDepth === 1 ? "turn" : "turns"} · final ${finalFrequency}${finalBand}${bound}`;
   $("carrierReadout").textContent = `${formatChaoticPmFrequency(settings.carrierHz)} sine`;
-  $("entryReadout").textContent = `${formatChaoticPmFrequency(settings.startModFrequencyHz)} · index ${formatChaoticPmNumber(settings.startPhaseIndex)}`;
+  $("entryReadout").textContent = `${formatChaoticPmFrequency(settings.startModFrequencyHz)} · index ${formatChaoticPmNumber(settings.startPhaseIndex)} ${legacy ? "cycles" : "rad"}`;
 
   const phaseOperators = stack.operators.filter(
     (operator) => operator.kind === "chaotic-phase-operator",
@@ -663,13 +749,20 @@ function updateControlOutputs(stack = currentStack()) {
     ? phaseOperators.map(
       (operator) => (
         `${operator.turn}: ${formatChaoticPmFrequency(operator.frequencyHz)}`
-        + ` · I ${formatChaoticPmNumber(operator.phaseIndex)}`
-        + ` · drive ${compactDrive(operator.drive)}`
+        + ` · I ${formatChaoticPmNumber(operator.phaseIndex)} ${legacy ? "cyc" : "rad"}`
+        + ` · ${legacy ? "raw drive" : "k"} ${compactDrive(operator.drive)}`
       ),
     ).join(" · ")
     : "none · carrier sine is audible";
+  $("transferMode").value = settings.transferMode;
+  $("transferMode").dataset.parameterId = CHAOTIC_PM_PARAMETER_IDS.transferMode;
+  $("phaseIndexNote").textContent = legacy
+    ? "Legacy/Raw index · cycles"
+    : "Smooth index · radians";
   const gain = 1.2 - Math.sqrt(settings.nonlinearity);
-  $("transferReadout").textContent = `signed %1 · tanh · gain ${formatChaoticPmNumber(gain)}`;
+  $("transferReadout").textContent = legacy
+    ? `legacy signed %1 · tanh · gain ${formatChaoticPmNumber(gain)}`
+    : `continuous tanh control · k ${formatChaoticPmNumber(1 + settings.nonlinearity * 8)}`;
   $("operatorReadout").textContent = `operator ${stack.audibleIndex} · ${finalFrequency}${finalBand} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
   $("ceilingReadout").textContent = formatChaoticPmFrequency(settings.maximumFrequencyHz);
 
@@ -688,11 +781,14 @@ function writeControlsFromState() {
   }
   $("output").value = String(state.output);
   $("output").dataset.parameterId = CHAOTIC_PM_PARAMETER_IDS.output;
+  $("transferMode").value = state.settings.transferMode;
+  $("transferMode").dataset.parameterId = CHAOTIC_PM_PARAMETER_IDS.transferMode;
 }
 
 function applySettings(settings, { presetId = null, announceChange = false } = {}) {
   const safe = sanitizeChaoticPmParams(settings, { sampleRate: audio.sampleRate });
   state.settings = {
+    transferMode: safe.transferMode,
     depth: safe.depth,
     carrierHz: safe.carrierHz,
     startModFrequencyHz: safe.startModFrequencyHz,
@@ -859,6 +955,18 @@ $("glideMode").addEventListener("change", () => {
   applyPerformanceSettings(
     { glideMode: $("glideMode").value },
     { message: `${$("glideMode").value} glide mode selected.` },
+  );
+});
+
+$("transferMode").addEventListener("change", () => {
+  applySettings({
+    ...state.settings,
+    transferMode: $("transferMode").value,
+  });
+  announce(
+    $("transferMode").value === "legacy"
+      ? "Legacy Raw Chaotic PM transfer selected."
+      : "Smooth continuous Chaotic PM transfer selected.",
   );
 });
 

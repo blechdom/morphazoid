@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="Morphazoid Moire Organ - sliding stripe interference mapped to audible beating."
+      content="Morphazoid Moire Organ - counter-moving Shepard glissandi drawn as their audible spectral lines."
     />
     <title>Moire Organ - Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -51,20 +51,20 @@
             id="stage"
             tabindex="0"
             role="img"
-            aria-label="Two sliding stripe lattices form wide moving moire bands."
+            aria-label="Green rising and pink falling Shepard voices cross as audible moire lines."
             aria-describedby="canvasInstructions liveStatus"
           >
-            Two sliding stripe fields interfere to create moire bands.
+            Counter-moving Shepard voice lines create a moire field.
           </canvas>
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">MOIRE ORGAN · 8.0 DEG · AUDIO OFF</span>
+            <span id="stageReadout">MOIRE ORGAN · GREEN +0.18 · PINK -0.18 OCT/S · AUDIO OFF</span>
           </div>
           <div class="experiment-title" aria-hidden="true">
             <h1>Moire Organ</h1>
-            <small id="stageCaption">stripe interference as acoustic beating</small>
+            <small id="stageCaption">counter-moving Shepard lattice</small>
           </div>
         </div>
-        <p class="sr-only" id="canvasInstructions">Animated moire stripe field.</p>
+        <p class="sr-only" id="canvasInstructions">Each line is one Shepard oscillator. Its angle sets its glissando speed. Green lines rise, pink lines fall, and white crossings increase in level with overlap emphasis.</p>
         <p class="sr-only" id="liveStatus" aria-live="polite"></p>
       </section>
 
@@ -72,31 +72,56 @@
         <section class="group experiment-card" aria-labelledby="experimentTitle">
           <div class="experiment-card-heading">
             <h2 class="group-title" id="experimentTitle">Experiment</h2>
-            <span class="section-state" id="experimentSummary">optics · interference</span>
+            <span class="section-state" id="experimentSummary">psychoacoustics · interference</span>
           </div>
           <dl class="experiment-meter-grid">
-            <div><dt>Fringe span</dt><dd id="metricPrimary">258 px</dd></div>
-            <div><dt>Beat offset</dt><dd id="metricSecondary">0.7 Hz</dd></div>
+            <div><dt>Oscillator lines</dt><dd id="metricPrimary">16</dd></div>
+            <div><dt>Frequency range</dt><dd id="metricSecondary">29–3712 Hz</dd></div>
           </dl>
         </section>
 
         <section class="group control-section" aria-labelledby="moirePatternTitle">
           <div class="experiment-card-heading">
             <h2 class="group-title" id="moirePatternTitle">Pattern</h2>
-            <span class="section-state" id="patternSummary">two stripe fields</span>
+            <span class="section-state" id="patternSummary">8+8 · 1 pair</span>
           </div>
           <div class="group-body">
-            <label class="control" for="moireSpacing">
-              <span><b>Stripe spacing</b><output id="moireSpacingOut" for="moireSpacing">34 px</output></span>
-              <input id="moireSpacing" type="range" min="14" max="72" step="1" value="34" />
+            <label class="control" for="moireInterval">
+              <span><b>Voice interval</b><output id="moireIntervalOut" for="moireInterval">1 oct · 2×</output></span>
+              <input id="moireInterval" type="range" min="0.1" max="2" step="0.01" value="1" />
             </label>
-            <label class="control" for="moireAngle">
-              <span><b>Relative angle</b><output id="moireAngleOut" for="moireAngle">8.0 deg</output></span>
-              <input id="moireAngle" type="range" min="0.5" max="24" step="0.1" value="8" />
+            <label class="control" for="moireVoices">
+              <span><b>Voices per lattice</b><output id="moireVoicesOut" for="moireVoices">8 voices</output></span>
+              <input id="moireVoices" type="range" min="4" max="12" step="1" value="8" />
             </label>
-            <label class="control" for="moireDrift">
-              <span><b>Slide rate</b><output id="moireDriftOut" for="moireDrift">0.18 cyc/s</output></span>
-              <input id="moireDrift" type="range" min="0" max="1.4" step="0.01" value="0.18" />
+            <label class="control" for="moireUpAngle">
+              <span><b>Rising angle</b><output id="moireUpAngleOut" for="moireUpAngle">4 deg · 0.18 oct/s</output></span>
+              <input id="moireUpAngle" type="range" min="0" max="30" step="0.1" value="4" />
+            </label>
+            <label class="control" for="moireDownAngle">
+              <span><b>Falling angle</b><output id="moireDownAngleOut" for="moireDownAngle">4 deg · 0.18 oct/s</output></span>
+              <input id="moireDownAngle" type="range" min="0" max="30" step="0.1" value="4" />
+            </label>
+            <label class="experiment-toggle" for="moireSecondPair">
+              <span><b>Second lattice pair</b><small id="moireSecondPairState">two lattices</small></span>
+              <input id="moireSecondPair" type="checkbox" />
+            </label>
+            <label class="control is-disabled" for="moireLayerOffset">
+              <span><b>Pair offset</b><output id="moireLayerOffsetOut" for="moireLayerOffset">0.6 intervals</output></span>
+              <input id="moireLayerOffset" type="range" min="0" max="4" step="0.01" value="0.6" disabled />
+            </label>
+          </div>
+        </section>
+
+        <section class="group control-section" aria-labelledby="moireSoundTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="moireSoundTitle">Sound</h2>
+            <span class="section-state">overlap · register</span>
+          </div>
+          <div class="group-body">
+            <label class="control" for="moireOverlap">
+              <span><b>Overlap emphasis</b><output id="moireOverlapOut" for="moireOverlap">65%</output></span>
+              <input id="moireOverlap" type="range" min="0" max="2" step="0.01" value="0.65" />
             </label>
             <label class="control" for="moireTone">
               <span><b>Tone center</b><output id="moireToneOut" for="moireTone">164 Hz</output></span>

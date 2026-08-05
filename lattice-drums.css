@@ -33,6 +33,26 @@
   line-height: 1.5;
 }
 
+.lattice-engine-row {
+  display: grid;
+  margin: -4px 0 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.lattice-engine-status {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: .08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .lattice-map-legend {
   display: grid;
   margin: 0 0 14px;
@@ -165,6 +185,10 @@
 }
 
 @media (max-width: 520px) {
+  .lattice-engine-row {
+    grid-template-columns: 1fr;
+  }
+
   .lattice-map-legend {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -178,6 +202,10 @@
   .lattice-map-legend b,
   .lattice-map-legend small {
     font-size: 8px;
+  }
+
+  .lattice-drum-map[data-mapping-mode="tile-color-pair"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .lattice-drum-map[data-mapping-mode="tile-color-pair"] .lattice-drum-cell {

@@ -70,7 +70,12 @@ test("experiment runtime contains each simulation and audio mapping", async () =
     assert.match(app, new RegExp(`${key}: \\{`));
   }
   for (const name of [
-    "moireFringeSpan",
+    "moireShepardVoices",
+    "moireSpectralWindow",
+    "moireAudibleFrequency",
+    "moireAngleRate",
+    "moireLineIntersection",
+    "moireScene",
     "chladniValue",
     "springModeAmplitudes",
     "drawGear",
@@ -93,4 +98,34 @@ test("experiment runtime contains each simulation and audio mapping", async () =
   assert.match(app, /pagehide/);
   assert.match(css, /\.experiment-title/);
   assert.match(css, /\.experiment-meter-grid/);
+});
+
+test("Moire Organ pairs every line with a counter-moving Shepard oscillator", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("moire-organ.html", root), "utf8"),
+    readFile(new URL("experiments-app.js", root), "utf8"),
+  ]);
+
+  assert.match(html, /id="moireInterval"[^>]*min="0\.1"[^>]*max="2"[^>]*step="0\.01"[^>]*value="1"/);
+  assert.match(html, /id="moireVoices"[^>]*min="4"[^>]*max="12"[^>]*value="8"/);
+  assert.match(html, /id="moireSecondPair" type="checkbox"/);
+  assert.match(html, /id="moireLayerOffset"[^>]*max="4"/);
+  assert.match(html, /id="moireUpAngle"[^>]*min="0"[^>]*max="30"[^>]*value="4"/);
+  assert.match(html, /id="moireDownAngle"[^>]*min="0"[^>]*max="30"[^>]*value="4"/);
+  assert.match(html, /id="moireOverlap"[^>]*max="2"/);
+  assert.doesNotMatch(html, /id="moireDrift"/);
+  assert.match(html, /Green rising and pink falling Shepard voices/);
+  assert.match(html, /Each line is one Shepard oscillator/);
+  assert.match(app, /const MAX_CONTINUOUS_VOICES = 48;/);
+  assert.match(app, /const MOIRE_DEFAULT_VOICES = 8;/);
+  assert.match(app, /const MOIRE_OCTAVES_PER_DEGREE_SECOND = 0\.045;/);
+  assert.match(app, /const layerCount = state\.moireSecondPair \? 2 : 1;/);
+  assert.match(app, /for \(let slot = 0; slot < voiceCount; slot \+= 1\)/);
+  assert.match(app, /for \(const direction of \[1, -1\]\)/);
+  assert.match(app, /return moireScene\(\)\.voices\.map/);
+  assert.match(app, /voice\.gain = bankGain \* voice\.amplitude \* normalization/);
+  assert.match(app, /crossing\.strength \* state\.moireOverlap/);
+  assert.match(app, /state\.moireUpPhase \+ moireAngleRate\(state\.moireUpAngle\)/);
+  assert.match(app, /state\.moireDownPhase - moireAngleRate\(state\.moireDownAngle\)/);
+  assert.match(app, /createLinearGradient/);
 });

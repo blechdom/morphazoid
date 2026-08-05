@@ -189,7 +189,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 56);
+  assert.equal(tools.length, 57);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -208,6 +208,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       id: "fm-drums",
       label: "FM Drums",
       href: "fm-drums.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "sample-drums"),
+    {
+      id: "sample-drums",
+      label: "Sample Drums",
+      href: "sample-drums.html",
     },
   );
   assert.deepEqual(
@@ -284,6 +292,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ),
     [
       { id: "fm-drums", href: "fm-drums.html" },
+      { id: "sample-drums", href: "sample-drums.html" },
       { id: "morphazoidical", href: "morphazoidical/" },
     ],
   );
@@ -427,6 +436,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}gravity-lens.html`, SITE_ROOT)?.id, "gravity-lens");
   assert.equal(resolveActiveTool(`${SITE_ROOT}algorithmic-sequencers.html`, SITE_ROOT)?.id, "sorting-algorithms");
   assert.equal(resolveActiveTool(`${SITE_ROOT}fm-drums.html`, SITE_ROOT)?.id, "fm-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}sample-drums.html`, SITE_ROOT)?.id, "sample-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}shape-drums.html`, SITE_ROOT)?.id, "shape-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}lattice-drums.html`, SITE_ROOT)?.id, "lattice-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}spiral-drums.html`, SITE_ROOT)?.id, "spiral-drums");
@@ -483,7 +493,7 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
     TOOL_GROUPS.map((group) => group.label),
   );
   const links = details.findAll((node) => node.tagName === "A");
-  assert.equal(links.length, 56);
+  assert.equal(links.length, 57);
   const siteLinks = doc.tabs.children.filter((node) => node.classList.contains("site-nav-link"));
   assert.equal(siteLinks.length, 2);
   assert.equal(siteLinks[0].textContent, "Plug-ins");

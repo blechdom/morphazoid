@@ -154,6 +154,7 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
   freezeGroup("tools", "Tools", [
     { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
+    { id: "sample-drums", label: "Sample Drums", href: "sample-drums.html" },
     {
       id: "morphazoidical",
       label: "Morphazoidical",

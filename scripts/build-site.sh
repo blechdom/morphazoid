@@ -69,6 +69,10 @@ for worktree_runtime_file in \
   downloads/plugins/chaotic-fm/0.3.0/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx \
   src/recursive-pm-midi.js \
   vendor/signalsmith-stretch/LICENSE \
+  sample-drums.html \
+  sample-drums.css \
+  sample-drums-app.js \
+  src/sample-drums.js \
   shape-drums.html \
   shape-drums.css \
   shape-drums-app.js \
@@ -248,6 +252,10 @@ required_files=(
   fm-drums.css
   fm-drums-app.js
   src/fm-drums.js
+  sample-drums.html
+  sample-drums.css
+  sample-drums-app.js
+  src/sample-drums.js
   shape-drums.html
   shape-drums.css
   shape-drums-app.js

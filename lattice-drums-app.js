@@ -18,6 +18,13 @@ import {
   sanitizeFmDrumVoice,
 } from "./src/fm-drums.js";
 import {
+  SAMPLE_DRUM_STORAGE_KEY,
+  SampleDrumAudio,
+  cloneDefaultSampleDrumVoices,
+  mappedLatticeSampleDrumVoice,
+  sanitizeSampleDrumVoice,
+} from "./src/sample-drums.js";
+import {
   LATTICE_DRUM_MAPPING_MODES,
   latticeDrumVoiceIndex,
   mappedLatticeDrumVoice,
@@ -43,7 +50,11 @@ const wrapLineAngle = (value) => {
 const OPEN_TILE_SCALE = .46;
 const DENSE_TILE_SCALE = .14;
 const TILE_COLORS = LATTICE_TILE_COLORS.map(({ fill }) => fill);
-const audio = new FmDrumAudio(globalThis);
+const ENGINE_AUDITION_PATTERN = Object.freeze({
+  fm: Object.freeze([0, 3, 7, 11]),
+  samples: Object.freeze([0, 11, 7, 13]),
+});
+const ENGINE_AUDITION_STEP_MS = 115;
 const defaults = {
   position: .5,
   speed: .36,
@@ -53,6 +64,7 @@ const defaults = {
   tilingType: DEFAULT_TILING,
   density: .52,
   mappingMode: "edge-angle",
+  drumEngine: "fm",
   pitchDepth: 12,
   characterDepth: .7,
   strikeLimit: 6,
@@ -66,7 +78,20 @@ const state = {
   parameters: [...tilingInfo(DEFAULT_TILING).defaultParameters],
   edgeCurves: tilingInfo(DEFAULT_TILING).edgeShapes.map(() => 0),
 };
-const voices = loadDrumBank();
+const drumEngines = {
+  fm: {
+    id: "fm",
+    label: "FM synth",
+    audio: new FmDrumAudio(globalThis),
+    voices: loadDrumBank(),
+  },
+  samples: {
+    id: "samples",
+    label: "808/909 samples",
+    audio: new SampleDrumAudio(globalThis),
+    voices: loadSampleDrumBank(),
+  },
+};
 const canvas = $("stage");
 const drawing = canvas.getContext("2d");
 const stageWrap = $("stageWrap");
@@ -88,6 +113,8 @@ let pointerDrag = null;
 let tileEditorDrag = null;
 let tileEditorView = null;
 let tileEditorDirty = true;
+let sampleWarmPromise = null;
+let auditionGeneration = 0;
 const movableVertexCache = new Map();
 
 function clamp(value, minimum = 0, maximum = 1) {
@@ -110,6 +137,132 @@ function loadDrumBank() {
     });
   } catch {
     return fallback;
+  }
+}
+
+function loadSampleDrumBank() {
+  const fallback = cloneDefaultSampleDrumVoices();
+  try {
+    const stored = JSON.parse(localStorage.getItem(SAMPLE_DRUM_STORAGE_KEY));
+    if (!Array.isArray(stored) || stored.length !== fallback.length) return fallback;
+    return fallback.map((voice) => {
+      const saved = stored.find((candidate) => candidate?.id === voice.id);
+      return sanitizeSampleDrumVoice({ ...voice, ...saved, id: voice.id, key: voice.key });
+    });
+  } catch {
+    return fallback;
+  }
+}
+
+function currentEngine() {
+  return drumEngines[state.drumEngine] ?? drumEngines.fm;
+}
+
+function currentAudio() {
+  return currentEngine().audio;
+}
+
+function currentVoices() {
+  return currentEngine().voices;
+}
+
+function currentEngineLabel() {
+  return currentEngine().label;
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+function setEngineStatus(message) {
+  const status = $("engineStatus");
+  if (status) status.textContent = message;
+}
+
+function sampleEngineSampleCount() {
+  return new Set(drumEngines.samples.voices.map((voice) => sanitizeSampleDrumVoice(voice).url)).size;
+}
+
+function updateEngineStatus() {
+  if (state.drumEngine === "samples") {
+    const loaded = drumEngines.samples.audio.loadedSampleCount;
+    const total = sampleEngineSampleCount();
+    setEngineStatus(state.audioOn
+      ? `Sample engine · ${loaded}/${total} samples in RAM`
+      : `Sample engine · audio off · ${loaded}/${total} in RAM`);
+    return;
+  }
+  setEngineStatus(state.audioOn ? "FM synth active" : "FM synth · audio off");
+}
+
+function warmSampleEngine() {
+  if (state.drumEngine !== "samples" || !state.audioOn) return Promise.resolve(0);
+  if (sampleWarmPromise) return sampleWarmPromise;
+  const sampleAudio = drumEngines.samples.audio;
+  const sampleCount = sampleEngineSampleCount();
+  if (sampleAudio.loadedSampleCount >= sampleCount) {
+    updateEngineStatus();
+    return Promise.resolve(sampleCount);
+  }
+  setEngineStatus("Loading 808/909 samples...");
+  sampleWarmPromise = sampleAudio.preload(drumEngines.samples.voices)
+    .then((count) => {
+      if (state.drumEngine === "samples") updateEngineStatus();
+      return count;
+    })
+    .catch((error) => {
+      setEngineStatus("Sample loading failed");
+      showError(error);
+      return 0;
+    })
+    .finally(() => {
+      sampleWarmPromise = null;
+    });
+  return sampleWarmPromise;
+}
+
+async function auditionCurrentEngine({ allowEnable = true } = {}) {
+  const generation = ++auditionGeneration;
+  if (!state.audioOn) {
+    if (!allowEnable || !await enableAudio()) return false;
+  }
+  try {
+    $("audioError").hidden = true;
+    const engine = currentEngine();
+    const pattern = ENGINE_AUDITION_PATTERN[engine.id] ?? [0];
+    if (engine.id === "samples") setEngineStatus("Loading 808/909 audition...");
+    for (let step = 0; step < pattern.length; step += 1) {
+      if (generation !== auditionGeneration || state.drumEngine !== engine.id) return false;
+      const voiceIndex = pattern[step];
+      const baseVoice = engine.voices[voiceIndex] ?? engine.voices[0];
+      if (!baseVoice) return false;
+      const voice = engine.id === "samples"
+        ? sanitizeSampleDrumVoice({
+          ...baseVoice,
+          level: Math.max(.82, baseVoice.level),
+          pitch: 0,
+          tone: Math.max(.72, baseVoice.tone),
+        })
+        : sanitizeFmDrumVoice({
+          ...baseVoice,
+          level: Math.max(.74, baseVoice.level),
+          tone: Math.max(.72, baseVoice.tone),
+        });
+      await engine.audio.trigger(voice);
+      flashVoice(voiceIndex);
+      if (step < pattern.length - 1) await wait(ENGINE_AUDITION_STEP_MS);
+    }
+    setEngineStatus(engine.id === "samples"
+      ? `Sample engine · ${engine.audio.loadedSampleCount}/${sampleEngineSampleCount()} samples in RAM`
+      : "FM synth active");
+    if (engine.id === "samples") void warmSampleEngine();
+    announce(`${engine.label} audition.`);
+    return true;
+  } catch (error) {
+    showError(error);
+    return false;
   }
 }
 
@@ -149,14 +302,17 @@ function setAudioState(enabled) {
   state.audioOn = Boolean(enabled);
   setPressed($("audioButton"), state.audioOn);
   $("audioState").textContent = state.audioOn ? "on" : "off";
-  audio.setOutput(state.audioOn ? state.output : 0);
+  for (const engine of Object.values(drumEngines)) engine.audio.setOutput(0);
+  currentAudio().setOutput(state.audioOn ? state.output : 0);
+  updateEngineStatus();
 }
 
 async function enableAudio() {
   try {
     $("audioError").hidden = true;
-    await audio.start();
+    await currentAudio().start();
     setAudioState(true);
+    warmSampleEngine();
     return true;
   } catch (error) {
     showError(error);
@@ -562,7 +718,7 @@ function pairAssignment(index) {
 
 function renderDrumMap() {
   const fragment = document.createDocumentFragment();
-  voices.forEach((voice, index) => {
+  currentVoices().forEach((voice, index) => {
     const cell = document.createElement("span");
     cell.className = "lattice-drum-cell";
     cell.dataset.voiceIndex = String(index);
@@ -606,9 +762,10 @@ function mappingPlaceholder(mode = currentMappingMode()) {
 
 function updateMappingControls(shouldAnnounce = false) {
   const mode = currentMappingMode();
-  $("mappingSummary").textContent = mode.label.toLowerCase();
+  $("mappingSummary").textContent = `${mode.label.toLowerCase()} · ${currentEngineLabel().toLowerCase()}`;
   $("mappingDescription").textContent = mode.description;
   $("mappingReadout").textContent = mappingPlaceholder(mode);
+  updateEngineStatus();
   renderMappingLegend(mode);
   renderDrumMap();
   if (shouldAnnounce) announce(`${mode.label}. ${mode.description}`);
@@ -674,11 +831,20 @@ function mappingReadoutLead(contact, contactCount, voiceIndex) {
   ];
 }
 
+function voiceTuningLabel(voice) {
+  if (Number.isFinite(Number(voice.frequency))) return `${Math.round(voice.frequency)} HZ`;
+  if (Number.isFinite(Number(voice.pitch))) {
+    const pitch = Number(voice.pitch);
+    return `${pitch >= 0 ? "+" : ""}${pitch.toFixed(1)} ST`;
+  }
+  return currentEngineLabel().toUpperCase();
+}
+
 function updateMappingReadout(contact, contactCount, voiceIndex, voice) {
   $("mappingReadout").textContent = [
     ...mappingReadoutLead(contact, contactCount, voiceIndex),
     `→ ${voice.name}`,
-    `${Math.round(voice.frequency)} HZ`,
+    voiceTuningLabel(voice),
   ].join(" · ");
 }
 
@@ -692,13 +858,25 @@ function triggerContacts(contacts, now) {
     const lastStrike = lastStrikeTimes.get(voiceIndex) ?? Number.NEGATIVE_INFINITY;
     if (now - lastStrike < 75) continue;
     lastStrikeTimes.set(voiceIndex, now);
-    const voice = mappedLatticeDrumVoice(voices[voiceIndex], contact, {
+    const fmVoice = mappedLatticeDrumVoice(drumEngines.fm.voices[voiceIndex], contact, {
       bounds: viewBounds,
       pitchDepth: state.pitchDepth,
       characterDepth: state.characterDepth,
       contactCount: contacts.length,
     });
-    audio.trigger(voice).catch(showError);
+    const voice = state.drumEngine === "samples"
+      ? mappedLatticeSampleDrumVoice(drumEngines.samples.voices[voiceIndex], contact, {
+        bounds: viewBounds,
+        pitchDepth: state.pitchDepth,
+        characterDepth: state.characterDepth,
+        contactCount: contacts.length,
+      })
+      : fmVoice;
+    currentAudio().trigger(voice)
+      .then(() => {
+        if (state.drumEngine === "samples") updateEngineStatus();
+      })
+      .catch(showError);
     flashVoice(voiceIndex);
     updateMappingReadout(contact, contacts.length, voiceIndex, voice);
     emitted += 1;
@@ -764,7 +942,7 @@ function tracePoints(points, close = false) {
 
 function drawContactMarker(contact, voiceIndex) {
   const radius = 4.2 / worldScale;
-  const voiceColor = voices[voiceIndex].color;
+  const voiceColor = currentVoices()[voiceIndex].color;
   const pairMode = state.mappingMode === "tile-color-pair";
   const colors = contactTileColors(contact);
   if (!pairMode) {
@@ -929,6 +1107,7 @@ function reset() {
   $("patternAngle").value = String(state.patternAngle);
   $("lineAngle").value = String(state.lineAngle);
   $("mappingMode").value = state.mappingMode;
+  $("drumEngine").value = state.drumEngine;
   $("pitchDepth").value = String(state.pitchDepth);
   $("characterDepth").value = String(state.characterDepth);
   $("strikeLimit").value = String(state.strikeLimit);
@@ -945,7 +1124,7 @@ function reset() {
   }
   updateMappingControls();
   configureTilingControls();
-  if (state.audioOn) audio.setOutput(state.output);
+  if (state.audioOn) setAudioState(true);
   invalidateGeometry();
   announce("Lattice Drum Machine reset.");
 }
@@ -1009,6 +1188,26 @@ $("mappingMode").addEventListener("change", () => {
   updateMappingControls(true);
   scheduleFrame();
 });
+$("drumEngine").addEventListener("change", async () => {
+  const nextEngine = $("drumEngine").value === "samples" ? "samples" : "fm";
+  if (nextEngine === state.drumEngine) return;
+  state.drumEngine = nextEngine;
+  previousContactKeys.clear();
+  lastStrikeTimes.clear();
+  suppressStrikes = 0;
+  setAudioState(state.audioOn);
+  updateMappingControls();
+  if (state.audioOn) {
+    await enableAudio();
+    await auditionCurrentEngine({ allowEnable: false });
+  } else {
+    announce(`${currentEngineLabel()} selected.`);
+  }
+  scheduleFrame();
+});
+$("auditionEngine").addEventListener("click", () => {
+  return auditionCurrentEngine();
+});
 $("pitchDepth").addEventListener("input", () => {
   state.pitchDepth = Number($("pitchDepth").value);
   $("pitchDepthOut").textContent = `±${state.pitchDepth} st`;
@@ -1024,7 +1223,7 @@ $("strikeLimit").addEventListener("input", () => {
 $("output").addEventListener("input", () => {
   state.output = Number($("output").value);
   $("outputOut").textContent = `${Math.round(state.output * 100)}%`;
-  if (state.audioOn) audio.setOutput(state.output);
+  if (state.audioOn) setAudioState(true);
 });
 $("straightenEdges").addEventListener("click", () => {
   state.edgeCurves = tilingInfo(state.tilingType).edgeShapes.map(() => 0);
@@ -1102,7 +1301,9 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pageshow", scheduleFrame);
 window.addEventListener("pagehide", () => {
-  if (audio.context && audio.context.state !== "closed") void audio.context.close();
+  for (const engine of Object.values(drumEngines)) {
+    void engine.audio.close().catch(() => {});
+  }
 });
 
 populateTilingTypes();

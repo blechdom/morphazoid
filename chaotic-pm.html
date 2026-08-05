@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="Morphazoid Chaotic PM — playable audio-rate recursive phase modulation shaped by the original signed-remainder tanh transfer."
+      content="Morphazoid Chaotic PM — continuous audio-rate recursive phase modulation with bounded nonlinear feedback and an optional Legacy Raw transfer."
     />
     <title>Chaotic PM — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -76,7 +76,7 @@
           <div class="chaotic-pm-heading">
             <p>CHAOTIC SYNTHS · 04</p>
             <h1 id="chaoticPmTitle">Chaotic PM</h1>
-            <span>recursive phase · signed remainder · nonlinear warp</span>
+            <span>recursive phase · continuous nonlinear feedback</span>
           </div>
 
           <div class="stage-meta" aria-hidden="true">
@@ -88,8 +88,8 @@
             id="chaoticPmFlow"
             role="img"
             tabindex="0"
-            data-path-label="LIVE TURN · PHASOR + PREVIOUS × INDEX → SIGNED %1 → × (WARP × f²) → TANH → × GAIN → SINE"
-            aria-label="Chaotic PM signal flow. A phasor is added to the previous sine times phase index, passed through signed remainder modulo one, multiplied by phase warp times frequency squared, shaped by tanh, multiplied by gain, and sent to a sine."
+            data-path-label="LIVE TURN · PREVIOUS → TANH CONTROL → CHAOS MIX → × INDEX (RAD) + PHASOR → SINE"
+            aria-label="Smooth Chaotic PM signal flow. The previous sine is continuously tanh-shaped, mixed by the chaos amount, multiplied by a phase index in radians, added to a phasor, and sent to a sine."
           ></div>
         </div>
       </section>
@@ -112,14 +112,15 @@
               <button type="button" data-preset="chrome-cascade" aria-pressed="false">Chrome Cascade</button>
             </div>
             <p class="chaotic-pm-preset-description" id="presetDescription">
-              A 40 Hz phase shaper folds a 66.6 Hz carrier through a wide 6.66-cycle index.
+              A 40 Hz phase shaper folds a 66.6 Hz carrier through a wide 6.66-radian index.
             </p>
             <details class="chaotic-pm-repair-note">
               <summary>Why these presets were retuned</summary>
               <p>
                 The recovered work-in-progress values ended six of eight final turns below 4 Hz.
-                These buttons keep the same recursion and transfer but finish between 40 and
-                389.6 Hz. The eight exact source tuples remain preserved as legacy reference data.
+                These buttons finish between 40 and 389.6 Hz and use a continuous PM transfer
+                so phase wraps no longer become clicks. The exact source tuples and transfer
+                remain preserved as Legacy / Raw reference material.
               </p>
             </details>
           </div>
@@ -192,7 +193,7 @@
             </label>
 
             <p class="chaotic-pm-control-note chaotic-midi-map-note">
-              Controller macros · 1 Depth · 2 Mod frequency · 3 Phase index · 4 Phase warp · 5 Attack · 6 Release · 7 Glide · 8 Output. Standard MIDI · CC5 glide · CC11 expression · CC64 sustain · CC65 portamento · CC72 release · CC73 attack · CC75 decay · CC120/121/123 panic and reset.
+              Controller macros · 1 Depth · 2 Mod frequency · 3 Phase index · 4 Chaos / warp · 5 Attack · 6 Release · 7 Glide · 8 Output. Standard MIDI · CC5 glide · CC11 expression · CC64 sustain · CC65 portamento · CC72 release · CC73 attack · CC75 decay · CC120/121/123 panic and reset.
             </p>
           </div>
         </details>
@@ -203,6 +204,16 @@
             <span class="section-state" id="algorithmState">1 turn · final 40 Hz</span>
           </summary>
           <div class="group-body">
+            <div class="chaotic-glide-row">
+              <label for="transferMode">
+                <span>Transfer</span>
+                <select id="transferMode" data-parameter-id="synthesis.transferMode">
+                  <option value="smooth" selected>Smooth</option>
+                  <option value="legacy">Legacy / Raw</option>
+                </select>
+              </label>
+            </div>
+
             <label class="control" for="depth">
               <span><b>Recursion depth</b><output id="depthOut" for="depth">1</output></span>
               <input id="depth" data-parameter-id="synthesis.depth" type="range" min="0" max="10" step="1" value="1" />
@@ -227,8 +238,9 @@
 
             <label class="control" for="phaseIndex">
               <span><b>Starting phase index</b><output id="phaseIndexOut" for="phaseIndex">6.66</output></span>
-              <input id="phaseIndex" data-parameter-id="synthesis.startPhaseIndex" type="range" min="0" max="64" step="0.001" value="6.66" />
+              <input id="phaseIndex" data-parameter-id="synthesis.startPhaseIndex" type="range" min="0" max="64" step="0.001" value="6.66" aria-describedby="phaseIndexNote" />
             </label>
+            <small class="chaotic-pm-control-note" id="phaseIndexNote">Smooth index · radians</small>
 
             <label class="control" for="indexDivisor">
               <span><b>Index divisor</b><output id="indexDivisorOut" for="indexDivisor">÷6.5</output></span>
@@ -236,7 +248,7 @@
             </label>
 
             <label class="control" for="phaseWarp">
-              <span><b>Phase warp</b><output id="phaseWarpOut" for="phaseWarp">0.016</output></span>
+              <span><b>Chaos / phase warp</b><output id="phaseWarpOut" for="phaseWarp">0.512</output></span>
               <input
                 id="phaseWarp"
                 data-parameter-id="synthesis.nonlinearity"
@@ -244,25 +256,25 @@
                 min="0"
                 max="1"
                 step="0.001"
-                value="0.016"
+                value="0.512"
                 aria-describedby="phaseWarpNote"
               />
             </label>
             <small class="chaotic-pm-control-note chaotic-pm-warp-note" id="phaseWarpNote">
-              Legacy <code>filter</code> = Phase warp. It is not an audio filter.
+              Smooth blends linear and tanh-shaped feedback. Legacy uses the original <code>filter</code> coefficient.
             </small>
 
             <div class="grammar-card chaotic-pm-ledger chaotic-turn-ledger" aria-label="Current bounded Chaotic PM operator model">
               <span><b>Carrier</b><code id="carrierReadout">66.6 Hz sine</code></span>
-              <span><b>Entry</b><code id="entryReadout">40 Hz · index 6.66</code></span>
-              <span><b>Turns</b><code id="turnsReadout">1: 40 Hz · I 6.66 · drive 25.6</code></span>
-              <span><b>Transfer</b><code id="transferReadout">signed %1 · tanh · gain 1.074</code></span>
+              <span><b>Entry</b><code id="entryReadout">40 Hz · index 6.66 rad</code></span>
+              <span><b>Turns</b><code id="turnsReadout">1: 40 Hz · I 6.66 · drive 5.096</code></span>
+              <span><b>Transfer</b><code id="transferReadout">continuous tanh control · k 5.096</code></span>
               <span><b>Output</b><code id="operatorReadout">operator 1 · 40 Hz · normalized</code></span>
               <span><b>Ceiling</b><code id="ceilingReadout">20 kHz</code></span>
             </div>
 
             <p class="chaotic-pm-safety-note">
-              Each turn uses the previous sine as phase displacement, not frequency. Signed <code>% 1</code> intentionally preserves negative remainders before the asymmetric tanh warp. Live parameters glide; depth changes crossfade; an 18 Hz DC blocker, normalization, dynamics, and a soft ceiling protect the output.
+              Smooth mode shapes the previous sine continuously and applies it inside a periodic PM oscillator, so phase wrapping cannot create a waveform seam. Legacy / Raw preserves the asymmetric signed-<code>% 1</code> experiment and can intentionally sound clicky. Live parameters glide; depth and transfer changes crossfade; normalization, dynamics, and a soft ceiling protect the output.
             </p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
@@ -289,7 +301,7 @@
               </article>
               <article aria-current="true">
                 <h3>Chaotic PM</h3>
-                <p>Tanh-warped whole phase → sine. The signed phase expression is reshaped before oscillation.</p>
+                <p>Tanh-shaped signal → phase. Nonlinear feedback displaces the next oscillator without breaking phase periodicity.</p>
               </article>
             </div>
           </div>
@@ -301,7 +313,7 @@
       </aside>
 
       <p class="sr-only" id="chaoticPmDescription">
-        A live non-scrolling log-frequency spectrum and foreground oscilloscope sit above the exact Chaotic PM turn. The previous sine times phase index is added to a phasor, passed through signed remainder modulo one, multiplied by phase warp times frequency squared, shaped by tanh and gain, and then sent through the next sine. The final turn is audible.
+        A live non-scrolling log-frequency spectrum and foreground oscilloscope sit above the Chaotic PM turn. In Smooth mode, the previous sine is continuously tanh-shaped, mixed by the chaos amount, applied as phase displacement in radians, and sent through the next sine. Legacy Raw mode preserves the original signed-remainder experiment. The final turn is audible.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

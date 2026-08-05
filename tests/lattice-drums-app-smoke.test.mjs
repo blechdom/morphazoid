@@ -144,6 +144,112 @@ test("lattice drum app starts with the complete editable isohedral form", async 
     },
     setItem() {},
   };
+  const previousSetTimeout = globalThis.setTimeout;
+  const previousAudioContext = globalThis.AudioContext;
+  const previousFetch = globalThis.fetch;
+  let oscillatorStarts = 0;
+  let bufferSourceStarts = 0;
+  let sampleFetches = 0;
+  const audioParam = (value = 0) => ({
+    value,
+    setValueAtTime(next) { this.value = next; },
+    linearRampToValueAtTime(next) { this.value = next; },
+    exponentialRampToValueAtTime(next) { this.value = next; },
+    setTargetAtTime(next) { this.value = next; },
+  });
+  const audioNode = (properties = {}) => ({
+    ...properties,
+    connect(destination) {
+      return destination;
+    },
+  });
+  globalThis.setTimeout = (callback) => {
+    queueMicrotask(callback);
+    return 1;
+  };
+  globalThis.AudioContext = class {
+    constructor() {
+      this.state = "running";
+      this.currentTime = 1;
+      this.sampleRate = 44_100;
+      this.destination = audioNode();
+    }
+
+    createDynamicsCompressor() {
+      return audioNode({
+        threshold: audioParam(),
+        knee: audioParam(),
+        ratio: audioParam(),
+        attack: audioParam(),
+        release: audioParam(),
+      });
+    }
+
+    createGain() {
+      return audioNode({ gain: audioParam() });
+    }
+
+    createAnalyser() {
+      return audioNode({ fftSize: 0 });
+    }
+
+    createOscillator() {
+      return audioNode({
+        frequency: audioParam(),
+        type: "sine",
+        start() {
+          oscillatorStarts += 1;
+        },
+        stop() {},
+      });
+    }
+
+    createBufferSource() {
+      return audioNode({
+        playbackRate: audioParam(1),
+        start() {
+          bufferSourceStarts += 1;
+        },
+        stop() {},
+      });
+    }
+
+    createBiquadFilter() {
+      return audioNode({ frequency: audioParam(), Q: audioParam(), type: "lowpass" });
+    }
+
+    createBuffer(_channels, frameCount) {
+      return {
+        getChannelData() {
+          return new Float32Array(frameCount);
+        },
+      };
+    }
+
+    decodeAudioData(_data, resolve) {
+      const decoded = { duration: .5 };
+      if (resolve) {
+        queueMicrotask(() => resolve(decoded));
+        return undefined;
+      }
+      return Promise.resolve(decoded);
+    }
+
+    async resume() {}
+
+    async close() {
+      this.state = "closed";
+    }
+  };
+  globalThis.fetch = async () => {
+    sampleFetches += 1;
+    return {
+      ok: true,
+      async arrayBuffer() {
+        return new ArrayBuffer(16);
+      },
+    };
+  };
 
   function flushAnimationFrame(now = performance.now() + 20) {
     const callbacks = rafQueue.splice(0);
@@ -160,8 +266,14 @@ test("lattice drum app starts with the complete editable isohedral form", async 
 
   const tilingOptions = descendants(elements.get("tilingType"))
     .filter((node) => node.tagName === "OPTION");
+  const mappingOptions = descendants(elements.get("mappingMode"))
+    .filter((node) => node.tagName === "OPTION");
   assert.equal(tilingOptions.length, 72, "the selector should expose every isohedral preset");
+  assert.equal(mappingOptions.length, 4);
+  assert.equal(mappingOptions.at(-1).value, "tile-color-pair");
   assert.equal(elements.get("tilingType").value, "20");
+  assert.equal(elements.get("drumEngine").value, "fm");
+  assert.equal(elements.get("engineStatus").textContent, "FM synth · audio off");
   assert.equal(elements.get("speed").value, "0.36");
   assert.equal(elements.get("speedOut").textContent, "0.360 cyc/s");
   assert.equal(elements.get("motionSummary").textContent, "paused · 0.360 cyc/s");
@@ -169,11 +281,44 @@ test("lattice drum app starts with the complete editable isohedral form", async 
   assert.equal(elements.get("parameterCount").textContent, "2 parameters · guarded");
   assert.equal(elements.get("edgeCount").textContent, "3 bendable classes");
   assert.equal(elements.get("drumMap").children.length, 16);
+  assert.equal(elements.get("mappingLegend").children.length, 5);
+  assert.equal(elements.get("drumMap").dataset.mappingMode, "edge-angle");
   assert.equal(tileEditorCanvas.width, 640);
   assert.equal(tileEditorCanvas.height, 440);
   assert.equal(typeof listeners.get("tileEditorCanvas:pointerdown"), "function");
   assert.equal(typeof listeners.get("tileEditorCanvas:pointermove"), "function");
   assert.equal(typeof listeners.get("tileEditorCanvas:pointerup"), "function");
+  assert.equal(typeof listeners.get("auditionEngine:click"), "function");
+
+  elements.get("mappingMode").value = "tile-color-pair";
+  listeners.get("mappingMode:change")();
+  assert.equal(elements.get("mappingSummary").textContent, "tile color pair · fm synth");
+  assert.match(elements.get("mappingDescription").textContent, /two tile colors/i);
+  assert.equal(elements.get("drumMap").dataset.mappingMode, "tile-color-pair");
+  assert.equal(elements.get("drumMap").children.length, 16);
+  assert.equal(elements.get("drumMap").children[0].children[1].children.length, 2);
+  elements.get("drumEngine").value = "samples";
+  await listeners.get("drumEngine:change")();
+  assert.equal(elements.get("drumEngine").value, "samples");
+  assert.equal(elements.get("mappingSummary").textContent, "tile color pair · 808/909 samples");
+  assert.equal(elements.get("engineStatus").textContent, "Sample engine · audio off · 0/16 in RAM");
+  assert.equal(elements.get("drumMap").children[0].children[0].textContent, "808 BD Short");
+
+  elements.get("drumEngine").value = "fm";
+  await listeners.get("drumEngine:change")();
+  await listeners.get("audioButton:click")();
+  assert.equal(elements.get("audioState").textContent, "on");
+  assert.equal(elements.get("engineStatus").textContent, "FM synth active");
+  await listeners.get("auditionEngine:click")?.();
+  assert.ok(oscillatorStarts > 0, "FM audition should start oscillator voices");
+
+  const bufferSourcesAfterFm = bufferSourceStarts;
+  elements.get("drumEngine").value = "samples";
+  await listeners.get("drumEngine:change")();
+  assert.equal(elements.get("audioState").textContent, "on");
+  assert.match(elements.get("engineStatus").textContent, /^Sample engine · \d+\/16 samples in RAM$/);
+  assert.ok(sampleFetches > 0, "sample audition should fetch decoded sample buffers");
+  assert.ok(bufferSourceStarts > bufferSourcesAfterFm, "sample audition should start buffer sources");
 
   const editorModel = buildPrototile({
     type: 20,
@@ -267,6 +412,10 @@ test("lattice drum app starts with the complete editable isohedral form", async 
   assert.equal(elements.get("speed").value, "0.36");
   assert.equal(elements.get("speedOut").textContent, "0.360 cyc/s");
   assert.equal(elements.get("motionSummary").textContent, "paused · 0.360 cyc/s");
+  assert.equal(elements.get("mappingMode").value, "edge-angle");
+  assert.equal(elements.get("drumEngine").value, "fm");
+  assert.equal(elements.get("engineStatus").textContent, "FM synth active");
+  assert.equal(elements.get("drumMap").dataset.mappingMode, "edge-angle");
 
   for (const oldSoundId of [
     "soundMode",
@@ -277,4 +426,11 @@ test("lattice drum app starts with the complete editable isohedral form", async 
   ]) {
     assert.equal(elements.has(oldSoundId), false, `${oldSoundId} should remain on the old Lattice page`);
   }
+
+  if (previousSetTimeout === undefined) delete globalThis.setTimeout;
+  else globalThis.setTimeout = previousSetTimeout;
+  if (previousAudioContext === undefined) delete globalThis.AudioContext;
+  else globalThis.AudioContext = previousAudioContext;
+  if (previousFetch === undefined) delete globalThis.fetch;
+  else globalThis.fetch = previousFetch;
 });

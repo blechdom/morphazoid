@@ -13,7 +13,7 @@ test("About is a complete linked guide to the public tool registry", async () =>
   assert.match(html, /href="about\.html" aria-current="page">about<\/a>/);
   assert.match(html, /class="mobile-instrument-select"/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.equal((html.match(/class="page-entry"/g) ?? []).length, 56);
+  assert.equal((html.match(/class="page-entry"/g) ?? []).length, 57);
 
   for (const group of TOOL_GROUPS) {
     assert.match(html, new RegExp(`>${group.label.replace("&", "&amp;")}<\\/h2>`));

@@ -11,6 +11,7 @@ import {
   PHYSICS_COLORS,
   add,
   clamp,
+  closestPointOnSegment,
   closestPointOnPolyline,
   cross,
   distance,
@@ -22,9 +23,11 @@ import {
   normalize,
   normalizedVoice,
   perpendicular,
+  pointInPolygon,
   pointAtDistance,
   polygonArea,
   polygonEdges,
+  polygonSignedArea,
   rangeControl,
   regularPolygon,
   rotate,
@@ -430,190 +433,457 @@ function createGravityWalk() {
 // Ricochet
 
 const RICOCHET_DEFAULTS = Object.freeze({
+  preset: "regular",
   sides: 6,
   rotation: 0,
-  speed: 0.78,
+  rotationSpeed: 0,
+  launchVelocity: 0.78,
   launchAngle: 27,
   restitution: 1,
   trail: 120,
 });
 
+const RICOCHET_PRESETS = Object.freeze([
+  Object.freeze({ value: "regular", label: "Regular polygon" }),
+  Object.freeze({ value: "asymmetric", label: "Asymmetric chamber" }),
+  Object.freeze({ value: "star", label: "Irregular star" }),
+  Object.freeze({ value: "tunnel", label: "Bent tunnel" }),
+]);
+
+function ricochetPresetPoints(preset, sides) {
+  const count = Math.max(3, Math.min(12, Math.round(sides)));
+  if (preset === "tunnel") {
+    // One simple concave polygon whose interior is a bent, unequal-width channel.
+    return [
+      { x: -0.78, y: -0.7 },
+      { x: 0.78, y: -0.7 },
+      { x: 0.78, y: 0.68 },
+      { x: 0.36, y: 0.68 },
+      { x: 0.36, y: -0.2 },
+      { x: -0.25, y: -0.2 },
+      { x: -0.25, y: 0.34 },
+      { x: -0.78, y: 0.34 },
+    ];
+  }
+  if (preset === "star") {
+    return regularPolygon(count, {
+      radius: 0.76,
+      rotation: Math.PI / 2,
+      starDepth: 0.47,
+    }).map((point, index) => {
+      const skew = 1 + 0.055 * Math.sin(index * 1.73 + 0.4);
+      return { x: point.x * skew, y: point.y * (2 - skew) };
+    });
+  }
+  if (preset === "asymmetric") {
+    return regularPolygon(count, { radius: 0.71, rotation: Math.PI / 2 }).map((point, index) => {
+      const radial = 1 + 0.12 * Math.sin(index * 1.91 + 0.35)
+        + 0.045 * Math.cos(index * 2.63 - 0.2);
+      return {
+        x: point.x * radial + 0.035 * Math.sin(index * 1.37),
+        y: point.y * radial + 0.025 * Math.cos(index * 2.11),
+      };
+    });
+  }
+  return regularPolygon(count, { radius: 0.76, rotation: Math.PI / 2 });
+}
+
+function ricochetSegmentsCross(a, b, c, d) {
+  const ab = sub(b, a);
+  const cd = sub(d, c);
+  const first = cross(ab, sub(c, a));
+  const second = cross(ab, sub(d, a));
+  const third = cross(cd, sub(a, c));
+  const fourth = cross(cd, sub(b, c));
+  return first * second < -1e-9 && third * fourth < -1e-9;
+}
+
+function validRicochetPolygon(points, minimumEdge = 0.065) {
+  if (!Array.isArray(points) || points.length < 3 || points.length > 32) return false;
+  if (Math.abs(polygonSignedArea(points)) < 0.055) return false;
+  const edges = polygonEdges(points);
+  if (edges.some((edge) => distance(edge.a, edge.b) < minimumEdge)) return false;
+  for (let first = 0; first < edges.length; first += 1) {
+    for (let second = first + 1; second < edges.length; second += 1) {
+      if (second === first + 1 || (first === 0 && second === edges.length - 1)) continue;
+      if (ricochetSegmentsCross(edges[first].a, edges[first].b, edges[second].a, edges[second].b)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 function createRicochet() {
   const controls = Object.freeze([
-    rangeControl("sides", "Walls", 3, 12, 1, RICOCHET_DEFAULTS.sides),
+    selectControl("preset", "Arena preset", RICOCHET_PRESETS, RICOCHET_DEFAULTS.preset),
+    rangeControl("sides", "Sides / star tips", 3, 12, 1, RICOCHET_DEFAULTS.sides),
     rangeControl("rotation", "Arena angle", -180, 180, 1, RICOCHET_DEFAULTS.rotation, (v) => `${Math.round(v)}°`),
-    rangeControl("speed", "Launch speed", 0.15, 2, 0.01, RICOCHET_DEFAULTS.speed, (v) => Number(v).toFixed(2)),
+    rangeControl("rotationSpeed", "Rotation speed", -120, 120, 1, RICOCHET_DEFAULTS.rotationSpeed, (v) => `${Math.round(v)}°/s`),
+    rangeControl("launchVelocity", "Launch velocity", 0.15, 4, 0.01, RICOCHET_DEFAULTS.launchVelocity, (v) => Number(v).toFixed(2)),
     rangeControl("launchAngle", "Launch angle", -180, 180, 1, RICOCHET_DEFAULTS.launchAngle, (v) => `${Math.round(v)}°`),
     rangeControl("restitution", "Reflection", 0.55, 1, 0.01, RICOCHET_DEFAULTS.restitution, (v) => Number(v).toFixed(2)),
     rangeControl("trail", "Trail", 24, 240, 1, RICOCHET_DEFAULTS.trail),
   ]);
   const state = { ...RICOCHET_DEFAULTS };
   const events = makeEventQueue();
-  const ballRadius = 0.027;
-  let polygon = regularPolygon(state.sides, { radius: 0.76, rotation: radians(state.rotation) + Math.PI / 2 });
-  let ball = { x: -0.18, y: 0.08 };
-  let velocity = { x: 0, y: 0 };
+  const ballRadius = 0.025;
+  const maximumBalls = 12;
+  let localPolygon = [];
+  let arenaAngle = 0;
+  let balls = [];
+  let nextBallId = 1;
   let collisionCount = 0;
   let lastEdge = -1;
   let lastIncidence = 0;
   let impactGlow = 0;
   let lastImpact = null;
-  let aiming = false;
-  let aimPoint = null;
-  let trailPoints = [];
-  let trailClock = 0;
+  let interaction = null;
+  let geometryEdited = false;
 
-  const walls = () => polygonEdges(polygon).map((edge) => ({
-    ...edge,
-    inward: normalize(perpendicular(sub(edge.b, edge.a))),
-  }));
+  const worldPolygon = () => localPolygon.map((point) => rotate(point, arenaAngle));
 
-  function insideWithMargin(point) {
-    return walls().every((wall) => dot(sub(point, wall.a), wall.inward) >= ballRadius - 1e-7);
+  function arenaWalls(points = worldPolygon()) {
+    const orientation = polygonSignedArea(points) < 0 ? -1 : 1;
+    return polygonEdges(points).map((edge) => {
+      const tangent = normalize(sub(edge.b, edge.a));
+      return {
+        ...edge,
+        tangent,
+        length: distance(edge.a, edge.b),
+        inward: scale(perpendicular(tangent), orientation),
+      };
+    });
   }
 
-  function launch() {
-    const angle = radians(state.launchAngle);
-    velocity = { x: Math.cos(angle) * state.speed, y: Math.sin(angle) * state.speed };
-    aiming = false;
-    aimPoint = null;
+  function nearestBoundary(point, walls) {
+    let best = null;
+    for (const wall of walls) {
+      const candidate = closestPointOnSegment(point, wall.a, wall.b);
+      if (!best || candidate.distance < best.distance) best = { ...candidate, wall };
+    }
+    return best;
+  }
+
+  function isSafePosition(point, points = worldPolygon(), walls = arenaWalls(points), margin = ballRadius) {
+    if (!pointInPolygon(point, points)) return false;
+    const nearest = nearestBoundary(point, walls);
+    return Boolean(nearest && nearest.distance >= margin - 1e-6);
+  }
+
+  function safeSpawnPoint(preferred = null) {
+    const points = worldPolygon();
+    const walls = arenaWalls(points);
+    const candidates = [];
+    if (preferred) candidates.push(preferred);
+    candidates.push(
+      state.preset === "tunnel" ? { x: -0.53, y: 0.02 } : { x: -0.18, y: 0.08 },
+      { x: 0, y: 0 },
+    );
+    for (let row = 0; row < 13; row += 1) {
+      for (let column = 0; column < 15; column += 1) {
+        candidates.push({ x: -0.7 + column * 0.1, y: -0.6 + row * 0.1 });
+      }
+    }
+    return candidates.find((candidate) => (
+      isSafePosition(candidate, points, walls, ballRadius * 1.35)
+      && balls.every((ball) => distance(candidate, ball.position) > ballRadius * 2.6)
+    )) ?? candidates.find((candidate) => isSafePosition(candidate, points, walls, ballRadius * 1.1))
+      ?? { x: 0, y: -0.42 };
+  }
+
+  function makeBall(position, angle, speed) {
+    const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+    return {
+      id: nextBallId++,
+      position: { ...position },
+      velocity: scale(direction, speed),
+      trail: [{ ...position }],
+      trailClock: 0,
+      impactGlow: 0,
+      aiming: false,
+    };
+  }
+
+  function spawnBall({ position = null, angle = null, speed = null, emit = true } = {}) {
+    if (balls.length >= maximumBalls) return null;
+    const spawnIndex = balls.length;
+    const launchAngle = angle ?? radians(state.launchAngle + spawnIndex * 17);
+    const launchSpeed = speed ?? state.launchVelocity;
+    const ball = makeBall(safeSpawnPoint(position), launchAngle, launchSpeed);
+    balls.push(ball);
+    if (emit) {
+      events.push(transient(
+        `launch-${ball.id}`,
+        clamp((ball.position.y + 0.8) / 1.6),
+        0.18 + 0.12 * clamp(launchSpeed / 4),
+        clamp(ball.position.x / 0.8, -1, 1),
+        "sine",
+        { decaySeconds: 0.08 },
+      ));
+    }
+    return ball;
   }
 
   function resetDynamics() {
-    ball = { x: -0.18, y: 0.08 };
+    balls = [];
+    nextBallId = 1;
     collisionCount = 0;
     lastEdge = -1;
     lastIncidence = 0;
     impactGlow = 0;
     lastImpact = null;
-    aiming = false;
-    aimPoint = null;
-    trailPoints = [{ ...ball }];
-    trailClock = 0;
+    interaction = null;
     events.clear();
-    launch();
+    spawnBall({ position: { x: -0.18, y: 0.08 }, angle: radians(state.launchAngle), emit: false });
   }
 
-  function rebuildArena() {
-    polygon = regularPolygon(Math.round(state.sides), {
-      radius: 0.76,
-      rotation: radians(state.rotation) + Math.PI / 2,
-    });
-    resetDynamics();
+  function orientArena(points) {
+    return polygonSignedArea(points) < 0 ? [...points].reverse() : points;
+  }
+
+  function rebuildArena(preserveDynamics = true) {
+    localPolygon = orientArena(ricochetPresetPoints(state.preset, state.sides));
+    geometryEdited = false;
+    if (!preserveDynamics) {
+      resetDynamics();
+      return;
+    }
+    repairBallsAfterEdit();
   }
 
   function reset() {
     Object.assign(state, RICOCHET_DEFAULTS);
-    rebuildArena();
+    arenaAngle = radians(state.rotation);
+    rebuildArena(false);
   }
 
   function setParam(key, value) {
     const next = coerceControl(controls, key, value);
     if (next === undefined) return;
     state[key] = next;
-    if (key === "sides" || key === "rotation") rebuildArena();
-    else if (key === "speed" && length(velocity) > EPSILON) velocity = scale(normalize(velocity), state.speed);
+    if (key === "preset" || key === "sides") rebuildArena(true);
+    else if (key === "rotation") {
+      arenaAngle = radians(state.rotation);
+      repairBallsAfterEdit();
+    } else if (key === "launchVelocity" && balls.length === 1 && collisionCount === 0) {
+      const ball = balls[0];
+      if (!ball.aiming && length(ball.velocity) > EPSILON) {
+        ball.velocity = scale(normalize(ball.velocity), state.launchVelocity);
+      }
+    }
   }
 
-  function registerImpact(point, normal, edgeIndex, incomingVelocity) {
-    const approach = clamp(-dot(normalize(incomingVelocity), normal));
+  function wallVelocityAt(point, angularVelocity) {
+    return scale(perpendicular(point), angularVelocity);
+  }
+
+  function registerImpact(ball, point, normal, wall, incomingVelocity, angularVelocity) {
+    const wallVelocity = wallVelocityAt(point, angularVelocity);
+    const relativeVelocity = sub(incomingVelocity, wallVelocity);
+    const impactSpeed = length(relativeVelocity);
+    const approach = clamp(-dot(normalize(relativeVelocity), normal));
     lastIncidence = Math.acos(approach) * 180 / Math.PI;
-    lastEdge = edgeIndex;
-    lastImpact = { point: { ...point }, normal: { ...normal } };
-    impactGlow = Math.max(impactGlow, approach);
+    lastEdge = wall.index;
+    lastImpact = { point: { ...point }, normal: { ...normal }, ballId: ball.id };
+    const energy = clamp(impactSpeed / 3.2);
+    impactGlow = Math.max(impactGlow, 0.25 + 0.75 * energy);
+    ball.impactGlow = Math.max(ball.impactGlow, 0.3 + 0.7 * energy);
     collisionCount += 1;
     events.push(transient(
-      `wall-${edgeIndex}`,
-      (edgeIndex + 0.5) / Math.max(1, state.sides),
-      0.22 + 0.68 * approach,
-      clamp(point.x / 0.76, -1, 1),
+      `tine-${wall.index}`,
+      clamp(lastIncidence / 90),
+      0.08 + 0.82 * energy,
+      clamp(point.x / 0.8, -1, 1),
       "triangle",
-      { decaySeconds: 0.08 + 0.12 * approach, attackNoise: 0.14 * approach },
+      {
+        decaySeconds: clamp(0.055 + 0.16 * wall.length / 0.8, 0.065, 0.3),
+        attackNoise: 0.035 + 0.055 * energy,
+      },
     ));
+  }
+
+  function reflectBall(ball, contact, normal, angularVelocity) {
+    const wallVelocity = wallVelocityAt(contact.point, angularVelocity);
+    const relative = sub(ball.velocity, wallVelocity);
+    const normalSpeed = dot(relative, normal);
+    if (normalSpeed >= -1e-7) return false;
+    const incoming = { ...ball.velocity };
+    const reflected = sub(relative, scale(normal, (1 + state.restitution) * normalSpeed));
+    ball.velocity = clampMagnitude(add(wallVelocity, reflected), 6);
+    registerImpact(ball, contact.point, normal, contact.wall, incoming, angularVelocity);
+    return true;
+  }
+
+  function inwardContactNormal(contact, safePoint, points) {
+    let normal = normalize(sub(safePoint, contact.point), contact.wall.inward);
+    if (dot(normal, contact.wall.inward) < 0.1) normal = contact.wall.inward;
+    if (!pointInPolygon(add(contact.point, scale(normal, ballRadius * 1.2)), points)) {
+      normal = contact.wall.inward;
+    }
+    return normal;
+  }
+
+  function relocateBall(ball, preferred = ball.position) {
+    const position = safeSpawnPoint(preferred);
+    ball.position = { ...position };
+    ball.trail = [{ ...position }];
+    ball.trailClock = 0;
+  }
+
+  function containBall(ball, points, walls, angularVelocity, soundContact = true) {
+    if (isSafePosition(ball.position, points, walls)) return true;
+    const contact = nearestBoundary(ball.position, walls);
+    if (!contact) {
+      relocateBall(ball);
+      return false;
+    }
+    const wasInside = pointInPolygon(ball.position, points);
+    const normal = wasInside
+      ? inwardContactNormal(contact, ball.position, points)
+      : contact.wall.inward;
+    const corrected = add(contact.point, scale(normal, ballRadius + 2e-5));
+    if (!isSafePosition(corrected, points, walls, ballRadius * 0.98)) {
+      relocateBall(ball);
+      return false;
+    }
+    if (soundContact) reflectBall(ball, contact, normal, angularVelocity);
+    ball.position = corrected;
+    return true;
+  }
+
+  function integrateBall(ball, dt, points, walls, angularVelocity) {
+    if (ball.aiming || length(ball.velocity) <= EPSILON) {
+      containBall(ball, points, walls, angularVelocity, false);
+      return;
+    }
+    if (!containBall(ball, points, walls, angularVelocity, true)) return;
+
+    let remaining = dt;
+    let contacts = 0;
+    while (remaining > 1e-8 && contacts < 5) {
+      const start = { ...ball.position };
+      const target = add(start, scale(ball.velocity, remaining));
+      if (isSafePosition(target, points, walls)) {
+        ball.position = target;
+        remaining = 0;
+        break;
+      }
+
+      let safeAmount = 0;
+      let unsafeAmount = 1;
+      for (let iteration = 0; iteration < 15; iteration += 1) {
+        const amount = (safeAmount + unsafeAmount) / 2;
+        const candidate = add(start, scale(ball.velocity, remaining * amount));
+        if (isSafePosition(candidate, points, walls)) safeAmount = amount;
+        else unsafeAmount = amount;
+      }
+      const safePoint = add(start, scale(ball.velocity, remaining * safeAmount));
+      const unsafePoint = add(start, scale(ball.velocity, remaining * unsafeAmount));
+      const contact = nearestBoundary(unsafePoint, walls);
+      if (!contact) {
+        relocateBall(ball, start);
+        return;
+      }
+      const normal = inwardContactNormal(contact, safePoint, points);
+      ball.position = add(contact.point, scale(normal, ballRadius + 2e-5));
+      if (!isSafePosition(ball.position, points, walls, ballRadius * 0.98)) {
+        ball.position = safePoint;
+      }
+      const reflected = reflectBall(ball, contact, normal, angularVelocity);
+      remaining *= 1 - safeAmount;
+      contacts += 1;
+      if (!reflected || safeAmount < 1e-5) remaining *= 0.5;
+    }
+    if (contacts >= 5 && remaining > 0) ball.velocity = scale(ball.velocity, 0.985);
+    containBall(ball, points, walls, angularVelocity, false);
+  }
+
+  function repairBallsAfterEdit() {
+    const points = worldPolygon();
+    const walls = arenaWalls(points);
+    for (const ball of balls) {
+      if (!isSafePosition(ball.position, points, walls)) relocateBall(ball);
+    }
   }
 
   function step(dt) {
     const h = finiteStep(dt);
     if (h <= 0) return;
     impactGlow *= Math.exp(-h / 0.1);
-    if (aiming || length(velocity) <= EPSILON) return;
+    for (const ball of balls) ball.impactGlow *= Math.exp(-h / 0.085);
 
-    let remaining = h;
-    let contacts = 0;
-    const arenaWalls = walls();
-    while (remaining > 1e-8 && contacts < 8) {
-      let earliest = remaining + 1;
-      let hits = [];
-      for (const wall of arenaWalls) {
-        const normalSpeed = dot(velocity, wall.inward);
-        if (normalSpeed >= -1e-9) continue;
-        const clearance = dot(sub(ball, wall.a), wall.inward);
-        const hitTime = (ballRadius - clearance) / normalSpeed;
-        if (hitTime < -1e-8 || hitTime > remaining + 1e-8) continue;
-        if (hitTime < earliest - 1e-7) {
-          earliest = Math.max(0, hitTime);
-          hits = [wall];
-        } else if (Math.abs(hitTime - earliest) <= 1e-7) {
-          hits.push(wall);
-        }
-      }
-
-      if (!hits.length) {
-        ball = add(ball, scale(velocity, remaining));
-        remaining = 0;
-        break;
-      }
-
-      ball = add(ball, scale(velocity, earliest));
-      remaining -= earliest;
-      const incoming = { ...velocity };
-      const combinedNormal = normalize(hits.reduce(
-        (sum, wall) => add(sum, wall.inward),
-        { x: 0, y: 0 },
-      ), hits[0].inward);
-      const normalSpeed = dot(velocity, combinedNormal);
-      velocity = sub(velocity, scale(combinedNormal, (1 + state.restitution) * normalSpeed));
-      velocity = clampMagnitude(velocity, 2.5);
-      ball = add(ball, scale(combinedNormal, 2e-6));
-      registerImpact(ball, combinedNormal, hits[0].index, incoming);
-      contacts += 1;
-    }
-    if (contacts >= 8 && remaining > 0) velocity = scale(velocity, 0.98);
-
-    // Correct tiny accumulated half-plane errors without changing tangential motion.
-    for (const wall of arenaWalls) {
-      const clearance = dot(sub(ball, wall.a), wall.inward);
-      if (clearance < ballRadius) ball = add(ball, scale(wall.inward, ballRadius - clearance + 1e-7));
+    const angularVelocity = radians(state.rotationSpeed);
+    const fastest = balls.reduce((maximum, ball) => Math.max(maximum, length(ball.velocity)), 0);
+    const projectedTravel = (fastest + Math.abs(angularVelocity) * 0.9) * h;
+    const substeps = Math.max(1, Math.min(12, Math.ceil(projectedTravel / (ballRadius * 0.42))));
+    const substep = h / substeps;
+    for (let index = 0; index < substeps; index += 1) {
+      arenaAngle = wrap(arenaAngle + angularVelocity * substep + Math.PI, TAU) - Math.PI;
+      const points = worldPolygon();
+      const walls = arenaWalls(points);
+      for (const ball of balls) integrateBall(ball, substep, points, walls, angularVelocity);
     }
 
-    trailClock += h;
-    if (trailClock >= 1 / 90) {
-      trailClock = 0;
-      trailPoints.push({ ...ball });
-      while (trailPoints.length > state.trail) trailPoints.shift();
+    for (const ball of balls) {
+      ball.trailClock += h;
+      if (ball.trailClock >= 1 / 90) {
+        ball.trailClock = 0;
+        ball.trail.push({ ...ball.position });
+        while (ball.trail.length > state.trail) ball.trail.shift();
+      }
     }
   }
 
   function draw(painter) {
-    trailPoints.forEach((point, index) => {
-      const amount = (index + 1) / Math.max(1, trailPoints.length);
-      painter.circle(point, 0.003 + 0.006 * amount, {
-        color: PHYSICS_COLORS.blue,
-        fill: PHYSICS_COLORS.blue,
-        width: 0,
-        alpha: 0.025 + 0.22 * amount * amount,
+    const polygon = worldPolygon();
+    const currentWalls = arenaWalls(polygon);
+    for (const ball of balls) {
+      ball.trail.forEach((point, index) => {
+        const amount = (index + 1) / Math.max(1, ball.trail.length);
+        painter.circle(point, 0.0025 + 0.0045 * amount, {
+          color: PHYSICS_COLORS.blue,
+          fill: PHYSICS_COLORS.blue,
+          width: 0,
+          alpha: 0.018 + 0.15 * amount * amount,
+        });
       });
-    });
+    }
     painter.polyline(polygon, {
       close: true,
       color: PHYSICS_COLORS.blue,
       width: 1.6,
       fill: "rgba(125,180,255,0.025)",
     });
-    polygon.forEach((point, index) => painter.text(String(index + 1), scale(point, 1.08), {
-      color: PHYSICS_COLORS.faint,
-      size: 8,
-    }));
+    currentWalls.forEach((wall) => {
+      const active = wall.index === lastEdge ? impactGlow : 0;
+      painter.line(wall.a, wall.b, {
+        color: active > 0.05 ? PHYSICS_COLORS.point : PHYSICS_COLORS.blue,
+        width: 1.15 + 2.3 * active,
+        alpha: 0.64 + 0.34 * active,
+      });
+      const midpoint = scale(add(wall.a, wall.b), 0.5);
+      if (polygon.length <= 16) {
+        painter.circle(midpoint, 0.013, {
+          color: PHYSICS_COLORS.muted,
+          fill: PHYSICS_COLORS.background,
+          width: 1,
+          alpha: 0.78,
+        });
+        painter.text("+", midpoint, { color: PHYSICS_COLORS.point, size: 8, alpha: 0.76 });
+      } else {
+        painter.circle(midpoint, 0.006, { color: PHYSICS_COLORS.faint, fill: PHYSICS_COLORS.background, width: 1, alpha: 0.42 });
+      }
+    });
+    polygon.forEach((point, index) => {
+      const active = interaction?.type === "vertex" && interaction.index === index;
+      painter.circle(point, active ? 0.027 : 0.018, {
+        color: active ? PHYSICS_COLORS.point : PHYSICS_COLORS.blue,
+        fill: PHYSICS_COLORS.background,
+        width: active ? 1.7 : 1.1,
+        alpha: 0.9,
+      });
+    });
     if (lastImpact) {
       painter.arrow(lastImpact.point, add(lastImpact.point, scale(lastImpact.normal, 0.14)), {
         color: PHYSICS_COLORS.coral,
@@ -622,68 +892,134 @@ function createRicochet() {
         headLength: 0.026,
       });
     }
-    if (aiming && aimPoint) {
-      painter.arrow(ball, aimPoint, { color: PHYSICS_COLORS.point, width: 1, alpha: 0.72, dash: [4, 4], headLength: 0.035 });
+    if (interaction?.type === "aim") {
+      const ball = balls.find((candidate) => candidate.id === interaction.ballId);
+      if (ball) {
+        painter.arrow(ball.position, interaction.aimPoint, {
+          color: PHYSICS_COLORS.point,
+          width: 1,
+          alpha: 0.78,
+          dash: [4, 4],
+          headLength: 0.035,
+        });
+      }
     }
-    painter.circle(ball, ballRadius + 0.009 * impactGlow, {
-      color: PHYSICS_COLORS.point,
-      fill: PHYSICS_COLORS.blue,
-      width: 1.4,
-    });
+    for (const ball of balls) {
+      painter.circle(ball.position, ballRadius + 0.009 * ball.impactGlow, {
+        color: PHYSICS_COLORS.point,
+        fill: PHYSICS_COLORS.blue,
+        width: 1.35,
+      });
+    }
   }
 
   function voices() {
-    return [normalizedVoice({
-      key: "flight",
-      pitch01: clamp((ball.y + 0.76) / 1.52),
-      gain: aiming ? 0.055 : 0.12 + 0.07 * clamp(length(velocity) / 2),
-      pan: clamp(ball.x / 0.76, -1, 1),
+    return balls.map((ball) => normalizedVoice({
+      key: `flight-${ball.id}`,
+      pitch01: clamp((ball.position.y + 0.8) / 1.6),
+      gain: ball.aiming ? 0.012 : 0.018 + 0.016 * clamp(length(ball.velocity) / 4),
+      pan: clamp(ball.position.x / 0.8, -1, 1),
       waveform: "sine",
-    })];
+    }));
   }
 
   function metrics() {
+    const fastest = balls.reduce((maximum, ball) => Math.max(maximum, length(ball.velocity)), 0);
     return [
       ["Collisions", collisionCount],
-      ["Speed", roundTo(length(velocity))],
+      ["Balls", balls.length],
+      ["Fastest", roundTo(fastest)],
       ["Incidence", lastEdge < 0 ? "—" : `${roundTo(lastIncidence, 1)}°`],
-      ["Last wall", lastEdge < 0 ? "—" : lastEdge + 1],
+      ["Vertices", localPolygon.length],
+      ["Arena", `${state.preset}${geometryEdited ? " · edited" : ""}`],
     ];
   }
 
   function pointerDown(point) {
-    if (insideWithMargin(point)) ball = { x: point.x, y: point.y };
-    velocity = { x: 0, y: 0 };
-    aiming = true;
-    aimPoint = { ...point };
-    trailPoints = [{ ...ball }];
+    const polygon = worldPolygon();
+    const currentWalls = arenaWalls(polygon);
+    let nearestVertex = { index: -1, distance: Infinity };
+    polygon.forEach((vertex, index) => {
+      const candidateDistance = distance(point, vertex);
+      if (candidateDistance < nearestVertex.distance) nearestVertex = { index, distance: candidateDistance };
+    });
+    if (nearestVertex.distance <= 0.065) {
+      interaction = { type: "vertex", index: nearestVertex.index };
+      return;
+    }
+
+    const edge = nearestBoundary(point, currentWalls);
+    if (edge && edge.distance <= 0.045 && localPolygon.length < 32) {
+      const localPoint = rotate(edge.point, -arenaAngle);
+      const nextPolygon = [...localPolygon];
+      nextPolygon.splice(edge.wall.index + 1, 0, localPoint);
+      if (validRicochetPolygon(nextPolygon)) {
+        localPolygon = nextPolygon;
+        geometryEdited = true;
+        interaction = { type: "vertex", index: edge.wall.index + 1 };
+        repairBallsAfterEdit();
+        return;
+      }
+    }
+
+    if (!isSafePosition(point, polygon, currentWalls, ballRadius * 1.05)) return;
+    if (balls.some((ball) => distance(point, ball.position) < ballRadius * 2.8)) return;
+    const ball = spawnBall({ position: point, angle: 0, speed: 0, emit: false });
+    if (!ball) return;
+    ball.aiming = true;
+    interaction = { type: "aim", ballId: ball.id, origin: { ...ball.position }, aimPoint: { ...point } };
   }
 
   function pointerMove(point) {
-    if (aiming) aimPoint = { x: point.x, y: point.y };
+    if (interaction?.type === "aim") {
+      interaction.aimPoint = { x: point.x, y: point.y };
+      return;
+    }
+    if (interaction?.type !== "vertex") return;
+    let localPoint = rotate(point, -arenaAngle);
+    const radius = length(localPoint);
+    if (radius > 0.92) localPoint = scale(localPoint, 0.92 / radius);
+    const nextPolygon = localPolygon.map((vertex, index) => (
+      index === interaction.index ? localPoint : vertex
+    ));
+    if (!validRicochetPolygon(nextPolygon)) return;
+    localPolygon = nextPolygon;
+    geometryEdited = true;
+    repairBallsAfterEdit();
   }
 
   function pointerUp(point) {
-    if (!aiming) return;
-    aimPoint = { x: point.x, y: point.y };
-    const direction = normalize(sub(aimPoint, ball), {
+    if (interaction?.type === "vertex") {
+      pointerMove(point);
+      interaction = null;
+      return false;
+    }
+    if (interaction?.type !== "aim") return false;
+    const ball = balls.find((candidate) => candidate.id === interaction.ballId);
+    if (!ball) {
+      interaction = null;
+      return false;
+    }
+    const direction = normalize(sub(point, interaction.origin), {
       x: Math.cos(radians(state.launchAngle)),
       y: Math.sin(radians(state.launchAngle)),
     });
-    velocity = scale(direction, state.speed);
+    const dragDistance = distance(point, interaction.origin);
+    const velocityScale = clamp(dragDistance / 0.48, 0.18, 1);
+    const launchVelocity = state.launchVelocity * velocityScale;
+    ball.velocity = scale(direction, launchVelocity);
+    ball.aiming = false;
+    ball.trail = [{ ...ball.position }];
     state.launchAngle = Math.atan2(direction.y, direction.x) * 180 / Math.PI;
-    aiming = false;
-    aimPoint = null;
-    events.push(transient("launch", clamp((ball.y + 0.76) / 1.52), 0.38, clamp(ball.x / 0.76, -1, 1), "sine", {
-      decaySeconds: 0.12,
+    events.push(transient(`launch-${ball.id}`, clamp((ball.position.y + 0.8) / 1.6), 0.25, clamp(ball.position.x / 0.8, -1, 1), "sine", {
+      decaySeconds: 0.09,
     }));
+    interaction = null;
+    return true;
   }
 
   function primaryAction() {
-    ball = { x: -0.18, y: 0.08 };
-    trailPoints = [{ ...ball }];
-    launch();
-    events.push(transient("relaunch", 0.52, 0.4, -0.2, "sine", { decaySeconds: 0.12 }));
+    spawnBall();
   }
 
   reset();
@@ -692,12 +1028,16 @@ function createRicochet() {
     id: "ricochet",
     title: "Ricochet",
     kicker: "Physics · 02 · Polygonal billiards",
-    description: "A ray remembers a polygon by the sequence of walls it strikes.",
-    instruction: "Press inside the arena, drag an aim line, and release to launch the billiard.",
-    lesson: "Each collision preserves the tangential velocity and reverses the normal velocity, producing periodic or quasi-periodic geometric orbits.",
+    description: "",
+    instruction: "Drag a vertex to reshape the arena. Press an edge and drag to insert a vertex. Press empty space inside to spawn a ball, drag to aim, and release to launch.",
+    lesson: "Each edge acts as a struck tine: incidence angle sets continuous pitch and relative impact velocity sets amplitude. Concave and rotating boundaries reveal focusing, rapid collision trains, and moving-wall energy exchange.",
     color: PHYSICS_COLORS.blue,
-    mappings: [["Ball height", "flight pitch"], ["Wall identity", "impact pitch"], ["Normal impulse", "impact level"], ["Hit position", "stereo"]],
-    controls,
+    mappings: [["Incidence angle", "tine pitch"], ["Impact velocity", "amplitude"], ["Edge length", "tine decay"], ["Impact x-position", "stereo"], ["Ball position", "faint flight voice"]],
+    get controls() {
+      return state.preset === "tunnel"
+        ? controls.filter((control) => control.key !== "sides")
+        : controls;
+    },
     state,
     reset,
     setParam,
@@ -709,7 +1049,7 @@ function createRicochet() {
     pointerDown,
     pointerMove,
     pointerUp,
-    primaryActionLabel: "Relaunch",
+    primaryActionLabel: "Spawn ball",
     primaryAction,
   };
 }
