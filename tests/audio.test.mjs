@@ -641,6 +641,8 @@ test("continuous synth specs use one worklet while native fallback voices stay s
   let workletCount = 0;
   let nativeOscillatorCount = 0;
   let resumedBeforeWorklet = false;
+  let unlockConnectedToDestination = false;
+  let unlockStartedInState = "";
 
   class FakeWorkletNode {
     constructor(_context, name, options) {
@@ -657,6 +659,7 @@ test("continuous synth specs use one worklet while native fallback voices stay s
   class FakeContext {
     constructor() {
       this.currentTime = 0;
+      this.sampleRate = 48_000;
       this.state = "suspended";
       this.destination = fakeNode();
       const context = this;
@@ -668,6 +671,22 @@ test("continuous synth specs use one worklet while native fallback voices stay s
       };
     }
     createGain() { return fakeNode({ gain: fakeParam(0) }); }
+    createBuffer() { return {}; }
+    createBufferSource() {
+      const context = this;
+      return {
+        buffer: null,
+        onended: null,
+        connect(target) {
+          unlockConnectedToDestination = target === context.destination;
+          return target;
+        },
+        start() {
+          unlockStartedInState = context.state;
+        },
+        disconnect() {},
+      };
+    }
     createStereoPanner() { return fakeNode({ pan: fakeParam(0) }); }
     createDynamicsCompressor() {
       return fakeNode({
@@ -709,6 +728,8 @@ test("continuous synth specs use one worklet while native fallback voices stay s
 
     assert.equal(workletCount, 1);
     assert.equal(nativeOscillatorCount, 0, "native fallback oscillators must be lazy");
+    assert.equal(unlockConnectedToDestination, true);
+    assert.equal(unlockStartedInState, "suspended", "iOS unlock source must start before resume awaits");
     assert.equal(resumedBeforeWorklet, true, "iOS audio must resume before awaiting worklet load");
     assert.match(moduleUrl, /contour-synth-processor\.js$/);
     assert.equal(pool.synthNode.name, "morphazoid-contour-synth");

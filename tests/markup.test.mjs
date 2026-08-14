@@ -6,7 +6,7 @@ const root = new URL("../", import.meta.url);
 
 test("the mobile instrument markup exposes the complete compact control surface", async () => {
   const [html, css, app, packageJson] = await Promise.all([
-    readFile(new URL("index.html", root), "utf8"),
+    readFile(new URL("shape.html", root), "utf8"),
     readFile(new URL("style.css", root), "utf8"),
     readFile(new URL("app.js", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
@@ -81,6 +81,8 @@ test("the mobile instrument markup exposes the complete compact control surface"
   // Points and the first relative-spacing marker start at zero, the far left.
   assert.match(openingTag("position"), /value="0"/);
   assert.match(html, /id="positionOut"[^>]*>0\.0%<\/output>/);
+  assert.match(openingTag("speed"), /value="0\.5145349118383228"/);
+  assert.match(html, /id="speedOut"[^>]*>0\.250 cyc\/s<\/output>/);
   assert.doesNotMatch(openingTag("headsControl"), /\bhidden\b/);
   assert.match(openingTag("lineCountControl"), /\bhidden\b/);
   const options = [...html.matchAll(/id="headOption(\d+)"/g)].map((match) => Number(match[1]));
@@ -167,6 +169,8 @@ test("the mobile instrument markup exposes the complete compact control surface"
       `${panelId} should sit beside the Synth selector, before shared pitch controls`,
     );
   }
+  assert.match(openingTag("baseFrequency"), /value="130"/);
+  assert.match(html, /id="baseFrequencyOut"[^>]*>130 Hz<\/output>/);
   assert.doesNotMatch(openingTag("amplitudeArticulation"), /\bhidden\b/);
   assert.match(openingTag("percussionArticulation"), /\bhidden\b/);
   assert.match(openingTag("shepardArticulation"), /\bhidden\b/);
@@ -206,9 +210,9 @@ test("the mobile instrument markup exposes the complete compact control surface"
   const amplitudeNodes = [...html.matchAll(/id="amplitudeNode(\d+)"/g)].map((match) => Number(match[1]));
   assert.deepEqual(amplitudeNodes, [0, 1, 2, 3, 4]);
   assert.match(html, /Current corner 100% → next corner 0%/);
-  assert.match(html, /Segment 4167 ms · linear 100% → 0%/);
+  assert.match(html, /Segment 1000 ms · linear 100% → 0%/);
   assert.match(openingTag("amplitudeNodeReadout"), /aria-label="Corner ADSR node timing"/);
-  assert.match(html, /Point · 0\.060 cyc\/s current contour timing · endpoints from trigger/);
+  assert.match(html, /Point · 0\.250 cyc\/s current contour timing · endpoints from trigger/);
   assert.doesNotMatch(html, /id="(?:sineArticulation|sineAccent|sineDecay)"/);
   assert.match(app, /sampleAmplitudeEnvelope/);
   assert.match(app, /scaleShapeVoiceGains/);

@@ -11,6 +11,7 @@ const LEGACY_SETTINGS_KEYS = [
   "morphazoid:lumber:audio:v2",
 ];
 const RESET_SHAPE_SIDES_KEY = "morphazoid:shape:reset:sides";
+const AUDIO_BUTTON_ICON = "◉";
 
 const freezeGroup = (id, label, tools) => Object.freeze({
   id,
@@ -27,22 +28,11 @@ const freezeGroup = (id, label, tools) => Object.freeze({
  */
 export const TOOL_GROUPS = Object.freeze([
   freezeGroup("geometry", "Geometry Synths", [
-    { id: "shape", label: "Shape", href: "./" },
+    { id: "shape", label: "Shape", href: "shape.html" },
     { id: "lattice", label: "Lattice", href: "lattice.html" },
     { id: "spiral", label: "Spiral", href: "spiral.html" },
     { id: "solid", label: "Solid", href: "solid.html" },
     { id: "hyper", label: "Hyper", href: "hyper.html" },
-  ]),
-  freezeGroup("geometric-physics", "Geometric Physics", [
-    { id: "gravity-walk", label: "Gravity Walk", href: "gravity-walk.html" },
-    { id: "ricochet", label: "Ricochet", href: "ricochet.html" },
-    { id: "rigidity", label: "Rigidity", href: "rigidity.html" },
-    { id: "rolling-measure", label: "Rolling Measure", href: "rolling-measure.html" },
-    { id: "falling-forms", label: "Falling Forms", href: "falling-forms.html" },
-    { id: "charge-garden", label: "Charge Garden", href: "charge-garden.html" },
-    { id: "packing-pressure", label: "Packing Pressure", href: "packing-pressure.html" },
-    { id: "geodesic-drift", label: "Geodesic Drift", href: "geodesic-drift.html" },
-    { id: "kinetic-hull", label: "Kinetic Hull", href: "kinetic-hull.html" },
   ]),
   freezeGroup("geometry-drums", "Geometry Drum Machines", [
     {
@@ -70,20 +60,17 @@ export const TOOL_GROUPS = Object.freeze([
       label: "Hyper Drum Machine",
       href: "hyper-drums.html",
     },
+    {
+      id: "l-system-drums",
+      label: "L-System Drum Machine",
+      href: "l-system-drums.html",
+    },
   ]),
-  freezeGroup("audio-mic", "Audio & Mic", [
+  freezeGroup("signal-voice", "Signal & Voice", [
     { id: "lumber", label: "Lumber", href: "lumber.html" },
     { id: "micmic", label: "L-mic", href: "l-mic.html" },
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
-  ]),
-  freezeGroup("fractals-recursion", "Fractals & Recursion", [
-    { id: "l-system", label: "L-System", href: "l-system.html" },
-    { id: "recursion", label: "Recursion", href: "recursion.html" },
-    { id: "julia", label: "Julia", href: "julia.html" },
-  ]),
-  freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
-    { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },
   ]),
   freezeGroup("barber-shop-poles", "Barber Shop Poles", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },
@@ -95,6 +82,11 @@ export const TOOL_GROUPS = Object.freeze([
     },
     { id: "candy-coil-delay", label: "Candy Coil Delay", href: "candy-coil-delay.html" },
   ]),
+  freezeGroup("fractals-recursion", "Fractals & Recursion", [
+    { id: "l-system", label: "L-System", href: "l-system.html" },
+    { id: "recursion", label: "Recursion", href: "recursion.html" },
+    { id: "julia", label: "Julia", href: "julia.html" },
+  ]),
   freezeGroup("chaotic-synths", "Chaotic Synths", [
     { id: "recursive-fm", label: "Recursive FM", href: "recursive-fm.html" },
     { id: "recursive-pm", label: "Recursive PM", href: "recursive-pm.html" },
@@ -102,13 +94,22 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "chaotic-pm", label: "Chaotic PM", href: "chaotic-pm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
   ]),
-  freezeGroup("quantum-synths", "Quantum Synths", [
-    { id: "order-tones", label: "Order Tones", href: "order-tones.html" },
-    { id: "bell-square", label: "Bell Square", href: "bell-square.html" },
-    { id: "annealogue", label: "Annealogue", href: "annealogue.html" },
+  freezeGroup("physics-synths", "Physics Synths", [
+    { id: "gravity-walk", label: "Gravity Walk", href: "gravity-walk.html" },
+    { id: "ricochet", label: "Ricochet", href: "ricochet.html" },
+    { id: "rigidity", label: "Rigidity", href: "rigidity.html" },
+    { id: "rolling-measure", label: "Rolling Measure", href: "rolling-measure.html" },
+    { id: "falling-forms", label: "Falling Forms", href: "falling-forms.html" },
+    { id: "charge-garden", label: "Charge Garden", href: "charge-garden.html" },
+    { id: "packing-pressure", label: "Packing Pressure", href: "packing-pressure.html" },
+    { id: "geodesic-drift", label: "Geodesic Drift", href: "geodesic-drift.html" },
+    { id: "kinetic-hull", label: "Kinetic Hull", href: "kinetic-hull.html" },
   ]),
-  freezeGroup("experiments", "Experiments", [
-    { id: "moire-organ", label: "Moire Organ", href: "moire-organ.html" },
+  freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
+    { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },
+  ]),
+  freezeGroup("experiments", "Experiments (works-in-progress)", [
+    { id: "moire-organ", label: "RISSET-MOIRE", href: "moire-organ.html" },
     { id: "chladni-plate", label: "Chladni Plate", href: "chladni-plate.html" },
     { id: "spring-choir", label: "Spring Choir", href: "spring-choir.html" },
     {
@@ -152,8 +153,17 @@ export const TOOL_GROUPS = Object.freeze([
     },
     { id: "gravity-lens", label: "Gravity Lens", href: "gravity-lens.html" },
   ]),
-  freezeGroup("tools", "Tools", [
+  freezeGroup("instruments", "Instruments", [
+    { id: "order-tones", label: "Order Tones", href: "order-tones.html" },
+    { id: "bell-square", label: "Bell Square", href: "bell-square.html" },
+    { id: "annealogue", label: "Annealogue", href: "annealogue.html" },
     { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
+    { id: "linear-drums", label: "Linear Drums", href: "linear-drums.html" },
+    {
+      id: "linear-drums-machine",
+      label: "Rattle Snake Boogie",
+      href: "linear-drums-machine.html",
+    },
     { id: "sample-drums", label: "Sample Drums", href: "sample-drums.html" },
     {
       id: "morphazoidical",
@@ -166,8 +176,11 @@ export const TOOL_GROUPS = Object.freeze([
 
 export const SITE_LINKS = Object.freeze([
   Object.freeze({ id: "plugins", label: "Plug-ins", href: "plugins.html" }),
-  Object.freeze({ id: "about", label: "About", href: "about.html" }),
+  Object.freeze({ id: "about", label: "About", href: "./" }),
 ]);
+const SITE_LINK_ALIASES = Object.freeze({
+  about: Object.freeze(["about.html"]),
+});
 
 export const NAVIGATION_BASE_URL = new URL("./", import.meta.url).href;
 
@@ -218,9 +231,13 @@ export function resolveActiveTool(currentUrl, siteRoot = NAVIGATION_BASE_URL) {
 export function resolveActiveSiteLink(currentUrl, siteRoot = NAVIGATION_BASE_URL) {
   const currentPath = normalizeNavigationPath(currentUrl, siteRoot);
   if (!currentPath) return null;
-  return SITE_LINKS.find(
-    (link) => normalizeNavigationPath(link.href, siteRoot) === currentPath,
-  ) ?? null;
+  return SITE_LINKS.find((link) => {
+    const paths = [
+      link.href,
+      ...(SITE_LINK_ALIASES[link.id] ?? []),
+    ].map((href) => normalizeNavigationPath(href, siteRoot));
+    return paths.includes(currentPath);
+  }) ?? null;
 }
 
 function element(doc, tag, className, text) {
@@ -243,12 +260,12 @@ function createToolsDisclosure(doc, activeTool, siteRoot, index) {
   const activeGroup = TOOL_GROUPS.find(
     (group) => group.tools.some((tool) => tool.id === activeTool?.id),
   );
-  const menuLabel = activeGroup?.label ?? "Tools";
+  const menuLabel = activeGroup?.label ?? "Browse";
   summary.setAttribute(
     "aria-label",
     activeTool
       ? `${menuLabel}. Current tool: ${activeTool.label}`
-      : "Tools. Choose a tool",
+      : "Browse. Choose an instrument",
   );
   summary.append(
     element(doc, "span", "tools-menu-label", menuLabel),
@@ -263,9 +280,11 @@ function createToolsDisclosure(doc, activeTool, siteRoot, index) {
     const headingId = `tools-group-${index}-${group.id}`;
     const section = element(doc, "section", "tools-menu-group");
     section.setAttribute("aria-labelledby", headingId);
+    section.setAttribute("data-tool-group", group.id);
     const heading = element(doc, "h2", "tools-menu-heading", group.label);
     heading.id = headingId;
-    section.append(heading);
+    const links = element(doc, "div", "tools-menu-links");
+    section.append(heading, links);
     for (const tool of group.tools) {
       const link = element(doc, "a", "tools-menu-link", tool.label);
       link.setAttribute("href", new URL(tool.href, siteRoot).href);
@@ -277,7 +296,7 @@ function createToolsDisclosure(doc, activeTool, siteRoot, index) {
       link.addEventListener?.("click", () => {
         details.open = false;
       });
-      section.append(link);
+      links.append(link);
     }
     panel.append(section);
   }
@@ -309,6 +328,14 @@ function createSiteLink(doc, link, activeSiteLink, siteRoot) {
 function insertBeforeOrAppend(parent, node, reference) {
   if (reference && typeof parent.insertBefore === "function") parent.insertBefore(node, reference);
   else parent.append?.(node);
+}
+
+export function normalizeAudioButtonIcons(doc) {
+  for (const icon of doc?.querySelectorAll?.(".audio-glyph, .audio-dot") ?? []) {
+    icon.textContent = AUDIO_BUTTON_ICON;
+    icon.classList?.add("audio-glyph");
+    icon.setAttribute?.("aria-hidden", "true");
+  }
 }
 
 function midiInputSummary(status) {
@@ -666,6 +693,8 @@ function preserveShapeSides(doc, storage) {
 
 export function initializeSharedNavigation(doc = globalThis.document, runtime = globalThis) {
   clearLegacySettings(runtimeStorage(runtime, "localStorage"));
+
+  normalizeAudioButtonIcons(doc);
 
   enhanceSharedNavigation(doc, {
     currentHref: runtime.location?.href || doc?.baseURI || NAVIGATION_BASE_URL,

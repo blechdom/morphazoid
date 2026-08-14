@@ -6,18 +6,18 @@ const root = new URL("../", import.meta.url);
 
 test("Shape, Lattice, and Lumber expose reciprocal instrument navigation", async () => {
   const [shapeHtml, latticeHtml, lumberHtml] = await Promise.all([
-    readFile(new URL("index.html", root), "utf8"),
+    readFile(new URL("shape.html", root), "utf8"),
     readFile(new URL("lattice.html", root), "utf8"),
     readFile(new URL("lumber.html", root), "utf8"),
   ]);
 
-  assert.match(shapeHtml, /<a class="tab active" href="\.\/" aria-current="page">shape<\/a>/);
+  assert.match(shapeHtml, /<a class="tab active" href="shape\.html" aria-current="page">shape<\/a>/);
   assert.match(shapeHtml, /<a class="tab" href="lattice\.html">lattice<\/a>/);
   assert.match(shapeHtml, /<a class="tab" href="lumber\.html">lumber<\/a>/);
-  assert.match(latticeHtml, /<a class="tab" href="\.\/">shape<\/a>/);
+  assert.match(latticeHtml, /<a class="tab" href="shape\.html">shape<\/a>/);
   assert.match(latticeHtml, /<a class="tab active" href="lattice\.html" aria-current="page">lattice<\/a>/);
   assert.match(latticeHtml, /<a class="tab" href="lumber\.html">lumber<\/a>/);
-  assert.match(lumberHtml, /<a class="tab" href="\.\/">shape<\/a>/);
+  assert.match(lumberHtml, /<a class="tab" href="shape\.html">shape<\/a>/);
   assert.match(lumberHtml, /<a class="tab" href="lattice\.html">lattice<\/a>/);
   assert.match(lumberHtml, /<a class="tab active" href="lumber\.html" aria-current="page">lumber<\/a>/);
 });

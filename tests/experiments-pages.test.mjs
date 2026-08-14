@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 const experimentPages = [
-  ["moire-organ.html", "moire", "Moire Organ", "moire-organ"],
+  ["moire-organ.html", "moire", "RISSET-MOIRE", "moire-organ"],
   ["chladni-plate.html", "chladni", "Chladni Plate", "chladni-plate"],
   ["spring-choir.html", "springs", "Spring Choir", "spring-choir"],
   ["gear-ratio-drums.html", "gears", "Gear Ratio Drums", "gear-ratio-drums"],
@@ -100,7 +100,7 @@ test("experiment runtime contains each simulation and audio mapping", async () =
   assert.match(css, /\.experiment-meter-grid/);
 });
 
-test("Moire Organ pairs every line with a counter-moving Shepard oscillator", async () => {
+test("RISSET-MOIRE pairs every line with a counter-moving Shepard oscillator", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("moire-organ.html", root), "utf8"),
     readFile(new URL("experiments-app.js", root), "utf8"),

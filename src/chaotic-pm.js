@@ -1,3 +1,5 @@
+import { unlockAudioContext } from "./audio.js";
+
 const PROCESSOR_NAME = "morphazoid-chaotic-pm";
 const DEFAULT_SAMPLE_RATE = 48_000;
 const PARAMETER_SMOOTHING_SECONDS = 0.018;
@@ -1092,7 +1094,10 @@ export class ChaoticPmAudio {
     this.updateSettings(settings);
     this.setLevel(level);
     if (this.running) {
-      if (this.context.state === "suspended") await this.context.resume();
+      if (this.context.state === "suspended") {
+        unlockAudioContext(this.context);
+        await this.context.resume();
+      }
       return;
     }
     if (this.startPromise) return this.startPromise;
@@ -1120,6 +1125,10 @@ export class ChaoticPmAudio {
     try {
       if (!context.audioWorklet) {
         throw new Error("AudioWorklet is not available in this browser.");
+      }
+      if (context.state !== "running") {
+        unlockAudioContext(context);
+        await context.resume();
       }
       await context.audioWorklet.addModule(
         new URL("./chaotic-pm.js", import.meta.url),

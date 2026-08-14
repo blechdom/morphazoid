@@ -629,6 +629,33 @@ export function normalizeStrikeGains(voices, maxPeakSum = 0.78) {
   return sanitized.map((voice) => ({ ...voice, gain: voice.gain * scale }));
 }
 
+export function unlockAudioContext(context) {
+  if (
+    !context
+    || typeof context.createBuffer !== "function"
+    || typeof context.createBufferSource !== "function"
+    || !context.destination
+  ) return false;
+
+  try {
+    const sampleRate = clamp(Number(context.sampleRate) || 44_100, 8_000, 192_000);
+    const source = context.createBufferSource();
+    source.buffer = context.createBuffer(1, 1, sampleRate);
+    source.connect(context.destination);
+    source.onended = () => {
+      try {
+        source.disconnect();
+      } catch {
+        // The unlock source may already be gone on older mobile Web Audio.
+      }
+    };
+    source.start(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Fixed-size, click-safe oscillator pool for animation-frame updates. */
 export class VoicePool {
   /**
@@ -903,9 +930,12 @@ export class VoicePool {
       }
       context = this.context;
     }
-    // iOS Safari requires resume() to be invoked synchronously inside the
-    // original tap. Loading an AudioWorklet first can consume that activation.
-    if (context.state !== "running") await context.resume();
+    // iOS Safari requires a source start and resume() inside the original tap.
+    // Loading an AudioWorklet first can consume that activation.
+    if (context.state !== "running") {
+      unlockAudioContext(context);
+      await context.resume();
+    }
     await this.prepareContinuousSynth(context);
     if (context.state !== "running" && context.state !== "closed") await context.resume();
     if (this.context !== context || !this.master || context.state === "closed") {

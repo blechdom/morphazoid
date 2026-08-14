@@ -1,3 +1,5 @@
+import { unlockAudioContext } from "./audio.js";
+
 const PROCESSOR_NAME = "morphazoid-shepard-risset";
 const TAU = Math.PI * 2;
 const PARTIAL_COUNT = 17;
@@ -794,6 +796,10 @@ export class ShepardRissetAudio {
     }
 
     try {
+      if (context.state !== "running") {
+        unlockAudioContext(context);
+        await context.resume();
+      }
       await context.audioWorklet.addModule(
         new URL("./shepard-risset.js", import.meta.url),
       );

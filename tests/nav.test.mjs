@@ -9,6 +9,7 @@ import {
   initializeMidiToolbars,
   initializeSharedNavigation,
   normalizeNavigationPath,
+  normalizeAudioButtonIcons,
   resolveActiveSiteLink,
   resolveActiveTool,
 } from "../nav.js";
@@ -176,20 +177,19 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     TOOL_GROUPS.map((group) => group.label),
     [
       "Geometry Synths",
-      "Geometric Physics",
       "Geometry Drum Machines",
-      "Audio & Mic",
-      "Fractals & Recursion",
-      "Algorithmic Sequencers",
+      "Signal & Voice",
       "Barber Shop Poles",
+      "Fractals & Recursion",
       "Chaotic Synths",
-      "Quantum Synths",
-      "Experiments",
-      "Tools",
+      "Physics Synths",
+      "Algorithmic Sequencers",
+      "Experiments (works-in-progress)",
+      "Instruments",
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 57);
+  assert.equal(tools.length, 60);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -211,11 +211,27 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "linear-drums"),
+    {
+      id: "linear-drums",
+      label: "Linear Drums",
+      href: "linear-drums.html",
+    },
+  );
+  assert.deepEqual(
     tools.find((tool) => tool.id === "sample-drums"),
     {
       id: "sample-drums",
       label: "Sample Drums",
       href: "sample-drums.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "linear-drums-machine"),
+    {
+      id: "linear-drums-machine",
+      label: "Rattle Snake Boogie",
+      href: "linear-drums-machine.html",
     },
   );
   assert.deepEqual(
@@ -259,7 +275,15 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "geometric-physics")?.tools.map(
+    tools.find((tool) => tool.id === "l-system-drums"),
+    {
+      id: "l-system-drums",
+      label: "L-System Drum Machine",
+      href: "l-system-drums.html",
+    },
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "physics-synths")?.tools.map(
       ({ id, href }) => ({ id, href }),
     ),
     [
@@ -284,14 +308,20 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "spiral-drums", href: "spiral-drums.html" },
       { id: "solid-drums", href: "solid-drums.html" },
       { id: "hyper-drums", href: "hyper-drums.html" },
+      { id: "l-system-drums", href: "l-system-drums.html" },
     ],
   );
   assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "tools")?.tools.map(
+    TOOL_GROUPS.find((group) => group.id === "instruments")?.tools.map(
       ({ id, href }) => ({ id, href }),
     ),
     [
+      { id: "order-tones", href: "order-tones.html" },
+      { id: "bell-square", href: "bell-square.html" },
+      { id: "annealogue", href: "annealogue.html" },
       { id: "fm-drums", href: "fm-drums.html" },
+      { id: "linear-drums", href: "linear-drums.html" },
+      { id: "linear-drums-machine", href: "linear-drums-machine.html" },
       { id: "sample-drums", href: "sample-drums.html" },
       { id: "morphazoidical", href: "morphazoidical/" },
     ],
@@ -353,16 +383,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "quantum-synths")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "order-tones", href: "order-tones.html" },
-      { id: "bell-square", href: "bell-square.html" },
-      { id: "annealogue", href: "annealogue.html" },
-    ],
-  );
-  assert.deepEqual(
     TOOL_GROUPS.find((group) => group.id === "experiments")?.tools.map(
       ({ id, href }) => ({ id, href }),
     ),
@@ -386,13 +406,15 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
   );
   assert.deepEqual(SITE_LINKS, [
     { id: "plugins", label: "Plug-ins", href: "plugins.html" },
-    { id: "about", label: "About", href: "about.html" },
+    { id: "about", label: "About", href: "./" },
   ]);
 });
 
 test("active tool resolution preserves GitHub Pages subpaths and nested workbench pages", () => {
   assert.equal(normalizeNavigationPath(`${SITE_ROOT}index.html?mode=test`, SITE_ROOT), "/blechdom/morphazoid/");
-  assert.equal(resolveActiveTool("https://example.test/blechdom/morphazoid", SITE_ROOT)?.id, "shape");
+  assert.equal(resolveActiveTool("https://example.test/blechdom/morphazoid", SITE_ROOT), null);
+  assert.equal(resolveActiveSiteLink("https://example.test/blechdom/morphazoid", SITE_ROOT)?.id, "about");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}shape.html`, SITE_ROOT)?.id, "shape");
   assert.equal(resolveActiveTool(`${SITE_ROOT}spiral.html#reader`, SITE_ROOT)?.id, "spiral");
   assert.equal(resolveActiveTool(`${SITE_ROOT}l-mic.html`, SITE_ROOT)?.id, "micmic");
   assert.equal(resolveActiveTool(`${SITE_ROOT}micmic.html`, SITE_ROOT), null);
@@ -436,18 +458,25 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}gravity-lens.html`, SITE_ROOT)?.id, "gravity-lens");
   assert.equal(resolveActiveTool(`${SITE_ROOT}algorithmic-sequencers.html`, SITE_ROOT)?.id, "sorting-algorithms");
   assert.equal(resolveActiveTool(`${SITE_ROOT}fm-drums.html`, SITE_ROOT)?.id, "fm-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}linear-drums.html`, SITE_ROOT)?.id, "linear-drums");
+  assert.equal(
+    resolveActiveTool(`${SITE_ROOT}linear-drums-machine.html`, SITE_ROOT)?.id,
+    "linear-drums-machine",
+  );
   assert.equal(resolveActiveTool(`${SITE_ROOT}sample-drums.html`, SITE_ROOT)?.id, "sample-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}shape-drums.html`, SITE_ROOT)?.id, "shape-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}lattice-drums.html`, SITE_ROOT)?.id, "lattice-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}spiral-drums.html`, SITE_ROOT)?.id, "spiral-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}solid-drums.html`, SITE_ROOT)?.id, "solid-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-drums.html`, SITE_ROOT)?.id, "hyper-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}l-system-drums.html`, SITE_ROOT)?.id, "l-system-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}analyzer.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}unknown.html`, SITE_ROOT), null);
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}plugins.html`, SITE_ROOT)?.id, "plugins");
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}about.html`, SITE_ROOT)?.id, "about");
+  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}`, SITE_ROOT)?.id, "about");
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}julia.html`, SITE_ROOT), null);
 });
 
@@ -492,14 +521,17 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
     sections.map((section) => section.children[0].textContent),
     TOOL_GROUPS.map((group) => group.label),
   );
+  const nestedLists = details.findAll((node) => node.className === "tools-menu-links");
+  assert.equal(nestedLists.length, TOOL_GROUPS.length);
+  assert.equal(nestedLists[0].children[0].getAttribute("data-tool-id"), "shape");
   const links = details.findAll((node) => node.tagName === "A");
-  assert.equal(links.length, 57);
+  assert.equal(links.length, 60);
   const siteLinks = doc.tabs.children.filter((node) => node.classList.contains("site-nav-link"));
   assert.equal(siteLinks.length, 2);
   assert.equal(siteLinks[0].textContent, "Plug-ins");
   assert.equal(siteLinks[0].getAttribute("href"), `${SITE_ROOT}plugins.html`);
   assert.equal(siteLinks[1].textContent, "About");
-  assert.equal(siteLinks[1].getAttribute("href"), `${SITE_ROOT}about.html`);
+  assert.equal(siteLinks[1].getAttribute("href"), SITE_ROOT);
   const currentLinks = links.filter((link) => link.getAttribute("aria-current") === "page");
   assert.equal(currentLinks.length, 1);
   assert.equal(currentLinks[0].getAttribute("data-tool-id"), "julia");
@@ -553,6 +585,34 @@ test("About is current in both forms of the shared main menu", () => {
   );
   assert.equal(selectedOptions.length, 1);
   assert.equal(selectedOptions[0].textContent, "About");
+});
+
+test("top Audio button icons normalize across glyph and dot markup", async () => {
+  const glyph = new FakeNode("span");
+  glyph.className = "audio-glyph chaotic-fm-audio-glyph";
+  glyph.textContent = "≋";
+  const dot = new FakeNode("span");
+  dot.className = "audio-dot";
+
+  normalizeAudioButtonIcons({
+    querySelectorAll(selector) {
+      assert.equal(selector, ".audio-glyph, .audio-dot");
+      return [glyph, dot];
+    },
+  });
+
+  for (const icon of [glyph, dot]) {
+    assert.equal(icon.textContent, "◉");
+    assert.equal(icon.classList.contains("audio-glyph"), true);
+    assert.equal(icon.getAttribute("aria-hidden"), "true");
+  }
+
+  const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
+  assert.match(css, /\.audio-button \.audio-glyph,\s*\.audio-button \.audio-dot\s*\{/);
+  assert.match(
+    css,
+    /\.audio-button \.audio-glyph::before,\s*\.audio-button \.audio-dot::before\s*\{\s*content: "◉";/,
+  );
 });
 
 test("Plug-ins is current in both forms of the shared main menu", () => {
@@ -906,7 +966,7 @@ test("pagehide disables MIDI, retains BFCache painting, and destroys on final ex
   control.destroy();
 });
 
-test("mapped tablet and phone headers reserve space only while MIDI is visible", async () => {
+test("mapped tablet and phone headers keep MIDI and output controls visible", async () => {
   const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
   assert.match(
     css,
@@ -914,8 +974,17 @@ test("mapped tablet and phone headers reserve space only while MIDI is visible",
   );
   assert.match(
     css,
-    /\.masthead\.has-midi-toolbar \.header-level \{\s+display: none;/,
+    /\.masthead\.has-midi-toolbar \{\s+height: auto;[\s\S]*?flex-wrap: wrap;/,
   );
+  assert.match(
+    css,
+    /\.masthead\.has-midi-toolbar \.audio-strip \{\s+width: 100%;[\s\S]*?grid-template-columns: 56px minmax\(0, 1fr\);/,
+  );
+  assert.match(
+    css,
+    /\.masthead\.has-midi-toolbar \.header-level \{\s+display: grid;/,
+  );
+  assert.doesNotMatch(css, /\.masthead\.has-midi-toolbar \.header-level \{\s+display: none;/);
   assert.doesNotMatch(css, /\.midi-toolbar\[hidden\][\s\S]{0,80}display:\s*flex/);
   assert.match(
     css,

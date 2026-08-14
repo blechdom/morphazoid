@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../", import.meta.url);
-const pages = ["index.html", "lattice.html", "spiral.html", "solid.html", "hyper.html", "lumber.html"];
+const pages = ["shape.html", "lattice.html", "spiral.html", "solid.html", "hyper.html", "lumber.html"];
 const links = ["shape", "lattice", "spiral", "solid", "hyper", "lumber"];
 
 test("Spiral sits between Lattice and Solid in published navigation", async () => {

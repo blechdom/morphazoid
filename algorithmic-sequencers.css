@@ -154,6 +154,64 @@
   min-height: 40px;
 }
 
+.algorithmic-list-heading {
+  margin: 0 0 9px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.algorithmic-trial-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  gap: 1px;
+}
+
+.algorithmic-trial-list li {
+  display: grid;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+  background: var(--bg-deep);
+}
+
+.algorithmic-trial-list li > span {
+  color: var(--accent);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.algorithmic-trial-list div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.algorithmic-trial-list b {
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.algorithmic-trial-list small {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.algorithmic-longlist-heading {
+  margin-top: 17px;
+}
+
 .algorithmic-candidate-list {
   display: grid;
   gap: 8px;

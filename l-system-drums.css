@@ -1,0 +1,163 @@
+.l-system-drums-page {
+  --accent: #b8df77;
+  --accent-soft: color-mix(in oklab, var(--accent) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+.l-system-mapping-readout {
+  position: absolute;
+  z-index: 2;
+  right: 18px;
+  bottom: 16px;
+  max-width: min(72%, 520px);
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  pointer-events: none;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.l-system-drums-panel .group-body {
+  padding-bottom: 14px;
+}
+
+.l-system-mapping-description {
+  min-height: 34px;
+  margin: 8px 0 11px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.l-system-map-legend {
+  display: grid;
+  margin: 0 0 14px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.l-system-map-legend span {
+  display: grid;
+  min-width: 0;
+  min-height: 49px;
+  padding: 7px 5px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  align-content: center;
+  gap: 3px;
+}
+
+.l-system-map-legend b,
+.l-system-map-legend small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.l-system-map-legend b {
+  color: var(--ink);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.l-system-map-legend small {
+  color: var(--faint);
+  font-size: 7px;
+}
+
+.l-system-drum-map {
+  display: grid;
+  margin-top: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.l-system-drum-cell {
+  --voice-color: var(--accent);
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--voice-color) 3%, var(--panel));
+  align-content: center;
+  cursor: pointer;
+  transition: 80ms ease;
+}
+
+.l-system-drum-cell::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--voice-color);
+  content: "";
+  opacity: .72;
+}
+
+.l-system-drum-cell b,
+.l-system-drum-cell small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.l-system-drum-cell b {
+  color: var(--ink);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+}
+
+.l-system-drum-cell small {
+  color: var(--voice-color);
+  font-size: 7px;
+}
+
+.l-system-drum-cell:hover,
+.l-system-drum-cell:focus-visible {
+  border-color: color-mix(in oklab, var(--voice-color) 64%, var(--line));
+}
+
+.l-system-drum-cell.is-active {
+  border-color: var(--voice-color);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--voice-color) 20%, var(--panel));
+  box-shadow: 0 0 12px color-mix(in oklab, var(--voice-color) 22%, transparent);
+  transform: translateY(1px);
+}
+
+@media (max-width: 520px) {
+  .l-system-map-legend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .l-system-mapping-readout {
+    left: 12px;
+    max-width: none;
+    text-align: left;
+  }
+
+  .l-system-map-legend b,
+  .l-system-map-legend small {
+    font-size: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .l-system-drum-cell {
+    transition: none;
+  }
+}

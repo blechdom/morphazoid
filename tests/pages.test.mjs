@@ -6,7 +6,7 @@ const root = new URL("../", import.meta.url);
 
 test("all instrument pages share desktop and mobile navigation", async () => {
   const files = [
-    "index.html", "lattice.html", "spiral.html", "solid.html", "hyper.html",
+    "shape.html", "lattice.html", "spiral.html", "solid.html", "hyper.html",
     "l-system.html", "recursion.html", "julia.html", "lumber.html", "l-mic.html",
     "graph-delay.html",
     "throatazoid.html",
@@ -55,7 +55,10 @@ test("all instrument pages share desktop and mobile navigation", async () => {
   assert.match(css, /@media \(max-width: 650px\)[\s\S]*?\.tabs\s*\{\s*display: none;/);
   assert.match(css, /\.tools-menu-label\s*\{[^}]*color: var\(--muted\);[^}]*font-size: 10px;/);
   assert.match(css, /\.tools-menu-current\s*\{[^}]*font-size: 13px;/);
-  assert.match(css, /\.tools-menu-heading\s*\{[^}]*color: var\(--muted\);[^}]*font-size: 10px;/);
+  assert.match(css, /\.tools-menu-group\[data-tool-group="geometry-drums"\]\s*\{[^}]*--group-accent: var\(--orange\);/);
+  assert.match(css, /\.tools-menu-group\[data-tool-group="signal-voice"\]\s*\{[^}]*--group-accent: var\(--blue\);/);
+  assert.match(css, /\.tools-menu-heading\s*\{[^}]*color: color-mix\(in oklab, var\(--group-accent\) 68%, var\(--muted\)\);[^}]*font-size: 10px;/);
+  assert.match(css, /\.tools-menu-links\s*\{[^}]*flex-wrap: wrap;/);
   assert.match(css, /\.tools-menu-link\s*\{[^}]*font-size: 12px;/);
   assert.match(css, /\.mobile-instrument-nav/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.header-level\s*\{\s*display: grid;/);
@@ -77,7 +80,7 @@ test("Solid and Hyper expose wireframe players and Sine-first audio", async () =
 });
 
 test("every oscillator-based instrument can reach a 20 Hz base frequency", async () => {
-  const files = ["index.html", "lattice.html", "spiral.html", "solid.html", "hyper.html", "julia.html"];
+  const files = ["shape.html", "lattice.html", "spiral.html", "solid.html", "hyper.html", "julia.html"];
   const pages = await Promise.all(files.map((file) => readFile(new URL(file, root), "utf8")));
   for (const html of pages) {
     assert.match(html, /id="baseFrequency"[^>]*min="20"/);

@@ -1,3 +1,5 @@
+import { unlockAudioContext } from "./audio.js";
+
 const PROCESSOR_NAME = "morphazoid-weierstrass";
 const TAU = Math.PI * 2;
 const DEFAULT_SAMPLE_RATE = 48_000;
@@ -1046,6 +1048,10 @@ export class WeierstrassAudio {
     }
 
     try {
+      if (context.state !== "running") {
+        unlockAudioContext(context);
+        await context.resume();
+      }
       await context.audioWorklet.addModule(
         new URL("./weierstrass.js", import.meta.url),
       );

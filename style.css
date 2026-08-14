@@ -259,32 +259,100 @@ a {
   top: 57px;
   left: clamp(12px, 2.5vw, 32px);
   display: grid;
-  width: min(620px, calc(100vw - 24px));
+  width: min(760px, calc(100vw - 24px));
   max-height: min(70dvh, 520px);
-  padding: 12px;
+  padding: 14px 18px;
   overflow-y: auto;
   border: 1px solid var(--line-strong);
   background:
     linear-gradient(145deg, color-mix(in oklab, var(--accent) 4%, transparent), transparent 45%),
     color-mix(in oklab, var(--bg-deep) 96%, transparent);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.48);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   overscroll-behavior: contain;
 }
 
 .tools-menu-group {
+  --group-accent: var(--accent);
+  display: grid;
+  position: relative;
   min-width: 0;
-  padding: 8px;
-  border: 1px solid var(--line);
-  background: color-mix(in oklab, var(--panel) 84%, transparent);
+  padding: 12px 0;
+  border-top: 1px solid color-mix(in oklab, var(--group-accent) 24%, var(--line));
+  background: transparent;
+  grid-template-columns: minmax(130px, 0.34fr) minmax(0, 1fr);
+  gap: clamp(16px, 3vw, 28px);
+}
+
+.tools-menu-group::before {
+  position: absolute;
+  top: 13px;
+  bottom: 13px;
+  left: -18px;
+  width: 2px;
+  background: var(--group-accent);
+  box-shadow: 0 0 10px color-mix(in oklab, var(--group-accent) 38%, transparent);
+  content: "";
+  opacity: .68;
+}
+
+.tools-menu-group:first-child {
+  border-top: 0;
+}
+
+.tools-menu-group[data-tool-group="geometry"] {
+  --group-accent: var(--accent);
+}
+
+.tools-menu-group[data-tool-group="geometry-drums"] {
+  --group-accent: var(--orange);
+}
+
+.tools-menu-group[data-tool-group="signal-voice"] {
+  --group-accent: var(--blue);
+}
+
+.tools-menu-group[data-tool-group="barber-shop-poles"] {
+  --group-accent: var(--brass);
+}
+
+.tools-menu-group[data-tool-group="fractals-recursion"] {
+  --group-accent: var(--violet);
+}
+
+.tools-menu-group[data-tool-group="chaotic-synths"] {
+  --group-accent: #ff7aa6;
+}
+
+.tools-menu-group[data-tool-group="physics-synths"] {
+  --group-accent: #b8df77;
+}
+
+.tools-menu-group[data-tool-group="algorithmic-sequencers"] {
+  --group-accent: #70d8e7;
+}
+
+.tools-menu-group[data-tool-group="experiments"] {
+  --group-accent: #e883ee;
+}
+
+.tools-menu-group[data-tool-group="instruments"] {
+  --group-accent: #fff3d6;
+}
+
+.tools-menu-links {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 2px 18px;
 }
 
 .tools-menu-heading {
   margin: 0;
-  padding: 1px 7px 8px;
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
+  padding: 3px 0 0;
+  color: color-mix(in oklab, var(--group-accent) 68%, var(--muted));
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.11em;
@@ -294,39 +362,40 @@ a {
 
 .tools-menu-link {
   position: relative;
-  display: flex;
-  min-height: 40px;
-  padding: 0 8px;
+  display: inline-flex;
+  min-width: 132px;
+  min-height: 24px;
+  padding: 3px 0;
   color: color-mix(in oklab, var(--ink) 72%, var(--muted));
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 7px;
   font-size: 12px;
-  letter-spacing: 0.035em;
+  letter-spacing: 0.025em;
+  line-height: 1.3;
   text-decoration: none;
   text-transform: uppercase;
 }
 
 .tools-menu-link + .tools-menu-link {
-  border-top: 1px solid color-mix(in oklab, var(--line) 70%, transparent);
+  border-top: 0;
 }
 
 .tools-menu-link:hover {
-  color: var(--ink);
-  background: color-mix(in oklab, var(--accent) 5%, transparent);
+  color: color-mix(in oklab, var(--group-accent) 58%, var(--ink));
 }
 
 .tools-menu-link[aria-current="page"] {
-  color: var(--accent);
-  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  color: var(--group-accent);
 }
 
 .tools-menu-link[aria-current="page"]::after {
-  color: var(--accent);
-  content: "current";
-  font-size: 9px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--group-accent);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--group-accent) 45%, transparent);
+  content: "";
+  flex: 0 0 5px;
 }
 
 .mobile-instrument-nav {
@@ -1446,6 +1515,7 @@ a {
 }
 
 .audio-button {
+  --audio-icon-size: 15px;
   display: flex;
   width: 78px;
   min-width: 78px;
@@ -1459,9 +1529,22 @@ a {
   text-align: left;
 }
 
-.audio-glyph {
+.audio-button .audio-glyph,
+.audio-button .audio-dot {
+  display: inline-grid;
+  width: var(--audio-icon-size);
+  height: var(--audio-icon-size);
+  flex: 0 0 var(--audio-icon-size);
   color: var(--muted);
-  font-size: 15px;
+  font-size: 0;
+  line-height: 1;
+  place-items: center;
+}
+
+.audio-button .audio-glyph::before,
+.audio-button .audio-dot::before {
+  content: "◉";
+  font-size: var(--audio-icon-size);
   line-height: 1;
 }
 
@@ -1494,7 +1577,8 @@ a {
   box-shadow: 0 0 14px var(--accent-glow);
 }
 
-.audio-button[aria-pressed="true"] .audio-glyph {
+.audio-button[aria-pressed="true"] .audio-glyph,
+.audio-button[aria-pressed="true"] .audio-dot {
   color: var(--bg-deep);
   text-shadow: none;
 }
@@ -3614,6 +3698,7 @@ select:hover {
   }
 
   .audio-button {
+    --audio-icon-size: 12px;
     width: 56px;
     min-width: 56px;
     padding-right: 5px;
@@ -3621,9 +3706,6 @@ select:hover {
     gap: 4px;
   }
 
-  .audio-glyph {
-    font-size: 12px;
-  }
 }
 
 @media (min-width: 651px) and (max-width: 900px) {
@@ -3658,6 +3740,7 @@ select:hover {
   }
 
   .audio-button {
+    --audio-icon-size: 12px;
     width: 56px;
     min-width: 56px;
     padding-right: 5px;
@@ -3665,9 +3748,6 @@ select:hover {
     gap: 4px;
   }
 
-  .audio-glyph {
-    font-size: 12px;
-  }
 }
 
 @media (max-width: 360px) {
@@ -3712,20 +3792,39 @@ select:hover {
 }
 
 @media (max-width: 520px) {
+  .masthead.has-midi-toolbar {
+    height: auto;
+    min-height: 54px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    align-content: center;
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
   .masthead.has-midi-toolbar .mobile-instrument-nav {
     width: clamp(78px, 27vw, 112px);
     flex-basis: 112px;
   }
 
+  .masthead.has-midi-toolbar .midi-toolbar {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+
   .masthead.has-midi-toolbar .audio-strip {
-    width: 56px;
-    flex: 0 0 56px;
-    grid-template-columns: 56px;
-    gap: 0;
+    width: 100%;
+    flex: 1 0 100%;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 8px;
   }
 
   .masthead.has-midi-toolbar .header-level {
-    display: none;
+    display: grid;
+  }
+
+  .masthead.has-midi-toolbar .midi-profile-panel {
+    top: 104px;
   }
 
   .masthead.has-midi-toolbar .midi-toggle {

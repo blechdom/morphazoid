@@ -36,6 +36,7 @@ import {
   voicePresetState,
   waveformLevel,
 } from "./src/throatazoid.js";
+import { unlockAudioContext } from "./src/audio.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -697,6 +698,8 @@ async function ensureAudioGraph() {
   if (!AudioContextClass) throw new Error("Web Audio is unavailable in this browser.");
   if (!audioContext || audioContext.state === "closed") {
     audioContext = new AudioContextClass();
+    unlockAudioContext(audioContext);
+    await audioContext.resume();
     periodicWaveCache = new Map();
     const physicalTract = await createPhysicalTract(audioContext);
     graph = buildAudioGraph(audioContext, physicalTract);
@@ -705,7 +708,10 @@ async function ensureAudioGraph() {
     safetyWave = new Float32Array(graph.safetyAnalyser.fftSize);
     audioContext.addEventListener?.("statechange", updateUi);
   }
-  if (audioContext.state !== "running") await audioContext.resume();
+  if (audioContext.state !== "running") {
+    unlockAudioContext(audioContext);
+    await audioContext.resume();
+  }
   return audioContext;
 }
 

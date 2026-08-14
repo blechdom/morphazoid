@@ -17,6 +17,7 @@ import {
   GRANULAR_ECONOMY_PITCH_CLASSES,
   GranularEconomyRenderer,
 } from "./src/granular-economy-renderer.js?v=20260725-presets";
+import { unlockAudioContext } from "./src/audio.js";
 import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260725-presets";
 
 const $ = (id) => document.getElementById(id);
@@ -952,6 +953,8 @@ async function ensureAudioGraph() {
     lastUnderrunEvents = 0;
     lastUnderrunDuration = 0;
     audioContext = new AudioContextClass();
+    unlockAudioContext(audioContext);
+    await audioContext.resume();
     graph = buildAudioGraph(audioContext);
     inputWave = new Float32Array(graph.inputAnalyser.fftSize);
     safetyWave = new Float32Array(graph.safetyAnalyser.fftSize);
@@ -959,7 +962,10 @@ async function ensureAudioGraph() {
     await prepareGenerationProcessor(audioContext, graph);
     startGenerationCapacityMonitoring(audioContext);
   }
-  if (audioContext.state !== "running") await audioContext.resume();
+  if (audioContext.state !== "running") {
+    unlockAudioContext(audioContext);
+    await audioContext.resume();
+  }
   return audioContext;
 }
 

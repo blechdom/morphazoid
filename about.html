@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="About Morphazoid: page guide, operating notes, source code, license, and author information."
+      content="Morphazoid guide: instruments, operating notes, source, license, and author."
     />
-    <title>About — Morphazoid</title>
+    <title>Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="about.css" />
@@ -21,34 +21,31 @@
       </a>
 
       <nav class="tabs" aria-label="Morphazoid main menu">
-        <a class="tab" href="./">tools</a>
-        <a class="tab active" href="about.html" aria-current="page">about</a>
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active" href="./" aria-current="page">about</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Morphazoid page</span>
         <select class="mobile-instrument-select" aria-label="Morphazoid page">
-          <option value="./">tools</option>
-          <option value="about.html" selected>about</option>
+          <option value="shape.html">shape</option>
+          <option value="./" selected>about</option>
         </select>
       </label>
 
-      <span class="about-header-label">Project manual</span>
     </header>
 
     <main class="about-shell" id="about">
       <article class="about-document">
         <header class="about-intro">
           <div>
-            <p class="about-kicker">Project reference</p>
-            <h1>About Morphazoid</h1>
+            <h1>Morphazoid</h1>
             <p class="about-lede">
-              Morphazoid is a collection of browser-based music instruments. The pages use
-              geometry, recursive systems, mathematical curves, algorithms, tiny quantum-state
-              simulations, synthesis, microphone input, and recorded audio as control data for sound.
+              Morphazoid is a set of browser music instruments. It turns geometry, recursion,
+              algorithms, small quantum simulations, microphone input, and audio files into sound.
             </p>
           </div>
           <dl class="about-summary" aria-label="Project summary">
-            <div><dt>Tools</dt><dd>56 pages</dd></div>
+            <div><dt>Tools</dt><dd>59 pages</dd></div>
             <div><dt>Runtime</dt><dd>Web browser</dd></div>
             <div><dt>Audio</dt><dd>Web Audio</dd></div>
             <div><dt>Graphics</dt><dd>Canvas</dd></div>
@@ -61,16 +58,16 @@
           <nav aria-label="About page sections">
             <a href="#operation">Basic operation</a>
             <a href="#geometry-synths">Geometry synths</a>
-            <a href="#geometric-physics">Geometric physics</a>
             <a href="#geometry-drums">Geometry drums</a>
-            <a href="#audio-mic">Audio &amp; mic</a>
-            <a href="#fractals-recursion">Fractals &amp; recursion</a>
-            <a href="#algorithmic-sequencers">Algorithmic sequencers</a>
+            <a href="#audio-mic">Signal &amp; voice</a>
             <a href="#barber-shop-poles">Barber shop poles</a>
+            <a href="#fractals-recursion">Fractals &amp; recursion</a>
             <a href="#chaotic-synths">Chaotic synths</a>
+            <a href="#geometric-physics">Physics synths</a>
+            <a href="#algorithmic-sequencers">Algorithmic sequencers</a>
             <a href="#quantum-synths">Quantum synths</a>
-            <a href="#experiments">Experiments</a>
-            <a href="#tools">Tools</a>
+            <a href="#experiments">Experiments (works-in-progress)</a>
+            <a href="#tools">Instruments</a>
             <a href="#implementation">Implementation</a>
             <a href="#source">Source &amp; license</a>
             <a href="#author">Author</a>
@@ -82,33 +79,32 @@
             <p class="manual-section-label">01</p>
             <h2>Basic operation</h2>
             <p class="manual-section-note">
-              Each tool is a separate page with its own controls and audio state.
+              Every tool has its own controls and audio state.
             </p>
           </div>
           <div class="manual-copy">
             <ol>
-              <li>Use the Tools menu to open an instrument. The page starts with audio off.</li>
+              <li>Use the main menu to open an instrument. Audio starts off.</li>
               <li>
-                Select Audio, Input, or the equivalent start control. Browsers require a user
-                action before they allow a page to produce sound.
+                Select Audio, Input, or the page's start control. The browser needs a click or tap
+                before it can play sound.
               </li>
               <li>
-                Set the master or output level before starting dense textures, feedback, or a
-                large number of voices.
+                Set the output level before starting dense textures, feedback, or many voices.
               </li>
               <li>
-                Start the page's playhead, reader, transport, or source. On geometry pages,
-                visual motion and audio can usually be started and stopped independently.
+                Start the page's playhead, reader, transport, or source. Many geometry pages let
+                motion and audio run separately.
               </li>
               <li>
-                Use Reset all parameters, Reset, or the page-specific reset control to return to
-                that page's initial settings.
+                Use Reset all parameters, Reset, or the page's reset control to return to the
+                default settings.
               </li>
             </ol>
             <p>
-              Microphone pages request browser permission when input starts. Headphones reduce
-              the risk of acoustic feedback. Pages with a file selector decode the selected file
-              in the browser and use it as an instrument source.
+              Microphone pages ask for browser permission when input starts. Headphones help
+              prevent feedback. File pages load the selected file in the browser and use it as a
+              sound source.
             </p>
           </div>
         </section>
@@ -118,47 +114,43 @@
             <p class="manual-section-label">02</p>
             <h2>Geometry Synths</h2>
             <p class="manual-section-note">
-              These pages turn geometric contacts and intersections into continuous or triggered
-              synthesis parameters.
+              These pages make sound from geometric contacts and intersections.
             </p>
           </div>
           <div class="page-list">
             <article class="page-entry">
-              <h3><a href="./">Shape</a></h3>
+              <h3><a href="shape.html">Shape</a></h3>
               <p>
-                Reads a two-dimensional contour with moving points, scan lines, or radial rays.
-                Contact position, contour position, corner shape, and crossing angle can control
-                pitch, level, stereo position, and timbre.
+                Plays a 2D contour with moving points, scan lines, or radial rays. Position,
+                corner shape, and crossing angle shape pitch, level, pan, and timbre.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="lattice.html">Lattice</a></h3>
               <p>
-                Moves an editable isohedral tiling beneath a fixed reader line. Every edge
-                intersection becomes a contact, so several voices can sound at the same time.
+                Slides an editable isohedral tiling under a fixed reader line. Each edge crossing
+                becomes a contact, so dense patterns can play several voices at once.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="spiral.html">Spiral</a></h3>
               <p>
-                Maps an isohedral tiling into log-polar space. Radius, angle, and multi-turn spiral
-                readers intersect the warped edge field and send those contacts to the selected
-                synthesis mode.
+                Warps an isohedral tiling into log-polar space. Radius, angle, and spiral readers
+                scan the warped edges and feed the selected synth mode.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="solid.html">Solid</a></h3>
               <p>
-                Intersects a three-dimensional wireframe with an oriented plane. Rotation,
-                stretching, skew, and plane position change the intersection points and the sound
-                mapped from them.
+                Cuts a 3D wireframe with a movable plane. Rotation, stretch, skew, and plane
+                position change the intersections and the sound.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="hyper.html">Hyper</a></h3>
               <p>
-                Intersects a four-dimensional wireframe with a moving W hyperplane. Independent
-                XW, YW, and ZW rotation changes which 4D segments cross the reader.
+                Cuts a 4D wireframe with a moving W hyperplane. XW, YW, and ZW rotations change
+                which 4D edges cross the reader.
               </p>
             </article>
           </div>
@@ -167,75 +159,74 @@
         <section class="manual-section" id="geometric-physics">
           <div class="manual-section-heading">
             <p class="manual-section-label">03</p>
-            <h2>Geometric Physics</h2>
+            <h2>Physics Synths</h2>
             <p class="manual-section-note">
-              Physics moves points, contours, bodies, and graphs; the synth reports the resulting
-              geometry rather than modeling an acoustic instrument.
+              Motion drives the score. Points, bodies, fields, and graphs move; their positions,
+              contacts, forces, and energy make sound.
             </p>
           </div>
           <div class="page-list">
             <article class="page-entry">
               <h3><a href="gravity-walk.html">Gravity Walk</a></h3>
               <p>
-                Constrains a bead to a polygon, star, or circle. Height, tangent speed, and corner
-                impulses make potential-to-kinetic energy exchange audible.
+                Moves a bead along a polygon, star, or circle. Height, speed, and corner impacts
+                turn potential and kinetic energy into sound.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="ricochet.html">Ricochet</a></h3>
               <p>
-                Launches multiple balls through live-editable regular, asymmetric, star, and tunnel
-                arenas. Incidence sets each edge strike's free pitch, while impact velocity sets its
-                amplitude; rotating walls can exchange energy with the balls.
+                Bounces balls through editable arenas. Edge angle sets pitch, impact speed sets
+                level, and rotating walls can add or remove energy.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="rigidity.html">Rigidity</a></h3>
               <p>
-                Loads pinned bar-and-joint frameworks with gravity. Triangles, unbraced squares,
-                and trusses expose mechanisms, triangulation, and structural constraint forces.
+                Loads pinned bar-and-joint structures under gravity. Triangles, squares, and
+                trusses show where constraints hold or fail.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="rolling-measure.html">Rolling Measure</a></h3>
               <p>
-                Rolls regular polygons through exact successive support vertices. Centroid lift
-                and contact changes sound turning angle, no-slip motion, and impact loss.
+                Rolls regular polygons from vertex to vertex. Centroid lift and contact changes
+                control turn angle, no-slip motion, and impact loss.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="falling-forms.html">Falling Forms</a></h3>
               <p>
-                Drops convex bodies into a bounded stage. Contact impulse, rotation, and support
-                geometry expose torque, inertia, restitution, friction, and settling.
+                Drops rigid shapes into a bounded stage. Impacts, rotation, support points,
+                friction, and settling shape the sound.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="charge-garden.html">Charge Garden</a></h3>
               <p>
-                Places positive and negative sources in a softened potential field. Tracers,
-                equipotentials, gradients, and saddle regions demonstrate superposition.
+                Places positive and negative charges in a softened field. Tracers and equipotential
+                lines show how the sources combine.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="packing-pressure.html">Packing Pressure</a></h3>
               <p>
-                Compresses falling disks into a changing contact network. Collision forces,
-                coordination, packing fraction, and jamming become visible and audible.
+                Compresses falling disks into a contact network. Forces, density, coordination,
+                and jams become visible and audible.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="geodesic-drift.html">Geodesic Drift</a></h3>
               <p>
-                Compares nearby straightest paths on a plane, cylinder, sphere, and torus.
-                Curvature and path separation distinguish extrinsic shape from intrinsic geometry.
+                Compares nearby straightest paths on a plane, cylinder, sphere, and torus. Path
+                separation shows how each surface bends motion.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="kinetic-hull.html">Kinetic Hull</a></h3>
               <p>
-                Moves points while recomputing their convex hull and Delaunay edges. Membership
-                changes and edge events sonify an emergent boundary and kinetic topology.
+                Moves points and recomputes the convex hull and Delaunay edges. Boundary changes
+                and edge flips trigger sound.
               </p>
             </article>
           </div>
@@ -246,45 +237,50 @@
             <p class="manual-section-label">04</p>
             <h2>Geometry Drum Machines</h2>
             <p class="manual-section-note">
-              These pages map geometry to the shared bank of sixteen synthesized percussion
-              voices.
+              These pages trigger a shared sixteen-voice drum bank from geometric events.
             </p>
           </div>
           <div class="page-list">
             <article class="page-entry">
               <h3><a href="shape-drums.html">Shape Drum Machine</a></h3>
               <p>
-                Converts contour contacts and corner events into drum triggers. Position,
-                incidence, contour phase, and corner geometry determine voice selection and
-                variation.
+                Turns contour contacts and corner events into drum hits. Position, incidence,
+                phase, and corner shape choose and vary the voices.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="lattice-drums.html">Lattice Drum Machine</a></h3>
               <p>
-                Converts contacts between a reader and an isohedral lattice into drum events.
-                Edge class, orientation, height, and incidence can select and retune voices.
+                Turns lattice-reader contacts into drum hits. Edge class, orientation, height, and
+                incidence choose or retune voices.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="spiral-drums.html">Spiral Drum Machine</a></h3>
               <p>
-                Maps contacts from an isohedral tiling transformed into log-polar space to the
-                shared drum bank. Reader contacts follow the resulting radial and spiral geometry.
+                Turns log-polar tiling contacts into drum hits. The reader follows the resulting
+                radial and spiral geometry.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="solid-drums.html">Solid Drum Machine</a></h3>
               <p>
-                Maps intersections between a moving plane and a 3D wireframe to percussion.
-                Wireframe motion and plane orientation determine the trigger pattern.
+                Turns plane-wireframe intersections into drum hits. Wireframe motion and plane
+                angle shape the pattern.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="hyper-drums.html">Hyper Drum Machine</a></h3>
               <p>
-                Maps intersections between a W hyperplane and a rotating 4D wireframe to the drum
-                bank. Four-dimensional position and rotation change the active voices.
+                Turns 4D hyperplane intersections into drum hits. 4D position and rotation choose
+                the active voices.
+              </p>
+            </article>
+            <article class="page-entry">
+              <h3><a href="l-system-drums.html">L-System Drum Machine</a></h3>
+              <p>
+                Turns recursive branch-head traversal into drum hits. Branch depth, turn angle,
+                generation, phase, and position choose or retune the voices.
               </p>
             </article>
           </div>
@@ -293,41 +289,38 @@
         <section class="manual-section" id="audio-mic">
           <div class="manual-section-heading">
             <p class="manual-section-label">05</p>
-            <h2>Audio &amp; Mic</h2>
+            <h2>Signal &amp; Voice</h2>
             <p class="manual-section-note">
-              These pages process a microphone, a local audio file, or a recorded loop.
+              These pages reshape microphones, files, and recorded loops.
             </p>
           </div>
           <div class="page-list">
             <article class="page-entry">
               <h3><a href="lumber.html">Lumber</a></h3>
               <p>
-                Records loops and displays them as rings. Each ring has direction, level, pan,
-                mute, solo, filtering, pitch handles, playback heads, and optional shared delay.
+                Records loops as rings. Each ring has direction, level, pan, mute/solo, filters,
+                pitch handles, playheads, and shared delay.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="l-mic.html">L-mic</a></h3>
               <p>
-                Sends live microphone input through recursive L-system descendants. Branch timing
-                creates delay, accumulated turns create pitch shifts, and the tree shows both the
-                full structure and the currently audible branches.
+                Runs live mic input through recursive L-system branches. Branch timing makes
+                delays; turns make pitch shifts; the tree shows both full and audible branches.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="graph-delay.html">Graph Delay</a></h3>
               <p>
-                Routes live microphone audio through a generated directed graph of delay nodes.
-                Graph structure, traversal, pitch treatment, and feedback determine the signal
-                paths.
+                Sends live mic audio through a generated delay graph. Topology, route switches,
+                pitch shifts, and feedback shape the paths.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="throatazoid.html">Throatazoid</a></h3>
               <p>
-                Runs microphone input, an internal glottal source, or both through one to seven
-                vocal-tract models. Throats, tongues, noses, closures, and articulation controls
-                change the tract response.
+                Feeds mic input, an internal glottis, or both through one to seven vocal tracts.
+                Throats, tongues, noses, closures, and gestures shape the voice.
               </p>
             </article>
           </div>
@@ -338,32 +331,30 @@
             <p class="manual-section-label">06</p>
             <h2>Fractals &amp; Recursion</h2>
             <p class="manual-section-note">
-              These instruments derive timing, pitch, or signal structure from recursive systems.
+              These instruments use recursion to shape timing, pitch, structure, or DSP.
             </p>
           </div>
           <div class="page-list">
             <article class="page-entry">
               <h3><a href="l-system.html">L-System</a></h3>
               <p>
-                Expands turtle-drawing grammars and maps branch structure to sound. Iteration,
-                branch timing, turn angle, length taper, and structure mode control the resulting
-                voice tree.
+                Expands turtle grammars into branching scores. Iteration, timing, turn angle,
+                length taper, and playback mode shape the voice tree.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="recursion.html">Recursion</a></h3>
               <p>
-                Contains the Fuzzy Donut recursive DSP instrument. It accepts generated noise,
-                impulses, microphone capture, or a local file, then exposes the same audio process
-                through manifold, time-spectrum, and routing views.
+                Runs the Fuzzy Donut recursive DSP instrument. It can use noise, impulses, mic
+                capture, or a file, then shows the process as a manifold, spectrum stack, or
+                routing view.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="julia.html">Julia</a></h3>
               <p>
-                Traces the closed boundary of a Julia set and maps signed boundary turns to cyclic
-                Shepard pitch motion. A self-similarity section compares related boundary arcs and
-                provides several ways to hear their relationship.
+                Traces a Julia-set boundary and maps left/right turns to cyclic Shepard pitch. The
+                self-similarity view finds related arcs and lets you hear them.
               </p>
             </article>
           </div>
@@ -374,15 +365,15 @@
             <p class="manual-section-label">07</p>
             <h2>Algorithmic Sequencers</h2>
             <p class="manual-section-note">
-              These pages turn algorithmic operations into visual and sonic event streams.
+              These pages sonify algorithm steps.
             </p>
           </div>
           <div class="page-list">
             <article class="page-entry">
               <h3><a href="algorithmic-sequencers.html">Sorting Algorithms</a></h3>
               <p>
-                Renders Bubble, Insertion, Selection, Merge, and Quick Sort over the same shuffled
-                value set. Comparisons, swaps, and writes become paired tones positioned by index.
+                Runs Bubble, Insertion, Selection, Merge, and Quick Sort on the same shuffle.
+                Comparisons, swaps, and writes become tones placed by index.
               </p>
             </article>
           </div>
@@ -393,39 +384,38 @@
             <p class="manual-section-label">08</p>
             <h2>Barber Shop Poles</h2>
             <p class="manual-section-note">
-              These pages use staggered voices or read heads to create cyclic pitch and delay
-              motion.
+              These pages create endless-sounding pitch or delay motion with staggered voices and
+              read heads.
             </p>
           </div>
           <div class="page-list">
             <article class="page-entry">
               <h3><a href="shepard-risset.html">Shepard–Risset</a></h3>
               <p>
-                Provides an octave-bank mode for continuous rising or falling pitch and a
-                Morphisma sweep mode with quadratic frequency motion. Direction, speed, range,
+                Makes continuous rising or falling pitch. Octave Bank keeps the clean illusion;
+                Morphisma Sweep restores the older sweep presets. Direction, speed, range,
                 density, and stereo spread are adjustable.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="sandy-syrup-delay.html">Sandy Syrup Delay</a></h3>
               <p>
-                Uses phase-staggered granular streams to process microphone or local-file audio.
-                Sand presets hold grain rates; Syrup presets move them continuously.
+                Processes mic or file audio with staggered grains. Sand holds grain rates; Syrup
+                moves them.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="striped-sludge-delay.html">Striped Sludge Delay</a></h3>
               <p>
-                Uses multiple staggered delay heads that approach the source pitch at the center
-                of each sweep, then move away in the opposite direction.
+                Processes mic or file audio with staggered delay heads. Each head moves toward the
+                source pitch at mid-sweep, then away.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="candy-coil-delay.html">Candy Coil Delay</a></h3>
               <p>
-                Uses phase-staggered variable-delay heads for repeated rising or falling pitch
-                motion. Tap timing, ratio lock, head tilt, feedback, and dry/wet mix control the
-                process.
+                Uses staggered variable delays for repeated rises or falls. Tap timing, ratio lock,
+                head tilt, feedback, and mix set the motion.
               </p>
             </article>
           </div>
@@ -436,49 +426,45 @@
             <p class="manual-section-label">09</p>
             <h2>Chaotic Synths</h2>
             <p class="manual-section-note">
-              These pages build bounded oscillator systems from nested modulation or fractal sums.
+              These pages make oscillator systems from recursion, nonlinear feedback, or fractal
+              sums.
             </p>
           </div>
           <div class="page-list">
             <article class="page-entry">
               <h3><a href="recursive-fm.html">Recursive FM</a></h3>
               <p>
-                Nests frequency-modulation operators so each level drives the frequency of its
-                child. Depth, carrier frequency, offset, modulation amount, and divisor are
-                adjustable.
+                Nests FM operators so each level drives the next. Depth, carrier frequency,
+                offset, modulation amount, and divisor are adjustable.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="recursive-pm.html">Recursive PM</a></h3>
               <p>
-                Folds a sine carrier through a stack of recursive phase operators. Each deeper
-                level contributes a reduced phase offset, and depth changes are crossfaded.
+                Folds a sine carrier through recursive phase operators. Deeper levels add smaller
+                phase offsets, and depth changes crossfade.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="chaotic-fm.html">Chaotic FM</a></h3>
               <p>
-                Passes oscillators through a nonlinear frequency-modulation cascade. A bounded
-                hyperbolic-tangent stage limits each recursive signal before it drives the next
-                oscillator.
+                Sends oscillators through a nonlinear FM cascade. A bounded tanh stage shapes each
+                signal before it drives the next oscillator.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="chaotic-pm.html">Chaotic PM</a></h3>
               <p>
-                Continuously tanh-shapes each recursive signal before applying it as periodic phase
-                modulation. Its Smooth mode removes the original phase-wrap seam; Legacy / Raw
-                preserves the signed-remainder, frequency-squared experiment for comparison. A
-                repaired playable bank finishes in the audio range while retaining all eight exact
-                work-in-progress tuples as reference.
+                Shapes each recursive signal with tanh, then uses it for phase modulation. Smooth
+                mode removes phase-wrap jumps. Legacy / Raw keeps the original experiment for
+                comparison.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="weierstrass.html">Weierstrass</a></h3>
               <p>
-                Builds a normalized sum of exponentially spaced oscillators. Wave mode sounds the
-                sum directly; FM and phase-modulation modes use the same bank as a modulation
-                trajectory.
+                Sums exponentially spaced oscillators. Wave mode plays the sum; FM and phase modes
+                use the same bank as a modulation path.
               </p>
             </article>
           </div>
@@ -489,33 +475,33 @@
             <p class="manual-section-label">10</p>
             <h2>Quantum Synths</h2>
             <p class="manual-section-note">
-              These pages sonify exact tiny classical simulations of quantum states. They are not
-              recordings from quantum matter or results from quantum hardware.
+              These pages sonify small, exact classical simulations of quantum systems. They are
+              demos, not quantum-hardware recordings.
             </p>
           </div>
           <div class="page-list">
             <article class="page-entry">
               <h3><a href="order-tones.html">Order Tones</a></h3>
               <p>
-                Turns modular repetition into a circular sequence, then applies an inverse-QFT
-                model so constructive and destructive interference become a playable probability
-                comb. Measurement shots attempt to recover an order and factor a small composite.
+                Turns modular repetition into a loop, then applies an inverse-QFT model.
+                Interference becomes a probability comb, and measurement shots try to recover the
+                order and factors.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="bell-square.html">Bell Square</a></h3>
               <p>
-                Entangles and disentangles two simulated atoms with a controlled collision phase.
-                Rotatable local measurement axes, joint probabilities, and repeated shots expose
-                correlations while each atom's local result remains random.
+                Simulates two atoms with a controlled collision phase. Measurement axes,
+                probabilities, and repeated shots show correlations while each local result stays
+                random.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="annealogue.html">Annealogue</a></h3>
               <p>
-                Evolves eight three-qubit basis states through a transverse-field anneal. Energy,
-                probability, and complex phase become a distorted cube and an eight-voice choir,
-                with a classical greedy path retained as a comparison rather than a speedup claim.
+                Moves eight three-qubit states through an anneal. Energy, probability, and phase
+                become a distorted cube and an eight-voice choir; a greedy classical path is shown
+                for comparison.
               </p>
             </article>
           </div>
@@ -524,54 +510,52 @@
         <section class="manual-section" id="experiments">
           <div class="manual-section-heading">
             <p class="manual-section-label">11</p>
-            <h2>Experiments</h2>
+            <h2>Experiments (works-in-progress)</h2>
             <p class="manual-section-note">
-              These pages are compact science and math sonification studies.
+              Small science and math sonification studies.
             </p>
           </div>
           <div class="page-list">
             <article class="page-entry">
-              <h3><a href="moire-organ.html">Moire Organ</a></h3>
+              <h3><a href="moire-organ.html">RISSET-MOIRE</a></h3>
               <p>
-                Crosses rising green and falling pink Shepard lattices with one oscillator per
-                line. Independent line angles set the rising and falling glissando rates, while
-                optional paired layers and locally whitened, amplitude-weighted crossings turn
-                coincidence into emphasis.
+                Crosses rising and falling Shepard lattices. Line angles set glissando rates;
+                paired layers and weighted crossings emphasize coincidences.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="chladni-plate.html">Chladni Plate</a></h3>
               <p>
-                Draws standing-wave nodal curves on a square plate. The selected mode and
-                excitation point shape a small bank of modal partials.
+                Draws standing-wave nodal curves on a square plate. The selected mode and strike
+                point shape a small bank of partials.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="spring-choir.html">Spring Choir</a></h3>
               <p>
-                Simulates a coupled mass-spring chain. The visible displacement is projected onto
-                normal modes that become a quiet oscillator choir.
+                Simulates a coupled mass-spring chain. Motion projects onto normal modes that
+                become a quiet oscillator choir.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="gear-ratio-drums.html">Gear Ratio Drums</a></h3>
               <p>
-                Rotates two meshed cogs at tooth-locked rates. Tooth boundaries trigger short
-                percussion tones while the gear ratio supplies the polyrhythm.
+                Rotates two meshed cogs at tooth-locked rates. Tooth contacts trigger short drum
+                tones while the gear ratio supplies the polyrhythm.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="cellular-automata.html">Cellular Automata</a></h3>
               <p>
-                Scrolls elementary automata rows. Live cells in each new generation trigger a
-                sparse pentatonic scan while density and transitions feed continuous tones.
+                Scrolls elementary automata rows. Live cells trigger a sparse pentatonic scan;
+                density and transitions feed continuous tones.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="prime-sieve.html">Prime Sieve</a></h3>
               <p>
                 Runs the sieve of Eratosthenes across a number grid. Prime discoveries become a
-                rising sparse melody while composite eliminations supply quiet ticks.
+                sparse rising melody; composite eliminations become quiet ticks.
               </p>
             </article>
             <article class="page-entry">
@@ -584,57 +568,57 @@
             <article class="page-entry">
               <h3><a href="pendulum-wave.html">Pendulum Wave</a></h3>
               <p>
-                Gives neighboring pendulums commensurate periods that drift apart and reunite.
-                Center crossings form a spatial melody and phase coherence feeds a common drone.
+                Gives neighboring pendulums related periods that drift apart and reunite. Center
+                crossings make a spatial melody; phase coherence feeds a drone.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="double-pendulum.html">Double Pendulum</a></h3>
               <p>
-                Releases two double pendulums from nearly identical angles. Their angular
-                divergence widens an audible interval as deterministic chaos becomes visible.
+                Releases two double pendulums from nearly identical angles. Their divergence
+                widens an interval as deterministic chaos becomes visible.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="reaction-diffusion.html">Reaction-Diffusion</a></h3>
               <p>
-                Evolves a Gray-Scott chemical field through spots, bands, and splitting forms.
-                Reagent coverage and boundary energy control a small continuous sound field.
+                Evolves a Gray-Scott chemical field through spots, bands, and splits. Reagent
+                coverage and edge energy control a small sound field.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="atomic-orbitals.html">Atomic Orbitals</a></h3>
               <p>
-                Draws signed planar slices of hydrogen orbitals from radial Laguerre functions and
-                angular lobes. Quantum numbers and nodes organize the sounding harmonic bank.
+                Draws signed planar slices of hydrogen orbitals. Quantum numbers and nodes
+                organize the harmonic bank.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="dna-translator.html">DNA Translator</a></h3>
               <p>
-                Scans editable DNA through four base pitches and the standard codon table. Every
-                completed triplet adds a tone identified by its translated amino acid.
+                Scans editable DNA through four base pitches and the codon table. Each completed
+                triplet adds a tone for its amino acid.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="neural-pulse.html">Neural Pulse</a></h3>
               <p>
-                Propagates four inputs through a fixed weighted network with six hidden and three
-                output units. Threshold crossings sound by layer without implying network training.
+                Sends four inputs through a fixed weighted network. Layer crossings trigger sound;
+                the demo does not train the network.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="fourier-epicycles.html">Fourier Epicycles</a></h3>
               <p>
-                Chains rotating harmonic vectors into sine, square, triangle, and sawtooth
-                reconstructions. Every visible vector is the same partial heard in the additive tone.
+                Chains rotating harmonic vectors into sine, square, triangle, and sawtooth waves.
+                Every visible vector is also an audible partial.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="gravity-lens.html">Gravity Lens</a></h3>
               <p>
-                Uses an idealized point-mass thin lens to split one source into two apparent images.
-                Image position, magnification, and path-delay proxy become a paired interval.
+                Splits one source into two apparent images with an idealized lens. Image position,
+                magnification, and path delay become a paired interval.
               </p>
             </article>
           </div>
@@ -643,32 +627,46 @@
         <section class="manual-section" id="tools">
           <div class="manual-section-heading">
             <p class="manual-section-label">12</p>
-            <h2>Tools</h2>
+            <h2>Instruments</h2>
             <p class="manual-section-note">
-              These pages expose reusable sound design and geometry-analysis systems.
+              Reusable instruments and analysis tools.
             </p>
           </div>
           <div class="page-list">
             <article class="page-entry">
               <h3><a href="fm-drums.html">FM Drums</a></h3>
               <p>
-                Edits the sixteen-voice percussion bank used by the geometry drum machines. The
-                voices use FM and shaped noise rather than samples, and banks can be saved locally
-                or copied as JSON.
+                Edits the sixteen-voice drum bank used by the geometry drum machines. The voices
+                use FM and shaped noise, and banks can be saved locally or copied as JSON.
+              </p>
+            </article>
+            <article class="page-entry">
+              <h3><a href="linear-drums.html">Linear Drums</a></h3>
+              <p>
+                Maps a logarithmic frequency range onto one continuous percussion body. Drum and
+                pitched-percussion engines add shaped pitch or strike-height curves, percussion
+                envelopes, and sixteen preset fields without hard timbre boundaries.
+              </p>
+            </article>
+            <article class="page-entry">
+              <h3><a href="linear-drums-machine.html">Rattle Snake Boogie</a></h3>
+              <p>
+                Paints solid notes, freehand glissandi, ring outlines, and parameter fields onto a
+                looping time-frequency canvas powered by the continuous percussion engine.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="sample-drums.html">Sample Drums</a></h3>
               <p>
-                Edits a matching sixteen-slot 808/909 sample bank. Samples load from pinned CDN URLs,
-                decode into RAM, and can replace the FM engine in Lattice Drum Machine.
+                Edits a matching sixteen-slot 808/909 sample bank. Samples load in the browser and
+                can replace the FM engine in Lattice Drum Machine.
               </p>
             </article>
             <article class="page-entry">
               <h3><a href="morphazoidical/">Morphazoidical</a></h3>
               <p>
-                Inspects the geometry features used for sound mapping. The workbench displays
-                current form, contact, reader, and event values; the
+                Shows the geometry data used for mapping. The workbench lists current form,
+                contact, reader, and event values; the
                 <a href="morphazoidical/atlas.html">Feature Atlas</a> defines the available fields.
               </p>
             </article>
@@ -680,42 +678,41 @@
             <p class="manual-section-label">13</p>
             <h2>Implementation</h2>
             <p class="manual-section-note">
-              Morphazoid is a static web application. It does not require an application server at
-              runtime.
+              Morphazoid is a static site. It does not need a runtime server.
             </p>
           </div>
           <div class="manual-copy">
             <dl class="technical-list">
               <div>
                 <dt>Interface</dt>
-                <dd>Plain HTML, CSS, and JavaScript modules. There is no UI framework.</dd>
+                <dd>Plain HTML, CSS, and JavaScript modules. No UI framework.</dd>
               </div>
               <div>
                 <dt>Graphics</dt>
                 <dd>
-                  Canvas renders the instrument stages. Display resolution is limited by a pixel
-                  budget on large or high-density screens.
+                  Canvas draws the instrument stages. A pixel budget caps resolution on large or
+                  high-density screens.
                 </dd>
               </div>
               <div>
                 <dt>Audio</dt>
                 <dd>
-                  Web Audio supplies oscillators, filters, routing, microphone input, decoding,
-                  and output. Continuous high-voice-count synthesis uses AudioWorklet processors.
+                  Web Audio handles synthesis, filters, routing, microphone input, decoding, and
+                  output. AudioWorklets handle continuous high-voice-count synthesis.
                 </dd>
               </div>
               <div>
                 <dt>State</dt>
                 <dd>
-                  Instrument pages load their baseline settings when opened. FM Drums can store an
-                  edited bank in browser-local storage.
+                  Pages load their default settings when opened. FM Drums can save edited banks in
+                  browser storage.
                 </dd>
               </div>
               <div>
                 <dt>Development</dt>
                 <dd>
-                  The repository provides a local static server with <code>npm run dev</code> and
-                  runs syntax checks and automated tests with <code>npm run verify</code>.
+                  Use <code>npm run dev</code> for the local server and
+                  <code>npm run verify</code> for checks and tests.
                 </dd>
               </div>
             </dl>
@@ -727,16 +724,16 @@
             <p class="manual-section-label">14</p>
             <h2>Source &amp; license</h2>
             <p class="manual-section-note">
-              The project source is public and may be used under the terms in the repository.
+              The source is public under the repository license.
             </p>
           </div>
           <div class="manual-copy">
             <p>
-              The source code, tests, deployment files, and development notes are in the
+              Code, tests, deployment files, and development notes are in the
               <a href="https://github.com/blechdom/morphazoid">Morphazoid GitHub repository</a>.
             </p>
             <p>
-              Morphazoid is released under the
+              Morphazoid uses the
               <a href="https://github.com/blechdom/morphazoid/blob/main/LICENSE">MIT License</a>.
               Bundled third-party components retain their original license terms; those terms are
               listed in the
@@ -754,17 +751,17 @@
           </div>
           <div class="manual-copy">
             <p>
-              <a href="https://github.com/blechdom">Kristin Galvin</a> is the author and developer
-              of Morphazoid. She is a software engineer and experimental electronic musician. She
-              has recorded and performed as Kevin Blechdom and as part of Blectum from Blechdom.
-              Her work on Morphazoid covers browser-based synthesis, audio processing, geometry,
-              and recursive systems.
+              <a href="https://github.com/blechdom">Kristin Galvin</a> created and develops
+              Morphazoid. She is a software engineer and experimental electronic musician who has
+              recorded and performed as Kevin Blechdom and as part of Blectum from Blechdom.
+              Morphazoid brings together her work in browser synthesis, audio processing,
+              geometry, and recursive systems.
             </p>
           </div>
         </section>
 
         <footer class="about-footer">
-          <span>Morphazoid project reference</span>
+          <span>Morphazoid</span>
           <span>Copyright © 2026 Kristin Galvin</span>
         </footer>
       </article>

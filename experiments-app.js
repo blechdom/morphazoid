@@ -1,3 +1,5 @@
+import { unlockAudioContext } from "./src/audio.js";
+
 const TAU = Math.PI * 2;
 const MAX_CONTINUOUS_VOICES = 48;
 const MOIRE_DEFAULT_VOICES = 8;
@@ -79,7 +81,10 @@ class ExperimentAudio {
       this.master.connect(this.compressor);
       this.compressor.connect(this.context.destination);
     }
-    if (this.context.state === "suspended") await this.context.resume();
+    if (this.context.state === "suspended") {
+      unlockAudioContext(this.context);
+      await this.context.resume();
+    }
     this.running = true;
   }
 
@@ -1970,7 +1975,7 @@ const EXPERIMENTS = {
       setText("metricPrimary", `${voices.length}`);
       setText("metricSecondary", `${minimum}–${maximum} Hz`);
       setText("patternSummary", `${voiceCount}+${voiceCount} · ${pairCount} ${pairCount === 1 ? "pair" : "pairs"}`);
-      setText("stageReadout", `MOIRE ORGAN · GREEN +${compact(moireAngleRate(state.moireUpAngle), 3)} · PINK -${compact(moireAngleRate(state.moireDownAngle), 3)} OCT/S · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+      setText("stageReadout", `RISSET-MOIRE · GREEN +${compact(moireAngleRate(state.moireUpAngle), 3)} · PINK -${compact(moireAngleRate(state.moireDownAngle), 3)} OCT/S · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
     },
   },
   chladni: {

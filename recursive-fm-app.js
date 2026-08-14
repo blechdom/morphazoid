@@ -23,6 +23,7 @@ import {
   createChaoticSpectrum,
   drawChaoticLiveAnalysis,
 } from "./src/chaotic-synth-visuals.js";
+import { unlockAudioContext } from "./src/audio.js";
 import { getSharedMidiManager } from "./src/midi-manager.js";
 
 const $ = (id) => document.getElementById(id);
@@ -172,7 +173,10 @@ class RecursiveFmAudioEngine {
     performance = this.performance,
   ) {
     if (this.running) {
-      if (this.context.state === "suspended") await this.context.resume();
+      if (this.context.state === "suspended") {
+        unlockAudioContext(this.context);
+        await this.context.resume();
+      }
       this.updatePerformance(performance);
       this.updateSettings(settings);
       this.setLevel(level);
@@ -280,7 +284,10 @@ class RecursiveFmAudioEngine {
     expressionGain.gain.value = 1;
     this.updateSettings(settings, { immediate: true });
     for (const oscillator of this.oscillators) oscillator.start();
-    if (context.state === "suspended") await context.resume();
+    if (context.state === "suspended") {
+      unlockAudioContext(context);
+      await context.resume();
+    }
     this.setLevel(level);
   }
 

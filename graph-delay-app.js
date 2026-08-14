@@ -11,6 +11,7 @@ import {
   graphTurnRoutings,
   nodeTurnRouting,
 } from "./src/graph-delay.js?v=20260726-edge-switches";
+import { unlockAudioContext } from "./src/audio.js";
 
 const $ = (id) => document.getElementById(id);
 const EDGE_COLORS = [
@@ -1021,6 +1022,7 @@ async function startMicrophone() {
     if (!AudioContextClass) throw new Error("Web Audio is not available in this browser.");
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone input requires a secure browser context.");
     if (!audioContext || audioContext.state === "closed") audioContext = new AudioContextClass({ latencyHint: "interactive" });
+    unlockAudioContext(audioContext);
     await audioContext.resume();
     await preparePitchProcessor(audioContext);
     if (!audioGraph) audioGraph = buildAudioGraph(audioContext);

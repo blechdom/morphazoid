@@ -1,4 +1,4 @@
-import { clamp, levelToGain } from "./src/audio.js";
+import { clamp, levelToGain, unlockAudioContext } from "./src/audio.js";
 import {
   addContourVertex,
   fadeLoopEdges,
@@ -726,6 +726,7 @@ async function ensureAudio() {
     }
   }
   if (audioContext.state !== "running" && audioContext.state !== "closed") {
+    unlockAudioContext(audioContext);
     await audioContext.resume();
   }
   paintMasterGain();

@@ -5,6 +5,7 @@ import {
   generateSortSequence,
   sanitizeSortSequencerParams,
 } from "./src/algorithmic-sequencers.js";
+import { unlockAudioContext } from "./src/audio.js";
 
 const $ = (id) => document.getElementById(id);
 const FRAME_INTERVAL = 1_000 / 30;
@@ -317,6 +318,7 @@ async function toggleAudio() {
   updateReadouts();
   try {
     const audioContext = await ensureAudioContext();
+    unlockAudioContext(audioContext);
     await audioContext.resume?.();
     state.audioOn = true;
   } catch (error) {

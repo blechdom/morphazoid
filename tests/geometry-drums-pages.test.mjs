@@ -9,6 +9,7 @@ const pages = [
   ["spiral-drums.html", "spiral-drums.html"],
   ["solid-drums.html", "solid-drums.html"],
   ["hyper-drums.html", "hyper-drums.html"],
+  ["l-system-drums.html", "l-system-drums.html"],
 ];
 const drumRoutes = pages.map(([, route]) => route);
 const subdividedPages = [

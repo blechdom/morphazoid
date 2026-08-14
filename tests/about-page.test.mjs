@@ -5,20 +5,33 @@ import test from "node:test";
 import { TOOL_GROUPS } from "../nav.js";
 
 const root = new URL("../", import.meta.url);
+const regexEscape = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+test("Home page is the About guide", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+
+  assert.match(html, /<body class="about-page">/);
+  assert.match(html, /<title>Morphazoid<\/title>/);
+  assert.match(html, /<h1>Morphazoid<\/h1>/);
+  assert.doesNotMatch(html, /Project (?:reference|guide)/i);
+  assert.match(html, /href="\.\/" aria-current="page">about<\/a>/);
+  assert.match(html, /href="shape\.html">Shape<\/a>/);
+  assert.doesNotMatch(html, /<script type="module" src="app\.js"><\/script>/);
+});
 
 test("About is a complete linked guide to the public tool registry", async () => {
   const html = await readFile(new URL("about.html", root), "utf8");
 
-  assert.match(html, /<title>About — Morphazoid<\/title>/);
-  assert.match(html, /href="about\.html" aria-current="page">about<\/a>/);
+  assert.match(html, /<title>Morphazoid<\/title>/);
+  assert.match(html, /href="\.\/" aria-current="page">about<\/a>/);
   assert.match(html, /class="mobile-instrument-select"/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.equal((html.match(/class="page-entry"/g) ?? []).length, 57);
+  assert.equal((html.match(/class="page-entry"/g) ?? []).length, 60);
 
   for (const group of TOOL_GROUPS) {
-    assert.match(html, new RegExp(`>${group.label.replace("&", "&amp;")}<\\/h2>`));
+    assert.match(html, new RegExp(`>${regexEscape(group.label).replace("&", "&amp;")}<\\/h2>`));
     for (const tool of group.tools) {
-      const escapedHref = tool.href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const escapedHref = regexEscape(tool.href);
       assert.match(html, new RegExp(`href="${escapedHref}"`), `missing ${tool.label}`);
     }
   }
@@ -67,5 +80,5 @@ test("Morphazoidical's local menus link back to About", async () => {
     readFile(new URL("morphazoidical/atlas.html", root), "utf8"),
   ]);
 
-  for (const html of pages) assert.match(html, /href="\.\.\/about\.html">About<\/a>/);
+  for (const html of pages) assert.match(html, /href="\.\.\/">About<\/a>/);
 });

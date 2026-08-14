@@ -317,7 +317,7 @@ test("Annealogue markup and browser controller honor the quantum instrument cont
   assert.match(html, /Single Basin[\s\S]*False Floor[\s\S]*Frustrated Ring/);
 
   for (const [href, label] of [
-    ["./", "shape"],
+    ["shape.html", "shape"],
     ["order-tones.html", "order tones"],
     ["bell-square.html", "bell square"],
     ["annealogue.html", "annealogue"],

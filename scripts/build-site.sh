@@ -54,6 +54,7 @@ done < <(git -C "$repo_root" ls-files -z)
 # Allow new public pages to enter local release artifacts before their first
 # commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
+  shape.html \
   about.html \
   about.css \
   plugins.html \
@@ -93,6 +94,18 @@ for worktree_runtime_file in \
   hyper-drums.css \
   hyper-drums-app.js \
   src/hyper-drums.js \
+  l-system-drums.html \
+  l-system-drums.css \
+  l-system-drums-app.js \
+  src/l-system-drums.js \
+  linear-drums.html \
+  linear-drums.css \
+  linear-drums-app.js \
+  src/linear-drums.js \
+  linear-drums-machine.html \
+  linear-drums-machine.css \
+  linear-drums-machine-app.js \
+  src/linear-drums-machine.js \
   src/chaotic-fm-flow.js \
   chaotic-pm.html \
   chaotic-pm.css \
@@ -150,6 +163,7 @@ done
 
 required_files=(
   index.html
+  shape.html
   about.html
   about.css
   plugins.html
@@ -276,6 +290,18 @@ required_files=(
   hyper-drums.css
   hyper-drums-app.js
   src/hyper-drums.js
+  l-system-drums.html
+  l-system-drums.css
+  l-system-drums-app.js
+  src/l-system-drums.js
+  linear-drums.html
+  linear-drums.css
+  linear-drums-app.js
+  src/linear-drums.js
+  linear-drums-machine.html
+  linear-drums-machine.css
+  linear-drums-machine-app.js
+  src/linear-drums-machine.js
   morphazoidical/index.html
   vendor/signalsmith-stretch/LICENSE
   vendor/signalsmith-stretch/SignalsmithStretch.mjs

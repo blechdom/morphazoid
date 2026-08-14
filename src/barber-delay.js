@@ -1,3 +1,5 @@
+import { unlockAudioContext } from "./audio.js";
+
 const PROCESSOR_NAME = "morphazoid-barber-delay";
 const DEFAULT_SAMPLE_RATE = 48_000;
 const RENDER_QUANTUM = 128;
@@ -1271,6 +1273,10 @@ export class BarberDelayAudio {
     }
 
     try {
+      if (context.state !== "running") {
+        unlockAudioContext(context);
+        await context.resume();
+      }
       await context.audioWorklet.addModule(
         new URL("./barber-delay.js", import.meta.url),
       );

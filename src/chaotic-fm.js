@@ -1,3 +1,5 @@
+import { unlockAudioContext } from "./audio.js";
+
 const PROCESSOR_NAME = "morphazoid-chaotic-fm";
 const TAU = Math.PI * 2;
 const DEFAULT_SAMPLE_RATE = 48_000;
@@ -1320,6 +1322,10 @@ export class ChaoticFmAudio {
     }
 
     try {
+      if (context.state !== "running") {
+        unlockAudioContext(context);
+        await context.resume();
+      }
       await context.audioWorklet.addModule(
         new URL("./chaotic-fm.js", import.meta.url),
       );

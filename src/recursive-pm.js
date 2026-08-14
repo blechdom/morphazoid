@@ -1,3 +1,5 @@
+import { unlockAudioContext } from "./audio.js";
+
 const DEFAULT_SAMPLE_RATE = 48_000;
 const PARAMETER_SMOOTHING_SECONDS = 0.018;
 const DEPTH_SMOOTHING_SECONDS = 0.009;
@@ -351,7 +353,10 @@ export class RecursivePmAudioEngine {
 
   async start(settings, level = 0.58) {
     if (this.running) {
-      if (this.context.state === "suspended") await this.context.resume();
+      if (this.context.state === "suspended") {
+        unlockAudioContext(this.context);
+        await this.context.resume();
+      }
       this.updateSettings(settings);
       this.setLevel(level);
       return;
@@ -369,6 +374,10 @@ export class RecursivePmAudioEngine {
     this.stopping = false;
 
     try {
+      if (context.state !== "running") {
+        unlockAudioContext(context);
+        await context.resume();
+      }
       await context.audioWorklet.addModule(
         new URL("./recursive-pm.js", import.meta.url),
       );

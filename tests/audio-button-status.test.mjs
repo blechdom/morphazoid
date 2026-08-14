@@ -10,6 +10,8 @@ const instrumentScripts = [
   "solid-app.js",
   "hyper-app.js",
   "l-system-app.js",
+  "l-system-drums-app.js",
+  "linear-drums-app.js",
   "recursion-app.js",
   "julia-app.js",
   "lumber-app.js",

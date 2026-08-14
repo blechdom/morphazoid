@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("app.js initializes and draws one frame against browser APIs", async () => {
-  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../shape.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const initialTags = new Map(
     [...html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)].map((match) => [match[1], match[0]]),
@@ -287,7 +287,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("levelOut").textContent, "65%");
   assert.equal(elements.get("position").value, "0");
   assert.equal(elements.get("positionOut").textContent, "0.0%");
-  assert.equal(attributes.get("speed:aria-valuetext"), "0.060 cyc/s");
+  assert.equal(elements.get("baseFrequencyOut").textContent, "130 Hz");
+  assert.equal(attributes.get("speed:aria-valuetext"), "0.250 cyc/s");
   assert.equal(elements.get("headsControl").hidden, false);
   assert.equal(elements.get("lineCountControl").hidden, true);
   assert.equal(elements.get("playheadMotion").hidden, false);
@@ -313,13 +314,13 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("amplitudeIntervalHelp").textContent, "Current corner 100% → next corner 0%");
   assert.equal(
     elements.get("amplitudeNodeReadout").textContent,
-    "Segment 4167 ms · linear 100% → 0%",
+    "Segment 1000 ms · linear 100% → 0%",
   );
   assert.equal(
     elements.get("amplitudeTimingBasis").textContent,
-    "Point · 0.060 cyc/s current contour timing · endpoints from trigger",
+    "Point · 0.250 cyc/s current contour timing · endpoints from trigger",
   );
-  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /2083 milliseconds from the trigger/);
+  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /500 milliseconds from the trigger/);
   assert.equal(elements.get("cornerSwellToggle").disabled, true);
   assert.equal(
     attributes.get("cornerSwellToggle:aria-label"),
@@ -346,16 +347,16 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("cornerSwellToggle").disabled, false);
   assert.equal(
     elements.get("amplitudeNodeReadout").textContent,
-    "A @ 250 ms · D @ 1042 ms · S @ 2583 ms · R @ 3417 ms",
+    "A @ 60 ms · D @ 250 ms · S @ 620 ms · R @ 820 ms",
   );
   listeners.get("amplitudeNode2:pointerdown")({ pointerId: 9, preventDefault() {} });
   listeners.get("amplitudeCurveEditor:pointermove")({ pointerId: 9, clientX: 19.2, clientY: 48 });
   assert.equal(
     elements.get("amplitudeNodeReadout").textContent,
-    "A @ 250 ms · D @ 333 ms · S @ 2583 ms · R @ 3417 ms",
+    "A @ 60 ms · D @ 80 ms · S @ 620 ms · R @ 820 ms",
   );
-  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /333 milliseconds from the trigger/);
-  assert.equal(elements.get("amplitudeNode2").title, "Decay · 333 ms · 50% level");
+  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /80 milliseconds from the trigger/);
+  assert.equal(elements.get("amplitudeNode2").title, "Decay · 80 ms · 50% level");
   listeners.get("amplitudeCurveEditor:pointerup")({ pointerId: 9 });
   listeners.get("resetAmplitudeCurve:click")();
   assert.equal(elements.get("amplitudeCurveState").textContent, "Segment");
@@ -368,10 +369,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("amplitudeIntervalHelp").textContent, "Midpoint → corner peak → midpoint");
   assert.equal(
     elements.get("amplitudeNodeReadout").textContent,
-    "A 0 ms peak · D ±421 ms · S ±1241 ms · R ±1684 ms",
+    "A 0 ms peak · D ±101 ms · S ±298 ms · R ±404 ms",
   );
   assert.match(elements.get("amplitudeTimingBasis").textContent, /± from corner/);
-  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /plus or minus 421 milliseconds from the corner/);
+  assert.match(attributes.get("amplitudeNode2:aria-valuetext"), /plus or minus 101 milliseconds from the corner/);
   listeners.get("cornerSwellToggle:click")();
   assert.equal(attributes.get("cornerSwellToggle:aria-pressed"), "false");
   assert.equal(elements.get("cornerSwellToggleText").textContent, "Swell off");
@@ -624,13 +625,13 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("shepardMappingTravel:aria-pressed"), "true");
   assert.equal(attributes.get("shepardMappingTurn:aria-pressed"), "false");
   assert.equal(elements.get("shepardMappingTurn").disabled, false);
-  assert.equal(elements.get("markFrequencyOut").textContent, "110 Hz");
+  assert.equal(elements.get("markFrequencyOut").textContent, "130 Hz");
   assert.equal(elements.get("markSynthDriveOut").textContent, "-");
   assert.match(elements.get("markSynthValueOut").textContent, /oct\/s/);
 
   let shepardVoice = latestWorkletVoice("shepard");
   assert.ok(shepardVoice, `missing Shepard worklet spec: ${JSON.stringify(audioWorkletMessages)}`);
-  assert.equal(shepardVoice.frequency, 110, "Shepard must use a fixed spectral anchor");
+  assert.equal(shepardVoice.frequency, 130, "Shepard must use a fixed spectral anchor");
   assert.equal(shepardVoice.shepardWidth, 4, "the width slider directly controls the bank");
   assert.equal(shepardVoice.synthDrive, 1, "geometry must not collapse the Shepard bank");
   assert.ok(Number.isFinite(shepardVoice.shepardTravel), "Shepard voices must preserve unwrapped travel");

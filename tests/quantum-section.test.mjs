@@ -32,12 +32,12 @@ const quantumPages = Object.freeze([
   }),
 ]);
 
-test("Quantum Synths registry exposes the three simulator instruments in order", () => {
-  const group = TOOL_GROUPS.find(({ id }) => id === "quantum-synths");
+test("menu registry keeps the three quantum simulators in the final instruments group", () => {
+  const group = TOOL_GROUPS.find(({ id }) => id === "instruments");
   assert.ok(group);
-  assert.equal(group.label, "Quantum Synths");
+  assert.equal(group.label, "Instruments");
   assert.deepEqual(
-    group.tools.map(({ id, label, href }) => ({ id, label, href })),
+    group.tools.slice(0, quantumPages.length).map(({ id, label, href }) => ({ id, label, href })),
     quantumPages.map(({ id, label, page }) => ({ id, label, href: page })),
   );
 });
@@ -88,7 +88,7 @@ test("About and README identify the simulations without claiming QPU execution",
   ]);
   assert.match(about, /id="quantum-synths"/);
   assert.match(about, />Quantum Synths<\/h2>/);
-  assert.match(about, /not[\s\S]{0,80}quantum hardware/i);
+  assert.match(about, /not[\s\S]{0,80}quantum[-\s]hardware/i);
   for (const { label, page } of quantumPages) {
     assert.match(about, new RegExp(`href="${page.replace(".", "\\.")}">${label}<`));
     assert.match(readme, new RegExp(`\\*\\*${label}\\*\\*`));

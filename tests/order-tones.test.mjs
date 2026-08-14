@@ -239,7 +239,7 @@ test("Order Tones markup follows the shared quantum and Morphazoid contracts", a
   ]) assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
 
   assert.match(html, /<small id="audioState">off<\/small>/);
-  assert.match(html, /href="\.\/">shape<\/a>/);
+  assert.match(html, /href="shape\.html">shape<\/a>/);
   assert.match(html, /href="order-tones\.html"[^>]*>order tones<\/a>/);
   assert.match(html, /href="bell-square\.html">bell square<\/a>/);
   assert.match(html, /href="annealogue\.html">annealogue<\/a>/);

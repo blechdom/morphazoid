@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="A painted time-frequency drum machine for continuous percussion notes, glissandi, rings, and parameter fields." />
+    <title>Rattle Snake Boogie - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="linear-drums-machine.css" />
+  </head>
+  <body class="paint-machine-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="fm-drums.html">fm drums</a>
+        <a class="tab" href="linear-drums.html">linear drums</a>
+        <a class="tab active" href="linear-drums-machine.html" aria-current="page">rattle snake boogie</a>
+        <a class="tab" href="sample-drums.html">sample drums</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="fm-drums.html">fm drums</option>
+          <option value="linear-drums.html">linear drums</option>
+          <option value="linear-drums-machine.html" selected>rattle snake boogie</option>
+          <option value="sample-drums.html">sample drums</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">*</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">58%</output></span>
+          <input id="output" aria-label="Drum machine output level" type="range" min="0" max=".85" step=".01" value=".58" />
+        </label>
+      </div>
+    </header>
+
+    <main class="paint-machine-shell">
+      <header class="paint-machine-header">
+        <div class="paint-machine-identity">
+          <p>TIME / FREQUENCY PAINT</p>
+          <h1>Rattle Snake Boogie</h1>
+        </div>
+        <div class="paint-transport" aria-label="Loop transport">
+          <button class="paint-command is-primary" id="playButton" type="button" aria-pressed="false" title="Play loop">
+            <span id="playIcon" aria-hidden="true">&#9654;</span><b id="playLabel">Play</b>
+          </button>
+          <button class="paint-command" id="stopButton" type="button" title="Stop and return to start">
+            <span aria-hidden="true">&#9632;</span><b>Stop</b>
+          </button>
+          <label class="paint-header-control" for="tempo">
+            <span><b>Tempo</b><output id="tempoOut" for="tempo">112 BPM</output></span>
+            <input id="tempo" type="range" min="50" max="180" step="1" value="112" />
+          </label>
+          <fieldset class="paint-loop-length" aria-label="Loop length">
+            <legend>Beats</legend>
+            <label><input type="radio" name="loopBeats" value="4" /><span>4</span></label>
+            <label><input type="radio" name="loopBeats" value="8" checked /><span>8</span></label>
+            <label><input type="radio" name="loopBeats" value="16" /><span>16</span></label>
+          </fieldset>
+          <div class="paint-live-readout" aria-live="polite">
+            <b id="phaseReadout">1.1</b><small>BEAT</small>
+          </div>
+        </div>
+      </header>
+
+      <section class="paint-workspace">
+        <div class="paint-canvas-column">
+          <div class="paint-toolbar">
+            <div class="paint-tools" role="toolbar" aria-label="Painting tools">
+              <button class="paint-tool-button is-active" type="button" data-paint-tool="hit" aria-pressed="true" aria-label="Paint solid notes" title="Solid notes">
+                <span class="paint-tool-glyph is-hit" aria-hidden="true"></span>
+              </button>
+              <button class="paint-tool-button" type="button" data-paint-tool="stroke" aria-pressed="false" aria-label="Draw glissando line" title="Glissando line">
+                <span class="paint-tool-glyph is-stroke" aria-hidden="true"></span>
+              </button>
+              <button class="paint-tool-button" type="button" data-paint-tool="ring" aria-pressed="false" aria-label="Draw glissando ring" title="Glissando ring">
+                <span class="paint-tool-glyph is-ring" aria-hidden="true"></span>
+              </button>
+              <button class="paint-tool-button" type="button" data-paint-tool="erase" aria-pressed="false" aria-label="Erase painted events" title="Eraser">
+                <span class="paint-tool-glyph is-erase" aria-hidden="true"></span>
+              </button>
+            </div>
+
+            <div class="paint-palette" id="paintPalette" role="toolbar" aria-label="Color layers"></div>
+
+            <div class="paint-edit-actions">
+              <button class="paint-icon-command" id="undoButton" type="button" aria-label="Undo" title="Undo" disabled><span aria-hidden="true">&#8630;</span></button>
+              <button class="paint-text-command" id="clearButton" type="button">Clear</button>
+            </div>
+          </div>
+
+          <div class="paint-stage-grid">
+            <div class="paint-frequency-axis" id="frequencyAxis" aria-hidden="true"></div>
+            <div class="paint-stage-wrap" id="paintStageWrap">
+              <canvas id="paintStage" role="img" aria-label="Painted time and frequency sequencer" aria-describedby="paintInstructions paintLiveStatus"></canvas>
+              <output class="paint-cursor-readout" id="paintCursor" hidden>440 Hz / 1.1</output>
+            </div>
+            <div class="paint-corner-label" aria-hidden="true">HZ</div>
+            <div class="paint-time-axis" id="timeAxis" aria-hidden="true"></div>
+          </div>
+
+          <footer class="paint-canvas-footer">
+            <span><b id="eventCount">9</b> MARKS</span>
+            <span><b id="glissReadout">18</b> GLISS HITS/S</span>
+            <span id="selectedLayerReadout">BODY / VOICE</span>
+            <span>TIME X / FREQUENCY Y</span>
+          </footer>
+        </div>
+
+        <aside class="paint-inspector" aria-label="Paint and layer controls">
+          <section class="paint-inspector-section">
+            <div class="paint-section-heading">
+              <h2>Color layer</h2>
+              <output id="layerName">BODY</output>
+            </div>
+            <fieldset class="paint-role-selector" aria-label="Layer role">
+              <label><input id="layerRoleVoice" type="radio" name="layerRole" value="voice" checked /><span>Voice</span></label>
+              <label><input id="layerRoleMod" type="radio" name="layerRole" value="mod" /><span>Modulator</span></label>
+            </fieldset>
+          </section>
+
+          <section class="paint-inspector-section" id="voiceSettings">
+            <div class="paint-section-heading"><h2>Sound</h2><output id="voiceModel">MODAL + FM</output></div>
+            <label class="paint-select-control" for="layerPreset">
+              <span>Preset</span>
+              <select id="layerPreset"></select>
+            </label>
+          </section>
+
+          <section class="paint-inspector-section" id="modSettings" hidden>
+            <div class="paint-section-heading"><h2>Parameter field</h2><output id="modAmountOut">+72%</output></div>
+            <label class="paint-select-control" for="modTarget">
+              <span>Target</span>
+              <select id="modTarget">
+                <option value="attack">Attack</option>
+                <option value="decay">Decay</option>
+                <option value="pitchFall">Pitch fall</option>
+                <option value="strikeNoise">Attack noise</option>
+                <option value="brightness">Brightness</option>
+                <option value="inharmonicity">Stiffness</option>
+                <option value="hardness" selected>Strike hardness</option>
+              </select>
+            </label>
+            <label class="paint-range-control" for="modAmount">
+              <span><b>Amount</b><small>INVERT / FOLLOW</small></span>
+              <input id="modAmount" type="range" min="-1" max="1" step=".01" value=".72" />
+            </label>
+          </section>
+
+          <section class="paint-inspector-section">
+            <div class="paint-section-heading"><h2>Brush</h2><output id="brushSizeOut">14</output></div>
+            <label class="paint-range-control" for="brushSize">
+              <span><b>Size</b><small>NOTE / ERASE</small></span>
+              <input id="brushSize" type="range" min=".006" max=".045" step=".001" value=".014" />
+            </label>
+            <label class="paint-range-control" for="glissRate">
+              <span><b>Outline density</b><output id="glissRateOut" for="glissRate">18 /s</output></span>
+              <input id="glissRate" type="range" min="6" max="30" step="1" value="18" />
+            </label>
+          </section>
+
+          <section class="paint-inspector-section">
+            <div class="paint-section-heading"><h2>Frequency</h2><output id="frequencyRangeOut">20 HZ - 16 KHZ</output></div>
+            <label class="paint-range-control" for="rangeCeiling">
+              <span><b>Ceiling</b><output id="rangeCeilingOut" for="rangeCeiling">16 kHz</output></span>
+              <input id="rangeCeiling" type="range" min="0" max="1" step=".001" value=".861" />
+            </label>
+          </section>
+
+          <p class="audio-error" id="audioError" role="alert" hidden></p>
+        </aside>
+      </section>
+
+      <p class="sr-only" id="paintInstructions">Paint solid dots for notes. Draw lines or circle outlines for percussion glissandi. The horizontal axis is loop time and the vertical axis is logarithmic frequency.</p>
+      <p class="sr-only" id="paintLiveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="linear-drums-machine-app.js"></script>
+  </body>
+</html>

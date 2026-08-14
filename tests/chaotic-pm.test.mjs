@@ -782,6 +782,7 @@ test("concurrent start keeps the latest controls and a closed context restarts",
   const firstStart = audio.start(LEGACY_SETTINGS[0], 0.2);
   const secondStart = audio.start(LEGACY_SETTINGS[3], 0.66);
   assert.equal(FakeAudioContext.instances.length, 1);
+  await Promise.resolve();
   DeferredAudioContext.releaseModule();
   await Promise.all([firstStart, secondStart]);
 
@@ -795,6 +796,7 @@ test("concurrent start keeps the latest controls and a closed context restarts",
   await firstContext.close();
   assert.equal(audio.running, false);
   const restart = audio.start(LEGACY_SETTINGS[1], 0.4);
+  await Promise.resolve();
   DeferredAudioContext.releaseModule();
   await restart;
   assert.equal(FakeAudioContext.instances.length, 2);

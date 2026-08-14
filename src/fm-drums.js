@@ -1,3 +1,5 @@
+import { unlockAudioContext } from "./audio.js";
+
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
 function cancelledAudioStart() {
@@ -102,7 +104,10 @@ export class FmDrumAudio {
       this.analyser.connect(context.destination);
       this.input = compressor;
     }
-    if (context.state === "suspended") await context.resume();
+    if (context.state === "suspended") {
+      unlockAudioContext(context);
+      await context.resume();
+    }
     if (
       lifecycleGeneration !== this.lifecycleGeneration
       || context !== this.context
