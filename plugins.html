@@ -11,7 +11,7 @@
     <title>Morphazoid Plug-ins (under development)</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="plugins.css" />
+    <link rel="stylesheet" href="plugins.css?v=20260815-2" />
   </head>
   <body class="plugins-page">
     <header class="masthead">
@@ -34,47 +34,65 @@
         </select>
       </label>
 
-      <span class="plugins-header-label">Under development</span>
+      <span class="plugins-header-label">VST coming soon</span>
     </header>
 
     <main class="plugins-shell" id="plugins">
       <article class="plugins-document">
         <header class="plugins-intro">
-          <p class="plugins-kicker">For REAPER</p>
+          <p class="plugins-development">Under development</p>
           <h1>Morphazoid Plug-ins</h1>
-          <p class="plugins-development">(under development)</p>
-          <p class="plugins-lede">Use REAPER? You can download Chaotic FM now.</p>
-          <div class="plugins-actions">
-            <a
-              class="plugin-download"
-              href="downloads/plugins/chaotic-fm/0.3.0/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx"
-              download="Morphazoid_Chaotic_FM-v0.3.0.jsfx"
-            >Download for REAPER</a>
-            <a class="plugin-demo-link" href="chaotic-fm.html">Try it in the browser</a>
-          </div>
-          <p class="plugins-note">No installer needed. REAPER 7 for macOS, Windows, or Linux.</p>
+          <p class="plugins-vst">VST coming soon</p>
+          <p class="plugins-lede">
+            Chaotic FM is available now as a beta for REAPER. More Chaotic Synth plug-ins and
+            VST versions are in development.
+          </p>
         </header>
 
-        <section class="plugins-install" id="install-reaper-jsfx" aria-labelledby="installTitle">
-          <div>
-            <p class="plugins-section-label">Install</p>
-            <h2 id="installTitle">Add it to REAPER</h2>
+        <section class="plugins-browser" aria-labelledby="catalogTitle">
+          <header class="plugins-browser-heading">
+            <p class="plugins-section-label">Chaotic Synths</p>
+            <h2 id="catalogTitle">Instruments</h2>
+            <p>
+              Download Chaotic FM for REAPER, or open any instrument in the browser to hear it now.
+            </p>
+          </header>
+
+          <div class="plugin-catalog" id="pluginCatalog" aria-live="polite">
+            <p class="plugin-loading">Loading instruments...</p>
           </div>
+
+          <noscript>
+            <article class="plugin-noscript">
+              <p class="plugin-status plugin-status-available">Beta available</p>
+              <h2>Chaotic FM</h2>
+              <p>A nonlinear FM cascade for MIDI performance and rhythmic modulation.</p>
+              <a
+                class="plugin-download"
+                href="downloads/plugins/chaotic-fm/0.3.0/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx"
+                download="Morphazoid_Chaotic_FM-v0.3.0.jsfx"
+              >Download for REAPER</a>
+            </article>
+          </noscript>
+        </section>
+
+        <section class="plugins-install" id="install-reaper-jsfx" aria-labelledby="installTitle">
+          <p class="plugins-section-label">Install</p>
+          <h2 id="installTitle">Add Chaotic FM to REAPER</h2>
           <ol>
             <li>Download the file.</li>
             <li>In REAPER, choose <strong>Options → Show REAPER resource path</strong>. Put the file in <strong>Effects</strong>.</li>
             <li>Refresh the FX browser and add <strong>JS: Morphazoid: Chaotic FM</strong>.</li>
           </ol>
+          <p class="plugins-note">
+            No installer is needed. The current beta runs in REAPER 7 on macOS, Windows, and Linux.
+          </p>
         </section>
 
-        <section class="plugins-coming" aria-labelledby="comingTitle">
-          <p class="plugins-section-label">Coming soon</p>
-          <h2 id="comingTitle">VST versions</h2>
-          <p>More Morphazoid instruments and VST plug-ins are in development.</p>
-        </section>
       </article>
     </main>
 
     <script type="module" src="nav.js"></script>
+    <script type="module" src="plugins-app.js?v=20260815-2"></script>
   </body>
 </html>

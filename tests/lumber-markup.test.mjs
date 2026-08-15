@@ -14,9 +14,14 @@ test("Lumber Loops keeps a traditional looper surface with optional advanced pla
 
   assert.match(html, /<body class="lumber-page"/);
   assert.match(html, /<title>Lumber Loops — Morphazoid<\/title>/);
+  assert.match(html, /href="style\.css\?v=20260815-1"/);
+  assert.match(html, /<details class="instrument-info" id="lumberInfo">/);
   assert.match(html, /<h1>Lumber Loops<\/h1>/);
   assert.match(html, /src="assets\/lumber-loops-wood-loop\.webp"/);
   assert.match(html, /alt="Rainbow cereal loop formed from a bark-edged wood slice"/);
+  assert.match(html, /Lumber Loops turns recorded audio into editable waveform rings[^<]*\.<\/p>/);
+  assert.match(html, /Press Record to capture a sound[^<]*\.<\/p>/);
+  assert.doesNotMatch(html, /lumber-loop-identity/);
   assert.match(html, /data-lumber-mode="expanded"/);
   assert.equal((html.match(/<canvas\b/g) ?? []).length, 1);
   for (const id of [
@@ -116,7 +121,8 @@ test("Lumber Loops keeps a traditional looper surface with optional advanced pla
   assert.match(css, /\.depth-effect-row/);
 
   assert.match(css, /\.lumber-page\s+#loopSection\s*\{/);
-  assert.match(css, /\.lumber-loop-identity\s*\{/);
+  assert.match(css, /\.instrument-info\s*\{/);
+  assert.match(css, /\.instrument-info:hover \.instrument-info-popover/);
   assert.match(css, /\.lumber-page\s+#ringSection\s*\{/);
   assert.match(css, /\.lumber-page\s+#shapeSection\s*\{/);
   assert.match(css, /\.lumber-page\s+#advancedSection\s*\{/);

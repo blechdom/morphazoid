@@ -810,18 +810,72 @@ a {
   --accent-glow: color-mix(in oklab, #e8c46b 22%, transparent);
 }
 
-.lumber-loop-identity {
-  display: grid;
-  min-width: 0;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--line-strong);
-  background: var(--bg-deep);
-  grid-template-columns: 88px minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
+.instrument-info {
+  position: absolute;
+  z-index: 5;
+  top: 14px;
+  left: 16px;
 }
 
-.lumber-loop-identity img {
+.instrument-info > summary {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  cursor: help;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--bg-deep) 92%, transparent);
+  font-family: Georgia, serif;
+  font-size: 14px;
+  font-style: italic;
+  list-style: none;
+  place-items: center;
+}
+
+.instrument-info > summary::-webkit-details-marker {
+  display: none;
+}
+
+.instrument-info > summary:hover,
+.instrument-info > summary:focus-visible,
+.instrument-info[open] > summary {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.instrument-info-popover,
+.instrument-info:not([open]) > .instrument-info-popover {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  display: grid;
+  width: min(370px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  pointer-events: none;
+  visibility: hidden;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--bg-deep) 97%, transparent);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, .45);
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: start;
+  gap: 13px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+}
+
+.instrument-info:hover .instrument-info-popover,
+.instrument-info[open] .instrument-info-popover {
+  pointer-events: auto;
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.instrument-info-popover img {
   display: block;
   width: 88px;
   height: 88px;
@@ -829,26 +883,25 @@ a {
   object-fit: cover;
 }
 
-.lumber-loop-identity p,
-.lumber-loop-identity h1 {
+.instrument-info-popover h1,
+.instrument-info-popover p {
   margin: 0;
   letter-spacing: 0;
+}
+
+.instrument-info-popover h1 {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.15;
   text-transform: uppercase;
 }
 
-.lumber-loop-identity p {
-  margin-bottom: 6px;
-  color: var(--accent);
-  font-size: 7px;
-  font-weight: 700;
-}
-
-.lumber-loop-identity h1 {
-  overflow-wrap: anywhere;
-  color: var(--ink);
-  font-size: 18px;
-  font-weight: 650;
-  line-height: 1.1;
+.instrument-info-popover p {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
 }
 
 .lumber-page #loopSection {

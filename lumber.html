@@ -7,7 +7,7 @@
     <meta name="description" content="Morphazoid Lumber Loops — a geometric live audio looper." />
     <title>Lumber Loops — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css?v=20260815-1" />
   </head>
   <body class="lumber-page" data-lumber-mode="expanded">
     <header class="masthead">
@@ -66,6 +66,26 @@
     <main class="shell" id="lumber">
       <section class="stage" aria-label="Lumber Loops stage">
         <div class="stage-wrap" id="stageWrap">
+          <details class="instrument-info" id="lumberInfo">
+            <summary aria-label="About Lumber Loops" title="About Lumber Loops">
+              <span aria-hidden="true">i</span>
+            </summary>
+            <div class="instrument-info-popover" role="note">
+              <img
+                src="assets/lumber-loops-wood-loop.webp"
+                width="88"
+                height="88"
+                alt="Rainbow cereal loop formed from a bark-edged wood slice"
+                decoding="async"
+              />
+              <div>
+                <h1>Lumber Loops</h1>
+                <p>Lumber Loops turns recorded audio into editable waveform rings that you can reshape, layer, spin, and process.</p>
+                <p>Press Record to capture a sound, then press Play and drag the ring's points to begin shaping the loop.</p>
+              </div>
+            </div>
+          </details>
+
           <canvas
             id="stage"
             tabindex="0"
@@ -83,20 +103,6 @@
       </section>
 
       <aside class="panel" aria-label="Lumber Loops controls">
-        <header class="lumber-loop-identity">
-          <img
-            src="assets/lumber-loops-wood-loop.webp"
-            width="88"
-            height="88"
-            alt="Rainbow cereal loop formed from a bark-edged wood slice"
-            decoding="async"
-          />
-          <div>
-            <p>Ring looper</p>
-            <h1>Lumber Loops</h1>
-          </div>
-        </header>
-
         <details class="group control-section performance-group" id="loopSection">
           <summary class="group-summary">
             <h2 class="group-title">Transport</h2>
