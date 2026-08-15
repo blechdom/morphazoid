@@ -87,6 +87,7 @@ test("Solid defaults to Sine and silences continuous voices while stopped", asyn
   assert.match(html, /id="formSkewZ"/);
   assert.match(app, /const moving = motionIsActive\(\)/);
   assert.match(app, /else pool\.setVoices\(\[\]\)/);
+  assert.match(app, /new VoicePool\(32, \{ continuousPeakCeiling: 0\.78 \}\)/);
 });
 
 test("Solid opens with a dimensional shape and a visibly broad surface", async () => {

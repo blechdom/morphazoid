@@ -564,6 +564,19 @@ export function normalizeVoiceGains(voices, maxCombinedGain = 1) {
 }
 
 /**
+ * Bound the worst-case phase-aligned peak of a voice group. This is useful for
+ * geometric readers whose contacts can land on the same frequency and remain
+ * phase-coherent instead of behaving like independent signals.
+ */
+export function limitVoicePeakSum(voices, maxPeakSum = 0.78) {
+  const sanitized = voices.map(sanitizeVoice);
+  const ceiling = clamp(maxPeakSum, 0, 1);
+  const peakSum = sanitized.reduce((sum, voice) => sum + voice.gain, 0);
+  const scale = peakSum > ceiling && peakSum > 0 ? ceiling / peakSum : 1;
+  return sanitized.map((voice) => ({ ...voice, gain: voice.gain * scale }));
+}
+
+/**
  * Retarget voices that were already audibly open without admitting a new or
  * previously closed key. Open keys missing from the new geometry are retained
  * at their last target until the interaction settles.
@@ -622,11 +635,7 @@ export function scaleShapeVoiceGains(voices) {
  * prevents a multi-head corner hit from overloading the shared bus.
  */
 export function normalizeStrikeGains(voices, maxPeakSum = 0.78) {
-  const sanitized = voices.map(sanitizeVoice);
-  const ceiling = clamp(maxPeakSum, 0, 1);
-  const peakSum = sanitized.reduce((sum, voice) => sum + voice.gain, 0);
-  const scale = peakSum > ceiling && peakSum > 0 ? ceiling / peakSum : 1;
-  return sanitized.map((voice) => ({ ...voice, gain: voice.gain * scale }));
+  return limitVoicePeakSum(voices, maxPeakSum);
 }
 
 export function unlockAudioContext(context) {
@@ -660,7 +669,7 @@ export function unlockAudioContext(context) {
 export class VoicePool {
   /**
    * @param {number} [size] Native fallback and initial continuous voice count.
-   * @param {{adaptive?: boolean, maxVoices?: number}} [options]
+   * @param {{adaptive?: boolean, maxVoices?: number, continuousPeakCeiling?: number}} [options]
    */
   constructor(size = DEFAULT_VOICE_COUNT, options = {}) {
     this.size = Math.max(
@@ -682,6 +691,9 @@ export class VoicePool {
         ),
       )
       : this.size;
+    this.continuousPeakCeiling = Number.isFinite(options?.continuousPeakCeiling)
+      ? clamp(options.continuousPeakCeiling, 0, 1)
+      : null;
     this.polyphonyController = this.adaptivePolyphony
       ? new AdaptivePolyphonyController({
         initialVoices: this.size,
@@ -1078,6 +1090,14 @@ export class VoicePool {
     );
   }
 
+  /** Keep both average energy and phase-aligned peaks inside the configured bus headroom. */
+  normalizeContinuousVoices(voices) {
+    const normalized = normalizeVoiceGains(voices);
+    return this.continuousPeakCeiling === null
+      ? normalized
+      : limitVoicePeakSum(normalized, this.continuousPeakCeiling);
+  }
+
   /**
    * Steer the oscillator pool; excess contacts are reduced and gains normalized.
    * @param {readonly VoiceSpec[]} voices
@@ -1099,7 +1119,7 @@ export class VoicePool {
       ? updateStartedVoicesOnly(voices, this.pendingVoices)
       : voices;
     const reduced = reduceVoiceContacts(sourceVoices, limit);
-    this.pendingVoices = normalizeVoiceGains(reduced);
+    this.pendingVoices = this.normalizeContinuousVoices(reduced);
     this.lastSubmittedVoiceCount = this.pendingVoices.length;
     this.pollPlaybackStats();
     if (this.enabled) this.applyVoices(this.pendingVoices);
@@ -1135,8 +1155,8 @@ export class VoicePool {
         Math.max(0, requestedLimit),
       )
       : this.size;
-    const current = normalizeVoiceGains(reduceVoiceContacts(voices, limit));
-    const future = normalizeVoiceGains(reduceVoiceContacts(nextVoices, limit));
+    const current = this.normalizeContinuousVoices(reduceVoiceContacts(voices, limit));
+    const future = this.normalizeContinuousVoices(reduceVoiceContacts(nextVoices, limit));
     this.pendingVoices = current;
     this.lastSubmittedVoiceCount = Math.max(current.length, future.length);
     this.pollPlaybackStats();
@@ -1475,7 +1495,7 @@ export class VoicePool {
     const now = this.context.currentTime;
     const sourceSpecs = this.synthNode
       ? specs
-      : normalizeVoiceGains(reduceVoiceContacts(specs, this.size));
+      : this.normalizeContinuousVoices(reduceVoiceContacts(specs, this.size));
 
     const sanitized = sourceSpecs.map((spec, index) => ({
       ...sanitizeVoice(spec),

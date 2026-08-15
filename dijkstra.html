@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="DJ Dijkstra - a playable weighted graph search synthesizer by Morphazoid." />
+    <title>DJ Dijkstra - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="algorithmic-scores.css" />
+  </head>
+  <body class="algorithmic-scores-page algorithmic-instrument-page" data-algorithm="dijkstra">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="algorithmic-sequencers.html">sorting</a>
+        <a class="tab active algorithmic-scores-tab" href="dijkstra.html" aria-current="page">DJ Dijkstra</a>
+        <a class="tab" href="hanoi.html">hanoi</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="algorithmic-sequencers.html">sorting</option>
+          <option value="dijkstra.html" selected>DJ Dijkstra</option>
+          <option value="hanoi.html">hanoi</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph algorithmic-score-audio-glyph" aria-hidden="true">D</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">50%</output></span>
+          <input id="output" aria-label="DJ Dijkstra output level" type="range" min="0" max="0.82" step="0.01" value="0.5" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell algorithmic-scores-shell" id="algorithmicScores">
+      <section class="stage algorithmic-scores-stage" aria-labelledby="algorithmicScoresTitle">
+        <div class="stage-wrap algorithmic-scores-stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" role="img" aria-label="Interactive Dijkstra weighted-grid score. Audio off." aria-describedby="algorithmicScoresDescription liveStatus">
+            Dijkstra graph search rendered as a weighted frontier and shortest path.
+          </canvas>
+          <div class="algorithmic-scores-heading">
+            <p>ALGORITHMIC SEQUENCERS - WEIGHTED GRAPH SYNTH</p>
+            <h1 id="algorithmicScoresTitle">DJ Dijkstra</h1>
+            <span id="headingAlgorithm">Dijkstra</span>
+          </div>
+          <div class="stage-meta" aria-hidden="true"><span id="stageReadout">PATH - READY - AUDIO OFF</span></div>
+        </div>
+      </section>
+
+      <aside class="panel algorithmic-scores-panel" aria-label="DJ Dijkstra controls">
+        <div class="algorithmic-score-mutate-bar">
+          <button class="mini-action algorithmic-score-mutate" id="mutateScore" type="button">Rewire graph</button>
+        </div>
+        <details class="group control-section algorithmic-score-algorithm" data-section="play" open>
+          <summary class="group-summary"><h2 class="group-title">Path score</h2><span class="section-state" id="algorithmSummary">Path - ready</span></summary>
+          <div class="group-body">
+            <p class="algorithmic-score-description" id="presetDescription">A weighted frontier spreads across the graph until its cheapest path locks in.</p>
+            <div class="grammar-card algorithmic-score-ledger" aria-label="Current path score">
+              <span><b>Family</b><code id="familyReadout">Weighted graph search</code></span>
+              <span><b>Grid</b><code id="scoreReadout">weighted grid</code></span>
+              <span><b>Node</b><code id="eventReadout">score ready</code></span>
+              <span><b>Step</b><code id="stepReadout">ready</code></span>
+              <span><b>Rhythm</b><code id="rhythmReadout">144 BPM / 13% swing</code></span>
+              <span><b>Voice</b><code id="timbreReadout">frontier chords and distance pulses</code></span>
+            </div>
+          </div>
+        </details>
+        <details class="group control-section algorithmic-score-transport" data-section="structure" open>
+          <summary class="group-summary"><h2 class="group-title">Transport</h2><span class="section-state" id="transportSummary">paused</span></summary>
+          <div class="group-body">
+            <div class="algorithmic-score-transport-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play Dijkstra score">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <button class="mini-action" id="stepButton" type="button">Settle next</button>
+              <button class="mini-action" id="restartScore" type="button">Restart</button>
+            </div>
+            <label class="control" for="scoreProgress"><span><b>Frontier position</b><output id="scoreProgressOut" for="scoreProgress">ready</output></span><input id="scoreProgress" type="range" min="0" max="0" step="1" value="0" /></label>
+            <label class="algorithmic-score-toggle" for="loopScore"><span><b>Loop search</b><small id="loopState">on</small></span><input id="loopScore" type="checkbox" checked /><i aria-hidden="true"></i></label>
+          </div>
+        </details>
+        <details class="group control-section algorithmic-score-structure" data-section="mapping" open>
+          <summary class="group-summary"><h2 class="group-title">Graph</h2><span class="section-state" id="structureSummary">complexity 5</span></summary>
+          <div class="group-body"><label class="control" for="complexity"><span><b>Grid reach</b><output id="complexityOut" for="complexity">5 / 8</output></span><input id="complexity" type="range" min="1" max="8" step="1" value="5" /></label></div>
+        </details>
+        <details class="group control-section algorithmic-score-groove" data-section="sound" open>
+          <summary class="group-summary"><h2 class="group-title">Frontier groove</h2><span class="section-state" id="grooveSummary">144 BPM - intense</span></summary>
+          <div class="group-body">
+            <label class="control" for="tempo"><span><b>Settle rate</b><output id="tempoOut" for="tempo">144 BPM</output></span><input id="tempo" type="range" min="40" max="240" step="1" value="144" /></label>
+            <label class="control" for="swing"><span><b>Edge swing</b><output id="swingOut" for="swing">13%</output></span><input id="swing" type="range" min="0" max="0.46" step="0.01" value="0.13" /></label>
+            <label class="control" for="intensity"><span><b>Frontier pressure</b><output id="intensityOut" for="intensity">84%</output></span><input id="intensity" type="range" min="0" max="1" step="0.01" value="0.84" /></label>
+          </div>
+        </details>
+        <details class="group control-section algorithmic-score-timbre" data-section="output">
+          <summary class="group-summary"><h2 class="group-title">Path voice</h2><span class="section-state" id="timbreSummary">bright - focused - spatial</span></summary>
+          <div class="group-body">
+            <label class="control" for="brightness"><span><b>Node clarity</b><output id="brightnessOut" for="brightness">72%</output></span><input id="brightness" type="range" min="0" max="1" step="0.01" value="0.72" /></label>
+            <label class="control" for="roughness"><span><b>Weight grain</b><output id="roughnessOut" for="roughness">30%</output></span><input id="roughness" type="range" min="0" max="1" step="0.01" value="0.3" /></label>
+            <label class="control" for="space"><span><b>Path resonance</b><output id="spaceOut" for="space">38%</output></span><input id="space" type="range" min="0" max="0.88" step="0.01" value="0.38" /></label>
+            <label class="control" for="baseFrequency"><span><b>Source node</b><output id="baseFrequencyOut" for="baseFrequency">82 Hz</output></span><input id="baseFrequency" type="range" min="45" max="440" step="1" value="82" /></label>
+            <label class="control" for="pitchSpan"><span><b>Distance span</b><output id="pitchSpanOut" for="pitchSpan">4.8 oct</output></span><input id="pitchSpan" type="range" min="1" max="6" step="0.1" value="4.8" /></label>
+          </div>
+        </details>
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+        <div class="reset-all-row"><button class="reset-all-button" id="resetScores" type="button" data-reset-all data-reset-in-place>Reset Pathfinder</button></div>
+      </aside>
+      <p class="sr-only" id="algorithmicScoresDescription">Drag horizontally across the graph to scrub its event score. Use the transport to hear each frontier settlement and the final cheapest path.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="algorithmic-scores-app.js"></script>
+  </body>
+</html>

@@ -149,12 +149,10 @@ const state = {
   continuousRotation: 0,
   rotationMotionMode: "loop",
   playMethod: "trace",
-  lineCount: 1,
-  scanLineAxes: ["vertical", "vertical", "vertical", "vertical"],
   motionMode: "loop",
   heads: 1,
-  traceHeadOffsets: [0],
-  scanHeadOffsets: [0],
+  headOffsets: [0],
+  scanLineAxes: Array(12).fill("vertical"),
   traceHeadDirections: Array(12).fill(1),
   radialHeadDirections: Array(12).fill(1),
   traceHeadDirectionAdjustments: Array(12).fill(0),
@@ -253,7 +251,7 @@ state.percussionLevelCurve = ["linear", "exponential", "logarithmic", "smooth", 
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
-const pool = new VoicePool(MAX_CONTINUOUS_VOICES);
+const pool = new VoicePool(MAX_CONTINUOUS_VOICES, { continuousPeakCeiling: 0.78 });
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const shapeMidiPerformance = new ShapeMidiPerformance();
 let shapeMidiSnapshot = shapeMidiPerformance.snapshot();
@@ -352,11 +350,11 @@ function formatCurvature(value = state.curvature) {
 }
 
 function effectiveHeadCount() {
-  return state.playMethod === "scan" ? state.lineCount : state.heads;
+  return state.heads;
 }
 
 function scanAxesLabel() {
-  const axes = state.scanLineAxes.slice(0, state.lineCount);
+  const axes = state.scanLineAxes.slice(0, state.heads);
   if (axes.every((axis) => axis === "vertical")) return "vertical";
   if (axes.every((axis) => axis === "horizontal")) return "horizontal";
   return "mixed-axis";
@@ -364,15 +362,6 @@ function scanAxesLabel() {
 
 function activeOffsetLayout() {
   return "parallel";
-}
-
-function offsetsForMethod(method = state.playMethod) {
-  return method === "scan" ? state.scanHeadOffsets : state.traceHeadOffsets;
-}
-
-function setOffsetsForMethod(method, offsets) {
-  if (method === "scan") state.scanHeadOffsets = offsets;
-  else state.traceHeadOffsets = offsets;
 }
 
 function directionsForMethod(method = state.playMethod) {
@@ -390,9 +379,8 @@ function headDirection(headIndex, method = state.playMethod) {
   return directionsForMethod(method)[headIndex] < 0 ? -1 : 1;
 }
 
-function phaseOffsetForHead(headIndex, method = state.playMethod) {
-  const count = method === "scan" ? state.lineCount : state.heads;
-  const offsets = sanitizeHeadOffsets(offsetsForMethod(method), count, activeOffsetLayout(method));
+function phaseOffsetForHead(headIndex) {
+  const offsets = sanitizeHeadOffsets(state.headOffsets, state.heads, activeOffsetLayout());
   return offsets[headIndex] ?? 0;
 }
 
@@ -413,11 +401,8 @@ function alignPointAndRadarDirections() {
 
 function resetActiveHeadOffsets(shouldAnnounce = true) {
   const count = effectiveHeadCount();
-  setOffsetsForMethod(
-    state.playMethod,
-    canonicalHeadOffsets(count, activeOffsetLayout()),
-  );
-  if (state.playMethod !== "scan") alignPointAndRadarDirections();
+  state.headOffsets = canonicalHeadOffsets(count, activeOffsetLayout());
+  alignPointAndRadarDirections();
   resetCornerTracking();
   renderHeadLayout();
   if (shouldAnnounce) announce("Playheads reset to equal spacing.");
@@ -426,9 +411,9 @@ function resetActiveHeadOffsets(shouldAnnounce = true) {
 
 function renderHeadLayout() {
   const count = effectiveHeadCount();
-  const offsets = sanitizeHeadOffsets(offsetsForMethod(), count, activeOffsetLayout());
+  const offsets = sanitizeHeadOffsets(state.headOffsets, count, activeOffsetLayout());
   const lines = state.playMethod === "scan";
-  setOffsetsForMethod(state.playMethod, offsets);
+  state.headOffsets = offsets;
   $("headLayoutTrack").classList.add("has-head-options");
   for (let index = 0; index < 12; index += 1) {
     const marker = $(`headMarker${index}`);
@@ -492,7 +477,7 @@ function updateSectionSummaries() {
 
 function updateCanvasLabel() {
   const reader = state.playMethod === "scan"
-    ? `${state.lineCount} ${scanAxesLabel()} ${state.motionMode} scanning ${plural(state.lineCount, "line")}`
+    ? `${state.heads} ${scanAxesLabel()} ${state.motionMode} scanning ${plural(state.heads, "line")}`
     : state.playMethod === "radial"
       ? `${state.heads} rotating radar ${plural(state.heads, "ray", "rays")}`
     : `${state.heads} tracing ${plural(state.heads, "head")}`;
@@ -501,11 +486,11 @@ function updateCanvasLabel() {
 
 function updatePlayheadStepper() {
   const scan = state.playMethod === "scan";
-  const count = scan ? state.lineCount : state.heads;
+  const count = state.heads;
   const noun = scan ? "line" : state.playMethod === "radial" ? "ray" : "point";
   $("playheadCountOut").textContent = `${count} ${plural(count, noun)}`;
   $("removePlayhead").disabled = count <= 1;
-  $("addPlayhead").disabled = count >= (scan ? 4 : 12);
+  $("addPlayhead").disabled = count >= 12;
   $("playheadStepper").setAttribute(
     "aria-label",
     `${count} ${plural(count, noun)}. Add or remove playheads.`,
@@ -587,17 +572,10 @@ $("rotation").addEventListener("input", () => {
   dismissHelp();
 });
 $("resetRotation").addEventListener("click", () => setRotationAngle(0, true));
-const updateLineCountOutput = bindRange("lineCount", "lineCount", (value) => {
-  return `${value} ${plural(value, "line")}`;
-}, () => {
-  state.scanHeadOffsets = canonicalHeadOffsets(state.lineCount);
-  updateLineControls();
-  resetCornerTracking();
-});
 const updateHeadsOutput = bindRange("heads", "heads", (value) => {
-  return `${value} ${plural(value, "point")}`;
+  return `${value} ${plural(value, "playhead")}`;
 }, () => {
-  state.traceHeadOffsets = canonicalHeadOffsets(state.heads);
+  state.headOffsets = canonicalHeadOffsets(state.heads);
   alignPointAndRadarDirections();
   updateLineControls();
   resetCornerTracking();
@@ -735,10 +713,7 @@ function setPlayMethod(method, shouldAnnounce = true) {
   }
 
   const isScan = state.playMethod === "scan";
-  $("headsControl").hidden = isScan;
-  $("lineCountControl").hidden = !isScan;
   updatePlayheadReadouts();
-  updateLineCountOutput();
   updateHeadsOutput();
   updateLineControls();
   updateTimbreMappingUi();
@@ -746,7 +721,7 @@ function setPlayMethod(method, shouldAnnounce = true) {
   resetCornerTracking();
   if (shouldAnnounce) {
     announce(isScan
-      ? `Line playheads selected. ${state.lineCount} ${plural(state.lineCount, "line")} active.`
+      ? `Line playheads selected. ${state.heads} ${plural(state.heads, "line")} active.`
       : state.playMethod === "radial"
         ? `Radar playhead selected. ${state.heads} rotating ${plural(state.heads, "ray")} active.`
       : `Point playheads selected. ${state.heads} ${plural(state.heads, "point")} active.`);
@@ -759,18 +734,11 @@ for (const button of $("playMethod").querySelectorAll("button")) {
 }
 
 function changePlayheadCount(delta) {
-  if (state.playMethod === "scan") {
-    state.lineCount = Math.round(clamp(state.lineCount + delta, 1, 4));
-    $("lineCount").value = String(state.lineCount);
-    state.scanHeadOffsets = canonicalHeadOffsets(state.lineCount);
-    updateLineCountOutput();
-  } else {
-    state.heads = Math.round(clamp(state.heads + delta, 1, 12));
-    $("heads").value = String(state.heads);
-    state.traceHeadOffsets = canonicalHeadOffsets(state.heads);
-    alignPointAndRadarDirections();
-    updateHeadsOutput();
-  }
+  state.heads = Math.round(clamp(state.heads + delta, 1, 12));
+  $("heads").value = String(state.heads);
+  state.headOffsets = canonicalHeadOffsets(state.heads);
+  alignPointAndRadarDirections();
+  updateHeadsOutput();
   updateLineControls();
   resetCornerTracking();
   announce(`${$("playheadCountOut").textContent} active.`);
@@ -795,7 +763,7 @@ function toggleHeadOption(index, shouldAnnounce = true) {
     const adjustments = directionAdjustmentsForMethod();
     adjustments[index] = beforeTravel
       - directions[index] * state.continuousPosition
-      - phaseOffsetForHead(index, method);
+      - phaseOffsetForHead(index);
     const noun = state.playMethod === "radial" ? "Radar ray" : "Point";
     message = `${noun} ${index + 1} set to ${directions[index] < 0 ? "reverse" : "forward"}.`;
   }
@@ -842,11 +810,8 @@ for (const button of $("playheadMotion").querySelectorAll("button[data-value]"))
 
 function setCustomHeadOffset(index, displayPhase, shouldAnnounce = false) {
   const count = effectiveHeadCount();
-  const offsets = sanitizeHeadOffsets(offsetsForMethod(), count, activeOffsetLayout());
-  setOffsetsForMethod(
-    state.playMethod,
-    updateHeadOffset(offsets, index, wrapOffset(displayPhase)),
-  );
+  const offsets = sanitizeHeadOffsets(state.headOffsets, count, activeOffsetLayout());
+  state.headOffsets = updateHeadOffset(offsets, index, wrapOffset(displayPhase));
   resetCornerTracking();
   renderHeadLayout();
   if (shouldAnnounce) announce(`Playhead ${index + 1} spacing changed.`);
@@ -1896,7 +1861,7 @@ function shapeAtRotation(rotationDeg) {
 function directionalHeadTravel(position, headIndex, method = state.playMethod) {
   const adjustment = directionAdjustmentsForMethod(method)[headIndex] ?? 0;
   return headDirection(headIndex, method) * position
-    + phaseOffsetForHead(headIndex, method)
+    + phaseOffsetForHead(headIndex)
     + adjustment;
 }
 
@@ -1916,7 +1881,7 @@ function scanAxisForHead(headIndex) {
 }
 
 function scanPhaseOffset(headIndex, headCount) {
-  return phaseOffsetForHead(headIndex, "scan");
+  return phaseOffsetForHead(headIndex);
 }
 
 function scanPhaseAt(position, headIndex, headCount) {
@@ -2259,7 +2224,7 @@ function contactMotionVelocity(contact, headIndex = contact.headIndex ?? 0, useI
   const headTravel = Number.isFinite(contact.headTravel)
     ? contact.headTravel
     : state.playMethod === "scan"
-      ? state.continuousPosition + phaseOffsetForHead(headIndex, "scan")
+      ? state.continuousPosition + phaseOffsetForHead(headIndex)
       : directionalHeadTravel(state.continuousPosition, headIndex);
   const motionDirection = state.motionMode === "pingpong"
     ? pingPongMotionDirection(headTravel, 1, relativeDirection)
@@ -2501,7 +2466,7 @@ function shepardRate(contact, path, headIndex = contact.headIndex ?? 0) {
   const travel = Number.isFinite(contact.headTravel)
     ? contact.headTravel
     : state.playMethod === "scan"
-      ? state.continuousPosition + phaseOffsetForHead(headIndex, "scan")
+      ? state.continuousPosition + phaseOffsetForHead(headIndex)
       : directionalHeadTravel(state.continuousPosition, headIndex);
   const motionDirection = state.motionMode === "pingpong"
     ? pingPongMotionDirection(travel, 1, relativeDirection)
@@ -2595,7 +2560,7 @@ function makeCornerSnapshot(
       : state.playMethod === "radial" ? "radial"
       : "path",
     continuousPhase: state.playMethod === "scan"
-      ? continuousPosition + phaseOffsetForHead(headIndex, "scan")
+      ? continuousPosition + phaseOffsetForHead(headIndex)
       : directionalHeadTravel(continuousPosition, headIndex, state.playMethod),
   }));
   return {
@@ -2617,7 +2582,7 @@ function makeCornerSnapshot(
       path.aspect.toFixed(4),
       path.skew.toFixed(4),
       path.asymmetry.toFixed(4),
-      offsetsForMethod().map((value) => value.toFixed(4)).join(","),
+      state.headOffsets.map((value) => value.toFixed(4)).join(","),
     ].join("|"),
     continuousPosition,
     continuousRotation,

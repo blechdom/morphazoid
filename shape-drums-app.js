@@ -50,7 +50,6 @@ const defaults = {
   rotationMotionMode: "loop",
   playMethod: "trace",
   heads: 1,
-  lineCount: 1,
   motionMode: "loop",
   position: 0,
   speed: .06,
@@ -67,9 +66,8 @@ const state = {
   shapeType: "polygon",
   continuousPosition: defaults.position,
   continuousRotation: 0,
-  traceHeadOffsets: [0],
-  scanHeadOffsets: [0],
-  scanLineAxes: Array(4).fill("vertical"),
+  headOffsets: [0],
+  scanLineAxes: Array(12).fill("vertical"),
   traceHeadDirections: Array(12).fill(1),
   radialHeadDirections: Array(12).fill(1),
   traceHeadDirectionAdjustments: Array(12).fill(0),
@@ -176,16 +174,7 @@ async function enableAudio() {
 }
 
 function effectiveHeadCount() {
-  return state.playMethod === "scan" ? state.lineCount : state.heads;
-}
-
-function offsetsForMethod(method = state.playMethod) {
-  return method === "scan" ? state.scanHeadOffsets : state.traceHeadOffsets;
-}
-
-function setOffsetsForMethod(method, offsets) {
-  if (method === "scan") state.scanHeadOffsets = offsets;
-  else state.traceHeadOffsets = offsets;
+  return state.heads;
 }
 
 function directionsForMethod(method = state.playMethod) {
@@ -218,14 +207,13 @@ function headDirection(headIndex, method = state.playMethod) {
   return directionsForMethod(method)[headIndex] < 0 ? -1 : 1;
 }
 
-function phaseOffsetForHead(headIndex, method = state.playMethod) {
-  const count = method === "scan" ? state.lineCount : state.heads;
-  return sanitizeHeadOffsets(offsetsForMethod(method), count)[headIndex] ?? 0;
+function phaseOffsetForHead(headIndex) {
+  return sanitizeHeadOffsets(state.headOffsets, state.heads)[headIndex] ?? 0;
 }
 
 function directionalHeadTravel(position, headIndex, method = state.playMethod) {
   return headDirection(headIndex, method) * position
-    + phaseOffsetForHead(headIndex, method)
+    + phaseOffsetForHead(headIndex)
     + (directionAdjustmentsForMethod(method)[headIndex] ?? 0);
 }
 
@@ -292,7 +280,7 @@ function incidenceForContact(contact, path) {
 }
 
 function scannerAt(path, position, headIndex) {
-  const headTravel = position + phaseOffsetForHead(headIndex, "scan");
+  const headTravel = position + phaseOffsetForHead(headIndex);
   const phase = state.motionMode === "pingpong" ? pingPong01(headTravel) : wrap01(headTravel);
   const axis = scanAxisForHead(headIndex);
   const minimum = axis === "horizontal" ? path.bounds.minY : path.bounds.minX;
@@ -753,8 +741,8 @@ function updatePlayheadReadouts() {
 
 function renderHeadLayout() {
   const count = effectiveHeadCount();
-  const offsets = sanitizeHeadOffsets(offsetsForMethod(), count);
-  setOffsetsForMethod(state.playMethod, offsets);
+  const offsets = sanitizeHeadOffsets(state.headOffsets, count);
+  state.headOffsets = offsets;
   for (let index = 0; index < 12; index += 1) {
     const marker = $(`headMarker${index}`);
     const option = $(`headOption${index}`);
@@ -793,15 +781,11 @@ function updatePlayheadControls() {
   const scan = state.playMethod === "scan";
   const count = effectiveHeadCount();
   const noun = scan ? "line" : state.playMethod === "radial" ? "ray" : "point";
-  $("headsControl").hidden = scan;
-  $("lineCountControl").hidden = !scan;
   $("heads").value = String(state.heads);
-  $("lineCount").value = String(state.lineCount);
-  $("headsOut").textContent = `${state.heads} ${plural(state.heads, "point")}`;
-  $("lineCountOut").textContent = `${state.lineCount} ${plural(state.lineCount, "line")}`;
+  $("headsOut").textContent = `${state.heads} ${plural(state.heads, "playhead")}`;
   $("playheadCountOut").textContent = `${count} ${plural(count, noun)}`;
   $("removePlayhead").disabled = count <= 1;
-  $("addPlayhead").disabled = count >= (scan ? 4 : 12);
+  $("addPlayhead").disabled = count >= 12;
   for (const button of $("playMethod").querySelectorAll("button")) {
     setPressed(button, button.dataset.value === state.playMethod);
   }
@@ -851,14 +835,9 @@ function setPlayMethod(method, shouldAnnounce = true) {
 }
 
 function changePlayheadCount(delta) {
-  if (state.playMethod === "scan") {
-    state.lineCount = Math.round(clamp(state.lineCount + delta, 1, 4));
-    state.scanHeadOffsets = canonicalHeadOffsets(state.lineCount);
-  } else {
-    state.heads = Math.round(clamp(state.heads + delta, 1, 12));
-    state.traceHeadOffsets = canonicalHeadOffsets(state.heads);
-    alignPointAndRadarDirections();
-  }
+  state.heads = Math.round(clamp(state.heads + delta, 1, 12));
+  state.headOffsets = canonicalHeadOffsets(state.heads);
+  alignPointAndRadarDirections();
   updatePlayheadControls();
   lastEventTokens.clear();
   suppressStrikes = 2;
@@ -964,9 +943,8 @@ function reset() {
     shapeType: "polygon",
     continuousPosition: defaults.position,
     continuousRotation: 0,
-    traceHeadOffsets: [0],
-    scanHeadOffsets: [0],
-    scanLineAxes: Array(4).fill("vertical"),
+    headOffsets: [0],
+    scanLineAxes: Array(12).fill("vertical"),
     traceHeadDirections: Array(12).fill(1),
     radialHeadDirections: Array(12).fill(1),
     traceHeadDirectionAdjustments: Array(12).fill(0),
@@ -1078,14 +1056,8 @@ $("removePlayhead").addEventListener("click", () => changePlayheadCount(-1));
 $("addPlayhead").addEventListener("click", () => changePlayheadCount(1));
 $("heads").addEventListener("input", () => {
   state.heads = Math.round(clamp(Number($("heads").value), 1, 12));
-  state.traceHeadOffsets = canonicalHeadOffsets(state.heads);
+  state.headOffsets = canonicalHeadOffsets(state.heads);
   alignPointAndRadarDirections();
-  updatePlayheadControls();
-  invalidateGeometry();
-});
-$("lineCount").addEventListener("input", () => {
-  state.lineCount = Math.round(clamp(Number($("lineCount").value), 1, 4));
-  state.scanHeadOffsets = canonicalHeadOffsets(state.lineCount);
   updatePlayheadControls();
   invalidateGeometry();
 });
@@ -1125,10 +1097,11 @@ function headPhaseFromPointer(event) {
 
 $("headLayoutTrack").addEventListener("pointermove", (event) => {
   if (!draggingHead || draggingHead.pointerId !== event.pointerId) return;
-  const offsets = sanitizeHeadOffsets(offsetsForMethod(), effectiveHeadCount());
-  setOffsetsForMethod(
-    state.playMethod,
-    updateHeadOffset(offsets, draggingHead.index, headPhaseFromPointer(event)),
+  const offsets = sanitizeHeadOffsets(state.headOffsets, effectiveHeadCount());
+  state.headOffsets = updateHeadOffset(
+    offsets,
+    draggingHead.index,
+    headPhaseFromPointer(event),
   );
   renderHeadLayout();
   lastEventTokens.clear();
@@ -1143,8 +1116,8 @@ function endHeadDrag(event) {
 $("headLayoutTrack").addEventListener("pointerup", endHeadDrag);
 $("headLayoutTrack").addEventListener("pointercancel", endHeadDrag);
 $("resetHeadSpacing").addEventListener("click", () => {
-  setOffsetsForMethod(state.playMethod, canonicalHeadOffsets(effectiveHeadCount()));
-  if (state.playMethod !== "scan") alignPointAndRadarDirections();
+  state.headOffsets = canonicalHeadOffsets(effectiveHeadCount());
+  alignPointAndRadarDirections();
   renderHeadLayout();
   invalidateGeometry();
   announce("Playheads reset to equal spacing.");

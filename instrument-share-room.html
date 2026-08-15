@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Preview the Morphazoid Instrument Share room for sharing a live instrument view and sound."
+    />
+    <title>Instrument Share Room | Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="about.css" />
+    <link rel="stylesheet" href="music-rooms.css" />
+  </head>
+  <body class="about-page music-rooms-page room-detail-page" data-room="instrument-share">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Morphazoid main menu">
+        <a class="tab" href="music-rooms.html">music rooms</a>
+        <a class="tab active" href="instrument-share-room.html" aria-current="page">instrument share</a>
+        <a class="tab" href="./">about</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Morphazoid page</span>
+        <select class="mobile-instrument-select" aria-label="Morphazoid page">
+          <option value="music-rooms.html">music rooms</option>
+          <option value="instrument-share-room.html" selected>instrument share</option>
+          <option value="./">about</option>
+        </select>
+      </label>
+    </header>
+
+    <main class="about-shell" id="instrumentShareRoom">
+      <article class="about-document">
+        <header class="about-intro music-rooms-intro">
+          <div>
+            <p class="about-kicker">Music Rooms preview · Shared stage</p>
+            <h1>Instrument Share</h1>
+            <p class="about-lede">
+              Play any Morphazoid instrument and share its live view and sound with the room. One
+              player takes the stage while everyone else watches, listens, and talks.
+            </p>
+          </div>
+          <dl class="about-summary" aria-label="Instrument Share room summary">
+            <div><dt>Status</dt><dd>Preview</dd></div>
+            <div><dt>Stage</dt><dd>One presenter</dd></div>
+            <div><dt>Share</dt><dd>Instrument + audio</dd></div>
+            <div><dt>Chat</dt><dd>Group voice</dd></div>
+          </dl>
+        </header>
+
+        <section class="manual-section room-detail-section" aria-labelledby="shareRoomPlanTitle">
+          <div class="manual-section-heading">
+            <p class="manual-section-label">Room blueprint</p>
+            <h2 id="shareRoomPlanTitle">Pass the stage</h2>
+            <p class="manual-section-note">
+              The performer chooses exactly which Morphazoid tab and audio to share.
+            </p>
+          </div>
+
+          <div class="room-detail-content">
+            <article class="room-preview-notice">
+              <p class="music-room-status"><span aria-hidden="true"></span>Preview · Not connected</p>
+              <h3>No tab, camera, or microphone is being shared.</h3>
+              <p>
+                The live version will request a browser tab only after the performer selects Share
+                instrument. Everyone else can remain in a view-only mode if audio sharing is unavailable.
+              </p>
+            </article>
+
+            <div class="room-blueprint-grid">
+              <article class="room-blueprint-card">
+                <h3>Shared instrument stage</h3>
+                <p>The active Morphazoid canvas and controls fill the room while players stay visible in a strip.</p>
+              </article>
+              <article class="room-blueprint-card">
+                <h3>Instrument audio</h3>
+                <p>The presenter explicitly enables browser-tab audio; the room shows when sound is unavailable.</p>
+              </article>
+              <article class="room-blueprint-card">
+                <h3>Performer handoff</h3>
+                <p>Stop sharing, invite the next player, or return the room to an open stage.</p>
+              </article>
+            </div>
+
+            <div class="room-preview-actions">
+              <button class="music-room-join" type="button" disabled>Join unavailable · In development</button>
+              <a class="music-room-back" href="music-rooms.html">Back to Music Rooms</a>
+            </div>
+          </div>
+        </section>
+
+        <footer class="about-footer">
+          <span>Morphazoid</span>
+          <span>Instrument Share · Preview</span>
+          <span>Copyright &copy; 2026 Kristin Galvin</span>
+        </footer>
+      </article>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+  </body>
+</html>

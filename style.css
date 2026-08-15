@@ -325,6 +325,10 @@ a {
   --group-accent: #ff7aa6;
 }
 
+.tools-menu-group[data-tool-group="webgpu-synths"] {
+  --group-accent: #9dff57;
+}
+
 .tools-menu-group[data-tool-group="algorithmic-sequencers"] {
   --group-accent: #70d8e7;
 }

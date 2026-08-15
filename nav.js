@@ -13,9 +13,10 @@ const LEGACY_SETTINGS_KEYS = [
 const RESET_SHAPE_SIDES_KEY = "morphazoid:shape:reset:sides";
 const AUDIO_BUTTON_ICON = "◉";
 
-const freezeGroup = (id, label, tools) => Object.freeze({
+const freezeGroup = (id, label, tools, metadata = {}) => Object.freeze({
   id,
   label,
+  ...metadata,
   tools: Object.freeze(tools.map((tool) => Object.freeze(tool))),
 });
 
@@ -56,6 +57,11 @@ export const TOOL_GROUPS = Object.freeze([
       href: "solid-drums.html",
     },
     {
+      id: "rubix",
+      label: "Rubix Cube Sequencer",
+      href: "rubix.html",
+    },
+    {
       id: "hyper-drums",
       label: "Hyper Drum Machine",
       href: "hyper-drums.html",
@@ -72,13 +78,28 @@ export const TOOL_GROUPS = Object.freeze([
     },
   ]),
   freezeGroup("signal-voice", "Signal & Voice", [
+    {
+      id: "image-to-instrument-3",
+      label: "Wheel of Organs",
+      href: "image-to-instrument-3.html",
+    },
     { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
     { id: "micmic", label: "L-mic", href: "l-mic.html" },
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
+    {
+      id: "spelling-synthesizer",
+      label: "Spelling Synthesizer",
+      href: "spelling-synthesizer.html",
+    },
   ]),
   freezeGroup("barber-shop-poles", "Barber Shop Poles", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },
+    {
+      id: "drum-roll-please",
+      label: "Drum Roll Please!",
+      href: "drum-roll-please.html",
+    },
     { id: "sandy-syrup-delay", label: "Sandy Syrup Delay", href: "sandy-syrup-delay.html" },
     {
       id: "striped-sludge-delay",
@@ -98,6 +119,10 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "chaotic-fm", label: "Chaotic FM", href: "chaotic-fm.html" },
     { id: "chaotic-pm", label: "Chaotic PM", href: "chaotic-pm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
+    { id: "plasma-ball", label: "Plasma Ball", href: "plasma-ball.html" },
+  ]),
+  freezeGroup("webgpu-synths", "WebGPU Synths", [
+    { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
   ]),
   freezeGroup("instruments", "Instruments", [
     { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
@@ -106,8 +131,42 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
   freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
     { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },
+    { id: "dijkstra", label: "DJ Dijkstra", href: "dijkstra.html" },
+    { id: "hanoi", label: "Hanoi Carillon", href: "hanoi.html" },
+    { id: "minimax", label: "Alpha-Beta Minimax", href: "minimax.html" },
+    { id: "nqueens", label: "N-Queens Backtracker", href: "nqueens.html" },
+    { id: "euclid", label: "Euclidean Pulse", href: "euclid.html" },
   ]),
   freezeGroup("experiments", "Experiments (works-in-progress)", [
+    {
+      id: "room-lobby",
+      label: "Music Rooms",
+      href: "music-rooms.html",
+      catalogue: false,
+    },
+    {
+      id: "vocal-effects-room",
+      label: "Vocal Effects Room",
+      href: "vocal-effects-room.html",
+      catalogue: false,
+    },
+    {
+      id: "instrument-share-room",
+      label: "Instrument Share Room",
+      href: "instrument-share-room.html",
+      catalogue: false,
+    },
+    {
+      id: "morphazoid-roulette",
+      label: "Morphazoid Roulette",
+      href: "morphazoid-roulette.html",
+      catalogue: false,
+    },
+    {
+      id: "escher-tessellation",
+      label: "Escher",
+      href: "escher-tessellation.html",
+    },
     { id: "order-tones", label: "Order Tones", href: "order-tones.html" },
     {
       id: "morphazoidical",
@@ -174,6 +233,7 @@ export const TOOL_GROUPS = Object.freeze([
 
 export const SITE_LINKS = Object.freeze([
   Object.freeze({ id: "plugins", label: "Plug-ins", href: "plugins.html" }),
+  Object.freeze({ id: "catalogue", label: "Catalogue", href: "instruments.html" }),
   Object.freeze({ id: "about", label: "About", href: "./" }),
 ]);
 const SITE_LINK_ALIASES = Object.freeze({

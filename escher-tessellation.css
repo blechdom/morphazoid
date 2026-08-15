@@ -1,0 +1,508 @@
+.escher-tessellation-page {
+  --accent: #e8ad5e;
+  --accent-soft: color-mix(in oklab, var(--accent) 58%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
+  --escher-ivory: #f0e6cc;
+  --escher-rust: #b85f45;
+  --escher-jade: #5f9888;
+}
+
+.escher-tessellation-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 28vw, 430px);
+}
+
+.escher-tessellation-stage-wrap {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(232, 173, 94, 0.09), transparent 48%),
+    linear-gradient(115deg, rgba(240, 230, 204, 0.018), transparent 42%, rgba(184, 95, 69, 0.025)),
+    #090a09;
+}
+
+.escher-tessellation-page #stage {
+  cursor: grab;
+  touch-action: none;
+}
+
+.escher-tessellation-stage-wrap.is-panning #stage {
+  cursor: grabbing;
+}
+
+.escher-view-controls {
+  position: absolute;
+  z-index: 5;
+  top: 20px;
+  right: 18px;
+  display: flex;
+  border: 1px solid color-mix(in oklab, var(--escher-ivory) 22%, transparent);
+  background: color-mix(in oklab, #090a09 86%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.escher-view-controls button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-right: 1px solid color-mix(in oklab, var(--escher-ivory) 16%, transparent);
+  color: var(--escher-ivory);
+  background: transparent;
+  font: 650 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.escher-view-controls button:last-child {
+  border-right: 0;
+}
+
+.escher-view-controls button:hover,
+.escher-view-controls button:focus-visible {
+  color: #090a09;
+  background: var(--accent);
+}
+
+.escher-stage-heading {
+  position: absolute;
+  z-index: 3;
+  top: clamp(24px, 4.2vw, 54px);
+  left: clamp(22px, 4.2vw, 58px);
+  display: grid;
+  max-width: min(610px, calc(100% - 44px));
+  pointer-events: none;
+  filter: drop-shadow(0 2px 7px rgba(0, 0, 0, 0.8));
+}
+
+.escher-stage-heading p,
+.escher-stage-heading h1,
+.escher-stage-heading span {
+  margin: 0;
+}
+
+.escher-stage-heading p {
+  margin-bottom: 7px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.escher-stage-heading h1 {
+  color: var(--escher-ivory);
+  font-size: clamp(28px, 4.8vw, 62px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 0.94;
+  text-transform: uppercase;
+}
+
+.escher-stage-heading span {
+  margin-top: 10px;
+  color: color-mix(in oklab, var(--escher-ivory) 68%, transparent);
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.escher-stage-math {
+  position: absolute;
+  z-index: 3;
+  right: clamp(18px, 3vw, 34px);
+  bottom: clamp(24px, 3vw, 36px);
+  display: grid;
+  min-width: 180px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in oklab, var(--escher-ivory) 18%, transparent);
+  pointer-events: none;
+  background: color-mix(in oklab, #090a09 84%, transparent);
+  box-shadow: 0 9px 28px rgba(0, 0, 0, 0.28);
+  gap: 3px;
+  text-align: right;
+  backdrop-filter: blur(8px);
+}
+
+.escher-stage-math span {
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.14em;
+}
+
+.escher-stage-math strong {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+}
+
+.escher-tessellation-page .stage-meta {
+  top: auto;
+  right: auto;
+  bottom: 17px;
+  left: clamp(22px, 4.2vw, 58px);
+  justify-content: flex-start;
+  color: color-mix(in oklab, var(--escher-ivory) 48%, transparent);
+}
+
+.escher-tessellation-panel {
+  background:
+    linear-gradient(180deg, rgba(232, 173, 94, 0.045), transparent 340px),
+    var(--panel);
+}
+
+.escher-preset-description {
+  min-height: 4.5em;
+  margin: 13px 0 15px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.escher-math-ledger {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+
+.escher-math-ledger div {
+  display: grid;
+  min-width: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  grid-template-columns: 74px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 12px;
+}
+
+.escher-math-ledger dt,
+.escher-math-ledger dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.escher-math-ledger dt {
+  color: var(--faint);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.escher-math-ledger dd {
+  color: var(--ink);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.escher-math-ledger a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in oklab, var(--accent) 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.escher-study-notice {
+  margin: 15px 0 0;
+  padding: 10px 11px;
+  border-left: 2px solid var(--accent);
+  color: color-mix(in oklab, var(--muted) 88%, transparent);
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.escher-toggle {
+  position: relative;
+  display: grid;
+  min-height: 44px;
+  margin-top: 13px;
+  padding: 8px 50px 8px 11px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  background: var(--bg-deep);
+  align-items: center;
+}
+
+.escher-toggle > span {
+  display: grid;
+  gap: 3px;
+}
+
+.escher-toggle b {
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.escher-toggle small {
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.escher-toggle input {
+  position: absolute;
+  right: 13px;
+  width: 19px;
+  height: 19px;
+  accent-color: var(--accent);
+}
+
+.escher-control-note {
+  display: block;
+  margin-top: 4px;
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.escher-tessellation-page input[type="range"] {
+  min-height: 44px;
+  height: 44px;
+}
+
+.escher-playback-body {
+  padding-bottom: 13px;
+}
+
+.playback-choice-block > .field-label {
+  display: block;
+}
+
+.escher-playback-body .choice-switch {
+  margin-top: 7px;
+}
+
+.escher-playback-body .choice-switch button {
+  min-height: 44px;
+}
+
+.contour-playback-choice {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-flow: initial;
+}
+
+.contour-action-row {
+  display: grid;
+  margin: 5px 0 14px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 7%, transparent), transparent 72%),
+    var(--bg-deep);
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 13px;
+}
+
+.contour-selection-copy {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  gap: 4px;
+}
+
+.contour-selection-copy b {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 550;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.contour-selection-copy span {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.contour-range-grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.contour-range-grid .control {
+  min-width: 0;
+  margin-bottom: 7px;
+}
+
+.escher-playback-body :is(button, input, select):disabled,
+.escher-sound-body :is(button, input, select):disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.escher-playback-body .choice-switch:has(button:focus-visible) {
+  border-color: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+
+.escher-playback-body .control:has(input:focus-visible) b,
+.escher-sound-body .control:has(input:focus-visible) b {
+  color: var(--accent);
+}
+
+.sound-mapping-fieldset {
+  min-width: 0;
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.sound-mapping-fieldset > .field-label {
+  padding: 0;
+  color: var(--ink);
+}
+
+.sound-mapping-fieldset > .escher-control-note {
+  margin: 5px 0 9px;
+}
+
+.sound-mapping-grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+}
+
+.sound-mapping-grid .control {
+  min-width: 0;
+  margin-bottom: 3px;
+}
+
+.control.is-model-locked {
+  opacity: 0.58;
+}
+
+.control.is-model-locked input {
+  cursor: not-allowed;
+}
+
+.escher-credit {
+  margin: -4px 22px 24px;
+  padding-top: 15px;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.escher-credit a {
+  color: var(--muted);
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 1100px) {
+  .escher-stage-heading h1 {
+    font-size: clamp(28px, 5.2vw, 46px);
+  }
+}
+
+@media (max-width: 960px) {
+  .escher-tessellation-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .escher-stage-heading {
+    top: 20px;
+    left: 22px;
+  }
+
+  .escher-stage-heading h1 {
+    font-size: clamp(26px, 7vw, 42px);
+  }
+
+  .escher-stage-math {
+    right: 18px;
+    bottom: 18px;
+  }
+}
+
+@media (max-width: 650px) {
+  .escher-view-controls {
+    top: auto;
+    right: auto;
+    bottom: 10px;
+    left: 11px;
+  }
+
+  .escher-stage-heading {
+    top: 15px;
+    left: 16px;
+    max-width: calc(100% - 32px);
+  }
+
+  .escher-stage-heading p {
+    margin-bottom: 5px;
+    font-size: 7px;
+  }
+
+  .escher-stage-heading h1 {
+    font-size: clamp(22px, 8vw, 32px);
+  }
+
+  .escher-stage-heading span {
+    max-width: 68vw;
+    margin-top: 6px;
+    overflow: hidden;
+    font-size: 7px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .escher-stage-math {
+    right: 11px;
+    bottom: 10px;
+    min-width: 0;
+    padding: 7px 8px;
+  }
+
+  .escher-stage-math span {
+    font-size: 6px;
+  }
+
+  .escher-stage-math strong {
+    max-width: 42vw;
+    overflow: hidden;
+    font-size: 7px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .escher-tessellation-page .stage-meta {
+    display: none;
+  }
+
+  .escher-math-ledger div {
+    grid-template-columns: 66px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 390px) {
+  .escher-stage-math span {
+    display: none;
+  }
+
+  .contour-range-grid {
+    gap: 8px;
+  }
+
+  .contour-playback-choice button {
+    padding-right: 3px;
+    padding-left: 3px;
+    letter-spacing: 0.02em;
+  }
+
+  .sound-mapping-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .escher-tessellation-page * {
+    scroll-behavior: auto;
+  }
+}

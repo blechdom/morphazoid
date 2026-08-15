@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { TOOL_GROUPS } from "../nav.js";
+import { instrumentById } from "../src/instrument-catalog.js";
 
 const root = new URL("../", import.meta.url);
 const quantumPages = Object.freeze([
@@ -36,8 +37,9 @@ test("menu registry keeps the quantum simulators with Morphazoidical in Experime
   const group = TOOL_GROUPS.find(({ id }) => id === "experiments");
   assert.ok(group);
   assert.equal(group.label, "Experiments (works-in-progress)");
+  const quantumStart = group.tools.findIndex(({ id }) => id === "order-tones");
   assert.deepEqual(
-    group.tools.slice(0, 4).map(({ id }) => id),
+    group.tools.slice(quantumStart, quantumStart + 4).map(({ id }) => id),
     ["order-tones", "morphazoidical", "bell-square", "annealogue"],
   );
   assert.deepEqual(
@@ -87,16 +89,17 @@ test("Quantum Synth family CSS preserves the responsive stage and reduced-motion
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 });
 
-test("About and README identify the simulations without claiming QPU execution", async () => {
-  const [about, readme] = await Promise.all([
-    readFile(new URL("about.html", root), "utf8"),
-    readFile(new URL("README.md", root), "utf8"),
-  ]);
-  assert.match(about, /id="quantum-synths"/);
-  assert.match(about, />Quantum Synths<\/h2>/);
-  assert.match(about, /not[\s\S]{0,80}quantum[-\s]hardware/i);
+test("Catalogue and README identify the simulations without claiming QPU execution", async () => {
+  const readme = await readFile(new URL("README.md", root), "utf8");
   for (const { label, page } of quantumPages) {
-    assert.match(about, new RegExp(`href="${page.replace(".", "\\.")}">${label}<`));
+    const entry = instrumentById(quantumPages.find((item) => item.label === label).id);
+    assert.equal(entry?.label, label);
+    assert.equal(entry?.href, page);
+    assert.match(entry?.kind ?? "", /Quantum sonification/);
     assert.match(readme, new RegExp(`\\*\\*${label}\\*\\*`));
   }
+  assert.doesNotMatch(
+    quantumPages.map(({ id }) => instrumentById(id)?.description ?? "").join(" "),
+    /QPU|quantum hardware/i,
+  );
 });

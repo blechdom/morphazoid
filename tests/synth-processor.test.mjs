@@ -154,6 +154,43 @@ test("worklet keeps outgoing voices alive during an explicitly budgeted crossfad
   assert.equal(processor.voices.get("old:b").releasing, true);
 });
 
+test("peak-bounded point and line banks stay bounded through their crossfade", () => {
+  const processor = new ProcessorConstructor({ processorOptions: { maxVoices: 8 } });
+  const bank = (prefix) => [0, 1].map((index) => ({
+    key: `${prefix}:${index}`,
+    mode: "sine",
+    frequency: 220,
+    gain: 0.39,
+    pan: -1,
+  }));
+  const send = (voices) => processor.port.onmessage({
+    data: {
+      type: "voices",
+      voices,
+      voiceLimit: 4,
+      releaseVoiceAllowance: 2,
+    },
+  });
+
+  send(bank("point"));
+  for (let block = 0; block < 128; block += 1) {
+    processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+  }
+
+  send(bank("line"));
+  let transitionPeak = 0;
+  for (let block = 0; block < 64; block += 1) {
+    const left = new Float32Array(128);
+    processor.process([], [[left, new Float32Array(128)]]);
+    for (const sample of left) transitionPeak = Math.max(transitionPeak, Math.abs(sample));
+  }
+
+  assert.ok(
+    transitionPeak <= 0.780001,
+    `point-to-line crossfade exceeded its peak ceiling: ${transitionPeak}`,
+  );
+});
+
 test("worklet admits a runtime-selected voice count and reports render load", () => {
   const processor = new ProcessorConstructor({ processorOptions: { maxVoices: 512 } });
   const voices = Array.from({ length: 300 }, (_, index) => ({

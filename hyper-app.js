@@ -26,7 +26,7 @@ const MAX_CORNER_STRIKES = 16;
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { desynchronized: true });
-const pool = new VoicePool(32);
+const pool = new VoicePool(32, { continuousPeakCeiling: 0.78 });
 const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
 const state = {
   shapeType: "tesseract",

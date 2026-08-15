@@ -47,9 +47,9 @@
 .about-intro h1 {
   margin: 0;
   color: var(--ink);
-  font-size: clamp(34px, 7vw, 72px);
+  font-size: 64px;
   font-weight: 500;
-  letter-spacing: -0.055em;
+  letter-spacing: 0;
   line-height: 0.95;
 }
 
@@ -57,7 +57,7 @@
   max-width: 700px;
   margin: 24px 0 0;
   color: color-mix(in oklab, var(--ink) 88%, var(--muted));
-  font-size: clamp(14px, 1.5vw, 17px);
+  font-size: 16px;
   line-height: 1.7;
 }
 
@@ -138,10 +138,31 @@
 .manual-section h2 {
   margin: 0;
   color: var(--ink);
-  font-size: clamp(20px, 2.5vw, 30px);
+  font-size: 27px;
   font-weight: 500;
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
   line-height: 1.15;
+}
+
+.catalogue-manual-section {
+  display: block;
+}
+
+.catalogue-manual-section .manual-section-heading {
+  display: grid;
+  max-width: 760px;
+  grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 12px 48px;
+}
+
+.catalogue-manual-section .manual-section-label {
+  grid-column: 1 / -1;
+}
+
+.catalogue-manual-section .manual-section-note {
+  max-width: none;
+  margin: 0;
 }
 
 .manual-section-note {
@@ -268,10 +289,19 @@
   padding-top: 28px;
   color: var(--muted);
   justify-content: space-between;
+  align-items: baseline;
   gap: 24px;
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.about-footer-credit {
+  max-width: 620px;
+  letter-spacing: 0;
+  line-height: 1.6;
+  text-align: center;
+  text-transform: none;
 }
 
 @media (max-width: 760px) {
@@ -282,6 +312,20 @@
   .about-intro,
   .manual-section {
     grid-template-columns: 1fr;
+  }
+
+  .about-intro h1 {
+    font-size: 46px;
+  }
+
+  .catalogue-manual-section .manual-section-heading {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 0;
+  }
+
+  .catalogue-manual-section .manual-section-note {
+    margin-top: 14px;
   }
 
   .about-summary {
@@ -297,6 +341,14 @@
   .about-shell {
     padding-top: 28px;
     padding-bottom: 50px;
+  }
+
+  .about-intro h1 {
+    font-size: 36px;
+  }
+
+  .manual-section h2 {
+    font-size: 22px;
   }
 
   .page-list {

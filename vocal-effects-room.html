@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Preview the Morphazoid Vocal Effects room for processed voice and small-group video chat."
+    />
+    <title>Vocal Effects Room | Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="about.css" />
+    <link rel="stylesheet" href="music-rooms.css" />
+  </head>
+  <body class="about-page music-rooms-page room-detail-page" data-room="vocal-effects">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Morphazoid main menu">
+        <a class="tab" href="music-rooms.html">music rooms</a>
+        <a class="tab active" href="vocal-effects-room.html" aria-current="page">vocal effects</a>
+        <a class="tab" href="./">about</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Morphazoid page</span>
+        <select class="mobile-instrument-select" aria-label="Morphazoid page">
+          <option value="music-rooms.html">music rooms</option>
+          <option value="vocal-effects-room.html" selected>vocal effects</option>
+          <option value="./">about</option>
+        </select>
+      </label>
+    </header>
+
+    <main class="about-shell" id="vocalEffectsRoom">
+      <article class="about-document">
+        <header class="about-intro music-rooms-intro">
+          <div>
+            <p class="about-kicker">Music Rooms preview · Voice</p>
+            <h1>Vocal Effects</h1>
+            <p class="about-lede">
+              A small video room where singers and speakers shape their voices with live effects.
+              The processed voice—not the dry microphone—will travel to the room.
+            </p>
+          </div>
+          <dl class="about-summary" aria-label="Vocal Effects room summary">
+            <div><dt>Status</dt><dd>Preview</dd></div>
+            <div><dt>Chat</dt><dd>Small-group video</dd></div>
+            <div><dt>Audio</dt><dd>Processed voice</dd></div>
+            <div><dt>Setup</dt><dd>Headphones</dd></div>
+          </dl>
+        </header>
+
+        <section class="manual-section room-detail-section" aria-labelledby="vocalRoomPlanTitle">
+          <div class="manual-section-heading">
+            <p class="manual-section-label">Room blueprint</p>
+            <h2 id="vocalRoomPlanTitle">Sing through the chat</h2>
+            <p class="manual-section-note">
+              A device check will come before joining. Local monitoring starts off.
+            </p>
+          </div>
+
+          <div class="room-detail-content">
+            <article class="room-preview-notice">
+              <p class="music-room-status"><span aria-hidden="true"></span>Preview · Not connected</p>
+              <h3>Your camera and microphone stay off.</h3>
+              <p>
+                This page describes the room without requesting device access. The live version
+                will show a private local preview and ask permission only after you choose to join.
+              </p>
+            </article>
+
+            <div class="room-blueprint-grid">
+              <article class="room-blueprint-card">
+                <h3>Video room</h3>
+                <p>A compact player grid with named camera, microphone, leave, and room controls.</p>
+              </article>
+              <article class="room-blueprint-card">
+                <h3>Outgoing vocal chain</h3>
+                <p>Equalizer, compression, pitch shift, reverb, samples, and loops feed one shared mix.</p>
+              </article>
+              <article class="room-blueprint-card">
+                <h3>Feedback-safe start</h3>
+                <p>Headphone guidance, conservative levels, and monitoring off until explicitly enabled.</p>
+              </article>
+            </div>
+
+            <div class="room-preview-actions">
+              <button class="music-room-join" type="button" disabled>Join unavailable · In development</button>
+              <a class="music-room-back" href="music-rooms.html">Back to Music Rooms</a>
+            </div>
+          </div>
+        </section>
+
+        <footer class="about-footer">
+          <span>Morphazoid</span>
+          <span>Vocal Effects · Preview</span>
+          <span>Copyright &copy; 2026 Kristin Galvin</span>
+        </footer>
+      </article>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+  </body>
+</html>

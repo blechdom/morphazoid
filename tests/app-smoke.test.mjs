@@ -290,7 +290,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("baseFrequencyOut").textContent, "130 Hz");
   assert.equal(attributes.get("speed:aria-valuetext"), "0.250 cyc/s");
   assert.equal(elements.get("headsControl").hidden, false);
-  assert.equal(elements.get("lineCountControl").hidden, true);
+  assert.equal(elements.has("lineCountControl"), false);
   assert.equal(elements.get("playheadMotion").hidden, false);
   assert.equal(elements.has("scanMotionControl"), false);
   assert.equal(elements.get("headOption0").hidden, false);
@@ -795,8 +795,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("rotationOut").textContent, "0°");
 
   listeners.get("scanMode:click")();
-  assert.equal(elements.get("headsControl").hidden, true);
-  assert.equal(elements.get("lineCountControl").hidden, false);
+  assert.equal(elements.get("headsControl").hidden, false);
   assert.equal(elements.get("playheadMotion").hidden, false);
   assert.equal(elements.get("headOption0").hidden, false);
   assert.equal(elements.get("headOption0").textContent, "│");
@@ -830,8 +829,8 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("loopMotion:click")();
   assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
 
-  elements.get("lineCount").value = "4";
-  listeners.get("lineCount:input")();
+  elements.get("heads").value = "4";
+  listeners.get("heads:input")();
   queuedFrame(1_250);
   assert.match(elements.get("stageReadout").textContent, /4 LINES/);
   assert.equal(elements.get("headOption3").hidden, false);
@@ -859,6 +858,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
   assert.equal(elements.get("headOption0").hidden, false);
   assert.equal(elements.get("headOption0").textContent, "→");
+  assert.equal(elements.get("playheadCountOut").textContent, "4 rays");
   listeners.get("pingPongMotion:click")();
   assert.equal(attributes.get("pingPongMotion:aria-pressed"), "true");
   listeners.get("loopMotion:click")();
@@ -890,7 +890,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   listeners.get("speed:input")();
   assert.equal(attributes.get("position:aria-label"), "Radar angle from 0 to 360 degrees");
   queuedFrame(1_550);
-  assert.match(elements.get("stageReadout").textContent, /1 RAY/);
+  assert.match(elements.get("stageReadout").textContent, /4 RAYS/);
+  elements.get("heads").value = "1";
+  listeners.get("heads:input")();
+  assert.equal(elements.get("playheadCountOut").textContent, "1 ray");
   listeners.get("pitchCenter:click")();
   queuedFrame(1_560);
   assert.equal(elements.get("mappingSummary").textContent, "Center distance → pitch");
@@ -954,7 +957,6 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(elements.get("headOption0").textContent, "→");
   assert.equal(attributes.get("headOption0:aria-pressed"), "false");
   assert.equal(elements.get("headsControl").hidden, false);
-  assert.equal(elements.get("lineCountControl").hidden, true);
   assert.equal(elements.get("playheadMotion").hidden, false);
   queuedFrame(2_000);
   assert.match(elements.get("stageReadout").textContent, /1 POINT/);
@@ -993,6 +995,17 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   });
   assert.equal(elements.get("headMarker1").style.left, "25%");
   listeners.get("headLayoutTrack:pointerup")({ pointerId: 7 });
+
+  listeners.get("scanMode:click")();
+  assert.equal(elements.get("playheadCountOut").textContent, "3 lines");
+  assert.equal(elements.get("headMarker1").style.left, "25%");
+  listeners.get("radialMode:click")();
+  assert.equal(elements.get("playheadCountOut").textContent, "3 rays");
+  assert.equal(elements.get("headMarker1").style.left, "25%");
+  listeners.get("traceMode:click")();
+  assert.equal(elements.get("playheadCountOut").textContent, "3 points");
+  assert.equal(elements.get("headMarker1").style.left, "25%");
+
   listeners.get("resetHeadSpacing:click")();
   assert.ok(Math.abs(parseFloat(elements.get("headMarker1").style.left) - 33.333) < 0.01);
 
@@ -1003,11 +1016,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
 
   listeners.get("scanMode:click")();
   queuedFrame(3_000);
-  assert.equal(elements.get("headsControl").hidden, true);
-  assert.equal(elements.get("lineCountControl").hidden, false);
+  assert.equal(elements.get("headsControl").hidden, false);
   assert.equal(elements.get("playheadMotion").hidden, false);
-  assert.equal(elements.get("headOption3").hidden, false);
-  assert.match(elements.get("stageReadout").textContent, /4 LINES/);
+  assert.equal(elements.get("headOption11").hidden, false);
+  assert.match(elements.get("stageReadout").textContent, /12 LINES/);
   assert.doesNotMatch(elements.get("stageReadout").textContent, /12 POINTS/);
 
   // Side count selects a continuous circle, open line, or a closed polygon /

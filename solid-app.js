@@ -22,7 +22,7 @@ import { createAmplitudeControl } from "./src/amplitude-control.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
-const pool = new VoicePool(32);
+const pool = new VoicePool(32, { continuousPeakCeiling: 0.78 });
 const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
 const canvas = $("stage");
 const stageWrap = $("stageWrap");

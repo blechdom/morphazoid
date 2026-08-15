@@ -19,11 +19,22 @@ Because of that condition, Morphazoid does not vendor the TR-909 WAV files in
 this repository; it references the pinned package URLs from the browser and
 decodes them into memory during use.
 
+## WebGPU 303 / Acid Synth lineage
+
+WebGPU 303 adapts the local WebGPU Audio Acid Synth shader and streaming
+architecture. That local demo credits its acid voice lineage to:
+
+- sound - acid jam by srtuss on Shadertoy
+- https://www.shadertoy.com/view/ldfSW2
+
+Morphazoid keeps that attribution visible on the WebGPU 303 page and does not
+load the Shadertoy page as a runtime dependency.
+
 ## Pink Trombone
 
-Throatazoid's classic 44-section vocal-tract geometry, tongue-rest curve,
-reflection coefficients, and two-step waveguide behavior are adapted from
-Neil Thapen's Pink Trombone:
+The shared classic 44-section vocal-tract geometry used by Throatazoid and
+Spelling Synthesizer, including its tongue-rest curve, reflection coefficients,
+and two-step waveguide behavior, is adapted from Neil Thapen's Pink Trombone:
 
 - https://dood.al/pinktrombone/
 - https://github.com/IMAGINARY/pink-trombone
@@ -48,10 +59,45 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## CMU Flite / KAL16 diphone voice
+
+The Spelling Synthesizer diphone audio sprite was generated from the
+`cmu_us_kal16` diphone voice in CMU Flite 2.2, then silence-trimmed, faded,
+level-normalized, and packed by Morphazoid. These processing and packaging
+changes are not endorsed by Carnegie Mellon University.
+
+- https://github.com/festvox/flite
+
+Language Technologies Institute
+Carnegie Mellon University
+Copyright (c) 1999-2017
+All Rights Reserved.
+
+Permission is hereby granted, free of charge, to use and distribute this
+software and its documentation without restriction, including without
+limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of this work, and to permit persons to whom this
+work is furnished to do so, subject to the following conditions:
+
+1. The code must retain the above copyright notice, this list of conditions
+   and the following disclaimer.
+2. Any modifications must be clearly marked as such.
+3. Original authors' names are not deleted.
+4. The authors' names are not used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+CARNEGIE MELLON UNIVERSITY AND THE CONTRIBUTORS TO THIS WORK DISCLAIM ALL
+WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY NOR
+THE CONTRIBUTORS BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES
+OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER
+IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 ## Tactile
 
-The lattice and spiral instruments use Tactile's isohedral tiling data and
-utilities:
+The Lattice, Spiral, and Escher instruments use Tactile's
+isohedral tiling data and utilities:
 
 - https://isohedral.ca/software/tactile/
 - https://github.com/isohedral/tactile-js

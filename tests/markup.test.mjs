@@ -84,7 +84,10 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(openingTag("speed"), /value="0\.5145349118383228"/);
   assert.match(html, /id="speedOut"[^>]*>0\.250 cyc\/s<\/output>/);
   assert.doesNotMatch(openingTag("headsControl"), /\bhidden\b/);
-  assert.match(openingTag("lineCountControl"), /\bhidden\b/);
+  assert.match(openingTag("heads"), /min="1"[^>]*max="12"/);
+  assert.doesNotMatch(html, /id="(?:lineCount|lineCountControl|lineCountOut)"/);
+  assert.match(app, /headOffsets: \[0\]/);
+  assert.doesNotMatch(app, /\b(?:lineCount|traceHeadOffsets|scanHeadOffsets)\b/);
   const options = [...html.matchAll(/id="headOption(\d+)"/g)].map((match) => Number(match[1]));
   assert.deepEqual(options, Array.from({ length: 12 }, (_, index) => index));
   assert.match(openingTag("headOption0"), /class="head-option-toggle"/);
@@ -216,6 +219,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.doesNotMatch(html, /id="(?:sineArticulation|sineAccent|sineDecay)"/);
   assert.match(app, /sampleAmplitudeEnvelope/);
   assert.match(app, /scaleShapeVoiceGains/);
+  assert.match(app, /new VoicePool\(MAX_CONTINUOUS_VOICES, \{ continuousPeakCeiling: 0\.78 \}\)/);
   assert.match(app, /state\.cornerSwell/);
   assert.match(app, /mirroredCornerPhase\(path, contact\)/);
   assert.match(app, /spatialEnvelopeTimeRange/);

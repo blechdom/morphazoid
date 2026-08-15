@@ -13,8 +13,11 @@ import {
 } from "./src/l-system.js";
 import {
   L_SYSTEM_DRUM_MAPPING_MODES,
-  lSystemDrumEventsForPlayheads,
+  advanceLSystemDrumTraversal,
+  groupedLSystemDrumEvents,
+  lSystemDrumEventsForTraversal,
   lSystemDrumSubdivisionCount,
+  lSystemDrumTraversalStepSize,
   lSystemDrumVoiceIndex,
   mappedLSystemDrumVoice,
 } from "./src/l-system-drums.js";
@@ -27,6 +30,8 @@ const context = canvas.getContext("2d", { desynchronized: true });
 const MIN_TRAVERSAL_SPEED = 0.01;
 const MAX_TRAVERSAL_SPEED = 4;
 const TRAVERSAL_SPEED_CURVE = 3;
+const MAX_DRUM_HITS_PER_SECOND = 240;
+const MAX_DRUM_HITS_PER_FRAME = 24;
 const DEFAULT_L_SYSTEM_DRUM_STATE = Object.freeze({
   presetId: "pythagorean",
   iterations: 7,
@@ -60,6 +65,11 @@ let lastFrameTime = performance.now();
 let activeEventKeys = new Set();
 let hitCount = 0;
 let iterationTraces = buildIterationTraces(L_SYSTEM_PRESETS[0], state.iterations);
+let drumTraversalStepSize = lSystemDrumTraversalStepSize(
+  iterationTraces,
+  state.subdivisions,
+  state.structureMode,
+);
 
 function buildIterationTraces(preset, iterations, overrides = {}) {
   const finalIteration = Math.max(0, Math.floor(iterations));
@@ -149,6 +159,7 @@ bindRange("lengthScale", "lengthScale", (value) => `${Math.round(value * 100)}%`
 bindRange("subdivisions", "subdivisions", (value) => String(lSystemDrumSubdivisionCount(value)), () => {
   state.subdivisions = lSystemDrumSubdivisionCount(state.subdivisions);
   activeEventKeys = new Set();
+  refreshDrumTraversalStepSize();
   paintMapping();
 });
 bindRange("pitchDepth", "pitchDepth", (value) => `${Math.round(value)} st`);
@@ -189,6 +200,14 @@ $("speed").addEventListener("input", (event) => {
 
 function currentPreset() {
   return presetById.get(state.presetId) ?? L_SYSTEM_PRESETS[0];
+}
+
+function refreshDrumTraversalStepSize() {
+  drumTraversalStepSize = lSystemDrumTraversalStepSize(
+    iterationTraces,
+    state.subdivisions,
+    state.structureMode,
+  );
 }
 
 function formatAngle(value) {
@@ -241,6 +260,7 @@ function rebuildTrace() {
       turnAsymmetry: state.turnAsymmetry,
       lengthScale: state.lengthScale,
     });
+    refreshDrumTraversalStepSize();
     $("systemError").hidden = true;
     activeEventKeys = new Set();
     paintStructure();
@@ -327,6 +347,7 @@ $("structureMode").addEventListener("change", (event) => {
     ? event.currentTarget.value
     : "final";
   activeEventKeys = new Set();
+  refreshDrumTraversalStepSize();
   paintStructure();
   scheduleFrame();
 });
@@ -469,8 +490,10 @@ function showError(error) {
   $("audioError").hidden = false;
 }
 
-function triggerEvent(event, eventCount) {
-  const voiceIndex = lSystemDrumVoiceIndex(event, { mode: state.mappingMode });
+function triggerEvent(event, eventCount, voiceIndex = lSystemDrumVoiceIndex(
+  event,
+  { mode: state.mappingMode },
+)) {
   const voice = mappedLSystemDrumVoice(voices[voiceIndex], event, {
     pitchDepth: state.pitchDepth,
     characterDepth: state.characterDepth,
@@ -486,6 +509,16 @@ function triggerEvent(event, eventCount) {
   ].join(" · ");
   audio.trigger(voice).catch(showError);
   flashVoice(voiceIndex);
+}
+
+function triggerEvents(events, maxEvents) {
+  const grouped = groupedLSystemDrumEvents(events, {
+    mode: state.mappingMode,
+    maxEvents,
+  });
+  for (const { event, eventCount, voiceIndex } of grouped) {
+    triggerEvent(event, eventCount, voiceIndex);
+  }
 }
 
 function playbackBounds(entries) {
@@ -588,21 +621,47 @@ function frame(now) {
   scheduledFrame = 0;
   const delta = Math.min(1, Math.max(0, (now - lastFrameTime) / 1_000));
   lastFrameTime = now;
+  let triggeredEvents = [];
   const phaseRate = iterationPlaybackPhaseRate(
     state.structureMode,
     iterationTraces.length,
     state.speed,
   );
   if (state.playing) {
-    const advanced = advanceLSystemTraversal(
-      state.position,
-      state.direction,
-      phaseRate * delta,
-      state.traversalBehavior,
-    );
+    const previousDirection = state.direction;
+    let advanced;
+    if (state.audio) {
+      advanced = advanceLSystemDrumTraversal(
+        state.position,
+        state.direction,
+        phaseRate * delta,
+        {
+          behavior: state.traversalBehavior,
+          maxPhaseStep: drumTraversalStepSize,
+        },
+      );
+      const sweptEvents = lSystemDrumEventsForTraversal(
+        iterationTraces,
+        advanced.samples,
+        {
+          structureMode: state.structureMode,
+          subdivisions: state.subdivisions,
+          activeEventKeys,
+        },
+      );
+      triggeredEvents = sweptEvents.events;
+      activeEventKeys = sweptEvents.activeEventKeys;
+    } else {
+      advanced = advanceLSystemTraversal(
+        state.position,
+        state.direction,
+        phaseRate * delta,
+        state.traversalBehavior,
+      );
+    }
     state.position = advanced.position;
-    if (advanced.direction !== state.direction) {
-      state.direction = advanced.direction;
+    state.direction = advanced.direction;
+    if (state.direction !== previousDirection) {
       $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
     }
   }
@@ -615,15 +674,10 @@ function frame(now) {
   drawScene(playback, playheads);
 
   if (state.audio && state.playing) {
-    const events = lSystemDrumEventsForPlayheads(playheads, {
-      subdivisions: state.subdivisions,
-      direction: state.direction,
-    });
-    const nextKeys = new Set(events.map((event) => event.key));
-    for (const event of events) {
-      if (!activeEventKeys.has(event.key)) triggerEvent(event, events.length);
-    }
-    activeEventKeys = nextKeys;
+    triggerEvents(triggeredEvents, Math.min(
+      MAX_DRUM_HITS_PER_FRAME,
+      Math.max(1, Math.ceil(delta * MAX_DRUM_HITS_PER_SECOND)),
+    ));
   } else {
     activeEventKeys = new Set();
   }

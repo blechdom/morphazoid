@@ -10,6 +10,7 @@ import {
   cornerDecaySeconds,
   cornerStrikePeak,
   levelToGain,
+  limitVoicePeakSum,
   mapCurve01,
   mirroredAmplitudeEnvelopePhase,
   normalizeStrikeGains,
@@ -556,6 +557,30 @@ test("normalization caps combined gain without boosting quiet input", () => {
 
   const quiet = normalizeVoiceGains([{ frequency: 110, gain: 0.25 }]);
   assert.equal(quiet[0]?.gain, 0.25);
+});
+
+test("phase-coherent voice limiting preserves quiet voices and caps their peak sum", () => {
+  const loud = limitVoicePeakSum([
+    { key: "left", frequency: 220, gain: 0.8 },
+    { key: "right", frequency: 220, gain: 0.4 },
+  ]);
+  nearAudio(loud.reduce((sum, voice) => sum + voice.gain, 0), 0.78);
+  nearAudio(loud[0].gain / loud[1].gain, 2);
+
+  const quiet = limitVoicePeakSum([{ frequency: 110, gain: 0.25 }]);
+  assert.equal(quiet[0].gain, 0.25);
+});
+
+test("VoicePool can reserve continuous peak headroom for coherent geometry voices", () => {
+  const pool = new VoicePool(8, { continuousPeakCeiling: 0.78 });
+  pool.setVoices([
+    { key: "line:a", frequency: 220, gain: 0.8 },
+    { key: "line:b", frequency: 220, gain: 0.8 },
+  ]);
+  nearAudio(pool.pendingVoices.reduce((sum, voice) => sum + voice.gain, 0), 0.78);
+
+  pool.setVoices([{ key: "point:a", frequency: 220, gain: 0.25 }]);
+  assert.equal(pool.pendingVoices[0].gain, 0.25);
 });
 
 test("Shape voice scaling follows inverse square-root active voice count", () => {

@@ -1,3 +1,8 @@
+import {
+  advanceLSystemTraversal,
+  iterationPlaybackAtPhase,
+} from "./l-system.js";
+
 const clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => {
   const number = Number(value);
   return Math.min(maximum, Math.max(minimum, Number.isFinite(number) ? number : fallback));
@@ -50,6 +55,186 @@ export const L_SYSTEM_DRUM_MAPPING_MODES = Object.freeze([
 
 export function lSystemDrumSubdivisionCount(value = 4) {
   return Math.min(16, Math.max(1, Math.round(Number(value) || 4)));
+}
+
+const TRAVERSAL_EPSILON = 1e-12;
+const ENDPOINT_EPSILON = 1e-9;
+const MAX_TRAVERSAL_SAMPLES = 64;
+
+/**
+ * Choose a sweep interval small enough to enter every segment subdivision.
+ * Sequence and accumulate run local iteration phases faster than the global
+ * transport, so their interval is scaled by the number of iterations.
+ */
+export function lSystemDrumTraversalStepSize(
+  traces,
+  subdivisions = 4,
+  structureMode = "final",
+) {
+  const available = Array.isArray(traces) ? traces.filter(Boolean) : [];
+  const count = lSystemDrumSubdivisionCount(subdivisions);
+  const phaseScale = structureMode === "sequence" || structureMode === "accumulate"
+    ? Math.max(1, available.length)
+    : 1;
+  let minimumSpan = Infinity;
+
+  for (const trace of available) {
+    const duration = Number(trace.duration) || 0;
+    if (duration <= 0) continue;
+    for (const segment of trace.segments ?? []) {
+      const segmentLength = (Number(segment.endDistance) || 0)
+        - (Number(segment.startDistance) || 0);
+      if (segmentLength <= 0) continue;
+      minimumSpan = Math.min(
+        minimumSpan,
+        segmentLength / duration / count / phaseScale,
+      );
+    }
+  }
+
+  if (!Number.isFinite(minimumSpan)) return 0.01;
+  return clamp(minimumSpan * 0.5, 1e-7, 0.05, 0.01);
+}
+
+function audibleTraversalPosition(position) {
+  if (position >= 1) return 1 - ENDPOINT_EPSILON;
+  return Math.max(0, position);
+}
+
+/**
+ * Advance the transport while retaining all intermediate phases needed by
+ * the drum trigger. Boundary samples are explicit re-attack points.
+ */
+export function advanceLSystemDrumTraversal(
+  position,
+  direction,
+  distance,
+  {
+    behavior = "loop",
+    maxPhaseStep = 0.01,
+  } = {},
+) {
+  const startPosition = clamp(position);
+  const startDirection = Number(direction) < 0 ? -1 : 1;
+  const travel = Math.max(0, Number(distance) || 0);
+  const requestedStep = clamp(maxPhaseStep, 1e-7, 1, 0.01);
+  const sampleStep = Math.max(
+    requestedStep,
+    travel / Math.max(1, MAX_TRAVERSAL_SAMPLES - Math.ceil(travel) * 2),
+  );
+  const samples = [];
+  let cursor = startPosition;
+  let currentDirection = startDirection;
+  let remaining = travel;
+
+  const pushSample = (samplePosition, sampleDirection, boundary = null) => {
+    samples.push(Object.freeze({
+      position: audibleTraversalPosition(samplePosition),
+      direction: sampleDirection,
+      boundary,
+    }));
+  };
+
+  while (remaining > TRAVERSAL_EPSILON) {
+    const distanceToBoundary = currentDirection > 0 ? 1 - cursor : cursor;
+    if (distanceToBoundary <= TRAVERSAL_EPSILON) {
+      if (behavior === "ping-pong") {
+        currentDirection *= -1;
+        pushSample(cursor, currentDirection, "reflection");
+      } else {
+        cursor = currentDirection > 0 ? 0 : 1;
+        pushSample(cursor, currentDirection, "wrap");
+      }
+      continue;
+    }
+
+    const legDistance = Math.min(remaining, distanceToBoundary);
+    const legStart = cursor;
+    const sampleCount = Math.max(1, Math.ceil(legDistance / sampleStep));
+    for (let index = 1; index <= sampleCount; index += 1) {
+      pushSample(
+        legStart + currentDirection * legDistance * index / sampleCount,
+        currentDirection,
+      );
+    }
+
+    cursor = legStart + currentDirection * legDistance;
+    remaining = Math.max(0, remaining - legDistance);
+    if (distanceToBoundary - legDistance > TRAVERSAL_EPSILON) continue;
+
+    cursor = currentDirection > 0 ? 1 : 0;
+    if (behavior === "ping-pong") {
+      currentDirection *= -1;
+      pushSample(cursor, currentDirection, "reflection");
+    } else if (currentDirection > 0 || remaining > TRAVERSAL_EPSILON) {
+      cursor = currentDirection > 0 ? 0 : 1;
+      pushSample(cursor, currentDirection, "wrap");
+    }
+  }
+
+  const advanced = advanceLSystemTraversal(
+    startPosition,
+    startDirection,
+    travel,
+    behavior,
+  );
+  return Object.freeze({
+    position: advanced.position,
+    direction: advanced.direction,
+    samples: Object.freeze(samples),
+  });
+}
+
+function playbackHeads(playback) {
+  return playback.entries.flatMap((entry) => entry.snapshot.heads.map((head) => ({
+    ...head,
+    iteration: entry.iteration,
+    localPhase: entry.localPhase,
+    sourceTrace: entry.trace,
+    snapshotDistance: entry.snapshot.distance,
+  })));
+}
+
+/** Collect every newly entered drum subdivision across a swept frame. */
+export function lSystemDrumEventsForTraversal(traces, samples, {
+  structureMode = "final",
+  subdivisions = 4,
+  activeEventKeys = new Set(),
+} = {}) {
+  let activeKeys = new Set(activeEventKeys);
+  const triggeredEvents = [];
+
+  const traversalSamples = Array.isArray(samples) ? samples : [];
+  for (let sampleIndex = 0; sampleIndex < traversalSamples.length; sampleIndex += 1) {
+    const sample = traversalSamples[sampleIndex];
+    if (sample.boundary) activeKeys = new Set();
+    const playback = iterationPlaybackAtPhase(
+      traces,
+      sample.position,
+      structureMode,
+    );
+    const events = lSystemDrumEventsForPlayheads(playbackHeads(playback), {
+      subdivisions,
+      direction: sample.direction,
+    });
+    const nextKeys = new Set(events.map((event) => event.key));
+    for (const event of events) {
+      if (!activeKeys.has(event.key)) {
+        triggeredEvents.push(Object.freeze({
+          ...event,
+          eventCount: events.length,
+          transportSampleIndex: sampleIndex,
+          transportBoundary: sample.boundary,
+        }));
+      }
+    }
+    activeKeys = nextKeys;
+  }
+
+  return Object.freeze({
+    events: Object.freeze(triggeredEvents),
+    activeEventKeys: activeKeys,
+  });
 }
 
 function normalizedPoint(point = {}, bounds = {}) {
@@ -133,6 +318,67 @@ export function lSystemDrumVoiceIndex(event = {}, {
   }
   const depth = clamp((Number(event.depth) || 0) / Math.max(1, Number(event.maxForkDepth) || 1));
   return quadrant(depth) * 4 + quadrant(wrappedTurn01(event.cumulativeTurn));
+}
+
+/** Keep simultaneous branches from launching phase-aligned copies of one drum. */
+export function groupedLSystemDrumEvents(events, {
+  mode = "branch-depth-turn",
+  maxEvents = Infinity,
+} = {}) {
+  const grouped = new Map();
+  const voicesPerSample = new Map();
+  for (const event of Array.isArray(events) ? events : []) {
+    const voiceIndex = lSystemDrumVoiceIndex(event, { mode });
+    const sampleIndex = Number.isInteger(event.transportSampleIndex)
+      ? event.transportSampleIndex
+      : -1;
+    const groupKey = `${sampleIndex}:${voiceIndex}`;
+    const strength = Math.abs(Number(event.turn) || 0)
+      + Math.abs(Number(event.cumulativeTurn) || 0) * 0.001;
+    const current = grouped.get(groupKey);
+    if (!current || strength > current.strength) {
+      grouped.set(groupKey, { event, sampleIndex, strength, voiceIndex });
+    }
+    let sampleVoices = voicesPerSample.get(sampleIndex);
+    if (!sampleVoices) {
+      sampleVoices = new Set();
+      voicesPerSample.set(sampleIndex, sampleVoices);
+    }
+    sampleVoices.add(voiceIndex);
+  }
+
+  const audibleEvents = [...grouped.values()].map(({
+    event,
+    sampleIndex,
+    strength,
+    voiceIndex,
+  }, index) => ({
+    event,
+    index,
+    strength,
+    voiceIndex,
+    eventCount: voicesPerSample.get(sampleIndex)?.size ?? 1,
+  }));
+  const limit = Math.max(1, Math.floor(Number(maxEvents) || 1));
+  if (!Number.isFinite(Number(maxEvents)) || audibleEvents.length <= limit) {
+    return audibleEvents.map(({ index, strength, ...entry }) => Object.freeze(entry));
+  }
+
+  const boundaryEvents = audibleEvents.filter(({ event }) => event.transportBoundary);
+  const ordinaryEvents = audibleEvents.filter(({ event }) => !event.transportBoundary);
+  const ordinaryLimit = Math.max(0, limit - boundaryEvents.length);
+  const selected = [...boundaryEvents];
+  for (let slot = 0; slot < ordinaryLimit; slot += 1) {
+    const start = Math.floor(slot * ordinaryEvents.length / ordinaryLimit);
+    const end = Math.max(start + 1, Math.floor((slot + 1) * ordinaryEvents.length / ordinaryLimit));
+    let strongest = ordinaryEvents[start];
+    for (let index = start + 1; index < end; index += 1) {
+      if (ordinaryEvents[index].strength > strongest.strength) strongest = ordinaryEvents[index];
+    }
+    selected.push(strongest);
+  }
+  selected.sort((left, right) => left.index - right.index);
+  return selected.map(({ index, strength, ...entry }) => Object.freeze(entry));
 }
 
 export function mappedLSystemDrumVoice(baseVoice, event = {}, {

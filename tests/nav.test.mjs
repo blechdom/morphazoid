@@ -182,13 +182,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       "Barber Shop Poles",
       "Fractals & Recursion",
       "Chaotic Synths",
+      "WebGPU Synths",
       "Instruments",
       "Algorithmic Sequencers",
       "Experiments (works-in-progress)",
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 60);
+  assert.equal(tools.length, 76);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -266,6 +267,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "rubix"),
+    {
+      id: "rubix",
+      label: "Rubix Cube Sequencer",
+      href: "rubix.html",
+    },
+  );
+  assert.deepEqual(
     tools.find((tool) => tool.id === "hyper-drums"),
     {
       id: "hyper-drums",
@@ -282,6 +291,29 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.equal(TOOL_GROUPS.some((group) => group.id === "physics-synths"), false);
+  assert.equal(
+    TOOL_GROUPS.flatMap(({ tools: groupTools }) => groupTools)
+      .find(({ id }) => id === "escher-tessellation")?.label,
+    "Escher",
+  );
+  assert.equal(
+    TOOL_GROUPS.find(({ tools: groupTools }) => (
+      groupTools.some(({ id }) => id === "escher-tessellation")
+    ))?.id,
+    "experiments",
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "geometry")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [
+      { id: "shape", href: "shape.html" },
+      { id: "lattice", href: "lattice.html" },
+      { id: "spiral", href: "spiral.html" },
+      { id: "solid", href: "solid.html" },
+      { id: "hyper", href: "hyper.html" },
+    ],
+  );
   assert.deepEqual(
     TOOL_GROUPS.find((group) => group.id === "geometry-drums")?.tools.map(
       ({ id, href }) => ({ id, href }),
@@ -291,6 +323,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "lattice-drums", href: "lattice-drums.html" },
       { id: "spiral-drums", href: "spiral-drums.html" },
       { id: "solid-drums", href: "solid-drums.html" },
+      { id: "rubix", href: "rubix.html" },
       { id: "hyper-drums", href: "hyper-drums.html" },
       { id: "l-system-drums", href: "l-system-drums.html" },
       { id: "linear-drums-machine", href: "linear-drums-machine.html" },
@@ -306,12 +339,39 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "sample-drums", href: "sample-drums.html" },
     ],
   );
+  assert.equal(TOOL_GROUPS.some((group) => group.id === "image-to-instrument"), false);
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "signal-voice")?.tools.map(
+      ({ id, label, href }) => ({ id, label, href }),
+    ),
+    [
+      {
+        id: "image-to-instrument-3",
+        label: "Wheel of Organs",
+        href: "image-to-instrument-3.html",
+      },
+      { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
+      { id: "micmic", label: "L-mic", href: "l-mic.html" },
+      { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
+      { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
+      {
+        id: "spelling-synthesizer",
+        label: "Spelling Synthesizer",
+        href: "spelling-synthesizer.html",
+      },
+    ],
+  );
   assert.deepEqual(
     TOOL_GROUPS.find((group) => group.id === "algorithmic-sequencers")?.tools.map(
       ({ id, href }) => ({ id, href }),
     ),
     [
       { id: "sorting-algorithms", href: "algorithmic-sequencers.html" },
+      { id: "dijkstra", href: "dijkstra.html" },
+      { id: "hanoi", href: "hanoi.html" },
+      { id: "minimax", href: "minimax.html" },
+      { id: "nqueens", href: "nqueens.html" },
+      { id: "euclid", href: "euclid.html" },
     ],
   );
   assert.deepEqual(
@@ -320,6 +380,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       id: "sorting-algorithms",
       label: "Sorting",
       href: "algorithmic-sequencers.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "dijkstra"),
+    {
+      id: "dijkstra",
+      label: "DJ Dijkstra",
+      href: "dijkstra.html",
     },
   );
   assert.deepEqual(
@@ -345,6 +413,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ),
     [
       { id: "shepard-risset", href: "shepard-risset.html" },
+      { id: "drum-roll-please", href: "drum-roll-please.html" },
       { id: "sandy-syrup-delay", href: "sandy-syrup-delay.html" },
       { id: "striped-sludge-delay", href: "striped-sludge-delay.html" },
       { id: "candy-coil-delay", href: "candy-coil-delay.html" },
@@ -360,13 +429,60 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "chaotic-fm", href: "chaotic-fm.html" },
       { id: "chaotic-pm", href: "chaotic-pm.html" },
       { id: "weierstrass", href: "weierstrass.html" },
+      { id: "plasma-ball", href: "plasma-ball.html" },
     ],
   );
   assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "experiments")?.tools.map(
+    TOOL_GROUPS.find((group) => group.id === "webgpu-synths")?.tools.map(
       ({ id, href }) => ({ id, href }),
     ),
     [
+      { id: "webgpu-303", href: "webgpu-303.html" },
+    ],
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "webgpu-303"),
+    {
+      id: "webgpu-303",
+      label: "WebGPU 303",
+      href: "webgpu-303.html",
+    },
+  );
+  const experiments = TOOL_GROUPS.find((group) => group.id === "experiments");
+  assert.deepEqual(experiments?.tools.slice(0, 4), [
+    {
+      id: "room-lobby",
+      label: "Music Rooms",
+      href: "music-rooms.html",
+      catalogue: false,
+    },
+    {
+      id: "vocal-effects-room",
+      label: "Vocal Effects Room",
+      href: "vocal-effects-room.html",
+      catalogue: false,
+    },
+    {
+      id: "instrument-share-room",
+      label: "Instrument Share Room",
+      href: "instrument-share-room.html",
+      catalogue: false,
+    },
+    {
+      id: "morphazoid-roulette",
+      label: "Morphazoid Roulette",
+      href: "morphazoid-roulette.html",
+      catalogue: false,
+    },
+  ]);
+  assert.deepEqual(
+    experiments?.tools.map(({ id, href }) => ({ id, href })),
+    [
+      { id: "room-lobby", href: "music-rooms.html" },
+      { id: "vocal-effects-room", href: "vocal-effects-room.html" },
+      { id: "instrument-share-room", href: "instrument-share-room.html" },
+      { id: "morphazoid-roulette", href: "morphazoid-roulette.html" },
+      { id: "escher-tessellation", href: "escher-tessellation.html" },
       { id: "order-tones", href: "order-tones.html" },
       { id: "morphazoidical", href: "morphazoidical/" },
       { id: "bell-square", href: "bell-square.html" },
@@ -399,6 +515,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
   );
   assert.deepEqual(SITE_LINKS, [
     { id: "plugins", label: "Plug-ins", href: "plugins.html" },
+    { id: "catalogue", label: "Catalogue", href: "instruments.html" },
     { id: "about", label: "About", href: "./" },
   ]);
 });
@@ -408,12 +525,23 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool("https://example.test/blechdom/morphazoid", SITE_ROOT), null);
   assert.equal(resolveActiveSiteLink("https://example.test/blechdom/morphazoid", SITE_ROOT)?.id, "about");
   assert.equal(resolveActiveTool(`${SITE_ROOT}shape.html`, SITE_ROOT)?.id, "shape");
+  assert.equal(
+    resolveActiveTool(`${SITE_ROOT}escher-tessellation.html`, SITE_ROOT)?.id,
+    "escher-tessellation",
+  );
+  assert.equal(resolveActiveTool(`${SITE_ROOT}image-to-instrument-1.html`, SITE_ROOT), null);
+  assert.equal(resolveActiveTool(`${SITE_ROOT}image-to-instrument-2.html`, SITE_ROOT), null);
+  assert.equal(
+    resolveActiveTool(`${SITE_ROOT}image-to-instrument-3.html`, SITE_ROOT)?.id,
+    "image-to-instrument-3",
+  );
   assert.equal(resolveActiveTool(`${SITE_ROOT}spiral.html#reader`, SITE_ROOT)?.id, "spiral");
   assert.equal(resolveActiveTool(`${SITE_ROOT}l-mic.html`, SITE_ROOT)?.id, "micmic");
   assert.equal(resolveActiveTool(`${SITE_ROOT}micmic.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}graph-delay.html`, SITE_ROOT)?.id, "graph-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}audio-engine-lab.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}shepard-risset.html`, SITE_ROOT)?.id, "shepard-risset");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}drum-roll-please.html`, SITE_ROOT)?.id, "drum-roll-please");
   assert.equal(resolveActiveTool(`${SITE_ROOT}candy-coil-delay.html`, SITE_ROOT)?.id, "candy-coil-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}striped-sludge-delay.html`, SITE_ROOT)?.id, "striped-sludge-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}sandy-syrup-delay.html`, SITE_ROOT)?.id, "sandy-syrup-delay");
@@ -422,6 +550,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}chaotic-fm.html`, SITE_ROOT)?.id, "chaotic-fm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}chaotic-pm.html`, SITE_ROOT)?.id, "chaotic-pm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}weierstrass.html`, SITE_ROOT)?.id, "weierstrass");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}webgpu-303.html`, SITE_ROOT)?.id, "webgpu-303");
   assert.equal(resolveActiveTool(`${SITE_ROOT}gravity-walk.html`, SITE_ROOT)?.id, "gravity-walk");
   assert.equal(resolveActiveTool(`${SITE_ROOT}ricochet.html`, SITE_ROOT)?.id, "ricochet");
   assert.equal(resolveActiveTool(`${SITE_ROOT}rigidity.html`, SITE_ROOT)?.id, "rigidity");
@@ -434,6 +563,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}order-tones.html`, SITE_ROOT)?.id, "order-tones");
   assert.equal(resolveActiveTool(`${SITE_ROOT}bell-square.html`, SITE_ROOT)?.id, "bell-square");
   assert.equal(resolveActiveTool(`${SITE_ROOT}annealogue.html`, SITE_ROOT)?.id, "annealogue");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}plasma-ball.html`, SITE_ROOT)?.id, "plasma-ball");
   assert.equal(resolveActiveTool(`${SITE_ROOT}moire-organ.html`, SITE_ROOT)?.id, "moire-organ");
   assert.equal(resolveActiveTool(`${SITE_ROOT}chladni-plate.html`, SITE_ROOT)?.id, "chladni-plate");
   assert.equal(resolveActiveTool(`${SITE_ROOT}spring-choir.html`, SITE_ROOT)?.id, "spring-choir");
@@ -450,6 +580,16 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}fourier-epicycles.html`, SITE_ROOT)?.id, "fourier-epicycles");
   assert.equal(resolveActiveTool(`${SITE_ROOT}gravity-lens.html`, SITE_ROOT)?.id, "gravity-lens");
   assert.equal(resolveActiveTool(`${SITE_ROOT}algorithmic-sequencers.html`, SITE_ROOT)?.id, "sorting-algorithms");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}music-rooms.html`, SITE_ROOT)?.id, "room-lobby");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}vocal-effects-room.html`, SITE_ROOT)?.id, "vocal-effects-room");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}instrument-share-room.html`, SITE_ROOT)?.id, "instrument-share-room");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoid-roulette.html`, SITE_ROOT)?.id, "morphazoid-roulette");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}dijkstra.html`, SITE_ROOT)?.id, "dijkstra");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}hanoi.html`, SITE_ROOT)?.id, "hanoi");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}minimax.html`, SITE_ROOT)?.id, "minimax");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}nqueens.html`, SITE_ROOT)?.id, "nqueens");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}euclid.html`, SITE_ROOT)?.id, "euclid");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}algorithmic-scores.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}fm-drums.html`, SITE_ROOT)?.id, "fm-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}linear-drums.html`, SITE_ROOT)?.id, "linear-drums");
   assert.equal(
@@ -461,6 +601,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}lattice-drums.html`, SITE_ROOT)?.id, "lattice-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}spiral-drums.html`, SITE_ROOT)?.id, "spiral-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}solid-drums.html`, SITE_ROOT)?.id, "solid-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}rubix.html`, SITE_ROOT)?.id, "rubix");
   assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-drums.html`, SITE_ROOT)?.id, "hyper-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}l-system-drums.html`, SITE_ROOT)?.id, "l-system-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}analyzer.html`, SITE_ROOT), null);
@@ -468,6 +609,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}unknown.html`, SITE_ROOT), null);
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}plugins.html`, SITE_ROOT)?.id, "plugins");
+  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}instruments.html`, SITE_ROOT)?.id, "catalogue");
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}about.html`, SITE_ROOT)?.id, "about");
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}`, SITE_ROOT)?.id, "about");
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}julia.html`, SITE_ROOT), null);
@@ -518,13 +660,15 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
   assert.equal(nestedLists.length, TOOL_GROUPS.length);
   assert.equal(nestedLists[0].children[0].getAttribute("data-tool-id"), "shape");
   const links = details.findAll((node) => node.tagName === "A");
-  assert.equal(links.length, 60);
+  assert.equal(links.length, 76);
   const siteLinks = doc.tabs.children.filter((node) => node.classList.contains("site-nav-link"));
-  assert.equal(siteLinks.length, 2);
+  assert.equal(siteLinks.length, 3);
   assert.equal(siteLinks[0].textContent, "Plug-ins");
   assert.equal(siteLinks[0].getAttribute("href"), `${SITE_ROOT}plugins.html`);
-  assert.equal(siteLinks[1].textContent, "About");
-  assert.equal(siteLinks[1].getAttribute("href"), SITE_ROOT);
+  assert.equal(siteLinks[1].textContent, "Catalogue");
+  assert.equal(siteLinks[1].getAttribute("href"), `${SITE_ROOT}instruments.html`);
+  assert.equal(siteLinks[2].textContent, "About");
+  assert.equal(siteLinks[2].getAttribute("href"), SITE_ROOT);
   const currentLinks = links.filter((link) => link.getAttribute("aria-current") === "page");
   assert.equal(currentLinks.length, 1);
   assert.equal(currentLinks[0].getAttribute("data-tool-id"), "julia");

@@ -203,7 +203,7 @@ test("shape drum app starts with the complete Shape form and sixteen drum previe
   assert.equal(elements.get("sides").value, "4");
   assert.match(elements.get("formSummary").textContent, /4-point polygon/);
   assert.equal(elements.get("headsControl").hidden, false);
-  assert.equal(elements.get("lineCountControl").hidden, true);
+  assert.equal(elements.has("lineCountControl"), false);
   assert.equal(elements.get("headMarker0").hidden, false);
   assert.equal(elements.get("headMarker1").hidden, true);
   assert.equal(elements.get("stage").width, 1800);
@@ -233,13 +233,20 @@ test("shape drum app starts with the complete Shape form and sixteen drum previe
   assert.equal(elements.get("liveStatus").textContent, "Simultaneous hit cap set to 2.");
 
   listeners.get("scanMode:click")();
-  assert.equal(elements.get("headsControl").hidden, true);
-  assert.equal(elements.get("lineCountControl").hidden, false);
+  assert.equal(elements.get("headsControl").hidden, false);
   assert.equal(elements.get("playheadCountOut").textContent, "1 line");
 
   listeners.get("addPlayhead:click")();
   assert.equal(elements.get("playheadCountOut").textContent, "2 lines");
   assert.equal(elements.get("headMarker1").hidden, false);
+  assert.equal(elements.get("headMarker1").style.left, "50%");
+
+  listeners.get("radialMode:click")();
+  assert.equal(elements.get("playheadCountOut").textContent, "2 rays");
+  assert.equal(elements.get("headMarker1").style.left, "50%");
+  listeners.get("traceMode:click")();
+  assert.equal(elements.get("playheadCountOut").textContent, "2 points");
+  assert.equal(elements.get("headMarker1").style.left, "50%");
 
   elements.get("mappingMode").value = "position-grid";
   listeners.get("mappingMode:change")();

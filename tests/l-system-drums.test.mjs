@@ -10,9 +10,13 @@ import {
 } from "../src/l-system.js";
 import {
   L_SYSTEM_DRUM_MAPPING_MODES,
+  advanceLSystemDrumTraversal,
+  groupedLSystemDrumEvents,
   lSystemDrumEventForHead,
   lSystemDrumEventsForPlayheads,
+  lSystemDrumEventsForTraversal,
   lSystemDrumSubdivisionCount,
+  lSystemDrumTraversalStepSize,
   lSystemDrumVoiceIndex,
   mappedLSystemDrumVoice,
 } from "../src/l-system-drums.js";
@@ -87,6 +91,67 @@ test("L-system drum mappings cover depth, position, generation, and playable FM 
   }
 });
 
+test("simultaneous branches share one audible hit per mapped drum", () => {
+  const shared = {
+    generation: 2,
+    subdivisionIndex: 1,
+    subdivisions: 4,
+    transportSampleIndex: 7,
+  };
+  const grouped = groupedLSystemDrumEvents([
+    { ...shared, key: "quiet", turn: 0.1 },
+    { ...shared, key: "angle", turn: 1.2 },
+    { ...shared, key: "reflection", turn: 0.2, transportSampleIndex: 8 },
+  ], { mode: "generation-phase" });
+
+  assert.equal(grouped.length, 2);
+  assert.equal(grouped[0].event.key, "angle");
+  assert.equal(grouped[0].eventCount, 1);
+  assert.equal(grouped[1].event.key, "reflection");
+});
+
+test("dense sequential grammars stay inside an audible per-frame budget", () => {
+  const events = Array.from({ length: 20 }, (_, index) => ({
+    generation: index % 4,
+    subdivisionIndex: index % 4,
+    subdivisions: 4,
+    transportSampleIndex: index,
+    turn: index / 20,
+    transportBoundary: index === 19 ? "wrap" : null,
+  }));
+  const grouped = groupedLSystemDrumEvents(events, {
+    mode: "generation-phase",
+    maxEvents: 4,
+  });
+
+  assert.equal(grouped.length, 4);
+  assert.equal(grouped.at(-1).event.transportBoundary, "wrap");
+  assert.ok(grouped.every(({ event }, index) => (
+    index === 0 || event.transportSampleIndex > grouped[index - 1].event.transportSampleIndex
+  )));
+});
+
+test("every bundled grammar produces bounded L-system drum events", () => {
+  for (const preset of L_SYSTEM_PRESETS) {
+    const trace = {
+      ...traceLSystem(preset),
+      iteration: preset.iterations,
+    };
+    const traces = [trace];
+    const traversal = advanceLSystemDrumTraversal(0, 1, 0.02, {
+      behavior: "loop",
+      maxPhaseStep: lSystemDrumTraversalStepSize(traces, 4, "final"),
+    });
+    const swept = lSystemDrumEventsForTraversal(traces, traversal.samples, {
+      subdivisions: 4,
+    });
+    const grouped = groupedLSystemDrumEvents(swept.events, { maxEvents: 4 });
+
+    assert.ok(grouped.length > 0, `${preset.name} should produce a drum hit`);
+    assert.ok(grouped.length <= 4, `${preset.name} should honor the hit budget`);
+  }
+});
+
 test("bell voices become shorter and quieter L-system percussion", () => {
   const bell = DEFAULT_FM_DRUM_VOICES.find(({ id }) => id === "soft-chime");
   const event = eventAtPhase(0.8);
@@ -100,6 +165,100 @@ test("bell voices become shorter and quieter L-system percussion", () => {
   assert.ok(voice.modIndex < bell.modIndex);
   assert.ok(voice.level < bell.level);
   assert.equal(bell.decay, 1.8);
+});
+
+function linearDrumTrace() {
+  return {
+    ...traceLSystem({ axiom: "F+F+F", angle: 90 }),
+    iteration: 1,
+  };
+}
+
+function sweepTrace(trace, {
+  position,
+  direction,
+  distance,
+  behavior = "loop",
+  activeEventKeys = new Set(),
+} = {}) {
+  const traces = [trace];
+  const traversal = advanceLSystemDrumTraversal(position, direction, distance, {
+    behavior,
+    maxPhaseStep: lSystemDrumTraversalStepSize(traces, 4, "final"),
+  });
+  const result = lSystemDrumEventsForTraversal(traces, traversal.samples, {
+    subdivisions: 4,
+    activeEventKeys,
+  });
+  return { traversal, ...result };
+}
+
+test("swept L-system drums do not skip turns or subdivisions during long frames", () => {
+  const trace = linearDrumTrace();
+  const forward = sweepTrace(trace, {
+    position: 0,
+    direction: 1,
+    distance: 0.99,
+  });
+  const reverse = sweepTrace(trace, {
+    position: 0.99,
+    direction: -1,
+    distance: 0.98,
+  });
+
+  assert.equal(new Set(forward.events.map(({ key }) => key)).size, 12);
+  assert.equal(new Set(reverse.events.map(({ key }) => key)).size, 12);
+  assert.deepEqual(new Set(forward.events.map(({ segmentIndex }) => segmentIndex)), new Set([0, 1, 2]));
+  assert.deepEqual(new Set(reverse.events.map(({ segmentIndex }) => segmentIndex)), new Set([0, 1, 2]));
+  assert.ok(forward.events.every(({ direction }) => direction === 1));
+  assert.ok(reverse.events.every(({ direction }) => direction === -1));
+});
+
+test("L-system drum catch-up work stays bounded after a stalled frame", () => {
+  const traversal = advanceLSystemDrumTraversal(0, 1, 4, {
+    behavior: "loop",
+    maxPhaseStep: 1e-9,
+  });
+
+  assert.ok(traversal.samples.length <= 64);
+  assert.equal(traversal.position, 0);
+  assert.equal(traversal.direction, 1);
+});
+
+test("ping-pong L-system drums re-attack the endpoint and trigger in reverse", () => {
+  const trace = linearDrumTrace();
+  const { traversal, events } = sweepTrace(trace, {
+    position: 0.85,
+    direction: 1,
+    distance: 0.4,
+    behavior: "ping-pong",
+  });
+  const terminalKey = "l-system:1:2:3";
+
+  assert.equal(traversal.direction, -1);
+  assert.ok(traversal.samples.some(({ boundary }) => boundary === "reflection"));
+  assert.ok(events.every(({ transportSampleIndex }) => Number.isInteger(transportSampleIndex)));
+  assert.ok(events.some(({ key, direction }) => key === terminalKey && direction === 1));
+  assert.ok(events.some(({ key, direction }) => key === terminalKey && direction === -1));
+  assert.ok(events.some(({ direction }) => direction === -1));
+});
+
+test("looping L-system drums re-arm the first hit after wraparound", () => {
+  const trace = linearDrumTrace();
+  const seeded = lSystemDrumEventsForTraversal(
+    [trace],
+    [{ position: 0.9, direction: 1, boundary: null }],
+    { subdivisions: 4 },
+  );
+  const { traversal, events } = sweepTrace(trace, {
+    position: 0.9,
+    direction: 1,
+    distance: 0.2,
+    activeEventKeys: seeded.activeEventKeys,
+  });
+
+  assert.ok(traversal.samples.some(({ boundary }) => boundary === "wrap"));
+  assert.ok(events.some(({ key }) => key === "l-system:1:0:0"));
 });
 
 test("L-System Drum Machine copies the L-system controls into a compact drum page", async () => {
@@ -145,6 +304,8 @@ test("L-System Drum Machine copies the L-system controls into a compact drum pag
   assert.match(app, /new FmDrumAudio\(globalThis\)/);
   assert.match(app, /traceLSystem/);
   assert.match(app, /iterationPlaybackAtPhase/);
-  assert.match(app, /lSystemDrumEventsForPlayheads/);
+  assert.match(app, /lSystemDrumEventsForTraversal/);
+  assert.match(app, /lSystemDrumTraversalStepSize/);
+  assert.match(app, /groupedLSystemDrumEvents/);
   assert.match(app, /mappedLSystemDrumVoice/);
 });

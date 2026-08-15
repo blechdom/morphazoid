@@ -42,7 +42,7 @@ while IFS= read -r -d '' source_path; do
   esac
 
   case "$source_path" in
-    *.html|*.css|*.js|*.webp|favicon.svg|morphazoidical/PLAN.md|downloads/plugins/*|\
+    *.html|*.css|*.js|*.webp|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|\
     vendor/tactile/LICENSE|\
     vendor/signalsmith-stretch/LICENSE|\
     vendor/signalsmith-stretch/SignalsmithStretch.mjs)
@@ -57,6 +57,32 @@ for worktree_runtime_file in \
   shape.html \
   about.html \
   about.css \
+  THIRD_PARTY_NOTICES.md \
+  music-rooms.html \
+  music-rooms.css \
+  vocal-effects-room.html \
+  instrument-share-room.html \
+  morphazoid-roulette.html \
+  instruments.html \
+  instrument-catalog.css \
+  instrument-catalog-app.js \
+  src/instrument-catalog.js \
+  image-to-instrument-3.html \
+  image-to-instrument-app.js \
+  wheel-of-organs-app.js \
+  image-to-instrument.css \
+  src/image-to-instrument.js \
+  src/wheel-of-organs.js \
+  src/wheel-of-organs-audio.js \
+  spelling-synthesizer.html \
+  spelling-synthesizer.css \
+  spelling-synthesizer-app.js \
+  src/spelling-synthesizer.js \
+  src/spelling-synthesizer-audio.js \
+  src/spelling-diphone-atlas.js \
+  src/spelling-vocoder-processor.js \
+  assets/audio/spelling-diphone-kal16.wav \
+  assets/instruments/spelling-synthesizer.webp \
   plugins.html \
   plugins.css \
   plugins-app.js \
@@ -83,6 +109,13 @@ for worktree_runtime_file in \
   lattice-drums.css \
   lattice-drums-app.js \
   src/lattice-drums.js \
+  escher-tessellation.html \
+  escher-tessellation.css \
+  escher-tessellation-app.js \
+  src/escher-tessellation.js \
+  src/escher-contours.js \
+  src/escher-performance-audio.js \
+  assets/instruments/escher-tessellation.webp \
   spiral-drums.html \
   spiral-drums.css \
   spiral-drums-app.js \
@@ -91,6 +124,12 @@ for worktree_runtime_file in \
   solid-drums.css \
   solid-drums-app.js \
   src/solid-drums.js \
+  rubix.html \
+  rubix.css \
+  rubix-app.js \
+  src/rubix.js \
+  src/rubix-visibility.js \
+  assets/instruments/rubix.webp \
   hyper-drums.html \
   hyper-drums.css \
   hyper-drums-app.js \
@@ -108,14 +147,31 @@ for worktree_runtime_file in \
   linear-drums-machine-app.js \
   src/linear-drums-machine.js \
   src/chaotic-fm-flow.js \
+  drum-roll-please.html \
+  drum-roll-please.css \
+  drum-roll-please-app.js \
+  src/drum-roll-please.js \
   chaotic-pm.html \
   chaotic-pm.css \
   chaotic-pm-app.js \
   src/chaotic-pm.js \
+  webgpu-303.html \
+  webgpu-303.css \
+  webgpu-303-app.js \
+  src/webgpu-303.js \
   algorithmic-sequencers.html \
   algorithmic-sequencers.css \
   algorithmic-sequencers-app.js \
   src/algorithmic-sequencers.js \
+  algorithmic-scores.html \
+  algorithmic-scores.css \
+  algorithmic-scores-app.js \
+  src/algorithmic-scores.js \
+  dijkstra.html \
+  hanoi.html \
+  minimax.html \
+  nqueens.html \
+  euclid.html \
   gravity-walk.html \
   ricochet.html \
   rigidity.html \
@@ -141,6 +197,10 @@ for worktree_runtime_file in \
   annealogue.html \
   annealogue-app.js \
   src/annealogue.js \
+  plasma-ball.html \
+  plasma-ball.css \
+  plasma-ball-app.js \
+  src/plasma-ball.js \
   moire-organ.html \
   chladni-plate.html \
   spring-choir.html \
@@ -162,11 +222,46 @@ do
   [[ -f "$repo_root/$worktree_runtime_file" ]] && copy_runtime_file "$worktree_runtime_file"
 done
 
+for catalog_icon in "$repo_root"/assets/instruments/*.webp; do
+  [[ -f "$catalog_icon" ]] || continue
+  copy_runtime_file "${catalog_icon#"$repo_root/"}"
+done
+
 required_files=(
   index.html
   shape.html
   about.html
   about.css
+  THIRD_PARTY_NOTICES.md
+  music-rooms.html
+  music-rooms.css
+  vocal-effects-room.html
+  instrument-share-room.html
+  morphazoid-roulette.html
+  instruments.html
+  instrument-catalog.css
+  instrument-catalog-app.js
+  src/instrument-catalog.js
+  assets/instruments/shape.webp
+  assets/instruments/gravity-lens.webp
+  assets/instruments/drum-roll-please.webp
+  assets/instruments/image-to-instrument-3.webp
+  image-to-instrument-3.html
+  image-to-instrument-app.js
+  wheel-of-organs-app.js
+  image-to-instrument.css
+  src/image-to-instrument.js
+  src/wheel-of-organs.js
+  src/wheel-of-organs-audio.js
+  spelling-synthesizer.html
+  spelling-synthesizer.css
+  spelling-synthesizer-app.js
+  src/spelling-synthesizer.js
+  src/spelling-synthesizer-audio.js
+  src/spelling-diphone-atlas.js
+  src/spelling-vocoder-processor.js
+  assets/audio/spelling-diphone-kal16.wav
+  assets/instruments/spelling-synthesizer.webp
   plugins.html
   plugins.css
   plugins-app.js
@@ -190,6 +285,10 @@ required_files=(
   shepard-risset.html
   shepard-risset-app.js
   src/shepard-risset.js
+  drum-roll-please.html
+  drum-roll-please.css
+  drum-roll-please-app.js
+  src/drum-roll-please.js
   candy-coil-delay.html
   striped-sludge-delay.html
   sandy-syrup-delay.html
@@ -213,6 +312,10 @@ required_files=(
   chaotic-pm.css
   chaotic-pm-app.js
   src/chaotic-pm.js
+  webgpu-303.html
+  webgpu-303.css
+  webgpu-303-app.js
+  src/webgpu-303.js
   weierstrass.html
   weierstrass.css
   weierstrass-app.js
@@ -221,6 +324,15 @@ required_files=(
   algorithmic-sequencers.css
   algorithmic-sequencers-app.js
   src/algorithmic-sequencers.js
+  algorithmic-scores.html
+  algorithmic-scores.css
+  algorithmic-scores-app.js
+  src/algorithmic-scores.js
+  dijkstra.html
+  hanoi.html
+  minimax.html
+  nqueens.html
+  euclid.html
   gravity-walk.html
   ricochet.html
   rigidity.html
@@ -246,6 +358,10 @@ required_files=(
   annealogue.html
   annealogue-app.js
   src/annealogue.js
+  plasma-ball.html
+  plasma-ball.css
+  plasma-ball-app.js
+  src/plasma-ball.js
   moire-organ.html
   chladni-plate.html
   spring-choir.html
@@ -279,6 +395,13 @@ required_files=(
   lattice-drums.css
   lattice-drums-app.js
   src/lattice-drums.js
+  escher-tessellation.html
+  escher-tessellation.css
+  escher-tessellation-app.js
+  src/escher-tessellation.js
+  src/escher-contours.js
+  src/escher-performance-audio.js
+  assets/instruments/escher-tessellation.webp
   spiral-drums.html
   spiral-drums.css
   spiral-drums-app.js
@@ -287,6 +410,12 @@ required_files=(
   solid-drums.css
   solid-drums-app.js
   src/solid-drums.js
+  rubix.html
+  rubix.css
+  rubix-app.js
+  src/rubix.js
+  src/rubix-visibility.js
+  assets/instruments/rubix.webp
   hyper-drums.html
   hyper-drums.css
   hyper-drums-app.js

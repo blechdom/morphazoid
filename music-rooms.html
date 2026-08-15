@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Music Rooms — shared browser spaces for playing interactive instruments together."
+    />
+    <title>Music Rooms | Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="about.css" />
+    <link rel="stylesheet" href="music-rooms.css" />
+  </head>
+  <body class="about-page music-rooms-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Morphazoid main menu">
+        <a class="tab" href="instruments.html">catalogue</a>
+        <a class="tab active" href="music-rooms.html" aria-current="page">music rooms</a>
+        <a class="tab" href="./">about</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Morphazoid page</span>
+        <select class="mobile-instrument-select" aria-label="Morphazoid page">
+          <option value="instruments.html">catalogue</option>
+          <option value="music-rooms.html" selected>music rooms</option>
+          <option value="./">about</option>
+        </select>
+      </label>
+    </header>
+
+    <main class="about-shell" id="musicRooms">
+      <article class="about-document">
+        <header class="about-intro music-rooms-intro">
+          <div>
+            <p class="about-kicker">Experiments · Music Rooms</p>
+            <h1>Music Rooms</h1>
+            <p class="about-lede">
+              Three browser-room experiments for playing Morphazoid together. Open a preview to see
+              how each one will work; nothing connects yet.
+            </p>
+          </div>
+          <dl class="about-summary" aria-label="Music Rooms summary">
+            <div><dt>Status</dt><dd>In development</dd></div>
+            <div><dt>Rooms</dt><dd>3</dd></div>
+            <div><dt>Place</dt><dd>Web browser</dd></div>
+            <div><dt>Purpose</dt><dd>Play together</dd></div>
+          </dl>
+        </header>
+
+        <section class="manual-section music-rooms-section" aria-labelledby="roomLobbyTitle">
+          <div class="manual-section-heading">
+            <p class="manual-section-label">Room lobby</p>
+            <h2 id="roomLobbyTitle">Choose a room</h2>
+            <p class="manual-section-note">
+              Open a preview to see how each room will work. Nothing is connected yet.
+            </p>
+          </div>
+
+          <div class="music-room-grid">
+            <article class="music-room-card" data-room="vocal-effects">
+              <p class="music-room-status"><span aria-hidden="true"></span>In development</p>
+              <h3>Vocal Effects</h3>
+              <p>
+                Sing, speak, and shape your voice with live effects in a small video room. The
+                processed voice will be sent to everyone.
+              </p>
+              <ul class="music-room-traits" aria-label="Vocal Effects room features">
+                <li>Small group</li>
+                <li>Video chat</li>
+                <li>Vocal effects</li>
+              </ul>
+              <p class="music-room-note">Headphones recommended.</p>
+              <a class="music-room-action" href="vocal-effects-room.html">Preview Vocal Effects</a>
+            </article>
+
+            <article class="music-room-card" data-room="instrument-share">
+              <p class="music-room-status"><span aria-hidden="true"></span>In development</p>
+              <h3>Instrument Share</h3>
+              <p>
+                Play any Morphazoid instrument and share its view and sound with the room. One
+                player will take the stage at a time.
+              </p>
+              <ul class="music-room-traits" aria-label="Instrument Share room features">
+                <li>Shared instrument</li>
+                <li>Instrument audio</li>
+                <li>Voice chat</li>
+              </ul>
+              <a class="music-room-action" href="instrument-share-room.html">Preview Instrument Share</a>
+            </article>
+
+            <article class="music-room-card" data-room="roulette">
+              <p class="music-room-status"><span aria-hidden="true"></span>In development</p>
+              <h3>Morphazoid Roulette</h3>
+              <p>
+                Meet one random player for a one-to-one video jam. Play together, move to the next
+                player, or leave at any time.
+              </p>
+              <ul class="music-room-traits" aria-label="Morphazoid Roulette features">
+                <li>One-to-one</li>
+                <li>Random match</li>
+                <li>Video chat</li>
+              </ul>
+              <p class="music-room-note">Public matching will launch only with safety controls.</p>
+              <a class="music-room-action" href="morphazoid-roulette.html">Preview Roulette</a>
+            </article>
+          </div>
+        </section>
+
+        <footer class="about-footer">
+          <span>Morphazoid</span>
+          <span>Music Rooms · In development</span>
+          <span>Copyright &copy; 2026 Kristin Galvin</span>
+        </footer>
+      </article>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+  </body>
+</html>

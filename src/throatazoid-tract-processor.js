@@ -731,7 +731,9 @@ class MouthAirway {
 
   injectFrication(noise, modulator) {
     const target = this.frication;
-    this.fricationEnvelope += (target - this.fricationEnvelope) * timeAlpha(100);
+    this.fricationEnvelope += (target - this.fricationEnvelope) * timeAlpha(
+      target > this.fricationEnvelope ? 8 : 24,
+    );
     if (this.fricationEnvelope <= 0.0001 || modulator <= 0.0001) return;
     const turbulence = noise * modulator * this.fricationEnvelope * 0.38;
     const lower = Math.floor(this.constrictionIndex);

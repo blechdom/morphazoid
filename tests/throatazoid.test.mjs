@@ -1067,6 +1067,8 @@ test("consonant descriptors cover distinct places, manners, and complete gesture
       "p",
       "s",
       "sh",
+      "th",
+      "dh",
       "f",
       "m",
       "n",
@@ -1102,6 +1104,7 @@ test("consonant descriptors cover distinct places, manners, and complete gesture
     "bilabial",
     "postalveolar",
     "labiodental",
+    "dental",
   ]);
   for (const [id, consonant] of Object.entries(CONSONANTS)) {
     assert.equal(consonant.id, id);

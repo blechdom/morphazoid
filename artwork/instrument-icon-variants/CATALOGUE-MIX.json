@@ -1,0 +1,558 @@
+{
+  "seed": 1733393742,
+  "selectionMethod": "random among each instrument's least-represented available style categories, with explicit family pins",
+  "categoryCounts": {
+    "anatomical": 10,
+    "digital": 10,
+    "fuzzy": 10,
+    "op-art": 10,
+    "psychedelic": 9,
+    "special": 10
+  },
+  "selected": 59,
+  "unchanged": 14,
+  "selections": [
+    {
+      "instrument": "algorithmic-scores",
+      "status": "selected",
+      "category": "special",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/algorithmic-scores/round-2-v1.webp",
+      "destination": "assets/instruments/algorithmic-scores.webp"
+    },
+    {
+      "instrument": "annealogue",
+      "status": "selected",
+      "category": "fuzzy",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/annealogue/round-3-v1-fuzzy.webp",
+      "destination": "assets/instruments/annealogue.webp"
+    },
+    {
+      "instrument": "atomic-orbitals",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/atomic-orbitals.webp"
+    },
+    {
+      "instrument": "bell-square",
+      "status": "selected",
+      "category": "psychedelic",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/bell-square/round-3-v4-psychedelic-acid-test.webp",
+      "destination": "assets/instruments/bell-square.webp"
+    },
+    {
+      "instrument": "candy-coil-delay",
+      "status": "selected",
+      "category": "special",
+      "pinned": true,
+      "source": "artwork/instrument-icon-variants/candy-coil-delay/round-2-v1.webp",
+      "destination": "assets/instruments/candy-coil-delay.webp"
+    },
+    {
+      "instrument": "cellular-automata",
+      "status": "selected",
+      "category": "anatomical",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/cellular-automata/round-3-v3-vocal-anatomy.webp",
+      "destination": "assets/instruments/cellular-automata.webp"
+    },
+    {
+      "instrument": "chaotic-fm",
+      "status": "selected",
+      "category": "special",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/chaotic-fm/round-2-v1.webp",
+      "destination": "assets/instruments/chaotic-fm.webp"
+    },
+    {
+      "instrument": "chaotic-pm",
+      "status": "selected",
+      "category": "psychedelic",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/chaotic-pm/round-3-v4-psychedelic-acid-test.webp",
+      "destination": "assets/instruments/chaotic-pm.webp"
+    },
+    {
+      "instrument": "charge-garden",
+      "status": "selected",
+      "category": "fuzzy",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/charge-garden/round-3-v1-fuzzy.webp",
+      "destination": "assets/instruments/charge-garden.webp"
+    },
+    {
+      "instrument": "chladni-plate",
+      "status": "selected",
+      "category": "psychedelic",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/chladni-plate/round-3-v4-psychedelic-acid-test.webp",
+      "destination": "assets/instruments/chladni-plate.webp"
+    },
+    {
+      "instrument": "dijkstra",
+      "status": "selected",
+      "category": "digital",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/dijkstra/round-3-v2-digital-matrix.webp",
+      "destination": "assets/instruments/dijkstra.webp"
+    },
+    {
+      "instrument": "dna-translator",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/dna-translator.webp"
+    },
+    {
+      "instrument": "double-pendulum",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/double-pendulum.webp"
+    },
+    {
+      "instrument": "drum-roll-please",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/drum-roll-please.webp"
+    },
+    {
+      "instrument": "escher-tessellation",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/escher-tessellation.webp"
+    },
+    {
+      "instrument": "euclid",
+      "status": "selected",
+      "category": "anatomical",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/euclid/round-3-v3-vocal-anatomy.webp",
+      "destination": "assets/instruments/euclid.webp"
+    },
+    {
+      "instrument": "falling-forms",
+      "status": "selected",
+      "category": "digital",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/falling-forms/round-3-v2-digital-matrix.webp",
+      "destination": "assets/instruments/falling-forms.webp"
+    },
+    {
+      "instrument": "fm-drums",
+      "status": "selected",
+      "category": "anatomical",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/fm-drums/round-3-v3-vocal-anatomy.webp",
+      "destination": "assets/instruments/fm-drums.webp"
+    },
+    {
+      "instrument": "fourier-epicycles",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/fourier-epicycles.webp"
+    },
+    {
+      "instrument": "gear-ratio-drums",
+      "status": "selected",
+      "category": "psychedelic",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/gear-ratio-drums/round-3-v4-psychedelic-acid-test.webp",
+      "destination": "assets/instruments/gear-ratio-drums.webp"
+    },
+    {
+      "instrument": "geodesic-drift",
+      "status": "selected",
+      "category": "anatomical",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/geodesic-drift/round-3-v3-vocal-anatomy.webp",
+      "destination": "assets/instruments/geodesic-drift.webp"
+    },
+    {
+      "instrument": "graph-delay",
+      "status": "selected",
+      "category": "digital",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/graph-delay/round-6-v2-digital-tesla-modern-mic.webp",
+      "destination": "assets/instruments/graph-delay.webp"
+    },
+    {
+      "instrument": "gravity-lens",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/gravity-lens.webp"
+    },
+    {
+      "instrument": "gravity-walk",
+      "status": "selected",
+      "category": "psychedelic",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/gravity-walk/round-3-v4-psychedelic-acid-test.webp",
+      "destination": "assets/instruments/gravity-walk.webp"
+    },
+    {
+      "instrument": "hanoi",
+      "status": "selected",
+      "category": "anatomical",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/hanoi/round-3-v3-vocal-anatomy.webp",
+      "destination": "assets/instruments/hanoi.webp"
+    },
+    {
+      "instrument": "hyper",
+      "status": "selected",
+      "category": "fuzzy",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/hyper/round-3-v1-fuzzy.webp",
+      "destination": "assets/instruments/hyper.webp"
+    },
+    {
+      "instrument": "hyper-drums",
+      "status": "selected",
+      "category": "special",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/hyper-drums/round-2-v1.webp",
+      "destination": "assets/instruments/hyper-drums.webp"
+    },
+    {
+      "instrument": "image-to-instrument-3",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/image-to-instrument-3.webp"
+    },
+    {
+      "instrument": "julia",
+      "status": "selected",
+      "category": "anatomical",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/julia/round-3-v3-vocal-anatomy.webp",
+      "destination": "assets/instruments/julia.webp"
+    },
+    {
+      "instrument": "kinetic-hull",
+      "status": "selected",
+      "category": "digital",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/kinetic-hull/round-3-v2-digital-matrix.webp",
+      "destination": "assets/instruments/kinetic-hull.webp"
+    },
+    {
+      "instrument": "l-system",
+      "status": "selected",
+      "category": "special",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/l-system/round-2-v1.webp",
+      "destination": "assets/instruments/l-system.webp"
+    },
+    {
+      "instrument": "l-system-drums",
+      "status": "selected",
+      "category": "anatomical",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/l-system-drums/round-3-v3-vocal-anatomy.webp",
+      "destination": "assets/instruments/l-system-drums.webp"
+    },
+    {
+      "instrument": "lattice",
+      "status": "selected",
+      "category": "op-art",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/lattice/round-5-v1-distilled-op-art.webp",
+      "destination": "assets/instruments/lattice.webp"
+    },
+    {
+      "instrument": "lattice-drums",
+      "status": "selected",
+      "category": "special",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/lattice-drums/round-2-v2-penrose-escher.webp",
+      "destination": "assets/instruments/lattice-drums.webp"
+    },
+    {
+      "instrument": "linear-drums",
+      "status": "selected",
+      "category": "fuzzy",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/linear-drums/round-3-v1-fuzzy.webp",
+      "destination": "assets/instruments/linear-drums.webp"
+    },
+    {
+      "instrument": "linear-drums-machine",
+      "status": "selected",
+      "category": "psychedelic",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/linear-drums-machine/round-3-v4-psychedelic-acid-test.webp",
+      "destination": "assets/instruments/linear-drums-machine.webp"
+    },
+    {
+      "instrument": "lissajous-orbits",
+      "status": "selected",
+      "category": "digital",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/lissajous-orbits/round-3-v2-digital-matrix.webp",
+      "destination": "assets/instruments/lissajous-orbits.webp"
+    },
+    {
+      "instrument": "lumber",
+      "status": "selected",
+      "category": "anatomical",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/lumber/round-6-v3-vocal-anatomy-field-mic.webp",
+      "destination": "assets/instruments/lumber.webp"
+    },
+    {
+      "instrument": "micmic",
+      "status": "selected",
+      "category": "anatomical",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/micmic/round-6-v3-vocal-anatomy-modern-mic.webp",
+      "destination": "assets/instruments/micmic.webp"
+    },
+    {
+      "instrument": "minimax",
+      "status": "selected",
+      "category": "op-art",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/minimax/round-5-v1-distilled-op-art.webp",
+      "destination": "assets/instruments/minimax.webp"
+    },
+    {
+      "instrument": "moire-organ",
+      "status": "selected",
+      "category": "digital",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/moire-organ/round-3-v2-digital-matrix.webp",
+      "destination": "assets/instruments/moire-organ.webp"
+    },
+    {
+      "instrument": "morphazoidical",
+      "status": "selected",
+      "category": "psychedelic",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/morphazoidical/round-3-v4-psychedelic-acid-test.webp",
+      "destination": "assets/instruments/morphazoidical.webp"
+    },
+    {
+      "instrument": "neural-pulse",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/neural-pulse.webp"
+    },
+    {
+      "instrument": "nqueens",
+      "status": "selected",
+      "category": "fuzzy",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/nqueens/round-3-v1-fuzzy.webp",
+      "destination": "assets/instruments/nqueens.webp"
+    },
+    {
+      "instrument": "order-tones",
+      "status": "selected",
+      "category": "digital",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/order-tones/round-3-v2-digital-matrix.webp",
+      "destination": "assets/instruments/order-tones.webp"
+    },
+    {
+      "instrument": "packing-pressure",
+      "status": "selected",
+      "category": "fuzzy",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/packing-pressure/round-3-v1-fuzzy.webp",
+      "destination": "assets/instruments/packing-pressure.webp"
+    },
+    {
+      "instrument": "pendulum-wave",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/pendulum-wave.webp"
+    },
+    {
+      "instrument": "plasma-ball",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/plasma-ball.webp"
+    },
+    {
+      "instrument": "prime-sieve",
+      "status": "selected",
+      "category": "op-art",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/prime-sieve/round-5-v1-distilled-op-art.webp",
+      "destination": "assets/instruments/prime-sieve.webp"
+    },
+    {
+      "instrument": "reaction-diffusion",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/reaction-diffusion.webp"
+    },
+    {
+      "instrument": "recursion",
+      "status": "selected",
+      "category": "op-art",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/recursion/round-5-v1-distilled-op-art.webp",
+      "destination": "assets/instruments/recursion.webp"
+    },
+    {
+      "instrument": "recursive-fm",
+      "status": "selected",
+      "category": "op-art",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/recursive-fm/round-5-v1-distilled-op-art.webp",
+      "destination": "assets/instruments/recursive-fm.webp"
+    },
+    {
+      "instrument": "recursive-pm",
+      "status": "selected",
+      "category": "special",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/recursive-pm/round-2-v1.webp",
+      "destination": "assets/instruments/recursive-pm.webp"
+    },
+    {
+      "instrument": "ricochet",
+      "status": "selected",
+      "category": "fuzzy",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/ricochet/round-3-v1-fuzzy.webp",
+      "destination": "assets/instruments/ricochet.webp"
+    },
+    {
+      "instrument": "rigidity",
+      "status": "selected",
+      "category": "fuzzy",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/rigidity/round-3-v1-fuzzy.webp",
+      "destination": "assets/instruments/rigidity.webp"
+    },
+    {
+      "instrument": "rolling-measure",
+      "status": "selected",
+      "category": "psychedelic",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/rolling-measure/round-3-v4-psychedelic-acid-test.webp",
+      "destination": "assets/instruments/rolling-measure.webp"
+    },
+    {
+      "instrument": "rubix",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/rubix.webp"
+    },
+    {
+      "instrument": "sample-drums",
+      "status": "selected",
+      "category": "digital",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/sample-drums/round-3-v2-digital-matrix.webp",
+      "destination": "assets/instruments/sample-drums.webp"
+    },
+    {
+      "instrument": "sandy-syrup-delay",
+      "status": "selected",
+      "category": "op-art",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/sandy-syrup-delay/round-5-v1-distilled-op-art.webp",
+      "destination": "assets/instruments/sandy-syrup-delay.webp"
+    },
+    {
+      "instrument": "shape",
+      "status": "selected",
+      "category": "op-art",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/shape/round-5-v1-distilled-op-art.webp",
+      "destination": "assets/instruments/shape.webp"
+    },
+    {
+      "instrument": "shape-drums",
+      "status": "selected",
+      "category": "anatomical",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/shape-drums/round-3-v3-vocal-anatomy.webp",
+      "destination": "assets/instruments/shape-drums.webp"
+    },
+    {
+      "instrument": "shepard-risset",
+      "status": "selected",
+      "category": "special",
+      "pinned": true,
+      "source": "artwork/instrument-icon-variants/shepard-risset/round-2-v1.webp",
+      "destination": "assets/instruments/shepard-risset.webp"
+    },
+    {
+      "instrument": "solid",
+      "status": "selected",
+      "category": "digital",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/solid/round-3-v2-digital-matrix.webp",
+      "destination": "assets/instruments/solid.webp"
+    },
+    {
+      "instrument": "solid-drums",
+      "status": "selected",
+      "category": "op-art",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/solid-drums/round-5-v1-distilled-op-art.webp",
+      "destination": "assets/instruments/solid-drums.webp"
+    },
+    {
+      "instrument": "sorting-algorithms",
+      "status": "selected",
+      "category": "fuzzy",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/sorting-algorithms/round-3-v1-fuzzy.webp",
+      "destination": "assets/instruments/sorting-algorithms.webp"
+    },
+    {
+      "instrument": "spelling-synthesizer",
+      "status": "unchanged-no-alternative",
+      "source": "assets/instruments/spelling-synthesizer.webp"
+    },
+    {
+      "instrument": "spiral",
+      "status": "selected",
+      "category": "fuzzy",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/spiral/round-3-v1-fuzzy.webp",
+      "destination": "assets/instruments/spiral.webp"
+    },
+    {
+      "instrument": "spiral-drums",
+      "status": "selected",
+      "category": "special",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/spiral-drums/round-2-v2-penrose-escher.webp",
+      "destination": "assets/instruments/spiral-drums.webp"
+    },
+    {
+      "instrument": "spring-choir",
+      "status": "selected",
+      "category": "digital",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/spring-choir/round-3-v2-digital-matrix.webp",
+      "destination": "assets/instruments/spring-choir.webp"
+    },
+    {
+      "instrument": "striped-sludge-delay",
+      "status": "selected",
+      "category": "special",
+      "pinned": true,
+      "source": "artwork/instrument-icon-variants/striped-sludge-delay/round-2-v1.webp",
+      "destination": "assets/instruments/striped-sludge-delay.webp"
+    },
+    {
+      "instrument": "throatazoid",
+      "status": "selected",
+      "category": "op-art",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/throatazoid/round-5-v1-distilled-op-art-directional-creature.webp",
+      "destination": "assets/instruments/throatazoid.webp"
+    },
+    {
+      "instrument": "webgpu-303",
+      "status": "selected",
+      "category": "psychedelic",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/webgpu-303/round-3-v4-psychedelic-acid-test.webp",
+      "destination": "assets/instruments/webgpu-303.webp"
+    },
+    {
+      "instrument": "weierstrass",
+      "status": "selected",
+      "category": "op-art",
+      "pinned": false,
+      "source": "artwork/instrument-icon-variants/weierstrass/round-5-v1-distilled-op-art.webp",
+      "destination": "assets/instruments/weierstrass.webp"
+    }
+  ]
+}

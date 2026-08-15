@@ -29,7 +29,11 @@ test("sorting sequencer exposes the first demo set and future candidates", () =>
   );
   assert.deepEqual(
     NEXT_ALGORITHM_TRIALS.map(({ id }) => id),
-    ["dijkstra", "towers-of-hanoi", "minimax-alpha-beta", "n-queens", "euclidean-gcd"],
+    ["dijkstra", "hanoi", "minimax", "nqueens", "euclid"],
+  );
+  assert.deepEqual(
+    NEXT_ALGORITHM_TRIALS.map(({ href }) => href),
+    ["dijkstra.html", "hanoi.html", "minimax.html", "nqueens.html", "euclid.html"],
   );
   assert.equal(new Set(NEXT_ALGORITHM_TRIALS.map(({ family }) => family)).size, 5);
   assert.ok(NEXT_ALGORITHM_TRIALS.every(({ label }) => !/sort/i.test(label)));
@@ -135,7 +139,8 @@ test("Algorithmic Sequencers presents randomize first and runs local sorting dem
   assert.match(html, /<h1[^>]*>Algorithmic Sequencers<\/h1>/);
   assert.match(html, /Sorting Algorithms/);
   assert.match(html, /Bubble Sort[\s\S]*Insertion Sort[\s\S]*Quick Sort/);
-  assert.match(html, /Five to try[\s\S]*Dijkstra Shortest Path[\s\S]*Euclidean GCD/);
+  assert.match(html, /Five built scores[\s\S]*DJ Dijkstra[\s\S]*Euclidean Pulse/);
+  assert.match(html, /href="dijkstra\.html"/);
   assert.match(html, /id="randomInput"[^>]*>Randomize order<\/button>/);
   assert.ok(html.indexOf('id="randomInput"') < html.indexOf('id="presetButtons"'));
   assert.doesNotMatch(html, /targetIndex|data-curve="random"/);

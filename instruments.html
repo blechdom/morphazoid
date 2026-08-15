@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Browse every Morphazoid browser instrument, input type, playable controls, and plug-in availability."
+    />
+    <title>Instrument Catalogue | Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="about.css" />
+    <link rel="stylesheet" href="instrument-catalog.css" />
+  </head>
+  <body class="about-page catalogue-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Morphazoid main menu">
+        <a class="tab" href="plugins.html">plug-ins</a>
+        <a class="tab active" href="instruments.html" aria-current="page">catalogue</a>
+        <a class="tab" href="./">about</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Morphazoid page</span>
+        <select class="mobile-instrument-select" aria-label="Morphazoid page">
+          <option value="plugins.html">plug-ins</option>
+          <option value="instruments.html" selected>catalogue</option>
+          <option value="./">about</option>
+        </select>
+      </label>
+    </header>
+
+    <main class="about-shell" id="catalogue">
+      <article class="about-document">
+        <header class="about-intro">
+          <div>
+            <h1>Instrument Catalogue</h1>
+            <p class="about-lede">
+              Browse every Morphazoid instrument by sound, system, input, or control method.
+            </p>
+          </div>
+          <dl class="about-summary" aria-label="Catalogue summary">
+            <div><dt>Instruments</dt><dd>72</dd></div>
+            <div><dt>Browser</dt><dd>All playable</dd></div>
+            <div><dt>Plug-ins</dt><dd>1 available</dd></div>
+            <div><dt>Inputs</dt><dd>Pointer, mic, file, MIDI</dd></div>
+          </dl>
+        </header>
+
+        <div
+          class="instrument-catalog"
+          id="fullInstrumentCatalogue"
+          data-instrument-catalog
+        ></div>
+
+        <footer class="about-footer">
+          <span>Morphazoid</span>
+          <span>Copyright &copy; 2026 Kristin Galvin</span>
+        </footer>
+      </article>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="instrument-catalog-app.js"></script>
+  </body>
+</html>

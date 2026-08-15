@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid algorithmic instrument routes." />
+    <title>Algorithmic Instruments - Morphazoid</title>
+    <meta http-equiv="refresh" content="0; url=dijkstra.html" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <script>
+      (() => {
+        const routes = {
+          dijkstra: "dijkstra.html",
+          hanoi: "hanoi.html",
+          minimax: "minimax.html",
+          nqueens: "nqueens.html",
+          euclid: "euclid.html",
+        };
+        const destination = routes[location.hash.slice(1)] || routes.dijkstra;
+        location.replace(destination);
+      })();
+    </script>
+  </head>
+  <body>
+    <main class="about-shell">
+      <p>
+        Open
+        <a href="dijkstra.html">DJ Dijkstra</a>,
+        <a href="hanoi.html">Hanoi</a>,
+        <a href="minimax.html">Minimax</a>,
+        <a href="nqueens.html">N-Queens</a>, or
+        <a href="euclid.html">Euclid</a>.
+      </p>
+    </main>
+  </body>
+</html>

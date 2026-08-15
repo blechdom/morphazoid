@@ -144,6 +144,7 @@ test("Hyper exposes independent axis motion and maps canvas drag to XW/YW", asyn
   assert.doesNotMatch(app, /1\.25 \* state\.hyperScaleW/);
   assert.match(app, /MAX_HYPER_VOICES = 20/);
   assert.match(app, /evenlySelect\(contacts, MAX_HYPER_VOICES\)/);
+  assert.match(app, /new VoicePool\(32, \{ continuousPeakCeiling: 0\.78 \}\)/);
   assert.match(app, /canvas\.addEventListener\("pointerdown"/);
   assert.match(app, /state\.rotationYW = normalizeDegrees/);
   assert.match(app, /state\.rotationXW = normalizeDegrees/);

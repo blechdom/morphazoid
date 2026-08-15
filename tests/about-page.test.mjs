@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { TOOL_GROUPS } from "../nav.js";
+import { INSTRUMENT_GROUPS, INSTRUMENTS } from "../src/instrument-catalog.js";
 
 const root = new URL("../", import.meta.url);
-const regexEscape = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 test("Home page is the About guide", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
@@ -15,31 +15,69 @@ test("Home page is the About guide", async () => {
   assert.match(html, /<h1>Morphazoid<\/h1>/);
   assert.doesNotMatch(html, /Project (?:reference|guide)/i);
   assert.match(html, /href="\.\/" aria-current="page">about<\/a>/);
-  assert.match(html, /href="shape\.html">Shape<\/a>/);
+  assert.match(html, /href="instruments\.html">catalogue<\/a>/);
+  assert.match(html, /id="homeInstrumentCatalogue"[\s\S]*?data-instrument-catalog/);
+  assert.match(html, /src="instrument-catalog-app\.js"/);
+  assert.match(html, /<dt>Instruments<\/dt><dd>72<\/dd>/);
+  assert.match(html, /vibed up with Codex 5\.6 Sol Ultra, mostly/);
+  assert.doesNotMatch(html, /manual-section-label">\d+/);
+  assert.doesNotMatch(html, /class="page-entry"/);
   assert.doesNotMatch(html, /<script type="module" src="app\.js"><\/script>/);
 });
 
-test("About is a complete linked guide to the public tool registry", async () => {
+test("About mounts the complete menu-ordered catalogue", async () => {
   const html = await readFile(new URL("about.html", root), "utf8");
+  const catalogueGroups = TOOL_GROUPS
+    .filter((group) => group.catalogue !== false)
+    .map((group) => ({
+      ...group,
+      tools: group.tools.filter((tool) => tool.catalogue !== false),
+    }))
+    .filter((group) => group.tools.length > 0);
 
   assert.match(html, /<title>Morphazoid<\/title>/);
   assert.match(html, /href="\.\/" aria-current="page">about<\/a>/);
   assert.match(html, /class="mobile-instrument-select"/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.equal((html.match(/class="page-entry"/g) ?? []).length, 60);
-
-  for (const group of TOOL_GROUPS) {
-    assert.match(html, new RegExp(`>${regexEscape(group.label).replace("&", "&amp;")}<\\/h2>`));
-    for (const tool of group.tools) {
-      const escapedHref = regexEscape(tool.href);
-      assert.match(html, new RegExp(`href="${escapedHref}"`), `missing ${tool.label}`);
-    }
-  }
-
-  assert.match(html, /href="morphazoidical\/atlas\.html">Feature Atlas<\/a>/);
+  assert.match(html, /data-instrument-catalog/);
+  assert.equal(INSTRUMENTS.length, 72);
+  assert.equal(
+    INSTRUMENTS.find(({ id }) => id === "escher-tessellation")?.label,
+    "Escher",
+  );
+  assert.deepEqual(
+    INSTRUMENT_GROUPS.map(({ id, label, tools }) => ({
+      id,
+      label,
+      tools: tools.map(({ id: toolId, label: toolLabel, href }) => ({
+        id: toolId,
+        label: toolLabel,
+        href,
+      })),
+    })),
+    catalogueGroups.map(({ id, label, tools }) => ({
+      id,
+      label,
+      tools: tools.map(({ id: toolId, label: toolLabel, href }) => ({
+        id: toolId,
+        label: toolLabel,
+        href,
+      })),
+    })),
+  );
   assert.match(html, /https:\/\/github\.com\/blechdom\/morphazoid/);
   assert.match(html, /https:\/\/github\.com\/blechdom\/morphazoid\/blob\/main\/LICENSE/);
   assert.match(html, /Kristin Galvin/);
+  assert.match(html, /<dt>Instruments<\/dt><dd>72<\/dd>/);
+});
+
+test("dedicated catalogue page is available from the shared information menu", async () => {
+  const html = await readFile(new URL("instruments.html", root), "utf8");
+  assert.match(html, /<title>Instrument Catalogue \| Morphazoid<\/title>/);
+  assert.match(html, /<body class="about-page catalogue-page">/);
+  assert.match(html, /href="instruments\.html" aria-current="page">catalogue<\/a>/);
+  assert.match(html, /id="fullInstrumentCatalogue"[\s\S]*?data-instrument-catalog/);
+  assert.match(html, /<dt>Instruments<\/dt><dd>72<\/dd>/);
 });
 
 test("About document styles remain independently scrollable on instrument breakpoints", async () => {
