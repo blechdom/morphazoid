@@ -154,6 +154,7 @@ test("site builder publishes runtime files without development material", async 
       "linear-drums-machine.css",
       "linear-drums-machine-app.js",
       "src/linear-drums-machine.js",
+      "assets/lumber-loops-wood-loop.webp",
       "morphazoidical/index.html",
       "morphazoidical/PLAN.md",
       "vendor/signalsmith-stretch/LICENSE",

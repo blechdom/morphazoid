@@ -1232,7 +1232,7 @@ async function beginRecording({ replace = false } = {}) {
   }
   if (recordChanging) return;
   if (!replace && state.rings.length >= MAX_RINGS && recordedRings().length) {
-    showError(`Lumber supports ${MAX_RINGS} rings in this proof of concept.`);
+    showError(`Lumber Loops supports ${MAX_RINGS} rings in this proof of concept.`);
     announce("Delete a ring before recording another.");
     return;
   }
@@ -1670,7 +1670,7 @@ function updateUi() {
   $("stageReadout").textContent = `${stageState} · RING ${ordinal}/${state.rings.length} · ${sounding} SOUNDING`;
   canvas.setAttribute(
     "aria-label",
-    `Lumber ring ${ordinal} of ${state.rings.length}, ${ringVertexCount(ring)} ${expandedMode ? "radial" : "free"} vertices, ${ring.buffer ? formatDuration(ringCycleDuration(ring)) : "empty"}.`,
+    `Lumber Loops ring ${ordinal} of ${state.rings.length}, ${ringVertexCount(ring)} ${expandedMode ? "radial" : "free"} vertices, ${ring.buffer ? formatDuration(ringCycleDuration(ring)) : "empty"}.`,
   );
 }
 

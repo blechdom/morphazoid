@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("Lumber renders, records new rings, and explicitly replaces", async () => {
+test("Lumber Loops renders, records new rings, and explicitly replaces", async () => {
   const html = await readFile(new URL("../lumber.html", import.meta.url), "utf8");
   const tags = new Map(
     [...html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)].map((match) => [match[1], match[0]]),

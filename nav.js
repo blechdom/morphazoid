@@ -65,9 +65,14 @@ export const TOOL_GROUPS = Object.freeze([
       label: "L-System Drum Machine",
       href: "l-system-drums.html",
     },
+    {
+      id: "linear-drums-machine",
+      label: "Rattle Snake Boogie",
+      href: "linear-drums-machine.html",
+    },
   ]),
   freezeGroup("signal-voice", "Signal & Voice", [
-    { id: "lumber", label: "Lumber", href: "lumber.html" },
+    { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
     { id: "micmic", label: "L-mic", href: "l-mic.html" },
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
@@ -94,7 +99,24 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "chaotic-pm", label: "Chaotic PM", href: "chaotic-pm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
   ]),
-  freezeGroup("physics-synths", "Physics Synths", [
+  freezeGroup("instruments", "Instruments", [
+    { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
+    { id: "linear-drums", label: "Rattlesnake", href: "linear-drums.html" },
+    { id: "sample-drums", label: "Sample Drums", href: "sample-drums.html" },
+  ]),
+  freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
+    { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },
+  ]),
+  freezeGroup("experiments", "Experiments (works-in-progress)", [
+    { id: "order-tones", label: "Order Tones", href: "order-tones.html" },
+    {
+      id: "morphazoidical",
+      label: "Morphazoidical",
+      href: "morphazoidical/",
+      match: "directory",
+    },
+    { id: "bell-square", label: "Bell Square", href: "bell-square.html" },
+    { id: "annealogue", label: "Annealogue", href: "annealogue.html" },
     { id: "gravity-walk", label: "Gravity Walk", href: "gravity-walk.html" },
     { id: "ricochet", label: "Ricochet", href: "ricochet.html" },
     { id: "rigidity", label: "Rigidity", href: "rigidity.html" },
@@ -104,11 +126,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "packing-pressure", label: "Packing Pressure", href: "packing-pressure.html" },
     { id: "geodesic-drift", label: "Geodesic Drift", href: "geodesic-drift.html" },
     { id: "kinetic-hull", label: "Kinetic Hull", href: "kinetic-hull.html" },
-  ]),
-  freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
-    { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },
-  ]),
-  freezeGroup("experiments", "Experiments (works-in-progress)", [
     { id: "moire-organ", label: "RISSET-MOIRE", href: "moire-organ.html" },
     { id: "chladni-plate", label: "Chladni Plate", href: "chladni-plate.html" },
     { id: "spring-choir", label: "Spring Choir", href: "spring-choir.html" },
@@ -152,25 +169,6 @@ export const TOOL_GROUPS = Object.freeze([
       href: "fourier-epicycles.html",
     },
     { id: "gravity-lens", label: "Gravity Lens", href: "gravity-lens.html" },
-  ]),
-  freezeGroup("instruments", "Instruments", [
-    { id: "order-tones", label: "Order Tones", href: "order-tones.html" },
-    { id: "bell-square", label: "Bell Square", href: "bell-square.html" },
-    { id: "annealogue", label: "Annealogue", href: "annealogue.html" },
-    { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
-    { id: "linear-drums", label: "Linear Drums", href: "linear-drums.html" },
-    {
-      id: "linear-drums-machine",
-      label: "Rattle Snake Boogie",
-      href: "linear-drums-machine.html",
-    },
-    { id: "sample-drums", label: "Sample Drums", href: "sample-drums.html" },
-    {
-      id: "morphazoidical",
-      label: "Morphazoidical",
-      href: "morphazoidical/",
-      match: "directory",
-    },
   ]),
 ]);
 

@@ -23,7 +23,7 @@ import {
 
 const root = new URL("../", import.meta.url);
 
-test("Linear Drums maps its logarithmic rail to frequency and back", () => {
+test("Rattlesnake maps its logarithmic rail to frequency and back", () => {
   for (const position of [0, .01, .2, .5, .83, 1]) {
     const frequency = linearDrumFrequencyAtPosition(position, 20, 16_000);
     const roundTrip = linearDrumPositionAtFrequency(frequency, 20, 16_000);
@@ -328,14 +328,14 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
   assert.equal(audio.context, null);
 });
 
-test("Linear Drums page exposes the continuous instrument and global controls", async () => {
+test("Rattlesnake page exposes the continuous instrument and global controls", async () => {
   const [html, source, css] = await Promise.all([
     readFile(new URL("linear-drums.html", root), "utf8"),
     readFile(new URL("linear-drums-app.js", root), "utf8"),
     readFile(new URL("linear-drums.css", root), "utf8"),
   ]);
 
-  assert.match(html, /<h1 id="linearDrumsTitle">Linear Drums<\/h1>/);
+  assert.match(html, /<h1 id="linearDrumsTitle">Rattlesnake<\/h1>/);
   assert.match(html, /id="stage"[^>]*aria-describedby="canvasInstructions liveStatus"/);
   assert.match(html, /id="frequency"[^>]*min="0"[^>]*max="1"/);
   assert.match(html, /name="bodyModel" value="hybrid" checked/);
@@ -349,7 +349,7 @@ test("Linear Drums page exposes the continuous instrument and global controls", 
   ]) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(html, /id="mappingDock"/);
   assert.match(html, /id="mappingLanes"/);
-  assert.match(html, /id="presetBank"[^>]*Sixteen Linear Drums presets/);
+  assert.match(html, /id="presetBank"[^>]*Sixteen Rattlesnake presets/);
   assert.equal((html.match(/class="parameter-map-toggle"/g) ?? []).length, 9);
   assert.match(source, /new LinearDrumAudio\(globalThis\)/);
   assert.match(source, /linearDrumFrequencyAtPosition/);

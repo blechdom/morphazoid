@@ -8,7 +8,7 @@
       name="description"
       content="Download Morphazoid instruments for REAPER and follow upcoming VST3 and CLAP releases."
     />
-    <title>Plug-ins — Morphazoid</title>
+    <title>Morphazoid Plug-ins (under development)</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="plugins.css" />
@@ -34,143 +34,47 @@
         </select>
       </label>
 
-      <span class="plugins-header-label">DAW releases</span>
+      <span class="plugins-header-label">Under development</span>
     </header>
 
     <main class="plugins-shell" id="plugins">
       <article class="plugins-document">
         <header class="plugins-intro">
-          <div>
-            <p class="plugins-kicker">Playable outside the browser</p>
-            <h1>Morphazoid Plug-ins</h1>
-            <p class="plugins-lede">
-              Download stable snapshots of Morphazoid instruments for a DAW. Each instrument keeps
-              its own identity, parameters, presets, and project compatibility; shared bundles can
-              install several instruments later without merging their signal paths into one plug-in.
-            </p>
+          <p class="plugins-kicker">For REAPER</p>
+          <h1>Morphazoid Plug-ins</h1>
+          <p class="plugins-development">(under development)</p>
+          <p class="plugins-lede">Use REAPER? You can download Chaotic FM now.</p>
+          <div class="plugins-actions">
+            <a
+              class="plugin-download"
+              href="downloads/plugins/chaotic-fm/0.3.0/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx"
+              download="Morphazoid_Chaotic_FM-v0.3.0.jsfx"
+            >Download for REAPER</a>
+            <a class="plugin-demo-link" href="chaotic-fm.html">Try it in the browser</a>
           </div>
-          <dl class="plugins-summary" aria-label="Plug-in catalog summary">
-            <div><dt>Available</dt><dd>Chaotic FM</dd></div>
-            <div><dt>Current</dt><dd>v0.3.0 beta</dd></div>
-            <div><dt>Format</dt><dd>REAPER JSFX</dd></div>
-            <div><dt>Host tested</dt><dd>REAPER 7.62</dd></div>
-            <div><dt>Platform tested</dt><dd>Linux x86-64</dd></div>
-          </dl>
+          <p class="plugins-note">No installer needed. REAPER 7 for macOS, Windows, or Linux.</p>
         </header>
 
-        <section class="plugin-model" aria-labelledby="pluginModelTitle">
+        <section class="plugins-install" id="install-reaper-jsfx" aria-labelledby="installTitle">
           <div>
-            <p class="plugins-section-label">Release model</p>
-            <h2 id="pluginModelTitle">Separate instruments, shared system</h2>
-          </div>
-          <div class="plugin-model-flow" aria-label="Morphazoid plug-in organization">
-            <span>Browser demo</span><i aria-hidden="true">→</i>
-            <span>Shared DSP contract</span><i aria-hidden="true">→</i>
-            <span>Individual DAW plug-in</span><i aria-hidden="true">→</i>
-            <span>Optional collection bundle</span>
-          </div>
-          <p>
-            Separate plug-ins keep automation lists short and let a saved project identify the
-            exact algorithm it used. Common MIDI behavior, analyzer components, visual language,
-            and release tooling are shared underneath.
-          </p>
-        </section>
-
-        <section class="plugins-browser" aria-labelledby="catalogTitle">
-          <header class="plugins-browser-heading">
-            <div>
-              <p class="plugins-section-label">Catalog</p>
-              <h2 id="catalogTitle">Instruments and releases</h2>
-            </div>
-            <output id="pluginResultCount" for="pluginSearch pluginStatusFilter">
-              Loading catalog…
-            </output>
-          </header>
-
-          <div class="plugin-filters" role="search" aria-label="Filter plug-in catalog">
-            <label>
-              <span>Find an instrument or format</span>
-              <input
-                id="pluginSearch"
-                type="search"
-                autocomplete="off"
-                placeholder="Chaotic FM, JSFX, MIDI…"
-              />
-            </label>
-            <label>
-              <span>Status</span>
-              <select id="pluginStatusFilter">
-                <option value="all">All instruments</option>
-                <option value="available">Available now</option>
-                <option value="development">In development</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="plugin-catalog" id="pluginCatalog" aria-live="polite"></div>
-          <p class="plugin-empty" id="pluginEmptyState" hidden>
-            No plug-ins match those filters.
-          </p>
-
-          <noscript>
-            <article class="plugin-noscript">
-              <h2>Chaotic FM · REAPER JSFX v0.3.0</h2>
-              <p>JavaScript is only required for catalog filtering, not for the download.</p>
-              <a
-                href="downloads/plugins/chaotic-fm/0.3.0/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx"
-                download="Morphazoid_Chaotic_FM-v0.3.0.jsfx"
-              >Download Chaotic FM v0.3.0</a>
-            </article>
-          </noscript>
-        </section>
-
-        <section class="plugins-guide" id="install-reaper-jsfx" aria-labelledby="installTitle">
-          <div class="plugins-guide-heading">
-            <p class="plugins-section-label">Install guide</p>
-            <h2 id="installTitle">REAPER JSFX</h2>
-            <p>One source file, no compiler or installer.</p>
+            <p class="plugins-section-label">Install</p>
+            <h2 id="installTitle">Add it to REAPER</h2>
           </div>
           <ol>
-            <li>In REAPER, choose <strong>Options → Show REAPER resource path</strong>.</li>
-            <li>Open <code>Effects</code> and create a <code>Morphazoid</code> folder.</li>
-            <li>Move the downloaded <code>.jsfx</code> file into that folder.</li>
-            <li>Restart REAPER or refresh its FX browser.</li>
-            <li>Add <strong>JS: Morphazoid: Chaotic FM</strong> to an instrument track.</li>
+            <li>Download the file.</li>
+            <li>In REAPER, choose <strong>Options → Show REAPER resource path</strong>. Put the file in <strong>Effects</strong>.</li>
+            <li>Refresh the FX browser and add <strong>JS: Morphazoid: Chaotic FM</strong>.</li>
           </ol>
-          <aside>
-            Start with the track level low. Chaotic presets can redistribute energy quickly even
-            though the output stage is bounded.
-          </aside>
         </section>
 
-        <section class="plugins-versioning" aria-labelledby="versioningTitle">
-          <div>
-            <p class="plugins-section-label">Version archive</p>
-            <h2 id="versioningTitle">Downloads never move</h2>
-          </div>
-          <div>
-            <p>
-              Every artifact has an instrument ID, plug-in version, format, checksum, and immutable
-              URL. “Latest” is a catalog label—not a filename that silently changes underneath a
-              saved project.
-            </p>
-            <code>downloads/plugins/{instrument}/{version}/{format}/{file}</code>
-            <p>
-              Browser demos and DAW builds can advance independently. Parameter IDs remain stable
-              inside a plug-in line, while breaking changes require a new major version or a new
-              instrument ID.
-            </p>
-          </div>
+        <section class="plugins-coming" aria-labelledby="comingTitle">
+          <p class="plugins-section-label">Coming soon</p>
+          <h2 id="comingTitle">VST versions</h2>
+          <p>More Morphazoid instruments and VST plug-ins are in development.</p>
         </section>
-
-        <footer class="plugins-footer">
-          <span>Morphazoid plug-in catalog</span>
-          <a href="./">Project notes and license</a>
-        </footer>
       </article>
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="plugins-app.js"></script>
   </body>
 </html>

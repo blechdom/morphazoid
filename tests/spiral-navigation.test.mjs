@@ -4,7 +4,7 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 const pages = ["shape.html", "lattice.html", "spiral.html", "solid.html", "hyper.html", "lumber.html"];
-const links = ["shape", "lattice", "spiral", "solid", "hyper", "lumber"];
+const links = ["shape", "lattice", "spiral", "solid", "hyper", "lumber loops"];
 
 test("Spiral sits between Lattice and Solid in published navigation", async () => {
   const htmlPages = await Promise.all(pages.map((file) => readFile(new URL(file, root), "utf8")));

@@ -71,37 +71,34 @@ test("plug-in catalog keeps separate instruments and immutable release artifacts
   }
 });
 
-test("plug-ins page exposes catalog, filters, install guide, and no-script download", async () => {
-  const [html, css, app] = await Promise.all([
+test("plug-ins page gives non-programmers a direct REAPER download and VST roadmap", async () => {
+  const [html, css] = await Promise.all([
     readFile(new URL("plugins.html", root), "utf8"),
     readFile(new URL("plugins.css", root), "utf8"),
-    readFile(new URL("plugins-app.js", root), "utf8"),
   ]);
 
-  assert.match(html, /<title>Plug-ins — Morphazoid<\/title>/);
+  assert.match(html, /<title>Morphazoid Plug-ins \(under development\)<\/title>/);
   assert.match(html, /href="plugins\.html" aria-current="page">plug-ins<\/a>/);
-  assert.match(html, /id="pluginSearch"/);
-  assert.match(html, /id="pluginStatusFilter"/);
-  assert.match(html, /id="pluginCatalog"/);
-  assert.match(html, /Separate instruments, shared system/);
+  assert.match(html, /<h1>Morphazoid Plug-ins<\/h1>/);
+  assert.match(html, /\(under development\)/i);
+  assert.match(html, /Use REAPER\? You can download Chaotic FM now\./);
   assert.match(html, /id="install-reaper-jsfx"/);
-  assert.match(html, /downloads never move/i);
+  assert.equal((html.match(/<li>/g) ?? []).length, 3);
+  assert.match(html, /VST versions/);
+  assert.match(html, /VST plug-ins are in development/);
   assert.match(
     html,
     /downloads\/plugins\/chaotic-fm\/0\.3\.0\/reaper-jsfx\/Morphazoid_Chaotic_FM\.jsfx/,
   );
-  assert.match(html, /<noscript>/);
-  assert.match(html, /src="plugins-app\.js"/);
+  assert.match(html, /download="Morphazoid_Chaotic_FM-v0\.3\.0\.jsfx"/);
+  assert.match(html, /href="chaotic-fm\.html">Try it in the browser<\/a>/);
   assert.match(html, /src="nav\.js"/);
+  assert.doesNotMatch(html, /id="pluginSearch"|id="pluginStatusFilter"|src="plugins-app\.js"/);
 
-  assert.match(app, /PLUGIN_CATALOG\.map\(renderPluginCard\)/);
-  assert.match(app, /data-plugin-download/);
-  assert.match(app, /card\.dataset\.pluginStatus/);
-  assert.match(app, /search\?\.addEventListener\("input", applyFilters\)/);
-  assert.match(css, /\.plugin-card-available/);
   assert.match(css, /\.plugin-download/);
-  assert.match(css, /\.plugins-shell\s*\{[^}]*overflow-y: auto;/);
-  assert.match(css, /@media \(max-width: 520px\)/);
+  assert.match(css, /\.plugins-install/);
+  assert.match(css, /\.plugins-coming/);
+  assert.match(css, /@media \(max-width: 650px\)/);
 });
 
 test("Chaotic FM demo points to the recommended catalog release", async () => {

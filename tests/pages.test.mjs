@@ -19,7 +19,7 @@ test("all instrument pages share desktop and mobile navigation", async () => {
   for (const [index, html] of pages.entries()) {
     for (const label of [
       "shape", "lattice", "spiral", "solid", "hyper",
-      "l-system", "recursion", "julia", "lumber", "L-mic", "graph-delay", "throatazoid",
+      "l-system", "recursion", "julia", "lumber loops", "L-mic", "graph-delay", "throatazoid",
       "morphazoidical",
     ]) {
       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

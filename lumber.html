@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#07090b" />
-    <meta name="description" content="Morphazoid Lumber — a geometric live audio looper." />
-    <title>Lumber — Morphazoid</title>
+    <meta name="description" content="Morphazoid Lumber Loops — a geometric live audio looper." />
+    <title>Lumber Loops — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
   </head>
@@ -25,7 +25,7 @@
         <a class="tab" href="l-system.html">l-system</a>
         <a class="tab recursion-tab" href="recursion.html">recursion</a>
         <a class="tab" href="julia.html">julia</a>
-        <a class="tab active" href="lumber.html" aria-current="page">lumber</a>
+        <a class="tab active" href="lumber.html" aria-current="page">lumber loops</a>
         <a class="tab micmic-tab" href="l-mic.html">L-mic</a>
         <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
         <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
@@ -42,7 +42,7 @@
           <option value="l-system.html">l-system</option>
           <option value="recursion.html">recursion</option>
           <option value="julia.html">julia</option>
-          <option value="lumber.html" selected>lumber</option>
+          <option value="lumber.html" selected>lumber loops</option>
           <option value="l-mic.html">L-mic</option>
           <option value="graph-delay.html">graph-delay</option>
           <option value="throatazoid.html">throatazoid</option>
@@ -64,12 +64,12 @@
     </header>
 
     <main class="shell" id="lumber">
-      <section class="stage" aria-label="Lumber loop stage">
+      <section class="stage" aria-label="Lumber Loops stage">
         <div class="stage-wrap" id="stageWrap">
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Lumber looper canvas. Record a loop, then move its waveform vertices or spin it."
+            aria-label="Lumber Loops canvas. Record a loop, then move its waveform vertices or spin it."
             aria-describedby="canvasInstructions liveStatus"
           >
             Rotating geometric audio rings with granular scrubbing.
@@ -82,7 +82,21 @@
         </div>
       </section>
 
-      <aside class="panel" aria-label="Lumber controls">
+      <aside class="panel" aria-label="Lumber Loops controls">
+        <header class="lumber-loop-identity">
+          <img
+            src="assets/lumber-loops-wood-loop.webp"
+            width="88"
+            height="88"
+            alt="Rainbow cereal loop formed from a bark-edged wood slice"
+            decoding="async"
+          />
+          <div>
+            <p>Ring looper</p>
+            <h1>Lumber Loops</h1>
+          </div>
+        </header>
+
         <details class="group control-section performance-group" id="loopSection">
           <summary class="group-summary">
             <h2 class="group-title">Transport</h2>
@@ -246,7 +260,7 @@
           </summary>
           <div class="group-body">
             <div class="field-label">View mode</div>
-            <div class="choice-switch compact" id="viewMode" role="group" aria-label="Lumber view mode">
+            <div class="choice-switch compact" id="viewMode" role="group" aria-label="Lumber Loops view mode">
               <button id="viewFlat" type="button" data-value="flat" aria-pressed="true">Flat</button>
               <button id="viewThreeD" type="button" data-value="3d" aria-pressed="false">Make 3D</button>
             </div>
@@ -303,7 +317,7 @@
         </div>
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">Lumber uses rotating waveform rings, straight-sided radial shape handles, local pitch shaping, movable playback heads, granular scrub, a mix delay ring, per-ring tone, and 3D depth. Pulling a sound-ring vertex inward lowers that loop section; pulling it outward raises it without changing total loop duration.</p>
+      <p class="sr-only" id="canvasInstructions">Lumber Loops uses rotating waveform rings, straight-sided radial shape handles, local pitch shaping, movable playback heads, granular scrub, a mix delay ring, per-ring tone, and 3D depth. Pulling a sound-ring vertex inward lowers that loop section; pulling it outward raises it without changing total loop duration.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 

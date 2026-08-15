@@ -846,9 +846,9 @@ $("sweepButton").addEventListener("click", () => {
 $("audioButton").addEventListener("click", async () => {
   if (state.audioOn) {
     setAudioState(false);
-    announce("Linear Drums audio off.");
+    announce("Rattlesnake audio off.");
   } else if (await enableAudio()) {
-    announce("Linear Drums audio on.");
+    announce("Rattlesnake audio on.");
   }
 });
 
@@ -861,7 +861,7 @@ $("resetAll").addEventListener("click", () => {
   document.querySelector('input[name="sweepMode"][value="pendulum"]').checked = true;
   applyPreset(LINEAR_DRUM_PRESETS[0], { audition: false });
   setPosition(state.position);
-  announce("Linear Drums parameters reset.");
+  announce("Rattlesnake parameters reset.");
 });
 
 function resizeCanvas() {

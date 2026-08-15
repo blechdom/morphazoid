@@ -32,12 +32,18 @@ const quantumPages = Object.freeze([
   }),
 ]);
 
-test("menu registry keeps the three quantum simulators in the final instruments group", () => {
-  const group = TOOL_GROUPS.find(({ id }) => id === "instruments");
+test("menu registry keeps the quantum simulators with Morphazoidical in Experiments", () => {
+  const group = TOOL_GROUPS.find(({ id }) => id === "experiments");
   assert.ok(group);
-  assert.equal(group.label, "Instruments");
+  assert.equal(group.label, "Experiments (works-in-progress)");
   assert.deepEqual(
-    group.tools.slice(0, quantumPages.length).map(({ id, label, href }) => ({ id, label, href })),
+    group.tools.slice(0, 4).map(({ id }) => id),
+    ["order-tones", "morphazoidical", "bell-square", "annealogue"],
+  );
+  assert.deepEqual(
+    group.tools
+      .filter(({ id }) => quantumPages.some((instrument) => instrument.id === id))
+      .map(({ id, label, href }) => ({ id, label, href })),
     quantumPages.map(({ id, label, page }) => ({ id, label, href: page })),
   );
 });

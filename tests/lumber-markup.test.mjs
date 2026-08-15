@@ -4,7 +4,7 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("Lumber keeps a traditional looper surface with optional advanced playback", async () => {
+test("Lumber Loops keeps a traditional looper surface with optional advanced playback", async () => {
   const [html, app, css, packageJson] = await Promise.all([
     readFile(new URL("lumber.html", root), "utf8"),
     readFile(new URL("lumber-app.js", root), "utf8"),
@@ -13,6 +13,10 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   ]);
 
   assert.match(html, /<body class="lumber-page"/);
+  assert.match(html, /<title>Lumber Loops — Morphazoid<\/title>/);
+  assert.match(html, /<h1>Lumber Loops<\/h1>/);
+  assert.match(html, /src="assets\/lumber-loops-wood-loop\.webp"/);
+  assert.match(html, /alt="Rainbow cereal loop formed from a bark-edged wood slice"/);
   assert.match(html, /data-lumber-mode="expanded"/);
   assert.equal((html.match(/<canvas\b/g) ?? []).length, 1);
   for (const id of [
@@ -112,6 +116,7 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.match(css, /\.depth-effect-row/);
 
   assert.match(css, /\.lumber-page\s+#loopSection\s*\{/);
+  assert.match(css, /\.lumber-loop-identity\s*\{/);
   assert.match(css, /\.lumber-page\s+#ringSection\s*\{/);
   assert.match(css, /\.lumber-page\s+#shapeSection\s*\{/);
   assert.match(css, /\.lumber-page\s+#advancedSection\s*\{/);
@@ -137,7 +142,7 @@ test("Lumber keeps a traditional looper surface with optional advanced playback"
   assert.match(JSON.parse(packageJson).scripts.check, /(?:lumber-app\.js|\*-app\.js)/);
 });
 
-test("Lumber markup has unique ids and complete labels", async () => {
+test("Lumber Loops markup has unique ids and complete labels", async () => {
   const html = await readFile(new URL("lumber.html", root), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);

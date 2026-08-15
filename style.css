@@ -325,10 +325,6 @@ a {
   --group-accent: #ff7aa6;
 }
 
-.tools-menu-group[data-tool-group="physics-synths"] {
-  --group-accent: #b8df77;
-}
-
 .tools-menu-group[data-tool-group="algorithmic-sequencers"] {
   --group-accent: #70d8e7;
 }
@@ -812,6 +808,47 @@ a {
   --accent: #e8c46b;
   --accent-soft: color-mix(in oklab, #e8c46b 55%, transparent);
   --accent-glow: color-mix(in oklab, #e8c46b 22%, transparent);
+}
+
+.lumber-loop-identity {
+  display: grid;
+  min-width: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.lumber-loop-identity img {
+  display: block;
+  width: 88px;
+  height: 88px;
+  border: 1px solid var(--line-strong);
+  object-fit: cover;
+}
+
+.lumber-loop-identity p,
+.lumber-loop-identity h1 {
+  margin: 0;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.lumber-loop-identity p {
+  margin-bottom: 6px;
+  color: var(--accent);
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.lumber-loop-identity h1 {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.1;
 }
 
 .lumber-page #loopSection {

@@ -42,7 +42,7 @@ while IFS= read -r -d '' source_path; do
   esac
 
   case "$source_path" in
-    *.html|*.css|*.js|favicon.svg|morphazoidical/PLAN.md|downloads/plugins/*|\
+    *.html|*.css|*.js|*.webp|favicon.svg|morphazoidical/PLAN.md|downloads/plugins/*|\
     vendor/tactile/LICENSE|\
     vendor/signalsmith-stretch/LICENSE|\
     vendor/signalsmith-stretch/SignalsmithStretch.mjs)
@@ -60,6 +60,7 @@ for worktree_runtime_file in \
   plugins.html \
   plugins.css \
   plugins-app.js \
+  assets/lumber-loops-wood-loop.webp \
   src/plugin-catalog.js \
   src/midi-manager.js \
   src/shape-midi.js \

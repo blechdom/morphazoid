@@ -182,10 +182,9 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       "Barber Shop Poles",
       "Fractals & Recursion",
       "Chaotic Synths",
-      "Physics Synths",
+      "Instruments",
       "Algorithmic Sequencers",
       "Experiments (works-in-progress)",
-      "Instruments",
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
@@ -214,7 +213,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     tools.find((tool) => tool.id === "linear-drums"),
     {
       id: "linear-drums",
-      label: "Linear Drums",
+      label: "Rattlesnake",
       href: "linear-drums.html",
     },
   );
@@ -282,22 +281,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       href: "l-system-drums.html",
     },
   );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "physics-synths")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "gravity-walk", href: "gravity-walk.html" },
-      { id: "ricochet", href: "ricochet.html" },
-      { id: "rigidity", href: "rigidity.html" },
-      { id: "rolling-measure", href: "rolling-measure.html" },
-      { id: "falling-forms", href: "falling-forms.html" },
-      { id: "charge-garden", href: "charge-garden.html" },
-      { id: "packing-pressure", href: "packing-pressure.html" },
-      { id: "geodesic-drift", href: "geodesic-drift.html" },
-      { id: "kinetic-hull", href: "kinetic-hull.html" },
-    ],
-  );
+  assert.equal(TOOL_GROUPS.some((group) => group.id === "physics-synths"), false);
   assert.deepEqual(
     TOOL_GROUPS.find((group) => group.id === "geometry-drums")?.tools.map(
       ({ id, href }) => ({ id, href }),
@@ -309,6 +293,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "solid-drums", href: "solid-drums.html" },
       { id: "hyper-drums", href: "hyper-drums.html" },
       { id: "l-system-drums", href: "l-system-drums.html" },
+      { id: "linear-drums-machine", href: "linear-drums-machine.html" },
     ],
   );
   assert.deepEqual(
@@ -316,14 +301,9 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       ({ id, href }) => ({ id, href }),
     ),
     [
-      { id: "order-tones", href: "order-tones.html" },
-      { id: "bell-square", href: "bell-square.html" },
-      { id: "annealogue", href: "annealogue.html" },
       { id: "fm-drums", href: "fm-drums.html" },
       { id: "linear-drums", href: "linear-drums.html" },
-      { id: "linear-drums-machine", href: "linear-drums-machine.html" },
       { id: "sample-drums", href: "sample-drums.html" },
-      { id: "morphazoidical", href: "morphazoidical/" },
     ],
   );
   assert.deepEqual(
@@ -387,6 +367,19 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       ({ id, href }) => ({ id, href }),
     ),
     [
+      { id: "order-tones", href: "order-tones.html" },
+      { id: "morphazoidical", href: "morphazoidical/" },
+      { id: "bell-square", href: "bell-square.html" },
+      { id: "annealogue", href: "annealogue.html" },
+      { id: "gravity-walk", href: "gravity-walk.html" },
+      { id: "ricochet", href: "ricochet.html" },
+      { id: "rigidity", href: "rigidity.html" },
+      { id: "rolling-measure", href: "rolling-measure.html" },
+      { id: "falling-forms", href: "falling-forms.html" },
+      { id: "charge-garden", href: "charge-garden.html" },
+      { id: "packing-pressure", href: "packing-pressure.html" },
+      { id: "geodesic-drift", href: "geodesic-drift.html" },
+      { id: "kinetic-hull", href: "kinetic-hull.html" },
       { id: "moire-organ", href: "moire-organ.html" },
       { id: "chladni-plate", href: "chladni-plate.html" },
       { id: "spring-choir", href: "spring-choir.html" },

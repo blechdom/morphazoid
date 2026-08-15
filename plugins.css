@@ -1,765 +1,187 @@
 .plugins-page {
   --plugin-accent: #ff7aa6;
-  --plugin-accent-soft: color-mix(in oklab, var(--plugin-accent) 52%, transparent);
-  min-height: 100%;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 84% 0%, color-mix(in oklab, var(--plugin-accent) 10%, transparent), transparent 34rem),
-    radial-gradient(circle at 12% 36%, color-mix(in oklab, var(--accent) 5%, transparent), transparent 30rem),
-    var(--bg);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: var(--bg);
 }
 
 .plugins-header-label {
   margin-left: auto;
   color: var(--muted);
   font-size: 9px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
 .plugins-shell {
-  min-height: 0;
-  padding: clamp(34px, 6vw, 82px) clamp(18px, 5vw, 72px) 80px;
-  overflow-y: auto;
-  flex: 1 1 auto;
-  scroll-behavior: smooth;
+  min-height: calc(100vh - 58px);
+  padding: 48px 24px 72px;
 }
 
 .plugins-document {
-  width: min(1220px, 100%);
+  width: min(860px, 100%);
   margin: 0 auto;
 }
 
 .plugins-intro {
-  display: grid;
-  padding-bottom: clamp(34px, 5vw, 64px);
+  padding: 28px 0 52px;
   border-bottom: 1px solid var(--line-strong);
-  grid-template-columns: minmax(0, 1.45fr) minmax(250px, 0.55fr);
-  gap: clamp(30px, 7vw, 96px);
 }
 
 .plugins-kicker,
-.plugins-section-label,
-.plugin-release-label,
-.plugin-family {
+.plugins-section-label {
   margin: 0 0 10px;
   color: var(--plugin-accent);
   font-size: 9px;
-  font-weight: 650;
-  letter-spacing: 0.15em;
+  font-weight: 700;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
-.plugins-intro h1 {
-  margin: 0;
-  color: var(--ink);
-  font-size: clamp(34px, 7vw, 72px);
-  font-weight: 500;
-  letter-spacing: -0.055em;
-  line-height: 0.95;
-}
-
-.plugins-lede {
-  max-width: 760px;
-  margin: 24px 0 0;
-  color: color-mix(in oklab, var(--ink) 88%, var(--muted));
-  font-size: clamp(14px, 1.5vw, 17px);
-  line-height: 1.7;
-}
-
-.plugins-summary {
-  align-self: end;
-  margin: 0;
-  border-top: 1px solid var(--line-strong);
-}
-
-.plugins-summary div {
-  display: grid;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--line);
-  grid-template-columns: minmax(98px, 0.8fr) minmax(0, 1.2fr);
-  gap: 16px;
-}
-
-.plugins-summary dt,
-.plugins-summary dd {
-  margin: 0;
-}
-
-.plugins-summary dt {
-  color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.plugins-summary dd {
-  color: var(--ink);
-  font-size: 10px;
-  text-align: right;
-}
-
-.plugin-model {
-  display: grid;
-  padding: clamp(32px, 5vw, 58px) 0;
-  border-bottom: 1px solid var(--line-strong);
-  grid-template-columns: minmax(190px, 0.35fr) minmax(0, 1fr);
-  gap: 18px clamp(30px, 6vw, 78px);
-}
-
-.plugin-model h2,
-.plugins-browser h2,
-.plugins-guide h2,
-.plugins-versioning h2 {
-  margin: 0;
-  color: var(--ink);
-  font-size: clamp(20px, 2.6vw, 31px);
-  font-weight: 500;
-  letter-spacing: -0.025em;
-  line-height: 1.15;
-}
-
-.plugin-model-flow {
-  display: grid;
-  min-width: 0;
-  grid-template-columns: minmax(100px, 1fr) auto minmax(120px, 1fr) auto minmax(130px, 1fr) auto minmax(135px, 1fr);
-  align-items: stretch;
-  gap: 7px;
-}
-
-.plugin-model-flow span {
-  display: grid;
-  min-height: 56px;
-  padding: 10px;
-  border: 1px solid var(--line-strong);
-  color: color-mix(in oklab, var(--ink) 82%, var(--muted));
-  background: color-mix(in oklab, var(--panel) 86%, transparent);
-  place-items: center;
-  font-size: 9px;
-  letter-spacing: 0.055em;
-  line-height: 1.45;
-  text-align: center;
-  text-transform: uppercase;
-}
-
-.plugin-model-flow span:nth-of-type(3) {
-  border-color: var(--plugin-accent-soft);
-  color: var(--plugin-accent);
-}
-
-.plugin-model-flow i {
-  color: var(--plugin-accent);
-  align-self: center;
-  font-style: normal;
-}
-
-.plugin-model > p {
-  max-width: 78ch;
-  margin: 0;
-  color: color-mix(in oklab, var(--ink) 74%, var(--muted));
-  grid-column: 2;
-  font-size: 11px;
-  line-height: 1.7;
-}
-
-.plugins-browser {
-  padding: clamp(40px, 6vw, 74px) 0;
-  border-bottom: 1px solid var(--line-strong);
-}
-
-.plugins-browser-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.plugins-browser-heading output {
-  color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.plugin-filters {
-  display: grid;
-  padding: 22px 0;
-  grid-template-columns: minmax(240px, 1fr) minmax(190px, 0.32fr);
-  gap: 12px;
-}
-
-.plugin-filters label {
-  display: grid;
-  gap: 7px;
-}
-
-.plugin-filters label > span {
-  color: var(--muted);
-  font-size: 8px;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-}
-
-.plugin-filters input,
-.plugin-filters select {
-  width: 100%;
-  height: 42px;
-  padding: 0 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 0;
-  outline: 0;
-  color: var(--ink);
-  background: color-mix(in oklab, var(--panel) 88%, transparent);
-  font-size: 11px;
-}
-
-.plugin-filters input:focus,
-.plugin-filters select:focus {
-  border-color: var(--plugin-accent-soft);
-  box-shadow: 0 0 0 1px var(--plugin-accent-soft);
-}
-
-.plugin-filters input::placeholder {
-  color: var(--faint);
-}
-
-.plugin-catalog {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.plugin-card {
-  min-width: 0;
-  padding: clamp(20px, 3vw, 30px);
-  border: 1px solid var(--line-strong);
-  background:
-    linear-gradient(145deg, color-mix(in oklab, var(--accent) 3%, transparent), transparent 46%),
-    color-mix(in oklab, var(--panel) 88%, transparent);
-  scroll-margin-top: 20px;
-}
-
-.plugin-card:target {
-  border-color: var(--plugin-accent-soft);
-  box-shadow: 0 0 0 1px color-mix(in oklab, var(--plugin-accent) 18%, transparent);
-}
-
-.plugin-card-available {
-  grid-column: 1 / -1;
-  background:
-    linear-gradient(145deg, color-mix(in oklab, var(--plugin-accent) 7%, transparent), transparent 45%),
-    color-mix(in oklab, var(--panel) 90%, transparent);
-}
-
-.plugin-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.plugin-card-header h2 {
-  margin: 0;
-  color: var(--ink);
-  font-size: clamp(22px, 3.4vw, 38px);
-  font-weight: 500;
-  letter-spacing: -0.04em;
-  line-height: 1;
-}
-
-.plugin-family {
-  margin-bottom: 8px;
-  color: var(--muted);
-}
-
-.plugin-status {
-  display: inline-flex;
-  min-height: 27px;
-  padding: 0 9px;
-  border: 1px solid var(--line-strong);
-  color: var(--muted);
-  align-items: center;
-  font-size: 8px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.plugin-status-available {
-  border-color: color-mix(in oklab, var(--accent) 34%, transparent);
-  color: var(--accent);
-  background: color-mix(in oklab, var(--accent) 6%, transparent);
-}
-
-.plugin-summary {
-  max-width: 78ch;
-  margin: 20px 0;
-  color: color-mix(in oklab, var(--ink) 79%, var(--muted));
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.plugin-facts {
-  display: grid;
-  margin: 0;
-  border-top: 1px solid var(--line);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.plugin-facts div {
-  min-width: 0;
-  padding: 13px 12px 13px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.plugin-facts div + div {
-  padding-left: 12px;
-  border-left: 1px solid var(--line);
-}
-
-.plugin-facts dt,
-.plugin-facts dd,
-.plugin-artifact-meta dt,
-.plugin-artifact-meta dd {
-  margin: 0;
-}
-
-.plugin-facts dt,
-.plugin-artifact-meta dt {
-  margin-bottom: 5px;
-  color: var(--muted);
-  font-size: 8px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.plugin-facts dd {
-  overflow-wrap: anywhere;
-  color: var(--ink);
-  font-size: 10px;
-  line-height: 1.5;
-}
-
-.plugin-tags {
-  display: flex;
-  padding: 0;
-  margin: 16px 0 0;
-  flex-wrap: wrap;
-  gap: 6px;
-  list-style: none;
-}
-
-.plugin-tags li {
-  padding: 5px 7px;
-  border: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 8px;
-  letter-spacing: 0.045em;
-  text-transform: uppercase;
-}
-
-.plugin-card-actions {
-  display: flex;
-  margin-top: 18px;
-}
-
-.plugin-demo-link {
-  color: var(--accent);
-  font-size: 10px;
-  letter-spacing: 0.045em;
-  text-decoration-color: color-mix(in oklab, var(--accent) 40%, transparent);
-  text-underline-offset: 4px;
-}
-
-.plugin-release {
-  padding: clamp(18px, 3vw, 28px);
-  margin-top: 24px;
-  border: 1px solid color-mix(in oklab, var(--plugin-accent) 24%, var(--line));
-  background: color-mix(in oklab, var(--bg-deep) 72%, transparent);
-}
-
-.plugin-release-heading,
-.plugin-history-heading,
-.plugin-artifact-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.plugin-release-heading h3,
-.plugin-history-heading h3,
-.plugin-artifact-heading h4 {
+.plugins-intro h1,
+.plugins-install h2,
+.plugins-coming h2 {
   margin: 0;
   color: var(--ink);
   font-weight: 550;
+  letter-spacing: 0;
 }
 
-.plugin-release-heading h3 {
-  font-size: 19px;
-  letter-spacing: -0.02em;
+.plugins-intro h1 {
+  font-size: 46px;
+  line-height: 1.05;
 }
 
-.plugin-release-date,
-.plugin-history-heading time,
-.plugin-artifact-platform {
+.plugins-development {
+  margin: 8px 0 0;
   color: var(--muted);
-  font-size: 8px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 13px;
 }
 
-.plugin-change-list {
-  padding: 0 0 0 17px;
-  margin: 18px 0;
-  color: color-mix(in oklab, var(--ink) 72%, var(--muted));
-  font-size: 10px;
-  line-height: 1.7;
+.plugins-lede {
+  max-width: 560px;
+  margin: 30px 0 0;
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1.5;
 }
 
-.plugin-change-list li + li {
-  margin-top: 5px;
-}
-
-.plugin-artifact-list {
-  display: grid;
-  gap: 10px;
-}
-
-.plugin-artifact {
-  padding: 17px;
-  border: 1px solid var(--line-strong);
-  background: color-mix(in oklab, var(--panel-high) 76%, transparent);
-}
-
-.plugin-artifact-heading h4 {
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.plugin-artifact-meta {
-  display: grid;
-  margin: 15px 0;
-  border-top: 1px solid var(--line);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.plugin-artifact-meta div {
-  min-width: 0;
-  padding: 10px 8px 0 0;
-}
-
-.plugin-artifact-meta dd {
-  overflow-wrap: anywhere;
-  color: color-mix(in oklab, var(--ink) 82%, var(--muted));
-  font-size: 9px;
-  line-height: 1.45;
-}
-
-.plugin-artifact-actions {
+.plugins-actions {
   display: flex;
+  margin-top: 22px;
   align-items: center;
   flex-wrap: wrap;
-  gap: 9px;
+  gap: 14px 20px;
 }
 
 .plugin-download {
   display: inline-flex;
-  min-height: 40px;
-  padding: 0 14px;
+  min-height: 46px;
+  padding: 0 18px;
   border: 1px solid var(--plugin-accent);
   color: var(--bg-deep);
   background: var(--plugin-accent);
   align-items: center;
   justify-content: center;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0;
   text-decoration: none;
   text-transform: uppercase;
 }
 
-.plugin-download:hover {
-  color: var(--ink);
-  background: color-mix(in oklab, var(--plugin-accent) 78%, transparent);
+.plugin-download:hover,
+.plugin-download:focus-visible {
+  color: var(--bg-deep);
+  background: color-mix(in oklab, var(--plugin-accent) 78%, white);
 }
 
-.plugin-download-secondary {
-  border-color: var(--line-strong);
-  color: var(--muted);
-  background: transparent;
+.plugin-demo-link {
+  color: var(--accent);
+  font-size: 11px;
+  text-underline-offset: 4px;
 }
 
-.plugin-checksum {
-  margin-top: 12px;
-  color: var(--muted);
-  font-size: 8px;
-}
-
-.plugin-checksum summary,
-.plugin-history > summary {
-  cursor: pointer;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.plugin-checksum code {
-  display: block;
-  padding: 8px;
-  margin-top: 8px;
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  color: color-mix(in oklab, var(--ink) 70%, var(--muted));
-  background: var(--bg-deep);
-  white-space: nowrap;
-}
-
-.plugin-history {
-  margin-top: 12px;
-  border: 1px solid var(--line);
-}
-
-.plugin-history > summary {
-  padding: 13px 15px;
-  color: var(--muted);
-  font-size: 9px;
-}
-
-.plugin-history-body {
-  padding: 0 15px 15px;
-  border-top: 1px solid var(--line);
-}
-
-.plugin-history-release {
-  padding-top: 15px;
-}
-
-.plugin-history-heading h3 {
-  font-size: 13px;
-}
-
-.plugin-roadmap {
-  padding-top: 18px;
-  margin-top: 20px;
-  border-top: 1px solid var(--line);
-}
-
-.plugin-roadmap-tags {
-  margin-top: 0;
-}
-
-.plugin-roadmap-note {
-  margin: 16px 0 0;
-  color: var(--muted);
-  font-size: 9px;
-  line-height: 1.65;
-}
-
-.plugin-empty,
-.plugin-noscript {
-  padding: 24px;
-  border: 1px solid var(--line-strong);
-  color: var(--muted);
-  background: var(--panel);
-  text-align: center;
-}
-
-.plugin-noscript h2 {
-  font-size: 15px;
-}
-
-.plugin-noscript a {
-  color: var(--plugin-accent);
-}
-
-.plugins-guide,
-.plugins-versioning {
-  display: grid;
-  padding: clamp(38px, 6vw, 72px) 0;
-  border-bottom: 1px solid var(--line-strong);
-  grid-template-columns: minmax(190px, 0.34fr) minmax(0, 1fr);
-  gap: clamp(28px, 6vw, 78px);
-  scroll-margin-top: 24px;
-}
-
-.plugins-guide-heading > p:last-child {
-  max-width: 240px;
+.plugins-note {
   margin: 14px 0 0;
   color: var(--muted);
   font-size: 10px;
   line-height: 1.6;
 }
 
-.plugins-guide ol {
+.plugins-install {
+  display: grid;
+  padding: 42px 0;
+  border-bottom: 1px solid var(--line-strong);
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 28px;
+}
+
+.plugins-install h2,
+.plugins-coming h2 {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.plugins-install ol {
   padding-left: 22px;
-  margin: 0;
-  color: color-mix(in oklab, var(--ink) 78%, var(--muted));
-  font-size: 11px;
-  line-height: 1.75;
+  margin: 1px 0 0;
+  color: color-mix(in oklab, var(--ink) 82%, var(--muted));
+  font-size: 12px;
+  line-height: 1.7;
 }
 
-.plugins-guide li + li {
-  margin-top: 8px;
+.plugins-install li + li {
+  margin-top: 10px;
 }
 
-.plugins-guide strong {
+.plugins-install strong {
   color: var(--ink);
-  font-weight: 600;
+  font-weight: 650;
 }
 
-.plugins-guide code,
-.plugins-versioning code {
-  color: var(--accent);
+.plugins-coming {
+  padding: 42px 0;
 }
 
-.plugins-guide aside {
-  padding: 13px 15px;
-  margin-top: 20px;
-  border-left: 2px solid var(--plugin-accent);
+.plugins-coming p:last-child {
+  max-width: 520px;
+  margin: 14px 0 0;
   color: var(--muted);
-  background: color-mix(in oklab, var(--plugin-accent) 5%, transparent);
-  font-size: 9px;
-  line-height: 1.65;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
-.plugins-guide > aside {
-  grid-column: 2;
-}
-
-.plugins-versioning > div:last-child p {
-  max-width: 76ch;
-  margin: 0 0 18px;
-  color: color-mix(in oklab, var(--ink) 76%, var(--muted));
-  font-size: 11px;
-  line-height: 1.75;
-}
-
-.plugins-versioning > div:last-child p:last-child {
-  margin: 18px 0 0;
-}
-
-.plugins-versioning > div:last-child > code {
-  display: block;
-  padding: 13px 15px;
-  overflow-x: auto;
-  border: 1px solid var(--line-strong);
-  background: var(--bg-deep);
-  font-size: 10px;
-  white-space: nowrap;
-}
-
-.plugins-footer {
-  display: flex;
-  padding-top: 28px;
-  color: var(--muted);
-  justify-content: space-between;
-  gap: 24px;
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.plugins-footer a {
-  color: var(--accent);
-  text-decoration-color: color-mix(in oklab, var(--accent) 38%, transparent);
-  text-underline-offset: 3px;
-}
-
-@media (max-width: 900px) {
-  .plugin-model {
-    grid-template-columns: 1fr;
-  }
-
-  .plugin-model-flow,
-  .plugin-model > p {
-    grid-column: 1;
-  }
-}
-
-@media (max-width: 760px) {
+@media (max-width: 650px) {
   .plugins-header-label {
     display: none;
   }
 
   .plugins-shell {
-    padding-top: 30px;
-    overflow-y: auto;
+    min-height: calc(100vh - 54px);
+    padding: 28px 16px 52px;
   }
 
   .plugins-intro {
+    padding-top: 16px;
+  }
+
+  .plugins-intro h1 {
+    font-size: 34px;
+  }
+
+  .plugins-lede {
+    font-size: 16px;
+  }
+
+  .plugins-install {
     grid-template-columns: 1fr;
-  }
-
-  .plugins-summary {
-    width: 100%;
-  }
-
-  .plugin-model-flow {
-    grid-template-columns: 1fr;
-  }
-
-  .plugin-model-flow i {
-    justify-self: center;
-    transform: rotate(90deg);
-  }
-
-  .plugin-filters,
-  .plugin-catalog,
-  .plugins-guide,
-  .plugins-versioning {
-    grid-template-columns: 1fr;
-  }
-
-  .plugin-card-available,
-  .plugins-guide > aside {
-    grid-column: 1;
-  }
-
-  .plugin-facts {
-    grid-template-columns: 1fr;
-  }
-
-  .plugin-facts div + div {
-    padding-left: 0;
-    border-left: 0;
-  }
-
-  .plugin-artifact-meta {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
   }
 }
 
-@media (max-width: 520px) {
-  .plugins-shell {
-    padding-right: 15px;
-    padding-left: 15px;
-  }
-
-  .plugins-browser-heading,
-  .plugin-card-header,
-  .plugin-release-heading,
-  .plugin-history-heading,
-  .plugin-artifact-heading,
-  .plugins-footer {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .plugin-card {
-    padding: 18px;
-  }
-
-  .plugin-release {
-    margin-right: -8px;
-    margin-left: -8px;
-  }
-
-  .plugin-artifact-meta {
-    grid-template-columns: 1fr;
-  }
-
+@media (max-width: 380px) {
   .plugin-download {
     width: 100%;
   }

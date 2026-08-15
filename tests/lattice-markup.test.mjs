@@ -4,7 +4,7 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("Shape, Lattice, and Lumber expose reciprocal instrument navigation", async () => {
+test("Shape, Lattice, and Lumber Loops expose reciprocal instrument navigation", async () => {
   const [shapeHtml, latticeHtml, lumberHtml] = await Promise.all([
     readFile(new URL("shape.html", root), "utf8"),
     readFile(new URL("lattice.html", root), "utf8"),
@@ -13,13 +13,13 @@ test("Shape, Lattice, and Lumber expose reciprocal instrument navigation", async
 
   assert.match(shapeHtml, /<a class="tab active" href="shape\.html" aria-current="page">shape<\/a>/);
   assert.match(shapeHtml, /<a class="tab" href="lattice\.html">lattice<\/a>/);
-  assert.match(shapeHtml, /<a class="tab" href="lumber\.html">lumber<\/a>/);
+  assert.match(shapeHtml, /<a class="tab" href="lumber\.html">lumber loops<\/a>/);
   assert.match(latticeHtml, /<a class="tab" href="shape\.html">shape<\/a>/);
   assert.match(latticeHtml, /<a class="tab active" href="lattice\.html" aria-current="page">lattice<\/a>/);
-  assert.match(latticeHtml, /<a class="tab" href="lumber\.html">lumber<\/a>/);
+  assert.match(latticeHtml, /<a class="tab" href="lumber\.html">lumber loops<\/a>/);
   assert.match(lumberHtml, /<a class="tab" href="shape\.html">shape<\/a>/);
   assert.match(lumberHtml, /<a class="tab" href="lattice\.html">lattice<\/a>/);
-  assert.match(lumberHtml, /<a class="tab active" href="lumber\.html" aria-current="page">lumber<\/a>/);
+  assert.match(lumberHtml, /<a class="tab active" href="lumber\.html" aria-current="page">lumber loops<\/a>/);
 });
 
 test("Lattice and Spiral visibly credit Craig S. Kaplan's TactileJS work", async () => {
