@@ -212,7 +212,7 @@ const CATALOG_DETAILS = Object.freeze({
 
   "fm-drums": define(
     "Drum synth",
-    "Edits the sixteen-voice FM and shaped-noise percussion bank used by the geometry drum machines.",
+    "Edits the sixteen-voice FM and shaped-noise percussion bank used by the drum machines.",
     "Turn on audio or MIDI, hit a pad, then edit and save its synthesized voice.",
     ["MIDI", "Computer keys"],
   ),
@@ -401,6 +401,27 @@ const CATALOG_DETAILS = Object.freeze({
   ),
 });
 
+const ADDITIONAL_TAG_IDS = Object.freeze({
+  "escher-tessellation": Object.freeze(["geometry"]),
+  morphazoidical: Object.freeze(["geometry"]),
+  "fourier-epicycles": Object.freeze(["geometry"]),
+  "l-system-drums": Object.freeze(["fractals-recursion"]),
+  "gear-ratio-drums": Object.freeze(["geometry-drums"]),
+  "fm-drums": Object.freeze(["geometry-drums"]),
+  "linear-drums": Object.freeze(["geometry-drums"]),
+  "sample-drums": Object.freeze(["geometry-drums"]),
+  micmic: Object.freeze(["fractals-recursion"]),
+  "recursive-fm": Object.freeze(["fractals-recursion"]),
+  "recursive-pm": Object.freeze(["fractals-recursion"]),
+  "chaotic-fm": Object.freeze(["fractals-recursion"]),
+  "chaotic-pm": Object.freeze(["fractals-recursion"]),
+  weierstrass: Object.freeze(["fractals-recursion"]),
+  "cellular-automata": Object.freeze(["algorithmic-sequencers"]),
+  "prime-sieve": Object.freeze(["algorithmic-sequencers"]),
+  "dna-translator": Object.freeze(["algorithmic-sequencers"]),
+  "neural-pulse": Object.freeze(["algorithmic-sequencers"]),
+});
+
 const instrumentToolGroups = TOOL_GROUPS
   .filter((group) => group.catalogue !== false)
   .map((group) => ({
@@ -410,29 +431,53 @@ const instrumentToolGroups = TOOL_GROUPS
   .filter((group) => group.tools.length > 0);
 const instrumentTools = instrumentToolGroups.flatMap((group) => group.tools);
 const instrumentIds = new Set(instrumentTools.map((tool) => tool.id));
+const groupById = new Map(instrumentToolGroups.map((group) => [group.id, group]));
+const primaryGroupByToolId = new Map(instrumentToolGroups.flatMap((group) => (
+  group.tools.map((tool) => [tool.id, group])
+)));
 const missingDetails = instrumentTools.filter((tool) => !CATALOG_DETAILS[tool.id]);
 const unusedDetails = Object.keys(CATALOG_DETAILS).filter((id) => !instrumentIds.has(id));
+const invalidAdditionalTags = Object.entries(ADDITIONAL_TAG_IDS).flatMap(
+  ([instrumentId, tagIds]) => tagIds
+    .filter((tagId) => !instrumentIds.has(instrumentId) || !groupById.has(tagId))
+    .map((tagId) => `${instrumentId}:${tagId}`),
+);
 
-if (missingDetails.length || unusedDetails.length) {
+if (missingDetails.length || unusedDetails.length || invalidAdditionalTags.length) {
   throw new Error([
     missingDetails.length
       ? `Missing catalogue details: ${missingDetails.map((tool) => tool.id).join(", ")}`
       : "",
     unusedDetails.length ? `Unused catalogue details: ${unusedDetails.join(", ")}` : "",
+    invalidAdditionalTags.length
+      ? `Invalid catalogue tags: ${invalidAdditionalTags.join(", ")}`
+      : "",
   ].filter(Boolean).join(". "));
 }
+
+const instrumentByToolId = new Map(instrumentTools.map((tool) => {
+  const primaryGroup = primaryGroupByToolId.get(tool.id);
+  const tagIds = [primaryGroup.id, ...(ADDITIONAL_TAG_IDS[tool.id] ?? [])];
+  const tags = Object.freeze([...new Set(tagIds)].map((tagId) => {
+    const group = groupById.get(tagId);
+    return Object.freeze({ id: group.id, label: group.label });
+  }));
+  return [tool.id, Object.freeze({
+    ...tool,
+    ...CATALOG_DETAILS[tool.id],
+    tags,
+    status: primaryGroup.id === "experiments" ? "Works in progress" : null,
+    imageHref: `assets/instruments/${tool.id}.webp`,
+  })];
+}));
 
 export const INSTRUMENT_GROUPS = Object.freeze(instrumentToolGroups.map((group) => Object.freeze({
   id: group.id,
   label: group.label,
-  tools: Object.freeze(group.tools.map((tool) => Object.freeze({
-    ...tool,
-    ...CATALOG_DETAILS[tool.id],
-    imageHref: `assets/instruments/${tool.id}.webp`,
-  }))),
+  tools: Object.freeze(group.tools.map((tool) => instrumentByToolId.get(tool.id))),
 })));
 
-export const INSTRUMENTS = Object.freeze(INSTRUMENT_GROUPS.flatMap((group) => group.tools));
+export const INSTRUMENTS = Object.freeze(instrumentTools.map((tool) => instrumentByToolId.get(tool.id)));
 
 export function instrumentById(id) {
   return INSTRUMENTS.find((instrument) => instrument.id === id) ?? null;

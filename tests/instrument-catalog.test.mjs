@@ -20,6 +20,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
     }))
     .filter((group) => group.tools.length > 0);
   assert.equal(INSTRUMENTS.length, 72);
+  assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
     catalogueGroups.map(({ id, label }) => ({ id, label })),
@@ -47,6 +48,12 @@ test("every instrument has factual card copy, a start action, traits, and a tran
     assert.ok(instrument.description.length >= 45, `${instrument.id} description is too short`);
     assert.ok(instrument.start.length >= 35, `${instrument.id} start text is too short`);
     assert.ok(instrument.kind.length > 2, `${instrument.id} is missing a kind`);
+    assert.ok(instrument.tags.length > 0, `${instrument.id} is missing tags`);
+    assert.equal(
+      new Set(instrument.tags.map(({ id }) => id)).size,
+      instrument.tags.length,
+      `${instrument.id} repeats a tag`,
+    );
     assert.equal(instrument.imageHref, `assets/instruments/${instrument.id}.webp`);
 
     const imageUrl = new URL(instrument.imageHref, root);
@@ -57,8 +64,23 @@ test("every instrument has factual card copy, a start action, traits, and a tran
   }
 });
 
+test("experiments carry a works-in-progress status while regular instruments do not", () => {
+  const experiments = INSTRUMENTS.filter((instrument) => (
+    instrument.tags.some(({ id }) => id === "experiments")
+    && INSTRUMENT_GROUPS.find(({ id }) => id === "experiments")?.tools.includes(instrument)
+  ));
+  assert.equal(experiments.length, 29);
+  assert.equal(experiments.every(({ status }) => status === "Works in progress"), true);
+  assert.equal(
+    INSTRUMENTS.filter((instrument) => !experiments.includes(instrument))
+      .every(({ status }) => status === null),
+    true,
+  );
+});
+
 test("input and plug-in availability facts remain explicit", () => {
   assert.equal(instrumentById("escher-tessellation")?.label, "Escher");
+  assert.equal(instrumentById("escher-tessellation")?.status, "Works in progress");
   assert.equal(
     INSTRUMENT_GROUPS.find(({ tools }) => (
       tools.some(({ id }) => id === "escher-tessellation")
@@ -66,6 +88,17 @@ test("input and plug-in availability facts remain explicit", () => {
     "experiments",
   );
   assert.deepEqual(instrumentById("shape")?.features, ["MIDI", "Computer keys"]);
+  assert.deepEqual(
+    instrumentById("micmic")?.tags.map(({ id, label }) => ({ id, label })),
+    [
+      { id: "signal-voice", label: "Signal & Voice" },
+      { id: "fractals-recursion", label: "Fractals & Recursion" },
+    ],
+  );
+  assert.deepEqual(
+    instrumentById("escher-tessellation")?.tags.map(({ id }) => id),
+    ["experiments", "geometry"],
+  );
   assert.ok(instrumentById("lumber")?.features.includes("Mic input"));
   assert.ok(instrumentById("recursion")?.features.includes("File input"));
   assert.deepEqual(instrumentById("rubix")?.features, ["Pointer"]);
@@ -100,17 +133,48 @@ test("input and plug-in availability facts remain explicit", () => {
   );
 });
 
-test("card renderer exposes filters, browser links, disabled plug-ins, and no card subtitles", async () => {
+test("card renderer separates in-development experiments from the main catalogue", async () => {
   const [app, css] = await Promise.all([
     readFile(new URL("instrument-catalog-app.js", root), "utf8"),
     readFile(new URL("instrument-catalog.css", root), "utf8"),
   ]);
-  assert.match(app, /type = "search"/);
+  assert.match(app, /INSTRUMENTS\.map\(\(instrument, index\) => \(\{/);
+  assert.match(app, /image\.loading = index < 12 \? "eager" : "lazy"/);
+  assert.match(app, /image\.decoding = index < 12 \? "sync" : "async"/);
+  assert.ok(app.indexOf("image.loading =") < app.indexOf("image.src = instrument.imageHref"));
+  assert.match(app, /grid\.append\(\.\.\.instrumentCards\)/);
+  assert.match(app, /experimentGrid\.append\(\.\.\.experimentCards\)/);
+  assert.match(app, /root\.replaceChildren\(grid, experiments\)/);
+  assert.match(app, /catalogue-experiments/);
+  assert.match(app, /instrument-card-status/);
+  assert.match(app, /"Works in progress"/);
+  assert.match(app, /aria-labelledby/);
   assert.match(app, /Play in browser/);
-  assert.match(app, /Get plug-in/);
-  assert.match(app, /Plug-in unavailable/);
-  assert.match(app, /aria-disabled/);
+  assert.match(app, /instrument-card-heading/);
+  assert.match(app, /instrument-card-heading-copy/);
+  assert.match(app, /instrument-card-image-preview/);
+  assert.match(app, /Show enlarged \$\{instrument\.label\} artwork/);
+  assert.match(app, /card\.dataset\.previewOpen/);
+  assert.match(app, /instrument-tags/);
+  assert.match(app, /instrument\.tags/);
+  assert.doesNotMatch(app, /type = "search"/);
+  assert.doesNotMatch(app, /catalogue-controls/);
+  assert.doesNotMatch(app, /catalogue-section-index/);
+  assert.doesNotMatch(app, /catalogue-group-heading/);
+  assert.doesNotMatch(app, /All sections|All types|Name, sound, or idea|instruments match/);
+  assert.doesNotMatch(app, /Get plug-in/);
+  assert.doesNotMatch(app, /Plug-in unavailable/);
+  assert.doesNotMatch(app, /aria-disabled/);
   assert.doesNotMatch(app, /instrument-card-subtitle/);
+  assert.match(css, /grid-template-columns: 92px minmax\(0, 1fr\)/);
+  assert.match(css, /\.instrument-tags\s*\{/);
+  assert.match(css, /\.catalogue-experiments\s*\{/);
+  assert.match(css, /\.instrument-card-status\s*\{/);
+  assert.doesNotMatch(css, /\.catalogue-controls|\.catalogue-section-index|\.catalogue-group-heading/);
+  assert.match(css, /\.instrument-card-visual\s*\{[^}]*width: 92px;/s);
+  assert.match(css, /\.instrument-card-image-preview\s*\{[^}]*bottom: -1px;/s);
+  assert.match(css, /\.instrument-card:has\(\.instrument-card-visual:hover\)/);
+  assert.match(css, /@media \(max-width: 560px\)[\s\S]*grid-template-columns: 78px minmax\(0, 1fr\)/);
   assert.match(css, /grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(css, /@media \(min-width: 620px\)[\s\S]*repeat\(2/);
   assert.match(css, /@media \(min-width: 1080px\)[\s\S]*repeat\(3/);

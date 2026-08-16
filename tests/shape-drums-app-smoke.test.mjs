@@ -223,7 +223,7 @@ test("shape drum app starts with the complete Shape form and sixteen drum previe
   listeners.get("sideSubdivisions:input")();
   assert.equal(elements.get("sideSubdivisionsOut").textContent, "4");
   assert.match(elements.get("mappingSummary").textContent, /4\/side/);
-  assert.match(elements.get("mappingOrigin").textContent, /marker 1/);
+  assert.match(elements.get("mappingOrigin").textContent, /start marker/);
 
   elements.get("strikeLimit").value = "2";
   listeners.get("strikeLimit:input")();

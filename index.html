@@ -21,17 +21,11 @@
         <span>morphazoid</span>
       </a>
 
-      <nav class="tabs" aria-label="Morphazoid main menu">
-        <a class="tab" href="plugins.html">plug-ins</a>
-        <a class="tab" href="instruments.html">catalogue</a>
-        <a class="tab active" href="./" aria-current="page">about</a>
-      </nav>
+      <nav class="tabs" aria-label="Morphazoid main menu"></nav>
       <label class="mobile-instrument-nav">
-        <span class="sr-only">Morphazoid page</span>
-        <select class="mobile-instrument-select" aria-label="Morphazoid page">
-          <option value="plugins.html">plug-ins</option>
-          <option value="instruments.html">catalogue</option>
-          <option value="./" selected>about</option>
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="" selected>choose</option>
         </select>
       </label>
     </header>
@@ -46,25 +40,7 @@
               algorithms, simulations, microphone input, and audio files into sound.
             </p>
           </div>
-          <dl class="about-summary" aria-label="Project summary">
-            <div><dt>Instruments</dt><dd>72</dd></div>
-            <div><dt>Runtime</dt><dd>Web browser</dd></div>
-            <div><dt>Audio</dt><dd>Web Audio</dd></div>
-            <div><dt>Graphics</dt><dd>Canvas</dd></div>
-            <div><dt>License</dt><dd>MIT</dd></div>
-          </dl>
         </header>
-
-        <section class="manual-index" aria-labelledby="contentsLabel">
-          <p class="manual-index-label" id="contentsLabel">Contents</p>
-          <nav aria-label="About page sections">
-            <a href="#operation">Basic operation</a>
-            <a href="#instrument-catalogue">Instrument catalogue</a>
-            <a href="#implementation">Implementation</a>
-            <a href="#source">Source &amp; license</a>
-            <a href="#author">Author</a>
-          </nav>
-        </section>
 
         <section class="manual-section" id="operation">
           <div class="manual-section-heading">
@@ -76,10 +52,10 @@
           </div>
           <div class="manual-copy">
             <ol>
-              <li>Use Browse to open an instrument. Audio starts off.</li>
+              <li>Use the instrument pull-down to open an instrument. Audio starts off.</li>
               <li>
-                Select Audio, Input, or the page's start control. The browser needs a click or tap
-                before it can play sound.
+                Select the speaker, Input, or the page's start control. The browser needs a click
+                or tap before it can play sound.
               </li>
               <li>Set the output level before starting feedback, dense textures, or many voices.</li>
               <li>
@@ -97,18 +73,7 @@
 
         <section class="manual-section catalogue-manual-section" id="instrument-catalogue">
           <div class="manual-section-heading">
-            <p class="manual-section-label">Browse</p>
             <h2>Instrument Catalogue</h2>
-            <p class="manual-section-note">
-              Instrument sections, titles, and order follow the Browse menu.
-            </p>
-          </div>
-          <div class="catalogue-callout">
-            <p>
-              Each card identifies the sound system, available inputs, first step, browser page,
-              and current plug-in availability.
-            </p>
-            <a href="instruments.html">Open full catalogue</a>
           </div>
           <div
             class="instrument-catalog"
@@ -155,6 +120,10 @@
                   Use <code>npm run dev</code> for the local server and
                   <code>npm run verify</code> for checks and tests.
                 </dd>
+              </div>
+              <div>
+                <dt>Plug-ins</dt>
+                <dd>Coming soon.</dd>
               </div>
             </dl>
           </div>

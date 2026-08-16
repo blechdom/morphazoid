@@ -16,6 +16,11 @@ import {
   typingDynamics,
 } from "./src/spelling-synthesizer.js";
 import { SpellingSynthesizerAudio } from "./src/spelling-synthesizer-audio.js";
+import {
+  loadSpellingPronunciations,
+  spellingPhoneDefinition,
+  spellingPronunciationTokens,
+} from "./src/spelling-pronunciation.js";
 
 const $ = (id) => document.getElementById(id);
 const BOUNDARY_PATTERN = /\s|[.!?,;:]/;
@@ -26,16 +31,8 @@ const ENGINE_COLORS = Object.freeze({
   vocoder: Object.freeze({ color: "#ffcb69", rgb: "255, 203, 105" }),
 });
 
-const READBACK_PERSONALITIES = Object.freeze({
-  clear: Object.freeze({ rate: 0.92, pitch: 1, volume: 1 }),
-  warm: Object.freeze({ rate: 0.84, pitch: 0.78, volume: 0.96 }),
-  whisper: Object.freeze({ rate: 0.88, pitch: 1.08, volume: 0.72 }),
-  reed: Object.freeze({ rate: 1.02, pitch: 1.34, volume: 0.9 }),
-  creature: Object.freeze({ rate: 0.76, pitch: 0.52, volume: 0.98 }),
-});
-
 const DEFAULTS = Object.freeze({
-  engine: "tube",
+  engine: "diphone",
   personality: "clear",
   level: 0.46,
   rhythmAmount: 0.72,
@@ -71,15 +68,16 @@ let audioPlaybackWake = null;
 let audioPlaybackGeneration = 0;
 let audioOperationGeneration = 0;
 let engineSwitchPromise = null;
+let heldVowel = null;
 
 const readback = {
   phase: "idle",
   generation: 0,
-  utterance: null,
-  startTimer: 0,
   offset: 0,
-  baseOffset: 0,
   snapshot: "",
+  plan: [],
+  index: 0,
+  timer: 0,
   resumeTimer: 0,
   shouldAutoResume: false,
 };
@@ -115,13 +113,6 @@ function clearError() {
   $("audioError").hidden = true;
 }
 
-function readbackAvailable() {
-  return Boolean(
-    globalThis.speechSynthesis
-    && typeof globalThis.SpeechSynthesisUtterance === "function",
-  );
-}
-
 function updateReadbackUi() {
   const button = $("readbackButton");
   const startOver = $("readbackStartOver");
@@ -139,7 +130,13 @@ function updateReadbackUi() {
     "aria-pressed",
     String(readback.phase === "starting" || readback.phase === "playing"),
   );
-  startOver.hidden = !["paused", "interrupted", "complete"].includes(readback.phase);
+  startOver.hidden = !["paused", "interrupted"].includes(readback.phase);
+}
+
+function readbackHasPendingPlayback() {
+  return readback.phase === "starting"
+    || readback.phase === "playing"
+    || (readback.phase === "interrupted" && readback.shouldAutoResume);
 }
 
 function median(values, fallback = 320) {
@@ -149,11 +146,6 @@ function median(values, fallback = 320) {
   return sorted.length % 2
     ? sorted[middle]
     : (sorted[middle - 1] + sorted[middle]) * 0.5;
-}
-
-function countLabel(value) {
-  const count = [...String(value ?? "")].length;
-  return `${count} character${count === 1 ? "" : "s"}`;
 }
 
 function clearQueuedInsertions() {
@@ -189,6 +181,23 @@ function clearPendingNativeInput() {
   pendingNativeInput = null;
 }
 
+function physicalKeyId(event) {
+  return String(event?.code || event?.key || "").toLowerCase();
+}
+
+function releaseHeldVowel({ releaseAudio = true, updateStage = true } = {}) {
+  const held = heldVowel;
+  heldVowel = null;
+  if (!held?.sustaining) return false;
+  clearAudioPlaybackQueue();
+  if (releaseAudio) audio.release({ releaseMs: 72 });
+  if (visualTimer) globalThis.clearTimeout(visualTimer);
+  visualTimer = 0;
+  $("voiceStage").classList.remove("is-speaking");
+  if (updateStage) $("currentPair").textContent = "VOWEL · RELEASE";
+  return true;
+}
+
 function flushPendingPair({ sound = true } = {}) {
   if (!pendingPair) return;
   globalThis.clearTimeout(pendingPair.timer);
@@ -211,7 +220,6 @@ function updateEngineUi() {
   $("engineTitle").textContent = engine.name;
   $("engineLineage").textContent = engine.lineage;
   $("engineDescription").textContent = engine.description;
-  $("stageEngineOut").textContent = engine.name;
 }
 
 function updatePersonalityUi() {
@@ -252,7 +260,6 @@ function updateControlUi() {
 
 function updateTextUi() {
   const text = $("spellingInput").value;
-  $("characterCount").textContent = countLabel(text);
   const trail = [...text.toUpperCase().replace(/\s+/g, " · ")].slice(-42).join("");
   $("letterTrail").textContent = trail || "YOUR LETTERS WILL GATHER HERE";
 }
@@ -271,16 +278,219 @@ function clearReadbackResumeTimer() {
   readback.resumeTimer = 0;
 }
 
-function clearReadbackStartTimer() {
-  if (readback.startTimer) globalThis.clearTimeout(readback.startTimer);
-  readback.startTimer = 0;
+function clearReadbackTimer() {
+  if (readback.timer) globalThis.clearTimeout(readback.timer);
+  readback.timer = 0;
 }
 
-function cancelReadbackUtterance() {
-  clearReadbackStartTimer();
+function cancelReadbackPlayback({ release = true } = {}) {
+  clearReadbackTimer();
   readback.generation += 1;
-  readback.utterance = null;
-  globalThis.speechSynthesis?.cancel?.();
+  if (visualTimer) globalThis.clearTimeout(visualTimer);
+  visualTimer = 0;
+  $("voiceStage").classList.remove("is-speaking");
+  if (release && audio.running) audio.release({ releaseMs: 24 });
+}
+
+function readbackBoundaryTiming(character) {
+  if (/[.!?]/.test(character)) return { pauseMs: 420, releaseMs: 120 };
+  if (/\n|\r/.test(character)) return { pauseMs: 240, releaseMs: 75 };
+  if (/[:;]/.test(character)) return { pauseMs: 260, releaseMs: 90 };
+  if (character.includes(",")) return { pauseMs: 180, releaseMs: 70 };
+  return { pauseMs: 95, releaseMs: 55 };
+}
+
+function readbackDynamics(token, phone, definition) {
+  const capital = /[A-Z]/.test(token.source);
+  const dynamics = typingDynamics({
+    intervalMs: 185,
+    averageIntervalMs: 185,
+    amount: state.rhythmAmount * 0.34,
+    capital,
+  });
+  const stressedVowel = definition.vowel && phone.stress > 0;
+  return {
+    ...dynamics,
+    durationMs: definition.vowel ? (stressedVowel ? 170 : 125) : 88,
+    attackMs: definition.vowel ? 8 : 4,
+    releaseMs: definition.vowel ? 34 : 24,
+  };
+}
+
+function phoneCarrier(token, phoneIndex, fallback) {
+  for (let index = phoneIndex; index < token.phones.length; index += 1) {
+    const definition = spellingPhoneDefinition(token.phones[index].id);
+    if (!definition?.vowel) continue;
+    return definition.gestures.find((gesture) => isSpellingVowel(gesture)) ?? fallback;
+  }
+  return fallback;
+}
+
+function buildReadbackPlan(text, pronunciations) {
+  const tokens = spellingPronunciationTokens(text, pronunciations);
+  const voiceContext = { carrierVowel: "a" };
+  const personality = state.personality;
+  const engine = state.engine;
+  const plan = [];
+
+  for (let index = 0; index < tokens.length;) {
+    const token = tokens[index];
+    if (token.type === "boundary") {
+      let end = token.end;
+      let pauseMs = 0;
+      let releaseMs = 0;
+      while (index < tokens.length && tokens[index].type === "boundary") {
+        const boundary = readbackBoundaryTiming(tokens[index].source);
+        pauseMs = Math.max(pauseMs, boundary.pauseMs);
+        releaseMs = Math.max(releaseMs, boundary.releaseMs);
+        end = tokens[index].end;
+        index += 1;
+      }
+      plan.push({ type: "boundary", start: token.start, end, pauseMs, releaseMs });
+      continue;
+    }
+
+    const events = [];
+    const steps = [];
+    let cursorMs = 0;
+    for (let phoneIndex = 0; phoneIndex < token.phones.length; phoneIndex += 1) {
+      const phone = token.phones[phoneIndex];
+      const definition = spellingPhoneDefinition(phone.id);
+      if (!definition) continue;
+      const dynamics = readbackDynamics(token, phone, definition);
+      const carrierVowel = phoneCarrier(token, phoneIndex, voiceContext.carrierVowel);
+      const phoneEvents = definition.gestures.map((articulation, gestureIndex) => {
+        const event = makeVoiceEvent(token.source, articulation, dynamics, {
+          soundLabel: phone.id,
+          voiceContext,
+          personality,
+          carrierVowel,
+        });
+        event.word = token;
+        event.wordPhone = phone.id;
+        event.wordSpeech = true;
+        event.sampleKey = gestureIndex === 0 ? definition.sampleKey : "";
+        if (definition.voicing !== null) {
+          event.performance.articulationVoicing = definition.voicing;
+        }
+        return event;
+      });
+      events.push(...phoneEvents);
+      const audibleEvents = engine === "tube" ? phoneEvents : phoneEvents.slice(0, 1);
+      const internalSpacingMs = definition.vowel ? 52 : 38;
+      let phoneEndMs = cursorMs;
+      audibleEvents.forEach((event, gestureIndex) => {
+        const offsetMs = cursorMs + gestureIndex * internalSpacingMs;
+        steps.push({ event, offsetMs });
+        phoneEndMs = Math.max(
+          phoneEndMs,
+          offsetMs + Math.max(0, audio.durationMs?.(event) ?? 100),
+        );
+      });
+      const overlapMs = definition.vowel ? 28 : 16;
+      cursorMs = Math.max(cursorMs + (definition.vowel ? 82 : 44), phoneEndMs - overlapMs);
+    }
+    if (!steps.length) {
+      index += 1;
+      continue;
+    }
+    const lastStep = steps.at(-1);
+    const durationMs = Math.max(
+      cursorMs,
+      lastStep.offsetMs + Math.max(0, audio.durationMs?.(lastStep.event) ?? 100),
+    ) + 20;
+    plan.push({
+      type: "word",
+      start: token.start,
+      end: token.end,
+      token,
+      events,
+      steps,
+      durationMs,
+    });
+    index += 1;
+  }
+  return plan;
+}
+
+function scheduleReadbackTimer(callback, delayMs, generation) {
+  clearReadbackTimer();
+  readback.timer = globalThis.setTimeout(() => {
+    readback.timer = 0;
+    if (generation !== readback.generation || readback.phase !== "playing") return;
+    callback();
+  }, Math.max(0, Math.round(delayMs)));
+}
+
+function failReadback(error, generation) {
+  if (generation !== readback.generation) return;
+  cancelReadbackPlayback();
+  readback.phase = "paused";
+  readback.shouldAutoResume = false;
+  showError(error instanceof Error ? error.message : "The selected synth engine could not play readback.");
+  updateReadbackUi();
+  announce("Readback stopped.");
+}
+
+function finishReadback(generation) {
+  if (generation !== readback.generation || readback.phase !== "playing") return;
+  clearReadbackTimer();
+  audio.release({ releaseMs: 45 });
+  readback.offset = readback.snapshot.length;
+  readback.phase = "complete";
+  readback.shouldAutoResume = false;
+  updateReadbackUi();
+  announce("Readback finished.");
+}
+
+function playReadbackEntry(generation) {
+  if (generation !== readback.generation || readback.phase !== "playing") return;
+  const entry = readback.plan[readback.index];
+  if (!entry) {
+    finishReadback(generation);
+    return;
+  }
+  if (entry.type === "boundary") {
+    readback.offset = entry.end;
+    audio.release({ releaseMs: entry.releaseMs });
+    $("currentPair").textContent = entry.releaseMs >= 120 ? "PHRASE END" : "BREATH";
+    scheduleReadbackTimer(() => {
+      readback.index += 1;
+      playReadbackEntry(generation);
+    }, entry.pauseMs, generation);
+    return;
+  }
+
+  readback.offset = entry.start;
+  showVoiceEvent(entry.events.at(-1), { durationMs: entry.durationMs });
+  const playStep = (stepIndex) => {
+    if (generation !== readback.generation || readback.phase !== "playing") return;
+    const step = entry.steps[stepIndex];
+    if (!step) return;
+    try {
+      if (!audio.articulate(step.event)) {
+        throw new Error("The selected synth engine could not play this pronunciation gesture.");
+      }
+    } catch (error) {
+      failReadback(error, generation);
+      return;
+    }
+    const next = entry.steps[stepIndex + 1];
+    if (next) {
+      scheduleReadbackTimer(
+        () => playStep(stepIndex + 1),
+        next.offsetMs - step.offsetMs,
+        generation,
+      );
+      return;
+    }
+    scheduleReadbackTimer(() => {
+      readback.offset = entry.end;
+      readback.index += 1;
+      playReadbackEntry(generation);
+    }, Math.max(18, entry.durationMs - step.offsetMs), generation);
+  };
+  playStep(0);
 }
 
 function pauseReadback({
@@ -290,7 +500,7 @@ function pauseReadback({
 } = {}) {
   const wasActive = readback.phase === "starting" || readback.phase === "playing";
   clearReadbackResumeTimer();
-  if (wasActive || readback.utterance) cancelReadbackUtterance();
+  if (wasActive || readback.timer) cancelReadbackPlayback({ release: wasActive });
   readback.phase = phase;
   readback.shouldAutoResume = autoResume;
   updateReadbackUi();
@@ -299,22 +509,53 @@ function pauseReadback({
 
 function forgetReadback() {
   clearReadbackResumeTimer();
-  cancelReadbackUtterance();
+  cancelReadbackPlayback({
+    release: readback.phase === "starting" || readback.phase === "playing",
+  });
   readback.phase = "idle";
   readback.offset = 0;
-  readback.baseOffset = 0;
   readback.snapshot = "";
+  readback.plan = [];
+  readback.index = 0;
   readback.shouldAutoResume = false;
   updateReadbackUi();
 }
 
-function readbackVoice() {
-  const voices = globalThis.speechSynthesis?.getVoices?.() ?? [];
-  const language = document.documentElement.lang || "en";
-  return voices.find((voice) => voice.default && voice.lang?.startsWith(language))
-    ?? voices.find((voice) => voice.lang?.startsWith(language))
-    ?? voices.find((voice) => voice.default)
-    ?? null;
+async function prepareReadback(generation, { automatic = false } = {}) {
+  const [started, pronunciations] = await Promise.all([
+    ensureAudio(),
+    loadSpellingPronunciations(readback.snapshot),
+  ]);
+  if (
+    !started
+    || generation !== readback.generation
+    || readback.phase !== "starting"
+  ) {
+    if (generation === readback.generation && readback.phase === "starting") {
+      readback.phase = "paused";
+      updateReadbackUi();
+    }
+    return;
+  }
+  readback.plan = buildReadbackPlan(readback.snapshot, pronunciations);
+  readback.index = readback.plan.findIndex((entry) => entry.end > readback.offset);
+  if (readback.index < 0) {
+    audio.release({ releaseMs: 45 });
+    readback.phase = "complete";
+    readback.offset = readback.snapshot.length;
+    updateReadbackUi();
+    announce("Readback finished.");
+    return;
+  }
+  readback.phase = "playing";
+  updateReadbackUi();
+  announce(automatic
+    ? "Readback continued."
+    : readback.offset
+      ? "Readback resumed."
+      : `Reading with ${SPELLING_ENGINES[state.engine].name}, `
+        + `${SPELLING_PERSONALITIES[state.personality].name}.`);
+  playReadbackEntry(generation);
 }
 
 function startReadback({ restart = false, automatic = false } = {}) {
@@ -324,108 +565,49 @@ function startReadback({ restart = false, automatic = false } = {}) {
     announce("Type something first.");
     return false;
   }
-  if (!readbackAvailable()) {
-    showError("Whole-text readback is not available in this browser.");
-    announce("Whole-text readback is unavailable.");
+  if (!/[A-Za-z]/.test(text)) {
+    forgetReadback();
+    readback.phase = "complete";
+    readback.offset = text.length;
     updateReadbackUi();
+    announce("No playable words were found.");
     return false;
   }
   clearError();
+  releaseHeldVowel({ releaseAudio: false, updateStage: false });
   clearReadbackResumeTimer();
-  cancelReadbackUtterance();
+  cancelReadbackPlayback({ release: state.audioOn });
   flushPendingPair({ sound: false });
   clearQueuedInsertions();
   clearAudioPlaybackQueue();
-  if (state.audioOn) audio.release({ releaseMs: 24 });
   if (restart || readback.phase === "idle" || readback.phase === "complete") {
     readback.offset = 0;
   }
   readback.snapshot = text;
   readback.offset = Math.min(text.length, Math.max(0, readback.offset));
-  if (readback.offset >= text.length) readback.offset = 0;
-  readback.baseOffset = readback.offset;
   readback.phase = "starting";
   readback.shouldAutoResume = false;
   const generation = readback.generation;
-  const utterance = new globalThis.SpeechSynthesisUtterance(text.slice(readback.baseOffset));
-  const profile = READBACK_PERSONALITIES[state.personality]
-    ?? READBACK_PERSONALITIES.clear;
-  const selectedVoice = readbackVoice();
-  if (selectedVoice) utterance.voice = selectedVoice;
-  utterance.lang = selectedVoice?.lang || document.documentElement.lang || "en-US";
-  utterance.rate = profile.rate;
-  utterance.pitch = profile.pitch;
-  utterance.volume = Math.min(
-    1,
-    profile.volume * (0.68 + state.level / 0.82 * 0.32),
-  );
-  readback.utterance = utterance;
-  utterance.addEventListener("start", () => {
-    if (generation !== readback.generation || readback.utterance !== utterance) return;
-    clearReadbackStartTimer();
-    readback.phase = "playing";
-    updateReadbackUi();
-    announce(automatic
-      ? `Readback continued from character ${readback.baseOffset + 1}.`
-      : readback.baseOffset
-        ? `Readback resumed from character ${readback.baseOffset + 1}.`
-        : "Reading from the beginning.");
-  });
-  utterance.addEventListener("boundary", (event) => {
-    if (generation !== readback.generation || readback.utterance !== utterance) return;
-    if (Number.isFinite(event.charIndex)) {
-      readback.offset = Math.min(text.length, readback.baseOffset + event.charIndex);
-    }
-  });
-  utterance.addEventListener("end", () => {
-    if (generation !== readback.generation || readback.utterance !== utterance) return;
-    clearReadbackStartTimer();
-    readback.utterance = null;
-    readback.offset = text.length;
-    readback.phase = "complete";
-    updateReadbackUi();
-    announce("Readback finished.");
-  });
-  utterance.addEventListener("error", (event) => {
-    if (generation !== readback.generation || readback.utterance !== utterance) return;
-    clearReadbackStartTimer();
-    readback.utterance = null;
-    if (event.error === "canceled" || event.error === "interrupted") return;
-    readback.phase = "paused";
-    showError(`Readback stopped${event.error ? `: ${event.error}` : "."}`);
-    updateReadbackUi();
-  });
-  readback.startTimer = globalThis.setTimeout(() => {
-    if (
-      generation !== readback.generation
-      || readback.utterance !== utterance
-      || readback.phase !== "starting"
-    ) return;
-    cancelReadbackUtterance();
-    readback.phase = "paused";
-    showError("The browser speech voice did not start. Try readback again.");
-    updateReadbackUi();
-  }, 4_000);
-  try {
-    globalThis.speechSynthesis.speak(utterance);
-  } catch (error) {
-    clearReadbackStartTimer();
-    readback.utterance = null;
-    readback.phase = "paused";
-    showError(error instanceof Error ? error.message : "The browser speech voice could not start.");
-    updateReadbackUi();
-    return false;
-  }
   updateReadbackUi();
+  void prepareReadback(generation, { automatic });
   return true;
 }
 
 function scheduleReadbackContinuation() {
   clearReadbackResumeTimer();
   if (!readback.shouldAutoResume || !$("spellingInput").value.trim()) return;
+  const generation = readback.generation;
   readback.resumeTimer = globalThis.setTimeout(() => {
     readback.resumeTimer = 0;
-    if (readback.phase !== "interrupted" || !readback.shouldAutoResume) return;
+    if (
+      generation !== readback.generation
+      || readback.phase !== "interrupted"
+      || !readback.shouldAutoResume
+    ) return;
+    if (heldVowel) {
+      scheduleReadbackContinuation();
+      return;
+    }
     startReadback({ automatic: true });
   }, 900);
 }
@@ -437,7 +619,7 @@ function interruptReadbackForTyping(edit = null) {
   const wasActive = readback.phase === "starting" || readback.phase === "playing";
   const continuing = readback.phase === "interrupted" && readback.shouldAutoResume;
   if (wasActive) {
-    cancelReadbackUtterance();
+    cancelReadbackPlayback();
     readback.phase = "interrupted";
     readback.shouldAutoResume = true;
     updateReadbackUi();
@@ -454,7 +636,7 @@ function interruptReadbackForTyping(edit = null) {
 
 function toggleReadback() {
   if (readback.phase === "starting" || readback.phase === "playing") {
-    pauseReadback({ announceMessage: `Readback paused after character ${readback.offset + 1}.` });
+    pauseReadback({ announceMessage: "Readback paused." });
     return;
   }
   startReadback({ restart: readback.phase === "idle" || readback.phase === "complete" });
@@ -504,7 +686,8 @@ async function ensureAudio() {
 
 async function stopAudio(message = "Spelling Synthesizer audio off.") {
   audioOperationGeneration += 1;
-  if (readback.phase === "starting" || readback.phase === "playing") {
+  releaseHeldVowel({ releaseAudio: false, updateStage: false });
+  if (readbackHasPendingPlayback()) {
     pauseReadback();
   }
   flushPendingPair({ sound: false });
@@ -529,19 +712,24 @@ function makeVoiceEvent(character, articulation, dynamics, {
   pair = null,
   soundLabel = "",
   voiceContext = state,
+  personality = state.personality,
+  carrierVowel = voiceContext.carrierVowel,
 } = {}) {
   const targetArticulation = articulation;
+  const activeCarrier = isSpellingVowel(carrierVowel)
+    ? carrierVowel
+    : voiceContext.carrierVowel;
   const nextCarrier = isSpellingVowel(targetArticulation)
     ? targetArticulation
-    : voiceContext.carrierVowel;
+    : activeCarrier;
   const performance = spellingPerformanceState({
-    personality: state.personality,
+    personality,
     articulation: targetArticulation,
-    carrierVowel: voiceContext.carrierVowel,
+    carrierVowel: activeCarrier,
     dynamics,
   });
   const carrierPerformance = spellingPerformanceState({
-    personality: state.personality,
+    personality,
     articulation: nextCarrier,
     carrierVowel: nextCarrier,
     dynamics: { ...dynamics, breathAccent: dynamics.breathAccent * 0.35 },
@@ -550,7 +738,7 @@ function makeVoiceEvent(character, articulation, dynamics, {
     character,
     articulation: targetArticulation,
     carrierVowel: nextCarrier,
-    personality: state.personality,
+    personality,
     performance,
     carrierPerformance,
     dynamics,
@@ -561,7 +749,7 @@ function makeVoiceEvent(character, articulation, dynamics, {
   return event;
 }
 
-function showVoiceEvent(event) {
+function showVoiceEvent(event, { durationMs = null } = {}) {
   const { performance, dynamics, pair } = event;
   const stage = $("voiceStage");
   const root = document.body.style;
@@ -569,21 +757,27 @@ function showVoiceEvent(event) {
   root.setProperty("--spelling-pace", dynamics.pace.toFixed(3));
   root.setProperty("--spelling-place", clamp01(performance.articulationPlace).toFixed(3));
   root.setProperty("--spelling-aperture", clamp01(performance.articulationAperture).toFixed(3));
-  $("currentLetter").textContent = event.character.toUpperCase();
-  $("currentSound").textContent = event.soundLabel || spellingSoundLabel(event.articulation);
-  $("currentPair").textContent = pair
+  const wordPhones = event.word?.phones?.map((phone) => phone.id).join(" ") ?? "";
+  stage.classList.toggle("is-word", Boolean(event.word));
+  $("currentLetter").textContent = (event.word?.source ?? event.character).toUpperCase();
+  $("currentSound").textContent = wordPhones
+    || event.soundLabel
+    || spellingSoundLabel(event.articulation);
+  $("currentPair").textContent = event.word
+    ? `WORD · ${SPELLING_PERSONALITIES[event.personality].name.toUpperCase()}`
+    : event.sustain
+    ? "HELD VOWEL · SUSTAIN"
+    : pair
     ? `${pair.label} · ${pair.kind.toUpperCase()}`
     : `${performance.articulationManner.toUpperCase()} · ${SPELLING_PERSONALITIES[state.personality].name.toUpperCase()}`;
-  const keysPerMinute = Math.round(60_000 / Math.max(70, state.averageIntervalMs));
-  $("paceOut").textContent = `${keysPerMinute} keys/min`;
-  $("emphasisOut").textContent = `${Math.round(dynamics.emphasis * 100)}%`;
-  $("emphasisBar").style.width = `${Math.max(4, dynamics.emphasis * 100)}%`;
   stage.classList.remove("is-speaking");
   globalThis.requestAnimationFrame?.(() => stage.classList.add("is-speaking"));
   if (visualTimer) globalThis.clearTimeout(visualTimer);
-  visualTimer = globalThis.setTimeout(() => {
-    stage.classList.remove("is-speaking");
-  }, dynamics.durationMs + dynamics.releaseMs);
+  if (!event.sustain) {
+    visualTimer = globalThis.setTimeout(() => {
+      stage.classList.remove("is-speaking");
+    }, Number.isFinite(durationMs) ? durationMs : dynamics.durationMs + dynamics.releaseMs);
+  }
 }
 
 function clamp01(value) {
@@ -822,9 +1016,50 @@ function handleEditorKeydown(event) {
     || event.ctrlKey
     || event.metaKey
     || event.altKey
-    || event.repeat
   ) return;
   const character = event.key;
+  const vowel = character?.length === 1 && isSpellingVowel(character);
+  const keyId = physicalKeyId(event);
+  if (event.repeat) {
+    if (!vowel) return;
+    event.preventDefault();
+    if (!heldVowel || heldVowel.keyId !== keyId) {
+      heldVowel = {
+        keyId,
+        character,
+        capital: character === character.toUpperCase(),
+        sustaining: false,
+      };
+    }
+    if (heldVowel.sustaining) return;
+    if (pendingPair?.character.toLowerCase() === character.toLowerCase()) {
+      flushPendingPair({ sound: false });
+    } else flushPendingPair();
+    clearAudioPlaybackQueue();
+    const dynamics = typingDynamics({
+      intervalMs: state.averageIntervalMs,
+      averageIntervalMs: state.averageIntervalMs,
+      amount: state.rhythmAmount,
+      capital: heldVowel.capital,
+    });
+    const articulation = spellingArticulation(character);
+    const voiceEvent = makeVoiceEvent(character, articulation, dynamics);
+    voiceEvent.sustain = true;
+    heldVowel.sustaining = true;
+    state.lastStreamCharacter = character.toLowerCase();
+    showVoiceEvent(voiceEvent);
+    soundEvent(voiceEvent);
+    return;
+  }
+  if (heldVowel) releaseHeldVowel({ updateStage: false });
+  if (vowel) {
+    heldVowel = {
+      keyId,
+      character,
+      capital: character === character.toUpperCase(),
+      sustaining: false,
+    };
+  }
   if (spellingArticulation(character)) void ensureAudio();
   if (
     character.length === 1
@@ -849,6 +1084,11 @@ function handleEditorKeydown(event) {
       position: input.selectionStart,
     });
   }
+}
+
+function handleEditorKeyup(event) {
+  if (!heldVowel || heldVowel.keyId !== physicalKeyId(event)) return;
+  releaseHeldVowel();
 }
 
 function cancelPendingEditorPerformance(next) {
@@ -911,6 +1151,10 @@ function handleEditorInput(event) {
 
 async function selectEngine(name, { preview = true, announceSelection = true } = {}) {
   if (!SPELLING_ENGINES[name] || state.switching) return;
+  if (readbackHasPendingPlayback()) {
+    pauseReadback({ announceMessage: "Readback paused while the engine changed." });
+  }
+  releaseHeldVowel({ releaseAudio: false, updateStage: false });
   const generation = ++audioOperationGeneration;
   flushPendingPair({ sound: false });
   clearAudioPlaybackQueue();
@@ -950,6 +1194,10 @@ async function selectEngine(name, { preview = true, announceSelection = true } =
 
 function selectPersonality(name) {
   if (!SPELLING_PERSONALITIES[name]) return;
+  if (readbackHasPendingPlayback()) {
+    pauseReadback({ announceMessage: "Readback paused while the personality changed." });
+  }
+  releaseHeldVowel({ updateStage: false });
   state.personality = name;
   updatePersonalityUi();
   if (state.audioOn) previewVoice();
@@ -968,6 +1216,7 @@ function previewVoice() {
 }
 
 function clearEditor() {
+  releaseHeldVowel({ releaseAudio: false, updateStage: false });
   forgetReadback();
   clearQueuedInsertions();
   flushPendingPair({ sound: false });
@@ -975,7 +1224,7 @@ function clearEditor() {
   clearPendingNativeInput();
   if (visualTimer) globalThis.clearTimeout(visualTimer);
   visualTimer = 0;
-  $("voiceStage").classList.remove("is-speaking");
+  $("voiceStage").classList.remove("is-speaking", "is-word");
   $("spellingInput").value = "";
   state.editorText = "";
   state.composing = false;
@@ -989,9 +1238,6 @@ function clearEditor() {
   $("currentLetter").textContent = "A";
   $("currentSound").textContent = "AE";
   $("currentPair").textContent = "READY";
-  $("paceOut").textContent = "waiting";
-  $("emphasisOut").textContent = "24%";
-  $("emphasisBar").style.width = "24%";
   updateTextUi();
   $("spellingInput").focus({ preventScroll: true });
 }
@@ -1035,6 +1281,9 @@ $("diphthongDelay").addEventListener("input", (event) => {
 });
 
 $("pairGlidesButton").addEventListener("click", () => {
+  if (readbackHasPendingPlayback()) {
+    pauseReadback({ announceMessage: "Readback paused while letter-pair joining changed." });
+  }
   state.pairGlides = !state.pairGlides;
   if (!state.pairGlides) flushPendingPair();
   updateControlUi();
@@ -1050,8 +1299,11 @@ for (const button of $("personalityButtons").querySelectorAll("[data-personality
 }
 
 $("spellingInput").addEventListener("keydown", handleEditorKeydown);
+$("spellingInput").addEventListener("keyup", handleEditorKeyup);
+$("spellingInput").addEventListener("blur", () => releaseHeldVowel());
 $("spellingInput").addEventListener("input", handleEditorInput);
 $("spellingInput").addEventListener("compositionstart", () => {
+  releaseHeldVowel();
   interruptReadbackForTyping();
   clearReadbackResumeTimer();
   clearQueuedInsertions();
@@ -1079,8 +1331,9 @@ $("spellingInput").addEventListener("compositionend", () => {
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) return;
+  releaseHeldVowel({ releaseAudio: false, updateStage: false });
   audioOperationGeneration += 1;
-  if (readback.phase === "starting" || readback.phase === "playing") {
+  if (readbackHasPendingPlayback()) {
     pauseReadback({ announceMessage: "Readback paused because this tab was hidden." });
   }
   clearQueuedInsertions();
@@ -1098,8 +1351,10 @@ document.addEventListener("keydown", (event) => {
 });
 
 globalThis.addEventListener?.("pagehide", (event) => {
+  releaseHeldVowel({ releaseAudio: false, updateStage: false });
   audioOperationGeneration += 1;
-  pauseReadback({ phase: "paused" });
+  if (readbackHasPendingPlayback()) pauseReadback({ phase: "paused" });
+  else clearReadbackResumeTimer();
   clearQueuedInsertions();
   flushPendingPair({ sound: false });
   clearAudioPlaybackQueue();
@@ -1115,5 +1370,7 @@ globalThis.addEventListener?.("pageshow", (event) => {
   state.starting = false;
   updateAudioUi();
 });
+
+globalThis.addEventListener?.("blur", () => releaseHeldVowel());
 
 updateUi();

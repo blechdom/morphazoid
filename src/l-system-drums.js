@@ -22,7 +22,7 @@ export const L_SYSTEM_DRUM_MAPPING_MODES = Object.freeze([
     legend: legend(
       ["Branch depth", "drum row"],
       ["Turn angle", "voice column"],
-      ["Height", "tuning"],
+      ["Height + angle", "tuning"],
       ["Turn + depth", "tone + force"],
       ["Active heads", "headroom"],
     ),
@@ -34,7 +34,7 @@ export const L_SYSTEM_DRUM_MAPPING_MODES = Object.freeze([
     legend: legend(
       ["Vertical", "drum row"],
       ["Horizontal", "voice column"],
-      ["Height", "tuning"],
+      ["Height + angle", "tuning"],
       ["Branch depth", "tone"],
       ["Active heads", "headroom"],
     ),
@@ -46,11 +46,18 @@ export const L_SYSTEM_DRUM_MAPPING_MODES = Object.freeze([
     legend: legend(
       ["Generation", "drum row"],
       ["Segment phase", "voice column"],
-      ["Height", "tuning"],
+      ["Height + angle", "tuning"],
       ["Turn", "tone + force"],
       ["Active heads", "headroom"],
     ),
   }),
+]);
+
+export const L_SYSTEM_DRUM_STYLES = Object.freeze([
+  Object.freeze({ id: "drum-bank", label: "Drum bank" }),
+  Object.freeze({ id: "circuit", label: "Circuit percussion" }),
+  Object.freeze({ id: "rattlesnake", label: "Rattlesnake" }),
+  Object.freeze({ id: "resonant-metal", label: "Resonant metal" }),
 ]);
 
 export function lSystemDrumSubdivisionCount(value = 4) {
@@ -383,13 +390,19 @@ export function groupedLSystemDrumEvents(events, {
 
 export function mappedLSystemDrumVoice(baseVoice, event = {}, {
   pitchDepth = 12,
+  anglePitchDepth = 0,
+  angleRange = 90,
   characterDepth = 0.72,
   eventCount = 1,
 } = {}) {
   const depth = clamp((Number(event.depth) || 0) / Math.max(1, Number(event.maxForkDepth) || 1));
-  const turnForce = clamp(Math.abs(Number(event.turn) || 0) / Math.PI);
+  const angleSpan = clamp(angleRange, 15, 360, 90) * Math.PI / 180;
+  const signedTurn = clamp((Number(event.turn) || 0) / angleSpan, -1, 1, 0);
+  const turnForce = Math.abs(signedTurn);
   const character = clamp(characterDepth);
-  const semitones = (clamp(event.normalizedY) * 2 - 1) * clamp(pitchDepth, 0, 24);
+  const heightSemitones = (clamp(event.normalizedY) * 2 - 1) * clamp(pitchDepth, 0, 24);
+  const angleSemitones = signedTurn * clamp(anglePitchDepth, 0, 36);
+  const semitones = heightSemitones + angleSemitones;
   const headroom = 1 / Math.sqrt(Math.max(1, Number(eventCount) || 1));
   const baseFrequency = Number(baseVoice?.frequency) || 60;
   const baseTone = clamp(baseVoice?.tone);
@@ -413,4 +426,56 @@ export function mappedLSystemDrumVoice(baseVoice, event = {}, {
     modIndex: isBell ? mappedModIndex * 0.68 : mappedModIndex,
     level: isBell ? mappedLevel * 0.62 : mappedLevel,
   };
+}
+
+export function styledLSystemDrumVoice(sourceVoice = {}, {
+  style = "drum-bank",
+} = {}) {
+  const voice = { ...sourceVoice };
+  if (style === "circuit") {
+    return {
+      ...voice,
+      name: `Circuit ${voice.name ?? "Percussion"}`,
+      family: "effect",
+      attack: Math.min(0.004, Number(voice.attack) || 0.001),
+      decay: clamp((Number(voice.decay) || 0.1) * 0.38, 0.045, 0.22, 0.1),
+      modRatio: clamp((Number(voice.modRatio) || 1) * 1.35 + 0.75, 0.25, 8, 2),
+      modIndex: clamp((Number(voice.modIndex) || 0) * 1.25 + 2, 0, 20, 4),
+      pitchBend: clamp((Number(voice.pitchBend) || 0) * 0.35 + 1.1, -1, 8, 1.1),
+      noise: clamp((Number(voice.noise) || 0) * 0.25 + 0.05),
+      tone: clamp(0.55 + (Number(voice.tone) || 0) * 0.4),
+      level: clamp((Number(voice.level) || 0) * 0.85),
+    };
+  }
+  if (style === "rattlesnake") {
+    return {
+      ...voice,
+      name: `Rattle ${voice.name ?? "Percussion"}`,
+      family: "rattle",
+      attack: 0.001,
+      decay: clamp(0.11 + (Number(voice.decay) || 0.1) * 0.12, 0.12, 0.28, 0.16),
+      modRatio: clamp((Number(voice.modRatio) || 1) * 1.7, 0.5, 8, 2.5),
+      modIndex: clamp((Number(voice.modIndex) || 0) * 0.7 + 4.5, 0, 20, 6),
+      pitchBend: 0.18,
+      noise: clamp(0.72 + (Number(voice.tone) || 0) * 0.22),
+      tone: clamp(0.42 + (Number(voice.tone) || 0) * 0.5),
+      level: clamp((Number(voice.level) || 0) * 0.72),
+    };
+  }
+  if (style === "resonant-metal") {
+    return {
+      ...voice,
+      name: `Resonant ${voice.name ?? "Percussion"}`,
+      family: "metal",
+      attack: Math.min(0.003, Number(voice.attack) || 0.001),
+      decay: clamp(0.12 + (Number(voice.decay) || 0.1) * 0.42, 0.14, 0.52, 0.24),
+      modRatio: clamp((Number(voice.modRatio) || 1) * 1.23 + 0.6, 0.5, 8, 2),
+      modIndex: clamp((Number(voice.modIndex) || 0) * 1.12 + 3.2, 0, 20, 6),
+      pitchBend: clamp((Number(voice.pitchBend) || 0) * 0.15, -0.4, 1.2, 0),
+      noise: clamp((Number(voice.noise) || 0) * 0.35 + 0.08),
+      tone: clamp(0.34 + (Number(voice.tone) || 0) * 0.56),
+      level: clamp((Number(voice.level) || 0) * 0.76),
+    };
+  }
+  return voice;
 }

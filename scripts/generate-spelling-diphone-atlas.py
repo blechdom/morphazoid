@@ -99,6 +99,10 @@ UNITS = (
     sustained("ee", "iy", label="IY"),
     sustained("oo", "uw", label="UW"),
     glide("oa", "ow", label="OW"),
+    glide("ay", "ay", label="AY"),
+    sustained("er", "er", label="ER"),
+    sustained("uh", "uh", label="UH"),
+    isolated("zh", "zh", label="ZH"),
 )
 
 

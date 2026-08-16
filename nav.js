@@ -11,7 +11,6 @@ const LEGACY_SETTINGS_KEYS = [
   "morphazoid:lumber:audio:v2",
 ];
 const RESET_SHAPE_SIDES_KEY = "morphazoid:shape:reset:sides";
-const AUDIO_BUTTON_ICON = "◉";
 
 const freezeGroup = (id, label, tools, metadata = {}) => Object.freeze({
   id,
@@ -35,7 +34,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "solid", label: "Solid", href: "solid.html" },
     { id: "hyper", label: "Hyper", href: "hyper.html" },
   ]),
-  freezeGroup("geometry-drums", "Geometry Drum Machines", [
+  freezeGroup("geometry-drums", "Drum Machines", [
     {
       id: "shape-drums",
       label: "Shape Drum Machine",
@@ -137,7 +136,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "nqueens", label: "N-Queens Backtracker", href: "nqueens.html" },
     { id: "euclid", label: "Euclidean Pulse", href: "euclid.html" },
   ]),
-  freezeGroup("experiments", "Experiments (works-in-progress)", [
+  freezeGroup("experiments", "Experiments", [
     {
       id: "room-lobby",
       label: "Music Rooms",
@@ -228,21 +227,16 @@ export const TOOL_GROUPS = Object.freeze([
       href: "fourier-epicycles.html",
     },
     { id: "gravity-lens", label: "Gravity Lens", href: "gravity-lens.html" },
-  ]),
+  ], { picker: false }),
 ]);
 
-export const SITE_LINKS = Object.freeze([
-  Object.freeze({ id: "plugins", label: "Plug-ins", href: "plugins.html" }),
-  Object.freeze({ id: "catalogue", label: "Catalogue", href: "instruments.html" }),
-  Object.freeze({ id: "about", label: "About", href: "./" }),
-]);
-const SITE_LINK_ALIASES = Object.freeze({
-  about: Object.freeze(["about.html"]),
-});
+export const SITE_LINKS = Object.freeze([]);
+const SITE_LINK_ALIASES = Object.freeze({});
 
 export const NAVIGATION_BASE_URL = new URL("./", import.meta.url).href;
 
 const allTools = () => TOOL_GROUPS.flatMap((group) => group.tools);
+const pickerGroups = () => TOOL_GROUPS.filter((group) => group.picker !== false);
 
 /**
  * Normalize a navigation URL to a pathname suitable for route comparison.
@@ -312,41 +306,46 @@ function staticCurrentHref(doc) {
   return selectedOption?.value ?? selectedOption?.getAttribute?.("value") ?? null;
 }
 
-function createToolsDisclosure(doc, activeTool, siteRoot, index) {
-  const details = element(doc, "details", "tools-menu");
-  const summary = element(doc, "summary", "tools-menu-trigger");
-  const activeGroup = TOOL_GROUPS.find(
-    (group) => group.tools.some((tool) => tool.id === activeTool?.id),
-  );
-  const menuLabel = activeGroup?.label ?? "Browse";
+function createInstrumentPicker(doc, activeTool, siteRoot, index) {
+  const details = element(doc, "details", "instrument-picker");
+  details.setAttribute("data-active-tool-id", activeTool?.id ?? "");
+  const summary = element(doc, "summary", "instrument-picker-trigger");
   summary.setAttribute(
     "aria-label",
-    activeTool
-      ? `${menuLabel}. Current tool: ${activeTool.label}`
-      : "Browse. Choose an instrument",
+    activeTool ? `Choose instrument. Current: ${activeTool.label}` : "Choose instrument",
   );
-  summary.append(
-    element(doc, "span", "tools-menu-label", menuLabel),
-    element(doc, "strong", "tools-menu-current", activeTool?.label ?? "Choose"),
-  );
-  const chevron = element(doc, "span", "tools-menu-chevron");
+  summary.setAttribute("title", activeTool?.label ?? "Choose instrument");
+  summary.append(element(doc, "strong", "instrument-picker-current", activeTool?.label ?? "Choose"));
+  const chevron = element(doc, "span", "instrument-picker-chevron");
   chevron.setAttribute("aria-hidden", "true");
   summary.append(chevron);
 
-  const panel = element(doc, "div", "tools-menu-panel");
-  for (const group of TOOL_GROUPS) {
-    const headingId = `tools-group-${index}-${group.id}`;
-    const section = element(doc, "section", "tools-menu-group");
-    section.setAttribute("aria-labelledby", headingId);
-    section.setAttribute("data-tool-group", group.id);
-    const heading = element(doc, "h2", "tools-menu-heading", group.label);
-    heading.id = headingId;
-    const links = element(doc, "div", "tools-menu-links");
-    section.append(heading, links);
+  const panel = element(doc, "div", "instrument-picker-panel");
+  panel.id = `instrument-picker-panel-${index}`;
+  const list = element(doc, "div", "instrument-picker-list");
+  list.setAttribute("aria-label", "Morphazoid instruments");
+
+  for (const group of pickerGroups()) {
+    const section = element(doc, "section", "instrument-picker-group");
+    const heading = element(doc, "h2", "instrument-picker-group-title", group.label);
+    heading.id = `instrument-picker-group-${index}-${group.id}`;
+    section.setAttribute("aria-labelledby", heading.id);
+    section.append(heading);
+
     for (const tool of group.tools) {
-      const link = element(doc, "a", "tools-menu-link", tool.label);
+      const row = element(doc, "div", "instrument-picker-row");
+      const link = element(doc, "a", "instrument-picker-link");
       link.setAttribute("href", new URL(tool.href, siteRoot).href);
       link.setAttribute("data-tool-id", tool.id);
+      link.setAttribute("title", tool.label);
+      const icon = element(doc, "img", "instrument-picker-link-icon");
+      icon.alt = "";
+      icon.width = 24;
+      icon.height = 24;
+      icon.decoding = "async";
+      icon.src = new URL(`assets/instruments/${tool.id}.webp`, siteRoot).href;
+      const label = element(doc, "span", "instrument-picker-link-label", tool.label);
+      link.append(icon, label);
       if (tool.id === activeTool?.id) {
         link.classList.add("is-current");
         link.setAttribute("aria-current", "page");
@@ -354,12 +353,14 @@ function createToolsDisclosure(doc, activeTool, siteRoot, index) {
       link.addEventListener?.("click", () => {
         details.open = false;
       });
-      links.append(link);
+      row.append(link);
+      section.append(row);
     }
-    panel.append(section);
+    list.append(section);
   }
-  details.append(summary, panel);
 
+  panel.append(list);
+  details.append(summary, panel);
   details.addEventListener?.("keydown", (event) => {
     if (event.key !== "Escape" || !details.open) return;
     event.preventDefault?.();
@@ -369,18 +370,109 @@ function createToolsDisclosure(doc, activeTool, siteRoot, index) {
   doc.addEventListener?.("pointerdown", (event) => {
     if (details.open && !details.contains(event.target)) details.open = false;
   });
-
   return details;
 }
 
-function createSiteLink(doc, link, activeSiteLink, siteRoot) {
-  const anchor = element(doc, "a", "site-nav-link", link.label);
-  anchor.setAttribute("href", new URL(link.href, siteRoot).href);
-  if (link.id === activeSiteLink?.id) {
-    anchor.classList.add("is-current");
-    anchor.setAttribute("aria-current", "page");
+const INSTRUMENT_INFO_HOST_SELECTORS = Object.freeze([
+  ".panel",
+  ".linear-control-panel",
+  ".spelling-panel",
+  ".image-instrument-panel",
+  ".paint-inspector",
+  ".analysis-rail",
+]);
+
+function createInstrumentPageInfo(doc, activeTool) {
+  if (!activeTool || activeTool.catalogue === false) return null;
+  const host = INSTRUMENT_INFO_HOST_SELECTORS
+    .map((selector) => doc.querySelector?.(selector))
+    .find(Boolean);
+  if (!host) return null;
+  const existing = host.querySelector?.(".instrument-page-info");
+  if (existing) return existing;
+
+  const root = element(doc, "section", "instrument-page-info");
+  root.setAttribute("data-tool-id", activeTool.id);
+  root.setAttribute("aria-label", `About ${activeTool.label}`);
+  host.append(root);
+  return root;
+}
+
+function renderInstrumentPickerCard(doc, preview, instrument, siteRoot) {
+  if (preview.getAttribute?.("data-preview-id") === instrument.id) return;
+  preview.setAttribute("data-preview-id", instrument.id);
+
+  const card = element(doc, "article", "instrument-picker-card");
+  const heading = element(doc, "header", "instrument-picker-card-heading");
+  const visual = element(doc, "div", "instrument-picker-card-visual");
+  const image = element(doc, "img", "instrument-picker-card-image");
+  image.alt = "";
+  image.width = 512;
+  image.height = 512;
+  image.loading = "eager";
+  image.decoding = "sync";
+  image.src = new URL(instrument.imageHref, siteRoot).href;
+  visual.append(image);
+
+  const headingCopy = element(doc, "div", "instrument-picker-card-heading-copy");
+  headingCopy.append(element(doc, "h2", "instrument-picker-card-title", instrument.label));
+  if (instrument.status) {
+    headingCopy.append(
+      element(doc, "span", "instrument-picker-card-status", instrument.status),
+    );
   }
-  return anchor;
+  const tags = element(doc, "ul", "instrument-picker-card-tags");
+  tags.setAttribute("aria-label", `${instrument.label} tags`);
+  for (const tag of instrument.tags) tags.append(element(doc, "li", "", tag.label));
+  headingCopy.append(tags);
+  heading.append(visual, headingCopy);
+
+  const traits = element(doc, "ul", "instrument-picker-card-traits");
+  traits.setAttribute("aria-label", `${instrument.label} type and inputs`);
+  for (const trait of [instrument.kind, ...instrument.features]) {
+    traits.append(element(doc, "li", "", trait));
+  }
+  const description = element(
+    doc,
+    "p",
+    "instrument-picker-card-description",
+    instrument.description,
+  );
+  const start = element(doc, "div", "instrument-picker-card-start");
+  start.append(
+    element(doc, "h3", "", "Start"),
+    element(doc, "p", "", instrument.start),
+  );
+  card.append(heading, traits, description, start);
+  preview.replaceChildren(card);
+}
+
+export function hydrateInstrumentPickers(
+  doc,
+  instruments,
+  siteRoot = NAVIGATION_BASE_URL,
+) {
+  const instrumentById = new Map(instruments.map((instrument) => [instrument.id, instrument]));
+  for (const root of doc?.querySelectorAll?.(".instrument-page-info") ?? []) {
+    const instrument = instrumentById.get(root.getAttribute("data-tool-id"));
+    if (!instrument) {
+      root.hidden = true;
+      continue;
+    }
+    root.hidden = false;
+    renderInstrumentPickerCard(doc, root, instrument, siteRoot);
+  }
+}
+
+function loadInstrumentPageInfo(doc, siteRoot) {
+  if (!doc?.querySelector?.(".instrument-page-info")) return;
+  import("./src/instrument-catalog.js")
+    .then(({ INSTRUMENTS }) => hydrateInstrumentPickers(doc, INSTRUMENTS, siteRoot))
+    .catch(() => {
+      for (const root of doc.querySelectorAll?.(".instrument-page-info") ?? []) {
+        root.hidden = true;
+      }
+    });
 }
 
 function insertBeforeOrAppend(parent, node, reference) {
@@ -388,11 +480,50 @@ function insertBeforeOrAppend(parent, node, reference) {
   else parent.append?.(node);
 }
 
+function syncAudioButtonState(button) {
+  const pressed = button.getAttribute?.("aria-pressed") === "true";
+  const status = button.querySelector?.("#audioState")?.textContent?.trim().toLowerCase() ?? "";
+  const state = pressed
+    ? "on"
+    : /start|load|wait|request|connect/.test(status)
+      ? "starting"
+      : /error|unavailable|failed|blocked|denied/.test(status)
+        ? "error"
+        : "off";
+  const labels = {
+    on: ["Turn audio off", "Audio on"],
+    starting: ["Starting audio", "Starting audio"],
+    error: ["Audio unavailable", "Audio unavailable"],
+    off: ["Turn audio on", "Audio off"],
+  };
+  button.setAttribute?.("data-audio-state", state);
+  button.setAttribute?.("aria-label", labels[state][0]);
+  button.setAttribute?.("title", labels[state][1]);
+}
+
 export function normalizeAudioButtonIcons(doc) {
-  for (const icon of doc?.querySelectorAll?.(".audio-glyph, .audio-dot") ?? []) {
-    icon.textContent = AUDIO_BUTTON_ICON;
-    icon.classList?.add("audio-glyph");
-    icon.setAttribute?.("aria-hidden", "true");
+  const Observer = doc?.defaultView?.MutationObserver;
+  for (const button of doc?.querySelectorAll?.(".audio-button") ?? []) {
+    let icon = button.querySelector?.(".audio-speaker-icon");
+    if (!icon) {
+      icon = element(doc, "span", "audio-speaker-icon");
+      icon.setAttribute?.("aria-hidden", "true");
+      button.insertBefore?.(icon, button.children?.[0] ?? null);
+    }
+    syncAudioButtonState(button);
+
+    if (button.getAttribute?.("data-audio-icon-ready") === "true") continue;
+    button.setAttribute?.("data-audio-icon-ready", "true");
+    if (typeof Observer === "function") {
+      const observer = new Observer(() => syncAudioButtonState(button));
+      observer.observe(button, {
+        attributes: true,
+        attributeFilter: ["aria-pressed"],
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    }
   }
 }
 
@@ -657,7 +788,16 @@ export function initializeMidiToolbars(doc, runtime, manager = getSharedMidiMana
 }
 
 function populateMobileSelect(doc, select, activeTool, activeSiteLink, siteRoot) {
-  const groups = TOOL_GROUPS.map((group) => {
+  const options = [];
+  if (!activeTool && !activeSiteLink) {
+    const placeholder = element(doc, "option", "", "Choose");
+    placeholder.value = "";
+    placeholder.selected = true;
+    placeholder.disabled = true;
+    options.push(placeholder);
+  }
+
+  const groups = pickerGroups().map((group) => {
     const optgroup = element(doc, "optgroup");
     optgroup.label = group.label;
     for (const tool of group.tools) {
@@ -668,17 +808,20 @@ function populateMobileSelect(doc, select, activeTool, activeSiteLink, siteRoot)
     }
     return optgroup;
   });
-  const information = element(doc, "optgroup");
-  information.label = "Information";
-  for (const link of SITE_LINKS) {
-    const option = element(doc, "option", "", link.label);
-    option.value = new URL(link.href, siteRoot).href;
-    if (link.id === activeSiteLink?.id) option.selected = true;
-    information.append(option);
+  options.push(...groups);
+  if (SITE_LINKS.length > 0) {
+    const information = element(doc, "optgroup");
+    information.label = "Information";
+    for (const link of SITE_LINKS) {
+      const option = element(doc, "option", "", link.label);
+      option.value = new URL(link.href, siteRoot).href;
+      if (link.id === activeSiteLink?.id) option.selected = true;
+      information.append(option);
+    }
+    options.push(information);
   }
-  groups.push(information);
-  select.replaceChildren(...groups);
-  select.setAttribute("aria-label", "Morphazoid page");
+  select.replaceChildren(...options);
+  select.setAttribute("aria-label", "Instrument");
   if (activeTool) select.value = new URL(activeTool.href, siteRoot).href;
   if (activeSiteLink) select.value = new URL(activeSiteLink.href, siteRoot).href;
 }
@@ -702,15 +845,15 @@ export function enhanceSharedNavigation(doc, {
   const disclosures = [];
 
   [...doc.querySelectorAll(".tabs")].forEach((nav, index) => {
-    const disclosure = createToolsDisclosure(doc, activeTool, siteRoot, index);
-    const siteLinks = SITE_LINKS.map(
-      (link) => createSiteLink(doc, link, activeSiteLink, siteRoot),
-    );
-    nav.replaceChildren(disclosure, ...siteLinks);
+    const picker = createInstrumentPicker(doc, activeTool, siteRoot, index + 1);
+    nav.replaceChildren(picker);
     nav.classList.add("tools-nav");
+    nav.hidden = false;
     nav.setAttribute("aria-label", "Morphazoid main menu");
-    disclosures.push(disclosure);
+    disclosures.push(picker);
   });
+
+  const pageInfo = createInstrumentPageInfo(doc, activeTool);
 
   for (const select of doc.querySelectorAll(".mobile-instrument-select")) {
     populateMobileSelect(doc, select, activeTool, activeSiteLink, siteRoot);
@@ -720,6 +863,8 @@ export function enhanceSharedNavigation(doc, {
     activeTool,
     activeSiteLink,
     disclosures: Object.freeze(disclosures),
+    pageInfos: Object.freeze(pageInfo ? [pageInfo] : []),
+    selectedInfos: Object.freeze([]),
   });
 }
 
@@ -754,10 +899,12 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
 
   normalizeAudioButtonIcons(doc);
 
+  const siteRoot = NAVIGATION_BASE_URL;
   enhanceSharedNavigation(doc, {
     currentHref: runtime.location?.href || doc?.baseURI || NAVIGATION_BASE_URL,
-    siteRoot: NAVIGATION_BASE_URL,
+    siteRoot,
   });
+  loadInstrumentPageInfo(doc, siteRoot);
 
   initializeMidiToolbars(doc, runtime);
 

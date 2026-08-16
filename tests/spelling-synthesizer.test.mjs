@@ -37,9 +37,17 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
   assert.match(html, /<body class="spelling-synthesizer-page">/);
   assert.match(html, /aria-current="page"[\s\S]*?>spelling synthesizer<\/a>/);
   assert.match(html, /<h1 id="spellingTitle">Spelling Synthesizer<\/h1>/);
+  assert.doesNotMatch(html, /It does not wait for a word/);
+  assert.doesNotMatch(html, /VOICE INSTRUMENT · LETTER BY LETTER|id="characterCount"/);
+  assert.doesNotMatch(html, /class="spelling-readouts"/);
+  assert.doesNotMatch(html, /id="paceOut"|id="emphasisOut"|id="stageEngineOut"/);
+  assert.doesNotMatch(
+    html,
+    /Most letters sound immediately|Whole-text readback uses|spellingHelp|readbackHelp/,
+  );
   assert.match(
     html,
-    /<label class="spelling-input-wrap" for="spellingInput">[\s\S]*?<textarea[\s\S]*?id="spellingInput"[\s\S]*?aria-describedby="spellingHelp"/,
+    /<label class="spelling-input-wrap" for="spellingInput">[\s\S]*?<textarea[\s\S]*?id="spellingInput"/,
   );
   assert.match(html, /id="liveStatus" aria-live="polite"/);
   assert.match(html, /id="audioError" role="alert" hidden/);
@@ -47,7 +55,6 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
   assert.match(html, /id="rhythmAmount" type="range"/);
   assert.match(html, /id="diphthongDelay" type="range"/);
   assert.match(html, /id="readbackButton"[\s\S]*?>Read it back to me<\/button>/);
-  assert.match(html, /Typing interrupts it, then it[\s\S]*?continues when you pause/);
   assert.match(html, /href="throatazoid\.html">Open the full Throatazoid anatomy/);
   assert.match(html, /src="nav\.js"/);
   assert.match(html, /src="spelling-synthesizer-app\.js"/);
@@ -58,21 +65,29 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
     [...html.matchAll(/\bdata-engine="([^"]+)"/g)].map((match) => match[1]),
     ["tube", "diphone", "vocoder"],
   );
+  assert.match(html, /data-engine="tube" aria-pressed="false"/);
+  assert.match(html, /data-engine="diphone" aria-pressed="true"/);
+  assert.match(html, /id="engineIndex">02 \/ 03<\/output>/);
   assert.deepEqual(
     [...html.matchAll(/\bdata-personality="([^"]+)"/g)].map((match) => match[1]),
     ["clear", "warm", "whisper", "reed", "creature"],
   );
 
   assert.match(css, /#spellingInput\s*\{/);
+  assert.match(css, /\.spelling-voice-stage\s*\{[\s\S]*?width:\s*clamp\(82px, 8vw, 110px\)/);
   assert.match(css, /"Courier New"[\s\S]*?"Liberation Mono"/);
   assert.match(css, /@media \(max-width: 860px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(app, /addEventListener\("compositionstart"/);
   assert.match(app, /addEventListener\("compositionend"/);
   assert.match(app, /addEventListener\("input", handleEditorInput\)/);
-  assert.match(app, /SpeechSynthesisUtterance/);
+  assert.doesNotMatch(app, /SpeechSynthesisUtterance|speechSynthesis|characterCount/);
+  assert.match(app, /buildReadbackPlan/);
+  assert.match(app, /audio\.durationMs/);
   assert.match(app, /scheduleReadbackContinuation/);
   assert.match(app, /scheduleTypedCharacter/);
+  assert.match(app, /addEventListener\("keyup", handleEditorKeyup\)/);
+  assert.match(app, /engine: "diphone"/);
   assert.match(app, /slice\(0, 32\)/, "pasted and composed playback stays bounded");
   assert.match(audio, /throatazoid-tract-processor\.js/);
   assert.match(audio, /SPELLING_DIPHONE_ATLAS_URL/);
@@ -86,7 +101,8 @@ test("each selectable engine and personality has stable public metadata", () => 
     ["clear", "warm", "whisper", "reed", "creature"],
   );
   assert.equal(spellingEngine("vocoder"), "vocoder");
-  assert.equal(spellingEngine("missing"), "tube");
+  assert.equal(spellingEngine("missing"), "diphone");
+  assert.equal(spellingEngine(), "diphone");
   assert.equal(spellingPersonality("whisper"), "whisper");
   assert.equal(spellingPersonality("missing"), "clear");
   for (const engine of Object.values(SPELLING_ENGINES)) {

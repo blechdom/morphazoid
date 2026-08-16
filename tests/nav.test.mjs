@@ -6,6 +6,7 @@ import {
   SITE_LINKS,
   TOOL_GROUPS,
   enhanceSharedNavigation,
+  hydrateInstrumentPickers,
   initializeMidiToolbars,
   initializeSharedNavigation,
   normalizeNavigationPath,
@@ -125,6 +126,14 @@ class FakeNode {
     return null;
   }
 
+  querySelectorAll(selector) {
+    if (selector.startsWith(".")) {
+      const className = selector.slice(1);
+      return this.findAll((node) => node.classList.contains(className));
+    }
+    return [];
+  }
+
   findAll(predicate) {
     const matches = predicate(this) ? [this] : [];
     for (const child of this.children) matches.push(...child.findAll(predicate));
@@ -137,6 +146,8 @@ class FakeDocument {
     this.baseURI = `${SITE_ROOT}julia.html`;
     this.tabs = new FakeNode("nav");
     this.tabs.className = "tabs";
+    this.panel = new FakeNode("aside");
+    this.panel.className = "panel";
     this.select = new FakeNode("select");
     this.select.className = "mobile-instrument-select";
     this.listeners = new Map();
@@ -146,7 +157,14 @@ class FakeDocument {
     return new FakeNode(tagName);
   }
 
-  querySelector() {
+  querySelector(selector) {
+    if (selector === ".panel") return this.panel;
+    if (selector.startsWith(".")) {
+      const className = selector.slice(1);
+      return [this.tabs, this.panel]
+        .flatMap((node) => node.findAll((candidate) => candidate.classList.contains(className)))[0]
+        ?? null;
+    }
     return null;
   }
 
@@ -154,6 +172,11 @@ class FakeDocument {
     if (selector === ".tabs") return [this.tabs];
     if (selector === ".mobile-instrument-select") return [this.select];
     if (selector === "[data-reset-all]") return [];
+    if (selector.startsWith(".")) {
+      const className = selector.slice(1);
+      return [this.tabs, this.panel]
+        .flatMap((node) => node.findAll((candidate) => candidate.classList.contains(className)));
+    }
     return [];
   }
 
@@ -177,7 +200,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     TOOL_GROUPS.map((group) => group.label),
     [
       "Geometry Synths",
-      "Geometry Drum Machines",
+      "Drum Machines",
       "Signal & Voice",
       "Barber Shop Poles",
       "Fractals & Recursion",
@@ -185,7 +208,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       "WebGPU Synths",
       "Instruments",
       "Algorithmic Sequencers",
-      "Experiments (works-in-progress)",
+      "Experiments",
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
@@ -449,6 +472,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   const experiments = TOOL_GROUPS.find((group) => group.id === "experiments");
+  assert.equal(experiments?.picker, false);
   assert.deepEqual(experiments?.tools.slice(0, 4), [
     {
       id: "room-lobby",
@@ -513,17 +537,13 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "gravity-lens", href: "gravity-lens.html" },
     ],
   );
-  assert.deepEqual(SITE_LINKS, [
-    { id: "plugins", label: "Plug-ins", href: "plugins.html" },
-    { id: "catalogue", label: "Catalogue", href: "instruments.html" },
-    { id: "about", label: "About", href: "./" },
-  ]);
+  assert.deepEqual(SITE_LINKS, []);
 });
 
 test("active tool resolution preserves GitHub Pages subpaths and nested workbench pages", () => {
   assert.equal(normalizeNavigationPath(`${SITE_ROOT}index.html?mode=test`, SITE_ROOT), "/blechdom/morphazoid/");
   assert.equal(resolveActiveTool("https://example.test/blechdom/morphazoid", SITE_ROOT), null);
-  assert.equal(resolveActiveSiteLink("https://example.test/blechdom/morphazoid", SITE_ROOT)?.id, "about");
+  assert.equal(resolveActiveSiteLink("https://example.test/blechdom/morphazoid", SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}shape.html`, SITE_ROOT)?.id, "shape");
   assert.equal(
     resolveActiveTool(`${SITE_ROOT}escher-tessellation.html`, SITE_ROOT)?.id,
@@ -608,14 +628,14 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}morphazoidical/atlas.html`, SITE_ROOT)?.id, "morphazoidical");
   assert.equal(resolveActiveTool(`${SITE_ROOT}unknown.html`, SITE_ROOT), null);
-  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}plugins.html`, SITE_ROOT)?.id, "plugins");
-  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}instruments.html`, SITE_ROOT)?.id, "catalogue");
-  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}about.html`, SITE_ROOT)?.id, "about");
-  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}`, SITE_ROOT)?.id, "about");
+  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}plugins.html`, SITE_ROOT), null);
+  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}instruments.html`, SITE_ROOT), null);
+  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}about.html`, SITE_ROOT), null);
+  assert.equal(resolveActiveSiteLink(`${SITE_ROOT}`, SITE_ROOT), null);
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}julia.html`, SITE_ROOT), null);
 });
 
-test("shared navigation generates one grouped disclosure and grouped mobile options", () => {
+test("shared navigation creates a title-only picker and preserves the native select fallback", () => {
   const doc = new FakeDocument();
   const result = enhanceSharedNavigation(doc, {
     currentHref: `${SITE_ROOT}julia.html`,
@@ -625,154 +645,181 @@ test("shared navigation generates one grouped disclosure and grouped mobile opti
   assert.equal(result.activeTool?.id, "julia");
   assert.equal(result.activeSiteLink, null);
   assert.equal(result.disclosures.length, 1);
+  assert.equal(result.selectedInfos.length, 0);
+  assert.equal(result.pageInfos.length, 1);
   assert.equal(doc.tabs.getAttribute("aria-label"), "Morphazoid main menu");
   assert.equal(doc.tabs.classList.contains("tools-nav"), true);
-
-  const details = result.disclosures[0];
-  assert.equal(details.tagName, "DETAILS");
-  const summary = details.children[0];
-  assert.equal(summary.tagName, "SUMMARY");
+  assert.equal(doc.tabs.hidden, false);
+  assert.equal(doc.tabs.children.length, 1);
+  const picker = result.disclosures[0];
+  assert.equal(picker.tagName, "DETAILS");
+  assert.equal(picker.className, "instrument-picker");
+  const trigger = picker.children[0];
+  assert.equal(trigger.tagName, "SUMMARY");
+  assert.equal(trigger.getAttribute("aria-label"), "Choose instrument. Current: Julia");
   assert.equal(
-    summary.getAttribute("aria-label"),
-    "Fractals & Recursion. Current tool: Julia",
-  );
-  assert.equal(
-    summary.findAll((node) => node.className === "tools-menu-label")[0]?.textContent,
-    "Fractals & Recursion",
-  );
-  assert.equal(
-    summary.findAll((node) => node.className === "tools-menu-current")[0]?.textContent,
+    trigger.findAll((node) => node.className === "instrument-picker-current")[0]?.textContent,
     "Julia",
   );
-  const menuIcon = summary.findAll(
-    (node) => node.className === "tools-menu-chevron",
-  )[0];
-  assert.equal(menuIcon?.textContent, "");
-  assert.equal(menuIcon?.getAttribute("aria-hidden"), "true");
-
-  const sections = details.findAll((node) => node.tagName === "SECTION");
-  assert.equal(sections.length, TOOL_GROUPS.length);
+  assert.doesNotMatch(trigger.textContent, /Fractals|Recursion/);
+  const pickerGroups = TOOL_GROUPS.filter((group) => group.picker !== false);
+  const pickerTools = pickerGroups.flatMap((group) => group.tools);
   assert.deepEqual(
-    sections.map((section) => section.children[0].textContent),
-    TOOL_GROUPS.map((group) => group.label),
+    picker.findAll((node) => node.classList.contains("instrument-picker-group-title"))
+      .map((heading) => heading.textContent),
+    pickerGroups.map((group) => group.label),
   );
-  const nestedLists = details.findAll((node) => node.className === "tools-menu-links");
-  assert.equal(nestedLists.length, TOOL_GROUPS.length);
-  assert.equal(nestedLists[0].children[0].getAttribute("data-tool-id"), "shape");
-  const links = details.findAll((node) => node.tagName === "A");
-  assert.equal(links.length, 76);
-  const siteLinks = doc.tabs.children.filter((node) => node.classList.contains("site-nav-link"));
-  assert.equal(siteLinks.length, 3);
-  assert.equal(siteLinks[0].textContent, "Plug-ins");
-  assert.equal(siteLinks[0].getAttribute("href"), `${SITE_ROOT}plugins.html`);
-  assert.equal(siteLinks[1].textContent, "Catalogue");
-  assert.equal(siteLinks[1].getAttribute("href"), `${SITE_ROOT}instruments.html`);
-  assert.equal(siteLinks[2].textContent, "About");
-  assert.equal(siteLinks[2].getAttribute("href"), SITE_ROOT);
-  const currentLinks = links.filter((link) => link.getAttribute("aria-current") === "page");
-  assert.equal(currentLinks.length, 1);
-  assert.equal(currentLinks[0].getAttribute("data-tool-id"), "julia");
-
-  assert.equal(doc.select.children.length, TOOL_GROUPS.length + 1);
+  const pickerLinks = picker.findAll(
+    (node) => node.classList.contains("instrument-picker-link"),
+  );
+  assert.equal(pickerLinks.length, pickerTools.length);
+  const shapeLink = pickerLinks.find((link) => link.getAttribute("data-tool-id") === "shape");
+  const shapeIcon = shapeLink.querySelector(".instrument-picker-link-icon");
+  assert.equal(shapeIcon.tagName, "IMG");
+  assert.equal(shapeIcon.src, `${SITE_ROOT}assets/instruments/shape.webp`);
+  assert.equal(shapeIcon.alt, "");
+  assert.equal(shapeLink.querySelector(".instrument-picker-link-label").textContent, "Shape");
+  assert.equal(
+    picker.findAll((node) => node.classList.contains("instrument-picker-info")).length,
+    0,
+  );
+  assert.equal(
+    picker.findAll((node) => node.getAttribute("data-tool-id") === "escher-tessellation").length,
+    0,
+  );
+  const pageInfo = result.pageInfos[0];
+  assert.equal(pageInfo.getAttribute("data-tool-id"), "julia");
+  assert.equal(pageInfo.getAttribute("aria-label"), "About Julia");
+  assert.equal(doc.panel.children.at(-1), pageInfo);
+  assert.equal(doc.select.children.length, pickerGroups.length);
   assert.deepEqual(
     doc.select.children.map((group) => group.label),
-    [...TOOL_GROUPS.map((group) => group.label), "Information"],
+    pickerGroups.map((group) => group.label),
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);
   assert.equal(selectedOptions.length, 1);
   assert.equal(selectedOptions[0].textContent, "Julia");
-  assert.equal(doc.select.getAttribute("aria-label"), "Morphazoid page");
-
-  let prevented = false;
-  details.open = true;
-  details.dispatch("keydown", {
-    key: "Escape",
-    preventDefault() { prevented = true; },
-  });
-  assert.equal(details.open, false);
-  assert.equal(prevented, true);
-  assert.equal(summary.focused, true);
-
-  details.open = true;
-  doc.dispatch("pointerdown", { target: new FakeNode("div") });
-  assert.equal(details.open, false);
-  details.open = true;
-  doc.dispatch("pointerdown", { target: summary });
-  assert.equal(details.open, true);
+  assert.doesNotMatch(selectedOptions[0].textContent, /Fractals|Recursion/);
+  assert.equal(doc.select.getAttribute("aria-label"), "Instrument");
 });
 
-test("About is current in both forms of the shared main menu", () => {
+test("home navigation shows Choose in both enhanced and fallback controls", () => {
   const doc = new FakeDocument();
   const result = enhanceSharedNavigation(doc, {
-    currentHref: `${SITE_ROOT}about.html`,
+    currentHref: SITE_ROOT,
     siteRoot: SITE_ROOT,
   });
 
   assert.equal(result.activeTool, null);
-  assert.equal(result.activeSiteLink?.id, "about");
-
-  const currentDesktopLinks = doc.tabs.findAll(
-    (node) => node.tagName === "A" && node.getAttribute("aria-current") === "page",
+  assert.equal(result.activeSiteLink, null);
+  assert.equal(result.selectedInfos.length, 0);
+  assert.equal(result.pageInfos.length, 0);
+  assert.equal(doc.tabs.children.length, 1);
+  assert.equal(
+    doc.tabs.findAll((node) => node.className === "instrument-picker-current")[0]?.textContent,
+    "Choose",
   );
-  assert.equal(currentDesktopLinks.length, 1);
-  assert.equal(currentDesktopLinks[0].textContent, "About");
+  assert.equal(
+    doc.select.children.length,
+    TOOL_GROUPS.filter((group) => group.picker !== false).length + 1,
+  );
 
   const selectedOptions = doc.select.findAll(
     (node) => node.tagName === "OPTION" && node.selected,
   );
   assert.equal(selectedOptions.length, 1);
-  assert.equal(selectedOptions[0].textContent, "About");
+  assert.equal(selectedOptions[0].textContent, "Choose");
+  assert.equal(selectedOptions[0].disabled, true);
 });
 
-test("top Audio button icons normalize across glyph and dot markup", async () => {
-  const glyph = new FakeNode("span");
-  glyph.className = "audio-glyph chaotic-fm-audio-glyph";
-  glyph.textContent = "≋";
-  const dot = new FakeNode("span");
-  dot.className = "audio-dot";
-
-  normalizeAudioButtonIcons({
-    querySelectorAll(selector) {
-      assert.equal(selector, ".audio-glyph, .audio-dot");
-      return [glyph, dot];
-    },
+test("instrument info lives once at the bottom of the page control rail", () => {
+  const doc = new FakeDocument();
+  const { disclosures: [picker], pageInfos: [pageInfo] } = enhanceSharedNavigation(doc, {
+    currentHref: `${SITE_ROOT}julia.html`,
+    siteRoot: SITE_ROOT,
   });
+  const instruments = [
+    {
+      id: "shape",
+      label: "Shape",
+      href: "shape.html",
+      imageHref: "assets/instruments/shape.webp",
+      tags: [{ id: "geometry", label: "Geometry Synths" }],
+      kind: "Synth",
+      features: ["MIDI"],
+      description: "A geometric contour instrument.",
+      start: "Turn on audio and move the contour.",
+    },
+    {
+      id: "julia",
+      label: "Julia",
+      href: "julia.html",
+      imageHref: "assets/instruments/julia.webp",
+      tags: [{ id: "fractals-recursion", label: "Fractals & Recursion" }],
+      kind: "Synth",
+      features: [],
+      description: "A Julia boundary instrument.",
+      start: "Turn on audio and trace the boundary.",
+    },
+  ];
 
-  for (const icon of [glyph, dot]) {
-    assert.equal(icon.textContent, "◉");
-    assert.equal(icon.classList.contains("audio-glyph"), true);
-    assert.equal(icon.getAttribute("aria-hidden"), "true");
-  }
+  hydrateInstrumentPickers(doc, instruments, SITE_ROOT);
+  assert.equal(picker.querySelectorAll(".instrument-picker-info").length, 0);
+  assert.equal(picker.querySelector(".instrument-picker-preview"), null);
+  assert.equal(doc.tabs.querySelector(".selected-instrument-info"), null);
+  assert.equal(pageInfo.hidden, false);
+  assert.equal(pageInfo.getAttribute("data-preview-id"), "julia");
+  assert.equal(
+    pageInfo.findAll((node) => node.className === "instrument-picker-card-title")[0]?.textContent,
+    "Julia",
+  );
+  assert.equal(
+    pageInfo.findAll((node) => node.className === "instrument-picker-card-image")[0]?.src,
+    `${SITE_ROOT}assets/instruments/julia.webp`,
+  );
+  assert.equal(pageInfo.querySelector(".instrument-picker-card-play"), null);
+  assert.equal(doc.panel.children.at(-1), pageInfo);
+});
+
+test("top Audio buttons become square accessible speaker controls", async () => {
+  const button = new FakeNode("button");
+  button.className = "audio-button";
+  button.setAttribute("aria-pressed", "false");
+  const oldGlyph = new FakeNode("span");
+  oldGlyph.className = "audio-glyph";
+  const status = new FakeNode("small");
+  status.id = "audioState";
+  status.textContent = "off";
+  button.append(oldGlyph, status);
+  const doc = {
+    createElement(tagName) { return new FakeNode(tagName); },
+    querySelectorAll(selector) {
+      assert.equal(selector, ".audio-button");
+      return [button];
+    },
+  };
+
+  normalizeAudioButtonIcons(doc);
+  const icon = button.children[0];
+  assert.equal(icon.className, "audio-speaker-icon");
+  assert.equal(icon.getAttribute("aria-hidden"), "true");
+  assert.equal(button.getAttribute("data-audio-state"), "off");
+  assert.equal(button.getAttribute("aria-label"), "Turn audio on");
+  assert.equal(button.getAttribute("title"), "Audio off");
+
+  button.setAttribute("aria-pressed", "true");
+  status.textContent = "on";
+  normalizeAudioButtonIcons(doc);
+  assert.equal(button.children.filter((child) => child.className === "audio-speaker-icon").length, 1);
+  assert.equal(button.getAttribute("data-audio-state"), "on");
+  assert.equal(button.getAttribute("aria-label"), "Turn audio off");
+  assert.equal(button.getAttribute("title"), "Audio on");
 
   const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
-  assert.match(css, /\.audio-button \.audio-glyph,\s*\.audio-button \.audio-dot\s*\{/);
-  assert.match(
-    css,
-    /\.audio-button \.audio-glyph::before,\s*\.audio-button \.audio-dot::before\s*\{\s*content: "◉";/,
-  );
-});
-
-test("Plug-ins is current in both forms of the shared main menu", () => {
-  const doc = new FakeDocument();
-  const result = enhanceSharedNavigation(doc, {
-    currentHref: `${SITE_ROOT}plugins.html`,
-    siteRoot: SITE_ROOT,
-  });
-
-  assert.equal(result.activeTool, null);
-  assert.equal(result.activeSiteLink?.id, "plugins");
-
-  const currentDesktopLinks = doc.tabs.findAll(
-    (node) => node.tagName === "A" && node.getAttribute("aria-current") === "page",
-  );
-  assert.equal(currentDesktopLinks.length, 1);
-  assert.equal(currentDesktopLinks[0].textContent, "Plug-ins");
-
-  const selectedOptions = doc.select.findAll(
-    (node) => node.tagName === "OPTION" && node.selected,
-  );
-  assert.equal(selectedOptions.length, 1);
-  assert.equal(selectedOptions[0].textContent, "Plug-ins");
+  assert.match(css, /\.audio-button\s*\{[^}]*width: 44px;[^}]*height: 44px;/s);
+  assert.match(css, /\.audio-button > :not\(\.audio-speaker-icon\)\s*\{[^}]*display: none !important;/s);
+  assert.match(css, /\.audio-speaker-icon\s*\{[^}]*mask: url\("data:image\/svg\+xml/s);
+  assert.match(css, /\.audio-button\[aria-pressed="true"\]\s*\{[^}]*color: var\(--accent\);/s);
 });
 
 test("one header MIDI control owns connection and controller profile selection", async () => {
@@ -1107,6 +1154,37 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
   const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
   assert.match(
     css,
+    /@media \(max-width: 650px\)[\s\S]*?\.wordmark \{[\s\S]*?display: inline-flex;[\s\S]*?width: auto;[\s\S]*?flex: 0 0 auto;/,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 650px\)[\s\S]*?\.wordmark > span:last-child \{\s+display: inline;/,
+  );
+  assert.doesNotMatch(
+    css,
+    /@media \(min-width: 651px\) and \(max-width: 900px\)[\s\S]*?\.masthead\.has-midi-toolbar \.wordmark \{\s+display: none;/,
+  );
+  assert.doesNotMatch(css, /\.instrument-picker-info\s*\{/);
+  assert.doesNotMatch(css, /\.selected-instrument-info/);
+  assert.doesNotMatch(css, /\.instrument-picker-preview/);
+  assert.match(css, /\.instrument-picker-group-title\s*\{[^}]*position: sticky;[^}]*top: 0;/s);
+  assert.match(css, /\.instrument-picker-link\s*\{[^}]*padding: 5px 8px 5px 10px;[^}]*gap: 10px;/s);
+  assert.match(css, /\.instrument-picker-link-icon\s*\{[^}]*width: 24px;[^}]*height: 24px;[^}]*object-fit: contain;/s);
+  assert.match(css, /\.instrument-picker-link-label\s*\{[^}]*text-overflow: ellipsis;/s);
+  assert.doesNotMatch(css, /\.instrument-picker-link::before\s*\{/);
+  assert.match(css, /\.instrument-picker-row\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\);/s);
+  assert.match(css, /\.instrument-page-info\s*\{[^}]*padding: 20px;[^}]*border-top: 1px solid var\(--line-strong\);/s);
+  assert.match(
+    css,
+    /\.instrument-picker-card\s*\{[^}]*min-height: 0;[^}]*grid-template-rows: repeat\(4, auto\);/s,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 650px\)[\s\S]*?\.instrument-picker-panel \{[^}]*grid-template-rows:/s,
+  );
+  assert.doesNotMatch(css, /\.instrument-picker\.has-preview/);
+  assert.match(
+    css,
     /@media \(min-width: 651px\) and \(max-width: 900px\)[\s\S]+\.masthead\.has-midi-toolbar \.tabs\.tools-nav \+ \.mobile-instrument-nav/,
   );
   assert.match(
@@ -1115,7 +1193,7 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
   );
   assert.match(
     css,
-    /\.masthead\.has-midi-toolbar \.audio-strip \{\s+width: 100%;[\s\S]*?grid-template-columns: 56px minmax\(0, 1fr\);/,
+    /\.masthead\.has-midi-toolbar \.audio-strip \{\s+width: 100%;[\s\S]*?grid-template-columns: 44px minmax\(0, 1fr\);/,
   );
   assert.match(
     css,

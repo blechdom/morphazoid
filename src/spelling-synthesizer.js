@@ -280,8 +280,8 @@ function applyGesture(target, articulation, carrierVowel) {
   return target;
 }
 
-export function spellingEngine(name = "tube") {
-  return SPELLING_ENGINES[name] ? name : "tube";
+export function spellingEngine(name = "diphone") {
+  return SPELLING_ENGINES[name] ? name : "diphone";
 }
 
 export function spellingPersonality(name = "clear") {

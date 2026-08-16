@@ -52,6 +52,10 @@ const EXPECTED_UNITS = Object.freeze({
   ee: ["IY", "vowel"],
   oo: ["UW", "vowel"],
   oa: ["OW", "glide"],
+  ay: ["AY", "glide"],
+  er: ["ER", "vowel"],
+  uh: ["UH", "vowel"],
+  zh: ["ZH", "consonant"],
 });
 
 const EXPECTED_PAIR_ROUTES = Object.freeze({
@@ -214,7 +218,7 @@ function spectralProfile(samples, sampleRate) {
 }
 
 test("the atlas declares the exact English phone inventory and unit classes", () => {
-  assert.equal(Object.keys(SPELLING_DIPHONE_CLIPS).length, 39);
+  assert.equal(Object.keys(SPELLING_DIPHONE_CLIPS).length, 43);
   assert.deepEqual(
     Object.fromEntries(Object.entries(SPELLING_DIPHONE_CLIPS).map(([key, clip]) => (
       [key, [clip.phone, clip.kind]]
@@ -259,9 +263,21 @@ test("single letters and joined spellings select the intended atlas units", () =
     "",
     "the second gesture of a joined sample must not trigger it twice",
   );
+
+  for (const key of ["ay", "er", "uh", "zh"]) {
+    assert.equal(
+      spellingDiphoneClipKey({
+        character: "ignored",
+        articulation: "ignored",
+        sampleKey: key.toUpperCase(),
+      }),
+      key,
+      `${key.toUpperCase()} must be directly addressable by pronunciation phones`,
+    );
+  }
 });
 
-test("the 9.512-second KAL16 atlas has bounded, calibrated, separated clips", async () => {
+test("the 10.977-second KAL16 atlas has bounded, calibrated, separated clips", async () => {
   const { format, data } = await loadAtlas();
   assert.deepEqual(format, {
     encoding: 1,
@@ -271,8 +287,8 @@ test("the 9.512-second KAL16 atlas has bounded, calibrated, separated clips", as
   });
 
   const frameCount = data.length / 2;
-  assert.equal(frameCount, 152_193);
-  assert.equal(frameCount / format.sampleRate, 9.5120625);
+  assert.equal(frameCount, 175_635);
+  assert.equal(frameCount / format.sampleRate, 10.9771875);
 
   let previousEnd = 0;
   let coveredFrames = 0;
@@ -326,7 +342,10 @@ test("the 9.512-second KAL16 atlas has bounded, calibrated, separated clips", as
 });
 
 test("vowels and glides sustain while L and R remain short transitions", () => {
-  const longUnits = ["a", "e", "i", "o", "u", "ai", "au", "ei", "oi", "ou", "ee", "oo", "oa"];
+  const longUnits = [
+    "a", "e", "i", "o", "u", "ai", "au", "ei", "oi", "ou", "ee", "oo", "oa",
+    "ay", "er",
+  ];
   for (const key of longUnits) {
     const { duration, kind } = SPELLING_DIPHONE_CLIPS[key];
     assert.ok(kind === "vowel" || kind === "glide", `${key} must be sustainable`);
@@ -335,6 +354,14 @@ test("vowels and glides sustain while L and R remain short transitions", () => {
   for (const key of ["a", "e", "i", "o", "u"]) {
     assert.ok(SPELLING_DIPHONE_CLIPS[key].duration >= 0.49, `${key} needs about half a second`);
   }
+  assert.equal(SPELLING_DIPHONE_CLIPS.uh.phone, "UH");
+  assert.equal(SPELLING_DIPHONE_CLIPS.uh.kind, "vowel");
+  assert.ok(
+    SPELLING_DIPHONE_CLIPS.uh.duration >= 0.3,
+    "UH retains a usable sustained body even though KAL's source phone is shorter",
+  );
+  assert.equal(SPELLING_DIPHONE_CLIPS.zh.phone, "ZH");
+  assert.equal(SPELLING_DIPHONE_CLIPS.zh.kind, "consonant");
 
   const liquidDurations = ["l", "r"].map((key) => {
     const clip = SPELLING_DIPHONE_CLIPS[key];
@@ -347,6 +374,48 @@ test("vowels and glides sustain while L and R remain short transitions", () => {
     Math.max(...liquidDurations) * 2.5 < shortestSustain,
     "liquid transitions must remain materially shorter than sustained units",
   );
+});
+
+test("literal vowels expose phase-aligned loop bodies for held keys", async () => {
+  const { format, data } = await loadAtlas();
+  const sample = (frame) => data.readInt16LE(frame * 2) / 32_768;
+  for (const key of ["a", "e", "i", "o", "u"]) {
+    const clip = SPELLING_DIPHONE_CLIPS[key];
+    assert.ok(clip.sustainStart > 0, `${key} needs a sustain start`);
+    assert.ok(clip.sustainEnd < clip.duration, `${key} loop stays inside its clip`);
+    const start = Math.round((clip.offset + clip.sustainStart) * format.sampleRate);
+    const end = Math.round((clip.offset + clip.sustainEnd) * format.sampleRate);
+    assert.ok(end - start >= 480, `${key} loop spans at least three pitch periods`);
+    assert.ok(end - start <= 720, `${key} loop remains in one steady vowel region`);
+
+    const window = 160;
+    const windowRms = (center) => {
+      let energy = 0;
+      for (let frame = center - window; frame < center + window; frame += 1) {
+        const value = sample(frame);
+        energy += value * value;
+      }
+      return Math.sqrt(energy / (window * 2));
+    };
+    const startRms = windowRms(start);
+    const endRms = windowRms(end);
+    assert.ok(
+      Math.abs(startRms - endRms) / Math.max(startRms, endRms) < 0.08,
+      `${key} loop endpoints need similar energy`,
+    );
+
+    let derivativeEnergy = 0;
+    for (let frame = start + 1; frame < end; frame += 1) {
+      const derivative = sample(frame) - sample(frame - 1);
+      derivativeEnergy += derivative * derivative;
+    }
+    const derivativeRms = Math.sqrt(derivativeEnergy / Math.max(1, end - start - 1));
+    const seamStep = Math.abs(sample(start) - sample(end - 1));
+    assert.ok(
+      seamStep < derivativeRms * 0.12,
+      `${key} hard loop seam stays below ordinary waveform derivatives`,
+    );
+  }
 });
 
 test("broad spectra retain vowel, nasal, fricative, and affricate identities", async () => {
@@ -379,6 +448,8 @@ test("broad spectra retain vowel, nasal, fricative, and affricate identities", a
   }
   assert.ok(profile("sh").centroid > 2_800 && profile("sh").centroid < 4_200);
   assert.ok(profile("sh").highFraction > 0.45 && profile("sh").highFraction < 0.8);
+  assert.ok(profile("zh").centroid > 2_800 && profile("zh").centroid < 4_200);
+  assert.ok(profile("zh").highFraction > 0.4 && profile("zh").highFraction < 0.7);
   assert.ok(profile("s").centroid > profile("sh").centroid);
   assert.ok(profile("sh").centroid > profile("f").centroid);
 

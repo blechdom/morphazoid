@@ -10,6 +10,7 @@ import {
 } from "../src/l-system.js";
 import {
   L_SYSTEM_DRUM_MAPPING_MODES,
+  L_SYSTEM_DRUM_STYLES,
   advanceLSystemDrumTraversal,
   groupedLSystemDrumEvents,
   lSystemDrumEventForHead,
@@ -19,6 +20,7 @@ import {
   lSystemDrumTraversalStepSize,
   lSystemDrumVoiceIndex,
   mappedLSystemDrumVoice,
+  styledLSystemDrumVoice,
 } from "../src/l-system-drums.js";
 
 const root = new URL("../", import.meta.url);
@@ -167,6 +169,72 @@ test("bell voices become shorter and quieter L-system percussion", () => {
   assert.equal(bell.decay, 1.8);
 });
 
+test("signed turn angles add scalable pitch and character", () => {
+  const base = DEFAULT_FM_DRUM_VOICES.find(({ id }) => id === "low-tom");
+  const event = {
+    normalizedY: 0.5,
+    turn: Math.PI / 4,
+    depth: 0,
+    maxForkDepth: 1,
+  };
+  const positive = mappedLSystemDrumVoice(base, event, {
+    pitchDepth: 0,
+    anglePitchDepth: 12,
+    angleRange: 45,
+    characterDepth: 1,
+  });
+  const negative = mappedLSystemDrumVoice(base, { ...event, turn: -Math.PI / 4 }, {
+    pitchDepth: 0,
+    anglePitchDepth: 12,
+    angleRange: 45,
+    characterDepth: 1,
+  });
+  const wide = mappedLSystemDrumVoice(base, event, {
+    pitchDepth: 0,
+    anglePitchDepth: 12,
+    angleRange: 180,
+    characterDepth: 1,
+  });
+
+  assert.ok(Math.abs(positive.frequency - base.frequency * 2) < 1e-8);
+  assert.ok(Math.abs(negative.frequency - base.frequency / 2) < 1e-8);
+  assert.ok(Math.abs(wide.frequency - base.frequency * (2 ** 0.25)) < 1e-8);
+  assert.ok(positive.modIndex > wide.modIndex);
+});
+
+test("percussion palettes preserve angle pitch while changing synthesis character", () => {
+  const base = DEFAULT_FM_DRUM_VOICES.find(({ id }) => id === "low-tom");
+  const angled = mappedLSystemDrumVoice(base, {
+    normalizedY: 0.5,
+    turn: Math.PI / 3,
+    depth: 1,
+    maxForkDepth: 3,
+  }, {
+    pitchDepth: 0,
+    anglePitchDepth: 18,
+    angleRange: 60,
+    characterDepth: 0.8,
+  });
+
+  assert.deepEqual(
+    L_SYSTEM_DRUM_STYLES.map(({ id }) => id),
+    ["drum-bank", "circuit", "rattlesnake", "resonant-metal"],
+  );
+  for (const style of L_SYSTEM_DRUM_STYLES) {
+    const voice = styledLSystemDrumVoice(angled, { style: style.id });
+    assert.equal(voice.frequency, angled.frequency, `${style.label} should preserve angle pitch`);
+    assert.ok(voice.attack >= 0.001 && voice.attack <= 0.25);
+    assert.ok(voice.decay >= 0.035 && voice.decay <= 3);
+    assert.ok(voice.noise >= 0 && voice.noise <= 1);
+    assert.ok(voice.level >= 0 && voice.level <= 1);
+  }
+  const rattle = styledLSystemDrumVoice(angled, { style: "rattlesnake" });
+  assert.equal(rattle.family, "rattle");
+  assert.match(rattle.name, /^Rattle /);
+  assert.ok(rattle.noise > angled.noise);
+  assert.equal(base.family, "tom", "palette transforms must not mutate the drum bank");
+});
+
 function linearDrumTrace() {
   return {
     ...traceLSystem({ axiom: "F+F+F", angle: 90 }),
@@ -284,7 +352,10 @@ test("L-System Drum Machine copies the L-system controls into a compact drum pag
     "turnAsymmetry",
     "lengthScale",
     "mappingMode",
+    "percussionStyle",
     "pitchDepth",
+    "anglePitchDepth",
+    "angleRange",
     "characterDepth",
     "drumMap",
     "mappingReadout",
@@ -293,7 +364,14 @@ test("L-System Drum Machine copies the L-system controls into a compact drum pag
     assert.match(html, new RegExp(`id="${id}"`), `missing ${id}`);
   }
   assert.match(html, /id="mappingMode"[\s\S]*Depth × turn/);
+  assert.match(html, /id="percussionStyle"[\s\S]*Rattlesnake[\s\S]*Resonant metal/);
+  assert.ok(
+    html.indexOf('id="systemSection"') < html.indexOf('id="structureSection"'),
+    "System should appear above Structure",
+  );
   assert.match(html, /id="subdivisions"[\s\S]*min="1"[\s\S]*max="16"[\s\S]*value="4"/);
+  assert.match(html, /id="anglePitchDepth"[\s\S]*max="36"[\s\S]*value="12"/);
+  assert.match(html, /id="angleRange"[\s\S]*min="15"[\s\S]*max="360"[\s\S]*value="90"/);
   assert.match(html, /class="l-system-mapping-readout"[^>]*aria-label="Latest drum mapping"[^>]*aria-live="off"/);
   assert.match(html, /href="l-system-drums\.html" aria-current="page"/);
   assert.match(html, /src="l-system-drums-app\.js"/);
@@ -308,4 +386,10 @@ test("L-System Drum Machine copies the L-system controls into a compact drum pag
   assert.match(app, /lSystemDrumTraversalStepSize/);
   assert.match(app, /groupedLSystemDrumEvents/);
   assert.match(app, /mappedLSystemDrumVoice/);
+  assert.match(app, /styledLSystemDrumVoice/);
+  assert.match(app, /anglePitchDepth: state\.anglePitchDepth/);
+  assert.match(app, /angleRange: state\.angleRange/);
+  assert.match(app, /state\.audio && audio\.context\?\.state === "running"/);
+  assert.match(app, /pagehide[\s\S]+setAudioUi\(false\)[\s\S]+audio\.close\(\)/);
+  assert.match(app, /pageshow[\s\S]+event\.persisted[\s\S]+setAudioUi\(false\)/);
 });

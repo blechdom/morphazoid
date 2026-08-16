@@ -104,7 +104,7 @@ export class FmDrumAudio {
       this.analyser.connect(context.destination);
       this.input = compressor;
     }
-    if (context.state === "suspended") {
+    if (context.state !== "running") {
       unlockAudioContext(context);
       await context.resume();
     }
@@ -150,11 +150,17 @@ export class FmDrumAudio {
     amplitude.gain.exponentialRampToValueAtTime(.0001, now + voice.attack + voice.decay);
 
     const filter = context.createBiquadFilter();
-    filter.type = voice.family === "hat" ? "highpass" : "lowpass";
+    filter.type = voice.family === "hat"
+      ? "highpass"
+      : voice.family === "rattle"
+        ? "bandpass"
+        : "lowpass";
     filter.frequency.value = voice.family === "hat"
       ? 2_200 + voice.tone * 5_000
-      : 550 + voice.tone * 11_500;
-    filter.Q.value = voice.family === "metal" ? 2.6 : .75;
+      : voice.family === "rattle"
+        ? clamp(voice.frequency * 5, 480, 12_000)
+        : 550 + voice.tone * 11_500;
+    filter.Q.value = voice.family === "rattle" ? 4.2 : voice.family === "metal" ? 2.6 : .75;
     amplitude.connect(filter);
     filter.connect(this.input);
 
@@ -162,7 +168,7 @@ export class FmDrumAudio {
     const modulator = context.createOscillator();
     const modulation = context.createGain();
     const base = voice.frequency;
-    carrier.type = ["hat", "metal"].includes(voice.family) ? "square" : "sine";
+    carrier.type = ["hat", "metal", "rattle"].includes(voice.family) ? "square" : "sine";
     modulator.type = voice.family === "bell" ? "sine" : "triangle";
     carrier.frequency.setValueAtTime(
       clamp(base * Math.max(.15, 1 + voice.pitchBend), 20, 16_000),
@@ -198,17 +204,35 @@ export class FmDrumAudio {
     const noise = context.createBufferSource();
     const amplitude = context.createGain();
     const filter = context.createBiquadFilter();
-    filter.type = voice.family === "kick" ? "bandpass" : "highpass";
-    filter.frequency.value = voice.family === "kick" ? 900 : 900 + voice.tone * 7_200;
-    filter.Q.value = voice.family === "snare" ? .7 : 1.8;
+    filter.type = ["kick", "rattle"].includes(voice.family) ? "bandpass" : "highpass";
+    filter.frequency.value = voice.family === "kick"
+      ? 900
+      : voice.family === "rattle"
+        ? clamp(voice.frequency * 6, 520, 13_000)
+        : 900 + voice.tone * 7_200;
+    filter.Q.value = voice.family === "rattle" ? 5.2 : voice.family === "snare" ? .7 : 1.8;
     amplitude.gain.setValueAtTime(.0001, now);
-    amplitude.gain.linearRampToValueAtTime(voice.noise * voice.level, now + voice.attack);
-    if (voice.id === "wide-clap") {
+    if (voice.family === "rattle") {
+      const pulseCount = Math.max(4, Math.min(10, Math.round(voice.decay / 0.02)));
+      const spacing = voice.decay / pulseCount;
+      for (let pulse = 0; pulse < pulseCount; pulse += 1) {
+        const pulseAt = now + voice.attack + pulse * spacing;
+        const pulseLevel = voice.noise * voice.level * (1 - pulse / (pulseCount * 1.7));
+        amplitude.gain.setValueAtTime(.0001, pulseAt);
+        amplitude.gain.linearRampToValueAtTime(pulseLevel, pulseAt + 0.002);
+        amplitude.gain.exponentialRampToValueAtTime(.0001, pulseAt + spacing * 0.72);
+      }
+    } else {
+      amplitude.gain.linearRampToValueAtTime(voice.noise * voice.level, now + voice.attack);
+    }
+    if (voice.id === "wide-clap" && voice.family !== "rattle") {
       amplitude.gain.setValueAtTime(voice.noise * voice.level, now + .022);
       amplitude.gain.setValueAtTime(.04, now + .032);
       amplitude.gain.setValueAtTime(voice.noise * voice.level * .72, now + .047);
     }
-    amplitude.gain.exponentialRampToValueAtTime(.0001, now + voice.attack + voice.decay);
+    if (voice.family !== "rattle") {
+      amplitude.gain.exponentialRampToValueAtTime(.0001, now + voice.attack + voice.decay);
+    }
     noise.buffer = buffer;
     noise.connect(filter);
     filter.connect(amplitude);

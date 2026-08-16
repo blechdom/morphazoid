@@ -44,7 +44,7 @@
 .l-system-map-legend span {
   display: grid;
   min-width: 0;
-  min-height: 49px;
+  min-height: 58px;
   padding: 7px 5px;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -55,8 +55,9 @@
 .l-system-map-legend b,
 .l-system-map-legend small {
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .l-system-map-legend b {
@@ -84,7 +85,7 @@
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: 42px;
+  min-height: 56px;
   padding: 6px;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -110,20 +111,25 @@
 .l-system-drum-cell small {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .l-system-drum-cell b {
+  display: -webkit-box;
   color: var(--ink);
   font-size: 7px;
   font-weight: 600;
-  letter-spacing: -.01em;
+  letter-spacing: 0;
+  line-height: 1.15;
   text-transform: uppercase;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .l-system-drum-cell small {
   color: var(--voice-color);
   font-size: 7px;
+  white-space: nowrap;
 }
 
 .l-system-drum-cell:hover,

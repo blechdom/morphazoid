@@ -425,8 +425,8 @@ function mappingOriginText() {
   const strikeOrigin = state.sides === 1
     ? "Circles have no sides, so subdivisions are inactive."
     : state.sides === 2
-      ? "Side 1 begins at marker 1 and follows the open line."
-      : "Side 1 begins at marker 1 and follows the contour clockwise.";
+      ? "Side 1 begins at the start marker and follows the open line."
+      : "Side 1 begins at the start marker and follows the contour clockwise.";
   if (state.mappingMode === "position-grid") {
     return `Voice-grid origin is upper-left; rows run down and columns run right. ${strikeOrigin}`;
   }
@@ -597,18 +597,29 @@ function drawShape(path, transform) {
   if (origin) {
     const x = transform.x(origin.x);
     const y = transform.y(origin.y);
+    const dx = x - transform.centerX;
+    const dy = y - transform.centerY;
+    const distance = Math.hypot(dx, dy) || 1;
+    const nx = dx / distance;
+    const ny = dy / distance;
+    drawing.save();
     drawing.beginPath();
     drawing.arc(x, y, 7, 0, TAU);
     drawing.strokeStyle = "rgba(255, 243, 214, .88)";
     drawing.lineWidth = 1;
     drawing.stroke();
-    if (typeof drawing.fillText === "function") {
-      drawing.fillStyle = "#fff3d6";
-      drawing.font = "8px ui-monospace, monospace";
-      drawing.textAlign = "left";
-      drawing.textBaseline = "bottom";
-      drawing.fillText("1", x + 6, y - 5);
-    }
+    drawing.beginPath();
+    drawing.moveTo(x + nx * 8.5, y + ny * 8.5);
+    drawing.lineTo(x + nx * 13, y + ny * 13);
+    drawing.strokeStyle = "rgba(255, 243, 214, .74)";
+    drawing.lineWidth = 1.5;
+    drawing.lineCap = "round";
+    drawing.stroke();
+    drawing.beginPath();
+    drawing.arc(x + nx * 13, y + ny * 13, 1.8, 0, TAU);
+    drawing.fillStyle = "#fff3d6";
+    drawing.fill();
+    drawing.restore();
   }
 }
 

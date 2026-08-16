@@ -119,6 +119,138 @@ test("FM drum audio recreates a context after page lifecycle closure", async () 
   assert.equal(contextCount, 3);
 });
 
+test("FM drum audio resumes an interrupted context from a user gesture", async () => {
+  let resumeCount = 0;
+  const node = (properties = {}) => ({
+    ...properties,
+    connect(destination) {
+      return destination;
+    },
+  });
+  class InterruptedContext {
+    constructor() {
+      this.state = "interrupted";
+      this.destination = node();
+    }
+
+    createDynamicsCompressor() {
+      return node({
+        threshold: {}, knee: {}, ratio: {}, attack: {}, release: {},
+      });
+    }
+
+    createGain() {
+      return node({ gain: { value: 0 } });
+    }
+
+    createAnalyser() {
+      return node({ fftSize: 0 });
+    }
+
+    async resume() {
+      resumeCount += 1;
+      this.state = "running";
+    }
+  }
+
+  const audio = new FmDrumAudio({ AudioContext: InterruptedContext });
+  const context = await audio.start();
+  assert.equal(resumeCount, 1);
+  assert.equal(context.state, "running");
+});
+
+test("FM drum audio gives rattles a pitched bandpass and repeated noise strikes", async () => {
+  const gainEvents = [];
+  const filters = [];
+  const audioParam = (value = 0) => ({
+    value,
+    setValueAtTime(next, time) {
+      this.value = next;
+      gainEvents.push({ method: "set", value: next, time });
+    },
+    linearRampToValueAtTime(next, time) {
+      this.value = next;
+      gainEvents.push({ method: "linear", value: next, time });
+    },
+    exponentialRampToValueAtTime(next, time) {
+      this.value = next;
+      gainEvents.push({ method: "exponential", value: next, time });
+    },
+    setTargetAtTime(next) {
+      this.value = next;
+    },
+  });
+  const node = (properties = {}) => ({
+    ...properties,
+    connect(destination) {
+      return destination;
+    },
+  });
+  class RattleContext {
+    constructor() {
+      this.state = "running";
+      this.currentTime = 1;
+      this.sampleRate = 1_000;
+      this.destination = node();
+    }
+
+    createDynamicsCompressor() {
+      return node({
+        threshold: {}, knee: {}, ratio: {}, attack: {}, release: {},
+      });
+    }
+
+    createGain() {
+      return node({ gain: audioParam() });
+    }
+
+    createAnalyser() {
+      return node({ fftSize: 0 });
+    }
+
+    createBiquadFilter() {
+      const filter = node({ type: "", frequency: audioParam(), Q: audioParam() });
+      filters.push(filter);
+      return filter;
+    }
+
+    createOscillator() {
+      return node({
+        type: "sine",
+        frequency: audioParam(),
+        start() {},
+        stop() {},
+      });
+    }
+
+    createBuffer(channels, frameCount) {
+      return { getChannelData: () => new Float32Array(frameCount) };
+    }
+
+    createBufferSource() {
+      return node({ start() {}, stop() {}, buffer: null });
+    }
+  }
+
+  const audio = new FmDrumAudio({ AudioContext: RattleContext });
+  const voice = await audio.trigger({
+    ...DEFAULT_FM_DRUM_VOICES[4],
+    family: "rattle",
+    frequency: 220,
+    decay: 0.2,
+    noise: 0.9,
+  });
+  assert.equal(voice.family, "rattle");
+  assert.equal(filters.length, 2);
+  assert.ok(filters.every(({ type }) => type === "bandpass"));
+  assert.equal(filters[0].frequency.value, 1_100);
+  assert.equal(filters[1].frequency.value, 1_320);
+  assert.ok(
+    gainEvents.filter(({ method }) => method === "linear").length >= 4,
+    "the noise layer should contain several individual rattle strikes",
+  );
+});
+
 test("FM drum audio cancels a suspended start when page lifecycle closure wins", async () => {
   let resolveResume;
   const resumeGate = new Promise((resolve) => {

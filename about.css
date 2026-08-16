@@ -29,12 +29,10 @@
   display: grid;
   padding-bottom: clamp(34px, 5vw, 64px);
   border-bottom: 1px solid var(--line-strong);
-  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.6fr);
-  gap: clamp(28px, 6vw, 84px);
+  grid-template-columns: minmax(0, 760px);
 }
 
 .about-kicker,
-.manual-index-label,
 .manual-section-label {
   margin: 0 0 10px;
   color: var(--accent);
@@ -59,67 +57,6 @@
   color: color-mix(in oklab, var(--ink) 88%, var(--muted));
   font-size: 16px;
   line-height: 1.7;
-}
-
-.about-summary {
-  align-self: end;
-  margin: 0;
-  border-top: 1px solid var(--line-strong);
-}
-
-.about-summary div {
-  display: grid;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
-  grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.2fr);
-  gap: 16px;
-}
-
-.about-summary dt,
-.about-summary dd {
-  margin: 0;
-}
-
-.about-summary dt {
-  color: var(--muted);
-  font-size: 10px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.about-summary dd {
-  color: var(--ink);
-  font-size: 11px;
-  text-align: right;
-}
-
-.manual-index {
-  padding: 26px 0;
-  border-bottom: 1px solid var(--line-strong);
-}
-
-.manual-index nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.manual-index a {
-  display: inline-flex;
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--line-strong);
-  color: var(--muted);
-  align-items: center;
-  font-size: 10px;
-  letter-spacing: 0.045em;
-  text-decoration: none;
-}
-
-.manual-index a:hover {
-  border-color: var(--accent-soft);
-  color: var(--accent);
-  background: color-mix(in oklab, var(--accent) 5%, transparent);
 }
 
 .manual-section {
@@ -149,20 +86,7 @@
 }
 
 .catalogue-manual-section .manual-section-heading {
-  display: grid;
   max-width: 760px;
-  grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
-  align-items: end;
-  gap: 12px 48px;
-}
-
-.catalogue-manual-section .manual-section-label {
-  grid-column: 1 / -1;
-}
-
-.catalogue-manual-section .manual-section-note {
-  max-width: none;
-  margin: 0;
 }
 
 .manual-section-note {
@@ -309,27 +233,12 @@
     display: none;
   }
 
-  .about-intro,
   .manual-section {
     grid-template-columns: 1fr;
   }
 
   .about-intro h1 {
     font-size: 46px;
-  }
-
-  .catalogue-manual-section .manual-section-heading {
-    grid-template-columns: 1fr;
-    align-items: start;
-    gap: 0;
-  }
-
-  .catalogue-manual-section .manual-section-note {
-    margin-top: 14px;
-  }
-
-  .about-summary {
-    max-width: 420px;
   }
 
   .manual-section-note {

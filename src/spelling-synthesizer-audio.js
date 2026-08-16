@@ -138,6 +138,20 @@ function envelope(parameter, {
   parameter.linearRampToValueAtTime?.(MIN_GAIN, end);
 }
 
+function sustainedEnvelope(parameter, {
+  at,
+  peak,
+  attack,
+} = {}) {
+  if (!parameter) return;
+  const start = finite(at);
+  const attackSeconds = Math.max(0.002, finite(attack, 0.012));
+  const peakGain = Math.max(MIN_GAIN, finite(peak, 0.2));
+  hold(parameter, start, MIN_GAIN);
+  parameter.setValueAtTime?.(Math.max(MIN_GAIN, finite(parameter.value, MIN_GAIN)), start);
+  parameter.linearRampToValueAtTime?.(peakGain, start + attackSeconds);
+}
+
 function configureCompressor(node, audio, { vocoder = false } = {}) {
   const at = audio.currentTime;
   node.threshold?.setValueAtTime?.(vocoder ? -10 : -17, at);
@@ -392,6 +406,14 @@ class TubeSpellingEngine {
     }
   }
 
+  durationMs(event) {
+    const dynamics = event?.dynamics ?? {};
+    return Math.max(
+      0,
+      finite(dynamics.durationMs) + finite(dynamics.releaseMs) + 18,
+    );
+  }
+
   articulate(event) {
     if (!this.running || !event?.performance) return false;
     this.clearTimers();
@@ -405,6 +427,7 @@ class TubeSpellingEngine {
     smooth(this.pulseGain.gain, MIN_GAIN, now, 0.002);
     smooth(this.breathGain.gain, MIN_GAIN, now, 0.002);
     const manner = performance.articulationManner;
+    const sustainedVowel = Boolean(event.sustain && manner === "vowel");
     const ksCluster = performance.phoneme === "x";
     const affricate = manner === "affricate";
     const ksPerformance = ksCluster
@@ -426,7 +449,8 @@ class TubeSpellingEngine {
       }
       : performance;
     this.configure(initialPerformance, true);
-    envelope(this.pulseGain.gain, {
+    const shapeEnvelope = sustainedVowel ? sustainedEnvelope : envelope;
+    shapeEnvelope(this.pulseGain.gain, {
       at: now,
       peak: performance.exciterIntensity
         * (0.18 + performance.exciterTenseness * 0.31)
@@ -436,7 +460,7 @@ class TubeSpellingEngine {
       duration,
       release,
     });
-    envelope(this.breathGain.gain, {
+    shapeEnvelope(this.breathGain.gain, {
       at: now,
       peak: performance.exciterIntensity
         * (performance.exciterBreath + (1 - performance.articulationVoicing) * 0.42)
@@ -497,11 +521,13 @@ class TubeSpellingEngine {
         this.configure(event.carrierPerformance, true);
       }, transitionDelay) ?? 0;
     }
-    this.silenceTimer = this.runtime.setTimeout?.(() => {
-      this.silenceTimer = 0;
-      if (this.currentEvent !== event) return;
-      this.configure(event.carrierPerformance ?? performance, false);
-    }, dynamics.durationMs + dynamics.releaseMs + 18) ?? 0;
+    if (!sustainedVowel) {
+      this.silenceTimer = this.runtime.setTimeout?.(() => {
+        this.silenceTimer = 0;
+        if (this.currentEvent !== event) return;
+        this.configure(event.carrierPerformance ?? performance, false);
+      }, dynamics.durationMs + dynamics.releaseMs + 18) ?? 0;
+    }
     return true;
   }
 
@@ -750,30 +776,69 @@ class DiphoneSpellingEngine {
     }
   }
 
+  playbackTiming(event) {
+    const key = spellingDiphoneClipKey(event);
+    if (!key) return null;
+    const clip = SPELLING_DIPHONE_CLIPS[key];
+    if (!clip) return null;
+    const dynamics = event?.dynamics ?? {};
+    const sustainedVowel = Boolean(
+      event?.sustain
+      && clip.kind === "vowel"
+      && clip.sustainEnd > clip.sustainStart,
+    );
+    const tempoPitchCents = clamp(finite(dynamics.pitchCents), -18, 18);
+    const playbackRate = this.vocoder ? 1 : 2 ** (tempoPitchCents / 1_200);
+    const vowelMinimum = event?.wordSpeech ? 0.1 : 0.26;
+    const vowelMaximum = event?.wordSpeech ? 0.22 : 0.52;
+    const requestedDuration = clip.kind === "glide"
+      ? clip.duration
+      : clip.kind === "vowel"
+        ? clamp(finite(dynamics.durationMs) / 1_000, vowelMinimum, vowelMaximum)
+        : clip.duration;
+    const sourceDuration = clip.kind === "vowel"
+      ? Math.min(clip.duration, requestedDuration * playbackRate)
+      : clip.duration;
+    return {
+      key,
+      clip,
+      sustainedVowel,
+      playbackRate,
+      sourceDuration,
+      actualDuration: sourceDuration / playbackRate,
+    };
+  }
+
+  durationMs(event) {
+    return (this.playbackTiming(event)?.actualDuration ?? 0) * 1_000;
+  }
+
   articulate(event) {
     if (!this.running || !event?.performance) return false;
-    const key = spellingDiphoneClipKey(event);
-    if (!key) return Boolean(event?.pair && Number(event.pairStepIndex) > 0);
-    const clip = SPELLING_DIPHONE_CLIPS[key];
-    if (!clip) return false;
+    const timing = this.playbackTiming(event);
+    if (!timing) return Boolean(event?.pair && Number(event.pairStepIndex) > 0);
+    const {
+      clip,
+      sustainedVowel,
+      playbackRate,
+      sourceDuration,
+      actualDuration,
+    } = timing;
     const { performance, dynamics } = event;
     const personality = personalityFor(event);
     const now = this.context.currentTime;
     const source = this.context.createBufferSource();
     const eventGain = this.context.createGain();
     this.fadeActive(now, this.vocoder ? 0.007 : 0.02);
-    // Resampling shifts the voice's formants along with pitch. Keep the KAL16
-    // phones at their measured spectrum; typing timing controls duration instead.
-    const playbackRate = 1;
-    const requestedDuration = clip.kind === "glide"
-      ? clip.duration
-      : clip.kind === "vowel"
-        ? clamp(dynamics.durationMs / 1_000, 0.26, 0.52)
-        : clip.duration;
-    const sourceDuration = Math.min(clip.duration, requestedDuration * playbackRate);
-    const actualDuration = sourceDuration / playbackRate;
+    // Keep the sample voice close to its measured formants while allowing a
+    // deliberately small amount of typing prosody: never more than 18 cents.
     source.buffer = this.buffer;
     source.playbackRate.value = playbackRate;
+    source.loop = sustainedVowel;
+    if (sustainedVowel) {
+      source.loopStart = clip.offset + clip.sustainStart;
+      source.loopEnd = clip.offset + clip.sustainEnd;
+    }
     eventGain.gain.value = MIN_GAIN;
     connect(source, eventGain);
     connect(eventGain, this.sourceBus);
@@ -783,7 +848,8 @@ class DiphoneSpellingEngine {
       now,
       0.014,
     );
-    envelope(eventGain.gain, {
+    const shapeEnvelope = sustainedVowel ? sustainedEnvelope : envelope;
+    shapeEnvelope(eventGain.gain, {
       at: now,
       peak: clip.gain * clamp(0.68 + dynamics.emphasis * 0.38, 0.58, 1.08),
       attack: 0.002,
@@ -807,7 +873,8 @@ class DiphoneSpellingEngine {
       try { eventGain.disconnect?.(); } catch {}
     };
     try {
-      source.start(now, clip.offset, sourceDuration);
+      if (sustainedVowel) source.start(now, clip.offset);
+      else source.start(now, clip.offset, sourceDuration);
       this.active.add(active);
     } catch {
       source.onended = null;
@@ -892,7 +959,7 @@ class DiphoneSpellingEngine {
 export class SpellingSynthesizerAudio {
   constructor({
     runtime = globalThis,
-    engine = "tube",
+    engine = "diphone",
     level = 0.46,
     onFallback = null,
   } = {}) {
@@ -972,6 +1039,10 @@ export class SpellingSynthesizerAudio {
     this.level = clamp(value, 0, 0.82);
     for (const backend of Object.values(this.backends)) backend.setLevel(this.level);
     return this.level;
+  }
+
+  durationMs(event) {
+    return this.backends[this.engineName]?.durationMs?.(event) ?? 0;
   }
 
   articulate(event) {

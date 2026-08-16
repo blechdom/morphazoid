@@ -248,6 +248,8 @@ test("Shape Drum Machine keeps Shape controls and the compact shared FM drum ban
   assert.match(app, /reversedShapeHeadState/);
   assert.match(app, /shapeSideSubdivision/);
   assert.match(app, /shapeDrumEventToken\(/);
+  assert.match(app, /start marker/);
+  assert.doesNotMatch(app, /fillText\(\s*["']1["']/);
   assert.match(app, /limitShapeDrumHits\(candidates, state\.strikeLimit\)/);
   assert.match(app, /subdivision < state\.sideSubdivisions/);
   assert.doesNotMatch(app, /held by the/);

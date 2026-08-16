@@ -62,9 +62,7 @@
     <main class="spelling-shell" id="spellingSynthesizer">
       <section class="spelling-composer" aria-labelledby="spellingTitle">
         <header class="spelling-heading">
-          <p>VOICE INSTRUMENT · LETTER BY LETTER</p>
           <h1 id="spellingTitle">Spelling Synthesizer</h1>
-          <span>It does not wait for a word. Every letter moves the voice.</span>
         </header>
 
         <div class="spelling-voice-stage" id="voiceStage" aria-hidden="true">
@@ -80,16 +78,9 @@
           </div>
         </div>
 
-        <div class="spelling-readouts" aria-hidden="true">
-          <span><b>PACE</b><output id="paceOut">waiting</output></span>
-          <span><b>EMPHASIS</b><i><b id="emphasisBar"></b></i><output id="emphasisOut">24%</output></span>
-          <span><b>ENGINE</b><output id="stageEngineOut">BELLAZOID</output></span>
-        </div>
-
         <label class="spelling-input-wrap" for="spellingInput">
           <span class="spelling-input-label">
             <b>Type into the voice</b>
-            <small id="characterCount">0 characters</small>
           </span>
           <textarea
             id="spellingInput"
@@ -98,31 +89,18 @@
             autocapitalize="sentences"
             autocomplete="off"
             maxlength="1600"
-            aria-describedby="spellingHelp"
             placeholder="Start typing…"
             autofocus
           ></textarea>
         </label>
 
         <div class="spelling-underbar">
-          <div class="spelling-underbar-copy">
-            <p id="spellingHelp">
-              Most letters sound immediately. A brief lookahead catches TH, SH, CH, PH, NG, CK,
-              QU, WH, soft C/G, and vowel pairs. These are phonics gestures rather than dictionary
-              pronunciation. Space rests the voice.
-            </p>
-            <small id="readbackHelp">
-              Whole-text readback uses your browser’s speech voice. Typing interrupts it, then it
-              continues when you pause.
-            </small>
-          </div>
           <div class="spelling-transport">
             <button
               class="mini-action is-readback"
               id="readbackButton"
               type="button"
               aria-pressed="false"
-              aria-describedby="readbackHelp"
             >Read it back to me</button>
             <button class="mini-action" id="readbackStartOver" type="button" hidden>Start over</button>
             <button class="mini-action" id="clearButton" type="button">Clear text</button>
@@ -138,13 +116,13 @@
         <section class="spelling-control-block" aria-labelledby="engineLabel">
           <header>
             <span><b id="engineLabel">Synth engine</b><small>one interface, three synthesis models</small></span>
-            <output id="engineIndex">01 / 03</output>
+            <output id="engineIndex">02 / 03</output>
           </header>
           <div class="spelling-engine-buttons" id="engineButtons" role="group" aria-labelledby="engineLabel">
-            <button type="button" data-engine="tube" aria-pressed="true">
+            <button type="button" data-engine="tube" aria-pressed="false">
               <i aria-hidden="true">01</i><span><b>Bellazoid</b><small>Daisy lineage · 44-section tract</small></span>
             </button>
-            <button type="button" data-engine="diphone" aria-pressed="false">
+            <button type="button" data-engine="diphone" aria-pressed="true">
               <i aria-hidden="true">02</i><span><b>KAL samples</b><small>long vowels · compact phone units</small></span>
             </button>
             <button type="button" data-engine="vocoder" aria-pressed="false">
@@ -152,9 +130,9 @@
             </button>
           </div>
           <div class="spelling-engine-note">
-            <b id="engineTitle">Bellazoid tract</b>
-            <span id="engineLineage">Daisy Bell lineage · 44-section tract</span>
-            <p id="engineDescription">A living 44-section vocal tract in the Kelly–Lochbaum tradition, shaped for Morphazoid.</p>
+            <b id="engineTitle">KAL phone samples</b>
+            <span id="engineLineage">CMU Flite KAL16 · phone and pair atlas</span>
+            <p id="engineDescription">Long vowel bodies and compact consonant and joined-pair units rendered from Flite's KAL16 diphone voice.</p>
           </div>
         </section>
 

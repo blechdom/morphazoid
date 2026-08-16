@@ -53,9 +53,12 @@ test("site builder publishes runtime files without development material", async 
       "src/spelling-synthesizer.js",
       "src/spelling-synthesizer-audio.js",
       "src/spelling-diphone-atlas.js",
+      "src/spelling-pronunciation.js",
       "src/spelling-vocoder-processor.js",
       "assets/audio/spelling-diphone-kal16.wav",
       "assets/instruments/spelling-synthesizer.webp",
+      "vendor/cmudict/cmudict-en-us.dict",
+      "vendor/cmudict/LICENSE",
       "plugins.html",
       "plugins.css",
       "plugins-app.js",
@@ -238,6 +241,11 @@ test("site builder publishes runtime files without development material", async 
       publishedNotices,
       /CMU Flite \/ KAL16 diphone voice/,
       "the packaged sample atlas must travel with its full third-party notice",
+    );
+    assert.match(
+      publishedNotices,
+      /PocketSphinx English pronunciation dictionary/,
+      "the packaged pronunciation dictionary must travel with its full third-party notice",
     );
 
     for (const path of [

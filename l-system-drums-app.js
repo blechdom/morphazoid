@@ -13,6 +13,7 @@ import {
 } from "./src/l-system.js";
 import {
   L_SYSTEM_DRUM_MAPPING_MODES,
+  L_SYSTEM_DRUM_STYLES,
   advanceLSystemDrumTraversal,
   groupedLSystemDrumEvents,
   lSystemDrumEventsForTraversal,
@@ -20,6 +21,7 @@ import {
   lSystemDrumTraversalStepSize,
   lSystemDrumVoiceIndex,
   mappedLSystemDrumVoice,
+  styledLSystemDrumVoice,
 } from "./src/l-system-drums.js";
 
 const $ = (id) => document.getElementById(id);
@@ -48,12 +50,16 @@ const DEFAULT_L_SYSTEM_DRUM_STATE = Object.freeze({
   output: 0.62,
   subdivisions: 4,
   mappingMode: "branch-depth-turn",
+  percussionStyle: "drum-bank",
   pitchDepth: 12,
+  anglePitchDepth: 12,
+  angleRange: 90,
   characterDepth: 0.72,
 });
 
 const presetById = new Map(L_SYSTEM_PRESETS.map((preset) => [preset.id, preset]));
 const mappingById = new Map(L_SYSTEM_DRUM_MAPPING_MODES.map((mode) => [mode.id, mode]));
+const styleById = new Map(L_SYSTEM_DRUM_STYLES.map((style) => [style.id, style]));
 const audio = new FmDrumAudio(globalThis);
 const state = { ...DEFAULT_L_SYSTEM_DRUM_STATE };
 const voices = loadDrumBank();
@@ -163,6 +169,8 @@ bindRange("subdivisions", "subdivisions", (value) => String(lSystemDrumSubdivisi
   paintMapping();
 });
 bindRange("pitchDepth", "pitchDepth", (value) => `${Math.round(value)} st`);
+bindRange("anglePitchDepth", "anglePitchDepth", (value) => `${Math.round(value)} st`);
+bindRange("angleRange", "angleRange", (value) => `±${Math.round(value)}°`);
 bindRange("characterDepth", "characterDepth", (value) => `${Math.round(value * 100)}%`);
 
 function traversalSpeedFromSlider(position) {
@@ -377,6 +385,10 @@ function mappingLabel() {
   return mode.label.toLowerCase();
 }
 
+function percussionStyle() {
+  return styleById.get(state.percussionStyle) ?? L_SYSTEM_DRUM_STYLES[0];
+}
+
 function paintMapping() {
   const mode = mappingById.get(state.mappingMode) ?? L_SYSTEM_DRUM_MAPPING_MODES[0];
   $("mappingMode").value = mode.id;
@@ -386,6 +398,7 @@ function paintMapping() {
     $(`mappingLegendDetail${index}`).textContent = entry.detail;
   });
   $("drumMap").dataset.mappingMode = mode.id;
+  $("drumMap").dataset.percussionStyle = percussionStyle().id;
   $("mappingSummary").textContent = `${mappingLabel()} · ${state.subdivisions}/branch`;
   paintCurrentSettings();
 }
@@ -395,6 +408,16 @@ $("mappingMode").addEventListener("change", (event) => {
     ? event.currentTarget.value
     : "branch-depth-turn";
   activeEventKeys = new Set();
+  paintMapping();
+  scheduleFrame();
+});
+
+$("percussionStyle").addEventListener("change", (event) => {
+  state.percussionStyle = styleById.has(event.currentTarget.value)
+    ? event.currentTarget.value
+    : "drum-bank";
+  activeEventKeys = new Set();
+  renderDrumMap();
   paintMapping();
   scheduleFrame();
 });
@@ -412,7 +435,11 @@ function paintCurrentSettings() {
     formatTraversalSpeed(),
     behavior,
   ].join(" · ");
-  $("currentDrumReadout").textContent = `${mappingLabel()} · ${state.subdivisions}/branch`;
+  $("currentDrumReadout").textContent = [
+    mappingLabel(),
+    percussionStyle().label.toLowerCase(),
+    `${state.subdivisions}/branch`,
+  ].join(" · ");
 }
 
 function setAudioUi(enabled) {
@@ -424,7 +451,7 @@ function setAudioUi(enabled) {
 
 $("audioButton").addEventListener("click", async () => {
   $("audioError").hidden = true;
-  if (state.audio) {
+  if (state.audio && audio.context?.state === "running") {
     setAudioUi(false);
     await audio.close();
     activeEventKeys = new Set();
@@ -460,14 +487,19 @@ $("directionButton").addEventListener("click", () => {
 });
 
 function renderDrumMap() {
-  $("drumMap").innerHTML = voices.map((voice, index) => (
-    `<button class="l-system-drum-cell" type="button" data-voice-index="${index}" data-voice-id="${voice.id}" style="--voice-color: ${voice.color}">`
-      + `<b>${voice.name}</b><small>${voice.key.toUpperCase()} · ${voice.family}</small>`
-      + "</button>"
-  )).join("");
+  $("percussionStyle").value = percussionStyle().id;
+  $("drumMap").innerHTML = voices.map((voice, index) => {
+    const styledVoice = styledLSystemDrumVoice(voice, { style: state.percussionStyle });
+    return `<button class="l-system-drum-cell" type="button" data-voice-index="${index}" data-voice-id="${voice.id}" style="--voice-color: ${voice.color}">`
+      + `<b>${styledVoice.name}</b><small>${voice.key.toUpperCase()} · ${styledVoice.family}</small>`
+      + "</button>";
+  }).join("");
   for (const button of $("drumMap").querySelectorAll(".l-system-drum-cell")) {
     button.addEventListener("click", () => {
-      const voice = voices[Number(button.dataset.voiceIndex) || 0];
+      const voice = styledLSystemDrumVoice(
+        voices[Number(button.dataset.voiceIndex) || 0],
+        { style: state.percussionStyle },
+      );
       if (!state.audio) setAudioUi(true);
       audio.trigger(voice).catch((error) => {
         showError(error);
@@ -494,11 +526,14 @@ function triggerEvent(event, eventCount, voiceIndex = lSystemDrumVoiceIndex(
   event,
   { mode: state.mappingMode },
 )) {
-  const voice = mappedLSystemDrumVoice(voices[voiceIndex], event, {
+  const mappedVoice = mappedLSystemDrumVoice(voices[voiceIndex], event, {
     pitchDepth: state.pitchDepth,
+    anglePitchDepth: state.anglePitchDepth,
+    angleRange: state.angleRange,
     characterDepth: state.characterDepth,
     eventCount,
   });
+  const voice = styledLSystemDrumVoice(mappedVoice, { style: state.percussionStyle });
   hitCount += 1;
   $("mappingReadout").textContent = [
     `I${event.iteration}`,
@@ -735,6 +770,8 @@ $("resetAll").addEventListener("click", () => {
     ["output", state.output, `${Math.round(state.output * 100)}%`],
     ["subdivisions", state.subdivisions, String(state.subdivisions)],
     ["pitchDepth", state.pitchDepth, `${state.pitchDepth} st`],
+    ["anglePitchDepth", state.anglePitchDepth, `${state.anglePitchDepth} st`],
+    ["angleRange", state.angleRange, `±${state.angleRange}°`],
     ["characterDepth", state.characterDepth, `${Math.round(state.characterDepth * 100)}%`],
   ]) {
     $(id).value = String(value);
@@ -742,17 +779,29 @@ $("resetAll").addEventListener("click", () => {
   }
   $("structureMode").value = state.structureMode;
   $("mappingMode").value = state.mappingMode;
+  $("percussionStyle").value = state.percussionStyle;
   $("directionButton").textContent = "Direction · forward";
   setPressed($("playButton"), false);
   paintTraversalSpeed();
   paintTraversalBehavior();
   paintMapping();
+  renderDrumMap();
   loadPreset(state.presetId);
   scheduleFrame();
 });
 
 window.addEventListener("pagehide", () => {
+  setAudioUi(false);
+  activeEventKeys = new Set();
   audio.close().catch(() => {});
+});
+
+window.addEventListener("pageshow", (event) => {
+  if (!event.persisted) return;
+  setAudioUi(false);
+  activeEventKeys = new Set();
+  lastFrameTime = performance.now();
+  scheduleFrame();
 });
 
 paintTraversalSpeed();

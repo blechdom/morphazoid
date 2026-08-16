@@ -44,6 +44,8 @@ while IFS= read -r -d '' source_path; do
   case "$source_path" in
     *.html|*.css|*.js|*.webp|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|\
     vendor/tactile/LICENSE|\
+    vendor/cmudict/cmudict-en-us.dict|\
+    vendor/cmudict/LICENSE|\
     vendor/signalsmith-stretch/LICENSE|\
     vendor/signalsmith-stretch/SignalsmithStretch.mjs)
       copy_runtime_file "$source_path"
@@ -80,9 +82,12 @@ for worktree_runtime_file in \
   src/spelling-synthesizer.js \
   src/spelling-synthesizer-audio.js \
   src/spelling-diphone-atlas.js \
+  src/spelling-pronunciation.js \
   src/spelling-vocoder-processor.js \
   assets/audio/spelling-diphone-kal16.wav \
   assets/instruments/spelling-synthesizer.webp \
+  vendor/cmudict/cmudict-en-us.dict \
+  vendor/cmudict/LICENSE \
   plugins.html \
   plugins.css \
   plugins-app.js \
@@ -259,9 +264,12 @@ required_files=(
   src/spelling-synthesizer.js
   src/spelling-synthesizer-audio.js
   src/spelling-diphone-atlas.js
+  src/spelling-pronunciation.js
   src/spelling-vocoder-processor.js
   assets/audio/spelling-diphone-kal16.wav
   assets/instruments/spelling-synthesizer.webp
+  vendor/cmudict/cmudict-en-us.dict
+  vendor/cmudict/LICENSE
   plugins.html
   plugins.css
   plugins-app.js

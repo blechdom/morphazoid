@@ -32,6 +32,8 @@ const TAU = Math.PI * 2;
 const QUARTER_TURN = Math.PI / 2;
 const LOOKAHEAD_SECONDS = 0.12;
 const SCHEDULER_INTERVAL_MS = 24;
+const TEMPO_MIN_BPM = 30;
+const TEMPO_MAX_BPM = 300;
 const DEFAULT_READING_MODE = "parallel";
 const DEFAULT_GEOMETRY_ID = "cube3";
 
@@ -127,6 +129,20 @@ const DEFAULTS = Object.freeze({
   output: 0.56,
   randomTwists: false,
   randomTwistTempo: 24,
+});
+
+const SOUND_DEFAULTS = Object.freeze({
+  tempo: DEFAULTS.tempo,
+  swing: DEFAULTS.swing,
+  cutoff: DEFAULTS.cutoff,
+  resonance: DEFAULTS.resonance,
+  acidDecay: DEFAULTS.acidDecay,
+  drive: DEFAULTS.drive,
+  acidLevel: DEFAULTS.acidLevel,
+  drumLevel: DEFAULTS.drumLevel,
+  percEngine: DEFAULTS.percEngine,
+  visibilityDynamics: DEFAULTS.visibilityDynamics,
+  output: DEFAULTS.output,
 });
 
 const RUBIX_PRESETS = Object.freeze({
@@ -1865,27 +1881,33 @@ function applyRubixPreset(presetId, shouldAnnounce = true) {
   }
 }
 
-function resetCube({ includeSound = false } = {}) {
+function solveCube() {
+  const randomTwistsWereActive = state.randomTwists;
+  if (randomTwistsWereActive) {
+    markPresetCustom();
+    stopRandomTwists(false);
+  }
   turnQueue = [];
   turnAnimation = null;
   previewTurn = null;
   moveHistory = [];
   state.cube = createSolvedRubixCube(currentGeometry().size);
-  state.camera = { ...DEFAULT_RUBIX_CAMERA };
-  if (includeSound) {
-    stopRandomTwists(false);
-    Object.assign(state, DEFAULTS);
-    state.presetId = state.geometryId === DEFAULT_GEOMETRY_ID ? "classic" : "";
-    audio.updateSettings(state);
-    audio.setOutput(state.output);
-    setReadingMode(DEFAULT_READING_MODE, false);
-  } else {
-    updateSnapshot();
-  }
+  updateSnapshot();
   state.selectedStickerId = sequenceSnapshot.lanes.acid[middleFaceIndex()].id;
   $("undoMove").disabled = true;
   updateSelectedUi();
-  announce(includeSound ? "Cube solved, view restored, and sound reset." : "Cube solved.");
+  announce(randomTwistsWereActive
+    ? "Cube solved and random twists stopped. Sound and view unchanged."
+    : "Cube solved. Sound and view unchanged.");
+}
+
+function resetSound() {
+  Object.assign(state, SOUND_DEFAULTS);
+  state.presetId = "";
+  audio.updateSettings(state);
+  audio.setOutput(state.output);
+  setReadingMode(DEFAULT_READING_MODE, false);
+  announce("Sound reset. Cube arrangement and view unchanged.");
 }
 
 function pointFromEvent(event) {
@@ -2012,7 +2034,7 @@ function turnSelected(dimension, directionSign) {
 }
 
 function sixteenthDurationSeconds(step = nextSwingStep) {
-  const base = 60 / clamp(state.tempo, 64, 180) / 4;
+  const base = 60 / clamp(state.tempo, TEMPO_MIN_BPM, TEMPO_MAX_BPM) / 4;
   const swingOffset = clamp(state.swing, 0, 0.42);
   return base * (step % 2 === 0 ? 1 + swingOffset : 1 - swingOffset);
 }
@@ -2215,21 +2237,8 @@ $("moveDown").addEventListener("click", () => turnSelected("vertical", 1));
 $("scrambleCube").addEventListener("click", enqueueScramble);
 $("undoMove").addEventListener("click", undoLastMove);
 $("resetView").addEventListener("click", resetView);
-$("resetCube").addEventListener("click", () => resetCube({ includeSound: true }));
-
-$("halfTime").addEventListener("click", () => {
-  markPresetCustom();
-  state.tempo = clamp(Math.round(state.tempo / 2), 64, 180);
-  updateReadouts();
-  announce(`Tempo ${Math.round(state.tempo)} BPM.`);
-});
-
-$("doubleTime").addEventListener("click", () => {
-  markPresetCustom();
-  state.tempo = clamp(Math.round(state.tempo * 2), 64, 180);
-  updateReadouts();
-  announce(`Tempo ${Math.round(state.tempo)} BPM.`);
-});
+$("solveCube").addEventListener("click", solveCube);
+$("resetSound").addEventListener("click", resetSound);
 
 $("restartLoop").addEventListener("click", async () => {
   if (state.playing) {

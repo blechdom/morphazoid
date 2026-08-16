@@ -109,27 +109,6 @@
           </div>
         </details>
 
-        <details class="group control-section" id="structureSection" data-section="structure">
-          <summary class="group-summary">
-            <h2 class="group-title">Structure</h2>
-            <span class="section-state" id="structureSummary">final · I7</span>
-          </summary>
-          <div class="group-body">
-            <label class="select-control" for="structureMode">
-              <span class="field-label">Iteration playback</span>
-              <span class="select-shell"><select id="structureMode">
-                <option value="final" selected>Final tree</option>
-                <option value="sequence">In sequence</option>
-                <option value="together">Together</option>
-                <option value="accumulate">Accumulate</option>
-                <option value="canon">Canon</option>
-              </select></span>
-            </label>
-            <div class="structure-readout"><b>Schedule</b><output id="structureReadout">I7 only</output></div>
-            <p class="structure-description" id="structureDescription">Read the final expanded tree as one branching trigger path.</p>
-          </div>
-        </details>
-
         <details class="group control-section" id="systemSection" data-section="form">
           <summary class="group-summary">
             <h2 class="group-title">System</h2>
@@ -184,6 +163,27 @@
           </div>
         </details>
 
+        <details class="group control-section" id="structureSection" data-section="structure">
+          <summary class="group-summary">
+            <h2 class="group-title">Structure</h2>
+            <span class="section-state" id="structureSummary">final · I7</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="structureMode">
+              <span class="field-label">Iteration playback</span>
+              <span class="select-shell"><select id="structureMode">
+                <option value="final" selected>Final tree</option>
+                <option value="sequence">In sequence</option>
+                <option value="together">Together</option>
+                <option value="accumulate">Accumulate</option>
+                <option value="canon">Canon</option>
+              </select></span>
+            </label>
+            <div class="structure-readout"><b>Schedule</b><output id="structureReadout">I7 only</output></div>
+            <p class="structure-description" id="structureDescription">Read the final expanded tree as one branching trigger path.</p>
+          </div>
+        </details>
+
         <details class="group control-section" id="mappingSection" data-section="mapping">
           <summary class="group-summary">
             <h2 class="group-title">Drum mapping</h2>
@@ -198,25 +198,42 @@
                 <option value="generation-phase">Generation × phase</option>
               </select></span>
             </label>
+            <label class="select-control" for="percussionStyle">
+              <span class="field-label">Percussion palette</span>
+              <span class="select-shell"><select id="percussionStyle">
+                <option value="drum-bank" selected>Drum bank</option>
+                <option value="circuit">Circuit percussion</option>
+                <option value="rattlesnake">Rattlesnake</option>
+                <option value="resonant-metal">Resonant metal</option>
+              </select></span>
+            </label>
             <p class="l-system-mapping-description" id="mappingDescription">
               Branch depth chooses the row; inherited turn angle chooses the column.
             </p>
             <div class="l-system-map-legend" id="mappingLegend" aria-label="Current drum mapping legend">
               <span><b id="mappingLegendLabel0">Branch depth</b><small id="mappingLegendDetail0">drum row</small></span>
               <span><b id="mappingLegendLabel1">Turn angle</b><small id="mappingLegendDetail1">voice column</small></span>
-              <span><b id="mappingLegendLabel2">Height</b><small id="mappingLegendDetail2">tuning</small></span>
+              <span><b id="mappingLegendLabel2">Height + angle</b><small id="mappingLegendDetail2">tuning</small></span>
               <span><b id="mappingLegendLabel3">Turn + depth</b><small id="mappingLegendDetail3">tone + force</small></span>
               <span><b id="mappingLegendLabel4">Active heads</b><small id="mappingLegendDetail4">headroom</small></span>
             </div>
             <label class="control" for="pitchDepth">
-              <span><b>Pitch depth</b><output id="pitchDepthOut" for="pitchDepth">12 st</output></span>
+              <span><b>Height pitch</b><output id="pitchDepthOut" for="pitchDepth">12 st</output></span>
               <input id="pitchDepth" type="range" min="0" max="24" step="1" value="12" />
+            </label>
+            <label class="control" for="anglePitchDepth">
+              <span><b>Angle pitch</b><output id="anglePitchDepthOut" for="anglePitchDepth">12 st</output></span>
+              <input id="anglePitchDepth" type="range" min="0" max="36" step="1" value="12" />
+            </label>
+            <label class="control" for="angleRange">
+              <span><b>Angle range</b><output id="angleRangeOut" for="angleRange">±90°</output></span>
+              <input id="angleRange" type="range" min="15" max="360" step="5" value="90" />
             </label>
             <label class="control" for="characterDepth">
               <span><b>Character depth</b><output id="characterDepthOut" for="characterDepth">72%</output></span>
               <input id="characterDepth" type="range" min="0" max="1" step="0.01" value="0.72" />
             </label>
-            <div class="l-system-drum-map" id="drumMap" data-mapping-mode="branch-depth-turn" aria-label="Sixteen FM drum voices"></div>
+            <div class="l-system-drum-map" id="drumMap" data-mapping-mode="branch-depth-turn" data-percussion-style="drum-bank" aria-label="Sixteen percussion voices"></div>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>

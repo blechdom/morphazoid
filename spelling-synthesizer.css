@@ -1,6 +1,6 @@
 .spelling-synthesizer-page {
-  --spelling-accent: #d8ff57;
-  --spelling-accent-rgb: 216, 255, 87;
+  --spelling-accent: #79dcff;
+  --spelling-accent-rgb: 121, 220, 255;
   --spelling-energy: 0.24;
   --spelling-pace: 0;
   --spelling-place: 0.5;
@@ -60,15 +60,6 @@
   z-index: 2;
   display: grid;
   max-width: 760px;
-  gap: 7px;
-}
-
-.spelling-heading p {
-  margin: 0;
-  color: var(--spelling-accent);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .2em;
 }
 
 .spelling-heading h1 {
@@ -80,20 +71,13 @@
   line-height: .98;
 }
 
-.spelling-heading > span {
-  color: #829087;
-  font-size: 11px;
-  letter-spacing: .015em;
-}
-
 .spelling-voice-stage {
   position: absolute;
-  top: clamp(40px, 6vh, 92px);
+  top: clamp(14px, 2vh, 24px);
   right: clamp(16px, 4vw, 70px);
-  width: clamp(190px, 25vw, 360px);
+  width: clamp(82px, 8vw, 110px);
   aspect-ratio: 1;
   pointer-events: none;
-  transform: translateY(-3%);
 }
 
 .spelling-orbit {
@@ -163,10 +147,31 @@
 .spelling-mouth span {
   position: relative;
   z-index: 2;
-  font-size: clamp(28px, 4vw, 58px);
+  font-size: clamp(17px, 1.8vw, 26px);
   font-weight: 300;
   line-height: 1;
   text-shadow: 0 0 16px rgba(var(--spelling-accent-rgb), .42);
+}
+
+.spelling-voice-stage.is-word .spelling-mouth {
+  width: 72%;
+}
+
+.spelling-voice-stage.is-word .spelling-mouth span {
+  max-width: 150%;
+  overflow: visible;
+  font-size: clamp(7px, .78vw, 11px);
+  font-weight: 650;
+  letter-spacing: .025em;
+  white-space: nowrap;
+}
+
+.spelling-voice-stage.is-word .spelling-current-sound b {
+  max-width: 108px;
+  overflow: hidden;
+  font-size: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spelling-mouth i {
@@ -190,13 +195,13 @@
 
 .spelling-current-sound b {
   color: var(--spelling-accent);
-  font-size: 13px;
+  font-size: 9px;
   letter-spacing: .16em;
 }
 
 .spelling-current-sound span {
   color: rgba(219, 228, 224, .42);
-  font-size: 8px;
+  font-size: 6px;
   letter-spacing: .12em;
 }
 
@@ -221,75 +226,12 @@
   100% { filter: brightness(1); }
 }
 
-.spelling-readouts {
-  position: relative;
-  z-index: 3;
-  display: grid;
-  max-width: 680px;
-  margin-top: clamp(118px, 19vh, 210px);
-  padding: 10px 0;
-  border-top: 1px solid rgba(219, 228, 224, .08);
-  border-bottom: 1px solid rgba(219, 228, 224, .08);
-  grid-template-columns: 1fr 1.4fr 1fr;
-}
-
-.spelling-readouts > span {
-  display: grid;
-  min-width: 0;
-  padding: 0 14px;
-  border-right: 1px solid rgba(219, 228, 224, .07);
-  gap: 4px;
-}
-
-.spelling-readouts > span:first-child { padding-left: 0; }
-.spelling-readouts > span:last-child { border-right: 0; }
-
-.spelling-readouts b {
-  color: #59645e;
-  font-size: 8px;
-  letter-spacing: .15em;
-}
-
-.spelling-readouts output {
-  overflow: hidden;
-  color: #aab6af;
-  font-size: 9px;
-  letter-spacing: .08em;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.spelling-readouts > span:nth-child(2) {
-  grid-template-columns: auto minmax(34px, 1fr) auto;
-  align-items: center;
-  column-gap: 8px;
-}
-
-.spelling-readouts > span:nth-child(2) > b { grid-column: 1 / -1; }
-
-.spelling-readouts span > i {
-  display: block;
-  height: 3px;
-  overflow: hidden;
-  background: rgba(219, 228, 224, .07);
-}
-
-.spelling-readouts span > i b {
-  display: block;
-  width: 24%;
-  height: 100%;
-  background: var(--spelling-accent);
-  box-shadow: 0 0 8px rgba(var(--spelling-accent-rgb), .42);
-  transition: width 90ms ease;
-}
-
 .spelling-input-wrap {
   position: relative;
   z-index: 4;
   display: grid;
   max-width: 920px;
-  margin-top: clamp(22px, 3vh, 40px);
+  margin-top: clamp(16px, 2vh, 24px);
   gap: 9px;
 }
 
@@ -297,7 +239,6 @@
   display: flex;
   color: #718078;
   align-items: center;
-  justify-content: space-between;
   font-size: 9px;
   letter-spacing: .1em;
   text-transform: uppercase;
@@ -353,28 +294,8 @@
   max-width: 920px;
   margin-top: 10px;
   align-items: start;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 20px;
-}
-
-.spelling-underbar p {
-  max-width: 690px;
-  margin: 0;
-  color: #77837c;
-  font-size: 10px;
-  line-height: 1.55;
-}
-
-.spelling-underbar-copy {
-  display: grid;
-  max-width: 580px;
-  gap: 4px;
-}
-
-.spelling-underbar-copy small {
-  color: #7e8a83;
-  font-size: 9px;
-  line-height: 1.55;
 }
 
 .spelling-transport {
@@ -801,25 +722,12 @@
     font-size: clamp(34px, 11vw, 48px);
   }
 
-  .spelling-heading > span {
-    max-width: 260px;
-    font-size: 9px;
-  }
-
   .spelling-voice-stage {
-    top: 146px;
+    top: 28px;
     right: 6px;
-    width: 164px;
-    opacity: .66;
+    width: 88px;
+    opacity: .7;
   }
-
-  .spelling-readouts {
-    margin-top: 132px;
-    grid-template-columns: 1fr 1.3fr;
-  }
-
-  .spelling-readouts > span:last-child { display: none; }
-  .spelling-readouts > span:nth-child(2) { border-right: 0; }
 
   #spellingInput {
     min-height: 190px;
@@ -830,10 +738,6 @@
   .spelling-underbar {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .spelling-underbar p {
-    font-size: 8px;
   }
 
   .spelling-transport {
@@ -858,8 +762,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spelling-voice-stage *,
-  .spelling-readouts span > i b {
+  .spelling-voice-stage * {
     animation: none !important;
     transition-duration: 0.001ms !important;
   }

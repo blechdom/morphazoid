@@ -14,19 +14,29 @@ test("Home page is the About guide", async () => {
   assert.match(html, /<title>Morphazoid<\/title>/);
   assert.match(html, /<h1>Morphazoid<\/h1>/);
   assert.doesNotMatch(html, /Project (?:reference|guide)/i);
-  assert.match(html, /href="\.\/" aria-current="page">about<\/a>/);
-  assert.match(html, /href="instruments\.html">catalogue<\/a>/);
+  assert.match(html, /<nav class="tabs" aria-label="Morphazoid main menu"><\/nav>/);
+  assert.match(html, /<option value="" selected>choose<\/option>/);
+  assert.doesNotMatch(html, /href="(?:plugins|instruments|about)\.html"/);
   assert.match(html, /id="homeInstrumentCatalogue"[\s\S]*?data-instrument-catalog/);
   assert.match(html, /src="instrument-catalog-app\.js"/);
-  assert.match(html, /<dt>Instruments<\/dt><dd>72<\/dd>/);
+  assert.doesNotMatch(html, /manual-section-label">Browse|Instrument sections, titles, and order/);
+  assert.doesNotMatch(html, /class="about-summary"/);
+  assert.doesNotMatch(html, /class="manual-index"/);
+  assert.doesNotMatch(html, /<dt>(?:Instruments|Runtime|License)<\/dt>/);
+  assert.match(html, /<dt>Plug-ins<\/dt>\s*<dd>Coming soon\.<\/dd>/);
+  assert.doesNotMatch(html, /href="plugins\.html"/);
   assert.match(html, /vibed up with Codex 5\.6 Sol Ultra, mostly/);
   assert.doesNotMatch(html, /manual-section-label">\d+/);
   assert.doesNotMatch(html, /class="page-entry"/);
   assert.doesNotMatch(html, /<script type="module" src="app\.js"><\/script>/);
 });
 
-test("About mounts the complete menu-ordered catalogue", async () => {
-  const html = await readFile(new URL("about.html", root), "utf8");
+test("Home mounts the only complete menu-ordered catalogue", async () => {
+  const [home, about, catalogue] = await Promise.all([
+    readFile(new URL("index.html", root), "utf8"),
+    readFile(new URL("about.html", root), "utf8"),
+    readFile(new URL("instruments.html", root), "utf8"),
+  ]);
   const catalogueGroups = TOOL_GROUPS
     .filter((group) => group.catalogue !== false)
     .map((group) => ({
@@ -35,11 +45,10 @@ test("About mounts the complete menu-ordered catalogue", async () => {
     }))
     .filter((group) => group.tools.length > 0);
 
-  assert.match(html, /<title>Morphazoid<\/title>/);
-  assert.match(html, /href="\.\/" aria-current="page">about<\/a>/);
-  assert.match(html, /class="mobile-instrument-select"/);
-  assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
-  assert.match(html, /data-instrument-catalog/);
+  assert.match(home, /<title>Morphazoid<\/title>/);
+  assert.match(home, /class="mobile-instrument-select"/);
+  assert.match(home, /<script type="module" src="nav\.js"><\/script>/);
+  assert.equal([home, about, catalogue].filter((html) => /data-instrument-catalog/.test(html)).length, 1);
   assert.equal(INSTRUMENTS.length, 72);
   assert.equal(
     INSTRUMENTS.find(({ id }) => id === "escher-tessellation")?.label,
@@ -65,19 +74,22 @@ test("About mounts the complete menu-ordered catalogue", async () => {
       })),
     })),
   );
-  assert.match(html, /https:\/\/github\.com\/blechdom\/morphazoid/);
-  assert.match(html, /https:\/\/github\.com\/blechdom\/morphazoid\/blob\/main\/LICENSE/);
-  assert.match(html, /Kristin Galvin/);
-  assert.match(html, /<dt>Instruments<\/dt><dd>72<\/dd>/);
+  assert.match(home, /https:\/\/github\.com\/blechdom\/morphazoid/);
+  assert.match(home, /https:\/\/github\.com\/blechdom\/morphazoid\/blob\/main\/LICENSE/);
+  assert.match(home, /Kristin Galvin/);
 });
 
-test("dedicated catalogue page is available from the shared information menu", async () => {
-  const html = await readFile(new URL("instruments.html", root), "utf8");
-  assert.match(html, /<title>Instrument Catalogue \| Morphazoid<\/title>/);
-  assert.match(html, /<body class="about-page catalogue-page">/);
-  assert.match(html, /href="instruments\.html" aria-current="page">catalogue<\/a>/);
-  assert.match(html, /id="fullInstrumentCatalogue"[\s\S]*?data-instrument-catalog/);
-  assert.match(html, /<dt>Instruments<\/dt><dd>72<\/dd>/);
+test("legacy About and catalogue URLs redirect to the single home page", async () => {
+  const [about, catalogue] = await Promise.all([
+    readFile(new URL("about.html", root), "utf8"),
+    readFile(new URL("instruments.html", root), "utf8"),
+  ]);
+  assert.match(about, /http-equiv="refresh" content="0; url=\.\/"/);
+  assert.match(about, /window\.location\.replace\("\.\/"\)/);
+  assert.doesNotMatch(about, /data-instrument-catalog/);
+  assert.match(catalogue, /http-equiv="refresh" content="0; url=\.\/#instrument-catalogue"/);
+  assert.match(catalogue, /window\.location\.replace\("\.\/#instrument-catalogue"\)/);
+  assert.doesNotMatch(catalogue, /data-instrument-catalog/);
 });
 
 test("About document styles remain independently scrollable on instrument breakpoints", async () => {
@@ -112,11 +124,14 @@ test("repository declares Morphazoid's MIT license and keeps third-party terms s
   assert.equal(JSON.parse(packageText).license, "MIT");
 });
 
-test("Morphazoidical's local menus link back to About", async () => {
+test("Morphazoidical's local menus retain one home link without a duplicate About link", async () => {
   const pages = await Promise.all([
     readFile(new URL("morphazoidical/index.html", root), "utf8"),
     readFile(new URL("morphazoidical/atlas.html", root), "utf8"),
   ]);
 
-  for (const html of pages) assert.match(html, /href="\.\.\/">About<\/a>/);
+  for (const html of pages) {
+    assert.match(html, /href="\.\.\/">All tools<\/a>/);
+    assert.doesNotMatch(html, />About<\/a>/);
+  }
 });

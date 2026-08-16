@@ -79,7 +79,9 @@ test("plug-ins page gives non-programmers the Chaotic Synth catalog and VST road
   ]);
 
   assert.match(html, /<title>Morphazoid Plug-ins \(under development\)<\/title>/);
-  assert.match(html, /href="plugins\.html" aria-current="page">plug-ins<\/a>/);
+  assert.match(html, /<nav class="tabs" aria-label="Morphazoid main menu"><\/nav>/);
+  assert.match(html, /<option value="" selected>choose<\/option>/);
+  assert.doesNotMatch(html, /href="(?:plugins|instruments|about)\.html"[^>]*>[^<]*(?:plug-ins|catalogue|about)/i);
   assert.match(html, /<h1>Morphazoid Plug-ins<\/h1>/);
   assert.match(html, /<p class="plugins-development">Under development<\/p>/);
   assert.match(html, /<p class="plugins-vst">VST coming soon<\/p>/);

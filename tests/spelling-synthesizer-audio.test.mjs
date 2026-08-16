@@ -159,6 +159,8 @@ class FakeBufferSource extends FakeNode {
     super("buffer-source");
     this.buffer = null;
     this.loop = false;
+    this.loopStart = 0;
+    this.loopEnd = 0;
     this.playbackRate = new FakeAudioParam(1);
     this.starts = [];
     this.stops = [];
@@ -438,6 +440,12 @@ test("the tube backend reuses Throatazoid's worklet and sends bounded performanc
   assert.equal(active.state.mouthCount, 3);
   assert.ok(active.state.articulationAperture >= 0 && active.state.articulationAperture <= 1);
   assert.ok(runtime.timers.size > 0, "the physical body schedules its release");
+  const tubeDurationEvent = voiceEvent("S", "creature");
+  assert.equal(
+    audio.durationMs(tubeDurationEvent),
+    tubeDurationEvent.dynamics.durationMs + tubeDurationEvent.dynamics.releaseMs + 18,
+    "the transport can wait for Bellazoid's complete gesture",
+  );
 
   assert.equal(audio.release({ releaseMs: 70 }), true);
   assert.equal(worklet.messages.at(-1).state.performanceGate, 0);
@@ -490,6 +498,24 @@ test("Bellazoid stages affricates, nasals, and X through their English gestures"
   await audio.close();
 });
 
+test("Bellazoid holds a repeated vowel open until release", async () => {
+  const runtime = fakeRuntime();
+  const audio = new SpellingSynthesizerAudio({ runtime, engine: "tube" });
+  await audio.enable();
+  const backend = audio.backends.tube;
+  const [worklet] = FakeAudioWorkletNode.instances;
+  const held = voiceEvent("a");
+  held.sustain = true;
+
+  assert.equal(audio.articulate(held), true);
+  assert.equal(backend.silenceTimer, 0, "held vowels have no automatic silence timer");
+  assert.equal(worklet.messages.at(-1).state.performanceGate, 1);
+  assert.equal(audio.release({ releaseMs: 72 }), true);
+  assert.equal(worklet.messages.at(-1).state.performanceGate, 0);
+
+  await audio.close();
+});
+
 test("the diphone backend loads its atlas once and selects bounded sample slices", async () => {
   const runtime = fakeRuntime();
   const audio = new SpellingSynthesizerAudio({ runtime, engine: "diphone", level: 0.38 });
@@ -508,16 +534,33 @@ test("the diphone backend loads its atlas once and selects bounded sample slices
   const [source] = atlasSources(context);
   assert.ok(source, "a decoded atlas source is scheduled for a letter");
   assert.equal(source.buffer, context.decodedBuffers[0]);
-  assert.equal(source.playbackRate.value, 1, "KAL16 phones retain their measured formants");
+  const expectedPlaybackRate = 2 ** (
+    Math.min(18, Math.max(-18, vowelEvent.dynamics.pitchCents)) / 1_200
+  );
+  assert.ok(
+    Math.abs(source.playbackRate.value - expectedPlaybackRate) < 1e-12,
+    "KAL16 follows the bounded typing-prosody pitch bend",
+  );
+  assert.ok(source.playbackRate.value > 1, "quick typing raises the KAL voice slightly");
+  assert.ok(
+    source.playbackRate.value <= 2 ** (18 / 1_200),
+    "sample pitch stays within eighteen cents of the measured voice",
+  );
   const expectedVowelDuration = Math.min(
     SPELLING_DIPHONE_CLIPS.a.duration,
-    Math.min(0.52, Math.max(0.26, vowelEvent.dynamics.durationMs / 1_000)),
+    Math.min(0.52, Math.max(0.26, vowelEvent.dynamics.durationMs / 1_000))
+      * expectedPlaybackRate,
   );
   assert.deepEqual(source.starts, [{
     time: context.currentTime,
     offset: SPELLING_DIPHONE_CLIPS.a.offset,
     duration: expectedVowelDuration,
   }]);
+  assert.ok(
+    Math.abs(audio.durationMs(vowelEvent) - expectedVowelDuration / expectedPlaybackRate * 1_000)
+      < 1e-9,
+    "the transport duration matches the KAL source duration and playback rate",
+  );
   const eventGain = context.gains.at(-1).gain;
   const attackRamp = eventGain.events
     .filter(([method]) => method === "linearRampToValueAtTime")
@@ -543,6 +586,107 @@ test("the diphone backend loads its atlas once and selects bounded sample slices
   assert.equal(runtime.fetches.length, 1, "re-enable reuses the decoded atlas");
   await audio.close();
   assert.equal(context.state, "closed");
+});
+
+test("word pronunciation phones select their exact samples and use speech-length vowels", async () => {
+  const runtime = fakeRuntime();
+  const audio = new SpellingSynthesizerAudio({ runtime, engine: "diphone" });
+  await audio.enable();
+  const [context] = FakeAudioContext.instances;
+
+  const er = voiceEvent("ignored");
+  er.sampleKey = "er";
+  er.wordSpeech = true;
+  er.dynamics = { ...er.dynamics, durationMs: 125, pitchCents: 0 };
+  assert.equal(audio.articulate(er), true);
+  const erSource = atlasSources(context).at(-1);
+  assert.equal(erSource.starts[0].offset, SPELLING_DIPHONE_CLIPS.er.offset);
+  assert.equal(erSource.starts[0].duration, 0.125);
+  assert.equal(audio.durationMs(er), 125);
+
+  const zh = voiceEvent("ignored");
+  zh.sampleKey = "zh";
+  zh.wordSpeech = true;
+  zh.dynamics = { ...zh.dynamics, pitchCents: 0 };
+  assert.equal(audio.articulate(zh), true);
+  const zhSource = atlasSources(context).at(-1);
+  assert.equal(zhSource.starts[0].offset, SPELLING_DIPHONE_CLIPS.zh.offset);
+  assert.equal(zhSource.starts[0].duration, SPELLING_DIPHONE_CLIPS.zh.duration);
+
+  await audio.close();
+});
+
+test("KAL typing tempo bends pitch slightly without truncating consonants", async () => {
+  const runtime = fakeRuntime();
+  const audio = new SpellingSynthesizerAudio({ runtime });
+  assert.equal(audio.activeEngine, "diphone", "KAL is the audio adapter default");
+  await audio.enable();
+  const [context] = FakeAudioContext.instances;
+
+  const slow = voiceEvent("s");
+  slow.dynamics = typingDynamics({
+    intervalMs: 1_200,
+    averageIntervalMs: 1_200,
+    amount: 1,
+  });
+  assert.equal(audio.articulate(slow), true);
+  const slowSource = atlasSources(context).at(-1);
+
+  const fast = voiceEvent("s");
+  fast.dynamics = typingDynamics({
+    intervalMs: 75,
+    averageIntervalMs: 320,
+    amount: 1,
+  });
+  assert.equal(audio.articulate(fast), true);
+  const fastSource = atlasSources(context).at(-1);
+
+  assert.ok(slowSource.playbackRate.value < fastSource.playbackRate.value);
+  assert.ok(slowSource.playbackRate.value >= 2 ** (-18 / 1_200));
+  assert.ok(fastSource.playbackRate.value <= 2 ** (18 / 1_200));
+  assert.equal(
+    slowSource.starts[0].duration,
+    SPELLING_DIPHONE_CLIPS.s.duration,
+    "slow pitch bends retain the complete consonant sample",
+  );
+  assert.equal(
+    fastSource.starts[0].duration,
+    SPELLING_DIPHONE_CLIPS.s.duration,
+    "fast pitch bends retain the complete consonant sample",
+  );
+
+  await audio.close();
+});
+
+test("held KAL vowels use one phase-aligned loop until key release", async () => {
+  const runtime = fakeRuntime();
+  const audio = new SpellingSynthesizerAudio({ runtime, engine: "diphone" });
+  await audio.enable();
+  const [context] = FakeAudioContext.instances;
+  const held = voiceEvent("e");
+  held.sustain = true;
+
+  assert.equal(audio.articulate(held), true);
+  const source = atlasSources(context).at(-1);
+  const clip = SPELLING_DIPHONE_CLIPS.e;
+  assert.equal(source.loop, true);
+  assert.equal(source.loopStart, clip.offset + clip.sustainStart);
+  assert.equal(source.loopEnd, clip.offset + clip.sustainEnd);
+  assert.deepEqual(source.starts, [{
+    time: context.currentTime,
+    offset: clip.offset,
+    duration: undefined,
+  }]);
+  const heldGain = context.gains.at(-1).gain;
+  assert.equal(
+    heldGain.events.filter(([method]) => method === "linearRampToValueAtTime").length,
+    1,
+    "a held vowel attacks once without scheduling a finite decay",
+  );
+
+  assert.equal(audio.release({ releaseMs: 72 }), true);
+  assert.deepEqual(source.stops, [context.currentTime + 0.072]);
+  await audio.close();
 });
 
 test("pair clips play once even when the spelling gesture has multiple resolved sounds", async () => {
@@ -596,6 +740,11 @@ test("the vocoder uses the diphone atlas as its modulator", async () => {
   assert.equal(audio.articulate(voiceEvent("F", "whisper")), true);
   const [source] = atlasSources(context);
   assert.equal(source.starts[0].offset, SPELLING_DIPHONE_CLIPS.f.offset);
+  assert.equal(
+    source.playbackRate.value,
+    1,
+    "Voxazoid keeps its modulator neutral because its carrier already follows typing pitch",
+  );
   const voice = worklet.messages.at(-1);
   assert.equal(voice.type, "voice");
   assert.equal("noiseMix" in voice, false, "the signal detector uses a voicedness prior, not fixed hiss");
@@ -603,6 +752,14 @@ test("the vocoder uses the diphone atlas as its modulator", async () => {
   assert.ok(voice.frequency > 0);
   assert.ok(voice.drive >= 1.2);
   assert.ok(Math.abs(voice.brightness - 0.6) < 1e-9);
+
+  const held = voiceEvent("a");
+  held.sustain = true;
+  assert.equal(audio.articulate(held), true);
+  const heldSource = atlasSources(context).at(-1);
+  assert.equal(heldSource.loop, true, "Voxazoid loops the held vowel modulator");
+  assert.equal(heldSource.playbackRate.value, 1);
+  assert.equal(heldSource.starts[0].duration, undefined);
 
   await audio.disable();
   assert.equal(source.stops.at(-1), context.currentTime);

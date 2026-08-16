@@ -44,7 +44,7 @@ test("Music Rooms routes live in works in progress without entering the instrume
 
   assert.ok(group);
   assert.equal(TOOL_GROUPS.some(({ id }) => id === "music-rooms"), false);
-  assert.equal(group.label, "Experiments (works-in-progress)");
+  assert.equal(group.label, "Experiments");
   assert.deepEqual(group.tools.slice(0, 4), roomTools);
   for (const room of roomTools) {
     assert.equal(resolveActiveTool(`${siteRoot}${room.href}`, siteRoot)?.id, room.id);

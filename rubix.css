@@ -550,15 +550,14 @@
   --accent-glow: color-mix(in oklab, #ff784f 20%, transparent);
 }
 
-.rubix-clock-actions,
 .rubix-cube-actions {
   display: grid;
   margin-top: 5px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 13px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 5px;
 }
 
-.rubix-clock-actions .mini-action,
 .rubix-cube-actions .mini-action {
   min-width: 0;
   min-height: 34px;
@@ -570,19 +569,59 @@
   letter-spacing: 0.02em;
 }
 
-.rubix-clock-actions .mini-action:hover,
 .rubix-cube-actions .mini-action:hover {
   border-color: var(--accent-soft);
   color: var(--accent);
 }
 
+.rubix-cube-actions .rubix-solve-button {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 6%, var(--bg-deep));
+}
+
+.rubix-reset-sound-row {
+  border-top: 1px solid var(--line-strong);
+  background: color-mix(in oklab, #ff826f 2%, var(--bg-deep));
+}
+
+.rubix-tempo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: end;
+  gap: 7px;
+}
+
+.rubix-tempo-row .control {
+  margin-bottom: 11px;
+}
+
+.rubix-restart-button {
+  display: grid;
+  width: 42px;
+  height: 40px;
+  margin-bottom: 11px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--accent) 2%, var(--bg-deep));
+  place-items: center;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+
+.rubix-restart-button:hover,
+.rubix-restart-button:focus-visible {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 7%, var(--bg-deep));
+}
+
 .rubix-cube-actions .mini-action:disabled {
   cursor: not-allowed;
   opacity: 0.35;
-}
-
-.rubix-solve-button {
-  margin-top: 10px;
 }
 
 .rubix-score-section {

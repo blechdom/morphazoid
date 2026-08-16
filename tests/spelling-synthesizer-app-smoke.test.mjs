@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("Spelling Synthesizer joins mobile input pairs and safely resumes fake readback", async (t) => {
+import { SPELLING_DIPHONE_CLIPS } from "../src/spelling-diphone-atlas.js";
+
+const MOCK_ATLAS_DURATION = Math.max(
+  ...Object.values(SPELLING_DIPHONE_CLIPS)
+    .map((clip) => clip.offset + clip.duration),
+) + 0.018;
+
+test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local readback", async (t) => {
   const html = await readFile(
     new URL("../spelling-synthesizer.html", import.meta.url),
     "utf8",
@@ -61,9 +68,17 @@ test("Spelling Synthesizer joins mobile input pairs and safely resumes fake read
         listeners.set(type, group);
       },
       emit(type, event = {}) {
+        const dispatched = {
+          defaultPrevented: false,
+          preventDefault() { this.defaultPrevented = true; },
+          ...event,
+          target: node,
+          currentTarget: node,
+        };
         for (const listener of listeners.get(type) ?? []) {
-          listener({ target: node, currentTarget: node, ...event });
+          listener(dispatched);
         }
+        return dispatched;
       },
       setAttribute(name, value) {
         attributes.set(`${id}:${name}`, String(value));
@@ -138,6 +153,28 @@ test("Spelling Synthesizer joins mobile input pairs and safely resumes fake read
     }
     return ready.length;
   }
+  function runNextTimer() {
+    const next = [...timers.entries()].sort(([left], [right]) => left - right)[0];
+    if (!next) return false;
+    const [id, timer] = next;
+    timers.delete(id);
+    timer.callback(...timer.args);
+    return true;
+  }
+  function runTimersUntil(predicate, message, limit = 80) {
+    for (let pass = 0; pass < limit; pass += 1) {
+      if (predicate()) return;
+      assert.ok(runNextTimer(), message);
+    }
+    assert.fail(`${message} (timer limit reached)`);
+  }
+  async function flushMicrotasksUntil(predicate, message, limit = 40) {
+    for (let pass = 0; pass < limit; pass += 1) {
+      if (predicate()) return;
+      await Promise.resolve();
+    }
+    assert.ok(predicate(), message);
+  }
 
   class FakeAudioParam {
     constructor(value = 0) { this.value = value; }
@@ -158,6 +195,7 @@ test("Spelling Synthesizer joins mobile input pairs and safely resumes fake read
   }
 
   let playbackStarts = 0;
+  const bufferSources = [];
 
   class FakeBufferSource extends FakeAudioNode {
     constructor() {
@@ -166,9 +204,14 @@ test("Spelling Synthesizer joins mobile input pairs and safely resumes fake read
       this.loop = false;
       this.playbackRate = new FakeAudioParam(1);
       this.onended = null;
+      this.startCalls = [];
+      this.stopCalls = [];
     }
-    start() { playbackStarts += 1; }
-    stop() {}
+    start(...args) {
+      this.startCalls.push(args);
+      playbackStarts += 1;
+    }
+    stop(...args) { this.stopCalls.push(args); }
   }
 
   class FakeOscillator extends FakeAudioNode {
@@ -231,12 +274,26 @@ test("Spelling Synthesizer joins mobile input pairs and safely resumes fake read
         getChannelData(channel) { return data[channel]; },
       };
     }
-    createBufferSource() { return new FakeBufferSource(); }
+    createBufferSource() {
+      const source = new FakeBufferSource();
+      bufferSources.push(source);
+      return source;
+    }
     createOscillator() { return new FakeOscillator(); }
     createGain() { return new FakeGain(); }
     createBiquadFilter() { return new FakeFilter(); }
     createDynamicsCompressor() { return new FakeCompressor(); }
     createPeriodicWave(real, imaginary) { return { real, imaginary }; }
+    decodeAudioData(bytes, onSuccess) {
+      const buffer = {
+        bytes,
+        duration: MOCK_ATLAS_DURATION,
+        length: Math.round(MOCK_ATLAS_DURATION * 16_000),
+        sampleRate: 16_000,
+      };
+      onSuccess?.(buffer);
+      return Promise.resolve(buffer);
+    }
     async resume() { this.state = "running"; }
     async suspend() { this.state = "suspended"; }
     async close() { this.state = "closed"; }
@@ -253,52 +310,16 @@ test("Spelling Synthesizer joins mobile input pairs and safely resumes fake read
     }
   }
 
-  class FakeSpeechSynthesisUtterance {
-    constructor(text) {
-      this.text = text;
-      this.listeners = new Map();
-      this.voice = null;
-      this.lang = "";
-      this.rate = 1;
-      this.pitch = 1;
-      this.volume = 1;
-    }
-    addEventListener(type, listener) {
-      const group = this.listeners.get(type) ?? [];
-      group.push(listener);
-      this.listeners.set(type, group);
-    }
-    emit(type, details = {}) {
-      for (const listener of this.listeners.get(type) ?? []) {
-        listener({ type, ...details });
-      }
-    }
-  }
-
-  const speechSynthesis = {
-    spoken: [],
-    cancellations: 0,
-    getVoices() {
-      return [{ default: true, lang: "en-US", name: "Fake English" }];
-    },
-    cancel() { this.cancellations += 1; },
-    speak(utterance) {
-      this.spoken.push(utterance);
-      utterance.emit("start");
-    },
-  };
-
   const originalGlobals = new Map();
   for (const name of [
     "AudioContext",
     "AudioWorkletNode",
-    "SpeechSynthesisUtterance",
     "addEventListener",
     "clearTimeout",
     "document",
+    "fetch",
     "requestAnimationFrame",
     "setTimeout",
-    "speechSynthesis",
   ]) {
     originalGlobals.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
   }
@@ -311,7 +332,6 @@ test("Spelling Synthesizer joins mobile input pairs and safely resumes fake read
 
   globalThis.AudioContext = FakeAudioContext;
   globalThis.AudioWorkletNode = FakeAudioWorkletNode;
-  globalThis.SpeechSynthesisUtterance = FakeSpeechSynthesisUtterance;
   globalThis.addEventListener = (type, listener) => {
     const group = pageListeners.get(type) ?? [];
     group.push(listener);
@@ -319,21 +339,106 @@ test("Spelling Synthesizer joins mobile input pairs and safely resumes fake read
   };
   globalThis.clearTimeout = fakeClearTimeout;
   globalThis.document = document;
+  let dictionaryFetches = 0;
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith(".dict")) {
+      dictionaryFetches += 1;
+      return {
+        ok: true,
+        async text() {
+          return [
+            "the DH AH",
+            "words W ER D Z",
+            "cat K AE T",
+            "b B IY",
+          ].join("\n");
+        },
+      };
+    }
+    return {
+      ok: true,
+      async arrayBuffer() { return new ArrayBuffer(32); },
+    };
+  };
   globalThis.requestAnimationFrame = (callback) => {
     callback(0);
     return 1;
   };
   globalThis.setTimeout = fakeSetTimeout;
-  globalThis.speechSynthesis = speechSynthesis;
 
   await import(`../spelling-synthesizer-app.js?smoke=${Date.now()}`);
 
   assert.equal(audioContextConstructions, 0, "module load must not construct Web Audio");
   assert.equal(playbackStarts, 0, "module load must not start any fake audio source");
-  assert.equal(speechSynthesis.spoken.length, 0, "module load must not request speech");
-  assert.equal(speechSynthesis.cancellations, 0, "module load must not touch the speech queue");
 
   const input = elements.get("spellingInput");
+  const initialVowel = input.emit("keydown", {
+    key: "e",
+    code: "KeyE",
+    repeat: false,
+  });
+  assert.equal(initialVowel.defaultPrevented, false);
+  input.value = "e";
+  input.selectionStart = 1;
+  input.selectionEnd = 1;
+  input.emit("input", { inputType: "insertText" });
+
+  const firstVowelRepeat = input.emit("keydown", {
+    key: "e",
+    code: "KeyE",
+    repeat: true,
+  });
+  assert.equal(firstVowelRepeat.defaultPrevented, true, "held vowels suppress native repeat text");
+  assert.equal(input.value, "e", "a held vowel stays one character");
+  assert.equal(elements.get("currentPair").textContent, "HELD VOWEL · SUSTAIN");
+  for (let pass = 0; pass < 24; pass += 1) await Promise.resolve();
+  const heldSourcesAfterFirstRepeat = bufferSources.filter((source) => (
+    source.buffer?.sampleRate === 16_000
+  )).length;
+  assert.equal(heldSourcesAfterFirstRepeat, 1);
+  const secondVowelRepeat = input.emit("keydown", {
+    key: "e",
+    code: "KeyE",
+    repeat: true,
+  });
+  assert.equal(secondVowelRepeat.defaultPrevented, true);
+  for (let pass = 0; pass < 4; pass += 1) await Promise.resolve();
+  assert.equal(
+    bufferSources.filter((source) => source.buffer?.sampleRate === 16_000).length,
+    heldSourcesAfterFirstRepeat,
+    "later repeat events sustain the existing source rather than retriggering",
+  );
+  const startsAfterHeldVowel = playbackStarts;
+  input.emit("keyup", { key: "e", code: "KeyE" });
+  assert.equal(elements.get("currentPair").textContent, "VOWEL · RELEASE");
+
+  elements.get("clearButton").emit("click");
+  assert.equal(input.value, "");
+  const initialConsonant = input.emit("keydown", {
+    key: "s",
+    code: "KeyS",
+    repeat: false,
+  });
+  assert.equal(initialConsonant.defaultPrevented, false);
+  input.value = "s";
+  input.selectionStart = 1;
+  input.selectionEnd = 1;
+  input.emit("input", { inputType: "insertText" });
+  const consonantRepeat = input.emit("keydown", {
+    key: "s",
+    code: "KeyS",
+    repeat: true,
+  });
+  assert.equal(consonantRepeat.defaultPrevented, false, "consonant repeat remains native");
+  input.value = "ss";
+  input.selectionStart = 2;
+  input.selectionEnd = 2;
+  input.emit("input", { inputType: "insertText" });
+  for (let pass = 0; pass < 4; pass += 1) await Promise.resolve();
+  assert.equal(input.value, "ss", "held consonants continue typing repeated letters");
+  assert.ok(playbackStarts > startsAfterHeldVowel, "native consonant repeat retriggers sound");
+
+  elements.get("clearButton").emit("click");
   const letterBeforePair = elements.get("currentLetter").textContent;
   input.value = "t";
   input.selectionStart = 1;
@@ -378,21 +483,218 @@ test("Spelling Synthesizer joins mobile input pairs and safely resumes fake read
   for (let pass = 0; pass < 8; pass += 1) await Promise.resolve();
   assert.ok(audioContextConstructions > 0, "typing is the first action that requests fake audio");
 
-  elements.get("readbackButton").emit("click");
-  assert.equal(speechSynthesis.spoken.length, 1);
-  assert.equal(speechSynthesis.spoken[0].text, "thth");
-  assert.equal(elements.get("readbackButton").textContent, "Pause readback");
-  speechSynthesis.spoken[0].emit("boundary", { charIndex: 2 });
+  elements.get("pairGlidesButton").emit("click");
+  assert.equal(elements.get("pairGlidesButton").getAttribute("aria-checked"), "true");
 
-  const cancellationsBeforeTyping = speechSynthesis.cancellations;
-  input.value = "ththz";
-  input.selectionStart = 5;
-  input.selectionEnd = 5;
-  input.emit("input", { inputType: "insertText" });
-  assert.equal(speechSynthesis.cancellations, cancellationsBeforeTyping + 1);
-  assert.equal(elements.get("readbackButton").textContent, "Continue readback");
-  assert.equal(runTimersWithDelay(900), 1, "typing schedules one idle continuation");
-  assert.equal(speechSynthesis.spoken.length, 2);
-  assert.equal(speechSynthesis.spoken[1].text, "thz", "continuation preserves the boundary offset");
+  input.value = "the words";
+  input.selectionStart = input.value.length;
+  input.selectionEnd = input.value.length;
+  input.emit("input", { inputType: "insertReplacementText" });
+  const atlasSources = () => bufferSources.filter((source) => (
+    source.buffer?.sampleRate === 16_000
+  ));
+  const atlasKey = (source) => Object.entries(SPELLING_DIPHONE_CLIPS)
+    .find(([, clip]) => source.startCalls[0]?.[1] === clip.offset)?.[0] ?? "";
+  const kalSourcesBeforeReadback = bufferSources.filter((source) => (
+    source.buffer?.sampleRate === 16_000
+  )).length;
+  elements.get("readbackButton").emit("click");
+  assert.equal(elements.get("readbackButton").textContent, "Preparing voice…");
+  await flushMicrotasksUntil(
+    () => (
+      elements.get("readbackButton").textContent === "Pause readback"
+      && atlasSources().length > kalSourcesBeforeReadback
+    ),
+    "word readback should prepare and start its first local sample",
+  );
   assert.equal(elements.get("readbackButton").textContent, "Pause readback");
+  const firstReadbackSource = atlasSources()[kalSourcesBeforeReadback];
+  assert.ok(firstReadbackSource, "readback starts through the local KAL sample engine");
+  assert.deepEqual(
+    firstReadbackSource.startCalls[0].slice(1),
+    [SPELLING_DIPHONE_CLIPS.dh.offset, SPELLING_DIPHONE_CLIPS.dh.duration],
+    "the word THE begins with its voiced DH pronunciation",
+  );
+  assert.equal(elements.get("currentLetter").textContent, "THE");
+  assert.equal(elements.get("currentSound").textContent, "DH AH");
+  assert.match(elements.get("currentPair").textContent, /^WORD · /);
+
+  const expectedWordPhones = ["dh", "u", "w", "er", "d", "z"];
+  runTimersUntil(
+    () => atlasSources().length >= kalSourcesBeforeReadback + expectedWordPhones.length,
+    "word readback should advance through every pronunciation phone",
+  );
+  assert.deepEqual(
+    atlasSources()
+      .slice(kalSourcesBeforeReadback, kalSourcesBeforeReadback + expectedWordPhones.length)
+      .map(atlasKey),
+    expectedWordPhones,
+    "THE WORDS is synthesized as DH AH, then W ER D Z rather than letter names",
+  );
+  assert.equal(elements.get("currentLetter").textContent, "WORDS");
+  assert.equal(elements.get("currentSound").textContent, "W ER D Z");
+  runTimersUntil(
+    () => elements.get("readbackButton").textContent === "Read it again",
+    "word readback should finish after its final phone",
+  );
+  assert.equal(
+    elements.get("readbackStartOver").hidden,
+    true,
+    "Read it again is the only restart control after completion",
+  );
+
+  const kalSourcesBeforeReplay = atlasSources().length;
+  elements.get("readbackButton").emit("click");
+  await flushMicrotasksUntil(
+    () => atlasSources().length > kalSourcesBeforeReplay,
+    "Read it again should restart local synthesis",
+  );
+  const firstReplaySource = atlasSources()[kalSourcesBeforeReplay];
+  assert.equal(atlasKey(firstReplaySource), "dh", "Read it again restarts from the first word");
+
+  const typedVowel = input.emit("keydown", {
+    key: "e",
+    code: "KeyE",
+    repeat: false,
+  });
+  assert.equal(typedVowel.defaultPrevented, false);
+  input.value = "the wordse";
+  input.selectionStart = input.value.length;
+  input.selectionEnd = input.value.length;
+  input.emit("input", { inputType: "insertText" });
+  const sustainedVowel = input.emit("keydown", {
+    key: "e",
+    code: "KeyE",
+    repeat: true,
+  });
+  assert.equal(sustainedVowel.defaultPrevented, true);
+  assert.ok(firstReplaySource.stopCalls.length > 0, "typing releases the active readback clip");
+  assert.equal(elements.get("readbackButton").textContent, "Continue readback");
+  assert.equal(
+    elements.get("readbackStartOver").hidden,
+    false,
+    "Start over remains available while the primary action continues",
+  );
+  const atlasSourcesWhileHeld = atlasSources().length;
+  assert.equal(
+    runTimersWithDelay(900),
+    1,
+    "the first idle continuation checks the held vowel",
+  );
+  assert.equal(
+    atlasSources().length,
+    atlasSourcesWhileHeld,
+    "readback stays interrupted while the vowel key remains held",
+  );
+  assert.equal(elements.get("readbackButton").textContent, "Continue readback");
+  assert.equal(
+    [...timers.values()].some(({ delay }) => delay === 900),
+    true,
+    "a held vowel reschedules the idle continuation check",
+  );
+
+  input.emit("keyup", { key: "e", code: "KeyE" });
+  const kalSourcesBeforeContinuation = atlasSources().length;
+  assert.equal(runTimersWithDelay(900), 1, "readback may continue after the vowel is released");
+  await flushMicrotasksUntil(
+    () => atlasSources().length > kalSourcesBeforeContinuation,
+    "idle continuation should resume through the local engine",
+  );
+  const continuedReadbackSource = atlasSources()[kalSourcesBeforeContinuation];
+  assert.ok(continuedReadbackSource, "idle continuation resumes through the local engine");
+  assert.equal(
+    atlasKey(continuedReadbackSource),
+    "dh",
+    "an interrupted word resumes from its first phone instead of its middle",
+  );
+  assert.equal(elements.get("readbackButton").textContent, "Pause readback");
+
+  input.value = "the wordse.";
+  input.selectionStart = input.value.length;
+  input.selectionEnd = input.value.length;
+  input.emit("input", { inputType: "insertText" });
+  assert.ok(continuedReadbackSource.stopCalls.length > 0);
+  assert.equal(elements.get("readbackButton").textContent, "Continue readback");
+  document.hidden = true;
+  for (const listener of documentListeners.get("visibilitychange") ?? []) {
+    listener({ type: "visibilitychange" });
+  }
+  const playbackStartsWhenHidden = playbackStarts;
+  assert.equal(elements.get("readbackButton").textContent, "Resume readback");
+  assert.equal(runTimersWithDelay(900), 0, "hiding clears interrupted readback continuation");
+  for (let pass = 0; pass < 8; pass += 1) await Promise.resolve();
+  assert.equal(playbackStarts, playbackStartsWhenHidden, "hidden readback cannot restart audio");
+
+  document.hidden = false;
+  elements.get("clearButton").emit("click");
+  input.value = "cat.";
+  input.selectionStart = input.value.length;
+  input.selectionEnd = input.value.length;
+  input.emit("input", { inputType: "insertReplacementText" });
+  const kalKClipCount = () => bufferSources.filter((source) => (
+    source.buffer?.sampleRate === 16_000
+    && source.startCalls[0]?.[1] === SPELLING_DIPHONE_CLIPS.k.offset
+  )).length;
+  const kalKBeforeBoundaryReadback = kalKClipCount();
+
+  elements.get("readbackButton").emit("click");
+  await flushMicrotasksUntil(
+    () => kalKClipCount() === kalKBeforeBoundaryReadback + 1,
+    "dictionary-backed CAT should begin through the local engine",
+  );
+  assert.equal(dictionaryFetches, 1, "dictionary-backed words lazily load the pronunciation data");
+  assert.equal(kalKClipCount(), kalKBeforeBoundaryReadback + 1);
+  runTimersUntil(
+    () => elements.get("currentPair").textContent === "PHRASE END",
+    "CAT should advance through K AE T into its final punctuation pause",
+  );
+  assert.equal(elements.get("currentPair").textContent, "PHRASE END");
+  assert.equal(
+    [...timers.values()].some(({ delay }) => delay === 420),
+    true,
+    "the final period is still waiting when readback is paused",
+  );
+
+  elements.get("readbackButton").emit("click");
+  assert.equal(elements.get("readbackButton").textContent, "Resume readback");
+  const kalKAtBoundaryPause = kalKClipCount();
+  elements.get("readbackButton").emit("click");
+  await flushMicrotasksUntil(
+    () => elements.get("readbackButton").textContent === "Read it again",
+    "resuming after the final boundary should finish readback",
+  );
+  assert.equal(elements.get("readbackButton").textContent, "Read it again");
+  assert.equal(
+    kalKClipCount(),
+    kalKAtBoundaryPause,
+    "resuming during final punctuation completes without replaying CAT",
+  );
+
+  elements.get("readbackButton").emit("click");
+  await flushMicrotasksUntil(
+    () => kalKClipCount() === kalKAtBoundaryPause + 1,
+    "replaying CAT should start its first phone",
+  );
+  assert.equal(kalKClipCount(), kalKAtBoundaryPause + 1);
+  runTimersUntil(
+    () => elements.get("currentPair").textContent === "PHRASE END",
+    "the replay should reach CAT's final period",
+  );
+  const kalKBeforeLiveAppend = kalKClipCount();
+  input.value = "cat.b";
+  input.selectionStart = input.value.length;
+  input.selectionEnd = input.value.length;
+  input.emit("input", { inputType: "insertText" });
+  assert.equal(elements.get("readbackButton").textContent, "Continue readback");
+  assert.equal(runTimersWithDelay(900), 1, "live typing resumes after its idle delay");
+  await flushMicrotasksUntil(
+    () => elements.get("readbackButton").textContent === "Read it again",
+    "continuation after the appended suffix should settle",
+  );
+  assert.equal(
+    kalKClipCount(),
+    kalKBeforeLiveAppend,
+    "continuing after a live append does not restart the already-read prefix",
+  );
+  assert.equal(elements.get("readbackButton").textContent, "Read it again");
 });

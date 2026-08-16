@@ -643,6 +643,17 @@ test("Rubix page exposes the cube gestures, three visible lanes, and release ass
   assert.deepEqual(listenerEvents("percEngine"), ["change"]);
   assert.deepEqual(listenerEvents("rubixPreset"), ["change"]);
   assert.deepEqual(listenerEvents("randomTwists"), ["click"]);
+  assert.deepEqual(listenerEvents("solveCube"), ["click"]);
+  assert.deepEqual(listenerEvents("resetSound"), ["click"]);
+  const solveCubeAction = sourceSection(app, "function solveCube", "function resetSound");
+  assert.match(solveCubeAction, /createSolvedRubixCube/);
+  assert.match(solveCubeAction, /stopRandomTwists\(false\)/);
+  assert.doesNotMatch(solveCubeAction, /SOUND_DEFAULTS|DEFAULT_RUBIX_CAMERA|audio\.updateSettings/);
+  const resetSoundAction = sourceSection(app, "function resetSound", "function pointFromEvent");
+  assert.match(resetSoundAction, /Object\.assign\(state, SOUND_DEFAULTS\)/);
+  assert.doesNotMatch(resetSoundAction, /state\.cube|state\.camera|moveHistory|stopRandomTwists/);
+  const soundDefaults = sourceSection(app, "const SOUND_DEFAULTS", "const RUBIX_PRESETS");
+  assert.doesNotMatch(soundDefaults, /randomTwists|randomTwistTempo/);
   const randomTwistTempoBindings = [
     ...app.matchAll(/\bbindRange\s*\(\s*["']randomTwistTempo["']/g),
     ...app.matchAll(

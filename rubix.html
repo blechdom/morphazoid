@@ -161,19 +161,25 @@
               />
               <small>0% equal level · 100% projected square area</small>
             </label>
-            <label class="control" for="tempo">
-              <span><b>Tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span>
-              <input id="tempo" type="range" min="64" max="180" step="1" value="126" />
-            </label>
+            <div class="rubix-tempo-row">
+              <label class="control" for="tempo">
+                <span><b>Tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span>
+                <input id="tempo" type="range" min="30" max="300" step="1" value="126" />
+              </label>
+              <button
+                class="rubix-restart-button"
+                id="restartLoop"
+                type="button"
+                aria-label="Restart loop at step 1"
+                title="Restart loop at step 1"
+              >
+                <span aria-hidden="true">↶ 1</span>
+              </button>
+            </div>
             <label class="control" for="swing">
               <span><b>Swing</b><output id="swingOut" for="swing">0%</output></span>
               <input id="swing" type="range" min="0" max="0.42" step="0.01" value="0" />
             </label>
-            <div class="rubix-clock-actions">
-              <button class="mini-action" id="halfTime" type="button">÷2</button>
-              <button class="mini-action" id="doubleTime" type="button">×2</button>
-              <button class="mini-action" id="restartLoop" type="button">Restart at 1</button>
-            </div>
           </div>
         </details>
 
@@ -200,6 +206,12 @@
                 </select>
               </span>
             </label>
+            <div class="rubix-cube-actions" aria-label="Cube arrangement actions">
+              <button class="mini-action" id="scrambleCube" type="button">Scramble 18</button>
+              <button class="mini-action rubix-solve-button" id="solveCube" type="button">Solve cube</button>
+              <button class="mini-action" id="undoMove" type="button" disabled>Undo move</button>
+              <button class="mini-action" id="resetView" type="button">Reset view</button>
+            </div>
             <div class="rubix-random-twists">
               <button id="randomTwists" type="button" aria-pressed="false">
                 <span aria-hidden="true">⤨</span>
@@ -233,14 +245,6 @@
               <button id="moveRight" type="button" aria-label="Move selected row right">→<small>row</small></button>
               <button id="moveDown" type="button" aria-label="Move selected column down">↓<small>column</small></button>
             </div>
-            <div class="rubix-cube-actions">
-              <button class="mini-action" id="scrambleCube" type="button">Scramble 18</button>
-              <button class="mini-action" id="undoMove" type="button" disabled>Undo move</button>
-              <button class="mini-action" id="resetView" type="button">Reset view</button>
-            </div>
-            <button class="reset-all-button rubix-solve-button" id="resetCube" type="button" data-reset-all>
-              Solve cube + reset sound
-            </button>
           </div>
         </details>
 
@@ -327,6 +331,18 @@
         </details>
 
         <p class="audio-error" id="audioError" role="alert" hidden></p>
+        <div class="reset-all-row rubix-reset-sound-row">
+          <button
+            class="reset-all-button"
+            id="resetSound"
+            type="button"
+            data-reset-all
+            data-reset-in-place
+            title="Restore sound settings without changing the cube or view"
+          >
+            Reset sound
+          </button>
+        </div>
       </aside>
 
       <p class="sr-only" id="cubeInstructions">
