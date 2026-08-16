@@ -19,8 +19,8 @@ import {
   RUBIX_READ_MODES,
   createRubixSequenceSnapshot,
   createSolvedRubixCube,
-  rotateRubixVector,
   rubixFaceForNormal,
+  rubixEulerMatrix,
   rubixLayersForSize,
   rubixReadFrame,
   turnRubixLayer,
@@ -776,11 +776,18 @@ let visibilityProfile = Object.freeze({});
 
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
-const drawing = canvas.getContext("2d", { alpha: false, desynchronized: true });
+const drawing = canvas.getContext("2d", { alpha: false });
 let cssWidth = 1;
 let cssHeight = 1;
 let pixelRatio = 1;
+let lowPowerCanvas = false;
+let pendingCanvasSize = null;
 let scheduledFrame = 0;
+let orbitSnapshotDirty = false;
+let cameraMatrix = rubixEulerMatrix(state.camera);
+let matrixCameraX = Number.NaN;
+let matrixCameraY = Number.NaN;
+let matrixCameraZ = Number.NaN;
 let hitRegions = [];
 let pointerGesture = null;
 let previewTurn = null;
@@ -879,11 +886,11 @@ function performanceSnapshotKey(snapshot) {
   ].join("|");
 }
 
-function setPerformanceSnapshots(snapshots) {
+function setPerformanceSnapshots(snapshots, { render = true } = {}) {
   const unique = new Map();
   for (const snapshot of snapshots) unique.set(performanceSnapshotKey(snapshot), snapshot);
   performanceSnapshots = Object.freeze([...unique.values()]);
-  requestDraw();
+  if (render) requestDraw();
 }
 
 function restorePerformanceSnapshot() {
@@ -902,11 +909,18 @@ function auditionTurn(move) {
 }
 
 function refreshOrbitPerformanceSnapshot() {
+  orbitSnapshotDirty = true;
+  requestDraw();
+}
+
+function flushOrbitPerformanceSnapshot() {
+  if (!orbitSnapshotDirty) return;
+  orbitSnapshotDirty = false;
   auditionCube = null;
   auditionMoveKey = "";
   setPerformanceSnapshots([
     createRubixSequenceSnapshot(state.cube, state.camera),
-  ]);
+  ], { render: false });
 }
 
 function performanceEventsForRole(role, frame = currentReadFrame()) {
@@ -1191,6 +1205,7 @@ function updateSnapshot({ announceChange = false } = {}) {
   sequenceSnapshot = createRubixSequenceSnapshot(state.cube, state.camera);
   auditionCube = null;
   auditionMoveKey = "";
+  orbitSnapshotDirty = false;
   performanceSnapshots = Object.freeze([sequenceSnapshot]);
   const readFrame = currentReadFrame();
   renderLaneList();
@@ -1218,11 +1233,12 @@ function updateNowPlaying(frame = currentReadFrame()) {
   const leftEvent = performanceEventsForRole("drumLeft", frame)[0];
   const rightEvent = performanceEventsForRole("drumRight", frame)[0];
   const activeRoles = new Set(frame.activeRoles);
-  $("acidNow").textContent = activeRoles.has("acid")
+  const acidText = activeRoles.has("acid")
     ? acidEvent?.gain > 0
       ? `ACID · ${acidEvent.sticker.color.toUpperCase()} · ${midiLabel(acidEvent.value + 12)} · ${Math.round(acidEvent.gain * 100)}%`
       : "ACID · SILENT · HIDDEN"
     : `ACID · REST · ${FACE_SHORT[liveSnapshot.faceNames.acid]} WAITING`;
+  if ($("acidNow").textContent !== acidText) $("acidNow").textContent = acidText;
   const drumNames = [];
   if (activeRoles.has("drumLeft")) {
     const voice = voices[leftEvent?.value];
@@ -1236,7 +1252,13 @@ function updateNowPlaying(frame = currentReadFrame()) {
       ? `${voice.name.toUpperCase()} ${Math.round(rightEvent.gain * 100)}%`
       : "B SILENT");
   }
-  $("drumNow").textContent = drumNames.length ? `DRUMS · ${drumNames.join(" + ")}` : "DRUMS · REST";
+  const drumText = drumNames.length ? `DRUMS · ${drumNames.join(" + ")}` : "DRUMS · REST";
+  if ($("drumNow").textContent !== drumText) $("drumNow").textContent = drumText;
+}
+
+function setAudibleStickerIds(ids) {
+  const value = [...ids].join("|");
+  if (canvas.dataset.audibleStickerIds !== value) canvas.dataset.audibleStickerIds = value;
 }
 
 function updatePlayhead(step) {
@@ -1254,7 +1276,7 @@ function updatePlayhead(step) {
   }
   updateNowPlaying(frame);
   const audibleIds = audibleStickerIds(frame);
-  canvas.dataset.audibleStickerIds = [...audibleIds].join("|");
+  setAudibleStickerIds(audibleIds);
   const liveSnapshot = performanceSnapshots.at(-1) ?? sequenceSnapshot;
   const visibleLabel = [
     liveSnapshot.faceNames.acid,
@@ -1292,24 +1314,84 @@ function transformedVector(source, sticker, turn) {
 
 function resizeCanvas() {
   const bounds = stageWrap.getBoundingClientRect();
-  cssWidth = Math.max(1, Math.round(bounds.width));
-  cssHeight = Math.max(1, Math.round(bounds.height));
+  const nextCssWidth = Math.max(1, Math.round(bounds.width));
+  const nextCssHeight = Math.max(1, Math.round(bounds.height));
   const deviceRatio = Math.max(1, Number(devicePixelRatio) || 1);
-  const pixelBudgetRatio = Math.sqrt(1_750_000 / Math.max(1, cssWidth * cssHeight));
-  pixelRatio = Math.min(deviceRatio, Math.max(1, pixelBudgetRatio));
-  const width = Math.max(1, Math.round(cssWidth * pixelRatio));
-  const height = Math.max(1, Math.round(cssHeight * pixelRatio));
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width;
-    canvas.height = height;
-  }
-  drawing.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  const mobileCanvas = nextCssWidth <= 960 || matchMedia("(pointer: coarse)").matches;
+  const pixelBudget = mobileCanvas ? 1_000_000 : 1_750_000;
+  const ratioCap = mobileCanvas ? 2 : deviceRatio;
+  const pixelBudgetRatio = Math.sqrt(pixelBudget / Math.max(1, nextCssWidth * nextCssHeight));
+  const nextPixelRatio = Math.min(deviceRatio, ratioCap, Math.max(1, pixelBudgetRatio));
+  const width = Math.max(1, Math.round(nextCssWidth * nextPixelRatio));
+  const height = Math.max(1, Math.round(nextCssHeight * nextPixelRatio));
+  const matchesCurrent = pendingCanvasSize === null
+    && nextCssWidth === cssWidth
+    && nextCssHeight === cssHeight
+    && Math.abs(nextPixelRatio - pixelRatio) < 0.001
+    && mobileCanvas === lowPowerCanvas
+    && canvas.width === width
+    && canvas.height === height;
+  if (matchesCurrent) return;
+  if (
+    pendingCanvasSize
+    && pendingCanvasSize.cssWidth === nextCssWidth
+    && pendingCanvasSize.cssHeight === nextCssHeight
+    && pendingCanvasSize.lowPowerCanvas === mobileCanvas
+    && Math.abs(pendingCanvasSize.pixelRatio - nextPixelRatio) < 0.001
+    && pendingCanvasSize.width === width
+    && pendingCanvasSize.height === height
+  ) return;
+  pendingCanvasSize = {
+    cssWidth: nextCssWidth,
+    cssHeight: nextCssHeight,
+    pixelRatio: nextPixelRatio,
+    lowPowerCanvas: mobileCanvas,
+    width,
+    height,
+  };
   requestDraw();
+}
+
+function applyPendingCanvasSize() {
+  if (!pendingCanvasSize) return;
+  const next = pendingCanvasSize;
+  pendingCanvasSize = null;
+  cssWidth = next.cssWidth;
+  cssHeight = next.cssHeight;
+  pixelRatio = next.pixelRatio;
+  lowPowerCanvas = next.lowPowerCanvas;
+  if (canvas.width !== next.width) canvas.width = next.width;
+  if (canvas.height !== next.height) canvas.height = next.height;
+  drawing.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+}
+
+function rotateViewVector(source) {
+  const cameraX = Number(state.camera.x) || 0;
+  const cameraY = Number(state.camera.y) || 0;
+  const cameraZ = Number(state.camera.z) || 0;
+  if (
+    cameraX !== matrixCameraX
+    || cameraY !== matrixCameraY
+    || cameraZ !== matrixCameraZ
+  ) {
+    matrixCameraX = cameraX;
+    matrixCameraY = cameraY;
+    matrixCameraZ = cameraZ;
+    cameraMatrix = rubixEulerMatrix(state.camera);
+  }
+  const x = Number(source?.x) || 0;
+  const y = Number(source?.y) || 0;
+  const z = Number(source?.z) || 0;
+  return {
+    x: cameraMatrix[0][0] * x + cameraMatrix[0][1] * y + cameraMatrix[0][2] * z,
+    y: cameraMatrix[1][0] * x + cameraMatrix[1][1] * y + cameraMatrix[1][2] * z,
+    z: cameraMatrix[2][0] * x + cameraMatrix[2][1] * y + cameraMatrix[2][2] * z,
+  };
 }
 
 function projectWorld(source) {
   const normalizedSource = scale(source, 3 / Math.max(1, state.cube.size));
-  const rotated = rotateRubixVector(normalizedSource, state.camera);
+  const rotated = rotateViewVector(normalizedSource);
   const cameraDistance = 7.4;
   const perspective = cameraDistance / Math.max(3.2, cameraDistance - rotated.z);
   const unit = Math.min(cssWidth, cssHeight) * (cssWidth < 560 ? 0.18 : 0.155);
@@ -1357,7 +1439,7 @@ function stickerGeometry(sticker, turn) {
   const right = transformedVector(definition.right, sticker, turn);
   const down = transformedVector(definition.down, sticker, turn);
   const faceCenter = transformedVector(add(sticker.position, scale(sticker.normal, 0.5)), sticker, turn);
-  const viewNormal = rotateRubixVector(normal, state.camera);
+  const viewNormal = rotateViewVector(normal);
   if (viewNormal.z <= 0.012) return null;
 
   const makeQuad = (half, lift = 0) => {
@@ -1461,7 +1543,7 @@ function drawSticker(geometry, audibleIds) {
   const audibleGain = stickerDynamicsGain(sticker);
   const selected = sticker.id === state.selectedStickerId;
   drawing.save();
-  if (audible) {
+  if (audible && !lowPowerCanvas) {
     drawing.shadowColor = COLOR_HEX[sticker.color];
     drawing.shadowBlur = 5 + audibleGain * 22;
   }
@@ -1477,7 +1559,7 @@ function drawSticker(geometry, audibleIds) {
       : role
         ? `${ROLE_META[role].color}88`
         : "rgba(0, 0, 0, 0.52)";
-  drawing.lineWidth = audible ? 2.2 : selected ? 1.8 : 0.8;
+  drawing.lineWidth = audible ? (lowPowerCanvas ? 1.6 : 2.2) : selected ? 1.8 : 0.8;
   drawing.stroke();
 
   if (currentGeometry().surface === "pyramid") {
@@ -1524,7 +1606,7 @@ function drawCube() {
   visibilityProfile = createRubixVisibilityProfile(geometry);
   updateNowPlaying();
   const audibleIds = audibleStickerIds();
-  canvas.dataset.audibleStickerIds = [...audibleIds].join("|");
+  setAudibleStickerIds(audibleIds);
   hitRegions = [];
   for (const item of geometry) {
     drawSticker(item, audibleIds);
@@ -1534,6 +1616,8 @@ function drawCube() {
 
 function drawFrame(now = performance.now()) {
   scheduledFrame = 0;
+  applyPendingCanvasSize();
+  flushOrbitPerformanceSnapshot();
   if (turnAnimation) {
     const progress = clamp((now - turnAnimation.startedAt) / turnAnimation.duration, 0, 1);
     const eased = 1 - ((1 - progress) ** 3);

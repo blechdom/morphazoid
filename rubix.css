@@ -985,6 +985,13 @@
   .rubix-shell {
     grid-template-columns: 1fr;
     grid-template-rows: clamp(310px, 52dvh, 470px) minmax(0, 1fr);
+    grid-template-rows: clamp(310px, 52svh, 470px) minmax(0, 1fr);
+  }
+
+  .rubix-stage {
+    position: relative;
+    top: auto;
+    contain: paint;
   }
 
   .rubix-stage-wrap,
@@ -1006,6 +1013,7 @@
 @media (max-width: 650px) {
   .rubix-shell {
     grid-template-rows: clamp(280px, 49dvh, 390px) minmax(0, 1fr);
+    grid-template-rows: clamp(280px, 49svh, 390px) minmax(0, 1fr);
   }
 
   .rubix-heading p,
@@ -1077,6 +1085,7 @@
 @media (max-width: 420px) {
   .rubix-shell {
     grid-template-rows: clamp(260px, 47dvh, 340px) minmax(0, 1fr);
+    grid-template-rows: clamp(260px, 47svh, 340px) minmax(0, 1fr);
   }
 
   .rubix-heading {
@@ -1109,6 +1118,7 @@
 @media (max-width: 960px) and (max-height: 560px) {
   .rubix-shell {
     grid-template-rows: clamp(220px, 48dvh, 270px) minmax(0, 1fr);
+    grid-template-rows: clamp(220px, 48svh, 270px) minmax(0, 1fr);
   }
 
   .rubix-heading {
