@@ -40,44 +40,44 @@ const freezePreset = (p) => Object.freeze({ ...p, settings: Object.freeze({ ...p
 
 export const CASCADING_FM_PRESETS = Object.freeze([
   freezePreset({
-    id: "slow-cascade",
-    label: "Slow Cascade",
-    description: "Sub-audio root at 0.3 Hz cascades up through audio with gently decreasing modulation depth.",
-    settings: { stages: 5, rootHz: 0.3, cascadeRatio: 10, modDepth: 3_000, depthTaper: 0.55 },
+    id: "brass-choir",
+    label: "Brass Choir",
+    description: "Five harmonic stages rooted at 55 Hz with moderate depth and even taper — warm and brassy.",
+    settings: { stages: 5, rootHz: 55, cascadeRatio: 2, modDepth: 220, depthTaper: 0.8 },
   }),
   freezePreset({
-    id: "dense-wave",
-    label: "Dense Wave",
-    description: "Seven tight stages with a fast LFO root create a rich, wavering tone.",
-    settings: { stages: 7, rootHz: 1.2, cascadeRatio: 5, modDepth: 2_000, depthTaper: 0.7 },
+    id: "bell-tower",
+    label: "Bell Tower",
+    description: "Four inharmonic stages from 110 Hz with a slight ratio offset and rising taper for metallic shimmer.",
+    settings: { stages: 4, rootHz: 110, cascadeRatio: 2.8, modDepth: 440, depthTaper: 1.1 },
   }),
   freezePreset({
-    id: "wide-steps",
-    label: "Wide Steps",
-    description: "Three stages far apart in frequency for broad, sweeping timbral layers.",
-    settings: { stages: 3, rootHz: 0.1, cascadeRatio: 60, modDepth: 8_000, depthTaper: 0.4 },
+    id: "neon-reed",
+    label: "Neon Reed",
+    description: "Six tight stages at 82 Hz with low-index modulation and gentle taper — buzzy and reedy.",
+    settings: { stages: 6, rootHz: 82, cascadeRatio: 1.5, modDepth: 120, depthTaper: 0.75 },
   }),
   freezePreset({
-    id: "bright-shimmer",
-    label: "Bright Shimmer",
-    description: "A moderate root with high cascade ratio and rising taper pushes energy into upper partials.",
-    settings: { stages: 4, rootHz: 2, cascadeRatio: 25, modDepth: 1_500, depthTaper: 1.2 },
+    id: "glass-forest",
+    label: "Glass Forest",
+    description: "Three widely spread stages from 220 Hz produce glassy, shifting overtones.",
+    settings: { stages: 3, rootHz: 220, cascadeRatio: 4.2, modDepth: 900, depthTaper: 0.5 },
   }),
   freezePreset({
-    id: "deep-strata",
-    label: "Deep Strata",
-    description: "Two wide-spaced oscillators with heavy modulation — raw and unstable.",
-    settings: { stages: 2, rootHz: 0.05, cascadeRatio: 200, modDepth: 12_000, depthTaper: 1 },
+    id: "organ-pulse",
+    label: "Organ Pulse",
+    description: "Eight even octave-ish stages from 65 Hz with falling taper emulate a pipe organ chorus.",
+    settings: { stages: 8, rootHz: 65, cascadeRatio: 2, modDepth: 260, depthTaper: 0.65 },
   }),
   freezePreset({
-    id: "harmonic-rain",
-    label: "Harmonic Rain",
-    description: "Six even stages at 3 Hz root with gentle taper create a glittering harmonic rain.",
-    settings: { stages: 6, rootHz: 3, cascadeRatio: 8, modDepth: 1_200, depthTaper: 0.6 },
+    id: "electric-wind",
+    label: "Electric Wind",
+    description: "Five wide-ratio stages at 130 Hz with high index and fast taper — electric and chaotic.",
+    settings: { stages: 5, rootHz: 130, cascadeRatio: 3.5, modDepth: 1_800, depthTaper: 0.4 },
   }),
 ]);
 
-export const DEFAULT_CASCADING_FM_PRESET_ID = "slow-cascade";
+export const DEFAULT_CASCADING_FM_PRESET_ID = "brass-choir";
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
