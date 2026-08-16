@@ -174,6 +174,11 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, then play a MIDI or computer key and adjust depth and modulation amount.",
     ["MIDI", "Computer keys"],
   ),
+  "cascading-fm": define(
+    "Synth",
+    "Chains sine oscillators from a slow LFO root through audio frequencies, each one modulating the next with tapered depth.",
+    "Turn on audio, then adjust the stage count, cascade ratio, modulation depth, and depth taper.",
+  ),
   "recursive-pm": define(
     "Synth",
     "Folds a carrier through recursive phase operators, adding progressively smaller offsets at deeper levels.",
@@ -412,6 +417,7 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   "sample-drums": Object.freeze(["geometry-drums"]),
   micmic: Object.freeze(["fractals-recursion"]),
   "recursive-fm": Object.freeze(["fractals-recursion"]),
+  "cascading-fm": Object.freeze(["fractals-recursion"]),
   "recursive-pm": Object.freeze(["fractals-recursion"]),
   "chaotic-fm": Object.freeze(["fractals-recursion"]),
   "chaotic-pm": Object.freeze(["fractals-recursion"]),
