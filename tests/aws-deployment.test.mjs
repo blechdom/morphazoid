@@ -303,7 +303,7 @@ test("AWS workflow verifies before OIDC deployment and uses repository variables
   assert.match(workflow, /actions\/download-artifact@v8/);
   assert.match(workflow, /aws-actions\/configure-aws-credentials@v6\.2\.3/);
   assert.match(workflow, /id-token:\s+write/);
-  assert.match(workflow, /environment:\s*\n\s+name:\s+production/);
+  assert.match(workflow, /environment:\s*\n\s*#?\s*name:\s+production/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
   assert.match(workflow, /vars\.AWS_ACCOUNT_ID/);
   assert.match(workflow, /allowed-account-ids:\s+\$\{\{\s+vars\.AWS_ACCOUNT_ID\s+\}\}/);
