@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Rubix Cube Sequencer — twist playable 2×2 through 6×6 cubes whose visible faces become acid and synthesized percussion patterns."
+    />
+    <title>Rubix Cube Sequencer — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="rubix.css" />
+  </head>
+  <body class="rubix-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape-drums.html">shape drums</a>
+        <a class="tab active rubix-tab" href="rubix.html" aria-current="page">rubix</a>
+        <a class="tab" href="webgpu-303.html">webgpu 303</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape-drums.html">shape drums</option>
+          <option value="rubix.html" selected>rubix</option>
+          <option value="webgpu-303.html">webgpu 303</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph rubix-audio-glyph" aria-hidden="true">◆</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">56%</output></span>
+          <input
+            id="output"
+            aria-label="Rubix sequencer output level"
+            type="range"
+            min="0"
+            max="0.9"
+            step="0.01"
+            value="0.56"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell rubix-shell" id="rubixSequencer">
+      <section class="stage rubix-stage" aria-labelledby="rubixTitle">
+        <div class="stage-wrap rubix-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="application"
+            aria-label="Interactive 3 by 3 Rubix sequencer cube. Audio off. Drag stickers to twist or empty space to orbit."
+            aria-describedby="cubeInstructions liveStatus"
+          >
+            A playable 3 by 3 cube. Its upper visible face sequences acid notes;
+            its left and right visible faces sequence synthesized percussion.
+          </canvas>
+
+          <div class="rubix-heading">
+            <p>GEOMETRY DRUMS × ACID</p>
+            <h1 id="rubixTitle">Rubix</h1>
+            <span>what is visible is what is heard</span>
+          </div>
+
+          <div class="rubix-face-badges" id="faceBadges" aria-hidden="true"></div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">VISIBLE U / F / R · STEP 1/9 · AUDIO OFF</span>
+          </div>
+
+          <div class="rubix-gesture-hint" id="gestureHint" aria-hidden="true">
+            <span>DRAG A STICKER TO TWIST · DRAG EMPTY SPACE TO ORBIT</span>
+          </div>
+        </div>
+
+      </section>
+
+      <aside class="panel rubix-panel" aria-label="Rubix Cube Sequencer controls">
+        <div class="rubix-status-strip" aria-live="polite">
+          <b id="engineState">Shared Web Audio engine</b>
+          <small id="sequenceState">27 visible stickers · 3 lanes × 9 steps</small>
+        </div>
+
+        <details class="group control-section rubix-control-section" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Clock</h2>
+            <span class="section-state" id="clockSummary">126 BPM · straight</span>
+          </summary>
+          <div class="group-body">
+            <div class="rubix-clock-transport" aria-label="Sequencer transport">
+              <button class="rubix-play-button" id="playButton" type="button" aria-pressed="false">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                <span><b id="playLabel">Play cube</b><small id="playState">9-step loop</small></span>
+              </button>
+              <div class="rubix-step-strip" id="stepStrip" aria-label="Sequence playhead"></div>
+              <div class="rubix-now-playing" aria-live="off">
+                <span id="acidNow">ACID · WHITE</span>
+                <span id="drumNow">DRUMS · KICK + HAT</span>
+              </div>
+            </div>
+            <label class="select-control rubix-preset-control" for="rubixPreset">
+              <span>
+                <b>Performance preset</b>
+                <output id="rubixPresetState" for="rubixPreset">Classic cube</output>
+              </span>
+              <span class="select-shell">
+                <select id="rubixPreset" aria-label="Rubix performance preset">
+                  <option value="" disabled>Custom settings</option>
+                  <option value="classic" selected>Classic cube</option>
+                  <option value="pocket-funk">Pocket funk</option>
+                  <option value="modal-sphere">Modal sphere</option>
+                  <option value="noise-grid">Noise grid</option>
+                  <option value="pyramid-drift">Pyramid drift</option>
+                </select>
+              </span>
+            </label>
+            <div class="rubix-read-heading">
+              <b>Read path</b>
+              <span id="readModeState">rows together · 9 steps</span>
+            </div>
+            <div class="rubix-read-modes" role="group" aria-label="Visible face read path">
+              <button type="button" data-read-mode="parallel" aria-pressed="true">
+                <b>Rows together</b><small>default · all 3 faces</small>
+              </button>
+              <button type="button" data-read-mode="snake" aria-pressed="false">
+                <b>Snake together</b><small>all 3 faces · 9 steps</small>
+              </button>
+              <button type="button" data-read-mode="face" aria-pressed="false">
+                <b>Alternate faces</b><small>one face per subdivision · 27 steps</small>
+              </button>
+            </div>
+            <label
+              class="control rubix-visibility-dynamics"
+              for="visibilityDynamics"
+              title="0% keeps every visible sticker at equal level; 100% follows its projected square area."
+            >
+              <span>
+                <b>Visibility dynamics</b>
+                <output id="visibilityDynamicsOut" for="visibilityDynamics">72%</output>
+              </span>
+              <input
+                id="visibilityDynamics"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.72"
+              />
+              <small>0% equal level · 100% projected square area</small>
+            </label>
+            <div class="rubix-tempo-row">
+              <label class="control" for="tempo">
+                <span><b>Tempo</b><output id="tempoOut" for="tempo">126 BPM</output></span>
+                <input id="tempo" type="range" min="30" max="300" step="1" value="126" />
+              </label>
+              <button
+                class="rubix-restart-button"
+                id="restartLoop"
+                type="button"
+                aria-label="Restart loop at step 1"
+                title="Restart loop at step 1"
+              >
+                <span aria-hidden="true">↶ 1</span>
+              </button>
+            </div>
+            <label class="control" for="swing">
+              <span><b>Swing</b><output id="swingOut" for="swing">0%</output></span>
+              <input id="swing" type="range" min="0" max="0.42" step="0.01" value="0" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section rubix-control-section" data-section="form" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Cube moves</h2>
+            <span class="section-state" id="moveSummary">manual · no selection</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control rubix-geometry-control" for="geometry">
+              <span>
+                <b>Geometry</b>
+                <output id="geometryState" for="geometry">3 × 3 · Rubix cube</output>
+              </span>
+              <span class="select-shell">
+                <select id="geometry" aria-label="Sequencer geometry">
+                  <option value="cube3" selected>3 × 3 · Rubix cube</option>
+                  <option value="cube2">2 × 2 · Pocket cube</option>
+                  <option value="cube4">4 × 4 · Rubix cube</option>
+                  <option value="cube5">5 × 5 · Rubix cube</option>
+                  <option value="cube6">6 × 6 · Rubix cube</option>
+                  <option value="pyramid">Pyramid · faceted</option>
+                  <option value="sphere">Sphere · orbital</option>
+                </select>
+              </span>
+            </label>
+            <div class="rubix-cube-actions" aria-label="Cube arrangement actions">
+              <button class="mini-action" id="scrambleCube" type="button">Scramble 18</button>
+              <button class="mini-action rubix-solve-button" id="solveCube" type="button">Solve cube</button>
+              <button class="mini-action" id="undoMove" type="button" disabled>Undo move</button>
+              <button class="mini-action" id="resetView" type="button">Reset view</button>
+            </div>
+            <div class="rubix-random-twists">
+              <button id="randomTwists" type="button" aria-pressed="false">
+                <span aria-hidden="true">⤨</span>
+                <span><b>Random twists</b><small id="randomTwistState">off</small></span>
+              </button>
+              <label class="control" for="randomTwistTempo">
+                <span>
+                  <b>Twist tempo</b>
+                  <output id="randomTwistTempoOut" for="randomTwistTempo">24 TPM</output>
+                </span>
+                <input
+                  id="randomTwistTempo"
+                  type="range"
+                  min="6"
+                  max="90"
+                  step="1"
+                  value="24"
+                  aria-describedby="randomTwistHelp"
+                />
+              </label>
+              <small id="randomTwistHelp">Independent movement clock · sequencer BPM does not change this rate</small>
+            </div>
+            <div class="rubix-selected-sticker">
+              <span><b>Selected sticker</b><small id="selectedSticker">tap a tile</small></span>
+              <i id="selectedSwatch" aria-hidden="true"></i>
+            </div>
+            <div class="rubix-move-pad" aria-label="Selected slice controls">
+              <button id="moveUp" type="button" aria-label="Move selected column up">↑<small>column</small></button>
+              <button id="moveLeft" type="button" aria-label="Move selected row left">←<small>row</small></button>
+              <span aria-hidden="true">SLICE</span>
+              <button id="moveRight" type="button" aria-label="Move selected row right">→<small>row</small></button>
+              <button id="moveDown" type="button" aria-label="Move selected column down">↓<small>column</small></button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section rubix-control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Acid voice</h2>
+            <span class="section-state" id="acidSummary">980 Hz · res 11.5</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="cutoff">
+              <span><b>Cutoff</b><output id="cutoffOut" for="cutoff">980 Hz</output></span>
+              <input id="cutoff" type="range" min="160" max="4200" step="10" value="980" />
+            </label>
+            <label class="control" for="resonance">
+              <span><b>Resonance</b><output id="resonanceOut" for="resonance">11.5</output></span>
+              <input id="resonance" type="range" min="0" max="18" step="0.1" value="11.5" />
+            </label>
+            <label class="control" for="acidDecay">
+              <span><b>Accent decay</b><output id="acidDecayOut" for="acidDecay">180 ms</output></span>
+              <input id="acidDecay" type="range" min="0.06" max="0.72" step="0.01" value="0.18" />
+            </label>
+            <label class="control" for="drive">
+              <span><b>Drive</b><output id="driveOut" for="drive">2.4×</output></span>
+              <input id="drive" type="range" min="0.5" max="6" step="0.1" value="2.4" />
+            </label>
+            <label class="control" for="acidLevel">
+              <span><b>Acid level</b><output id="acidLevelOut" for="acidLevel">58%</output></span>
+              <input id="acidLevel" type="range" min="0" max="1" step="0.01" value="0.58" />
+            </label>
+            <p class="rubix-engine-note">
+              Color pitches inherit Morphazoid 303’s note window. This resonant
+              voice shares one clock and output graph with the drum lanes, so a
+              completed cube move rewrites the score without a second audio stream.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section rubix-control-section" data-section="output">
+          <summary class="group-summary">
+            <h2 class="group-title">Percussion voice</h2>
+            <span class="section-state" id="drumSummary">Soft FM · 54%</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control rubix-perc-control" for="percEngine">
+              <span>
+                <b>Percussion synth</b>
+                <output id="percEngineState" for="percEngine">Soft FM</output>
+              </span>
+              <span class="select-shell">
+                <select id="percEngine" aria-label="Percussion synthesizer">
+                  <option value="soft-fm" selected>Soft FM</option>
+                  <option value="analog">Analog drums</option>
+                  <option value="modal">Modal wood</option>
+                  <option value="noise">Noise circuit</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="drumLevel">
+              <span><b>Drum level</b><output id="drumLevelOut" for="drumLevel">54%</output></span>
+              <input id="drumLevel" type="range" min="0" max="1" step="0.01" value="0.54" />
+            </label>
+            <p class="rubix-engine-note">
+              Sticker colors select kick, snare, tom, and hat roles. The selector
+              swaps the sample-free synthesis model while keeping Rubix’s softened
+              gain staging; bells and metallic voices stay out of the cube mix.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section rubix-control-section rubix-score-section" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Visible score</h2>
+            <span class="section-state" id="scoreSummary">upper acid · sides drums</span>
+          </summary>
+          <div class="group-body">
+            <p class="rubix-causal-copy" id="scoreDescription">
+              The upper visible face is one acid lane. The left and right visible
+              faces are two percussion lanes. By default all three read left-to-right,
+              top-to-bottom together; hidden stickers are silent.
+            </p>
+            <div class="rubix-lane-list" id="laneList" aria-label="Currently audible cube faces"></div>
+            <div class="rubix-color-key" id="colorKey" aria-label="Sticker color sound mapping"></div>
+          </div>
+        </details>
+
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+        <div class="reset-all-row rubix-reset-sound-row">
+          <button
+            class="reset-all-button"
+            id="resetSound"
+            type="button"
+            data-reset-all
+            data-reset-in-place
+            title="Restore sound settings without changing the cube or view"
+          >
+            Reset sound
+          </button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="cubeInstructions">
+        Drag a visible sticker left, right, up, or down to turn its row or column.
+        Drag empty stage space to orbit the whole form. Use arrow keys to turn the
+        selected sticker's row or column and Space to play or pause. Random Twists
+        uses its own movement tempo, independent of sequencer BPM. Choose Rows
+        together, Snake together, or Alternate faces
+        in the Clock section to change how the visible stickers are read. Alternate
+        faces divides each beat into acid, Drum A, and Drum B subdivisions. The
+        Geometry menu loads 2 by 2 through 6 by 6 cubes, Pyramid, or Sphere forms.
+        The upper visible face makes acid notes while the two side faces trigger
+        drums. Larger projected stickers sound louder according to Visibility
+        dynamics, and any sticker that cannot be seen is silent.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="rubix-app.js"></script>
+  </body>
+</html>

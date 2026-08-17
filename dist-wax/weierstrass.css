@@ -1,0 +1,436 @@
+.weierstrass-page {
+  --accent: #7db4ff;
+  --accent-soft: color-mix(in oklab, #7db4ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #7db4ff 22%, transparent);
+  --weierstrass-wave: #7db4ff;
+  --weierstrass-fm: #c79bff;
+  --weierstrass-pm: #ff9f73;
+  --weierstrass-taper: #e8c46b;
+  --weierstrass-cull: #77837e;
+  --chaotic-path-signal: #7db4ff;
+  --chaotic-path-control: #c79bff;
+  --chaotic-path-operator: #ff9f73;
+  --chaotic-path-output: #fff3d6;
+}
+
+.weierstrass-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 28vw, 430px);
+}
+
+.weierstrass-stage .stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--weierstrass-wave) 2.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--weierstrass-fm) 2.2%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 51% 43%, color-mix(in oklab, var(--weierstrass-fm) 7%, transparent), transparent 50%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.weierstrass-page #stage {
+  cursor: default;
+}
+
+.weierstrass-heading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(38px, 7vh, 72px);
+  left: clamp(20px, 4vw, 58px);
+  display: grid;
+  pointer-events: none;
+  gap: 5px;
+}
+
+.weierstrass-heading p,
+.weierstrass-heading span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.weierstrass-heading p {
+  color: var(--accent);
+}
+
+.weierstrass-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(25px, 4vw, 52px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.weierstrass-heading span {
+  margin-top: 3px;
+  color: var(--faint);
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
+.weierstrass-scope-labels {
+  position: absolute;
+  z-index: 2;
+  right: clamp(18px, 3vw, 40px);
+  bottom: 20px;
+  left: clamp(20px, 4vw, 58px);
+  display: flex;
+  color: var(--faint);
+  justify-content: space-between;
+  font-size: 7px;
+  letter-spacing: 0.15em;
+  pointer-events: none;
+}
+
+.weierstrass-panel {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--weierstrass-fm) 3%, transparent), transparent 280px),
+    var(--panel);
+}
+
+.weierstrass-character {
+  --accent: #c79bff;
+  --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #c79bff 20%, transparent);
+}
+
+.weierstrass-algorithm {
+  --accent: #7db4ff;
+  --accent-soft: color-mix(in oklab, #7db4ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #7db4ff 20%, transparent);
+}
+
+.weierstrass-path-graph {
+  position: relative;
+  height: 154px;
+  margin: 0 0 16px;
+  overflow: hidden;
+  border-top: 1px solid color-mix(in oklab, var(--chaotic-path-signal) 28%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--chaotic-path-output) 14%, transparent);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+}
+
+.weierstrass-path-graph::before {
+  position: absolute;
+  z-index: 1;
+  top: 6px;
+  left: 8px;
+  color: var(--chaotic-path-signal);
+  content: "ACTUAL SIGNAL PATH";
+  font-size: 6px;
+  letter-spacing: 0.12em;
+  opacity: 0.78;
+}
+
+.weierstrass-path-graph svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.weierstrass-path-graph .chaotic-path-title {
+  font-size: 11px;
+}
+
+.weierstrass-path-graph .chaotic-path-value {
+  font-size: 10px;
+}
+
+.weierstrass-mode-buttons {
+  display: grid;
+  margin-bottom: 11px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.weierstrass-mode-buttons button,
+.weierstrass-preset-grid button {
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font-size: 9px;
+  letter-spacing: 0.035em;
+}
+
+.weierstrass-mode-buttons button:hover,
+.weierstrass-mode-buttons button:focus-visible,
+.weierstrass-preset-grid button:hover,
+.weierstrass-preset-grid button:focus-visible {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.weierstrass-mode-buttons button[aria-pressed="true"],
+.weierstrass-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.weierstrass-mode-buttons button[data-mode="wave"][aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--weierstrass-wave) 65%, transparent);
+  color: var(--weierstrass-wave);
+  background: color-mix(in oklab, var(--weierstrass-wave) 12%, transparent);
+}
+
+.weierstrass-mode-buttons button[data-mode="fm"][aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--weierstrass-fm) 65%, transparent);
+  color: var(--weierstrass-fm);
+  background: color-mix(in oklab, var(--weierstrass-fm) 12%, transparent);
+}
+
+.weierstrass-mode-buttons button[data-mode="pm"][aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--weierstrass-pm) 65%, transparent);
+  color: var(--weierstrass-pm);
+  background: color-mix(in oklab, var(--weierstrass-pm) 12%, transparent);
+}
+
+.weierstrass-node-guide {
+  display: grid;
+  margin: 0 0 14px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--bg-deep) 86%, transparent);
+  gap: 8px;
+}
+
+.weierstrass-node-guide p,
+.weierstrass-node-guide small {
+  margin: 0;
+}
+
+.weierstrass-node-guide p {
+  color: var(--ink);
+  font-size: 9px;
+}
+
+.weierstrass-node-guide dl {
+  display: grid;
+  margin: 0;
+  gap: 4px;
+}
+
+.weierstrass-node-guide dl div {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.weierstrass-node-guide dt,
+.weierstrass-node-guide dd,
+.weierstrass-node-guide small,
+.weierstrass-node-colors {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.weierstrass-node-guide dt {
+  color: var(--faint);
+  text-transform: uppercase;
+}
+
+.weierstrass-node-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.weierstrass-node-colors span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.weierstrass-node-colors i {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--weierstrass-wave);
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--weierstrass-wave) 24%, transparent);
+}
+
+.weierstrass-node-colors i[data-status="tapered"] {
+  border-color: var(--weierstrass-taper);
+  background: color-mix(in oklab, var(--weierstrass-taper) 24%, transparent);
+}
+
+.weierstrass-node-colors i[data-status="culled"] {
+  border-color: var(--weierstrass-cull);
+  background: color-mix(in oklab, var(--weierstrass-cull) 12%, transparent);
+}
+
+.weierstrass-node-guide .control {
+  margin-top: 2px;
+}
+
+.weierstrass-preset-grid {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.weierstrass-preset-grid button[data-preset="prism-engine"] {
+  grid-column: 1 / -1;
+}
+
+.weierstrass-preset-grid button[data-preset="phase-bloom"] {
+  grid-column: 1 / -1;
+}
+
+.weierstrass-preset-description {
+  min-height: 2.9em;
+  margin: 10px 0 3px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.weierstrass-control-note {
+  display: block;
+  margin: -8px 0 13px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.045em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.weierstrass-page #fmControls,
+.weierstrass-page #pmControls {
+  position: relative;
+  margin: 15px 0 3px;
+  padding: 13px 11px 1px;
+  border-left: 1px solid var(--mode-accent, var(--weierstrass-fm));
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--mode-accent, var(--weierstrass-fm)) 8%, transparent), transparent 74%),
+    var(--bg-deep);
+}
+
+.weierstrass-page #fmControls {
+  --mode-accent: var(--weierstrass-fm);
+}
+
+.weierstrass-page #pmControls {
+  --mode-accent: var(--weierstrass-pm);
+}
+
+.weierstrass-page #fmControls::before,
+.weierstrass-page #pmControls::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 30px;
+  height: 1px;
+  background: var(--mode-accent, var(--weierstrass-fm));
+  content: "";
+}
+
+.weierstrass-ledger {
+  margin-top: 16px;
+}
+
+.weierstrass-ledger > span {
+  grid-template-columns: 62px minmax(0, 1fr);
+}
+
+.weierstrass-ledger code {
+  color: color-mix(in oklab, var(--ink) 87%, var(--accent));
+  font-variant-numeric: tabular-nums;
+}
+
+.weierstrass-safety-note {
+  margin: -4px 0 11px;
+  padding: 10px 11px;
+  border-left: 1px solid var(--weierstrass-taper);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--weierstrass-taper) 4%, transparent);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.weierstrass-page .audio-error {
+  margin: 11px 0 4px;
+  color: #ffb2a8;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.weierstrass-audio-glyph {
+  color: var(--accent);
+  font-size: 18px;
+}
+
+@media (max-width: 960px) {
+  .weierstrass-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .weierstrass-heading {
+    top: 28px;
+  }
+
+  .weierstrass-heading h1 {
+    font-size: clamp(24px, 6vw, 40px);
+  }
+}
+
+@media (max-width: 650px) {
+  .weierstrass-heading {
+    top: 20px;
+    left: 16px;
+  }
+
+  .weierstrass-heading p {
+    display: none;
+  }
+
+  .weierstrass-heading span {
+    font-size: 6px;
+  }
+
+  .weierstrass-scope-labels {
+    right: 13px;
+    bottom: 11px;
+    left: 13px;
+  }
+
+  .weierstrass-ledger > span {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 390px) {
+  .weierstrass-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .weierstrass-preset-grid button[data-preset="prism-engine"] {
+    grid-column: auto;
+  }
+
+  .weierstrass-preset-grid button[data-preset="phase-bloom"] {
+    grid-column: auto;
+  }
+
+  .weierstrass-mode-buttons button,
+  .weierstrass-preset-grid button {
+    min-height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weierstrass-page #stage {
+    scroll-behavior: auto;
+  }
+}

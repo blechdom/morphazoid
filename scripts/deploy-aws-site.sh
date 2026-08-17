@@ -18,7 +18,7 @@ if ! command -v aws >/dev/null 2>&1; then
 fi
 
 if [[ $# -eq 0 || ! -d "$artifact_dir" ]]; then
-  "$repo_root/scripts/build-site.sh" "$artifact_dir"
+  node "$repo_root/scripts/build-release-site.mjs" "$artifact_dir"
 fi
 
 aws_args=(--region "$region")

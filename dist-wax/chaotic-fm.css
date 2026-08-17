@@ -1,0 +1,407 @@
+.chaotic-fm-page {
+  --accent: #ff7aa6;
+  --accent-soft: color-mix(in oklab, #ff7aa6 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff7aa6 22%, transparent);
+  --chaotic-carrier: #5fe8c4;
+  --chaotic-entry: #ffb86b;
+  --chaotic-turn: #ff7aa6;
+  --chaotic-output: #fff3d6;
+  --chaotic-caution: #e8c46b;
+  --chaotic-path-signal: #ff7aa6;
+  --chaotic-path-control: #5fe8c4;
+  --chaotic-path-operator: #ffb86b;
+  --chaotic-path-output: #fff3d6;
+}
+
+.chaotic-fm-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 27vw, 410px);
+}
+
+.chaotic-fm-stage .stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--chaotic-turn) 2.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--chaotic-carrier) 2%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 52% 43%, color-mix(in oklab, var(--chaotic-turn) 8%, transparent), transparent 49%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.chaotic-fm-page #stage {
+  cursor: default;
+}
+
+.chaotic-fm-heading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(38px, 7vh, 72px);
+  left: clamp(20px, 4vw, 58px);
+  display: grid;
+  pointer-events: none;
+  gap: 5px;
+}
+
+.chaotic-fm-heading p,
+.chaotic-fm-heading span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.chaotic-fm-heading p {
+  color: var(--accent);
+}
+
+.chaotic-fm-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(25px, 4vw, 52px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.chaotic-fm-heading .chaotic-fm-subtitle {
+  max-width: min(620px, 62vw);
+  margin-top: 8px;
+  color: color-mix(in oklab, var(--ink) 76%, var(--muted));
+  font-size: clamp(9px, 0.82vw, 12px);
+  letter-spacing: 0.015em;
+  line-height: 1.55;
+  text-transform: none;
+}
+
+.chaotic-fm-heading span {
+  margin-top: 3px;
+  color: var(--faint);
+  letter-spacing: 0.11em;
+}
+
+.chaotic-fm-scope-labels {
+  position: absolute;
+  z-index: 2;
+  right: clamp(18px, 3vw, 40px);
+  bottom: 20px;
+  left: clamp(20px, 4vw, 58px);
+  display: flex;
+  color: var(--faint);
+  justify-content: space-between;
+  font-size: 7px;
+  letter-spacing: 0.15em;
+  pointer-events: none;
+}
+
+.chaotic-fm-panel {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--accent) 3%, transparent), transparent 270px),
+    var(--panel);
+}
+
+.chaotic-fm-presets {
+  --accent: #5fe8c4;
+  --accent-soft: color-mix(in oklab, #5fe8c4 55%, transparent);
+  --accent-glow: color-mix(in oklab, #5fe8c4 20%, transparent);
+}
+
+.chaotic-fm-structure {
+  --accent: #ff7aa6;
+  --accent-soft: color-mix(in oklab, #ff7aa6 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff7aa6 20%, transparent);
+}
+
+.chaotic-fm-performance {
+  --accent: #ffb86b;
+  --accent-soft: color-mix(in oklab, #ffb86b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffb86b 18%, transparent);
+}
+
+.chaotic-midi-monitor {
+  display: grid;
+  padding: 9px 10px;
+  margin-bottom: 13px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-deep) 86%, transparent);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.chaotic-midi-monitor > span {
+  display: grid;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 8px;
+  gap: 3px;
+}
+
+.chaotic-midi-monitor b {
+  color: var(--faint);
+  font-size: 6px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.chaotic-midi-monitor output {
+  overflow: hidden;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chaotic-expression-row {
+  grid-column: 1 / -1;
+  grid-template-columns: 54px minmax(0, 1fr) 34px !important;
+  align-items: center;
+}
+
+.chaotic-expression-row i {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  background: var(--line-strong);
+}
+
+.chaotic-expression-row i::after {
+  position: absolute;
+  inset: 0;
+  width: calc(var(--expression, 1) * 100%);
+  content: "";
+  background: var(--chaotic-carrier);
+}
+
+.chaotic-midi-activity {
+  color: var(--faint) !important;
+  grid-column: 1 / -1;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.chaotic-midi-activity.is-active {
+  color: var(--chaotic-carrier) !important;
+}
+
+.chaotic-adsr-preview {
+  display: grid;
+  margin: 2px 0 12px;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.chaotic-adsr-preview svg {
+  width: 100%;
+  height: 74px;
+  grid-column: 1 / -1;
+}
+
+.chaotic-adsr-preview path:not(.chaotic-adsr-grid) {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 5px var(--accent-glow));
+}
+
+.chaotic-adsr-preview .chaotic-adsr-grid {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.chaotic-adsr-preview > span {
+  margin-top: -5px;
+  color: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.chaotic-glide-row {
+  margin: 2px 0 12px;
+}
+
+.chaotic-glide-row label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  color: var(--ink);
+  font-size: 9px;
+  gap: 10px;
+}
+
+.chaotic-glide-row select {
+  min-width: 106px;
+  height: 30px;
+  padding: 0 24px 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font: inherit;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.chaotic-midi-map-note {
+  margin-top: 3px;
+  line-height: 1.65;
+}
+
+.chaotic-fm-preset-grid {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.chaotic-fm-preset-grid button {
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font-size: 9px;
+  letter-spacing: 0.035em;
+}
+
+.chaotic-fm-preset-grid button:last-child {
+  grid-column: 1 / -1;
+}
+
+.chaotic-fm-preset-grid button:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.chaotic-fm-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.chaotic-fm-preset-description {
+  min-height: 2.9em;
+  margin: 10px 0 3px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.chaotic-fm-control-note {
+  display: block;
+  margin: -8px 0 12px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.055em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.chaotic-fm-ledger {
+  margin-top: 16px;
+}
+
+.chaotic-fm-ledger > span {
+  grid-template-columns: 68px minmax(0, 1fr);
+}
+
+.chaotic-fm-ledger code {
+  color: color-mix(in oklab, var(--ink) 86%, var(--accent));
+  font-variant-numeric: tabular-nums;
+}
+
+.chaotic-fm-safety-note {
+  margin: -4px 0 11px;
+  padding: 10px 11px;
+  border-left: 1px solid var(--chaotic-caution);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--chaotic-caution) 4%, transparent);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.chaotic-fm-page .audio-error {
+  margin: 11px 0 4px;
+  color: #ffb2a8;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.chaotic-fm-audio-glyph {
+  color: var(--accent);
+  font-size: 18px;
+}
+
+@media (max-width: 960px) {
+  .chaotic-fm-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: clamp(360px, 50dvh, 460px) minmax(0, 1fr);
+  }
+
+  .chaotic-fm-heading {
+    top: 28px;
+  }
+
+  .chaotic-fm-heading h1 {
+    font-size: clamp(24px, 6vw, 40px);
+  }
+
+  .chaotic-fm-heading .chaotic-fm-subtitle {
+    max-width: min(600px, 78vw);
+  }
+}
+
+@media (max-width: 650px) {
+  .chaotic-fm-heading {
+    top: 20px;
+    left: 16px;
+  }
+
+  .chaotic-fm-heading p {
+    display: none;
+  }
+
+  .chaotic-fm-heading .chaotic-fm-subtitle {
+    display: block;
+    max-width: calc(100vw - 48px);
+    margin-top: 6px;
+    font-size: 8px;
+    line-height: 1.45;
+  }
+
+  .chaotic-fm-heading span {
+    font-size: 6px;
+  }
+
+  .chaotic-fm-stage .stage-meta {
+    display: none;
+  }
+
+  .chaotic-fm-scope-labels {
+    right: 13px;
+    bottom: 11px;
+    left: 13px;
+  }
+}
+
+@media (max-width: 390px) {
+  .chaotic-fm-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chaotic-fm-preset-grid button:last-child {
+    grid-column: auto;
+  }
+
+  .chaotic-fm-preset-grid button {
+    min-height: 38px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chaotic-fm-page #stage {
+    scroll-behavior: auto;
+  }
+}

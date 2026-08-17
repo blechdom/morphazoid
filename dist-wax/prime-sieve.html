@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Prime Sieve - prime discovery and gaps translated into pitch." />
+    <title>Prime Sieve - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="experiments.css" />
+  </head>
+  <body class="experiment-page" data-experiment="primes">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+      <nav class="tabs" aria-label="Morphazoid main menu"><a class="tab active" href="prime-sieve.html" aria-current="page">prime sieve</a></nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="prime-sieve.html" selected>prime sieve</option></select></label>
+      <div class="header-actions">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-dot" aria-hidden="true"></span><span>audio</span><strong id="audioState">off</strong></button>
+        <label class="header-level" for="level"><span><b>level</b><output id="levelOut" for="level">45%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.45" /></label>
+      </div>
+    </header>
+    <main class="shell experiment-shell" id="primeSieve">
+      <section class="stage" aria-label="Prime Sieve stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" role="img" aria-label="A number grid marks primes as the sieve advances." aria-describedby="canvasInstructions liveStatus">Prime number sieve.</canvas>
+          <div class="stage-meta" aria-hidden="true"><span id="stageReadout">PRIME SIEVE &middot; N 2 &middot; AUDIO OFF</span></div>
+          <div class="experiment-title" aria-hidden="true"><h1>Prime Sieve</h1><small>number theory as sparse melody</small></div>
+        </div>
+        <p class="sr-only" id="canvasInstructions">Prime discoveries sound higher as the scan moves through the grid.</p><p class="sr-only" id="liveStatus" aria-live="polite"></p>
+      </section>
+      <aside class="panel experiment-panel" aria-label="Prime Sieve controls">
+        <section class="group experiment-card" aria-labelledby="experimentTitle"><div class="experiment-card-heading"><h2 class="group-title" id="experimentTitle">Experiment</h2><span class="section-state" id="experimentSummary">number theory &middot; distribution</span></div><dl class="experiment-meter-grid"><div><dt>Primes found</dt><dd id="metricPrimary">0</dd></div><div><dt>Scan position</dt><dd id="metricSecondary">2 / 120</dd></div></dl></section>
+        <section class="group control-section" aria-labelledby="primeTitle"><div class="experiment-card-heading"><h2 class="group-title" id="primeTitle">Sieve</h2><span class="section-state" id="patternSummary">0 tested</span></div><div class="group-body">
+          <button class="experiment-action" id="restartPrimes" type="button">Restart sieve</button>
+          <label class="control" for="primeLimit"><span><b>Number limit</b><output id="primeLimitOut" for="primeLimit">120</output></span><input id="primeLimit" type="range" min="30" max="240" step="1" value="120" /></label>
+          <label class="control" for="primeRate"><span><b>Scan rate</b><output id="primeRateOut" for="primeRate">10 n/s</output></span><input id="primeRate" type="range" min="1" max="30" step="0.5" value="10" /></label>
+          <label class="control" for="primeRoot"><span><b>Pitch floor</b><output id="primeRootOut" for="primeRoot">92 Hz</output></span><input id="primeRoot" type="range" min="55" max="220" step="1" value="92" /></label>
+          <label class="control" for="primeSpread"><span><b>Pitch spread</b><output id="primeSpreadOut" for="primeSpread">2.5 oct</output></span><input id="primeSpread" type="range" min="0.5" max="4" step="0.1" value="2.5" /></label>
+        </div></section>
+        <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button></div>
+      </aside>
+    </main>
+    <script type="module" src="nav.js"></script><script type="module" src="experiments-app.js"></script>
+  </body>
+</html>

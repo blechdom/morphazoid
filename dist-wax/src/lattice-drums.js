@@ -1,0 +1,147 @@
+import {
+  LATTICE_COLOR_PAIR_COUNT,
+  latticeColorPairIndex,
+  latticeTileColorIndex,
+} from "./lattice-colors.js";
+
+const clamp = (value, minimum = 0, maximum = 1) => (
+  Math.min(maximum, Math.max(minimum, Number(value) || 0))
+);
+
+const legend = (...entries) => Object.freeze(entries.map(([label, detail]) => (
+  Object.freeze({ label, detail })
+)));
+
+export const LATTICE_DRUM_MAPPING_MODES = Object.freeze([
+  Object.freeze({
+    id: "edge-angle",
+    label: "Edge class × angle",
+    description: "Edge class chooses the row; edge orientation chooses the column.",
+    legend: legend(
+      ["Edge class", "drum row"],
+      ["Edge angle", "voice column"],
+      ["Height", "tuning"],
+      ["Incidence", "tone + force"],
+      ["Density", "headroom"],
+    ),
+  }),
+  Object.freeze({
+    id: "position-grid",
+    label: "Contact position",
+    description: "The contact's 4 × 4 position in the stage chooses the drum.",
+    legend: legend(
+      ["Vertical", "drum row"],
+      ["Horizontal", "voice column"],
+      ["Height", "tuning"],
+      ["Incidence", "tone + force"],
+      ["Density", "headroom"],
+    ),
+  }),
+  Object.freeze({
+    id: "incidence-density",
+    label: "Incidence × density",
+    description: "Line/edge incidence chooses the row; contact density chooses the column.",
+    legend: legend(
+      ["Incidence", "drum row"],
+      ["Density", "voice column"],
+      ["Height", "tuning"],
+      ["Incidence", "tone + force"],
+      ["Density", "headroom"],
+    ),
+  }),
+  Object.freeze({
+    id: "tile-color-pair",
+    label: "Tile color pair",
+    description: "The two tile colors touching across an edge choose the drum; pair order is ignored.",
+    legend: legend(
+      ["Tile pair", "voices 1–15"],
+      ["Junction", "voice 16"],
+      ["Height", "tuning"],
+      ["Incidence", "tone + force"],
+      ["Density", "headroom"],
+    ),
+  }),
+]);
+
+export function normalizedLatticeContact(contact, bounds) {
+  const width = Math.max(1e-9, Number(bounds?.maxX) - Number(bounds?.minX));
+  const height = Math.max(1e-9, Number(bounds?.maxY) - Number(bounds?.minY));
+  return {
+    x: clamp((Number(contact?.x) - Number(bounds?.minX)) / width),
+    y: clamp((Number(contact?.y) - Number(bounds?.minY)) / height),
+  };
+}
+
+function quadrant(value) {
+  return Math.min(3, Math.floor(clamp(value) * 4));
+}
+
+export const LATTICE_JUNCTION_VOICE_INDEX = LATTICE_COLOR_PAIR_COUNT;
+
+export function latticeColorPairVoiceIndex(contact = {}) {
+  if (contact.isVertexContact || contact.junction) return LATTICE_JUNCTION_VOICE_INDEX;
+  const colors = Array.isArray(contact.adjacentColors)
+    ? contact.adjacentColors
+    : Array.isArray(contact.adjacentTiles)
+      ? contact.adjacentTiles.map((tile) => (
+        tile?.color ?? latticeTileColorIndex(tile?.aspect)
+      ))
+      : [];
+  if (colors.length !== 2) return LATTICE_JUNCTION_VOICE_INDEX;
+  return latticeColorPairIndex(colors);
+}
+
+export function latticeDrumVoiceIndex(contact, {
+  mode = "edge-angle",
+  bounds = { minX: -1, minY: -1, maxX: 1, maxY: 1 },
+  contactCount = 1,
+  densityCeiling = 16,
+} = {}) {
+  if (mode === "tile-color-pair") return latticeColorPairVoiceIndex(contact);
+  if (mode === "position-grid") {
+    const position = normalizedLatticeContact(contact, bounds);
+    const row = 3 - quadrant(position.y);
+    return row * 4 + quadrant(position.x);
+  }
+  if (mode === "incidence-density") {
+    const row = quadrant(contact?.incidence);
+    const density = clamp(Number(contactCount) / Math.max(1, Number(densityCeiling) || 16));
+    return row * 4 + quadrant(density);
+  }
+  const edgeClass = Math.abs(Math.trunc(
+    Number(contact?.edgeShapeId ?? contact?.edgeIndex) || 0,
+  )) % 4;
+  return edgeClass * 4 + quadrant(contact?.orientation);
+}
+
+export function mappedLatticeDrumVoice(baseVoice, contact, {
+  bounds = { minX: -1, minY: -1, maxX: 1, maxY: 1 },
+  pitchDepth = 12,
+  characterDepth = 0.7,
+  contactCount = 1,
+} = {}) {
+  const position = normalizedLatticeContact(contact, bounds);
+  const incidence = clamp(contact?.incidence);
+  const semitones = (position.y * 2 - 1) * clamp(pitchDepth, 0, 24);
+  const character = clamp(characterDepth);
+  const headroom = 1 / Math.sqrt(Math.max(1, Number(contactCount) / 4));
+  const isBell = baseVoice?.family === "bell";
+  const mappedModIndex = clamp(
+    baseVoice.modIndex * (1 - character * 0.45)
+      + baseVoice.modIndex * (0.55 + incidence * 0.9) * character,
+    0,
+    20,
+  );
+  const mappedLevel = clamp(
+    baseVoice.level * (0.38 + incidence * 0.62) * headroom,
+  );
+  return {
+    ...baseVoice,
+    attack: isBell ? Math.min(Number(baseVoice.attack) || 0.001, 0.006) : baseVoice.attack,
+    decay: isBell ? Math.min(Number(baseVoice.decay) || 0.1, 0.58) : baseVoice.decay,
+    frequency: clamp(baseVoice.frequency * (2 ** (semitones / 12)), 20, 12_000),
+    tone: clamp(baseVoice.tone * (1 - character) + incidence * character),
+    modIndex: isBell ? mappedModIndex * 0.68 : mappedModIndex,
+    level: isBell ? mappedLevel * 0.62 : mappedLevel,
+  };
+}

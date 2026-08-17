@@ -1,0 +1,916 @@
+.linear-drums-page {
+  --accent: #69e0b7;
+  --accent-soft: color-mix(in oklab, var(--accent) 54%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 20%, transparent);
+  --kick: #ff7058;
+  --tom: #f2ca58;
+  --hand: #61dfa9;
+  --air: #74a9ff;
+}
+
+.linear-drums-shell {
+  display: grid;
+  width: min(1680px, 100%);
+  min-height: calc(100dvh - var(--header-height, 62px));
+  margin: 0 auto;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 390px);
+  grid-template-rows: 1fr auto;
+}
+
+.linear-performance {
+  min-width: 0;
+  padding: clamp(18px, 2.5vw, 38px);
+}
+
+.linear-titlebar {
+  display: flex;
+  min-height: 78px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.linear-identity p {
+  margin: 0 0 5px;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .16em;
+}
+
+.linear-identity h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(26px, 4vw, 58px);
+  font-style: italic;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: .92;
+  text-transform: uppercase;
+}
+
+.linear-live-readouts {
+  display: grid;
+  width: min(610px, 62%);
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: .8fr 1.35fr .9fr;
+}
+
+.linear-live-readouts span {
+  display: grid;
+  min-width: 0;
+  min-height: 53px;
+  padding: 8px 10px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  align-content: center;
+  gap: 4px;
+}
+
+.linear-live-readouts b,
+.linear-live-readouts small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linear-live-readouts b {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.linear-live-readouts small {
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: .08em;
+}
+
+.linear-stage-layout {
+  display: flex;
+  width: 100%;
+  height: clamp(330px, 48vh, 620px);
+  min-height: 330px;
+  margin-top: 18px;
+  gap: 8px;
+}
+
+.linear-stage-wrap {
+  position: relative;
+  width: auto;
+  height: 100%;
+  min-height: 330px;
+  min-width: 260px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: #080b0c;
+  flex: 1 1 auto;
+}
+
+#stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.linear-cursor-readout {
+  position: absolute;
+  top: 10px;
+  left: clamp(40px, var(--cursor-position, 24%), calc(100% - 40px));
+  min-width: 58px;
+  padding: 4px 6px;
+  border: 1px solid color-mix(in oklab, var(--cursor-color, var(--accent)) 56%, var(--line));
+  pointer-events: none;
+  color: var(--cursor-color, var(--accent));
+  background: rgba(7, 9, 11, .86);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.linear-y-cursor {
+  position: absolute;
+  z-index: 2;
+  top: calc((1 - var(--performance-y, .5)) * 100%);
+  right: 0;
+  left: 0;
+  height: 1px;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--cursor-color, var(--accent)) 45%, transparent);
+}
+
+.linear-y-cursor::after {
+  position: absolute;
+  top: -3px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--cursor-color, var(--accent));
+  background: var(--bg-deep);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.linear-mapping-dock {
+  display: grid;
+  width: min(44%, 330px);
+  min-width: 220px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: #080b0c;
+  grid-template-rows: auto 1fr;
+  flex: 0 0 auto;
+}
+
+.linear-mapping-dock[hidden] {
+  display: none;
+}
+
+.linear-mapping-heading {
+  display: flex;
+  min-height: 34px;
+  padding: 0 9px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.linear-mapping-heading b,
+.linear-mapping-heading output {
+  color: var(--faint);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.linear-mapping-heading output {
+  color: var(--accent);
+}
+
+.linear-mapping-lanes {
+  display: grid;
+  min-width: 0;
+  padding: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  align-content: start;
+  gap: 6px;
+}
+
+.linear-mapping-lane {
+  --map-color: var(--accent);
+  display: grid;
+  min-width: 0;
+  padding: 8px;
+  border-left: 2px solid var(--map-color);
+  background: color-mix(in oklab, var(--map-color) 4%, var(--panel));
+  grid-template-rows: auto auto auto;
+  gap: 8px;
+}
+
+.linear-mapping-lane header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.linear-mapping-lane header b {
+  overflow: hidden;
+  color: var(--map-color);
+  font-size: 7px;
+  letter-spacing: .05em;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mapping-source-button {
+  min-width: 68px;
+  min-height: 24px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in oklab, var(--map-color) 45%, var(--line));
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.mapping-source-button:hover,
+.mapping-source-button:focus-visible {
+  border-color: var(--map-color);
+  color: var(--ink);
+}
+
+.mapping-curve-frame {
+  position: relative;
+  min-height: 100px;
+  padding: 12px 13px;
+  border: 1px solid color-mix(in oklab, var(--map-color) 26%, var(--line));
+  background: #080b0c;
+}
+
+.mapping-curve-plot {
+  position: absolute;
+  inset: 12px 13px;
+  touch-action: none;
+}
+
+.mapping-curve-plot::before,
+.mapping-curve-plot::after {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--line);
+  content: "";
+}
+
+.mapping-curve-plot::before {
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 1px;
+}
+
+.mapping-curve-plot::after {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+}
+
+.mapping-curve-svg {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.mapping-curve-path {
+  fill: none;
+  stroke: var(--map-color);
+  stroke-linecap: round;
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+}
+
+.mapping-curve-handle {
+  position: absolute;
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--map-color);
+  border-radius: 50%;
+  cursor: ns-resize;
+  background: var(--bg-deep);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--map-color) 28%, transparent);
+  transform: translate(-50%, -50%);
+}
+
+.mapping-curve-handle::after {
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: var(--map-color);
+  content: "";
+}
+
+.mapping-curve-handle.is-curve {
+  width: 17px;
+  height: 17px;
+  border-radius: 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.mapping-curve-handle.is-curve::after {
+  inset: 5px;
+  border-radius: 0;
+}
+
+.mapping-curve-handle:hover,
+.mapping-curve-handle:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.mapping-curve-values {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 1fr 1.25fr 1fr;
+  gap: 4px;
+}
+
+.mapping-curve-values span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.mapping-curve-values span:nth-child(2) {
+  text-align: center;
+}
+
+.mapping-curve-values span:last-child {
+  text-align: right;
+}
+
+.mapping-curve-values b,
+.mapping-curve-values output {
+  overflow: hidden;
+  font-size: 6px;
+  letter-spacing: .03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mapping-curve-values b {
+  color: var(--faint);
+  font-weight: 700;
+}
+
+.mapping-curve-values output {
+  color: var(--muted);
+}
+
+.linear-frequency-control {
+  display: grid;
+  padding: 13px 0 0;
+  gap: 8px;
+}
+
+.linear-frequency-label,
+.linear-inline-control > span,
+.linear-control > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.linear-frequency-label b,
+.linear-frequency-label output,
+.linear-inline-control b,
+.linear-inline-control label,
+.linear-inline-control output,
+.linear-control b,
+.linear-control label,
+.linear-control output {
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.linear-frequency-label b,
+.linear-inline-control b,
+.linear-inline-control label,
+.linear-control b,
+.linear-control label {
+  color: var(--muted);
+}
+
+.linear-frequency-label output,
+.linear-inline-control output,
+.linear-control output {
+  color: var(--accent);
+}
+
+.linear-frequency-control input {
+  --fill: var(--cursor-color, var(--accent));
+  width: 100%;
+}
+
+.linear-value-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.parameter-map-toggle {
+  --map-color: var(--accent);
+  position: relative;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  flex: 0 0 auto;
+}
+
+.parameter-map-toggle:hover,
+.parameter-map-toggle:focus-visible,
+.parameter-map-toggle[aria-pressed="true"] {
+  border-color: var(--map-color);
+  color: var(--map-color);
+  background: color-mix(in oklab, var(--map-color) 9%, var(--panel));
+}
+
+.map-slope-icon,
+.map-slope-icon::before,
+.map-slope-icon::after {
+  position: absolute;
+  display: block;
+  content: "";
+}
+
+.map-slope-icon {
+  inset: 5px;
+}
+
+.map-slope-icon::before {
+  top: 7px;
+  left: 1px;
+  width: 13px;
+  height: 1px;
+  background: currentColor;
+  transform: rotate(-34deg);
+  transform-origin: 50% 50%;
+}
+
+.map-slope-icon::after {
+  top: 1px;
+  right: 0;
+  width: 5px;
+  height: 5px;
+  border-top: 1px solid currentColor;
+  border-right: 1px solid currentColor;
+}
+
+[data-parameter-control].is-mapped > input[type="range"] {
+  cursor: not-allowed;
+  opacity: .28;
+}
+
+[data-parameter-control].is-mapped output {
+  color: var(--map-color, var(--accent));
+}
+
+.linear-frequency-scale {
+  position: relative;
+  height: 19px;
+  margin: 2px 5px 0;
+  color: var(--faint);
+  font-size: 7px;
+}
+
+.linear-frequency-scale span {
+  position: absolute;
+  left: calc(var(--position) * 100%);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.linear-frequency-scale span:first-child {
+  transform: none;
+}
+
+.linear-frequency-scale span:last-child {
+  transform: translateX(-100%);
+}
+
+.linear-transport {
+  display: grid;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  grid-template-columns: auto auto minmax(180px, .8fr) minmax(130px, 1fr) minmax(130px, 1fr);
+  align-items: end;
+  gap: 10px;
+}
+
+.linear-command {
+  display: grid;
+  min-width: 86px;
+  height: 48px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--panel);
+  grid-template-columns: auto 1fr;
+  place-items: center;
+  gap: 8px;
+}
+
+.linear-command span {
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.linear-command b {
+  font-size: 8px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.linear-command:hover,
+.linear-command:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.linear-command.is-primary[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--bg-deep);
+  background: var(--accent);
+}
+
+.linear-command.is-primary[aria-pressed="true"] span {
+  color: var(--bg-deep);
+}
+
+.linear-segmented,
+.linear-model-selector {
+  display: grid;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.linear-model-selector {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.linear-segmented legend {
+  padding: 0 0 6px;
+  color: var(--faint);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.linear-segmented label,
+.linear-model-selector label {
+  min-width: 0;
+}
+
+.linear-segmented input,
+.linear-model-selector input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.linear-segmented span,
+.linear-model-selector span {
+  display: grid;
+  min-width: 0;
+  height: 34px;
+  padding: 0 7px;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+  color: var(--faint);
+  background: var(--panel);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-align: center;
+  text-transform: uppercase;
+  place-items: center;
+}
+
+.linear-segmented label:last-child span,
+.linear-model-selector label:last-child span {
+  border-right: 0;
+}
+
+.linear-segmented input:checked + span,
+.linear-model-selector input:checked + span {
+  color: var(--bg-deep);
+  background: var(--accent);
+}
+
+.linear-segmented input:focus-visible + span,
+.linear-model-selector input:focus-visible + span {
+  outline: 2px solid var(--ink);
+  outline-offset: -3px;
+}
+
+.linear-inline-control,
+.linear-control {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.linear-control-panel {
+  min-width: 0;
+  border-left: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--panel) 88%, var(--bg-deep));
+}
+
+.linear-control-section {
+  display: grid;
+  padding: 17px 18px 19px;
+  border-bottom: 1px solid var(--line);
+  gap: 14px;
+}
+
+.linear-preset-bank {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.linear-preset-button {
+  min-width: 0;
+  min-height: 43px;
+  padding: 5px 4px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  color: var(--faint);
+  background: var(--panel);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+
+.linear-preset-button:hover,
+.linear-preset-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.linear-preset-button.is-active {
+  border-color: var(--accent);
+  color: var(--bg-deep);
+  background: var(--accent);
+}
+
+.linear-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.linear-section-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 680;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.linear-section-heading output {
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 7px;
+  letter-spacing: .06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.linear-control input,
+.linear-inline-control input {
+  width: 100%;
+}
+
+.linear-range-section {
+  padding-bottom: 17px;
+}
+
+.linear-reset {
+  display: block;
+  width: calc(100% - 36px);
+  min-height: 36px;
+  margin: 18px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.linear-reset:hover,
+.linear-reset:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.linear-control-panel .audio-error {
+  margin: 0 18px 18px;
+}
+
+.linear-footer {
+  display: grid;
+  border-top: 1px solid var(--line-strong);
+  color: var(--faint);
+  background: var(--bg-deep);
+  font-size: 7px;
+  letter-spacing: .08em;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  text-transform: uppercase;
+}
+
+.linear-footer span {
+  min-width: 0;
+  padding: 10px 14px;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linear-footer span:last-child {
+  border-right: 0;
+  color: var(--accent);
+  text-align: right;
+}
+
+@media (max-width: 1120px) {
+  .linear-drums-shell {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .linear-titlebar {
+    display: grid;
+  }
+
+  .linear-live-readouts {
+    width: 100%;
+  }
+
+  .linear-transport {
+    grid-template-columns: auto auto minmax(190px, 1fr);
+  }
+
+  .linear-inline-control {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 820px) {
+  .linear-drums-shell {
+    display: block;
+  }
+
+  .linear-control-panel {
+    border-top: 1px solid var(--line-strong);
+    border-left: 0;
+  }
+
+  .linear-control-section {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .linear-section-heading,
+  .linear-model-selector {
+    grid-column: 1 / -1;
+  }
+
+  .linear-footer {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .linear-performance {
+    padding: 14px 12px 18px;
+  }
+
+  .linear-titlebar {
+    gap: 15px;
+  }
+
+  .linear-identity h1 {
+    font-size: 32px;
+  }
+
+  .linear-live-readouts {
+    grid-template-columns: .8fr 1.2fr;
+  }
+
+  .linear-live-readouts span:last-child {
+    display: none;
+  }
+
+  .linear-stage-layout {
+    display: grid;
+    height: auto;
+  }
+
+  .linear-stage-wrap {
+    height: 330px;
+  }
+
+  .linear-mapping-dock {
+    width: 100%;
+    height: min(500px, 68vh);
+    min-height: 320px;
+  }
+
+  .linear-transport {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .linear-command {
+    width: 100%;
+  }
+
+  .linear-segmented,
+  .linear-inline-control {
+    grid-column: 1 / -1;
+  }
+
+  .linear-control-section {
+    padding-inline: 14px;
+    grid-template-columns: 1fr;
+  }
+
+  .linear-section-heading,
+  .linear-model-selector {
+    grid-column: auto;
+  }
+
+  .linear-reset {
+    width: calc(100% - 28px);
+    margin-inline: 14px;
+  }
+
+  .linear-footer {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .linear-footer span:nth-child(2),
+  .linear-footer span:nth-child(3) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .linear-command {
+    transition: none;
+  }
+}

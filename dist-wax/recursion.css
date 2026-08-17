@@ -1,0 +1,839 @@
+.recursion-page {
+  --accent: #70ead8;
+  --accent-soft: color-mix(in oklab, #70ead8 56%, transparent);
+  --accent-glow: color-mix(in oklab, #70ead8 20%, transparent);
+  --recursion-call: #70ead8;
+  --recursion-child: #7db4ff;
+  --recursion-base: #fff3d6;
+  --recursion-return: #e8c46b;
+  --recursion-fold: #c79bff;
+  --recursion-danger: #ff826f;
+}
+
+.recursion-tab {
+  min-width: 78px;
+  font-size: 10px;
+  letter-spacing: 0.055em;
+}
+
+.recursion-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 29vw, 430px);
+}
+
+.recursion-stage .stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--accent) 2.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 2.5%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 47% 48%, color-mix(in oklab, var(--accent) 7%, transparent), transparent 47%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.recursion-stage #stage {
+  cursor: default;
+}
+
+.recursion-stage-heading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(42px, 8vh, 80px);
+  left: clamp(20px, 4vw, 58px);
+  max-width: min(520px, 62%);
+  pointer-events: none;
+}
+
+.recursion-stage-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(22px, 3.1vw, 42px);
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.recursion-geometry-views {
+  position: absolute;
+  z-index: 4;
+  top: clamp(42px, 8vh, 80px);
+  right: clamp(18px, 3vw, 44px);
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  grid-template-columns: repeat(3, auto);
+  backdrop-filter: blur(8px);
+}
+
+.recursion-geometry-views button {
+  min-width: 52px;
+  height: 27px;
+  padding: 0 8px;
+  border: 0;
+  cursor: pointer;
+  color: var(--faint);
+  background: transparent;
+  font: 7px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.09em;
+}
+
+.recursion-geometry-views button + button {
+  border-left: 1px solid var(--line);
+}
+
+.recursion-geometry-views button:hover {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+}
+
+.recursion-geometry-views button[aria-pressed="true"] {
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.recursion-process {
+  position: absolute;
+  z-index: 2;
+  right: clamp(18px, 3vw, 44px);
+  bottom: clamp(20px, 4vh, 38px);
+  left: clamp(20px, 4vw, 58px);
+  display: grid;
+  min-width: 0;
+  pointer-events: none;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px 14px;
+}
+
+.recursion-process > span {
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+}
+
+.recursion-process > strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recursion-depth-rail {
+  display: flex;
+  min-height: 31px;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 5px;
+}
+
+.recursion-depth-rail i {
+  display: grid;
+  min-width: 28px;
+  height: 25px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  color: var(--faint);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  font-size: 8px;
+  font-style: normal;
+  place-items: center;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.recursion-depth-rail i.is-ancestor {
+  border-color: color-mix(in oklab, var(--recursion-child) 48%, transparent);
+  color: var(--recursion-child);
+}
+
+.recursion-depth-rail i.is-active {
+  border-color: var(--accent);
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 13px var(--accent-glow);
+}
+
+.recursion-depth-rail i.is-returning {
+  border-color: var(--recursion-return);
+  color: var(--recursion-return);
+  background: color-mix(in oklab, var(--recursion-return) 10%, var(--bg-deep));
+}
+
+.recursion-panel {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--accent) 2.8%, transparent), transparent 260px),
+    var(--panel);
+}
+
+.recursion-seed,
+.recursion-listen {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.recursion-section-heading {
+  display: flex;
+  margin-bottom: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.recursion-section-heading output {
+  color: var(--muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.recursion-source-buttons {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.recursion-capture-button {
+  display: grid;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+}
+
+.recursion-capture-button .record-glyph {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--recursion-danger);
+  border-radius: 50%;
+}
+
+.recursion-capture-button > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.recursion-capture-button b {
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.recursion-capture-button small {
+  color: var(--faint);
+  font-size: 7px;
+}
+
+.recursion-capture-button:hover {
+  border-color: var(--accent-soft);
+}
+
+.recursion-capture-button[aria-pressed="true"] {
+  border-color: var(--recursion-danger);
+  background: color-mix(in oklab, var(--recursion-danger) 7%, var(--bg-deep));
+}
+
+.recursion-capture-button[aria-pressed="true"] .record-glyph {
+  background: var(--recursion-danger);
+  box-shadow: 0 0 10px color-mix(in oklab, var(--recursion-danger) 45%, transparent);
+}
+
+.recursion-source-buttons button {
+  display: grid;
+  min-width: 0;
+  min-height: 47px;
+  padding: 6px 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  place-content: center;
+  gap: 3px;
+}
+
+.recursion-source-buttons button b {
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.recursion-source-buttons button small {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recursion-source-buttons button:hover {
+  color: var(--ink);
+}
+
+.recursion-source-buttons button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.recursion-source-buttons button[aria-pressed="true"] small {
+  color: var(--accent);
+}
+
+.recursion-file-input {
+  display: flex;
+  min-height: 48px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  align-items: center;
+}
+
+.recursion-file-input:hover {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.recursion-file-input input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.recursion-file-input > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.recursion-file-input b {
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recursion-file-input small {
+  color: var(--faint);
+  font-size: 7px;
+}
+
+.recursion-transport {
+  display: grid;
+  margin-bottom: 13px;
+  grid-template-columns: minmax(0, 1fr) 62px 62px;
+  gap: 7px;
+}
+
+.recursion-listen-button,
+.recursion-step-button {
+  min-height: 49px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+}
+
+.recursion-listen-button {
+  display: flex;
+  padding: 0 13px;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.recursion-listen-button svg {
+  width: 19px;
+  height: 19px;
+  overflow: visible;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.recursion-listen-button > span {
+  display: grid;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.recursion-listen-button b {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.recursion-listen-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+
+.recursion-listen-button[aria-pressed="true"] b {
+  color: var(--bg-deep);
+}
+
+.recursion-listen-button[aria-pressed="true"] .transport-play,
+.recursion-listen-button:not([aria-pressed="true"]) .transport-pause {
+  display: none;
+}
+
+.recursion-step-button {
+  display: grid;
+  padding: 5px;
+  place-content: center;
+  gap: 2px;
+}
+
+.recursion-step-button > span {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.recursion-step-button small {
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.recursion-listen-button:hover,
+.recursion-step-button:hover {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.recursion-timeline {
+  position: relative;
+  display: grid;
+  height: 35px;
+  margin-bottom: 17px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--bg-deep);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.recursion-timeline::before {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--line-strong);
+  content: "";
+}
+
+.recursion-timeline > i {
+  position: absolute;
+  z-index: 1;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-soft);
+}
+
+.recursion-timeline span,
+.recursion-timeline output {
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.recursion-timeline span {
+  padding-left: 9px;
+}
+
+.recursion-timeline output {
+  padding-right: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.recursion-clock-loop {
+  display: grid;
+  margin: -8px 0 16px;
+  color: var(--faint);
+  grid-template-columns: repeat(4, auto 1fr) auto;
+  align-items: center;
+  font-size: 7px;
+  letter-spacing: 0.07em;
+}
+
+.recursion-clock-loop span {
+  color: var(--muted);
+}
+
+.recursion-clock-loop i {
+  overflow: hidden;
+  color: var(--accent-soft);
+  font-style: normal;
+  text-align: center;
+}
+
+.recursion-live-tree {
+  margin: 0 0 17px;
+  padding: 11px 10px 9px;
+  border: 1px solid color-mix(in oklab, var(--accent) 48%, var(--line));
+  background:
+    radial-gradient(circle at 86% 0, var(--accent-glow), transparent 48%),
+    linear-gradient(145deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 72%),
+    var(--bg-deep);
+  box-shadow: inset 0 0 18px color-mix(in oklab, var(--accent) 3%, transparent);
+}
+
+.recursion-live-tree legend {
+  display: flex;
+  width: calc(100% + 2px);
+  padding: 0 1px;
+  color: var(--accent);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 9px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.recursion-live-tree legend output {
+  color: var(--muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.09em;
+}
+
+.recursion-live-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 11px;
+}
+
+.recursion-live-grid label {
+  display: grid;
+  min-width: 0;
+}
+
+.recursion-live-grid label > span {
+  display: flex;
+  min-width: 0;
+  margin-bottom: -7px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 7px;
+}
+
+.recursion-live-grid b {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recursion-live-grid output {
+  flex: none;
+  color: var(--accent);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.recursion-live-grid input[type="range"] {
+  height: 40px;
+}
+
+.recursion-live-grid input[type="range"]::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, var(--accent-soft), var(--line-strong));
+}
+
+.recursion-live-grid input[type="range"]::-moz-range-track {
+  background: linear-gradient(90deg, var(--accent-soft), var(--line-strong));
+}
+
+.recursion-rendered-controls {
+  margin-top: 2px;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel) 65%, var(--bg-deep));
+}
+
+.recursion-rendered-controls > summary {
+  display: grid;
+  min-height: 40px;
+  padding: 8px 10px;
+  cursor: pointer;
+  list-style: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.recursion-rendered-controls > summary::-webkit-details-marker {
+  display: none;
+}
+
+.recursion-rendered-controls > summary::after {
+  color: var(--faint);
+  content: "+";
+  font-size: 13px;
+}
+
+.recursion-rendered-controls[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.recursion-rendered-controls[open] > summary::after {
+  content: "−";
+}
+
+.recursion-rendered-controls .field-label {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.recursion-rendered-body {
+  padding: 9px 10px 3px;
+}
+
+.recursion-pressure-control {
+  margin-top: 3px;
+  padding: 11px 10px 4px;
+  border: 1px solid color-mix(in oklab, var(--recursion-danger) 28%, var(--line));
+  background:
+    linear-gradient(90deg, transparent, color-mix(in oklab, var(--recursion-danger) 7%, transparent)),
+    var(--bg-deep);
+}
+
+.recursion-pressure-control > small {
+  display: flex;
+  margin-top: -7px;
+  color: var(--faint);
+  justify-content: space-between;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.recursion-pressure-control input[type="range"]::-webkit-slider-thumb {
+  border-color: var(--recursion-danger);
+  box-shadow: 0 0 9px color-mix(in oklab, var(--recursion-danger) 25%, transparent);
+}
+
+.recursion-pressure-control input[type="range"]::-moz-range-thumb {
+  border-color: var(--recursion-danger);
+  box-shadow: 0 0 9px color-mix(in oklab, var(--recursion-danger) 25%, transparent);
+}
+
+.recursion-density-actions {
+  display: grid;
+  margin-top: 12px;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.recursion-density-actions button {
+  display: grid;
+  min-width: 0;
+  min-height: 55px;
+  padding: 7px 8px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  text-align: left;
+}
+
+.recursion-density-actions button > span:first-child {
+  color: var(--faint);
+  font-size: 16px;
+  text-align: center;
+}
+
+.recursion-density-actions button > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.recursion-density-actions b {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recursion-density-actions button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  background: var(--accent-glow);
+}
+
+.recursion-density-actions button[aria-pressed="true"] > span:first-child,
+.recursion-density-actions button[aria-pressed="true"] b {
+  color: var(--accent);
+}
+
+#overwhelmButton {
+  border-color: color-mix(in oklab, var(--recursion-danger) 42%, var(--line));
+}
+
+#overwhelmButton:hover,
+#overwhelmButton:focus-visible {
+  border-color: var(--recursion-danger);
+  background: color-mix(in oklab, var(--recursion-danger) 8%, var(--bg-deep));
+}
+
+#overwhelmButton:hover > span:first-child,
+#overwhelmButton:focus-visible > span:first-child {
+  color: var(--recursion-danger);
+}
+
+.recursion-page .audio-error {
+  margin-top: 12px;
+}
+
+@media (max-width: 1120px) {
+  .recursion-shell {
+    grid-template-columns: minmax(0, 1fr) clamp(350px, 34vw, 410px);
+  }
+}
+
+@media (max-width: 960px) {
+  .recursion-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .recursion-stage-heading {
+    top: 38px;
+    left: 26px;
+  }
+
+  .recursion-stage-heading h1 {
+    font-size: clamp(20px, 4vw, 30px);
+  }
+
+  .recursion-geometry-views {
+    top: 38px;
+    right: 24px;
+  }
+
+  .recursion-process {
+    right: 24px;
+    bottom: 18px;
+    left: 26px;
+  }
+}
+
+@media (max-width: 650px) {
+  .recursion-stage-heading {
+    top: 32px;
+    left: 18px;
+    max-width: 72%;
+  }
+
+  .recursion-stage-heading h1 {
+    font-size: clamp(18px, 5vw, 24px);
+  }
+
+  .recursion-geometry-views {
+    top: 14px;
+    right: 14px;
+  }
+
+  .recursion-geometry-views button {
+    min-width: 43px;
+    height: 24px;
+    padding: 0 6px;
+    font-size: 6px;
+  }
+
+  .recursion-process {
+    right: 15px;
+    bottom: 13px;
+    left: 18px;
+  }
+
+  .recursion-depth-rail {
+    gap: 3px;
+  }
+
+  .recursion-depth-rail i {
+    min-width: 25px;
+    height: 23px;
+    padding: 0 4px;
+  }
+
+  .recursion-seed,
+  .recursion-listen {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+}
+
+@media (max-width: 520px) {
+  .recursion-transport {
+    grid-template-columns: minmax(0, 1fr) 58px 58px;
+  }
+
+  .recursion-density-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .recursion-process > strong {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 380px) {
+  .recursion-transport {
+    grid-template-columns: minmax(0, 1fr) 54px 54px;
+    gap: 5px;
+  }
+
+  .recursion-live-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recursion-depth-rail i {
+    min-width: 22px;
+    padding: 0 3px;
+    font-size: 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recursion-depth-rail i {
+    transition: none;
+  }
+}

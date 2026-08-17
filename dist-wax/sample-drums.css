@@ -1,0 +1,57 @@
+.sample-drums-page {
+  --accent: #5fe8c4;
+  --accent-soft: color-mix(in oklab, var(--accent) 52%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 20%, transparent);
+}
+
+.sample-drums-intro {
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.sample-load-state {
+  display: grid;
+  min-width: 210px;
+  color: var(--muted);
+  gap: 4px;
+}
+
+.sample-load-state b {
+  color: var(--ink);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.sample-load-state small {
+  color: var(--faint);
+  font-size: 8px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.sample-drums-page .fm-pad {
+  background:
+    linear-gradient(145deg, color-mix(in oklab, var(--voice-color) 5%, transparent), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, .025), transparent),
+    var(--panel);
+}
+
+.sample-machine-tag {
+  color: var(--voice-color);
+}
+
+.sample-voice-editor {
+  border-top-color: var(--voice-color);
+}
+
+@media (max-width: 720px) {
+  .sample-drums-intro {
+    align-items: stretch;
+  }
+
+  .sample-load-state {
+    width: 100%;
+  }
+}

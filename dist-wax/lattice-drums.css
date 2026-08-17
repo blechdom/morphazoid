@@ -1,0 +1,220 @@
+.lattice-drums-page {
+  --accent: #ffb86b;
+  --accent-soft: color-mix(in oklab, var(--accent) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+.lattice-mapping-readout {
+  position: absolute;
+  z-index: 2;
+  right: 18px;
+  bottom: 16px;
+  max-width: min(72%, 520px);
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  pointer-events: none;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.lattice-drums-panel .group-body {
+  padding-bottom: 14px;
+}
+
+.lattice-mapping-description {
+  min-height: 34px;
+  margin: 8px 0 11px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.lattice-engine-row {
+  display: grid;
+  margin: -4px 0 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.lattice-engine-status {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: .08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.lattice-map-legend {
+  display: grid;
+  margin: 0 0 14px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.lattice-map-legend span {
+  display: grid;
+  min-width: 0;
+  min-height: 49px;
+  padding: 7px 5px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  align-content: center;
+  gap: 3px;
+}
+
+.lattice-map-legend b,
+.lattice-map-legend small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lattice-map-legend b {
+  color: var(--ink);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.lattice-map-legend small {
+  color: var(--faint);
+  font-size: 7px;
+}
+
+.lattice-drum-map {
+  display: grid;
+  margin-top: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.lattice-drum-cell {
+  --voice-color: var(--accent);
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--voice-color) 3%, var(--panel));
+  align-content: center;
+  transition: 80ms ease;
+}
+
+.lattice-drum-cell::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--voice-color);
+  content: "";
+  opacity: .72;
+}
+
+.lattice-drum-cell b,
+.lattice-drum-cell small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lattice-drum-cell b {
+  color: var(--ink);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+}
+
+.lattice-drum-cell small {
+  color: var(--voice-color);
+  font-size: 7px;
+}
+
+.lattice-drum-assignment {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.lattice-drum-assignment span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lattice-pair-swatch {
+  display: block;
+  width: 20px;
+  min-width: 20px;
+  height: 7px;
+  border: 1px solid color-mix(in oklab, var(--ink) 42%, transparent);
+  background: linear-gradient(
+    90deg,
+    var(--pair-first) 0 50%,
+    var(--pair-second) 50% 100%
+  );
+}
+
+.lattice-drum-map[data-mapping-mode="tile-color-pair"] .lattice-drum-cell {
+  min-height: 50px;
+}
+
+.lattice-drum-cell.is-active {
+  border-color: var(--voice-color);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--voice-color) 20%, var(--panel));
+  box-shadow: 0 0 12px color-mix(in oklab, var(--voice-color) 22%, transparent);
+  transform: translateY(1px);
+}
+
+@media (max-width: 520px) {
+  .lattice-engine-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lattice-map-legend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lattice-mapping-readout {
+    left: 12px;
+    max-width: none;
+    text-align: left;
+  }
+
+  .lattice-map-legend b,
+  .lattice-map-legend small {
+    font-size: 8px;
+  }
+
+  .lattice-drum-map[data-mapping-mode="tile-color-pair"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lattice-drum-map[data-mapping-mode="tile-color-pair"] .lattice-drum-cell {
+    min-height: 52px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lattice-drum-cell {
+    transition: none;
+  }
+}

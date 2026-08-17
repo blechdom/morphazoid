@@ -1,0 +1,226 @@
+.plasma-ball-page {
+  --accent: #d78cff;
+  --accent-soft: rgba(215, 140, 255, 0.58);
+  --accent-glow: rgba(215, 140, 255, 0.25);
+  --plasma-white: #fff7ff;
+  --plasma-violet: #ca72ff;
+  --plasma-blue: #739dff;
+  --plasma-pink: #ff71d4;
+  background: #07040b;
+}
+
+.plasma-ball-page .audio-button[aria-pressed="true"] {
+  color: #16091e;
+  background: #d78cff;
+}
+
+.plasma-shell {
+  min-height: 0;
+}
+
+.plasma-stage .stage-wrap {
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(228, 198, 239, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(228, 198, 239, 0.018) 1px, transparent 1px),
+    radial-gradient(ellipse at 43% 42%, rgba(195, 115, 237, 0.11), transparent 30%),
+    radial-gradient(ellipse at 58% 59%, rgba(76, 103, 213, 0.09), transparent 37%),
+    radial-gradient(circle at 50% 52%, #0d0814, #040206 75%);
+  background-size: 44px 44px, 44px 44px, auto, auto, auto;
+  box-shadow:
+    inset 0 0 90px rgba(0, 0, 0, 0.48),
+    inset 0 0 210px rgba(0, 0, 0, 0.36);
+}
+
+.plasma-stage .stage-wrap::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 38% 33%, rgba(255, 240, 255, 0.035), transparent 24%),
+    radial-gradient(circle at 50% 50%, transparent 49%, rgba(5, 2, 8, 0.16) 72%, rgba(2, 1, 4, 0.52) 100%);
+  content: "";
+  pointer-events: none;
+}
+
+.plasma-ball-page #stage {
+  cursor: crosshair;
+}
+
+.plasma-ball-page #stage.is-touching {
+  cursor: grabbing;
+}
+
+.plasma-title {
+  position: absolute;
+  z-index: 2;
+  top: clamp(18px, 3vw, 34px);
+  left: clamp(18px, 3vw, 34px);
+  pointer-events: none;
+}
+
+.plasma-title h1 {
+  margin: 0;
+  color: rgba(255, 247, 255, 0.93);
+  font-size: clamp(26px, 4.7vw, 58px);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+  text-shadow: 0 0 28px rgba(206, 103, 255, 0.22);
+  text-transform: uppercase;
+}
+
+.plasma-ball-page .stage-meta {
+  color: rgba(224, 194, 237, 0.58);
+}
+
+.plasma-panel {
+  background:
+    linear-gradient(180deg, rgba(204, 91, 255, 0.025), transparent 38%),
+    var(--panel);
+}
+
+.plasma-panel .control-section[data-section="play"] {
+  --accent: #f0a2ff;
+  --accent-soft: rgba(240, 162, 255, 0.58);
+  --accent-glow: rgba(240, 162, 255, 0.18);
+}
+
+.plasma-panel .control-section[data-section="field"] {
+  --accent: #d277ff;
+  --accent-soft: rgba(210, 119, 255, 0.58);
+  --accent-glow: rgba(210, 119, 255, 0.18);
+}
+
+.plasma-panel .control-section[data-section="sound"] {
+  --accent: #819fff;
+  --accent-soft: rgba(129, 159, 255, 0.58);
+  --accent-glow: rgba(129, 159, 255, 0.18);
+}
+
+.plasma-transport {
+  display: grid;
+  margin: 2px 0 13px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.plasma-transport > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.plasma-transport b {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.plasma-transport small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plasma-action-grid {
+  display: grid;
+  margin: 2px 0 13px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.plasma-action-grid .mini-action {
+  min-height: 36px;
+  background: color-mix(in oklab, var(--accent) 5%, transparent);
+}
+
+.plasma-action-grid .mini-action:first-child {
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--line-strong));
+  color: var(--accent);
+}
+
+.plasma-panel .control {
+  margin: 0 0 13px;
+}
+
+.plasma-panel .control:last-child {
+  margin-bottom: 6px;
+}
+
+.plasma-mapping {
+  display: grid;
+  margin: 7px 0 13px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+}
+
+.plasma-mapping > span {
+  display: grid;
+  min-width: 0;
+  padding: 9px 10px;
+  grid-template-columns: 82px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+}
+
+.plasma-mapping > span + span {
+  border-top: 1px solid var(--line);
+}
+
+.plasma-mapping b {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.plasma-mapping code {
+  overflow-wrap: anywhere;
+  color: var(--accent);
+  font: 9px/1.4 var(--mono);
+}
+
+.plasma-panel .control-note {
+  margin: 8px 0 9px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+@media (max-width: 960px) {
+  .plasma-title h1 {
+    font-size: clamp(24px, 7vw, 42px);
+  }
+}
+
+@media (max-width: 650px) {
+  .plasma-title {
+    top: 15px;
+    left: 14px;
+  }
+
+  .plasma-title h1 {
+    font-size: clamp(22px, 8vw, 32px);
+  }
+
+  .plasma-ball-page .stage-meta {
+    top: auto;
+    bottom: 12px;
+    justify-content: flex-start;
+    font-size: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plasma-title h1 {
+    text-shadow: none;
+  }
+}

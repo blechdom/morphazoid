@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Chaotic FM — recursive sine oscillators driven by a bounded tanh frequency nonlinearity."
+    />
+    <title>Chaotic FM — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="chaotic-fm.css" />
+    <link rel="stylesheet" href="chaotic-synth-ui.css" />
+  </head>
+  <body class="chaotic-fm-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="recursive-fm.html">recursive fm</a>
+        <a class="tab active" href="chaotic-fm.html" aria-current="page">chaotic fm</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="recursive-fm.html">recursive fm</option>
+          <option value="chaotic-fm.html" selected>chaotic fm</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph chaotic-fm-audio-glyph" aria-hidden="true">≋</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">42%</output></span>
+          <input
+            id="output"
+            data-parameter-id="output.level"
+            aria-label="Chaotic FM output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.42"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell chaotic-fm-shell" id="chaoticFm">
+      <section class="stage chaotic-fm-stage" aria-labelledby="chaoticFmTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Chaotic FM algorithm with one nonlinear recursive turn. Audio off."
+            aria-describedby="chaoticFmDescription liveStatus"
+          >
+            A layered live frequency-bar spectrum with a foreground oscilloscope, plus a signal-flow explanation for Chaotic FM.
+          </canvas>
+
+          <div class="chaotic-fm-heading">
+            <p>CHAOTIC SYNTHS · 03</p>
+            <h1 id="chaoticFmTitle">Chaotic FM</h1>
+            <p class="chaotic-fm-subtitle">
+              Each oscillator’s waveform becomes the next oscillator’s signed frequency, shaped through amount, tanh saturation, and rate stages. Unlike regular FM’s predictable sidebands, tiny phase and timing changes reshape every downstream frequency trajectory. Saturation keeps this recursive cascade bounded while producing highly sensitive, unstable, and surprising spectral motion.
+            </p>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">1 RECURSION · 3 OPERATORS · AUDIO OFF</span>
+          </div>
+
+          <div
+            class="chaotic-path-graph"
+            id="chaoticFmFlow"
+            role="img"
+            tabindex="0"
+            data-path-label="RECURSIVE FM DRIVE · EACH SINE WAVE DRIVES THE NEXT SINE'S FREQUENCY"
+            aria-label="Chaotic FM operator graph. Entry modulation is added to a separated center-frequency sum. Each sine then drives the next sine's frequency through amount, tanh, and rate stages. Dotted vertical routes are audio depth taps."
+          ></div>
+        </div>
+      </section>
+
+      <aside class="panel chaotic-fm-panel" aria-label="Chaotic FM controls">
+        <section class="plugin-download-callout" aria-labelledby="chaoticFmPluginTitle">
+          <div class="plugin-download-callout-copy">
+            <p>DAW version available</p>
+            <h2 id="chaoticFmPluginTitle">Chaotic FM <span>JSFX v0.3.0 beta</span></h2>
+            <small>REAPER · MIDI · host clock · Linux tested</small>
+          </div>
+          <div class="plugin-download-callout-actions">
+            <a
+              class="plugin-download-callout-primary"
+              href="downloads/plugins/chaotic-fm/0.3.0/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx"
+              download="Morphazoid_Chaotic_FM-v0.3.0.jsfx"
+            >Download</a>
+            <a href="plugins.html#chaotic-fm">Install guide &amp; versions</a>
+          </div>
+        </section>
+
+        <details class="group control-section chaotic-fm-presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Character</h2>
+            <span class="section-state" id="presetState">Feedback Nest</span>
+          </summary>
+          <div class="group-body">
+            <div class="chaotic-fm-preset-grid" id="presetButtons" role="group" aria-label="Chaotic FM presets">
+              <button type="button" data-preset="feedback-nest" aria-pressed="true">Feedback Nest</button>
+              <button type="button" data-preset="slow-furnace" aria-pressed="false">Slow Furnace</button>
+              <button type="button" data-preset="glass-hive" aria-pressed="false">Glass Hive</button>
+              <button type="button" data-preset="cut-current" aria-pressed="false">Cut Current</button>
+              <button type="button" data-preset="brass-moth" aria-pressed="false">Brass Moth</button>
+            </div>
+            <p class="chaotic-fm-preset-description" id="presetDescription">
+              A fast 10.5 Hz seed drives one broad, unstable nonlinear turn.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section chaotic-fm-performance" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Performance</h2>
+            <span class="section-state" id="performanceState">Drone · continuous</span>
+          </summary>
+          <div class="group-body">
+            <div class="chaotic-midi-monitor" aria-label="Live MIDI performance state">
+              <span><b>Note</b><output id="currentNote">—</output></span>
+              <span><b>Bend</b><output id="bendState">+0 st</output></span>
+              <span><b>Sustain</b><output id="sustainState">up</output></span>
+              <span class="chaotic-expression-row">
+                <b>Expression</b>
+                <i id="expressionMeter" aria-hidden="true"></i>
+                <output id="expressionValue">100%</output>
+              </span>
+              <span class="chaotic-midi-activity" id="midiActivity" aria-live="polite">Waiting for MIDI</span>
+            </div>
+
+            <div class="chaotic-adsr-preview" aria-label="Amplitude ADSR shape">
+              <svg viewBox="0 0 240 72" role="img" aria-label="Attack, decay, sustain and release envelope">
+                <path class="chaotic-adsr-grid" d="M 8 64 H 232 M 8 8 V 64" />
+                <path id="adsrCurve" d="M 8 64 Q 31 12 52 8 Q 76 26 103 26 L 171 26 Q 202 26 232 64" />
+              </svg>
+              <span>A</span><span>D</span><span>S</span><span>R</span>
+            </div>
+
+            <label class="control" for="ampAttackMs">
+              <span><b>Attack</b><output id="ampAttackMsOut" for="ampAttackMs">8 ms</output></span>
+              <input id="ampAttackMs" data-parameter-id="performance.ampAttackMs" type="range" min="0" max="1" step="0.001" value="0.302" />
+            </label>
+            <label class="control" for="ampDecayMs">
+              <span><b>Decay</b><output id="ampDecayMsOut" for="ampDecayMs">120 ms</output></span>
+              <input id="ampDecayMs" data-parameter-id="performance.ampDecayMs" type="range" min="0" max="1" step="0.001" value="0.563" />
+            </label>
+            <label class="control" for="ampSustainLevel">
+              <span><b>Sustain level</b><output id="ampSustainLevelOut" for="ampSustainLevel">72%</output></span>
+              <input id="ampSustainLevel" data-parameter-id="performance.ampSustainLevel" type="range" min="0" max="1" step="0.01" value="0.72" />
+            </label>
+            <label class="control" for="ampReleaseMs">
+              <span><b>Release</b><output id="ampReleaseMsOut" for="ampReleaseMs">180 ms</output></span>
+              <input id="ampReleaseMs" data-parameter-id="performance.ampReleaseMs" type="range" min="0" max="1" step="0.001" value="0.528" />
+            </label>
+
+            <div class="chaotic-glide-row">
+              <label for="glideMode">
+                <span>Glide mode</span>
+                <select id="glideMode" data-parameter-id="performance.glideMode">
+                  <option value="off" selected>Off</option>
+                  <option value="legato">Legato</option>
+                  <option value="always">Always</option>
+                </select>
+              </label>
+            </div>
+            <label class="control" for="glideTimeMs">
+              <span><b>Glide time</b><output id="glideTimeMsOut" for="glideTimeMs">off</output></span>
+              <input id="glideTimeMs" data-parameter-id="performance.glideTimeMs" type="range" min="0" max="1" step="0.001" value="0" />
+            </label>
+            <label class="control" for="rootMidiNote">
+              <span><b>Root note</b><output id="rootMidiNoteOut" for="rootMidiNote">C4 · 60</output></span>
+              <input id="rootMidiNote" data-parameter-id="performance.rootMidiNote" type="range" min="0" max="127" step="1" value="60" />
+            </label>
+            <label class="control" for="pitchBendRangeSemitones">
+              <span><b>Pitch-bend range</b><output id="pitchBendRangeSemitonesOut" for="pitchBendRangeSemitones">±2 st</output></span>
+              <input id="pitchBendRangeSemitones" data-parameter-id="performance.pitchBendRangeSemitones" type="range" min="0" max="24" step="1" value="2" />
+            </label>
+
+            <p class="chaotic-fm-control-note chaotic-midi-map-note">
+              Controller Macros 1–8 · carrier · offset · amount · nonlinearity · attack · release · glide · output.<br />
+              Standard performance MIDI · CC5 glide · CC11 expression · CC64 sustain · CC65 portamento · CC72 release · CC73 attack · CC75 decay
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section chaotic-fm-structure" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Algorithm</h2>
+            <span class="section-state" id="algorithmState">1 recursion · tanh</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="depth">
+              <span><b>Recursion depth</b><output id="depthOut" for="depth">1</output></span>
+              <input id="depth" data-parameter-id="synthesis.depth" type="range" min="0" max="10" step="1" value="1" />
+            </label>
+
+            <label class="control" for="carrier">
+              <span><b>Carrier</b><output id="carrierOut" for="carrier">10.5 Hz</output></span>
+              <input id="carrier" data-parameter-id="synthesis.carrierHz" type="range" min="0" max="1" step="0.0001" value="0.53" />
+            </label>
+            <small class="chaotic-fm-control-note">Logarithmic · 0.01 Hz to 4.8 kHz</small>
+
+            <label class="control" for="offset">
+              <span><b>Entry offset</b><output id="offsetOut" for="offset">0 Hz</output></span>
+              <input id="offset" data-parameter-id="synthesis.offsetHz" type="range" min="0" max="1" step="0.0001" value="0" />
+            </label>
+
+            <label class="control" for="modulationAmount">
+              <span><b>Modulation amount</b><output id="modulationAmountOut" for="modulationAmount">350 Hz</output></span>
+              <input id="modulationAmount" data-parameter-id="synthesis.modulationAmount" type="range" min="0" max="1" step="0.0001" value="0.27" />
+            </label>
+
+            <label class="control" for="amountDivisor">
+              <span><b>Amount divisor</b><output id="amountDivisorOut" for="amountDivisor">÷0.4</output></span>
+              <input id="amountDivisor" data-parameter-id="synthesis.amountDivisor" type="range" min="0.001" max="8" step="0.001" value="0.4" />
+            </label>
+
+            <label class="control" for="nonlinearity">
+              <span><b>Nonlinearity rate</b><output id="nonlinearityOut" for="nonlinearity">256 Hz</output></span>
+              <input
+                id="nonlinearity"
+                data-parameter-id="synthesis.nonlinearityHz"
+                type="range"
+                min="0"
+                max="1"
+                step="0.0001"
+                value="0.78"
+                aria-describedby="nonlinearityNote"
+              />
+            </label>
+            <small class="chaotic-fm-control-note" id="nonlinearityNote">
+              Frequency scale after tanh · this is not an audio filter
+            </small>
+
+            <div class="grammar-card chaotic-fm-ledger chaotic-turn-ledger" aria-label="Current bounded algorithm">
+              <span><b>Carrier</b><code id="carrierReadout">10.5 Hz sine</code></span>
+              <span><b>Entry</b><code id="entryReadout">0 → 350 Hz</code></span>
+              <span><b>Recursions</b><code id="turnsReadout">1: ±256 Hz · amount 175</code></span>
+              <span><b>Output</b><code id="operatorReadout">operator 2 · crossfaded</code></span>
+            </div>
+
+            <p class="chaotic-fm-safety-note">
+              Negative nonlinear frequencies run phase backward. Every phase increment and extreme recursive amount is bounded before rendering, then compressed and softly limited.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetChaoticFm" type="button" data-reset-all>Reset parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="chaoticFmDescription">
+        A non-scrolling live spectrum of discrete low-to-high frequency bars sits behind a brighter oscilloscope trace in one layered analyzer. The complete nonlinear frequency path below shows the entry sum and every amount, tanh, rate, and sine stage in the rendered algorithm.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="chaotic-fm-app.js"></script>
+  </body>
+</html>

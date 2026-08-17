@@ -1,0 +1,212 @@
+.graph-delay-page {
+  --accent: #68e0d2;
+  --accent-soft: color-mix(in oklab, #68e0d2 55%, transparent);
+  --accent-glow: color-mix(in oklab, #68e0d2 22%, transparent);
+}
+
+.graph-delay-page #topologySection {
+  --accent: #7db4ff;
+  --accent-soft: color-mix(in oklab, #7db4ff 55%, transparent);
+}
+
+.graph-delay-page #delaySection {
+  --accent: #ff9b7d;
+  --accent-soft: color-mix(in oklab, #ff9b7d 55%, transparent);
+}
+
+.graph-delay-page #motionSection {
+  --accent: #e8c46b;
+  --accent-soft: color-mix(in oklab, #e8c46b 55%, transparent);
+}
+
+.graph-delay-page #graphInfoSection {
+  --accent: #c79bff;
+  --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
+}
+
+.graph-preset-grid button {
+  min-height: 56px;
+}
+
+.graph-preset-grid button[aria-pressed="true"] {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.graph-preset-grid [data-preset-band="clean"] small {
+  color: #5fe8c4;
+}
+
+.graph-preset-grid [data-preset-band="feedback"] small {
+  color: #c79bff;
+}
+
+.graph-preset-grid [data-preset-band="wild"] small {
+  color: #ff826f;
+}
+
+.graph-generator-cluster {
+  margin-bottom: 0;
+}
+
+.graph-info-readout > div {
+  grid-template-columns: 92px minmax(0, 1fr);
+}
+
+.motion-play-button[aria-pressed="true"] .transport-play,
+.motion-play-button[aria-pressed="false"] .transport-pause {
+  display: none;
+}
+
+.motion-play-button[aria-pressed="true"] .transport-pause,
+.motion-play-button[aria-pressed="false"] .transport-play {
+  display: block;
+}
+
+.motion-divider {
+  height: 1px;
+  margin: 17px 0 14px;
+  background: linear-gradient(90deg, transparent, var(--line-strong), transparent);
+}
+
+.mic-motion-row {
+  display: grid;
+  margin: 7px 0 12px;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+}
+
+.mic-motion-row .play-button {
+  width: 46px;
+  min-height: 46px;
+}
+
+.mic-motion-select {
+  margin: 0;
+}
+
+.mic-motion-select .select-shell,
+.mic-motion-select select {
+  height: 100%;
+}
+
+.graph-delay-page .stage-wrap {
+  background:
+    linear-gradient(rgba(104, 224, 210, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(104, 224, 210, 0.025) 1px, transparent 1px),
+    radial-gradient(circle at 18% 50%, rgba(104, 224, 210, 0.08), transparent 25%),
+    radial-gradient(circle at 72% 45%, rgba(125, 180, 255, 0.07), transparent 42%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto, auto;
+}
+
+.graph-delay-page .graph-seed-control {
+  display: none;
+}
+
+.graph-delay-page #stage {
+  cursor: grab;
+  touch-action: none;
+}
+
+.graph-delay-page #stage.is-dragging {
+  cursor: grabbing;
+}
+
+.graph-delay-page #stage.is-switch-hover:not(.is-dragging) {
+  cursor: pointer;
+}
+
+.graph-delay-page #seedMicButton {
+  border-color: rgba(104, 224, 210, 0.22);
+}
+
+.graph-key {
+  position: absolute;
+  z-index: 3;
+  right: 92px;
+  bottom: 19px;
+  left: 18px;
+  display: flex;
+  color: var(--faint);
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.graph-key span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.graph-key i {
+  width: 18px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #55d9ff, #5fe8c4, #c79bff, #ff826f);
+}
+
+.graph-key i.feedback {
+  height: 2px;
+  background: repeating-linear-gradient(90deg, #ff826f 0 3px, transparent 3px 6px);
+}
+
+.graph-key i.output-guide {
+  height: 2px;
+  background: repeating-linear-gradient(90deg, #e8c46b 0 1px, transparent 1px 6px);
+}
+
+.graph-key i.route-switch {
+  width: 12px;
+  height: 7px;
+  border: 2px solid #5fe8c4;
+  border-radius: 1px;
+  background: #071011;
+  box-sizing: border-box;
+  transform: skewX(-16deg);
+}
+
+.graph-delay-page #openAllSwitchesButton:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+.graph-delay-page #delaySection .recursion-parameter-cluster:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.graph-metrics {
+  display: grid;
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.graph-metrics span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.selected-node-card {
+  border-color: color-mix(in oklab, var(--accent) 24%, var(--line));
+  background: color-mix(in oklab, var(--accent) 4%, var(--bg-deep));
+}
+
+.graph-delay-page input:disabled {
+  cursor: not-allowed;
+  opacity: 0.34;
+}
+
+@media (max-width: 650px) {
+  .graph-key {
+    right: 72px;
+    gap: 9px;
+  }
+
+}

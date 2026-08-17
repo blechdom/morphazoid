@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid L-mic — a live microphone that grows recursive audio descendants." />
+    <title>L-mic — Morphazoid</title>
+    <link rel="canonical" href="l-mic.html" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="micmic.css" />
+  </head>
+  <body class="micmic-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid Shape">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab recursion-tab" href="recursion.html">recursion</a>
+        <a class="tab" href="julia.html">julia</a>
+        <a class="tab" href="lumber.html">lumber loops</a>
+        <a class="tab micmic-tab active" href="l-mic.html" aria-current="page">L-mic</a>
+        <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
+        <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
+          <option value="julia.html">julia</option>
+          <option value="lumber.html">lumber loops</option>
+          <option value="l-mic.html" selected>L-mic</option>
+          <option value="graph-delay.html">graph-delay</option>
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="morphazoidical/">morphazoidical</option>
+        </select>
+      </label>
+
+      <p class="micmic-headphone-warning">
+        <strong>Use headphones.</strong> Speakers can feed the room back into the microphone before the digital recursion does.
+      </p>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph fracta-audio-glyph" aria-hidden="true">∞</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
+          <input id="level" aria-label="L-mic output level" type="range" min="0" max="1" step="0.01" value="0.58" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="micmic">
+      <section class="stage fracta-stage" aria-label="L-mic echo tree">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            role="img"
+            aria-label="Live fitted L-mic L-system tree. Microphone off."
+            aria-describedby="treeDescription liveStatus"
+          >
+            A fitted L-system tree whose branches vibrate as microphone audio travels through them.
+          </canvas>
+
+          <div class="fracta-seed-control" id="seedControl">
+            <button id="seedMicButton" type="button" aria-pressed="false" aria-label="Start microphone input">
+              <i aria-hidden="true"></i>
+              <span><b>Start input</b><small>microphone seed</small></span>
+            </button>
+          </div>
+
+          <button class="fracta-panic" id="panicButton" type="button" disabled>
+            <span aria-hidden="true">×</span> panic
+          </button>
+
+          <div class="fracta-generation-key" id="generationKey" aria-hidden="true">
+            <span>G0 ROOT</span><i></i><span id="generationKeyEnd">G13 DESCENDANT</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">MIC OFF · PYTHAGOREAN PINE · 13 GENERATIONS</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="L-mic controls">
+        <details class="group control-section" id="presetSection" data-section="presets">
+          <summary class="group-summary">
+            <h2 class="group-title">Presets</h2>
+            <span class="section-state" id="presetSummary">Pythagorean Pine · Maximum</span>
+          </summary>
+          <div class="group-body">
+            <div class="micmic-preset-grid" id="generationPresetGrid" role="group" aria-label="L-mic presets">
+              <button id="generationPreset-moss" type="button" data-generation-preset="moss" data-preset-band="robotic" aria-pressed="false"><b>Moss Carpet</b><small>ROBOTIC · 1 ms fold</small></button>
+              <button id="generationPreset-bramble" type="button" data-generation-preset="bramble" data-preset-band="robotic" aria-pressed="false"><b>Blackberry Bramble</b><small>ROBOTIC · 4 ms fold</small></button>
+              <button id="generationPreset-venus" type="button" data-generation-preset="venus" data-preset-band="robotic" aria-pressed="false"><b>Venus Flytrap</b><small>ROBOTIC · 14 ms fold</small></button>
+              <button id="generationPreset-ivy" type="button" data-generation-preset="ivy" data-preset-band="robotic" aria-pressed="false"><b>Midnight Ivy</b><small>ROBOTIC · 38 ms fold</small></button>
+              <button id="generationPreset-binary" type="button" data-generation-preset="binary" data-preset-band="rhythmic" aria-pressed="false"><b>Silver Birch</b><small>RHYTHMIC · 85 ms fold</small></button>
+              <button id="generationPreset-coral" type="button" data-generation-preset="coral" data-preset-band="rhythmic" aria-pressed="false"><b>Staghorn Coral</b><small>RHYTHMIC · 160 ms fold</small></button>
+              <button id="generationPreset-pythagorean" type="button" data-generation-preset="pythagorean" data-preset-band="rhythmic" aria-pressed="true"><b>Pythagorean Pine</b><small>BALANCED · 240 ms fold</small></button>
+              <button id="generationPreset-plant" type="button" data-generation-preset="plant" data-preset-band="rhythmic" aria-pressed="false"><b>Fern Frond</b><small>RHYTHMIC · 420 ms fold</small></button>
+              <button id="generationPreset-kelp" type="button" data-generation-preset="kelp" data-preset-band="spacious" aria-pressed="false"><b>Kelp Forest</b><small>SPACIOUS · 750 ms fold</small></button>
+              <button id="generationPreset-dragon" type="button" data-generation-preset="dragon" data-preset-band="spacious" aria-pressed="false"><b>Dragon Tree</b><small>SPACIOUS · 1.05 s fold</small></button>
+              <button id="generationPreset-koch" type="button" data-generation-preset="koch" data-preset-band="spacious" aria-pressed="false"><b>Frosted Agave</b><small>GEOMETRIC · 1.35 s fold</small></button>
+              <button id="generationPreset-clean" type="button" data-generation-preset="clean" data-preset-band="smooth" aria-pressed="false"><b>Bamboo Shoot</b><small>SMOOTH · 1.65 s fold</small></button>
+              <button id="generationPreset-orchid" type="button" data-generation-preset="orchid" data-preset-band="smooth" aria-pressed="false"><b>Ghost Orchid</b><small>SMOOTH · 1.95 s fold</small></button>
+              <button id="generationPreset-willow" type="button" data-generation-preset="willow" data-preset-band="smooth" aria-pressed="false"><b>Weeping Willow</b><small>SMOOTH · 2.3 s fold</small></button>
+              <button id="generationPreset-mangrove" type="button" data-generation-preset="mangrove" data-preset-band="smooth" aria-pressed="false"><b>Mangrove Roots</b><small>SMOOTH · 2.7 s fold</small></button>
+              <button id="generationPreset-sequoia" type="button" data-generation-preset="sequoia" data-preset-band="smooth" aria-pressed="false"><b>Giant Sequoia</b><small>SMOOTH · 3 s fold</small></button>
+            </div>
+            <p class="growth-preset-description" id="generationPresetDescription">The full reference canopy: clear forks, tapering time, and mirrored pitch.</p>
+          </div>
+        </details>
+
+        <details class="group control-section performance-group" id="listenSection" data-section="listen">
+          <summary class="group-summary">
+            <h2 class="group-title">Listen</h2>
+            <span class="section-state" id="listenSummary">microphone off</span>
+          </summary>
+          <div class="group-body">
+            <div class="fracta-listen-actions">
+              <button class="fracta-mic-button" id="micButton" type="button" aria-pressed="false">
+                <span class="fracta-mic-icon" aria-hidden="true"><i></i></span>
+                <span><b id="micButtonLabel">Start input</b><small id="micButtonHint">microphone off</small></span>
+              </button>
+              <button class="fracta-freeze-button" id="freezeButton" type="button" aria-pressed="false" disabled>
+                <span aria-hidden="true">×</span>
+                <span><b id="freezeLabel">Stop audio</b><small id="freezeHint">tail clear</small></span>
+              </button>
+            </div>
+
+            <div class="fracta-meter" aria-label="Live microphone level">
+              <span><b>Input signal</b><output id="inputMeterOut">silent</output></span>
+              <div><i id="inputMeterBar"></i><em id="inputPeakMarker"></em></div>
+            </div>
+
+            <label class="control" for="inputTrim">
+              <span><b>Input trim</b><output id="inputTrimOut" for="inputTrim">85%</output></span>
+              <input id="inputTrim" type="range" min="0" max="1.25" step="0.01" value="0.85" />
+            </label>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="recursionSection" data-section="recursion">
+          <summary class="group-summary">
+            <h2 class="group-title">Recursion</h2>
+            <span class="section-state" id="recursionSummary">Pythagorean Pine · 13 generations</span>
+          </summary>
+          <div class="group-body">
+            <section class="recursion-parameter-cluster" aria-labelledby="branchingParametersTitle">
+              <h3 class="parameter-cluster-title" id="branchingParametersTitle">Branching</h3>
+              <label class="control generation-control" for="generations">
+                <span>
+                  <b>Generations <small id="generationCapacityInline">48 of 1,022 branches ready · breadth first pruning · device-adjusted</small></b>
+                  <output id="generationsOut" for="generations">13 / 13</output>
+                </span>
+                <input id="generations" type="range" min="1" max="13" step="1" value="13" aria-describedby="generationCapacityInline" />
+              </label>
+              <label class="control signed-form-range" for="pruningBias">
+                <span><b>Pruning strategy</b><output id="pruningBiasOut" for="pruningBias">breadth first</output></span>
+                <input id="pruningBias" type="range" min="0" max="1" step="0.01" value="0" aria-valuetext="breadth first" />
+                <span class="form-range-poles" aria-hidden="true"><span>Breadth first</span><span>Balanced</span><span>Depth first</span></span>
+              </label>
+              <label class="control" for="depth">
+                <span><b>Depth / decay</b><output id="depthOut" for="depth">72%</output></span>
+                <input id="depth" type="range" min="0" max="0.96" step="0.01" value="0.72" />
+              </label>
+            </section>
+
+            <section class="recursion-parameter-cluster" aria-labelledby="timingParametersTitle">
+              <h3 class="parameter-cluster-title" id="timingParametersTitle">Timing</h3>
+              <label class="control" for="interval">
+                <span><b>Time fold</b><output id="intervalOut" for="interval">240 ms</output></span>
+                <input id="interval" type="range" min="0" max="1000" step="1" value="300" aria-valuetext="240 ms" />
+              </label>
+              <label class="control" for="timeRatio"><span><b>Child time ratio</b><output id="timeRatioOut" for="timeRatio">0.72× per generation</output></span><input id="timeRatio" type="range" min="0.2" max="2" step="0.01" value="0.72" aria-valuemax="2" aria-valuetext="0.72× per generation" /></label>
+            </section>
+
+            <section class="recursion-parameter-cluster" aria-labelledby="pitchParametersTitle">
+              <h3 class="parameter-cluster-title" id="pitchParametersTitle">Pitch</h3>
+              <label class="select-control" for="pitchDetail">
+                <span class="field-label">Pitch detail</span>
+                <span class="select-shell">
+                  <select id="pitchDetail" aria-describedby="pitchDetailStatus">
+                    <option value="3">Silky · 3 shifted lanes</option>
+                    <option value="7">Detailed · 7 shifted lanes</option>
+                    <option value="10">Full tree · 10 shifted lanes</option>
+                    <option value="16">Extreme · 16 shifted lanes (desktop)</option>
+                    <option value="24" selected>Maximum · Economy granular (default)</option>
+                  </select>
+                </span>
+              </label>
+              <small class="generation-safety-note" id="pitchDetailStatus" aria-live="polite">Maximum economy · 0 active shifted pitches · exact unison</small>
+              <label class="control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">45°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="45" /></label>
+              <label class="control" for="generationPitchScale"><span><b>Angle → octave span</b><output id="generationPitchScaleOut" for="generationPitchScale">100% / 180°</output></span><input id="generationPitchScale" type="range" min="0" max="4" step="0.05" value="1" /></label>
+            </section>
+
+            <section class="recursion-parameter-cluster" aria-labelledby="variationParametersTitle">
+              <h3 class="parameter-cluster-title" id="variationParametersTitle">Variation</h3>
+              <label class="control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">even</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
+              <label class="control" for="mutation">
+                <span><b>Rule mutation</b><output id="mutationOut" for="mutation">0% rule variance</output></span>
+                <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" />
+              </label>
+            </section>
+
+            <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reload selected preset</button>
+          </div>
+        </details>
+
+        <details class="group control-section" id="mixSection" data-section="mix">
+          <summary class="group-summary">
+            <h2 class="group-title">Mix</h2>
+            <span class="section-state" id="mixSummary">76% descendants · root muted</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="wet">
+              <span><b>Descendants</b><output id="wetOut" for="wet">76%</output></span>
+              <input id="wet" type="range" min="0" max="1" step="0.01" value="0.76" />
+            </label>
+            <label class="control" for="dry">
+              <span><b>Original voice</b><output id="dryOut" for="dry">muted</output></span>
+              <input id="dry" type="range" min="0" max="0.5" step="0.01" value="0" />
+            </label>
+            <label class="control" for="spread">
+              <span><b>Stereo spread</b><output id="spreadOut" for="spread">90%</output></span>
+              <input id="spread" type="range" min="0" max="1" step="0.01" value="0.9" />
+            </label>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+
+        <details class="group control-section" id="settingsSection" data-section="settings">
+          <summary class="group-summary">
+            <h2 class="group-title">Current settings</h2>
+            <span class="section-state" id="currentSettingsSummary">13 gen · 240 ms root fold</span>
+          </summary>
+          <div class="group-body">
+            <dl class="current-settings-readout">
+              <div>
+                <dt>Branches by generation</dt>
+                <dd><output id="generationCountReadout">1 → 2 → 4 → 8 → 16 → 32 → … → 128 at G13</output></dd>
+              </div>
+              <div>
+                <dt>Timing levels</dt>
+                <dd><output id="generationTimingReadout">240 ms → 173 ms → 124 ms → 90 ms … 3.35 ms at G13</output></dd>
+              </div>
+              <div>
+                <dt>Pitch turns · octave percentage</dt>
+                <dd><output id="generationPitchReadout">−45° → −25% octave · +45° → +25% octave</output></dd>
+              </div>
+            </dl>
+          </div>
+        </details>
+      </aside>
+
+      <p class="sr-only" id="treeDescription">Pythagorean Pine. Thirteen generations and 1,023 connected segments; 48 of 48 breadth first delayed descendant paths carry audible gain. Microphone loudness travels outward from the seed by vibrating the branches.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="micmic-app.js?v=20260726-independent-timing"></script>
+  </body>
+</html>
