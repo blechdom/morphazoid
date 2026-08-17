@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Kinetic Hull — moving points continuously rebuild their convex hull and Delaunay graph." />
+    <title>Kinetic Hull — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="physics.css" />
+  </head>
+  <body class="physics-page" data-physics-scene="kinetic-hull">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+      <nav class="tabs" aria-label="Instrument"><a class="tab" href="shape.html">shape</a><a class="tab active" href="kinetic-hull.html" aria-current="page">kinetic hull</a></nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="shape.html">shape</option><option value="kinetic-hull.html" selected>kinetic hull</option></select></label>
+      <div class="audio-strip" aria-label="Audio controls"><button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">⌁</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button><label class="header-level" for="level"><span><b>Master level</b><output id="levelOut" for="level">56%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="1" step="0.01" value="0.56" /></label></div>
+    </header>
+    <main class="shell physics-demo" id="physics-demo">
+      <section class="stage" aria-labelledby="sceneTitle"><div class="stage-wrap" id="stageWrap">
+        <canvas id="stage" tabindex="0" role="img" aria-label="Moving points with a live convex hull and Delaunay connection graph." aria-describedby="sceneInstruction sceneLesson">A moving point cloud repeatedly changes its outer boundary and neighbor graph.</canvas>
+        <header class="physics-title-card"><h1 id="sceneTitle">Kinetic Hull</h1><p class="physics-description" id="sceneDescription">Moving points continually renegotiate their convex boundary and nearest-neighbour triangulation.</p></header>
+        <div class="stage-meta" aria-hidden="true"><span id="stageReadout">18 POINTS · 7 ON HULL · READY · AUDIO OFF</span></div>
+      </div></section>
+      <aside class="panel" aria-label="Kinetic Hull controls">
+        <details class="group control-section" data-section="play"><summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">points · paused</span></summary><div class="group-body"><div class="position-row">
+          <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Run Kinetic Hull"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button><div class="physics-play-actions" role="group" aria-label="Scene actions"><button class="physics-stage-action" id="resetScene" type="button">Reset</button><button class="physics-stage-action" id="primaryAction" type="button">Reseed</button></div>
+        </div></div></details>
+        <details class="group control-section" id="physicsSection" data-section="physics"><summary class="group-summary"><h2 class="group-title">Physics</h2><span class="section-state" id="physicsSummary">18 points · drift 0.34</span></summary><div class="group-body" id="physicsControls"><p class="physics-control-note">Point count, drift speed, attraction, boundary bounce, and graph view control the kinetic system.</p></div></details>
+        <details class="group control-section" data-section="sound"><summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state">height · hull · edge flips</span></summary><div class="group-body"><label class="control" for="baseFrequency"><span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" /></label><label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">3.0 oct</output></span><input id="pitchRange" type="range" min="0.5" max="5" step="0.1" value="3" /></label><p class="physics-audio-error" id="audioError" role="alert" hidden></p></div></details>
+        <details class="group control-section physics-concept" data-section="mapping"><summary class="group-summary"><h2 class="group-title">What it illustrates</h2><span class="section-state">convexity · topology events</span></summary><div class="group-body physics-concept-body"><p class="physics-instruction" id="sceneInstruction">Drag a point and release it. Boundary membership and Delaunay edge changes become notes.</p><p class="physics-lesson" id="sceneLesson">Continuous point motion produces discrete combinatorial events: points enter or leave the convex hull and Delaunay diagonals exchange at critical configurations.</p><dl class="physics-metrics" id="sceneMetrics"><div><dt>Points</dt><dd>18</dd></div><div><dt>Hull vertices</dt><dd>7</dd></div><div><dt>Delaunay edges</dt><dd>44</dd></div><div><dt>Events</dt><dd>0</dd></div></dl><dl class="physics-mapping" id="sceneMapping"><div><dt>Hull-point height</dt><dd>pitch</dd></div><div><dt>Exterior turn</dt><dd>voice level</dd></div><div><dt>Edge change</dt><dd>accent</dd></div><div><dt>Hull area</dt><dd>bass pitch</dd></div></dl></div></details>
+        <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset all parameters</button></div>
+      </aside><p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="nav.js"></script><script type="module" src="physics-app.js"></script>
+  </body>
+</html>

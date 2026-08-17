@@ -1,0 +1,162 @@
+.spiral-drums-page {
+  --accent: #ff826f;
+  --accent-soft: color-mix(in oklab, var(--accent) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+.spiral-mapping-readout {
+  position: absolute;
+  z-index: 2;
+  right: 18px;
+  bottom: 16px;
+  max-width: min(66%, 520px);
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  pointer-events: none;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.spiral-drums-panel .group-body {
+  padding-bottom: 14px;
+}
+
+.spiral-mapping-description {
+  min-height: 34px;
+  margin: 8px 0 11px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.spiral-map-legend {
+  display: grid;
+  margin: 0 0 14px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.spiral-map-legend span {
+  display: grid;
+  min-width: 0;
+  min-height: 45px;
+  padding: 6px 5px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  align-content: center;
+  gap: 2px;
+}
+
+.spiral-map-legend b,
+.spiral-map-legend small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spiral-map-legend b {
+  color: var(--ink);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.spiral-map-legend small {
+  color: var(--faint);
+  font-size: 7px;
+}
+
+.spiral-drum-map {
+  display: grid;
+  margin-top: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.spiral-drum-cell,
+.spiral-drums-page .lattice-drum-cell {
+  --voice-color: var(--accent);
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 38px;
+  padding: 5px 5px 5px 7px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--voice-color) 3%, var(--panel));
+  align-content: center;
+  transition: 80ms ease;
+}
+
+.spiral-drum-cell::before,
+.spiral-drums-page .lattice-drum-cell::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--voice-color);
+  content: "";
+  opacity: .72;
+}
+
+.spiral-drum-cell b,
+.spiral-drum-cell small,
+.spiral-drums-page .lattice-drum-cell b,
+.spiral-drums-page .lattice-drum-cell small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spiral-drum-cell b,
+.spiral-drums-page .lattice-drum-cell b {
+  color: var(--ink);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+}
+
+.spiral-drum-cell small,
+.spiral-drums-page .lattice-drum-cell small {
+  color: var(--voice-color);
+  font-size: 7px;
+}
+
+.spiral-drum-cell.is-active,
+.spiral-drums-page .lattice-drum-cell.is-active {
+  border-color: var(--voice-color);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--voice-color) 20%, var(--panel));
+  box-shadow: 0 0 12px color-mix(in oklab, var(--voice-color) 22%, transparent);
+  transform: translateY(1px);
+}
+
+@media (max-width: 520px) {
+  .spiral-map-legend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .spiral-mapping-readout {
+    right: 12px;
+    bottom: 48px;
+    left: 12px;
+    max-width: none;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spiral-drum-cell,
+  .spiral-drums-page .lattice-drum-cell {
+    transition: none;
+  }
+}

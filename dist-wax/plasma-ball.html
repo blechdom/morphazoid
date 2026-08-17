@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#08050e" />
+    <meta
+      name="description"
+      content="Morphazoid Plasma Ball — intermittent, branching static discharges move through a three-dimensional synth globe and partially gather beneath your touch."
+    />
+    <title>Plasma Ball — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="plasma-ball.css" />
+  </head>
+  <body class="plasma-ball-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active" href="plasma-ball.html" aria-current="page">plasma ball</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="plasma-ball.html" selected>plasma ball</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">32%</output></span>
+          <input
+            id="level"
+            aria-label="Plasma Ball output level"
+            type="range"
+            min="0"
+            max="0.64"
+            step="0.01"
+            value="0.32"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell plasma-shell" id="plasmaBall">
+      <section class="stage plasma-stage" aria-labelledby="plasmaBallTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Three-dimensional Plasma Ball with ten intermittent, branching static discharges reaching through its depth from the core to the glass. Audio off."
+            aria-describedby="plasmaInstructions liveStatus"
+          >
+            A glowing central electrode sends branching static discharges through a three-dimensional glass globe.
+          </canvas>
+
+          <div class="plasma-title">
+            <h1 id="plasmaBallTitle">Plasma Ball</h1>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">10 FILAMENTS · MIXED-RATE 3D STATIC · AUDIO OFF</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel plasma-panel" aria-label="Plasma Ball controls">
+        <details class="group control-section" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Play</h2>
+            <span class="section-state" id="playSummary">intermittent · glass untouched</span>
+          </summary>
+          <div class="group-body">
+            <div class="plasma-transport">
+              <button
+                class="play-button"
+                id="playButton"
+                type="button"
+                aria-pressed="true"
+                aria-label="Pause Plasma Ball"
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <div>
+                <b id="transportLabel">Static field active</b>
+                <small>touch the globe to gather some arcs</small>
+              </div>
+            </div>
+
+            <div class="plasma-action-grid" role="group" aria-label="Plasma actions">
+              <button class="mini-action" id="surgeButton" type="button">Surge</button>
+              <button class="mini-action" id="resetButton" type="button" data-reset-all>Reset</button>
+            </div>
+
+            <p class="control-note">
+              Move across the globe to gather part of the discharge beneath your finger. Other arcs keep searching the far and near sides of the glass. Space pauses; Enter sends a surge.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="field" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Electric field</h2>
+            <span class="section-state" id="fieldSummary">10 arcs · mixed slow + fast rates</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="boltCount">
+              <span><b>Filaments</b><output id="boltCountOut" for="boltCount">10</output></span>
+              <input id="boltCount" type="range" min="4" max="18" step="1" value="10" />
+            </label>
+            <label class="control" for="attraction">
+              <span><b>Glass attraction</b><output id="attractionOut" for="attraction">82%</output></span>
+              <input id="attraction" type="range" min="0" max="1" step="0.01" value="0.82" />
+            </label>
+            <label class="control" for="motion">
+              <span><b>Speed / intensity</b><output id="motionOut" for="motion">72%</output></span>
+              <input
+                id="motion"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.72"
+                aria-label="Speed and intensity: scales the simultaneous slow and fast filament rates and discharge force"
+              />
+            </label>
+            <label class="control" for="jitter">
+              <span><b>Arc chaos</b><output id="jitterOut" for="jitter">82%</output></span>
+              <input id="jitter" type="range" min="0" max="1" step="0.01" value="0.82" />
+            </label>
+            <label class="control" for="branching">
+              <span><b>Branch density</b><output id="branchingOut" for="branching">74%</output></span>
+              <input id="branching" type="range" min="0" max="1" step="0.01" value="0.74" />
+            </label>
+            <p class="control-note">Speed / intensity scales a simultaneous mix of slow crawls and fast snaps, along with the force of each discharge.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound">
+          <summary class="group-summary">
+            <h2 class="group-title">Sound</h2>
+            <span class="section-state" id="soundSummary">intermittent free pitch</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="baseFrequency">
+              <span><b>Low frequency</b><output id="baseFrequencyOut" for="baseFrequency">68 Hz</output></span>
+              <input id="baseFrequency" type="range" min="28" max="220" step="1" value="68" />
+            </label>
+            <label class="control" for="pitchRange">
+              <span><b>Pitch span</b><output id="pitchRangeOut" for="pitchRange">3.6 oct</output></span>
+              <input id="pitchRange" type="range" min="0.5" max="6" step="0.1" value="3.6" />
+            </label>
+
+            <div class="plasma-mapping" aria-label="Sound mapping">
+              <span><b>Arc angle</b><code>continuous free pitch</code></span>
+              <span><b>Static impulse</b><code>brief amplitude + brightness</code></span>
+              <span><b>Globe depth</b><code>distance, tone + stereo depth</code></span>
+              <span><b>Touch focus</b><code>partial cluster, never every arc</code></span>
+            </div>
+            <p class="control-note">No scale or tuning grid is imposed. Each discharge flickers, drops out, and restrikes instead of sustaining a constant drone.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+      </aside>
+
+      <p class="sr-only" id="plasmaInstructions">
+        The central electrode sends intermittent synth voices along branching static discharges throughout a three-dimensional glass globe. Pointer or touch contact attracts only some nearby endpoints; the remaining arcs continue searching other near and far surfaces. The Speed and intensity slider scales a simultaneous mix of slow and fast filament rates together with discharge force. Arc angle maps continuously to free pitch, each short static impulse maps to amplitude and brightness, and depth changes distance, tone, and stereo position. Use Space to play or pause, Left and Right Arrow to move a keyboard attractor, Enter to surge, and Escape to switch audio off.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="plasma-ball-app.js"></script>
+  </body>
+</html>

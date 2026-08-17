@@ -1,0 +1,769 @@
+.spelling-synthesizer-page {
+  --spelling-accent: #79dcff;
+  --spelling-accent-rgb: 121, 220, 255;
+  --spelling-energy: 0.24;
+  --spelling-pace: 0;
+  --spelling-place: 0.5;
+  --spelling-aperture: 0.7;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 34% 26%, rgba(var(--spelling-accent-rgb), 0.055), transparent 31rem),
+    linear-gradient(112deg, #050704, #080b09 56%, #050607);
+}
+
+.spelling-synthesizer-page .masthead {
+  border-bottom-color: rgba(var(--spelling-accent-rgb), 0.12);
+}
+
+.spelling-audio-glyph {
+  width: auto;
+  min-width: 24px;
+  color: var(--spelling-accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -0.08em;
+}
+
+.spelling-shell {
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 27vw, 392px);
+}
+
+.spelling-composer {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(28px, 4vw, 68px) clamp(24px, 5.2vw, 88px) clamp(22px, 3vw, 46px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  align-content: start;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px) 0 0 / 52px 52px,
+    linear-gradient(rgba(255,255,255,.014) 1px, transparent 1px) 0 0 / 52px 52px;
+}
+
+.spelling-composer::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: clamp(9px, 1.4vw, 24px);
+  width: 1px;
+  background: linear-gradient(transparent, rgba(var(--spelling-accent-rgb), .26) 20%, rgba(var(--spelling-accent-rgb), .08) 82%, transparent);
+  content: "";
+}
+
+.spelling-heading {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  max-width: 760px;
+}
+
+.spelling-heading h1 {
+  margin: 0;
+  color: #edf2e8;
+  font-size: clamp(31px, 4.2vw, 64px);
+  font-weight: 450;
+  letter-spacing: -.07em;
+  line-height: .98;
+}
+
+.spelling-voice-stage {
+  position: absolute;
+  top: clamp(14px, 2vh, 24px);
+  right: clamp(16px, 4vw, 70px);
+  width: clamp(82px, 8vw, 110px);
+  aspect-ratio: 1;
+  pointer-events: none;
+}
+
+.spelling-orbit {
+  position: absolute;
+  border: 1px solid rgba(var(--spelling-accent-rgb), .14);
+  border-radius: 50%;
+  inset: 0;
+  transform: rotate(calc(-18deg + var(--spelling-pace) * 52deg));
+  transition: border-color 120ms ease, transform 170ms cubic-bezier(.2,.8,.2,1);
+}
+
+.spelling-orbit.is-inner {
+  inset: 18%;
+  border-style: dashed;
+  opacity: .58;
+  transform: rotate(calc(38deg - var(--spelling-place) * 72deg));
+}
+
+.spelling-orbit i {
+  position: absolute;
+  display: block;
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(var(--spelling-accent-rgb), .52);
+  background: #080b08;
+  transform: rotate(45deg);
+}
+
+.spelling-orbit i:nth-child(1) { top: -4px; left: 50%; }
+.spelling-orbit i:nth-child(2) { top: 58%; right: -4px; }
+.spelling-orbit i:nth-child(3) { bottom: 12%; left: 9%; }
+
+.spelling-mouth {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: 42%;
+  height: calc(14% + var(--spelling-aperture) * 25%);
+  border: 1px solid rgba(var(--spelling-accent-rgb), .72);
+  border-radius: 48% 52% 44% 56% / 58% 48% 52% 42%;
+  color: var(--spelling-accent);
+  background:
+    radial-gradient(ellipse, rgba(var(--spelling-accent-rgb), .08), transparent 62%),
+    rgba(3, 6, 4, .92);
+  box-shadow:
+    inset 0 0 30px rgba(var(--spelling-accent-rgb), calc(var(--spelling-energy) * .12)),
+    0 0 calc(12px + var(--spelling-energy) * 42px) rgba(var(--spelling-accent-rgb), calc(var(--spelling-energy) * .16));
+  place-items: center;
+  transform: translate(-50%, -50%) rotate(calc((var(--spelling-place) - .5) * 11deg));
+  transition: height 90ms ease, transform 120ms ease, box-shadow 90ms ease;
+}
+
+.spelling-mouth::before,
+.spelling-mouth::after {
+  position: absolute;
+  right: 10%;
+  left: 10%;
+  height: 1px;
+  background: rgba(var(--spelling-accent-rgb), .34);
+  content: "";
+}
+
+.spelling-mouth::before { top: 27%; }
+.spelling-mouth::after { bottom: 27%; }
+
+.spelling-mouth span {
+  position: relative;
+  z-index: 2;
+  font-size: clamp(17px, 1.8vw, 26px);
+  font-weight: 300;
+  line-height: 1;
+  text-shadow: 0 0 16px rgba(var(--spelling-accent-rgb), .42);
+}
+
+.spelling-voice-stage.is-word .spelling-mouth {
+  width: 72%;
+}
+
+.spelling-voice-stage.is-word .spelling-mouth span {
+  max-width: 150%;
+  overflow: visible;
+  font-size: clamp(7px, .78vw, 11px);
+  font-weight: 650;
+  letter-spacing: .025em;
+  white-space: nowrap;
+}
+
+.spelling-voice-stage.is-word .spelling-current-sound b {
+  max-width: 108px;
+  overflow: hidden;
+  font-size: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spelling-mouth i {
+  position: absolute;
+  right: 14%;
+  bottom: 12%;
+  left: 14%;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(var(--spelling-accent-rgb), .28);
+  transform: translateX(calc((var(--spelling-place) - .5) * 42%));
+}
+
+.spelling-current-sound {
+  position: absolute;
+  right: 3%;
+  bottom: 2%;
+  display: grid;
+  text-align: right;
+}
+
+.spelling-current-sound b {
+  color: var(--spelling-accent);
+  font-size: 9px;
+  letter-spacing: .16em;
+}
+
+.spelling-current-sound span {
+  color: rgba(219, 228, 224, .42);
+  font-size: 6px;
+  letter-spacing: .12em;
+}
+
+.spelling-voice-stage.is-speaking .spelling-orbit.is-outer {
+  border-color: rgba(var(--spelling-accent-rgb), calc(.22 + var(--spelling-energy) * .44));
+  animation: spelling-breathe 900ms cubic-bezier(.2,.75,.25,1) both;
+}
+
+.spelling-voice-stage.is-speaking .spelling-mouth {
+  animation: spelling-voice-pulse 310ms ease-out both;
+}
+
+@keyframes spelling-breathe {
+  0% { scale: .96; opacity: .54; }
+  25% { scale: calc(1 + var(--spelling-energy) * .045); opacity: 1; }
+  100% { scale: 1; opacity: .72; }
+}
+
+@keyframes spelling-voice-pulse {
+  0% { filter: brightness(.84); }
+  30% { filter: brightness(calc(1 + var(--spelling-energy) * .7)); }
+  100% { filter: brightness(1); }
+}
+
+.spelling-input-wrap {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  max-width: 920px;
+  margin-top: clamp(16px, 2vh, 24px);
+  gap: 9px;
+}
+
+.spelling-input-label {
+  display: flex;
+  color: #718078;
+  align-items: center;
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.spelling-input-label b {
+  color: var(--spelling-accent);
+  font-weight: 650;
+}
+
+#spellingInput {
+  width: 100%;
+  min-height: clamp(145px, 23vh, 260px);
+  padding: 18px 19px;
+  resize: none;
+  border: 1px solid rgba(var(--spelling-accent-rgb), .2);
+  border-radius: 0;
+  outline: 0;
+  color: #e9eee8;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent calc(1.45em - 1px),
+      rgba(var(--spelling-accent-rgb), .035) calc(1.45em - 1px),
+      rgba(var(--spelling-accent-rgb), .035) 1.45em
+    ),
+    linear-gradient(90deg, transparent, rgba(var(--spelling-accent-rgb), .018)),
+    rgba(3, 6, 4, .78);
+  caret-color: var(--spelling-accent);
+  font-family: "Courier New", "Nimbus Mono PS", "Liberation Mono", Courier, monospace;
+  font-size: clamp(19px, 2.35vw, 32px);
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: .015em;
+  text-shadow: 0 0 .01px currentColor, .035em 0 rgba(233, 238, 232, .16);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+#spellingInput::placeholder {
+  color: rgba(219, 228, 224, .18);
+}
+
+#spellingInput:focus {
+  border-color: rgba(var(--spelling-accent-rgb), .54);
+  box-shadow: 0 0 0 1px rgba(var(--spelling-accent-rgb), .09), 0 0 32px rgba(var(--spelling-accent-rgb), .055);
+}
+
+.spelling-underbar {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  max-width: 920px;
+  margin-top: 10px;
+  align-items: start;
+  justify-content: flex-end;
+  gap: 20px;
+}
+
+.spelling-transport {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.spelling-underbar .mini-action {
+  min-height: 42px;
+  flex: 0 0 auto;
+}
+
+.spelling-underbar .mini-action.is-readback {
+  border-color: rgba(var(--spelling-accent-rgb), .58);
+  color: var(--spelling-accent);
+  background: rgba(var(--spelling-accent-rgb), .055);
+}
+
+.spelling-underbar .mini-action[aria-pressed="true"] {
+  color: #050704;
+  background: var(--spelling-accent);
+}
+
+.spelling-letter-trail {
+  position: absolute;
+  right: clamp(24px, 5.2vw, 88px);
+  bottom: 18px;
+  left: clamp(24px, 5.2vw, 88px);
+  display: flex;
+  height: 25px;
+  overflow: hidden;
+  color: rgba(var(--spelling-accent-rgb), .22);
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 9px;
+  letter-spacing: .25em;
+  text-align: right;
+  text-transform: uppercase;
+  white-space: nowrap;
+  mask-image: linear-gradient(90deg, transparent, black 28%);
+}
+
+.spelling-panel {
+  min-width: 0;
+  padding: 0 0 28px;
+  overflow-y: auto;
+  border-left: 1px solid rgba(219, 228, 224, .08);
+  background: rgba(7, 10, 8, .92);
+  scrollbar-color: rgba(var(--spelling-accent-rgb), .18) transparent;
+  scrollbar-width: thin;
+}
+
+.spelling-control-block {
+  padding: 22px 20px 24px;
+  border-bottom: 1px solid rgba(219, 228, 224, .075);
+}
+
+.spelling-control-block > header {
+  display: flex;
+  margin-bottom: 16px;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.spelling-control-block > header > span {
+  display: grid;
+  gap: 3px;
+}
+
+.spelling-control-block > header b {
+  color: #d9e1dc;
+  font-size: 10px;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.spelling-control-block > header small,
+.spelling-control-block > header output {
+  color: #58635d;
+  font-size: 8px;
+  letter-spacing: .07em;
+}
+
+.spelling-engine-buttons {
+  display: grid;
+  border: 1px solid rgba(219, 228, 224, .09);
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.spelling-engine-buttons button {
+  display: grid;
+  min-width: 0;
+  min-height: 76px;
+  padding: 9px;
+  border-right: 1px solid rgba(219, 228, 224, .09);
+  cursor: pointer;
+  color: #7c8981;
+  background: #080b09;
+  align-content: space-between;
+  text-align: left;
+}
+
+.spelling-engine-buttons button:last-child { border-right: 0; }
+
+.spelling-engine-buttons button > i {
+  color: #3f4944;
+  font-size: 8px;
+  font-style: normal;
+}
+
+.spelling-engine-buttons button > span {
+  display: grid;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.spelling-engine-buttons button b {
+  overflow: hidden;
+  color: inherit;
+  font-size: 9px;
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.spelling-engine-buttons button small {
+  overflow: hidden;
+  color: #46504a;
+  font-size: 7px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spelling-engine-buttons button:hover,
+.spelling-engine-buttons button[aria-pressed="true"] {
+  color: var(--spelling-accent);
+  background: rgba(var(--spelling-accent-rgb), .055);
+}
+
+.spelling-engine-buttons button[aria-pressed="true"] {
+  box-shadow: inset 0 -2px var(--spelling-accent);
+}
+
+.spelling-engine-note {
+  display: grid;
+  margin-top: 10px;
+  padding: 10px 11px;
+  border-left: 1px solid var(--spelling-accent);
+  background: rgba(var(--spelling-accent-rgb), .025);
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+}
+
+.spelling-engine-note b {
+  color: var(--spelling-accent);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.spelling-engine-note span {
+  color: #59655f;
+  font-size: 8px;
+  text-align: right;
+}
+
+.spelling-engine-note p {
+  margin: 3px 0 0;
+  color: #69766f;
+  grid-column: 1 / -1;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.spelling-personality-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.spelling-personality-buttons button {
+  display: grid;
+  min-height: 48px;
+  padding: 9px 10px;
+  border: 1px solid rgba(219, 228, 224, .09);
+  cursor: pointer;
+  color: #7f8b84;
+  background: rgba(4, 7, 5, .72);
+  gap: 2px;
+  text-align: left;
+}
+
+.spelling-personality-buttons button:last-child {
+  grid-column: 1 / -1;
+}
+
+.spelling-personality-buttons button b {
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.spelling-personality-buttons button small {
+  color: #4d5852;
+  font-size: 8px;
+}
+
+.spelling-personality-buttons button:hover,
+.spelling-personality-buttons button[aria-pressed="true"] {
+  border-color: rgba(var(--spelling-accent-rgb), .4);
+  color: var(--spelling-accent);
+  background: rgba(var(--spelling-accent-rgb), .045);
+}
+
+.spelling-range {
+  display: grid;
+  margin-top: 18px;
+  gap: 9px;
+}
+
+.spelling-range:first-of-type { margin-top: 0; }
+
+.spelling-range > span,
+.spelling-range > small {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.spelling-range > span b {
+  color: #8e9a93;
+  font-size: 9px;
+  font-weight: 550;
+}
+
+.spelling-range output {
+  color: var(--spelling-accent);
+  font-size: 9px;
+}
+
+.spelling-range > small {
+  color: #424c46;
+  font-size: 7px;
+}
+
+.spelling-range > small i { font-style: normal; }
+
+.spelling-range input[type="range"] {
+  width: 100%;
+  accent-color: var(--spelling-accent);
+}
+
+.spelling-switch {
+  display: grid;
+  width: 100%;
+  min-height: 54px;
+  margin-top: 20px;
+  padding: 9px 10px;
+  border: 1px solid rgba(219, 228, 224, .09);
+  cursor: pointer;
+  color: #849188;
+  background: rgba(4, 7, 5, .7);
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) 32px auto;
+  gap: 9px;
+  text-align: left;
+}
+
+.spelling-switch > span {
+  display: grid;
+  gap: 2px;
+}
+
+.spelling-switch b {
+  font-size: 9px;
+  letter-spacing: .04em;
+}
+
+.spelling-switch small {
+  color: #465049;
+  font-size: 7px;
+}
+
+.spelling-switch > i {
+  position: relative;
+  display: block;
+  width: 30px;
+  height: 14px;
+  border: 1px solid #3e4942;
+}
+
+.spelling-switch > i::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  background: #566159;
+  content: "";
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.spelling-switch strong {
+  color: #566159;
+  font-size: 8px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.spelling-switch[aria-checked="true"] {
+  border-color: rgba(var(--spelling-accent-rgb), .3);
+}
+
+.spelling-switch[aria-checked="true"] > i {
+  border-color: rgba(var(--spelling-accent-rgb), .55);
+}
+
+.spelling-switch[aria-checked="true"] > i::after {
+  background: var(--spelling-accent);
+  box-shadow: 0 0 7px rgba(var(--spelling-accent-rgb), .42);
+  transform: translateX(16px);
+}
+
+.spelling-switch[aria-checked="true"] strong { color: var(--spelling-accent); }
+
+.spelling-history-note {
+  margin: 20px;
+  padding: 15px;
+  border: 1px solid rgba(219, 228, 224, .08);
+  color: #626e67;
+  background: rgba(219, 228, 224, .018);
+}
+
+.spelling-history-note > b {
+  color: #8e9a93;
+  font-size: 9px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.spelling-history-note p {
+  margin: 8px 0 12px;
+  font-size: 8px;
+  line-height: 1.6;
+}
+
+.spelling-history-note a {
+  color: var(--spelling-accent);
+  font-size: 8px;
+  text-underline-offset: 3px;
+}
+
+.spelling-panel .audio-error {
+  margin: 16px 20px 0;
+}
+
+.spelling-panel .reset-all-row {
+  margin: 20px;
+}
+
+@media (max-width: 1080px) {
+  .spelling-composer {
+    padding-right: 32px;
+    padding-left: 42px;
+  }
+
+  .spelling-voice-stage {
+    right: 18px;
+    opacity: .76;
+  }
+
+  .spelling-letter-trail {
+    right: 32px;
+    left: 42px;
+  }
+}
+
+@media (max-width: 860px) {
+  .spelling-synthesizer-page { overflow: auto; }
+
+  .spelling-shell {
+    display: block;
+    min-height: auto;
+  }
+
+  .spelling-composer {
+    min-height: calc(100dvh - 58px);
+    overflow: visible;
+  }
+
+  .spelling-panel {
+    overflow: visible;
+    border-top: 1px solid rgba(219, 228, 224, .08);
+    border-left: 0;
+  }
+
+  .spelling-control-block {
+    padding-right: clamp(20px, 6vw, 54px);
+    padding-left: clamp(20px, 6vw, 54px);
+  }
+
+  .spelling-history-note,
+  .spelling-panel .reset-all-row,
+  .spelling-panel .audio-error {
+    margin-right: clamp(20px, 6vw, 54px);
+    margin-left: clamp(20px, 6vw, 54px);
+  }
+}
+
+@media (max-width: 620px) {
+  .spelling-composer {
+    min-height: calc(100dvh - 58px);
+    padding: 28px 18px 62px 26px;
+  }
+
+  .spelling-heading h1 {
+    max-width: 290px;
+    font-size: clamp(34px, 11vw, 48px);
+  }
+
+  .spelling-voice-stage {
+    top: 28px;
+    right: 6px;
+    width: 88px;
+    opacity: .7;
+  }
+
+  #spellingInput {
+    min-height: 190px;
+    padding: 14px;
+    font-size: 21px;
+  }
+
+  .spelling-underbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .spelling-transport {
+    justify-content: flex-start;
+  }
+
+  .spelling-underbar .mini-action.is-readback {
+    flex: 1 1 170px;
+  }
+
+  .spelling-letter-trail {
+    right: 18px;
+    left: 26px;
+  }
+
+  .spelling-engine-buttons button {
+    min-height: 68px;
+    padding: 8px 6px;
+  }
+
+  .spelling-engine-buttons button small { white-space: normal; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spelling-voice-stage * {
+    animation: none !important;
+    transition-duration: 0.001ms !important;
+  }
+}

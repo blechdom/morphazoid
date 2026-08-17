@@ -1,0 +1,537 @@
+.webgpu-303-page {
+  --accent: #9dff57;
+  --accent-soft: color-mix(in oklab, #9dff57 54%, transparent);
+  --accent-glow: color-mix(in oklab, #9dff57 18%, transparent);
+  --webgpu-cyan: #66d8ff;
+  --webgpu-pink: #ff6fae;
+  --webgpu-amber: #f4c95d;
+  --webgpu-panel-line: color-mix(in oklab, var(--accent) 28%, var(--line));
+}
+
+.webgpu-303-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(344px, 26vw, 414px);
+}
+
+.webgpu-303-tab {
+  min-width: 104px;
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.webgpu-303-audio-glyph {
+  color: var(--accent);
+}
+
+.webgpu-303-page .audio-strip {
+  grid-template-columns: 78px 92px minmax(96px, 140px);
+}
+
+.webgpu-303-page .synth-play-button {
+  min-width: 92px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in oklab, var(--accent) 52%, var(--line-strong));
+  cursor: pointer;
+  color: color-mix(in oklab, var(--accent) 72%, var(--muted));
+  background: color-mix(in oklab, var(--accent) 7%, var(--bg-deep));
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.webgpu-303-page .synth-play-button:hover,
+.webgpu-303-page .synth-play-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--accent) 14%, var(--bg-deep));
+}
+
+.webgpu-303-page .synth-play-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 18px var(--accent-glow);
+}
+
+.webgpu-303-stage-wrap {
+  min-height: 260px;
+  background:
+    linear-gradient(rgba(157, 255, 87, 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(102, 216, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(157, 255, 87, 0.052), transparent 42%, rgba(255, 111, 174, 0.042) 66%, transparent),
+    var(--bg-deep);
+  background-size: 36px 36px, 36px 36px, auto, auto;
+}
+
+.webgpu-303-page #stage {
+  min-height: 260px;
+  cursor: crosshair;
+}
+
+.webgpu-stage-knobs {
+  display: grid;
+  flex: 0 0 auto;
+  padding: 8px 18px 14px;
+  border-top: 1px solid color-mix(in oklab, var(--webgpu-amber) 46%, var(--line-strong));
+  background:
+    linear-gradient(90deg, rgba(244, 201, 93, 0.08), rgba(102, 216, 255, 0.045), rgba(255, 111, 174, 0.055)),
+    color-mix(in oklab, var(--bg-deep) 96%, transparent);
+  box-shadow: 0 -18px 38px rgba(0, 0, 0, 0.32);
+  gap: 9px;
+}
+
+.webgpu-stage-knob-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+}
+
+.webgpu-stage-knob-actions .mini-action {
+  min-width: 128px;
+  min-height: 30px;
+  margin: 0;
+  padding: 0 12px;
+  border-color: color-mix(in oklab, var(--webgpu-amber) 44%, var(--line-strong));
+  color: color-mix(in oklab, var(--webgpu-amber) 76%, var(--muted));
+  background: color-mix(in oklab, var(--webgpu-amber) 8%, var(--bg-deep));
+  font-size: 9px;
+  letter-spacing: 0;
+}
+
+.webgpu-stage-knob-actions .mini-action:hover,
+.webgpu-stage-knob-actions .mini-action:focus-visible {
+  border-color: var(--webgpu-amber);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--webgpu-amber) 15%, var(--bg-deep));
+}
+
+.webgpu-303-heading {
+  position: absolute;
+  z-index: 3;
+  top: 24px;
+  left: 28px;
+  max-width: min(460px, calc(100% - 56px));
+  pointer-events: none;
+}
+
+.webgpu-303-heading p,
+.webgpu-303-heading h1,
+.webgpu-303-heading span {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.webgpu-303-heading p {
+  color: var(--webgpu-amber);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.webgpu-303-heading h1 {
+  margin-top: 7px;
+  color: var(--ink);
+  font-size: clamp(31px, 4vw, 52px);
+  font-weight: 650;
+  line-height: 0.96;
+  text-transform: uppercase;
+}
+
+.webgpu-303-heading span {
+  display: block;
+  margin-top: 8px;
+  color: var(--webgpu-cyan);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.webgpu-303-credit {
+  display: grid;
+  padding: 10px 22px 11px;
+  border-bottom: 1px solid color-mix(in oklab, var(--webgpu-cyan) 24%, var(--line));
+  background:
+    linear-gradient(90deg, rgba(102, 216, 255, 0.065), transparent 72%),
+    color-mix(in oklab, var(--bg-deep) 86%, transparent);
+  gap: 3px;
+}
+
+.webgpu-303-credit span {
+  color: var(--webgpu-amber);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.webgpu-303-credit a {
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.35;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+.webgpu-303-credit a:hover,
+.webgpu-303-credit a:focus-visible {
+  color: var(--accent);
+}
+
+.webgpu-303-panel {
+  background:
+    linear-gradient(90deg, rgba(157, 255, 87, 0.035), transparent 64%),
+    var(--panel);
+}
+
+.webgpu-status-strip {
+  display: grid;
+  padding: 13px 22px;
+  border-bottom: 1px solid var(--webgpu-panel-line);
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 10%, transparent), transparent 78%),
+    var(--panel-high);
+  gap: 3px;
+}
+
+.webgpu-status-strip b,
+.webgpu-status-strip small {
+  overflow-wrap: anywhere;
+  letter-spacing: 0;
+}
+
+.webgpu-status-strip b {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.webgpu-status-strip small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.webgpu-303-section[data-section="play"] {
+  --accent: #9dff57;
+  --accent-soft: color-mix(in oklab, #9dff57 54%, transparent);
+  --accent-glow: color-mix(in oklab, #9dff57 18%, transparent);
+}
+
+.webgpu-303-section[data-section="structure"] {
+  --accent: #66d8ff;
+  --accent-soft: color-mix(in oklab, #66d8ff 54%, transparent);
+  --accent-glow: color-mix(in oklab, #66d8ff 18%, transparent);
+}
+
+.webgpu-303-section[data-section="sound"] {
+  --accent: #ff6fae;
+  --accent-soft: color-mix(in oklab, #ff6fae 54%, transparent);
+  --accent-glow: color-mix(in oklab, #ff6fae 18%, transparent);
+}
+
+.webgpu-303-section[data-section="mapping"] {
+  --accent: #f4c95d;
+  --accent-soft: color-mix(in oklab, #f4c95d 54%, transparent);
+  --accent-glow: color-mix(in oklab, #f4c95d 18%, transparent);
+}
+
+.webgpu-303-section[data-section="output"] {
+  --accent: #b79cff;
+  --accent-soft: color-mix(in oklab, #b79cff 54%, transparent);
+  --accent-glow: color-mix(in oklab, #b79cff 18%, transparent);
+}
+
+.webgpu-knob-bank {
+  --knob-columns: 8;
+  --knob-size: clamp(58px, 5.15vw, 72px);
+  display: grid;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: center;
+  grid-template-columns: repeat(var(--knob-columns), var(--knob-size));
+  gap: 15px clamp(12px, 1.55vw, 21px);
+}
+
+.webgpu-knob {
+  display: grid;
+  width: var(--knob-size);
+  min-width: 0;
+  justify-items: center;
+  gap: 4px;
+}
+
+.webgpu-knob-dial {
+  --knob-angle: -135deg;
+  --knob-fill: 0%;
+  --knob-hue: 44;
+  --knob-hue-b: 174;
+  --knob-hue-c: 304;
+  position: relative;
+  display: grid;
+  width: clamp(46px, 4vw, 58px);
+  height: clamp(46px, 4vw, 58px);
+  border: 1px solid hsla(var(--knob-hue), 100%, 64%, 0.56);
+  border-radius: 50%;
+  cursor: ns-resize;
+  background:
+    radial-gradient(circle at 50% 50%, var(--panel-high) 0 42%, transparent 43%),
+    conic-gradient(from -135deg, hsl(var(--knob-hue), 100%, 64%) 0 calc(var(--knob-fill) * 0.45), hsl(var(--knob-hue-b), 100%, 58%) calc(var(--knob-fill) * 0.45) var(--knob-fill), rgba(255, 255, 255, 0.11) var(--knob-fill) 75%, transparent 75% 100%),
+    conic-gradient(from 20deg, hsla(var(--knob-hue-c), 100%, 58%, 0.72), hsla(var(--knob-hue), 100%, 58%, 0.45), hsla(var(--knob-hue-b), 100%, 58%, 0.55), hsla(var(--knob-hue-c), 100%, 58%, 0.72)),
+    radial-gradient(circle at 35% 27%, rgba(255, 255, 255, 0.22), transparent 36%),
+    var(--bg-deep);
+  box-shadow:
+    inset 0 -7px 13px rgba(0, 0, 0, 0.4),
+    0 0 14px hsla(var(--knob-hue), 100%, 58%, 0.28);
+  touch-action: none;
+}
+
+.webgpu-knob-dial::before {
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  content: "";
+}
+
+.webgpu-knob-dial::after {
+  position: absolute;
+  top: 8px;
+  left: calc(50% - 1px);
+  width: 2px;
+  height: 18px;
+  border-radius: 999px;
+  background: hsl(var(--knob-hue-c), 100%, 76%);
+  box-shadow: 0 0 8px hsla(var(--knob-hue-c), 100%, 64%, 0.8);
+  content: "";
+  transform: rotate(var(--knob-angle));
+  transform-origin: 1px 19px;
+}
+
+.webgpu-knob-dial:hover,
+.webgpu-knob-dial:focus-visible {
+  border-color: hsl(var(--knob-hue-b), 100%, 68%);
+  outline-offset: 3px;
+  box-shadow:
+    inset 0 -7px 13px rgba(0, 0, 0, 0.4),
+    0 0 20px hsla(var(--knob-hue-b), 100%, 60%, 0.42);
+}
+
+.webgpu-knob-label,
+.webgpu-knob-value {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  letter-spacing: 0;
+  line-height: 1.1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.webgpu-knob-label {
+  color: hsl(var(--knob-hue, 44), 100%, 74%);
+  font-size: 8px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.webgpu-knob-value {
+  color: color-mix(in oklab, hsl(var(--knob-hue-b, 174), 100%, 70%) 58%, var(--muted));
+  font-size: 7px;
+}
+
+.webgpu-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.webgpu-preset-grid button {
+  min-width: 0;
+  min-height: 31px;
+  padding: 6px 7px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.webgpu-preset-grid button:hover,
+.webgpu-preset-grid button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.webgpu-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 12px var(--accent-glow);
+}
+
+.webgpu-preset-grid button:only-child {
+  grid-column: 1 / -1;
+}
+
+.webgpu-sequence-actions {
+  display: grid;
+  margin-top: 9px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.webgpu-sequence-actions .mini-action {
+  min-width: 0;
+  min-height: 34px;
+  margin: 0;
+  border-color: color-mix(in oklab, var(--accent) 42%, var(--line-strong));
+  color: color-mix(in oklab, var(--accent) 74%, var(--muted));
+  background: color-mix(in oklab, var(--accent) 8%, var(--bg-deep));
+  font-size: 9px;
+  letter-spacing: 0;
+}
+
+.webgpu-sequence-actions .mini-action:hover,
+.webgpu-sequence-actions .mini-action:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: var(--accent-glow);
+}
+
+.webgpu-runtime-section .select-control {
+  margin-top: 12px;
+}
+
+.webgpu-credit-note {
+  margin: 13px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0;
+  line-height: 1.55;
+}
+
+.webgpu-credit-note a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in oklab, var(--accent) 58%, transparent);
+  text-underline-offset: 3px;
+}
+
+.webgpu-303-page .control > span,
+.webgpu-303-page .select-control > span:first-child {
+  gap: 8px;
+}
+
+.webgpu-303-page .control b,
+.webgpu-303-page .select-control b,
+.webgpu-303-page .section-state,
+.webgpu-303-page .group-title,
+.webgpu-303-page output {
+  letter-spacing: 0;
+}
+
+.webgpu-303-page input[type="range"] {
+  accent-color: var(--accent);
+}
+
+.webgpu-303-page .audio-error {
+  margin: 0 22px 18px;
+}
+
+@media (min-width: 981px) and (max-height: 1000px) {
+  .webgpu-303-stage-wrap {
+    flex: 0 1 clamp(410px, 50dvh, 520px);
+  }
+}
+
+@media (max-width: 980px) {
+  .webgpu-303-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: clamp(360px, 50dvh, 520px) minmax(0, 1fr);
+  }
+
+  .webgpu-303-stage {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .webgpu-stage-knobs {
+    padding: 7px 12px 12px;
+  }
+
+  .webgpu-303-stage-wrap,
+  .webgpu-303-page #stage {
+    min-height: 0;
+  }
+
+  .webgpu-stage-knobs .webgpu-knob-bank {
+    gap: 13px clamp(10px, 3vw, 16px);
+  }
+
+  .webgpu-303-panel {
+    max-height: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .webgpu-303-page .audio-strip {
+    grid-template-columns: 64px 68px minmax(70px, 1fr);
+    gap: 7px;
+  }
+
+  .webgpu-303-page .synth-play-button {
+    min-width: 68px;
+    padding: 0 7px;
+    font-size: 8px;
+  }
+
+  .webgpu-303-heading {
+    top: 18px;
+    left: 18px;
+  }
+
+  .webgpu-303-heading h1 {
+    font-size: 34px;
+  }
+
+  .webgpu-knob-bank {
+    --knob-size: 54px;
+  }
+
+  .webgpu-knob-dial {
+    width: 46px;
+    height: 46px;
+  }
+
+  .webgpu-knob {
+    width: var(--knob-size);
+  }
+
+  .webgpu-303-credit {
+    padding: 8px 20px 9px;
+  }
+
+  .webgpu-303-credit span {
+    font-size: 8px;
+  }
+
+  .webgpu-303-credit a {
+    font-size: 9px;
+    line-height: 1.25;
+  }
+
+  .webgpu-preset-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

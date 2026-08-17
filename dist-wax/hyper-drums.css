@@ -1,0 +1,183 @@
+.hyper-drums-page {
+  --accent: #c79bff;
+  --accent-soft: color-mix(in oklab, var(--accent) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+.hyper-drums-panel .group-body {
+  padding-bottom: 14px;
+}
+
+.hyper-mapping-readout {
+  position: absolute;
+  z-index: 2;
+  right: 18px;
+  bottom: 16px;
+  max-width: min(68%, 540px);
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  pointer-events: none;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.hyper-mapping-description {
+  min-height: 34px;
+  margin: 8px 0 11px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.hyper-mapping-source {
+  display: grid;
+  margin: 0 0 11px;
+  padding: 8px 9px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--accent) 5%, var(--bg-deep));
+  gap: 3px;
+}
+
+.hyper-mapping-source b {
+  color: var(--accent);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.hyper-mapping-source span {
+  color: var(--ink);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.hyper-subdivision-help {
+  margin: -4px 0 12px;
+  color: var(--faint);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.hyper-map-legend {
+  display: grid;
+  margin: 0 0 14px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.hyper-map-legend span {
+  display: grid;
+  min-width: 0;
+  min-height: 45px;
+  padding: 6px 5px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  align-content: center;
+  gap: 2px;
+}
+
+.hyper-map-legend b,
+.hyper-map-legend small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hyper-map-legend b {
+  color: var(--ink);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.hyper-map-legend small {
+  color: var(--faint);
+  font-size: 7px;
+}
+
+.hyper-drum-map {
+  display: grid;
+  margin-top: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.hyper-drum-cell {
+  --voice-color: var(--accent);
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 38px;
+  padding: 5px 5px 5px 7px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--voice-color) 3%, var(--panel));
+  align-content: center;
+  transition: 80ms ease;
+}
+
+.hyper-drum-cell::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--voice-color);
+  content: "";
+  opacity: .72;
+}
+
+.hyper-drum-cell b,
+.hyper-drum-cell small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hyper-drum-cell b {
+  color: var(--ink);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+}
+
+.hyper-drum-cell small {
+  color: var(--voice-color);
+  font-size: 7px;
+}
+
+.hyper-drum-cell.is-active {
+  border-color: var(--voice-color);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--voice-color) 20%, var(--panel));
+  box-shadow: 0 0 12px color-mix(in oklab, var(--voice-color) 22%, transparent);
+  transform: translateY(1px);
+}
+
+@media (max-width: 520px) {
+  .hyper-map-legend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hyper-mapping-readout {
+    right: 12px;
+    left: 12px;
+    max-width: none;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hyper-drum-cell {
+    transition: none;
+  }
+}

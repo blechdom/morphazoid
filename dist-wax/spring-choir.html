@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Spring Choir - coupled masses and springs sounded through their normal modes."
+    />
+    <title>Spring Choir - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="experiments.css" />
+  </head>
+  <body class="experiment-page" data-experiment="springs">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active" href="spring-choir.html" aria-current="page">spring choir</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="spring-choir.html" selected>spring choir</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">44%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.44" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell experiment-shell" id="springChoir">
+      <section class="stage" aria-label="Spring Choir stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="application"
+            aria-label="A chain of coupled masses oscillates between two fixed anchors."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Coupled spring chain.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">SPRING CHOIR · 14 MASSES · AUDIO OFF</span>
+          </div>
+          <div class="experiment-title" aria-hidden="true">
+            <h1>Spring Choir</h1>
+            <small id="stageCaption">normal modes of a coupled chain</small>
+          </div>
+        </div>
+        <p class="sr-only" id="canvasInstructions">Pointer input plucks the spring chain near the selected mass.</p>
+        <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+      </section>
+
+      <aside class="panel experiment-panel" aria-label="Spring Choir controls">
+        <section class="group experiment-card" aria-labelledby="experimentTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="experimentTitle">Experiment</h2>
+            <span class="section-state" id="experimentSummary">mechanics · resonance</span>
+          </div>
+          <dl class="experiment-meter-grid">
+            <div><dt>Energy</dt><dd id="metricPrimary">61%</dd></div>
+            <div><dt>Strong mode</dt><dd id="metricSecondary">3</dd></div>
+          </dl>
+        </section>
+
+        <section class="group control-section" aria-labelledby="springMotionTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="springMotionTitle">Chain</h2>
+            <span class="section-state" id="patternSummary">14 masses</span>
+          </div>
+          <div class="group-body">
+            <button class="experiment-action" id="pluckSpring" type="button">Pluck chain</button>
+            <label class="control" for="springMasses">
+              <span><b>Masses</b><output id="springMassesOut" for="springMasses">14</output></span>
+              <input id="springMasses" type="range" min="5" max="28" step="1" value="14" />
+            </label>
+            <label class="control" for="springStiffness">
+              <span><b>Stiffness</b><output id="springStiffnessOut" for="springStiffness">0.72</output></span>
+              <input id="springStiffness" type="range" min="0.15" max="1.4" step="0.01" value="0.72" />
+            </label>
+            <label class="control" for="springDamping">
+              <span><b>Damping</b><output id="springDampingOut" for="springDamping">2.8%</output></span>
+              <input id="springDamping" type="range" min="0.002" max="0.09" step="0.001" value="0.028" />
+            </label>
+            <label class="control" for="springDrive">
+              <span><b>Left drive</b><output id="springDriveOut" for="springDrive">18%</output></span>
+              <input id="springDrive" type="range" min="0" max="0.8" step="0.01" value="0.18" />
+            </label>
+          </div>
+        </section>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="experiments-app.js"></script>
+  </body>
+</html>

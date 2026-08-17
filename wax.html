@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Install Morphazoid for AudioFusion WAX on Windows or macOS and run the browser instruments inside a VST3 or Audio Unit host."
+    />
+    <title>Morphazoid for WAX — Windows and macOS setup</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="plugins.css?v=20260816-1" />
+    <link rel="stylesheet" href="wax.css?v=20260816-1" />
+  </head>
+  <body class="plugins-page wax-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Morphazoid main menu"></nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="" selected>choose</option>
+        </select>
+      </label>
+
+      <span class="plugins-header-label">WAX setup</span>
+    </header>
+
+    <main class="plugins-shell wax-shell" id="wax-install">
+      <article class="plugins-document wax-document">
+        <header class="plugins-intro wax-intro">
+          <p class="plugins-development">Browser-powered plug-in</p>
+          <h1>Morphazoid for WAX</h1>
+          <p class="plugins-vst">The whole instrument catalog inside your DAW</p>
+          <p class="plugins-lede">
+            AudioFusion WAX puts a browser inside a VST3 or Audio Unit plug-in. The
+            Morphazoid WAX build adds host-aware MIDI, project state, transport, and
+            playhead hooks while preserving the normal browser experience. WAX is
+            required: this is not a standalone Morphazoid VST3 or Audio Unit.
+          </p>
+
+          <div class="wax-support-strip" aria-label="Platform support">
+            <span><b>Windows</b> 10+</span>
+            <span><b>macOS</b> 11+</span>
+            <span class="wax-support-limited"><b>Linux</b> browser test only</span>
+          </div>
+        </header>
+
+        <section class="wax-section" aria-labelledby="downloadsTitle">
+          <p class="plugins-section-label">01 · Get the pieces</p>
+          <h2 id="downloadsTitle">Downloads</h2>
+          <div class="wax-resource-grid">
+            <article class="wax-resource-card wax-resource-primary">
+              <p class="wax-resource-kicker">Required host</p>
+              <h3>AudioFusion WAX</h3>
+              <p>
+                Download WAX for Windows or macOS. The free tier supports one custom
+                page; licensed features include unlimited custom pages and native
+                DAW preset recall.
+              </p>
+              <a
+                class="plugin-download"
+                href="https://audiofusion.com/download-wax/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >Download WAX</a>
+            </article>
+
+            <article class="wax-resource-card">
+              <p class="wax-resource-kicker">Morphazoid files</p>
+              <h3>Morphazoid repository</h3>
+              <p>
+                Download the repository ZIP and extract it. The ready-to-run web app
+                is the included <code>dist-wax</code> folder.
+              </p>
+              <div class="wax-resource-actions">
+                <a
+                  class="plugin-download"
+                  href="https://github.com/blechdom/morphazoid/archive/refs/heads/main.zip"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >Download ZIP</a>
+                <a
+                  class="plugin-demo-link"
+                  href="https://github.com/blechdom/morphazoid"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >View source</a>
+              </div>
+            </article>
+
+            <article class="wax-resource-card">
+              <p class="wax-resource-kicker">DAW for testing</p>
+              <h3>REAPER</h3>
+              <p>
+                WAX works in major VST3 and Audio Unit hosts. REAPER is a compact
+                cross-platform option for the first instrument and state-recall test.
+              </p>
+              <a
+                class="plugin-download"
+                href="https://www.reaper.fm/download.php"
+                target="_blank"
+                rel="noopener noreferrer"
+              >Download REAPER</a>
+            </article>
+          </div>
+        </section>
+
+        <section class="wax-section wax-server" aria-labelledby="hostedTitle">
+          <p class="plugins-section-label">02 · Fastest test</p>
+          <h2 id="hostedTitle">Load the hosted WAX build</h2>
+          <p class="wax-section-copy">
+            You do not need to download or serve Morphazoid for the first test. After
+            WAX is installed, paste the hosted Chaotic FM address into its address bar.
+          </p>
+          <div class="wax-url-card">
+            <p>Integrated pilot instrument:</p>
+            <a
+              href="https://blechdom.github.io/morphazoid/dist-wax/chaotic-fm.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >https://blechdom.github.io/morphazoid/dist-wax/chaotic-fm.html</a>
+            <p>
+              Open the
+              <a
+                href="https://blechdom.github.io/morphazoid/dist-wax/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >complete WAX-ready catalog</a>
+              to browse every Morphazoid page.
+            </p>
+          </div>
+        </section>
+
+        <section class="wax-section" aria-labelledby="installTitle">
+          <p class="plugins-section-label">03 · Install</p>
+          <h2 id="installTitle">Choose your platform</h2>
+          <div class="wax-platform-grid">
+            <article class="wax-platform-card" id="windows">
+              <header>
+                <p class="wax-platform-number">Windows</p>
+                <h3>VST3 setup</h3>
+              </header>
+              <ol>
+                <li>Install WAX for Windows using AudioFusion’s installer.</li>
+                <li>Open your DAW and rescan VST3 plug-ins.</li>
+                <li>Insert <strong>WAX Instrument</strong> on an instrument track.</li>
+                <li>Paste the hosted Chaotic FM URL above into WAX’s address bar.</li>
+                <li>Use the local-copy instructions below only if you need offline access.</li>
+              </ol>
+              <p class="wax-platform-note">
+                If you need Python, use the official
+                <a
+                  href="https://www.python.org/downloads/windows/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >Windows installer</a> and enable its PATH option.
+              </p>
+            </article>
+
+            <article class="wax-platform-card" id="macos">
+              <header>
+                <p class="wax-platform-number">macOS</p>
+                <h3>Audio Unit or VST3 setup</h3>
+              </header>
+              <ol>
+                <li>Install WAX for macOS using AudioFusion’s installer.</li>
+                <li>Open Logic, REAPER, or another compatible DAW and rescan plug-ins.</li>
+                <li>Insert the WAX instrument as an AU or VST3 instrument.</li>
+                <li>Paste the hosted Chaotic FM URL above into WAX’s address bar.</li>
+                <li>Use the local-copy instructions below only if you need offline access.</li>
+              </ol>
+              <p class="wax-platform-note">
+                If <code>python3</code> is unavailable, install it from the official
+                <a
+                  href="https://www.python.org/downloads/macos/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >macOS downloads</a>.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="wax-section wax-server" aria-labelledby="serverTitle">
+          <p class="plugins-section-label">04 · Optional local copy</p>
+          <h2 id="serverTitle">Run Morphazoid offline from localhost</h2>
+          <p class="wax-section-copy">
+            Serving the folder over localhost gives ES modules, AudioWorklets, and
+            fetched assets a consistent origin. Keep the terminal open while WAX is
+            using Morphazoid. Do not open an HTML file directly from disk: browser
+            security rules can block modules and worklets.
+          </p>
+
+          <div class="wax-command-grid">
+            <div>
+              <p>Windows PowerShell</p>
+              <pre><code>cd C:\path\to\morphazoid\dist-wax
+py -m http.server 3436 --bind 127.0.0.1</code></pre>
+            </div>
+            <div>
+              <p>macOS Terminal</p>
+              <pre><code>cd /path/to/morphazoid/dist-wax
+python3 -m http.server 3436 --bind 127.0.0.1</code></pre>
+            </div>
+          </div>
+
+          <div class="wax-url-card">
+            <p>Paste this into WAX for the integrated pilot instrument:</p>
+            <code>http://127.0.0.1:3436/chaotic-fm.html</code>
+            <p>
+              Use <code>http://127.0.0.1:3436/</code> to start at the complete
+              Morphazoid catalog.
+            </p>
+          </div>
+        </section>
+
+        <section class="wax-section" aria-labelledby="pluginTypeTitle">
+          <p class="plugins-section-label">05 · Pick the correct WAX plug-in</p>
+          <h2 id="pluginTypeTitle">Instrument, Audio FX, or MIDI FX?</h2>
+          <div class="wax-type-grid">
+            <article>
+              <h3>WAX Instrument</h3>
+              <p>Use for Chaotic FM, Shape, drum machines, sequencers, and other sound generators.</p>
+            </article>
+            <article>
+              <h3>WAX Audio FX</h3>
+              <p>Use for Graph Delay and other pages that process the DAW track’s audio input.</p>
+            </article>
+            <article>
+              <h3>WAX MIDI FX</h3>
+              <p>Use for pages intended to generate or transform MIDI before another instrument.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="wax-section" aria-labelledby="testTitle">
+          <p class="plugins-section-label">06 · Verify</p>
+          <h2 id="testTitle">First test: Chaotic FM</h2>
+          <ol class="wax-checklist">
+            <li>Open Chaotic FM in <strong>WAX Instrument</strong>.</li>
+            <li>Arm the track and send MIDI notes from the DAW or a controller.</li>
+            <li>Open WAX’s Debug Panel and confirm that it detects audio and MIDI.</li>
+            <li>Confirm the instrument starts without pressing its browser Audio button.</li>
+            <li>Change Depth, Carrier, Output, and an envelope control.</li>
+            <li>Save, close, and reopen the DAW project; confirm the controls return.</li>
+            <li>Close the plug-in editor while playing and listen for uninterrupted audio.</li>
+            <li>Repeat at 44.1 and 48 kHz and try an offline render.</li>
+          </ol>
+          <p class="plugins-note">
+            Chaotic FM is the first fully mapped Morphazoid WAX adapter. The complete
+            catalog is browsable now, while page-specific state and transport adapters
+            are being added instrument by instrument.
+          </p>
+        </section>
+
+        <section class="wax-section wax-linux" aria-labelledby="linuxTitle">
+          <p class="plugins-section-label">Linux</p>
+          <h2 id="linuxTitle">What Linux can test</h2>
+          <p>
+            AudioFusion currently publishes WAX for Windows and macOS, not Linux. On
+            Linux you can run Morphazoid in Chrome, test the generated WAX artifact,
+            and run the complete automated suite. That verifies browser compatibility,
+            but not WAX’s VST audio, host MIDI, or DataTree bridge.
+          </p>
+          <pre><code>npm run verify
+npm run build:wax
+python3 -m http.server 3436 --directory dist-wax --bind 127.0.0.1</code></pre>
+        </section>
+
+        <section class="wax-section wax-docs" aria-labelledby="docsTitle">
+          <p class="plugins-section-label">Official help</p>
+          <h2 id="docsTitle">WAX documentation</h2>
+          <ul>
+            <li><a href="https://wp.audiofusion.com/docs/download-install-wax/" target="_blank" rel="noopener noreferrer">Download and install WAX</a></li>
+            <li><a href="https://audiofusion.com/wax/" target="_blank" rel="noopener noreferrer">WAX overview and requirements</a></li>
+            <li><a href="https://audiofusion.com/docs/how-to-use-wax/" target="_blank" rel="noopener noreferrer">How to use WAX</a></li>
+            <li><a href="https://audiofusion.com/docs/custom-pages/" target="_blank" rel="noopener noreferrer">Custom Pages</a></li>
+            <li><a href="https://audiofusion.com/docs/wax-developer-documentation/" target="_blank" rel="noopener noreferrer">Developer documentation</a></li>
+            <li><a href="https://audiofusion.com/docs/debug-panel/" target="_blank" rel="noopener noreferrer">Debug Panel</a></li>
+          </ul>
+          <p class="wax-source-note">
+            WAX is an AudioFusion product. Morphazoid is an independent web-instrument
+            project and is not affiliated with or endorsed by AudioFusion.
+          </p>
+        </section>
+      </article>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+  </body>
+</html>

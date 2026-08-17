@@ -1,0 +1,296 @@
+.wax-page {
+  --wax-accent: #ffb86b;
+  --wax-cyan: #5fe8c4;
+  --plugin-accent: var(--wax-accent);
+}
+
+.wax-shell {
+  padding-bottom: 86px;
+}
+
+.wax-document {
+  width: min(920px, 100%);
+}
+
+.wax-intro h1 {
+  max-width: 760px;
+}
+
+.wax-support-strip {
+  display: flex;
+  margin-top: 28px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wax-support-strip span {
+  padding: 7px 9px;
+  border: 1px solid color-mix(in oklab, var(--wax-cyan) 48%, var(--line-strong));
+  color: var(--wax-cyan);
+  background: color-mix(in oklab, var(--wax-cyan) 6%, transparent);
+  font-size: 9px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.wax-support-strip b {
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.wax-support-strip .wax-support-limited {
+  border-color: var(--line-strong);
+  color: var(--muted);
+  background: transparent;
+}
+
+.wax-section {
+  padding: 38px 0;
+  border-bottom: 1px solid var(--line-strong);
+  scroll-margin-top: 18px;
+}
+
+.wax-section > h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 550;
+  line-height: 1.2;
+}
+
+.wax-section-copy {
+  max-width: 700px;
+  margin: 14px 0 0;
+  color: color-mix(in oklab, var(--ink) 78%, var(--muted));
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.wax-resource-grid,
+.wax-platform-grid,
+.wax-type-grid {
+  display: grid;
+  margin-top: 24px;
+  gap: 12px;
+}
+
+.wax-resource-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.wax-resource-card,
+.wax-platform-card,
+.wax-type-grid article {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+}
+
+.wax-resource-primary {
+  border-top: 3px solid var(--wax-accent);
+}
+
+.wax-resource-kicker,
+.wax-platform-number,
+.wax-command-grid > div > p {
+  margin: 0 0 9px;
+  color: var(--wax-accent);
+  font-size: 8px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.wax-resource-card h3,
+.wax-platform-card h3,
+.wax-type-grid h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.wax-resource-card > p:not(.wax-resource-kicker),
+.wax-type-grid p {
+  margin: 13px 0 18px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.wax-resource-card code,
+.wax-platform-note code {
+  color: var(--wax-cyan);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.wax-resource-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+.wax-platform-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.wax-platform-card header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.wax-platform-card ol,
+.wax-checklist {
+  padding-left: 22px;
+  margin: 19px 0 0;
+  color: color-mix(in oklab, var(--ink) 82%, var(--muted));
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.wax-platform-card li + li,
+.wax-checklist li + li {
+  margin-top: 8px;
+}
+
+.wax-platform-note {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.wax-platform-note a,
+.wax-docs a {
+  color: var(--wax-cyan);
+  text-underline-offset: 3px;
+}
+
+.wax-command-grid {
+  display: grid;
+  margin-top: 22px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.wax-command-grid > div,
+.wax-url-card,
+.wax-linux {
+  padding: 18px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+}
+
+.wax-command-grid pre,
+.wax-linux pre {
+  overflow-x: auto;
+  margin: 0;
+  color: var(--wax-cyan);
+  font-size: 10px;
+  line-height: 1.7;
+  white-space: pre;
+}
+
+.wax-command-grid code,
+.wax-linux code,
+.wax-url-card code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.wax-url-card {
+  margin-top: 12px;
+  border-left: 3px solid var(--wax-cyan);
+}
+
+.wax-url-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.wax-url-card > code {
+  display: block;
+  overflow-x: auto;
+  padding: 13px 0;
+  color: var(--wax-cyan);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.wax-type-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.wax-checklist {
+  max-width: 760px;
+}
+
+.wax-linux {
+  margin-top: 38px;
+  border-bottom: 1px solid var(--line-strong);
+  border-left: 3px solid var(--muted);
+}
+
+.wax-linux > p:not(.plugins-section-label) {
+  max-width: 730px;
+  margin: 14px 0 20px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.wax-docs ul {
+  display: grid;
+  padding: 0;
+  margin: 20px 0 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  list-style: none;
+}
+
+.wax-docs li a {
+  display: block;
+  padding: 13px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  font-size: 10px;
+}
+
+.wax-source-note {
+  max-width: 700px;
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+@media (max-width: 780px) {
+  .wax-resource-grid,
+  .wax-type-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .wax-intro h1 {
+    font-size: 32px;
+    white-space: normal;
+  }
+
+  .wax-platform-grid,
+  .wax-command-grid,
+  .wax-docs ul {
+    grid-template-columns: 1fr;
+  }
+
+  .wax-section {
+    padding: 30px 0;
+  }
+
+  .wax-section > h2 {
+    font-size: 22px;
+  }
+}

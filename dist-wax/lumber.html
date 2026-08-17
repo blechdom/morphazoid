@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Lumber Loops — a geometric live audio looper." />
+    <title>Lumber Loops — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css?v=20260815-1" />
+  </head>
+  <body class="lumber-page" data-lumber-mode="expanded">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid Shape">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab recursion-tab" href="recursion.html">recursion</a>
+        <a class="tab" href="julia.html">julia</a>
+        <a class="tab active" href="lumber.html" aria-current="page">lumber loops</a>
+        <a class="tab micmic-tab" href="l-mic.html">L-mic</a>
+        <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
+        <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
+          <option value="julia.html">julia</option>
+          <option value="lumber.html" selected>lumber loops</option>
+          <option value="l-mic.html">L-mic</option>
+          <option value="graph-delay.html">graph-delay</option>
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="morphazoidical/">morphazoidical</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">≈</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+
+        <label class="header-level" for="level">
+          <span><b>Volume</b><output id="levelOut" for="level">70%</output></span>
+          <input id="level" aria-label="Loop volume" type="range" min="0" max="1" step="0.01" value="0.7" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="lumber">
+      <section class="stage" aria-label="Lumber Loops stage">
+        <div class="stage-wrap" id="stageWrap">
+          <details class="instrument-info" id="lumberInfo">
+            <summary aria-label="About Lumber Loops" title="About Lumber Loops">
+              <span aria-hidden="true">i</span>
+            </summary>
+            <div class="instrument-info-popover" role="note">
+              <img
+                src="assets/lumber-loops-wood-loop.webp"
+                width="88"
+                height="88"
+                alt="Rainbow cereal loop formed from a bark-edged wood slice"
+                decoding="async"
+              />
+              <div>
+                <h1>Lumber Loops</h1>
+                <p>Lumber Loops turns recorded audio into editable waveform rings that you can reshape, layer, spin, and process.</p>
+                <p>Press Record to capture a sound, then press Play and drag the ring's points to begin shaping the loop.</p>
+              </div>
+            </div>
+          </details>
+
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Lumber Loops canvas. Record a loop, then move its waveform vertices or spin it."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Rotating geometric audio rings with granular scrubbing.
+          </canvas>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">EMPTY RING · RING 1/1 · 0 SOUNDING</span>
+          </div>
+
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Lumber Loops controls">
+        <details class="group control-section performance-group" id="loopSection">
+          <summary class="group-summary">
+            <h2 class="group-title">Transport</h2>
+            <span class="section-state" id="loopSummary">empty</span>
+          </summary>
+          <div class="group-body">
+            <div class="loop-transports" role="group" aria-label="Loop transport">
+              <button class="loop-transport record-transport" id="recordButton" type="button" aria-pressed="false">
+                <span class="record-glyph" aria-hidden="true"></span>
+                <span><b id="recordLabel">Record</b><small id="recordHint">new loop</small></span>
+              </button>
+
+              <button class="loop-transport playback-transport" id="playButton" type="button" aria-pressed="false" disabled>
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                <span><b id="playLabel">Play</b><small>loop</small></span>
+              </button>
+            </div>
+
+            <dl class="loop-metrics" aria-label="Current loop values">
+              <div><dt>Loop time</dt><dd><output id="durationOut">empty</output></dd></div>
+              <div><dt>Ring</dt><dd><output id="ringMetricOut">1 / 1</output></dd></div>
+              <div><dt>Direction</dt><dd><output id="directionOut">forward</output></dd></div>
+            </dl>
+            <div class="field-label">While recording</div>
+            <div class="choice-switch compact" id="recordBacking" role="group" aria-label="Existing ring playback while recording">
+              <button id="backingOff" type="button" data-value="off" aria-pressed="false">Pause rings</button>
+              <button id="backingOn" type="button" data-value="on" aria-pressed="true">Hear rings</button>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="ringSection">
+          <summary class="group-summary">
+            <h2 class="group-title">Ring management</h2>
+            <span class="section-state" id="ringSummary">1 ring · active 1</span>
+          </summary>
+          <div class="group-body">
+            <p class="active-ring-lead"><small>Active ring</small><output id="activeRingOut">Ring 1 of 1</output></p>
+            <div class="ring-list" id="ringList" aria-label="Ring list"></div>
+            <div class="ring-clear-row">
+              <button class="mini-action ring-remove" id="replaceRing" type="button" disabled>Replace active</button>
+              <button class="mini-action ring-remove ring-clear" id="clearAllRings" type="button">Clear all rings</button>
+              <button class="mini-action ring-sync-all" id="syncAllRings" type="button" disabled>Sync all · length + phase</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" id="shapeSection">
+          <summary class="group-summary">
+            <h2 class="group-title">Shape</h2>
+            <span class="section-state" id="shapeSummary">circle · 12 vertices</span>
+          </summary>
+          <div class="group-body">
+            <div class="field-label">Default shape</div>
+            <div class="choice-switch compact" id="shapePreset" role="group" aria-label="Active ring shape">
+              <button id="circlePreset" type="button" data-value="circle" aria-pressed="true">Circle</button>
+              <button id="trianglePreset" type="button" data-value="triangle" aria-pressed="false">Triangle</button>
+              <button id="squarePreset" type="button" data-value="square" aria-pressed="false">Square</button>
+            </div>
+
+            <div class="playhead-stepper lumber-vertex-stepper" id="vertexStepper" role="group" aria-label="Loop vertex count">
+              <button id="removeVertex" type="button" aria-label="Remove one loop vertex">−</button>
+              <span><small>Loop vertices</small><output id="vertexCountOut">12 vertices</output></span>
+              <button id="addVertex" type="button" aria-label="Add one loop vertex">+</button>
+            </div>
+
+            <button class="mini-action reset-form" id="resetShape" type="button">Reset to circle</button>
+          </div>
+        </details>
+
+        <details class="group control-section" id="advancedSection">
+          <summary class="group-summary">
+            <h2 class="group-title">Advanced playback</h2>
+            <span class="section-state" id="advancedSummary">free · 1× · 1h · pitch 65%</span>
+          </summary>
+          <div class="group-body">
+            <div class="field-label">Ring clock</div>
+            <div class="choice-switch compact" id="ringTiming" role="group" aria-label="Active ring clock mode">
+              <button id="timingFree" type="button" data-value="free" aria-pressed="true">Free</button>
+              <button id="timingSync" type="button" data-value="sync" aria-pressed="false">Sync to Ring 1</button>
+            </div>
+            <div class="field-label">Live cycle length</div>
+            <div class="choice-switch compact ring-length-switch" id="ringLength" role="group" aria-label="Active ring cycle length">
+              <button id="lengthQuarter" type="button" data-value="0.25" aria-pressed="false">¼×</button>
+              <button id="lengthHalf" type="button" data-value="0.5" aria-pressed="false">½×</button>
+              <button id="lengthFull" type="button" data-value="1" aria-pressed="true">1×</button>
+              <button id="lengthDouble" type="button" data-value="2" aria-pressed="false">2×</button>
+            </div>
+            <div class="playhead-stepper lumber-vertex-stepper" id="loopHeadStepper" role="group" aria-label="Active ring playback head count">
+              <button id="removeLoopHead" type="button" aria-label="Remove one playback head">−</button>
+              <span><small>Playback heads</small><output id="headCountOut">1 head</output></span>
+              <button id="addLoopHead" type="button" aria-label="Add one playback head">+</button>
+            </div>
+            <div class="head-offset-controls" id="headOffsetControls" aria-label="Playback head positions" hidden>
+              <label class="control" id="headOffsetControl1" for="headOffset1" hidden>
+                <span><b>Head 2 offset</b><output id="headOffset1Out" for="headOffset1">50%</output></span>
+                <input id="headOffset1" type="range" min="2" max="98" step="1" value="50" />
+              </label>
+              <label class="control" id="headOffsetControl2" for="headOffset2" hidden>
+                <span><b>Head 3 offset</b><output id="headOffset2Out" for="headOffset2">67%</output></span>
+                <input id="headOffset2" type="range" min="2" max="98" step="1" value="67" />
+              </label>
+              <label class="control" id="headOffsetControl3" for="headOffset3" hidden>
+                <span><b>Head 4 offset</b><output id="headOffset3Out" for="headOffset3">75%</output></span>
+                <input id="headOffset3" type="range" min="2" max="98" step="1" value="75" />
+              </label>
+            </div>
+            <label class="control" for="shapePitchDepth">
+              <span><b>Local pitch depth</b><output id="shapePitchDepthOut" for="shapePitchDepth">65%</output></span>
+              <input id="shapePitchDepth" type="range" min="0.1" max="1" step="0.01" value="0.65" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" id="effectsSection">
+          <summary class="group-summary">
+            <h2 class="group-title">Mix FX + ring tone</h2>
+            <span class="section-state" id="effectsSummary">Delay ring · off</span>
+          </summary>
+          <div class="group-body">
+            <div class="fx-ring-actions">
+              <button class="mini-action" id="delayRingToggle" type="button" aria-pressed="false">Delay ring on/off</button>
+              <button class="mini-action ring-remove" id="resetDelayRing" type="button" disabled>Reset delay ring</button>
+            </div>
+            <div class="axis-motion-row fx-rotation-row">
+              <button class="mini-action axis-play-button" id="delayRotationPlay" type="button" aria-pressed="false" aria-label="Play delay ring rotation" disabled>
+                <span aria-hidden="true">▶</span><small>Delay</small>
+              </button>
+              <label class="control" for="delayRotationSpeed">
+                <span><b>Rotation speed</b><output id="delayRotationSpeedOut" for="delayRotationSpeed">+0.08 rev/s</output></span>
+                <input id="delayRotationSpeed" type="range" min="-0.5" max="0.5" step="0.01" value="0.08" disabled />
+              </label>
+            </div>
+            <dl class="loop-metrics fx-ring-metrics" aria-label="Delay ring values">
+              <div><dt>Mix send</dt><dd><output id="mixDelayWetOut">dry</output></dd></div>
+              <div><dt>Delay time</dt><dd><output id="mixDelayTimeOut">280 ms</output></dd></div>
+              <div><dt>Feedback</dt><dd><output id="mixDelayFeedbackOut">0%</output></dd></div>
+            </dl>
+            <label class="control" for="delaySpread">
+              <span><b>Stereo spread</b><output id="delaySpreadOut" for="delaySpread">65%</output></span>
+              <input id="delaySpread" type="range" min="0" max="1" step="0.01" value="0.65" disabled />
+            </label>
+            <div class="field-label">Active ring tone</div>
+            <label class="control" for="filterTone">
+              <span><b>Filter tone</b><output id="filterToneOut" for="filterTone">12.8 kHz</output></span>
+              <input id="filterTone" type="range" min="0" max="1" step="0.01" value="0.86" />
+            </label>
+            <label class="control" for="filterResonance">
+              <span><b>Filter resonance</b><output id="filterResonanceOut" for="filterResonance">0.0 Q</output></span>
+              <input id="filterResonance" type="range" min="0" max="12" step="0.1" value="0" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" id="depthSection">
+          <summary class="group-summary">
+            <h2 class="group-title">3D view</h2>
+            <span class="section-state" id="depthSummary">flat</span>
+          </summary>
+          <div class="group-body">
+            <div class="field-label">View mode</div>
+            <div class="choice-switch compact" id="viewMode" role="group" aria-label="Lumber Loops view mode">
+              <button id="viewFlat" type="button" data-value="flat" aria-pressed="true">Flat</button>
+              <button id="viewThreeD" type="button" data-value="3d" aria-pressed="false">Make 3D</button>
+            </div>
+            <label class="control" for="viewTilt">
+              <span><b>View tilt</b><output id="viewTiltOut" for="viewTilt">52°</output></span>
+              <input id="viewTilt" type="range" min="0" max="78" step="1" value="52" />
+            </label>
+            <label class="control" for="viewYaw">
+              <span><b>View orbit</b><output id="viewYawOut" for="viewYaw">−18°</output></span>
+              <input id="viewYaw" type="range" min="-80" max="80" step="1" value="-18" />
+            </label>
+            <label class="control" for="ringDepth">
+              <span><b>Active ring depth</b><output id="ringDepthOut" for="ringDepth">0%</output></span>
+              <input id="ringDepth" type="range" min="-1" max="1" step="0.01" value="0" />
+            </label>
+            <button class="mini-action reset-form" id="spreadDepth" type="button">Spread rings in depth</button>
+            <div class="depth-effects">
+              <div class="field-label">Depth effects</div>
+              <div class="depth-effect-row">
+                <div class="depth-effect-name">
+                  <b>Reverb</b>
+                  <output id="reverbIntensityOut">off</output>
+                </div>
+                <div class="choice-switch compact" id="reverbMode" role="group" aria-label="3D reverb">
+                  <button id="reverbOff" type="button" data-value="off" aria-pressed="true">Off</button>
+                  <button id="reverbOn" type="button" data-value="on" aria-pressed="false">On</button>
+                </div>
+                <div class="choice-switch compact depth-direction" id="reverbDirection" role="group" aria-label="Reverb intensity direction">
+                  <button id="reverbLeft" type="button" data-value="left" aria-pressed="false">Left</button>
+                  <button id="reverbRight" type="button" data-value="right" aria-pressed="true">Right</button>
+                </div>
+              </div>
+              <div class="depth-effect-row">
+                <div class="depth-effect-name">
+                  <b>Fuzz</b>
+                  <output id="fuzzIntensityOut">off</output>
+                </div>
+                <div class="choice-switch compact" id="fuzzMode" role="group" aria-label="3D fuzz">
+                  <button id="fuzzOff" type="button" data-value="off" aria-pressed="true">Off</button>
+                  <button id="fuzzOn" type="button" data-value="on" aria-pressed="false">On</button>
+                </div>
+                <div class="choice-switch compact depth-direction" id="fuzzDirection" role="group" aria-label="Fuzz intensity direction">
+                  <button id="fuzzLeft" type="button" data-value="left" aria-pressed="false">Left</button>
+                  <button id="fuzzRight" type="button" data-value="right" aria-pressed="true">Right</button>
+                </div>
+              </div>
+              <label class="control" for="fuzzLevel"><span><b>Fuzz level</b><output id="fuzzLevelOut" for="fuzzLevel">20%</output></span><input id="fuzzLevel" type="range" min="0" max="1" step="0.01" value="0.2" disabled /></label>
+            </div>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">Lumber Loops uses rotating waveform rings, straight-sided radial shape handles, local pitch shaping, movable playback heads, granular scrub, a mix delay ring, per-ring tone, and 3D depth. Pulling a sound-ring vertex inward lowers that loop section; pulling it outward raises it without changing total loop duration.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="lumber-app.js"></script>
+  </body>
+</html>

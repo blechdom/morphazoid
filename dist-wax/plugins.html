@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Download Morphazoid instruments for REAPER and follow upcoming VST3 and CLAP releases."
+    />
+    <title>Morphazoid Plug-ins (under development)</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="plugins.css?v=20260815-2" />
+  </head>
+  <body class="plugins-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Morphazoid main menu"></nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="" selected>choose</option>
+        </select>
+      </label>
+
+      <span class="plugins-header-label">VST coming soon</span>
+    </header>
+
+    <main class="plugins-shell" id="plugins">
+      <article class="plugins-document">
+        <header class="plugins-intro">
+          <p class="plugins-development">Under development</p>
+          <h1>Morphazoid Plug-ins</h1>
+          <p class="plugins-vst">VST coming soon</p>
+          <p class="plugins-lede">
+            Chaotic FM is available now as a beta for REAPER. More Chaotic Synth plug-ins and
+            VST versions are in development.
+          </p>
+        </header>
+
+        <section class="plugins-install" aria-labelledby="waxTitle">
+          <p class="plugins-section-label">Browser-powered plug-in</p>
+          <h2 id="waxTitle">Run Morphazoid inside your DAW with WAX</h2>
+          <p class="plugins-note">
+            The Morphazoid for WAX build wraps the complete browser catalog for Windows and
+            macOS. Chaotic FM is the first instrument with automatic host MIDI and project-state recall.
+          </p>
+          <div class="plugin-card-actions">
+            <a class="plugin-download" href="wax.html">Windows &amp; macOS setup</a>
+            <a
+              class="plugin-demo-link"
+              href="https://audiofusion.com/wax/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >About AudioFusion WAX</a>
+          </div>
+        </section>
+
+        <section class="plugins-browser" aria-labelledby="catalogTitle">
+          <header class="plugins-browser-heading">
+            <p class="plugins-section-label">Chaotic Synths</p>
+            <h2 id="catalogTitle">Instruments</h2>
+            <p>
+              Download Chaotic FM for REAPER, or open any instrument in the browser to hear it now.
+            </p>
+          </header>
+
+          <div class="plugin-catalog" id="pluginCatalog" aria-live="polite">
+            <p class="plugin-loading">Loading instruments...</p>
+          </div>
+
+          <noscript>
+            <article class="plugin-noscript">
+              <p class="plugin-status plugin-status-available">Beta available</p>
+              <h2>Chaotic FM</h2>
+              <p>A nonlinear FM cascade for MIDI performance and rhythmic modulation.</p>
+              <a
+                class="plugin-download"
+                href="downloads/plugins/chaotic-fm/0.3.0/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx"
+                download="Morphazoid_Chaotic_FM-v0.3.0.jsfx"
+              >Download for REAPER</a>
+            </article>
+          </noscript>
+        </section>
+
+        <section class="plugins-install" id="install-reaper-jsfx" aria-labelledby="installTitle">
+          <p class="plugins-section-label">Install</p>
+          <h2 id="installTitle">Add Chaotic FM to REAPER</h2>
+          <ol>
+            <li>Download the file.</li>
+            <li>In REAPER, choose <strong>Options → Show REAPER resource path</strong>. Put the file in <strong>Effects</strong>.</li>
+            <li>Refresh the FX browser and add <strong>JS: Morphazoid: Chaotic FM</strong>.</li>
+          </ol>
+          <p class="plugins-note">
+            No installer is needed. The current beta runs in REAPER 7 on macOS, Windows, and Linux.
+          </p>
+        </section>
+
+      </article>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="plugins-app.js?v=20260815-2"></script>
+  </body>
+</html>

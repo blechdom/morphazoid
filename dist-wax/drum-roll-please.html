@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Drum Roll Please! — an endlessly accelerating or decelerating Risset rhythm bank played by the Morphazoid Rattlesnake percussion voice."
+    />
+    <title>Drum Roll Please! — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="drum-roll-please.css" />
+  </head>
+  <body class="drum-roll-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shepard-risset.html">shepard–risset</a>
+        <a class="tab active" href="drum-roll-please.html" aria-current="page">drum roll please!</a>
+        <a class="tab" href="linear-drums.html">rattlesnake</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shepard-risset.html">shepard–risset</option>
+          <option value="drum-roll-please.html" selected>drum roll please!</option>
+          <option value="linear-drums.html">rattlesnake</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">58%</output></span>
+          <input
+            id="level"
+            aria-label="Master audio level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.58"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="drumRollPlease">
+      <section class="stage" aria-label="Drum Roll Please stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Crisp diagonal tempo bands move upward through kick, tom, hand, and air percussion characters."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Angled percussion waves moving through an endless logarithmic tempo bank.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">RHYTHM BANK · ACCELERATING · 0.12 OCT/S · AUDIO OFF</span>
+          </div>
+          <div class="drum-roll-stage-label">
+            <h1>Drum Roll Please!</h1>
+            <small>endless tempo glissando</small>
+          </div>
+          <div class="drum-roll-direction" aria-hidden="true">
+            <span id="directionMarker">↗</span>
+            <small id="directionMarkerText">endlessly accelerating</small>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Drum Roll Please controls">
+        <section class="group drum-roll-identity" aria-labelledby="engineTitle">
+          <div class="drum-roll-identity-heading">
+            <h2 class="group-title" id="engineTitle">Engine</h2>
+            <span class="section-state" id="engineSummary">Risset rhythm bank</span>
+          </div>
+          <p>
+            Tempo-octave layers double or halve their hit rate, fade at the edges, and morph from
+            kick through tom and hand to air as each new percussion wave arrives.
+          </p>
+        </section>
+
+        <details class="group control-section" data-section="presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Presets</h2>
+            <span class="section-state" id="presetSummary">Classic acceleration</span>
+          </summary>
+          <div class="group-body">
+            <div
+              class="drum-roll-preset-grid"
+              id="presetGrid"
+              role="group"
+              aria-label="Drum Roll Please presets"
+            ></div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="motion" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Motion</h2>
+            <span class="section-state" id="motionSummary">accelerate · 0.12 oct/s</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Tempo direction</span>
+            <div class="choice-switch" id="direction" role="group" aria-label="Tempo direction">
+              <button id="directionAccelerate" type="button" data-value="1" aria-pressed="true">
+                ↗ Speed up
+              </button>
+              <button id="directionDecelerate" type="button" data-value="-1" aria-pressed="false">
+                ↘ Slow down
+              </button>
+            </div>
+
+            <label class="control drum-roll-gliss-control" for="driftRate">
+              <span><b>Tempo glissando speed</b><output id="driftRateOut" for="driftRate">0.12 oct/s · doubles in 8.3 s</output></span>
+              <input id="driftRate" type="range" min="0.02" max="1.2" step="0.01" value="0.12" />
+            </label>
+
+            <label class="control" for="centerRate">
+              <span><b>Center tempo</b><output id="centerRateOut" for="centerRate">240 BPM · 4.00 hits/s</output></span>
+              <input id="centerRate" type="range" min="0.5" max="16" step="0.05" value="4" />
+            </label>
+
+            <label class="control" for="width">
+              <span><b>Tempo bank width</b><output id="widthOut" for="width">5.0 octaves</output></span>
+              <input id="width" type="range" min="3" max="9" step="0.5" value="5" />
+            </label>
+
+            <label class="control" for="spread">
+              <span><b>Stereo spread</b><output id="spreadOut" for="spread">34%</output></span>
+              <input id="spread" type="range" min="0" max="1" step="0.01" value="0.34" />
+            </label>
+
+            <label class="control" for="stripeAngle">
+              <span><b>Stripe angle</b><output id="stripeAngleOut" for="stripeAngle">38°</output></span>
+              <input
+                id="stripeAngle"
+                type="range"
+                min="12"
+                max="78"
+                step="1"
+                value="38"
+                aria-describedby="stripeAngleNote"
+              />
+            </label>
+            <small class="drum-roll-control-note" id="stripeAngleNote">
+              Display only: this changes the barber-pole slope. Tempo glissando speed controls the sound illusion.
+            </small>
+
+            <small class="drum-roll-control-note">
+              Neighboring layers remain at double or half speed. Slow and fast layers disappear
+              before the bank wraps, hiding the join.
+            </small>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Rattlesnake</h2>
+            <span class="section-state" id="soundSummary">full morph · pitch fixed</span>
+          </summary>
+          <div class="group-body">
+            <button
+              class="drum-roll-pitch-toggle"
+              id="pitchFollow"
+              type="button"
+              aria-pressed="false"
+              aria-describedby="pitchFollowNote"
+            >
+              <span>
+                <b>Pitch follows tempo</b>
+                <small id="pitchFollowState">Off · timbre changes only</small>
+              </span>
+              <i aria-hidden="true">OFF</i>
+            </button>
+            <small class="drum-roll-control-note" id="pitchFollowNote">
+              When enabled, faster tempo layers also rise in body pitch and slower layers fall.
+            </small>
+
+            <label class="control" for="centerPitch">
+              <span><b>Center body pitch</b><output id="centerPitchOut" for="centerPitch">110 Hz</output></span>
+              <input id="centerPitch" type="range" min="45" max="880" step="1" value="110" />
+            </label>
+
+            <label class="control" for="decay">
+              <span><b>Hit decay</b><output id="decayOut" for="decay">120 ms</output></span>
+              <input id="decay" type="range" min="0.02" max="1.5" step="0.01" value="0.12" />
+            </label>
+
+            <label class="control" for="morphDepth">
+              <span><b>Timbre morph depth</b><output id="morphDepthOut" for="morphDepth">Full · 100%</output></span>
+              <input id="morphDepth" type="range" min="0" max="1" step="0.01" value="1" />
+            </label>
+
+            <label class="control" for="character">
+              <span><b>Character bias</b><output id="characterOut" for="character">Tom / hand</output></span>
+              <input id="character" type="range" min="0" max="1" step="0.01" value="0.52" />
+            </label>
+
+            <label class="control" for="cutoff">
+              <span><b>Brightness ceiling</b><output id="cutoffOut" for="cutoff">8.0 kHz</output></span>
+              <input id="cutoff" type="range" min="800" max="18000" step="100" value="8000" />
+            </label>
+
+            <div class="drum-roll-signal-card" aria-label="Audio signal path">
+              <span><b>Rate bank</b><small id="layerCountDetail">power normalized</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Rattlesnake</b><small>kick → tom → hand → air</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Output</b><small>compressor · soft ceiling</small></span>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all data-reset-in-place>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        The canvas shows crisp diagonal barber-pole bands and octave-related rhythm layers on a
+        logarithmic tempo scale. Persistent hit marks change shape from kick to tom, hand, and air
+        as waves move through the bank. Use the direction buttons or the Up and Down arrow keys to
+        speed up or slow down, and Space to toggle audio.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="drum-roll-please-app.js"></script>
+  </body>
+</html>

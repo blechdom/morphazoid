@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Bell Square — an exact two-qubit classical simulation that sonifies controlled-phase entanglement, local measurement axes, and repeated shots."
+    />
+    <title>Bell Square — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="quantum-synths.css" />
+  </head>
+  <body class="quantum-page bell-square-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="order-tones.html">order tones</a>
+        <a class="tab active" href="bell-square.html" aria-current="page">bell square</a>
+        <a class="tab" href="annealogue.html">annealogue</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="order-tones.html">order tones</option>
+          <option value="bell-square.html" selected>bell square</option>
+          <option value="annealogue.html">annealogue</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◇</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">48%</output></span>
+          <input
+            id="level"
+            aria-label="Bell Square output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.48"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell quantum-shell" id="bellSquare">
+      <section class="stage quantum-stage bell-square-stage" aria-labelledby="bellSquareTitle">
+        <div class="stage-wrap quantum-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Two atoms in a luminous optical double well, a four-petal joint probability flower, and a two-by-two measurement correlation matrix."
+            aria-describedby="bellSquareDescription canvasInstructions liveStatus"
+          >
+            An exact two-qubit controlled-phase circuit shown as paired atoms, four joint outcomes, and a correlation matrix.
+          </canvas>
+
+          <div class="quantum-heading">
+            <p class="quantum-kicker">QUANTUM SYNTHS · 02</p>
+            <h1 id="bellSquareTitle">Bell Square</h1>
+            <p class="quantum-caption">EXACT TWO-QUBIT CLASSICAL SIMULATION · LOCAL STREAMS STAY RANDOM</p>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">CP π · Z × Z · C 1.000 · AUDIO OFF</span>
+          </div>
+
+          <p class="quantum-simulation-notice">
+            Sonification of an exact tiny classical simulation — not audio from quantum matter or a live QPU.
+          </p>
+        </div>
+      </section>
+
+      <aside class="panel quantum-panel bell-square-panel" aria-label="Bell Square controls">
+        <details class="group control-section" data-section="collision" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Collision</h2>
+            <span class="section-state" id="collisionSummary">Bell phase · π</span>
+          </summary>
+          <div class="group-body">
+            <div class="position-row quantum-transport-row">
+              <button
+                class="play-button"
+                id="playButton"
+                type="button"
+                aria-pressed="false"
+                aria-label="Play automatic collision dance"
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="collisionPhase">
+                <span><b>Controlled phase</b><output id="collisionPhaseOut" for="collisionPhase">π · 180°</output></span>
+                <input id="collisionPhase" type="range" min="0" max="360" step="1" value="180" />
+              </label>
+            </div>
+            <p class="quantum-control-note">
+              The circuit prepares |++⟩, applies CP(φ), then a Hadamard to Bob. At π it becomes Bell Φ+; at 0 and 2π it is separable.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="measure" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Measure</h2>
+            <span class="section-state" id="measureSummary">Z × Z · coherent</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="aliceAxis">
+              <span><b>Alice axis</b><output id="aliceAxisOut" for="aliceAxis">Z · 0°</output></span>
+              <input id="aliceAxis" type="range" min="-180" max="180" step="1" value="0" />
+            </label>
+
+            <label class="control" for="bobAxis">
+              <span><b>Bob axis</b><output id="bobAxisOut" for="bobAxis">Z · 0°</output></span>
+              <input id="bobAxis" type="range" min="-180" max="180" step="1" value="0" />
+            </label>
+
+            <label class="control" for="dephasing">
+              <span><b>Local dephasing</b><output id="dephasingOut" for="dephasing">0%</output></span>
+              <input id="dephasing" type="range" min="0" max="1" step="0.01" value="0" />
+            </label>
+
+            <div class="quantum-action-grid" role="group" aria-label="Measurement actions">
+              <button class="mini-action" id="measureButton" type="button">Measure</button>
+              <button class="mini-action" id="shotsButton" type="button">32 shots</button>
+            </div>
+            <p class="quantum-control-note">
+              Each local result remains random. Correlation appears only when Alice and Bob compare their shot streams.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="state" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Joint state</h2>
+            <span class="section-state" id="stateSummary">entangled · C 1.000</span>
+          </summary>
+          <div class="group-body">
+            <div class="bell-probability-grid" role="img" aria-label="Joint outcome probability matrix">
+              <span data-outcome="00"><b>00</b><output id="probability00">50.0%</output></span>
+              <span data-outcome="01"><b>01</b><output id="probability01">0.0%</output></span>
+              <span data-outcome="10"><b>10</b><output id="probability10">0.0%</output></span>
+              <span data-outcome="11"><b>11</b><output id="probability11">50.0%</output></span>
+            </div>
+
+            <div class="quantum-ledger" aria-label="Current two-qubit diagnostics">
+              <span><b>Concurrence</b><code id="concurrenceReadout">1.000</code></span>
+              <span><b>Correlation</b><code id="correlationReadout">+1.000</code></span>
+              <span><b>Global purity</b><code id="globalPurityReadout">1.000</code></span>
+              <span><b>Alice / Bob purity</b><code id="localPurityReadout">0.500 / 0.500</code></span>
+              <span><b>Last result</b><code id="lastOutcome">—</code></span>
+              <span><b>Shot ledger</b><code id="shotSummary">no shots yet</code></span>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetBellSquare" type="button" data-reset-all>Reset Bell Square</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="bellSquareDescription">
+        Bell Square exactly simulates a two-qubit state vector and density matrix in this browser. The controlled collision phase changes entanglement. Independent Alice and Bob axes rotate the local projective measurements. Optional phase damping removes off-diagonal coherence without changing computational-basis populations.
+      </p>
+      <p class="sr-only" id="canvasInstructions">
+        Press Space to play or pause the collision dance. Use the arrow keys to adjust collision phase, M to measure one shot, and Escape to switch audio off.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="bell-square-app.js"></script>
+  </body>
+</html>

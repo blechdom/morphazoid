@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Algorithmic Sequencers - sorting algorithms rendered as playable visual and sonic operation sequences."
+    />
+    <title>Algorithmic Sequencers - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="algorithmic-sequencers.css" />
+  </head>
+  <body class="algorithmic-sequencers-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active algorithmic-sequencers-tab" href="algorithmic-sequencers.html" aria-current="page">algorithmic sequencers</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="algorithmic-sequencers.html" selected>algorithmic sequencers</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph algorithmic-audio-glyph" aria-hidden="true">S</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">48%</output></span>
+          <input
+            id="output"
+            aria-label="Algorithmic Sequencers output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.48"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell algorithmic-sequencers-shell" id="algorithmicSequencers">
+      <section class="stage algorithmic-sequencers-stage" aria-labelledby="algorithmicSequencersTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Sorting algorithm sequence with shuffled values, active comparison, and working range. Audio off."
+            aria-describedby="algorithmicSequencersDescription liveStatus"
+          >
+            Sorting algorithms drawn as shuffled bars, comparisons, swaps, and writes.
+          </canvas>
+
+          <div class="algorithmic-sequencers-heading">
+            <p>ALGORITHMIC SEQUENCERS - SORTING DEMOS</p>
+            <h1 id="algorithmicSequencersTitle">Algorithmic Sequencers</h1>
+            <span>Sorting Algorithms</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">QUICK - READY - AUDIO OFF</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel algorithmic-sequencers-panel" aria-label="Algorithmic Sequencers controls">
+        <div class="algorithmic-randomize-bar">
+          <button class="mini-action algorithmic-randomize-top" id="randomInput" type="button">Randomize order</button>
+        </div>
+        <details class="group control-section algorithmic-algorithm" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Algorithm</h2>
+            <span class="section-state" id="algorithmState">Quick - ready</span>
+          </summary>
+          <div class="group-body">
+            <div class="algorithmic-preset-grid" id="presetButtons" role="group" aria-label="Sorting algorithm demos">
+              <button type="button" data-algorithm="bubble" aria-pressed="false">Bubble Sort</button>
+              <button type="button" data-algorithm="insertion" aria-pressed="false">Insertion Sort</button>
+              <button type="button" data-algorithm="selection" aria-pressed="false">Selection Sort</button>
+              <button type="button" data-algorithm="merge" aria-pressed="false">Merge Sort</button>
+              <button type="button" data-algorithm="quick" aria-pressed="true">Quick Sort</button>
+            </div>
+            <p class="algorithmic-description" id="presetDescription">
+              Pivot comparisons divide the field into recursively smaller partitions.
+            </p>
+            <div class="grammar-card algorithmic-ledger" aria-label="Current sorting sequence">
+              <span><b>Input</b><code id="inputReadout">48 fixed values</code></span>
+              <span><b>Pair</b><code id="pairReadout">ready</code></span>
+              <span><b>Range</b><code id="rangeReadout">0 to 47</code></span>
+              <span><b>Action</b><code id="operationReadout">waiting</code></span>
+              <span><b>Steps</b><code id="stepsReadout">events</code></span>
+              <span><b>Sound</b><code id="signatureReadout">pivot calls and replies</code></span>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section algorithmic-transport" data-section="structure" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Transport</h2>
+            <span class="section-state" id="transportState">paused</span>
+          </summary>
+          <div class="group-body">
+            <div class="algorithmic-transport-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play sorting sequence">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <button class="mini-action" id="stepButton" type="button">Step</button>
+              <button class="mini-action" id="restartSequence" type="button">Restart</button>
+            </div>
+
+            <label class="control" for="sequenceProgress">
+              <span><b>Sequence position</b><output id="sequenceProgressOut" for="sequenceProgress">ready</output></span>
+              <input id="sequenceProgress" type="range" min="0" max="0" step="1" value="0" />
+            </label>
+
+            <label class="control" for="tempo">
+              <span><b>Step tempo</b><output id="tempoOut" for="tempo">18 steps/s</output></span>
+              <input id="tempo" type="range" min="0.5" max="60" step="0.1" value="18" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section algorithmic-data" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Data</h2>
+            <span class="section-state" id="dataState">48 values - shuffled</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="arraySize">
+              <span><b>Array size</b><output id="arraySizeOut" for="arraySize">48 values</output></span>
+              <input id="arraySize" type="range" min="8" max="128" step="1" value="48" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section algorithmic-sound" data-section="sound">
+          <summary class="group-summary">
+            <h2 class="group-title">Sound</h2>
+            <span class="section-state" id="soundState">180 Hz - 3.2 oct</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="baseFrequency">
+              <span><b>Base pitch</b><output id="baseFrequencyOut" for="baseFrequency">180 Hz</output></span>
+              <input id="baseFrequency" type="range" min="80" max="880" step="1" value="180" />
+            </label>
+
+            <label class="control" for="pitchSpan">
+              <span><b>Pitch span</b><output id="pitchSpanOut" for="pitchSpan">3.2 oct</output></span>
+              <input id="pitchSpan" type="range" min="0.5" max="5" step="0.1" value="3.2" />
+            </label>
+
+            <label class="control" for="noteLength">
+              <span><b>Step length</b><output id="noteLengthOut" for="noteLength">65 ms</output></span>
+              <input id="noteLength" type="range" min="0.018" max="0.32" step="0.001" value="0.065" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section algorithmic-catalog" data-section="output">
+          <summary class="group-summary">
+            <h2 class="group-title">More Scores</h2>
+            <span class="section-state">5 playable</span>
+          </summary>
+          <div class="group-body">
+            <h3 class="algorithmic-list-heading">Five built scores</h3>
+            <ol class="algorithmic-trial-list" aria-label="Five playable non-sorting algorithm sonifications">
+              <li>
+                <span>01</span>
+                <div><b><a href="dijkstra.html">DJ Dijkstra</a></b><small>distance to pitch; graph position to stereo; frontier to chord</small></div>
+              </li>
+              <li>
+                <span>02</span>
+                <div><b><a href="hanoi.html">Hanoi Carillon</a></b><small>disk size to pitch; peg to stereo; recursion depth to timing</small></div>
+              </li>
+              <li>
+                <span>03</span>
+                <div><b><a href="minimax.html">Alpha-Beta Minimax</a></b><small>evaluation to pitch; depth to register; pruning to rests</small></div>
+              </li>
+              <li>
+                <span>04</span>
+                <div><b><a href="nqueens.html">N-Queens Backtracker</a></b><small>placements to harmony; conflicts and backtracks to reverse motion</small></div>
+              </li>
+              <li>
+                <span>05</span>
+                <div><b><a href="euclid.html">Euclidean Pulse</a></b><small>remainders to descending pitch; quotients to repeated pulses</small></div>
+              </li>
+            </ol>
+
+            <h3 class="algorithmic-list-heading algorithmic-longlist-heading">Longlist</h3>
+            <div class="algorithmic-candidate-list" aria-label="Algorithms that would be interesting to sonify">
+              <section>
+                <h3>Sorting</h3>
+                <p>bubble, insertion, selection, merge, quick, heap, radix, shell, cocktail shaker, bitonic, timsort, cycle, bogo</p>
+              </section>
+              <section>
+                <h3>Search</h3>
+                <p>linear, binary, jump, interpolation, exponential, ternary, hash lookup, Boyer-Moore, KMP, BFS, DFS, Dijkstra, A*, bidirectional search, minimax, Monte Carlo tree search</p>
+              </section>
+              <section>
+                <h3>Graphs</h3>
+                <p>connected components, Tarjan SCC, topological sort, Prim, Kruskal, Bellman-Ford, Floyd-Warshall, Edmonds-Karp, Ford-Fulkerson, min cut, maze generation</p>
+              </section>
+              <section>
+                <h3>Recursive</h3>
+                <p>N-Queens, Sudoku, Towers of Hanoi, Euclidean GCD, knapsack, edit distance, longest common subsequence, fast exponentiation, FFT, cellular automata, Turing machine tapes</p>
+              </section>
+            </div>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetSequencer" type="button" data-reset-all data-reset-in-place>Reset sequencer</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="algorithmicSequencersDescription">
+        Sorting operations are displayed as a shuffled bar field. Each step compares, swaps, or writes values; sound maps both active values to pitch and their indices to stereo position.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="algorithmic-sequencers-app.js"></script>
+  </body>
+</html>

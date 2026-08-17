@@ -751,6 +751,13 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   assert.match(app, /registerSharedMidiClient\(\)/);
   assert.match(app, /audio\.close\(\)/);
   assert.doesNotMatch(app, /new AudioContext/);
+  assert.match(app, /const wax = globalThis\.MorphazoidWAX/);
+  assert.match(app, /wax\.register\(\{[\s\S]*id: "chaotic-fm"[\s\S]*stateVersion: 1/);
+  assert.match(app, /getState\(\)\s*\{\s*return currentWaxState\(\)/);
+  assert.match(app, /applyState\(snapshot\)/);
+  assert.match(app, /subscribeState\(listener\)/);
+  assert.match(app, /async enableMidi\(\)[\s\S]*await toggleAudio\(\)[\s\S]*sharedMidiManager\.enable\(\)/);
+  assert.doesNotMatch(markup, /wax-host-bootstrap|data-morphazoid-wax-bootstrap/);
 
   assert.match(moduleSource, /createDynamicsCompressor/);
   assert.match(moduleSource, /createSoftCeilingCurve/);
