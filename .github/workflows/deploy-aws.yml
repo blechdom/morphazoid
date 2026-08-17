@@ -32,72 +32,72 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # deploy:
-  #   if: >-
-  #     github.ref == 'refs/heads/main' &&
-  #     github.event_name != 'pull_request' &&
-  #     vars.AWS_ACCOUNT_ID != '' &&
-  #     vars.AWS_DEPLOY_ROLE_ARN != '' &&
-  #     vars.AWS_SITE_BUCKET != '' &&
-  #     vars.AWS_CLOUDFRONT_DISTRIBUTION_ID != ''
-  #   needs: verify
-  #   runs-on: ubuntu-latest
-  #   concurrency:
-  #     group: morphazoid-production
-  #     cancel-in-progress: false
-  #   environment:
-  #     name: production
-  #     url: https://morphazoid.com
-  #   permissions:
-  #     contents: read
-  #     id-token: write
-  #   steps:
-  #     - uses: actions/download-artifact@v8
-  #       with:
-  #         name: morphazoid-site
-  #         path: site
-  #     - uses: aws-actions/configure-aws-credentials@v6.2.3
-  #       with:
-  #         aws-region: us-east-1
-  #         role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-  #         allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
-  #         role-session-name: morphazoid-${{ github.run_id }}
-  #     - name: Publish static files
-  #       run: |
-  #         aws s3 sync site/ "s3://${{ vars.AWS_SITE_BUCKET }}/" \
-  #           --delete \
-  #           --only-show-errors \
-  #           --cache-control "public,max-age=300,must-revalidate"
-  #         aws s3 cp site/ "s3://${{ vars.AWS_SITE_BUCKET }}/" \
-  #           --recursive \
-  #           --exclude "*" \
-  #           --include "*.html" \
-  #           --only-show-errors \
-  #           --cache-control "public,max-age=0,must-revalidate"
-  #     - name: Invalidate CloudFront
-  #       id: invalidation
-  #       run: |
-  #         invalidation_id="$(
-  #           aws cloudfront create-invalidation \
-  #             --distribution-id "${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}" \
-  #             --paths "/*" \
-  #             --query "Invalidation.Id" \
-  #             --output text
-  #         )"
-  #         echo "id=$invalidation_id" >> "$GITHUB_OUTPUT"
-  #     - name: Wait for publication
-  #       run: |
-  #         aws cloudfront wait invalidation-completed \
-  #           --distribution-id "${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}" \
-  #           --id "${{ steps.invalidation.outputs.id }}"
-  #     - name: Smoke-test production
-  #       run: |
-  #         curl --fail --silent --show-error \
-  #           --retry 8 --retry-all-errors --retry-delay 5 \
-  #           https://morphazoid.com/ >/dev/null
-  #         curl --fail --silent --show-error \
-  #           --retry 8 --retry-all-errors --retry-delay 5 \
-  #           https://morphazoid.com/morphazoidical/ >/dev/null
-  #         curl --fail --silent --show-error --head \
-  #           https://morphazoid.com/src/contour-synth-processor.js \
-  #           | grep -iE "^content-type:.*javascript"
+  deploy:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      vars.AWS_ACCOUNT_ID != '' &&
+      vars.AWS_DEPLOY_ROLE_ARN != '' &&
+      vars.AWS_SITE_BUCKET != '' &&
+      vars.AWS_CLOUDFRONT_DISTRIBUTION_ID != ''
+    needs: verify
+    runs-on: ubuntu-latest
+    concurrency:
+      group: morphazoid-production
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: https://morphazoid.com
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: morphazoid-site
+          path: site
+      - uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: morphazoid-${{ github.run_id }}
+      - name: Publish static files
+        run: |
+          aws s3 sync site/ "s3://${{ vars.AWS_SITE_BUCKET }}/" \
+            --delete \
+            --only-show-errors \
+            --cache-control "public,max-age=300,must-revalidate"
+          aws s3 cp site/ "s3://${{ vars.AWS_SITE_BUCKET }}/" \
+            --recursive \
+            --exclude "*" \
+            --include "*.html" \
+            --only-show-errors \
+            --cache-control "public,max-age=0,must-revalidate"
+      - name: Invalidate CloudFront
+        id: invalidation
+        run: |
+          invalidation_id="$(
+            aws cloudfront create-invalidation \
+              --distribution-id "${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}" \
+              --paths "/*" \
+              --query "Invalidation.Id" \
+              --output text
+          )"
+          echo "id=$invalidation_id" >> "$GITHUB_OUTPUT"
+      - name: Wait for publication
+        run: |
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --id "${{ steps.invalidation.outputs.id }}"
+      - name: Smoke-test production
+        run: |
+          curl --fail --silent --show-error \
+            --retry 8 --retry-all-errors --retry-delay 5 \
+            https://morphazoid.com/ >/dev/null
+          curl --fail --silent --show-error \
+            --retry 8 --retry-all-errors --retry-delay 5 \
+            https://morphazoid.com/morphazoidical/ >/dev/null
+          curl --fail --silent --show-error --head \
+            https://morphazoid.com/src/contour-synth-processor.js \
+            | grep -iE "^content-type:.*javascript"
