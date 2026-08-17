@@ -4,22 +4,25 @@
 // osc[i].output modulates osc[i+1].frequency with scale depthHz[i].
 // Only osc[N-1] reaches the audio output.
 //
-// Frequencies cascade from a slow LFO root upward by cascadeRatio per stage:
+// Frequencies cascade from the first oscillator by cascadeRatio per stage:
 //   freq[i] = rootHz × cascadeRatio^i   (clamped to audioCeiling)
+// Ratios above 1 rise, 1 holds every stage at the same base frequency, and
+// ratios below 1 fall toward progressively slower modulators/carriers.
 //
 // Modulation depth at stage i → i+1:
 //   depthHz[i] = modDepth × depthTaper^i
 //
-// At depthTaper ≈ 1 / cascadeRatio the modulation index Δf/f_mod is constant
+// At depthTaper ≈ cascadeRatio the modulation index Δf/f_mod is constant
 // across the chain, which is perceptually natural.  Values below that
 // emphasise the low-frequency sweeps; values above push energy into upper stages.
 
 export const CASCADING_FM_LIMITS = Object.freeze({
   minStages: 2,
-  maxStages: 8,
+  maxStages: 12,
   minRootHz: 0.02,
   maxRootHz: 110,
-  minCascadeRatio: 1.5,
+  // 0.25 permits a two-octave descent per stage.
+  minCascadeRatio: 0.25,
   maxCascadeRatio: 200,
   minModDepth: 0,
   maxModDepth: 16_000,
@@ -30,54 +33,54 @@ export const CASCADING_FM_LIMITS = Object.freeze({
 
 export const CASCADING_FM_DEFAULTS = Object.freeze({
   stages: 5,
-  rootHz: 0.3,
-  cascadeRatio: 10,
-  modDepth: 3_000,
-  depthTaper: 0.55,
+  rootHz: 55,
+  cascadeRatio: 2,
+  modDepth: 220,
+  depthTaper: 0.8,
 });
 
 const freezePreset = (p) => Object.freeze({ ...p, settings: Object.freeze({ ...p.settings }) });
 
 export const CASCADING_FM_PRESETS = Object.freeze([
   freezePreset({
-    id: "slow-cascade",
-    label: "Slow Cascade",
-    description: "Sub-audio root at 0.3 Hz cascades up through audio with gently decreasing modulation depth.",
-    settings: { stages: 5, rootHz: 0.3, cascadeRatio: 10, modDepth: 3_000, depthTaper: 0.55 },
+    id: "brass-choir",
+    label: "Brass Choir",
+    description: "Five harmonic stages rooted at 55 Hz with moderate depth and even taper — warm and brassy.",
+    settings: { stages: 5, rootHz: 55, cascadeRatio: 2, modDepth: 220, depthTaper: 0.8 },
   }),
   freezePreset({
-    id: "dense-wave",
-    label: "Dense Wave",
-    description: "Seven tight stages with a fast LFO root create a rich, wavering tone.",
-    settings: { stages: 7, rootHz: 1.2, cascadeRatio: 5, modDepth: 2_000, depthTaper: 0.7 },
+    id: "bell-tower",
+    label: "Bell Tower",
+    description: "Four inharmonic stages from 110 Hz with a slight ratio offset and rising taper for metallic shimmer.",
+    settings: { stages: 4, rootHz: 110, cascadeRatio: 2.8, modDepth: 440, depthTaper: 1.1 },
   }),
   freezePreset({
-    id: "wide-steps",
-    label: "Wide Steps",
-    description: "Three stages far apart in frequency for broad, sweeping timbral layers.",
-    settings: { stages: 3, rootHz: 0.1, cascadeRatio: 60, modDepth: 8_000, depthTaper: 0.4 },
+    id: "neon-reed",
+    label: "Neon Reed",
+    description: "Six tight stages at 82 Hz with low-index modulation and gentle taper — buzzy and reedy.",
+    settings: { stages: 6, rootHz: 82, cascadeRatio: 1.5, modDepth: 120, depthTaper: 0.75 },
   }),
   freezePreset({
-    id: "bright-shimmer",
-    label: "Bright Shimmer",
-    description: "A moderate root with high cascade ratio and rising taper pushes energy into upper partials.",
-    settings: { stages: 4, rootHz: 2, cascadeRatio: 25, modDepth: 1_500, depthTaper: 1.2 },
+    id: "glass-forest",
+    label: "Glass Forest",
+    description: "Three widely spread stages from 110 Hz produce glassy, shifting overtones.",
+    settings: { stages: 3, rootHz: 110, cascadeRatio: 4.2, modDepth: 900, depthTaper: 0.5 },
   }),
   freezePreset({
-    id: "deep-strata",
-    label: "Deep Strata",
-    description: "Two wide-spaced oscillators with heavy modulation — raw and unstable.",
-    settings: { stages: 2, rootHz: 0.05, cascadeRatio: 200, modDepth: 12_000, depthTaper: 1 },
+    id: "organ-pulse",
+    label: "Organ Pulse",
+    description: "Eight even octave-ish stages from 65 Hz with falling taper emulate a pipe organ chorus.",
+    settings: { stages: 8, rootHz: 65, cascadeRatio: 2, modDepth: 260, depthTaper: 0.65 },
   }),
   freezePreset({
-    id: "harmonic-rain",
-    label: "Harmonic Rain",
-    description: "Six even stages at 3 Hz root with gentle taper create a glittering harmonic rain.",
-    settings: { stages: 6, rootHz: 3, cascadeRatio: 8, modDepth: 1_200, depthTaper: 0.6 },
+    id: "electric-wind",
+    label: "Electric Wind",
+    description: "Five wide-ratio stages at 110 Hz with high index and fast taper — electric and chaotic.",
+    settings: { stages: 5, rootHz: 110, cascadeRatio: 3.5, modDepth: 1_800, depthTaper: 0.4 },
   }),
 ]);
 
-export const DEFAULT_CASCADING_FM_PRESET_ID = "slow-cascade";
+export const DEFAULT_CASCADING_FM_PRESET_ID = "brass-choir";
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -106,6 +109,35 @@ export function sanitizeCascadingFmSettings(raw = {}) {
       L.maxDepthTaper,
     ),
   });
+}
+
+/**
+ * Re-space a cascade after its stage count changes while preserving the raw
+ * first-to-last frequency span. This keeps the Stages control from causing an
+ * exponential carrier jump merely because another oscillator was inserted.
+ */
+export function cascadeRatioForStageCount(ratio, previousStages, nextStages) {
+  const limits = CASCADING_FM_LIMITS;
+  const safeRatio = clamp(
+    finiteOr(ratio, CASCADING_FM_DEFAULTS.cascadeRatio),
+    limits.minCascadeRatio,
+    limits.maxCascadeRatio,
+  );
+  const safePreviousStages = clamp(
+    Math.round(finiteOr(previousStages, CASCADING_FM_DEFAULTS.stages)),
+    limits.minStages,
+    limits.maxStages,
+  );
+  const safeNextStages = clamp(
+    Math.round(finiteOr(nextStages, safePreviousStages)),
+    limits.minStages,
+    limits.maxStages,
+  );
+  return clamp(
+    Math.pow(safeRatio, (safePreviousStages - 1) / (safeNextStages - 1)),
+    limits.minCascadeRatio,
+    limits.maxCascadeRatio,
+  );
 }
 
 /**
@@ -155,7 +187,27 @@ export function formatCascadeFrequency(hz) {
   }
   if (value >= 10) return `${Math.round(value)} Hz`;
   if (value >= 1) return `${value.toFixed(2).replace(/\.?0+$/, "")} Hz`;
-  return `${value.toFixed(3).replace(/\.?0+$/, "")} Hz`;
+  if (value >= 0.01) return `${value.toFixed(3).replace(/\.?0+$/, "")} Hz`;
+  if (value >= 0.001) {
+    return `${(value * 1_000).toFixed(2).replace(/\.?0+$/, "")} mHz`;
+  }
+  if (value >= 0.000_001) {
+    return `${(value * 1_000_000).toFixed(2).replace(/\.?0+$/, "")} µHz`;
+  }
+  return `${value.toExponential(2)} Hz`;
+}
+
+export function formatCascadeRatio(ratio) {
+  const value = Number(ratio);
+  if (!Number.isFinite(value) || value <= 0) return "×1";
+  const digits = value < 10 ? 2 : (value < 100 ? 1 : 0);
+  return `×${value.toFixed(digits).replace(/\.?0+$/, "")}`;
+}
+
+export function cascadeFrequencyDirection(ratio) {
+  const value = Number(ratio);
+  if (!Number.isFinite(value) || Math.abs(value - 1) < 1e-12) return "equal";
+  return value < 1 ? "falling" : "rising";
 }
 
 // ---------------------------------------------------------------------------
@@ -175,19 +227,59 @@ export function rootHzSliderPosition(value) {
   return Math.log(safeValue / ROOT_SLIDER_MIN) / Math.log(ROOT_SLIDER_MAX / ROOT_SLIDER_MIN);
 }
 
-// Cascade ratio: logarithmic over 1.5–200
+// Cascade ratio: a three-zone logarithmic control. The common ×1–×5 range
+// owns 40% of the track so a deep cascade remains steerable; the descending
+// and extended-high ranges remain reachable without consuming most of the
+// useful travel. The lower and musical zones share the same logarithmic slope,
+// so crossing unity stays smooth.
 
-const RATIO_SLIDER_MIN = 1.5;
-const RATIO_SLIDER_MAX = 200;
+const RATIO_SLIDER_MIN = CASCADING_FM_LIMITS.minCascadeRatio;
+const RATIO_SLIDER_MAX = CASCADING_FM_LIMITS.maxCascadeRatio;
+const RATIO_SLIDER_MUSICAL_MAX = 5;
+const RATIO_SLIDER_MUSICAL_WIDTH = 0.4;
+const RATIO_SLIDER_UNITY_POSITION = RATIO_SLIDER_MUSICAL_WIDTH
+  * Math.log(1 / RATIO_SLIDER_MIN)
+  / Math.log(RATIO_SLIDER_MUSICAL_MAX);
+const RATIO_SLIDER_MUSICAL_END = RATIO_SLIDER_UNITY_POSITION
+  + RATIO_SLIDER_MUSICAL_WIDTH;
 
 export function ratioSliderValue(position) {
   const safe = Math.min(1, Math.max(0, Number(position) || 0));
-  return RATIO_SLIDER_MIN * Math.pow(RATIO_SLIDER_MAX / RATIO_SLIDER_MIN, safe);
+  if (safe <= RATIO_SLIDER_UNITY_POSITION) {
+    return RATIO_SLIDER_MIN * Math.pow(
+      1 / RATIO_SLIDER_MIN,
+      safe / RATIO_SLIDER_UNITY_POSITION,
+    );
+  }
+  if (safe <= RATIO_SLIDER_MUSICAL_END) {
+    return Math.pow(
+      RATIO_SLIDER_MUSICAL_MAX,
+      (safe - RATIO_SLIDER_UNITY_POSITION) / RATIO_SLIDER_MUSICAL_WIDTH,
+    );
+  }
+  return RATIO_SLIDER_MUSICAL_MAX * Math.pow(
+    RATIO_SLIDER_MAX / RATIO_SLIDER_MUSICAL_MAX,
+    (safe - RATIO_SLIDER_MUSICAL_END) / (1 - RATIO_SLIDER_MUSICAL_END),
+  );
 }
 
 export function ratioSliderPosition(value) {
   const safeValue = Math.min(RATIO_SLIDER_MAX, Math.max(RATIO_SLIDER_MIN, Number(value) || RATIO_SLIDER_MIN));
-  return Math.log(safeValue / RATIO_SLIDER_MIN) / Math.log(RATIO_SLIDER_MAX / RATIO_SLIDER_MIN);
+  if (safeValue <= 1) {
+    return RATIO_SLIDER_UNITY_POSITION
+      * Math.log(safeValue / RATIO_SLIDER_MIN)
+      / Math.log(1 / RATIO_SLIDER_MIN);
+  }
+  if (safeValue <= RATIO_SLIDER_MUSICAL_MAX) {
+    return RATIO_SLIDER_UNITY_POSITION
+      + RATIO_SLIDER_MUSICAL_WIDTH
+        * Math.log(safeValue)
+        / Math.log(RATIO_SLIDER_MUSICAL_MAX);
+  }
+  return RATIO_SLIDER_MUSICAL_END
+    + (1 - RATIO_SLIDER_MUSICAL_END)
+      * Math.log(safeValue / RATIO_SLIDER_MUSICAL_MAX)
+      / Math.log(RATIO_SLIDER_MAX / RATIO_SLIDER_MUSICAL_MAX);
 }
 
 // Modulation depth: quadratic over 0–16 000 Hz (gives fine control near zero)

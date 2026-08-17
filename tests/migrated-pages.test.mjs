@@ -51,11 +51,25 @@ const migratedPages = [
     requiredCopy: ["Recursive", "FM"],
   },
   {
+    id: "cascading-fm",
+    html: "cascading-fm.html",
+    app: "cascading-fm-app.js",
+    source: "src/cascading-fm.js",
+    requiredCopy: ["Cascading", "FM", "frequency"],
+  },
+  {
     id: "recursive-pm",
     html: "recursive-pm.html",
     app: "recursive-pm-app.js",
     source: "src/recursive-pm.js",
     requiredCopy: ["Recursive", "PM"],
+  },
+  {
+    id: "cascading-pm",
+    html: "cascading-pm.html",
+    app: "cascading-pm-app.js",
+    source: "src/cascading-pm.js",
+    requiredCopy: ["Cascading", "PM", "phase"],
   },
   {
     id: "chaotic-fm",

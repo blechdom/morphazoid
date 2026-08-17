@@ -114,10 +114,11 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
   freezeGroup("chaotic-synths", "Chaotic Synths", [
     { id: "recursive-fm", label: "Recursive FM", href: "recursive-fm.html" },
-    { id: "cascading-fm", label: "Cascading FM", href: "cascading-fm.html" },
     { id: "recursive-pm", label: "Recursive PM", href: "recursive-pm.html" },
     { id: "chaotic-fm", label: "Chaotic FM", href: "chaotic-fm.html" },
     { id: "chaotic-pm", label: "Chaotic PM", href: "chaotic-pm.html" },
+    { id: "cascading-fm", label: "Cascading FM", href: "cascading-fm.html" },
+    { id: "cascading-pm", label: "Cascading PM", href: "cascading-pm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
     { id: "plasma-ball", label: "Plasma Ball", href: "plasma-ball.html" },
   ]),

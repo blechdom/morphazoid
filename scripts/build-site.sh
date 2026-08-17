@@ -152,6 +152,14 @@ for worktree_runtime_file in \
   linear-drums-machine-app.js \
   src/linear-drums-machine.js \
   src/chaotic-fm-flow.js \
+  cascading-fm.html \
+  cascading-fm.css \
+  cascading-fm-app.js \
+  src/cascading-fm.js \
+  cascading-pm.html \
+  cascading-pm.css \
+  cascading-pm-app.js \
+  src/cascading-pm.js \
   drum-roll-please.html \
   drum-roll-please.css \
   drum-roll-please-app.js \
@@ -306,11 +314,21 @@ required_files=(
   recursive-fm.html
   recursive-fm-app.js
   src/recursive-fm.js
+  cascading-fm.html
+  cascading-fm.css
+  cascading-fm-app.js
+  src/cascading-fm.js
+  assets/instruments/cascading-fm.webp
   recursive-pm.html
   recursive-pm.css
   recursive-pm-app.js
   src/recursive-pm.js
   src/recursive-pm-midi.js
+  cascading-pm.html
+  cascading-pm.css
+  cascading-pm-app.js
+  src/cascading-pm.js
+  assets/instruments/cascading-pm.webp
   chaotic-fm.html
   chaotic-fm.css
   chaotic-fm-app.js

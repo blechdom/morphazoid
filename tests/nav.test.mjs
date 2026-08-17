@@ -212,7 +212,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 77);
+  assert.equal(tools.length, 78);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -448,10 +448,11 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ),
     [
       { id: "recursive-fm", href: "recursive-fm.html" },
-      { id: "cascading-fm", href: "cascading-fm.html" },
       { id: "recursive-pm", href: "recursive-pm.html" },
       { id: "chaotic-fm", href: "chaotic-fm.html" },
       { id: "chaotic-pm", href: "chaotic-pm.html" },
+      { id: "cascading-fm", href: "cascading-fm.html" },
+      { id: "cascading-pm", href: "cascading-pm.html" },
       { id: "weierstrass", href: "weierstrass.html" },
       { id: "plasma-ball", href: "plasma-ball.html" },
     ],
@@ -567,7 +568,9 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}striped-sludge-delay.html`, SITE_ROOT)?.id, "striped-sludge-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}sandy-syrup-delay.html`, SITE_ROOT)?.id, "sandy-syrup-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}recursive-fm.html`, SITE_ROOT)?.id, "recursive-fm");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}cascading-fm.html`, SITE_ROOT)?.id, "cascading-fm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}recursive-pm.html`, SITE_ROOT)?.id, "recursive-pm");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}cascading-pm.html`, SITE_ROOT)?.id, "cascading-pm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}chaotic-fm.html`, SITE_ROOT)?.id, "chaotic-fm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}chaotic-pm.html`, SITE_ROOT)?.id, "chaotic-pm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}weierstrass.html`, SITE_ROOT)?.id, "weierstrass");
