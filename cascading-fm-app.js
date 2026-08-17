@@ -2,8 +2,11 @@ import {
   CASCADING_FM_LIMITS,
   CASCADING_FM_PRESETS,
   DEFAULT_CASCADING_FM_PRESET_ID,
+  cascadeFrequencyDirection,
+  cascadeRatioForStageCount,
   deriveCascadeStack,
   formatCascadeFrequency,
+  formatCascadeRatio,
   modDepthSliderPosition,
   modDepthSliderValue,
   ratioSliderPosition,
@@ -316,7 +319,7 @@ function drawCascadeNodes(context, stack, width, height) {
   const spacing = count > 1 ? available / (count - 1) : 0;
   const radius = Math.max(7, Math.min(14, spacing * 0.22));
 
-  const lfoColor = "#5fe8c4";
+  const rootColor = "#5fe8c4";
   const midColor = "#4ade80";
   const carrierColor = "#a3e635";
 
@@ -352,9 +355,9 @@ function drawCascadeNodes(context, stack, width, height) {
   // Draw stage nodes
   for (let i = 0; i < count; i++) {
     const x = left + spacing * i;
-    const isLfo = oscillators[i].isLfo;
+    const isRoot = i === 0;
     const isCarrier = oscillators[i].isCarrier;
-    const color = isCarrier ? carrierColor : (isLfo ? lfoColor : midColor);
+    const color = isCarrier ? carrierColor : (isRoot ? rootColor : midColor);
     const r = isCarrier ? radius + 2 : radius;
 
     context.beginPath();
@@ -375,7 +378,7 @@ function drawCascadeNodes(context, stack, width, height) {
       context.fillStyle = isCarrier ? carrierColor : "#77837e";
       context.font = "7px ui-monospace, SFMono-Regular, Menlo, monospace";
       context.fillText(
-        isLfo ? "LFO" : (isCarrier ? "OUT" : "MOD"),
+        isRoot ? "ROOT" : (isCarrier ? "OUT" : "MOD"),
         x,
         graphY + r + 16,
       );
@@ -436,8 +439,11 @@ function scheduleVisualization() {
 
 function buildFlowSvg(stack) {
   const { oscillators, connections, settings, normalizedGain } = stack;
+  const direction = cascadeFrequencyDirection(settings.cascadeRatio);
   const count = oscillators.length;
-  const graphWidth = Math.max(840, count * 148 + 240);
+  // Keep deep 9–12-stage cascades legible without shrinking a 2,000px
+  // diagram into the stage viewport.
+  const graphWidth = Math.max(840, count * 112 + 240);
   const left = 58;
   const outputX = graphWidth - 132;
   const busEnd = outputX - 50;
@@ -471,10 +477,10 @@ function buildFlowSvg(stack) {
 
   const nodeMarkup = oscillators.map((osc, i) => {
     const x = positions[i];
-    const isLfo = osc.isLfo;
+    const isRoot = i === 0;
     const isCarrier = osc.isCarrier;
-    const cls = `cascading-fm-stage-node${isLfo ? " is-lfo" : ""}${isCarrier ? " is-carrier" : ""}`;
-    const label = isLfo ? "LFO ROOT" : (isCarrier ? "CARRIER" : `MOD ${i}`);
+    const cls = `cascading-fm-stage-node${isRoot ? " is-lfo" : ""}${isCarrier ? " is-carrier" : ""}`;
+    const label = isRoot ? "ROOT SINE" : (isCarrier ? "CARRIER" : `MOD ${i}`);
     return `
       <g class="${cls}">
         <rect x="${x - nodeW * 0.5}" y="${nodeY - nodeH * 0.5}"
@@ -489,7 +495,7 @@ function buildFlowSvg(stack) {
       </g>`;
   }).join("");
 
-  const taperNote = (1 / settings.cascadeRatio).toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+  const taperNote = settings.cascadeRatio.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
 
   return `
     <svg class="cascading-fm-flow-detailed" viewBox="0 0 ${graphWidth} 218"
@@ -519,21 +525,21 @@ function buildFlowSvg(stack) {
       </g>
       <text style="font-family:ui-monospace,monospace;font-size:6px;fill:var(--faint);letter-spacing:.08em"
         x="${left}" y="208">
-        root ${formatCascadeFrequency(settings.rootHz)} · ratio ×${settings.cascadeRatio.toFixed(1)} · flat-index taper ≈${taperNote}×
+        root ${formatCascadeFrequency(settings.rootHz)} · ${formatCascadeRatio(settings.cascadeRatio)} ${direction} · flat-index taper ≈${taperNote}×
       </text>
     </svg>
     <svg class="cascading-fm-flow-compact" viewBox="0 0 380 112"
       preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <g class="cascading-fm-compact-node is-lfo">
         <rect x="8" y="33" width="72" height="44" rx="3" />
-        <text class="cascading-fm-compact-title" x="44" y="51">LFO ROOT</text>
+        <text class="cascading-fm-compact-title" x="44" y="51">ROOT SINE</text>
         <text class="cascading-fm-compact-value" x="44" y="66">${formatCascadeFrequency(oscillators[0].freq)}</text>
       </g>
       <text class="cascading-fm-compact-arrow" x="88" y="59">→</text>
       <g class="cascading-fm-compact-node">
         <rect x="102" y="33" width="88" height="44" rx="3" />
         <text class="cascading-fm-compact-title" x="146" y="51">${count - 2} MOD${count - 2 === 1 ? "" : "S"}</text>
-        <text class="cascading-fm-compact-value" x="146" y="66">×${settings.cascadeRatio.toFixed(1)} ratio</text>
+        <text class="cascading-fm-compact-value" x="146" y="66">${formatCascadeRatio(settings.cascadeRatio)} ${direction}</text>
       </g>
       <text class="cascading-fm-compact-arrow" x="198" y="59">→</text>
       <g class="cascading-fm-compact-node is-carrier">
@@ -562,9 +568,10 @@ function currentStack() {
 function updateSignalFlow(stack) {
   const flow = $("cascadingFmFlow");
   flow.innerHTML = buildFlowSvg(stack);
+  const direction = cascadeFrequencyDirection(stack.settings.cascadeRatio);
   flow.setAttribute(
     "aria-label",
-    `${stack.oscillators.length}-stage cascade: LFO root at `
+    `${stack.oscillators.length}-stage ${direction} cascade: root oscillator at `
       + `${formatCascadeFrequency(stack.oscillators[0].freq)} modulates `
       + `${stack.oscillators.length - 1} successive stage${stack.oscillators.length - 1 === 1 ? "" : "s"} `
       + `up to the carrier at ${formatCascadeFrequency(stack.oscillators[stack.oscillators.length - 1].freq)}.`,
@@ -573,24 +580,38 @@ function updateSignalFlow(stack) {
 
 function updateControlOutputs(stack = currentStack()) {
   const { settings, oscillators, connections } = stack;
+  const direction = cascadeFrequencyDirection(settings.cascadeRatio);
   $("stagesOut").textContent = String(settings.stages);
   $("rootHzOut").textContent = formatCascadeFrequency(settings.rootHz);
-  $("cascadeRatioOut").textContent = `×${settings.cascadeRatio.toFixed(settings.cascadeRatio < 10 ? 1 : 0)}`;
+  $("cascadeRatioOut").textContent = formatCascadeRatio(settings.cascadeRatio);
+  $("cascadeRatio").setAttribute(
+    "aria-valuetext",
+    `${formatCascadeRatio(settings.cascadeRatio)}; ${direction} stage frequencies`,
+  );
   $("modDepthOut").textContent = formatCascadeFrequency(settings.modDepth);
   $("depthTaperOut").textContent = `${settings.depthTaper.toFixed(2)}×`;
 
-  const flatTaper = 1 / settings.cascadeRatio;
+  const flatTaper = settings.cascadeRatio;
   $("flatTaperReadout").textContent = `${flatTaper.toFixed(flatTaper < 0.1 ? 3 : 2).replace(/0+$/, "").replace(/\.$/, "")}×`;
   $("taperHint").style.color = Math.abs(settings.depthTaper - flatTaper) < 0.015 ? "var(--cascading-fm-mid)" : "";
 
-  $("structureState").textContent = `${settings.stages} stages · ×${settings.cascadeRatio.toFixed(settings.cascadeRatio < 10 ? 1 : 0)} ratio`;
-  $("rootReadout").textContent = `${formatCascadeFrequency(settings.rootHz)} LFO`;
+  $("structureState").textContent = `${settings.stages} stages · ${formatCascadeRatio(settings.cascadeRatio)} · ${direction}`;
+  $("rootReadout").textContent = `${formatCascadeFrequency(settings.rootHz)}${settings.rootHz < 20 ? " LFO" : " oscillator"}`;
   $("carrierReadout").textContent = formatCascadeFrequency(oscillators[oscillators.length - 1].freq);
   $("stagesReadout").textContent = oscillators.map((o) => formatCascadeFrequency(o.freq)).join(" → ");
   $("depthsReadout").textContent = connections.length > 0
     ? connections.map((c) => formatCascadeFrequency(c.depthHz)).join(" · ")
     : "—";
-  $("outputReadout").textContent = `stage ${stack.outputIndex} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
+  const rawCarrierHz = settings.rootHz
+    * Math.pow(settings.cascadeRatio, settings.stages - 1);
+  const outputStageNumber = stack.outputIndex + 1;
+  if (rawCarrierHz < 20) {
+    $("outputReadout").textContent = `stage ${outputStageNumber} · ${formatCascadeFrequency(rawCarrierHz)} base · sub-audio`;
+  } else if (rawCarrierHz > CASCADING_FM_LIMITS.audioCeiling) {
+    $("outputReadout").textContent = `stage ${outputStageNumber} · base limited to ${formatCascadeFrequency(CASCADING_FM_LIMITS.audioCeiling)}`;
+  } else {
+    $("outputReadout").textContent = `stage ${outputStageNumber} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
+  }
 
   updateSignalFlow(stack);
   $("stageReadout").textContent = `${settings.stages} STAGES · DRONE · ${engine.running ? "ON" : "OFF"}`;
@@ -600,7 +621,7 @@ function updateControlOutputs(stack = currentStack()) {
   );
 }
 
-function applySettings(rawSettings, { presetId = null } = {}) {
+function applySettings(rawSettings, { presetId = null, syncControls = false } = {}) {
   const safe = sanitizeCascadingFmSettings(rawSettings);
   state.settings = { ...safe };
   if (presetId !== null) state.activePresetId = presetId;
@@ -613,6 +634,10 @@ function applySettings(rawSettings, { presetId = null } = {}) {
       state.activePresetId = null;
     }
   }
+  // Presets and reset replace the complete tuple, so they synchronize every
+  // control. Manual input deliberately leaves the active range thumb alone;
+  // writing it back during an input event makes nonlinear sliders feel sticky.
+  if (syncControls) writeControlsFromState();
   const stack = engine.running ? engine.updateSettings(safe) : currentStack();
   updatePresetButtons();
   updateControlOutputs(stack);
@@ -667,6 +692,9 @@ const controls = {
   },
 };
 
+controls.stages.input.min = String(CASCADING_FM_LIMITS.minStages);
+controls.stages.input.max = String(CASCADING_FM_LIMITS.maxStages);
+
 function writeControlsFromState() {
   for (const [key, control] of Object.entries(controls)) {
     control.write(state.settings[key], control.input);
@@ -720,7 +748,20 @@ function resizeCanvas() {
 
 for (const [key, control] of Object.entries(controls)) {
   control.input.addEventListener("input", () => {
-    applySettings({ ...state.settings, [key]: control.read(control.input) });
+    const value = control.read(control.input);
+    if (key === "stages") {
+      applySettings({
+        ...state.settings,
+        stages: value,
+        cascadeRatio: cascadeRatioForStageCount(
+          state.settings.cascadeRatio,
+          state.settings.stages,
+          value,
+        ),
+      }, { syncControls: true });
+      return;
+    }
+    applySettings({ ...state.settings, [key]: value });
   });
 }
 
@@ -730,7 +771,7 @@ $("presetButtons").addEventListener("click", (event) => {
   const preset = CASCADING_FM_PRESETS.find(({ id }) => id === button.dataset.preset);
   if (!preset) return;
   clearError();
-  applySettings(preset.settings, { presetId: preset.id });
+  applySettings(preset.settings, { presetId: preset.id, syncControls: true });
   $("liveStatus").textContent = `${preset.label} preset selected.`;
 });
 
@@ -770,7 +811,7 @@ $("resetCascadingFm").addEventListener("click", () => {
   $("level").value = String(DEFAULT_LEVEL);
   $("levelOut").textContent = `${Math.round(DEFAULT_LEVEL * 100)}%`;
   engine.setLevel(DEFAULT_LEVEL);
-  applySettings(defaultPreset.settings, { presetId: defaultPreset.id });
+  applySettings(defaultPreset.settings, { presetId: defaultPreset.id, syncControls: true });
   $("liveStatus").textContent = "Parameters reset.";
 });
 

@@ -19,7 +19,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 73);
+  assert.equal(INSTRUMENTS.length, 74);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -103,6 +103,15 @@ test("input and plug-in availability facts remain explicit", () => {
   assert.ok(instrumentById("recursion")?.features.includes("File input"));
   assert.deepEqual(instrumentById("rubix")?.features, ["Pointer"]);
   assert.equal(instrumentById("rubix")?.kind, "Geometric sequencer");
+  for (const id of ["cascading-fm", "cascading-pm"]) {
+    assert.equal(instrumentById(id)?.kind, "Synth");
+    assert.deepEqual(
+      instrumentById(id)?.tags.map(({ id: tagId }) => tagId),
+      ["chaotic-synths", "fractals-recursion"],
+    );
+  }
+  assert.match(instrumentById("cascading-fm")?.description ?? "", /frequenc(?:y|ies)/i);
+  assert.match(instrumentById("cascading-pm")?.description ?? "", /phase.*radians/i);
   assert.equal(instrumentById("image-to-instrument-1"), null);
   assert.equal(instrumentById("image-to-instrument-2"), null);
   assert.equal(INSTRUMENT_GROUPS.some(({ id }) => id === "image-to-instrument"), false);
