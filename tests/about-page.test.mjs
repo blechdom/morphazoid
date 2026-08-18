@@ -23,7 +23,10 @@ test("Home page is the About guide", async () => {
   assert.doesNotMatch(html, /class="about-summary"/);
   assert.doesNotMatch(html, /class="manual-index"/);
   assert.doesNotMatch(html, /<dt>(?:Instruments|Runtime|License)<\/dt>/);
-  assert.match(html, /<dt>Plug-ins<\/dt>\s*<dd>Coming soon\.<\/dd>/);
+  assert.match(
+    html,
+    /<dt>Plug-ins<\/dt>[\s\S]*?<a href="wax\.html">Morphazoid for WAX<\/a>[\s\S]*?Windows and macOS setup\./,
+  );
   assert.doesNotMatch(html, /href="plugins\.html"/);
   assert.match(html, /vibed up with Codex 5\.6 Sol Ultra, mostly/);
   assert.doesNotMatch(html, /manual-section-label">\d+/);
