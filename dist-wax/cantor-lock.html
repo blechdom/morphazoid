@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Cantor Lock — a playable finite Fourier experiment about concentration, porous Cantor masks, and measured leakage."
+    />
+    <title>Cantor Lock — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="fractal-uncertainty.css" />
+  </head>
+  <body class="fractal-uncertainty-page cantor-lock-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab active" href="cantor-lock.html" aria-current="page">cantor lock</a>
+        <a class="tab" href="escape-dust.html">escape dust</a>
+        <a class="tab" href="linebreaker.html">linebreaker</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="cantor-lock.html" selected>cantor lock</option>
+          <option value="escape-dust.html">escape dust</option>
+          <option value="linebreaker.html">linebreaker</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-speaker-icon" aria-hidden="true"></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">48%</output></span>
+          <input
+            id="level"
+            aria-label="Cantor Lock output level"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value="0.48"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell fractal-uncertainty-shell" id="cantorLock">
+      <section class="stage fractal-uncertainty-stage" aria-labelledby="cantorLockTitle">
+        <div class="stage-wrap fractal-uncertainty-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Cantor Lock frequency and position masks before numerical tightening. Audio off."
+            aria-describedby="cantorLockDescription liveStatus"
+          >
+            Frequency and position Cantor masks with retained and leaked Fourier energy.
+          </canvas>
+
+          <div class="fractal-uncertainty-heading">
+            <p>FRACTAL UNCERTAINTY · 01</p>
+            <h1 id="cantorLockTitle">Cantor Lock</h1>
+            <span>Try to hide one wave inside two porous sets.</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">DEPTH 4 · 81 CELLS · RAW SEED · AUDIO OFF</span>
+          </div>
+
+          <p class="fractal-simulation-notice">FINITE CLASSICAL FOURIER MODEL · NOT A PROOF · NOT QPU OUTPUT</p>
+        </div>
+      </section>
+
+      <aside class="panel fractal-uncertainty-panel" aria-label="Cantor Lock controls">
+        <details class="group control-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title">The two locks</h2>
+            <span class="section-state" id="trapSummary">Cantor · depth 4</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Mask geometry</span>
+            <div class="choice-switch fractal-mode-buttons" id="maskMode" role="group" aria-label="Mask geometry comparison">
+              <button id="cantorMode" type="button" data-mode="cantor" aria-pressed="true">Cantor gaps</button>
+              <button id="solidMode" type="button" data-mode="solid" aria-pressed="false">Solid interval</button>
+            </div>
+            <p class="control-note" id="maskNote">
+              Cantor masks remove the middle third at every scale. The solid comparator keeps the same number of cells without recursive gaps.
+            </p>
+
+            <label class="control" for="depth">
+              <span><b>Generation depth</b><output id="depthOut" for="depth">4 · 81 cells</output></span>
+              <input id="depth" type="range" min="2" max="5" step="1" value="4" />
+            </label>
+
+            <label class="control" for="offset">
+              <span><b>Mask offset</b><output id="offsetOut" for="offset">0 / 80</output></span>
+              <input id="offset" type="range" min="0" max="80" step="1" value="0" />
+            </label>
+
+            <label class="control" for="seed">
+              <span><b>Phase seed</b><output id="seedOut" for="seed">37</output></span>
+              <input id="seed" type="range" min="1" max="999" step="1" value="37" />
+            </label>
+
+            <div class="fractal-action-grid">
+              <button class="action-button" id="tightenButton" type="button" aria-pressed="false">Tighten trap</button>
+              <button class="action-button" id="reseedButton" type="button">Next phase seed</button>
+            </div>
+            <p class="control-note">
+              Tighten runs power iteration on <code>A* A</code>, where <code>A = P<sub>X</sub> F<sup>−1</sup> P<sub>Y</sub></code>. It searches this finite grid for the least-leaky state; it does not prove an asymptotic bound.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Concentration receipt</h2>
+            <span class="section-state" id="receiptSummary">Raw seed</span>
+          </summary>
+          <div class="group-body">
+            <div class="grammar-card fractal-ledger" aria-label="Finite Fourier concentration measurements">
+              <span><b>Grid</b><code id="gridReadout">N = 81 · |X| = |Y| = 16</code></span>
+              <span><b>Operator</b><code>P<sub>X</sub> F<sup>−1</sup> P<sub>Y</sub></code></span>
+              <span><b>Retained</b><code id="retainedReadout">24.30%</code></span>
+              <span><b>Leak</b><code id="leakReadout">75.70%</code></span>
+              <span><b>Response</b><code id="sigmaReadout">‖Av‖ = 0.493</code></span>
+              <span><b>Iteration</b><code id="iterationReadout">0 · seeded state</code></span>
+            </div>
+            <p class="fractal-meaning" id="meaningReadout">
+              Cyan energy lands inside X. Amber energy is the current complement on this sampled grid.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Sound mapping</h2>
+            <span class="section-state" id="soundSummary">Fractured ensemble</span>
+          </summary>
+          <div class="group-body">
+            <div class="grammar-card fractal-ledger" aria-label="Stable model to sound mappings">
+              <span><b>Cells</b><code>Y address → pitch + pulse order</code></span>
+              <span><b>Depth</b><code id="densityReadout">4 → 9-voice wide register</code></span>
+              <span><b>Retained</b><code id="coreSoundReadout">24.30% → glass core</code></span>
+              <span><b>Leak</b><code id="haloSoundReadout">75.70% → amber halo + air</code></span>
+              <span><b>Iterations</b><code id="cadenceReadout">0 → 1.00× cadence</code></span>
+              <span><b>Offset</b><code id="stereoReadout">0 → stereo rotation</code></span>
+              <span><b>Seed</b><code id="phraseReadout">37 → phrase origin</code></span>
+              <span><b>Geometry</b><code id="articulationReadout">Cantor → recursive rests</code></span>
+            </div>
+            <p class="fractal-meaning">
+              These correspondences stay fixed while you play: the same model change always moves the same audible dimension. The pitches follow sampled Fourier addresses directly rather than a conventional scale.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section">
+          <summary class="group-summary">
+            <h2 class="group-title">Method / what this means</h2>
+            <span class="section-state">Finite analogy</span>
+          </summary>
+          <div class="group-body fractal-method">
+            <p>
+              A fractal uncertainty principle gives a quantitative obstruction to simultaneous concentration on porous sets in a variable and its Fourier-dual variable. Cantor Lock makes one finite matrix analogy audible: it searches for the vector that retains the most energy after both masks, then sonifies the retained glass lattice and its amber leakage.
+            </p>
+            <p>
+              The computed singular value belongs only to this finite sampled operator. It is not the theorem’s exponent, not a proof, and not evidence from quantum hardware.
+            </p>
+            <p class="fractal-source-links">
+              Primary reading:
+              <a href="https://annals.math.princeton.edu/2018/187-3/p05" target="_blank" rel="noopener">Bourgain–Dyatlov (2018)</a>
+              ·
+              <a href="https://annals.math.princeton.edu/2025/202-1/p04" target="_blank" rel="noopener">Cohen (2025)</a>
+            </p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetButton" type="button" data-reset-all>Reset Cantor Lock</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="cantorLockDescription">
+        The upper strip is a frequency mask Y and the lower strip is a position mask X. Cyan cells belong to each mask. A unit-energy complex vector is inverse Fourier transformed from Y; cyan bars show energy retained inside X and amber bars show leakage outside X. Press T to tighten the numerical trap, use Left and Right Arrow to move the masks, Space to switch between a recursive Cantor mask and a same-size solid interval, and Escape to switch audio off.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="cantor-lock-app.js"></script>
+  </body>
+</html>

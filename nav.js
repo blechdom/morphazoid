@@ -229,6 +229,9 @@ export const TOOL_GROUPS = Object.freeze([
       href: "fourier-epicycles.html",
     },
     { id: "gravity-lens", label: "Gravity Lens", href: "gravity-lens.html" },
+    { id: "cantor-lock", label: "Cantor Lock", href: "cantor-lock.html" },
+    { id: "escape-dust", label: "Escape Dust", href: "escape-dust.html" },
+    { id: "linebreaker", label: "Linebreaker", href: "linebreaker.html" },
   ], { picker: false }),
 ]);
 

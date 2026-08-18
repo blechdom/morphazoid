@@ -409,12 +409,30 @@ const CATALOG_DETAILS = Object.freeze({
     "Uses an idealized gravitational lens to split one source into two apparent images and a paired interval.",
     "Turn on audio, move the source or lens, then compare image position, level, and delay.",
   ),
+  "cantor-lock": define(
+    "Fourier experiment",
+    "Searches for a finite signal inside matching Cantor-shaped position and frequency masks, mapping addresses to pitch and pulse while retained energy and leakage divide a glass-and-amber ensemble.",
+    "Turn on audio, compare an interval with Cantor masks, then tighten the trap and listen to retained energy separate from leakage.",
+  ),
+  "escape-dust": define(
+    "Chaos experiment",
+    "Compares classical survivors with a leaking finite wave in an open triadic baker map: phase-space position writes melody and pan, survival orchestrates the chord, and escape flux strikes its accents.",
+    "Turn on audio, release a packet, then step or play the map while escaped points and wave energy enter the flux monitor.",
+  ),
+  linebreaker: define(
+    "Fourier experiment",
+    "Probes crossed lines, a Sierpiński carpet, and Cantor dust while occupied runs sustain organ rails, gaps fracture the phrase, and two-dimensional Fourier peaks orchestrate the harmony.",
+    "Turn on audio, rotate the line probe across each structure, then compare its sampled gaps with the two-dimensional Fourier pattern.",
+  ),
 });
 
 const ADDITIONAL_TAG_IDS = Object.freeze({
   "escher-tessellation": Object.freeze(["geometry"]),
   morphazoidical: Object.freeze(["geometry"]),
   "fourier-epicycles": Object.freeze(["geometry"]),
+  "cantor-lock": Object.freeze(["fractals-recursion"]),
+  "escape-dust": Object.freeze(["fractals-recursion", "chaotic-synths"]),
+  linebreaker: Object.freeze(["fractals-recursion"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
   "gear-ratio-drums": Object.freeze(["geometry-drums"]),
   "fm-drums": Object.freeze(["geometry-drums"]),

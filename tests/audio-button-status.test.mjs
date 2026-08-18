@@ -35,6 +35,9 @@ const instrumentScripts = [
   "order-tones-app.js",
   "bell-square-app.js",
   "annealogue-app.js",
+  "cantor-lock-app.js",
+  "escape-dust-app.js",
+  "linebreaker-app.js",
   "experiments-app.js",
   "morphazoidical/app.js",
 ];

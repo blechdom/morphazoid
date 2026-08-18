@@ -210,6 +210,16 @@ for worktree_runtime_file in \
   annealogue.html \
   annealogue-app.js \
   src/annealogue.js \
+  fractal-uncertainty.css \
+  cantor-lock.html \
+  cantor-lock-app.js \
+  src/cantor-lock.js \
+  escape-dust.html \
+  escape-dust-app.js \
+  src/escape-dust.js \
+  linebreaker.html \
+  linebreaker-app.js \
+  src/linebreaker.js \
   plasma-ball.html \
   plasma-ball.css \
   plasma-ball-app.js \
@@ -384,6 +394,19 @@ required_files=(
   annealogue.html
   annealogue-app.js
   src/annealogue.js
+  fractal-uncertainty.css
+  cantor-lock.html
+  cantor-lock-app.js
+  src/cantor-lock.js
+  escape-dust.html
+  escape-dust-app.js
+  src/escape-dust.js
+  linebreaker.html
+  linebreaker-app.js
+  src/linebreaker.js
+  assets/instruments/cantor-lock.webp
+  assets/instruments/escape-dust.webp
+  assets/instruments/linebreaker.webp
   plasma-ball.html
   plasma-ball.css
   plasma-ball-app.js

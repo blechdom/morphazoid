@@ -19,7 +19,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 74);
+  assert.equal(INSTRUMENTS.length, 77);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -69,7 +69,7 @@ test("experiments carry a works-in-progress status while regular instruments do 
     instrument.tags.some(({ id }) => id === "experiments")
     && INSTRUMENT_GROUPS.find(({ id }) => id === "experiments")?.tools.includes(instrument)
   ));
-  assert.equal(experiments.length, 29);
+  assert.equal(experiments.length, 32);
   assert.equal(experiments.every(({ status }) => status === "Works in progress"), true);
   assert.equal(
     INSTRUMENTS.filter((instrument) => !experiments.includes(instrument))
