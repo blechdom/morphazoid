@@ -1,0 +1,197 @@
+.shape-drums-page {
+  --accent: #e8c46b;
+  --accent-soft: color-mix(in oklab, var(--accent) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+.shape-mapping-readout {
+  position: absolute;
+  z-index: 2;
+  right: 18px;
+  bottom: 16px;
+  max-width: min(72%, 520px);
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  pointer-events: none;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.shape-drums-panel .group-body {
+  padding-bottom: 14px;
+}
+
+.shape-mapping-description {
+  min-height: 34px;
+  margin: 8px 0 5px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.shape-mapping-origin,
+.shape-control-help,
+.shape-hit-cap-status {
+  margin: 0;
+  color: var(--faint);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.shape-mapping-origin {
+  min-height: 25px;
+  margin-bottom: 11px;
+  color: var(--accent);
+}
+
+.shape-control-help {
+  margin: -5px 0 10px;
+}
+
+.shape-hit-cap-status {
+  min-height: 12px;
+  color: var(--muted);
+}
+
+.shape-hit-cap-status.is-limited {
+  color: var(--accent);
+}
+
+.shape-map-legend {
+  display: grid;
+  margin: 0 0 14px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.shape-map-legend span {
+  display: grid;
+  min-width: 0;
+  min-height: 49px;
+  padding: 7px 5px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  align-content: center;
+  gap: 3px;
+}
+
+.shape-map-legend b,
+.shape-map-legend small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shape-map-legend b {
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.shape-map-legend small {
+  color: var(--faint);
+  font-size: 8px;
+}
+
+#sideSubdivisionsControl.is-disabled > span,
+#sideSubdivisionsControl.is-disabled output {
+  color: var(--faint);
+}
+
+#sideSubdivisionsControl input:disabled {
+  opacity: .32;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+.shape-drum-map {
+  display: grid;
+  margin-top: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.shape-drum-cell {
+  --voice-color: var(--accent);
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--voice-color) 3%, var(--panel));
+  align-content: center;
+  cursor: pointer;
+  transition: 80ms ease;
+}
+
+.shape-drum-cell::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--voice-color);
+  content: "";
+  opacity: .72;
+}
+
+.shape-drum-cell b,
+.shape-drum-cell small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shape-drum-cell b {
+  color: var(--ink);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+}
+
+.shape-drum-cell small {
+  color: var(--voice-color);
+  font-size: 7px;
+}
+
+.shape-drum-cell:hover,
+.shape-drum-cell:focus-visible {
+  border-color: color-mix(in oklab, var(--voice-color) 64%, var(--line));
+}
+
+.shape-drum-cell.is-active {
+  border-color: var(--voice-color);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--voice-color) 20%, var(--panel));
+  box-shadow: 0 0 12px color-mix(in oklab, var(--voice-color) 22%, transparent);
+  transform: translateY(1px);
+}
+
+@media (max-width: 520px) {
+  .shape-map-legend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shape-mapping-readout {
+    left: 12px;
+    max-width: none;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shape-drum-cell {
+    transition: none;
+  }
+}

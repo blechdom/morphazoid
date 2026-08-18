@@ -1,0 +1,356 @@
+.drum-roll-page {
+  --accent: #ff9868;
+  --accent-soft: color-mix(in oklab, #ff9868 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff9868 22%, transparent);
+  --roll-gold: #ffd677;
+  --roll-cyan: #78dbe8;
+}
+
+.drum-roll-page .stage-wrap {
+  isolation: isolate;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(214, 232, 226, 0.018) 0,
+      rgba(214, 232, 226, 0.018) 1px,
+      transparent 1px,
+      transparent 36px
+    ),
+    var(--bg-deep);
+}
+
+.drum-roll-page #stage {
+  cursor: default;
+}
+
+.drum-roll-page #stage:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.drum-roll-identity {
+  padding: 15px 15px 14px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 74%),
+    var(--panel-high);
+}
+
+.drum-roll-identity-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.drum-roll-identity-heading .section-state {
+  overflow: hidden;
+  max-width: 62%;
+  color: var(--accent);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.drum-roll-identity > p {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.drum-roll-stage-label {
+  position: absolute;
+  z-index: 3;
+  bottom: 22px;
+  left: 24px;
+  display: grid;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.drum-roll-stage-label h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(18px, 2.4vw, 32px);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.drum-roll-stage-label small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.17em;
+}
+
+.drum-roll-direction {
+  position: absolute;
+  z-index: 3;
+  right: 24px;
+  bottom: 22px;
+  display: grid;
+  min-width: 132px;
+  pointer-events: none;
+  justify-items: end;
+}
+
+.drum-roll-direction span {
+  color: var(--accent);
+  font-size: 28px;
+  line-height: 1;
+  transform: rotate(var(--roll-angle, 0deg));
+  transform-origin: center;
+}
+
+.drum-roll-direction small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.drum-roll-preset-grid {
+  display: grid;
+  margin: 0 0 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.drum-roll-preset-grid.is-dense {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.drum-roll-preset-grid button {
+  display: grid;
+  min-height: 54px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  align-content: center;
+  justify-items: start;
+  text-align: left;
+}
+
+.drum-roll-preset-grid.is-dense button {
+  min-height: 46px;
+  padding: 7px 6px;
+}
+
+.drum-roll-preset-grid button:hover {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.drum-roll-preset-grid button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.drum-roll-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 14px var(--accent-glow);
+}
+
+.drum-roll-preset-grid b {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.drum-roll-preset-grid small {
+  overflow: hidden;
+  max-width: 100%;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drum-roll-control-note {
+  display: block;
+  margin: -2px 0 9px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.drum-roll-gliss-control > span {
+  align-items: start;
+}
+
+.drum-roll-gliss-control output {
+  flex: 0 1 180px;
+  overflow: visible;
+  line-height: 1.35;
+  text-align: right;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.drum-roll-pitch-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  margin: 2px 0 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+.drum-roll-pitch-toggle:hover {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.drum-roll-pitch-toggle:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.drum-roll-pitch-toggle[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.drum-roll-pitch-toggle > span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.drum-roll-pitch-toggle b {
+  color: currentColor;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.drum-roll-pitch-toggle small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.drum-roll-pitch-toggle i {
+  min-width: 34px;
+  padding: 4px 5px;
+  border: 1px solid currentColor;
+  color: currentColor;
+  font-size: 7px;
+  font-style: normal;
+  letter-spacing: 0.09em;
+  text-align: center;
+}
+
+.drum-roll-signal-card {
+  display: grid;
+  margin: 11px 0 9px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.12fr) auto minmax(0, 1.12fr);
+  align-items: center;
+  gap: 7px;
+}
+
+.drum-roll-signal-card span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.drum-roll-signal-card b {
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.drum-roll-signal-card small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+}
+
+.drum-roll-signal-card i {
+  color: var(--accent);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.drum-roll-page .audio-error {
+  margin: 10px 0 8px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 130, 111, 0.38);
+  color: #ffb2a8;
+  background: rgba(255, 130, 111, 0.06);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+@media (max-width: 650px) {
+  .drum-roll-stage-label {
+    bottom: 15px;
+    left: 14px;
+  }
+
+  .drum-roll-stage-label h1 {
+    font-size: 16px;
+  }
+
+  .drum-roll-stage-label small {
+    font-size: 7px;
+  }
+
+  .drum-roll-direction {
+    right: 14px;
+    bottom: 15px;
+  }
+
+  .drum-roll-direction small {
+    display: none;
+  }
+}
+
+@media (max-width: 390px) {
+  .drum-roll-preset-grid,
+  .drum-roll-preset-grid.is-dense {
+    grid-template-columns: 1fr;
+  }
+
+  .drum-roll-signal-card {
+    grid-template-columns: 1fr;
+  }
+
+  .drum-roll-signal-card i {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drum-roll-direction span {
+    transform: none;
+  }
+}

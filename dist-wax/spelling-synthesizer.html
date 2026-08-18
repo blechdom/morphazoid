@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#060805" />
+    <meta
+      name="description"
+      content="Morphazoid Spelling Synthesizer — type letters directly into a tract, KAL phone-sample atlas, and real vocoder."
+    />
+    <title>Spelling Synthesizer — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="spelling-synthesizer.css" />
+  </head>
+  <body class="spelling-synthesizer-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="throatazoid.html">throatazoid</a>
+        <a
+          class="tab active"
+          href="spelling-synthesizer.html"
+          aria-current="page"
+        >spelling synthesizer</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="spelling-synthesizer.html" selected>spelling synthesizer</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph spelling-audio-glyph" aria-hidden="true">Aa</span>
+          <span class="audio-copy"><b>Voice</b><small id="audioState">type to start</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">46%</output></span>
+          <input
+            id="level"
+            aria-label="Spelling Synthesizer output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.46"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="spelling-shell" id="spellingSynthesizer">
+      <section class="spelling-composer" aria-labelledby="spellingTitle">
+        <header class="spelling-heading">
+          <h1 id="spellingTitle">Spelling Synthesizer</h1>
+        </header>
+
+        <div class="spelling-voice-stage" id="voiceStage" aria-hidden="true">
+          <div class="spelling-orbit is-outer"><i></i><i></i><i></i></div>
+          <div class="spelling-orbit is-inner"><i></i><i></i><i></i></div>
+          <div class="spelling-mouth">
+            <span id="currentLetter">A</span>
+            <i></i>
+          </div>
+          <div class="spelling-current-sound">
+                <b id="currentSound">AE</b>
+            <span id="currentPair">READY</span>
+          </div>
+        </div>
+
+        <label class="spelling-input-wrap" for="spellingInput">
+          <span class="spelling-input-label">
+            <b>Type into the voice</b>
+          </span>
+          <textarea
+            id="spellingInput"
+            rows="6"
+            spellcheck="false"
+            autocapitalize="sentences"
+            autocomplete="off"
+            maxlength="1600"
+            placeholder="Start typing…"
+            autofocus
+          ></textarea>
+        </label>
+
+        <div class="spelling-underbar">
+          <div class="spelling-transport">
+            <button
+              class="mini-action is-readback"
+              id="readbackButton"
+              type="button"
+              aria-pressed="false"
+            >Read it back to me</button>
+            <button class="mini-action" id="readbackStartOver" type="button" hidden>Start over</button>
+            <button class="mini-action" id="clearButton" type="button">Clear text</button>
+          </div>
+        </div>
+
+        <div class="spelling-letter-trail" id="letterTrail" aria-hidden="true">
+          <span>YOUR LETTERS WILL GATHER HERE</span>
+        </div>
+      </section>
+
+      <aside class="spelling-panel" aria-label="Spelling Synthesizer controls">
+        <section class="spelling-control-block" aria-labelledby="engineLabel">
+          <header>
+            <span><b id="engineLabel">Synth engine</b><small>one interface, three synthesis models</small></span>
+            <output id="engineIndex">02 / 03</output>
+          </header>
+          <div class="spelling-engine-buttons" id="engineButtons" role="group" aria-labelledby="engineLabel">
+            <button type="button" data-engine="tube" aria-pressed="false">
+              <i aria-hidden="true">01</i><span><b>Bellazoid</b><small>Daisy lineage · 44-section tract</small></span>
+            </button>
+            <button type="button" data-engine="diphone" aria-pressed="true">
+              <i aria-hidden="true">02</i><span><b>KAL samples</b><small>long vowels · compact phone units</small></span>
+            </button>
+            <button type="button" data-engine="vocoder" aria-pressed="false">
+              <i aria-hidden="true">03</i><span><b>Voxazoid</b><small>KAL modulator · 20 speech bands</small></span>
+            </button>
+          </div>
+          <div class="spelling-engine-note">
+            <b id="engineTitle">KAL phone samples</b>
+            <span id="engineLineage">CMU Flite KAL16 · phone and pair atlas</span>
+            <p id="engineDescription">Long vowel bodies and compact consonant and joined-pair units rendered from Flite's KAL16 diphone voice.</p>
+          </div>
+        </section>
+
+        <section class="spelling-control-block" aria-labelledby="personalityLabel">
+          <header>
+            <span><b id="personalityLabel">Personality</b><small>voice body, breath, and attitude</small></span>
+          </header>
+          <div
+            class="spelling-personality-buttons"
+            id="personalityButtons"
+            role="group"
+            aria-labelledby="personalityLabel"
+          >
+            <button type="button" data-personality="clear" aria-pressed="true">
+              <b>Clear</b><small>plain + centered</small>
+            </button>
+            <button type="button" data-personality="warm" aria-pressed="false">
+              <b>Velvet</b><small>low + rounded</small>
+            </button>
+            <button type="button" data-personality="whisper" aria-pressed="false">
+              <b>Whisper</b><small>air-heavy + soft</small>
+            </button>
+            <button type="button" data-personality="reed" aria-pressed="false">
+              <b>Reed</b><small>pinched + electric</small>
+            </button>
+            <button type="button" data-personality="creature" aria-pressed="false">
+              <b>Creature</b><small>low + uncanny</small>
+            </button>
+          </div>
+        </section>
+
+        <section class="spelling-control-block" aria-labelledby="flowLabel">
+          <header>
+            <span><b id="flowLabel">Typing flow</b><small>turn keystroke timing into prosody</small></span>
+          </header>
+
+          <label class="spelling-range" for="rhythmAmount">
+            <span><b>Rhythm → dynamics</b><output id="rhythmAmountOut" for="rhythmAmount">72%</output></span>
+            <input id="rhythmAmount" type="range" min="0" max="1" step="0.01" value="0.72" />
+            <small><i>even</i><i>expressive</i></small>
+          </label>
+
+          <label class="spelling-range" for="diphthongDelay">
+            <span><b>Letter-pair timing</b><output id="diphthongDelayOut" for="diphthongDelay">180 ms</output></span>
+            <input id="diphthongDelay" type="range" min="0" max="320" step="5" value="180" />
+            <small><i>snappier</i><i>more joins</i></small>
+          </label>
+
+          <button
+            class="spelling-switch"
+            id="pairGlidesButton"
+            type="button"
+            role="switch"
+            aria-checked="true"
+            aria-labelledby="pairGlidesLabel pairGlidesState"
+          >
+            <span><b id="pairGlidesLabel">Join letter pairs</b><small>digraphs · soft C/G · vowel pairs</small></span>
+            <i aria-hidden="true"></i>
+            <strong id="pairGlidesState">on</strong>
+          </button>
+        </section>
+
+        <section class="spelling-history-note" aria-labelledby="lineageTitle">
+          <b id="lineageTitle">Historical models, live control</b>
+          <p>
+            Bell Labs’ 1961 “Daisy Bell” used an early digital vocal-tract model. Bellazoid keeps
+            that lineage alive; CMU Flite’s KAL16 voice supplies rendered phone and pair units.
+            Voxazoid follows their moving spectrum through twenty speech bands. Typing supplies the
+            control gestures.
+          </p>
+          <a href="throatazoid.html">Open the full Throatazoid anatomy →</a>
+        </section>
+
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+        <div class="reset-all-row">
+          <button
+            class="reset-all-button"
+            id="resetButton"
+            type="button"
+            data-reset-all
+            data-reset-in-place
+          >Reset Spelling Synthesizer</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="spelling-synthesizer-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid WebGPU 303 - a separate WGSL compute-shader acid synth."
+    />
+    <title>WebGPU 303 - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="webgpu-303.css" />
+  </head>
+  <body class="webgpu-303-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active webgpu-303-tab" href="webgpu-303.html" aria-current="page">webgpu 303</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="webgpu-303.html" selected>webgpu 303</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph webgpu-303-audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <button class="synth-play-button" id="synthPlayButton" type="button" aria-pressed="false">
+          Play synth
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">100%</output></span>
+          <input
+            id="output"
+            aria-label="WebGPU 303 output level"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value="1"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell webgpu-303-shell" id="webgpu303">
+      <section class="stage webgpu-303-stage" aria-labelledby="webgpu303Title">
+        <div class="stage-wrap webgpu-303-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            role="img"
+            aria-label="WebGPU 303 acid pattern, harmonic partials, and output trace. Audio off."
+            aria-describedby="webgpu303Description liveStatus"
+          >
+            WebGPU 303 pattern and output trace.
+          </canvas>
+
+          <div class="webgpu-303-heading">
+            <p>WEBGPU SYNTHS</p>
+            <h1 id="webgpu303Title">WebGPU 303</h1>
+            <span id="engineBadge">WGSL compute voice</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">WEBGPU - STANDBY - AUDIO OFF</span>
+          </div>
+        </div>
+
+        <div class="webgpu-stage-knobs" aria-label="WebGPU 303 knob controls">
+          <div class="webgpu-stage-knob-actions" aria-label="Patch parameter actions">
+            <button class="mini-action" id="randomizePatch" type="button">Randomize patch</button>
+            <button class="mini-action" id="mutatePatch" type="button">Mutate patch</button>
+          </div>
+          <div class="webgpu-knob-bank" id="knobControls" aria-label="WebGPU 303 knob controls"></div>
+        </div>
+      </section>
+
+      <aside class="panel webgpu-303-panel" aria-label="WebGPU 303 controls">
+        <div class="webgpu-status-strip" aria-live="polite">
+          <b id="gpuState">Checking WebGPU</b>
+          <small id="streamState">Separate WGSL engine</small>
+        </div>
+
+        <div class="webgpu-303-credit" aria-label="Original shader credit">
+          <span>Acid voice lineage</span>
+          <a href="https://www.shadertoy.com/view/ldfSW2">sound - acid jam by srtuss on Shadertoy</a>
+        </div>
+
+        <details class="group control-section webgpu-303-section webgpu-303-presets" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Pattern</h2>
+            <span class="section-state" id="patternState">source acid synth</span>
+          </summary>
+          <div class="group-body">
+            <div class="webgpu-preset-grid" id="presetButtons" role="group" aria-label="WebGPU 303 presets"></div>
+            <div class="webgpu-sequence-actions" aria-label="Sequence actions">
+              <button class="mini-action" id="clearSequence" type="button">Source noise</button>
+              <button class="mini-action" id="randomizeSequence" type="button">Randomize</button>
+              <button class="mini-action" id="mutateSequence" type="button">Mutate</button>
+              <button class="mini-action" id="invertSequence" type="button">Invert</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section webgpu-303-section" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Filter</h2>
+            <span class="section-state" id="filterState">drive 0.65</span>
+          </summary>
+          <div class="group-body" id="filterControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-303-section" data-section="structure" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Core</h2>
+            <span class="section-state" id="coreState">80.0 Hz</span>
+          </summary>
+          <div class="group-body" id="coreControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-303-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Voice</h2>
+            <span class="section-state" id="voiceState">192 partials</span>
+          </summary>
+          <div class="group-body" id="voiceControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-303-section webgpu-runtime-section" data-section="output">
+          <summary class="group-summary">
+            <h2 class="group-title">GPU Stream</h2>
+            <span class="section-state" id="runtimeState">256 lanes</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="chunkDuration">
+              <span><b>Chunk length</b><output id="chunkDurationOut" for="chunkDuration">100 ms</output></span>
+              <input id="chunkDuration" type="range" min="0.03" max="0.25" step="0.01" value="0.10" />
+            </label>
+            <label class="select-control" for="workgroupSize">
+              <span><b>Workgroup</b><output id="workgroupSizeOut" for="workgroupSize">256 lanes</output></span>
+              <span class="select-shell">
+                <select id="workgroupSize" aria-label="WebGPU workgroup size">
+                  <option value="32">32 lanes</option>
+                  <option value="64">64 lanes</option>
+                  <option value="128">128 lanes</option>
+                  <option value="256" selected>256 lanes</option>
+                </select>
+              </span>
+            </label>
+            <p class="webgpu-credit-note">
+              Adapted from the local WebGPU Audio acid synth and credited to
+              <a href="https://www.shadertoy.com/view/ldfSW2">sound - acid jam by srtuss</a>.
+            </p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetPatch" type="button" data-reset-all data-reset-in-place>
+            Reset patch
+          </button>
+        </div>
+
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+      </aside>
+
+      <p class="sr-only" id="webgpu303Description">
+        A separate WebGPU compute shader renders acid synth chunks into Web Audio buffers.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="webgpu-303-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

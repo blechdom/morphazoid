@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Linebreaker — a playable finite 2D Fourier model for comparing ordinary porosity with porosity along lines."
+    />
+    <title>Linebreaker — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="fractal-uncertainty.css" />
+  </head>
+  <body class="fractal-uncertainty-page linebreaker-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Fractal uncertainty experiments">
+        <a class="tab" href="cantor-lock.html">cantor lock</a>
+        <a class="tab" href="escape-dust.html">escape dust</a>
+        <a class="tab active" href="linebreaker.html" aria-current="page">linebreaker</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="cantor-lock.html">cantor lock</option>
+          <option value="escape-dust.html">escape dust</option>
+          <option value="linebreaker.html" selected>linebreaker</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-speaker-icon" aria-hidden="true"></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">46%</output></span>
+          <input id="level" aria-label="Linebreaker output level" type="range" min="0" max="1" step="0.01" value="0.46" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell fractal-uncertainty-shell" id="linebreaker">
+      <section class="stage fractal-uncertainty-stage" aria-labelledby="linebreakerTitle">
+        <div class="stage-wrap fractal-uncertainty-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Linebreaker split view: a finite porous set and its two-dimensional discrete Fourier magnitude, crossed by a movable line probe. Audio off."
+            aria-describedby="linebreakerDescription liveStatus"
+          >
+            A finite porous-set grid, a movable line probe, and its two-dimensional discrete Fourier magnitude.
+          </canvas>
+
+          <div class="fractal-uncertainty-heading">
+            <p>FRACTAL UNCERTAINTY · 03</p>
+            <h1 id="linebreakerTitle">Linebreaker</h1>
+            <small>in higher dimensions, ordinary holes are not enough</small>
+          </div>
+
+          <p class="fractal-simulation-notice">FINITE CLASSICAL FOURIER MODEL · NOT A PROOF · NOT QPU OUTPUT</p>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">SIERPIŃSKI CARPET · DEPTH 3 · PROBE 0° · AUDIO OFF</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel fractal-uncertainty-panel linebreaker-panel" aria-label="Linebreaker controls">
+        <details class="group control-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Structure</h2>
+            <span class="section-state" id="structureSummary">ordinary porous · full rails remain</span>
+          </summary>
+          <div class="group-body">
+            <div class="fractal-button-grid linebreaker-preset-grid" id="presetButtons" role="group" aria-label="Finite set structure">
+              <button type="button" data-preset="crossed-lines" aria-pressed="false">Crossed lines</button>
+              <button type="button" data-preset="sierpinski-carpet" aria-pressed="true">Sierpiński</button>
+              <button type="button" data-preset="cantor-dust" aria-pressed="false">Cantor dust</button>
+            </div>
+            <p class="control-note" id="presetDescription">Ordinary holes repeat at every scale, while complete rows and columns remain.</p>
+
+            <label class="control" for="depth">
+              <span><b>Recursion depth</b><output id="depthOut" for="depth">3 · 27²</output></span>
+              <input id="depth" type="range" min="2" max="4" step="1" value="3" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Line probe</h2>
+            <span class="section-state" id="probeSummary">rail found · 100% occupied</span>
+          </summary>
+          <div class="group-body">
+            <div class="fractal-transport-row">
+              <button class="play-button" id="scanButton" type="button" aria-pressed="false" aria-label="Start angle scan">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <div><b id="scanLabel">Scan angle</b><small>Listen for an unbroken rail</small></div>
+            </div>
+
+            <label class="control" for="probeAngle">
+              <span><b>Angle</b><output id="probeAngleOut" for="probeAngle">0°</output></span>
+              <input id="probeAngle" type="range" min="0" max="179" step="1" value="0" />
+            </label>
+            <label class="control" for="probeOffset">
+              <span><b>Offset</b><output id="probeOffsetOut" for="probeOffset">+0.000</output></span>
+              <input id="probeOffset" type="range" min="-0.49" max="0.49" step="0.001" value="0" />
+            </label>
+            <label class="control" for="probeWidth">
+              <span><b>Probe width</b><output id="probeWidthOut" for="probeWidth">1 px</output></span>
+              <input id="probeWidth" type="range" min="1" max="5" step="2" value="1" />
+            </label>
+
+            <button class="mini-action full-width-action" id="findLineButton" type="button">Find clearest occupied line</button>
+            <p class="control-note">The search maximizes the longest occupied run in a finite angle/offset scan. Failure to find a rail is not a theorem.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Finite diagnostics</h2>
+            <span class="section-state" id="diagnosticSummary">sampled · illustrative</span>
+          </summary>
+          <div class="group-body">
+            <dl class="fractal-metric-grid" aria-label="Finite sampled porosity diagnostics">
+              <div><dt>Set density</dt><dd id="densityMetric">70.2%</dd></div>
+              <div><dt>Probe occupied</dt><dd id="occupancyMetric">100.0%</dd></div>
+              <div><dt>Longest rail</dt><dd id="railMetric">100.0%</dd></div>
+              <div><dt>Clear gaps</dt><dd id="gapMetric">0</dd></div>
+              <div><dt>Lines with gaps</dt><dd id="coverageMetric">—</dd></div>
+              <div><dt>Complete rails</dt><dd id="completeMetric">—</dd></div>
+            </dl>
+            <p class="control-note" id="diagnosticNote">These are finite sampled proxies, not certificates of ball or line porosity.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Sound mapping</h2>
+            <span class="section-state" id="soundSummary">rail organ · Fourier ensemble</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="rootFrequency">
+              <span><b>Root frequency</b><output id="rootFrequencyOut" for="rootFrequency">73 Hz</output></span>
+              <input id="rootFrequency" type="range" min="45" max="180" step="1" value="73" />
+            </label>
+            <label class="control" for="scanRate">
+              <span><b>Phrase rate</b><output id="scanRateOut" for="scanRate">0.20 Hz</output></span>
+              <input id="scanRate" type="range" min="0.05" max="0.8" step="0.01" value="0.2" />
+            </label>
+            <div class="fractal-ledger fractal-mapping-ledger sound-mapping-ledger" aria-label="Stable mappings from model to sound">
+              <span><b>Frequency · melody</b><code>probe angle → one-octave contour</code></span>
+              <span><b>Harmony · ensemble</b><code>2D Fourier peaks → tuned partials</code></span>
+              <span><b>Rhythm · phrasing</b><code>occupied runs / gaps → tones / rests</code></span>
+              <span><b>Texture · timbre</b><code>complete rail → organ · dust → grains</code></span>
+              <span><b>Dynamics · volume</b><code>occupancy + run length → gain</code></span>
+              <span><b>Space</b><code>probe offset → stereo position</code></span>
+              <span><b>Orchestration</b><code>recursion depth → register layers</code></span>
+              <span><b>Prosody</b><code>angle scan + phrase rate → contour speed</code></span>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section fractal-method">
+          <summary class="group-summary">
+            <h2 class="group-title">What this means</h2>
+            <span class="section-state">holes · lines · Fourier leakage</span>
+          </summary>
+          <div class="group-body">
+            <p class="control-note">
+              In Cohen’s higher-dimensional theorem, one concentration set is porous in balls and the other, on the Fourier side, is porous along every line; the roles may be swapped. Ordinary porosity alone is insufficient in higher dimensions. This finite probe only illustrates why a complete line can evade an ordinary-hole test—it does not verify the hypotheses or prove an uncertainty bound.
+            </p>
+            <div class="fractal-ledger" aria-label="Linebreaker interpretation">
+              <span><b>Space</b><code>finite binary mask</code></span>
+              <span><b>Frequency</b><code>unitary separable 2D DFT</code></span>
+              <span><b>Probe</b><code>sampled line · adjustable width</code></span>
+              <span><b>Sound</b><code>rails → organ · gaps → grain cloud</code></span>
+            </div>
+            <p class="control-note source-links">
+              Primary reading:
+              <a href="https://annals.math.princeton.edu/2025/202-1/p04" target="_blank" rel="noopener">Cohen, 2025</a>
+              ·
+              <a href="https://annals.math.princeton.edu/2018/187-3/p05" target="_blank" rel="noopener">Bourgain–Dyatlov, 2018</a>
+            </p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetButton" type="button" data-reset-all>Reset Linebreaker</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="linebreakerDescription">
+        The left square shows one of three finite binary sets: crossed complete lines, a Sierpiński carpet, or Cantor dust. A rotatable line probe measures sampled occupancy, longest occupied run, and clear gaps. The right square shows the log magnitude of the normalized two-dimensional discrete Fourier transform. Press Space to start or pause the angle scan. Use Left and Right Arrow to rotate the probe, Up and Down Arrow to move it, F to find the clearest occupied line, and Escape to switch audio off.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="linebreaker-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Cascading PM — a chain of sine operators where every stage bends the next stage's phase before the final operator reaches the output."
+    />
+    <title>Cascading PM — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="chaotic-synth-ui.css" />
+    <link rel="stylesheet" href="cascading-pm.css" />
+  </head>
+  <body class="cascading-pm-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="recursive-pm.html">recursive pm</a>
+        <a class="tab active" href="cascading-pm.html" aria-current="page">cascading pm</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="recursive-pm.html">recursive pm</option>
+          <option value="cascading-pm.html" selected>cascading pm</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph cascading-pm-audio-glyph" aria-hidden="true">∿</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
+          <input id="level" aria-label="Cascading PM master output level" type="range" min="0" max="1" step="0.01" value="0.58" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell cascading-pm-shell" id="cascadingPm">
+      <section class="stage cascading-pm-stage" aria-labelledby="cascadingPmTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Cascading PM live spectrum and oscilloscope above a linear phase-operator cascade. Audio off."
+            aria-describedby="cascadingPmDescription liveStatus"
+          >
+            A live frequency spectrum, oscilloscope, and signal-flow explanation for Cascading PM.
+          </canvas>
+
+          <div class="cascading-pm-heading">
+            <p>CHAOTIC SYNTHS · CASCADING PM</p>
+            <h1 id="cascadingPmTitle">Cascading PM</h1>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">8 STAGES · PHASE CHAIN · OFF</span>
+          </div>
+
+          <div
+            class="cascading-pm-signal-graph"
+            id="cascadingPmFlow"
+            role="img"
+            aria-label="Cascading PM signal path. Each sine is scaled by a phase index in radians and added to the next oscillator's phase. Only the final operator reaches audio."
+          ></div>
+        </div>
+      </section>
+
+      <aside class="panel cascading-pm-panel" aria-label="Cascading PM controls">
+        <details class="group control-section cascading-pm-presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Character</h2>
+            <span class="section-state" id="presetState">Slow Cascade</span>
+          </summary>
+          <div class="group-body">
+            <div class="cascading-pm-preset-grid" id="presetButtons" role="group" aria-label="Cascading PM presets"></div>
+            <p class="cascading-pm-preset-description" id="presetDescription">
+              Eight measured phase turns rise from 0.12 Hz to a warm 126 Hz carrier while each turn becomes gentler.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section cascading-pm-structure" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Phase cascade</h2>
+            <span class="section-state" id="structureState">8 stages · ×2.7 · rising</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="stages">
+              <span><b>Stages</b><output id="stagesOut" for="stages">8</output></span>
+              <input id="stages" type="range" min="2" max="12" step="1" value="8" />
+            </label>
+            <small class="cascading-pm-control-note">Number of sine operators · 2 is classic PM · 12 is a deep chain · carrier pitch is preserved</small>
+
+            <label class="control" for="rootHz">
+              <span><b>Root</b><output id="rootHzOut" for="rootHz">0.12 Hz</output></span>
+              <input id="rootHz" type="range" min="0" max="1" step="0.0001" value="0.2080" aria-describedby="rootHzNote" />
+            </label>
+            <small class="cascading-pm-control-note" id="rootHzNote">Logarithmic · 0.02 Hz to 110 Hz · base frequency of the first phase operator</small>
+
+            <label class="control" for="cascadeRatio">
+              <span><b>Cascade ratio</b><output id="cascadeRatioOut" for="cascadeRatio">×2.7</output></span>
+              <input id="cascadeRatio" type="range" min="0" max="1" step="0.0001" value="0.5914" aria-describedby="cascadeRatioNote" />
+            </label>
+            <small class="cascading-pm-control-note" id="cascadeRatioNote">Focused logarithmic · 40% of the track covers ×1 to ×5 · below 1 descends, above 1 rises · extended range ×0.25 to ×200</small>
+
+            <label class="control" for="phaseIndex">
+              <span><b>Phase index</b><output id="phaseIndexOut" for="phaseIndex">0.65 rad</output></span>
+              <input id="phaseIndex" type="range" min="0" max="1" step="0.0001" value="0.2016" aria-describedby="phaseIndexNote" />
+            </label>
+            <small class="cascading-pm-control-note" id="phaseIndexNote">Radians · maximum phase offset sent from stage 0 into stage 1</small>
+
+            <label class="control" for="indexTaper">
+              <span><b>Index taper</b><output id="indexTaperOut" for="indexTaper">0.86×</output></span>
+              <input id="indexTaper" type="range" min="0.05" max="4" step="0.01" value="0.86" aria-describedby="indexTaperNote" />
+            </label>
+            <small class="cascading-pm-control-note" id="indexTaperNote">Multiplier applied to the phase index at each successive hand-off</small>
+            <p class="cascading-pm-taper-hint" id="taperHint">
+              <b>1.00×</b> keeps the same maximum phase displacement through the chain
+            </p>
+
+            <div class="grammar-card cascading-pm-ledger chaotic-turn-ledger" aria-label="Current phase-cascade model">
+              <span><b>Root</b><code id="rootReadout">0.12 Hz LFO</code></span>
+              <span><b>Carrier</b><code id="carrierReadout">126 Hz</code></span>
+              <span><b>Stages</b><code id="stagesReadout">0.12 → 0.324 → 0.875 → 2.36 → 6.38 → 17 → 46 → 126 Hz</code></span>
+              <span><b>Indices</b><code id="indicesReadout">0.65 → 0.559 → 0.481 → 0.413 → 0.356 → 0.306 → 0.263 rad</code></span>
+              <span><b>Output</b><code id="outputReadout">stage 8 · bounded final sine</code></span>
+            </div>
+
+            <p class="cascading-pm-safety-note" id="cascadeSafetyNote">
+              Every connection offsets phase, not oscillator frequency. Base frequencies and phase indices retain bandwidth headroom below Nyquist.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetCascadingPm" type="button" data-reset-all data-reset-in-place>Reset parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="cascadingPmDescription">
+        A live spectrum and oscilloscope overlay a signal-flow diagram of nested phase modulation. Each sine output is multiplied by a phase index measured in radians and added to the next operator's phase; only the final operator is heard.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="cascading-pm-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

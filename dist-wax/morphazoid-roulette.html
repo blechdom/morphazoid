@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Preview Morphazoid Roulette, a random one-to-one video jam room for instrument players."
+    />
+    <title>Morphazoid Roulette | Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="about.css" />
+    <link rel="stylesheet" href="music-rooms.css" />
+  </head>
+  <body class="about-page music-rooms-page room-detail-page" data-room="roulette">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Morphazoid main menu"></nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="" selected>choose</option>
+        </select>
+      </label>
+    </header>
+
+    <main class="about-shell" id="morphazoidRoulette">
+      <article class="about-document">
+        <header class="about-intro music-rooms-intro">
+          <div>
+            <p class="about-kicker">Music Rooms preview · Random match</p>
+            <h1>Morphazoid Roulette</h1>
+            <p class="about-lede">
+              A one-to-one video jam inspired by the old chat-roulette format. Meet another
+              instrument player at random, make some sound, then stay or spin again.
+            </p>
+          </div>
+          <dl class="about-summary" aria-label="Morphazoid Roulette summary">
+            <div><dt>Status</dt><dd>Preview</dd></div>
+            <div><dt>Match</dt><dd>Random one-to-one</dd></div>
+            <div><dt>Chat</dt><dd>Video + audio</dd></div>
+            <div><dt>Control</dt><dd>Next or leave</dd></div>
+          </dl>
+        </header>
+
+        <section class="manual-section room-detail-section" aria-labelledby="rouletteRoomPlanTitle">
+          <div class="manual-section-heading">
+            <p class="manual-section-label">Room blueprint</p>
+            <h2 id="rouletteRoomPlanTitle">Play, pass, spin again</h2>
+            <p class="manual-section-note">
+              Public random matching will not launch before moderation and reporting work.
+            </p>
+          </div>
+
+          <div class="room-detail-content">
+            <article class="room-preview-notice">
+              <p class="music-room-status"><span aria-hidden="true"></span>Preview · Not connected</p>
+              <h3>The matching queue is offline.</h3>
+              <p>
+                A live launch requires working Next, Block, Report, and Leave controls, plus rate
+                limits, moderation, privacy guidance, and a clearly stated age policy.
+              </p>
+            </article>
+
+            <div class="room-blueprint-grid">
+              <article class="room-blueprint-card">
+                <h3>Random musical match</h3>
+                <p>Two players meet with their chosen instruments and decide whether to jam or move on.</p>
+              </article>
+              <article class="room-blueprint-card">
+                <h3>Always-visible exits</h3>
+                <p>Next player, Block, Report, and Leave remain available throughout every match.</p>
+              </article>
+              <article class="room-blueprint-card">
+                <h3>Room rules</h3>
+                <p>Keep it musical. No harassment, nudity, or hateful content. Never record without permission.</p>
+              </article>
+            </div>
+
+            <div class="room-preview-actions">
+              <button class="music-room-join" type="button" disabled>Matching unavailable · In development</button>
+              <a class="music-room-back" href="music-rooms.html">Back to Music Rooms</a>
+            </div>
+          </div>
+        </section>
+
+        <footer class="about-footer">
+          <span>Morphazoid</span>
+          <span>Morphazoid Roulette · Preview</span>
+          <span>Copyright &copy; 2026 Kristin Galvin</span>
+        </footer>
+      </article>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

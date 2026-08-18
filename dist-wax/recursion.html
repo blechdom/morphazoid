@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Recursion."
+    />
+    <title>Recursion — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="recursion.css" />
+  </head>
+  <body class="recursion-page">
+    <header class="masthead">
+      <a class="wordmark" href="#recursion" aria-label="Morphazoid Recursion">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab recursion-tab active" href="recursion.html" aria-current="page">recursion</a>
+        <a class="tab" href="julia.html">julia</a>
+        <a class="tab" href="lumber.html">lumber loops</a>
+        <a class="tab micmic-tab" href="l-mic.html">L-mic</a>
+        <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
+        <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="recursion.html" selected>recursion</option>
+          <option value="julia.html">julia</option>
+          <option value="lumber.html">lumber loops</option>
+          <option value="l-mic.html">L-mic</option>
+          <option value="graph-delay.html">graph-delay</option>
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="morphazoidical/">morphazoidical</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph recursion-audio-glyph" aria-hidden="true">↻</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">42%</output></span>
+          <input id="level" aria-label="Recursion output level" type="range" min="0" max="1" step="0.01" value="0.42" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell recursion-shell" id="recursion">
+      <section class="stage recursion-stage" aria-label="Fuzzy Donut">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Fuzzy Donut"
+            aria-describedby="liveStatus"
+          >
+            Fuzzy Donut
+          </canvas>
+
+          <div class="recursion-stage-heading">
+            <h1 id="stageTitle">Fuzzy Donut</h1>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">FUZZY DONUT · ORBIT · G7 · 0 EVENTS · OFF</span>
+          </div>
+
+          <div class="recursion-geometry-views" id="geometryViews" role="group" aria-label="Geometry view">
+            <button id="geometryOrbit" type="button" data-geometry="orbit" aria-pressed="true">ORBIT</button>
+            <button id="geometryStack" type="button" data-geometry="stack" aria-pressed="false">STACK</button>
+            <button id="geometryCausality" type="button" data-geometry="causality" aria-pressed="false">CAUSAL</button>
+          </div>
+
+          <div class="recursion-process" aria-hidden="true">
+            <span id="processKind">RECURSION</span>
+            <strong id="processLabel">G7</strong>
+            <div class="recursion-depth-rail" id="depthRail"></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel recursion-panel" aria-label="Fuzzy Donut controls">
+        <section class="recursion-seed" aria-labelledby="seedHeading">
+          <div class="recursion-section-heading">
+            <span class="field-label" id="seedHeading">Seed</span>
+            <output id="sourceReadout">NOISE</output>
+          </div>
+          <div class="recursion-source-buttons" id="sourceButtons" role="group" aria-label="Seed">
+            <button type="button" data-source="noise" aria-pressed="true"><b>Noise</b></button>
+            <button type="button" data-source="impulse" aria-pressed="false"><b>Impulse</b></button>
+            <button type="button" data-source="mic" aria-pressed="false"><b>Mic</b></button>
+            <button type="button" data-source="file" aria-pressed="false"><b>Audio</b></button>
+          </div>
+          <button class="recursion-capture-button" id="captureButton" type="button" aria-pressed="false" hidden>
+            <span class="record-glyph" aria-hidden="true"></span>
+            <span><b id="captureLabel">Capture</b><small id="captureHint">4 S · NO MONITOR</small></span>
+          </button>
+          <label class="recursion-file-input" id="fileInputLabel" for="audioFile" hidden>
+            <input id="audioFile" type="file" accept="audio/*" />
+            <span><b id="fileLabel">Audio file</b><small id="fileHint">LOCAL · NO UPLOAD</small></span>
+          </label>
+        </section>
+
+        <section class="recursion-listen" aria-label="Playback">
+          <div class="recursion-transport">
+            <button class="recursion-listen-button" id="listenButton" type="button" aria-pressed="false">
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              <span><b id="listenLabel">Play</b></span>
+            </button>
+            <button class="recursion-step-button" id="stepButton" type="button">
+              <span aria-hidden="true">↬</span><small>Turn</small>
+            </button>
+            <button class="recursion-step-button" id="restartButton" type="button">
+              <span aria-hidden="true">⊙</span><small>Center</small>
+            </button>
+          </div>
+
+          <div class="recursion-timeline" aria-label="Cycle">
+            <i id="timelineProgress"></i>
+            <span id="timelineMoment">G7 · ALL</span>
+            <output id="timelineTime">0:00 / 0:18</output>
+          </div>
+
+          <div class="recursion-clock-loop" aria-label="Dimensions">
+            <span>TIMBRE</span><i>→</i><span>PITCH</span><i>→</i><span>RHYTHM</span><i>→</i><span>PHRASE</span><i>↩</i>
+          </div>
+
+          <fieldset class="recursion-live-tree" id="liveTreeControls">
+            <legend>
+              <span>Parameters</span>
+              <output id="liveTreeState">ANCESTORS</output>
+            </legend>
+            <div class="recursion-live-grid">
+              <label for="liveTimbre">
+                <span><b id="liveTimbreLabel">Timbre</b><output id="liveTimbreOut" for="liveTimbre">64%</output></span>
+                <input id="liveTimbre" type="range" min="0" max="1" step="0.01" value="0.64" />
+              </label>
+              <label for="livePitch">
+                <span><b id="livePitchLabel">Pitch</b><output id="livePitchOut" for="livePitch">50%</output></span>
+                <input id="livePitch" type="range" min="0" max="1" step="0.01" value="0.5" />
+              </label>
+              <label for="liveRhythm">
+                <span><b id="liveRhythmLabel">Rhythm</b><output id="liveRhythmOut" for="liveRhythm">78%</output></span>
+                <input id="liveRhythm" type="range" min="0" max="1" step="0.01" value="0.78" />
+              </label>
+              <label for="livePhrase">
+                <span><b id="livePhraseLabel">Phrase</b><output id="livePhraseOut" for="livePhrase">52%</output></span>
+                <input id="livePhrase" type="range" min="0" max="1" step="0.01" value="0.52" />
+              </label>
+              <label for="liveTwist">
+                <span><b id="liveTwistLabel">Twist</b><output id="liveTwistOut" for="liveTwist">62%</output></span>
+                <input id="liveTwist" type="range" min="0" max="1" step="0.01" value="0.62" />
+              </label>
+              <label for="liveMemory">
+                <span><b id="liveMemoryLabel">Memory</b><output id="liveMemoryOut" for="liveMemory">74%</output></span>
+                <input id="liveMemory" type="range" min="0" max="1" step="0.01" value="0.74" />
+              </label>
+            </div>
+          </fieldset>
+
+          <details class="recursion-rendered-controls" id="renderedControls">
+            <summary>
+              <span class="field-label">Structure</span>
+            </summary>
+            <div class="recursion-rendered-body">
+              <label class="control" for="depth">
+                <span><b id="depthLabel">Depth</b><output id="depthOut" for="depth">7</output></span>
+                <input id="depth" type="range" min="1" max="8" step="1" value="7" />
+              </label>
+              <label class="control" for="pace">
+                <span><b>Pace</b><output id="paceOut" for="pace">3.6 s</output></span>
+                <input id="pace" type="range" min="2" max="6" step="0.1" value="3.6" />
+              </label>
+              <label class="control" for="transform">
+                <span><b id="transformLabel">Fold</b><output id="transformOut" for="transform">72%</output></span>
+                <input id="transform" type="range" min="0.08" max="0.9" step="0.01" value="0.72" />
+              </label>
+              <label class="control recursion-pressure-control" for="intensity">
+                <span><b>Pressure</b><output id="intensityOut" for="intensity">80%</output></span>
+                <input id="intensity" type="range" min="0" max="1" step="0.01" value="0.8" />
+              </label>
+            </div>
+          </details>
+
+          <div class="recursion-density-actions">
+            <button id="accumulateButton" type="button" aria-pressed="true">
+              <span aria-hidden="true">≋</span><span><b>Ancestors</b></span>
+            </button>
+            <button id="overwhelmButton" type="button">
+              <span aria-hidden="true">∴</span><span><b>Maximum</b></span>
+            </button>
+          </div>
+
+          <p class="audio-error" id="audioError" role="alert" hidden></p>
+        </section>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetStudy" type="button">Reset</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="recursion-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

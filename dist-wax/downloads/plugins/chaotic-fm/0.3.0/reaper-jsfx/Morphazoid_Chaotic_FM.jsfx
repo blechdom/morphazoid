@@ -1,0 +1,1425 @@
+desc:Morphazoid: Chaotic FM
+// @version 0.3.0
+// @author Morphazoid
+// REAPER-native port of src/chaotic-fm.js with performance contract v2 and
+// host-clock contract v1.
+
+tags:instrument synthesizer generator midi visualization
+
+slider1:preset=0<0,4,1{Feedback Nest,Slow Furnace,Glass Hive,Cut Current,Brass Moth}>-Preset
+slider2:depth=1<0,10,1>-Turns (depth)
+slider3:carrier_hz=10.5<0.01,4800,0.001:log!>-Carrier rate (Hz)
+slider4:offset_hz=0<0,4800,0.1:sqr!>-Entry offset (Hz)
+slider5:modulation_amount=350<0,4800,0.1:sqr!>-Modulation amount (Hz)
+slider6:amount_divisor=0.4<0.001,8,0.001:log!>-Amount divisor
+slider7:nonlinearity_hz=256<0.001,4000,0.001:log!>-Nonlinearity rate (Hz)
+slider8:output_level=0.42<0,0.82,0.001>-Output level
+slider9:play_mode=1<0,1,1{Drone,MIDI}>-Play mode
+slider10:root_note=60<0,127,1>-Root MIDI note (C4 = 60)
+slider11:bend_range=2<0,24,1>-Pitch-bend range (semitones)
+slider12:attack_ms=8<0,5000,0.1:sqr!>-Amp attack (ms)
+slider13:decay_ms=120<0,5000,0.1:sqr!>-Amp decay (ms)
+slider14:sustain_level=0.72<0,1,0.001>-Amp sustain
+slider15:release_ms=180<2,10000,0.1:log!>-Amp release (ms)
+slider16:glide_time_ms=0<0,2000,0.1:sqr!>-Glide time (ms)
+slider17:glide_mode=0<0,2,1{Off,Legato,Always}>-Glide mode
+slider18:expression=1<0,1,0.001>-Expression
+// Keep the legacy analysis_view variable at parameter 19 so existing REAPER
+// projects and automation envelopes retain their parameter indices.
+slider19:analysis_view=0<0,1,1{Combined,Scope focus}>-Analyzer emphasis
+// Timing parameters are append-only so the original nineteen parameter IDs
+// remain stable in existing projects and automation envelopes.
+slider20:clock_mode=0<0,1,1{Free,Sync}>-Carrier clock
+slider21:clock_division=6<0,9,1{8 bars,4 bars,2 bars,1 bar,1/2,1/4,1/8,1/16,1/32,1/64}>-Carrier division
+slider22:clock_feel=0<0,2,1{Straight,Dotted,Triplet}>-Carrier timing feel
+slider23:clock_phase_mode=0<0,3,1{Free,Song,Transport,Note}>-Carrier phase source
+slider24:clock_phase_offset=0<0,1,0.001>-Carrier phase offset (cycles)
+slider25:latch_mode=0<0,2,1{Off,Hold,Slew}>-Rhythmic latch
+slider26:latch_division=7<0,9,1{8 bars,4 bars,2 bars,1 bar,1/2,1/4,1/8,1/16,1/32,1/64}>-Latch division
+slider27:latch_smooth_ms=8<0,50,0.1:sqr!>-Latch smoothing (ms)
+
+in_pin:none
+out_pin:Left
+out_pin:Right
+
+@init
+
+ext_noinit = 1;
+gfx_clear = -1;
+
+two_pi = 2 * $pi;
+max_depth = 10;
+max_shaper_input = 64;
+safe_sample_rate = max(8000, srate);
+frequency_ceiling = min(20000, safe_sample_rate * 0.45);
+
+// JSFX has no built-in tanh. This is exact in the useful range and avoids
+// overflow after the same +/-64 input clamp used by the browser worklet.
+function tanh_safe(x) local(e) (
+  x > 20 ? 1 :
+  x < -20 ? -1 : (
+    e = exp(2 * x);
+    (e - 1) / (e + 1);
+  );
+);
+
+function ratio_from_semitones(semitones) (
+  exp(log(2) * semitones / 12);
+);
+
+function cc_log(value minimum maximum) local(normalized) (
+  normalized = min(127, max(0, value)) / 127;
+  minimum * exp(log(maximum / minimum) * normalized);
+);
+
+function cc_log_zero(value minimum_nonzero maximum) local(normalized) (
+  value <= 0 ? 0 : (
+    normalized = (min(127, max(1, value)) - 1) / 126;
+    minimum_nonzero * exp(log(maximum / minimum_nonzero) * normalized);
+  );
+);
+
+// REAPER expresses beat_position in quarter-note beats. Bar divisions honor
+// the host time signature; note divisions remain conventional quarter-note
+// fractions. Dotted and triplet feel multiply the resulting duration.
+function clock_division_beats(index beats_per_bar)
+local(base_beats) (
+  index = floor(min(9, max(0, index)) + 0.5);
+  base_beats = index == 0 ? beats_per_bar * 8 :
+    index == 1 ? beats_per_bar * 4 :
+    index == 2 ? beats_per_bar * 2 :
+    index == 3 ? beats_per_bar :
+    index == 4 ? 2 :
+    index == 5 ? 1 :
+    index == 6 ? 0.5 :
+    index == 7 ? 0.25 :
+    index == 8 ? 0.125 : 0.0625;
+  base_beats;
+);
+
+function clock_feel_multiplier(feel) (
+  feel < 0.5 ? 1 : feel < 1.5 ? 1.5 : 0.666666666666667;
+);
+
+phases = 0;
+depth_signals = 16;
+depth_gains = 32;
+held_order = 64;
+held_velocity = 192;
+key_down = 320;
+event_queue = 512;
+event_stride = 4;
+event_capacity = 2048;
+
+analysis_history = 9000;
+analysis_history_size = 4096;
+fft_window = 14000;
+fft_workspace = 17000;
+spectrum_values = 22000;
+ui_regions = 24000;
+fft_size = 2048;
+fft_bins = fft_size / 2;
+
+function clear_note_state() local(note_index) (
+  note_index = 0;
+  loop(128,
+    held_order[note_index] = 0;
+    held_velocity[note_index] = 0;
+    key_down[note_index] = 0;
+    note_index += 1;
+  );
+  note_active = 0;
+);
+
+function find_latest_physical_note()
+local(note_index order_value) (
+  found_note_order = 0;
+  found_note = current_note;
+  found_velocity = current_velocity;
+  note_index = 0;
+  loop(128,
+    order_value = key_down[note_index] ? held_order[note_index] : 0;
+    order_value > found_note_order ? (
+      found_note_order = order_value;
+      found_note = note_index;
+      found_velocity = held_velocity[note_index];
+    );
+    note_index += 1;
+  );
+  found_note_order > 0;
+);
+
+function begin_decay() (
+  envelope_value = 1;
+  envelope_start = 1;
+  envelope_target = sustain_level;
+  envelope_position = 0;
+  envelope_total_samples = max(
+    0,
+    floor(decay_ms * max(8000, srate) / 1000 + 0.5)
+  );
+  envelope_total_samples <= 0 ? (
+    envelope_value = envelope_target;
+    envelope_stage = 3;
+  ) : envelope_stage = 2;
+);
+
+function begin_attack() (
+  envelope_start = envelope_value;
+  envelope_position = 0;
+  envelope_total_samples = max(
+    0,
+    floor(attack_ms * max(8000, srate) / 1000 + 0.5)
+  );
+  envelope_total_samples <= 0 ? begin_decay() : envelope_stage = 1;
+);
+
+function begin_release() (
+  envelope_value > 0 ? (
+    envelope_start = envelope_value;
+    envelope_position = 0;
+    envelope_total_samples = max(
+      1,
+      floor(release_ms * max(8000, srate) / 1000 + 0.5)
+    );
+    envelope_stage = 4;
+  ) : (
+    envelope_value = 0;
+    envelope_stage = 0;
+  );
+);
+
+function begin_all_sound_off() (
+  clear_note_state();
+  sustain_down = 0;
+  envelope_start = envelope_value;
+  envelope_position = 0;
+  envelope_total_samples = max(
+    1,
+    floor(0.002 * max(8000, srate) + 0.5)
+  );
+  envelope_stage = 5;
+);
+
+function begin_note(new_note new_velocity was_physically_held)
+local(target_semitones effective_glide_mode should_glide) (
+  current_note = new_note;
+  current_velocity = new_velocity;
+  target_velocity_gain = min(1, max(0, new_velocity / 127));
+  target_semitones = current_note - root_note;
+
+  effective_glide_mode = midi_glide_enabled ? floor(glide_mode + 0.5) : 0;
+  should_glide = glide_initialized && (glide_time_ms > 0) && (
+    (effective_glide_mode == 2) ||
+    ((effective_glide_mode == 1) && was_physically_held)
+  );
+
+  should_glide ? (
+    glide_start_semitones = current_note_semitones;
+    glide_target_semitones = target_semitones;
+    glide_position = 0;
+    glide_total_samples = max(
+      1,
+      floor(glide_time_ms * max(8000, srate) / 1000 + 0.5)
+    );
+    glide_active = 1;
+  ) : (
+    current_note_semitones = target_semitones;
+    glide_start_semitones = target_semitones;
+    glide_target_semitones = target_semitones;
+    glide_position = 1;
+    glide_total_samples = 0;
+    glide_active = 0;
+  );
+
+  glide_initialized = 1;
+  note_active = 1;
+
+  // Note phase restarts only the tempo-locked carrier. The recursive entry
+  // and nonlinear oscillator phases remain continuous, avoiding hard resets
+  // and preserving the evolving chaotic state.
+  (clock_mode >= 0.5) && (clock_phase_mode >= 2.5) ? (
+    clock_note_beat = 0;
+    clock_latch_initialized = 0;
+  );
+);
+
+function release_sustain()
+local(note_index) (
+  sustain_down = 0;
+  note_index = 0;
+  loop(128,
+    !key_down[note_index] ? (
+      held_order[note_index] = 0;
+      held_velocity[note_index] = 0;
+    );
+    note_index += 1;
+  );
+
+  note_active && !key_down[current_note] ? (
+    find_latest_physical_note() ? (
+      begin_note(found_note, found_velocity, 1);
+    ) : (
+      note_active = 0;
+      begin_release();
+    );
+  );
+);
+
+function reset_controllers() (
+  expression = 1;
+  target_expression = 1;
+  sliderchange(expression);
+  pitch_bend_normalized = 0;
+  bend_start_semitones = current_bend_semitones;
+  target_bend_semitones = 0;
+  last_slider_bend_target = target_bend_semitones;
+  bend_position = 0;
+  bend_total_samples = max(1, floor(0.008 * max(8000, srate) + 0.5));
+  midi_glide_enabled = 1;
+  sustain_down ? release_sustain();
+);
+
+function handle_performance_midi(status_byte data_1 data_2)
+local(
+  status midi_note midi_value is_note_on is_note_off bend_value
+  pitch_bend_distance
+  had_physical_note cc_number cc_value note_index
+) (
+  status = status_byte & $xF0;
+  midi_note = data_1 & $x7F;
+  midi_value = data_2 & $x7F;
+  is_note_on = (status == $x90) && (midi_value > 0);
+  is_note_off = (status == $x80) || (
+    (status == $x90) && (midi_value == 0)
+  );
+
+  is_note_on ? (
+    had_physical_note = find_latest_physical_note();
+    note_order_counter += 1;
+    held_order[midi_note] = note_order_counter;
+    held_velocity[midi_note] = midi_value;
+    key_down[midi_note] = 1;
+    begin_note(midi_note, midi_value, had_physical_note);
+    envelope_stage == 0 || envelope_stage == 4 || envelope_stage == 5 ? (
+      begin_attack();
+    );
+  );
+
+  is_note_off ? (
+    key_down[midi_note] = 0;
+    !sustain_down ? (
+      held_order[midi_note] = 0;
+      held_velocity[midi_note] = 0;
+    );
+
+    midi_note == current_note ? (
+      find_latest_physical_note() ? (
+        begin_note(found_note, found_velocity, 1);
+      ) : sustain_down ? (
+        note_active = 1;
+      ) : (
+        note_active = 0;
+        begin_release();
+      );
+    );
+  );
+
+  status == $xE0 ? (
+    bend_value = data_1 + data_2 * 128;
+    pitch_bend_distance = bend_value - 8192;
+    pitch_bend_normalized = pitch_bend_distance < 0 ? (
+      pitch_bend_distance / 8192
+    ) : (
+      pitch_bend_distance / 8191
+    );
+    bend_start_semitones = current_bend_semitones;
+    target_bend_semitones = pitch_bend_normalized * bend_range;
+    last_slider_bend_target = target_bend_semitones;
+    bend_position = 0;
+    bend_total_samples = max(1, floor(0.008 * max(8000, srate) + 0.5));
+  );
+
+  status == $xB0 ? (
+    cc_number = data_1 & $x7F;
+    cc_value = data_2 & $x7F;
+
+    cc_number == 5 ? (
+      glide_time_ms = cc_log_zero(cc_value, 10, 2000);
+      sliderchange(glide_time_ms);
+    );
+    cc_number == 11 ? (
+      expression = cc_value / 127;
+      target_expression = expression;
+      sliderchange(expression);
+    );
+    cc_number == 64 ? (
+      cc_value >= 64 ? sustain_down = 1 : release_sustain();
+    );
+    cc_number == 65 ? (
+      midi_glide_enabled = cc_value >= 64;
+    );
+    cc_number == 72 ? (
+      release_ms = cc_log(cc_value, 2, 10000);
+      sliderchange(release_ms);
+    );
+    cc_number == 73 ? (
+      attack_ms = cc_log_zero(cc_value, 0.5, 5000);
+      sliderchange(attack_ms);
+    );
+    cc_number == 75 ? (
+      decay_ms = cc_log_zero(cc_value, 1, 5000);
+      sliderchange(decay_ms);
+    );
+    cc_number == 120 ? begin_all_sound_off();
+    cc_number == 121 ? reset_controllers();
+    cc_number == 123 ? (
+      clear_note_state();
+      sustain_down = 0;
+      begin_release();
+    );
+  );
+);
+
+i = 0;
+loop(max_depth + 2,
+  phase_fraction = i * 0.618033988749895;
+  phase_fraction -= floor(phase_fraction);
+  phases[i] = phase_fraction * two_pi;
+  i += 1;
+);
+
+i = 0;
+loop(max_depth + 1,
+  depth_signals[i] = 0;
+  depth_gains[i] = 0;
+  i += 1;
+);
+depth_gains[floor(depth + 0.5)] = 1;
+
+clear_note_state();
+
+i = 0;
+loop(fft_size,
+  fft_window[i] = 0.5 - 0.5 * cos(two_pi * i / (fft_size - 1));
+  i += 1;
+);
+i = 0;
+loop(fft_bins + 1,
+  spectrum_values[i] = -90;
+  i += 1;
+);
+
+last_preset = floor(preset + 0.5);
+target_depth = floor(depth + 0.5);
+target_carrier_hz = carrier_hz;
+target_offset_hz = offset_hz;
+target_modulation_amount = modulation_amount;
+target_amount_divisor = amount_divisor;
+target_nonlinearity_hz = nonlinearity_hz;
+target_output_level = output_level;
+target_expression = expression;
+
+current_carrier_hz = target_carrier_hz;
+current_offset_hz = target_offset_hz;
+current_modulation_amount = target_modulation_amount;
+current_amount_divisor = target_amount_divisor;
+current_nonlinearity_hz = target_nonlinearity_hz;
+current_output_level = target_output_level;
+current_expression = target_expression;
+
+note_order_counter = 0;
+current_note = root_note;
+last_root_note = root_note;
+current_velocity = 0;
+pitch_bend_normalized = 0;
+target_bend_semitones = 0;
+last_slider_bend_target = target_bend_semitones;
+current_bend_semitones = 0;
+bend_start_semitones = 0;
+bend_position = 1;
+bend_total_samples = 0;
+current_note_semitones = 0;
+glide_target_semitones = 0;
+glide_initialized = 0;
+glide_active = 0;
+midi_glide_enabled = 1;
+sustain_down = 0;
+target_velocity_gain = 0;
+current_velocity_gain = 0;
+envelope_value = 0;
+envelope_stage = 0;
+
+clock_free_beat = 0;
+clock_transport_beat = 0;
+clock_note_beat = 0;
+clock_was_playing = 0;
+clock_block_beat_position = 0;
+clock_latched_signal = 0;
+clock_latch_initialized = 0;
+
+highpass_input = 0;
+highpass_output = 0;
+soft_ceiling_scale = tanh_safe(1.45);
+analysis_write_position = 0;
+spectrum_last_position = -1;
+last_mouse_cap = 0;
+active_ui_control = -1;
+preset_apply_requested = 0;
+
+function apply_factory_preset(preset_index) (
+  preset_index == 0 ? (
+    depth = 1;
+    carrier_hz = 10.5;
+    offset_hz = 0;
+    modulation_amount = 350;
+    amount_divisor = 0.4;
+    nonlinearity_hz = 256;
+  );
+  preset_index == 1 ? (
+    depth = 4;
+    carrier_hz = 1.798;
+    offset_hz = 100;
+    modulation_amount = 4200;
+    amount_divisor = 4;
+    nonlinearity_hz = 375;
+  );
+  preset_index == 2 ? (
+    depth = 5;
+    carrier_hz = 0.129;
+    offset_hz = 637;
+    modulation_amount = 2737;
+    amount_divisor = 5.8;
+    nonlinearity_hz = 531;
+  );
+  preset_index == 3 ? (
+    depth = 2;
+    carrier_hz = 0.143;
+    offset_hz = 637;
+    modulation_amount = 4762;
+    amount_divisor = 7.611;
+    nonlinearity_hz = 1024;
+  );
+  preset_index == 4 ? (
+    depth = 1;
+    carrier_hz = 11;
+    offset_hz = 787;
+    modulation_amount = 125;
+    amount_divisor = 4.3;
+    nonlinearity_hz = 725;
+  );
+
+  sliderchange(depth);
+  sliderchange(carrier_hz);
+  sliderchange(offset_hz);
+  sliderchange(modulation_amount);
+  sliderchange(amount_divisor);
+  sliderchange(nonlinearity_hz);
+);
+
+function apply_pending_preset() (
+  selected_preset = floor(preset + 0.5);
+  (selected_preset != last_preset) || preset_apply_requested ? (
+    apply_factory_preset(selected_preset);
+    last_preset = selected_preset;
+    preset_apply_requested = 0;
+  );
+);
+
+function sync_slider_state() (
+  target_depth = floor(depth + 0.5);
+  target_carrier_hz = min(4800, max(0.01, carrier_hz));
+  target_offset_hz = min(4800, max(0, offset_hz));
+  target_modulation_amount = min(4800, max(0, modulation_amount));
+  target_amount_divisor = min(8, max(0.001, amount_divisor));
+  target_nonlinearity_hz = min(4000, max(0.001, nonlinearity_hz));
+  target_output_level = min(0.82, max(0, output_level));
+  target_expression = min(1, max(0, expression));
+  target_bend_semitones = pitch_bend_normalized * bend_range;
+
+  target_bend_semitones != last_slider_bend_target ? (
+    bend_start_semitones = current_bend_semitones;
+    bend_position = 0;
+    bend_total_samples = max(1, floor(0.008 * max(8000, srate) + 0.5));
+    last_slider_bend_target = target_bend_semitones;
+  );
+
+  root_note != last_root_note ? (
+    current_note_semitones = current_note - root_note;
+    glide_target_semitones = current_note_semitones;
+    glide_active = 0;
+    glide_total_samples = 0;
+    last_root_note = root_note;
+  );
+
+  !glide_active ? (
+    glide_target_semitones = current_note_semitones;
+  );
+);
+
+@slider
+
+apply_pending_preset();
+sync_slider_state();
+
+@block
+
+// Custom @gfx controls update slider variables directly. REAPER does not
+// guarantee that slider_automate() immediately runs @slider, so synchronize
+// the audio targets at every block boundary as well as in @slider.
+apply_pending_preset();
+sync_slider_state();
+
+safe_sample_rate = max(8000, srate);
+frequency_ceiling = min(20000, safe_sample_rate * 0.45);
+parameter_slew = 1 - exp(-1 / (safe_sample_rate * 0.028));
+performance_slew = 1 - exp(-1 / (safe_sample_rate * 0.006));
+depth_slew = 1 - exp(-1 / (safe_sample_rate * 0.018));
+phase_scale = two_pi / safe_sample_rate;
+highpass_coefficient = exp(-two_pi * 18 / safe_sample_rate);
+
+// Snapshot the host clock once per audio block, then interpolate song beats
+// sample-accurately below. play_state bit 0 is set for both play and record.
+clock_tempo = tempo > 0 ? tempo : 120;
+clock_time_signature_denominator = ts_denom > 0 ? ts_denom : 4;
+clock_beats_per_bar = ts_num > 0 ? (
+  ts_num * 4 / clock_time_signature_denominator
+) : 4;
+clock_carrier_cycle_beats = max(
+  0.0001,
+  clock_division_beats(clock_division, clock_beats_per_bar)
+    * clock_feel_multiplier(clock_feel)
+);
+clock_latch_cycle_beats = max(
+  0.0001,
+  clock_division_beats(latch_division, clock_beats_per_bar)
+    * clock_feel_multiplier(clock_feel)
+);
+clock_beat_increment = clock_tempo / (60 * safe_sample_rate);
+clock_transport_playing = (play_state & 1) == 1;
+clock_transport_started = clock_transport_playing && !clock_was_playing;
+clock_transport_started ? (
+  clock_transport_beat = 0;
+  clock_latch_initialized = 0;
+);
+clock_block_beat_position = beat_position;
+clock_was_playing = clock_transport_playing;
+clock_latch_slew = latch_smooth_ms <= 0 ? 1 : (
+  1 - exp(-1 / (safe_sample_rate * latch_smooth_ms / 1000))
+);
+
+event_count = 0;
+event_overflow = 0;
+while (midirecv(midi_offset, midi_status_byte, midi_data_1, midi_data_2)) (
+  midi_status = midi_status_byte & $xF0;
+  is_performance_event = (
+    (midi_status == $x80) ||
+    (midi_status == $x90) ||
+    (midi_status == $xE0) ||
+    (
+      (midi_status == $xB0) && (
+        (midi_data_1 == 5) ||
+        (midi_data_1 == 11) ||
+        (midi_data_1 == 64) ||
+        (midi_data_1 == 65) ||
+        (midi_data_1 == 72) ||
+        (midi_data_1 == 73) ||
+        (midi_data_1 == 75) ||
+        (midi_data_1 == 120) ||
+        (midi_data_1 == 121) ||
+        (midi_data_1 == 123)
+      )
+    )
+  );
+
+  is_performance_event ? (
+    event_count < event_capacity ? (
+      event_pointer = event_queue + event_count * event_stride;
+      event_pointer[0] = min(
+        max(0, samplesblock - 1),
+        max(0, floor(midi_offset))
+      );
+      event_pointer[1] = midi_status_byte;
+      event_pointer[2] = midi_data_1;
+      event_pointer[3] = midi_data_2;
+      event_count += 1;
+    ) : (
+      event_overflow = 1;
+    );
+  );
+
+  // Preserve the track's MIDI stream for downstream effects/instruments.
+  midisend(midi_offset, midi_status_byte, midi_data_1, midi_data_2);
+);
+
+event_index = 0;
+block_sample_index = 0;
+event_overflow ? (
+  begin_all_sound_off();
+  event_count = 0;
+);
+
+@sample
+
+while (
+  (event_index < event_count) &&
+  (event_queue[event_index * event_stride] <= block_sample_index)
+) (
+  event_pointer = event_queue + event_index * event_stride;
+  handle_performance_midi(
+    event_pointer[1],
+    event_pointer[2],
+    event_pointer[3]
+  );
+  event_index += 1;
+);
+
+current_carrier_hz += (target_carrier_hz - current_carrier_hz) * parameter_slew;
+current_offset_hz += (target_offset_hz - current_offset_hz) * parameter_slew;
+current_modulation_amount += (
+  target_modulation_amount - current_modulation_amount
+) * parameter_slew;
+current_amount_divisor += (
+  target_amount_divisor - current_amount_divisor
+) * parameter_slew;
+current_nonlinearity_hz += (
+  target_nonlinearity_hz - current_nonlinearity_hz
+) * parameter_slew;
+current_output_level += (
+  target_output_level - current_output_level
+) * parameter_slew;
+current_expression += (target_expression - current_expression) * performance_slew;
+current_velocity_gain += (
+  target_velocity_gain - current_velocity_gain
+) * performance_slew;
+bend_total_samples > 0 ? (
+  bend_position = min(1, bend_position + 1 / bend_total_samples);
+  current_bend_semitones = bend_start_semitones + (
+    target_bend_semitones - bend_start_semitones
+  ) * bend_position;
+  bend_position >= 1 ? bend_total_samples = 0;
+);
+
+glide_active ? (
+  glide_position += 1 / max(1, glide_total_samples);
+  glide_position >= 1 ? (
+    glide_position = 1;
+    glide_active = 0;
+  );
+  current_note_semitones = glide_start_semitones + (
+    glide_target_semitones - glide_start_semitones
+  ) * glide_position;
+);
+
+envelope_stage_at_sample = envelope_stage;
+
+envelope_stage_at_sample == 1 ? (
+  envelope_position = min(
+    1,
+    envelope_position + 1 / max(1, envelope_total_samples)
+  );
+  envelope_curve = 1 - (1 - envelope_position) * (1 - envelope_position);
+  envelope_value = envelope_start + (1 - envelope_start) * envelope_curve;
+  envelope_position >= 1 ? begin_decay();
+);
+
+envelope_stage_at_sample == 2 ? (
+  envelope_position = min(
+    1,
+    envelope_position + 1 / max(1, envelope_total_samples)
+  );
+  envelope_curve = (1 - envelope_position) * (1 - envelope_position);
+  envelope_value = envelope_target + (1 - envelope_target) * envelope_curve;
+  envelope_position >= 1 ? (
+    envelope_value = envelope_target;
+    envelope_stage = 3;
+  );
+);
+
+envelope_stage_at_sample == 3 ? envelope_value = sustain_level;
+
+envelope_stage_at_sample == 4 ? (
+  envelope_position = min(
+    1,
+    envelope_position + 1 / max(1, envelope_total_samples)
+  );
+  envelope_curve = (1 - envelope_position) * (1 - envelope_position);
+  envelope_value = envelope_start * envelope_curve;
+  envelope_position >= 1 ? (
+    envelope_value = 0;
+    envelope_stage = 0;
+    target_velocity_gain = 0;
+  );
+);
+
+envelope_stage_at_sample == 5 ? (
+  envelope_position = min(
+    1,
+    envelope_position + 1 / max(1, envelope_total_samples)
+  );
+  envelope_curve = (1 - envelope_position) * (1 - envelope_position);
+  envelope_value = envelope_start * envelope_curve;
+  envelope_position >= 1 ? (
+    envelope_value = 0;
+    envelope_stage = 0;
+    target_velocity_gain = 0;
+  );
+);
+
+depth_index = 0;
+loop(max_depth + 1,
+  target_depth_gain = depth_index == target_depth ? 1 : 0;
+  depth_gains[depth_index] += (
+    target_depth_gain - depth_gains[depth_index]
+  ) * depth_slew;
+  depth_index += 1;
+);
+
+safe_pitch_ratio = play_mode < 0.5 ? 1 : min(
+  8192,
+  max(0.0001, ratio_from_semitones(
+    current_note_semitones + current_bend_semitones
+  ))
+);
+carrier_frequency = min(
+  frequency_ceiling,
+  max(-frequency_ceiling, current_carrier_hz * safe_pitch_ratio)
+);
+
+clock_mode < 0.5 ? (
+  // The legacy path stays byte-for-byte equivalent in intent: Carrier is Hz,
+  // follows MIDI pitch, and advances its independent oscillator phase.
+  phases[0] += carrier_frequency * phase_scale;
+  phases[0] > two_pi ? phases[0] -= two_pi;
+  phases[0] < -two_pi ? phases[0] += two_pi;
+  carrier_signal = sin(phases[0]);
+  clock_latch_initialized = 0;
+) : (
+  // Song derives phase from REAPER's absolute project beat, making seeks,
+  // loops, and offline renders deterministic. The other sources use their
+  // own beat accumulators and reset only at the named musical event.
+  clock_song_beat = clock_block_beat_position + (
+    clock_transport_playing ? block_sample_index * clock_beat_increment : 0
+  );
+  clock_phase_mode < 0.5 ? clock_phase_beat = clock_free_beat :
+  clock_phase_mode < 1.5 ? clock_phase_beat = clock_song_beat :
+  clock_phase_mode < 2.5 ? clock_phase_beat = clock_transport_beat :
+    clock_phase_beat = clock_note_beat;
+
+  clock_carrier_cycles = (
+    clock_phase_beat / clock_carrier_cycle_beats + clock_phase_offset
+  );
+  clock_carrier_cycles -= floor(clock_carrier_cycles);
+  clock_carrier_phase = clock_carrier_cycles * two_pi;
+  phases[0] = clock_carrier_phase;
+  clock_continuous_signal = sin(clock_carrier_phase);
+
+  latch_mode < 0.5 ? (
+    carrier_signal = clock_continuous_signal;
+    clock_latch_initialized = 0;
+  ) : (
+    // The latch owns a separate division. It samples the synchronized carrier
+    // at exact grid boundaries, so unlike a same-cycle sample-and-hold it can
+    // produce changing rhythmic values across successive steps.
+    clock_latch_step = floor(clock_phase_beat / clock_latch_cycle_beats);
+    clock_latch_boundary_beat = clock_latch_step * clock_latch_cycle_beats;
+    clock_latch_cycles = (
+      clock_latch_boundary_beat / clock_carrier_cycle_beats
+        + clock_phase_offset
+    );
+    clock_latch_cycles -= floor(clock_latch_cycles);
+    clock_latch_target = sin(clock_latch_cycles * two_pi);
+
+    !clock_latch_initialized ? (
+      clock_latched_signal = clock_latch_target;
+      clock_latch_initialized = 1;
+    );
+    latch_mode < 1.5 ? (
+      clock_latched_signal = clock_latch_target;
+    ) : (
+      clock_latched_signal += (
+        clock_latch_target - clock_latched_signal
+      ) * clock_latch_slew;
+    );
+    carrier_signal = clock_latched_signal;
+  );
+);
+
+// Keep all internal musical phase sources warm so changing source is smooth.
+clock_free_beat += clock_beat_increment;
+clock_transport_playing ? clock_transport_beat += clock_beat_increment;
+clock_note_beat += clock_beat_increment;
+
+half_amount = current_modulation_amount * 0.5;
+entry_base_frequency = (
+  current_offset_hz + half_amount + carrier_signal * half_amount
+);
+entry_frequency = min(
+  frequency_ceiling,
+  max(-frequency_ceiling, entry_base_frequency * safe_pitch_ratio)
+);
+phases[1] += entry_frequency * phase_scale;
+phases[1] > two_pi ? phases[1] -= two_pi;
+phases[1] < -two_pi ? phases[1] += two_pi;
+previous_signal = sin(phases[1]);
+depth_signals[0] = previous_signal;
+recursive_amount = half_amount;
+
+depth_index = 1;
+loop(max_depth,
+  shaped_input = min(
+    max_shaper_input,
+    max(-max_shaper_input, previous_signal * recursive_amount)
+  );
+  recursive_base_frequency = current_nonlinearity_hz * tanh_safe(shaped_input);
+  recursive_frequency = min(
+    frequency_ceiling,
+    max(-frequency_ceiling, recursive_base_frequency * safe_pitch_ratio)
+  );
+  phases[depth_index + 1] += recursive_frequency * phase_scale;
+  phases[depth_index + 1] > two_pi ? phases[depth_index + 1] -= two_pi;
+  phases[depth_index + 1] < -two_pi ? phases[depth_index + 1] += two_pi;
+  previous_signal = sin(phases[depth_index + 1]);
+  depth_signals[depth_index] = previous_signal;
+  recursive_amount = min(
+    1000000000000,
+    max(0, recursive_amount / max(0.001, current_amount_divisor))
+  );
+  depth_index += 1;
+);
+
+mixed_signal = 0;
+depth_index = 0;
+loop(max_depth + 1,
+  mixed_signal += depth_signals[depth_index] * depth_gains[depth_index];
+  depth_index += 1;
+);
+
+performance_gain = play_mode < 0.5 ? 1 : (
+  envelope_value * current_velocity_gain * current_expression
+);
+raw_sample = mixed_signal * performance_gain * 0.5;
+protected_sample = highpass_coefficient * (
+  highpass_output + raw_sample - highpass_input
+);
+highpass_input = raw_sample;
+highpass_output = protected_sample;
+protected_sample = tanh_safe(protected_sample * 1.45) / soft_ceiling_scale * 0.91;
+output_sample = protected_sample * current_output_level;
+
+spl0 = output_sample;
+spl1 = output_sample;
+analysis_history[analysis_write_position] = output_sample;
+analysis_write_position += 1;
+analysis_write_position >= analysis_history_size ? analysis_write_position = 0;
+block_sample_index += 1;
+
+@gfx 920 760
+
+// The audio thread only copies one final-output sample into the fixed ring
+// above. Windowing, FFT, smoothing, and all drawing happen at UI rate here.
+analysis_write_position != spectrum_last_position ? (
+  history_position = analysis_write_position - fft_size;
+  history_position < 0 ? history_position += analysis_history_size;
+  fft_index = 0;
+  loop(fft_size,
+    fft_workspace[fft_index * 2] = (
+      analysis_history[history_position] * fft_window[fft_index]
+    );
+    fft_workspace[fft_index * 2 + 1] = 0;
+    history_position += 1;
+    history_position >= analysis_history_size ? history_position = 0;
+    fft_index += 1;
+  );
+  fft(fft_workspace, fft_size);
+  fft_permute(fft_workspace, fft_size);
+
+  fft_index = 0;
+  loop(fft_bins + 1,
+    fft_real_value = fft_workspace[fft_index * 2];
+    fft_imag_value = fft_workspace[fft_index * 2 + 1];
+    fft_magnitude = sqrt(
+      fft_real_value * fft_real_value + fft_imag_value * fft_imag_value
+    ) * 4 / fft_size;
+    fft_db = 20 * log(max(0.000031622776602, fft_magnitude)) / log(10);
+    fft_db = min(0, max(-90, fft_db));
+    spectrum_attack = fft_db > spectrum_values[fft_index] ? 0.72 : 0.18;
+    spectrum_values[fft_index] += (
+      fft_db - spectrum_values[fft_index]
+    ) * spectrum_attack;
+    fft_index += 1;
+  );
+  spectrum_last_position = analysis_write_position;
+);
+
+function set_color(red green blue alpha) (
+  gfx_r = red;
+  gfx_g = green;
+  gfx_b = blue;
+  gfx_a = alpha;
+);
+
+function inside_rect(px py x y width height) (
+  (px >= x) && (px < x + width) && (py >= y) && (py < y + height);
+);
+
+function draw_parameter(id x y width normalized label value_text)
+local(region fill_width) (
+  region = ui_regions + id * 4;
+  region[0] = x;
+  region[1] = y;
+  region[2] = width;
+  region[3] = 30;
+  normalized = min(1, max(0, normalized));
+
+  set_color(0.055, 0.067, 0.082, 1);
+  gfx_rect(x, y + 18, width, 5);
+  fill_width = max(2, width * normalized);
+  set_color(0.20, 0.92, 0.72, 1);
+  gfx_rect(x, y + 18, fill_width, 5);
+  set_color(0.72, 0.77, 0.82, 1);
+  gfx_x = x;
+  gfx_y = y;
+  gfx_drawstr(label);
+  set_color(0.96, 0.72, 0.31, 1);
+  // Reserve enough right-aligned space for labels such as TRANSPORT,
+  // STRAIGHT, and SCOPE FOCUS without clipping their leading characters.
+  gfx_x = x + width - 104;
+  gfx_y = y;
+  gfx_drawstr(value_text, 2, x + width, y + 15);
+);
+
+function draw_section_label(x y label) (
+  set_color(0.42, 0.48, 0.55, 1);
+  gfx_x = x;
+  gfx_y = y;
+  gfx_drawstr(label);
+);
+
+function draw_frequency_grid(frequency label left top width height maximum_frequency)
+local(x_position) (
+  frequency <= maximum_frequency ? (
+    x_position = left + log(frequency / 20) / log(maximum_frequency / 20) * width;
+    set_color(0.17, 0.20, 0.24, 0.65);
+    gfx_line(x_position, top, x_position, top + height);
+    set_color(0.43, 0.48, 0.54, 1);
+    gfx_x = x_position + 3;
+    gfx_y = top + height - 17;
+    gfx_drawstr(label);
+  );
+);
+
+gfx_setfont(1, "Arial", 14);
+set_color(0.025, 0.031, 0.041, 1);
+gfx_rect(0, 0, gfx_w, gfx_h);
+
+set_color(0.92, 0.95, 0.97, 1);
+gfx_setfont(2, "Arial", 23, 'b');
+gfx_x = 24;
+gfx_y = 16;
+gfx_drawstr("MORPHAZOID / CHAOTIC FM");
+gfx_setfont(1, "Arial", 14);
+set_color(0.20, 0.92, 0.72, 1);
+gfx_x = gfx_w - 170;
+gfx_y = 22;
+play_mode < 0.5 ? gfx_drawstr("DRONE") : note_active ? (
+  gfx_drawstr(sprintf(#ui_status, "MIDI  NOTE %d", current_note));
+) : gfx_drawstr("MIDI  READY");
+
+// Five preset tabs are direct host parameters, not private UI state.
+preset_width = min(150, (gfx_w - 48) / 5 - 6);
+preset_x = 24;
+preset_index = 0;
+loop(5,
+  preset_region = ui_regions + (20 + preset_index) * 4;
+  preset_region[0] = preset_x;
+  preset_region[1] = 52;
+  preset_region[2] = preset_width;
+  preset_region[3] = 27;
+  preset_index == floor(preset + 0.5) ? (
+    set_color(0.20, 0.92, 0.72, 0.22);
+    gfx_rect(preset_x, 52, preset_width, 27);
+    set_color(0.20, 0.92, 0.72, 1);
+  ) : set_color(0.38, 0.43, 0.49, 1);
+  gfx_x = preset_x + 8;
+  gfx_y = 58;
+  preset_index == 0 ? gfx_drawstr("FEEDBACK NEST");
+  preset_index == 1 ? gfx_drawstr("SLOW FURNACE");
+  preset_index == 2 ? gfx_drawstr("GLASS HIVE");
+  preset_index == 3 ? gfx_drawstr("CUT CURRENT");
+  preset_index == 4 ? gfx_drawstr("BRASS MOTH");
+  preset_x += preset_width + 6;
+  preset_index += 1;
+);
+
+analyzer_left = 24;
+analyzer_top = 91;
+analyzer_width = max(200, gfx_w - 48);
+analyzer_height = max(145, min(270, gfx_h - 350));
+set_color(0.035, 0.044, 0.058, 1);
+gfx_rect(analyzer_left, analyzer_top, analyzer_width, analyzer_height);
+
+// Draw the spectrum and scope together. The spectrum is deliberately a set of
+// discrete log-frequency rectangles instead of a connected terrain outline.
+display_maximum_frequency = min(20000, safe_sample_rate * 0.5);
+draw_frequency_grid(20, "20", analyzer_left, analyzer_top, analyzer_width, analyzer_height, display_maximum_frequency);
+draw_frequency_grid(50, "50", analyzer_left, analyzer_top, analyzer_width, analyzer_height, display_maximum_frequency);
+draw_frequency_grid(100, "100", analyzer_left, analyzer_top, analyzer_width, analyzer_height, display_maximum_frequency);
+draw_frequency_grid(200, "200", analyzer_left, analyzer_top, analyzer_width, analyzer_height, display_maximum_frequency);
+draw_frequency_grid(500, "500", analyzer_left, analyzer_top, analyzer_width, analyzer_height, display_maximum_frequency);
+draw_frequency_grid(1000, "1k", analyzer_left, analyzer_top, analyzer_width, analyzer_height, display_maximum_frequency);
+draw_frequency_grid(2000, "2k", analyzer_left, analyzer_top, analyzer_width, analyzer_height, display_maximum_frequency);
+draw_frequency_grid(5000, "5k", analyzer_left, analyzer_top, analyzer_width, analyzer_height, display_maximum_frequency);
+draw_frequency_grid(10000, "10k", analyzer_left, analyzer_top, analyzer_width, analyzer_height, display_maximum_frequency);
+draw_frequency_grid(20000, "20k", analyzer_left, analyzer_top, analyzer_width, analyzer_height, display_maximum_frequency);
+
+analyzer_plot_height = analyzer_height - 20;
+analyzer_baseline = analyzer_top + analyzer_plot_height;
+db_grid = -90;
+loop(7,
+  grid_y = analyzer_top + (-db_grid / 90) * analyzer_plot_height;
+  set_color(0.17, 0.20, 0.24, 0.55);
+  gfx_line(analyzer_left, grid_y, analyzer_left + analyzer_width, grid_y);
+  set_color(0.38, 0.43, 0.49, 1);
+  gfx_x = analyzer_left + 5;
+  gfx_y = grid_y - 14;
+  gfx_drawstr(sprintf(#db_label, "%d", db_grid));
+  db_grid += 15;
+);
+
+// The old Spectrum/Scope parameter now selects emphasis without hiding either
+// analyzer: Scope focus dims the background bars. Drawing the bars first keeps
+// them visibly behind the scope trace.
+spectrum_bar_count = 56;
+spectrum_bar_cell_width = analyzer_width / spectrum_bar_count;
+spectrum_bar_gap = max(1, floor(spectrum_bar_cell_width * 0.22));
+spectrum_bar_width = max(2, spectrum_bar_cell_width - spectrum_bar_gap);
+spectrum_bar_alpha = analysis_view < 0.5 ? 0.30 : 0.13;
+spectrum_cap_alpha = analysis_view < 0.5 ? 0.78 : 0.38;
+spectrum_bar_index = 0;
+loop(spectrum_bar_count,
+  spectrum_log_span = log(display_maximum_frequency / 20);
+  spectrum_low_frequency = 20 * exp(
+    spectrum_log_span * spectrum_bar_index / spectrum_bar_count
+  );
+  spectrum_high_frequency = 20 * exp(
+    spectrum_log_span * (spectrum_bar_index + 1) / spectrum_bar_count
+  );
+  spectrum_center_frequency = 20 * exp(
+    spectrum_log_span * (spectrum_bar_index + 0.5) / spectrum_bar_count
+  );
+  spectrum_first_bin = max(
+    0,
+    ceil(spectrum_low_frequency * fft_size / safe_sample_rate)
+  );
+  spectrum_last_bin = min(
+    fft_bins,
+    floor(spectrum_high_frequency * fft_size / safe_sample_rate)
+  );
+
+  // Narrow log bands below the FFT's bin resolution may contain no bin
+  // center. In that case, use the nearest bin to the band's log center.
+  spectrum_first_bin > spectrum_last_bin ? (
+    spectrum_nearest_bin = min(
+      fft_bins,
+      max(0, floor(
+        spectrum_center_frequency * fft_size / safe_sample_rate + 0.5
+      ))
+    );
+    spectrum_first_bin = spectrum_nearest_bin;
+    spectrum_last_bin = spectrum_nearest_bin;
+  );
+
+  // A bar represents the strongest current component anywhere in its whole
+  // frequency band, so a narrow peak cannot fall between display samples.
+  spectrum_db = -90;
+  spectrum_band_bin = spectrum_first_bin;
+  loop(spectrum_last_bin - spectrum_first_bin + 1,
+    spectrum_db = max(spectrum_db, spectrum_values[spectrum_band_bin]);
+    spectrum_band_bin += 1;
+  );
+  spectrum_bar_height = max(
+    0,
+    (spectrum_db + 90) / 90 * analyzer_plot_height
+  );
+  spectrum_bar_x = analyzer_left + spectrum_bar_index * spectrum_bar_cell_width
+    + spectrum_bar_gap * 0.5;
+  spectrum_bar_y = analyzer_baseline - spectrum_bar_height;
+
+  set_color(0.12, 0.70, 0.58, spectrum_bar_alpha);
+  gfx_rect(
+    spectrum_bar_x,
+    spectrum_bar_y,
+    spectrum_bar_width,
+    spectrum_bar_height
+  );
+  spectrum_bar_height > 1 ? (
+    set_color(0.28, 0.96, 0.76, spectrum_cap_alpha);
+    gfx_rect(spectrum_bar_x, spectrum_bar_y, spectrum_bar_width, 2);
+  );
+  spectrum_bar_index += 1;
+);
+
+// The bright amber scope is drawn last so it always sits in front of the
+// spectrum bars. Two translucent offset strokes give the trace separation
+// without obscuring the frequency display behind it.
+set_color(0.31, 0.27, 0.19, 0.72);
+center_y = analyzer_top + analyzer_plot_height * 0.5;
+gfx_line(analyzer_left, center_y, analyzer_left + analyzer_width, center_y);
+scope_x = 0;
+scope_samples = min(2048, analysis_history_size);
+scope_position = analysis_write_position - scope_samples;
+scope_position < 0 ? scope_position += analysis_history_size;
+loop(analyzer_width,
+  scope_sample_index = floor(scope_x / analyzer_width * (scope_samples - 1));
+  scope_read_position = scope_position + scope_sample_index;
+  scope_read_position >= analysis_history_size ? (
+    scope_read_position -= analysis_history_size;
+  );
+  scope_y = center_y - analysis_history[scope_read_position] * analyzer_plot_height * 0.44;
+  scope_y = min(analyzer_baseline, max(analyzer_top, scope_y));
+  scope_x > 0 ? (
+    scope_screen_x = analyzer_left + scope_x;
+    set_color(0.96, 0.56, 0.18, 0.34);
+    gfx_line(
+      scope_screen_x - 1,
+      scope_previous_y - 1,
+      scope_screen_x,
+      scope_y - 1,
+      1
+    );
+    gfx_line(
+      scope_screen_x - 1,
+      scope_previous_y + 1,
+      scope_screen_x,
+      scope_y + 1,
+      1
+    );
+    set_color(1.00, 0.82, 0.38, 1);
+    gfx_line(
+      scope_screen_x - 1,
+      scope_previous_y,
+      scope_screen_x,
+      scope_y,
+      1
+    );
+  );
+  scope_previous_y = scope_y;
+  scope_x += 1;
+);
+
+set_color(0.72, 0.77, 0.82, 0.78);
+gfx_x = analyzer_left + analyzer_width - 151;
+gfx_y = analyzer_top + 7;
+gfx_drawstr("SPECTRUM + SCOPE");
+
+control_top = analyzer_top + analyzer_height + 34;
+column_gap = 28;
+column_width = max(180, (gfx_w - 48 - column_gap * 2) / 3);
+column_a = 24;
+column_b = column_a + column_width + column_gap;
+column_c = column_b + column_width + column_gap;
+row_height = 34;
+
+draw_section_label(column_a, control_top - 20, "ALGORITHM");
+draw_section_label(column_b, control_top - 20, "PERFORMANCE");
+draw_section_label(column_c, control_top - 20, "ENVELOPE / DISPLAY");
+
+draw_parameter(1, column_a, control_top, column_width, depth / 10, "TURNS", sprintf(#ui_value, "%d", floor(depth + 0.5)));
+draw_parameter(2, column_a, control_top + row_height, column_width, log(carrier_hz / 0.01) / log(4800 / 0.01), "CARRIER", sprintf(#ui_value, "%.2f Hz", carrier_hz));
+draw_parameter(3, column_a, control_top + row_height * 2, column_width, sqrt(offset_hz / 4800), "OFFSET", sprintf(#ui_value, "%.1f Hz", offset_hz));
+draw_parameter(4, column_a, control_top + row_height * 3, column_width, sqrt(modulation_amount / 4800), "MOD AMOUNT", sprintf(#ui_value, "%.1f Hz", modulation_amount));
+draw_parameter(5, column_a, control_top + row_height * 4, column_width, log(amount_divisor / 0.001) / log(8 / 0.001), "DIVISOR", sprintf(#ui_value, "%.3f", amount_divisor));
+draw_parameter(6, column_a, control_top + row_height * 5, column_width, log(nonlinearity_hz / 0.001) / log(4000 / 0.001), "NONLINEAR", sprintf(#ui_value, "%.1f Hz", nonlinearity_hz));
+
+draw_parameter(7, column_b, control_top, column_width, output_level / 0.82, "OUTPUT", sprintf(#ui_value, "%.3f", output_level));
+draw_parameter(8, column_b, control_top + row_height, column_width, play_mode, "PLAY MODE", play_mode < 0.5 ? "DRONE" : "MIDI");
+draw_parameter(9, column_b, control_top + row_height * 2, column_width, root_note / 127, "ROOT NOTE", sprintf(#ui_value, "%d", floor(root_note + 0.5)));
+draw_parameter(10, column_b, control_top + row_height * 3, column_width, bend_range / 24, "BEND RANGE", sprintf(#ui_value, "%d st", floor(bend_range + 0.5)));
+draw_parameter(11, column_b, control_top + row_height * 4, column_width, glide_mode / 2, "GLIDE MODE", glide_mode < 0.5 ? "OFF" : glide_mode < 1.5 ? "LEGATO" : "ALWAYS");
+draw_parameter(12, column_b, control_top + row_height * 5, column_width, sqrt(glide_time_ms / 2000), "GLIDE", sprintf(#ui_value, "%.1f ms", glide_time_ms));
+
+draw_parameter(13, column_c, control_top, column_width, sqrt(attack_ms / 5000), "ATTACK", sprintf(#ui_value, "%.1f ms", attack_ms));
+draw_parameter(14, column_c, control_top + row_height, column_width, sqrt(decay_ms / 5000), "DECAY", sprintf(#ui_value, "%.1f ms", decay_ms));
+draw_parameter(15, column_c, control_top + row_height * 2, column_width, sustain_level, "SUSTAIN", sprintf(#ui_value, "%.3f", sustain_level));
+draw_parameter(16, column_c, control_top + row_height * 3, column_width, sqrt((release_ms - 2) / 9998), "RELEASE", sprintf(#ui_value, "%.1f ms", release_ms));
+draw_parameter(17, column_c, control_top + row_height * 4, column_width, expression, "EXPRESSION", sprintf(#ui_value, "%.3f", expression));
+draw_parameter(18, column_c, control_top + row_height * 5, column_width, analysis_view, "ANALYZER", analysis_view < 0.5 ? "COMBINED" : "SCOPE FOCUS");
+
+clock_control_top = control_top + row_height * 6 + 29;
+clock_column_gap = 18;
+clock_column_width = max(
+  155,
+  (gfx_w - 48 - clock_column_gap * 3) / 4
+);
+clock_column_a = 24;
+clock_column_b = clock_column_a + clock_column_width + clock_column_gap;
+clock_column_c = clock_column_b + clock_column_width + clock_column_gap;
+clock_column_d = clock_column_c + clock_column_width + clock_column_gap;
+
+draw_section_label(
+  clock_column_a,
+  clock_control_top - 20,
+  sprintf(#clock_section, "HOST CLOCK / %.1f BPM", clock_tempo)
+);
+draw_parameter(25, clock_column_a, clock_control_top, clock_column_width, clock_mode, "CLOCK", clock_mode < 0.5 ? "FREE" : "SYNC");
+draw_parameter(26, clock_column_b, clock_control_top, clock_column_width, clock_division / 9, "CARRIER GRID", clock_division < 0.5 ? "8 BAR" : clock_division < 1.5 ? "4 BAR" : clock_division < 2.5 ? "2 BAR" : clock_division < 3.5 ? "1 BAR" : clock_division < 4.5 ? "1/2" : clock_division < 5.5 ? "1/4" : clock_division < 6.5 ? "1/8" : clock_division < 7.5 ? "1/16" : clock_division < 8.5 ? "1/32" : "1/64");
+draw_parameter(27, clock_column_c, clock_control_top, clock_column_width, clock_feel / 2, "FEEL", clock_feel < 0.5 ? "STRAIGHT" : clock_feel < 1.5 ? "DOTTED" : "TRIPLET");
+draw_parameter(28, clock_column_d, clock_control_top, clock_column_width, clock_phase_mode / 3, "PHASE", clock_phase_mode < 0.5 ? "FREE" : clock_phase_mode < 1.5 ? "SONG" : clock_phase_mode < 2.5 ? "TRANSPORT" : "NOTE");
+
+draw_parameter(29, clock_column_a, clock_control_top + row_height, clock_column_width, clock_phase_offset, "PHASE OFFSET", sprintf(#ui_value, "%.3f cyc", clock_phase_offset));
+draw_parameter(30, clock_column_b, clock_control_top + row_height, clock_column_width, latch_mode / 2, "LATCH", latch_mode < 0.5 ? "OFF" : latch_mode < 1.5 ? "HOLD" : "SLEW");
+draw_parameter(31, clock_column_c, clock_control_top + row_height, clock_column_width, latch_division / 9, "LATCH GRID", latch_division < 0.5 ? "8 BAR" : latch_division < 1.5 ? "4 BAR" : latch_division < 2.5 ? "2 BAR" : latch_division < 3.5 ? "1 BAR" : latch_division < 4.5 ? "1/2" : latch_division < 5.5 ? "1/4" : latch_division < 6.5 ? "1/8" : latch_division < 7.5 ? "1/16" : latch_division < 8.5 ? "1/32" : "1/64");
+draw_parameter(32, clock_column_d, clock_control_top + row_height, clock_column_width, sqrt(latch_smooth_ms / 50), "LATCH SMOOTH", sprintf(#ui_value, "%.1f ms", latch_smooth_ms));
+
+gfx_getchar();
+mouse_pressed = (mouse_cap & 1) && !(last_mouse_cap & 1);
+mouse_released = !(mouse_cap & 1) && (last_mouse_cap & 1);
+
+mouse_pressed ? (
+  active_ui_control = -1;
+  hit_index = 0;
+  loop(33,
+    hit_region = ui_regions + hit_index * 4;
+    inside_rect(
+      mouse_x,
+      mouse_y,
+      hit_region[0],
+      hit_region[1],
+      hit_region[2],
+      hit_region[3]
+    ) ? active_ui_control = hit_index;
+    hit_index += 1;
+  );
+
+  (active_ui_control >= 20) && (active_ui_control <= 24) ? (
+    preset = active_ui_control - 20;
+    preset_apply_requested = 1;
+    slider_automate(preset);
+    active_ui_control = -1;
+  );
+  active_ui_control == 8 ? (
+    play_mode = play_mode < 0.5 ? 1 : 0;
+    slider_automate(play_mode);
+    active_ui_control = -1;
+  );
+  active_ui_control == 11 ? (
+    glide_mode = floor(glide_mode + 1.5) % 3;
+    slider_automate(glide_mode);
+    active_ui_control = -1;
+  );
+  active_ui_control == 18 ? (
+    analysis_view = analysis_view < 0.5 ? 1 : 0;
+    slider_automate(analysis_view);
+    active_ui_control = -1;
+  );
+  active_ui_control == 25 ? (
+    clock_mode = clock_mode < 0.5 ? 1 : 0;
+    slider_automate(clock_mode);
+    active_ui_control = -1;
+  );
+  active_ui_control == 26 ? (
+    clock_division = floor(clock_division + 1.5) % 10;
+    slider_automate(clock_division);
+    active_ui_control = -1;
+  );
+  active_ui_control == 27 ? (
+    clock_feel = floor(clock_feel + 1.5) % 3;
+    slider_automate(clock_feel);
+    active_ui_control = -1;
+  );
+  active_ui_control == 28 ? (
+    clock_phase_mode = floor(clock_phase_mode + 1.5) % 4;
+    slider_automate(clock_phase_mode);
+    active_ui_control = -1;
+  );
+  active_ui_control == 30 ? (
+    latch_mode = floor(latch_mode + 1.5) % 3;
+    slider_automate(latch_mode);
+    active_ui_control = -1;
+  );
+  active_ui_control == 31 ? (
+    latch_division = floor(latch_division + 1.5) % 10;
+    slider_automate(latch_division);
+    active_ui_control = -1;
+  );
+);
+
+(mouse_cap & 1) && (active_ui_control >= 1) ? (
+  active_region = ui_regions + active_ui_control * 4;
+  ui_normalized = min(1, max(0, (
+    mouse_x - active_region[0]
+  ) / max(1, active_region[2])));
+
+  active_ui_control == 1 ? (
+    depth = floor(ui_normalized * 10 + 0.5);
+    slider_automate(depth);
+  );
+  active_ui_control == 2 ? (
+    carrier_hz = 0.01 * exp(log(4800 / 0.01) * ui_normalized);
+    slider_automate(carrier_hz);
+  );
+  active_ui_control == 3 ? (
+    offset_hz = ui_normalized * ui_normalized * 4800;
+    slider_automate(offset_hz);
+  );
+  active_ui_control == 4 ? (
+    modulation_amount = ui_normalized * ui_normalized * 4800;
+    slider_automate(modulation_amount);
+  );
+  active_ui_control == 5 ? (
+    amount_divisor = 0.001 * exp(log(8 / 0.001) * ui_normalized);
+    slider_automate(amount_divisor);
+  );
+  active_ui_control == 6 ? (
+    nonlinearity_hz = 0.001 * exp(log(4000 / 0.001) * ui_normalized);
+    slider_automate(nonlinearity_hz);
+  );
+  active_ui_control == 7 ? (
+    output_level = ui_normalized * 0.82;
+    slider_automate(output_level);
+  );
+  active_ui_control == 9 ? (
+    root_note = floor(ui_normalized * 127 + 0.5);
+    slider_automate(root_note);
+  );
+  active_ui_control == 10 ? (
+    bend_range = floor(ui_normalized * 24 + 0.5);
+    slider_automate(bend_range);
+  );
+  active_ui_control == 12 ? (
+    glide_time_ms = ui_normalized * ui_normalized * 2000;
+    slider_automate(glide_time_ms);
+  );
+  active_ui_control == 13 ? (
+    attack_ms = ui_normalized * ui_normalized * 5000;
+    slider_automate(attack_ms);
+  );
+  active_ui_control == 14 ? (
+    decay_ms = ui_normalized * ui_normalized * 5000;
+    slider_automate(decay_ms);
+  );
+  active_ui_control == 15 ? (
+    sustain_level = ui_normalized;
+    slider_automate(sustain_level);
+  );
+  active_ui_control == 16 ? (
+    release_ms = 2 + ui_normalized * ui_normalized * 9998;
+    slider_automate(release_ms);
+  );
+  active_ui_control == 17 ? (
+    expression = ui_normalized;
+    slider_automate(expression);
+  );
+  active_ui_control == 29 ? (
+    clock_phase_offset = ui_normalized;
+    slider_automate(clock_phase_offset);
+  );
+  active_ui_control == 32 ? (
+    latch_smooth_ms = ui_normalized * ui_normalized * 50;
+    slider_automate(latch_smooth_ms);
+  );
+);
+
+mouse_released ? active_ui_control = -1;
+last_mouse_cap = mouse_cap;

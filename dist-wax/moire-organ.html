@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid RISSET-MOIRE - counter-moving Shepard glissandi drawn as their audible spectral lines."
+    />
+    <title>RISSET-MOIRE - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="experiments.css" />
+  </head>
+  <body class="experiment-page" data-experiment="moire">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active" href="moire-organ.html" aria-current="page">RISSET-MOIRE</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="moire-organ.html" selected>RISSET-MOIRE</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">46%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.46" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell experiment-shell" id="moireOrgan">
+      <section class="stage" aria-label="RISSET-MOIRE stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Green rising and pink falling Shepard voices cross as audible moire lines."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Counter-moving Shepard voice lines create a moire field.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">RISSET-MOIRE · GREEN +0.18 · PINK -0.18 OCT/S · AUDIO OFF</span>
+          </div>
+          <div class="experiment-title" aria-hidden="true">
+            <h1>RISSET-MOIRE</h1>
+            <small id="stageCaption">counter-moving Shepard lattice</small>
+          </div>
+        </div>
+        <p class="sr-only" id="canvasInstructions">Each line is one Shepard oscillator. Its angle sets its glissando speed. Green lines rise, pink lines fall, and white crossings increase in level with overlap emphasis.</p>
+        <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+      </section>
+
+      <aside class="panel experiment-panel" aria-label="RISSET-MOIRE controls">
+        <section class="group experiment-card" aria-labelledby="experimentTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="experimentTitle">Experiment</h2>
+            <span class="section-state" id="experimentSummary">psychoacoustics · interference</span>
+          </div>
+          <dl class="experiment-meter-grid">
+            <div><dt>Oscillator lines</dt><dd id="metricPrimary">16</dd></div>
+            <div><dt>Frequency range</dt><dd id="metricSecondary">29–3712 Hz</dd></div>
+          </dl>
+        </section>
+
+        <section class="group control-section" aria-labelledby="moirePatternTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="moirePatternTitle">Pattern</h2>
+            <span class="section-state" id="patternSummary">8+8 · 1 pair</span>
+          </div>
+          <div class="group-body">
+            <label class="control" for="moireInterval">
+              <span><b>Voice interval</b><output id="moireIntervalOut" for="moireInterval">1 oct · 2×</output></span>
+              <input id="moireInterval" type="range" min="0.1" max="2" step="0.01" value="1" />
+            </label>
+            <label class="control" for="moireVoices">
+              <span><b>Voices per lattice</b><output id="moireVoicesOut" for="moireVoices">8 voices</output></span>
+              <input id="moireVoices" type="range" min="4" max="12" step="1" value="8" />
+            </label>
+            <label class="control" for="moireUpAngle">
+              <span><b>Rising angle</b><output id="moireUpAngleOut" for="moireUpAngle">4 deg · 0.18 oct/s</output></span>
+              <input id="moireUpAngle" type="range" min="0" max="30" step="0.1" value="4" />
+            </label>
+            <label class="control" for="moireDownAngle">
+              <span><b>Falling angle</b><output id="moireDownAngleOut" for="moireDownAngle">4 deg · 0.18 oct/s</output></span>
+              <input id="moireDownAngle" type="range" min="0" max="30" step="0.1" value="4" />
+            </label>
+            <label class="experiment-toggle" for="moireSecondPair">
+              <span><b>Second lattice pair</b><small id="moireSecondPairState">two lattices</small></span>
+              <input id="moireSecondPair" type="checkbox" />
+            </label>
+            <label class="control is-disabled" for="moireLayerOffset">
+              <span><b>Pair offset</b><output id="moireLayerOffsetOut" for="moireLayerOffset">0.6 intervals</output></span>
+              <input id="moireLayerOffset" type="range" min="0" max="4" step="0.01" value="0.6" disabled />
+            </label>
+          </div>
+        </section>
+
+        <section class="group control-section" aria-labelledby="moireSoundTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="moireSoundTitle">Sound</h2>
+            <span class="section-state">overlap · register</span>
+          </div>
+          <div class="group-body">
+            <label class="control" for="moireOverlap">
+              <span><b>Overlap emphasis</b><output id="moireOverlapOut" for="moireOverlap">65%</output></span>
+              <input id="moireOverlap" type="range" min="0" max="2" step="0.01" value="0.65" />
+            </label>
+            <label class="control" for="moireTone">
+              <span><b>Tone center</b><output id="moireToneOut" for="moireTone">164 Hz</output></span>
+              <input id="moireTone" type="range" min="55" max="440" step="1" value="164" />
+            </label>
+          </div>
+        </section>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="experiments-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

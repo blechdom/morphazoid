@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#090a09" />
+    <meta
+      name="description"
+      content="Morphazoid Escher — interactive studies in counterchange, wallpaper symmetry, similarity recursion, and hyperbolic tiling."
+    />
+    <title>Escher — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="escher-tessellation.css" />
+  </head>
+  <body class="escher-tessellation-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active" href="escher-tessellation.html" aria-current="page">escher</a>
+        <a class="tab" href="order-tones.html">order tones</a>
+        <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
+        <a class="tab" href="bell-square.html">bell square</a>
+        <a class="tab" href="annealogue.html">annealogue</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="escher-tessellation.html" selected>escher</option>
+          <option value="order-tones.html">order tones</option>
+          <option value="morphazoidical/">morphazoidical</option>
+          <option value="bell-square.html">bell square</option>
+          <option value="annealogue.html">annealogue</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◇</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">42%</output></span>
+          <input id="level" aria-label="Escher output level" type="range" min="0" max="0.82" step="0.01" value="0.42" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell escher-tessellation-shell" id="escherTessellation">
+      <section class="stage escher-tessellation-stage" aria-labelledby="escherTessellationTitle">
+        <div class="stage-wrap escher-tessellation-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-keyshortcuts="Enter Space ArrowLeft ArrowRight ArrowUp ArrowDown G = - Home Escape"
+            aria-label="An original procedural tessellation. Tap a shape to select its real contour for playback."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Interactive plane and hyperbolic tessellation studies.
+          </canvas>
+
+          <div class="escher-view-controls" role="group" aria-label="Escher view">
+            <button id="zoomOutButton" type="button" aria-label="Zoom out">−</button>
+            <button id="resetViewButton" type="button" aria-label="Reset pan and zoom">1:1</button>
+            <button id="zoomInButton" type="button" aria-label="Zoom in">+</button>
+          </div>
+
+          <div class="escher-stage-heading">
+            <p>REGULAR DIVISION · ORIGINAL MOTIFS</p>
+            <h1 id="escherTessellationTitle">Escher</h1>
+            <span id="stageCaption">counterform current · translation + counterchange</span>
+          </div>
+
+          <div class="escher-stage-math" aria-hidden="true">
+            <span id="stageSurface">EUCLIDEAN PLANE</span>
+            <strong id="stageSymmetry">TRANSLATION + COUNTERCHANGE</strong>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">SHAPE · READY · TAP A CONTOUR</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel escher-tessellation-panel" aria-label="Escher controls">
+        <section class="group control-section always-open" aria-labelledby="studyTitle">
+          <div class="group-summary static-group-summary">
+            <h2 class="group-title" id="studyTitle">Study</h2>
+            <span class="section-state" id="studySummary">after Sky and Water I · 1938</span>
+          </div>
+          <div class="group-body">
+            <label class="select-control" for="preset">
+              <span class="field-label">Structural preset</span>
+              <span class="select-shell">
+                <select id="preset" aria-describedby="presetDescription studyNotice">
+                  <optgroup label="Plane division">
+                    <option value="counterform-current" selected>Counterform current · Sky and Water I</option>
+                    <option value="night-flight">Night flight · Day and Night</option>
+                    <option value="triple-orbit">Triple orbit · Reptiles</option>
+                    <option value="glide-parade">Glide parade · Horseman</option>
+                  </optgroup>
+                  <optgroup label="Transformation and infinity">
+                    <option value="metamorphosis-band">Metamorphosis band · Metamorphosis II</option>
+                    <option value="inward-infinity">Inward infinity · Smaller and Smaller</option>
+                  </optgroup>
+                  <optgroup label="Poincaré disk">
+                    <option value="hyperbolic-current">Hyperbolic current · Circle Limit III</option>
+                    <option value="dual-horizon">Dual horizon · Circle Limit IV</option>
+                  </optgroup>
+                </select>
+              </span>
+            </label>
+
+            <p class="escher-preset-description" id="presetDescription">
+              A vertical figure-ground exchange: one original current motif gains detail while its exact counterform recedes.
+            </p>
+
+            <dl class="escher-math-ledger" aria-label="Current tessellation mathematics">
+              <div><dt>Reference</dt><dd><a id="referenceLink" href="https://escherinhetpaleis.nl/en/about-escher/escher-today/sky-and-water" target="_blank" rel="noreferrer">Sky and Water I · 1938</a></dd></div>
+              <div><dt>Surface</dt><dd id="surfaceReadout">Euclidean plane</dd></div>
+              <div><dt>Symmetry</dt><dd id="symmetryReadout">translation + counterchange</dd></div>
+              <div><dt>Generators</dt><dd id="generatorReadout">two translations · shared figure / ground boundary</dd></div>
+              <div><dt>Orbit</dt><dd id="orbitReadout">2 complementary motifs</dd></div>
+            </dl>
+
+            <p class="escher-study-notice" id="studyNotice">
+              A generative geometry study inspired by the named work; all contours and motifs here are original procedural drawings, not reproductions.
+            </p>
+          </div>
+        </section>
+
+        <section class="group control-section always-open" aria-labelledby="playbackTitle">
+          <div class="group-summary static-group-summary">
+            <h2 class="group-title" id="playbackTitle">Contour playback</h2>
+            <span class="section-state" id="playbackSummary">ready · tap a contour</span>
+          </div>
+          <div class="group-body escher-playback-body">
+            <div class="playback-choice-block">
+              <span class="field-label">Outline path</span>
+              <div class="choice-switch compact contour-playback-choice" id="playbackChoice" role="group" aria-label="Contour playback mode">
+                <button type="button" data-playback="shape" aria-pressed="true">Shape</button>
+                <button type="button" data-playback="neighbors" aria-pressed="false">Neighbors</button>
+                <button type="button" data-playback="pattern" aria-pressed="false">Pattern</button>
+              </div>
+            </div>
+
+            <div class="contour-action-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play selected contour">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <p class="contour-selection-copy"><b>Tap a shape</b><span>The playhead follows its actual outline.</span></p>
+            </div>
+
+            <label class="control" for="travelSpeed">
+              <span><b>Travel speed</b><output id="travelSpeedOut" for="travelSpeed">0.32 units/sec</output></span>
+              <input id="travelSpeed" type="range" min="0.08" max="1.2" step="0.01" value="0.32" />
+            </label>
+
+            <div class="contour-range-grid">
+              <label class="control is-mode-dependent" for="neighborReach">
+                <span><b>Neighbor reach</b><output id="neighborReachOut" for="neighborReach">2 hops</output></span>
+                <input id="neighborReach" type="range" min="1" max="4" step="1" value="2" disabled />
+                <small class="escher-control-note">Available when Neighbors follows shared borders.</small>
+              </label>
+
+              <label class="control" for="playheadSize">
+                <span><b>Playhead size</b><output id="playheadSizeOut" for="playheadSize">65%</output></span>
+                <input id="playheadSize" type="range" min="0.2" max="1" step="0.01" value="0.65" />
+                <small class="escher-control-note">Scales the marker drawn directly on the active contour.</small>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <details class="group control-section">
+          <summary class="group-summary">
+            <h2 class="group-title">Pattern</h2>
+            <span class="section-state" id="patternSummary">medium · organic</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="density">
+              <span><b>Tile density</b><output id="densityOut" for="density">54%</output></span>
+              <input id="density" type="range" min="0" max="1" step="0.01" value="0.54" />
+              <small class="escher-control-note">Cell scale, recursion depth, or disk extent.</small>
+            </label>
+            <label class="control" for="deformation">
+              <span><b>Contour deformation</b><output id="deformationOut" for="deformation">72%</output></span>
+              <input id="deformation" aria-describedby="deformationNote" type="range" min="0" max="1" step="0.01" value="0.72" />
+              <small class="escher-control-note" id="deformationNote">Curves the shared edges of Euclidean plane divisions.</small>
+            </label>
+            <label class="control" for="rotation">
+              <span><b>Field rotation</b><output id="rotationOut" for="rotation">0°</output></span>
+              <input id="rotation" type="range" min="-180" max="180" step="1" value="0" />
+            </label>
+            <label class="control" for="detail">
+              <span><b>Motif detail</b><output id="detailOut" for="detail">78%</output></span>
+              <input id="detail" type="range" min="0" max="1" step="0.01" value="0.78" />
+            </label>
+            <label class="escher-toggle" for="showGeometry">
+              <span><b>Show geometry</b><small>domains · centers · generators</small></span>
+              <input id="showGeometry" type="checkbox" checked />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section">
+          <summary class="group-summary">
+            <h2 class="group-title">Appearance</h2>
+            <span class="section-state" id="appearanceSummary">day / night · outlines</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="palette">
+              <span class="field-label">Palette</span>
+              <span class="select-shell">
+                <select id="palette">
+                  <option value="woodcut">Woodcut</option>
+                  <option value="day-night" selected>Day / night</option>
+                  <option value="mineral">Mineral</option>
+                  <option value="alhambra">Alhambra</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="contrast">
+              <span><b>Figure / ground contrast</b><output id="contrastOut" for="contrast">76%</output></span>
+              <input id="contrast" type="range" min="0.2" max="1" step="0.01" value="0.76" />
+            </label>
+            <label class="escher-toggle" for="showOutlines">
+              <span><b>Tile outlines</b><small>shared contour paths</small></span>
+              <input id="showOutlines" type="checkbox" checked />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section">
+          <summary class="group-summary">
+            <h2 class="group-title">Sound</h2>
+            <span class="section-state" id="soundSummary">position · angle · color · border</span>
+          </summary>
+          <div class="group-body escher-sound-body">
+            <p class="control-note">The selected outline is the score: its measured perimeter sets the loop, each real border length sets event timing, size and corner turns shape pitch, curvature shapes timbre, and contour position shapes stereo placement.</p>
+            <label class="control" for="baseFrequency">
+              <span><b>Generator root</b><output id="baseFrequencyOut" for="baseFrequency">82.5 Hz</output></span>
+              <input id="baseFrequency" type="range" min="36" max="220" step="0.5" value="82.5" />
+            </label>
+            <label class="control" for="tone">
+              <span><b>Tone</b><output id="toneOut" for="tone">58%</output></span>
+              <input id="tone" type="range" min="0" max="1" step="0.01" value="0.58" />
+            </label>
+            <label class="control" for="pitchSpan">
+              <span><b>Size + corner → pitch</b><output id="pitchSpanOut" for="pitchSpan">14 semitones</output></span>
+              <input id="pitchSpan" type="range" min="0" max="24" step="1" value="14" />
+            </label>
+            <label class="control" for="timbreMotion">
+              <span><b>Curvature → timbre</b><output id="timbreMotionOut" for="timbreMotion">72%</output></span>
+              <input id="timbreMotion" type="range" min="0" max="1" step="0.01" value="0.72" />
+            </label>
+            <label class="control" for="stereoWidth">
+              <span><b>Position → stereo</b><output id="stereoWidthOut" for="stereoWidth">82%</output></span>
+              <input id="stereoWidth" type="range" min="0" max="1" step="0.01" value="0.82" />
+            </label>
+
+            <fieldset class="sound-mapping-fieldset" aria-describedby="soundMappingNote">
+              <legend class="field-label">Dynamic mapping depth</legend>
+              <p class="escher-control-note" id="soundMappingNote">How strongly each measured contour feature changes its phrase, pitch, articulation, and position.</p>
+              <div class="sound-mapping-grid">
+                <label class="control" for="orientationDepth">
+                  <span><b>Orientation → gesture</b><output id="orientationDepthOut" for="orientationDepth">68%</output></span>
+                  <input id="orientationDepth" type="range" min="0" max="1" step="0.01" value="0.68" />
+                </label>
+                <label class="control" for="colorAspectDepth">
+                  <span><b>Color / aspect → voice</b><output id="colorAspectDepthOut" for="colorAspectDepth">76%</output></span>
+                  <input id="colorAspectDepth" type="range" min="0" max="1" step="0.01" value="0.76" />
+                </label>
+                <label class="control" for="positionDepth">
+                  <span><b>Position → pitch / space</b><output id="positionDepthOut" for="positionDepth">64%</output></span>
+                  <input id="positionDepth" type="range" min="0" max="1" step="0.01" value="0.64" />
+                </label>
+                <label class="control" for="edgeArticulation">
+                  <span><b>Border → articulation</b><output id="edgeArticulationOut" for="edgeArticulation">72%</output></span>
+                  <input id="edgeArticulation" type="range" min="0" max="1" step="0.01" value="0.72" />
+                </label>
+              </div>
+            </fieldset>
+          </div>
+        </details>
+
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetButton" type="button" data-reset-all data-reset-in-place>Reset Escher</button>
+        </div>
+
+        <p class="escher-credit">
+          Isohedral plane divisions use
+          <a href="https://github.com/isohedral/tactile-js" target="_blank" rel="noreferrer">Craig S. Kaplan&rsquo;s TactileJS library</a>
+          (<a href="https://isohedral.ca/software/tactile/" target="_blank" rel="noreferrer">project page</a>, BSD-3-Clause).
+          Hyperbolic presets are generated locally from Poincaré geodesic reflections; no Escher artwork is embedded.
+        </p>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Tap a shape to select its actual outline. Shape follows that contour, Neighbors continues across shared borders, and Pattern follows matching contours in the tessellation. Drag with one pointer to pan and pinch with two pointers to zoom. View buttons also zoom or reset the view. Press Enter or Space to play or pause the selected outline, use the Arrow keys to move the selection to an actual neighboring shape, press Plus or Minus to zoom, Home to reset the view, G to show or hide the geometry scaffold, and Escape to switch audio off.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="escher-tessellation-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

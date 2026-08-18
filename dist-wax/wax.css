@@ -1,0 +1,623 @@
+.wax-page {
+  --wax-accent: #ffb86b;
+  --wax-cyan: #5fe8c4;
+  --plugin-accent: var(--wax-accent);
+}
+
+.wax-shell {
+  padding-bottom: 86px;
+}
+
+.wax-document {
+  width: min(920px, 100%);
+}
+
+.wax-intro h1 {
+  max-width: 760px;
+}
+
+.wax-support-strip {
+  display: flex;
+  margin-top: 28px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wax-support-strip span {
+  padding: 7px 9px;
+  border: 1px solid color-mix(in oklab, var(--wax-cyan) 48%, var(--line-strong));
+  color: var(--wax-cyan);
+  background: color-mix(in oklab, var(--wax-cyan) 6%, transparent);
+  font-size: 9px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.wax-support-strip b {
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.wax-support-strip .wax-support-limited {
+  border-color: var(--line-strong);
+  color: var(--muted);
+  background: transparent;
+}
+
+.wax-section {
+  padding: 38px 0;
+  border-bottom: 1px solid var(--line-strong);
+  scroll-margin-top: 18px;
+}
+
+.wax-section > h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 550;
+  line-height: 1.2;
+}
+
+.wax-section-copy {
+  max-width: 700px;
+  margin: 14px 0 0;
+  color: color-mix(in oklab, var(--ink) 78%, var(--muted));
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.wax-resource-grid,
+.wax-platform-grid,
+.wax-type-grid {
+  display: grid;
+  margin-top: 24px;
+  gap: 12px;
+}
+
+.wax-resource-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.wax-resource-card,
+.wax-platform-card,
+.wax-type-grid article {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+}
+
+.wax-resource-primary {
+  border-top: 3px solid var(--wax-accent);
+}
+
+.wax-resource-kicker,
+.wax-platform-number,
+.wax-command-grid > div > p {
+  margin: 0 0 9px;
+  color: var(--wax-accent);
+  font-size: 8px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.wax-resource-card h3,
+.wax-platform-card h3,
+.wax-type-grid h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.wax-resource-card > p:not(.wax-resource-kicker),
+.wax-type-grid p {
+  margin: 13px 0 18px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.wax-type-grid p b {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.wax-resource-card code,
+.wax-platform-note code {
+  color: var(--wax-cyan);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.wax-resource-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+.wax-platform-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.wax-platform-card header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.wax-platform-card ol,
+.wax-checklist {
+  padding-left: 22px;
+  margin: 19px 0 0;
+  color: color-mix(in oklab, var(--ink) 82%, var(--muted));
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.wax-platform-card li + li,
+.wax-checklist li + li {
+  margin-top: 8px;
+}
+
+.wax-platform-note {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.wax-platform-note a,
+.wax-docs a {
+  color: var(--wax-cyan);
+  text-underline-offset: 3px;
+}
+
+.wax-command-grid {
+  display: grid;
+  margin-top: 22px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.wax-command-grid > div,
+.wax-url-card,
+.wax-linux {
+  padding: 18px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+}
+
+.wax-command-grid pre,
+.wax-linux pre {
+  overflow-x: auto;
+  margin: 0;
+  color: var(--wax-cyan);
+  font-size: 10px;
+  line-height: 1.7;
+  white-space: pre;
+}
+
+.wax-command-grid code,
+.wax-linux code,
+.wax-url-card code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.wax-url-card {
+  margin-top: 12px;
+  border-left: 3px solid var(--wax-cyan);
+}
+
+.wax-url-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.wax-url-card > code {
+  display: block;
+  overflow-x: auto;
+  padding: 13px 0;
+  color: var(--wax-cyan);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.wax-type-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.wax-role-rule,
+.wax-format-note {
+  padding: 19px 20px;
+  margin-top: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+}
+
+.wax-role-rule {
+  border-left: 3px solid var(--wax-accent);
+}
+
+.wax-role-rule h3,
+.wax-format-note h3,
+.wax-catalog-heading h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.wax-role-rule p,
+.wax-format-note p,
+.wax-catalog-heading > p {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+.wax-format-note {
+  border-left: 3px solid var(--wax-cyan);
+}
+
+.wax-catalog-heading {
+  display: grid;
+  align-items: end;
+  margin-top: 34px;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
+  gap: 20px;
+}
+
+.wax-catalog-heading .plugins-section-label {
+  margin-bottom: 8px;
+}
+
+.wax-catalog-heading > p {
+  margin: 0;
+}
+
+.wax-catalog-controls {
+  display: grid;
+  align-items: end;
+  padding: 14px;
+  margin-top: 18px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  grid-template-columns: minmax(190px, 1fr) minmax(160px, 0.5fr) auto;
+  gap: 10px;
+}
+
+.wax-catalog-controls label {
+  display: grid;
+  gap: 7px;
+}
+
+.wax-catalog-controls label > span {
+  color: var(--wax-accent);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wax-catalog-controls input,
+.wax-catalog-controls select {
+  width: 100%;
+  min-height: 37px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font: inherit;
+  font-size: 11px;
+}
+
+.wax-catalog-controls input:focus-visible,
+.wax-catalog-controls select:focus-visible {
+  outline: 2px solid var(--wax-cyan);
+  outline-offset: 1px;
+}
+
+.wax-catalog-results {
+  min-width: 92px;
+  padding-bottom: 10px;
+  color: var(--muted);
+  font-size: 9px;
+  text-align: right;
+}
+
+.wax-catalog-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line-strong);
+  border-top: 0;
+}
+
+.wax-catalog-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.wax-catalog-table th,
+.wax-catalog-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--line-strong);
+  vertical-align: top;
+  text-align: left;
+}
+
+.wax-catalog-table thead th {
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wax-catalog-table thead th:nth-child(1) {
+  width: 19%;
+}
+
+.wax-catalog-table thead th:nth-child(2),
+.wax-catalog-table thead th:nth-child(3) {
+  width: 14%;
+}
+
+.wax-catalog-row:last-child th,
+.wax-catalog-row:last-child td {
+  border-bottom: 0;
+}
+
+.wax-catalog-row:hover {
+  background: color-mix(in oklab, var(--wax-cyan) 3%, transparent);
+}
+
+.wax-catalog-name a {
+  display: block;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-underline-offset: 3px;
+}
+
+.wax-catalog-name > span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 450;
+  line-height: 1.35;
+}
+
+.wax-role-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 4px 6px;
+  margin: 0 4px 4px 0;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: transparent;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.wax-role-recommended {
+  border-color: color-mix(in oklab, var(--wax-accent) 60%, var(--line-strong));
+  color: var(--ink);
+  background: color-mix(in oklab, var(--wax-accent) 9%, transparent);
+}
+
+.wax-role-midi-fx:not(.wax-role-recommended) {
+  border-color: color-mix(in oklab, var(--wax-cyan) 42%, var(--line-strong));
+  color: var(--wax-cyan);
+}
+
+.wax-role-none {
+  color: var(--muted);
+}
+
+.wax-catalog-notes p {
+  margin: 0;
+  color: color-mix(in oklab, var(--ink) 78%, var(--muted));
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.wax-capability-list {
+  display: flex;
+  padding: 0;
+  margin: 8px 0 0;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+}
+
+.wax-capability-list li {
+  padding: 3px 5px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.035em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.wax-catalog-notes .wax-catalog-caveat {
+  margin-top: 8px;
+  color: var(--wax-accent);
+  font-size: 8px;
+}
+
+.wax-catalog-empty td {
+  padding: 25px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.wax-checklist {
+  max-width: 760px;
+}
+
+.wax-test-subtitle {
+  margin: 28px 0 0;
+  color: var(--wax-cyan);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.wax-linux {
+  margin-top: 38px;
+  border-bottom: 1px solid var(--line-strong);
+  border-left: 3px solid var(--muted);
+}
+
+.wax-linux > p:not(.plugins-section-label) {
+  max-width: 730px;
+  margin: 14px 0 20px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.wax-docs ul {
+  display: grid;
+  padding: 0;
+  margin: 20px 0 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  list-style: none;
+}
+
+.wax-docs li a {
+  display: block;
+  padding: 13px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  font-size: 10px;
+}
+
+.wax-source-note {
+  max-width: 700px;
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+@media (max-width: 780px) {
+  .wax-resource-grid,
+  .wax-type-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .wax-intro h1 {
+    font-size: 32px;
+    white-space: normal;
+  }
+
+  .wax-platform-grid,
+  .wax-command-grid,
+  .wax-docs ul {
+    grid-template-columns: 1fr;
+  }
+
+  .wax-section {
+    padding: 30px 0;
+  }
+
+  .wax-section > h2 {
+    font-size: 22px;
+  }
+
+  .wax-catalog-heading,
+  .wax-catalog-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .wax-catalog-results {
+    padding: 0;
+    text-align: left;
+  }
+
+  .wax-catalog-wrap {
+    overflow: visible;
+    border: 0;
+  }
+
+  .wax-catalog-table,
+  .wax-catalog-table tbody,
+  .wax-catalog-table tr,
+  .wax-catalog-table th,
+  .wax-catalog-table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .wax-catalog-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .wax-catalog-table .wax-catalog-row {
+    display: grid;
+    padding: 14px;
+    border: 1px solid var(--line-strong);
+    border-top: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .wax-catalog-row:first-child {
+    border-top: 1px solid var(--line-strong);
+  }
+
+  .wax-catalog-table .wax-catalog-row > * {
+    padding: 0;
+    border: 0;
+  }
+
+  .wax-catalog-name,
+  .wax-catalog-notes {
+    grid-column: 1 / -1;
+  }
+
+  .wax-catalog-role::before {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 7px;
+    font-weight: 750;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .wax-catalog-role:nth-child(2)::before {
+    content: "Recommended";
+  }
+
+  .wax-catalog-role:nth-child(3)::before {
+    content: "Also works";
+  }
+}

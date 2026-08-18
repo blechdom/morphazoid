@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#06050d" />
+    <meta
+      name="description"
+      content="Morphazoid Sandy Syrup Delay — phase-staggered granular pitch sweeps for microphone and local audio."
+    />
+    <title>Sandy Syrup Delay — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="barber-delay.css" />
+  </head>
+  <body class="barber-delay-page sandy-syrup-page" data-delay-mode="sandy">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active" href="sandy-syrup-delay.html" aria-current="page">sandy syrup</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="sandy-syrup-delay.html" selected>sandy syrup delay</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph barber-delay-audio-glyph" aria-hidden="true">≋</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="outputLevel">
+          <span><b>Output</b><output id="outputLevelOut" for="outputLevel">50%</output></span>
+          <input
+            id="outputLevel"
+            aria-label="Sandy Syrup output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.5"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell barber-delay-shell" id="barberDelay">
+      <section class="stage barber-delay-stage" aria-labelledby="delayTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="A log-pitch sweep path with paired grain markers and feedback echoes. Audio off."
+            aria-describedby="delayDescription liveStatus"
+          >
+            A log-pitch path shows the active grain streams, pitch direction, grain size, and feedback history.
+          </canvas>
+
+          <div class="barber-delay-heading">
+            <p>BARBER SHOP POLES · 04</p>
+            <h1 id="delayTitle">Sandy Syrup Delay</h1>
+            <span>sample-and-hold sand ↔ continuous syrup</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">8 HEADS · ↑ 0.050 HZ · 4.0 OCT · 4000 MS HISTORY · AUDIO OFF</span>
+          </div>
+
+          <div class="barber-delay-interpretation" aria-hidden="true">
+            <span id="pitchReadout">≈ ±24 st</span>
+            <small id="pitchCaption">0.25× → 1.00× → 4.00×</small>
+          </div>
+
+          <div class="barber-delay-scope-labels" aria-hidden="true">
+            <span>PITCH PATH · GRAIN WINDOWS</span>
+            <span id="scopeState">SCOPE · IDLE</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel barber-delay-panel" aria-label="Sandy Syrup Delay controls">
+        <details class="group control-section barber-delay-source" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Source</h2>
+            <span class="section-state" id="sourceSummary">microphone · headphones</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Input</span>
+            <div class="choice-switch" id="sourceChoice" role="group" aria-label="Audio source" aria-describedby="sourceNote">
+              <button id="sourceMic" type="button" data-source="microphone" aria-pressed="true">Mic</button>
+              <button id="sourceFile" type="button" data-source="file" aria-pressed="false">File</button>
+            </div>
+
+            <div class="barber-file-row" id="fileControls" hidden>
+              <label class="barber-file-picker" for="filePicker">
+                <input id="filePicker" type="file" accept="audio/*" />
+                <span id="fileName">Choose local audio…</span>
+              </label>
+              <button
+                class="barber-icon-button"
+                id="loopFile"
+                type="button"
+                aria-label="Loop local audio"
+                aria-pressed="true"
+                title="Loop local audio"
+              >
+                ↻
+              </button>
+            </div>
+            <audio id="fileAudio" loop preload="metadata"></audio>
+            <p class="barber-delay-note" id="sourceNote">
+              Switch Audio on to allow microphone access. Use headphones—speaker-to-microphone feedback can become loud even with the internal loop bounded.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section barber-delay-presets" data-section="form" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Presets</h2>
+            <span class="section-state" id="presetSummary">Custom</span>
+          </summary>
+          <div class="group-body">
+            <div
+              class="barber-preset-grid"
+              id="presetGrid"
+              role="group"
+              aria-label="Sandy Syrup built-in presets"
+            ></div>
+          </div>
+        </details>
+
+        <details class="group control-section barber-delay-motion" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Sweep</h2>
+            <span class="section-state" id="motionSummary">↑ · 0.05 Hz · 4.0 oct</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Direction</span>
+            <div class="choice-switch" id="directionChoice" role="group" aria-label="Pitch direction">
+              <button id="directionDown" type="button" data-direction="-1" aria-pressed="false" aria-label="Falling">←</button>
+              <button id="directionUp" type="button" data-direction="1" aria-pressed="true" aria-label="Rising">→</button>
+            </div>
+
+            <label class="control" for="speed">
+              <span><b>Sweep speed</b><output id="speedOut" for="speed">0.050 Hz</output></span>
+              <input
+                id="speed"
+                type="range"
+                min="0"
+                max="1"
+                step="0.00025"
+                value="0.1"
+                data-value-min="0"
+                data-value-max="5"
+                data-value-step="0.001"
+                data-curve="2"
+                aria-valuetext="0.050 Hz"
+              />
+            </label>
+
+            <label class="control" for="pitchOctaves">
+              <span><b>Pitch octaves</b><output id="pitchOctavesOut" for="pitchOctaves">4.00 oct</output></span>
+              <input id="pitchOctaves" type="range" min="0.5" max="10" step="0.01" value="4" />
+            </label>
+
+            <label class="control" for="voices">
+              <span><b>Grain voices</b><output id="voicesOut" for="voices">8</output></span>
+              <input id="voices" type="range" min="1" max="12" step="1" value="8" />
+            </label>
+
+            <label class="control" for="tilt">
+              <span><b>Sweep tilt</b><output id="tiltOut" for="tilt">centered</output></span>
+              <input id="tilt" type="range" min="-1" max="1" step="0.01" value="0" />
+            </label>
+
+          </div>
+        </details>
+
+        <details class="group control-section barber-delay-sound" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Texture</h2>
+            <span class="section-state" id="soundSummary">50% syrup · 80% wet</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="feedbackTime">
+              <span><b>History</b><output id="feedbackTimeOut" for="feedbackTime">4000 ms</output></span>
+              <input
+                id="feedbackTime"
+                type="range"
+                min="0"
+                max="1"
+                step="0.00025"
+                value="0.51161017"
+                data-value-min="0.1"
+                data-value-max="15"
+                data-value-step="0.01"
+                data-curve="2"
+                aria-valuetext="4000 ms"
+              />
+            </label>
+
+            <label class="control" for="grainSize">
+              <span><b>Grain size</b><output id="grainSizeOut" for="grainSize">50 ms</output></span>
+              <input
+                id="grainSize"
+                type="range"
+                min="0"
+                max="1"
+                step="0.00025"
+                value="0.30151134"
+                data-value-min="0.005"
+                data-value-max="0.5"
+                data-value-step="0.001"
+                data-curve="2"
+                aria-valuetext="50 ms"
+              />
+            </label>
+
+            <label class="control" for="blend">
+              <span><b>Grain motion</b><output id="blendOut" for="blend">50% syrup</output></span>
+              <input id="blend" type="range" min="0" max="1" step="0.01" value="0.5" />
+            </label>
+            <div class="barber-blend-scale" aria-hidden="true">
+              <span>Sand · held rate</span>
+              <span>Syrup · live rate</span>
+            </div>
+
+            <label class="control" for="feedback">
+              <span><b>Safe feedback</b><output id="feedbackOut" for="feedback">0%</output></span>
+              <input id="feedback" type="range" min="0" max="0.95" step="0.01" value="0" />
+            </label>
+
+            <label class="control" for="dryWet">
+              <span><b>Dry / wet</b><output id="dryWetOut" for="dryWet">80% wet</output></span>
+              <input id="dryWet" type="range" min="0" max="1" step="0.01" value="0.8" />
+            </label>
+
+            <label class="control" for="inputGain">
+              <span><b>Input level</b><output id="inputGainOut" for="inputGain">100%</output></span>
+              <input id="inputGain" type="range" min="0" max="1.5" step="0.01" value="1" />
+            </label>
+
+            <div class="barber-safety-card" aria-label="Bounded audio path">
+              <span><b>Input</b><small>mic or local file</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>24 streams</b><small>paired Hann grains</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Output</b><small>feedback cap · soft ceiling</small></span>
+            </div>
+            <p class="barber-delay-note">
+              Sand holds pitch for each grain; Syrup follows the live sweep. The 16-second stereo history and feedback are bounded. Use headphones with a microphone.
+            </p>
+          </div>
+        </details>
+
+        <section
+          class="group control-section barber-delay-analysis"
+          data-section="mapping"
+          aria-labelledby="pitchRelationshipTitle"
+        >
+          <div class="group-summary static-group-summary">
+            <h2 class="group-title" id="pitchRelationshipTitle">Pitch relationship</h2>
+            <span class="section-state" id="pitchRelationshipSummary">±24 st</span>
+          </div>
+          <div class="group-body">
+            <div class="barber-rate-card" aria-label="Granular pitch relationship">
+              <span><b>Pitch span</b><output id="productOut">4.00 oct</output></span>
+              <span><b>Center rate</b><output id="ratioOut">1.00×</output></span>
+              <span><b>Edge rates</b><output id="semitonesOut">0.25× → 4.00×</output></span>
+            </div>
+          </div>
+        </section>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="delayDescription">
+        Sandy Syrup uses twelve phase-staggered voices with two complementary Hann-windowed grain streams each. The foreground path plots log pitch over one sweep: Sand breaks the path into held-rate grain segments, while Syrup joins it continuously. Paired waveform markers show active grains and fading copies show feedback history.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="barber-delay-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

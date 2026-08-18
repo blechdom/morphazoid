@@ -1,0 +1,827 @@
+import {
+  VoicePool,
+  clamp,
+  pitch01ToFrequency,
+  synthParametersForMode,
+} from "./src/audio.js";
+import {
+  L_SYSTEM_PRESETS,
+  advanceLSystemTraversal,
+  allocateIterationVoiceHeads,
+  branchAngleFrequency,
+  branchVoiceGain,
+  iterationPlaybackAtPhase,
+  iterationPlaybackPhaseRate,
+  lSystemTraversalBoundaryGain,
+  normalizeLSystemPoint,
+  traceLSystem,
+} from "./src/l-system.js";
+import { createAmplitudeControl } from "./src/amplitude-control.js";
+
+const $ = (id) => document.getElementById(id);
+const TAU = Math.PI * 2;
+const canvas = $("stage");
+const stageWrap = $("stageWrap");
+const context = canvas.getContext("2d", { desynchronized: true });
+const INITIAL_L_SYSTEM_VOICES = 128;
+const MAX_L_SYSTEM_VOICES = 4096;
+const MIN_TRAVERSAL_SPEED = 0.01;
+const MAX_TRAVERSAL_SPEED = 4;
+const TRAVERSAL_SPEED_CURVE = 3;
+const pool = new VoicePool(INITIAL_L_SYSTEM_VOICES, {
+  adaptive: true,
+  maxVoices: MAX_L_SYSTEM_VOICES,
+});
+const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
+const presetById = new Map(L_SYSTEM_PRESETS.map((preset) => [preset.id, preset]));
+const DEFAULT_L_SYSTEM_STATE = Object.freeze({
+  presetId: "pythagorean",
+  iterations: 7,
+  angle: 45,
+  turnAsymmetry: 0,
+  lengthScale: 0.72,
+  position: 0,
+  continuousPosition: 0,
+  speed: 0.3,
+  direction: 1,
+  traversalBehavior: "loop",
+  playing: false,
+  audio: false,
+  level: 0.55,
+  pitchSource: "angle",
+  baseFrequency: 220,
+  pitchRange: 2,
+  depthAmount: 0.65,
+  soundMode: "sine",
+  modulationIndex: 3,
+  stereoSpread: 0.9,
+  structureMode: "final",
+});
+const state = { ...DEFAULT_L_SYSTEM_STATE };
+
+function buildIterationTraces(preset, iterations, overrides = {}) {
+  const finalIteration = Math.max(0, Math.floor(iterations));
+  const iterationNumbers = finalIteration > 0
+    ? Array.from({ length: finalIteration }, (_, index) => index + 1)
+    : [0];
+  return iterationNumbers.map((iteration) => ({
+    ...traceLSystem({ ...preset, ...overrides, iterations: iteration }),
+    iteration,
+  }));
+}
+
+let iterationTraces = buildIterationTraces(L_SYSTEM_PRESETS[0], state.iterations);
+let cssWidth = 1;
+let cssHeight = 1;
+let pixelRatio = 1;
+let scheduledFrame = 0;
+let lastFrameTime = performance.now();
+let lastAudioTime = null;
+let lastVoiceSubmissionTime = -Infinity;
+let lastSoundingVoiceCount = 0;
+let lastSubmittedVoiceLimit = -1;
+let lastSubmittedSoundMode = "";
+
+function resetVoiceSubmission() {
+  lastVoiceSubmissionTime = -Infinity;
+  lastSoundingVoiceCount = 0;
+  lastSubmittedVoiceLimit = -1;
+  lastSubmittedSoundMode = "";
+}
+
+function voiceSubmissionInterval(voiceLimit) {
+  if (voiceLimit > 1_024) return 1 / 20;
+  if (voiceLimit > 256) return 1 / 30;
+  return 0;
+}
+
+function setPressed(element, pressed) {
+  element.setAttribute("aria-pressed", String(Boolean(pressed)));
+}
+
+function scheduleFrame() {
+  if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
+}
+
+pool.onPolyphonyStatus = scheduleFrame;
+
+function resizeCanvas() {
+  const bounds = stageWrap.getBoundingClientRect();
+  cssWidth = Math.max(1, Math.round(bounds.width));
+  cssHeight = Math.max(1, Math.round(bounds.height));
+  pixelRatio = Math.max(1, Math.min(
+    window.devicePixelRatio || 1,
+    2,
+    Math.sqrt(3_000_000 / (cssWidth * cssHeight)),
+  ));
+  canvas.width = Math.round(cssWidth * pixelRatio);
+  canvas.height = Math.round(cssHeight * pixelRatio);
+  scheduleFrame();
+}
+
+new ResizeObserver(resizeCanvas).observe(stageWrap);
+resizeCanvas();
+
+function bindRange(id, key, formatter, afterChange) {
+  const input = $(id);
+  const output = $(`${id}Out`);
+  const paint = () => { output.textContent = formatter(state[key]); };
+  input.value = String(state[key]);
+  input.addEventListener("input", () => {
+    state[key] = Number(input.value);
+    paint();
+    afterChange?.();
+    scheduleFrame();
+  });
+  paint();
+}
+
+bindRange("position", "position", (value) => `${(value * 100).toFixed(1)}%`, () => {
+  state.continuousPosition = state.position;
+});
+bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
+bindRange("iterations", "iterations", (value) => String(Math.round(value)), rebuildTrace);
+bindRange("angle", "angle", (value) => `${Number(value.toFixed(1))}°`, () => {
+  paintGrowthCapabilities();
+  rebuildTrace();
+});
+bindRange("turnAsymmetry", "turnAsymmetry", formatTurnPair, rebuildTrace);
+bindRange("lengthScale", "lengthScale", (value) => `${Math.round(value * 100)}%`, () => {
+  paintGrowthCapabilities();
+  rebuildTrace();
+});
+bindRange(
+  "baseFrequency",
+  "baseFrequency",
+  (value) => `${Math.round(value)} Hz`,
+  paintCurrentSettings,
+);
+bindRange("pitchRange", "pitchRange", (value) => (
+  state.pitchSource === "angle" ? `${value.toFixed(2)} oct / turn` : `${value.toFixed(2)} oct`
+));
+bindRange("depthAmount", "depthAmount", (value) => `${Math.round(value * 100)}%`);
+bindRange("modulationIndex", "modulationIndex", (value) => `${value.toFixed(2)} max`);
+bindRange(
+  "stereoSpread",
+  "stereoSpread",
+  (value) => `${Math.round(value * 100)}%`,
+  paintCurrentSettings,
+);
+
+function traversalSpeedFromSlider(position) {
+  const amount = clamp(Number(position), 0, 1);
+  return MIN_TRAVERSAL_SPEED
+    + (MAX_TRAVERSAL_SPEED - MIN_TRAVERSAL_SPEED)
+      * amount ** TRAVERSAL_SPEED_CURVE;
+}
+
+function traversalSliderFromSpeed(speed) {
+  const normalized = (
+    clamp(Number(speed), MIN_TRAVERSAL_SPEED, MAX_TRAVERSAL_SPEED)
+      - MIN_TRAVERSAL_SPEED
+  ) / (MAX_TRAVERSAL_SPEED - MIN_TRAVERSAL_SPEED);
+  return normalized ** (1 / TRAVERSAL_SPEED_CURVE);
+}
+
+function formatTraversalSpeed(speed = state.speed) {
+  return `${speed.toFixed(2)} cyc/s`;
+}
+
+function paintTraversalSpeed() {
+  const input = $("speed");
+  input.value = String(traversalSliderFromSpeed(state.speed));
+  const speed = formatTraversalSpeed();
+  $("speedOut").textContent = speed;
+  input.setAttribute("aria-valuetext", `${state.speed.toFixed(2)} cycles per second`);
+}
+
+$("speed").addEventListener("input", (event) => {
+  state.speed = traversalSpeedFromSlider(event.currentTarget.value);
+  paintTraversalSpeed();
+  paintCurrentSettings();
+  scheduleFrame();
+});
+
+paintTraversalSpeed();
+
+function currentPreset() {
+  return presetById.get(state.presetId) ?? L_SYSTEM_PRESETS[0];
+}
+
+function formatAngle(value) {
+  return Number(value.toFixed(1));
+}
+
+function formatTurnPair(asymmetry) {
+  const minusTurn = state.angle * (1 - asymmetry);
+  const plusTurn = state.angle * (1 + asymmetry);
+  return `−${formatAngle(minusTurn)}° / +${formatAngle(plusTurn)}°`;
+}
+
+function paintGrowthCapabilities() {
+  const preset = currentPreset();
+  const grammar = `${preset.axiom}${Object.values(preset.rules).join("")}`;
+  const hasTurns = /[+-]/.test(grammar);
+  const hasTaper = /[<>]/.test(grammar);
+  $("turnAsymmetry").disabled = !hasTurns;
+  $("turnAsymmetryOut").textContent = hasTurns ? formatTurnPair(state.turnAsymmetry) : "not used";
+  $("turnAsymmetryNote").textContent = hasTurns
+    ? "Makes + and − turns unequal while preserving their total opening—and their combined pitch spread."
+    : "This grammar has no + or − turns, so its angle and turn asymmetry are not used.";
+  $("angle").disabled = !hasTurns;
+  $("angleOut").textContent = hasTurns ? `${formatAngle(state.angle)}°` : "not used";
+  $("lengthScale").disabled = !hasTaper;
+  $("lengthScaleOut").textContent = hasTaper
+    ? `${Math.round(state.lengthScale * 100)}%`
+    : "not used";
+  $("taperNote").textContent = hasTaper
+    ? `${Math.round(state.lengthScale * 100)}% means each >-marked level is ${state.lengthScale.toFixed(2)}× as long; < restores it. Length only—not line width or loudness.`
+    : "This grammar has no > or < length markers, so taper is not used.";
+}
+
+function paintGrammar() {
+  const preset = currentPreset();
+  $("axiomReadout").textContent = preset.axiom;
+  $("rulesReadout").textContent = Object.entries(preset.rules)
+    .map(([symbol, replacement]) => `${symbol} → ${replacement}`)
+    .join(" · ");
+  $("iterations").max = String(preset.maxIterations ?? 12);
+  $("systemSummary").textContent = preset.name;
+  paintGrowthCapabilities();
+}
+
+function rebuildTrace() {
+  const preset = currentPreset();
+  try {
+    iterationTraces = buildIterationTraces(preset, state.iterations, {
+      angle: state.angle,
+      turnAsymmetry: state.turnAsymmetry,
+      lengthScale: state.lengthScale,
+    });
+    $("systemError").hidden = true;
+    pool.silence();
+    resetVoiceSubmission();
+    paintStructure();
+  } catch (error) {
+    $("systemError").textContent = error instanceof Error ? error.message : "This grammar is too large to draw.";
+    $("systemError").hidden = false;
+  }
+  scheduleFrame();
+}
+
+function loadPreset(id) {
+  const preset = presetById.get(id) ?? L_SYSTEM_PRESETS[0];
+  state.presetId = preset.id;
+  state.iterations = preset.iterations;
+  state.angle = preset.angle;
+  state.turnAsymmetry = preset.turnAsymmetry ?? 0;
+  state.lengthScale = preset.lengthScale;
+  $("preset").value = preset.id;
+  $("iterations").max = String(preset.maxIterations ?? 12);
+  $("iterations").value = String(state.iterations);
+  $("iterationsOut").textContent = String(state.iterations);
+  $("angle").value = String(state.angle);
+  $("angleOut").textContent = `${state.angle}°`;
+  $("turnAsymmetry").value = String(state.turnAsymmetry);
+  $("turnAsymmetryOut").textContent = formatTurnPair(state.turnAsymmetry);
+  $("lengthScale").value = String(state.lengthScale);
+  $("lengthScaleOut").textContent = `${Math.round(state.lengthScale * 100)}%`;
+  paintGrammar();
+  rebuildTrace();
+}
+
+$("preset").addEventListener("change", (event) => loadPreset(event.currentTarget.value));
+$("resetSystem").addEventListener("click", () => loadPreset(state.presetId));
+
+const structureDescriptions = {
+  final: "Read the final expanded tree as one bifurcating structure.",
+  sequence: "Read I1 through the selected iteration in order. Every iteration receives exactly the same duration.",
+  together: "Start every iteration together at the same normalized left-to-right position.",
+  accumulate: "Build the relationship in equal-time steps: I1, then I1+I2, continuing through every selected iteration.",
+  canon: "Loop every iteration together, evenly offset in phase like a structural round.",
+};
+const structureLabels = {
+  final: "final tree",
+  sequence: "in sequence",
+  together: "together",
+  accumulate: "accumulate",
+  canon: "canon",
+};
+
+function iterationChain(separator) {
+  return iterationTraces.map((item) => `I${item.iteration}`).join(separator);
+}
+
+function paintStructure(playback = iterationPlaybackAtPhase(
+  iterationTraces,
+  state.position,
+  state.structureMode,
+)) {
+  const finalIteration = iterationTraces.at(-1)?.iteration ?? 0;
+  const activeIteration = playback.activeIteration ?? playback.entries[0]?.iteration ?? finalIteration;
+  if (state.structureMode === "sequence") {
+    $("structureSummary").textContent = `sequence · I${activeIteration}/${finalIteration}`;
+    $("structureReadout").textContent = `${iterationChain(" → ")} · equal time`;
+  } else if (state.structureMode === "together") {
+    $("structureSummary").textContent = `together · ${iterationTraces.length} iterations`;
+    $("structureReadout").textContent = `${iterationChain(" + ")} · phase locked`;
+  } else if (state.structureMode === "accumulate") {
+    $("structureSummary").textContent = `accumulate · through I${activeIteration}`;
+    $("structureReadout").textContent = `${iterationChain(" → ")} · additive`;
+  } else if (state.structureMode === "canon") {
+    $("structureSummary").textContent = `canon · ${iterationTraces.length} iterations`;
+    $("structureReadout").textContent = `${iterationChain(" + ")} · staggered`;
+  } else {
+    $("structureSummary").textContent = `final · I${finalIteration}`;
+    $("structureReadout").textContent = `I${finalIteration} only`;
+  }
+  $("structureDescription").textContent = structureDescriptions[state.structureMode];
+  paintTraversalSpeed();
+  paintCurrentSettings();
+}
+
+$("structureMode").addEventListener("change", (event) => {
+  state.structureMode = structureDescriptions[event.currentTarget.value]
+    ? event.currentTarget.value
+    : "final";
+  paintStructure();
+  scheduleFrame();
+});
+
+function paintTraversalBehavior() {
+  setPressed($("traversalLoop"), state.traversalBehavior === "loop");
+  setPressed(
+    $("traversalPingPong"),
+    state.traversalBehavior === "ping-pong",
+  );
+  paintCurrentSettings();
+}
+
+function paintCurrentSettings() {
+  const behavior = state.traversalBehavior === "ping-pong"
+    ? "ping-pong"
+    : state.direction > 0
+      ? "loop forward"
+      : "loop reverse";
+  $("currentSettingsSummary").textContent = `${
+    structureLabels[state.structureMode] ?? structureLabels.final
+  } · ${formatTraversalSpeed()}`;
+  $("currentTraversalReadout").textContent = [
+    formatTraversalSpeed(),
+    behavior,
+  ].join(" · ");
+  $("currentVoicingReadout").textContent = [
+    `${Math.round(state.baseFrequency)} Hz trunk`,
+    `${Math.round(state.stereoSpread * 100)}% stereo`,
+  ].join(" · ");
+}
+
+$("traversalLoop").addEventListener("click", () => {
+  state.traversalBehavior = "loop";
+  paintTraversalBehavior();
+  scheduleFrame();
+});
+
+$("traversalPingPong").addEventListener("click", () => {
+  state.traversalBehavior = "ping-pong";
+  paintTraversalBehavior();
+  scheduleFrame();
+});
+
+function resetClocks() {
+  lastFrameTime = performance.now();
+  lastAudioTime = pool.context?.currentTime ?? null;
+}
+
+$("playButton").addEventListener("click", () => {
+  state.playing = !state.playing;
+  setPressed($("playButton"), state.playing);
+  const headCount = playbackHeads(iterationPlaybackAtPhase(
+    iterationTraces,
+    state.position,
+    state.structureMode,
+  )).length;
+  $("playSummary").textContent = `${headCount} head${headCount === 1 ? "" : "s"} · ${state.playing ? "playing" : "paused"}`;
+  if (!state.playing) pool.silence();
+  resetVoiceSubmission();
+  resetClocks();
+  scheduleFrame();
+});
+
+$("directionButton").addEventListener("click", () => {
+  state.direction *= -1;
+  $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
+  paintCurrentSettings();
+});
+
+$("pitchSource").addEventListener("change", (event) => {
+  state.pitchSource = event.currentTarget.value;
+  const labels = {
+    angle: "angle → pitch",
+    height: "height → pitch",
+    depth: "depth → pitch",
+    progress: "path → pitch",
+  };
+  $("mappingSummary").textContent = labels[state.pitchSource] ?? labels.angle;
+  $("pitchRangeOut").textContent = state.pitchSource === "angle"
+    ? `${state.pitchRange.toFixed(2)} oct / turn`
+    : `${state.pitchRange.toFixed(2)} oct`;
+  scheduleFrame();
+});
+
+$("soundMode").addEventListener("change", (event) => {
+  state.soundMode = event.currentTarget.value;
+  $("soundSummary").textContent = state.soundMode.toUpperCase();
+  amplitudeControl.setVisible(state.soundMode !== "percussion");
+  pool.silence();
+  pool.setVoiceDemand(0, state.soundMode);
+  resetVoiceSubmission();
+  scheduleFrame();
+});
+
+$("audioButton").addEventListener("click", async () => {
+  $("audioError").hidden = true;
+  if (state.audio) {
+    state.audio = false;
+    pool.disable();
+    resetVoiceSubmission();
+  } else {
+    try {
+      $("audioState").textContent = "off";
+      await pool.enable();
+      pool.setLevel(state.level);
+      state.audio = true;
+      resetVoiceSubmission();
+      resetClocks();
+    } catch (error) {
+      $("audioError").textContent = error instanceof Error ? error.message : "Web Audio could not start.";
+      $("audioError").hidden = false;
+    }
+  }
+  setPressed($("audioButton"), state.audio);
+  $("audioState").textContent = state.audio ? "on" : "off";
+  scheduleFrame();
+});
+
+$("resetAll").addEventListener("click", () => {
+  pool.disable();
+  Object.assign(state, DEFAULT_L_SYSTEM_STATE);
+  for (const [id, value, text] of [
+    ["position", state.position, "0.0%"],
+    ["level", state.level, `${Math.round(state.level * 100)}%`],
+    ["baseFrequency", state.baseFrequency, `${state.baseFrequency} Hz`],
+    ["pitchRange", state.pitchRange, `${state.pitchRange.toFixed(2)} oct / turn`],
+    ["depthAmount", state.depthAmount, `${Math.round(state.depthAmount * 100)}%`],
+    ["modulationIndex", state.modulationIndex, `${state.modulationIndex.toFixed(2)} max`],
+    ["stereoSpread", state.stereoSpread, `${Math.round(state.stereoSpread * 100)}%`],
+  ]) {
+    $(id).value = String(value);
+    $(`${id}Out`).textContent = text;
+  }
+  $("structureMode").value = state.structureMode;
+  $("pitchSource").value = state.pitchSource;
+  $("soundMode").value = state.soundMode;
+  $("directionButton").textContent = "Direction · forward";
+  setPressed($("audioButton"), false);
+  $("audioState").textContent = "off";
+  setPressed($("playButton"), false);
+  amplitudeControl.reset();
+  pool.silence();
+  pool.setLevel(state.level);
+  resetVoiceSubmission();
+  loadPreset(state.presetId);
+  paintTraversalSpeed();
+  paintTraversalBehavior();
+  paintCurrentSettings();
+  resetClocks();
+  scheduleFrame();
+});
+
+function playbackBounds(entries) {
+  return entries.reduce((bounds, entry) => ({
+    minX: Math.min(bounds.minX, entry.trace.bounds.minX),
+    maxX: Math.max(bounds.maxX, entry.trace.bounds.maxX),
+    minY: Math.min(bounds.minY, entry.trace.bounds.minY),
+    maxY: Math.max(bounds.maxY, entry.trace.bounds.maxY),
+  }), { minX: 0, maxX: 0, minY: 0, maxY: 0 });
+}
+
+function drawingTransform(bounds) {
+  const margin = Math.max(22, Math.min(cssWidth, cssHeight) * 0.075);
+  const dataWidth = Math.max(1e-9, bounds.maxX - bounds.minX);
+  const dataHeight = Math.max(1e-9, bounds.maxY - bounds.minY);
+  const scale = Math.min(
+    Math.max(1, cssWidth - margin * 2) / dataWidth,
+    Math.max(1, cssHeight - margin * 2) / dataHeight,
+  );
+  const drawnWidth = dataWidth * scale;
+  const drawnHeight = dataHeight * scale;
+  return {
+    scale,
+    x: (point) => (cssWidth - drawnWidth) * 0.5 + (point.x - bounds.minX) * scale,
+    y: (point) => (cssHeight + drawnHeight) * 0.5 - (point.y - bounds.minY) * scale,
+  };
+}
+
+function drawSegment(segment, transform, strokeStyle, lineWidth = 1) {
+  context.beginPath();
+  context.moveTo(transform.x(segment.start), transform.y(segment.start));
+  context.lineTo(transform.x(segment.end), transform.y(segment.end));
+  context.strokeStyle = strokeStyle;
+  context.lineWidth = lineWidth;
+  context.stroke();
+}
+
+function playbackHeads(playback) {
+  return playback.entries.flatMap((entry) => entry.snapshot.heads.map((head) => ({
+    ...head,
+    iteration: entry.iteration,
+    localPhase: entry.localPhase,
+    sourceTrace: entry.trace,
+    snapshotDistance: entry.snapshot.distance,
+    voiceKey: `iteration:${entry.iteration}:${head.voiceKey}`,
+  })));
+}
+
+function drawScene(playback, playheads) {
+  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  context.clearRect(0, 0, cssWidth, cssHeight);
+  const transform = drawingTransform(playbackBounds(playback.entries));
+  const layered = playback.entries.length > 1;
+
+  playback.entries.forEach((entry, entryIndex) => {
+    const sourceDepth = Math.max(1, entry.trace.maxForkDepth);
+    const iterationHue = 145 + entryIndex * 145 / Math.max(1, playback.entries.length - 1);
+    entry.trace.segments.forEach((segment) => {
+      const depth = segment.forkDepth / sourceDepth;
+      const completed = segment.endDistance <= entry.snapshot.distance;
+      drawSegment(
+        segment,
+        transform,
+        completed
+          ? `hsla(${iterationHue + depth * 42}, 74%, 68%, ${layered ? 0.26 : 0.64 + depth * 0.28})`
+          : `rgba(214, 232, 226, ${layered ? 0.035 : 0.1 + depth * 0.14})`,
+        layered ? Math.max(0.45, 0.9 - depth * 0.25) : Math.max(0.65, 1.35 - depth * 0.55),
+      );
+    });
+  });
+
+  const headRadius = Math.max(1.6, 5 - Math.log2(Math.max(1, playheads.length)) * 0.42);
+  for (const playhead of playheads) {
+    const depth = playhead.depth / Math.max(1, playhead.sourceTrace.maxForkDepth);
+    const iterationIndex = playback.entries.findIndex((entry) => entry.iteration === playhead.iteration);
+    const iterationHue = 145 + Math.max(0, iterationIndex) * 145 / Math.max(1, playback.entries.length - 1);
+    const partial = { start: playhead.segment.start, end: playhead };
+    drawSegment(
+      partial,
+      transform,
+      `hsla(${iterationHue + depth * 42}, 84%, 73%, .95)`,
+      Math.max(1, 2.2 - depth * 0.45),
+    );
+    const x = transform.x(playhead);
+    const y = transform.y(playhead);
+    context.save();
+    context.shadowColor = "#5fe8c4";
+    context.shadowBlur = playheads.length <= 32 ? 18 : 8;
+    context.beginPath();
+    context.arc(x, y, headRadius, 0, TAU);
+    context.fillStyle = "#fff3d6";
+    context.fill();
+    context.restore();
+  }
+}
+
+function pitchValue(playhead, normalized) {
+  if (state.pitchSource === "angle") return null;
+  if (state.pitchSource === "depth") {
+    return playhead.depth / Math.max(1, playhead.sourceTrace.maxForkDepth);
+  }
+  if (state.pitchSource === "progress") return playhead.localPhase;
+  return normalized.y;
+}
+
+function voiceForPlayhead(playhead, activePower, combinedGain) {
+  const normalized = normalizeLSystemPoint(playhead, playhead.sourceTrace.bounds);
+  const depth = playhead.depth / Math.max(1, playhead.sourceTrace.maxForkDepth);
+  const drive = clamp(depth * state.depthAmount, 0, 1);
+  const mappedPitch = pitchValue(playhead, normalized);
+  const frequency = state.pitchSource === "angle"
+    ? branchAngleFrequency(playhead.cumulativeTurn, state.baseFrequency, state.pitchRange)
+    : pitch01ToFrequency(mappedPitch, state.baseFrequency, state.pitchRange);
+  const topologyBoundaryBehavior = (
+    state.traversalBehavior === "ping-pong"
+    && ["final", "together"].includes(state.structureMode)
+  ) ? "ping-pong" : "loop";
+  return {
+    key: `l-system:${playhead.voiceKey}`,
+    frequency,
+    gain: branchVoiceGain(playhead.powerShare, activePower, combinedGain)
+      * amplitudeControl.sample(playhead.progress ?? 0, 1)
+      * lSystemTraversalBoundaryGain(
+        playhead.localPhase,
+        topologyBoundaryBehavior,
+      ),
+    pan: clamp((normalized.x * 2 - 1) * state.stereoSpread, -1, 1),
+    waveform: "sine",
+    gainSmoothingSeconds: 0.018,
+    ...synthParametersForMode(state.soundMode, drive, {
+      fmIndex: state.modulationIndex,
+      fmRatio: 1.5,
+      pmIndex: state.modulationIndex,
+      pmRatio: 1.5,
+      shepardRate: state.playing ? state.speed * state.direction : 0,
+      shepardWidth: 5,
+      shepardPosition: playhead.localPhase,
+    }),
+  };
+}
+
+function voicesForPlayheads(playheads, maxVoices = pool.voiceLimitFor(state.soundMode)) {
+  const selected = allocateIterationVoiceHeads(playheads, maxVoices);
+  const groups = new Map();
+  for (const playhead of selected) {
+    const group = groups.get(playhead.iteration) ?? [];
+    group.push(playhead);
+    groups.set(playhead.iteration, group);
+  }
+  const layerGain = 0.38 / Math.sqrt(Math.max(1, groups.size));
+  return [...groups.values()].flatMap((heads) => {
+    const activePower = heads.reduce((sum, playhead) => sum + playhead.powerShare, 0);
+    return heads.map((playhead) => voiceForPlayhead(playhead, activePower, layerGain));
+  });
+}
+
+function paintPolyphony(soundingVoices, requestedVoices) {
+  const status = pool.polyphonyStatus;
+  const load = Number.isFinite(status.averageLoad)
+    ? ` · DSP ${Math.round(status.averageLoad * 100)}%`
+    : "";
+  const count = requestedVoices > status.limit
+    ? `${status.limit} / ${requestedVoices}`
+    : `${Math.max(soundingVoices, status.limit)} ready`;
+  const label = status.status === "fallback"
+    ? "SAFE CAP"
+    : status.status === "probing"
+      ? "AUTO TEST"
+      : status.status === "capped"
+        ? "AUTO CAP"
+        : status.status === "warming"
+          ? "AUTO CHECK"
+          : "AUTO";
+  $("polyphonyReadout").textContent = `${label} · ${count}${load}`;
+  $("polyphonyDescription").textContent = status.status === "fallback"
+    ? "This browser cannot expose reliable render load, so playback stays at the proven 128-voice fallback."
+    : status.status === "probing"
+      ? `The renderer has headroom, so the ceiling is rising in a guarded step toward the ${status.hardLimit}-voice ${status.mode.toUpperCase()} guard.`
+      : status.status === "capped" && requestedVoices > status.limit
+        ? `Playback is holding at ${status.limit} voices to preserve audio headroom; additional branches remain visual.`
+        : status.status === "warming" && requestedVoices > status.limit
+          ? "Measuring real playback load before admitting the next group of branches."
+          : `Every branch currently requested by the structure fits within the measured ceiling; this mode's hard guard is ${status.hardLimit} voices.`;
+}
+
+function transportDelta(now) {
+  const perfDelta = Math.max(0, (now - lastFrameTime) / 1000);
+  lastFrameTime = now;
+  const audioTime = state.audio && pool.context?.state === "running" ? pool.context.currentTime : null;
+  const audioDelta = Number.isFinite(audioTime) && Number.isFinite(lastAudioTime) && audioTime >= lastAudioTime
+    ? audioTime - lastAudioTime
+    : 0;
+  lastAudioTime = Number.isFinite(audioTime) ? audioTime : null;
+  return Math.min(1, audioDelta > 1e-6 ? audioDelta : perfDelta);
+}
+
+function drawableTraversalPhase(position) {
+  return state.traversalBehavior === "ping-pong" && position >= 1
+    ? 1 - 1e-9
+    : position;
+}
+
+function frame(now) {
+  scheduledFrame = 0;
+  const delta = transportDelta(now);
+  const phaseRate = iterationPlaybackPhaseRate(
+    state.structureMode,
+    iterationTraces.length,
+    state.speed,
+  );
+  if (state.playing) {
+    const advanced = advanceLSystemTraversal(
+      state.position,
+      state.direction,
+      phaseRate * delta,
+      state.traversalBehavior,
+    );
+    state.position = advanced.position;
+    state.continuousPosition = state.position;
+    if (advanced.direction !== state.direction) {
+      state.direction = advanced.direction;
+      $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
+    }
+  }
+  const playback = iterationPlaybackAtPhase(
+    iterationTraces,
+    drawableTraversalPhase(state.position),
+    state.structureMode,
+  );
+  const playheads = playbackHeads(playback);
+  drawScene(playback, playheads);
+
+  let soundingVoiceCount = 0;
+  let requestedVoices = 0;
+  if (state.audio && state.playing) {
+    const lookahead = 0.065;
+    const futurePhase = advanceLSystemTraversal(
+      state.position,
+      state.direction,
+      phaseRate * lookahead,
+      state.traversalBehavior,
+    ).position;
+    const futurePlayback = iterationPlaybackAtPhase(
+      iterationTraces,
+      drawableTraversalPhase(futurePhase),
+      state.structureMode,
+    );
+    const futureHeads = playbackHeads(futurePlayback);
+    requestedVoices = Math.max(playheads.length, futureHeads.length);
+    const voiceLimit = pool.setVoiceDemand(requestedVoices, state.soundMode);
+    const controlTime = now / 1_000;
+    const shouldSubmitVoices = voiceLimit !== lastSubmittedVoiceLimit
+      || state.soundMode !== lastSubmittedSoundMode
+      || requestedVoices === 0
+      || controlTime - lastVoiceSubmissionTime >= voiceSubmissionInterval(voiceLimit);
+    if (shouldSubmitVoices) {
+      const voices = voicesForPlayheads(playheads, voiceLimit);
+      pool.setVoiceTrajectory(
+        voices,
+        voicesForPlayheads(futureHeads, voiceLimit),
+        lookahead,
+        {
+          requestedVoiceCount: requestedVoices,
+          mode: state.soundMode,
+          voiceLimit,
+          releaseVoiceAllowance: Math.min(256, voiceLimit),
+        },
+      );
+      lastVoiceSubmissionTime = controlTime;
+      lastSoundingVoiceCount = voices.length;
+      lastSubmittedVoiceLimit = voiceLimit;
+      lastSubmittedSoundMode = state.soundMode;
+    }
+    soundingVoiceCount = lastSoundingVoiceCount;
+  } else if (state.audio) {
+    pool.setVoices([]);
+    resetVoiceSubmission();
+  } else {
+    resetVoiceSubmission();
+  }
+  paintPolyphony(soundingVoiceCount, requestedVoices);
+
+  $("position").value = String(state.position);
+  $("positionOut").textContent = state.structureMode === "sequence"
+    ? `I${playback.activeIteration} · ${(playback.entries[0].localPhase * 100).toFixed(1)}%`
+    : state.structureMode === "accumulate"
+      ? `to I${playback.activeIteration} · ${(playback.entries[0].localPhase * 100).toFixed(1)}%`
+    : state.structureMode === "together"
+      ? `sync · ${(state.position * 100).toFixed(1)}%`
+      : state.structureMode === "canon"
+        ? `round · ${(state.position * 100).toFixed(1)}%`
+        : `${(state.position * 100).toFixed(1)}%`;
+  const preset = currentPreset();
+  const finalIteration = iterationTraces.at(-1)?.iteration ?? 0;
+  const structureLabel = state.structureMode === "sequence"
+    ? `I${playback.activeIteration}/${finalIteration}`
+    : state.structureMode === "together"
+      ? `${iterationTraces.length} ITERATIONS TOGETHER`
+      : state.structureMode === "accumulate"
+        ? `ACCUMULATE THROUGH I${playback.activeIteration}`
+      : state.structureMode === "canon"
+        ? `${iterationTraces.length} ITERATION CANON`
+        : `FINAL I${finalIteration}`;
+  const headLabel = `${playheads.length} HEAD${playheads.length === 1 ? "" : "S"}`;
+  const voiceText = state.audio
+    ? (state.playing
+      ? `${soundingVoiceCount}${soundingVoiceCount < requestedVoices ? `/${requestedVoices}` : ""} ${state.soundMode.toUpperCase()} VOICE${soundingVoiceCount === 1 ? "" : "S"}`
+      : "AUDIO READY")
+    : "AUDIO OFF";
+  $("playSummary").textContent = `${headLabel.toLowerCase()} · ${state.playing ? "playing" : "paused"}`;
+  $("stageReadout").textContent = `${preset.name.toUpperCase()} · ${structureLabel} · ${headLabel} · ${voiceText}`;
+  paintStructure(playback);
+  if (state.playing) scheduleFrame();
+}
+
+canvas.addEventListener("keydown", (event) => {
+  if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+  state.position = ((state.position + (event.key === "ArrowRight" ? 0.005 : -0.005)) % 1 + 1) % 1;
+  state.continuousPosition = state.position;
+  scheduleFrame();
+  event.preventDefault();
+});
+
+document.addEventListener("visibilitychange", () => document.hidden ? pool.silence() : scheduleFrame());
+window.addEventListener("pagehide", (event) => event.persisted ? pool.disable() : void pool.close());
+paintGrammar();
+paintStructure();
+paintTraversalBehavior();
+paintCurrentSettings();
+scheduleFrame();

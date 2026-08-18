@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Lattice Drum Machine - map isohedral lattice contacts to FM or sample-based percussion voices."
+    />
+    <title>Lattice Drum Machine — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="lattice-drums.css" />
+  </head>
+  <body class="lattice-page lattice-drums-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="shape-drums.html">shape drums</a>
+        <a class="tab active" href="lattice-drums.html" aria-current="page">lattice drums</a>
+        <a class="tab" href="spiral-drums.html">spiral drums</a>
+        <a class="tab" href="solid-drums.html">solid drums</a>
+        <a class="tab" href="hyper-drums.html">hyper drums</a>
+        <a class="tab" href="l-system-drums.html">l-system drums</a>
+        <a class="tab" href="fm-drums.html">fm drums</a>
+        <a class="tab" href="sample-drums.html">sample drums</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="shape-drums.html">shape drums</option>
+          <option value="lattice-drums.html" selected>lattice drums</option>
+          <option value="spiral-drums.html">spiral drums</option>
+          <option value="solid-drums.html">solid drums</option>
+          <option value="hyper-drums.html">hyper drums</option>
+          <option value="l-system-drums.html">l-system drums</option>
+          <option value="fm-drums.html">fm drums</option>
+          <option value="sample-drums.html">sample drums</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">+</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">65%</output></span>
+          <input id="output" aria-label="Drum output level" type="range" min="0" max=".9" step=".01" value=".65" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell lattice-drums-shell" id="latticeDrums">
+      <section class="stage" aria-label="Lattice Drum Machine stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="A moving isohedral lattice crossing one fixed reader line and triggering drums."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A moving lattice mapped to sixteen drum voices.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">0 CONTACTS · PAUSED · AUDIO OFF</span>
+          </div>
+          <div class="lattice-mapping-readout" id="mappingReadout" aria-hidden="true">
+            EDGE A · 0–45° → SUB KICK
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel lattice-drums-panel" aria-label="Lattice Drum Machine controls">
+        <section class="group control-section always-open">
+          <div class="group-summary static-group-summary">
+            <h2 class="group-title">Motion</h2>
+            <span class="section-state" id="motionSummary">paused · 0.360 cyc/s</span>
+          </div>
+          <div class="group-body">
+            <div class="position-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play lattice">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="position">
+                <span><b>Pattern phase</b><output id="positionOut" for="position">50.0%</output></span>
+                <input id="position" type="range" min="0" max="1" step=".0005" value=".5" />
+              </label>
+            </div>
+
+            <label class="control" for="speed">
+              <span><b>Pattern speed</b><output id="speedOut" for="speed">0.360 cyc/s</output></span>
+              <input id="speed" type="range" min=".01" max=".8" step=".005" value=".36" />
+            </label>
+
+            <label class="control" for="patternAngle">
+              <span><b>Pattern direction</b><output id="patternAngleOut" for="patternAngle">0.0°</output></span>
+              <input id="patternAngle" type="range" min="0" max="90" step="0.1" value="0" />
+            </label>
+
+            <label class="control" for="lineAngle">
+              <span><b>Reader line angle</b><output id="lineAngleOut" for="lineAngle">90.0°</output></span>
+              <input id="lineAngle" type="range" min="0" max="179.9" step="0.1" value="90" />
+            </label>
+
+            <div class="choice-switch compact" id="directionChoice" role="group" aria-label="Pattern direction">
+              <button type="button" data-direction="-1" aria-pressed="true">Backward</button>
+              <button type="button" data-direction="1" aria-pressed="false">Forward</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="group control-section always-open" id="formSection" data-section="form">
+          <div class="group-summary static-group-summary">
+            <h2 class="group-title">Form</h2>
+            <span class="section-state" id="formSummary">Pentagon · IH20</span>
+          </div>
+          <div class="group-body lattice-form-body">
+            <div class="tile-editor-panel" id="tileEditorPanel">
+              <canvas
+                class="tile-editor-canvas"
+                id="tileEditorCanvas"
+                width="320"
+                height="220"
+                tabindex="0"
+                aria-label="Editable isohedral prototile"
+              >
+                Editable isohedral prototile.
+              </canvas>
+              <div class="tile-editor-legend" aria-hidden="true">
+                <i></i><span id="tileEditorLegend">movable corner</span>
+              </div>
+            </div>
+
+            <div class="tile-editor-toolbar">
+              <button class="mini-action reset-form" id="resetTileVertices" type="button">Reset vertices</button>
+              <label class="select-control" for="tilingType">
+                <span class="field-label">Prototile</span>
+                <span class="select-shell"><select id="tilingType"></select></span>
+              </label>
+            </div>
+
+            <label class="control lattice-compact-control" for="density">
+              <span><b>Density</b><output id="densityOut" for="density">medium</output></span>
+              <input id="density" type="range" min="0" max=".8" step=".01" value=".52" />
+            </label>
+
+            <div class="lattice-control-block" id="parameterControls">
+              <div class="lattice-control-heading">
+                <b>Shape</b><small id="parameterCount">0 parameters</small>
+              </div>
+              <label class="control" id="parameterControl0" for="parameter0" hidden><span><b id="parameterLabel0">Shape 1</b><output id="parameter0Out" for="parameter0">0.000</output></span><input id="parameter0" type="range" min="-.35" max=".35" step=".005" value="0" /></label>
+              <label class="control" id="parameterControl1" for="parameter1" hidden><span><b id="parameterLabel1">Shape 2</b><output id="parameter1Out" for="parameter1">0.000</output></span><input id="parameter1" type="range" min="-.35" max=".35" step=".005" value="0" /></label>
+              <label class="control" id="parameterControl2" for="parameter2" hidden><span><b id="parameterLabel2">Shape 3</b><output id="parameter2Out" for="parameter2">0.000</output></span><input id="parameter2" type="range" min="-.35" max=".35" step=".005" value="0" /></label>
+              <label class="control" id="parameterControl3" for="parameter3" hidden><span><b id="parameterLabel3">Shape 4</b><output id="parameter3Out" for="parameter3">0.000</output></span><input id="parameter3" type="range" min="-.35" max=".35" step=".005" value="0" /></label>
+              <label class="control" id="parameterControl4" for="parameter4" hidden><span><b id="parameterLabel4">Shape 5</b><output id="parameter4Out" for="parameter4">0.000</output></span><input id="parameter4" type="range" min="-.35" max=".35" step=".005" value="0" /></label>
+              <label class="control" id="parameterControl5" for="parameter5" hidden><span><b id="parameterLabel5">Shape 6</b><output id="parameter5Out" for="parameter5">0.000</output></span><input id="parameter5" type="range" min="-.35" max=".35" step=".005" value="0" /></label>
+            </div>
+
+            <div class="lattice-control-block" id="edgeControls">
+              <div class="lattice-control-heading">
+                <b>Matching edges</b><small id="edgeCount">0 classes</small>
+              </div>
+              <label class="control" id="edgeControl0" for="edgeCurve0" hidden><span><b id="edgeLabel0">Edge A</b><output id="edgeCurve0Out" for="edgeCurve0">straight</output></span><input id="edgeCurve0" type="range" min="-1" max="1" step=".01" value="0" /></label>
+              <label class="control" id="edgeControl1" for="edgeCurve1" hidden><span><b id="edgeLabel1">Edge B</b><output id="edgeCurve1Out" for="edgeCurve1">straight</output></span><input id="edgeCurve1" type="range" min="-1" max="1" step=".01" value="0" /></label>
+              <label class="control" id="edgeControl2" for="edgeCurve2" hidden><span><b id="edgeLabel2">Edge C</b><output id="edgeCurve2Out" for="edgeCurve2">straight</output></span><input id="edgeCurve2" type="range" min="-1" max="1" step=".01" value="0" /></label>
+              <label class="control" id="edgeControl3" for="edgeCurve3" hidden><span><b id="edgeLabel3">Edge D</b><output id="edgeCurve3Out" for="edgeCurve3">straight</output></span><input id="edgeCurve3" type="range" min="-1" max="1" step=".01" value="0" /></label>
+              <label class="control" id="edgeControl4" for="edgeCurve4" hidden><span><b id="edgeLabel4">Edge E</b><output id="edgeCurve4Out" for="edgeCurve4">straight</output></span><input id="edgeCurve4" type="range" min="-1" max="1" step=".01" value="0" /></label>
+            </div>
+
+            <div class="lattice-reset-row">
+              <button class="mini-action" id="straightenEdges" type="button">Straighten edges</button>
+              <button class="mini-action" id="resetForm" type="button">Reset tiling + line</button>
+            </div>
+          </div>
+        </section>
+
+        <details class="group control-section">
+          <summary class="group-summary">
+            <h2 class="group-title">Drum mapping</h2>
+            <span class="section-state" id="mappingSummary">edge × angle</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="drumEngine">
+              <span class="field-label">Drum engine</span>
+              <span class="select-shell">
+                <select id="drumEngine">
+                  <option value="fm" selected>FM synth</option>
+                  <option value="samples">808/909 samples</option>
+                </select>
+              </span>
+            </label>
+            <div class="lattice-engine-row">
+              <p class="lattice-engine-status" id="engineStatus">FM synth · audio off</p>
+              <button class="mini-action" id="auditionEngine" type="button">Audition engine</button>
+            </div>
+            <label class="select-control" for="mappingMode">
+              <span class="field-label">Voice selection</span>
+              <span class="select-shell">
+                <select id="mappingMode" aria-describedby="mappingDescription"></select>
+              </span>
+            </label>
+            <p class="lattice-mapping-description" id="mappingDescription">
+              Edge class chooses the row; edge orientation chooses the column.
+            </p>
+
+            <div class="lattice-map-legend" id="mappingLegend" aria-label="Current contact mappings">
+              <span><b>Edge class</b><small>drum row</small></span>
+              <span><b>Edge angle</b><small>voice column</small></span>
+              <span><b>Height</b><small>tuning</small></span>
+              <span><b>Incidence</b><small>tone + force</small></span>
+              <span><b>Density</b><small>headroom</small></span>
+            </div>
+
+            <label class="control" for="pitchDepth">
+              <span><b>Height → tuning</b><output id="pitchDepthOut" for="pitchDepth">±12 st</output></span>
+              <input id="pitchDepth" type="range" min="0" max="24" step="1" value="12" />
+            </label>
+            <label class="control" for="characterDepth">
+              <span><b>Incidence → character</b><output id="characterDepthOut" for="characterDepth">70%</output></span>
+              <input id="characterDepth" type="range" min="0" max="1" step=".01" value=".7" />
+            </label>
+            <label class="control" for="strikeLimit">
+              <span><b>Strikes per frame</b><output id="strikeLimitOut" for="strikeLimit">6</output></span>
+              <input id="strikeLimit" type="range" min="1" max="16" step="1" value="6" />
+            </label>
+
+            <div class="lattice-drum-map" id="drumMap" aria-label="Sixteen mapped drum voices"></div>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetLatticeDrums" type="button">Reset lattice drums</button>
+        </div>
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Space toggles playback. Left and right arrows move the lattice phase.
+        Up and down arrows rotate the reader line.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="lattice-drums-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

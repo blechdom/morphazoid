@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid graph delay — route a live microphone through generated directed delay networks." />
+    <title>graph delay — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="micmic.css" />
+    <link rel="stylesheet" href="graph-delay.css?v=20260726-switch-shapes" />
+  </head>
+  <body class="micmic-page graph-delay-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid Shape">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab recursion-tab" href="recursion.html">recursion</a>
+        <a class="tab" href="julia.html">julia</a>
+        <a class="tab" href="lumber.html">lumber loops</a>
+        <a class="tab micmic-tab" href="l-mic.html">L-mic</a>
+        <a class="tab graph-delay-tab active" href="graph-delay.html" aria-current="page">graph-delay</a>
+        <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
+          <option value="julia.html">julia</option>
+          <option value="lumber.html">lumber loops</option>
+          <option value="l-mic.html">L-mic</option>
+          <option value="graph-delay.html" selected>graph-delay</option>
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="morphazoidical/">morphazoidical</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph fracta-audio-glyph" aria-hidden="true">⌁</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
+          <input id="level" aria-label="graph delay output level" type="range" min="0" max="0.9" step="0.01" value="0.58" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="graphDelay">
+      <section class="stage fracta-stage" aria-label="Generated directed delay graph">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" role="application" aria-roledescription="interactive audio graph" aria-label="Layered directed acyclic delay graph. Microphone off." aria-describedby="graphDescription canvasInstructions liveStatus">
+            A generated directed graph whose nodes and edges form a live microphone delay network.
+          </canvas>
+          <div class="fracta-seed-control graph-seed-control" id="seedControl">
+            <button id="seedMicButton" type="button" aria-pressed="false" aria-label="Start microphone input">
+              <i aria-hidden="true"></i>
+              <span><b>Start input</b><small>microphone source</small></span>
+            </button>
+          </div>
+          <button class="fracta-panic" id="panicButton" type="button" disabled><span aria-hidden="true">×</span> panic</button>
+          <div class="graph-key" aria-hidden="true">
+            <span><i class="feed-forward"></i> feed-forward</span>
+            <span><i class="feedback"></i> cycle feedback</span>
+            <span><i class="route-switch"></i> click switch</span>
+            <span><i class="output-guide"></i> speaker tap route</span>
+          </div>
+          <div class="stage-meta" aria-hidden="true"><span id="stageReadout">MIC IN → LAYERED DAG → SPEAKERS OUT · 12/12 ROUTES OPEN · 1 SINK TAP</span></div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="graph delay controls">
+        <details class="group control-section" id="topologySection" data-section="topology">
+          <summary class="group-summary"><h2 class="group-title">Topology</h2><span class="section-state" id="topologySummary">Layered Glass · Layered DAG</span></summary>
+          <div class="group-body">
+            <input id="graphPatch" type="hidden" value="layeredGlass" />
+            <div class="micmic-preset-grid graph-preset-grid" id="graphPatchGrid" role="group" aria-label="Graph delay presets">
+              <button id="graphPatch-clearSteps" type="button" data-graph-patch="clearSteps" data-preset-band="clean" aria-pressed="false"><b>Clear Steps</b><small>CHAIN · 75–225 MS · UNISON</small></button>
+              <button id="graphPatch-lowLadder" type="button" data-graph-patch="lowLadder" data-preset-band="rhythmic" aria-pressed="false"><b>Low Ladder</b><small>LOW DAG · 125–770 MS · ±2 ST</small></button>
+              <button id="graphPatch-branchChoir" type="button" data-graph-patch="branchChoir" data-preset-band="spacious" aria-pressed="false"><b>Branch Choir</b><small>TREE · 175–525 MS · ±2 ST</small></button>
+              <button id="graphPatch-glassCanopy" type="button" data-graph-patch="glassCanopy" data-preset-band="wild" aria-pressed="false"><b>Glass Canopy</b><small>TREE · 55–175 MS · ±2.5 ST</small></button>
+              <button id="graphPatch-layeredGlass" type="button" data-graph-patch="layeredGlass" data-preset-band="rhythmic" aria-pressed="true"><b>Layered Glass</b><small>DAG · 70–440 MS · ±2 ST</small></button>
+              <button id="graphPatch-rainLattice" type="button" data-graph-patch="rainLattice" data-preset-band="wild" aria-pressed="false"><b>Rain Lattice</b><small>DENSE DAG · 55–190 MS · ±3 ST</small></button>
+              <button id="graphPatch-twinBanks" type="button" data-graph-patch="twinBanks" data-preset-band="spacious" aria-pressed="false"><b>Twin Banks</b><small>WIDE · 335 MS · ±3 ST</small></button>
+              <button id="graphPatch-haloRing" type="button" data-graph-patch="haloRing" data-preset-band="feedback" aria-pressed="false"><b>Halo Ring</b><small>RING · 50 MS TAPS · FALLING</small></button>
+              <button id="graphPatch-slowOrbit" type="button" data-graph-patch="slowOrbit" data-preset-band="feedback" aria-pressed="false"><b>Slow Orbit</b><small>RING · 130 MS TAPS · DARK</small></button>
+              <button id="graphPatch-shortcutChorus" type="button" data-graph-patch="shortcutChorus" data-preset-band="feedback" aria-pressed="false"><b>Shortcut Chorus</b><small>SHORTCUTS · 85–615 MS · ±4 ST</small></button>
+              <button id="graphPatch-hubScatter" type="button" data-graph-patch="hubScatter" data-preset-band="wild" aria-pressed="false"><b>Hub Scatter</b><small>HUB · 105 MS · ±4.5 ST</small></button>
+              <button id="graphPatch-softMesh" type="button" data-graph-patch="softMesh" data-preset-band="feedback" aria-pressed="false"><b>Soft Mesh</b><small>MESH · 70–370 MS · ±2.5 ST</small></button>
+              <button id="graphPatch-islandSignals" type="button" data-graph-patch="islandSignals" data-preset-band="spacious" aria-pressed="false"><b>Island Signals</b><small>3 LOOPS · 60–840 MS · FALLING</small></button>
+              <button id="graphPatch-dustPaths" type="button" data-graph-patch="dustPaths" data-preset-band="wild" aria-pressed="false"><b>Dust Paths</b><small>RANDOM · 100–670 MS · FALLING</small></button>
+            </div>
+            <p class="growth-preset-description" id="graphPatchDescription">The punchy default: crossing DAG taps with close times and restrained pitch.</p>
+            <section class="recursion-parameter-cluster graph-generator-cluster">
+              <h3 class="parameter-cluster-title">Graph generator</h3>
+              <label class="select-control" for="topology">
+                <span class="field-label">Graph shape</span>
+                <span class="select-shell">
+                  <select id="topology" aria-describedby="topologyDescription">
+                    <optgroup label="Directed acyclic graphs">
+                      <option value="chain">Delay Chain</option>
+                      <option value="tree">Branching Tree</option>
+                      <option value="dag" selected>Layered DAG</option>
+                      <option value="bipartite">Bipartite Field</option>
+                    </optgroup>
+                    <optgroup label="Cyclic and network graphs">
+                      <option value="ring">Directed Ring</option>
+                      <option value="smallworld">Small World</option>
+                      <option value="hub">Hub + Spokes</option>
+                      <option value="mesh">Feedback Mesh</option>
+                      <option value="modular">Modular Islands</option>
+                      <option value="random">Seeded Random</option>
+                    </optgroup>
+                  </select>
+                </span>
+              </label>
+              <p class="sr-only" id="topologyDescription">Several forward-only paths cross between ordered layers.</p>
+              <label class="control" for="nodeCount"><span><b>Nodes</b><output id="nodeCountOut" for="nodeCount">10</output></span><input id="nodeCount" type="range" min="3" max="24" step="1" value="10" /></label>
+              <label class="control" for="density"><span><b>Connection density</b><output id="densityOut" for="density">34%</output></span><input id="density" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
+              <label class="control" for="seed"><span><b>Graph seed</b><output id="seedOut" for="seed">17</output></span><input id="seed" type="range" min="1" max="99" step="1" value="17" /></label>
+              <button class="mini-action" id="newGraphButton" type="button">New seeded graph</button>
+              <button class="mini-action" id="openAllSwitchesButton" type="button" disabled>Open all graph switches</button>
+            </section>
+          </div>
+        </details>
+
+        <details class="group control-section performance-group" id="listenSection" data-section="listen">
+          <summary class="group-summary"><h2 class="group-title">Listen</h2><span class="section-state" id="listenSummary">microphone off</span></summary>
+          <div class="group-body">
+            <div class="fracta-listen-actions">
+              <button class="fracta-mic-button" id="micButton" type="button" aria-pressed="false">
+                <span class="fracta-mic-icon" aria-hidden="true"><i></i></span>
+                <span><b id="micButtonLabel">Start input</b><small id="micButtonHint">allow microphone access</small></span>
+              </button>
+              <button class="fracta-freeze-button" id="stopButton" type="button" disabled>
+                <span aria-hidden="true">×</span><span><b>Stop audio</b><small>clear every graph tail</small></span>
+              </button>
+            </div>
+            <div class="fracta-meter" aria-label="Live microphone level">
+              <span><b>Input signal</b><output id="inputMeterOut">silent</output></span>
+              <div><i id="inputMeterBar"></i><em id="inputPeakMarker"></em></div>
+            </div>
+            <label class="control" for="inputTrim"><span><b>Input trim</b><output id="inputTrimOut" for="inputTrim">80%</output></span><input id="inputTrim" type="range" min="0" max="1.25" step="0.01" value="0.8" /></label>
+            <p class="fracta-headphone-note"><b>Use headphones.</b> Cyclic presets contain controlled digital feedback; speakers can add an uncontrolled acoustic loop.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section" id="delaySection" data-section="delay">
+          <summary class="group-summary"><h2 class="group-title">Time + pitch</h2><span class="section-state" id="delaySummary">62–120 ms · angle → 26% octave</span></summary>
+          <div class="group-body">
+            <section class="recursion-parameter-cluster">
+              <h3 class="parameter-cluster-title">Signal flow</h3>
+              <label class="control" for="nodePass"><span><b>Node pass-through</b><output id="nodePassOut" for="nodePass">100% per node</output></span><input id="nodePass" type="range" min="0" max="1" step="0.01" value="1" /></label>
+            </section>
+            <section class="recursion-parameter-cluster">
+              <h3 class="parameter-cluster-title">Timing</h3>
+              <label class="control" for="baseDelay"><span><b>Shared edge delay</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" /></label>
+              <label class="control" for="timeScale"><span><b>Edge-length variation</b><output id="timeScaleOut" for="timeScale">+58 ms longest edge</output></span><input id="timeScale" type="range" min="0" max="800" step="1" value="58" /></label>
+              <label class="control" for="timeCurve"><span><b>Length response</b><output id="timeCurveOut" for="timeCurve">0.90 · broad</output></span><input id="timeCurve" type="range" min="0.25" max="3" step="0.05" value="0.9" /></label>
+            </section>
+            <section class="recursion-parameter-cluster">
+              <h3 class="parameter-cluster-title">Pitch</h3>
+              <label class="control" for="pitchScale"><span><b>Angle → octave span</b><output id="pitchScaleOut" for="pitchScale">26% octave / 180°</output></span><input id="pitchScale" type="range" min="0" max="2" step="0.01" value="0.26" /></label>
+              <label class="control signed-form-range" for="pitchAsymmetry"><span><b>Turn asymmetry</b><output id="pitchAsymmetryOut" for="pitchAsymmetry">even</output></span><input id="pitchAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
+              <label class="control" for="pitchCurve"><span><b>Angle response</b><output id="pitchCurveOut" for="pitchCurve">1.35 · gentler small turns</output></span><input id="pitchCurve" type="range" min="0.5" max="2" step="0.05" value="1.35" /></label>
+              <label class="control" for="pitchSlew"><span><b>Pitch glide</b><output id="pitchSlewOut" for="pitchSlew">165 ms</output></span><input id="pitchSlew" type="range" min="10" max="500" step="5" value="165" /></label>
+            </section>
+            <section class="recursion-parameter-cluster">
+              <h3 class="parameter-cluster-title">Feedback</h3>
+              <label class="control" for="feedback"><span><b>Feedback decay</b><output id="feedbackOut" for="feedback">72%</output></span><input id="feedback" type="range" min="0" max="0.92" step="0.01" value="0.72" /></label>
+              <label class="control" for="damping"><span><b>Feedback damping</b><output id="dampingOut" for="damping">4.8 kHz</output></span><input id="damping" type="range" min="500" max="12000" step="50" value="4800" /></label>
+            </section>
+          </div>
+        </details>
+
+        <details class="group control-section" id="mixSection" data-section="mix">
+          <summary class="group-summary"><h2 class="group-title">Mix</h2><span class="section-state" id="mixSummary">116% graph · 20% direct</span></summary>
+          <div class="group-body">
+            <label class="control" for="wet"><span><b>Graph presence</b><output id="wetOut" for="wet">116%</output></span><input id="wet" type="range" min="0" max="1.5" step="0.01" value="1.16" /></label>
+            <label class="control" for="dry"><span><b>Direct microphone</b><output id="dryOut" for="dry">20%</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
+            <label class="control" for="spread"><span><b>Stereo spread</b><output id="spreadOut" for="spread">82%</output></span><input id="spread" type="range" min="0" max="1" step="0.01" value="0.82" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" id="motionSection" data-section="motion">
+          <summary class="group-summary"><h2 class="group-title">Motion</h2><span class="section-state" id="motionSummary">nodes paused · mic paused</span></summary>
+          <div class="group-body">
+            <span class="field-label">Node motion</span>
+            <div class="mic-motion-row">
+              <button class="play-button motion-play-button" id="nodeMotionPlayButton" type="button" aria-pressed="false" aria-label="Play node motion">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="select-control mic-motion-select" for="nodeMotionMode">
+                <span class="select-shell">
+                  <select id="nodeMotionMode">
+                    <option value="wiggle" selected>Independent wiggle</option>
+                    <option value="orbit">Circular walks</option>
+                    <option value="random">Random walks</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+            <label class="control" for="nodeMotionSpeed"><span><b>Node speed</b><output id="nodeMotionSpeedOut" for="nodeMotionSpeed">0.12 cyc/s</output></span><input id="nodeMotionSpeed" type="range" min="0.01" max="0.5" step="0.01" value="0.12" /></label>
+            <label class="control" for="nodeMotionAmount"><span><b>Node travel</b><output id="nodeMotionAmountOut" for="nodeMotionAmount">7%</output></span><input id="nodeMotionAmount" type="range" min="0.01" max="0.3" step="0.01" value="0.07" /></label>
+            <div class="motion-divider" aria-hidden="true"></div>
+            <span class="field-label">Microphone path</span>
+            <div class="mic-motion-row">
+              <button class="play-button motion-play-button" id="micMotionPlayButton" type="button" aria-pressed="false" aria-label="Play microphone motion">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="select-control mic-motion-select" for="micMotionMode">
+                <span class="select-shell">
+                  <select id="micMotionMode">
+                    <option value="circle" selected>Circle</option>
+                    <option value="ellipse">Ellipse</option>
+                    <option value="triangle">Triangle</option>
+                    <option value="square">Square</option>
+                    <option value="figure8">Figure eight</option>
+                    <option value="random">Random walk</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+            <label class="control" for="micMotionSpeed"><span><b>Mic speed</b><output id="micMotionSpeedOut" for="micMotionSpeed">0.08 cyc/s</output></span><input id="micMotionSpeed" type="range" min="0.01" max="0.4" step="0.01" value="0.08" /></label>
+            <label class="control" for="micMotionSize"><span><b>Path size</b><output id="micMotionSizeOut" for="micMotionSize">42%</output></span><input id="micMotionSize" type="range" min="0.05" max="0.46" step="0.01" value="0.42" /></label>
+            <button class="mini-action" id="resetViewButton" type="button">Stop motion + reset mic</button>
+          </div>
+        </details>
+
+        <div class="reset-all-row"><button class="reset-all-button" id="graphResetButton" type="button" data-reset-in-place data-reset-all>Reset all parameters</button></div>
+
+        <details class="group control-section" id="graphInfoSection" data-section="info">
+          <summary class="group-summary"><h2 class="group-title">Current graph</h2><span class="section-state" id="graphInfoSummary">10 nodes · 12/12 routes open · 1 tap</span></summary>
+          <div class="group-body">
+            <dl class="current-settings-readout graph-info-readout" aria-live="polite">
+              <div><dt>Structure</dt><dd><output id="structureReadout">10 nodes · 12 edges · 12/12 routes open · 1 sink tap · 1 speaker route</output></dd></div>
+              <div><dt>Tap arrival</dt><dd><output id="pathReadout">380 ms first-pass</output></dd></div>
+              <div><dt>Cycles</dt><dd><output id="cycleReadout">none · finite tail</output></dd></div>
+              <div><dt>Selected node</dt><dd><output id="selectedNodeOut">node 1 · relative turn routes</output></dd></div>
+              <div><dt>Connected time</dt><dd><output id="selectedTimeOut">drag a node</output></dd></div>
+              <div><dt>Feedback</dt><dd><output id="feedbackSafetyNote">acyclic · feedback dormant</output></dd></div>
+            </dl>
+          </div>
+        </details>
+      </aside>
+
+      <p class="sr-only" id="graphDescription">A draggable directed delay network with independently moving circular nodes. A cyan microphone terminal enters the network. Only forward sink and leaf nodes are audible and connect to the fixed gold speaker terminal by dotted visual-only routes. Rainbow vibrating edges move audio forward. Coral dashed edges carry normalized feedback below unity. Small rectangular knife switches control individual routes without rebuilding the graph. Edge length controls time and each signed relative turn adds a proportional pitch interval.</p>
+      <p class="sr-only" id="canvasInstructions">Click a rectangular connection switch to open or close that route. At a branch, independently switching its outgoing routes selects the left branch, right branch, both, or neither. With keyboard focus on the graph, use left and right bracket to select a switch, then Enter or Space to toggle it. Drag graph nodes or MIC IN. SPEAKERS OUT stays fixed. Start microphone input while wearing headphones. Press Escape for panic.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="graph-delay-app.js?v=20260726-switch-shapes"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

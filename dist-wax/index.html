@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid browser instruments, operating notes, source, license, and author."
+    />
+    <title>Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="about.css" />
+    <link rel="stylesheet" href="instrument-catalog.css" />
+  </head>
+  <body class="about-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Morphazoid main menu"></nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="" selected>choose</option>
+        </select>
+      </label>
+    </header>
+
+    <main class="about-shell" id="about">
+      <article class="about-document">
+        <header class="about-intro">
+          <div>
+            <h1>Morphazoid</h1>
+            <p class="about-lede">
+              Morphazoid is a set of browser music instruments. It turns geometry, recursion,
+              algorithms, simulations, microphone input, and audio files into sound.
+            </p>
+          </div>
+        </header>
+
+        <section class="manual-section" id="operation">
+          <div class="manual-section-heading">
+            <p class="manual-section-label">Start here</p>
+            <h2>Basic operation</h2>
+            <p class="manual-section-note">
+              Every instrument keeps its own controls and audio state.
+            </p>
+          </div>
+          <div class="manual-copy">
+            <ol>
+              <li>Use the instrument pull-down to open an instrument. Audio starts off.</li>
+              <li>
+                Select the speaker, Input, or the page's start control. The browser needs a click
+                or tap before it can play sound.
+              </li>
+              <li>Set the output level before starting feedback, dense textures, or many voices.</li>
+              <li>
+                Start the playhead, reader, transport, or source. Many geometry pages let motion
+                and audio run separately.
+              </li>
+              <li>Use the page's reset control to return to its default settings.</li>
+            </ol>
+            <p>
+              Microphone instruments ask for browser permission when input starts. Headphones help
+              prevent feedback. File instruments decode the selected file locally in the browser.
+            </p>
+          </div>
+        </section>
+
+        <section class="manual-section catalogue-manual-section" id="instrument-catalogue">
+          <div class="manual-section-heading">
+            <h2>Instrument Catalogue</h2>
+          </div>
+          <div
+            class="instrument-catalog"
+            id="homeInstrumentCatalogue"
+            data-instrument-catalog
+          ></div>
+        </section>
+
+        <section class="manual-section" id="implementation">
+          <div class="manual-section-heading">
+            <p class="manual-section-label">Built with</p>
+            <h2>Implementation</h2>
+            <p class="manual-section-note">
+              Morphazoid is a static site and does not need an application server.
+            </p>
+          </div>
+          <div class="manual-copy">
+            <dl class="technical-list">
+              <div>
+                <dt>Interface</dt>
+                <dd>Plain HTML, CSS, and JavaScript modules. No UI framework.</dd>
+              </div>
+              <div>
+                <dt>Graphics</dt>
+                <dd>Canvas draws the instrument stages with a pixel budget for large screens.</dd>
+              </div>
+              <div>
+                <dt>Audio</dt>
+                <dd>
+                  Web Audio handles synthesis, filters, routing, microphone input, decoding, and
+                  output. AudioWorklets handle continuous high-voice-count synthesis.
+                </dd>
+              </div>
+              <div>
+                <dt>State</dt>
+                <dd>
+                  Pages load their defaults when opened. Instrument editors can keep selected
+                  banks in browser storage.
+                </dd>
+              </div>
+              <div>
+                <dt>Development</dt>
+                <dd>
+                  Use <code>npm run dev</code> for the local server and
+                  <code>npm run verify</code> for checks and tests.
+                </dd>
+              </div>
+              <div>
+                <dt>Plug-ins</dt>
+                <dd>Coming soon.</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        <section class="manual-section" id="source">
+          <div class="manual-section-heading">
+            <p class="manual-section-label">Open source</p>
+            <h2>Source &amp; license</h2>
+            <p class="manual-section-note">
+              The source is public under the repository license.
+            </p>
+          </div>
+          <div class="manual-copy">
+            <p>
+              Code, tests, deployment files, and development notes are in the
+              <a href="https://github.com/blechdom/morphazoid">Morphazoid GitHub repository</a>.
+            </p>
+            <p>
+              Morphazoid uses the
+              <a href="https://github.com/blechdom/morphazoid/blob/main/LICENSE">MIT License</a>.
+              Bundled third-party components retain their original terms in the
+              <a href="https://github.com/blechdom/morphazoid/blob/main/THIRD_PARTY_NOTICES.md"
+                >third-party notices</a
+              >.
+            </p>
+          </div>
+        </section>
+
+        <section class="manual-section" id="author">
+          <div class="manual-section-heading">
+            <p class="manual-section-label">Made by</p>
+            <h2>Author</h2>
+          </div>
+          <div class="manual-copy">
+            <p>
+              <a href="https://github.com/blechdom">Kristin Galvin</a> created and develops
+              Morphazoid. She is a software engineer and experimental electronic musician who has
+              recorded and performed as Kevin Blechdom and as part of Blectum from Blechdom.
+              Morphazoid brings together her work in browser synthesis, audio processing,
+              geometry, and recursive systems.
+            </p>
+          </div>
+        </section>
+
+        <footer class="about-footer">
+          <span>Morphazoid</span>
+          <span class="about-footer-credit"
+            >vibed up with Codex 5.6 Sol Ultra, mostly - no code was ever touched by human
+            typings</span
+          >
+          <span>Copyright &copy; 2026 Kristin Galvin</span>
+        </footer>
+      </article>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="instrument-catalog-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

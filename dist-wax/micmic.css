@@ -1,0 +1,621 @@
+.micmic-page {
+  --accent: #55d9ff;
+  --accent-soft: color-mix(in oklab, #55d9ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #55d9ff 22%, transparent);
+  --fracta-root: #fff3d6;
+  --fracta-coral: #ff826f;
+}
+
+.micmic-page #presetSection {
+  --accent: #e8c46b;
+  --accent-soft: color-mix(in oklab, #e8c46b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #e8c46b 20%, transparent);
+}
+
+.micmic-page #listenSection {
+  --accent: #55d9ff;
+  --accent-soft: color-mix(in oklab, #55d9ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #55d9ff 21%, transparent);
+}
+
+.micmic-page #recursionSection {
+  --accent: #c79bff;
+  --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #c79bff 20%, transparent);
+}
+
+.micmic-page #mixSection {
+  --accent: #5fe8c4;
+  --accent-soft: color-mix(in oklab, #5fe8c4 55%, transparent);
+  --accent-glow: color-mix(in oklab, #5fe8c4 20%, transparent);
+}
+
+.micmic-page #settingsSection {
+  --accent: #7db4ff;
+  --accent-soft: color-mix(in oklab, #7db4ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #7db4ff 20%, transparent);
+}
+
+.micmic-headphone-warning {
+  min-width: 80px;
+  max-width: 340px;
+  margin: 0;
+  color: var(--muted);
+  flex: 1 1 260px;
+  font: 7px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.025em;
+  text-align: right;
+}
+
+.micmic-headphone-warning strong {
+  color: var(--fracta-coral);
+  font-weight: 600;
+}
+
+.micmic-page .stage-wrap {
+  background:
+    linear-gradient(rgba(85, 217, 255, 0.021) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(85, 217, 255, 0.021) 1px, transparent 1px),
+    radial-gradient(ellipse at 18% 50%, rgba(255, 243, 214, 0.075), transparent 29%),
+    radial-gradient(ellipse at 64% 50%, rgba(199, 155, 255, 0.07), transparent 50%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto, auto;
+}
+
+.micmic-page #stage {
+  cursor: default;
+}
+
+.fracta-audio-glyph {
+  color: var(--accent);
+  font-size: 18px;
+  text-shadow: 0 0 11px var(--accent-soft);
+}
+
+.fracta-seed-control {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 12%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+#seedMicButton {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 1px solid rgba(85, 217, 255, 0.18);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--ink);
+  background:
+    radial-gradient(circle, rgba(85, 217, 255, 0.1), rgba(7, 9, 11, 0.82) 68%);
+  box-shadow:
+    inset 0 0 18px rgba(85, 217, 255, 0.07),
+    0 0 16px rgba(85, 217, 255, 0.08);
+  pointer-events: auto;
+  place-items: center;
+}
+
+#seedMicButton::after {
+  position: absolute;
+  inset: -3px;
+  border: 1px solid transparent;
+  border-radius: inherit;
+  content: "";
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+#seedMicButton:hover::after,
+#seedMicButton:focus-visible::after {
+  border-color: var(--accent);
+  box-shadow: 0 0 18px rgba(85, 217, 255, 0.24);
+}
+
+#seedMicButton[aria-pressed="true"]::after {
+  border-color: rgba(85, 217, 255, 0.52);
+  box-shadow: 0 0 14px rgba(85, 217, 255, 0.16);
+}
+
+#seedMicButton > i {
+  position: relative;
+  width: 13px;
+  height: 19px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: rgba(7, 9, 11, 0.7);
+  box-shadow: 0 0 8px rgba(85, 217, 255, 0.14);
+}
+
+#seedMicButton > i::before {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  left: -4px;
+  height: 10px;
+  border-right: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+  border-left: 1px solid var(--accent);
+  border-radius: 0 0 9px 9px;
+  content: "";
+}
+
+#seedMicButton > span {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 50%;
+  display: grid;
+  width: max-content;
+  padding: 3px 5px;
+  transform: translateX(-50%);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--bg-deep) 82%, transparent);
+  gap: 1px;
+  pointer-events: none;
+  text-align: center;
+}
+
+#seedMicButton b {
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+#seedMicButton small {
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.05em;
+}
+
+#seedMicButton:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.fracta-panic {
+  position: absolute;
+  z-index: 5;
+  right: 18px;
+  bottom: 18px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 130, 111, 0.32);
+  cursor: pointer;
+  color: #ffad9f;
+  background: color-mix(in oklab, var(--bg-deep) 90%, transparent);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.fracta-panic span {
+  margin-right: 4px;
+  font-size: 13px;
+}
+
+.fracta-panic:hover,
+.fracta-panic:focus-visible {
+  border-color: #ff826f;
+  background: rgba(255, 130, 111, 0.09);
+}
+
+.fracta-panic:disabled {
+  cursor: default;
+  opacity: 0.24;
+}
+
+.fracta-generation-key {
+  position: absolute;
+  z-index: 3;
+  right: 92px;
+  bottom: 23px;
+  left: 18px;
+  display: flex;
+  pointer-events: none;
+  color: var(--faint);
+  align-items: center;
+  gap: 8px;
+  font-size: 7px;
+  letter-spacing: 0.1em;
+}
+
+.fracta-generation-key i {
+  height: 1px;
+  background: linear-gradient(90deg, var(--fracta-root), #55d9ff, #7db4ff, #c79bff, transparent);
+  flex: 1 1 auto;
+  opacity: 0.46;
+}
+
+.fracta-listen-actions {
+  display: grid;
+  margin-bottom: 13px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.fracta-mic-button,
+.fracta-freeze-button {
+  display: flex;
+  min-width: 0;
+  min-height: 62px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--bg-deep);
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.fracta-mic-button:hover,
+.fracta-mic-button:focus-visible,
+.fracta-freeze-button:hover,
+.fracta-freeze-button:focus-visible {
+  border-color: var(--accent-soft);
+  background: var(--accent-glow);
+}
+
+.fracta-mic-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 15px var(--accent-glow);
+}
+
+.fracta-freeze-button[aria-pressed="true"] {
+  border-color: #c79bff;
+  background: rgba(199, 155, 255, 0.08);
+}
+
+.fracta-freeze-button > span:first-child {
+  color: #c79bff;
+  font-size: 24px;
+}
+
+.fracta-mic-button > span:last-child,
+.fracta-freeze-button > span:last-child {
+  display: grid;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.fracta-mic-button b,
+.fracta-freeze-button b {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fracta-mic-button small,
+.fracta-freeze-button small {
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fracta-mic-button:disabled,
+.fracta-freeze-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.fracta-mic-icon {
+  position: relative;
+  width: 21px;
+  height: 31px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  flex: 0 0 21px;
+}
+
+.fracta-mic-icon::before {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  left: -5px;
+  height: 14px;
+  border-right: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+  border-left: 1px solid var(--accent);
+  border-radius: 0 0 12px 12px;
+  content: "";
+}
+
+.fracta-mic-icon::after {
+  position: absolute;
+  bottom: -9px;
+  left: 9px;
+  width: 1px;
+  height: 5px;
+  background: var(--accent);
+  content: "";
+}
+
+.fracta-mic-icon i {
+  position: absolute;
+  top: 7px;
+  left: 5px;
+  width: 9px;
+  height: 15px;
+  background: repeating-linear-gradient(to bottom, var(--accent) 0 1px, transparent 1px 4px);
+  opacity: 0.52;
+}
+
+.fracta-meter {
+  display: grid;
+  margin: 0 0 13px;
+  gap: 7px;
+}
+
+.fracta-meter > span {
+  display: flex;
+  color: var(--muted);
+  justify-content: space-between;
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.fracta-meter b {
+  font-weight: 500;
+}
+
+.fracta-meter output {
+  color: var(--accent);
+}
+
+.fracta-meter > div {
+  position: relative;
+  height: 7px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+}
+
+.fracta-meter i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: linear-gradient(90deg, #5fe8c4, #55d9ff 64%, #ffb86b 84%, #ff826f);
+  box-shadow: 0 0 8px var(--accent-soft);
+  transition: width 70ms linear;
+}
+
+.fracta-meter em {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: 0;
+  width: 1px;
+  background: var(--fracta-root);
+  opacity: 0.7;
+  transition: left 260ms ease-out;
+}
+
+.fracta-headphone-note {
+  margin: 5px 0 12px;
+  padding: 9px 10px;
+  border-left: 2px solid #ffb86b;
+  color: var(--muted);
+  background: rgba(255, 184, 107, 0.045);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.fracta-headphone-note b {
+  color: #ffd6a0;
+  font-weight: 500;
+}
+
+.micmic-preset-grid {
+  display: grid;
+  margin: 0 0 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.micmic-preset-grid button {
+  display: grid;
+  min-width: 0;
+  min-height: 52px;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--bg-deep);
+  align-content: center;
+  gap: 3px;
+  text-align: left;
+}
+
+.micmic-preset-grid button:hover,
+.micmic-preset-grid button:focus-visible,
+.micmic-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.micmic-preset-grid b {
+  overflow: hidden;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.055em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.micmic-preset-grid small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.micmic-preset-grid [data-preset-band="robotic"] small {
+  color: #ff826f;
+}
+
+.micmic-preset-grid [data-preset-band="rhythmic"] small {
+  color: #e8c46b;
+}
+
+.micmic-preset-grid [data-preset-band="spacious"] small {
+  color: #55d9ff;
+}
+
+.micmic-preset-grid [data-preset-band="smooth"] small {
+  color: #c79bff;
+}
+
+.growth-preset-description {
+  min-height: 2.9em;
+  margin: -3px 0 3px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.recursion-parameter-cluster {
+  display: grid;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+
+.parameter-cluster-title {
+  margin: 0 0 10px;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.generation-safety-note {
+  display: block;
+  margin: -5px 0 12px;
+  color: var(--faint);
+  font: 7px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.micmic-page .field-label small {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.generation-control b {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.generation-control b small {
+  color: var(--faint);
+  font: 400 7px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0;
+}
+
+.current-settings-readout {
+  display: grid;
+  margin: 0;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+}
+
+.current-settings-readout > div {
+  display: grid;
+  min-width: 0;
+  padding: 10px;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.current-settings-readout > div + div {
+  border-top: 1px solid var(--line);
+}
+
+.current-settings-readout dt {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.current-settings-readout dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.current-settings-readout output {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font: 9px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (max-width: 650px) {
+  .micmic-headphone-warning {
+    max-width: 190px;
+    flex-basis: 100px;
+    font-size: 6.5px;
+    line-height: 1.25;
+    text-align: center;
+  }
+
+  #seedMicButton small {
+    display: none;
+  }
+
+  .fracta-generation-key {
+    display: none;
+  }
+
+  .fracta-panic {
+    right: 13px;
+    bottom: 12px;
+  }
+
+}
+
+@media (max-width: 430px) {
+  .micmic-headphone-warning {
+    max-width: 96px;
+    line-height: 1.15;
+  }
+
+  .fracta-listen-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .fracta-mic-button,
+  .fracta-freeze-button {
+    min-height: 54px;
+  }
+
+  .current-settings-readout > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fracta-meter i,
+  .fracta-meter em {
+    transition: none;
+  }
+}

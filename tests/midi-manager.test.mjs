@@ -52,10 +52,38 @@ class FakeMidiInput extends FakeEventTarget {
   }
 }
 
+class FakeMidiOutput {
+  constructor({
+    id = "output",
+    name = "MIDI Output",
+    manufacturer = "",
+    state = "connected",
+    connection = "open",
+    clearSupported = true,
+  } = {}) {
+    this.id = id;
+    this.name = name;
+    this.manufacturer = manufacturer;
+    this.state = state;
+    this.connection = connection;
+    this.sent = [];
+    this.clearCalls = 0;
+    if (clearSupported) {
+      this.clear = () => { this.clearCalls += 1; };
+    }
+  }
+
+  send(data, timestamp = undefined) {
+    if (this.state === "disconnected") throw new Error("output disconnected");
+    this.sent.push({ data: Array.from(data), timestamp });
+  }
+}
+
 class FakeMidiAccess extends FakeEventTarget {
-  constructor(inputs = []) {
+  constructor(inputs = [], outputs = []) {
     super();
     this.inputs = new Map(inputs.map((input, index) => [`port-${index}`, input]));
+    this.outputs = new Map(outputs.map((output, index) => [`output-${index}`, output]));
   }
 
   disconnect(input) {
@@ -70,6 +98,20 @@ class FakeMidiAccess extends FakeEventTarget {
     input.state = "connected";
     this.inputs.set(key, input);
     this.emit("statechange", { port: input });
+  }
+
+  disconnectOutput(output) {
+    output.state = "disconnected";
+    for (const [key, candidate] of this.outputs) {
+      if (candidate === output) this.outputs.delete(key);
+    }
+    this.emit("statechange", { port: output });
+  }
+
+  connectOutput(output, key = `output-${this.outputs.size}`) {
+    output.state = "connected";
+    this.outputs.set(key, output);
+    this.emit("statechange", { port: output });
   }
 }
 
@@ -820,6 +862,87 @@ test("manual profiles override Auto, persist, and expose normalized macro and pa
   manager.disable();
 });
 
+test("all channel voice, transport realtime, and song-position messages are delivered semantically", async () => {
+  const input = new FakeMidiInput({ id: "complete", name: "Complete Controller" });
+  const access = new FakeMidiAccess([input]);
+  const { runtime } = runtimeWithRequests([access]);
+  const manager = new WebMidiManager(runtime);
+  const messages = [];
+  manager.registerClient({ id: "instrument", onMessage: (message) => messages.push(message) });
+  await manager.enable();
+
+  input.send([0xa3, 64, 96]);
+  assert.deepEqual(messages.at(-1), {
+    type: "polyPressure",
+    channel: 3,
+    note: 64,
+    pressure: 96,
+    normalized: 96 / 127,
+    raw: [0xa3, 64, 96],
+    sourceId: "web-midi:complete",
+    profileId: "generic",
+    input: {
+      id: "complete",
+      name: "Complete Controller",
+      manufacturer: "",
+      state: "connected",
+    },
+    timestamp: 123.5,
+    logical: {
+      type: "polyPressure",
+      note: 64,
+      pressure: 96,
+      normalized: 96 / 127,
+    },
+  });
+
+  input.send([0xc3, 17]);
+  assert.equal(messages.at(-1).type, "programChange");
+  assert.equal(messages.at(-1).channel, 3);
+  assert.equal(messages.at(-1).program, 17);
+  assert.deepEqual(messages.at(-1).logical, { type: "programChange", program: 17 });
+
+  input.send([0xd3, 65]);
+  assert.equal(messages.at(-1).type, "channelPressure");
+  assert.equal(messages.at(-1).pressure, 65);
+  assert.deepEqual(messages.at(-1).logical, {
+    type: "channelPressure",
+    pressure: 65,
+    normalized: 65 / 127,
+  });
+
+  for (const [status, type] of [
+    [0xf8, "timingClock"],
+    [0xfa, "start"],
+    [0xfb, "continue"],
+    [0xfc, "stop"],
+  ]) {
+    input.send([status]);
+    assert.equal(messages.at(-1).type, type);
+    assert.equal("channel" in messages.at(-1), false);
+    assert.deepEqual(messages.at(-1).raw, [status]);
+    assert.deepEqual(messages.at(-1).logical, { type });
+  }
+
+  input.send([0xf2, 0x34, 0x12]);
+  assert.equal(messages.at(-1).type, "songPosition");
+  assert.equal(messages.at(-1).position, 0x934);
+  assert.equal(messages.at(-1).sixteenths, 0x934);
+  assert.deepEqual(messages.at(-1).logical, {
+    type: "songPosition",
+    position: 0x934,
+    sixteenths: 0x934,
+  });
+
+  const beforeIgnored = messages.length;
+  input.send([0xf1, 1]);
+  input.send([0xa0, 60]);
+  input.send([0xc0]);
+  input.send([0xf2, 1]);
+  assert.equal(messages.length, beforeIgnored, "unsupported or truncated messages are ignored");
+  manager.disable();
+});
+
 test("standard expression, sustain, and panic CCs remain raw while profile logic is added", async () => {
   const input = new FakeMidiInput({ id: "standard", name: "Standard Controller" });
   const access = new FakeMidiAccess([input]);
@@ -851,10 +974,101 @@ test("standard expression, sustain, and panic CCs remain raw while profile logic
   input.send([0x91, 48, 0]);
   assert.equal(messages.at(-1).type, "noteOff", "zero-velocity note-on is note-off");
   const beforeIgnored = messages.length;
-  input.send([0xf8]);
-  input.send([0xa0, 60, 80]);
-  assert.equal(messages.length, beforeIgnored, "system and unsupported channel messages are ignored");
+  input.send([0xf1, 0]);
+  input.send([0xf4]);
+  assert.equal(messages.length, beforeIgnored, "unsupported system messages are ignored");
   manager.disable();
+});
+
+test("MIDI output selection, scheduling, hotplug, clear, and panic stay one-port and safe", async () => {
+  const first = new FakeMidiOutput({
+    id: "out-a",
+    name: "WAX DAW MIDI",
+    manufacturer: "Audio Fusion",
+  });
+  const second = new FakeMidiOutput({
+    id: "out-b",
+    name: "Hardware Synth",
+    clearSupported: false,
+  });
+  const access = new FakeMidiAccess([], [first, second]);
+  const { runtime } = runtimeWithRequests([access]);
+  const manager = new WebMidiManager(runtime);
+  const incoming = [];
+  manager.registerClient({ id: "midi-fx", onMessage: (message) => incoming.push(message) });
+  await manager.enable();
+
+  const initial = manager.status();
+  assert.equal(initial.outputCount, 2);
+  assert.equal(initial.outputSelectionId, null);
+  assert.equal(initial.selectedOutputId, "out-a");
+  assert.deepEqual(initial.selectedOutput, {
+    id: "out-a",
+    name: "WAX DAW MIDI",
+    manufacturer: "Audio Fusion",
+    state: "connected",
+    connection: "open",
+  });
+  assert.equal(Object.isFrozen(initial.outputs), true);
+  assert.equal(Object.isFrozen(initial.outputs[0]), true);
+  assert.doesNotThrow(() => JSON.stringify(initial));
+  assert.equal(manager.clearOutput(), true);
+  assert.equal(first.clearCalls, 1);
+
+  assert.equal(manager.send([0x90, 60, 100], 500.25), true);
+  assert.deepEqual(first.sent, [{ data: [0x90, 60, 100], timestamp: 500.25 }]);
+  assert.deepEqual(second.sent, []);
+  assert.deepEqual(incoming, [], "outgoing MIDI is never echoed to registered input clients");
+
+  assert.deepEqual(manager.selectOutput("out-b"), initial.outputs[1]);
+  assert.equal(first.clearCalls, 2, "changing outputs clears queued events on the old output");
+  assert.equal(first.sent.length, 49, "changing outputs sends three panic CCs on all channels");
+  assert.equal(manager.outputSelectionId, "out-b");
+  assert.equal(manager.selectedOutputId, "out-b");
+  assert.equal(manager.send(new Uint8Array([0xb4, 74, 99])), true);
+  assert.deepEqual(second.sent, [{ data: [0xb4, 74, 99], timestamp: undefined }]);
+  assert.equal(manager.clearOutput(), false);
+
+  assert.throws(() => manager.selectOutput("missing"), /Unknown or disconnected/);
+  assert.throws(() => manager.send([]), /status byte/);
+  assert.throws(() => manager.send([0x40, 1]), /status byte/);
+  assert.throws(() => manager.send([0x90, 256, 1]), /0 to 255/);
+  assert.throws(() => manager.send([0xf0, 1, 0xf7]), /SysEx/);
+  assert.throws(() => manager.send([0x90, 60, 1], Number.NaN), /timestamp/);
+
+  access.disconnectOutput(second);
+  assert.equal(manager.status().outputCount, 1);
+  assert.equal(manager.status().outputSelectionId, "out-b", "explicit selection survives hot-unplug");
+  assert.equal(manager.status().selectedOutputId, null, "an explicit disconnected port never falls through");
+  assert.equal(manager.send([0x90, 62, 100]), false);
+  assert.equal(first.sent.length, 49, "explicit selection never leaks to the default port");
+
+  access.connectOutput(second, "reconnected-output");
+  assert.equal(manager.selectedOutputId, "out-b");
+  assert.equal(manager.send([0x90, 64, 100]), true);
+  assert.deepEqual(second.sent.at(-1), { data: [0x90, 64, 100], timestamp: undefined });
+
+  manager.selectOutput(null);
+  assert.equal(manager.outputSelectionId, null);
+  assert.equal(manager.selectedOutputId, "out-a");
+  assert.equal(second.sent.length, 50, "leaving an output performs a complete channel panic");
+  access.disconnectOutput(first);
+  assert.equal(manager.selectedOutputId, "out-b", "auto mode advances to the next connected output");
+
+  const beforePanic = second.sent.length;
+  assert.equal(manager.panic(750), 48);
+  assert.equal(second.sent.length, beforePanic + 48);
+  assert.deepEqual(second.sent.at(-3), { data: [0xbf, 120, 0], timestamp: 750 });
+  assert.deepEqual(second.sent.at(-2), { data: [0xbf, 123, 0], timestamp: 750 });
+  assert.deepEqual(second.sent.at(-1), { data: [0xbf, 121, 0], timestamp: 750 });
+  assert.equal(manager.resetOutput(), 48);
+
+  const beforeDisable = second.sent.length;
+  manager.disable();
+  assert.equal(second.sent.length, beforeDisable + 48, "disable panics the active output");
+  assert.equal(manager.status().outputCount, 0);
+  assert.equal(manager.selectedOutputId, null);
+  assert.equal(manager.send([0x90, 60, 100]), false);
 });
 
 test("permission failures recover, unsupported runtimes reject, and observers cannot break delivery", async () => {

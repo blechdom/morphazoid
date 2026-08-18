@@ -1,0 +1,141 @@
+.solid-drums-page {
+  --accent: #7db4ff;
+  --accent-soft: color-mix(in oklab, var(--accent) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+.solid-mapping-readout {
+  position: absolute;
+  z-index: 2;
+  right: 18px;
+  bottom: 16px;
+  max-width: min(66%, 520px);
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  pointer-events: none;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.solid-drums-panel .group-body {
+  padding-bottom: 14px;
+}
+
+.solid-mapping-description {
+  min-height: 34px;
+  margin: 8px 0 11px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.solid-trigger-source {
+  margin: 2px 0 12px;
+  color: var(--accent);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.solid-mapping-source {
+  display: grid;
+  margin: -2px 0 12px;
+  padding: 8px 9px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--accent) 5%, var(--bg-deep));
+  gap: 3px;
+}
+
+.solid-mapping-source b {
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.solid-mapping-source span {
+  color: var(--ink);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.solid-drum-map {
+  display: grid;
+  margin-top: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.solid-drum-cell {
+  --voice-color: var(--accent);
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 38px;
+  padding: 5px 5px 5px 7px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--voice-color) 3%, var(--panel));
+  align-content: center;
+  transition: 80ms ease;
+}
+
+.solid-drum-cell::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--voice-color);
+  content: "";
+  opacity: .72;
+}
+
+.solid-drum-cell b,
+.solid-drum-cell small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.solid-drum-cell b {
+  color: var(--ink);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+}
+
+.solid-drum-cell small {
+  color: var(--voice-color);
+  font-size: 7px;
+}
+
+.solid-drum-cell.is-active {
+  border-color: var(--voice-color);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--voice-color) 20%, var(--panel));
+  box-shadow: 0 0 12px color-mix(in oklab, var(--voice-color) 22%, transparent);
+  transform: translateY(1px);
+}
+
+@media (max-width: 520px) {
+  .solid-mapping-readout {
+    right: 12px;
+    bottom: 54px;
+    left: 12px;
+    max-width: none;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .solid-drum-cell {
+    transition: none;
+  }
+}

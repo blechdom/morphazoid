@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Chaotic PM — continuous audio-rate recursive phase modulation with bounded nonlinear feedback and an optional Legacy Raw transfer."
+    />
+    <title>Chaotic PM — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="chaotic-pm.css" />
+    <link rel="stylesheet" href="chaotic-synth-ui.css" />
+  </head>
+  <body class="chaotic-pm-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="recursive-fm.html">recursive fm</a>
+        <a class="tab" href="recursive-pm.html">recursive pm</a>
+        <a class="tab" href="chaotic-fm.html">chaotic fm</a>
+        <a class="tab active" href="chaotic-pm.html" aria-current="page">chaotic pm</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="recursive-fm.html">recursive fm</option>
+          <option value="recursive-pm.html">recursive pm</option>
+          <option value="chaotic-fm.html">chaotic fm</option>
+          <option value="chaotic-pm.html" selected>chaotic pm</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph chaotic-pm-audio-glyph" aria-hidden="true">ϟ</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">58%</output></span>
+          <input
+            id="output"
+            data-parameter-id="output.level"
+            aria-label="Chaotic PM output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.58"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell chaotic-pm-shell" id="chaoticPm">
+      <section class="stage chaotic-pm-stage" aria-labelledby="chaoticPmTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Chaotic PM algorithm with one nonlinear phase turn. Audio off."
+            aria-describedby="chaoticPmDescription liveStatus"
+          >
+            A live log-frequency spectrum with a foreground oscilloscope and the Chaotic PM signal-flow transfer.
+          </canvas>
+
+          <div class="chaotic-pm-heading">
+            <p>CHAOTIC SYNTHS · 04</p>
+            <h1 id="chaoticPmTitle">Chaotic PM</h1>
+            <span>recursive phase · continuous nonlinear feedback</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">1 TURN · 2 OPERATORS · AUDIO OFF</span>
+          </div>
+
+          <div
+            class="chaotic-path-graph chaotic-pm-flow"
+            id="chaoticPmFlow"
+            role="img"
+            tabindex="0"
+            data-path-label="LIVE TURN · PREVIOUS → TANH CONTROL → CHAOS MIX → × INDEX (RAD) + PHASOR → SINE"
+            aria-label="Smooth Chaotic PM signal flow. The previous sine is continuously tanh-shaped, mixed by the chaos amount, multiplied by a phase index in radians, added to a phasor, and sent to a sine."
+          ></div>
+        </div>
+      </section>
+
+      <aside class="panel chaotic-pm-panel" aria-label="Chaotic PM controls">
+        <details class="group control-section chaotic-pm-presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Character</h2>
+            <span class="section-state" id="presetState">Forty Fold</span>
+          </summary>
+          <div class="group-body">
+            <div class="chaotic-pm-preset-grid" id="presetButtons" role="group" aria-label="Chaotic PM factory presets">
+              <button type="button" data-preset="subzero-thread" aria-pressed="false">Subzero Thread</button>
+              <button type="button" data-preset="forty-fold" aria-pressed="true">Forty Fold</button>
+              <button type="button" data-preset="still-glass" aria-pressed="false">Still Glass</button>
+              <button type="button" data-preset="runaway-stair" aria-pressed="false">Runaway Stair</button>
+              <button type="button" data-preset="braided-orbit" aria-pressed="false">Braided Orbit</button>
+              <button type="button" data-preset="low-ember" aria-pressed="false">Low Ember</button>
+              <button type="button" data-preset="kilohertz-veil" aria-pressed="false">Kilohertz Veil</button>
+              <button type="button" data-preset="chrome-cascade" aria-pressed="false">Chrome Cascade</button>
+            </div>
+            <p class="chaotic-pm-preset-description" id="presetDescription">
+              A 40 Hz phase shaper folds a 66.6 Hz carrier through a wide 6.66-radian index.
+            </p>
+            <details class="chaotic-pm-repair-note">
+              <summary>Why these presets were retuned</summary>
+              <p>
+                The recovered work-in-progress values ended six of eight final turns below 4 Hz.
+                These buttons finish between 40 and 389.6 Hz and use a continuous PM transfer
+                so phase wraps no longer become clicks. The exact source tuples and transfer
+                remain preserved as Legacy / Raw reference material.
+              </p>
+            </details>
+          </div>
+        </details>
+
+        <details class="group control-section chaotic-pm-performance" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Performance</h2>
+            <span class="section-state" id="performanceState">Drone · continuous</span>
+          </summary>
+          <div class="group-body">
+            <div class="chaotic-midi-monitor" aria-label="Live MIDI performance state">
+              <span><b>Note</b><output id="currentNote">—</output></span>
+              <span><b>Bend</b><output id="bendState">+0 st</output></span>
+              <span><b>Sustain</b><output id="sustainState">up</output></span>
+              <span class="chaotic-expression-row">
+                <b>Expression</b>
+                <i id="expressionMeter" aria-hidden="true"></i>
+                <output id="expressionValue">100%</output>
+              </span>
+              <span class="chaotic-midi-activity" id="midiActivity" aria-live="polite">Waiting for MIDI</span>
+            </div>
+
+            <div class="chaotic-adsr-preview" aria-label="Amplitude ADSR shape">
+              <svg viewBox="0 0 240 72" role="img" aria-label="Attack, decay, sustain and release envelope">
+                <path class="chaotic-adsr-grid" d="M 8 64 H 232 M 8 8 V 64" />
+                <path id="adsrCurve" d="M 8 64 Q 31 12 52 8 Q 76 26 103 26 L 171 26 Q 202 26 232 64" />
+              </svg>
+              <span>A</span><span>D</span><span>S</span><span>R</span>
+            </div>
+
+            <label class="control" for="ampAttackMs">
+              <span><b>Attack</b><output id="ampAttackMsOut" for="ampAttackMs">8 ms</output></span>
+              <input id="ampAttackMs" data-parameter-id="performance.ampAttackMs" type="range" min="0" max="1" step="0.001" value="0.302" />
+            </label>
+            <label class="control" for="ampDecayMs">
+              <span><b>Decay</b><output id="ampDecayMsOut" for="ampDecayMs">120 ms</output></span>
+              <input id="ampDecayMs" data-parameter-id="performance.ampDecayMs" type="range" min="0" max="1" step="0.001" value="0.563" />
+            </label>
+            <label class="control" for="ampSustainLevel">
+              <span><b>Sustain level</b><output id="ampSustainLevelOut" for="ampSustainLevel">72%</output></span>
+              <input id="ampSustainLevel" data-parameter-id="performance.ampSustainLevel" type="range" min="0" max="1" step="0.01" value="0.72" />
+            </label>
+            <label class="control" for="ampReleaseMs">
+              <span><b>Release</b><output id="ampReleaseMsOut" for="ampReleaseMs">180 ms</output></span>
+              <input id="ampReleaseMs" data-parameter-id="performance.ampReleaseMs" type="range" min="0" max="1" step="0.001" value="0.528" />
+            </label>
+
+            <div class="chaotic-glide-row">
+              <label for="glideMode">
+                <span>Glide mode</span>
+                <select id="glideMode" data-parameter-id="performance.glideMode">
+                  <option value="off" selected>Off</option>
+                  <option value="legato">Legato</option>
+                  <option value="always">Always</option>
+                </select>
+              </label>
+            </div>
+            <label class="control" for="glideTimeMs">
+              <span><b>Glide time</b><output id="glideTimeMsOut" for="glideTimeMs">off</output></span>
+              <input id="glideTimeMs" data-parameter-id="performance.glideTimeMs" type="range" min="0" max="1" step="0.001" value="0" />
+            </label>
+            <label class="control" for="rootMidiNote">
+              <span><b>Root note</b><output id="rootMidiNoteOut" for="rootMidiNote">C4 · 60</output></span>
+              <input id="rootMidiNote" data-parameter-id="performance.rootMidiNote" type="range" min="0" max="127" step="1" value="60" />
+            </label>
+            <label class="control" for="pitchBendRangeSemitones">
+              <span><b>Pitch-bend range</b><output id="pitchBendRangeSemitonesOut" for="pitchBendRangeSemitones">±2 st</output></span>
+              <input id="pitchBendRangeSemitones" data-parameter-id="performance.pitchBendRangeSemitones" type="range" min="0" max="24" step="1" value="2" />
+            </label>
+
+            <p class="chaotic-pm-control-note chaotic-midi-map-note">
+              Controller macros · 1 Depth · 2 Mod frequency · 3 Phase index · 4 Chaos / warp · 5 Attack · 6 Release · 7 Glide · 8 Output. Standard MIDI · CC5 glide · CC11 expression · CC64 sustain · CC65 portamento · CC72 release · CC73 attack · CC75 decay · CC120/121/123 panic and reset.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section chaotic-pm-algorithm" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Algorithm</h2>
+            <span class="section-state" id="algorithmState">1 turn · final 40 Hz</span>
+          </summary>
+          <div class="group-body">
+            <div class="chaotic-glide-row">
+              <label for="transferMode">
+                <span>Transfer</span>
+                <select id="transferMode" data-parameter-id="synthesis.transferMode">
+                  <option value="smooth" selected>Smooth</option>
+                  <option value="legacy">Legacy / Raw</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="control" for="depth">
+              <span><b>Recursion depth</b><output id="depthOut" for="depth">1</output></span>
+              <input id="depth" data-parameter-id="synthesis.depth" type="range" min="0" max="10" step="1" value="1" />
+            </label>
+
+            <label class="control" for="carrier">
+              <span><b>Carrier</b><output id="carrierOut" for="carrier">66.6 Hz</output></span>
+              <input id="carrier" data-parameter-id="synthesis.carrierHz" type="range" min="0" max="1" step="0.0001" value="0.7934" aria-describedby="carrierNote" />
+            </label>
+            <small class="chaotic-pm-control-note" id="carrierNote">Logarithmic · 0.001 Hz to 1.2 kHz</small>
+
+            <label class="control" for="modFrequency">
+              <span><b>Starting mod frequency</b><output id="modFrequencyOut" for="modFrequency">40 Hz</output></span>
+              <input id="modFrequency" data-parameter-id="synthesis.startModFrequencyHz" type="range" min="0" max="1" step="0.0001" value="0.8215" aria-describedby="modFrequencyNote" />
+            </label>
+            <small class="chaotic-pm-control-note" id="modFrequencyNote">Logarithmic · 0.001 Hz to 400 Hz</small>
+
+            <label class="control" for="frequencyDivisor">
+              <span><b>Frequency divisor</b><output id="frequencyDivisorOut" for="frequencyDivisor">÷10</output></span>
+              <input id="frequencyDivisor" data-parameter-id="synthesis.frequencyDivisor" type="range" min="0.001" max="32" step="0.001" value="10" />
+            </label>
+
+            <label class="control" for="phaseIndex">
+              <span><b>Starting phase index</b><output id="phaseIndexOut" for="phaseIndex">6.66</output></span>
+              <input id="phaseIndex" data-parameter-id="synthesis.startPhaseIndex" type="range" min="0" max="64" step="0.001" value="6.66" aria-describedby="phaseIndexNote" />
+            </label>
+            <small class="chaotic-pm-control-note" id="phaseIndexNote">Smooth index · radians</small>
+
+            <label class="control" for="indexDivisor">
+              <span><b>Index divisor</b><output id="indexDivisorOut" for="indexDivisor">÷6.5</output></span>
+              <input id="indexDivisor" data-parameter-id="synthesis.indexDivisor" type="range" min="0.001" max="32" step="0.001" value="6.5" />
+            </label>
+
+            <label class="control" for="phaseWarp">
+              <span><b>Chaos / phase warp</b><output id="phaseWarpOut" for="phaseWarp">0.512</output></span>
+              <input
+                id="phaseWarp"
+                data-parameter-id="synthesis.nonlinearity"
+                type="range"
+                min="0"
+                max="1"
+                step="0.001"
+                value="0.512"
+                aria-describedby="phaseWarpNote"
+              />
+            </label>
+            <small class="chaotic-pm-control-note chaotic-pm-warp-note" id="phaseWarpNote">
+              Smooth blends linear and tanh-shaped feedback. Legacy uses the original <code>filter</code> coefficient.
+            </small>
+
+            <div class="grammar-card chaotic-pm-ledger chaotic-turn-ledger" aria-label="Current bounded Chaotic PM operator model">
+              <span><b>Carrier</b><code id="carrierReadout">66.6 Hz sine</code></span>
+              <span><b>Entry</b><code id="entryReadout">40 Hz · index 6.66 rad</code></span>
+              <span><b>Turns</b><code id="turnsReadout">1: 40 Hz · I 6.66 · drive 5.096</code></span>
+              <span><b>Transfer</b><code id="transferReadout">continuous tanh control · k 5.096</code></span>
+              <span><b>Output</b><code id="operatorReadout">operator 1 · 40 Hz · normalized</code></span>
+              <span><b>Ceiling</b><code id="ceilingReadout">20 kHz</code></span>
+            </div>
+
+            <p class="chaotic-pm-safety-note">
+              Smooth mode shapes the previous sine continuously and applies it inside a periodic PM oscillator, so phase wrapping cannot create a waveform seam. Legacy / Raw preserves the asymmetric signed-<code>% 1</code> experiment and can intentionally sound clicky. Live parameters glide; depth and transfer changes crossfade; normalization, dynamics, and a soft ceiling protect the output.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section chaotic-pm-family">
+          <summary class="group-summary">
+            <h2 class="group-title">Family</h2>
+            <span class="section-state">FM / PM · linear / warped</span>
+          </summary>
+          <div class="group-body">
+            <div class="chaotic-pm-family-grid" aria-label="Comparison of four recursive and chaotic synthesis algorithms">
+              <article>
+                <h3>Recursive FM</h3>
+                <p>Linear signal → frequency. Each sine drives the next oscillator’s rate.</p>
+              </article>
+              <article>
+                <h3>Recursive PM</h3>
+                <p>Linear signal → phase. Each sine displaces the next oscillator’s phase.</p>
+              </article>
+              <article>
+                <h3>Chaotic FM</h3>
+                <p>Tanh signal → signed frequency. The nonlinear signal sets the next rate.</p>
+              </article>
+              <article aria-current="true">
+                <h3>Chaotic PM</h3>
+                <p>Tanh-shaped signal → phase. Nonlinear feedback displaces the next oscillator without breaking phase periodicity.</p>
+              </article>
+            </div>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetChaoticPm" type="button" data-reset-all>Reset parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="chaoticPmDescription">
+        A live non-scrolling log-frequency spectrum and foreground oscilloscope sit above the Chaotic PM turn. In Smooth mode, the previous sine is continuously tanh-shaped, mixed by the chaos amount, applied as phase displacement in radians, and sent through the next sine. Legacy Raw mode preserves the original signed-remainder experiment. The final turn is audible.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="chaotic-pm-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

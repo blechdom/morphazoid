@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#050306" />
+    <meta name="description" content="Wheel of Organs — every typed letter grows a looping, morphable mouth with deep glottal excitation, wet nasal and slime cavities, formants, noise, and an extensible tongue." />
+    <title>Wheel of Organs | Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="image-to-instrument.css" />
+  </head>
+  <body class="image-instrument-page image-instrument-three" data-image-instrument="3">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+      <nav class="tabs" aria-label="Instrument"><a class="tab active" href="image-to-instrument-3.html" aria-current="page">Wheel of Organs</a></nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="image-to-instrument-3.html" selected>Wheel of Organs</option></select></label>
+      <div class="header-actions">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-dot" aria-hidden="true"></span><span>audio</span><strong id="audioState">off</strong></button>
+        <label class="header-level" for="level"><span><b>output</b><output id="levelOut" for="level">42%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="0.72" step="0.01" value="0.42" /></label>
+      </div>
+    </header>
+
+    <main class="image-instrument-shell wheel-organ-shell" id="imageToInstrumentThree">
+      <section class="image-instrument-stage" aria-labelledby="instrumentTitle">
+        <div class="image-stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" aria-label="A wheel of lettered mouths connected to a central organ. Drag, crush, stretch, pinch, and extract each mouth into extreme vocal mutations." aria-describedby="canvasInstructions liveStatus">An interactive wheel of vocal organs.</canvas>
+          <div class="image-stage-title"><span>signal → voice</span><h1 id="instrumentTitle">Wheel<br />of Organs</h1><small>morphable nasal word organism</small></div>
+          <div class="image-stage-readout" id="stageReadout" aria-hidden="true">8 mouths · ORGANISM · waiting</div>
+          <div class="image-stage-hint" aria-hidden="true">pull past ring = grow / shriek · push inward = crush / growl · grab tongue = extract · Shift lip-crush · Alt body-warp</div>
+        </div>
+        <p class="sr-only" id="canvasInstructions">Every typed letter creates one formant-synth mouth with a tongue and glottis. Drag a body beyond the ring to grow and stretch it while raising pitch, lowering its formants, and increasing glottal screech. Push toward the center to crush and pinch the tract into deeper, wetter nasal noise; sweep sideways to curl the tongue and skew the cavity. Grab inside the opening and pull outward to extract its tongue. Shift-drag crushes its lips, two fingers resize it, and Alt-drag warps its complete body. Space starts or stops the looping word.</p>
+        <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+      </section>
+
+      <aside class="image-instrument-panel wheel-organ-panel" aria-label="Wheel of Organs controls">
+        <section class="image-control-card wheel-word-card" aria-labelledby="wordTitle">
+          <div class="image-card-heading"><h2 id="wordTitle">Word organism</h2><span id="transportState">waiting</span></div>
+          <label class="wheel-word-label" for="wordInput"><span>letters to sing</span><input id="wordInput" type="text" value="ORGANISM" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" /></label>
+          <div class="wheel-word-actions" role="group" aria-label="Word playback">
+            <button class="play-button wheel-play-button" id="transportButton" type="button" aria-pressed="false" aria-label="Play word loop">
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+            </button>
+            <button id="mapWordButton" type="button">restart mouth loop</button>
+          </div>
+          <div class="wheel-mouth-count" aria-live="polite">
+            <span><b>letter-mouths</b><output id="mouthCountOut">8</output></span>
+            <small>typing grows / shrinks the ring</small>
+          </div>
+        </section>
+
+        <section class="image-control-card wheel-preset-card" aria-labelledby="presetTitle">
+          <div class="image-card-heading"><h2 id="presetTitle">Organ presets</h2><span>cleaner voices</span></div>
+          <div class="wheel-preset-grid" role="group" aria-label="Organ voice presets">
+            <button id="wheelPresetOriginal" type="button" data-wheel-preset="original" aria-pressed="false"><b>Wet organism</b><small>original grit + slime</small></button>
+            <button id="wheelPresetClear" type="button" data-wheel-preset="clear" aria-pressed="true"><b>Clear choir</b><small>very low noise</small></button>
+            <button id="wheelPresetVelvet" type="button" data-wheel-preset="velvet" aria-pressed="false"><b>Velvet organ</b><small>warm + sustained</small></button>
+            <button id="wheelPresetHum" type="button" data-wheel-preset="hum" aria-pressed="false"><b>Humming ring</b><small>nasal, nearly no hiss</small></button>
+            <button id="wheelPresetGlass" type="button" data-wheel-preset="glass" aria-pressed="false"><b>Glass throats</b><small>bright + controlled</small></button>
+            <button id="wheelPresetSpeech" type="button" data-wheel-preset="speech" aria-pressed="false"><b>Soft speech</b><small>clear articulation</small></button>
+            <button id="wheelPresetGiant" type="button" data-wheel-preset="giant" aria-pressed="false"><b>Quiet giant</b><small>deep + slow</small></button>
+          </div>
+          <p class="wheel-preset-note" id="wheelPresetDescription" aria-live="polite">Open, centered mouths with almost no added breath, screech, dirt, or slime.</p>
+        </section>
+
+        <section class="image-control-card wheel-global-card" aria-labelledby="globalTitle">
+          <div class="image-card-heading"><h2 id="globalTitle">Whole organism</h2><span>shared anatomy</span></div>
+          <div class="image-range-grid">
+            <label for="rootNote"><span><b>root glottis</b><output id="rootNoteOut" for="rootNote">E2</output></span><input id="rootNote" type="range" min="24" max="60" step="1" value="40" /></label>
+            <label for="pulseRate"><span><b>mouth speed</b><output id="pulseRateOut" for="pulseRate">250 mouths/min</output></span><input id="pulseRate" type="range" min="90" max="720" step="1" value="250" /></label>
+            <label for="legato"><span><b>mouth overlap</b><output id="legatoOut" for="legato">82%</output></span><input id="legato" type="range" min="0" max="1" step="0.01" value="0.82" /></label>
+            <label for="centerA"><span><b>vibrato</b><output id="centerAOut" for="centerA">12%</output></span><input id="centerA" type="range" min="0" max="1" step="0.01" value="0.12" /></label>
+            <label for="centerB"><span><b>organ growl</b><output id="centerBOut" for="centerB">4%</output></span><input id="centerB" type="range" min="0" max="1" step="0.01" value="0.04" /></label>
+            <label for="slime"><span><b>slime cavity</b><output id="slimeOut" for="slime">3%</output></span><input id="slime" type="range" min="0" max="1" step="0.01" value="0.03" /></label>
+            <label for="dirt"><span><b>internal dirt</b><output id="dirtOut" for="dirt">1%</output></span><input id="dirt" type="range" min="0" max="1" step="0.01" value="0.01" /></label>
+            <label for="depth"><span><b>cavity depth</b><output id="depthOut" for="depth">46%</output></span><input id="depth" type="range" min="0" max="1" step="0.01" value="0.46" /></label>
+            <label for="spread"><span><b>stereo wheel</b><output id="spreadOut" for="spread">70%</output></span><input id="spread" type="range" min="0" max="1" step="0.01" value="0.70" /></label>
+          </div>
+        </section>
+
+        <section class="image-control-card wheel-mouth-card" aria-labelledby="petalTitle">
+          <div class="image-card-heading"><h2 id="petalTitle">Selected mouth</h2><output id="selectedPetalOut">01 · O</output></div>
+          <div class="image-petal-switches wheel-mouth-switches" id="petalButtons" role="group" aria-label="Select a lettered mouth"></div>
+          <div class="wheel-letter-row">
+            <label for="mouthLetter"><span>assigned letter</span><select id="mouthLetter" aria-label="Letter assigned to selected mouth"></select></label>
+            <button class="image-active-toggle" id="petalActive" type="button" aria-pressed="true">mouth voiced</button>
+          </div>
+          <div class="image-range-grid">
+            <label for="pull"><span><b>radial pull</b><output id="pullOut" for="pull">18%</output></span><input id="pull" type="range" min="0" max="1" step="0.01" value="0.18" /></label>
+            <label for="aperture"><span><b>lip gape</b><output id="apertureOut" for="aperture">82%</output></span><input id="aperture" type="range" min="0.04" max="1" step="0.01" value="0.82" /></label>
+            <label for="pinch"><span><b>lip pinch</b><output id="pinchOut" for="pinch">2%</output></span><input id="pinch" type="range" min="0" max="1" step="0.01" value="0.02" /></label>
+            <label for="tongue"><span><b>tongue curl</b><output id="tongueOut" for="tongue">50%</output></span><input id="tongue" type="range" min="0" max="1" step="0.01" value="0.50" /></label>
+            <label for="push"><span><b>throat push</b><output id="pushOut" for="push">40%</output></span><input id="push" type="range" min="0" max="1" step="0.01" value="0.40" /></label>
+            <label for="nasality"><span><b>nasal cavity</b><output id="nasalityOut" for="nasality">6%</output></span><input id="nasality" type="range" min="0" max="1" step="0.01" value="0.06" /></label>
+            <label for="screech"><span><b>screech</b><output id="screechOut" for="screech">0%</output></span><input id="screech" type="range" min="0" max="1" step="0.01" value="0" /></label>
+            <label for="mouthSize"><span><b>mouth size</b><output id="mouthSizeOut" for="mouthSize">1.00×</output></span><input id="mouthSize" type="range" min="0.2" max="2.6" step="0.01" value="1" /></label>
+            <label for="stretch"><span><b>body stretch</b><output id="stretchOut" for="stretch">1.00×</output></span><input id="stretch" type="range" min="0.35" max="2.8" step="0.01" value="1" /></label>
+            <label for="tongueOut"><span><b>tongue extension</b><output id="tongueOutOut" for="tongueOut">0%</output></span><input id="tongueOut" type="range" min="0" max="1" step="0.01" value="0" /></label>
+            <label for="glottis"><span><b>vocal-fold tension</b><output id="glottisOut" for="glottis">70%</output></span><input id="glottis" type="range" min="0" max="1" step="0.01" value="0.70" /></label>
+            <label for="emphasis"><span><b>breath pressure</b><output id="emphasisOut" for="emphasis">1%</output></span><input id="emphasis" type="range" min="0" max="1" step="0.01" value="0.01" /></label>
+          </div>
+          <button class="wheel-audition" id="auditionMouth" type="button">make this mouth sing</button>
+        </section>
+
+        <div class="image-panel-actions"><button id="mutateButton" type="button">mutate anatomy</button><button data-reset-all type="button">reset organism</button></div>
+
+        <section class="image-control-card image-analysis-card wheel-translation-card" aria-labelledby="translationTitle">
+          <div class="image-card-heading"><div><span class="image-kicker">living translation</span><h2 id="translationTitle">Wheel of Organs</h2></div><span class="image-variant-chip">SIGNAL / VOICE</span></div>
+          <dl class="image-mapping-list">
+            <div><dt>each organ</dt><dd>one typed-letter occurrence</dd></div>
+            <div><dt>radial pull</dt><dd>growth + stretch + pitch + screech</dd></div>
+            <div><dt>push + pinch</dt><dd>crushed throat + deep wet pressure</dd></div>
+            <div><dt>tongue + nose</dt><dd>tract skew + extracted noisy cavity</dd></div>
+            <div><dt>glottal slit</dt><dd>voiced grit, squeal + breath</dd></div>
+          </dl>
+          <p class="wheel-speech-note">Speech-lite, not text-to-speech: every typed letter grows a mouth and joins the looping sung gesture.</p>
+        </section>
+      </aside>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="image-to-instrument-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

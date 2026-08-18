@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" /><meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid DNA Translator - bases and codons become a four-note genetic score." /><title>DNA Translator - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" /><link rel="stylesheet" href="style.css" /><link rel="stylesheet" href="experiments.css" />
+  </head>
+  <body class="experiment-page" data-experiment="dna">
+    <header class="masthead"><a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a><nav class="tabs" aria-label="Morphazoid main menu"><a class="tab active" href="dna-translator.html" aria-current="page">dna translator</a></nav><label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="dna-translator.html" selected>dna translator</option></select></label><div class="header-actions"><button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-dot" aria-hidden="true"></span><span>audio</span><strong id="audioState">off</strong></button><label class="header-level" for="level"><span><b>level</b><output id="levelOut" for="level">43%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.43" /></label></div></header>
+    <main class="shell experiment-shell" id="dnaTranslator"><section class="stage" aria-label="DNA Translator stage"><div class="stage-wrap" id="stageWrap"><canvas id="stage" tabindex="0" role="img" aria-label="A DNA helix scrolls one base at a time while triplets translate into amino acids." aria-describedby="canvasInstructions liveStatus">DNA base and codon scanner.</canvas><div class="stage-meta" aria-hidden="true"><span id="stageReadout">DNA TRANSLATOR &middot; BASE 1 &middot; AUDIO OFF</span></div><div class="experiment-title" aria-hidden="true"><h1>DNA Translator</h1><small>bases, codons, amino acids</small></div></div><p class="sr-only" id="canvasInstructions">A, C, G, and T use four pitches; each complete codon adds an amino-acid tone.</p><p class="sr-only" id="liveStatus" aria-live="polite"></p></section>
+      <aside class="panel experiment-panel" aria-label="DNA Translator controls"><section class="group experiment-card" aria-labelledby="experimentTitle"><div class="experiment-card-heading"><h2 class="group-title" id="experimentTitle">Experiment</h2><span class="section-state" id="experimentSummary">genetics &middot; translation</span></div><dl class="experiment-meter-grid"><div><dt>Codon</dt><dd id="metricPrimary">ATG</dd></div><div><dt>Amino acid</dt><dd id="metricSecondary">Met</dd></div></dl></section>
+        <section class="group control-section" aria-labelledby="dnaTitle"><div class="experiment-card-heading"><h2 class="group-title" id="dnaTitle">Sequence</h2><span class="section-state" id="patternSummary">30 bases</span></div><div class="group-body">
+          <label class="experiment-text-field" for="dnaSequence"><span>DNA bases</span><textarea id="dnaSequence" rows="3" maxlength="120" spellcheck="false" autocapitalize="characters">ATGGCTTACGAACTGCCATTCGGTAACTAG</textarea></label>
+          <div class="experiment-button-grid"><button type="button" id="restartDna">Restart scan</button><button type="button" id="mutateDna">Mutate one base</button></div>
+          <label class="control" for="dnaRate"><span><b>Scan rate</b><output id="dnaRateOut" for="dnaRate">5 bases/s</output></span><input id="dnaRate" type="range" min="1" max="16" step="0.1" value="5" /></label>
+          <label class="control" for="dnaTone"><span><b>Base pitch</b><output id="dnaToneOut" for="dnaTone">96 Hz</output></span><input id="dnaTone" type="range" min="55" max="220" step="1" value="96" /></label>
+          <label class="control" for="dnaWindow"><span><b>Visible bases</b><output id="dnaWindowOut" for="dnaWindow">27 bases</output></span><input id="dnaWindow" type="range" min="12" max="36" step="1" value="27" /></label>
+          <label class="control" for="dnaTwist"><span><b>Helix twist</b><output id="dnaTwistOut" for="dnaTwist">1</output></span><input id="dnaTwist" type="range" min="0.5" max="2" step="0.01" value="1" /></label>
+        </div></section><div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button></div></aside>
+    </main><script type="module" src="nav.js"></script><script type="module" src="experiments-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

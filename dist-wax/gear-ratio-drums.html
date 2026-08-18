@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Gear Ratio Drums - meshed cog ratios translated into tooth-contact percussion."
+    />
+    <title>Gear Ratio Drums - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="experiments.css" />
+  </head>
+  <body class="experiment-page" data-experiment="gears">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active" href="gear-ratio-drums.html" aria-current="page">gear ratio drums</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="gear-ratio-drums.html" selected>gear ratio drums</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">50%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.5" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell experiment-shell" id="gearRatioDrums">
+      <section class="stage" aria-label="Gear Ratio Drums stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Two toothed gears mesh and rotate in opposite directions."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Meshed gears with tooth-contact pulses.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">GEAR RATIO DRUMS · 12:20 · AUDIO OFF</span>
+          </div>
+          <div class="experiment-title" aria-hidden="true">
+            <h1>Gear Ratio Drums</h1>
+            <small id="stageCaption">tooth contact as polyrhythm</small>
+          </div>
+        </div>
+        <p class="sr-only" id="canvasInstructions">Rotating cog ratio percussion.</p>
+        <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+      </section>
+
+      <aside class="panel experiment-panel" aria-label="Gear Ratio Drums controls">
+        <section class="group experiment-card" aria-labelledby="experimentTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="experimentTitle">Experiment</h2>
+            <span class="section-state" id="experimentSummary">mechanics · ratios</span>
+          </div>
+          <dl class="experiment-meter-grid">
+            <div><dt>Ratio</dt><dd id="metricPrimary">3:5</dd></div>
+            <div><dt>Contact rate</dt><dd id="metricSecondary">2.4 Hz</dd></div>
+          </dl>
+        </section>
+
+        <section class="group control-section" aria-labelledby="gearMotionTitle">
+          <div class="experiment-card-heading">
+            <h2 class="group-title" id="gearMotionTitle">Cogs</h2>
+            <span class="section-state" id="patternSummary">12 and 20 teeth</span>
+          </div>
+          <div class="group-body">
+            <label class="control" for="gearTeethA">
+              <span><b>Left teeth</b><output id="gearTeethAOut" for="gearTeethA">12</output></span>
+              <input id="gearTeethA" type="range" min="5" max="32" step="1" value="12" />
+            </label>
+            <label class="control" for="gearTeethB">
+              <span><b>Right teeth</b><output id="gearTeethBOut" for="gearTeethB">20</output></span>
+              <input id="gearTeethB" type="range" min="6" max="40" step="1" value="20" />
+            </label>
+            <label class="control" for="gearSpeed">
+              <span><b>Drive speed</b><output id="gearSpeedOut" for="gearSpeed">0.20 rev/s</output></span>
+              <input id="gearSpeed" type="range" min="0" max="1.6" step="0.01" value="0.2" />
+            </label>
+            <label class="control" for="gearAccent">
+              <span><b>Accent mesh</b><output id="gearAccentOut" for="gearAccent">64%</output></span>
+              <input id="gearAccent" type="range" min="0" max="1" step="0.01" value="0.64" />
+            </label>
+          </div>
+        </section>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="experiments-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

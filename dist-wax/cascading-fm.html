@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Cascading FM — a chain of sine oscillators where each one modulates the next through rising, equal, or falling base frequencies."
+    />
+    <title>Cascading FM — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="cascading-fm.css" />
+    <link rel="stylesheet" href="chaotic-synth-ui.css" />
+  </head>
+  <body class="cascading-fm-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="recursive-fm.html">recursive fm</a>
+        <a class="tab active" href="cascading-fm.html" aria-current="page">cascading fm</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="recursive-fm.html">recursive fm</option>
+          <option value="cascading-fm.html" selected>cascading fm</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph cascading-fm-audio-glyph" aria-hidden="true">≋</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
+          <input id="level" aria-label="Cascading FM master output level" type="range" min="0" max="1" step="0.01" value="0.58" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell cascading-fm-shell" id="cascadingFm">
+      <section class="stage cascading-fm-stage" aria-labelledby="cascadingFmTitle">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Cascading FM live spectrum bars with a foreground oscilloscope and a linear cascade of eight oscillators. Audio off."
+            aria-describedby="cascadingFmDescription liveStatus"
+          >
+            A live frequency spectrum, foreground oscilloscope, and signal-flow explanation for Cascading FM.
+          </canvas>
+
+          <div class="cascading-fm-heading">
+            <p>CHAOTIC SYNTHS · CASCADING FM</p>
+            <h1 id="cascadingFmTitle">Cascading FM</h1>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">8 STAGES · DRONE · OFF</span>
+          </div>
+
+          <div
+            class="cascading-fm-signal-graph"
+            id="cascadingFmFlow"
+            role="img"
+            aria-label="Cascading FM signal path. Each oscillator modulates the next one's frequency; stage frequencies can rise, remain equal, or fall along the chain."
+          ></div>
+        </div>
+      </section>
+
+      <aside class="panel cascading-fm-panel" aria-label="Cascading FM controls">
+        <details class="group control-section cascading-fm-presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Character</h2>
+            <span class="section-state" id="presetState">Brass Choir</span>
+          </summary>
+          <div class="group-body">
+            <div class="cascading-fm-preset-grid" id="presetButtons" role="group" aria-label="Cascading FM presets">
+              <button type="button" data-preset="brass-choir" aria-pressed="true">Brass Choir</button>
+              <button type="button" data-preset="bell-tower" aria-pressed="false">Bell Tower</button>
+              <button type="button" data-preset="neon-reed" aria-pressed="false">Neon Reed</button>
+              <button type="button" data-preset="glass-forest" aria-pressed="false">Glass Forest</button>
+              <button type="button" data-preset="organ-pulse" aria-pressed="false">Organ Pulse</button>
+              <button type="button" data-preset="electric-wind" aria-pressed="false">Electric Wind</button>
+            </div>
+            <p class="cascading-fm-preset-description" id="presetDescription">
+              Five harmonic stages rooted at 55 Hz with moderate depth and even taper, warm and brassy.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section cascading-fm-structure" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Cascade</h2>
+            <span class="section-state" id="structureState">5 stages · ×2 · rising</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="stages">
+              <span><b>Stages</b><output id="stagesOut" for="stages">5</output></span>
+              <input id="stages" type="range" min="2" max="12" step="1" value="5" />
+            </label>
+            <small class="cascading-fm-control-note">Number of oscillators · 2 = two-osc FM · 12 = deep cascade · carrier pitch is preserved</small>
+
+            <label class="control" for="rootHz">
+              <span><b>Root</b><output id="rootHzOut" for="rootHz">55 Hz</output></span>
+              <input
+                id="rootHz"
+                type="range"
+                min="0"
+                max="1"
+                step="0.0001"
+                value="0.9195"
+                aria-describedby="rootHzNote"
+              />
+            </label>
+            <small class="cascading-fm-control-note" id="rootHzNote">Logarithmic · 0.02 Hz to 110 Hz · base frequency of the first oscillator</small>
+
+            <label class="control" for="cascadeRatio">
+              <span><b>Cascade ratio</b><output id="cascadeRatioOut" for="cascadeRatio">×2</output></span>
+              <input
+                id="cascadeRatio"
+                type="range"
+                min="0"
+                max="1"
+                step="0.0001"
+                value="0.5168"
+                aria-describedby="cascadeRatioNote"
+              />
+            </label>
+            <small class="cascading-fm-control-note" id="cascadeRatioNote">Focused logarithmic · 40% of the track covers ×1 to ×5 · below 1 falls, above 1 rises · extended range ×0.25 to ×200</small>
+
+            <label class="control" for="modDepth">
+              <span><b>Mod depth</b><output id="modDepthOut" for="modDepth">220 Hz</output></span>
+              <input
+                id="modDepth"
+                type="range"
+                min="0"
+                max="1"
+                step="0.0001"
+                value="0.1173"
+                aria-describedby="modDepthNote"
+              />
+            </label>
+            <small class="cascading-fm-control-note" id="modDepthNote">Quadratic · 0 to 16 kHz · modulation depth for stage 0 → 1</small>
+
+            <label class="control" for="depthTaper">
+              <span><b>Depth taper</b><output id="depthTaperOut" for="depthTaper">0.80×</output></span>
+              <input id="depthTaper" type="range" min="0.05" max="4.0" step="0.01" value="0.8" />
+            </label>
+            <p class="cascading-fm-taper-hint" id="taperHint">
+              <b>Flat FM index</b> at this ratio is <b id="flatTaperReadout">2.00×</b>
+            </p>
+
+            <div class="grammar-card cascading-fm-ledger chaotic-turn-ledger" aria-label="Current cascade model">
+              <span><b>Root</b><code id="rootReadout">55 Hz oscillator</code></span>
+              <span><b>Carrier</b><code id="carrierReadout">880 Hz</code></span>
+              <span><b>Stages</b><code id="stagesReadout">55 Hz → 110 Hz → 220 Hz → 440 Hz → 880 Hz</code></span>
+              <span><b>Depths</b><code id="depthsReadout">220 Hz → 176 Hz → 141 Hz → 113 Hz</code></span>
+              <span><b>Output</b><code id="outputReadout">stage 5 · 45% normalized</code></span>
+            </div>
+
+            <p class="cascading-fm-safety-note">
+              Each oscillator drives the next stage's frequency input.  Frequencies above 20 kHz are clamped before reaching Web Audio.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetCascadingFm" type="button" data-reset-all data-reset-in-place>Reset parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="cascadingFmDescription">
+        A live frequency spectrum and oscilloscope overlay a signal-flow diagram showing the linear chain of oscillators. The first oscillator at the left modulates the next; each subsequent base frequency is multiplied by the cascade ratio, so the chain can rise, remain equal, or fall before its final carrier reaches the audio output.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="cascading-fm-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

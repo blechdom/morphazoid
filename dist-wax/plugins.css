@@ -1,0 +1,336 @@
+.plugins-page {
+  --plugin-accent: #ff7aa6;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: var(--bg);
+}
+
+.plugins-header-label {
+  margin-left: auto;
+  color: var(--plugin-accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.plugins-shell {
+  min-height: calc(100vh - 58px);
+  padding: 42px 20px 68px;
+  flex: 1 0 auto;
+}
+
+.plugins-document {
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+
+.plugins-intro {
+  padding: 24px 0 38px;
+  border-bottom: 1px solid var(--line-strong);
+  text-align: left;
+}
+
+.plugins-development {
+  display: inline-block;
+  padding: 6px 8px;
+  margin: 0 0 18px;
+  border: 1px solid var(--plugin-accent);
+  color: var(--plugin-accent);
+  background: color-mix(in oklab, var(--plugin-accent) 8%, transparent);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.plugins-intro h1,
+.plugins-browser h2,
+.plugins-install h2,
+.plugin-card h2,
+.plugin-noscript h2 {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 550;
+  letter-spacing: 0;
+}
+
+.plugins-intro h1 {
+  width: 100%;
+  font-size: 44px;
+  line-height: 1.08;
+  text-align: left;
+}
+
+.plugins-vst {
+  margin: 18px 0 0;
+  color: var(--accent);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.plugins-lede {
+  max-width: 620px;
+  margin: 22px 0 0;
+  color: color-mix(in oklab, var(--ink) 84%, var(--muted));
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.plugins-section-label,
+.plugin-family {
+  margin: 0 0 8px;
+  color: var(--plugin-accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.plugins-browser,
+.plugins-install {
+  padding: 36px 0;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.plugins-browser h2,
+.plugins-install h2 {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.plugins-browser-heading > p:last-child {
+  max-width: 620px;
+  margin: 13px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.plugin-catalog {
+  display: grid;
+  margin-top: 24px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.plugin-loading {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.plugin-card,
+.plugin-noscript {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  scroll-margin-top: 18px;
+}
+
+.plugin-card:target {
+  border-color: var(--plugin-accent);
+}
+
+.plugin-card-available {
+  border-left: 3px solid var(--plugin-accent);
+}
+
+.plugin-card-header {
+  display: block;
+}
+
+.plugin-status {
+  display: inline-block;
+  padding: 4px 6px;
+  margin: 0 0 13px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.plugin-status-available {
+  border-color: color-mix(in oklab, var(--accent) 58%, transparent);
+  color: var(--accent);
+}
+
+.plugin-family {
+  margin-bottom: 7px;
+  color: var(--muted);
+}
+
+.plugin-card h2,
+.plugin-noscript h2 {
+  font-size: 25px;
+  line-height: 1.15;
+}
+
+.plugin-summary,
+.plugin-noscript > p:not(.plugin-status) {
+  max-width: 650px;
+  margin: 14px 0 0;
+  color: color-mix(in oklab, var(--ink) 78%, var(--muted));
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.plugin-format-note {
+  margin: 13px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.plugin-card-actions {
+  display: flex;
+  margin-top: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+}
+
+.plugin-download {
+  display: inline-flex;
+  min-height: 42px;
+  padding: 0 15px;
+  border: 1px solid var(--plugin-accent);
+  color: var(--bg-deep);
+  background: var(--plugin-accent);
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.plugin-download:hover,
+.plugin-download:focus-visible {
+  color: var(--bg-deep);
+  background: color-mix(in oklab, var(--plugin-accent) 78%, white);
+}
+
+.plugin-demo-link {
+  color: var(--accent);
+  font-size: 10px;
+  text-underline-offset: 4px;
+}
+
+.plugin-version-controls {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.plugin-version-picker {
+  display: grid;
+  gap: 6px;
+}
+
+.plugin-version-picker > span {
+  color: var(--muted);
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.plugin-version-picker select {
+  width: 170px;
+  height: 42px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font-size: 10px;
+}
+
+.plugins-install ol {
+  max-width: 650px;
+  padding-left: 22px;
+  margin: 20px 0 0;
+  color: color-mix(in oklab, var(--ink) 82%, var(--muted));
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.plugins-install li + li {
+  margin-top: 10px;
+}
+
+.plugins-install strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.plugins-note {
+  max-width: 620px;
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+@media (max-width: 650px) {
+  .plugins-header-label {
+    display: none;
+  }
+
+  .plugins-shell {
+    min-height: calc(100vh - 54px);
+    padding: 24px 15px 48px;
+  }
+
+  .plugins-intro {
+    padding-top: 14px;
+  }
+
+  .plugins-intro h1 {
+    font-size: 30px;
+    white-space: nowrap;
+  }
+
+  .plugins-vst {
+    font-size: 19px;
+  }
+
+  .plugins-lede {
+    font-size: 13px;
+  }
+
+  .plugin-card,
+  .plugin-noscript {
+    padding: 17px;
+  }
+}
+
+@media (max-width: 380px) {
+  .plugins-intro h1 {
+    font-size: 25px;
+  }
+
+  .plugin-download {
+    width: 100%;
+  }
+
+  .plugin-card-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .plugin-version-controls {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

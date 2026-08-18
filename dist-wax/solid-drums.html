@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Solid Drum Machine — map moving plane and wireframe intersections to sixteen FM percussion voices."
+    />
+    <title>Solid Drum Machine — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="solid-drums.css" />
+  </head>
+  <body class="solid-page solid-drums-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="shape-drums.html">shape drums</a>
+        <a class="tab active" href="solid-drums.html" aria-current="page">solid drums</a>
+        <a class="tab" href="lattice-drums.html">lattice drums</a>
+        <a class="tab" href="spiral-drums.html">spiral drums</a>
+        <a class="tab" href="hyper-drums.html">hyper drums</a>
+        <a class="tab" href="l-system-drums.html">l-system drums</a>
+        <a class="tab" href="fm-drums.html">fm drums</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="solid.html">solid</option>
+          <option value="shape-drums.html">shape drums</option>
+          <option value="solid-drums.html" selected>solid drums</option>
+          <option value="lattice-drums.html">lattice drums</option>
+          <option value="spiral-drums.html">spiral drums</option>
+          <option value="hyper-drums.html">hyper drums</option>
+          <option value="l-system-drums.html">l-system drums</option>
+          <option value="fm-drums.html">fm drums</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">+</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">65%</output></span>
+          <input id="output" aria-label="Drum output level" type="range" min="0" max=".9" step=".01" value=".65" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell solid-drums-shell" id="solidDrums">
+      <section class="stage" aria-label="Solid Drum Machine stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Drag to rotate a wireframe solid or its moving intersection surface."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A projected 3D wireframe whose moving surface reader maps edge
+            segments to sixteen FM drum voices.
+          </canvas>
+          <div class="solid-target-switch" role="group" aria-label="3D rotation target">
+            <button id="selectSolid" type="button" aria-pressed="true">Shape</button>
+            <button id="selectSurface" type="button" aria-pressed="false">Surface</button>
+          </div>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">CUBE · SURFACE READER · 2 SEGMENTS/SIDE · 0 CONTACTS · AUDIO OFF</span>
+          </div>
+          <div class="solid-mapping-readout" id="mappingReadout" aria-label="Latest drum mapping" aria-live="off">
+            SURFACE · EDGE 1 · SEGMENT 1/2 · X AXIS → SUB KICK
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel solid-drums-panel" aria-label="Solid Drum Machine controls">
+        <details class="group control-section" data-section="play">
+          <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">surface reader · paused</span></summary>
+          <div class="group-body">
+            <div class="position-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play surface">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="position">
+                <span><b>Surface position</b><output id="positionOut" for="position">0.0%</output></span>
+                <input id="position" type="range" min="0" max="1" step="0.001" value="0.5" />
+              </label>
+            </div>
+            <label class="control" for="speed"><span><b>Surface speed</b><output id="speedOut" for="speed">0.12 cyc/s</output></span><input id="speed" type="range" min="0.01" max="2" step="0.01" value="0.12" /></label>
+            <label class="control" for="subdivisions">
+              <span><b>Subdivisions / side</b><output id="subdivisionsOut" for="subdivisions">2</output></span>
+              <input
+                id="subdivisions"
+                type="range"
+                min="1"
+                max="16"
+                step="1"
+                value="2"
+                aria-describedby="triggerSourceDescription"
+              />
+            </label>
+            <p class="solid-trigger-source" id="triggerSourceDescription">
+              Trigger source: the moving surface reader crossing one of 2 equal
+              segments on a projected solid side (edge).
+            </p>
+            <button class="mini-action direction-action" id="directionButton" type="button">Direction · forward</button>
+            <div class="axis-control-group">
+              <label class="control" for="planeYaw"><span><b>Surface yaw</b><output id="planeYawOut" for="planeYaw">45°</output></span><input id="planeYaw" type="range" min="-180" max="180" step="1" value="45" /></label>
+              <div class="axis-motion-row"><button class="mini-action axis-play-button" id="planeYawPlay" type="button" aria-pressed="false" aria-label="Play surface yaw"><span aria-hidden="true">▶</span><small>Yaw</small></button><label class="control" for="planeYawSpeed"><span><b>Yaw speed</b><output id="planeYawSpeedOut" for="planeYawSpeed">+0.04 rev/s</output></span><input id="planeYawSpeed" type="range" min="-0.5" max="0.5" step="0.01" value="0.04" /></label></div>
+            </div>
+            <div class="axis-control-group">
+              <label class="control" for="planePitch"><span><b>Surface pitch</b><output id="planePitchOut" for="planePitch">−22°</output></span><input id="planePitch" type="range" min="-180" max="180" step="1" value="-22" /></label>
+              <div class="axis-motion-row"><button class="mini-action axis-play-button" id="planePitchPlay" type="button" aria-pressed="false" aria-label="Play surface pitch"><span aria-hidden="true">▶</span><small>Pitch</small></button><label class="control" for="planePitchSpeed"><span><b>Pitch speed</b><output id="planePitchSpeedOut" for="planePitchSpeed">+0.03 rev/s</output></span><input id="planePitchSpeed" type="range" min="-0.5" max="0.5" step="0.01" value="0.03" /></label></div>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form">
+          <summary class="group-summary"><h2 class="group-title">Form</h2><span class="section-state" id="formSummary">cube</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="solidType"><span class="field-label">Wireframe solid</span><span class="select-shell"><select id="solidType"><option value="cube" selected>Cube</option><option value="pyramid">Pyramid</option><option value="octahedron">Octahedron</option><option value="prism">Triangular prism</option><option value="cone">Cone</option><option value="cylinder">Cylinder</option><option value="sphere">Sphere</option><option value="torus">Torus</option></select></span></label>
+            <label class="control" for="formScaleX"><span><b>Width</b><output id="formScaleXOut" for="formScaleX">1.00×</output></span><input id="formScaleX" type="range" min="0.5" max="1.6" step="0.01" value="1" /></label>
+            <label class="control" for="formScaleY"><span><b>Height</b><output id="formScaleYOut" for="formScaleY">1.00×</output></span><input id="formScaleY" type="range" min="0.5" max="1.6" step="0.01" value="1" /></label>
+            <label class="control" for="formScaleZ"><span><b>Depth</b><output id="formScaleZOut" for="formScaleZ">1.00×</output></span><input id="formScaleZ" type="range" min="0.5" max="1.6" step="0.01" value="1" /></label>
+            <label class="control" for="formSkewX"><span><b>X skew</b><output id="formSkewXOut" for="formSkewX">0%</output></span><input id="formSkewX" type="range" min="-0.7" max="0.7" step="0.01" value="0" /></label>
+            <label class="control" for="formSkewZ"><span><b>Z skew</b><output id="formSkewZOut" for="formSkewZ">0%</output></span><input id="formSkewZ" type="range" min="-0.7" max="0.7" step="0.01" value="0" /></label>
+            <button class="mini-action reset-form" id="resetSolidForm" type="button">Reset form</button>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="rotation">
+          <summary class="group-summary"><h2 class="group-title">Rotation</h2><span class="section-state" id="rotationSummary">paused</span></summary>
+          <div class="group-body">
+            <div class="axis-control-group"><label class="control" for="rotationX"><span><b>X rotation</b><output id="rotationXOut" for="rotationX">−24°</output></span><input id="rotationX" type="range" min="-180" max="180" step="1" value="-24" /></label><div class="axis-motion-row"><button class="mini-action axis-play-button" id="rotationXPlay" type="button" aria-pressed="false" aria-label="Play X rotation"><span aria-hidden="true">▶</span><small>X</small></button><label class="control" for="rotationXSpeed"><span><b>X speed</b><output id="rotationXSpeedOut" for="rotationXSpeed">+0.03 rev/s</output></span><input id="rotationXSpeed" type="range" min="-0.5" max="0.5" step="0.01" value="0.03" /></label></div></div>
+            <div class="axis-control-group"><label class="control" for="rotationY"><span><b>Y rotation</b><output id="rotationYOut" for="rotationY">36°</output></span><input id="rotationY" type="range" min="-180" max="180" step="1" value="36" /></label><div class="axis-motion-row"><button class="mini-action axis-play-button" id="rotationYPlay" type="button" aria-pressed="false" aria-label="Play Y rotation"><span aria-hidden="true">▶</span><small>Y</small></button><label class="control" for="rotationYSpeed"><span><b>Y speed</b><output id="rotationYSpeedOut" for="rotationYSpeed">+0.08 rev/s</output></span><input id="rotationYSpeed" type="range" min="-0.5" max="0.5" step="0.01" value="0.08" /></label></div></div>
+            <div class="axis-control-group"><label class="control" for="rotationZ"><span><b>Z rotation</b><output id="rotationZOut" for="rotationZ">8°</output></span><input id="rotationZ" type="range" min="-180" max="180" step="1" value="8" /></label><div class="axis-motion-row"><button class="mini-action axis-play-button" id="rotationZPlay" type="button" aria-pressed="false" aria-label="Play Z rotation"><span aria-hidden="true">▶</span><small>Z</small></button><label class="control" for="rotationZSpeed"><span><b>Z speed</b><output id="rotationZSpeedOut" for="rotationZSpeed">+0.02 rev/s</output></span><input id="rotationZSpeed" type="range" min="-0.5" max="0.5" step="0.01" value="0.02" /></label></div></div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="mapping">
+          <summary class="group-summary"><h2 class="group-title">Drum Mapping</h2><span class="section-state" id="mappingSummary">surface → edge × axis · 2/side</span></summary>
+          <div class="group-body">
+            <label class="select-control" for="mappingMode"><span class="field-label">Contact mapping</span><span class="select-shell"><select id="mappingMode" aria-describedby="mappingDescription solidMappingSourceText"><option value="edge-axis" selected>Edge × axis</option><option value="position-grid">3D position</option><option value="incidence-depth">Incidence × depth</option></select></span></label>
+            <p class="solid-mapping-description" id="mappingDescription">Edge identity chooses the row; its X, Y, Z, or diagonal direction chooses the column.</p>
+            <div class="solid-mapping-source">
+              <b>Drum source</b>
+              <span id="solidMappingSourceText">Edge number modulo 4 → drum row · X / Y / Z / diagonal direction → voice column</span>
+            </div>
+            <label class="control" for="pitchDepth"><span><b>Height tuning</b><output id="pitchDepthOut" for="pitchDepth">±12 st</output></span><input id="pitchDepth" type="range" min="0" max="24" step="1" value="12" /></label>
+            <label class="control" for="characterDepth"><span><b>Incidence character</b><output id="characterDepthOut" for="characterDepth">70%</output></span><input id="characterDepth" type="range" min="0" max="1" step=".01" value=".7" /></label>
+            <label class="control" for="strikeLimit"><span><b>Strike limit</b><output id="strikeLimitOut" for="strikeLimit">6</output></span><input id="strikeLimit" type="range" min="1" max="12" step="1" value="6" /></label>
+            <div class="solid-drum-map" id="drumMap" aria-label="Sixteen FM drum voices"></div>
+          </div>
+        </details>
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetSolidDrums" type="button">Reset all parameters</button>
+        </div>
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+      </aside>
+      <p class="sr-only" id="canvasInstructions">
+        Drag to rotate the selected solid or surface. Space toggles playback.
+        Left and right arrows move the surface position. Subdivisions split
+        every projected solid edge into equal trigger segments.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="solid-drums-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

@@ -1,0 +1,425 @@
+.cascading-fm-page {
+  --accent: #4ade80;
+  --accent-soft: color-mix(in oklab, #4ade80 55%, transparent);
+  --accent-glow: color-mix(in oklab, #4ade80 22%, transparent);
+  --cascading-fm-lfo: #5fe8c4;
+  --cascading-fm-mid: #4ade80;
+  --cascading-fm-carrier: #a3e635;
+  --cascading-fm-conn: #7db4ff;
+  --cascading-fm-output: #fff3d6;
+  --cascading-fm-warning: #ffb86b;
+}
+
+.cascading-fm-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 27vw, 410px);
+}
+
+.cascading-fm-stage .stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--accent) 2.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--cascading-fm-lfo) 2%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 48% 46%, color-mix(in oklab, var(--accent) 8%, transparent), transparent 49%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.cascading-fm-page #stage {
+  cursor: default;
+}
+
+.cascading-fm-heading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(38px, 7vh, 72px);
+  left: clamp(20px, 4vw, 58px);
+  display: grid;
+  pointer-events: none;
+  gap: 5px;
+}
+
+.cascading-fm-heading p,
+.cascading-fm-heading span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.cascading-fm-heading p {
+  color: var(--accent);
+}
+
+.cascading-fm-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(25px, 4vw, 52px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.cascading-fm-heading span {
+  margin-top: 3px;
+  color: var(--faint);
+  letter-spacing: 0.11em;
+}
+
+/* Signal flow graph */
+
+.cascading-fm-signal-graph {
+  position: absolute;
+  z-index: 4;
+  right: clamp(12px, 2vw, 28px);
+  bottom: clamp(16px, 3%, 28px);
+  left: clamp(12px, 2vw, 28px);
+  height: clamp(150px, 29%, 220px);
+  overflow: hidden;
+  border-top: 1px solid color-mix(in oklab, var(--cascading-fm-conn) 24%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--cascading-fm-output) 12%, transparent);
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--bg-deep) 94%, transparent),
+    color-mix(in oklab, var(--bg-deep) 78%, transparent),
+    color-mix(in oklab, var(--bg-deep) 94%, transparent)
+  );
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+.cascading-fm-signal-graph::before {
+  position: absolute;
+  z-index: 1;
+  top: 7px;
+  left: 10px;
+  color: var(--cascading-fm-conn);
+  content: "SIGNAL PATH · EACH SINE MODULATES NEXT OSCILLATOR FREQUENCY";
+  font-size: 7px;
+  letter-spacing: 0.12em;
+  opacity: 0.78;
+}
+
+.cascading-fm-signal-graph svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.cascading-fm-signal-graph .cascading-fm-flow-compact {
+  display: none;
+}
+
+/* Flow diagram elements */
+
+.cascading-fm-stage-node rect {
+  fill: color-mix(in oklab, var(--bg-deep) 90%, transparent);
+  stroke: var(--cascading-fm-mid);
+  stroke-width: 1.5;
+}
+
+.cascading-fm-stage-node.is-lfo rect {
+  stroke: var(--cascading-fm-lfo);
+}
+
+.cascading-fm-stage-node.is-carrier rect {
+  fill: color-mix(in oklab, var(--cascading-fm-output) 8%, var(--bg-deep));
+  stroke: var(--cascading-fm-carrier);
+  stroke-width: 1.8;
+}
+
+.cascading-fm-stage-title,
+.cascading-fm-stage-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-anchor: middle;
+}
+
+.cascading-fm-stage-title {
+  fill: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.cascading-fm-stage-value {
+  fill: var(--muted);
+  font-size: 7px;
+}
+
+.cascading-fm-signal-wire {
+  fill: none;
+  stroke: var(--cascading-fm-conn);
+  stroke-width: 1.6;
+  opacity: 0.92;
+}
+
+.cascading-fm-mod-block rect {
+  fill: color-mix(in oklab, var(--bg-deep) 92%, transparent);
+  stroke: var(--cascading-fm-conn);
+  stroke-width: 1.3;
+}
+
+.cascading-fm-mod-label,
+.cascading-fm-mod-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-anchor: middle;
+}
+
+.cascading-fm-mod-label {
+  fill: var(--ink);
+  font-size: 7px;
+  font-weight: 600;
+}
+
+.cascading-fm-mod-value {
+  fill: var(--muted);
+  font-size: 6.5px;
+}
+
+#cascadingFmArrow path {
+  fill: var(--cascading-fm-conn);
+}
+
+.cascading-fm-output-node rect {
+  fill: color-mix(in oklab, var(--cascading-fm-output) 8%, var(--bg-deep));
+  stroke: var(--cascading-fm-output);
+}
+
+.cascading-fm-output-label {
+  fill: var(--cascading-fm-output);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+.cascading-fm-output-value {
+  fill: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  text-anchor: middle;
+}
+
+/* Compact mobile view */
+
+.cascading-fm-compact-node rect {
+  fill: color-mix(in oklab, var(--bg-deep) 90%, transparent);
+  stroke: var(--cascading-fm-mid);
+  stroke-width: 1.3;
+}
+
+.cascading-fm-compact-node.is-lfo rect {
+  stroke: var(--cascading-fm-lfo);
+}
+
+.cascading-fm-compact-node.is-carrier rect {
+  stroke: var(--cascading-fm-output);
+}
+
+.cascading-fm-compact-title,
+.cascading-fm-compact-value,
+.cascading-fm-compact-caption,
+.cascading-fm-compact-arrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-anchor: middle;
+}
+
+.cascading-fm-compact-title {
+  fill: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.cascading-fm-compact-value {
+  fill: var(--muted);
+  font-size: 6.5px;
+}
+
+.cascading-fm-compact-arrow {
+  fill: var(--cascading-fm-conn);
+  font-size: 15px;
+}
+
+.cascading-fm-compact-caption {
+  fill: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.04em;
+  text-anchor: start;
+}
+
+/* Panel */
+
+.cascading-fm-panel {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--accent) 3%, transparent), transparent 270px),
+    var(--panel);
+}
+
+.cascading-fm-presets {
+  --accent: #5fe8c4;
+  --accent-soft: color-mix(in oklab, #5fe8c4 55%, transparent);
+  --accent-glow: color-mix(in oklab, #5fe8c4 20%, transparent);
+}
+
+.cascading-fm-structure {
+  --accent: #4ade80;
+  --accent-soft: color-mix(in oklab, #4ade80 55%, transparent);
+  --accent-glow: color-mix(in oklab, #4ade80 20%, transparent);
+}
+
+.cascading-fm-preset-grid {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.cascading-fm-preset-grid button {
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font-size: 9px;
+  letter-spacing: 0.035em;
+}
+
+.cascading-fm-preset-grid button:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.cascading-fm-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.cascading-fm-preset-description {
+  min-height: 2.9em;
+  margin: 10px 0 3px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.cascading-fm-control-note {
+  display: block;
+  margin: -8px 0 12px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cascading-fm-ledger {
+  margin-top: 16px;
+}
+
+.cascading-fm-ledger > span {
+  grid-template-columns: 68px minmax(0, 1fr);
+}
+
+.cascading-fm-ledger code {
+  color: color-mix(in oklab, var(--ink) 88%, var(--accent));
+  font-variant-numeric: tabular-nums;
+}
+
+.cascading-fm-safety-note {
+  margin: -4px 0 11px;
+  padding: 10px 11px;
+  border-left: 1px solid var(--cascading-fm-warning);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--cascading-fm-warning) 4%, transparent);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.cascading-fm-page .audio-error {
+  margin: 11px 0 4px;
+  color: #ffb2a8;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.cascading-fm-audio-glyph {
+  color: var(--accent);
+  font-size: 18px;
+}
+
+/* Taper hint row */
+
+.cascading-fm-taper-hint {
+  margin: -10px 0 14px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.06em;
+}
+
+.cascading-fm-taper-hint b {
+  color: var(--cascading-fm-mid);
+  font-weight: 500;
+}
+
+/* Responsive */
+
+@media (max-width: 960px) {
+  .cascading-fm-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: clamp(360px, 50dvh, 460px) minmax(0, 1fr);
+  }
+
+  .cascading-fm-heading {
+    top: 28px;
+  }
+
+  .cascading-fm-heading h1 {
+    font-size: clamp(24px, 6vw, 40px);
+  }
+}
+
+@media (max-width: 650px) {
+  .cascading-fm-heading {
+    top: 20px;
+    left: 16px;
+  }
+
+  .cascading-fm-heading p {
+    display: none;
+  }
+
+  .cascading-fm-stage .stage-meta {
+    display: none;
+  }
+
+  .cascading-fm-signal-graph {
+    right: 5px;
+    bottom: 8px;
+    left: 5px;
+    height: clamp(0px, calc(100% - 274px), 132px);
+  }
+
+  .cascading-fm-signal-graph::before {
+    top: 4px;
+    font-size: 6px;
+  }
+
+  .cascading-fm-signal-graph .cascading-fm-flow-detailed {
+    display: none;
+  }
+
+  .cascading-fm-signal-graph .cascading-fm-flow-compact {
+    display: block;
+  }
+}
+
+@media (max-width: 390px) {
+  .cascading-fm-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cascading-fm-preset-grid button {
+    min-height: 38px;
+  }
+}

@@ -201,6 +201,9 @@ test("Sample Drums page exposes the standalone sampler and preload flow", async 
   assert.match(app, /new SampleDrumAudio\(globalThis\)/);
   assert.match(app, /audio\.preload\(state\.voices\)/);
   assert.match(app, /audio\.hasBuffer\(voice\.url\)/);
+  assert.match(app, /function isWaxMidiOnly\(\)/);
+  assert.match(app, /if \(isWaxMidiOnly\(\)\) return;/);
+  assert.match(app, /!state\.audioOn && !isWaxMidiOnly\(\)/);
   assert.match(app, /morphazoid-sample-drums-\$\{date\}\.json/);
   assert.match(notices, /Fluid Music Open Drums/);
   assert.match(notices, /does not vendor the TR-909 WAV files/);

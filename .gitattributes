@@ -1,0 +1,2 @@
+# The generated WAX artifact preserves vendored upstream files byte-for-byte.
+dist-wax/vendor/** -whitespace

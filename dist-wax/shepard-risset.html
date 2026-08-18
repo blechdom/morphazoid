@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Shepard–Risset — an octave-bank illusion and the original Morphisma quadratic sweep instrument."
+    />
+    <title>Shepard–Risset — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="shepard-risset.css" />
+  </head>
+  <body class="shepard-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active" href="shepard-risset.html" aria-current="page">shepard–risset</a>
+        <a class="tab" href="drum-roll-please.html">drum roll please!</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="shepard-risset.html" selected>shepard–risset</option>
+          <option value="drum-roll-please.html">drum roll please!</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">58%</output></span>
+          <input
+            id="level"
+            aria-label="Master audio level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.58"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="shepardRisset">
+      <section class="stage" aria-label="Shepard–Risset stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Octave Bank mode. Unboxed barber-pole stripes and octave traces moving upward and fading into the stage edges."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Unboxed phase-staggered octave layers and Morphisma sweep lanes with waveform fragments.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">OCTAVE BANK · RISING · 0.12 OCT/S · AUDIO OFF</span>
+          </div>
+          <div class="shepard-stage-label" aria-hidden="true">
+            <span>Shepard–Risset</span>
+            <small id="stageModeCaption">phase-staggered octave illusion</small>
+          </div>
+          <div class="shepard-direction-markers" aria-hidden="true">
+            <span id="directionMarker">↑</span>
+            <small id="directionMarkerText">endlessly rising</small>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Shepard–Risset controls">
+        <section class="group shepard-mode-section" aria-labelledby="modeTitle">
+          <div class="shepard-mode-heading">
+            <h2 class="group-title" id="modeTitle">Mode</h2>
+            <span class="section-state" id="modeSummary">Octave Bank</span>
+          </div>
+          <div class="choice-switch shepard-mode-switch" id="modeSelector" role="group" aria-label="Shepard–Risset mode">
+            <button id="modeOctave" type="button" data-mode="octave" aria-pressed="true">Octave Bank</button>
+            <button id="modeMorphisma" type="button" data-mode="morphisma" aria-pressed="false">Morphisma Sweep</button>
+          </div>
+        </section>
+
+        <details class="group control-section" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Presets</h2>
+            <span class="section-state" id="presetSummary">Classic rise</span>
+          </summary>
+          <div class="group-body">
+            <div class="shepard-preset-grid" id="presetGrid" role="group" aria-label="Octave Bank presets">
+              <button type="button" data-preset="classic-rise" aria-pressed="true">
+                <b>Classic rise</b><small>slow · balanced</small>
+              </button>
+              <button type="button" data-preset="classic-fall" aria-pressed="false">
+                <b>Classic fall</b><small>slow · descending</small>
+              </button>
+              <button type="button" data-preset="tight-spiral" aria-pressed="false">
+                <b>Tight spiral</b><small>fast · bright</small>
+              </button>
+              <button type="button" data-preset="deep-descent" aria-pressed="false">
+                <b>Deep descent</b><small>wide · low</small>
+              </button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Motion</h2>
+            <span class="section-state" id="motionSummary">rise · 0.12 oct/s</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Direction</span>
+            <div class="choice-switch" id="direction" role="group" aria-label="Glissando direction">
+              <button id="directionRise" type="button" data-value="1" aria-pressed="true">↑ Rise</button>
+              <button id="directionFall" type="button" data-value="-1" aria-pressed="false">↓ Fall</button>
+            </div>
+
+            <div id="octaveControls">
+              <label class="control" for="speed">
+                <span><b>Glissando speed</b><output id="speedOut" for="speed">0.12 oct/s</output></span>
+                <input id="speed" type="range" min="0.02" max="1.2" step="0.01" value="0.12" />
+              </label>
+
+              <label class="control" for="centerFrequency">
+                <span><b>Center frequency</b><output id="centerFrequencyOut" for="centerFrequency">220 Hz</output></span>
+                <input
+                  id="centerFrequency"
+                  type="range"
+                  min="40"
+                  max="1200"
+                  step="1"
+                  value="220"
+                />
+              </label>
+
+              <label class="control" for="width">
+                <span><b>Octave bank width</b><output id="widthOut" for="width">5.0 oct</output></span>
+                <input id="width" type="range" min="3" max="9" step="0.5" value="5" />
+              </label>
+
+              <label class="control" for="spread">
+                <span><b>Stereo spread</b><output id="spreadOut" for="spread">26%</output></span>
+                <input id="spread" type="range" min="0" max="1" step="0.01" value="0.26" />
+              </label>
+
+              <small class="shepard-control-note">
+                Every active oscillator remains one octave from its neighbors. The bank wraps silently at its faded edges.
+              </small>
+            </div>
+
+            <div id="morphismaControls" hidden>
+              <label class="control" for="voices">
+                <span><b>Voices</b><output id="voicesOut" for="voices">8</output></span>
+                <input id="voices" type="range" min="1" max="64" step="1" value="8" />
+              </label>
+
+              <label class="control" for="sweepSpeed">
+                <span><b>Sweep speed</b><output id="sweepSpeedOut" for="sweepSpeed">0.05 cycles/s</output></span>
+                <input id="sweepSpeed" type="range" min="0.01" max="10" step="0.01" value="0.05" />
+              </label>
+
+              <label class="control" for="startFrequency">
+                <span><b>Start frequency</b><output id="startFrequencyOut" for="startFrequency">100 Hz</output></span>
+                <input id="startFrequency" type="range" min="10" max="3000" step="1" value="100" />
+              </label>
+
+              <label class="control" for="sweepRange">
+                <span><b>Sweep range</b><output id="sweepRangeOut" for="sweepRange">2.00</output></span>
+                <input
+                  id="sweepRange"
+                  type="range"
+                  min="0.01"
+                  max="8"
+                  step="0.01"
+                  value="2"
+                  aria-describedby="sweepRangeNote"
+                />
+              </label>
+              <small class="shepard-control-note" id="sweepRangeNote">
+                The original <code>intervalRatio</code>: it controls the total quadratic sweep span, not spacing between oscillators.
+              </small>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Sound</h2>
+            <span class="section-state" id="soundSummary">5.0 oct · 26% stereo</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="cutoff">
+              <span><b>Brightness ceiling</b><output id="cutoffOut" for="cutoff">12.0 kHz</output></span>
+              <input id="cutoff" type="range" min="800" max="18000" step="100" value="12000" />
+            </label>
+
+            <div class="shepard-signal-card" aria-label="Audio safety path">
+              <span><b id="signalSourceLabel">Bank</b><small id="signalSourceDetail">power normalized</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b id="signalMotionLabel">Band</b><small id="signalMotionDetail">28 Hz · tone ceiling</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Output</b><small>compressor · soft ceiling</small></span>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Octave Bank draws unboxed stripes moving in the perceived pitch direction. Morphisma Sweep
+        draws phase-staggered lanes and small waveform fragments following quadratic frequency
+        sweeps. Both fields fade softly into the stage edges. Use the mode and motion controls to
+        explore either instrument.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="shepard-risset-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

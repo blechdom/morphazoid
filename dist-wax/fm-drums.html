@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid FM Drums — sixteen tunable synthesized percussion voices." />
+    <title>FM Drums — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="fm-drums.css" />
+  </head>
+  <body class="fm-drums-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active" href="fm-drums.html" aria-current="page">fm drums</a>
+        <a class="tab" href="linear-drums.html">linear drums</a>
+        <a class="tab" href="sample-drums.html">sample drums</a>
+        <a class="tab" href="spiral-drums.html">spiral drums</a>
+        <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="fm-drums.html" selected>fm drums</option>
+          <option value="linear-drums.html">linear drums</option>
+          <option value="sample-drums.html">sample drums</option>
+          <option value="spiral-drums.html">spiral drums</option>
+          <option value="morphazoidical/">morphazoidical</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">≋</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">72%</output></span>
+          <input id="output" aria-label="FM drums output level" type="range" min="0" max=".9" step=".01" value=".72" />
+        </label>
+      </div>
+    </header>
+
+    <main class="fm-drums-shell" id="fmDrums">
+      <section class="fm-drums-intro" aria-label="FM drum preset actions">
+        <div class="fm-bank-actions" aria-label="Preset bank actions">
+          <button type="button" id="randomizeVoice">Randomize voice</button>
+          <button type="button" id="randomizeSet">Randomize set</button>
+          <button type="button" id="resetSet">Reset set</button>
+          <button type="button" id="copyBank">Copy JSON</button>
+          <button type="button" id="downloadBank">Download JSON</button>
+          <button type="button" id="saveBank" class="is-primary">Save set</button>
+        </div>
+      </section>
+
+      <section class="fm-pad-grid" id="padGrid" aria-label="Sixteen FM drum pads"></section>
+
+      <section class="fm-voice-editor" id="voiceEditor" aria-labelledby="voiceEditorTitle">
+        <div class="fm-editor-identity">
+          <p>VOICE DESIGN</p>
+          <span id="voiceNumber">01</span>
+          <h2 id="voiceEditorTitle">Sub Kick</h2>
+          <small id="voiceMeta">KEY Q · KICK</small>
+          <button type="button" id="auditionVoice">Audition voice</button>
+        </div>
+        <div class="fm-editor-controls" id="editorControls"></div>
+      </section>
+
+      <p class="fm-midi-map-note">
+        Controller Macros 1–8 · tune · decay · FM ratio · FM index · pitch sweep · noise · tone · level.<br />
+        Standard MIDI · CC7 output · CC16 tune · CC73 attack · CC72 decay · CC76 ratio · CC71 index · CC77 sweep · CC78 noise · CC74 tone · CC11 level<br />
+        Computer pads · turn MIDI on, then use 1–4 / Q–R / A–F / Z–V
+      </p>
+
+      <footer class="fm-drums-footer" aria-label="Instrument details">
+        <span>16 VOICES</span>
+        <span>FM + SHAPED NOISE</span>
+        <span>MIDI NOTES 36–51</span>
+        <span id="sampleRateState">AUDIO OFF</span>
+      </footer>
+      <p class="audio-error" id="audioError" role="alert" hidden></p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="fm-drums-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+.wax-midi-panel {
+  position: fixed;
+  z-index: 10000;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  width: min(310px, calc(100vw - 24px));
+  color: #e9f3ef;
+  font: 600 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  filter: drop-shadow(0 12px 28px rgb(0 0 0 / 45%));
+}
+
+.wax-midi-panel details {
+  border: 1px solid #436057;
+  background: rgb(7 12 12 / 96%);
+}
+
+.wax-midi-panel summary {
+  display: grid;
+  min-height: 34px;
+  padding: 0 10px;
+  align-items: center;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  color: #9ff1d8;
+  cursor: pointer;
+  list-style: none;
+  text-transform: uppercase;
+}
+
+.wax-midi-panel summary::-webkit-details-marker { display: none; }
+.wax-midi-panel summary span { color: #ffb86b; letter-spacing: .12em; }
+.wax-midi-panel summary b { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.wax-midi-panel summary i { width: 7px; height: 7px; border-radius: 50%; background: #52615d; }
+.wax-midi-panel summary i.is-ready { background: #5fe8c4; box-shadow: 0 0 9px #5fe8c4; }
+
+.wax-midi-panel-body {
+  display: grid;
+  padding: 11px;
+  border-top: 1px solid #263d36;
+  gap: 9px;
+}
+
+.wax-midi-panel p,
+.wax-midi-panel small,
+.wax-midi-panel output { margin: 0; color: #94a7a0; font-size: 9px; line-height: 1.5; }
+.wax-midi-panel label { display: grid; gap: 4px; color: #9aacA6; font-size: 8px; text-transform: uppercase; }
+.wax-midi-panel select,
+.wax-midi-panel input,
+.wax-midi-panel button {
+  min-width: 0;
+  min-height: 28px;
+  border: 1px solid #385048;
+  border-radius: 0;
+  color: #e9f3ef;
+  background: #0c1513;
+  font: inherit;
+}
+
+.wax-midi-panel button { color: #ffb86b; cursor: pointer; text-transform: uppercase; }
+.wax-midi-panel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.wax-midi-panel-check { display: flex !important; align-items: center; grid-template-columns: none !important; gap: 7px !important; text-transform: none !important; }
+.wax-midi-panel-check input { width: 16px; min-height: 16px; margin: 0; }
+
+@media (max-width: 600px) {
+  .wax-midi-panel { right: 8px; bottom: 8px; width: min(280px, calc(100vw - 16px)); }
+}

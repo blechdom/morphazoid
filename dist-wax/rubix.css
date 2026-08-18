@@ -1,0 +1,1173 @@
+.rubix-page {
+  --accent: #9dff57;
+  --accent-soft: color-mix(in oklab, var(--accent) 56%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 24%, transparent);
+  --rubix-cyan: #62dbff;
+  --rubix-pink: #ff6fae;
+  --rubix-amber: #f5c95c;
+  --rubix-orange: #ff784f;
+  --rubix-white: #edf6ee;
+  --rubix-blue: #458cff;
+  --rubix-green: #70e06f;
+  background:
+    radial-gradient(circle at 16% 12%, rgba(98, 219, 255, 0.08), transparent 32rem),
+    radial-gradient(circle at 82% -10%, rgba(157, 255, 87, 0.09), transparent 34rem),
+    var(--bg);
+}
+
+.rubix-tab {
+  min-width: 76px;
+}
+
+.rubix-page .rubix-audio-glyph::before {
+  content: "◆";
+  font-size: 13px;
+}
+
+.rubix-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(340px, 26vw, 410px);
+}
+
+.rubix-stage {
+  background: #050608;
+}
+
+.rubix-stage-wrap {
+  isolation: isolate;
+  min-height: 440px;
+  background:
+    linear-gradient(rgba(157, 255, 87, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(98, 219, 255, 0.022) 1px, transparent 1px),
+    radial-gradient(circle at 50% 51%, rgba(157, 255, 87, 0.085), transparent 25%),
+    radial-gradient(circle at 50% 58%, rgba(69, 140, 255, 0.055), transparent 48%),
+    #050608;
+  background-size: 36px 36px, 36px 36px, auto, auto, auto;
+}
+
+.rubix-stage-wrap::before {
+  position: absolute;
+  z-index: 0;
+  right: -15%;
+  bottom: -43%;
+  left: -15%;
+  height: 65%;
+  border-top: 1px solid rgba(157, 255, 87, 0.11);
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(157, 255, 87, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(157, 255, 87, 0.045) 1px, transparent 1px);
+  background-size: 36px 28px;
+  content: "";
+  opacity: 0.62;
+  transform: perspective(290px) rotateX(58deg);
+  transform-origin: 50% 0;
+}
+
+.rubix-stage-wrap::after {
+  position: absolute;
+  z-index: 0;
+  top: 14%;
+  left: 50%;
+  width: min(62vw, 680px);
+  height: min(62vw, 680px);
+  border: 1px solid rgba(98, 219, 255, 0.035);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 44px rgba(157, 255, 87, 0.012),
+    0 0 0 88px rgba(98, 219, 255, 0.008);
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.rubix-page #stage {
+  position: relative;
+  z-index: 1;
+  min-height: 440px;
+  cursor: grab;
+}
+
+.rubix-page #stage.is-dragging {
+  cursor: grabbing;
+}
+
+.rubix-heading {
+  position: absolute;
+  z-index: 3;
+  top: clamp(22px, 3vw, 38px);
+  left: clamp(22px, 3.2vw, 48px);
+  display: grid;
+  pointer-events: none;
+  gap: 2px;
+}
+
+.rubix-heading p,
+.rubix-heading h1,
+.rubix-heading span {
+  margin: 0;
+}
+
+.rubix-heading p {
+  color: var(--rubix-cyan);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.rubix-heading h1 {
+  color: var(--rubix-white);
+  font-size: clamp(30px, 4.4vw, 64px);
+  font-weight: 520;
+  letter-spacing: -0.075em;
+  line-height: 0.98;
+  text-shadow: 0 0 22px rgba(237, 246, 238, 0.09);
+}
+
+.rubix-heading span {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.rubix-face-badges {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  right: 22px;
+  display: grid;
+  pointer-events: none;
+  gap: 5px;
+  transform: translateY(-35%);
+}
+
+.rubix-face-badge {
+  --face-color: var(--accent);
+  display: grid;
+  min-width: 84px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid color-mix(in oklab, var(--face-color) 42%, var(--line));
+  color: color-mix(in oklab, var(--face-color) 74%, var(--ink));
+  background: rgba(5, 6, 8, 0.78);
+  box-shadow: inset 2px 0 var(--face-color);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.rubix-face-badge b {
+  color: var(--ink);
+  font-size: 8px;
+}
+
+.rubix-page .stage-meta {
+  top: auto;
+  right: auto;
+  bottom: 18px;
+  left: 22px;
+  max-width: calc(100% - 44px);
+  color: color-mix(in oklab, var(--rubix-cyan) 62%, var(--muted));
+  justify-content: flex-start;
+  font-size: 8px;
+  letter-spacing: 0.095em;
+}
+
+.rubix-gesture-hint {
+  position: absolute;
+  z-index: 3;
+  right: 22px;
+  bottom: 18px;
+  max-width: 50%;
+  pointer-events: none;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.075em;
+  text-align: right;
+}
+
+.rubix-clock-transport {
+  display: grid;
+  margin: 2px 0 14px;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  background:
+    linear-gradient(90deg, rgba(157, 255, 87, 0.035), transparent 30%),
+    var(--bg-deep);
+  grid-template-columns: 132px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.rubix-play-button {
+  display: grid;
+  min-height: 52px;
+  padding: 0 13px;
+  border: 1px solid var(--accent-soft);
+  cursor: pointer;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 5%, var(--bg-deep));
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.rubix-play-button svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 1.5;
+}
+
+.rubix-play-button .transport-pause,
+.rubix-play-button[aria-pressed="true"] .transport-play {
+  display: none;
+}
+
+.rubix-play-button[aria-pressed="true"] .transport-pause {
+  display: block;
+}
+
+.rubix-play-button[aria-pressed="true"] {
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 18px var(--accent-glow);
+}
+
+.rubix-play-button span {
+  display: grid;
+}
+
+.rubix-play-button b {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rubix-play-button small {
+  margin-top: 3px;
+  color: currentColor;
+  font-size: 7px;
+  opacity: 0.64;
+}
+
+.rubix-step-strip {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  align-items: end;
+  gap: 4px;
+}
+
+.rubix-step-strip[data-step-count="27"] {
+  grid-template-columns: repeat(27, minmax(0, 1fr));
+  gap: 1px;
+}
+
+.rubix-step-strip.is-dense {
+  gap: 0;
+}
+
+.rubix-step {
+  position: relative;
+  display: grid;
+  height: 36px;
+  padding-bottom: 5px;
+  border-bottom: 2px solid var(--line-strong);
+  color: var(--faint);
+  place-items: end center;
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+  transition: 80ms ease;
+}
+
+.rubix-step::before {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--faint);
+  border-radius: 50%;
+  content: "";
+  transform: translateX(-50%);
+}
+
+.rubix-step.is-active {
+  border-color: var(--step-color, var(--accent));
+  color: var(--ink);
+  background: linear-gradient(transparent, color-mix(in oklab, var(--step-color, var(--accent)) 10%, transparent));
+  box-shadow: 0 5px 14px color-mix(in oklab, var(--step-color, var(--accent)) 10%, transparent);
+}
+
+.rubix-step.is-active::before {
+  border-color: var(--step-color, var(--accent));
+  background: var(--step-color, var(--accent));
+  box-shadow: 0 0 10px var(--step-color, var(--accent));
+}
+
+.rubix-step-strip[data-step-count="27"] .rubix-step {
+  height: 30px;
+  padding-bottom: 0;
+  font-size: 0;
+}
+
+.rubix-step-strip[data-step-count="27"] .rubix-step::before {
+  top: 9px;
+  width: 3px;
+  height: 3px;
+}
+
+.rubix-step-strip.is-dense .rubix-step {
+  height: 28px;
+  padding: 0;
+  border-bottom-width: 1px;
+  font-size: 0;
+}
+
+.rubix-step-strip.is-dense .rubix-step::before {
+  top: 9px;
+  width: 1px;
+  height: 5px;
+  border: 0;
+  border-radius: 0;
+  background: var(--faint);
+}
+
+.rubix-step-strip.is-dense .rubix-step.is-active::before {
+  width: 4px;
+  background: var(--step-color, var(--accent));
+}
+
+.rubix-step[data-lane-role="acid"] {
+  --step-color: var(--accent);
+}
+
+.rubix-step[data-lane-role="drumLeft"] {
+  --step-color: var(--rubix-cyan);
+}
+
+.rubix-step[data-lane-role="drumRight"] {
+  --step-color: var(--rubix-orange);
+}
+
+.rubix-now-playing {
+  display: grid;
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+  min-width: 0;
+  color: var(--muted);
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  justify-items: start;
+  gap: 5px;
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  text-align: left;
+}
+
+.rubix-now-playing span {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rubix-now-playing span:first-child {
+  color: var(--accent);
+}
+
+.rubix-now-playing span:last-child {
+  color: var(--rubix-cyan);
+}
+
+.rubix-read-heading {
+  display: flex;
+  margin: 0 0 7px;
+  color: var(--muted);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rubix-read-heading b {
+  color: var(--accent);
+  font-size: 8px;
+}
+
+.rubix-read-heading span {
+  text-align: right;
+}
+
+.rubix-read-modes {
+  display: grid;
+  margin-bottom: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.rubix-read-modes button {
+  display: grid;
+  min-width: 0;
+  min-height: 52px;
+  padding: 7px 5px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  align-content: center;
+  gap: 3px;
+  text-align: left;
+}
+
+.rubix-read-modes button:hover,
+.rubix-read-modes button:focus-visible {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.rubix-read-modes button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 7%, var(--bg-deep));
+  box-shadow: inset 0 -2px var(--accent), 0 0 12px var(--accent-glow);
+}
+
+.rubix-read-modes b,
+.rubix-read-modes small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rubix-read-modes b {
+  font-size: 7px;
+  letter-spacing: 0.035em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.rubix-read-modes small {
+  color: currentColor;
+  font-size: 6px;
+  line-height: 1.25;
+  opacity: 0.65;
+}
+
+.rubix-visibility-dynamics {
+  margin: 0 0 12px;
+  padding: 9px 10px 4px;
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line-strong));
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 62%),
+    var(--bg-deep);
+}
+
+.rubix-visibility-dynamics > span {
+  margin-bottom: 0;
+}
+
+.rubix-visibility-dynamics > span b {
+  color: var(--accent);
+  font-size: 8px;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+}
+
+.rubix-visibility-dynamics > small {
+  margin: -5px 0 3px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.025em;
+  line-height: 1.35;
+}
+
+.rubix-status-strip {
+  display: grid;
+  min-height: 57px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line-strong);
+  background:
+    linear-gradient(100deg, rgba(157, 255, 87, 0.07), transparent 70%),
+    var(--bg-deep);
+  align-content: center;
+  gap: 2px;
+}
+
+.rubix-status-strip b {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.rubix-status-strip small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.rubix-panel .group-body {
+  padding-bottom: 16px;
+}
+
+.rubix-panel .control-section[data-section="play"] {
+  --accent: #9dff57;
+  --accent-soft: color-mix(in oklab, #9dff57 55%, transparent);
+  --accent-glow: color-mix(in oklab, #9dff57 22%, transparent);
+}
+
+.rubix-panel .control-section[data-section="mapping"] {
+  --accent: #62dbff;
+  --accent-soft: color-mix(in oklab, #62dbff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #62dbff 20%, transparent);
+}
+
+.rubix-panel .control-section[data-section="form"] {
+  --accent: #f5c95c;
+  --accent-soft: color-mix(in oklab, #f5c95c 55%, transparent);
+  --accent-glow: color-mix(in oklab, #f5c95c 20%, transparent);
+}
+
+.rubix-panel .control-section[data-section="sound"] {
+  --accent: #ff6fae;
+  --accent-soft: color-mix(in oklab, #ff6fae 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff6fae 20%, transparent);
+}
+
+.rubix-panel .control-section[data-section="output"] {
+  --accent: #ff784f;
+  --accent-soft: color-mix(in oklab, #ff784f 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ff784f 20%, transparent);
+}
+
+.rubix-cube-actions {
+  display: grid;
+  margin-top: 5px;
+  margin-bottom: 13px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.rubix-cube-actions .mini-action {
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--accent) 2%, var(--bg-deep));
+  font-size: 7px;
+  letter-spacing: 0.02em;
+}
+
+.rubix-cube-actions .mini-action:hover {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.rubix-cube-actions .rubix-solve-button {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 6%, var(--bg-deep));
+}
+
+.rubix-reset-sound-row {
+  border-top: 1px solid var(--line-strong);
+  background: color-mix(in oklab, #ff826f 2%, var(--bg-deep));
+}
+
+.rubix-tempo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: end;
+  gap: 7px;
+}
+
+.rubix-tempo-row .control {
+  margin-bottom: 11px;
+}
+
+.rubix-restart-button {
+  display: grid;
+  width: 42px;
+  height: 40px;
+  margin-bottom: 11px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--accent) 2%, var(--bg-deep));
+  place-items: center;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+
+.rubix-restart-button:hover,
+.rubix-restart-button:focus-visible {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 7%, var(--bg-deep));
+}
+
+.rubix-cube-actions .mini-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.rubix-score-section {
+  border-top: 1px solid color-mix(in oklab, var(--rubix-cyan) 35%, var(--line));
+}
+
+.rubix-causal-copy,
+.rubix-engine-note {
+  margin: 3px 0 13px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.rubix-lane-list {
+  display: grid;
+  gap: 5px;
+}
+
+.rubix-lane-card {
+  --lane-color: var(--accent);
+  display: grid;
+  min-height: 54px;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in oklab, var(--lane-color) 23%, var(--line));
+  background: color-mix(in oklab, var(--lane-color) 3%, var(--bg-deep));
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 9px;
+}
+
+.rubix-lane-card.is-reading {
+  border-color: color-mix(in oklab, var(--lane-color) 64%, var(--line));
+  background: color-mix(in oklab, var(--lane-color) 6%, var(--bg-deep));
+  box-shadow: inset 2px 0 var(--lane-color);
+}
+
+.rubix-lane-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.rubix-lane-copy b {
+  color: var(--lane-color);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rubix-lane-copy span,
+.rubix-lane-copy small {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rubix-lane-copy small {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.rubix-mini-face {
+  display: grid;
+  width: 72px;
+  height: 44px;
+  padding: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.75);
+  background: #080a0b;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 2px;
+}
+
+.rubix-mini-face.is-dense {
+  height: 64px;
+  gap: 1px;
+}
+
+.rubix-mini-sticker {
+  --sticker-color: var(--accent);
+  border: 1px solid color-mix(in oklab, var(--sticker-color) 66%, #101316);
+  background: color-mix(in oklab, var(--sticker-color) 84%, #101316);
+  box-shadow: inset 0 0 4px color-mix(in oklab, var(--sticker-color) 34%, transparent);
+}
+
+.rubix-mini-sticker.is-active {
+  border-color: var(--rubix-white);
+  box-shadow: 0 0 7px var(--sticker-color), inset 0 0 4px #fff;
+  transform: scale(0.84);
+}
+
+.rubix-color-key {
+  display: grid;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 9px;
+}
+
+.rubix-color-key span {
+  --key-color: var(--accent);
+  display: grid;
+  min-width: 0;
+  color: var(--muted);
+  grid-template-columns: 9px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.rubix-color-key i {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border: 1px solid color-mix(in oklab, var(--key-color) 72%, #101316);
+  background: var(--key-color);
+  box-shadow: 0 0 5px color-mix(in oklab, var(--key-color) 38%, transparent);
+}
+
+.rubix-geometry-control {
+  margin: 0 0 10px;
+  padding: 9px;
+  border: 1px solid color-mix(in oklab, var(--accent) 25%, var(--line-strong));
+  background:
+    linear-gradient(100deg, color-mix(in oklab, var(--accent) 6%, transparent), transparent 68%),
+    var(--bg-deep);
+  gap: 7px;
+}
+
+.rubix-geometry-control > span:first-child {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rubix-geometry-control b {
+  color: var(--accent);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rubix-geometry-control output {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rubix-geometry-control select {
+  min-height: 42px;
+  border-color: color-mix(in oklab, var(--accent) 24%, var(--line-strong));
+  background: color-mix(in oklab, var(--accent) 2%, #050608);
+  font-size: 9px;
+  letter-spacing: 0.025em;
+}
+
+.rubix-geometry-control select:hover,
+.rubix-geometry-control select:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.rubix-preset-control,
+.rubix-perc-control {
+  margin: 0 0 12px;
+  padding: 8px 9px;
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line-strong));
+  background:
+    linear-gradient(100deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 70%),
+    var(--bg-deep);
+  gap: 6px;
+}
+
+.rubix-preset-control > span:first-child,
+.rubix-perc-control > span:first-child {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rubix-preset-control b,
+.rubix-perc-control b {
+  color: var(--accent);
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.rubix-preset-control output,
+.rubix-perc-control output {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rubix-preset-control select,
+.rubix-perc-control select {
+  min-height: 40px;
+  border-color: color-mix(in oklab, var(--accent) 22%, var(--line-strong));
+  background: color-mix(in oklab, var(--accent) 2%, #050608);
+  font-size: 9px;
+}
+
+.rubix-random-twists {
+  display: grid;
+  margin: 0 0 10px;
+  padding: 8px;
+  border: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line-strong));
+  background: color-mix(in oklab, var(--accent) 3%, var(--bg-deep));
+  grid-template-columns: minmax(108px, 0.72fr) minmax(0, 1.28fr);
+  align-items: stretch;
+  gap: 8px;
+}
+
+.rubix-random-twists > button {
+  display: grid;
+  min-height: 52px;
+  padding: 7px 9px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  text-align: left;
+}
+
+.rubix-random-twists > button > span:first-child {
+  color: var(--accent);
+  font-size: 16px;
+}
+
+.rubix-random-twists > button > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.rubix-random-twists > button b,
+.rubix-random-twists > button small {
+  font-size: 7px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.rubix-random-twists > button small {
+  color: var(--faint);
+}
+
+.rubix-random-twists > button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 8%, var(--bg-deep));
+  box-shadow: inset 2px 0 var(--accent), 0 0 12px var(--accent-glow);
+}
+
+.rubix-random-twists .control {
+  margin: 0;
+  padding: 4px 2px 0;
+}
+
+.rubix-random-twists > small {
+  grid-column: 1 / -1;
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.rubix-selected-sticker {
+  display: flex;
+  min-height: 42px;
+  padding: 7px 9px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--accent) 3%, var(--bg-deep));
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rubix-selected-sticker span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.rubix-selected-sticker b {
+  color: var(--accent);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rubix-selected-sticker small {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rubix-selected-sticker i {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-high);
+  box-shadow: 0 0 10px transparent;
+}
+
+.rubix-move-pad {
+  display: grid;
+  width: min(100%, 238px);
+  margin: 12px auto;
+  grid-template-columns: repeat(3, minmax(52px, 1fr));
+  grid-template-rows: repeat(3, 46px);
+  gap: 4px;
+}
+
+.rubix-move-pad button,
+.rubix-move-pad > span {
+  display: grid;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  place-items: center;
+}
+
+.rubix-move-pad button {
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.rubix-move-pad button:hover,
+.rubix-move-pad button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 7%, var(--bg-deep));
+}
+
+.rubix-move-pad button small {
+  color: currentColor;
+  font-size: 6px;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.rubix-move-pad > span {
+  color: var(--accent);
+  font-size: 7px;
+  letter-spacing: 0.12em;
+}
+
+#moveUp {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+#moveLeft {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.rubix-move-pad > span {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+#moveRight {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+#moveDown {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+@media (max-width: 1180px) {
+  .rubix-face-badges {
+    display: none;
+  }
+}
+
+@media (max-width: 960px) {
+  .rubix-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: clamp(310px, 52dvh, 470px) minmax(0, 1fr);
+    grid-template-rows: clamp(310px, 52svh, 470px) minmax(0, 1fr);
+  }
+
+  .rubix-stage {
+    position: relative;
+    top: auto;
+    contain: paint;
+  }
+
+  .rubix-stage-wrap,
+  .rubix-page #stage {
+    min-height: 0;
+  }
+
+  .rubix-heading {
+    top: 18px;
+    left: 20px;
+  }
+
+  .rubix-heading h1 {
+    font-size: clamp(28px, 6vw, 44px);
+  }
+
+}
+
+@media (max-width: 650px) {
+  .rubix-shell {
+    grid-template-rows: clamp(280px, 49dvh, 390px) minmax(0, 1fr);
+    grid-template-rows: clamp(280px, 49svh, 390px) minmax(0, 1fr);
+  }
+
+  .rubix-heading p,
+  .rubix-heading span,
+  .rubix-gesture-hint {
+    display: none;
+  }
+
+  .rubix-heading h1 {
+    font-size: 28px;
+  }
+
+  .rubix-page .stage-meta {
+    right: 14px;
+    bottom: 10px;
+    left: 14px;
+    max-width: none;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .rubix-clock-transport {
+    grid-template-columns: 108px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .rubix-play-button {
+    min-height: 43px;
+    padding: 0 9px;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .rubix-play-button svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .rubix-play-button b {
+    font-size: 7px;
+  }
+
+  .rubix-step-strip {
+    gap: 3px;
+  }
+
+  .rubix-step {
+    height: 30px;
+    font-size: 6px;
+  }
+
+  .rubix-geometry-control,
+  .rubix-preset-control,
+  .rubix-perc-control,
+  .rubix-visibility-dynamics {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .rubix-geometry-control select {
+    min-height: 40px;
+  }
+
+  .rubix-random-twists {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 420px) {
+  .rubix-shell {
+    grid-template-rows: clamp(260px, 47dvh, 340px) minmax(0, 1fr);
+    grid-template-rows: clamp(260px, 47svh, 340px) minmax(0, 1fr);
+  }
+
+  .rubix-heading {
+    top: 12px;
+    left: 13px;
+  }
+
+  .rubix-heading h1 {
+    font-size: 23px;
+  }
+
+  .rubix-color-key {
+    grid-template-columns: 1fr;
+  }
+
+  .rubix-geometry-control > span:first-child {
+    display: grid;
+    gap: 2px;
+  }
+
+  .rubix-geometry-control output {
+    white-space: normal;
+  }
+
+  .rubix-random-twists {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) and (max-height: 560px) {
+  .rubix-shell {
+    grid-template-rows: clamp(220px, 48dvh, 270px) minmax(0, 1fr);
+    grid-template-rows: clamp(220px, 48svh, 270px) minmax(0, 1fr);
+  }
+
+  .rubix-heading {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rubix-step,
+  .rubix-mini-sticker {
+    transition: none;
+  }
+}

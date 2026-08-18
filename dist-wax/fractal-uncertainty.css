@@ -1,0 +1,468 @@
+.fractal-uncertainty-page {
+  --fup-cyan: #72e7f2;
+  --fup-amber: #ffc566;
+  --fup-violet: #b39bff;
+  --fup-pink: #ff8dca;
+  --fup-lime: #b6f36d;
+  --accent: var(--fup-cyan);
+  --accent-soft: color-mix(in oklab, var(--accent) 52%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 20%, transparent);
+  --fup-grid: color-mix(in oklab, var(--accent) 3.2%, transparent);
+  --fup-panel-glow: color-mix(in oklab, var(--accent) 5%, transparent);
+}
+
+.escape-dust-page {
+  --accent: var(--fup-violet);
+  --accent-soft: color-mix(in oklab, var(--fup-violet) 52%, transparent);
+  --accent-glow: color-mix(in oklab, var(--fup-violet) 20%, transparent);
+}
+
+.linebreaker-page {
+  --accent: var(--fup-pink);
+  --accent-soft: color-mix(in oklab, var(--fup-pink) 52%, transparent);
+  --accent-glow: color-mix(in oklab, var(--fup-pink) 20%, transparent);
+}
+
+.fractal-uncertainty-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 28vw, 430px);
+}
+
+.fractal-uncertainty-page .stage-wrap,
+.fractal-uncertainty-stage-wrap {
+  isolation: isolate;
+  background:
+    linear-gradient(var(--fup-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--fup-grid) 1px, transparent 1px),
+    radial-gradient(ellipse at 39% 45%, var(--accent-glow), transparent 43%),
+    radial-gradient(ellipse at 72% 62%, color-mix(in oklab, var(--fup-amber) 6%, transparent), transparent 38%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto, auto;
+}
+
+.escape-dust-page .stage-wrap,
+.escape-dust-page .fractal-uncertainty-stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--fup-violet) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--fup-amber) 2.5%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 52% 52%, color-mix(in oklab, var(--fup-violet) 9%, transparent), transparent 48%),
+    var(--bg-deep);
+  background-size: 36px 36px, 36px 36px, auto, auto;
+}
+
+.linebreaker-page .stage-wrap,
+.linebreaker-page .fractal-uncertainty-stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--fup-pink) 2.7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--fup-lime) 2.2%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 31% 48%, color-mix(in oklab, var(--fup-pink) 7%, transparent), transparent 42%),
+    radial-gradient(ellipse at 72% 48%, color-mix(in oklab, var(--fup-lime) 6%, transparent), transparent 40%),
+    var(--bg-deep);
+  background-size: 32px 32px, 32px 32px, auto, auto, auto;
+}
+
+.fractal-uncertainty-page #stage {
+  cursor: crosshair;
+}
+
+.fractal-uncertainty-heading {
+  position: absolute;
+  z-index: 4;
+  top: clamp(38px, 7vh, 72px);
+  left: clamp(20px, 4vw, 58px);
+  display: grid;
+  max-width: min(560px, 61%);
+  pointer-events: none;
+  gap: 5px;
+}
+
+.fractal-uncertainty-heading p,
+.fractal-uncertainty-heading small,
+.fractal-uncertainty-heading span,
+.fractal-kicker {
+  margin: 0;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.fractal-uncertainty-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(28px, 4.5vw, 58px);
+  font-weight: 400;
+  letter-spacing: -.06em;
+  line-height: .96;
+}
+
+.fractal-uncertainty-heading small,
+.fractal-uncertainty-heading span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: .12em;
+}
+
+.fractal-simulation-notice,
+.fractal-uncertainty-notice,
+.fractal-note {
+  margin: 10px 0 12px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line));
+  color: color-mix(in oklab, var(--ink) 76%, var(--muted));
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 6%, transparent), transparent),
+    color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  font-size: 7px;
+  letter-spacing: .07em;
+  line-height: 1.55;
+  text-transform: uppercase;
+}
+
+.fractal-uncertainty-page .stage-wrap > .fractal-simulation-notice,
+.fractal-uncertainty-page .stage-wrap > .fractal-uncertainty-notice {
+  position: absolute;
+  z-index: 5;
+  right: clamp(16px, 2.5vw, 32px);
+  bottom: 18px;
+  left: clamp(16px, 2.5vw, 32px);
+  width: fit-content;
+  max-width: calc(100% - 64px);
+  margin: 0;
+  pointer-events: none;
+}
+
+.fractal-uncertainty-panel {
+  background:
+    linear-gradient(180deg, var(--fup-panel-glow), transparent 320px),
+    var(--panel);
+}
+
+.fractal-action-grid,
+.fractal-actions,
+.escape-actions,
+.probe-actions,
+.fractal-button-grid,
+.fractal-mode-switch {
+  display: grid;
+  margin: 9px 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.fractal-action-grid > button,
+.fractal-actions > button,
+.escape-actions > button,
+.probe-actions > button,
+.fractal-button-grid > button,
+.fractal-mode-switch > button,
+.fractal-action {
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.fractal-action-grid > button:hover,
+.fractal-action-grid > button:focus-visible,
+.fractal-actions > button:hover,
+.fractal-actions > button:focus-visible,
+.escape-actions > button:hover,
+.escape-actions > button:focus-visible,
+.probe-actions > button:hover,
+.probe-actions > button:focus-visible,
+.fractal-button-grid > button:hover,
+.fractal-button-grid > button:focus-visible,
+.fractal-mode-switch > button:hover,
+.fractal-mode-switch > button:focus-visible,
+.fractal-action:hover,
+.fractal-action:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.fractal-action-grid > button[aria-pressed="true"],
+.fractal-actions > button[aria-pressed="true"],
+.escape-actions > button[aria-pressed="true"],
+.probe-actions > button[aria-pressed="true"],
+.fractal-button-grid > button[aria-pressed="true"],
+.fractal-mode-switch > button[aria-pressed="true"],
+.fractal-action[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.linebreaker-preset-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fractal-mode-switch {
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.fractal-mode-switch > button {
+  min-height: 36px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.full-width-action {
+  width: 100%;
+  min-height: 42px;
+  margin: 5px 0 10px;
+}
+
+.fractal-transport-row {
+  display: grid;
+  margin: 7px 0 10px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.fractal-transport-row > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.fractal-transport-row b {
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.fractal-transport-row small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fractal-ledger,
+.fractal-card,
+.fractal-metrics {
+  display: grid;
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+}
+
+.fractal-ledger > span,
+.fractal-ledger > div,
+.fractal-card > span,
+.fractal-card > div,
+.fractal-metrics > span,
+.fractal-metrics > div {
+  display: flex;
+  min-width: 0;
+  min-height: 29px;
+  border-bottom: 1px solid color-mix(in oklab, var(--line) 70%, transparent);
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fractal-ledger > :last-child,
+.fractal-card > :last-child,
+.fractal-metrics > :last-child {
+  border-bottom: 0;
+}
+
+.fractal-ledger b,
+.fractal-card b,
+.fractal-metrics b,
+.fractal-ledger dt,
+.fractal-metrics dt {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.fractal-ledger code,
+.fractal-ledger output,
+.fractal-card code,
+.fractal-card output,
+.fractal-metrics code,
+.fractal-metrics output,
+.fractal-metrics dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--accent);
+  font: 9px/1.35 var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  text-overflow: ellipsis;
+}
+
+.fractal-control-note,
+.fractal-uncertainty-page .control-note,
+.fractal-method p,
+.fractal-meaning {
+  display: block;
+  margin: -2px 0 9px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.fractal-meaning {
+  margin-top: 3px;
+  padding: 8px 9px;
+  border-left: 2px solid var(--accent);
+  background: color-mix(in oklab, var(--accent) 4%, transparent);
+}
+
+.fractal-mapping-ledger code {
+  color: color-mix(in oklab, var(--accent) 78%, var(--ink));
+  white-space: normal;
+}
+
+.fractal-metric-grid {
+  display: grid;
+  margin: 9px 0;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.fractal-metric-grid > div {
+  display: grid;
+  min-width: 0;
+  padding: 8px 9px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  gap: 3px;
+}
+
+.fractal-metric-grid dt,
+.fractal-metric-grid dd {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fractal-metric-grid dt {
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.fractal-metric-grid dd {
+  color: var(--accent);
+  font: 10px/1.35 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.fractal-method a {
+  color: var(--accent);
+  text-decoration-color: var(--accent-soft);
+  text-underline-offset: 3px;
+}
+
+.fractal-uncertainty-page .audio-error {
+  margin: 10px 0 8px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 130, 111, .38);
+  color: #ffb2a8;
+  background: rgba(255, 130, 111, .06);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+@media (max-width: 960px) {
+  .fractal-uncertainty-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .fractal-uncertainty-heading {
+    top: 34px;
+    left: 24px;
+  }
+
+  .fractal-uncertainty-heading h1 {
+    font-size: clamp(24px, 6vw, 42px);
+  }
+}
+
+@media (max-width: 650px) {
+  .fractal-uncertainty-shell {
+    grid-template-rows: clamp(286px, 41dvh, 350px) minmax(0, 1fr);
+  }
+
+  .fractal-uncertainty-heading {
+    top: 34px;
+    left: 14px;
+    max-width: 62%;
+  }
+
+  .fractal-uncertainty-heading h1 {
+    font-size: clamp(22px, 8vw, 34px);
+  }
+
+  .fractal-uncertainty-heading small,
+  .fractal-uncertainty-heading span,
+  .fractal-uncertainty-heading .fractal-uncertainty-caption {
+    display: none;
+  }
+
+  .fractal-uncertainty-page .stage-wrap > .fractal-simulation-notice,
+  .fractal-uncertainty-page .stage-wrap > .fractal-uncertainty-notice {
+    right: 13px;
+    bottom: 10px;
+    left: 13px;
+    max-width: calc(100% - 26px);
+    padding: 7px 8px;
+    font-size: 6px;
+  }
+}
+
+@media (max-width: 390px) {
+  .fractal-action-grid,
+  .fractal-actions,
+  .escape-actions,
+  .probe-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 360px) {
+  .fractal-uncertainty-page .stage-meta {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fractal-uncertainty-page .stage-wrap {
+    scroll-behavior: auto;
+  }
+
+  .fractal-uncertainty-page canvas,
+  .fractal-uncertainty-page button {
+    transition: none;
+  }
+}

@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Order Tones — a playable exact classical simulation of modular periodicity, inverse-QFT interference, and Shor-style factor recovery."
+    />
+    <title>Order Tones — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="quantum-synths.css" />
+  </head>
+  <body class="quantum-page order-tones-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active" href="order-tones.html" aria-current="page">order tones</a>
+        <a class="tab" href="bell-square.html">bell square</a>
+        <a class="tab" href="annealogue.html">annealogue</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="order-tones.html" selected>order tones</option>
+          <option value="bell-square.html">bell square</option>
+          <option value="annealogue.html">annealogue</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">∿</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">52%</output></span>
+          <input
+            id="level"
+            aria-label="Order Tones output level"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value="0.52"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell quantum-shell" id="orderTones">
+      <section class="stage quantum-stage" aria-labelledby="orderTonesTitle">
+        <div class="stage-wrap quantum-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="Order Tones modular residue orbit and inverse quantum Fourier transform probability comb. Audio off."
+            aria-describedby="orderTonesDescription liveStatus"
+          >
+            A modular residue orbit, an inverse-QFT probability comb, and the phasor sum for a selected measurement bin.
+          </canvas>
+
+          <div class="quantum-heading">
+            <p>QUANTUM SYNTHS · 01</p>
+            <h1 id="orderTonesTitle">Order Tones</h1>
+          </div>
+
+          <p class="quantum-simulation-notice">EXACT TINY CLASSICAL SIMULATION · NOT QPU OUTPUT</p>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">N 15 · a 2 · r 4 · 8 QUBITS · AUDIO OFF</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel quantum-panel order-tones-panel" aria-label="Order Tones controls">
+        <details class="group control-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Modular instrument</h2>
+            <span class="section-state" id="modularSummary">2ˣ mod 15 · period 4</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="orderN">
+              <span class="field-label">Composite N</span>
+              <span class="select-shell">
+                <select id="orderN">
+                  <option value="15" selected>15 · 3 × 5</option>
+                  <option value="21">21 · 3 × 7</option>
+                  <option value="35">35 · 5 × 7</option>
+                </select>
+              </span>
+            </label>
+
+            <label class="select-control" for="orderBase">
+              <span class="field-label">Coprime base a</span>
+              <span class="select-shell">
+                <select id="orderBase" aria-describedby="baseNote">
+                  <option value="2" selected>2 · order 4</option>
+                </select>
+              </span>
+            </label>
+            <p class="control-note" id="baseNote">Every listed base is coprime to N. Some produce an honest factoring failure.</p>
+
+            <label class="select-control" for="orderPrecision">
+              <span class="field-label">Counting register</span>
+              <span class="select-shell">
+                <select id="orderPrecision">
+                  <option value="6">6 qubits · 64 bins</option>
+                  <option value="7">7 qubits · 128 bins</option>
+                  <option value="8" selected>8 qubits · 256 bins</option>
+                  <option value="9">9 qubits · 512 bins</option>
+                </select>
+              </span>
+            </label>
+
+            <div class="quantum-ledger order-ledger" aria-label="Current modular sequence">
+              <span><b>Function</b><code id="functionReadout">f(x) = 2ˣ mod 15</code></span>
+              <span><b>Residues</b><code id="residueReadout">1 → 2 → 4 → 8 → 1</code></span>
+              <span><b>Hidden period</b><code id="periodReadout">r = 4</code></span>
+              <span><b>Coset shown</b><code id="cosetReadout">x = 0 mod 4 · residue 1</code></span>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Transform</h2>
+            <span class="section-state" id="transformSummary">Computational · x = 0</span>
+          </summary>
+          <div class="group-body">
+            <div class="order-transport-row">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play modular sequence">
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <div>
+                <b id="transportLabel">Play residues</b>
+                <small id="sequenceReadout">x 0 · 2⁰ mod 15 = 1</small>
+              </div>
+            </div>
+
+            <div class="field-label">Register view</div>
+            <div class="choice-switch compact order-view-switch" role="group" aria-label="Register view">
+              <button id="computationalView" type="button" aria-pressed="true">Computational</button>
+              <button id="iqftView" type="button" aria-pressed="false">iQFT</button>
+            </div>
+
+            <label class="control" for="binSlider">
+              <span><b>Selected bin k</b><output id="binSliderOut" for="binSlider">64 / 256</output></span>
+              <input id="binSlider" type="range" min="0" max="255" step="1" value="64" />
+            </label>
+            <p class="control-note" id="binNote">Phase k/Q = 1/4 · probability 25.00%</p>
+          </div>
+        </details>
+
+        <details class="group control-section" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Measurement</h2>
+            <span class="section-state" id="measurementSummary">No shots yet</span>
+          </summary>
+          <div class="group-body">
+            <div class="quantum-action-grid order-shot-actions">
+              <button class="mini-action" id="oneShotButton" type="button">One shot</button>
+              <button class="mini-action" id="shots64Button" type="button">64 shots</button>
+            </div>
+
+            <div class="order-shot-histogram" id="shotsHistogram" role="img" aria-label="No measurement shots yet"></div>
+
+            <div class="quantum-ledger order-result-card" id="resultCard" data-result="idle" aria-live="polite">
+              <span><b>Measured</b><code id="measurementReadout">—</code></span>
+              <span><b>Fraction</b><code id="fractionReadout">—</code></span>
+              <span><b>Order</b><code id="orderReadout">—</code></span>
+              <span><b>Receipt</b><code id="factorReadout">Take a shot</code></span>
+              <p id="resultStatus">A shot samples the probability comb; not every sample yields factors.</p>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section quantum-method">
+          <summary class="group-summary">
+            <h2 class="group-title">What is simulated</h2>
+            <span class="section-state">amplitudes · shots · arithmetic</span>
+          </summary>
+          <div class="group-body">
+            <p class="control-note">
+              A classical browser sums the complex amplitudes of a tiny periodic coset exactly. The inverse QFT turns phase alignment into measurement peaks. Continued fractions then propose an order; ordinary GCD arithmetic tests factors.
+            </p>
+            <div class="quantum-ledger order-equation-card" aria-label="Order-finding signal path">
+              <span><b>Periodic source</b><code>aˣ mod N</code></span>
+              <span><b>Interference</b><code>Σ exp(−2πikx/Q)</code></span>
+              <span><b>Measurement</b><code>Pr(k) = |amplitude|²</code></span>
+              <span><b>Classical receipt</b><code>k/Q → s/r → gcd</code></span>
+            </div>
+          </div>
+        </details>
+
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetButton" type="button" data-reset-all>Reset Order Tones</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="orderTonesDescription">
+        The stage shows powers of a modulo N around a residue orbit, the probability of every inverse-QFT measurement bin, and the complex path contributions that align or cancel at the selected bin. Press Space to play or pause. Use Left and Right Arrow to scrub the modular sequence in computational view or select a measurement bin in inverse-QFT view. Press Escape to switch audio off.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="order-tones-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

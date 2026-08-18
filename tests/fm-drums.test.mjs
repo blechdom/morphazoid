@@ -338,6 +338,9 @@ test("FM Drums keeps compact preset controls without a page title block", async 
   assert.match(app, /Object\.assign\(voice, updated\)/);
   assert.match(app, /refreshPad\(voice\);[\s\S]+refreshEditorControls\(voice\)/);
   assert.match(app, /onPrepareEnable:[\s\S]+enableAudio\(\)/);
+  assert.match(app, /function isWaxMidiOnly\(\)/);
+  assert.match(app, /if \(isWaxMidiOnly\(\)\) return;/);
+  assert.match(app, /!state\.audioOn && !isWaxMidiOnly\(\)/);
   assert.match(app, /let audioLifecycleGeneration = 0;/);
   assert.match(app, /lifecycleGeneration !== audioLifecycleGeneration/);
   assert.match(app, /pagehide[\s\S]+audioLifecycleGeneration \+= 1;[\s\S]+audioStartPromise = null;/);

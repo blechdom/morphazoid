@@ -1,0 +1,389 @@
+.music-rooms-page {
+  --music-room-accent: #6fd7ff;
+  --music-room-accent-soft: color-mix(in oklab, var(--music-room-accent) 26%, transparent);
+}
+
+.music-rooms-intro .about-kicker,
+.music-rooms-section .manual-section-label {
+  color: var(--music-room-accent);
+}
+
+.music-rooms-intro {
+  background:
+    radial-gradient(circle at 88% 15%, var(--music-room-accent-soft), transparent 31%),
+    linear-gradient(135deg, color-mix(in oklab, var(--music-room-accent) 5%, transparent), transparent 52%);
+}
+
+.music-rooms-section {
+  display: block;
+  align-items: start;
+}
+
+.music-rooms-section .manual-section-heading {
+  display: grid;
+  max-width: 760px;
+  grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 12px 48px;
+}
+
+.music-rooms-section .manual-section-label {
+  grid-column: 1 / -1;
+}
+
+.music-rooms-section .manual-section-note {
+  max-width: none;
+  margin: 0;
+}
+
+.music-room-grid {
+  display: grid;
+  min-width: 0;
+  margin-top: 30px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.music-room-card {
+  --room-card-accent: var(--music-room-accent);
+  display: flex;
+  min-width: 0;
+  min-height: 290px;
+  padding: clamp(22px, 3vw, 32px);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background:
+    linear-gradient(145deg, color-mix(in oklab, var(--room-card-accent) 7%, transparent), transparent 55%),
+    #0b0e11;
+  flex-direction: column;
+}
+
+.music-room-card[data-room="vocal-effects"],
+.room-detail-page[data-room="vocal-effects"] {
+  --room-card-accent: #ff7aa6;
+}
+
+.music-room-card[data-room="instrument-share"],
+.room-detail-page[data-room="instrument-share"] {
+  --room-card-accent: #70d8e7;
+}
+
+.music-room-card[data-room="roulette"],
+.room-detail-page[data-room="roulette"] {
+  --room-card-accent: #e883ee;
+}
+
+.music-room-card:hover {
+  border-color: color-mix(in oklab, var(--room-card-accent) 48%, var(--line-strong));
+}
+
+.music-room-status,
+.music-room-card-label {
+  display: flex;
+  margin: 0 0 28px;
+  color: var(--room-card-accent);
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.music-room-status span {
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  box-shadow: 0 0 10px color-mix(in oklab, var(--room-card-accent) 30%, transparent);
+  flex: 0 0 7px;
+}
+
+.music-room-card h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(21px, 2.6vw, 30px);
+  font-weight: 550;
+  letter-spacing: 0;
+  line-height: 1.12;
+}
+
+.music-room-card > p:not(.music-room-status, .music-room-card-label, .music-room-note) {
+  margin: 18px 0 0;
+  color: color-mix(in oklab, var(--ink) 75%, var(--muted));
+  font-size: 12px;
+  line-height: 1.72;
+}
+
+.music-room-traits {
+  display: flex;
+  padding: 18px 0 0;
+  margin: 20px 0 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  flex-wrap: wrap;
+  gap: 7px 15px;
+  list-style: none;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.music-room-traits li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.music-room-traits li::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--room-card-accent);
+  content: "";
+  flex: 0 0 5px;
+}
+
+.music-room-card > .music-room-note {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.music-room-action {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 15px;
+  margin-top: auto;
+  border: 1px solid color-mix(in oklab, var(--room-card-accent) 62%, var(--line-strong));
+  border-radius: 4px;
+  color: #071014;
+  background: var(--room-card-accent);
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.music-room-action:hover {
+  color: #05090b;
+  background: color-mix(in oklab, var(--room-card-accent) 83%, white);
+}
+
+.music-room-steps {
+  display: grid;
+  padding: 0;
+  margin: 25px 0 0;
+  border-top: 1px solid var(--line-strong);
+  list-style: none;
+}
+
+.music-room-steps li {
+  display: grid;
+  min-height: 54px;
+  border-bottom: 1px solid var(--line);
+  color: color-mix(in oklab, var(--ink) 78%, var(--muted));
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.music-room-steps span {
+  color: var(--room-card-accent);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.room-detail-page .music-rooms-intro {
+  background:
+    radial-gradient(
+      circle at 88% 15%,
+      color-mix(in oklab, var(--room-card-accent) 26%, transparent),
+      transparent 31%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--room-card-accent) 5%, transparent),
+      transparent 52%
+    );
+}
+
+.room-detail-page .about-kicker,
+.room-detail-page .manual-section-label {
+  color: var(--room-card-accent);
+}
+
+.room-detail-content {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.room-preview-notice {
+  padding: clamp(22px, 3vw, 32px);
+  border: 1px solid color-mix(in oklab, var(--room-card-accent) 42%, var(--line-strong));
+  border-radius: 7px;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--room-card-accent) 7%, transparent),
+      transparent 55%
+    ),
+    #0b0e11;
+}
+
+.room-preview-notice .music-room-status {
+  margin-bottom: 18px;
+}
+
+.room-preview-notice h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(20px, 2.5vw, 28px);
+  font-weight: 550;
+  line-height: 1.16;
+}
+
+.room-preview-notice > p:not(.music-room-status) {
+  max-width: 68ch;
+  margin: 16px 0 0;
+  color: color-mix(in oklab, var(--ink) 75%, var(--muted));
+  font-size: 12px;
+  line-height: 1.72;
+}
+
+.room-blueprint-grid {
+  display: grid;
+  border-top: 1px solid var(--line-strong);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.room-blueprint-card {
+  min-width: 0;
+  padding: 20px 20px 22px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.room-blueprint-card + .room-blueprint-card {
+  padding-left: 20px;
+  border-left: 1px solid var(--line);
+}
+
+.room-blueprint-card h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.room-blueprint-card p {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.68;
+}
+
+.room-preview-actions {
+  display: flex;
+  padding-top: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.music-room-join,
+.music-room-back {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.music-room-join:disabled {
+  color: color-mix(in oklab, var(--muted) 66%, transparent);
+  background: #090b0d;
+  cursor: not-allowed;
+}
+
+.music-room-back {
+  color: var(--room-card-accent);
+  text-decoration: none;
+}
+
+.music-room-back:hover {
+  border-color: var(--room-card-accent);
+}
+
+@media (max-width: 960px) {
+  .music-room-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .music-room-card {
+    min-height: 260px;
+  }
+
+  .room-blueprint-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .room-blueprint-card,
+  .room-blueprint-card + .room-blueprint-card {
+    padding: 18px 0;
+    border-left: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .music-rooms-intro {
+    background:
+      radial-gradient(circle at 86% 7%, var(--music-room-accent-soft), transparent 27%),
+      transparent;
+  }
+
+  .music-rooms-section .manual-section-heading,
+  .music-room-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .music-rooms-section .manual-section-note {
+    margin-top: 14px;
+  }
+
+  .music-room-card {
+    min-height: 0;
+    padding: 22px;
+  }
+
+  .music-room-action {
+    width: 100%;
+    margin-top: 26px;
+    align-self: stretch;
+  }
+
+  .room-preview-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .music-room-join,
+  .music-room-back {
+    width: 100%;
+  }
+}

@@ -1,0 +1,715 @@
+:root {
+  --paint-bg: #07090b;
+  --paint-panel: #0b1011;
+  --paint-line: #26302f;
+  --paint-line-strong: #394643;
+  --paint-ink: #dce7e3;
+  --paint-muted: #81908c;
+  --paint-faint: #46534f;
+  --paint-accent: #68dfbc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.paint-machine-page {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  color: var(--paint-ink);
+  background: var(--paint-bg);
+}
+
+.paint-machine-shell {
+  display: grid;
+  min-height: calc(100vh - var(--masthead-height, 58px));
+  background: var(--paint-bg);
+  grid-template-rows: auto 1fr;
+}
+
+.paint-machine-header {
+  display: grid;
+  min-width: 0;
+  min-height: 116px;
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--paint-line-strong);
+  background: #09100f;
+  grid-template-columns: minmax(210px, .7fr) minmax(620px, 1.8fr);
+  align-items: center;
+  gap: 28px;
+}
+
+.paint-machine-identity {
+  min-width: 0;
+}
+
+.paint-machine-identity p,
+.paint-machine-identity h1 {
+  margin: 0;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.paint-machine-identity p {
+  margin-bottom: 6px;
+  color: var(--paint-accent);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.paint-machine-identity h1 {
+  overflow: hidden;
+  color: var(--paint-ink);
+  font-size: 26px;
+  font-style: italic;
+  font-weight: 760;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paint-transport {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto auto minmax(160px, 1fr) minmax(190px, .8fr) 72px;
+  align-items: end;
+  gap: 10px;
+}
+
+.paint-command,
+.paint-text-command,
+.paint-icon-command,
+.paint-tool-button {
+  border: 1px solid var(--paint-line-strong);
+  cursor: pointer;
+  color: var(--paint-muted);
+  background: transparent;
+}
+
+.paint-command:hover,
+.paint-command:focus-visible,
+.paint-text-command:hover,
+.paint-text-command:focus-visible,
+.paint-icon-command:hover,
+.paint-icon-command:focus-visible,
+.paint-tool-button:hover,
+.paint-tool-button:focus-visible {
+  border-color: var(--paint-accent);
+  color: var(--paint-ink);
+  outline: 0;
+}
+
+.paint-command {
+  display: flex;
+  width: 88px;
+  height: 42px;
+  padding: 0 11px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.paint-command span {
+  color: var(--paint-accent);
+  font-size: 10px;
+}
+
+.paint-command b {
+  font-size: 7px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.paint-command.is-primary[aria-pressed="true"] {
+  border-color: var(--paint-accent);
+  color: var(--paint-bg);
+  background: var(--paint-accent);
+}
+
+.paint-command.is-primary[aria-pressed="true"] span {
+  color: var(--paint-bg);
+}
+
+.paint-header-control,
+.paint-range-control,
+.paint-select-control {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.paint-header-control > span,
+.paint-range-control > span,
+.paint-select-control > span {
+  display: flex;
+  min-width: 0;
+  color: var(--paint-muted);
+  font-size: 7px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.paint-header-control output,
+.paint-range-control output {
+  color: var(--paint-accent);
+}
+
+.paint-header-control input,
+.paint-range-control input {
+  width: 100%;
+}
+
+.paint-loop-length,
+.paint-role-selector {
+  display: grid;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--paint-line-strong);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.paint-loop-length legend {
+  padding: 0 0 7px;
+  color: var(--paint-muted);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.paint-loop-length input,
+.paint-role-selector input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.paint-loop-length span,
+.paint-role-selector span {
+  display: grid;
+  min-width: 0;
+  height: 34px;
+  border-right: 1px solid var(--paint-line);
+  cursor: pointer;
+  color: var(--paint-faint);
+  background: var(--paint-panel);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  place-items: center;
+}
+
+.paint-loop-length label:last-child span,
+.paint-role-selector label:last-child span {
+  border-right: 0;
+}
+
+.paint-loop-length input:checked + span,
+.paint-role-selector input:checked + span {
+  color: var(--paint-bg);
+  background: var(--paint-accent);
+}
+
+.paint-loop-length input:focus-visible + span,
+.paint-role-selector input:focus-visible + span {
+  outline: 2px solid var(--paint-ink);
+  outline-offset: -3px;
+}
+
+.paint-live-readout {
+  display: grid;
+  height: 42px;
+  padding: 6px 9px;
+  border: 1px solid var(--paint-line);
+  background: var(--paint-panel);
+  align-content: center;
+  gap: 3px;
+}
+
+.paint-live-readout b {
+  color: var(--paint-accent);
+  font-size: 10px;
+}
+
+.paint-live-readout small {
+  color: var(--paint-faint);
+  font-size: 6px;
+  letter-spacing: 0;
+}
+
+.paint-workspace {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 310px;
+}
+
+.paint-canvas-column {
+  display: grid;
+  min-width: 0;
+  padding: 0 24px 18px;
+  grid-template-rows: auto minmax(440px, 1fr) auto;
+}
+
+.paint-toolbar {
+  display: flex;
+  min-width: 0;
+  min-height: 62px;
+  border-bottom: 1px solid var(--paint-line);
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.paint-tools,
+.paint-palette,
+.paint-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.paint-tool-button,
+.paint-icon-command {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+.paint-tool-button.is-active {
+  border-color: var(--paint-accent);
+  color: var(--paint-accent);
+  background: color-mix(in oklab, var(--paint-accent) 9%, var(--paint-panel));
+}
+
+.paint-tool-glyph {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  color: currentColor;
+  transform: translate(-50%, -50%);
+}
+
+.paint-tool-glyph.is-hit {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.paint-tool-glyph.is-stroke {
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  transform: translate(-50%, -50%) rotate(-33deg);
+}
+
+.paint-tool-glyph.is-stroke::before,
+.paint-tool-glyph.is-stroke::after {
+  position: absolute;
+  top: -2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.paint-tool-glyph.is-stroke::before {
+  left: 0;
+}
+
+.paint-tool-glyph.is-stroke::after {
+  right: 0;
+}
+
+.paint-tool-glyph.is-ring {
+  width: 16px;
+  height: 16px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+
+.paint-tool-glyph.is-erase {
+  width: 15px;
+  height: 10px;
+  border: 1px solid currentColor;
+  transform: translate(-50%, -50%) rotate(-32deg);
+}
+
+.paint-layer-swatch {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--paint-line-strong);
+  cursor: pointer;
+  background: var(--layer-color);
+}
+
+.paint-layer-swatch::after {
+  position: absolute;
+  inset: 4px;
+  border: 1px solid var(--paint-bg);
+  content: "";
+  opacity: 0;
+}
+
+.paint-layer-swatch:hover,
+.paint-layer-swatch:focus-visible,
+.paint-layer-swatch.is-active {
+  border-color: var(--paint-ink);
+  outline: 0;
+}
+
+.paint-layer-swatch.is-active::after {
+  opacity: .9;
+}
+
+.paint-layer-swatch.is-mod::before {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 4px;
+  width: 20px;
+  border-top: 1px dashed var(--paint-bg);
+  content: "";
+  transform: rotate(-35deg);
+}
+
+.paint-text-command {
+  min-width: 54px;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.paint-icon-command {
+  font-size: 15px;
+}
+
+.paint-icon-command:disabled {
+  cursor: default;
+  opacity: .25;
+}
+
+.paint-stage-grid {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  padding-top: 16px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-rows: minmax(420px, 1fr) 26px;
+}
+
+.paint-stage-wrap {
+  position: relative;
+  min-width: 0;
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid var(--paint-line-strong);
+  background: #080b0c;
+}
+
+#paintStage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.paint-frequency-axis,
+.paint-time-axis {
+  position: relative;
+  min-width: 0;
+  color: var(--paint-faint);
+  font-size: 6px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.paint-frequency-axis span {
+  position: absolute;
+  right: 7px;
+  top: calc((1 - var(--axis-position)) * 100%);
+  transform: translateY(-50%);
+}
+
+.paint-time-axis span {
+  position: absolute;
+  top: 8px;
+  left: calc(var(--axis-position) * 100%);
+  transform: translateX(-50%);
+}
+
+.paint-corner-label {
+  padding: 8px 7px 0 0;
+  color: var(--paint-faint);
+  font-size: 6px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.paint-cursor-readout {
+  position: absolute;
+  z-index: 3;
+  top: var(--cursor-y, 50%);
+  left: var(--cursor-x, 50%);
+  min-width: 82px;
+  padding: 4px 6px;
+  border: 1px solid var(--cursor-color, var(--paint-accent));
+  pointer-events: none;
+  color: var(--cursor-color, var(--paint-accent));
+  background: rgba(7, 9, 11, .9);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-align: center;
+  transform: translate(10px, -50%);
+}
+
+.paint-canvas-footer {
+  display: grid;
+  min-width: 0;
+  border-top: 1px solid var(--paint-line);
+  border-bottom: 1px solid var(--paint-line);
+  color: var(--paint-faint);
+  font-size: 7px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.paint-canvas-footer span {
+  min-width: 0;
+  padding: 10px 12px;
+  overflow: hidden;
+  border-right: 1px solid var(--paint-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paint-canvas-footer span:last-child {
+  border-right: 0;
+  text-align: right;
+}
+
+.paint-canvas-footer b,
+#selectedLayerReadout {
+  color: var(--paint-accent);
+}
+
+.paint-inspector {
+  min-width: 0;
+  border-left: 1px solid var(--paint-line-strong);
+  background: var(--paint-panel);
+}
+
+.paint-inspector-section {
+  display: grid;
+  padding: 18px;
+  border-bottom: 1px solid var(--paint-line);
+  gap: 15px;
+}
+
+.paint-inspector-section[hidden] {
+  display: none;
+}
+
+.paint-section-heading {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.paint-section-heading h2,
+.paint-section-heading output {
+  margin: 0;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.paint-section-heading h2 {
+  color: var(--paint-ink);
+}
+
+.paint-section-heading output {
+  overflow: hidden;
+  color: var(--paint-accent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paint-role-selector {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.paint-select-control select {
+  width: 100%;
+  height: 36px;
+  padding: 0 9px;
+  border: 1px solid var(--paint-line-strong);
+  border-radius: 0;
+  color: var(--paint-ink);
+  background: #080b0c;
+  font: inherit;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.paint-range-control small {
+  color: var(--paint-faint);
+  font-size: 6px;
+  letter-spacing: 0;
+}
+
+.paint-machine-page .audio-error {
+  margin: 16px;
+}
+
+@media (max-width: 1120px) {
+  .paint-machine-header {
+    height: max-content;
+    grid-template-columns: 1fr;
+    gap: 17px;
+  }
+
+  .paint-workspace {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+
+  .paint-transport {
+    grid-template-columns: auto auto minmax(150px, 1fr) minmax(170px, 1fr) 68px;
+  }
+}
+
+@media (max-width: 900px) {
+  .paint-workspace {
+    display: block;
+  }
+
+  .paint-inspector {
+    display: grid;
+    border-top: 1px solid var(--paint-line-strong);
+    border-left: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .paint-inspector-section {
+    border-right: 1px solid var(--paint-line);
+  }
+}
+
+@media (max-width: 720px) {
+  .paint-machine-header {
+    min-height: 0;
+    padding: 16px 12px;
+  }
+
+  .paint-machine-identity h1 {
+    font-size: 22px;
+  }
+
+  .paint-transport {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .paint-command {
+    width: 100%;
+  }
+
+  .paint-header-control {
+    grid-column: 1;
+  }
+
+  .paint-loop-length {
+    grid-column: 2;
+    align-self: end;
+  }
+
+  .paint-live-readout {
+    display: none;
+  }
+
+  .paint-canvas-column {
+    padding: 0 12px 14px;
+    grid-template-rows: auto minmax(390px, 1fr) auto;
+  }
+
+  .paint-toolbar {
+    padding: 10px 0;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .paint-palette {
+    order: 3;
+  }
+
+  .paint-edit-actions {
+    margin-left: auto;
+  }
+
+  .paint-stage-grid {
+    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-rows: 410px 24px;
+  }
+
+  .paint-stage-wrap {
+    min-height: 410px;
+  }
+
+  .paint-frequency-axis span {
+    right: 5px;
+    font-size: 5px;
+  }
+
+  .paint-canvas-footer {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .paint-canvas-footer span:nth-child(2),
+  .paint-canvas-footer span:nth-child(3) {
+    display: none;
+  }
+
+  .paint-inspector {
+    display: block;
+  }
+
+  .paint-inspector-section {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 450px) {
+  .paint-machine-page .mobile-instrument-select {
+    font-size: 8px;
+    letter-spacing: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paint-command,
+  .paint-tool-button {
+    transition: none;
+  }
+}
