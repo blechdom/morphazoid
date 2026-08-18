@@ -1,4 +1,5 @@
 import { TOOL_GROUPS } from "../nav.js";
+import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
   kind,
@@ -492,13 +493,14 @@ const instrumentByToolId = new Map(instrumentTools.map((tool) => {
     const group = groupById.get(tagId);
     return Object.freeze({ id: group.id, label: group.label });
   }));
+  const midiCapability = instrumentMidiCapabilityForId(tool.id);
   return [tool.id, Object.freeze({
     ...tool,
     ...CATALOG_DETAILS[tool.id],
     features: Object.freeze([...new Set([
       ...CATALOG_DETAILS[tool.id].features,
       "MIDI",
-      "Computer keys",
+      ...(midiCapability?.computerKeyboardMode === "none" ? [] : ["Computer keys"]),
     ])]),
     tags,
     status: primaryGroup.id === "experiments" ? "Works in progress" : null,

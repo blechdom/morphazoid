@@ -35,7 +35,7 @@ test("every catalog instrument has exactly one complete WAX support record", () 
     );
     assert.equal(typeof support.midiInput, "boolean");
     assert.ok(["native", "universal-control"].includes(support.midiInputMode));
-    assert.ok(["midi", "page"].includes(support.computerKeyboardMode));
+    assert.ok(["midi", "page", "none"].includes(support.computerKeyboardMode));
     assert.equal(typeof support.midiOutput, "boolean");
     assert.equal(typeof support.hostSync, "boolean");
     assert.ok(["pitched", "drums", "sequence", "processor"].includes(support.noteMode));

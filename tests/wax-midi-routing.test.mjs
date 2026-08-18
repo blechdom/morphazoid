@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -20,6 +21,15 @@ import {
 } from "../scripts/wax/wax-universal-adapter.js";
 
 const emptyDocument = Object.freeze({ querySelector() { return null; } });
+
+test("WAX universal input reuses the safe browser ranges, clock, and trigger contract", async () => {
+  const source = await readFile(new URL("../scripts/wax/wax-universal-adapter.js", import.meta.url), "utf8");
+  assert.match(source, /browserMidiControls\(documentObject, \{ rangesOnly: true \}\)/);
+  assert.match(source, /controls\[macroIndex\] \?\? null/);
+  assert.match(source, /applyBrowserMidiClockTempo\(\{/);
+  assert.match(source, /\[data-midi-trigger='step'\]/);
+  assert.doesNotMatch(source, /#primaryAction/);
+});
 
 test("MIDI-only routing never drives a page's native audio transport", () => {
   assert.equal(shouldDriveNativeAudio({ outputMode: "midi" }), false);

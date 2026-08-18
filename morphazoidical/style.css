@@ -51,7 +51,8 @@ button:focus-visible,
 select:focus-visible,
 input:focus-visible,
 a:focus-visible,
-canvas:focus-visible {
+canvas:focus-visible,
+.session-state .midi-profile-trigger:focus-visible {
   outline: 2px solid var(--mint);
   outline-offset: 2px;
 }

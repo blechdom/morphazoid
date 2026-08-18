@@ -30,6 +30,7 @@ const PITCH_SELECTORS = Object.freeze([
   "input[name='frequency']",
   "input[name='pitch']",
 ]);
+const MIDI_CLOCK_UI_INTERVAL_MS = 250;
 
 export const UNIVERSAL_MIDI_CC_KEYWORDS = Object.freeze({
   1: Object.freeze(["mod", "depth", "amount", "morph"]),
@@ -172,7 +173,7 @@ export function browserMidiNoteValue(control, note, description = "") {
     return clamp(note - 60, low, high);
   }
   if (high <= 2 && low >= -1) return clamp((note - 24) / 84, low, high);
-  if (/\b(hz|frequency|carrier|pitch)\b/.test(text) && high > 127) {
+  if (/\b(hz|frequency|carrier|pitch|tone|fundamental)\b/.test(text) && high > 127) {
     return clamp(midiNoteToFrequency(note), low, high);
   }
   return normalizedControlValue((note - 24) / 84, {
@@ -194,7 +195,7 @@ export function browserPitchBendValue(control, baseValue, normalizedBend, descri
   if (/\b(pitch|transpose|semitone)\b/.test(text) && low < 0 && high > 0 && high <= 127) {
     return clamp(base + bend * 2, low, high);
   }
-  if (/\b(hz|frequency|carrier)\b/.test(text) && high > 2) {
+  if (/\b(hz|frequency|carrier|tone|fundamental)\b/.test(text) && high > 2) {
     return clamp(base * (2 ** ((bend * 2) / 12)), low, high);
   }
   return clamp(base + bend * (high - low) * (2 / 84), low, high);
@@ -240,14 +241,24 @@ function choosePreset(documentObject, runtime, index) {
   return Boolean(button);
 }
 
-function pitchControl(documentObject, runtime, controls) {
+export function browserMidiPitchControl(
+  documentObject,
+  runtime = globalThis,
+  controls = browserMidiControls(documentObject, { rangesOnly: true }),
+) {
   return firstElement(documentObject, PITCH_SELECTORS)
     || semanticControl(
       documentObject,
       runtime,
       ["frequency", "pitch", "carrier", "root"],
       controls,
-    );
+    )
+    || controls.find((control) => {
+      if (Math.max(finite(control.min, 0), finite(control.max, 1)) <= 127) return false;
+      const text = universalMidiControlText(control, documentObject, runtime).split(" ");
+      return text.includes("tone") || text.includes("fundamental");
+    })
+    || null;
 }
 
 function prepareAudio(documentObject, support) {
@@ -270,7 +281,7 @@ function triggerNoteFallback(documentObject, runtime, support, message, bendBase
   }
 
   const controls = browserMidiControls(documentObject, { rangesOnly: true });
-  const target = pitchControl(documentObject, runtime, controls);
+  const target = browserMidiPitchControl(documentObject, runtime, controls);
   let pitchApplied = false;
   if (target) {
     const value = browserMidiNoteValue(
@@ -283,7 +294,7 @@ function triggerNoteFallback(documentObject, runtime, support, message, bendBase
   }
 
   if (support?.noteMode === "sequence") {
-    const step = firstElement(documentObject, ["#stepButton", "#primaryAction"]);
+    const step = firstElement(documentObject, ["#stepButton", "[data-midi-trigger='step']"]);
     if (step) {
       step.click?.();
       return true;
@@ -303,6 +314,43 @@ function triggerNoteFallback(documentObject, runtime, support, message, bendBase
   return pitchApplied || playStarted;
 }
 
+/** Apply a throttled, stepped MIDI-clock tempo update to an explicit tempo control. */
+export function applyBrowserMidiClockTempo({
+  documentObject,
+  runtime = globalThis,
+  message,
+  clockTracker,
+  tempoDispatchState = {},
+} = {}) {
+  const bpm = clockTracker?.ingest?.(message?.timestamp);
+  const tempo = firstElement(documentObject, TEMPO_SELECTORS);
+  if (!bpm || !tempo) return false;
+
+  const low = Math.min(finite(tempo.min, 20), finite(tempo.max, 400));
+  const high = Math.max(finite(tempo.min, 20), finite(tempo.max, 400));
+  const bounded = clamp(bpm, low, high);
+  const next = normalizedControlValue(
+    high === low ? 0 : (bounded - low) / (high - low),
+    { min: low, max: high, step: tempo.step },
+  );
+  const timestamp = finite(
+    message?.timestamp,
+    runtime?.performance?.now?.() ?? Date.now(),
+  );
+  if (
+    Number.isFinite(tempoDispatchState.lastTimestamp)
+    && timestamp >= tempoDispatchState.lastTimestamp
+    && timestamp - tempoDispatchState.lastTimestamp < MIDI_CLOCK_UI_INTERVAL_MS
+  ) return false;
+  tempoDispatchState.lastTimestamp = timestamp;
+  tempoDispatchState.lastValue = next;
+
+  const current = finite(tempo.value, Number.NaN);
+  const tolerance = Math.max(1e-7, Math.abs(finite(tempo.step, 0)) / 2);
+  if (Number.isFinite(current) && Math.abs(current - next) <= tolerance) return false;
+  return dispatchBrowserControlValue(runtime, tempo, next);
+}
+
 export function applyBrowserMidiMessage({
   documentObject,
   runtime = globalThis,
@@ -310,11 +358,11 @@ export function applyBrowserMidiMessage({
   support = {},
   message,
   clockTracker = new MidiClockTempoTracker(),
+  tempoDispatchState = {},
   bendBases = new WeakMap(),
 } = {}) {
   if (!documentObject || !message) return false;
   if (dispatchBrowserMidiEvent(runtime, message, routeId)) return true;
-  const controls = browserMidiControls(documentObject, { rangesOnly: true });
 
   if (message.type === "noteOn") {
     return triggerNoteFallback(documentObject, runtime, support, message, bendBases);
@@ -323,7 +371,8 @@ export function applyBrowserMidiMessage({
   // Stopping an unknown page's global audio would be surprising and can cut tails.
   if (message.type === "noteOff") return false;
   if (message.type === "pitchBend") {
-    const target = pitchControl(documentObject, runtime, controls);
+    const controls = browserMidiControls(documentObject, { rangesOnly: true });
+    const target = browserMidiPitchControl(documentObject, runtime, controls);
     if (!target) return false;
     const current = finite(target.value, 0.5);
     const existing = bendBases.get(target);
@@ -342,6 +391,7 @@ export function applyBrowserMidiMessage({
   }
   if (message.type === "controlChange") {
     if ([120, 121, 123].includes(message.controller)) return false;
+    const controls = browserMidiControls(documentObject, { rangesOnly: true });
     const macroIndex = message.logical?.type === "macro" ? message.logical.index : null;
     const target = Number.isInteger(macroIndex)
       ? controls[macroIndex] ?? null
@@ -357,6 +407,7 @@ export function applyBrowserMidiMessage({
     return choosePreset(documentObject, runtime, message.program || 0);
   }
   if (message.type === "channelPressure" || message.type === "polyPressure") {
+    const controls = browserMidiControls(documentObject, { rangesOnly: true });
     const target = semanticControl(
       documentObject,
       runtime,
@@ -366,16 +417,13 @@ export function applyBrowserMidiMessage({
     return setControlNormalized(runtime, target, finite(message.pressure, 0) / 127);
   }
   if (message.type === "timingClock") {
-    const bpm = clockTracker.ingest(message.timestamp);
-    const tempo = firstElement(documentObject, TEMPO_SELECTORS);
-    if (bpm && tempo) {
-      return dispatchBrowserControlValue(runtime, tempo, clamp(
-        bpm,
-        Math.min(finite(tempo.min, 20), finite(tempo.max, 400)),
-        Math.max(finite(tempo.min, 20), finite(tempo.max, 400)),
-      ));
-    }
-    return false;
+    return applyBrowserMidiClockTempo({
+      documentObject,
+      runtime,
+      message,
+      clockTracker,
+      tempoDispatchState,
+    });
   }
   if (message.type === "start" || message.type === "continue") {
     prepareAudio(documentObject, support);
@@ -383,6 +431,8 @@ export function applyBrowserMidiMessage({
   }
   if (message.type === "stop") {
     clockTracker.reset();
+    tempoDispatchState.lastTimestamp = Number.NEGATIVE_INFINITY;
+    tempoDispatchState.lastValue = null;
     return setPressedControl(firstElement(documentObject, PLAY_SELECTORS), false);
   }
   return false;
@@ -402,25 +452,38 @@ export function installBrowserMidiAdapter(
   if (isWaxWrappedDocument(runtime, documentObject) || support.midiInputMode === "native") return null;
   if (runtime[ADAPTER_KEY]) return runtime[ADAPTER_KEY];
 
-  const clockTracker = new MidiClockTempoTracker();
+  const clockTrackers = new Map();
+  const tempoDispatchStates = new Map();
   const bendBases = new WeakMap();
+  const clockStateFor = (message) => {
+    const sourceId = String(message?.sourceId || "default");
+    if (!clockTrackers.has(sourceId)) clockTrackers.set(sourceId, new MidiClockTempoTracker());
+    if (!tempoDispatchStates.has(sourceId)) tempoDispatchStates.set(sourceId, {});
+    return {
+      clockTracker: clockTrackers.get(sourceId),
+      tempoDispatchState: tempoDispatchStates.get(sourceId),
+    };
+  };
   const unregister = manager.registerClient({
     id: `browser-universal:${routeId}`,
-    computerKeyboard: support.computerKeyboardMode === "page"
+    computerKeyboard: support.computerKeyboardMode !== "midi"
       ? false
       : support.noteMode === "drums"
         ? { layout: "pad-grid", baseNote: 36, velocity: 100 }
         : { layout: "piano", baseNote: 48, velocity: 100 },
     onPrepareEnable: () => prepareAudio(documentObject, support),
-    onMessage: (message) => applyBrowserMidiMessage({
-      documentObject,
-      runtime,
-      routeId,
-      support,
-      message,
-      clockTracker,
-      bendBases,
-    }),
+    onMessage: (message) => {
+      const clockState = clockStateFor(message);
+      return applyBrowserMidiMessage({
+        documentObject,
+        runtime,
+        routeId,
+        support,
+        message,
+        ...clockState,
+        bendBases,
+      });
+    },
   });
 
   let disposed = false;

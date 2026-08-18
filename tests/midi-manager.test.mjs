@@ -433,6 +433,21 @@ test("computer piano works without hardware Web MIDI and stays available after p
   deniedManager.disable();
 });
 
+test("a hardware-only client is unsupported when Web MIDI is unavailable", () => {
+  const hardwareOnly = computerKeyboardRuntime({ webMidi: false });
+  const manager = new WebMidiManager(hardwareOnly.runtime);
+  manager.registerClient({
+    id: "page-owned-keys",
+    computerKeyboard: false,
+    onMessage() {},
+  });
+  const status = manager.status();
+  assert.equal(status.webMidiSupported, false);
+  assert.equal(status.computerKeyboard.supported, false);
+  assert.equal(status.supported, false);
+  assert.equal(status.computerKeyboard.active, false);
+});
+
 test("computer keys ignore repeats, shortcuts, and editable targets while controls change future notes", async () => {
   const { runtime, document } = computerKeyboardRuntime({ requests: [new FakeMidiAccess()] });
   const manager = new WebMidiManager(runtime);

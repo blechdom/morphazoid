@@ -102,6 +102,18 @@ test("input and plug-in availability facts remain explicit", () => {
   assert.ok(instrumentById("lumber")?.features.includes("Mic input"));
   assert.ok(instrumentById("recursion")?.features.includes("File input"));
   assert.deepEqual(instrumentById("rubix")?.features, ["Pointer", "MIDI", "Computer keys"]);
+  for (const id of [
+    "striped-sludge-delay", "candy-coil-delay", "chladni-plate", "spring-choir",
+    "gear-ratio-drums", "cellular-automata", "reaction-diffusion", "neural-pulse",
+    "cantor-lock",
+  ]) {
+    assert.equal(instrumentById(id)?.features.includes("MIDI"), true, `${id} keeps hardware MIDI`);
+    assert.equal(
+      instrumentById(id)?.features.includes("Computer keys"),
+      false,
+      `${id} must not advertise no-op note keys`,
+    );
+  }
   assert.equal(instrumentById("rubix")?.kind, "Geometric sequencer");
   for (const id of ["cascading-fm", "cascading-pm"]) {
     assert.equal(instrumentById(id)?.kind, "Synth");

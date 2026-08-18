@@ -550,7 +550,10 @@ export class WebMidiManager {
   }
 
   get computerKeyboardSupported() {
-    return Boolean(this.computerKeyboardTarget);
+    return Boolean(
+      this.computerKeyboardTarget
+      && [...this.clients.values()].some(({ computerKeyboard }) => computerKeyboard),
+    );
   }
 
   get enabled() {

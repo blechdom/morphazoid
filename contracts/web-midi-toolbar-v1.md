@@ -6,12 +6,13 @@ Every playable catalog instrument exposes one MIDI toggle in its shared top
 bar. Morphazoidical hosts the same control in its custom workbench top bar. The
 toggle is the only control that requests Web MIDI permission.
 
-- Off → On activates the built-in computer keyboard immediately, then calls
-  `requestMIDIAccess({ sysex: false })` from the same explicit click when the
-  browser supports hardware Web MIDI.
+- Off → On activates the built-in computer keyboard when that page has a safe
+  note mapping, then calls `requestMIDIAccess({ sysex: false })` from the same
+  explicit click when the browser supports hardware Web MIDI.
 - On selects the page's MIDI performance mode where one exists.
-- On → Off sends CC120 All Sound Off before listeners detach, then restores the
-  page's normal Drone/non-MIDI behavior.
+- On → Off sends CC120 All Sound Off before listeners detach. Native synth
+  clients restore their normal Drone/non-MIDI mode. Universal pages retain any
+  visible control or transport changes already made, but receive no new MIDI.
 - Enabled state is never restored automatically after navigation. Controller
   profile choice is persisted.
 - The toolbar stays hidden until the page registers a MIDI client. The seven
@@ -42,6 +43,10 @@ Wheel of Organs, Throatazoid, Spelling Synthesizer, Lumber Loops, and L-mic
 reserve their existing typing, record, or input shortcuts. Their universal
 client still accepts hardware MIDI, but it does not attach the shared QWERTY
 listener or suppress those page-owned keys.
+
+Pages without a safe generic note action expose hardware MIDI for labeled
+controls, presets, and transport but do not capture the shared piano/drum keys
+or advertise Computer keys in the catalog.
 
 Virtual events use a stable per-client source ID and the General MIDI logical
 profile, so they can coexist with physical controllers without inheriting an
@@ -108,10 +113,11 @@ page without a native MIDI client. It exposes each incoming message through a
 cancelable `morphazoid:midi-input` event first. A page-specific listener may
 call `preventDefault()` to own that message and suppress the fallback.
 
-- Note-on retunes a clearly labeled frequency, pitch, carrier, or root control
-  where present. Pitched pages then start an explicit Play control; sequence
-  pages prefer Step or Primary Action and otherwise start Play; drum pages
-  prefer an exact pad, then an explicit Strike/Trigger, then Play.
+- Note-on retunes a clearly labeled frequency, pitch, carrier, root, tone, or
+  fundamental control where present. Pitched pages then start an explicit Play
+  control; sequence pages prefer Step or an explicitly marked
+  `data-midi-trigger="step"` action and otherwise start Play; drum pages prefer
+  an exact pad, then an explicit Strike/Trigger, then Play.
 - Randomize and reseed controls are never generic note triggers.
 - Note-off is always published to the event contract. The fallback does not
   stop global audio because doing so would cut page-owned envelopes and tails.
@@ -123,9 +129,10 @@ call `preventDefault()` to own that message and suppress the fallback.
   navigation, MIDI-profile, and preset selects are excluded from macro mapping.
 - Program Change selects an explicit preset, and polyphonic or channel
   aftertouch targets pressure, intensity, force, or level.
-- MIDI Clock estimates tempo at 24 PPQN. Start/Continue and Stop drive an
-  explicit page transport where one exists. Song Position remains available to
-  exact adapters through the public event.
+- MIDI Clock estimates tempo independently per source at 24 PPQN and updates a
+  page control at most four times per second, skipping unchanged stepped values.
+  Start/Continue and Stop drive an explicit page transport where one exists.
+  Song Position remains available to exact adapters through the public event.
 
 Generated WAX pages never register this browser fallback. Their positive WAX
 bootstrap/adapter marker leaves ownership with the WAX universal adapter, which

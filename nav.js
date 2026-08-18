@@ -591,8 +591,16 @@ function computerKeyboardHint(status) {
   if (!presentation) {
     const universalId = status.clientIds?.find((id) => String(id).startsWith("browser-universal:"));
     const routeId = String(universalId || "").slice("browser-universal:".length);
-    if (instrumentMidiCapabilityForId(routeId)?.computerKeyboardMode === "page") {
-      return "This instrument reserves typing keys for its own interface. Hardware MIDI remains available when MIDI is on.";
+    const keyboardMode = instrumentMidiCapabilityForId(routeId)?.computerKeyboardMode;
+    if (keyboardMode === "page") {
+      return status.webMidiSupported
+        ? "This instrument reserves typing keys for its own interface. Hardware MIDI remains available when MIDI is on."
+        : "This instrument reserves typing keys for its own interface, and Web MIDI is unavailable in this browser.";
+    }
+    if (keyboardMode === "none") {
+      return status.webMidiSupported
+        ? "Computer note keys are disabled because this page has no safe universal note action. Hardware MIDI can still control labeled parameters."
+        : "This page has no safe computer-note mapping, and Web MIDI is unavailable in this browser.";
     }
     return "Computer keyboard input is disabled for this instrument.";
   }
@@ -613,7 +621,7 @@ function midiProfileHint(status, selectedProfile) {
     (id) => String(id).startsWith("browser-universal:"),
   );
   const universalHint = usesUniversalBrowserMap
-    ? " Universal map: notes set pitch or trigger sound; bend follows pitch; common CCs find matching labeled controls; profile macro knobs control the first eight sliders; Program Change selects presets; aftertouch targets pressure or intensity; and MIDI Clock, Start, and Stop follow tempo and transport where available."
+    ? " Universal map: where a safe note target exists, notes set pitch or trigger sound; bend follows pitch; common CCs find matching labeled controls; profile macro knobs control the first eight sliders; Program Change selects presets; aftertouch targets pressure or intensity; and MIDI Clock, Start, and Stop follow tempo and transport where available."
     : "";
   if (selectedProfile.id !== "auto" || status.inputs.length === 0) {
     return `${selectedProfile.setupHint || selectedProfile.description}${universalHint}`;

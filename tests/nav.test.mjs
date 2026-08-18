@@ -933,7 +933,7 @@ test("one header MIDI control owns connection and controller profile selection",
   const hint = control.details.findAll((node) => node.className === "midi-profile-hint")[0];
   assert.match(hint.textContent, /Morphazoid MIDI-mode template/);
   assert.match(hint.textContent, /not Native Instruments factory defaults/);
-  assert.match(hint.textContent, /Universal map: notes set pitch or trigger sound/);
+  assert.match(hint.textContent, /where a safe note target exists, notes set pitch or trigger sound/);
   assert.match(hint.textContent, /MIDI Clock, Start, and Stop/);
 
   control.select.value = "arturia-minilab-3";

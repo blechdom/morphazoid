@@ -107,8 +107,24 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "micmic",
 ]);
 
+// These pages still expose hardware MIDI for labeled controls, presets, and
+// transport, but they have no conservative note action. Do not capture QWERTY
+// piano/drum keys until an explicit page mapping exists.
+export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
+  "striped-sludge-delay",
+  "candy-coil-delay",
+  "chladni-plate",
+  "spring-choir",
+  "gear-ratio-drums",
+  "cellular-automata",
+  "reaction-diffusion",
+  "neural-pulse",
+  "cantor-lock",
+]);
+
 const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);
 const pageKeyboardIds = new Set(PAGE_KEYBOARD_INSTRUMENT_IDS);
+const noGenericNoteKeyboardIds = new Set(NO_GENERIC_NOTE_KEYBOARD_IDS);
 const processorAudioIds = new Set(["recursion"]);
 
 export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(
@@ -118,7 +134,9 @@ export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(
     midiInputMode: nativeIds.has(id) ? "native" : "universal-control",
     noteMode,
     startsAudio: noteMode !== "processor" || processorAudioIds.has(id),
-    computerKeyboardMode: pageKeyboardIds.has(id) ? "page" : "midi",
+    computerKeyboardMode: pageKeyboardIds.has(id)
+      ? "page"
+      : noGenericNoteKeyboardIds.has(id) ? "none" : "midi",
   }))),
 );
 

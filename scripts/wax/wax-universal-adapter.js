@@ -2,7 +2,10 @@ import { getSharedMidiManager } from "../../src/midi-manager.js";
 import { waxSupportForId } from "../../src/wax-instrument-roles.js";
 import {
   UNIVERSAL_MIDI_CC_KEYWORDS,
+  applyBrowserMidiClockTempo,
+  browserMidiControls,
   browserMidiNoteValue,
+  browserMidiPitchControl,
   browserPitchBendValue,
   dispatchBrowserControlValue,
   isBrowserMidiControl,
@@ -40,15 +43,6 @@ const PLAY_SELECTORS = [
 
 const AUDIO_SELECTORS = ["#audioButton", "#audioToggle"];
 const TEMPO_SELECTORS = ["#tempo", "#bpm", "input[name='tempo']", "input[name='bpm']"];
-const PITCH_SELECTORS = [
-  "#frequency",
-  "#carrier",
-  "#rootFrequency",
-  "#baseFrequency",
-  "#root",
-  "input[name='frequency']",
-  "input[name='pitch']",
-];
 
 const CC_KEYWORDS = UNIVERSAL_MIDI_CC_KEYWORDS;
 
@@ -243,8 +237,11 @@ function triggerNoteFallback(documentObject, runtime, support, message, state, b
     }
   }
 
-  const pitchControl = firstElement(documentObject, PITCH_SELECTORS)
-    || semanticControl(documentObject, ["frequency", "pitch", "carrier", "root"]);
+  const pitchControl = browserMidiPitchControl(
+    documentObject,
+    runtime,
+    browserMidiControls(documentObject, { rangesOnly: true }),
+  );
   let pitchApplied = false;
   if (pitchControl) {
     const value = midiNoteValueForControl(
@@ -259,7 +256,7 @@ function triggerNoteFallback(documentObject, runtime, support, message, state, b
   if (midiOnly) return pitchApplied;
 
   if (support.noteMode === "sequence") {
-    const step = firstElement(documentObject, ["#stepButton", "#primaryAction"]);
+    const step = firstElement(documentObject, ["#stepButton", "[data-midi-trigger='step']"]);
     if (step) {
       step.click?.();
       return true;
@@ -286,17 +283,17 @@ function applyGenericMidi(
   message,
   routingState,
   clockTracker,
+  tempoDispatchState,
   bendBases,
 ) {
   if (dispatchMidiEvent(runtime, message)) return true;
-  const controls = mappableControls(documentObject);
 
   if (message.type === "noteOn") {
     return triggerNoteFallback(documentObject, runtime, support, message, routingState, bendBases);
   }
   if (message.type === "pitchBend") {
-    const target = firstElement(documentObject, PITCH_SELECTORS)
-      || semanticControl(documentObject, ["frequency", "pitch", "carrier", "root"], controls);
+    const controls = browserMidiControls(documentObject, { rangesOnly: true });
+    const target = browserMidiPitchControl(documentObject, runtime, controls);
     if (!target) return false;
     const current = finite(target.value, 0.5);
     const existing = bendBases.get(target);
@@ -314,10 +311,11 @@ function applyGenericMidi(
     return applied;
   }
   if (message.type === "controlChange") {
-    if ([120, 123].includes(message.controller)) return true;
+    if ([120, 121, 123].includes(message.controller)) return false;
+    const controls = browserMidiControls(documentObject, { rangesOnly: true });
     const macroIndex = message.logical?.type === "macro" ? message.logical.index : null;
     const target = Number.isInteger(macroIndex)
-      ? controls[macroIndex % Math.max(1, controls.length)]
+      ? controls[macroIndex] ?? null
       : semanticControl(documentObject, CC_KEYWORDS[message.controller] || [], controls);
     return setControlNormalized(runtime, target, finite(message.value, 0) / 127);
   }
@@ -325,19 +323,19 @@ function applyGenericMidi(
     return choosePreset(documentObject, runtime, message.program || 0);
   }
   if (message.type === "channelPressure" || message.type === "polyPressure") {
+    const controls = browserMidiControls(documentObject, { rangesOnly: true });
     const target = semanticControl(documentObject, ["pressure", "intensity", "force", "level"], controls);
     return setControlNormalized(runtime, target, finite(message.pressure, 0) / 127);
   }
   if (message.type === "timingClock") {
-    const bpm = clockTracker.ingest(message.timestamp);
-    const tempo = firstElement(documentObject, TEMPO_SELECTORS);
-    if (bpm && routingState.hostSync && tempo) {
-      return dispatchControlValue(runtime, tempo, clamp(
-        bpm,
-        Math.min(finite(tempo.min, 20), finite(tempo.max, 400)),
-        Math.max(finite(tempo.min, 20), finite(tempo.max, 400)),
-      ));
-    }
+    if (!routingState.hostSync) return false;
+    return applyBrowserMidiClockTempo({
+      documentObject,
+      runtime,
+      message,
+      clockTracker,
+      tempoDispatchState,
+    });
   }
   if (message.type === "start" || message.type === "continue") {
     if (routingState.hostSync && shouldDriveNativeAudio(routingState)) {
@@ -345,6 +343,9 @@ function applyGenericMidi(
     }
   }
   if (message.type === "stop") {
+    clockTracker.reset();
+    tempoDispatchState.lastTimestamp = Number.NEGATIVE_INFINITY;
+    tempoDispatchState.lastValue = null;
     if (routingState.hostSync && shouldDriveNativeAudio(routingState)) {
       return setPressedControl(firstElement(documentObject, PLAY_SELECTORS), false);
     }
@@ -460,8 +461,18 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
   const led = panel.querySelector("[data-wax-midi-led]");
   const stateListeners = new Set();
   const controlOutputCleanups = [];
-  const clockTracker = new MidiClockTempoTracker();
+  const clockTrackers = new Map();
+  const tempoDispatchStates = new Map();
   const bendBases = new WeakMap();
+  const clockStateFor = (message) => {
+    const sourceId = String(message?.sourceId || "default");
+    if (!clockTrackers.has(sourceId)) clockTrackers.set(sourceId, new MidiClockTempoTracker());
+    if (!tempoDispatchStates.has(sourceId)) tempoDispatchStates.set(sourceId, {});
+    return {
+      clockTracker: clockTrackers.get(sourceId),
+      tempoDispatchState: tempoDispatchStates.get(sourceId),
+    };
+  };
 
   const panicOutput = (reason = "user-panic") => {
     if (typeof manager.clearOutput === "function") manager.clearOutput();
@@ -544,20 +555,22 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
       dispatchMidiEvent(runtime, message);
       return;
     }
+    const clockState = clockStateFor(message);
     applyGenericMidi(
       documentObject,
       runtime,
       support,
       message,
       routingState,
-      clockTracker,
+      clockState.clockTracker,
+      clockState.tempoDispatchState,
       bendBases,
     );
   };
 
   const unregisterMidi = manager.registerClient({
     id: `wax-universal:${routeId}`,
-    computerKeyboard: support.computerKeyboardMode === "page"
+    computerKeyboard: support.computerKeyboardMode !== "midi"
       ? false
       : support.noteMode === "drums"
         ? { layout: "pad-grid", baseNote: 36, velocity: 100 }

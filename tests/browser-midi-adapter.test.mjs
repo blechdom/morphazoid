@@ -16,6 +16,7 @@ import {
 import {
   INSTRUMENT_MIDI_CAPABILITIES,
   NATIVE_INSTRUMENT_MIDI_IDS,
+  NO_GENERIC_NOTE_KEYBOARD_IDS,
   PAGE_KEYBOARD_INSTRUMENT_IDS,
   instrumentMidiCapabilityForId,
 } from "../src/instrument-midi-capabilities.js";
@@ -163,6 +164,17 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "lumber",
     "micmic",
   ]);
+  assert.deepEqual(NO_GENERIC_NOTE_KEYBOARD_IDS, [
+    "striped-sludge-delay",
+    "candy-coil-delay",
+    "chladni-plate",
+    "spring-choir",
+    "gear-ratio-drums",
+    "cellular-automata",
+    "reaction-diffusion",
+    "neural-pulse",
+    "cantor-lock",
+  ]);
   assert.equal(instrumentMidiCapabilityForId("spelling-synthesizer").computerKeyboardMode, "page");
   assert.equal(instrumentMidiCapabilityForId("shape-drums").computerKeyboardMode, "midi");
   assert.equal(instrumentMidiCapabilityForId("recursion").startsAudio, true);
@@ -180,7 +192,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     INSTRUMENT_MIDI_CAPABILITIES.every(({ midiInput, midiInputMode, computerKeyboardMode }) => (
       midiInput === true
       && ["native", "universal-control"].includes(midiInputMode)
-      && ["page", "midi"].includes(computerKeyboardMode)
+      && ["page", "midi", "none"].includes(computerKeyboardMode)
     )),
     true,
   );
@@ -228,6 +240,11 @@ test("every playable catalog page loads shared browser MIDI and exposes a toolba
     workbenchCss,
     /@media \(max-width: 680px\)[\s\S]*?\.session-state\[data-midi-toolbar-host\]\s*\{[^}]*grid-column: 1 \/ -1;[^}]*width: 100%;/,
     "the workbench moves MIDI and Audio onto a full-width mobile row",
+  );
+  assert.match(
+    workbenchCss,
+    /\.session-state \.midi-profile-trigger:focus-visible\s*\{[^}]*outline: 2px solid var\(--mint\)/,
+    "the injected profile summary keeps the workbench focus ring",
   );
 });
 
@@ -352,7 +369,7 @@ test("every route either keeps its native client or receives the intended browse
     assert.ok(adapter, `${support.id} installs the universal browser client`);
     assert.equal(registrations.length, 1);
     assert.equal(registrations[0].id, `browser-universal:${support.id}`);
-    const expectedKeyboard = support.computerKeyboardMode === "page"
+    const expectedKeyboard = support.computerKeyboardMode !== "midi"
       ? false
       : support.noteMode === "drums"
         ? { layout: "pad-grid", baseNote: 36, velocity: 100 }
@@ -560,16 +577,23 @@ test("universal browser mapping handles notes, note-off events, CC, bend, preset
 
   const pulseMs = 60_000 / (120 * 24);
   const clockTracker = new MidiClockTempoTracker();
+  const tempoDispatchState = {};
   let mapped = false;
-  for (let pulse = 0; pulse < 8; pulse += 1) {
+  for (let pulse = 0; pulse < 32; pulse += 1) {
     mapped = applyBrowserMidiMessage({
       ...common,
       clockTracker,
+      tempoDispatchState,
       message: { type: "timingClock", timestamp: pulse * pulseMs },
     }) || mapped;
   }
   assert.equal(mapped, true);
   assert.ok(Math.abs(Number(documentObject.tempo.value) - 120) < 0.01);
+  assert.deepEqual(
+    documentObject.tempo.events,
+    ["input", "change"],
+    "stable 24-PPQN clock does not emit redundant page updates",
+  );
 });
 
 test("note fallbacks sound sequence steps and drum one-shots without mutating patches", () => {
@@ -589,6 +613,19 @@ test("note fallbacks sound sequence steps and drum one-shots without mutating pa
   assert.equal(step.clicks, 1, "a paused sequence advances its explicit step action");
   assert.equal(sequenceDocument.play.clicks, 0, "Step takes precedence over starting the transport");
   assert.equal(randomize.clicks, 0, "notes never use randomize as a generic trigger");
+
+  const unsafeDocument = testDocument();
+  const unsafePrimaryAction = toggle("primaryAction");
+  unsafeDocument.bySelector.set("#primaryAction", unsafePrimaryAction);
+  applyBrowserMidiMessage({
+    documentObject: unsafeDocument,
+    runtime: testRuntime(),
+    routeId: "kinetic-hull",
+    support: instrumentMidiCapabilityForId("kinetic-hull"),
+    message: { type: "noteOn", note: 72, velocity: 100 },
+  });
+  assert.equal(unsafePrimaryAction.clicks, 0, "an unmarked primary action can be a reseed/reset and is never fired");
+  assert.equal(unsafeDocument.play.clicks, 1, "safe transport play replaces an ambiguous primary action");
 
   const drumDocument = testDocument();
   const strike = toggle("kickStrike");
@@ -719,5 +756,10 @@ test("page-native consumers can cancel the public event before a generic fallbac
 test("note and bend helpers remain identical to the WAX mapping contract", () => {
   assert.equal(browserMidiNoteValue({ min: "24", max: "84", id: "rootNote" }, 60), 60);
   assert.equal(Math.round(browserMidiNoteValue({ min: "20", max: "2000", id: "frequency" }, 69)), 440);
+  assert.equal(Math.round(browserMidiNoteValue({ min: "30", max: "880", id: "sourceTone" }, 69)), 440);
+  assert.ok(
+    Math.abs(browserPitchBendValue({ min: "30", max: "880", id: "sourceTone" }, 440, 1) - 493.883) < 0.01,
+    "tone controls use the same two-semitone exponential bend as frequency controls",
+  );
   assert.equal(browserPitchBendValue({ min: "24", max: "84", id: "rootNote" }, 60, 1), 62);
 });
