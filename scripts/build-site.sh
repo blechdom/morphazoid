@@ -33,19 +33,16 @@ copy_runtime_file() {
 }
 
 while IFS= read -r -d '' source_path; do
-  if [[ "$source_path" == dist-wax/* && ( "$output_dir" == "$repo_root/dist-wax" || "$output_dir" == "$repo_root/dist-wax/"* ) ]]; then
-    continue
-  fi
   [[ -f "$repo_root/$source_path" ]] || continue
 
   case "$source_path" in
-    .github/*|tests/*|morphazoidical/tests/*|scripts/*)
+    .github/*|tests/*|morphazoidical/tests/*|scripts/*|dist/*|dist-wax/*)
       continue
       ;;
   esac
 
   case "$source_path" in
-    dist-wax/*|*.html|*.css|*.js|*.webp|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|\
+    *.html|*.css|*.js|*.webp|favicon.svg|THIRD_PARTY_NOTICES.md|morphazoidical/PLAN.md|downloads/plugins/*|\
     vendor/tactile/LICENSE|\
     vendor/cmudict/cmudict-en-us.dict|\
     vendor/cmudict/LICENSE|\
@@ -499,15 +496,6 @@ required_files=(
   vendor/signalsmith-stretch/SignalsmithStretch.mjs
   vendor/tactile/tactile.js
 )
-
-if [[ "$output_dir" != "$repo_root/dist-wax" && "$output_dir" != "$repo_root/dist-wax/"* ]]; then
-  required_files+=(
-    dist-wax/chaotic-fm.html
-    dist-wax/wax/wax-universal-adapter.js
-    dist-wax/assets/audio/spelling-diphone-kal16.wav
-    dist-wax/vendor/signalsmith-stretch/SignalsmithStretch.mjs
-  )
-fi
 
 for required_file in "${required_files[@]}"; do
   if [[ ! -f "$output_dir/$required_file" ]]; then

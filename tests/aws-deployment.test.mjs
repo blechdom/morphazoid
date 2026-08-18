@@ -23,7 +23,7 @@ test("site builder publishes runtime files without development material", async 
   const temporary = await mkdtemp(join(tmpdir(), "morphazoid-site-"));
   const output = join(temporary, "public");
   try {
-    await execFileAsync("bash", ["scripts/build-site.sh", output], {
+    await execFileAsync("node", ["scripts/build-release-site.mjs", output], {
       cwd: root,
     });
 
@@ -68,7 +68,6 @@ test("site builder publishes runtime files without development material", async 
       "wax-page.js",
       "src/wax-instrument-roles.js",
       "src/wax-midi-routing.js",
-      "dist-wax/chaotic-fm.html",
       "dist-wax/wax/wax-universal-adapter.js",
       "dist-wax/assets/audio/spelling-diphone-kal16.wav",
       "dist-wax/vendor/signalsmith-stretch/SignalsmithStretch.mjs",
@@ -254,6 +253,11 @@ test("site builder publishes runtime files without development material", async 
       "vendor/signalsmith-stretch/LICENSE",
       "vendor/signalsmith-stretch/SignalsmithStretch.mjs",
       "vendor/tactile/tactile.js",
+      "dist-wax/index.html",
+      "dist-wax/chaotic-fm.html",
+      "dist-wax/wax.html",
+      "dist-wax/wax/wax-host-bootstrap.js",
+      "dist-wax/wax/wax-host-bridge.js",
     ]) {
       assert.equal(await exists(join(output, path)), true, `missing ${path}`);
     }
@@ -263,6 +267,14 @@ test("site builder publishes runtime files without development material", async 
       publishedNavigation,
       /from "\.\/src\/midi-manager\.js"/,
       "the published navigation must resolve its shared MIDI manager import",
+    );
+
+    const waxInstrument = await readFile(join(output, "dist-wax", "chaotic-fm.html"), "utf8");
+    assert.match(waxInstrument, /data-morphazoid-wax-bootstrap/);
+    assert.equal(
+      await exists(join(output, "dist-wax", "dist-wax")),
+      false,
+      "the WAX artifact must not recursively contain a previous WAX artifact",
     );
 
     const publishedNotices = await readFile(
@@ -331,6 +343,7 @@ test("AWS workflow verifies before OIDC deployment and uses repository variables
   assert.match(workflow, /pull_request:/);
   assert.match(workflow, /push:\s*\n\s+branches:\s+\[main\]/);
   assert.match(workflow, /npm run verify/);
+  assert.match(workflow, /npm run build:site/);
   assert.match(workflow, /actions\/upload-artifact@v7/);
   assert.match(workflow, /actions\/download-artifact@v8/);
   assert.match(workflow, /aws-actions\/configure-aws-credentials@v6\.2\.3/);

@@ -184,3 +184,24 @@ test("canonical source pages do not load the WAX-only bootstrap", async () => {
     assert.doesNotMatch(source, /wax-host-bootstrap\.js/);
   }
 });
+
+test("the site builder excludes committed generated artifacts", async () => {
+  const buildScript = await readFile(
+    path.join(repositoryRoot, "scripts", "build-site.sh"),
+    "utf8",
+  );
+  assert.match(
+    buildScript,
+    /dist\/\*\|dist-wax\/\*/,
+    "a tracked dist-wax tree must not be copied recursively into later builds",
+  );
+});
+
+test("GitHub Pages deploys the freshly generated release tree", async () => {
+  const workflow = await readFile(
+    path.join(repositoryRoot, ".github", "workflows", "pages.yml"),
+    "utf8",
+  );
+  assert.match(workflow, /run: npm run build:site/);
+  assert.match(workflow, /path: dist\b/);
+});
