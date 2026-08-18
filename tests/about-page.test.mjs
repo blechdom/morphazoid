@@ -20,6 +20,8 @@ test("Home page is the About guide", async () => {
   assert.match(html, /id="homeInstrumentCatalogue"[\s\S]*?data-instrument-catalog/);
   assert.match(html, /src="instrument-catalog-app\.js"/);
   assert.doesNotMatch(html, /manual-section-label">Browse|Instrument sections, titles, and order/);
+  assert.doesNotMatch(html, /microphone input|audio files?|file instruments?/i);
+  assert.doesNotMatch(html, /Select the speaker, Input/);
   assert.doesNotMatch(html, /class="about-summary"/);
   assert.doesNotMatch(html, /class="manual-index"/);
   assert.doesNotMatch(html, /<dt>(?:Instruments|Runtime|License)<\/dt>/);
