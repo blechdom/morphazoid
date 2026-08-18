@@ -1,4 +1,5 @@
 import { unlockAudioContext } from "./audio.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 
 const PROCESSOR_NAME = "morphazoid-chaotic-pm";
 const DEFAULT_SAMPLE_RATE = 48_000;
@@ -1067,6 +1068,7 @@ export class ChaoticPmAudio {
     this.ceiling = null;
     this.masterGain = null;
     this.analyser = null;
+    this.releaseAudioOutput = null;
     this.waveform = null;
     this.nodes = [];
     this.stopping = false;
@@ -1175,8 +1177,8 @@ export class ChaoticPmAudio {
         .connect(compressor)
         .connect(ceiling)
         .connect(masterGain)
-        .connect(analyser)
-        .connect(context.destination);
+        .connect(analyser);
+      this.releaseAudioOutput = connectAudioOutput(context, analyser, { runtime: this.runtime });
 
       this.worklet = worklet;
       this.node = worklet;
@@ -1363,6 +1365,8 @@ export class ChaoticPmAudio {
   }
 
   clearGraphReferences() {
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     for (const audioNode of this.nodes) {
       try {
         audioNode.disconnect();

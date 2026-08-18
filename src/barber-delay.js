@@ -1,4 +1,5 @@
 import { unlockAudioContext } from "./audio.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 
 const PROCESSOR_NAME = "morphazoid-barber-delay";
 const DEFAULT_SAMPLE_RATE = 48_000;
@@ -1229,6 +1230,7 @@ export class BarberDelayAudio {
     this.ceiling = null;
     this.master = null;
     this.analyser = null;
+    this.outputRelease = null;
     this.sourceNode = null;
     this.sourceKind = null;
     this.mediaStream = null;
@@ -1302,8 +1304,10 @@ export class BarberDelayAudio {
       node
         .connect(ceiling)
         .connect(master)
-        .connect(analyser)
-        .connect(context.destination);
+        .connect(analyser);
+      this.outputRelease = connectAudioOutput(context, analyser, {
+        runtime: this.runtime,
+      });
 
       this.context = context;
       this.node = node;
@@ -1312,6 +1316,8 @@ export class BarberDelayAudio {
       this.analyser = analyser;
       this.setParameters(this.params);
     } catch (error) {
+      this.outputRelease?.();
+      this.outputRelease = null;
       await context.close().catch(() => {});
       throw error;
     }
@@ -1460,6 +1466,8 @@ export class BarberDelayAudio {
     this.compressor?.disconnect();
     this.ceiling?.disconnect();
     this.master?.disconnect();
+    this.outputRelease?.();
+    this.outputRelease = null;
     this.analyser?.disconnect();
     const context = this.context;
     this.context = null;

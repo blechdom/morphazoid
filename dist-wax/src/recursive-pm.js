@@ -1,4 +1,5 @@
 import { unlockAudioContext } from "./audio.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 
 const DEFAULT_SAMPLE_RATE = 48_000;
 const PARAMETER_SMOOTHING_SECONDS = 0.018;
@@ -328,6 +329,7 @@ export class RecursivePmAudioEngine {
     this.velocityGain = null;
     this.masterGain = null;
     this.analyser = null;
+    this.releaseAudioOutput = null;
     this.waveform = null;
     this.nodes = [];
     this.stopping = false;
@@ -417,7 +419,7 @@ export class RecursivePmAudioEngine {
       masterGain.connect(compressor);
       compressor.connect(ceilingGain);
       ceilingGain.connect(analyser);
-      analyser.connect(context.destination);
+      this.releaseAudioOutput = connectAudioOutput(context, analyser, { runtime: this.runtime });
 
       this.worklet = worklet;
       this.normalizationGain = normalizationGain;
@@ -659,7 +661,9 @@ export class RecursivePmAudioEngine {
     if (!this.context || this.stopping) return;
     this.stopping = true;
     const context = this.context;
+    const releaseAudioOutput = this.releaseAudioOutput;
     const nodes = [...this.nodes];
+    this.releaseAudioOutput = null;
 
     if (this.masterGain) {
       const now = context.currentTime;
@@ -675,6 +679,7 @@ export class RecursivePmAudioEngine {
       await new Promise((resolve) => delay(resolve, 32));
     }
 
+    releaseAudioOutput?.();
     try {
       this.worklet?.port.postMessage({ type: "shutdown" });
     } catch {

@@ -36,6 +36,7 @@ import {
   voicePresetState,
   waveformLevel,
 } from "./src/throatazoid.js";
+import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { unlockAudioContext } from "./src/audio.js";
 
 const $ = (id) => document.getElementById(id);
@@ -667,7 +668,7 @@ function buildAudioGraph(audio, physicalTract = null) {
   connect(compressor, ceiling);
   connect(ceiling, masterGain);
   connect(masterGain, outputAnalyser);
-  outputAnalyser.connect(audio.destination);
+  const releaseAudioOutput = connectAudioOutput(audio, outputAnalyser, { runtime: globalThis });
   if (recorderDestination) outputAnalyser.connect(recorderDestination);
 
   return {
@@ -690,6 +691,7 @@ function buildAudioGraph(audio, physicalTract = null) {
     masterGain,
     outputAnalyser,
     recorderDestination,
+    releaseAudioOutput,
   };
 }
 
@@ -5439,6 +5441,7 @@ globalThis.addEventListener?.("blur", () => {
 globalThis.addEventListener?.("pagehide", () => {
   if (keyboardAccentTimer) clearTimeout(keyboardAccentTimer);
   keyboardAccentTimer = 0;
+  graph?.releaseAudioOutput?.();
   void severAudio();
   clearLastTake();
   for (const throat of graph?.throats ?? []) {

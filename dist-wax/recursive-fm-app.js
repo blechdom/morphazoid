@@ -24,6 +24,7 @@ import {
   drawChaoticLiveAnalysis,
 } from "./src/chaotic-synth-visuals.js";
 import { unlockAudioContext } from "./src/audio.js";
+import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { getSharedMidiManager } from "./src/midi-manager.js";
 
 const $ = (id) => document.getElementById(id);
@@ -144,6 +145,7 @@ class RecursiveFmAudioEngine {
     this.compressor = null;
     this.ceilingGain = null;
     this.analyser = null;
+    this.releaseAudioOutput = null;
     this.waveform = null;
     this.selectedOperator = -1;
     this.stopping = false;
@@ -218,7 +220,7 @@ class RecursiveFmAudioEngine {
     masterGain.connect(compressor);
     compressor.connect(ceilingGain);
     ceilingGain.connect(analyser);
-    analyser.connect(context.destination);
+    this.releaseAudioOutput = connectAudioOutput(context, analyser, { runtime: globalThis });
 
     this.normalizationGain = normalizationGain;
     this.envelopeGain = envelopeGain;
@@ -295,6 +297,7 @@ class RecursiveFmAudioEngine {
     if (!this.context) return deriveRecursiveFmStack(settings);
 
     const context = this.context;
+    const releaseAudioOutput = this.releaseAudioOutput;
     const stack = deriveRecursiveFmStack(settings, { sampleRate: context.sampleRate });
     this.settings = stack.settings;
     const maximumStack = deriveRecursiveFmStack({
@@ -625,6 +628,7 @@ class RecursiveFmAudioEngine {
     const context = this.context;
     const oscillators = [...this.oscillators];
     const nodes = [...this.nodes];
+    this.releaseAudioOutput = null;
 
     if (this.masterGain) {
       const now = context.currentTime;
@@ -637,6 +641,7 @@ class RecursiveFmAudioEngine {
       await new Promise((resolve) => window.setTimeout(resolve, 32));
     }
 
+    releaseAudioOutput?.();
     for (const oscillator of oscillators) {
       try {
         oscillator.stop();

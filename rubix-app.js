@@ -4,6 +4,7 @@ import {
   sanitizeFmDrumVoice,
 } from "./src/fm-drums.js";
 import { unlockAudioContext } from "./src/audio.js";
+import { connectAudioOutput } from "./src/audio-output-manager.js";
 import {
   createRubixVisibilityProfile,
   rubixStickerVisibility,
@@ -326,6 +327,7 @@ class RubixAudioEngine {
     this.transportGain = null;
     this.master = null;
     this.analyser = null;
+    this.releaseAudioOutput = null;
     this.drumBus = null;
     this.acidBus = null;
     this.acidFilter = null;
@@ -390,7 +392,7 @@ class RubixAudioEngine {
     this.compressor.connect(this.transportGain);
     this.transportGain.connect(this.master);
     this.master.connect(this.analyser);
-    this.analyser.connect(context.destination);
+    this.releaseAudioOutput = connectAudioOutput(context, this.analyser, { runtime: this.runtime });
 
     const sawGain = context.createGain();
     const subGain = context.createGain();
@@ -742,6 +744,8 @@ class RubixAudioEngine {
   async close() {
     this.lifecycleGeneration += 1;
     const context = this.context;
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     this.context = null;
     this.compressor = null;
     this.transportGain = null;

@@ -18,6 +18,7 @@ import {
   GranularEconomyRenderer,
 } from "./src/granular-economy-renderer.js?v=20260725-presets";
 import { unlockAudioContext } from "./src/audio.js";
+import { connectAudioOutput } from "./src/audio-output-manager.js";
 import { SignalsmithGenerationBank } from "./src/signalsmith-generation-bank.js?v=20260725-presets";
 
 const $ = (id) => document.getElementById(id);
@@ -669,7 +670,7 @@ function buildAudioGraph(audio) {
   setCompressorParameters(compressor, audio.currentTime);
   connect(compressor, ceiling);
   connect(ceiling, masterGain);
-  masterGain.connect(audio.destination);
+  const releaseAudioOutput = connectAudioOutput(audio, masterGain, { runtime: globalThis });
 
   let lfo = null;
   let modulationA = null;
@@ -717,6 +718,7 @@ function buildAudioGraph(audio) {
     wetGain,
     safetyAnalyser,
     masterGain,
+    releaseAudioOutput,
     lfo,
     modulationA,
     modulationB,
@@ -1014,6 +1016,7 @@ async function changePitchDetail(value) {
   } catch {
     // Closing the context below remains the final resource guard.
   }
+  closingGraph?.releaseAudioOutput?.();
   if (audioContext === closingAudio) audioContext = null;
   if (graph === closingGraph) graph = null;
   try {
@@ -1870,6 +1873,7 @@ window.addEventListener("pagehide", () => {
   } catch {
     // The oscillator may already have stopped during browser teardown.
   }
+  graph?.releaseAudioOutput?.();
   void audioContext?.close?.();
 });
 

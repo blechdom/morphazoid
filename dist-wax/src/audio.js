@@ -2,6 +2,7 @@ import {
   ADAPTIVE_POLYPHONY_HARD_LIMITS,
   AdaptivePolyphonyController,
 } from "./adaptive-polyphony.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 
 /**
  * Lazy browser audio for the geometric instrument. Importing this module does
@@ -721,6 +722,8 @@ export class VoicePool {
     this.master = null;
     /** @type {DynamicsCompressorNode|null} */
     this.compressor = null;
+    /** @type {null|(() => void)} */
+    this.outputRelease = null;
     /** @type {AudioWorkletNode|null} */
     this.synthNode = null;
     this.workletUnavailable = false;
@@ -1049,7 +1052,8 @@ export class VoicePool {
     compressor.ratio.value = 6;
     compressor.attack.value = 0.002;
     compressor.release.value = 0.12;
-    master.connect(compressor).connect(context.destination);
+    master.connect(compressor);
+    this.outputRelease = connectAudioOutput(context, compressor);
 
     this.context = context;
     this.master = master;
@@ -1683,6 +1687,8 @@ export class VoicePool {
 
   resetGraph() {
     this.stopRenderCapacityMonitoring();
+    this.outputRelease?.();
+    this.outputRelease = null;
     this.context = null;
     this.master = null;
     this.compressor = null;

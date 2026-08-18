@@ -36,20 +36,9 @@ export const WAX_ROLE_DEFINITIONS = Object.freeze({
 
 const AUDIO_FX_IDS = new Set(
   INSTRUMENT_MIDI_CAPABILITIES
-    .filter(({ noteMode }) => noteMode === "processor")
+    .filter(({ audioInput }) => audioInput)
     .map(({ id }) => id),
 );
-AUDIO_FX_IDS.add("throatazoid");
-
-const MIDI_OUTPUT_EXTRA_IDS = new Set([
-  "shape",
-  "lattice",
-  "spiral",
-  "solid",
-  "hyper",
-  "l-system",
-  "julia",
-]);
 
 const HOST_SYNC_EXCLUDED_IDS = new Set([
   "fm-drums",
@@ -112,10 +101,7 @@ function caveatFor(instrument, noteMode, midiOutput) {
 
 export const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument) => {
   const midiCapability = instrumentMidiCapabilityForId(instrument.id);
-  const { noteMode } = midiCapability;
-  const midiOutput = noteMode === "drums"
-    || noteMode === "sequence"
-    || MIDI_OUTPUT_EXTRA_IDS.has(instrument.id);
+  const { midiOutput, noteMode } = midiCapability;
   const recommended = noteMode === "processor"
     ? WAX_ROLE_IDS.audioFx
     : WAX_ROLE_IDS.instrument;
@@ -130,6 +116,7 @@ export const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument)
     id: instrument.id,
     recommended,
     roles: Object.freeze([...new Set(roles)]),
+    audioInput: midiCapability.audioInput,
     midiInput: midiCapability.midiInput,
     midiInputMode: midiCapability.midiInputMode,
     computerKeyboardMode: midiCapability.computerKeyboardMode,

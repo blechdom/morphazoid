@@ -4,6 +4,7 @@ import {
   MIDI_PROFILE_REGISTRY,
   getSharedMidiManager,
 } from "./src/midi-manager.js";
+import { getSharedAudioOutputManager } from "./src/audio-output-manager.js";
 import { installBrowserMidiAdapter } from "./src/browser-midi-adapter.js";
 import { instrumentMidiCapabilityForId } from "./src/instrument-midi-capabilities.js";
 
@@ -617,24 +618,63 @@ function computerKeyboardHint(status) {
 }
 
 function midiProfileHint(status, selectedProfile) {
-  const usesUniversalBrowserMap = status.clientIds?.some(
-    (id) => String(id).startsWith("browser-universal:"),
-  );
-  const universalHint = usesUniversalBrowserMap
-    ? " Universal map: where a safe note target exists, notes set pitch or trigger sound; bend follows pitch; common CCs find matching labeled controls; profile macro knobs control the first eight sliders; Program Change selects presets; aftertouch targets pressure or intensity; and MIDI Clock, Start, and Stop follow tempo and transport where available."
-    : "";
-  if (selectedProfile.id !== "auto" || status.inputs.length === 0) {
-    return `${selectedProfile.setupHint || selectedProfile.description}${universalHint}`;
+  if (selectedProfile.id !== "auto") {
+    return selectedProfile.setupHint || selectedProfile.description;
   }
+  if (status.inputs.length === 0) return "";
   const resolved = [...new Set(status.inputs.map(({ profileId }) => profileId))]
     .map((profileId) => MIDI_PROFILE_REGISTRY[profileId])
     .filter(Boolean);
-  if (resolved.length === 0) {
-    return `${selectedProfile.setupHint || selectedProfile.description}${universalHint}`;
-  }
-  return `${resolved.map((profile) => (
+  if (resolved.length === 0) return "";
+  return resolved.map((profile) => (
     `${profile.shortLabel}: ${profile.setupHint || profile.description}`
-  )).join(" ")}${universalHint}`;
+  )).join(" ");
+}
+
+function headerSettingsSection(doc, id, title, description = "") {
+  const section = element(doc, "section", "header-settings-section");
+  const heading = element(doc, "h3", "header-settings-section-title", title);
+  heading.id = id;
+  section.setAttribute("aria-labelledby", id);
+  section.append(heading);
+  if (description) section.append(element(doc, "p", "header-settings-copy", description));
+  return section;
+}
+
+function outputDeviceId(device) {
+  return String(device?.deviceId ?? device?.id ?? "").trim();
+}
+
+function outputDeviceLabel(device) {
+  return String(device?.label ?? device?.name ?? "Audio output").trim() || "Audio output";
+}
+
+function audioOutputDescription(status, runtime) {
+  const output = status?.output ?? {};
+  if (runtime?.MorphazoidWAX || output.mode === "wax-host") {
+    return "DAW track (host controlled). The meter shows signal sent toward the host, not speaker loudness.";
+  }
+  if (output.mode === "browser-selectable") {
+    return `${output.label || "System default"} · selected by this browser. The meter shows signal sent toward the output, not speaker loudness.`;
+  }
+  if (output.mode === "system-default") {
+    return "System default (browser controlled). This browser cannot choose an output device here.";
+  }
+  return "Audio output becomes available after this instrument creates an audio connection.";
+}
+
+function midiOutputDescription(status, capability, runtime) {
+  const outputs = status?.outputs ?? [];
+  const detected = outputs.length === 0
+    ? "No browser MIDI destinations detected."
+    : `${outputs.length} browser MIDI destination${outputs.length === 1 ? "" : "s"} detected${status.selectedOutput?.name ? `; available: ${status.selectedOutput.name}` : ""}.`;
+  if (!capability?.midiOutput) {
+    return "Unavailable for this instrument. Incoming MIDI is never echoed.";
+  }
+  if (runtime?.MorphazoidWAX) {
+    return `DAW / plug-in host routing where supported. ${detected} MIDI Thru is off.`;
+  }
+  return `Off · this page is classified for future event output, but browser MIDI Out is not enabled here yet. ${detected} MIDI Thru is off.`;
 }
 
 /** Build the one site-level MIDI control used by every mapped instrument. */
@@ -642,9 +682,15 @@ export function createMidiToolbar(
   doc,
   runtime,
   manager = getSharedMidiManager(runtime),
-  { idSuffix = "" } = {},
+  {
+    idSuffix = "",
+    host = null,
+    routeId = null,
+    audioOutputManager = getSharedAudioOutputManager(runtime),
+  } = {},
 ) {
   const suffix = idSuffix ? `-${String(idSuffix).replace(/[^a-z\d_-]/gi, "-")}` : "";
+  const capability = instrumentMidiCapabilityForId(routeId);
   const toolbar = element(doc, "div", "midi-toolbar");
   toolbar.setAttribute("role", "group");
   toolbar.setAttribute("aria-label", "MIDI and computer keyboard controls");
@@ -654,28 +700,126 @@ export function createMidiToolbar(
   toggle.type = "button";
   toggle.id = `sharedMidiToggle${suffix}`;
   toggle.setAttribute("aria-pressed", "false");
+  toggle.setAttribute("aria-label", "Turn MIDI input on");
+  toggle.setAttribute("title", "MIDI input off");
   const dot = element(doc, "span", "midi-status-dot");
   dot.setAttribute("aria-hidden", "true");
   const toggleTitle = element(doc, "b", "", "MIDI");
   const toggleState = element(doc, "small", "", "off");
-  toggle.append(dot, toggleTitle, toggleState);
+  const activityLight = element(doc, "span", "midi-activity-light");
+  activityLight.setAttribute("aria-hidden", "true");
+  toggle.append(dot, toggleTitle, toggleState, activityLight);
 
-  const details = element(doc, "details", "midi-profile-menu");
-  const summary = element(doc, "summary", "midi-profile-trigger");
-  summary.setAttribute("aria-label", "MIDI mapping: Auto");
-  summary.setAttribute("aria-controls", `midiProfilePanel${suffix}`);
-  const summaryTitle = element(doc, "b", "", "Map");
-  const summaryProfile = element(doc, "small", "", "Auto");
-  summary.append(summaryTitle, summaryProfile);
+  const meterShell = element(doc, "div", "header-output-meter-shell");
+  meterShell.setAttribute("title", "Audio output signal");
+  meterShell.hidden = true;
+  const meter = element(doc, "meter", "header-output-meter", "0%");
+  meter.min = 0;
+  meter.max = 1;
+  meter.low = 0.18;
+  meter.high = 0.72;
+  meter.optimum = 0.5;
+  meter.value = 0;
+  meter.setAttribute("min", "0");
+  meter.setAttribute("max", "1");
+  meter.setAttribute("value", "0");
+  meter.setAttribute("aria-label", "Audio output signal level");
+  meter.setAttribute("aria-valuetext", "No output signal");
+  meterShell.append(meter);
 
-  const panel = element(doc, "div", "midi-profile-panel");
-  panel.id = `midiProfilePanel${suffix}`;
-  const heading = element(doc, "div", "midi-profile-heading");
+  const details = element(doc, "details", "header-settings-menu");
+  details.hidden = true;
+  const summary = element(doc, "summary", "header-settings-trigger");
+  summary.setAttribute("aria-label", "Open input, output, and MIDI settings");
+  summary.setAttribute("title", "Settings");
+  summary.setAttribute("aria-controls", `headerSettingsPanel${suffix}`);
+  const settingsIcon = element(doc, "span", "header-settings-icon");
+  settingsIcon.setAttribute("aria-hidden", "true");
+  summary.append(settingsIcon);
+
+  const panel = element(doc, "div", "header-settings-panel");
+  panel.id = `headerSettingsPanel${suffix}`;
+  const heading = element(doc, "div", "header-settings-heading");
   heading.append(
-    element(doc, "b", "", "Controller mapping"),
-    element(doc, "span", "", "Keys + hardware · no SysEx"),
+    element(doc, "h2", "", "Input & output settings"),
+    element(doc, "span", "", runtime?.MorphazoidWAX ? "WAX / host" : "Browser"),
+  );
+
+  const audioOutSection = headerSettingsSection(
+    doc,
+    `headerSettingsAudioOut${suffix}`,
+    "Audio Out",
+  );
+  const audioOutputStatus = element(doc, "p", "header-settings-copy", "System default");
+  audioOutputStatus.setAttribute("aria-live", "polite");
+  const audioOutputField = element(doc, "label", "header-settings-field");
+  audioOutputField.append(element(doc, "span", "", "Output device"));
+  const audioOutputSelect = element(doc, "select", "audio-output-select");
+  audioOutputSelect.id = `audioOutputSelect${suffix}`;
+  audioOutputSelect.setAttribute("aria-label", "Audio output device");
+  const initialAudioOption = element(doc, "option", "", "System default");
+  initialAudioOption.value = "";
+  audioOutputSelect.append(initialAudioOption);
+  audioOutputField.append(audioOutputSelect);
+  audioOutputField.hidden = true;
+  const audioOutputError = element(doc, "p", "header-settings-error");
+  audioOutputError.setAttribute("role", "alert");
+  audioOutputError.hidden = true;
+  audioOutSection.append(audioOutputStatus, audioOutputField, audioOutputError);
+
+  const audioInputSection = headerSettingsSection(
+    doc,
+    `headerSettingsAudioInput${suffix}`,
+    "Mic / Audio In",
+    capability?.audioInput
+      ? runtime?.MorphazoidWAX
+        ? "DAW / host audio input where this instrument supports it. Use the page controls to monitor or process input."
+        : "Use this instrument’s microphone or input controls. Browser permission is requested there when input starts."
+      : "This instrument does not request microphone or audio input.",
+  );
+
+  const midiInSection = headerSettingsSection(
+    doc,
+    `headerSettingsMidiIn${suffix}`,
+    "MIDI In",
   );
   const keyboardHint = element(doc, "p", "midi-keyboard-hint");
+  const statusLine = element(doc, "p", "midi-profile-status", "MIDI off");
+  statusLine.id = `sharedMidiStatus${suffix}`;
+  statusLine.setAttribute("aria-live", "polite");
+  midiInSection.append(statusLine, keyboardHint);
+
+  const midiOutSection = headerSettingsSection(
+    doc,
+    `headerSettingsMidiOut${suffix}`,
+    "MIDI Out",
+  );
+  const midiOutputField = element(doc, "label", "header-settings-field");
+  midiOutputField.append(element(doc, "span", "", "Output route"));
+  const midiOutputSelect = element(doc, "select", "midi-output-select");
+  midiOutputSelect.id = `midiOutputSelect${suffix}`;
+  midiOutputSelect.setAttribute("aria-label", "MIDI output route");
+  midiOutputSelect.disabled = true;
+  const midiOutputOption = element(
+    doc,
+    "option",
+    "",
+    !capability?.midiOutput
+      ? "Unavailable on this instrument"
+      : runtime?.MorphazoidWAX ? "DAW / plug-in host" : "Off (not enabled yet)",
+  );
+  midiOutputOption.value = "";
+  midiOutputSelect.append(midiOutputOption);
+  midiOutputField.append(midiOutputSelect);
+  const midiOutputStatus = element(doc, "p", "header-settings-copy");
+  midiOutSection.append(midiOutputField, midiOutputStatus);
+
+  const midiMapSection = headerSettingsSection(
+    doc,
+    `headerSettingsMidiMap${suffix}`,
+    "MIDI Map",
+    "Computer keys + hardware controllers · no SysEx",
+  );
   const field = element(doc, "label", "midi-profile-field");
   field.append(element(doc, "span", "", "Controller profile"));
   const select = element(doc, "select", "");
@@ -687,32 +831,46 @@ export function createMidiToolbar(
     select.append(option);
   }
   field.append(select);
-  const statusLine = element(doc, "p", "midi-profile-status", "MIDI off");
-  statusLine.id = `sharedMidiStatus${suffix}`;
-  statusLine.setAttribute("aria-live", "polite");
   const hint = element(doc, "p", "midi-profile-hint");
+  const guide = element(doc, "a", "midi-profile-guide", "MIDI guide");
+  guide.setAttribute("href", new URL("index.html#midi", NAVIGATION_BASE_URL).href);
   const error = element(doc, "p", "midi-profile-error");
   error.id = `sharedMidiError${suffix}`;
   error.setAttribute("role", "alert");
   error.hidden = true;
-  panel.append(heading, keyboardHint, field, statusLine, hint, error);
+  midiMapSection.append(field, hint, guide, error);
+  panel.append(
+    heading,
+    audioOutSection,
+    audioInputSection,
+    midiInSection,
+    midiOutSection,
+    midiMapSection,
+  );
   details.append(summary, panel);
-  toolbar.append(toggle, details);
+  toolbar.append(toggle);
 
   const paint = (status) => {
     const clientCount = Number(status.clientCount) || 0;
     const visible = clientCount > 0;
+    const toolbarHost = host ?? toolbar.parentNode;
     toolbar.hidden = !visible;
-    if (visible) toolbar.parentNode?.classList?.add("has-midi-toolbar");
+    meterShell.hidden = !visible;
+    details.hidden = !visible;
+    if (visible) toolbarHost?.classList?.add("has-midi-toolbar");
     else {
-      toolbar.parentNode?.classList?.remove("has-midi-toolbar");
-      details.open = false;
+      toolbarHost?.classList?.remove("has-midi-toolbar");
       toolbar.classList.remove("is-error");
       error.textContent = "";
       error.hidden = true;
     }
     toggle.disabled = !status.supported || clientCount === 0;
     toggle.setAttribute("aria-pressed", String(Boolean(status.enabled)));
+    toggle.setAttribute(
+      "aria-label",
+      status.enabled ? "Turn MIDI input off" : "Turn MIDI input on",
+    );
+    toggle.title = status.enabled ? "MIDI input on" : "MIDI input off";
     toggleState.textContent = status.enabled
       ? status.computerKeyboard?.active
         ? status.inputCount ? `keys+${status.inputCount}` : "keys"
@@ -720,18 +878,12 @@ export function createMidiToolbar(
       : status.enabling ? "wait" : status.supported ? "off" : "n/a";
     select.value = status.selectedProfileId;
     const profile = MIDI_PROFILE_REGISTRY[status.selectedProfileId] ?? MIDI_PROFILE_REGISTRY.auto;
-    const keyboardPresentation = computerKeyboardPresentation(status);
-    summaryProfile.textContent = keyboardPresentation?.compact ?? profile.shortLabel;
-    const keyboardDescription = keyboardPresentation
-      ? `; computer keys: ${keyboardPresentation.spoken}`
-      : "";
-    summary.setAttribute("aria-label", `MIDI mapping: ${profile.label}${keyboardDescription}`);
-    summary.title = keyboardPresentation
-      ? `${profile.label} · Computer ${keyboardPresentation.spoken}`
-      : profile.label;
     keyboardHint.textContent = computerKeyboardHint(status);
     statusLine.textContent = midiInputSummary(status);
+    midiOutputStatus.textContent = midiOutputDescription(status, capability, runtime);
     hint.textContent = midiProfileHint(status, profile);
+    hint.hidden = !hint.textContent;
+    if (!status.enabled) toolbar.classList.remove("is-receiving");
     if (status.enabled) {
       toolbar.classList.remove("is-error");
       error.textContent = "";
@@ -740,6 +892,87 @@ export function createMidiToolbar(
   };
 
   const unsubscribe = manager.subscribeStatus(paint);
+  const paintAudioOutput = (status = {}) => {
+    const value = Math.max(0, Math.min(1, Number(status.peak ?? status.rms) || 0));
+    const percentage = Math.round(value * 100);
+    meter.value = value;
+    meter.setAttribute("value", String(value));
+    meter.setAttribute(
+      "aria-valuetext",
+      status.active ? `${percentage}% output signal` : "No output signal",
+    );
+    meterShell.title = status.active
+      ? `Audio output signal ${percentage}%`
+      : "Audio output signal · inactive";
+    if (status.active || value > 0) meterShell.classList.add("is-active");
+    else meterShell.classList.remove("is-active");
+    audioOutputStatus.textContent = audioOutputDescription(status, runtime);
+    const canSelect = Boolean(
+      status.output?.canSelect
+      && typeof audioOutputManager?.setOutputDevice === "function"
+      && typeof audioOutputManager?.listOutputDevices === "function",
+    );
+    audioOutputField.hidden = !canSelect;
+    audioOutputSelect.disabled = !canSelect;
+    if (canSelect && status.output?.selectedId != null) {
+      audioOutputSelect.value = String(status.output.selectedId);
+    }
+  };
+  const unsubscribeAudioOutput = (typeof audioOutputManager?.subscribe === "function"
+    ? audioOutputManager.subscribe(paintAudioOutput)
+    : (() => {
+      paintAudioOutput(audioOutputManager?.getStatus?.());
+      return () => {};
+    })()) ?? (() => {});
+
+  const refreshAudioOutputChoices = async () => {
+    const output = audioOutputManager?.getStatus?.()?.output;
+    if (!output?.canSelect || typeof audioOutputManager?.listOutputDevices !== "function") return;
+    try {
+      audioOutputError.hidden = true;
+      audioOutputError.textContent = "";
+      if (typeof audioOutputManager.refreshOutputDevices === "function") {
+        await audioOutputManager.refreshOutputDevices();
+      }
+      const devices = await audioOutputManager.listOutputDevices();
+      const options = [];
+      const systemDefault = element(doc, "option", "", "System default");
+      systemDefault.value = "";
+      options.push(systemDefault);
+      for (const device of devices ?? []) {
+        const id = outputDeviceId(device);
+        if (!id) continue;
+        const option = element(doc, "option", "", outputDeviceLabel(device));
+        option.value = id;
+        options.push(option);
+      }
+      audioOutputSelect.replaceChildren(...options);
+      audioOutputSelect.value = String(output.selectedId ?? options[0]?.value ?? "");
+    } catch (reason) {
+      audioOutputError.textContent = reason instanceof Error ? reason.message : String(reason);
+      audioOutputError.hidden = false;
+    }
+  };
+  const activityTimers = (
+    typeof runtime?.setTimeout === "function"
+    && typeof runtime?.clearTimeout === "function"
+  ) ? runtime : globalThis;
+  let activityTimer = null;
+  const clearActivity = () => {
+    if (activityTimer !== null) activityTimers.clearTimeout(activityTimer);
+    activityTimer = null;
+    toolbar.classList.remove("is-receiving");
+  };
+  const pulseActivity = (message) => {
+    if (message?.synthetic || !manager.enabled) return;
+    toolbar.classList.add("is-receiving");
+    if (activityTimer !== null) activityTimers.clearTimeout(activityTimer);
+    activityTimer = activityTimers.setTimeout(clearActivity, 110);
+    activityTimer?.unref?.();
+  };
+  const unsubscribeMessages = typeof manager.subscribeMessages === "function"
+    ? manager.subscribeMessages(pulseActivity)
+    : () => {};
   const clearError = () => {
     toolbar.classList.remove("is-error");
     error.textContent = "";
@@ -770,6 +1003,24 @@ export function createMidiToolbar(
       showError(reason);
     }
   };
+  const handleAudioOutputChange = async () => {
+    if (typeof audioOutputManager?.setOutputDevice !== "function") return;
+    audioOutputSelect.disabled = true;
+    try {
+      await audioOutputManager.setOutputDevice(audioOutputSelect.value);
+      audioOutputError.hidden = true;
+      audioOutputError.textContent = "";
+    } catch (reason) {
+      audioOutputError.textContent = reason instanceof Error ? reason.message : String(reason);
+      audioOutputError.hidden = false;
+    } finally {
+      audioOutputSelect.disabled = false;
+    }
+  };
+  const handleDetailsToggle = () => {
+    if (details.open) return refreshAudioOutputChoices();
+    return undefined;
+  };
   const handleDetailsKeydown = (event) => {
     if (event.key !== "Escape" || !details.open) return;
     event.preventDefault?.();
@@ -784,8 +1035,13 @@ export function createMidiToolbar(
     if (disposed) return;
     disposed = true;
     unsubscribe();
+    unsubscribeMessages();
+    unsubscribeAudioOutput();
+    clearActivity();
     toggle.removeEventListener?.("click", handleToggle);
     select.removeEventListener?.("change", handleProfileChange);
+    audioOutputSelect.removeEventListener?.("change", handleAudioOutputChange);
+    details.removeEventListener?.("toggle", handleDetailsToggle);
     details.removeEventListener?.("keydown", handleDetailsKeydown);
     doc.removeEventListener?.("pointerdown", handleDocumentPointerdown);
     runtime.removeEventListener?.("pagehide", handlePageHide);
@@ -796,14 +1052,36 @@ export function createMidiToolbar(
   };
   toggle.addEventListener("click", handleToggle);
   select.addEventListener("change", handleProfileChange);
+  audioOutputSelect.addEventListener("change", handleAudioOutputChange);
+  details.addEventListener("toggle", handleDetailsToggle);
   details.addEventListener("keydown", handleDetailsKeydown);
   doc.addEventListener?.("pointerdown", handleDocumentPointerdown);
   runtime.addEventListener?.("pagehide", handlePageHide);
 
-  return Object.freeze({ toolbar, toggle, details, select, unsubscribe: destroy, destroy });
+  return Object.freeze({
+    toolbar,
+    toggle,
+    details,
+    select,
+    meter,
+    meterShell,
+    audioOutputSelect,
+    midiOutputSelect,
+    activityLight,
+    unsubscribe: destroy,
+    destroy,
+  });
 }
 
-export function initializeMidiToolbars(doc, runtime, manager = getSharedMidiManager(runtime)) {
+export function initializeMidiToolbars(
+  doc,
+  runtime,
+  manager = getSharedMidiManager(runtime),
+  {
+    routeId = resolveActiveTool(runtime?.location?.href || doc?.baseURI)?.id ?? null,
+    audioOutputManager = getSharedAudioOutputManager(runtime),
+  } = {},
+) {
   const controls = [];
   const mastheads = [...new Set([
     ...(doc?.querySelectorAll?.(".masthead") ?? []),
@@ -813,8 +1091,31 @@ export function initializeMidiToolbars(doc, runtime, manager = getSharedMidiMana
     if (masthead.querySelector?.(".midi-toolbar")) continue;
     const control = createMidiToolbar(doc, runtime, manager, {
       idSuffix: index === 0 ? "" : String(index + 1),
+      host: masthead,
+      routeId,
+      audioOutputManager,
     });
-    insertBeforeOrAppend(masthead, control.toolbar, masthead.querySelector?.(".audio-strip"));
+    const audioControls = masthead.querySelector?.(".audio-strip")
+      ?? masthead.querySelector?.(".header-actions")
+      ?? masthead.querySelector?.(".audio-toggle");
+    if (audioControls) {
+      let ioControls = masthead.querySelector?.(".header-io-controls");
+      if (!ioControls) {
+        ioControls = element(doc, "div", "header-io-controls");
+        ioControls.setAttribute("role", "group");
+        ioControls.setAttribute("aria-label", "MIDI, audio, and settings controls");
+        insertBeforeOrAppend(masthead, ioControls, audioControls);
+        ioControls.append(audioControls);
+      }
+      insertBeforeOrAppend(ioControls, control.toolbar, audioControls);
+      insertBeforeOrAppend(ioControls, control.meterShell, audioControls);
+      const audioButton = audioControls.querySelector?.(".audio-button");
+      if (audioButton) audioControls.append(audioButton);
+      ioControls.append(control.details);
+    } else {
+      masthead.append?.(control.toolbar, control.meterShell, control.details);
+    }
+    masthead.classList?.add("has-header-settings");
     if (manager.status().clientCount > 0) masthead.classList?.add("has-midi-toolbar");
     controls.push(control);
   }
@@ -941,7 +1242,11 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
   loadInstrumentPageInfo(doc, siteRoot);
 
   installBrowserMidiAdapter(runtime, doc, { routeId: navigation.activeTool?.id });
-  initializeMidiToolbars(doc, runtime);
+  if (navigation.activeTool) {
+    initializeMidiToolbars(doc, runtime, getSharedMidiManager(runtime), {
+      routeId: navigation.activeTool.id,
+    });
+  }
 
   for (const select of doc?.querySelectorAll?.(".mobile-instrument-select") ?? []) {
     select.addEventListener("change", () => {

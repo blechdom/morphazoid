@@ -82,6 +82,32 @@ test("Home mounts the only complete menu-ordered catalogue", async () => {
   assert.match(home, /Kristin Galvin/);
 });
 
+test("Home explains browser MIDI input and keeps WAX MIDI output distinct", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const visibleText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+  assert.match(html, /<section class="manual-section" id="midi">/);
+  assert.match(visibleText, /Every playable instrument has a MIDI control in its top bar/);
+  assert.match(visibleText, /receive light flashes for incoming notes and controls/);
+  assert.match(visibleText, /small meter shows the signal being sent to the audio destination/);
+  assert.match(visibleText, /gear at the far right opens Audio Out, Mic \/ Audio In, MIDI In, MIDI Out, and MIDI Map/);
+  assert.match(
+    visibleText,
+    /Auto \(per device\) is recommended when more than one controller is connected/,
+  );
+  assert.match(visibleText, /Most melodic pages provide a two-row piano.*4 × 4 pad grid/);
+  assert.match(visibleText, /custom native mappings.*conservative universal map/);
+  assert.match(visibleText, /Pitch bend follows a mapped pitch.*pressure or intensity control/);
+  assert.match(visibleText, /MIDI Clock, Start, and Stop follow a page's tempo and transport/);
+  assert.match(visibleText, /notes and velocity, pitch bend, CC, Program Change/);
+  assert.match(visibleText, /Input and output remain separate/);
+  assert.match(visibleText, /Browser MIDI Out stays off.*destination, channel, and clock/);
+  assert.match(html, /href="wax\.html"/);
+  assert.match(visibleText, /WAX build can run as MIDI FX/);
+  assert.match(visibleText, /Incoming MIDI is never echoed automatically/);
+  assert.doesNotMatch(visibleText, /every page (?:generates|outputs) MIDI/i);
+});
+
 test("legacy About and catalogue URLs redirect to the single home page", async () => {
   const [about, catalogue] = await Promise.all([
     readFile(new URL("about.html", root), "utf8"),

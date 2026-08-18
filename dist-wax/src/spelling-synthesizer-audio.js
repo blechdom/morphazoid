@@ -1,4 +1,5 @@
 import { unlockAudioContext } from "./audio.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 import {
   MAX_THROATS,
   alienTongueDeformations,
@@ -253,6 +254,7 @@ class TubeSpellingEngine {
     this.context = null;
     this.node = null;
     this.master = null;
+    this.releaseAudioOutput = null;
     this.pulse = null;
     this.pulseGain = null;
     this.breathGain = null;
@@ -371,7 +373,7 @@ class TubeSpellingEngine {
       connect(sourceBus, node, 0, 0);
       connect(node, compressor);
       connect(compressor, master);
-      connect(master, audio.destination);
+      this.releaseAudioOutput = connectAudioOutput(audio, master, { runtime: this.runtime });
       pulse.start();
 
       this.node = node;
@@ -383,6 +385,8 @@ class TubeSpellingEngine {
     } catch (error) {
       try { pulse?.stop?.(); } catch {}
       try { noise?.stop?.(); } catch {}
+      this.releaseAudioOutput?.();
+      this.releaseAudioOutput = null;
       if (this.context === audio) this.context = null;
       if (audio.state !== "closed") {
         try { await audio.close?.(); } catch {}
@@ -572,10 +576,13 @@ class TubeSpellingEngine {
     this.enabled = false;
     try { this.pulse?.stop?.(); } catch {}
     try { this.noise?.stop?.(); } catch {}
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     await this.context?.close?.();
     this.context = null;
     this.node = null;
     this.master = null;
+    this.releaseAudioOutput = null;
     this.pulse = null;
     this.pulseGain = null;
     this.breathGain = null;
@@ -616,6 +623,7 @@ class DiphoneSpellingEngine {
     this.tone = null;
     this.vocoderNode = null;
     this.master = null;
+    this.releaseAudioOutput = null;
     this.active = new Set();
     this.enabled = false;
     this.lifecycleGeneration = 0;
@@ -737,7 +745,7 @@ class DiphoneSpellingEngine {
         connect(vocoderNode, compressor);
       } else connect(tone, compressor);
       connect(compressor, master);
-      connect(master, audio.destination);
+      this.releaseAudioOutput = connectAudioOutput(audio, master, { runtime: this.runtime });
 
       this.buffer = buffer;
       this.sourceBus = sourceBus;
@@ -750,6 +758,8 @@ class DiphoneSpellingEngine {
     } catch (error) {
       const cancelled = abortController?.signal?.aborted || error?.name === "AbortError";
       abortController?.abort?.();
+      this.releaseAudioOutput?.();
+      this.releaseAudioOutput = null;
       if (this.buildAbortController === abortController) {
         this.buildAbortController = null;
       }
@@ -946,6 +956,8 @@ class DiphoneSpellingEngine {
     this.buildAbortController?.abort?.();
     this.buildAbortController = null;
     this.stopActive();
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     await this.context?.close?.();
     this.context = null;
     this.buffer = null;

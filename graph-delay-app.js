@@ -12,6 +12,7 @@ import {
   nodeTurnRouting,
 } from "./src/graph-delay.js?v=20260726-edge-switches";
 import { unlockAudioContext } from "./src/audio.js";
+import { connectAudioOutput } from "./src/audio-output-manager.js";
 
 const $ = (id) => document.getElementById(id);
 const EDGE_COLORS = [
@@ -462,6 +463,7 @@ function rampEdgeSwitch(parameter, value, now) {
 
 function disposeAudioGraph(target) {
   if (!target) return;
+  target.releaseAudioOutput?.();
   if (target.inputTrimNode) {
     try { inputAnalyser?.disconnect(target.inputTrimNode); } catch { /* already disconnected */ }
     try { microphoneSource?.disconnect(target.inputTrimNode); } catch { /* fallback source */ }
@@ -642,7 +644,8 @@ function buildAudioGraphNodes(
   input.connect(dry);
   dry.connect(output);
   wet.connect(output);
-  output.connect(crossfade).connect(compressor).connect(clipper).connect(audio.destination);
+  output.connect(crossfade).connect(compressor).connect(clipper);
+  const releaseAudioOutput = connectAudioOutput(audio, clipper, { runtime: globalThis });
 
   return {
     input,
@@ -658,6 +661,7 @@ function buildAudioGraphNodes(
     turnRouteCount,
     geometry,
     disconnectables: ownedNodes,
+    releaseAudioOutput,
   };
 }
 

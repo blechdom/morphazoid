@@ -1,5 +1,6 @@
 import { clampMicValue, sanitizeMicBranchVoice, MicBranchDSP } from "./mic-branch-dsp.js";
 import { AdaptivePolyphonyController } from "./adaptive-polyphony.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 
 const MASTER_TIME_CONSTANT = 0.03;
 const DEFAULT_INITIAL_VOICES = 128;
@@ -34,6 +35,7 @@ export class MicBranchEngine {
       : null;
     this.context = null;
     this.master = null;
+    this.releaseAudioOutput = null;
     this.processor = null;
     this.source = null;
     this.stream = null;
@@ -223,7 +225,8 @@ export class MicBranchEngine {
     compressor.ratio.value = 8;
     compressor.attack.value = 0.002;
     compressor.release.value = 0.14;
-    this.master.connect(compressor).connect(this.context.destination);
+    this.master.connect(compressor);
+    this.releaseAudioOutput = connectAudioOutput(this.context, compressor, { runtime: globalThis });
   }
 
   async buildProcessor() {
@@ -340,6 +343,8 @@ export class MicBranchEngine {
 
   async close() {
     this.disable();
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     this.processor?.disconnect();
     this.processor = null;
     this.master?.disconnect();

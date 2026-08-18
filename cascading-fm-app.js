@@ -20,6 +20,7 @@ import {
   drawChaoticLiveAnalysis,
 } from "./src/chaotic-synth-visuals.js";
 import { unlockAudioContext } from "./src/audio.js";
+import { connectAudioOutput } from "./src/audio-output-manager.js";
 
 const $ = (id) => document.getElementById(id);
 const DEFAULT_LEVEL = 0.58;
@@ -62,6 +63,7 @@ class CascadingFmAudioEngine {
     this.compressor = null;
     this.ceilingGain = null;
     this.analyser = null;
+    this.releaseAudioOutput = null;
     this.waveform = null;
     this.nodes = [];
     this.stopping = false;
@@ -118,7 +120,7 @@ class CascadingFmAudioEngine {
     masterGain.connect(compressor);
     compressor.connect(ceilingGain);
     ceilingGain.connect(analyser);
-    analyser.connect(context.destination);
+    this.releaseAudioOutput = connectAudioOutput(context, analyser, { runtime: globalThis });
 
     this.mixBus = mixBus;
     this.normalizationGain = normalizationGain;
@@ -173,6 +175,7 @@ class CascadingFmAudioEngine {
     if (!this.context) return stack;
 
     const context = this.context;
+    const releaseAudioOutput = this.releaseAudioOutput;
     const tc = immediate ? 0.001 : PARAMETER_SMOOTHING_SECONDS;
     const { stages } = stack.settings;
     const maxStages = CASCADING_FM_LIMITS.maxStages;
@@ -224,6 +227,7 @@ class CascadingFmAudioEngine {
     const context = this.context;
     const oscillators = [...this.oscillators];
     const nodes = [...this.nodes];
+    this.releaseAudioOutput = null;
 
     if (this.masterGain) {
       const now = context.currentTime;
@@ -238,6 +242,7 @@ class CascadingFmAudioEngine {
     if (!immediate) {
       await new Promise((resolve) => window.setTimeout(resolve, 32));
     }
+    releaseAudioOutput?.();
     for (const osc of oscillators) {
       try {
         osc.stop();

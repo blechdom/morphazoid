@@ -357,7 +357,7 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /\.amplitude-timing-row\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums/);
   assert.match(css, /\.header-level\s*\{[\s\S]*?height:\s*44px/);
   assert.match(css, /\.mapping-source-help\s*\{/);
-  assert.match(css, /\.audio-strip\s*\{[\s\S]*?grid-template-columns:\s*44px\s+minmax\(96px,\s*140px\)/);
+  assert.match(css, /\.audio-strip\s*\{[\s\S]*?grid-template-columns:\s*minmax\(96px,\s*140px\)\s+44px/);
   assert.match(css, /\.audio-speaker-icon\s*\{[\s\S]*?-webkit-mask:\s*url\("data:image\/svg\+xml/);
   assert.match(css, /@media\s*\(pointer:\s*coarse\)[\s\S]*?\.head-option-toggle\s*\{[\s\S]*?width:\s*36px/);
   assert.match(openingTag("amplitudeNode2"), /role="slider"[^>]*aria-valuemin="0"[^>]*aria-valuemax="100"[^>]*aria-valuenow="50"/);

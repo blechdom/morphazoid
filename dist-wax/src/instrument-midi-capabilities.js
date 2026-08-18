@@ -126,6 +126,25 @@ const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);
 const pageKeyboardIds = new Set(PAGE_KEYBOARD_INSTRUMENT_IDS);
 const noGenericNoteKeyboardIds = new Set(NO_GENERIC_NOTE_KEYBOARD_IDS);
 const processorAudioIds = new Set(["recursion"]);
+const audioInputIds = new Set([
+  "lumber",
+  "micmic",
+  "graph-delay",
+  "sandy-syrup-delay",
+  "striped-sludge-delay",
+  "candy-coil-delay",
+  "recursion",
+  "throatazoid",
+]);
+const midiOutputExtraIds = new Set([
+  "shape",
+  "lattice",
+  "spiral",
+  "solid",
+  "hyper",
+  "l-system",
+  "julia",
+]);
 
 export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(
   Object.entries(NOTE_MODE_IDS).flatMap(([noteMode, ids]) => ids.map((id) => Object.freeze({
@@ -133,6 +152,8 @@ export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(
     midiInput: true,
     midiInputMode: nativeIds.has(id) ? "native" : "universal-control",
     noteMode,
+    audioInput: audioInputIds.has(id),
+    midiOutput: noteMode === "drums" || noteMode === "sequence" || midiOutputExtraIds.has(id),
     startsAudio: noteMode !== "processor" || processorAudioIds.has(id),
     computerKeyboardMode: pageKeyboardIds.has(id)
       ? "page"

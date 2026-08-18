@@ -524,6 +524,7 @@ export class WebMidiManager {
     this.nextSourceId = 1;
     this.clients = new Map();
     this.statusSubscribers = new Set();
+    this.messageSubscribers = new Set();
     this.boundStateChange = () => this.refreshInputs();
     this.computerKeyboardTarget = computerKeyboardTarget(runtime);
     this.computerKeyboardActive = false;
@@ -636,6 +637,18 @@ export class WebMidiManager {
       if (!subscribed) return;
       subscribed = false;
       this.statusSubscribers.delete(listener);
+    };
+  }
+
+  /** Observe MIDI activity without registering an instrument client. */
+  subscribeMessages(listener) {
+    if (typeof listener !== "function") throw new TypeError("MIDI message listener must be a function.");
+    this.messageSubscribers.add(listener);
+    let subscribed = true;
+    return () => {
+      if (!subscribed) return;
+      subscribed = false;
+      this.messageSubscribers.delete(listener);
     };
   }
 
@@ -992,6 +1005,7 @@ export class WebMidiManager {
       ...extras,
     });
     callback(client, "onMessage", message, nativeEvent);
+    this.notifyMessage(message, nativeEvent);
     return message;
   }
 
@@ -1225,6 +1239,13 @@ export class WebMidiManager {
   dispatchMessage(message, nativeEvent) {
     for (const client of this.clients.values()) {
       callback(client, "onMessage", message, nativeEvent);
+    }
+    this.notifyMessage(message, nativeEvent);
+  }
+
+  notifyMessage(message, nativeEvent) {
+    for (const listener of this.messageSubscribers) {
+      try { listener(message, nativeEvent); } catch { /* Isolate activity observers. */ }
     }
   }
 

@@ -33,6 +33,7 @@ test("every catalog instrument has exactly one complete WAX support record", () 
       true,
       `${support.id} has an unknown role`,
     );
+    assert.equal(typeof support.audioInput, "boolean");
     assert.equal(typeof support.midiInput, "boolean");
     assert.ok(["native", "universal-control"].includes(support.midiInputMode));
     assert.ok(["midi", "page", "none"].includes(support.computerKeyboardMode));

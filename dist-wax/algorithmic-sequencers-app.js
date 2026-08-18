@@ -6,6 +6,7 @@ import {
   sanitizeSortSequencerParams,
 } from "./src/algorithmic-sequencers.js";
 import { unlockAudioContext } from "./src/audio.js";
+import { connectAudioOutput } from "./src/audio-output-manager.js";
 
 const $ = (id) => document.getElementById(id);
 const FRAME_INTERVAL = 1_000 / 30;
@@ -302,7 +303,7 @@ async function ensureAudioContext() {
   const audioContext = new AudioContextClass();
   const masterGain = audioContext.createGain();
   masterGain.gain.value = 0;
-  masterGain.connect(audioContext.destination);
+  state.releaseAudioOutput = connectAudioOutput(audioContext, masterGain, { runtime: globalThis });
   state.audioContext = audioContext;
   state.masterGain = masterGain;
   return audioContext;
@@ -601,6 +602,8 @@ function installEventHandlers() {
     state.disposed = true;
     if (frameId !== null) cancelAnimationFrame(frameId);
     state.audioOn = false;
+    state.releaseAudioOutput?.();
+    state.releaseAudioOutput = null;
     state.audioContext?.close?.();
   });
 }

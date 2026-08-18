@@ -99,6 +99,7 @@ for worktree_runtime_file in \
   assets/lumber-loops-wood-loop.webp \
   src/plugin-catalog.js \
   src/midi-manager.js \
+  src/audio-output-manager.js \
   src/browser-midi-adapter.js \
   src/instrument-midi-capabilities.js \
   src/shape-midi.js \
@@ -305,6 +306,7 @@ required_files=(
   plugins-app.js
   src/plugin-catalog.js
   src/midi-manager.js
+  src/audio-output-manager.js
   src/browser-midi-adapter.js
   src/instrument-midi-capabilities.js
   src/shape-midi.js

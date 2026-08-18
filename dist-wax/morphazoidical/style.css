@@ -52,7 +52,7 @@ select:focus-visible,
 input:focus-visible,
 a:focus-visible,
 canvas:focus-visible,
-.session-state .midi-profile-trigger:focus-visible {
+.session-state .header-settings-trigger:focus-visible {
   outline: 2px solid var(--mint);
   outline-offset: 2px;
 }
@@ -145,19 +145,59 @@ canvas:focus-visible,
 
 .session-state { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
 
+.session-state .header-io-controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-state .header-io-controls > .header-actions {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(58px, 86px) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-state .header-level {
+  display: grid;
+  width: 86px;
+  min-width: 58px;
+  height: 42px;
+  align-content: center;
+  gap: 5px;
+}
+
+.session-state .header-level > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--muted);
+  font: 7px/1 var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.session-state .header-level input[type="range"] {
+  width: 100%;
+  margin: 0;
+}
+
 .session-state .midi-toolbar {
   position: relative;
   z-index: 62;
   display: flex;
   min-width: 0;
   align-items: stretch;
-  gap: 6px;
+  gap: 0;
 }
 
 .session-state .midi-toolbar[hidden] { display: none; }
 
 .session-state .midi-toggle,
-.session-state .midi-profile-trigger {
+.session-state .header-settings-trigger {
   min-height: 42px;
   border: 1px solid var(--line-strong);
   border-radius: 9px;
@@ -168,9 +208,9 @@ canvas:focus-visible,
 
 .session-state .midi-toggle {
   display: grid;
-  width: 72px;
+  width: 78px;
   padding: 0 9px;
-  grid-template-columns: 7px minmax(0, 1fr);
+  grid-template-columns: 7px minmax(0, 1fr) 7px;
   grid-template-rows: auto auto;
   align-content: center;
   column-gap: 7px;
@@ -187,16 +227,14 @@ canvas:focus-visible,
   border-radius: 50%;
 }
 
-.session-state .midi-toggle b,
-.session-state .midi-profile-trigger b {
+.session-state .midi-toggle b {
   font-size: 9px;
   letter-spacing: .08em;
   line-height: 1;
   text-transform: uppercase;
 }
 
-.session-state .midi-toggle small,
-.session-state .midi-profile-trigger small {
+.session-state .midi-toggle small {
   margin-top: 4px;
   overflow: hidden;
   color: var(--faint);
@@ -208,9 +246,27 @@ canvas:focus-visible,
 .session-state .midi-toggle b,
 .session-state .midi-toggle small { grid-column: 2; }
 
+.session-state .midi-activity-light {
+  width: 7px;
+  height: 7px;
+  grid-column: 3;
+  grid-row: 1 / -1;
+  align-self: center;
+  border: 1px solid rgba(232,199,110,.48);
+  border-radius: 50%;
+  background: transparent;
+  transition: border-color 80ms linear, background 80ms linear, box-shadow 80ms linear;
+}
+
+.session-state .midi-toolbar.is-receiving .midi-activity-light {
+  border-color: var(--gold);
+  background: var(--gold);
+  box-shadow: 0 0 9px rgba(232,199,110,.72);
+}
+
 .session-state .midi-toggle:hover,
-.session-state .midi-profile-trigger:hover,
-.session-state .midi-profile-menu[open] .midi-profile-trigger {
+.session-state .header-settings-trigger:hover,
+.session-state .header-settings-menu[open] .header-settings-trigger {
   border-color: rgba(97,236,193,.4);
   color: var(--ink);
 }
@@ -228,22 +284,62 @@ canvas:focus-visible,
   box-shadow: 0 0 8px rgba(97,236,193,.7);
 }
 
-.session-state .midi-profile-menu { position: relative; height: 42px; }
-.session-state .midi-profile-trigger {
+.session-state .header-output-meter-shell {
   display: grid;
-  width: 62px;
+  width: 14px;
+  min-width: 14px;
   height: 42px;
-  padding: 0 8px;
-  align-content: center;
-  list-style: none;
-  text-align: left;
+  place-items: center;
 }
-.session-state .midi-profile-trigger::-webkit-details-marker { display: none; }
-.session-state .midi-profile-trigger b,
-.session-state .midi-profile-trigger small { display: block; }
-.session-state .midi-profile-trigger small { color: var(--mint); }
+.session-state .header-output-meter {
+  width: 7px;
+  height: 30px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--background);
+  writing-mode: vertical-rl;
+  direction: rtl;
+  appearance: none;
+}
+.session-state .header-output-meter::-webkit-meter-bar { border: 0; border-radius: inherit; background: var(--background); }
+.session-state .header-output-meter::-webkit-meter-optimum-value,
+.session-state .header-output-meter::-webkit-meter-suboptimum-value,
+.session-state .header-output-meter::-webkit-meter-even-less-good-value {
+  border-radius: inherit;
+  background: linear-gradient(to top, var(--mint), var(--gold));
+  box-shadow: 0 0 7px rgba(97,236,193,.35);
+}
+.session-state .header-output-meter::-moz-meter-bar {
+  border-radius: inherit;
+  background: linear-gradient(to top, var(--mint), var(--gold));
+}
+.session-state .header-output-meter-shell:not(.is-active) { opacity: .5; }
 
-.session-state .midi-profile-panel {
+.session-state .header-settings-menu { position: relative; height: 42px; }
+.session-state .header-settings-trigger {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0;
+  place-items: center;
+  list-style: none;
+}
+.session-state .header-settings-trigger::-webkit-details-marker { display: none; }
+.session-state .header-settings-icon {
+  width: 19px;
+  height: 19px;
+  background: currentColor;
+  transform: rotate(0);
+  transition: transform 160ms ease;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M19.14 12.94a7.7 7.7 0 0 0 .05-.94 7.7 7.7 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.2 7.2 0 0 0-1.63-.94L14.38 2.8a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.52c-.59.24-1.13.56-1.63.94L5.16 5.3a.5.5 0 0 0-.61.22L2.63 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.7 7.7 0 0 0-.05.94c0 .32.02.63.05.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .61.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.52a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.52a7.2 7.2 0 0 0 1.63-.94l2.39.96a.5.5 0 0 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M19.14 12.94a7.7 7.7 0 0 0 .05-.94 7.7 7.7 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.2 7.2 0 0 0-1.63-.94L14.38 2.8a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.52c-.59.24-1.13.56-1.63.94L5.16 5.3a.5.5 0 0 0-.61.22L2.63 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.7 7.7 0 0 0-.05.94c0 .32.02.63.05.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .61.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.52a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.52a7.2 7.2 0 0 0 1.63-.94l2.39.96a.5.5 0 0 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.session-state .header-settings-menu[open] .header-settings-icon {
+  transform: rotate(42deg);
+}
+
+.session-state .header-settings-panel {
   position: fixed;
   z-index: 82;
   top: 76px;
@@ -255,19 +351,27 @@ canvas:focus-visible,
   border-radius: 12px;
   background: rgba(7,17,14,.98);
   box-shadow: var(--shadow);
-  gap: 10px;
+  max-height: calc(100dvh - 90px);
+  overflow-y: auto;
+  gap: 0;
 }
 
-.session-state .midi-profile-heading {
+.session-state .header-settings-heading {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 10px;
 }
-.session-state .midi-profile-heading b { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
-.session-state .midi-profile-heading span,
+.session-state .header-settings-heading h2 { margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.session-state .header-settings-heading span,
+.session-state .header-settings-field > span,
 .session-state .midi-profile-field > span { color: var(--muted); font: 8px/1.3 var(--mono); }
+.session-state .header-settings-section { display: grid; padding: 12px 0; border-bottom: 1px solid var(--line); gap: 8px; }
+.session-state .header-settings-section:last-child { padding-bottom: 0; border-bottom: 0; }
+.session-state .header-settings-section-title { margin: 0; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.session-state .header-settings-field,
 .session-state .midi-profile-field { display: grid; gap: 6px; }
+.session-state .header-settings-field select,
 .session-state .midi-profile-field select {
   width: 100%;
   min-height: 38px;
@@ -280,11 +384,16 @@ canvas:focus-visible,
 .session-state .midi-keyboard-hint,
 .session-state .midi-profile-status,
 .session-state .midi-profile-hint,
-.session-state .midi-profile-error { margin: 0; font: 8px/1.5 var(--mono); }
+.session-state .midi-profile-error,
+.session-state .header-settings-copy,
+.session-state .header-settings-error { margin: 0; font: 8px/1.5 var(--mono); }
+.session-state .midi-profile-guide { width: max-content; color: var(--mint); font: 8px/1.4 var(--mono); letter-spacing: .06em; text-underline-offset: 3px; text-transform: uppercase; }
 .session-state .midi-keyboard-hint { padding: 8px; border: 1px solid rgba(97,236,193,.2); color: var(--ink); background: var(--mint-soft); }
 .session-state .midi-profile-status { color: var(--ink); }
 .session-state .midi-profile-hint { padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); }
 .session-state .midi-profile-error { color: var(--coral); }
+.session-state .header-settings-copy { color: var(--muted); }
+.session-state .header-settings-error { color: var(--coral); }
 
 .status-pill {
   display: inline-flex;
@@ -1082,6 +1191,8 @@ canvas:focus-visible,
 
 @media (max-width: 680px) {
   .topbar { position: relative; grid-template-columns: 1fr auto; gap: 10px; padding: 8px 12px; }
+  .brand { width: 34px; overflow: hidden; flex: 0 0 34px; gap: 0; }
+  .brand > span:last-child { display: none; }
   .session-state[data-midi-toolbar-host] {
     order: 2;
     grid-column: 1 / -1;
@@ -1089,7 +1200,21 @@ canvas:focus-visible,
     justify-content: flex-end;
     flex-wrap: nowrap;
   }
-  .session-state .midi-profile-panel { top: 142px; }
+  .session-state .header-io-controls { gap: 6px; }
+  .session-state .midi-toggle { width: 72px; padding-right: 6px; padding-left: 6px; }
+  .session-state .header-output-meter-shell { width: 12px; min-width: 12px; }
+  .session-state .header-io-controls > .header-actions {
+    grid-template-columns: minmax(54px, 70px) auto;
+    gap: 6px;
+  }
+  .session-state .header-level { width: 70px; min-width: 54px; }
+  .session-state .audio-toggle { padding-right: 7px; padding-left: 7px; gap: 6px; }
+  .session-state .audio-toggle > span:last-child { min-width: 38px; }
+  .session-state .header-settings-trigger {
+    width: 40px;
+    min-width: 40px;
+  }
+  .session-state .header-settings-panel { top: 142px; max-height: calc(100dvh - 154px); }
   .primary-nav { grid-column: 1 / -1; width: 100%; overflow-x: auto; justify-self: stretch; }
   .primary-nav a { flex: 1 0 auto; text-align: center; }
   .session-state .status-pill { display: none; }
@@ -1115,6 +1240,18 @@ canvas:focus-visible,
   .atlas-toolbar { position: static; grid-template-columns: 1fr; }
   .feature-grid { grid-template-columns: 1fr; }
   .atlas-filters { overflow-x: auto; flex-wrap: nowrap; }
+}
+
+@media (max-width: 360px) {
+  .session-state .midi-toggle { width: 68px; }
+  .session-state .header-io-controls > .header-actions {
+    grid-template-columns: minmax(44px, 52px) auto;
+  }
+  .session-state .header-level { width: 52px; min-width: 44px; }
+  .session-state .header-settings-trigger {
+    width: 38px;
+    min-width: 38px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

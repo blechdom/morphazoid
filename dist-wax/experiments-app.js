@@ -1,4 +1,5 @@
 import { unlockAudioContext } from "./src/audio.js";
+import { connectAudioOutput } from "./src/audio-output-manager.js";
 
 const TAU = Math.PI * 2;
 const MAX_CONTINUOUS_VOICES = 48;
@@ -58,6 +59,7 @@ class ExperimentAudio {
     this.context = null;
     this.master = null;
     this.compressor = null;
+    this.outputRelease = null;
     this.voices = [];
     this.level = 0.45;
     this.running = false;
@@ -79,7 +81,7 @@ class ExperimentAudio {
       this.compressor.attack.value = 0.006;
       this.compressor.release.value = 0.12;
       this.master.connect(this.compressor);
-      this.compressor.connect(this.context.destination);
+      this.outputRelease = connectAudioOutput(this.context, this.compressor);
     }
     if (this.context.state === "suspended") {
       unlockAudioContext(this.context);
@@ -179,6 +181,8 @@ class ExperimentAudio {
   dispose() {
     this.running = false;
     this.silence();
+    this.outputRelease?.();
+    this.outputRelease = null;
     this.context?.close?.();
   }
 }

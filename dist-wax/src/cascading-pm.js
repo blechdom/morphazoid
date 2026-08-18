@@ -1,4 +1,5 @@
 import { unlockAudioContext } from "./audio.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 
 // Cascading phase modulation (PM).
 //
@@ -851,6 +852,7 @@ export class CascadingPmAudioEngine {
     this.compressor = null;
     this.ceilingGain = null;
     this.analyser = null;
+    this.releaseAudioOutput = null;
     this.waveform = null;
     this.nodes = [];
     this.stopping = false;
@@ -932,7 +934,7 @@ export class CascadingPmAudioEngine {
       masterGain.connect(compressor);
       compressor.connect(ceilingGain);
       ceilingGain.connect(analyser);
-      analyser.connect(context.destination);
+      this.releaseAudioOutput = connectAudioOutput(context, analyser, { runtime: this.runtime });
 
       this.worklet = worklet;
       this.normalizationGain = normalizationGain;
@@ -1001,7 +1003,9 @@ export class CascadingPmAudioEngine {
     if (!this.context || this.stopping) return;
     this.stopping = true;
     const context = this.context;
+    const releaseAudioOutput = this.releaseAudioOutput;
     const nodes = [...this.nodes];
+    this.releaseAudioOutput = null;
 
     if (this.masterGain) {
       const now = context.currentTime;
@@ -1017,6 +1021,7 @@ export class CascadingPmAudioEngine {
       const setTimeoutFunction = this.runtime.setTimeout ?? globalThis.setTimeout;
       await new Promise((resolve) => setTimeoutFunction(resolve, 32));
     }
+    releaseAudioOutput?.();
     try {
       this.worklet?.port.postMessage({ type: "shutdown" });
     } catch {

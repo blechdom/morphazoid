@@ -330,6 +330,47 @@ test("client registration replays state, gates capability by clientCount, and un
   assert.equal(manager.status().clientCount, 0);
 });
 
+test("message observers report hardware and computer MIDI without becoming instrument clients", async () => {
+  const input = new FakeMidiInput();
+  const access = new FakeMidiAccess([input]);
+  const { runtime, document } = computerKeyboardRuntime({ requests: [access] });
+  const manager = new WebMidiManager(runtime);
+  const observed = [];
+  const unsubscribeThrowing = manager.subscribeMessages(() => {
+    throw new Error("activity observer failure");
+  });
+  const unsubscribe = manager.subscribeMessages((message, nativeEvent) => {
+    observed.push({ message, nativeEvent });
+  });
+  assert.equal(manager.status().clientCount, 0);
+  assert.equal(manager.messageSubscribers.size, 2);
+  assert.throws(() => manager.subscribeMessages(null), /message listener/);
+
+  const delivered = [];
+  manager.registerClient({ id: "instrument", onMessage: (message) => delivered.push(message) });
+  assert.equal(manager.status().clientCount, 1);
+  await manager.enable();
+  input.send([0x90, 64, 96]);
+  assert.equal(delivered.at(-1).note, 64, "a throwing activity observer cannot block clients");
+  assert.equal(observed.at(-1).message.note, 64);
+  assert.equal(observed.at(-1).message.virtual, undefined);
+
+  document.emit("keydown", computerKey("KeyQ"));
+  assert.equal(observed.at(-1).message.note, 60);
+  assert.equal(observed.at(-1).message.virtual, true);
+  assert.equal(observed.at(-1).nativeEvent.code, "KeyQ");
+  document.emit("keyup", computerKey("KeyQ"));
+
+  const beforeUnsubscribe = observed.length;
+  unsubscribe();
+  unsubscribe();
+  unsubscribeThrowing();
+  input.send([0x90, 65, 96]);
+  assert.equal(observed.length, beforeUnsubscribe);
+  assert.equal(manager.messageSubscribers.size, 0);
+  manager.disable();
+});
+
 test("computer piano works without hardware Web MIDI and stays available after permission denial", async () => {
   assert.equal(Object.isFrozen(COMPUTER_KEYBOARD_LAYOUTS), true);
   assert.equal(Object.isFrozen(COMPUTER_KEYBOARD_LAYOUTS.piano.noteOffsets), true);

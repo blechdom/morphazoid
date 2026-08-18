@@ -1810,6 +1810,9 @@ export function startWorkbench(root = document) {
     setText(byId("baseFrequencyOut"), `${Math.round(state.baseFrequency)} Hz`);
     setText(byId("pitchRangeOut"), `${state.pitchRange.toFixed(1)} oct`);
     setText(byId("masterLevelOut"), `${Math.round(state.masterLevel * 100)}%`);
+    const headerMasterLevel = byId("headerMasterLevel");
+    if (headerMasterLevel) headerMasterLevel.value = String(state.masterLevel);
+    setText(byId("headerMasterLevelOut"), `${Math.round(state.masterLevel * 100)}%`);
     setText(byId("formSummary"), state.shapeType === "circle" ? "circle"
       : state.shapeType === "line" ? "open line" : `${state.sides}-${state.shapeType === "star" ? "point star" : "sided polygon"}`);
     const readerCopy = {
@@ -2003,6 +2006,22 @@ export function startWorkbench(root = document) {
     bindRange(["masterLevel", "level"], "masterLevel", {
       label: "Master level",
       after: (value) => pool.setLevel(value),
+    });
+    const masterLevel = byId("masterLevel", "level");
+    const headerMasterLevel = byId("headerMasterLevel");
+    headerMasterLevel?.addEventListener("input", () => {
+      const value = Number(headerMasterLevel.value);
+      if (!finite(value)) return;
+      state.masterLevel = clamp(value, 0, 1);
+      if (masterLevel) masterLevel.value = String(state.masterLevel);
+      pool.setLevel(state.masterLevel);
+      invalidate();
+    });
+    headerMasterLevel?.addEventListener("change", () => {
+      announce(`Master level ${Math.round(state.masterLevel * 100)} percent.`);
+    });
+    masterLevel?.addEventListener("input", () => {
+      if (headerMasterLevel) headerMasterLevel.value = String(state.masterLevel);
     });
 
     bindSelect(["shapeType"], "shapeType", () => tracker.reset());

@@ -1,4 +1,5 @@
 import { unlockAudioContext } from "./audio.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 
 const PROCESSOR_NAME = "morphazoid-chaotic-fm";
 const TAU = Math.PI * 2;
@@ -1290,6 +1291,7 @@ export class ChaoticFmAudio {
     this.ceiling = null;
     this.master = null;
     this.analyser = null;
+    this.releaseAudioOutput = null;
     this.params = { ...CHAOTIC_FM_DEFAULTS };
     this.performance = { ...CHAOTIC_FM_PERFORMANCE_DEFAULTS };
     this.enabled = false;
@@ -1365,8 +1367,8 @@ export class ChaoticFmAudio {
         .connect(compressor)
         .connect(ceiling)
         .connect(master)
-        .connect(analyser)
-        .connect(context.destination);
+        .connect(analyser);
+      this.releaseAudioOutput = connectAudioOutput(context, analyser, { runtime: this.runtime });
 
       this.context = context;
       this.node = node;
@@ -1378,6 +1380,8 @@ export class ChaoticFmAudio {
       this.setParameters(this.params);
       this.setPerformanceParameters(this.performance);
     } catch (error) {
+      this.releaseAudioOutput?.();
+      this.releaseAudioOutput = null;
       await context.close().catch(() => {});
       throw error;
     }
@@ -1538,6 +1542,8 @@ export class ChaoticFmAudio {
       this.suspendTimer = null;
     }
     this.enabled = false;
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     this.node?.port.postMessage({ type: "active", value: false });
     this.node?.disconnect();
     this.highpass?.disconnect();

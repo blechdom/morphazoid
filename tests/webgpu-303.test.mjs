@@ -420,7 +420,7 @@ test("WebGPU 303 page ships as a separate credited section", async () => {
   assert.doesNotMatch(app, /knobGroups|knobState|303 Knobs|Squelch altar|Pitch prism|Trip clock/);
   assert.doesNotMatch(app, /Rubber Ladder|Glass Line|Seed Swarm|Acid Clock|Neon Ladder|Chrome Teeth|Solar Shard|Filter Snap|Wide Phase|Resonance Glass|Needle Trip|Drive Floor|Hollow Offset|Vector Sweep|Seed Scanner|Lysergic Snap/);
   assert.doesNotMatch(app, /from "\.\/src\/(?:audio|fm-drums|sample-drums|chaotic-fm|chaotic-pm|weierstrass)/);
-  assert.doesNotMatch(source, /from "\.\/(?:audio|fm-drums|sample-drums|chaotic-fm|chaotic-pm|weierstrass)/);
+  assert.doesNotMatch(source, /from "\.\/(?:audio\.js|fm-drums|sample-drums|chaotic-fm|chaotic-pm|weierstrass)/);
   assert.doesNotMatch(source, /createDynamicsCompressor/);
   assert.match(notices, /## WebGPU 303 \/ Acid Synth lineage/);
   assert.match(readme, /does not share the existing Web Audio synth engines/);

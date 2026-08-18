@@ -15,6 +15,7 @@ import {
 } from "./recursion-live.js";
 import { MOTION_CAPS } from "./recursion-motion.js";
 import { spectralMobiusGenerations } from "./recursion-spectral-dsp.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 
 const MIN_GAIN = 0.0001;
 const MAX_SEED_SECONDS = 4;
@@ -111,6 +112,7 @@ export class RecursiveAudioEngine {
     this.context = null;
     this.master = null;
     this.outputCeiling = null;
+    this.releaseAudioOutput = null;
     this.sessionBus = null;
     this.sessionTone = null;
     this.sessionDonut = null;
@@ -165,7 +167,7 @@ export class RecursiveAudioEngine {
       if (compressor.release) compressor.release.value = 0.22;
       outputCeiling.gain.value = 0.84;
       compressor.connect(outputCeiling);
-      outputCeiling.connect(context.destination);
+      this.releaseAudioOutput = connectAudioOutput(context, outputCeiling, { runtime: globalThis });
       this.context = context;
       this.master = master;
       this.outputCeiling = outputCeiling;
@@ -1613,6 +1615,8 @@ export class RecursiveAudioEngine {
   async destroy() {
     this.stopCapture();
     this.stopSession();
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     this.outputCeiling = null;
     if (this.context && this.context.state !== "closed") {
       try { await this.context.close(); } catch { /* page is leaving */ }

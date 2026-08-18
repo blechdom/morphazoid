@@ -1,4 +1,5 @@
 import { glottalHarmonics } from "./throatazoid.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 import {
   WHEEL_MOUTH_LIMITS,
   WHEEL_MORPH_LIMITS,
@@ -1155,6 +1156,7 @@ export class WheelOfOrgansAudio {
     this.context = null;
     this.master = null;
     this.compressor = null;
+    this.releaseAudioOutput = null;
     this.voiceBus = null;
     this.noiseSource = null;
     this.noiseBuffer = null;
@@ -1222,7 +1224,7 @@ export class WheelOfOrgansAudio {
       compressor.release.value = 0.18;
       master.gain.value = 0;
       connect(compressor, master);
-      connect(master, context.destination);
+      this.releaseAudioOutput = connectAudioOutput(context, master, { runtime: this.runtime });
 
       const vibrato = context.createOscillator();
       const vibratoDepth = context.createGain();
@@ -1940,6 +1942,8 @@ export class WheelOfOrgansAudio {
     disconnect(this.vibratoDepth);
     disconnect(this.compressor);
     disconnect(this.master);
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     try {
       if (context.state !== "closed") await context.close?.();
     } finally {
@@ -1948,9 +1952,11 @@ export class WheelOfOrgansAudio {
   }
 
   #resetGraph() {
+    this.releaseAudioOutput?.();
     this.context = null;
     this.master = null;
     this.compressor = null;
+    this.releaseAudioOutput = null;
     this.voiceBus = null;
     this.noiseSource = null;
     this.noiseBuffer = null;

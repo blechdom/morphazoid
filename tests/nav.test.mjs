@@ -64,6 +64,9 @@ class FakeNode {
 
   append(...nodes) {
     for (const node of nodes) {
+      if (node.parentNode) {
+        node.parentNode.children = node.parentNode.children.filter((child) => child !== node);
+      }
       node.parentNode = this;
       this.children.push(node);
     }
@@ -75,6 +78,9 @@ class FakeNode {
   }
 
   insertBefore(node, reference) {
+    if (node.parentNode) {
+      node.parentNode.children = node.parentNode.children.filter((child) => child !== node);
+    }
     const index = this.children.indexOf(reference);
     if (index < 0) {
       this.append(node);
@@ -851,6 +857,11 @@ test("one header MIDI control owns connection and controller profile selection",
   masthead.className = "masthead";
   const audioStrip = new FakeNode("div");
   audioStrip.className = "audio-strip";
+  const audioButton = new FakeNode("button");
+  audioButton.className = "audio-button";
+  const outputLevel = new FakeNode("label");
+  outputLevel.className = "header-level";
+  audioStrip.append(audioButton, outputLevel);
   masthead.append(audioStrip);
   const baseQuerySelectorAll = doc.querySelectorAll.bind(doc);
   doc.querySelectorAll = (selector) => (
@@ -875,6 +886,7 @@ test("one header MIDI control owns connection and controller profile selection",
   };
   const requests = [];
   const stored = new Map();
+  let pendingActivity = null;
   const runtime = {
     navigator: {
       async requestMIDIAccess(options) {
@@ -887,6 +899,13 @@ test("one header MIDI control owns connection and controller profile selection",
       setItem(key, value) { stored.set(key, String(value)); },
     },
     addEventListener() {},
+    setTimeout(callback) {
+      pendingActivity = callback;
+      return 1;
+    },
+    clearTimeout() {
+      pendingActivity = null;
+    },
   };
   const manager = new WebMidiManager(runtime);
   const [control] = initializeMidiToolbars(doc, runtime, manager);
@@ -900,25 +919,51 @@ test("one header MIDI control owns connection and controller profile selection",
     onMessage: (message) => messages.push(message),
   });
   assert.equal(control.toolbar.hidden, false);
+  assert.equal(control.meterShell.hidden, false);
+  assert.equal(control.details.hidden, false);
   assert.equal(masthead.classList.contains("has-midi-toolbar"), true);
-  assert.equal(masthead.children[0], control.toolbar);
-  assert.equal(masthead.children[1], audioStrip);
+  const ioControls = masthead.children[0];
+  assert.equal(ioControls.className, "header-io-controls");
+  assert.deepEqual(
+    ioControls.children,
+    [control.toolbar, control.meterShell, audioStrip, control.details],
+  );
+  assert.deepEqual(audioStrip.children, [outputLevel, audioButton]);
   assert.equal(initializeMidiToolbars(doc, runtime, manager).length, 0);
   assert.equal(masthead.findAll((node) => node.className === "midi-toolbar").length, 1);
+  const initialHint = control.details.findAll(
+    (node) => node.className === "midi-profile-hint",
+  )[0];
+  assert.equal(initialHint.hidden, true);
+  assert.equal(initialHint.textContent, "");
 
   await control.toggle.listeners.get("click")[0]();
   assert.deepEqual(requests, [{ sysex: false }]);
   assert.equal(control.toggle.getAttribute("aria-pressed"), "true");
   assert.equal(control.toggle.getAttribute("aria-controls"), null);
   assert.equal(manager.status().inputs[0].profileId, "ni-komplete-kontrol-s49-mk2");
-  const profileSummary = control.details.children[0];
+  const settingsSummary = control.details.children[0];
   assert.equal(
-    profileSummary.getAttribute("aria-label"),
-    "MIDI mapping: Auto (per device); computer keys: piano",
+    settingsSummary.getAttribute("aria-label"),
+    "Open input, output, and MIDI settings",
   );
-  assert.equal(profileSummary.title, "Auto (per device) · Computer piano");
-  assert.equal(profileSummary.children[1].textContent, "Piano");
+  assert.equal(settingsSummary.getAttribute("title"), "Settings");
+  assert.equal(settingsSummary.children.length, 1);
+  assert.equal(settingsSummary.children[0].className, "header-settings-icon");
+  assert.equal(control.details.getAttribute("role"), null, "settings is a disclosure, not an ARIA menu");
+  assert.deepEqual(
+    control.details.findAll((node) => node.className === "header-settings-section-title")
+      .map((node) => node.textContent),
+    ["Audio Out", "Mic / Audio In", "MIDI In", "MIDI Out", "MIDI Map"],
+  );
+  assert.equal(control.meter.tagName, "METER");
+  assert.equal(control.meter.getAttribute("aria-label"), "Audio output signal level");
+  const guide = control.details.findAll((node) => node.className === "midi-profile-guide")[0];
+  assert.equal(guide.textContent, "MIDI guide");
+  assert.match(guide.getAttribute("href"), /index\.html#midi$/);
   assert.equal(control.toggle.children[2].textContent, "keys+1");
+  assert.equal(control.toggle.getAttribute("aria-label"), "Turn MIDI input off");
+  assert.equal(control.toggle.title, "MIDI input on");
   const keyboardHint = control.details.findAll(
     (node) => node.className === "midi-keyboard-hint",
   )[0];
@@ -933,8 +978,15 @@ test("one header MIDI control owns connection and controller profile selection",
   const hint = control.details.findAll((node) => node.className === "midi-profile-hint")[0];
   assert.match(hint.textContent, /Morphazoid MIDI-mode template/);
   assert.match(hint.textContent, /not Native Instruments factory defaults/);
-  assert.match(hint.textContent, /where a safe note target exists, notes set pitch or trigger sound/);
-  assert.match(hint.textContent, /MIDI Clock, Start, and Stop/);
+  assert.doesNotMatch(hint.textContent, /Universal map/);
+  assert.doesNotMatch(hint.textContent, /where a safe note target exists/);
+
+  inputListeners.get("midimessage")({ data: new Uint8Array([0x90, 60, 100]) });
+  assert.equal(control.toolbar.classList.contains("is-receiving"), true);
+  assert.equal(control.activityLight.getAttribute("aria-hidden"), "true");
+  const finishActivity = pendingActivity;
+  finishActivity();
+  assert.equal(control.toolbar.classList.contains("is-receiving"), false);
 
   control.select.value = "arturia-minilab-3";
   control.select.dispatch("change");
@@ -943,11 +995,14 @@ test("one header MIDI control owns connection and controller profile selection",
 
   await control.toggle.listeners.get("click")[0]();
   assert.equal(control.toggle.getAttribute("aria-pressed"), "false");
+  assert.equal(control.toggle.getAttribute("aria-label"), "Turn MIDI input on");
   assert.equal(inputListeners.has("midimessage"), false);
   assert.equal(messages.at(-1).controller, 120);
   assert.equal(messages.at(-1).reason, "manager-disabled");
   unregisterClient();
   assert.equal(control.toolbar.hidden, true);
+  assert.equal(control.meterShell.hidden, true);
+  assert.equal(control.details.hidden, true);
   assert.equal(masthead.classList.contains("has-midi-toolbar"), false);
   control.destroy();
 });
@@ -990,10 +1045,11 @@ test("MIDI toolbar IDs stay unique and repeated initialization adds no subscript
   assert.equal(controls[1].toggle.id, "sharedMidiToggle-2");
   assert.equal(
     controls[1].details.children[0].getAttribute("aria-controls"),
-    "midiProfilePanel-2",
+    "headerSettingsPanel-2",
   );
   assert.equal(new Set(controls.map(({ select }) => select.id)).size, 2);
   assert.equal(manager.statusSubscribers.size, 2);
+  assert.equal(manager.messageSubscribers.size, 2);
   assert.equal(initializeMidiToolbars(doc, runtime, manager).length, 0);
   assert.equal(manager.statusSubscribers.size, 2);
   const unregister = manager.registerClient({
@@ -1001,7 +1057,11 @@ test("MIDI toolbar IDs stay unique and repeated initialization adds no subscript
     computerKeyboard: { layout: "pad-grid", baseNote: 36, velocity: 72 },
   });
   for (const control of controls) {
-    assert.equal(control.details.children[0].children[1].textContent, "Pads");
+    assert.equal(
+      control.details.children[0].getAttribute("aria-label"),
+      "Open input, output, and MIDI settings",
+    );
+    assert.equal(control.details.children[0].children[0].className, "header-settings-icon");
     const keyboardHint = control.details.findAll(
       (node) => node.className === "midi-keyboard-hint",
     )[0];
@@ -1023,6 +1083,172 @@ test("MIDI toolbar IDs stay unique and repeated initialization adds no subscript
   unregister();
   controls.forEach(({ destroy }) => destroy());
   assert.equal(manager.statusSubscribers.size, 0);
+  assert.equal(manager.messageSubscribers.size, 0);
+});
+
+test("MIDI and audio controls keep one semantic order across shared header variants", () => {
+  const doc = new FakeDocument();
+  const audioStripHost = new FakeNode("header");
+  audioStripHost.className = "masthead";
+  const actionHost = new FakeNode("header");
+  actionHost.className = "masthead";
+  const dedicatedHost = new FakeNode("div");
+  dedicatedHost.className = "session-state";
+
+  const createAudioGroup = (className) => {
+    const group = new FakeNode("div");
+    group.className = className;
+    const audioButton = new FakeNode("button");
+    audioButton.className = "audio-button";
+    const level = new FakeNode("label");
+    level.className = "header-level";
+    group.append(audioButton, level);
+    return { group, audioButton, level };
+  };
+  const strip = createAudioGroup("audio-strip");
+  const actions = createAudioGroup("header-actions");
+  audioStripHost.append(strip.group);
+  actionHost.append(actions.group);
+  const audioToggle = new FakeNode("button");
+  audioToggle.className = "audio-toggle";
+  dedicatedHost.append(audioToggle);
+
+  const baseQuerySelectorAll = doc.querySelectorAll.bind(doc);
+  doc.querySelectorAll = (selector) => {
+    if (selector === ".masthead") return [audioStripHost, actionHost];
+    if (selector === "[data-midi-toolbar-host]") return [dedicatedHost];
+    return baseQuerySelectorAll(selector);
+  };
+  const runtime = { navigator: {}, addEventListener() {}, removeEventListener() {} };
+  const manager = new WebMidiManager(runtime);
+  const controls = initializeMidiToolbars(doc, runtime, manager);
+  assert.equal(controls.length, 3);
+
+  const [stripWrapper, actionWrapper, dedicatedWrapper] = [
+    audioStripHost,
+    actionHost,
+    dedicatedHost,
+  ].map((host) => host.querySelector(".header-io-controls"));
+  assert.deepEqual(
+    stripWrapper.children,
+    [controls[0].toolbar, controls[0].meterShell, strip.group, controls[0].details],
+  );
+  assert.deepEqual(
+    actionWrapper.children,
+    [controls[1].toolbar, controls[1].meterShell, actions.group, controls[1].details],
+  );
+  assert.deepEqual(
+    dedicatedWrapper.children,
+    [controls[2].toolbar, controls[2].meterShell, audioToggle, controls[2].details],
+  );
+  assert.deepEqual(strip.group.children, [strip.level, strip.audioButton]);
+  assert.deepEqual(actions.group.children, [actions.level, actions.audioButton]);
+
+  const unregister = manager.registerClient({ id: "late-native-client" });
+  for (const host of [audioStripHost, actionHost, dedicatedHost]) {
+    assert.equal(host.classList.contains("has-midi-toolbar"), true);
+    assert.equal(host.querySelector(".header-io-controls").classList.contains("has-midi-toolbar"), false);
+  }
+  unregister();
+  for (const host of [audioStripHost, actionHost, dedicatedHost]) {
+    assert.equal(host.classList.contains("has-midi-toolbar"), false);
+  }
+  controls.forEach(({ destroy }) => destroy());
+});
+
+test("header settings meter and browser output chooser report real shared output state", async () => {
+  const doc = new FakeDocument();
+  doc.baseURI = `${SITE_ROOT}julia.html`;
+  const masthead = new FakeNode("header");
+  masthead.className = "masthead";
+  const audioStrip = new FakeNode("div");
+  audioStrip.className = "audio-strip";
+  const level = new FakeNode("label");
+  level.className = "header-level";
+  const audioButton = new FakeNode("button");
+  audioButton.className = "audio-button";
+  audioStrip.append(level, audioButton);
+  masthead.append(audioStrip);
+  const baseQuerySelectorAll = doc.querySelectorAll.bind(doc);
+  doc.querySelectorAll = (selector) => (
+    selector === ".masthead" ? [masthead] : baseQuerySelectorAll(selector)
+  );
+
+  const runtime = { navigator: {}, addEventListener() {}, removeEventListener() {} };
+  const midiManager = new WebMidiManager(runtime);
+  let audioStatus = {
+    rms: 0.24,
+    peak: 0.62,
+    active: true,
+    output: {
+      mode: "browser-selectable",
+      canSelect: true,
+      selectedId: "usb",
+      label: "USB Interface",
+    },
+  };
+  let audioListener = null;
+  let refreshed = 0;
+  const selected = [];
+  const audioOutputManager = {
+    subscribe(listener) {
+      audioListener = listener;
+      listener(audioStatus);
+      return () => { audioListener = null; };
+    },
+    getStatus() { return audioStatus; },
+    async refreshOutputDevices() { refreshed += 1; },
+    async listOutputDevices() {
+      return [{ id: "usb", deviceId: "usb", label: "USB Interface" }];
+    },
+    async setOutputDevice(id) { selected.push(id); },
+  };
+  const [control] = initializeMidiToolbars(doc, runtime, midiManager, {
+    routeId: "julia",
+    audioOutputManager,
+  });
+  const unregister = midiManager.registerClient({ id: "julia" });
+
+  assert.equal(control.meter.value, 0.62);
+  assert.equal(control.meter.getAttribute("aria-valuetext"), "62% output signal");
+  assert.equal(control.audioOutputSelect.hidden, undefined);
+  const audioField = control.details.findAll(
+    (node) => node.className === "header-settings-field",
+  )[0];
+  assert.equal(audioField.hidden, false);
+  const audioCopy = control.details.findAll(
+    (node) => node.className === "header-settings-copy",
+  )[0];
+  assert.match(audioCopy.textContent, /USB Interface/);
+  assert.match(audioCopy.textContent, /not speaker loudness/);
+
+  control.details.open = true;
+  await control.details.listeners.get("toggle")[0]();
+  assert.equal(refreshed, 1);
+  assert.deepEqual(
+    control.audioOutputSelect.children.map((option) => [option.value, option.textContent]),
+    [["", "System default"], ["usb", "USB Interface"]],
+    "the browser chooser always retains a System default route",
+  );
+  control.audioOutputSelect.value = "";
+  await control.audioOutputSelect.listeners.get("change")[0]();
+  assert.deepEqual(selected, [""]);
+
+  const midiOutCopy = control.details.findAll(
+    (node) => node.className === "header-settings-copy",
+  ).find((node) => /browser MIDI Out/.test(node.textContent));
+  assert.match(midiOutCopy.textContent, /not enabled here yet/);
+  assert.equal(control.midiOutputSelect.disabled, true);
+  assert.equal(control.midiOutputSelect.children[0].textContent, "Off (not enabled yet)");
+
+  audioStatus = { ...audioStatus, peak: 0, rms: 0, active: false };
+  audioListener(audioStatus);
+  assert.equal(control.meter.value, 0);
+  assert.equal(control.meter.getAttribute("aria-valuetext"), "No output signal");
+
+  unregister();
+  control.destroy();
+  assert.equal(audioListener, null);
 });
 
 test("MIDI toolbar keeps computer keys active when hardware permission fails and can retry cleanly", async () => {
@@ -1179,15 +1405,15 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
   const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
   assert.match(
     css,
-    /@media \(max-width: 650px\)[\s\S]*?\.wordmark \{[\s\S]*?display: inline-flex;[\s\S]*?width: auto;[\s\S]*?flex: 0 0 auto;/,
+    /@media \(max-width: 900px\)[\s\S]*?\.wordmark \{[\s\S]*?display: inline-flex;[\s\S]*?width: 28px;[\s\S]*?overflow: hidden;[\s\S]*?flex: 0 0 28px;/,
   );
   assert.match(
     css,
-    /@media \(max-width: 650px\)[\s\S]*?\.wordmark > span:last-child \{\s+display: inline;/,
+    /@media \(max-width: 900px\)[\s\S]*?\.wordmark > span:last-child \{\s+display: none;/,
   );
   assert.doesNotMatch(
     css,
-    /@media \(min-width: 651px\) and \(max-width: 900px\)[\s\S]*?\.masthead\.has-midi-toolbar \.wordmark \{\s+display: none;/,
+    /@media \(max-width: 650px\)[\s\S]*?\.wordmark > span:last-child \{\s+display: inline;/,
   );
   assert.doesNotMatch(css, /\.instrument-picker-info\s*\{/);
   assert.doesNotMatch(css, /\.selected-instrument-info/);
@@ -1210,7 +1436,7 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
   assert.doesNotMatch(css, /\.instrument-picker\.has-preview/);
   assert.match(
     css,
-    /@media \(min-width: 651px\) and \(max-width: 900px\)[\s\S]+\.masthead\.has-midi-toolbar \.tabs\.tools-nav \+ \.mobile-instrument-nav/,
+    /@media \(max-width: 900px\)[\s\S]+\.masthead\.has-midi-toolbar \.tabs\.tools-nav \+ \.mobile-instrument-nav/,
   );
   assert.match(
     css,
@@ -1218,7 +1444,11 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
   );
   assert.match(
     css,
-    /\.masthead\.has-midi-toolbar \.audio-strip \{\s+width: 100%;[\s\S]*?grid-template-columns: 44px minmax\(0, 1fr\);/,
+    /\.masthead\.has-midi-toolbar \.header-io-controls \{\s+width: 100%;[\s\S]*?flex: 1 0 100%;/,
+  );
+  assert.match(
+    css,
+    /\.masthead\.has-midi-toolbar \.header-io-controls > \.audio-strip,[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 44px;/,
   );
   assert.match(
     css,
@@ -1226,10 +1456,12 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
   );
   assert.doesNotMatch(css, /\.masthead\.has-midi-toolbar \.header-level \{\s+display: none;/);
   assert.doesNotMatch(css, /\.midi-toolbar\[hidden\][\s\S]{0,80}display:\s*flex/);
-  assert.match(
-    css,
-    /@media \(max-width: 650px\)[\s\S]*?\.midi-profile-trigger small \{\s+font-size: 8px;/,
-  );
+  assert.match(css, /\.header-settings-trigger \{[\s\S]*?width: 44px;/);
+  assert.match(css, /\.header-settings-icon \{[\s\S]*?mask: url\("data:image\/svg\+xml/);
+  assert.match(css, /\.header-settings-panel \{[\s\S]*?overflow-y: auto;/);
+  assert.match(css, /\.header-output-meter \{[\s\S]*?writing-mode: vertical-rl;/);
+  assert.match(css, /\.midi-toolbar\.is-receiving \.midi-activity-light \{/);
+  assert.match(css, /\.audio-strip \{[\s\S]*?grid-template-columns: minmax\(96px, 140px\) 44px;/);
 });
 
 test("Reset all preserves Shape sides for one reload", () => {

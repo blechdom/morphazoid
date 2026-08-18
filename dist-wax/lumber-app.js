@@ -1,4 +1,5 @@
 import { clamp, levelToGain, unlockAudioContext } from "./src/audio.js";
+import { connectAudioOutput } from "./src/audio-output-manager.js";
 import {
   addContourVertex,
   fadeLoopEdges,
@@ -133,6 +134,7 @@ let transportGeneration = 0;
 let lastDelayFrameTime = performance.now();
 
 let audioContext = null;
+let releaseAudioOutput = null;
 let masterGain = null;
 let masterLimiter = null;
 let mixDelaySend = null;
@@ -669,7 +671,8 @@ async function ensureAudio() {
     audioContext = new AudioContextClass();
     masterGain = audioContext.createGain();
     masterGain.gain.value = 0;
-    let masterOutput = audioContext.destination;
+    const audioOutputReleases = [];
+    let masterOutput = null;
     if (typeof audioContext.createDynamicsCompressor === "function") {
       masterLimiter = audioContext.createDynamicsCompressor();
       masterLimiter.threshold?.setValueAtTime?.(-8, audioContext.currentTime);
@@ -678,11 +681,18 @@ async function ensureAudio() {
       masterLimiter.attack?.setValueAtTime?.(0.003, audioContext.currentTime);
       masterLimiter.release?.setValueAtTime?.(0.16, audioContext.currentTime);
       masterGain.connect(masterLimiter);
-      masterLimiter.connect(audioContext.destination);
       masterOutput = masterLimiter;
+      audioOutputReleases.push(
+        connectAudioOutput(audioContext, masterOutput, { runtime: globalThis }),
+      );
     } else {
-      masterGain.connect(audioContext.destination);
+      audioOutputReleases.push(
+        connectAudioOutput(audioContext, masterGain, { runtime: globalThis }),
+      );
     }
+    releaseAudioOutput = () => {
+      for (const release of audioOutputReleases.splice(0)) release();
+    };
     if (typeof audioContext.createDelay === "function") {
       mixDelaySend = audioContext.createGain();
       mixDelaySend.gain.value = 0;
@@ -703,10 +713,20 @@ async function ensureAudio() {
           const panner = audioContext.createStereoPanner();
           panner.pan.value = side * state.delayRing.spread;
           wet.connect(panner);
-          panner.connect(masterOutput);
+          if (masterOutput) panner.connect(masterOutput);
+          else {
+            audioOutputReleases.push(
+              connectAudioOutput(audioContext, panner, { runtime: globalThis }),
+            );
+          }
           mixDelayPanners.push(panner);
         } else {
-          wet.connect(masterOutput);
+          if (masterOutput) wet.connect(masterOutput);
+          else {
+            audioOutputReleases.push(
+              connectAudioOutput(audioContext, wet, { runtime: globalThis }),
+            );
+          }
         }
         delay.connect(feedback);
         feedback.connect(delay);
@@ -2686,6 +2706,8 @@ window.addEventListener("pagehide", () => {
   recordingSession = null;
   recordingTargetId = null;
   stopAllRingSources({ capturePhase: false });
+  releaseAudioOutput?.();
+  releaseAudioOutput = null;
   if (audioContext?.state !== "closed") void audioContext.close();
 });
 window.addEventListener("pageshow", () => {

@@ -180,7 +180,11 @@ test("graph-delay keeps live settings safe, coalesces transitions, and rolls bac
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(elements.get("audioState").textContent, "live");
     assert.ok(worklets.length > 0);
-    assert.equal(audioNodes.filter((node) => node.kind === "analyser").length, 1);
+    assert.equal(
+      audioNodes.filter((node) => node.kind === "analyser").length,
+      2,
+      "the graph analyser and shared final-output meter should both be present",
+    );
     assert.equal(
       audioNodes.filter((node) => node.kind === "delay").length,
       13,

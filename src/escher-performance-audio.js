@@ -1,4 +1,5 @@
 import { unlockAudioContext } from "./audio.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 
 const TAU = Math.PI * 2;
 const TIMER_INTERVAL_MS = 25;
@@ -806,6 +807,7 @@ export class EscherPerformanceAudio {
     this.master = null;
     this.eventBus = null;
     this.compressor = null;
+    this.releaseAudioOutput = null;
     this.playheads = [];
     this.activeVoices = [];
     this.uiQueue = [];
@@ -916,6 +918,8 @@ export class EscherPerformanceAudio {
       disconnect(this.eventBus);
       disconnect(this.master);
       disconnect(this.compressor);
+      this.releaseAudioOutput?.();
+      this.releaseAudioOutput = null;
       try { this.context.close?.(); } catch { /* already closed */ }
     }
     this.context = null;
@@ -937,7 +941,7 @@ export class EscherPerformanceAudio {
     }
     connect(this.eventBus, this.master);
     connect(this.master, this.compressor);
-    connect(this.compressor, context.destination);
+    this.releaseAudioOutput = connectAudioOutput(context, this.compressor, { runtime: this.runtime });
   }
 
   _updateOutput() {

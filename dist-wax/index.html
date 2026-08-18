@@ -72,6 +72,69 @@
           </div>
         </section>
 
+        <section class="manual-section" id="midi">
+          <div class="manual-section-heading">
+            <p class="manual-section-label">Play and automate</p>
+            <h2>MIDI</h2>
+            <p class="manual-section-note">
+              The browser toolbar receives MIDI. WAX adds DAW-aware MIDI output on suitable pages.
+            </p>
+          </div>
+          <div class="manual-copy">
+            <p>
+              Every playable instrument has a MIDI control in its top bar. Select
+              <strong>MIDI</strong> to enable it; the browser requires a click before it can request
+              access to connected devices. Its receive light flashes for incoming notes and controls.
+              The small meter shows the signal being sent to the audio destination, while the gear
+              at the far right opens Audio Out, Mic / Audio In, MIDI In, MIDI Out, and MIDI Map.
+              <strong>Auto (per device)</strong> is recommended when more than one controller is
+              connected.
+            </p>
+            <dl class="technical-list">
+              <div>
+                <dt>Computer keys</dt>
+                <dd>
+                  Most melodic pages provide a two-row piano and drum pages provide a 4 × 4 pad
+                  grid, so they can be played without MIDI hardware. A few instruments retain
+                  their own typing or recording shortcuts instead.
+                </dd>
+              </div>
+              <div>
+                <dt>Mappings</dt>
+                <dd>
+                  Chaotic and Recursive FM/PM, Shape, FM Drums, and Sample Drums use custom native
+                  mappings. Other pages use a conservative universal map: notes retune or trigger
+                  sound only where a safe target exists, common CCs follow matching control labels,
+                  profile macro knobs address the first eight eligible sliders, and Program Change
+                  selects presets where available. Pitch bend follows a mapped pitch; pressure seeks
+                  a matching pressure or intensity control; and MIDI Clock, Start, and Stop follow a
+                  page's tempo and transport when those controls exist.
+                </dd>
+              </div>
+              <div>
+                <dt>Messages</dt>
+                <dd>
+                  The shared input accepts notes and velocity, pitch bend, CC, Program Change,
+                  polyphonic and channel pressure, MIDI Clock, Start, Continue, Stop, and Song
+                  Position. An instrument responds only to messages that have a useful mapping on
+                  that page.
+                </dd>
+              </div>
+              <div>
+                <dt>MIDI output</dt>
+                <dd>
+                  Input and output remain separate. Browser MIDI Out stays off unless a page
+                  intentionally generates events; it uses destination, channel, and clock routing,
+                  not a second copy of the input map. Suitable pages in the generated
+                  <a href="wax.html">WAX</a> build can run as MIDI FX, produce a deterministic companion
+                  sequence, and follow DAW tempo and position. Incoming MIDI is never echoed
+                  automatically.
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
         <section class="manual-section catalogue-manual-section" id="instrument-catalogue">
           <div class="manual-section-heading">
             <h2>Instrument Catalogue</h2>

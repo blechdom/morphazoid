@@ -13,7 +13,7 @@
     <a class="skip-link" href="#workspace">Skip to workbench</a>
 
     <header class="topbar">
-      <a class="brand" href="./" aria-label="Morphazoidical workbench">
+      <a class="brand" href="../" aria-label="Morphazoid home">
         <span class="brand-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
         <span><b>Morphazoidical</b><small>geometry workbench</small></span>
       </a>
@@ -25,10 +25,16 @@
       <div class="session-state" data-midi-toolbar-host aria-label="Analysis and performance status">
         <span class="status-pill live"><i></i>Live analysis</span>
         <span class="status-pill" id="fidelityBadge">Sampled · 48/edge</span>
-        <button class="audio-toggle" id="audioToggle" type="button" aria-pressed="false">
-          <span class="audio-dot" aria-hidden="true"></span>
-          <span><b>Audio</b><small id="audioState">off</small></span>
-        </button>
+        <div class="header-actions" aria-label="Audio controls">
+          <label class="header-level" for="headerMasterLevel">
+            <span><b>Volume</b><output id="headerMasterLevelOut" for="headerMasterLevel">55%</output></span>
+            <input id="headerMasterLevel" type="range" min="0" max="1" step="0.01" value="0.55" aria-label="Master audio level" />
+          </label>
+          <button class="audio-toggle" id="audioToggle" type="button" aria-pressed="false">
+            <span class="audio-dot" aria-hidden="true"></span>
+            <span><b>Audio</b><small id="audioState">off</small></span>
+          </button>
+        </div>
       </div>
     </header>
 

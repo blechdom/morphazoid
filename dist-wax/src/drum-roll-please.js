@@ -1,4 +1,5 @@
 import { unlockAudioContext } from "./audio.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 
 const PROCESSOR_NAME = "morphazoid-drum-roll-please";
 const TAU = Math.PI * 2;
@@ -1010,6 +1011,7 @@ export class DrumRollPleaseAudio {
     this.ceiling = null;
     this.master = null;
     this.analyser = null;
+    this.releaseAudioOutput = null;
     this.enabled = false;
     this.params = { ...DRUM_ROLL_DEFAULTS };
     this.level = DRUM_ROLL_DEFAULTS.level;
@@ -1082,8 +1084,8 @@ export class DrumRollPleaseAudio {
         .connect(compressor)
         .connect(ceiling)
         .connect(master)
-        .connect(analyser)
-        .connect(context.destination);
+        .connect(analyser);
+      this.releaseAudioOutput = connectAudioOutput(context, analyser, { runtime: this.runtime });
 
       this.context = context;
       this.node = node;
@@ -1095,6 +1097,8 @@ export class DrumRollPleaseAudio {
       this.analyser = analyser;
       this.setParameters(this.params);
     } catch (error) {
+      this.releaseAudioOutput?.();
+      this.releaseAudioOutput = null;
       await context.close().catch(() => {});
       throw error;
     }
@@ -1166,6 +1170,8 @@ export class DrumRollPleaseAudio {
       this.suspendTimer = null;
     }
     this.enabled = false;
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     this.node?.port.postMessage({ type: "active", value: false });
     this.node?.disconnect();
     this.highpass?.disconnect();

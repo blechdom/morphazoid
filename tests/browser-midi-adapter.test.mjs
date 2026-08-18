@@ -179,6 +179,11 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("shape-drums").computerKeyboardMode, "midi");
   assert.equal(instrumentMidiCapabilityForId("recursion").startsAudio, true);
   assert.equal(instrumentMidiCapabilityForId("lumber").startsAudio, false);
+  assert.equal(instrumentMidiCapabilityForId("graph-delay").audioInput, true);
+  assert.equal(instrumentMidiCapabilityForId("throatazoid").audioInput, true);
+  assert.equal(instrumentMidiCapabilityForId("chaotic-fm").audioInput, false);
+  assert.equal(instrumentMidiCapabilityForId("rubix").midiOutput, true);
+  assert.equal(instrumentMidiCapabilityForId("chaotic-fm").midiOutput, false);
   assert.equal(instrumentMidiCapabilityForId("wax"), null);
   assert.deepEqual(
     Object.fromEntries(["processor", "drums", "pitched", "sequence"].map((noteMode) => [
@@ -189,10 +194,18 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "all 77 routes have exactly one intentional note behavior",
   );
   assert.equal(
-    INSTRUMENT_MIDI_CAPABILITIES.every(({ midiInput, midiInputMode, computerKeyboardMode }) => (
+    INSTRUMENT_MIDI_CAPABILITIES.every(({
+      audioInput,
+      computerKeyboardMode,
+      midiInput,
+      midiInputMode,
+      midiOutput,
+    }) => (
       midiInput === true
       && ["native", "universal-control"].includes(midiInputMode)
       && ["page", "midi", "none"].includes(computerKeyboardMode)
+      && typeof audioInput === "boolean"
+      && typeof midiOutput === "boolean"
     )),
     true,
   );
@@ -225,6 +238,13 @@ test("every playable catalog page loads shared browser MIDI and exposes a toolba
     if (instrument.id === "morphazoidical") {
       assert.match(html, /<body[^>]+data-instrument-info="off"/);
       assert.doesNotMatch(html, /class="instrument-page-info"/);
+      assert.match(html, /<a class="brand" href="\.\.\/" aria-label="Morphazoid home">/);
+    } else {
+      assert.match(
+        html,
+        /<a class="wordmark" href="\.\/" aria-label="Morphazoid home">/,
+        `${instrument.id} logo links to the home page`,
+      );
     }
   }
   assert.equal(mastheadPages, 76);
@@ -243,8 +263,8 @@ test("every playable catalog page loads shared browser MIDI and exposes a toolba
   );
   assert.match(
     workbenchCss,
-    /\.session-state \.midi-profile-trigger:focus-visible\s*\{[^}]*outline: 2px solid var\(--mint\)/,
-    "the injected profile summary keeps the workbench focus ring",
+    /\.session-state \.header-settings-trigger:focus-visible\s*\{[^}]*outline: 2px solid var\(--mint\)/,
+    "the injected settings summary keeps the workbench focus ring",
   );
 });
 
@@ -326,6 +346,7 @@ test("Recursion's built-in Noise and Impulse sources prepare audio despite its p
 test("clean release builds include untracked browser MIDI runtime modules", async () => {
   const buildScript = await readFile(path.join(repositoryRoot, "scripts", "build-site.sh"), "utf8");
   for (const runtimeModule of [
+    "src/audio-output-manager.js",
     "src/browser-midi-adapter.js",
     "src/instrument-midi-capabilities.js",
   ]) {

@@ -1,4 +1,5 @@
 import { unlockAudioContext } from "./audio.js";
+import { connectAudioOutput } from "./audio-output-manager.js";
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const finiteOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -690,6 +691,7 @@ export class LinearDrumAudio {
     this.input = null;
     this.master = null;
     this.analyser = null;
+    this.releaseAudioOutput = null;
     this.noiseBuffer = null;
     this.output = .62;
     this.activeVoices = [];
@@ -700,6 +702,8 @@ export class LinearDrumAudio {
     const lifecycleGeneration = this.lifecycleGeneration;
     let context = this.context;
     if (!context || context.state === "closed") {
+      this.releaseAudioOutput?.();
+      this.releaseAudioOutput = null;
       const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
       if (!Context) throw new Error("Web Audio is not available in this browser.");
       context = new Context();
@@ -720,7 +724,7 @@ export class LinearDrumAudio {
       this.input.connect(compressor);
       compressor.connect(this.master);
       this.master.connect(this.analyser);
-      this.analyser.connect(context.destination);
+      this.releaseAudioOutput = connectAudioOutput(context, this.analyser, { runtime: this.runtime });
       this.noiseBuffer = this.#createNoiseBuffer(context);
     }
     if (context.state === "suspended") {
@@ -1018,6 +1022,8 @@ export class LinearDrumAudio {
   async close() {
     this.lifecycleGeneration += 1;
     const context = this.context;
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     this.context = null;
     this.input = null;
     this.master = null;

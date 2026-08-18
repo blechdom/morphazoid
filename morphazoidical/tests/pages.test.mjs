@@ -66,6 +66,8 @@ test("the isolated workbench exposes every runtime control and inspection surfac
     "baseFrequency",
     "pitchRange",
     "masterLevel",
+    "headerMasterLevel",
+    "headerMasterLevelOut",
     "pitchSource",
     "panSource",
     "levelSource",
@@ -74,11 +76,28 @@ test("the isolated workbench exposes every runtime control and inspection surfac
   ]) assert.ok(ids.has(required), `index.html is missing #${required}`);
 
   assert.match(html, /<canvas[^>]+tabindex=["']0["']/);
+  assert.match(html, /<a class="brand" href="\.\.\/" aria-label="Morphazoid home">/);
+  assert.match(
+    html,
+    /class="header-actions"[\s\S]*?id="headerMasterLevel"[\s\S]*?id="audioToggle"/,
+    "the compact master level precedes Audio in the custom header",
+  );
   assert.match(html, /<script type=["']module["'] src=["']app\.js["']/);
   assert.match(html, /\+Y down · positive angles clockwise/);
   assert.equal([...html.matchAll(/\bdata-live-feature=/g)].length, 6);
   assert.equal([...html.matchAll(/\bdata-route-monitor=/g)].length, 4);
   assert.equal([...html.matchAll(/\bdata-event-feature=/g)].length, 6);
+});
+
+test("the custom header master level stays synchronized with the audio engine", async () => {
+  const app = await source("app.js");
+  const css = await source("style.css");
+  assert.match(app, /headerMasterLevel\?\.addEventListener\("input"/);
+  assert.match(app, /pool\.setLevel\(state\.masterLevel\)/);
+  assert.match(
+    css,
+    /@media \(max-width: 680px\)[\s\S]*?\.session-state \.header-io-controls > \.header-actions[\s\S]*?grid-template-columns:/,
+  );
 });
 
 test("the live monitor and signal explorer expose stable, non-spamming semantics", async () => {
@@ -129,6 +148,7 @@ test("all local page assets and navigation targets resolve", async () => {
 
 test("the Atlas reads the shared registry and supports URL-addressable filters", async () => {
   const [html, script] = await Promise.all([source("atlas.html"), source("atlas.js")]);
+  assert.match(html, /<a class="brand" href="\.\.\/" aria-label="Morphazoid home">/);
   assert.match(script, /import \{ FEATURE_REGISTRY \} from ["']\.\/feature-registry\.js["']/);
   assert.match(script, /URLSearchParams/);
   assert.match(script, /aria-pressed/);
@@ -158,4 +178,16 @@ test("the rewrite is dependency-free and does not fetch presentation assets", as
   assert.doesNotMatch(css, /@import\s+url\(/);
   assert.doesNotMatch(`${app}\n${atlas}`, /fetch\s*\(/);
   assert.doesNotMatch(`${app}\n${atlas}`, /https?:\/\//);
+});
+
+test("the compact workbench header keeps the home logo and hides its title", async () => {
+  const css = await source("style.css");
+  assert.match(
+    css,
+    /@media \(max-width: 680px\)[\s\S]*?\.brand \{[^}]*width: 34px;[^}]*overflow: hidden;[^}]*flex: 0 0 34px;/,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 680px\)[\s\S]*?\.brand > span:last-child \{\s*display: none;/,
+  );
 });

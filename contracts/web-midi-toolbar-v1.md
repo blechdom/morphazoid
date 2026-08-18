@@ -6,6 +6,13 @@ Every playable catalog instrument exposes one MIDI toggle in its shared top
 bar. Morphazoidical hosts the same control in its custom workbench top bar. The
 toggle is the only control that requests Web MIDI permission.
 
+The compact bar keeps performance state visible in this order: MIDI In and its
+receive light, the actual pre-destination audio meter, master level, Audio, and
+a far-right Settings disclosure. The receive light flashes only for incoming
+hardware or computer-key messages. The meter is registered explicitly at each
+engine's final master/limiter output; it reports signal sent toward the browser
+or WAX destination, not the operating system's speaker volume.
+
 - Off → On activates the built-in computer keyboard when that page has a safe
   note mapping, then calls `requestMIDIAccess({ sysex: false })` from the same
   explicit click when the browser supports hardware Web MIDI.
@@ -18,6 +25,26 @@ toggle is the only control that requests Web MIDI permission.
 - The toolbar stays hidden until the page registers a MIDI client. The seven
   native clients and the catalog-wide universal client are mutually exclusive
   in the normal browser build.
+
+## Input and output settings
+
+The Settings disclosure contains normal form controls rather than ARIA menu
+items. It groups Audio Out, Mic / Audio In, MIDI In, MIDI Out, and MIDI Map.
+The controller profile and its contextual setup hint live under MIDI Map.
+
+- Audio Out always describes the effective destination. Browser device choice
+  is shown only when `AudioContext.setSinkId()` is feature-detected; System
+  default remains the fallback. WAX identifies this route as the DAW / plug-in
+  host and never requests an operating-system sink.
+- Mic / Audio In reports whether the current instrument has a live-input path.
+  Permission and stream start remain with the page's explicit input controls.
+- MIDI In uses the visible toolbar toggle and reports connected inputs here.
+- MIDI Out remains separate and off by default. The regular browser does not
+  imply event output until a page owns a real generator route. WAX-capable MIDI
+  FX pages leave host destination, channel, clock, and panic routing with the
+  WAX adapter. Incoming events are never echoed automatically.
+- MIDI Map selects the input controller profile. Output routing does not get a
+  duplicate controller map.
 
 The Audio control remains separate. A page may prepare Web Audio from the same
 explicit MIDI click when its performance model requires it.

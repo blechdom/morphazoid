@@ -1,3 +1,5 @@
+import { connectAudioOutput } from "./audio-output-manager.js";
+
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const finiteOr = (value, fallback) => {
   const number = Number(value);
@@ -192,6 +194,7 @@ export class SampleDrumAudio {
     this.input = null;
     this.master = null;
     this.analyser = null;
+    this.releaseAudioOutput = null;
     this.output = .72;
     this.lifecycleGeneration = 0;
     this.sampleCache = new Map();
@@ -206,6 +209,8 @@ export class SampleDrumAudio {
     const lifecycleGeneration = this.lifecycleGeneration;
     let context = this.context;
     if (!context || context.state === "closed") {
+      this.releaseAudioOutput?.();
+      this.releaseAudioOutput = null;
       this.context = null;
       this.input = null;
       this.master = null;
@@ -226,7 +231,7 @@ export class SampleDrumAudio {
       this.analyser.fftSize = 256;
       compressor.connect(this.master);
       this.master.connect(this.analyser);
-      this.analyser.connect(context.destination);
+      this.releaseAudioOutput = connectAudioOutput(context, this.analyser, { runtime: this.runtime });
       this.input = compressor;
     }
     if (context.state === "suspended") await context.resume();
@@ -248,6 +253,8 @@ export class SampleDrumAudio {
   async close() {
     this.lifecycleGeneration += 1;
     const context = this.context;
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     this.context = null;
     this.input = null;
     this.master = null;

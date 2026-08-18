@@ -1,3 +1,5 @@
+import { connectAudioOutput } from "./audio-output-manager.js";
+
 const NUM_CHANNELS = 2;
 const TIME_INFO_BUFFER_SIZE = 16;
 const PARAM_BUFFER_SIZE = 15 * Float32Array.BYTES_PER_ELEMENT;
@@ -322,6 +324,7 @@ export class WebGpu303Audio {
     this.context = null;
     this.input = null;
     this.master = null;
+    this.releaseAudioOutput = null;
     this.device = null;
     this.pipeline = null;
     this.bindGroup = null;
@@ -384,7 +387,7 @@ export class WebGpu303Audio {
     input.gain.value = 1;
     master.gain.value = this.playbackEnabled ? this.output : 0;
     input.connect(master);
-    master.connect(this.context.destination);
+    this.releaseAudioOutput = connectAudioOutput(this.context, master, { runtime: this.runtime });
     this.input = input;
     this.master = master;
   }
@@ -623,6 +626,8 @@ export class WebGpu303Audio {
     this.sources.clear();
     this.scheduledChunks = [];
     const context = this.context;
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     this.context = null;
     this.input = null;
     this.master = null;

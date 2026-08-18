@@ -8,6 +8,7 @@ import {
   generateAlgorithmicScore,
   sanitizeAlgorithmicScoreParams,
 } from "./src/algorithmic-scores.js";
+import { connectAudioOutput } from "./src/audio-output-manager.js";
 
 const $ = (id) => document.getElementById(id);
 const FRAME_INTERVAL = 1_000 / 30;
@@ -111,6 +112,7 @@ const state = {
   delayFilter: null,
   delayWet: null,
   delayFeedback: null,
+  outputRelease: null,
   noiseBuffer: null,
   cssWidth: 1,
   cssHeight: 1,
@@ -387,7 +389,8 @@ async function ensureAudioContext() {
   delayNode.connect(delayFilter);
   delayFilter.connect(delayWet).connect(compressor);
   delayFilter.connect(delayFeedback).connect(delayNode);
-  compressor.connect(masterGain).connect(audioContext.destination);
+  compressor.connect(masterGain);
+  state.outputRelease = connectAudioOutput(audioContext, masterGain);
 
   state.audioContext = audioContext;
   state.masterGain = masterGain;
@@ -1035,6 +1038,8 @@ function installEventHandlers() {
     state.disposed = true;
     if (frameId !== null) cancelAnimationFrame(frameId);
     state.audioOn = false;
+    state.outputRelease?.();
+    state.outputRelease = null;
     state.audioContext?.close?.();
   });
 }

@@ -28,6 +28,11 @@ test("all instrument pages share desktop and mobile navigation", async () => {
     }
     assert.match(html, /class="mobile-instrument-select"/);
     assert.match(html, /<script type="module" src="nav\.js">/);
+    assert.match(
+      html,
+      /<a class="wordmark" href="\.\/" aria-label="Morphazoid home">/,
+      `${files[index]} logo should always link to the home page`,
+    );
     const desktopNavigation = html.match(/<nav class="tabs"[\s\S]*?<\/nav>/)?.[0] ?? "";
     const mobileNavigation = html.match(
       /<select class="mobile-instrument-select"[\s\S]*?<\/select>/,
