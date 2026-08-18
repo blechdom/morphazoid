@@ -212,7 +212,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 78);
+  assert.equal(tools.length, 81);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -537,6 +537,9 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "neural-pulse", href: "neural-pulse.html" },
       { id: "fourier-epicycles", href: "fourier-epicycles.html" },
       { id: "gravity-lens", href: "gravity-lens.html" },
+      { id: "cantor-lock", href: "cantor-lock.html" },
+      { id: "escape-dust", href: "escape-dust.html" },
+      { id: "linebreaker", href: "linebreaker.html" },
     ],
   );
   assert.deepEqual(SITE_LINKS, []);
@@ -603,6 +606,9 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}neural-pulse.html`, SITE_ROOT)?.id, "neural-pulse");
   assert.equal(resolveActiveTool(`${SITE_ROOT}fourier-epicycles.html`, SITE_ROOT)?.id, "fourier-epicycles");
   assert.equal(resolveActiveTool(`${SITE_ROOT}gravity-lens.html`, SITE_ROOT)?.id, "gravity-lens");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}cantor-lock.html`, SITE_ROOT)?.id, "cantor-lock");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}escape-dust.html`, SITE_ROOT)?.id, "escape-dust");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}linebreaker.html`, SITE_ROOT)?.id, "linebreaker");
   assert.equal(resolveActiveTool(`${SITE_ROOT}algorithmic-sequencers.html`, SITE_ROOT)?.id, "sorting-algorithms");
   assert.equal(resolveActiveTool(`${SITE_ROOT}music-rooms.html`, SITE_ROOT)?.id, "room-lobby");
   assert.equal(resolveActiveTool(`${SITE_ROOT}vocal-effects-room.html`, SITE_ROOT)?.id, "vocal-effects-room");
