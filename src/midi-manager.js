@@ -498,6 +498,13 @@ function callback(client, name, ...args) {
   }
 }
 
+function consumeComputerKeyboardEvent(event) {
+  event?.preventDefault?.();
+  // MIDI-on owns its mapped QWERTY notes. Stopping the event in capture phase
+  // prevents page-local letter shortcuts from sounding or acting a second time.
+  event?.stopImmediatePropagation?.();
+}
+
 export class WebMidiManager {
   constructor(runtime = globalThis, { storageKey = MIDI_PROFILE_STORAGE_KEY } = {}) {
     this.runtime = runtime;
@@ -592,6 +599,7 @@ export class WebMidiManager {
       selectedOutputId: this.selectedOutputId,
       selectedOutput: this.selectedOutput,
       clientCount: this.clients.size,
+      clientIds: [...this.clients.keys()],
       computerKeyboard: {
         supported: this.computerKeyboardSupported,
         active: this.computerKeyboardActive,
@@ -919,8 +927,8 @@ export class WebMidiManager {
       || !this.computerKeyboardTarget
       || ![...this.clients.values()].some(({ computerKeyboard }) => computerKeyboard)
     ) return this.computerKeyboardActive;
-    this.computerKeyboardTarget.addEventListener("keydown", this.boundComputerKeyDown);
-    this.computerKeyboardTarget.addEventListener("keyup", this.boundComputerKeyUp);
+    this.computerKeyboardTarget.addEventListener("keydown", this.boundComputerKeyDown, true);
+    this.computerKeyboardTarget.addEventListener("keyup", this.boundComputerKeyUp, true);
     this.runtime?.addEventListener?.("blur", this.boundComputerBlur);
     this.runtime?.document?.addEventListener?.("visibilitychange", this.boundComputerVisibility);
     this.computerKeyboardActive = true;
@@ -929,8 +937,8 @@ export class WebMidiManager {
 
   detachComputerKeyboard() {
     if (!this.computerKeyboardActive) return false;
-    this.computerKeyboardTarget?.removeEventListener?.("keydown", this.boundComputerKeyDown);
-    this.computerKeyboardTarget?.removeEventListener?.("keyup", this.boundComputerKeyUp);
+    this.computerKeyboardTarget?.removeEventListener?.("keydown", this.boundComputerKeyDown, true);
+    this.computerKeyboardTarget?.removeEventListener?.("keyup", this.boundComputerKeyUp, true);
     this.runtime?.removeEventListener?.("blur", this.boundComputerBlur);
     this.runtime?.document?.removeEventListener?.("visibilitychange", this.boundComputerVisibility);
     this.computerKeyboardActive = false;
@@ -988,7 +996,6 @@ export class WebMidiManager {
     if (
       !this.active
       || !this.computerKeyboardActive
-      || event?.repeat
       || event?.isComposing
       || event?.defaultPrevented
       || event?.ctrlKey
@@ -996,6 +1003,16 @@ export class WebMidiManager {
       || event?.altKey
       || isComputerKeyboardEditableTarget(event?.target)
     ) return null;
+
+    if (event?.repeat) {
+      const repeatsOwnedNote = [...this.computerKeyboardHeld.values()].some(
+        ({ code }) => code === event.code,
+      );
+      if (repeatsOwnedNote || ["BracketLeft", "BracketRight", "Minus", "Equal"].includes(event.code)) {
+        consumeComputerKeyboardEvent(event);
+      }
+      return null;
+    }
 
     if (["BracketLeft", "BracketRight", "Minus", "Equal"].includes(event?.code)) {
       if (event.code === "BracketLeft") {
@@ -1007,17 +1024,19 @@ export class WebMidiManager {
       } else {
         this.setComputerKeyboardVelocity(this.computerKeyboardVelocity + 8);
       }
-      event.preventDefault?.();
+      consumeComputerKeyboardEvent(event);
       return null;
     }
 
     let emitted = null;
+    let claimed = false;
     for (const client of this.clients.values()) {
       const config = client.computerKeyboard;
       if (!config) continue;
       const layout = COMPUTER_KEYBOARD_LAYOUTS[config.layout];
       const offset = layout?.noteOffsets?.[event?.code];
       if (!Number.isInteger(offset)) continue;
+      claimed = true;
       const heldKey = `${client.id}:${event.code}`;
       if (this.computerKeyboardHeld.has(heldKey)) continue;
       const note = finiteByte(config.baseNote + this.computerKeyboardOctave * 12 + offset);
@@ -1033,7 +1052,7 @@ export class WebMidiManager {
       });
       emitted = this.computerKeyboardMessage(client, "noteOn", note, velocity, event);
     }
-    if (emitted) event.preventDefault?.();
+    if (emitted || claimed) consumeComputerKeyboardEvent(event);
     return emitted;
   }
 
@@ -1045,7 +1064,7 @@ export class WebMidiManager {
       if (client) emitted = this.computerKeyboardMessage(client, "noteOff", held.note, 0, event);
       this.computerKeyboardHeld.delete(heldKey);
     }
-    if (emitted) event?.preventDefault?.();
+    if (emitted) consumeComputerKeyboardEvent(event);
     return emitted;
   }
 

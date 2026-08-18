@@ -294,6 +294,16 @@ export function spellingArticulation(character) {
   return keyboardArticulation(character);
 }
 
+export function spellingMidiCharacter(note, rootNote = 60) {
+  const midi = Number(note);
+  const root = Number(rootNote);
+  if (!Number.isFinite(midi) || !Number.isFinite(root)) return "";
+  const alphabet = "abcdefghijklmnopqrstuvwxyz";
+  const index = ((Math.round(midi) - Math.round(root)) % alphabet.length + alphabet.length)
+    % alphabet.length;
+  return alphabet[index];
+}
+
 export function spellingContextualArticulation(character, nextCharacter = "") {
   const letter = String(character ?? "").toLowerCase();
   const next = String(nextCharacter ?? "").toLowerCase();

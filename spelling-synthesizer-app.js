@@ -8,6 +8,7 @@ import {
   remapSpellingOffset,
   spellingArticulation,
   spellingContextualArticulation,
+  spellingMidiCharacter,
   spellingPair,
   spellingPerformanceState,
   spellingSoundLabel,
@@ -1008,6 +1009,17 @@ function performInsertedText(text, { position = null } = {}) {
   }
 }
 
+function handleSpellingMidiInput(event) {
+  const message = event?.detail?.message;
+  if (message?.type !== "noteOn") return;
+  const character = spellingMidiCharacter(message.note);
+  if (!character) return;
+  event.preventDefault?.();
+  interruptReadbackForTyping();
+  performInsertedText(character);
+  announce(`MIDI note ${message.note} voiced ${character.toUpperCase()}.`);
+}
+
 function handleEditorKeydown(event) {
   if (
     event.defaultPrevented
@@ -1328,6 +1340,8 @@ $("spellingInput").addEventListener("compositionend", () => {
   }
   updateTextUi();
 });
+
+globalThis.addEventListener?.("morphazoid:midi-input", handleSpellingMidiInput);
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) return;

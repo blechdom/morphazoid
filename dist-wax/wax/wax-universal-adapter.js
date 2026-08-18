@@ -1,9 +1,16 @@
 import { getSharedMidiManager } from "../src/midi-manager.js";
 import { waxSupportForId } from "../src/wax-instrument-roles.js";
 import {
+  UNIVERSAL_MIDI_CC_KEYWORDS,
+  browserMidiNoteValue,
+  browserPitchBendValue,
+  dispatchBrowserControlValue,
+  isBrowserMidiControl,
+  universalMidiControlText,
+} from "../src/browser-midi-adapter.js";
+import {
   MidiClockTempoTracker,
   PpqMidiOutputScheduler,
-  midiNoteToFrequency,
   normalizeWaxRoutingState,
   normalizedControlValue,
 } from "../src/wax-midi-routing.js";
@@ -43,18 +50,7 @@ const PITCH_SELECTORS = [
   "input[name='pitch']",
 ];
 
-const CC_KEYWORDS = Object.freeze({
-  1: ["mod", "depth", "amount", "morph"],
-  5: ["portamento", "glide", "slew"],
-  7: ["output", "level", "volume", "gain"],
-  10: ["pan", "balance", "stereo"],
-  11: ["expression", "output", "level"],
-  71: ["resonance", "feedback", "q"],
-  72: ["release", "tail"],
-  73: ["attack", "rise"],
-  74: ["cutoff", "brightness", "tone", "filter"],
-  75: ["decay", "fall"],
-});
+const CC_KEYWORDS = UNIVERSAL_MIDI_CC_KEYWORDS;
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -107,27 +103,11 @@ export function shouldDriveNativeAudio(routingState) {
 }
 
 function controlText(control, documentObject) {
-  const id = String(control?.id || "");
-  const label = id
-    ? documentObject.querySelector?.(`label[for="${globalThis.CSS?.escape?.(id) || id}"]`)?.textContent
-    : "";
-  return [id, control?.name, control?.getAttribute?.("aria-label"), label]
-    .filter(Boolean)
-    .join(" ")
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+  return universalMidiControlText(control, documentObject);
 }
 
 export function isUniversalMidiControl(control) {
-  if (!control || control.disabled) return false;
-  if (control.closest?.(".wax-midi-panel")) return false;
-  if (control.tagName === "SELECT" && control.closest?.(
-    "header, nav, .masthead, .mobile-instrument-nav, .midi-toolbar, .instrument-picker, [data-midi-toolbar]",
-  )) return false;
-  if (/^(midiProfileSelect|mobileInstrumentSelect)/i.test(String(control.id || ""))) return false;
-  return control.matches?.("input[type='range'], select") !== false;
+  return isBrowserMidiControl(control);
 }
 
 function mappableControls(documentObject) {
@@ -137,14 +117,7 @@ function mappableControls(documentObject) {
 }
 
 function dispatchControlValue(runtime, control, value) {
-  if (!control) return false;
-  control.value = String(value);
-  const EventConstructor = runtime.Event || globalThis.Event;
-  if (typeof EventConstructor === "function") {
-    control.dispatchEvent?.(new EventConstructor("input", { bubbles: true }));
-    control.dispatchEvent?.(new EventConstructor("change", { bubbles: true }));
-  }
-  return true;
+  return dispatchBrowserControlValue(runtime, control, value);
 }
 
 function setControlNormalized(runtime, control, normalized) {
@@ -217,46 +190,11 @@ export function automationMessageForControl(control, index, documentObject, chan
 }
 
 export function midiNoteValueForControl(control, note, description = "") {
-  const minimum = finite(control?.min, 0);
-  const maximum = finite(control?.max, 1);
-  const low = Math.min(minimum, maximum);
-  const high = Math.max(minimum, maximum);
-  const text = `${control?.id || ""} ${control?.name || ""} ${description}`
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .toLowerCase();
-  if (/\b(note|midi)\b/.test(text) && low >= 0 && high <= 127) {
-    return clamp(Math.round(note), low, high);
-  }
-  if (/\b(pitch|transpose|semitone)\b/.test(text) && low < 0 && high > 0 && high <= 127) {
-    return clamp(note - 60, low, high);
-  }
-  if (high <= 2 && low >= -1) return clamp((note - 24) / 84, low, high);
-  if (/\b(hz|frequency|carrier|pitch)\b/.test(text) && high > 127) {
-    return clamp(midiNoteToFrequency(note), low, high);
-  }
-  return normalizedControlValue((note - 24) / 84, {
-    min: low,
-    max: high,
-    step: control?.step,
-  });
+  return browserMidiNoteValue(control, note, description);
 }
 
 export function pitchBendValueForControl(control, baseValue, normalizedBend, description = "") {
-  const low = Math.min(finite(control?.min, 0), finite(control?.max, 1));
-  const high = Math.max(finite(control?.min, 0), finite(control?.max, 1));
-  const base = clamp(finite(baseValue, (low + high) / 2), low, high);
-  const bend = clamp(finite(normalizedBend, 0), -1, 1);
-  const text = `${control?.id || ""} ${control?.name || ""} ${description}`
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .toLowerCase();
-  if (/\b(note|midi)\b/.test(text) && high <= 127) return clamp(base + bend * 2, low, high);
-  if (/\b(pitch|transpose|semitone)\b/.test(text) && low < 0 && high > 0 && high <= 127) {
-    return clamp(base + bend * 2, low, high);
-  }
-  if (/\b(hz|frequency|carrier)\b/.test(text) && high > 2) {
-    return clamp(base * (2 ** ((bend * 2) / 12)), low, high);
-  }
-  return clamp(base + bend * (high - low) * (2 / 84), low, high);
+  return browserPitchBendValue(control, baseValue, normalizedBend, description);
 }
 
 function dispatchMidiEvent(runtime, message) {
@@ -297,41 +235,48 @@ function triggerNoteFallback(documentObject, runtime, support, message, state, b
   if (support.noteMode === "drums") {
     if (midiOnly) return false;
     const pads = [...(documentObject.querySelectorAll?.(
-      "#padGrid button, [class*='pad-grid' i] button, button[data-pad-index], button[data-note]",
+      "#padGrid button, [class*='pad-grid' i] button, button[data-pad-index], button[data-note], button[data-voice-index]",
     ) || [])].filter((button) => !button.closest?.(".wax-midi-panel"));
     if (pads.length) {
       pads[((message.note - 36) % pads.length + pads.length) % pads.length]?.click?.();
       return true;
     }
-    const play = firstElement(documentObject, PLAY_SELECTORS);
-    if (play) return setPressedControl(play, true);
   }
 
   const pitchControl = firstElement(documentObject, PITCH_SELECTORS)
     || semanticControl(documentObject, ["frequency", "pitch", "carrier", "root"]);
+  let pitchApplied = false;
   if (pitchControl) {
     const value = midiNoteValueForControl(
       pitchControl,
       message.note,
       controlText(pitchControl, documentObject),
     );
-    const applied = dispatchControlValue(runtime, pitchControl, value);
-    if (applied) bendBases.set(pitchControl, { base: value, applied: value });
-    return applied;
+    pitchApplied = dispatchControlValue(runtime, pitchControl, value);
+    if (pitchApplied) bendBases.set(pitchControl, { base: value, applied: value });
   }
 
-  if (midiOnly) return false;
+  if (midiOnly) return pitchApplied;
 
-  const trigger = firstElement(documentObject, [
-    "#stepButton",
-    "#primaryAction",
-    "button[id*='trigger' i]",
-    "button[id*='strike' i]",
-    "button[id*='reseed' i]",
-    "button[id*='randomize' i]",
-  ]);
-  trigger?.click?.();
-  return Boolean(trigger);
+  if (support.noteMode === "sequence") {
+    const step = firstElement(documentObject, ["#stepButton", "#primaryAction"]);
+    if (step) {
+      step.click?.();
+      return true;
+    }
+  } else if (support.noteMode === "drums") {
+    const strike = firstElement(documentObject, [
+      "button[id*='trigger' i]",
+      "button[id*='strike' i]",
+    ]);
+    if (strike) {
+      strike.click?.();
+      return true;
+    }
+  }
+
+  const playStarted = setPressedControl(firstElement(documentObject, PLAY_SELECTORS), true);
+  return pitchApplied || playStarted;
 }
 
 function applyGenericMidi(
@@ -612,9 +557,11 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
 
   const unregisterMidi = manager.registerClient({
     id: `wax-universal:${routeId}`,
-    computerKeyboard: support.noteMode === "drums"
-      ? { layout: "pad-grid", baseNote: 36, velocity: 100 }
-      : { layout: "piano", baseNote: 48, velocity: 100 },
+    computerKeyboard: support.computerKeyboardMode === "page"
+      ? false
+      : support.noteMode === "drums"
+        ? { layout: "pad-grid", baseNote: 36, velocity: 100 }
+        : { layout: "piano", baseNote: 48, velocity: 100 },
     onMessage: onMidiMessage,
   });
 

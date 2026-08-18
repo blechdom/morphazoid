@@ -791,6 +791,19 @@ test("instrument info lives once at the bottom of the page control rail", () => 
   assert.equal(doc.panel.children.at(-1), pageInfo);
 });
 
+test("custom instrument layouts can opt out of the shared catalog card", () => {
+  const doc = new FakeDocument();
+  doc.body = new FakeNode("body");
+  doc.body.setAttribute("data-instrument-info", "off");
+  const result = enhanceSharedNavigation(doc, {
+    currentHref: `${SITE_ROOT}morphazoidical/`,
+    siteRoot: SITE_ROOT,
+  });
+  assert.equal(result.activeTool?.id, "morphazoidical");
+  assert.deepEqual(result.pageInfos, []);
+  assert.equal(doc.panel.querySelector(".instrument-page-info"), null);
+});
+
 test("top Audio buttons become square accessible speaker controls", async () => {
   const button = new FakeNode("button");
   button.className = "audio-button";
@@ -883,7 +896,7 @@ test("one header MIDI control owns connection and controller profile selection",
   assert.equal(control.select.children.length, MIDI_PROFILES.length);
   const messages = [];
   const unregisterClient = manager.registerClient({
-    id: "test-instrument",
+    id: "browser-universal:test-instrument",
     onMessage: (message) => messages.push(message),
   });
   assert.equal(control.toolbar.hidden, false);
@@ -920,6 +933,8 @@ test("one header MIDI control owns connection and controller profile selection",
   const hint = control.details.findAll((node) => node.className === "midi-profile-hint")[0];
   assert.match(hint.textContent, /Morphazoid MIDI-mode template/);
   assert.match(hint.textContent, /not Native Instruments factory defaults/);
+  assert.match(hint.textContent, /Universal map: notes set pitch or trigger sound/);
+  assert.match(hint.textContent, /MIDI Clock, Start, and Stop/);
 
   control.select.value = "arturia-minilab-3";
   control.select.dispatch("change");

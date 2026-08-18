@@ -14,6 +14,7 @@ import {
   spellingContextualArticulation,
   spellingDiphthong,
   spellingEngine,
+  spellingMidiCharacter,
   spellingPair,
   spellingPerformanceState,
   spellingPersonality,
@@ -87,6 +88,7 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
   assert.match(app, /scheduleReadbackContinuation/);
   assert.match(app, /scheduleTypedCharacter/);
   assert.match(app, /addEventListener\("keyup", handleEditorKeyup\)/);
+  assert.match(app, /addEventListener\?\.\("morphazoid:midi-input", handleSpellingMidiInput\)/);
   assert.match(app, /engine: "diphone"/);
   assert.match(app, /slice\(0, 32\)/, "pasted and composed playback stays bounded");
   assert.match(audio, /throatazoid-tract-processor\.js/);
@@ -130,6 +132,18 @@ test("all alphabet keys resolve to playable Throatazoid articulations", () => {
   assert.equal(spellingContextualArticulation("c", "a"), "k");
   assert.equal(spellingContextualArticulation("g", "e"), "j");
   assert.equal(spellingContextualArticulation("g", "a"), "g");
+});
+
+test("hardware MIDI notes cycle through playable spelling letters without stealing typing keys", () => {
+  assert.equal(spellingMidiCharacter(60), "a");
+  assert.equal(spellingMidiCharacter(61), "b");
+  assert.equal(spellingMidiCharacter(85), "z");
+  assert.equal(spellingMidiCharacter(86), "a");
+  assert.equal(spellingMidiCharacter(59), "z");
+  assert.equal(spellingMidiCharacter(Number.NaN), "");
+  for (let note = 0; note < 128; note += 1) {
+    assert.ok(spellingArticulation(spellingMidiCharacter(note)));
+  }
 });
 
 test("vowel pairs become spelling-aware delayed transitions", () => {

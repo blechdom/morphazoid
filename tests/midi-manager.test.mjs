@@ -192,10 +192,14 @@ function computerKey(code, extras = {}) {
     target: plainKeyTarget,
     timeStamp: 456.75,
     prevented: false,
+    immediateStopped: false,
     ...extras,
     preventDefault() {
       this.prevented = true;
       this.defaultPrevented = true;
+    },
+    stopImmediatePropagation() {
+      this.immediateStopped = true;
     },
   };
 }
@@ -312,6 +316,8 @@ test("client registration replays state, gates capability by clientCount, and un
   assert.deepEqual(enabledChanges, [[false, 1]]);
   assert.deepEqual(profileChanges, [["auto", 1]]);
   assert.equal(statuses.at(-1).clientCount, 1);
+  assert.deepEqual(statuses.at(-1).clientIds, ["test-client"]);
+  assert.equal(Object.isFrozen(statuses.at(-1).clientIds), true);
   assert.equal(Object.isFrozen(statuses.at(-1)), true);
   assert.throws(() => manager.registerClient({ id: "test-client" }), /already registered/);
   assert.throws(() => manager.registerClient({ id: "bad", onMessage: true }), /onMessage/);
@@ -355,6 +361,7 @@ test("computer piano works without hardware Web MIDI and stays available after p
   const down = computerKey("KeyQ");
   keyboardOnly.document.emit("keydown", down);
   assert.equal(down.prevented, true);
+  assert.equal(down.immediateStopped, true, "mapped keys cannot fall through to page shortcuts");
   assert.deepEqual(keyboardMessages.at(-1), {
     message: {
       type: "noteOn",
@@ -394,6 +401,7 @@ test("computer piano works without hardware Web MIDI and stays available after p
   const up = computerKey("KeyQ");
   keyboardOnly.document.emit("keyup", up);
   assert.equal(up.prevented, true);
+  assert.equal(up.immediateStopped, true, "mapped key releases are owned by MIDI too");
   assert.equal(keyboardMessages.at(-1).message.type, "noteOff");
   assert.equal(keyboardMessages.at(-1).message.note, 60);
   assert.equal(keyboardMessages.at(-1).message.velocity, 0);
@@ -462,10 +470,14 @@ test("computer keys ignore repeats, shortcuts, and editable targets while contro
 
   const firstDown = computerKey("KeyQ");
   document.emit("keydown", firstDown);
-  document.emit("keydown", computerKey("KeyQ"));
-  document.emit("keydown", computerKey("KeyQ", { repeat: true }));
+  const duplicateDown = computerKey("KeyQ");
+  document.emit("keydown", duplicateDown);
+  const repeatedDown = computerKey("KeyQ", { repeat: true });
+  document.emit("keydown", repeatedDown);
   assert.equal(messages.length, 1, "one physical key owns at most one held note");
   assert.equal(firstDown.prevented, true);
+  assert.equal(duplicateDown.immediateStopped, true, "duplicate downs cannot leak to page keys");
+  assert.equal(repeatedDown.immediateStopped, true, "held-key repeats cannot leak to page keys");
 
   const editableUp = computerKey("KeyQ", { target: { tagName: "INPUT" }, ctrlKey: true });
   document.emit("keyup", editableUp);
@@ -478,6 +490,7 @@ test("computer keys ignore repeats, shortcuts, and editable targets while contro
   const octaveUp = computerKey("BracketRight");
   document.emit("keydown", octaveUp);
   assert.equal(octaveUp.prevented, true);
+  assert.equal(octaveUp.immediateStopped, true);
   assert.equal(manager.status().computerKeyboard.octave, 1);
   document.emit("keydown", computerKey("KeyQ"));
   assert.equal(messages.at(-1).note, 72);

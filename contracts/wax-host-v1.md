@@ -57,14 +57,16 @@ enables the existing shared MIDI manager, and starts its audio engine in MIDI
 mode. It does not persist held notes, expression, sustain, pitch-bend position,
 audio objects, or the transient Audio button state.
 
-Every catalog instrument also receives an artifact-only universal adapter. It
+Every catalog instrument also receives an artifact-only WAX routing adapter. It
 auto-enables the same shared MIDI manager after positive WAX detection, persists
 only its routing controls, follows host play/stop/BPM/PPQ where the page exposes
-a matching transport, and provides conservative note, CC, bend, program, and
-pressure fallbacks through the page's existing controls. Pages with a native
-MIDI client retain that implementation; the fallback does not double-trigger
-their note, CC, or bend messages. A cancelable `morphazoid:midi-input` event is
-the handoff for future page-specific mappings.
+a matching transport, and reuses the normal browser site's conservative note,
+CC, bend, program, pressure, and labeled-control conversions. Pages with a
+native MIDI client retain that implementation; the fallback does not
+double-trigger their note, CC, or bend messages. A cancelable
+`morphazoid:midi-input` event is the handoff for future page-specific mappings.
+The generated WAX bootstrap or adapter marker suppresses the normal browser
+fallback client, leaving exactly one universal owner in the artifact.
 
 Selected rhythmic, geometric, and algorithmic pages expose a deterministic
 companion sequence in Audio, MIDI only, or Audio + MIDI mode. Host PPQ drives a

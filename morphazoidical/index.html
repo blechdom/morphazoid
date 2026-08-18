@@ -9,7 +9,7 @@
     <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body class="workbench-page">
+  <body class="workbench-page" data-instrument-info="off">
     <a class="skip-link" href="#workspace">Skip to workbench</a>
 
     <header class="topbar">
@@ -22,7 +22,7 @@
         <a href="atlas.html">Feature Atlas</a>
         <a href="../">All tools</a>
       </nav>
-      <div class="session-state" aria-label="Analysis status">
+      <div class="session-state" data-midi-toolbar-host aria-label="Analysis and performance status">
         <span class="status-pill live"><i></i>Live analysis</span>
         <span class="status-pill" id="fidelityBadge">Sampled · 48/edge</span>
         <button class="audio-toggle" id="audioToggle" type="button" aria-pressed="false">
@@ -298,6 +298,7 @@
     </main>
 
     <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    <script type="module" src="../nav.js"></script>
     <script type="module" src="app.js"></script>
   </body>
 </html>

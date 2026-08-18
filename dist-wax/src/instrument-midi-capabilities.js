@@ -1,0 +1,135 @@
+// Browser MIDI and WAX MIDI share this page classification. Keep it independent
+// of nav.js and instrument-catalog.js so navigation can install MIDI without an
+// import cycle through the catalogue.
+const NOTE_MODE_IDS = Object.freeze({
+  processor: Object.freeze([
+    "lumber",
+    "micmic",
+    "graph-delay",
+    "sandy-syrup-delay",
+    "striped-sludge-delay",
+    "candy-coil-delay",
+    "recursion",
+  ]),
+  drums: Object.freeze([
+    "shape-drums",
+    "lattice-drums",
+    "spiral-drums",
+    "solid-drums",
+    "rubix",
+    "hyper-drums",
+    "l-system-drums",
+    "linear-drums-machine",
+    "drum-roll-please",
+    "fm-drums",
+    "linear-drums",
+    "sample-drums",
+    "gear-ratio-drums",
+  ]),
+  pitched: Object.freeze([
+    "shape",
+    "lattice",
+    "spiral",
+    "solid",
+    "hyper",
+    "image-to-instrument-3",
+    "throatazoid",
+    "spelling-synthesizer",
+    "shepard-risset",
+    "l-system",
+    "julia",
+    "recursive-fm",
+    "recursive-pm",
+    "chaotic-fm",
+    "chaotic-pm",
+    "cascading-fm",
+    "cascading-pm",
+    "weierstrass",
+    "plasma-ball",
+    "webgpu-303",
+    "moire-organ",
+    "chladni-plate",
+    "spring-choir",
+    "lissajous-orbits",
+    "atomic-orbitals",
+    "fourier-epicycles",
+    "gravity-lens",
+  ]),
+  sequence: Object.freeze([
+    "sorting-algorithms",
+    "dijkstra",
+    "hanoi",
+    "minimax",
+    "nqueens",
+    "euclid",
+    "escher-tessellation",
+    "order-tones",
+    "morphazoidical",
+    "bell-square",
+    "annealogue",
+    "gravity-walk",
+    "ricochet",
+    "rigidity",
+    "rolling-measure",
+    "falling-forms",
+    "charge-garden",
+    "packing-pressure",
+    "geodesic-drift",
+    "kinetic-hull",
+    "cellular-automata",
+    "prime-sieve",
+    "pendulum-wave",
+    "double-pendulum",
+    "reaction-diffusion",
+    "dna-translator",
+    "neural-pulse",
+    "cantor-lock",
+    "escape-dust",
+    "linebreaker",
+  ]),
+});
+
+export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
+  "shape",
+  "recursive-fm",
+  "recursive-pm",
+  "chaotic-fm",
+  "chaotic-pm",
+  "fm-drums",
+  "sample-drums",
+]);
+
+export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
+  "image-to-instrument-3",
+  "throatazoid",
+  "spelling-synthesizer",
+  "lumber",
+  "micmic",
+]);
+
+const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);
+const pageKeyboardIds = new Set(PAGE_KEYBOARD_INSTRUMENT_IDS);
+const processorAudioIds = new Set(["recursion"]);
+
+export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(
+  Object.entries(NOTE_MODE_IDS).flatMap(([noteMode, ids]) => ids.map((id) => Object.freeze({
+    id,
+    midiInput: true,
+    midiInputMode: nativeIds.has(id) ? "native" : "universal-control",
+    noteMode,
+    startsAudio: noteMode !== "processor" || processorAudioIds.has(id),
+    computerKeyboardMode: pageKeyboardIds.has(id) ? "page" : "midi",
+  }))),
+);
+
+const capabilityById = new Map(
+  INSTRUMENT_MIDI_CAPABILITIES.map((capability) => [capability.id, capability]),
+);
+
+if (capabilityById.size !== INSTRUMENT_MIDI_CAPABILITIES.length) {
+  throw new Error("Duplicate instrument MIDI capability id");
+}
+
+export function instrumentMidiCapabilityForId(id) {
+  return capabilityById.get(id) ?? null;
+}

@@ -1,4 +1,8 @@
 import { INSTRUMENTS } from "./instrument-catalog.js";
+import {
+  INSTRUMENT_MIDI_CAPABILITIES,
+  instrumentMidiCapabilityForId,
+} from "./instrument-midi-capabilities.js";
 
 export const WAX_ROLE_IDS = Object.freeze({
   instrument: "instrument",
@@ -30,98 +34,11 @@ export const WAX_ROLE_DEFINITIONS = Object.freeze({
   }),
 });
 
-// Every catalogue entry belongs to exactly one note family. Keeping this list
-// exhaustive makes a new instrument fail loudly until its WAX behavior has been
-// considered instead of quietly receiving an accidental default.
-const NOTE_MODE_IDS = Object.freeze({
-  processor: Object.freeze([
-    "lumber",
-    "micmic",
-    "graph-delay",
-    "sandy-syrup-delay",
-    "striped-sludge-delay",
-    "candy-coil-delay",
-    "recursion",
-  ]),
-  drums: Object.freeze([
-    "shape-drums",
-    "lattice-drums",
-    "spiral-drums",
-    "solid-drums",
-    "rubix",
-    "hyper-drums",
-    "l-system-drums",
-    "linear-drums-machine",
-    "drum-roll-please",
-    "fm-drums",
-    "linear-drums",
-    "sample-drums",
-    "gear-ratio-drums",
-  ]),
-  pitched: Object.freeze([
-    "shape",
-    "lattice",
-    "spiral",
-    "solid",
-    "hyper",
-    "image-to-instrument-3",
-    "throatazoid",
-    "spelling-synthesizer",
-    "shepard-risset",
-    "l-system",
-    "julia",
-    "recursive-fm",
-    "recursive-pm",
-    "chaotic-fm",
-    "chaotic-pm",
-    "cascading-fm",
-    "cascading-pm",
-    "weierstrass",
-    "plasma-ball",
-    "webgpu-303",
-    "moire-organ",
-    "chladni-plate",
-    "spring-choir",
-    "lissajous-orbits",
-    "atomic-orbitals",
-    "fourier-epicycles",
-    "gravity-lens",
-  ]),
-  sequence: Object.freeze([
-    "sorting-algorithms",
-    "dijkstra",
-    "hanoi",
-    "minimax",
-    "nqueens",
-    "euclid",
-    "escher-tessellation",
-    "order-tones",
-    "morphazoidical",
-    "bell-square",
-    "annealogue",
-    "gravity-walk",
-    "ricochet",
-    "rigidity",
-    "rolling-measure",
-    "falling-forms",
-    "charge-garden",
-    "packing-pressure",
-    "geodesic-drift",
-    "kinetic-hull",
-    "cellular-automata",
-    "prime-sieve",
-    "pendulum-wave",
-    "double-pendulum",
-    "reaction-diffusion",
-    "dna-translator",
-    "neural-pulse",
-    "cantor-lock",
-    "escape-dust",
-    "linebreaker",
-  ]),
-});
-
-const AUDIO_FX_IDS = new Set(NOTE_MODE_IDS.processor);
+const AUDIO_FX_IDS = new Set(
+  INSTRUMENT_MIDI_CAPABILITIES
+    .filter(({ noteMode }) => noteMode === "processor")
+    .map(({ id }) => id),
+);
 AUDIO_FX_IDS.add("throatazoid");
 
 const MIDI_OUTPUT_EXTRA_IDS = new Set([
@@ -140,27 +57,13 @@ const HOST_SYNC_EXCLUDED_IDS = new Set([
   "sample-drums",
 ]);
 
-const NATIVE_MIDI_IDS = new Set([
-  "shape",
-  "recursive-fm",
-  "recursive-pm",
-  "chaotic-fm",
-  "chaotic-pm",
-  "fm-drums",
-  "sample-drums",
-]);
-
-const noteModeById = new Map();
-for (const [noteMode, ids] of Object.entries(NOTE_MODE_IDS)) {
-  for (const id of ids) {
-    if (noteModeById.has(id)) throw new Error(`Duplicate WAX note mode: ${id}`);
-    noteModeById.set(id, noteMode);
-  }
-}
-
 const catalogueIds = new Set(INSTRUMENTS.map(({ id }) => id));
-const missingIds = INSTRUMENTS.filter(({ id }) => !noteModeById.has(id)).map(({ id }) => id);
-const unknownIds = [...noteModeById.keys()].filter((id) => !catalogueIds.has(id));
+const missingIds = INSTRUMENTS
+  .filter(({ id }) => !instrumentMidiCapabilityForId(id))
+  .map(({ id }) => id);
+const unknownIds = INSTRUMENT_MIDI_CAPABILITIES
+  .filter(({ id }) => !catalogueIds.has(id))
+  .map(({ id }) => id);
 if (missingIds.length || unknownIds.length) {
   throw new Error([
     missingIds.length ? `Missing WAX roles: ${missingIds.join(", ")}` : "",
@@ -208,7 +111,8 @@ function caveatFor(instrument, noteMode, midiOutput) {
 }
 
 export const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument) => {
-  const noteMode = noteModeById.get(instrument.id);
+  const midiCapability = instrumentMidiCapabilityForId(instrument.id);
+  const { noteMode } = midiCapability;
   const midiOutput = noteMode === "drums"
     || noteMode === "sequence"
     || MIDI_OUTPUT_EXTRA_IDS.has(instrument.id);
@@ -226,8 +130,9 @@ export const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument)
     id: instrument.id,
     recommended,
     roles: Object.freeze([...new Set(roles)]),
-    midiInput: true,
-    midiInputMode: NATIVE_MIDI_IDS.has(instrument.id) ? "native" : "universal-control",
+    midiInput: midiCapability.midiInput,
+    midiInputMode: midiCapability.midiInputMode,
+    computerKeyboardMode: midiCapability.computerKeyboardMode,
     midiOutput,
     hostSync: midiOutput && !HOST_SYNC_EXCLUDED_IDS.has(instrument.id),
     noteMode,

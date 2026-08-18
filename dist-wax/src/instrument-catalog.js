@@ -495,6 +495,11 @@ const instrumentByToolId = new Map(instrumentTools.map((tool) => {
   return [tool.id, Object.freeze({
     ...tool,
     ...CATALOG_DETAILS[tool.id],
+    features: Object.freeze([...new Set([
+      ...CATALOG_DETAILS[tool.id].features,
+      "MIDI",
+      "Computer keys",
+    ])]),
     tags,
     status: primaryGroup.id === "experiments" ? "Works in progress" : null,
     imageHref: `assets/instruments/${tool.id}.webp`,

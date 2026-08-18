@@ -101,7 +101,7 @@ test("input and plug-in availability facts remain explicit", () => {
   );
   assert.ok(instrumentById("lumber")?.features.includes("Mic input"));
   assert.ok(instrumentById("recursion")?.features.includes("File input"));
-  assert.deepEqual(instrumentById("rubix")?.features, ["Pointer"]);
+  assert.deepEqual(instrumentById("rubix")?.features, ["Pointer", "MIDI", "Computer keys"]);
   assert.equal(instrumentById("rubix")?.kind, "Geometric sequencer");
   for (const id of ["cascading-fm", "cascading-pm"]) {
     assert.equal(instrumentById(id)?.kind, "Synth");
@@ -129,8 +129,8 @@ test("input and plug-in availability facts remain explicit", () => {
     assert.deepEqual(
       instrumentById(id)?.features,
       id === "image-to-instrument-3"
-        ? ["Built-in synth", "Pointer", "Computer keys"]
-        : ["Built-in synth", "Pointer"],
+        ? ["Built-in synth", "Pointer", "Computer keys", "MIDI"]
+        : ["Built-in synth", "Pointer", "MIDI", "Computer keys"],
     );
   }
   assert.deepEqual(

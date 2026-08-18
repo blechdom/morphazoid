@@ -4,6 +4,8 @@ import {
   MIDI_PROFILE_REGISTRY,
   getSharedMidiManager,
 } from "./src/midi-manager.js";
+import { installBrowserMidiAdapter } from "./src/browser-midi-adapter.js";
+import { instrumentMidiCapabilityForId } from "./src/instrument-midi-capabilities.js";
 
 const LEGACY_SETTINGS_KEYS = [
   "morphazoid:shape:audio:v1",
@@ -389,6 +391,7 @@ const INSTRUMENT_INFO_HOST_SELECTORS = Object.freeze([
 
 function createInstrumentPageInfo(doc, activeTool) {
   if (!activeTool || activeTool.catalogue === false) return null;
+  if (doc.body?.getAttribute?.("data-instrument-info") === "off") return null;
   const host = INSTRUMENT_INFO_HOST_SELECTORS
     .map((selector) => doc.querySelector?.(selector))
     .find(Boolean);
@@ -585,7 +588,14 @@ function effectiveComputerKeyboardVelocity(status, clients) {
 function computerKeyboardHint(status) {
   const clients = status.computerKeyboard?.clients ?? [];
   const presentation = computerKeyboardPresentation(status);
-  if (!presentation) return "Computer keyboard input is disabled for this instrument.";
+  if (!presentation) {
+    const universalId = status.clientIds?.find((id) => String(id).startsWith("browser-universal:"));
+    const routeId = String(universalId || "").slice("browser-universal:".length);
+    if (instrumentMidiCapabilityForId(routeId)?.computerKeyboardMode === "page") {
+      return "This instrument reserves typing keys for its own interface. Hardware MIDI remains available when MIDI is on.";
+    }
+    return "Computer keyboard input is disabled for this instrument.";
+  }
   const octave = status.computerKeyboard?.octave ?? 0;
   const velocity = effectiveComputerKeyboardVelocity(status, clients);
   const tuning = `Octave ${octave >= 0 ? "+" : ""}${octave} · velocity ${velocity}`;
@@ -599,16 +609,24 @@ function computerKeyboardHint(status) {
 }
 
 function midiProfileHint(status, selectedProfile) {
+  const usesUniversalBrowserMap = status.clientIds?.some(
+    (id) => String(id).startsWith("browser-universal:"),
+  );
+  const universalHint = usesUniversalBrowserMap
+    ? " Universal map: notes set pitch or trigger sound; bend follows pitch; common CCs find matching labeled controls; profile macro knobs control the first eight sliders; Program Change selects presets; aftertouch targets pressure or intensity; and MIDI Clock, Start, and Stop follow tempo and transport where available."
+    : "";
   if (selectedProfile.id !== "auto" || status.inputs.length === 0) {
-    return selectedProfile.setupHint || selectedProfile.description;
+    return `${selectedProfile.setupHint || selectedProfile.description}${universalHint}`;
   }
   const resolved = [...new Set(status.inputs.map(({ profileId }) => profileId))]
     .map((profileId) => MIDI_PROFILE_REGISTRY[profileId])
     .filter(Boolean);
-  if (resolved.length === 0) return selectedProfile.setupHint || selectedProfile.description;
-  return resolved.map((profile) => (
+  if (resolved.length === 0) {
+    return `${selectedProfile.setupHint || selectedProfile.description}${universalHint}`;
+  }
+  return `${resolved.map((profile) => (
     `${profile.shortLabel}: ${profile.setupHint || profile.description}`
-  )).join(" ");
+  )).join(" ")}${universalHint}`;
 }
 
 /** Build the one site-level MIDI control used by every mapped instrument. */
@@ -779,7 +797,10 @@ export function createMidiToolbar(
 
 export function initializeMidiToolbars(doc, runtime, manager = getSharedMidiManager(runtime)) {
   const controls = [];
-  const mastheads = [...(doc?.querySelectorAll?.(".masthead") ?? [])];
+  const mastheads = [...new Set([
+    ...(doc?.querySelectorAll?.(".masthead") ?? []),
+    ...(doc?.querySelectorAll?.("[data-midi-toolbar-host]") ?? []),
+  ])];
   for (const [index, masthead] of mastheads.entries()) {
     if (masthead.querySelector?.(".midi-toolbar")) continue;
     const control = createMidiToolbar(doc, runtime, manager, {
@@ -905,12 +926,13 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
   normalizeAudioButtonIcons(doc);
 
   const siteRoot = NAVIGATION_BASE_URL;
-  enhanceSharedNavigation(doc, {
+  const navigation = enhanceSharedNavigation(doc, {
     currentHref: runtime.location?.href || doc?.baseURI || NAVIGATION_BASE_URL,
     siteRoot,
   });
   loadInstrumentPageInfo(doc, siteRoot);
 
+  installBrowserMidiAdapter(runtime, doc, { routeId: navigation.activeTool?.id });
   initializeMidiToolbars(doc, runtime);
 
   for (const select of doc?.querySelectorAll?.(".mobile-instrument-select") ?? []) {

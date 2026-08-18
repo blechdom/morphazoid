@@ -99,6 +99,8 @@ for worktree_runtime_file in \
   assets/lumber-loops-wood-loop.webp \
   src/plugin-catalog.js \
   src/midi-manager.js \
+  src/browser-midi-adapter.js \
+  src/instrument-midi-capabilities.js \
   src/shape-midi.js \
   src/fm-drums-midi.js \
   downloads/plugins/chaotic-fm/0.2.1/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx \
@@ -303,6 +305,8 @@ required_files=(
   plugins-app.js
   src/plugin-catalog.js
   src/midi-manager.js
+  src/browser-midi-adapter.js
+  src/instrument-midi-capabilities.js
   src/shape-midi.js
   src/fm-drums-midi.js
   downloads/plugins/chaotic-fm/0.2.1/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx
