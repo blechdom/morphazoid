@@ -86,6 +86,48 @@ function noteName(midi) {
   return `${names[((safe % 12) + 12) % 12]}${Math.floor(safe / 12) - 1}`;
 }
 
+function frequencyLabel(frequency) {
+  const safe = Math.max(0, Number(frequency) || 0);
+  return safe >= 1_000 ? `${(safe / 1_000).toFixed(2)} kHz` : `${safe.toFixed(1)} Hz`;
+}
+
+function frequencyNoteLabel(frequency) {
+  const midi = 69 + 12 * Math.log2(Math.max(1e-9, frequency) / 440);
+  const nearest = Math.round(midi);
+  const cents = Math.round((midi - nearest) * 100);
+  const centsLabel = Math.abs(cents) < 1 ? "" : ` ${cents > 0 ? "+" : "−"}${Math.abs(cents)}¢`;
+  return `${noteName(nearest)}${centsLabel} · ${frequencyLabel(frequency)}`;
+}
+
+function panLabel(pan) {
+  const safe = clamp(Number(pan) || 0, -1, 1);
+  if (Math.abs(safe) < 0.015) return "center";
+  return `${safe < 0 ? "L" : "R"}${Math.round(Math.abs(safe) * 100)}`;
+}
+
+function livingCentroid() {
+  let q = 0;
+  let p = 0;
+  let count = 0;
+  for (const point of simulation.classical.points) {
+    if (!point.alive) continue;
+    q += point.q;
+    p += point.p;
+    count += 1;
+  }
+  return {
+    q: count ? q / count : state.packetPosition,
+    p: count ? p / count : state.packetMomentum,
+    count,
+  };
+}
+
+function selectedEscapeAccent() {
+  if (state.view === "classical") return sound.classicalEscapeAccent;
+  if (state.view === "wave") return sound.waveEscapeAccent;
+  return sound.escapeAccent;
+}
+
 function createSimulation() {
   return createEscapeDustSimulation({
     ...ESCAPE_DUST_DEFAULTS,
@@ -145,6 +187,9 @@ function updateTransportInterface() {
   setPressed($("playButton"), state.playing);
   $("playButton").setAttribute("aria-label", state.playing ? "Pause Escape Dust" : "Play Escape Dust");
   $("transportSummary").textContent = `${state.playing ? "playing" : "paused"} · step ${simulation.step}`;
+  // The detailed values still update visually at audio rate, while the live
+  // region pauses during playback so screen readers are not flooded at 8 Hz.
+  $("soundAnatomyState")?.setAttribute("aria-live", state.playing ? "off" : "polite");
 }
 
 function updateAudioInterface() {
@@ -162,19 +207,83 @@ function updateModeInterface() {
 
 function updateSoundLedger() {
   const telemetry = sound.telemetry;
-  const audibleAccent = state.view === "classical"
-    ? sound.classicalEscapeAccent
+  const audibleAccent = selectedEscapeAccent();
+  const centroid = livingCentroid();
+  const waveLayerSelected = state.view !== "classical";
+  const clickLayerSelected = state.view !== "wave";
+  const activeWaveCount = state.audioOn && waveLayerSelected && !telemetry.resting
+    ? sound.waveVoices.length
+    : 0;
+  const chordGain = sound.waveVoices.reduce((sum, voice) => sum + voice.gain, 0);
+  const nextRestIn = telemetry.resting
+    ? telemetry.restStride
+    : telemetry.restStride - simulation.step % telemetry.restStride;
+  const voiceTargets = sound.waveVoices.map((voice) => (
+    `${frequencyNoteLabel(voice.frequency)} @ ${percentage(voice.gain, 1)}`
+  )).join(" · ");
+  const clickTargets = sound.classicalClicks.map((click, index) => (
+    `${index === 0 ? "L" : "R"}: ${frequencyNoteLabel(click.frequency)}, `
+    + `gain ${percentage(click.gain, 1)}, ${Math.round(click.delay * 1_000)} ms delay`
+  )).join(" · ");
+  const triangleCount = sound.waveVoices.filter((voice) => voice.waveform === "triangle").length;
+  const firstVoice = sound.waveVoices[0];
+  const wavePanStart = firstVoice ? panLabel(firstVoice.pan) : "center";
+  const wavePanEnd = sound.waveVoices.length
+    ? panLabel(sound.waveVoices[sound.waveVoices.length - 1].pan)
+    : "center";
+  const accentStatus = audibleAccent.gain > 0
+    ? `Last-step target: ${percentage(audibleAccent.flux, 2)} ${state.view} flux → ${frequencyNoteLabel(audibleAccent.frequency)}, gain ${percentage(audibleAccent.gain, 1)}, noise ${percentage(audibleAccent.attackNoise, 0)}, ${panLabel(audibleAccent.pan)}`
+    : `Last-step target: 0.00% ${state.view} flux → no amber strike`;
+  const layerDescription = state.view === "classical"
+    ? "Classical solo: sustained wave voices are muted; hear the L/R click pair and a classical-only flux strike."
     : state.view === "wave"
-      ? sound.waveEscapeAccent
-      : sound.escapeAccent;
-  $("soundSummary").textContent = `${noteName(telemetry.rootMidi)} · ${telemetry.voiceCount} wave · ${telemetry.resting ? "rest" : "sounding"}`;
+      ? "Wave solo: hear the sustained PM chord and wave-only flux strike; classical branch clicks are muted."
+      : "Overlay: sustained wave chord + L/R classical clicks + the sum of classical and wave escape flux.";
+  const currentGate = telemetry.resting ? "imposed rest" : "sounding gate";
+  const transportState = state.playing ? "running" : "paused";
+  const audioReason = !state.audioOn
+    ? "Audio is off, so the values below are programmed targets rather than audible voices. "
+    : state.view === "wave"
+      ? "Wave solo removes the short branch clicks, leaving fewer rhythmic edges. "
+      : state.view === "classical"
+        ? "Classical solo removes the held chord, leaving only brief step events. "
+        : "";
+  const thinReason = telemetry.waveNorm < 0.08
+    ? "The remaining wave norm is very low, so the chord is intentionally thin and quiet. "
+    : state.stepRate <= 1
+      ? "The slow map rate leaves a long hold between changes. "
+      : audibleAccent.gain === 0
+        ? "No flux accent is articulating this step. "
+        : "";
+
+  $("soundSummary").textContent = state.audioOn
+    ? `${noteName(telemetry.rootMidi)} · ${activeWaveCount} wave audible · ${transportState}`
+    : `${noteName(telemetry.rootMidi)} · audio off · ${telemetry.voiceCount} prepared`;
   $("melodyMapping").textContent = `q/p → ${noteName(telemetry.rootMidi)} · degree +${telemetry.melodicDegree} · phase ${telemetry.phaseSlope.toFixed(2)}`;
-  $("harmonyMapping").textContent = `violet baker chord · ${telemetry.voiceCount} voices`;
-  $("textureMapping").textContent = `spread/entropy → PM grain ${percentage(telemetry.texture, 0)}`;
-  $("dynamicsMapping").textContent = `wave norm → ensemble ${percentage(telemetry.waveNorm, 1)}`;
-  $("rhythmMapping").textContent = `branches → L ${percentage(telemetry.leftFraction, 0)} / R ${percentage(telemetry.rightFraction, 0)}`;
-  $("phraseMapping").textContent = `step ${telemetry.phraseStep + 1}/8 · rest every ${telemetry.restStride}`;
+  $("harmonyMapping").textContent = `fixed interval stack · ${telemetry.voiceCount} programmed / ${activeWaveCount} audible`;
+  $("textureMapping").textContent = `σ + entropy ${percentage(telemetry.entropy, 0)} → PM grain ${percentage(telemetry.texture, 0)}`;
+  $("dynamicsMapping").textContent = `norm ${percentage(telemetry.waveNorm, 1)} × phrase ${telemetry.phraseShape.toFixed(2)} → gain ${chordGain.toFixed(3)}`;
+  $("rhythmMapping").textContent = `${state.stepRate.toFixed(1)} steps/s · branches L ${percentage(telemetry.leftFraction, 0)} / R ${percentage(telemetry.rightFraction, 0)}`;
+  $("phraseMapping").textContent = `step ${telemetry.phraseStep + 1}/8 · ${currentGate} · next rest in ${nextRestIn}`;
   $("accentMapping").textContent = `${state.view} flux → amber strike ${percentage(audibleAccent.flux, 1)}`;
+
+  const anatomy = $("escapeSoundAnatomy");
+  anatomy.dataset.currentView = state.view;
+  anatomy.dataset.audio = state.audioOn ? "on" : "off";
+  anatomy.dataset.gate = telemetry.resting ? "rest" : "sound";
+  $("soundAnatomyState").textContent = `${state.audioOn ? "audio on" : "audio off"} · ${transportState} · ${state.view} · ${activeWaveCount} sustained ${activeWaveCount === 1 ? "voice" : "voices"} · ${currentGate}`;
+  $("soundCoordinates").textContent = `controls q ${state.packetPosition.toFixed(3)} · p ${state.packetMomentum.toFixed(3)} · σ ${state.packetSpread.toFixed(3)}; survivor center q ${centroid.q.toFixed(3)} · p ${centroid.p.toFixed(3)} (${centroid.count} points)`;
+  $("soundPitch").textContent = `${noteName(telemetry.rootMidi)} at ${frequencyLabel(telemetry.rootFrequency)} = MIDI 36 + round(survivor q × 24) + phase degree ${telemetry.melodicDegree}; phase slope ${telemetry.phaseSlope.toFixed(3)} chooses [0, 2, 5, 7, 10]`;
+  $("soundVoiceCount").textContent = `${activeWaveCount}/${sound.waveVoices.length} sustained voices audible${!state.audioOn ? " · audio off" : !waveLayerSelected ? " · muted by Classical solo" : telemetry.resting ? " · phrase rest" : ""}`;
+  $("soundVoices").textContent = `${activeWaveCount}/${sound.waveVoices.length} audible now${!state.audioOn ? " (audio off)" : !waveLayerSelected ? " (muted by Classical solo)" : telemetry.resting ? " (phrase rest)" : ""}. Targets: ${voiceTargets || "none"}`;
+  $("soundClock").textContent = `${transportState} · ${state.stepRate.toFixed(1)} map steps/s when running (${Math.round(1_000 / state.stepRate)} ms each) · eight-step phrase ${telemetry.phraseStep + 1}/8 · amplitude ×${telemetry.phraseShape.toFixed(2)} · ${currentGate}; rest every ${telemetry.restStride} map steps, next in ${nextRestIn}`;
+  $("soundDynamics").textContent = `master ${percentage(state.level, 0)} · wave norm ${percentage(telemetry.waveNorm, 2)} · classical survival ${percentage(telemetry.survival, 1)} · programmed chord-gain sum ${chordGain.toFixed(3)} before master/limiter`;
+  $("soundTexture").textContent = `σ ${state.packetSpread.toFixed(3)} + wave entropy ${percentage(telemetry.entropy, 1)} → texture ${percentage(telemetry.texture, 1)}. Main worklet: sine-carrier PM, index ${(0.4 + telemetry.texture * 3.8).toFixed(2)}, ratio ${(1 + telemetry.phaseSlope * 2).toFixed(2)}. Native fallback: ${triangleCount} triangle + ${sound.waveVoices.length - triangleCount} sine targets without PM.`;
+  $("soundSpatial").textContent = `wave chord spans ${wavePanStart} to ${wavePanEnd}; clicks are L78 / R78; last-step amber target pan is ${panLabel(audibleAccent.pan)}, derived from survivor-center q`;
+  $("soundClassical").textContent = `${clickLayerSelected && state.audioOn && !telemetry.resting ? "armed for each map-step strike" : !state.audioOn ? "programmed, audio off" : telemetry.resting ? "suppressed by phrase rest" : "muted by Wave solo"}; survivors split L ${percentage(telemetry.leftFraction, 1)} / R ${percentage(telemetry.rightFraction, 1)}. ${clickTargets}`;
+  $("soundAccent").textContent = `${accentStatus}${state.audioOn ? "" : "; programmed only while audio is off"}`;
+  $("soundLayers").textContent = layerDescription;
+  $("soundDiagnosis").textContent = `${audioReason}${thinReason}The root and one of five pitch offsets are quantized, while a fixed open interval stack is held until the next map step. The eight-step phrase changes loudness and inserts rests—it does not create chord progression or goal-directed melody—so the geometry can feel coherent without sounding conventionally composed.`;
 }
 
 function updateReadouts() {
@@ -250,11 +359,7 @@ function triggerStepSound() {
       });
     }
   }
-  const accent = state.view === "classical"
-    ? sound.classicalEscapeAccent
-    : state.view === "wave"
-      ? sound.waveEscapeAccent
-      : sound.escapeAccent;
+  const accent = selectedEscapeAccent();
   if (accent.gain > 0) {
     voices.strike(accent, {
       attackSeconds: 0.002,
@@ -346,6 +451,7 @@ function togglePlaying() {
   stepAccumulator = 0;
   lastFrameTime = performance.now();
   updateTransportInterface();
+  updateSoundLedger();
   visualizationDirty = true;
   scheduleFrame();
   announce(state.playing ? "Escape Dust playing." : "Escape Dust paused.");

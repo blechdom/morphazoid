@@ -1,4 +1,10 @@
-import { VoicePool } from "./src/audio.js";
+import {
+  VoicePool,
+  levelToGain,
+  limitVoicePeakSum,
+  normalizeVoiceGains,
+  reduceVoiceContacts,
+} from "./src/audio.js";
 import {
   CANTOR_LOCK_DEFAULTS,
   analyzeCantorLock,
@@ -103,6 +109,7 @@ function resetPhraseClock(now = performance.now()) {
   if (!result) return;
   phraseStep = (state.seed + state.offset) % result.size;
   nextPulseAt = now + 90;
+  paintSoundAnatomy(now);
 }
 
 function rebuild({ announceChange = false } = {}) {
@@ -193,6 +200,7 @@ function paintControls() {
     `Cantor Lock ${state.mode === "cantor" ? "recursive Cantor" : "solid interval"} masks at depth ${state.depth}. ${percent(result.retainedEnergy)} of the finite Fourier state is retained and ${percent(result.leakedEnergy)} leaks. ${state.tightened ? `${result.iterations} power iterations.` : "Seeded state, not yet tightened."} Audio ${state.audio ? "on" : "off"}.`,
   );
   paintAudioState();
+  paintSoundAnatomy();
 }
 
 function rankedMagnitudes(vector, mask = null, limit = 8) {
@@ -269,11 +277,207 @@ function leakVoices(now = 0) {
 function updateAudioVoices(now = performance.now()) {
   if (!result) return;
   pool.setVoices([...glassVoices(now), ...leakVoices(now)]);
+  paintSoundAnatomy(now);
 }
 
 function phraseIntervalMilliseconds() {
   if (!result) return 180;
   return clamp(4_700 / result.size / cadenceMultiplier(), 33, 240);
+}
+
+function setText(id, text) {
+  const element = $(id);
+  if (element && element.textContent !== text) element.textContent = text;
+}
+
+function noteReference(frequency) {
+  const midi = 69 + 12 * Math.log2(frequency / 440);
+  const nearestMidi = Math.round(midi);
+  const names = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+  const name = names[((nearestMidi % 12) + 12) % 12];
+  const octave = Math.floor(nearestMidi / 12) - 1;
+  const cents = Math.round((midi - nearestMidi) * 100);
+  const centsText = cents === 0 ? "" : ` ${cents > 0 ? "+" : "−"}${Math.abs(cents)}¢`;
+  return `${name}${octave}${centsText} · ${frequency.toFixed(1)} Hz`;
+}
+
+function formattedRange(values, digits = 3) {
+  if (!values.length) return "none";
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  return minimum === maximum
+    ? minimum.toFixed(digits)
+    : `${minimum.toFixed(digits)}–${maximum.toFixed(digits)}`;
+}
+
+function frequencyRange(voices) {
+  if (!voices.length) return "no voices";
+  const ordered = [...voices].sort((left, right) => left.frequency - right.frequency);
+  if (ordered.length === 1) return noteReference(ordered[0].frequency);
+  return `${noteReference(ordered[0].frequency)} to ${noteReference(ordered.at(-1).frequency)}`;
+}
+
+function voiceList(voices) {
+  if (!voices.length) return "none in the 12-voice render pool";
+  return [...voices]
+    .sort((left, right) => left.frequency - right.frequency)
+    .map((voice) => noteReference(voice.frequency))
+    .join("; ");
+}
+
+/** Mirror VoicePool's reduction and gain bounds so the receipt describes the mix actually submitted. */
+function continuousMix(now = performance.now()) {
+  const coreRequested = glassVoices(now);
+  const haloRequested = leakVoices(now);
+  const reduced = reduceVoiceContacts(
+    [...coreRequested, ...haloRequested],
+    MAX_AUDIO_VOICES,
+  );
+  const rendered = limitVoicePeakSum(
+    normalizeVoiceGains(reduced),
+    0.68,
+  );
+  return {
+    coreRequested,
+    haloRequested,
+    rendered,
+    core: rendered.filter(({ key }) => key?.startsWith("glass:")),
+    halo: rendered.filter(({ key }) => key?.startsWith("leak:")),
+  };
+}
+
+function addressPulseDetails(cell) {
+  const normalized = result.size > 1 ? cell / (result.size - 1) : 0;
+  const octaveSpan = 2.2 + state.depth * 0.43;
+  const registerFloor = 112 * 2 ** (-(state.depth - 2) * 0.18);
+  const magnitude = Math.hypot(
+    result.frequencyState[cell * 2],
+    result.frequencyState[cell * 2 + 1],
+  );
+  const stereoPhase = (cell + state.offset) / result.size;
+  return {
+    frequency: registerFloor * 2 ** (normalized * octaveSpan),
+    gain: clamp(0.07 + magnitude * 0.38 + result.retainedEnergy * 0.08, 0.06, 0.25),
+    pan: Math.sin(Math.PI * 2 * stereoPhase) * 0.9,
+  };
+}
+
+function formatPan(pan) {
+  if (pan < -0.08) return `${Math.abs(pan).toFixed(2)} left`;
+  if (pan > 0.08) return `${pan.toFixed(2)} right`;
+  return "center";
+}
+
+function paintSoundAnatomy(now = performance.now()) {
+  if (!result) return;
+  const mix = continuousMix(now);
+  const requestedCount = mix.coreRequested.length + mix.haloRequested.length;
+  const interval = phraseIntervalMilliseconds();
+  const attackMilliseconds = state.mode === "solid" ? 18 : 2.5;
+  const decayMilliseconds = state.mode === "solid"
+    ? clamp(interval / 1_000 * 3.2, 0.14, 0.72) * 1_000
+    : clamp(interval / 1_000 * 0.72, 0.025, 0.11) * 1_000;
+  const hitCount = result.frequencyMask.reduce((sum, value) => sum + Number(value), 0);
+  const restCount = result.size - hitCount;
+  const pulseDetails = [...result.frequencyMask]
+    .map((kept, cell) => kept ? addressPulseDetails(cell) : null)
+    .filter(Boolean);
+  const pulseGains = pulseDetails.map(({ gain }) => gain);
+  const continuousGains = mix.rendered.map(({ gain }) => gain);
+  const panValues = mix.rendered.map(({ pan }) => pan ?? 0);
+  const leftCount = panValues.filter((pan) => pan < -0.15).length;
+  const rightCount = panValues.filter((pan) => pan > 0.15).length;
+  const centerCount = panValues.length - leftCount - rightCount;
+  const nextCell = phraseStep % result.size;
+  const nextKept = Boolean(result.frequencyMask[nextCell]);
+  const nextPulse = nextKept ? addressPulseDetails(nextCell) : null;
+  const phaseRotation = 360 / result.size;
+  const phraseOrigin = (state.seed + state.offset) % result.size;
+  const glassStrength = 0.28 + result.retainedEnergy * 0.72;
+  const haloStrength = Math.sqrt(result.leakedEnergy);
+  const modulationModes = [...new Set(mix.rendered.map(({ mode }) => mode.toUpperCase()))].join(" + ");
+  const waveforms = [...new Set(mix.rendered.map(({ waveform }) => waveform))].join(" / ");
+  const modulationIndices = mix.rendered.map(({ modulationIndex }) => modulationIndex);
+  const modulationRatios = mix.rendered.map(({ modulationRatio }) => modulationRatio);
+  const peakSum = continuousGains.reduce((sum, gain) => sum + gain, 0);
+
+  setText(
+    "soundAnatomyState",
+    state.audio
+      ? `Audio on · ${mix.rendered.length}/${MAX_AUDIO_VOICES} continuous voices`
+      : "Audio off · 0 sounding",
+  );
+  setText(
+    "soundDiagnosisReadout",
+    `${state.audio ? "You are hearing" : "Audio will start with"} a continuously sustained ${mix.rendered.length}-voice Fourier bed (${mix.core.length} cyan core + ${mix.halo.length} amber halo). Short address pulses sit on top; they do not replace the bed. That always-on layer is the likely source of the drone.`,
+  );
+  setText(
+    "activeVoicesReadout",
+    `${state.audio ? `${mix.rendered.length} sounding` : `${mix.rendered.length} prepared`} in a ${MAX_AUDIO_VOICES}-voice pool; model requests ${mix.coreRequested.length} core + ${mix.haloRequested.length} halo (${requestedCount} total). ${requestedCount > MAX_AUDIO_VOICES ? `The pool keeps the strongest ${MAX_AUDIO_VOICES}.` : "Nothing is voice-stolen."} Address strikes are additional transients.`,
+  );
+  setText(
+    "coreRegisterReadout",
+    `${mix.core.length} continuous ${state.mode === "solid" ? "sine" : "PM"} voices · ${frequencyRange(mix.core)} · retained ${percent(result.retainedEnergy)} gives core strength factor ${glassStrength.toFixed(3)}.`,
+  );
+  setText(
+    "haloRegisterReadout",
+    `${mix.halo.length} continuous FM/PM voices · ${frequencyRange(mix.halo)} · leak ${percent(result.leakedEnergy)} gives halo energy scale √leak = ${haloStrength.toFixed(3)}.`,
+  );
+  setText(
+    "pulseTimingReadout",
+    `One address every ${interval.toFixed(1)} ms (${(1_000 / interval).toFixed(1)} steps/s); ${hitCount} hits + ${restCount} literal rests per ${(interval * result.size / 1_000).toFixed(2)} s scan. Each hit: ${attackMilliseconds.toFixed(1)} ms attack, ${decayMilliseconds.toFixed(1)} ms decay, ${state.mode === "solid" ? "no" : `${percent(result.leakedEnergy * 0.32, 1)}`} attack noise.`,
+  );
+  setText(
+    "dynamicsAnatomyReadout",
+    `Pre-master continuous gains ${formattedRange(continuousGains)} after the ${peakSum.toFixed(3)}/${0.68.toFixed(2)} phase-aligned peak ceiling; pulse peaks ${formattedRange(pulseGains)} before the shared output compressor. Output ${percent(state.level, 0)} applies master gain ${levelToGain(state.level).toFixed(3)}.`,
+  );
+  setText(
+    "timbreAnatomyReadout",
+    `Main worklet: sine-carrier ${modulationModes}, modulation index ${formattedRange(modulationIndices)}, ratio ${formattedRange(modulationRatios)}. Native fallback: plain ${waveforms} oscillators without FM/PM. Cyan is smoother; amber has stronger modulation and high air voices.`,
+  );
+  setText(
+    "stereoAnatomyReadout",
+    `${leftCount} left / ${centerCount} center / ${rightCount} right; current continuous pan spans ${formattedRange(panValues, 2)}. Each offset step rotates the pan phase ${phaseRotation.toFixed(2)}°; address pulses reach ±0.90.`,
+  );
+  setText(
+    "nextAddressReadout",
+    nextPulse
+      ? `Address ${nextCell}/${result.size - 1} is a hit: ${noteReference(nextPulse.frequency)}, gain ${nextPulse.gain.toFixed(3)}, ${formatPan(nextPulse.pan)}.${state.audio ? "" : " Clock is parked while audio is off."}`
+      : `Address ${nextCell}/${result.size - 1} is a literal rest.${state.audio ? "" : " Clock is parked while audio is off."}`,
+  );
+  setText("coreVoiceList", voiceList(mix.core));
+  setText("haloVoiceList", voiceList(mix.halo));
+
+  setText(
+    "geometryGuideReadout",
+    state.mode === "cantor"
+      ? `Cantor gaps scatter ${hitCount} sounding addresses among ${restCount} rests; the sustained core requests PM and the pulses are short. Solid keeps ${hitCount} addresses but packs them into one run, requests plain sine, and lengthens pulse decay so notes overlap.`
+      : `Solid packs ${hitCount} sounding addresses into one run among ${restCount} rests; the sustained core is plain sine and pulse decays overlap. Cantor redistributes the same address count into recursive gaps, turns on PM, and shortens the pulses.`,
+  );
+  setText(
+    "depthGuideReadout",
+    `Depth ${state.depth} means N = ${result.size}, ${mix.coreRequested.length} requested core voices, a ${frequencyRange(mix.coreRequested)} core register, and a ${interval.toFixed(1)} ms address step. Increasing depth adds core voices until the 10-voice cap, widens/lowers the pitch lattice, and rebuilds a longer, usually faster scan with a smaller proportion of hits.`,
+  );
+  setText(
+    "offsetGuideReadout",
+    `Offset ${state.offset} translates both masks, changing which pitch addresses survive and recalculating retained/leak energy. It also sets phrase origin ${phraseOrigin} and rotates pan by ${phaseRotation.toFixed(2)}° per step.`,
+  );
+  setText(
+    "seedGuideReadout",
+    state.tightened
+      ? `Seed ${state.seed} chose the starting complex phases for tightening, which can change interference, retained/leak energy, halo profile, and the converged voice priorities. It never changes the mask count or pitch formula. With offset ${state.offset}, it starts the phrase at address ${phraseOrigin}.`
+      : `Seed ${state.seed} changes complex phases only: every kept Fourier bin still has equal magnitude before tightening, so core priority and pulse gain stay equal. Interference still changes retained/leak energy and the amber halo. With offset ${state.offset}, it starts the phrase at address ${phraseOrigin}.`,
+  );
+  setText(
+    "tightenGuideReadout",
+    state.tightened
+      ? `${result.iterations} power iterations are active: retained ${percent(result.retainedEnergy)}, leak ${percent(result.leakedEnergy)}, cadence ${cadenceMultiplier().toFixed(2)}×. This remixes core/halo gains, modulation, voice priority, and timing; it does not change the mask or pitch formula.`
+      : `Currently the raw seeded state. Tighten runs ${POWER_ITERATIONS} power iterations, then remixes core/halo gains, modulation, voice priority, cadence, and attack noise from the new retained/leak result; it does not change the mask or pitch formula.`,
+  );
+  setText(
+    "levelGuideReadout",
+    `Output ${percent(state.level, 0)} becomes master gain √level = ${levelToGain(state.level).toFixed(3)}. It changes final loudness only—never voice count, pitches, pulse timing, pan, or modulation.`,
+  );
 }
 
 /**
@@ -316,6 +520,7 @@ function advanceModelPhrase(now) {
     catchUp += 1;
   }
   if (catchUp === 3 && now > nextPulseAt + interval * 3) nextPulseAt = now + interval;
+  if (catchUp > 0) paintSoundAnatomy(now);
 }
 
 function strikeTightening() {
@@ -624,6 +829,7 @@ $("level").addEventListener("input", () => {
   state.level = clamp(Number($("level").value), 0, 1);
   pool.setLevel(state.level);
   $("levelOut").textContent = percent(state.level, 0);
+  paintSoundAnatomy();
 });
 $("cantorMode").addEventListener("click", () => setMode("cantor"));
 $("solidMode").addEventListener("click", () => setMode("solid"));

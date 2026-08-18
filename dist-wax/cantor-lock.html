@@ -166,6 +166,84 @@
           </div>
         </details>
 
+        <details class="group control-section sound-anatomy" open aria-labelledby="soundAnatomyTitle">
+          <summary class="group-summary sound-anatomy-head">
+            <h2 class="group-title" id="soundAnatomyTitle">Sound anatomy <small>What you hear now</small></h2>
+            <span
+              class="section-state sound-anatomy-state"
+              id="soundAnatomyState"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >Audio off · 0 sounding</span>
+          </summary>
+          <div class="group-body">
+            <p class="fractal-meaning sound-anatomy-diagnosis" id="soundDiagnosisReadout">
+              Cantor Lock prepares a sustained Fourier bed, then places short address pulses over it. The bed is always present while audio is on, which can read as a drone.
+            </p>
+
+            <dl class="sound-anatomy-grid" aria-label="Live Cantor Lock audio behavior">
+              <div>
+                <dt>Continuous bed</dt>
+                <dd id="activeVoicesReadout">12-voice pool · model loading</dd>
+              </div>
+              <div>
+                <dt>Cyan retained core</dt>
+                <dd id="coreRegisterReadout">Preparing retained frequencies…</dd>
+              </div>
+              <div>
+                <dt>Amber leakage halo</dt>
+                <dd id="haloRegisterReadout">Preparing leakage frequencies…</dd>
+              </div>
+              <div>
+                <dt>Address phrase</dt>
+                <dd id="pulseTimingReadout">Preparing pulse clock…</dd>
+              </div>
+              <div>
+                <dt>Level + dynamics</dt>
+                <dd id="dynamicsAnatomyReadout">Output 48%</dd>
+              </div>
+              <div>
+                <dt>Timbre + modulation</dt>
+                <dd id="timbreAnatomyReadout">Preparing synthesis modes…</dd>
+              </div>
+              <div>
+                <dt>Stereo field</dt>
+                <dd id="stereoAnatomyReadout">Preparing pan positions…</dd>
+              </div>
+              <div>
+                <dt>Next address</dt>
+                <dd id="nextAddressReadout">Waiting for phrase clock</dd>
+              </div>
+            </dl>
+
+            <section class="sound-anatomy-voices" aria-labelledby="renderedVoicesTitle">
+              <h3 id="renderedVoicesTitle">Programmed frequency targets</h3>
+              <p><b>Cyan core</b> <span id="coreVoiceList">—</span></p>
+              <p><b>Amber halo</b> <span id="haloVoiceList">—</span></p>
+              <p class="control-note">
+                Note names are nearest 12-tone references; the Hz values are the frequencies actually sent to the synth and are not snapped to that tuning.
+              </p>
+            </section>
+
+            <section class="sound-control-guide" aria-labelledby="controlGuideTitle">
+              <h3 id="controlGuideTitle">What each control changes in your ears</h3>
+              <dl>
+                <div><dt>Mask geometry</dt><dd id="geometryGuideReadout">Cantor gaps create recursive rests and a pulsing PM core.</dd></div>
+                <div><dt>Generation depth</dt><dd id="depthGuideReadout">Changes voice density, register width, pitch addresses, and phrase speed.</dd></div>
+                <div><dt>Mask offset</dt><dd id="offsetGuideReadout">Moves the pitch addresses, phrase origin, and stereo rotation together.</dd></div>
+                <div><dt>Phase seed</dt><dd id="seedGuideReadout">Changes phase interference and phrase origin; raw kept-bin magnitudes remain equal until tightening.</dd></div>
+                <div><dt>Tighten trap</dt><dd id="tightenGuideReadout">Searches for more retained energy, then remixes core, leakage, cadence, and attack noise.</dd></div>
+                <div><dt>Output</dt><dd id="levelGuideReadout">Changes only final loudness; it does not alter pitch, rhythm, or timbre.</dd></div>
+              </dl>
+            </section>
+
+            <p class="control-note sound-feedback-prompt">
+              To help tune the instrument, note which part feels static: the cyan pitch stack, the amber halo, or the address pulses. Include the mode, depth, retained percentage, and pulse timing shown above.
+            </p>
+          </div>
+        </details>
+
         <details class="group control-section">
           <summary class="group-summary">
             <h2 class="group-title">Method / what this means</h2>

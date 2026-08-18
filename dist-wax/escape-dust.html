@@ -182,10 +182,128 @@
 
         <details class="group control-section" data-section="sound" open>
           <summary class="group-summary">
-            <h2 class="group-title">Sound mapping</h2>
+            <h2 class="group-title">Sound anatomy</h2>
             <span class="section-state" id="soundSummary">q/p chord · two branches</span>
           </summary>
           <div class="group-body">
+            <section
+              class="sound-anatomy"
+              id="escapeSoundAnatomy"
+              data-sound-anatomy
+              data-current-view="overlay"
+              aria-labelledby="escapeSoundAnatomyTitle"
+            >
+              <header class="sound-anatomy-head">
+                <div>
+                  <p class="fractal-kicker">Live signal path</p>
+                  <h3 id="escapeSoundAnatomyTitle">What you hear now</h3>
+                </div>
+                <output
+                  class="sound-anatomy-state"
+                  id="soundAnatomyState"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >audio off · overlay</output>
+              </header>
+
+              <dl class="sound-anatomy-grid" aria-label="Live Escape Dust sound anatomy">
+                <div data-sound-dimension="coordinates">
+                  <dt>Packet + live center</dt>
+                  <dd id="soundCoordinates">q .240 · p .680 · σ .072</dd>
+                </div>
+                <div data-sound-dimension="pitch">
+                  <dt>Pitch + melody</dt>
+                  <dd id="soundPitch">q chooses register; wave phase chooses a scale degree</dd>
+                </div>
+                <div data-sound-dimension="voices">
+                  <dt>Wave ensemble</dt>
+                  <dd id="soundVoiceCount">0/8 voices audible while audio is off</dd>
+                </div>
+                <div data-sound-dimension="clock">
+                  <dt>Clock + phrase</dt>
+                  <dd id="soundClock">2.0 steps/s · phrase 1/8 · sounding</dd>
+                </div>
+                <div data-sound-dimension="dynamics">
+                  <dt>Dynamics</dt>
+                  <dd id="soundDynamics">Wave norm and phrase shape set chord weight</dd>
+                </div>
+                <div data-sound-dimension="texture">
+                  <dt>PM texture</dt>
+                  <dd id="soundTexture">Packet spread and wave entropy set modulation depth</dd>
+                </div>
+                <div data-sound-dimension="space">
+                  <dt>Stereo field</dt>
+                  <dd id="soundSpatial">Wave chord spreads left to right; branches sit at the sides</dd>
+                </div>
+                <div data-sound-dimension="classical">
+                  <dt>Classical clicks</dt>
+                  <dd id="soundClassical">Left and right survivor branches strike once per map step</dd>
+                </div>
+                <div data-sound-dimension="escape">
+                  <dt>Escape accent</dt>
+                  <dd id="soundAccent">No loss yet, so the amber strike is silent</dd>
+                </div>
+                <div data-sound-dimension="layers">
+                  <dt>Layer isolation</dt>
+                  <dd id="soundLayers">Overlay combines wave chord, classical clicks, and both escape fluxes</dd>
+                </div>
+              </dl>
+
+              <section class="sound-anatomy-voices" aria-labelledby="escapeVoiceListTitle">
+                <b id="escapeVoiceListTitle">Wave-voice targets</b>
+                <output id="soundVoices">Audio is off; 8 chord voices are programmed</output>
+              </section>
+
+              <div class="sound-anatomy-diagnosis" data-sound-diagnosis>
+                <h3>Why it may—or may not—feel musical</h3>
+                <p id="soundDiagnosis">
+                  The model supplies the changes; an imposed eight-step phrase supplies only loudness shape and periodic rests. It does not create chord progression or goal-directed melody. The chord is held between map steps, so slow or low-leak states can read as a drone rather than a melody.
+                </p>
+              </div>
+
+              <details class="sound-control-guide" open>
+                <summary id="escapeControlGuideTitle">What each control should change</summary>
+              <dl>
+                <div>
+                  <dt>Position q</dt>
+                  <dd>Restarts the packet. Farther right raises the survivor-centroid register across two octaves; folding during later map steps can make it jump.</dd>
+                </div>
+                <div>
+                  <dt>Momentum p</dt>
+                  <dd>Restarts the packet with a new phase slope. That selects one of five pitch offsets, changes PM ratio, pushes the two click pitches in opposite directions, and changes right-click delay.</dd>
+                </div>
+                <div>
+                  <dt>Packet spread σ</dt>
+                  <dd>More spread directly increases PM index and detune. The main worklet keeps sine carriers; the native fallback loses PM and uses the requested sine/triangle oscillator pattern.</dd>
+                </div>
+                <div>
+                  <dt>Middle opening</dt>
+                  <dd>A wider hole generally leaks faster, removes chord voices sooner, and schedules rests more often. Its grid-snapped width also raises the amber accent pitch.</dd>
+                </div>
+                <div>
+                  <dt>Point seed</dt>
+                  <dd>Changes the deterministic classical cloud: branch balance, dry click weights, and point-escape accents. As survivors move, their centroid can also shift the wave-chord root; wave phase and entropy remain seed-independent.</dd>
+                </div>
+                <div>
+                  <dt>Map rate</dt>
+                  <dd>Sets the pulse in steps per second. It clocks note changes, clicks, rests, and escape strikes; it does not alter pitch.</dd>
+                </div>
+                <div>
+                  <dt>Classical / Wave / Overlay</dt>
+                  <dd>Solo dry survivor clicks, solo the sustained violet chord, or hear both. Each solo uses only its own escape flux for the amber strike.</dd>
+                </div>
+                <div>
+                  <dt>Master level</dt>
+                  <dd>Scales the final mix only. Wave norm, phrase contour, survivor balance, and flux still control their internal dynamics underneath it.</dd>
+                </div>
+              </dl>
+              </details>
+
+              <p class="sound-feedback-prompt">
+                To help tune this, tell me which layer should lead—the held wave chord, branch-click rhythm, or escape accent—and whether pitch, phrase, or timbre feels disconnected. Include the selected layer, q, p, step rate, and live voice count above.
+              </p>
+            </section>
+
             <div class="fractal-ledger fractal-mapping-ledger" aria-label="Stable Escape Dust sound mappings">
               <span><b>Melody + pan</b><code id="melodyMapping">packet q/p → register + degree</code></span>
               <span><b>Harmony</b><code id="harmonyMapping">violet baker chord · 8 voices</code></span>

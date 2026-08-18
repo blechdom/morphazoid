@@ -221,7 +221,25 @@ test("Linebreaker markup states the model boundary, mappings, and primary source
     "rootFrequency",
     "scanRate",
     "resetButton",
+    "anatomyState",
+    "anatomyPitch",
+    "anatomyVoiceCount",
+    "anatomyHarmony",
+    "anatomyPhrase",
+    "anatomyDynamics",
+    "anatomyTimbre",
+    "anatomyStereo",
+    "anatomyScan",
+    "anatomyVoiceList",
+    "anatomyDiagnosis",
   ]) assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
+  assert.match(html, /class="sound-anatomy"/);
+  assert.match(html, /What you hear now/);
+  assert.match(html, /angle ÷ 15 semitones continuously/);
+  assert.match(html, /offset × 1\.9/);
+  assert.match(html, /deliberately not quantized to a scale/);
+  assert.match(html, /<dt>Scan angle<\/dt>/);
+  assert.match(html, /<dt>Find clearest line<\/dt>/);
   assert.match(html, /id="probeWidth"[^>]*min="1"[^>]*max="5"[^>]*step="2"/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
   assert.match(html, /<script type="module" src="linebreaker-app\.js"><\/script>/);
@@ -247,4 +265,22 @@ test("Linebreaker app provides bounded continuous sonification, gestures, and BF
   assert.match(app, /event\.persisted/);
   assert.match(app, /pool\.close\(\)/);
   assert.match(app, /Math\.sqrt\(3_000_000/);
+  assert.match(app, /function paintSoundAnatomy/);
+  assert.match(app, /voices\.reduce\(\(sum, voice\) => sum \+ voice\.gain/);
+  assert.match(app, /raw two-dimensional FFT-bin distances/);
+  assert.match(app, /Every sampled phrase cell is occupied/);
+  assert.match(app, /0 audible · \$\{voices\.length\} continuous contacts programmed/);
+  assert.match(app, /onset transient counted separately/);
+  assert.match(app, /An eligible rest→tone edge, throttled to at most one strike per 75 ms, adds/);
+  assert.match(app, /Onset transient: separate rest→tone strike/);
+  assert.match(app, /remain underneath at the 1\.8% rest tail/);
+  assert.match(app, /Main worklet: sine-carrier \$\{synthesisModes\}/);
+  assert.match(app, /Native fallback: plain \$\{waveforms\} oscillators without FM\/PM/);
+  for (const id of ["rootFrequency", "scanRate", "level"]) {
+    assert.match(
+      app,
+      new RegExp(`\\$\\("${id}"\\)\\.addEventListener\\("input", \\(\\) => \\{[\\s\\S]*?paintSoundAnatomy\\(\\)`),
+      `${id} must refresh the live sound anatomy`,
+    );
+  }
 });

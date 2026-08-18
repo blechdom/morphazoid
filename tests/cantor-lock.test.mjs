@@ -166,12 +166,63 @@ test("Cantor Lock markup discloses scope, sources, controls, and the sound corre
   assert.match(html, /<script type="module" src="cantor-lock-app\.js"><\/script>/);
 });
 
+test("Cantor Lock exposes an accessible live sound anatomy and musician-facing control guide", async () => {
+  const html = await read("cantor-lock.html");
+  assert.match(html, /class="group control-section sound-anatomy" open aria-labelledby="soundAnatomyTitle"/);
+  assert.match(html, /<h2 class="group-title" id="soundAnatomyTitle">Sound anatomy <small>What you hear now<\/small><\/h2>/);
+  assert.match(html, /What you hear now/);
+  assert.match(
+    html,
+    /id="soundAnatomyState"[\s\S]*role="status"[\s\S]*aria-live="polite"[\s\S]*aria-atomic="true"/,
+  );
+  assert.match(html, /class="sound-anatomy-grid" aria-label="Live Cantor Lock audio behavior"/);
+  assert.match(html, /class="sound-anatomy-voices" aria-labelledby="renderedVoicesTitle"/);
+  assert.match(html, /class="sound-control-guide" aria-labelledby="controlGuideTitle"/);
+  assert.match(html, /the bed is always present while audio is on, which can read as a drone/i);
+  assert.match(html, /Note names are nearest 12-tone references/);
+  assert.match(html, /which part feels static: the cyan pitch stack, the amber halo, or the address pulses/);
+  for (const id of [
+    "soundDiagnosisReadout", "activeVoicesReadout", "coreRegisterReadout",
+    "haloRegisterReadout", "pulseTimingReadout", "dynamicsAnatomyReadout",
+    "timbreAnatomyReadout", "stereoAnatomyReadout", "nextAddressReadout",
+    "coreVoiceList", "haloVoiceList", "geometryGuideReadout", "depthGuideReadout",
+    "offsetGuideReadout", "seedGuideReadout", "tightenGuideReadout", "levelGuideReadout",
+  ]) assert.match(html, new RegExp(`id="${id}"`), `missing live sound explanation #${id}`);
+});
+
+test("Cantor Lock sound anatomy mirrors the render pool and every audible mapping live", async () => {
+  const app = await read("cantor-lock-app.js");
+  assert.match(app, /levelToGain,[\s\S]*limitVoicePeakSum,[\s\S]*normalizeVoiceGains,[\s\S]*reduceVoiceContacts/);
+  assert.match(app, /function continuousMix\(now = performance\.now\(\)\)/);
+  assert.match(app, /reduceVoiceContacts\([\s\S]*MAX_AUDIO_VOICES/);
+  assert.match(app, /limitVoicePeakSum\([\s\S]*normalizeVoiceGains\(reduced\)[\s\S]*0\.68/);
+  assert.match(app, /function noteReference\(frequency\)/);
+  assert.match(app, /Hz`/);
+  assert.match(app, /function addressPulseDetails\(cell\)/);
+  assert.match(app, /One address every \$\{interval\.toFixed\(1\)\} ms/);
+  assert.match(app, /\$\{hitCount\} hits \+ \$\{restCount\} literal rests/);
+  assert.match(app, /phase-aligned peak ceiling/);
+  assert.match(app, /Output \$\{percent\(state\.level, 0\)\} applies master gain/);
+  assert.match(app, /Main worklet: sine-carrier \$\{modulationModes\}/);
+  assert.match(app, /Native fallback: plain \$\{waveforms\} oscillators without FM\/PM/);
+  assert.match(app, /\$\{leftCount\} left \/ \$\{centerCount\} center \/ \$\{rightCount\} right/);
+  assert.match(app, /Address \$\{nextCell\}\/\$\{result\.size - 1\} is a literal rest/);
+  assert.match(app, /paintSoundAnatomy\(now\)/);
+  assert.match(app, /if \(catchUp > 0\) paintSoundAnatomy\(now\)/);
+  assert.match(app, /changes complex phases only: every kept Fourier bin still has equal magnitude/);
+  assert.match(app, /\$\("level"\)\.addEventListener\("input", \(\) => \{[\s\S]*paintSoundAnatomy\(\)/);
+  for (const stateDependency of [
+    "state.mode", "state.depth", "state.offset", "state.seed", "state.level",
+    "state.tightened", "result.retainedEnergy", "result.leakedEnergy", "result.frequencyMask",
+  ]) assert.match(app, new RegExp(stateDependency.replace(".", "\\.")), `missing anatomy dependency ${stateDependency}`);
+});
+
 test("Cantor Lock app keeps audio bounded, live, accessible, and BFCache safe", async () => {
   const [app, core] = await Promise.all([
     read("cantor-lock-app.js"),
     read("src/cantor-lock.js"),
   ]);
-  assert.match(app, /import \{ VoicePool \} from "\.\/src\/audio\.js"/);
+  assert.match(app, /VoicePool,[\s\S]*from "\.\/src\/audio\.js"/);
   assert.match(app, /const MAX_AUDIO_VOICES = 12/);
   assert.match(app, /new VoicePool\(MAX_AUDIO_VOICES, \{ continuousPeakCeiling: 0\.68 \}\)/);
   assert.match(app, /pool\.setVoices/);

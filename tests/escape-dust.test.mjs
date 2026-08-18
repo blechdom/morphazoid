@@ -350,12 +350,46 @@ test("Escape Dust markup exposes all layers, controls, mappings, and scientific 
     "survivorReadout", "waveNormReadout", "waveLeakReadout", "soundSummary",
     "melodyMapping", "harmonyMapping", "textureMapping", "dynamicsMapping",
     "rhythmMapping", "phraseMapping", "accentMapping", "resetEscapeDust",
+    "escapeSoundAnatomy", "escapeSoundAnatomyTitle", "soundAnatomyState",
+    "soundCoordinates", "soundPitch", "soundVoiceCount", "escapeVoiceListTitle",
+    "soundVoices", "soundClock",
+    "soundDynamics", "soundTexture", "soundSpatial", "soundClassical",
+    "soundAccent", "soundLayers", "soundDiagnosis", "escapeControlGuideTitle",
   ]) {
     assert.match(html, new RegExp(`id="${id}"`), `${id} must exist`);
   }
   for (const view of ["classical", "wave", "overlay"]) {
     assert.match(html, new RegExp(`data-view="${view}"`));
   }
+});
+
+test("Escape Dust explains the live sound anatomy and every perceptual control", async () => {
+  const html = await readFile(new URL("escape-dust.html", root), "utf8");
+  assert.match(html, /class="sound-anatomy"[\s\S]+data-sound-anatomy[\s\S]+data-current-view="overlay"/);
+  assert.match(html, /class="sound-anatomy-head"/);
+  assert.match(html, /class="sound-anatomy-state"[\s\S]+aria-live="polite"[\s\S]+aria-atomic="true"/);
+  assert.match(html, /class="sound-anatomy-grid"[\s\S]+aria-label="Live Escape Dust sound anatomy"/);
+  assert.match(html, /class="sound-anatomy-voices" aria-labelledby="escapeVoiceListTitle"/);
+  assert.match(html, /<output id="soundVoices">/);
+  assert.match(html, /class="sound-anatomy-diagnosis" data-sound-diagnosis/);
+  assert.match(html, /<details class="sound-control-guide" open>/);
+  assert.match(html, /<summary id="escapeControlGuideTitle">What each control should change<\/summary>/);
+
+  for (const dimension of [
+    "coordinates", "pitch", "voices", "clock", "dynamics", "texture",
+    "space", "classical", "escape", "layers",
+  ]) {
+    assert.match(html, new RegExp(`data-sound-dimension="${dimension}"`));
+  }
+  for (const control of [
+    "Position q", "Momentum p", "Packet spread σ", "Middle opening", "Point seed",
+    "Map rate", "Classical / Wave / Overlay", "Master level",
+  ]) {
+    assert.match(html, new RegExp(`<dt>${control.replaceAll("/", "\\/")}<\\/dt>`));
+  }
+  assert.match(html, /held between map steps[\s\S]+read as a drone/i);
+  assert.match(html, /does not create chord progression or goal-directed melody/i);
+  assert.match(html, /survivors move, their centroid can also shift the wave-chord root/i);
 });
 
 test("Escape Dust markup has unique ids and labels every adjustable control", async () => {
@@ -394,6 +428,38 @@ test("Escape Dust app uses bounded VoicePool layers, stable mappings, shortcuts,
   assert.match(app, /pageshow/);
   assert.match(app, /voices\.disable\(\)/);
   assert.match(app, /voices\.close\(\)/);
+});
+
+test("Escape Dust sound anatomy reports computed synth targets rather than generic prose", async () => {
+  const app = await readFile(new URL("escape-dust-app.js", root), "utf8");
+  assert.match(app, /function livingCentroid\(\)/);
+  assert.match(app, /sound\.waveVoices\.map/);
+  assert.match(app, /sound\.waveVoices\.reduce/);
+  assert.match(app, /sound\.classicalClicks\.map/);
+  assert.match(app, /selectedEscapeAccent\(\)/);
+  assert.match(app, /telemetry\.rootFrequency/);
+  assert.match(app, /telemetry\.phaseSlope/);
+  assert.match(app, /telemetry\.phraseShape/);
+  assert.match(app, /telemetry\.waveNorm/);
+  assert.match(app, /telemetry\.entropy/);
+  assert.match(app, /telemetry\.leftFraction/);
+  assert.match(app, /audibleAccent\.attackNoise/);
+  assert.match(app, /anatomy\.dataset\.currentView = state\.view/);
+  assert.match(app, /The root and one of five pitch offsets are quantized/);
+  assert.match(app, /Main worklet: sine-carrier PM/);
+  assert.match(app, /Native fallback:/);
+  assert.match(app, /const cents = Math\.round\(\(midi - nearest\) \* 100\)/);
+  assert.match(app, /const transportState = state\.playing \? "running" : "paused"/);
+  assert.match(app, /Last-step target:/);
+  assert.match(app, /function togglePlaying\(\)[\s\S]*?updateSoundLedger\(\)/);
+
+  for (const id of [
+    "soundAnatomyState", "soundCoordinates", "soundPitch", "soundVoiceCount", "soundVoices",
+    "soundClock", "soundDynamics", "soundTexture", "soundSpatial",
+    "soundClassical", "soundAccent", "soundLayers", "soundDiagnosis",
+  ]) {
+    assert.match(app, new RegExp(`\\$\\("${id}"\\)\\.textContent`), `${id} must update live`);
+  }
 });
 
 test("Escape Dust defaults remain the disclosed triadic setup", () => {

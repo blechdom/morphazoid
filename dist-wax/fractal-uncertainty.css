@@ -340,6 +340,251 @@
   white-space: normal;
 }
 
+.sound-anatomy {
+  display: grid;
+  margin: 5px 0 14px;
+  padding: 12px;
+  border: 1px solid color-mix(in oklab, var(--accent) 28%, var(--line));
+  background:
+    linear-gradient(145deg, color-mix(in oklab, var(--accent) 7%, transparent), transparent 48%),
+    color-mix(in oklab, var(--bg-deep) 90%, transparent);
+  box-shadow: inset 0 1px color-mix(in oklab, var(--ink) 4%, transparent);
+  gap: 10px;
+}
+
+.sound-anatomy-head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sound-anatomy-head > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.sound-anatomy-head .fractal-kicker {
+  font-size: 7px;
+}
+
+.sound-anatomy h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -.015em;
+  line-height: 1.2;
+}
+
+.sound-anatomy-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.sound-anatomy-state {
+  flex: 0 1 auto;
+  max-width: 48%;
+  padding: 4px 6px;
+  border: 1px solid color-mix(in oklab, var(--accent) 28%, var(--line));
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 5%, transparent);
+  font: 6px/1.35 var(--mono);
+  letter-spacing: .06em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.sound-anatomy-grid {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sound-anatomy-grid > div {
+  display: grid;
+  min-width: 0;
+  min-height: 58px;
+  padding: 7px 8px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  align-content: start;
+  gap: 4px;
+}
+
+.sound-anatomy-grid dt,
+.sound-control-guide dt {
+  margin: 0;
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.sound-anatomy-grid dd,
+.sound-control-guide dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: color-mix(in oklab, var(--accent) 80%, var(--ink));
+  font: 9px/1.45 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.sound-anatomy .sound-anatomy-voices,
+.sound-anatomy-voice-list {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 72%, transparent);
+  gap: 5px;
+}
+
+.sound-anatomy .sound-anatomy-voices b,
+.sound-anatomy-voice-list b {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.sound-anatomy-voices h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .05em;
+}
+
+.sound-anatomy-voices p {
+  margin: 0;
+  color: var(--ink);
+  font: 8px/1.55 var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.sound-anatomy-voices .control-note {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+
+.sound-anatomy-voices span,
+.sound-anatomy-voices code,
+.sound-anatomy-voices output,
+.sound-anatomy-voices li {
+  color: var(--ink);
+  font: 8px/1.55 var(--mono);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.sound-anatomy-voices ul,
+.sound-anatomy-voices ol {
+  display: grid;
+  margin: 0;
+  padding-left: 15px;
+  gap: 3px;
+}
+
+.sound-anatomy-diagnosis {
+  margin: 0;
+  padding: 8px 9px;
+  border-left: 2px solid var(--fup-amber);
+  color: color-mix(in oklab, var(--ink) 78%, var(--muted));
+  background: color-mix(in oklab, var(--fup-amber) 5%, transparent);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.sound-anatomy-diagnosis h3 {
+  margin: 0 0 4px;
+  color: var(--fup-amber);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+
+.sound-anatomy-diagnosis p {
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.sound-feedback-prompt {
+  margin: 0;
+  padding: 8px 9px;
+  border: 1px dashed color-mix(in oklab, var(--accent) 35%, var(--line));
+  color: color-mix(in oklab, var(--ink) 78%, var(--muted));
+  background: color-mix(in oklab, var(--accent) 3%, transparent);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.fractal-uncertainty-page .sound-feedback-prompt.control-note {
+  margin: 0;
+  color: color-mix(in oklab, var(--ink) 78%, var(--muted));
+}
+
+.sound-control-guide {
+  border-top: 1px solid var(--line);
+}
+
+.sound-control-guide > summary {
+  padding: 8px 0 1px;
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.sound-control-guide > summary:hover,
+.sound-control-guide > summary:focus-visible {
+  color: var(--ink);
+}
+
+.sound-control-guide > h3 {
+  margin: 9px 0 2px;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.sound-control-guide dl {
+  display: grid;
+  margin: 9px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.sound-control-guide dl > div {
+  display: grid;
+  padding: 7px 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--line) 72%, transparent);
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.sound-control-guide dd {
+  color: color-mix(in oklab, var(--ink) 76%, var(--muted));
+}
+
 .fractal-metric-grid {
   display: grid;
   margin: 9px 0;
@@ -447,6 +692,51 @@
   .escape-actions,
   .probe-actions {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .sound-anatomy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  header.sound-anatomy-head {
+    display: grid;
+  }
+
+  summary.sound-anatomy-head {
+    display: grid;
+    grid-template-areas:
+      "title toggle"
+      "state state";
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  summary.sound-anatomy-head > .group-title {
+    grid-area: title;
+  }
+
+  summary.sound-anatomy-head > .sound-anatomy-state {
+    grid-area: state;
+    margin-left: 0;
+  }
+
+  summary.sound-anatomy-head::after {
+    grid-area: toggle;
+  }
+
+  .sound-anatomy-state {
+    max-width: none;
+    text-align: left;
+  }
+
+  .sound-anatomy-grid > div {
+    min-height: 0;
+  }
+
+  .sound-anatomy-grid dd,
+  .sound-control-guide dd {
+    font-size: 9.5px;
   }
 }
 

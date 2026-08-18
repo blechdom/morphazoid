@@ -151,6 +151,51 @@
             <span class="section-state" id="soundSummary">rail organ · Fourier ensemble</span>
           </summary>
           <div class="group-body">
+            <section class="sound-anatomy" aria-labelledby="linebreakerAnatomyTitle">
+              <header class="sound-anatomy-head">
+                <div>
+                  <p class="fractal-kicker">Live signal path</p>
+                  <h3 id="linebreakerAnatomyTitle">What you hear now</h3>
+                </div>
+                <output class="sound-anatomy-state" id="anatomyState" aria-live="off">audio off · tone cell</output>
+              </header>
+              <dl class="sound-anatomy-grid">
+                <div><dt>Pitch source</dt><dd id="anatomyPitch">0° → D2 · 73.0 Hz</dd></div>
+                <div><dt>Voices</dt><dd id="anatomyVoiceCount">0 audible · 4 probe + 6 FFT programmed</dd></div>
+                <div><dt>Harmony</dt><dd id="anatomyHarmony">raw integer harmonics · no scale</dd></div>
+                <div><dt>Phrase</dt><dd id="anatomyPhrase">tone · 5.00 s probe cycle</dd></div>
+                <div><dt>Dynamics</dt><dd id="anatomyDynamics">occupancy + rail length → gain</dd></div>
+                <div><dt>Timbre</dt><dd id="anatomyTimbre">triangle organ · light PM</dd></div>
+                <div><dt>Stereo</dt><dd id="anatomyStereo">offset → pan center</dd></div>
+                <div><dt>Scan prosody</dt><dd id="anatomyScan">paused · 18°/s when active</dd></div>
+              </dl>
+              <p class="sound-anatomy-voices">
+                <b>Continuous voice targets</b>
+                <span id="anatomyVoiceList">Waiting for the finite model.</span>
+              </p>
+              <p class="sound-anatomy-diagnosis" id="anatomyDiagnosis">
+                A complete rail holds every phrase cell open, so this preset intentionally sustains instead of articulating rests.
+              </p>
+              <p class="sound-feedback-prompt">
+                To help tune this, tell me which rule feels wrong—the continuous angle pitch, raw FFT chord, or occupied-cell phrase. Include the preset, angle, occupancy, gap count, and rendered note list above.
+              </p>
+              <details class="sound-control-guide">
+                <summary>What each control changes in the sound</summary>
+                <dl>
+                  <div><dt>Structure</dt><dd>changes the binary mask, Fourier bins, and organ-versus-grain texture family</dd></div>
+                  <div><dt>Depth</dt><dd>uses depth + 1 probe layers and rebuilds the finite mask and its Fourier chord</dd></div>
+                  <div><dt>Angle</dt><dd>adds angle ÷ 15 semitones continuously; it is deliberately not quantized to a scale</dd></div>
+                  <div><dt>Offset</dt><dd>moves the pan center by offset × 1.9 and changes which cells form the phrase</dd></div>
+                  <div><dt>Probe width</dt><dd>changes sampled occupancy, gaps, phrase gates, and gain—not filter bandwidth</dd></div>
+                  <div><dt>Root</dt><dd>sets the 0° base frequency before angle and Fourier harmonic multiplication</dd></div>
+                  <div><dt>Phrase rate</dt><dd>sets both the probe-cycle rhythm and the speed of automatic angle scanning</dd></div>
+                  <div><dt>Scan angle</dt><dd>moves through angle pitch and line occupancy continuously; pause freezes both at the displayed angle</dd></div>
+                  <div><dt>Find clearest line</dt><dd>searches the finite mask for the lowest sampled occupancy, then moves angle and offset to that result</dd></div>
+                  <div><dt>Output</dt><dd>scales the completed mix after every model-to-sound mapping</dd></div>
+                </dl>
+              </details>
+            </section>
+
             <label class="control" for="rootFrequency">
               <span><b>Root frequency</b><output id="rootFrequencyOut" for="rootFrequency">73 Hz</output></span>
               <input id="rootFrequency" type="range" min="45" max="180" step="1" value="73" />

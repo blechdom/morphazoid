@@ -77,6 +77,33 @@ function signed(value, digits = 3) {
   return `${number >= 0 ? "+" : ""}${number.toFixed(digits)}`;
 }
 
+const NOTE_NAMES = Object.freeze(["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"]);
+
+function noteName(frequency) {
+  const hz = Math.max(1e-6, Number(frequency) || 0);
+  const midi = 69 + 12 * Math.log2(hz / 440);
+  const rounded = Math.round(midi);
+  const name = NOTE_NAMES[((rounded % 12) + 12) % 12];
+  const octave = Math.floor(rounded / 12) - 1;
+  const cents = Math.round((midi - rounded) * 100);
+  return `${name}${octave}${Math.abs(cents) >= 3 ? ` ${cents >= 0 ? "+" : ""}${cents}¢` : ""}`;
+}
+
+function panLabel(value) {
+  const pan = clamp(Number(value) || 0, -1, 1);
+  if (Math.abs(pan) < 0.05) return "center";
+  return `${Math.abs(pan * 100).toFixed(0)}% ${pan < 0 ? "left" : "right"}`;
+}
+
+function valueRange(values, digits = 2) {
+  if (!values.length) return "none";
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  return Math.abs(maximum - minimum) < 10 ** (-digits)
+    ? minimum.toFixed(digits)
+    : `${minimum.toFixed(digits)}–${maximum.toFixed(digits)}`;
+}
+
 function announce(message) {
   const live = $("liveStatus");
   live.textContent = "";
@@ -208,6 +235,48 @@ function paintAudioState() {
   $("audioState").textContent = state.audio ? "on" : "off";
 }
 
+function paintSoundAnatomy(now = performance.now()) {
+  const sound = makeVoices(now);
+  const { voices, phrase, melodicRoot } = sound;
+  const phraseCycle = 1 / state.scanRate;
+  const angleSemitones = state.angle / 15;
+  const scanDegreesPerSecond = (reducedMotion ? 7 : 18) * (state.scanRate / DEFAULTS.scanRate);
+  const totalGain = voices.reduce((sum, voice) => sum + voice.gain, 0);
+  const noteContacts = [...new Set(voices.map((voice) => noteName(voice.frequency)))];
+  const modulationRange = valueRange(voices.map((voice) => voice.modulationIndex));
+  const ratioRange = valueRange(voices.map((voice) => voice.modulationRatio));
+  const synthesisModes = [...new Set(voices.map((voice) => voice.mode.toUpperCase()))].join(" + ");
+  const waveforms = [...new Set(voices.map((voice) => voice.waveform))].join(" / ");
+  const onsetFrequency = foldFrequency(melodicRoot * (1 + state.depth));
+  const onsetGain = 0.12 + (1 - probe.occupancy) * 0.12;
+  const onsetPan = clamp(state.offset * 2, -1, 1);
+  const onsetDecayMilliseconds = sound.dusty ? 70 : 140;
+  const onsetNoise = sound.dusty ? 0.22 : 0.05;
+  const onsetWaveform = sound.dusty ? "sawtooth" : "triangle";
+  const contactSummary = voices.map((voice, index) => {
+    const family = index < sound.layerCount ? `probe ${index + 1}` : `FFT ${index - sound.layerCount + 1}`;
+    return `${family}: ${noteName(voice.frequency)} ${voice.frequency.toFixed(1)} Hz · worklet ${voice.mode.toUpperCase()} i${voice.modulationIndex.toFixed(2)} r${voice.modulationRatio.toFixed(2)} · fallback ${voice.waveform} · gain ${voice.gain.toFixed(3)} · ${panLabel(voice.pan)}`;
+  }).join("\n");
+
+  $("anatomyState").textContent = `${state.audio ? `audio on · ${voices.length} continuous` : `audio off · 0 audible · ${voices.length} programmed`} · ${phrase.occupied ? "tone cell" : "rest cell"}`;
+  $("anatomyPitch").textContent = `${state.angle.toFixed(1)}° → ${angleSemitones.toFixed(2)} st → ${noteName(melodicRoot)} · ${melodicRoot.toFixed(1)} Hz`;
+  $("anatomyVoiceCount").textContent = `${state.audio ? `${voices.length} continuous contacts` : `0 audible · ${voices.length} continuous contacts programmed`} · ${sound.layerCount} probe + ${sound.ensembleCount} FFT · onset transient counted separately`;
+  $("anatomyHarmony").textContent = `${noteContacts.slice(0, 7).join(" · ")}${noteContacts.length > 7 ? ` +${noteContacts.length - 7}` : ""} · integer-bin harmonics`;
+  $("anatomyPhrase").textContent = `${phrase.occupied ? "tone" : "rest"} ${phrase.index + 1}/${probe.samples.length} · ${phraseCycle.toFixed(2)} s cycle · ${probe.clearGapCount} gap runs. An eligible rest→tone edge, throttled to at most one strike per 75 ms, adds ${noteName(onsetFrequency)} ${onsetFrequency.toFixed(1)} Hz, gain ${onsetGain.toFixed(3)}, ${panLabel(onsetPan)}; 3 ms attack / ${onsetDecayMilliseconds} ms decay / ${percent(onsetNoise, 0)} noise / ${onsetWaveform}.`;
+  $("anatomyDynamics").textContent = `occupancy ${percent(probe.occupancy)} · rail ${percent(probe.longestOccupiedFraction)} · contact sum ${totalGain.toFixed(3)} · output ${percent(state.level, 0)}`;
+  $("anatomyTimbre").textContent = `Main worklet: sine-carrier ${synthesisModes}, index ${modulationRange}, ratio ${ratioRange}. Native fallback: plain ${waveforms} oscillators without FM/PM. ${sound.dusty ? "Pulsed grains." : phrase.occupied ? "Open organ gate." : "1.8% rest tail."}`;
+  $("anatomyStereo").textContent = `${signed(state.offset)} × 1.9 → ${panLabel(sound.panCenter)} · voices fan outward`;
+  $("anatomyScan").textContent = `${state.scanning ? "scanning" : "paused"} · ${scanDegreesPerSecond.toFixed(1)}°/s · phrase ${state.scanRate.toFixed(2)} Hz`;
+  $("anatomyVoiceList").textContent = `${state.audio ? "Continuous contacts submitted now" : "Continuous contacts programmed; audio is off"}:\n${contactSummary}\nOnset transient: separate rest→tone strike described in Phrase.`;
+
+  const diagnosis = probe.occupiedSamples === probe.sampleCount
+    ? "Every sampled phrase cell is occupied. The gate never closes, so the probe layers sustain continuously; only slow PM and the moving angle can articulate them."
+    : probe.occupancy > 0.72
+      ? `Most phrase cells are still tones (${percent(probe.occupancy)} occupied). The ${probe.clearGapCount} gap runs create brief rests, while raw FFT harmonics remain underneath at the 1.8% rest tail.`
+      : `The probe is sparse enough to produce audible rests, but the chord is still built from raw two-dimensional FFT-bin distances rather than voice-leading or a musical scale.`;
+  $("anatomyDiagnosis").textContent = `${state.audio ? diagnosis : `When audio starts: ${diagnosis.charAt(0).toLowerCase()}${diagnosis.slice(1)}`} If the result feels arbitrary, listen separately for angle pitch, phrase gating, and the FFT chord—those are the three independent rules currently competing.`;
+}
+
 function paintInterface() {
   for (const button of $("presetButtons").querySelectorAll("[data-preset]")) {
     setPressed(button, button.dataset.preset === state.preset);
@@ -236,6 +305,7 @@ function paintInterface() {
   paintProbeSummary();
   paintTransport();
   paintAudioState();
+  paintSoundAnatomy();
 }
 
 function setProbe({ angle = state.angle, offset = state.offset, width = state.width } = {}, {
@@ -332,7 +402,18 @@ function makeVoices(now) {
     });
   }
 
-  return { voices, phrase, melodicRoot };
+  return {
+    voices,
+    phrase,
+    melodicRoot,
+    layerCount,
+    ensembleCount: voices.length - layerCount,
+    densityGain,
+    gate,
+    gapTexture,
+    panCenter,
+    dusty,
+  };
 }
 
 function updateAudio(now) {
@@ -618,6 +699,7 @@ function setScanning(scanning) {
   state.scanning = Boolean(scanning);
   lastFrameTime = performance.now();
   paintTransport();
+  paintSoundAnatomy();
   announce(`Angle scan ${state.scanning ? "playing" : "paused"}.`);
   markDirty();
 }
@@ -679,12 +761,14 @@ $("probeWidth").addEventListener("input", () => {
 $("rootFrequency").addEventListener("input", () => {
   state.rootFrequency = clamp(Number($("rootFrequency").value), 45, 180);
   $("rootFrequencyOut").textContent = `${Math.round(state.rootFrequency)} Hz`;
+  paintSoundAnatomy();
   markDirty();
 });
 
 $("scanRate").addEventListener("input", () => {
   state.scanRate = clamp(Number($("scanRate").value), 0.05, 0.8);
   $("scanRateOut").textContent = `${state.scanRate.toFixed(2)} Hz`;
+  paintSoundAnatomy();
   markDirty();
 });
 
@@ -692,6 +776,7 @@ $("level").addEventListener("input", () => {
   state.level = clamp(Number($("level").value), 0, 1);
   pool.setLevel(state.level);
   $("levelOut").textContent = percent(state.level, 0);
+  paintSoundAnatomy();
 });
 
 $("audioButton").addEventListener("click", toggleAudio);

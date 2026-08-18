@@ -55,6 +55,11 @@ test("fractal uncertainty pages share a playable, disclosed instrument shell", a
     assert.match(html, /id="audioButton"[^>]*aria-pressed="false"/);
     assert.match(html, /id="audioState">off</);
     assert.match(html, /id="liveStatus"[^>]*aria-live="polite"/);
+    assert.match(html, /class="[^"]*sound-anatomy[^"]*"/);
+    assert.match(html, /class="sound-anatomy-grid"/);
+    assert.match(html, /What you hear now/i);
+    assert.match(html, /class="[^"]*sound-feedback-prompt[^"]*"/);
+    assert.match(html, /To help tune/i);
     assert.ok(html.includes(disclosure), `${instrument.page} must keep the scope disclosure visible`);
     assert.match(html, new RegExp(`<h1[^>]*>${instrument.label}<\\/h1>`, "i"));
     assert.match(html, new RegExp(`<script type="module" src="${instrument.app.replace(".", "\\.")}">`));
@@ -82,7 +87,13 @@ test("fractal uncertainty CSS preserves desktop, compact, and reduced-motion lay
   assert.match(css, /\.fractal-uncertainty-page\s*\{/);
   assert.match(css, /\.fractal-uncertainty-shell\s*\{/);
   assert.match(css, /\.fractal-uncertainty-heading\s*\{/);
+  assert.match(css, /\.sound-anatomy\s*\{/);
+  assert.match(css, /\.sound-anatomy-grid\s*\{/);
+  assert.match(css, /\.sound-anatomy-diagnosis\s*\{/);
+  assert.match(css, /\.sound-control-guide\s*\{/);
+  assert.match(css, /\.sound-feedback-prompt\s*\{/);
   assert.match(css, /@media \(max-width: 960px\)/);
   assert.match(css, /@media \(max-width: 650px\)/);
+  assert.match(css, /@media \(max-width: 480px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 });
