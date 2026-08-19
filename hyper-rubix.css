@@ -32,7 +32,7 @@
 }
 
 .hyper-rubix-shell {
-  grid-template-columns: minmax(0, 1fr) clamp(350px, 27vw, 430px);
+  grid-template-columns: minmax(0, 1fr) clamp(390px, 30vw, 500px);
 }
 
 .hyper-rubix-stage {
@@ -356,6 +356,12 @@
   --accent-glow: color-mix(in oklab, #68ecff 19%, transparent);
 }
 
+.hyper-rubix-control-section[data-section="sound"] {
+  --accent: #ffad52;
+  --accent-soft: color-mix(in oklab, #ffad52 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffad52 18%, transparent);
+}
+
 .hyper-rubix-control-section[data-section="guide"] {
   --accent: #a6ff6f;
   --accent-soft: color-mix(in oklab, #a6ff6f 55%, transparent);
@@ -367,6 +373,25 @@
   margin-bottom: 9px;
   grid-template-columns: minmax(0, 1fr) 46px;
   gap: 6px;
+}
+
+.hyper-rubix-method-select {
+  display: grid;
+  margin: 0 0 10px;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 3px 8px;
+}
+
+.hyper-rubix-method-select .field-label {
+  margin: 0;
+}
+
+.hyper-rubix-method-select > small {
+  grid-column: 2;
+  color: var(--faint);
+  font-size: 6px;
+  line-height: 1.35;
 }
 
 .hyper-rubix-play-button {
@@ -533,11 +558,148 @@
   text-align: right;
 }
 
+.hyper-rubix-hyperbar {
+  margin-top: 7px;
+  padding: 8px 7px 7px;
+  border: 1px solid color-mix(in oklab, var(--hyper-cyan) 24%, var(--line));
+  background:
+    linear-gradient(90deg, rgba(104, 236, 255, 0.035), transparent 55%),
+    var(--bg-deep);
+}
+
+.hyper-rubix-hyperbar[hidden] {
+  display: none;
+}
+
+.hyper-rubix-hyperbar-head {
+  display: flex;
+  margin-bottom: 7px;
+  color: var(--muted);
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hyper-rubix-hyperbar-head > span {
+  display: grid;
+  gap: 2px;
+}
+
+.hyper-rubix-hyperbar-head b {
+  color: var(--ink);
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hyper-rubix-hyperbar-head small,
+.hyper-rubix-hyperbar-head output {
+  color: var(--faint);
+  font-size: 6px;
+}
+
+.hyper-rubix-hyperbar-head output {
+  color: var(--hyper-cyan);
+  white-space: nowrap;
+}
+
+.hyper-rubix-hyperbar-grid {
+  display: grid;
+  gap: 2px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.hyper-rubix-hyperbar-row {
+  display: grid;
+  width: max-content;
+  min-width: 100%;
+  grid-template-columns: 30px repeat(var(--hyperbar-columns, 27), minmax(10px, 1fr));
+  align-items: center;
+  gap: 1px;
+}
+
+.hyper-rubix-hyperbar-row > b {
+  overflow: hidden;
+  color: var(--voice-color, var(--muted));
+  font-size: 6px;
+  letter-spacing: 0.02em;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.hyper-rubix-hyperbar-cell {
+  position: relative;
+  min-width: 10px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid color-mix(in oklab, var(--voice-color, var(--faint)) 18%, var(--line));
+  background: color-mix(in oklab, var(--voice-color, var(--faint)) 3%, var(--bg-deep));
+  touch-action: manipulation;
+}
+
+.hyper-rubix-hyperbar-cell:focus-visible {
+  z-index: 3;
+  outline-color: #fff;
+  outline-offset: 1px;
+}
+
+.hyper-rubix-hyperbar-cell.is-group-start {
+  margin-left: 2px;
+  border-left-color: color-mix(in oklab, var(--hyper-cyan) 65%, var(--line));
+}
+
+.hyper-rubix-hyperbar-cell.is-on {
+  border-color: color-mix(in oklab, var(--voice-color) 64%, var(--line));
+  background: color-mix(in oklab, var(--voice-color) 42%, var(--bg-deep));
+}
+
+.hyper-rubix-hyperbar-cell.is-displaced {
+  border-style: dashed;
+}
+
+.hyper-rubix-hyperbar-cell.is-unavailable,
+.hyper-rubix-hyperbar-cell:disabled {
+  cursor: default;
+  border-color: color-mix(in oklab, var(--faint) 10%, var(--line));
+  background: transparent;
+  opacity: 0.18;
+}
+
+.hyper-rubix-hyperbar-cell.is-unavailable::before,
+.hyper-rubix-hyperbar-cell.is-unavailable::after {
+  display: none;
+}
+
+.hyper-rubix-hyperbar-cell.is-displaced::before {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 2px;
+  height: 2px;
+  background: var(--hyper-violet);
+  content: "";
+  box-shadow: 0 0 4px var(--hyper-violet);
+}
+
+.hyper-rubix-hyperbar-cell.is-accent::after {
+  position: absolute;
+  inset: 2px;
+  background: var(--voice-color);
+  content: "";
+}
+
+.hyper-rubix-hyperbar-cell.is-current {
+  z-index: 1;
+  border-color: #fff;
+  box-shadow: 0 0 6px color-mix(in oklab, var(--voice-color) 70%, transparent);
+}
+
 .hyper-rubix-sequence-selects {
   display: grid;
   margin-top: 12px;
-  grid-template-columns: 1.18fr 1fr 0.82fr;
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 8px;
 }
 
 .hyper-rubix-sequence-selects .select-control {
@@ -551,7 +713,22 @@
 .hyper-rubix-sequence-selects select {
   width: 100%;
   min-width: 0;
-  font-size: 8px;
+  font-size: 9px;
+}
+
+.hyper-rubix-timing-help {
+  display: grid;
+  margin: -2px 0 4px;
+  padding: 8px 9px;
+  border-left: 2px solid var(--accent-soft);
+  color: var(--faint);
+  background: color-mix(in oklab, var(--accent) 4%, transparent);
+  gap: 4px;
+}
+
+.hyper-rubix-timing-help small {
+  font-size: 7px;
+  line-height: 1.45;
 }
 
 .hyper-rubix-tempo-row {
@@ -942,6 +1119,281 @@
   background: color-mix(in oklab, var(--accent) 4%, transparent);
 }
 
+.hyper-rubix-sound-note b {
+  color: var(--ink);
+}
+
+.hyper-rubix-sound-divider {
+  display: flex;
+  margin: 15px 0 8px;
+  color: var(--faint);
+  align-items: center;
+  gap: 8px;
+  font-size: 6px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hyper-rubix-sound-divider::before,
+.hyper-rubix-sound-divider::after {
+  height: 1px;
+  background: var(--line);
+  content: "";
+  flex: 1;
+}
+
+.hyper-rubix-rattle-toggle {
+  display: grid;
+  width: 100%;
+  min-height: 52px;
+  margin-bottom: 12px;
+  padding: 7px 9px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  grid-template-columns: 30px minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.hyper-rubix-rattle-toggle > span:first-child {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--hyper-violet);
+  border-radius: 50%;
+  color: var(--hyper-violet);
+  place-items: center;
+  font-size: 14px;
+}
+
+.hyper-rubix-rattle-toggle > span:nth-child(2) {
+  display: grid;
+  gap: 2px;
+}
+
+.hyper-rubix-rattle-toggle b {
+  color: var(--ink);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hyper-rubix-rattle-toggle small {
+  color: var(--faint);
+  font-size: 6px;
+}
+
+.hyper-rubix-rattle-toggle > i {
+  position: relative;
+  width: 20px;
+  height: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+
+.hyper-rubix-rattle-toggle > i::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--faint);
+  content: "";
+  transition: 140ms ease;
+}
+
+.hyper-rubix-rattle-toggle[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--hyper-violet) 46%, var(--line));
+  background: rgba(199, 155, 255, 0.055);
+}
+
+.hyper-rubix-rattle-toggle[aria-pressed="true"] > i {
+  border-color: var(--hyper-violet);
+}
+
+.hyper-rubix-rattle-toggle[aria-pressed="true"] > i::after {
+  left: 12px;
+  background: var(--hyper-violet);
+  box-shadow: 0 0 7px var(--hyper-violet);
+}
+
+.hyper-rubix-rattle-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(94px, 0.8fr);
+  align-items: end;
+  gap: 8px;
+}
+
+.hyper-rubix-rattle-controls .select-control {
+  min-width: 0;
+}
+
+.hyper-rubix-fold-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 8px;
+}
+
+.hyper-rubix-fold-controls .select-control,
+.hyper-rubix-fold-controls .control {
+  min-width: 0;
+}
+
+.hyper-rubix-fold-toggle {
+  display: grid;
+  width: 100%;
+  min-height: 48px;
+  margin: 0 0 7px;
+  padding: 7px 9px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  grid-template-columns: 28px minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.hyper-rubix-fold-toggle > span:first-child {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  border: 1px solid var(--hyper-cyan);
+  border-radius: 50%;
+  color: var(--hyper-cyan);
+  place-items: center;
+  font-size: 9px;
+}
+
+.hyper-rubix-fold-toggle > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.hyper-rubix-fold-toggle b {
+  color: var(--ink);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hyper-rubix-fold-toggle small {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hyper-rubix-fold-toggle > i {
+  position: relative;
+  width: 20px;
+  height: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+
+.hyper-rubix-fold-toggle > i::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--faint);
+  content: "";
+  transition: 140ms ease;
+}
+
+.hyper-rubix-fold-toggle[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--hyper-cyan) 42%, var(--line));
+  background: rgba(104, 236, 255, 0.05);
+}
+
+.hyper-rubix-fold-toggle[aria-pressed="true"] > i {
+  border-color: var(--hyper-cyan);
+}
+
+.hyper-rubix-fold-toggle[aria-pressed="true"] > i::after {
+  left: 12px;
+  background: var(--hyper-cyan);
+  box-shadow: 0 0 7px var(--hyper-cyan);
+}
+
+.hyper-rubix-control-help {
+  margin: 0 0 12px;
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.hyper-rubix-modulation {
+  min-width: 0;
+  margin: 15px 0 8px;
+  padding: 11px 11px 2px;
+  border: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--accent) 4%, transparent), transparent 48%),
+    var(--bg-deep);
+}
+
+.hyper-rubix-modulation legend {
+  padding: 0 7px;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.hyper-rubix-modulation > p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.hyper-rubix-topology {
+  border-color: color-mix(in oklab, var(--hyper-cyan) 34%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--hyper-cyan) 5%, transparent), transparent 52%),
+    var(--bg-deep);
+}
+
+.hyper-rubix-topology legend {
+  color: var(--hyper-cyan);
+}
+
+.hyper-rubix-topology > .select-control {
+  margin-bottom: 13px;
+}
+
+.hyper-rubix-modulation-grid {
+  display: grid;
+  gap: 2px;
+}
+
+.hyper-rubix-modulation .control {
+  margin-bottom: 10px;
+}
+
+.hyper-rubix-modulation .control > span {
+  margin-bottom: 0;
+}
+
+.hyper-rubix-modulation .control > small,
+.hyper-rubix-control-section[data-section="sequence"] .control > small {
+  margin-top: -6px;
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
 .hyper-rubix-guide {
   padding-bottom: 14px;
 }
@@ -956,7 +1408,7 @@
 
 @media (max-width: 1180px) and (min-width: 961px) {
   .hyper-rubix-shell {
-    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-columns: minmax(0, 1fr) 380px;
   }
 
   .projection-card {
@@ -981,6 +1433,35 @@
 
   .hyper-rubix-heading h1 {
     font-size: clamp(32px, 7vw, 56px);
+  }
+}
+
+@media (pointer: coarse), (max-width: 650px) {
+  .hyper-rubix-hyperbar-grid {
+    padding: 2px 1px 6px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .hyper-rubix-hyperbar-row {
+    width: max-content;
+    grid-template-columns: 30px repeat(var(--hyperbar-columns, 27), 28px);
+    gap: 2px;
+  }
+
+  .hyper-rubix-hyperbar-row > b {
+    position: sticky;
+    left: 0;
+    z-index: 4;
+    display: grid;
+    align-self: stretch;
+    background: var(--bg-deep);
+    align-items: center;
+  }
+
+  .hyper-rubix-hyperbar-cell {
+    width: 28px;
+    height: 28px;
   }
 }
 
@@ -1063,6 +1544,10 @@
   .hyper-rubix-section-label small {
     display: none;
   }
+
+  .hyper-rubix-panel {
+    min-width: 0;
+  }
 }
 
 @media (max-width: 410px) {
@@ -1085,6 +1570,11 @@
 
   .hyper-rubix-view-switch {
     bottom: 29px;
+  }
+
+  .hyper-rubix-sequence-selects,
+  .hyper-rubix-fold-controls {
+    grid-template-columns: 1fr;
   }
 }
 

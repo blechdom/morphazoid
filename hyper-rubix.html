@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#05050a" />
     <meta
       name="description"
-      content="Morphazoid Hyper Rubix — twist all eight cubic boundary cells of a 3 × 3 × 3 × 3 puzzle and explore its projected four-dimensional shadow."
+      content="Morphazoid Hyper Rubix — twist eight cubic boundary cells at variable puzzle orders, sequence their techno matrix, and hear a projected four-dimensional shadow."
     />
     <title>Hyper Rubix — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -61,7 +61,7 @@
             id="stage"
             tabindex="0"
             role="application"
-            aria-label="Interactive projected four-dimensional Rubix puzzle with 216 colored hyper-stickers."
+            aria-label="Interactive projected 3 × 3 × 3 × 3 four-dimensional Rubix puzzle with 216 colored hyper-stickers."
             aria-describedby="canvasInstructions liveStatus"
           >
             A projected 3 by 3 by 3 by 3 color puzzle. Choose one of eight cubic boundary cells,
@@ -69,7 +69,7 @@
           </canvas>
 
           <div class="hyper-rubix-heading">
-            <p aria-hidden="true">3 × 3 × 3 × 3 / PUZZLE INSTRUMENT</p>
+            <p id="puzzleOrderHeading" aria-hidden="true">3 × 3 × 3 × 3 / PUZZLE INSTRUMENT</p>
             <h1 id="hyperRubixTitle"><span>hyper</span><b>rubix</b></h1>
             <small aria-hidden="true">eight cubes sharing one impossible skin</small>
           </div>
@@ -124,7 +124,7 @@
 
         <details class="group control-section hyper-rubix-control-section" data-section="sequence" open>
           <summary class="group-summary">
-            <h2 class="group-title">Auto-twist sequencer</h2>
+            <h2 class="group-title">Time + twist sequencer</h2>
             <span class="section-state" id="clockSummary">112 BPM · 1/8</span>
           </summary>
           <div class="group-body">
@@ -144,15 +144,48 @@
                 class="hyper-rubix-restart-button"
                 id="restartLoop"
                 type="button"
-                aria-label="Restart auto-twist loop at step 1"
-                title="Restart auto-twist loop at step 1"
-              ><span aria-hidden="true">↶ 1</span></button>
+                aria-label="Restart Twist tape at step one"
+                title="Restart Twist tape at step one"
+              ><span aria-hidden="true">↶</span></button>
             </div>
+
+            <label class="select-control hyper-rubix-method-select" for="sequenceMethod">
+              <span class="field-label">Sequencing method</span>
+              <span class="select-shell">
+                <select id="sequenceMethod" aria-describedby="sequenceMethodHelp">
+                  <option value="twist-tape" selected>Twist tape · 16</option>
+                  <option id="stickerStreamMethodOption" value="sticker-stream">Sticker stream · 216</option>
+                  <option id="cornerStreamMethodOption" value="corner-stream">Corner stream · 64</option>
+                  <option id="stickerHyperbarMethodOption" value="sticker-hyperbar">Sticker hyperbar · 27</option>
+                  <option id="hybridCoilMethodOption" value="hybrid-coil">Hybrid coil · 16 × 27</option>
+                </select>
+              </span>
+              <small id="sequenceMethodHelp">Six-plane auto-twist loop with intentional rests in authored patterns</small>
+            </label>
 
             <div class="hyper-rubix-step-strip" id="stepStrip" role="group" aria-label="Sixteen-step auto-twist playhead"></div>
             <div class="hyper-rubix-now-playing" aria-live="off">
               <span id="sequenceNow">STEP 01 · XY · W+</span>
               <span id="sequenceVoice">KICK · +90°</span>
+            </div>
+
+            <div class="hyper-rubix-hyperbar" id="hyperbarPanel" hidden>
+              <div class="hyper-rubix-hyperbar-head">
+                <span><b id="hyperbarMatrixLabel">216-sticker matrix</b><small id="hyperbarMatrixSummary">8 voices × 27 pulses · plus coil voice 217</small></span>
+                <output id="hyperbarReadout">PULSE 01 / 27</output>
+              </div>
+              <div
+                class="hyper-rubix-hyperbar-grid"
+                id="hyperbarGrid"
+                role="grid"
+                aria-label="Eight color voices by twenty-seven sticker pulses"
+                aria-describedby="hyperbarInstructions"
+                aria-rowcount="8"
+                aria-colcount="27"
+              ></div>
+              <p class="sr-only" id="hyperbarInstructions">
+                Use the arrow keys to move between sticker pulses. Home and End move to the first and last pulse in a row; hold Control to move to the first or last cell. Press Space or Enter to toggle a pulse.
+              </p>
             </div>
 
             <div class="hyper-rubix-sequence-selects">
@@ -179,15 +212,32 @@
                 </span>
               </label>
               <label class="select-control" for="twistRate">
-                <span class="field-label">Twist rate</span>
+                <span class="field-label">Pulse rate</span>
                 <span class="select-shell">
-                  <select id="twistRate">
+                  <select id="twistRate" aria-describedby="pulseRateHelp">
                     <option value="1">1/4</option>
                     <option value="2" selected>1/8</option>
                     <option value="4">1/16</option>
+                    <option value="8">1/32</option>
+                    <option value="16">1/64</option>
                   </select>
                 </span>
               </label>
+              <label class="select-control" for="twistMotion">
+                <span class="field-label">Twist motion</span>
+                <span class="select-shell">
+                  <select id="twistMotion" aria-describedby="twistMotionHelp">
+                    <option value="auto" selected>Auto · max 4/s</option>
+                    <option value="beat">Once per beat</option>
+                    <option value="bar">Once per bar</option>
+                    <option value="off">Off</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+            <div class="hyper-rubix-timing-help">
+              <small id="pulseRateHelp">Pulse divisions set spacing: 1/4 fires once per quarter-note beat; 1/8 twice, through 1/64 sixteen times.</small>
+              <small id="twistMotionHelp">Fast pulses keep sounding while Auto limits visible turns. Serial sticker modes start with twist motion off.</small>
             </div>
 
             <div class="hyper-rubix-tempo-row">
@@ -204,7 +254,7 @@
             <label class="control" for="twistDensity">
               <span><b>Twist density</b><output id="twistDensityOut" for="twistDensity">100%</output></span>
               <input id="twistDensity" type="range" min="0.25" max="1" step="0.01" value="1" />
-              <small>anchors stay locked · optional turns peel away</small>
+              <small>Authored patterns can rest; below 100% peels away additional optional turns.</small>
             </label>
           </div>
         </details>
@@ -215,18 +265,29 @@
             <span class="section-state" id="twistSummary">W+ · XY plane</span>
           </summary>
           <div class="group-body">
+            <label class="select-control" for="puzzleSize">
+              <span class="field-label">Size / side</span>
+              <span class="select-shell">
+                <select id="puzzleSize" aria-describedby="puzzleSizeHelp">
+                  <option value="2">2 × 2 × 2 × 2</option>
+                  <option value="3" selected>3 × 3 × 3 × 3</option>
+                  <option value="4">4 × 4 × 4 × 4</option>
+                </select>
+              </span>
+              <small id="puzzleSizeHelp">3 per axis · 216 stickers · 27 spatial pulses</small>
+            </label>
             <div class="hyper-rubix-section-label">
               <span>01</span><b>Boundary cell</b><small>8 faces of the tesseract</small>
             </div>
             <div class="hyper-rubix-face-picker" id="facePicker" role="group" aria-label="Boundary cell">
-              <button type="button" data-face="x-" aria-pressed="false"><i></i><b>X−</b><small>coral</small></button>
-              <button type="button" data-face="x+" aria-pressed="false"><i></i><b>X+</b><small>red</small></button>
-              <button type="button" data-face="y-" aria-pressed="false"><i></i><b>Y−</b><small>amber</small></button>
-              <button type="button" data-face="y+" aria-pressed="false"><i></i><b>Y+</b><small>ivory</small></button>
-              <button type="button" data-face="z-" aria-pressed="false"><i></i><b>Z−</b><small>blue</small></button>
-              <button type="button" data-face="z+" aria-pressed="false"><i></i><b>Z+</b><small>green</small></button>
-              <button type="button" data-face="w-" aria-pressed="false"><i></i><b>W−</b><small>cyan</small></button>
-              <button type="button" data-face="w+" aria-pressed="true"><i></i><b>W+</b><small>violet</small></button>
+              <button type="button" data-face="x-" aria-label="X minus, orange low sub" aria-pressed="false"><i></i><b>X−</b><small>orange · sub</small></button>
+              <button type="button" data-face="x+" aria-label="X plus, red punch kick" aria-pressed="false"><i></i><b>X+</b><small>red · kick</small></button>
+              <button type="button" data-face="y-" aria-label="Y minus, yellow techno snare" aria-pressed="false"><i></i><b>Y−</b><small>yellow · snare</small></button>
+              <button type="button" data-face="y+" aria-label="Y plus, white clap" aria-pressed="false"><i></i><b>Y+</b><small>white · clap</small></button>
+              <button type="button" data-face="z-" aria-label="Z minus, blue closed hat" aria-pressed="false"><i></i><b>Z−</b><small>blue · closed hat</small></button>
+              <button type="button" data-face="z+" aria-label="Z plus, green open hat" aria-pressed="false"><i></i><b>Z+</b><small>green · open hat</small></button>
+              <button type="button" data-face="w-" aria-label="W minus, cyan rim click" aria-pressed="false"><i></i><b>W−</b><small>cyan · rim</small></button>
+              <button type="button" data-face="w+" aria-label="W plus, violet metal stab" aria-pressed="true"><i></i><b>W+</b><small>violet · stab</small></button>
             </div>
 
             <div class="hyper-rubix-section-label">
@@ -311,14 +372,139 @@
               </span>
             </label>
             <label class="control" for="tone">
-              <span><b>Tone</b><output id="toneOut" for="tone">64%</output></span>
+              <span><b>Filter center</b><output id="toneOut" for="tone">64%</output></span>
               <input id="tone" type="range" min="0" max="1" step="0.01" value="0.64" />
             </label>
             <label class="control" for="decay">
               <span><b>Decay</b><output id="decayOut" for="decay">0.58 s</output></span>
-              <input id="decay" type="range" min="0.08" max="1.8" step="0.01" value="0.58" />
+              <input id="decay" type="range" min="0.02" max="4" step="0.01" value="0.58" />
             </label>
-            <p class="hyper-rubix-sound-note">XY kick · XZ snare · YZ hat · XW tom · YW clap · ZW metal. The boundary sign sets pitch and pan; turn direction sets the accent.</p>
+            <div class="hyper-rubix-sound-divider" aria-hidden="true"><span>sticker topology</span></div>
+            <fieldset class="hyper-rubix-modulation hyper-rubix-topology" aria-describedby="topologyHelp">
+              <legend>Neighbor resonator network</legend>
+              <p id="topologyHelp">Every sticker can excite one tuned resonator for each real lattice connection. Matching colors reinforce harmonic strings; mixed colors produce detuned fault lines.</p>
+              <label class="select-control" for="topologyMode">
+                <span class="field-label">Connections heard</span>
+                <span class="select-shell">
+                  <select id="topologyMode">
+                    <option value="mesh" selected>Full neighbor mesh</option>
+                    <option value="cohesion">Matching-color lattice</option>
+                    <option value="faults">Mixed-color fault lines</option>
+                    <option value="off">Off</option>
+                  </select>
+                </span>
+              </label>
+              <div class="hyper-rubix-modulation-grid">
+                <label class="control" for="topologyLevel">
+                  <span><b>Network level</b><output id="topologyLevelOut" for="topologyLevel">22%</output></span>
+                  <input id="topologyLevel" type="range" min="0" max="0.8" step="0.01" value="0.22" />
+                  <small>Level of the constant-CPU forty-eight-string resonator mesh.</small>
+                </label>
+                <label class="control" for="topologySpan">
+                  <span><b>Interval span</b><output id="topologySpanOut" for="topologySpan">12 st</output></span>
+                  <input id="topologySpan" type="range" min="0" max="24" step="0.25" value="12" />
+                  <small>Widens axis, color, radial, and displacement intervals over two octaves.</small>
+                </label>
+                <label class="control" for="topologyStrum">
+                  <span><b>Micro-strum</b><output id="topologyStrumOut" for="topologyStrum">18 ms</output></span>
+                  <input id="topologyStrum" type="range" min="0" max="0.08" step="0.001" value="0.018" />
+                  <small>Spreads the actual neighbor edges through time so they zip around the cell.</small>
+                </label>
+                <label class="control" for="topologyRing">
+                  <span><b>String ring</b><output id="topologyRingOut" for="topologyRing">0.48 s</output></span>
+                  <input id="topologyRing" type="range" min="0.02" max="3.5" step="0.01" value="0.48" />
+                  <small>Controls connection decay independently from the eight drum bodies.</small>
+                </label>
+                <label class="control" for="topologyWarp">
+                  <span><b>Cell + W warp</b><output id="topologyWarpOut" for="topologyWarp">100%</output></span>
+                  <input id="topologyWarp" type="range" min="0" max="2" step="0.01" value="1" />
+                  <small>Exaggerates current-vs-home cell displacement and fourth-axis position.</small>
+                </label>
+              </div>
+            </fieldset>
+            <div class="hyper-rubix-sound-divider" aria-hidden="true"><span>fold motion</span></div>
+            <div class="hyper-rubix-fold-controls">
+              <label class="select-control" for="foldSound">
+                <span class="field-label">Fold sound</span>
+                <span class="select-shell">
+                  <select id="foldSound" aria-describedby="foldSoundHelp">
+                    <option value="glide" selected>Gesture glide</option>
+                    <option value="ticks">Crossing ticks</option>
+                    <option value="both">Glide + ticks</option>
+                    <option value="off">Off</option>
+                  </select>
+                </span>
+              </label>
+              <label class="control" for="foldLevel">
+                <span><b>Fold level</b><output id="foldLevelOut" for="foldLevel">12%</output></span>
+                <input id="foldLevel" type="range" min="0" max="0.6" step="0.01" value="0.12" aria-describedby="foldSoundHelp" />
+              </label>
+            </div>
+            <button class="hyper-rubix-fold-toggle" id="hearAutoDrift" type="button" aria-pressed="false" aria-describedby="foldSoundHelp">
+              <span aria-hidden="true">W</span>
+              <span><b>Hear auto-drift</b><small id="hearAutoDriftState">off · fold gestures only</small></span>
+              <i aria-hidden="true"></i>
+            </button>
+            <p class="hyper-rubix-control-help" id="foldSoundHelp">Drag Fold W to hear a continuous glide, angle-crossing ticks, or both. Automatic fourth-axis drift stays silent until enabled.</p>
+            <div class="hyper-rubix-sound-divider" aria-hidden="true"><span>continuous layer</span></div>
+            <button class="hyper-rubix-rattle-toggle" id="rattleButton" type="button" aria-pressed="false">
+              <span aria-hidden="true">≋</span>
+              <span><b id="rattleVoiceLabel">Rattlesnake coil · voice 217</b><small id="rattleState">off · enable for seed-shell motion</small></span>
+              <i aria-hidden="true"></i>
+            </button>
+            <div class="hyper-rubix-rattle-controls">
+              <label class="control" for="rattleLevel">
+                <span><b>Rattle level</b><output id="rattleLevelOut" for="rattleLevel">34%</output></span>
+                <input id="rattleLevel" type="range" min="0" max="0.8" step="0.01" value="0.34" />
+              </label>
+              <label class="select-control" for="rattleRate">
+                <span class="field-label">Coil pulse</span>
+                <span class="select-shell">
+                  <select id="rattleRate">
+                    <option value="2">1/8</option>
+                    <option value="4" selected>1/16</option>
+                    <option value="8">1/32</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+            <fieldset class="hyper-rubix-modulation" aria-describedby="stickerModulationHelp">
+              <legend>Sticker modulation</legend>
+              <p id="stickerModulationHelp">Set how strongly each projected 4D property shapes the eight color voices. 100% is the intended response; values above it exaggerate the mapping.</p>
+              <div class="hyper-rubix-modulation-grid">
+                <label class="control" for="pitchInfluence">
+                  <span><b>Pitch map</b><output id="pitchInfluenceOut" for="pitchInfluence">72%</output></span>
+                  <input id="pitchInfluence" type="range" min="0" max="2" step="0.01" value="0.72" aria-describedby="pitchInfluenceHelp" />
+                  <small id="pitchInfluenceHelp">XYZW position and boundary plane tune each sticker voice.</small>
+                </label>
+                <label class="control" for="filterInfluence">
+                  <span><b>Filter motion</b><output id="filterInfluenceOut" for="filterInfluence">72%</output></span>
+                  <input id="filterInfluence" type="range" min="0" max="2" step="0.01" value="0.72" aria-describedby="filterInfluenceHelp" />
+                  <small id="filterInfluenceHelp">Projected angle and height move cutoff and resonance.</small>
+                </label>
+                <label class="control" for="stereoInfluence">
+                  <span><b>Stereo spread</b><output id="stereoInfluenceOut" for="stereoInfluence">72%</output></span>
+                  <input id="stereoInfluence" type="range" min="0" max="2" step="0.01" value="0.72" aria-describedby="stereoInfluenceHelp" />
+                  <small id="stereoInfluenceHelp">Projected horizontal position places the sound from left to right.</small>
+                </label>
+                <label class="control" for="neighborResponse">
+                  <span><b>Neighbor response</b><output id="neighborResponseOut" for="neighborResponse">100%</output></span>
+                  <input id="neighborResponse" type="range" min="0" max="2" step="0.01" value="1" aria-describedby="neighborResponseHelp" />
+                  <small id="neighborResponseHelp">Matching neighbors add resonance and tail; mixed neighbors add drive and noise.</small>
+                </label>
+                <label class="control" for="wInfluence">
+                  <span><b>W-depth</b><output id="wInfluenceOut" for="wInfluence">72%</output></span>
+                  <input id="wInfluence" type="range" min="0" max="2" step="0.01" value="0.72" aria-describedby="wInfluenceHelp" />
+                  <small id="wInfluenceHelp">Near-W stickers sound brighter and shorter; far-W stickers darker and longer.</small>
+                </label>
+                <label class="control" for="disorderInfluence">
+                  <span><b>Disorder response</b><output id="disorderInfluenceOut" for="disorderInfluence">60%</output></span>
+                  <input id="disorderInfluence" type="range" min="0" max="2" step="0.01" value="0.6" aria-describedby="disorderInfluenceHelp" />
+                  <small id="disorderInfluenceHelp">Scrambling adds detune, filter motion, drive, and rattle.</small>
+                </label>
+              </div>
+            </fieldset>
+            <p class="hyper-rubix-sound-note"><b>Twist tape</b> keeps the original six-plane kit; authored gaps and reduced density create intentional rests. Sticker methods add the eight color bodies plus the actual neighbor graph: up to six harmonic or fault-line strings per sticker. <b>Sticker stream</b> and <b>Corner stream</b> sound and light one exact source sticker per pulse, with its connected neighbors glowing around it and automatic twists off by default.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>
@@ -329,7 +515,9 @@
             <span class="section-state">geometry note</span>
           </summary>
           <div class="group-body hyper-rubix-guide">
-            <p>A tesseract has eight cubic boundary cells. Each one carries a 3 × 3 × 3 field of color, so this puzzle has 216 stickers rather than 54.</p>
+            <p id="puzzleGeometryGuide">A tesseract has eight cubic boundary cells. Each one carries a 3 × 3 × 3 field of color, so this order-3 puzzle has 216 stickers.</p>
+            <p id="hyperbarGeometryGuide">The Sticker hyperbar reads those records as eight instrument rows by 27 pulses. Its sparse gates can leave a pulse empty after turns move colors through time. The continuous rattlesnake is the shared 217th voice.</p>
+            <p id="streamGeometryGuide">Sticker stream visits all 216 stickers in a stable serial order; Corner stream follows the 64 stickers born at home-corner addresses. Each pulse sounds and lights that exact sticker. These serial modes begin without automatic twists, while the original sixteen-step Twist tape—with intentional authored rests—remains the default.</p>
             <p>A turn rotates one cubic cell through one of its three internal coordinate planes. The screen shows a perspective projection from 4D to 3D, then from 3D to your display.</p>
           </div>
         </details>
@@ -344,7 +532,11 @@
         rotate the puzzle through the fourth dimension. Use the cell and plane buttons to select a
         cubic boundary cell and one of its three legal turn planes, then use the minus or plus
         ninety-degree buttons. Press Enter on the canvas for a clockwise turn. Press Space to play
-        or pause the auto-twist sequencer, and R to restart it at step one.
+        or pause the time sequencer. <span id="restartInstructions">Press R to restart the Twist
+        tape at step one.</span> <span id="serializationInstructions">The Sticker hyperbar method
+        reads all 216 stickers as eight color voices across 27 clock pulses. Sticker stream visits
+        216 stickers; Corner stream keeps its 64 geometric corners.</span> Their automatic twist motion
+        begins off.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

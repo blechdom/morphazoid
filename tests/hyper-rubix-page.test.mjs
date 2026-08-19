@@ -71,6 +71,10 @@ test("Hyper Rubix is a standalone Morphazoid Canvas page with accessible instruc
     html,
     /id="canvasInstructions"[\s\S]*?Drag to orbit[\s\S]*?Fold W[\s\S]*?minus or plus[\s\S]*?Press Enter/i,
   );
+  assert.match(
+    html,
+    /id="restartInstructions"[\s\S]*?Press R[\s\S]*?Twist[\s\S]*?step one/i,
+  );
   assert.match(html, /id="liveStatus"[^>]*aria-live="polite"/);
   assert.match(html, /class="hyper-rubix-status" aria-live="polite"/);
   assert.match(html, /id="audioError"[^>]*role="alert"[^>]*hidden/);
@@ -92,7 +96,7 @@ test("the authored-open clock exposes a complete 16-step auto-twist transport", 
   );
 
   assert.match(sequencePanel, /^<details\b[^>]*\bdata-section="sequence"[^>]*\bopen>/);
-  assert.match(sequencePanel, /<h2 class="group-title">Auto-twist sequencer<\/h2>/);
+  assert.match(sequencePanel, /<h2 class="group-title">Time \+ twist sequencer<\/h2>/);
   assert.match(sequencePanel, /id="clockSummary">112 BPM · 1\/8<\/span>/);
 
   const play = openingTag(sequencePanel, "button", "playButton");
@@ -104,7 +108,8 @@ test("the authored-open clock exposes a complete 16-step auto-twist transport", 
 
   const restart = openingTag(sequencePanel, "button", "restartLoop");
   assert.equal(attribute(restart, "type"), "button");
-  assert.match(attribute(restart, "aria-label") ?? "", /restart.+step 1/i);
+  assert.match(attribute(restart, "aria-label") ?? "", /restart Twist tape at step one/i);
+  assert.equal(attribute(restart, "title"), attribute(restart, "aria-label"));
   const strip = openingTag(sequencePanel, "div", "stepStrip");
   assert.equal(attribute(strip, "role"), "group");
   assert.match(attribute(strip, "aria-label") ?? "", /sixteen-step auto-twist playhead/i);
@@ -130,15 +135,52 @@ test("the authored-open clock exposes a complete 16-step auto-twist transport", 
     ["1", "1/4"],
     ["2", "1/8"],
     ["4", "1/16"],
+    ["8", "1/32"],
+    ["16", "1/64"],
   ]);
   assert.equal(rates.filter(({ tag }) => hasBooleanAttribute(tag, "selected")).length, 1);
   assert.equal(rates.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value, "2");
+  assert.match(sequencePanel, /<span class="field-label">Pulse rate<\/span>/);
+  assert.equal(attribute(openingTag(sequencePanel, "select", "twistRate"), "aria-describedby"), "pulseRateHelp");
+  assert.match(sequencePanel, /id="pulseRateHelp"[^>]*>[^<]*1\/4[^<]*quarter-note beat[^<]*1\/64/i);
+  const motion = selectOptions(sequencePanel, "twistMotion");
+  assert.deepEqual(motion.map(({ value }) => value), ["auto", "beat", "bar", "off"]);
+  assert.equal(motion.filter(({ tag }) => hasBooleanAttribute(tag, "selected")).length, 1);
+  assert.equal(motion.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value, "auto");
+  assert.equal(attribute(openingTag(sequencePanel, "select", "twistMotion"), "aria-describedby"), "twistMotionHelp");
+  assert.match(sequencePanel, /id="twistMotionHelp"[^>]*>[^<]*Serial sticker modes[^<]*motion off/i);
   assert.deepEqual(selectOptions(sequencePanel, "sequencePattern").map(({ value }) => value), [
     "axis-break", "straight-xyz", "w-pressure", "random-walk",
   ]);
   assert.deepEqual(selectOptions(sequencePanel, "playbackMode").map(({ value }) => value), [
     "forward", "reverse", "pendulum", "random",
   ]);
+  const methods = selectOptions(sequencePanel, "sequenceMethod");
+  assert.deepEqual(methods.map(({ value, label }) => [value, label]), [
+    ["twist-tape", "Twist tape · 16"],
+    ["sticker-stream", "Sticker stream · 216"],
+    ["corner-stream", "Corner stream · 64"],
+    ["sticker-hyperbar", "Sticker hyperbar · 27"],
+    ["hybrid-coil", "Hybrid coil · 16 × 27"],
+  ]);
+  assert.equal(methods.filter(({ tag }) => hasBooleanAttribute(tag, "selected")).length, 1);
+  assert.equal(methods.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value, "twist-tape");
+  assert.equal(attribute(openingTag(sequencePanel, "select", "sequenceMethod"), "aria-describedby"), "sequenceMethodHelp");
+  assert.match(sequencePanel, /id="sequenceMethodHelp"[^>]*>[^<]*intentional rests/i);
+  const hyperbarPanel = openingTag(sequencePanel, "div", "hyperbarPanel");
+  assert.equal(hasBooleanAttribute(hyperbarPanel, "hidden"), true);
+  const hyperbar = openingTag(sequencePanel, "div", "hyperbarGrid");
+  assert.equal(attribute(hyperbar, "role"), "grid");
+  assert.match(attribute(hyperbar, "aria-label") ?? "", /eight color voices.+twenty-seven/i);
+  assert.equal(attribute(hyperbar, "aria-describedby"), "hyperbarInstructions");
+  assert.deepEqual(
+    [attribute(hyperbar, "aria-rowcount"), attribute(hyperbar, "aria-colcount")],
+    ["8", "27"],
+  );
+  assert.match(
+    sequencePanel,
+    /id="hyperbarInstructions"[\s\S]*?arrow keys[\s\S]*?Home and End[\s\S]*?Space or Enter/i,
+  );
   assert.equal(
     hasBooleanAttribute(openingTag(sequencePanel, "button", "reseedPattern"), "disabled"),
     true,
@@ -146,15 +188,149 @@ test("the authored-open clock exposes a complete 16-step auto-twist transport", 
 
   assert.match(app, /const LOOKAHEAD_MS = 110/);
   assert.match(app, /const SCHEDULER_INTERVAL_MS = 24/);
+  assert.match(app, /function restartPositionPhrase\(/);
+  assert.match(app, /seeded Random shuffle/);
+  assert.match(app, /\$\("restartInstructions"\)\.textContent/);
   const scheduler = sourceSection(app, "function schedulerTick()", "function restartTransportClock(");
   assert.match(scheduler, /audio\.context\.currentTime\s*\+\s*Math\.max\(0, nextStepAtMs - nowMs\) \/ 1_000/);
+  assert.match(scheduler, /audio\.withTransportScope\(\(\) =>/);
   assert.match(scheduler, /audio\.strike\(step\.move, scheduledWhen, step\.accent \? 1\.16 : 0\.78\)/);
+  assert.match(
+    scheduler,
+    /method\.hyperbar \? topologyVisualStickerIds\(method, activeHyperbarEvents\) : null/,
+  );
   assert.match(scheduler, /scheduleVisualSequenceStep\(/);
   assert.match(scheduler, /nextStepAtMs \+= stepDurationMs/);
+  const clear = sourceSection(app, "function clearScheduler(", "function transportAnimationDuration(");
+  assert.match(clear, /clearSoundingStickerPulses\(\)/);
+  assert.match(clear, /audio\.cancelTransportAudio\(undefined, \{ hard: hardAudio \}\)/);
   const stop = sourceSection(app, "function stopTransport(", "function moveLabel(");
   assert.match(stop, /state\.playing = false/);
-  assert.match(stop, /clearScheduler\(\)/);
+  assert.match(stop, /clearScheduler\(\{ hardAudio \}\)/);
   assert.match(stop, /item\.source !== "transport"/);
+});
+
+test("the sound panel exposes fold sound, explicit geometry mappings, and a default-off rattle", async () => {
+  const { html, app } = await pageSources();
+  const soundPanel = sourceSection(
+    html,
+    '<details class="group control-section hyper-rubix-control-section" data-section="sound"',
+    "</details>",
+  );
+
+  const rattle = openingTag(soundPanel, "button", "rattleButton");
+  assert.equal(attribute(rattle, "type"), "button");
+  assert.equal(attribute(rattle, "aria-pressed"), "false");
+  assert.match(soundPanel, /id="rattleState"/);
+
+  const level = openingTag(soundPanel, "input", "rattleLevel");
+  assert.deepEqual(
+    ["type", "min", "max", "step", "value"].map((name) => attribute(level, name)),
+    ["range", "0", "0.8", "0.01", "0.34"],
+  );
+  const decay = openingTag(soundPanel, "input", "decay");
+  assert.deepEqual(
+    ["type", "min", "max", "step", "value"].map((name) => attribute(decay, name)),
+    ["range", "0.02", "4", "0.01", "0.58"],
+  );
+
+  const foldModes = selectOptions(soundPanel, "foldSound");
+  assert.deepEqual(foldModes.map(({ value }) => value), ["glide", "ticks", "both", "off"]);
+  assert.equal(foldModes.filter(({ tag }) => hasBooleanAttribute(tag, "selected")).length, 1);
+  assert.equal(foldModes.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value, "glide");
+  const foldLevel = openingTag(soundPanel, "input", "foldLevel");
+  assert.deepEqual(
+    ["type", "min", "max", "step", "value"].map((name) => attribute(foldLevel, name)),
+    ["range", "0", "0.6", "0.01", "0.12"],
+  );
+  const hearAutoDrift = openingTag(soundPanel, "button", "hearAutoDrift");
+  assert.equal(attribute(hearAutoDrift, "type"), "button");
+  assert.equal(attribute(hearAutoDrift, "aria-pressed"), "false");
+  assert.equal(attribute(hearAutoDrift, "aria-describedby"), "foldSoundHelp");
+
+  const topologyModes = selectOptions(soundPanel, "topologyMode");
+  assert.deepEqual(topologyModes.map(({ value }) => value), [
+    "mesh", "cohesion", "faults", "off",
+  ]);
+  assert.equal(
+    topologyModes.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value,
+    "mesh",
+  );
+  const topologyRanges = [
+    ["topologyLevel", "0", "0.8", "0.01", "0.22", "22%"],
+    ["topologySpan", "0", "24", "0.25", "12", "12 st"],
+    ["topologyStrum", "0", "0.08", "0.001", "0.018", "18 ms"],
+    ["topologyRing", "0.02", "3.5", "0.01", "0.48", "0.48 s"],
+    ["topologyWarp", "0", "2", "0.01", "1", "100%"],
+  ];
+  for (const [id, min, max, step, value, output] of topologyRanges) {
+    const input = openingTag(soundPanel, "input", id);
+    assert.deepEqual(
+      ["type", "min", "max", "step", "value"].map((name) => attribute(input, name)),
+      ["range", min, max, step, value],
+    );
+    assert.match(
+      soundPanel,
+      new RegExp(`<output\\b[^>]*\\bid="${id}Out"[^>]*>${output.replace("%", "\\%")}<\\/output>`),
+    );
+  }
+  assert.match(soundPanel, /one tuned resonator for each real lattice connection/i);
+  assert.match(soundPanel, /Matching colors[\s\S]*mixed colors[\s\S]*fault lines/i);
+
+  const influences = [
+    ["pitchInfluence", "0.72", "72%"],
+    ["filterInfluence", "0.72", "72%"],
+    ["stereoInfluence", "0.72", "72%"],
+    ["neighborResponse", "1", "100%"],
+    ["wInfluence", "0.72", "72%"],
+    ["disorderInfluence", "0.6", "60%"],
+  ];
+  for (const [id, value, displayed] of influences) {
+    const input = openingTag(soundPanel, "input", id);
+    assert.deepEqual(
+      ["type", "min", "max", "step", "value"].map((name) => attribute(input, name)),
+      ["range", "0", "2", "0.01", value],
+    );
+    assert.equal(attribute(input, "aria-describedby"), `${id}Help`);
+    assert.match(soundPanel, new RegExp(`<output\\b[^>]*\\bid="${id}Out"[^>]*>${displayed.replace("%", "\\%")}</output>`));
+    assert.match(soundPanel, new RegExp(`id="${id}Help"[^>]*>[^<]+</small>`));
+  }
+  assert.doesNotMatch(soundPanel, /\bid="shapeInfluence"/);
+  assert.match(soundPanel, /id="stickerModulationHelp"[^>]*>[^<]*100%[^<]*above it exaggerate/i);
+  const rates = selectOptions(soundPanel, "rattleRate");
+  assert.deepEqual(rates.map(({ value, label }) => [value, label]), [
+    ["2", "1/8"],
+    ["4", "1/16"],
+    ["8", "1/32"],
+  ]);
+  assert.equal(rates.filter(({ tag }) => hasBooleanAttribute(tag, "selected")).length, 1);
+  assert.equal(rates.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value, "4");
+
+  assert.equal(attribute(openingTag(html, "button", "audioButton"), "aria-pressed"), "false");
+  assert.match(app, /Number\.isFinite\(numericDepth\) \? numericDepth : 0\.5/);
+  assert.match(app, /Number\.isFinite\(numericAngle\) \? numericAngle : 0\.5/);
+  assert.match(app, /TOPOLOGY_CONNECTIONS_PER_CELL = 6/);
+  assert.match(app, /createTopologyGraph\(\)/);
+  assert.match(app, /HYPER_RUBIX_CELL_ORDER\.length \* TOPOLOGY_CONNECTIONS_PER_CELL/);
+  assert.match(app, /event\?\.topology\?\.connections/);
+  assert.match(app, /scheduleTopologyNetwork\(event, when/);
+  assert.match(app, /this\.silenceTopology\(cancelAt, \{ immediate: hard \}\)/);
+  assert.match(app, /silenceTopology\(when = [^)]*\?\? 0, \{ immediate = false \} = \{\}\)/);
+});
+
+test("the guide distinguishes intentional, geometry, and serial playback behavior", async () => {
+  const { html } = await pageSources();
+  const guide = sourceSection(
+    html,
+    '<details class="group control-section hyper-rubix-control-section" data-section="guide"',
+    "</details>",
+  );
+
+  assert.match(guide, /Sticker hyperbar[\s\S]*?sparse gates[\s\S]*?pulse empty/i);
+  assert.match(guide, /Sticker stream[\s\S]*?216 stickers[\s\S]*?Corner stream[\s\S]*?64 stickers/i);
+  assert.match(guide, /Each pulse sounds and lights that exact sticker/i);
+  assert.match(guide, /serial modes begin without automatic twists/i);
+  assert.match(guide, /Twist tape[\s\S]*?intentional authored rests[\s\S]*?default/i);
 });
 
 test("the twist panel exposes all cells, a dynamic legal-plane host, and complete puzzle actions", async () => {
@@ -164,6 +340,26 @@ test("the twist panel exposes all cells, a dynamic legal-plane host, and complet
     '<details class="group control-section hyper-rubix-control-section" data-section="twist"',
     "</details>",
   );
+
+  const sizes = selectOptions(twistPanel, "puzzleSize");
+  assert.deepEqual(sizes.map(({ value, label }) => [value, label]), [
+    ["2", "2 × 2 × 2 × 2"],
+    ["3", "3 × 3 × 3 × 3"],
+    ["4", "4 × 4 × 4 × 4"],
+  ]);
+  assert.equal(sizes.filter(({ tag }) => hasBooleanAttribute(tag, "selected")).length, 1);
+  assert.equal(sizes.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value, "3");
+  assert.equal(attribute(openingTag(twistPanel, "select", "puzzleSize"), "aria-describedby"), "puzzleSizeHelp");
+  assert.match(twistPanel, /id="puzzleSizeHelp"[^>]*>[^<]*216 stickers[^<]*27 spatial pulses/i);
+  const resizeSource = sourceSection(app, "function rebuildPuzzleForSize(", '$("puzzleSize").addEventListener');
+  assert.match(resizeSource, /stopTransport\(\{ hardAudio: true \}\)/);
+  assert.match(resizeSource, /audio\.silenceFold\(\)/);
+  assert.match(resizeSource, /moveQueue = \[\]/);
+  assert.match(resizeSource, /activeMove = null/);
+  assert.match(resizeSource, /history = \[\]/);
+  assert.match(resizeSource, /state\.puzzle = createSolvedHyperRubix\(metrics\.size\)/);
+  assert.match(resizeSource, /hyperbarGateOverrides = new Map\(\)/);
+  assert.match(resizeSource, /rebuildHyperbarSnapshot\(\)/);
 
   const faceButtons = [...twistPanel.matchAll(/<button\b([^>]*)\bdata-face="([xyzw][+-])"([^>]*)>/g)]
     .map((match) => ({
@@ -180,6 +376,20 @@ test("the twist panel exposes all cells, a dynamic legal-plane host, and complet
     faceButtons.find(({ tag }) => attribute(tag, "aria-pressed") === "true")?.id,
     "w+",
   );
+  const voiceTerms = {
+    "x-": ["orange", "sub"],
+    "x+": ["red", "kick"],
+    "y-": ["yellow", "snare"],
+    "y+": ["white", "clap"],
+    "z-": ["blue", "closed hat"],
+    "z+": ["green", "open hat"],
+    "w-": ["cyan", "rim"],
+    "w+": ["violet", "stab"],
+  };
+  for (const { id, tag } of faceButtons) {
+    const label = attribute(tag, "aria-label")?.toLowerCase() ?? "";
+    for (const term of voiceTerms[id]) assert.match(label, new RegExp(`\\b${term}\\b`));
+  }
   assert.match(twistPanel, /id="facePicker"[^>]*role="group"[^>]*aria-label="Boundary cell"/);
 
   const planeHost = twistPanel.match(
@@ -246,6 +456,8 @@ test("hyperspace, audio defaults, and in-place reset remain explicit controls", 
   }
   assert.match(app, /rotation: Object\.freeze\(\{[^}]*xw:[^}]*yw:[^}]*zw:/);
   assert.match(app, /projectHyperRubixPoint4\(rotated, state\.projectionDepth\)/);
+  assert.match(app, /function normalizePuzzlePoint\([\s\S]*?point\[axis\] \/ radius/);
+  assert.match(app, /const halfExtent = 0\.29 \* state\.stickerScale \/ metrics\.radius/);
   assert.match(app, /state\.rotation\.xw = normalizeDegrees/);
   assert.match(app, /state\.rotation\.yw = normalizeDegrees/);
   assert.match(app, /state\.rotation\.zw = normalizeDegrees/);
@@ -263,8 +475,9 @@ test("hyperspace, audio defaults, and in-place reset remain explicit controls", 
   assert.equal(hasBooleanAttribute(reset, "data-reset-all"), true);
   assert.equal(hasBooleanAttribute(reset, "data-reset-in-place"), true);
   const resetSource = sourceSection(app, "function resetAll()", "function updateMoveAnimation(time)");
-  assert.match(resetSource, /stopTransport\(\)/);
-  assert.match(resetSource, /state\.puzzle = createSolvedHyperRubix\(\)/);
+  assert.match(resetSource, /stopTransport\(\{ hardAudio: true \}\)/);
+  assert.match(resetSource, /clearSoundingStickerPulses\(\)/);
+  assert.match(resetSource, /state\.puzzle = createSolvedHyperRubix\(DEFAULTS\.puzzleSize\)/);
   assert.match(resetSource, /history = \[\]/);
   assert.match(resetSource, /state\.selectedCell = DEFAULTS\.selectedCell/);
   assert.match(resetSource, /state\.selectedPlane = DEFAULTS\.selectedPlane/);
@@ -290,14 +503,18 @@ test("the app consumes the pure core, supports pointer and keyboard play, and st
     "HYPER_RUBIX_PLANE_DRUMS",
     "HYPER_RUBIX_SEQUENCE_LENGTH",
     "HYPER_RUBIX_SEQUENCE_PATTERNS",
+    "HYPER_RUBIX_TECHNO_VOICES",
     "buildHyperRubixTesseractWireframe",
+    "createHyperRubixHyperbarSnapshot",
     "createHyperRubixScramble",
     "createHyperRubixSequence",
     "createSeededHyperRubixRandom",
     "createSolvedHyperRubix",
     "hyperRubixDisorder",
     "hyperRubixSequenceIndex",
+    "hyperRubixSizeMetrics",
     "hyperRubixStepDurationSeconds",
+    "hyperRubixTechnoVoiceParameters",
     "invertHyperRubixMove",
     "invertHyperRubixMoves",
     "isHyperRubixSolved",
@@ -313,14 +530,18 @@ test("the app consumes the pure core, supports pointer and keyboard play, and st
     "HYPER_RUBIX_PLANE_DRUMS",
     "HYPER_RUBIX_SEQUENCE_LENGTH",
     "HYPER_RUBIX_SEQUENCE_PATTERNS",
+    "HYPER_RUBIX_TECHNO_VOICES",
     "buildHyperRubixTesseractWireframe",
+    "createHyperRubixHyperbarSnapshot",
     "createHyperRubixScramble",
     "createHyperRubixSequence",
     "createSeededHyperRubixRandom",
     "createSolvedHyperRubix",
     "hyperRubixDisorder",
     "hyperRubixSequenceIndex",
+    "hyperRubixSizeMetrics",
     "hyperRubixStepDurationSeconds",
+    "hyperRubixTechnoVoiceParameters",
     "invertHyperRubixMove",
     "invertHyperRubixMoves",
     "isHyperRubixSolved",
@@ -341,10 +562,20 @@ test("the app consumes the pure core, supports pointer and keyboard play, and st
   assert.match(app, /canvas\.addEventListener\("wheel"/);
   const drawing = sourceSection(app, "function drawScene(time)", "class HyperRubixAudio");
   assert.equal(
-    (drawing.match(/drawSticker\(item\)/g) ?? []).length,
+    (drawing.match(/drawSticker\(item, time\)/g) ?? []).length,
     1,
     "stickers should remain in a single depth-ordered paint pass",
   );
+  const stickerDrawing = sourceSection(
+    app,
+    "function drawSticker(item, time)",
+    "function drawTurnArc(time)",
+  );
+  assert.match(app, /soundingStickerPulses\.get\(stickerId\)/);
+  assert.match(drawing, /expireSoundingStickerPulses\(time\)/);
+  assert.match(stickerDrawing, /soundingStickerStrength\(item\.sticker\.id, time\)/);
+  assert.match(stickerDrawing, /context\.shadowBlur = 18 \+ soundingStrength \* 18/);
+  assert.match(stickerDrawing, /context\.lineWidth = soundingStrength > 0/);
   assert.match(app, /window\.addEventListener\("pagehide"/);
   assert.match(app, /audio\.dispose\(\)/);
   const keyboard = sourceSection(
@@ -376,7 +607,32 @@ test("the app consumes the pure core, supports pointer and keyboard play, and st
   assert.match(css, /\.hyper-rubix-plane-picker\s*\{/);
   assert.match(css, /\.hyper-rubix-turn-row\s*\{/);
   assert.match(css, /\.hyper-rubix-view-switch\s*\{/);
+  assert.match(css, /\.hyper-rubix-hyperbar-cell:focus-visible\s*\{/);
+  assert.match(css, /repeat\(var\(--hyperbar-columns, 27\), minmax\(10px, 1fr\)\)/);
+  assert.match(css, /\.hyper-rubix-hyperbar-row\s*\{[\s\S]*?width: max-content;[\s\S]*?min-width: 100%/);
+  assert.match(css, /\.hyper-rubix-hyperbar-cell\s*\{[\s\S]*?min-width: 10px;[\s\S]*?height: 14px/);
+  assert.match(css, /\.hyper-rubix-hyperbar-cell\.is-group-start\s*\{/);
+  assert.match(css, /\.hyper-rubix-shell\s*\{[\s\S]*?clamp\(390px, 30vw, 500px\)/);
+  assert.match(css, /\.hyper-rubix-sequence-selects\s*\{[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.hyper-rubix-fold-toggle\s*\{/);
+  assert.match(css, /\.hyper-rubix-fold-toggle\[aria-pressed="true"\]\s*\{/);
+  assert.match(css, /\.hyper-rubix-modulation\s*\{/);
+  assert.match(css, /\.hyper-rubix-modulation-grid\s*\{/);
+  const touchHyperbar = sourceSection(
+    css,
+    "@media (pointer: coarse), (max-width: 650px)",
+    "@media (max-width: 650px)",
+  );
+  assert.match(touchHyperbar, /\.hyper-rubix-hyperbar-grid\s*\{[\s\S]*?overflow-x: auto/);
+  assert.match(touchHyperbar, /grid-template-columns: 30px repeat\(var\(--hyperbar-columns, 27\), 28px\)/);
+  assert.match(touchHyperbar, /\.hyper-rubix-hyperbar-cell\s*\{[\s\S]*?width: 28px;[\s\S]*?height: 28px/);
   assert.match(css, /@media \(max-width: 960px\)/);
   assert.match(css, /@media \(max-width: 650px\)/);
+  const narrowPhone = sourceSection(
+    css,
+    "@media (max-width: 410px)",
+    "@media (prefers-reduced-motion: reduce)",
+  );
+  assert.match(narrowPhone, /\.hyper-rubix-sequence-selects,[\s\S]*?\.hyper-rubix-fold-controls\s*\{[\s\S]*?grid-template-columns: 1fr/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 });

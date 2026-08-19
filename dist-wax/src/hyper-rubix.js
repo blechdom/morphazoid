@@ -1,22 +1,81 @@
 /**
- * Pure state and geometry helpers for a 3 x 3 x 3 x 3 twisty puzzle on the
- * boundary of a tesseract.
+ * Pure state and geometry helpers for an N x N x N x N twisty puzzle on the
+ * boundary of a tesseract, for orders two through four.
  *
- * A tesseract has eight cubical boundary cells. Each cell owns a 3 x 3 x 3
- * field of coloured surface records, giving 8 * 27 = 216 records. A move
+ * A tesseract has eight cubical boundary cells. Each cell owns an N x N x N
+ * field of coloured surface records, giving 8 * N^3 records. A move
  * selects one boundary cell and rotates its outer hyper-layer by an exact
  * quarter turn in one of the cell's three tangent coordinate planes.
  *
- * Puzzle coordinates are always integers in {-1, 0, 1}. View rotation and
- * perspective projection are deliberately separate and never mutate state.
+ * Puzzle coordinates are centered, unit-spaced integers or half-integers.
+ * View rotation and perspective projection are deliberately separate and
+ * never mutate state.
  */
 
+export const HYPER_RUBIX_MIN_SIZE = 2;
+export const HYPER_RUBIX_MAX_SIZE = 4;
 export const HYPER_RUBIX_SIZE = 3;
-export const HYPER_RUBIX_RADIUS = 1;
-export const HYPER_RUBIX_STICKERS_PER_CELL = HYPER_RUBIX_SIZE ** 3;
-export const HYPER_RUBIX_STICKER_COUNT = 8 * HYPER_RUBIX_STICKERS_PER_CELL;
+
+const sizeMetricsCache = new Map();
+
+function normalizedHyperRubixSize(sizeOrPuzzle = HYPER_RUBIX_SIZE) {
+  const size = typeof sizeOrPuzzle === "object" && sizeOrPuzzle !== null
+    ? sizeOrPuzzle.size
+    : sizeOrPuzzle;
+  if (!Number.isInteger(size) || size < HYPER_RUBIX_MIN_SIZE || size > HYPER_RUBIX_MAX_SIZE) {
+    throw new RangeError(
+      `Hyper Rubix size must be an integer from ${HYPER_RUBIX_MIN_SIZE} through ${HYPER_RUBIX_MAX_SIZE}.`,
+    );
+  }
+  return size;
+}
+
+/** Immutable geometry and sequence lengths for an order, or for a puzzle. */
+export function hyperRubixSizeMetrics(sizeOrPuzzle = HYPER_RUBIX_SIZE) {
+  const size = normalizedHyperRubixSize(sizeOrPuzzle);
+  if (!sizeMetricsCache.has(size)) {
+    const radius = (size - 1) / 2;
+    const stickersPerCell = size ** 3;
+    const stickerCount = 8 * stickersPerCell;
+    sizeMetricsCache.set(size, Object.freeze({
+      size,
+      radius,
+      layers: Object.freeze(Array.from({ length: size }, (_, index) => index - radius)),
+      stickersPerCell,
+      stickerCount,
+      conceptualVoiceCount: stickerCount + 1,
+      hyperbarLength: stickersPerCell,
+      stickerStreamLength: stickerCount,
+      cornerStreamLength: 8 * (2 ** 3),
+    }));
+  }
+  return sizeMetricsCache.get(size);
+}
+
+/** Number of spatial steps in one N^3 sticker hyperbar. */
+export function hyperRubixHyperbarLength(sizeOrPuzzle = HYPER_RUBIX_SIZE) {
+  return hyperRubixSizeMetrics(sizeOrPuzzle).hyperbarLength;
+}
+
+/** Number of events in the full eight-cell serial sticker scan. */
+export function hyperRubixStickerStreamLength(sizeOrPuzzle = HYPER_RUBIX_SIZE) {
+  return hyperRubixSizeMetrics(sizeOrPuzzle).stickerStreamLength;
+}
+
+/** The eight cells each always have eight geometric corners. */
+export function hyperRubixCornerStreamLength(sizeOrPuzzle = HYPER_RUBIX_SIZE) {
+  return hyperRubixSizeMetrics(sizeOrPuzzle).cornerStreamLength;
+}
+
+const defaultSizeMetrics = hyperRubixSizeMetrics();
+export const HYPER_RUBIX_RADIUS = defaultSizeMetrics.radius;
+export const HYPER_RUBIX_STICKERS_PER_CELL = defaultSizeMetrics.stickersPerCell;
+export const HYPER_RUBIX_STICKER_COUNT = defaultSizeMetrics.stickerCount;
+export const HYPER_RUBIX_CONCEPTUAL_VOICE_COUNT = defaultSizeMetrics.conceptualVoiceCount;
+export const HYPER_RUBIX_STICKER_STREAM_LENGTH = defaultSizeMetrics.stickerStreamLength;
+export const HYPER_RUBIX_CORNER_STREAM_LENGTH = defaultSizeMetrics.cornerStreamLength;
 export const HYPER_RUBIX_AXES = Object.freeze(["x", "y", "z", "w"]);
-export const HYPER_RUBIX_LAYERS = Object.freeze([-1, 0, 1]);
+export const HYPER_RUBIX_LAYERS = defaultSizeMetrics.layers;
 export const HYPER_RUBIX_PLANES = Object.freeze([
   "xy",
   "xz",
@@ -26,6 +85,7 @@ export const HYPER_RUBIX_PLANES = Object.freeze([
   "zw",
 ]);
 export const HYPER_RUBIX_SEQUENCE_LENGTH = 16;
+export const HYPER_RUBIX_HYPERBAR_LENGTH = defaultSizeMetrics.hyperbarLength;
 
 /** Drum identity assigned to each of the six coordinate planes. */
 export const HYPER_RUBIX_PLANE_DRUMS = Object.freeze({
@@ -133,6 +193,81 @@ export const HYPER_RUBIX_BOUNDARY_CELLS = Object.freeze({
   "w-": boundaryCell("w-", "w", -1, "cyan"),
 });
 
+function technoVoice(cell, id, label, baseValues) {
+  const boundary = HYPER_RUBIX_BOUNDARY_CELLS[cell];
+  return Object.freeze({
+    id,
+    cell,
+    color: boundary.color,
+    label,
+    family: id,
+    ...baseValues,
+  });
+}
+
+/**
+ * One stable techno voice per coloured boundary cell. A sticker keeps the
+ * voice of its home cell even after a turn moves it to another current cell.
+ */
+export const HYPER_RUBIX_TECHNO_VOICES = Object.freeze({
+  "x+": technoVoice("x+", "kick", "Kick", {
+    baseMidi: 36,
+    baseFilterHz: 1_050,
+    baseDecaySeconds: 0.32,
+    baseDrive: 0.48,
+    baseRattle: 0.04,
+  }),
+  "x-": technoVoice("x-", "sub", "Sub", {
+    baseMidi: 31,
+    baseFilterHz: 680,
+    baseDecaySeconds: 0.5,
+    baseDrive: 0.42,
+    baseRattle: 0.02,
+  }),
+  "y+": technoVoice("y+", "clap", "Clap", {
+    baseMidi: 58,
+    baseFilterHz: 4_200,
+    baseDecaySeconds: 0.24,
+    baseDrive: 0.36,
+    baseRattle: 0.46,
+  }),
+  "y-": technoVoice("y-", "snare", "Snare", {
+    baseMidi: 50,
+    baseFilterHz: 2_700,
+    baseDecaySeconds: 0.22,
+    baseDrive: 0.4,
+    baseRattle: 0.3,
+  }),
+  "z+": technoVoice("z+", "open-hat", "Open hat", {
+    baseMidi: 74,
+    baseFilterHz: 7_800,
+    baseDecaySeconds: 0.38,
+    baseDrive: 0.28,
+    baseRattle: 0.68,
+  }),
+  "z-": technoVoice("z-", "closed-hat", "Closed hat", {
+    baseMidi: 82,
+    baseFilterHz: 9_200,
+    baseDecaySeconds: 0.1,
+    baseDrive: 0.3,
+    baseRattle: 0.8,
+  }),
+  "w+": technoVoice("w+", "stab", "Stab", {
+    baseMidi: 55,
+    baseFilterHz: 3_100,
+    baseDecaySeconds: 0.42,
+    baseDrive: 0.52,
+    baseRattle: 0.14,
+  }),
+  "w-": technoVoice("w-", "rim", "Rim", {
+    baseMidi: 69,
+    baseFilterHz: 5_200,
+    baseDecaySeconds: 0.13,
+    baseDrive: 0.46,
+    baseRattle: 0.36,
+  }),
+});
+
 export const HYPER_RUBIX_CELL_ORDER = Object.freeze(
   Object.keys(HYPER_RUBIX_BOUNDARY_CELLS),
 );
@@ -207,28 +342,30 @@ function freezeSticker(sticker) {
   });
 }
 
-function freezePuzzle(stickers) {
+function freezePuzzle(stickers, sizeOrPuzzle = HYPER_RUBIX_SIZE) {
+  const metrics = hyperRubixSizeMetrics(sizeOrPuzzle);
   return Object.freeze({
-    size: HYPER_RUBIX_SIZE,
-    radius: HYPER_RUBIX_RADIUS,
+    size: metrics.size,
+    radius: metrics.radius,
     stickers: Object.freeze(stickers),
   });
 }
 
-/** Construct the canonical solved 216-record tesseract surface. */
-export function createSolvedHyperRubix() {
+/** Construct the canonical solved 8 * N^3-record tesseract surface. */
+export function createSolvedHyperRubix(size = HYPER_RUBIX_SIZE) {
+  const metrics = hyperRubixSizeMetrics(size);
   const stickers = [];
   for (const cellId of HYPER_RUBIX_CELL_ORDER) {
     const cell = HYPER_RUBIX_BOUNDARY_CELLS[cellId];
     const [first, second, third] = cell.tangentAxes;
-    for (let firstIndex = 0; firstIndex < HYPER_RUBIX_SIZE; firstIndex += 1) {
-      for (let secondIndex = 0; secondIndex < HYPER_RUBIX_SIZE; secondIndex += 1) {
-        for (let thirdIndex = 0; thirdIndex < HYPER_RUBIX_SIZE; thirdIndex += 1) {
+    for (let firstIndex = 0; firstIndex < metrics.size; firstIndex += 1) {
+      for (let secondIndex = 0; secondIndex < metrics.size; secondIndex += 1) {
+        for (let thirdIndex = 0; thirdIndex < metrics.size; thirdIndex += 1) {
           const position = zeroVector();
-          position[cell.axis] = cell.sign * HYPER_RUBIX_RADIUS;
-          position[first] = HYPER_RUBIX_LAYERS[firstIndex];
-          position[second] = HYPER_RUBIX_LAYERS[secondIndex];
-          position[third] = HYPER_RUBIX_LAYERS[thirdIndex];
+          position[cell.axis] = cell.sign * metrics.radius;
+          position[first] = metrics.layers[firstIndex];
+          position[second] = metrics.layers[secondIndex];
+          position[third] = metrics.layers[thirdIndex];
           stickers.push(freezeSticker({
             id: `${cellId}:${firstIndex}:${secondIndex}:${thirdIndex}`,
             color: cell.color,
@@ -243,7 +380,7 @@ export function createSolvedHyperRubix() {
       }
     }
   }
-  return freezePuzzle(stickers);
+  return freezePuzzle(stickers, metrics);
 }
 
 /**
@@ -255,32 +392,73 @@ export function assertHyperRubixPuzzle(puzzle) {
   if (!puzzle || typeof puzzle !== "object") {
     throw new TypeError("A Hyper Rubix puzzle must be an object.");
   }
-  if (puzzle.size !== HYPER_RUBIX_SIZE || puzzle.radius !== HYPER_RUBIX_RADIUS) {
-    throw new RangeError("Hyper Rubix state must use the fixed 3 x 3 x 3, radius-1 model.");
+  const metrics = hyperRubixSizeMetrics(puzzle);
+  if (puzzle.radius !== metrics.radius) {
+    throw new RangeError(
+      `Hyper Rubix order ${metrics.size} state must use radius ${metrics.radius}.`,
+    );
   }
-  if (!Array.isArray(puzzle.stickers) || puzzle.stickers.length !== HYPER_RUBIX_STICKER_COUNT) {
+  if (!Array.isArray(puzzle.stickers) || puzzle.stickers.length !== metrics.stickerCount) {
     throw new TypeError(
-      `Hyper Rubix state must contain exactly ${HYPER_RUBIX_STICKER_COUNT} stickers.`,
+      `Hyper Rubix order ${metrics.size} state must contain exactly ${metrics.stickerCount} stickers.`,
     );
   }
 
   const ids = new Set();
   const slotsByCell = new Map(HYPER_RUBIX_CELL_ORDER.map((id) => [id, new Set()]));
+  const homeSlotsByCell = new Map(HYPER_RUBIX_CELL_ORDER.map((id) => [id, new Set()]));
   for (const sticker of puzzle.stickers) {
     if (!sticker || typeof sticker.id !== "string" || ids.has(sticker.id)) {
       throw new TypeError("Hyper Rubix sticker IDs must be unique strings.");
     }
     ids.add(sticker.id);
+    if ((sticker.size !== undefined && sticker.size !== metrics.size)
+      || (sticker.radius !== undefined && sticker.radius !== metrics.radius)) {
+      throw new RangeError(`Sticker ${sticker.id} has mismatched size metadata.`);
+    }
     if (!Object.hasOwn(HYPER_RUBIX_COLORS, sticker.color)) {
       throw new RangeError(`Sticker ${sticker.id} has an unknown color.`);
     }
+    const homeCell = HYPER_RUBIX_BOUNDARY_CELLS[sticker.homeCell];
+    if (!homeCell || sticker.color !== homeCell.color) {
+      throw new TypeError(`Sticker ${sticker.id} must retain a matching home cell and colour.`);
+    }
+    if (!Array.isArray(sticker.homeAddress)
+      || sticker.homeAddress.length !== 3
+      || sticker.homeAddress.some((digit) => (
+        !Number.isInteger(digit) || digit < 0 || digit >= metrics.size
+      ))) {
+      throw new RangeError(`Sticker ${sticker.id} has an invalid home address.`);
+    }
+    const homeSlotKey = sticker.homeAddress.join(":");
+    const homeSlots = homeSlotsByCell.get(sticker.homeCell);
+    if (homeSlots.has(homeSlotKey)) {
+      throw new TypeError(`Boundary cell ${sticker.homeCell} contains duplicate home slots.`);
+    }
+    homeSlots.add(homeSlotKey);
+    const homePosition = finiteVector4(
+      sticker.homePosition,
+      `Sticker ${sticker.id} home position`,
+    );
+    const homeNormal = finiteVector4(sticker.homeNormal, `Sticker ${sticker.id} home normal`);
+    const expectedHomePosition = zeroVector();
+    expectedHomePosition[homeCell.axis] = homeCell.sign * metrics.radius;
+    homeCell.tangentAxes.forEach((axis, index) => {
+      expectedHomePosition[axis] = metrics.layers[sticker.homeAddress[index]];
+    });
+    if (HYPER_RUBIX_AXES.some((axis) => (
+      homePosition[axis] !== expectedHomePosition[axis]
+      || homeNormal[axis] !== homeCell.normal[axis]
+    ))) {
+      throw new RangeError(`Sticker ${sticker.id} has inconsistent home geometry.`);
+    }
 
     const position = finiteVector4(sticker.position, `Sticker ${sticker.id} position`);
-    if (HYPER_RUBIX_AXES.some((axis) => !HYPER_RUBIX_LAYERS.includes(position[axis]))) {
+    if (HYPER_RUBIX_AXES.some((axis) => !metrics.layers.includes(position[axis]))) {
       throw new RangeError(`Sticker ${sticker.id} is outside the exact puzzle lattice.`);
     }
     const cell = hyperRubixCellForNormal(sticker.normal);
-    if (!cell || position[cell.axis] !== cell.sign * HYPER_RUBIX_RADIUS) {
+    if (!cell || position[cell.axis] !== cell.sign * metrics.radius) {
       throw new RangeError(`Sticker ${sticker.id} is not outward-facing on a boundary cell.`);
     }
     const slotKey = HYPER_RUBIX_AXES.map((axis) => position[axis]).join(":");
@@ -292,13 +470,255 @@ export function assertHyperRubixPuzzle(puzzle) {
   }
 
   for (const [cellId, slots] of slotsByCell) {
-    if (slots.size !== HYPER_RUBIX_STICKERS_PER_CELL) {
+    if (slots.size !== metrics.stickersPerCell) {
       throw new TypeError(
-        `Boundary cell ${cellId} must contain ${HYPER_RUBIX_STICKERS_PER_CELL} stickers.`,
+        `Boundary cell ${cellId} must contain ${metrics.stickersPerCell} stickers.`,
+      );
+    }
+    if (homeSlotsByCell.get(cellId).size !== metrics.stickersPerCell) {
+      throw new TypeError(
+        `Boundary cell ${cellId} must contain ${metrics.stickersPerCell} home stickers.`,
       );
     }
   }
   return puzzle;
+}
+
+/**
+ * Read a sticker's current cubical cell as a base-N sequencer address. The
+ * current cell's three tangent axes are the digits, so every cell contributes
+ * one sticker to each of the N^3 hyperbar steps.
+ */
+export function hyperRubixStickerStepIndex(sticker, sizeOrPuzzle) {
+  if (!sticker || typeof sticker !== "object") {
+    throw new TypeError("A Hyper Rubix sticker must be an object.");
+  }
+  const position = finiteVector4(sticker.position, "Sticker position");
+  const cell = sticker.normal === undefined
+    ? HYPER_RUBIX_BOUNDARY_CELLS[sticker.cell] ?? null
+    : hyperRubixCellForNormal(sticker.normal);
+  if (!cell) {
+    throw new RangeError("Hyper Rubix sticker must face outward from its current boundary cell.");
+  }
+  const metrics = hyperRubixSizeMetrics(
+    sizeOrPuzzle ?? sticker.size ?? (2 * Math.abs(position[cell.axis]) + 1),
+  );
+  if (position[cell.axis] !== cell.sign * metrics.radius) {
+    throw new RangeError("Hyper Rubix sticker must face outward from its current boundary cell.");
+  }
+  const digits = cell.tangentAxes.map((axis) => {
+    const digit = metrics.layers.indexOf(position[axis]);
+    if (digit < 0) {
+      throw new RangeError("Hyper Rubix sticker position must lie on the exact puzzle lattice.");
+    }
+    return digit;
+  });
+  return digits[0] * metrics.size ** 2 + digits[1] * metrics.size + digits[2];
+}
+
+const HYPERBAR_RADIAL_CLASSES = Object.freeze(["center", "face", "edge", "corner"]);
+
+function currentStickerSlotKey(cellId, position) {
+  return `${cellId}|${HYPER_RUBIX_AXES.map((axis) => position[axis]).join(":")}`;
+}
+
+function currentStickerSlotMap(puzzle) {
+  return new Map(puzzle.stickers.map((sticker) => {
+    const cell = hyperRubixCellForNormal(sticker.normal);
+    return [currentStickerSlotKey(cell.id, sticker.position), sticker];
+  }));
+}
+
+function stickerIsDisplaced(sticker) {
+  const position = finiteVector4(sticker.position, `Sticker ${sticker.id} position`);
+  const homePosition = finiteVector4(sticker.homePosition, `Sticker ${sticker.id} home position`);
+  const homeNormal = finiteVector4(sticker.homeNormal, `Sticker ${sticker.id} home normal`);
+  return HYPER_RUBIX_AXES.some((axis) => (
+    position[axis] !== homePosition[axis] || sticker.normal[axis] !== homeNormal[axis]
+  ));
+}
+
+function stickerTopologyFromSlots(sticker, slots, sizeOrPuzzle) {
+  const metrics = hyperRubixSizeMetrics(sizeOrPuzzle);
+  const position = finiteVector4(sticker.position, `Sticker ${sticker.id} position`);
+  const cell = hyperRubixCellForNormal(sticker.normal);
+  const connections = [];
+  for (const axis of cell.tangentAxes) {
+    for (const direction of [-1, 1]) {
+      const coordinate = position[axis] + direction;
+      if (!metrics.layers.includes(coordinate)) continue;
+      const neighborPosition = { ...position, [axis]: coordinate };
+      const neighbor = slots.get(currentStickerSlotKey(cell.id, neighborPosition));
+      if (!neighbor) {
+        throw new TypeError(`Sticker ${sticker.id} has an incomplete current-cell neighborhood.`);
+      }
+      connections.push(Object.freeze({
+        axis,
+        direction,
+        sign: direction < 0 ? "-" : "+",
+        stickerId: neighbor.id,
+        color: neighbor.color,
+        homeCell: neighbor.homeCell,
+        sameColor: neighbor.color === sticker.color,
+        displaced: stickerIsDisplaced(neighbor),
+      }));
+    }
+  }
+
+  return Object.freeze({
+    stickerId: sticker.id,
+    currentCell: cell.id,
+    homeCell: sticker.homeCell,
+    cellDisplaced: cell.id !== sticker.homeCell,
+    displaced: stickerIsDisplaced(sticker),
+    neighborCount: connections.length,
+    connections: Object.freeze(connections),
+  });
+}
+
+function stickerConfigurationFromTopology(sticker, topology, sizeOrPuzzle) {
+  const metrics = hyperRubixSizeMetrics(sizeOrPuzzle);
+  const position = finiteVector4(sticker.position, `Sticker ${sticker.id} position`);
+  const cell = hyperRubixCellForNormal(sticker.normal);
+  const sameColorNeighbors = topology.connections.filter(({ sameColor }) => sameColor).length;
+  const radialIndex = cell.tangentAxes.reduce(
+    (count, axis) => count + Number(Math.abs(position[axis]) === metrics.radius),
+    0,
+  );
+
+  return Object.freeze({
+    neighborCount: topology.neighborCount,
+    sameColorNeighbors,
+    neighborDiversity: topology.neighborCount === 0
+      ? 0
+      : (topology.neighborCount - sameColorNeighbors) / topology.neighborCount,
+    radialClass: HYPERBAR_RADIAL_CLASSES[radialIndex],
+    displaced: topology.displaced,
+  });
+}
+
+function currentStickerFor(puzzle, stickerOrId, purpose) {
+  const stickerId = typeof stickerOrId === "string" ? stickerOrId : stickerOrId?.id;
+  if (typeof stickerId !== "string") {
+    throw new TypeError(`Hyper Rubix sticker ${purpose} requires a sticker or sticker ID.`);
+  }
+  const currentSticker = puzzle.stickers.find(({ id }) => id === stickerId);
+  if (!currentSticker) {
+    throw new RangeError(`Unknown Hyper Rubix sticker: ${stickerId}`);
+  }
+  return currentSticker;
+}
+
+/** Describe one sticker's current six-connected cubical neighborhood. */
+export function hyperRubixStickerConfiguration(puzzle, sticker) {
+  assertHyperRubixPuzzle(puzzle);
+  const currentSticker = currentStickerFor(puzzle, sticker, "configuration");
+  const topology = stickerTopologyFromSlots(
+    currentSticker,
+    currentStickerSlotMap(puzzle),
+    puzzle,
+  );
+  return stickerConfigurationFromTopology(currentSticker, topology, puzzle);
+}
+
+/** Describe one sticker's actual, ordered tangent-neighbor graph. */
+export function hyperRubixStickerTopology(puzzle, sticker) {
+  assertHyperRubixPuzzle(puzzle);
+  const currentSticker = currentStickerFor(puzzle, sticker, "topology");
+  return stickerTopologyFromSlots(currentSticker, currentStickerSlotMap(puzzle), puzzle);
+}
+
+function hyperbarGate(stepIndex, voice, sizeOrPuzzle) {
+  const size = hyperRubixSizeMetrics(sizeOrPuzzle).size;
+  const stepInGroup = stepIndex % (size ** 2);
+  const stepInSubgroup = stepIndex % size;
+  const voiceIndex = HYPER_RUBIX_CELL_ORDER.indexOf(voice.cell);
+  const groupAccent = stepInGroup === 0;
+  const gate = groupAccent || stepInSubgroup === voiceIndex % size;
+  return Object.freeze({
+    gate,
+    accent: gate && (groupAccent || Math.floor(stepInGroup / size) === voiceIndex % size),
+  });
+}
+
+/**
+ * Snapshot all 8 * N^3 stickers as N^3 time slots with eight current-cell tracks.
+ * Event order follows HYPER_RUBIX_CELL_ORDER. Turns may change an event's slot
+ * and current cell, while its ID, colour, home cell, and voice remain stable.
+ */
+export function createHyperRubixHyperbarSnapshot(puzzle) {
+  assertHyperRubixPuzzle(puzzle);
+  const metrics = hyperRubixSizeMetrics(puzzle);
+  const stickerSlots = currentStickerSlotMap(puzzle);
+  const slots = Array.from({ length: metrics.hyperbarLength }, (_, index) => ({
+    index,
+    group: Math.floor(index / (metrics.size ** 2)),
+    subgroup: Math.floor((index % (metrics.size ** 2)) / metrics.size),
+    events: [],
+  }));
+
+  for (const sticker of puzzle.stickers) {
+    const voice = HYPER_RUBIX_TECHNO_VOICES[sticker.homeCell];
+    if (!voice || voice.color !== sticker.color) {
+      throw new TypeError(`Sticker ${sticker.id} must retain a matching home cell and colour.`);
+    }
+    const cell = hyperRubixCellForNormal(sticker.normal);
+    const stepIndex = hyperRubixStickerStepIndex(sticker, metrics);
+    const rhythm = hyperbarGate(stepIndex, voice, metrics);
+    const topology = stickerTopologyFromSlots(sticker, stickerSlots, metrics);
+    slots[stepIndex].events.push(Object.freeze({
+      id: sticker.id,
+      stickerId: sticker.id,
+      color: sticker.color,
+      voice,
+      homeCell: sticker.homeCell,
+      cell: cell.id,
+      position: vector4(
+        sticker.position.x,
+        sticker.position.y,
+        sticker.position.z,
+        sticker.position.w,
+      ),
+      configuration: stickerConfigurationFromTopology(sticker, topology, metrics),
+      topology,
+      gate: rhythm.gate,
+      accent: rhythm.accent,
+    }));
+  }
+
+  return Object.freeze(slots.map((slot) => {
+    slot.events.sort((first, second) => (
+      HYPER_RUBIX_CELL_ORDER.indexOf(first.cell) - HYPER_RUBIX_CELL_ORDER.indexOf(second.cell)
+    ));
+    if (slot.events.length !== HYPER_RUBIX_CELL_ORDER.length
+      || new Set(slot.events.map(({ cell }) => cell)).size !== HYPER_RUBIX_CELL_ORDER.length) {
+      throw new TypeError(`Hyperbar step ${slot.index} must contain one event per boundary cell.`);
+    }
+    return Object.freeze({
+      ...slot,
+      events: Object.freeze(slot.events),
+    });
+  }));
+}
+
+/**
+ * Flatten the spatial hyperbar into a serial scan: all eight current-cell
+ * voices at position 0, then all eight at position 1, through position N^3 - 1.
+ * Corner mode keeps that ordering while selecting the eight cubical corners.
+ */
+export function createHyperRubixStickerStream(puzzle, options = {}) {
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    throw new TypeError("Hyper Rubix sticker stream options must be an object.");
+  }
+  const cornersOnly = options.cornersOnly ?? false;
+  if (typeof cornersOnly !== "boolean") {
+    throw new TypeError("Hyper Rubix cornersOnly option must be a boolean.");
+  }
+  const events = createHyperRubixHyperbarSnapshot(puzzle)
+    .flatMap(({ events: slotEvents }) => slotEvents);
+  return Object.freeze(cornersOnly
+    ? events.filter(({ configuration }) => configuration.radialClass === "corner")
+    : events);
 }
 
 function normalizedQuarterTurns(value) {
@@ -324,6 +744,162 @@ export function normalizeHyperRubixMove(move) {
   }
   const quarterTurns = normalizedQuarterTurns(move.quarterTurns ?? move.turns ?? 1);
   return Object.freeze({ cell: cell.id, plane, quarterTurns });
+}
+
+const TECHNO_PLANE_SEMITONES = Object.freeze({
+  xy: 0,
+  xz: 3,
+  xw: 7,
+  yz: 5,
+  yw: 10,
+  zw: 12,
+});
+
+function finiteGeometryNumber(value, fallback, label) {
+  if (value === undefined) return fallback;
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    throw new TypeError(`Hyper Rubix geometry ${label} must be a finite number.`);
+  }
+  return number;
+}
+
+function normalizedTechnoPosition(source) {
+  if (source === undefined) return zeroVector();
+  if (typeof source === "number") {
+    return { x: clamp(finiteGeometryNumber(source, 0, "position"), -1, 1), y: 0, z: 0, w: 0 };
+  }
+  if (!source || typeof source !== "object") {
+    throw new TypeError("Hyper Rubix geometry position must be a finite number or point object.");
+  }
+  return Object.fromEntries(HYPER_RUBIX_AXES.map((axis) => [
+    axis,
+    clamp(finiteGeometryNumber(source[axis], 0, `position.${axis}`), -1, 1),
+  ]));
+}
+
+/**
+ * Map a legal turn and optional normalized geometry into synthesis controls.
+ * `angle` is one normalized revolution; `depth`, `disorder`, and
+ * `shapeInfluence` use 0 through 1. `pan` may override the projected position's
+ * x coordinate. The five optional DSP influence controls use 0 through 2 and
+ * each falls back to `shapeInfluence`. Projected position and pan values clamp
+ * to -1 through +1, keeping every returned control inside a useful Web Audio
+ * range.
+ */
+export function hyperRubixTechnoVoiceParameters(move, geometry = {}) {
+  const normalized = normalizeHyperRubixMove(move);
+  if (!geometry || typeof geometry !== "object" || Array.isArray(geometry)) {
+    throw new TypeError("Hyper Rubix geometry must be an object.");
+  }
+  const voice = HYPER_RUBIX_TECHNO_VOICES[normalized.cell];
+  const position = normalizedTechnoPosition(geometry.position);
+  const panPosition = clamp(
+    finiteGeometryNumber(geometry.pan, position.x, "pan"),
+    -1,
+    1,
+  );
+  const angle = clamp(finiteGeometryNumber(geometry.angle, 0, "angle"), 0, 1);
+  const depth = clamp(finiteGeometryNumber(geometry.depth, 0.5, "depth"), 0, 1);
+  const disorder = clamp(finiteGeometryNumber(geometry.disorder, 0, "disorder"), 0, 1);
+  const shapeInfluence = clamp(
+    finiteGeometryNumber(geometry.shapeInfluence, 1, "shapeInfluence"),
+    0,
+    1,
+  );
+  const pitchInfluence = clamp(
+    finiteGeometryNumber(geometry.pitchInfluence, shapeInfluence, "pitchInfluence"),
+    0,
+    2,
+  );
+  const filterInfluence = clamp(
+    finiteGeometryNumber(geometry.filterInfluence, shapeInfluence, "filterInfluence"),
+    0,
+    2,
+  );
+  const stereoInfluence = clamp(
+    finiteGeometryNumber(geometry.stereoInfluence, shapeInfluence, "stereoInfluence"),
+    0,
+    2,
+  );
+  const wInfluence = clamp(
+    finiteGeometryNumber(geometry.wInfluence, shapeInfluence, "wInfluence"),
+    0,
+    2,
+  );
+  const disorderInfluence = clamp(
+    finiteGeometryNumber(geometry.disorderInfluence, shapeInfluence, "disorderInfluence"),
+    0,
+    2,
+  );
+  const angleWave = Math.sin(angle * Math.PI * 2);
+  const depthCentered = depth * 2 - 1;
+  const direction = Math.sign(normalized.quarterTurns);
+  const planeHasW = Number(normalized.plane.includes("w"));
+  const planeSlot = HYPER_RUBIX_BOUNDARY_CELLS[normalized.cell].tangentPlanes.indexOf(
+    normalized.plane,
+  );
+  const planeTilt = 0.82 + planeSlot * 0.18;
+  const voiceIndex = HYPER_RUBIX_CELL_ORDER.indexOf(normalized.cell);
+  const basePan = -0.35 + (voiceIndex / (HYPER_RUBIX_CELL_ORDER.length - 1)) * 0.7;
+
+  const midi = voice.baseMidi
+    + TECHNO_PLANE_SEMITONES[normalized.plane]
+    + direction
+    + position.y * 1.5 * pitchInfluence
+    + position.z * 3 * pitchInfluence
+    + position.w * 4 * wInfluence
+    + angleWave * 2 * pitchInfluence
+    + disorder * 5 * disorderInfluence;
+  const pitchHz = clamp(440 * (2 ** ((midi - 69) / 12)), 24, 4_200);
+  const filterOctaves = (
+    position.y * 0.4 * filterInfluence
+    + angleWave * 0.5 * filterInfluence
+    + depthCentered * 0.65 * wInfluence
+    + disorder * disorderInfluence
+  );
+
+  return Object.freeze({
+    voice,
+    move: normalized,
+    pitchHz,
+    filterHz: clamp(voice.baseFilterHz * planeTilt * (2 ** filterOctaves), 90, 16_000),
+    filterQ: clamp(
+      0.72
+        + planeSlot * 0.82
+        + Math.abs(angleWave) * 1.8 * filterInfluence
+        + disorder * 1.2 * disorderInfluence,
+      0.45,
+      7.5,
+    ),
+    decaySeconds: clamp(
+      voice.baseDecaySeconds * (
+        1
+          - depthCentered * 0.3 * wInfluence
+          + Math.abs(angleWave) * 0.3 * filterInfluence
+          + disorder * 0.45 * disorderInfluence
+      ),
+      0.035,
+      2.5,
+    ),
+    pan: clamp(basePan + panPosition * 0.7 * stereoInfluence + direction * 0.08, -1, 1),
+    drive: clamp(
+      voice.baseDrive
+        + Math.abs(angleWave) * 0.2 * filterInfluence
+        + disorder * 0.3 * disorderInfluence
+        + planeHasW * 0.08,
+      0,
+      1,
+    ),
+    rattle: clamp(
+      voice.baseRattle
+        + Math.abs(position.z * filterInfluence - position.w * wInfluence) * 0.14
+        + disorder * 0.36 * disorderInfluence
+        + Math.max(0, -depthCentered) * 0.08 * wInfluence,
+      0,
+      1,
+    ),
+  });
 }
 
 export function hyperRubixMoveKey(move) {
@@ -522,8 +1098,8 @@ export function hyperRubixStepDurationSeconds(
     300,
   );
   const subdivisions = Number(subdivisionsPerBeat);
-  if (![1, 2, 4].includes(subdivisions)) {
-    throw new RangeError("Hyper Rubix subdivisions per beat must be 1, 2, or 4.");
+  if (![1, 2, 4, 8, 16].includes(subdivisions)) {
+    throw new RangeError("Hyper Rubix subdivisions per beat must be 1, 2, 4, 8, or 16.");
   }
   const safeSwing = clamp(
     assertFiniteSequenceNumber(swing, "Hyper Rubix swing"),
@@ -555,11 +1131,22 @@ export function rotateHyperRubixQuarterVector(source, plane, quarterTurns = 1) {
   return result;
 }
 
-export function hyperRubixMoveAffectsSticker(sticker, move) {
+export function hyperRubixMoveAffectsSticker(
+  sticker,
+  move,
+  sizeOrPuzzle,
+) {
   const normalized = normalizeHyperRubixMove(move);
   const cell = HYPER_RUBIX_BOUNDARY_CELLS[normalized.cell];
   const position = finiteVector4(sticker?.position, "Sticker position");
-  return position[cell.axis] === cell.sign * HYPER_RUBIX_RADIUS;
+  const currentCell = sticker?.normal
+    ? hyperRubixCellForNormal(sticker.normal)
+    : HYPER_RUBIX_BOUNDARY_CELLS[sticker?.cell] ?? null;
+  const inferredSize = currentCell
+    ? 2 * Math.abs(position[currentCell.axis]) + 1
+    : HYPER_RUBIX_SIZE;
+  const metrics = hyperRubixSizeMetrics(sizeOrPuzzle ?? sticker?.size ?? inferredSize);
+  return position[cell.axis] === cell.sign * metrics.radius;
 }
 
 /** Apply one exact outer-cell turn and return a new immutable puzzle. */
@@ -568,7 +1155,7 @@ export function turnHyperRubixBoundaryCell(puzzle, move) {
   const normalized = normalizeHyperRubixMove(move);
   if (normalized.quarterTurns === 0) return puzzle;
   const cell = HYPER_RUBIX_BOUNDARY_CELLS[normalized.cell];
-  const slice = cell.sign * HYPER_RUBIX_RADIUS;
+  const slice = cell.sign * puzzle.radius;
   const stickers = puzzle.stickers.map((sticker) => {
     if (sticker.position[cell.axis] !== slice) return sticker;
     return freezeSticker({
@@ -585,7 +1172,7 @@ export function turnHyperRubixBoundaryCell(puzzle, move) {
       ),
     });
   });
-  return freezePuzzle(stickers);
+  return freezePuzzle(stickers, puzzle);
 }
 
 export function applyHyperRubixMoves(puzzle, moves) {
@@ -603,7 +1190,8 @@ export function hyperRubixDisorderCount(puzzle) {
 
 /** Fraction of stickers on a cell whose solved colour differs, from 0 through 1. */
 export function hyperRubixDisorder(puzzle) {
-  return hyperRubixDisorderCount(puzzle) / HYPER_RUBIX_STICKER_COUNT;
+  const count = hyperRubixDisorderCount(puzzle);
+  return count / hyperRubixStickerStreamLength(puzzle);
 }
 
 export function isHyperRubixSolved(puzzle) {

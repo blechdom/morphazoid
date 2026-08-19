@@ -7,7 +7,12 @@ import {
   HYPER_RUBIX_BOUNDARY_CELLS,
   HYPER_RUBIX_CELL_ORDER,
   HYPER_RUBIX_COLORS,
+  HYPER_RUBIX_CONCEPTUAL_VOICE_COUNT,
+  HYPER_RUBIX_CORNER_STREAM_LENGTH,
+  HYPER_RUBIX_HYPERBAR_LENGTH,
   HYPER_RUBIX_LAYERS,
+  HYPER_RUBIX_MAX_SIZE,
+  HYPER_RUBIX_MIN_SIZE,
   HYPER_RUBIX_PLANE_DRUMS,
   HYPER_RUBIX_PLANES,
   HYPER_RUBIX_RADIUS,
@@ -15,22 +20,34 @@ import {
   HYPER_RUBIX_SEQUENCE_PATTERNS,
   HYPER_RUBIX_SIZE,
   HYPER_RUBIX_STICKER_COUNT,
+  HYPER_RUBIX_STICKER_STREAM_LENGTH,
   HYPER_RUBIX_STICKERS_PER_CELL,
+  HYPER_RUBIX_TECHNO_VOICES,
   applyHyperRubixMoves,
   assertHyperRubixPuzzle,
   buildHyperRubixTesseractWireframe,
   createHyperRubixScramble,
+  createHyperRubixHyperbarSnapshot,
   createHyperRubixSequence,
   createSeededHyperRubixRandom,
   createSolvedHyperRubix,
+  createHyperRubixStickerStream,
   hyperRubixBoundaryCell,
   hyperRubixCellForNormal,
   hyperRubixDisorder,
   hyperRubixDisorderCount,
+  hyperRubixCornerStreamLength,
+  hyperRubixHyperbarLength,
   hyperRubixMoveAffectsSticker,
   hyperRubixMoveKey,
   hyperRubixSequenceIndex,
   hyperRubixStepDurationSeconds,
+  hyperRubixStickerConfiguration,
+  hyperRubixStickerStreamLength,
+  hyperRubixStickerStepIndex,
+  hyperRubixStickerTopology,
+  hyperRubixSizeMetrics,
+  hyperRubixTechnoVoiceParameters,
   invertHyperRubixMove,
   invertHyperRubixMoves,
   isHyperRubixSolved,
@@ -124,6 +141,122 @@ test("the solved state has 27 unique sticker records on each of eight cells", ()
   assert.equal(hyperRubixDisorder(puzzle), 0);
 });
 
+test("size metrics derive exact centered lattices and dynamic sequence lengths", () => {
+  assert.equal(HYPER_RUBIX_MIN_SIZE, 2);
+  assert.equal(HYPER_RUBIX_MAX_SIZE, 4);
+  const expectedBySize = {
+    2: {
+      radius: 0.5,
+      layers: [-0.5, 0.5],
+      stickersPerCell: 8,
+      stickerCount: 64,
+      conceptualVoiceCount: 65,
+      hyperbarLength: 8,
+      stickerStreamLength: 64,
+      cornerStreamLength: 64,
+    },
+    3: {
+      radius: 1,
+      layers: [-1, 0, 1],
+      stickersPerCell: 27,
+      stickerCount: 216,
+      conceptualVoiceCount: 217,
+      hyperbarLength: 27,
+      stickerStreamLength: 216,
+      cornerStreamLength: 64,
+    },
+    4: {
+      radius: 1.5,
+      layers: [-1.5, -0.5, 0.5, 1.5],
+      stickersPerCell: 64,
+      stickerCount: 512,
+      conceptualVoiceCount: 513,
+      hyperbarLength: 64,
+      stickerStreamLength: 512,
+      cornerStreamLength: 64,
+    },
+  };
+
+  for (const size of [2, 3, 4]) {
+    const metrics = hyperRubixSizeMetrics(size);
+    assert.deepEqual(metrics, { size, ...expectedBySize[size] });
+    assert.equal(Object.isFrozen(metrics), true);
+    assert.equal(Object.isFrozen(metrics.layers), true);
+    assert.equal(hyperRubixSizeMetrics(size), metrics, "metrics are stable immutable metadata");
+    assert.equal(hyperRubixHyperbarLength(size), size ** 3);
+    assert.equal(hyperRubixStickerStreamLength(size), 8 * size ** 3);
+    assert.equal(hyperRubixCornerStreamLength(size), 64);
+
+    const puzzle = createSolvedHyperRubix(size);
+    assert.equal(hyperRubixSizeMetrics(puzzle), metrics);
+    assert.equal(puzzle.size, size);
+    assert.equal(puzzle.radius, expectedBySize[size].radius);
+    assert.equal(puzzle.stickers.length, 8 * size ** 3);
+    assert.equal(new Set(puzzle.stickers.map(({ id }) => id)).size, 8 * size ** 3);
+    assert.equal(assertHyperRubixPuzzle(puzzle), puzzle);
+    for (const cellId of HYPER_RUBIX_CELL_ORDER) {
+      const stickers = puzzle.stickers.filter(({ homeCell }) => homeCell === cellId);
+      assert.equal(stickers.length, size ** 3);
+      assert.equal(new Set(stickers.map(({ position }) => positionKey(position))).size, size ** 3);
+      assert.equal(stickers.every((sticker) => (
+        sticker.position[HYPER_RUBIX_BOUNDARY_CELLS[cellId].axis]
+          === HYPER_RUBIX_BOUNDARY_CELLS[cellId].sign * expectedBySize[size].radius
+      )), true);
+    }
+  }
+
+  assert.deepEqual(createSolvedHyperRubix(), createSolvedHyperRubix(3));
+  for (const size of [1, 5, 2.5, Number.NaN]) {
+    assert.throws(() => hyperRubixSizeMetrics(size), /size must be an integer from 2 through 4/);
+    assert.throws(() => createSolvedHyperRubix(size), /size must be an integer from 2 through 4/);
+  }
+});
+
+test("every legal move has exact inverse and order four for sizes two through four", () => {
+  const move = { cell: "w+", plane: "xy", quarterTurns: 1 };
+  for (const size of [2, 3, 4]) {
+    const solved = createSolvedHyperRubix(size);
+    assert.equal(
+      solved.stickers.filter((sticker) => hyperRubixMoveAffectsSticker(sticker, move)).length,
+      size ** 3 + 6 * size ** 2,
+      `order ${size} moves one facet and its six boundary strips`,
+    );
+    const representativeTurn = turnHyperRubixBoundaryCell(solved, move);
+    assert.equal(hyperRubixDisorderCount(representativeTurn), 4 * size ** 2);
+    closeTo(hyperRubixDisorder(representativeTurn), 1 / (2 * size));
+
+    for (const legalMove of HYPER_RUBIX_BASIC_MOVES) {
+      const once = turnHyperRubixBoundaryCell(solved, legalMove);
+      assert.equal(assertHyperRubixPuzzle(once), once, `${size}:${hyperRubixMoveKey(legalMove)}`);
+      assert.equal(once.size, size);
+      assert.equal(once.stickers.length, 8 * size ** 3);
+      assert.deepEqual(
+        turnHyperRubixBoundaryCell(once, invertHyperRubixMove(legalMove)),
+        solved,
+        `order ${size} inverse ${hyperRubixMoveKey(legalMove)}`,
+      );
+      assert.deepEqual(
+        applyHyperRubixMoves(solved, [legalMove, legalMove, legalMove, legalMove]),
+        solved,
+        `order ${size} fourth power ${hyperRubixMoveKey(legalMove)}`,
+      );
+    }
+  }
+});
+
+test("legacy size-three records and arbitrary stable IDs retain round-trip compatibility", () => {
+  const legacy = mutablePuzzle();
+  legacy.stickers[0].id = "custom-stable-sticker-id";
+  assert.equal(Object.hasOwn(legacy.stickers[0], "size"), false);
+  assert.equal(Object.hasOwn(legacy.stickers[0], "radius"), false);
+  assert.equal(assertHyperRubixPuzzle(legacy), legacy);
+
+  const move = { cell: "w-", plane: "xy", quarterTurns: 1 };
+  const turned = turnHyperRubixBoundaryCell(legacy, move);
+  assert.equal(turned.stickers.some(({ id }) => id === "custom-stable-sticker-id"), true);
+  assert.deepEqual(turnHyperRubixBoundaryCell(turned, invertHyperRubixMove(move)), legacy);
+});
+
 test("normal lookup resolves exactly the eight outward coordinate normals", () => {
   for (const cellId of HYPER_RUBIX_CELL_ORDER) {
     const cell = HYPER_RUBIX_BOUNDARY_CELLS[cellId];
@@ -140,7 +273,7 @@ test("structural validation rejects malformed surface states", () => {
 
   const wrongSize = mutablePuzzle();
   wrongSize.size = 4;
-  assert.throws(() => assertHyperRubixPuzzle(wrongSize), /fixed 3 x 3 x 3/);
+  assert.throws(() => assertHyperRubixPuzzle(wrongSize), /order 4 state must use radius 1\.5/);
 
   const missing = mutablePuzzle();
   missing.stickers.pop();
@@ -161,6 +294,31 @@ test("structural validation rejects malformed surface states", () => {
   const duplicateSlot = mutablePuzzle();
   duplicateSlot.stickers[1].position = { ...duplicateSlot.stickers[0].position };
   assert.throws(() => assertHyperRubixPuzzle(duplicateSlot), /duplicate sticker slots/);
+
+  const wrongRadius = mutablePuzzle(createSolvedHyperRubix(4));
+  wrongRadius.radius = 1;
+  assert.throws(() => assertHyperRubixPuzzle(wrongRadius), /order 4 state must use radius 1\.5/);
+
+  const wrongDynamicCount = mutablePuzzle(createSolvedHyperRubix(2));
+  wrongDynamicCount.stickers.pop();
+  assert.throws(() => assertHyperRubixPuzzle(wrongDynamicCount), /exactly 64 stickers/);
+
+  const offEvenLattice = mutablePuzzle(createSolvedHyperRubix(4));
+  offEvenLattice.stickers[0].position.y = 0;
+  assert.throws(() => assertHyperRubixPuzzle(offEvenLattice), /outside the exact puzzle lattice/);
+
+  const invalidHomeAddress = mutablePuzzle(createSolvedHyperRubix(2));
+  invalidHomeAddress.stickers[0].homeAddress[0] = 2;
+  assert.throws(() => assertHyperRubixPuzzle(invalidHomeAddress), /invalid home address/);
+
+  const inconsistentHome = mutablePuzzle(createSolvedHyperRubix(4));
+  inconsistentHome.stickers[0].homePosition.y = -0.5;
+  assert.throws(() => assertHyperRubixPuzzle(inconsistentHome), /inconsistent home geometry/);
+
+  const duplicateHome = mutablePuzzle(createSolvedHyperRubix(4));
+  duplicateHome.stickers[1].homeAddress = [...duplicateHome.stickers[0].homeAddress];
+  duplicateHome.stickers[1].homePosition = { ...duplicateHome.stickers[0].homePosition };
+  assert.throws(() => assertHyperRubixPuzzle(duplicateHome), /duplicate home slots/);
 });
 
 test("moves normalize global quarter turns and reject non-tangent planes", () => {
@@ -554,7 +712,7 @@ test("sequence traversal supports forward, reverse, pendulum, and injected rando
   assert.throws(() => hyperRubixSequenceIndex("random", 0, 16, () => 1), /values in \[0, 1\)/);
 });
 
-test("sequencer duration clamps tempo and swing across 1, 2, and 4 subdivisions", () => {
+test("sequencer duration clamps tempo and swing from quarter notes through sixty-fourths", () => {
   const defaultStraight = 60 / 112 / 2;
   closeTo(hyperRubixStepDurationSeconds(), defaultStraight * 1.08);
   closeTo(hyperRubixStepDurationSeconds(112, 2, 0.08, 1), defaultStraight * 0.92);
@@ -566,6 +724,8 @@ test("sequencer duration clamps tempo and swing across 1, 2, and 4 subdivisions"
   closeTo(hyperRubixStepDurationSeconds(120, 1, 0, 0), 0.5);
   closeTo(hyperRubixStepDurationSeconds(120, 2, 0, 0), 0.25);
   closeTo(hyperRubixStepDurationSeconds(120, 4, 0, 0), 0.125);
+  closeTo(hyperRubixStepDurationSeconds(120, 8, 0, 0), 0.0625);
+  closeTo(hyperRubixStepDurationSeconds(120, 16, 0, 0), 0.03125);
   closeTo(hyperRubixStepDurationSeconds(1, 2, 0, 0), 1);
   closeTo(hyperRubixStepDurationSeconds(999, 2, 0, 0), 0.1);
   closeTo(hyperRubixStepDurationSeconds(120, 2, -10, 0), 0.25);
@@ -573,9 +733,768 @@ test("sequencer duration clamps tempo and swing across 1, 2, and 4 subdivisions"
   closeTo(hyperRubixStepDurationSeconds(120, 2, 0.2, -1), 0.2);
 
   assert.throws(() => hyperRubixStepDurationSeconds(Number.NaN), /tempo must be a finite number/);
-  assert.throws(() => hyperRubixStepDurationSeconds(112, 3), /must be 1, 2, or 4/);
+  assert.throws(() => hyperRubixStepDurationSeconds(112, 3), /must be 1, 2, 4, 8, or 16/);
   assert.throws(() => hyperRubixStepDurationSeconds(112, 2, Number.NaN), /swing must be a finite number/);
   assert.throws(() => hyperRubixStepDurationSeconds(112, 2, 0.1, 0.5), /swing step must be an integer/);
+});
+
+test("eight frozen cell colours map to eight stable techno voice families", () => {
+  assert.equal(Object.isFrozen(HYPER_RUBIX_TECHNO_VOICES), true);
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(HYPER_RUBIX_TECHNO_VOICES).map(([cell, voice]) => [
+      cell,
+      `${voice.color}:${voice.id}`,
+    ])),
+    {
+      "x+": "red:kick",
+      "x-": "orange:sub",
+      "y+": "white:clap",
+      "y-": "yellow:snare",
+      "z+": "green:open-hat",
+      "z-": "blue:closed-hat",
+      "w+": "violet:stab",
+      "w-": "cyan:rim",
+    },
+  );
+  assert.equal(
+    new Set(Object.values(HYPER_RUBIX_TECHNO_VOICES).map(({ id }) => id)).size,
+    8,
+  );
+
+  for (const cellId of HYPER_RUBIX_CELL_ORDER) {
+    const voice = HYPER_RUBIX_TECHNO_VOICES[cellId];
+    assert.equal(Object.isFrozen(voice), true);
+    assert.equal(voice.cell, cellId);
+    assert.equal(voice.color, HYPER_RUBIX_BOUNDARY_CELLS[cellId].color);
+    assert.equal(voice.family, voice.id);
+    for (const key of [
+      "baseMidi",
+      "baseFilterHz",
+      "baseDecaySeconds",
+      "baseDrive",
+      "baseRattle",
+    ]) {
+      assert.equal(Number.isFinite(voice[key]), true, `${cellId} ${key} must be finite`);
+    }
+  }
+});
+
+test("techno voice parameters combine a move and normalized geometry within hard bounds", () => {
+  const geometry = {
+    position: { x: -0.6, y: 0.25, z: 0.8, w: -0.3 },
+    pan: 0.75,
+    angle: 0.25,
+    depth: 0.9,
+    disorder: 0.6,
+    shapeInfluence: 0.8,
+  };
+  const untouchedGeometry = structuredClone(geometry);
+  const parameters = hyperRubixTechnoVoiceParameters(
+    { cell: "x+", plane: "yz", quarterTurns: -1 },
+    geometry,
+  );
+  assert.deepEqual(geometry, untouchedGeometry);
+  assert.deepEqual(Object.keys(parameters), [
+    "voice", "move", "pitchHz", "filterHz", "filterQ", "decaySeconds", "pan", "drive", "rattle",
+  ]);
+  assert.equal(parameters.voice, HYPER_RUBIX_TECHNO_VOICES["x+"]);
+  assert.deepEqual(parameters.move, { cell: "x+", plane: "yz", quarterTurns: -1 });
+  assert.equal(Object.isFrozen(parameters), true);
+  assert.equal(Object.isFrozen(parameters.move), true);
+
+  const bounds = {
+    pitchHz: [24, 4_200],
+    filterHz: [90, 16_000],
+    filterQ: [0.45, 7.5],
+    decaySeconds: [0.035, 2.5],
+    pan: [-1, 1],
+    drive: [0, 1],
+    rattle: [0, 1],
+  };
+  for (const [name, [minimum, maximum]] of Object.entries(bounds)) {
+    assert.equal(Number.isFinite(parameters[name]), true);
+    assert.ok(parameters[name] >= minimum, `${name} must be at least ${minimum}`);
+    assert.ok(parameters[name] <= maximum, `${name} must be at most ${maximum}`);
+  }
+
+  for (const cellId of HYPER_RUBIX_CELL_ORDER) {
+    const boundary = HYPER_RUBIX_BOUNDARY_CELLS[cellId];
+    const extreme = hyperRubixTechnoVoiceParameters({
+      cell: cellId,
+      plane: boundary.tangentPlanes[0],
+      quarterTurns: 1,
+    }, {
+      position: { x: -999, y: 999, z: -999, w: 999 },
+      pan: 999,
+      angle: 999,
+      depth: -999,
+      disorder: 999,
+      shapeInfluence: 999,
+      pitchInfluence: 999,
+      filterInfluence: 999,
+      stereoInfluence: 999,
+      wInfluence: 999,
+      disorderInfluence: 999,
+    });
+    assert.equal(extreme.voice, HYPER_RUBIX_TECHNO_VOICES[cellId]);
+    for (const [name, [minimum, maximum]] of Object.entries(bounds)) {
+      assert.ok(extreme[name] >= minimum && extreme[name] <= maximum, `${cellId} ${name}`);
+    }
+  }
+
+  const shapeOffLeft = hyperRubixTechnoVoiceParameters(
+    { cell: "w+", plane: "xy", quarterTurns: 1 },
+    { position: -1, pan: -1, angle: 0.25, depth: 0, shapeInfluence: 0 },
+  );
+  const shapeOffRight = hyperRubixTechnoVoiceParameters(
+    { cell: "w+", plane: "xy", quarterTurns: 1 },
+    { position: 1, pan: 1, angle: 0.75, depth: 1, shapeInfluence: 0 },
+  );
+  assert.deepEqual(shapeOffLeft, shapeOffRight, "zero influence must remove geometry modulation");
+  const shapeOn = hyperRubixTechnoVoiceParameters(
+    { cell: "w+", plane: "xy", quarterTurns: 1 },
+    { position: 1, pan: 1, angle: 0.25, depth: 1, shapeInfluence: 1 },
+  );
+  assert.notDeepEqual(shapeOn, shapeOffRight, "shape influence must enable geometry modulation");
+  const positionPan = hyperRubixTechnoVoiceParameters(
+    { cell: "x+", plane: "yz" },
+    { position: { x: 1 } },
+  );
+  const overriddenPan = hyperRubixTechnoVoiceParameters(
+    { cell: "x+", plane: "yz" },
+    { position: { x: 1 }, pan: -1 },
+  );
+  assert.ok(overriddenPan.pan < positionPan.pan, "pan must override projected position.x");
+  const darkPlane = hyperRubixTechnoVoiceParameters(
+    { cell: "x+", plane: "yz", quarterTurns: 1 },
+  );
+  const brightPlane = hyperRubixTechnoVoiceParameters(
+    { cell: "x+", plane: "zw", quarterTurns: 1 },
+  );
+  assert.ok(brightPlane.filterHz > darkPlane.filterHz, "plane slot must tilt the filter");
+  assert.ok(brightPlane.filterQ > darkPlane.filterQ, "plane slot must raise filter resonance");
+
+  assert.throws(() => hyperRubixTechnoVoiceParameters(
+    { cell: "x+", plane: "yz" },
+    null,
+  ), /geometry must be an object/);
+  assert.throws(() => hyperRubixTechnoVoiceParameters(
+    { cell: "x+", plane: "yz" },
+    { position: "left" },
+  ), /position must be a finite number or point object/);
+  assert.throws(() => hyperRubixTechnoVoiceParameters(
+    { cell: "x+", plane: "yz" },
+    { position: { x: Number.NaN } },
+  ), /position\.x must be a finite number/);
+  for (const key of [
+    "pan",
+    "angle",
+    "depth",
+    "disorder",
+    "shapeInfluence",
+    "pitchInfluence",
+    "filterInfluence",
+    "stereoInfluence",
+    "wInfluence",
+    "disorderInfluence",
+  ]) {
+    assert.throws(() => hyperRubixTechnoVoiceParameters(
+      { cell: "x+", plane: "yz" },
+      { [key]: Number.NaN },
+    ), new RegExp(`${key} must be a finite number`));
+  }
+});
+
+test("independent DSP influences inherit the legacy macro and scale only their dimensions", () => {
+  const move = { cell: "x+", plane: "yz", quarterTurns: 1 };
+  const descriptors = {
+    position: { x: 0.4, y: 0.55, z: 0.7, w: -0.35 },
+    pan: 0.6,
+    angle: 0.125,
+    depth: 0.85,
+    disorder: 0.65,
+  };
+  const legacy = hyperRubixTechnoVoiceParameters(move, {
+    ...descriptors,
+    shapeInfluence: 0.64,
+  });
+  const explicitlySplit = hyperRubixTechnoVoiceParameters(move, {
+    ...descriptors,
+    shapeInfluence: 0,
+    pitchInfluence: 0.64,
+    filterInfluence: 0.64,
+    stereoInfluence: 0.64,
+    wInfluence: 0.64,
+    disorderInfluence: 0.64,
+  });
+  assert.deepEqual(
+    explicitlySplit,
+    legacy,
+    "omitted DSP influences must reproduce the legacy shape macro exactly",
+  );
+
+  const allOff = {
+    pitchInfluence: 0,
+    filterInfluence: 0,
+    stereoInfluence: 0,
+    wInfluence: 0,
+    disorderInfluence: 0,
+  };
+  const neutral = hyperRubixTechnoVoiceParameters(move, {
+    ...allOff,
+    position: { x: 0, y: 0, z: 0, w: 0 },
+    pan: 0,
+    angle: 0,
+    depth: 0.5,
+    disorder: 0,
+  });
+
+  const pitchGeometry = {
+    ...allOff,
+    position: { y: 0.5, z: 0.75 },
+    angle: 0.25,
+    depth: 0.5,
+  };
+  const pitchZero = hyperRubixTechnoVoiceParameters(move, pitchGeometry);
+  const pitchOne = hyperRubixTechnoVoiceParameters(move, {
+    ...pitchGeometry,
+    pitchInfluence: 1,
+  });
+  const pitchTwo = hyperRubixTechnoVoiceParameters(move, {
+    ...pitchGeometry,
+    pitchInfluence: 2,
+  });
+  assert.deepEqual(pitchZero, neutral);
+  assert.ok(pitchOne.pitchHz > neutral.pitchHz);
+  assert.ok(pitchTwo.pitchHz - neutral.pitchHz > pitchOne.pitchHz - neutral.pitchHz);
+
+  const filterGeometry = {
+    ...allOff,
+    position: { y: 0.75 },
+    angle: 0.25,
+    depth: 0.5,
+  };
+  const filterZero = hyperRubixTechnoVoiceParameters(move, filterGeometry);
+  const filterOne = hyperRubixTechnoVoiceParameters(move, {
+    ...filterGeometry,
+    filterInfluence: 1,
+  });
+  const filterTwo = hyperRubixTechnoVoiceParameters(move, {
+    ...filterGeometry,
+    filterInfluence: 2,
+  });
+  assert.deepEqual(filterZero, neutral);
+  assert.ok(filterOne.filterHz > neutral.filterHz);
+  assert.ok(filterTwo.filterHz - neutral.filterHz > filterOne.filterHz - neutral.filterHz);
+  assert.ok(filterOne.filterQ > neutral.filterQ);
+  assert.ok(filterTwo.filterQ > filterOne.filterQ);
+
+  const stereoGeometry = { ...allOff, pan: 0.4 };
+  const stereoZero = hyperRubixTechnoVoiceParameters(move, stereoGeometry);
+  const stereoOne = hyperRubixTechnoVoiceParameters(move, {
+    ...stereoGeometry,
+    stereoInfluence: 1,
+  });
+  const stereoTwo = hyperRubixTechnoVoiceParameters(move, {
+    ...stereoGeometry,
+    stereoInfluence: 2,
+  });
+  assert.deepEqual(stereoZero, neutral);
+  assert.ok(stereoOne.pan > neutral.pan);
+  assert.ok(stereoTwo.pan - neutral.pan > stereoOne.pan - neutral.pan);
+
+  const wGeometry = {
+    ...allOff,
+    position: { w: 0.75 },
+    depth: 1,
+  };
+  const wZero = hyperRubixTechnoVoiceParameters(move, wGeometry);
+  const wOne = hyperRubixTechnoVoiceParameters(move, { ...wGeometry, wInfluence: 1 });
+  const wTwo = hyperRubixTechnoVoiceParameters(move, { ...wGeometry, wInfluence: 2 });
+  assert.deepEqual(wZero, neutral);
+  assert.ok(wOne.pitchHz > neutral.pitchHz);
+  assert.ok(wTwo.pitchHz - neutral.pitchHz > wOne.pitchHz - neutral.pitchHz);
+  assert.ok(wOne.filterHz > neutral.filterHz);
+  assert.ok(wTwo.filterHz > wOne.filterHz);
+  assert.ok(wOne.decaySeconds < neutral.decaySeconds);
+  assert.ok(wTwo.decaySeconds < wOne.decaySeconds);
+
+  const disorderGeometry = { ...allOff, disorder: 0.6 };
+  const disorderZero = hyperRubixTechnoVoiceParameters(move, disorderGeometry);
+  const disorderOne = hyperRubixTechnoVoiceParameters(move, {
+    ...disorderGeometry,
+    disorderInfluence: 1,
+  });
+  const disorderTwo = hyperRubixTechnoVoiceParameters(move, {
+    ...disorderGeometry,
+    disorderInfluence: 2,
+  });
+  assert.deepEqual(disorderZero, neutral);
+  assert.ok(disorderOne.pitchHz > neutral.pitchHz);
+  assert.ok(disorderTwo.pitchHz - neutral.pitchHz > disorderOne.pitchHz - neutral.pitchHz);
+  assert.ok(disorderOne.filterHz > neutral.filterHz);
+  assert.ok(disorderTwo.filterHz > disorderOne.filterHz);
+  assert.ok(disorderTwo.rattle > disorderOne.rattle);
+
+  const bounded = [pitchTwo, filterTwo, stereoTwo, wTwo, disorderTwo];
+  for (const parameters of bounded) {
+    assert.ok(parameters.pitchHz >= 24 && parameters.pitchHz <= 4_200);
+    assert.ok(parameters.filterHz >= 90 && parameters.filterHz <= 16_000);
+    assert.ok(parameters.filterQ >= 0.45 && parameters.filterQ <= 7.5);
+    assert.ok(parameters.decaySeconds >= 0.035 && parameters.decaySeconds <= 2.5);
+    assert.ok(parameters.pan >= -1 && parameters.pan <= 1);
+    assert.ok(parameters.drive >= 0 && parameters.drive <= 1);
+    assert.ok(parameters.rattle >= 0 && parameters.rattle <= 1);
+  }
+  assert.deepEqual(
+    hyperRubixTechnoVoiceParameters(move, { ...pitchGeometry, pitchInfluence: -99 }),
+    pitchZero,
+  );
+  assert.deepEqual(
+    hyperRubixTechnoVoiceParameters(move, { ...pitchGeometry, pitchInfluence: 99 }),
+    pitchTwo,
+  );
+});
+
+test("the 27-step hyperbar places exactly one event from every current cell in every slot", () => {
+  const puzzle = createSolvedHyperRubix();
+  const snapshot = createHyperRubixHyperbarSnapshot(puzzle);
+  assert.equal(HYPER_RUBIX_HYPERBAR_LENGTH, 27);
+  assert.equal(HYPER_RUBIX_CONCEPTUAL_VOICE_COUNT, 217);
+  assert.equal(HYPER_RUBIX_CONCEPTUAL_VOICE_COUNT, HYPER_RUBIX_STICKER_COUNT + 1);
+  assert.equal(snapshot.length, 27);
+  assert.equal(Object.isFrozen(snapshot), true);
+  assert.deepEqual(snapshot.map(({ group }) => group), [
+    ...Array(9).fill(0),
+    ...Array(9).fill(1),
+    ...Array(9).fill(2),
+  ]);
+  assert.deepEqual(snapshot.map(({ subgroup }) => subgroup), [
+    0, 0, 0, 1, 1, 1, 2, 2, 2,
+    0, 0, 0, 1, 1, 1, 2, 2, 2,
+    0, 0, 0, 1, 1, 1, 2, 2, 2,
+  ]);
+
+  const stepById = new Map();
+  for (const slot of snapshot) {
+    assert.equal(slot.index >= 0 && slot.index <= 26, true);
+    assert.equal(slot.events.length, 8);
+    assert.equal(Object.isFrozen(slot), true);
+    assert.equal(Object.isFrozen(slot.events), true);
+    assert.deepEqual(slot.events.map(({ cell }) => cell), HYPER_RUBIX_CELL_ORDER);
+    for (const event of slot.events) {
+      assert.equal(Object.isFrozen(event), true);
+      assert.equal(Object.isFrozen(event.position), true);
+      assert.equal(Object.isFrozen(event.configuration), true);
+      assert.equal(event.id, event.stickerId);
+      assert.equal(event.voice, HYPER_RUBIX_TECHNO_VOICES[event.homeCell]);
+      assert.equal(event.color, event.voice.color);
+      assert.equal(typeof event.gate, "boolean");
+      assert.equal(typeof event.accent, "boolean");
+      stepById.set(event.id, slot.index);
+    }
+  }
+
+  const events = snapshot.flatMap(({ events: slotEvents }) => slotEvents);
+  assert.equal(events.length, 27 * 8);
+  assert.equal(events.length, HYPER_RUBIX_STICKER_COUNT);
+  assert.equal(new Set(events.map(({ id }) => id)).size, HYPER_RUBIX_STICKER_COUNT);
+  assert.equal(snapshot[0].events.every(({ gate, accent }) => gate && accent), true);
+  assert.deepEqual(
+    snapshot[1].events.filter(({ gate }) => gate).map(({ homeCell }) => homeCell),
+    ["x-", "z+", "w-"],
+  );
+
+  for (const sticker of puzzle.stickers) {
+    assert.equal(stepById.get(sticker.id), hyperRubixStickerStepIndex(sticker));
+  }
+  assert.equal(hyperRubixStickerStepIndex(
+    puzzle.stickers.find(({ id }) => id === "x+:0:0:0"),
+  ), 0);
+  assert.equal(hyperRubixStickerStepIndex(
+    puzzle.stickers.find(({ id }) => id === "x+:1:1:1"),
+  ), 13);
+  assert.equal(hyperRubixStickerStepIndex(
+    puzzle.stickers.find(({ id }) => id === "x+:2:2:2"),
+  ), 26);
+  assert.equal(hyperRubixStickerStepIndex(
+    puzzle.stickers.find(({ id }) => id === "y+:2:0:1"),
+  ), 19);
+
+  assert.throws(() => hyperRubixStickerStepIndex(null), /sticker must be an object/);
+  assert.throws(() => hyperRubixStickerStepIndex({
+    position: vector(0.25, 1, 0, 0),
+    normal: vector(0, 1, 0, 0),
+  }), /exact puzzle lattice/);
+});
+
+test("solved hyperbar events expose exact six-connected cubical neighborhoods", () => {
+  const puzzle = createSolvedHyperRubix();
+  const snapshot = createHyperRubixHyperbarSnapshot(puzzle);
+  const events = snapshot.flatMap(({ events: slotEvents }) => slotEvents);
+  const neighborCountByRadialClass = {
+    center: 6,
+    face: 5,
+    edge: 4,
+    corner: 3,
+  };
+  const expectedRadialHistogram = {
+    center: 8,
+    face: 48,
+    edge: 96,
+    corner: 64,
+  };
+  const actualRadialHistogram = {
+    center: 0,
+    face: 0,
+    edge: 0,
+    corner: 0,
+  };
+
+  for (const event of events) {
+    const configuration = event.configuration;
+    assert.deepEqual(Object.keys(configuration), [
+      "neighborCount",
+      "sameColorNeighbors",
+      "neighborDiversity",
+      "radialClass",
+      "displaced",
+    ]);
+    assert.equal(
+      configuration.neighborCount,
+      neighborCountByRadialClass[configuration.radialClass],
+    );
+    assert.equal(configuration.sameColorNeighbors, configuration.neighborCount);
+    assert.equal(configuration.neighborDiversity, 0);
+    assert.equal(configuration.displaced, false);
+    actualRadialHistogram[configuration.radialClass] += 1;
+  }
+  assert.deepEqual(actualRadialHistogram, expectedRadialHistogram);
+
+  const center = puzzle.stickers.find(({ id }) => id === "x+:1:1:1");
+  const corner = puzzle.stickers.find(({ id }) => id === "x+:0:0:0");
+  assert.deepEqual(hyperRubixStickerConfiguration(puzzle, center), {
+    neighborCount: 6,
+    sameColorNeighbors: 6,
+    neighborDiversity: 0,
+    radialClass: "center",
+    displaced: false,
+  });
+  assert.deepEqual(hyperRubixStickerConfiguration(puzzle, corner.id), {
+    neighborCount: 3,
+    sameColorNeighbors: 3,
+    neighborDiversity: 0,
+    radialClass: "corner",
+    displaced: false,
+  });
+  assert.throws(
+    () => hyperRubixStickerConfiguration(puzzle, null),
+    /requires a sticker or sticker ID/,
+  );
+  assert.throws(
+    () => hyperRubixStickerConfiguration(puzzle, "missing-sticker"),
+    /Unknown Hyper Rubix sticker/,
+  );
+});
+
+test("sticker topology exposes a stable ordered graph and travels with snapshot events", () => {
+  const puzzle = createSolvedHyperRubix();
+  const center = puzzle.stickers.find(({ id }) => id === "x+:1:1:1");
+  const topology = hyperRubixStickerTopology(puzzle, center);
+  assert.deepEqual(Object.keys(topology), [
+    "stickerId",
+    "currentCell",
+    "homeCell",
+    "cellDisplaced",
+    "displaced",
+    "neighborCount",
+    "connections",
+  ]);
+  assert.equal(Object.isFrozen(topology), true);
+  assert.equal(Object.isFrozen(topology.connections), true);
+  assert.deepEqual(topology, {
+    stickerId: center.id,
+    currentCell: "x+",
+    homeCell: "x+",
+    cellDisplaced: false,
+    displaced: false,
+    neighborCount: 6,
+    connections: [
+      {
+        axis: "y", direction: -1, sign: "-", stickerId: "x+:0:1:1",
+        color: "red", homeCell: "x+", sameColor: true, displaced: false,
+      },
+      {
+        axis: "y", direction: 1, sign: "+", stickerId: "x+:2:1:1",
+        color: "red", homeCell: "x+", sameColor: true, displaced: false,
+      },
+      {
+        axis: "z", direction: -1, sign: "-", stickerId: "x+:1:0:1",
+        color: "red", homeCell: "x+", sameColor: true, displaced: false,
+      },
+      {
+        axis: "z", direction: 1, sign: "+", stickerId: "x+:1:2:1",
+        color: "red", homeCell: "x+", sameColor: true, displaced: false,
+      },
+      {
+        axis: "w", direction: -1, sign: "-", stickerId: "x+:1:1:0",
+        color: "red", homeCell: "x+", sameColor: true, displaced: false,
+      },
+      {
+        axis: "w", direction: 1, sign: "+", stickerId: "x+:1:1:2",
+        color: "red", homeCell: "x+", sameColor: true, displaced: false,
+      },
+    ],
+  });
+  assert.equal(topology.connections.every(Object.isFrozen), true);
+
+  const event = createHyperRubixStickerStream(puzzle).find(({ id }) => id === center.id);
+  assert.deepEqual(event.topology, topology);
+  assert.equal(Object.isFrozen(event.topology), true);
+  assert.equal(Object.isFrozen(event.topology.connections), true);
+  assert.equal(event.configuration.neighborCount, event.topology.neighborCount);
+  assert.equal(
+    event.configuration.sameColorNeighbors,
+    event.topology.connections.filter(({ sameColor }) => sameColor).length,
+  );
+
+  const turned = turnHyperRubixBoundaryCell(puzzle, {
+    cell: "x+", plane: "yz", quarterTurns: 1,
+  });
+  const turnedEvents = createHyperRubixStickerStream(turned);
+  assert.equal(turnedEvents.some(({ topology: graph }) => (
+    graph.connections.some(({ sameColor }) => !sameColor)
+  )), true);
+  assert.equal(turnedEvents.some(({ topology: graph }) => graph.displaced), true);
+  assert.equal(turnedEvents.some(({ topology: graph }) => graph.cellDisplaced), true);
+
+  assert.throws(
+    () => hyperRubixStickerTopology(puzzle, null),
+    /topology requires a sticker or sticker ID/,
+  );
+  assert.throws(
+    () => hyperRubixStickerTopology(puzzle, "missing-sticker"),
+    /Unknown Hyper Rubix sticker/,
+  );
+});
+
+test("variable hyperbars preserve 8-cell order, all IDs, corners, and local configuration", () => {
+  const expectedRadialHistograms = {
+    2: { center: 0, face: 0, edge: 0, corner: 64 },
+    3: { center: 8, face: 48, edge: 96, corner: 64 },
+    4: { center: 64, face: 192, edge: 192, corner: 64 },
+  };
+  const neighborCountByRadialClass = { center: 6, face: 5, edge: 4, corner: 3 };
+  const move = { cell: "x+", plane: "yz", quarterTurns: 1 };
+
+  for (const size of [2, 3, 4]) {
+    const solved = createSolvedHyperRubix(size);
+    const snapshot = createHyperRubixHyperbarSnapshot(solved);
+    const stream = createHyperRubixStickerStream(solved);
+    const corners = createHyperRubixStickerStream(solved, { cornersOnly: true });
+    assert.equal(snapshot.length, size ** 3);
+    assert.equal(stream.length, 8 * size ** 3);
+    assert.equal(corners.length, 64);
+    assert.equal(new Set(stream.map(({ id }) => id)).size, 8 * size ** 3);
+    assert.equal(new Set(corners.map(({ id }) => id)).size, 64);
+    assert.deepEqual(stream, snapshot.flatMap(({ events }) => events));
+
+    const histogram = { center: 0, face: 0, edge: 0, corner: 0 };
+    for (const slot of snapshot) {
+      assert.equal(slot.group, Math.floor(slot.index / size ** 2));
+      assert.equal(slot.subgroup, Math.floor((slot.index % size ** 2) / size));
+      assert.deepEqual(slot.events.map(({ cell }) => cell), HYPER_RUBIX_CELL_ORDER);
+      for (const event of slot.events) {
+        assert.equal(hyperRubixStickerStepIndex(event), slot.index);
+        assert.equal(event.voice, HYPER_RUBIX_TECHNO_VOICES[event.homeCell]);
+        assert.equal(event.configuration.neighborDiversity, 0);
+        assert.equal(event.configuration.displaced, false);
+        assert.equal(
+          event.configuration.neighborCount,
+          neighborCountByRadialClass[event.configuration.radialClass],
+        );
+        assert.equal(
+          event.configuration.sameColorNeighbors,
+          event.configuration.neighborCount,
+        );
+        assert.equal(event.topology.connections.length, event.configuration.neighborCount);
+        histogram[event.configuration.radialClass] += 1;
+      }
+    }
+    assert.deepEqual(histogram, expectedRadialHistograms[size]);
+    assert.equal(corners.every(({ configuration }) => (
+      configuration.radialClass === "corner" && configuration.neighborCount === 3
+    )), true);
+    if (size === 2) assert.deepEqual(corners, stream);
+
+    for (let step = 0; step < snapshot.length; step += 1) {
+      assert.deepEqual(stream.slice(step * 8, step * 8 + 8), snapshot[step].events);
+    }
+
+    const turned = turnHyperRubixBoundaryCell(solved, move);
+    const turnedStream = createHyperRubixStickerStream(turned);
+    const turnedById = new Map(turnedStream.map((event) => [event.id, event]));
+    assert.deepEqual(
+      [...turnedById.keys()].sort(),
+      [...stream.map(({ id }) => id)].sort(),
+    );
+    assert.equal(turnedStream.some(({ configuration }) => configuration.displaced), true);
+    assert.equal(turnedStream.some(({ configuration }) => (
+      configuration.neighborDiversity > 0
+    )), true);
+    assert.equal(stream.some((event) => (
+      hyperRubixStickerStepIndex(event)
+        !== hyperRubixStickerStepIndex(turnedById.get(event.id))
+    )), true);
+    for (const event of stream) {
+      const moved = turnedById.get(event.id);
+      assert.equal(moved.color, event.color);
+      assert.equal(moved.homeCell, event.homeCell);
+      assert.equal(moved.voice, event.voice);
+    }
+  }
+});
+
+test("the full sticker stream scans 27 spatial positions with eight current-cell voices each", () => {
+  const puzzle = createSolvedHyperRubix();
+  const stream = createHyperRubixStickerStream(puzzle);
+  const snapshotEvents = createHyperRubixHyperbarSnapshot(puzzle)
+    .flatMap(({ events }) => events);
+  assert.equal(HYPER_RUBIX_STICKER_STREAM_LENGTH, 216);
+  assert.equal(HYPER_RUBIX_STICKER_STREAM_LENGTH, HYPER_RUBIX_STICKER_COUNT);
+  assert.equal(stream.length, HYPER_RUBIX_STICKER_STREAM_LENGTH);
+  assert.equal(Object.isFrozen(stream), true);
+  assert.deepEqual(stream, snapshotEvents);
+  assert.equal(new Set(stream.map(({ id }) => id)).size, HYPER_RUBIX_STICKER_COUNT);
+  assert.equal(stream.every((event) => (
+    Object.isFrozen(event)
+    && Object.isFrozen(event.position)
+    && Object.isFrozen(event.configuration)
+  )), true);
+
+  for (let position = 0; position < HYPER_RUBIX_HYPERBAR_LENGTH; position += 1) {
+    const voices = stream.slice(position * 8, position * 8 + 8);
+    assert.deepEqual(voices.map(({ cell }) => cell), HYPER_RUBIX_CELL_ORDER);
+    assert.equal(
+      voices.every((event) => hyperRubixStickerStepIndex(
+        puzzle.stickers.find(({ id }) => id === event.id),
+      ) === position),
+      true,
+    );
+  }
+  assert.deepEqual(
+    createHyperRubixStickerStream(puzzle),
+    stream,
+    "the same puzzle must produce the same deterministic serial scan",
+  );
+});
+
+test("corner-only sticker streams retain eight voices at each of eight spatial corners", () => {
+  const solved = createSolvedHyperRubix();
+  const full = createHyperRubixStickerStream(solved);
+  const corners = createHyperRubixStickerStream(solved, { cornersOnly: true });
+  assert.equal(HYPER_RUBIX_CORNER_STREAM_LENGTH, 64);
+  assert.equal(corners.length, HYPER_RUBIX_CORNER_STREAM_LENGTH);
+  assert.equal(Object.isFrozen(corners), true);
+  assert.deepEqual(
+    corners,
+    full.filter(({ configuration }) => configuration.radialClass === "corner"),
+  );
+  assert.equal(corners.every(({ configuration }) => (
+    configuration.radialClass === "corner" && configuration.neighborCount === 3
+  )), true);
+  for (let corner = 0; corner < 8; corner += 1) {
+    assert.deepEqual(
+      corners.slice(corner * 8, corner * 8 + 8).map(({ cell }) => cell),
+      HYPER_RUBIX_CELL_ORDER,
+    );
+  }
+  const cornerSteps = createHyperRubixHyperbarSnapshot(solved)
+    .filter(({ events }) => events[0].configuration.radialClass === "corner")
+    .map(({ index }) => index);
+  assert.deepEqual(cornerSteps, [0, 2, 6, 8, 18, 20, 24, 26]);
+
+  const turned = turnHyperRubixBoundaryCell(solved, {
+    cell: "w+",
+    plane: "xy",
+    quarterTurns: 1,
+  });
+  const turnedCorners = createHyperRubixStickerStream(turned, { cornersOnly: true });
+  assert.deepEqual(
+    [...turnedCorners.map(({ id }) => id)].sort(),
+    [...corners.map(({ id }) => id)].sort(),
+    "turns preserve corner-event identity even while moving its serial placement",
+  );
+  assert.deepEqual(
+    turnedCorners,
+    createHyperRubixHyperbarSnapshot(turned)
+      .flatMap(({ events }) => events)
+      .filter(({ configuration }) => configuration.radialClass === "corner"),
+  );
+  assert.notDeepEqual(
+    turnedCorners.map(({ id }) => id),
+    corners.map(({ id }) => id),
+    "a turn must spatially reorder at least part of the corner scan",
+  );
+
+  assert.throws(
+    () => createHyperRubixStickerStream(solved, null),
+    /stream options must be an object/,
+  );
+  assert.throws(
+    () => createHyperRubixStickerStream(solved, { cornersOnly: 1 }),
+    /cornersOnly option must be a boolean/,
+  );
+});
+
+test("turns permute hyperbar time and tracks while preserving sticker IDs and home voices", () => {
+  const solved = createSolvedHyperRubix();
+  const move = { cell: "x+", plane: "yz", quarterTurns: 1 };
+  const turned = turnHyperRubixBoundaryCell(solved, move);
+  const before = createHyperRubixHyperbarSnapshot(solved);
+  const after = createHyperRubixHyperbarSnapshot(turned);
+  const eventMap = (snapshot) => new Map(snapshot.flatMap((slot) => slot.events.map((event) => [
+    event.id,
+    { ...event, step: slot.index },
+  ])));
+  const beforeById = eventMap(before);
+  const afterById = eventMap(after);
+
+  assert.deepEqual([...afterById.keys()].sort(), [...beforeById.keys()].sort());
+  let changedSteps = 0;
+  let changedCells = 0;
+  let changedNeighborhoods = 0;
+  let displacedStickers = 0;
+  for (const [id, earlier] of beforeById) {
+    const later = afterById.get(id);
+    assert.ok(later);
+    assert.equal(later.id, earlier.id);
+    assert.equal(later.color, earlier.color);
+    assert.equal(later.homeCell, earlier.homeCell);
+    assert.equal(later.voice, earlier.voice);
+    changedSteps += Number(later.step !== earlier.step);
+    changedCells += Number(later.cell !== earlier.cell);
+    changedNeighborhoods += Number(
+      later.configuration.sameColorNeighbors !== earlier.configuration.sameColorNeighbors
+      || later.configuration.neighborDiversity !== earlier.configuration.neighborDiversity,
+    );
+    displacedStickers += Number(later.configuration.displaced);
+  }
+  assert.ok(changedSteps > 0, "a turn must permute event timing");
+  assert.ok(changedCells > 0, "a turn must move events between current-cell tracks");
+  assert.ok(changedNeighborhoods > 0, "a turn must alter some local color neighborhoods");
+  assert.ok(displacedStickers > 0, "a turn must mark moved sticker records as displaced");
+  assert.equal(after.every(({ events }) => events.length === 8), true);
+
+  const restored = turnHyperRubixBoundaryCell(turned, invertHyperRubixMove(move));
+  assert.deepEqual(createHyperRubixHyperbarSnapshot(restored), before);
+
+  const mismatchedHome = mutablePuzzle();
+  mismatchedHome.stickers[0].homeCell = "x-";
+  assert.throws(
+    () => createHyperRubixHyperbarSnapshot(mismatchedHome),
+    /matching home cell and colour/,
+  );
 });
 
 test("general 4D view rotation covers all planes without changing vector length", () => {

@@ -43,8 +43,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "hyper-rubix": define(
     "4D drum sequencer",
-    "Clock-drives legal quarter turns through a 3 × 3 × 3 × 3 tesseract puzzle, mapping its six coordinate planes to kick, snare, hat, tom, clap, and metal voices.",
-    "Turn on audio, choose a twist tape, playback direction, rate, tempo, and swing, then press Play to watch and hear sixteen animated hyperspace turns.",
+    "Clock-drives order-2 through order-4 tesseract-boundary puzzles with 64, 216, or 512 sticker-events; each sticker's actual tangent-neighbor topology feeds persistent resonators, and one shared rattle completes 65, 217, or 513 conceptual voices.",
+    "Turn on audio, choose Side / order and Twist Tape, Hyperbar, Hybrid, Sticker Stream, or the always-64 Corner Stream, then set 1/4–1/64 pulse speed; exact stickers light as pitch, filter, pan, neighbor response, W depth, disorder, and fold motion reshape the sound.",
     ["Pointer", "Built-in synth"],
   ),
 
