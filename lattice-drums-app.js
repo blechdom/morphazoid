@@ -6,7 +6,9 @@ import {
   contactsForLine,
   createScanLine,
   edgeShapeName,
+  latticeContactOnsetKey,
   latticeOffsetForPhase,
+  newlyEnteredLatticeContacts,
   parametersForDraggedVertex,
   tilingInfo,
   tilingParameterRange,
@@ -37,6 +39,11 @@ import {
   normalizedLatticeColorPair,
 } from "./src/lattice-colors.js";
 import { EdgeShape } from "./vendor/tactile/tactile.js";
+import {
+  rebaseContinuousPosition,
+  rebasePingPongPosition,
+} from "./src/articulation.js";
+import { emitMidiOutputPreview } from "./src/midi-output-preview.js";
 
 const $ = (id) => document.getElementById(id);
 const DEFAULT_TILING = 20;
@@ -55,12 +62,17 @@ const ENGINE_AUDITION_PATTERN = Object.freeze({
   samples: Object.freeze([0, 11, 7, 13]),
 });
 const ENGINE_AUDITION_STEP_MS = 115;
+const MANUAL_SCAN_RELEASE_MS = 90;
+const MIDI_PREVIEW_FRAME_INTERVAL_MS = 40;
+const MIDI_PREVIEW_RETRIGGER_MS = 75;
+const MIDI_PREVIEW_ROUTE_ID = "lattice-drums";
 const defaults = {
   position: .5,
   speed: .36,
   patternAngle: 0,
   lineAngle: 90,
-  direction: -1,
+  traversalDirection: -1,
+  motionMode: "loop",
   tilingType: DEFAULT_TILING,
   density: .52,
   mappingMode: "edge-angle",
@@ -70,6 +82,21 @@ const defaults = {
   strikeLimit: 6,
   output: .65,
 };
+const MIDI_PREVIEW_RANGE_CONTROLS = Object.freeze([
+  ["output", "Drum output level", 0, .9],
+  ["patternAngle", "Pattern direction", 0, 90],
+  ["lineAngle", "Reader line angle", 0, 179.9],
+  ["density", "Lattice density", 0, .8],
+  ...Array.from({ length: MAX_PARAMETERS }, (_, index) => (
+    [`parameter${index}`, `Tile shape ${index + 1}`, -.35, .35]
+  )),
+  ...Array.from({ length: MAX_EDGE_CLASSES }, (_, index) => (
+    [`edgeCurve${index}`, `Edge bend ${index + 1}`, -1, 1]
+  )),
+  ["pitchDepth", "Pitch depth", 0, 24],
+  ["characterDepth", "Character depth", 0, 1],
+  ["strikeLimit", "Strike limit", 1, 16],
+]);
 const state = {
   ...defaults,
   continuousPosition: defaults.position,
@@ -116,6 +143,26 @@ let tileEditorDirty = true;
 let sampleWarmPromise = null;
 let auditionGeneration = 0;
 const movableVertexCache = new Map();
+let latestPhysicalContactKeys = new Set();
+let positionPointerActive = false;
+const manualScan = {
+  active: false,
+  moved: false,
+  ending: false,
+  releaseAt: 0,
+  baselineKeys: new Set(),
+};
+const midiPreviewManualScan = {
+  active: false,
+  moved: false,
+  ending: false,
+  releaseAt: 0,
+  baselineKeys: new Set(),
+};
+const midiPreviewLastStrikeTimes = new Map();
+const pendingMidiPreviewSignals = new Map();
+let midiPreviewPreviousContactKeys = new Set();
+let lastMidiPreviewFlushTime = Number.NEGATIVE_INFINITY;
 
 function clamp(value, minimum = 0, maximum = 1) {
   return Math.min(maximum, Math.max(minimum, Number(value) || 0));
@@ -124,6 +171,11 @@ function clamp(value, minimum = 0, maximum = 1) {
 function wrap01(value) {
   const wrapped = value % 1;
   return wrapped < 0 ? wrapped + 1 : wrapped;
+}
+
+function pingPong01(value) {
+  const wrapped = ((value % 2) + 2) % 2;
+  return wrapped <= 1 ? wrapped : 2 - wrapped;
 }
 
 function loadDrumBank() {
@@ -286,6 +338,181 @@ function scheduleFrame() {
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
 
+function isDirectInteraction(event) {
+  return event?.isTrusted !== false;
+}
+
+function publishMidiPreview(detail) {
+  return emitMidiOutputPreview({
+    ...detail,
+    routeId: MIDI_PREVIEW_ROUTE_ID,
+  });
+}
+
+function queueMidiPreviewSignal(detail) {
+  pendingMidiPreviewSignals.set(`${detail.kind}:${detail.sourceId}`, detail);
+  scheduleFrame();
+}
+
+function flushMidiPreviewSignals(now) {
+  if (!pendingMidiPreviewSignals.size) return;
+  if (
+    now >= lastMidiPreviewFlushTime
+    && now - lastMidiPreviewFlushTime < MIDI_PREVIEW_FRAME_INTERVAL_MS
+  ) {
+    scheduleFrame();
+    return;
+  }
+  lastMidiPreviewFlushTime = now;
+  for (const detail of pendingMidiPreviewSignals.values()) publishMidiPreview(detail);
+  pendingMidiPreviewSignals.clear();
+}
+
+function queueLatticeDrumControlPreview(id, source, rawValue, min, max, displayValue = "") {
+  queueMidiPreviewSignal({
+    kind: "control",
+    source,
+    sourceId: `lattice-drums-${id}`,
+    rawValue,
+    min,
+    max,
+    displayValue,
+  });
+}
+
+function queueLatticeDrumPhasePreview() {
+  queueLatticeDrumControlPreview(
+    "phase",
+    "Pattern phase",
+    state.position,
+    0,
+    1,
+    `${(state.position * 100).toFixed(1)}%`,
+  );
+}
+
+function queueLatticeDrumTimebasePreview() {
+  queueMidiPreviewSignal({
+    kind: "timebase",
+    source: "Pattern cycle rate",
+    sourceId: "lattice-drums-timebase",
+    rate: state.speed,
+    unit: "cycles/s",
+    running: state.playing,
+    displayValue: `${state.speed.toFixed(3)} cyc/s`,
+  });
+}
+
+function publishLatticeDrumTransportPreview() {
+  publishMidiPreview({
+    kind: "transport",
+    source: "Pattern transport",
+    sourceId: "lattice-drums-transport",
+    state: state.playing ? "start" : "stop",
+    position: state.position,
+  });
+  queueLatticeDrumTimebasePreview();
+}
+
+function clearMidiPreviewManualScan() {
+  midiPreviewManualScan.active = false;
+  midiPreviewManualScan.moved = false;
+  midiPreviewManualScan.ending = false;
+  midiPreviewManualScan.releaseAt = 0;
+  midiPreviewManualScan.baselineKeys.clear();
+}
+
+function beginMidiPreviewManualScan() {
+  if (state.playing || document.hidden) return false;
+  if (!midiPreviewManualScan.active) {
+    midiPreviewManualScan.active = true;
+    midiPreviewManualScan.moved = false;
+    midiPreviewManualScan.baselineKeys = new Set(latestPhysicalContactKeys);
+  }
+  midiPreviewManualScan.ending = false;
+  midiPreviewManualScan.releaseAt = 0;
+  scheduleFrame();
+  return true;
+}
+
+function moveMidiPreviewManualScan() {
+  if (!midiPreviewManualScan.active) return false;
+  midiPreviewManualScan.moved = true;
+  queueLatticeDrumPhasePreview();
+  scheduleFrame();
+  return true;
+}
+
+function endMidiPreviewManualScan() {
+  if (!midiPreviewManualScan.active) return;
+  midiPreviewManualScan.ending = true;
+  midiPreviewManualScan.releaseAt = performance.now() + MANUAL_SCAN_RELEASE_MS;
+  scheduleFrame();
+}
+
+function installLatticeDrumMidiPreviewControls() {
+  $("playButton")?.setAttribute("data-no-midi-preview", "");
+  for (const id of ["position", "speed"]) {
+    $(id)?.setAttribute("data-no-midi-preview", "");
+  }
+  $("speed")?.addEventListener("input", (event) => {
+    if (isDirectInteraction(event)) queueLatticeDrumTimebasePreview();
+  });
+  for (const [id, source, fallbackMin, fallbackMax] of MIDI_PREVIEW_RANGE_CONTROLS) {
+    const control = $(id);
+    if (!control) continue;
+    control.setAttribute("data-no-midi-preview", "");
+    control.addEventListener("input", (event) => {
+      if (!isDirectInteraction(event) || control.disabled) return;
+      const minimum = Number.isFinite(Number(control.min)) ? Number(control.min) : fallbackMin;
+      const maximum = Number.isFinite(Number(control.max)) ? Number(control.max) : fallbackMax;
+      queueLatticeDrumControlPreview(
+        id,
+        source,
+        Number(control.value),
+        minimum,
+        maximum,
+        $(`${id}Out`)?.textContent ?? String(control.value),
+      );
+    });
+  }
+}
+
+function clearManualScan() {
+  manualScan.active = false;
+  manualScan.moved = false;
+  manualScan.ending = false;
+  manualScan.releaseAt = 0;
+  manualScan.baselineKeys.clear();
+}
+
+function beginManualScan() {
+  if (state.playing || !state.audioOn || document.hidden) return false;
+  if (!manualScan.active) {
+    manualScan.active = true;
+    manualScan.moved = false;
+    manualScan.baselineKeys = new Set(latestPhysicalContactKeys);
+  }
+  manualScan.ending = false;
+  manualScan.releaseAt = 0;
+  scheduleFrame();
+  return true;
+}
+
+function moveManualScan() {
+  if (!manualScan.active) return false;
+  manualScan.moved = true;
+  scheduleFrame();
+  return true;
+}
+
+function endManualScan() {
+  if (!manualScan.active) return;
+  manualScan.ending = true;
+  manualScan.releaseAt = performance.now() + MANUAL_SCAN_RELEASE_MS;
+  scheduleFrame();
+}
+
 function tileScale() {
   return OPEN_TILE_SCALE + (DENSE_TILE_SCALE - OPEN_TILE_SCALE) * state.density;
 }
@@ -299,6 +526,7 @@ function invalidateGeometry() {
 }
 
 function setAudioState(enabled) {
+  if (!enabled) clearManualScan();
   state.audioOn = Boolean(enabled);
   setPressed($("audioButton"), state.audioOn);
   $("audioState").textContent = state.audioOn ? "on" : "off";
@@ -789,10 +1017,6 @@ function mappingOptions(contactCount) {
   };
 }
 
-function contactOnsetKey(contact) {
-  return contact.onsetKey ?? contact.voiceKey;
-}
-
 function contactTileColors(contact) {
   return Array.isArray(contact?.adjacentTiles)
     ? contact.adjacentTiles.map(({ color }) => color)
@@ -848,9 +1072,66 @@ function updateMappingReadout(contact, contactCount, voiceIndex, voice) {
   ].join(" · ");
 }
 
-function triggerContacts(contacts, now) {
-  if (!state.playing || !state.audioOn || suppressStrikes > 0) return;
-  const onsets = contacts.filter((contact) => !previousContactKeys.has(contactOnsetKey(contact)));
+function publishLatticeDrumNotePreview(contact, voiceIndex, voice) {
+  publishMidiPreview({
+    kind: "note",
+    source: "Lattice drum crossing",
+    sourceId: "lattice-drums-crossing",
+    voiceId: `lattice-drums:${latticeContactOnsetKey(contact)}`,
+    channel: 10,
+    note: 36 + voiceIndex,
+    velocity: Math.max(1, Math.round(clamp(voice.level) * 127)),
+    durationMs: Math.max(1, Math.round(
+      ((Number(voice.attack) || 0) + (Number(voice.decay) || .09)) * 1_000,
+    )),
+  });
+}
+
+function previewMutedContacts(contacts, now, {
+  active = state.playing,
+  previousKeys = midiPreviewPreviousContactKeys,
+  allowDuringSuppression = false,
+} = {}) {
+  if (
+    !active
+    || state.audioOn
+    || document.hidden
+    || (suppressStrikes > 0 && !allowDuringSuppression)
+  ) return;
+  const onsets = newlyEnteredLatticeContacts(contacts, previousKeys);
+  let emitted = 0;
+  for (const contact of onsets) {
+    if (emitted >= state.strikeLimit) break;
+    const voiceIndex = latticeDrumVoiceIndex(contact, mappingOptions(contacts.length));
+    const lastStrike = midiPreviewLastStrikeTimes.get(voiceIndex) ?? Number.NEGATIVE_INFINITY;
+    if (now - lastStrike < MIDI_PREVIEW_RETRIGGER_MS) continue;
+    midiPreviewLastStrikeTimes.set(voiceIndex, now);
+    const fmVoice = mappedLatticeDrumVoice(drumEngines.fm.voices[voiceIndex], contact, {
+      bounds: viewBounds,
+      pitchDepth: state.pitchDepth,
+      characterDepth: state.characterDepth,
+      contactCount: contacts.length,
+    });
+    const voice = state.drumEngine === "samples"
+      ? mappedLatticeSampleDrumVoice(drumEngines.samples.voices[voiceIndex], contact, {
+        bounds: viewBounds,
+        pitchDepth: state.pitchDepth,
+        characterDepth: state.characterDepth,
+        contactCount: contacts.length,
+      })
+      : fmVoice;
+    publishLatticeDrumNotePreview(contact, voiceIndex, voice);
+    emitted += 1;
+  }
+}
+
+function triggerContacts(contacts, now, {
+  active = state.playing,
+  previousKeys = previousContactKeys,
+  allowDuringSuppression = false,
+} = {}) {
+  if (!active || !state.audioOn || (suppressStrikes > 0 && !allowDuringSuppression)) return;
+  const onsets = newlyEnteredLatticeContacts(contacts, previousKeys);
   let emitted = 0;
   for (const contact of onsets) {
     if (emitted >= state.strikeLimit) break;
@@ -872,6 +1153,7 @@ function triggerContacts(contacts, now) {
         contactCount: contacts.length,
       })
       : fmVoice;
+    publishLatticeDrumNotePreview(contact, voiceIndex, voice);
     currentAudio().trigger(voice)
       .then(() => {
         if (state.drumEngine === "samples") updateEngineStatus();
@@ -1055,12 +1337,13 @@ function drawLattice(scan, offset, contacts) {
 function updateInterface(contacts) {
   $("position").value = String(state.position);
   $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
-  $("motionSummary").textContent = `${state.playing ? "playing" : "paused"} · ${state.speed.toFixed(3)} cyc/s`;
+  const motion = state.playing ? "playing" : manualScan.active ? "scrubbing" : "paused";
+  $("motionSummary").textContent = `${motion} · ${state.motionMode} · ${state.traversalDirection > 0 ? "forward" : "reverse"} · ${state.speed.toFixed(3)} cyc/s`;
   const info = tilingInfo(state.tilingType);
   $("formSummary").textContent = info.label;
   $("stageReadout").textContent = [
     `${contacts.length} ${contacts.length === 1 ? "CONTACT" : "CONTACTS"}`,
-    state.playing ? "PLAYING" : "PAUSED",
+    state.playing ? "PLAYING" : manualScan.active ? "SCRUBBING" : "PAUSED",
     state.audioOn ? "AUDIO ON" : "AUDIO OFF",
   ].join(" · ");
 }
@@ -1070,26 +1353,134 @@ function frame(now) {
   const deltaSeconds = Math.min(.1, Math.max(0, (now - lastFrameTime) / 1_000));
   lastFrameTime = now;
   if (state.playing) {
-    state.continuousPosition += state.direction * state.speed * deltaSeconds;
-    state.position = wrap01(state.continuousPosition);
+    state.continuousPosition += state.traversalDirection * state.speed * deltaSeconds;
+    state.position = state.motionMode === "pingpong"
+      ? pingPong01(state.continuousPosition)
+      : wrap01(state.continuousPosition);
   }
   if (geometryDirty || !lattice) rebuildGeometry();
   const scan = createScanLine(viewBounds, .5, state.lineAngle);
   const offset = latticeOffsetForPhase(lattice, state.position);
   const contacts = contactsForLine(lattice, scan, undefined, offset);
   triggerContacts(contacts, now);
-  previousContactKeys = new Set(contacts.map(contactOnsetKey));
+  if (state.playing) {
+    queueLatticeDrumPhasePreview();
+    previewMutedContacts(contacts, now);
+  }
+  const physicalKeys = new Set(contacts.map(latticeContactOnsetKey));
+  if (!state.playing && manualScan.active && manualScan.moved && state.audioOn) {
+    triggerContacts(contacts, now, {
+      active: true,
+      previousKeys: manualScan.baselineKeys,
+      allowDuringSuppression: true,
+    });
+    manualScan.baselineKeys = new Set(physicalKeys);
+    manualScan.moved = false;
+    if (manualScan.ending) manualScan.releaseAt = now + MANUAL_SCAN_RELEASE_MS;
+  }
+  if (!state.playing && midiPreviewManualScan.active && midiPreviewManualScan.moved) {
+    previewMutedContacts(contacts, now, {
+      active: true,
+      previousKeys: midiPreviewManualScan.baselineKeys,
+      allowDuringSuppression: true,
+    });
+    midiPreviewManualScan.baselineKeys = new Set(physicalKeys);
+    midiPreviewManualScan.moved = false;
+    if (midiPreviewManualScan.ending) {
+      midiPreviewManualScan.releaseAt = now + MANUAL_SCAN_RELEASE_MS;
+    }
+  }
+  latestPhysicalContactKeys = physicalKeys;
+  previousContactKeys = new Set(physicalKeys);
+  midiPreviewPreviousContactKeys = new Set(physicalKeys);
+  if (
+    manualScan.active
+    && manualScan.ending
+    && !manualScan.moved
+    && now >= manualScan.releaseAt
+  ) clearManualScan();
+  if (
+    midiPreviewManualScan.active
+    && midiPreviewManualScan.ending
+    && !midiPreviewManualScan.moved
+    && now >= midiPreviewManualScan.releaseAt
+  ) clearMidiPreviewManualScan();
   if (suppressStrikes > 0) suppressStrikes -= 1;
   drawLattice(scan, offset, contacts);
   if (tileEditorDirty) drawTileEditor();
   updateInterface(contacts);
-  if (state.playing) scheduleFrame();
+  flushMidiPreviewSignals(now);
+  if (
+    state.playing
+    || manualScan.active
+    || midiPreviewManualScan.active
+    || pendingMidiPreviewSignals.size > 0
+  ) scheduleFrame();
 }
 
-function setPosition(value) {
-  state.position = wrap01(value);
-  state.continuousPosition = state.position;
-  suppressStrikes = 1;
+function setPosition(value, { manual = false } = {}) {
+  const nextPosition = clamp(value);
+  state.continuousPosition = state.motionMode === "pingpong"
+    ? rebasePingPongPosition(state.continuousPosition, nextPosition)
+    : rebaseContinuousPosition(
+      state.continuousPosition,
+      wrap01(state.continuousPosition),
+      nextPosition,
+    );
+  state.position = nextPosition;
+  if (manual) moveManualScan();
+  else suppressStrikes = 1;
+  scheduleFrame();
+}
+
+function setContinuousPosition(value, { manual = false } = {}) {
+  state.continuousPosition = Number(value) || 0;
+  state.position = state.motionMode === "pingpong"
+    ? pingPong01(state.continuousPosition)
+    : wrap01(state.continuousPosition);
+  if (manual) moveManualScan();
+  else suppressStrikes = 1;
+  scheduleFrame();
+}
+
+function updateTraversalControls() {
+  const forward = state.traversalDirection > 0;
+  $("traversalDirectionGlyph").textContent = forward ? "→" : "←";
+  $("traversalDirectionText").textContent = forward ? "FWD" : "REV";
+  $("traversalDirection").setAttribute(
+    "aria-label",
+    `Pattern direction: ${forward ? "forward" : "reverse"}${state.motionMode === "pingpong" ? " ping-pong travel" : ""}`,
+  );
+  for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
+    setPressed(button, button.dataset.value === state.motionMode);
+  }
+}
+
+function setTraversalDirection(direction, shouldAnnounce = true) {
+  state.traversalDirection = direction < 0 ? -1 : 1;
+  updateTraversalControls();
+  if (shouldAnnounce) {
+    announce(`Pattern direction ${state.traversalDirection > 0 ? "forward" : "reverse"}.`);
+  }
+  scheduleFrame();
+}
+
+function setMotionMode(motion, shouldAnnounce = true) {
+  const nextMotion = motion === "pingpong" ? "pingpong" : "loop";
+  if (nextMotion !== state.motionMode) {
+    state.continuousPosition = nextMotion === "pingpong"
+      ? rebasePingPongPosition(state.continuousPosition, state.position)
+      : rebaseContinuousPosition(
+        state.continuousPosition,
+        wrap01(state.continuousPosition),
+        state.position,
+    );
+    state.motionMode = nextMotion;
+  }
+  updateTraversalControls();
+  if (shouldAnnounce) {
+    announce(`${nextMotion === "pingpong" ? "Ping-pong" : "Loop"} pattern movement selected.`);
+  }
   scheduleFrame();
 }
 
@@ -1119,9 +1510,7 @@ function reset() {
   $("pitchDepthOut").textContent = `±${state.pitchDepth} st`;
   $("characterDepthOut").textContent = `${Math.round(state.characterDepth * 100)}%`;
   $("strikeLimitOut").textContent = String(state.strikeLimit);
-  for (const button of $("directionChoice").querySelectorAll("button")) {
-    setPressed(button, Number(button.dataset.direction) === state.direction);
-  }
+  updateTraversalControls();
   updateMappingControls();
   configureTilingControls();
   if (state.audioOn) setAudioState(true);
@@ -1140,15 +1529,45 @@ $("audioButton").addEventListener("click", async () => {
 });
 
 $("playButton").addEventListener("click", () => {
+  if (!state.playing) {
+    clearManualScan();
+    clearMidiPreviewManualScan();
+    midiPreviewPreviousContactKeys.clear();
+  }
   state.playing = !state.playing;
   setPressed($("playButton"), state.playing);
   previousContactKeys.clear();
   suppressStrikes = state.playing ? 1 : 0;
+  lastFrameTime = performance.now();
   announce(state.playing ? "Lattice playing." : "Lattice paused.");
+  publishLatticeDrumTransportPreview();
   scheduleFrame();
 });
 
-$("position").addEventListener("input", () => setPosition(Number($("position").value)));
+$("position").addEventListener("pointerdown", (event) => {
+  positionPointerActive = isDirectInteraction(event);
+  if (positionPointerActive) {
+    beginManualScan();
+    beginMidiPreviewManualScan();
+  }
+});
+$("position").addEventListener("input", (event) => {
+  const direct = positionPointerActive || isDirectInteraction(event);
+  const manual = direct && beginManualScan();
+  const previewManual = direct && beginMidiPreviewManualScan();
+  setPosition(Number($("position").value), { manual });
+  if (previewManual) moveMidiPreviewManualScan();
+  if (manual && !positionPointerActive) endManualScan();
+  if (previewManual && !positionPointerActive) endMidiPreviewManualScan();
+});
+function endPositionPointer() {
+  positionPointerActive = false;
+  endManualScan();
+  endMidiPreviewManualScan();
+}
+$("position").addEventListener("pointerup", endPositionPointer);
+$("position").addEventListener("pointercancel", endPositionPointer);
+$("position").addEventListener("lostpointercapture", endPositionPointer);
 $("speed").addEventListener("input", () => {
   state.speed = Number($("speed").value);
   $("speedOut").textContent = `${state.speed.toFixed(3)} cyc/s`;
@@ -1165,15 +1584,30 @@ $("lineAngle").addEventListener("input", () => {
   suppressStrikes = 2;
   scheduleFrame();
 });
-$("directionChoice").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-direction]");
-  if (!button) return;
-  state.direction = Number(button.dataset.direction) < 0 ? -1 : 1;
-  for (const choice of $("directionChoice").querySelectorAll("button")) {
-    setPressed(choice, choice === button);
-  }
-  scheduleFrame();
+$("traversalDirection").addEventListener("click", () => {
+  setTraversalDirection(-state.traversalDirection);
+  queueLatticeDrumControlPreview(
+    "direction",
+    "Travel direction",
+    state.traversalDirection,
+    -1,
+    1,
+    state.traversalDirection > 0 ? "Forward" : "Reverse",
+  );
 });
+for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
+  button.addEventListener("click", () => {
+    setMotionMode(button.dataset.value);
+    queueLatticeDrumControlPreview(
+      "motion",
+      "Pattern motion",
+      state.motionMode === "pingpong" ? 1 : 0,
+      0,
+      1,
+      state.motionMode === "pingpong" ? "Ping-pong" : "Loop",
+    );
+  });
+}
 $("tilingType").addEventListener("change", () => {
   setTilingType(Number($("tilingType").value));
 });
@@ -1254,13 +1688,22 @@ function canvasWorldPoint(event) {
 }
 
 canvas.addEventListener("pointerdown", (event) => {
+  if (pointerDrag && pointerDrag.pointerId !== event.pointerId) return;
   if (geometryDirty || !lattice) rebuildGeometry();
-  pointerDrag = { point: canvasWorldPoint(event), phase: state.continuousPosition };
+  if (isDirectInteraction(event)) {
+    beginManualScan();
+    beginMidiPreviewManualScan();
+  }
+  pointerDrag = {
+    pointerId: event.pointerId,
+    point: canvasWorldPoint(event),
+    phase: state.continuousPosition,
+  };
   canvas.setPointerCapture(event.pointerId);
   canvas.focus();
 });
 canvas.addEventListener("pointermove", (event) => {
-  if (!pointerDrag || !lattice) return;
+  if (!pointerDrag || pointerDrag.pointerId !== event.pointerId || !lattice) return;
   const point = canvasWorldPoint(event);
   const delta = {
     x: point.x - pointerDrag.point.x,
@@ -1269,44 +1712,82 @@ canvas.addEventListener("pointermove", (event) => {
   const periodSquared = lattice.period.x ** 2 + lattice.period.y ** 2;
   if (periodSquared < 1e-9) return;
   const phaseDelta = -(delta.x * lattice.period.x + delta.y * lattice.period.y) / periodSquared;
-  setPosition(pointerDrag.phase + phaseDelta);
+  setContinuousPosition(pointerDrag.phase + phaseDelta, {
+    manual: !state.playing && manualScan.active,
+  });
+  if (!state.playing && midiPreviewManualScan.active) moveMidiPreviewManualScan();
 });
-canvas.addEventListener("pointerup", () => { pointerDrag = null; });
-canvas.addEventListener("pointercancel", () => { pointerDrag = null; });
+function endPointer(event) {
+  if (
+    pointerDrag
+    && event?.pointerId !== undefined
+    && event.pointerId !== pointerDrag.pointerId
+  ) return;
+  pointerDrag = null;
+  endManualScan();
+  endMidiPreviewManualScan();
+}
+canvas.addEventListener("pointerup", endPointer);
+canvas.addEventListener("pointercancel", endPointer);
+canvas.addEventListener("lostpointercapture", endPointer);
 
 window.addEventListener("keydown", (event) => {
   if (/^(INPUT|SELECT|TEXTAREA|BUTTON|SUMMARY|A)$/.test(event.target?.tagName || "")) return;
   if (event.code === "Space" || event.key === " ") {
     $("playButton").click();
-  } else if (event.key === "ArrowLeft") {
-    setPosition(state.position - (event.shiftKey ? .05 : .01));
-  } else if (event.key === "ArrowRight") {
-    setPosition(state.position + (event.shiftKey ? .05 : .01));
+  } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    const direction = event.key === "ArrowLeft" ? -1 : 1;
+    const direct = isDirectInteraction(event);
+    const manual = direct && beginManualScan();
+    const previewManual = direct && beginMidiPreviewManualScan();
+    setPosition(state.position + direction * (event.shiftKey ? .05 : .01), { manual });
+    if (previewManual) moveMidiPreviewManualScan();
+    if (manual) endManualScan();
+    if (previewManual) endMidiPreviewManualScan();
   } else if (event.key === "ArrowUp") {
     state.lineAngle = wrapLineAngle(state.lineAngle + (event.shiftKey ? 1 : .1));
     $("lineAngle").value = String(state.lineAngle);
     $("lineAngleOut").textContent = formatDegrees(state.lineAngle);
+    queueLatticeDrumControlPreview("lineAngle", "Reader line angle", state.lineAngle, 0, 179.9, formatDegrees(state.lineAngle));
     scheduleFrame();
   } else if (event.key === "ArrowDown") {
     state.lineAngle = wrapLineAngle(state.lineAngle - (event.shiftKey ? 1 : .1));
     $("lineAngle").value = String(state.lineAngle);
     $("lineAngleOut").textContent = formatDegrees(state.lineAngle);
+    queueLatticeDrumControlPreview("lineAngle", "Reader line angle", state.lineAngle, 0, 179.9, formatDegrees(state.lineAngle));
     scheduleFrame();
   } else return;
   event.preventDefault();
 });
 
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) setAudioState(false);
+  if (document.hidden) {
+    clearManualScan();
+    clearMidiPreviewManualScan();
+    setAudioState(false);
+  }
 });
 window.addEventListener("pageshow", scheduleFrame);
 window.addEventListener("pagehide", () => {
+  pointerDrag = null;
+  positionPointerActive = false;
+  clearManualScan();
+  clearMidiPreviewManualScan();
   for (const engine of Object.values(drumEngines)) {
     void engine.audio.close().catch(() => {});
   }
 });
+window.addEventListener("blur", () => {
+  pointerDrag = null;
+  positionPointerActive = false;
+  clearManualScan();
+  clearMidiPreviewManualScan();
+});
 
+installLatticeDrumMidiPreviewControls();
 populateTilingTypes();
 populateMappingModes();
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 reset();
+queueLatticeDrumPhasePreview();
+publishLatticeDrumTransportPreview();

@@ -182,7 +182,10 @@ test("Hyper Drum Machine keeps the complete 4D UI and excludes legacy synth pane
     "playButton",
     "position",
     "speed",
-    "directionButton",
+    "playheadMotion",
+    "traversalDirection",
+    "loopMotion",
+    "pingPongMotion",
     "hyperShape",
     "hyperScaleX",
     "hyperScaleY",
@@ -219,9 +222,9 @@ test("Hyper Drum Machine keeps the complete 4D UI and excludes legacy synth pane
     /id="subdivisions"[\s\S]*?min="1"[\s\S]*?max="16"[\s\S]*?step="1"[\s\S]*?value="2"/,
   );
   assert.ok(
-    html.indexOf('id="speed"') < html.indexOf('id="subdivisions"')
-      && html.indexOf('id="subdivisions"') < html.indexOf('id="directionButton"'),
-    "Subdivisions should sit directly after hyperplane speed in Play",
+    html.indexOf('id="speed"') < html.indexOf('id="playheadMotion"')
+      && html.indexOf('id="playheadMotion"') < html.indexOf('id="subdivisions"'),
+    "The Shape-style transport should sit with hyperplane speed before subdivisions",
   );
   assert.ok(
     html.indexOf('id="subdivisions"') < html.indexOf('data-section="form"'),
@@ -239,6 +242,9 @@ test("Hyper Drum Machine keeps the complete 4D UI and excludes legacy synth pane
   assert.match(app, /new FmDrumAudio\(globalThis\)/);
   assert.match(app, /hyperplaneIntersections/);
   assert.match(app, /hyperplaneOffsetForShapePhase\(shape, phase\)/);
+  const endpointHelper = app.match(/function endpointSafePhase\(value\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(endpointHelper, /phase >= 1 \? 1 - 1e-9 : phase/);
+  assert.doesNotMatch(endpointHelper, /motionMode/);
   assert.match(app, /if \(looped\) previousContactKeys\.clear\(\)/);
   assert.doesNotMatch(app, /1\.25 \* state\.hyperScaleW/);
   assert.match(app, /hyperContactVoiceKey\(enriched, state\.subdivisions\)/);

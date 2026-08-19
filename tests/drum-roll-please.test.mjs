@@ -720,7 +720,7 @@ test("Drum Roll Please page uses Shepard-aligned controls and an accessible pitc
   assert.match(app, /audioButton"\)\.addEventListener\("click", toggleAudio\)/);
   assert.match(app, /event\.key === "ArrowUp"/);
   assert.match(app, /event\.key === "ArrowDown"/);
-  assert.match(app, /event\.key === " "/);
+  assert.doesNotMatch(app, /event\.key === " "/);
   assert.match(app, /addEventListener\("pagehide", handlePageHide/);
   assert.match(app, /addEventListener\("pageshow", handlePageShow/);
   assert.match(app, /audio\.close\(\)/);

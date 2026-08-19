@@ -28,7 +28,11 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.deepEqual(sectionPositions, [...sectionPositions].sort((a, b) => a - b));
   for (const id of sectionIds) {
     assert.match(openingTag(id), /^<details\b/);
-    assert.doesNotMatch(openingTag(id), /\sopen(?:\s|>)/, `${id} should start collapsed`);
+    if (id === "playSection") {
+      assert.match(openingTag(id), /\sopen(?:\s|>)/, "Play should be immediately visible");
+    } else {
+      assert.doesNotMatch(openingTag(id), /\sopen(?:\s|>)/, `${id} should start collapsed`);
+    }
   }
   for (const title of ["Play", "Form", "Sound", "Mapping", "Output"]) {
     assert.match(html, new RegExp(`<h2[^>]*>${title}<\\/h2>`));
@@ -357,8 +361,10 @@ test("the mobile instrument markup exposes the complete compact control surface"
   assert.match(css, /\.amplitude-timing-row\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums/);
   assert.match(css, /\.header-level\s*\{[\s\S]*?height:\s*44px/);
   assert.match(css, /\.mapping-source-help\s*\{/);
-  assert.match(css, /\.audio-strip\s*\{[\s\S]*?grid-template-columns:\s*minmax\(96px,\s*140px\)\s+44px/);
-  assert.match(css, /\.audio-speaker-icon\s*\{[\s\S]*?-webkit-mask:\s*url\("data:image\/svg\+xml/);
+  assert.match(css, /--audio-control-width:\s*44px/);
+  assert.match(css, /\.audio-strip\s*\{[\s\S]*?grid-template-columns:\s*minmax\(96px,\s*140px\)\s+var\(--audio-control-width\)/);
+  assert.match(css, /\.audio-button > :not\(\.audio-speaker-icon\),\s*\.audio-speaker-copy\s*\{[^}]*clip-path:\s*inset\(50%\) !important;/s);
+  assert.match(css, /\.audio-button::before,\s*\.audio-speaker-icon\s*\{[\s\S]*?-webkit-mask:\s*url\("data:image\/svg\+xml/);
   assert.match(css, /@media\s*\(pointer:\s*coarse\)[\s\S]*?\.head-option-toggle\s*\{[\s\S]*?width:\s*36px/);
   assert.match(openingTag("amplitudeNode2"), /role="slider"[^>]*aria-valuemin="0"[^>]*aria-valuemax="100"[^>]*aria-valuenow="50"/);
   assert.match(app, /amplitudeCurveEditor"\)\.setAttribute\("aria-disabled"/);

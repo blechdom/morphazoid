@@ -40,6 +40,13 @@ function geometryPoints(item) {
   return Array.isArray(item?.points) ? item.points : [];
 }
 
+function geometryPolygons(item) {
+  if (Array.isArray(item?.projectedTriangles)) {
+    return item.projectedTriangles.filter(Array.isArray);
+  }
+  return [geometryPoints(item)];
+}
+
 /**
  * Build a frozen `{ [stickerId]: normalizedArea }` profile.
  *
@@ -53,7 +60,12 @@ export function createRubixVisibilityProfile(geometryItems = []) {
     const id = stickerId(item?.sticker);
     if (!id) continue;
     const hidden = item?.hidden === true || item?.visible === false;
-    const area = hidden ? 0 : projectedPolygonArea(geometryPoints(item));
+    const area = hidden
+      ? 0
+      : geometryPolygons(item).reduce(
+        (total, polygon) => total + projectedPolygonArea(polygon),
+        0,
+      );
     rawAreas.set(id, Math.max(rawAreas.get(id) ?? 0, area));
   }
 

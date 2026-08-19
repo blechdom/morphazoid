@@ -12,7 +12,9 @@ import {
   createScanLine,
   edgeCurve,
   evenlySelectContacts,
+  latticeContactOnsetKey,
   latticeOffsetForPhase,
+  newlyEnteredLatticeContacts,
   parametersForDraggedVertex,
   prototileIsNonOverlapping,
   tilingInfo,
@@ -20,6 +22,27 @@ import {
 } from "../src/lattice.js";
 
 const bounds = { minX: -1.5, minY: -1, maxX: 1.5, maxY: 1 };
+
+test("manual lattice crossings use physical edges instead of repeating voice slots", () => {
+  const previous = new Set(["edge-a", "edge-b"]);
+  const contacts = [
+    { onsetKey: "edge-a", voiceKey: "slot-1" },
+    { onsetKey: "edge-c", voiceKey: "slot-1" },
+    { voiceKey: "slot-2" },
+  ];
+  assert.equal(latticeContactOnsetKey(contacts[0]), "edge-a");
+  assert.equal(latticeContactOnsetKey(contacts[2]), "slot-2");
+  assert.deepEqual(
+    newlyEnteredLatticeContacts(contacts, previous),
+    [contacts[1], contacts[2]],
+    "a new physical edge must trigger even when it reuses the same periodic voice",
+  );
+  assert.deepEqual(
+    newlyEnteredLatticeContacts(contacts, new Set(contacts.map(latticeContactOnsetKey))),
+    [],
+    "a parked playhead must not retrigger its current contacts",
+  );
+});
 
 test("the complete Tactile isohedral catalog is exposed with control metadata", () => {
   assert.equal(TILING_TYPES.length, 72);

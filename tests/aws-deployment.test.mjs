@@ -30,6 +30,31 @@ test("site builder publishes runtime files without development material", async 
     for (const path of [
       "index.html",
       "shape.html",
+      "alien-larynx.html",
+      "alien-larynx.css",
+      "alien-larynx-app.js",
+      "src/alien-larynx-tract-processor.js",
+      "assets/instruments/alien-larynx.webp",
+      "alien-larynx-architecture.html",
+      "alien-larynx-signal-path.svg",
+      "syrinx.html",
+      "syrinx.css",
+      "syrinx-app.js",
+      "src/syrinx.js",
+      "src/syrinx-source-models.js",
+      "src/syrinx-processor.js",
+      "assets/instruments/syrinx.webp",
+      "ANIMAL_VOICE_SYNTHESIS_RESEARCH.md",
+      "throatazoid-architecture.html",
+      "throatazoid-architecture.css",
+      "throatazoid-signal-path.svg",
+      "gesturama.html",
+      "gesturama.css",
+      "gesturama-app.js",
+      "src/gesturama-core.js",
+      "src/gesturama-audio.js",
+      "src/gesturama-zones.js",
+      "assets/instruments/gesturama.webp",
       "about.html",
       "about.css",
       "THIRD_PARTY_NOTICES.md",
@@ -72,6 +97,7 @@ test("site builder publishes runtime files without development material", async 
       "dist-wax/assets/audio/spelling-diphone-kal16.wav",
       "dist-wax/vendor/signalsmith-stretch/SignalsmithStretch.mjs",
       "src/midi-manager.js",
+      "src/midi-output-preview.js",
       "src/shape-midi.js",
       "src/fm-drums-midi.js",
       "sample-drums.html",
@@ -124,6 +150,7 @@ test("site builder publishes runtime files without development material", async 
       "chaotic-fm.css",
       "chaotic-fm-app.js",
       "src/chaotic-fm.js",
+      "src/chaotic-dsp-reference.js",
       "src/chaotic-fm-flow.js",
       "chaotic-pm.html",
       "chaotic-pm.css",
@@ -231,6 +258,11 @@ test("site builder publishes runtime files without development material", async 
       "src/rubix.js",
       "src/rubix-visibility.js",
       "assets/instruments/rubix.webp",
+      "hyper-rubix.html",
+      "hyper-rubix.css",
+      "hyper-rubix-app.js",
+      "src/hyper-rubix.js",
+      "assets/instruments/hyper-rubix.webp",
       "hyper-drums.html",
       "hyper-drums.css",
       "hyper-drums-app.js",
@@ -331,6 +363,7 @@ test("CloudFormation keeps the origin private and CI permissions narrow", async 
   assert.match(template, /request\.uri\.endsWith\('\/'\)/);
   assert.match(template, /token\.actions\.githubusercontent\.com:sub:\s+!Ref GitHubOidcSubject/);
   assert.match(template, /Header:\s+Permissions-Policy/);
+  assert.match(template, /Value:\s+microphone=\(self\), camera=\(self\), geolocation=\(\)/);
   assert.match(template, /Sid:\s+DenyInsecureTransport/);
   assert.match(template, /cloudfront:CreateInvalidation/);
   assert.doesNotMatch(template, /PolicyName:[\s\S]*?route53:\*/);

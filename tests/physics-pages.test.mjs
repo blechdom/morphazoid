@@ -29,7 +29,11 @@ test("every geometric-physics demo is a first-class Morphazoid page", async () =
     assert.match(html, /<canvas id="stage"[^>]*tabindex="0"[^>]*aria-describedby="sceneInstruction sceneLesson"/);
     assert.match(html, /id="audioState">off<\/small>/);
     assert.match(html, /data-reset-all data-reset-in-place/);
-    assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/);
+    assert.equal(
+      (html.match(/<details\b[^>]*\sopen(?:\s|>)/g) ?? []).length,
+      1,
+      `${id} should open only its primary Play disclosure`,
+    );
     assert.doesNotMatch(html, /class="[^"]*\bphysics-demo-nav\b/);
     assert.doesNotMatch(html, /class="[^"]*\bphysics-demo-link\b/);
     assert.doesNotMatch(html, /\bid="sceneKicker"|class="[^"]*\bphysics-kicker\b/);
@@ -39,7 +43,7 @@ test("every geometric-physics demo is a first-class Morphazoid page", async () =
     assert.ok(panel, `${id} must retain the standard Morphazoid control panel`);
     const firstSectionTag = panel.match(/<details\b[^>]*>/)?.[0] ?? "";
     assert.match(firstSectionTag, /\bdata-section="play"/, `${id} must put Play first in the panel`);
-    assert.doesNotMatch(firstSectionTag, /\sopen(?:\s|>)/, `${id} Play section must default collapsed`);
+    assert.match(firstSectionTag, /\sopen(?:\s|>)/, `${id} Play section must be immediately visible`);
 
     const playSection = panel.match(
       /<details\b(?=[^>]*\bdata-section="play")[^>]*>[\s\S]*?<\/details>/,

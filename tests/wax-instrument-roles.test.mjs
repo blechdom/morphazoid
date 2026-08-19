@@ -82,6 +82,7 @@ test("input processors are conservative previews and musical generators expose u
   );
   assert.equal(waxSupportForId("rubix").hostSync, true);
   assert.equal(waxSupportForId("throatazoid").roles.includes(WAX_ROLE_IDS.audioFx), true);
+  assert.equal(waxSupportForId("alien-larynx").roles.includes(WAX_ROLE_IDS.audioFx), true);
   assert.match(waxSupportForId("webgpu-303").caveat, /WebGPU support/i);
 });
 

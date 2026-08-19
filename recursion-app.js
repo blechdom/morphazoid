@@ -62,6 +62,7 @@ const state = {
   geometryView: "orbit",
   level: 0.42,
   accumulate: true,
+  audio: false,
   playing: false,
   stepIndex: -1,
   steppedMoment: null,
@@ -333,20 +334,60 @@ async function prepareCurrent() {
   }
 }
 
+function paintAudioState() {
+  setPressed($("audioButton"), state.audio);
+  $("audioState").textContent = state.audio ? "on" : "off";
+}
+
+function paintTransportState() {
+  setPressed($("listenButton"), state.playing);
+  $("listenLabel").textContent = state.playing ? "Stop" : "Play";
+}
+
+function paintAudioAndTransportState() {
+  paintAudioState();
+  paintTransportState();
+}
+
 function setPlaying(playing) {
   state.playing = Boolean(playing);
-  setPressed($("audioButton"), state.playing);
-  setPressed($("listenButton"), state.playing);
-  $("audioState").textContent = state.playing ? "on" : "off";
-  $("listenLabel").textContent = state.playing ? "Stop" : "Play";
   if (!state.playing) audio.stopSession();
-  if (!state.playing) {
-    audio.suspend().catch(() => {
-      // Ignore suspend races while navigating or rapidly restarting.
-    });
-  }
+  paintTransportState();
   paintReadout(currentTransportState().moment);
   scheduleFrame();
+}
+
+async function enableAudio() {
+  if (state.audio) return true;
+  const ready = await prepareCurrent();
+  if (!ready) return false;
+  state.audio = true;
+  audio.setLevel(state.level);
+  paintAudioState();
+  paintReadout(currentTransportState().moment);
+  $("liveStatus").textContent = "Audio on. Press Listen to start.";
+  scheduleFrame();
+  return true;
+}
+
+async function disableAudio({ announceChange = true } = {}) {
+  restartNonce += 1;
+  if (state.playing) setPlaying(false);
+  else audio.stopSession();
+  state.audio = false;
+  paintAudioAndTransportState();
+  paintReadout(currentTransportState().moment);
+  await audio.suspend().catch(() => {
+    // Ignore suspend races while navigating or rapidly changing state.
+  });
+  if (announceChange) $("liveStatus").textContent = "Audio off.";
+  scheduleFrame();
+}
+
+async function toggleAudio() {
+  if (state.preparing) return;
+  if (state.audio) await disableAudio();
+  else await enableAudio();
 }
 
 function restartTransport() {
@@ -361,15 +402,19 @@ function restartTransport() {
   lastAnnouncement = "";
 }
 
-async function togglePlayback() {
+function togglePlayback() {
   if (state.playing) {
     setPlaying(false);
+    $("liveStatus").textContent = "Listening stopped. Audio remains on.";
     return;
   }
-  const ready = await prepareCurrent();
-  if (!ready) return;
+  if (!state.audio || !audio.context) {
+    $("liveStatus").textContent = "Turn Audio on before listening.";
+    return;
+  }
   restartTransport();
   setPlaying(true);
+  $("liveStatus").textContent = "Listening.";
 }
 
 function lineageMoments(moment) {
@@ -458,22 +503,26 @@ function scheduleTransport(now) {
   }
 }
 
-async function stepForward() {
+function stepForward() {
+  if (!state.audio || !audio.context) {
+    $("liveStatus").textContent = "Turn Audio on before stepping the sound.";
+    return;
+  }
   fieldTurn += 1;
   if (state.playing) {
     $("liveStatus").textContent = `TURN ${fieldTurn}`;
     scheduleFrame();
     return;
   }
-  const ready = await prepareCurrent();
   const anchor = denseMoment();
-  if (!ready || !anchor) return;
+  if (!anchor) return;
   audio.beginSession(state.studyId, effectiveLiveAxes());
   state.stepIndex = fieldTurn;
   state.steppedMoment = anchor;
   scheduleSemanticMoment(anchor, audio.context.currentTime + 0.05, {
     cycleIndex: fieldTurn,
   });
+  lastAnnouncement = "";
   announce(state.steppedMoment);
   scheduleFrame();
 }
@@ -493,15 +542,15 @@ function restartStudy() {
 
 function queuePreparedRestart() {
   const nonce = ++restartNonce;
-  if (!state.playing) return;
+  if (!state.audio) return;
   // Keep the current finite lineage audible while expensive generation
   // buffers are rebuilt. prepare() constructs its replacement off to the
   // side, and restartTransport() performs the session handoff only once the
   // newest requested parameter state is ready.
   globalThis.setTimeout?.(async () => {
-    if (nonce !== restartNonce || !state.playing) return;
+    if (nonce !== restartNonce || !state.audio) return;
     const ready = await prepareCurrent();
-    if (ready && nonce === restartNonce && state.playing) restartTransport();
+    if (ready && nonce === restartNonce && state.audio && state.playing) restartTransport();
   }, 120);
 }
 
@@ -511,8 +560,8 @@ function selectSource(source) {
   paintSource();
   updatePlan();
   audio.invalidate();
-  if (state.playing) {
-    if (!sourceAvailable()) setPlaying(false);
+  if (state.audio) {
+    if (!sourceAvailable()) void disableAudio({ announceChange: false });
     else queuePreparedRestart();
   }
 }
@@ -557,7 +606,7 @@ function paintReadout(moment) {
     state.geometryView.toUpperCase(),
     `G${depth}`,
     `${motion?.pulses?.length ?? 0} EVENTS`,
-    state.playing ? "ON" : "OFF",
+    state.playing ? "PLAYING" : state.audio ? "AUDIO READY" : "AUDIO OFF",
   ].join(" · ");
 }
 
@@ -1545,7 +1594,7 @@ $("sourceButtons").addEventListener("click", (event) => {
   const button = event.target.closest?.("[data-source]");
   if (button) selectSource(button.dataset.source);
 });
-$("audioButton").addEventListener("click", togglePlayback);
+$("audioButton").addEventListener("click", toggleAudio);
 $("listenButton").addEventListener("click", togglePlayback);
 $("stepButton").addEventListener("click", stepForward);
 $("restartButton").addEventListener("click", restartStudy);
@@ -1643,7 +1692,7 @@ $("resetStudy").addEventListener("click", () => {
   paintStudyControls();
   updatePlan();
   audio.setLiveAxes(state.studyId, effectiveLiveAxes());
-  if (state.playing) queuePreparedRestart();
+  if (state.audio) queuePreparedRestart();
 });
 
 $("audioFile").addEventListener("change", async (event) => {
@@ -1658,7 +1707,7 @@ $("audioFile").addEventListener("change", async (event) => {
     $("fileHint").textContent = "READY · LOCAL";
     paintSource();
     updatePlan();
-    if (state.playing) queuePreparedRestart();
+    if (state.audio) queuePreparedRestart();
   } catch (error) {
     $("audioError").textContent = error instanceof Error ? error.message : "This audio file could not be decoded.";
     $("audioError").hidden = false;
@@ -1687,7 +1736,7 @@ $("captureButton").addEventListener("click", async () => {
     $("captureHint").textContent = "READY · CLOSED";
     paintSource();
     updatePlan();
-    if (state.playing) queuePreparedRestart();
+    if (state.audio) queuePreparedRestart();
   } catch (error) {
     if (!/stopped/i.test(error?.message ?? "")) {
       $("audioError").textContent = error instanceof Error ? error.message : "Microphone capture failed.";
@@ -1720,19 +1769,16 @@ function frame() {
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    if (state.playing) setPlaying(false);
     if (state.captureProgress > 0) audio.stopCapture();
-    audio.suspend().catch(() => {
-      // Ignore suspend races while the document lifecycle is changing.
-    });
+    if (state.audio) void disableAudio({ announceChange: false });
   }
 });
 globalThis.addEventListener?.("pagehide", () => audio.destroy(), { once: true });
 globalThis.addEventListener?.("beforeunload", () => audio.destroy(), { once: true });
 globalThis.addEventListener?.("keydown", (event) => {
   if (event.key === "Escape") {
-    if (state.playing) setPlaying(false);
     if (state.captureProgress > 0) audio.stopCapture();
+    if (state.audio) void disableAudio({ announceChange: false });
   }
   if (event.code === "Space" && event.target === canvas) {
     event.preventDefault();
@@ -1742,6 +1788,7 @@ globalThis.addEventListener?.("keydown", (event) => {
 
 paintStudyControls();
 fieldDuration = denseFieldDuration();
+paintAudioAndTransportState();
 paintTimeline(0, denseMoment());
 paintRail(denseMoment());
 scheduleFrame();

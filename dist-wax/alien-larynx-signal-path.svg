@@ -1,0 +1,263 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1120" role="img" aria-labelledby="title desc">
+  <title id="title">Alien Larynx voice anchor and five-system DSP architecture</title>
+  <desc id="desc">A signal-path diagram showing the preserved Throatazoid voice anchor and five independently bypassable but interoperating Alien Larynx systems: a coupled double larynx, true-scale propagation, per-mouth phoneme genomes, clocked robot glands, and a wormhole manifold.</desc>
+  <defs>
+    <linearGradient id="alienBackground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#030504"/>
+      <stop offset="0.56" stop-color="#0c0710"/>
+      <stop offset="1" stop-color="#030706"/>
+    </linearGradient>
+    <linearGradient id="corePanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#100c15"/>
+      <stop offset="0.58" stop-color="#080b09"/>
+      <stop offset="1" stop-color="#09130f"/>
+    </linearGradient>
+    <linearGradient id="voicePanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d150f"/>
+      <stop offset="1" stop-color="#060907"/>
+    </linearGradient>
+    <filter id="alienGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="audioArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#d8ff57"/>
+    </marker>
+    <marker id="alienArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#d66dff"/>
+    </marker>
+    <marker id="controlArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#79dcff"/>
+    </marker>
+    <marker id="resetArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#79ffc8"/>
+    </marker>
+    <style>
+      .title { fill: #f2edf4; font: 700 31px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 1px; }
+      .subtitle { fill: #908596; font: 15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .section { fill: #d66dff; font: 700 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 2.2px; }
+      .section-lime { fill: #d8ff57; font: 700 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 2.2px; }
+      .label { fill: #f2edf4; font: 700 15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .small { fill: #b8aebe; font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .tiny { fill: #857a8b; font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .micro { fill: #746c78; font: 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .violet { fill: #d66dff; }
+      .lime { fill: #d8ff57; }
+      .cyan { fill: #79dcff; }
+      .mint { fill: #79ffc8; }
+      .box { fill: #080a09; stroke: #403945; stroke-width: 1.4; rx: 12; }
+      .box-base { fill: #0a1008; stroke: #789434; stroke-width: 1.5; rx: 12; }
+      .box-alien { fill: #100a15; stroke: #8550a0; stroke-width: 1.6; rx: 12; }
+      .box-control { fill: #071013; stroke: #39798d; stroke-width: 1.5; rx: 12; }
+      .box-reset { fill: #07110d; stroke: #42a981; stroke-width: 1.6; rx: 12; }
+      .panel-core { fill: url(#corePanel); stroke: #74428c; stroke-width: 1.6; rx: 18; }
+      .panel-voice { fill: url(#voicePanel); stroke: #58712e; stroke-width: 1.6; rx: 18; }
+      .panel-output { fill: rgba(5,8,7,.78); stroke: #343d36; stroke-width: 1.4; rx: 18; }
+      .audio { fill: none; stroke: #d8ff57; stroke-width: 2.3; marker-end: url(#audioArrow); }
+      .alien-audio { fill: none; stroke: #d66dff; stroke-width: 2.2; marker-end: url(#alienArrow); }
+      .control { fill: none; stroke: #79dcff; stroke-width: 1.7; stroke-dasharray: 7 6; marker-end: url(#controlArrow); }
+      .feedback { fill: none; stroke: #d66dff; stroke-width: 1.8; stroke-dasharray: 5 5; marker-end: url(#alienArrow); }
+      .reset { fill: none; stroke: #79ffc8; stroke-width: 1.8; stroke-dasharray: 10 6; marker-end: url(#resetArrow); }
+      .hairline { fill: none; stroke: #413a45; stroke-width: 1.1; }
+      .junction { fill: #d8ff57; filter: url(#alienGlow); }
+      .alien-junction { fill: #d66dff; filter: url(#alienGlow); }
+      .badge { fill: #d66dff; }
+      .badge-text { fill: #09050c; font: 800 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1120" fill="url(#alienBackground)"/>
+  <path d="M0 82H1800" stroke="#302634" stroke-width="1"/>
+  <text x="50" y="46" class="title">ALIEN LARYNX / VOICE ANCHOR + MUTATION ARCHITECTURE</text>
+  <text x="50" y="69" class="subtitle">preferred AudioWorklet route · five independent bypasses · all five systems can operate together</text>
+
+  <!-- Preserved voice anchor -->
+  <rect x="50" y="112" width="440" height="575" class="panel-voice"/>
+  <text x="76" y="144" class="section-lime">VOICE ANCHOR / PRESERVED</text>
+  <text x="76" y="165" class="tiny">all alien switches OFF = base Throatazoid worklet path</text>
+
+  <rect x="76" y="192" width="172" height="96" class="box-control"/>
+  <text x="96" y="222" class="label cyan">MICROPHONE</text>
+  <text x="96" y="246" class="small">70 Hz HPF</text>
+  <text x="96" y="266" class="tiny">input compressor</text>
+
+  <rect x="272" y="192" width="192" height="96" class="box-base"/>
+  <text x="292" y="222" class="label lime">LF GLOTTIS</text>
+  <text x="292" y="246" class="small">harmonic pulse + breath</text>
+  <text x="292" y="266" class="tiny">vibrato / wobble</text>
+
+  <rect x="76" y="325" width="388" height="110" class="box-base"/>
+  <text x="98" y="356" class="label lime">SOURCE SELECT + CONDITION</text>
+  <text x="98" y="381" class="small">mic / glottis / hybrid → trim → 55 Hz HPF</text>
+  <text x="98" y="405" class="tiny">input analyser · performance gate</text>
+  <path d="M248 240H260Q267 240 267 247V303Q267 310 274 310H284Q291 310 291 325" class="audio"/>
+  <path d="M368 288V310Q368 325 353 325" class="audio"/>
+
+  <circle cx="270" cy="468" r="5" class="junction"/>
+  <path d="M270 435V468" class="audio"/>
+  <rect x="76" y="496" width="172" height="104" class="box"/>
+  <text x="96" y="527" class="label">DRY TAP</text>
+  <text x="96" y="552" class="small">original source</text>
+  <text x="96" y="575" class="tiny">wet / dry voice anchor</text>
+  <path d="M270 468H162Q150 468 150 480V496" class="audio"/>
+
+  <rect x="272" y="496" width="192" height="104" class="box-base"/>
+  <text x="292" y="527" class="label lime">WORKLET FEED</text>
+  <text x="292" y="552" class="small">shared source · input 0</text>
+  <text x="292" y="575" class="tiny">plus mouth inputs 1–7</text>
+  <path d="M270 468H368V496" class="audio"/>
+
+  <rect x="76" y="622" width="388" height="42" class="box-reset"/>
+  <text x="270" y="648" class="small mint" text-anchor="middle">RECOGNIZABLE VOICE REMAINS UNDER EVERY MUTATION</text>
+
+  <!-- Alien physical core -->
+  <rect x="530" y="112" width="1220" height="615" class="panel-core"/>
+  <text x="558" y="144" class="section">ALIEN PHYSICAL CORE / FIVE ATTACHMENT POINTS</text>
+  <text x="558" y="165" class="tiny">the systems are independently bypassable, but share pressure, geometry, timing, and reflected waves</text>
+
+  <rect x="558" y="200" width="205" height="142" class="box-alien"/>
+  <circle cx="584" cy="225" r="12" class="badge"/><text x="584" y="229" class="badge-text">01</text>
+  <text x="608" y="229" class="label violet">DOUBLE LARYNX</text>
+  <text x="580" y="257" class="small">carrier + primary pulse</text>
+  <text x="580" y="278" class="small">+ ventricular false fold</text>
+  <text x="580" y="300" class="tiny">breath · asymmetry · growl</text>
+  <text x="580" y="321" class="tiny">root pressure bends pitch/opening</text>
+
+  <rect x="797" y="200" width="206" height="142" class="box-alien"/>
+  <circle cx="823" cy="225" r="12" class="badge"/><text x="823" y="229" class="badge-text">04</text>
+  <text x="847" y="229" class="label violet">ROBOT GLANDS</text>
+  <text x="819" y="257" class="small">1–4 independent clocks</text>
+  <text x="819" y="278" class="small">LF / pulse / impulse / noise</text>
+  <text x="819" y="300" class="tiny">ratio · division · phase · duty</text>
+  <text x="819" y="321" class="tiny">generated drive + shared carrier</text>
+
+  <rect x="1037" y="214" width="142" height="114" class="box-base"/>
+  <text x="1059" y="245" class="label lime">ROOT</text>
+  <text x="1059" y="270" class="small">8 sections</text>
+  <text x="1059" y="293" class="tiny">source hub ↔</text>
+  <text x="1059" y="311" class="tiny">shared pressure</text>
+
+  <rect x="1213" y="200" width="190" height="142" class="box-base"/>
+  <text x="1235" y="231" class="label lime">MANIFOLD</text>
+  <text x="1235" y="257" class="small">root ↔ 1–7 mouths</text>
+  <text x="1235" y="279" class="small">N-port flow scatter</text>
+  <text x="1235" y="301" class="tiny">passive return coupling</text>
+  <text x="1235" y="322" class="tiny">+ optional wormhole returns</text>
+
+  <rect x="1437" y="190" width="282" height="162" class="box-base"/>
+  <text x="1459" y="221" class="label lime">MOUTH AIRWAYS ×1–7</text>
+  <text x="1459" y="247" class="small">36 oral sections each</text>
+  <text x="1459" y="269" class="small">tongue · lips · closures</text>
+  <text x="1459" y="291" class="small">frication + pressure bursts</text>
+  <text x="1459" y="313" class="tiny">equal-power pan → tanh</text>
+  <text x="1459" y="334" class="tiny">direct polyphonic inputs supported</text>
+
+  <path d="M464 548H510Q520 548 520 538V270Q520 260 530 260H558" class="audio"/>
+  <path d="M763 271H797" class="alien-audio"/>
+  <path d="M1003 271H1037" class="alien-audio"/>
+  <path d="M1179 271H1213" class="audio"/>
+  <path d="M1403 271H1437" class="audio"/>
+
+  <rect x="1465" y="382" width="254" height="92" class="box-control"/>
+  <text x="1487" y="413" class="label cyan">NASAL BRANCHES</text>
+  <text x="1487" y="438" class="small">up to 3 × 28 sections / mouth</text>
+  <text x="1487" y="458" class="tiny">frequency-shaped nostril radiation</text>
+  <path d="M1581 352V382" class="control"/>
+
+  <!-- 02: tract-scale wrapper -->
+  <rect x="558" y="430" width="360" height="164" class="box-alien"/>
+  <circle cx="584" cy="456" r="12" class="badge"/><text x="584" y="460" class="badge-text">02</text>
+  <text x="608" y="460" class="label violet">TRUE-SCALE EXOTIC TRACT</text>
+  <text x="580" y="490" class="small">length + medium speed → propagation clock</text>
+  <text x="580" y="515" class="small">mouth / nostril terminal radiation</text>
+  <path d="M580 533H894" class="hairline"/>
+  <text x="580" y="555" class="tiny">steps = 2 × (c / 343) × (17.5 cm / L)</text>
+  <text x="580" y="575" class="micro">smooth fractional schedule · bounded 0.35…8</text>
+  <path d="M738 430V381Q738 366 753 366H1108Q1123 366 1123 328" class="control"/>
+  <path d="M853 430V401Q853 386 868 386H1420Q1437 386 1437 341" class="control"/>
+  <path d="M900 511H1429Q1444 511 1444 462H1465" class="control"/>
+
+  <!-- 03: genomes -->
+  <rect x="952" y="430" width="318" height="164" class="box-alien"/>
+  <circle cx="978" cy="456" r="12" class="badge"/><text x="978" y="460" class="badge-text">03</text>
+  <text x="1002" y="460" class="label violet">MOUTH GENOMES</text>
+  <text x="974" y="490" class="small">independent A ↔ B gene per mouth</text>
+  <text x="974" y="515" class="small">optional 0–4 Hz colony drift</text>
+  <text x="974" y="540" class="tiny">tongue position / height · lip diameter</text>
+  <text x="974" y="561" class="tiny">aperture · nasal openness · M1–M7</text>
+  <path d="M1111 430V400Q1111 385 1126 385H1518Q1533 385 1533 352" class="control"/>
+
+  <!-- 05: wormhole -->
+  <rect x="1304" y="508" width="415" height="156" class="box-alien"/>
+  <circle cx="1330" cy="534" r="12" class="badge"/><text x="1330" y="538" class="badge-text">05</text>
+  <text x="1354" y="538" class="label violet">WORMHOLE MANIFOLD</text>
+  <text x="1326" y="568" class="small">delayed reflected-mouth returns → other mouths</text>
+  <text x="1326" y="593" class="small">ring / star / Möbius / seeded random</text>
+  <text x="1326" y="618" class="tiny">0.5–40 ms · bounded return depth</text>
+  <text x="1326" y="640" class="micro">requires at least two participating mouths</text>
+  <path d="M1578 352V491Q1578 501 1568 501H1513Q1503 501 1503 508" class="feedback"/>
+  <path d="M1304 586H1288Q1278 586 1278 576V354Q1278 342 1290 342" class="feedback"/>
+
+  <!-- Audio-rate pressure feedback to larynx -->
+  <path d="M1108 328V386Q1108 404 1090 404H678Q660 404 660 342" class="feedback"/>
+  <text x="842" y="397" class="tiny violet">audio-rate root return wave</text>
+
+  <!-- Together note -->
+  <rect x="558" y="625" width="676" height="70" class="box-reset"/>
+  <text x="580" y="653" class="label mint">INDEPENDENT SWITCHES / INTERACTING PHYSICS</text>
+  <text x="580" y="677" class="small">larynx → glands → pressure → geometry → wormhole returns; enable any combination</text>
+
+  <!-- Control, fallback, and output -->
+  <rect x="50" y="760" width="1700" height="295" class="panel-output"/>
+  <text x="76" y="793" class="section">CONTROL / FALLBACK / OUTPUT</text>
+
+  <rect x="76" y="820" width="392" height="180" class="box-control"/>
+  <text x="98" y="851" class="label cyan">UI + VOICE ANCHOR</text>
+  <text x="98" y="876" class="small">presets · phonemes · anatomy · five toggles</text>
+  <text x="98" y="900" class="tiny">configure → AudioWorklet</text>
+  <text x="98" y="922" class="tiny">pressure telemetry ← root / mouths / glands</text>
+  <rect x="98" y="944" width="346" height="37" class="box-reset"/>
+  <text x="271" y="968" class="small mint" text-anchor="middle">RETURN TO VOICE · BYPASS 5 + CLEAR LOOPS</text>
+  <path d="M271 820V742Q271 713 300 713H875Q900 713 900 688" class="control"/>
+  <path d="M942 688V717Q942 740 919 740H492Q468 740 468 764V900" class="control"/>
+  <path d="M444 962H498Q514 962 514 946V735Q514 713 536 713H558" class="reset"/>
+
+  <rect x="510" y="820" width="286" height="180" class="box"/>
+  <text x="532" y="851" class="label">WORKLET FALLBACK</text>
+  <text x="532" y="877" class="small">7 serial formant throats</text>
+  <text x="532" y="899" class="small">+ 3 nose resonators</text>
+  <text x="532" y="925" class="tiny">recognizable voice remains</text>
+  <text x="532" y="948" class="tiny violet">five worklet mutations unavailable</text>
+  <text x="532" y="971" class="micro">used only when AudioWorklet is missing</text>
+  <path d="M464 580H492Q503 580 503 591V886Q503 896 510 896" class="audio"/>
+
+  <rect x="842" y="850" width="198" height="120" class="box-base"/>
+  <text x="864" y="882" class="label lime">DRY + WET</text>
+  <text x="864" y="908" class="small">voice mix bus</text>
+  <text x="864" y="932" class="tiny">base or mutated tract</text>
+  <path d="M162 600V1030H816Q828 1030 828 1018V930Q828 918 842 918" class="audio"/>
+  <path d="M796 910H842" class="audio"/>
+  <path d="M1719 271H1760V786Q1760 805 1741 805H1070Q1052 805 1052 823V882Q1052 894 1040 894" class="audio"/>
+  <path d="M1719 428H1760" class="audio"/>
+
+  <rect x="1086" y="830" width="318" height="160" class="box"/>
+  <text x="1108" y="861" class="label">OUTPUT SAFETY</text>
+  <text x="1108" y="888" class="small">analyser → 16:1 compressor</text>
+  <text x="1108" y="912" class="small">±0.94 ceiling shaper</text>
+  <text x="1108" y="936" class="small">sqrt master × calibrated trim</text>
+  <text x="1108" y="963" class="tiny">final bounded stereo signal</text>
+  <path d="M1040 910H1086" class="audio"/>
+
+  <rect x="1450" y="850" width="270" height="120" class="box-control"/>
+  <text x="1472" y="882" class="label cyan">STEREO OUTPUT</text>
+  <text x="1472" y="908" class="small">speaker / selected device</text>
+  <text x="1472" y="932" class="small">+ MediaRecorder take</text>
+  <path d="M1404 910H1450" class="audio"/>
+
+  <path d="M50 1080H1750" stroke="#302634" stroke-width="1"/>
+  <circle cx="65" cy="1101" r="4" fill="#d8ff57"/><text x="78" y="1106" class="tiny">preserved audio rail</text>
+  <path d="M238 1101H278" class="alien-audio"/><text x="291" y="1106" class="tiny">alien audio / feedback</text>
+  <path d="M477 1101H517" class="control"/><text x="530" y="1106" class="tiny">configuration / telemetry</text>
+  <path d="M741 1101H781" class="reset"/><text x="794" y="1106" class="tiny">global bypass / reset</text>
+  <text x="1750" y="1106" class="tiny" text-anchor="end">Morphazoid · Alien Larynx · architecture snapshot 2026-08-18</text>
+</svg>

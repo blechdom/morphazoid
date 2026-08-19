@@ -810,6 +810,21 @@ export function contactsForLine(
     .sort((first, second) => first.along - second.along);
 }
 
+/** Stable physical-edge identity used to recognize a newly crossed lattice edge. */
+export function latticeContactOnsetKey(contact) {
+  return contact?.onsetKey ?? contact?.voiceKey;
+}
+
+/**
+ * Return only contacts whose physical edges were absent from the prior sample.
+ * Periodic voice keys intentionally repeat as the tiling translates, so they
+ * cannot distinguish a real manual crossing from a playhead parked in place.
+ */
+export function newlyEnteredLatticeContacts(contacts, previousKeys = new Set()) {
+  const prior = previousKeys instanceof Set ? previousKeys : new Set(previousKeys);
+  return contacts.filter((contact) => !prior.has(latticeContactOnsetKey(contact)));
+}
+
 /** Keep an even spatial sample when a dense line exceeds the voice budget. */
 export function evenlySelectContacts(contacts, count) {
   const limit = Math.max(0, Math.trunc(Number(count) || 0));

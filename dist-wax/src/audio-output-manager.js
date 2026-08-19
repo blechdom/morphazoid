@@ -20,13 +20,73 @@ function safeRuntime(runtime) {
 
 function noOpRelease() {}
 
+function silentLevel() {
+  return Object.freeze({
+    leftRms: 0,
+    leftPeak: 0,
+    rightRms: 0,
+    rightPeak: 0,
+    rms: 0,
+    peak: 0,
+    clipped: false,
+    active: false,
+  });
+}
+
+function configuredAnalyser(context) {
+  try {
+    if (typeof context?.createAnalyser !== "function") return null;
+    const analyser = context.createAnalyser();
+    analyser.fftSize = DEFAULT_FFT_SIZE;
+    if ("smoothingTimeConstant" in analyser) analyser.smoothingTimeConstant = 0;
+    if (typeof analyser.getFloatTimeDomainData === "function") return analyser;
+    safeDisconnect(analyser);
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function safeDisconnect(node, target) {
+  try {
+    if (target === undefined) node?.disconnect?.();
+    else node?.disconnect?.(target);
+  } catch {
+    // Audio graph teardown is best-effort; the context may already be closed.
+  }
+}
+
+function readAnalyserChannel(record, analyser, samplesKey) {
+  const length = Math.max(1, Math.trunc(Number(analyser.fftSize) || DEFAULT_FFT_SIZE));
+  if (!record[samplesKey] || record[samplesKey].length !== length) {
+    record[samplesKey] = new Float32Array(length);
+  }
+  try {
+    analyser.getFloatTimeDomainData(record[samplesKey]);
+  } catch {
+    return null;
+  }
+  let squareSum = 0;
+  let sampleCount = 0;
+  let peak = 0;
+  for (const sample of record[samplesKey]) {
+    if (!Number.isFinite(sample)) continue;
+    const magnitude = Math.abs(sample);
+    if (magnitude > peak) peak = magnitude;
+    squareSum += sample * sample;
+    sampleCount += 1;
+  }
+  return { squareSum, sampleCount, peak };
+}
+
 /**
  * Shared, opt-in output metering for Morphazoid's Web Audio graphs.
  *
- * The manager owns one AnalyserNode for each AudioContext. Final mix nodes
- * connect to that analyser, and the analyser is the context's sole connection
- * to `destination`. Nothing is patched onto AudioNode prototypes, so native,
- * embedded/WAX, and test runtimes keep their normal Web Audio semantics.
+ * The manager owns a non-audible stereo meter tap for each AudioContext. Final
+ * mix nodes keep a direct connection to `destination`, while a parallel
+ * two-channel tap feeds independent left and right AnalyserNodes. Nothing is
+ * patched onto AudioNode prototypes, so native, embedded/WAX, and test runtimes
+ * keep their normal Web Audio semantics.
  */
 export class AudioOutputManager {
   constructor(runtime = globalThis) {
@@ -39,12 +99,7 @@ export class AudioOutputManager {
     this.listeningForDevices = false;
     this.selectedOutputId = "";
     this.outputDevices = [];
-    this.lastLevel = Object.freeze({
-      rms: 0,
-      peak: 0,
-      clipped: false,
-      active: false,
-    });
+    this.lastLevel = silentLevel();
 
     this.handleVisibilityChange = () => {
       if (this.isVisible()) {
@@ -52,12 +107,7 @@ export class AudioOutputManager {
         return;
       }
       this.stopMeterLoop();
-      this.lastLevel = Object.freeze({
-        rms: 0,
-        peak: 0,
-        clipped: false,
-        active: false,
-      });
+      this.lastLevel = silentLevel();
       this.publish();
     };
     this.handleDeviceChange = () => {
@@ -77,7 +127,7 @@ export class AudioOutputManager {
   meteredContextCount() {
     let count = 0;
     for (const record of this.contexts.values()) {
-      if (record.analyser) count += 1;
+      if (record.leftAnalyser) count += 1;
     }
     return count;
   }
@@ -180,37 +230,54 @@ export class AudioOutputManager {
   }
 
   sample() {
-    let squareSum = 0;
-    let sampleCount = 0;
-    let peak = 0;
+    let leftSquareSum = 0;
+    let leftSampleCount = 0;
+    let leftPeak = 0;
+    let rightSquareSum = 0;
+    let rightSampleCount = 0;
+    let rightPeak = 0;
 
     for (const record of this.contexts.values()) {
-      const { analyser, context } = record;
-      if (!analyser || context?.state === "closed" || context?.state === "suspended") continue;
-      const length = Math.max(1, Math.trunc(Number(analyser.fftSize) || DEFAULT_FFT_SIZE));
-      if (!record.samples || record.samples.length !== length) {
-        record.samples = new Float32Array(length);
-      }
-      try {
-        analyser.getFloatTimeDomainData(record.samples);
-      } catch {
+      const { leftAnalyser, rightAnalyser, context } = record;
+      if (!leftAnalyser || context?.state === "closed" || context?.state === "suspended") {
         continue;
       }
-      for (const sample of record.samples) {
-        if (!Number.isFinite(sample)) continue;
-        const magnitude = Math.abs(sample);
-        if (magnitude > peak) peak = magnitude;
-        squareSum += sample * sample;
-        sampleCount += 1;
-      }
+
+      const left = readAnalyserChannel(record, leftAnalyser, "leftSamples");
+      if (!left) continue;
+      const right = rightAnalyser === leftAnalyser
+        ? left
+        : readAnalyserChannel(record, rightAnalyser, "rightSamples");
+
+      leftSquareSum += left.squareSum;
+      leftSampleCount += left.sampleCount;
+      if (left.peak > leftPeak) leftPeak = left.peak;
+      if (!right) continue;
+      rightSquareSum += right.squareSum;
+      rightSampleCount += right.sampleCount;
+      if (right.peak > rightPeak) rightPeak = right.peak;
     }
 
-    const rawRms = sampleCount > 0 ? Math.sqrt(squareSum / sampleCount) : 0;
+    const rawLeftRms = leftSampleCount > 0
+      ? Math.sqrt(leftSquareSum / leftSampleCount)
+      : 0;
+    const rawRightRms = rightSampleCount > 0
+      ? Math.sqrt(rightSquareSum / rightSampleCount)
+      : 0;
+    const sampleCount = leftSampleCount + rightSampleCount;
+    const rawRms = sampleCount > 0
+      ? Math.sqrt((leftSquareSum + rightSquareSum) / sampleCount)
+      : 0;
+    const rawPeak = Math.max(leftPeak, rightPeak);
     this.lastLevel = Object.freeze({
+      leftRms: Math.min(1, Math.max(0, rawLeftRms)),
+      leftPeak: Math.min(1, Math.max(0, leftPeak)),
+      rightRms: Math.min(1, Math.max(0, rawRightRms)),
+      rightPeak: Math.min(1, Math.max(0, rightPeak)),
       rms: Math.min(1, Math.max(0, rawRms)),
-      peak: Math.min(1, Math.max(0, peak)),
-      clipped: peak >= 1,
-      active: peak >= SILENCE_FLOOR,
+      peak: Math.min(1, Math.max(0, rawPeak)),
+      clipped: rawPeak >= 1,
+      active: rawPeak >= SILENCE_FLOOR,
     });
     return this.lastLevel;
   }
@@ -260,46 +327,71 @@ export class AudioOutputManager {
       if (this.subscribers.size > 0) return;
       this.stopMeterLoop();
       this.removeLifecycleListeners();
-      this.lastLevel = Object.freeze({
-        rms: 0,
-        peak: 0,
-        clipped: false,
-        active: false,
-      });
+      this.lastLevel = silentLevel();
     };
   }
 
   createContextRecord(context) {
-    let analyser = null;
-    try {
-      if (typeof context?.createAnalyser === "function") {
-        analyser = context.createAnalyser();
-        analyser.fftSize = DEFAULT_FFT_SIZE;
-        if ("smoothingTimeConstant" in analyser) analyser.smoothingTimeConstant = 0;
-        if (typeof analyser.getFloatTimeDomainData !== "function") analyser = null;
+    let meterInput = null;
+    let meterBus = null;
+    let splitter = null;
+    let leftAnalyser = null;
+    let rightAnalyser = null;
+
+    // An explicit two-channel, speaker-interpreted GainNode up-mixes a mono
+    // final mix to dual mono before splitting, matching destination playback.
+    // It leaves an existing stereo mix (including panning) intact.
+    if (
+      typeof context?.createGain === "function"
+      && typeof context?.createChannelSplitter === "function"
+    ) {
+      try {
+        meterBus = context.createGain();
+        meterBus.channelCount = 2;
+        meterBus.channelCountMode = "explicit";
+        meterBus.channelInterpretation = "speakers";
+        if (meterBus.gain) meterBus.gain.value = 1;
+        splitter = context.createChannelSplitter(2);
+        leftAnalyser = configuredAnalyser(context);
+        rightAnalyser = configuredAnalyser(context);
+        if (!leftAnalyser || !rightAnalyser) throw new Error("Stereo analyser unavailable");
+        meterBus.connect(splitter);
+        splitter.connect(leftAnalyser, 0, 0);
+        splitter.connect(rightAnalyser, 1, 0);
+        meterInput = meterBus;
+      } catch {
+        safeDisconnect(meterBus);
+        safeDisconnect(splitter);
+        safeDisconnect(leftAnalyser);
+        safeDisconnect(rightAnalyser);
+        meterInput = null;
+        meterBus = null;
+        splitter = null;
+        leftAnalyser = null;
+        rightAnalyser = null;
       }
-    } catch {
-      analyser = null;
     }
 
-    if (analyser) {
-      try {
-        analyser.connect(context.destination);
-      } catch {
-        try {
-          analyser.disconnect?.();
-        } catch {
-          // A partially constructed analyser has no externally visible owner.
-        }
-        analyser = null;
-      }
+    // Minimal Web Audio/test runtimes can still provide a useful dual-mono
+    // meter without changing or interrupting their direct destination route.
+    if (!meterInput) {
+      leftAnalyser = configuredAnalyser(context);
+      rightAnalyser = leftAnalyser;
+      meterInput = leftAnalyser;
     }
 
     const record = {
       context,
-      analyser,
+      meterInput,
+      meterBus,
+      splitter,
+      leftAnalyser,
+      rightAnalyser,
       sources: new Set(),
-      samples: analyser ? new Float32Array(DEFAULT_FFT_SIZE) : null,
+      leftSamples: leftAnalyser ? new Float32Array(DEFAULT_FFT_SIZE) : null,
+      rightSamples: rightAnalyser && rightAnalyser !== leftAnalyser
+        ? new Float32Array(DEFAULT_FFT_SIZE)
+        : null,
     };
     this.contexts.set(context, record);
 
@@ -320,15 +412,30 @@ export class AudioOutputManager {
     }
 
     const record = this.contexts.get(context) ?? this.createContextRecord(context);
-    const target = record.analyser ?? context.destination;
+    const audibleTarget = context.destination;
     try {
-      source.connect(target);
+      source.connect(audibleTarget);
     } catch {
       if (record.sources.size === 0) this.removeEmptyContextRecord(record);
       return noOpRelease;
     }
 
-    const sourceRecord = { contextRecord: record, target, references: 1 };
+    let meterTarget = null;
+    if (record.meterInput) {
+      try {
+        source.connect(record.meterInput);
+        meterTarget = record.meterInput;
+      } catch {
+        // Metering is optional; the direct audible route remains valid.
+      }
+    }
+
+    const sourceRecord = {
+      contextRecord: record,
+      audibleTarget,
+      meterTarget,
+      references: 1,
+    };
     record.sources.add(source);
     this.sources.set(source, sourceRecord);
     this.publish();
@@ -348,9 +455,16 @@ export class AudioOutputManager {
       const record = sourceRecord.contextRecord;
       record.sources.delete(source);
       try {
-        source.disconnect?.(sourceRecord.target);
+        source.disconnect?.(sourceRecord.audibleTarget);
       } catch {
         // Engines may disconnect their full graph before releasing this lease.
+      }
+      if (sourceRecord.meterTarget) {
+        try {
+          source.disconnect?.(sourceRecord.meterTarget);
+        } catch {
+          // Engines may disconnect their full graph before releasing this lease.
+        }
       }
       if (record.sources.size === 0) this.removeEmptyContextRecord(record);
       this.publish();
@@ -361,25 +475,13 @@ export class AudioOutputManager {
     if (record.sources.size > 0) return;
     if (this.contexts.get(record.context) !== record) return;
     this.contexts.delete(record.context);
-    if (record.analyser) {
-      try {
-        record.analyser.disconnect?.(record.context.destination);
-      } catch {
-        try {
-          record.analyser.disconnect?.();
-        } catch {
-          // The context may already be closed.
-        }
-      }
-    }
+    safeDisconnect(record.meterBus);
+    safeDisconnect(record.splitter);
+    safeDisconnect(record.leftAnalyser);
+    if (record.rightAnalyser !== record.leftAnalyser) safeDisconnect(record.rightAnalyser);
     if (this.meteredContextCount() === 0) {
       this.stopMeterLoop();
-      this.lastLevel = Object.freeze({
-        rms: 0,
-        peak: 0,
-        clipped: false,
-        active: false,
-      });
+      this.lastLevel = silentLevel();
     }
   }
 

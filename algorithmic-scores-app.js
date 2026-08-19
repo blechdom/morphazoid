@@ -1011,7 +1011,21 @@ function installEventHandlers() {
 
   document.addEventListener("keydown", (event) => {
     const target = event.target;
-    if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement) return;
+    const tagName = String(target?.tagName ?? "").toUpperCase();
+    const role = String(target?.getAttribute?.("role") ?? "").toLowerCase();
+    const keyboardOwned = ["A", "BUTTON", "INPUT", "SELECT", "SUMMARY", "TEXTAREA"].includes(tagName)
+      || target?.isContentEditable
+      || ["button", "checkbox", "combobox", "link", "slider", "spinbutton", "switch", "textbox"].includes(role);
+    if (
+      keyboardOwned
+      || event.defaultPrevented
+      || event.repeat
+      || event.isComposing
+      || event.altKey
+      || event.ctrlKey
+      || event.metaKey
+      || event.shiftKey
+    ) return;
     if (event.code === "Space") {
       event.preventDefault();
       togglePlayback();

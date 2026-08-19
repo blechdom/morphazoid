@@ -5,6 +5,7 @@ import {
   crossesPeriodicTarget,
   crossesPingPongTarget,
   motionSubsteps,
+  pingPongMotionDirection,
   rebaseContinuousPosition,
   rebasePingPongPosition,
   spatialEnvelopeTimeRange,
@@ -29,12 +30,29 @@ test("ping-pong crossings work on both legs and at the turnaround", () => {
   assert.equal(crossesPingPongTarget(1.6, 1.8, 0.3), true);
   assert.equal(crossesPingPongTarget(1.8, 1.6, 0.3), true);
   assert.equal(crossesPingPongTarget(0.9, 1.1, 1), true);
+  assert.equal(
+    Number(crossesPingPongTarget(0.9, 1, 1))
+      + Number(crossesPingPongTarget(1, 1.1, 1)),
+    1,
+    "a turnaround split across frames must strike its endpoint exactly once",
+  );
   assert.equal(crossesPingPongTarget(0.2, 0.25, 0.3), false);
 });
 
 test("ping-pong crossing follows a moving target", () => {
   assert.equal(crossesPingPongTarget(0.5, 0.5, 0.6, 0.4), true);
   assert.equal(crossesPingPongTarget(0.5, 0.5, 0.6, 0.55), false);
+});
+
+test("ping-pong motion direction follows both legs and exact turnarounds", () => {
+  assert.equal(pingPongMotionDirection(0.5, 1), 1);
+  assert.equal(pingPongMotionDirection(0.5, -1), -1);
+  assert.equal(pingPongMotionDirection(1.5, 1), -1);
+  assert.equal(pingPongMotionDirection(1.5, -1), 1);
+  assert.equal(pingPongMotionDirection(0, 1), 1);
+  assert.equal(pingPongMotionDirection(0, -1), 1);
+  assert.equal(pingPongMotionDirection(1, 1), -1);
+  assert.equal(pingPongMotionDirection(1, -1), -1);
 });
 
 test("a rotating vertex can cross a stationary scanner", () => {

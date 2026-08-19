@@ -1,0 +1,212 @@
+:root {
+  color-scheme: dark;
+}
+
+.tract-architecture-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 78% 8%, rgba(97, 255, 202, 0.11), transparent 28rem),
+    radial-gradient(circle at 12% 42%, rgba(205, 110, 255, 0.1), transparent 32rem),
+    #050807;
+  color: #eaf8f1;
+}
+
+.alien-larynx-architecture-page {
+  background:
+    radial-gradient(circle at 78% 8%, rgba(214, 109, 255, 0.14), transparent 30rem),
+    radial-gradient(circle at 10% 52%, rgba(121, 255, 200, 0.08), transparent 34rem),
+    #070509;
+}
+
+.alien-larynx-architecture-page .architecture-kicker,
+.alien-larynx-architecture-page .architecture-notes span {
+  color: #dc80ff;
+}
+
+.alien-larynx-architecture-page .architecture-figure {
+  border-color: rgba(214, 109, 255, 0.3);
+  background: rgba(5, 2, 7, 0.82);
+}
+
+.architecture-shell {
+  width: min(1560px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: clamp(34px, 6vw, 84px) 0 80px;
+}
+
+.architecture-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 26px;
+}
+
+.architecture-kicker {
+  margin: 0 0 10px;
+  color: #75ffcc;
+  font: 700 0.72rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.18em;
+}
+
+.architecture-heading h1 {
+  max-width: 920px;
+  margin: 0;
+  font-size: clamp(2rem, 5.5vw, 5.7rem);
+  line-height: 0.93;
+  letter-spacing: -0.055em;
+  text-transform: uppercase;
+}
+
+.architecture-heading p:not(.architecture-kicker) {
+  max-width: 760px;
+  margin: 18px 0 0;
+  color: rgba(234, 248, 241, 0.7);
+  line-height: 1.55;
+}
+
+.architecture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.architecture-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 17px;
+  border: 1px solid rgba(117, 255, 204, 0.46);
+  border-radius: 999px;
+  color: #dffff2;
+  background: rgba(117, 255, 204, 0.07);
+  text-decoration: none;
+  font: 700 0.76rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.architecture-button:hover,
+.architecture-button:focus-visible {
+  border-color: #75ffcc;
+  background: rgba(117, 255, 204, 0.15);
+}
+
+.architecture-button.is-alien {
+  border-color: rgba(215, 123, 255, 0.55);
+  background: rgba(215, 123, 255, 0.09);
+}
+
+.architecture-figure {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(117, 255, 204, 0.22);
+  border-radius: 22px;
+  background: rgba(2, 5, 4, 0.78);
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.42);
+}
+
+.architecture-figure object,
+.architecture-figure img {
+  display: block;
+  width: 100%;
+  min-height: 620px;
+  border: 0;
+}
+
+.architecture-figure figcaption {
+  padding: 13px 18px 15px;
+  border-top: 1px solid rgba(117, 255, 204, 0.14);
+  color: rgba(234, 248, 241, 0.6);
+  font: 0.75rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.architecture-notes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.architecture-notes article {
+  position: relative;
+  min-height: 128px;
+  padding: 20px 20px 20px 62px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.architecture-notes span {
+  position: absolute;
+  top: 22px;
+  left: 20px;
+  color: #75ffcc;
+  font: 700 0.72rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.architecture-notes h2 {
+  margin: 0 0 7px;
+  font-size: 0.86rem;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.architecture-notes p {
+  margin: 0;
+  color: rgba(234, 248, 241, 0.65);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 840px) {
+  .architecture-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .architecture-actions {
+    justify-content: flex-start;
+  }
+
+  .architecture-figure object,
+  .architecture-figure img {
+    min-height: 480px;
+  }
+
+  .architecture-notes {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .architecture-shell {
+    width: min(100% - 18px, 1560px);
+    padding-top: 28px;
+  }
+
+  .architecture-heading h1 {
+    font-size: clamp(2.1rem, 14vw, 3.7rem);
+  }
+
+  .architecture-actions,
+  .architecture-button {
+    width: 100%;
+  }
+
+  .architecture-button {
+    justify-content: center;
+  }
+
+  .architecture-figure {
+    overflow-x: auto;
+  }
+
+  .architecture-figure object,
+  .architecture-figure img {
+    width: 1120px;
+    min-height: 630px;
+  }
+}

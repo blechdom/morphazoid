@@ -250,6 +250,7 @@ test("Fuzzy Donut initializes, draws, and drives one live recursive instrument",
       return source;
     }
     async resume() { this.state = "running"; }
+    async suspend() { this.state = "suspended"; }
     async close() { this.state = "closed"; }
   };
 
@@ -343,15 +344,31 @@ test("Fuzzy Donut initializes, draws, and drives one live recursive instrument",
   elements.get("depth").value = "2";
   listeners.get("depth:input")({ currentTarget: elements.get("depth") });
   listeners.get("depth:change")({ currentTarget: elements.get("depth") });
+
+  await listeners.get("listenButton:click")();
+  assert.equal(contexts.length, 0, "Listen must not prepare or arm Web Audio");
+  assert.equal(elements.get("audioState").textContent, "off");
+  assert.equal(elements.get("audioButton").getAttribute("aria-pressed"), "false");
+  assert.equal(elements.get("listenButton").getAttribute("aria-pressed"), "false");
+  assert.match(elements.get("liveStatus").textContent, /Turn Audio on before listening/);
+
+  await listeners.get("audioButton:click")();
+  assert.equal(contexts.length, 1);
+  assert.equal(elements.get("audioState").textContent, "on");
+  assert.equal(elements.get("audioButton").getAttribute("aria-pressed"), "true");
+  assert.equal(elements.get("listenButton").getAttribute("aria-pressed"), "false");
+  assert.match(elements.get("stageReadout").textContent, /AUDIO READY/);
+
   await listeners.get("listenButton:click")();
   assert.equal(contexts.length, 1);
   assert.equal(elements.get("audioState").textContent, "on");
+  assert.equal(elements.get("audioButton").getAttribute("aria-pressed"), "true");
   assert.equal(elements.get("listenButton").getAttribute("aria-pressed"), "true");
   contexts[0].currentTime = 0.1;
   flushFrame();
   assert.ok(bufferSources.some((source) => source.started));
   assert.match(elements.get("stageReadout").textContent, /\bG2\b/);
-  assert.match(elements.get("stageReadout").textContent, /\bON\b/);
+  assert.match(elements.get("stageReadout").textContent, /\bPLAYING\b/);
 
   const contextCount = contexts.length;
   const filterSnapshot = filters.map((filter) => filter.frequency.value);
@@ -405,7 +422,10 @@ test("Fuzzy Donut initializes, draws, and drives one live recursive instrument",
   );
 
   await listeners.get("listenButton:click")();
-  assert.equal(elements.get("audioState").textContent, "off");
+  assert.equal(elements.get("audioState").textContent, "on");
+  assert.equal(elements.get("audioButton").getAttribute("aria-pressed"), "true");
+  assert.equal(elements.get("listenButton").getAttribute("aria-pressed"), "false");
+  assert.match(elements.get("stageReadout").textContent, /AUDIO READY/);
   await listeners.get("stepButton:click")();
   await listeners.get("stepButton:click")();
   const scheduledRates = bufferSources
@@ -431,4 +451,14 @@ test("Fuzzy Donut initializes, draws, and drives one live recursive instrument",
     "the timbre clock should move filters across a broad spectral range",
   );
   assert.match(elements.get("liveStatus").textContent, /^G2 · \d+ events$/);
+
+  await listeners.get("audioButton:click")();
+  assert.equal(elements.get("audioState").textContent, "off");
+  assert.equal(elements.get("audioButton").getAttribute("aria-pressed"), "false");
+  assert.equal(elements.get("listenButton").getAttribute("aria-pressed"), "false");
+  assert.equal(contexts[0].state, "suspended");
+  const sourcesWhileOff = bufferSources.length;
+  await listeners.get("stepButton:click")();
+  assert.equal(bufferSources.length, sourcesWhileOff);
+  assert.match(elements.get("liveStatus").textContent, /Turn Audio on before stepping/);
 });

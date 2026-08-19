@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Gesturama — paint sounds with a pointer, then perform Drum Grid, Resonant Pads, or Video Harp with camera motion and tracked color."
+    />
+    <title>Gesturama — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="gesturama.css" />
+  </head>
+  <body class="gesturama-page" data-instrument-info="off">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab active" href="gesturama.html" aria-current="page">gesturama</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="gesturama.html" selected>gesturama</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">72%</output></span>
+          <input id="output" aria-label="Gesturama output level" type="range" min="0" max="100" step="1" value="72" />
+        </label>
+      </div>
+    </header>
+
+    <main class="gesturama-app" id="gesturama">
+      <div class="app-shell">
+        <div class="instrument-layout">
+          <section class="performance-area" aria-label="Video paint stage">
+            <div class="stage-heading">
+              <div class="stage-title-group">
+                <h1>Gesturama / Video Instrument</h1>
+                <label class="preset-picker" for="preset-select">
+                  <span>Preset</span>
+                  <select id="preset-select" aria-describedby="preset-description">
+                    <option value="drums" data-preset="drums" selected>Drum Grid</option>
+                    <option value="pads" data-preset="pads">Resonant Pads</option>
+                    <option value="harp" data-preset="harp">Video Harp</option>
+                  </select>
+                </label>
+                <span id="preset-description" class="visually-hidden" aria-live="polite">
+                  Drum Grid maps camera movement across twelve percussion cells.
+                </span>
+              </div>
+              <div class="stage-heading-meta">
+                <div class="topbar-status" aria-label="Session status">
+                  <span id="camera-status" class="status-chip" data-live="false">Camera off</span>
+                  <span id="zone-count" class="status-chip">12 grid · 0 paint zones</span>
+                </div>
+                <div class="vision-label">
+                  <span class="vision-icon" aria-hidden="true"></span>
+                  CAMERA: MOTION + COLOR
+                </div>
+              </div>
+            </div>
+
+            <div id="camera-stage" class="camera-stage" data-preset="drums" data-tool="brush">
+              <div class="stage-placeholder" aria-hidden="true">
+                <div class="placeholder-orbit orbit-one"></div>
+                <div class="placeholder-orbit orbit-two"></div>
+                <div class="placeholder-copy">YOUR MOVEMENT<br />BECOMES RHYTHM</div>
+              </div>
+              <video id="camera-feed" autoplay muted playsinline aria-label="Live mirrored camera feed"></video>
+              <div class="video-shade" aria-hidden="true"></div>
+              <div
+                id="trigger-grid"
+                class="trigger-grid"
+                role="img"
+                aria-label="Twelve-cell camera performance surface"
+                aria-hidden="true"
+              >
+                <span data-grid-cell="0" data-instrument="kick"><b>KICK</b></span>
+                <span data-grid-cell="1" data-instrument="snare"><b>SNARE</b></span>
+                <span data-grid-cell="2" data-instrument="hat"><b>HAT</b></span>
+                <span data-grid-cell="3" data-instrument="clap"><b>CLAP</b></span>
+                <span data-grid-cell="4" data-instrument="hat"><b>HAT</b></span>
+                <span data-grid-cell="5" data-instrument="clap"><b>CLAP</b></span>
+                <span data-grid-cell="6" data-instrument="kick"><b>KICK</b></span>
+                <span data-grid-cell="7" data-instrument="snare"><b>SNARE</b></span>
+                <span data-grid-cell="8" data-instrument="clap"><b>CLAP</b></span>
+                <span data-grid-cell="9" data-instrument="hat"><b>HAT</b></span>
+                <span data-grid-cell="10" data-instrument="snare"><b>SNARE</b></span>
+                <span data-grid-cell="11" data-instrument="kick"><b>KICK</b></span>
+              </div>
+              <div
+                id="harp-strings"
+                class="harp-strings"
+                role="img"
+                aria-label="Twelve horizontal video harp strings from C4 through B4"
+                hidden
+                aria-hidden="true"
+              >
+                <span data-harp-string="0" data-note="60"><b>C4</b></span>
+                <span data-harp-string="1" data-note="61"><b>C♯4</b></span>
+                <span data-harp-string="2" data-note="62"><b>D4</b></span>
+                <span data-harp-string="3" data-note="63"><b>D♯4</b></span>
+                <span data-harp-string="4" data-note="64"><b>E4</b></span>
+                <span data-harp-string="5" data-note="65"><b>F4</b></span>
+                <span data-harp-string="6" data-note="66"><b>F♯4</b></span>
+                <span data-harp-string="7" data-note="67"><b>G4</b></span>
+                <span data-harp-string="8" data-note="68"><b>G♯4</b></span>
+                <span data-harp-string="9" data-note="69"><b>A4</b></span>
+                <span data-harp-string="10" data-note="70"><b>A♯4</b></span>
+                <span data-harp-string="11" data-note="71"><b>B4</b></span>
+              </div>
+              <canvas
+                id="paint-canvas"
+                tabindex="0"
+                aria-label="Camera paint surface"
+                aria-describedby="canvas-instructions"
+              >
+                Paint sound zones over the camera image, then perform them with camera movement.
+              </canvas>
+              <canvas id="feedback-canvas" aria-hidden="true"></canvas>
+              <span id="color-tracker-marker" class="color-tracker-marker" hidden aria-hidden="true"></span>
+
+              <div class="stage-status" id="stage-status" data-kind="ready" aria-live="polite">
+                <span class="status-light" aria-hidden="true"></span>
+                <span id="stage-status-text">Ready</span>
+              </div>
+
+              <button
+                id="motion-view-button"
+                class="motion-view-button"
+                type="button"
+                aria-pressed="false"
+                aria-controls="feedback-canvas"
+                aria-describedby="motion-view-description"
+              >
+                <span class="motion-view-glyph" aria-hidden="true"><i></i></span>
+                <span>
+                  <b>Motion view</b>
+                  <small class="motion-view-state"><span>COLOR</span><span>B + W</span></small>
+                </span>
+              </button>
+              <span id="motion-view-description" class="visually-hidden">
+                Toggle a high-contrast black and white view of what the camera detects.
+              </span>
+
+              <div class="debug-panel" id="debug-panel" hidden>
+                <span>MOTION <b id="debug-motion">0</b></span>
+                <span>HITS <b id="debug-hits">K:0 S:0 H:0 C:0 M:0</b></span>
+              </div>
+
+              <aside id="coach" class="coach" hidden aria-label="Getting started">
+                <button id="coach-close" class="coach-close" type="button" aria-label="Dismiss tips">×</button>
+                <span class="eyebrow">QUICK START</span>
+                <p id="coach-paint"><i>1</i> Paint zones with your pointer or mouse</p>
+                <p id="coach-play"><i>2</i> Move on camera to perform them</p>
+              </aside>
+
+              <div id="start-screen" class="start-screen">
+                <div class="start-card">
+                  <button id="start-button" class="primary-button" type="button">
+                    <span>Start camera</span>
+                  </button>
+                  <p class="start-privacy">Camera processing stays on this device</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="transport-row">
+              <div class="stage-actions">
+                <button id="camera-button" class="icon-text-button" type="button" aria-pressed="false">
+                  <span aria-hidden="true">◉</span><span>Camera off</span>
+                </button>
+                <button id="mirror-button" class="icon-text-button compact" type="button" aria-pressed="true" title="Mirror camera">
+                  <span aria-hidden="true">⇆</span><span class="visually-hidden">Mirror camera</span>
+                </button>
+                <button id="mute-button" class="icon-text-button" type="button" aria-pressed="false">
+                  <span aria-hidden="true">◖</span><span>Mute</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <aside class="control-rail" aria-label="Gesturama controls">
+            <section class="control-panel drum-panel">
+              <div class="panel-heading">
+                <div>
+                  <span class="panel-number">01</span>
+                  <h2>Sound palette</h2>
+                </div>
+                <span class="mini-label">SELECT + PAINT</span>
+              </div>
+              <div class="drum-grid">
+                <button class="drum-choice kick" data-instrument="kick" data-note="36" type="button" aria-pressed="true">
+                  <span class="drum-swatch"><i></i></span>
+                  <span><b>Kick</b><small>Low boom</small></span>
+                  <kbd>1</kbd>
+                </button>
+                <button class="drum-choice snare" data-instrument="snare" data-note="38" type="button" aria-pressed="false">
+                  <span class="drum-swatch"><i></i></span>
+                  <span><b>Snare</b><small>Bright crack</small></span>
+                  <kbd>2</kbd>
+                </button>
+                <button class="drum-choice hat" data-instrument="hat" data-note="42" type="button" aria-pressed="false">
+                  <span class="drum-swatch"><i></i></span>
+                  <span><b>Hi-hat</b><small>Quick tick</small></span>
+                  <kbd>3</kbd>
+                </button>
+                <button class="drum-choice clap" data-instrument="clap" data-note="39" type="button" aria-pressed="false">
+                  <span class="drum-swatch"><i></i></span>
+                  <span><b>Clap</b><small>Wide snap</small></span>
+                  <kbd>4</kbd>
+                </button>
+                <button
+                  class="drum-choice sample"
+                  data-instrument="sample"
+                  data-note="40"
+                  type="button"
+                  aria-pressed="false"
+                  aria-describedby="sample-status"
+                >
+                  <span class="drum-swatch"><i></i></span>
+                  <span><b>Mic sample</b><small>Paint your recording</small></span>
+                  <kbd>5</kbd>
+                </button>
+              </div>
+              <div class="sample-recorder" role="group" aria-label="Microphone sample recorder">
+                <button
+                  id="record-sample-button"
+                  type="button"
+                  aria-pressed="false"
+                  aria-describedby="sample-recorder-help sample-status"
+                >
+                  <span class="record-dot" aria-hidden="true"></span>
+                  <span class="record-button-label">Record sample</span>
+                </button>
+                <span id="sample-status" data-state="empty" role="status" aria-live="polite">No sample</span>
+              </div>
+              <p id="sample-recorder-help" class="sample-recorder-help">The microphone is used only while recording this one slot.</p>
+            </section>
+
+            <section class="control-panel tools-panel">
+              <div class="panel-heading">
+                <div>
+                  <span class="panel-number">02</span>
+                  <h2>Paint tools</h2>
+                </div>
+                <div class="history-buttons">
+                  <button id="undo-button" type="button" disabled title="Undo (Ctrl/⌘ Z)" aria-label="Undo">↶</button>
+                  <button id="redo-button" type="button" disabled title="Redo (Ctrl/⌘ Shift Z)" aria-label="Redo">↷</button>
+                </div>
+              </div>
+              <div class="tool-grid" role="group" aria-label="Paint tool">
+                <button data-tool="brush" type="button" aria-pressed="true"><span class="tool-glyph brush-glyph"></span><b>Brush</b></button>
+                <button data-tool="line" type="button" aria-pressed="false"><span class="tool-glyph line-glyph"></span><b>Line</b></button>
+                <button data-tool="rect" type="button" aria-pressed="false"><span class="tool-glyph pad-glyph"></span><b>Pad</b></button>
+                <button data-tool="dot" type="button" aria-pressed="false"><span class="tool-glyph dot-glyph"></span><b>Dot</b></button>
+                <button data-tool="erase" type="button" aria-pressed="false"><span class="tool-glyph erase-glyph"></span><b>Erase</b></button>
+              </div>
+              <label class="range-control" for="brush-size">
+                <span><b>Paint size</b><small>fine ↔ bold</small></span>
+                <input id="brush-size" type="range" min="12" max="96" value="42" />
+              </label>
+              <div class="canvas-actions">
+                <button id="starter-kit-button" type="button"><span aria-hidden="true">⊞</span> Load starter kit</button>
+                <button id="clear-button" type="button"><span aria-hidden="true">×</span> Clear</button>
+              </div>
+            </section>
+
+            <section class="control-panel color-tracker-panel" aria-labelledby="color-tracker-heading">
+              <div class="panel-heading">
+                <div>
+                  <span class="panel-number">03</span>
+                  <h2 id="color-tracker-heading">Color tracker</h2>
+                </div>
+                <span id="tracker-status" class="filter-pill tracker-status" data-state="idle" role="status" aria-live="polite">NOT SET</span>
+              </div>
+              <p id="color-tracker-help" class="tracker-help">
+                Hold up a colored object, arm the picker, then tap that color in the video.
+              </p>
+              <div class="color-picker-row">
+                <button
+                  id="sample-color-button"
+                  class="sample-color-button"
+                  type="button"
+                  aria-pressed="false"
+                  aria-describedby="color-tracker-help"
+                >
+                  <span class="eyedropper-glyph" aria-hidden="true"></span>
+                  <span><b>Pick from video</b><small>then tap the frame</small></span>
+                </button>
+                <div class="tracked-color-readout" aria-label="Selected tracking color">
+                  <span id="tracked-color" class="tracked-color" data-active="false" aria-hidden="true"></span>
+                  <span><b>Tracking</b><output id="tracked-color-value">Not set</output></span>
+                </div>
+              </div>
+              <label class="range-control tracker-tolerance" for="color-tolerance">
+                <span>
+                  <b>Tolerance</b>
+                  <small>precise ↔ broad · <output id="color-tolerance-output" for="color-tolerance">28</output></small>
+                </span>
+                <input
+                  id="color-tolerance"
+                  type="range"
+                  min="5"
+                  max="80"
+                  step="1"
+                  value="28"
+                  aria-describedby="color-tolerance-help"
+                />
+              </label>
+              <p id="color-tolerance-help" class="field-note">Raise this if lighting changes make the color disappear.</p>
+              <div class="tracker-options">
+                <label class="toggle-row" for="show-color-mask">
+                  <span><b>Show tracked pixels</b><small>Preview the detected color</small></span>
+                  <input id="show-color-mask" type="checkbox" />
+                  <i aria-hidden="true"></i>
+                </label>
+                <button id="clear-tracked-color" class="clear-tracked-color" type="button" disabled>Clear color</button>
+              </div>
+            </section>
+
+            <section class="control-panel vision-panel">
+              <div class="panel-heading">
+                <div>
+                  <span class="panel-number">04</span>
+                  <h2>Motion vision</h2>
+                </div>
+                <span class="filter-pill">ACTIVE</span>
+              </div>
+              <label class="range-control" for="sensitivity">
+                <span><b>Sensitivity</b><small>steady ↔ lively</small></span>
+                <input id="sensitivity" type="range" min="0" max="100" value="64" />
+              </label>
+              <div class="motion-meter" aria-hidden="true"><i id="motion-meter-fill"></i></div>
+              <label class="toggle-row" for="show-motion">
+                <span><b>Detection overlay</b><small>Highlight active motion pixels</small></span>
+                <input id="show-motion" type="checkbox" />
+                <i aria-hidden="true"></i>
+              </label>
+              <label class="range-control compact-range" for="volume">
+                <span><b>Volume</b></span>
+                <input id="volume" type="range" min="0" max="100" value="72" />
+              </label>
+            </section>
+          </aside>
+        </div>
+
+        <footer class="app-footer">
+          <p><span class="footer-spark" aria-hidden="true">✦</span> Pointer paints · camera performs · processing stays local</p>
+          <div class="shortcuts" aria-label="Keyboard shortcuts and interaction guide">
+            <span><kbd>1–5</kbd> Paint sounds</span>
+            <span><kbd>Space</kbd> Mute</span>
+          </div>
+        </footer>
+      </div>
+
+      <p class="sr-only" id="canvas-instructions">
+        Choose Drum Grid, Resonant Pads, or Video Harp from the preset selector. A four by three
+        drum grid is visible by default. The pointer, mouse, and touch paint only: choose a sound,
+        then paint a line, pad, or dot over the image. Camera motion performs the preset and painted
+        zones. To follow a held object, choose Pick from video, then tap its color in the camera
+        frame. Motion view shows camera detection in high-contrast black and white.
+      </p>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="gesturama-app.js"></script>
+  </body>
+</html>

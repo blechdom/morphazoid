@@ -29,6 +29,12 @@ import {
 } from "./src/spiral.js";
 import { EdgeShape } from "./vendor/tactile/tactile.js";
 import { createAmplitudeControl } from "./src/amplitude-control.js";
+import {
+  pingPongMotionDirection,
+  rebaseContinuousPosition,
+  rebasePingPongPosition,
+} from "./src/articulation.js";
+import { emitMidiOutputPreview } from "./src/midi-output-preview.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -39,6 +45,19 @@ const DEFAULT_TILING_TYPE = 20;
 const CONTACT_REENTRY_GRACE_SECONDS = 0.08;
 const GEOMETRY_EDIT_SETTLE_MS = 180;
 const OPEN_ENVELOPE_GAIN = 0.00001;
+const MIDI_PREVIEW_ROUTE_ID = "spiral";
+const MIDI_PREVIEW_GATE_MS = 90;
+const MIDI_PREVIEW_FRAME_INTERVAL_MS = 40;
+const MANUAL_AUDITION_KEYS = new Set([
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowDown",
+  "ArrowUp",
+  "Home",
+  "End",
+  "PageDown",
+  "PageUp",
+]);
 const TILE_COLORS = [
   "rgba(95,232,196,.050)",
   "rgba(232,196,107,.050)",
@@ -68,7 +87,8 @@ const state = {
   loopPhase: 0,
   continuousLoopPhase: 0,
   speed: 0.12,
-  direction: 1,
+  traversalDirection: 1,
+  motionMode: "loop",
   loopSpeed: 0.05,
   loopDirection: 1,
   readerTurns: 2,
@@ -117,13 +137,29 @@ let lastFrameTime = performance.now();
 let audioChanging = false;
 const contactOnsets = new Map();
 const contactLastSeen = new Map();
+let midiPreviewContactKeys = new Set();
+const midiPreviewLastNoteTimes = new Map();
+const midiPreviewControlValues = new Map();
+const pendingMidiPreviewSignals = new Map();
+let lastMidiPreviewFlushTime = Number.NEGATIVE_INFINITY;
 const movableVertexCache = new Map();
 let suppressContactOnsetsUntil = 0;
 let suppressContactOnsetFrames = 0;
+let suppressMidiPreviewUntil = 0;
+let suppressMidiPreviewFrames = 2;
 let geometryWasEditing = false;
+let manualAudition = false;
+let manualAuditionMoved = false;
+let midiPreviewAudition = false;
+let midiPreviewAuditionMoved = false;
 
 function wrap01(value) {
   return ((value % 1) + 1) % 1;
+}
+
+function pingPong01(value) {
+  const wrapped = ((value % 2) + 2) % 2;
+  return wrapped <= 1 ? wrapped : 2 - wrapped;
 }
 
 function setPressed(element, pressed) {
@@ -142,6 +178,188 @@ function plural(count, singular, pluralForm = `${singular}s`) {
   return count === 1 ? singular : pluralForm;
 }
 
+function midiNoteForFrequency(frequency) {
+  const note = 69 + 12 * Math.log2(Math.max(1e-9, frequency) / 440);
+  return Math.round(clamp(note, 0, 127));
+}
+
+function publishMidiPreview(detail) {
+  return emitMidiOutputPreview({
+    ...detail,
+    routeId: MIDI_PREVIEW_ROUTE_ID,
+  });
+}
+
+function queueMidiPreviewSignal(detail) {
+  pendingMidiPreviewSignals.set(`${detail.kind}:${detail.sourceId}`, detail);
+  scheduleFrame();
+}
+
+function flushMidiPreviewSignals(now) {
+  if (!pendingMidiPreviewSignals.size) return;
+  if (
+    now >= lastMidiPreviewFlushTime
+    && now - lastMidiPreviewFlushTime < MIDI_PREVIEW_FRAME_INTERVAL_MS
+  ) {
+    scheduleFrame();
+    return;
+  }
+  lastMidiPreviewFlushTime = now;
+  for (const detail of pendingMidiPreviewSignals.values()) publishMidiPreview(detail);
+  pendingMidiPreviewSignals.clear();
+}
+
+function emitMidiPreviewControl({ source, sourceId, rawValue, min, max, displayValue, unit = "" }) {
+  const signature = `${rawValue}:${displayValue}`;
+  if (midiPreviewControlValues.get(sourceId) === signature) return;
+  midiPreviewControlValues.set(sourceId, signature);
+  queueMidiPreviewSignal({
+    kind: "control",
+    source,
+    sourceId,
+    rawValue,
+    min,
+    max,
+    displayValue,
+    unit,
+  });
+}
+
+function emitReaderPhasePreview() {
+  emitMidiPreviewControl({
+    source: "Reader phase",
+    sourceId: "spiral-reader-phase",
+    rawValue: state.position,
+    min: 0,
+    max: 1,
+    displayValue: `${(state.position * 100).toFixed(1)}%`,
+    unit: "phase",
+  });
+}
+
+function emitZoomPhasePreview() {
+  emitMidiPreviewControl({
+    source: "Zoom phase",
+    sourceId: "spiral-zoom-phase",
+    rawValue: state.loopPhase,
+    min: 0,
+    max: 1,
+    displayValue: `${spiralLoopLogOffset(state.loopPhase).toFixed(2)} log scale`,
+    unit: "phase",
+  });
+}
+
+function emitReaderPathPreview() {
+  const paths = ["radius", "angle", "spiral"];
+  const pathIndex = Math.max(0, paths.indexOf(state.timePath));
+  emitMidiPreviewControl({
+    source: "Reader path",
+    sourceId: "spiral-reader-path",
+    rawValue: pathIndex,
+    min: 0,
+    max: paths.length - 1,
+    displayValue: state.timePath[0].toUpperCase() + state.timePath.slice(1),
+  });
+}
+
+function emitReaderModePreview() {
+  emitMidiPreviewControl({
+    source: "Reader motion",
+    sourceId: "spiral-reader-mode",
+    rawValue: state.motionMode === "pingpong" ? 1 : 0,
+    min: 0,
+    max: 1,
+    displayValue: state.motionMode === "pingpong" ? "Ping-pong" : "Loop",
+  });
+}
+
+function emitReaderDirectionPreview() {
+  const displayValue = state.motionMode === "pingpong"
+    ? (state.traversalDirection > 0 ? "Forward" : "Reverse")
+    : directionLabel();
+  emitMidiPreviewControl({
+    source: "Reader direction",
+    sourceId: "spiral-reader-direction",
+    rawValue: state.traversalDirection,
+    min: -1,
+    max: 1,
+    displayValue,
+  });
+}
+
+function emitZoomDirectionPreview() {
+  emitMidiPreviewControl({
+    source: "Zoom direction",
+    sourceId: "spiral-zoom-direction",
+    rawValue: state.loopDirection,
+    min: -1,
+    max: 1,
+    displayValue: state.loopDirection > 0 ? "Forward" : "Reverse",
+  });
+}
+
+function emitReaderTimebasePreview() {
+  queueMidiPreviewSignal({
+    kind: "timebase",
+    source: "Reader speed",
+    sourceId: "spiral-reader-timebase",
+    rate: state.speed,
+    unit: "cycles/s",
+    running: state.playing,
+    displayValue: `${state.speed.toFixed(3)} cyc/s`,
+  });
+}
+
+function emitZoomTimebasePreview() {
+  queueMidiPreviewSignal({
+    kind: "timebase",
+    source: "Zoom speed",
+    sourceId: "spiral-zoom-timebase",
+    rate: state.loopSpeed,
+    unit: "cycles/s",
+    running: state.loopPlaying,
+    displayValue: `${state.loopSpeed.toFixed(3)} cyc/s`,
+  });
+}
+
+function emitReaderTransportPreview() {
+  publishMidiPreview({
+    kind: "transport",
+    source: "Spiral reader",
+    sourceId: "spiral-reader-transport",
+    state: state.playing ? "start" : "stop",
+    position: state.position,
+  });
+}
+
+function emitZoomTransportPreview() {
+  publishMidiPreview({
+    kind: "transport",
+    source: "Spiral zoom",
+    sourceId: "spiral-zoom-transport",
+    state: state.loopPlaying ? "start" : "stop",
+    position: state.loopPhase,
+  });
+}
+
+for (const id of [
+  "position",
+  "speed",
+  "loopPhase",
+  "loopSpeed",
+  "playButton",
+  "loopPlayButton",
+  "traversalDirection",
+  "loopDirection",
+]) {
+  $(id).setAttribute("data-no-midi-preview", "");
+}
+for (const groupId of ["timePath", "playheadMotion"]) {
+  for (const button of $(groupId).querySelectorAll("button")) {
+    button.setAttribute("data-no-midi-preview", "");
+  }
+}
+
 function resetContactTracking() {
   contactOnsets.clear();
   contactLastSeen.clear();
@@ -154,6 +372,17 @@ function suppressContactOnsets(duration = GEOMETRY_EDIT_SETTLE_MS) {
     interactionTime + duration,
   );
   suppressContactOnsetFrames = Math.max(suppressContactOnsetFrames, 2);
+}
+
+function suppressMidiPreviewNotes(duration = GEOMETRY_EDIT_SETTLE_MS) {
+  const interactionTime = Math.max(performance.now(), lastFrameTime);
+  suppressMidiPreviewUntil = Math.max(suppressMidiPreviewUntil, interactionTime + duration);
+  suppressMidiPreviewFrames = Math.max(suppressMidiPreviewFrames, 2);
+}
+
+function clearMidiPreviewSuppression() {
+  suppressMidiPreviewUntil = 0;
+  suppressMidiPreviewFrames = 0;
 }
 
 function clearContactOnsetSuppression() {
@@ -177,6 +406,7 @@ function invalidateGeometry() {
   geometryDirty = true;
   tileEditorDirty = true;
   suppressContactOnsets();
+  suppressMidiPreviewNotes();
   scheduleFrame();
 }
 
@@ -197,9 +427,22 @@ function bindRange(id, key, formatter, afterChange) {
   return paint;
 }
 
-bindRange("speed", "speed", (value) => `${value.toFixed(3)} cyc/s`);
-bindRange("loopSpeed", "loopSpeed", (value) => `${value.toFixed(3)} cyc/s`);
-bindRange("readerTurns", "readerTurns", (value) => `${value.toFixed(2)} turns`, suppressContactOnsets);
+bindRange(
+  "speed",
+  "speed",
+  (value) => `${value.toFixed(3)} cyc/s`,
+  emitReaderTimebasePreview,
+);
+bindRange(
+  "loopSpeed",
+  "loopSpeed",
+  (value) => `${value.toFixed(3)} cyc/s`,
+  emitZoomTimebasePreview,
+);
+bindRange("readerTurns", "readerTurns", (value) => `${value.toFixed(2)} turns`, () => {
+  suppressContactOnsets();
+  suppressMidiPreviewNotes();
+});
 bindRange("level", "level", (value) => `${Math.round(value * 100)}%`, () => pool.setLevel(state.level));
 bindRange("baseFrequency", "baseFrequency", (value) => `${Math.round(value)} Hz`);
 bindRange("pitchRange", "pitchRange", (value) => `${value.toFixed(2)} oct`);
@@ -210,7 +453,10 @@ bindRange(
   "voiceCap",
   "voiceCap",
   (value) => `${Math.round(value)} ${plural(Math.round(value), "voice")}`,
-  suppressContactOnsets,
+  () => {
+    suppressContactOnsets();
+    suppressMidiPreviewNotes();
+  },
 );
 bindRange("stereoWidth", "stereoWidth", (value) => `${Math.round(value * 100)}%`);
 bindRange("spiralA", "spiralA", (value) => String(Math.round(value)), () => {
@@ -236,17 +482,34 @@ bindRange("spiralB", "spiralB", (value) => String(Math.round(value)), () => {
 bindRange("patternScale", "patternScale", (value) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}`, invalidateGeometry);
 bindRange("patternRotation", "patternRotation", (value) => `${Math.round(value)}°`, invalidateGeometry);
 
-function setLoopPhase(value) {
-  state.loopPhase = clamp(Number(value) || 0, 0, 1);
+function setLoopPhase(value, { audition = false } = {}) {
+  const nextLoopPhase = clamp(Number(value) || 0, 0, 1);
+  const moved = Math.abs(nextLoopPhase - state.loopPhase) > 1e-9;
+  state.loopPhase = nextLoopPhase;
   state.continuousLoopPhase = state.loopPhase;
   $("loopPhase").value = String(state.loopPhase);
   paintLoopPhase();
   geometryDirty = true;
-  suppressContactOnsets();
+  if (audition && moved) {
+    manualAuditionMoved = true;
+    clearContactOnsetSuppression();
+  }
+  else suppressContactOnsets();
+  if (midiPreviewAudition && moved) {
+    midiPreviewAuditionMoved = true;
+    clearMidiPreviewSuppression();
+  } else {
+    suppressMidiPreviewNotes();
+  }
+  emitZoomPhasePreview();
   scheduleFrame();
 }
 
-$("loopPhase").addEventListener("input", () => setLoopPhase($("loopPhase").value));
+$("loopPhase").addEventListener("input", (event) => {
+  const audition = beginManualAudition(event);
+  beginMidiPreviewAudition(event);
+  setLoopPhase($("loopPhase").value, { audition });
+});
 
 function paintLoopPhase() {
   const offset = spiralLoopLogOffset(state.loopPhase);
@@ -577,8 +840,10 @@ $("resetWinding").addEventListener("click", () => {
 });
 
 function directionLabel() {
-  if (state.timePath === "radius") return state.direction > 0 ? "Out → In" : "In → Out";
-  return state.direction > 0 ? "Clockwise" : "Counterclockwise";
+  if (state.timePath === "radius") {
+    return state.traversalDirection > 0 ? "Out → In" : "In → Out";
+  }
+  return state.traversalDirection > 0 ? "Clockwise" : "Counterclockwise";
 }
 
 function loopDirectionLabel() {
@@ -596,9 +861,24 @@ function updateTimeControls() {
     setPressed(button, button.dataset.value === state.timePath);
   }
   $("readerTurnsControl").hidden = state.timePath !== "spiral";
-  $("timeDirection").textContent = directionLabel();
+  const forward = state.traversalDirection > 0;
+  $("traversalDirectionGlyph").textContent = forward ? "→" : "←";
+  $("traversalDirectionText").textContent = state.motionMode === "pingpong"
+    ? (forward ? "FWD" : "REV")
+    : state.timePath === "radius"
+      ? (forward ? "OUT→IN" : "IN→OUT")
+      : (forward ? "CW" : "CCW");
+  $("traversalDirection").setAttribute(
+    "aria-label",
+    state.motionMode === "pingpong"
+      ? `Time direction: ${forward ? "forward" : "reverse"} ping-pong travel`
+      : `Time direction: ${directionLabel()}`,
+  );
+  for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
+    setPressed(button, button.dataset.value === state.motionMode);
+  }
   $("loopDirection").textContent = loopDirectionLabel();
-  $("coordinateReadout").textContent = `${coordinateLabel()} · ${directionLabel().toUpperCase()}`;
+  $("coordinateReadout").textContent = `${coordinateLabel()} · ${state.motionMode === "pingpong" ? "PING-PONG · " : ""}${directionLabel().toUpperCase()}`;
   setPressed($("sizeCoupling"), state.sizeCoupling);
   $("sizeCoupling").textContent = `Size affects time + pitch · ${state.sizeCoupling ? "on" : "off"}`;
   $("sizeCoupling").setAttribute(
@@ -613,43 +893,162 @@ for (const button of $("timePath").querySelectorAll("button")) {
   button.addEventListener("click", () => {
     state.timePath = button.dataset.value;
     resetContactTracking();
+    suppressMidiPreviewNotes();
     updateTimeControls();
+    emitReaderPathPreview();
+    emitReaderDirectionPreview();
     announce(`${button.textContent} time selected.`);
     scheduleFrame();
   });
 }
 
-$("timeDirection").addEventListener("click", () => {
-  state.direction *= -1;
+$("traversalDirection").addEventListener("click", () => {
+  state.traversalDirection *= -1;
   updateTimeControls();
+  emitReaderDirectionPreview();
   announce(`Time direction ${directionLabel()}.`);
 });
+
+function setMotionMode(motion, shouldAnnounce = true) {
+  const nextMotion = motion === "pingpong" ? "pingpong" : "loop";
+  if (nextMotion !== state.motionMode) {
+    state.continuousPosition = nextMotion === "pingpong"
+      ? rebasePingPongPosition(state.continuousPosition, state.position)
+      : rebaseContinuousPosition(
+        state.continuousPosition,
+        wrap01(state.continuousPosition),
+        state.position,
+      );
+    state.motionMode = nextMotion;
+  }
+  updateTimeControls();
+  emitReaderModePreview();
+  emitReaderDirectionPreview();
+  if (shouldAnnounce) {
+    announce(`${nextMotion === "pingpong" ? "Ping-pong" : "Loop"} time movement selected.`);
+  }
+  scheduleFrame();
+}
+
+for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
+  button.addEventListener("click", () => setMotionMode(button.dataset.value));
+}
 
 $("loopDirection").addEventListener("click", () => {
   state.loopDirection *= -1;
   updateTimeControls();
   paintLoopPhase();
+  emitZoomDirectionPreview();
   announce("Zoom direction reversed.");
 });
 
-function setPosition(value) {
-  state.position = clamp(Number(value) || 0, 0, 1);
-  state.continuousPosition = state.position;
-  $("position").value = String(state.position);
-  $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
-  suppressContactOnsets();
+function beginManualAudition(event) {
+  if (event?.isTrusted !== true || !state.audio) return false;
+  if (!manualAudition) manualAuditionMoved = false;
+  manualAudition = true;
+  updateSummaries();
+  scheduleFrame();
+  return true;
+}
+
+function beginMidiPreviewAudition(event) {
+  if (event?.isTrusted !== true) return false;
+  if (!midiPreviewAudition) midiPreviewAuditionMoved = false;
+  midiPreviewAudition = true;
+  scheduleFrame();
+  return true;
+}
+
+function endManualAudition() {
+  if (!manualAudition) return;
+  manualAudition = false;
+  manualAuditionMoved = false;
+  if (!state.playing && !state.loopPlaying) pool.setVoices([]);
+  updateSummaries();
   scheduleFrame();
 }
 
-$("position").addEventListener("input", () => setPosition($("position").value));
+function endMidiPreviewAudition() {
+  if (!midiPreviewAudition) return;
+  midiPreviewAudition = false;
+  midiPreviewAuditionMoved = false;
+  scheduleFrame();
+}
+
+function endAuditions() {
+  endManualAudition();
+  endMidiPreviewAudition();
+}
+
+function bindManualAuditionLifecycle(input) {
+  input.addEventListener("pointerdown", (event) => {
+    const audioAudition = beginManualAudition(event);
+    const previewAudition = beginMidiPreviewAudition(event);
+    if (audioAudition || previewAudition) input.setPointerCapture?.(event.pointerId);
+  });
+  input.addEventListener("pointerup", endAuditions);
+  input.addEventListener("pointercancel", endAuditions);
+  input.addEventListener("lostpointercapture", endAuditions);
+  input.addEventListener("keydown", (event) => {
+    if (MANUAL_AUDITION_KEYS.has(event.key)) {
+      beginManualAudition(event);
+      beginMidiPreviewAudition(event);
+    }
+  });
+  input.addEventListener("keyup", (event) => {
+    if (MANUAL_AUDITION_KEYS.has(event.key)) endAuditions();
+  });
+  input.addEventListener("change", endAuditions);
+  input.addEventListener("blur", endAuditions);
+}
+
+function setPosition(value, { audition = false } = {}) {
+  const nextPosition = clamp(Number(value) || 0, 0, 1);
+  const moved = Math.abs(nextPosition - state.position) > 1e-9;
+  state.continuousPosition = state.motionMode === "pingpong"
+    ? rebasePingPongPosition(state.continuousPosition, nextPosition)
+    : rebaseContinuousPosition(
+      state.continuousPosition,
+      wrap01(state.continuousPosition),
+      nextPosition,
+    );
+  state.position = nextPosition;
+  $("position").value = String(state.position);
+  $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
+  if (audition && moved) {
+    manualAuditionMoved = true;
+    clearContactOnsetSuppression();
+  }
+  else suppressContactOnsets();
+  if (midiPreviewAudition && moved) {
+    midiPreviewAuditionMoved = true;
+    clearMidiPreviewSuppression();
+  } else {
+    suppressMidiPreviewNotes();
+  }
+  emitReaderPhasePreview();
+  scheduleFrame();
+}
+
+$("position").addEventListener("input", (event) => {
+  const audition = beginManualAudition(event);
+  beginMidiPreviewAudition(event);
+  setPosition($("position").value, { audition });
+});
+
+for (const input of [
+  $("position"),
+  $("loopPhase"),
+]) bindManualAuditionLifecycle(input);
 
 function updateSummaries() {
   const timeName = state.timePath[0].toUpperCase() + state.timePath.slice(1);
   const active = [
     state.playing ? "time" : "",
     state.loopPlaying ? "loop" : "",
+    manualAudition ? "scrub" : "",
   ].filter(Boolean).join(" + ");
-  $("playSummary").textContent = `${timeName} · ${active || "paused"}`;
+  $("playSummary").textContent = `${timeName} · ${active || "paused"} · ${state.motionMode} · ${state.traversalDirection > 0 ? "forward" : "reverse"}`;
   $("formSummary").textContent = tilingInfo(state.tilingType).label;
   $("windingSummary").textContent = `A${state.spiralA} · B${state.spiralB}`;
   $("soundSummary").textContent = SOUND_LABELS[state.soundMode];
@@ -670,22 +1069,28 @@ function paintPlayback() {
 }
 
 function setPlaying(playing) {
+  endAuditions();
   state.playing = Boolean(playing);
   lastFrameTime = performance.now();
   resetContactTracking();
   clearContactOnsetSuppression();
   if (!state.playing && !state.loopPlaying) pool.setVoices([]);
   paintPlayback();
+  emitReaderTransportPreview();
+  emitReaderTimebasePreview();
   scheduleFrame();
 }
 
 function setLoopPlaying(playing) {
+  endAuditions();
   state.loopPlaying = Boolean(playing);
   lastFrameTime = performance.now();
   resetContactTracking();
   clearContactOnsetSuppression();
   if (!state.playing && !state.loopPlaying) pool.setVoices([]);
   paintPlayback();
+  emitZoomTransportPreview();
+  emitZoomTimebasePreview();
   scheduleFrame();
 }
 
@@ -717,6 +1122,7 @@ async function enableAudio() {
 }
 
 function disableAudio() {
+  endManualAudition();
   state.audio = false;
   pool.disable();
   paintAudio();
@@ -729,19 +1135,11 @@ $("audioButton").addEventListener("click", async () => {
 });
 
 $("playButton").addEventListener("click", () => {
-  if (state.playing) setPlaying(false);
-  else {
-    setPlaying(true);
-    if (!state.audio) void enableAudio();
-  }
+  setPlaying(!state.playing);
 });
 
 $("loopPlayButton").addEventListener("click", () => {
-  if (state.loopPlaying) setLoopPlaying(false);
-  else {
-    setLoopPlaying(true);
-    if (!state.audio) void enableAudio();
-  }
+  setLoopPlaying(!state.loopPlaying);
 });
 
 $("soundMode").addEventListener("change", () => {
@@ -951,7 +1349,14 @@ function voiceData(contacts) {
       pmIndex: 2.4,
       pmRatio: 1,
       shepardRate: state.playing
-        ? state.speed * state.direction * sizeRate
+        ? state.speed
+          * (state.motionMode === "pingpong"
+            ? pingPongMotionDirection(
+              state.continuousPosition,
+              state.traversalDirection,
+            )
+            : state.traversalDirection)
+          * sizeRate
         : state.loopPlaying ? state.loopSpeed * state.loopDirection * sizeRate : 0,
       shepardWidth: 4,
     });
@@ -967,10 +1372,53 @@ function voiceData(contacts) {
   });
 }
 
+function emitMidiPreviewNotes(data, now, suppressed) {
+  const currentKeys = new Set(data.map(({ contact }) => contact.voiceKey));
+  const moving = state.playing
+    || state.loopPlaying
+    || (midiPreviewAudition && midiPreviewAuditionMoved);
+  if (!moving || suppressed) {
+    midiPreviewContactKeys = currentKeys;
+    return;
+  }
+
+  const onsets = data.filter(({ contact }) => !midiPreviewContactKeys.has(contact.voiceKey));
+  midiPreviewContactKeys = currentKeys;
+  for (const item of onsets) {
+    const lastNoteTime = midiPreviewLastNoteTimes.get(item.contact.voiceKey)
+      ?? Number.NEGATIVE_INFINITY;
+    if (now - lastNoteTime < CONTACT_REENTRY_GRACE_SECONDS * 1000) continue;
+    midiPreviewLastNoteTimes.set(item.contact.voiceKey, now);
+    const incidenceGain = 0.25 + 0.75 * item.contact.incidence;
+    const velocityGain = state.soundMode === "percussion"
+      ? state.level * state.contactLevel * 0.55 * incidenceGain
+      : state.level * state.contactLevel * incidenceGain;
+    const durationMs = state.soundMode === "percussion"
+      ? 1000 * (
+        cornerAttackSeconds(state.percussionAttack * item.durationScale)
+        + cornerDecaySeconds(state.percussionDecay * item.durationScale)
+      )
+      : MIDI_PREVIEW_GATE_MS;
+    emitMidiOutputPreview({
+      kind: "note",
+      routeId: MIDI_PREVIEW_ROUTE_ID,
+      source: "Spiral crossing",
+      sourceId: "spiral-crossing",
+      voiceId: item.contact.voiceKey,
+      channel: 1,
+      note: midiNoteForFrequency(item.frequency),
+      frequencyHz: item.frequency,
+      velocity: Math.max(1, Math.round(clamp(velocityGain, 0, 1) * 127)),
+      durationMs: Math.max(1, Math.round(durationMs)),
+    });
+  }
+}
+
 function updateAudio(data, suppressVoiceStarts = false) {
   if (!state.audio) return;
   if (state.soundMode === "percussion") {
     pool.setVoices([]);
+    if (!state.playing && !state.loopPlaying && !(manualAudition && manualAuditionMoved)) return;
     const strikeItems = data.filter((item) => item.contact.onset);
     const intents = strikeItems.map((item) => ({
       key: `spiral:strike:${item.contact.voiceKey}`,
@@ -987,7 +1435,7 @@ function updateAudio(data, suppressVoiceStarts = false) {
         decaySeconds: cornerDecaySeconds(state.percussionDecay * durationScale),
       });
     });
-  } else if (state.playing || state.loopPlaying) {
+  } else if (state.playing || state.loopPlaying || (manualAudition && manualAuditionMoved)) {
     pool.setVoices(data.map((item) => ({
       key: `spiral:${item.contact.voiceKey}`,
       frequency: item.frequency,
@@ -1004,8 +1452,10 @@ function frame(now) {
   const delta = Math.min(0.1, Math.max(0, (now - lastFrameTime) / 1000));
   lastFrameTime = now;
   if (state.playing) {
-    state.continuousPosition += state.direction * state.speed * delta;
-    state.position = wrap01(state.continuousPosition);
+    state.continuousPosition += state.traversalDirection * state.speed * delta;
+    state.position = state.motionMode === "pingpong"
+      ? pingPong01(state.continuousPosition)
+      : wrap01(state.continuousPosition);
   }
   if (state.loopPlaying) {
     state.continuousLoopPhase += state.loopDirection * state.loopSpeed * delta;
@@ -1028,15 +1478,39 @@ function frame(now) {
   geometryWasEditing = geometryEditing;
   const enveloped = addContactEnvelopes(selected, now / 1000, geometryEditing);
   const data = voiceData(enveloped);
+  const midiPreviewSuppressed = suppressMidiPreviewFrames > 0
+    || now < suppressMidiPreviewUntil;
+  emitMidiPreviewNotes(data, now, midiPreviewSuppressed);
+  if (suppressMidiPreviewFrames > 0) suppressMidiPreviewFrames -= 1;
   drawScene(reader, contacts, selected);
   if (tileEditorDirty) drawTileEditor();
   updateAudio(data, geometryEditing);
   $("position").value = String(state.position);
   $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
+  emitReaderPhasePreview();
   $("loopPhase").value = String(state.loopPhase);
   paintLoopPhase();
-  $("stageReadout").textContent = `${state.timePath.toUpperCase()} · ${contacts.length} ${plural(contacts.length, "CONTACT", "CONTACTS")} · ${state.audio ? `${data.length} ${plural(data.length, "VOICE", "VOICES")}` : "AUDIO OFF"}`;
-  if (state.playing || state.loopPlaying) scheduleFrame();
+  emitZoomPhasePreview();
+  const motion = [
+    state.playing ? "TIME" : "",
+    state.loopPlaying ? "LOOP" : "",
+    manualAudition ? "SCRUB" : "",
+  ].filter(Boolean).join(" + ") || "PAUSED";
+  const audioStatus = !state.audio
+    ? "AUDIO OFF"
+    : state.soundMode !== "percussion"
+      && (state.playing || state.loopPlaying || (manualAudition && manualAuditionMoved))
+      ? `${pool.pendingVoices.length} ${plural(pool.pendingVoices.length, "VOICE", "VOICES")}`
+      : "AUDIO ON";
+  $("stageReadout").textContent = `${state.timePath.toUpperCase()} · ${contacts.length} ${plural(contacts.length, "CONTACT", "CONTACTS")} · ${motion} · ${audioStatus}`;
+  flushMidiPreviewSignals(now);
+  if (
+    state.playing
+    || state.loopPlaying
+    || manualAudition
+    || midiPreviewAudition
+    || pendingMidiPreviewSignals.size > 0
+  ) scheduleFrame();
 }
 
 function canvasWorldPoint(event) {
@@ -1054,13 +1528,15 @@ function scrubFromPointer(event) {
     turns: state.readerTurns,
     sizeCoupled: state.sizeCoupling,
   });
-  setPosition(phase);
+  setPosition(phase, { audition: manualAudition });
 }
 
 canvas.addEventListener("pointerdown", (event) => {
   pointerDrag = event.pointerId;
   stageWrap.classList.add("is-scrubbing");
   canvas.setPointerCapture(event.pointerId);
+  beginManualAudition(event);
+  beginMidiPreviewAudition(event);
   scrubFromPointer(event);
 });
 canvas.addEventListener("pointermove", (event) => {
@@ -1069,29 +1545,47 @@ canvas.addEventListener("pointermove", (event) => {
 });
 const endPointer = (event) => {
   if (pointerDrag !== event.pointerId) return;
+  cancelStagePointer();
+};
+function cancelStagePointer() {
   pointerDrag = null;
   stageWrap.classList.remove("is-scrubbing");
-};
+  endAuditions();
+}
 canvas.addEventListener("pointerup", endPointer);
 canvas.addEventListener("pointercancel", endPointer);
+canvas.addEventListener("lostpointercapture", endPointer);
 canvas.addEventListener("keydown", (event) => {
   if (event.key === " ") {
     event.preventDefault();
     $("playButton").click();
   } else if (event.key === "ArrowLeft") {
     event.preventDefault();
-    setPosition(state.position - (event.shiftKey ? 0.05 : 0.01));
+    const audition = beginManualAudition(event);
+    beginMidiPreviewAudition(event);
+    setPosition(state.position - (event.shiftKey ? 0.05 : 0.01), { audition });
   } else if (event.key === "ArrowRight") {
     event.preventDefault();
-    setPosition(state.position + (event.shiftKey ? 0.05 : 0.01));
+    const audition = beginManualAudition(event);
+    beginMidiPreviewAudition(event);
+    setPosition(state.position + (event.shiftKey ? 0.05 : 0.01), { audition });
   }
 });
+canvas.addEventListener("keyup", (event) => {
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") endAuditions();
+});
+canvas.addEventListener("blur", endAuditions);
 
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) pool.silence();
+  if (document.hidden) {
+    cancelStagePointer();
+    pool.silence();
+  }
   else scheduleFrame();
 });
+window.addEventListener("blur", cancelStagePointer);
 window.addEventListener("pagehide", (event) => {
+  cancelStagePointer();
   if (event.persisted) pool.disable();
   else void pool.close();
 });
@@ -1102,4 +1596,12 @@ setLoopPhase(state.loopPhase);
 updateTimeControls();
 paintPlayback();
 paintAudio();
+emitReaderPathPreview();
+emitReaderModePreview();
+emitReaderDirectionPreview();
+emitZoomDirectionPreview();
+emitReaderTimebasePreview();
+emitZoomTimebasePreview();
+emitReaderTransportPreview();
+emitZoomTransportPreview();
 scheduleFrame();

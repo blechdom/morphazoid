@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#050807" />
+    <meta
+      name="description"
+      content="A simplified architectural map of the Throatazoid signal path and physical vocal-tract DSP."
+    />
+    <title>Throatazoid Signal Path — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="throatazoid-architecture.css" />
+  </head>
+  <body class="tract-architecture-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument"></nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="" selected>choose instrument</option>
+        </select>
+      </label>
+    </header>
+
+    <main class="architecture-shell">
+      <header class="architecture-heading">
+        <div>
+          <p class="architecture-kicker">THROATAZOID / SYSTEM MAP</p>
+          <h1>Signal path + physical tract DSP</h1>
+          <p>
+            A simplified map of the live AudioWorklet route, its alternate compatibility
+            engine, and the control messages that reshape the airway.
+          </p>
+        </div>
+        <div class="architecture-actions" aria-label="Related pages">
+          <a class="architecture-button" href="throatazoid.html">Open Throatazoid</a>
+          <a class="architecture-button is-alien" href="alien-larynx-architecture.html">Explore Alien system map</a>
+        </div>
+      </header>
+
+      <figure class="architecture-figure">
+        <object
+          data="throatazoid-signal-path.svg"
+          type="image/svg+xml"
+          aria-label="Throatazoid signal-path and DSP architecture diagram"
+        >
+          <img
+            src="throatazoid-signal-path.svg"
+            alt="Throatazoid signal-path and DSP architecture diagram"
+          />
+        </object>
+        <figcaption>
+          The physical engine is the normal browser path. The serial formant engine is an
+          alternate fallback, not a second stage in the waveguide chain.
+        </figcaption>
+      </figure>
+
+      <section class="architecture-notes" aria-label="Reading notes">
+        <article>
+          <span>01</span>
+          <h2>Excitation stays separate</h2>
+          <p>Microphone, LF glottis, breath, and polyphonic mouth oscillators meet the tract at explicit inputs.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h2>The airway is the filter</h2>
+          <p>Bidirectional pressure waves scatter through glands, root, manifold, oral tubes, and nasal branches.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h2>A safe baseline remains</h2>
+          <p>Dry/wet mixing, output dynamics, and the calibrated voice presets remain outside the experimental anatomy.</p>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+  </body>
+</html>

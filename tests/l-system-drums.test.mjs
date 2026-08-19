@@ -293,7 +293,7 @@ test("L-system drum catch-up work stays bounded after a stalled frame", () => {
   assert.equal(traversal.direction, 1);
 });
 
-test("ping-pong L-system drums re-attack the endpoint and trigger in reverse", () => {
+test("ping-pong L-system drums strike the endpoint once and continue in reverse", () => {
   const trace = linearDrumTrace();
   const { traversal, events } = sweepTrace(trace, {
     position: 0.85,
@@ -306,8 +306,9 @@ test("ping-pong L-system drums re-attack the endpoint and trigger in reverse", (
   assert.equal(traversal.direction, -1);
   assert.ok(traversal.samples.some(({ boundary }) => boundary === "reflection"));
   assert.ok(events.every(({ transportSampleIndex }) => Number.isInteger(transportSampleIndex)));
-  assert.ok(events.some(({ key, direction }) => key === terminalKey && direction === 1));
-  assert.ok(events.some(({ key, direction }) => key === terminalKey && direction === -1));
+  const terminalEvents = events.filter(({ key }) => key === terminalKey);
+  assert.equal(terminalEvents.length, 1, "the reflected endpoint must not double-trigger");
+  assert.equal(terminalEvents[0].direction, 1);
   assert.ok(events.some(({ direction }) => direction === -1));
 });
 
@@ -337,6 +338,7 @@ test("L-System Drum Machine copies the L-system controls into a compact drum pag
   ]);
 
   assert.match(html, /L-System Drum Machine/);
+  assert.match(html, /id="resetAll"[^>]*data-reset-all[^>]*data-reset-in-place/);
   assert.match(html, /id="stage"[\s\S]*aria-describedby="canvasInstructions liveStatus"/);
   assert.match(html, /id="structureMode"[\s\S]*<option value="canon">Canon<\/option>/);
   for (const id of [
@@ -344,8 +346,10 @@ test("L-System Drum Machine copies the L-system controls into a compact drum pag
     "position",
     "speed",
     "subdivisions",
-    "traversalLoop",
-    "traversalPingPong",
+    "playheadMotion",
+    "traversalDirection",
+    "loopMotion",
+    "pingPongMotion",
     "preset",
     "iterations",
     "angle",
@@ -376,7 +380,8 @@ test("L-System Drum Machine copies the L-system controls into a compact drum pag
   assert.match(html, /href="l-system-drums\.html" aria-current="page"/);
   assert.match(html, /src="l-system-drums-app\.js"/);
   assert.doesNotMatch(html, /<h1\b|soundMode|polyphonyReadout|synth-panel/);
-  assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/);
+  assert.match(html, /<details\b[^>]*data-section="play"[^>]*\sopen(?:\s|>)/);
+  assert.equal((html.match(/<details\b[^>]*\sopen(?:\s|>)/g) ?? []).length, 1);
   assert.match(css, /\.l-system-drum-map[\s\S]*grid-template-columns: repeat\(4/);
   assert.match(app, /FM_DRUM_STORAGE_KEY/);
   assert.match(app, /new FmDrumAudio\(globalThis\)/);

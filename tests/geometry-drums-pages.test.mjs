@@ -18,7 +18,7 @@ const subdividedPages = [
   ["hyper-drums.html", "subdivisions", "subdivisionsOut"],
 ];
 
-test("every geometry drum page has a complete static family menu and collapsed UI", async () => {
+test("every geometry drum page has a complete menu and a visible primary transport", async () => {
   for (const [file, currentRoute] of pages) {
     const html = await readFile(new URL(file, root), "utf8");
     const desktop = html.match(/<nav class="tabs"[\s\S]*?<\/nav>/)?.[0] ?? "";
@@ -48,7 +48,12 @@ test("every geometry drum page has a complete static family menu and collapsed U
       mobile,
       new RegExp(`value="${currentRoute.replace(".", "\\.")}"[^>]*selected`),
     );
-    assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/);
+    const playIndex = html.indexOf('id="playButton"');
+    assert.ok(playIndex >= 0, `${file} should expose its primary Play control`);
+    const containingDetails = [...html.slice(0, playIndex).matchAll(/<details\b[^>]*>/g)].at(-1)?.[0] ?? "";
+    if (containingDetails) {
+      assert.match(containingDetails, /\sopen(?:\s|>)/, `${file} Play disclosure should start open`);
+    }
     assert.doesNotMatch(html, /<h1\b|class="[^"]*(?:subtitle|drums-heading)/);
     assert.match(html, /id="stage"[\s\S]*?aria-describedby="canvasInstructions liveStatus"/);
     assert.match(html, /id="canvasInstructions"/);

@@ -1,0 +1,2053 @@
+.gesturama-page {
+  --accent: #55d9e8;
+  --accent-soft: rgba(85, 217, 232, 0.5);
+  --accent-glow: rgba(85, 217, 232, 0.16);
+  overflow-x: hidden;
+  background: #101314;
+}
+
+.gesturama-page .masthead {
+  background: rgba(10, 13, 14, 0.9);
+  backdrop-filter: blur(18px);
+}
+
+.gesturama-app {
+  color-scheme: dark;
+  --ink: #101314;
+  --panel: #191d1e;
+  --panel-soft: #202526;
+  --line: rgba(245, 242, 232, 0.13);
+  --line-strong: rgba(245, 242, 232, 0.24);
+  --paper: #f4f1e8;
+  --muted: #969d9a;
+  --kick: #ff654f;
+  --snare: #55d9e8;
+  --hat: #ffd35a;
+  --clap: #a985ff;
+  --mint: #73f2bb;
+  --sample: #ff91cb;
+  --active-paint: var(--kick);
+  --radius-xl: 28px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  flex: 1 0 auto;
+}
+
+.gesturama-app * {
+  box-sizing: border-box;
+}
+
+.gesturama-app {
+  background: var(--ink);
+}
+
+.gesturama-app {
+  min-width: 320px;
+  min-height: calc(100vh - 58px);
+  min-height: calc(100dvh - 58px);
+  margin: 0;
+  color: var(--paper);
+  background:
+    radial-gradient(circle at 8% 3%, rgba(85, 217, 232, 0.07), transparent 26rem),
+    radial-gradient(circle at 98% 75%, rgba(169, 133, 255, 0.06), transparent 30rem),
+    var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.gesturama-app button,
+.gesturama-app input,
+.gesturama-app select {
+  font: inherit;
+}
+
+.gesturama-app button {
+  color: inherit;
+}
+
+.gesturama-app button:not(:disabled),
+.gesturama-app input:not(:disabled),
+.gesturama-app select:not(:disabled) {
+  cursor: pointer;
+}
+
+.gesturama-app button:focus-visible,
+.gesturama-app input:focus-visible,
+.gesturama-app select:focus-visible {
+  outline: 3px solid rgba(85, 217, 232, 0.72);
+  outline-offset: 3px;
+}
+
+.gesturama-app [hidden] {
+  display: none !important;
+}
+
+.gesturama-app .visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.gesturama-app .app-shell {
+  width: min(100%, 1680px);
+  min-height: calc(100vh - 58px);
+  min-height: calc(100dvh - 58px);
+  margin: 0 auto;
+  padding: 0 clamp(18px, 3vw, 52px);
+}
+
+.gesturama-app .topbar {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+
+.gesturama-app .brand,
+.gesturama-app .topbar-status,
+.gesturama-app .transport-row,
+.gesturama-app .stage-actions,
+.gesturama-app .performance-note,
+.gesturama-app .vision-label,
+.gesturama-app .panel-heading,
+.gesturama-app .panel-heading > div,
+.gesturama-app .range-control > span,
+.gesturama-app .toggle-row,
+.gesturama-app .toggle-row > span,
+.gesturama-app .app-footer,
+.gesturama-app .shortcuts,
+.gesturama-app .canvas-actions,
+.gesturama-app .icon-text-button,
+.gesturama-app .drum-choice {
+  display: flex;
+  align-items: center;
+}
+
+.gesturama-app .brand {
+  gap: 12px;
+}
+
+.gesturama-app .brand-mark {
+  position: relative;
+  width: 35px;
+  height: 28px;
+}
+
+.gesturama-app .brand-mark i {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+}
+
+.gesturama-app .brand-mark i:nth-child(1) {
+  width: 19px;
+  height: 19px;
+  left: 0;
+  top: 3px;
+  background: var(--kick);
+}
+
+.gesturama-app .brand-mark i:nth-child(2) {
+  width: 16px;
+  height: 16px;
+  right: 2px;
+  top: 0;
+  background: var(--snare);
+}
+
+.gesturama-app .brand-mark i:nth-child(3) {
+  width: 14px;
+  height: 14px;
+  right: 5px;
+  bottom: 0;
+  background: var(--hat);
+}
+
+.gesturama-app .wordmark {
+  font-size: 18px;
+  font-weight: 850;
+  letter-spacing: 0.16em;
+}
+
+.gesturama-app .edition,
+.gesturama-app .eyebrow,
+.gesturama-app .mini-label,
+.gesturama-app .panel-number,
+.gesturama-app .filter-pill,
+.gesturama-app .vision-label,
+.gesturama-app .stage-status,
+.gesturama-app .status-chip,
+.gesturama-app .debug-panel {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.gesturama-app .edition {
+  padding: 5px 7px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 8px;
+}
+
+.gesturama-app .topbar-status {
+  gap: 8px;
+}
+
+.gesturama-app .status-chip {
+  padding: 7px 10px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  font-size: 9px;
+}
+
+.gesturama-app #camera-status::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #737978;
+}
+
+.gesturama-app #camera-status[data-live="true"]::before {
+  background: var(--mint);
+  box-shadow: 0 0 0 4px rgba(115, 242, 187, 0.11);
+}
+
+.gesturama-app .instrument-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(310px, 355px);
+  gap: clamp(18px, 2.6vw, 42px);
+  padding: clamp(20px, 3vw, 42px) 0 28px;
+}
+
+.gesturama-app .performance-area {
+  min-width: 0;
+}
+
+.gesturama-app .stage-heading {
+  min-height: 64px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.gesturama-app .stage-title-group {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px 14px;
+  padding-bottom: 10px;
+}
+
+.gesturama-app .stage-heading-meta {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+}
+
+.gesturama-app .stage-heading h1,
+.gesturama-app .panel-heading h2 {
+  margin: 0;
+  line-height: 1;
+}
+
+.gesturama-app .stage-heading h1 {
+  font-size: clamp(22px, 2.1vw, 32px);
+  font-weight: 760;
+  letter-spacing: -0.045em;
+}
+
+.gesturama-app .preset-picker {
+  min-width: 175px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 5px 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.gesturama-app .preset-picker > span {
+  color: #747b78;
+  font: 7px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.gesturama-app .preset-picker select {
+  min-width: 0;
+  flex: 1;
+  padding: 5px 24px 5px 7px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--paper);
+  background:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%) calc(100% - 10px) 50% / 4px 4px no-repeat,
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%) calc(100% - 6px) 50% / 4px 4px no-repeat,
+    rgba(255, 255, 255, 0.045);
+  appearance: none;
+  font-size: 9px;
+  font-weight: 720;
+}
+
+.gesturama-app .preset-picker select:focus-visible {
+  outline-offset: 1px;
+}
+
+.gesturama-app .preset-picker option {
+  color: var(--paper);
+  background: var(--panel);
+}
+
+.gesturama-app .eyebrow {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.gesturama-app .vision-label {
+  gap: 8px;
+  margin-top: 11px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.gesturama-app .vision-icon {
+  position: relative;
+  width: 23px;
+  height: 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+}
+
+.gesturama-app .vision-icon::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  inset: 3px auto auto 8px;
+  border-radius: 50%;
+  background: var(--snare);
+}
+
+.gesturama-app .camera-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(244, 241, 232, 0.19);
+  border-radius: var(--radius-xl);
+  background: #222728;
+  box-shadow: var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.gesturama-app .camera-stage::after {
+  content: "";
+  position: absolute;
+  z-index: 8;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.27);
+}
+
+.gesturama-app .stage-placeholder,
+.gesturama-app #camera-feed,
+.gesturama-app .video-shade,
+.gesturama-app #paint-canvas,
+.gesturama-app #feedback-canvas,
+.gesturama-app .start-screen {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.gesturama-app .stage-placeholder {
+  z-index: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.027) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.027) 1px, transparent 1px),
+    radial-gradient(circle at 70% 36%, rgba(85, 217, 232, 0.11), transparent 33%),
+    #24292a;
+  background-size: 42px 42px, 42px 42px, auto, auto;
+}
+
+.gesturama-app .placeholder-orbit {
+  position: absolute;
+  border: 1px solid rgba(244, 241, 232, 0.1);
+  border-radius: 50%;
+}
+
+.gesturama-app .orbit-one {
+  width: 45%;
+  aspect-ratio: 1;
+  left: 43%;
+  top: 8%;
+}
+
+.gesturama-app .orbit-two {
+  width: 25%;
+  aspect-ratio: 1;
+  left: 53%;
+  top: 24%;
+  border-color: rgba(255, 211, 90, 0.22);
+}
+
+.gesturama-app .placeholder-copy {
+  position: absolute;
+  left: 36px;
+  bottom: 30px;
+  color: rgba(244, 241, 232, 0.16);
+  font-size: clamp(16px, 2.2vw, 30px);
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  line-height: 0.96;
+}
+
+.gesturama-app #camera-feed {
+  z-index: 1;
+  object-fit: cover;
+  transform: scaleX(-1);
+  opacity: 0;
+  transition: opacity 350ms ease;
+}
+
+.gesturama-app #camera-feed.is-unmirrored {
+  transform: none;
+}
+
+.gesturama-app .camera-stage.has-camera #camera-feed {
+  opacity: 1;
+}
+
+.gesturama-app .video-shade {
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(7, 10, 10, 0.08), rgba(7, 10, 10, 0.2));
+}
+
+.gesturama-app .trigger-grid {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  pointer-events: none;
+}
+
+.gesturama-app .trigger-grid > span {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid rgba(244, 241, 232, 0.2);
+  border-bottom: 1px solid rgba(244, 241, 232, 0.2);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.018), transparent 45%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+  transition: background 90ms linear, box-shadow 90ms linear;
+}
+
+.gesturama-app .trigger-grid > span:nth-child(4n) {
+  border-right: 0;
+}
+
+.gesturama-app .trigger-grid > span:nth-child(n + 9) {
+  border-bottom: 0;
+}
+
+.gesturama-app .trigger-grid > span::before {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  top: 10px;
+  left: 10px;
+  border-radius: 50%;
+  background: var(--grid-color);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--grid-color) 70%, transparent);
+  opacity: 0.72;
+}
+
+.gesturama-app .trigger-grid > span b {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  color: rgba(255, 255, 255, 0.38);
+  font: 650 7px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.11em;
+}
+
+.gesturama-app .trigger-grid > span[data-instrument="kick"] { --grid-color: var(--kick); }
+.gesturama-app .trigger-grid > span[data-instrument="snare"] { --grid-color: var(--snare); }
+.gesturama-app .trigger-grid > span[data-instrument="hat"] { --grid-color: var(--hat); }
+.gesturama-app .trigger-grid > span[data-instrument="clap"] { --grid-color: var(--clap); }
+
+.gesturama-app .trigger-grid > span.is-tracked {
+  background: color-mix(in srgb, var(--grid-color) 11%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--grid-color) 36%, transparent);
+}
+
+.gesturama-app .trigger-grid > span.is-tracked::before {
+  opacity: 1;
+  box-shadow: 0 0 16px var(--grid-color);
+}
+
+.gesturama-app .trigger-grid > span.is-hit {
+  animation: gesturama-grid-hit 220ms ease-out;
+}
+
+.gesturama-app .harp-strings {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  grid-template-rows: repeat(12, 1fr);
+  pointer-events: none;
+}
+
+.gesturama-app .camera-stage.is-motion-view .color-tracker-marker {
+  display: none;
+}
+
+.gesturama-app .harp-strings > span {
+  --string-color: var(--snare);
+  position: relative;
+  min-height: 0;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--string-color) 34%, transparent));
+}
+
+.gesturama-app .harp-strings > span::before {
+  content: "";
+  position: absolute;
+  height: 1px;
+  left: 0;
+  right: 0;
+  top: 50%;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--string-color) 42%, transparent),
+    color-mix(in srgb, var(--string-color) 92%, white 8%),
+    color-mix(in srgb, var(--string-color) 42%, transparent)
+  );
+  box-shadow: 0 0 7px color-mix(in srgb, var(--string-color) 40%, transparent);
+  transform: translateY(-50%);
+  transform-origin: center;
+}
+
+.gesturama-app .harp-strings > span b {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  right: 10px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: color-mix(in srgb, var(--string-color) 72%, white 28%);
+  background: rgba(8, 11, 12, 0.58);
+  font: 650 7px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.08em;
+  transform: translateY(-50%);
+}
+
+.gesturama-app .harp-strings > span:nth-child(3n + 1) { --string-color: var(--snare); }
+.gesturama-app .harp-strings > span:nth-child(3n + 2) { --string-color: var(--clap); }
+.gesturama-app .harp-strings > span:nth-child(3n) { --string-color: var(--hat); }
+
+.gesturama-app .harp-strings > span.is-tracked::before,
+.gesturama-app .harp-strings > span.is-active::before {
+  height: 2px;
+  box-shadow: 0 0 16px var(--string-color);
+}
+
+.gesturama-app .harp-strings > span.is-hit::before {
+  animation: gesturama-string-pluck 260ms ease-out;
+}
+
+.gesturama-app .camera-stage[data-preset="pads"] .trigger-grid {
+  gap: clamp(8px, 1.5vw, 18px);
+  padding: clamp(16px, 3vw, 36px);
+}
+
+.gesturama-app .camera-stage[data-preset="pads"] .trigger-grid > span {
+  border: 1px solid color-mix(in srgb, var(--grid-color) 45%, transparent);
+  border-radius: clamp(12px, 2vw, 24px);
+  background:
+    radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--grid-color) 11%, transparent), transparent 58%),
+    rgba(8, 11, 12, 0.2);
+}
+
+.gesturama-app .camera-stage[data-preset="pads"] .trigger-grid > span::before {
+  width: 8px;
+  height: 8px;
+  border: 2px solid color-mix(in srgb, var(--grid-color) 70%, transparent);
+  background: transparent;
+}
+
+.gesturama-app .camera-stage[data-preset="harp"] .trigger-grid {
+  display: none;
+}
+
+.gesturama-app #paint-canvas {
+  z-index: 3;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: crosshair;
+}
+
+.gesturama-app .camera-stage[data-tool="erase"] #paint-canvas {
+  cursor: not-allowed;
+}
+
+.gesturama-app .camera-stage.is-picking-color #paint-canvas {
+  cursor: crosshair;
+  box-shadow: inset 0 0 0 2px rgba(255, 211, 90, 0.72);
+}
+
+.gesturama-app #feedback-canvas {
+  z-index: 4;
+  pointer-events: none;
+}
+
+.gesturama-app .camera-stage.is-motion-view #paint-canvas,
+.gesturama-app .camera-stage.is-motion-view .trigger-grid,
+.gesturama-app .camera-stage.is-motion-view .harp-strings {
+  z-index: 5;
+}
+
+.gesturama-app .color-tracker-marker {
+  position: absolute;
+  z-index: 5;
+  width: 38px;
+  height: 38px;
+  left: 50%;
+  top: 50%;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tracked-color, var(--kick)) 18%, transparent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--tracked-color, var(--kick)) 72%, transparent),
+    0 0 22px color-mix(in srgb, var(--tracked-color, var(--kick)) 48%, transparent),
+    0 2px 10px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.gesturama-app .color-tracker-marker::before,
+.gesturama-app .color-tracker-marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: rgba(255, 255, 255, 0.88);
+  transform: translate(-50%, -50%);
+}
+
+.gesturama-app .color-tracker-marker::before {
+  width: 9px;
+  height: 1px;
+}
+
+.gesturama-app .color-tracker-marker::after {
+  width: 1px;
+  height: 9px;
+}
+
+.gesturama-app .stage-status {
+  position: absolute;
+  z-index: 6;
+  top: 18px;
+  left: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 99px;
+  color: rgba(255, 255, 255, 0.86);
+  background: rgba(9, 12, 12, 0.58);
+  backdrop-filter: blur(12px);
+  font-size: 9px;
+  pointer-events: none;
+}
+
+.gesturama-app .status-light {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #acb2af;
+}
+
+.gesturama-app .stage-status[data-kind="live"] .status-light {
+  background: var(--mint);
+  box-shadow: 0 0 10px var(--mint);
+}
+
+.gesturama-app .stage-status[data-kind="calibrating"] .status-light {
+  background: var(--hat);
+  animation: gesturama-blink 800ms ease-in-out infinite alternate;
+}
+
+.gesturama-app .stage-status[data-kind="muted"] .status-light {
+  background: var(--kick);
+}
+
+.gesturama-app .motion-view-button {
+  position: absolute;
+  z-index: 6;
+  top: 58px;
+  left: 18px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(9, 12, 12, 0.62);
+  backdrop-filter: blur(12px);
+  text-align: left;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.gesturama-app .motion-view-button:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(9, 12, 12, 0.78);
+}
+
+.gesturama-app .motion-view-button[aria-pressed="true"] {
+  border-color: rgba(255, 255, 255, 0.58);
+  background: rgba(244, 241, 232, 0.13);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.gesturama-app .motion-view-button > span:last-child,
+.gesturama-app .motion-view-button b,
+.gesturama-app .motion-view-button small {
+  display: block;
+}
+
+.gesturama-app .motion-view-button b {
+  font-size: 8px;
+  line-height: 1.15;
+}
+
+.gesturama-app .motion-view-button small {
+  margin-top: 3px;
+  color: var(--snare);
+  font: 7px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.1em;
+}
+
+.gesturama-app .motion-view-button[aria-pressed="true"] small {
+  color: white;
+}
+
+.gesturama-app .motion-view-state > span:first-child {
+  display: block;
+}
+
+.gesturama-app .motion-view-state > span:last-child {
+  display: none;
+}
+
+.gesturama-app .motion-view-button[aria-pressed="true"] .motion-view-state > span:first-child {
+  display: none;
+}
+
+.gesturama-app .motion-view-button[aria-pressed="true"] .motion-view-state > span:last-child {
+  display: block;
+}
+
+.gesturama-app .motion-view-glyph {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 7px;
+  background: linear-gradient(90deg, #f4f1e8 0 50%, #171b1c 50%);
+}
+
+.gesturama-app .motion-view-glyph::before,
+.gesturama-app .motion-view-glyph::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+
+.gesturama-app .motion-view-glyph::before {
+  left: 5px;
+  background: #171b1c;
+}
+
+.gesturama-app .motion-view-glyph::after {
+  right: 5px;
+  background: #f4f1e8;
+}
+
+.gesturama-app .motion-view-glyph i {
+  position: absolute;
+  z-index: 1;
+  width: 12px;
+  height: 7px;
+  left: 7px;
+  top: 9px;
+  border: 1px solid rgba(85, 217, 232, 0.85);
+  border-radius: 50%;
+}
+
+.gesturama-app .debug-panel {
+  position: absolute;
+  z-index: 6;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  gap: 5px;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.17);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(9, 12, 12, 0.65);
+  font-size: 8px;
+}
+
+.gesturama-app .debug-panel b {
+  color: var(--mint);
+  font-weight: 600;
+}
+
+.gesturama-app .coach {
+  position: absolute;
+  z-index: 6;
+  right: 18px;
+  bottom: 18px;
+  width: min(285px, calc(100% - 36px));
+  padding: 17px 38px 15px 17px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 15px;
+  background: rgba(10, 13, 14, 0.77);
+  backdrop-filter: blur(16px);
+  pointer-events: none;
+}
+
+.gesturama-app .coach p {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 10px 0 0;
+  color: rgba(255, 255, 255, 0.77);
+  font-size: 11px;
+}
+
+.gesturama-app .coach p i {
+  width: 19px;
+  height: 19px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: ui-monospace, monospace;
+  font-size: 8px;
+  font-style: normal;
+}
+
+.gesturama-app .coach p.is-done {
+  color: rgba(255, 255, 255, 0.35);
+  text-decoration: line-through;
+}
+
+.gesturama-app .coach p.is-done i {
+  border-color: rgba(115, 242, 187, 0.5);
+  color: var(--mint);
+}
+
+.gesturama-app .coach-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.55);
+  background: transparent;
+  pointer-events: auto;
+}
+
+.gesturama-app .coach-close:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.gesturama-app .start-screen {
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(85, 217, 232, 0.07), transparent 18rem),
+    rgba(13, 16, 17, 0.9);
+  backdrop-filter: blur(15px);
+}
+
+.gesturama-app .start-card {
+  width: min(310px, 100%);
+  display: grid;
+  gap: 13px;
+  text-align: center;
+}
+
+.gesturama-app .primary-button {
+  width: 100%;
+  min-height: 54px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 99px;
+  color: #111414;
+  background: var(--paper);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+  font-weight: 780;
+  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.gesturama-app .primary-button:hover {
+  transform: translateY(-2px);
+  background: white;
+  box-shadow: 0 15px 42px rgba(0, 0, 0, 0.32);
+}
+
+.gesturama-app .primary-button:disabled {
+  opacity: 0.6;
+}
+
+.gesturama-app .start-privacy {
+  margin: 0;
+  color: #858c89;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.gesturama-app .transport-row {
+  min-height: 66px;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.gesturama-app .stage-actions {
+  gap: 6px;
+  margin-left: auto;
+}
+
+.gesturama-app .icon-text-button {
+  min-height: 37px;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 9px;
+}
+
+.gesturama-app .icon-text-button.compact {
+  width: 37px;
+  justify-content: center;
+  padding: 0;
+}
+
+.gesturama-app .icon-text-button:hover,
+.gesturama-app .icon-text-button[aria-pressed="true"] {
+  color: var(--paper);
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.gesturama-app .control-rail {
+  display: grid;
+  align-content: start;
+  gap: 13px;
+}
+
+.gesturama-app .control-panel {
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+}
+
+.gesturama-app .panel-heading {
+  min-height: 32px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.gesturama-app .panel-heading > div {
+  gap: 9px;
+}
+
+.gesturama-app .panel-heading h2 {
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+
+.gesturama-app .panel-number {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.gesturama-app .mini-label {
+  color: #747b78;
+  font-size: 7px;
+}
+
+.gesturama-app .drum-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.gesturama-app .drum-choice {
+  position: relative;
+  min-width: 0;
+  min-height: 64px;
+  gap: 9px;
+  padding: 9px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.025);
+  transition: border-color 150ms ease, transform 150ms ease, background 150ms ease;
+}
+
+.gesturama-app .drum-choice:hover {
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+}
+
+.gesturama-app .drum-choice[aria-pressed="true"] {
+  border-color: var(--drum-color);
+  background: color-mix(in srgb, var(--drum-color) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--drum-color) 30%, transparent);
+}
+
+.gesturama-app .drum-choice.is-hit .drum-swatch {
+  animation: gesturama-drum-hit 210ms ease-out;
+}
+
+.gesturama-app .drum-choice.kick { --drum-color: var(--kick); }
+.gesturama-app .drum-choice.snare { --drum-color: var(--snare); }
+.gesturama-app .drum-choice.hat { --drum-color: var(--hat); }
+.gesturama-app .drum-choice.clap { --drum-color: var(--clap); }
+.gesturama-app .drum-choice.sample {
+  --drum-color: var(--sample);
+  grid-column: 1 / -1;
+}
+
+.gesturama-app .drum-swatch {
+  position: relative;
+  width: 31px;
+  height: 31px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--drum-color);
+}
+
+.gesturama-app .drum-choice.kick .drum-swatch i {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  inset: 9px;
+  border: 2px solid rgba(15, 17, 17, 0.5);
+  border-radius: 50%;
+}
+
+.gesturama-app .drum-choice.snare .drum-swatch {
+  background: repeating-linear-gradient(120deg, var(--snare) 0 5px, #2ba9b9 5px 7px);
+}
+
+.gesturama-app .drum-choice.hat .drum-swatch {
+  background: repeating-linear-gradient(0deg, var(--hat) 0 5px, #c69c2b 5px 7px);
+}
+
+.gesturama-app .drum-choice.clap .drum-swatch {
+  background-color: var(--clap);
+  background-image: radial-gradient(#594292 1.5px, transparent 1.5px);
+  background-size: 7px 7px;
+}
+
+.gesturama-app .drum-choice.sample .drum-swatch {
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--sample) 17%, #1b2020);
+}
+
+.gesturama-app .drum-choice.sample .drum-swatch i,
+.gesturama-app .drum-choice.sample .drum-swatch::before,
+.gesturama-app .drum-choice.sample .drum-swatch::after {
+  content: "";
+  position: absolute;
+  width: 2px;
+  left: 50%;
+  top: 7px;
+  bottom: 7px;
+  border-radius: 99px;
+  background: var(--sample);
+  box-shadow: 0 0 7px rgba(255, 145, 203, 0.42);
+}
+
+.gesturama-app .drum-choice.sample .drum-swatch::before {
+  height: 10px;
+  left: calc(50% - 6px);
+  top: 10px;
+  bottom: auto;
+}
+
+.gesturama-app .drum-choice.sample .drum-swatch::after {
+  height: 6px;
+  left: calc(50% + 6px);
+  top: 12px;
+  bottom: auto;
+}
+
+.gesturama-app .drum-choice > span:nth-child(2) {
+  min-width: 0;
+}
+
+.gesturama-app .drum-choice b,
+.gesturama-app .drum-choice small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gesturama-app .drum-choice b {
+  font-size: 10px;
+}
+
+.gesturama-app .drum-choice small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.gesturama-app kbd {
+  min-width: 20px;
+  min-height: 20px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: #858c89;
+  background: rgba(0, 0, 0, 0.12);
+  font: 8px ui-monospace, monospace;
+  box-shadow: none;
+}
+
+.gesturama-app .drum-choice kbd {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  min-width: 15px;
+  min-height: 15px;
+  font-size: 7px;
+}
+
+.gesturama-app .sample-recorder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.gesturama-app #record-sample-button {
+  min-width: 0;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  color: var(--paper);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.gesturama-app #record-sample-button:hover {
+  border-color: rgba(255, 101, 79, 0.58);
+  background: rgba(255, 101, 79, 0.07);
+}
+
+.gesturama-app #record-sample-button[aria-pressed="true"] {
+  border-color: var(--kick);
+  background: rgba(255, 101, 79, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 101, 79, 0.2);
+}
+
+.gesturama-app .record-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--kick);
+  box-shadow: 0 0 0 3px rgba(255, 101, 79, 0.1);
+}
+
+.gesturama-app #record-sample-button[aria-pressed="true"] .record-dot {
+  border-radius: 2px;
+  animation: gesturama-record-pulse 700ms ease-in-out infinite alternate;
+}
+
+.gesturama-app #sample-status {
+  max-width: 92px;
+  overflow: hidden;
+  color: var(--muted);
+  font: 7px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.07em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.gesturama-app #sample-status[data-state="recording"] {
+  color: var(--kick);
+}
+
+.gesturama-app #sample-status[data-state="ready"] {
+  color: var(--mint);
+}
+
+.gesturama-app #sample-status[data-state="denied"],
+.gesturama-app #sample-status[data-state="error"] {
+  color: var(--hat);
+}
+
+.gesturama-app .sample-recorder-help {
+  margin: 6px 0 0;
+  color: #747b78;
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.gesturama-app .history-buttons {
+  gap: 4px !important;
+}
+
+.gesturama-app .history-buttons button {
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+}
+
+.gesturama-app .history-buttons button:hover:not(:disabled) {
+  color: white;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.gesturama-app .history-buttons button:disabled {
+  cursor: default;
+  opacity: 0.3;
+}
+
+.gesturama-app .tool-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+
+.gesturama-app .tool-grid button {
+  min-width: 0;
+  min-height: 54px;
+  padding: 7px 2px 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.gesturama-app .tool-grid button:hover {
+  color: white;
+  border-color: var(--line-strong);
+}
+
+.gesturama-app .tool-grid button[aria-pressed="true"] {
+  color: var(--paper);
+  border-color: var(--active-paint);
+  background: color-mix(in srgb, var(--active-paint) 8%, transparent);
+}
+
+.gesturama-app .tool-grid b {
+  display: block;
+  margin-top: 5px;
+  font-size: 7px;
+  font-weight: 650;
+}
+
+.gesturama-app .tool-glyph {
+  position: relative;
+  width: 24px;
+  height: 23px;
+  display: inline-block;
+}
+
+.gesturama-app .brush-glyph::before {
+  content: "";
+  position: absolute;
+  width: 24px;
+  height: 8px;
+  left: 0;
+  top: 8px;
+  border-top: 3px solid currentColor;
+  border-radius: 50%;
+  transform: rotate(-13deg);
+}
+
+.gesturama-app .line-glyph::before {
+  content: "";
+  position: absolute;
+  width: 24px;
+  height: 2px;
+  left: 0;
+  top: 11px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: rotate(-27deg);
+}
+
+.gesturama-app .pad-glyph::before {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 16px;
+  left: 1px;
+  top: 3px;
+  border: 2px solid currentColor;
+  border-radius: 5px;
+}
+
+.gesturama-app .dot-glyph::before {
+  content: "";
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  left: 6px;
+  top: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.gesturama-app .erase-glyph::before {
+  content: "";
+  position: absolute;
+  width: 17px;
+  height: 12px;
+  left: 3px;
+  top: 5px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  transform: rotate(-36deg);
+}
+
+.gesturama-app .range-control {
+  display: grid;
+  gap: 9px;
+  margin-top: 15px;
+}
+
+.gesturama-app .range-control > span {
+  justify-content: space-between;
+}
+
+.gesturama-app .range-control b,
+.gesturama-app .toggle-row b {
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.gesturama-app .range-control small,
+.gesturama-app .toggle-row small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.gesturama-app input[type="range"] {
+  width: 100%;
+  height: 16px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+}
+
+.gesturama-app input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--active-paint), rgba(255, 255, 255, 0.14));
+}
+
+.gesturama-app input[type="range"]::-moz-range-track {
+  height: 3px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--active-paint), rgba(255, 255, 255, 0.14));
+}
+
+.gesturama-app input[type="range"]::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -5.5px;
+  appearance: none;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.gesturama-app input[type="range"]::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.gesturama-app .canvas-actions {
+  gap: 6px;
+  margin-top: 13px;
+}
+
+.gesturama-app .canvas-actions button {
+  min-height: 34px;
+  flex: 1;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 8px;
+}
+
+.gesturama-app .canvas-actions button:first-child {
+  color: var(--paper);
+  border-color: var(--line-strong);
+}
+
+.gesturama-app .canvas-actions button span {
+  margin-right: 5px;
+}
+
+.gesturama-app .canvas-actions button:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.gesturama-app .filter-pill {
+  padding: 5px 7px;
+  border: 1px solid rgba(115, 242, 187, 0.28);
+  border-radius: 99px;
+  color: var(--mint);
+  background: rgba(115, 242, 187, 0.05);
+  font-size: 7px;
+}
+
+.gesturama-app .tracker-status[data-state="idle"] {
+  color: var(--muted);
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.gesturama-app .tracker-status[data-state="armed"] {
+  color: var(--hat);
+  border-color: rgba(255, 211, 90, 0.35);
+  background: rgba(255, 211, 90, 0.06);
+}
+
+.gesturama-app .tracker-status[data-state="tracking"] {
+  color: var(--mint);
+  border-color: rgba(115, 242, 187, 0.35);
+  background: rgba(115, 242, 187, 0.06);
+}
+
+.gesturama-app .tracker-help,
+.gesturama-app .field-note {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.gesturama-app .tracker-help {
+  margin: -3px 0 12px;
+}
+
+.gesturama-app .color-picker-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.82fr);
+  gap: 7px;
+}
+
+.gesturama-app .sample-color-button,
+.gesturama-app .tracked-color-readout {
+  min-width: 0;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.gesturama-app .sample-color-button {
+  text-align: left;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.gesturama-app .sample-color-button:hover {
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
+}
+
+.gesturama-app .sample-color-button[aria-pressed="true"] {
+  border-color: var(--hat);
+  background: rgba(255, 211, 90, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 211, 90, 0.13);
+}
+
+.gesturama-app .sample-color-button b,
+.gesturama-app .sample-color-button small,
+.gesturama-app .tracked-color-readout b,
+.gesturama-app .tracked-color-readout output {
+  display: block;
+}
+
+.gesturama-app .sample-color-button b,
+.gesturama-app .tracked-color-readout b {
+  font-size: 8px;
+  line-height: 1.2;
+}
+
+.gesturama-app .sample-color-button small,
+.gesturama-app .tracked-color-readout output {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--muted);
+  font: 7px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gesturama-app .eyedropper-glyph {
+  position: relative;
+  width: 29px;
+  height: 29px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.13);
+}
+
+.gesturama-app .eyedropper-glyph::before {
+  content: "";
+  position: absolute;
+  width: 15px;
+  height: 5px;
+  left: 6px;
+  top: 10px;
+  border: 2px solid var(--paper);
+  border-radius: 5px 5px 2px 5px;
+  transform: rotate(-43deg);
+}
+
+.gesturama-app .eyedropper-glyph::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  left: 5px;
+  bottom: 4px;
+  border-radius: 50% 50% 50% 0;
+  background: var(--snare);
+  transform: rotate(-45deg);
+}
+
+.gesturama-app .tracked-color-readout {
+  padding-inline: 8px;
+}
+
+.gesturama-app .tracked-color {
+  position: relative;
+  width: 29px;
+  height: 29px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  background: #303536;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.gesturama-app .tracked-color[data-active="false"]::after {
+  content: "";
+  position: absolute;
+  width: 40px;
+  height: 1px;
+  left: -7px;
+  top: 12px;
+  background: rgba(255, 255, 255, 0.42);
+  transform: rotate(-45deg);
+}
+
+.gesturama-app .tracker-tolerance {
+  margin-top: 13px;
+}
+
+.gesturama-app .field-note {
+  margin: 2px 0 0;
+  color: #747b78;
+  font-size: 7px;
+}
+
+.gesturama-app .tracker-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 9px;
+}
+
+.gesturama-app .tracker-options .toggle-row {
+  margin-top: 11px;
+  padding-top: 11px;
+}
+
+.gesturama-app .clear-tracked-color {
+  min-height: 30px;
+  margin-bottom: 1px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 7px;
+}
+
+.gesturama-app .clear-tracked-color:hover:not(:disabled) {
+  color: var(--paper);
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.gesturama-app .clear-tracked-color:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.gesturama-app .motion-meter {
+  height: 3px;
+  margin-top: 5px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.gesturama-app .motion-meter i {
+  width: 0;
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--snare), var(--hat), var(--kick));
+  transition: width 80ms linear;
+}
+
+.gesturama-app .toggle-row {
+  position: relative;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+
+.gesturama-app .toggle-row > span {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gesturama-app .toggle-row input {
+  position: absolute;
+  opacity: 0;
+}
+
+.gesturama-app .toggle-row > i {
+  position: relative;
+  width: 35px;
+  height: 20px;
+  border-radius: 99px;
+  background: #343a3a;
+  transition: background 150ms ease;
+}
+
+.gesturama-app .toggle-row > i::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  left: 3px;
+  top: 3px;
+  border-radius: 50%;
+  background: #9ca29f;
+  transition: transform 150ms ease, background 150ms ease;
+}
+
+.gesturama-app .toggle-row input:checked + i {
+  background: rgba(85, 217, 232, 0.35);
+}
+
+.gesturama-app .toggle-row input:checked + i::after {
+  transform: translateX(15px);
+  background: var(--snare);
+}
+
+.gesturama-app .toggle-row input:focus-visible + i {
+  outline: 3px solid rgba(85, 217, 232, 0.72);
+  outline-offset: 3px;
+}
+
+.gesturama-app .compact-range {
+  grid-template-columns: 68px 1fr;
+  align-items: center;
+  margin-top: 13px;
+}
+
+.gesturama-app .app-footer {
+  min-height: 58px;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  color: #717875;
+  font-size: 9px;
+}
+
+.gesturama-app .app-footer p {
+  margin: 0;
+}
+
+.gesturama-app .footer-spark {
+  margin-right: 7px;
+  color: var(--clap);
+}
+
+.gesturama-app .shortcuts {
+  gap: 15px;
+}
+
+.gesturama-app .shortcuts span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.gesturama-app .toast {
+  position: fixed;
+  z-index: 100;
+  left: 50%;
+  bottom: 24px;
+  max-width: min(420px, calc(100% - 32px));
+  padding: 11px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.17);
+  border-radius: 99px;
+  color: var(--paper);
+  background: rgba(25, 29, 30, 0.92);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(13px);
+  font-size: 10px;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 12px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.gesturama-app .toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@keyframes gesturama-blink {
+  to { opacity: 0.35; }
+}
+
+@keyframes gesturama-drum-hit {
+  45% { transform: scale(1.25); box-shadow: 0 0 24px var(--drum-color); }
+  100% { transform: scale(1); }
+}
+
+@keyframes gesturama-grid-hit {
+  35% {
+    background: color-mix(in srgb, var(--grid-color) 28%, transparent);
+    box-shadow: inset 0 0 32px color-mix(in srgb, var(--grid-color) 40%, transparent);
+  }
+  100% {
+    background: color-mix(in srgb, var(--grid-color) 8%, transparent);
+  }
+}
+
+@keyframes gesturama-string-pluck {
+  35% {
+    transform: translateY(-50%) scaleY(4);
+    box-shadow: 0 0 22px var(--string-color);
+  }
+  100% {
+    transform: translateY(-50%) scaleY(1);
+  }
+}
+
+@keyframes gesturama-record-pulse {
+  to {
+    opacity: 0.42;
+    box-shadow: 0 0 0 5px rgba(255, 101, 79, 0.05);
+  }
+}
+
+@media (max-width: 1080px) {
+  .gesturama-app .instrument-layout {
+    grid-template-columns: minmax(0, 1fr) 305px;
+    gap: 20px;
+  }
+
+  .gesturama-app .control-panel {
+    padding: 14px;
+  }
+
+  .gesturama-app .drum-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gesturama-app .drum-choice {
+    min-height: 51px;
+  }
+
+  .gesturama-app .tool-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 960px) {
+  body.gesturama-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 820px) {
+  .gesturama-app .app-shell {
+    padding: 0 15px;
+  }
+
+  .gesturama-app .instrument-layout {
+    grid-template-columns: 1fr;
+    padding-top: 22px;
+  }
+
+  .gesturama-app .control-rail {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .gesturama-app .drum-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .gesturama-app .tool-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .gesturama-app .topbar {
+    min-height: 64px;
+  }
+
+  .gesturama-app .wordmark {
+    font-size: 15px;
+  }
+
+  .gesturama-app .edition,
+.gesturama-app #zone-count {
+    display: none;
+  }
+
+  .gesturama-app .camera-stage {
+    aspect-ratio: 4 / 5;
+    border-radius: 22px;
+  }
+
+  .gesturama-app .stage-heading {
+    min-height: 0;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 7px;
+    padding-bottom: 10px;
+  }
+
+  .gesturama-app .stage-title-group {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 0;
+  }
+
+  .gesturama-app .stage-heading h1 {
+    font-size: clamp(23px, 7vw, 29px);
+  }
+
+  .gesturama-app .preset-picker {
+    width: 100%;
+  }
+
+  .gesturama-app .stage-heading-meta {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .gesturama-app .vision-label {
+    margin-top: 0;
+    font-size: 7px;
+  }
+
+  .gesturama-app .transport-row {
+    min-height: 64px;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 0;
+  }
+
+  .gesturama-app .stage-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .gesturama-app .control-rail {
+    grid-template-columns: 1fr;
+  }
+
+  .gesturama-app .vision-panel {
+    grid-column: auto;
+  }
+
+  .gesturama-app .start-screen {
+    padding: 18px;
+  }
+
+  .gesturama-app .coach {
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    width: auto;
+  }
+
+  .gesturama-app .drum-choice,
+.gesturama-app .tool-grid button,
+.gesturama-app .canvas-actions button,
+.gesturama-app .icon-text-button,
+.gesturama-app #record-sample-button {
+    min-height: 44px;
+  }
+
+  .gesturama-app .app-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    padding: 17px 0;
+  }
+
+  .gesturama-app .shortcuts {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+@media (max-width: 390px) {
+  .gesturama-app .topbar-status {
+    display: none;
+  }
+
+  .gesturama-app .vision-label {
+    display: none;
+  }
+
+  .gesturama-app .stage-heading-meta {
+    display: none;
+  }
+
+  .gesturama-app .drum-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gesturama-app .drum-choice.sample {
+    grid-column: auto;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gesturama-app *,
+.gesturama-app *::before,
+.gesturama-app *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}

@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#07090b" />
-    <meta name="description" content="Morphazoid L-mic — a live microphone that grows recursive audio descendants." />
-    <title>L-mic — Morphazoid</title>
+    <meta name="description" content="Morphazoid L-system Delay — a live microphone that grows recursive audio descendants." />
+    <title>L-system Delay — Morphazoid</title>
     <link rel="canonical" href="l-mic.html" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
@@ -28,7 +28,7 @@
         <a class="tab recursion-tab" href="recursion.html">recursion</a>
         <a class="tab" href="julia.html">julia</a>
         <a class="tab" href="lumber.html">lumber loops</a>
-        <a class="tab micmic-tab active" href="l-mic.html" aria-current="page">L-mic</a>
+        <a class="tab micmic-tab active" href="l-mic.html" aria-current="page">L-system Delay</a>
         <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
         <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
         <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
@@ -45,7 +45,7 @@
           <option value="recursion.html">recursion</option>
           <option value="julia.html">julia</option>
           <option value="lumber.html">lumber loops</option>
-          <option value="l-mic.html" selected>L-mic</option>
+          <option value="l-mic.html" selected>L-system Delay</option>
           <option value="graph-delay.html">graph-delay</option>
           <option value="throatazoid.html">throatazoid</option>
           <option value="morphazoidical/">morphazoidical</option>
@@ -63,18 +63,18 @@
         </button>
         <label class="header-level" for="level">
           <span><b>Output</b><output id="levelOut" for="level">58%</output></span>
-          <input id="level" aria-label="L-mic output level" type="range" min="0" max="1" step="0.01" value="0.58" />
+          <input id="level" aria-label="L-system Delay output level" type="range" min="0" max="1" step="0.01" value="0.58" />
         </label>
       </div>
     </header>
 
     <main class="shell" id="micmic">
-      <section class="stage fracta-stage" aria-label="L-mic echo tree">
+      <section class="stage fracta-stage" aria-label="L-system Delay echo tree">
         <div class="stage-wrap" id="stageWrap">
           <canvas
             id="stage"
             role="img"
-            aria-label="Live fitted L-mic L-system tree. Microphone off."
+            aria-label="Live fitted L-system tree for L-system Delay. Microphone off."
             aria-describedby="treeDescription liveStatus"
           >
             A fitted L-system tree whose branches vibrate as microphone audio travels through them.
@@ -101,14 +101,14 @@
         </div>
       </section>
 
-      <aside class="panel" aria-label="L-mic controls">
+      <aside class="panel" aria-label="L-system Delay controls">
         <details class="group control-section" id="presetSection" data-section="presets">
           <summary class="group-summary">
             <h2 class="group-title">Presets</h2>
             <span class="section-state" id="presetSummary">Pythagorean Pine · Maximum</span>
           </summary>
           <div class="group-body">
-            <div class="micmic-preset-grid" id="generationPresetGrid" role="group" aria-label="L-mic presets">
+            <div class="micmic-preset-grid" id="generationPresetGrid" role="group" aria-label="L-system Delay presets">
               <button id="generationPreset-moss" type="button" data-generation-preset="moss" data-preset-band="robotic" aria-pressed="false"><b>Moss Carpet</b><small>ROBOTIC · 1 ms fold</small></button>
               <button id="generationPreset-bramble" type="button" data-generation-preset="bramble" data-preset-band="robotic" aria-pressed="false"><b>Blackberry Bramble</b><small>ROBOTIC · 4 ms fold</small></button>
               <button id="generationPreset-venus" type="button" data-generation-preset="venus" data-preset-band="robotic" aria-pressed="false"><b>Venus Flytrap</b><small>ROBOTIC · 14 ms fold</small></button>

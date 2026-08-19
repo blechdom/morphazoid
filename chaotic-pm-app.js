@@ -990,12 +990,6 @@ $("output").addEventListener("input", () => {
 
 $("audioButton").addEventListener("click", toggleAudio);
 
-canvas.addEventListener("keydown", (event) => {
-  if (event.key !== " " && event.key !== "Enter") return;
-  event.preventDefault();
-  toggleAudio();
-});
-
 $("resetChaoticPm").addEventListener("click", () => {
   clearError();
   audio.allSoundOff();

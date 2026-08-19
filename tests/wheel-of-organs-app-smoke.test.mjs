@@ -140,7 +140,7 @@ function fakeWheelDocument(html) {
       documentListeners.delete(type);
     },
   };
-  return { doc, elements };
+  return { doc, elements, documentListeners };
 }
 
 function pointOnMouth(mouth, radial = 0, tangential = 0) {
@@ -151,6 +151,151 @@ function pointOnMouth(mouth, radial = 0, tangential = 0) {
     y: mouth.centerY + radialY * radial + radialX * tangential,
   };
 }
+
+test("a spin accelerates through the 3 o'clock reader, holds one winner, and stays locked through decay", async (context) => {
+  const html = await readFile(new URL("../image-to-instrument-3.html", import.meta.url), "utf8");
+  const { doc, elements, documentListeners } = fakeWheelDocument(html);
+  const animationFrames = [];
+  let frameId = 0;
+  const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    animationFrames.push(callback);
+    frameId += 1;
+    return frameId;
+  };
+  globalThis.cancelAnimationFrame = () => {};
+  context.after(() => {
+    globalThis.requestAnimationFrame = priorRequestAnimationFrame;
+    globalThis.cancelAnimationFrame = priorCancelAnimationFrame;
+  });
+
+  const app = mountWheelOfOrgans(doc);
+  let time = 16;
+  function runFrame(deltaMilliseconds = 50) {
+    const callback = animationFrames.shift();
+    assert.ok(callback, "the mounted instrument should keep requesting animation frames");
+    time += deltaMilliseconds;
+    callback(time);
+  }
+  runFrame(0);
+  const idleRotation = app.spin.rotation;
+  runFrame();
+  assert.equal(app.spin.phase, "idle");
+  assert.equal(app.spin.rotation, idleRotation, "the ready wheel must remain still");
+  assert.equal(elements.get("transportButton").disabled, false);
+
+  const crossed = [];
+  const sustained = [];
+  const released = [];
+  app.audio.enable = async () => {};
+  app.audio.disable = async () => {};
+  app.audio.syncMouths = () => {};
+  app.audio.articulate = (slot, mouth) => crossed.push({ slot, id: mouth.id });
+  app.audio.sustain = (slot, mouth) => sustained.push({ slot, id: mouth.id });
+  app.audio.release = (slot, options) => released.push({ slot, options });
+
+  await elements.get("transportButton").dispatch("click");
+  const spinNumber = app.spin.spinNumber;
+  assert.equal(app.state.running, true);
+  assert.equal(app.spin.phase, "accelerating");
+  assert.equal(elements.get("audioButton").getAttribute("aria-pressed"), "false");
+  assert.equal(elements.get("transportButton").disabled, true);
+  assert.equal(crossed.length, 0, "Spin itself is silent until a mouth reaches the reader");
+  assert.match(elements.get("liveStatus").textContent, /spinning silently/i);
+
+  documentListeners.get("keydown")({
+    code: "Space",
+    key: " ",
+    target: { tagName: "DIV" },
+    preventDefault() {},
+  });
+  assert.equal(app.spin.spinNumber, spinNumber, "Space cannot stop or restart a locked spin");
+  assert.equal(app.state.running, true);
+
+  for (let index = 0; index < 10; index += 1) runFrame();
+  await elements.get("audioButton").dispatch("click");
+  assert.equal(elements.get("audioButton").getAttribute("aria-pressed"), "true");
+  assert.equal(crossed.length, 0, "arming Audio mid-spin must wait for the next crossing");
+
+  let maximumVelocity = app.spin.angularVelocity;
+  let sawVelocityFall = false;
+  let winnerAngle = null;
+  let sawSustain = false;
+  let sawDecay = false;
+  let guard = 0;
+  while (app.spin.phase !== "idle" && guard < 320) {
+    const priorVelocity = app.spin.angularVelocity;
+    runFrame();
+    maximumVelocity = Math.max(maximumVelocity, app.spin.angularVelocity);
+    if (priorVelocity > 0 && app.spin.angularVelocity < priorVelocity) sawVelocityFall = true;
+    if (app.spin.phase === "sustaining") {
+      sawSustain = true;
+      winnerAngle = app.layout.mouths[app.spin.finalMouthIndex]?.angle ?? null;
+      assert.equal(elements.get("transportButton").disabled, true);
+    }
+    if (app.spin.phase === "decaying") {
+      sawDecay = true;
+      assert.equal(elements.get("transportButton").disabled, true);
+    }
+    guard += 1;
+  }
+
+  assert.ok(maximumVelocity > 1, "the spin must accelerate");
+  assert.equal(sawVelocityFall, true, "the wheel must brake after reaching speed");
+  assert.ok(crossed.length > app.state.mouths.length, "many reader crossings should sound");
+  assert.equal(new Set(crossed.map(({ id }) => id)).size, app.state.mouths.length);
+  assert.equal(sustained.length, 1, "only the final aligned organ sustains");
+  assert.equal(released.length, 1, "the winner receives one decay envelope");
+  assert.equal(released[0].options.release, 2.4);
+  assert.equal(sawSustain, true);
+  assert.equal(sawDecay, true);
+  assert.ok(Number.isFinite(winnerAngle));
+  assert.ok(
+    Math.abs(Math.atan2(Math.sin(winnerAngle), Math.cos(winnerAngle))) < 1e-8,
+    "the winning mouth must stop exactly at 3 o'clock",
+  );
+  assert.equal(app.state.running, false);
+  assert.equal(elements.get("transportButton").disabled, false);
+  assert.match(elements.get("liveStatus").textContent, /quiet, still, and ready/i);
+
+  await elements.get("transportButton").dispatch("click");
+  assert.equal(app.spin.spinNumber, spinNumber + 1, "a new spin unlocks only after silence");
+  await elements.get("audioButton").dispatch("click");
+  assert.equal(elements.get("audioButton").getAttribute("aria-pressed"), "false");
+  app.dispose();
+});
+
+test("an empty or fully muted letter wheel cannot spin", async (context) => {
+  const html = await readFile(new URL("../image-to-instrument-3.html", import.meta.url), "utf8");
+  const { doc, elements } = fakeWheelDocument(html);
+  const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  globalThis.requestAnimationFrame = () => 1;
+  globalThis.cancelAnimationFrame = () => {};
+  context.after(() => {
+    globalThis.requestAnimationFrame = priorRequestAnimationFrame;
+    globalThis.cancelAnimationFrame = priorCancelAnimationFrame;
+  });
+
+  const app = mountWheelOfOrgans(doc);
+  elements.get("wordInput").value = "";
+  elements.get("wordInput").dispatch("input");
+  assert.equal(app.state.mouths.length, 0);
+  assert.equal(elements.get("transportButton").disabled, true);
+  assert.equal(elements.get("transportState").textContent, "unvoiced");
+
+  elements.get("wordInput").value = "A";
+  elements.get("wordInput").dispatch("input");
+  assert.equal(app.state.mouths.length, 1);
+  assert.equal(elements.get("transportButton").disabled, false);
+  elements.get("petalActive").dispatch("click");
+  assert.equal(app.state.mouths[0].active, false);
+  assert.equal(elements.get("transportButton").disabled, true);
+  elements.get("transportButton").dispatch("click");
+  assert.equal(app.spin.phase, "idle");
+  app.dispose();
+});
 
 test("the preset bank preserves the wet original and adds genuinely quieter voices", async (context) => {
   const html = await readFile(new URL("../image-to-instrument-3.html", import.meta.url), "utf8");
@@ -310,7 +455,6 @@ test("captured gestures reach mutation-scale anatomy and keep mutation controls 
 
   const app = mountWheelOfOrgans(doc);
   assert.ok(app);
-  app.setTransport(true, false);
   animationFrames.shift()(16);
   const canvas = elements.get("stage");
   const { mouths, outerRadius, innerRadius } = app.layout;
@@ -463,7 +607,7 @@ test("captured gestures reach mutation-scale anatomy and keep mutation controls 
   const selectedBeforeMutation = app.state.selectedMouth;
   elements.get("mutateButton").dispatch("click");
   const mutated = app.state.mouths[selectedBeforeMutation];
-  assert.equal(app.state.running, true, "mutation must not interrupt the word loop");
+  assert.equal(app.state.running, false, "editing an idle wheel must not start a spin");
   assert.equal(app.state.selectedMouth, selectedBeforeMutation);
   for (const [id, property] of [
     ["pull", "pull"],

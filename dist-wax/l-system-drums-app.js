@@ -361,24 +361,25 @@ $("structureMode").addEventListener("change", (event) => {
 });
 
 function paintTraversalBehavior() {
-  setPressed($("traversalLoop"), state.traversalBehavior === "loop");
-  setPressed($("traversalPingPong"), state.traversalBehavior === "ping-pong");
+  const forward = state.direction > 0;
+  $("traversalDirectionGlyph").textContent = forward ? "→" : "←";
+  $("traversalDirectionText").textContent = forward ? "FWD" : "REV";
+  $("traversalDirection").setAttribute(
+    "aria-label",
+    `Traversal direction: ${forward ? "forward" : "reverse"}${state.traversalBehavior === "ping-pong" ? " ping-pong travel" : ""}`,
+  );
+  setPressed($("loopMotion"), state.traversalBehavior === "loop");
+  setPressed($("pingPongMotion"), state.traversalBehavior === "ping-pong");
   paintCurrentSettings();
 }
 
-$("traversalLoop").addEventListener("click", () => {
-  state.traversalBehavior = "loop";
-  activeEventKeys = new Set();
-  paintTraversalBehavior();
-  scheduleFrame();
-});
-
-$("traversalPingPong").addEventListener("click", () => {
-  state.traversalBehavior = "ping-pong";
-  activeEventKeys = new Set();
-  paintTraversalBehavior();
-  scheduleFrame();
-});
+for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
+  button.addEventListener("click", () => {
+    state.traversalBehavior = button.dataset.value === "pingpong" ? "ping-pong" : "loop";
+    paintTraversalBehavior();
+    scheduleFrame();
+  });
+}
 
 function mappingLabel() {
   const mode = mappingById.get(state.mappingMode) ?? L_SYSTEM_DRUM_MAPPING_MODES[0];
@@ -424,7 +425,7 @@ $("percussionStyle").addEventListener("change", (event) => {
 
 function paintCurrentSettings() {
   const behavior = state.traversalBehavior === "ping-pong"
-    ? "ping-pong"
+    ? `ping-pong ${state.direction > 0 ? "forward" : "reverse"}`
     : state.direction > 0
       ? "loop forward"
       : "loop reverse";
@@ -478,11 +479,9 @@ $("playButton").addEventListener("click", () => {
   scheduleFrame();
 });
 
-$("directionButton").addEventListener("click", () => {
+$("traversalDirection").addEventListener("click", () => {
   state.direction *= -1;
-  $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
-  activeEventKeys = new Set();
-  paintCurrentSettings();
+  paintTraversalBehavior();
   scheduleFrame();
 });
 
@@ -697,7 +696,7 @@ function frame(now) {
     state.position = advanced.position;
     state.direction = advanced.direction;
     if (state.direction !== previousDirection) {
-      $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
+      paintTraversalBehavior();
     }
   }
   const playback = iterationPlaybackAtPhase(
@@ -741,7 +740,7 @@ function frame(now) {
   const preset = currentPreset();
   const headLabel = `${playheads.length} HEAD${playheads.length === 1 ? "" : "S"}`;
   const audioText = state.audio ? (state.playing ? `${hitCount} HITS` : "AUDIO READY") : "AUDIO OFF";
-  $("playSummary").textContent = `${headLabel.toLowerCase()} · ${state.playing ? "playing" : "paused"}`;
+  $("playSummary").textContent = `${headLabel.toLowerCase()} · ${state.playing ? "playing" : "paused"} · ${state.traversalBehavior} · ${state.direction > 0 ? "forward" : "reverse"}`;
   $("stageReadout").textContent = `${preset.name.toUpperCase()} · ${structureLabel} · ${headLabel} · ${audioText}`;
   paintStructure(playback);
   if (state.playing) scheduleFrame();
@@ -780,7 +779,6 @@ $("resetAll").addEventListener("click", () => {
   $("structureMode").value = state.structureMode;
   $("mappingMode").value = state.mappingMode;
   $("percussionStyle").value = state.percussionStyle;
-  $("directionButton").textContent = "Direction · forward";
   setPressed($("playButton"), false);
   paintTraversalSpeed();
   paintTraversalBehavior();

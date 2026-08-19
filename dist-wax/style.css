@@ -17,6 +17,7 @@
   --violet: #c79bff;
   --orange: #ffb86b;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  --audio-control-width: 44px;
 }
 
 * {
@@ -1928,7 +1929,7 @@ a {
   display: grid;
   min-width: 0;
   margin-left: auto;
-  grid-template-columns: minmax(96px, 140px) 44px;
+  grid-template-columns: minmax(96px, 140px) var(--audio-control-width);
   align-items: center;
   gap: 12px;
 }
@@ -1956,7 +1957,7 @@ a {
   display: grid;
   min-width: 0;
   margin-left: 0;
-  grid-template-columns: minmax(96px, 140px) 44px;
+  grid-template-columns: minmax(96px, 140px) var(--audio-control-width);
   align-items: center;
   gap: 12px;
 }
@@ -1972,29 +1973,65 @@ a {
 }
 
 .audio-button {
+  position: relative;
   display: grid;
-  width: 44px;
-  min-width: 44px;
-  max-width: 44px;
+  width: var(--audio-control-width);
+  min-width: var(--audio-control-width);
+  max-width: var(--audio-control-width);
   height: 44px;
   padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: 0;
   color: var(--muted);
-  place-items: center;
+  background: color-mix(in oklab, var(--bg-deep) 92%, var(--faint));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--bg-deep) 72%, transparent);
   font-size: 0;
+  place-items: center;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease, box-shadow 140ms ease;
 }
 
-.audio-button > :not(.audio-speaker-icon) {
-  display: none !important;
+.audio-button > :not(.audio-speaker-icon),
+.audio-speaker-copy {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  border: 0 !important;
+  white-space: nowrap !important;
 }
 
+/* Preserve a natural spoken separator in the authored no-script fallback. */
+.audio-button .audio-copy b::after,
+.audio-button > span:not([aria-hidden="true"])::after {
+  content: " ";
+}
+
+.audio-button::before,
 .audio-speaker-icon {
   display: block;
-  width: 21px;
-  height: 21px;
+  width: 22px;
+  height: 22px;
   background: currentColor;
   content: "";
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/%3E%3Cpath d='m16 9 6 6M22 9l-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/%3E%3Cpath d='m16 9 6 6M22 9l-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.audio-button[data-audio-icon-ready="true"]::before,
+.audio-button:not([data-audio-icon-ready="true"]) > .audio-speaker-icon {
+  display: none;
+}
+
+.audio-button[aria-pressed="true"]::before,
+.audio-button[data-audio-state="on"]::before,
+.audio-button[data-audio-state="starting"]::before,
+.audio-button[aria-pressed="true"] .audio-speaker-icon,
+.audio-button[data-audio-state="on"] .audio-speaker-icon,
+.audio-button[data-audio-state="starting"] .audio-speaker-icon {
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/%3E%3Cpath d='M15.54 8.46a5 5 0 0 1 0 7.07'/%3E%3Cpath d='M19.07 4.93a10 10 0 0 1 0 14.14'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/%3E%3Cpath d='M15.54 8.46a5 5 0 0 1 0 7.07'/%3E%3Cpath d='M19.07 4.93a10 10 0 0 1 0 14.14'/%3E%3C/svg%3E") center / contain no-repeat;
 }
@@ -2002,23 +2039,72 @@ a {
 .audio-button:hover {
   border-color: var(--accent-soft);
   color: var(--ink);
+  background: color-mix(in oklab, var(--bg-deep) 82%, var(--faint));
 }
 
 .audio-button[aria-pressed="true"] {
   border-color: var(--accent);
-  color: var(--accent);
-  background: color-mix(in oklab, var(--accent) 12%, var(--bg-deep));
-  box-shadow: 0 0 14px var(--accent-glow);
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-soft), 0 0 20px var(--accent-glow), inset 0 0 0 1px color-mix(in oklab, white 28%, transparent);
 }
 
 .audio-button[data-audio-state="starting"] {
   border-color: color-mix(in oklab, var(--brass) 70%, transparent);
   color: var(--brass);
+  background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--brass) 12%, var(--bg-deep)) 0 5px, var(--bg-deep) 5px 10px);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--brass) 16%, transparent);
+  cursor: progress;
 }
 
 .audio-button[data-audio-state="error"] {
   border-color: color-mix(in oklab, var(--orange) 70%, transparent);
   color: var(--orange);
+}
+
+.audio-button[data-audio-attention="true"] {
+  border-color: var(--orange);
+  color: var(--orange);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--orange) 18%, transparent);
+}
+
+.transport-audio-attention {
+  position: absolute;
+  z-index: 84;
+  top: calc(100% + 6px);
+  right: clamp(12px, 2.5vw, 32px);
+  max-width: min(320px, calc(100vw - 24px));
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in oklab, var(--orange) 58%, var(--line-strong));
+  color: var(--ink);
+  background: color-mix(in oklab, var(--bg-deep) 94%, var(--orange));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+  font-size: 9px;
+  letter-spacing: 0.035em;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.transport-audio-attention[hidden] {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  :root {
+    --audio-control-width: 48px;
+  }
+
+  .audio-button,
+  #playButton,
+  [data-primary-transport] {
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+  .audio-button {
+    height: 48px;
+  }
 }
 
 /* Shared Web MIDI */
@@ -2142,16 +2228,37 @@ a {
 
 .header-output-meter-shell {
   display: grid;
-  width: 14px;
-  min-width: 14px;
+  width: 22px;
+  min-width: 22px;
   height: 44px;
   color: var(--muted);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  justify-items: center;
+  gap: 0;
+}
+
+.header-output-channel {
+  display: grid;
+  width: 10px;
+  height: 42px;
+  grid-template-rows: 8px minmax(0, 1fr);
   place-items: center;
+  gap: 1px;
+}
+
+.header-output-channel-label {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
 }
 
 .header-output-meter {
-  width: 7px;
-  height: 32px;
+  display: block;
+  width: 6px;
+  height: 31px;
+  margin: 0;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: color-mix(in oklab, var(--bg-deep) 92%, transparent);
@@ -2184,6 +2291,26 @@ a {
   opacity: 0.52;
 }
 
+.header-output-channel.is-clipping .header-output-channel-label {
+  color: var(--orange);
+}
+
+.header-output-meter.is-clipping {
+  border-color: var(--orange);
+  outline: 1px solid color-mix(in oklab, var(--orange) 45%, transparent);
+  outline-offset: 1px;
+}
+
+.header-output-meter.is-clipping::-webkit-meter-optimum-value,
+.header-output-meter.is-clipping::-webkit-meter-suboptimum-value,
+.header-output-meter.is-clipping::-webkit-meter-even-less-good-value {
+  background: var(--orange);
+}
+
+.header-output-meter.is-clipping::-moz-meter-bar {
+  background: var(--orange);
+}
+
 .header-settings-menu {
   position: relative;
   height: 44px;
@@ -2201,6 +2328,10 @@ a {
 
 .header-settings-trigger::-webkit-details-marker {
   display: none;
+}
+
+.header-settings-trigger::marker {
+  content: "";
 }
 
 .header-settings-icon {
@@ -2223,23 +2354,27 @@ a {
   top: 57px;
   right: clamp(12px, 2.5vw, 32px);
   display: grid;
-  width: min(420px, calc(100vw - 24px));
+  width: min(360px, calc(100vw - 24px));
   max-height: calc(100dvh - 69px);
   overflow-y: auto;
-  padding: 16px;
+  overscroll-behavior: contain;
+  padding: 14px;
   border: 1px solid var(--line-strong);
   background:
     linear-gradient(145deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 52%),
     color-mix(in oklab, var(--bg-deep) 97%, transparent);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.52);
   gap: 0;
+  scrollbar-gutter: stable;
 }
 
 .header-settings-heading {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  min-height: 40px;
+  padding: 0 0 9px;
+  border-bottom: 1px solid var(--line-strong);
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .header-settings-heading h2 {
@@ -2254,22 +2389,19 @@ a {
 .header-settings-heading span,
 .header-settings-field > span,
 .midi-profile-field > span {
-  color: var(--muted);
-  font-size: 8px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  display: none;
 }
 
 .header-settings-section {
   display: grid;
-  padding: 13px 0;
+  min-width: 0;
+  min-height: 48px;
+  padding: 4px 0;
   border-bottom: 1px solid var(--line);
-  gap: 8px;
-}
-
-.header-settings-section:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
+  grid-template-columns: minmax(92px, 112px) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 5px;
 }
 
 .header-settings-section-title {
@@ -2283,35 +2415,77 @@ a {
 
 .header-settings-field,
 .midi-profile-field {
-  display: grid;
-  gap: 6px;
+  display: block;
+  min-width: 0;
 }
 
 .header-settings-field select,
-.midi-profile-field select {
+.midi-profile-field select,
+.header-settings-section > select {
+  display: block;
   width: 100%;
+  min-width: 0;
   min-height: 40px;
-  padding: 0 34px 0 10px;
+  padding: 0 24px 0 9px;
   border: 1px solid var(--line-strong);
   border-radius: 0;
+  overflow: hidden;
   color: var(--accent);
-  background: var(--panel);
+  background-color: var(--panel);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 5px 5px;
   font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.header-settings-field select:disabled,
+.midi-profile-field select:disabled,
+.header-settings-section > select:disabled {
+  cursor: not-allowed;
+  border-color: var(--line);
+  color: var(--muted);
+  background-color: color-mix(in oklab, var(--panel) 84%, var(--faint));
+  opacity: 1;
+  -webkit-text-fill-color: var(--muted);
+}
+
+.header-settings-section.is-unavailable .header-settings-section-title {
+  color: var(--muted);
 }
 
 .midi-profile-status,
 .midi-profile-hint,
 .midi-keyboard-hint,
+.header-settings-copy {
+  display: none;
+}
+
 .midi-profile-error,
-.header-settings-copy,
 .header-settings-error {
+  grid-column: 1 / -1;
   margin: 0;
   font-size: 9px;
   line-height: 1.5;
 }
 
 .midi-profile-guide {
-  width: max-content;
+  display: inline-flex;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-strong);
+  grid-column: 1 / -1;
+  align-items: center;
   color: var(--accent);
   font-size: 9px;
   letter-spacing: 0.06em;
@@ -2319,38 +2493,29 @@ a {
   text-transform: uppercase;
 }
 
-.midi-keyboard-hint {
-  padding: 9px;
-  border: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line));
-  color: var(--ink);
-  background: color-mix(in oklab, var(--accent) 5%, transparent);
-}
-
-.midi-profile-status {
-  color: var(--ink);
-}
-
-.midi-profile-hint {
-  padding-top: 9px;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-}
-
 .midi-profile-error {
   color: var(--orange);
-}
-
-.header-settings-copy {
-  color: var(--muted);
 }
 
 .header-settings-error {
   color: var(--orange);
 }
 
+.header-settings-trigger:focus-visible,
+.header-settings-panel select:focus-visible,
+.midi-profile-guide:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 .audio-button:disabled {
-  cursor: wait;
-  opacity: 0.55;
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.audio-button[data-audio-state="starting"]:disabled {
+  cursor: progress;
+  opacity: 1;
 }
 
 .header-level {
@@ -4175,7 +4340,7 @@ select:hover {
     width: auto;
     margin-left: auto;
     flex: 1 1 auto;
-    grid-template-columns: minmax(86px, 1fr) 44px;
+    grid-template-columns: minmax(86px, 1fr) var(--audio-control-width);
     gap: 10px;
   }
 
@@ -4232,13 +4397,13 @@ select:hover {
 
   .audio-strip {
     width: min(152px, 49vw);
-    grid-template-columns: minmax(74px, 1fr) 44px;
+    grid-template-columns: minmax(74px, 1fr) var(--audio-control-width);
     gap: 7px;
   }
 
   .audio-button {
-    width: 44px;
-    min-width: 44px;
+    width: var(--audio-control-width);
+    min-width: var(--audio-control-width);
   }
 
   .tabs {
@@ -4253,13 +4418,13 @@ select:hover {
 
   .audio-strip {
     width: min(122px, 38vw);
-    grid-template-columns: minmax(54px, 1fr) 44px;
+    grid-template-columns: minmax(54px, 1fr) var(--audio-control-width);
     gap: 4px;
   }
 
   .audio-button {
-    width: 44px;
-    min-width: 44px;
+    width: var(--audio-control-width);
+    min-width: var(--audio-control-width);
   }
 
 }
@@ -4298,7 +4463,7 @@ select:hover {
   .audio-strip {
     width: min(158px, 52vw);
     flex: 1 1 auto;
-    grid-template-columns: minmax(70px, 1fr) 44px;
+    grid-template-columns: minmax(70px, 1fr) var(--audio-control-width);
     gap: 6px;
   }
 
@@ -4307,8 +4472,8 @@ select:hover {
   }
 
   .audio-button {
-    width: 44px;
-    min-width: 44px;
+    width: var(--audio-control-width);
+    min-width: var(--audio-control-width);
   }
 
 }
@@ -4337,10 +4502,27 @@ select:hover {
   .header-settings-panel {
     top: 53px;
     right: 8px;
+    max-height: calc(100dvh - 61px);
+  }
+
+  .header-settings-field select,
+  .midi-profile-field select,
+  .header-settings-section > select {
+    font-size: 16px;
   }
 }
 
 @media (max-width: 520px) {
+  .header-settings-panel {
+    right: 8px;
+    left: 8px;
+    width: auto;
+    max-width: none;
+    padding-right: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    padding-left: 12px;
+  }
+
   .masthead.has-midi-toolbar {
     height: auto;
     min-height: 54px;
@@ -4352,13 +4534,13 @@ select:hover {
   }
 
   .masthead.has-midi-toolbar .tabs.tools-nav {
-    width: clamp(78px, 27vw, 112px);
-    flex-basis: 112px;
+    width: clamp(132px, 38vw, 156px);
+    flex-basis: 156px;
   }
 
   .masthead.has-midi-toolbar .mobile-instrument-nav {
-    width: clamp(78px, 27vw, 112px);
-    flex-basis: 112px;
+    width: clamp(132px, 38vw, 156px);
+    flex-basis: 156px;
   }
 
   .masthead.has-midi-toolbar .midi-toolbar {
@@ -4376,7 +4558,7 @@ select:hover {
   .masthead.has-midi-toolbar .header-io-controls > .header-actions {
     width: auto;
     flex: 1 1 auto;
-    grid-template-columns: minmax(0, 1fr) 44px;
+    grid-template-columns: minmax(0, 1fr) var(--audio-control-width);
     gap: 8px;
   }
 
@@ -4386,6 +4568,7 @@ select:hover {
 
   .masthead.has-midi-toolbar .header-settings-panel {
     top: 104px;
+    max-height: calc(100dvh - 112px);
   }
 
   .masthead.has-midi-toolbar .instrument-picker-panel {
@@ -4399,7 +4582,29 @@ select:hover {
 
 }
 
+@media (pointer: coarse) {
+  .header-settings-menu,
+  .header-settings-trigger {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+  .header-settings-field select,
+  .midi-profile-field select,
+  .header-settings-section > select,
+  .midi-profile-guide {
+    min-height: 48px;
+  }
+}
+
 @media (max-width: 360px) {
+  .header-settings-section {
+    grid-template-columns: 92px minmax(0, 1fr);
+    column-gap: 8px;
+  }
+
   .masthead.has-midi-toolbar {
     padding-right: 8px;
     padding-left: 8px;
@@ -4407,13 +4612,13 @@ select:hover {
   }
 
   .masthead.has-midi-toolbar .mobile-instrument-nav {
-    width: 78px;
-    flex-basis: 78px;
+    width: 126px;
+    flex-basis: 126px;
   }
 
   .masthead.has-midi-toolbar .tabs.tools-nav {
-    width: 78px;
-    flex-basis: 78px;
+    width: 126px;
+    flex-basis: 126px;
   }
 }
 
@@ -4479,6 +4684,26 @@ select:hover {
     transition-duration: 0.001ms !important;
   }
 }
+
+@media (forced-colors: active) {
+  .header-settings-field select,
+  .midi-profile-field select,
+  .header-settings-section > select {
+    background-image: none;
+    appearance: auto;
+    -webkit-appearance: menulist;
+  }
+
+  .header-settings-section.is-unavailable .header-settings-section-title,
+  .header-settings-field select:disabled,
+  .midi-profile-field select:disabled,
+  .header-settings-section > select:disabled {
+    border-color: GrayText;
+    color: GrayText;
+    opacity: 1;
+    -webkit-text-fill-color: GrayText;
+  }
+}
 .shared-amplitude-control { display:grid; margin:14px 0; gap:8px; }
 .shared-amplitude-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .shared-amplitude-heading > div,.shared-amplitude-presets { display:flex; gap:4px; }
@@ -4493,3 +4718,213 @@ select:hover {
 .shared-amplitude-time-axis { display:flex; justify-content:space-between; margin:-4px 7px 2px; color:var(--faint); font:6px/1.2 var(--mono); text-transform:uppercase; letter-spacing:.04em; }
 .shared-amplitude-level { margin-top:0; }
 .shared-amplitude-control > small { color:var(--faint); font-size:7px; }
+
+/* Monitor-only MIDI output telemetry. Values here are candidates, never routes. */
+.midi-output-monitor {
+  width: 100%;
+  min-width: 0;
+  margin: 10px 0 0;
+  border: 1px solid var(--line-strong);
+  border-top-color: color-mix(in oklab, var(--accent) 54%, var(--line-strong));
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--panel-high) 88%, var(--accent-glow)), var(--panel));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--accent) 9%, transparent);
+}
+
+.midi-output-monitor-disclosure {
+  margin: 0;
+}
+
+.midi-output-monitor-summary {
+  display: flex;
+  min-height: 44px;
+  padding: 0 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.midi-output-monitor-summary::-webkit-details-marker {
+  display: none;
+}
+
+.midi-output-monitor-summary::marker {
+  content: "";
+}
+
+.midi-output-monitor-summary::after {
+  content: "+";
+  color: var(--faint);
+  font: 12px/1 var(--mono);
+}
+
+.midi-output-monitor-disclosure[open] > .midi-output-monitor-summary::after {
+  content: "−";
+}
+
+.midi-output-monitor-title {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.midi-output-monitor-title strong {
+  overflow: hidden;
+  font: 600 8px/1 var(--mono);
+  letter-spacing: .12em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.midi-output-monitor-activity {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border: 1px solid color-mix(in oklab, var(--faint) 72%, transparent);
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--bg-deep) 88%, black);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .2);
+}
+
+.midi-output-monitor:has(.midi-output-monitor-card.is-updated) .midi-output-monitor-activity {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--accent) 76%, transparent);
+}
+
+.midi-output-monitor-badge {
+  margin-left: auto;
+  color: var(--muted);
+  font: 600 7px/1 var(--mono);
+  letter-spacing: .08em;
+  white-space: nowrap;
+}
+
+.midi-output-monitor-body {
+  max-height: 260px;
+  padding: 0 8px 8px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--line);
+  scrollbar-width: thin;
+}
+
+.midi-output-monitor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding-top: 8px;
+}
+
+.midi-output-monitor-card {
+  min-width: 0;
+  min-height: 74px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-deep) 84%, transparent);
+  transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.midi-output-monitor-card.is-updated {
+  border-color: color-mix(in oklab, var(--accent) 72%, var(--line));
+  background: color-mix(in oklab, var(--accent-glow) 38%, var(--bg-deep));
+  box-shadow: inset 0 0 12px color-mix(in oklab, var(--accent) 8%, transparent);
+}
+
+.midi-output-monitor-card h3 {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font: 600 8px/1 var(--mono);
+  letter-spacing: .1em;
+}
+
+.midi-output-monitor-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 5px;
+  list-style: none;
+}
+
+.midi-output-monitor-list li {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.midi-output-monitor-list li.is-placeholder {
+  color: var(--muted);
+  font: 8px/1.35 var(--mono);
+  letter-spacing: .035em;
+}
+
+.midi-output-monitor-value {
+  overflow: hidden;
+  color: var(--ink);
+  font: 600 10px/1.15 var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.midi-output-monitor-list small {
+  color: var(--muted);
+  font: 8px/1.25 var(--mono);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.midi-output-monitor-latest {
+  display: block;
+  min-width: 0;
+  margin-top: 7px;
+  overflow: hidden;
+  color: var(--muted);
+  font: 8px/1.35 var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.midi-output-monitor-disclosure-copy {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font: 600 8px/1.3 var(--mono);
+  letter-spacing: .055em;
+}
+
+.paint-inspector > .midi-output-monitor,
+.gesturama-page .control-rail > .midi-output-monitor {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 901px) {
+  .fm-drums-shell > .midi-output-monitor .midi-output-monitor-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (pointer: coarse) {
+  .midi-output-monitor-summary {
+    min-height: 48px;
+  }
+}
+
+@media (forced-colors: active) {
+  .midi-output-monitor,
+  .midi-output-monitor-card,
+  .midi-output-monitor-activity {
+    border-color: CanvasText;
+  }
+
+  .midi-output-monitor-card.is-updated,
+  .midi-output-monitor:has(.midi-output-monitor-card.is-updated) .midi-output-monitor-activity {
+    background: Highlight;
+    color: HighlightText;
+  }
+}

@@ -55,7 +55,7 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
   assert.match(html, /id="pairGlidesButton"[\s\S]*?role="switch"[\s\S]*?aria-checked="true"/);
   assert.match(html, /id="rhythmAmount" type="range"/);
   assert.match(html, /id="diphthongDelay" type="range"/);
-  assert.match(html, /id="readbackButton"[\s\S]*?>Read it back to me<\/button>/);
+  assert.match(html, /id="readbackButton"[\s\S]*?data-primary-transport[\s\S]*?>Read it back to me<\/button>/);
   assert.match(html, /href="throatazoid\.html">Open the full Throatazoid anatomy/);
   assert.match(html, /src="nav\.js"/);
   assert.match(html, /src="spelling-synthesizer-app\.js"/);
@@ -84,6 +84,8 @@ test("Spelling Synthesizer is a focused, accessible text-driven voice instrument
   assert.match(app, /addEventListener\("input", handleEditorInput\)/);
   assert.doesNotMatch(app, /SpeechSynthesisUtterance|speechSynthesis|characterCount/);
   assert.match(app, /buildReadbackPlan/);
+  assert.match(app, /Turn Audio on before starting readback\./);
+  assert.doesNotMatch(app, /async function prepareReadback[\s\S]{0,220}ensureAudio\(\)/);
   assert.match(app, /audio\.durationMs/);
   assert.match(app, /scheduleReadbackContinuation/);
   assert.match(app, /scheduleTypedCharacter/);

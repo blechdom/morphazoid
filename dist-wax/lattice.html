@@ -27,7 +27,7 @@
         <a class="tab recursion-tab" href="recursion.html">recursion</a>
         <a class="tab" href="julia.html">julia</a>
         <a class="tab" href="lumber.html">lumber loops</a>
-        <a class="tab micmic-tab" href="l-mic.html">L-mic</a>
+        <a class="tab micmic-tab" href="l-mic.html">L-system Delay</a>
         <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
         <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
         <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
@@ -44,7 +44,7 @@
           <option value="recursion.html">recursion</option>
           <option value="julia.html">julia</option>
           <option value="lumber.html">lumber loops</option>
-          <option value="l-mic.html">L-mic</option>
+          <option value="l-mic.html">L-system Delay</option>
           <option value="graph-delay.html">graph-delay</option>
           <option value="throatazoid.html">throatazoid</option>
           <option value="morphazoidical/">morphazoidical</option>
@@ -84,43 +84,46 @@
       </section>
 
       <aside class="panel" aria-label="Lattice controls">
-        <details class="group control-section performance-group" id="playSection" data-section="play">
+        <details class="group control-section performance-group" id="playSection" data-section="play" open>
           <summary class="group-summary">
             <h2 class="group-title">Play</h2>
-            <span class="section-state" id="playSummary">Line &middot; paused</span>
+            <span class="section-state" id="playSummary">Pattern &middot; paused &middot; loop &middot; reverse</span>
           </summary>
           <div class="group-body">
-            <div class="field-label">Pattern movement</div>
-            <div class="choice-switch compact" id="scanMotion" role="group" aria-label="Pattern movement">
-              <button id="loopScan" type="button" data-value="loop" aria-pressed="true">Loop</button>
-              <button id="pingPongScan" type="button" data-value="pingpong" aria-pressed="false">Ping-pong</button>
-            </div>
-
             <div class="position-row">
-              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play pattern">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play pattern" data-no-midi-preview>
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
               </button>
               <label class="control position-control" for="position">
                 <span><b>Pattern phase</b><output id="positionOut" for="position">50.0%</output></span>
-                <input id="position" type="range" min="0" max="1" step="0.0005" value="0.5" />
+                <input id="position" type="range" min="0" max="1" step="0.0005" value="0.5" data-no-midi-preview />
               </label>
             </div>
 
             <div class="rate-control" role="group" aria-label="Automatic pattern motion">
               <span class="rate-heading"><b>Pattern speed</b><output id="speedOut" for="speed">0.080 cyc/s</output></span>
-              <div class="rate-row-single">
-                <input id="speed" aria-label="Pattern speed" type="range" min="0" max="1" step="0.001" value="0.3386" />
-                <button class="direction-toggle" id="patternDirection" type="button" aria-label="Pattern moves right to left; switch to top to bottom">
-                  <span id="patternDirectionGlyph">&larr;</span><small id="patternDirectionText">R→L</small>
-                </button>
+              <div class="rate-row-single transport-rate-row">
+                <input id="speed" aria-label="Pattern speed" type="range" min="0" max="1" step="0.001" value="0.3386" data-no-midi-preview />
+                <div class="transport-button-array" id="playheadMotion" role="group" aria-label="Pattern direction and movement">
+                  <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Pattern direction: reverse">
+                    <span id="traversalDirectionGlyph">←</span><small id="traversalDirectionText">REV</small>
+                  </button>
+                  <button id="loopMotion" type="button" data-value="loop" aria-pressed="true" aria-label="Loop movement" title="Loop"><span aria-hidden="true">⟳</span><small>Loop</small></button>
+                  <button id="pingPongMotion" type="button" data-value="pingpong" aria-pressed="false" aria-label="Back-and-forth movement" title="Back and forth"><span aria-hidden="true">↔</span><small>Ping-pong</small></button>
+                </div>
               </div>
             </div>
 
-            <label class="control pattern-direction-control" for="patternDirectionAngle">
-              <span><b>Pattern direction</b><output id="patternDirectionAngleOut" for="patternDirectionAngle">R→L</output></span>
-              <input id="patternDirectionAngle" type="range" min="0" max="90" step="0.1" value="0" />
-            </label>
+            <div class="lattice-angle-control">
+              <label class="control pattern-direction-control" for="patternDirectionAngle">
+                <span><b>Pattern direction</b><output id="patternDirectionAngleOut" for="patternDirectionAngle">R→L</output></span>
+                <input id="patternDirectionAngle" type="range" min="0" max="90" step="0.1" value="0" />
+              </label>
+              <button class="direction-toggle" id="patternDirection" type="button" aria-label="Pattern moves right to left; switch to top to bottom">
+                <span id="patternDirectionGlyph">&larr;</span><small id="patternDirectionText">R→L</small>
+              </button>
+            </div>
 
             <div class="lattice-angle-control">
               <label class="control" for="angle">
@@ -427,7 +430,7 @@
         </p>
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">Drag to scrub the pattern under the centered line. Press Space to play or pause. Press Left or Right Arrow to change pattern phase. Press Up or Down Arrow to rotate the line.</p>
+      <p class="sr-only" id="canvasInstructions">Drag to scrub and audition the pattern under the centered line. Crossed contacts sound while audio is on, even when automatic motion is paused. Press Space to play or pause automatic motion. Press Left or Right Arrow to change and audition pattern phase. Press Up or Down Arrow to rotate the line.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 

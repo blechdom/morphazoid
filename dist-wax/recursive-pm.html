@@ -34,7 +34,7 @@
         <a class="tab active" href="recursive-pm.html" aria-current="page">recursive pm</a>
         <a class="tab" href="julia.html">julia</a>
         <a class="tab" href="lumber.html">lumber loops</a>
-        <a class="tab micmic-tab" href="l-mic.html">L-mic</a>
+        <a class="tab micmic-tab" href="l-mic.html">L-system Delay</a>
         <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
         <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
         <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
@@ -53,7 +53,7 @@
           <option value="recursive-pm.html" selected>recursive pm</option>
           <option value="julia.html">julia</option>
           <option value="lumber.html">lumber loops</option>
-          <option value="l-mic.html">L-mic</option>
+          <option value="l-mic.html">L-system Delay</option>
           <option value="graph-delay.html">graph-delay</option>
           <option value="throatazoid.html">throatazoid</option>
           <option value="morphazoidical/">morphazoidical</option>
@@ -249,6 +249,14 @@
           </div>
         </details>
 
+        <details class="group control-section chaos-dsp-reference-section" id="dsp-reference" data-chaos-dsp-reference="recursive-pm">
+          <summary class="group-summary">
+            <h2 class="group-title">DSP reference</h2>
+            <span class="section-state">algorithm + audio path</span>
+          </summary>
+          <div class="group-body" data-chaos-dsp-reference-body></div>
+        </details>
+
         <div class="reset-all-row">
           <button class="reset-all-button" id="resetRecursivePm" type="button" data-reset-all>Reset parameters</button>
         </div>
@@ -261,6 +269,7 @@
     </main>
 
     <script type="module" src="nav.js"></script>
+    <script type="module" src="src/chaotic-dsp-reference.js"></script>
     <script type="module" src="recursive-pm-app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>

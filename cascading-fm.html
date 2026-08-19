@@ -176,6 +176,14 @@
           </div>
         </details>
 
+        <details class="group control-section chaos-dsp-reference-section" id="dsp-reference" data-chaos-dsp-reference="cascading-fm">
+          <summary class="group-summary">
+            <h2 class="group-title">DSP reference</h2>
+            <span class="section-state">algorithm + audio path</span>
+          </summary>
+          <div class="group-body" data-chaos-dsp-reference-body></div>
+        </details>
+
         <div class="reset-all-row">
           <button class="reset-all-button" id="resetCascadingFm" type="button" data-reset-all data-reset-in-place>Reset parameters</button>
         </div>
@@ -188,6 +196,7 @@
     </main>
 
     <script type="module" src="nav.js"></script>
+    <script type="module" src="src/chaotic-dsp-reference.js"></script>
     <script type="module" src="cascading-fm-app.js"></script>
   </body>
 </html>

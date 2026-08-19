@@ -77,10 +77,10 @@
       </section>
 
       <aside class="panel l-system-drums-panel" aria-label="L-System Drum Machine controls">
-        <details class="group control-section" data-section="play">
+        <details class="group control-section" data-section="play" open>
           <summary class="group-summary">
             <h2 class="group-title">Play</h2>
-            <span class="section-state" id="playSummary">1 head · paused</span>
+            <span class="section-state" id="playSummary">1 head · paused · loop · forward</span>
           </summary>
           <div class="group-body">
             <div class="position-row">
@@ -93,19 +93,23 @@
                 <input id="position" type="range" min="0" max="1" step="0.0005" value="0" />
               </label>
             </div>
-            <label class="control" for="speed">
-              <span><b>Traversal speed</b><output id="speedOut" for="speed">0.30 cyc/s</output></span>
-              <input id="speed" type="range" min="0" max="1" step="0.001" value="0.417" />
-            </label>
+            <div class="rate-control" role="group" aria-label="Automatic traversal motion">
+              <span class="rate-heading"><b>Traversal speed</b><output id="speedOut" for="speed">0.30 cyc/s</output></span>
+              <div class="rate-row-single transport-rate-row">
+                <input id="speed" aria-label="Traversal speed" type="range" min="0" max="1" step="0.001" value="0.417" />
+                <div class="transport-button-array" id="playheadMotion" role="group" aria-label="Traversal direction and movement">
+                  <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Traversal direction: forward">
+                    <span id="traversalDirectionGlyph">→</span><small id="traversalDirectionText">FWD</small>
+                  </button>
+                  <button id="loopMotion" type="button" data-value="loop" aria-pressed="true" aria-label="Loop movement" title="Loop"><span aria-hidden="true">⟳</span><small>Loop</small></button>
+                  <button id="pingPongMotion" type="button" data-value="pingpong" aria-pressed="false" aria-label="Back-and-forth movement" title="Back and forth"><span aria-hidden="true">↔</span><small>Ping-pong</small></button>
+                </div>
+              </div>
+            </div>
             <label class="control" for="subdivisions">
               <span><b>Subdivisions / branch</b><output id="subdivisionsOut" for="subdivisions">4</output></span>
               <input id="subdivisions" type="range" min="1" max="16" step="1" value="4" />
             </label>
-            <div class="choice-switch traversal-mode-switch" id="traversalMode" role="group" aria-label="Traversal repeat behavior">
-              <button id="traversalLoop" type="button" aria-pressed="true" title="Loop from the tree end to its beginning"><span aria-hidden="true">↻</span><span>Loop</span></button>
-              <button id="traversalPingPong" type="button" aria-pressed="false" title="Reverse at each end of the tree"><span aria-hidden="true">↔</span><span>Ping-pong</span></button>
-            </div>
-            <button class="mini-action direction-action" id="directionButton" type="button">Direction · forward</button>
           </div>
         </details>
 
@@ -238,7 +242,7 @@
           </div>
         </details>
 
-        <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all>Reset all parameters</button></div>
+        <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset all parameters</button></div>
 
         <details class="group control-section" id="playbackSettingsSection" data-section="settings">
           <summary class="group-summary">

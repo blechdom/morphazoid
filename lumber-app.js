@@ -767,6 +767,10 @@ async function setAudioEnabled(enabled, shouldAnnounce = true) {
       return false;
     }
   } else {
+    transportGeneration += 1;
+    stopAllRingSources();
+    state.playing = false;
+    state.scrubbing = false;
     state.audio = false;
   }
   paintMasterGain();
@@ -802,10 +806,12 @@ async function setPlaying(playing, shouldAnnounce = true) {
   }
   if (next === state.playing && !state.scrubbing) return state.playing;
   if (next) {
-    const enabled = await setAudioEnabled(true, false);
+    if (!state.audio || !audioContext || audioContext.state !== "running") {
+      announce("Turn Audio on before playing the loops.");
+      return false;
+    }
     if (
       generation !== transportGeneration
-      || !enabled
       || state.recording
       || recordChanging
       || !recordedRings().length
@@ -1455,8 +1461,7 @@ async function finishRecording({ playAfterCapture = true } = {}) {
   recordingTargetId = null;
   clearError();
 
-  if (playAfterCapture) {
-    await setAudioEnabled(true, false);
+  if (playAfterCapture && state.audio) {
     if (state.playing) startRingSource(target);
     else await setPlaying(true, false);
   } else if (session?.wasPlaying && state.backingDuringRecord) {
@@ -1465,7 +1470,10 @@ async function finishRecording({ playAfterCapture = true } = {}) {
   paintMasterGain();
   updateUi();
   scheduleFrame();
-  announce(`${session?.mode === "replace" ? "Ring replaced" : "New ring recorded"} and ready.`);
+  const recordedLabel = session?.mode === "replace" ? "Ring replaced" : "New ring recorded";
+  announce(playAfterCapture && !state.audio
+    ? `${recordedLabel}. Turn Audio on, then press Play.`
+    : `${recordedLabel} and ready.`);
 }
 
 function formatDuration(seconds) {

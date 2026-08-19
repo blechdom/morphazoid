@@ -523,12 +523,10 @@ function forgetReadback() {
 }
 
 async function prepareReadback(generation, { automatic = false } = {}) {
-  const [started, pronunciations] = await Promise.all([
-    ensureAudio(),
-    loadSpellingPronunciations(readback.snapshot),
-  ]);
+  const pronunciations = await loadSpellingPronunciations(readback.snapshot);
   if (
-    !started
+    !state.audioOn
+    || !audio.running
     || generation !== readback.generation
     || readback.phase !== "starting"
   ) {
@@ -572,6 +570,10 @@ function startReadback({ restart = false, automatic = false } = {}) {
     readback.offset = text.length;
     updateReadbackUi();
     announce("No playable words were found.");
+    return false;
+  }
+  if (!state.audioOn || !audio.running) {
+    announce("Turn Audio on before starting readback.");
     return false;
   }
   clearError();

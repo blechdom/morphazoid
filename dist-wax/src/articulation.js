@@ -116,3 +116,19 @@ export function rebasePingPongPosition(continuousPosition, nextPosition) {
     ? periodBase + physical
     : periodBase + 2 - physical;
 }
+
+function pingPongValue(value) {
+  const wrapped = ((value % 2) + 2) % 2;
+  return wrapped <= 1 ? wrapped : 2 - wrapped;
+}
+
+/** Physical direction of triangular travel, including the exact turnarounds. */
+export function pingPongMotionDirection(travelPosition, travelDirection = 1) {
+  const direction = travelDirection < 0 ? -1 : 1;
+  const before = pingPongValue(travelPosition);
+  const after = pingPongValue(travelPosition + direction * 1e-5);
+  const delta = after - before;
+  return Number.isFinite(delta) && Math.abs(delta) > 1e-9
+    ? Math.sign(delta)
+    : direction;
+}

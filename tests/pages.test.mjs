@@ -19,7 +19,7 @@ test("all instrument pages share desktop and mobile navigation", async () => {
   for (const [index, html] of pages.entries()) {
     for (const label of [
       "shape", "lattice", "spiral", "solid", "hyper",
-      "l-system", "recursion", "julia", "lumber loops", "L-mic", "graph-delay", "throatazoid",
+      "l-system", "recursion", "julia", "lumber loops", "L-system Delay", "graph-delay", "throatazoid",
       "morphazoidical",
     ]) {
       const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -53,8 +53,17 @@ test("all instrument pages share desktop and mobile navigation", async () => {
       assert.match(html, /data-reset-all>Reset all parameters<\/button>/);
     }
   }
-  for (const html of pages) {
-    assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/, "sections should start collapsed");
+  const visibleTransportFiles = new Set([
+    "shape.html", "lattice.html", "spiral.html", "solid.html", "hyper.html",
+    "l-system.html", "julia.html", "lumber.html", "graph-delay.html",
+  ]);
+  for (const [index, html] of pages.entries()) {
+    const openSections = html.match(/<details\b[^>]*\sopen(?:\s|>)/g) ?? [];
+    assert.equal(
+      openSections.length,
+      visibleTransportFiles.has(files[index]) ? 1 : 0,
+      `${files[index]} should expose its primary transport and keep parameter sections collapsed`,
+    );
   }
   assert.match(css, /@media \(max-width: 1800px\)[\s\S]*?\.tabs\s*\{\s*display: none;/);
   assert.match(css, /@media \(max-width: 650px\)[\s\S]*?\.tabs\s*\{\s*display: none;/);

@@ -171,7 +171,6 @@ function setAudioState(enabled) {
     ? `${Math.round(audio.context.sampleRate / 1_000)} KHZ`
     : "AUDIO OFF";
   audio.setOutput(enabled ? state.output : 0);
-  if (!enabled) stopSweep();
   scheduleFrame();
 }
 
@@ -219,7 +218,7 @@ function addPulse(parameters, velocity = .8) {
 
 async function strikeFrequency(frequency, { velocity = .82, delay = 0, announceHit = false } = {}) {
   const lifecycleGeneration = audioLifecycleGeneration;
-  if ((!state.audioOn || !audio.context) && !await enableAudio()) return null;
+  if (!state.audioOn || !audio.context) return null;
   if (lifecycleGeneration !== audioLifecycleGeneration) return null;
   try {
     const parameters = await audio.trigger(frequency, synthSettings(), {
@@ -754,8 +753,8 @@ function scheduleSweep() {
   }, interval);
 }
 
-async function startSweep() {
-  if (state.sweeping || !await enableAudio()) return;
+function startSweep() {
+  if (state.sweeping) return;
   state.sweeping = true;
   if (state.sweepMode === "up") state.sweepDirection = 1;
   if (state.sweepMode === "down") state.sweepDirection = -1;
@@ -763,7 +762,9 @@ async function startSweep() {
   void strikeFrequency(currentFrequency(), { velocity: .66 });
   scheduleSweep();
   scheduleFrame();
-  announce("Linear drum sweep started.");
+  announce(state.audioOn
+    ? "Linear drum sweep started."
+    : "Linear drum sweep started silently. Turn Audio on to hear it.");
 }
 
 function stopSweep() {
@@ -839,7 +840,7 @@ $("sweepButton").addEventListener("click", () => {
     stopSweep();
     announce("Linear drum sweep stopped.");
   } else {
-    void startSweep();
+    startSweep();
   }
 });
 

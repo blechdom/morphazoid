@@ -156,15 +156,19 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "sample-drums",
   ]);
   assert.equal(instrumentMidiCapabilityForId("rubix").noteMode, "drums");
+  assert.equal(instrumentMidiCapabilityForId("hyper-rubix").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("morphazoidical").noteMode, "sequence");
   assert.deepEqual(PAGE_KEYBOARD_INSTRUMENT_IDS, [
     "image-to-instrument-3",
     "throatazoid",
+    "alien-larynx",
     "spelling-synthesizer",
     "lumber",
     "micmic",
+    "gesturama",
   ]);
   assert.deepEqual(NO_GENERIC_NOTE_KEYBOARD_IDS, [
+    "hyper-rubix",
     "striped-sludge-delay",
     "candy-coil-delay",
     "chladni-plate",
@@ -181,6 +185,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("lumber").startsAudio, false);
   assert.equal(instrumentMidiCapabilityForId("graph-delay").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("throatazoid").audioInput, true);
+  assert.equal(instrumentMidiCapabilityForId("alien-larynx").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("chaotic-fm").audioInput, false);
   assert.equal(instrumentMidiCapabilityForId("rubix").midiOutput, true);
   assert.equal(instrumentMidiCapabilityForId("chaotic-fm").midiOutput, false);
@@ -190,8 +195,8 @@ test("one acyclic capability registry covers every playable catalog instrument",
       noteMode,
       INSTRUMENT_MIDI_CAPABILITIES.filter((capability) => capability.noteMode === noteMode).length,
     ])),
-    { processor: 7, drums: 13, pitched: 27, sequence: 30 },
-    "all 77 routes have exactly one intentional note behavior",
+    { processor: 7, drums: 14, pitched: 29, sequence: 31 },
+    "all 81 routes have exactly one intentional note behavior",
   );
   assert.equal(
     INSTRUMENT_MIDI_CAPABILITIES.every(({
@@ -247,7 +252,7 @@ test("every playable catalog page loads shared browser MIDI and exposes a toolba
       );
     }
   }
-  assert.equal(mastheadPages, 76);
+  assert.equal(mastheadPages, 80);
   assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
 
   const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");
@@ -265,6 +270,27 @@ test("every playable catalog page loads shared browser MIDI and exposes a toolba
     workbenchCss,
     /\.session-state \.header-settings-trigger:focus-visible\s*\{[^}]*outline: 2px solid var\(--mint\)/,
     "the injected settings summary keeps the workbench focus ring",
+  );
+  assert.match(
+    workbenchCss,
+    /\.session-state \.header-output-meter-shell\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/s,
+    "the workbench presents separate left and right output lanes",
+  );
+  assert.match(workbenchCss, /\.session-state \.header-output-meter-shell\s*\{[^}]*width: 22px;[^}]*gap: 0;/s);
+  assert.match(
+    workbenchCss,
+    /\.audio-toggle > \*\s*\{[^}]*position: absolute !important;[^}]*clip-path: inset\(50%\) !important;[^}]*\}[\s\S]*?\.audio-toggle::before\s*\{[^}]*mask: url\("data:image\/svg\+xml/s,
+    "the workbench visually renders only its speaker icon while retaining its authored accessible name",
+  );
+  assert.match(
+    workbenchCss,
+    /\.audio-toggle\[aria-pressed="true"\]\s*\{[^}]*background: var\(--mint\);[^}]*box-shadow:/s,
+    "the workbench Audio-on state is filled and glowing",
+  );
+  assert.match(
+    workbenchCss,
+    /\.session-state \.header-settings-section > select\s*\{[^}]*background-image:\s*linear-gradient\(45deg, transparent 50%, currentColor 50%\),[^}]*appearance: none;/s,
+    "workbench Settings selects keep the same dropdown chevron affordance",
   );
 });
 

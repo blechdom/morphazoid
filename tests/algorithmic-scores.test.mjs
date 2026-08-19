@@ -242,6 +242,8 @@ test("five scores are five native interactive Morphazoid instrument pages", asyn
   assert.match(app, /createDynamicsCompressor/);
   assert.match(app, /createDelay/);
   assert.match(app, /pointermove/);
+  assert.match(app, /\["A", "BUTTON", "INPUT", "SELECT", "SUMMARY", "TEXTAREA"\]\.includes\(tagName\)/);
+  assert.match(app, /event\.defaultPrevented[\s\S]*?event\.repeat[\s\S]*?event\.isComposing/);
   assert.match(css, /\.algorithmic-scores-shell/);
   assert.match(css, /data-algorithm="minimax"/);
 });

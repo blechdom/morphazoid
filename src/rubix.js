@@ -9,6 +9,11 @@
 export const RUBIX_SIZE = 3;
 export const RUBIX_AXES = Object.freeze(["x", "y", "z"]);
 export const RUBIX_LAYERS = Object.freeze([-1, 0, 1]);
+export const RUBIX_TWIST_SPEED_POSITION_MIN = 0;
+export const RUBIX_TWIST_SPEED_POSITION_MAX = 100;
+export const RUBIX_TWIST_SPEED_DEFAULT_POSITION = 36;
+export const RUBIX_TWIST_SPEED_MULTIPLIER_MIN = 0.25;
+export const RUBIX_TWIST_SPEED_MULTIPLIER_MAX = 12;
 export const RUBIX_COLOR_ORDER = Object.freeze([
   "white",
   "yellow",
@@ -170,6 +175,24 @@ export const RUBIX_DRUM_RIGHT_VOICE_BY_COLOR = Object.freeze({
 });
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
+
+/** Map a linear 0–100 control onto a perceptually useful 0.25×–12× speed curve. */
+export function rubixTwistSpeedMultiplier(position = RUBIX_TWIST_SPEED_DEFAULT_POSITION) {
+  const normalized = clamp(
+    Number(position) || 0,
+    RUBIX_TWIST_SPEED_POSITION_MIN,
+    RUBIX_TWIST_SPEED_POSITION_MAX,
+  ) / RUBIX_TWIST_SPEED_POSITION_MAX;
+  return RUBIX_TWIST_SPEED_MULTIPLIER_MIN * (
+    RUBIX_TWIST_SPEED_MULTIPLIER_MAX / RUBIX_TWIST_SPEED_MULTIPLIER_MIN
+  ) ** normalized;
+}
+
+/** One-times speed is one automatic twist per second. */
+export function rubixTwistIntervalMs(position = RUBIX_TWIST_SPEED_DEFAULT_POSITION) {
+  return 1_000 / rubixTwistSpeedMultiplier(position);
+}
+
 const dot = (first, second) => (
   first.x * second.x + first.y * second.y + first.z * second.z
 );

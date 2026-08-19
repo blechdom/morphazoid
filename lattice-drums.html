@@ -84,24 +84,33 @@
         <section class="group control-section always-open">
           <div class="group-summary static-group-summary">
             <h2 class="group-title">Motion</h2>
-            <span class="section-state" id="motionSummary">paused · 0.360 cyc/s</span>
+            <span class="section-state" id="motionSummary">paused · loop · reverse · 0.360 cyc/s</span>
           </div>
           <div class="group-body">
             <div class="position-row">
-              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play lattice">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play lattice" data-no-midi-preview>
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
               </button>
               <label class="control position-control" for="position">
                 <span><b>Pattern phase</b><output id="positionOut" for="position">50.0%</output></span>
-                <input id="position" type="range" min="0" max="1" step=".0005" value=".5" />
+                <input id="position" type="range" min="0" max="1" step=".0005" value=".5" data-no-midi-preview />
               </label>
             </div>
 
-            <label class="control" for="speed">
-              <span><b>Pattern speed</b><output id="speedOut" for="speed">0.360 cyc/s</output></span>
-              <input id="speed" type="range" min=".01" max=".8" step=".005" value=".36" />
-            </label>
+            <div class="rate-control" role="group" aria-label="Automatic pattern motion">
+              <span class="rate-heading"><b>Pattern speed</b><output id="speedOut" for="speed">0.360 cyc/s</output></span>
+              <div class="rate-row-single transport-rate-row">
+                <input id="speed" aria-label="Pattern speed" type="range" min=".01" max=".8" step=".005" value=".36" data-no-midi-preview />
+                <div class="transport-button-array" id="playheadMotion" role="group" aria-label="Pattern direction and movement">
+                  <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Pattern direction: reverse">
+                    <span id="traversalDirectionGlyph">←</span><small id="traversalDirectionText">REV</small>
+                  </button>
+                  <button id="loopMotion" type="button" data-value="loop" aria-pressed="true" aria-label="Loop movement" title="Loop"><span aria-hidden="true">⟳</span><small>Loop</small></button>
+                  <button id="pingPongMotion" type="button" data-value="pingpong" aria-pressed="false" aria-label="Back-and-forth movement" title="Back and forth"><span aria-hidden="true">↔</span><small>Ping-pong</small></button>
+                </div>
+              </div>
+            </div>
 
             <label class="control" for="patternAngle">
               <span><b>Pattern direction</b><output id="patternAngleOut" for="patternAngle">0.0°</output></span>
@@ -113,10 +122,6 @@
               <input id="lineAngle" type="range" min="0" max="179.9" step="0.1" value="90" />
             </label>
 
-            <div class="choice-switch compact" id="directionChoice" role="group" aria-label="Pattern direction">
-              <button type="button" data-direction="-1" aria-pressed="true">Backward</button>
-              <button type="button" data-direction="1" aria-pressed="false">Forward</button>
-            </div>
           </div>
         </section>
 
@@ -246,7 +251,9 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        Space toggles playback. Left and right arrows move the lattice phase.
+        Drag to scrub and audition the lattice under the centered reader line.
+        Crossed contacts sound while audio is on, even when automatic motion is paused.
+        Space toggles automatic playback. Left and right arrows move and audition the lattice phase.
         Up and down arrows rotate the reader line.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>

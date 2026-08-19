@@ -1,0 +1,885 @@
+.hyper-rubix-page {
+  --accent: #c9a5ff;
+  --accent-soft: color-mix(in oklab, var(--accent) 54%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
+  --hyper-cyan: #68ecff;
+  --hyper-violet: #c9a5ff;
+  --hyper-lime: #a6ff6f;
+  --hyper-red: #ff5e74;
+  --hyper-coral: #ff906e;
+  --hyper-amber: #f7cf5b;
+  --hyper-ivory: #edf5e7;
+  --hyper-blue: #5e8dff;
+  --hyper-green: #65e58a;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(104, 236, 255, 0.06), transparent 34rem),
+    radial-gradient(circle at 90% -10%, rgba(201, 165, 255, 0.09), transparent 38rem),
+    var(--bg);
+}
+
+.hyper-rubix-page .hyper-rubix-audio-glyph {
+  color: var(--hyper-violet);
+  text-shadow: 0 0 12px color-mix(in oklab, var(--hyper-violet) 48%, transparent);
+}
+
+.hyper-rubix-page .audio-button[aria-pressed="true"] .hyper-rubix-audio-glyph {
+  color: var(--bg-deep);
+  text-shadow: none;
+}
+
+.hyper-rubix-tab {
+  min-width: 108px;
+}
+
+.hyper-rubix-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 27vw, 430px);
+}
+
+.hyper-rubix-stage {
+  background: #040408;
+}
+
+.hyper-rubix-stage-wrap {
+  isolation: isolate;
+  min-height: 480px;
+  background:
+    linear-gradient(rgba(201, 165, 255, 0.024) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(104, 236, 255, 0.024) 1px, transparent 1px),
+    radial-gradient(circle at 51% 51%, rgba(201, 165, 255, 0.09), transparent 22%),
+    radial-gradient(circle at 51% 51%, rgba(104, 236, 255, 0.045), transparent 46%),
+    #040408;
+  background-size: 36px 36px, 36px 36px, auto, auto, auto;
+}
+
+.hyper-rubix-stage-wrap::before {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: 50%;
+  width: min(75vw, 850px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(201, 165, 255, 0.055);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 48px rgba(104, 236, 255, 0.011),
+    0 0 0 96px rgba(201, 165, 255, 0.009),
+    inset 0 0 90px rgba(201, 165, 255, 0.016);
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.hyper-rubix-stage-wrap::after {
+  position: absolute;
+  z-index: 0;
+  right: -12%;
+  bottom: -43%;
+  left: -12%;
+  height: 58%;
+  border-top: 1px solid rgba(104, 236, 255, 0.08);
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(104, 236, 255, 0.038) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201, 165, 255, 0.038) 1px, transparent 1px);
+  background-size: 36px 26px;
+  content: "";
+  opacity: 0.58;
+  transform: perspective(320px) rotateX(60deg);
+  transform-origin: 50% 0;
+}
+
+.hyper-rubix-page #stage {
+  position: relative;
+  z-index: 1;
+  min-height: 480px;
+  cursor: grab;
+}
+
+.hyper-rubix-page #stage.is-dragging {
+  cursor: grabbing;
+}
+
+.hyper-rubix-page #stage[data-drag-mode="fold"] {
+  cursor: crosshair;
+}
+
+.hyper-rubix-heading {
+  position: absolute;
+  z-index: 3;
+  top: clamp(22px, 3vw, 42px);
+  left: clamp(22px, 3.2vw, 50px);
+  display: grid;
+  pointer-events: none;
+  gap: 2px;
+}
+
+.hyper-rubix-heading p,
+.hyper-rubix-heading h1,
+.hyper-rubix-heading small {
+  margin: 0;
+}
+
+.hyper-rubix-heading p {
+  color: var(--hyper-cyan);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.hyper-rubix-heading h1 {
+  display: flex;
+  color: var(--hyper-ivory);
+  align-items: baseline;
+  gap: 0.11em;
+  font-size: clamp(34px, 5vw, 72px);
+  font-weight: 430;
+  letter-spacing: -0.085em;
+  line-height: 0.95;
+  text-shadow: 0 0 28px rgba(237, 245, 231, 0.08);
+}
+
+.hyper-rubix-heading h1 b {
+  color: var(--hyper-violet);
+  font-weight: 620;
+}
+
+.hyper-rubix-heading small {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.dimension-compass {
+  position: absolute;
+  z-index: 3;
+  top: clamp(28px, 3vw, 46px);
+  right: clamp(22px, 2.6vw, 40px);
+  display: flex;
+  pointer-events: none;
+  gap: 11px;
+}
+
+.dimension-compass span {
+  display: grid;
+  width: 23px;
+  color: var(--faint);
+  place-items: center;
+  gap: 5px;
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+}
+
+.dimension-compass i {
+  width: 5px;
+  height: 5px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.dimension-compass [data-axis="x"] { color: var(--hyper-red); }
+.dimension-compass [data-axis="y"] { color: var(--hyper-amber); }
+.dimension-compass [data-axis="z"] { color: var(--hyper-green); }
+.dimension-compass [data-axis="w"] { color: var(--hyper-violet); }
+
+.projection-card {
+  position: absolute;
+  z-index: 3;
+  top: 88px;
+  right: clamp(22px, 2.6vw, 40px);
+  display: grid;
+  min-width: 126px;
+  padding: 8px 10px;
+  border: 1px solid rgba(201, 165, 255, 0.18);
+  pointer-events: none;
+  background: rgba(4, 4, 8, 0.72);
+  box-shadow: inset 2px 0 rgba(201, 165, 255, 0.5);
+  gap: 3px;
+  text-align: right;
+}
+
+.projection-card span,
+.projection-card small {
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+}
+
+.projection-card b {
+  color: var(--hyper-violet);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+}
+
+.hyper-rubix-view-switch {
+  position: absolute;
+  z-index: 4;
+  bottom: 42px;
+  left: 50%;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid rgba(201, 165, 255, 0.2);
+  background: rgba(4, 4, 8, 0.86);
+  grid-template-columns: repeat(2, 104px);
+  transform: translateX(-50%);
+}
+
+.hyper-rubix-view-switch button {
+  display: grid;
+  min-height: 43px;
+  padding: 5px 9px;
+  border: 0;
+  color: var(--faint);
+  background: transparent;
+  grid-template-columns: 19px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 7px;
+  text-align: left;
+}
+
+.hyper-rubix-view-switch button + button {
+  border-left: 1px solid rgba(201, 165, 255, 0.14);
+}
+
+.hyper-rubix-view-switch button > span {
+  color: currentColor;
+  grid-row: 1 / -1;
+  font-size: 16px;
+}
+
+.hyper-rubix-view-switch button b {
+  color: currentColor;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hyper-rubix-view-switch button small {
+  color: currentColor;
+  font-size: 7px;
+  opacity: 0.62;
+}
+
+.hyper-rubix-view-switch button[aria-pressed="true"] {
+  color: var(--hyper-violet);
+  background: rgba(201, 165, 255, 0.1);
+  box-shadow: inset 0 -2px var(--hyper-violet);
+}
+
+.hyper-rubix-page .hyper-rubix-stage-meta {
+  top: auto;
+  right: auto;
+  bottom: 18px;
+  left: 22px;
+  color: color-mix(in oklab, var(--hyper-cyan) 64%, var(--muted));
+  justify-content: flex-start;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+}
+
+.hyper-rubix-gesture-hint {
+  position: absolute;
+  z-index: 3;
+  right: 22px;
+  bottom: 18px;
+  max-width: 42%;
+  pointer-events: none;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-align: right;
+}
+
+.hyper-rubix-panel {
+  background:
+    linear-gradient(180deg, rgba(201, 165, 255, 0.018), transparent 320px),
+    var(--panel);
+}
+
+.hyper-rubix-status {
+  display: grid;
+  min-height: 66px;
+  border-bottom: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--bg-deep) 82%, transparent);
+  grid-template-columns: 1.35fr 1fr 0.75fr;
+}
+
+.hyper-rubix-status > div {
+  display: grid;
+  min-width: 0;
+  padding: 12px 13px;
+  align-content: center;
+  gap: 4px;
+}
+
+.hyper-rubix-status > div + div {
+  border-left: 1px solid var(--line);
+}
+
+.hyper-rubix-status span {
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.12em;
+}
+
+.hyper-rubix-status b {
+  overflow: hidden;
+  color: var(--hyper-violet);
+  font-size: 11px;
+  font-weight: 560;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hyper-rubix-control-section[data-section="twist"] {
+  --accent: #c9a5ff;
+  --accent-soft: color-mix(in oklab, #c9a5ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #c9a5ff 20%, transparent);
+}
+
+.hyper-rubix-control-section[data-section="hyperspace"] {
+  --accent: #68ecff;
+  --accent-soft: color-mix(in oklab, #68ecff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #68ecff 19%, transparent);
+}
+
+.hyper-rubix-control-section[data-section="guide"] {
+  --accent: #a6ff6f;
+  --accent-soft: color-mix(in oklab, #a6ff6f 55%, transparent);
+  --accent-glow: color-mix(in oklab, #a6ff6f 17%, transparent);
+}
+
+.hyper-rubix-section-label {
+  display: grid;
+  margin: 2px 0 8px;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.hyper-rubix-section-label:not(:first-child) {
+  margin-top: 16px;
+}
+
+.hyper-rubix-section-label span {
+  color: var(--hyper-violet);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.hyper-rubix-section-label b {
+  color: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hyper-rubix-section-label small {
+  color: var(--faint);
+  font-size: 7px;
+}
+
+.hyper-rubix-face-picker {
+  display: grid;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.hyper-rubix-face-picker button {
+  --face-color: var(--hyper-violet);
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 53px;
+  padding: 8px 5px 6px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--bg-deep);
+  place-items: center;
+  gap: 2px;
+}
+
+.hyper-rubix-face-picker [data-face="x-"] { --face-color: var(--hyper-coral); }
+.hyper-rubix-face-picker [data-face="x+"] { --face-color: var(--hyper-red); }
+.hyper-rubix-face-picker [data-face="y-"] { --face-color: var(--hyper-amber); }
+.hyper-rubix-face-picker [data-face="y+"] { --face-color: var(--hyper-ivory); }
+.hyper-rubix-face-picker [data-face="z-"] { --face-color: var(--hyper-blue); }
+.hyper-rubix-face-picker [data-face="z+"] { --face-color: var(--hyper-green); }
+.hyper-rubix-face-picker [data-face="w-"] { --face-color: var(--hyper-cyan); }
+.hyper-rubix-face-picker [data-face="w+"] { --face-color: var(--hyper-violet); }
+
+.hyper-rubix-face-picker button i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--face-color);
+  background: color-mix(in oklab, var(--face-color) 26%, transparent);
+  box-shadow: 0 0 7px color-mix(in oklab, var(--face-color) 45%, transparent);
+}
+
+.hyper-rubix-face-picker button b {
+  color: color-mix(in oklab, var(--face-color) 78%, var(--ink));
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.hyper-rubix-face-picker button small {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.05em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hyper-rubix-face-picker button:hover,
+.hyper-rubix-face-picker button:focus-visible {
+  background: color-mix(in oklab, var(--face-color) 7%, var(--bg-deep));
+}
+
+.hyper-rubix-face-picker button[aria-pressed="true"] {
+  z-index: 1;
+  color: var(--face-color);
+  background:
+    linear-gradient(145deg, color-mix(in oklab, var(--face-color) 16%, transparent), transparent),
+    var(--bg-deep);
+  box-shadow: inset 0 -2px var(--face-color), 0 0 0 1px var(--face-color);
+}
+
+.hyper-rubix-plane-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.hyper-rubix-plane-picker button {
+  display: grid;
+  min-height: 46px;
+  padding: 7px 8px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  place-items: center;
+  gap: 2px;
+}
+
+.hyper-rubix-plane-picker button b {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.hyper-rubix-plane-picker button small {
+  color: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hyper-rubix-plane-picker button[aria-pressed="true"] {
+  border-color: var(--hyper-violet);
+  color: var(--hyper-violet);
+  background: rgba(201, 165, 255, 0.09);
+  box-shadow: inset 0 -2px var(--hyper-violet);
+}
+
+.hyper-rubix-turn-row {
+  display: grid;
+  margin: 12px 0 10px;
+  grid-template-columns: minmax(0, 1fr) 62px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 7px;
+}
+
+.hyper-rubix-turn-row > button {
+  display: grid;
+  min-height: 62px;
+  padding: 7px 10px;
+  border: 1px solid var(--accent-soft);
+  color: var(--accent);
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--accent) 7%, transparent), transparent),
+    var(--bg-deep);
+  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 7px;
+  text-align: left;
+}
+
+.hyper-rubix-turn-row > button:hover,
+.hyper-rubix-turn-row > button:focus-visible {
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.hyper-rubix-turn-row > button > span {
+  grid-row: 1 / -1;
+  font-size: 25px;
+  font-weight: 300;
+}
+
+.hyper-rubix-turn-row > button b {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.hyper-rubix-turn-row > button small {
+  color: currentColor;
+  font-size: 6px;
+  letter-spacing: 0.06em;
+  opacity: 0.65;
+  text-transform: uppercase;
+}
+
+.turn-axis-diagram {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  border: 1px solid var(--line);
+  color: var(--faint);
+  background: rgba(4, 4, 8, 0.66);
+  place-items: center;
+}
+
+.turn-axis-diagram span {
+  position: relative;
+  z-index: 1;
+  color: var(--hyper-cyan);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+}
+
+.turn-axis-diagram i {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border: 1px dashed rgba(104, 236, 255, 0.34);
+  border-radius: 50%;
+}
+
+.turn-axis-diagram small {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  color: var(--hyper-violet);
+  font-size: 6px;
+}
+
+.hyper-rubix-move-trace {
+  display: flex;
+  min-height: 28px;
+  padding: 6px 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  color: var(--faint);
+  background: var(--bg-deep);
+  align-items: center;
+  gap: 5px;
+  font-size: 7px;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+}
+
+.hyper-rubix-move-trace span {
+  color: var(--faint);
+}
+
+.hyper-rubix-move-trace i {
+  display: inline-grid;
+  min-width: 28px;
+  height: 16px;
+  padding: 0 4px;
+  border: 1px solid color-mix(in oklab, var(--move-color, var(--hyper-violet)) 36%, var(--line));
+  color: color-mix(in oklab, var(--move-color, var(--hyper-violet)) 72%, var(--ink));
+  background: color-mix(in oklab, var(--move-color, var(--hyper-violet)) 5%, transparent);
+  place-items: center;
+  font-size: 6px;
+  font-style: normal;
+}
+
+.hyper-rubix-actions {
+  display: grid;
+  margin: 8px 0 6px;
+  grid-template-columns: 1.25fr 0.8fr 1fr;
+  gap: 5px;
+}
+
+.hyper-rubix-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.hyper-rubix-actions .hyper-rubix-unwind:not(:disabled) {
+  border-color: color-mix(in oklab, var(--hyper-green) 42%, var(--line));
+  color: var(--hyper-green);
+}
+
+.hyper-rubix-motion-toggle {
+  display: grid;
+  width: 100%;
+  min-height: 58px;
+  margin: 1px 0 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  grid-template-columns: 34px minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+}
+
+.hyper-rubix-motion-toggle > span:first-child {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--hyper-cyan);
+  border-radius: 50%;
+  color: var(--hyper-cyan);
+  place-items: center;
+  font-size: 11px;
+  box-shadow: inset 0 0 12px rgba(104, 236, 255, 0.08);
+}
+
+.hyper-rubix-motion-toggle > span:nth-child(2) {
+  display: grid;
+  gap: 3px;
+}
+
+.hyper-rubix-motion-toggle b {
+  color: var(--ink);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.hyper-rubix-motion-toggle small {
+  color: var(--faint);
+  font-size: 7px;
+}
+
+.hyper-rubix-motion-toggle > i {
+  position: relative;
+  width: 20px;
+  height: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+
+.hyper-rubix-motion-toggle > i::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--faint);
+  content: "";
+  transition: 140ms ease;
+}
+
+.hyper-rubix-motion-toggle[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--hyper-cyan) 34%, var(--line));
+  background: rgba(104, 236, 255, 0.045);
+}
+
+.hyper-rubix-motion-toggle[aria-pressed="true"] > i {
+  border-color: var(--hyper-cyan);
+}
+
+.hyper-rubix-motion-toggle[aria-pressed="true"] > i::after {
+  left: 12px;
+  background: var(--hyper-cyan);
+  box-shadow: 0 0 7px var(--hyper-cyan);
+}
+
+.hyper-rubix-view-actions {
+  display: grid;
+  margin: 4px 0 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.hyper-rubix-sound-note,
+.hyper-rubix-guide p {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.hyper-rubix-sound-note {
+  margin: 12px 0 8px;
+  padding: 9px 10px;
+  border-left: 2px solid var(--accent-soft);
+  background: color-mix(in oklab, var(--accent) 4%, transparent);
+}
+
+.hyper-rubix-guide {
+  padding-bottom: 14px;
+}
+
+.hyper-rubix-guide p {
+  margin: 0 0 10px;
+}
+
+.hyper-rubix-page button {
+  font-family: var(--mono);
+}
+
+@media (max-width: 1180px) and (min-width: 961px) {
+  .hyper-rubix-shell {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+
+  .projection-card {
+    display: none;
+  }
+
+  .hyper-rubix-gesture-hint {
+    max-width: 35%;
+  }
+}
+
+@media (max-width: 960px) {
+  .hyper-rubix-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: clamp(300px, 49dvh, 460px) minmax(0, 1fr);
+  }
+
+  .hyper-rubix-page #stage,
+  .hyper-rubix-stage-wrap {
+    min-height: 0;
+  }
+
+  .hyper-rubix-heading h1 {
+    font-size: clamp(32px, 7vw, 56px);
+  }
+}
+
+@media (max-width: 650px) {
+  .hyper-rubix-shell {
+    grid-template-rows: clamp(250px, 43dvh, 340px) minmax(0, 1fr);
+  }
+
+  .hyper-rubix-heading {
+    top: 18px;
+    left: 16px;
+  }
+
+  .hyper-rubix-heading p {
+    font-size: 6px;
+  }
+
+  .hyper-rubix-heading h1 {
+    font-size: 31px;
+  }
+
+  .hyper-rubix-heading small,
+  .projection-card,
+  .hyper-rubix-gesture-hint {
+    display: none;
+  }
+
+  .dimension-compass {
+    top: 19px;
+    right: 14px;
+    gap: 4px;
+  }
+
+  .dimension-compass span {
+    width: 17px;
+    font-size: 6px;
+  }
+
+  .hyper-rubix-view-switch {
+    bottom: 35px;
+    grid-template-columns: repeat(2, 88px);
+  }
+
+  .hyper-rubix-view-switch button {
+    min-height: 35px;
+  }
+
+  .hyper-rubix-page .hyper-rubix-stage-meta {
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    overflow: hidden;
+    font-size: 6px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hyper-rubix-status {
+    min-height: 57px;
+  }
+
+  .hyper-rubix-status > div {
+    padding: 9px 10px;
+  }
+
+  .hyper-rubix-face-picker button {
+    min-height: 48px;
+  }
+
+  .hyper-rubix-turn-row {
+    grid-template-columns: minmax(0, 1fr) 50px minmax(0, 1fr);
+  }
+
+  .hyper-rubix-turn-row > button {
+    min-height: 56px;
+    padding: 6px;
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .hyper-rubix-section-label small {
+    display: none;
+  }
+}
+
+@media (max-width: 410px) {
+  .hyper-rubix-shell {
+    grid-template-rows: clamp(225px, 39dvh, 290px) minmax(0, 1fr);
+  }
+
+  .hyper-rubix-heading p {
+    display: none;
+  }
+
+  .hyper-rubix-heading h1 {
+    font-size: 27px;
+  }
+
+  .dimension-compass [data-axis="x"],
+  .dimension-compass [data-axis="y"] {
+    display: none;
+  }
+
+  .hyper-rubix-view-switch {
+    bottom: 29px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hyper-rubix-page *,
+  .hyper-rubix-page *::before,
+  .hyper-rubix-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

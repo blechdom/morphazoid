@@ -82,6 +82,7 @@ test("the isolated workbench exposes every runtime control and inspection surfac
     /class="header-actions"[\s\S]*?id="headerMasterLevel"[\s\S]*?id="audioToggle"/,
     "the compact master level precedes Audio in the custom header",
   );
+  assert.match(html, /id="playToggle"[^>]*data-primary-transport/);
   assert.match(html, /<script type=["']module["'] src=["']app\.js["']/);
   assert.match(html, /\+Y down · positive angles clockwise/);
   assert.equal([...html.matchAll(/\bdata-live-feature=/g)].length, 6);
@@ -98,6 +99,8 @@ test("the custom header master level stays synchronized with the audio engine", 
     css,
     /@media \(max-width: 680px\)[\s\S]*?\.session-state \.header-io-controls > \.header-actions[\s\S]*?grid-template-columns:/,
   );
+  assert.doesNotMatch(app, /event\.key\.toLowerCase\(\) === "m"[\s\S]{0,100}audio\?\.click/);
+  assert.match(css, /@media \(pointer: coarse\)[\s\S]*?#playToggle[\s\S]*?min-height: 48px/);
 });
 
 test("the live monitor and signal explorer expose stable, non-spamming semantics", async () => {

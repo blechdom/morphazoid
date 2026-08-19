@@ -171,7 +171,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Signalsmith Stretch
 
-L-mic's optional Silky renderer uses the Web Audio release of Signalsmith
+L-system Delay's optional Silky renderer uses the Web Audio release of Signalsmith
 Stretch:
 
 - https://signalsmith-audio.co.uk/code/stretch/

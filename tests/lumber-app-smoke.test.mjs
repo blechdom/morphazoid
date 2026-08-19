@@ -265,6 +265,21 @@ test("Lumber Loops renders, records new rings, and explicitly replaces", async (
   await recordWith(0);
   assert.equal(elements.get("activeRingOut").textContent, "Ring 1 of 1");
   assert.equal(elements.get("durationOut").textContent, "0.17 s");
+  assert.equal(attributes.get("audioButton:aria-pressed"), "false");
+  assert.equal(attributes.get("playButton:aria-pressed"), "false");
+  assert.equal(sources.length, 0, "recording must not auto-start playback while Audio is off");
+  assert.match(elements.get("liveStatus").textContent, /Turn Audio on, then press Play/);
+  listeners.get("playButton:click")();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(attributes.get("audioButton:aria-pressed"), "false");
+  assert.equal(attributes.get("playButton:aria-pressed"), "false");
+  assert.match(elements.get("liveStatus").textContent, /Turn Audio on before playing/);
+  listeners.get("audioButton:click")();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(attributes.get("audioButton:aria-pressed"), "true");
+  listeners.get("playButton:click")();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(attributes.get("playButton:aria-pressed"), "true");
   assert.equal(sources[0].playbackRate.value, 1);
 
   await recordWith(1);

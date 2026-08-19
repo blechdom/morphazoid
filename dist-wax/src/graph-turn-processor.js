@@ -46,7 +46,7 @@ class MorphazoidGraphTurnProcessor extends AudioWorkletProcessor {
       ? clamp(requestedSampleRate, 8_000, 192_000)
       : 48_000;
     // The former 1,024-sample grain was only 21 ms at 48 kHz, which turns
-    // speech into a pitched buzz. Match L-mic's proven 110 ms overlap and
+    // speech into a pitched buzz. Match L-system Delay's proven 110 ms overlap and
     // size the history for the actual AudioContext sample rate.
     this.windowSamples = Math.max(64, Math.round(this.sampleRate * GRAIN_SECONDS));
     this.bufferSize = nextPowerOfTwo(this.windowSamples + 8);

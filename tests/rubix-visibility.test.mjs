@@ -34,6 +34,13 @@ test("visibility profile normalizes projected sticker areas by stable sticker ID
   const profile = createRubixVisibilityProfile([
     { sticker: { id: "large" }, stickerPoints: rectangle(4, 4) },
     { sticker: { id: "small" }, projectedPoints: rectangle(2, 2) },
+    {
+      sticker: { id: "fan" },
+      projectedTriangles: [
+        [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 0, y: 2 }],
+        [{ x: 4, y: 0 }, { x: 4, y: 2 }, { x: 0, y: 2 }],
+      ],
+    },
     { sticker: { id: "hidden" }, stickerPoints: rectangle(20, 20), visible: false },
     { sticker: { id: "explicit-hidden" }, points: rectangle(20, 20), hidden: true },
     { sticker: { id: "duplicate" }, stickerPoints: rectangle(1, 1) },
@@ -45,6 +52,7 @@ test("visibility profile normalizes projected sticker areas by stable sticker ID
   assert.deepEqual(profile, {
     large: 1,
     small: 0.25,
+    fan: 0.5,
     hidden: 0,
     "explicit-hidden": 0,
     duplicate: 0.25,
@@ -54,6 +62,26 @@ test("visibility profile normalizes projected sticker areas by stable sticker ID
   assert.equal(rubixStickerVisibility(profile, "hidden"), 0);
   assert.equal(rubixStickerVisibility(profile, "missing"), 0);
   assert.equal(rubixStickerVisibility(profile, null), 0);
+});
+
+test("visibility sums a center fan even when its outer corner order would bow-tie", () => {
+  const center = { x: 1, y: 1 };
+  const corners = [
+    { x: 0, y: 0 },
+    { x: 2, y: 2 },
+    { x: 0, y: 2 },
+    { x: 2, y: 0 },
+  ];
+  assert.equal(projectedPolygonArea(corners), 0, "the legacy outer quad cancels itself");
+  const projectedTriangles = corners.map((corner, index) => [
+    center,
+    corner,
+    corners[(index + 1) % corners.length],
+  ]);
+  const profile = createRubixVisibilityProfile([
+    { sticker: { id: "folded" }, projectedTriangles },
+  ]);
+  assert.equal(profile.folded, 1);
 });
 
 test("empty and entirely hidden geometry produce only silent lookups", () => {

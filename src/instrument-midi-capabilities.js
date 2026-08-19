@@ -25,6 +25,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "linear-drums",
     "sample-drums",
     "gear-ratio-drums",
+    "gesturama",
   ]),
   pitched: Object.freeze([
     "shape",
@@ -34,6 +35,8 @@ const NOTE_MODE_IDS = Object.freeze({
     "hyper",
     "image-to-instrument-3",
     "throatazoid",
+    "syrinx",
+    "alien-larynx",
     "spelling-synthesizer",
     "shepard-risset",
     "l-system",
@@ -56,6 +59,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "gravity-lens",
   ]),
   sequence: Object.freeze([
+    "hyper-rubix",
     "sorting-algorithms",
     "dijkstra",
     "hanoi",
@@ -102,15 +106,18 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "image-to-instrument-3",
   "throatazoid",
+  "alien-larynx",
   "spelling-synthesizer",
   "lumber",
   "micmic",
+  "gesturama",
 ]);
 
 // These pages still expose hardware MIDI for labeled controls, presets, and
 // transport, but they have no conservative note action. Do not capture QWERTY
 // piano/drum keys until an explicit page mapping exists.
 export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
+  "hyper-rubix",
   "striped-sludge-delay",
   "candy-coil-delay",
   "chladni-plate",
@@ -135,6 +142,7 @@ const audioInputIds = new Set([
   "candy-coil-delay",
   "recursion",
   "throatazoid",
+  "alien-larynx",
 ]);
 const midiOutputExtraIds = new Set([
   "shape",

@@ -19,7 +19,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 77);
+  assert.equal(INSTRUMENTS.length, 81);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -101,6 +101,11 @@ test("input and plug-in availability facts remain explicit", () => {
   );
   assert.ok(instrumentById("lumber")?.features.includes("Mic input"));
   assert.ok(instrumentById("recursion")?.features.includes("File input"));
+  assert.equal(instrumentById("hyper-rubix")?.kind, "4D puzzle instrument");
+  assert.deepEqual(
+    instrumentById("hyper-rubix")?.features,
+    ["Pointer", "Built-in synth", "MIDI"],
+  );
   assert.deepEqual(instrumentById("rubix")?.features, ["Pointer", "MIDI", "Computer keys"]);
   for (const id of [
     "striped-sludge-delay", "candy-coil-delay", "chladni-plate", "spring-choir",
@@ -133,7 +138,8 @@ test("input and plug-in availability facts remain explicit", () => {
     ),
     true,
   );
-  assert.match(instrumentById("image-to-instrument-3")?.description ?? "", /every typed letter.*looping mouth.*glottal excitation.*nasal.*slime/i);
+  assert.match(instrumentById("image-to-instrument-3")?.description ?? "", /every typed letter.*glottal mouth.*one-shot wheel.*nasal.*slime.*three-o'clock reader/i);
+  assert.match(instrumentById("image-to-instrument-3")?.start ?? "", /accelerates.*coasts.*brakes.*final organ sustains and fades.*unlocks/i);
   for (const id of [
     "image-to-instrument-3",
     "plasma-ball",

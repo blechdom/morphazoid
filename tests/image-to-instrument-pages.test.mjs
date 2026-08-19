@@ -13,8 +13,10 @@ test("Wheel of Organs keeps its stable route inside Signal & Voice", async () =>
   assert.match(html, /id="audioButton"[^>]*aria-pressed="false"/);
   assert.match(html, /id="transportButton"[^>]*aria-pressed="false"/);
   assert.match(html, /class="play-button wheel-play-button" id="transportButton"/);
-  assert.match(html, /class="transport-play"/);
-  assert.match(html, /class="transport-pause"/);
+  assert.match(html, /class="transport-spin"/);
+  assert.match(html, /<span>spin wheel<\/span>/i);
+  assert.doesNotMatch(html, /transport-(?:play|pause)|play word loop/i);
+  assert.match(html, /id="mapWordButton"[^>]*>set letter wheel<\/button>/i);
   assert.match(html, /signal → voice/);
   assert.match(html, /SIGNAL \/ VOICE/);
   assert.doesNotMatch(html, /image → instrument/);
@@ -29,6 +31,12 @@ test("Wheel of Organs keeps its stable route inside Signal & Voice", async () =>
   assert.match(html, /id="screech"[^>]*type="range"/);
   assert.match(html, /id="legato"[^>]*type="range"/);
   assert.match(html, /id="pulseRate"[^>]*max="720"[^>]*value="250"/);
+  assert.match(html, /spin force<\/b><output id="pulseRateOut"[^>]*>6\+ turns<\/output>/i);
+  assert.match(html, /crossing bloom<\/b><output id="legatoOut"/i);
+  assert.match(html, /3 o'clock organ reader/i);
+  assert.match(html, /accelerate → coast → brake/i);
+  assert.match(html, /final organ holds 1\.6s, fades 2\.4s, then unlocks/i);
+  assert.match(html, /quiet and still at rest/i);
   assert.match(html, /data-reset-all[^>]*>reset organism<\/button>/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
   assert.match(html, /<script type="module" src="image-to-instrument-app\.js"><\/script>/);
@@ -55,6 +63,8 @@ test("Wheel of Organs explains its causal reading of the reference organism", as
   assert.match(wheel, /id="stretch"[^>]*type="range"/);
   assert.match(wheel, /id="tongueOut"[^>]*type="range"/);
   assert.match(wheel, /every typed letter grows a mouth/i);
+  assert.match(wheel, /mouth sounds only as it crosses the fixed three-o'clock organ reader/i);
+  assert.match(wheel, /final organ holds for 1\.6 seconds and fades for 2\.4 seconds before another spin is allowed/i);
   assert.ok(
     wheel.indexOf("wheel-translation-card") > wheel.indexOf("image-panel-actions"),
     "the explanatory mapping belongs at the bottom of the control panel",
@@ -79,7 +89,7 @@ test("Wheel of Organs exposes the original patch and several lower-noise presets
   assert.match(wheel, /nasal, nearly no hiss/);
   assert.ok(
     wheel.indexOf("wheel-word-card") < wheel.indexOf("wheel-preset-card"),
-    "playback should lead the panel before preset and explanatory content",
+    "spin controls should lead the panel before preset and explanatory content",
   );
 });
 
@@ -95,6 +105,9 @@ test("the stable image-to-instrument route delegates to the internal Wheel runti
   assert.match(css, /@media \(max-width: 960px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /touch-action: none/);
+  assert.match(css, /\.wheel-spin-legend/);
+  assert.match(css, /\.wheel-word-actions button:disabled/);
+  assert.match(css, /\.wheel-play-button\[aria-pressed="true"\]:disabled/);
 });
 
 test("Wheel of Organs uses a dedicated formant runtime without external input", async () => {

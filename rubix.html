@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="Morphazoid Rubix Cube Sequencer — twist playable 2×2 through 6×6 cubes whose visible faces become acid and synthesized percussion patterns."
+      content="Morphazoid Rubix Cube Sequencer — twist size 2 through 12 visual forms whose visible faces become acid and synthesized percussion patterns."
     />
     <title>Rubix Cube Sequencer — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -121,9 +121,9 @@
                   <option value="" disabled>Custom settings</option>
                   <option value="classic" selected>Classic cube</option>
                   <option value="pocket-funk">Pocket funk</option>
-                  <option value="modal-sphere">Modal sphere</option>
+                  <option value="modal-sphere">Modal orb</option>
                   <option value="noise-grid">Noise grid</option>
-                  <option value="pyramid-drift">Pyramid drift</option>
+                  <option value="pyramid-drift">Morphix drift</option>
                 </select>
               </span>
             </label>
@@ -189,23 +189,42 @@
             <span class="section-state" id="moveSummary">manual · no selection</span>
           </summary>
           <div class="group-body">
-            <label class="select-control rubix-geometry-control" for="geometry">
-              <span>
-                <b>Geometry</b>
-                <output id="geometryState" for="geometry">3 × 3 · Rubix cube</output>
-              </span>
-              <span class="select-shell">
-                <select id="geometry" aria-label="Sequencer geometry">
-                  <option value="cube3" selected>3 × 3 · Rubix cube</option>
-                  <option value="cube2">2 × 2 · Pocket cube</option>
-                  <option value="cube4">4 × 4 · Rubix cube</option>
-                  <option value="cube5">5 × 5 · Rubix cube</option>
-                  <option value="cube6">6 × 6 · Rubix cube</option>
-                  <option value="pyramid">Pyramid · faceted</option>
-                  <option value="sphere">Sphere · orbital</option>
-                </select>
-              </span>
-            </label>
+            <fieldset class="rubix-geometry-control rubix-shape-size-controls">
+              <legend class="sr-only">Cube style</legend>
+              <label class="select-control rubix-shape-control" for="shape">
+                <span>
+                  <b>Shape</b>
+                  <output id="shapeState" for="shape">Cube</output>
+                </span>
+                <span class="select-shell">
+                  <select id="shape" aria-label="Puzzle visual shape">
+                    <option value="cube" selected>Cube</option>
+                    <option value="morphix">Morphix · pyramid</option>
+                    <option value="diamond">Diamond · double pyramid</option>
+                    <option value="stella">Stella · 8-point star</option>
+                    <option value="orb">Orb · sphere</option>
+                  </select>
+                </span>
+              </label>
+              <label class="control rubix-size-control" for="rubixSize">
+                <span>
+                  <b>Size</b>
+                  <output id="rubixSizeOut" for="rubixSize">3 × 3</output>
+                </span>
+                <input
+                  id="rubixSize"
+                  type="range"
+                  min="2"
+                  max="12"
+                  step="1"
+                  value="3"
+                  aria-valuetext="3 by 3, 3 layers per face"
+                  aria-describedby="rubixFormHelp"
+                />
+                <small class="rubix-size-limits" aria-hidden="true"><span>2</span><span>12</span></small>
+              </label>
+              <small class="rubix-form-note" id="rubixFormHelp">Cube turns · visual form · release Size to load</small>
+            </fieldset>
             <div class="rubix-cube-actions" aria-label="Cube arrangement actions">
               <button class="mini-action" id="scrambleCube" type="button">Scramble 18</button>
               <button class="mini-action rubix-solve-button" id="solveCube" type="button">Solve cube</button>
@@ -217,22 +236,23 @@
                 <span aria-hidden="true">⤨</span>
                 <span><b>Random twists</b><small id="randomTwistState">off</small></span>
               </button>
-              <label class="control" for="randomTwistTempo">
+              <label class="control" for="randomTwistSpeed">
                 <span>
-                  <b>Twist tempo</b>
-                  <output id="randomTwistTempoOut" for="randomTwistTempo">24 TPM</output>
+                  <b>Twist speed</b>
+                  <output id="randomTwistSpeedOut" for="randomTwistSpeed">1×</output>
                 </span>
                 <input
-                  id="randomTwistTempo"
+                  id="randomTwistSpeed"
                   type="range"
-                  min="6"
-                  max="90"
+                  min="0"
+                  max="100"
                   step="1"
-                  value="24"
+                  value="36"
+                  aria-valuetext="1 times normal speed"
                   aria-describedby="randomTwistHelp"
                 />
               </label>
-              <small id="randomTwistHelp">Independent movement clock · sequencer BPM does not change this rate</small>
+              <small id="randomTwistHelp">Automatic movement speed · independent of sequencer tempo</small>
             </div>
             <div class="rubix-selected-sticker">
               <span><b>Selected sticker</b><small id="selectedSticker">tap a tile</small></span>
@@ -349,11 +369,11 @@
         Drag a visible sticker left, right, up, or down to turn its row or column.
         Drag empty stage space to orbit the whole form. Use arrow keys to turn the
         selected sticker's row or column and Space to play or pause. Random Twists
-        uses its own movement tempo, independent of sequencer BPM. Choose Rows
+        uses its own derived speed curve, independent of sequencer tempo. Choose Rows
         together, Snake together, or Alternate faces
         in the Clock section to change how the visible stickers are read. Alternate
         faces divides each beat into acid, Drum A, and Drum B subdivisions. The
-        Geometry menu loads 2 by 2 through 6 by 6 cubes, Pyramid, or Sphere forms.
+        Shape chooses a cube-compatible visual form; Size loads 2 by 2 through 12 by 12 grids.
         The upper visible face makes acid notes while the two side faces trigger
         drums. Larger projected stickers sound louder according to Visibility
         dynamics, and any sticker that cannot be seen is silent.

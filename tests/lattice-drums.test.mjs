@@ -253,7 +253,10 @@ test("Lattice Drum Machine uses the lattice core and compact FM drum bank", asyn
   assert.match(app, /Loading 808\/909 audition/);
   assert.match(app, /ENGINE_AUDITION_PATTERN/);
   assert.match(app, /lastStrikeTimes\.clear\(\);[\s\S]+suppressStrikes = 0;/);
-  assert.match(app, /contactOnsetKey/);
+  assert.match(app, /latticeContactOnsetKey/);
+  assert.match(app, /newlyEnteredLatticeContacts/);
+  assert.match(app, /manualScan\.active/);
+  assert.match(app, /lostpointercapture/);
   assert.doesNotMatch(
     html,
     /voiceEditor|editorControls|saveBank|soundMode|soundSection|synthMapping/,

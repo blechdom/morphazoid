@@ -132,7 +132,7 @@ Resources:
         CustomHeadersConfig:
           Items:
             - Header: Permissions-Policy
-              Value: microphone=(self), camera=(), geolocation=()
+              Value: microphone=(self), camera=(self), geolocation=()
               Override: true
 
   SiteDistribution:

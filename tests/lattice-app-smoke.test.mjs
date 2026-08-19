@@ -22,7 +22,14 @@ test("lattice app renders and plays line contacts", async () => {
       dataset: {},
       style: {},
       addEventListener(type, listener) {
-        listeners.set(`${id}:${type}`, listener);
+        const key = `${id}:${type}`;
+        const existing = listeners.get(key);
+        listeners.set(key, existing
+          ? (...args) => {
+            existing(...args);
+            return listener(...args);
+          }
+          : listener);
       },
       setAttribute(name, value) {
         attributes.set(`${id}:${name}`, String(value));
@@ -41,12 +48,12 @@ test("lattice app renders and plays line contacts", async () => {
   }
 
   for (const id of ids) element(id);
-  elements.get("scanMotion").querySelectorAll = () => [
-    elements.get("loopScan"),
-    elements.get("pingPongScan"),
+  elements.get("playheadMotion").querySelectorAll = () => [
+    elements.get("loopMotion"),
+    elements.get("pingPongMotion"),
   ];
-  elements.get("loopScan").dataset.value = "loop";
-  elements.get("pingPongScan").dataset.value = "pingpong";
+  elements.get("loopMotion").dataset.value = "loop";
+  elements.get("pingPongMotion").dataset.value = "pingpong";
 
   let drawnArcs = 0;
   const drawingContext = {
@@ -127,8 +134,10 @@ test("lattice app renders and plays line contacts", async () => {
 
   const oscillators = [];
   const gains = [];
+  let audioContextCount = 0;
   globalThis.AudioContext = class {
     constructor() {
+      audioContextCount += 1;
       this.currentTime = 0;
       this.state = "running";
       this.destination = audioNode();
@@ -167,11 +176,38 @@ test("lattice app renders and plays line contacts", async () => {
     getItem(key) { return storage.get(key) ?? null; },
     setItem(key, value) { storage.set(key, String(value)); },
   };
+  const previewEvents = [];
+  const previousCustomEvent = globalThis.CustomEvent;
+  const previousDispatchEvent = globalThis.dispatchEvent;
+  globalThis.CustomEvent = class {
+    constructor(type, init = {}) {
+      this.type = type;
+      this.detail = init.detail;
+    }
+  };
+  globalThis.dispatchEvent = (event) => {
+    previewEvents.push(event.detail);
+    return true;
+  };
 
   await import(`../lattice-app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
   let now = performance.now() + 20;
   queuedFrame(now);
+
+  assert.equal(attributes.get("playButton:data-no-midi-preview"), "");
+  assert.equal(attributes.get("position:data-no-midi-preview"), "");
+  assert.equal(attributes.get("speed:data-no-midi-preview"), "");
+
+  const parkedNoteCount = previewEvents.filter(({ kind }) => kind === "note").length;
+  await listeners.get("playButton:click")();
+  queuedFrame(performance.now());
+  assert.equal(
+    previewEvents.filter(({ kind }) => kind === "note").length,
+    parkedNoteCount,
+    "starting on parked lattice contacts must not publish a MIDI note burst",
+  );
+  await listeners.get("playButton:click")();
 
   assert.equal(canvas.width, 1800);
   assert.equal(canvas.height, 1200);
@@ -192,7 +228,85 @@ test("lattice app renders and plays line contacts", async () => {
     72,
     "the selector should contain every Tactile isohedral family",
   );
-  assert.equal(attributes.get("loopScan:aria-pressed"), "true");
+  for (const id of [
+    "playheadMotion",
+    "traversalDirection",
+    "loopMotion",
+    "pingPongMotion",
+  ]) {
+    assert.ok(elements.has(id), `the Shape-style transport should expose #${id}`);
+  }
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "false");
+  assert.equal(elements.get("traversalDirectionGlyph").textContent, "\u2190");
+  assert.equal(elements.get("traversalDirectionText").textContent, "REV");
+  assert.equal(attributes.get("traversalDirection:aria-label"), "Pattern direction: reverse");
+
+  const phaseBeforeDirectionToggle = Number(elements.get("position").value);
+  listeners.get("traversalDirection:click")();
+  assert.equal(elements.get("traversalDirectionGlyph").textContent, "\u2192");
+  assert.equal(elements.get("traversalDirectionText").textContent, "FWD");
+  assert.equal(attributes.get("traversalDirection:aria-label"), "Pattern direction: forward");
+  assert.equal(
+    Number(elements.get("position").value),
+    phaseBeforeDirectionToggle,
+    "changing direction must not reset the pattern phase",
+  );
+  listeners.get("traversalDirection:click")();
+  assert.equal(elements.get("traversalDirectionGlyph").textContent, "\u2190");
+
+  elements.get("position").value = "0.73";
+  listeners.get("position:input")({ isTrusted: false });
+  now += 20;
+  queuedFrame(now);
+  const phaseBeforeMotionSwitch = Number(elements.get("position").value);
+  listeners.get("pingPongMotion:click")();
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "false");
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "true");
+  now += 20;
+  queuedFrame(now);
+  assert.equal(
+    Number(elements.get("position").value),
+    phaseBeforeMotionSwitch,
+    "switching from Loop to Ping-pong must preserve physical phase",
+  );
+  listeners.get("loopMotion:click")();
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "false");
+  now += 20;
+  queuedFrame(now);
+  assert.equal(
+    Number(elements.get("position").value),
+    phaseBeforeMotionSwitch,
+    "switching back to Loop must preserve physical phase",
+  );
+
+  elements.get("position").value = "0.997";
+  listeners.get("position:input")({ isTrusted: false });
+  listeners.get("traversalDirection:click")();
+  listeners.get("pingPongMotion:click")();
+  await listeners.get("playButton:click")();
+  const firstStartPreview = previewEvents
+    .filter(({ kind }) => kind === "transport")
+    .at(-1);
+  assert.equal(firstStartPreview?.routeId, "lattice");
+  assert.equal(firstStartPreview?.sourceId, "lattice-transport");
+  assert.equal(firstStartPreview?.state, "start");
+  now += 100;
+  queuedFrame(now);
+  const reflectedPhase = Number(elements.get("position").value);
+  assert.ok(reflectedPhase < 0.997, "Ping-pong must reverse after reaching the far endpoint");
+  assert.ok(reflectedPhase > 0.9, "Ping-pong must reflect at the endpoint instead of wrapping to zero");
+  await listeners.get("playButton:click")();
+  listeners.get("loopMotion:click")();
+  listeners.get("traversalDirection:click")();
+  elements.get("position").value = "0.5";
+  listeners.get("position:input")({ isTrusted: false });
+  now += 20;
+  queuedFrame(now);
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
+  assert.equal(elements.get("traversalDirectionText").textContent, "REV");
+
   assert.equal(elements.get("patternDirectionGlyph").textContent, "\u2190");
   assert.equal(elements.get("patternDirectionText").textContent, "R→L");
   assert.equal(elements.get("patternDirectionAngleOut").textContent, "R→L");
@@ -208,7 +322,7 @@ test("lattice app renders and plays line contacts", async () => {
   listeners.get("patternDirection:click")();
   listeners.get("patternDirection:click")();
   assert.equal(elements.get("patternDirectionAngleOut").textContent, "R→L");
-  assert.equal(attributes.get("playButton:aria-pressed"), undefined);
+  assert.equal(attributes.get("playButton:aria-pressed"), "false");
   assert.ok(drawnArcs > 0, "line contacts should be drawn");
   assert.match(elements.get("outputContactLabel").textContent, /Contact 1 of/);
   assert.equal(elements.get("tileEditorPanel").hidden, false);
@@ -230,6 +344,17 @@ test("lattice app renders and plays line contacts", async () => {
   now += 20;
   queuedFrame(now);
   assert.equal(elements.get("speedOut").textContent, "0.080 cyc/s");
+  assert.ok(previewEvents.some((event) => (
+    event.kind === "control"
+    && event.routeId === "lattice"
+    && event.sourceId === "lattice-density"
+  )));
+  assert.ok(previewEvents.some((event) => (
+    event.kind === "timebase"
+    && event.routeId === "lattice"
+    && event.sourceId === "lattice-timebase"
+    && event.unit === "cycles/s"
+  )));
 
   const editorModel = buildPrototile({
     type: 20,
@@ -275,7 +400,21 @@ test("lattice app renders and plays line contacts", async () => {
 
   await listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
+  assert.equal(attributes.get("audioButton:aria-pressed"), "false");
+  assert.equal(audioContextCount, 0, "Play must not create an AudioContext");
+  assert.equal(oscillators.length, 0);
+  now += 50;
+  queuedFrame(now);
+  const positionBeforeAudioTap = Number(elements.get("position").value);
+  await listeners.get("audioButton:click")();
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
+  assert.equal(attributes.get("playButton:aria-pressed"), "true");
+  assert.equal(audioContextCount, 1, "only the explicit Audio action should create audio");
+  assert.equal(
+    Number(elements.get("position").value),
+    positionBeforeAudioTap,
+    "enabling Audio must not restart the moving pattern",
+  );
   assert.equal(oscillators.length, 16);
   assert.ok(oscillators.every((oscillator) => oscillator.type === "sine"));
   assert.ok(Math.abs(gains[0].gain.value - Math.sqrt(0.65)) < 1e-12);
@@ -385,10 +524,131 @@ test("lattice app renders and plays line contacts", async () => {
   assert.equal(attributes.get("audioButton:aria-pressed"), "false");
   assert.equal(gains[0].gain.value, 0, "audio off must mute the master bus");
   assert.ok(voiceGains.every((gain) => gain.gain.value === 0));
+  const mutedNotesBeforeScan = previewEvents.filter(({ kind }) => kind === "note").length;
+  elements.get("position").value = "0.68";
+  listeners.get("position:input")();
+  now += 20;
+  queuedFrame(now);
+  assert.equal(attributes.get("playButton:aria-pressed"), "false");
+  assert.ok(
+    voiceGains.every((gain) => gain.gain.value === 0),
+    "manual phase movement must respect Audio off as the master mute",
+  );
+  const mutedNotePreviews = previewEvents.filter(({ kind }) => kind === "note");
+  assert.ok(
+    mutedNotePreviews.length > mutedNotesBeforeScan,
+    "a direct Audio-off scan should still publish physical crossing previews",
+  );
+  const mutedPreview = mutedNotePreviews.at(-1);
+  assert.equal(mutedPreview.routeId, "lattice");
+  assert.equal(mutedPreview.channel, 1);
+  assert.ok(Number.isFinite(mutedPreview.frequencyHz));
+  assert.equal(
+    mutedPreview.note,
+    Math.round(Math.min(127, Math.max(0, 69 + 12 * Math.log2(mutedPreview.frequencyHz / 440)))),
+    "the preview note must be the nearest MIDI note to the exact rendered Hz",
+  );
+  const parkedPreviewCount = mutedNotePreviews.length;
+  now += 40;
+  queuedFrame(now);
+  assert.equal(
+    previewEvents.filter(({ kind }) => kind === "note").length,
+    parkedPreviewCount,
+    "a parked stopped playhead must remain preview-silent",
+  );
   await listeners.get("audioButton:click")();
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
   now += 20;
   queuedFrame(now);
+
+  const scrubStart = Number(elements.get("position").value);
+  elements.get("position").value = String((scrubStart + 0.19) % 1);
+  listeners.get("position:input")();
+  now += 20;
+  queuedFrame(now);
+  assert.equal(attributes.get("playButton:aria-pressed"), "false");
+  assert.match(elements.get("stageReadout").textContent, /SCRUBBING/);
+  assert.ok(
+    voiceGains.some((gain) => gain.gain.value > 0),
+    "a stopped manual scan must voice newly crossed physical edges",
+  );
+  now += 120;
+  queuedFrame(now);
+  assert.ok(
+    voiceGains.every((gain) => gain.gain.value === 0),
+    "manual crossing voices must release instead of becoming a paused drone",
+  );
+  assert.match(elements.get("stageReadout").textContent, /PAUSED/);
+  assert.equal(typeof listeners.get("stage:lostpointercapture"), "function");
+  assert.equal(typeof listeners.get("position:lostpointercapture"), "function");
+
+  listeners.get("stage:pointerdown")({ clientX: 450, clientY: 300, pointerId: 8 });
+  const phaseBeforeUnrelatedPointer = elements.get("position").value;
+  listeners.get("stage:pointermove")({ clientX: 620, clientY: 300, pointerId: 99 });
+  now += 20;
+  queuedFrame(now);
+  assert.equal(elements.get("position").value, phaseBeforeUnrelatedPointer);
+  assert.ok(voiceGains.every((gain) => gain.gain.value === 0));
+  listeners.get("stage:lostpointercapture")({ pointerId: 99 });
+  listeners.get("stage:pointermove")({ clientX: 620, clientY: 300, pointerId: 8 });
+  now += 20;
+  queuedFrame(now);
+  assert.equal(attributes.get("playButton:aria-pressed"), "false");
+  assert.ok(
+    voiceGains.some((gain) => gain.gain.value > 0),
+    "dragging the stopped lattice pattern must audition physical crossings",
+  );
+  listeners.get("stage:lostpointercapture")({ pointerId: 8 });
+  now += 120;
+  queuedFrame(now);
+  assert.ok(voiceGains.every((gain) => gain.gain.value === 0));
+
+  listeners.get("stage:pointerdown")({ clientX: 450, clientY: 300, pointerId: 10 });
+  listeners.get("stage:pointermove")({ clientX: 610, clientY: 300, pointerId: 10 });
+  now += 20;
+  queuedFrame(now);
+  assert.ok(voiceGains.some((gain) => gain.gain.value > 0));
+  windowListeners.get("blur")();
+  assert.ok(voiceGains.every((gain) => gain.gain.value === 0));
+  const phaseAtBlur = elements.get("position").value;
+  listeners.get("stage:pointermove")({ clientX: 700, clientY: 300, pointerId: 10 });
+  now += 20;
+  queuedFrame(now);
+  assert.equal(elements.get("position").value, phaseAtBlur, "blur must clear the stage drag");
+
+  windowListeners.get("keydown")({
+    target: { tagName: "DIV" },
+    key: "ArrowRight",
+    shiftKey: true,
+    preventDefault() {},
+  });
+  now += 20;
+  queuedFrame(now);
+  assert.equal(attributes.get("playButton:aria-pressed"), "false");
+  assert.ok(
+    voiceGains.some((gain) => gain.gain.value > 0),
+    "Left/Right keyboard scans must share stopped crossing audition",
+  );
+  now += 120;
+  queuedFrame(now);
+  assert.ok(voiceGains.every((gain) => gain.gain.value === 0));
+
+  const notesBeforeProgrammaticInput = previewEvents.filter(({ kind }) => kind === "note").length;
+  listeners.get("position:pointerdown")({ pointerId: 11 });
+  windowListeners.get("blur")();
+  elements.get("position").value = String((Number(elements.get("position").value) + 0.2) % 1);
+  listeners.get("position:input")({ isTrusted: false });
+  now += 20;
+  queuedFrame(now);
+  assert.ok(
+    voiceGains.every((gain) => gain.gain.value === 0),
+    "programmatic range input must not masquerade as a direct stopped scrub",
+  );
+  assert.equal(
+    previewEvents.filter(({ kind }) => kind === "note").length,
+    notesBeforeProgrammaticInput,
+    "synthetic phase input must not masquerade as a MIDI output crossing",
+  );
 
   elements.get("voiceCap").value = "4";
   listeners.get("voiceCap:input")();
@@ -398,8 +658,8 @@ test("lattice app renders and plays line contacts", async () => {
   assert.match(elements.get("stageReadout").textContent, /0 VOICES/);
 
   const startPosition = Number(elements.get("position").value);
-  listeners.get("pingPongScan:click")();
-  assert.equal(attributes.get("pingPongScan:aria-pressed"), "true");
+  listeners.get("pingPongMotion:click")();
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "true");
   await listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
   now += 100;
@@ -503,4 +763,8 @@ test("lattice app renders and plays line contacts", async () => {
   assert.equal(elements.get("pmIndexOut").textContent, "3.50 rad");
   assert.equal(elements.get("shepardCyclesOut").textContent, "2.25 oct / loop");
   assert.equal(storage.size, 0, "Lattice settings should not persist across loads");
+  if (previousCustomEvent === undefined) delete globalThis.CustomEvent;
+  else globalThis.CustomEvent = previousCustomEvent;
+  if (previousDispatchEvent === undefined) delete globalThis.dispatchEvent;
+  else globalThis.dispatchEvent = previousDispatchEvent;
 });

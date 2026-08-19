@@ -491,10 +491,6 @@ canvas.addEventListener("keydown", (event) => {
     markCustom();
     updateInterface();
     announce(`Tempo now ${state.roll.direction > 0 ? "speeds up" : "slows down"} endlessly.`);
-  } else if (event.key === " ") {
-    if (event.repeat) return;
-    event.preventDefault();
-    toggleAudio();
   }
 });
 

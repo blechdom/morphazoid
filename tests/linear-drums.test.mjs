@@ -338,6 +338,7 @@ test("Rattlesnake page exposes the continuous instrument and global controls", a
   assert.match(html, /<h1 id="linearDrumsTitle">Rattlesnake<\/h1>/);
   assert.match(html, /id="stage"[^>]*aria-describedby="canvasInstructions liveStatus"/);
   assert.match(html, /id="frequency"[^>]*min="0"[^>]*max="1"/);
+  assert.match(html, /id="sweepButton"[^>]*data-primary-transport/);
   assert.match(html, /name="bodyModel" value="hybrid" checked/);
   assert.match(html, /name="bodyModel" value="modal"/);
   assert.match(html, /name="bodyModel" value="fm"/);
@@ -355,6 +356,9 @@ test("Rattlesnake page exposes the continuous instrument and global controls", a
   assert.match(source, /linearDrumFrequencyAtPosition/);
   assert.match(source, /LINEAR_DRUM_PRESETS/);
   assert.match(source, /mappedTransport\(\)/);
+  assert.match(source, /function startSweep\(\)/);
+  assert.doesNotMatch(source, /async function startSweep|function startSweep\(\)\s*\{[\s\S]{0,160}enableAudio/);
+  assert.match(source, /if \(!state\.audioOn \|\| !audio\.context\) return null/);
   assert.match(source, /renderMappingLanes\(\)/);
   assert.match(source, /mapping-curve-frame/);
   assert.match(source, /linearDrumMappingAmount/);

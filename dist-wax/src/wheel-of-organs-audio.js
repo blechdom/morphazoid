@@ -1178,6 +1178,29 @@ export class WheelOfOrgansAudio {
     return this.enabled;
   }
 
+  /** Absolute AudioContext time at which an explicitly released voice is silent. */
+  get decayUntil() {
+    if (!this.enabled || !this.context) return 0;
+    const now = finite(this.context.currentTime, 0);
+    let latest = 0;
+    for (const voice of this.voices) {
+      if (!voice.gated && Number.isFinite(voice.releaseAt) && voice.releaseAt > now) {
+        latest = Math.max(latest, voice.releaseAt);
+      }
+    }
+    return latest;
+  }
+
+  /** Remaining explicit release time in AudioContext seconds. */
+  get decayRemaining() {
+    if (!this.context) return 0;
+    return Math.max(0, this.decayUntil - finite(this.context.currentTime, 0));
+  }
+
+  get isDecaying() {
+    return this.decayRemaining > 0;
+  }
+
   async enable() {
     if (this.startPromise) return this.startPromise;
     this.startPromise = this.#enableInternal();
@@ -1862,7 +1885,7 @@ export class WheelOfOrgansAudio {
         manner === "vowel" || manner === "nasal" ? 0.075 : 0.035,
       );
       const releaseAt = Math.max(onset + 0.012, at + duration - releaseDuration);
-      rampParam(voice.envelope.gain, MIN_GAIN, releaseAt, releaseDuration, peak);
+      rampParam(voice.envelope.gain, 0, releaseAt, releaseDuration, peak);
       rampParam(voice.noiseGain.gain, 0, releaseAt, releaseDuration * 0.72, noiseBody);
     }
     return true;
@@ -1881,8 +1904,11 @@ export class WheelOfOrgansAudio {
       finite(this.context.currentTime, 0),
       firstFinite([options.at, options.when], this.context.currentTime),
     );
-    const duration = clamp(options.release ?? options.duration, 0.008, 0.4, 0.045);
-    rampParam(voice.envelope.gain, MIN_GAIN, at, duration, MIN_GAIN);
+    // Spin winners use a deliberately theatrical multi-second tail. Keep
+    // ordinary articulation releases short above, while allowing an explicit
+    // release() call enough bounded range for the full winner decay.
+    const duration = clamp(options.release ?? options.duration, 0.008, 4, 0.045);
+    rampParam(voice.envelope.gain, 0, at, duration, MIN_GAIN);
     rampParam(voice.noiseGain.gain, 0, at, Math.min(duration, 0.06), 0);
     voice.gated = false;
     voice.releaseAt = at + duration;

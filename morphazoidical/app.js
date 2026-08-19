@@ -2179,8 +2179,6 @@ export function startWorkbench(root = document) {
         invalidate();
       } else if (event.key.toLowerCase() === "r") {
         byId("autoRotate", "rotationToggle")?.click();
-      } else if (event.key.toLowerCase() === "m") {
-        audio?.click();
       }
     });
   }

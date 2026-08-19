@@ -31,7 +31,7 @@ import {
   timeFoldFromSlider,
 } from "../src/micmic.js";
 
-test("L-mic presets stay inside the bounded feedback design", () => {
+test("L-system Delay presets stay inside the bounded feedback design", () => {
   assert.deepEqual(Object.keys(MICMIC_PRESETS), ["tunnel", "bloom", "choir", "fray"]);
   for (const preset of Object.values(MICMIC_PRESETS)) {
     assert.ok(Object.isFrozen(preset));
@@ -177,7 +177,7 @@ test("one bounded L-system topology drives a fixed trunk and richer audio branch
   )), "bounded audio branches must preserve their audible ancestry");
 });
 
-test("default L-mic Pythagorean geometry matches the L-system page", () => {
+test("default L-system Delay Pythagorean geometry matches the L-system page", () => {
   const preset = L_SYSTEM_PRESETS.find((candidate) => candidate.id === "pythagorean");
   const canonical = traceLSystem(preset);
   const topology = generationTopology({

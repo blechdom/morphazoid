@@ -1,0 +1,492 @@
+.striped-staircase-page {
+  --accent: #5fe8c4;
+  --accent-soft: color-mix(in oklab, #5fe8c4 55%, transparent);
+  --accent-glow: color-mix(in oklab, #5fe8c4 22%, transparent);
+  --stair-violet: #c79bff;
+  --stair-paper: #d5ded7;
+  background:
+    radial-gradient(circle at 74% -12%, rgba(95, 232, 196, 0.085), transparent 34rem),
+    var(--bg);
+}
+
+.striped-staircase-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(318px, 23vw, 374px);
+}
+
+.striped-staircase-stage .stage-wrap {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(95, 232, 196, 0.035), transparent 44%),
+    #030608;
+}
+
+.striped-staircase-stage .stage-wrap::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border: 1px solid rgba(219, 228, 224, 0.035);
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.28);
+  content: "";
+  pointer-events: none;
+}
+
+.striped-staircase-page #stage {
+  cursor: grab;
+}
+
+.striped-staircase-page #stage:active,
+.striped-staircase-page .stage-wrap.is-panning #stage {
+  cursor: grabbing;
+}
+
+.visual-study-badge {
+  display: inline-flex;
+  min-width: max-content;
+  margin-left: auto;
+  color: var(--muted);
+  align-items: center;
+  gap: 8px;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.visual-study-badge i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--accent-soft);
+}
+
+/* Shared navigation reserves sound I/O for actual instruments. */
+.striped-staircase-page .midi-toolbar,
+.striped-staircase-page .header-output-meter-shell,
+.striped-staircase-page .header-settings-menu {
+  display: none !important;
+}
+
+.staircase-heading {
+  position: absolute;
+  z-index: 3;
+  top: clamp(24px, 4.2vw, 58px);
+  left: clamp(22px, 4.2vw, 62px);
+  display: grid;
+  max-width: min(520px, calc(100% - 150px));
+  pointer-events: none;
+  gap: 5px;
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.62));
+}
+
+.staircase-heading::before {
+  position: absolute;
+  z-index: -1;
+  top: -28px;
+  right: -64px;
+  bottom: -36px;
+  left: -46px;
+  background: radial-gradient(ellipse at 35% 45%, rgba(2, 6, 8, 0.82), transparent 68%);
+  content: "";
+}
+
+.staircase-heading p,
+.staircase-heading h1,
+.staircase-heading span {
+  margin: 0;
+}
+
+.staircase-heading p {
+  color: var(--accent);
+  font-size: clamp(8px, 0.8vw, 11px);
+  font-weight: 650;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.staircase-heading h1 {
+  color: rgba(231, 238, 234, 0.92);
+  font-size: clamp(36px, 6.6vw, 94px);
+  font-weight: 400;
+  letter-spacing: -0.075em;
+  line-height: 0.79;
+  text-transform: lowercase;
+}
+
+.staircase-heading span {
+  margin-top: 7px;
+  color: rgba(213, 222, 215, 0.58);
+  font-size: clamp(8px, 0.72vw, 10px);
+  letter-spacing: 0.08em;
+}
+
+.staircase-stage-readout {
+  position: absolute;
+  z-index: 3;
+  top: 22px;
+  right: 88px;
+  display: grid;
+  pointer-events: none;
+  color: rgba(213, 222, 215, 0.64);
+  justify-items: end;
+  gap: 4px;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.92);
+}
+
+.staircase-stage-readout span:first-child {
+  color: var(--accent);
+}
+
+.depth-rail-shell {
+  position: absolute;
+  z-index: 5;
+  top: clamp(82px, 15vh, 148px);
+  right: clamp(14px, 2vw, 28px);
+  bottom: clamp(76px, 12vh, 112px);
+  display: grid;
+  width: clamp(44px, 4.6vw, 68px);
+  min-height: 140px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 9px;
+}
+
+.depth-rail-label {
+  color: rgba(213, 222, 215, 0.5);
+  font-size: 7px;
+  letter-spacing: 0.16em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.depth-rail {
+  display: flex;
+  min-height: 0;
+  padding: 7px 5px;
+  border-right: 1px solid rgba(213, 222, 215, 0.14);
+  background: linear-gradient(90deg, transparent, rgba(2, 6, 8, 0.5));
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: stretch;
+  gap: 2px;
+}
+
+.depth-rail button {
+  position: relative;
+  width: var(--step-width, 70%);
+  min-height: 3px;
+  border: 0;
+  border-right: 2px solid rgba(213, 222, 215, 0.24);
+  cursor: pointer;
+  background: rgba(213, 222, 215, 0.09);
+  flex: 1 1 0;
+  transition: width 160ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.depth-rail button::before {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(213, 222, 215, 0.25));
+  content: "";
+}
+
+.depth-rail button:hover,
+.depth-rail button:focus-visible {
+  width: 100%;
+  border-color: var(--stair-paper);
+  background: rgba(213, 222, 215, 0.2);
+  outline-offset: 1px;
+}
+
+.depth-rail button.is-passed {
+  border-color: color-mix(in oklab, var(--accent) 36%, transparent);
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+}
+
+.depth-rail button[aria-current="step"] {
+  width: 100%;
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 32%, transparent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.staircase-coordinate-hud {
+  position: absolute;
+  z-index: 3;
+  right: 22px;
+  bottom: 18px;
+  left: 22px;
+  display: flex;
+  min-width: 0;
+  pointer-events: none;
+  color: rgba(213, 222, 215, 0.58);
+  justify-content: flex-end;
+  gap: clamp(10px, 2vw, 24px);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.09em;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.92);
+  text-transform: uppercase;
+}
+
+.staircase-coordinate-hud span:first-child {
+  margin-right: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.staircase-coordinate-hud span:last-child {
+  color: var(--accent);
+}
+
+.stage-view-actions {
+  position: absolute;
+  z-index: 6;
+  right: 18px;
+  bottom: 42px;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid rgba(213, 222, 215, 0.16);
+  background: rgba(3, 7, 9, 0.72);
+  grid-template-columns: repeat(3, 32px);
+}
+
+.stage-view-actions button {
+  display: grid;
+  width: 32px;
+  height: 31px;
+  border-left: 1px solid rgba(213, 222, 215, 0.11);
+  cursor: pointer;
+  color: rgba(213, 222, 215, 0.68);
+  background: transparent;
+  place-items: center;
+  font-size: 14px;
+}
+
+.stage-view-actions button:first-child {
+  border-left: 0;
+}
+
+.stage-view-actions button:hover,
+.stage-view-actions button:focus-visible {
+  color: var(--accent);
+  background: rgba(95, 232, 196, 0.08);
+}
+
+.render-error {
+  position: absolute;
+  z-index: 10;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: min(420px, calc(100% - 40px));
+  padding: 22px;
+  border: 1px solid rgba(255, 130, 111, 0.48);
+  color: var(--muted);
+  background: rgba(7, 9, 11, 0.94);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  gap: 8px;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.render-error strong {
+  color: #ffb2a8;
+  font-size: 12px;
+}
+
+.striped-staircase-panel {
+  background:
+    linear-gradient(180deg, rgba(95, 232, 196, 0.025), transparent 260px),
+    var(--panel);
+}
+
+.staircase-position-row {
+  align-items: center;
+}
+
+.staircase-mode-switch {
+  margin-top: 7px;
+}
+
+.staircase-frame-card > span {
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+
+.staircase-frame-card code,
+.staircase-view-card code {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.staircase-view-grid {
+  display: grid;
+  margin: 0 0 9px;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.staircase-view-grid button {
+  min-height: 42px;
+  padding: 8px 9px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--panel-high) 76%, transparent);
+  font-size: 9px;
+  letter-spacing: 0.045em;
+}
+
+.staircase-view-grid button:hover,
+.staircase-view-grid button:focus-visible,
+.staircase-view-grid button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.staircase-reset-view {
+  width: 100%;
+  margin-bottom: 9px;
+}
+
+.staircase-view-card > span {
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+
+.striped-staircase-page .control-section[data-section="structure"] {
+  --accent: #c79bff;
+  --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #c79bff 20%, transparent);
+}
+
+@media (max-width: 1100px) {
+  .staircase-heading h1 {
+    font-size: clamp(34px, 7vw, 64px);
+  }
+
+  .staircase-stage-readout {
+    right: 74px;
+  }
+}
+
+@media (max-width: 960px) {
+  .striped-staircase-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .staircase-heading {
+    top: 22px;
+    left: 24px;
+  }
+
+  .staircase-heading h1 {
+    font-size: clamp(32px, 8.6vw, 54px);
+  }
+
+  .staircase-heading span {
+    display: none;
+  }
+
+  .depth-rail-shell {
+    top: 58px;
+    right: 14px;
+    bottom: 64px;
+  }
+
+  .staircase-stage-readout {
+    top: 14px;
+    right: 14px;
+  }
+
+  .stage-view-actions {
+    right: 12px;
+    bottom: 34px;
+  }
+
+  .staircase-coordinate-hud {
+    right: 12px;
+    bottom: 10px;
+    left: 14px;
+  }
+}
+
+@media (max-width: 650px) {
+  .visual-study-badge span {
+    display: none;
+  }
+
+  .staircase-heading {
+    top: 18px;
+    left: 16px;
+    max-width: calc(100% - 92px);
+  }
+
+  .staircase-heading h1 {
+    font-size: clamp(29px, 10vw, 44px);
+    line-height: 0.82;
+  }
+
+  .staircase-heading p {
+    font-size: 7px;
+  }
+
+  .staircase-stage-readout {
+    top: 12px;
+    right: 10px;
+    font-size: 7px;
+  }
+
+  .depth-rail-shell {
+    top: 55px;
+    right: 7px;
+    bottom: 62px;
+    width: 36px;
+  }
+
+  .depth-rail {
+    padding-right: 3px;
+    padding-left: 3px;
+    gap: 1px;
+  }
+
+  .depth-rail-label {
+    display: none;
+  }
+
+  .staircase-coordinate-hud {
+    font-size: 7px;
+    gap: 8px;
+  }
+
+  .staircase-coordinate-hud span:first-child {
+    max-width: 50%;
+  }
+
+  .staircase-coordinate-hud span:last-child {
+    display: none;
+  }
+
+  .stage-view-actions {
+    grid-template-columns: repeat(3, 29px);
+  }
+
+  .stage-view-actions button {
+    width: 29px;
+    height: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .depth-rail button {
+    transition: none;
+  }
+}

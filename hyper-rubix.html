@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#05050a" />
+    <meta
+      name="description"
+      content="Morphazoid Hyper Rubix — twist all eight cubic boundary cells of a 3 × 3 × 3 × 3 puzzle and explore its projected four-dimensional shadow."
+    />
+    <title>Hyper Rubix — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="hyper-rubix.css" />
+  </head>
+  <body class="hyper-rubix-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab active hyper-rubix-tab" href="hyper-rubix.html" aria-current="page">hyper rubix</a>
+        <a class="tab" href="rubix.html">rubix</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="hyper.html">hyper</option>
+          <option value="hyper-rubix.html" selected>hyper rubix</option>
+          <option value="rubix.html">rubix</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph hyper-rubix-audio-glyph" aria-hidden="true">◇</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">48%</output></span>
+          <input
+            id="output"
+            aria-label="Hyper Rubix output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.48"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell hyper-rubix-shell" id="hyperRubix">
+      <section class="stage hyper-rubix-stage" aria-labelledby="hyperRubixTitle">
+        <div class="stage-wrap hyper-rubix-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="application"
+            aria-label="Interactive projected four-dimensional Rubix puzzle with 216 colored hyper-stickers."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A projected 3 by 3 by 3 by 3 color puzzle. Choose one of eight cubic boundary cells,
+            choose a turn plane, and rotate it by a quarter turn.
+          </canvas>
+
+          <div class="hyper-rubix-heading" aria-hidden="true">
+            <p>3 × 3 × 3 × 3 / PUZZLE INSTRUMENT</p>
+            <h1 id="hyperRubixTitle"><span>hyper</span><b>rubix</b></h1>
+            <small>eight cubes sharing one impossible skin</small>
+          </div>
+
+          <div class="dimension-compass" aria-hidden="true">
+            <span data-axis="x"><i></i>X</span>
+            <span data-axis="y"><i></i>Y</span>
+            <span data-axis="z"><i></i>Z</span>
+            <span data-axis="w"><i></i>W</span>
+          </div>
+
+          <div class="projection-card" aria-hidden="true">
+            <span>PROJECTION</span>
+            <b id="projectionReadout">4D → 3D → 2D</b>
+            <small id="rotationReadout">XW +24° · YW −18°</small>
+          </div>
+
+          <div class="hyper-rubix-view-switch" role="group" aria-label="Canvas drag mode">
+            <button type="button" data-drag-mode="orbit" aria-pressed="true">
+              <span aria-hidden="true">◎</span><b>Orbit</b><small>XYZ shadow</small>
+            </button>
+            <button type="button" data-drag-mode="fold" aria-pressed="false">
+              <span aria-hidden="true">◇</span><b>Fold W</b><small>fourth axis</small>
+            </button>
+          </div>
+
+          <div class="stage-meta hyper-rubix-stage-meta" aria-hidden="true">
+            <span id="stageReadout">SOLVED · W+ / XY · 216 HYPER-STICKERS</span>
+          </div>
+
+          <div class="hyper-rubix-gesture-hint" id="gestureHint" aria-hidden="true">
+            DRAG TO ORBIT · SHIFT + DRAG TO FOLD W · SCROLL TO TUNE PROJECTION
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel hyper-rubix-panel" aria-label="Hyper Rubix controls">
+        <div class="hyper-rubix-status" aria-live="polite">
+          <div>
+            <span>PUZZLE STATE</span>
+            <b id="puzzleState">Solved</b>
+          </div>
+          <div>
+            <span>DISORDER</span>
+            <b id="disorderState">0%</b>
+          </div>
+          <div>
+            <span>MOVES</span>
+            <b id="moveCount">00</b>
+          </div>
+        </div>
+
+        <details class="group control-section hyper-rubix-control-section" data-section="twist" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Twist a cubic cell</h2>
+            <span class="section-state" id="twistSummary">W+ · XY plane</span>
+          </summary>
+          <div class="group-body">
+            <div class="hyper-rubix-section-label">
+              <span>01</span><b>Boundary cell</b><small>8 faces of the tesseract</small>
+            </div>
+            <div class="hyper-rubix-face-picker" id="facePicker" role="group" aria-label="Boundary cell">
+              <button type="button" data-face="x-" aria-pressed="false"><i></i><b>X−</b><small>coral</small></button>
+              <button type="button" data-face="x+" aria-pressed="false"><i></i><b>X+</b><small>red</small></button>
+              <button type="button" data-face="y-" aria-pressed="false"><i></i><b>Y−</b><small>amber</small></button>
+              <button type="button" data-face="y+" aria-pressed="false"><i></i><b>Y+</b><small>ivory</small></button>
+              <button type="button" data-face="z-" aria-pressed="false"><i></i><b>Z−</b><small>blue</small></button>
+              <button type="button" data-face="z+" aria-pressed="false"><i></i><b>Z+</b><small>green</small></button>
+              <button type="button" data-face="w-" aria-pressed="false"><i></i><b>W−</b><small>cyan</small></button>
+              <button type="button" data-face="w+" aria-pressed="true"><i></i><b>W+</b><small>violet</small></button>
+            </div>
+
+            <div class="hyper-rubix-section-label">
+              <span>02</span><b>Turn plane</b><small id="planeHelp">inside the W+ cell</small>
+            </div>
+            <div class="hyper-rubix-plane-picker" id="planePicker" role="group" aria-label="Turn plane"></div>
+
+            <div class="hyper-rubix-turn-row" aria-label="Quarter turn controls">
+              <button id="turnCounterclockwise" type="button" aria-label="Quarter turn counterclockwise">
+                <span aria-hidden="true">↶</span><b>−90°</b><small>counter turn</small>
+              </button>
+              <div class="turn-axis-diagram" aria-hidden="true">
+                <span id="turnPlaneDiagram">XY</span>
+                <i></i>
+                <small id="turnCellDiagram">W+</small>
+              </div>
+              <button id="turnClockwise" type="button" aria-label="Quarter turn clockwise">
+                <span aria-hidden="true">↷</span><b>+90°</b><small>quarter turn</small>
+              </button>
+            </div>
+
+            <div class="hyper-rubix-move-trace" id="moveTrace" aria-label="Move history">
+              <span>NO TURNS YET</span>
+            </div>
+
+            <div class="hyper-rubix-actions" aria-label="Puzzle actions">
+              <button class="mini-action" id="scramblePuzzle" type="button">Scramble 12</button>
+              <button class="mini-action" id="undoMove" type="button" disabled>Undo</button>
+              <button class="mini-action hyper-rubix-unwind" id="unwindPuzzle" type="button" disabled>Unwind</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section hyper-rubix-control-section" data-section="hyperspace">
+          <summary class="group-summary">
+            <h2 class="group-title">Hyperspace</h2>
+            <span class="section-state" id="motionSummary">slow W drift</span>
+          </summary>
+          <div class="group-body">
+            <button class="hyper-rubix-motion-toggle" id="autoRotate" type="button" aria-pressed="true">
+              <span aria-hidden="true">W</span>
+              <span><b>Fourth-axis drift</b><small id="autoRotateState">moving through XW + YW</small></span>
+              <i aria-hidden="true"></i>
+            </button>
+            <label class="control" for="rotationSpeed">
+              <span><b>Drift speed</b><output id="rotationSpeedOut" for="rotationSpeed">0.07 rev/min</output></span>
+              <input id="rotationSpeed" type="range" min="0" max="0.24" step="0.01" value="0.07" />
+            </label>
+            <label class="control" for="projectionDepth">
+              <span><b>4D projection depth</b><output id="projectionDepthOut" for="projectionDepth">4.2</output></span>
+              <input id="projectionDepth" type="range" min="2.8" max="7" step="0.1" value="4.2" />
+            </label>
+            <label class="control" for="cellSeparation">
+              <span><b>Cell separation</b><output id="cellSeparationOut" for="cellSeparation">30%</output></span>
+              <input id="cellSeparation" type="range" min="0" max="0.7" step="0.01" value="0.3" />
+            </label>
+            <label class="control" for="stickerScale">
+              <span><b>Hyper-sticker scale</b><output id="stickerScaleOut" for="stickerScale">78%</output></span>
+              <input id="stickerScale" type="range" min="0.36" max="1" step="0.01" value="0.78" />
+            </label>
+            <div class="hyper-rubix-view-actions">
+              <button class="mini-action" id="resetView" type="button">Reset view</button>
+              <button class="mini-action" id="randomView" type="button">Jump dimension</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section hyper-rubix-control-section" data-section="sound">
+          <summary class="group-summary">
+            <h2 class="group-title">Turn sound</h2>
+            <span class="section-state" id="soundSummary">Prismatic glass</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="voice">
+              <span class="field-label">Voice</span>
+              <span class="select-shell">
+                <select id="voice">
+                  <option value="glass" selected>Prismatic glass</option>
+                  <option value="pulse">Hyper pulse</option>
+                  <option value="dust">Bit dust</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="tone">
+              <span><b>Tone</b><output id="toneOut" for="tone">64%</output></span>
+              <input id="tone" type="range" min="0" max="1" step="0.01" value="0.64" />
+            </label>
+            <label class="control" for="decay">
+              <span><b>Decay</b><output id="decayOut" for="decay">0.58 s</output></span>
+              <input id="decay" type="range" min="0.08" max="1.8" step="0.01" value="0.58" />
+            </label>
+            <p class="hyper-rubix-sound-note">Every coordinate plane owns an interval. Direction flips its contour; the chosen boundary cell sets the register.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section hyper-rubix-control-section" data-section="guide">
+          <summary class="group-summary">
+            <h2 class="group-title">What is 4D here?</h2>
+            <span class="section-state">geometry note</span>
+          </summary>
+          <div class="group-body hyper-rubix-guide">
+            <p>A tesseract has eight cubic boundary cells. Each one carries a 3 × 3 × 3 field of color, so this puzzle has 216 stickers rather than 54.</p>
+            <p>A turn rotates one cubic cell through one of its three internal coordinate planes. The screen shows a perspective projection from 4D to 3D, then from 3D to your display.</p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset puzzle + parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Drag to orbit the three-dimensional shadow. Choose Fold W or hold Shift while dragging to
+        rotate the puzzle through the fourth dimension. Use the cell and plane buttons to select a
+        cubic boundary cell and one of its three legal turn planes, then use the minus or plus
+        ninety-degree buttons. Press Enter on the canvas for a clockwise turn.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="hyper-rubix-app.js"></script>
+  </body>
+</html>

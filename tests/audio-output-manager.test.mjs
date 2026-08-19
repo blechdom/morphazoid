@@ -86,16 +86,70 @@ class FakeAnalyser {
   }
 }
 
+class FakeGain {
+  constructor() {
+    this.gain = { value: 0 };
+    this.channelCount = 1;
+    this.channelCountMode = "max";
+    this.channelInterpretation = "discrete";
+    this.connections = [];
+    this.disconnections = [];
+  }
+
+  connect(target) {
+    this.connections.push(target);
+    return target;
+  }
+
+  disconnect(target) {
+    this.disconnections.push(target);
+  }
+}
+
+class FakeChannelSplitter {
+  constructor(channelCount) {
+    this.channelCount = channelCount;
+    this.connections = [];
+    this.disconnections = [];
+  }
+
+  connect(target, output = 0, input = 0) {
+    this.connections.push({ target, output, input });
+    return target;
+  }
+
+  disconnect(target) {
+    this.disconnections.push(target);
+  }
+}
+
 function fakeAudioGraph(samples = [-0.5, 0.5, -0.5, 0.5]) {
   const destination = { kind: "destination" };
   const analysers = [];
+  const gains = [];
+  const splitters = [];
+  const channelSamples = Array.isArray(samples)
+    ? { left: samples, right: samples }
+    : samples;
   const context = {
     destination,
     state: "running",
     createAnalyser() {
-      const analyser = new FakeAnalyser(samples);
+      const analyser = new FakeAnalyser(
+        analysers.length % 2 === 0 ? channelSamples.left : channelSamples.right,
+      );
       analysers.push(analyser);
       return analyser;
+    },
+    createGain() {
+      const gain = new FakeGain();
+      gains.push(gain);
+      return gain;
+    },
+    createChannelSplitter(channelCount) {
+      const splitter = new FakeChannelSplitter(channelCount);
+      splitters.push(splitter);
+      return splitter;
     },
   };
   const source = {
@@ -109,7 +163,7 @@ function fakeAudioGraph(samples = [-0.5, 0.5, -0.5, 0.5]) {
       this.disconnections.push(target);
     },
   };
-  return { context, source, destination, analysers };
+  return { context, source, destination, analysers, gains, splitters };
 }
 
 test("shared audio output managers are stable and scoped to a runtime", () => {
@@ -125,24 +179,46 @@ test("shared audio output managers are stable and scoped to a runtime", () => {
   );
 });
 
-test("final mix sources connect once through one pre-destination analyser", () => {
+test("final mix keeps its direct route and adds one non-audible stereo meter tap", () => {
   const { runtime } = fakeRuntime();
-  const { context, source, destination, analysers } = fakeAudioGraph();
+  const {
+    context,
+    source,
+    destination,
+    analysers,
+    gains,
+    splitters,
+  } = fakeAudioGraph();
   const firstRelease = connectAudioOutput(context, source, { runtime });
   const secondRelease = connectAudioOutput(context, source, { runtime });
   const manager = getSharedAudioOutputManager(runtime);
 
-  assert.equal(analysers.length, 1);
-  assert.deepEqual(analysers[0].connections, [destination]);
-  assert.deepEqual(source.connections, [analysers[0]]);
+  assert.equal(analysers.length, 2);
+  assert.equal(gains.length, 1);
+  assert.equal(splitters.length, 1);
+  assert.deepEqual(source.connections, [destination, gains[0]]);
+  assert.deepEqual(gains[0].connections, [splitters[0]]);
+  assert.deepEqual(splitters[0].connections, [
+    { target: analysers[0], output: 0, input: 0 },
+    { target: analysers[1], output: 1, input: 0 },
+  ]);
+  assert.deepEqual(analysers[0].connections, []);
+  assert.deepEqual(analysers[1].connections, []);
+  assert.equal(gains[0].gain.value, 1);
+  assert.equal(gains[0].channelCount, 2);
+  assert.equal(gains[0].channelCountMode, "explicit");
+  assert.equal(gains[0].channelInterpretation, "speakers");
   assert.equal(manager.getStatus().connectionCount, 1);
 
   firstRelease();
   firstRelease();
   assert.equal(source.disconnections.length, 0, "the second lease keeps the route alive");
   secondRelease();
-  assert.deepEqual(source.disconnections, [analysers[0]]);
-  assert.deepEqual(analysers[0].disconnections, [destination]);
+  assert.deepEqual(source.disconnections, [destination, gains[0]]);
+  assert.deepEqual(gains[0].disconnections, [undefined]);
+  assert.deepEqual(splitters[0].disconnections, [undefined]);
+  assert.deepEqual(analysers[0].disconnections, [undefined]);
+  assert.deepEqual(analysers[1].disconnections, [undefined]);
   assert.equal(manager.getStatus().connectionCount, 0);
 });
 
@@ -180,6 +256,10 @@ test("meter subscriptions sample near 30 Hz only while visible", () => {
   assert.equal(controls.timerCount(), 1, "the visible subscriber schedules the next sample");
   assert.equal(statuses.at(-1).rms, 0.5);
   assert.equal(statuses.at(-1).peak, 0.5);
+  assert.equal(statuses.at(-1).leftRms, 0.5);
+  assert.equal(statuses.at(-1).leftPeak, 0.5);
+  assert.equal(statuses.at(-1).rightRms, 0.5);
+  assert.equal(statuses.at(-1).rightPeak, 0.5);
   assert.equal(statuses.at(-1).active, true);
   assert.equal(statuses.at(-1).monitoring, true);
 
@@ -187,6 +267,8 @@ test("meter subscriptions sample near 30 Hz only while visible", () => {
   controls.document.emit("visibilitychange");
   assert.equal(controls.timerCount(), 0);
   assert.equal(statuses.at(-1).rms, 0);
+  assert.equal(statuses.at(-1).leftRms, 0);
+  assert.equal(statuses.at(-1).rightRms, 0);
   assert.equal(statuses.at(-1).monitoring, false);
 
   controls.document.visibilityState = "visible";
@@ -211,10 +293,64 @@ test("meter aggregation reports combined RMS, maximum peak, and clipping", () =>
     Math.abs(level.rms - Math.sqrt((1.44 + 1.44 + 0.16 + 0.16) / 4)) < 1e-6,
   );
   assert.equal(level.peak, 1);
+  assert.ok(Math.abs(level.leftRms - Math.sqrt((1.44 + 1.44 + 0.16 + 0.16) / 4)) < 1e-6);
+  assert.ok(Math.abs(level.rightRms - level.leftRms) < 1e-6);
+  assert.equal(level.leftPeak, 1);
+  assert.equal(level.rightPeak, 1);
   assert.equal(level.clipped, true);
   assert.equal(level.active, true);
   releaseLoud();
   releaseQuiet();
+});
+
+test("stereo meters preserve asymmetric panning and aggregate compatibility", () => {
+  const manager = new AudioOutputManager({});
+  const graph = fakeAudioGraph({
+    left: [0.8, -0.8, 0.8, -0.8],
+    right: [0.2, -0.2, 0.2, -0.2],
+  });
+  const release = manager.connect(graph.context, graph.source);
+  const level = manager.sample();
+
+  assert.ok(Math.abs(level.leftRms - 0.8) < 1e-6);
+  assert.ok(Math.abs(level.rightRms - 0.2) < 1e-6);
+  assert.ok(Math.abs(level.leftPeak - 0.8) < 1e-6);
+  assert.ok(Math.abs(level.rightPeak - 0.2) < 1e-6);
+  assert.ok(Math.abs(level.rms - Math.sqrt((0.8 ** 2 + 0.2 ** 2) / 2)) < 1e-6);
+  assert.ok(Math.abs(level.peak - 0.8) < 1e-6);
+  assert.equal(level.clipped, false);
+  assert.equal(level.active, true);
+  release();
+});
+
+test("minimal analyser-only contexts expose their mono meter on both channels", () => {
+  const manager = new AudioOutputManager({});
+  const samples = [0.3, -0.3];
+  const destination = { kind: "destination" };
+  const analyser = new FakeAnalyser(samples);
+  const context = {
+    destination,
+    state: "running",
+    createAnalyser: () => analyser,
+  };
+  const source = {
+    connections: [],
+    disconnections: [],
+    connect(target) { this.connections.push(target); },
+    disconnect(target) { this.disconnections.push(target); },
+  };
+
+  const release = manager.connect(context, source);
+  const level = manager.sample();
+
+  assert.deepEqual(source.connections, [destination, analyser]);
+  assert.ok(Math.abs(level.leftRms - 0.3) < 1e-6);
+  assert.ok(Math.abs(level.rightRms - 0.3) < 1e-6);
+  assert.ok(Math.abs(level.rms - 0.3) < 1e-6);
+  assert.ok(Math.abs(level.leftPeak - 0.3) < 1e-6);
+  assert.ok(Math.abs(level.rightPeak - 0.3) < 1e-6);
+  release();
+  assert.deepEqual(source.disconnections, [destination, analyser]);
 });
 
 test("browser output selection enumerates sinks and applies them to active contexts", async () => {

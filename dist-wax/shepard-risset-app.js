@@ -486,9 +486,6 @@ canvas.addEventListener("keydown", (event) => {
     markCustom();
     updateInterface();
     announce(`${isMorphisma() ? "Sweep" : "Glissando"} now ${activeMemory().direction > 0 ? "rises" : "falls"}.`);
-  } else if (event.key === " ") {
-    event.preventDefault();
-    toggleAudio();
   }
 });
 

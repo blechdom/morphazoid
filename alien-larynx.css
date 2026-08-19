@@ -1,0 +1,283 @@
+.alien-larynx-page {
+  --alien-violet: #d66dff;
+  --alien-green: #79ffc8;
+  --alien-amber: #ffd56a;
+}
+
+.alien-larynx-page .throatazoid-inspiration-note {
+  border-color: rgba(214, 109, 255, 0.34);
+  background:
+    linear-gradient(100deg, rgba(214, 109, 255, 0.08), transparent 62%),
+    rgba(4, 7, 6, 0.94);
+}
+
+.alien-larynx-page .throatazoid-word {
+  color: rgba(214, 109, 255, 0.16);
+  letter-spacing: 0.16em;
+}
+
+.alien-larynx-systems {
+  border-color: rgba(214, 109, 255, 0.38);
+  background:
+    radial-gradient(circle at 100% 0, rgba(214, 109, 255, 0.08), transparent 18rem),
+    rgba(3, 6, 5, 0.94);
+}
+
+.alien-larynx-systems > .group-summary .group-title {
+  color: #f1d8ff;
+}
+
+.alien-systems-body {
+  display: grid;
+  gap: 10px;
+}
+
+.return-to-voice {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px;
+  border: 1px solid rgba(121, 255, 200, 0.54);
+  border-radius: 13px;
+  color: #edfff7;
+  background: rgba(121, 255, 200, 0.075);
+  text-align: left;
+}
+
+.return-to-voice:hover,
+.return-to-voice:focus-visible {
+  border-color: var(--alien-green);
+  background: rgba(121, 255, 200, 0.14);
+}
+
+.return-to-voice-mark {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgba(121, 255, 200, 0.58);
+  border-radius: 50%;
+  color: var(--alien-green);
+  font: 700 0.82rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.return-to-voice b,
+.return-to-voice small {
+  display: block;
+}
+
+.return-to-voice b {
+  margin-bottom: 3px;
+  font-size: 0.84rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.return-to-voice small,
+.alien-system-intro,
+.alien-module header small {
+  color: rgba(232, 240, 235, 0.6);
+  line-height: 1.4;
+}
+
+.alien-system-intro {
+  margin: 1px 4px 5px;
+  font-size: 0.72rem;
+}
+
+.alien-system-map-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(214, 109, 255, 0.3);
+  border-radius: 9px;
+  color: #edcfff;
+  background: rgba(214, 109, 255, 0.055);
+  text-decoration: none;
+  font: 700 0.64rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+}
+
+.alien-system-map-link:hover,
+.alien-system-map-link:focus-visible {
+  border-color: var(--alien-violet);
+  background: rgba(214, 109, 255, 0.12);
+}
+
+.alien-system-map-link i {
+  color: var(--alien-green);
+  font-style: normal;
+}
+
+.alien-module {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.alien-module:has(.alien-switch[aria-checked="true"]) {
+  border-color: rgba(214, 109, 255, 0.46);
+  box-shadow: inset 0 0 32px rgba(214, 109, 255, 0.035);
+}
+
+.alien-module > header {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 12px;
+}
+
+.alien-module-index {
+  color: var(--alien-violet);
+  font: 700 0.68rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.alien-module header b,
+.alien-module header small {
+  display: block;
+}
+
+.alien-module header b {
+  font-size: 0.76rem;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.alien-module header small {
+  margin-top: 2px;
+  font-size: 0.65rem;
+}
+
+.alien-switch {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 86px;
+  padding: 6px 7px 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  color: rgba(232, 240, 235, 0.55);
+  background: rgba(0, 0, 0, 0.24);
+  font: 700 0.6rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.alien-switch i {
+  position: relative;
+  width: 28px;
+  height: 15px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.alien-switch i::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.62);
+  transition: transform 130ms ease, background 130ms ease;
+}
+
+.alien-switch[aria-checked="true"] {
+  border-color: rgba(214, 109, 255, 0.6);
+  color: #f3d9ff;
+}
+
+.alien-switch[aria-checked="true"] i {
+  background: rgba(214, 109, 255, 0.32);
+}
+
+.alien-switch[aria-checked="true"] i::after {
+  transform: translateX(13px);
+  background: var(--alien-violet);
+}
+
+.alien-module fieldset {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 11px 12px 13px 47px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.alien-module fieldset:disabled {
+  display: none;
+}
+
+.alien-select-control select {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 6px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 7px;
+  color: #eaf5ef;
+  background: #0b0e0c;
+  font: 0.68rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.alien-select-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.alien-mouth-picker {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.alien-mouth-picker button,
+.alien-mini-button {
+  min-height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 7px;
+  color: rgba(232, 240, 235, 0.7);
+  background: rgba(255, 255, 255, 0.035);
+  font: 700 0.62rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.alien-mouth-picker button[aria-pressed="true"],
+.alien-mini-button:hover,
+.alien-mini-button:focus-visible {
+  border-color: var(--alien-violet);
+  color: #f2dbff;
+  background: rgba(214, 109, 255, 0.12);
+}
+
+.alien-mouth-picker button:disabled {
+  opacity: 0.28;
+}
+
+@media (max-width: 520px) {
+  .alien-module > header {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .alien-switch {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .alien-module fieldset {
+    padding-left: 12px;
+  }
+}

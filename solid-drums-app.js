@@ -26,6 +26,10 @@ import {
   solidDrumSubdivisionMarkers,
   solidDrumVoiceIndex,
 } from "./src/solid-drums.js";
+import {
+  rebaseContinuousPosition,
+  rebasePingPongPosition,
+} from "./src/articulation.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -34,7 +38,8 @@ const defaults = {
   solidType: "cube",
   position: 0.5,
   speed: 0.12,
-  direction: 1,
+  traversalDirection: 1,
+  motionMode: "loop",
   rotationX: -24,
   rotationY: 36,
   rotationZ: 8,
@@ -90,6 +95,28 @@ function clamp(value, minimum = 0, maximum = 1) {
 function wrap01(value) {
   const wrapped = value % 1;
   return wrapped < 0 ? wrapped + 1 : wrapped;
+}
+
+function pingPong01(value) {
+  const wrapped = ((Number(value) % 2) + 2) % 2;
+  return wrapped <= 1 ? wrapped : 2 - wrapped;
+}
+
+function endpointSafePhase(value) {
+  const phase = clamp(value);
+  return phase >= 1 ? 1 - 1e-9 : phase;
+}
+
+function rebasePosition(value) {
+  const nextPosition = state.motionMode === "pingpong" ? clamp(value) : wrap01(value);
+  state.continuousPosition = state.motionMode === "pingpong"
+    ? rebasePingPongPosition(state.continuousPosition, nextPosition)
+    : rebaseContinuousPosition(
+      state.continuousPosition,
+      wrap01(state.continuousPosition),
+      nextPosition,
+    );
+  state.position = nextPosition;
 }
 
 function normalizeDegrees(value) {
@@ -148,8 +175,9 @@ function bindRange(id, key, formatter, afterChange) {
 }
 
 bindRange("position", "position", (value) => `${((value * 2 - 1) * 100).toFixed(1)}%`, () => {
-  const wrappedPosition = wrap01(state.continuousPosition);
-  state.continuousPosition += state.position - wrappedPosition;
+  rebasePosition(state.position);
+  previousContactKeys.clear();
+  suppressStrikesUntil = performance.now() + 80;
 });
 bindRange("speed", "speed", (value) => `${value.toFixed(2)} cyc/s`);
 bindRange("output", "output", (value) => `${Math.round(value * 100)}%`, () => {
@@ -196,8 +224,6 @@ async function enableAudio() {
     $("audioError").hidden = true;
     await audio.start();
     setAudioState(true);
-    previousContactKeys.clear();
-    lastStrikeTimes.clear();
     scheduleFrame();
     return true;
   } catch (error) {
@@ -246,9 +272,23 @@ function paintTransport() {
     state.planeYawPlaying ? "yaw" : "",
     state.planePitchPlaying ? "pitch" : "",
   ].filter(Boolean);
-  $("playSummary").textContent = state.playing || surfaceAxes.length
+  const activity = state.playing || surfaceAxes.length
     ? `surface reader · ${[state.playing ? "position" : "", ...surfaceAxes].filter(Boolean).join("+")}`
     : "surface reader · paused";
+  $("playSummary").textContent = `${activity} · ${state.motionMode} · ${state.traversalDirection > 0 ? "forward" : "reverse"}`;
+}
+
+function paintTraversalControls() {
+  const forward = state.traversalDirection > 0;
+  $("traversalDirectionGlyph").textContent = forward ? "→" : "←";
+  $("traversalDirectionText").textContent = forward ? "FWD" : "REV";
+  $("traversalDirection").setAttribute(
+    "aria-label",
+    `Surface direction: ${forward ? "forward" : "reverse"}${state.motionMode === "pingpong" ? " ping-pong travel" : ""}`,
+  );
+  setPressed($("loopMotion"), state.motionMode === "loop");
+  setPressed($("pingPongMotion"), state.motionMode === "pingpong");
+  paintTransport();
 }
 
 const AXIS_MOTIONS = [
@@ -290,7 +330,6 @@ for (const motion of AXIS_MOTIONS) {
     lastFrameTime = performance.now();
     previousContactKeys.clear();
     paintMotionControls();
-    if (state[motion.key] && !state.audioOn) void enableAudio();
     announce(`${motion.label} ${state[motion.key] ? "playing" : "paused"}.`);
     scheduleFrame();
   });
@@ -301,16 +340,37 @@ $("playButton").addEventListener("click", () => {
   lastFrameTime = performance.now();
   previousContactKeys.clear();
   paintTransport();
-  if (state.playing && !state.audioOn) void enableAudio();
   announce(state.playing ? "Surface playing." : "Surface paused.");
   scheduleFrame();
 });
 
-$("directionButton").addEventListener("click", () => {
-  state.direction *= -1;
-  $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
-  announce(`Surface direction ${state.direction > 0 ? "forward" : "reverse"}.`);
+$("traversalDirection").addEventListener("click", () => {
+  state.traversalDirection *= -1;
+  paintTraversalControls();
+  announce(`Surface direction ${state.traversalDirection > 0 ? "forward" : "reverse"}.`);
 });
+
+function setMotionMode(mode, shouldAnnounce = true) {
+  const nextMode = mode === "pingpong" ? "pingpong" : "loop";
+  if (nextMode !== state.motionMode) {
+    state.continuousPosition = nextMode === "pingpong"
+      ? rebasePingPongPosition(state.continuousPosition, state.position)
+      : rebaseContinuousPosition(
+        state.continuousPosition,
+        wrap01(state.continuousPosition),
+        state.position,
+      );
+    state.motionMode = nextMode;
+  }
+  paintTraversalControls();
+  if (shouldAnnounce) {
+    announce(`${state.motionMode === "pingpong" ? "Ping-pong" : "Loop"} surface movement selected.`);
+  }
+  scheduleFrame();
+}
+
+$("loopMotion").addEventListener("click", () => setMotionMode("loop"));
+$("pingPongMotion").addEventListener("click", () => setMotionMode("pingpong"));
 
 function populateMappingModes() {
   $("mappingMode").innerHTML = SOLID_DRUM_MAPPING_MODES
@@ -371,7 +431,7 @@ function transformedSolid(rotation = currentRotation()) {
 }
 
 function currentPlane(
-  phase = state.continuousPosition,
+  phase = state.position,
   yaw = state.planeYaw,
   pitch = state.planePitch,
   solid = null,
@@ -382,7 +442,7 @@ function currentPlane(
       normal.x * point.x + normal.y * point.y + normal.z * point.z
     ))) + 0.04
     : 1.05;
-  return { normal, offset: planeOffsetForPhase(phase, radius) };
+  return { normal, offset: planeOffsetForPhase(endpointSafePhase(phase), radius) };
 }
 
 function projectionTransform() {
@@ -593,8 +653,10 @@ function frame(now) {
   const delta = Math.min(0.1, Math.max(0, (now - lastFrameTime) / 1_000));
   lastFrameTime = now;
   if (state.playing) {
-    state.continuousPosition += state.direction * state.speed * delta;
-    state.position = wrap01(state.continuousPosition);
+    state.continuousPosition += state.traversalDirection * state.speed * delta;
+    state.position = state.motionMode === "pingpong"
+      ? pingPong01(state.continuousPosition)
+      : wrap01(state.continuousPosition);
   }
   for (const axis of ["X", "Y", "Z"]) {
     if (!state[`rotation${axis}Playing`]) continue;
@@ -610,7 +672,7 @@ function frame(now) {
   }
 
   const solid = transformedSolid();
-  const plane = currentPlane(state.continuousPosition, state.planeYaw, state.planePitch, solid);
+  const plane = currentPlane(state.position, state.planeYaw, state.planePitch, solid);
   const bounds = solidDrumBounds(solid);
   const rawContacts = planeIntersections(
     solid,
@@ -673,7 +735,7 @@ function targetAtPointer(event) {
     y: (event.clientY - bounds.top) * cssHeight / Math.max(1, bounds.height),
   };
   const solid = transformedSolid();
-  const plane = currentPlane(state.continuousPosition, state.planeYaw, state.planePitch, solid);
+  const plane = currentPlane(state.position, state.planeYaw, state.planePitch, solid);
   const transform = projectionTransform();
   const solidSegments = solid.edges.map(({ a, b }) => {
     const start = projected(solid.vertices[a], transform);
@@ -741,13 +803,15 @@ canvas.addEventListener("keydown", (event) => {
     $("playButton").click();
   } else if (event.key === "ArrowLeft") {
     event.preventDefault();
-    state.position = wrap01(state.position - (event.shiftKey ? 0.05 : 0.01));
-    state.continuousPosition = state.position;
+    rebasePosition(state.position - (event.shiftKey ? 0.05 : 0.01));
+    previousContactKeys.clear();
+    suppressStrikesUntil = performance.now() + 80;
     scheduleFrame();
   } else if (event.key === "ArrowRight") {
     event.preventDefault();
-    state.position = wrap01(state.position + (event.shiftKey ? 0.05 : 0.01));
-    state.continuousPosition = state.position;
+    rebasePosition(state.position + (event.shiftKey ? 0.05 : 0.01));
+    previousContactKeys.clear();
+    suppressStrikesUntil = performance.now() + 80;
     scheduleFrame();
   }
 });
@@ -795,7 +859,7 @@ function reset() {
   $("characterDepthOut").textContent = `${Math.round(state.characterDepth * 100)}%`;
   $("strikeLimitOut").textContent = String(state.strikeLimit);
   $("subdivisionsOut").textContent = String(state.subdivisions);
-  $("directionButton").textContent = "Direction · forward";
+  paintTraversalControls();
   previousContactKeys.clear();
   lastStrikeTimes.clear();
   suppressStrikesUntil = performance.now() + 80;
@@ -820,6 +884,7 @@ window.addEventListener("pagehide", () => {
 populateMappingModes();
 renderDrumMap();
 updateSummaries();
+paintTraversalControls();
 paintMotionControls();
 paintRotationTarget();
 new ResizeObserver(resizeCanvas).observe(stageWrap);

@@ -49,7 +49,8 @@ test("Lumber Loops keeps a traditional looper surface with optional advanced pla
   ]) {
     assert.match(html, new RegExp(`<details[^>]*id="${section}"`));
   }
-  assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/);
+  assert.match(html, /<details\b[^>]*id="loopSection"[^>]*\sopen(?:\s|>)/);
+  assert.equal((html.match(/<details\b[^>]*\sopen(?:\s|>)/g) ?? []).length, 1);
   assert.doesNotMatch(
     html,
     /id="(?:playbackSection|shapeMapping)"/,

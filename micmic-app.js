@@ -1150,7 +1150,7 @@ async function startMicrophone() {
     state.frozen = false;
     applyAudioParameters();
     clearError();
-    announce("L-mic microphone on. Speak to seed the echo tree.");
+    announce("L-system Delay microphone on. Speak to seed the echo tree.");
   } catch (error) {
     if (generation !== microphoneGeneration) return;
     state.mic = false;
@@ -1168,7 +1168,7 @@ async function startMicrophone() {
   }
 }
 
-function stopMicrophone(message = "L-mic microphone off.", shouldAnnounce = true) {
+function stopMicrophone(message = "L-system Delay microphone off.", shouldAnnounce = true) {
   ++microphoneGeneration;
   state.starting = false;
   state.mic = false;
@@ -1768,7 +1768,7 @@ function updateUi() {
   const audibleCount = generationVisualModel?.voices.filter((voice) => (
     voice.gain * state.wet > 0.00001
   )).length ?? 0;
-  canvas.setAttribute("aria-label", `Live fitted L-mic L-system tree. ${live ? state.frozen ? "Input paused; recursive tail live" : "Microphone live" : "Microphone off"}.`);
+  canvas.setAttribute("aria-label", `Live fitted L-system tree for L-system Delay. ${live ? state.frozen ? "Input paused; recursive tail live" : "Microphone live" : "Microphone off"}.`);
   $("treeDescription").textContent = `${label}. ${generations} generations and ${segmentCount} connected segments; ${audibleCount} of ${voiceCount} ${pruningBiasLabel(state.pruningBias)} delayed descendant paths carry audible gain. Microphone loudness travels outward from the seed by vibrating the branches.`;
 }
 
@@ -1857,7 +1857,7 @@ document.addEventListener("keydown", (event) => {
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && (state.mic || state.starting)) {
-    panic("Microphone stopped because L-mic moved to the background.");
+    panic("Microphone stopped because L-system Delay moved to the background.");
   }
 });
 

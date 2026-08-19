@@ -57,7 +57,7 @@ function elementWithClass(source, tagName, className) {
   assert.fail(`${tagName}.${className} should have a closing tag`);
 }
 
-test("Rubix controls keep geometry, visibility dynamics, and panel order explicit", async () => {
+test("Rubix controls keep shape, size, visibility dynamics, and panel order explicit", async () => {
   const [html, css] = await Promise.all([
     readFile(new URL("rubix.html", root), "utf8"),
     readFile(new URL("rubix.css", root), "utf8"),
@@ -81,20 +81,35 @@ test("Rubix controls keep geometry, visibility dynamics, and panel order explici
     /data-read-mode="face"[^>]*>[\s\S]*?<b>Alternate faces<\/b>[\s\S]*?<small>one face per subdivision · 27 steps<\/small>/,
   );
 
-  const geometryOptions = selectOptions(cubeMoves, "geometry");
-  assert.deepEqual(geometryOptions, [
-    { value: "cube3", selected: true, label: "3 × 3 · Rubix cube" },
-    { value: "cube2", selected: false, label: "2 × 2 · Pocket cube" },
-    { value: "cube4", selected: false, label: "4 × 4 · Rubix cube" },
-    { value: "cube5", selected: false, label: "5 × 5 · Rubix cube" },
-    { value: "cube6", selected: false, label: "6 × 6 · Rubix cube" },
-    { value: "pyramid", selected: false, label: "Pyramid · faceted" },
-    { value: "sphere", selected: false, label: "Sphere · orbital" },
+  const shapeOptions = selectOptions(cubeMoves, "shape");
+  assert.deepEqual(shapeOptions, [
+    { value: "cube", selected: true, label: "Cube" },
+    { value: "morphix", selected: false, label: "Morphix · pyramid" },
+    { value: "diamond", selected: false, label: "Diamond · double pyramid" },
+    { value: "stella", selected: false, label: "Stella · 8-point star" },
+    { value: "orb", selected: false, label: "Orb · sphere" },
   ]);
-  assert.match(cubeMoves, /id="geometryState"[^>]*for="geometry">3 × 3 · Rubix cube<\/output>/);
+  assert.match(cubeMoves, /id="shapeState"[^>]*for="shape">Cube<\/output>/);
+  const rubixSize = openingTag(cubeMoves, "input", "rubixSize");
+  assert.equal(attribute(rubixSize, "type"), "range");
+  assert.equal(attribute(rubixSize, "min"), "2");
+  assert.equal(attribute(rubixSize, "max"), "12");
+  assert.equal(attribute(rubixSize, "step"), "1");
+  assert.equal(attribute(rubixSize, "value"), "3");
+  assert.equal(attribute(rubixSize, "aria-describedby"), "rubixFormHelp");
+  assert.match(cubeMoves, /id="rubixSizeOut"[^>]*for="rubixSize">3 × 3<\/output>/);
+  assert.match(cubeMoves, /id="rubixFormHelp">Cube turns · visual form · release Size to load<\/small>/);
   assert.ok(
-    cubeMoves.indexOf('id="geometry"') < cubeMoves.indexOf('id="selectedSticker"'),
-    "Geometry should be the first Cube moves control",
+    cubeMoves.indexOf('id="shape"') < cubeMoves.indexOf('id="rubixSize"'),
+    "Shape should precede Size in Cube moves",
+  );
+  assert.ok(
+    cubeMoves.indexOf('id="rubixSize"') < cubeMoves.indexOf('id="scrambleCube"'),
+    "Size should precede the raised cube actions",
+  );
+  assert.ok(
+    cubeMoves.indexOf('id="rubixSize"') < cubeMoves.indexOf('id="selectedSticker"'),
+    "Shape and Size should remain above the detailed move controls",
   );
 
   const scrambleCube = openingTag(cubeMoves, "button", "scrambleCube");
@@ -107,7 +122,7 @@ test("Rubix controls keep geometry, visibility dynamics, and panel order explici
   assert.equal(attribute(resetSound, "type"), "button");
   assert.ok(
     cubeMoves.indexOf('id="scrambleCube"') < cubeMoves.indexOf('class="rubix-random-twists"'),
-    "Scramble should sit high in Cube moves, immediately after Geometry",
+    "Scramble should sit high in Cube moves, immediately after Shape and Size",
   );
   assert.ok(
     cubeMoves.indexOf('id="solveCube"') < cubeMoves.indexOf('class="rubix-random-twists"'),
@@ -146,12 +161,18 @@ test("Rubix controls keep geometry, visibility dynamics, and panel order explici
   const randomTwists = openingTag(cubeMoves, "button", "randomTwists");
   assert.equal(attribute(randomTwists, "type"), "button");
   assert.equal(attribute(randomTwists, "aria-pressed"), "false");
-  const randomTwistTempo = openingTag(cubeMoves, "input", "randomTwistTempo");
-  assert.equal(attribute(randomTwistTempo, "type"), "range");
-  assert.ok(Number(attribute(randomTwistTempo, "min")) > 0);
-  assert.ok(Number(attribute(randomTwistTempo, "max")) > Number(attribute(randomTwistTempo, "min")));
-  assert.ok(Number(attribute(randomTwistTempo, "step")) > 0);
-  assert.match(cubeMoves, /id="randomTwistTempoOut"[^>]*for="randomTwistTempo"/);
+  const randomTwistSpeed = openingTag(cubeMoves, "input", "randomTwistSpeed");
+  assert.equal(attribute(randomTwistSpeed, "type"), "range");
+  assert.equal(attribute(randomTwistSpeed, "min"), "0");
+  assert.equal(attribute(randomTwistSpeed, "max"), "100");
+  assert.equal(attribute(randomTwistSpeed, "step"), "1");
+  assert.equal(attribute(randomTwistSpeed, "value"), "36");
+  assert.match(
+    cubeMoves,
+    /id="randomTwistSpeedOut"[^>]*for="randomTwistSpeed">1×<\/output>/,
+  );
+  assert.doesNotMatch(cubeMoves, /randomTwistTempo|\bTPM\b|twists?\s+per\s+minute/i);
+  assert.match(cubeMoves, /Automatic movement speed · independent of sequencer tempo/);
 
   assert.doesNotMatch(html, /id="orbitMode"/, "empty-space drag should replace an explicit Orbit toggle");
   assert.match(html, /drag empty space to orbit/i);

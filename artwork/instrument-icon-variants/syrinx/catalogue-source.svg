@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="7" result="blur" />
+      <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+    </filter>
+    <linearGradient id="tract" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#ff765f" />
+      <stop offset=".48" stop-color="#f8c94b" />
+      <stop offset="1" stop-color="#71e9de" />
+    </linearGradient>
+    <linearGradient id="membrane" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ff4f79" />
+      <stop offset="1" stop-color="#ffb146" />
+    </linearGradient>
+  </defs>
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g filter="url(#glow)" opacity=".94">
+      <path d="M102 116c-34 27-52 76-49 124 3 42 20 71 48 76 25 4 45-16 45-47V126c0-18-24-23-44-10Z" stroke="#ff665e" stroke-width="10" />
+      <path d="M186 116c34 27 52 76 49 124-3 42-20 71-48 76-25 4-45-16-45-47V126c0-18 24-23 44-10Z" stroke="#ff665e" stroke-width="10" />
+      <path d="M144 271v47" stroke="#ff8d57" stroke-width="11" />
+      <path d="M118 315c8-14 17-21 26-21s18 7 26 21" stroke="#ff8d57" stroke-width="9" />
+
+      <path d="M118 326c10-18 24-27 42-27 21 0 36 11 47 33-10 22-26 33-47 33-18 0-32-10-42-29Z" fill="#071013" stroke="url(#membrane)" stroke-width="11" />
+      <path d="M139 316c7 9 7 22 0 37M158 309c7 13 7 29 0 46M178 314c6 11 6 24 0 37" stroke="#ffcf52" stroke-width="6" />
+
+      <path d="M207 332c51-25 108-30 173-22l42 6 35 30-35 30-42 6c-65 8-122 3-173-22Z" fill="#061014" stroke="url(#tract)" stroke-width="12" />
+      <path d="M228 337c48-16 101-19 159-12M228 355c48 16 101 19 159 12" stroke="#71e9de" stroke-opacity=".5" stroke-width="4" />
+
+      <path d="M284 312c3-38 18-69 45-91 24-20 51-28 81-23-9 20-23 36-42 48-20 13-41 18-62 15" stroke="#71e9de" stroke-width="10" />
+      <path d="M319 259c12 10 27 14 44 12 17-2 31-10 43-23" stroke="#71e9de" stroke-width="5" />
+      <circle cx="409" cy="198" r="9" fill="#71e9de" stroke="#071013" stroke-width="3" />
+
+      <path d="M422 316l36 30-36 30 18-30Z" fill="#100b18" stroke="#ad83ff" stroke-width="9" />
+      <path d="M442 346h38" stroke="#ad83ff" stroke-width="8" />
+    </g>
+
+    <path d="M94 168c-12 24-15 50-9 77M193 168c12 24 15 50 9 77" stroke="#ffb066" stroke-opacity=".58" stroke-width="5" />
+    <path d="M257 332v28M288 324v44M319 321v50M350 321v50M381 324v44" stroke="#f6d45c" stroke-opacity=".7" stroke-width="5" />
+  </g>
+</svg>

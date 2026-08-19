@@ -372,6 +372,13 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
   assert.equal(playbackStarts, 0, "module load must not start any fake audio source");
 
   const input = elements.get("spellingInput");
+  input.value = "hello";
+  elements.get("readbackButton").emit("click");
+  assert.equal(audioContextConstructions, 0, "Readback must not implicitly turn Audio on");
+  assert.equal(elements.get("audioButton").getAttribute("aria-pressed"), "false");
+  assert.equal(elements.get("readbackButton").textContent, "Read it back to me");
+  assert.match(elements.get("liveStatus").textContent, /Turn Audio on/);
+  input.value = "";
   const initialVowel = input.emit("keydown", {
     key: "e",
     code: "KeyE",
@@ -626,6 +633,11 @@ test("Spelling Synthesizer sustains held vowels, joins pairs, and resumes local 
   assert.equal(playbackStarts, playbackStartsWhenHidden, "hidden readback cannot restart audio");
 
   document.hidden = false;
+  elements.get("audioButton").emit("click");
+  await flushMicrotasksUntil(
+    () => elements.get("audioButton").getAttribute("aria-pressed") === "true",
+    "returning from the background requires an explicit Audio press",
+  );
   elements.get("clearButton").emit("click");
   input.value = "cat.";
   input.selectionStart = input.value.length;

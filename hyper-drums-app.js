@@ -20,6 +20,10 @@ import {
   mappedHyperDrumVoice,
   normalizedHyperContact,
 } from "./src/hyper-drums.js";
+import {
+  rebaseContinuousPosition,
+  rebasePingPongPosition,
+} from "./src/articulation.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -28,7 +32,8 @@ const defaults = Object.freeze({
   shapeType: "tesseract",
   position: 0.5,
   speed: 0.1,
-  direction: 1,
+  traversalDirection: 1,
+  motionMode: "loop",
   rotationXW: 24,
   rotationYW: -18,
   rotationZW: 12,
@@ -86,6 +91,28 @@ function clamp(value, minimum = 0, maximum = 1) {
 
 function wrap01(value) {
   return ((Number(value) % 1) + 1) % 1;
+}
+
+function pingPong01(value) {
+  const wrapped = ((Number(value) % 2) + 2) % 2;
+  return wrapped <= 1 ? wrapped : 2 - wrapped;
+}
+
+function endpointSafePhase(value) {
+  const phase = clamp(value);
+  return phase >= 1 ? 1 - 1e-9 : phase;
+}
+
+function rebasePosition(value) {
+  const nextPosition = state.motionMode === "pingpong" ? clamp(value) : wrap01(value);
+  state.continuousPosition = state.motionMode === "pingpong"
+    ? rebasePingPongPosition(state.continuousPosition, nextPosition)
+    : rebaseContinuousPosition(
+      state.continuousPosition,
+      wrap01(state.continuousPosition),
+      nextPosition,
+    );
+  state.position = nextPosition;
 }
 
 function normalizeDegrees(value) {
@@ -154,8 +181,7 @@ function bindRange(id, key, formatter, afterChange) {
 }
 
 bindRange("position", "position", (value) => `${((value * 2 - 1) * 100).toFixed(1)}%`, () => {
-  const current = wrap01(state.continuousPosition);
-  state.continuousPosition += state.position - current;
+  rebasePosition(state.position);
   clearContactHistory(1);
 });
 bindRange("speed", "speed", (value) => `${value.toFixed(2)} cyc/s`);
@@ -209,8 +235,6 @@ async function enableAudio() {
     $("audioError").hidden = true;
     await audio.start();
     setAudioState(true);
-    clearContactHistory(0);
-    suppressStrikeFrames = 0;
     scheduleFrame();
     return true;
   } catch (error) {
@@ -241,7 +265,20 @@ function paintPlayback() {
     "aria-label",
     state.playing ? "Pause hyperplane" : "Play hyperplane",
   );
-  $("playSummary").textContent = `W plane · ${state.playing ? "playing" : "paused"}`;
+  $("playSummary").textContent = `W plane · ${state.playing ? "playing" : "paused"} · ${state.motionMode} · ${state.traversalDirection > 0 ? "forward" : "reverse"}`;
+}
+
+function paintTraversalControls() {
+  const forward = state.traversalDirection > 0;
+  $("traversalDirectionGlyph").textContent = forward ? "→" : "←";
+  $("traversalDirectionText").textContent = forward ? "FWD" : "REV";
+  $("traversalDirection").setAttribute(
+    "aria-label",
+    `Hyperplane direction: ${forward ? "forward" : "reverse"}${state.motionMode === "pingpong" ? " ping-pong travel" : ""}`,
+  );
+  setPressed($("loopMotion"), state.motionMode === "loop");
+  setPressed($("pingPongMotion"), state.motionMode === "pingpong");
+  paintPlayback();
 }
 
 function paintRotation() {
@@ -271,16 +308,37 @@ $("playButton").addEventListener("click", () => {
   previousContactKeys.clear();
   suppressStrikeFrames = 0;
   paintPlayback();
-  if (state.playing && !state.audioOn) void enableAudio();
   announce(state.playing ? "Hyperplane playing." : "Hyperplane paused.");
   scheduleFrame();
 });
 
-$("directionButton").addEventListener("click", () => {
-  state.direction *= -1;
-  $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
-  announce(`Hyperplane direction ${state.direction > 0 ? "forward" : "reverse"}.`);
+$("traversalDirection").addEventListener("click", () => {
+  state.traversalDirection *= -1;
+  paintTraversalControls();
+  announce(`Hyperplane direction ${state.traversalDirection > 0 ? "forward" : "reverse"}.`);
 });
+
+function setMotionMode(mode, shouldAnnounce = true) {
+  const nextMode = mode === "pingpong" ? "pingpong" : "loop";
+  if (nextMode !== state.motionMode) {
+    state.continuousPosition = nextMode === "pingpong"
+      ? rebasePingPongPosition(state.continuousPosition, state.position)
+      : rebaseContinuousPosition(
+        state.continuousPosition,
+        wrap01(state.continuousPosition),
+        state.position,
+      );
+    state.motionMode = nextMode;
+  }
+  paintTraversalControls();
+  if (shouldAnnounce) {
+    announce(`${state.motionMode === "pingpong" ? "Ping-pong" : "Loop"} hyperplane movement selected.`);
+  }
+  scheduleFrame();
+}
+
+$("loopMotion").addEventListener("click", () => setMotionMode("loop"));
+$("pingPongMotion").addEventListener("click", () => setMotionMode("pingpong"));
 
 for (const axis of ["XW", "YW", "ZW"]) {
   $(`rotation${axis}Play`).addEventListener("click", () => {
@@ -289,7 +347,6 @@ for (const axis of ["XW", "YW", "ZW"]) {
     previousContactKeys.clear();
     suppressStrikeFrames = 0;
     paintRotation();
-    if (state[`rotation${axis}Playing`] && !state.audioOn) void enableAudio();
     scheduleFrame();
   });
 }
@@ -395,7 +452,8 @@ function currentHyperShape() {
   return transformedHyperShape(state.shapeType, rotation(), hyperForm());
 }
 
-function currentHyperplaneOffset(shape, phase = state.continuousPosition) {
+function currentHyperplaneOffset(shape, phase = state.position) {
+  phase = endpointSafePhase(phase);
   return hyperplaneOffsetForShapePhase(shape, phase);
 }
 
@@ -634,10 +692,12 @@ function frame(now) {
   lastFrameTime = now;
   const previousPosition = state.continuousPosition;
   if (state.playing) {
-    state.continuousPosition += state.direction * state.speed * delta;
-    state.position = wrap01(state.continuousPosition);
+    state.continuousPosition += state.traversalDirection * state.speed * delta;
+    state.position = state.motionMode === "pingpong"
+      ? pingPong01(state.continuousPosition)
+      : wrap01(state.continuousPosition);
   }
-  const looped = state.playing && crossedHyperplaneLoop(
+  const looped = state.playing && state.motionMode === "loop" && crossedHyperplaneLoop(
     previousPosition,
     state.continuousPosition,
   );
@@ -732,8 +792,7 @@ canvas.addEventListener("pointercancel", finishCanvasDrag);
 canvas.addEventListener("lostpointercapture", finishCanvasDrag);
 
 function setPosition(value) {
-  state.position = wrap01(value);
-  state.continuousPosition = state.position;
+  rebasePosition(value);
   $("position").value = String(state.position);
   $("positionOut").textContent = `${((state.position * 2 - 1) * 100).toFixed(1)}%`;
   clearContactHistory(1);
@@ -800,7 +859,7 @@ function reset() {
   $("hyperShape").value = state.shapeType;
   $("formSummary").textContent = SHAPE_LABELS[state.shapeType];
   $("mappingMode").value = state.mappingMode;
-  $("directionButton").textContent = "Direction · forward";
+  paintTraversalControls();
   paintPlayback();
   paintRotation();
   updateMappingSummary();
@@ -825,6 +884,7 @@ window.addEventListener("pagehide", () => {
 
 populateMappingModes();
 renderDrumMap();
+paintTraversalControls();
 paintPlayback();
 paintRotation();
 updateMappingSummary();

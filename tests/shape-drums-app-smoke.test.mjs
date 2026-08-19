@@ -211,6 +211,53 @@ test("shape drum app starts with the complete Shape form and sixteen drum previe
   assert.equal(typeof listeners.get("stage:pointerdown"), "function");
   assert.equal(typeof listeners.get("headLayoutTrack:pointermove"), "function");
 
+  elements.get("position").value = "0.96";
+  listeners.get("position:input")();
+  flushAnimationFrame();
+  listeners.get("pingPongMotion:click")();
+  assert.equal(Number(elements.get("position").value), 0.96);
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "true");
+  assert.equal(elements.get("traversalDirectionText").textContent, "FWD");
+  assert.match(attributes.get("traversalDirection:aria-label"), /Forward ping-pong travel/);
+
+  listeners.get("playButton:click")();
+  const bounceClock = performance.now();
+  for (let frame = 1; frame <= 15; frame += 1) {
+    flushAnimationFrame(bounceClock + frame * 100);
+  }
+  listeners.get("playButton:click")();
+  flushAnimationFrame(bounceClock + 1_600);
+
+  elements.get("position").value = "0.72";
+  listeners.get("position:input")();
+  assert.equal(Number(elements.get("position").value), 0.72);
+  listeners.get("playButton:click")();
+  const scrubClock = performance.now();
+  flushAnimationFrame(scrubClock + 100);
+  assert.ok(
+    Number(elements.get("position").value) < 0.72,
+    "scrubbing a descending ping-pong leg must preserve that leg",
+  );
+  listeners.get("playButton:click")();
+  flushAnimationFrame(scrubClock + 200);
+
+  const phaseBeforeModeRoundTrip = Number(elements.get("position").value);
+  listeners.get("loopMotion:click")();
+  assert.equal(Number(elements.get("position").value), phaseBeforeModeRoundTrip);
+  listeners.get("pingPongMotion:click")();
+  assert.equal(Number(elements.get("position").value), phaseBeforeModeRoundTrip);
+  listeners.get("playButton:click")();
+  const modeClock = performance.now();
+  flushAnimationFrame(modeClock + 100);
+  assert.ok(
+    Number(elements.get("position").value) < phaseBeforeModeRoundTrip,
+    "loop to ping-pong mode changes must preserve the current descending leg",
+  );
+  listeners.get("playButton:click")();
+  flushAnimationFrame(modeClock + 200);
+  listeners.get("resetShapeDrums:click")();
+  flushAnimationFrame();
+
   elements.get("sides").value = "7";
   listeners.get("sides:input")();
   assert.match(elements.get("formSummary").textContent, /7-point polygon/);
@@ -235,6 +282,8 @@ test("shape drum app starts with the complete Shape form and sixteen drum previe
   listeners.get("scanMode:click")();
   assert.equal(elements.get("headsControl").hidden, false);
   assert.equal(elements.get("playheadCountOut").textContent, "1 line");
+  assert.equal(elements.get("traversalDirectionText").textContent, "L→R");
+  assert.match(attributes.get("traversalDirection:aria-label"), /Scan left to right/);
 
   listeners.get("addPlayhead:click")();
   assert.equal(elements.get("playheadCountOut").textContent, "2 lines");
@@ -244,6 +293,7 @@ test("shape drum app starts with the complete Shape form and sixteen drum previe
   listeners.get("radialMode:click")();
   assert.equal(elements.get("playheadCountOut").textContent, "2 rays");
   assert.equal(elements.get("headMarker1").style.left, "50%");
+  assert.equal(elements.get("traversalDirectionText").textContent, "CW");
   listeners.get("traceMode:click")();
   assert.equal(elements.get("playheadCountOut").textContent, "2 points");
   assert.equal(elements.get("headMarker1").style.left, "50%");

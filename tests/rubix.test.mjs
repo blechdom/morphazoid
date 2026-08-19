@@ -19,6 +19,11 @@ import {
   RUBIX_ROW_MAJOR_ORDER,
   RUBIX_SEQUENCE_ROLES,
   RUBIX_SNAKE_ORDER,
+  RUBIX_TWIST_SPEED_DEFAULT_POSITION,
+  RUBIX_TWIST_SPEED_MULTIPLIER_MAX,
+  RUBIX_TWIST_SPEED_MULTIPLIER_MIN,
+  RUBIX_TWIST_SPEED_POSITION_MAX,
+  RUBIX_TWIST_SPEED_POSITION_MIN,
   createRubixSequenceSnapshot,
   createSolvedRubixCube,
   extractRubixFace,
@@ -30,6 +35,8 @@ import {
   rubixEulerMatrix,
   rubixLayersForSize,
   rubixReadFrame,
+  rubixTwistIntervalMs,
+  rubixTwistSpeedMultiplier,
   turnRubixLayer,
   visibleRubixFaces,
 } from "../src/rubix.js";
@@ -88,7 +95,11 @@ test("Rubix layers are exact centered integer or half-integer coordinates", () =
   assert.deepEqual(rubixLayersForSize(4), [-1.5, -0.5, 0.5, 1.5]);
   assert.deepEqual(rubixLayersForSize(5), [-2, -1, 0, 1, 2]);
   assert.deepEqual(rubixLayersForSize(6), [-2.5, -1.5, -0.5, 0.5, 1.5, 2.5]);
-  for (const size of [2, 3, 4, 5, 6]) {
+  assert.deepEqual(
+    rubixLayersForSize(12),
+    [-5.5, -4.5, -3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5],
+  );
+  for (const size of [2, 3, 4, 5, 6, 12]) {
     const layers = rubixLayersForSize(size);
     assert.ok(Object.isFrozen(layers));
     assert.equal(layers.length, size);
@@ -102,8 +113,40 @@ test("Rubix layers are exact centered integer or half-integer coordinates", () =
   }
 });
 
-test("2 x 2 through 6 x 6 solved cubes expose dynamic faces and exact centers", () => {
-  for (const size of [2, 4, 5, 6]) {
+test("Rubix twist speed derives a fast perceptual multiplier and scheduling interval", () => {
+  assert.equal(RUBIX_TWIST_SPEED_POSITION_MIN, 0);
+  assert.equal(RUBIX_TWIST_SPEED_POSITION_MAX, 100);
+  assert.equal(RUBIX_TWIST_SPEED_DEFAULT_POSITION, 36);
+  assert.equal(RUBIX_TWIST_SPEED_MULTIPLIER_MIN, 0.25);
+  assert.equal(RUBIX_TWIST_SPEED_MULTIPLIER_MAX, 12);
+
+  const positions = [
+    RUBIX_TWIST_SPEED_POSITION_MIN,
+    RUBIX_TWIST_SPEED_DEFAULT_POSITION,
+    50,
+    RUBIX_TWIST_SPEED_POSITION_MAX,
+  ];
+  const multipliers = positions.map((position) => rubixTwistSpeedMultiplier(position));
+  const intervals = positions.map((position) => rubixTwistIntervalMs(position));
+
+  assert.equal(multipliers[0], RUBIX_TWIST_SPEED_MULTIPLIER_MIN);
+  assert.equal(multipliers.at(-1), RUBIX_TWIST_SPEED_MULTIPLIER_MAX);
+  assert.ok(Math.abs(multipliers[1] - 1) < 0.02, "the default should read as 1×");
+  assert.ok(multipliers.every((speed, index) => index === 0 || speed > multipliers[index - 1]));
+  assert.ok(intervals.every((interval, index) => index === 0 || interval < intervals[index - 1]));
+  for (let index = 0; index < positions.length; index += 1) {
+    assert.ok(Math.abs(intervals[index] * multipliers[index] - 1_000) < 1e-9);
+  }
+  assert.equal(rubixTwistSpeedMultiplier(-1), RUBIX_TWIST_SPEED_MULTIPLIER_MIN);
+  assert.equal(rubixTwistSpeedMultiplier(101), RUBIX_TWIST_SPEED_MULTIPLIER_MAX);
+  assert.equal(
+    rubixTwistIntervalMs(RUBIX_TWIST_SPEED_POSITION_MAX),
+    1_000 / RUBIX_TWIST_SPEED_MULTIPLIER_MAX,
+  );
+});
+
+test("representative 2 x 2 through 12 x 12 solved cubes expose dynamic faces and exact centers", () => {
+  for (const size of [2, 4, 5, 6, 12]) {
     const cube = createSolvedRubixCube(size);
     const cellCount = size * size;
     const expectedStickerCount = 6 * cellCount;
@@ -167,8 +210,8 @@ test("a quarter turn followed by its inverse restores the cube without mutation"
   assert.deepEqual(solved, sourceSnapshot);
 });
 
-test("every supported non-default cube layer turns exactly and validates against its own size", () => {
-  for (const size of [2, 4, 5, 6]) {
+test("every representative non-default cube layer turns exactly and validates against its own size", () => {
+  for (const size of [2, 4, 5, 6, 12]) {
     const solved = createSolvedRubixCube(size);
     for (const axis of RUBIX_AXES) {
       for (const layer of rubixLayersForSize(size)) {
@@ -303,8 +346,8 @@ test("visible lanes are deterministic, distinct, and change with camera view", (
   );
 });
 
-test("2 x 2 through 6 x 6 snapshots contain three complete dynamic lanes", () => {
-  for (const size of [2, 4, 5, 6]) {
+test("representative 2 x 2 through 12 x 12 snapshots contain three complete dynamic lanes", () => {
+  for (const size of [2, 4, 5, 6, 12]) {
     const cube = createSolvedRubixCube(size);
     const cellCount = size * size;
     const snapshot = createRubixSequenceSnapshot(cube, DEFAULT_RUBIX_CAMERA);
@@ -466,13 +509,13 @@ test("alternate-faces read path subdivides each snake cell across the three role
   )));
 });
 
-test("dynamic read paths cover every supported 2 x 2 through 6 x 6 cube face", () => {
+test("dynamic read paths cover representative 2 x 2 through 12 x 12 cube faces", () => {
   const expectedSnake = (side) => Array.from({ length: side }, (_, row) => {
     const cells = Array.from({ length: side }, (_, column) => row * side + column);
     return row % 2 === 1 ? cells.reverse() : cells;
   }).flat();
 
-  for (const side of [2, 3, 4, 5, 6]) {
+  for (const side of [2, 3, 4, 5, 6, 12]) {
     const cellCount = side * side;
     const rowMajor = Array.from({ length: cellCount }, (_, index) => index);
     const snake = expectedSnake(side);
@@ -568,31 +611,90 @@ test("Rubix page exposes the cube gestures, three visible lanes, and release ass
   assert.match(app, /createRubixVisibilityProfile/);
   assert.match(app, /rubixVisibilityGain/);
   assert.match(app, /warpRubixSurfacePoint/);
-  assert.match(app, /pyramid:[\s\S]*surface: "pyramid"/);
-  assert.match(app, /sphere:[\s\S]*surface: "sphere"/);
   assert.match(app, /DEFAULT_FM_DRUM_VOICES/);
   assert.match(app, /scheduleAcid/);
   assert.match(app, /scheduleDrum/);
+  const transportSource = sourceSection(
+    app,
+    "async function startTransport",
+    "function stopTransport",
+  );
+  assert.doesNotMatch(transportSource, /enableAudio|setAudioState|audio\.start/);
+  assert.match(transportSource, /Turn Audio on before playing the Rubix sequencer/);
   assert.doesNotMatch(app, /\$\("(?:twistMode|orbitMode)"\)/);
   assert.doesNotMatch(app, /\bsetGestureMode\b|state\.gestureMode/);
-  assert.doesNotMatch(html, /\bcube12\b|12\s*[×x]\s*12/i);
-  assert.doesNotMatch(app, /\bcube12\b|12\s*[×x]\s*12/i);
 
-  const geometryDefinitions = sourceSection(app, "const GEOMETRIES", "const DEFAULTS");
-  const cubeDefinitions = [...geometryDefinitions.matchAll(
-    /\bcube(\d+)\s*:\s*Object\.freeze\s*\(\s*\{([^}]*)\}\s*\)/g,
+  const sizeMinimum = Number(app.match(/\bRUBIX_SIZE_MIN\s*=\s*(\d+)/)?.[1]);
+  const sizeMaximum = Number(app.match(/\bRUBIX_SIZE_MAX\s*=\s*(\d+)/)?.[1]);
+  assert.equal(sizeMinimum, 2);
+  assert.equal(sizeMaximum, 12);
+  assert.match(app, /clamp\s*\(\s*size\s*,\s*RUBIX_SIZE_MIN\s*,\s*RUBIX_SIZE_MAX\s*\)/);
+
+  const shapeDefinitions = sourceSection(app, "const SHAPES", "const MORPHIX_FACE_NORMALS");
+  const shapes = [...shapeDefinitions.matchAll(
+    /^ {2}([a-z][\w-]*):\s*Object\.freeze\(\{([^}]*)\}\),?$/gm,
   )].map((match) => ({
-    idSize: Number(match[1]),
-    declaredSize: Number(match[2].match(/\bsize\s*:\s*(\d+)\b/)?.[1]),
+    key: match[1],
+    id: match[2].match(/\bid\s*:\s*"([^"]+)"/)?.[1],
     surface: match[2].match(/\bsurface\s*:\s*"([^"]+)"/)?.[1],
+    triangulated: match[2].match(/\btriangulated\s*:\s*(true|false)/)?.[1] === "true",
   }));
   assert.deepEqual(
-    cubeDefinitions.map(({ idSize }) => idSize).sort((first, second) => first - second),
-    [2, 3, 4, 5, 6],
-    "selectable cube geometry should cover 2 × 2 through 6 × 6 and stop there",
+    shapes,
+    [
+      { key: "cube", id: "cube", surface: "cube", triangulated: false },
+      { key: "morphix", id: "morphix", surface: "morphix", triangulated: true },
+      { key: "diamond", id: "diamond", surface: "diamond", triangulated: true },
+      { key: "stella", id: "stella", surface: "stella", triangulated: true },
+      { key: "orb", id: "orb", surface: "orb", triangulated: false },
+    ],
+    "visual shapes should be independent from the cube's layer count",
   );
-  assert.ok(cubeDefinitions.every(({ idSize, declaredSize }) => idSize === declaredSize));
-  assert.ok(cubeDefinitions.every(({ surface }) => surface === "cube"));
+
+  const stickerGeometry = sourceSection(
+    app,
+    "function stickerGeometry",
+    "function drawBackdrop",
+  );
+  assert.match(stickerGeometry, /const\s+makeSurface\s*=\s*\(/);
+  assert.match(stickerGeometry, /projectedTriangles/);
+  assert.match(stickerGeometry, /\[\s*projectedCenter,\s*projectedCorners\[index\]/);
+  assert.match(stickerGeometry, /screenRight:\s*screenTangent\s*\(\s*right/);
+  assert.match(stickerGeometry, /screenDown:\s*screenTangent\s*\(\s*down/);
+  assert.doesNotMatch(
+    stickerGeometry,
+    /basePoints|stickerPoints|makeQuad/,
+    "nonlinear forms should render center-fan triangles rather than foldable quads",
+  );
+  const hitSticker = sourceSection(app, "function hitSticker", "function gestureMoveForDelta");
+  assert.match(hitSticker, /projectedTriangles\.some/);
+  const fanDrawing = sourceSection(
+    app,
+    "function appendNormalizedTrianglePath",
+    "function polygonContains",
+  );
+  assert.match(fanDrawing, /projectedTriangleTwiceArea\s*\(\s*points\s*\)\s*<\s*0/);
+  assert.match(fanDrawing, /\[\s*points\[0\],\s*points\[2\],\s*points\[1\]\s*\]/);
+  const gestureMove = sourceSection(
+    app,
+    "function gestureMoveForDelta",
+    'canvas.addEventListener("pointerdown"',
+  );
+  assert.match(gestureMove, /hit\.screenRight/);
+  assert.match(gestureMove, /hit\.screenDown/);
+  assert.match(gestureMove, /determinant/);
+  assert.doesNotMatch(gestureMove, /projectWorld|RUBIX_FACE_DEFINITIONS/);
+
+  const setRubixForm = sourceSection(
+    app,
+    "function setRubixForm",
+    "function applyRubixPreset",
+  );
+  const shapeOnlyReturn = setRubixForm.indexOf("if (!sizeChanged)");
+  const cubeReplacement = setRubixForm.indexOf("state.cube = createSolvedRubixCube");
+  assert.ok(shapeOnlyReturn >= 0 && shapeOnlyReturn < cubeReplacement);
+  assert.match(setRubixForm, /shapeChanged[\s\S]*requestDraw\s*\(\s*\)/);
+  assert.match(setRubixForm, /Cube arrangement, size, and view unchanged/);
 
   const percEngineDefinitions = sourceSection(
     app,
@@ -620,21 +722,30 @@ test("Rubix page exposes the cube gestures, three visible lanes, and release ass
       `the preset collection should demonstrate the ${engine} percussion engine`,
     );
   }
-  const presetGeometryIds = [...presetDefinitions.matchAll(/\bgeometryId\s*:\s*"([^"]+)"/g)]
-    .map((match) => match[1]);
-  for (const geometryId of presetGeometryIds) {
-    assert.match(
-      geometryDefinitions,
-      new RegExp(`\\b${geometryId}\\s*:`),
-      `preset geometry ${geometryId} should be registered`,
+  const presetForms = [...presetDefinitions.matchAll(
+    /^ {2}(?:"([^"]+)"|([a-z][\w-]*)):\s*Object\.freeze\(\{([\s\S]*?)^ {2}\}\),/gm,
+  )].map((match) => ({
+    presetId: match[1] ?? match[2],
+    shapeId: match[3].match(/\bshapeId\s*:\s*"([^"]+)"/)?.[1],
+    size: Number(match[3].match(/\bsize\s*:\s*(\d+)\b/)?.[1]),
+  }));
+  assert.ok(presetForms.length >= 4, "Rubix should retain a varied preset collection");
+  const registeredShapeIds = new Set(shapes.map(({ id }) => id));
+  for (const { presetId, shapeId, size } of presetForms) {
+    assert.ok(registeredShapeIds.has(shapeId), `preset ${presetId} should use a registered shape`);
+    assert.ok(
+      Number.isInteger(size) && size >= sizeMinimum && size <= sizeMaximum,
+      `preset ${presetId} should declare a size from 2 through 12`,
     );
   }
-  for (const representative of ["cube2", "cube3", "cube4", "pyramid", "sphere"]) {
+  const representedForms = new Set(presetForms.map(({ shapeId, size }) => `${shapeId}:${size}`));
+  for (const representative of ["cube:2", "cube:3", "cube:4", "morphix:3", "orb:3"]) {
     assert.ok(
-      presetGeometryIds.includes(representative),
+      representedForms.has(representative),
       `${representative} should be represented by a preset`,
     );
   }
+  assert.doesNotMatch(presetDefinitions, /\bgeometryId\b/);
 
   const listenerEvents = (id) => [...app.matchAll(new RegExp(
     `\\$\\(\\s*["']${id}["']\\s*\\)\\.addEventListener\\(\\s*["']([^"']+)["']`,
@@ -642,6 +753,8 @@ test("Rubix page exposes the cube gestures, three visible lanes, and release ass
   ))].map((match) => match[1]);
   assert.deepEqual(listenerEvents("percEngine"), ["change"]);
   assert.deepEqual(listenerEvents("rubixPreset"), ["change"]);
+  assert.deepEqual(listenerEvents("shape"), ["change"]);
+  assert.deepEqual(listenerEvents("rubixSize"), ["input", "change"]);
   assert.deepEqual(listenerEvents("randomTwists"), ["click"]);
   assert.deepEqual(listenerEvents("solveCube"), ["click"]);
   assert.deepEqual(listenerEvents("resetSound"), ["click"]);
@@ -653,17 +766,18 @@ test("Rubix page exposes the cube gestures, three visible lanes, and release ass
   assert.match(resetSoundAction, /Object\.assign\(state, SOUND_DEFAULTS\)/);
   assert.doesNotMatch(resetSoundAction, /state\.cube|state\.camera|moveHistory|stopRandomTwists/);
   const soundDefaults = sourceSection(app, "const SOUND_DEFAULTS", "const RUBIX_PRESETS");
-  assert.doesNotMatch(soundDefaults, /randomTwists|randomTwistTempo/);
-  const randomTwistTempoBindings = [
-    ...app.matchAll(/\bbindRange\s*\(\s*["']randomTwistTempo["']/g),
+  assert.doesNotMatch(soundDefaults, /randomTwists|randomTwistSpeed|randomTwistTempo/);
+  assert.doesNotMatch(app, /randomTwistTempo|\bTPM\b|twists?\s+per\s+minute/i);
+  const randomTwistSpeedBindings = [
+    ...app.matchAll(/\bbindRange\s*\(\s*["']randomTwistSpeed["']/g),
     ...app.matchAll(
-      /\$\(\s*["']randomTwistTempo["']\s*\)\.addEventListener\s*\(/g,
+      /\$\(\s*["']randomTwistSpeed["']\s*\)\.addEventListener\s*\(/g,
     ),
   ];
   assert.equal(
-    randomTwistTempoBindings.length,
+    randomTwistSpeedBindings.length,
     1,
-    "random twist tempo should have one input binding",
+    "random twist speed should have one input binding",
   );
 
   const pointerDown = sourceSection(
@@ -686,13 +800,29 @@ test("Rubix page exposes the cube gestures, three visible lanes, and release ass
     "function startRandomTwists",
   );
   assert.match(randomTwistSchedule, /setTimeout\s*\(/);
-  assert.match(randomTwistSchedule, /state\.randomTwistTempo/);
+  assert.match(
+    randomTwistSchedule,
+    /const\s+interval\s*=\s*rubixTwistIntervalMs\s*\(\s*state\.randomTwistSpeed\s*\)/,
+  );
+  assert.match(randomTwistSchedule, /\}\s*,\s*interval\s*\)/);
+  assert.match(
+    randomTwistSchedule,
+    /duration\s*:\s*clamp\s*\(\s*interval\s*\*\s*0\.7\s*,\s*48\s*,\s*240\s*\)/,
+    "turn animation duration should derive from the selected automatic speed",
+  );
+  assert.match(
+    randomTwistSchedule,
+    /announceCompletion\s*:\s*false/,
+    "automatic high-speed turns should not flood the screen-reader live region",
+  );
   assert.match(randomTwistSchedule, /beginTurn\s*\(/);
   assert.doesNotMatch(
     randomTwistSchedule,
-    /state\.tempo\b/,
-    "random twists should use their own tempo rather than sequencer tempo",
+    /state\.tempo\b|randomTwistTempo|\bTPM\b|60_?000/,
+    "random twists should use the speed helper rather than sequencer tempo or TPM math",
   );
+  const finishTurn = sourceSection(app, "function finishTurnAnimation", "function enqueueScramble");
+  assert.match(finishTurn, /finished\.announceCompletion[\s\S]*announce\s*\(/);
 
   const pointerMove = sourceSection(
     app,

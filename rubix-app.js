@@ -18,12 +18,15 @@ import {
   RUBIX_DRUM_RIGHT_VOICE_BY_COLOR,
   RUBIX_FACE_DEFINITIONS,
   RUBIX_READ_MODES,
+  RUBIX_TWIST_SPEED_DEFAULT_POSITION,
   createRubixSequenceSnapshot,
   createSolvedRubixCube,
   rubixFaceForNormal,
   rubixEulerMatrix,
   rubixLayersForSize,
   rubixReadFrame,
+  rubixTwistIntervalMs,
+  rubixTwistSpeedMultiplier,
   turnRubixLayer,
 } from "./src/rubix.js";
 
@@ -36,7 +39,10 @@ const SCHEDULER_INTERVAL_MS = 24;
 const TEMPO_MIN_BPM = 30;
 const TEMPO_MAX_BPM = 300;
 const DEFAULT_READING_MODE = "parallel";
-const DEFAULT_GEOMETRY_ID = "cube3";
+const DEFAULT_SHAPE_ID = "cube";
+const DEFAULT_RUBIX_SIZE = 3;
+const RUBIX_SIZE_MIN = 2;
+const RUBIX_SIZE_MAX = 12;
 
 const COLOR_HEX = Object.freeze({
   white: "#edf6ee",
@@ -106,15 +112,20 @@ const READ_MODE_DESCRIPTIONS = Object.freeze({
   face: "Each snake beat is divided into three face subdivisions: upper acid, left drum, then right drum. Hidden stickers are silent.",
 });
 
-const GEOMETRIES = Object.freeze({
-  cube3: Object.freeze({ id: "cube3", label: "3 × 3 · Rubix cube", size: 3, surface: "cube" }),
-  cube2: Object.freeze({ id: "cube2", label: "2 × 2 · Pocket cube", size: 2, surface: "cube" }),
-  cube4: Object.freeze({ id: "cube4", label: "4 × 4 · Rubix cube", size: 4, surface: "cube" }),
-  cube5: Object.freeze({ id: "cube5", label: "5 × 5 · Rubix cube", size: 5, surface: "cube" }),
-  cube6: Object.freeze({ id: "cube6", label: "6 × 6 · Rubix cube", size: 6, surface: "cube" }),
-  pyramid: Object.freeze({ id: "pyramid", label: "Pyramid · faceted", size: 3, surface: "pyramid" }),
-  sphere: Object.freeze({ id: "sphere", label: "Sphere · orbital", size: 3, surface: "sphere" }),
+const SHAPES = Object.freeze({
+  cube: Object.freeze({ id: "cube", label: "Cube", surface: "cube", triangulated: false }),
+  morphix: Object.freeze({ id: "morphix", label: "Morphix", surface: "morphix", triangulated: true }),
+  diamond: Object.freeze({ id: "diamond", label: "Diamond", surface: "diamond", triangulated: true }),
+  stella: Object.freeze({ id: "stella", label: "Stella", surface: "stella", triangulated: true }),
+  orb: Object.freeze({ id: "orb", label: "Orb", surface: "orb", triangulated: false }),
 });
+
+const MORPHIX_FACE_NORMALS = Object.freeze([
+  Object.freeze({ x: -1, y: -1, z: -1 }),
+  Object.freeze({ x: -1, y: 1, z: 1 }),
+  Object.freeze({ x: 1, y: -1, z: 1 }),
+  Object.freeze({ x: 1, y: 1, z: -1 }),
+]);
 
 const DEFAULTS = Object.freeze({
   tempo: 126,
@@ -129,7 +140,7 @@ const DEFAULTS = Object.freeze({
   visibilityDynamics: 0.72,
   output: 0.56,
   randomTwists: false,
-  randomTwistTempo: 24,
+  randomTwistSpeed: RUBIX_TWIST_SPEED_DEFAULT_POSITION,
 });
 
 const SOUND_DEFAULTS = Object.freeze({
@@ -150,56 +161,61 @@ const RUBIX_PRESETS = Object.freeze({
   classic: Object.freeze({
     id: "classic",
     label: "Classic cube",
-    geometryId: "cube3",
+    shapeId: "cube",
+    size: 3,
     readingMode: "parallel",
     settings: Object.freeze({ ...DEFAULTS }),
   }),
   "pocket-funk": Object.freeze({
     id: "pocket-funk",
     label: "Pocket funk",
-    geometryId: "cube2",
+    shapeId: "cube",
+    size: 2,
     readingMode: "snake",
     settings: Object.freeze({
       tempo: 108, swing: 0.16, visibilityDynamics: 0.58,
       cutoff: 720, resonance: 8.8, acidDecay: 0.24, drive: 1.6,
       acidLevel: 0.43, drumLevel: 0.52, output: 0.52,
-      percEngine: "analog", randomTwists: true, randomTwistTempo: 18,
+      percEngine: "analog", randomTwists: true, randomTwistSpeed: 48,
     }),
   }),
   "modal-sphere": Object.freeze({
     id: "modal-sphere",
-    label: "Modal sphere",
-    geometryId: "sphere",
+    label: "Modal orb",
+    shapeId: "orb",
+    size: 3,
     readingMode: "face",
     settings: Object.freeze({
       tempo: 112, swing: 0.2, visibilityDynamics: 0.86,
       cutoff: 620, resonance: 7.5, acidDecay: 0.28, drive: 1.35,
       acidLevel: 0.36, drumLevel: 0.53, output: 0.52,
-      percEngine: "modal", randomTwists: true, randomTwistTempo: 15,
+      percEngine: "modal", randomTwists: true, randomTwistSpeed: 42,
     }),
   }),
   "noise-grid": Object.freeze({
     id: "noise-grid",
     label: "Noise grid",
-    geometryId: "cube4",
+    shapeId: "cube",
+    size: 4,
     readingMode: "face",
     settings: Object.freeze({
       tempo: 138, swing: 0.04, visibilityDynamics: 0.92,
       cutoff: 1860, resonance: 9, acidDecay: 0.11, drive: 1.7,
       acidLevel: 0.4, drumLevel: 0.4, output: 0.48,
-      percEngine: "noise", randomTwists: true, randomTwistTempo: 42,
+      percEngine: "noise", randomTwists: true, randomTwistSpeed: 70,
     }),
   }),
   "pyramid-drift": Object.freeze({
     id: "pyramid-drift",
-    label: "Pyramid drift",
-    geometryId: "pyramid",
+    label: "Morphix drift",
+    shapeId: "morphix",
+    size: 3,
     readingMode: "snake",
     settings: Object.freeze({
       tempo: 94, swing: 0.12, visibilityDynamics: 0.78,
       cutoff: 540, resonance: 10.4, acidDecay: 0.38, drive: 1.25,
       acidLevel: 0.34, drumLevel: 0.48, output: 0.5,
-      percEngine: "modal", randomTwists: true, randomTwistTempo: 11,
+      percEngine: "modal", randomTwists: true, randomTwistSpeed: 32,
     }),
   }),
 });
@@ -766,14 +782,14 @@ class RubixAudioEngine {
 const voices = loadDrumBank();
 const audio = new RubixAudioEngine(globalThis, voices);
 const state = {
-  cube: createSolvedRubixCube(),
+  cube: createSolvedRubixCube(DEFAULT_RUBIX_SIZE),
   camera: { ...DEFAULT_RUBIX_CAMERA },
   selectedStickerId: null,
   audioOn: false,
   playing: false,
   currentStep: 0,
   readingMode: DEFAULT_READING_MODE,
-  geometryId: DEFAULT_GEOMETRY_ID,
+  shapeId: DEFAULT_SHAPE_ID,
   presetId: "classic",
   ...DEFAULTS,
 };
@@ -864,8 +880,40 @@ function currentReadConfig() {
   return RUBIX_READ_MODES[state.readingMode] ?? RUBIX_READ_MODES.parallel;
 }
 
-function currentGeometry() {
-  return GEOMETRIES[state.geometryId] ?? GEOMETRIES[DEFAULT_GEOMETRY_ID];
+function shapeForId(shapeId) {
+  return Object.hasOwn(SHAPES, shapeId) ? SHAPES[shapeId] : SHAPES[DEFAULT_SHAPE_ID];
+}
+
+function currentShape() {
+  return shapeForId(state.shapeId);
+}
+
+function sanitizeRubixSize(value, fallback = DEFAULT_RUBIX_SIZE) {
+  const size = Math.round(Number(value));
+  return Number.isFinite(size)
+    ? clamp(size, RUBIX_SIZE_MIN, RUBIX_SIZE_MAX)
+    : fallback;
+}
+
+function currentFormLabel(shape = currentShape(), size = state.cube.size) {
+  return `${size} × ${size} · ${shape.label}`;
+}
+
+function twistSpeedValue(position = state.randomTwistSpeed) {
+  const speed = rubixTwistSpeedMultiplier(position);
+  const digits = speed < 1 ? 2 : speed < 10 ? 1 : 0;
+  return Number(speed.toFixed(digits));
+}
+
+function twistSpeedLabel(position = state.randomTwistSpeed) {
+  return `${twistSpeedValue(position)}×`;
+}
+
+function updateSizeControl(size = state.cube.size) {
+  const safeSize = sanitizeRubixSize(size, state.cube.size);
+  $("rubixSize").value = String(safeSize);
+  $("rubixSize").setAttribute("aria-valuetext", `${safeSize} by ${safeSize}, ${safeSize} layers per face`);
+  $("rubixSizeOut").textContent = `${safeSize} × ${safeSize}`;
 }
 
 function currentPercEngine() {
@@ -1101,7 +1149,7 @@ function updateSelectedUi() {
     $("selectedSwatch").style.background = "var(--panel-high)";
     $("selectedSwatch").style.boxShadow = "none";
     $("moveSummary").textContent = state.randomTwists
-      ? `random · ${Math.round(state.randomTwistTempo)} TPM`
+      ? `random · ${twistSpeedLabel()}`
       : "manual · no selection";
     return;
   }
@@ -1111,14 +1159,14 @@ function updateSelectedUi() {
   $("selectedSwatch").style.borderColor = COLOR_HEX[sticker.color];
   $("selectedSwatch").style.boxShadow = `0 0 10px ${COLOR_HEX[sticker.color]}66`;
   $("moveSummary").textContent = state.randomTwists
-    ? `random · ${Math.round(state.randomTwistTempo)} TPM`
+    ? `random · ${twistSpeedLabel()}`
     : `${FACE_SHORT[face]} ${sticker.color} selected`;
 }
 
 function updateReadouts() {
   const readConfig = currentReadConfig();
   const readFrame = currentReadFrame();
-  const geometry = currentGeometry();
+  const shape = currentShape();
   const percEngine = currentPercEngine();
   const preset = RUBIX_PRESETS[state.presetId];
   $("tempo").value = String(state.tempo);
@@ -1143,15 +1191,20 @@ function updateReadouts() {
   $("outputOut").textContent = `${Math.round(state.output * 100)}%`;
   $("clockSummary").textContent = `${Math.round(state.tempo)} BPM · ${readConfig.label.toLowerCase()}`;
   $("readModeState").textContent = `${readConfig.label.toLowerCase()} · ${currentReadLengthLabel(readFrame, readConfig)}`;
-  $("geometry").value = geometry.id;
-  $("geometryState").textContent = geometry.label;
+  $("shape").value = shape.id;
+  $("shapeState").textContent = shape.label;
+  updateSizeControl();
   $("percEngine").value = percEngine.id;
   $("percEngineState").textContent = percEngine.label;
-  $("randomTwistTempo").value = String(state.randomTwistTempo);
-  $("randomTwistTempoOut").textContent = `${Math.round(state.randomTwistTempo)} TPM`;
+  $("randomTwistSpeed").value = String(state.randomTwistSpeed);
+  $("randomTwistSpeed").setAttribute(
+    "aria-valuetext",
+    `${twistSpeedValue()} times normal speed`,
+  );
+  $("randomTwistSpeedOut").textContent = twistSpeedLabel();
   $("randomTwists").setAttribute("aria-pressed", String(state.randomTwists));
   $("randomTwistState").textContent = state.randomTwists
-    ? `on · ${Math.round(state.randomTwistTempo)} turns/min`
+    ? `on · ${twistSpeedLabel()} speed`
     : "off · manual moves only";
   $("rubixPreset").value = preset?.id ?? "";
   $("rubixPresetState").textContent = preset?.label ?? "Custom";
@@ -1215,7 +1268,7 @@ function setReadingMode(mode, shouldAnnounce = true) {
 function updateCanvasAriaLabel() {
   canvas.setAttribute(
     "aria-label",
-    `Interactive ${currentGeometry().label} sequencer. Audio ${state.audioOn ? "on" : "off"}. Drag a sticker to twist it; drag empty space to orbit. Random twists ${state.randomTwists ? "on" : "off"}.`,
+    `Interactive ${currentFormLabel()} sequencer. Audio ${state.audioOn ? "on" : "off"}. Drag a sticker to twist it; drag empty space to orbit. Random twists ${state.randomTwists ? "on" : "off"}.`,
   );
 }
 
@@ -1424,20 +1477,90 @@ function projectWorld(source) {
 }
 
 function warpRubixSurfacePoint(source, outward, lift = 0) {
-  const geometry = currentGeometry();
-  if (geometry.surface === "cube") return add(source, scale(outward, lift));
-  const radiusScale = geometry.surface === "pyramid" ? 0.9 : 0.58;
-  const radius = state.cube.size * radiusScale + lift;
-  if (geometry.surface === "sphere") return scale(normalize(source), radius);
-  const taxicabLength = Math.max(1e-9, Math.abs(source.x) + Math.abs(source.y) + Math.abs(source.z));
-  return scale(source, radius / taxicabLength);
+  const shape = currentShape();
+  if (shape.surface === "cube") return add(source, scale(outward, lift));
+
+  const direction = normalize(source);
+  if (shape.surface === "orb") {
+    return scale(direction, state.cube.size * 0.58 + lift);
+  }
+
+  if (shape.surface === "diamond") {
+    const taxicabLength = Math.max(
+      1e-9,
+      Math.abs(source.x) + Math.abs(source.y) + Math.abs(source.z),
+    );
+    return scale(source, (state.cube.size * 0.9 + lift) / taxicabLength);
+  }
+
+  if (shape.surface === "morphix") {
+    const faceDistance = Math.max(
+      1e-9,
+      ...MORPHIX_FACE_NORMALS.map((normal) => dot(normal, direction)),
+    );
+    return scale(direction, (state.cube.size * 0.55 + lift) / faceDistance);
+  }
+
+  const cornerAlignment = (
+    Math.abs(direction.x) + Math.abs(direction.y) + Math.abs(direction.z)
+  ) / Math.sqrt(3);
+  const axisAlignment = 1 / Math.sqrt(3);
+  const spike = clamp((cornerAlignment - axisAlignment) / (1 - axisAlignment), 0, 1) ** 3;
+  const starRadius = state.cube.size * 0.62 * (0.62 + spike * 0.9) + lift;
+  return scale(direction, starRadius);
 }
 
-function polygonPath(points) {
-  drawing.beginPath();
+function appendPolygonPath(points) {
   drawing.moveTo(points[0].x, points[0].y);
   for (let index = 1; index < points.length; index += 1) drawing.lineTo(points[index].x, points[index].y);
   drawing.closePath();
+}
+
+function projectedTriangleTwiceArea(points) {
+  const [center, first, second] = points;
+  return (
+    (first.x - center.x) * (second.y - center.y)
+    - (first.y - center.y) * (second.x - center.x)
+  );
+}
+
+function appendNormalizedTrianglePath(points) {
+  appendPolygonPath(projectedTriangleTwiceArea(points) < 0
+    ? [points[0], points[2], points[1]]
+    : points);
+}
+
+function surfacePath(surface) {
+  drawing.beginPath();
+  for (const triangle of surface.triangles) {
+    if (triangle.visible) appendNormalizedTrianglePath(triangle.points);
+  }
+}
+
+function surfaceBoundaryPath(surface, inset = 1) {
+  const { projectedCenter, triangles } = surface;
+  const insetPoint = (point) => ({
+    x: projectedCenter.x + (point.x - projectedCenter.x) * inset,
+    y: projectedCenter.y + (point.y - projectedCenter.y) * inset,
+  });
+  drawing.beginPath();
+  for (let index = 0; index < triangles.length; index += 1) {
+    const triangle = triangles[index];
+    if (!triangle.visible) continue;
+    const previous = triangles[(index + triangles.length - 1) % triangles.length];
+    const next = triangles[(index + 1) % triangles.length];
+    const [center, first, second] = triangle.points.map(insetPoint);
+    if (!previous.visible) {
+      drawing.moveTo(center.x, center.y);
+      drawing.lineTo(first.x, first.y);
+    }
+    drawing.moveTo(first.x, first.y);
+    drawing.lineTo(second.x, second.y);
+    if (!next.visible) {
+      drawing.moveTo(second.x, second.y);
+      drawing.lineTo(center.x, center.y);
+    }
+  }
 }
 
 function polygonContains(points, x, y) {
@@ -1461,28 +1584,67 @@ function stickerGeometry(sticker, turn) {
   const faceCenter = transformedVector(add(sticker.position, scale(sticker.normal, 0.5)), sticker, turn);
   const viewNormal = rotateViewVector(normal);
   if (viewNormal.z <= 0.012) return null;
-
-  const makeQuad = (half, lift = 0) => {
-    return [
-      add(add(faceCenter, scale(right, -half)), scale(down, -half)),
-      add(add(faceCenter, scale(right, half)), scale(down, -half)),
-      add(add(faceCenter, scale(right, half)), scale(down, half)),
-      add(add(faceCenter, scale(right, -half)), scale(down, half)),
-    ].map((point) => projectWorld(warpRubixSurfacePoint(point, normal, lift)));
+  const sourceCorners = (half) => [
+    add(add(faceCenter, scale(right, -half)), scale(down, -half)),
+    add(add(faceCenter, scale(right, half)), scale(down, -half)),
+    add(add(faceCenter, scale(right, half)), scale(down, half)),
+    add(add(faceCenter, scale(right, -half)), scale(down, half)),
+  ];
+  const screenTangent = (direction, lift) => {
+    const sampleDistance = 0.2;
+    const before = projectWorld(warpRubixSurfacePoint(
+      add(faceCenter, scale(direction, -sampleDistance)),
+      normal,
+      lift,
+    ));
+    const after = projectWorld(warpRubixSurfacePoint(
+      add(faceCenter, scale(direction, sampleDistance)),
+      normal,
+      lift,
+    ));
+    return normalize({ x: after.x - before.x, y: after.y - before.y, z: 0 });
   };
-  const center = warpRubixSurfacePoint(faceCenter, normal, 0.015);
-  const projectedCenter = projectWorld(center);
+  const makeSurface = (half, lift) => {
+    const worldCenter = warpRubixSurfacePoint(faceCenter, normal, lift);
+    const worldCorners = sourceCorners(half)
+      .map((point) => warpRubixSurfacePoint(point, normal, lift));
+    const projectedCenter = projectWorld(worldCenter);
+    const projectedCorners = worldCorners.map(projectWorld);
+    const triangles = worldCorners.map((_, index) => {
+      const points = [
+        projectedCenter,
+        projectedCorners[index],
+        projectedCorners[(index + 1) % projectedCorners.length],
+      ];
+      const twiceArea = projectedTriangleTwiceArea(points);
+      return {
+        visible: points.every(({ x, y }) => Number.isFinite(x) && Number.isFinite(y))
+          && Math.abs(twiceArea) > 1e-6,
+        points,
+      };
+    });
+    return { worldCenter, projectedCenter, projectedCorners, triangles };
+  };
+  const stickerSurface = makeSurface(0.405, 0.033);
+  const projectedTriangles = stickerSurface.triangles
+    .filter(({ visible }) => visible)
+    .map(({ points }) => points);
+  if (!projectedTriangles.length) return null;
+  const baseSurface = makeSurface(0.485, 0.015);
   return {
     sticker,
     face,
     normal,
     right,
     down,
-    center,
-    projectedCenter,
-    depth: projectedCenter.depth,
-    basePoints: makeQuad(0.485, 0.015),
-    stickerPoints: makeQuad(0.405, 0.033),
+    screenRight: screenTangent(right, 0.033),
+    screenDown: screenTangent(down, 0.033),
+    center: stickerSurface.worldCenter,
+    projectedCenter: stickerSurface.projectedCenter,
+    depth: stickerSurface.projectedCenter.depth,
+    baseSurface,
+    stickerSurface,
+    projectedTriangles,
   };
 }
 
@@ -1540,15 +1702,19 @@ function drawBackdrop() {
 }
 
 function drawSticker(geometry, audibleIds) {
-  const { sticker, basePoints, stickerPoints, projectedCenter, face } = geometry;
-  polygonPath(basePoints);
+  const { sticker, baseSurface, stickerSurface, projectedCenter, face } = geometry;
+  surfacePath(baseSurface);
   drawing.fillStyle = "#030405";
+  drawing.fill();
+  surfaceBoundaryPath(baseSurface);
   drawing.strokeStyle = "rgba(226, 241, 233, 0.15)";
   drawing.lineWidth = 1;
-  drawing.fill();
   drawing.stroke();
 
-  const bounds = stickerPoints.reduce((result, point) => ({
+  const visiblePoints = stickerSurface.triangles
+    .filter(({ visible }) => visible)
+    .flatMap(({ points }) => points);
+  const bounds = visiblePoints.reduce((result, point) => ({
     minX: Math.min(result.minX, point.x),
     maxX: Math.max(result.maxX, point.x),
     minY: Math.min(result.minY, point.y),
@@ -1567,7 +1733,7 @@ function drawSticker(geometry, audibleIds) {
     drawing.shadowColor = COLOR_HEX[sticker.color];
     drawing.shadowBlur = 5 + audibleGain * 22;
   }
-  polygonPath(stickerPoints);
+  surfacePath(stickerSurface);
   drawing.fillStyle = fill;
   drawing.fill();
   drawing.shadowBlur = 0;
@@ -1580,26 +1746,27 @@ function drawSticker(geometry, audibleIds) {
         ? `${ROLE_META[role].color}88`
         : "rgba(0, 0, 0, 0.52)";
   drawing.lineWidth = audible ? (lowPowerCanvas ? 1.6 : 2.2) : selected ? 1.8 : 0.8;
+  surfaceBoundaryPath(stickerSurface);
   drawing.stroke();
 
-  if (currentGeometry().surface === "pyramid") {
-    const diagonal = (sticker.homeRow + sticker.homeColumn) % 2 === 0
-      ? [stickerPoints[0], stickerPoints[2]]
-      : [stickerPoints[1], stickerPoints[3]];
+  if (currentShape().triangulated) {
+    const diagonalStart = (sticker.homeRow + sticker.homeColumn) % 2 === 0 ? 0 : 1;
     drawing.beginPath();
-    drawing.moveTo(diagonal[0].x, diagonal[0].y);
-    drawing.lineTo(diagonal[1].x, diagonal[1].y);
+    for (const cornerIndex of [diagonalStart, (diagonalStart + 2) % 4]) {
+      const before = stickerSurface.triangles[(cornerIndex + 3) % 4];
+      const after = stickerSurface.triangles[cornerIndex];
+      if (!before.visible && !after.visible) continue;
+      const corner = stickerSurface.projectedCorners[cornerIndex];
+      drawing.moveTo(corner.x, corner.y);
+      drawing.lineTo(projectedCenter.x, projectedCenter.y);
+    }
     drawing.strokeStyle = "rgba(4, 8, 9, 0.42)";
     drawing.lineWidth = 1;
     drawing.stroke();
   }
 
   if (selected) {
-    const inset = stickerPoints.map((point) => ({
-      x: projectedCenter.x + (point.x - projectedCenter.x) * 0.78,
-      y: projectedCenter.y + (point.y - projectedCenter.y) * 0.78,
-    }));
-    polygonPath(inset);
+    surfaceBoundaryPath(stickerSurface, 0.78);
     drawing.strokeStyle = "rgba(255, 255, 255, 0.78)";
     drawing.lineWidth = 0.8;
     drawing.setLineDash([3, 3]);
@@ -1674,9 +1841,12 @@ function beginTurn(move, {
   duration = 190,
   record = true,
   label = "slice",
+  announceCompletion = true,
 } = {}) {
   if (turnAnimation) {
-    turnQueue.push({ move, options: { fromAngle, duration, record, label } });
+    turnQueue.push({ move, options: {
+      fromAngle, duration, record, label, announceCompletion,
+    } });
     return;
   }
   previewTurn = null;
@@ -1691,6 +1861,7 @@ function beginTurn(move, {
     startedAt: performance.now(),
     record,
     label,
+    announceCompletion,
   };
   updateSelectedUi();
   requestDraw();
@@ -1709,7 +1880,7 @@ function finishTurnAnimation() {
   $("undoMove").disabled = moveHistory.length === 0;
   updateSnapshot();
   updateSelectedUi();
-  if (!turnQueue.length) {
+  if (!turnQueue.length && finished.announceCompletion) {
     announce(`${finished.label} turned ${finished.direction > 0 ? "clockwise" : "counter-clockwise"}. Visible score updated.`);
   }
   const next = turnQueue.shift();
@@ -1760,7 +1931,7 @@ function nextRandomTwistMove() {
 
 function scheduleRandomTwists() {
   if (!state.randomTwists) return;
-  const interval = 60_000 / clamp(state.randomTwistTempo, 6, 90);
+  const interval = rubixTwistIntervalMs(state.randomTwistSpeed);
   randomTwistTimer = setTimeout(() => {
     randomTwistTimer = null;
     if (
@@ -1770,9 +1941,10 @@ function scheduleRandomTwists() {
       && turnQueue.length === 0
     ) {
       beginTurn(nextRandomTwistMove(), {
-        duration: clamp(interval * 0.28, 95, 280),
+        duration: clamp(interval * 0.7, 48, 240),
         record: true,
         label: "random twist",
+        announceCompletion: false,
       });
     }
     scheduleRandomTwists();
@@ -1788,7 +1960,7 @@ function startRandomTwists(shouldAnnounce = true) {
   updateSelectedUi();
   updateCanvasAriaLabel();
   if (shouldAnnounce) {
-    announce(`Random twists on at ${Math.round(state.randomTwistTempo)} turns per minute.`);
+    announce(`Random twists on at ${twistSpeedValue()} times normal speed.`);
   }
 }
 
@@ -1818,17 +1990,27 @@ function resetView() {
   announce("Cube view reset. White, green, and red faces are visible.");
 }
 
-function setGeometry(geometryId, shouldAnnounce = true) {
-  const geometry = GEOMETRIES[geometryId] ?? GEOMETRIES[DEFAULT_GEOMETRY_ID];
-  const changed = state.geometryId !== geometry.id || state.cube.size !== geometry.size;
-  state.geometryId = geometry.id;
-  canvas.dataset.geometry = geometry.surface;
-  stageWrap.dataset.geometry = geometry.surface;
-  $("geometry").value = geometry.id;
-  $("geometryState").textContent = geometry.label;
-  updateCanvasAriaLabel();
-  if (!changed) {
+function setRubixForm({ shapeId = state.shapeId, size = state.cube.size } = {}, shouldAnnounce = true) {
+  const shape = shapeForId(shapeId);
+  const safeSize = sanitizeRubixSize(size, state.cube.size);
+  const shapeChanged = state.shapeId !== shape.id;
+  const sizeChanged = state.cube.size !== safeSize;
+  state.shapeId = shape.id;
+  canvas.dataset.shape = shape.surface;
+  stageWrap.dataset.shape = shape.surface;
+  $("shape").value = shape.id;
+  $("shapeState").textContent = shape.label;
+  updateSizeControl(safeSize);
+  if (!sizeChanged) {
+    updateCanvasAriaLabel();
     updateReadouts();
+    if (shapeChanged) {
+      updateSelectedUi();
+      requestDraw();
+      if (shouldAnnounce) {
+        announce(`${shape.label} visual form applied. Cube arrangement, size, and view unchanged.`);
+      }
+    }
     return;
   }
 
@@ -1837,7 +2019,8 @@ function setGeometry(geometryId, shouldAnnounce = true) {
   previewTurn = null;
   moveHistory = [];
   visibilityProfile = Object.freeze({});
-  state.cube = createSolvedRubixCube(geometry.size);
+  state.cube = createSolvedRubixCube(safeSize);
+  updateCanvasAriaLabel();
   state.camera = { ...DEFAULT_RUBIX_CAMERA };
   state.currentStep = 0;
   nextStepIndex = 0;
@@ -1862,7 +2045,7 @@ function setGeometry(geometryId, shouldAnnounce = true) {
     schedulerTick();
   }
   if (shouldAnnounce) {
-    announce(`${geometry.label} loaded. ${state.cube.size * state.cube.size} stickers per face; ${currentReadConfig().label.toLowerCase()} uses ${currentReadLengthLabel()}.`);
+    announce(`${currentFormLabel(shape, safeSize)} loaded as a solved visual form. ${safeSize * safeSize} stickers per face; ${currentReadConfig().label.toLowerCase()} uses ${currentReadLengthLabel()}.`);
   }
 }
 
@@ -1872,7 +2055,7 @@ function applyRubixPreset(presetId, shouldAnnounce = true) {
   randomTwistTimer = null;
   state.presetId = preset.id;
   Object.assign(state, preset.settings);
-  setGeometry(preset.geometryId, false);
+  setRubixForm({ shapeId: preset.shapeId, size: preset.size }, false);
   setReadingMode(preset.readingMode, false);
   audio.updateSettings(state);
   audio.setOutput(state.output);
@@ -1881,7 +2064,7 @@ function applyRubixPreset(presetId, shouldAnnounce = true) {
   if (state.randomTwists) startRandomTwists(false);
   else stopRandomTwists(false);
   if (shouldAnnounce) {
-    announce(`${preset.label} preset. ${currentGeometry().label}, ${currentReadConfig().label}, ${currentPercEngine().label}.`);
+    announce(`${preset.label} preset. ${currentFormLabel()}, ${currentReadConfig().label}, ${currentPercEngine().label}.`);
   }
 }
 
@@ -1895,7 +2078,7 @@ function solveCube() {
   turnAnimation = null;
   previewTurn = null;
   moveHistory = [];
-  state.cube = createSolvedRubixCube(currentGeometry().size);
+  state.cube = createSolvedRubixCube(state.cube.size);
   updateSnapshot();
   state.selectedStickerId = sequenceSnapshot.lanes.acid[middleFaceIndex()].id;
   $("undoMove").disabled = true;
@@ -1924,21 +2107,24 @@ function pointFromEvent(event) {
 
 function hitSticker(point) {
   for (let index = hitRegions.length - 1; index >= 0; index -= 1) {
-    if (polygonContains(hitRegions[index].stickerPoints, point.x, point.y)) return hitRegions[index];
+    if (hitRegions[index].projectedTriangles.some(
+      (triangle) => polygonContains(triangle, point.x, point.y),
+    )) return hitRegions[index];
   }
   return null;
 }
 
 function gestureMoveForDelta(hit, deltaX, deltaY) {
-  const face = rubixFaceForNormal(hit.sticker.normal);
-  const definition = RUBIX_FACE_DEFINITIONS[face];
-  const center = projectWorld(add(hit.sticker.position, scale(hit.sticker.normal, 0.52)));
-  const rightPoint = projectWorld(add(add(hit.sticker.position, scale(hit.sticker.normal, 0.52)), definition.right));
-  const downPoint = projectWorld(add(add(hit.sticker.position, scale(hit.sticker.normal, 0.52)), definition.down));
-  const screenRight = normalize({ x: rightPoint.x - center.x, y: rightPoint.y - center.y, z: 0 });
-  const screenDown = normalize({ x: downPoint.x - center.x, y: downPoint.y - center.y, z: 0 });
-  const horizontalAmount = deltaX * screenRight.x + deltaY * screenRight.y;
-  const verticalAmount = deltaX * screenDown.x + deltaY * screenDown.y;
+  const determinant = (
+    hit.screenRight.x * hit.screenDown.y
+    - hit.screenRight.y * hit.screenDown.x
+  );
+  const horizontalAmount = Math.abs(determinant) > 1e-5
+    ? (deltaX * hit.screenDown.y - deltaY * hit.screenDown.x) / determinant
+    : deltaX * hit.screenRight.x + deltaY * hit.screenRight.y;
+  const verticalAmount = Math.abs(determinant) > 1e-5
+    ? (hit.screenRight.x * deltaY - hit.screenRight.y * deltaX) / determinant
+    : deltaX * hit.screenDown.x + deltaY * hit.screenDown.y;
   const dimension = Math.abs(horizontalAmount) >= Math.abs(verticalAmount) ? "horizontal" : "vertical";
   const amount = dimension === "horizontal" ? horizontalAmount : verticalAmount;
   return {
@@ -2150,7 +2336,10 @@ async function disableAudio() {
 
 async function startTransport({ restart = false } = {}) {
   if (state.playing && !restart) return;
-  if (!await enableAudio()) return;
+  if (!state.audioOn || !audio.context) {
+    announce("Turn Audio on before playing the Rubix sequencer.");
+    return;
+  }
   if (schedulerTimer !== null) clearTimeout(schedulerTimer);
   clearVisualTimers();
   state.playing = true;
@@ -2215,9 +2404,16 @@ for (const button of document.querySelectorAll("[data-read-mode]")) {
   });
 }
 
-$("geometry").addEventListener("change", (event) => {
+$("shape").addEventListener("change", (event) => {
   markPresetCustom();
-  setGeometry(event.currentTarget.value);
+  setRubixForm({ shapeId: event.currentTarget.value, size: state.cube.size });
+});
+$("rubixSize").addEventListener("input", (event) => {
+  updateSizeControl(event.currentTarget.value);
+});
+$("rubixSize").addEventListener("change", (event) => {
+  markPresetCustom();
+  setRubixForm({ shapeId: state.shapeId, size: event.currentTarget.value });
 });
 $("percEngine").addEventListener("change", (event) => {
   state.percEngine = PERC_ENGINES[event.currentTarget.value]?.id ?? "soft-fm";
@@ -2258,7 +2454,7 @@ $("restartLoop").addEventListener("click", async () => {
 
 bindRange("tempo", "tempo", (value) => `${Math.round(value)} BPM`);
 bindRange("swing", "swing", (value) => `${Math.round(value * 100)}%`);
-bindRange("randomTwistTempo", "randomTwistTempo", (value) => `${Math.round(value)} TPM`, () => {
+bindRange("randomTwistSpeed", "randomTwistSpeed", (value) => twistSpeedLabel(value), () => {
   if (state.randomTwists) startRandomTwists(false);
   updateSelectedUi();
 });
@@ -2317,13 +2513,28 @@ window.addEventListener("pageshow", (event) => {
 
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 
-const requestedGeometryId = new URLSearchParams(location.search).get("geometry");
-const initialGeometryId = GEOMETRIES[requestedGeometryId]
-  ? requestedGeometryId
-  : DEFAULT_GEOMETRY_ID;
-if (initialGeometryId !== DEFAULT_GEOMETRY_ID) state.presetId = "";
+const initialParams = new URLSearchParams(location.search);
+const legacyGeometryId = initialParams.get("geometry") ?? "";
+const legacyCubeMatch = legacyGeometryId.match(/^cube(\d+)$/);
+const legacyShapeId = legacyGeometryId === "pyramid"
+  ? "diamond"
+  : legacyGeometryId === "sphere"
+    ? "orb"
+    : legacyCubeMatch
+      ? "cube"
+      : null;
+const initialShapeId = Object.hasOwn(SHAPES, initialParams.get("shape"))
+  ? initialParams.get("shape")
+  : legacyShapeId ?? DEFAULT_SHAPE_ID;
+const initialSize = sanitizeRubixSize(
+  initialParams.get("size") ?? legacyCubeMatch?.[1],
+  DEFAULT_RUBIX_SIZE,
+);
+if (initialShapeId !== DEFAULT_SHAPE_ID || initialSize !== DEFAULT_RUBIX_SIZE) {
+  state.presetId = "";
+}
 renderColorKey();
-setGeometry(initialGeometryId, false);
+setRubixForm({ shapeId: initialShapeId, size: initialSize }, false);
 setReadingMode(DEFAULT_READING_MODE, false);
 updateSelectedUi();
 setAudioState(false);

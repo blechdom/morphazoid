@@ -1,12 +1,17 @@
 import {
   ALPHABET,
   WHEEL_MORPH_LIMITS,
+  WHEEL_SPIN_PHASES,
   assignWheelMouthLetter,
+  canStartWheelSpin,
   compileWheelWord,
   createWheelState,
+  createWheelSpinState,
   hitTestWheelMouth,
   mapWheelPullGesture,
   normalizeWheelWord,
+  startWheelSpin,
+  stepWheelSpin,
   wheelStateForWord,
   wheelMouthLayout,
   wheelVocalParameters,
@@ -118,6 +123,28 @@ function noteName(midi) {
   return `${NOTE_NAMES[((note % 12) + 12) % 12]}${Math.floor(note / 12) - 1}`;
 }
 
+function spinStatusLabel(spin, character = "", activeMouthCount = 1) {
+  if (activeMouthCount <= 0) return "unvoiced";
+  switch (spin?.phase) {
+    case WHEEL_SPIN_PHASES.accelerating: return "winding up";
+    case WHEEL_SPIN_PHASES.coasting: return "spinning";
+    case WHEEL_SPIN_PHASES.decelerating: return "slowing";
+    case WHEEL_SPIN_PHASES.sustaining: return `holding ${character || "winner"}`;
+    case WHEEL_SPIN_PHASES.decaying: return `fading ${character || "winner"}`;
+    case WHEEL_SPIN_PHASES.cooldown: return "settling";
+    default: return "ready";
+  }
+}
+
+function spinMinimumTurns(rate) {
+  const force = clamp((Number(rate) - 90) / (720 - 90));
+  return 5 + Math.round(force * 4);
+}
+
+function spinForceLabel(rate) {
+  return `${spinMinimumTurns(rate)}+ turns`;
+}
+
 function percent(value) {
   return `${Math.round(clamp(value) * 100)}%`;
 }
@@ -163,18 +190,18 @@ function mouthMorphSnapshot(mouth = {}) {
  * mouth is deforming. Unlike `pull`, these signed values continue past the
  * visible ring so a long gesture can reach the same extremes as mutation.
  */
-function rawGestureTravel(drag, gesture, layout, layoutMouth) {
-  const radialSpan = Math.max(1, layout.outerRadius - layout.innerRadius);
-  const tangentialSpan = Math.max(1, layoutMouth.tangentialRadius * 1.35);
+function rawGestureTravel(drag, point) {
+  const deltaX = point.x - drag.startX;
+  const deltaY = point.y - drag.startY;
   return {
     radial: clamp(
-      (gesture.projectedRadius - drag.startProjected) / radialSpan,
+      (deltaX * drag.radialX + deltaY * drag.radialY) / drag.radialSpan,
       -3,
       3,
       0,
     ),
     tangential: clamp(
-      (gesture.lateralDistance - drag.startLateral) / tangentialSpan,
+      (-deltaX * drag.radialY + deltaY * drag.radialX) / drag.tangentialSpan,
       -3,
       3,
       0,
@@ -571,9 +598,7 @@ function drawCore(ctx, layout, state, currentMouth, currentCharacter, phase) {
   ctx.stroke();
 
   if (currentMouth >= 0 && layout.mouths[currentMouth]) {
-    const angle = layout.mouths[currentMouth].angle;
     ctx.save();
-    ctx.rotate(angle);
     ctx.fillStyle = "#d8ff8f";
     ctx.shadowBlur = 13;
     ctx.shadowColor = "#b8ff58";
@@ -599,6 +624,55 @@ function drawCore(ctx, layout, state, currentMouth, currentCharacter, phase) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(currentCharacter || "∿", 0, 1);
+  ctx.restore();
+}
+
+function drawOrganReader(ctx, layout, flash = 0, winner = false) {
+  const { centerX, centerY, coreRadius, innerRadius, outerRadius } = layout;
+  const intensity = clamp(flash);
+  const railStart = centerX + coreRadius * 0.88;
+  const railEnd = centerX + outerRadius + coreRadius * 0.68;
+  const pointerX = centerX + outerRadius + coreRadius * 0.22;
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.shadowBlur = 8 + intensity * 22;
+  ctx.shadowColor = winner ? "rgba(232,255,181,.95)" : "rgba(184,255,88,.82)";
+  ctx.strokeStyle = `rgba(184,255,88,${0.28 + intensity * 0.72})`;
+  ctx.lineWidth = 1.5 + intensity * 2.5;
+  ctx.beginPath();
+  ctx.moveTo(railStart, centerY);
+  ctx.lineTo(railEnd, centerY);
+  ctx.stroke();
+
+  ctx.fillStyle = winner ? "#efffc9" : intensity > 0.25 ? "#d8ff8f" : "#8fc844";
+  ctx.strokeStyle = "#101a09";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pointerX - coreRadius * 0.44, centerY);
+  ctx.lineTo(pointerX + coreRadius * 0.2, centerY - coreRadius * 0.25);
+  ctx.lineTo(pointerX + coreRadius * 0.2, centerY + coreRadius * 0.25);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  const forkX = centerX + innerRadius * 0.93;
+  ctx.strokeStyle = `rgba(255,220,234,${0.35 + intensity * 0.55})`;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(forkX, centerY - coreRadius * 0.28);
+  ctx.lineTo(forkX + coreRadius * 0.18, centerY);
+  ctx.lineTo(forkX, centerY + coreRadius * 0.28);
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = intensity > 0.25 ? "#e5ffaf" : "rgba(198,230,141,.68)";
+  ctx.font = "600 8px ui-monospace, SFMono-Regular, Menlo, monospace";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "bottom";
+  if (centerX * 2 >= 520) {
+    ctx.fillText("3 O'CLOCK · ORGAN READER", railEnd + 7, centerY - coreRadius * 0.36);
+  }
   ctx.restore();
 }
 
@@ -670,12 +744,14 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
   let layoutDirty = true;
   let frame = 0;
   let lastTime = 0;
-  let phraseAccumulator = 0;
   let phraseIndex = -1;
   let currentMouth = -1;
   let currentCharacter = "";
   let currentEvent = null;
   let phrase = compileWheelWord(state.word, state);
+  let spin = createWheelSpinState({ mouthCount: state.mouths.length });
+  let readerFlash = 0;
+  let winnerReleased = false;
   let flashLevels = Array(state.mouths.length).fill(0);
   let drag = null;
   const activePointers = new Map();
@@ -705,11 +781,31 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
   function syncTransport() {
     const button = byId(doc, "transportButton");
     const status = byId(doc, "transportState");
+    const activeMouthCount = state.mouths.filter((mouth) => mouth.active).length;
+    const ready = canStartWheelSpin(spin)
+      && activeMouthCount > 0
+      && !audio.isDecaying;
     button?.setAttribute("aria-pressed", String(state.running));
-    button?.setAttribute("aria-label", state.running ? "Stop word loop" : "Play word loop");
-    if (status) status.textContent = state.running
-      ? currentCharacter ? `singing ${currentCharacter}` : "breathing in"
-      : "waiting";
+    button?.setAttribute("aria-label", ready
+      ? "Spin the Wheel of Organs"
+      : spin.phase === WHEEL_SPIN_PHASES.idle
+        ? "Spin unavailable until an active mouth exists"
+        : "Wheel spin in progress");
+    if (button) {
+      button.disabled = !ready;
+      button.dataset.phase = spin.phase;
+    }
+    const wordInput = byId(doc, "wordInput");
+    const mapWordButton = byId(doc, "mapWordButton");
+    const mouthLetter = byId(doc, "mouthLetter");
+    const mouthActive = byId(doc, "petalActive");
+    const mutateButton = byId(doc, "mutateButton");
+    if (wordInput) wordInput.disabled = spin.locked;
+    if (mapWordButton) mapWordButton.disabled = spin.locked;
+    if (mouthLetter) mouthLetter.disabled = spin.locked || !selectedMouth();
+    if (mouthActive) mouthActive.disabled = spin.locked || !selectedMouth();
+    if (mutateButton) mutateButton.disabled = spin.locked;
+    if (status) status.textContent = spinStatusLabel(spin, currentCharacter, activeMouthCount);
   }
 
   function presetForId(id) {
@@ -824,9 +920,8 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
       letter.textContent = mouth.letter;
       number.textContent = String(index + 1).padStart(2, "0");
       button.append(letter, number);
-      button.addEventListener("click", async () => {
+      button.addEventListener("click", () => {
         setSelected(index);
-        if (!audioOn && !await ensureAudio()) return;
         audition(index, 0.7);
       });
       root.append(button);
@@ -856,7 +951,10 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
     ];
     for (const id of controlIds) {
       const control = byId(doc, id);
-      if (control) control.disabled = !mouth;
+      if (control) {
+        control.disabled = !mouth
+          || (spin.locked && ["mouthLetter", "petalActive"].includes(id));
+      }
     }
     if (!mouth) {
       if (selected) selected.textContent = "no mouth";
@@ -918,7 +1016,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
     const root = byId(doc, "rootNoteOut");
     if (root) root.textContent = noteName(state.rootMidi);
     const rate = byId(doc, "pulseRateOut");
-    if (rate) rate.textContent = `${Math.round(wordRate)} mouths/min`;
+    if (rate) rate.textContent = spinForceLabel(wordRate);
     for (const [id, value] of Object.entries({
       centerA: state.vibrato,
       centerB: state.growl,
@@ -999,9 +1097,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
     if (audioOn) {
       audioOn = false;
       audioStopping = true;
-      state.running = false;
       syncAudioButton();
-      syncTransport();
       try {
         await audio.disable();
         announce("Audio off.");
@@ -1017,6 +1113,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
   }
 
   function audition(index = state.selectedMouth, duration = 0.68, override = {}) {
+    if (spin.locked) return;
     const mouth = { ...state.mouths[index], ...override };
     if (!mouth?.active) return;
     currentMouth = index;
@@ -1035,6 +1132,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
   }
 
   function sustain(index = state.selectedMouth) {
+    if (spin.locked) return;
     const mouth = state.mouths[index];
     if (!mouth?.active || !audioOn) return;
     const contextual = state.running && currentMouth === index && currentEvent
@@ -1063,54 +1161,6 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
     return phrase;
   }
 
-  function rebuildWordAnatomy(word, { draft = null, shouldAnnounce = true } = {}) {
-    const wasRunning = state.running;
-    state = updatedWheelState(wheelStateForWord(word, state), state);
-    state.running = wasRunning;
-    applyPresetMouths(presetForId(activePreset));
-    state.selectedMouth = state.mouths.length > 0
-      ? Math.max(0, Math.min(state.selectedMouth, state.mouths.length - 1))
-      : -1;
-    flashLevels = Array(state.mouths.length).fill(0);
-    currentMouth = -1;
-    currentCharacter = "";
-    currentEvent = null;
-    layoutDirty = true;
-    compilePhrase();
-    buildMouthButtons();
-    syncGlobalControls();
-    const input = byId(doc, "wordInput");
-    if (input && draft !== null) input.value = draft;
-    syncAudio();
-    if (wasRunning) {
-      phraseIndex = -1;
-      phraseAccumulator = 0;
-      audio.releaseAll();
-      if (phrase.events.length > 0) singNext();
-      syncTransport();
-    }
-    if (shouldAnnounce) {
-      announce(state.mouths.length > 0
-        ? `${state.word} grew ${state.mouths.length} looping letter-mouths.`
-        : "The wheel is empty. Type a letter to grow a mouth.");
-    }
-    return state;
-  }
-
-  function mapWord(shouldAnnounce = true) {
-    const input = byId(doc, "wordInput");
-    const word = normalizeWheelWord(input?.value ?? state.word);
-    return rebuildWordAnatomy(word, { shouldAnnounce });
-  }
-
-  function phraseBaseDuration() {
-    return 60 / clamp(wordRate, 90, 720, DEFAULT_RATE);
-  }
-
-  function phraseEventDuration(event = phrase.events?.[phraseIndex]) {
-    return phraseBaseDuration() * clamp(event?.durationScale, 0.55, 1.55, 1);
-  }
-
   function nextMouthEvent(startIndex) {
     if (!phrase.events?.length) return null;
     for (let offset = 1; offset <= phrase.events.length; offset += 1) {
@@ -1120,101 +1170,189 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
     return null;
   }
 
-  function singNext() {
-    if (!phrase.events?.length) compilePhrase();
-    if (!phrase.events?.length) return;
-    let event;
-    let skipped = 0;
-    do {
-      phraseIndex = (phraseIndex + 1) % phrase.events.length;
-      event = phrase.events[phraseIndex];
-      skipped += 1;
-    } while (event.silent && event.type !== "space" && skipped < phrase.events.length);
-    currentCharacter = event.character === " " ? "·" : event.character;
-    currentEvent = event;
-    if (event.type === "space") {
-      currentMouth = -1;
-      currentEvent = null;
-      audio.releaseAll();
-      syncTransport();
-      return;
+  function phraseContextForMouth(mouthIndex) {
+    const eventIndex = phrase.events?.findIndex((event) => (
+      event.type !== "space" && event.mouthIndex === mouthIndex
+    )) ?? -1;
+    const event = eventIndex >= 0 ? phrase.events[eventIndex] : null;
+    const next = eventIndex >= 0 ? nextMouthEvent(eventIndex) : null;
+    return {
+      eventIndex,
+      event,
+      globals: event ? {
+        articulation: event.articulation,
+        articulationSequence: event.articulationSequence,
+        carrierLetter: event.carrierLetter,
+        carrierSequence: event.carrierSequence,
+        sequenceWeights: event.sequenceWeights,
+        nextLetter: next?.letter ?? "",
+      } : {},
+    };
+  }
+
+  function rebuildWordAnatomy(word, { draft = null, shouldAnnounce = true } = {}) {
+    if (spin.locked) {
+      if (shouldAnnounce) announce("The letter wheel is locked until the winning organ fades.");
+      return state;
     }
-    const fallbackIndex = Math.abs(event.letter.charCodeAt(0) - 65) % state.mouths.length;
-    const mouthIndex = Number.isInteger(event.mouthIndex) && event.mouthIndex >= 0
-      ? event.mouthIndex
-      : fallbackIndex;
+    state = updatedWheelState(wheelStateForWord(word, state), state);
+    state.running = false;
+    applyPresetMouths(presetForId(activePreset));
+    state.selectedMouth = state.mouths.length > 0
+      ? Math.max(0, Math.min(state.selectedMouth, state.mouths.length - 1))
+      : -1;
+    flashLevels = Array(state.mouths.length).fill(0);
+    currentMouth = -1;
+    currentCharacter = "";
+    currentEvent = null;
+    phraseIndex = -1;
+    spin = createWheelSpinState({
+      mouthCount: state.mouths.length,
+      rotation: spin.rotation,
+      seed: spin.rngState,
+      spinNumber: spin.spinNumber,
+    });
+    layoutDirty = true;
+    compilePhrase();
+    buildMouthButtons();
+    syncGlobalControls();
+    const input = byId(doc, "wordInput");
+    if (input && draft !== null) input.value = draft;
+    syncAudio();
+    if (shouldAnnounce) {
+      announce(state.mouths.length > 0
+        ? `${state.word} formed a wheel of ${state.mouths.length} letter-mouths. Ready to spin.`
+        : "The wheel is empty. Type a letter to grow a mouth.");
+    }
+    return state;
+  }
+
+  function mapWord(shouldAnnounce = true) {
+    if (spin.locked) {
+      if (shouldAnnounce) announce("The letter wheel is locked until the winning organ fades.");
+      return state;
+    }
+    const input = byId(doc, "wordInput");
+    const word = normalizeWheelWord(input?.value ?? state.word);
+    return rebuildWordAnatomy(word, { shouldAnnounce });
+  }
+
+  function crossingDuration(angularVelocity) {
+    const speed = Math.max(0.18, Math.abs(Number(angularVelocity) || 0));
+    const slotTime = TAU / Math.max(1, state.mouths.length) / speed;
+    return clamp(slotTime * (0.38 + mouthOverlap * 0.7), 0.035, 0.38, 0.08);
+  }
+
+  function singCrossing(crossing) {
+    const mouthIndex = crossing.mouthIndex;
     const mouth = state.mouths[mouthIndex];
     if (!mouth) return;
-    const next = nextMouthEvent(phraseIndex);
-    const spokenMouth = event.type === "missing"
-      ? { ...mouth, letter: event.letter }
-      : mouth;
+    const contextual = phraseContextForMouth(mouthIndex);
+    phraseIndex = contextual.eventIndex;
+    currentEvent = contextual.event;
     currentMouth = mouthIndex;
+    currentCharacter = mouth.letter;
     flashLevels[mouthIndex] = 1;
-    if (audioOn && spokenMouth.active) {
-      // Let the tract release just after the next gesture begins. The small,
-      // bounded overlap turns separate mouths into one sung phrase.
-      const onsetInterval = phraseEventDuration(event);
-      const eventDuration = onsetInterval
-        + mouthOverlap * Math.min(0.14, phraseBaseDuration() * 0.8);
-      audio.articulate(voiceSlot(mouthIndex), spokenMouth, {
-        duration: eventDuration,
-        durationSeconds: eventDuration,
-        velocity: 0.94,
-        globals: {
-          ...audioGlobals(state, mouthIndex),
-          articulation: event.articulation,
-          articulationSequence: event.articulationSequence,
-          carrierLetter: event.carrierLetter,
-          carrierSequence: event.carrierSequence,
-          sequenceWeights: event.sequenceWeights,
-          nextLetter: next?.letter ?? "",
-        },
+    readerFlash = 1;
+
+    if (crossing.isFinal) {
+      if (audioOn && mouth.active) {
+        audio.releaseAll();
+        audio.sustain(voiceSlot(mouthIndex), mouth, {
+          velocity: 0.98,
+          globals: { ...audioGlobals(state, mouthIndex), ...contextual.globals },
+        });
+      }
+      announce(audioOn
+        ? `${mouth.letter} is the winning organ. Holding, then fading.`
+        : `${mouth.letter} reached the reader silently. Holding, then fading.`);
+    } else if (audioOn && mouth.active) {
+      const duration = crossingDuration(crossing.angularVelocity);
+      const speedRatio = Math.abs(crossing.angularVelocity)
+        / Math.max(0.01, spin.peakAngularVelocity);
+      audio.articulate(voiceSlot(mouthIndex), mouth, {
+        duration,
+        durationSeconds: duration,
+        release: Math.min(0.12, duration * 0.42),
+        velocity: clamp(0.58 + Math.sqrt(speedRatio) * 0.38, 0.58, 0.98, 0.8),
+        globals: { ...audioGlobals(state, mouthIndex), ...contextual.globals },
       });
     }
-    // The singing playhead and the editing focus are deliberately separate.
-    // Otherwise a fast loop steals the sliders from the mouth being morphed.
     syncMouthButtons();
     syncTransport();
   }
 
-  function setTransport(running = !state.running, shouldAnnounce = true) {
-    const nextRunning = Boolean(running);
-    phraseAccumulator = 0;
-    if (nextRunning) {
-      const word = normalizeWheelWord(byId(doc, "wordInput")?.value ?? state.word);
-      state = updatedWheelState(wheelStateForWord(word, state), state);
-      state.running = true;
-      applyPresetMouths(presetForId(activePreset));
-      state.selectedMouth = state.mouths.length > 0
-        ? Math.max(0, Math.min(state.selectedMouth, state.mouths.length - 1))
-        : -1;
-      flashLevels = Array(state.mouths.length).fill(0);
-      layoutDirty = true;
-      compilePhrase();
-      buildMouthButtons();
-      syncAudio();
-      phraseIndex = -1;
-      if (phrase.events.length > 0) singNext();
-    } else {
-      state.running = false;
-      phraseIndex = -1;
-      currentMouth = -1;
-      currentCharacter = "";
-      currentEvent = null;
-      audio.releaseAll();
+  function setTransport(running = true, shouldAnnounce = true) {
+    if (!Boolean(running)) {
+      if (shouldAnnounce && spin.locked) {
+        announce("The spin cannot be stopped; the winning organ must finish fading.");
+      }
+      return false;
     }
+    if (spin.locked || audio.isDecaying) {
+      if (shouldAnnounce) announce("Wait for the winning organ to finish fading before spinning again.");
+      return false;
+    }
+    if (!state.mouths.some((mouth) => mouth.active)) {
+      syncTransport();
+      if (shouldAnnounce) announce("Give the wheel at least one voiced mouth before spinning.");
+      return false;
+    }
+
+    const word = normalizeWheelWord(byId(doc, "wordInput")?.value ?? state.word);
+    rebuildWordAnatomy(word, { shouldAnnounce: false });
+    const activeMouths = state.mouths
+      .map((mouth, index) => ({ mouth, index }))
+      .filter(({ mouth }) => mouth.active);
+    if (activeMouths.length === 0) {
+      syncTransport();
+      if (shouldAnnounce) announce("Give the wheel at least one voiced mouth before spinning.");
+      return false;
+    }
+
+    const options = {
+      mouthCount: state.mouths.length,
+      minimumTurns: spinMinimumTurns(wordRate),
+      extraTurns: 2,
+    };
+    let nextSpin = startWheelSpin(spin, options);
+    if (!state.mouths[nextSpin.targetMouthIndex]?.active) {
+      const activeTarget = activeMouths[nextSpin.targetMouthIndex % activeMouths.length].index;
+      const turns = Math.max(options.minimumTurns, Math.floor(nextSpin.travelRadians / TAU));
+      const seededState = { ...spin, rngState: nextSpin.rngState };
+      nextSpin = startWheelSpin(seededState, {
+        ...options,
+        targetMouthIndex: activeTarget,
+        turns,
+      });
+      nextSpin = { ...nextSpin, rngState: seededState.rngState };
+    }
+    spin = nextSpin;
+    state.running = true;
+    winnerReleased = false;
+    readerFlash = 0;
+    phraseIndex = -1;
+    currentMouth = -1;
+    currentCharacter = "";
+    currentEvent = null;
+    flashLevels = Array(state.mouths.length).fill(0);
+    layoutDirty = true;
+    audio.releaseAll();
+    syncAudio();
     syncTransport();
     syncMouthButtons();
     if (shouldAnnounce) {
-      announce(state.running
-        ? state.mouths.length > 0 ? `Looping ${state.word}.` : "Looping an empty wheel."
-        : "Word stopped.");
+      announce(audioOn
+        ? "Wheel spinning. Organs sing only as they cross the 3 o'clock reader."
+        : "Wheel spinning silently. Turn Audio on to hear the next reader crossing.");
     }
+    return true;
   }
 
   function setLetter(letter) {
+    if (spin.locked) return;
     if (!selectedMouth()) return;
+    markPresetCustom();
     state = updatedWheelState(
       assignWheelMouthLetter(state, state.selectedMouth, letter),
       state,
@@ -1232,16 +1370,20 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
   }
 
   function setMouthActive(active) {
+    if (spin.locked) return;
     if (!selectedMouth()) return;
+    markPresetCustom();
     const nextActive = active === undefined ? !selectedMouth().active : Boolean(active);
     selectedMouth().active = nextActive;
     if (!selectedMouth().active) release(state.selectedMouth);
     syncSelectedControls();
+    syncTransport();
     syncAudio();
     announce(`Mouth ${state.selectedMouth + 1} ${selectedMouth().active ? "voiced" : "muted"}.`);
   }
 
   function mutate() {
+    if (spin.locked) return;
     markPresetCustom();
     mutationCount += 1;
     let seed = 0x6d2b79f5 ^ mutationCount * 0x9e3779b9;
@@ -1304,12 +1446,14 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
     mouthOverlap = DEFAULT_OVERLAP;
     outputLevel = DEFAULT_LEVEL;
     phraseIndex = -1;
-    phraseAccumulator = 0;
     currentMouth = -1;
     currentCharacter = "";
     currentEvent = null;
     activePreset = "clear";
     phrase = compileWheelWord(state.word, state);
+    spin = createWheelSpinState({ mouthCount: state.mouths.length });
+    readerFlash = 0;
+    winnerReleased = false;
     flashLevels = Array(state.mouths.length).fill(0);
     layoutDirty = true;
     audio.setLevel(outputLevel);
@@ -1320,16 +1464,10 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
 
   function bindControls() {
     byId(doc, "audioButton")?.addEventListener("click", toggleAudio);
-    byId(doc, "transportButton")?.addEventListener("click", async () => {
-      if (!audioOn && !state.running && !await ensureAudio()) return;
-      setTransport();
-    });
+    byId(doc, "transportButton")?.addEventListener("click", () => setTransport());
     byId(doc, "mapWordButton")?.addEventListener("click", () => mapWord());
     byId(doc, "petalActive")?.addEventListener("click", () => setMouthActive());
-    byId(doc, "auditionMouth")?.addEventListener("click", async () => {
-      if (!audioOn) await ensureAudio();
-      audition();
-    });
+    byId(doc, "auditionMouth")?.addEventListener("click", () => audition());
     byId(doc, "mutateButton")?.addEventListener("click", mutate);
     for (const preset of WHEEL_ORGAN_PRESETS) {
       byId(doc, preset.buttonId)?.addEventListener("click", () => applyPreset(preset.id));
@@ -1340,6 +1478,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
 
     const word = byId(doc, "wordInput");
     word?.addEventListener("input", () => {
+      if (spin.locked) return;
       const editable = editableWheelWord(word.value);
       if (word.value !== editable) word.value = editable;
       rebuildWordAnatomy(normalizeWheelWord(editable), {
@@ -1375,7 +1514,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
       markPresetCustom();
       wordRate = Number(rate.value);
       const output = byId(doc, "pulseRateOut");
-      if (output) output.textContent = `${Math.round(wordRate)} mouths/min`;
+      if (output) output.textContent = spinForceLabel(wordRate);
     });
 
     const overlap = byId(doc, "legato");
@@ -1443,6 +1582,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
   function rebuildLayout() {
     const size = Math.min(cssWidth, cssHeight);
     layout = wheelMouthLayout(cssWidth, cssHeight, state, {
+      rotation: spin.rotation,
       centerX: cssWidth * 0.5,
       centerY: cssHeight * (cssWidth < 650 ? 0.55 : 0.52),
       coreRadius: size * 0.085,
@@ -1477,18 +1617,47 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
 
   function updateTime(time, delta) {
     flashLevels = flashLevels.map((value) => Math.max(0, value - delta * 2.2));
+    readerFlash = Math.max(0, readerFlash - delta * 3.8);
     if (!state.running) return;
-    phraseAccumulator += delta;
-    let duration = phraseEventDuration();
-    while (phraseAccumulator >= duration) {
-      phraseAccumulator -= duration;
-      singNext();
-      duration = phraseEventDuration();
+
+    const previousPhase = spin.phase;
+    const previousRotation = spin.rotation;
+    const advanced = stepWheelSpin(spin, delta);
+    spin = advanced.state;
+    if (spin.rotation !== previousRotation) layoutDirty = true;
+    for (const crossing of advanced.events) singCrossing(crossing);
+
+    if (previousPhase !== spin.phase) {
+      if (spin.phase === WHEEL_SPIN_PHASES.decaying && !winnerReleased) {
+        winnerReleased = true;
+        if (audioOn && currentMouth >= 0) {
+          audio.release(voiceSlot(currentMouth), { release: spin.decaySeconds });
+        }
+        announce(`${currentCharacter || "The winning organ"} is fading away.`);
+      }
+      if (spin.phase === WHEEL_SPIN_PHASES.idle) {
+        state.running = false;
+        winnerReleased = false;
+        currentMouth = -1;
+        currentCharacter = "";
+        currentEvent = null;
+        phraseIndex = -1;
+        readerFlash = 0;
+        announce("The wheel is quiet, still, and ready for another spin.");
+      }
+      syncTransport();
+      syncMouthButtons();
     }
     if (currentMouth >= 0) {
+      if (spin.phase === WHEEL_SPIN_PHASES.sustaining) readerFlash = 1;
+      if (spin.phase === WHEEL_SPIN_PHASES.decaying) {
+        readerFlash = Math.max(readerFlash, spin.finalEnvelope);
+      }
       flashLevels[currentMouth] = Math.max(
         flashLevels[currentMouth],
-        0.34 + Math.sin(time * 0.018) * 0.08,
+        spin.phase === WHEEL_SPIN_PHASES.decaying
+          ? spin.finalEnvelope
+          : 0.34 + Math.sin(time * 0.018) * 0.08,
       );
     }
   }
@@ -1496,10 +1665,9 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
   function draw(time) {
     resize();
     ctx.clearRect(0, 0, cssWidth, cssHeight);
-    const currentDuration = phraseEventDuration();
-    const phase = currentDuration > 0
-      ? clamp(phraseAccumulator / currentDuration)
-      : 0;
+    const phase = spin.phase === WHEEL_SPIN_PHASES.sustaining
+      ? clamp(spin.phaseElapsedSeconds / Math.max(0.001, spin.sustainSeconds))
+      : spin.progress;
     for (const mouth of layout.mouths) {
       drawNerve(
         ctx,
@@ -1522,11 +1690,20 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
       );
     }
     drawCore(ctx, layout, state, currentMouth, currentCharacter, phase);
+    drawOrganReader(
+      ctx,
+      layout,
+      readerFlash,
+      spin.phase === WHEEL_SPIN_PHASES.sustaining
+        || spin.phase === WHEEL_SPIN_PHASES.decaying,
+    );
     const readout = byId(doc, "stageReadout");
     if (readout) {
-      const status = state.running
-        ? `singing ${currentCharacter || "…"}`
-        : audioOn ? "awake" : "waiting";
+      const status = spinStatusLabel(
+        spin,
+        currentCharacter,
+        state.mouths.filter((mouth) => mouth.active).length,
+      );
       readout.textContent = `${state.mouths.length} mouths · ${state.word || "—"} · ${status}`;
     }
   }
@@ -1546,13 +1723,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
       && Math.hypot(point.x - layout.centerX, point.y - layout.centerY) <= layout.coreRadius * 1.12
     ) {
       event.preventDefault();
-      if (!audioOn) {
-        ensureAudio().then((enabled) => {
-          if (enabled) setTransport();
-        });
-      } else {
-        setTransport();
-      }
+      setTransport();
       return;
     }
     const index = hitTestWheelMouth(point, layout, 11);
@@ -1565,6 +1736,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
       const first = activePointers.get(drag.pointerId);
       if (first && index === drag.index) {
         const mouth = state.mouths[index];
+        const capturedMouth = layout.mouths[index];
         pinchGesture = {
           index,
           pointerIds: [drag.pointerId, event.pointerId],
@@ -1572,6 +1744,10 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
           startCenterX: (point.x + first.x) / 2,
           startCenterY: (point.y + first.y) / 2,
           start: mouthMorphSnapshot(mouth),
+          radialX: Math.cos(capturedMouth.angle),
+          radialY: Math.sin(capturedMouth.angle),
+          radialSpan: Math.max(1, layout.outerRadius - layout.innerRadius),
+          tangentialSpan: Math.max(1, capturedMouth.tangentialRadius * 1.35),
         };
         drag.moved = true;
         canvas.classList.add("is-dragging", "is-pinching");
@@ -1598,6 +1774,11 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
         + (point.y - layout.centerY) * radialY,
       startLateral: -(point.x - layout.centerX) * radialY
         + (point.y - layout.centerY) * radialX,
+      radialX,
+      radialY,
+      radialSpan: Math.max(1, layout.outerRadius - layout.innerRadius),
+      tangentialSpan: Math.max(1, layoutMouth.tangentialRadius * 1.35),
+      mouthId: state.mouths[index]?.id,
       start: mouthMorphSnapshot(state.mouths[index]),
       // Capture the modifier at pointer-down so crossing the opening or
       // releasing a key mid-gesture cannot silently change morph modes.
@@ -1605,13 +1786,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
       moved: false,
     };
     canvas.classList.add("is-dragging");
-    if (!audioOn) {
-      const pointerId = event.pointerId;
-      ensureAudio().then((enabled) => {
-        if (enabled && drag?.pointerId === pointerId) sustain(index);
-      });
-    }
-    else sustain(index);
+    if (audioOn && !spin.locked) sustain(index);
   }
 
   function pointerMove(event) {
@@ -1627,23 +1802,22 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
       const distance = Math.hypot(second.x - first.x, second.y - first.y);
       const scaleDelta = Math.log2(Math.max(0.12, distance / pinchGesture.startDistance)) * 1.45;
       const mouth = state.mouths[pinchGesture.index];
-      const layoutMouth = layout.mouths[pinchGesture.index];
-      const radialX = Math.cos(layoutMouth.angle);
-      const radialY = Math.sin(layoutMouth.angle);
+      const radialX = pinchGesture.radialX;
+      const radialY = pinchGesture.radialY;
       const centerX = (first.x + second.x) / 2;
       const centerY = (first.y + second.y) / 2;
       const centerDeltaX = centerX - pinchGesture.startCenterX;
       const centerDeltaY = centerY - pinchGesture.startCenterY;
       const radialTravel = clamp(
         (centerDeltaX * radialX + centerDeltaY * radialY)
-          / Math.max(1, layout.outerRadius - layout.innerRadius),
+          / pinchGesture.radialSpan,
         -3,
         3,
         0,
       );
       const tangentialTravel = clamp(
         (-centerDeltaX * radialY + centerDeltaY * radialX)
-          / Math.max(1, layoutMouth.tangentialRadius * 1.35),
+          / pinchGesture.tangentialSpan,
         -3,
         3,
         0,
@@ -1685,15 +1859,19 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (Math.hypot(point.x - drag.startX, point.y - drag.startY) > 4) drag.moved = true;
     const mouth = state.mouths[drag.index];
-    const layoutMouth = layout.mouths[drag.index];
-    const gesture = mapWheelPullGesture(point, layout, drag.index);
-    if (!gesture) return;
+    const mappedGesture = mapWheelPullGesture(point, layout, drag.index);
+    if (!mappedGesture) return;
     markPresetCustom();
-    const travel = rawGestureTravel(drag, gesture, layout, layoutMouth);
+    const travel = rawGestureTravel(drag, point);
     const outward = Math.max(0, travel.radial);
     const inward = Math.max(0, -travel.radial);
     const sideways = Math.abs(travel.tangential);
     const start = drag.start;
+    const gesture = {
+      ...mappedGesture,
+      pull: clamp(start.pull + travel.radial * 0.72),
+      tongue: clamp(start.tongue + travel.tangential * 0.36),
+    };
     if (drag.mode === "tongue") {
       mouth.tongue = gesture.tongue;
       mouth.tongueOut = clamp(start.tongueOut + outward * 0.78 - inward * 0.62);
@@ -1837,11 +2015,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
       if (audioOn) release(finished.index);
       return;
     }
-    if (!audioOn) {
-      ensureAudio().then((enabled) => enabled && audition(finished.index, 0.72));
-    } else {
-      audition(finished.index, 0.72);
-    }
+    audition(finished.index, 0.72);
   }
 
   function keydown(event) {
@@ -1850,11 +2024,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
     if (["input", "select", "textarea", "button"].includes(tag)) return;
     if (event.code === "Space") {
       event.preventDefault();
-      if (!audioOn) {
-        ensureAudio().then((enabled) => enabled && setTransport());
-      } else {
-        setTransport();
-      }
+      setTransport();
       return;
     }
     if (/^[1-9]$/.test(event.key)) {
@@ -1862,8 +2032,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
       if (index >= state.mouths.length) return;
       event.preventDefault();
       setSelected(index);
-      if (!audioOn) ensureAudio().then((enabled) => enabled && audition(index));
-      else audition(index);
+      audition(index);
       return;
     }
     if (/^[a-z]$/i.test(event.key)) {
@@ -1872,8 +2041,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
       if (index < 0) return;
       event.preventDefault();
       setSelected(index);
-      if (!audioOn) ensureAudio().then((enabled) => enabled && audition(index));
-      else audition(index);
+      audition(index);
     }
   }
 
@@ -1900,6 +2068,7 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
     canvas,
     audio,
     get state() { return state; },
+    get spin() { return spin; },
     get activePreset() { return activePreset; },
     get phrase() { return phrase; },
     get layout() { return layout; },

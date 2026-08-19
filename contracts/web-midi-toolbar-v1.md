@@ -7,11 +7,13 @@ bar. Morphazoidical hosts the same control in its custom workbench top bar. The
 toggle is the only control that requests Web MIDI permission.
 
 The compact bar keeps performance state visible in this order: MIDI In and its
-receive light, the actual pre-destination audio meter, master level, Audio, and
+receive light, the actual pre-destination stereo L/R audio meter, master level, Audio, and
 a far-right Settings disclosure. The receive light flashes only for incoming
 hardware or computer-key messages. The meter is registered explicitly at each
 engine's final master/limiter output; it reports signal sent toward the browser
-or WAX destination, not the operating system's speaker volume.
+or WAX destination, not the operating system's speaker volume. Left and right
+remain independently metered so panning, imbalance, and per-channel clipping
+are visible.
 
 - Off → On activates the built-in computer keyboard when that page has a safe
   note mapping, then calls `requestMIDIAccess({ sysex: false })` from the same
@@ -28,26 +30,66 @@ or WAX destination, not the operating system's speaker volume.
 
 ## Input and output settings
 
-The Settings disclosure contains normal form controls rather than ARIA menu
-items. It groups Audio Out, Mic / Audio In, MIDI In, MIDI Out, and MIDI Map.
-The controller profile and its contextual setup hint live under MIDI Map.
+The native Settings disclosure is titled `Morphazoid Settings`. It contains
+normal form controls rather than ARIA menu items: exactly five visible
+label/select rows in this order — Audio Out, Mic / Audio In, MIDI In, MIDI Out,
+and MIDI Map — followed by one `MIDI Guide` link. Routine status, setup, and
+mapping prose belongs in that guide, not in the compact panel. A row may show a
+short alert only when a real permission, hardware, or route error occurs.
 
-- Audio Out always describes the effective destination. Browser device choice
-  is shown only when `AudioContext.setSinkId()` is feature-detected; System
-  default remains the fallback. WAX identifies this route as the DAW / plug-in
-  host and never requests an operating-system sink.
-- Mic / Audio In reports whether the current instrument has a live-input path.
-  Permission and stream start remain with the page's explicit input controls.
-- MIDI In uses the visible toolbar toggle and reports connected inputs here.
-- MIDI Out remains separate and off by default. The regular browser does not
-  imply event output until a page owns a real generator route. WAX-capable MIDI
-  FX pages leave host destination, channel, clock, and panic routing with the
-  WAX adapter. Incoming events are never echoed automatically.
-- MIDI Map selects the input controller profile. Output routing does not get a
-  duplicate controller map.
+- Audio Out is always visible. Browser device choice is enabled only when
+  `AudioContext.setSinkId()` is feature-detected; otherwise its disabled option
+  truthfully names the system/browser destination. WAX identifies this route as
+  the DAW / plug-in host and never requests an operating-system sink.
+- Mic / Audio In is always visible. It is disabled and greyed out when the
+  current instrument has no live-input path. Instruments that do use live input
+  still own microphone permission, stream start, and device routing in their
+  page controls; the shared row must not imply unsupported device selection.
+- MIDI In represents the manager's aggregate input state. The manager listens
+  to all available inputs and does not pretend to offer per-device filtering.
+  The toolbar MIDI toggle and this row stay synchronized.
+- MIDI Out remains separate and off by default. A disabled option identifies
+  instruments without output. Output-preview pages show the mobile-safe
+  `Preview · no route` label and expose the full `preview only, not routed`
+  meaning to assistive technology; the normal browser does not expose a
+  destination chooser, explicitly select a destination, or send until a later
+  mapping/router contract has been implemented. WAX-capable MIDI FX
+  pages leave host destination, channel, clock, and panic routing with the WAX
+  adapter. Incoming events are never echoed automatically.
+- MIDI Map selects the input controller profile. Its internal `auto` profile is
+  presented as the initially selected `Computer keys` option: computer keys
+  remain immediately available while connected hardware is detected per
+  device. Choosing a named profile forces that hardware layout. Output routing
+  does not get a duplicate controller map.
 
 The Audio control remains separate. A page may prepare Web Audio from the same
 explicit MIDI click when its performance model requires it.
+
+## MIDI output preview
+
+Pages whose capability declares MIDI output expose one flow-contained `MIDI Out
+Monitor` at the bottom of the existing control rail in the normal browser build.
+It is an observability layer, not a virtual MIDI port: every event is marked
+`mapped: false` and `sent: false`, it does not request Web MIDI permission, and
+it contains no routing or mapping controls.
+
+- `note` previews come only from an instrument's own accepted onset logic.
+  Generic DOM position or pointer movement must never be guessed into notes.
+  A finite audition duration is labeled as a gate candidate unless the page
+  publishes an explicit contact-exit note-off.
+- Trusted user movement of continuous controls may expose the formatted value
+  plus an unassigned normalized 0–127 CC candidate. Instrument-owned telemetry
+  may publish moving playhead or model values under stable source IDs.
+- A value is called a MIDI Clock candidate only when it is genuinely expressed
+  in BPM. Cycles per second, steps per second, and other rates remain explicitly
+  unmapped timebases; the monitor does not invent 24-PPQN ticks.
+- Transport rows reflect primary page transport state as a preview. They do not
+  claim that MIDI Start, Continue, or Stop was transmitted.
+- Independent controls, polyphonic notes, and multiple transports/timebases are
+  retained by stable source ID. Rapid values render at animation-frame cadence
+  with `aria-live="off"` so they do not flood assistive technology.
+- The panel lives in normal document flow and remains collapsible. WAX suppresses
+  this browser monitor because its host-owned MIDI routing panel is authoritative.
 
 ## Built-in computer keyboard
 
@@ -66,7 +108,7 @@ permission, and controller-profile selection never reinterprets it.
   page shortcut cannot fire alongside a MIDI note. Held notes are
   released on keyup, blur, page hiding, client removal, and MIDI Off.
 
-Wheel of Organs, Throatazoid, Spelling Synthesizer, Lumber Loops, and L-mic
+Wheel of Organs, Throatazoid, Spelling Synthesizer, Lumber Loops, and L-system Delay
 reserve their existing typing, record, or input shortcuts. Their universal
 client still accepts hardware MIDI, but it does not attach the shared QWERTY
 listener or suppress those page-owned keys.
@@ -81,9 +123,10 @@ NI, Akai, Arturia, or Novation pad mapping.
 
 ## Controller profiles
 
-`Auto (per device)` resolves every connected input independently, allowing a
-keyboard and a pad controller to be used together. A manually selected profile
-overrides Auto for all inputs on the page.
+The default `Computer keys` selection uses the internal Auto profile to resolve
+every connected hardware input independently, allowing a keyboard and a pad
+controller to be used together. A manually selected profile overrides Auto for
+all hardware inputs on the page; it never disables the built-in keyboard.
 
 Profiles normalize physical controls into eight `macro` slots and, where
 available, sixteen `pad` slots. Instrument code decides what those logical

@@ -116,6 +116,14 @@ test("the painted drum-machine page exposes its complete editing surface", async
   assert.match(app, /paintMachineIntersections/);
   assert.match(app, /paintMachineApplyModulators/);
   assert.match(app, /pointerdown/);
+  const transport = app.slice(
+    app.indexOf("function startPlayback()"),
+    app.indexOf("function pausePlayback()", app.indexOf("function startPlayback()")),
+  );
+  assert.doesNotMatch(transport, /enableAudio|setAudioState|audio\.start/);
+  assert.match(transport, /playing silently\. Turn Audio on to hear it/);
+  assert.match(app, /if \(!state\.audioOn \|\| !audio\.context\) return;/);
+  assert.match(app, /state\.previousPhase = phase;[\s\S]*state\.lastGlissAt = now;/);
   assert.match(css, /touch-action: none/);
   assert.match(css, /@media \(max-width: 720px\)/);
 });

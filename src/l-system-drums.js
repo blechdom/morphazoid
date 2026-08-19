@@ -110,7 +110,8 @@ function audibleTraversalPosition(position) {
 
 /**
  * Advance the transport while retaining all intermediate phases needed by
- * the drum trigger. Boundary samples are explicit re-attack points.
+ * the drum trigger. Wrap samples re-arm the new cycle; reflection samples
+ * preserve the endpoint contact while changing physical direction.
  */
 export function advanceLSystemDrumTraversal(
   position,
@@ -214,7 +215,7 @@ export function lSystemDrumEventsForTraversal(traces, samples, {
   const traversalSamples = Array.isArray(samples) ? samples : [];
   for (let sampleIndex = 0; sampleIndex < traversalSamples.length; sampleIndex += 1) {
     const sample = traversalSamples[sampleIndex];
-    if (sample.boundary) activeKeys = new Set();
+    if (sample.boundary === "wrap") activeKeys = new Set();
     const playback = iterationPlaybackAtPhase(
       traces,
       sample.position,

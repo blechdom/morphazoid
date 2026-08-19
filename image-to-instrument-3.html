@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#050306" />
-    <meta name="description" content="Wheel of Organs — every typed letter grows a looping, morphable mouth with deep glottal excitation, wet nasal and slime cavities, formants, noise, and an extensible tongue." />
+    <meta name="description" content="Wheel of Organs — spin a still wheel of morphable letter-mouths past a three-o'clock reader, then hear the final organ hold and fade." />
     <title>Wheel of Organs | Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
@@ -26,24 +26,25 @@
         <div class="image-stage-wrap" id="stageWrap">
           <canvas id="stage" tabindex="0" aria-label="A wheel of lettered mouths connected to a central organ. Drag, crush, stretch, pinch, and extract each mouth into extreme vocal mutations." aria-describedby="canvasInstructions liveStatus">An interactive wheel of vocal organs.</canvas>
           <div class="image-stage-title"><span>signal → voice</span><h1 id="instrumentTitle">Wheel<br />of Organs</h1><small>morphable nasal word organism</small></div>
-          <div class="image-stage-readout" id="stageReadout" aria-hidden="true">8 mouths · ORGANISM · waiting</div>
+          <div class="image-stage-readout" id="stageReadout" aria-hidden="true">8 mouths · ORGANISM · ready · wheel still</div>
           <div class="image-stage-hint" aria-hidden="true">pull past ring = grow / shriek · push inward = crush / growl · grab tongue = extract · Shift lip-crush · Alt body-warp</div>
         </div>
-        <p class="sr-only" id="canvasInstructions">Every typed letter creates one formant-synth mouth with a tongue and glottis. Drag a body beyond the ring to grow and stretch it while raising pitch, lowering its formants, and increasing glottal screech. Push toward the center to crush and pinch the tract into deeper, wetter nasal noise; sweep sideways to curl the tongue and skew the cavity. Grab inside the opening and pull outward to extract its tongue. Shift-drag crushes its lips, two fingers resize it, and Alt-drag warps its complete body. Space starts or stops the looping word.</p>
+        <p class="sr-only" id="canvasInstructions">Every typed letter creates one formant-synth mouth with a tongue and glottis. Drag a body beyond the ring to grow and stretch it while raising pitch, lowering its formants, and increasing glottal screech. Push toward the center to crush and pinch the tract into deeper, wetter nasal noise; sweep sideways to curl the tongue and skew the cavity. Grab inside the opening and pull outward to extract its tongue. Shift-drag crushes its lips, two fingers resize it, and Alt-drag warps its complete body. The wheel is quiet and still at rest. Press Space to spin it when ready. The wheel accelerates, coasts, and brakes; each mouth sounds only as it crosses the fixed three-o'clock organ reader. The final organ holds for 1.6 seconds and fades for 2.4 seconds before another spin is allowed.</p>
         <p class="sr-only" id="liveStatus" aria-live="polite"></p>
       </section>
 
       <aside class="image-instrument-panel wheel-organ-panel" aria-label="Wheel of Organs controls">
         <section class="image-control-card wheel-word-card" aria-labelledby="wordTitle">
-          <div class="image-card-heading"><h2 id="wordTitle">Word organism</h2><span id="transportState">waiting</span></div>
+          <div class="image-card-heading"><h2 id="wordTitle">Letter wheel</h2><span id="transportState">ready</span></div>
           <label class="wheel-word-label" for="wordInput"><span>letters to sing</span><input id="wordInput" type="text" value="ORGANISM" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" /></label>
-          <div class="wheel-word-actions" role="group" aria-label="Word playback">
-            <button class="play-button wheel-play-button" id="transportButton" type="button" aria-pressed="false" aria-label="Play word loop">
-              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
-              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+          <div class="wheel-word-actions" role="group" aria-label="Wheel controls">
+            <button class="play-button wheel-play-button" id="transportButton" type="button" aria-pressed="false" aria-label="Spin the Wheel of Organs" data-primary-transport>
+              <svg class="transport-spin" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.2 8.4A7.2 7.2 0 1 0 19 14M18.2 8.4V3.8M18.2 8.4h-4.6" /></svg>
+              <span>spin wheel</span>
             </button>
-            <button id="mapWordButton" type="button">restart mouth loop</button>
+            <button id="mapWordButton" type="button">set letter wheel</button>
           </div>
+          <p class="wheel-spin-legend"><b>3 o'clock organ reader</b><span>each crossing speaks · accelerate → coast → brake</span><small>final organ holds 1.6s, fades 2.4s, then unlocks</small></p>
           <div class="wheel-mouth-count" aria-live="polite">
             <span><b>letter-mouths</b><output id="mouthCountOut">8</output></span>
             <small>typing grows / shrinks the ring</small>
@@ -68,8 +69,8 @@
           <div class="image-card-heading"><h2 id="globalTitle">Whole organism</h2><span>shared anatomy</span></div>
           <div class="image-range-grid">
             <label for="rootNote"><span><b>root glottis</b><output id="rootNoteOut" for="rootNote">E2</output></span><input id="rootNote" type="range" min="24" max="60" step="1" value="40" /></label>
-            <label for="pulseRate"><span><b>mouth speed</b><output id="pulseRateOut" for="pulseRate">250 mouths/min</output></span><input id="pulseRate" type="range" min="90" max="720" step="1" value="250" /></label>
-            <label for="legato"><span><b>mouth overlap</b><output id="legatoOut" for="legato">82%</output></span><input id="legato" type="range" min="0" max="1" step="0.01" value="0.82" /></label>
+            <label for="pulseRate"><span><b>spin force</b><output id="pulseRateOut" for="pulseRate">6+ turns</output></span><input id="pulseRate" type="range" min="90" max="720" step="1" value="250" /></label>
+            <label for="legato"><span><b>crossing bloom</b><output id="legatoOut" for="legato">82%</output></span><input id="legato" type="range" min="0" max="1" step="0.01" value="0.82" /></label>
             <label for="centerA"><span><b>vibrato</b><output id="centerAOut" for="centerA">12%</output></span><input id="centerA" type="range" min="0" max="1" step="0.01" value="0.12" /></label>
             <label for="centerB"><span><b>organ growl</b><output id="centerBOut" for="centerB">4%</output></span><input id="centerB" type="range" min="0" max="1" step="0.01" value="0.04" /></label>
             <label for="slime"><span><b>slime cavity</b><output id="slimeOut" for="slime">3%</output></span><input id="slime" type="range" min="0" max="1" step="0.01" value="0.03" /></label>
@@ -109,12 +110,13 @@
           <div class="image-card-heading"><div><span class="image-kicker">living translation</span><h2 id="translationTitle">Wheel of Organs</h2></div><span class="image-variant-chip">SIGNAL / VOICE</span></div>
           <dl class="image-mapping-list">
             <div><dt>each organ</dt><dd>one typed-letter occurrence</dd></div>
+            <div><dt>3 o'clock reader</dt><dd>crossing mouth becomes the voice</dd></div>
             <div><dt>radial pull</dt><dd>growth + stretch + pitch + screech</dd></div>
             <div><dt>push + pinch</dt><dd>crushed throat + deep wet pressure</dd></div>
             <div><dt>tongue + nose</dt><dd>tract skew + extracted noisy cavity</dd></div>
             <div><dt>glottal slit</dt><dd>voiced grit, squeal + breath</dd></div>
           </dl>
-          <p class="wheel-speech-note">Speech-lite, not text-to-speech: every typed letter grows a mouth and joins the looping sung gesture.</p>
+          <p class="wheel-speech-note">Speech-lite, not text-to-speech: every typed letter grows a mouth on the wheel. One spin reads each crossing, then the winning organ sustains and decays into silence.</p>
         </section>
       </aside>
     </main>

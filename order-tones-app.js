@@ -318,16 +318,17 @@ function setPlaying(playing) {
   markDirty();
 }
 
-async function togglePlayback() {
+function togglePlayback() {
   if (state.playing) {
     setPlaying(false);
     announce("Modular sequence paused.");
     return;
   }
-  if (!state.audio) await enableAudio();
   setPlaying(true);
   if (state.audio) strikeResidue(experiment.residues[currentOffset()]);
-  announce("Modular sequence playing.");
+  announce(state.audio
+    ? "Modular sequence playing."
+    : "Modular sequence playing silently. Turn Audio on to hear it.");
 }
 
 function strikeResidue(residue) {
@@ -930,7 +931,7 @@ window.addEventListener("keydown", (event) => {
   if (interactive && event.target !== canvas) return;
   if (event.code === "Space" || event.key === " ") {
     event.preventDefault();
-    void togglePlayback();
+    togglePlayback();
     return;
   }
   const direction = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;

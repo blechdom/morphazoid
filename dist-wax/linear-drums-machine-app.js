@@ -168,7 +168,6 @@ function setAudioState(enabled) {
   $("audioButton").setAttribute("aria-pressed", String(enabled));
   $("audioState").textContent = enabled ? "on" : "off";
   audio.setOutput(enabled ? state.output : 0);
-  if (!enabled) pausePlayback();
 }
 
 function enableAudio() {
@@ -180,6 +179,14 @@ function enableAudio() {
   pending = audio.start().then((audioContext) => {
     if (generation !== audioLifecycleGeneration || audioContext !== audio.context) return false;
     setAudioState(true);
+    if (state.playing) {
+      const now = performance.now();
+      const phase = paintMachineLoopPhase(now, state.startedAt, state.tempo, state.beats);
+      state.phase = phase;
+      state.previousPhase = phase;
+      state.lastGlissAt = now;
+      paintTransport();
+    }
     return true;
   }).catch((error) => {
     if (generation !== audioLifecycleGeneration || error?.name === "AbortError") return false;
@@ -214,6 +221,7 @@ function settingsForLayer(layer, phase) {
 }
 
 async function triggerPaintedVoice(item, vertical, phase, velocity) {
+  if (!state.audioOn || !audio.context) return;
   const generation = audioLifecycleGeneration;
   const layer = layerAt(item.layer);
   if (layer.role !== "voice") return;
@@ -282,15 +290,17 @@ function paintTransport() {
   $("phaseReadout").textContent = `${Math.min(state.beats, Math.floor(beat) + 1)}.${Math.floor((beat % 1) * 4) + 1}`;
 }
 
-async function startPlayback() {
-  if (state.playing || !await enableAudio()) return;
+function startPlayback() {
+  if (state.playing) return;
   state.startedAt = performance.now() - state.phase * paintMachineLoopDurationMs(state.tempo, state.beats);
   state.previousPhase = state.phase;
   state.lastGlissAt = 0;
   state.playing = true;
   paintTransport();
   playbackTick();
-  announce("Painted drum loop playing.");
+  announce(state.audioOn
+    ? "Painted drum loop playing."
+    : "Painted drum loop playing silently. Turn Audio on to hear it.");
 }
 
 function pausePlayback() {
@@ -552,15 +562,24 @@ function bindControls() {
 
   $("playButton").addEventListener("click", () => {
     if (state.playing) pausePlayback();
-    else void startPlayback();
+    else startPlayback();
   });
   $("stopButton").addEventListener("click", stopPlayback);
   $("audioButton").addEventListener("click", async () => {
-    if (state.audioOn) {
-      setAudioState(false);
-      announce("Painted drum audio off.");
-    } else if (await enableAudio()) {
-      announce("Painted drum audio on.");
+    const button = $("audioButton");
+    button.disabled = true;
+    try {
+      if (state.audioOn) {
+        audioLifecycleGeneration += 1;
+        audioStartPromise = null;
+        setAudioState(false);
+        await audio.close().catch(() => {});
+        announce("Painted drum audio off.");
+      } else if (await enableAudio()) {
+        announce("Painted drum audio on.");
+      }
+    } finally {
+      button.disabled = false;
     }
   });
   $("output").addEventListener("input", () => {
@@ -650,7 +669,7 @@ function bindControls() {
     if (event.code !== "Space" || /INPUT|SELECT|BUTTON/.test(document.activeElement?.tagName ?? "")) return;
     event.preventDefault();
     if (state.playing) pausePlayback();
-    else void startPlayback();
+    else startPlayback();
   });
 }
 

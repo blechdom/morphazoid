@@ -81,8 +81,8 @@
       </section>
 
       <aside class="panel solid-drums-panel" aria-label="Solid Drum Machine controls">
-        <details class="group control-section" data-section="play">
-          <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">surface reader · paused</span></summary>
+        <details class="group control-section" data-section="play" open>
+          <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playSummary">surface reader · paused · loop · forward</span></summary>
           <div class="group-body">
             <div class="position-row">
               <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play surface">
@@ -94,7 +94,19 @@
                 <input id="position" type="range" min="0" max="1" step="0.001" value="0.5" />
               </label>
             </div>
-            <label class="control" for="speed"><span><b>Surface speed</b><output id="speedOut" for="speed">0.12 cyc/s</output></span><input id="speed" type="range" min="0.01" max="2" step="0.01" value="0.12" /></label>
+            <div class="rate-control" role="group" aria-label="Automatic surface motion">
+              <span class="rate-heading"><b>Surface speed</b><output id="speedOut" for="speed">0.12 cyc/s</output></span>
+              <div class="rate-row-single transport-rate-row">
+                <input id="speed" aria-label="Surface speed" type="range" min="0.01" max="2" step="0.01" value="0.12" />
+                <div class="transport-button-array" id="playheadMotion" role="group" aria-label="Surface direction and movement">
+                  <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Surface direction: forward">
+                    <span id="traversalDirectionGlyph">→</span><small id="traversalDirectionText">FWD</small>
+                  </button>
+                  <button id="loopMotion" type="button" data-value="loop" aria-pressed="true" aria-label="Loop movement" title="Loop"><span aria-hidden="true">⟳</span><small>Loop</small></button>
+                  <button id="pingPongMotion" type="button" data-value="pingpong" aria-pressed="false" aria-label="Back-and-forth movement" title="Back and forth"><span aria-hidden="true">↔</span><small>Ping-pong</small></button>
+                </div>
+              </div>
+            </div>
             <label class="control" for="subdivisions">
               <span><b>Subdivisions / side</b><output id="subdivisionsOut" for="subdivisions">2</output></span>
               <input
@@ -111,7 +123,6 @@
               Trigger source: the moving surface reader crossing one of 2 equal
               segments on a projected solid side (edge).
             </p>
-            <button class="mini-action direction-action" id="directionButton" type="button">Direction · forward</button>
             <div class="axis-control-group">
               <label class="control" for="planeYaw"><span><b>Surface yaw</b><output id="planeYawOut" for="planeYaw">45°</output></span><input id="planeYaw" type="range" min="-180" max="180" step="1" value="45" /></label>
               <div class="axis-motion-row"><button class="mini-action axis-play-button" id="planeYawPlay" type="button" aria-pressed="false" aria-label="Play surface yaw"><span aria-hidden="true">▶</span><small>Yaw</small></button><label class="control" for="planeYawSpeed"><span><b>Yaw speed</b><output id="planeYawSpeedOut" for="planeYawSpeed">+0.04 rev/s</output></span><input id="planeYawSpeed" type="range" min="-0.5" max="0.5" step="0.01" value="0.04" /></label></div>

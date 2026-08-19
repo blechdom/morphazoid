@@ -231,7 +231,10 @@ test("Solid Drum Machine keeps Solid controls and excludes legacy synth panels",
     "selectSurface",
     "position",
     "speed",
-    "directionButton",
+    "playheadMotion",
+    "traversalDirection",
+    "loopMotion",
+    "pingPongMotion",
     "planeYaw",
     "planePitch",
     "planeYawPlay",
@@ -262,9 +265,9 @@ test("Solid Drum Machine keeps Solid controls and excludes legacy synth panels",
     /<b>Subdivisions \/ side<\/b>[\s\S]*?id="subdivisions"[\s\S]*?min="1"[\s\S]*?max="16"[\s\S]*?step="1"[\s\S]*?value="2"/,
   );
   assert.ok(
-    html.indexOf('id="speed"') < html.indexOf('id="subdivisions"')
-      && html.indexOf('id="subdivisions"') < html.indexOf('id="directionButton"'),
-    "Subdivisions should sit directly after surface speed in Play",
+    html.indexOf('id="speed"') < html.indexOf('id="playheadMotion"')
+      && html.indexOf('id="playheadMotion"') < html.indexOf('id="subdivisions"'),
+    "The Shape-style transport should sit with surface speed before subdivisions",
   );
   assert.ok(
     html.indexOf('id="subdivisions"') < html.indexOf('data-section="form"'),
@@ -284,6 +287,9 @@ test("Solid Drum Machine keeps Solid controls and excludes legacy synth panels",
   assert.match(app, /SEGMENT \$\{\(contact\.segmentIndex/);
   assert.match(app, /mappedSolidDrumVoice/);
   assert.match(app, /pickRotationTarget/);
+  const endpointHelper = app.match(/function endpointSafePhase\(value\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(endpointHelper, /phase >= 1 \? 1 - 1e-9 : phase/);
+  assert.doesNotMatch(endpointHelper, /motionMode/);
   assert.doesNotMatch(
     html,
     /soundMode|amplitudeControl|percussionArticulation|fmControls|baseFrequency|pitchRange/,

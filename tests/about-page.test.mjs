@@ -52,7 +52,7 @@ test("Home mounts the only complete menu-ordered catalogue", async () => {
   assert.match(home, /class="mobile-instrument-select"/);
   assert.match(home, /<script type="module" src="nav\.js"><\/script>/);
   assert.equal([home, about, catalogue].filter((html) => /data-instrument-catalog/.test(html)).length, 1);
-  assert.equal(INSTRUMENTS.length, 77);
+  assert.equal(INSTRUMENTS.length, 81);
   assert.equal(
     INSTRUMENTS.find(({ id }) => id === "escher-tessellation")?.label,
     "Escher",
@@ -87,25 +87,51 @@ test("Home explains browser MIDI input and keeps WAX MIDI output distinct", asyn
   const visibleText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
   assert.match(html, /<section class="manual-section" id="midi">/);
+  assert.match(visibleText, /MIDI Guide/);
   assert.match(visibleText, /Every playable instrument has a MIDI control in its top bar/);
   assert.match(visibleText, /receive light flashes for incoming notes and controls/);
-  assert.match(visibleText, /small meter shows the signal being sent to the audio destination/);
-  assert.match(visibleText, /gear at the far right opens Audio Out, Mic \/ Audio In, MIDI In, MIDI Out, and MIDI Map/);
+  assert.match(visibleText, /small L\/R meter shows the two channels being sent to the audio destination/);
+  assert.match(visibleText, /panning and channel imbalance stay visible/);
+  assert.match(visibleText, /gear at the far right opens the compact Morphazoid Settings panel/);
   assert.match(
     visibleText,
-    /Auto \(per device\) is recommended when more than one controller is connected/,
+    /Audio Out, Mic \/ Audio In, MIDI In, MIDI Out, and MIDI Map describe the routes/,
   );
-  assert.match(visibleText, /Most melodic pages provide a two-row piano.*4 × 4 pad grid/);
+  assert.match(visibleText, /greyed-out selector means that route is not used.*cannot be selected/);
+  assert.match(visibleText, /Computer keys This is the default MIDI Map/);
+  assert.match(visibleText, /Z S X D C V G B H N J M.*Q 2 W 3 E R 5 T 6 Y 7 U/);
+  assert.match(visibleText, /1 2 3 4.*Q W E R.*A S D F.*Z X C V/);
+  assert.match(visibleText, /\[ and \] shift octaves; - and = change velocity/);
+  assert.match(visibleText, /Controller profiles Computer keys remains the default.*detected automatically/);
+  assert.match(visibleText, /Maschine Mikro uses MIDI mode.*Akai MPK Mini uses CC70–77/);
+  assert.match(visibleText, /Arturia MiniLab 3 uses CC74, 71, 76, 77, 93, 18, 19, and 16/);
+  assert.match(visibleText, /Novation Launchkey uses Custom Mode CC21–28/);
   assert.match(visibleText, /custom native mappings.*conservative universal map/);
   assert.match(visibleText, /Pitch bend follows a mapped pitch.*pressure or intensity control/);
   assert.match(visibleText, /MIDI Clock, Start, and Stop follow a page's tempo and transport/);
   assert.match(visibleText, /notes and velocity, pitch bend, CC, Program Change/);
   assert.match(visibleText, /Input and output remain separate/);
-  assert.match(visibleText, /Browser MIDI Out stays off.*destination, channel, and clock/);
+  assert.match(visibleText, /normal browser, MIDI Out is currently a preview only/);
+  assert.match(visibleText, /no output destination is exposed.*none of the displayed values is sent/);
+  assert.match(visibleText, /MIDI Out Monitor/);
+  assert.match(
+    visibleText,
+    /exact instrument note previews.*unassigned 0–127 CC candidates.*BPM clock candidates.*transport state/,
+  );
+  assert.match(visibleText, /diagnostic only.*not.*routed, mapped, or sent as MIDI/i);
   assert.match(html, /href="wax\.html"/);
   assert.match(visibleText, /WAX build can run as MIDI FX/);
   assert.match(visibleText, /Incoming MIDI is never echoed automatically/);
   assert.doesNotMatch(visibleText, /every page (?:generates|outputs) MIDI/i);
+});
+
+test("Home teaches explicit audio activation separately from transport and microphone input", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const visibleText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+  assert.match(visibleText, /Select the speaker to arm audio/);
+  assert.match(visibleText, /On microphone instruments, start Input separately/);
+  assert.doesNotMatch(visibleText, /speaker, Input, or the page's start control/);
 });
 
 test("legacy About and catalogue URLs redirect to the single home page", async () => {

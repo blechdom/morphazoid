@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Striped Staircase — a live Mandelbrot browser where escape-depth stripes become discrete or sliding moments."
+    />
+    <title>Striped Staircase — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="striped-staircase.css" />
+  </head>
+  <body class="striped-staircase-page" data-instrument-info="off">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Morphazoid main menu">
+        <a class="tab active" href="striped-staircase.html" aria-current="page">striped staircase</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="striped-staircase.html" selected>striped staircase</option>
+        </select>
+      </label>
+      <div class="visual-study-badge" aria-label="Visual study. Audio is not implemented yet.">
+        <i aria-hidden="true"></i><span>visual study</span>
+      </div>
+    </header>
+
+    <main class="shell striped-staircase-shell" id="stripedStaircase">
+      <section class="stage striped-staircase-stage" aria-label="Live striped Mandelbrot browser">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Live Mandelbrot detail with alternating escape-depth stripes and one highlighted staircase interval."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A live striped Mandelbrot browser.
+          </canvas>
+
+          <div class="staircase-heading" aria-hidden="true">
+            <p>Depth is time</p>
+            <h1>Striped<br />staircase</h1>
+            <span>drag to roam · wheel or pinch to dive</span>
+          </div>
+
+          <div class="staircase-stage-readout" aria-hidden="true">
+            <span id="stageStepReadout">STEP 03 / 24</span>
+            <span id="stageBandReadout">ITER 14.2—17.5</span>
+          </div>
+
+          <div class="depth-rail-shell">
+            <span class="depth-rail-label" aria-hidden="true">depth</span>
+            <div class="depth-rail" id="depthRail" role="group" aria-label="Jump to a depth step"></div>
+          </div>
+
+          <div class="staircase-coordinate-hud" aria-hidden="true">
+            <span id="coordinateReadout">−0.7436439 + 0.1318259i</span>
+            <span id="zoomReadout">80.6×</span>
+            <span id="renderReadout">LIVE FIELD</span>
+          </div>
+
+          <div class="stage-view-actions" aria-label="Fractal view controls">
+            <button id="zoomOut" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+            <button id="homeView" type="button" aria-label="Reset current view" title="Reset view">⌂</button>
+            <button id="zoomIn" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+          </div>
+
+          <div class="render-error" id="renderError" role="alert" hidden>
+            <strong>Live rendering is unavailable.</strong>
+            <span id="renderErrorCopy">This page needs WebGL.</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel striped-staircase-panel" aria-label="Striped Staircase controls">
+        <details class="group control-section" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Flow</h2>
+            <span class="section-state" id="flowSummary">steps · moving inward</span>
+          </summary>
+          <div class="group-body">
+            <div class="position-row staircase-position-row">
+              <button
+                class="play-button"
+                id="playButton"
+                type="button"
+                aria-pressed="true"
+                aria-label="Pause depth motion"
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="progress">
+                <span><b>Depth position T</b><output id="progressOut" for="progress">0.120</output></span>
+                <input id="progress" type="range" min="0" max="1" step="0.001" value="0.12" />
+              </label>
+            </div>
+
+            <span class="field-label">Motion</span>
+            <div class="choice-switch staircase-mode-switch" id="motionMode" role="group" aria-label="Depth motion">
+              <button type="button" data-mode="steps" aria-pressed="true">Steps</button>
+              <button type="button" data-mode="slide" aria-pressed="false">Slide</button>
+            </div>
+
+            <label class="control" for="speed">
+              <span><b>Travel speed</b><output id="speedOut" for="speed">0.035 T/s</output></span>
+              <input id="speed" type="range" min="0.005" max="0.12" step="0.001" value="0.035" />
+            </label>
+
+            <div class="grammar-card staircase-frame-card" aria-label="Current depth frame">
+              <span><b>Step</b><code id="stepReadout">03 / 24</code></span>
+              <span><b>Band</b><code id="bandReadout">iter 14.2—17.5</code></span>
+              <span><b>Clock</b><code id="clockReadout">whole interval · 12%</code></span>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form">
+          <summary class="group-summary">
+            <h2 class="group-title">View</h2>
+            <span class="section-state" id="viewSummary">Seahorse · 80.6×</span>
+          </summary>
+          <div class="group-body">
+            <div class="staircase-view-grid" role="group" aria-label="Fractal locations">
+              <button type="button" data-view="seahorse" aria-pressed="true">Seahorse</button>
+              <button type="button" data-view="overview" aria-pressed="false">Whole set</button>
+              <button type="button" data-view="spiral" aria-pressed="false">Spiral arms</button>
+              <button type="button" data-view="needle" aria-pressed="false">Mini set</button>
+            </div>
+            <button class="mini-action staircase-reset-view" id="resetView" type="button">Reset selected view</button>
+            <div class="grammar-card staircase-view-card" aria-label="Current fractal viewport">
+              <span><b>Center</b><code id="centerOut">−0.7436439 + 0.1318259i</code></span>
+              <span><b>Zoom</b><code id="zoomOutText">80.6× · WebGL live</code></span>
+            </div>
+            <p class="control-note">
+              Drag to pan. Wheel or trackpad-pinch to zoom around the pointer. Double-click dives in; keyboard controls are listed on the canvas.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="structure">
+          <summary class="group-summary">
+            <h2 class="group-title">Stripes</h2>
+            <span class="section-state" id="stripeSummary">24 steps · width 7</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="startIteration">
+              <span><b>First depth</b><output id="startIterationOut" for="startIteration">12</output></span>
+              <input id="startIteration" type="range" min="2" max="48" step="1" value="12" />
+            </label>
+            <label class="control" for="maxIterations">
+              <span><b>Field detail</b><output id="maxIterationsOut" for="maxIterations">260 iter</output></span>
+              <input id="maxIterations" type="range" min="80" max="360" step="4" value="260" />
+            </label>
+            <label class="control" for="steps">
+              <span><b>Stair steps</b><output id="stepsOut" for="steps">24</output></span>
+              <input id="steps" type="range" min="8" max="36" step="1" value="24" />
+            </label>
+            <label class="control" for="stripePeriod">
+              <span><b>Stripe width</b><output id="stripePeriodOut" for="stripePeriod">7.0 iter</output></span>
+              <input id="stripePeriod" type="range" min="1" max="18" step="0.1" value="7" />
+            </label>
+            <label class="control" for="edgeSoftness">
+              <span><b>Edge softness</b><output id="edgeSoftnessOut" for="edgeSoftness">0.9 iter</output></span>
+              <input id="edgeSoftness" type="range" min="0.1" max="4" step="0.1" value="0.9" />
+            </label>
+            <p class="control-note">
+              Thin colored rails are exponentially spaced escape-depth thresholds. The dark region is the complete current interval; the bright inner rail shows motion within it.
+            </p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>
+            Reset all parameters
+          </button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Drag to pan the Mandelbrot field. Use the mouse wheel or trackpad pinch to zoom around the pointer. Press plus or minus to zoom, Home to reset the selected view, Space to play or pause, and Left or Right Arrow to move by one depth step.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="striped-staircase-app.js"></script>
+  </body>
+</html>

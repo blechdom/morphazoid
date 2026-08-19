@@ -768,11 +768,6 @@ $("resetChaoticFm").addEventListener("click", () => {
 });
 
 canvas.addEventListener("keydown", (event) => {
-  if (event.key === " ") {
-    event.preventDefault();
-    toggleAudio();
-    return;
-  }
   if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
   event.preventDefault();
   const increment = event.key === "ArrowUp" ? 1 : -1;

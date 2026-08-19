@@ -492,21 +492,25 @@ function setSupportState() {
   $("synthPlayButton").disabled = !support.supported || Boolean(audioStartPromise);
 }
 
+function paintAudioReadout() {
+  $("engineBadge").textContent = state.audioOn
+    ? state.synthPlaying ? "Synth playing" : "WebGPU ready"
+    : "WGSL compute voice";
+  $("stageReadout").textContent = state.audioOn
+    ? `WEBGPU - ${Math.round(engine?.sampleRate ?? 44100)} HZ - ${state.synthPlaying ? "SYNTH PLAYING" : "SYNTH PAUSED"}`
+    : "WEBGPU - STANDBY - AUDIO OFF";
+  $("stage").setAttribute(
+    "aria-label",
+    `WebGPU 303 acid pattern, harmonic partials, and output trace. Audio ${state.audioOn ? "on" : "off"}.`,
+  );
+}
+
 function setAudioState(enabled) {
   state.audioOn = enabled;
   $("audioButton").disabled = !support.supported || Boolean(audioStartPromise);
   $("audioButton").setAttribute("aria-pressed", String(enabled));
   $("audioState").textContent = enabled ? "on" : "off";
-  $("engineBadge").textContent = enabled
-    ? state.synthPlaying ? "Synth playing" : "WebGPU ready"
-    : "WGSL compute voice";
-  $("stageReadout").textContent = enabled
-    ? `WEBGPU - ${Math.round(engine?.sampleRate ?? 44100)} HZ - ${state.synthPlaying ? "SYNTH PLAYING" : "SYNTH PAUSED"}`
-    : "WEBGPU - STANDBY - AUDIO OFF";
-  $("stage").setAttribute(
-    "aria-label",
-    `WebGPU 303 acid pattern, harmonic partials, and output trace. Audio ${enabled ? "on" : "off"}.`,
-  );
+  paintAudioReadout();
   if (enabled && engine) {
     $("gpuState").textContent = "WebGPU streaming";
     $("streamState").textContent = `${Math.round(engine.chunkDurationInSeconds * 1000)} ms chunks in Web Audio`;
@@ -530,7 +534,8 @@ function setSynthPlayState(enabled, { quiet = false } = {}) {
   }
   state.synthPlaying = nextPlaying;
   engine?.setPlaybackEnabled(nextPlaying);
-  setAudioState(state.audioOn);
+  setSynthPlayButtonState();
+  paintAudioReadout();
   if (!quiet) announce(nextPlaying ? "WebGPU 303 synth playing." : "WebGPU 303 synth paused.");
 }
 
@@ -908,8 +913,8 @@ async function toggleSynthPlay() {
     return;
   }
   if (!state.audioOn) {
-    const started = await startAudio();
-    if (!started) return;
+    announce("Turn Audio on before playing the synth.");
+    return;
   }
   setSynthPlayState(true);
 }

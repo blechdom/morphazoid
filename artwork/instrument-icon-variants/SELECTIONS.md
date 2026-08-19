@@ -20,12 +20,12 @@ folder.
 9. [ ] Solid Drum Machine - [open folder](solid-drums/)
 10. [ ] Hyper Drum Machine - [open folder](hyper-drums/)
 11. [ ] L-System Drum Machine - [open folder](l-system-drums/)
-12. [ ] Rattle Snake Boogie - [open folder](linear-drums-machine/)
+12. [ ] Rattle Snake Skin - [open folder](linear-drums-machine/)
 
 ## Signal & Voice
 
 13. [ ] Lumber Loops - [open folder](lumber/)
-14. [ ] L-mic - [open folder](micmic/)
+14. [ ] L-system Delay - [open folder](micmic/)
 15. [ ] Graph Delay - [open folder](graph-delay/)
 16. [ ] Throatazoid - [open folder](throatazoid/)
 

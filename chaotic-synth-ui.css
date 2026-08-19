@@ -471,3 +471,247 @@
     font-size: 9px;
   }
 }
+
+/* Code-audited algorithm and output references shared by Chaos Synths. */
+.chaos-dsp-reference-section .group-body {
+  gap: 0;
+}
+
+.chaos-dsp-reference-meta {
+  display: grid;
+  padding: 10px 0 12px;
+  grid-template-columns: minmax(92px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.chaos-dsp-reference-meta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chaos-dsp-engine {
+  padding: 4px 6px;
+  border: 1px solid color-mix(in oklab, var(--accent) 52%, var(--line-strong));
+  border-radius: 4px;
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.chaos-dsp-topology {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.chaos-dsp-figure {
+  margin: 0;
+  padding: 14px 0 16px;
+  border-top: 1px solid var(--line);
+}
+
+.chaos-dsp-figure figcaption {
+  display: grid;
+  margin: 0 0 13px;
+  gap: 4px;
+}
+
+.chaos-dsp-figure figcaption b {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 720;
+  letter-spacing: 0;
+}
+
+.chaos-dsp-figure figcaption code {
+  color: color-mix(in oklab, var(--accent) 72%, var(--muted));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.chaos-dsp-drawing,
+.chaos-dsp-lane,
+.chaos-dsp-branch-section {
+  min-width: 0;
+}
+
+.chaos-dsp-lane-title {
+  margin: 0 0 8px;
+  color: var(--faint);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.chaos-dsp-sequence {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  gap: 17px;
+}
+
+.chaos-dsp-step {
+  --chaos-dsp-step-color: color-mix(in oklab, var(--accent) 70%, var(--muted));
+  position: relative;
+  display: grid;
+  min-width: 0;
+  padding: 7px 8px 7px 10px;
+  border: 1px solid color-mix(in oklab, var(--chaos-dsp-step-color) 44%, var(--line));
+  border-left: 3px solid var(--chaos-dsp-step-color);
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--bg-deep) 90%, transparent);
+  gap: 3px;
+}
+
+.chaos-dsp-step.is-control {
+  --chaos-dsp-step-color: #7fb9ff;
+}
+
+.chaos-dsp-step.is-oscillator {
+  --chaos-dsp-step-color: #7dd8bf;
+}
+
+.chaos-dsp-step.is-nonlinear {
+  --chaos-dsp-step-color: #ff9f73;
+}
+
+.chaos-dsp-step.is-mix {
+  --chaos-dsp-step-color: #c4a7ff;
+}
+
+.chaos-dsp-step.is-guard {
+  --chaos-dsp-step-color: #e5c963;
+}
+
+.chaos-dsp-step.is-output {
+  --chaos-dsp-step-color: #f2efe8;
+}
+
+.chaos-dsp-step:not(:last-child)::after {
+  position: absolute;
+  bottom: -14px;
+  left: calc(50% - 1px);
+  width: 1px;
+  height: 12px;
+  background: color-mix(in oklab, var(--chaos-dsp-step-color) 66%, transparent);
+  content: "";
+}
+
+.chaos-dsp-step:not(:last-child)::before {
+  position: absolute;
+  z-index: 1;
+  bottom: -16px;
+  left: calc(50% - 4px);
+  width: 6px;
+  height: 6px;
+  border-right: 1px solid var(--chaos-dsp-step-color);
+  border-bottom: 1px solid var(--chaos-dsp-step-color);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.chaos-dsp-step-title {
+  min-width: 0;
+  color: color-mix(in oklab, var(--chaos-dsp-step-color) 80%, var(--ink));
+  font-size: 9px;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.chaos-dsp-step-detail {
+  min-width: 0;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 7.5px;
+  letter-spacing: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.chaos-dsp-sequence.is-compact {
+  gap: 15px;
+}
+
+.chaos-dsp-sequence.is-compact .chaos-dsp-step {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.chaos-dsp-section-connector {
+  position: relative;
+  display: block;
+  width: 1px;
+  height: 20px;
+  margin: 0 auto;
+  background: color-mix(in oklab, var(--accent) 58%, transparent);
+}
+
+.chaos-dsp-section-connector::after {
+  position: absolute;
+  right: -3px;
+  bottom: 1px;
+  width: 6px;
+  height: 6px;
+  border-right: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.chaos-dsp-branches {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 12px;
+}
+
+.chaos-dsp-branches .chaos-dsp-lane {
+  padding: 8px;
+  border: 1px solid color-mix(in oklab, var(--line-strong) 72%, transparent);
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--bg-deep) 72%, transparent);
+}
+
+.chaos-dsp-archive-link {
+  display: block;
+  padding: 11px 0 1px;
+  border-top: 1px solid var(--line);
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 390px) {
+  .chaos-dsp-reference-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .chaos-dsp-engine {
+    justify-self: start;
+  }
+
+  .chaos-dsp-branches {
+    grid-template-columns: 1fr;
+  }
+}

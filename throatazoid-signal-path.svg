@@ -1,0 +1,220 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Throatazoid synthesis and DSP signal path</title>
+  <desc id="desc">A simplified architectural diagram showing microphone and internal glottal sources, input conditioning, the preferred physical waveguide, the resonator fallback, wet and dry mixing, mastering, recording, and the control and pressure telemetry paths.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#020302"/>
+      <stop offset="0.62" stop-color="#071009"/>
+      <stop offset="1" stop-color="#020302"/>
+    </linearGradient>
+    <linearGradient id="physical" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10170d"/>
+      <stop offset="1" stop-color="#070a07"/>
+    </linearGradient>
+    <linearGradient id="fallback" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#100d18"/>
+      <stop offset="1" stop-color="#08070b"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d8ff57"/>
+    </marker>
+    <marker id="arrowCyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#79dcff"/>
+    </marker>
+    <marker id="arrowViolet" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c6a0ff"/>
+    </marker>
+    <style>
+      .title { fill: #e8eddf; font: 700 31px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 1px; }
+      .subtitle { fill: #7d8573; font: 15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .section { fill: #d8ff57; font: 700 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 2.2px; }
+      .section-violet { fill: #c6a0ff; font: 700 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 2.2px; }
+      .label { fill: #e8eddf; font: 700 15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .small { fill: #aeb7a8; font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .tiny { fill: #7d8573; font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .lime { fill: #d8ff57; }
+      .cyan { fill: #79dcff; }
+      .violet { fill: #c6a0ff; }
+      .wound { fill: #ff745f; }
+      .box { fill: #080b08; stroke: #374135; stroke-width: 1.4; rx: 12; }
+      .box-lime { fill: #0b1008; stroke: #8fab38; stroke-width: 1.5; rx: 12; }
+      .box-cyan { fill: #071013; stroke: #39798d; stroke-width: 1.5; rx: 12; }
+      .box-violet { fill: #0d0a13; stroke: #69578c; stroke-width: 1.5; rx: 12; }
+      .panel-physical { fill: url(#physical); stroke: #536b32; stroke-width: 1.5; rx: 18; }
+      .panel-fallback { fill: url(#fallback); stroke: #5b4a79; stroke-width: 1.5; rx: 18; }
+      .signal { fill: none; stroke: #d8ff57; stroke-width: 2.3; marker-end: url(#arrow); }
+      .control { fill: none; stroke: #79dcff; stroke-width: 1.7; stroke-dasharray: 7 6; marker-end: url(#arrowCyan); }
+      .alternate { fill: none; stroke: #c6a0ff; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrowViolet); }
+      .hairline { fill: none; stroke: #43503f; stroke-width: 1.2; }
+      .junction { fill: #d8ff57; filter: url(#glow); }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1080" fill="url(#background)"/>
+  <path d="M0 82H1800" stroke="#253024" stroke-width="1"/>
+  <text id="diagram-title" x="50" y="46" class="title">THROATAZOID / SIGNAL + DSP ARCHITECTURE</text>
+  <text x="50" y="69" class="subtitle">current browser runtime · preferred physical tract with explicit resonator fallback</text>
+
+  <text x="50" y="116" class="section">01 / EXCITATION</text>
+  <rect x="50" y="136" width="260" height="92" class="box-cyan"/>
+  <text x="74" y="170" class="label cyan">MICROPHONE</text>
+  <text x="74" y="195" class="small">70 Hz HPF → compressor</text>
+  <text x="74" y="214" class="tiny">AGC / suppression disabled</text>
+
+  <rect x="50" y="252" width="260" height="132" class="box-lime"/>
+  <text x="74" y="286" class="label lime">INTERNAL GLOTTIS</text>
+  <text x="74" y="311" class="small">LF-derived 48-harmonic pulse</text>
+  <text x="74" y="331" class="small">+ filtered aspiration noise</text>
+  <text x="74" y="351" class="tiny">pitch · intensity · tenseness</text>
+  <text x="74" y="369" class="tiny">vibrato 5.2 Hz · wobble 0.43 Hz</text>
+
+  <rect x="50" y="414" width="260" height="108" class="box-violet"/>
+  <text x="74" y="448" class="label violet">POLYPHONIC VOICES ×7</text>
+  <text x="74" y="473" class="small">independent pitch / detune</text>
+  <text x="74" y="493" class="small">direct to mouth inputs 1–7</text>
+  <text x="74" y="511" class="tiny">Singing / Choir modes only</text>
+
+  <text x="360" y="116" class="section">02 / CONDITION + SPLIT</text>
+  <rect x="360" y="176" width="245" height="148" class="box"/>
+  <text x="384" y="210" class="label">SOURCE SELECT</text>
+  <text x="384" y="236" class="small">mic / glottis / hybrid</text>
+  <text x="384" y="258" class="tiny">hybrid: 0.68 × each source</text>
+  <path d="M384 276H581" class="hairline"/>
+  <text x="384" y="299" class="small">Input Hunger / trim</text>
+
+  <rect x="655" y="197" width="208" height="106" class="box-lime"/>
+  <text x="679" y="231" class="label lime">INPUT HUB</text>
+  <text x="679" y="257" class="small">55 Hz HPF</text>
+  <text x="679" y="278" class="small">level analyser</text>
+
+  <path d="M310 181H334Q348 181 348 195V215Q348 229 360 229" class="signal"/>
+  <path d="M310 318H334Q348 318 348 304V285Q348 271 360 271" class="signal"/>
+  <path d="M605 250H655" class="signal"/>
+  <circle cx="882" cy="250" r="5" class="junction"/>
+  <path d="M863 250H882" class="signal"/>
+
+  <rect x="905" y="105" width="845" height="500" class="panel-physical"/>
+  <text x="933" y="137" class="section">03A / PHYSICAL TRACT — AUDIOWORKLET (PREFERRED)</text>
+  <text x="933" y="161" class="tiny">volume-flow digital waveguide · 2 propagation substeps per output sample</text>
+
+  <rect x="934" y="194" width="154" height="122" class="box-lime"/>
+  <text x="954" y="224" class="label lime">GLANDS ×1–4</text>
+  <text x="954" y="249" class="small">ducts: 3 / 5 / 7 / 11</text>
+  <text x="954" y="270" class="small">valves + levels</text>
+  <text x="954" y="290" class="small">reflective endings</text>
+  <text x="954" y="308" class="tiny">same source, phase-colored</text>
+
+  <rect x="1121" y="194" width="154" height="122" class="box-lime"/>
+  <text x="1141" y="224" class="label lime">SOURCE HUB</text>
+  <text x="1141" y="249" class="small">flow-scatter junction</text>
+  <text x="1141" y="270" class="small">→ 8-section root</text>
+  <text x="1141" y="291" class="tiny">glottal closure at inlet</text>
+
+  <rect x="1308" y="194" width="154" height="122" class="box-lime"/>
+  <text x="1328" y="224" class="label lime">MANIFOLD</text>
+  <text x="1328" y="249" class="small">root ↔ 1–7 mouths</text>
+  <text x="1328" y="270" class="small">N-port area scatter</text>
+  <text x="1328" y="291" class="tiny">coupling = return depth</text>
+
+  <rect x="1495" y="179" width="225" height="152" class="box-lime"/>
+  <text x="1515" y="209" class="label lime">MOUTH AIRWAYS ×1–7</text>
+  <text x="1515" y="234" class="small">36 sections each</text>
+  <text x="1515" y="255" class="small">tongue / lips / closures</text>
+  <text x="1515" y="276" class="small">local frication + bursts</text>
+  <text x="1515" y="297" class="small">stereo pan → tanh</text>
+  <text x="1515" y="317" class="tiny">per-mouth direct input supported</text>
+
+  <path d="M1088 255H1121" class="signal"/>
+  <path d="M1275 255H1308" class="signal"/>
+  <path d="M1462 255H1495" class="signal"/>
+
+  <rect x="1119" y="375" width="339" height="126" class="box-cyan"/>
+  <text x="1143" y="407" class="label cyan">GEOMETRY + SCATTERING</text>
+  <text x="1143" y="433" class="small">diameter² → area → reflection coefficients</text>
+  <text x="1143" y="455" class="small">tube / junction loss · smoothed anatomy</text>
+  <text x="1143" y="477" class="tiny">44 oral sections total = 8 root + 36 mouth</text>
+
+  <rect x="1495" y="375" width="225" height="126" class="box-cyan"/>
+  <text x="1515" y="407" class="label cyan">NASAL BRANCHES</text>
+  <text x="1515" y="433" class="small">up to 3 × 28 sections</text>
+  <text x="1515" y="455" class="small">on every active mouth</text>
+  <text x="1515" y="477" class="tiny">oral–nasal N-port junction</text>
+
+  <path d="M1607 331V375" class="control"/>
+  <text x="1620" y="355" class="tiny cyan">side branch</text>
+  <path d="M310 468H812Q882 468 882 397V351Q882 335 898 335H1465Q1481 335 1481 319V311Q1481 295 1495 295" class="alternate"/>
+  <text x="471" y="454" class="tiny violet">direct per-mouth excitation bypasses shared source hub</text>
+
+  <path d="M882 250H905" class="signal"/>
+
+  <rect x="905" y="634" width="845" height="174" class="panel-fallback"/>
+  <text x="933" y="666" class="section-violet">03B / RESONATOR FALLBACK</text>
+  <text x="933" y="689" class="tiny">used when AudioWorklet is unavailable · its turbulence subpath can remain as an auxiliary layer</text>
+  <rect x="934" y="705" width="475" height="88" class="box-violet"/>
+  <text x="954" y="732" class="label violet">THROATS ×7</text>
+  <text x="954" y="755" class="small">HPF → 4 formants → LPF → drive/tanh</text>
+  <text x="954" y="776" class="small">delay → normal/ring mix → pan</text>
+  <rect x="1438" y="705" width="282" height="88" class="box-violet"/>
+  <text x="1458" y="732" class="label violet">NOSES ×3</text>
+  <text x="1458" y="755" class="small">LPF → pole → notch</text>
+  <text x="1458" y="776" class="small">delay → pan</text>
+  <path d="M882 250V721Q882 746 905 746" class="alternate"/>
+
+  <text x="50" y="641" class="section">CONTROL + FEEDBACK PLANE</text>
+  <rect x="50" y="661" width="785" height="147" class="box-cyan"/>
+  <text x="74" y="695" class="label cyan">UI STATE / PRESETS / PHONEMES</text>
+  <text x="74" y="721" class="small">mouths · tongues · noses · closures · pressure gates · source · mix</text>
+  <text x="74" y="746" class="small">Web Audio params + configure message → tract worklet</text>
+  <text x="74" y="773" class="tiny">pressure telemetry ← root / mouths / glands → canvas anatomy + meters</text>
+  <path d="M835 706H875Q895 706 895 686V540Q895 520 915 520H1188" class="control"/>
+  <path d="M1188 542H915Q895 542 895 562V786Q895 806 875 806H835" class="control"/>
+  <text x="940" y="532" class="tiny cyan">configuration</text>
+  <text x="941" y="559" class="tiny cyan">pressure telemetry</text>
+
+  <text x="50" y="858" class="section">04 / MIX + MASTER</text>
+  <rect x="50" y="882" width="240" height="108" class="box"/>
+  <text x="74" y="916" class="label">DRY TAP</text>
+  <text x="74" y="941" class="small">post-input analyser</text>
+  <text x="74" y="963" class="tiny">oral / glottal gate applied</text>
+  <path d="M882 250V851Q882 866 867 866H317Q302 866 302 881H290" class="signal"/>
+
+  <rect x="346" y="882" width="240" height="108" class="box-lime"/>
+  <text x="370" y="916" class="label lime">WET BUS</text>
+  <text x="370" y="941" class="small">physical or fallback output</text>
+  <text x="370" y="963" class="tiny">plus auxiliary turbulence</text>
+  <path d="M1720 255H1730V520" class="hairline"/>
+  <path d="M1720 438H1730V520" class="hairline"/>
+  <circle cx="1730" cy="520" r="5" class="junction"/>
+  <text x="1718" y="544" class="tiny" text-anchor="end">oral + nasal</text>
+  <path d="M1730 520H1760V838Q1760 854 1744 854H614Q598 854 598 870V936H586" class="signal"/>
+  <path d="M1720 746H1760" class="alternate"/>
+
+  <rect x="668" y="882" width="174" height="108" class="box-lime"/>
+  <text x="692" y="926" class="label lime">DRY + WET</text>
+  <text x="692" y="952" class="small">mix bus</text>
+  <path d="M170 990V1018H638Q654 1018 654 1002V976Q654 960 668 960" class="signal"/>
+  <path d="M586 936H668" class="signal"/>
+
+  <rect x="901" y="866" width="394" height="140" class="box"/>
+  <text x="925" y="898" class="label">OUTPUT SAFETY</text>
+  <text x="925" y="925" class="small">safety analyser → compressor</text>
+  <text x="925" y="948" class="small">±0.94 ceiling shaper → sqrt master</text>
+  <text x="925" y="973" class="tiny">output analyser / calibrated trim 0.82</text>
+  <path d="M842 936H901" class="signal"/>
+
+  <rect x="1360" y="882" width="390" height="108" class="box-cyan"/>
+  <text x="1384" y="916" class="label cyan">STEREO OUTPUT</text>
+  <text x="1384" y="942" class="small">speakers / selected device</text>
+  <text x="1384" y="965" class="small">+ MediaRecorder take</text>
+  <path d="M1295 936H1360" class="signal"/>
+
+  <path d="M50 1034H1750" stroke="#253024" stroke-width="1"/>
+  <circle cx="65" cy="1057" r="4" fill="#d8ff57"/><text x="78" y="1062" class="tiny">audio signal</text>
+  <path d="M205 1057H245" class="control"/><text x="258" y="1062" class="tiny">control / telemetry</text>
+  <path d="M430 1057H470" class="alternate"/><text x="483" y="1062" class="tiny">alternate / direct route</text>
+  <text x="1750" y="1062" class="tiny" text-anchor="end">Morphazoid · Throatazoid · architecture snapshot 2026-08-18</text>
+</svg>

@@ -7,6 +7,7 @@ import {
   TOOL_GROUPS,
   enhanceSharedNavigation,
   hydrateInstrumentPickers,
+  initializeAudioTransportContract,
   initializeMidiToolbars,
   initializeSharedNavigation,
   normalizeNavigationPath,
@@ -96,6 +97,14 @@ class FakeNode {
 
   getAttribute(name) {
     return this.attributes.get(name) ?? null;
+  }
+
+  removeAttribute(name) {
+    this.attributes.delete(name);
+  }
+
+  hasAttribute(name) {
+    return this.attributes.has(name);
   }
 
   addEventListener(type, listener) {
@@ -218,7 +227,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 81);
+  assert.equal(tools.length, 86);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -230,6 +239,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     tools.every((tool) => !Object.hasOwn(tool, "external")),
     true,
     "the menu registry must not introduce external destinations",
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "hyper-rubix"),
+    {
+      id: "hyper-rubix",
+      label: "Hyper Rubix",
+      href: "hyper-rubix.html",
+    },
   );
   assert.deepEqual(
     tools.find((tool) => tool.id === "fm-drums"),
@@ -259,8 +276,16 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     tools.find((tool) => tool.id === "linear-drums-machine"),
     {
       id: "linear-drums-machine",
-      label: "Rattle Snake Boogie",
+      label: "Rattle Snake Skin",
       href: "linear-drums-machine.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "gesturama"),
+    {
+      id: "gesturama",
+      label: "Gesturama",
+      href: "gesturama.html",
     },
   );
   assert.deepEqual(
@@ -341,6 +366,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "spiral", href: "spiral.html" },
       { id: "solid", href: "solid.html" },
       { id: "hyper", href: "hyper.html" },
+      { id: "hyper-rubix", href: "hyper-rubix.html" },
     ],
   );
   assert.deepEqual(
@@ -356,6 +382,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "hyper-drums", href: "hyper-drums.html" },
       { id: "l-system-drums", href: "l-system-drums.html" },
       { id: "linear-drums-machine", href: "linear-drums-machine.html" },
+      { id: "gesturama", href: "gesturama.html" },
     ],
   );
   assert.deepEqual(
@@ -380,9 +407,11 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
         href: "image-to-instrument-3.html",
       },
       { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
-      { id: "micmic", label: "L-mic", href: "l-mic.html" },
+      { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
       { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
       { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
+      { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
+      { id: "alien-larynx", label: "Alien Larynx", href: "alien-larynx.html" },
       {
         id: "spelling-synthesizer",
         label: "Spelling Synthesizer",
@@ -432,7 +461,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     tools.find((tool) => tool.id === "micmic"),
     {
       id: "micmic",
-      label: "L-mic",
+      label: "L-system Delay",
       href: "l-mic.html",
     },
   );
@@ -570,6 +599,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}l-mic.html`, SITE_ROOT)?.id, "micmic");
   assert.equal(resolveActiveTool(`${SITE_ROOT}micmic.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}graph-delay.html`, SITE_ROOT)?.id, "graph-delay");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}alien-larynx.html`, SITE_ROOT)?.id, "alien-larynx");
   assert.equal(resolveActiveTool(`${SITE_ROOT}audio-engine-lab.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}shepard-risset.html`, SITE_ROOT)?.id, "shepard-risset");
   assert.equal(resolveActiveTool(`${SITE_ROOT}drum-roll-please.html`, SITE_ROOT)?.id, "drum-roll-please");
@@ -633,10 +663,12 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
     "linear-drums-machine",
   );
   assert.equal(resolveActiveTool(`${SITE_ROOT}sample-drums.html`, SITE_ROOT)?.id, "sample-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}gesturama.html`, SITE_ROOT)?.id, "gesturama");
   assert.equal(resolveActiveTool(`${SITE_ROOT}shape-drums.html`, SITE_ROOT)?.id, "shape-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}lattice-drums.html`, SITE_ROOT)?.id, "lattice-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}spiral-drums.html`, SITE_ROOT)?.id, "spiral-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}solid-drums.html`, SITE_ROOT)?.id, "solid-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-rubix.html`, SITE_ROOT)?.id, "hyper-rubix");
   assert.equal(resolveActiveTool(`${SITE_ROOT}rubix.html`, SITE_ROOT)?.id, "rubix");
   assert.equal(resolveActiveTool(`${SITE_ROOT}hyper-drums.html`, SITE_ROOT)?.id, "hyper-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}l-system-drums.html`, SITE_ROOT)?.id, "l-system-drums");
@@ -810,7 +842,7 @@ test("custom instrument layouts can opt out of the shared catalog card", () => {
   assert.equal(doc.panel.querySelector(".instrument-page-info"), null);
 });
 
-test("top Audio buttons become square accessible speaker controls", async () => {
+test("top Audio buttons expose icon-only accessible on/off speaker controls", async () => {
   const button = new FakeNode("button");
   button.className = "audio-button";
   button.setAttribute("aria-pressed", "false");
@@ -820,11 +852,21 @@ test("top Audio buttons become square accessible speaker controls", async () => 
   status.id = "audioState";
   status.textContent = "off";
   button.append(oldGlyph, status);
+  const customButton = new FakeNode("button");
+  customButton.className = "audio-toggle";
+  customButton.setAttribute("aria-pressed", "false");
+  const customDot = new FakeNode("span");
+  customDot.className = "audio-dot";
+  const customStatus = new FakeNode("small");
+  customStatus.id = "audioState";
+  customStatus.textContent = "off";
+  customButton.append(customDot, customStatus);
   const doc = {
     createElement(tagName) { return new FakeNode(tagName); },
     querySelectorAll(selector) {
-      assert.equal(selector, ".audio-button");
-      return [button];
+      if (selector === ".audio-button") return [button];
+      if (selector === ".audio-toggle") return [customButton];
+      assert.fail(`Unexpected selector: ${selector}`);
     },
   };
 
@@ -835,6 +877,20 @@ test("top Audio buttons become square accessible speaker controls", async () => 
   assert.equal(button.getAttribute("data-audio-state"), "off");
   assert.equal(button.getAttribute("aria-label"), "Turn audio on");
   assert.equal(button.getAttribute("title"), "Audio off");
+  assert.equal(button.querySelector(".audio-speaker-copy"), null);
+  assert.equal(oldGlyph.getAttribute("aria-hidden"), "true");
+  assert.equal(status.getAttribute("aria-hidden"), "true");
+  assert.equal(
+    customButton.querySelector(".audio-speaker-icon"),
+    null,
+    "the custom workbench keeps its single authored CSS speaker icon",
+  );
+  assert.equal(customButton.getAttribute("data-audio-icon-ready"), "true");
+  assert.equal(customButton.getAttribute("data-audio-state"), "off");
+  assert.equal(customButton.getAttribute("aria-label"), "Turn audio on");
+  assert.equal(customButton.getAttribute("title"), "Audio off");
+  assert.equal(customDot.getAttribute("aria-hidden"), "true");
+  assert.equal(customStatus.getAttribute("aria-hidden"), "true");
 
   button.setAttribute("aria-pressed", "true");
   status.textContent = "on";
@@ -843,12 +899,204 @@ test("top Audio buttons become square accessible speaker controls", async () => 
   assert.equal(button.getAttribute("data-audio-state"), "on");
   assert.equal(button.getAttribute("aria-label"), "Turn audio off");
   assert.equal(button.getAttribute("title"), "Audio on");
+  assert.equal(button.querySelector(".audio-speaker-copy"), null);
+
+  customButton.setAttribute("aria-pressed", "true");
+  customStatus.textContent = "on";
+  normalizeAudioButtonIcons(doc);
+  assert.equal(customButton.getAttribute("data-audio-state"), "on");
+  assert.equal(customButton.getAttribute("aria-label"), "Turn audio off");
+  assert.equal(customButton.getAttribute("title"), "Audio on");
+  assert.equal(customButton.querySelector(".audio-speaker-icon"), null);
 
   const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
-  assert.match(css, /\.audio-button\s*\{[^}]*width: 44px;[^}]*height: 44px;/s);
-  assert.match(css, /\.audio-button > :not\(\.audio-speaker-icon\)\s*\{[^}]*display: none !important;/s);
-  assert.match(css, /\.audio-speaker-icon\s*\{[^}]*mask: url\("data:image\/svg\+xml/s);
-  assert.match(css, /\.audio-button\[aria-pressed="true"\]\s*\{[^}]*color: var\(--accent\);/s);
+  assert.match(css, /--audio-control-width:\s*44px/);
+  assert.match(css, /\.audio-button\s*\{[^}]*width: var\(--audio-control-width\);[^}]*height: 44px;/s);
+  assert.match(
+    css,
+    /\.audio-button > :not\(\.audio-speaker-icon\),\s*\.audio-speaker-copy\s*\{[^}]*position: absolute !important;[^}]*width: 1px !important;[^}]*clip-path: inset\(50%\) !important;/s,
+    "authored Audio copy is visually hidden but remains available as the no-script accessible name",
+  );
+  assert.match(
+    css,
+    /\.audio-button::before,\s*\.audio-speaker-icon\s*\{[^}]*mask: url\("data:image\/svg\+xml/s,
+    "a CSS speaker-off icon is present even before JavaScript normalization",
+  );
+  assert.doesNotMatch(css, /\.audio-button > :not\(\.audio-speaker-icon\)[^}]*display:\s*none/s);
+  assert.match(css, /m16 9 6 6M22 9l-6 6/);
+  assert.match(css, /\.audio-button\[aria-pressed="true"\]\s*\{[^}]*color: var\(--bg-deep\);[^}]*background: var\(--accent\);[^}]*box-shadow:/s);
+  assert.match(
+    css,
+    /@media\s*\(pointer:\s*coarse\)\s*\{[\s\S]*?\.audio-button,\s*#playButton,\s*\[data-primary-transport\]\s*\{[^}]*min-width:\s*48px;[^}]*min-height:\s*48px/s,
+  );
+});
+
+test("shared Space transport stays independent from Audio and guides Audio-off playback", () => {
+  const doc = new FakeDocument();
+  const masthead = new FakeNode("header");
+  masthead.className = "masthead";
+  const audioButton = new FakeNode("button");
+  audioButton.className = "audio-button";
+  audioButton.setAttribute("aria-pressed", "false");
+  const playButton = new FakeNode("button");
+  playButton.id = "playButton";
+  playButton.setAttribute("aria-pressed", "false");
+  let playClicks = 0;
+  playButton.click = () => {
+    playClicks += 1;
+    playButton.setAttribute(
+      "aria-pressed",
+      playButton.getAttribute("aria-pressed") === "true" ? "false" : "true",
+    );
+  };
+  masthead.append(audioButton, playButton);
+
+  const baseQuerySelector = doc.querySelector.bind(doc);
+  const baseQuerySelectorAll = doc.querySelectorAll.bind(doc);
+  doc.querySelector = (selector) => {
+    if (selector === ".audio-button" || selector === "#audioButton") return audioButton;
+    if (selector === "#playButton") return playButton;
+    if (selector === ".masthead") return masthead;
+    return baseQuerySelector(selector);
+  };
+  doc.querySelectorAll = (selector) => {
+    if (selector === "[data-primary-transport]") return [];
+    return baseQuerySelectorAll(selector);
+  };
+  const listenerOptions = [];
+  const baseAddEventListener = doc.addEventListener.bind(doc);
+  doc.addEventListener = (type, listener, options) => {
+    listenerOptions.push([type, options]);
+    baseAddEventListener(type, listener);
+  };
+
+  const runtime = { queueMicrotask(callback) { callback(); } };
+  const contract = initializeAudioTransportContract(doc, runtime);
+  assert.equal(contract.primaryTransport, playButton);
+  assert.equal(playButton.getAttribute("aria-keyshortcuts"), "Space");
+  assert.deepEqual(
+    listenerOptions.filter(([type]) => type === "keydown"),
+    [["keydown", true]],
+    "exactly one capture-phase Space owner is installed",
+  );
+  assert.equal(initializeAudioTransportContract(doc, runtime), contract);
+  assert.equal(doc.listeners.get("keydown").length, 1);
+  assert.equal(contract.status.parentNode, masthead);
+  assert.equal(contract.status.getAttribute("role"), "status");
+  assert.equal(contract.status.getAttribute("aria-live"), "polite");
+  assert.equal(contract.status.hidden, true);
+
+  const surface = new FakeNode("main");
+  let prevented = 0;
+  let stopped = 0;
+  doc.dispatch("keydown", {
+    code: "Space",
+    key: " ",
+    target: surface,
+    preventDefault() { prevented += 1; },
+    stopImmediatePropagation() { stopped += 1; },
+  });
+  assert.equal(playClicks, 1);
+  assert.equal(prevented, 1);
+  assert.equal(stopped, 1);
+  assert.equal(playButton.getAttribute("aria-pressed"), "true");
+  assert.equal(audioButton.getAttribute("aria-pressed"), "false");
+  assert.equal(contract.status.hidden, false);
+  assert.equal(contract.status.textContent, "Audio is off — turn it on to hear playback");
+  assert.equal(audioButton.getAttribute("data-audio-attention"), "true");
+
+  audioButton.setAttribute("aria-pressed", "true");
+  doc.dispatch("click", { target: audioButton });
+  assert.equal(contract.status.hidden, true);
+  assert.equal(audioButton.getAttribute("data-audio-attention"), null);
+
+  audioButton.setAttribute("aria-pressed", "false");
+  contract.sync();
+  assert.equal(contract.status.hidden, false, "an already-running silent transport stays explained");
+  doc.dispatch("click", { target: playButton });
+  playButton.setAttribute("aria-pressed", "false");
+  contract.sync();
+  assert.equal(contract.status.hidden, true);
+
+  doc.dispatch("click", { target: playButton });
+  assert.equal(contract.status.hidden, false, "a rejected Audio-off Play request gets guidance");
+  doc.dispatch("click", { target: playButton });
+  assert.equal(
+    contract.status.hidden,
+    false,
+    "repeated rejected Play requests do not alternate the Audio-off guidance",
+  );
+
+  const ignoredTargets = [
+    new FakeNode("input"),
+    new FakeNode("select"),
+    new FakeNode("textarea"),
+    new FakeNode("button"),
+    new FakeNode("summary"),
+  ];
+  const editable = new FakeNode("div");
+  editable.setAttribute("contenteditable", "true");
+  ignoredTargets.push(editable);
+  const slider = new FakeNode("div");
+  slider.setAttribute("role", "slider");
+  ignoredTargets.push(slider);
+  const nestedButton = new FakeNode("button");
+  const nestedButtonIcon = new FakeNode("svg");
+  nestedButton.append(nestedButtonIcon);
+  ignoredTargets.push(nestedButtonIcon);
+
+  for (const target of ignoredTargets) {
+    let ignoredPrevented = false;
+    let ignoredStopped = false;
+    doc.dispatch("keydown", {
+      code: "Space",
+      key: " ",
+      target,
+      preventDefault() { ignoredPrevented = true; },
+      stopImmediatePropagation() { ignoredStopped = true; },
+    });
+    assert.equal(ignoredPrevented, false, `${target.tagName} keeps its native Space behavior`);
+    assert.equal(ignoredStopped, false, `${target.tagName} remains available to page handlers`);
+  }
+
+  for (const override of [
+    { defaultPrevented: true },
+    { repeat: true },
+    { isComposing: true },
+    { altKey: true },
+    { ctrlKey: true },
+    { metaKey: true },
+    { shiftKey: true },
+  ]) {
+    let guardedPrevented = false;
+    let guardedStopped = false;
+    doc.dispatch("keydown", {
+      code: "Space",
+      key: " ",
+      target: surface,
+      ...override,
+      preventDefault() { guardedPrevented = true; },
+      stopImmediatePropagation() { guardedStopped = true; },
+    });
+    assert.equal(guardedPrevented, false, "guarded Space preserves the browser default");
+    assert.equal(guardedStopped, true, "guarded Space cannot reach legacy transport handlers");
+    assert.equal(playClicks, 1, "guarded Space never activates the transport");
+  }
+
+  playButton.disabled = true;
+  let disabledPrevented = false;
+  let disabledStopped = false;
+  doc.dispatch("keydown", {
+    code: "Space",
+    target: surface,
+    preventDefault() { disabledPrevented = true; },
+    stopImmediatePropagation() { disabledStopped = true; },
+  });
+  assert.equal(disabledPrevented, false);
+  assert.equal(disabledStopped, true, "disabled transports stay protected from legacy handlers");
+  assert.equal(playClicks, 1);
+  contract.destroy();
+  assert.equal(doc.listeners.get("keydown").length, 0);
 });
 
 test("one header MIDI control owns connection and controller profile selection", async () => {
@@ -931,11 +1179,6 @@ test("one header MIDI control owns connection and controller profile selection",
   assert.deepEqual(audioStrip.children, [outputLevel, audioButton]);
   assert.equal(initializeMidiToolbars(doc, runtime, manager).length, 0);
   assert.equal(masthead.findAll((node) => node.className === "midi-toolbar").length, 1);
-  const initialHint = control.details.findAll(
-    (node) => node.className === "midi-profile-hint",
-  )[0];
-  assert.equal(initialHint.hidden, true);
-  assert.equal(initialHint.textContent, "");
 
   await control.toggle.listeners.get("click")[0]();
   assert.deepEqual(requests, [{ sysex: false }]);
@@ -945,41 +1188,83 @@ test("one header MIDI control owns connection and controller profile selection",
   const settingsSummary = control.details.children[0];
   assert.equal(
     settingsSummary.getAttribute("aria-label"),
-    "Open input, output, and MIDI settings",
+    "Morphazoid Settings",
   );
-  assert.equal(settingsSummary.getAttribute("title"), "Settings");
+  assert.equal(settingsSummary.getAttribute("title"), "Morphazoid Settings");
   assert.equal(settingsSummary.children.length, 1);
   assert.equal(settingsSummary.children[0].className, "header-settings-icon");
   assert.equal(control.details.getAttribute("role"), null, "settings is a disclosure, not an ARIA menu");
+  const settingsHeading = control.details.findAll(
+    (node) => node.className === "header-settings-heading",
+  )[0];
+  assert.equal(settingsHeading.children.length, 1);
+  assert.equal(settingsHeading.children[0].textContent, "Morphazoid Settings");
+  const settingsRows = control.details.findAll(
+    (node) => node.classList.contains("header-settings-section"),
+  );
+  assert.equal(settingsRows.length, 5, "settings has exactly five control rows");
   assert.deepEqual(
     control.details.findAll((node) => node.className === "header-settings-section-title")
       .map((node) => node.textContent),
     ["Audio Out", "Mic / Audio In", "MIDI In", "MIDI Out", "MIDI Map"],
   );
-  assert.equal(control.meter.tagName, "METER");
-  assert.equal(control.meter.getAttribute("aria-label"), "Audio output signal level");
+  assert.deepEqual(
+    settingsRows.map((row) => row.children[1]),
+    [
+      control.audioOutputSelect,
+      control.audioInputSelect,
+      control.midiInputSelect,
+      control.midiOutputSelect,
+      control.select,
+    ],
+  );
+  for (const row of settingsRows) {
+    assert.equal(row.children.length, 2, "each compact row is directly one label and one select");
+    assert.equal(row.children[0].tagName, "LABEL");
+    assert.equal(row.children[1].tagName, "SELECT");
+    assert.equal(row.children[0].getAttribute("for"), row.children[1].id);
+  }
+  for (const removedClass of [
+    "header-settings-copy",
+    "midi-keyboard-hint",
+    "midi-profile-status",
+    "midi-profile-hint",
+  ]) {
+    assert.equal(
+      control.details.findAll((node) => node.classList.contains(removedClass)).length,
+      0,
+      `${removedClass} routine prose is removed from the compact menu`,
+    );
+  }
+  assert.equal(control.meter, control.leftMeter, "the legacy meter handle aliases Left");
+  assert.equal(control.leftMeter.tagName, "METER");
+  assert.equal(control.rightMeter.tagName, "METER");
+  assert.equal(control.meterShell.getAttribute("role"), "group");
+  assert.equal(control.meterShell.getAttribute("aria-label"), "Stereo audio output levels");
+  assert.deepEqual(
+    control.meterShell.children.map((channel) => channel.children[0].textContent),
+    ["L", "R"],
+  );
+  assert.equal(control.leftMeter.getAttribute("aria-label"), "Left audio output level");
+  assert.equal(control.rightMeter.getAttribute("aria-label"), "Right audio output level");
   const guide = control.details.findAll((node) => node.className === "midi-profile-guide")[0];
-  assert.equal(guide.textContent, "MIDI guide");
+  assert.equal(guide.textContent, "MIDI Guide");
   assert.match(guide.getAttribute("href"), /index\.html#midi$/);
+  assert.deepEqual(
+    settingsHeading.parentNode.children.filter((node) => node.hidden !== true),
+    [settingsHeading, ...settingsRows, guide],
+    "the normal Settings view contains only its heading, five rows, and guide",
+  );
+  assert.equal(control.audioInputSelect.disabled, true);
+  assert.equal(control.audioInputSelect.children[0].textContent, "Not used");
+  assert.equal(control.select.children[0].value, "auto");
+  assert.equal(control.select.children[0].textContent, "Computer keys");
+  assert.equal(control.midiInputSelect.value, "on");
+  assert.equal(control.midiInputSelect.disabled, false);
   assert.equal(control.toggle.children[2].textContent, "keys+1");
   assert.equal(control.toggle.getAttribute("aria-label"), "Turn MIDI input off");
   assert.equal(control.toggle.title, "MIDI input on");
-  const keyboardHint = control.details.findAll(
-    (node) => node.className === "midi-keyboard-hint",
-  )[0];
-  assert.match(keyboardHint.textContent, /Computer piano/);
-  assert.match(keyboardHint.textContent, /Q is C4/);
-  assert.match(keyboardHint.textContent, /Octave \+0 · velocity 100/);
-  const statusLine = control.details.findAll(
-    (node) => node.className === "midi-profile-status",
-  )[0];
-  assert.match(statusLine.textContent, /computer keys ready/);
-  assert.match(statusLine.textContent, /Komplete Kontrol S49 MK2/);
-  const hint = control.details.findAll((node) => node.className === "midi-profile-hint")[0];
-  assert.match(hint.textContent, /Morphazoid MIDI-mode template/);
-  assert.match(hint.textContent, /not Native Instruments factory defaults/);
-  assert.doesNotMatch(hint.textContent, /Universal map/);
-  assert.doesNotMatch(hint.textContent, /where a safe note target exists/);
+  assert.equal(control.details.querySelector("#sharedMidiInputWarning").hidden, true);
 
   inputListeners.get("midimessage")({ data: new Uint8Array([0x90, 60, 100]) });
   assert.equal(control.toolbar.classList.contains("is-receiving"), true);
@@ -992,6 +1277,16 @@ test("one header MIDI control owns connection and controller profile selection",
   control.select.dispatch("change");
   assert.equal(manager.selectedProfileId, "arturia-minilab-3");
   assert.equal(stored.get("morphazoid:midi:profile:v1"), "arturia-minilab-3");
+
+  control.midiInputSelect.value = "off";
+  await control.midiInputSelect.listeners.get("change")[0]();
+  assert.equal(manager.enabled, false);
+  assert.equal(control.midiInputSelect.value, "off");
+  control.midiInputSelect.value = "on";
+  await control.midiInputSelect.listeners.get("change")[0]();
+  assert.equal(manager.enabled, true);
+  assert.equal(control.midiInputSelect.value, "on");
+  assert.deepEqual(requests, [{ sysex: false }, { sysex: false }]);
 
   await control.toggle.listeners.get("click")[0]();
   assert.equal(control.toggle.getAttribute("aria-pressed"), "false");
@@ -1059,25 +1354,19 @@ test("MIDI toolbar IDs stay unique and repeated initialization adds no subscript
   for (const control of controls) {
     assert.equal(
       control.details.children[0].getAttribute("aria-label"),
-      "Open input, output, and MIDI settings",
+      "Morphazoid Settings",
     );
     assert.equal(control.details.children[0].children[0].className, "header-settings-icon");
-    const keyboardHint = control.details.findAll(
-      (node) => node.className === "midi-keyboard-hint",
-    )[0];
-    assert.match(keyboardHint.textContent, /Computer pads/);
-    assert.match(keyboardHint.textContent, /1 2 3 4 \/ Q W E R \/ A S D F \/ Z X C V/);
-    assert.match(keyboardHint.textContent, /Octave \+0 · velocity 72/);
+    assert.equal(control.midiInputSelect.value, "off");
+    assert.match(control.midiInputSelect.children[1].textContent, /^On · /);
+    assert.equal(control.select.children[0].textContent, "Computer keys");
   }
   manager.setComputerKeyboardVelocity(108);
   for (const control of controls) {
-    const keyboardHint = control.details.findAll(
-      (node) => node.className === "midi-keyboard-hint",
-    )[0];
-    assert.match(
-      keyboardHint.textContent,
-      /velocity 80/,
-      "the hint reports the effective custom velocity, including shared adjustments",
+    assert.equal(control.midiInputSelect.value, "off");
+    assert.equal(
+      control.details.findAll((node) => node.classList.contains("midi-keyboard-hint")).length,
+      0,
     );
   }
   unregister();
@@ -1174,11 +1463,29 @@ test("header settings meter and browser output chooser report real shared output
     selector === ".masthead" ? [masthead] : baseQuerySelectorAll(selector)
   );
 
-  const runtime = { navigator: {}, addEventListener() {}, removeEventListener() {} };
+  const midiOutputs = [
+    { id: "out-a", name: "WAX DAW MIDI", state: "connected", send() {} },
+    { id: "out-b", name: "Hardware Synth", state: "connected", send() {} },
+  ];
+  const midiAccess = {
+    inputs: new Map(),
+    outputs: new Map(midiOutputs.map((output) => [output.id, output])),
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const runtime = {
+    navigator: { requestMIDIAccess: async () => midiAccess },
+    addEventListener() {},
+    removeEventListener() {},
+  };
   const midiManager = new WebMidiManager(runtime);
   let audioStatus = {
     rms: 0.24,
     peak: 0.62,
+    leftRms: 0.08,
+    leftPeak: 0.31,
+    rightRms: 0.24,
+    rightPeak: 0.62,
     active: true,
     output: {
       mode: "browser-selectable",
@@ -1209,18 +1516,24 @@ test("header settings meter and browser output chooser report real shared output
   });
   const unregister = midiManager.registerClient({ id: "julia" });
 
-  assert.equal(control.meter.value, 0.62);
-  assert.equal(control.meter.getAttribute("aria-valuetext"), "62% output signal");
+  assert.equal(control.meter, control.leftMeter);
+  assert.equal(control.leftMeter.value, 0.31);
+  assert.equal(control.rightMeter.value, 0.62);
+  assert.equal(
+    control.leftMeter.getAttribute("aria-valuetext"),
+    "Left channel 31% output signal",
+  );
+  assert.equal(
+    control.rightMeter.getAttribute("aria-valuetext"),
+    "Right channel 62% output signal",
+  );
+  assert.equal(control.meterShell.title, "Stereo audio output · L 31% · R 62%");
   assert.equal(control.audioOutputSelect.hidden, undefined);
-  const audioField = control.details.findAll(
-    (node) => node.className === "header-settings-field",
-  )[0];
-  assert.equal(audioField.hidden, false);
-  const audioCopy = control.details.findAll(
-    (node) => node.className === "header-settings-copy",
-  )[0];
-  assert.match(audioCopy.textContent, /USB Interface/);
-  assert.match(audioCopy.textContent, /not speaker loudness/);
+  assert.equal(control.audioOutputSelect.disabled, false);
+  assert.equal(
+    control.details.findAll((node) => node.classList.contains("header-settings-copy")).length,
+    0,
+  );
 
   control.details.open = true;
   await control.details.listeners.get("toggle")[0]();
@@ -1234,21 +1547,179 @@ test("header settings meter and browser output chooser report real shared output
   await control.audioOutputSelect.listeners.get("change")[0]();
   assert.deepEqual(selected, [""]);
 
-  const midiOutCopy = control.details.findAll(
-    (node) => node.className === "header-settings-copy",
-  ).find((node) => /browser MIDI Out/.test(node.textContent));
-  assert.match(midiOutCopy.textContent, /not enabled here yet/);
   assert.equal(control.midiOutputSelect.disabled, true);
-  assert.equal(control.midiOutputSelect.children[0].textContent, "Off (not enabled yet)");
+  assert.equal(control.midiOutputSelect.children[0].textContent, "Preview · no route");
+  assert.equal(
+    control.midiOutputSelect.getAttribute("aria-label"),
+    "MIDI output: preview only, not routed",
+  );
+  await midiManager.enable();
+  assert.equal(control.midiOutputSelect.disabled, true);
+  assert.deepEqual(
+    control.midiOutputSelect.children.map((option) => [option.value, option.textContent]),
+    [["", "Preview · no route"]],
+  );
+  assert.equal(midiManager.outputSelectionId, null, "preview does not select a fake output route");
+
+  audioStatus = {
+    ...audioStatus,
+    rms: 0.31,
+    peak: 0.72,
+    leftRms: 3e-17,
+    leftPeak: 3e-17,
+    rightRms: 0.31,
+    rightPeak: 0.72,
+    clipped: false,
+    active: true,
+  };
+  audioListener(audioStatus);
+  assert.equal(control.leftMeter.value, 0, "floating-point residue stays below silence");
+  assert.equal(control.rightMeter.value, 0.72);
+  assert.equal(
+    control.leftMeter.getAttribute("aria-valuetext"),
+    "Left channel has no output signal",
+  );
+  assert.equal(
+    control.meterShell.children[0].classList.contains("is-active"),
+    false,
+    "a hard-right signal does not falsely light the Left channel",
+  );
+  assert.equal(control.meterShell.title, "Stereo audio output · L 0% · R 72%");
+
+  audioStatus = {
+    ...audioStatus,
+    rms: 3e-17,
+    peak: 3e-17,
+    rightRms: 3e-17,
+    rightPeak: 3e-17,
+    active: false,
+  };
+  audioListener(audioStatus);
+  assert.equal(
+    control.meterShell.classList.contains("is-active"),
+    false,
+    "sub-floor residue does not keep the stereo meter shell active",
+  );
+  assert.equal(control.meterShell.title, "Stereo audio output · inactive");
+
+  audioStatus = {
+    ...audioStatus,
+    rms: 0.45,
+    peak: 1,
+    leftRms: 0.01,
+    leftPeak: 0.02,
+    rightRms: 0.45,
+    rightPeak: 1,
+    clipped: true,
+    active: true,
+  };
+  audioListener(audioStatus);
+  assert.equal(control.leftMeter.value, 0.02);
+  assert.equal(control.rightMeter.value, 1);
+  assert.equal(
+    control.rightMeter.getAttribute("aria-valuetext"),
+    "Right channel clipping at 100%",
+  );
+  assert.equal(control.rightMeter.classList.contains("is-clipping"), true);
+  assert.equal(control.leftMeter.classList.contains("is-clipping"), false);
+  assert.equal(control.meterShell.classList.contains("is-clipping"), true);
+  assert.equal(control.meterShell.title, "Stereo audio output · L 2% · R 100% CLIP");
+
+  audioStatus = {
+    rms: 0.2,
+    peak: 0.4,
+    clipped: false,
+    active: true,
+    output: audioStatus.output,
+  };
+  audioListener(audioStatus);
+  assert.equal(control.leftMeter.value, 0.4, "legacy mono levels fall back to both channels");
+  assert.equal(control.rightMeter.value, 0.4, "legacy mono levels fall back to both channels");
+  assert.equal(control.meterShell.classList.contains("is-clipping"), false);
 
   audioStatus = { ...audioStatus, peak: 0, rms: 0, active: false };
   audioListener(audioStatus);
-  assert.equal(control.meter.value, 0);
-  assert.equal(control.meter.getAttribute("aria-valuetext"), "No output signal");
+  assert.equal(control.leftMeter.value, 0);
+  assert.equal(control.rightMeter.value, 0);
+  assert.equal(
+    control.leftMeter.getAttribute("aria-valuetext"),
+    "Left channel has no output signal",
+  );
+  assert.equal(
+    control.rightMeter.getAttribute("aria-valuetext"),
+    "Right channel has no output signal",
+  );
+  assert.equal(control.meterShell.title, "Stereo audio output · inactive");
 
+  midiManager.disable();
   unregister();
   control.destroy();
   assert.equal(audioListener, null);
+});
+
+test("header settings report WAX and instrument route capabilities without fake device controls", () => {
+  const doc = new FakeDocument();
+  const masthead = new FakeNode("header");
+  masthead.className = "masthead";
+  const audioStrip = new FakeNode("div");
+  audioStrip.className = "audio-strip";
+  masthead.append(audioStrip);
+  const baseQuerySelectorAll = doc.querySelectorAll.bind(doc);
+  doc.querySelectorAll = (selector) => (
+    selector === ".masthead" ? [masthead] : baseQuerySelectorAll(selector)
+  );
+  const runtime = {
+    MorphazoidWAX: {},
+    navigator: {},
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const manager = new WebMidiManager(runtime);
+  const audioStatus = {
+    leftRms: 0,
+    leftPeak: 0,
+    rightRms: 0,
+    rightPeak: 0,
+    rms: 0,
+    peak: 0,
+    clipped: false,
+    active: false,
+    output: {
+      mode: "wax-host",
+      canSelect: false,
+      selectedId: "wax-host",
+      label: "DAW / plug-in host",
+    },
+  };
+  const audioOutputManager = {
+    subscribe(listener) {
+      listener(audioStatus);
+      return () => {};
+    },
+    getStatus() { return audioStatus; },
+  };
+  const [control] = initializeMidiToolbars(doc, runtime, manager, {
+    routeId: "lumber",
+    audioOutputManager,
+  });
+  const unregister = manager.registerClient({ id: "lumber" });
+
+  assert.equal(control.audioOutputSelect.disabled, true);
+  assert.equal(control.audioOutputSelect.children[0].textContent, "DAW / host");
+  assert.equal(control.audioInputSelect.disabled, false);
+  assert.equal(control.audioInputSelect.children[0].textContent, "DAW / host");
+  assert.equal(control.audioInputSelect.parentNode.classList.contains("is-unavailable"), false);
+  assert.equal(control.midiOutputSelect.disabled, true);
+  assert.equal(
+    control.midiOutputSelect.children[0].textContent,
+    "Not used",
+    "WAX does not advertise a MIDI output route when this instrument has none",
+  );
+  assert.equal(control.midiOutputSelect.parentNode.classList.contains("is-unavailable"), true);
+  assert.equal(control.select.children[0].textContent, "Page keys");
+
+  unregister();
+  control.destroy();
 });
 
 test("MIDI toolbar keeps computer keys active when hardware permission fails and can retry cleanly", async () => {
@@ -1309,16 +1780,12 @@ test("MIDI toolbar keeps computer keys active when hardware permission fails and
   assert.equal(control.toolbar.classList.contains("is-error"), false);
   assert.equal(error.hidden, true);
   assert.equal(error.textContent, "");
-  const statusLine = control.details.findAll(
-    (node) => node.className === "midi-profile-status",
-  )[0];
-  assert.match(statusLine.textContent, /computer keys ready/);
-  assert.match(statusLine.textContent, /hardware MIDI: Permission denied/);
-  const keyboardHint = control.details.findAll(
-    (node) => node.className === "midi-keyboard-hint",
-  )[0];
-  assert.match(keyboardHint.textContent, /Z S X D C V G B H N J M/);
-  assert.match(keyboardHint.textContent, /\[ \] octave · - \/ = velocity/);
+  const inputWarning = control.details.querySelector("#sharedMidiInputWarning");
+  assert.equal(inputWarning.hidden, false);
+  assert.equal(inputWarning.getAttribute("role"), "alert");
+  assert.equal(inputWarning.textContent, "Hardware MIDI unavailable — computer keys still work.");
+  assert.equal(inputWarning.title, "Permission denied");
+  assert.equal(control.midiInputSelect.value, "on");
 
   await control.toggle.listeners.get("click")[0]();
   assert.equal(manager.enabled, false, "the second click explicitly disables the fallback");
@@ -1331,6 +1798,8 @@ test("MIDI toolbar keeps computer keys active when hardware permission fails and
   assert.equal(control.toolbar.classList.contains("is-error"), false);
   assert.equal(error.hidden, true);
   assert.equal(error.textContent, "");
+  assert.equal(inputWarning.hidden, true);
+  assert.equal(inputWarning.textContent, "");
 
   control.select.value = "invalid-profile";
   control.select.dispatch("change");
@@ -1448,7 +1917,7 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
   );
   assert.match(
     css,
-    /\.masthead\.has-midi-toolbar \.header-io-controls > \.audio-strip,[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 44px;/,
+    /\.masthead\.has-midi-toolbar \.header-io-controls > \.audio-strip,[\s\S]*?grid-template-columns: minmax\(0, 1fr\) var\(--audio-control-width\);/,
   );
   assert.match(
     css,
@@ -1459,9 +1928,23 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
   assert.match(css, /\.header-settings-trigger \{[\s\S]*?width: 44px;/);
   assert.match(css, /\.header-settings-icon \{[\s\S]*?mask: url\("data:image\/svg\+xml/);
   assert.match(css, /\.header-settings-panel \{[\s\S]*?overflow-y: auto;/);
+  assert.match(css, /\.header-settings-section \{[^}]*grid-template-columns: minmax\(92px, 112px\) minmax\(0, 1fr\);/s);
+  assert.match(css, /\.header-settings-section > select \{[^}]*min-height: 40px;/s);
+  assert.match(
+    css,
+    /\.header-settings-section > select \{[^}]*background-image:\s*linear-gradient\(45deg, transparent 50%, currentColor 50%\),[^}]*appearance: none;/s,
+    "direct Settings selects retain an unmistakable dropdown chevron",
+  );
+  assert.match(css, /\.header-settings-section > select:disabled \{[^}]*cursor: not-allowed;[^}]*opacity: 1;/s);
   assert.match(css, /\.header-output-meter \{[\s\S]*?writing-mode: vertical-rl;/);
+  assert.match(css, /\.header-output-meter-shell \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/s);
+  assert.match(css, /\.header-output-meter-shell \{[^}]*width: 22px;[^}]*gap: 0;/s);
+  assert.match(css, /\.header-output-channel-label \{[^}]*font-size: 7px;/s);
   assert.match(css, /\.midi-toolbar\.is-receiving \.midi-activity-light \{/);
-  assert.match(css, /\.audio-strip \{[\s\S]*?grid-template-columns: minmax\(96px, 140px\) 44px;/);
+  assert.match(
+    css,
+    /\.audio-strip \{[\s\S]*?grid-template-columns: minmax\(96px, 140px\) var\(--audio-control-width\);/,
+  );
 });
 
 test("Reset all preserves Shape sides for one reload", () => {

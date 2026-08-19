@@ -57,6 +57,32 @@ done < <(git -C "$repo_root" ls-files -z)
 # commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
   shape.html \
+  striped-staircase.html \
+  striped-staircase.css \
+  striped-staircase-app.js \
+  src/striped-staircase.js \
+  alien-larynx.html \
+  alien-larynx.css \
+  alien-larynx-app.js \
+  src/alien-larynx-tract-processor.js \
+  alien-larynx-architecture.html \
+  alien-larynx-signal-path.svg \
+  syrinx.html \
+  syrinx.css \
+  syrinx-app.js \
+  src/syrinx.js \
+  src/syrinx-source-models.js \
+  src/syrinx-processor.js \
+  ANIMAL_VOICE_SYNTHESIS_RESEARCH.md \
+  throatazoid-architecture.html \
+  throatazoid-architecture.css \
+  throatazoid-signal-path.svg \
+  gesturama.html \
+  gesturama.css \
+  gesturama-app.js \
+  src/gesturama-core.js \
+  src/gesturama-audio.js \
+  src/gesturama-zones.js \
   about.html \
   about.css \
   THIRD_PARTY_NOTICES.md \
@@ -102,6 +128,7 @@ for worktree_runtime_file in \
   src/audio-output-manager.js \
   src/browser-midi-adapter.js \
   src/instrument-midi-capabilities.js \
+  src/midi-output-preview.js \
   src/shape-midi.js \
   src/fm-drums-midi.js \
   downloads/plugins/chaotic-fm/0.2.1/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx \
@@ -143,6 +170,11 @@ for worktree_runtime_file in \
   src/rubix.js \
   src/rubix-visibility.js \
   assets/instruments/rubix.webp \
+  hyper-rubix.html \
+  hyper-rubix.css \
+  hyper-rubix-app.js \
+  src/hyper-rubix.js \
+  assets/instruments/hyper-rubix.webp \
   hyper-drums.html \
   hyper-drums.css \
   hyper-drums-app.js \
@@ -159,6 +191,7 @@ for worktree_runtime_file in \
   linear-drums-machine.css \
   linear-drums-machine-app.js \
   src/linear-drums-machine.js \
+  src/chaotic-dsp-reference.js \
   src/chaotic-fm-flow.js \
   cascading-fm.html \
   cascading-fm.css \
@@ -261,6 +294,29 @@ done
 required_files=(
   index.html
   shape.html
+  striped-staircase.html
+  striped-staircase.css
+  striped-staircase-app.js
+  src/striped-staircase.js
+  assets/instruments/striped-staircase.webp
+  alien-larynx.html
+  alien-larynx.css
+  alien-larynx-app.js
+  src/alien-larynx-tract-processor.js
+  assets/instruments/alien-larynx.webp
+  alien-larynx-architecture.html
+  alien-larynx-signal-path.svg
+  syrinx.html
+  syrinx.css
+  syrinx-app.js
+  src/syrinx.js
+  src/syrinx-source-models.js
+  src/syrinx-processor.js
+  assets/instruments/syrinx.webp
+  ANIMAL_VOICE_SYNTHESIS_RESEARCH.md
+  throatazoid-architecture.html
+  throatazoid-architecture.css
+  throatazoid-signal-path.svg
   about.html
   about.css
   THIRD_PARTY_NOTICES.md
@@ -279,6 +335,13 @@ required_files=(
   src/wax-instrument-roles.js
   src/wax-midi-routing.js
   assets/instruments/shape.webp
+  assets/instruments/gesturama.webp
+  gesturama.html
+  gesturama.css
+  gesturama-app.js
+  src/gesturama-core.js
+  src/gesturama-audio.js
+  src/gesturama-zones.js
   assets/instruments/gravity-lens.webp
   assets/instruments/drum-roll-please.webp
   assets/instruments/image-to-instrument-3.webp
@@ -309,6 +372,7 @@ required_files=(
   src/audio-output-manager.js
   src/browser-midi-adapter.js
   src/instrument-midi-capabilities.js
+  src/midi-output-preview.js
   src/shape-midi.js
   src/fm-drums-midi.js
   downloads/plugins/chaotic-fm/0.2.1/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx
@@ -359,6 +423,7 @@ required_files=(
   chaotic-fm.css
   chaotic-fm-app.js
   src/chaotic-fm.js
+  src/chaotic-dsp-reference.js
   src/chaotic-fm-flow.js
   chaotic-pm.html
   chaotic-pm.css
@@ -481,6 +546,11 @@ required_files=(
   src/rubix.js
   src/rubix-visibility.js
   assets/instruments/rubix.webp
+  hyper-rubix.html
+  hyper-rubix.css
+  hyper-rubix-app.js
+  src/hyper-rubix.js
+  assets/instruments/hyper-rubix.webp
   hyper-drums.html
   hyper-drums.css
   hyper-drums-app.js

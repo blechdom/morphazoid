@@ -8,6 +8,10 @@ import {
   wrap01,
 } from "./src/geometry.js";
 import {
+  rebaseContinuousPosition,
+  rebasePingPongPosition,
+} from "./src/articulation.js";
+import {
   canonicalHeadOffsets,
   sanitizeHeadOffsets,
   updateHeadOffset,
@@ -808,13 +812,27 @@ function updatePlayheadControls() {
 
 function updateTraversalDirection() {
   const forward = state.traversalDirection > 0;
-  const open = state.sides === 2;
+  const bouncing = state.motionMode === "pingpong";
+  const openPoints = state.playMethod === "trace" && state.sides === 2;
+  const closedPoints = state.playMethod === "trace" && state.sides !== 2;
+  const radial = state.playMethod === "radial";
+  const text = bouncing
+    ? (forward ? "FWD" : "REV")
+    : openPoints
+      ? (forward ? "FWD" : "REV")
+      : closedPoints || radial
+        ? (forward ? "CW" : "CCW")
+        : (forward ? "L→R" : "R→L");
+  const label = bouncing
+    ? `${forward ? "Forward" : "Reverse"} ping-pong travel`
+    : openPoints
+      ? `${forward ? "Forward" : "Reverse"} point traversal`
+      : closedPoints || radial
+        ? `${radial ? "Radar sweep" : "Trace"} ${forward ? "clockwise" : "counterclockwise"}`
+        : `Scan ${forward ? "left to right" : "right to left"}`;
   $("traversalDirectionGlyph").textContent = forward ? "→" : "←";
-  $("traversalDirectionText").textContent = open ? (forward ? "FWD" : "REV") : (forward ? "CW" : "CCW");
-  $("traversalDirection").setAttribute(
-    "aria-label",
-    `Playhead direction: ${open ? (forward ? "forward" : "reverse") : (forward ? "clockwise" : "counterclockwise")}`,
-  );
+  $("traversalDirectionText").textContent = text;
+  $("traversalDirection").setAttribute("aria-label", `Playhead direction: ${label}`);
 }
 
 function syncFormTopology() {
@@ -857,8 +875,11 @@ function changePlayheadCount(delta) {
 }
 
 function setPosition(value) {
-  state.position = state.motionMode === "pingpong" ? clamp(value) : wrap01(value);
-  state.continuousPosition = state.position;
+  const nextPosition = state.motionMode === "pingpong" ? clamp(value) : wrap01(value);
+  state.continuousPosition = state.motionMode === "pingpong"
+    ? rebasePingPongPosition(state.continuousPosition, nextPosition)
+    : rebaseContinuousPosition(state.continuousPosition, state.position, nextPosition);
+  state.position = nextPosition;
   $("position").value = String(state.position);
   updatePlayheadReadouts();
   suppressStrikes = 1;
@@ -1048,11 +1069,21 @@ $("traversalDirection").addEventListener("click", () => {
 
 for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
   button.addEventListener("click", () => {
-    state.motionMode = button.dataset.value === "pingpong" ? "pingpong" : "loop";
-    state.continuousPosition = state.position;
+    const nextMotionMode = button.dataset.value === "pingpong" ? "pingpong" : "loop";
+    if (nextMotionMode !== state.motionMode) {
+      state.continuousPosition = nextMotionMode === "pingpong"
+        ? rebasePingPongPosition(state.continuousPosition, state.position)
+        : rebaseContinuousPosition(
+          state.continuousPosition,
+          wrap01(state.continuousPosition),
+          state.position,
+        );
+      state.motionMode = nextMotionMode;
+    }
     for (const choice of $("playheadMotion").querySelectorAll("button[data-value]")) {
       setPressed(choice, choice === button);
     }
+    updateTraversalDirection();
     lastEventTokens.clear();
     suppressStrikes = 2;
     announce(`${state.motionMode === "pingpong" ? "Ping-pong" : "Loop"} playhead movement selected.`);

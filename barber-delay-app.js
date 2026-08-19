@@ -557,10 +557,7 @@ $("[data-reset-all]")?.addEventListener("click", () => {
 });
 
 canvas.addEventListener("keydown", (event) => {
-  if (event.key === " ") {
-    event.preventDefault();
-    toggleAudio();
-  } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     event.preventDefault();
     setParameter("directionUp", event.key === "ArrowRight");
     announce(`Delay now moves ${state.settings.directionUp ? "up" : "down"}.`);

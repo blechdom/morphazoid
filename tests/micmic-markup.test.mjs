@@ -4,7 +4,7 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("L-mic exposes live recursion, current settings, safety, and an echo-tree stage", async () => {
+test("L-system Delay exposes live recursion, current settings, safety, and an echo-tree stage", async () => {
   const [html, legacyRedirect, app, css] = await Promise.all([
     readFile(new URL("l-mic.html", root), "utf8"),
     readFile(new URL("micmic.html", root), "utf8"),
@@ -12,11 +12,11 @@ test("L-mic exposes live recursion, current settings, safety, and an echo-tree s
     readFile(new URL("micmic.css", root), "utf8"),
   ]);
 
-  assert.match(html, /<title>L-mic — Morphazoid<\/title>/);
+  assert.match(html, /<title>L-system Delay — Morphazoid<\/title>/);
   assert.match(html, /<link rel="canonical" href="l-mic\.html"/);
   assert.match(html, /<body class="micmic-page">/);
-  assert.match(html, /class="tab micmic-tab active"[^>]*href="l-mic\.html"[^>]*aria-current="page">L-mic/);
-  assert.match(html, /<option value="l-mic\.html" selected>L-mic<\/option>/);
+  assert.match(html, /class="tab micmic-tab active"[^>]*href="l-mic\.html"[^>]*aria-current="page">L-system Delay/);
+  assert.match(html, /<option value="l-mic\.html" selected>L-system Delay<\/option>/);
   assert.doesNotMatch(html, /mic\(mic\)/i);
   assert.match(legacyRedirect, /http-equiv="refresh" content="0; url=l-mic\.html"/);
   assert.match(legacyRedirect, /<link rel="canonical" href="l-mic\.html"/);
@@ -215,7 +215,7 @@ test("L-mic exposes live recursion, current settings, safety, and an echo-tree s
   assert.match(css, /@media \(max-width: 650px\)/);
 });
 
-test("L-mic markup has unique ids and labelled controls", async () => {
+test("L-system Delay markup has unique ids and labelled controls", async () => {
   const html = await readFile(new URL("l-mic.html", root), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);

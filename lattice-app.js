@@ -17,13 +17,21 @@ import {
   contactsForLine,
   createScanLine,
   edgeShapeName,
+  latticeContactOnsetKey,
   latticeOffsetForPhase,
+  newlyEnteredLatticeContacts,
   parametersForDraggedVertex,
   tilingInfo,
   tilingParameterRange,
 } from "./src/lattice.js";
 import { EdgeShape } from "./vendor/tactile/tactile.js";
 import { createAmplitudeControl } from "./src/amplitude-control.js";
+import {
+  pingPongMotionDirection,
+  rebaseContinuousPosition,
+  rebasePingPongPosition,
+} from "./src/articulation.js";
+import { emitMidiOutputPreview } from "./src/midi-output-preview.js";
 
 const $ = (id) => document.getElementById(id);
 const SPEED_MIN = 0.01;
@@ -41,6 +49,10 @@ const DEFAULT_TILE_SCALE = OPEN_TILE_SCALE
 const MAX_TILES_PER_WORLD_AREA = 70;
 const GEOMETRY_EDIT_SETTLE_MS = 180;
 const CONTACT_REENTRY_GRACE_SECONDS = 0.08;
+const MANUAL_SCAN_RELEASE_MS = 90;
+const MIDI_PREVIEW_FRAME_INTERVAL_MS = 40;
+const MIDI_PREVIEW_RETRIGGER_MS = 75;
+const MIDI_PREVIEW_ROUTE_ID = "lattice";
 const STRIKE_BATCH_CEILING = 0.78;
 const OPEN_ENVELOPE_GAIN = 0.00001;
 const SOUND_MODE_LABELS = {
@@ -64,13 +76,40 @@ const TILE_COLORS = [
   "rgba(255, 132, 92, 0.040)",
 ];
 
+const MIDI_PREVIEW_RANGE_CONTROLS = Object.freeze([
+  ["level", "Output level", 0, 1],
+  ["patternDirectionAngle", "Pattern direction", 0, 90],
+  ["angle", "Reader line angle", 0, 179.9],
+  ["density", "Lattice density", 0, 0.8],
+  ...Array.from({ length: MAX_PARAMETERS }, (_, index) => (
+    [`parameter${index}`, `Tile shape ${index + 1}`, -0.35, 0.35]
+  )),
+  ...Array.from({ length: MAX_EDGE_CLASSES }, (_, index) => (
+    [`edgeCurve${index}`, `Edge bend ${index + 1}`, -1, 1]
+  )),
+  ["baseFrequency", "Base frequency", 20, 440],
+  ["pitchRange", "Pitch range", 0, 6],
+  ["contactLevel", "Contact level", 0, 1],
+  ["intersectionAccent", "Intersection accent", 0, 1],
+  ["voiceCap", "Voice limit", 1, 12],
+  ["percussionAttack", "Percussion attack", 0.5, 30],
+  ["percussionDecay", "Percussion decay", 15, 2000],
+  ["shepardCycles", "Shepard cycles", 0.25, 4],
+  ["shepardWidth", "Shepard width", 1, 8],
+  ["fmIndex", "FM index", 0, 12],
+  ["fmRatio", "FM ratio", 0.25, 8],
+  ["pmIndex", "PM index", 0, 8],
+  ["pmRatio", "PM ratio", 0.25, 8],
+  ["stereoWidth", "Stereo width", 0, 1],
+]);
+
 const defaultInfo = tilingInfo(DEFAULT_TILING_TYPE);
 const state = {
   tilingType: DEFAULT_TILING_TYPE,
   parameters: [...defaultInfo.defaultParameters],
   edgeCurves: defaultInfo.edgeShapes.map(() => 0),
   density: DEFAULT_DENSITY,
-  scanMotion: "loop",
+  motionMode: "loop",
   position: 0.5,
   continuousPosition: 0.5,
   speed: 0.08,
@@ -169,6 +208,28 @@ const movableVertexCache = new Map();
 let suppressContactOnsetsUntil = 0;
 let suppressContactOnsetFrames = 0;
 let geometryWasEditing = false;
+let latestPhysicalContactKeys = new Set();
+let positionPointerActive = false;
+const manualScan = {
+  active: false,
+  moved: false,
+  ending: false,
+  releaseAt: 0,
+  baselineKeys: new Set(),
+  data: [],
+};
+const midiPreviewManualScan = {
+  active: false,
+  moved: false,
+  ending: false,
+  releaseAt: 0,
+  baselineKeys: new Set(),
+};
+const midiPreviewLastOnsetTimes = new Map();
+const pendingMidiPreviewSignals = new Map();
+let midiPreviewPreviousContactKeys = new Set();
+let suppressMidiPreviewOnsetFrames = 0;
+let lastMidiPreviewFlushTime = Number.NEGATIVE_INFINITY;
 
 function wrap01(value) {
   const wrapped = value % 1;
@@ -200,6 +261,196 @@ function scheduleFrame() {
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
 
+function isDirectInteraction(event) {
+  return event?.isTrusted !== false;
+}
+
+function publishMidiPreview(detail) {
+  return emitMidiOutputPreview({
+    ...detail,
+    routeId: MIDI_PREVIEW_ROUTE_ID,
+  });
+}
+
+function queueMidiPreviewSignal(detail) {
+  pendingMidiPreviewSignals.set(`${detail.kind}:${detail.sourceId}`, detail);
+  scheduleFrame();
+}
+
+function flushMidiPreviewSignals(now) {
+  if (!pendingMidiPreviewSignals.size) return;
+  if (
+    now >= lastMidiPreviewFlushTime
+    && now - lastMidiPreviewFlushTime < MIDI_PREVIEW_FRAME_INTERVAL_MS
+  ) {
+    scheduleFrame();
+    return;
+  }
+  lastMidiPreviewFlushTime = now;
+  for (const detail of pendingMidiPreviewSignals.values()) publishMidiPreview(detail);
+  pendingMidiPreviewSignals.clear();
+}
+
+function queueLatticeControlPreview(id, source, rawValue, min, max, displayValue = "") {
+  queueMidiPreviewSignal({
+    kind: "control",
+    source,
+    sourceId: `lattice-${id}`,
+    rawValue,
+    min,
+    max,
+    displayValue,
+  });
+}
+
+function queueLatticePhasePreview() {
+  queueLatticeControlPreview(
+    "phase",
+    "Pattern phase",
+    state.position,
+    0,
+    1,
+    `${(state.position * 100).toFixed(1)}%`,
+  );
+}
+
+function queueLatticeTimebasePreview() {
+  const rate = effectiveCycleRate();
+  queueMidiPreviewSignal({
+    kind: "timebase",
+    source: "Pattern cycle rate",
+    sourceId: "lattice-timebase",
+    rate,
+    unit: "cycles/s",
+    running: state.playing,
+    displayValue: `${rate.toFixed(3)} cyc/s`,
+  });
+}
+
+function publishLatticeTransportPreview() {
+  publishMidiPreview({
+    kind: "transport",
+    source: "Pattern transport",
+    sourceId: "lattice-transport",
+    state: state.playing ? "start" : "stop",
+    position: state.position,
+  });
+  queueLatticeTimebasePreview();
+}
+
+function nearestMidiNote(frequencyHz) {
+  return Math.round(clamp(69 + 12 * Math.log2(frequencyHz / 440), 0, 127));
+}
+
+function latticePreviewDurationMs() {
+  if (state.soundMode === "percussion") {
+    return Math.max(1, Math.round(state.percussionAttack + state.percussionDecay));
+  }
+  return MANUAL_SCAN_RELEASE_MS;
+}
+
+function publishLatticeContactPreview(contact, now) {
+  const physicalKey = latticeContactOnsetKey(contact);
+  const lastOnset = midiPreviewLastOnsetTimes.get(physicalKey) ?? Number.NEGATIVE_INFINITY;
+  if (now - lastOnset < MIDI_PREVIEW_RETRIGGER_MS) return false;
+  const mapping = mappingForContact({
+    ...contact,
+    accentAge: 0,
+  });
+  const frequencyHz = mapping.frequency;
+  midiPreviewLastOnsetTimes.set(physicalKey, now);
+  publishMidiPreview({
+    kind: "note",
+    source: "Lattice crossing",
+    sourceId: "lattice-crossing",
+    voiceId: `lattice:${physicalKey}`,
+    channel: 1,
+    note: nearestMidiNote(frequencyHz),
+    frequencyHz,
+    velocity: Math.max(1, Math.round(clamp(mapping.strikeGain, 0, 1) * 127)),
+    durationMs: latticePreviewDurationMs(),
+  });
+  return true;
+}
+
+function publishLatticeContactPreviews(contacts, previousKeys, now) {
+  const onsets = centeredContactWindow(
+    newlyEnteredLatticeContacts(contacts, previousKeys),
+    state.voiceCap,
+  );
+  for (const contact of onsets) publishLatticeContactPreview(contact, now);
+  if (midiPreviewLastOnsetTimes.size > 512) {
+    for (const [key, onsetTime] of midiPreviewLastOnsetTimes) {
+      if (now - onsetTime > 2_000) midiPreviewLastOnsetTimes.delete(key);
+    }
+  }
+}
+
+function clearMidiPreviewManualScan() {
+  midiPreviewManualScan.active = false;
+  midiPreviewManualScan.moved = false;
+  midiPreviewManualScan.ending = false;
+  midiPreviewManualScan.releaseAt = 0;
+  midiPreviewManualScan.baselineKeys.clear();
+}
+
+function beginMidiPreviewManualScan() {
+  if (state.playing || document.hidden) return false;
+  if (!midiPreviewManualScan.active) {
+    midiPreviewManualScan.active = true;
+    midiPreviewManualScan.moved = false;
+    midiPreviewManualScan.baselineKeys = new Set(latestPhysicalContactKeys);
+  }
+  midiPreviewManualScan.ending = false;
+  midiPreviewManualScan.releaseAt = 0;
+  scheduleFrame();
+  return true;
+}
+
+function moveMidiPreviewManualScan() {
+  if (!midiPreviewManualScan.active) return false;
+  midiPreviewManualScan.moved = true;
+  queueLatticePhasePreview();
+  scheduleFrame();
+  return true;
+}
+
+function endMidiPreviewManualScan() {
+  if (!midiPreviewManualScan.active) return;
+  midiPreviewManualScan.ending = true;
+  midiPreviewManualScan.releaseAt = performance.now() + MANUAL_SCAN_RELEASE_MS;
+  scheduleFrame();
+}
+
+function installLatticeMidiPreviewControls() {
+  $("playButton")?.setAttribute("data-no-midi-preview", "");
+  for (const id of ["position", "speed"]) {
+    $(id)?.setAttribute("data-no-midi-preview", "");
+  }
+  $("speed")?.addEventListener("input", (event) => {
+    if (isDirectInteraction(event)) queueLatticeTimebasePreview();
+  });
+  for (const [id, source, fallbackMin, fallbackMax] of MIDI_PREVIEW_RANGE_CONTROLS) {
+    const control = $(id);
+    if (!control) continue;
+    control.setAttribute("data-no-midi-preview", "");
+    control.addEventListener("input", (event) => {
+      if (!isDirectInteraction(event) || control.disabled) return;
+      const minimum = Number.isFinite(Number(control.min)) ? Number(control.min) : fallbackMin;
+      const maximum = Number.isFinite(Number(control.max)) ? Number(control.max) : fallbackMax;
+      queueLatticeControlPreview(
+        id,
+        source,
+        Number(control.value),
+        minimum,
+        maximum,
+        $(`${id}Out`)?.textContent ?? String(control.value),
+      );
+      if (id === "density") queueLatticeTimebasePreview();
+    });
+  }
+}
+
 function resetContactTracking() {
   contactOnsets.clear();
   contactLastSeen.clear();
@@ -210,6 +461,44 @@ function restartContinuousEnvelopes() {
   suppressContactOnsetsUntil = 0;
   suppressContactOnsetFrames = 0;
   geometryWasEditing = false;
+}
+
+function clearManualScan({ releaseVoices = true } = {}) {
+  manualScan.active = false;
+  manualScan.moved = false;
+  manualScan.ending = false;
+  manualScan.releaseAt = 0;
+  manualScan.baselineKeys.clear();
+  manualScan.data = [];
+  if (releaseVoices && !state.playing) pool.setVoices([]);
+}
+
+function beginManualScan() {
+  if (state.playing || !state.audio || document.hidden) return false;
+  if (!manualScan.active) {
+    manualScan.active = true;
+    manualScan.moved = false;
+    manualScan.baselineKeys = new Set(latestPhysicalContactKeys);
+    manualScan.data = [];
+  }
+  manualScan.ending = false;
+  manualScan.releaseAt = 0;
+  scheduleFrame();
+  return true;
+}
+
+function moveManualScan() {
+  if (!manualScan.active) return false;
+  manualScan.moved = true;
+  scheduleFrame();
+  return true;
+}
+
+function endManualScan() {
+  if (!manualScan.active) return;
+  manualScan.ending = true;
+  manualScan.releaseAt = performance.now() + MANUAL_SCAN_RELEASE_MS;
+  scheduleFrame();
 }
 
 function suppressGeometryOnsets(duration = GEOMETRY_EDIT_SETTLE_MS) {
@@ -721,13 +1010,44 @@ speedInput.addEventListener("input", () => {
 });
 paintSpeed();
 
-function setScanMotion(motion, shouldAnnounce = true) {
+function updateTraversalDirection() {
+  const forward = state.traversalDirection > 0;
+  const bouncing = state.motionMode === "pingpong";
+  $("traversalDirectionGlyph").textContent = forward ? "→" : "←";
+  $("traversalDirectionText").textContent = forward ? "FWD" : "REV";
+  $("traversalDirection").setAttribute(
+    "aria-label",
+    `Pattern direction: ${forward ? "forward" : "reverse"}${bouncing ? " ping-pong travel" : ""}`,
+  );
+  paintPatternDirection();
+}
+
+function setTraversalDirection(direction, shouldAnnounce = true) {
+  state.traversalDirection = direction < 0 ? -1 : 1;
+  updateTraversalDirection();
+  updateSummaries();
+  if (shouldAnnounce) {
+    announce(`Pattern direction ${state.traversalDirection > 0 ? "forward" : "reverse"}.`);
+  }
+  scheduleFrame();
+}
+
+function setMotionMode(motion, shouldAnnounce = true) {
   if (!["loop", "pingpong"].includes(motion)) return;
-  state.scanMotion = motion;
-  state.continuousPosition = state.position;
-  for (const button of $("scanMotion").querySelectorAll("button")) {
+  if (motion !== state.motionMode) {
+    state.continuousPosition = motion === "pingpong"
+      ? rebasePingPongPosition(state.continuousPosition, state.position)
+      : rebaseContinuousPosition(
+        state.continuousPosition,
+        wrap01(state.continuousPosition),
+        state.position,
+      );
+    state.motionMode = motion;
+  }
+  for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
     setPressed(button, button.dataset.value === motion);
   }
+  updateTraversalDirection();
   if (shouldAnnounce) {
     announce(motion === "loop" ? "Pattern movement loops." : "Pattern movement ping-pongs.");
   }
@@ -735,33 +1055,91 @@ function setScanMotion(motion, shouldAnnounce = true) {
   scheduleFrame();
 }
 
-for (const button of $("scanMotion").querySelectorAll("button")) {
-  button.addEventListener("click", () => setScanMotion(button.dataset.value));
+for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
+  button.addEventListener("click", () => {
+    setMotionMode(button.dataset.value);
+    queueLatticeControlPreview(
+      "motion",
+      "Pattern motion",
+      state.motionMode === "pingpong" ? 1 : 0,
+      0,
+      1,
+      state.motionMode === "pingpong" ? "Ping-pong" : "Loop",
+    );
+  });
 }
 
-function setPosition(value) {
-  state.position = clamp(Number(value), 0, 1);
-  state.continuousPosition = state.position;
+$("traversalDirection").addEventListener("click", () => {
+  setTraversalDirection(-state.traversalDirection);
+  queueLatticeControlPreview(
+    "direction",
+    "Travel direction",
+    state.traversalDirection,
+    -1,
+    1,
+    state.traversalDirection > 0 ? "Forward" : "Reverse",
+  );
+});
+
+function setPosition(value, { manual = false } = {}) {
+  const nextPosition = clamp(Number(value), 0, 1);
+  state.continuousPosition = state.motionMode === "pingpong"
+    ? rebasePingPongPosition(state.continuousPosition, nextPosition)
+    : rebaseContinuousPosition(
+      state.continuousPosition,
+      wrap01(state.continuousPosition),
+      nextPosition,
+    );
+  state.position = nextPosition;
   $("position").value = String(state.position);
   $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
-  suppressGeometryOnsets();
+  if (manual) moveManualScan();
+  else suppressGeometryOnsets();
   scheduleFrame();
 }
 
-function setContinuousPosition(value) {
+function setContinuousPosition(value, { manual = false } = {}) {
   state.continuousPosition = Number(value) || 0;
-  state.position = state.scanMotion === "pingpong"
+  state.position = state.motionMode === "pingpong"
     ? pingPong01(state.continuousPosition)
     : wrap01(state.continuousPosition);
-  suppressGeometryOnsets();
+  if (manual) moveManualScan();
+  else suppressGeometryOnsets();
   scheduleFrame();
 }
 
-$("position").addEventListener("input", () => setPosition($("position").value));
+$("position").addEventListener("pointerdown", (event) => {
+  positionPointerActive = isDirectInteraction(event);
+  if (positionPointerActive) {
+    beginManualScan();
+    beginMidiPreviewManualScan();
+  }
+});
+$("position").addEventListener("input", (event) => {
+  const direct = positionPointerActive || isDirectInteraction(event);
+  const manual = direct && beginManualScan();
+  const previewManual = direct && beginMidiPreviewManualScan();
+  setPosition($("position").value, { manual });
+  if (previewManual) moveMidiPreviewManualScan();
+  if (manual && !positionPointerActive) endManualScan();
+  if (previewManual && !positionPointerActive) endMidiPreviewManualScan();
+});
+function endPositionPointer() {
+  positionPointerActive = false;
+  endManualScan();
+  endMidiPreviewManualScan();
+}
+$("position").addEventListener("pointerup", endPositionPointer);
+$("position").addEventListener("pointercancel", endPositionPointer);
+$("position").addEventListener("lostpointercapture", endPositionPointer);
 
-function patternDirectionName(angle = state.patternDirectionAngle) {
-  if (angle <= 0.05) return "R→L";
-  if (angle >= 89.95) return "U→D";
+function patternDirectionName(
+  angle = state.patternDirectionAngle,
+  direction = state.traversalDirection,
+) {
+  const forward = direction > 0;
+  if (angle <= 0.05) return forward ? "L→R" : "R→L";
+  if (angle >= 89.95) return forward ? "D→U" : "U→D";
   return formatDegrees(angle);
 }
 
@@ -770,13 +1148,18 @@ function paintPatternDirection() {
   const name = patternDirectionName(angle);
   $("patternDirectionAngle").value = String(angle);
   $("patternDirectionAngleOut").textContent = name;
-  $("patternDirectionGlyph").textContent = angle <= 0.05 ? "\u2190" : angle >= 89.95 ? "\u2193" : "\u2199";
+  const forward = state.traversalDirection > 0;
+  $("patternDirectionGlyph").textContent = angle <= 0.05
+    ? (forward ? "\u2192" : "\u2190")
+    : angle >= 89.95
+      ? (forward ? "\u2191" : "\u2193")
+      : (forward ? "\u2197" : "\u2199");
   $("patternDirectionText").textContent = name;
   $("patternDirection").setAttribute(
     "aria-label",
     angle < 45
-      ? "Pattern moves right to left; switch to top to bottom"
-      : "Pattern moves top to bottom; switch to right to left",
+      ? `Pattern moves ${forward ? "left to right" : "right to left"}; switch to vertical motion`
+      : `Pattern moves ${forward ? "bottom to top" : "top to bottom"}; switch to horizontal motion`,
   );
 }
 
@@ -786,14 +1169,20 @@ function setPatternDirectionAngle(value, shouldAnnounce = false) {
   invalidateGeometry();
   updateSummaries();
   if (shouldAnnounce) {
-    announce(state.patternDirectionAngle < 45
-      ? "Pattern moves right to left."
-      : "Pattern moves top to bottom.");
+    announce(`Pattern moves ${patternDirectionName()}.`);
   }
 }
 
 $("patternDirection").addEventListener("click", () => {
   setPatternDirectionAngle(state.patternDirectionAngle < 45 ? 90 : 0, true);
+  queueLatticeControlPreview(
+    "patternDirectionAngle",
+    "Pattern direction",
+    state.patternDirectionAngle,
+    0,
+    90,
+    patternDirectionName(),
+  );
 });
 $("patternDirectionAngle").addEventListener("input", () => {
   setPatternDirectionAngle($("patternDirectionAngle").value);
@@ -801,6 +1190,14 @@ $("patternDirectionAngle").addEventListener("input", () => {
 
 function setPlaying(playing) {
   const wasPlaying = state.playing;
+  if (playing) {
+    clearManualScan();
+    clearMidiPreviewManualScan();
+    // Starting or resuming establishes a baseline; already parked contacts
+    // are not new MIDI-preview onsets.
+    midiPreviewPreviousContactKeys = new Set(latestPhysicalContactKeys);
+    suppressMidiPreviewOnsetFrames = Math.max(suppressMidiPreviewOnsetFrames, 1);
+  }
   state.playing = Boolean(playing);
   if (!state.playing) pool.silence();
   else if (!wasPlaying && state.soundMode !== "percussion") restartContinuousEnvelopes();
@@ -809,6 +1206,7 @@ function setPlaying(playing) {
   lastFrameTime = performance.now();
   updateSummaries();
   announce(state.playing ? "Pattern playing." : "Pattern paused.");
+  publishLatticeTransportPreview();
   scheduleFrame();
 }
 
@@ -818,6 +1216,7 @@ function paintAudioState() {
 }
 
 function disableAudio() {
+  clearManualScan();
   state.audio = false;
   pool.disable();
   paintAudioState();
@@ -871,7 +1270,6 @@ async function togglePlayback() {
     setPlaying(false);
     return;
   }
-  if (!state.audio) await enableAudio();
   setPlaying(true);
 }
 
@@ -880,7 +1278,8 @@ $("audioButton").addEventListener("click", toggleAudio);
 
 function updateSummaries() {
   const info = tilingInfo(state.tilingType);
-  $("playSummary").textContent = `Pattern \u00b7 ${state.playing ? state.scanMotion : "paused"} \u00b7 ${patternDirectionName()}`;
+  const activity = state.playing ? "playing" : manualScan.active ? "scrubbing" : "paused";
+  $("playSummary").textContent = `Pattern \u00b7 ${activity} \u00b7 ${state.motionMode} \u00b7 ${state.traversalDirection > 0 ? "forward" : "reverse"}`;
   $("formSummary").textContent = info.label;
   $("soundSummary").textContent = SOUND_MODE_LABELS[state.soundMode];
 }
@@ -1085,11 +1484,14 @@ function rawSynthMark(contact) {
 function shepardRate() {
   if (!state.playing) return 0;
   const rate = effectiveCycleRate();
-  const visualLoopRate = state.scanMotion === "pingpong" ? rate * 0.5 : rate;
+  const visualLoopRate = state.motionMode === "pingpong" ? rate * 0.5 : rate;
+  const motionDirection = state.motionMode === "pingpong"
+    ? pingPongMotionDirection(state.continuousPosition, state.traversalDirection)
+    : state.traversalDirection;
   return visualLoopRate
     * state.shepardCycles
     * state.shepardDirection
-    * state.traversalDirection;
+    * motionDirection;
 }
 
 function synthParametersForContact(contact) {
@@ -1193,12 +1595,14 @@ function voiceData(contacts) {
   });
 }
 
-function emitIntersectionStrikes(data) {
+function emitIntersectionStrikes(data, { physicalKeys = false } = {}) {
   if (state.soundMode !== "percussion" || !state.audio) return;
   const intents = data
     .filter((item) => item.contact.onset)
     .map((item) => ({
-      key: `intersection:${item.contact.voiceKey}`,
+      key: physicalKeys
+        ? `manual-intersection:${latticeContactOnsetKey(item.contact)}`
+        : `intersection:${item.contact.voiceKey}`,
       frequency: item.mapping.frequency,
       gain: item.mapping.strikeGain,
       pan: item.mapping.pan,
@@ -1302,7 +1706,8 @@ function updateOutput(data) {
 function updateUi(allContacts, data, voiceCount) {
   $("position").value = String(state.position);
   $("positionOut").textContent = `${(state.position * 100).toFixed(1)}%`;
-  $("stageReadout").textContent = `1 LINE \u00b7 ${allContacts.length} ${plural(allContacts.length, "CONTACT", "CONTACTS")} \u00b7 ${state.audio ? `${voiceCount} ${plural(voiceCount, "VOICE", "VOICES")}` : "AUDIO OFF"}`;
+  const motion = state.playing ? "PLAYING" : manualScan.active ? "SCRUBBING" : "PAUSED";
+  $("stageReadout").textContent = `1 LINE \u00b7 ${allContacts.length} ${plural(allContacts.length, "CONTACT", "CONTACTS")} \u00b7 ${motion} \u00b7 ${state.audio ? `${voiceCount} ${plural(voiceCount, "VOICE", "VOICES")}` : "AUDIO OFF"}`;
   updateSummaries();
   updateOutput(data);
 }
@@ -1314,7 +1719,7 @@ function frame(now) {
 
   if (state.playing) {
     state.continuousPosition += state.traversalDirection * effectiveCycleRate() * deltaSeconds;
-    state.position = state.scanMotion === "pingpong"
+    state.position = state.motionMode === "pingpong"
       ? pingPong01(state.continuousPosition)
       : wrap01(state.continuousPosition);
   }
@@ -1330,7 +1735,65 @@ function frame(now) {
   const contacts = addIntersectionAccents(rawContacts, now / 1000, geometryEditing);
   const voicedContacts = centeredContactWindow(contacts, state.voiceCap);
   const data = voiceData(voicedContacts);
+  const physicalKeys = new Set(rawContacts.map(latticeContactOnsetKey));
+  if (state.playing) {
+    queueLatticePhasePreview();
+    if (!geometryEditing && suppressMidiPreviewOnsetFrames <= 0) {
+      publishLatticeContactPreviews(rawContacts, midiPreviewPreviousContactKeys, now);
+    }
+  } else if (midiPreviewManualScan.active && midiPreviewManualScan.moved) {
+    publishLatticeContactPreviews(rawContacts, midiPreviewManualScan.baselineKeys, now);
+    midiPreviewManualScan.baselineKeys = new Set(physicalKeys);
+    midiPreviewManualScan.moved = false;
+  }
+  midiPreviewPreviousContactKeys = new Set(physicalKeys);
+  if (suppressMidiPreviewOnsetFrames > 0) suppressMidiPreviewOnsetFrames -= 1;
+  let manualCrossingData = [];
+  if (!state.playing && manualScan.active && manualScan.moved && state.audio) {
+    const crossings = centeredContactWindow(
+      newlyEnteredLatticeContacts(rawContacts, manualScan.baselineKeys),
+      state.voiceCap,
+    ).map((contact) => ({
+      ...contact,
+      accentAge: 0,
+      accent: 1,
+      onset: true,
+    }));
+    manualCrossingData = voiceData(crossings).map((item) => ({
+      ...item,
+      voice: {
+        ...item.voice,
+        key: `manual-lattice:${latticeContactOnsetKey(item.contact)}`,
+      },
+    }));
+    manualScan.baselineKeys = new Set(physicalKeys);
+    manualScan.moved = false;
+    if (manualCrossingData.length) {
+      manualScan.data = manualCrossingData;
+      manualScan.releaseAt = now + MANUAL_SCAN_RELEASE_MS;
+    }
+  }
+  latestPhysicalContactKeys = physicalKeys;
   if (state.playing && !geometryEditing) emitIntersectionStrikes(data);
+  if (!state.playing && manualCrossingData.length) {
+    emitIntersectionStrikes(manualCrossingData, { physicalKeys: true });
+  }
+  if (manualScan.active && manualScan.data.length && now >= manualScan.releaseAt) {
+    manualScan.data = [];
+  }
+  if (
+    manualScan.active
+    && manualScan.ending
+    && !manualScan.moved
+    && !manualScan.data.length
+    && now >= manualScan.releaseAt
+  ) clearManualScan({ releaseVoices: false });
+  if (
+    midiPreviewManualScan.active
+    && midiPreviewManualScan.ending
+    && !midiPreviewManualScan.moved
+    && now >= midiPreviewManualScan.releaseAt
+  ) clearMidiPreviewManualScan();
   drawLattice(scan, offset, contacts, voicedContacts);
   if (tileEditorDirty) drawTileEditor();
 
@@ -1340,17 +1803,23 @@ function frame(now) {
       pool.setVoices(data.map((item) => item.voice), {
         allowVoiceStarts: !geometryEditing,
       });
+    } else if (continuousMode && manualScan.active && manualScan.data.length) {
+      pool.setVoices(manualScan.data.map((item) => item.voice));
     } else pool.setVoices([]);
   }
   if (!state.playing || now - lastUiUpdate > 60) {
     const voiceCount = continuousMode
-      ? (state.playing ? data.length : 0)
+      ? (state.playing ? data.length : manualScan.active ? manualScan.data.length : 0)
       : pool.activeStrikeCount;
     updateUi(contacts, data, state.audio ? voiceCount : 0);
     lastUiUpdate = now;
   }
+  flushMidiPreviewSignals(now);
   if (
     state.playing
+    || manualScan.active
+    || midiPreviewManualScan.active
+    || pendingMidiPreviewSignals.size > 0
     || contacts.some((contact) => contact.accent > 0.025)
     || (state.soundMode === "percussion" && pool.activeStrikeCount > 0)
   ) scheduleFrame();
@@ -1365,8 +1834,14 @@ function canvasWorldPoint(event) {
 }
 
 canvas.addEventListener("pointerdown", (event) => {
+  if (pointerDrag && pointerDrag.pointerId !== event.pointerId) return;
   if (geometryDirty || !lattice) rebuildGeometry();
+  if (isDirectInteraction(event)) {
+    beginManualScan();
+    beginMidiPreviewManualScan();
+  }
   pointerDrag = {
+    pointerId: event.pointerId,
     point: canvasWorldPoint(event),
     phase: state.continuousPosition,
   };
@@ -1374,7 +1849,7 @@ canvas.addEventListener("pointerdown", (event) => {
   canvas.focus();
 });
 canvas.addEventListener("pointermove", (event) => {
-  if (!pointerDrag || !lattice) return;
+  if (!pointerDrag || pointerDrag.pointerId !== event.pointerId || !lattice) return;
   const point = canvasWorldPoint(event);
   const delta = {
     x: point.x - pointerDrag.point.x,
@@ -1383,28 +1858,49 @@ canvas.addEventListener("pointermove", (event) => {
   const periodSquared = lattice.period.x ** 2 + lattice.period.y ** 2;
   if (periodSquared < 1e-9) return;
   const phaseDelta = -(delta.x * lattice.period.x + delta.y * lattice.period.y) / periodSquared;
-  setContinuousPosition(pointerDrag.phase + phaseDelta);
+  setContinuousPosition(pointerDrag.phase + phaseDelta, {
+    manual: !state.playing && manualScan.active,
+  });
+  if (!state.playing && midiPreviewManualScan.active) moveMidiPreviewManualScan();
 });
-function endPointer() {
+function endPointer(event) {
+  if (
+    pointerDrag
+    && event?.pointerId !== undefined
+    && event.pointerId !== pointerDrag.pointerId
+  ) return;
   pointerDrag = null;
+  endManualScan();
+  endMidiPreviewManualScan();
 }
 canvas.addEventListener("pointerup", endPointer);
 canvas.addEventListener("pointercancel", endPointer);
+canvas.addEventListener("lostpointercapture", endPointer);
 
 window.addEventListener("keydown", (event) => {
   const tag = event.target?.tagName;
   if (tag && /^(INPUT|SELECT|TEXTAREA|BUTTON|SUMMARY|A)$/.test(tag)) return;
   if (event.code === "Space" || event.key === " ") void togglePlayback();
-  else if (event.key === "ArrowLeft") setPosition(state.position - (event.shiftKey ? 0.05 : 0.01));
-  else if (event.key === "ArrowRight") setPosition(state.position + (event.shiftKey ? 0.05 : 0.01));
+  else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    const direction = event.key === "ArrowLeft" ? -1 : 1;
+    const direct = isDirectInteraction(event);
+    const manual = direct && beginManualScan();
+    const previewManual = direct && beginMidiPreviewManualScan();
+    setPosition(state.position + direction * (event.shiftKey ? 0.05 : 0.01), { manual });
+    if (previewManual) moveMidiPreviewManualScan();
+    if (manual) endManualScan();
+    if (previewManual) endMidiPreviewManualScan();
+  }
   else if (event.key === "ArrowUp") {
     state.angle = wrapLineAngle(state.angle + (event.shiftKey ? 1 : 0.1));
     paintAngle();
+    queueLatticeControlPreview("angle", "Reader line angle", state.angle, 0, 179.9, formatDegrees(state.angle));
     suppressGeometryOnsets();
     scheduleFrame();
   } else if (event.key === "ArrowDown") {
     state.angle = wrapLineAngle(state.angle - (event.shiftKey ? 1 : 0.1));
     paintAngle();
+    queueLatticeControlPreview("angle", "Reader line angle", state.angle, 0, 179.9, formatDegrees(state.angle));
     suppressGeometryOnsets();
     scheduleFrame();
   } else return;
@@ -1412,19 +1908,36 @@ window.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) pool.silence();
+  if (document.hidden) {
+    clearManualScan();
+    clearMidiPreviewManualScan();
+    pool.silence();
+  }
   else scheduleFrame();
 });
 window.addEventListener("pagehide", (event) => {
+  pointerDrag = null;
+  positionPointerActive = false;
+  clearManualScan();
+  clearMidiPreviewManualScan();
   if (!event.persisted) void pool.close();
+});
+window.addEventListener("blur", () => {
+  pointerDrag = null;
+  positionPointerActive = false;
+  clearManualScan();
+  clearMidiPreviewManualScan();
 });
 window.addEventListener("pageshow", scheduleFrame);
 
+installLatticeMidiPreviewControls();
 configureTilingControls();
-setScanMotion(state.scanMotion, false);
+setMotionMode(state.motionMode, false);
 setSoundMode(state.soundMode, false);
-setPosition(state.position);
+setPosition(state.position, { manual: false });
 paintPatternDirection();
 updateSummaries();
 paintAudioState();
+queueLatticePhasePreview();
+publishLatticeTransportPreview();
 scheduleFrame();

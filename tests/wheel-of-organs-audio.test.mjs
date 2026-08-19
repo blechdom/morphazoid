@@ -698,6 +698,76 @@ test("vowels, fricatives, and stop bursts schedule on permanent voice envelopes"
   await audio.close();
 });
 
+test("rapid wheel crossings reuse slots and a winning sustain exposes its full decay", async () => {
+  const runtime = fakeRuntime();
+  const audio = new WheelOfOrgansAudio({ runtime });
+  const mouths = Array.from({ length: 12 }, (_, index) => (
+    mouth(String.fromCharCode(65 + index), { id: `spin-mouth-${index}` })
+  ));
+  audio.syncMouths(mouths, { rootMidi: 45, slime: 0.7, dirt: 0.55 });
+  await audio.enable();
+  const [context] = FakeAudioContext.instances;
+  const counts = nodeCounts(context);
+  const waveCount = context.periodicWaves.length;
+
+  for (let crossing = 0; crossing < 24; crossing += 1) {
+    context.currentTime = 1 + crossing * 0.026;
+    const slot = crossing % WHEEL_AUDIO_VOICE_COUNT;
+    assert.equal(audio.articulate(slot, mouths[slot], {
+      duration: 0.052,
+      release: 0.018,
+      velocity: 0.72 + crossing % 3 * 0.08,
+    }), true);
+  }
+  assert.deepEqual(nodeCounts(context), counts, "fast crossings only automate permanent slots");
+  assert.equal(context.periodicWaves.length, waveCount);
+  assert.ok(audio.voices.every(({ envelope }) => (
+    envelope.gain.events.some(([method, value]) => (
+      method === "linearRampToValueAtTime" && value > 0
+    ))
+  )), "every physical slot can speak during a fast spin");
+
+  const winnerSlot = 7;
+  const winner = { ...mouths[winnerSlot], id: "winning-occurrence", pull: 0.82 };
+  context.currentTime = 1.64;
+  assert.equal(audio.sustain(winnerSlot, winner, { velocity: 0.96 }), true);
+  const winningVoice = audio.voices[winnerSlot];
+  assert.equal(winningVoice.releaseAt, Infinity);
+  assert.equal(audio.isDecaying, false);
+  const heldEnvelopeEvents = winningVoice.envelope.gain.events.length;
+
+  context.currentTime = 3.24;
+  assert.equal(winningVoice.releaseAt, Infinity, "the winner remains audible for the whole hold");
+  assert.equal(audio.sustain(winnerSlot, winner, { velocity: 0.96 }), true);
+  assert.equal(
+    winningVoice.envelope.gain.events.length,
+    heldEnvelopeEvents,
+    "refreshing the winning hold does not retrigger its attack",
+  );
+
+  assert.equal(audio.release(winnerSlot, { release: 2.4 }), true);
+  assert.equal(winningVoice.gated, false);
+  const winnerSilentAt = audio.decayUntil;
+  assert.ok(Math.abs(winnerSilentAt - 5.64) < 1e-9);
+  assert.ok(Math.abs(audio.decayRemaining - 2.4) < 1e-9);
+  assert.equal(audio.isDecaying, true);
+  const [decayMethod, decayTarget, decayEnd] = winningVoice.envelope.gain.events.at(-1);
+  assert.equal(decayMethod, "linearRampToValueAtTime");
+  assert.equal(decayTarget, 0, "the bounded winner decay lands at exact silence");
+  assert.ok(Math.abs(decayEnd - 5.64) < 1e-9);
+
+  context.currentTime = winnerSilentAt - 0.001;
+  assert.equal(audio.isDecaying, true, "the next spin stays locked through the fade tail");
+  context.currentTime = winnerSilentAt;
+  assert.equal(audio.isDecaying, false);
+  assert.equal(audio.decayRemaining, 0);
+  assert.equal(audio.decayUntil, 0);
+  assert.equal(audio.articulate(0, mouths[0], { duration: 0.052 }), true);
+  assert.deepEqual(nodeCounts(context), counts);
+  assert.equal(context.periodicWaves.length, waveCount);
+  await audio.close();
+});
+
 test("consonants and X-like sequences coarticulate into carriers on one fixed slot", async () => {
   const runtime = fakeRuntime();
   const audio = new WheelOfOrgansAudio({ runtime });

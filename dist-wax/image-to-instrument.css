@@ -599,7 +599,7 @@
 .wheel-word-actions {
   display: grid;
   margin-bottom: 12px;
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(108px, 0.9fr);
   align-items: center;
   gap: 10px;
 }
@@ -623,12 +623,38 @@
   text-transform: uppercase;
 }
 
+.wheel-word-actions #mapWordButton:hover:not(:disabled),
+.wheel-word-actions #mapWordButton:focus-visible {
+  border-color: var(--image-pink);
+  color: #ffd7e8;
+  background: rgba(255, 87, 159, 0.12);
+}
+
 .wheel-word-actions .wheel-play-button {
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
-  padding: 0;
+  display: flex;
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 13px;
+  border-radius: 0;
   color: var(--image-green);
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.wheel-word-actions .wheel-play-button .transport-spin {
+  width: 18px;
+  height: 18px;
+  fill: none;
+}
+
+.wheel-word-actions .wheel-play-button > span {
+  white-space: nowrap;
 }
 
 .wheel-word-actions .wheel-play-button:hover,
@@ -641,6 +667,53 @@
 .wheel-word-actions .wheel-play-button[aria-pressed="true"] {
   color: #10170d;
   background: var(--image-green);
+}
+
+.wheel-word-actions .wheel-play-button[aria-pressed="true"] .transport-spin {
+  animation: wheel-spin-button 0.7s linear infinite;
+}
+
+.wheel-word-actions button:disabled,
+.wheel-word-label input:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.wheel-word-actions .wheel-play-button[aria-pressed="true"]:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.wheel-spin-legend {
+  display: grid;
+  margin: -2px 0 12px;
+  padding: 9px 10px;
+  border: 1px solid rgba(184, 255, 88, 0.17);
+  color: var(--muted);
+  background: rgba(184, 255, 88, 0.025);
+  gap: 3px;
+  font-size: 7px;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.wheel-spin-legend b {
+  color: var(--image-green);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.wheel-spin-legend small {
+  color: #c996ab;
+  font-size: inherit;
+}
+
+@keyframes wheel-spin-button {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .wheel-preset-grid {
@@ -973,5 +1046,9 @@
   .image-instrument-page *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.001ms !important;
+  }
+
+  .wheel-word-actions .wheel-play-button[aria-pressed="true"] .transport-spin {
+    animation: none;
   }
 }

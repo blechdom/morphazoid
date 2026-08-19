@@ -26,7 +26,7 @@
         <a class="tab recursion-tab" href="recursion.html">recursion</a>
         <a class="tab" href="julia.html">julia</a>
         <a class="tab" href="lumber.html">lumber loops</a>
-        <a class="tab micmic-tab" href="l-mic.html">L-mic</a>
+        <a class="tab micmic-tab" href="l-mic.html">L-system Delay</a>
         <a class="tab graph-delay-tab" href="graph-delay.html">graph-delay</a>
         <a class="tab throatazoid-tab" href="throatazoid.html">throatazoid</a>
         <a class="tab morphazoidical-tab" href="morphazoidical/">morphazoidical</a>
@@ -43,7 +43,7 @@
           <option value="recursion.html">recursion</option>
           <option value="julia.html">julia</option>
           <option value="lumber.html">lumber loops</option>
-          <option value="l-mic.html">L-mic</option>
+          <option value="l-mic.html">L-system Delay</option>
           <option value="graph-delay.html">graph-delay</option>
           <option value="throatazoid.html">throatazoid</option>
           <option value="morphazoidical/">morphazoidical</option>
@@ -83,10 +83,10 @@
       </section>
 
       <aside class="panel" aria-label="Spiral controls">
-        <details class="group control-section performance-group" id="playSection" data-section="play">
+        <details class="group control-section performance-group" id="playSection" data-section="play" open>
           <summary class="group-summary">
             <h2 class="group-title">Play</h2>
-            <span class="section-state" id="playSummary">Radius &middot; paused</span>
+            <span class="section-state" id="playSummary">Radius &middot; paused &middot; loop &middot; forward</span>
           </summary>
           <div class="group-body">
             <div class="field-label">Time path</div>
@@ -97,21 +97,29 @@
             </div>
 
             <div class="position-row">
-              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play spiral time">
+              <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play spiral time" data-no-midi-preview>
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
               </button>
               <label class="control position-control" for="position">
                 <span><b>Time phase</b><output id="positionOut" for="position">0.0%</output></span>
-                <input id="position" type="range" min="0" max="1" step="0.0005" value="0" />
+                <input id="position" type="range" min="0" max="1" step="0.0005" value="0" data-no-midi-preview />
               </label>
             </div>
 
-            <label class="control" for="speed">
-              <span><b>Time speed</b><output id="speedOut" for="speed">0.120 cyc/s</output></span>
-              <input id="speed" type="range" min="0.01" max="1" step="0.001" value="0.12" />
-            </label>
-            <button class="mini-action direction-action" id="timeDirection" type="button">Out &rarr; In</button>
+            <div class="rate-control" role="group" aria-label="Automatic time motion">
+              <span class="rate-heading"><b>Time speed</b><output id="speedOut" for="speed">0.120 cyc/s</output></span>
+              <div class="rate-row-single transport-rate-row">
+                <input id="speed" aria-label="Time speed" type="range" min="0.01" max="1" step="0.001" value="0.12" data-no-midi-preview />
+                <div class="transport-button-array" id="playheadMotion" role="group" aria-label="Time direction and movement">
+                  <button class="direction-toggle" id="traversalDirection" type="button" aria-label="Time direction: out to in">
+                    <span id="traversalDirectionGlyph">→</span><small id="traversalDirectionText">OUT→IN</small>
+                  </button>
+                  <button id="loopMotion" type="button" data-value="loop" aria-pressed="true" aria-label="Loop movement" title="Loop"><span aria-hidden="true">⟳</span><small>Loop</small></button>
+                  <button id="pingPongMotion" type="button" data-value="pingpong" aria-pressed="false" aria-label="Back-and-forth movement" title="Back and forth"><span aria-hidden="true">↔</span><small>Ping-pong</small></button>
+                </div>
+              </div>
+            </div>
             <button class="mini-action" id="sizeCoupling" type="button" aria-pressed="false" aria-label="Size affects time and pitch off">Size affects time + pitch &middot; off</button>
 
             <label class="control" id="readerTurnsControl" for="readerTurns" hidden>
@@ -120,19 +128,19 @@
             </label>
 
             <div class="position-row loop-position-row">
-              <button class="play-button" id="loopPlayButton" type="button" aria-pressed="false" aria-label="Play tessellation loop">
+              <button class="play-button" id="loopPlayButton" type="button" aria-pressed="false" aria-label="Play tessellation loop" data-no-midi-preview>
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
               </button>
               <label class="control position-control" for="loopPhase">
                 <span><b>Deep zoom &middot; in &harr; out</b><output id="loopPhaseOut" for="loopPhase">0.00 &middot; IN</output></span>
-                <input id="loopPhase" type="range" min="0" max="1" step="0.0005" value="0" />
+                <input id="loopPhase" type="range" min="0" max="1" step="0.0005" value="0" data-no-midi-preview />
               </label>
             </div>
 
             <label class="control" for="loopSpeed">
               <span><b>Loop speed</b><output id="loopSpeedOut" for="loopSpeed">0.050 cyc/s</output></span>
-              <input id="loopSpeed" type="range" min="0.01" max="1" step="0.001" value="0.05" />
+              <input id="loopSpeed" type="range" min="0.01" max="1" step="0.001" value="0.05" data-no-midi-preview />
             </label>
             <button class="mini-action direction-action" id="loopDirection" type="button">Reverse zoom</button>
           </div>
@@ -246,7 +254,7 @@
         </p>
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">Drag across the spiral to place time in its active radius, angle, or spiral coordinate.</p>
+      <p class="sr-only" id="canvasInstructions">Drag across the spiral to place time in its active radius, angle, or spiral coordinate. Crossed contacts sound while audio is on, even when automatic motion is paused.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js"></script>

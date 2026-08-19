@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#030608" />
+    <meta
+      name="description"
+      content="Syrinx is a playable physical-model animal voice instrument for Morphazoid."
+    />
+    <title>Syrinx · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="syrinx.css" />
+  </head>
+  <body class="syrinx-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab" href="recursion.html">recursion</a>
+        <a class="tab" href="julia.html">julia</a>
+        <a class="tab" href="lumber.html">lumber loops</a>
+        <a class="tab" href="l-mic.html">L-system Delay</a>
+        <a class="tab" href="graph-delay.html">graph-delay</a>
+        <a class="tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab syrinx-tab active" href="syrinx.html" aria-current="page">Syrinx</a>
+        <a class="tab" href="morphazoidical/">morphazoidical</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
+          <option value="julia.html">julia</option>
+          <option value="lumber.html">lumber loops</option>
+          <option value="l-mic.html">L-system Delay</option>
+          <option value="graph-delay.html">graph-delay</option>
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="syrinx.html" selected>Syrinx</option>
+          <option value="morphazoidical/">morphazoidical</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">48%</output></span>
+          <input id="level" aria-label="Syrinx output level" type="range" min="0" max="1" step="0.01" value="0.48" />
+        </label>
+      </div>
+    </header>
+
+    <section class="syrinx-method-note" aria-label="Model scope">
+      <b>Physical families, not rescaled samples</b>
+      <p>
+        Mammal folds, bilateral bird labia, frog membranes, and a rodent jet whistle
+        drive an animal-scale waveguide derived from Throatazoid's tract method.
+        Species-informed ranges are locked to each preset and use primary measurements where
+        available; they are playable models, not individualized CT scans or exact specimens.
+        <a href="ANIMAL_VOICE_SYNTHESIS_RESEARCH.md">Read the research and design brief.</a>
+      </p>
+    </section>
+
+    <main class="shell" id="syrinx">
+      <section class="stage syrinx-stage" aria-label="Interactive animal voice model">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Interactive physical animal voice. Drag the source, tract, cavity, and mouth handles."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A diagram of lungs, a selectable animal sound source, a variable-length tract,
+            coupled cavities, and mouth radiation.
+          </canvas>
+
+          <div class="syrinx-animal-deck">
+            <label for="animalSelect">Animal model</label>
+            <select id="animalSelect" aria-label="Animal physical model">
+              <optgroup label="Mammals &amp; reptiles">
+                <option value="lion">Lion</option>
+                <option value="wolf">Wolf</option>
+                <option value="dog">Dog</option>
+                <option value="elephant">Elephant</option>
+                <option value="alligator">Alligator</option>
+              </optgroup>
+              <optgroup label="Birds">
+                <option value="raven" selected>Raven</option>
+                <option value="songbird">Songbird</option>
+                <option value="dove">Dove</option>
+                <option value="owl">Owl</option>
+              </optgroup>
+              <optgroup label="Frogs">
+                <option value="bullfrog">Bullfrog</option>
+                <option value="treefrog">Tree frog</option>
+              </optgroup>
+              <optgroup label="Jet whistles">
+                <option value="mouse">Mouse · audible USV map</option>
+              </optgroup>
+            </select>
+            <p id="animalDescription">Two independently detuned syringeal sides for croak and rattle.</p>
+          </div>
+
+          <div class="syrinx-model-hud" aria-live="polite">
+            <span><small>Source</small><output id="modelReadout">Dual nonlinear syrinx</output></span>
+            <span><small>Estimated source</small><output id="frequencyReadout">390 Hz</output></span>
+            <span><small>Physical tract</small><output id="tractReadout">17.0 cm · 48 sections</output></span>
+            <span><small>Load</small><output id="pressureReadout">resting</output></span>
+          </div>
+
+          <div class="syrinx-call-dock" aria-label="Call performance">
+            <label for="callSelect">
+              <span>Call gesture</span>
+              <select id="callSelect" aria-label="Animal call gesture">
+                <option value="raven-croak" selected>Croak</option>
+                <option value="raven-rattle">Rattle</option>
+              </select>
+            </label>
+            <button id="playButton" type="button" data-primary-transport aria-pressed="false">
+              <span class="syrinx-play-icon" aria-hidden="true"></span>
+              <span><b id="playLabel">Play croak</b><small id="playState">ready</small></span>
+            </button>
+            <button id="loopButton" type="button" aria-pressed="false">
+              <span aria-hidden="true">↻</span>
+              <span><b>Loop</b><small id="loopState">off</small></span>
+            </button>
+          </div>
+
+          <button class="syrinx-breath-button" id="breathButton" type="button" aria-pressed="false">
+            <span aria-hidden="true"></span>
+            <b>Hold breath</b>
+            <small>pressure without a call gesture</small>
+          </button>
+
+          <div class="syrinx-word" aria-hidden="true">SYRINX</div>
+          <p class="syrinx-drag-hint" aria-hidden="true">DRAG THE COLORED NODES · SOURCE / CAVITY / TRACT / MOUTH</p>
+          <p class="syrinx-audio-error" id="audioError" role="alert" hidden></p>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Syrinx controls">
+        <section class="syrinx-specimen-card" aria-labelledby="specimenTitle">
+          <header>
+            <span>Species-informed range locked</span>
+            <strong id="specimenTitle">Raven</strong>
+          </header>
+          <dl>
+            <div><dt>Apparatus</dt><dd id="apparatusReadout">bilateral nonlinear syrinx</dd></div>
+            <div><dt>Topology</dt><dd id="topologyReadout">left + right labia → shared tracheal tract → OEC / beak modes</dd></div>
+            <div><dt>Bandwidth</dt><dd id="bandwidthReadout">audible real-time model</dd></div>
+            <div><dt>Range basis</dt><dd id="modelBasisReadout">bilateral syrinx physiology + corvid-scale tract prior</dd></div>
+          </dl>
+        </section>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Physical source</h2>
+            <span class="section-state" id="sourceSummary">pressure 68% · tension 42%</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="pressure">
+              <span><b>Breath pressure</b><output id="pressureOut" for="pressure">68%</output></span>
+              <input id="pressure" type="range" min="0" max="1" step="0.01" value="0.68" />
+              <small>Crosses the self-oscillation threshold; also changes loudness and register.</small>
+            </label>
+            <label class="control" for="tension">
+              <span><b>Membrane tension</b><output id="tensionOut" for="tension">42%</output></span>
+              <input id="tension" type="range" min="0" max="1" step="0.01" value="0.42" />
+              <small>Changes tissue stiffness and the source's oscillation frequency.</small>
+            </label>
+            <label class="control" for="adduction">
+              <span><b>Adduction / closure</b><output id="adductionOut" for="adduction">68%</output></span>
+              <input id="adduction" type="range" min="0" max="1" step="0.01" value="0.68" />
+              <small>Controls rest opening, leakage, onset threshold, and closure character.</small>
+            </label>
+            <label class="control" for="sourceScale">
+              <span><b>Source tissue size</b><output id="sourceScaleOut" for="sourceScale">66%</output></span>
+              <input id="sourceScale" type="range" min="0.08" max="1" step="0.01" value="0.66" />
+              <small>Changes effective vibrating length and source pitch independently of the tract's propagation delay.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form">
+          <summary class="group-summary">
+            <h2 class="group-title">Tract &amp; radiator</h2>
+            <span class="section-state" id="tractSummary">17.0 cm · beak 52%</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="tractLength">
+              <span><b>Physical tract length</b><output id="tractLengthOut" for="tractLength">17.0 cm</output></span>
+              <input id="tractLength" type="range" min="0.018" max="0.82" step="0.001" value="0.17" />
+              <small>Changes propagation delay and resonance spacing rather than just redrawing the tube.</small>
+            </label>
+            <label class="control" for="mouthOpening">
+              <span><b>Mouth / beak opening</b><output id="mouthOpeningOut" for="mouthOpening">52%</output></span>
+              <input id="mouthOpening" type="range" min="0" max="1" step="0.01" value="0.52" />
+              <small>Moves the lip reflection and high-frequency radiation.</small>
+            </label>
+            <label class="control" for="cavityCoupling">
+              <span><b>Radiation-mode coupling</b><output id="cavityCouplingOut" for="cavityCoupling">34%</output></span>
+              <input id="cavityCoupling" type="range" min="0" max="1" step="0.01" value="0.34" />
+              <small>Mixes two damped modes after the tract: OEC/beak, sac/head, pharyngeal, or body radiation by family.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="mapping">
+          <summary class="group-summary">
+            <h2 class="group-title">Nonlinear behavior</h2>
+            <span class="section-state" id="nonlinearSummary">30% split · 42% rough</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="asymmetry">
+              <span><b id="asymmetryLabel">Left / right asymmetry</b><output id="asymmetryOut" for="asymmetry">30%</output></span>
+              <input id="asymmetry" type="range" min="0" max="1" step="0.01" value="0.3" />
+              <small>Moves the selected source away from a symmetric periodic regime, enabling detuning, mode changes, or biphonation.</small>
+            </label>
+            <label class="control" for="sourceBalance" id="sourceBalanceControl">
+              <span><b>Left / right syrinx balance</b><output id="sourceBalanceOut" for="sourceBalance">center</output></span>
+              <input id="sourceBalance" type="range" min="0" max="1" step="0.01" value="0.5" />
+              <small>Balances the two independently oscillating syringeal sides; shown only for birds.</small>
+            </label>
+            <label class="control" for="roughness">
+              <span><b>Roughness / bifurcation</b><output id="roughnessOut" for="roughness">42%</output></span>
+              <input id="roughness" type="range" min="0" max="1" step="0.01" value="0.42" />
+              <small>Adds pressure-sensitive irregularity inside the source instead of post-distortion.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="play">
+          <summary class="group-summary">
+            <h2 class="group-title">Call gesture</h2>
+            <span class="section-state" id="gestureSummary">croak · 1×</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="gestureRate">
+              <span><b>Gesture rate</b><output id="gestureRateOut" for="gestureRate">1.00×</output></span>
+              <input id="gestureRate" type="range" min="0.25" max="2.5" step="0.01" value="1" />
+              <small>Scales the whole pressure, tension, articulation, and balance trajectory together.</small>
+            </label>
+            <div class="syrinx-gesture-map" aria-hidden="true">
+              <span>pressure</span><i id="pressureGestureBar"></i>
+              <span>tension</span><i id="tensionGestureBar"></i>
+              <span>mouth</span><i id="mouthGestureBar"></i>
+            </div>
+            <p class="control-note">
+              The call is a breakpoint gesture over physical controls. Change any baseline while it plays;
+              the trajectory continues around your edited anatomy.
+            </p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Choose an animal and call, turn on audio, then press Play call. Hold the Breath button
+        for manual pressure. On the canvas, drag the source handle vertically for tension,
+        the cavity handle for coupling, the mouth handle vertically for opening, or the tract
+        handle horizontally for physical length. Space starts or stops the selected call when
+        focus is outside a control. Press Escape to stop the current call and release pressure.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="syrinx-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

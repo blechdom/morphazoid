@@ -77,6 +77,8 @@ test("Throatazoid is a first-class mic and glottis-driven Morphazoid instrument"
   assert.match(notices, /Permission is hereby granted, free of charge/);
   assert.match(html, /src="nav\.js"/);
   assert.match(html, /src="throatazoid-app\.js"/);
+  assert.match(html, /href="throatazoid-architecture\.html"/);
+  assert.match(html, /href="alien-larynx\.html"/);
   assert.doesNotMatch(html, /<details\b[^>]*\sopen(?:\s|>)/);
   assert.doesNotMatch(html, /class="[^"]*(?:subtitle|tagline)[^"]*"/i);
 

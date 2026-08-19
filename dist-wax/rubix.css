@@ -748,16 +748,27 @@
 }
 
 .rubix-geometry-control {
+  display: grid;
+  min-width: 0;
   margin: 0 0 10px;
   padding: 9px;
   border: 1px solid color-mix(in oklab, var(--accent) 25%, var(--line-strong));
   background:
     linear-gradient(100deg, color-mix(in oklab, var(--accent) 6%, transparent), transparent 68%),
     var(--bg-deep);
+  grid-template-columns: minmax(0, 1.15fr) minmax(112px, 0.85fr);
+  align-items: start;
   gap: 7px;
 }
 
-.rubix-geometry-control > span:first-child {
+.rubix-shape-control,
+.rubix-size-control {
+  min-width: 0;
+  margin: 0;
+}
+
+.rubix-shape-control > span:first-child,
+.rubix-size-control > span:first-child {
   display: flex;
   min-width: 0;
   align-items: baseline;
@@ -792,6 +803,28 @@
 .rubix-geometry-control select:focus-visible {
   border-color: var(--accent);
   box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.rubix-size-control input[type="range"] {
+  height: 42px;
+}
+
+.rubix-size-limits {
+  display: flex;
+  margin-top: -9px;
+  color: var(--faint);
+  justify-content: space-between;
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rubix-form-note {
+  margin-top: 1px;
+  color: var(--faint);
+  grid-column: 1 / -1;
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .rubix-preset-control,
@@ -1140,13 +1173,16 @@
     grid-template-columns: 1fr;
   }
 
-  .rubix-geometry-control > span:first-child {
-    display: grid;
-    gap: 2px;
+  .rubix-shape-size-controls {
+    grid-template-columns: 1fr;
   }
 
   .rubix-geometry-control output {
     white-space: normal;
+  }
+
+  .rubix-form-note {
+    grid-column: 1;
   }
 
   .rubix-random-twists {

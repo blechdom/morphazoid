@@ -44,7 +44,10 @@ test("solid drum app starts, renders sixteen voices, and plays plane intersectio
         if (selector === "span") return nestedSpan;
         return null;
       },
-      querySelectorAll() {
+      querySelectorAll(selector) {
+        if (id === "playheadMotion" && selector === "button[data-value]") {
+          return [elements.get("loopMotion"), elements.get("pingPongMotion")];
+        }
         return [];
       },
       getBoundingClientRect() {
@@ -61,6 +64,8 @@ test("solid drum app starts, renders sixteen voices, and plays plane intersectio
   }
 
   for (const id of ids) element(id);
+  elements.get("loopMotion").dataset.value = "loop";
+  elements.get("pingPongMotion").dataset.value = "pingpong";
   const canvas = elements.get("stage");
   const drawingContext = {
     arc() {},
@@ -142,8 +147,10 @@ test("solid drum app starts, renders sixteen voices, and plays plane intersectio
   }
 
   const oscillators = [];
+  let audioContextCount = 0;
   globalThis.AudioContext = class {
     constructor() {
+      audioContextCount += 1;
       this.currentTime = 0;
       this.sampleRate = 1_000;
       this.state = "running";
@@ -237,14 +244,113 @@ test("solid drum app starts, renders sixteen voices, and plays plane intersectio
   );
   assert.equal(attributes.get("selectSolid:aria-pressed"), "true");
   assert.equal(attributes.get("selectSurface:aria-pressed"), "false");
+  for (const id of [
+    "playheadMotion",
+    "traversalDirection",
+    "loopMotion",
+    "pingPongMotion",
+  ]) {
+    assert.ok(elements.has(id), `the Shape-style transport should expose #${id}`);
+  }
+  assert.equal(elements.has("directionButton"), false);
+  assert.equal(elements.get("traversalDirectionGlyph").textContent, "→");
+  assert.equal(elements.get("traversalDirectionText").textContent, "FWD");
+  assert.equal(attributes.get("traversalDirection:aria-label"), "Surface direction: forward");
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "false");
+
+  const initialPosition = Number(elements.get("position").value);
+  listeners.get("traversalDirection:click")();
+  assert.equal(elements.get("traversalDirectionGlyph").textContent, "←");
+  assert.equal(elements.get("traversalDirectionText").textContent, "REV");
+  assert.equal(attributes.get("traversalDirection:aria-label"), "Surface direction: reverse");
+  assert.equal(Number(elements.get("position").value), initialPosition);
+  listeners.get("traversalDirection:click")();
+
+  listeners.get("pingPongMotion:click")();
+  elements.get("position").value = "1";
+  listeners.get("position:input")();
+  flushAnimationFrames();
+  listeners.get("loopMotion:click")();
+  flushAnimationFrames();
+  assert.equal(
+    Number(elements.get("position").value),
+    1,
+    "switching to Loop at the far endpoint must preserve the visible surface position",
+  );
+  listeners.get("pingPongMotion:click")();
+
+  elements.get("position").value = "0.997";
+  listeners.get("position:input")();
+  const positionBeforePingPong = Number(elements.get("position").value);
+  listeners.get("pingPongMotion:click")();
+  assert.equal(Number(elements.get("position").value), positionBeforePingPong);
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "false");
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "true");
+  listeners.get("playButton:click")();
+  flushAnimationFrames(performance.now() + 100);
+  const reflectedPosition = Number(elements.get("position").value);
+  assert.ok(reflectedPosition < positionBeforePingPong, "Ping-pong should reverse at the surface endpoint");
+  assert.ok(reflectedPosition > 0.9, "Ping-pong should reflect instead of wrapping to the opposite endpoint");
+  listeners.get("playButton:click")();
+  flushAnimationFrames();
+
+  const positionBeforeModeRoundTrip = Number(elements.get("position").value);
+  listeners.get("loopMotion:click")();
+  assert.equal(Number(elements.get("position").value), positionBeforeModeRoundTrip);
+  listeners.get("pingPongMotion:click")();
+  assert.equal(Number(elements.get("position").value), positionBeforeModeRoundTrip);
+  elements.get("position").value = "0.72";
+  listeners.get("position:input")();
+  listeners.get("playButton:click")();
+  flushAnimationFrames(performance.now() + 100);
+  assert.ok(
+    Number(elements.get("position").value) < 0.72,
+    "scrubbing a returning ping-pong leg should preserve that leg",
+  );
+  listeners.get("playButton:click")();
+  flushAnimationFrames();
+
+  listeners.get("resetSolidDrums:click")();
+  flushAnimationFrames();
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "false");
+  assert.equal(elements.get("traversalDirectionText").textContent, "FWD");
+  assert.equal(attributes.get("traversalDirection:aria-label"), "Surface direction: forward");
+
+  for (const id of ["rotationXPlay", "rotationYPlay", "rotationZPlay", "planeYawPlay", "planePitchPlay"]) {
+    listeners.get(`${id}:click`)();
+    assert.equal(attributes.get(`${id}:aria-pressed`), "true");
+    assert.notEqual(attributes.get("audioButton:aria-pressed"), "true");
+    assert.equal(audioContextCount, 0, `${id} must not create an AudioContext`);
+    listeners.get(`${id}:click`)();
+  }
 
   listeners.get("playButton:click")();
   await new Promise((resolve) => setImmediate(resolve));
   flushAnimationFrames(performance.now() + 240);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(attributes.get("playButton:aria-pressed"), "true");
+  assert.notEqual(attributes.get("audioButton:aria-pressed"), "true");
+  assert.equal(audioContextCount, 0, "Play must not create an AudioContext");
+  assert.equal(oscillators.length, 0, "silent motion must not strike drums");
+  const positionBeforeAudioTap = Number(elements.get("position").value);
+  await listeners.get("audioButton:click")();
   assert.equal(attributes.get("audioButton:aria-pressed"), "true");
-  assert.ok(oscillators.length > 0, "starting the surface should trigger FM drums");
+  assert.equal(attributes.get("playButton:aria-pressed"), "true");
+  assert.equal(audioContextCount, 1, "only the explicit Audio action should create audio");
+  assert.equal(Number(elements.get("position").value), positionBeforeAudioTap);
+  assert.equal(oscillators.length, 0, "arming Audio must not strike existing contacts");
+  let motionNow = performance.now() + 400;
+  for (let index = 0; index < 160 && oscillators.length === 0; index += 1) {
+    flushAnimationFrames(motionNow);
+    motionNow += 160;
+  }
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(
+    oscillators.length > 0,
+    `the next surface crossing should trigger FM drums (position ${elements.get("position").value})`,
+  );
   assert.match(
     elements.get("mappingReadout").textContent,
     /^SURFACE · EDGE \d+ · SEGMENT [12]\/2 · /,
@@ -296,6 +402,10 @@ test("solid drum app starts, renders sixteen voices, and plays plane intersectio
   assert.equal(elements.get("formSummary").textContent, "cube");
   assert.equal(elements.get("subdivisions").value, "2");
   assert.equal(elements.get("subdivisionsOut").textContent, "2");
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "false");
+  assert.equal(elements.get("traversalDirectionGlyph").textContent, "→");
+  assert.equal(elements.get("traversalDirectionText").textContent, "FWD");
   assert.match(
     elements.get("triggerSourceDescription").textContent,
     /2 equal segments on a projected solid side \(edge\)/,

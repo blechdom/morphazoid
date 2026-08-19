@@ -231,11 +231,8 @@ test("Shape Drum Machine keeps Shape controls and the compact shared FM drum ban
   assert.doesNotMatch(html, /id="hitCapStatus"[^>]*aria-live/);
   assert.match(html, /src="shape-drums-app\.js"/);
   assert.doesNotMatch(html, /data-section="(?:sound|pitch)"|soundMode|synth-panel|voiceEditor/);
-  assert.doesNotMatch(
-    html,
-    /id="(?:playSection|formSection)"[^>]*\sopen(?:\s|>)/,
-    "Shape control sections should follow the collapsed page convention",
-  );
+  assert.match(html, /id="playSection"[^>]*\sopen(?:\s|>)/);
+  assert.doesNotMatch(html, /id="formSection"[^>]*\sopen(?:\s|>)/);
   assert.match(css, /\.shape-drum-map[\s\S]*grid-template-columns: repeat\(4/);
   assert.match(app, /FM_DRUM_STORAGE_KEY/);
   assert.match(app, /FmDrumAudio/);

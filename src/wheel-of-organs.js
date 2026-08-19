@@ -24,6 +24,31 @@ export const WHEEL_MORPH_LIMITS = Object.freeze({
   tongueOut: Object.freeze({ minimum: 0, default: 0.38, maximum: 1 }),
 });
 
+export const WHEEL_SPIN_PHASES = Object.freeze({
+  idle: "idle",
+  accelerating: "accelerating",
+  coasting: "coasting",
+  decelerating: "decelerating",
+  sustaining: "sustaining",
+  decaying: "decaying",
+  cooldown: "cooldown",
+});
+
+export const WHEEL_SPIN_DEFAULTS = Object.freeze({
+  readerAngle: 0,
+  direction: 1,
+  minimumTurns: 6,
+  extraTurns: 2,
+  accelerationSeconds: 0.9,
+  coastSeconds: 1.7,
+  decelerationSeconds: 4.8,
+  sustainSeconds: 1.6,
+  decaySeconds: 2.4,
+  cooldownSeconds: 0.7,
+  fixedStepSeconds: 1 / 120,
+  seed: 0x57484545,
+});
+
 export const ALPHABET = Object.freeze([..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"]);
 
 const DEFAULT_LETTER_ORDER = Object.freeze([
@@ -339,6 +364,472 @@ function mouthCount(value, fallback = WHEEL_MOUTH_LIMITS.default) {
     WHEEL_MOUTH_LIMITS.maximum,
     fallback,
   );
+}
+
+function positiveModulo(value, divisor) {
+  return ((value % divisor) + divisor) % divisor;
+}
+
+function spinDirection(value, fallback = WHEEL_SPIN_DEFAULTS.direction) {
+  const requested = finiteNumber(value, fallback);
+  return requested < 0 ? -1 : 1;
+}
+
+function spinSeed(value, fallback = WHEEL_SPIN_DEFAULTS.seed) {
+  const requested = Number(value);
+  return Number.isFinite(requested) ? Math.trunc(requested) >>> 0 : fallback >>> 0;
+}
+
+function nextSpinSeed(value) {
+  return (Math.imul(spinSeed(value), 1_664_525) + 1_013_904_223) >>> 0;
+}
+
+function spinUnit(value) {
+  return spinSeed(value) / 0x1_0000_0000;
+}
+
+function spinSeconds(value, fallback, minimum = 0) {
+  return clamp(value, minimum, 60, fallback);
+}
+
+function spinTimings(source = {}) {
+  return {
+    accelerationSeconds: spinSeconds(
+      source.accelerationSeconds,
+      WHEEL_SPIN_DEFAULTS.accelerationSeconds,
+      0.05,
+    ),
+    coastSeconds: spinSeconds(
+      source.coastSeconds,
+      WHEEL_SPIN_DEFAULTS.coastSeconds,
+    ),
+    decelerationSeconds: spinSeconds(
+      source.decelerationSeconds,
+      WHEEL_SPIN_DEFAULTS.decelerationSeconds,
+      0.05,
+    ),
+    sustainSeconds: spinSeconds(
+      source.sustainSeconds,
+      WHEEL_SPIN_DEFAULTS.sustainSeconds,
+      0.05,
+    ),
+    decaySeconds: spinSeconds(
+      source.decaySeconds,
+      WHEEL_SPIN_DEFAULTS.decaySeconds,
+      0.05,
+    ),
+    cooldownSeconds: spinSeconds(
+      source.cooldownSeconds,
+      WHEEL_SPIN_DEFAULTS.cooldownSeconds,
+    ),
+  };
+}
+
+function spinMotionDuration(timings) {
+  return timings.accelerationSeconds
+    + timings.coastSeconds
+    + timings.decelerationSeconds;
+}
+
+function spinLifecycleDuration(timings) {
+  return spinMotionDuration(timings)
+    + timings.sustainSeconds
+    + timings.decaySeconds
+    + timings.cooldownSeconds;
+}
+
+function spinMotionAt(spin, elapsedSeconds) {
+  const accelerationSeconds = spin.accelerationSeconds;
+  const coastSeconds = spin.coastSeconds;
+  const decelerationSeconds = spin.decelerationSeconds;
+  const motionDurationSeconds = spin.motionDurationSeconds;
+  const peak = Math.max(0, finiteNumber(spin.peakAngularVelocity, 0));
+  const elapsed = clamp(elapsedSeconds, 0, motionDurationSeconds, 0);
+  const accelerationDistance = peak * accelerationSeconds * 0.5;
+  const coastDistance = peak * coastSeconds;
+  let distance;
+  let velocity;
+
+  if (elapsed < accelerationSeconds) {
+    const ratio = elapsed / accelerationSeconds;
+    distance = accelerationDistance * ratio * ratio;
+    velocity = peak * ratio;
+  } else if (elapsed < accelerationSeconds + coastSeconds) {
+    const coastElapsed = elapsed - accelerationSeconds;
+    distance = accelerationDistance + peak * coastElapsed;
+    velocity = peak;
+  } else if (elapsed < motionDurationSeconds) {
+    const decelerationElapsed = elapsed - accelerationSeconds - coastSeconds;
+    const ratio = decelerationElapsed / decelerationSeconds;
+    distance = accelerationDistance
+      + coastDistance
+      + peak * decelerationElapsed
+      - peak * decelerationSeconds * ratio * ratio * 0.5;
+    velocity = peak * (1 - ratio);
+  } else {
+    distance = spin.travelRadians;
+    velocity = 0;
+  }
+
+  return {
+    distance: Math.min(spin.travelRadians, Math.max(0, distance)),
+    velocity: spin.direction * velocity,
+  };
+}
+
+function spinTimeAtDistance(spin, requestedDistance) {
+  const distance = clamp(requestedDistance, 0, spin.travelRadians, 0);
+  const peak = spin.peakAngularVelocity;
+  const accelerationDistance = peak * spin.accelerationSeconds * 0.5;
+  const coastDistance = peak * spin.coastSeconds;
+  const decelerationStartDistance = accelerationDistance + coastDistance;
+
+  if (distance <= accelerationDistance) {
+    return Math.sqrt(2 * distance * spin.accelerationSeconds / peak);
+  }
+  if (distance <= decelerationStartDistance) {
+    return spin.accelerationSeconds + (distance - accelerationDistance) / peak;
+  }
+  const remainingDistance = Math.max(0, spin.travelRadians - distance);
+  const remainingTime = Math.sqrt(
+    2 * remainingDistance * spin.decelerationSeconds / peak,
+  );
+  return spin.motionDurationSeconds - remainingTime;
+}
+
+function spinPhaseAt(spin, elapsedSeconds) {
+  const motionEnd = spin.motionDurationSeconds;
+  const sustainEnd = motionEnd + spin.sustainSeconds;
+  const decayEnd = sustainEnd + spin.decaySeconds;
+  const cooldownEnd = decayEnd + spin.cooldownSeconds;
+  const elapsed = clamp(elapsedSeconds, 0, cooldownEnd, 0);
+
+  if (elapsed < spin.accelerationSeconds) {
+    return [WHEEL_SPIN_PHASES.accelerating, elapsed];
+  }
+  if (elapsed < spin.accelerationSeconds + spin.coastSeconds) {
+    return [
+      WHEEL_SPIN_PHASES.coasting,
+      elapsed - spin.accelerationSeconds,
+    ];
+  }
+  if (elapsed < motionEnd) {
+    return [
+      WHEEL_SPIN_PHASES.decelerating,
+      elapsed - spin.accelerationSeconds - spin.coastSeconds,
+    ];
+  }
+  if (elapsed < sustainEnd) {
+    return [WHEEL_SPIN_PHASES.sustaining, elapsed - motionEnd];
+  }
+  if (elapsed < decayEnd) {
+    return [WHEEL_SPIN_PHASES.decaying, elapsed - sustainEnd];
+  }
+  if (elapsed < cooldownEnd) {
+    return [WHEEL_SPIN_PHASES.cooldown, elapsed - decayEnd];
+  }
+  return [WHEEL_SPIN_PHASES.idle, 0];
+}
+
+function spinEndState(spin, elapsedSeconds) {
+  const motionEnd = spin.motionDurationSeconds;
+  const sustainEnd = motionEnd + spin.sustainSeconds;
+  const decayEnd = sustainEnd + spin.decaySeconds;
+  const lifecycleDurationSeconds = decayEnd + spin.cooldownSeconds;
+  const elapsed = clamp(elapsedSeconds, 0, lifecycleDurationSeconds, 0);
+  const [phase, phaseElapsedSeconds] = spinPhaseAt(spin, elapsed);
+  const moving = elapsed < motionEnd;
+  const motion = moving
+    ? spinMotionAt(spin, elapsed)
+    : { distance: spin.travelRadians, velocity: 0 };
+  const sustaining = phase === WHEEL_SPIN_PHASES.sustaining;
+  const decaying = phase === WHEEL_SPIN_PHASES.decaying;
+  const finalEnvelope = sustaining
+    ? 1
+    : decaying
+      ? clamp(1 - phaseElapsedSeconds / spin.decaySeconds)
+      : 0;
+  const finalMouthIndex = elapsed >= motionEnd
+    ? spin.targetMouthIndex
+    : null;
+  const idle = phase === WHEEL_SPIN_PHASES.idle;
+
+  return {
+    ...spin,
+    phase,
+    rotation: spin.startRotation + spin.direction * motion.distance,
+    angularVelocity: motion.velocity,
+    elapsedSeconds: elapsed,
+    phaseElapsedSeconds,
+    motionElapsedSeconds: Math.min(elapsed, motionEnd),
+    progress: spin.travelRadians > 0 ? motion.distance / spin.travelRadians : 0,
+    finalMouthIndex,
+    finalEnvelope,
+    sustainRemainingSeconds: elapsed < motionEnd
+      ? spin.sustainSeconds
+      : Math.max(0, sustainEnd - elapsed),
+    decayRemainingSeconds: elapsed < sustainEnd
+      ? spin.decaySeconds
+      : Math.max(0, decayEnd - elapsed),
+    cooldownRemainingSeconds: elapsed < decayEnd
+      ? spin.cooldownSeconds
+      : Math.max(0, lifecycleDurationSeconds - elapsed),
+    locked: !idle,
+    canSpin: idle && spin.mouthCount > 0,
+  };
+}
+
+/**
+ * Create the wheel's quiet, motionless transport. The state is intentionally
+ * plain data so a UI can keep it in any store and advance it at a fixed step.
+ */
+export function createWheelSpinState(options = {}) {
+  const source = options && typeof options === "object" ? options : {};
+  const count = mouthCount(source.mouthCount ?? source.count, WHEEL_MOUTH_LIMITS.default);
+  const timings = spinTimings(source);
+  return {
+    phase: WHEEL_SPIN_PHASES.idle,
+    rotation: finiteNumber(source.rotation, DEFAULT_ROTATION),
+    angularVelocity: 0,
+    mouthCount: count,
+    readerAngle: finiteNumber(source.readerAngle, WHEEL_SPIN_DEFAULTS.readerAngle),
+    direction: spinDirection(source.direction),
+    targetMouthIndex: null,
+    finalMouthIndex: null,
+    spinNumber: clampInteger(source.spinNumber, 0, 1_000_000_000, 0),
+    rngState: spinSeed(source.seed ?? source.rngState),
+    elapsedSeconds: 0,
+    phaseElapsedSeconds: 0,
+    motionElapsedSeconds: 0,
+    motionDurationSeconds: 0,
+    lifecycleDurationSeconds: 0,
+    startRotation: finiteNumber(source.rotation, DEFAULT_ROTATION),
+    targetRotation: finiteNumber(source.rotation, DEFAULT_ROTATION),
+    travelRadians: 0,
+    peakAngularVelocity: 0,
+    progress: 0,
+    finalEnvelope: 0,
+    sustainRemainingSeconds: 0,
+    decayRemainingSeconds: 0,
+    cooldownRemainingSeconds: 0,
+    locked: false,
+    canSpin: count > 0,
+    ...timings,
+  };
+}
+
+/** True only after the complete final decay and cooldown, and with a mouth to spin. */
+export function canStartWheelSpin(state) {
+  return state?.phase === WHEEL_SPIN_PHASES.idle
+    && state?.locked !== true
+    && mouthCount(state?.mouthCount, 0) > 0;
+}
+
+/**
+ * Start a deterministic Wheel-of-Fortune trajectory. A supplied target wins;
+ * otherwise the state's seeded generator selects the landing mouth and turns.
+ */
+export function startWheelSpin(state = createWheelSpinState(), options = {}) {
+  const current = state && typeof state === "object" && state.phase
+    ? state
+    : createWheelSpinState(state);
+  if (!canStartWheelSpin(current)) return current;
+  const source = options && typeof options === "object" ? options : {};
+  const count = mouthCount(source.mouthCount ?? current.mouthCount, current.mouthCount);
+  if (count <= 0) return { ...current, mouthCount: 0, canSpin: false };
+
+  const direction = spinDirection(source.direction, current.direction);
+  const readerAngle = finiteNumber(source.readerAngle, current.readerAngle);
+  let rngState = spinSeed(source.seed ?? current.rngState);
+  if (source.targetMouthIndex === undefined) rngState = nextSpinSeed(rngState);
+  const targetMouthIndex = source.targetMouthIndex === undefined
+    ? Math.min(count - 1, Math.floor(spinUnit(rngState) * count))
+    : clampInteger(source.targetMouthIndex, 0, count - 1, 0);
+  const minimumTurns = clampInteger(
+    source.minimumTurns,
+    3,
+    24,
+    WHEEL_SPIN_DEFAULTS.minimumTurns,
+  );
+  const extraTurns = clampInteger(
+    source.extraTurns,
+    0,
+    12,
+    WHEEL_SPIN_DEFAULTS.extraTurns,
+  );
+  if (source.turns === undefined) rngState = nextSpinSeed(rngState);
+  const turns = source.turns === undefined
+    ? minimumTurns + Math.floor(spinUnit(rngState) * (extraTurns + 1))
+    : clampInteger(source.turns, 3, 36, minimumTurns);
+  const timings = spinTimings({ ...current, ...source });
+  const motionDurationSeconds = spinMotionDuration(timings);
+  const lifecycleDurationSeconds = spinLifecycleDuration(timings);
+  const startRotation = finiteNumber(current.rotation, DEFAULT_ROTATION);
+  const mouthAngle = TAU / count;
+  const targetAlignment = readerAngle - targetMouthIndex * mouthAngle;
+  const alignmentTravel = direction > 0
+    ? positiveModulo(targetAlignment - startRotation, TAU)
+    : positiveModulo(startRotation - targetAlignment, TAU);
+  const travelRadians = turns * TAU + alignmentTravel;
+  const weightedMotionSeconds = timings.coastSeconds
+    + timings.accelerationSeconds * 0.5
+    + timings.decelerationSeconds * 0.5;
+  const peakAngularVelocity = travelRadians / weightedMotionSeconds;
+  const targetRotation = startRotation + direction * travelRadians;
+
+  return {
+    ...current,
+    ...timings,
+    phase: WHEEL_SPIN_PHASES.accelerating,
+    rotation: startRotation,
+    angularVelocity: 0,
+    mouthCount: count,
+    readerAngle,
+    direction,
+    targetMouthIndex,
+    finalMouthIndex: null,
+    spinNumber: clampInteger(current.spinNumber + 1, 0, 1_000_000_000, 1),
+    rngState,
+    elapsedSeconds: 0,
+    phaseElapsedSeconds: 0,
+    motionElapsedSeconds: 0,
+    motionDurationSeconds,
+    lifecycleDurationSeconds,
+    startRotation,
+    targetRotation,
+    travelRadians,
+    peakAngularVelocity,
+    progress: 0,
+    finalEnvelope: 0,
+    sustainRemainingSeconds: timings.sustainSeconds,
+    decayRemainingSeconds: timings.decaySeconds,
+    cooldownRemainingSeconds: timings.cooldownSeconds,
+    locked: true,
+    canSpin: false,
+  };
+}
+
+/**
+ * Enumerate only physical mouth crossings of the fixed reader (3 o'clock by
+ * default). The start angle is exclusive and the end angle is inclusive.
+ */
+export function wheelMouthCrossings(
+  fromRotation,
+  toRotation,
+  requestedMouthCount,
+  options = {},
+) {
+  const count = mouthCount(requestedMouthCount, 0);
+  const from = finiteNumber(fromRotation, 0);
+  const to = finiteNumber(toRotation, from);
+  if (count <= 0 || Math.abs(to - from) < 1e-12) return [];
+  const source = options && typeof options === "object" ? options : {};
+  const readerAngle = finiteNumber(source.readerAngle, WHEEL_SPIN_DEFAULTS.readerAngle);
+  const spacing = TAU / count;
+  const fromGrid = (from - readerAngle) / spacing;
+  const toGrid = (to - readerAngle) / spacing;
+  const crossings = [];
+  const epsilon = 1e-10;
+
+  if (to > from) {
+    const first = Math.floor(fromGrid + epsilon) + 1;
+    const last = Math.floor(toGrid + epsilon);
+    for (let grid = first; grid <= last; grid += 1) {
+      crossings.push({
+        type: "mouth-crossing",
+        mouthIndex: positiveModulo(-grid, count),
+        crossingRotation: readerAngle + grid * spacing,
+        readerAngle,
+        direction: 1,
+      });
+    }
+  } else {
+    const first = Math.ceil(fromGrid - epsilon) - 1;
+    const last = Math.ceil(toGrid - epsilon);
+    for (let grid = first; grid >= last; grid -= 1) {
+      crossings.push({
+        type: "mouth-crossing",
+        mouthIndex: positiveModulo(-grid, count),
+        crossingRotation: readerAngle + grid * spacing,
+        readerAngle,
+        direction: -1,
+      });
+    }
+  }
+  return crossings;
+}
+
+/**
+ * Advance a spin without mutating it. Analytic kinematics make the final state
+ * independent of whether callers use one large step or many fixed small ones.
+ */
+export function stepWheelSpin(state, deltaSeconds = 0) {
+  const current = state && typeof state === "object" && state.phase
+    ? state
+    : createWheelSpinState(state);
+  const delta = Math.max(0, finiteNumber(deltaSeconds, 0));
+  if (delta <= 0 || current.phase === WHEEL_SPIN_PHASES.idle) {
+    return { state: current, events: [] };
+  }
+
+  const previousElapsed = clamp(
+    current.elapsedSeconds,
+    0,
+    current.lifecycleDurationSeconds,
+    0,
+  );
+  let nextElapsed = Math.min(
+    current.lifecycleDurationSeconds,
+    previousElapsed + delta,
+  );
+  // Repeated browser-frame deltas can accumulate just below a phase boundary
+  // (for example 7.399999999999982 instead of 7.4). Snap that numerical dust
+  // so the mouth that physically reaches the reader is also marked final.
+  for (const boundary of [
+    current.motionDurationSeconds,
+    current.motionDurationSeconds + current.sustainSeconds,
+    current.motionDurationSeconds + current.sustainSeconds + current.decaySeconds,
+    current.lifecycleDurationSeconds,
+  ]) {
+    if (Math.abs(nextElapsed - boundary) < 1e-10) nextElapsed = boundary;
+  }
+  const next = spinEndState(current, nextElapsed);
+  const events = wheelMouthCrossings(
+    current.rotation,
+    next.rotation,
+    current.mouthCount,
+    { readerAngle: current.readerAngle },
+  ).map((event) => {
+    const distance = Math.abs(event.crossingRotation - current.startRotation);
+    const crossingElapsedSeconds = spinTimeAtDistance(current, distance);
+    const crossingMotion = spinMotionAt(current, crossingElapsedSeconds);
+    return {
+      ...event,
+      angularVelocity: crossingMotion.velocity,
+      crossingElapsedSeconds,
+      stepOffsetSeconds: clamp(
+        crossingElapsedSeconds - previousElapsed,
+        0,
+        delta,
+        0,
+      ),
+      progress: distance / current.travelRadians,
+      isFinal: false,
+      sustainSeconds: 0,
+      decaySeconds: 0,
+    };
+  });
+
+  if (previousElapsed < current.motionDurationSeconds
+    && nextElapsed >= current.motionDurationSeconds
+    && events.length) {
+    const finalEvent = events.at(-1);
+    finalEvent.isFinal = true;
+    finalEvent.sustainSeconds = current.sustainSeconds;
+    finalEvent.decaySeconds = current.decaySeconds;
+  }
+
+  return { state: next, events };
 }
 
 function normalizeLetter(value, fallback = "A") {

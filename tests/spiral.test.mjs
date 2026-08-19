@@ -167,9 +167,11 @@ test("Spiral page exposes intrinsic time paths and tactile winding controls", as
     app,
     /amplitudeControl\.sampleAtTime\(\s*contact\.age\s*\/\s*durationScale,\s*0\.75,\s*\)/,
   );
-  assert.match(
+  assert.match(app, /setLoopPlaying\(!state\.loopPlaying\)/);
+  assert.doesNotMatch(
     app,
-    /setLoopPlaying\(true\);\s+if \(!state\.audio\) void enableAudio\(\);/,
+    /loopPlayButton[\s\S]{0,240}(?:enableAudio|toggleAudio)\(/,
+    "loop motion must leave the explicit Audio switch unchanged",
   );
 
   const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]));

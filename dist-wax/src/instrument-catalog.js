@@ -41,6 +41,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Cuts a rotating 4D wireframe with a W hyperplane and sonifies the crossing edges.",
     "Turn on audio, choose a 4D form, then move the W reader or start rotation.",
   ),
+  "hyper-rubix": define(
+    "4D puzzle instrument",
+    "Projects a 3 × 3 × 3 × 3 tesseract puzzle with eight cubic boundary cells and 216 color stickers, sounding each legal four-dimensional quarter turn.",
+    "Turn on audio, choose a boundary cell and one of its three tangent planes, then twist ±90° or scramble while orbiting and folding the 4D projection.",
+    ["Pointer", "Built-in synth"],
+  ),
 
   "shape-drums": define(
     "Drum machine",
@@ -65,7 +71,7 @@ const CATALOG_DETAILS = Object.freeze({
   rubix: define(
     "Geometric sequencer",
     "Turns three visible puzzle faces into acid and four selectable sample-free percussion models, with projected sticker area controlling dynamics and hidden stickers hard-silent.",
-    "Load a preset or choose a 2 × 2 through 6 × 6 cube, Pyramid, or Sphere and read path; then drag the form or enable independently clocked Random Twists to rewrite the next hits before release.",
+    "Load a preset or choose a Cube, Morphix, Diamond, Stella, or Orb visual form and a size from 2 through 12; then drag it or enable independently controlled Random Twists to rewrite the next hits before release.",
     ["Pointer"],
   ),
   "hyper-drums": define(
@@ -83,11 +89,17 @@ const CATALOG_DETAILS = Object.freeze({
     "Paints notes, glissandi, rings, and parameter fields onto a looping time-frequency canvas powered by continuous percussion.",
     "Turn on audio, choose a preset and paint tool, draw on the canvas, then start the loop.",
   ),
+  gesturama: define(
+    "Camera gesture instrument",
+    "Turns live motion into painted drums, continuously shaped resonant pads, recorded microphone samples, or a Karplus–Strong video harp.",
+    "Start the camera, choose a preset, then move through the grid or strings; use the pointer only to paint new sound zones.",
+    ["Camera input", "Mic input", "Color tracking", "Pointer"],
+  ),
 
   "image-to-instrument-3": define(
     "Vocal formant instrument",
-    "Grows every typed letter into its own looping mouth, with glottal excitation, wet nasal and slime cavities, moving formants, lips, and an extensible tongue.",
-    "Turn on audio and type a word, then pull, push, pinch, resize, stretch, or draw out each mouth's tongue while the changing anatomy keeps looping.",
+    "Grows every typed letter into its own morphable glottal mouth on a quiet one-shot wheel, sounding wet nasal and slime cavities only when each organ crosses the fixed three-o'clock reader.",
+    "Turn on audio, set the letter wheel, and spin; it accelerates, coasts, and brakes before the final organ sustains and fades, then unlocks for another spin.",
     ["Built-in synth", "Pointer", "Computer keys"],
   ),
 
@@ -114,6 +126,18 @@ const CATALOG_DETAILS = Object.freeze({
     "Feeds microphone input, an internal glottis, or both through up to seven editable vocal tracts.",
     "Choose the glottis or microphone source, turn on audio, then drag the tongue and tract controls.",
     ["Mic input", "Built-in source"],
+  ),
+  syrinx: define(
+    "Physical animal voice",
+    "Models mammal folds, paired bird labia, frog membranes, and a rodent jet whistle through species-bounded vocal anatomy.",
+    "Choose an animal and call, turn on audio, then trigger the gesture or hold Breath while reshaping its biological controls.",
+    ["Built-in source", "Pointer"],
+  ),
+  "alien-larynx": define(
+    "Experimental voice instrument",
+    "Keeps the recognizable Throatazoid voice beneath five optional systems for coupled folds, true-scale propagation, mouth genomes, robot glands, and wormhole routing.",
+    "Start with every alien system bypassed, turn on audio, then bring the five mutations online one at a time or return instantly to the anchored voice.",
+    ["Mic input", "Built-in source", "Computer keys"],
   ),
   "spelling-synthesizer": define(
     "Voice instrument",

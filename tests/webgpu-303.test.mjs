@@ -382,6 +382,17 @@ test("WebGPU 303 page ships as a separate credited section", async () => {
   assert.match(app, /visualHoldTime/);
   assert.match(app, /setSynthPlayState/);
   assert.match(app, /toggleSynthPlay/);
+  const synthTransport = app.slice(
+    app.indexOf("async function toggleSynthPlay()"),
+    app.indexOf("async function restartAudio()", app.indexOf("async function toggleSynthPlay()")),
+  );
+  assert.doesNotMatch(synthTransport, /startAudio|setAudioState|toggleAudio/);
+  assert.match(synthTransport, /Turn Audio on before playing the synth/);
+  const synthState = app.slice(
+    app.indexOf("function setSynthPlayState"),
+    app.indexOf("function syncParamOutputs", app.indexOf("function setSynthPlayState")),
+  );
+  assert.doesNotMatch(synthState, /setAudioState/);
   assert.match(app, /setPlaybackEnabled/);
   assert.match(app, /synthPlayButton/);
   assert.match(app, /sequencePhaseAtTime/);

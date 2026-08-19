@@ -261,6 +261,12 @@ test("Order Tones app bounds rendering and audio and supports required gestures"
   assert.match(app, /event\.code === "Space"/);
   assert.match(app, /event\.key === "ArrowLeft"/);
   assert.match(app, /event\.key === "Escape"/);
+  const transport = app.slice(
+    app.indexOf("function togglePlayback()"),
+    app.indexOf("function strikeResidue", app.indexOf("function togglePlayback()")),
+  );
+  assert.doesNotMatch(transport, /enableAudio|toggleAudio|state\.audio\s*=/);
+  assert.match(transport, /playing silently\. Turn Audio on to hear it/);
   assert.match(app, /window\.addEventListener\("pagehide"/);
   assert.match(app, /void pool\.close\(\)/);
   assert.doesNotMatch(app, /new (?:AudioContext|webkitAudioContext)/);

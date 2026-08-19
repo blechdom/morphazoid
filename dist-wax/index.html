@@ -37,8 +37,9 @@
           <div>
             <h1>Morphazoid</h1>
             <p class="about-lede">
-              Morphazoid is a set of browser music instruments. It turns geometry, recursion,
-              algorithms, simulations, microphone input, and audio files into sound.
+              Morphazoid is a collection of browser-based audio experiments. Geometry, recursion,
+              algorithms, and simulations generate sound; other experiments reshape live
+              microphone input and existing audio files.
             </p>
           </div>
         </header>
@@ -55,8 +56,8 @@
             <ol>
               <li>Use the instrument pull-down to open an instrument. Audio starts off.</li>
               <li>
-                Select the speaker, Input, or the page's start control. The browser needs a click
-                or tap before it can play sound.
+                Select the speaker to arm audio. On microphone instruments, start Input separately
+                and grant microphone access only when the instrument asks.
               </li>
               <li>Set the output level before starting feedback, dense textures, or many voices.</li>
               <li>
@@ -75,7 +76,7 @@
         <section class="manual-section" id="midi">
           <div class="manual-section-heading">
             <p class="manual-section-label">Play and automate</p>
-            <h2>MIDI</h2>
+            <h2>MIDI Guide</h2>
             <p class="manual-section-note">
               The browser toolbar receives MIDI. WAX adds DAW-aware MIDI output on suitable pages.
             </p>
@@ -85,18 +86,45 @@
               Every playable instrument has a MIDI control in its top bar. Select
               <strong>MIDI</strong> to enable it; the browser requires a click before it can request
               access to connected devices. Its receive light flashes for incoming notes and controls.
-              The small meter shows the signal being sent to the audio destination, while the gear
-              at the far right opens Audio Out, Mic / Audio In, MIDI In, MIDI Out, and MIDI Map.
-              <strong>Auto (per device)</strong> is recommended when more than one controller is
-              connected.
+              The small L/R meter shows the two channels being sent to the audio destination, so
+              panning and channel imbalance stay visible. The gear at the far right opens the
+              compact Morphazoid Settings panel.
             </p>
             <dl class="technical-list">
               <div>
+                <dt>Settings</dt>
+                <dd>
+                  Audio Out, Mic / Audio In, MIDI In, MIDI Out, and MIDI Map describe the routes
+                  available to the current instrument. A greyed-out selector means that route is not
+                  used by the instrument or cannot be selected in this browser. Microphone permission
+                  and stream controls remain on instruments that use live input; some browsers expose
+                  only the system audio destination. WAX receives audio and MIDI routing from its DAW
+                  or plug-in host.
+                </dd>
+              </div>
+              <div>
                 <dt>Computer keys</dt>
                 <dd>
-                  Most melodic pages provide a two-row piano and drum pages provide a 4 × 4 pad
-                  grid, so they can be played without MIDI hardware. A few instruments retain
-                  their own typing or recording shortcuts instead.
+                  This is the default MIDI Map. Melodic instruments use
+                  <kbd>Z S X D C V G B H N J M</kbd> for C3–B3 and
+                  <kbd>Q 2 W 3 E R 5 T 6 Y 7 U</kbd> for C4–B4. Drum instruments use the 4 × 4
+                  pad rows <kbd>1 2 3 4</kbd>, <kbd>Q W E R</kbd>, <kbd>A S D F</kbd>, and
+                  <kbd>Z X C V</kbd>. <kbd>[</kbd> and <kbd>]</kbd> shift octaves;
+                  <kbd>-</kbd> and <kbd>=</kbd> change velocity. A few instruments retain their own
+                  typing or recording shortcuts instead.
+                </dd>
+              </div>
+              <div>
+                <dt>Controller profiles</dt>
+                <dd>
+                  Computer keys remains the default while connected hardware is detected
+                  automatically. Choose a named MIDI Map only to force one controller layout:
+                  Morphazoid and NI templates use macro CC14–21; Maschine Mikro uses MIDI mode
+                  (Shift + Project) and pads 36–51; Akai MPK Mini uses CC70–77 and pads 36–51;
+                  Arturia MiniLab 3 uses CC74, 71, 76, 77, 93, 18, 19, and 16 with pads 36–43;
+                  and Novation Launchkey uses Custom Mode CC21–28 with pads 36–51. Custom /
+                  Pass-through leaves standard MIDI unchanged. NI assignments require a
+                  user-created MIDI template rather than a factory mapping.
                 </dd>
               </div>
               <div>
@@ -123,12 +151,23 @@
               <div>
                 <dt>MIDI output</dt>
                 <dd>
-                  Input and output remain separate. Browser MIDI Out stays off unless a page
-                  intentionally generates events; it uses destination, channel, and clock routing,
-                  not a second copy of the input map. Suitable pages in the generated
+                  Input and output remain separate. In the normal browser, MIDI Out is currently a
+                  preview only: no output destination is exposed and none of the displayed values is sent.
+                  Suitable pages in the generated
                   <a href="wax.html">WAX</a> build can run as MIDI FX, produce a deterministic companion
                   sequence, and follow DAW tempo and position. Incoming MIDI is never echoed
                   automatically.
+                </dd>
+              </div>
+              <div>
+                <dt>MIDI Out Monitor</dt>
+                <dd>
+                  Output-capable browser instruments include a live monitor at the bottom of their
+                  control rail. It separates exact instrument note previews when that page publishes
+                  them, current controls as
+                  unassigned 0–127 CC candidates, genuine BPM clock candidates or other unmapped
+                  timebases, and transport state. The monitor is diagnostic only: nothing shown there
+                  is routed, mapped, or sent as MIDI yet.
                 </dd>
               </div>
             </dl>

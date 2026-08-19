@@ -32,7 +32,15 @@ test("lattice drum app starts with the complete editable isohedral form", async 
         remove() {},
       },
       addEventListener(type, listener) {
-        if (id) listeners.set(`${id}:${type}`, listener);
+        if (!id) return;
+        const key = `${id}:${type}`;
+        const existing = listeners.get(key);
+        listeners.set(key, existing
+          ? (...args) => {
+            existing(...args);
+            return listener(...args);
+          }
+          : listener);
       },
       setAttribute(name, value) {
         if (id) attributes.set(`${id}:${name}`, String(value));
@@ -69,13 +77,13 @@ test("lattice drum app starts with the complete editable isohedral form", async 
 
   for (const id of ids) makeNode(id);
 
-  const directionButtons = [
-    makeNode("", "button"),
-    makeNode("", "button"),
+  const motionButtons = [
+    elements.get("loopMotion"),
+    elements.get("pingPongMotion"),
   ];
-  directionButtons[0].dataset.direction = "-1";
-  directionButtons[1].dataset.direction = "1";
-  elements.get("directionChoice").querySelectorAll = () => directionButtons;
+  motionButtons[0].dataset.value = "loop";
+  motionButtons[1].dataset.value = "pingpong";
+  elements.get("playheadMotion").querySelectorAll = () => motionButtons;
 
   const drawingContext = {
     arc() {},
@@ -134,9 +142,12 @@ test("lattice drum app starts with the complete editable isohedral form", async 
     },
     addEventListener() {},
   };
+  const windowListeners = new Map();
   globalThis.window = {
     devicePixelRatio: 2,
-    addEventListener() {},
+    addEventListener(type, listener) {
+      windowListeners.set(type, listener);
+    },
   };
   globalThis.localStorage = {
     getItem() {
@@ -250,6 +261,19 @@ test("lattice drum app starts with the complete editable isohedral form", async 
       },
     };
   };
+  const previewEvents = [];
+  const previousCustomEvent = globalThis.CustomEvent;
+  const previousDispatchEvent = globalThis.dispatchEvent;
+  globalThis.CustomEvent = class {
+    constructor(type, init = {}) {
+      this.type = type;
+      this.detail = init.detail;
+    }
+  };
+  globalThis.dispatchEvent = (event) => {
+    previewEvents.push(event.detail);
+    return true;
+  };
 
   function flushAnimationFrame(now = performance.now() + 20) {
     const callbacks = rafQueue.splice(0);
@@ -263,6 +287,9 @@ test("lattice drum app starts with the complete editable isohedral form", async 
   await import(`../lattice-drums-app.js?smoke=${Date.now()}`);
   assert.ok(rafQueue.length > 0, "startup should schedule an initial render");
   flushAnimationFrame();
+  assert.equal(attributes.get("playButton:data-no-midi-preview"), "");
+  assert.equal(attributes.get("position:data-no-midi-preview"), "");
+  assert.equal(attributes.get("speed:data-no-midi-preview"), "");
 
   const tilingOptions = descendants(elements.get("tilingType"))
     .filter((node) => node.tagName === "OPTION");
@@ -276,7 +303,81 @@ test("lattice drum app starts with the complete editable isohedral form", async 
   assert.equal(elements.get("engineStatus").textContent, "FM synth · audio off");
   assert.equal(elements.get("speed").value, "0.36");
   assert.equal(elements.get("speedOut").textContent, "0.360 cyc/s");
-  assert.equal(elements.get("motionSummary").textContent, "paused · 0.360 cyc/s");
+  assert.equal(elements.get("motionSummary").textContent, "paused · loop · reverse · 0.360 cyc/s");
+  for (const id of [
+    "playheadMotion",
+    "traversalDirection",
+    "loopMotion",
+    "pingPongMotion",
+  ]) {
+    assert.ok(elements.has(id), `the Shape-style transport should expose #${id}`);
+  }
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "false");
+  assert.equal(elements.get("traversalDirectionGlyph").textContent, "←");
+  assert.equal(elements.get("traversalDirectionText").textContent, "REV");
+  assert.equal(attributes.get("traversalDirection:aria-label"), "Pattern direction: reverse");
+
+  const phaseBeforeDirectionToggle = Number(elements.get("position").value);
+  listeners.get("traversalDirection:click")();
+  assert.equal(elements.get("traversalDirectionGlyph").textContent, "→");
+  assert.equal(elements.get("traversalDirectionText").textContent, "FWD");
+  assert.equal(attributes.get("traversalDirection:aria-label"), "Pattern direction: forward");
+  assert.equal(
+    Number(elements.get("position").value),
+    phaseBeforeDirectionToggle,
+    "changing direction must not reset the drum pattern phase",
+  );
+  listeners.get("traversalDirection:click")();
+  assert.equal(elements.get("traversalDirectionText").textContent, "REV");
+
+  elements.get("position").value = "0.73";
+  listeners.get("position:input")({ isTrusted: false });
+  flushAnimationFrame(performance.now() + 40);
+  const phaseBeforeMotionSwitch = Number(elements.get("position").value);
+  listeners.get("pingPongMotion:click")();
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "false");
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "true");
+  flushAnimationFrame(performance.now() + 60);
+  assert.equal(
+    Number(elements.get("position").value),
+    phaseBeforeMotionSwitch,
+    "switching from Loop to Ping-pong must preserve drum pattern phase",
+  );
+  listeners.get("loopMotion:click")();
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "false");
+  flushAnimationFrame(performance.now() + 80);
+  assert.equal(
+    Number(elements.get("position").value),
+    phaseBeforeMotionSwitch,
+    "switching back to Loop must preserve drum pattern phase",
+  );
+
+  elements.get("position").value = "0.997";
+  listeners.get("position:input")({ isTrusted: false });
+  listeners.get("traversalDirection:click")();
+  listeners.get("pingPongMotion:click")();
+  listeners.get("playButton:click")();
+  const firstStartPreview = previewEvents
+    .filter(({ kind }) => kind === "transport")
+    .at(-1);
+  assert.equal(firstStartPreview?.routeId, "lattice-drums");
+  assert.equal(firstStartPreview?.sourceId, "lattice-drums-transport");
+  assert.equal(firstStartPreview?.state, "start");
+  flushAnimationFrame(performance.now() + 200);
+  const reflectedPhase = Number(elements.get("position").value);
+  assert.ok(reflectedPhase < 0.997, "Ping-pong must reverse after reaching the far endpoint");
+  assert.ok(reflectedPhase > 0.9, "Ping-pong must reflect at the endpoint instead of wrapping to zero");
+  listeners.get("playButton:click")();
+  listeners.get("loopMotion:click")();
+  listeners.get("traversalDirection:click")();
+  elements.get("position").value = "0.5";
+  listeners.get("position:input")({ isTrusted: false });
+  flushAnimationFrame(performance.now() + 220);
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
+  assert.equal(elements.get("traversalDirectionText").textContent, "REV");
+
   assert.match(elements.get("formSummary").textContent, /Pentagon · IH20/);
   assert.equal(elements.get("parameterCount").textContent, "2 parameters · guarded");
   assert.equal(elements.get("edgeCount").textContent, "3 bendable classes");
@@ -407,15 +508,152 @@ test("lattice drum app starts with the complete editable isohedral form", async 
   elements.get("speed").value = "0.1";
   listeners.get("speed:input")();
   assert.equal(elements.get("speedOut").textContent, "0.100 cyc/s");
+  listeners.get("traversalDirection:click")();
+  listeners.get("pingPongMotion:click")();
+  assert.equal(elements.get("traversalDirectionText").textContent, "FWD");
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "true");
   listeners.get("resetLatticeDrums:click")();
   flushAnimationFrame();
+  flushAnimationFrame(performance.now() + 80);
+  assert.ok(previewEvents.some((event) => (
+    event.kind === "timebase"
+    && event.routeId === "lattice-drums"
+    && event.sourceId === "lattice-drums-timebase"
+    && event.rate === .1
+    && event.unit === "cycles/s"
+  )));
+  assert.ok(previewEvents.some((event) => (
+    event.kind === "control"
+    && event.routeId === "lattice-drums"
+    && event.sourceId === "lattice-drums-patternAngle"
+  )));
   assert.equal(elements.get("speed").value, "0.36");
   assert.equal(elements.get("speedOut").textContent, "0.360 cyc/s");
-  assert.equal(elements.get("motionSummary").textContent, "paused · 0.360 cyc/s");
+  assert.equal(elements.get("motionSummary").textContent, "paused · loop · reverse · 0.360 cyc/s");
+  assert.equal(elements.get("traversalDirectionGlyph").textContent, "←");
+  assert.equal(elements.get("traversalDirectionText").textContent, "REV");
+  assert.equal(attributes.get("traversalDirection:aria-label"), "Pattern direction: reverse");
+  assert.equal(attributes.get("loopMotion:aria-pressed"), "true");
+  assert.equal(attributes.get("pingPongMotion:aria-pressed"), "false");
   assert.equal(elements.get("mappingMode").value, "edge-angle");
   assert.equal(elements.get("drumEngine").value, "fm");
   assert.equal(elements.get("engineStatus").textContent, "FM synth active");
   assert.equal(elements.get("drumMap").dataset.mappingMode, "edge-angle");
+
+  const startsBeforeStoppedScan = oscillatorStarts;
+  elements.get("position").value = "0.71";
+  listeners.get("position:input")();
+  flushAnimationFrame(performance.now() + 20);
+  await Promise.resolve();
+  assert.equal(attributes.get("playButton:aria-pressed"), "false");
+  assert.match(elements.get("motionSummary").textContent, /^scrubbing/);
+  assert.ok(
+    oscillatorStarts > startsBeforeStoppedScan,
+    "a stopped manual scan must trigger drums at newly crossed physical edges",
+  );
+  flushAnimationFrame(performance.now() + 180);
+  assert.equal(elements.get("motionSummary").textContent, "paused · loop · reverse · 0.360 cyc/s");
+  assert.equal(typeof listeners.get("stage:lostpointercapture"), "function");
+  assert.equal(typeof listeners.get("position:lostpointercapture"), "function");
+
+  const startsBeforeCanvasDrag = oscillatorStarts;
+  listeners.get("stage:pointerdown")({ clientX: 450, clientY: 300, pointerId: 9 });
+  const phaseBeforeUnrelatedPointer = elements.get("position").value;
+  listeners.get("stage:pointermove")({ clientX: 620, clientY: 300, pointerId: 99 });
+  flushAnimationFrame(performance.now() + 20);
+  await Promise.resolve();
+  assert.equal(elements.get("position").value, phaseBeforeUnrelatedPointer);
+  assert.equal(oscillatorStarts, startsBeforeCanvasDrag);
+  listeners.get("stage:lostpointercapture")({ pointerId: 99 });
+  listeners.get("stage:pointermove")({ clientX: 620, clientY: 300, pointerId: 9 });
+  flushAnimationFrame(performance.now() + 30);
+  await Promise.resolve();
+  assert.ok(
+    oscillatorStarts > startsBeforeCanvasDrag,
+    "dragging the stopped lattice drum pattern must trigger crossed edges",
+  );
+  assert.equal(attributes.get("playButton:aria-pressed"), "false");
+  listeners.get("stage:lostpointercapture")({ pointerId: 9 });
+  flushAnimationFrame(performance.now() + 190);
+
+  listeners.get("stage:pointerdown")({ clientX: 450, clientY: 300, pointerId: 12 });
+  listeners.get("stage:pointermove")({ clientX: 610, clientY: 300, pointerId: 12 });
+  flushAnimationFrame(performance.now() + 300);
+  await Promise.resolve();
+  windowListeners.get("blur")();
+  const phaseAtBlur = elements.get("position").value;
+  const startsAtBlur = oscillatorStarts;
+  listeners.get("stage:pointermove")({ clientX: 700, clientY: 300, pointerId: 12 });
+  flushAnimationFrame(performance.now() + 330);
+  await Promise.resolve();
+  assert.equal(elements.get("position").value, phaseAtBlur, "blur must clear the stage drag");
+  assert.equal(oscillatorStarts, startsAtBlur);
+  assert.equal(elements.get("motionSummary").textContent, "paused · loop · reverse · 0.360 cyc/s");
+
+  const startsBeforeKeyboardScan = oscillatorStarts;
+  for (let press = 0; press < 5; press += 1) {
+    windowListeners.get("keydown")({
+      target: { tagName: "DIV" },
+      key: "ArrowRight",
+      shiftKey: true,
+      preventDefault() {},
+    });
+  }
+  flushAnimationFrame(performance.now() + 400);
+  await Promise.resolve();
+  assert.ok(
+    oscillatorStarts > startsBeforeKeyboardScan,
+    "Left/Right keyboard scans must trigger stopped drum crossings",
+  );
+  assert.equal(attributes.get("playButton:aria-pressed"), "false");
+  flushAnimationFrame(performance.now() + 600);
+
+  const startsBeforeProgrammaticInput = oscillatorStarts;
+  const notesBeforeProgrammaticInput = previewEvents.filter(({ kind }) => kind === "note").length;
+  listeners.get("position:pointerdown")({ pointerId: 13 });
+  windowListeners.get("blur")();
+  elements.get("position").value = "0.33";
+  listeners.get("position:input")({ isTrusted: false });
+  flushAnimationFrame(performance.now() + 800);
+  await Promise.resolve();
+  assert.equal(
+    oscillatorStarts,
+    startsBeforeProgrammaticInput,
+    "programmatic range input must not masquerade as a direct stopped scrub",
+  );
+  assert.equal(
+    previewEvents.filter(({ kind }) => kind === "note").length,
+    notesBeforeProgrammaticInput,
+    "synthetic phase input must not masquerade as a MIDI output drum crossing",
+  );
+
+  await listeners.get("audioButton:click")();
+  const startsBeforeMutedScan = oscillatorStarts;
+  const mutedNotesBeforeScan = previewEvents.filter(({ kind }) => kind === "note").length;
+  elements.get("position").value = "0.91";
+  listeners.get("position:input")();
+  flushAnimationFrame(performance.now() + 220);
+  await Promise.resolve();
+  assert.equal(oscillatorStarts, startsBeforeMutedScan, "Audio off must mute stopped scans");
+  assert.equal(attributes.get("playButton:aria-pressed"), "false");
+  const mutedNotePreviews = previewEvents.filter(({ kind }) => kind === "note");
+  assert.ok(
+    mutedNotePreviews.length > mutedNotesBeforeScan,
+    "a direct Audio-off scan should still preview newly crossed drums",
+  );
+  const mutedPreview = mutedNotePreviews.at(-1);
+  assert.equal(mutedPreview.routeId, "lattice-drums");
+  assert.equal(mutedPreview.channel, 10);
+  assert.ok(mutedPreview.note >= 36 && mutedPreview.note <= 51);
+  assert.ok(mutedPreview.velocity >= 1 && mutedPreview.velocity <= 127);
+  assert.ok(mutedPreview.durationMs > 0);
+  const parkedPreviewCount = mutedNotePreviews.length;
+  flushAnimationFrame(performance.now() + 260);
+  assert.equal(
+    previewEvents.filter(({ kind }) => kind === "note").length,
+    parkedPreviewCount,
+    "a parked stopped drum playhead must remain preview-silent",
+  );
 
   for (const oldSoundId of [
     "soundMode",
@@ -433,4 +671,8 @@ test("lattice drum app starts with the complete editable isohedral form", async 
   else globalThis.AudioContext = previousAudioContext;
   if (previousFetch === undefined) delete globalThis.fetch;
   else globalThis.fetch = previousFetch;
+  if (previousCustomEvent === undefined) delete globalThis.CustomEvent;
+  else globalThis.CustomEvent = previousCustomEvent;
+  if (previousDispatchEvent === undefined) delete globalThis.dispatchEvent;
+  else globalThis.dispatchEvent = previousDispatchEvent;
 });
