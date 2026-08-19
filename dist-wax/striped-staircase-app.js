@@ -1,6 +1,7 @@
 import {
   STRIPED_STAIRCASE_DEFAULTS,
   advancePingPong,
+  cameraAtStaircaseDepth,
   cameraFromView,
   clamp,
   createStaircaseFrame,
@@ -13,12 +14,37 @@ import {
   zoomCameraAt,
   zoomLevel,
 } from "./src/striped-staircase.js";
+import { VoicePool } from "./src/audio.js";
+import {
+  contourVoiceTrajectory,
+  createStaircaseShapeField,
+  staircaseGeometryRate,
+  staircaseDepthContourContacts,
+  voicesForStaircaseContacts,
+} from "./src/striped-staircase-audio.js";
 
 const $ = (id) => document.getElementById(id);
 const FRAME_UI_INTERVAL = 70;
 const FIELD_REFRESH_DELAY = 92;
+const CONTOUR_TRAJECTORY_DELTA = 1 / 96;
 const PIXEL_BUDGET = 1_450_000;
 const MAX_PIXEL_RATIO = 2;
+const PALETTES = Object.freeze({ glass: 0, ember: 1, ultraviolet: 2, ink: 3 });
+const PALETTE_SOUND_SCHEMES = Object.freeze({
+  glass: "shepard",
+  ember: "rattlesnake",
+  ultraviolet: "ouroboros",
+  ink: "ink",
+});
+const SOUND_SCHEME_LABELS = Object.freeze({
+  manual: "manual geometry",
+  shepard: "Shepard register",
+  ouroboros: "Ouroboros cycle",
+  rattlesnake: "Rattlesnake edge",
+  decomposition: "spatial decomposition",
+  ink: "white sound / black silence",
+});
+const pool = new VoicePool(24);
 
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
@@ -28,6 +54,8 @@ const state = {
   progress: STRIPED_STAIRCASE_DEFAULTS.progress,
   speed: STRIPED_STAIRCASE_DEFAULTS.speed,
   motionMode: STRIPED_STAIRCASE_DEFAULTS.motionMode,
+  timingMode: "equal",
+  diveOctaves: 6,
   playing: !reducedMotion?.matches,
   direction: 1,
   settings: {
@@ -44,6 +72,21 @@ const state = {
   renderer: null,
   renderState: "loading",
   contextLost: false,
+  palette: "glass",
+  audio: false,
+  level: 0.48,
+  soundPolarity: "white",
+  colorSoundMode: "manual",
+  playbackMode: "fill",
+  baseFrequency: 73,
+  pitchRange: 3,
+  noiseAmount: 0.55,
+  durationScale: 0.55,
+  stereoSpread: 0.85,
+  massLevel: 0.9,
+  contourLevel: 0.55,
+  rhythmLevel: 0.7,
+  microLevel: 0.45,
 };
 
 let animationFrameId = 0;
@@ -53,6 +96,10 @@ let lastPublishedStep = -1;
 let fieldRefreshTimer = 0;
 let resizeObserver = null;
 let disposed = false;
+let lastSoundedStep = -1;
+let diveAnchorCamera = state.camera;
+let soundField = null;
+let lastDrumTimeSlice = -1;
 
 const activePointers = new Map();
 let dragGesture = null;
@@ -75,6 +122,152 @@ function coordinateDigits() {
 
 function currentFrame() {
   return createStaircaseFrame(state.progress, state.settings, state.motionMode);
+}
+
+function setPressed(element, pressed) {
+  element.setAttribute("aria-pressed", String(Boolean(pressed)));
+}
+
+function updateDiveAnchorFromCamera() {
+  if (state.timingMode !== "dive") return;
+  diveAnchorCamera = Object.freeze({
+    centerX: state.camera.centerX,
+    centerY: state.camera.centerY,
+    scale: clamp(
+      state.camera.scale * 2 ** (state.progress * state.diveOctaves),
+      0.00008,
+      2.25,
+    ),
+  });
+}
+
+function refineDiveField() {
+  if (state.timingMode !== "dive" || !state.renderer || state.contextLost) return;
+  try {
+    state.renderer.renderField({
+      ...state.camera,
+      scale: clamp(state.camera.scale * 1.28, 0.00008, 2.25),
+    }, state.settings.maxIterations);
+    setRenderState("LIVE FIELD");
+  } catch (error) {
+    showRenderError(error);
+  }
+}
+
+function syncDiveCamera({ refine = false } = {}) {
+  if (state.timingMode !== "dive") return;
+  state.camera = cameraAtStaircaseDepth(diveAnchorCamera, state.progress, state.diveOctaves);
+  if (refine) refineDiveField();
+}
+
+function soundMapping() {
+  const colorSoundMode = state.colorSoundMode === "follow"
+    ? PALETTE_SOUND_SCHEMES[state.palette]
+    : state.colorSoundMode;
+  return {
+    baseFrequency: state.baseFrequency,
+    pitchRange: state.pitchRange,
+    noiseAmount: state.noiseAmount,
+    durationScale: state.durationScale,
+    stereoSpread: state.stereoSpread,
+    microLevel: state.microLevel,
+    colorSoundMode,
+    transportProgress: state.progress,
+    transportRate: state.speed * state.direction,
+  };
+}
+
+function sonifyFrame(frame, { force = false } = {}) {
+  if (!state.audio || (!force && frame.stepIndex === lastSoundedStep)) return;
+  lastSoundedStep = frame.stepIndex;
+  soundField = createStaircaseShapeField(
+    state.camera,
+    frame.bandLow,
+    frame.bandHigh,
+    state.settings.maxIterations,
+    { polarity: state.soundPolarity },
+  );
+  lastDrumTimeSlice = -1;
+  $("blobCountOut").textContent = soundField.components.length
+    ? `${soundField.components.length} connected ${soundField.components.length === 1 ? "shape" : "shapes"}`
+    : "black silence";
+}
+
+function triggerShapeDrums(contacts, frame) {
+  if (contacts.timeSlice === lastDrumTimeSlice) return;
+  lastDrumTimeSlice = contacts.timeSlice;
+  const voices = voicesForStaircaseContacts(contacts, frame, soundMapping(), "fill");
+  const depthAmount = frame.stepCount <= 1 ? 0 : frame.stepIndex / (frame.stepCount - 1);
+  for (let index = 0; index < Math.min(8, voices.length); index += 1) {
+    const contact = contacts.runs[index];
+    const voice = voices[index];
+    pool.strike({
+      ...voice,
+      key: `drum:${frame.stepIndex}:${contacts.timeSlice}:${index}`,
+      gain: clamp(voice.gain * 1.65 * state.rhythmLevel, 0, 0.24),
+    }, {
+      attackSeconds: 0.002 + (1 - contact.size) * 0.008,
+      decaySeconds: clamp(state.durationScale * (0.05 + contact.size * 0.48), 0.03, 1.2),
+      attackNoise: clamp(
+        state.noiseAmount * state.microLevel * 1.8
+          * (contact.edgeRatio * 0.7 + depthAmount * 0.55),
+        0,
+        1,
+      ),
+    });
+  }
+}
+
+function updatePlayheadAudio(frame) {
+  if (!state.audio || !state.playing || !soundField) {
+    if (state.audio) pool.setVoices([]);
+    return;
+  }
+  const phase = state.direction > 0 ? frame.stepPhase : 1 - frame.stepPhase;
+  const sweepDepth = frame.renderLow + (frame.renderHigh - frame.renderLow) * phase;
+  const contacts = staircaseDepthContourContacts(soundField, sweepDepth, phase);
+  if (state.playbackMode === "drums") {
+    pool.setVoices([]);
+    triggerShapeDrums(contacts, frame);
+  } else if (state.playbackMode === "ensemble") {
+    const fill = voicesForStaircaseContacts(contacts, frame, soundMapping(), "fill")
+      .slice(0, 12)
+      .map((voice) => ({ ...voice, key: `mass:${voice.key}`, gain: voice.gain * state.massLevel }));
+    const edge = voicesForStaircaseContacts(contacts, frame, soundMapping(), "edge")
+      .slice(0, 12)
+      .map((voice) => ({ ...voice, key: `contour:${voice.key}`, gain: voice.gain * state.contourLevel }));
+    const futurePhase = clamp(phase + CONTOUR_TRAJECTORY_DELTA, 0, 1);
+    const futureDepth = frame.renderLow + (frame.renderHigh - frame.renderLow) * futurePhase;
+    const futureContacts = staircaseDepthContourContacts(soundField, futureDepth, futurePhase);
+    const futureFill = voicesForStaircaseContacts(futureContacts, frame, soundMapping(), "fill")
+      .slice(0, 12)
+      .map((voice) => ({ ...voice, key: `mass:${voice.key}`, gain: voice.gain * state.massLevel }));
+    const futureEdge = voicesForStaircaseContacts(futureContacts, frame, soundMapping(), "edge")
+      .slice(0, 12)
+      .map((voice) => ({ ...voice, key: `contour:${voice.key}`, gain: voice.gain * state.contourLevel }));
+    const trajectory = contourVoiceTrajectory(
+      [...fill, ...edge],
+      [...futureFill, ...futureEdge],
+    );
+    pool.setVoiceTrajectory(trajectory.current, trajectory.future, 0.055);
+    triggerShapeDrums(contacts, frame);
+  } else {
+    const mode = state.playbackMode === "edge" ? "edge" : "fill";
+    const layerLevel = mode === "edge" ? state.contourLevel : state.massLevel;
+    const voices = voicesForStaircaseContacts(contacts, frame, soundMapping(), mode)
+      .map((voice) => ({ ...voice, gain: voice.gain * layerLevel }));
+    const futurePhase = clamp(phase + CONTOUR_TRAJECTORY_DELTA, 0, 1);
+    const futureDepth = frame.renderLow + (frame.renderHigh - frame.renderLow) * futurePhase;
+    const future = voicesForStaircaseContacts(
+      staircaseDepthContourContacts(soundField, futureDepth, futurePhase),
+      frame,
+      soundMapping(),
+      mode,
+    ).map((voice) => ({ ...voice, gain: voice.gain * layerLevel }));
+    const trajectory = contourVoiceTrajectory(voices, future);
+    pool.setVoiceTrajectory(trajectory.current, trajectory.future, 0.055);
+  }
+  $("contactCountOut").textContent = `${contacts.runs.length} simultaneous contour ${contacts.runs.length === 1 ? "branch" : "branches"} · depth ${sweepDepth.toFixed(2)}`;
 }
 
 function announce(message) {
@@ -106,7 +299,10 @@ function hideRenderError() {
 
 function publishStep(frame, source = "transport") {
   if (source === "transport" && frame.stepIndex === lastPublishedStep) return;
+  const changedStep = frame.stepIndex !== lastPublishedStep;
   lastPublishedStep = frame.stepIndex;
+  sonifyFrame(frame);
+  if (changedStep && source === "transport") refineDiveField();
   globalThis.dispatchEvent?.(new CustomEvent("morphazoid:striped-staircase-step", {
     detail: Object.freeze({
       source,
@@ -133,6 +329,7 @@ function updatePlayButton() {
 
 function setPlaying(playing, { speak = false } = {}) {
   state.playing = Boolean(playing);
+  if (!state.playing && state.audio) pool.setVoices([]);
   lastFrameTime = 0;
   updatePlayButton();
   updateInterface(true);
@@ -170,6 +367,7 @@ function buildRail() {
     button.title = `step ${index + 1} · ${low.toFixed(1)}—${high.toFixed(1)} iter`;
     button.addEventListener("click", () => {
       state.progress = clamp((index + 0.015) / normalized.steps, 0, 1);
+      syncDiveCamera({ refine: true });
       publishStep(currentFrame(), "rail");
       updateInterface(true);
       requestRender();
@@ -210,9 +408,10 @@ function updateInterface(force = false, timestamp = performance.now()) {
   $("speedOut").textContent = `${state.speed.toFixed(3)} T/s`;
   $("stepReadout").textContent = `${step} / ${count}`;
   $("bandReadout").textContent = `iter ${band}`;
-  $("clockReadout").textContent = state.motionMode === "slide"
-    ? `interpolating · ${Math.round(frame.stepPhase * 100)}%`
-    : `whole interval · ${Math.round(frame.stepPhase * 100)}%`;
+  const clockLabel = state.timingMode === "geometry"
+    ? "shape time"
+    : state.timingMode === "dive" ? "depth zoom" : "equal time";
+  $("clockReadout").textContent = `${clockLabel} · ${Math.round(frame.stepPhase * 100)}%`;
   $("stageStepReadout").textContent = `STEP ${step} / ${count}`;
   $("stageBandReadout").textContent = `ITER ${band}`;
   $("flowSummary").textContent = `${state.motionMode} · ${state.playing ? `moving ${direction}` : "paused"}`;
@@ -227,6 +426,24 @@ function updateInterface(force = false, timestamp = performance.now()) {
   $("stepsOut").textContent = compact(state.settings.steps, 0);
   $("stripePeriodOut").textContent = `${state.settings.stripePeriod.toFixed(1)} iter`;
   $("edgeSoftnessOut").textContent = `${state.settings.edgeSoftness.toFixed(1)} iter`;
+  $("colorSummary").textContent = state.palette[0].toUpperCase() + state.palette.slice(1);
+  const playbackLabel = state.playbackMode === "edge"
+    ? "edge line"
+    : state.playbackMode === "drums"
+      ? "shape drums"
+      : state.playbackMode === "ensemble" ? "four heads" : "shape fill";
+  const scheme = soundMapping().colorSoundMode;
+  $("soundSummary").textContent = `${playbackLabel} · ${SOUND_SCHEME_LABELS[scheme]} · ${state.audio ? "audio on" : "audio off"}`;
+  $("baseFrequencyOut").textContent = `${Math.round(state.baseFrequency)} Hz`;
+  $("pitchRangeOut").textContent = `${state.pitchRange.toFixed(1)} oct`;
+  $("noiseAmountOut").textContent = `${Math.round(state.noiseAmount * 100)}%`;
+  $("durationScaleOut").textContent = `${state.durationScale.toFixed(2)}×`;
+  $("stereoSpreadOut").textContent = `${Math.round(state.stereoSpread * 100)}%`;
+  $("massLevelOut").textContent = `${Math.round(state.massLevel * 100)}%`;
+  $("contourLevelOut").textContent = `${Math.round(state.contourLevel * 100)}%`;
+  $("rhythmLevelOut").textContent = `${Math.round(state.rhythmLevel * 100)}%`;
+  $("microLevelOut").textContent = `${Math.round(state.microLevel * 100)}%`;
+  $("diveOctavesOut").textContent = `${state.diveOctaves.toFixed(1)} oct`;
   updatePlayButton();
   updateRail(frame);
 }
@@ -281,12 +498,19 @@ function draw(timestamp) {
   if (!state.renderer || state.contextLost) return;
   const frame = currentFrame();
   try {
-    state.renderer.render(frame, state.settings, state.camera, state.direction);
+    state.renderer.render(
+      frame,
+      state.settings,
+      state.camera,
+      state.direction,
+      PALETTES[state.palette] ?? 0,
+    );
     hideRenderError();
   } catch (error) {
     showRenderError(error);
   }
   publishStep(frame);
+  updatePlayheadAudio(frame);
   updateInterface(false, timestamp);
 }
 
@@ -296,9 +520,23 @@ function tick(timestamp) {
   if (state.playing && !document.hidden) {
     if (lastFrameTime > 0) {
       const elapsed = Math.min(0.1, Math.max(0, (timestamp - lastFrameTime) / 1000));
-      const next = advancePingPong(state.progress, state.direction, elapsed * state.speed);
+      const timingRate = state.timingMode === "geometry"
+        ? staircaseGeometryRate(state.progress, state.settings)
+        : 1;
+      const next = advancePingPong(
+        state.progress,
+        state.direction,
+        elapsed * state.speed * timingRate,
+      );
       state.progress = next.progress;
       state.direction = next.direction;
+      if (state.timingMode === "dive") {
+        state.camera = cameraAtStaircaseDepth(
+          diveAnchorCamera,
+          state.progress,
+          state.diveOctaves,
+        );
+      }
     }
     lastFrameTime = timestamp;
   } else {
@@ -317,14 +555,20 @@ function applyView(id, { speak = true } = {}) {
   state.selectedViewId = view.id;
   state.viewModified = false;
   state.camera = cameraFromView(view);
+  diveAnchorCamera = state.camera;
+  syncDiveCamera();
+  lastSoundedStep = -1;
   updateViewButtons();
+  $("viewPreset").value = view.id;
   updateInterface(true);
   refreshFieldNow();
+  sonifyFrame(currentFrame(), { force: true });
   if (speak) announce(`${view.label} view loaded.`);
 }
 
 function markViewModified() {
   state.viewModified = true;
+  updateDiveAnchorFromCamera();
   updateInterface(true);
 }
 
@@ -454,6 +698,7 @@ function endPointer(event) {
     pinchGesture = null;
     stageWrap.classList.remove("is-panning");
     refreshFieldNow();
+    sonifyFrame(currentFrame(), { force: true });
   }
   event.preventDefault();
 }
@@ -461,8 +706,45 @@ function endPointer(event) {
 function bindControls() {
   $("playButton").addEventListener("click", () => setPlaying(!state.playing, { speak: true }));
 
+  $("audioButton").addEventListener("click", async () => {
+    const button = $("audioButton");
+    button.disabled = true;
+    $("audioError").hidden = true;
+    try {
+      if (state.audio) {
+        state.audio = false;
+        pool.disable();
+        $("audioState").textContent = "off";
+        $("blobCountOut").textContent = "waiting for audio";
+      } else {
+        await pool.enable();
+        pool.setLevel(state.level);
+        state.audio = true;
+        lastSoundedStep = -1;
+        $("audioState").textContent = "on";
+        sonifyFrame(currentFrame(), { force: true });
+      }
+    } catch (error) {
+      state.audio = false;
+      $("audioState").textContent = "error";
+      $("audioError").textContent = error instanceof Error ? error.message : String(error);
+      $("audioError").hidden = false;
+    } finally {
+      button.disabled = false;
+      setPressed(button, state.audio);
+      updateInterface(true);
+    }
+  });
+
+  $("level").addEventListener("input", (event) => {
+    state.level = clamp(event.currentTarget.value, 0, 1);
+    $("levelOut").textContent = `${Math.round(state.level * 100)}%`;
+    pool.setLevel(state.level);
+  });
+
   $("progress").addEventListener("input", (event) => {
     state.progress = clamp(event.currentTarget.value, 0, 1);
+    syncDiveCamera({ refine: true });
     publishStep(currentFrame(), "scrub");
     updateInterface(true);
     requestRender();
@@ -488,6 +770,129 @@ function bindControls() {
     });
   }
 
+  for (const button of document.querySelectorAll("[data-timing]")) {
+    button.addEventListener("click", () => {
+      const nextMode = ["equal", "geometry", "dive"].includes(button.dataset.timing)
+        ? button.dataset.timing
+        : "equal";
+      if (nextMode === "dive" && state.timingMode !== "dive") {
+        diveAnchorCamera = Object.freeze({
+          centerX: state.camera.centerX,
+          centerY: state.camera.centerY,
+          scale: clamp(
+            state.camera.scale * 2 ** (state.progress * state.diveOctaves),
+            0.00008,
+            2.25,
+          ),
+        });
+      }
+      state.timingMode = nextMode;
+      for (const candidate of document.querySelectorAll("[data-timing]")) {
+        candidate.setAttribute("aria-pressed", String(candidate === button));
+      }
+      $("timingNote").textContent = state.timingMode === "geometry"
+        ? "Fine, deep bands receive less time, so the staircase accelerates as its shapes shrink."
+        : state.timingMode === "dive"
+          ? "The depth clock zooms toward the selected coordinate, then follows the same path back out."
+          : "Every depth step receives the same amount of time.";
+      $("diveOctaves").disabled = state.timingMode !== "dive";
+      if (state.timingMode === "dive") {
+        syncDiveCamera({ refine: true });
+      }
+      updateInterface(true);
+      requestRender();
+      announce(`${button.textContent} selected.`);
+    });
+  }
+
+  $("diveOctaves").addEventListener("input", (event) => {
+    state.diveOctaves = clamp(event.currentTarget.value, 1, 10);
+    if (state.timingMode === "dive") {
+      syncDiveCamera({ refine: true });
+    }
+    updateInterface(true);
+    requestRender();
+  });
+
+  for (const button of document.querySelectorAll("[data-palette]")) {
+    button.addEventListener("click", () => {
+      state.palette = PALETTES[button.dataset.palette] === undefined ? "glass" : button.dataset.palette;
+      for (const candidate of document.querySelectorAll("[data-palette]")) {
+        candidate.setAttribute("aria-pressed", String(candidate === button));
+      }
+      if (state.colorSoundMode === "follow") pool.silence();
+      updateInterface(true);
+      requestRender();
+      announce(`${button.textContent} color palette selected.`);
+    });
+  }
+
+  for (const button of document.querySelectorAll("[data-playback]")) {
+    button.addEventListener("click", () => {
+      state.playbackMode = ["fill", "edge", "drums", "ensemble"].includes(button.dataset.playback)
+        ? button.dataset.playback
+        : "fill";
+      for (const candidate of document.querySelectorAll("[data-playback]")) {
+        candidate.setAttribute("aria-pressed", String(candidate === button));
+      }
+      $("playbackModeNote").textContent = state.playbackMode === "edge"
+        ? "Each branch of the animated wavy depth contour becomes a continuously changing oscillator."
+        : state.playbackMode === "drums"
+          ? "Depth changes, contour entrances, splits, and merges become contour-weighted attacks."
+          : state.playbackMode === "ensemble"
+            ? "Four synchronized heads read mass, contour, topology/rhythm, and micro-detail from the same moving depth contour."
+          : "The animated depth contour sustains every simultaneous branch as it travels inward and bifurcates.";
+      pool.silence();
+      lastDrumTimeSlice = -1;
+      updateInterface(true);
+      requestRender();
+      announce(`${button.textContent} playback selected.`);
+    });
+  }
+
+  for (const button of document.querySelectorAll("[data-polarity]")) {
+    button.addEventListener("click", () => {
+      state.soundPolarity = button.dataset.polarity === "black" ? "black" : "white";
+      for (const candidate of document.querySelectorAll("[data-polarity]")) {
+        candidate.setAttribute("aria-pressed", String(candidate === button));
+      }
+      lastSoundedStep = -1;
+      sonifyFrame(currentFrame(), { force: true });
+      updateInterface(true);
+    });
+  }
+
+  $("colorSoundMode").addEventListener("change", (event) => {
+    const requested = event.currentTarget.value;
+    state.colorSoundMode = [
+      "manual", "follow", "shepard", "ouroboros", "rattlesnake", "decomposition", "ink",
+    ].includes(requested) ? requested : "manual";
+    pool.silence();
+    lastDrumTimeSlice = -1;
+    updateInterface(true);
+    requestRender();
+    const resolved = soundMapping().colorSoundMode;
+    announce(`${SOUND_SCHEME_LABELS[resolved]} sound mapping selected.`);
+  });
+
+  const soundControls = [
+    ["baseFrequency", "baseFrequency", 36, 220],
+    ["pitchRange", "pitchRange", 0, 6],
+    ["noiseAmount", "noiseAmount", 0, 1],
+    ["durationScale", "durationScale", 0.1, 1.5],
+    ["stereoSpread", "stereoSpread", 0, 1],
+    ["massLevel", "massLevel", 0, 1],
+    ["contourLevel", "contourLevel", 0, 1],
+    ["rhythmLevel", "rhythmLevel", 0, 1],
+    ["microLevel", "microLevel", 0, 1],
+  ];
+  for (const [id, key, minimum, maximum] of soundControls) {
+    $(id).addEventListener("input", (event) => {
+      state[key] = clamp(event.currentTarget.value, minimum, maximum);
+      updateInterface(true);
+    });
+  }
+
   const settingControls = [
     ["startIteration", "startIteration", false],
     ["maxIterations", "maxIterations", true],
@@ -500,6 +905,8 @@ function bindControls() {
     input.addEventListener("input", () => {
       state.settings[key] = Number(input.value);
       if (key === "steps") buildRail();
+      lastSoundedStep = -1;
+      sonifyFrame(currentFrame(), { force: true });
       updateInterface(true);
       requestRender();
       if (changesField) scheduleFieldRefresh(130);
@@ -510,6 +917,7 @@ function bindControls() {
   for (const button of document.querySelectorAll("[data-view]")) {
     button.addEventListener("click", () => applyView(button.dataset.view));
   }
+  $("viewPreset").addEventListener("change", (event) => applyView(event.currentTarget.value));
   $("resetView").addEventListener("click", () => applyView(state.selectedViewId));
   $("homeView").addEventListener("click", () => applyView(state.selectedViewId));
   $("zoomIn").addEventListener("click", () => zoomAtCenter(0.62, { speak: true }));
@@ -519,7 +927,22 @@ function bindControls() {
     state.progress = STRIPED_STAIRCASE_DEFAULTS.progress;
     state.speed = STRIPED_STAIRCASE_DEFAULTS.speed;
     state.motionMode = STRIPED_STAIRCASE_DEFAULTS.motionMode;
+    state.timingMode = "equal";
+    state.diveOctaves = 6;
     state.direction = 1;
+    state.palette = "glass";
+    state.soundPolarity = "white";
+    state.colorSoundMode = "manual";
+    state.playbackMode = "fill";
+    state.baseFrequency = 73;
+    state.pitchRange = 3;
+    state.noiseAmount = 0.55;
+    state.durationScale = 0.55;
+    state.stereoSpread = 0.85;
+    state.massLevel = 0.9;
+    state.contourLevel = 0.55;
+    state.rhythmLevel = 0.7;
+    state.microLevel = 0.45;
     state.settings = {
       startIteration: STRIPED_STAIRCASE_DEFAULTS.startIteration,
       maxIterations: STRIPED_STAIRCASE_DEFAULTS.maxIterations,
@@ -535,9 +958,36 @@ function bindControls() {
     $("steps").value = String(state.settings.steps);
     $("stripePeriod").value = String(state.settings.stripePeriod);
     $("edgeSoftness").value = String(state.settings.edgeSoftness);
+    $("diveOctaves").value = String(state.diveOctaves);
+    $("diveOctaves").disabled = true;
+    $("baseFrequency").value = String(state.baseFrequency);
+    $("pitchRange").value = String(state.pitchRange);
+    $("noiseAmount").value = String(state.noiseAmount);
+    $("durationScale").value = String(state.durationScale);
+    $("stereoSpread").value = String(state.stereoSpread);
+    $("massLevel").value = String(state.massLevel);
+    $("contourLevel").value = String(state.contourLevel);
+    $("rhythmLevel").value = String(state.rhythmLevel);
+    $("microLevel").value = String(state.microLevel);
+    $("colorSoundMode").value = state.colorSoundMode;
     for (const button of document.querySelectorAll("[data-mode]")) {
       button.setAttribute("aria-pressed", String(button.dataset.mode === state.motionMode));
     }
+    for (const button of document.querySelectorAll("[data-timing]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.timing === state.timingMode));
+    }
+    for (const button of document.querySelectorAll("[data-palette]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.palette === state.palette));
+    }
+    for (const button of document.querySelectorAll("[data-polarity]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.polarity === state.soundPolarity));
+    }
+    for (const button of document.querySelectorAll("[data-playback]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.playback === state.playbackMode));
+    }
+    $("playbackModeNote").textContent = "The animated depth contour sustains every simultaneous branch as it travels inward and bifurcates.";
+    $("timingNote").textContent = "Every depth step receives the same amount of time.";
+    lastSoundedStep = -1;
     setPlaying(!reducedMotion?.matches);
     buildRail();
     applyView("seahorse", { speak: false });
@@ -593,6 +1043,7 @@ function bindCanvasInteraction() {
       const offset = event.key === "ArrowRight" ? 1 : -1;
       const index = clamp(frame.stepIndex + offset, 0, frame.stepCount - 1);
       state.progress = clamp((index + 0.015) / frame.stepCount, 0, 1);
+      syncDiveCamera({ refine: true });
       publishStep(currentFrame(), "keyboard");
       updateInterface(true);
       requestRender();
@@ -624,6 +1075,7 @@ function dispose() {
   resizeObserver?.disconnect?.();
   state.renderer?.destroy?.();
   state.renderer = null;
+  void pool.close();
 }
 
 canvas.addEventListener("webglcontextlost", (event) => {
@@ -640,6 +1092,7 @@ canvas.addEventListener("webglcontextrestored", () => {
 
 document.addEventListener("visibilitychange", () => {
   lastFrameTime = 0;
+  if (document.hidden) pool.silence();
   if (!document.hidden) requestRender();
 });
 globalThis.addEventListener("pagehide", dispose, { once: true });

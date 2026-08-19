@@ -29,8 +29,15 @@
           <option value="striped-staircase.html" selected>striped staircase</option>
         </select>
       </label>
-      <div class="visual-study-badge" aria-label="Visual study. Audio is not implemented yet.">
-        <i aria-hidden="true"></i><span>visual study</span>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Volume</b><output id="levelOut" for="level">48%</output></span>
+          <input id="level" type="range" min="0" max="1" step="0.01" value="0.48" />
+        </label>
       </div>
     </header>
 
@@ -111,6 +118,19 @@
               <button type="button" data-mode="slide" aria-pressed="false">Slide</button>
             </div>
 
+            <span class="field-label">Step clock</span>
+            <div class="choice-switch staircase-mode-switch" id="timingMode" role="group" aria-label="Time allocated to each staircase step">
+              <button type="button" data-timing="equal" aria-pressed="true">Equal time</button>
+              <button type="button" data-timing="geometry" aria-pressed="false">Shape time</button>
+              <button type="button" data-timing="dive" aria-pressed="false">Depth zoom</button>
+            </div>
+            <p class="control-note" id="timingNote">Every depth step receives the same amount of time.</p>
+
+            <label class="control" for="diveOctaves">
+              <span><b>Zoom depth</b><output id="diveOctavesOut" for="diveOctaves">6.0 oct</output></span>
+              <input id="diveOctaves" type="range" min="1" max="10" step="0.25" value="6" disabled />
+            </label>
+
             <label class="control" for="speed">
               <span><b>Travel speed</b><output id="speedOut" for="speed">0.035 T/s</output></span>
               <input id="speed" type="range" min="0.005" max="0.12" step="0.001" value="0.035" />
@@ -130,6 +150,36 @@
             <span class="section-state" id="viewSummary">Seahorse · 80.6×</span>
           </summary>
           <div class="group-body">
+            <label class="select-control" for="viewPreset">
+              <span class="field-label">Fractal location</span>
+              <span class="select-shell">
+                <select id="viewPreset">
+                  <optgroup label="Landmarks">
+                    <option value="overview">Whole set</option>
+                    <option value="cardioid-cusp">Cardioid cusp</option>
+                    <option value="period-three">Period-three island</option>
+                  </optgroup>
+                  <optgroup label="Valleys and spirals">
+                    <option value="seahorse" selected>Seahorse</option>
+                    <option value="seahorse-gallery">Seahorse valley · gallery</option>
+                    <option value="double-spiral">Satellite double spiral</option>
+                    <option value="spiral">Spiral arms</option>
+                    <option value="elephant-broad">Elephant valley · broad</option>
+                    <option value="elephant-archive">Elephant valley · Codex archive</option>
+                    <option value="elephant-close">Elephant valley · close</option>
+                    <option value="triple-spiral">Triple spiral valley</option>
+                  </optgroup>
+                  <optgroup label="Islands and filaments">
+                    <option value="needle">Mini set</option>
+                    <option value="airplane">Airplane</option>
+                    <option value="antenna">Antenna</option>
+                    <option value="dendrite-needle">Dendrite needle</option>
+                    <option value="island-field">Island field</option>
+                    <option value="antenna-filament">Antenna filament</option>
+                  </optgroup>
+                </select>
+              </span>
+            </label>
             <div class="staircase-view-grid" role="group" aria-label="Fractal locations">
               <button type="button" data-view="seahorse" aria-pressed="true">Seahorse</button>
               <button type="button" data-view="overview" aria-pressed="false">Whole set</button>
@@ -176,6 +226,74 @@
             <p class="control-note">
               Thin colored rails are exponentially spaced escape-depth thresholds. The dark region is the complete current interval; the bright inner rail shows motion within it.
             </p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="color">
+          <summary class="group-summary">
+            <h2 class="group-title">Color</h2>
+            <span class="section-state" id="colorSummary">Glass</span>
+          </summary>
+          <div class="group-body">
+            <div class="staircase-palette-grid" id="paletteButtons" role="group" aria-label="Fractal color palette">
+              <button type="button" data-palette="glass" aria-pressed="true">Glass</button>
+              <button type="button" data-palette="ember" aria-pressed="false">Ember</button>
+              <button type="button" data-palette="ultraviolet" aria-pressed="false">Ultraviolet</button>
+              <button type="button" data-palette="ink" aria-pressed="false">Ink</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound">
+          <summary class="group-summary">
+            <h2 class="group-title">Sound</h2>
+            <span class="section-state" id="soundSummary">white shapes · audible edges</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Shape player</span>
+            <div class="choice-switch staircase-playback-switch" id="playbackMode" role="group" aria-label="Fractal shape playback mode">
+              <button type="button" data-playback="fill" aria-pressed="true">Shape fill</button>
+              <button type="button" data-playback="edge" aria-pressed="false">Wavy depth line</button>
+              <button type="button" data-playback="drums" aria-pressed="false">Shape drums</button>
+              <button type="button" data-playback="ensemble" aria-pressed="false">Ensemble</button>
+            </div>
+            <p class="control-note" id="playbackModeNote">The animated depth contour sustains every simultaneous branch as it travels inward and bifurcates.</p>
+            <span class="field-label">Field polarity</span>
+            <div class="choice-switch" id="soundPolarity" role="group" aria-label="Audible field polarity">
+              <button type="button" data-polarity="white" aria-pressed="true">White sounds</button>
+              <button type="button" data-polarity="black" aria-pressed="false">Black sounds</button>
+            </div>
+            <label class="select-control" for="colorSoundMode">
+              <span class="field-label">Color → sound scheme</span>
+              <span class="select-shell">
+                <select id="colorSoundMode">
+                  <option value="manual" selected>Manual geometry</option>
+                  <option value="follow">Follow visual palette</option>
+                  <option value="shepard">Raw / smooth · Shepard register</option>
+                  <option value="ouroboros">Modulo / stripe · Ouroboros cycle</option>
+                  <option value="rattlesnake">Outline / edge · Rattlesnake excitation</option>
+                  <option value="decomposition">Decomposition · spatial split</option>
+                  <option value="ink">Ink · white sound / black silence</option>
+                </select>
+              </span>
+            </label>
+            <label class="control" for="baseFrequency"><span><b>Pitch floor</b><output id="baseFrequencyOut" for="baseFrequency">73 Hz</output></span><input id="baseFrequency" type="range" min="36" max="220" step="1" value="73" /></label>
+            <label class="control" for="pitchRange"><span><b>Depth pitch range</b><output id="pitchRangeOut" for="pitchRange">3.0 oct</output></span><input id="pitchRange" type="range" min="0" max="6" step="0.1" value="3" /></label>
+            <label class="control" for="noiseAmount"><span><b>Edge noise</b><output id="noiseAmountOut" for="noiseAmount">55%</output></span><input id="noiseAmount" type="range" min="0" max="1" step="0.01" value="0.55" /></label>
+            <label class="control" for="durationScale"><span><b>Chunk length</b><output id="durationScaleOut" for="durationScale">0.55×</output></span><input id="durationScale" type="range" min="0.1" max="1.5" step="0.05" value="0.55" /></label>
+            <label class="control" for="stereoSpread"><span><b>Spatial spread</b><output id="stereoSpreadOut" for="stereoSpread">85%</output></span><input id="stereoSpread" type="range" min="0" max="1" step="0.01" value="0.85" /></label>
+            <span class="field-label">Analysis-head mix</span>
+            <label class="control" for="massLevel"><span><b>Mass body</b><output id="massLevelOut" for="massLevel">90%</output></span><input id="massLevel" type="range" min="0" max="1" step="0.01" value="0.9" /></label>
+            <label class="control" for="contourLevel"><span><b>Contour voices</b><output id="contourLevelOut" for="contourLevel">55%</output></span><input id="contourLevel" type="range" min="0" max="1" step="0.01" value="0.55" /></label>
+            <label class="control" for="rhythmLevel"><span><b>Rhythm crossings</b><output id="rhythmLevelOut" for="rhythmLevel">70%</output></span><input id="rhythmLevel" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+            <label class="control" for="microLevel"><span><b>Micro-detail</b><output id="microLevelOut" for="microLevel">45%</output></span><input id="microLevel" type="range" min="0" max="1" step="0.01" value="0.45" /></label>
+            <div class="grammar-card staircase-sound-card" aria-label="Current blob analysis">
+              <span><b>Shapes</b><code id="blobCountOut">waiting for audio</code></span>
+              <span><b>Playhead</b><code id="contactCountOut">waiting for audio</code></span>
+              <span><b>Mapping</b><code>mass → horn register · contour → pitch/mod · crossings → rhythm · fragments → noise</code></span>
+            </div>
+            <p class="control-note">Area sets the register: the first large stripe is low and horn-like, then smaller regions rise toward trombone and brighter families. Thickness controls body and envelope; contour complexity controls modulation and noise.</p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>
 

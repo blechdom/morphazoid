@@ -60,7 +60,7 @@
   box-shadow: 0 0 10px var(--accent-soft);
 }
 
-/* Shared navigation reserves sound I/O for actual instruments. */
+/* Keep the compact staircase header focused on its own audio controls. */
 .striped-staircase-page .midi-toolbar,
 .striped-staircase-page .header-output-meter-shell,
 .striped-staircase-page .header-settings-menu {
@@ -317,6 +317,10 @@
   margin-top: 7px;
 }
 
+#timingMode {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .staircase-frame-card > span {
   grid-template-columns: 52px minmax(0, 1fr);
 }
@@ -366,6 +370,60 @@
   --accent: #c79bff;
   --accent-soft: color-mix(in oklab, #c79bff 55%, transparent);
   --accent-glow: color-mix(in oklab, #c79bff 20%, transparent);
+}
+
+.striped-staircase-page .control-section[data-section="color"] {
+  --accent: #ffb86b;
+  --accent-soft: color-mix(in oklab, #ffb86b 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffb86b 20%, transparent);
+}
+
+.striped-staircase-page .control-section[data-section="sound"] {
+  --accent: #7db4ff;
+  --accent-soft: color-mix(in oklab, #7db4ff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #7db4ff 20%, transparent);
+}
+
+.staircase-palette-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.staircase-palette-grid button {
+  min-height: 40px;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--panel-high) 76%, transparent);
+  font-size: 9px;
+  letter-spacing: 0.045em;
+}
+
+.staircase-palette-grid button:hover,
+.staircase-palette-grid button:focus-visible,
+.staircase-palette-grid button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.staircase-sound-card > span {
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+
+.staircase-sound-card code {
+  color: var(--accent);
+}
+
+.staircase-playback-switch {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: row;
+}
+
+.staircase-playback-switch button {
+  font-size: 8px;
 }
 
 @media (max-width: 1100px) {

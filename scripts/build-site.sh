@@ -61,6 +61,7 @@ for worktree_runtime_file in \
   striped-staircase.css \
   striped-staircase-app.js \
   src/striped-staircase.js \
+  src/striped-staircase-audio.js \
   alien-larynx.html \
   alien-larynx.css \
   alien-larynx-app.js \
@@ -301,6 +302,7 @@ required_files=(
   striped-staircase.css
   striped-staircase-app.js
   src/striped-staircase.js
+  src/striped-staircase-audio.js
   assets/instruments/striped-staircase.webp
   alien-larynx.html
   alien-larynx.css

@@ -29,6 +29,48 @@ export const STRIPED_STAIRCASE_VIEWS = Object.freeze([
     scale: 1.45,
   }),
   Object.freeze({
+    id: "cardioid-cusp",
+    label: "Cardioid cusp",
+    centerX: 0.25,
+    centerY: 0,
+    scale: 0.16,
+  }),
+  Object.freeze({
+    id: "elephant-broad",
+    label: "Elephant valley · broad",
+    centerX: 0.285,
+    centerY: 0.01,
+    scale: 0.028,
+  }),
+  Object.freeze({
+    id: "elephant-archive",
+    label: "Elephant valley · Codex archive",
+    centerX: 0.285,
+    centerY: 0.01,
+    scale: 0.11046972125386503,
+  }),
+  Object.freeze({
+    id: "elephant-close",
+    label: "Elephant valley · close",
+    centerX: 0.27205033514905763,
+    centerY: 0.006118038612346085,
+    scale: 0.0024031526709817415,
+  }),
+  Object.freeze({
+    id: "seahorse-gallery",
+    label: "Seahorse valley · gallery",
+    centerX: -0.74519683,
+    centerY: 0.101869885,
+    scale: 0.0059049,
+  }),
+  Object.freeze({
+    id: "double-spiral",
+    label: "Satellite double spiral",
+    centerX: -0.743643900055,
+    centerY: 0.131825890901,
+    scale: 0.0004,
+  }),
+  Object.freeze({
     id: "spiral",
     label: "Spiral arms",
     centerX: -0.761574,
@@ -36,11 +78,60 @@ export const STRIPED_STAIRCASE_VIEWS = Object.freeze([
     scale: 0.0041,
   }),
   Object.freeze({
+    id: "triple-spiral",
+    label: "Triple spiral valley",
+    centerX: -0.088,
+    centerY: 0.654,
+    scale: 0.05257478451658221,
+  }),
+  Object.freeze({
+    id: "airplane",
+    label: "Airplane",
+    centerX: -1.75,
+    centerY: 0.02,
+    scale: 0.36240023368463636,
+  }),
+  Object.freeze({
+    id: "antenna",
+    label: "Antenna",
+    centerX: -1.25,
+    centerY: 0,
+    scale: 0.0820837058591744,
+  }),
+  Object.freeze({
     id: "needle",
     label: "Mini set",
     centerX: -1.25066,
     centerY: 0.02012,
     scale: 0.0017,
+  }),
+  Object.freeze({
+    id: "period-three",
+    label: "Period-three island",
+    centerX: -0.122561,
+    centerY: 0.744862,
+    scale: 0.12,
+  }),
+  Object.freeze({
+    id: "dendrite-needle",
+    label: "Dendrite needle",
+    centerX: -0.1011,
+    centerY: 0.9563,
+    scale: 0.010264855411934313,
+  }),
+  Object.freeze({
+    id: "island-field",
+    label: "Island field",
+    centerX: 0.37865401,
+    centerY: 0.669227668,
+    scale: 0.04,
+  }),
+  Object.freeze({
+    id: "antenna-filament",
+    label: "Antenna filament",
+    centerX: -1.749705768080503,
+    centerY: -0.0000613369029080495,
+    scale: 0.00012,
   }),
 ]);
 
@@ -240,6 +331,21 @@ export function zoomLevel(camera, overviewScale = viewById("overview").scale) {
   return Math.max(1, Number(overviewScale) / Math.max(CAMERA_SCALE_LIMITS.minimum, camera.scale));
 }
 
+/** Follow one reversible exponential zoom path through a selected coordinate. */
+export function cameraAtStaircaseDepth(baseCamera, progress, zoomOctaves = 6) {
+  const amount = clamp(progress, 0, 1);
+  const octaves = clamp(zoomOctaves, 0, 12);
+  return Object.freeze({
+    centerX: Number(baseCamera.centerX),
+    centerY: Number(baseCamera.centerY),
+    scale: clamp(
+      Number(baseCamera.scale) * 2 ** (-amount * octaves),
+      CAMERA_SCALE_LIMITS.minimum,
+      CAMERA_SCALE_LIMITS.maximum,
+    ),
+  });
+}
+
 function compileShader(gl, type, source) {
   const shader = gl.createShader(type);
   gl.shaderSource(shader, source);
@@ -346,6 +452,7 @@ function colorFragmentShader(hasDerivatives) {
     uniform float u_bandHigh;
     uniform float u_stepPhase;
     uniform float u_depthDirection;
+    uniform float u_palette;
 
     float decodeSmooth(vec4 sampledField) {
       float highByte = floor(sampledField.r * 255.0 + 0.5);
@@ -392,8 +499,36 @@ function colorFragmentShader(hasDerivatives) {
         1.0
       );
 
-      vec3 darkStripe = mix(vec3(0.018, 0.027, 0.031), vec3(0.030, 0.041, 0.046), depth);
-      vec3 lightStripe = mix(vec3(0.72, 0.76, 0.72), vec3(0.50, 0.56, 0.55), depth);
+      vec3 darkStart = vec3(0.018, 0.027, 0.031);
+      vec3 darkEnd = vec3(0.030, 0.041, 0.046);
+      vec3 lightStart = vec3(0.72, 0.76, 0.72);
+      vec3 lightEnd = vec3(0.50, 0.56, 0.55);
+      vec3 contourStart = vec3(0.37, 0.91, 0.77);
+      vec3 contourEnd = vec3(0.78, 0.61, 1.0);
+      if (u_palette > 0.5 && u_palette < 1.5) {
+        darkStart = vec3(0.035, 0.015, 0.012);
+        darkEnd = vec3(0.075, 0.025, 0.018);
+        lightStart = vec3(1.0, 0.72, 0.30);
+        lightEnd = vec3(0.90, 0.22, 0.16);
+        contourStart = vec3(1.0, 0.82, 0.34);
+        contourEnd = vec3(1.0, 0.28, 0.54);
+      } else if (u_palette > 1.5 && u_palette < 2.5) {
+        darkStart = vec3(0.010, 0.016, 0.040);
+        darkEnd = vec3(0.018, 0.035, 0.080);
+        lightStart = vec3(0.30, 0.88, 1.0);
+        lightEnd = vec3(0.67, 0.40, 1.0);
+        contourStart = vec3(0.24, 0.92, 1.0);
+        contourEnd = vec3(0.86, 0.46, 1.0);
+      } else if (u_palette > 2.5) {
+        darkStart = vec3(0.010, 0.010, 0.010);
+        darkEnd = vec3(0.035, 0.035, 0.035);
+        lightStart = vec3(0.96, 0.96, 0.92);
+        lightEnd = vec3(0.58, 0.58, 0.56);
+        contourStart = vec3(1.0, 1.0, 1.0);
+        contourEnd = vec3(0.66, 0.66, 0.66);
+      }
+      vec3 darkStripe = mix(darkStart, darkEnd, depth);
+      vec3 lightStripe = mix(lightStart, lightEnd, depth);
       vec3 color = mix(darkStripe, lightStripe, stripe);
 
       float passed = 1.0 - smoothstep(u_bandLow - 1.4, u_bandLow + 0.4, smoothIteration);
@@ -424,7 +559,7 @@ function colorFragmentShader(hasDerivatives) {
         abs(smoothIteration - nearestBoundary)
       );
 
-      vec3 contourColor = mix(vec3(0.37, 0.91, 0.77), vec3(0.78, 0.61, 1.0), depth);
+      vec3 contourColor = mix(contourStart, contourEnd, depth);
       color = mix(color, contourColor, allContours * 0.34);
 
       float activeLowLine = 1.0 - smoothstep(
@@ -502,6 +637,7 @@ export class StripedStaircaseRenderer {
       "u_bandHigh",
       "u_stepPhase",
       "u_depthDirection",
+      "u_palette",
     ]);
     this.fieldPosition = gl.getAttribLocation(this.fieldProgram, "a_position");
     this.colorPosition = gl.getAttribLocation(this.colorProgram, "a_position");
@@ -593,7 +729,7 @@ export class StripedStaircaseRenderer {
     });
   }
 
-  render(frame, settings, camera, depthDirection = 1) {
+  render(frame, settings, camera, depthDirection = 1, palette = 0) {
     const normalized = normalizeStaircaseSettings(settings);
     if (!this.fieldState) this.renderField(camera, normalized.maxIterations);
     const field = this.fieldState;
@@ -623,6 +759,7 @@ export class StripedStaircaseRenderer {
     gl.uniform1f(this.colorUniforms.u_bandHigh, frame.renderHigh);
     gl.uniform1f(this.colorUniforms.u_stepPhase, frame.stepPhase);
     gl.uniform1f(this.colorUniforms.u_depthDirection, depthDirection < 0 ? -1 : 1);
+    gl.uniform1f(this.colorUniforms.u_palette, clamp(palette, 0, 3));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
