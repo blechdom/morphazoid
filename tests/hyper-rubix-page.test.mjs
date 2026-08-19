@@ -35,6 +35,16 @@ function sourceSection(source, startMarker, endMarker) {
   return source.slice(start, end);
 }
 
+function selectOptions(source, id) {
+  const select = source.match(new RegExp(`<select\\b[^>]*\\bid="${id}"[^>]*>([\\s\\S]*?)<\\/select>`));
+  assert.ok(select, `select#${id} should exist`);
+  return [...select[1].matchAll(/<option\b([^>]*)>([^<]+)<\/option>/g)].map((match) => ({
+    label: match[2].trim(),
+    tag: `<option${match[1]}>`,
+    value: attribute(`<option${match[1]}>`, "value"),
+  }));
+}
+
 test("Hyper Rubix is a standalone Morphazoid Canvas page with accessible instructions", async () => {
   const { html } = await pageSources();
 
@@ -47,6 +57,7 @@ test("Hyper Rubix is a standalone Morphazoid Canvas page with accessible instruc
   assert.match(html, /<script type="module" src="hyper-rubix-app\.js"><\/script>/);
   assert.match(html, /<main class="[^"]*\bhyper-rubix-shell\b[^"]*" id="hyperRubix">/);
   assert.match(html, /<aside class="[^"]*\bhyper-rubix-panel\b[^"]*" aria-label="Hyper Rubix controls">/);
+  assert.match(html, /<div class="hyper-rubix-heading">[\s\S]*?<h1 id="hyperRubixTitle">/);
 
   const canvas = openingTag(html, "canvas", "stage");
   assert.equal(attribute(canvas, "tabindex"), "0");
@@ -70,6 +81,80 @@ test("Hyper Rubix is a standalone Morphazoid Canvas page with accessible instruc
   for (const url of authoredUrls) {
     assert.doesNotMatch(url, /^(?:[a-z][a-z\d+.-]*:|\/\/)/i, `${url} should remain local`);
   }
+});
+
+test("the authored-open clock exposes a complete 16-step auto-twist transport", async () => {
+  const { html, app } = await pageSources();
+  const sequencePanel = sourceSection(
+    html,
+    '<details class="group control-section hyper-rubix-control-section" data-section="sequence" open>',
+    "</details>",
+  );
+
+  assert.match(sequencePanel, /^<details\b[^>]*\bdata-section="sequence"[^>]*\bopen>/);
+  assert.match(sequencePanel, /<h2 class="group-title">Auto-twist sequencer<\/h2>/);
+  assert.match(sequencePanel, /id="clockSummary">112 BPM · 1\/8<\/span>/);
+
+  const play = openingTag(sequencePanel, "button", "playButton");
+  assert.equal(attribute(play, "type"), "button");
+  assert.equal(attribute(play, "aria-pressed"), "false");
+  assert.equal(hasBooleanAttribute(play, "data-primary-transport"), true);
+  assert.match(sequencePanel, /id="playLabel">Play auto-twists<\/b>/);
+  assert.match(sequencePanel, /id="playState">16-step twist tape<\/small>/);
+
+  const restart = openingTag(sequencePanel, "button", "restartLoop");
+  assert.equal(attribute(restart, "type"), "button");
+  assert.match(attribute(restart, "aria-label") ?? "", /restart.+step 1/i);
+  const strip = openingTag(sequencePanel, "div", "stepStrip");
+  assert.equal(attribute(strip, "role"), "group");
+  assert.match(attribute(strip, "aria-label") ?? "", /sixteen-step auto-twist playhead/i);
+
+  const tempo = openingTag(sequencePanel, "input", "tempo");
+  assert.deepEqual(
+    ["type", "min", "max", "step", "value"].map((name) => attribute(tempo, name)),
+    ["range", "30", "300", "1", "112"],
+  );
+  const swing = openingTag(sequencePanel, "input", "swing");
+  assert.deepEqual(
+    ["type", "min", "max", "step", "value"].map((name) => attribute(swing, name)),
+    ["range", "0", "0.42", "0.01", "0.08"],
+  );
+  const density = openingTag(sequencePanel, "input", "twistDensity");
+  assert.deepEqual(
+    ["type", "min", "max", "step", "value"].map((name) => attribute(density, name)),
+    ["range", "0.25", "1", "0.01", "1"],
+  );
+
+  const rates = selectOptions(sequencePanel, "twistRate");
+  assert.deepEqual(rates.map(({ value, label }) => [value, label]), [
+    ["1", "1/4"],
+    ["2", "1/8"],
+    ["4", "1/16"],
+  ]);
+  assert.equal(rates.filter(({ tag }) => hasBooleanAttribute(tag, "selected")).length, 1);
+  assert.equal(rates.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value, "2");
+  assert.deepEqual(selectOptions(sequencePanel, "sequencePattern").map(({ value }) => value), [
+    "axis-break", "straight-xyz", "w-pressure", "random-walk",
+  ]);
+  assert.deepEqual(selectOptions(sequencePanel, "playbackMode").map(({ value }) => value), [
+    "forward", "reverse", "pendulum", "random",
+  ]);
+  assert.equal(
+    hasBooleanAttribute(openingTag(sequencePanel, "button", "reseedPattern"), "disabled"),
+    true,
+  );
+
+  assert.match(app, /const LOOKAHEAD_MS = 110/);
+  assert.match(app, /const SCHEDULER_INTERVAL_MS = 24/);
+  const scheduler = sourceSection(app, "function schedulerTick()", "function restartTransportClock(");
+  assert.match(scheduler, /audio\.context\.currentTime\s*\+\s*Math\.max\(0, nextStepAtMs - nowMs\) \/ 1_000/);
+  assert.match(scheduler, /audio\.strike\(step\.move, scheduledWhen, step\.accent \? 1\.16 : 0\.78\)/);
+  assert.match(scheduler, /scheduleVisualSequenceStep\(/);
+  assert.match(scheduler, /nextStepAtMs \+= stepDurationMs/);
+  const stop = sourceSection(app, "function stopTransport(", "function moveLabel(");
+  assert.match(stop, /state\.playing = false/);
+  assert.match(stop, /clearScheduler\(\)/);
+  assert.match(stop, /item\.source !== "transport"/);
 });
 
 test("the twist panel exposes all cells, a dynamic legal-plane host, and complete puzzle actions", async () => {
@@ -154,6 +239,8 @@ test("hyperspace, audio defaults, and in-place reset remain explicit controls", 
     assert.equal(attribute(input, "type"), "range", `${id} should be a range control`);
     assert.notEqual(attribute(input, "value"), null, `${id} should publish its starting value`);
   }
+  assert.equal(attribute(openingTag(hyperspace, "input", "projectionDepth"), "min"), "3.4");
+  assert.match(app, /const PROJECTION_DEPTH_MIN = 3\.4/);
   for (const id of ["resetView", "randomView"]) {
     assert.equal(attribute(openingTag(hyperspace, "button", id), "type"), "button");
   }
@@ -176,10 +263,17 @@ test("hyperspace, audio defaults, and in-place reset remain explicit controls", 
   assert.equal(hasBooleanAttribute(reset, "data-reset-all"), true);
   assert.equal(hasBooleanAttribute(reset, "data-reset-in-place"), true);
   const resetSource = sourceSection(app, "function resetAll()", "function updateMoveAnimation(time)");
+  assert.match(resetSource, /stopTransport\(\)/);
   assert.match(resetSource, /state\.puzzle = createSolvedHyperRubix\(\)/);
   assert.match(resetSource, /history = \[\]/);
   assert.match(resetSource, /state\.selectedCell = DEFAULTS\.selectedCell/);
   assert.match(resetSource, /state\.selectedPlane = DEFAULTS\.selectedPlane/);
+  for (const key of [
+    "tempo", "swing", "subdivisionsPerBeat", "patternId", "playbackMode", "twistDensity",
+  ]) {
+    assert.match(resetSource, new RegExp(`state\\.${key} = DEFAULTS\\.${key}`));
+  }
+  assert.match(resetSource, /rebuildSequence\(\)/);
   assert.match(app, /\$\("resetAll"\)\.addEventListener\("click", resetAll\)/);
 });
 
@@ -193,10 +287,17 @@ test("the app consumes the pure core, supports pointer and keyboard play, and st
   for (const name of [
     "HYPER_RUBIX_BOUNDARY_CELLS",
     "HYPER_RUBIX_CELL_ORDER",
+    "HYPER_RUBIX_PLANE_DRUMS",
+    "HYPER_RUBIX_SEQUENCE_LENGTH",
+    "HYPER_RUBIX_SEQUENCE_PATTERNS",
     "buildHyperRubixTesseractWireframe",
     "createHyperRubixScramble",
+    "createHyperRubixSequence",
+    "createSeededHyperRubixRandom",
     "createSolvedHyperRubix",
     "hyperRubixDisorder",
+    "hyperRubixSequenceIndex",
+    "hyperRubixStepDurationSeconds",
     "invertHyperRubixMove",
     "invertHyperRubixMoves",
     "isHyperRubixSolved",
@@ -209,10 +310,17 @@ test("the app consumes the pure core, supports pointer and keyboard play, and st
   }
   for (const name of [
     "HYPER_RUBIX_CELL_ORDER",
+    "HYPER_RUBIX_PLANE_DRUMS",
+    "HYPER_RUBIX_SEQUENCE_LENGTH",
+    "HYPER_RUBIX_SEQUENCE_PATTERNS",
     "buildHyperRubixTesseractWireframe",
     "createHyperRubixScramble",
+    "createHyperRubixSequence",
+    "createSeededHyperRubixRandom",
     "createSolvedHyperRubix",
     "hyperRubixDisorder",
+    "hyperRubixSequenceIndex",
+    "hyperRubixStepDurationSeconds",
     "invertHyperRubixMove",
     "invertHyperRubixMoves",
     "isHyperRubixSolved",
@@ -231,6 +339,14 @@ test("the app consumes the pure core, supports pointer and keyboard play, and st
   assert.match(app, /canvas\.addEventListener\("pointermove"/);
   assert.match(app, /canvas\.addEventListener\("pointerup", finishPointer\)/);
   assert.match(app, /canvas\.addEventListener\("wheel"/);
+  const drawing = sourceSection(app, "function drawScene(time)", "class HyperRubixAudio");
+  assert.equal(
+    (drawing.match(/drawSticker\(item\)/g) ?? []).length,
+    1,
+    "stickers should remain in a single depth-ordered paint pass",
+  );
+  assert.match(app, /window\.addEventListener\("pagehide"/);
+  assert.match(app, /audio\.dispose\(\)/);
   const keyboard = sourceSection(
     app,
     'canvas.addEventListener("keydown", (event) => {',
@@ -240,7 +356,8 @@ test("the app consumes the pure core, supports pointer and keyboard play, and st
     assert.match(keyboard, new RegExp(`"${key}"`));
   }
   assert.match(keyboard, /event\.key\.toLowerCase\(\) === "w"/);
-  assert.match(keyboard, /event\.key === " "/);
+  assert.match(keyboard, /event\.key === " "[\s\S]*?\$\("playButton"\)\.click\(\)[\s\S]*?event\.preventDefault\(\)/);
+  assert.match(keyboard, /event\.key\.toLowerCase\(\) === "r"[\s\S]*?\$\("restartLoop"\)\.click\(\)[\s\S]*?event\.preventDefault\(\)/);
   assert.match(keyboard, /event\.key === "\[" \|\| event\.key === "\]"/);
 
   const importSpecifiers = [...app.matchAll(/\bfrom\s+["']([^"']+)["']/g)]

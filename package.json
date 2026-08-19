@@ -14,7 +14,7 @@
     "mix:icons": "node scripts/mix-catalogue-icons.mjs",
     "analyze:julia-similarity": "node scripts/julia-similarity-report.mjs",
     "check": "for file in app.js nav.js *-app.js wax-page.js src/*.js; do node --check $file || exit 1; done; node --check scripts/julia-similarity-report.mjs; node --check scripts/mix-catalogue-icons.mjs; node --check scripts/build-release-site.mjs; node --check scripts/build-wax-site.mjs; node --check scripts/check-wax-dist.mjs; node --check scripts/wax/wax-host-bootstrap.js; node --check scripts/wax/wax-host-bridge.js; node --check scripts/wax/wax-universal-adapter.js",
-    "test": "node --test tests/*.test.mjs morphazoidical/tests/*.test.mjs",
+    "test": "node --test --test-concurrency=4 tests/*.test.mjs morphazoidical/tests/*.test.mjs",
     "verify": "npm run check && npm test && npm run check:wax-dist"
   }
 }

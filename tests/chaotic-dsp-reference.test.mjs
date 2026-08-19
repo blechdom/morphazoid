@@ -31,6 +31,7 @@ test("the Chaos Synth DSP reference set covers seven instruments and excludes Pl
   assert.equal(renderChaoticDspReferences(undefined), 0);
 
   for (const reference of CHAOTIC_DSP_REFERENCES) {
+    assert.ok(reference.label);
     assert.ok(reference.engine);
     assert.ok(reference.topology);
     assert.equal(reference.algorithm.title, "Algorithm flow");
@@ -127,6 +128,26 @@ test("all seven pages attach the shared reference after controls and before rese
   assert.doesNotMatch(plasmaMarkup, /chaotic-dsp-reference|data-chaos-dsp-reference/);
 });
 
+test("the dedicated page renders an unconstrained selectable reference", async () => {
+  const [markup, app, stylesheet] = await Promise.all([
+    readFile(new URL("chaotic-dsp-reference.html", ROOT), "utf8"),
+    readFile(new URL("chaotic-dsp-reference-page.js", ROOT), "utf8"),
+    readFile(new URL("chaotic-dsp-reference.css", ROOT), "utf8"),
+  ]);
+
+  assert.match(markup, /data-chaos-dsp-reference-page/);
+  assert.match(markup, /data-chaos-dsp-full-page/);
+  assert.match(markup, /id="dspSynthSelect"/);
+  assert.equal((markup.match(/<option value="(?:recursive|chaotic|cascading|weierstrass)/g) ?? []).length, 7);
+  assert.match(markup, /src="chaotic-dsp-reference-page\.js"/);
+  assert.match(app, /searchParams\.get\("synth"\)/);
+  assert.match(app, /renderChaoticDspReference\(root, reference, document\)/);
+  assert.match(app, /instrumentLink\.href = `\$\{reference\.id\}\.html#dsp-reference`/);
+  assert.match(stylesheet, /\.chaos-dsp-full-body\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s);
+  assert.match(stylesheet, /@media \(max-width: 900px\)[\s\S]*?\.chaos-dsp-full-body\s*\{[^}]*grid-template-columns: 1fr;/);
+  assert.doesNotMatch(stylesheet, /max-height:/);
+});
+
 test("the renderer uses semantic DOM and responsive, bounded flowchart nodes", async () => {
   const [moduleSource, stylesheet] = await Promise.all([
     readFile(new URL("src/chaotic-dsp-reference.js", ROOT), "utf8"),
@@ -136,6 +157,8 @@ test("the renderer uses semantic DOM and responsive, bounded flowchart nodes", a
   assert.match(moduleSource, /documentObject\.createElement\("figure"\)/);
   assert.match(moduleSource, /setAttribute\("role", "img"\)/);
   assert.match(moduleSource, /setAttribute\("aria-label", definition\.ariaLabel\)/);
+  assert.match(moduleSource, /"Open full diagram"/);
+  assert.match(moduleSource, /chaotic-dsp-reference\.html\?synth=/);
   assert.match(moduleSource, /locationObject\?\.hash === `#\$\{root\.id\}`/);
   assert.doesNotMatch(moduleSource, /\.innerHTML\s*=/);
   assert.match(stylesheet, /\.chaos-dsp-step\s*\{[^}]*min-width: 0;/s);

@@ -68,10 +68,10 @@
             choose a turn plane, and rotate it by a quarter turn.
           </canvas>
 
-          <div class="hyper-rubix-heading" aria-hidden="true">
-            <p>3 × 3 × 3 × 3 / PUZZLE INSTRUMENT</p>
+          <div class="hyper-rubix-heading">
+            <p aria-hidden="true">3 × 3 × 3 × 3 / PUZZLE INSTRUMENT</p>
             <h1 id="hyperRubixTitle"><span>hyper</span><b>rubix</b></h1>
-            <small>eight cubes sharing one impossible skin</small>
+            <small aria-hidden="true">eight cubes sharing one impossible skin</small>
           </div>
 
           <div class="dimension-compass" aria-hidden="true">
@@ -122,6 +122,93 @@
           </div>
         </div>
 
+        <details class="group control-section hyper-rubix-control-section" data-section="sequence" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Auto-twist sequencer</h2>
+            <span class="section-state" id="clockSummary">112 BPM · 1/8</span>
+          </summary>
+          <div class="group-body">
+            <div class="hyper-rubix-transport" aria-label="Auto-twist transport">
+              <button
+                class="hyper-rubix-play-button"
+                id="playButton"
+                type="button"
+                aria-pressed="false"
+                data-primary-transport
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                <span><b id="playLabel">Play auto-twists</b><small id="playState">16-step twist tape</small></span>
+              </button>
+              <button
+                class="hyper-rubix-restart-button"
+                id="restartLoop"
+                type="button"
+                aria-label="Restart auto-twist loop at step 1"
+                title="Restart auto-twist loop at step 1"
+              ><span aria-hidden="true">↶ 1</span></button>
+            </div>
+
+            <div class="hyper-rubix-step-strip" id="stepStrip" role="group" aria-label="Sixteen-step auto-twist playhead"></div>
+            <div class="hyper-rubix-now-playing" aria-live="off">
+              <span id="sequenceNow">STEP 01 · XY · W+</span>
+              <span id="sequenceVoice">KICK · +90°</span>
+            </div>
+
+            <div class="hyper-rubix-sequence-selects">
+              <label class="select-control" for="sequencePattern">
+                <span class="field-label">Twist tape</span>
+                <span class="select-shell">
+                  <select id="sequencePattern">
+                    <option value="axis-break" selected>Axis break</option>
+                    <option value="straight-xyz">Straight XYZ</option>
+                    <option value="w-pressure">W pressure</option>
+                    <option value="random-walk">Random walk</option>
+                  </select>
+                </span>
+              </label>
+              <label class="select-control" for="playbackMode">
+                <span class="field-label">Playback</span>
+                <span class="select-shell">
+                  <select id="playbackMode">
+                    <option value="forward" selected>Forward</option>
+                    <option value="reverse">Reverse</option>
+                    <option value="pendulum">Pendulum</option>
+                    <option value="random">Random</option>
+                  </select>
+                </span>
+              </label>
+              <label class="select-control" for="twistRate">
+                <span class="field-label">Twist rate</span>
+                <span class="select-shell">
+                  <select id="twistRate">
+                    <option value="1">1/4</option>
+                    <option value="2" selected>1/8</option>
+                    <option value="4">1/16</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+
+            <div class="hyper-rubix-tempo-row">
+              <label class="control" for="tempo">
+                <span><b>Tempo</b><output id="tempoOut" for="tempo">112 BPM</output></span>
+                <input id="tempo" type="range" min="30" max="300" step="1" value="112" />
+              </label>
+              <button class="mini-action" id="reseedPattern" type="button" disabled>Reseed</button>
+            </div>
+            <label class="control" for="swing">
+              <span><b>Swing</b><output id="swingOut" for="swing">8%</output></span>
+              <input id="swing" type="range" min="0" max="0.42" step="0.01" value="0.08" />
+            </label>
+            <label class="control" for="twistDensity">
+              <span><b>Twist density</b><output id="twistDensityOut" for="twistDensity">100%</output></span>
+              <input id="twistDensity" type="range" min="0.25" max="1" step="0.01" value="1" />
+              <small>anchors stay locked · optional turns peel away</small>
+            </label>
+          </div>
+        </details>
+
         <details class="group control-section hyper-rubix-control-section" data-section="twist" open>
           <summary class="group-summary">
             <h2 class="group-title">Twist a cubic cell</h2>
@@ -156,7 +243,7 @@
                 <i></i>
                 <small id="turnCellDiagram">W+</small>
               </div>
-              <button id="turnClockwise" type="button" aria-label="Quarter turn clockwise">
+              <button id="turnClockwise" type="button" aria-label="Quarter turn clockwise" data-midi-trigger="step">
                 <span aria-hidden="true">↷</span><b>+90°</b><small>quarter turn</small>
               </button>
             </div>
@@ -190,7 +277,7 @@
             </label>
             <label class="control" for="projectionDepth">
               <span><b>4D projection depth</b><output id="projectionDepthOut" for="projectionDepth">4.2</output></span>
-              <input id="projectionDepth" type="range" min="2.8" max="7" step="0.1" value="4.2" />
+              <input id="projectionDepth" type="range" min="3.4" max="7" step="0.1" value="4.2" />
             </label>
             <label class="control" for="cellSeparation">
               <span><b>Cell separation</b><output id="cellSeparationOut" for="cellSeparation">30%</output></span>
@@ -209,17 +296,17 @@
 
         <details class="group control-section hyper-rubix-control-section" data-section="sound">
           <summary class="group-summary">
-            <h2 class="group-title">Turn sound</h2>
-            <span class="section-state" id="soundSummary">Prismatic glass</span>
+            <h2 class="group-title">Drum voices</h2>
+            <span class="section-state" id="soundSummary">Hyper kit</span>
           </summary>
           <div class="group-body">
             <label class="select-control" for="voice">
               <span class="field-label">Voice</span>
               <span class="select-shell">
                 <select id="voice">
-                  <option value="glass" selected>Prismatic glass</option>
-                  <option value="pulse">Hyper pulse</option>
-                  <option value="dust">Bit dust</option>
+                  <option value="pulse" selected>Hyper kit</option>
+                  <option value="glass">Prismatic kit</option>
+                  <option value="dust">Bit kit</option>
                 </select>
               </span>
             </label>
@@ -231,7 +318,7 @@
               <span><b>Decay</b><output id="decayOut" for="decay">0.58 s</output></span>
               <input id="decay" type="range" min="0.08" max="1.8" step="0.01" value="0.58" />
             </label>
-            <p class="hyper-rubix-sound-note">Every coordinate plane owns an interval. Direction flips its contour; the chosen boundary cell sets the register.</p>
+            <p class="hyper-rubix-sound-note">XY kick · XZ snare · YZ hat · XW tom · YW clap · ZW metal. The boundary sign sets pitch and pan; turn direction sets the accent.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>
@@ -256,7 +343,8 @@
         Drag to orbit the three-dimensional shadow. Choose Fold W or hold Shift while dragging to
         rotate the puzzle through the fourth dimension. Use the cell and plane buttons to select a
         cubic boundary cell and one of its three legal turn planes, then use the minus or plus
-        ninety-degree buttons. Press Enter on the canvas for a clockwise turn.
+        ninety-degree buttons. Press Enter on the canvas for a clockwise turn. Press Space to play
+        or pause the auto-twist sequencer, and R to restart it at step one.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

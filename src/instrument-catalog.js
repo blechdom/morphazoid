@@ -42,9 +42,9 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose a 4D form, then move the W reader or start rotation.",
   ),
   "hyper-rubix": define(
-    "4D puzzle instrument",
-    "Projects a 3 × 3 × 3 × 3 tesseract puzzle with eight cubic boundary cells and 216 color stickers, sounding each legal four-dimensional quarter turn.",
-    "Turn on audio, choose a boundary cell and one of its three tangent planes, then twist ±90° or scramble while orbiting and folding the 4D projection.",
+    "4D drum sequencer",
+    "Clock-drives legal quarter turns through a 3 × 3 × 3 × 3 tesseract puzzle, mapping its six coordinate planes to kick, snare, hat, tom, clap, and metal voices.",
+    "Turn on audio, choose a twist tape, playback direction, rate, tempo, and swing, then press Play to watch and hear sixteen animated hyperspace turns.",
     ["Pointer", "Built-in synth"],
   ),
 

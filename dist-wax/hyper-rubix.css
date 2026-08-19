@@ -344,6 +344,12 @@
   --accent-glow: color-mix(in oklab, #c9a5ff 20%, transparent);
 }
 
+.hyper-rubix-control-section[data-section="sequence"] {
+  --accent: #a6ff6f;
+  --accent-soft: color-mix(in oklab, #a6ff6f 54%, transparent);
+  --accent-glow: color-mix(in oklab, #a6ff6f 18%, transparent);
+}
+
 .hyper-rubix-control-section[data-section="hyperspace"] {
   --accent: #68ecff;
   --accent-soft: color-mix(in oklab, #68ecff 55%, transparent);
@@ -354,6 +360,215 @@
   --accent: #a6ff6f;
   --accent-soft: color-mix(in oklab, #a6ff6f 55%, transparent);
   --accent-glow: color-mix(in oklab, #a6ff6f 17%, transparent);
+}
+
+.hyper-rubix-transport {
+  display: grid;
+  margin-bottom: 9px;
+  grid-template-columns: minmax(0, 1fr) 46px;
+  gap: 6px;
+}
+
+.hyper-rubix-play-button {
+  display: grid;
+  min-height: 58px;
+  padding: 8px 11px;
+  border: 1px solid color-mix(in oklab, var(--accent) 42%, var(--line));
+  color: var(--accent);
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--accent) 8%, transparent), transparent),
+    var(--bg-deep);
+  grid-template-columns: 31px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+}
+
+.hyper-rubix-play-button svg {
+  width: 28px;
+  height: 28px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 1.25;
+}
+
+.hyper-rubix-play-button .transport-pause,
+.hyper-rubix-play-button[aria-pressed="true"] .transport-play {
+  display: none;
+}
+
+.hyper-rubix-play-button[aria-pressed="true"] .transport-pause {
+  display: block;
+}
+
+.hyper-rubix-play-button[aria-pressed="true"] {
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 22px var(--accent-glow);
+}
+
+.hyper-rubix-play-button > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.hyper-rubix-play-button b {
+  overflow: hidden;
+  color: currentColor;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hyper-rubix-play-button small {
+  color: currentColor;
+  font-size: 7px;
+  opacity: 0.64;
+}
+
+.hyper-rubix-restart-button {
+  min-width: 46px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 9px;
+}
+
+.hyper-rubix-restart-button:hover,
+.hyper-rubix-restart-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.hyper-rubix-step-strip {
+  display: grid;
+  margin-bottom: 6px;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.hyper-rubix-step {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  height: 31px;
+  padding: 4px 1px 3px;
+  border: 1px solid var(--line);
+  color: color-mix(in oklab, var(--step-color, var(--faint)) 72%, var(--ink));
+  background: color-mix(in oklab, var(--step-color, var(--faint)) 5%, var(--bg-deep));
+  place-items: center;
+  align-content: space-between;
+  gap: 2px;
+}
+
+.hyper-rubix-step::before {
+  width: 4px;
+  height: 4px;
+  border: 1px solid currentColor;
+  background: color-mix(in oklab, currentColor 28%, transparent);
+  content: "";
+}
+
+.hyper-rubix-step b {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 5px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.hyper-rubix-step.is-rest {
+  color: var(--faint);
+  background: var(--bg-deep);
+  opacity: 0.38;
+}
+
+.hyper-rubix-step.is-rest::before {
+  width: 2px;
+  height: 2px;
+  border: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.hyper-rubix-step.is-current {
+  z-index: 1;
+  border-color: var(--step-color, var(--accent));
+  color: var(--step-color, var(--accent));
+  background: color-mix(in oklab, var(--step-color, var(--accent)) 13%, var(--bg-deep));
+  box-shadow:
+    0 0 0 1px var(--step-color, var(--accent)),
+    0 0 13px color-mix(in oklab, var(--step-color, var(--accent)) 28%, transparent);
+}
+
+.hyper-rubix-step.is-current::before {
+  background: currentColor;
+  box-shadow: 0 0 7px currentColor;
+}
+
+.hyper-rubix-now-playing {
+  display: flex;
+  min-height: 23px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  color: var(--faint);
+  background: rgba(4, 4, 8, 0.62);
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 6px;
+  letter-spacing: 0.06em;
+}
+
+.hyper-rubix-now-playing span:last-child {
+  color: var(--accent);
+  text-align: right;
+}
+
+.hyper-rubix-sequence-selects {
+  display: grid;
+  margin-top: 12px;
+  grid-template-columns: 1.18fr 1fr 0.82fr;
+  gap: 6px;
+}
+
+.hyper-rubix-sequence-selects .select-control {
+  min-width: 0;
+}
+
+.hyper-rubix-sequence-selects .field-label {
+  font-size: 7px;
+}
+
+.hyper-rubix-sequence-selects select {
+  width: 100%;
+  min-width: 0;
+  font-size: 8px;
+}
+
+.hyper-rubix-tempo-row {
+  display: grid;
+  margin-top: 12px;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: end;
+  gap: 6px;
+}
+
+.hyper-rubix-tempo-row .mini-action {
+  min-height: 41px;
+}
+
+.hyper-rubix-tempo-row .mini-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.34;
 }
 
 .hyper-rubix-section-label {

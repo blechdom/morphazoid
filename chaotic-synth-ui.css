@@ -480,7 +480,7 @@
 .chaos-dsp-reference-meta {
   display: grid;
   padding: 10px 0 12px;
-  grid-template-columns: minmax(92px, auto) minmax(0, 1fr);
+  grid-template-columns: minmax(92px, auto) minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
 }
@@ -508,6 +508,18 @@
   font-size: 9px;
   letter-spacing: 0;
   line-height: 1.35;
+}
+
+.chaos-dsp-full-page-link {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-align: right;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  white-space: nowrap;
 }
 
 .chaos-dsp-figure {
@@ -709,6 +721,11 @@
 
   .chaos-dsp-engine {
     justify-self: start;
+  }
+
+  .chaos-dsp-full-page-link {
+    justify-self: start;
+    text-align: left;
   }
 
   .chaos-dsp-branches {

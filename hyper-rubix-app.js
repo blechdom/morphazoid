@@ -3,14 +3,21 @@ import {
   HYPER_RUBIX_BOUNDARY_CELLS,
   HYPER_RUBIX_CELL_ORDER,
   HYPER_RUBIX_COLORS,
+  HYPER_RUBIX_PLANE_DRUMS,
+  HYPER_RUBIX_SEQUENCE_LENGTH,
+  HYPER_RUBIX_SEQUENCE_PATTERNS,
   HYPER_RUBIX_STICKER_COUNT,
   buildHyperRubixTesseractWireframe,
   createHyperRubixScramble,
+  createHyperRubixSequence,
+  createSeededHyperRubixRandom,
   createSolvedHyperRubix,
   hyperRubixBoundaryCell,
   hyperRubixCellForNormal,
   hyperRubixDisorder,
   hyperRubixMoveAffectsSticker,
+  hyperRubixSequenceIndex,
+  hyperRubixStepDurationSeconds,
   invertHyperRubixMove,
   invertHyperRubixMoves,
   isHyperRubixSolved,
@@ -19,6 +26,7 @@ import {
   rotateHyperRubixPoint4,
   turnHyperRubixBoundaryCell,
 } from "./src/hyper-rubix.js";
+import { unlockAudioContext } from "./src/audio.js";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
 
 const $ = (id) => document.getElementById(id);
@@ -27,6 +35,9 @@ const TAU = Math.PI * 2;
 const MOVE_DURATION = 430;
 const SCRAMBLE_DURATION = 135;
 const UNWIND_DURATION = 180;
+const PROJECTION_DEPTH_MIN = 3.4;
+const LOOKAHEAD_MS = 110;
+const SCHEDULER_INTERVAL_MS = 24;
 const AXIS_COLORS = Object.freeze({
   x: "#ff6b72",
   y: "#f7cf5b",
@@ -38,12 +49,18 @@ const DEFAULTS = Object.freeze({
   selectedPlane: "xy",
   dragMode: "orbit",
   autoRotate: true,
+  tempo: 112,
+  swing: 0.08,
+  subdivisionsPerBeat: 2,
+  patternId: "axis-break",
+  playbackMode: "forward",
+  twistDensity: 1,
   rotationSpeed: 0.07,
   projectionDepth: 4.2,
   cellSeparation: 0.3,
   stickerScale: 0.78,
   output: 0.48,
-  voice: "glass",
+  voice: "pulse",
   tone: 0.64,
   decay: 0.58,
   cameraPitch: -17,
@@ -52,9 +69,16 @@ const DEFAULTS = Object.freeze({
   rotation: Object.freeze({ xy: 7, xz: -4, xw: 24, yz: -6, yw: -18, zw: 12 }),
 });
 const VOICE_LABELS = Object.freeze({
-  glass: "Prismatic glass",
-  pulse: "Hyper pulse",
-  dust: "Bit dust",
+  pulse: "Hyper kit",
+  glass: "Prismatic kit",
+  dust: "Bit kit",
+});
+const RATE_LABELS = Object.freeze({ 1: "1/4", 2: "1/8", 4: "1/16" });
+const PLAYBACK_LABELS = Object.freeze({
+  forward: "Forward",
+  reverse: "Reverse",
+  pendulum: "Pendulum",
+  random: "Random",
 });
 
 const canvas = $("stage");
@@ -69,6 +93,14 @@ const state = {
   selectedPlane: DEFAULTS.selectedPlane,
   dragMode: DEFAULTS.dragMode,
   autoRotate: reduceMotion ? false : DEFAULTS.autoRotate,
+  playing: false,
+  tempo: DEFAULTS.tempo,
+  swing: DEFAULTS.swing,
+  subdivisionsPerBeat: DEFAULTS.subdivisionsPerBeat,
+  patternId: DEFAULTS.patternId,
+  playbackMode: DEFAULTS.playbackMode,
+  twistDensity: DEFAULTS.twistDensity,
+  currentStep: 0,
   rotationSpeed: DEFAULTS.rotationSpeed,
   projectionDepth: DEFAULTS.projectionDepth,
   cellSeparation: DEFAULTS.cellSeparation,
@@ -96,6 +128,13 @@ let moveQueue = [];
 let activeMove = null;
 let turnPulse = null;
 let scrambleGeneration = 0;
+let sequenceGeneration = 0;
+let sequence = [];
+let sequenceStepElements = [];
+let transportPosition = 0;
+let nextStepAtMs = 0;
+let schedulerTimer = null;
+let visualTimers = new Set();
 
 function normalizeDegrees(value) {
   return ((value + 180) % 360 + 360) % 360 - 180;
@@ -484,15 +523,7 @@ function drawScene(time) {
     .map(stickerGeometry)
     .filter(Boolean)
     .sort((first, second) => first.depth - second.depth);
-  for (const item of renderedStickers) {
-    if (!item.selected && !item.affected) drawSticker(item);
-  }
-  for (const item of renderedStickers) {
-    if (item.selected && !item.affected) drawSticker(item);
-  }
-  for (const item of renderedStickers) {
-    if (item.affected) drawSticker(item);
-  }
+  for (const item of renderedStickers) drawSticker(item);
   drawSelectedWireframe();
 
   if (activeMove) {
@@ -520,7 +551,7 @@ class HyperRubixAudio {
     const AudioContextClass = window.AudioContext ?? window.webkitAudioContext;
     if (!AudioContextClass) throw new Error("Web Audio is not available in this browser.");
     if (!this.context) {
-      this.context = new AudioContextClass();
+      this.context = new AudioContextClass({ latencyHint: "interactive" });
       this.compressor = this.context.createDynamicsCompressor();
       this.compressor.threshold.value = -18;
       this.compressor.knee.value = 16;
@@ -533,8 +564,18 @@ class HyperRubixAudio {
       this.releaseAudioOutput = connectAudioOutput(this.context, this.compressor, {
         runtime: globalThis,
       });
+      this.noiseBuffer = this.context.createBuffer(1, this.context.sampleRate, this.context.sampleRate);
+      const noise = this.noiseBuffer.getChannelData(0);
+      let seed = 0x48595045;
+      for (let index = 0; index < noise.length; index += 1) {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        noise[index] = seed / 4_294_967_296 * 2 - 1;
+      }
     }
-    if (this.context.state === "suspended") await this.context.resume();
+    if (this.context.state === "suspended") {
+      unlockAudioContext(this.context);
+      await this.context.resume();
+    }
     this.setLevel(state.output, true);
   }
 
@@ -553,73 +594,231 @@ class HyperRubixAudio {
     this.master.gain.setTargetAtTime(0, now, 0.012);
   }
 
+  async suspend() {
+    if (this.context?.state === "running") await this.context.suspend();
+  }
+
+  async resume() {
+    if (!this.context) return;
+    if (this.context.state === "suspended") await this.context.resume();
+    this.setLevel(state.output, true);
+  }
+
+  async dispose() {
+    const audioContext = this.context;
+    this.disable();
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
+    try {
+      this.master?.disconnect();
+      this.compressor?.disconnect();
+    } catch {
+      // The browser may already have torn the graph down during navigation.
+    }
+    this.context = null;
+    this.master = null;
+    this.compressor = null;
+    this.noiseBuffer = null;
+    if (audioContext?.state !== "closed") await audioContext.close();
+  }
+
   outputNode(pan) {
-    if (typeof this.context.createStereoPanner !== "function") return this.master;
+    if (typeof this.context.createStereoPanner !== "function") {
+      return { node: this.master, release() {} };
+    }
     const panner = this.context.createStereoPanner();
     panner.pan.value = clamp(pan, -0.8, 0.8);
     panner.connect(this.master);
-    return panner;
+    return {
+      node: panner,
+      release() {
+        try { panner.disconnect(); } catch { /* Audio graph teardown is best-effort. */ }
+      },
+    };
   }
 
-  strike(move) {
-    if (!state.audio || !this.context || !this.master) return;
-    const now = this.context.currentTime;
-    const cellIndex = HYPER_RUBIX_CELL_ORDER.indexOf(move.cell);
-    const planeIndex = ["xy", "xz", "xw", "yz", "yw", "zw"].indexOf(move.plane);
-    const register = [110, 123.47, 138.59, 164.81, 185, 207.65, 246.94, 277.18][cellIndex] ?? 164.81;
-    const interval = [1, 6 / 5, 4 / 3, 3 / 2, 8 / 5, 9 / 5][planeIndex] ?? 1;
-    const direction = move.quarterTurns < 0 ? -1 : 1;
-    const output = this.outputNode(((cellIndex % 4) / 3 * 2 - 1) * 0.55 * direction);
-    if (state.voice === "dust") {
-      this.strikeDust(now, register * interval, output);
-      return;
-    }
-    const partials = state.voice === "pulse" ? [1, 2.005] : [1, interval, 2.01];
-    partials.forEach((ratio, index) => {
-      const oscillator = this.context.createOscillator();
-      const filter = this.context.createBiquadFilter();
-      const gain = this.context.createGain();
-      const start = now + index * (state.voice === "glass" ? 0.025 : 0.009);
-      const end = start + state.decay * (1 + index * 0.08);
-      oscillator.type = state.voice === "pulse" ? (index ? "square" : "sawtooth") : "sine";
-      oscillator.frequency.setValueAtTime(register * ratio, start);
-      if (state.voice === "pulse") {
-        oscillator.detune.setValueAtTime(direction * (index ? 6 : -5), start);
-        oscillator.frequency.exponentialRampToValueAtTime(register * ratio * 0.78, end);
-      }
-      filter.type = "lowpass";
-      filter.frequency.value = 580 + state.tone * 7_600;
-      filter.Q.value = state.voice === "glass" ? 2.6 + state.tone * 5 : 0.8;
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime((0.13 / (index + 1)) * (0.72 + state.tone * 0.28), start + 0.008);
-      gain.gain.exponentialRampToValueAtTime(0.0001, end);
-      oscillator.connect(filter).connect(gain).connect(output);
-      oscillator.start(start);
-      oscillator.stop(end + 0.03);
-    });
+  scheduleOscillator(output, {
+    when,
+    duration,
+    type = "sine",
+    startFrequency,
+    endFrequency = startFrequency,
+    level,
+    filterFrequency,
+    filterQ = 0.8,
+    cleanup,
+  }) {
+    const oscillator = this.context.createOscillator();
+    const filter = this.context.createBiquadFilter();
+    const gain = this.context.createGain();
+    const attackEnd = when + Math.min(0.008, duration * 0.18);
+    const end = when + duration;
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(Math.max(20, startFrequency), when);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), end);
+    filter.type = "lowpass";
+    filter.frequency.value = filterFrequency;
+    filter.Q.value = filterQ;
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.001, level), attackEnd);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    oscillator.connect(filter).connect(gain).connect(output);
+    oscillator.addEventListener("ended", () => {
+      oscillator.disconnect();
+      filter.disconnect();
+      gain.disconnect();
+      cleanup?.();
+    }, { once: true });
+    oscillator.start(when);
+    oscillator.stop(end + 0.025);
+    return end;
   }
 
-  strikeDust(now, frequency, output) {
-    const length = Math.max(256, Math.round(this.context.sampleRate * Math.min(0.22, state.decay)));
-    const buffer = this.context.createBuffer(1, length, this.context.sampleRate);
-    const data = buffer.getChannelData(0);
-    let seed = Math.floor(frequency * 997) >>> 0;
-    for (let index = 0; index < data.length; index += 1) {
-      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      data[index] = (seed / 4_294_967_296 * 2 - 1) * (1 - index / data.length);
-    }
+  scheduleNoise(output, {
+    when,
+    duration,
+    level,
+    filterType = "bandpass",
+    filterFrequency,
+    filterQ = 0.8,
+    cleanup,
+  }) {
     const source = this.context.createBufferSource();
     const filter = this.context.createBiquadFilter();
     const gain = this.context.createGain();
-    source.buffer = buffer;
-    filter.type = "bandpass";
-    filter.frequency.value = frequency * (2.8 + state.tone * 12);
-    filter.Q.value = 3 + state.tone * 11;
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.003);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + Math.min(state.decay, 0.42));
+    const attackEnd = when + Math.min(0.004, duration * 0.2);
+    const end = when + duration;
+    source.buffer = this.noiseBuffer;
+    filter.type = filterType;
+    filter.frequency.value = filterFrequency;
+    filter.Q.value = filterQ;
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.001, level), attackEnd);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
     source.connect(filter).connect(gain).connect(output);
-    source.start(now);
+    source.addEventListener("ended", () => {
+      source.disconnect();
+      filter.disconnect();
+      gain.disconnect();
+      cleanup?.();
+    }, { once: true });
+    source.start(when);
+    source.stop(end + 0.02);
+    return end;
+  }
+
+  strike(move, scheduledWhen = this.context?.currentTime, stepAccent = 1) {
+    if (!state.audio || !this.context || !this.master) return;
+    const drum = HYPER_RUBIX_PLANE_DRUMS[move.plane] ?? HYPER_RUBIX_PLANE_DRUMS.xy;
+    const cell = hyperRubixBoundaryCell(move.cell);
+    const cellIndex = HYPER_RUBIX_CELL_ORDER.indexOf(cell.id);
+    const when = Math.max(this.context.currentTime, Number(scheduledWhen) || this.context.currentTime);
+    const signPitch = cell.sign > 0 ? 1.075 : 0.925;
+    const directionGain = move.quarterTurns > 0 ? 1 : 0.72;
+    const accent = clamp(stepAccent, 0.45, 1.35) * directionGain;
+    const pan = cell.sign * (0.18 + (cellIndex % 4) * 0.08);
+    const { node: output, release } = this.outputNode(pan);
+    const decayScale = clamp(state.decay / 0.58, 0.35, 2.4);
+    const bank = state.voice === "glass"
+      ? { wave: "sine", brightness: 1.2, release: 1.25, noise: 0.72 }
+      : state.voice === "dust"
+        ? { wave: "square", brightness: 0.78, release: 0.62, noise: 1.28 }
+        : { wave: "triangle", brightness: 1, release: 0.9, noise: 1 };
+    const cutoff = 1_100 + state.tone * 8_800 * bank.brightness;
+    const finish = () => release();
+
+    if (drum.family === "kick") {
+      this.scheduleOscillator(output, {
+        when,
+        duration: clamp(0.17 * decayScale * bank.release, 0.075, 0.42),
+        type: state.voice === "dust" ? "triangle" : "sine",
+        startFrequency: (145 + state.tone * 75) * signPitch,
+        endFrequency: (42 + state.tone * 14) * signPitch,
+        level: 0.34 * accent,
+        filterFrequency: Math.min(cutoff, 2_100),
+        cleanup: finish,
+      });
+      return;
+    }
+
+    if (drum.family === "snare") {
+      this.scheduleOscillator(output, {
+        when,
+        duration: clamp(0.095 * decayScale, 0.055, 0.2),
+        type: bank.wave,
+        startFrequency: 220 * signPitch,
+        endFrequency: 118 * signPitch,
+        level: 0.105 * accent,
+        filterFrequency: 2_400 + state.tone * 2_600,
+      });
+      this.scheduleNoise(output, {
+        when,
+        duration: clamp(0.15 * decayScale * bank.release, 0.07, 0.34),
+        level: 0.24 * accent * bank.noise,
+        filterFrequency: 1_100 + state.tone * 3_100,
+        filterQ: 0.7,
+        cleanup: finish,
+      });
+      return;
+    }
+
+    if (drum.family === "hat") {
+      this.scheduleNoise(output, {
+        when,
+        duration: clamp(0.052 * decayScale * bank.release, 0.025, 0.16),
+        level: 0.14 * accent * bank.noise,
+        filterType: "highpass",
+        filterFrequency: 3_600 + state.tone * 5_600,
+        filterQ: 0.65,
+        cleanup: finish,
+      });
+      return;
+    }
+
+    if (drum.family === "tom") {
+      this.scheduleOscillator(output, {
+        when,
+        duration: clamp(0.24 * decayScale * bank.release, 0.1, 0.52),
+        type: bank.wave,
+        startFrequency: (310 + state.tone * 90) * signPitch,
+        endFrequency: (88 + state.tone * 34) * signPitch,
+        level: 0.25 * accent,
+        filterFrequency: Math.min(cutoff, 4_800),
+        filterQ: state.voice === "glass" ? 2.4 : 0.9,
+        cleanup: finish,
+      });
+      return;
+    }
+
+    if (drum.family === "clap") {
+      [0, 0.022, 0.046].forEach((offset, index) => {
+        this.scheduleNoise(output, {
+          when: when + offset,
+          duration: clamp((index === 2 ? 0.11 : 0.038) * decayScale * bank.release, 0.025, 0.26),
+          level: (index === 2 ? 0.16 : 0.115) * accent * bank.noise,
+          filterFrequency: 1_500 + state.tone * 3_800,
+          filterQ: 0.62,
+          cleanup: index === 2 ? finish : undefined,
+        });
+      });
+      return;
+    }
+
+    const ratios = state.voice === "glass" ? [1, 1.414, 2.19] : [1, 1.37, 1.79];
+    ratios.forEach((ratio, index) => {
+      const base = (330 + state.tone * 310) * signPitch * ratio;
+      this.scheduleOscillator(output, {
+        when: when + index * 0.003,
+        duration: clamp(0.14 * decayScale * bank.release * (1 - index * 0.12), 0.055, 0.34),
+        type: index === 1 && state.voice === "pulse" ? "square" : bank.wave,
+        startFrequency: base,
+        endFrequency: base * 0.91,
+        level: 0.11 * accent / (1 + index * 0.35),
+        filterFrequency: cutoff,
+        filterQ: 1.7 + state.tone * 3,
+        cleanup: index === 0 ? finish : undefined,
+      });
+    });
   }
 }
 
@@ -627,6 +826,220 @@ const audio = new HyperRubixAudio();
 
 function announce(message) {
   $("liveStatus").textContent = message;
+}
+
+function sequencePatternLabel() {
+  return HYPER_RUBIX_SEQUENCE_PATTERNS[state.patternId]?.label ?? "Twist tape";
+}
+
+function sequenceRandomSource() {
+  return createSeededHyperRubixRandom(0x48595045 + sequenceGeneration * 0x9e3779b9);
+}
+
+function rebuildSequence({ reseed = false, resetPosition = true } = {}) {
+  if (reseed) sequenceGeneration += 1;
+  sequence = createHyperRubixSequence(
+    state.patternId,
+    state.twistDensity,
+    sequenceRandomSource(),
+  );
+  if (resetPosition) {
+    transportPosition = 0;
+    state.currentStep = hyperRubixSequenceIndex(
+      state.playbackMode,
+      0,
+      HYPER_RUBIX_SEQUENCE_LENGTH,
+      sequenceRandomSource(),
+    );
+  }
+  renderSequenceStrip();
+  updateSequencePlayhead(state.currentStep);
+  paintTransport();
+}
+
+function renderSequenceStrip() {
+  const fragment = document.createDocumentFragment();
+  sequenceStepElements = sequence.map((step, index) => {
+    const marker = document.createElement("span");
+    const move = step.move;
+    const active = Boolean(step.active && move);
+    const drum = move ? HYPER_RUBIX_PLANE_DRUMS[move.plane] : null;
+    marker.className = `hyper-rubix-step${active ? "" : " is-rest"}`;
+    marker.dataset.sequenceStep = String(index);
+    marker.style.setProperty(
+      "--step-color",
+      move ? hyperRubixBoundaryCell(move.cell).fill : "var(--faint)",
+    );
+    marker.setAttribute(
+      "aria-label",
+      active
+        ? `Step ${index + 1}: ${move.plane.toUpperCase()} ${drum?.label ?? "drum"}, ${move.cell.toUpperCase()} cell, ${move.quarterTurns > 0 ? "plus" : "minus"} 90 degrees`
+        : `Step ${index + 1}: rest`,
+    );
+    const label = document.createElement("b");
+    label.textContent = active ? move.plane.toUpperCase() : "·";
+    marker.append(label);
+    fragment.append(marker);
+    return marker;
+  });
+  $("stepStrip").replaceChildren(fragment);
+}
+
+function updateSequencePlayhead(stepIndex) {
+  for (const marker of sequenceStepElements) marker.classList.remove("is-current");
+  const normalized = ((Number(stepIndex) % HYPER_RUBIX_SEQUENCE_LENGTH)
+    + HYPER_RUBIX_SEQUENCE_LENGTH) % HYPER_RUBIX_SEQUENCE_LENGTH;
+  state.currentStep = normalized;
+  sequenceStepElements[normalized]?.classList.add("is-current");
+  const step = sequence[normalized];
+  const move = step?.active ? step.move : null;
+  if (!move) {
+    $("sequenceNow").textContent = `STEP ${String(normalized + 1).padStart(2, "0")} · REST`;
+    $("sequenceVoice").textContent = "SILENT GRID";
+    updateStatus();
+    return;
+  }
+  const drum = HYPER_RUBIX_PLANE_DRUMS[move.plane];
+  $("sequenceNow").textContent = `STEP ${String(normalized + 1).padStart(2, "0")} · ${move.plane.toUpperCase()} · ${move.cell.toUpperCase()}`;
+  $("sequenceVoice").textContent = `${drum?.label?.toUpperCase() ?? "DRUM"} · ${move.quarterTurns > 0 ? "+90°" : "−90°"}`;
+  updateStatus();
+}
+
+function paintTransport() {
+  const rate = RATE_LABELS[state.subdivisionsPerBeat] ?? "1/8";
+  const mode = PLAYBACK_LABELS[state.playbackMode] ?? "Forward";
+  $("playButton").setAttribute("aria-pressed", String(state.playing));
+  $("playLabel").textContent = state.playing ? "Pause auto-twists" : "Play auto-twists";
+  $("playState").textContent = state.playing
+    ? `${rate} · ${mode.toLowerCase()}`
+    : `${HYPER_RUBIX_SEQUENCE_LENGTH}-step twist tape`;
+  $("clockSummary").textContent = `${Math.round(state.tempo)} BPM · ${rate}`;
+  $("sequencePattern").value = state.patternId;
+  $("playbackMode").value = state.playbackMode;
+  $("twistRate").value = String(state.subdivisionsPerBeat);
+  $("reseedPattern").disabled = state.patternId !== "random-walk";
+}
+
+function clearVisualTimers() {
+  for (const timer of visualTimers) clearTimeout(timer);
+  visualTimers = new Set();
+}
+
+function clearScheduler() {
+  if (schedulerTimer !== null) clearTimeout(schedulerTimer);
+  schedulerTimer = null;
+  clearVisualTimers();
+}
+
+function transportAnimationDuration(stepDurationMs) {
+  return reduceMotion ? 1 : clamp(stepDurationMs * 0.72, 36, 360);
+}
+
+function launchSequenceStep(step, stepIndex, animationDuration) {
+  if (!state.playing) return;
+  updateSequencePlayhead(stepIndex);
+  if (!step?.active || !step.move) return;
+  state.selectedCell = step.move.cell;
+  state.selectedPlane = step.move.plane;
+  updateSelectionUI();
+  enqueueMove(step.move, {
+    duration: animationDuration,
+    announce: false,
+    soundAtStart: false,
+    source: "transport",
+  });
+}
+
+function scheduleVisualSequenceStep(step, stepIndex, targetTimeMs, animationDuration) {
+  const delay = Math.max(0, targetTimeMs - performance.now());
+  const timer = setTimeout(() => {
+    visualTimers.delete(timer);
+    launchSequenceStep(step, stepIndex, animationDuration);
+  }, delay);
+  timer?.unref?.();
+  visualTimers.add(timer);
+}
+
+function schedulerTick() {
+  if (!state.playing) return;
+  const nowMs = performance.now();
+  if (!Number.isFinite(nextStepAtMs) || nextStepAtMs < nowMs - 50) {
+    nextStepAtMs = nowMs + 30;
+  }
+  const horizon = nowMs + LOOKAHEAD_MS;
+  let scheduledSteps = 0;
+  while (nextStepAtMs < horizon && scheduledSteps < 24) {
+    const position = transportPosition;
+    const stepIndex = hyperRubixSequenceIndex(
+      state.playbackMode,
+      position,
+      HYPER_RUBIX_SEQUENCE_LENGTH,
+      Math.random,
+    );
+    const step = sequence[stepIndex];
+    const stepDurationMs = hyperRubixStepDurationSeconds(
+      state.tempo,
+      state.subdivisionsPerBeat,
+      state.swing,
+      position,
+    ) * 1_000;
+    if (step?.active && step.move && state.audio && audio.context) {
+      const scheduledWhen = audio.context.currentTime
+        + Math.max(0, nextStepAtMs - nowMs) / 1_000;
+      audio.strike(step.move, scheduledWhen, step.accent ? 1.16 : 0.78);
+    }
+    scheduleVisualSequenceStep(
+      step,
+      stepIndex,
+      nextStepAtMs,
+      transportAnimationDuration(stepDurationMs),
+    );
+    nextStepAtMs += stepDurationMs;
+    transportPosition += 1;
+    scheduledSteps += 1;
+  }
+  schedulerTimer = setTimeout(schedulerTick, SCHEDULER_INTERVAL_MS);
+  schedulerTimer?.unref?.();
+}
+
+function restartTransportClock({ announceRestart = false } = {}) {
+  clearScheduler();
+  transportPosition = 0;
+  const remainingMoveMs = activeMove?.source === "transport"
+    ? Math.max(0, (1 - activeMove.progress) * activeMove.duration)
+    : 0;
+  nextStepAtMs = performance.now() + Math.max(55, remainingMoveMs + 24);
+  updateSequencePlayhead(hyperRubixSequenceIndex(
+    state.playbackMode,
+    0,
+    HYPER_RUBIX_SEQUENCE_LENGTH,
+    sequenceRandomSource(),
+  ));
+  if (state.playing) schedulerTick();
+  if (announceRestart) announce("Auto-twist loop restarted at step one.");
+}
+
+function startTransport({ restart = false } = {}) {
+  if (state.playing && !restart) return;
+  state.playing = true;
+  paintTransport();
+  restartTransportClock({ announceRestart: restart });
+  updateStatus();
+  if (!state.audio) {
+    announce("Audio is off — turn it on to hear playback");
+  } else if (!restart) {
+    announce(`${sequencePatternLabel()} auto-twists playing at ${Math.round(state.tempo)} BPM.`);
+  }
+}
+
+function stopTransport({ announceStop = false } = {}) {
+  if (!state.playing && schedulerTimer === null) return;
+  state.playing = false;
+  clearScheduler();
+  moveQueue = moveQueue.filter((item) => item.source !== "transport");
+  paintTransport();
+  updateStatus();
+  if (announceStop) announce("Auto-twist sequencer paused.");
 }
 
 function moveLabel(move, compact = false) {
@@ -661,7 +1074,7 @@ function updateStatus() {
   const busy = Boolean(activeMove || moveQueue.length);
   $("puzzleState").textContent = activeMove
     ? `Turning ${activeMove.move.cell.toUpperCase()}`
-    : solved ? "Solved" : busy ? "In motion" : "Unsolved";
+    : state.playing ? "Sequencing" : solved ? "Solved" : busy ? "In motion" : "Unsolved";
   $("disorderState").textContent = `${Math.round(disorder * 100)}%`;
   $("moveCount").textContent = String(history.length).padStart(2, "0");
   $("undoMove").disabled = busy || history.length === 0;
@@ -669,7 +1082,10 @@ function updateStatus() {
   $("scramblePuzzle").disabled = busy;
   const audioLabel = state.audio ? "AUDIO ON" : "AUDIO OFF";
   const condition = solved ? "SOLVED" : `${Math.round(disorder * 100)}% DISORDER`;
-  $("stageReadout").textContent = `${condition} · ${state.selectedCell.toUpperCase()} / ${state.selectedPlane.toUpperCase()} · ${HYPER_RUBIX_STICKER_COUNT} HYPER-STICKERS · ${audioLabel}`;
+  const clockLabel = state.playing
+    ? `STEP ${String(state.currentStep + 1).padStart(2, "0")}/${HYPER_RUBIX_SEQUENCE_LENGTH} · ${Math.round(state.tempo)} BPM`
+    : `${HYPER_RUBIX_STICKER_COUNT} HYPER-STICKERS`;
+  $("stageReadout").textContent = `${condition} · ${clockLabel} · ${state.selectedCell.toUpperCase()} / ${state.selectedPlane.toUpperCase()} · ${audioLabel}`;
   updateMoveTrace();
 }
 
@@ -740,7 +1156,7 @@ function startNextMove(time) {
     startedAt: time,
     progress: 0,
   };
-  audio.strike(item.move);
+  if (item.soundAtStart !== false) audio.strike(item.move);
   updateStatus();
 }
 
@@ -749,6 +1165,7 @@ function finishActiveMove(time) {
   if (!finished) return;
   state.puzzle = turnHyperRubixBoundaryCell(state.puzzle, finished.move);
   if (finished.historyAction === "push") history.push(finished.move);
+  if (history.length > 256) history.splice(0, history.length - 256);
   if (finished.historyAction === "pop") history.pop();
   if (finished.historyAction === "clear") history = [];
   if (finished.clearAtEnd && moveQueue.length === 0) history = [];
@@ -770,6 +1187,8 @@ function enqueueMove(move, options = {}) {
     historyAction: options.historyAction ?? "push",
     clearAtEnd: options.clearAtEnd ?? false,
     announce: options.announce ?? true,
+    soundAtStart: options.soundAtStart ?? true,
+    source: options.source ?? "manual",
     onComplete: options.onComplete,
   });
   updateStatus();
@@ -777,6 +1196,7 @@ function enqueueMove(move, options = {}) {
 }
 
 function turnSelected(quarterTurns) {
+  if (state.playing) stopTransport();
   enqueueMove({
     cell: state.selectedCell,
     plane: state.selectedPlane,
@@ -788,6 +1208,7 @@ $("turnCounterclockwise").addEventListener("click", () => turnSelected(-1));
 $("turnClockwise").addEventListener("click", () => turnSelected(1));
 
 $("scramblePuzzle").addEventListener("click", () => {
+  if (state.playing) stopTransport();
   const moves = createHyperRubixScramble(12);
   scrambleGeneration += 1;
   moves.forEach((move, index) => enqueueMove(move, {
@@ -798,6 +1219,7 @@ $("scramblePuzzle").addEventListener("click", () => {
 });
 
 function undoLastMove() {
+  if (state.playing) stopTransport();
   if (activeMove || moveQueue.length || !history.length) return;
   const move = invertHyperRubixMove(history.at(-1));
   enqueueMove(move, { historyAction: "pop" });
@@ -806,6 +1228,7 @@ function undoLastMove() {
 $("undoMove").addEventListener("click", undoLastMove);
 
 $("unwindPuzzle").addEventListener("click", () => {
+  if (state.playing) stopTransport();
   if (activeMove || moveQueue.length || !history.length) return;
   const moves = invertHyperRubixMoves(history);
   moves.forEach((move, index) => enqueueMove(move, {
@@ -846,8 +1269,6 @@ canvas.addEventListener("pointerdown", (event) => {
     rotationXW: state.rotation.xw,
     rotationYW: state.rotation.yw,
   };
-  state.autoRotate = false;
-  paintMotionToggle();
   canvas.setPointerCapture(event.pointerId);
   canvas.classList.add("is-dragging");
   canvas.focus({ preventScroll: true });
@@ -861,7 +1282,15 @@ canvas.addEventListener("pointermove", (event) => {
   const deltaY = event.clientY - pointerDrag.startY;
   pointerDrag.x = event.clientX;
   pointerDrag.y = event.clientY;
-  pointerDrag.moved ||= Math.hypot(deltaX, deltaY) > 5;
+  if (!pointerDrag.moved && Math.hypot(deltaX, deltaY) <= 5) {
+    event.preventDefault();
+    return;
+  }
+  if (!pointerDrag.moved) {
+    pointerDrag.moved = true;
+    state.autoRotate = false;
+    paintMotionToggle();
+  }
   if (pointerDrag.mode === "fold") {
     state.rotation.yw = normalizeDegrees(pointerDrag.rotationYW + deltaX / Math.max(1, bounds.width) * 280);
     state.rotation.xw = normalizeDegrees(pointerDrag.rotationXW - deltaY / Math.max(1, bounds.height) * 280);
@@ -901,7 +1330,11 @@ canvas.addEventListener("lostpointercapture", (event) => {
 });
 
 canvas.addEventListener("wheel", (event) => {
-  state.projectionDepth = clamp(state.projectionDepth + Math.sign(event.deltaY) * 0.15, 2.8, 7);
+  state.projectionDepth = clamp(
+    state.projectionDepth + Math.sign(event.deltaY) * 0.15,
+    PROJECTION_DEPTH_MIN,
+    7,
+  );
   $("projectionDepth").value = String(state.projectionDepth);
   $("projectionDepthOut").textContent = state.projectionDepth.toFixed(1);
   scheduleFrame();
@@ -941,9 +1374,11 @@ canvas.addEventListener("keydown", (event) => {
     event.preventDefault();
   }
   if (event.key === " ") {
-    state.autoRotate = !state.autoRotate;
-    paintMotionToggle();
-    scheduleFrame();
+    $("playButton").click();
+    event.preventDefault();
+  }
+  if (event.key.toLowerCase() === "r") {
+    $("restartLoop").click();
     event.preventDefault();
   }
   if (event.key === "[" || event.key === "]") {
@@ -952,6 +1387,67 @@ canvas.addEventListener("keydown", (event) => {
     selectCell(HYPER_RUBIX_CELL_ORDER[(current + direction + HYPER_RUBIX_CELL_ORDER.length) % HYPER_RUBIX_CELL_ORDER.length]);
     event.preventDefault();
   }
+});
+
+$("playButton").addEventListener("click", () => {
+  if (state.playing) stopTransport({ announceStop: true });
+  else startTransport();
+});
+
+$("restartLoop").addEventListener("click", () => {
+  if (state.playing) restartTransportClock({ announceRestart: true });
+  else {
+    transportPosition = 0;
+    updateSequencePlayhead(hyperRubixSequenceIndex(
+      state.playbackMode,
+      0,
+      HYPER_RUBIX_SEQUENCE_LENGTH,
+      sequenceRandomSource(),
+    ));
+    announce("Auto-twist playhead returned to step one.");
+  }
+});
+
+$("sequencePattern").addEventListener("change", (event) => {
+  state.patternId = Object.hasOwn(HYPER_RUBIX_SEQUENCE_PATTERNS, event.currentTarget.value)
+    ? event.currentTarget.value
+    : DEFAULTS.patternId;
+  if (state.patternId === "random-walk") sequenceGeneration += 1;
+  rebuildSequence();
+  if (state.playing) restartTransportClock();
+  announce(`${sequencePatternLabel()} twist tape loaded.`);
+});
+
+$("playbackMode").addEventListener("change", (event) => {
+  state.playbackMode = Object.hasOwn(PLAYBACK_LABELS, event.currentTarget.value)
+    ? event.currentTarget.value
+    : DEFAULTS.playbackMode;
+  paintTransport();
+  if (state.playing) restartTransportClock();
+  else updateSequencePlayhead(hyperRubixSequenceIndex(
+    state.playbackMode,
+    0,
+    HYPER_RUBIX_SEQUENCE_LENGTH,
+    sequenceRandomSource(),
+  ));
+  announce(`${PLAYBACK_LABELS[state.playbackMode]} playback selected.`);
+});
+
+$("twistRate").addEventListener("change", (event) => {
+  const rate = Number(event.currentTarget.value);
+  state.subdivisionsPerBeat = Object.hasOwn(RATE_LABELS, rate)
+    ? rate
+    : DEFAULTS.subdivisionsPerBeat;
+  paintTransport();
+  if (state.playing) restartTransportClock();
+  announce(`${RATE_LABELS[state.subdivisionsPerBeat]} twist rate selected.`);
+});
+
+$("reseedPattern").addEventListener("click", () => {
+  if (state.patternId !== "random-walk") return;
+  rebuildSequence({ reseed: true });
+  if (state.playing) restartTransportClock();
+  announce(`Random walk reseeded. Generation ${sequenceGeneration + 1}.`);
 });
 
 function bindRange(id, key, formatter, afterChange) {
@@ -970,6 +1466,12 @@ function bindRange(id, key, formatter, afterChange) {
 
 bindRange("output", "output", (value) => `${Math.round(value * 100)}%`, () => {
   if (state.audio) audio.setLevel(state.output);
+});
+bindRange("tempo", "tempo", (value) => `${Math.round(value)} BPM`, paintTransport);
+bindRange("swing", "swing", (value) => `${Math.round(value * 100)}%`);
+bindRange("twistDensity", "twistDensity", (value) => `${Math.round(value * 100)}%`, () => {
+  rebuildSequence({ resetPosition: false });
+  if (state.playing) restartTransportClock();
 });
 bindRange("rotationSpeed", "rotationSpeed", (value) => `${value.toFixed(2)} rev/min`, () => {
   $("motionSummary").textContent = state.autoRotate ? `${state.rotationSpeed.toFixed(2)} rev/min` : "paused";
@@ -1038,10 +1540,13 @@ $("audioButton").addEventListener("click", async () => {
   $("audioButton").setAttribute("aria-pressed", String(state.audio));
   $("audioState").textContent = state.audio ? "on" : "off";
   updateStatus();
-  announce(`Turn sound ${state.audio ? "enabled" : "disabled"}.`);
+  announce(state.audio
+    ? `${state.playing ? "Drum audio joined the running twist tape" : "Drum audio enabled"}.`
+    : `Drum audio disabled${state.playing ? "; auto-twists continue silently" : ""}.`);
 });
 
 function resetAll() {
+  stopTransport();
   moveQueue = [];
   activeMove = null;
   turnPulse = null;
@@ -1051,7 +1556,19 @@ function resetAll() {
   state.selectedPlane = DEFAULTS.selectedPlane;
   state.dragMode = DEFAULTS.dragMode;
   state.autoRotate = reduceMotion ? false : DEFAULTS.autoRotate;
+  state.tempo = DEFAULTS.tempo;
+  state.swing = DEFAULTS.swing;
+  state.subdivisionsPerBeat = DEFAULTS.subdivisionsPerBeat;
+  state.patternId = DEFAULTS.patternId;
+  state.playbackMode = DEFAULTS.playbackMode;
+  state.twistDensity = DEFAULTS.twistDensity;
+  state.currentStep = 0;
+  sequenceGeneration = 0;
+  $("sequencePattern").value = DEFAULTS.patternId;
+  $("playbackMode").value = DEFAULTS.playbackMode;
+  $("twistRate").value = String(DEFAULTS.subdivisionsPerBeat);
   for (const key of [
+    "tempo", "swing", "twistDensity",
     "rotationSpeed", "projectionDepth", "cellSeparation", "stickerScale",
     "output", "tone", "decay",
   ]) {
@@ -1062,11 +1579,12 @@ function resetAll() {
   state.voice = DEFAULTS.voice;
   $("voice").value = DEFAULTS.voice;
   $("soundSummary").textContent = VOICE_LABELS[state.voice];
+  rebuildSequence();
   resetView();
   setDragMode(DEFAULTS.dragMode);
   paintMotionToggle();
   updateSelectionUI();
-  announce("Hyper Rubix puzzle and projection reset.");
+  announce("Hyper Rubix puzzle, twist tape, and parameters reset.");
   scheduleFrame();
 }
 
@@ -1100,9 +1618,40 @@ function drawFrame(time) {
 
 document.addEventListener("visibilitychange", () => {
   previousFrameTime = performance.now();
-  if (!document.hidden) scheduleFrame();
+  if (document.hidden) {
+    clearScheduler();
+    void audio.suspend().catch(() => {});
+    return;
+  }
+  if (state.audio) void audio.resume().catch(() => {});
+  if (state.playing) {
+    nextStepAtMs = performance.now() + 55;
+    schedulerTick();
+  }
+  scheduleFrame();
 });
 
+window.addEventListener("pagehide", (event) => {
+  if (event.persisted) {
+    clearScheduler();
+    void audio.suspend().catch(() => {});
+    return;
+  }
+  stopTransport();
+  state.audio = false;
+  void audio.dispose().catch(() => {});
+});
+
+window.addEventListener("pageshow", (event) => {
+  if (!event.persisted) return;
+  if (state.audio) void audio.resume().catch(() => {});
+  if (state.playing && schedulerTimer === null) {
+    nextStepAtMs = performance.now() + 55;
+    schedulerTick();
+  }
+});
+
+rebuildSequence();
 setDragMode(state.dragMode);
 paintMotionToggle();
 updateSelectionUI();

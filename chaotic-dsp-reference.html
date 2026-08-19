@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Full algorithm and DSP signal-flow references for Morphazoid's Chaotic Synths."
+    />
+    <title>Recursive FM DSP Reference - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="chaotic-synth-ui.css" />
+    <link rel="stylesheet" href="chaotic-dsp-reference.css" />
+  </head>
+  <body class="chaotic-dsp-reference-page">
+    <header class="masthead chaotic-dsp-page-header">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <label class="chaotic-dsp-page-picker" for="dspSynthSelect">
+        <span class="sr-only">Chaos Synth</span>
+        <select id="dspSynthSelect" aria-label="Chaos Synth DSP reference">
+          <option value="recursive-fm">Recursive FM</option>
+          <option value="recursive-pm">Recursive PM</option>
+          <option value="chaotic-fm">Chaotic FM</option>
+          <option value="chaotic-pm">Chaotic PM</option>
+          <option value="cascading-fm">Cascading FM</option>
+          <option value="cascading-pm">Cascading PM</option>
+          <option value="weierstrass">Weierstrass</option>
+        </select>
+      </label>
+
+      <a class="chaotic-dsp-back-link" id="dspInstrumentLink" href="recursive-fm.html#dsp-reference">
+        <span aria-hidden="true">←</span><span>Back</span>
+      </a>
+    </header>
+
+    <main class="chaotic-dsp-page-shell">
+      <header class="chaotic-dsp-page-titlebar">
+        <p>CHAOTIC SYNTHS · DSP REFERENCE</p>
+        <h1 id="dspReferenceTitle">Recursive FM</h1>
+      </header>
+
+      <section
+        class="chaotic-dsp-full-reference"
+        id="dsp-reference"
+        data-chaos-dsp-reference-page
+        data-chaos-dsp-full-page
+        aria-labelledby="dspReferenceTitle"
+      >
+        <div class="chaos-dsp-full-body" data-chaos-dsp-reference-body></div>
+      </section>
+    </main>
+
+    <script type="module" src="chaotic-dsp-reference-page.js"></script>
+  </body>
+</html>

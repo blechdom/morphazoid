@@ -101,7 +101,7 @@ test("input and plug-in availability facts remain explicit", () => {
   );
   assert.ok(instrumentById("lumber")?.features.includes("Mic input"));
   assert.ok(instrumentById("recursion")?.features.includes("File input"));
-  assert.equal(instrumentById("hyper-rubix")?.kind, "4D puzzle instrument");
+  assert.equal(instrumentById("hyper-rubix")?.kind, "4D drum sequencer");
   assert.deepEqual(
     instrumentById("hyper-rubix")?.features,
     ["Pointer", "Built-in synth", "MIDI"],

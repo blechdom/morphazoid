@@ -31,6 +31,7 @@ const diagram = (title, formula, ariaLabel, sections) => Object.freeze({
 export const CHAOTIC_DSP_REFERENCES = Object.freeze([
   Object.freeze({
     id: "recursive-fm",
+    label: "Recursive FM",
     engine: "Native Web Audio",
     topology: "12 preallocated sine oscillators",
     archive: Object.freeze({
@@ -73,6 +74,7 @@ export const CHAOTIC_DSP_REFERENCES = Object.freeze([
   }),
   Object.freeze({
     id: "recursive-pm",
+    label: "Recursive PM",
     engine: "AudioWorklet",
     topology: "1 carrier + 10 recursive phase operators",
     archive: Object.freeze({
@@ -116,6 +118,7 @@ export const CHAOTIC_DSP_REFERENCES = Object.freeze([
   }),
   Object.freeze({
     id: "chaotic-fm",
+    label: "Chaotic FM",
     engine: "AudioWorklet",
     topology: "Entry oscillator + 10 nonlinear frequency turns",
     algorithm: diagram(
@@ -156,6 +159,7 @@ export const CHAOTIC_DSP_REFERENCES = Object.freeze([
   }),
   Object.freeze({
     id: "chaotic-pm",
+    label: "Chaotic PM",
     engine: "AudioWorklet",
     topology: "Parallel Smooth and Legacy/Raw phase banks",
     algorithm: diagram(
@@ -212,6 +216,7 @@ export const CHAOTIC_DSP_REFERENCES = Object.freeze([
   }),
   Object.freeze({
     id: "cascading-fm",
+    label: "Cascading FM",
     engine: "Native Web Audio",
     topology: "2-12 feed-forward sine oscillators",
     algorithm: diagram(
@@ -251,6 +256,7 @@ export const CHAOTIC_DSP_REFERENCES = Object.freeze([
   }),
   Object.freeze({
     id: "cascading-pm",
+    label: "Cascading PM",
     engine: "AudioWorklet",
     topology: "2-12 feed-forward phase operators",
     algorithm: diagram(
@@ -292,6 +298,7 @@ export const CHAOTIC_DSP_REFERENCES = Object.freeze([
   }),
   Object.freeze({
     id: "weierstrass",
+    label: "Weierstrass",
     engine: "AudioWorklet",
     topology: "48-term bank with Wave, FM and PM branches",
     algorithm: diagram(
@@ -459,6 +466,16 @@ export function renderChaoticDspReference(root, reference, documentObject = glob
   meta.className = "chaos-dsp-reference-meta";
   appendTextElement(documentObject, meta, "span", "chaos-dsp-engine", reference.engine);
   appendTextElement(documentObject, meta, "span", "chaos-dsp-topology", reference.topology);
+  if (!root.hasAttribute?.("data-chaos-dsp-full-page")) {
+    const fullPageLink = appendTextElement(
+      documentObject,
+      meta,
+      "a",
+      "chaos-dsp-full-page-link",
+      "Open full diagram",
+    );
+    fullPageLink.href = `chaotic-dsp-reference.html?synth=${encodeURIComponent(reference.id)}`;
+  }
   body.append(meta);
   body.append(renderDiagram(documentObject, reference.id, reference.algorithm, "algorithm"));
   body.append(renderDiagram(documentObject, reference.id, reference.audio, "audio"));

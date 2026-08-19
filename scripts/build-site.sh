@@ -191,6 +191,9 @@ for worktree_runtime_file in \
   linear-drums-machine.css \
   linear-drums-machine-app.js \
   src/linear-drums-machine.js \
+  chaotic-dsp-reference.html \
+  chaotic-dsp-reference.css \
+  chaotic-dsp-reference-page.js \
   src/chaotic-dsp-reference.js \
   src/chaotic-fm-flow.js \
   cascading-fm.html \
@@ -422,6 +425,9 @@ required_files=(
   chaotic-fm.html
   chaotic-fm.css
   chaotic-fm-app.js
+  chaotic-dsp-reference.html
+  chaotic-dsp-reference.css
+  chaotic-dsp-reference-page.js
   src/chaotic-fm.js
   src/chaotic-dsp-reference.js
   src/chaotic-fm-flow.js

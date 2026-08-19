@@ -8,8 +8,11 @@ import {
   HYPER_RUBIX_CELL_ORDER,
   HYPER_RUBIX_COLORS,
   HYPER_RUBIX_LAYERS,
+  HYPER_RUBIX_PLANE_DRUMS,
   HYPER_RUBIX_PLANES,
   HYPER_RUBIX_RADIUS,
+  HYPER_RUBIX_SEQUENCE_LENGTH,
+  HYPER_RUBIX_SEQUENCE_PATTERNS,
   HYPER_RUBIX_SIZE,
   HYPER_RUBIX_STICKER_COUNT,
   HYPER_RUBIX_STICKERS_PER_CELL,
@@ -17,6 +20,7 @@ import {
   assertHyperRubixPuzzle,
   buildHyperRubixTesseractWireframe,
   createHyperRubixScramble,
+  createHyperRubixSequence,
   createSeededHyperRubixRandom,
   createSolvedHyperRubix,
   hyperRubixBoundaryCell,
@@ -25,6 +29,8 @@ import {
   hyperRubixDisorderCount,
   hyperRubixMoveAffectsSticker,
   hyperRubixMoveKey,
+  hyperRubixSequenceIndex,
+  hyperRubixStepDurationSeconds,
   invertHyperRubixMove,
   invertHyperRubixMoves,
   isHyperRubixSolved,
@@ -335,6 +341,241 @@ test("seeded and injected-random scrambles are reproducible and avoid immediate 
   assert.throws(() => createHyperRubixScramble(-1), /non-negative integer/);
   assert.throws(() => createHyperRubixScramble(1, () => 1), /values in \[0, 1\)/);
   assert.throws(() => createHyperRubixScramble(1, null), /must be a function/);
+});
+
+test("sequencer metadata maps every coordinate plane to one labeled drum", () => {
+  assert.equal(HYPER_RUBIX_SEQUENCE_LENGTH, 16);
+  assert.deepEqual(HYPER_RUBIX_PLANE_DRUMS, {
+    xy: { id: "kick", family: "kick", label: "Kick" },
+    xz: { id: "snare", family: "snare", label: "Snare" },
+    yz: { id: "hat", family: "hat", label: "Hat" },
+    xw: { id: "tom", family: "tom", label: "Tom" },
+    yw: { id: "clap", family: "clap", label: "Clap" },
+    zw: { id: "metal", family: "metal", label: "Metal" },
+  });
+  assert.equal(Object.isFrozen(HYPER_RUBIX_PLANE_DRUMS), true);
+  for (const plane of HYPER_RUBIX_PLANES) {
+    assert.equal(Object.isFrozen(HYPER_RUBIX_PLANE_DRUMS[plane]), true);
+  }
+
+  assert.deepEqual(Object.keys(HYPER_RUBIX_SEQUENCE_PATTERNS), [
+    "axis-break", "straight-xyz", "w-pressure", "random-walk",
+  ]);
+  assert.deepEqual(
+    Object.values(HYPER_RUBIX_SEQUENCE_PATTERNS).map(({ id, label, stochastic }) => (
+      { id, label, stochastic }
+    )),
+    [
+      { id: "axis-break", label: "Axis break", stochastic: false },
+      { id: "straight-xyz", label: "Straight XYZ", stochastic: false },
+      { id: "w-pressure", label: "W pressure", stochastic: false },
+      { id: "random-walk", label: "Random walk", stochastic: true },
+    ],
+  );
+  assert.equal(Object.isFrozen(HYPER_RUBIX_SEQUENCE_PATTERNS), true);
+  for (const pattern of Object.values(HYPER_RUBIX_SEQUENCE_PATTERNS)) {
+    assert.equal(Object.isFrozen(pattern), true);
+    assert.ok(pattern.description.length > 20);
+  }
+});
+
+test("Axis break is an exact frozen 16-step legal move and drum score", () => {
+  const sequence = createHyperRubixSequence();
+  assert.equal(sequence.length, HYPER_RUBIX_SEQUENCE_LENGTH);
+  assert.equal(Object.isFrozen(sequence), true);
+  assert.deepEqual(sequence.map(({ move }) => move?.plane ?? null), [
+    "xy", "yz", null, "yz",
+    "xz", "yz", "xy", "yw",
+    "xy", "yz", "xw", "yz",
+    "xz", "yz", "xy", "zw",
+  ]);
+  assert.deepEqual(sequence.map(({ drum }) => drum?.id ?? null), [
+    "kick", "hat", null, "hat",
+    "snare", "hat", "kick", "clap",
+    "kick", "hat", "tom", "hat",
+    "snare", "hat", "kick", "metal",
+  ]);
+  assert.deepEqual(
+    sequence.filter(({ accent }) => accent).map(({ index }) => index),
+    [0, 4, 8, 12],
+  );
+  assert.deepEqual(
+    sequence.filter(({ active }) => active).map(({ index }) => index),
+    [0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+  );
+  assert.deepEqual(sequence[2], {
+    index: 2,
+    move: null,
+    active: false,
+    accent: false,
+    drum: null,
+  });
+
+  let activeOrdinal = 0;
+  for (const [index, step] of sequence.entries()) {
+    assert.deepEqual(Object.keys(step), ["index", "move", "active", "accent", "drum"]);
+    assert.equal(step.index, index);
+    assert.equal(Object.isFrozen(step), true);
+    if (!step.move) continue;
+    assert.equal(Object.isFrozen(step.move), true);
+    assert.deepEqual(normalizeHyperRubixMove(step.move), step.move);
+    const cell = hyperRubixBoundaryCell(step.move.cell);
+    assert.ok(cell.tangentPlanes.includes(step.move.plane));
+    assert.equal(step.move.cell.endsWith(activeOrdinal % 2 === 0 ? "+" : "-"), true);
+    assert.equal(step.drum, HYPER_RUBIX_PLANE_DRUMS[step.move.plane]);
+    activeOrdinal += 1;
+  }
+
+  const deterministic = createHyperRubixSequence("axis-break", 1, () => {
+    throw new Error("deterministic patterns must not consume randomness");
+  });
+  assert.deepEqual(deterministic, sequence);
+});
+
+test("all authored patterns produce legal immutable moves and density only gates activity", () => {
+  for (const patternId of ["axis-break", "straight-xyz", "w-pressure"]) {
+    const first = createHyperRubixSequence(patternId, 1, () => 0);
+    const second = createHyperRubixSequence(patternId, 1, () => 0.999);
+    assert.deepEqual(first, second, `${patternId} should be deterministic`);
+    assert.equal(first.length, 16);
+    for (const step of first) {
+      if (!step.move) continue;
+      assert.deepEqual(normalizeHyperRubixMove(step.move), step.move);
+      assert.equal(step.drum, HYPER_RUBIX_PLANE_DRUMS[step.move.plane]);
+    }
+  }
+
+  const full = createHyperRubixSequence("axis-break", 1);
+  const high = createHyperRubixSequence("axis-break", 0.75);
+  const medium = createHyperRubixSequence("axis-break", 0.5);
+  const sparse = createHyperRubixSequence("axis-break", 0.25);
+  const anchors = createHyperRubixSequence("axis-break", 0);
+  const moves = (sequence) => sequence.map(({ move }) => move);
+  for (const sequence of [high, medium, sparse, anchors]) {
+    assert.deepEqual(moves(sequence), moves(full), "density must preserve every authored move");
+    assert.deepEqual(
+      sequence.map(({ drum }) => drum),
+      full.map(({ drum }) => drum),
+      "density must preserve drum metadata",
+    );
+  }
+  assert.deepEqual(anchors.filter(({ active }) => active).map(({ index }) => index), [0, 4, 8, 12]);
+  assert.deepEqual(sparse.filter(({ active }) => active).map(({ index }) => index), [
+    0, 4, 6, 8, 10, 12, 14,
+  ]);
+  assert.deepEqual(medium.filter(({ active }) => active).map(({ index }) => index), [
+    0, 1, 4, 5, 6, 8, 9, 10, 12, 13, 14,
+  ]);
+  assert.deepEqual(
+    high.filter(({ active }) => active).map(({ index }) => index),
+    medium.filter(({ active }) => active).map(({ index }) => index),
+    "the lowest-priority offbeat stays muted below full density",
+  );
+  assert.equal(full.every(({ move, active }) => active === Boolean(move)), true);
+});
+
+test("random-walk sequences are injected-random, reproducible, and never repeat a slice", () => {
+  const first = createHyperRubixSequence(
+    "random-walk",
+    1,
+    createSeededHyperRubixRandom(0x4444),
+  );
+  const second = createHyperRubixSequence(
+    "random-walk",
+    1,
+    createSeededHyperRubixRandom(0x4444),
+  );
+  const different = createHyperRubixSequence(
+    "random-walk",
+    1,
+    createSeededHyperRubixRandom(0x5555),
+  );
+  assert.deepEqual(first, second);
+  assert.notDeepEqual(first, different);
+  assert.equal(first.every(({ move, active }) => Boolean(move) && active), true);
+  for (let index = 1; index < first.length; index += 1) {
+    const previous = first[index - 1].move;
+    const current = first[index].move;
+    assert.notEqual(`${previous.cell}:${previous.plane}`, `${current.cell}:${current.plane}`);
+    assert.notEqual(hyperRubixMoveKey(invertHyperRubixMove(previous)), hyperRubixMoveKey(current));
+  }
+
+  const constant = createHyperRubixSequence("random-walk", 1, () => 0);
+  assert.equal(constant.length, 16, "a constant random source must not cause a rejection loop");
+  const dense = createHyperRubixSequence(
+    "random-walk",
+    1,
+    createSeededHyperRubixRandom(88),
+  );
+  const sparse = createHyperRubixSequence(
+    "random-walk",
+    0,
+    createSeededHyperRubixRandom(88),
+  );
+  assert.deepEqual(
+    dense.map(({ move }) => move),
+    sparse.map(({ move }) => move),
+    "density must not alter or consume random move choices",
+  );
+  assert.deepEqual(sparse.filter(({ active }) => active).map(({ index }) => index), [0, 4, 8, 12]);
+
+  assert.throws(() => createHyperRubixSequence("unknown"), /Unknown Hyper Rubix sequence pattern/);
+  assert.throws(() => createHyperRubixSequence("axis-break", -0.01), /between 0 and 1/);
+  assert.throws(() => createHyperRubixSequence("axis-break", 1.01), /between 0 and 1/);
+  assert.throws(() => createHyperRubixSequence("axis-break", Number.NaN), /finite number/);
+  assert.throws(() => createHyperRubixSequence("axis-break", 1, null), /must be a function/);
+  assert.throws(() => createHyperRubixSequence("random-walk", 1, () => -0.1), /values in \[0, 1\)/);
+  assert.throws(() => createHyperRubixSequence("random-walk", 1, () => 1), /values in \[0, 1\)/);
+});
+
+test("sequence traversal supports forward, reverse, pendulum, and injected random modes", () => {
+  assert.deepEqual(
+    [-1, 0, 1, 15, 16, 17].map((step) => hyperRubixSequenceIndex("forward", step)),
+    [15, 0, 1, 15, 0, 1],
+  );
+  assert.deepEqual(
+    [0, 1, 2, 3, 4, -1].map((step) => hyperRubixSequenceIndex("reverse", step, 4)),
+    [3, 2, 1, 0, 3, 0],
+  );
+  assert.deepEqual(
+    Array.from({ length: 9 }, (_, step) => hyperRubixSequenceIndex("pendulum", step, 4)),
+    [0, 1, 2, 3, 2, 1, 0, 1, 2],
+  );
+  assert.equal(hyperRubixSequenceIndex("pendulum", -1, 4), 1);
+  assert.equal(hyperRubixSequenceIndex("pendulum", 999, 1), 0);
+  assert.equal(hyperRubixSequenceIndex("random", 0, 16, () => 0), 0);
+  assert.equal(hyperRubixSequenceIndex("random", 0, 16, () => 0.999), 15);
+
+  assert.throws(() => hyperRubixSequenceIndex("sideways", 0), /Unknown Hyper Rubix sequence mode/);
+  assert.throws(() => hyperRubixSequenceIndex("forward", 0, 0), /positive integer/);
+  assert.throws(() => hyperRubixSequenceIndex("forward", 0, 2.5), /positive integer/);
+  assert.throws(() => hyperRubixSequenceIndex("forward", 0.5), /must be an integer/);
+  assert.throws(() => hyperRubixSequenceIndex("random", 0, 16, null), /must be a function/);
+  assert.throws(() => hyperRubixSequenceIndex("random", 0, 16, () => 1), /values in \[0, 1\)/);
+});
+
+test("sequencer duration clamps tempo and swing across 1, 2, and 4 subdivisions", () => {
+  const defaultStraight = 60 / 112 / 2;
+  closeTo(hyperRubixStepDurationSeconds(), defaultStraight * 1.08);
+  closeTo(hyperRubixStepDurationSeconds(112, 2, 0.08, 1), defaultStraight * 0.92);
+  closeTo(
+    hyperRubixStepDurationSeconds(112, 2, 0.08, 0)
+      + hyperRubixStepDurationSeconds(112, 2, 0.08, 1),
+    defaultStraight * 2,
+  );
+  closeTo(hyperRubixStepDurationSeconds(120, 1, 0, 0), 0.5);
+  closeTo(hyperRubixStepDurationSeconds(120, 2, 0, 0), 0.25);
+  closeTo(hyperRubixStepDurationSeconds(120, 4, 0, 0), 0.125);
+  closeTo(hyperRubixStepDurationSeconds(1, 2, 0, 0), 1);
+  closeTo(hyperRubixStepDurationSeconds(999, 2, 0, 0), 0.1);
+  closeTo(hyperRubixStepDurationSeconds(120, 2, -10, 0), 0.25);
+  closeTo(hyperRubixStepDurationSeconds(120, 2, 10, 0), 0.25 * 1.42);
+  closeTo(hyperRubixStepDurationSeconds(120, 2, 0.2, -1), 0.2);
+
+  assert.throws(() => hyperRubixStepDurationSeconds(Number.NaN), /tempo must be a finite number/);
+  assert.throws(() => hyperRubixStepDurationSeconds(112, 3), /must be 1, 2, or 4/);
+  assert.throws(() => hyperRubixStepDurationSeconds(112, 2, Number.NaN), /swing must be a finite number/);
+  assert.throws(() => hyperRubixStepDurationSeconds(112, 2, 0.1, 0.5), /swing step must be an integer/);
 });
 
 test("general 4D view rotation covers all planes without changing vector length", () => {

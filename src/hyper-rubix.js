@@ -1,6 +1,6 @@
 /**
- * Pure state and geometry helpers for a 3 x 3 x 3 puzzle on the boundary of a
- * tesseract.
+ * Pure state and geometry helpers for a 3 x 3 x 3 x 3 twisty puzzle on the
+ * boundary of a tesseract.
  *
  * A tesseract has eight cubical boundary cells. Each cell owns a 3 x 3 x 3
  * field of coloured surface records, giving 8 * 27 = 216 records. A move
@@ -25,6 +25,45 @@ export const HYPER_RUBIX_PLANES = Object.freeze([
   "yw",
   "zw",
 ]);
+export const HYPER_RUBIX_SEQUENCE_LENGTH = 16;
+
+/** Drum identity assigned to each of the six coordinate planes. */
+export const HYPER_RUBIX_PLANE_DRUMS = Object.freeze({
+  xy: Object.freeze({ id: "kick", family: "kick", label: "Kick" }),
+  xz: Object.freeze({ id: "snare", family: "snare", label: "Snare" }),
+  yz: Object.freeze({ id: "hat", family: "hat", label: "Hat" }),
+  xw: Object.freeze({ id: "tom", family: "tom", label: "Tom" }),
+  yw: Object.freeze({ id: "clap", family: "clap", label: "Clap" }),
+  zw: Object.freeze({ id: "metal", family: "metal", label: "Metal" }),
+});
+
+/** Stable UI metadata for the built-in 16-step move patterns. */
+export const HYPER_RUBIX_SEQUENCE_PATTERNS = Object.freeze({
+  "axis-break": Object.freeze({
+    id: "axis-break",
+    label: "Axis break",
+    description: "A broken XYZ backbeat punctured by three fourth-axis turns.",
+    stochastic: false,
+  }),
+  "straight-xyz": Object.freeze({
+    id: "straight-xyz",
+    label: "Straight XYZ",
+    description: "An even cycle through the three ordinary-space coordinate planes.",
+    stochastic: false,
+  }),
+  "w-pressure": Object.freeze({
+    id: "w-pressure",
+    label: "W pressure",
+    description: "A fourth-axis pattern built from XW, YW, and ZW turns.",
+    stochastic: false,
+  }),
+  "random-walk": Object.freeze({
+    id: "random-walk",
+    label: "Random walk",
+    description: "A reproducible-friendly walk across legal boundary-cell slices.",
+    stochastic: true,
+  }),
+});
 
 export const HYPER_RUBIX_COLORS = Object.freeze({
   red: "#ff645f",
@@ -40,6 +79,7 @@ export const HYPER_RUBIX_COLORS = Object.freeze({
 const axisIndex = new Map(HYPER_RUBIX_AXES.map((axis, index) => [axis, index]));
 const zeroVector = () => ({ x: 0, y: 0, z: 0, w: 0 });
 const vector4 = (x, y, z, w) => Object.freeze({ x, y, z, w });
+const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const cleanZero = (value) => (
   Object.is(value, -0) || Math.abs(value) < 1e-12 ? 0 : value
 );
@@ -312,6 +352,190 @@ export const HYPER_RUBIX_BASIC_MOVES = Object.freeze(HYPER_RUBIX_CELL_ORDER.flat
     Object.freeze({ cell: cellId, plane, quarterTurns: -1 }),
   ]),
 ));
+
+const AXIS_BREAK_PLANES = Object.freeze([
+  "xy", "yz", null, "yz",
+  "xz", "yz", "xy", "yw",
+  "xy", "yz", "xw", "yz",
+  "xz", "yz", "xy", "zw",
+]);
+const STRAIGHT_XYZ_PLANES = Object.freeze([
+  "xy", "yz", "xz", "yz",
+  "xy", "yz", "xz", "yz",
+  "xy", "yz", "xz", "yz",
+  "xy", "yz", "xz", "yz",
+]);
+const W_PRESSURE_PLANES = Object.freeze([
+  "xw", "yw", null, "zw",
+  "xw", "yw", "zw", "yw",
+  "xw", "yw", null, "zw",
+  "xw", "yw", "zw", "yw",
+]);
+const SEQUENCE_PLANES_BY_PATTERN = Object.freeze({
+  "axis-break": AXIS_BREAK_PLANES,
+  "straight-xyz": STRAIGHT_XYZ_PLANES,
+  "w-pressure": W_PRESSURE_PLANES,
+});
+const DENSITY_THRESHOLD_BY_PHASE = Object.freeze([0, 0.5, 0.25, 1]);
+const SEQUENCE_INDEX_MODES = Object.freeze(["forward", "reverse", "pendulum", "random"]);
+
+function assertFiniteSequenceNumber(value, label) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) throw new TypeError(`${label} must be a finite number.`);
+  return number;
+}
+
+function assertSequenceRandom(random) {
+  if (typeof random !== "function") {
+    throw new TypeError("Hyper Rubix sequence random source must be a function.");
+  }
+  return random;
+}
+
+function sequenceRandomValue(random) {
+  const value = Number(random());
+  if (!Number.isFinite(value) || value < 0 || value >= 1) {
+    throw new RangeError("Hyper Rubix sequence random source must return values in [0, 1).");
+  }
+  return value;
+}
+
+function sequenceDensity(value) {
+  const density = assertFiniteSequenceNumber(value, "Hyper Rubix sequence density");
+  if (density < 0 || density > 1) {
+    throw new RangeError("Hyper Rubix sequence density must be between 0 and 1.");
+  }
+  return density;
+}
+
+function sequenceCellAxisForPlane(plane) {
+  if (!plane.includes("w")) return "w";
+  return HYPER_RUBIX_AXES.find((axis) => !plane.includes(axis));
+}
+
+function deterministicSequenceMoves(patternId) {
+  const planes = SEQUENCE_PLANES_BY_PATTERN[patternId];
+  let moveOrdinal = 0;
+  return planes.map((plane) => {
+    if (plane === null) return null;
+    const sign = moveOrdinal % 2 === 0 ? "+" : "-";
+    const cellAxis = sequenceCellAxisForPlane(plane);
+    const move = normalizeHyperRubixMove({
+      cell: `${cellAxis}${sign}`,
+      plane,
+      quarterTurns: moveOrdinal % 2 === 0 ? 1 : -1,
+    });
+    moveOrdinal += 1;
+    return move;
+  });
+}
+
+function randomWalkSequenceMoves(random) {
+  const moves = [];
+  let previousSlice = null;
+  for (let index = 0; index < HYPER_RUBIX_SEQUENCE_LENGTH; index += 1) {
+    const candidates = previousSlice === null
+      ? HYPER_RUBIX_BASIC_MOVES
+      : HYPER_RUBIX_BASIC_MOVES.filter(
+        (move) => `${move.cell}:${move.plane}` !== previousSlice,
+      );
+    const move = candidates[Math.floor(sequenceRandomValue(random) * candidates.length)];
+    const normalized = normalizeHyperRubixMove(move);
+    moves.push(normalized);
+    previousSlice = `${normalized.cell}:${normalized.plane}`;
+  }
+  return moves;
+}
+
+/**
+ * Build one immutable 16-step move score. Density gates fixed rhythmic phases,
+ * so reducing it never changes a step's authored move or drum identity.
+ */
+export function createHyperRubixSequence(
+  patternId = "axis-break",
+  density = 1,
+  random = Math.random,
+) {
+  const pattern = HYPER_RUBIX_SEQUENCE_PATTERNS[patternId];
+  if (!pattern) throw new RangeError(`Unknown Hyper Rubix sequence pattern: ${String(patternId)}`);
+  const safeDensity = sequenceDensity(density);
+  const randomSource = assertSequenceRandom(random);
+  const moves = pattern.stochastic
+    ? randomWalkSequenceMoves(randomSource)
+    : deterministicSequenceMoves(pattern.id);
+
+  return Object.freeze(moves.map((move, index) => {
+    const accent = index % 4 === 0;
+    const active = Boolean(
+      move
+      && (accent || safeDensity >= DENSITY_THRESHOLD_BY_PHASE[index % 4]),
+    );
+    return Object.freeze({
+      index,
+      move,
+      active,
+      accent,
+      drum: move ? HYPER_RUBIX_PLANE_DRUMS[move.plane] : null,
+    });
+  }));
+}
+
+/** Resolve a transport position through one of the four 16-step traversal modes. */
+export function hyperRubixSequenceIndex(
+  mode = "forward",
+  transportStep = 0,
+  length = HYPER_RUBIX_SEQUENCE_LENGTH,
+  random = Math.random,
+) {
+  if (!SEQUENCE_INDEX_MODES.includes(mode)) {
+    throw new RangeError(`Unknown Hyper Rubix sequence mode: ${String(mode)}`);
+  }
+  if (!Number.isInteger(length) || length < 1) {
+    throw new RangeError("Hyper Rubix sequence length must be a positive integer.");
+  }
+  if (!Number.isInteger(transportStep)) {
+    throw new TypeError("Hyper Rubix transport step must be an integer.");
+  }
+  if (mode === "random") {
+    return Math.floor(sequenceRandomValue(assertSequenceRandom(random)) * length);
+  }
+
+  const wrapped = ((transportStep % length) + length) % length;
+  if (mode === "forward") return wrapped;
+  if (mode === "reverse") return length - 1 - wrapped;
+  if (length === 1) return 0;
+  const period = 2 * (length - 1);
+  const pendulumStep = ((transportStep % period) + period) % period;
+  return pendulumStep < length ? pendulumStep : period - pendulumStep;
+}
+
+/** Return a long/short swung duration for one sequencer subdivision. */
+export function hyperRubixStepDurationSeconds(
+  tempo = 112,
+  subdivisionsPerBeat = 2,
+  swing = 0.08,
+  swingStep = 0,
+) {
+  const safeTempo = clamp(
+    assertFiniteSequenceNumber(tempo, "Hyper Rubix tempo"),
+    30,
+    300,
+  );
+  const subdivisions = Number(subdivisionsPerBeat);
+  if (![1, 2, 4].includes(subdivisions)) {
+    throw new RangeError("Hyper Rubix subdivisions per beat must be 1, 2, or 4.");
+  }
+  const safeSwing = clamp(
+    assertFiniteSequenceNumber(swing, "Hyper Rubix swing"),
+    0,
+    0.42,
+  );
+  if (!Number.isInteger(swingStep)) {
+    throw new TypeError("Hyper Rubix swing step must be an integer.");
+  }
+  const straight = 60 / safeTempo / subdivisions;
+  return straight * (Math.abs(swingStep) % 2 === 0 ? 1 + safeSwing : 1 - safeSwing);
+}
 
 /** Rotate a vector exactly in one of the six coordinate planes. */
 export function rotateHyperRubixQuarterVector(source, plane, quarterTurns = 1) {
