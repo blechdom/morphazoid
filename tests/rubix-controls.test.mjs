@@ -65,7 +65,7 @@ test("Rubix controls keep shape, size, visibility dynamics, and panel order expl
 
   const clock = detailsSection(html, "Clock");
   const cubeMoves = detailsSection(html, "Cube moves");
-  const drumVoice = detailsSection(html, "Percussion voice");
+  const soundBank = detailsSection(html, "Sound bank");
   const visibleScore = detailsSection(html, "Visible score");
   const headings = [...html.matchAll(/<h2 class="group-title">([^<]+)<\/h2>/g)]
     .map((match) => match[1]);
@@ -93,7 +93,7 @@ test("Rubix controls keep shape, size, visibility dynamics, and panel order expl
   const rubixSize = openingTag(cubeMoves, "input", "rubixSize");
   assert.equal(attribute(rubixSize, "type"), "range");
   assert.equal(attribute(rubixSize, "min"), "2");
-  assert.equal(attribute(rubixSize, "max"), "12");
+  assert.equal(attribute(rubixSize, "max"), "6");
   assert.equal(attribute(rubixSize, "step"), "1");
   assert.equal(attribute(rubixSize, "value"), "3");
   assert.equal(attribute(rubixSize, "aria-describedby"), "rubixFormHelp");
@@ -177,18 +177,46 @@ test("Rubix controls keep shape, size, visibility dynamics, and panel order expl
   assert.doesNotMatch(html, /id="orbitMode"/, "empty-space drag should replace an explicit Orbit toggle");
   assert.match(html, /drag empty space to orbit/i);
 
-  const percOptions = selectOptions(drumVoice, "percEngine");
-  assert.ok(percOptions.length >= 4, "Perc synth should expose at least four engines");
-  assert.equal(new Set(percOptions.map(({ value }) => value)).size, percOptions.length);
+  const soundBankOptions = selectOptions(soundBank, "soundBank");
   assert.deepEqual(
-    percOptions.filter(({ selected }) => selected).map(({ value }) => value),
-    ["soft-fm"],
-    "Soft FM should be the default percussion synth",
+    soundBankOptions.map(({ value }) => value),
+    ["soft-fm", "analog", "modal", "noise", "acid-303"],
+    "the top-level selector should expose four drum banks and one acid bank",
   );
-  assert.match(percOptions.find(({ value }) => value === "soft-fm")?.label ?? "", /soft\s*fm/i);
-  for (const engine of ["analog", "modal", "noise"]) {
-    assert.ok(percOptions.some(({ value }) => value === engine), `${engine} percussion engine should exist`);
+  assert.deepEqual(
+    soundBankOptions.filter(({ selected }) => selected).map(({ value }) => value),
+    ["soft-fm"],
+    "exactly one bank should be selected, with Soft FM as the default",
+  );
+  for (const [value, label] of [
+    ["soft-fm", /soft\s*fm/i],
+    ["analog", /analog/i],
+    ["modal", /modal/i],
+    ["noise", /noise/i],
+    ["acid-303", /(?:acid\s*303|303\s*acid)/i],
+  ]) {
+    assert.match(
+      soundBankOptions.find((option) => option.value === value)?.label ?? "",
+      label,
+    );
   }
+  assert.match(soundBank, /id="soundBankState"[^>]*for="soundBank"[^>]*>[^<]*Soft FM/i);
+  assert.match(soundBank, /one (?:sound )?bank (?:plays )?at a time/i);
+  assert.match(soundBank, /(?:Acid\s*303|303\s*acid|303)[\s\S]*upper|upper[\s\S]*(?:Acid\s*303|303\s*acid|303)/i);
+  assert.match(soundBank, /drum (?:banks?|kits?)[\s\S]*side|side[\s\S]*drum (?:banks?|kits?)/i);
+  assert.doesNotMatch(html, /\bid="percEngine"/);
+  assert.match(soundBank, /id="soundBankSummary"[^>]*>[^<]*Soft FM/i);
+  assert.match(soundBank, /id="soundBankStatus"[^>]*[\s\S]*?side faces audible/i);
+  assert.match(soundBank, /<fieldset\b[^>]*\bid="acidBankControls"[^>]*\bdisabled\b/);
+  assert.doesNotMatch(
+    openingTag(soundBank, "fieldset", "kitBankControls"),
+    /\bdisabled\b/,
+  );
+  assert.match(html, /id="scoreSummary"[^>]*>[^<]*Soft FM[^<]*sides only/i);
+  assert.match(
+    visibleScore,
+    /Soft FM[\s\S]*two side faces[\s\S]*upper acid face rests/i,
+  );
 
   const presetOptions = selectOptions(html, "rubixPreset");
   assert.ok(presetOptions.length >= 4, "Rubix should expose at least four presets");
@@ -199,10 +227,10 @@ test("Rubix controls keep shape, size, visibility dynamics, and panel order expl
     "One Rubix preset should be selected initially",
   );
 
-  const drumLevel = openingTag(drumVoice, "input", "drumLevel");
+  const drumLevel = openingTag(soundBank, "input", "drumLevel");
   assert.equal(attribute(drumLevel, "value"), "0.54");
   assert.match(
-    drumVoice,
+    soundBank,
     /<output\b[^>]*\bid="drumLevelOut"[^>]*>\s*54%\s*<\/output>/,
   );
   const output = openingTag(html, "input", "output");

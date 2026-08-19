@@ -70,8 +70,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   rubix: define(
     "Geometric sequencer",
-    "Turns three visible puzzle faces into acid and four selectable sample-free percussion models, with projected sticker area controlling dynamics and hidden stickers hard-silent.",
-    "Load a preset or choose a Cube, Morphix, Diamond, Stella, or Orb visual form and a size from 2 through 12; then drag it or enable independently controlled Random Twists to rewrite the next hits before release.",
+    "Offers five mutually exclusive banks: four sample-free drum kits read the two side faces, while 303 Acid reads only the upper face through its Classic or WebGPU engine; hidden stickers stay hard-silent.",
+    "Choose one bank or preset, then drag the cube or enable Random Twists; in WebGPU 303 mode, sticker row, column, edge, current face, and visibility reshape each acid step.",
     ["Pointer"],
   ),
   "hyper-drums": define(
@@ -156,6 +156,18 @@ const CATALOG_DETAILS = Object.freeze({
     "Translates the Shepard–Risset illusion into overlapping tempo octaves whose struck voices morph from kick through tom, hand drum, and air.",
     "Choose a direction and tempo glissando, then optionally make pitch follow the endlessly changing rhythm rate.",
     ["Built-in synth"],
+  ),
+  ouroboros: define(
+    "Percussion synth",
+    "Strikes a Rattlesnake-style drum through octave-related Shepard bodies whose pitch keeps rising or falling while the audible register appears never to leave.",
+    "Turn on audio, choose Rise or Fall, then balance glissando speed, hit rate, octave-bank width, and the kick-to-air timbre morph.",
+    ["Built-in synth"],
+  ),
+  "ouroboros-borealis": define(
+    "Percussion synth",
+    "Crosses an endless Shepard pitch bank with an endless Risset rhythm bank, giving one Rattlesnake percussion body independent illusory pitch and tempo motion.",
+    "Start the dual playheads, send pitch and rhythm together or in opposite directions, then reshape their intervals, phase, coupling, ranges, and timbre.",
+    ["Built-in synth", "Pointer"],
   ),
   "sandy-syrup-delay": define(
     "Delay instrument",

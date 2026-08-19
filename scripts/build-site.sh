@@ -86,6 +86,7 @@ for worktree_runtime_file in \
   src/gesturama-zones.js \
   about.html \
   about.css \
+  midi-guide.html \
   THIRD_PARTY_NOTICES.md \
   music-rooms.html \
   music-rooms.css \
@@ -169,6 +170,7 @@ for worktree_runtime_file in \
   rubix.css \
   rubix-app.js \
   src/rubix.js \
+  src/rubix-webgpu-303.js \
   src/rubix-visibility.js \
   assets/instruments/rubix.webp \
   hyper-rubix.html \
@@ -209,6 +211,16 @@ for worktree_runtime_file in \
   drum-roll-please.css \
   drum-roll-please-app.js \
   src/drum-roll-please.js \
+  ouroboros.html \
+  ouroboros.css \
+  ouroboros-app.js \
+  src/ouroboros.js \
+  assets/instruments/ouroboros.webp \
+  ouroboros-borealis.html \
+  ouroboros-borealis.css \
+  ouroboros-borealis-app.js \
+  src/ouroboros-borealis.js \
+  assets/instruments/ouroboros-borealis.webp \
   chaotic-pm.html \
   chaotic-pm.css \
   chaotic-pm-app.js \
@@ -297,6 +309,7 @@ done
 
 required_files=(
   index.html
+  midi-guide.html
   shape.html
   striped-staircase.html
   striped-staircase.css
@@ -349,6 +362,8 @@ required_files=(
   src/gesturama-zones.js
   assets/instruments/gravity-lens.webp
   assets/instruments/drum-roll-please.webp
+  assets/instruments/ouroboros.webp
+  assets/instruments/ouroboros-borealis.webp
   assets/instruments/image-to-instrument-3.webp
   image-to-instrument-3.html
   image-to-instrument-app.js
@@ -400,6 +415,14 @@ required_files=(
   drum-roll-please.css
   drum-roll-please-app.js
   src/drum-roll-please.js
+  ouroboros.html
+  ouroboros.css
+  ouroboros-app.js
+  src/ouroboros.js
+  ouroboros-borealis.html
+  ouroboros-borealis.css
+  ouroboros-borealis-app.js
+  src/ouroboros-borealis.js
   candy-coil-delay.html
   striped-sludge-delay.html
   sandy-syrup-delay.html
@@ -552,6 +575,7 @@ required_files=(
   rubix.css
   rubix-app.js
   src/rubix.js
+  src/rubix-webgpu-303.js
   src/rubix-visibility.js
   assets/instruments/rubix.webp
   hyper-rubix.html

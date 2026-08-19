@@ -1,0 +1,454 @@
+.ouroboros-page {
+  --accent: #85e4b7;
+  --accent-soft: color-mix(in oklab, #85e4b7 55%, transparent);
+  --accent-glow: color-mix(in oklab, #85e4b7 20%, transparent);
+  --ouroboros-gold: #f1c86f;
+  --ouroboros-coral: #ff8e72;
+  --ouroboros-cyan: #72d5e5;
+}
+
+.ouroboros-page .shell {
+  grid-template-columns: minmax(0, 1fr) clamp(310px, 22vw, 350px);
+}
+
+.ouroboros-page .stage-wrap {
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(133, 228, 183, 0.055), transparent 38%),
+    linear-gradient(rgba(214, 232, 226, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(214, 232, 226, 0.018) 1px, transparent 1px),
+    var(--bg-deep);
+  background-size: auto, 42px 42px, 42px 42px, auto;
+}
+
+.ouroboros-page #stage {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.ouroboros-page .stage-wrap.is-auditioning #stage {
+  cursor: grabbing;
+}
+
+.ouroboros-page #stage:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.ouroboros-identity {
+  padding: 15px 15px 14px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 6%, transparent), transparent 76%),
+    var(--panel-high);
+}
+
+.ouroboros-identity-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ouroboros-identity-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.ouroboros-engine-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.ouroboros-identity-heading .section-state {
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ouroboros-identity > p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.ouroboros-strike,
+.ouroboros-transport {
+  display: inline-flex;
+  min-width: 76px;
+  min-height: 38px;
+  padding: 8px 11px;
+  border: 1px solid var(--accent-soft);
+  cursor: pointer;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 6%, var(--bg-deep));
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ouroboros-strike:hover,
+.ouroboros-transport:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+  box-shadow: inset 0 0 18px var(--accent-glow);
+}
+
+.ouroboros-strike:focus-visible,
+.ouroboros-transport:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ouroboros-strike:active,
+.ouroboros-strike.is-striking,
+.ouroboros-transport:active {
+  transform: translateY(1px);
+  color: var(--bg-deep);
+  background: var(--accent);
+}
+
+.ouroboros-strike span,
+.ouroboros-transport span {
+  font-size: 8px;
+}
+
+.ouroboros-strike b,
+.ouroboros-transport b {
+  font-size: 8px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.ouroboros-transport {
+  border-color: color-mix(in oklab, var(--ouroboros-gold) 58%, var(--line));
+  color: var(--ouroboros-gold);
+  background: color-mix(in oklab, var(--ouroboros-gold) 6%, var(--bg-deep));
+}
+
+.ouroboros-transport[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 18px var(--accent-glow);
+}
+
+.ouroboros-transport:disabled,
+.ouroboros-strike:disabled {
+  cursor: progress;
+  opacity: 0.58;
+}
+
+.ouroboros-stage-label {
+  position: absolute;
+  z-index: 3;
+  bottom: 22px;
+  left: 24px;
+  display: grid;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.ouroboros-stage-label h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(18px, 2.4vw, 32px);
+  font-weight: 500;
+  letter-spacing: 0.11em;
+}
+
+.ouroboros-stage-label small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.17em;
+}
+
+.ouroboros-direction {
+  position: absolute;
+  z-index: 3;
+  right: 24px;
+  bottom: 22px;
+  display: grid;
+  min-width: 132px;
+  pointer-events: none;
+  justify-items: end;
+}
+
+.ouroboros-direction span {
+  color: var(--accent);
+  font-size: 31px;
+  line-height: 0.9;
+}
+
+.ouroboros-direction small {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ouroboros-coil-key {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 18px;
+  display: grid;
+  pointer-events: none;
+  align-items: center;
+  gap: 6px;
+  transform: translateY(-50%);
+}
+
+.ouroboros-coil-key span {
+  color: color-mix(in oklab, var(--muted) 72%, transparent);
+  font-size: 7px;
+  letter-spacing: 0.11em;
+  writing-mode: vertical-rl;
+}
+
+.ouroboros-coil-key i {
+  width: 1px;
+  height: 28px;
+  margin: 0 auto;
+  background: linear-gradient(var(--ouroboros-gold), var(--ouroboros-cyan));
+}
+
+.ouroboros-track-hint {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: min(270px, 42vw);
+  pointer-events: none;
+  color: color-mix(in oklab, var(--muted) 72%, transparent);
+  grid-template-columns: auto minmax(16px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  transform: translate(-50%, -50%);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ouroboros-track-hint i {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-soft), transparent);
+}
+
+.ouroboros-preset-grid {
+  display: grid;
+  margin: 0 0 7px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.ouroboros-preset-grid button {
+  display: grid;
+  min-height: 48px;
+  padding: 7px 8px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  align-content: center;
+  justify-items: start;
+  text-align: left;
+}
+
+.ouroboros-preset-grid button:hover {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.ouroboros-preset-grid button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ouroboros-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: inset 0 0 14px var(--accent-glow);
+}
+
+.ouroboros-preset-grid b {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.ouroboros-preset-grid small {
+  overflow: hidden;
+  max-width: 100%;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ouroboros-control-note {
+  display: block;
+  margin: -2px 0 9px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.ouroboros-gliss-control > span {
+  align-items: start;
+}
+
+.ouroboros-gliss-control output {
+  flex: 0 1 154px;
+  overflow: visible;
+  line-height: 1.35;
+  text-align: right;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.ouroboros-signal-card {
+  display: grid;
+  margin: 11px 0 9px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 86%, transparent);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.15fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.ouroboros-signal-card span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.ouroboros-signal-card b {
+  color: var(--ink);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ouroboros-signal-card small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 6px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+}
+
+.ouroboros-signal-card i {
+  color: var(--accent);
+  font-size: 8px;
+  font-style: normal;
+}
+
+.ouroboros-page .audio-error {
+  margin: 10px 0 8px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 130, 111, 0.38);
+  color: #ffb2a8;
+  background: rgba(255, 130, 111, 0.06);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+@media (max-width: 960px) {
+  .ouroboros-page .shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: clamp(250px, 44dvh, 420px) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .ouroboros-stage-label {
+    bottom: 15px;
+    left: 14px;
+  }
+
+  .ouroboros-stage-label h1 {
+    font-size: 16px;
+  }
+
+  .ouroboros-stage-label small {
+    font-size: 7px;
+  }
+
+  .ouroboros-direction {
+    right: 14px;
+    bottom: 15px;
+  }
+
+  .ouroboros-direction small,
+  .ouroboros-coil-key {
+    display: none;
+  }
+
+  .ouroboros-track-hint {
+    top: 54%;
+    width: min(235px, 66vw);
+    font-size: 6px;
+  }
+}
+
+@media (max-width: 560px) {
+  .ouroboros-identity-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .ouroboros-engine-actions {
+    width: 100%;
+  }
+
+  .ouroboros-strike,
+  .ouroboros-transport {
+    flex: 1 1 0;
+  }
+
+  .ouroboros-preset-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ouroboros-signal-card {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ouroboros-signal-card i {
+    display: none;
+  }
+}
+
+@media (max-width: 340px) {
+  .ouroboros-preset-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ouroboros-strike:active,
+  .ouroboros-strike.is-striking,
+  .ouroboros-transport:active {
+    transform: none;
+  }
+}

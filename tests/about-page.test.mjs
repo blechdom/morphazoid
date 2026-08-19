@@ -54,7 +54,7 @@ test("Home mounts the only complete menu-ordered catalogue", async () => {
   assert.match(home, /class="mobile-instrument-select"/);
   assert.match(home, /<script type="module" src="nav\.js"><\/script>/);
   assert.equal([home, about, catalogue].filter((html) => /data-instrument-catalog/.test(html)).length, 1);
-  assert.equal(INSTRUMENTS.length, 81);
+  assert.equal(INSTRUMENTS.length, 83);
   assert.equal(
     INSTRUMENTS.find(({ id }) => id === "escher-tessellation")?.label,
     "Escher",
@@ -84,11 +84,23 @@ test("Home mounts the only complete menu-ordered catalogue", async () => {
   assert.match(home, /Kristin Galvin/);
 });
 
-test("Home explains browser MIDI input and keeps WAX MIDI output distinct", async () => {
-  const html = await readFile(new URL("index.html", root), "utf8");
+test("Home links to the standalone MIDI guide, which keeps WAX output distinct", async () => {
+  const [home, html] = await Promise.all([
+    readFile(new URL("index.html", root), "utf8"),
+    readFile(new URL("midi-guide.html", root), "utf8"),
+  ]);
   const visibleText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-  assert.match(html, /<section class="manual-section" id="midi">/);
+  assert.match(
+    home,
+    /<section class="manual-section" id="operation">[\s\S]*?id="midi"[\s\S]*?href="midi-guide\.html">MIDI Guide<\/a>/,
+  );
+  assert.doesNotMatch(home, /<section class="manual-section" id="midi">/);
+  assert.match(html, /<title>MIDI Guide — Morphazoid<\/title>/);
+  assert.match(html, /<body class="about-page">/);
+  assert.match(html, /<h1>MIDI Guide<\/h1>/);
+  assert.match(html, /<nav class="tabs" aria-label="Morphazoid main menu"><\/nav>/);
+  assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
   assert.match(visibleText, /MIDI Guide/);
   assert.match(visibleText, /Every playable instrument has a MIDI control in its top bar/);
   assert.match(visibleText, /receive light flashes for incoming notes and controls/);

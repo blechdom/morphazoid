@@ -216,18 +216,18 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       "Geometry Synths",
       "Drum Machines",
+      "Sequencers",
       "Signal & Voice",
       "Barber Shop Poles",
       "Fractals & Recursion",
       "Chaotic Synths",
-      "WebGPU Synths",
       "Instruments",
       "Algorithmic Sequencers",
       "Experiments",
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 86);
+  assert.equal(tools.length, 88);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -263,6 +263,30 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       label: "Rattlesnake",
       href: "linear-drums.html",
     },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "ouroboros"),
+    {
+      id: "ouroboros",
+      label: "Ouroboros",
+      href: "ouroboros.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "ouroboros-borealis"),
+    {
+      id: "ouroboros-borealis",
+      label: "Ouroboros Borealis",
+      href: "ouroboros-borealis.html",
+    },
+  );
+  const barberShopTools = TOOL_GROUPS.find(({ id }) => (
+    id === "barber-shop-poles"
+  ))?.tools ?? [];
+  assert.equal(
+    barberShopTools.findIndex(({ id }) => id === "ouroboros-borealis"),
+    barberShopTools.findIndex(({ id }) => id === "ouroboros") + 1,
+    "Ouroboros Borealis belongs immediately after Ouroboros",
   );
   assert.deepEqual(
     tools.find((tool) => tool.id === "sample-drums"),
@@ -366,7 +390,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "spiral", href: "spiral.html" },
       { id: "solid", href: "solid.html" },
       { id: "hyper", href: "hyper.html" },
-      { id: "hyper-rubix", href: "hyper-rubix.html" },
     ],
   );
   assert.deepEqual(
@@ -378,11 +401,20 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "lattice-drums", href: "lattice-drums.html" },
       { id: "spiral-drums", href: "spiral-drums.html" },
       { id: "solid-drums", href: "solid-drums.html" },
-      { id: "rubix", href: "rubix.html" },
       { id: "hyper-drums", href: "hyper-drums.html" },
       { id: "l-system-drums", href: "l-system-drums.html" },
       { id: "linear-drums-machine", href: "linear-drums-machine.html" },
       { id: "gesturama", href: "gesturama.html" },
+    ],
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "sequencers")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [
+      { id: "rubix", href: "rubix.html" },
+      { id: "hyper-rubix", href: "hyper-rubix.html" },
+      { id: "webgpu-303", href: "webgpu-303.html" },
     ],
   );
   assert.deepEqual(
@@ -472,6 +504,8 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       { id: "shepard-risset", href: "shepard-risset.html" },
       { id: "drum-roll-please", href: "drum-roll-please.html" },
+      { id: "ouroboros", href: "ouroboros.html" },
+      { id: "ouroboros-borealis", href: "ouroboros-borealis.html" },
       { id: "sandy-syrup-delay", href: "sandy-syrup-delay.html" },
       { id: "striped-sludge-delay", href: "striped-sludge-delay.html" },
       { id: "candy-coil-delay", href: "candy-coil-delay.html" },
@@ -492,14 +526,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "plasma-ball", href: "plasma-ball.html" },
     ],
   );
-  assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "webgpu-synths")?.tools.map(
-      ({ id, href }) => ({ id, href }),
-    ),
-    [
-      { id: "webgpu-303", href: "webgpu-303.html" },
-    ],
-  );
+  assert.equal(TOOL_GROUPS.some((group) => group.id === "webgpu-synths"), false);
   assert.deepEqual(
     tools.find((tool) => tool.id === "webgpu-303"),
     {
@@ -603,6 +630,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}audio-engine-lab.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}shepard-risset.html`, SITE_ROOT)?.id, "shepard-risset");
   assert.equal(resolveActiveTool(`${SITE_ROOT}drum-roll-please.html`, SITE_ROOT)?.id, "drum-roll-please");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}ouroboros.html`, SITE_ROOT)?.id, "ouroboros");
   assert.equal(resolveActiveTool(`${SITE_ROOT}candy-coil-delay.html`, SITE_ROOT)?.id, "candy-coil-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}striped-sludge-delay.html`, SITE_ROOT)?.id, "striped-sludge-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}sandy-syrup-delay.html`, SITE_ROOT)?.id, "sandy-syrup-delay");
@@ -1249,7 +1277,7 @@ test("one header MIDI control owns connection and controller profile selection",
   assert.equal(control.rightMeter.getAttribute("aria-label"), "Right audio output level");
   const guide = control.details.findAll((node) => node.className === "midi-profile-guide")[0];
   assert.equal(guide.textContent, "MIDI Guide");
-  assert.match(guide.getAttribute("href"), /index\.html#midi$/);
+  assert.match(guide.getAttribute("href"), /midi-guide\.html$/);
   assert.deepEqual(
     settingsHeading.parentNode.children.filter((node) => node.hidden !== true),
     [settingsHeading, ...settingsRows, guide],

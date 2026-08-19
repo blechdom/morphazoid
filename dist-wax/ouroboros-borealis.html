@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Ouroboros Borealis — independent Shepard pitch and Risset rhythm coils turn Rattlesnake percussion into two coupled, endless illusions."
+    />
+    <title>Ouroboros Borealis — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="ouroboros-borealis.css" />
+  </head>
+  <body class="borealis-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shepard-risset.html">shepard–risset</a>
+        <a class="tab" href="drum-roll-please.html">drum roll please!</a>
+        <a class="tab" href="ouroboros.html">ouroboros</a>
+        <a class="tab active" href="ouroboros-borealis.html" aria-current="page">ouroboros borealis</a>
+        <a class="tab" href="linear-drums.html">rattlesnake</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shepard-risset.html">shepard–risset</option>
+          <option value="drum-roll-please.html">drum roll please!</option>
+          <option value="ouroboros.html">ouroboros</option>
+          <option value="ouroboros-borealis.html" selected>ouroboros borealis</option>
+          <option value="linear-drums.html">rattlesnake</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button
+          class="audio-button"
+          id="audioButton"
+          type="button"
+          aria-pressed="false"
+          aria-label="Start Ouroboros Borealis"
+        >
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b id="audioAction">Start</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">52%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.52" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="ouroborosBorealis">
+      <section class="stage" aria-label="Ouroboros Borealis stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            data-interactive-track
+            tabindex="0"
+            role="img"
+            aria-label="Two interactive aurora racetracks show independent endless pitch and rhythm playheads."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            Two wide racetracks carry endless Rattlesnake pitch and rhythm illusions.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">PITCH RISING · RHYTHM SLOWING · UNCOUPLED · STOPPED</span>
+          </div>
+          <div class="borealis-stage-label">
+            <h1>Ouroboros Borealis</h1>
+            <small>two infinities · one percussion body</small>
+          </div>
+          <div class="borealis-legend" aria-hidden="true">
+            <span><i class="pitch-swatch"></i>pitch coil <b id="pitchLegend">rising</b></span>
+            <span><i class="rhythm-swatch"></i>rhythm coil <b id="rhythmLegend">slowing</b></span>
+          </div>
+          <div class="borealis-track-hint" aria-hidden="true">
+            <span>drag either racetrack to strike</span><i></i><span>two playheads orbit independently</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Ouroboros Borealis controls">
+        <section class="group borealis-identity" aria-labelledby="engineTitle">
+          <div class="borealis-identity-heading">
+            <div>
+              <h2 class="group-title" id="engineTitle">Dual illusion engine</h2>
+              <span class="section-state" id="engineSummary">pitch × rhythm Shepard field</span>
+            </div>
+            <div class="borealis-engine-actions">
+              <button
+                class="borealis-transport"
+                id="transportButton"
+                type="button"
+                data-primary-transport
+                aria-pressed="false"
+                aria-label="Start automatic Ouroboros Borealis motion and strikes"
+              >
+                <span id="transportIcon" aria-hidden="true">▶</span><b id="transportLabel">Start</b>
+              </button>
+              <button
+                class="borealis-strike"
+                id="strikeButton"
+                type="button"
+                data-midi-trigger="strike"
+                aria-label="Strike the Ouroboros Borealis percussion field"
+              >
+                <span aria-hidden="true">●</span><b>Strike</b>
+              </button>
+            </div>
+          </div>
+          <p>
+            An octave-windowed Shepard pitch bank crosses an octave-windowed Risset rhythm bank.
+            Send pitch and tempo in opposite directions or together, then use phase and signed
+            coupling to decide where each slow-to-fast rhythm lane lands in the pitch bank.
+          </p>
+        </section>
+
+        <details class="group control-section" data-section="presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Presets</h2>
+            <span class="section-state" id="presetSummary">Countercurrent</span>
+          </summary>
+          <div class="group-body">
+            <div class="borealis-preset-grid" id="presetGrid" role="group" aria-label="Ouroboros Borealis presets"></div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="pitch" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Infinite pitch</h2>
+            <span class="section-state" id="pitchSummary">rise · 0.12 oct/s</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Pitch direction</span>
+            <div class="choice-switch" id="pitchDirection" role="group" aria-label="Pitch direction">
+              <button id="pitchRise" type="button" data-value="1" aria-pressed="true">↑ Rise</button>
+              <button id="pitchFall" type="button" data-value="-1" aria-pressed="false">↓ Fall</button>
+            </div>
+
+            <label class="control borealis-wide-output" for="pitchGlissRate">
+              <span><b>Pitch glissando</b><output id="pitchGlissRateOut" for="pitchGlissRate">0.12 oct/s</output></span>
+              <input id="pitchGlissRate" type="range" min="0.02" max="1.2" step="0.01" value="0.12" />
+            </label>
+            <label class="control" for="centerPitch">
+              <span><b>Center pitch</b><output id="centerPitchOut" for="centerPitch">110 Hz</output></span>
+              <input id="centerPitch" type="range" min="45" max="880" step="1" value="110" />
+            </label>
+            <label class="control" for="pitchWidth">
+              <span><b>Pitch bank width</b><output id="pitchWidthOut" for="pitchWidth">5.0 octaves</output></span>
+              <input id="pitchWidth" type="range" min="3" max="9" step="0.5" value="5" />
+            </label>
+            <label class="control" for="pitchInterval">
+              <span><b>Pitch voice interval</b><output id="pitchIntervalOut" for="pitchInterval">1.00 oct · 2.00:1</output></span>
+              <input id="pitchInterval" type="range" min="0.5" max="2" step="0.01" value="1" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="rhythm" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Infinite rhythm</h2>
+            <span class="section-state" id="rhythmSummary">slow down · 0.10 oct/s</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Rhythm direction</span>
+            <div class="choice-switch" id="rhythmDirection" role="group" aria-label="Rhythm direction">
+              <button id="rhythmAccelerate" type="button" data-value="1" aria-pressed="false">↗ Speed up</button>
+              <button id="rhythmDecelerate" type="button" data-value="-1" aria-pressed="true">↘ Slow down</button>
+            </div>
+
+            <label class="control borealis-wide-output" for="rhythmGlissRate">
+              <span><b>Rhythm glissando</b><output id="rhythmGlissRateOut" for="rhythmGlissRate">0.10 oct/s</output></span>
+              <input id="rhythmGlissRate" type="range" min="0.02" max="1.2" step="0.01" value="0.1" />
+            </label>
+            <label class="control" for="centerRate">
+              <span><b>Center rhythm</b><output id="centerRateOut" for="centerRate">4 hits/s · 240 BPM</output></span>
+              <input id="centerRate" type="range" min="0.5" max="16" step="0.05" value="4" />
+            </label>
+            <label class="control" for="rhythmWidth">
+              <span><b>Rhythm bank width</b><output id="rhythmWidthOut" for="rhythmWidth">5.0 octaves</output></span>
+              <input id="rhythmWidth" type="range" min="3" max="9" step="0.5" value="5" />
+            </label>
+            <label class="control" for="rhythmInterval">
+              <span><b>Rhythm voice interval</b><output id="rhythmIntervalOut" for="rhythmInterval">1.00 oct · 2.00×</output></span>
+              <input id="rhythmInterval" type="range" min="0.5" max="2" step="0.01" value="1" />
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="relationship" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Relationship</h2>
+            <span class="section-state" id="relationshipSummary">uncoupled · quarter-cycle offset</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="phaseOffset">
+              <span><b>Phase offset</b><output id="phaseOffsetOut" for="phaseOffset">0.25 cycle · 90°</output></span>
+              <input id="phaseOffset" type="range" min="0" max="1" step="0.01" value="0.25" />
+            </label>
+            <label class="control" for="coupling">
+              <span><b>Fast-rhythm → pitch map</b><output id="couplingOut" for="coupling">Independent</output></span>
+              <input id="coupling" type="range" min="-1" max="1" step="0.01" value="0" />
+            </label>
+            <label class="control" for="couplingFocus">
+              <span><b>Coupling focus</b><output id="couplingFocusOut" for="couplingFocus">Balanced</output></span>
+              <input id="couplingFocus" type="range" min="0" max="1" step="0.01" value="0.5" />
+            </label>
+            <label class="control" for="spread">
+              <span><b>Stereo spread</b><output id="spreadOut" for="spread">34%</output></span>
+              <input id="spread" type="range" min="0" max="1" step="0.01" value="0.34" />
+            </label>
+            <small class="borealis-control-note">
+              One-octave intervals produce the strongest circular illusions. Half-octave clusters,
+              two-octave gaps, narrow banks, and sharply focused coupling deliberately expose or distort the seams.
+            </small>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Rattlesnake body</h2>
+            <span class="section-state" id="soundSummary">full morph · balanced strike</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="decay">
+              <span><b>Hit decay</b><output id="decayOut" for="decay">180 ms</output></span>
+              <input id="decay" type="range" min="0.02" max="1.5" step="0.01" value="0.18" />
+            </label>
+            <label class="control" for="character">
+              <span><b>Character bias</b><output id="characterOut" for="character">Tom / hand</output></span>
+              <input id="character" type="range" min="0" max="1" step="0.01" value="0.5" />
+            </label>
+            <label class="control" for="morphDepth">
+              <span><b>Timbre morph depth</b><output id="morphDepthOut" for="morphDepth">Full · 100%</output></span>
+              <input id="morphDepth" type="range" min="0" max="1" step="0.01" value="1" />
+            </label>
+            <label class="control" for="noiseMix">
+              <span><b>Rattle mix</b><output id="noiseMixOut" for="noiseMix">30%</output></span>
+              <input id="noiseMix" type="range" min="0" max="1" step="0.01" value="0.3" />
+            </label>
+            <label class="control" for="cutoff">
+              <span><b>Brightness ceiling</b><output id="cutoffOut" for="cutoff">8.0 kHz</output></span>
+              <input id="cutoff" type="range" min="800" max="18000" step="100" value="8000" />
+            </label>
+
+            <div class="borealis-signal-card" aria-label="Audio signal path">
+              <span><b>Rhythm coil</b><small>tempo-windowed pulses</small></span><i aria-hidden="true">×</i>
+              <span><b>Pitch coil</b><small>frequency-windowed bodies</small></span><i aria-hidden="true">→</i>
+              <span><b>Rattlesnake</b><small>kick → tom → hand → air</small></span><i aria-hidden="true">→</i>
+              <span><b>Output</b><small>compression · ceiling</small></span>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all data-reset-in-place>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        The canvas contains a cyan pitch racetrack and a violet rhythm racetrack. Their automatic
+        playheads move independently. Drag either track to audition it, press Space or Strike for a
+        manual hit, press P or Start to run both infinite motions, and press P or Stop to pause them.
+        Up and Down arrows reverse pitch; Right and Left arrows reverse rhythm.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="ouroboros-borealis-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

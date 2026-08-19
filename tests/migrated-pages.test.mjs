@@ -20,6 +20,20 @@ const migratedPages = [
     requiredCopy: ["Drum", "Roll", "Rattlesnake"],
   },
   {
+    id: "ouroboros",
+    html: "ouroboros.html",
+    app: "ouroboros-app.js",
+    source: "src/ouroboros.js",
+    requiredCopy: ["Ouroboros", "Rattlesnake", "Shepard"],
+  },
+  {
+    id: "ouroboros-borealis",
+    html: "ouroboros-borealis.html",
+    app: "ouroboros-borealis-app.js",
+    source: "src/ouroboros-borealis.js",
+    requiredCopy: ["Ouroboros", "Borealis", "pitch", "rhythm"],
+  },
+  {
     id: "candy-coil-delay",
     html: "candy-coil-delay.html",
     app: "barber-delay-app.js",

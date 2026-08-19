@@ -72,7 +72,7 @@ test("all instrument pages share desktop and mobile navigation", async () => {
   assert.match(css, /\.tools-menu-group\[data-tool-group="geometry-drums"\]\s*\{[^}]*--group-accent: var\(--orange\);/);
   assert.match(css, /\.tools-menu-group\[data-tool-group="signal-voice"\]\s*\{[^}]*--group-accent: var\(--blue\);/);
   assert.doesNotMatch(css, /data-tool-group="image-to-instrument"/);
-  assert.match(css, /\.tools-menu-group\[data-tool-group="webgpu-synths"\]\s*\{[^}]*--group-accent: #9dff57;/);
+  assert.match(css, /\.tools-menu-group\[data-tool-group="sequencers"\]\s*\{[^}]*--group-accent: #9dff57;/);
   assert.match(css, /\.tools-menu-group\[data-tool-group="experiments"\]\s*\{[^}]*--group-accent: #e883ee;/);
   assert.match(css, /\.tools-menu-heading\s*\{[^}]*color: color-mix\(in oklab, var\(--group-accent\) 68%, var\(--muted\)\);[^}]*font-size: 10px;/);
   assert.match(css, /\.tools-menu-links\s*\{[^}]*flex-wrap: wrap;/);

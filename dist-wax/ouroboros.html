@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Ouroboros — a Rattlesnake percussion voice whose octave-ratio Shepard bank glides upward or downward without reaching an end."
+    />
+    <title>Ouroboros — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="ouroboros.css" />
+  </head>
+  <body class="ouroboros-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shepard-risset.html">shepard–risset</a>
+        <a class="tab" href="drum-roll-please.html">drum roll please!</a>
+        <a class="tab active" href="ouroboros.html" aria-current="page">ouroboros</a>
+        <a class="tab" href="ouroboros-borealis.html">ouroboros borealis</a>
+        <a class="tab" href="linear-drums.html">rattlesnake</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shepard-risset.html">shepard–risset</option>
+          <option value="drum-roll-please.html">drum roll please!</option>
+          <option value="ouroboros.html" selected>ouroboros</option>
+          <option value="ouroboros-borealis.html">ouroboros borealis</option>
+          <option value="linear-drums.html">rattlesnake</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button
+          class="audio-button"
+          id="audioButton"
+          type="button"
+          aria-pressed="false"
+          aria-label="Start Ouroboros"
+        >
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b id="audioAction">Start</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">56%</output></span>
+          <input
+            id="level"
+            aria-label="Master audio level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.56"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="ouroboros">
+      <section class="stage" aria-label="Ouroboros stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            data-interactive-track
+            tabindex="0"
+            role="img"
+            aria-label="A wide interactive Shepard racetrack carries persistent Rattlesnake strikes upward through an endless pitch glissando."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A wide serpent racetrack of percussion voices that fade into one another while pitch rises or falls endlessly.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">SHEPARD RATTLE · RISING · 0.12 OCT/S · 4 HITS/S · 19.4 HZ–622 HZ REGISTER · AUDIO OFF</span>
+          </div>
+          <div class="ouroboros-stage-label">
+            <h1>Ouroboros</h1>
+            <small>endless Shepard drum glissando</small>
+          </div>
+          <div class="ouroboros-direction" aria-hidden="true">
+            <span id="directionMarker">↻</span>
+            <small id="directionMarkerText">endlessly rising</small>
+          </div>
+          <div class="ouroboros-coil-key" aria-hidden="true">
+            <span>LOW · BODY</span><i></i><span>HIGH · AIR</span>
+          </div>
+          <div class="ouroboros-track-hint" aria-hidden="true">
+            <span>drag the track to audition</span>
+            <i></i>
+            <span>auto playhead keeps moving</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Ouroboros controls">
+        <section class="group ouroboros-identity" aria-labelledby="engineTitle">
+          <div class="ouroboros-identity-heading">
+            <div>
+              <h2 class="group-title" id="engineTitle">Engine</h2>
+              <span class="section-state" id="engineSummary">17 octave-ratio bodies</span>
+            </div>
+            <div class="ouroboros-engine-actions">
+              <button
+                class="ouroboros-transport"
+                id="transportButton"
+                type="button"
+                data-primary-transport
+                aria-pressed="false"
+                aria-label="Start automatic Ouroboros motion and strikes"
+              >
+                <span id="transportIcon" aria-hidden="true">▶</span>
+                <b id="transportLabel">Start</b>
+              </button>
+              <button
+                class="ouroboros-strike"
+                id="strikeButton"
+                type="button"
+                data-midi-trigger="strike"
+                aria-label="Strike the Ouroboros percussion bank"
+              >
+                <span aria-hidden="true">●</span>
+                <b>Strike</b>
+              </button>
+            </div>
+          </div>
+          <p>
+            One Rattlesnake hit clock excites parallel Shepard bodies. Spectral edge voices disappear
+            as new ones enter, so the drum pitch can keep climbing or falling without a seam. Drag
+            around the racetrack to strike its low-body-to-high-air spectrum directly.
+          </p>
+        </section>
+
+        <details class="group control-section" data-section="presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Presets</h2>
+            <span class="section-state" id="presetSummary">Eternal ascent</span>
+          </summary>
+          <div class="group-body">
+            <div
+              class="ouroboros-preset-grid"
+              id="presetGrid"
+              role="group"
+              aria-label="Ouroboros presets"
+            ></div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="motion" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Motion</h2>
+            <span class="section-state" id="motionSummary">rise · 0.12 oct/s · 4 hits/s</span>
+          </summary>
+          <div class="group-body">
+            <span class="field-label">Pitch direction</span>
+            <div class="choice-switch" id="direction" role="group" aria-label="Pitch direction">
+              <button id="directionRise" type="button" data-value="1" aria-pressed="true">↑ Rise</button>
+              <button id="directionFall" type="button" data-value="-1" aria-pressed="false">↓ Fall</button>
+            </div>
+
+            <label class="control ouroboros-gliss-control" for="glissRate">
+              <span><b>Glissando speed</b><output id="glissRateOut" for="glissRate">0.12 oct/s · wraps in 8.3 s</output></span>
+              <input id="glissRate" type="range" min="0.02" max="1.2" step="0.01" value="0.12" />
+            </label>
+
+            <label class="control" for="hitRate">
+              <span><b>Strike rate</b><output id="hitRateOut" for="hitRate">4 hits/s · 240 BPM</output></span>
+              <input id="hitRate" type="range" min="0.5" max="24" step="0.25" value="4" />
+            </label>
+
+            <small class="ouroboros-control-note">
+              Every octave body shares this pulse. Unlike Drum Roll Please!, the rhythm stays steady
+              while only the perceived pitch moves forever.
+            </small>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="shepard" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Shepard coil</h2>
+            <span class="section-state" id="shepardSummary">19.4 Hz–622 Hz · 5.0 oct</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="centerPitch">
+              <span><b>Center pitch</b><output id="centerPitchOut" for="centerPitch">110 Hz</output></span>
+              <input id="centerPitch" type="range" min="55" max="440" step="1" value="110" />
+            </label>
+
+            <label class="control" for="bankWidth">
+              <span><b>Octave bank width</b><output id="bankWidthOut" for="bankWidth">5.0 octaves</output></span>
+              <input id="bankWidth" type="range" min="3" max="7" step="0.5" value="5" />
+            </label>
+
+            <label class="control" for="voiceInterval">
+              <span><b>Parallel voice interval</b><output id="voiceIntervalOut" for="voiceInterval">1.00 oct · 2.00:1</output></span>
+              <input id="voiceInterval" type="range" min="0.5" max="2" step="0.01" value="1" />
+            </label>
+
+            <label class="control" for="spread">
+              <span><b>Stereo spread</b><output id="spreadOut" for="spread">34%</output></span>
+              <input id="spread" type="range" min="0" max="1" step="0.01" value="0.34" />
+            </label>
+
+            <small class="ouroboros-control-note">
+              One octave (2:1) gives the strongest classic Shepard illusion. Move the interval away
+              from an octave for clustered or stretched parallel bodies; a cosine window still fades
+              the lowest and highest voices before the bank rotates.
+            </small>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Rattlesnake</h2>
+            <span class="section-state" id="soundSummary">full morph · balanced strike</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="decay">
+              <span><b>Hit decay</b><output id="decayOut" for="decay">180 ms</output></span>
+              <input id="decay" type="range" min="0.02" max="1.5" step="0.01" value="0.18" />
+            </label>
+
+            <label class="control" for="character">
+              <span><b>Character bias</b><output id="characterOut" for="character">Tom / hand</output></span>
+              <input id="character" type="range" min="0" max="1" step="0.01" value="0.5" />
+            </label>
+
+            <label class="control" for="morphDepth">
+              <span><b>Timbre morph depth</b><output id="morphDepthOut" for="morphDepth">Full · 100%</output></span>
+              <input id="morphDepth" type="range" min="0" max="1" step="0.01" value="1" />
+            </label>
+
+            <label class="control" for="noiseMix">
+              <span><b>Rattle mix</b><output id="noiseMixOut" for="noiseMix">30%</output></span>
+              <input id="noiseMix" type="range" min="0" max="1" step="0.01" value="0.3" />
+            </label>
+
+            <label class="control" for="cutoff">
+              <span><b>Brightness ceiling</b><output id="cutoffOut" for="cutoff">8.0 kHz</output></span>
+              <input id="cutoff" type="range" min="800" max="18000" step="100" value="8000" />
+            </label>
+
+            <div class="ouroboros-signal-card" aria-label="Audio signal path">
+              <span><b>Hit clock</b><small>one shared pulse</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Rattlesnake</b><small>kick → tom → hand → air</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Shepard bank</b><small id="signalBankDetail">2.00:1 · edge faded</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Output</b><small>compressor · soft ceiling</small></span>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all data-reset-in-place>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        The canvas shows a crisp, wide snake racetrack made from parallel percussion strands. Drag
+        around the track to audition low body, tom, hand, and high air voices; the automatic playhead
+        continues independently. Strike marks remain visible as they change from kick circles through
+        tom rings and hand bars to air hatching. Use the direction buttons or the Up and Down arrow
+        keys to make perceived pitch rise or fall endlessly. Press Space to strike the current pitch
+        bank. Select Start, Strike, or the track to enable audio; select Stop to stop the automatic clock.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="ouroboros-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

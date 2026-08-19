@@ -62,7 +62,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "spiral", label: "Spiral", href: "spiral.html" },
     { id: "solid", label: "Solid", href: "solid.html" },
     { id: "hyper", label: "Hyper", href: "hyper.html" },
-    { id: "hyper-rubix", label: "Hyper Rubix", href: "hyper-rubix.html" },
   ]),
   freezeGroup("geometry-drums", "Drum Machines", [
     {
@@ -86,11 +85,6 @@ export const TOOL_GROUPS = Object.freeze([
       href: "solid-drums.html",
     },
     {
-      id: "rubix",
-      label: "Rubix Cube Sequencer",
-      href: "rubix.html",
-    },
-    {
       id: "hyper-drums",
       label: "Hyper Drum Machine",
       href: "hyper-drums.html",
@@ -110,6 +104,15 @@ export const TOOL_GROUPS = Object.freeze([
       label: "Gesturama",
       href: "gesturama.html",
     },
+  ]),
+  freezeGroup("sequencers", "Sequencers", [
+    {
+      id: "rubix",
+      label: "Rubix Cube Sequencer",
+      href: "rubix.html",
+    },
+    { id: "hyper-rubix", label: "Hyper Rubix", href: "hyper-rubix.html" },
+    { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
   ]),
   freezeGroup("signal-voice", "Signal & Voice", [
     {
@@ -135,6 +138,12 @@ export const TOOL_GROUPS = Object.freeze([
       id: "drum-roll-please",
       label: "Drum Roll Please!",
       href: "drum-roll-please.html",
+    },
+    { id: "ouroboros", label: "Ouroboros", href: "ouroboros.html" },
+    {
+      id: "ouroboros-borealis",
+      label: "Ouroboros Borealis",
+      href: "ouroboros-borealis.html",
     },
     { id: "sandy-syrup-delay", label: "Sandy Syrup Delay", href: "sandy-syrup-delay.html" },
     {
@@ -164,9 +173,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "cascading-pm", label: "Cascading PM", href: "cascading-pm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
     { id: "plasma-ball", label: "Plasma Ball", href: "plasma-ball.html" },
-  ]),
-  freezeGroup("webgpu-synths", "WebGPU Synths", [
-    { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
   ]),
   freezeGroup("instruments", "Instruments", [
     { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
@@ -1045,7 +1051,7 @@ export function createMidiToolbar(
     select,
   );
   const guide = element(doc, "a", "midi-profile-guide", "MIDI Guide");
-  guide.setAttribute("href", new URL("index.html#midi", NAVIGATION_BASE_URL).href);
+  guide.setAttribute("href", new URL("midi-guide.html", NAVIGATION_BASE_URL).href);
   const error = element(doc, "p", "midi-profile-error");
   error.id = `sharedMidiError${suffix}`;
   error.setAttribute("role", "alert");

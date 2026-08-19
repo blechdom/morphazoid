@@ -2,9 +2,12 @@ import { connectAudioOutput } from "./audio-output-manager.js";
 
 const NUM_CHANNELS = 2;
 const TIME_INFO_BUFFER_SIZE = 16;
-const PARAM_BUFFER_SIZE = 15 * Float32Array.BYTES_PER_ELEMENT;
 export const WEBGPU_303_SEQUENCE_LENGTH = 128;
 const SEQUENCE_BUFFER_SIZE = WEBGPU_303_SEQUENCE_LENGTH * Float32Array.BYTES_PER_ELEMENT;
+const STEP_MODULATION_COMPONENTS = 4;
+const STEP_MODULATION_BUFFER_SIZE = WEBGPU_303_SEQUENCE_LENGTH
+  * STEP_MODULATION_COMPONENTS
+  * Float32Array.BYTES_PER_ELEMENT;
 const MAX_BUFFERED_CHUNKS = 2.5;
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
@@ -50,6 +53,14 @@ export const WEBGPU_303_PARAM_ORDER = Object.freeze([
   "flt",
 ]);
 
+// The standalone UI intentionally keeps its original 15 controls. Runtime
+// consumers can opt into global swing through the appended GPU buffer field.
+export const WEBGPU_303_BUFFER_PARAM_ORDER = Object.freeze([
+  ...WEBGPU_303_PARAM_ORDER,
+  "swing",
+]);
+const PARAM_BUFFER_SIZE = WEBGPU_303_BUFFER_PARAM_ORDER.length * Float32Array.BYTES_PER_ELEMENT;
+
 export const WEBGPU_303_SOURCE_FUNDAMENTAL_CONTROL = 80;
 export const WEBGPU_303_SOURCE_FUNDAMENTAL_LIMITS = Object.freeze([0, 100]);
 
@@ -81,11 +92,23 @@ export const WEBGPU_303_DEFAULTS = Object.freeze({
   res: 2.2,
   lfo: 1,
   flt: -1.5,
+  swing: 0,
 });
 
 export const WEBGPU_303_SOURCE_SEQUENCE = Object.freeze(
   Array.from({ length: WEBGPU_303_SEQUENCE_LENGTH }, () => -1),
 );
+
+// Per-step vec4 layout: gain/gate, filter delta, resonance delta, stereo delta.
+// The neutral lane preserves the original standalone Acid Synth patch exactly.
+export const WEBGPU_303_DEFAULT_STEP_MODULATION = Object.freeze([1, 0, 0, 0]);
+
+export const WEBGPU_303_STEP_MODULATION_LIMITS = Object.freeze([
+  Object.freeze([0, 1]),
+  Object.freeze([-64, 64]),
+  Object.freeze([-15, 15]),
+  Object.freeze([-8, 8]),
+]);
 
 export const WEBGPU_303_LIMITS = Object.freeze({
   partials: Object.freeze([1, 256]),
@@ -103,6 +126,7 @@ export const WEBGPU_303_LIMITS = Object.freeze({
   res: Object.freeze([0, 15]),
   lfo: Object.freeze([0, 64]),
   flt: Object.freeze([-64, 64]),
+  swing: Object.freeze([0, 0.42]),
 });
 
 export const WEBGPU_303_RUNTIME_DEFAULTS = Object.freeze({
@@ -139,12 +163,14 @@ struct AudioParam {
   res: f32,
   lfo: f32,
   flt: f32,
+  swing: f32,
 }
 
 @group(0) @binding(0) var<uniform> time_info: TimeInfo;
 @group(0) @binding(1) var<storage, read_write> sound_chunk: array<vec2<f32>>;
 @group(0) @binding(2) var<storage, read> audio_param: AudioParam;
 @group(0) @binding(3) var<storage, read> sequence_step: array<f32>;
+@group(0) @binding(4) var<storage, read> step_modulation: array<vec4<f32>>;
 
 @compute
 @workgroup_size(WORKGROUP_SIZE)
@@ -193,18 +219,45 @@ fn sequenceValue(step: f32) -> f32 {
   return nse(step);
 }
 
+fn stepModulation(step: f32) -> vec4<f32> {
+  let index: u32 = u32(step) % arrayLength(&step_modulation);
+  return step_modulation[index];
+}
+
+fn swingTime(straightTime: f32, swing: f32) -> f32 {
+  let amount: f32 = clamp(swing, 0.0, 0.42);
+  if (amount <= 0.0) {
+    return straightTime;
+  }
+  let pair: f32 = floor(straightTime * 0.5);
+  let pairTime: f32 = straightTime - pair * 2.0;
+  let evenDuration: f32 = 1.0 + amount;
+  let oddDuration: f32 = 1.0 - amount;
+  if (pairTime < evenDuration) {
+    return pair * 2.0 + pairTime / evenDuration;
+  }
+  return pair * 2.0 + 1.0 + (pairTime - evenDuration) / oddDuration;
+}
+
 fn synth(tseq: f32, t: f32, audio_param: AudioParam) -> vec2<f32> {
   var v: vec2<f32> = vec2(0.0);
   let tnote: f32 = fract(tseq);
+  let modulation: vec4<f32> = stepModulation(floor(tseq));
   let dr: f32 = audio_param.dur;
-  let amp: f32 = smoothstep(0.05, 0.0, abs(tnote - dr - 0.05) - dr) * exp(tnote * -1.0);
+  let amp: f32 = smoothstep(0.05, 0.0, abs(tnote - dr - 0.05) - dr)
+    * exp(tnote * -1.0)
+    * clamp(modulation.x, 0.0, 1.0);
   let seqn: f32 = sequenceValue(floor(tseq));
   let n: f32 = 20.0 + floor(seqn * audio_param.frequency);
   let f: f32 = ntof(n, audio_param.fundamental);
   let timeMod: f32 = max(audio_param.timeMod, 0.001);
   let sqr: f32 = smoothstep(0.0, 0.01, abs(rem(t * audio_param.timeScale, timeMod) - 20.0) - 20.0);
   let base: f32 = f;
-  let flt: f32 = exp(tnote * audio_param.flt) * 50.0 + pow(cos(t * audio_param.lfo) * 0.5 + 0.5, 4.0) * 80.0;
+  let flt: f32 = exp(tnote * audio_param.flt) * 50.0
+    + pow(cos(t * audio_param.lfo) * 0.5 + 0.5, 4.0) * 80.0
+    + modulation.y;
+  let resonance: f32 = clamp(audio_param.res + modulation.z, 0.0, 15.0);
+  let stereo: f32 = clamp(audio_param.stereo + modulation.w, -8.0, 8.0);
   let ratio: f32 = max(audio_param.ratio, 0.001);
   let requestedPartials: u32 = min(u32(audio_param.partials), PARTIALS);
 
@@ -214,10 +267,10 @@ fn synth(tseq: f32, t: f32, audio_param: AudioParam) -> vec2<f32> {
 
     inten = mix(inten, inten * rem(h, ratio), sqr);
     inten *= exp(-1.0 * max(ratio - h, 0.0));
-    inten *= _filter(h, flt, audio_param.res);
+    inten *= _filter(h, flt, resonance);
 
-    let vx: f32 = v.x + (inten * sin((PI2 + (audio_param.stereo * 0.5)) * (t * base * h)));
-    let vy: f32 = v.y + (inten * sin((PI2 - (audio_param.stereo * 0.5)) * (t * base * h)));
+    let vx: f32 = v.x + (inten * sin((PI2 + (stereo * 0.5)) * (t * base * h)));
+    let vy: f32 = v.y + (inten * sin((PI2 - (stereo * 0.5)) * (t * base * h)));
     v = vec2(vx, vy);
   }
 
@@ -225,14 +278,16 @@ fn synth(tseq: f32, t: f32, audio_param: AudioParam) -> vec2<f32> {
 }
 
 fn mainSound(time: f32, audio_param: AudioParam) -> vec2<f32> {
-  let tb: f32 = rem(time * audio_param.timeScale, max(audio_param.timeMod, 0.001));
+  let straightTime: f32 = time * audio_param.timeScale;
+  let swungTime: f32 = swingTime(straightTime, audio_param.swing);
+  let tb: f32 = rem(swungTime, max(audio_param.timeMod, 0.001));
   let mx: vec2<f32> = synth(tb, time, audio_param) * audio_param.gain;
   return vec2(mx);
 }`;
 
 export function sanitizeWebGpu303Params(params = {}) {
   const sanitized = {};
-  for (const key of WEBGPU_303_PARAM_ORDER) {
+  for (const key of WEBGPU_303_BUFFER_PARAM_ORDER) {
     const [minimum, maximum] = WEBGPU_303_LIMITS[key];
     const fallback = WEBGPU_303_DEFAULTS[key];
     const value = clamp(finiteOr(params[key], fallback), minimum, maximum);
@@ -245,7 +300,22 @@ export function sanitizeWebGpu303Params(params = {}) {
 
 export function webGpu303ParamArray(params = {}) {
   const sanitized = sanitizeWebGpu303Params(params);
-  return new Float32Array(WEBGPU_303_PARAM_ORDER.map((key) => sanitized[key]));
+  return new Float32Array(WEBGPU_303_BUFFER_PARAM_ORDER.map((key) => sanitized[key]));
+}
+
+/** Warp straight sequencer time into long-even / short-odd swing pairs. */
+export function webGpu303SwingTime(straightTime, swing = WEBGPU_303_DEFAULTS.swing) {
+  const source = Math.max(0, finiteOr(straightTime, 0));
+  const amount = clamp(
+    finiteOr(swing, WEBGPU_303_DEFAULTS.swing),
+    ...WEBGPU_303_LIMITS.swing,
+  );
+  if (amount <= 0) return source;
+  const pair = Math.floor(source / 2);
+  const pairTime = source - pair * 2;
+  const evenDuration = 1 + amount;
+  if (pairTime < evenDuration) return pair * 2 + pairTime / evenDuration;
+  return pair * 2 + 1 + (pairTime - evenDuration) / (1 - amount);
 }
 
 export function webGpu303Noise(step, seed) {
@@ -262,6 +332,20 @@ export function sanitizeWebGpu303Sequence(sequence = WEBGPU_303_SOURCE_SEQUENCE)
 
 export function webGpu303SequenceArray(sequence = WEBGPU_303_SOURCE_SEQUENCE) {
   return new Float32Array(sanitizeWebGpu303Sequence(sequence));
+}
+
+export function sanitizeWebGpu303StepModulation(stepModulation = []) {
+  return Array.from({ length: WEBGPU_303_SEQUENCE_LENGTH }, (_, stepIndex) => {
+    const candidate = stepModulation?.[stepIndex];
+    return WEBGPU_303_DEFAULT_STEP_MODULATION.map((fallback, componentIndex) => {
+      const [minimum, maximum] = WEBGPU_303_STEP_MODULATION_LIMITS[componentIndex];
+      return clamp(finiteOr(candidate?.[componentIndex], fallback), minimum, maximum);
+    });
+  });
+}
+
+export function webGpu303StepModulationArray(stepModulation = []) {
+  return new Float32Array(sanitizeWebGpu303StepModulation(stepModulation).flat());
 }
 
 export function webGpu303SequenceValue(step, params = WEBGPU_303_DEFAULTS, sequence = WEBGPU_303_SOURCE_SEQUENCE) {
@@ -299,6 +383,7 @@ export function formatWebGpu303Value(key, value) {
   if (key === "res") return `${number.toFixed(2)} res`;
   if (key === "lfo") return `${number.toFixed(2)} Hz`;
   if (key === "flt") return `${number.toFixed(2)} sweep`;
+  if (key === "swing") return `${Math.round(number * 100)}% swing`;
   return number.toFixed(2);
 }
 
@@ -333,6 +418,7 @@ export class WebGpu303Audio {
     this.chunkMapBuffer = null;
     this.audioParamBuffer = null;
     this.sequenceBuffer = null;
+    this.stepModulationBuffer = null;
     this.chunkNumSamplesPerChannel = 0;
     this.chunkNumSamples = 0;
     this.chunkBufferSize = 0;
@@ -346,48 +432,89 @@ export class WebGpu303Audio {
     this.output = WEBGPU_303_RUNTIME_DEFAULTS.output;
     this.params = sanitizeWebGpu303Params();
     this.sequence = sanitizeWebGpu303Sequence();
+    this.stepModulation = sanitizeWebGpu303StepModulation();
     this.sources = new Set();
     this.scheduledChunks = [];
     this.onError = null;
+    this.ownsContext = false;
+    this.destination = null;
   }
 
   setErrorHandler(handler) {
     this.onError = typeof handler === "function" ? handler : null;
   }
 
-  async start(params = this.params) {
+  async start(params = this.params, options = {}) {
+    if (
+      params
+      && typeof params === "object"
+      && (params.context || params.audioContext || params.destination || "autoStart" in params)
+      && arguments.length < 2
+    ) {
+      options = params;
+      params = this.params;
+    }
+    if (this.context) await this.stop();
+
     const support = webGpu303Support(this.runtime);
-    if (!support.audio) throw new Error("Web Audio is not available in this browser.");
+    const externalContext = options.context ?? options.audioContext ?? null;
+    if (!externalContext && !support.audio) {
+      throw new Error("Web Audio is not available in this browser.");
+    }
     if (!support.webgpu) throw new Error("WebGPU is not available in this browser.");
 
     this.params = sanitizeWebGpu303Params(params);
-    const AudioContextCtor = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
-    this.context = new AudioContextCtor();
-    if (this.context.state === "suspended" && typeof this.context.resume === "function") {
+    this.ownsContext = !externalContext;
+    if (externalContext) {
+      this.context = externalContext;
+    } else {
+      const AudioContextCtor = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
+      this.context = new AudioContextCtor();
+    }
+    if (
+      this.ownsContext
+      && this.context.state === "suspended"
+      && typeof this.context.resume === "function"
+    ) {
       await this.context.resume();
     }
     this.sampleRate = this.context.sampleRate;
-    this.createAudioGraph();
+    this.destination = options.destination ?? null;
+    this.createAudioGraph(this.destination);
     await this.initGpu();
     this.updateParams(this.params);
     this.updateSequence(this.sequence);
+    this.updateStepModulation(this.stepModulation);
     this.setOutput(this.output);
-    this.renderOffset = 0;
-    this.nextStartTime = this.context.currentTime + 0.06;
+    this.renderOffset = Math.max(0, finiteOr(options.offset, 0));
+    this.nextStartTime = Number.isFinite(Number(options.startAt))
+      ? Math.max(this.context.currentTime, Number(options.startAt))
+      : this.context.currentTime + 0.06;
     this.scheduledChunks = [];
-    this.running = true;
-    this.queueFill();
+    this.running = options.autoStart !== false;
+    if (this.running) this.queueFill();
     return this.context;
   }
 
-  createAudioGraph() {
+  createAudioGraph(destination = null) {
     if (!this.context) return;
     const input = this.context.createGain();
     const master = this.context.createGain();
     input.gain.value = 1;
     master.gain.value = this.playbackEnabled ? this.output : 0;
     input.connect(master);
-    this.releaseAudioOutput = connectAudioOutput(this.context, master, { runtime: this.runtime });
+    if (destination) {
+      master.connect(destination);
+      this.releaseAudioOutput = () => {
+        try {
+          master.disconnect?.(destination);
+        } catch {
+          // The shared graph or destination may already have been torn down.
+        }
+      };
+    } else {
+      this.releaseAudioOutput = connectAudioOutput(this.context, master, { runtime: this.runtime });
+    }
     this.input = input;
     this.master = master;
   }
@@ -424,6 +551,10 @@ export class WebGpu303Audio {
       size: SEQUENCE_BUFFER_SIZE,
       usage: usage.STORAGE | usage.COPY_DST,
     });
+    this.stepModulationBuffer = this.device.createBuffer({
+      size: STEP_MODULATION_BUFFER_SIZE,
+      usage: usage.STORAGE | usage.COPY_DST,
+    });
     const shaderModule = this.device.createShaderModule({ code: WEBGPU_303_SHADER });
     this.pipeline = this.device.createComputePipeline({
       layout: "auto",
@@ -443,6 +574,7 @@ export class WebGpu303Audio {
         { binding: 1, resource: { buffer: this.chunkBuffer } },
         { binding: 2, resource: { buffer: this.audioParamBuffer } },
         { binding: 3, resource: { buffer: this.sequenceBuffer } },
+        { binding: 4, resource: { buffer: this.stepModulationBuffer } },
       ],
     });
   }
@@ -458,6 +590,17 @@ export class WebGpu303Audio {
     this.sequence = sanitizeWebGpu303Sequence(sequence);
     if (this.device && this.sequenceBuffer) {
       this.device.queue.writeBuffer(this.sequenceBuffer, 0, webGpu303SequenceArray(this.sequence));
+    }
+  }
+
+  updateStepModulation(stepModulation = this.stepModulation) {
+    this.stepModulation = sanitizeWebGpu303StepModulation(stepModulation);
+    if (this.device && this.stepModulationBuffer) {
+      this.device.queue.writeBuffer(
+        this.stepModulationBuffer,
+        0,
+        webGpu303StepModulationArray(this.stepModulation),
+      );
     }
   }
 
@@ -494,13 +637,21 @@ export class WebGpu303Audio {
     }, Math.max(0, delay));
   }
 
-  async fillBuffer() {
+  async fillBuffer({ forceFirstChunk = false, maxChunks = Number.POSITIVE_INFINITY } = {}) {
     if (!this.context || !this.input) return;
     const scheduleHorizon = this.chunkDurationInSeconds * MAX_BUFFERED_CHUNKS + 0.05;
+    const chunkLimit = Number.isFinite(Number(maxChunks))
+      ? Math.max(1, Math.trunc(Number(maxChunks)))
+      : Number.POSITIVE_INFINITY;
+    let scheduledChunkCount = 0;
     while (
       this.running
       && this.context
-      && (this.nextStartTime - this.context.currentTime) < scheduleHorizon
+      && scheduledChunkCount < chunkLimit
+      && (
+        (scheduledChunkCount === 0 && forceFirstChunk)
+        || (this.nextStartTime - this.context.currentTime) < scheduleHorizon
+      )
     ) {
       const chunkData = await this.renderChunk(this.renderOffset);
       if (!this.running || !this.context || !this.input) return;
@@ -534,6 +685,7 @@ export class WebGpu303Audio {
         duration: audioBuffer.duration,
       });
       source.start(startAt);
+      scheduledChunkCount += 1;
       this.nextStartTime = endAt;
       this.renderOffset = chunkOffset + audioBuffer.duration;
     }
@@ -566,6 +718,7 @@ export class WebGpu303Audio {
       || !this.chunkMapBuffer
       || !this.audioParamBuffer
       || !this.sequenceBuffer
+      || !this.stepModulationBuffer
       || !this.pipeline
       || !this.bindGroup
     ) {
@@ -579,6 +732,11 @@ export class WebGpu303Audio {
     );
     this.device.queue.writeBuffer(this.audioParamBuffer, 0, webGpu303ParamArray(this.params));
     this.device.queue.writeBuffer(this.sequenceBuffer, 0, webGpu303SequenceArray(this.sequence));
+    this.device.queue.writeBuffer(
+      this.stepModulationBuffer,
+      0,
+      webGpu303StepModulationArray(this.stepModulation),
+    );
     const commandEncoder = this.device.createCommandEncoder();
     const pass = commandEncoder.beginComputePass();
     pass.setPipeline(this.pipeline);
@@ -609,29 +767,92 @@ export class WebGpu303Audio {
     this.onError?.(error);
   }
 
-  async stop() {
-    this.running = false;
+  clearQueueTimer() {
     const clearTimer = this.runtime.clearTimeout ?? globalThis.clearTimeout;
     if (this.timeoutId !== null) clearTimer(this.timeoutId);
     this.timeoutId = null;
-    const render = this.renderingPromise;
-    if (render) await render.catch(() => {});
+  }
+
+  stopScheduledSources(when = this.context?.currentTime) {
     for (const source of this.sources) {
       try {
-        source.stop?.();
+        source.stop?.(when);
       } catch {
         // Already ended.
       }
     }
     this.sources.clear();
     this.scheduledChunks = [];
+  }
+
+  pauseTimeline() {
+    const playbackTime = this.currentPlaybackTime();
+    this.running = false;
+    this.clearQueueTimer();
+    this.stopScheduledSources();
+    if (playbackTime !== null) this.renderOffset = playbackTime;
+    if (this.context) this.nextStartTime = this.context.currentTime;
+    return this.renderOffset;
+  }
+
+  pause() {
+    return this.pauseTimeline();
+  }
+
+  async restartTimeline({ startAt, offset = 0 } = {}) {
+    if (!this.context || !this.input || !this.device) {
+      throw new Error("WebGPU audio must be initialized before restarting its timeline.");
+    }
+
+    this.running = false;
+    this.clearQueueTimer();
+    const render = this.renderingPromise;
+    if (render) await render.catch(() => {});
+    this.stopScheduledSources();
+
+    this.renderOffset = Math.max(0, finiteOr(offset, 0));
+    this.nextStartTime = Number.isFinite(Number(startAt))
+      ? Math.max(this.context.currentTime, Number(startAt))
+      : this.context.currentTime + 0.012;
+    this.running = true;
+    const prime = this.fillBuffer({ forceFirstChunk: true, maxChunks: 1 });
+    this.renderingPromise = prime;
+    try {
+      await prime;
+    } catch (error) {
+      this.running = false;
+      throw error;
+    } finally {
+      if (this.renderingPromise === prime) this.renderingPromise = null;
+    }
+
+    const actualStartTime = this.scheduledChunks[0]?.startAt ?? this.nextStartTime;
+    // Let the caller align its shared transport before the next macrotask, then
+    // refill the remaining look-ahead window immediately to avoid an underrun.
+    this.queueFill();
+    return actualStartTime;
+  }
+
+  async restart(options = {}) {
+    return this.restartTimeline(options);
+  }
+
+  async stop() {
+    this.running = false;
+    this.clearQueueTimer();
+    const render = this.renderingPromise;
+    if (render) await render.catch(() => {});
+    this.stopScheduledSources();
     const context = this.context;
+    const ownsContext = this.ownsContext;
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
     this.context = null;
     this.input = null;
     this.master = null;
-    if (context && context.state !== "closed" && typeof context.close === "function") {
+    this.destination = null;
+    this.ownsContext = false;
+    if (ownsContext && context && context.state !== "closed" && typeof context.close === "function") {
       await context.close();
     }
     this.destroyGpuResources();
@@ -644,6 +865,7 @@ export class WebGpu303Audio {
       this.chunkMapBuffer,
       this.audioParamBuffer,
       this.sequenceBuffer,
+      this.stepModulationBuffer,
     ]) {
       try {
         buffer?.destroy?.();
@@ -664,5 +886,6 @@ export class WebGpu303Audio {
     this.chunkMapBuffer = null;
     this.audioParamBuffer = null;
     this.sequenceBuffer = null;
+    this.stepModulationBuffer = null;
   }
 }

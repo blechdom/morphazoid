@@ -4,6 +4,8 @@ import test from "node:test";
 
 import {
   WEBGPU_303_CREDIT,
+  WEBGPU_303_BUFFER_PARAM_ORDER,
+  WEBGPU_303_DEFAULT_STEP_MODULATION,
   WEBGPU_303_DEFAULTS,
   WEBGPU_303_PARAM_ORDER,
   WEBGPU_303_SEQUENCE_LENGTH,
@@ -14,11 +16,14 @@ import {
   WebGpu303Audio,
   sanitizeWebGpu303Params,
   sanitizeWebGpu303Sequence,
+  sanitizeWebGpu303StepModulation,
   webGpu303FundamentalFromSourceControl,
   webGpu303ParamArray,
   webGpu303SequenceArray,
   webGpu303SequenceValue,
+  webGpu303StepModulationArray,
   webGpu303SourceControlFromFundamental,
+  webGpu303SwingTime,
   webGpu303Support,
 } from "../src/webgpu-303.js";
 
@@ -45,7 +50,15 @@ test("WebGPU 303 preserves the acid shader credit and parameter buffer order", (
   assert.match(WEBGPU_303_SHADER, /fn synthesize/);
   assert.match(WEBGPU_303_SHADER, /sound_chunk: array<vec2<f32>>/);
   assert.match(WEBGPU_303_SHADER, /@binding\(3\) var<storage, read> sequence_step/);
+  assert.match(WEBGPU_303_SHADER, /@binding\(4\) var<storage, read> step_modulation/);
   assert.match(WEBGPU_303_SHADER, /fn sequenceValue/);
+  assert.match(WEBGPU_303_SHADER, /fn stepModulation/);
+  assert.match(WEBGPU_303_SHADER, /fn swingTime/);
+  assert.match(WEBGPU_303_SHADER, /1\.0 \+ amount/);
+  assert.match(WEBGPU_303_SHADER, /1\.0 - amount/);
+  assert.match(WEBGPU_303_SHADER, /swingTime\(straightTime, audio_param\.swing\)/);
+  assert.match(WEBGPU_303_SHADER, /audio_param\.res \+ modulation\.z/);
+  assert.match(WEBGPU_303_SHADER, /audio_param\.stereo \+ modulation\.w/);
   assert.deepEqual(WEBGPU_303_PARAM_ORDER, [
     "partials",
     "frequency",
@@ -63,6 +76,11 @@ test("WebGPU 303 preserves the acid shader credit and parameter buffer order", (
     "lfo",
     "flt",
   ]);
+  assert.deepEqual(WEBGPU_303_BUFFER_PARAM_ORDER, [
+    ...WEBGPU_303_PARAM_ORDER,
+    "swing",
+  ]);
+  assert.ok(Object.isFrozen(WEBGPU_303_BUFFER_PARAM_ORDER));
 
   const values = webGpu303ParamArray({
     partials: 1,
@@ -80,9 +98,28 @@ test("WebGPU 303 preserves the acid shader credit and parameter buffer order", (
     res: 13,
     lfo: 14,
     flt: 15,
+    swing: 0.25,
   });
-  assert.equal(values.length, 15);
-  assert.deepEqual(Array.from(values), [1, 2, 3, 4, 0.5, 5, 0.25, 8, 9, 80, 1, 12, 13, 14, 15]);
+  assert.equal(values.length, 16);
+  assert.deepEqual(
+    Array.from(values),
+    [1, 2, 3, 4, 0.5, 5, 0.25, 8, 9, 80, 1, 12, 13, 14, 15, 0.25],
+  );
+});
+
+test("WebGPU 303 swing warps even/odd boundaries without moving pair boundaries", () => {
+  for (const time of [0, 0.25, 1, 1.75, 2, 9.5]) {
+    near(webGpu303SwingTime(time, 0), time);
+  }
+
+  const swing = 0.25;
+  near(webGpu303SwingTime(0.625, swing), 0.5);
+  near(webGpu303SwingTime(1.25, swing), 1);
+  near(webGpu303SwingTime(1.625, swing), 1.5);
+  near(webGpu303SwingTime(2, swing), 2);
+  near(webGpu303SwingTime(3.25, swing), 3);
+  near(webGpu303SwingTime(4, swing), 4);
+  near(webGpu303SwingTime(1.42, 99), 1);
 });
 
 test("WebGPU 303 sequence buffer can draw steps while preserving source noise fallback", () => {
@@ -111,6 +148,33 @@ test("WebGPU 303 sequence buffer can draw steps while preserving source noise fa
   );
 });
 
+test("WebGPU 303 packs a neutral, bounded 128-step vec4 modulation lane", () => {
+  assert.deepEqual(WEBGPU_303_DEFAULT_STEP_MODULATION, [1, 0, 0, 0]);
+  assert.ok(Object.isFrozen(WEBGPU_303_DEFAULT_STEP_MODULATION));
+
+  const sanitized = sanitizeWebGpu303StepModulation([
+    [0.25, 1.5, 2.5, -0.75],
+    [4, -200, 99, -20],
+    [Number.NaN, Number.POSITIVE_INFINITY, "not a number", null],
+  ]);
+  assert.equal(sanitized.length, WEBGPU_303_SEQUENCE_LENGTH);
+  assert.deepEqual(sanitized[0], [0.25, 1.5, 2.5, -0.75]);
+  assert.deepEqual(sanitized[1], [1, -64, 15, -8]);
+  assert.deepEqual(sanitized[2], WEBGPU_303_DEFAULT_STEP_MODULATION);
+  assert.deepEqual(sanitized[127], WEBGPU_303_DEFAULT_STEP_MODULATION);
+
+  const packed = webGpu303StepModulationArray(sanitized);
+  assert.ok(packed instanceof Float32Array);
+  assert.equal(packed.length, WEBGPU_303_SEQUENCE_LENGTH * 4);
+  Array.from(packed.slice(0, 4)).forEach((value, index) => {
+    near(value, sanitized[0][index]);
+  });
+
+  const audio = new WebGpu303Audio({});
+  audio.updateStepModulation([[0.4, -2, 3, 0.5]]);
+  assert.deepEqual(audio.stepModulation[0], [0.4, -2, 3, 0.5]);
+});
+
 test("WebGPU 303 default patch matches the WebGPU Audio AcidSynth controls", () => {
   assert.deepEqual(
     {
@@ -128,6 +192,7 @@ test("WebGPU 303 default patch matches the WebGPU Audio AcidSynth controls", () 
       res: WEBGPU_303_DEFAULTS.res,
       lfo: WEBGPU_303_DEFAULTS.lfo,
       flt: WEBGPU_303_DEFAULTS.flt,
+      swing: WEBGPU_303_DEFAULTS.swing,
     },
     {
       partials: 256,
@@ -144,6 +209,7 @@ test("WebGPU 303 default patch matches the WebGPU Audio AcidSynth controls", () 
       res: 2.2,
       lfo: 1,
       flt: -1.5,
+      swing: 0,
     },
   );
   near(WEBGPU_303_DEFAULTS.fundamental, webGpu303FundamentalFromSourceControl(80));
@@ -164,6 +230,7 @@ test("WebGPU 303 default patch matches the WebGPU Audio AcidSynth controls", () 
     2.2,
     1,
     -1.5,
+    0,
   ];
   params.forEach((value, index) => near(value, expected[index], 1e-2));
 });
@@ -185,6 +252,7 @@ test("WebGPU 303 parameter and runtime settings stay bounded", () => {
     res: -4,
     lfo: 500,
     flt: -500,
+    swing: 3,
   });
   assert.equal(sanitized.partials, 256);
   assert.equal(sanitized.frequency, 0.2);
@@ -201,6 +269,8 @@ test("WebGPU 303 parameter and runtime settings stay bounded", () => {
   assert.equal(sanitized.res, 0);
   assert.equal(sanitized.lfo, 64);
   assert.equal(sanitized.flt, -64);
+  assert.equal(sanitized.swing, 0.42);
+  assert.equal(sanitizeWebGpu303Params({ swing: -3 }).swing, 0);
   assert.equal(sanitizeWebGpu303Params({ timeMod: 900 }).timeMod, 128);
 
   const audio = new WebGpu303Audio({}, { chunkDuration: 99, workgroupSize: 7 });
@@ -300,6 +370,116 @@ test("WebGPU 303 exposes scheduled shader time for visual playhead sync", () => 
 
   audio.running = false;
   assert.equal(audio.currentPlaybackTime(), null);
+});
+
+test("WebGPU 303 can use an externally owned AudioContext and destination", async () => {
+  const connections = [];
+  const disconnections = [];
+  const destination = { kind: "rubix-mix" };
+  const context = {
+    currentTime: 4,
+    sampleRate: 48000,
+    state: "running",
+    closeCount: 0,
+    createGain() {
+      return {
+        gain: { value: 0 },
+        connect(target) {
+          connections.push(target);
+          return target;
+        },
+        disconnect(target) {
+          disconnections.push(target);
+        },
+      };
+    },
+    async close() {
+      this.closeCount += 1;
+    },
+  };
+  const runtime = {
+    navigator: { gpu: { requestAdapter() {} } },
+  };
+  const audio = new WebGpu303Audio(runtime);
+  audio.initGpu = async () => {
+    audio.device = {};
+  };
+
+  const returned = await audio.start(
+    { ...WEBGPU_303_DEFAULTS, gain: 0.2 },
+    { context, destination, autoStart: false },
+  );
+  assert.equal(returned, context);
+  assert.equal(audio.context, context);
+  assert.equal(audio.ownsContext, false);
+  assert.equal(audio.running, false);
+  assert.ok(connections.includes(destination));
+
+  await audio.stop();
+  assert.equal(context.closeCount, 0, "stopping must not close a shared AudioContext");
+  assert.ok(disconnections.includes(destination));
+});
+
+test("WebGPU 303 restartTimeline primes and reports an exact shared-context start", async () => {
+  const starts = [];
+  const stops = [];
+  const timers = [];
+  const context = {
+    currentTime: 10,
+    sampleRate: 20,
+    createBuffer() {
+      const channels = [new Float32Array(2), new Float32Array(2)];
+      return {
+        duration: 0.1,
+        length: 2,
+        getChannelData(index) {
+          return channels[index];
+        },
+      };
+    },
+    createBufferSource() {
+      return {
+        connect() {},
+        start(when) {
+          starts.push(when);
+        },
+        stop(when) {
+          stops.push(when);
+        },
+      };
+    },
+  };
+  const audio = new WebGpu303Audio({
+    setTimeout(callback, delay) {
+      timers.push({ callback, delay });
+      return timers.length;
+    },
+    clearTimeout() {},
+  }, { chunkDuration: 0.1 });
+  audio.context = context;
+  audio.input = {};
+  audio.device = {};
+  audio.chunkNumSamplesPerChannel = 2;
+  audio.sampleRate = context.sampleRate;
+  audio.renderChunk = async () => new Float32Array([0.1, -0.1, 0.2, -0.2]);
+
+  const actualStart = await audio.restartTimeline({ startAt: 10.05, offset: 3 });
+  assert.equal(actualStart, 10.05);
+  assert.deepEqual(
+    starts,
+    [10.05],
+    "timeline restart should return after priming one chunk, before its exact start time",
+  );
+  assert.equal(audio.scheduledChunks[0].offset, 3);
+  near(audio.renderOffset, 3.1);
+  assert.equal(audio.running, true);
+  assert.equal(timers.length, 1);
+  assert.equal(timers[0].delay, 0);
+
+  const pausedAt = audio.pauseTimeline();
+  assert.equal(pausedAt, 3);
+  assert.equal(audio.running, false);
+  assert.deepEqual(stops, [10]);
 });
 
 test("WebGPU 303 page ships as a separate credited section", async () => {

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="Morphazoid Rubix Cube Sequencer — twist size 2 through 12 visual forms whose visible faces become acid and synthesized percussion patterns."
+      content="Morphazoid Rubix Cube Sequencer — twist size 2 through 6 visual forms whose visible faces play one selected drum-kit or 303 acid bank."
     />
     <title>Rubix Cube Sequencer — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -21,15 +21,15 @@
       </a>
 
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab" href="shape-drums.html">shape drums</a>
         <a class="tab active rubix-tab" href="rubix.html" aria-current="page">rubix</a>
+        <a class="tab" href="hyper-rubix.html">hyper rubix</a>
         <a class="tab" href="webgpu-303.html">webgpu 303</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="shape-drums.html">shape drums</option>
           <option value="rubix.html" selected>rubix</option>
+          <option value="hyper-rubix.html">hyper rubix</option>
           <option value="webgpu-303.html">webgpu 303</option>
         </select>
       </label>
@@ -64,12 +64,12 @@
             aria-label="Interactive 3 by 3 Rubix sequencer cube. Audio off. Drag stickers to twist or empty space to orbit."
             aria-describedby="cubeInstructions liveStatus"
           >
-            A playable 3 by 3 cube. Its upper visible face sequences acid notes;
-            its left and right visible faces sequence synthesized percussion.
+            A playable 3 by 3 cube. Choose one sound bank: a synthesized drum kit
+            for the side faces or a 303 acid voice for the upper visible face.
           </canvas>
 
           <div class="rubix-heading">
-            <p>GEOMETRY DRUMS × ACID</p>
+            <p>GEOMETRY · ONE SOUND BANK</p>
             <h1 id="rubixTitle">Rubix</h1>
             <span>what is visible is what is heard</span>
           </div>
@@ -107,8 +107,8 @@
               </button>
               <div class="rubix-step-strip" id="stepStrip" aria-label="Sequence playhead"></div>
               <div class="rubix-now-playing" aria-live="off">
-                <span id="acidNow">ACID · WHITE</span>
-                <span id="drumNow">DRUMS · KICK + HAT</span>
+                <span id="acidNow">ACID · BANK OFF</span>
+                <span id="drumNow">DRUMS · SOFT FM KIT</span>
               </div>
             </div>
             <label class="select-control rubix-preset-control" for="rubixPreset">
@@ -215,13 +215,13 @@
                   id="rubixSize"
                   type="range"
                   min="2"
-                  max="12"
+                  max="6"
                   step="1"
                   value="3"
                   aria-valuetext="3 by 3, 3 layers per face"
                   aria-describedby="rubixFormHelp"
                 />
-                <small class="rubix-size-limits" aria-hidden="true"><span>2</span><span>12</span></small>
+                <small class="rubix-size-limits" aria-hidden="true"><span>2</span><span>6</span></small>
               </label>
               <small class="rubix-form-note" id="rubixFormHelp">Cube turns · visual form · release Size to load</small>
             </fieldset>
@@ -268,85 +268,156 @@
           </div>
         </details>
 
-        <details class="group control-section rubix-control-section" data-section="sound" open>
+        <details class="group control-section rubix-control-section rubix-sound-bank-section" data-section="sound" open>
           <summary class="group-summary">
-            <h2 class="group-title">Acid voice</h2>
-            <span class="section-state" id="acidSummary">980 Hz · res 11.5</span>
+            <h2 class="group-title">Sound bank</h2>
+            <span class="section-state" id="soundBankSummary">Soft FM kit</span>
           </summary>
           <div class="group-body">
-            <label class="control" for="cutoff">
-              <span><b>Cutoff</b><output id="cutoffOut" for="cutoff">980 Hz</output></span>
-              <input id="cutoff" type="range" min="160" max="4200" step="10" value="980" />
-            </label>
-            <label class="control" for="resonance">
-              <span><b>Resonance</b><output id="resonanceOut" for="resonance">11.5</output></span>
-              <input id="resonance" type="range" min="0" max="18" step="0.1" value="11.5" />
-            </label>
-            <label class="control" for="acidDecay">
-              <span><b>Accent decay</b><output id="acidDecayOut" for="acidDecay">180 ms</output></span>
-              <input id="acidDecay" type="range" min="0.06" max="0.72" step="0.01" value="0.18" />
-            </label>
-            <label class="control" for="drive">
-              <span><b>Drive</b><output id="driveOut" for="drive">2.4×</output></span>
-              <input id="drive" type="range" min="0.5" max="6" step="0.1" value="2.4" />
-            </label>
-            <label class="control" for="acidLevel">
-              <span><b>Acid level</b><output id="acidLevelOut" for="acidLevel">58%</output></span>
-              <input id="acidLevel" type="range" min="0" max="1" step="0.01" value="0.58" />
-            </label>
-            <p class="rubix-engine-note">
-              Color pitches inherit Morphazoid 303’s note window. This resonant
-              voice shares one clock and output graph with the drum lanes, so a
-              completed cube move rewrites the score without a second audio stream.
-            </p>
-          </div>
-        </details>
-
-        <details class="group control-section rubix-control-section" data-section="output">
-          <summary class="group-summary">
-            <h2 class="group-title">Percussion voice</h2>
-            <span class="section-state" id="drumSummary">Soft FM · 54%</span>
-          </summary>
-          <div class="group-body">
-            <label class="select-control rubix-perc-control" for="percEngine">
+            <label class="select-control rubix-sound-bank-control" for="soundBank">
               <span>
-                <b>Percussion synth</b>
-                <output id="percEngineState" for="percEngine">Soft FM</output>
+                <b>Active bank</b>
+                <output id="soundBankState" for="soundBank">Soft FM kit</output>
               </span>
               <span class="select-shell">
-                <select id="percEngine" aria-label="Percussion synthesizer">
-                  <option value="soft-fm" selected>Soft FM</option>
-                  <option value="analog">Analog drums</option>
-                  <option value="modal">Modal wood</option>
-                  <option value="noise">Noise circuit</option>
+                <select
+                  id="soundBank"
+                  aria-label="Rubix sound bank"
+                  aria-describedby="soundBankHelp soundBankStatus"
+                >
+                  <option value="soft-fm" selected>Soft FM kit</option>
+                  <option value="analog">Analog kit</option>
+                  <option value="modal">Modal kit</option>
+                  <option value="noise">Noise kit</option>
+                  <option value="acid-303">303 acid</option>
                 </select>
               </span>
+              <small id="soundBankHelp">
+                One bank plays at a time · drum kits use the side faces · 303 uses the upper face
+              </small>
             </label>
-            <label class="control" for="drumLevel">
-              <span><b>Drum level</b><output id="drumLevelOut" for="drumLevel">54%</output></span>
-              <input id="drumLevel" type="range" min="0" max="1" step="0.01" value="0.54" />
-            </label>
-            <p class="rubix-engine-note">
-              Sticker colors select kick, snare, tom, and hat roles. The selector
-              swaps the sample-free synthesis model while keeping Rubix’s softened
-              gain staging; bells and metallic voices stay out of the cube mix.
-            </p>
+            <small
+              class="rubix-sound-bank-status"
+              id="soundBankStatus"
+              role="status"
+              aria-live="polite"
+            >
+              Soft FM kit active · side faces audible · 303 resting
+            </small>
+
+            <fieldset
+              class="rubix-bank-subcontrols rubix-kit-bank-controls"
+              id="kitBankControls"
+              aria-describedby="kitBankHelp"
+            >
+              <legend>Drum kit controls</legend>
+              <p class="rubix-bank-help" id="kitBankHelp">
+                Selected kit · side faces only · 303 muted
+              </p>
+              <label class="control" for="drumLevel">
+                <span><b>Kit level</b><output id="drumLevelOut" for="drumLevel">54%</output></span>
+                <input id="drumLevel" type="range" min="0" max="1" step="0.01" value="0.54" />
+              </label>
+              <p class="rubix-engine-note">
+                Sticker colors choose kick, snare, tom, and hat voices. Only the
+                selected kit sounds; the 303 bank remains silent.
+              </p>
+            </fieldset>
+
+            <fieldset
+              class="rubix-bank-subcontrols rubix-acid-bank-controls is-disabled"
+              id="acidBankControls"
+              aria-describedby="acidBankHelp"
+              disabled
+            >
+              <legend>303 acid controls</legend>
+              <p class="rubix-bank-help" id="acidBankHelp">
+                Classic or WebGPU 303 · upper face only · drum kit muted
+              </p>
+              <label class="select-control rubix-acid-engine-control" for="acidEngine">
+                <span>
+                  <b>303 engine</b>
+                  <output id="acidEngineState" for="acidEngine">Classic Web Audio</output>
+                </span>
+                <span class="select-shell">
+                  <select
+                    id="acidEngine"
+                    aria-label="303 acid engine"
+                    aria-describedby="acidEngineHelp acidEngineStatus"
+                  >
+                    <option value="web-audio" selected>Classic Web Audio</option>
+                    <option value="webgpu-303">WebGPU · sticker modulation</option>
+                  </select>
+                </span>
+                <small id="acidEngineHelp">
+                  Classic uses color pitch · WebGPU also maps row, column, edge, face, and visibility
+                </small>
+              </label>
+              <label
+                class="control rubix-sticker-modulation is-disabled"
+                id="stickerModulationControl"
+                for="stickerModulation"
+              >
+                <span>
+                  <b>Sticker modulation</b>
+                  <output id="stickerModulationOut" for="stickerModulation">68%</output>
+                </span>
+                <input
+                  id="stickerModulation"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value="0.68"
+                  aria-describedby="acidEngineStatus"
+                  disabled
+                />
+              </label>
+              <small class="rubix-acid-engine-status" id="acidEngineStatus" role="status" aria-live="polite">
+                WebGPU support is checked in this browser
+              </small>
+              <label class="control" for="cutoff">
+                <span><b>Cutoff</b><output id="cutoffOut" for="cutoff">980 Hz</output></span>
+                <input id="cutoff" type="range" min="160" max="4200" step="10" value="980" />
+              </label>
+              <label class="control" for="resonance">
+                <span><b>Resonance</b><output id="resonanceOut" for="resonance">11.5</output></span>
+                <input id="resonance" type="range" min="0" max="18" step="0.1" value="11.5" />
+              </label>
+              <label class="control" for="acidDecay">
+                <span><b>Accent decay</b><output id="acidDecayOut" for="acidDecay">180 ms</output></span>
+                <input id="acidDecay" type="range" min="0.06" max="0.72" step="0.01" value="0.18" />
+              </label>
+              <label class="control" for="drive">
+                <span><b>Drive</b><output id="driveOut" for="drive">2.4×</output></span>
+                <input id="drive" type="range" min="0.5" max="6" step="0.1" value="2.4" />
+              </label>
+              <label class="control" for="acidLevel">
+                <span><b>303 level</b><output id="acidLevelOut" for="acidLevel">58%</output></span>
+                <input id="acidLevel" type="range" min="0" max="1" step="0.01" value="0.58" />
+              </label>
+              <p class="rubix-engine-note">
+                303 is the only sounding bank when selected. WebGPU turns each
+                sticker’s live placement into per-step timbre, stereo, resonance,
+                and a true silent gate.
+              </p>
+            </fieldset>
           </div>
         </details>
 
         <details class="group control-section rubix-control-section rubix-score-section" data-section="mapping" open>
           <summary class="group-summary">
             <h2 class="group-title">Visible score</h2>
-            <span class="section-state" id="scoreSummary">upper acid · sides drums</span>
+            <span class="section-state" id="scoreSummary">Soft FM kit · sides only</span>
           </summary>
           <div class="group-body">
             <p class="rubix-causal-copy" id="scoreDescription">
-              The upper visible face is one acid lane. The left and right visible
-              faces are two percussion lanes. By default all three read left-to-right,
-              top-to-bottom together; hidden stickers are silent.
+              Soft FM kit is active, so the two side faces trigger percussion and
+              the upper acid face rests. Choose 303 acid to hear only the upper face.
+              Hidden stickers are silent.
             </p>
             <div class="rubix-lane-list" id="laneList" aria-label="Currently audible cube faces"></div>
-            <div class="rubix-color-key" id="colorKey" aria-label="Sticker color sound mapping"></div>
+            <div class="rubix-color-key" id="colorKey" aria-label="Selected bank sticker color mapping"></div>
           </div>
         </details>
 
@@ -372,11 +443,16 @@
         uses its own derived speed curve, independent of sequencer tempo. Choose Rows
         together, Snake together, or Alternate faces
         in the Clock section to change how the visible stickers are read. Alternate
-        faces divides each beat into acid, Drum A, and Drum B subdivisions. The
-        Shape chooses a cube-compatible visual form; Size loads 2 by 2 through 12 by 12 grids.
-        The upper visible face makes acid notes while the two side faces trigger
-        drums. Larger projected stickers sound louder according to Visibility
-        dynamics, and any sticker that cannot be seen is silent.
+        faces divides each beat into acid, Drum A, and Drum B subdivisions. Choose
+        exactly one Sound bank: a drum kit makes the two side faces audible while
+        the upper face rests; 303 acid makes the upper face audible while both drum
+        faces rest. The Classic Web Audio and WebGPU choices are available only
+        inside the 303 acid bank. The
+        Shape chooses a cube-compatible visual form; Size loads 2 by 2 through 6 by 6 grids.
+        Larger projected stickers sound louder according to Visibility dynamics,
+        and any sticker that cannot be seen is silent. In the 303 acid bank, choose
+        WebGPU to let each sticker's row, column, edge, current face, and visibility
+        reshape its acid step; unsupported browsers use Classic Web Audio.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

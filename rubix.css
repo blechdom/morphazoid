@@ -163,6 +163,14 @@
   font-size: 8px;
 }
 
+.rubix-face-badge.is-bank-resting {
+  border-color: var(--line);
+  color: var(--faint);
+  box-shadow: inset 2px 0 var(--line-strong);
+  filter: saturate(0.15);
+  opacity: 0.42;
+}
+
 .rubix-page .stage-meta {
   top: auto;
   right: auto;
@@ -356,6 +364,27 @@
 
 .rubix-step[data-lane-role="drumRight"] {
   --step-color: var(--rubix-orange);
+}
+
+.rubix-step.is-bank-resting {
+  border-color: var(--line);
+  color: var(--faint);
+  opacity: 0.28;
+}
+
+.rubix-step.is-bank-resting.is-transport-position {
+  border-color: var(--muted);
+  color: var(--muted);
+  background: linear-gradient(transparent, rgba(255, 255, 255, 0.035));
+  box-shadow: none;
+  opacity: 0.72;
+}
+
+.rubix-step.is-bank-resting.is-transport-position::before {
+  border-color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+  transform: translateX(-50%) scale(1.25);
 }
 
 .rubix-now-playing {
@@ -659,6 +688,17 @@
   box-shadow: inset 2px 0 var(--lane-color);
 }
 
+.rubix-lane-card.is-bank-resting {
+  border-color: var(--line);
+  background: color-mix(in oklab, var(--panel-high) 42%, var(--bg-deep));
+  box-shadow: none;
+  opacity: 0.46;
+}
+
+.rubix-lane-card.is-bank-resting .rubix-mini-face {
+  filter: saturate(0.2) brightness(0.68);
+}
+
 .rubix-lane-copy {
   display: grid;
   min-width: 0;
@@ -828,7 +868,8 @@
 }
 
 .rubix-preset-control,
-.rubix-perc-control {
+.rubix-sound-bank-control,
+.rubix-acid-engine-control {
   margin: 0 0 12px;
   padding: 8px 9px;
   border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line-strong));
@@ -839,7 +880,8 @@
 }
 
 .rubix-preset-control > span:first-child,
-.rubix-perc-control > span:first-child {
+.rubix-sound-bank-control > span:first-child,
+.rubix-acid-engine-control > span:first-child {
   display: flex;
   min-width: 0;
   align-items: baseline;
@@ -848,7 +890,8 @@
 }
 
 .rubix-preset-control b,
-.rubix-perc-control b {
+.rubix-sound-bank-control b,
+.rubix-acid-engine-control b {
   color: var(--accent);
   font-size: 8px;
   letter-spacing: 0.07em;
@@ -856,7 +899,8 @@
 }
 
 .rubix-preset-control output,
-.rubix-perc-control output {
+.rubix-sound-bank-control output,
+.rubix-acid-engine-control output {
   overflow: hidden;
   color: var(--muted);
   font-size: 8px;
@@ -865,11 +909,102 @@
 }
 
 .rubix-preset-control select,
-.rubix-perc-control select {
+.rubix-sound-bank-control select,
+.rubix-acid-engine-control select {
   min-height: 40px;
   border-color: color-mix(in oklab, var(--accent) 22%, var(--line-strong));
   background: color-mix(in oklab, var(--accent) 2%, #050608);
   font-size: 9px;
+}
+
+.rubix-sound-bank-control > small,
+.rubix-acid-engine-control > small,
+.rubix-sound-bank-status,
+.rubix-acid-engine-status {
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+}
+
+.rubix-sound-bank-control > small,
+.rubix-acid-engine-control > small {
+  display: block;
+}
+
+.rubix-sound-bank-status,
+.rubix-acid-engine-status {
+  display: block;
+  min-height: 10px;
+  margin: -5px 1px 10px;
+}
+
+.rubix-sound-bank-status {
+  color: color-mix(in oklab, var(--accent) 65%, var(--muted));
+}
+
+.rubix-bank-subcontrols {
+  min-width: 0;
+  margin: 0 0 12px;
+  padding: 10px 10px 4px;
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line-strong));
+  background:
+    linear-gradient(100deg, color-mix(in oklab, var(--accent) 4%, transparent), transparent 72%),
+    var(--bg-deep);
+}
+
+.rubix-bank-subcontrols legend {
+  padding: 0 6px;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rubix-bank-help {
+  margin: 2px 0 10px;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.rubix-kit-bank-controls {
+  border-color: color-mix(in oklab, var(--rubix-cyan) 28%, var(--line-strong));
+}
+
+.rubix-acid-bank-controls {
+  border-color: color-mix(in oklab, var(--rubix-pink) 34%, var(--line-strong));
+}
+
+.rubix-bank-subcontrols:disabled,
+.rubix-bank-subcontrols.is-disabled {
+  border-color: var(--line-strong);
+  background: var(--bg-deep);
+}
+
+.rubix-bank-subcontrols:disabled > :not(legend):not(.rubix-bank-help) {
+  display: none;
+}
+
+.rubix-bank-subcontrols.is-disabled:not(:disabled) > :not(legend):not(.rubix-bank-help) {
+  opacity: 0.48;
+}
+
+.rubix-bank-subcontrols .rubix-engine-note {
+  margin-bottom: 7px;
+}
+
+.rubix-sticker-modulation {
+  transition: opacity 140ms ease;
+}
+
+.rubix-sticker-modulation.is-disabled {
+  opacity: 0.48;
+}
+
+.rubix-sticker-modulation input:disabled {
+  cursor: not-allowed;
 }
 
 .rubix-random-twists {
@@ -1139,7 +1274,9 @@
 
   .rubix-geometry-control,
   .rubix-preset-control,
-  .rubix-perc-control,
+  .rubix-sound-bank-control,
+  .rubix-acid-engine-control,
+  .rubix-bank-subcontrols,
   .rubix-visibility-dynamics {
     padding-right: 8px;
     padding-left: 8px;

@@ -19,7 +19,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 81);
+  assert.equal(INSTRUMENTS.length, 83);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -79,6 +79,19 @@ test("experiments carry a works-in-progress status while regular instruments do 
 });
 
 test("input and plug-in availability facts remain explicit", () => {
+  assert.equal(instrumentById("ouroboros")?.kind, "Percussion synth");
+  assert.match(instrumentById("ouroboros")?.description ?? "", /Shepard.*Rattlesnake|Rattlesnake.*Shepard/i);
+  assert.ok(instrumentById("ouroboros")?.features.includes("Built-in synth"));
+  assert.equal(instrumentById("ouroboros-borealis")?.kind, "Percussion synth");
+  assert.match(
+    instrumentById("ouroboros-borealis")?.description ?? "",
+    /pitch.*rhythm|rhythm.*pitch/i,
+  );
+  assert.match(
+    instrumentById("ouroboros-borealis")?.description ?? "",
+    /Shepard|Risset/i,
+  );
+  assert.ok(instrumentById("ouroboros-borealis")?.features.includes("Built-in synth"));
   assert.equal(instrumentById("escher-tessellation")?.label, "Escher");
   assert.equal(instrumentById("escher-tessellation")?.status, "Works in progress");
   assert.equal(

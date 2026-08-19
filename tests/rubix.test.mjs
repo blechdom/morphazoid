@@ -566,7 +566,7 @@ test("dynamic read paths cover representative 2 x 2 through 12 x 12 cube faces",
   }
 });
 
-test("Rubix page exposes the cube gestures, three visible lanes, and release asset", async () => {
+test("Rubix page exposes cube gestures, mutually exclusive sound roles, and release asset", async () => {
   const [html, css, app, image] = await Promise.all([
     readFile(new URL("rubix.html", root), "utf8"),
     readFile(new URL("rubix.css", root), "utf8"),
@@ -588,17 +588,20 @@ test("Rubix page exposes the cube gestures, three visible lanes, and release ass
     html,
     /data-read-mode="face"[^>]*>[\s\S]*?<b>Alternate faces<\/b>/,
   );
-  assert.match(html, /upper visible face is one acid lane/i);
+  assert.match(html, /(?:Acid\s*303|303\s*acid|303)[\s\S]*upper visible face|upper visible face[\s\S]*(?:Acid\s*303|303\s*acid|303)/i);
+  assert.match(html, /drum (?:banks?|kits?)[\s\S]*side faces?|side faces?[\s\S]*drum (?:banks?|kits?)/i);
+  assert.match(html, /one (?:sound )?bank (?:plays )?at a time/i);
   assert.match(html, /hidden stickers are silent/i);
   assert.match(html, /src="rubix-app\.js"/);
   const clockPosition = html.indexOf('data-section="play"');
   const playPosition = html.indexOf('id="playButton"');
   const movesPosition = html.indexOf('data-section="form"');
-  const acidPosition = html.indexOf('data-section="sound"');
-  const drumsPosition = html.indexOf('data-section="output"');
+  const soundBankPosition = html.indexOf('data-section="sound"');
   const scorePosition = html.indexOf('data-section="mapping"');
   assert.ok(clockPosition < playPosition && playPosition < movesPosition);
-  assert.ok(movesPosition < acidPosition && acidPosition < drumsPosition && drumsPosition < scorePosition);
+  assert.ok(
+    movesPosition < soundBankPosition && soundBankPosition < scorePosition,
+  );
   assert.doesNotMatch(html.slice(0, clockPosition), /id="playButton"/);
   assert.match(css, /\.rubix-stage-wrap/);
   assert.match(css, /\.rubix-clock-transport/);
@@ -627,7 +630,7 @@ test("Rubix page exposes the cube gestures, three visible lanes, and release ass
   const sizeMinimum = Number(app.match(/\bRUBIX_SIZE_MIN\s*=\s*(\d+)/)?.[1]);
   const sizeMaximum = Number(app.match(/\bRUBIX_SIZE_MAX\s*=\s*(\d+)/)?.[1]);
   assert.equal(sizeMinimum, 2);
-  assert.equal(sizeMaximum, 12);
+  assert.equal(sizeMaximum, 6);
   assert.match(app, /clamp\s*\(\s*size\s*,\s*RUBIX_SIZE_MIN\s*,\s*RUBIX_SIZE_MAX\s*\)/);
 
   const shapeDefinitions = sourceSection(app, "const SHAPES", "const MORPHIX_FACE_NORMALS");
@@ -696,38 +699,30 @@ test("Rubix page exposes the cube gestures, three visible lanes, and release ass
   assert.match(setRubixForm, /shapeChanged[\s\S]*requestDraw\s*\(\s*\)/);
   assert.match(setRubixForm, /Cube arrangement, size, and view unchanged/);
 
-  const percEngineDefinitions = sourceSection(
+  const soundBankDefinitions = sourceSection(
     app,
-    "const PERC_ENGINES",
+    "const SOUND_BANKS",
     "const READ_MODE_DESCRIPTIONS",
   );
   const defaultsDefinition = sourceSection(app, "const DEFAULTS", "const RUBIX_PRESETS");
   const presetDefinitions = sourceSection(app, "const RUBIX_PRESETS", "function cloneVector");
-  const registeredPercEngines = new Set(
-    [...percEngineDefinitions.matchAll(/\bid\s*:\s*"([^"]+)"/g)]
-      .map((match) => match[1]),
+  const registeredSoundBanks = [
+    ...soundBankDefinitions.matchAll(/^ {2}(?:"([^"]+)"|([a-z][\w-]*)):\s*Object\.freeze/gm),
+  ].map((match) => match[1] ?? match[2]);
+  assert.deepEqual(
+    registeredSoundBanks,
+    ["soft-fm", "analog", "modal", "noise", "acid-303"],
   );
-  const defaultPercEngine = defaultsDefinition.match(/\bpercEngine\s*:\s*"([^"]+)"/)?.[1];
-  const presetPercEngines = new Set([
-    defaultPercEngine,
-    ...[...presetDefinitions.matchAll(/\bpercEngine\s*:\s*"([^"]+)"/g)]
-      .map((match) => match[1]),
-  ]);
-  for (const requiredEngine of ["soft-fm", "analog", "modal", "noise"]) {
-    assert.ok(registeredPercEngines.has(requiredEngine));
-  }
-  for (const engine of registeredPercEngines) {
-    assert.ok(
-      presetPercEngines.has(engine),
-      `the preset collection should demonstrate the ${engine} percussion engine`,
-    );
-  }
+  assert.match(defaultsDefinition, /\bsoundBank\s*:\s*"soft-fm"/);
+  assert.doesNotMatch(defaultsDefinition, /\bpercEngine\b/);
+  assert.doesNotMatch(presetDefinitions, /\bpercEngine\b/);
   const presetForms = [...presetDefinitions.matchAll(
     /^ {2}(?:"([^"]+)"|([a-z][\w-]*)):\s*Object\.freeze\(\{([\s\S]*?)^ {2}\}\),/gm,
   )].map((match) => ({
     presetId: match[1] ?? match[2],
     shapeId: match[3].match(/\bshapeId\s*:\s*"([^"]+)"/)?.[1],
     size: Number(match[3].match(/\bsize\s*:\s*(\d+)\b/)?.[1]),
+    soundBank: match[3].match(/\bsoundBank\s*:\s*"([^"]+)"/)?.[1],
   }));
   assert.ok(presetForms.length >= 4, "Rubix should retain a varied preset collection");
   const registeredShapeIds = new Set(shapes.map(({ id }) => id));
@@ -735,9 +730,25 @@ test("Rubix page exposes the cube gestures, three visible lanes, and release ass
     assert.ok(registeredShapeIds.has(shapeId), `preset ${presetId} should use a registered shape`);
     assert.ok(
       Number.isInteger(size) && size >= sizeMinimum && size <= sizeMaximum,
-      `preset ${presetId} should declare a size from 2 through 12`,
+      `preset ${presetId} should declare a size from 2 through 6`,
     );
   }
+  assert.deepEqual(
+    Object.fromEntries(presetForms.map(({ presetId, soundBank }) => [presetId, soundBank])),
+    {
+      classic: "soft-fm",
+      "pocket-funk": "analog",
+      "modal-sphere": "modal",
+      "noise-grid": "noise",
+      "pyramid-drift": "acid-303",
+    },
+    "every preset should explicitly resolve exactly one top-level bank",
+  );
+  assert.match(
+    app,
+    /Object\.assign\(state,\s*DEFAULTS,\s*preset\.settings\)/,
+    "preset application should retain a deterministic default-bank fallback",
+  );
   const representedForms = new Set(presetForms.map(({ shapeId, size }) => `${shapeId}:${size}`));
   for (const representative of ["cube:2", "cube:3", "cube:4", "morphix:3", "orb:3"]) {
     assert.ok(
@@ -751,7 +762,22 @@ test("Rubix page exposes the cube gestures, three visible lanes, and release ass
     `\\$\\(\\s*["']${id}["']\\s*\\)\\.addEventListener\\(\\s*["']([^"']+)["']`,
     "g",
   ))].map((match) => match[1]);
-  assert.deepEqual(listenerEvents("percEngine"), ["change"]);
+  assert.deepEqual(listenerEvents("soundBank"), ["change"]);
+  assert.deepEqual(listenerEvents("percEngine"), []);
+  assert.doesNotMatch(app, /state\.percEngine\b/);
+  for (const outputId of [
+    "soundBankState",
+    "soundBankSummary",
+    "soundBankStatus",
+    "scoreSummary",
+    "scoreDescription",
+  ]) {
+    assert.match(
+      app,
+      new RegExp(`\\$\\(\\s*["']${outputId}["']\\s*\\)\\.textContent`),
+      `${outputId} should reflect the active mutually exclusive bank`,
+    );
+  }
   assert.deepEqual(listenerEvents("rubixPreset"), ["change"]);
   assert.deepEqual(listenerEvents("shape"), ["change"]);
   assert.deepEqual(listenerEvents("rubixSize"), ["input", "change"]);
@@ -871,6 +897,25 @@ test("Rubix page exposes the cube gestures, three visible lanes, and release ass
   assert.match(liveEvents, /new\s+Map\s*\(/, "live candidates should be deduplicated");
   assert.match(liveEvents, /\.set\s*\(\s*(?:event\.)?sticker\.id\b/);
   const scheduler = sourceSection(app, "function schedulerTick", "function clearVisualTimers");
+  assert.match(
+    scheduler,
+    /const\s+acidBankActive\s*=\s*state\.soundBank\s*===\s*["']acid-303["']/,
+  );
+  assert.match(
+    scheduler,
+    /if\s*\(\s*acidBankActive\s*&&[\s\S]{0,240}activeRoles\.has\(\s*["']acid["']\s*\)[\s\S]{0,600}scheduleAcid\s*\(/,
+    "the acid bank should schedule only the upper acid role",
+  );
+  assert.match(
+    scheduler,
+    /if\s*\(\s*!acidBankActive\s*\)\s*\{[\s\S]*?for\s*\(const\s+role\s+of\s+\[\s*["']drumLeft["']\s*,\s*["']drumRight["']\s*\][\s\S]*?scheduleDrum\s*\(/,
+    "each drum bank should schedule only the two side roles",
+  );
+  assert.match(
+    scheduler,
+    /scheduleDrum\s*\([\s\S]*?state\.soundBank\s*,/,
+    "the selected drum bank should choose the percussion synthesis model",
+  );
   assert.match(
     scheduler,
     /const\s+beatDuration\s*=\s*sixteenthDurationSeconds\s*\(\s*\)/,

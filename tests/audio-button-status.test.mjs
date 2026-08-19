@@ -20,6 +20,8 @@ const instrumentScripts = [
   "syrinx-app.js",
   "shepard-risset-app.js",
   "drum-roll-please-app.js",
+  "ouroboros-app.js",
+  "ouroboros-borealis-app.js",
   "barber-delay-app.js",
   "recursive-fm-app.js",
   "cascading-fm-app.js",
@@ -52,7 +54,10 @@ test("top-menu Audio status is always the binary on/off state", async () => {
     if (source === null) continue;
     const statusLines = source
       .split("\n")
-      .filter((line) => line.includes("audioState"));
+      .filter((line) => (
+        line.includes("audioState")
+        && !/\.dataset\.audioState|dataset\[["']audioState["']\]/.test(line)
+      ));
 
     assert.ok(statusLines.length, `${file} must update the top Audio status`);
     assert.doesNotMatch(

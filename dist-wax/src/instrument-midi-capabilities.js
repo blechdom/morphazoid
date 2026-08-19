@@ -21,6 +21,8 @@ const NOTE_MODE_IDS = Object.freeze({
     "l-system-drums",
     "linear-drums-machine",
     "drum-roll-please",
+    "ouroboros",
+    "ouroboros-borealis",
     "fm-drums",
     "linear-drums",
     "sample-drums",
