@@ -375,6 +375,31 @@
   gap: 6px;
 }
 
+.hyper-rubix-preset-select {
+  display: grid;
+  margin: 0 0 10px;
+  padding: 9px;
+  border: 1px solid color-mix(in oklab, var(--accent) 38%, var(--line));
+  background:
+    linear-gradient(120deg, color-mix(in oklab, var(--accent) 8%, transparent), transparent 62%),
+    var(--bg-deep);
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.hyper-rubix-preset-select .field-label {
+  margin: 0;
+  color: var(--accent);
+}
+
+.hyper-rubix-preset-select > small {
+  grid-column: 1 / -1;
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
 .hyper-rubix-method-select {
   display: grid;
   margin: 0 0 10px;
@@ -698,7 +723,7 @@
 .hyper-rubix-sequence-selects {
   display: grid;
   margin-top: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 7px 8px;
 }
 
@@ -1225,6 +1250,10 @@
   grid-template-columns: minmax(0, 1.45fr) minmax(94px, 0.8fr);
   align-items: end;
   gap: 8px;
+}
+
+.hyper-rubix-rattle-controls[hidden] {
+  display: none;
 }
 
 .hyper-rubix-rattle-controls .select-control {

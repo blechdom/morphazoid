@@ -286,6 +286,7 @@ test("site builder publishes runtime files without development material", async 
       "hyper-rubix.css",
       "hyper-rubix-app.js",
       "src/hyper-rubix.js",
+      "src/hyper-rubix-webgpu-303.js",
       "assets/instruments/hyper-rubix.webp",
       "hyper-drums.html",
       "hyper-drums.css",

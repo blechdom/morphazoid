@@ -2,7 +2,10 @@ import { connectAudioOutput } from "./audio-output-manager.js";
 
 const NUM_CHANNELS = 2;
 const TIME_INFO_BUFFER_SIZE = 16;
-export const WEBGPU_303_SEQUENCE_LENGTH = 128;
+// The standalone instrument still exposes its authored 128-step range, while
+// shared consumers can address larger geometric scores (up to Hyper Rubix's
+// order-4 total of 512 events) without truncating their sequence buffers.
+export const WEBGPU_303_SEQUENCE_LENGTH = 512;
 const SEQUENCE_BUFFER_SIZE = WEBGPU_303_SEQUENCE_LENGTH * Float32Array.BYTES_PER_ELEMENT;
 const STEP_MODULATION_COMPONENTS = 4;
 const STEP_MODULATION_BUFFER_SIZE = WEBGPU_303_SEQUENCE_LENGTH
@@ -54,10 +57,12 @@ export const WEBGPU_303_PARAM_ORDER = Object.freeze([
 ]);
 
 // The standalone UI intentionally keeps its original 15 controls. Runtime
-// consumers can opt into global swing through the appended GPU buffer field.
+// consumers can opt into global swing and transport phase through appended
+// GPU-only buffer fields.
 export const WEBGPU_303_BUFFER_PARAM_ORDER = Object.freeze([
   ...WEBGPU_303_PARAM_ORDER,
   "swing",
+  "sequencePhase",
 ]);
 const PARAM_BUFFER_SIZE = WEBGPU_303_BUFFER_PARAM_ORDER.length * Float32Array.BYTES_PER_ELEMENT;
 
@@ -93,6 +98,7 @@ export const WEBGPU_303_DEFAULTS = Object.freeze({
   lfo: 1,
   flt: -1.5,
   swing: 0,
+  sequencePhase: 0,
 });
 
 export const WEBGPU_303_SOURCE_SEQUENCE = Object.freeze(
@@ -113,8 +119,8 @@ export const WEBGPU_303_STEP_MODULATION_LIMITS = Object.freeze([
 export const WEBGPU_303_LIMITS = Object.freeze({
   partials: Object.freeze([1, 256]),
   frequency: Object.freeze([0.2, 100]),
-  timeMod: Object.freeze([1, 128]),
-  timeScale: Object.freeze([0.01, 30]),
+  timeMod: Object.freeze([1, WEBGPU_303_SEQUENCE_LENGTH]),
+  timeScale: Object.freeze([0.01, 80]),
   gain: Object.freeze([0, 0.75]),
   dist: Object.freeze([0.01, 5]),
   dur: Object.freeze([0.001, 2]),
@@ -127,6 +133,7 @@ export const WEBGPU_303_LIMITS = Object.freeze({
   lfo: Object.freeze([0, 64]),
   flt: Object.freeze([-64, 64]),
   swing: Object.freeze([0, 0.42]),
+  sequencePhase: Object.freeze([0, WEBGPU_303_SEQUENCE_LENGTH]),
 });
 
 export const WEBGPU_303_RUNTIME_DEFAULTS = Object.freeze({
@@ -164,6 +171,7 @@ struct AudioParam {
   lfo: f32,
   flt: f32,
   swing: f32,
+  sequencePhase: f32,
 }
 
 @group(0) @binding(0) var<uniform> time_info: TimeInfo;
@@ -251,7 +259,8 @@ fn synth(tseq: f32, t: f32, audio_param: AudioParam) -> vec2<f32> {
   let n: f32 = 20.0 + floor(seqn * audio_param.frequency);
   let f: f32 = ntof(n, audio_param.fundamental);
   let timeMod: f32 = max(audio_param.timeMod, 0.001);
-  let sqr: f32 = smoothstep(0.0, 0.01, abs(rem(t * audio_param.timeScale, timeMod) - 20.0) - 20.0);
+  let straightTime: f32 = t * audio_param.timeScale + audio_param.sequencePhase;
+  let sqr: f32 = smoothstep(0.0, 0.01, abs(rem(straightTime, timeMod) - 20.0) - 20.0);
   let base: f32 = f;
   let flt: f32 = exp(tnote * audio_param.flt) * 50.0
     + pow(cos(t * audio_param.lfo) * 0.5 + 0.5, 4.0) * 80.0
@@ -278,7 +287,7 @@ fn synth(tseq: f32, t: f32, audio_param: AudioParam) -> vec2<f32> {
 }
 
 fn mainSound(time: f32, audio_param: AudioParam) -> vec2<f32> {
-  let straightTime: f32 = time * audio_param.timeScale;
+  let straightTime: f32 = time * audio_param.timeScale + audio_param.sequencePhase;
   let swungTime: f32 = swingTime(straightTime, audio_param.swing);
   let tb: f32 = rem(swungTime, max(audio_param.timeMod, 0.001));
   let mx: vec2<f32> = synth(tb, time, audio_param) * audio_param.gain;

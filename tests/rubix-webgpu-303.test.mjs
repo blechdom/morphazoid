@@ -159,10 +159,11 @@ test("Rubix WebGPU 303 patterns follow read order, tempo, visibility, and safe s
   assert.deepEqual(pattern.params, sanitizeWebGpu303Params(pattern.params));
   assert.deepEqual(Object.keys(pattern.params), WEBGPU_303_BUFFER_PARAM_ORDER);
   assert.deepEqual(
-    WEBGPU_303_BUFFER_PARAM_ORDER.slice(0, -1),
+    WEBGPU_303_BUFFER_PARAM_ORDER.slice(0, -2),
     WEBGPU_303_PARAM_ORDER,
-    "the Rubix-only swing field should preserve the standalone control order",
+    "the Rubix-only timing fields should preserve the standalone control order",
   );
+  assert.equal(pattern.params.sequencePhase, 0);
   assert.equal(pattern.sequence.length, WEBGPU_303_SEQUENCE_LENGTH);
   assert.equal(pattern.stepModulation.length, WEBGPU_303_SEQUENCE_LENGTH);
   pattern.stepModulation.forEach(assertStepModulation);

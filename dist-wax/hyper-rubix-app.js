@@ -33,6 +33,11 @@ import {
 } from "./src/hyper-rubix.js";
 import { unlockAudioContext } from "./src/audio.js";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
+import { WebGpu303Audio, webGpu303Support } from "./src/webgpu-303.js";
+import {
+  HYPER_RUBIX_WEBGPU_303_DEFAULTS,
+  createHyperRubixWebGpu303Pattern,
+} from "./src/hyper-rubix-webgpu-303.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
@@ -56,12 +61,12 @@ const DEFAULTS = Object.freeze({
   selectedCell: "w+",
   selectedPlane: "xy",
   dragMode: "orbit",
-  autoRotate: true,
+  autoRotate: false,
   tempo: 112,
   swing: 0.08,
   subdivisionsPerBeat: 2,
-  sequenceMethod: "twist-tape",
-  twistMotion: "auto",
+  sequenceMethod: "sticker-stream",
+  twistMotion: "off",
   patternId: "axis-break",
   playbackMode: "forward",
   twistDensity: 1,
@@ -99,8 +104,10 @@ const DEFAULTS = Object.freeze({
 });
 const VOICE_LABELS = Object.freeze({
   pulse: "Hyper kit",
-  glass: "Prismatic kit",
+  glass: "Prism kit",
   dust: "Bit kit",
+  "webgpu-303": "WebGPU 303",
+  rattlesnake: "Rattlesnake",
 });
 const RATE_LABELS = Object.freeze({
   1: "1/4",
@@ -109,7 +116,7 @@ const RATE_LABELS = Object.freeze({
   8: "1/32",
   16: "1/64",
 });
-const RATTLE_RATE_LABELS = Object.freeze({ 2: "1/8", 4: "1/16", 8: "1/32" });
+const RATTLE_RATE_LABELS = Object.freeze({ 2: "Loose", 4: "Dense", 8: "Swarm" });
 const FOLD_SOUND_LABELS = Object.freeze({
   glide: "Gesture glide",
   ticks: "Crossing ticks",
@@ -169,8 +176,8 @@ const SEQUENCE_METHODS = Object.freeze({
     length: ({ hyperbarLength }) => hyperbarLength,
   }),
   "sticker-stream": Object.freeze({
-    label: ({ stickerStreamLength }) => `Sticker stream · ${stickerStreamLength}`,
-    help: "Every sticker sounds alone; manual turns reshape the next scan",
+    label: ({ stickerStreamLength }) => `Shape loop · ${stickerStreamLength}`,
+    help: "Every sticker sounds alone; manual orbit, fold, and turns reshape the running loop",
     legacy: false,
     hyperbar: true,
     serial: true,
@@ -283,6 +290,15 @@ let transportPosition = 0;
 let nextStepAtMs = 0;
 let schedulerTimer = null;
 let visualTimers = new Set();
+let webGpu303Engine = null;
+let webGpu303StartPromise = null;
+let webGpu303LifecycleGeneration = 0;
+let webGpu303PatternKey = "";
+let webGpu303Failed = false;
+let webGpu303SyncTimer = null;
+let webGpu303SequencePhase = 0;
+let transportVisualPosition = -1;
+let transportVisualStartedAtMs = 0;
 
 function normalizeDegrees(value) {
   return ((value + 180) % 360 + 360) % 360 - 180;
@@ -790,11 +806,22 @@ function audioGeometryForCell(cellId, plane = state.selectedPlane, position = nu
   const sourcePosition = position ? normalizePuzzlePoint(position) : cell.normal;
   const projected = projectToCanvas(sourcePosition);
   const rotated = transformed4(sourcePosition);
+  const projected4 = projectHyperRubixPoint4(rotated, state.projectionDepth);
+  const viewed = rotatePoint3(projected4);
+  const orbitPhase = (
+    normalizedTurnAngle(plane) * 0.58
+    + ((normalizeDegrees(state.cameraYaw + state.cameraPitch * 0.7) + 180) / 360) * 0.42
+  ) % 1;
   return {
-    position: sourcePosition,
+    position: {
+      x: clamp(viewed.x, -1, 1),
+      y: clamp(viewed.y, -1, 1),
+      z: clamp(viewed.z, -1, 1),
+      w: clamp(rotated.w, -1, 1),
+    },
     pan: clamp((projected.x / Math.max(1, cssWidth) - 0.5) * 2, -1, 1),
-    angle: normalizedTurnAngle(plane),
-    depth: clamp((rotated.w + 1.6) / 3.2, 0, 1),
+    angle: orbitPhase,
+    depth: clamp(0.5 + viewed.z * 0.28, 0, 1),
     disorder: hyperRubixDisorder(state.puzzle),
     shapeInfluence: state.shapeInfluence,
     pitchInfluence: state.pitchInfluence,
@@ -1426,26 +1453,40 @@ class HyperRubixAudio {
     const now = this.context.currentTime;
     const hasGlide = state.foldSound === "glide" || state.foldSound === "both";
     const hasTicks = state.foldSound === "ticks" || state.foldSound === "both";
+    const foldBank = state.voice === "glass"
+      ? { wave: "sine", pitch: 1.72, brightness: 1.34, resonance: 1.55 }
+      : state.voice === "dust"
+        ? { wave: "square", pitch: 1.28, brightness: 0.72, resonance: 0.7 }
+        : state.voice === "webgpu-303"
+          ? { wave: "sawtooth", pitch: 1.12, brightness: 1.08, resonance: 1.9 }
+          : state.voice === "rattlesnake"
+            ? { wave: "triangle", pitch: 0.78, brightness: 1.48, resonance: 2.3 }
+            : { wave: "triangle", pitch: 1, brightness: 1, resonance: 1 };
     this.foldGain.gain.cancelScheduledValues(now);
     if (hasGlide) {
       const frequency = clamp(
-        76
+        (76
           + depth * 132
           + Math.abs(Math.sin(xwRadians)) * 88
           + Math.abs(Math.cos(ywRadians)) * 54
-          + Math.min(speed, 320) * 0.58,
+          + Math.min(speed, 320) * 0.58) * foldBank.pitch,
         58,
-        520,
+        960,
       );
       const cutoff = clamp(
-        540 + depth * 2_800 + Math.min(speed, 320) * 12
-          + Math.abs(Math.sin(ywRadians)) * 1_100,
+        (540 + depth * 2_800 + Math.min(speed, 320) * 12
+          + Math.abs(Math.sin(ywRadians)) * 1_100) * foldBank.brightness,
         320,
-        8_400,
+        14_000,
       );
+      this.foldOscillator.type = foldBank.wave;
       this.foldOscillator.frequency.setTargetAtTime(frequency, now, 0.018);
       this.foldFilter.frequency.setTargetAtTime(cutoff, now, 0.022);
-      this.foldFilter.Q.setTargetAtTime(1.2 + depth * 4.2, now, 0.025);
+      this.foldFilter.Q.setTargetAtTime(
+        clamp((1.2 + depth * 4.2) * foldBank.resonance, 0.4, 14),
+        now,
+        0.025,
+      );
       this.foldPanner?.pan.setTargetAtTime(pan, now, 0.018);
       this.foldGain.gain.setTargetAtTime(
         clamp(0.07 + Math.min(speed, 260) / 820 + depth * 0.07, 0.07, 0.42),
@@ -1528,6 +1569,11 @@ class HyperRubixAudio {
     const depth = clamp(Number.isFinite(numericDepth) ? numericDepth : 0.5, 0, 1);
     const angle = clamp(Number.isFinite(numericAngle) ? numericAngle : 0.5, 0, 1);
     const configuration = geometry.configuration ?? {};
+    const rattleAmount = clamp(state.rattleLevel, 0, 0.8);
+    if (rattleAmount <= 0) {
+      this.silenceRattle(start, { immediate: true });
+      return;
+    }
     const neighborCount = Math.max(1, Number(configuration.neighborCount) || 1);
     const cohesion = clamp(
       (Number(configuration.sameColorNeighbors) || 0) / neighborCount,
@@ -1535,15 +1581,17 @@ class HyperRubixAudio {
       1,
     );
     const diversity = clamp(Number(configuration.neighborDiversity) || 0, 0, 1);
+    const vertical = clamp((Number(geometry.position?.y) || 0) * 0.5 + 0.5, 0, 1);
     const voiceCell = move?.cell ?? state.selectedCell;
     const cellIndex = Math.max(0, HYPER_RUBIX_CELL_ORDER.indexOf(voiceCell));
-    const colorBand = 2_650 + cellIndex * 520;
+    const colorBand = 720 + cellIndex * 190;
     const center = clamp(
       colorBand
+        * (2 ** (vertical * 2.35))
         * (0.82 + state.tone * 0.36)
         * (1 + (depth - 0.5) * wInfluence * 0.5)
         * (1 + diversity * neighborInfluence * 0.24),
-      1_900,
+      480,
       9_800,
     );
     const pulseCount = clamp(
@@ -1554,9 +1602,29 @@ class HyperRubixAudio {
       3,
       12,
     );
-    const baseLevel = clamp(state.rattleLevel, 0, 0.8)
+    const baseLevel = rattleAmount
       * (0.016 + activity * 0.018)
       * (1 + disorder * 0.18 + diversity * neighborInfluence * 0.26);
+    const bodyFrequency = 46 * (2 ** (vertical * 4.05))
+      * (1 + cellIndex * 0.012)
+      * (1 + (depth - 0.5) * wInfluence * 0.12);
+    const bodyDuration = clamp(
+      (0.19 - vertical * 0.145) * (0.72 + state.decay * 0.72),
+      0.026,
+      0.32,
+    );
+    const { node: bodyOutput, release: releaseBody } = this.outputNode(pan);
+    this.scheduleOscillator(bodyOutput, {
+      when: start,
+      duration: bodyDuration,
+      type: vertical > 0.7 ? "triangle" : "sine",
+      startFrequency: bodyFrequency * (1.24 + diversity * 0.22),
+      endFrequency: bodyFrequency * (vertical < 0.38 ? 0.58 : 0.92),
+      level: clamp(baseLevel * (0.5 + (1 - vertical) * 0.7), 0.006, 0.24),
+      filterFrequency: clamp(center * (1.2 + vertical * 0.8), 320, 14_000),
+      filterQ: clamp(0.8 + cohesion * 4.5 + depth * 1.8, 0.5, 9),
+      cleanup: releaseBody,
+    });
     this.rattleBandpass.frequency.setValueAtTime(center, start);
     this.rattleBandpass.Q.setValueAtTime(
       1.2 + angle * filterInfluence * 3.2 + cohesion * neighborInfluence * 1.6,
@@ -1772,6 +1840,66 @@ class HyperRubixAudio {
     });
   }
 
+  strikeStickerTopology(event, scheduledWhen = this.context?.currentTime, stepAccent = 1, geometry = {}) {
+    if (!state.audio || !this.context || !this.master || state.topologyMode === "off"
+      || state.topologyLevel <= 0) return;
+    const voiceCell = event?.homeCell ?? event?.cell ?? state.selectedCell;
+    const boundary = hyperRubixBoundaryCell(voiceCell);
+    const planeSlot = clamp(Math.trunc(Number(geometry.planeSlot) || 0), 0, 2);
+    const parameters = hyperRubixTechnoVoiceParameters({
+      cell: voiceCell,
+      plane: boundary.tangentPlanes[planeSlot],
+      quarterTurns: geometry.direction < 0 ? -1 : 1,
+    }, {
+      ...geometry,
+      shapeInfluence: state.shapeInfluence,
+      pitchInfluence: state.pitchInfluence,
+      filterInfluence: state.filterInfluence,
+      stereoInfluence: state.stereoInfluence,
+      wInfluence: state.wInfluence,
+      disorderInfluence: state.disorderInfluence,
+    });
+    const configuration = geometry.configuration ?? {};
+    const neighborCount = Math.max(1, Number(configuration.neighborCount) || 1);
+    const cohesion = clamp(
+      (Number(configuration.sameColorNeighbors) || 0) / neighborCount,
+      0,
+      1,
+    );
+    const diversity = clamp(Number(configuration.neighborDiversity) || 0, 0, 1);
+    const radialPitch = {
+      center: 0.94,
+      face: 1,
+      edge: 1.055,
+      corner: 1.11,
+    }[configuration.radialClass] ?? 1;
+    const pitchHz = parameters.pitchHz
+      * (radialPitch ** state.pitchInfluence)
+      * (configuration.displaced ? 1 + 0.018 * state.disorderInfluence : 1);
+    const bankBrightness = state.voice === "glass"
+      ? 1.17
+      : state.voice === "dust" ? 0.8 : state.voice === "rattlesnake" ? 1.34 : 1;
+    const filterHz = clamp(
+      parameters.filterHz
+        * (0.7 + state.tone * 0.6)
+        * bankBrightness
+        * (1 + diversity * state.neighborResponse * 0.58),
+      70,
+      19_000,
+    );
+    this.scheduleTopologyNetwork(event, Math.max(
+      this.context.currentTime,
+      Number(scheduledWhen) || this.context.currentTime,
+    ), {
+      ...geometry,
+      configuration,
+    }, {
+      pitchHz,
+      filterHz,
+      accent: clamp(stepAccent, 0.35, 1.4) * (0.78 + cohesion * 0.22),
+    });
+  }
+
   strikeSticker(event, scheduledWhen = this.context?.currentTime, stepAccent = 1, geometry = {}) {
     if (!state.audio || !this.context || !this.master) return;
     const voiceCell = event?.homeCell ?? event?.cell ?? state.selectedCell;
@@ -1855,6 +1983,21 @@ class HyperRubixAudio {
     });
     const { node: output, release } = this.outputNode(parameters.pan);
     const finish = () => release();
+
+    if (state.voice === "webgpu-303") {
+      this.scheduleOscillator(output, {
+        when,
+        duration: clamp(duration * 0.82, 0.035, 0.42),
+        type: "sawtooth",
+        startFrequency: configuredPitch * (configuration.displaced ? 1.5 : 1),
+        endFrequency: configuredPitch * 0.985,
+        level: 0.13 * accent * driveGain,
+        filterFrequency: clamp(filterFrequency * 1.12, 90, 16_000),
+        filterQ: clamp(configuredFilterQ * 1.75, 1.2, 15),
+        cleanup: finish,
+      });
+      return;
+    }
 
     if (voice.family === "kick") {
       this.scheduleOscillator(output, {
@@ -1981,6 +2124,274 @@ class HyperRubixAudio {
 
 const audio = new HyperRubixAudio();
 
+function isRattlesnakePreset() {
+  return state.voice === "rattlesnake";
+}
+
+function isWebGpu303Preset() {
+  return state.voice === "webgpu-303";
+}
+
+function audibleWebGpuRotation() {
+  return {
+    ...state.rotation,
+    xy: state.rotation.xy + state.cameraRoll,
+    xz: state.rotation.xz + state.cameraYaw,
+    yz: state.rotation.yz + state.cameraPitch,
+  };
+}
+
+function normalizedLoopPosition(position, length = puzzleMetrics().stickerStreamLength) {
+  return ((Math.trunc(Number(position) || 0) % length) + length) % length;
+}
+
+function straightStepBoundary(stepIndex, swing = state.swing) {
+  const index = Math.max(0, Math.trunc(Number(stepIndex) || 0));
+  const pairs = Math.floor(index / 2);
+  return pairs * 2 + (index % 2 ? 1 + clamp(swing, 0, 0.42) : 0);
+}
+
+function webGpu303StraightPhaseAtDelay(delayMs = 0) {
+  const length = puzzleMetrics().stickerStreamLength;
+  if (transportVisualPosition < 0) return 0;
+  const target = performance.now() + Math.max(0, Number(delayMs) || 0);
+  let position = transportVisualPosition;
+  let onset = transportVisualStartedAtMs;
+  let duration = hyperRubixStepDurationSeconds(
+    state.tempo,
+    state.subdivisionsPerBeat,
+    state.swing,
+    position,
+  ) * 1_000;
+  for (let count = 0; count < length && onset + duration <= target; count += 1) {
+    onset += duration;
+    position += 1;
+    duration = hyperRubixStepDurationSeconds(
+      state.tempo,
+      state.subdivisionsPerBeat,
+      state.swing,
+      position,
+    ) * 1_000;
+  }
+  const normalized = normalizedLoopPosition(position, length);
+  const fraction = clamp((target - onset) / Math.max(1, duration), 0, 0.999999);
+  const swungWidth = normalized % 2
+    ? 1 - clamp(state.swing, 0, 0.42)
+    : 1 + clamp(state.swing, 0, 0.42);
+  return straightStepBoundary(normalized) + fraction * swungWidth;
+}
+
+function alignWebGpu303Phase({
+  stepIndex = state.currentStreamStep,
+  straightPhase,
+  playbackTime = 0,
+} = {}) {
+  const length = puzzleMetrics().stickerStreamLength;
+  const rate = clamp(state.tempo, 30, 300)
+    * clamp(state.subdivisionsPerBeat, 1, 16) / 60;
+  const targetPhase = Number.isFinite(Number(straightPhase))
+    ? Number(straightPhase)
+    : straightStepBoundary(normalizedLoopPosition(stepIndex, length));
+  const raw = targetPhase - Math.max(0, Number(playbackTime) || 0) * rate;
+  webGpu303SequencePhase = ((raw % length) + length) % length;
+  return webGpu303SequencePhase;
+}
+
+function realignRunningWebGpu303Phase() {
+  if (!webGpu303Engine || !isWebGpu303Preset()) return;
+  alignWebGpu303Phase({
+    straightPhase: webGpu303StraightPhaseAtDelay(0),
+    playbackTime: webGpu303Engine.currentPlaybackTime?.() ?? 0,
+  });
+  queueWebGpu303Sync({ force: true });
+}
+
+function currentWebGpu303Pattern() {
+  const pattern = createHyperRubixWebGpu303Pattern(state.puzzle, {
+    rotation: audibleWebGpuRotation(),
+    tempo: state.tempo,
+    subdivisionsPerBeat: state.subdivisionsPerBeat,
+    swing: state.swing,
+    pitchInfluence: state.pitchInfluence,
+    filterInfluence: state.filterInfluence,
+    stereoInfluence: state.stereoInfluence,
+    neighborResponse: state.neighborResponse,
+    wInfluence: state.wInfluence,
+    disorderInfluence: state.disorderInfluence,
+    baseParams: {
+      ...HYPER_RUBIX_WEBGPU_303_DEFAULTS,
+      dur: clamp(state.decay * 0.42, 0.02, 1.6),
+      flt: -30 + state.tone * 60,
+      res: 2.2 + state.tone * 8.5,
+      dist: 0.42 + hyperRubixDisorder(state.puzzle) * 1.8,
+      sequencePhase: webGpu303SequencePhase,
+    },
+  });
+  const stepModulation = Object.freeze(pattern.steps.map((step, index) => {
+    const override = hyperbarGateOverrides.get(step.stickerId);
+    if (override !== false) return pattern.stepModulation[index];
+    return Object.freeze([0, ...pattern.stepModulation[index].slice(1)]);
+  }));
+  const mutedKey = pattern.steps
+    .filter(({ stickerId }) => hyperbarGateOverrides.get(stickerId) === false)
+    .map(({ stickerId }) => stickerId)
+    .join(",");
+  return Object.freeze({
+    ...pattern,
+    stepModulation,
+    fingerprint: `${pattern.fingerprint}|muted:${mutedKey}`,
+  });
+}
+
+function paintPresetHelp(message = "") {
+  const help = $("voiceHelp");
+  if (!help) return;
+  if (message) {
+    help.textContent = message;
+    return;
+  }
+  const descriptions = {
+    pulse: "Eight color drums. Projection controls tuning, filter, stereo position, neighbor resonance, and transient shape.",
+    glass: "Eight resonant prism bodies. XYZW position spreads pitch and partials while matching neighbors ring together.",
+    dust: "Eight clipped bit voices. Position controls register and brightness; fault lines add jitter, drive, and short noise edges.",
+    "webgpu-303": `All ${puzzleMetrics().stickerStreamLength} sticker pitches run through the shared WebGPU acid engine; orbit and Fold W sweep its filter, resonance, stereo field, and sequence.`,
+    rattlesnake: "Each sticker excites the continuous seed-shell. XYZW position, cohesion, faults, displacement, and disorder shape its grain motion.",
+  };
+  help.textContent = descriptions[state.voice] ?? descriptions.pulse;
+}
+
+function syncWebGpu303Pattern({ force = false } = {}) {
+  if (!webGpu303Engine || !isWebGpu303Preset()) return false;
+  try {
+    const pattern = currentWebGpu303Pattern();
+    if (!pattern.runtimeCompatible) throw new Error("The current puzzle exceeds the WebGPU sequence capacity.");
+    if (!force && pattern.fingerprint === webGpu303PatternKey) return true;
+    webGpu303PatternKey = pattern.fingerprint;
+    webGpu303Engine.updateParams(pattern.params);
+    webGpu303Engine.updateSequence(pattern.sequence);
+    webGpu303Engine.updateStepModulation(pattern.stepModulation);
+    return true;
+  } catch (error) {
+    void fallbackFromWebGpu303(error);
+    return false;
+  }
+}
+
+function queueWebGpu303Sync({ force = false } = {}) {
+  if (!isWebGpu303Preset() || !webGpu303Engine) return;
+  if (webGpu303SyncTimer !== null) clearTimeout(webGpu303SyncTimer);
+  webGpu303SyncTimer = setTimeout(() => {
+    webGpu303SyncTimer = null;
+    syncWebGpu303Pattern({ force });
+  }, force ? 0 : 34);
+  webGpu303SyncTimer?.unref?.();
+}
+
+async function stopWebGpu303Engine() {
+  webGpu303LifecycleGeneration += 1;
+  webGpu303StartPromise = null;
+  webGpu303PatternKey = "";
+  if (webGpu303SyncTimer !== null) clearTimeout(webGpu303SyncTimer);
+  webGpu303SyncTimer = null;
+  const engine = webGpu303Engine;
+  webGpu303Engine = null;
+  if (engine) {
+    engine.setPlaybackEnabled(false);
+    engine.pauseTimeline();
+    await engine.stop().catch(() => {});
+  }
+}
+
+async function fallbackFromWebGpu303(error) {
+  webGpu303Failed = true;
+  await stopWebGpu303Engine();
+  paintPresetHelp("WebGPU is unavailable here, so this preset is using its audible Web Audio acid fallback. The shape mapping and loop stay active.");
+  if (error) console.warn("Hyper Rubix WebGPU 303 fallback", error);
+}
+
+async function resumeWebGpu303Timeline({ restartAtFirst = false } = {}) {
+  const engine = webGpu303Engine;
+  if (!engine || !state.audio || !state.playing || !isWebGpu303Preset()) return false;
+  try {
+    const startDelaySeconds = 0.055;
+    alignWebGpu303Phase({
+      straightPhase: restartAtFirst ? 0 : webGpu303StraightPhaseAtDelay(startDelaySeconds * 1_000),
+      playbackTime: 0,
+    });
+    syncWebGpu303Pattern({ force: true });
+    engine.setPlaybackEnabled(false);
+    await engine.restartTimeline({
+      startAt: audio.context.currentTime + startDelaySeconds,
+      offset: 0,
+    });
+    if (engine !== webGpu303Engine || !state.playing || !isWebGpu303Preset()) return false;
+    engine.setPlaybackEnabled(true);
+    return true;
+  } catch (error) {
+    await fallbackFromWebGpu303(error);
+    return false;
+  }
+}
+
+async function startWebGpu303Engine({ alignToTransport = true, restartAtFirst = false } = {}) {
+  if (!isWebGpu303Preset() || !state.audio || !audio.context || !audio.drumBus) return false;
+  if (webGpu303Engine) {
+    syncWebGpu303Pattern({ force: true });
+    if (alignToTransport && state.playing) await resumeWebGpu303Timeline({ restartAtFirst });
+    return true;
+  }
+  if (webGpu303StartPromise) return webGpu303StartPromise;
+  const support = webGpu303Support(globalThis);
+  if (!support.supported) {
+    await fallbackFromWebGpu303(new Error("WebGPU audio is not supported."));
+    return false;
+  }
+  alignWebGpu303Phase({
+    straightPhase: restartAtFirst ? 0 : webGpu303StraightPhaseAtDelay(55),
+    playbackTime: 0,
+  });
+  const pattern = currentWebGpu303Pattern();
+  if (!pattern.runtimeCompatible) {
+    await fallbackFromWebGpu303(new Error("The current puzzle exceeds the WebGPU sequence capacity."));
+    return false;
+  }
+  webGpu303Failed = false;
+  const generation = ++webGpu303LifecycleGeneration;
+  const candidate = new WebGpu303Audio(globalThis, { chunkDuration: 0.055 });
+  candidate.updateSequence(pattern.sequence);
+  candidate.updateStepModulation(pattern.stepModulation);
+  candidate.setOutput(1);
+  candidate.setPlaybackEnabled(false);
+  let pending;
+  pending = candidate.start(pattern.params, {
+    context: audio.context,
+    destination: audio.drumBus,
+    autoStart: false,
+  }).then(async () => {
+    if (generation !== webGpu303LifecycleGeneration || !isWebGpu303Preset()
+      || candidate.context !== audio.context) {
+      await candidate.stop().catch(() => {});
+      return false;
+    }
+    webGpu303Engine = candidate;
+    webGpu303PatternKey = pattern.fingerprint;
+    candidate.setErrorHandler((renderError) => {
+      if (candidate === webGpu303Engine) void fallbackFromWebGpu303(renderError);
+    });
+    paintPresetHelp();
+    if (alignToTransport && state.playing) await resumeWebGpu303Timeline({ restartAtFirst });
+    return true;
+  }).catch(async (error) => {
+    await candidate.stop().catch(() => {});
+    if (generation === webGpu303LifecycleGeneration) await fallbackFromWebGpu303(error);
+    return false;
+  }).finally(() => {
+    if (webGpu303StartPromise === pending) webGpu303StartPromise = null;
+  });
+  webGpu303StartPromise = pending;
+  return pending;
+}
+
 function puzzleMetrics(sizeOrPuzzle = state.puzzle) {
   return hyperRubixSizeMetrics(sizeOrPuzzle);
 }
@@ -2001,6 +2412,29 @@ function puzzleOrderLabel(size = puzzleMetrics().size) {
   return Array.from({ length: 4 }, () => size).join(" × ");
 }
 
+function presetVoiceName(cellId) {
+  const voice = HYPER_RUBIX_TECHNO_VOICES[cellId];
+  if (state.voice === "glass") return `${voice?.color ?? "color"} prism`;
+  if (state.voice === "dust") return `${voice?.color ?? "color"} bit`;
+  if (state.voice === "webgpu-303") return `${voice?.color ?? "color"} acid`;
+  if (state.voice === "rattlesnake") return `${voice?.color ?? "color"} scales`;
+  return `${voice?.color ?? "color"} ${voice?.label ?? "voice"}`;
+}
+
+function paintFaceVoiceLabels() {
+  for (const button of document.querySelectorAll("[data-face]")) {
+    const cellId = button.dataset.face;
+    const boundary = hyperRubixBoundaryCell(cellId);
+    const label = presetVoiceName(cellId);
+    const small = button.querySelector("small");
+    if (small) small.textContent = label;
+    button.setAttribute(
+      "aria-label",
+      `${cellId.toUpperCase()} boundary cell, ${boundary.color}, ${label}`,
+    );
+  }
+}
+
 function paintPuzzleMetrics() {
   const metrics = puzzleMetrics();
   const order = puzzleOrderLabel(metrics.size);
@@ -2011,21 +2445,22 @@ function paintPuzzleMetrics() {
     "aria-label",
     `Interactive projected ${order} four-dimensional Rubix puzzle with ${metrics.stickerCount} colored hyper-stickers.`,
   );
-  $("stickerStreamMethodOption").textContent = `Sticker stream · ${metrics.stickerStreamLength}`;
+  $("stickerStreamMethodOption").textContent = `Sticker loop · ${metrics.stickerStreamLength}`;
   $("cornerStreamMethodOption").textContent = `Corner stream · ${metrics.cornerStreamLength}`;
   $("stickerHyperbarMethodOption").textContent = `Sticker hyperbar · ${metrics.hyperbarLength}`;
   $("hybridCoilMethodOption").textContent = `Hybrid coil · 16 × ${metrics.hyperbarLength}`;
-  $("hyperbarMatrixLabel").textContent = `${metrics.stickerCount}-sticker matrix`;
-  $("hyperbarMatrixSummary").textContent = `8 voices × ${metrics.hyperbarLength} pulses · plus coil voice ${metrics.conceptualVoiceCount}`;
-  $("rattleVoiceLabel").textContent = `Rattlesnake coil · voice ${metrics.conceptualVoiceCount}`;
+  $("hyperbarMatrixLabel").textContent = `${metrics.stickerCount}-sticker loop`;
+  $("hyperbarMatrixSummary").textContent = `8 color lanes × ${metrics.hyperbarLength} addresses · one note per sticker`;
+  $("rattleVoiceLabel").textContent = "Rattlesnake preset";
   $("puzzleGeometryGuide").textContent = `A tesseract has eight cubic boundary cells. Each one carries a ${metrics.size} × ${metrics.size} × ${metrics.size} field of color, so this order-${metrics.size} puzzle has ${metrics.stickerCount} stickers.`;
-  $("hyperbarGeometryGuide").textContent = `The Sticker hyperbar reads those records as eight instrument rows by ${metrics.hyperbarLength} pulses. Its sparse gates can leave a pulse empty after turns move colors through time. The continuous rattlesnake is the shared ${metrics.conceptualVoiceCount}th voice.`;
-  $("streamGeometryGuide").textContent = `Sticker stream visits all ${metrics.stickerStreamLength} stickers in a stable serial order; Corner stream follows the ${metrics.cornerStreamLength} stickers born at home-corner addresses. Each pulse sounds and lights that exact sticker. These serial modes begin without automatic twists, while the original sixteen-step Twist tape—with intentional authored rests—remains the default.`;
-  $("serializationInstructions").textContent = `The Sticker hyperbar method reads all ${metrics.stickerCount} stickers as eight color voices across ${metrics.hyperbarLength} clock pulses. Sticker stream visits ${metrics.stickerStreamLength} stickers; Corner stream keeps its ${metrics.cornerStreamLength} geometric corners.`;
+  $("hyperbarGeometryGuide").textContent = `The visible matrix lays out eight colored boundary cells across ${metrics.hyperbarLength} spatial addresses. The loop visits all ${metrics.stickerStreamLength} stickers separately, so there are no authored rests unless you mute a sticker yourself.`;
+  $("streamGeometryGuide").textContent = `Time is the bright cursor moving through the sticker matrix. This order-${metrics.size} shape has ${metrics.stickerStreamLength} notes. The clock never twists the puzzle; manual orbiting, fourth-axis folding, and quarter-turns change the running sound without resetting its place.`;
+  $("serializationInstructions").textContent = `The loop visits all ${metrics.stickerStreamLength} stickers separately in a stable forward order; its bright cursor shows time.`;
   const grid = $("hyperbarGrid");
   grid.style.setProperty("--hyperbar-columns", metrics.hyperbarLength);
   grid.setAttribute("aria-colcount", String(metrics.hyperbarLength));
-  grid.setAttribute("aria-label", `Eight color voices by ${metrics.hyperbarLength} sticker pulses`);
+  grid.setAttribute("aria-label", `Eight color lanes containing ${metrics.stickerStreamLength} sticker notes`);
+  paintPresetHelp();
 }
 
 function representativeStickerEventsForMove(move) {
@@ -2076,11 +2511,11 @@ function auditionManualMove(move, scheduledWhen = audio.context?.currentTime) {
   if (!state.audio || !audio.context) return;
   const method = sequenceMethodConfig();
   const geometry = audioGeometryForCell(move.cell, move.plane);
-  const representatives = method.hyperbar || state.rattleEnabled
+  const representatives = method.hyperbar || isRattlesnakePreset()
     ? representativeStickerEventsForMove(move)
     : [];
   if (method.legacy) audio.strike(move, scheduledWhen, method.hyperbar ? 0.72 : 1);
-  if (method.hyperbar) {
+  if (method.hyperbar && !isRattlesnakePreset()) {
     representatives.forEach(({ event, stepIndex }, index) => {
       audio.strikeSticker(event, scheduledWhen + index * 0.011, 0.54, {
         ...audioGeometryForStickerEvent(event, stepIndex),
@@ -2088,7 +2523,13 @@ function auditionManualMove(move, scheduledWhen = audio.context?.currentTime) {
       });
     });
   }
-  if (state.rattleEnabled) {
+  if (isRattlesnakePreset()) {
+    representatives.forEach(({ event, stepIndex }, index) => {
+      audio.strikeStickerTopology(event, scheduledWhen + index * 0.011, 0.72, {
+        ...audioGeometryForStickerEvent(event, stepIndex),
+        direction: move.quarterTurns,
+      });
+    });
     audio.scheduleRattleStep(move, scheduledWhen, 0.22, {
       ...geometry,
       configuration: aggregateStickerConfiguration(representatives.map(({ event }) => event)),
@@ -2228,7 +2669,7 @@ function renderHyperbarGrid() {
   grid.setAttribute("aria-colcount", String(metrics.hyperbarLength));
   grid.setAttribute(
     "aria-label",
-    `Eight color voices by ${metrics.hyperbarLength} sticker pulses`,
+    `Eight color lanes containing ${metrics.stickerStreamLength} sticker notes`,
   );
   const previouslyFocused = document.activeElement;
   const restoreFocus = hyperbarButtons().includes(previouslyFocused);
@@ -2259,8 +2700,8 @@ function renderHyperbarGrid() {
     for (const slot of hyperbarSnapshot) {
       const event = slot.events.find((candidate) => candidate.cell === cellId);
       if (!event) continue;
-      const voice = HYPER_RUBIX_TECHNO_VOICES[event.homeCell];
       const eventBoundary = hyperRubixBoundaryCell(event.homeCell);
+      const voiceLabel = presetVoiceName(event.homeCell);
       const button = document.createElement("button");
       const inScope = hyperbarEventInScope(event);
       const active = hyperbarEventIsActive(event);
@@ -2273,12 +2714,14 @@ function renderHyperbarGrid() {
       button.dataset.stickerId = event.stickerId;
       button.dataset.hyperbarStep = String(slot.index);
       button.dataset.hyperbarRow = String(rowIndex);
-      button.setAttribute("aria-pressed", String(active));
+      button.setAttribute("role", "gridcell");
+      button.setAttribute("aria-colindex", String(slot.index + 1));
+      button.setAttribute("aria-selected", String(active));
       button.setAttribute(
         "aria-label",
-        `${cellId.toUpperCase()} position, pulse ${slot.index + 1}, ${eventBoundary.color} ${voice.label}, ${event.configuration.radialClass}, ${event.configuration.sameColorNeighbors} of ${event.configuration.neighborCount} neighbors match, ${inScope ? active ? "on" : "off" : "outside the corner stream"}`,
+        `${cellId.toUpperCase()} position, address ${slot.index + 1}, ${voiceLabel}, ${event.configuration.radialClass}, ${event.configuration.sameColorNeighbors} of ${event.configuration.neighborCount} neighbors match, ${inScope ? active ? "on" : "off" : "outside this loop"}`,
       );
-      button.title = `${String(slot.index + 1).padStart(2, "0")} · ${eventBoundary.color} ${voice.label} · ${event.configuration.radialClass} · ${Math.round(event.configuration.neighborDiversity * 100)}% mixed`;
+      button.title = `${String(slot.index + 1).padStart(2, "0")} · ${voiceLabel} · ${event.configuration.radialClass} · ${Math.round(event.configuration.neighborDiversity * 100)}% mixed`;
       button.style.setProperty("--voice-color", eventBoundary.fill);
       button.addEventListener("focus", () => setHyperbarTabStop(button));
       button.addEventListener("keydown", (keyEvent) => {
@@ -2288,14 +2731,15 @@ function renderHyperbarGrid() {
         setHyperbarTabStop(button);
         const next = !hyperbarEventIsActive(event);
         hyperbarGateOverrides.set(event.stickerId, next);
+        queueWebGpu303Sync();
         button.classList.toggle("is-on", next);
-        button.setAttribute("aria-pressed", String(next));
+        button.setAttribute("aria-selected", String(next));
         button.setAttribute(
           "aria-label",
-          `${cellId.toUpperCase()} position, pulse ${slot.index + 1}, ${eventBoundary.color} ${voice.label}, ${event.configuration.radialClass}, ${event.configuration.sameColorNeighbors} of ${event.configuration.neighborCount} neighbors match, ${next ? "on" : "off"}`,
+          `${cellId.toUpperCase()} position, address ${slot.index + 1}, ${voiceLabel}, ${event.configuration.radialClass}, ${event.configuration.sameColorNeighbors} of ${event.configuration.neighborCount} neighbors match, ${next ? "on" : "off"}`,
         );
         if (!state.playing && sequenceMethodConfig().serial) paintSerialIdlePlayhead();
-        announce(`${eventBoundary.color} ${voice.label}, pulse ${slot.index + 1}, ${next ? "on" : "off"}.`);
+        announce(`${voiceLabel}, sticker ${event.stickerId}, ${next ? "on" : "muted"}.`);
       });
       hyperbarStepElements[slot.index].push(button);
       hyperbarButtonByStickerId.set(event.stickerId, button);
@@ -2308,7 +2752,10 @@ function renderHyperbarGrid() {
     ({ dataset }) => dataset.stickerId === hyperbarFocusStickerId,
   );
   setHyperbarTabStop(focusTarget, { focus: restoreFocus });
-  if (sequenceMethodConfig().serial) paintSerialIdlePlayhead();
+  if (sequenceMethodConfig().serial) {
+    if (state.playing) paintSerialPlayheadAt(state.currentStreamStep);
+    else paintSerialIdlePlayhead();
+  }
   else updateHyperbarPlayhead(state.currentHyperbarStep);
 }
 
@@ -2322,21 +2769,68 @@ function updateHyperbarPlayhead(stepIndex) {
   const normalized = ((Number(stepIndex) % hyperbarLength)
     + hyperbarLength) % hyperbarLength;
   state.currentHyperbarStep = normalized;
-  for (const element of currentHyperbarElements) element.classList.remove("is-current");
+  for (const element of currentHyperbarElements) {
+    element.classList.remove("is-current");
+    element.removeAttribute("aria-current");
+  }
   currentHyperbarElements = (hyperbarStepElements[normalized] ?? [])
     .filter((element) => !element.disabled);
-  for (const element of currentHyperbarElements) element.classList.add("is-current");
+  for (const element of currentHyperbarElements) {
+    element.classList.add("is-current");
+    element.setAttribute("aria-current", "step");
+  }
   $("hyperbarReadout").textContent = `PULSE ${String(normalized + 1).padStart(2, "0")} / ${hyperbarLength}`;
+}
+
+function followHyperbarPlayhead(button) {
+  if (!button || document.activeElement?.classList?.contains("hyper-rubix-hyperbar-cell")) return;
+  const grid = $("hyperbarGrid");
+  const gridBounds = grid.getBoundingClientRect?.();
+  const buttonBounds = button.getBoundingClientRect?.();
+  if (!gridBounds || !buttonBounds) return;
+  const leftOverflow = buttonBounds.left - gridBounds.left;
+  const rightOverflow = buttonBounds.right - gridBounds.right;
+  if (leftOverflow < 0) grid.scrollLeft += leftOverflow - 8;
+  else if (rightOverflow > 0) grid.scrollLeft += rightOverflow + 8;
 }
 
 function updateHyperbarEventPlayhead(event, streamIndex, streamLength) {
   state.currentStreamStep = streamIndex;
-  for (const element of currentHyperbarElements) element.classList.remove("is-current");
+  for (const element of currentHyperbarElements) {
+    element.classList.remove("is-current");
+    element.removeAttribute("aria-current");
+  }
   const button = hyperbarButtonByStickerId.get(event?.stickerId);
   button?.classList.add("is-current");
+  button?.setAttribute("aria-current", "step");
   currentHyperbarElements = button ? [button] : [];
+  followHyperbarPlayhead(button);
   const pulse = Number.isFinite(streamIndex) ? streamIndex + 1 : 1;
   $("hyperbarReadout").textContent = `STICKER ${String(pulse).padStart(3, "0")} / ${streamLength}`;
+}
+
+function paintSerialPlayheadAt(streamIndex) {
+  const method = sequenceMethodConfig();
+  if (!method.serial || !hyperbarSnapshot) return;
+  const stream = createHyperRubixStickerStream(state.puzzle, {
+    cornersOnly: method.cornersOnly,
+  });
+  const normalized = normalizedLoopPosition(streamIndex, stream.length);
+  const event = stream[normalized];
+  if (!event) return;
+  const slotIndex = hyperRubixStickerStepIndex({
+    position: event.position,
+    normal: hyperRubixBoundaryCell(event.cell).normal,
+  }, state.puzzle);
+  updateHyperbarEventPlayhead(event, normalized, method.length);
+  updateTimelineReadout(method, {
+    stepIndex: state.currentStep,
+    hyperbarStepIndex: slotIndex,
+    activeEvents: hyperbarEventIsActive(event, true) ? [event] : [],
+    streamIndex: normalized,
+    streamEvent: event,
+  });
+  updateStatus();
 }
 
 function paintSerialIdlePlayhead() {
@@ -2366,11 +2860,7 @@ function paintSerialIdlePlayhead() {
 
 function paintSequenceMethodHelp() {
   const method = sequenceMethodConfig();
-  const activeTapeSteps = sequence.filter(({ active, move }) => active && move).length;
-  const tapeDensity = method.autoTwist
-    ? ` · ${activeTapeSteps}/${HYPER_RUBIX_SEQUENCE_LENGTH} tape hits${activeTapeSteps < HYPER_RUBIX_SEQUENCE_LENGTH ? "; dots are deliberate rests" : ""}`
-    : " · no automatic turns; use the manual ±90° controls while it scans";
-  $("sequenceMethodHelp").textContent = `${method.help}${tapeDensity}`;
+  $("sequenceMethodHelp").textContent = `${method.help} · no automatic turns; manual movement reshapes the running score`;
 }
 
 function paintSequenceMethod() {
@@ -2417,15 +2907,13 @@ function updateTimelineReadout(method, {
   updateSequencePlayhead(stepIndex);
   if (method.serial) {
     const soundingEvent = activeEvents[0];
-    const voice = soundingEvent?.voice;
-    const boundary = soundingEvent ? hyperRubixBoundaryCell(soundingEvent.homeCell) : null;
     const topology = soundingEvent?.topology;
     const faultCount = topology?.connections?.filter(({ sameColor }) => !sameColor).length ?? 0;
     $("sequenceNow").textContent = soundingEvent
       ? `STICKER ${String(streamIndex + 1).padStart(3, "0")} / ${method.length} · ${streamEvent.homeCell.toUpperCase()}`
       : `STICKER ${String(streamIndex + 1).padStart(3, "0")} / ${method.length} · MUTED`;
     $("sequenceVoice").textContent = soundingEvent
-      ? `${boundary.color.toUpperCase()} ${voice.label.toUpperCase()} · ${soundingEvent.configuration.radialClass.toUpperCase()} · ${topology?.neighborCount ?? soundingEvent.configuration.neighborCount} LINKS / ${faultCount} FAULTS`
+      ? `${presetVoiceName(soundingEvent.homeCell).toUpperCase()} · ${soundingEvent.configuration.radialClass.toUpperCase()} · ${topology?.neighborCount ?? soundingEvent.configuration.neighborCount} LINKS / ${faultCount} FAULTS`
       : "MUTED STICKER";
     return;
   }
@@ -2451,24 +2939,19 @@ function updateTimelineReadout(method, {
 
 function paintTransport() {
   const rate = RATE_LABELS[state.subdivisionsPerBeat] ?? "1/8";
-  const mode = PLAYBACK_LABELS[state.playbackMode] ?? "Forward";
   const method = sequenceMethodConfig();
   $("playButton").setAttribute("aria-pressed", String(state.playing));
   $("playLabel").textContent = state.playing
-    ? `Pause ${method.serial ? "sticker stream" : "auto-twists"}`
-    : `Play ${method.serial ? "sticker stream" : "auto-twists"}`;
+    ? "Pause shape loop"
+    : "Play shape loop";
   $("playState").textContent = state.playing
-    ? `${rate} · ${mode.toLowerCase()}`
-    : method.label;
-  const restartLabel = `Restart ${sequenceMethodName(method)} ${restartPositionPhrase(method)}`;
+    ? `${method.length} notes · ${rate} · running`
+    : `${method.length} stickers · one note each`;
+  const restartLabel = "Restart shape loop at its first sticker";
   $("restartLoop").setAttribute("aria-label", restartLabel);
   $("restartLoop").setAttribute("title", restartLabel);
   $("restartInstructions").textContent = `Press R to ${restartLabel.replace(/^Restart /, "restart ")}.`;
-  const stride = transportMotionStride(method);
-  const motionLabel = Number.isFinite(stride) && stride > 1
-    ? ` · M÷${stride}`
-    : !Number.isFinite(stride) ? " · STILL" : "";
-  $("clockSummary").textContent = `${Math.round(state.tempo)} BPM · ${rate} · ${method.length}${motionLabel}`;
+  $("clockSummary").textContent = `${method.length} notes · ${Math.round(state.tempo)} BPM · ${rate}`;
   $("sequencePattern").value = state.patternId;
   $("playbackMode").value = state.playbackMode;
   $("twistRate").value = String(state.subdivisionsPerBeat);
@@ -2487,6 +2970,32 @@ function clearScheduler({ hardAudio = false } = {}) {
   clearVisualTimers();
   clearSoundingStickerPulses();
   audio.cancelTransportAudio(undefined, { hard: hardAudio });
+}
+
+function nextPositionAfterAudiblePulse() {
+  return transportVisualPosition >= 0 ? transportVisualPosition + 1 : 0;
+}
+
+function resumeTransportClock({ delayMs = 55, hardAudio = false } = {}) {
+  if (!state.playing) return;
+  clearScheduler({ hardAudio });
+  transportPuzzle = state.puzzle;
+  rebuildTransportStickerStream(sequenceMethodConfig(), state.puzzle);
+  nextStepAtMs = performance.now() + Math.max(12, Number(delayMs) || 0);
+  schedulerTick();
+  if (isWebGpu303Preset() && state.audio) {
+    void startWebGpu303Engine({ alignToTransport: true });
+  }
+}
+
+function remapRunningPreset() {
+  audio.silenceFold(undefined, { immediate: true });
+  if (!state.playing) {
+    audio.cancelTransportAudio(undefined, { hard: true });
+    return;
+  }
+  transportPosition = nextPositionAfterAudiblePulse();
+  resumeTransportClock({ delayMs: 30, hardAudio: true });
 }
 
 function rebuildTransportStickerStream(method, puzzle = state.puzzle) {
@@ -2597,6 +3106,7 @@ function topologyVisualStickerIds(method, events) {
 
 function launchSequenceStep(
   step,
+  transportStepPosition,
   stepIndex,
   hyperbarStepIndex,
   animationDuration,
@@ -2608,6 +3118,8 @@ function launchSequenceStep(
   motionDue,
 ) {
   if (!state.playing) return;
+  transportVisualPosition = transportStepPosition;
+  transportVisualStartedAtMs = performance.now();
   const method = sequenceMethodConfig();
   updateTimelineReadout(method, {
     stepIndex,
@@ -2638,6 +3150,7 @@ function launchSequenceStep(
 
 function scheduleVisualSequenceStep(
   step,
+  transportStepPosition,
   stepIndex,
   hyperbarStepIndex,
   targetTimeMs,
@@ -2654,6 +3167,7 @@ function scheduleVisualSequenceStep(
     visualTimers.delete(timer);
     launchSequenceStep(
       step,
+      transportStepPosition,
       stepIndex,
       hyperbarStepIndex,
       animationDuration,
@@ -2737,7 +3251,8 @@ function schedulerTick() {
             audio.strike(step.move, scheduledWhen, step.accent ? 1.16 : 0.78);
           }
         }
-        if (method.hyperbar) {
+        if (method.hyperbar && !isRattlesnakePreset()
+          && (!isWebGpu303Preset() || !webGpu303Engine || webGpu303Failed)) {
           for (const event of activeHyperbarEvents) {
             const geometry = {
               ...audioGeometryForStickerEvent(event, resolvedHyperbarStepIndex),
@@ -2746,10 +3261,21 @@ function schedulerTick() {
             audio.strikeSticker(event, scheduledWhen, event.accent ? 1.04 : 0.76, geometry);
           }
         }
-        if (state.rattleEnabled) {
-          const internalEvents = activeHyperbarEvents.length
-            ? activeHyperbarEvents
-            : hyperbarSlot?.events ?? [];
+        if (method.hyperbar && (
+          isRattlesnakePreset()
+          || (isWebGpu303Preset() && webGpu303Engine && !webGpu303Failed)
+        )) {
+          for (const event of activeHyperbarEvents) {
+            audio.strikeStickerTopology(
+              event,
+              scheduledWhen,
+              event.accent ? 1.04 : 0.76,
+              audioGeometryForStickerEvent(event, resolvedHyperbarStepIndex),
+            );
+          }
+        }
+        if (isRattlesnakePreset() && activeHyperbarEvents.length) {
+          const internalEvents = activeHyperbarEvents;
           const representative = internalEvents[0];
           const aggregateConfiguration = aggregateStickerConfiguration(internalEvents);
           const rattleMove = representative
@@ -2766,13 +3292,14 @@ function schedulerTick() {
             scheduledWhen,
             stepDurationMs / 1_000,
             geometry,
-            step?.active ? 1 : 0.42,
+            representative?.accent ? 1.18 : 0.92,
           );
         }
       });
     }
     scheduleVisualSequenceStep(
       step,
+      position,
       stepIndex,
       resolvedHyperbarStepIndex,
       nextStepAtMs,
@@ -2800,6 +3327,10 @@ function schedulerTick() {
 function restartTransportClock({ announceRestart = false } = {}) {
   clearScheduler();
   transportPosition = 0;
+  transportVisualPosition = -1;
+  transportVisualStartedAtMs = 0;
+  webGpu303SequencePhase = 0;
+  state.currentStreamStep = 0;
   transportPuzzle = activeMove?.source === "transport"
     ? turnHyperRubixBoundaryCell(state.puzzle, activeMove.move)
     : state.puzzle;
@@ -2817,6 +3348,9 @@ function restartTransportClock({ announceRestart = false } = {}) {
   if (sequenceMethodConfig().serial) paintSerialIdlePlayhead();
   else updateHyperbarPlayhead(0);
   if (state.playing) schedulerTick();
+  if (state.playing && isWebGpu303Preset() && state.audio) {
+    void startWebGpu303Engine({ alignToTransport: true, restartAtFirst: true });
+  }
   if (announceRestart) announce(restartAnnouncement());
 }
 
@@ -2830,9 +3364,7 @@ function startTransport({ restart = false } = {}) {
     announce("Audio is off — turn it on to hear playback");
   } else if (!restart) {
     const method = sequenceMethodConfig();
-    announce(method.serial
-      ? `${method.label} playing every sticker once at ${Math.round(state.tempo)} BPM. Manual turns reshape the next scan.`
-      : `${method.label}, ${sequencePatternLabel()} auto-twists playing at ${Math.round(state.tempo)} BPM.`);
+    announce(`Shape loop playing all ${method.length} stickers at ${Math.round(state.tempo)} BPM. Manual orbit, fold, and turns reshape the running sound.`);
   }
 }
 
@@ -2849,9 +3381,11 @@ function stopTransport({ announceStop = false, hardAudio = false } = {}) {
   pendingTransportStickerStream = null;
   transportHyperbarPuzzle = null;
   transportHyperbarSnapshot = null;
+  webGpu303Engine?.setPlaybackEnabled(false);
+  webGpu303Engine?.pauseTimeline();
   paintTransport();
   updateStatus();
-  if (announceStop) announce(`${sequenceMethodConfig().serial ? "Sticker stream" : "Auto-twist sequencer"} paused.`);
+  if (announceStop) announce("Shape loop paused.");
 }
 
 function moveLabel(move, compact = false) {
@@ -2902,7 +3436,7 @@ function updateStatus() {
       ? `STEP ${String(state.currentStep + 1).padStart(2, "0")}/16 · PULSE ${String(state.currentHyperbarStep + 1).padStart(2, "0")}/${metrics.hyperbarLength} · ${Math.round(state.tempo)} BPM`
       : `STEP ${String(state.currentStep + 1).padStart(2, "0")}/${HYPER_RUBIX_SEQUENCE_LENGTH} · ${Math.round(state.tempo)} BPM`
     : sequenceMethodConfig().serial
-      ? `${sequenceMethodConfig().length} ${sequenceMethodConfig().cornersOnly ? "CORNER" : "STICKER"} NOTES · COIL = ${metrics.conceptualVoiceCount}`
+      ? `${sequenceMethodConfig().length} STICKER NOTES · ${VOICE_LABELS[state.voice]?.toUpperCase() ?? "HYPER KIT"}`
       : sequenceMethodConfig().hyperbar
       ? `${metrics.stickerCount} STICKER EVENTS · COIL = ${metrics.conceptualVoiceCount}`
       : `${metrics.stickerCount} HYPER-STICKERS`;
@@ -2995,12 +3529,10 @@ function finishActiveMove(time) {
   activeMove = null;
   rebuildHyperbarSnapshot();
   if (state.playing && sequenceMethodConfig().serial) {
-    pendingTransportStickerStream = [
-      ...createHyperRubixStickerStream(state.puzzle, {
-        cornersOnly: sequenceMethodConfig().cornersOnly,
-      }),
-    ];
+    transportPuzzle = state.puzzle;
+    rebuildTransportStickerStream(sequenceMethodConfig(), state.puzzle);
   }
+  queueWebGpu303Sync({ force: true });
   finished.onComplete?.();
   updateStatus();
   if (finished.announce !== false && moveQueue.length === 0) {
@@ -3026,7 +3558,6 @@ function enqueueMove(move, options = {}) {
 }
 
 function turnSelected(quarterTurns) {
-  if (state.playing && !sequenceMethodConfig().serial) stopTransport();
   enqueueMove({
     cell: state.selectedCell,
     plane: state.selectedPlane,
@@ -3038,7 +3569,6 @@ $("turnCounterclockwise").addEventListener("click", () => turnSelected(-1));
 $("turnClockwise").addEventListener("click", () => turnSelected(1));
 
 $("scramblePuzzle").addEventListener("click", () => {
-  if (state.playing) stopTransport();
   const moves = createHyperRubixScramble(12);
   scrambleGeneration += 1;
   moves.forEach((move, index) => enqueueMove(move, {
@@ -3049,7 +3579,6 @@ $("scramblePuzzle").addEventListener("click", () => {
 });
 
 function undoLastMove() {
-  if (state.playing) stopTransport();
   if (activeMove || moveQueue.length || !history.length) return;
   const move = invertHyperRubixMove(history.at(-1));
   enqueueMove(move, { historyAction: "pop" });
@@ -3058,7 +3587,6 @@ function undoLastMove() {
 $("undoMove").addEventListener("click", undoLastMove);
 
 $("unwindPuzzle").addEventListener("click", () => {
-  if (state.playing) stopTransport();
   if (activeMove || moveQueue.length || !history.length) return;
   const moves = invertHyperRubixMoves(history);
   moves.forEach((move, index) => enqueueMove(move, {
@@ -3159,6 +3687,7 @@ canvas.addEventListener("pointermove", (event) => {
     state.cameraPitch = clamp(pointerDrag.cameraPitch - deltaY / Math.max(1, bounds.height) * 180, -82, 82);
   }
   updateProjectionReadout();
+  queueWebGpu303Sync();
   scheduleFrame();
   event.preventDefault();
 });
@@ -3246,6 +3775,7 @@ canvas.addEventListener("keydown", (event) => {
     state.autoRotate = false;
     paintMotionToggle();
     updateProjectionReadout();
+    queueWebGpu303Sync();
     scheduleFrame();
     event.preventDefault();
   }
@@ -3296,6 +3826,7 @@ function rebuildPuzzleForSize(requestedSize) {
   }
 
   stopTransport({ hardAudio: true });
+  if (isWebGpu303Preset()) void stopWebGpu303Engine();
   audio.silenceFold();
   pointerDrag = null;
   canvas.classList.remove("is-dragging");
@@ -3312,6 +3843,9 @@ function rebuildPuzzleForSize(requestedSize) {
   transportRandomOrder = [];
   transportRandomCycle = -1;
   transportPosition = 0;
+  transportVisualPosition = -1;
+  transportVisualStartedAtMs = 0;
+  webGpu303SequencePhase = 0;
   hyperbarSnapshot = null;
   hyperbarStepElements = [];
   hyperbarButtonByStickerId = new Map();
@@ -3326,6 +3860,7 @@ function rebuildPuzzleForSize(requestedSize) {
   rebuildSequence();
   rebuildHyperbarSnapshot();
   paintSequenceMethod();
+  queueWebGpu303Sync({ force: true });
   updateSelectionUI();
   announce(`Puzzle rebuilt at ${puzzleOrderLabel(metrics.size)} with ${metrics.stickerCount} hyper-stickers. Playback and in-flight turns stopped.`);
   scheduleFrame();
@@ -3354,6 +3889,9 @@ $("restartLoop").addEventListener("click", () => {
   if (state.playing) restartTransportClock({ announceRestart: true });
   else {
     transportPosition = 0;
+    transportVisualPosition = -1;
+    transportVisualStartedAtMs = 0;
+    webGpu303SequencePhase = 0;
     if (sequenceMethodConfig().serial) paintSerialIdlePlayhead();
     else updateSequencePlayhead(hyperRubixSequenceIndex(
       state.playbackMode,
@@ -3392,12 +3930,23 @@ $("playbackMode").addEventListener("change", (event) => {
 });
 
 $("twistRate").addEventListener("change", (event) => {
+  const previousRate = state.subdivisionsPerBeat;
   const rate = Number(event.currentTarget.value);
   state.subdivisionsPerBeat = Object.hasOwn(RATE_LABELS, rate)
     ? rate
     : DEFAULTS.subdivisionsPerBeat;
   paintTransport();
-  if (state.playing) restartTransportClock();
+  if (state.playing && state.subdivisionsPerBeat > previousRate) {
+    const fasterStepMs = hyperRubixStepDurationSeconds(
+      state.tempo,
+      state.subdivisionsPerBeat,
+      state.swing,
+      transportPosition,
+    ) * 1_000;
+    nextStepAtMs = Math.min(nextStepAtMs, performance.now() + Math.min(55, fasterStepMs));
+  }
+  realignRunningWebGpu303Phase();
+  queueWebGpu303Sync({ force: true });
   announce(`${RATE_LABELS[state.subdivisionsPerBeat]} pulse rate selected: ${state.subdivisionsPerBeat} pulse${state.subdivisionsPerBeat === 1 ? "" : "s"} per quarter-note beat.`);
 });
 
@@ -3423,9 +3972,10 @@ function bindRange(id, key, formatter, afterChange) {
   const update = () => { output.textContent = formatter(state[key]); };
   input.value = String(state[key]);
   input.addEventListener("input", () => {
+    const previousValue = state[key];
     state[key] = Number(input.value);
     update();
-    afterChange?.();
+    afterChange?.(previousValue);
     scheduleFrame();
   });
   update();
@@ -3434,11 +3984,23 @@ function bindRange(id, key, formatter, afterChange) {
 bindRange("output", "output", (value) => `${Math.round(value * 100)}%`, () => {
   if (state.audio) audio.setLevel(state.output);
 });
-bindRange("tempo", "tempo", (value) => `${Math.round(value)} BPM`, () => {
+bindRange("tempo", "tempo", (value) => `${Math.round(value)} BPM`, (previousTempo) => {
   paintTransport();
+  if (state.playing && state.tempo > previousTempo) {
+    const fasterStepMs = hyperRubixStepDurationSeconds(
+      state.tempo,
+      state.subdivisionsPerBeat,
+      state.swing,
+      transportPosition,
+    ) * 1_000;
+    nextStepAtMs = Math.min(nextStepAtMs, performance.now() + Math.min(55, fasterStepMs));
+  }
+  realignRunningWebGpu303Phase();
+  queueWebGpu303Sync();
 });
 bindRange("swing", "swing", (value) => `${Math.round(value * 100)}%`, () => {
-  if (state.playing) restartTransportClock();
+  realignRunningWebGpu303Phase();
+  queueWebGpu303Sync();
 });
 bindRange("twistDensity", "twistDensity", (value) => `${Math.round(value * 100)}%`, () => {
   rebuildSequence({ resetPosition: false });
@@ -3451,14 +4013,13 @@ bindRange("rotationSpeed", "rotationSpeed", (value) => `${value.toFixed(2)} rev/
 bindRange("projectionDepth", "projectionDepth", (value) => value.toFixed(1));
 bindRange("cellSeparation", "cellSeparation", (value) => `${Math.round(value * 100)}%`);
 bindRange("stickerScale", "stickerScale", (value) => `${Math.round(value * 100)}%`);
-bindRange("tone", "tone", (value) => `${Math.round(value * 100)}%`);
-bindRange("decay", "decay", (value) => `${value.toFixed(2)} s`);
+bindRange("tone", "tone", (value) => `${Math.round(value * 100)}%`, () => queueWebGpu303Sync());
+bindRange("decay", "decay", (value) => `${value.toFixed(2)} s`, () => queueWebGpu303Sync());
 bindRange("foldLevel", "foldLevel", (value) => `${Math.round(value * 100)}%`, () => {
   audio.setFoldLevel(state.foldLevel);
 });
 bindRange("rattleLevel", "rattleLevel", (value) => `${Math.round(value * 100)}%`, () => {
-  if (!state.rattleEnabled) return;
-  if (state.playing) restartTransportClock();
+  paintSoundSummary();
 });
 bindRange("topologyLevel", "topologyLevel", (value) => `${Math.round(value * 100)}%`, () => {
   audio.setTopologyLevel(state.topologyLevel);
@@ -3467,22 +4028,12 @@ bindRange("topologyLevel", "topologyLevel", (value) => `${Math.round(value * 100
     audio.silenceTopology(undefined, { immediate: true });
     clearSoundingStickerPulses();
     scheduleFrame();
-  } else if (state.playing && sequenceMethodConfig().hyperbar) {
-    restartTransportClock();
   }
 });
-bindRange("topologySpan", "topologySpan", (value) => `${value.toFixed(value % 1 ? 2 : 0)} st`, () => {
-  if (state.playing && sequenceMethodConfig().hyperbar) restartTransportClock();
-});
-bindRange("topologyStrum", "topologyStrum", (value) => `${Math.round(value * 1_000)} ms`, () => {
-  if (state.playing && sequenceMethodConfig().hyperbar) restartTransportClock();
-});
-bindRange("topologyRing", "topologyRing", (value) => `${value.toFixed(2)} s`, () => {
-  if (state.playing && sequenceMethodConfig().hyperbar) restartTransportClock();
-});
-bindRange("topologyWarp", "topologyWarp", (value) => `${Math.round(value * 100)}%`, () => {
-  if (state.playing && sequenceMethodConfig().hyperbar) restartTransportClock();
-});
+bindRange("topologySpan", "topologySpan", (value) => `${value.toFixed(value % 1 ? 2 : 0)} st`);
+bindRange("topologyStrum", "topologyStrum", (value) => `${Math.round(value * 1_000)} ms`);
+bindRange("topologyRing", "topologyRing", (value) => `${value.toFixed(2)} s`);
+bindRange("topologyWarp", "topologyWarp", (value) => `${Math.round(value * 100)}%`);
 for (const key of [
   "pitchInfluence",
   "filterInfluence",
@@ -3491,13 +4042,13 @@ for (const key of [
   "wInfluence",
   "disorderInfluence",
 ]) bindRange(key, key, (value) => `${Math.round(value * 100)}%`, () => {
-  if (state.playing && (sequenceMethodConfig().hyperbar || state.rattleEnabled)) restartTransportClock();
+  queueWebGpu303Sync();
 });
 
 function paintMotionToggle() {
   $("autoRotate").setAttribute("aria-pressed", String(state.autoRotate));
   $("autoRotateState").textContent = state.autoRotate ? "moving through XW + YW" : "projection held still";
-  $("motionSummary").textContent = state.autoRotate ? `${state.rotationSpeed.toFixed(2)} rev/min` : "paused";
+  $("motionSummary").textContent = state.autoRotate ? `${state.rotationSpeed.toFixed(2)} rev/min` : "manual projection";
 }
 
 $("autoRotate").addEventListener("click", () => {
@@ -3514,6 +4065,7 @@ function resetView() {
   state.cameraRoll = DEFAULTS.cameraRoll;
   state.rotation = { ...DEFAULTS.rotation };
   updateProjectionReadout();
+  queueWebGpu303Sync({ force: true });
   scheduleFrame();
 }
 
@@ -3529,13 +4081,31 @@ $("randomView").addEventListener("click", () => {
   state.cameraPitch = Math.random() * 52 - 26;
   paintMotionToggle();
   updateProjectionReadout();
+  queueWebGpu303Sync({ force: true });
   announce("Jumped to a new four-dimensional projection.");
   scheduleFrame();
 });
 
 $("voice").addEventListener("change", (event) => {
-  state.voice = event.currentTarget.value;
+  const previousVoice = state.voice;
+  state.voice = Object.hasOwn(VOICE_LABELS, event.currentTarget.value)
+    ? event.currentTarget.value
+    : DEFAULTS.voice;
+  event.currentTarget.value = state.voice;
+  state.rattleEnabled = isRattlesnakePreset();
+  if (!state.rattleEnabled) audio.silenceRattle();
+  remapRunningPreset();
+  if (!isWebGpu303Preset()) {
+    void stopWebGpu303Engine();
+  } else if (state.audio) {
+    void startWebGpu303Engine({ alignToTransport: state.playing });
+  }
+  paintPresetHelp();
   paintSoundSummary();
+  paintFaceVoiceLabels();
+  renderHyperbarGrid();
+  announce(`${VOICE_LABELS[state.voice]} selected. The shape loop keeps playing; manual orbit, fold, and twists now use this map.`);
+  if (previousVoice !== state.voice) scheduleFrame();
 });
 
 $("topologyMode").addEventListener("change", (event) => {
@@ -3545,9 +4115,6 @@ $("topologyMode").addEventListener("change", (event) => {
   event.currentTarget.value = state.topologyMode;
   audio.silenceTopology();
   clearSoundingStickerPulses();
-  if (state.topologyMode !== "off" && state.playing && sequenceMethodConfig().hyperbar) {
-    restartTransportClock();
-  }
   paintSoundSummary();
   announce(`${TOPOLOGY_MODE_LABELS[state.topologyMode]} selected.`);
   scheduleFrame();
@@ -3587,21 +4154,18 @@ function paintSoundSummary() {
   const topology = state.topologyMode === "off" || state.topologyLevel <= 0
     ? ""
     : ` · ${TOPOLOGY_SUMMARY_LABELS[state.topologyMode] ?? "mesh"}`;
-  $("soundSummary").textContent = `${kit}${topology}${state.rattleEnabled ? " · coil" : ""}`;
+  $("soundSummary").textContent = `${kit}${topology}`;
+  const rattlesnakeControls = $("rattlesnakeControls");
+  if (rattlesnakeControls) rattlesnakeControls.hidden = !isRattlesnakePreset();
   $("rattleButton").setAttribute("aria-pressed", String(state.rattleEnabled));
   $("rattleState").textContent = state.rattleEnabled
-    ? `${RATTLE_RATE_LABELS[state.rattleRate] ?? "1/16"} · follows turns + disorder`
-    : "off · enable for seed-shell motion";
+    ? `${RATTLE_RATE_LABELS[state.rattleRate] ?? "Dense"} grains · selected preset`
+    : "off · choose Rattlesnake from Sound preset";
 }
 
 $("rattleButton").addEventListener("click", () => {
-  state.rattleEnabled = !state.rattleEnabled;
-  if (!state.rattleEnabled) audio.silenceRattle();
-  else if (state.playing) restartTransportClock();
-  paintSoundSummary();
-  announce(state.rattleEnabled
-    ? "Rattlesnake coil armed. It follows clock pulses, twists, depth, and disorder."
-    : "Rattlesnake coil off.");
+  $("voice").value = isRattlesnakePreset() ? DEFAULTS.voice : "rattlesnake";
+  $("voice").dispatchEvent(new Event("change"));
 });
 
 $("rattleRate").addEventListener("change", (event) => {
@@ -3609,19 +4173,22 @@ $("rattleRate").addEventListener("change", (event) => {
   state.rattleRate = Object.hasOwn(RATTLE_RATE_LABELS, rate) ? rate : DEFAULTS.rattleRate;
   event.currentTarget.value = String(state.rattleRate);
   paintSoundSummary();
-  if (state.playing && state.rattleEnabled) restartTransportClock();
-  announce(`${RATTLE_RATE_LABELS[state.rattleRate]} rattlesnake coil pulse selected.`);
+  announce(`${RATTLE_RATE_LABELS[state.rattleRate]} rattlesnake grain density selected.`);
 });
 
 $("audioButton").addEventListener("click", async () => {
   $("audioError").hidden = true;
   if (state.audio) {
     state.audio = false;
+    void stopWebGpu303Engine();
     audio.disable();
   } else {
     try {
       await audio.enable();
       state.audio = true;
+      if (isWebGpu303Preset()) {
+        await startWebGpu303Engine({ alignToTransport: state.playing });
+      }
     } catch (error) {
       $("audioError").textContent = error instanceof Error ? error.message : "Web Audio could not start.";
       $("audioError").hidden = false;
@@ -3631,12 +4198,13 @@ $("audioButton").addEventListener("click", async () => {
   $("audioState").textContent = state.audio ? "on" : "off";
   updateStatus();
   announce(state.audio
-    ? `${state.playing ? "Drum audio joined the running twist tape" : "Drum audio enabled"}.`
-    : `Drum audio disabled${state.playing ? "; auto-twists continue silently" : ""}.`);
+    ? `${state.playing ? `${VOICE_LABELS[state.voice]} joined the running shape loop` : `${VOICE_LABELS[state.voice]} audio enabled`}.`
+    : `Audio disabled${state.playing ? "; the shape cursor continues silently" : ""}.`);
 });
 
 function resetAll() {
   stopTransport({ hardAudio: true });
+  void stopWebGpu303Engine();
   audio.silenceFold();
   pointerDrag = null;
   canvas.classList.remove("is-dragging");
@@ -3661,6 +4229,9 @@ function resetAll() {
   state.currentStep = 0;
   state.currentHyperbarStep = 0;
   state.currentStreamStep = 0;
+  transportVisualPosition = -1;
+  transportVisualStartedAtMs = 0;
+  webGpu303SequencePhase = 0;
   sequenceGeneration = 0;
   hyperbarGateOverrides = new Map();
   hyperbarFocusStickerId = null;
@@ -3683,6 +4254,7 @@ function resetAll() {
     $(key).dispatchEvent(new Event("input"));
   }
   state.voice = DEFAULTS.voice;
+  webGpu303Failed = false;
   state.foldSound = DEFAULTS.foldSound;
   state.hearAutoDrift = DEFAULTS.hearAutoDrift;
   state.rattleEnabled = DEFAULTS.rattleEnabled;
@@ -3695,7 +4267,9 @@ function resetAll() {
   $("topologyMode").value = DEFAULTS.topologyMode;
   paintFoldControls();
   audio.silenceRattle();
+  paintPresetHelp();
   paintSoundSummary();
+  paintFaceVoiceLabels();
   rebuildSequence();
   rebuildHyperbarSnapshot();
   paintSequenceMethod();
@@ -3703,7 +4277,7 @@ function resetAll() {
   setDragMode(DEFAULTS.dragMode);
   paintMotionToggle();
   updateSelectionUI();
-  announce("Hyper Rubix puzzle, twist tape, and parameters reset.");
+  announce("Hyper Rubix puzzle, shape loop, sound preset, and parameters reset.");
   scheduleFrame();
 }
 
@@ -3738,6 +4312,7 @@ function drawFrame(time) {
       audio.endFoldMotion();
     }
     updateProjectionReadout();
+    queueWebGpu303Sync();
   }
   updateMoveAnimation(time);
   drawScene(time);
@@ -3755,12 +4330,19 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     pointerDrag = null;
     canvas.classList.remove("is-dragging");
+    transportPosition = nextPositionAfterAudiblePulse();
     clearScheduler({ hardAudio: true });
+    void stopWebGpu303Engine();
     void audio.suspend().catch(() => {});
     return;
   }
-  if (state.audio) void audio.resume().catch(() => {});
-  if (state.playing) restartTransportClock();
+  if (state.audio) {
+    void audio.resume().then(() => {
+      if (state.playing) resumeTransportClock();
+    }).catch(() => {});
+  } else if (state.playing) {
+    resumeTransportClock();
+  }
   scheduleFrame();
 });
 
@@ -3769,25 +4351,35 @@ window.addEventListener("pagehide", (event) => {
   canvas.classList.remove("is-dragging");
   clearSoundingStickerPulses();
   if (event.persisted) {
+    transportPosition = nextPositionAfterAudiblePulse();
     clearScheduler({ hardAudio: true });
+    void stopWebGpu303Engine();
     void audio.suspend().catch(() => {});
     return;
   }
   stopTransport({ hardAudio: true });
   state.audio = false;
+  void stopWebGpu303Engine();
   void audio.dispose().catch(() => {});
 });
 
 window.addEventListener("pageshow", (event) => {
   if (!event.persisted) return;
-  if (state.audio) void audio.resume().catch(() => {});
-  if (state.playing && schedulerTimer === null) restartTransportClock();
+  if (state.audio) {
+    void audio.resume().then(() => {
+      if (state.playing && schedulerTimer === null) resumeTransportClock();
+    }).catch(() => {});
+  } else if (state.playing && schedulerTimer === null) {
+    resumeTransportClock();
+  }
 });
 
 rebuildSequence();
 rebuildHyperbarSnapshot();
 paintSequenceMethod();
+paintPresetHelp();
 paintSoundSummary();
+paintFaceVoiceLabels();
 paintFoldControls();
 setDragMode(state.dragMode);
 paintMotionToggle();

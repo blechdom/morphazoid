@@ -57,6 +57,7 @@ test("WebGPU 303 preserves the acid shader credit and parameter buffer order", (
   assert.match(WEBGPU_303_SHADER, /1\.0 \+ amount/);
   assert.match(WEBGPU_303_SHADER, /1\.0 - amount/);
   assert.match(WEBGPU_303_SHADER, /swingTime\(straightTime, audio_param\.swing\)/);
+  assert.match(WEBGPU_303_SHADER, /time \* audio_param\.timeScale \+ audio_param\.sequencePhase/);
   assert.match(WEBGPU_303_SHADER, /audio_param\.res \+ modulation\.z/);
   assert.match(WEBGPU_303_SHADER, /audio_param\.stereo \+ modulation\.w/);
   assert.deepEqual(WEBGPU_303_PARAM_ORDER, [
@@ -79,6 +80,7 @@ test("WebGPU 303 preserves the acid shader credit and parameter buffer order", (
   assert.deepEqual(WEBGPU_303_BUFFER_PARAM_ORDER, [
     ...WEBGPU_303_PARAM_ORDER,
     "swing",
+    "sequencePhase",
   ]);
   assert.ok(Object.isFrozen(WEBGPU_303_BUFFER_PARAM_ORDER));
 
@@ -99,11 +101,12 @@ test("WebGPU 303 preserves the acid shader credit and parameter buffer order", (
     lfo: 14,
     flt: 15,
     swing: 0.25,
+    sequencePhase: 17,
   });
-  assert.equal(values.length, 16);
+  assert.equal(values.length, 17);
   assert.deepEqual(
     Array.from(values),
-    [1, 2, 3, 4, 0.5, 5, 0.25, 8, 9, 80, 1, 12, 13, 14, 15, 0.25],
+    [1, 2, 3, 4, 0.5, 5, 0.25, 8, 9, 80, 1, 12, 13, 14, 15, 0.25, 17],
   );
 });
 
@@ -123,7 +126,7 @@ test("WebGPU 303 swing warps even/odd boundaries without moving pair boundaries"
 });
 
 test("WebGPU 303 sequence buffer can draw steps while preserving source noise fallback", () => {
-  assert.equal(WEBGPU_303_SEQUENCE_LENGTH, 128);
+  assert.equal(WEBGPU_303_SEQUENCE_LENGTH, 512);
   assert.equal(WEBGPU_303_SOURCE_SEQUENCE.length, WEBGPU_303_SEQUENCE_LENGTH);
   assert.ok(WEBGPU_303_SOURCE_SEQUENCE.every((value) => value === -1));
 
@@ -134,7 +137,7 @@ test("WebGPU 303 sequence buffer can draw steps while preserving source noise fa
   assert.equal(sanitized[2], -1);
   assert.equal(sanitized[3], -1);
   near(sanitized[4], 0.5);
-  assert.equal(sanitized[127], -1);
+  assert.equal(sanitized[511], -1);
 
   const bufferValues = webGpu303SequenceArray([0.42]);
   assert.equal(bufferValues.length, WEBGPU_303_SEQUENCE_LENGTH);
@@ -148,7 +151,7 @@ test("WebGPU 303 sequence buffer can draw steps while preserving source noise fa
   );
 });
 
-test("WebGPU 303 packs a neutral, bounded 128-step vec4 modulation lane", () => {
+test("WebGPU 303 packs a neutral, bounded 512-step vec4 modulation lane", () => {
   assert.deepEqual(WEBGPU_303_DEFAULT_STEP_MODULATION, [1, 0, 0, 0]);
   assert.ok(Object.isFrozen(WEBGPU_303_DEFAULT_STEP_MODULATION));
 
@@ -161,7 +164,7 @@ test("WebGPU 303 packs a neutral, bounded 128-step vec4 modulation lane", () => 
   assert.deepEqual(sanitized[0], [0.25, 1.5, 2.5, -0.75]);
   assert.deepEqual(sanitized[1], [1, -64, 15, -8]);
   assert.deepEqual(sanitized[2], WEBGPU_303_DEFAULT_STEP_MODULATION);
-  assert.deepEqual(sanitized[127], WEBGPU_303_DEFAULT_STEP_MODULATION);
+  assert.deepEqual(sanitized[511], WEBGPU_303_DEFAULT_STEP_MODULATION);
 
   const packed = webGpu303StepModulationArray(sanitized);
   assert.ok(packed instanceof Float32Array);
@@ -193,6 +196,7 @@ test("WebGPU 303 default patch matches the WebGPU Audio AcidSynth controls", () 
       lfo: WEBGPU_303_DEFAULTS.lfo,
       flt: WEBGPU_303_DEFAULTS.flt,
       swing: WEBGPU_303_DEFAULTS.swing,
+      sequencePhase: WEBGPU_303_DEFAULTS.sequencePhase,
     },
     {
       partials: 256,
@@ -210,6 +214,7 @@ test("WebGPU 303 default patch matches the WebGPU Audio AcidSynth controls", () 
       lfo: 1,
       flt: -1.5,
       swing: 0,
+      sequencePhase: 0,
     },
   );
   near(WEBGPU_303_DEFAULTS.fundamental, webGpu303FundamentalFromSourceControl(80));
@@ -230,6 +235,7 @@ test("WebGPU 303 default patch matches the WebGPU Audio AcidSynth controls", () 
     2.2,
     1,
     -1.5,
+    0,
     0,
   ];
   params.forEach((value, index) => near(value, expected[index], 1e-2));
@@ -271,7 +277,9 @@ test("WebGPU 303 parameter and runtime settings stay bounded", () => {
   assert.equal(sanitized.flt, -64);
   assert.equal(sanitized.swing, 0.42);
   assert.equal(sanitizeWebGpu303Params({ swing: -3 }).swing, 0);
-  assert.equal(sanitizeWebGpu303Params({ timeMod: 900 }).timeMod, 128);
+  assert.equal(sanitizeWebGpu303Params({ timeMod: 900 }).timeMod, 512);
+  assert.equal(sanitizeWebGpu303Params({ timeScale: 900 }).timeScale, 80);
+  assert.equal(sanitizeWebGpu303Params({ sequencePhase: 900 }).sequencePhase, 512);
 
   const audio = new WebGpu303Audio({}, { chunkDuration: 99, workgroupSize: 7 });
   assert.equal(audio.chunkDurationInSeconds, 0.5);

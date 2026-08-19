@@ -177,6 +177,7 @@ for worktree_runtime_file in \
   hyper-rubix.css \
   hyper-rubix-app.js \
   src/hyper-rubix.js \
+  src/hyper-rubix-webgpu-303.js \
   assets/instruments/hyper-rubix.webp \
   hyper-drums.html \
   hyper-drums.css \
@@ -582,6 +583,7 @@ required_files=(
   hyper-rubix.css
   hyper-rubix-app.js
   src/hyper-rubix.js
+  src/hyper-rubix-webgpu-303.js
   assets/instruments/hyper-rubix.webp
   hyper-drums.html
   hyper-drums.css

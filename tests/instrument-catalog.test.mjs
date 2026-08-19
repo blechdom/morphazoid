@@ -114,7 +114,7 @@ test("input and plug-in availability facts remain explicit", () => {
   );
   assert.ok(instrumentById("lumber")?.features.includes("Mic input"));
   assert.ok(instrumentById("recursion")?.features.includes("File input"));
-  assert.equal(instrumentById("hyper-rubix")?.kind, "4D drum sequencer");
+  assert.equal(instrumentById("hyper-rubix")?.kind, "4D shape sequencer");
   assert.deepEqual(
     instrumentById("hyper-rubix")?.features,
     ["Pointer", "Built-in synth", "MIDI"],
@@ -173,13 +173,12 @@ test("input and plug-in availability facts remain explicit", () => {
   );
 });
 
-test("Hyper Rubix copy documents every order, topology voice, and shared rattle", async () => {
+test("Hyper Rubix copy documents every order, the complete loop, and five shape maps", async () => {
   const instrument = instrumentById("hyper-rubix");
-  assert.match(instrument?.description ?? "", /order-2 through order-4/i);
-  assert.match(instrument?.description ?? "", /64, 216, or 512 sticker-events/i);
-  assert.match(instrument?.description ?? "", /tangent-neighbor topology.*persistent resonators/i);
-  assert.match(instrument?.description ?? "", /65, 217, or 513 conceptual voices/i);
-  assert.match(instrument?.start ?? "", /always-64 Corner Stream/i);
+  assert.match(instrument?.description ?? "", /order-2, order-3, or order-4/i);
+  assert.match(instrument?.description ?? "", /64, 216, or 512 distinct notes/i);
+  assert.match(instrument?.description ?? "", /color drums.*resonant prisms.*bit voices.*WebGPU acid.*seed-shell rattles/i);
+  assert.match(instrument?.start ?? "", /without resetting time/i);
 
   const readme = await readFile(new URL("README.md", root), "utf8");
   assert.match(
@@ -187,8 +186,9 @@ test("Hyper Rubix copy documents every order, topology voice, and shared rattle"
     /Hyper Rubix[\s\S]*?2 × 2 × 2 × 2[\s\S]*?3 × 3 × 3 × 3[\s\S]*?4 × 4 × 4 × 4/,
   );
   assert.match(readme, /64, 216, or 512 total/);
-  assert.match(readme, /topology-resonator bank.*actual current tangent-neighbor connections/i);
-  assert.match(readme, /65, 217, or 513 conceptual voices including the rattle/i);
+  assert.match(readme, /fixed forward Shape Loop visits every sticker separately/i);
+  assert.match(readme, /Hyper, Prism, Bit, WebGPU 303, and Rattlesnake/i);
+  assert.match(readme, /manual quarter-turns.*without rewinding its clock/i);
 });
 
 test("card renderer separates in-development experiments from the main catalogue", async () => {

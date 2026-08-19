@@ -42,9 +42,9 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose a 4D form, then move the W reader or start rotation.",
   ),
   "hyper-rubix": define(
-    "4D drum sequencer",
-    "Clock-drives order-2 through order-4 tesseract-boundary puzzles with 64, 216, or 512 sticker-events; each sticker's actual tangent-neighbor topology feeds persistent resonators, and one shared rattle completes 65, 217, or 513 conceptual voices.",
-    "Turn on audio, choose Side / order and Twist Tape, Hyperbar, Hybrid, Sticker Stream, or the always-64 Corner Stream, then set 1/4–1/64 pulse speed; exact stickers light as pitch, filter, pan, neighbor response, W depth, disorder, and fold motion reshape the sound.",
+    "4D shape sequencer",
+    "Loops every sticker in an order-2, order-3, or order-4 tesseract-boundary puzzle as 64, 216, or 512 distinct notes, with five sound maps spanning color drums, resonant prisms, bit voices, WebGPU acid, and seed-shell rattles.",
+    "Turn on audio and Play shape loop, then orbit, Fold W, or make manual quarter-turns: transformed position, depth, neighbors, fault lines, displacement, and disorder reshape the running sound without resetting time.",
     ["Pointer", "Built-in synth"],
   ),
 
