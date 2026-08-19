@@ -561,6 +561,7 @@ function createProcessorClass(AudioWorkletBase) {
         this.noiseSeeds[index] = this.noiseSeedCounter;
       }
       this.activeTarget = 0;
+      this.transportTarget = 0;
       this.activeGain = 0;
       this.updateVoiceCoefficients(DEFAULT_SAMPLE_RATE);
       this.port.onmessage = (event) => {
@@ -576,9 +577,31 @@ function createProcessorClass(AudioWorkletBase) {
             this.snapCurrentToTarget();
           }
         } else if (event.data?.type === "active") {
-          this.activeTarget = event.data.value ? 1 : 0;
+          const active = event.data.value ? 1 : 0;
+          this.activeTarget = active;
+          this.transportTarget = active;
           if (this.activeTarget < 0.5) {
             this.snapCurrentToTarget();
+          }
+        } else if (event.data?.type === "audible") {
+          this.activeTarget = event.data.value ? 1 : 0;
+          if (this.activeTarget < 0.5) {
+            this.transportTarget = 0;
+            this.snapCurrentToTarget();
+          }
+        } else if (event.data?.type === "transport") {
+          this.transportTarget = event.data.value ? 1 : 0;
+        } else if (event.data?.type === "position") {
+          const requestedPosition = Number(event.data.value);
+          if (Number.isFinite(requestedPosition)) {
+            const nextPosition = wrapUnit(requestedPosition);
+            const positionDelta = nextPosition - this.position;
+            if (positionDelta < -0.5) rotateForWraps(this, 1);
+            else if (positionDelta > 0.5) rotateForWraps(this, -1);
+            this.position = nextPosition;
+            this.updateVoiceCoefficients(
+              Number(globalThis.sampleRate) || DEFAULT_SAMPLE_RATE,
+            );
           }
         } else if (event.data?.type === "strike") {
           this.pendingStrike = Math.min(
@@ -860,7 +883,7 @@ function createProcessorClass(AudioWorkletBase) {
           this.activeTarget - this.activeGain
         ) * activeSlew;
 
-        const transportActive = this.activeTarget > 0.5;
+        const transportActive = this.transportTarget > 0.5;
         if (transportActive) {
           const rawPosition = this.position + (
             this.current.direction
@@ -1068,8 +1091,9 @@ if (
 }
 
 /**
- * Lazy Web Audio wrapper. The continuously running render node is created
- * only from start(), keeping page load silent and browser-autoplay safe.
+ * Lazy Web Audio wrapper. The render node is created only after a user action,
+ * keeping page load silent and browser-autoplay safe. Audible output and the
+ * automatic transport are intentionally independent.
  */
 export class OuroborosAudio {
   constructor(runtime = globalThis) {
@@ -1084,6 +1108,7 @@ export class OuroborosAudio {
     this.analyser = null;
     this.releaseAudioOutput = null;
     this.enabled = false;
+    this.transportRunning = false;
     this.params = { ...OUROBOROS_DEFAULTS };
     this.level = OUROBOROS_DEFAULTS.level;
     this.suspendTimer = null;
@@ -1198,19 +1223,51 @@ export class OuroborosAudio {
     }
   }
 
-  async start() {
+  async enable() {
     await this.initialize();
     if (this.suspendTimer !== null) {
       this.runtime.clearTimeout?.(this.suspendTimer);
       this.suspendTimer = null;
     }
     await this.context.resume();
+    if (this.enabled) return;
     const now = this.context.currentTime;
-    this.node.port.postMessage({ type: "active", value: true });
+    this.node.port.postMessage({ type: "audible", value: true });
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setValueAtTime(this.master.gain.value, now);
     this.master.gain.linearRampToValueAtTime(this.level, now + 0.035);
     this.enabled = true;
+  }
+
+  async start() {
+    await this.enable();
+    this.setTransport(true);
+  }
+
+  setTransport(running) {
+    const next = Boolean(running);
+    if (!this.isInitialized || !this.enabled) {
+      if (!next) this.transportRunning = false;
+      return false;
+    }
+    this.node.port.postMessage({ type: "transport", value: next });
+    this.transportRunning = next;
+    return true;
+  }
+
+  stopTransport() {
+    return this.setTransport(false);
+  }
+
+  setPosition(position) {
+    if (!this.isInitialized || !this.enabled) return false;
+    const numericPosition = Number(position);
+    if (!Number.isFinite(numericPosition)) return false;
+    this.node.port.postMessage({
+      type: "position",
+      value: wrapUnit(numericPosition),
+    });
+    return true;
   }
 
   strike(velocity = 1, position = null) {
@@ -1235,7 +1292,9 @@ export class OuroborosAudio {
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setValueAtTime(this.master.gain.value, now);
     this.master.gain.linearRampToValueAtTime(0, now + 0.035);
-    this.node.port.postMessage({ type: "active", value: false });
+    this.node.port.postMessage({ type: "transport", value: false });
+    this.node.port.postMessage({ type: "audible", value: false });
+    this.transportRunning = false;
     this.enabled = false;
     this.suspendTimer = this.runtime.setTimeout?.(() => {
       this.suspendTimer = null;
@@ -1257,9 +1316,11 @@ export class OuroborosAudio {
       this.suspendTimer = null;
     }
     this.enabled = false;
+    this.transportRunning = false;
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
-    this.node?.port.postMessage({ type: "active", value: false });
+    this.node?.port.postMessage({ type: "transport", value: false });
+    this.node?.port.postMessage({ type: "audible", value: false });
     this.node?.disconnect();
     this.highpass?.disconnect();
     this.lowpass?.disconnect();

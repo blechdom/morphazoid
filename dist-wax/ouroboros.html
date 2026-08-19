@@ -45,10 +45,10 @@
           id="audioButton"
           type="button"
           aria-pressed="false"
-          aria-label="Start Ouroboros"
+          aria-label="Turn Ouroboros audio on"
         >
           <span class="audio-glyph" aria-hidden="true">◉</span>
-          <span class="audio-copy"><b id="audioAction">Start</b><small id="audioState">off</small></span>
+          <span class="audio-copy"><b id="audioAction">Audio</b><small id="audioState">off</small></span>
         </button>
         <label class="header-level" for="level">
           <span><b>Master level</b><output id="levelOut" for="level">56%</output></span>
@@ -65,78 +65,87 @@
       </div>
     </header>
 
-    <main class="shell" id="ouroboros">
-      <section class="stage" aria-label="Ouroboros stage">
-        <div class="stage-wrap" id="stageWrap">
+    <main class="ouroboros-shell" id="ouroboros">
+      <section class="ouroboros-performance" aria-labelledby="ouroborosTitle">
+        <header class="ouroboros-titlebar">
+          <div class="ouroboros-title-identity">
+            <p>ENDLESS PARAMETRIC PERCUSSION</p>
+            <h1 id="ouroborosTitle">Ouroboros</h1>
+          </div>
+          <div class="ouroboros-live-readouts" aria-live="polite">
+            <span><b id="pluckReadout">110 Hz</b><small>PLUCK POSITION</small></span>
+            <span><b id="motionSummary">rise · 0.12 oct/s · 4 hits/s</b><small>ENDLESS MOTION</small></span>
+            <span><b id="engineSummary">17 octave-ratio bodies</b><small>SHEPARD BANK</small></span>
+          </div>
+        </header>
+
+        <div class="ouroboros-stage-wrap" id="stageWrap">
           <canvas
             id="stage"
             data-interactive-track
             tabindex="0"
             role="img"
-            aria-label="A wide interactive Shepard racetrack carries persistent Rattlesnake strikes upward through an endless pitch glissando."
+            aria-label="A thick interactive oval maps a continuous low-body-to-high-air Rattlesnake spectrum around an endless Shepard loop."
             aria-describedby="canvasInstructions liveStatus"
           >
-            A wide serpent racetrack of percussion voices that fade into one another while pitch rises or falls endlessly.
+            A closed oval of percussion voices that fade into one another while pitch rises or falls endlessly.
           </canvas>
-          <div class="stage-meta" aria-hidden="true">
+          <div class="ouroboros-stage-meta" aria-hidden="true">
             <span id="stageReadout">SHEPARD RATTLE · RISING · 0.12 OCT/S · 4 HITS/S · 19.4 HZ–622 HZ REGISTER · AUDIO OFF</span>
           </div>
-          <div class="ouroboros-stage-label">
-            <h1>Ouroboros</h1>
-            <small>endless Shepard drum glissando</small>
-          </div>
-          <div class="ouroboros-direction" aria-hidden="true">
+          <div class="ouroboros-loop-core" aria-hidden="true">
             <span id="directionMarker">↻</span>
             <small id="directionMarkerText">endlessly rising</small>
           </div>
-          <div class="ouroboros-coil-key" aria-hidden="true">
-            <span>LOW · BODY</span><i></i><span>HIGH · AIR</span>
-          </div>
-          <div class="ouroboros-track-hint" aria-hidden="true">
-            <span>drag the track to audition</span>
-            <i></i>
-            <span>auto playhead keeps moving</span>
-          </div>
+        </div>
+
+        <label class="ouroboros-pluck-control" for="pluckPosition">
+          <span><b>Pluck rail</b><output id="pluckPositionOut" for="pluckPosition">110 Hz · tom / hand</output></span>
+          <input id="pluckPosition" type="range" min="0" max="1" step=".0001" value=".5" aria-label="Ouroboros pluck position" />
+        </label>
+        <div class="ouroboros-pluck-scale" aria-hidden="true">
+          <span><b id="pluckLowOut">19.4 Hz</b><small>LOW BODY</small></span>
+          <span><b id="pluckCenterOut">110 Hz</b><small>CENTER</small></span>
+          <span><b id="pluckHighOut">622 Hz</b><small>HIGH AIR</small></span>
+        </div>
+
+        <div class="ouroboros-performance-transport" aria-label="Ouroboros sweep transport">
+          <button
+            class="ouroboros-command"
+            id="strikeButton"
+            type="button"
+            data-midi-trigger="strike"
+            aria-label="Strike the selected Ouroboros position"
+          >
+            <span aria-hidden="true">●</span><b>Strike</b>
+          </button>
+          <button
+            class="ouroboros-command is-primary"
+            id="transportButton"
+            type="button"
+            data-primary-transport
+            aria-pressed="false"
+            aria-label="Start automatic Ouroboros sweep"
+          >
+            <span id="transportIcon" aria-hidden="true">▶</span><b id="transportLabel">Sweep</b>
+          </button>
+          <fieldset class="ouroboros-segmented" id="direction" aria-label="Sweep direction">
+            <legend>Direction</legend>
+            <label><input id="directionRise" type="radio" name="sweepDirection" value="1" checked /><span>Up</span></label>
+            <label><input id="directionFall" type="radio" name="sweepDirection" value="-1" /><span>Down</span></label>
+          </fieldset>
+          <label class="ouroboros-inline-control" for="hitRate">
+            <span><b>Hit density</b><output id="hitRateOut" for="hitRate">4 /s</output></span>
+            <input id="hitRate" type="range" min="0.5" max="24" step="0.25" value="4" />
+          </label>
+          <label class="ouroboros-inline-control" for="glissRate">
+            <span><b>Gliss speed</b><output id="glissRateOut" for="glissRate">0.12 oct/s</output></span>
+            <input id="glissRate" type="range" min="0.02" max="1.2" step="0.01" value="0.12" />
+          </label>
         </div>
       </section>
 
-      <aside class="panel" aria-label="Ouroboros controls">
-        <section class="group ouroboros-identity" aria-labelledby="engineTitle">
-          <div class="ouroboros-identity-heading">
-            <div>
-              <h2 class="group-title" id="engineTitle">Engine</h2>
-              <span class="section-state" id="engineSummary">17 octave-ratio bodies</span>
-            </div>
-            <div class="ouroboros-engine-actions">
-              <button
-                class="ouroboros-transport"
-                id="transportButton"
-                type="button"
-                data-primary-transport
-                aria-pressed="false"
-                aria-label="Start automatic Ouroboros motion and strikes"
-              >
-                <span id="transportIcon" aria-hidden="true">▶</span>
-                <b id="transportLabel">Start</b>
-              </button>
-              <button
-                class="ouroboros-strike"
-                id="strikeButton"
-                type="button"
-                data-midi-trigger="strike"
-                aria-label="Strike the Ouroboros percussion bank"
-              >
-                <span aria-hidden="true">●</span>
-                <b>Strike</b>
-              </button>
-            </div>
-          </div>
-          <p>
-            One Rattlesnake hit clock excites parallel Shepard bodies. Spectral edge voices disappear
-            as new ones enter, so the drum pitch can keep climbing or falling without a seam. Drag
-            around the racetrack to strike its low-body-to-high-air spectrum directly.
-          </p>
-        </section>
+      <aside class="panel ouroboros-control-panel" aria-label="Ouroboros controls">
 
         <details class="group control-section" data-section="presets" open>
           <summary class="group-summary">
@@ -150,35 +159,6 @@
               role="group"
               aria-label="Ouroboros presets"
             ></div>
-          </div>
-        </details>
-
-        <details class="group control-section" data-section="motion" open>
-          <summary class="group-summary">
-            <h2 class="group-title">Motion</h2>
-            <span class="section-state" id="motionSummary">rise · 0.12 oct/s · 4 hits/s</span>
-          </summary>
-          <div class="group-body">
-            <span class="field-label">Pitch direction</span>
-            <div class="choice-switch" id="direction" role="group" aria-label="Pitch direction">
-              <button id="directionRise" type="button" data-value="1" aria-pressed="true">↑ Rise</button>
-              <button id="directionFall" type="button" data-value="-1" aria-pressed="false">↓ Fall</button>
-            </div>
-
-            <label class="control ouroboros-gliss-control" for="glissRate">
-              <span><b>Glissando speed</b><output id="glissRateOut" for="glissRate">0.12 oct/s · wraps in 8.3 s</output></span>
-              <input id="glissRate" type="range" min="0.02" max="1.2" step="0.01" value="0.12" />
-            </label>
-
-            <label class="control" for="hitRate">
-              <span><b>Strike rate</b><output id="hitRateOut" for="hitRate">4 hits/s · 240 BPM</output></span>
-              <input id="hitRate" type="range" min="0.5" max="24" step="0.25" value="4" />
-            </label>
-
-            <small class="ouroboros-control-note">
-              Every octave body shares this pulse. Unlike Drum Roll Please!, the rhythm stays steady
-              while only the perceived pitch moves forever.
-            </small>
           </div>
         </details>
 
@@ -266,12 +246,11 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        The canvas shows a crisp, wide snake racetrack made from parallel percussion strands. Drag
-        around the track to audition low body, tom, hand, and high air voices; the automatic playhead
-        continues independently. Strike marks remain visible as they change from kick circles through
-        tom rings and hand bars to air hatching. Use the direction buttons or the Up and Down arrow
-        keys to make perceived pitch rise or fall endlessly. Press Space to strike the current pitch
-        bank. Select Start, Strike, or the track to enable audio; select Stop to stop the automatic clock.
+        Drag around the closed oval or across the pluck rail to play low body, tom, hand, and high air
+        hits without starting the automatic clock. The triangle is the current manual or sweep position,
+        and recent hits leave brief fading flashes. Sweep starts or stops automatic motion.
+        Use the direction controls or the Up and Down arrow keys to make perceived pitch rise or fall
+        endlessly. Press Space to strike the selected position.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

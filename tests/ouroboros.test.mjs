@@ -407,7 +407,7 @@ test("all presets are frozen, unique, bounded, audible, and support both directi
   }
 });
 
-test("the audio wrapper stays lazy and sends sanitized parameters and transport messages", async () => {
+test("the audio wrapper keeps audible output independent from automatic transport", async () => {
   const scheduled = [];
   const runtime = {
     clearTimeout(id) {
@@ -504,14 +504,21 @@ test("the audio wrapper stays lazy and sends sanitized parameters and transport 
   });
   assert.deepEqual(filterTargets.at(-1), [12_000, 3, 0.025]);
 
-  await audio.start();
+  await audio.enable();
   assert.equal(resumes, 1);
   assert.equal(audio.enabled, true);
-  assert.deepEqual(messages.at(-1), { type: "active", value: true });
+  assert.equal(audio.transportRunning, false);
+  assert.deepEqual(messages.at(-1), { type: "audible", value: true });
   assert.deepEqual(ramps.at(-1), ["ramp", 0.7, 3.035]);
 
   audio.setParameters({ level: 0.42 });
   assert.deepEqual(ramps.at(-1), ["target", 0.42, 3, 0.015]);
+  assert.equal(audio.setPosition(0.37), true);
+  assert.equal(messages.at(-1).type, "position");
+  assert.ok(Math.abs(messages.at(-1).value - 0.37) < 1e-12);
+  assert.equal(audio.setPosition(1.25), true);
+  assert.deepEqual(messages.at(-1), { type: "position", value: 0.25 });
+  assert.equal(audio.setPosition(Number.NaN), false);
   audio.strike(0.8, 0.37);
   assert.deepEqual(messages.at(-1), {
     type: "strike",
@@ -519,6 +526,14 @@ test("the audio wrapper stays lazy and sends sanitized parameters and transport 
     position: 0.37,
   });
   assert.ok(messages.at(-1).position >= 0 && messages.at(-1).position <= 1);
+
+  await audio.start();
+  assert.equal(audio.transportRunning, true);
+  assert.deepEqual(messages.at(-1), { type: "transport", value: true });
+  assert.equal(audio.stopTransport(), true);
+  assert.equal(audio.transportRunning, false);
+  assert.deepEqual(messages.at(-1), { type: "transport", value: false });
+
   audio.strike(0.6);
   assert.deepEqual(messages.at(-1), { type: "strike", velocity: 0.6 });
   audio.strike(0.4, -10);
@@ -528,7 +543,9 @@ test("the audio wrapper stays lazy and sends sanitized parameters and transport 
 
   audio.stop();
   assert.equal(audio.enabled, false);
-  assert.deepEqual(messages.at(-1), { type: "active", value: false });
+  assert.equal(audio.transportRunning, false);
+  assert.deepEqual(messages.at(-2), { type: "transport", value: false });
+  assert.deepEqual(messages.at(-1), { type: "audible", value: false });
   assert.deepEqual(ramps.at(-1), ["ramp", 0, 3.035]);
   assert.equal(scheduled.at(-1)[0], "set");
   assert.equal(scheduled.at(-1)[2], 55);
@@ -687,6 +704,57 @@ test("the worklet registers once and renders finite, audible stereo through both
       "glissRate must remain physical octaves/second when voice spacing changes",
     );
 
+    const manual = new Processor({ processorOptions: OUROBOROS_DEFAULTS });
+    const manualPosition = 0.68;
+    const manualPulsePhase = manual.pulsePhase;
+    manual.port.onmessage({ data: { type: "audible", value: true } });
+    manual.port.onmessage({ data: { type: "position", value: manualPosition } });
+    manual.port.onmessage({
+      data: { type: "strike", velocity: 0.82 },
+    });
+    let manualPeak = 0;
+    for (let block = 0; block < 24; block += 1) {
+      const left = new Float32Array(128);
+      const right = new Float32Array(128);
+      manual.process([], [[left, right]]);
+      for (let index = 0; index < left.length; index += 1) {
+        manualPeak = Math.max(manualPeak, Math.abs(left[index]), Math.abs(right[index]));
+      }
+    }
+    assert.ok(manualPeak > 1e-4, "manual strikes should be audible without transport");
+    assert.ok(
+      Math.abs(manual.position - manualPosition) < 1e-12,
+      "manual control must place the full bank",
+    );
+    assert.equal(manual.pulsePhase, manualPulsePhase, "manual strikes must not start the hit clock");
+
+    const manualLevels = [];
+    for (const position of [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875]) {
+      const placed = new Processor({ processorOptions: OUROBOROS_DEFAULTS });
+      placed.port.onmessage({ data: { type: "audible", value: true } });
+      placed.port.onmessage({ data: { type: "position", value: position } });
+      placed.port.onmessage({ data: { type: "strike", velocity: 0.82 } });
+      let squareSum = 0;
+      let sampleCount = 0;
+      for (let block = 0; block < 48; block += 1) {
+        const left = new Float32Array(128);
+        const right = new Float32Array(128);
+        placed.process([], [[left, right]]);
+        for (let index = 0; index < left.length; index += 1) {
+          squareSum += left[index] ** 2 + right[index] ** 2;
+          sampleCount += 2;
+        }
+      }
+      manualLevels.push(Math.sqrt(squareSum / sampleCount));
+    }
+    const quietestManualLevel = Math.min(...manualLevels);
+    const loudestManualLevel = Math.max(...manualLevels);
+    assert.ok(quietestManualLevel > 0.002, "manual full-bank placement became silent");
+    assert.ok(
+      quietestManualLevel / loudestManualLevel > 0.55,
+      `manual loudness changes too much around the loop: ${manualLevels.join(", ")}`,
+    );
+
     const targetedLow = new Processor({ processorOptions: OUROBOROS_DEFAULTS });
     const targetedHigh = new Processor({ processorOptions: OUROBOROS_DEFAULTS });
     const autonomousPosition = targetedLow.position;
@@ -796,19 +864,19 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   assert.match(markup, /<body class="ouroboros-page">/);
   assert.match(markup, /<main[^>]+id="ouroboros"/);
   assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);
-  assert.match(markup, /id="audioButton"[\s\S]{0,220}aria-label="Start Ouroboros"/);
-  assert.match(markup, /id="audioAction"[^>]*>Start</);
+  assert.match(markup, /id="audioButton"[\s\S]{0,220}aria-label="Turn Ouroboros audio on"/);
+  assert.match(markup, /id="audioAction"[^>]*>Audio</);
   assert.match(markup, /id="audioState">off</);
   assert.match(
     markup,
     /<canvas[\s\S]+id="stage"[\s\S]+data-interactive-track[\s\S]+role="img"[\s\S]+aria-describedby=/,
   );
   const transportTag = markup.match(/<button\b[^>]*\bid="transportButton"[^>]*>/)?.[0];
-  assert.ok(transportTag, "missing explicit Ouroboros Start/Stop transport");
+  assert.ok(transportTag, "missing explicit Ouroboros Sweep/Stop transport");
   assert.match(transportTag, /\baria-pressed="false"/);
   assert.match(transportTag, /\bdata-primary-transport(?:\s|=|>)/);
   assert.match(markup, /id="transportIcon"[^>]*>[\s\S]*▶/);
-  assert.match(markup, /id="transportLabel"[^>]*>Start</);
+  assert.match(markup, /id="transportLabel"[^>]*>Sweep</);
   assert.match(markup, /id="liveStatus"[^>]+aria-live="polite"/);
   assert.match(markup, /id="audioError"[^>]+role="alert"[^>]+hidden/);
   assert.match(markup, /data-reset-all[^>]+data-reset-in-place/);
@@ -817,11 +885,11 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
     /id="strikeButton"[^>]+data-midi-trigger="strike"[^>]+aria-label=/,
   );
   assert.match(markup, /id="presetGrid"[^>]+role="group"/);
-  assert.match(markup, /id="direction"[^>]+role="group"[^>]+aria-label=/);
-  assert.match(markup, /id="directionRise"[^>]+data-value="1"[^>]+aria-pressed="true"/);
-  assert.match(markup, /id="directionFall"[^>]+data-value="-1"[^>]+aria-pressed="false"/);
+  assert.match(markup, /<fieldset[^>]+id="direction"[^>]+aria-label="Sweep direction"/);
+  assert.match(markup, /id="directionRise"[^>]+name="sweepDirection"[^>]+value="1"[^>]+checked/);
+  assert.match(markup, /id="directionFall"[^>]+name="sweepDirection"[^>]+value="-1"/);
   for (const id of [
-    "level", "glissRate", "hitRate", "centerPitch", "bankWidth", "voiceInterval", "spread",
+    "level", "pluckPosition", "glissRate", "hitRate", "centerPitch", "bankWidth", "voiceInterval", "spread",
     "decay", "character", "morphDepth", "noiseMix", "cutoff",
   ]) {
     assert.match(markup, new RegExp(`<label[^>]+for="${id}"`), id);
@@ -840,6 +908,10 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
     /id="voiceInterval"[^>]+min="0\.5"[^>]+max="2"[^>]+step="0\.01"[^>]+value="1"/,
   );
   assert.match(markup, /id="hitRate"[^>]+min="0\.5"[^>]+max="24"[^>]+value="4"/);
+  assert.match(markup, /id="pluckPosition"[^>]+min="0"[^>]+max="1"[^>]+step="\.0001"/);
+  assert.match(markup, /Pluck rail/i);
+  assert.match(markup, /Hit density/i);
+  assert.match(markup, /Gliss speed/i);
   assert.match(markup, /id="shepardSummary">19\.4 Hz–622 Hz · 5\.0 oct</);
   assert.match(markup, /id="noiseMixOut"[^>]*>30%</);
   assert.match(markup, /id="cutoffOut"[^>]*>8\.0 kHz</);
@@ -849,32 +921,41 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   assert.match(markup, /voice interval|parallel voice/i);
   assert.match(markup, /one octave|2:1/i);
   assert.match(markup, /drag|pointer/i);
-  assert.match(markup, /racetrack/i);
+  assert.match(markup, /thick[^<]+oval|closed oval/i);
   assert.match(markup, /src="ouroboros-app\.js"/);
   assert.doesNotMatch(markup, /https?:\/\//);
 
   assert.match(app, /new OuroborosAudio\(globalThis\)/);
   assert.match(app, /audioButton"\)\.addEventListener\("click", toggleAudio\)/);
-  assert.match(app, /transportButton"\)\.addEventListener\("click", toggleAudio\)/);
-  assert.match(app, /audioAction"\)\.textContent = state\.audioOn \? "Stop" : "Start"/);
-  assert.match(app, /setPressed\(\$\("transportButton"\), state\.audioOn\)/);
+  assert.match(app, /transportButton"\)\.addEventListener\("click", toggleSweep\)/);
+  assert.match(app, /audioAction"\)\.textContent = "Audio"/);
+  assert.match(app, /setPressed\(\$\("transportButton"\), state\.sweeping\)/);
   assert.match(
     app,
-    /transportLabel"\)\.textContent = state\.audioStarting[\s\S]{0,180}"Stop"[\s\S]{0,80}"Start"/,
+    /transportLabel"\)\.textContent = state\.audioStarting[\s\S]{0,180}"Stop"[\s\S]{0,80}"Sweep"/,
   );
   assert.match(
     app,
-    /transportIcon"\)\.textContent = state\.audioStarting[\s\S]{0,120}"■"[\s\S]{0,80}"▶"/,
+    /transportIcon"\)\.textContent = state\.audioStarting[\s\S]{0,120}state\.sweeping[\s\S]{0,80}"■"[\s\S]{0,80}"▶"/,
   );
+  const audioStart = functionBody(app, "startAudio");
+  assert.match(audioStart, /await audio\.enable\(\)/);
+  assert.doesNotMatch(audioStart, /audio\.start\(\)|setTransport\(/);
+  const sweepStart = functionBody(app, "startSweep");
+  assert.match(sweepStart, /await startAudio\(\)/);
+  assert.match(sweepStart, /audio\.setTransport\(true\)/);
+  const sweepStop = functionBody(app, "stopSweep");
+  assert.match(sweepStop, /audio\.stopTransport\(\)/);
   assert.match(app, /calculateOuroborosLayers/);
   assert.match(
     app,
     /center \* 2 \*\* -halfWidth[\s\S]*center \* 2 \*\* halfWidth/,
   );
   assert.match(app, /shepardSummary"\)\.textContent = `\$\{register\}/);
-  assert.match(app, /morphPosition/);
+  assert.match(source, /morphPosition/);
   assert.match(app, /function trackPositionFromPointer\(event\)/);
   assert.match(app, /function strikeTrackPosition\(position, velocity/);
+  assert.match(app, /function setPluckPosition\(position\)/);
   assert.match(app, /function releaseTrackPointer\(event\)/);
   assert.match(app, /function drawPlayhead\(/);
   assert.match(app, /canvas\.addEventListener\("pointerdown"/);
@@ -891,7 +972,7 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   assert.match(pointerMapping, /return wrapUnit\(closestPosition\)/);
   assert.match(
     app,
-    /canvas\.addEventListener\("pointerdown",[\s\S]{0,700}trackPositionFromPointer\(event\)[\s\S]{0,350}strikeTrackPosition\(position,/,
+    /canvas\.addEventListener\("pointerdown",[\s\S]{0,800}trackPositionFromPointer\(event\)[\s\S]{0,500}setPluckPosition\(position\)[\s\S]{0,500}strikeTrackPosition\(position,/,
   );
   assert.match(
     app,
@@ -901,19 +982,36 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   assert.match(trackStrike, /await startAudio\(\)/);
   assert.match(
     trackStrike,
-    /audio\.strike\([^,\n]+,\s*[^)\n]*position\)/,
-    "racetrack audition must send its position through the audio API",
+    /audio\.setPosition\([^)]*position\)/,
+    "manual playing must place the complete Shepard bank at the playhead",
   );
-  assert.doesNotMatch(
+  assert.match(
     trackStrike,
-    /state\.visualPosition\s*=/,
-    "pointer audition must not jump the autonomous visual playhead",
+    /audio\.strike\([^,\n]+\)/,
+    "manual playing must strike the normalized full bank",
+  );
+  assert.doesNotMatch(trackStrike, /audio\.strike\([^,\n]+,\s*[^)\n]+\)/);
+  const setPluck = functionBody(app, "setPluckPosition");
+  assert.match(setPluck, /state\.visualPosition\s*=\s*normalized/);
+  assert.match(setPluck, /audio\.setPosition\(normalized\)/);
+  assert.match(
+    app,
+    /canvas\.addEventListener\("pointerdown",[\s\S]{0,400}stopSweep\(\{ announceStop: false \}\)/,
+  );
+  assert.match(app, /pluckPosition"\)\.addEventListener\("input"/);
+  assert.match(
+    app,
+    /pluckPosition"\)\.addEventListener\("input"[\s\S]{0,500}strikeTrackPosition\(position,/,
   );
   const playhead = functionBody(app, "drawPlayhead");
   assert.match(playhead, /state\.visualPosition/);
   assert.match(playhead, /pointOnCoil\(normalized, geometry\)/);
+  assert.doesNotMatch(playhead, /AUDITION|pointerTrackPosition/);
+  assert.match(app, /function drawHitFlash\(/);
+  assert.doesNotMatch(app, /function drawLayerNodes\(|function drawStrikeGlyph\(/);
   assert.match(app, /drawPlayhead\(context2d, geometry, safe\)/);
   const visualAdvance = functionBody(app, "advanceVisualState");
+  assert.match(visualAdvance, /if \(!state\.sweeping\) return/);
   assert.match(
     visualAdvance,
     /phaseMotionDelta = motionDelta \/ safe\.voiceInterval/,
@@ -943,7 +1041,15 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   assert.match(pageHide, /audio\.stop\(\)/);
   assert.match(pageHide, /audio\.close\(\)/);
   assert.doesNotMatch(app, /new AudioContext/);
-  assert.match(source, /async start\(\)\s*\{\s*await this\.initialize\(\)/);
+  assert.match(source, /async enable\(\)\s*\{\s*await this\.initialize\(\)/);
+  assert.match(source, /async start\(\)[\s\S]{0,100}await this\.enable\(\)/);
+  assert.match(source, /type: "audible"/);
+  assert.match(source, /type: "transport"/);
+  assert.match(source, /type: "position"/);
+  assert.match(source, /setPosition\(position\)/);
+  assert.match(source, /const transportActive = this\.transportTarget > 0\.5/);
   assert.match(styles, /#stage\s*\{[^}]*touch-action:\s*none/s);
+  assert.match(styles, /\.ouroboros-stage-wrap\s*\{[^}]*height:\s*clamp/s);
+  assert.match(styles, /\.ouroboros-performance-transport/);
   assert.match(styles, /@media \(max-width: 560px\)/);
 });

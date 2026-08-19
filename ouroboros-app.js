@@ -19,12 +19,11 @@ const reducedMotion = globalThis.matchMedia?.(
 const DEFAULT_SAMPLE_RATE = 48_000;
 const DRAW_INTERVAL = 1_000 / 30;
 const REDUCED_DRAW_INTERVAL = 1_000 / 5;
-const STRIKE_HISTORY_SECONDS = 2.4;
+const STRIKE_HISTORY_SECONDS = 0.85;
 const VISUAL_PARAMETER_SLEW = 0.035;
 const MAX_STRIKE_EVENTS = 96;
 const TAU = Math.PI * 2;
-const HEAD_ANGLE = -0.42;
-const HEAD_GAP = 0.24;
+const COIL_START_ANGLE = -Math.PI * 0.5;
 const FAMILY_COLORS = Object.freeze([
   [241, 200, 111],
   [255, 142, 114],
@@ -72,10 +71,10 @@ const state = {
   level: initialSafe.level,
   audioOn: false,
   audioStarting: false,
-  visualPosition: 0,
-  visualTravel: 0,
+  sweeping: false,
+  visualPosition: 0.5,
   visualHitPhase: 0.31,
-  pointerTrackPosition: null,
+  pluckPosition: 0.5,
 };
 const visualMotion = {
   direction: initialSafe.direction,
@@ -98,6 +97,7 @@ let strikeEvents = [];
 let activeTrackPointer = null;
 let lastPointerPosition = null;
 let lastPointerStrikeTime = -Infinity;
+let lastRailStrikeTime = -Infinity;
 let pendingTrackStrike = null;
 let trackStrikePromise = null;
 
@@ -115,7 +115,9 @@ function wrapUnit(value) {
 function compactNumber(value, digits = 2) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return "0";
-  return numeric.toFixed(digits).replace(/\.?0+$/, "");
+  const precision = Math.max(0, Math.floor(digits));
+  if (precision === 0) return Math.round(numeric).toString();
+  return numeric.toFixed(precision).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function formatFrequency(value) {
@@ -140,21 +142,24 @@ function formatRegister(centerPitch, bankWidth) {
   return `${formatFrequency(low)}–${formatFrequency(high)}`;
 }
 
+function trackFrequencyAtPosition(position, parameters = currentParameters()) {
+  const { low } = registerBounds(parameters.centerPitch, parameters.bankWidth);
+  return low * 2 ** (clamp(position, 0, 1) * parameters.bankWidth);
+}
+
+function trackTimbreLabel(position) {
+  const amount = clamp(position, 0, 1);
+  if (amount < 0.16) return "deep body";
+  if (amount < 0.34) return "kick / tom";
+  if (amount < 0.58) return "tom / hand";
+  if (amount < 0.8) return "hand / rattle";
+  return "high air";
+}
+
 function formatDecay(value) {
   const seconds = Math.max(0, Number(value) || 0);
   if (seconds < 1) return `${Math.round(seconds * 1_000)} ms`;
   return `${compactNumber(seconds, 2)} s`;
-}
-
-function formatHitRate(value) {
-  const rate = Math.max(0, Number(value) || 0);
-  return `${compactNumber(rate, rate % 1 ? 2 : 0)} hits/s · ${compactNumber(rate * 60, 0)} BPM`;
-}
-
-function formatGlissRate(value, voiceInterval = 1) {
-  const rate = Math.max(0.0001, Number(value) || 0.0001);
-  const interval = clamp(voiceInterval, 0.5, 2);
-  return `${rate.toFixed(2)} oct/s · wraps in ${compactNumber(interval / rate, 1)} s`;
 }
 
 function formatVoiceInterval(value) {
@@ -289,18 +294,32 @@ function updateAudioParameters() {
   audio.setParameters(currentParameters());
 }
 
+function paintPluckPosition(position = state.pluckPosition) {
+  const safe = currentParameters();
+  const normalized = clamp(position, 0, 1);
+  const frequency = trackFrequencyAtPosition(normalized, safe);
+  const { low, high } = registerBounds(safe.centerPitch, safe.bankWidth);
+  state.pluckPosition = normalized;
+  $("pluckPosition").value = String(normalized);
+  $("pluckPositionOut").textContent = `${formatFrequency(frequency)} · ${trackTimbreLabel(normalized)}`;
+  $("pluckReadout").textContent = formatFrequency(frequency);
+  $("pluckLowOut").textContent = formatFrequency(low);
+  $("pluckCenterOut").textContent = formatFrequency(safe.centerPitch);
+  $("pluckHighOut").textContent = formatFrequency(high);
+}
+
 function updateInterface({ rebuildPresets = false } = {}) {
   const safe = currentParameters();
-  if (!state.audioOn) snapVisualMotion(safe);
+  if (!state.sweeping) snapVisualMotion(safe);
   const rising = safe.direction > 0;
   const frame = currentLayerFrame();
   const active = activeLayerCount(frame);
   const register = formatRegister(safe.centerPitch, safe.bankWidth);
 
-  setPressed($("directionRise"), rising);
-  setPressed($("directionFall"), !rising);
+  $("directionRise").checked = rising;
+  $("directionFall").checked = !rising;
   setPressed($("audioButton"), state.audioOn);
-  setPressed($("transportButton"), state.audioOn);
+  setPressed($("transportButton"), state.sweeping);
   $("audioButton").disabled = state.audioStarting;
   $("transportButton").disabled = state.audioStarting;
   $("strikeButton").disabled = state.audioStarting;
@@ -311,21 +330,21 @@ function updateInterface({ rebuildPresets = false } = {}) {
       : "off";
   $("audioButton").setAttribute(
     "aria-label",
-    state.audioOn ? "Stop Ouroboros" : "Start Ouroboros",
+    state.audioOn ? "Turn Ouroboros audio off" : "Turn Ouroboros audio on",
   );
-  $("audioAction").textContent = state.audioOn ? "Stop" : "Start";
+  $("audioAction").textContent = "Audio";
   $("audioState").textContent = state.audioOn ? "on" : "off";
-  $("transportIcon").textContent = state.audioStarting ? "…" : state.audioOn ? "■" : "▶";
+  $("transportIcon").textContent = state.audioStarting ? "…" : state.sweeping ? "■" : "▶";
   $("transportLabel").textContent = state.audioStarting
     ? "Starting"
-    : state.audioOn
+    : state.sweeping
       ? "Stop"
-      : "Start";
+      : "Sweep";
   $("transportButton").setAttribute(
     "aria-label",
-    state.audioOn
-      ? "Stop automatic Ouroboros motion and strikes"
-      : "Start automatic Ouroboros motion and strikes",
+    state.sweeping
+      ? "Stop automatic Ouroboros sweep"
+      : "Start automatic Ouroboros sweep",
   );
 
   for (const id of [
@@ -346,8 +365,8 @@ function updateInterface({ rebuildPresets = false } = {}) {
     $(id).value = String(value);
   }
 
-  $("glissRateOut").textContent = formatGlissRate(safe.glissRate, safe.voiceInterval);
-  $("hitRateOut").textContent = formatHitRate(safe.hitRate);
+  $("glissRateOut").textContent = `${safe.glissRate.toFixed(2)} oct/s`;
+  $("hitRateOut").textContent = `${compactNumber(safe.hitRate, 2)} /s`;
   $("centerPitchOut").textContent = formatFrequency(safe.centerPitch);
   $("bankWidthOut").textContent = `${safe.bankWidth.toFixed(1)} octaves`;
   $("voiceIntervalOut").textContent = formatVoiceInterval(safe.voiceInterval);
@@ -374,12 +393,15 @@ function updateInterface({ rebuildPresets = false } = {}) {
     `${register.toUpperCase()} REGISTER`,
     `${safe.voiceInterval.toFixed(2)} OCT VOICES`,
     `${active} BODIES`,
-    state.audioOn ? "PLAYING" : "STOPPED",
+    state.sweeping ? "SWEEPING" : "MANUAL",
+    state.audioOn ? "AUDIO ON" : "AUDIO OFF",
   ].join(" · ");
   canvas.setAttribute(
     "aria-label",
-    `A wide interactive ${active}-body serpent racetrack carries persistent Rattlesnake strikes through an endlessly ${rising ? "rising" : "falling"} Shepard glissando at ${safe.glissRate.toFixed(2)} octaves per second and ${compactNumber(safe.hitRate, 2)} hits per second. Parallel voices are ${safe.voiceInterval.toFixed(2)} octaves apart and the calculated register spans ${register}. Drag around the track to audition its pitch and timbre space.`,
+    `A thick closed ${active}-body oval maps the Rattlesnake spectrum across a ${register} Shepard register. Drag around the oval or across the pluck rail for manual hits without starting the automatic sweep.`,
   );
+
+  paintPluckPosition();
 
   const preset = selectedPreset();
   $("presetSummary").textContent = preset ? presetLabel(preset) : "Custom";
@@ -415,11 +437,11 @@ $("presetGrid").addEventListener("click", (event) => {
   if (button) applyPreset(button.dataset.preset);
 });
 
-$("direction").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-value]");
-  if (!button) return;
+$("direction").addEventListener("change", (event) => {
+  const input = event.target.closest('input[name="sweepDirection"]');
+  if (!input) return;
   synchronizeVisualClock();
-  state.coil.direction = Number(button.dataset.value) < 0 ? -1 : 1;
+  state.coil.direction = Number(input.value) < 0 ? -1 : 1;
   markCustom();
   updateInterface();
   announce(`Ouroboros pitch now ${state.coil.direction > 0 ? "rises" : "falls"} endlessly.`);
@@ -466,7 +488,8 @@ async function startAudio() {
   const startPromise = (async () => {
     try {
       updateAudioParameters();
-      await audio.start();
+      await audio.enable();
+      audio.setPosition(state.visualPosition);
       if (disposed || generation !== audioStartGeneration) {
         if (disposed) await audio.close();
         else audio.stop();
@@ -477,7 +500,7 @@ async function startAudio() {
       lastAudioVisualTime = Number.isFinite(audio.context?.currentTime)
         ? audio.context.currentTime
         : null;
-      announce("Ouroboros started.");
+      announce("Ouroboros audio ready for manual playing.");
       return true;
     } catch (error) {
       state.audioOn = false;
@@ -501,65 +524,61 @@ async function toggleAudio() {
   if (state.audioOn) {
     synchronizeVisualClock();
     audio.stop();
+    state.sweeping = false;
     state.audioOn = false;
     lastAudioVisualTime = null;
     updateInterface();
-    announce("Ouroboros stopped.");
+    announce("Ouroboros audio off.");
     return;
   }
   await startAudio();
 }
 
 $("audioButton").addEventListener("click", toggleAudio);
-$("transportButton").addEventListener("click", toggleAudio);
+
+async function startSweep() {
+  if (state.sweeping || state.audioStarting) return false;
+  if (!await startAudio()) return false;
+  state.sweeping = audio.setTransport(true);
+  if (!state.sweeping) return false;
+  lastAnimationTime = performance.now();
+  lastAudioVisualTime = Number.isFinite(audio.context?.currentTime)
+    ? audio.context.currentTime
+    : null;
+  updateInterface();
+  scheduleAnimation();
+  announce(`Ouroboros sweep started ${state.coil.direction > 0 ? "up" : "down"}.`);
+  return true;
+}
+
+function stopSweep(options = null) {
+  const announceStop = options?.announceStop ?? true;
+  if (!state.sweeping) return false;
+  synchronizeVisualClock();
+  audio.stopTransport();
+  state.sweeping = false;
+  state.pluckPosition = state.visualPosition;
+  updateInterface();
+  if (announceStop) announce("Ouroboros sweep stopped. Manual playing remains active.");
+  return true;
+}
+
+function toggleSweep() {
+  if (state.sweeping) stopSweep();
+  else void startSweep();
+}
+
+$("transportButton").addEventListener("click", toggleSweep);
 
 function visualStrike(
   position,
   velocity = 0.86,
   age = 0,
-  travelAtStrike = state.visualTravel,
 ) {
-  const safe = currentParameters();
-  const frame = currentLayerFrame(position);
-  const layers = frameLayers(frame).filter(layerIsActive);
-  const maximumWeight = Math.max(1e-7, ...layers.map(layerWeight));
-  const marks = layers.map((layer) => ({
-    normalized: clamp(
-      0.5 + Number(layer.octaveOffset || 0) / Math.max(3, safe.bankWidth),
-      0,
-      1,
-    ),
-    morph: clamp(layer.morphPosition, 0, 1),
-    strength: clamp(layerWeight(layer) / maximumWeight, 0, 1),
-    bankWidth: safe.bankWidth,
-  }));
   strikeEvents.push({
     age,
     velocity: clamp(velocity, 0, 1),
-    direction: safe.direction,
-    travelAtStrike,
-    marks,
-  });
-  if (strikeEvents.length > MAX_STRIKE_EVENTS) {
-    strikeEvents.splice(0, strikeEvents.length - MAX_STRIKE_EVENTS);
-  }
-  visualizationDirty = true;
-}
-
-function visualTrackStrike(position, velocity = 0.8) {
-  const safe = currentParameters();
-  const normalized = wrapUnit(position);
-  strikeEvents.push({
-    age: 0,
-    velocity: clamp(velocity, 0, 1),
-    direction: safe.direction,
-    travelAtStrike: state.visualTravel,
-    marks: [{
-      normalized,
-      morph: normalized,
-      strength: 1,
-      bankWidth: safe.bankWidth,
-    }],
+    normalized: wrapUnit(position),
   });
   if (strikeEvents.length > MAX_STRIKE_EVENTS) {
     strikeEvents.splice(0, strikeEvents.length - MAX_STRIKE_EVENTS);
@@ -575,12 +594,13 @@ function flashStrikeButton() {
 
 async function strikeCurrentBank(velocity = 0.9) {
   if (!await startAudio()) return false;
+  audio.setPosition(state.pluckPosition);
   const struck = audio.strike(velocity);
   if (!struck) return false;
-  visualStrike(state.visualPosition, velocity);
+  visualStrike(state.pluckPosition, velocity);
   flashStrikeButton();
   scheduleAnimation();
-  announce(`Ouroboros struck at ${formatFrequency(currentParameters().centerPitch)} center pitch.`);
+  announce(`Ouroboros struck at ${formatFrequency(trackFrequencyAtPosition(state.pluckPosition))}.`);
   return true;
 }
 
@@ -599,8 +619,9 @@ function strikeTrackPosition(position, velocity = 0.8) {
     while (pendingTrackStrike) {
       const audition = pendingTrackStrike;
       pendingTrackStrike = null;
-      if (audio.strike(audition.velocity, audition.position)) {
-        visualTrackStrike(audition.position, audition.velocity);
+      audio.setPosition(audition.position);
+      if (audio.strike(audition.velocity)) {
+        visualStrike(audition.position, audition.velocity);
         struck = true;
       }
     }
@@ -621,9 +642,13 @@ $("strikeButton").addEventListener("click", () => {
 });
 
 document.querySelector("[data-reset-all]").addEventListener("click", () => {
+  stopSweep({ announceStop: false });
   synchronizeVisualClock();
   state.coil = createMemory();
   state.level = initialSafe.level;
+  state.visualPosition = 0.5;
+  state.pluckPosition = 0.5;
+  state.visualHitPhase = 0.31;
   clearAudioError();
   updateInterface({ rebuildPresets: true });
   announce("Ouroboros parameters reset.");
@@ -641,7 +666,7 @@ canvas.addEventListener("keydown", (event) => {
     if (!event.repeat) strikeCurrentBank();
   } else if (event.key.toLowerCase() === "p") {
     event.preventDefault();
-    if (!event.repeat) toggleAudio();
+    if (!event.repeat) toggleSweep();
   }
 });
 
@@ -673,6 +698,17 @@ function trackDistance(first, second) {
   return Math.min(direct, 1 - direct);
 }
 
+function setPluckPosition(position) {
+  const normalized = clamp(position, 0, 1);
+  state.visualPosition = normalized;
+  state.pluckPosition = normalized;
+  if (state.audioOn) audio.setPosition(normalized);
+  paintPluckPosition(normalized);
+  visualizationDirty = true;
+  scheduleAnimation();
+  return normalized;
+}
+
 function releaseTrackPointer(event) {
   if (activeTrackPointer === null || event.pointerId !== activeTrackPointer) return;
   try {
@@ -682,7 +718,6 @@ function releaseTrackPointer(event) {
   }
   activeTrackPointer = null;
   lastPointerPosition = null;
-  state.pointerTrackPosition = null;
   $("stageWrap").classList.remove("is-auditioning");
   visualizationDirty = true;
   scheduleAnimation();
@@ -692,7 +727,6 @@ function cancelTrackInteraction() {
   activeTrackPointer = null;
   lastPointerPosition = null;
   pendingTrackStrike = null;
-  state.pointerTrackPosition = null;
   $("stageWrap").classList.remove("is-auditioning");
 }
 
@@ -700,11 +734,12 @@ canvas.addEventListener("pointerdown", (event) => {
   if (event.isPrimary === false) return;
   event.preventDefault();
   canvas.focus?.();
+  stopSweep({ announceStop: false });
   activeTrackPointer = event.pointerId;
   canvas.setPointerCapture?.(event.pointerId);
   $("stageWrap").classList.add("is-auditioning");
   const position = trackPositionFromPointer(event);
-  state.pointerTrackPosition = position;
+  setPluckPosition(position);
   lastPointerPosition = position;
   lastPointerStrikeTime = performance.now();
   visualizationDirty = true;
@@ -717,7 +752,7 @@ canvas.addEventListener("pointermove", (event) => {
   event.preventDefault();
   const position = trackPositionFromPointer(event);
   const movement = trackDistance(position, lastPointerPosition ?? position);
-  state.pointerTrackPosition = position;
+  setPluckPosition(position);
   visualizationDirty = true;
   scheduleAnimation();
   const now = performance.now();
@@ -732,6 +767,21 @@ canvas.addEventListener("pointermove", (event) => {
 
 canvas.addEventListener("pointerup", releaseTrackPointer);
 canvas.addEventListener("pointercancel", releaseTrackPointer);
+
+$("pluckPosition").addEventListener("input", (event) => {
+  stopSweep({ announceStop: false });
+  const position = setPluckPosition(Number(event.currentTarget.value));
+  const now = performance.now();
+  if (now - lastRailStrikeTime >= 30) {
+    lastRailStrikeTime = now;
+    void strikeTrackPosition(position, 0.72);
+  }
+});
+
+$("pluckPosition").addEventListener("change", () => {
+  visualizationDirty = true;
+  scheduleAnimation();
+});
 
 function resizeCanvas() {
   if (disposed) return;
@@ -754,38 +804,33 @@ function resizeCanvas() {
 function coilGeometry(width, height) {
   const compact = width < 640;
   const centerX = width * 0.5;
-  const centerY = height * (compact ? 0.45 : 0.46);
-  const availableWidth = Math.max(120, width - (compact ? 48 : 92));
-  const availableHeight = Math.max(90, height - (compact ? 112 : 134));
-  const radiusX = Math.max(58, availableWidth * 0.44);
+  const centerY = height * 0.5;
+  const availableWidth = Math.max(120, width - (compact ? 40 : 72));
+  const availableHeight = Math.max(90, height - (compact ? 56 : 84));
+  const radiusX = Math.max(58, availableWidth * 0.42);
   const radiusY = Math.max(
     38,
-    Math.min(availableHeight * 0.31, radiusX * (compact ? 0.42 : 0.48)),
+    Math.min(availableHeight * 0.34, radiusX * (compact ? 0.48 : 0.4)),
   );
-  const bodyWidth = clamp(radiusY * 0.17, 12, 29);
+  const bodyWidth = clamp(radiusY * 0.46, compact ? 28 : 36, compact ? 54 : 82);
   return { centerX, centerY, radiusX, radiusY, bodyWidth };
 }
 
-function signedSuperellipsePower(value, power) {
-  return Math.sign(value) * Math.abs(value) ** power;
-}
-
-function superellipsePoint(angle, radiusX, radiusY) {
-  const power = 2 / 3.4;
+function ellipsePoint(angle, radiusX, radiusY) {
   return {
-    x: signedSuperellipsePower(Math.cos(angle), power) * radiusX,
-    y: signedSuperellipsePower(Math.sin(angle), power) * radiusY,
+    x: Math.cos(angle) * radiusX,
+    y: Math.sin(angle) * radiusY,
   };
 }
 
 function pointOnCoil(normalized, geometry, radialOffset = 0) {
   const amount = clamp(normalized, 0, 1);
-  const angle = HEAD_ANGLE + HEAD_GAP + amount * (TAU - HEAD_GAP * 2);
+  const angle = COIL_START_ANGLE + amount * TAU;
   const radiusX = geometry.radiusX + radialOffset;
   const radiusY = geometry.radiusY + radialOffset * 0.78;
-  const point = superellipsePoint(angle, radiusX, radiusY);
-  const before = superellipsePoint(angle - 0.001, radiusX, radiusY);
-  const after = superellipsePoint(angle + 0.001, radiusX, radiusY);
+  const point = ellipsePoint(angle, radiusX, radiusY);
+  const before = ellipsePoint(angle - 0.001, radiusX, radiusY);
+  const after = ellipsePoint(angle + 0.001, radiusX, radiusY);
   return {
     x: geometry.centerX + point.x,
     y: geometry.centerY + point.y,
@@ -795,9 +840,9 @@ function pointOnCoil(normalized, geometry, radialOffset = 0) {
 }
 
 function mixFamilyColor(position, alpha = 1) {
-  const amount = clamp(position, 0, 1) * (FAMILY_COLORS.length - 1);
-  const lower = Math.min(FAMILY_COLORS.length - 1, Math.floor(amount));
-  const upper = Math.min(FAMILY_COLORS.length - 1, lower + 1);
+  const amount = wrapUnit(position) * FAMILY_COLORS.length;
+  const lower = Math.floor(amount) % FAMILY_COLORS.length;
+  const upper = (lower + 1) % FAMILY_COLORS.length;
   const mix = amount - lower;
   const channels = FAMILY_COLORS[lower].map((channel, index) => Math.round(
     channel + (FAMILY_COLORS[upper][index] - channel) * mix,
@@ -805,180 +850,142 @@ function mixFamilyColor(position, alpha = 1) {
   return `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${alpha})`;
 }
 
-function drawPitchGuides(ctx, geometry, safe) {
+function traceCoilPath(ctx, geometry, radialOffset = 0, variation = null) {
+  const segmentCount = 240;
+  ctx.beginPath();
+  for (let index = 0; index <= segmentCount; index += 1) {
+    const position = index / segmentCount;
+    const offset = radialOffset + (variation?.(position) ?? 0);
+    const point = pointOnCoil(position, geometry, offset);
+    if (index === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
+  }
+  ctx.closePath();
+}
+
+function drawPitchGuides(ctx, geometry) {
   ctx.save();
-  ctx.font = "8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const guideCount = Math.max(
-    3,
-    Math.min(16, Math.round(safe.bankWidth / safe.voiceInterval)),
-  );
-  for (let index = 0; index <= guideCount; index += 1) {
-    const point = pointOnCoil(index / guideCount, geometry, geometry.bodyWidth * 0.95);
-    const inner = pointOnCoil(index / guideCount, geometry, geometry.bodyWidth * 0.68);
+  const guideCount = geometry.radiusX > 300 ? 72 : 48;
+  for (let index = 0; index < guideCount; index += 1) {
+    const position = index / guideCount;
+    const major = index % 6 === 0;
+    const inner = pointOnCoil(
+      position,
+      geometry,
+      -geometry.bodyWidth * (major ? 0.5 : 0.43),
+    );
+    const outer = pointOnCoil(
+      position,
+      geometry,
+      geometry.bodyWidth * (major ? 0.5 : 0.43),
+    );
     ctx.beginPath();
     ctx.moveTo(inner.x, inner.y);
-    ctx.lineTo(point.x, point.y);
-    ctx.strokeStyle = "rgba(214, 232, 226, 0.18)";
-    ctx.lineWidth = 1;
+    ctx.lineTo(outer.x, outer.y);
+    ctx.strokeStyle = major
+      ? "rgba(222, 244, 235, 0.34)"
+      : "rgba(214, 232, 226, 0.14)";
+    ctx.lineWidth = major ? 1.15 : 0.7;
     ctx.stroke();
   }
-  ctx.fillStyle = "rgba(214, 232, 226, 0.34)";
-  ctx.fillText(
-    safe.direction > 0 ? "LOWER OCTAVES" : "HIGHER OCTAVES",
-    geometry.centerX,
-    geometry.centerY + geometry.radiusY + geometry.bodyWidth * 1.7,
-  );
-  ctx.fillStyle = "rgba(133, 228, 183, 0.78)";
-  ctx.font = "600 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-  ctx.fillText(
-    `${(2 ** safe.voiceInterval).toFixed(2)} : 1`,
-    geometry.centerX,
-    geometry.centerY - 7,
-  );
-  ctx.fillStyle = "rgba(214, 232, 226, 0.38)";
-  ctx.font = "8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-  ctx.fillText("PARALLEL VOICE INTERVAL", geometry.centerX, geometry.centerY + 9);
+
+  const labels = [
+    [0.04, "LOW BODY"],
+    [0.29, "TOM"],
+    [0.54, "HAND"],
+    [0.79, "HIGH AIR"],
+  ];
+  ctx.font = "7px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (const [position, label] of labels) {
+    const point = pointOnCoil(position, geometry, geometry.bodyWidth * 0.72);
+    ctx.fillStyle = mixFamilyColor(position, 0.72);
+    ctx.fillText(label, point.x, point.y);
+  }
+
   ctx.restore();
 }
 
 function drawSerpent(ctx, geometry, safe) {
-  const segmentCount = 112;
   ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  traceCoilPath(ctx, geometry);
+  ctx.strokeStyle = "rgba(2, 5, 6, 0.96)";
+  ctx.lineWidth = geometry.bodyWidth + 10;
+  ctx.stroke();
+
+  traceCoilPath(ctx, geometry);
+  ctx.strokeStyle = "rgba(12, 18, 18, 0.98)";
+  ctx.lineWidth = geometry.bodyWidth;
+  ctx.stroke();
+
+  const segmentCount = 180;
   ctx.lineCap = "butt";
   for (let index = 0; index < segmentCount; index += 1) {
     const start = index / segmentCount;
-    const end = (index + 1.08) / segmentCount;
+    const end = (index + 1.15) / segmentCount;
     const first = pointOnCoil(start, geometry);
     const second = pointOnCoil(Math.min(1, end), geometry);
-    const familyPosition = clamp(start, 0, 1);
-    const edgeFade = Math.sin(Math.PI * clamp(start, 0, 1)) ** 0.32;
     ctx.beginPath();
     ctx.moveTo(first.x, first.y);
     ctx.lineTo(second.x, second.y);
-    ctx.strokeStyle = "rgba(2, 5, 6, 0.92)";
-    ctx.lineWidth = geometry.bodyWidth + 6;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(first.x, first.y);
-    ctx.lineTo(second.x, second.y);
-    ctx.strokeStyle = mixFamilyColor(familyPosition, 0.2 + edgeFade * 0.47);
-    ctx.lineWidth = geometry.bodyWidth;
+    ctx.strokeStyle = mixFamilyColor(start, 0.34);
+    ctx.lineWidth = geometry.bodyWidth - 2;
     ctx.stroke();
   }
 
-  const scaleCount = Math.max(24, Math.round((geometry.radiusX + geometry.radiusY) / 11));
-  const scaleTravel = reducedMotion
-    ? 0
-    : state.visualTravel / Math.max(3, safe.bankWidth);
-  for (let index = 0; index < scaleCount; index += 1) {
-    const normalized = wrapUnit(index / scaleCount + scaleTravel);
-    const point = pointOnCoil(normalized, geometry);
-    const normalX = -Math.sin(point.tangentAngle);
-    const normalY = Math.cos(point.tangentAngle);
-    const half = geometry.bodyWidth * 0.28;
-    ctx.beginPath();
-    ctx.moveTo(point.x - normalX * half, point.y - normalY * half);
-    ctx.lineTo(point.x + normalX * half, point.y + normalY * half);
-    ctx.strokeStyle = mixFamilyColor(normalized, 0.5);
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-
-  const headPoint = pointOnCoil(0, geometry);
-  const nextPoint = pointOnCoil(0.035, geometry);
-  const tangentAngle = Math.atan2(nextPoint.y - headPoint.y, nextPoint.x - headPoint.x);
-  const headLength = geometry.bodyWidth * 1.65;
-  const headHalf = geometry.bodyWidth * 0.72;
-  ctx.translate(headPoint.x, headPoint.y);
-  ctx.rotate(tangentAngle);
-  ctx.fillStyle = mixFamilyColor(0.12, 0.94);
-  ctx.strokeStyle = "rgba(3, 7, 8, 0.92)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(headLength * 0.62, 0);
-  ctx.lineTo(-headLength * 0.42, -headHalf);
-  ctx.lineTo(-headLength * 0.72, 0);
-  ctx.lineTo(-headLength * 0.42, headHalf);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "rgba(4, 8, 9, 0.95)";
-  ctx.beginPath();
-  ctx.arc(headLength * 0.08, -headHalf * 0.4, Math.max(1.4, geometry.bodyWidth * 0.09), 0, TAU);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(headLength * 0.56, 0);
-  ctx.lineTo(headLength * 0.14, headHalf * 0.16);
-  ctx.strokeStyle = "rgba(3, 7, 8, 0.86)";
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawLayerNodes(ctx, geometry, safe, frame) {
-  const layers = frameLayers(frame).filter(layerIsActive);
-  const maximumWeight = Math.max(1e-7, ...layers.map(layerWeight));
-  ctx.save();
-  for (const layer of layers) {
-    const normalized = clamp(
-      0.5 + Number(layer.octaveOffset || 0) / Math.max(3, safe.bankWidth),
-      0,
-      1,
+  const laneOffsets = [-0.34, -0.12, 0.12, 0.34];
+  for (let lane = 0; lane < laneOffsets.length; lane += 1) {
+    const phase = lane * 0.19;
+    traceCoilPath(
+      ctx,
+      geometry,
+      laneOffsets[lane] * geometry.bodyWidth,
+      (position) => geometry.bodyWidth * (
+        Math.sin(TAU * (position + phase)) * 0.045
+        + Math.sin(TAU * 2 * (position - phase * 0.5)) * 0.022
+      ),
     );
-    const point = pointOnCoil(normalized, geometry);
-    const strength = clamp(layerWeight(layer) / maximumWeight, 0, 1);
-    const radius = 2 + strength * 3.5;
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, radius, 0, TAU);
-    ctx.fillStyle = mixFamilyColor(layer.morphPosition, 0.35 + strength * 0.6);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(5, 9, 10, 0.92)";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = mixFamilyColor(lane / laneOffsets.length + 0.04, 0.84);
+    ctx.lineWidth = lane === 0 || lane === laneOffsets.length - 1 ? 1.35 : 1.8;
     ctx.stroke();
   }
+
+  const seamInner = pointOnCoil(0, geometry, -geometry.bodyWidth * 0.48);
+  const seamOuter = pointOnCoil(0, geometry, geometry.bodyWidth * 0.48);
+  ctx.beginPath();
+  ctx.moveTo(seamInner.x, seamInner.y);
+  ctx.lineTo(seamOuter.x, seamOuter.y);
+  ctx.strokeStyle = "rgba(238, 255, 248, 0.82)";
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
   ctx.restore();
 }
 
-function drawStrikeGlyph(ctx, point, size, morph, alpha, direction) {
-  const stage = Math.max(0, Math.min(3, Math.floor(clamp(morph, 0, 0.9999) * 4)));
-  const tangent = point.tangentAngle;
+function drawHitFlash(ctx, geometry, normalized, velocity, alpha) {
+  const point = pointOnCoil(normalized, geometry);
+  const normalX = -Math.sin(point.tangentAngle);
+  const normalY = Math.cos(point.tangentAngle);
+  const halfLength = geometry.bodyWidth * (0.34 + velocity * 0.2);
   ctx.save();
-  ctx.translate(Math.round(point.x) + 0.5, Math.round(point.y) + 0.5);
-  ctx.rotate(tangent * direction);
-  ctx.globalAlpha = clamp(alpha, 0.12, 1);
-  ctx.fillStyle = mixFamilyColor(morph, 1);
-  ctx.strokeStyle = mixFamilyColor(morph, 1);
-  ctx.lineWidth = Math.max(1, Math.min(2.2, size * 0.22));
-
-  if (stage === 0) {
-    ctx.beginPath();
-    ctx.arc(0, 0, size * 0.58, 0, TAU);
-    ctx.fill();
-  } else if (stage === 1) {
-    ctx.beginPath();
-    ctx.arc(0, 0, size * 0.64, 0, TAU);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(0, 0, Math.max(1, size * 0.18), 0, TAU);
-    ctx.fill();
-  } else if (stage === 2) {
-    ctx.beginPath();
-    ctx.moveTo(-size, -size * 0.3);
-    ctx.lineTo(size, -size * 0.3);
-    ctx.moveTo(-size * 0.72, size * 0.45);
-    ctx.lineTo(size * 0.72, size * 0.45);
-    ctx.stroke();
-  } else {
-    for (let line = -1; line <= 1; line += 1) {
-      const offset = line * size * 0.52;
-      ctx.beginPath();
-      ctx.moveTo(offset - size * 0.36, -size * 0.8);
-      ctx.lineTo(offset + size * 0.36, size * 0.8);
-      ctx.stroke();
-    }
-  }
+  ctx.globalAlpha = clamp(alpha, 0, 1);
+  ctx.shadowColor = mixFamilyColor(normalized, 0.95);
+  ctx.shadowBlur = 10 + velocity * 8;
+  ctx.strokeStyle = "rgba(244, 255, 249, 0.98)";
+  ctx.lineWidth = 1.2 + velocity * 1.8;
+  ctx.beginPath();
+  ctx.moveTo(
+    point.x - normalX * halfLength,
+    point.y - normalY * halfLength,
+  );
+  ctx.lineTo(
+    point.x + normalX * halfLength,
+    point.y + normalY * halfLength,
+  );
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -1016,52 +1023,18 @@ function drawPlayhead(ctx, geometry, safe) {
   ctx.closePath();
   ctx.fill();
   ctx.restore();
-
-  if (state.pointerTrackPosition === null) return;
-  const audition = pointOnCoil(state.pointerTrackPosition, geometry);
-  ctx.save();
-  ctx.strokeStyle = mixFamilyColor(state.pointerTrackPosition, 0.98);
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([3, 3]);
-  ctx.beginPath();
-  ctx.arc(
-    audition.x,
-    audition.y,
-    geometry.bodyWidth * 0.92,
-    0,
-    TAU,
-  );
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = "rgba(214, 232, 226, 0.72)";
-  ctx.font = "7px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-  ctx.textAlign = "center";
-  ctx.fillText(
-    "AUDITION",
-    audition.x,
-    audition.y - geometry.bodyWidth * 1.25,
-  );
-  ctx.restore();
 }
 
 function drawStrikeHistory(ctx, geometry) {
   for (const strike of strikeEvents) {
     const life = clamp(1 - strike.age / STRIKE_HISTORY_SECONDS, 0, 1);
-    for (const mark of strike.marks) {
-      const travel = (state.visualTravel - strike.travelAtStrike)
-        / Math.max(3, mark.bankWidth);
-      const normalized = wrapUnit(mark.normalized + travel);
-      const point = pointOnCoil(normalized, geometry, geometry.bodyWidth * 0.05);
-      const size = 3.8 + mark.strength * 5.4 + strike.velocity * 1.5;
-      drawStrikeGlyph(
-        ctx,
-        point,
-        size,
-        mark.morph,
-        (0.2 + life * 0.8) * (0.45 + mark.strength * 0.55),
-        strike.direction,
-      );
-    }
+    drawHitFlash(
+      ctx,
+      geometry,
+      strike.normalized,
+      strike.velocity,
+      life * life,
+    );
   }
 }
 
@@ -1076,11 +1049,9 @@ function draw(timestamp, force = false) {
   context2d.clearRect(0, 0, canvasWidth, canvasHeight);
 
   const safe = currentParameters();
-  const frame = currentLayerFrame();
   const geometry = coilGeometry(canvasWidth, canvasHeight);
-  drawPitchGuides(context2d, geometry, safe);
   drawSerpent(context2d, geometry, safe);
-  drawLayerNodes(context2d, geometry, safe, frame);
+  drawPitchGuides(context2d, geometry);
   drawStrikeHistory(context2d, geometry);
   drawPlayhead(context2d, geometry, safe);
 }
@@ -1092,8 +1063,9 @@ function ageStrikeEvents(elapsed) {
 
 function advanceVisualState(elapsed) {
   if (!(elapsed > 0)) return;
-  const safe = currentParameters();
   ageStrikeEvents(elapsed);
+  if (!state.sweeping) return;
+  const safe = currentParameters();
 
   const decay = Math.exp(-elapsed / VISUAL_PARAMETER_SLEW);
   const integratedDecay = VISUAL_PARAMETER_SLEW * (1 - decay);
@@ -1117,15 +1089,15 @@ function advanceVisualState(elapsed) {
 
   const phaseMotionDelta = motionDelta / safe.voiceInterval;
   const nextPosition = wrapUnit(state.visualPosition + phaseMotionDelta);
-  state.visualTravel += motionDelta;
   const rawHitPhase = state.visualHitPhase + hitCycles;
   const hitCount = Math.max(0, Math.floor(rawHitPhase));
   const nextHitPhase = rawHitPhase - hitCount;
   state.visualPosition = nextPosition;
+  state.pluckPosition = nextPosition;
   state.visualHitPhase = nextHitPhase;
+  paintPluckPosition(nextPosition);
 
   const averageHitRate = hitCycles / elapsed;
-  const averageMotionRate = motionDelta / elapsed;
   const averagePhaseRate = phaseMotionDelta / elapsed;
   const retainedHitCount = Math.min(
     hitCount,
@@ -1141,7 +1113,6 @@ function advanceVisualState(elapsed) {
       hitPosition,
       0.76,
       age,
-      state.visualTravel - age * averageMotionRate,
     );
   }
 }
@@ -1168,12 +1139,14 @@ function animate(timestamp) {
       : 0;
   lastAnimationTime = timestamp;
   if (hasAudioClock) lastAudioVisualTime = audioTime;
-  if (state.audioOn) {
+  if (state.sweeping || strikeEvents.length > 0) {
     advanceVisualState(elapsed);
     visualizationDirty = true;
   }
   draw(timestamp);
-  if (state.audioOn) animationFrame = requestAnimationFrame(animate);
+  if (state.sweeping || strikeEvents.length > 0 || activeTrackPointer !== null) {
+    animationFrame = requestAnimationFrame(animate);
+  }
 }
 
 function scheduleAnimation() {
@@ -1204,6 +1177,7 @@ function handlePageHide(event) {
     animationFrame = 0;
     audio.stop();
     state.audioOn = false;
+    state.sweeping = false;
     lastAudioVisualTime = null;
     return;
   }
