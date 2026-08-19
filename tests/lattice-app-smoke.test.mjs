@@ -292,7 +292,9 @@ test("lattice app renders and plays line contacts", async () => {
   assert.equal(firstStartPreview?.routeId, "lattice");
   assert.equal(firstStartPreview?.sourceId, "lattice-transport");
   assert.equal(firstStartPreview?.state, "start");
-  now += 100;
+  // setPlaying() rebases the animation clock to the current wall clock. Rebase
+  // this synthetic frame too so slower CI imports cannot leave it in the past.
+  now = performance.now() + 100;
   queuedFrame(now);
   const reflectedPhase = Number(elements.get("position").value);
   assert.ok(reflectedPhase < 0.997, "Ping-pong must reverse after reaching the far endpoint");
