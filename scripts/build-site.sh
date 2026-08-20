@@ -79,6 +79,7 @@ for worktree_runtime_file in \
   src/morphynx.js \
   tongued-beasts.html \
   tongued-beasts.css \
+  assets/instruments/tongued-beasts.webp \
   hyper-syrinx.html \
   hyper-syrinx.css \
   hyper-syrinx-app.js \
@@ -103,9 +104,13 @@ for worktree_runtime_file in \
   THIRD_PARTY_NOTICES.md \
   music-rooms.html \
   music-rooms.css \
+  assets/instruments/room-lobby.webp \
   vocal-effects-room.html \
+  assets/instruments/vocal-effects-room.webp \
   instrument-share-room.html \
+  assets/instruments/instrument-share-room.webp \
   morphazoid-roulette.html \
+  assets/instruments/morphazoid-roulette.webp \
   instruments.html \
   instrument-catalog.css \
   instrument-catalog-app.js \
@@ -355,6 +360,7 @@ required_files=(
   assets/instruments/morphynx.webp
   tongued-beasts.html
   tongued-beasts.css
+  assets/instruments/tongued-beasts.webp
   hyper-syrinx.html
   hyper-syrinx.css
   hyper-syrinx-app.js
@@ -373,9 +379,13 @@ required_files=(
   THIRD_PARTY_NOTICES.md
   music-rooms.html
   music-rooms.css
+  assets/instruments/room-lobby.webp
   vocal-effects-room.html
+  assets/instruments/vocal-effects-room.webp
   instrument-share-room.html
+  assets/instruments/instrument-share-room.webp
   morphazoid-roulette.html
+  assets/instruments/morphazoid-roulette.webp
   instruments.html
   instrument-catalog.css
   instrument-catalog-app.js
