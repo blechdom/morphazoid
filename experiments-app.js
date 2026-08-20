@@ -287,6 +287,13 @@ const state = {
   neuralAccumulator: 0,
   neuralSeed: 19,
   fourierWave: "square",
+  orbitalGestures: 3,
+  orbitalLevels: 2,
+  orbitalRate: 0.1,
+  orbitalRatio: 3,
+  orbitalModDepth: 0.5,
+  orbitalZoom: 0,
+  orbitalTone: 110,
 };
 
 let canvasWidth = 1;
@@ -1951,6 +1958,131 @@ function springModeAmplitudes() {
   return modes;
 }
 
+function drawOrbitalGesture(ctx, cx, cy, outwardAngle, gestureRadius, wavePhase, amplitude) {
+  const steps = 24;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 0; i <= steps; i += 1) {
+    const t = i / steps;
+    const radial = (t - 0.5) * 2 * gestureRadius;
+    const transverse = Math.sin(t * TAU + wavePhase) * gestureRadius * 0.38 * amplitude;
+    const px = cx + Math.cos(outwardAngle) * radial - Math.sin(outwardAngle) * transverse;
+    const py = cy + Math.sin(outwardAngle) * radial + Math.cos(outwardAngle) * transverse;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  const tipX = cx + Math.cos(outwardAngle) * gestureRadius;
+  const tipY = cy + Math.sin(outwardAngle) * gestureRadius;
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.beginPath();
+  ctx.arc(tipX, tipY, 2.5, 0, TAU);
+  ctx.fill();
+}
+
+function drawOrbitalFerris() {
+  const ctx = context2d;
+  clearStage();
+  const top = stageTopInset();
+  const cx = canvasWidth / 2;
+  const cy = top + (canvasHeight - top) * 0.5;
+  const available = Math.min(canvasWidth * 0.84, (canvasHeight - top) * 0.88);
+  const levels = Math.round(state.orbitalLevels);
+  const G = Math.round(state.orbitalGestures);
+  const baseRate = state.orbitalRate;
+  const ratio = state.orbitalRatio;
+  const modDepth = state.orbitalModDepth;
+  const zoom = state.orbitalZoom;
+  const R = available * 0.42;
+  const zoomScale = 1 + zoom * 8;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(zoomScale, zoomScale);
+  ctx.translate(-cx, -cy);
+
+  let modSignal = 0;
+  for (let lev = 2; lev <= levels; lev += 1) {
+    const levRate = baseRate * Math.pow(ratio, levels - lev);
+    modSignal += Math.sin(state.time * levRate * TAU) / Math.max(1, levels - 1);
+  }
+  const gestureAmplitude = 1 + modSignal * modDepth;
+
+  const glowR = R * 1.05;
+  const glow = ctx.createRadialGradient(cx, cy, R * 0.1, cx, cy, glowR);
+  glow.addColorStop(0, "rgba(95, 232, 196, 0.06)");
+  glow.addColorStop(1, "rgba(95, 232, 196, 0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, glowR, 0, TAU);
+  ctx.fill();
+
+  const MAX_LEAF_NODES = 128;
+  let leafCount = 0;
+
+  function drawNode(nx, ny, level) {
+    if (leafCount >= MAX_LEAF_NODES) return;
+    const ringR = R / Math.pow(ratio, levels - level);
+    const ringRate = baseRate * Math.pow(ratio, levels - level);
+    const ringPhase = state.time * ringRate * TAU;
+    const levelFrac = level / levels;
+    const ringAlpha = (0.07 + levelFrac * 0.14) * (1 - zoom * levelFrac * 0.88);
+
+    ctx.strokeStyle = `rgba(219, 228, 224, ${Math.max(0, ringAlpha)})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(nx, ny, ringR, 0, TAU);
+    ctx.stroke();
+
+    for (let g = 0; g < G; g += 1) {
+      const nodeAngle = ringPhase + g * TAU / G;
+      const nodeX = nx + Math.cos(nodeAngle) * ringR;
+      const nodeY = ny + Math.sin(nodeAngle) * ringR;
+
+      ctx.strokeStyle = `rgba(219, 228, 224, ${Math.max(0, ringAlpha * 0.55)})`;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(nx, ny);
+      ctx.lineTo(nodeX, nodeY);
+      ctx.stroke();
+
+      if (level === 1) {
+        if (leafCount >= MAX_LEAF_NODES) continue;
+        leafCount += 1;
+        const innerRate = baseRate * Math.pow(ratio, levels);
+        const wavePhase = state.time * innerRate * TAU + g * TAU / G;
+        const gestureR = ringR * 0.7;
+        const gestureAlpha = 0.5 + zoom * 0.4;
+        const hue = g / Math.max(1, G);
+        const rr = Math.round(95 + hue * 115);
+        const gg = Math.round(232 - hue * 70);
+        const bb = Math.round(196 + hue * 45);
+        ctx.strokeStyle = `rgba(${rr}, ${gg}, ${bb}, ${gestureAlpha})`;
+        drawOrbitalGesture(ctx, nodeX, nodeY, nodeAngle, gestureR, wavePhase, gestureAmplitude);
+        ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, ${gestureAlpha * 0.7})`;
+        ctx.beginPath();
+        ctx.arc(nodeX, nodeY, 2, 0, TAU);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = `rgba(219, 228, 224, ${Math.max(0, ringAlpha)})`;
+        ctx.beginPath();
+        ctx.arc(nodeX, nodeY, 2.5, 0, TAU);
+        ctx.fill();
+        drawNode(nodeX, nodeY, level - 1);
+      }
+    }
+  }
+
+  drawNode(cx, cy, levels);
+
+  ctx.fillStyle = "rgba(95, 232, 196, 0.88)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, 4, 0, TAU);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 const EXPERIMENTS = {
   moire: {
     bind() {
@@ -2477,6 +2609,54 @@ const EXPERIMENTS = {
       setText("metricSecondary", compact(geometry.delay, 3));
       setText("patternSummary", `source beta ${compact(geometry.beta, 2)}`);
       setText("stageReadout", `GRAVITY LENS · TWO IMAGES · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+    },
+  },
+  orbitalFerris: {
+    bind() {
+      bindRange("orbitalGestures", "orbitalGestures", (v) => `${Math.round(v)} gestures`);
+      bindRange("orbitalLevels", "orbitalLevels", (v) => `${Math.round(v)} levels`);
+      bindRange("orbitalRate", "orbitalRate", (v) => `${compact(v, 3)} cyc/s`);
+      bindRange("orbitalRatio", "orbitalRatio", (v) => `${compact(v, 2)}× per level`);
+      bindRange("orbitalModDepth", "orbitalModDepth", percent);
+      bindRange("orbitalZoom", "orbitalZoom", percent);
+      bindRange("orbitalTone", "orbitalTone", (v) => `${Math.round(v)} Hz`);
+    },
+    update() {},
+    draw: drawOrbitalFerris,
+    drone() {
+      const G = Math.round(state.orbitalGestures);
+      const levels = Math.round(state.orbitalLevels);
+      let modSignal = 0;
+      for (let lev = 2; lev <= levels; lev += 1) {
+        const levRate = state.orbitalRate * Math.pow(state.orbitalRatio, levels - lev);
+        modSignal += Math.sin(state.time * levRate * TAU);
+      }
+      const totalMod = levels > 1 ? modSignal / (levels - 1) : 0;
+      const freqMod = 1 + totalMod * state.orbitalModDepth * 0.25;
+      const voiceCount = Math.min(G, 8);
+      const SEMITONES = [0, 7, 12, 5, 4, 9, 2, 14];
+      return Array.from({ length: voiceCount }, (_, g) => {
+        const semitones = SEMITONES[g] ?? g * 2;
+        const freq = state.orbitalTone * Math.pow(2, semitones / 12) * freqMod;
+        const innerRate = state.orbitalRate * Math.pow(state.orbitalRatio, levels);
+        const phase = state.time * innerRate * TAU + g * TAU / G;
+        const gainMod = 0.5 + 0.5 * Math.abs(Math.sin(phase * 0.5));
+        return {
+          frequency: freq,
+          gain: gainMod * 0.08,
+          type: "sine",
+          pan: Math.sin(g * TAU / G + state.time * state.orbitalRate * TAU * 0.5) * 0.6,
+        };
+      });
+    },
+    summary() {
+      const G = Math.round(state.orbitalGestures);
+      const levels = Math.round(state.orbitalLevels);
+      const leaves = Math.round(Math.pow(G, levels));
+      setText("metricPrimary", `${leaves}`);
+      setText("metricSecondary", `${Math.round(state.orbitalTone)} Hz`);
+      setText("patternSummary", `${G} gestures · ${levels} levels`);
+      setText("stageReadout", `ORBITAL FERRIS · ${G}^${levels} = ${leaves} GESTURES · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
     },
   },
 };

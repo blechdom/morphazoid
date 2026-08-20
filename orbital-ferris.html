@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" /><meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Orbital Ferris - nested spinning orbits where each layer modulates the shapes within." /><title>Orbital Ferris - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" /><link rel="stylesheet" href="style.css" /><link rel="stylesheet" href="experiments.css" />
+  </head>
+  <body class="experiment-page" data-experiment="orbitalFerris">
+    <header class="masthead"><a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a><nav class="tabs" aria-label="Morphazoid main menu"><a class="tab active" href="orbital-ferris.html" aria-current="page">orbital ferris</a></nav><label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="orbital-ferris.html" selected>orbital ferris</option></select></label><div class="header-actions"><button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-dot" aria-hidden="true"></span><span>audio</span><strong id="audioState">off</strong></button><label class="header-level" for="level"><span><b>level</b><output id="levelOut" for="level">40%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.40" /></label></div></header>
+    <main class="shell experiment-shell" id="orbitalFerris">
+      <section class="stage" aria-label="Orbital Ferris stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" role="img" aria-label="Nested spinning orbital rings whose outer layers modulate the inner sine gesture shapes." aria-describedby="canvasInstructions liveStatus">Nested orbital rings with sine wave gestures.</canvas>
+          <div class="stage-meta" aria-hidden="true"><span id="stageReadout">ORBITAL FERRIS · 3^2 = 9 GESTURES · AUDIO OFF</span></div>
+          <div class="experiment-title" aria-hidden="true"><h1>Orbital Ferris</h1><small>wheels within wheels</small></div>
+        </div>
+        <p class="sr-only" id="canvasInstructions">Each nested orbit ring modulates the sine gestures at its core.</p>
+        <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+      </section>
+      <aside class="panel experiment-panel" aria-label="Orbital Ferris controls">
+        <section class="group experiment-card" aria-labelledby="experimentTitle">
+          <div class="experiment-card-heading"><h2 class="group-title" id="experimentTitle">Experiment</h2><span class="section-state" id="experimentSummary">gestures &middot; orbits</span></div>
+          <dl class="experiment-meter-grid"><div><dt>Total gestures</dt><dd id="metricPrimary">9</dd></div><div><dt>Fundamental</dt><dd id="metricSecondary">110 Hz</dd></div></dl>
+        </section>
+        <section class="group control-section" aria-labelledby="gestureTitle">
+          <div class="experiment-card-heading"><h2 class="group-title" id="gestureTitle">Structure</h2><span class="section-state" id="patternSummary">3 gestures · 2 levels</span></div>
+          <div class="group-body">
+            <label class="control" for="orbitalGestures"><span><b>Gestures per orbit</b><output id="orbitalGesturesOut" for="orbitalGestures">3 gestures</output></span><input id="orbitalGestures" type="range" min="1" max="6" step="1" value="3" /></label>
+            <label class="control" for="orbitalLevels"><span><b>Orbital levels</b><output id="orbitalLevelsOut" for="orbitalLevels">2 levels</output></span><input id="orbitalLevels" type="range" min="1" max="4" step="1" value="2" /></label>
+            <label class="control" for="orbitalRate"><span><b>Core rate</b><output id="orbitalRateOut" for="orbitalRate">0.1 cyc/s</output></span><input id="orbitalRate" type="range" min="0.02" max="0.6" step="0.005" value="0.1" /></label>
+            <label class="control" for="orbitalRatio"><span><b>Speed ratio</b><output id="orbitalRatioOut" for="orbitalRatio">3× per level</output></span><input id="orbitalRatio" type="range" min="1.5" max="8" step="0.1" value="3" /></label>
+          </div>
+        </section>
+        <section class="group control-section" aria-labelledby="shapeTitle">
+          <div class="experiment-card-heading"><h2 class="group-title" id="shapeTitle">Shape &amp; Sound</h2></div>
+          <div class="group-body">
+            <label class="control" for="orbitalModDepth"><span><b>Mod depth</b><output id="orbitalModDepthOut" for="orbitalModDepth">50%</output></span><input id="orbitalModDepth" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+            <label class="control" for="orbitalZoom"><span><b>Zoom into core</b><output id="orbitalZoomOut" for="orbitalZoom">0%</output></span><input id="orbitalZoom" type="range" min="0" max="1" step="0.01" value="0" /></label>
+            <label class="control" for="orbitalTone"><span><b>Fundamental</b><output id="orbitalToneOut" for="orbitalTone">110 Hz</output></span><input id="orbitalTone" type="range" min="40" max="220" step="1" value="110" /></label>
+          </div>
+        </section>
+        <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button></div>
+      </aside>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="experiments-app.js"></script>
+  </body>
+</html>
