@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Karplus Strong - a playable plucked-string instrument built from noise excitation, a tuned feedback delay, damping, dispersion, and body filtering."
+    />
+    <title>Karplus Strong - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="karplus-strong.css" />
+  </head>
+  <body class="karplus-strong-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="fm-drums.html">fm drums</a>
+        <a class="tab" href="linear-drums.html">rattlesnake</a>
+        <a class="tab active" href="karplus-strong.html" aria-current="page">karplus strong</a>
+        <a class="tab" href="sample-drums.html">sample drums</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="fm-drums.html">fm drums</option>
+          <option value="linear-drums.html">rattlesnake</option>
+          <option value="karplus-strong.html" selected>karplus strong</option>
+          <option value="sample-drums.html">sample drums</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">*</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">62%</output></span>
+          <input id="level" aria-label="Karplus Strong output level" type="range" min="0" max=".85" step=".01" value=".62" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="karplusStrong">
+      <section class="stage" aria-label="Karplus Strong string stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            data-interactive-track
+            aria-label="Sixteen vertical chromatic strings, ordered low on the left and high on the right. Move vertically to choose the pick position and horizontally to choose a note."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A field of sixteen playable Karplus Strong strings.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">C3 &middot; 130.8 HZ &middot; WARM NYLON &middot; AUDIO OFF</span>
+          </div>
+          <div class="ks-stage-title" aria-hidden="true">
+            <p>PLUCKED DELAY-LINE SYNTHESIS</p>
+            <h1>Karplus Strong</h1>
+            <small>noise burst &rarr; tuned loop &rarr; damping filter</small>
+          </div>
+          <div class="ks-stage-legend" aria-hidden="true">
+            <span>LOW</span><i></i><span>VERTICAL STRINGS</span><i></i><span>HIGH</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Karplus Strong controls">
+        <details class="group control-section" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Play</h2>
+            <span class="section-state" id="playSummary">C3 &middot; ready</span>
+          </summary>
+          <div class="group-body">
+            <div class="ks-pluck-row">
+              <button class="play-button" id="pluckButton" type="button" aria-label="Pluck selected string" data-primary-transport>
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              </button>
+              <div class="ks-selected-note">
+                <b id="selectedNote">C3</b>
+                <span id="selectedFrequency">130.81 Hz</span>
+                <small>selected string</small>
+              </div>
+            </div>
+
+            <div class="field-label">Chromatic strings</div>
+            <div class="ks-string-grid" id="stringGrid" role="group" aria-label="Sixteen chromatic strings"></div>
+            <p class="control-note">Drag left to right across the vertical strings to strum from low to high. Vertical position moves the virtual pick; keys A through semicolon play the visible strings.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Presets</h2>
+            <span class="section-state" id="presetSummary">Warm Nylon</span>
+          </summary>
+          <div class="group-body">
+            <div class="ks-preset-grid" id="presetGrid" role="group" aria-label="Karplus Strong presets"></div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Exciter</h2>
+            <span class="section-state" id="fieldSummary">C3 - D#4</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="rootNote">
+              <span class="field-label">Lowest string</span>
+              <span class="select-shell">
+                <select id="rootNote">
+                  <option value="36">C2</option>
+                  <option value="48" selected>C3</option>
+                  <option value="60">C4</option>
+                </select>
+              </span>
+            </label>
+            <div class="ks-knob-bank">
+              <label class="ks-knob" for="hardness"><span><b>Hardness</b><output id="hardnessOut" for="hardness">58%</output></span><input id="hardness" type="range" min="0" max="1" step=".01" value=".58" /></label>
+              <label class="ks-knob" for="excitationColor"><span><b>Noise color</b><output id="excitationColorOut" for="excitationColor">66%</output></span><input id="excitationColor" type="range" min="0" max="1" step=".01" value=".66" /></label>
+              <label class="ks-knob" for="excitationShape"><span><b>Impulse mix</b><output id="excitationShapeOut" for="excitationShape">12%</output></span><input id="excitationShape" type="range" min="0" max="1" step=".01" value=".12" /></label>
+              <label class="ks-knob" for="burstLength"><span><b>Burst length</b><output id="burstLengthOut" for="burstLength">1.00x</output></span><input id="burstLength" type="range" min=".1" max="4" step=".01" value="1" /></label>
+              <label class="ks-knob" for="pickPosition"><span><b>Pick position</b><output id="pickPositionOut" for="pickPosition">28%</output></span><input id="pickPosition" type="range" min=".04" max=".96" step=".01" value=".28" /></label>
+              <label class="ks-knob" for="pickWidth"><span><b>Pick comb</b><output id="pickWidthOut" for="pickWidth">72%</output></span><input id="pickWidth" type="range" min="0" max="1" step=".01" value=".72" /></label>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Feedback loop</h2>
+            <span class="section-state" id="loopSummary">3.2 s - bright</span>
+          </summary>
+          <div class="group-body">
+            <div class="ks-knob-bank">
+              <label class="ks-knob" for="decay"><span><b>Decay</b><output id="decayOut" for="decay">3.2 s</output></span><input id="decay" type="range" min=".2" max="16" step=".05" value="3.2" /></label>
+              <label class="ks-knob" for="damping"><span><b>Damping</b><output id="dampingOut" for="damping">38%</output></span><input id="damping" type="range" min="0" max="1" step=".01" value=".38" /></label>
+              <label class="ks-knob" for="brightness"><span><b>Brightness</b><output id="brightnessOut" for="brightness">72%</output></span><input id="brightness" type="range" min="0" max="1" step=".01" value=".72" /></label>
+              <label class="ks-knob" for="detune"><span><b>Fine tune</b><output id="detuneOut" for="detune">0 ct</output></span><input id="detune" type="range" min="-50" max="50" step=".5" value="0" /></label>
+              <label class="ks-knob" for="dispersion"><span><b>Dispersion</b><output id="dispersionOut" for="dispersion">18%</output></span><input id="dispersion" type="range" min="0" max="1" step=".01" value=".18" /></label>
+              <label class="ks-knob" for="polarity"><span><b>Polarity</b><output id="polarityOut" for="polarity">+1.00</output></span><input id="polarity" type="range" min="-1" max="1" step=".01" value="1" /></label>
+              <label class="ks-knob" for="lowCut"><span><b>DC loss</b><output id="lowCutOut" for="lowCut">8%</output></span><input id="lowCut" type="range" min="0" max="1" step=".01" value=".08" /></label>
+              <label class="ks-knob" for="drive"><span><b>Loop drive</b><output id="driveOut" for="drive">8%</output></span><input id="drive" type="range" min="0" max="1" step=".01" value=".08" /></label>
+              <label class="ks-knob" for="chorusDepth"><span><b>Delay wobble</b><output id="chorusDepthOut" for="chorusDepth">0%</output></span><input id="chorusDepth" type="range" min="0" max="1" step=".01" value="0" /></label>
+              <label class="ks-knob" for="chorusRate"><span><b>Wobble rate</b><output id="chorusRateOut" for="chorusRate">0.60 Hz</output></span><input id="chorusRate" type="range" min=".05" max="8" step=".05" value=".6" /></label>
+              <label class="ks-knob" for="roughness"><span><b>Roughness</b><output id="roughnessOut" for="roughness">0%</output></span><input id="roughness" type="range" min="0" max="1" step=".01" value="0" /></label>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Pickup &amp; body</h2>
+            <span class="section-state" id="bodySummary">resonant - coupled</span>
+          </summary>
+          <div class="group-body">
+            <div class="ks-knob-bank">
+              <label class="ks-knob" for="pickupPosition"><span><b>Pickup pos</b><output id="pickupPositionOut" for="pickupPosition">72%</output></span><input id="pickupPosition" type="range" min=".04" max=".96" step=".01" value=".72" /></label>
+              <label class="ks-knob" for="pickupMix"><span><b>Pickup comb</b><output id="pickupMixOut" for="pickupMix">18%</output></span><input id="pickupMix" type="range" min="0" max="1" step=".01" value=".18" /></label>
+              <label class="ks-knob" for="body"><span><b>Body</b><output id="bodyOut" for="body">42%</output></span><input id="body" type="range" min="0" max="1" step=".01" value=".42" /></label>
+              <label class="ks-knob" for="bodyTune"><span><b>Body tune</b><output id="bodyTuneOut" for="bodyTune">2.40x</output></span><input id="bodyTune" type="range" min=".5" max="8" step=".05" value="2.4" /></label>
+              <label class="ks-knob" for="bodyQ"><span><b>Body Q</b><output id="bodyQOut" for="bodyQ">3.6 Q</output></span><input id="bodyQ" type="range" min=".2" max="12" step=".1" value="3.6" /></label>
+              <label class="ks-knob" for="coupling"><span><b>Coupling</b><output id="couplingOut" for="coupling">12%</output></span><input id="coupling" type="range" min="0" max="1" step=".01" value=".12" /></label>
+              <label class="ks-knob" for="couplingRatio"><span><b>Coupled ratio</b><output id="couplingRatioOut" for="couplingRatio">2.00x</output></span><input id="couplingRatio" type="range" min=".25" max="4" step=".01" value="2" /></label>
+              <label class="ks-knob" for="couplingDetune"><span><b>Coupled tune</b><output id="couplingDetuneOut" for="couplingDetune">0 ct</output></span><input id="couplingDetune" type="range" min="-50" max="50" step=".5" value="0" /></label>
+              <label class="ks-knob" for="spread"><span><b>Spread</b><output id="spreadOut" for="spread">32%</output></span><input id="spread" type="range" min="0" max="1" step=".01" value=".32" /></label>
+            </div>
+
+            <div class="ks-signal-card" aria-label="Karplus Strong signal path">
+              <span><b>Excite</b><small>noise + impulse</small></span>
+              <i aria-hidden="true">&rarr;</i>
+              <span><b>Delay</b><small>tuned + modulated</small></span>
+              <i aria-hidden="true">&rarr;</i>
+              <span><b>Feedback</b><small>loss + nonlinearity</small></span>
+              <i aria-hidden="true">&rarr;</i>
+              <span><b>Body</b><small>pickup + coupling</small></span>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        The stage contains sixteen vertical strings ordered low on the left and high on the right. Click or drag horizontally to choose strings and vertically to set pick position. Use Left and Right arrows to select a string, then Space or Enter to pluck it.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="karplus-strong-app.js"></script>
+</body>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</html>
