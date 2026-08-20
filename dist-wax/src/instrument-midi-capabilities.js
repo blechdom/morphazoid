@@ -38,6 +38,8 @@ const NOTE_MODE_IDS = Object.freeze({
     "image-to-instrument-3",
     "throatazoid",
     "syrinx",
+    "morphynx",
+    "hyper-syrinx",
     "alien-larynx",
     "spelling-synthesizer",
     "shepard-risset",
@@ -109,6 +111,8 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "image-to-instrument-3",
   "throatazoid",
+  "morphynx",
+  "hyper-syrinx",
   "alien-larynx",
   "spelling-synthesizer",
   "lumber",
@@ -146,6 +150,7 @@ const audioInputIds = new Set([
   "candy-coil-delay",
   "recursion",
   "throatazoid",
+  "morphynx",
   "alien-larynx",
 ]);
 const midiOutputExtraIds = new Set([

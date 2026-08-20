@@ -129,6 +129,20 @@
             <span class="section-state" id="clockSummary">108 notes · 112 BPM · 1/8</span>
           </summary>
           <div class="group-body">
+            <label class="select-control hyper-rubix-method-select" for="sequenceMethod">
+              <span class="field-label">Sticker read path</span>
+              <span class="select-shell">
+                <select id="sequenceMethod" aria-describedby="sequenceMethodHelp">
+                  <option value="sticker-stream" selected id="stickerStreamMethodOption">Sticker loop · 216</option>
+                  <option id="cornerStreamMethodOption" value="corner-stream">Corner stream · 64</option>
+                  <option id="stickerHyperbarMethodOption" value="sticker-hyperbar">Sticker hyperbar · 27</option>
+                  <option id="hybridCoilMethodOption" value="hybrid-coil">Hybrid coil · 16 × 27</option>
+                  <option value="twist-tape">Twist tape · 16</option>
+                </select>
+              </span>
+              <small id="sequenceMethodHelp">Every sticker sounds once in a fixed forward loop.</small>
+            </label>
+
             <label class="select-control hyper-rubix-preset-select" for="voice">
               <span class="field-label">Instrument preset</span>
               <span class="select-shell">
@@ -207,6 +221,28 @@
             </div>
 
             <div class="hyper-rubix-sequence-selects">
+              <label class="select-control" for="sequencePattern">
+                <span class="field-label">Twist tape</span>
+                <span class="select-shell">
+                  <select id="sequencePattern" disabled>
+                    <option value="axis-break" selected>Axis break</option>
+                    <option value="straight-xyz">Straight XYZ</option>
+                    <option value="w-pressure">W pressure</option>
+                    <option value="random-walk">Random walk</option>
+                  </select>
+                </span>
+              </label>
+              <label class="select-control" for="playbackMode">
+                <span class="field-label">Read order</span>
+                <span class="select-shell">
+                  <select id="playbackMode">
+                    <option value="forward" selected>Forward</option>
+                    <option value="reverse">Reverse</option>
+                    <option value="pendulum">Pendulum</option>
+                    <option value="random">Random</option>
+                  </select>
+                </span>
+              </label>
               <label class="select-control" for="twistRate">
                 <span class="field-label">Pulse rate</span>
                 <span class="select-shell">
@@ -219,39 +255,39 @@
                   </select>
                 </span>
               </label>
+              <label class="select-control" for="twistMotion">
+                <span class="field-label">Automated twists</span>
+                <span class="select-shell">
+                  <select id="twistMotion" aria-describedby="twistMotionHelp" disabled>
+                    <option value="auto">Auto · max 4/s</option>
+                    <option value="beat">Once per beat</option>
+                    <option value="bar">Once per bar</option>
+                    <option value="off" selected>Off</option>
+                  </select>
+                </span>
+              </label>
             </div>
             <div class="hyper-rubix-timing-help">
               <small id="pulseRateHelp">Pulse divisions set spacing: 1/4 fires once per quarter-note beat; 1/8 twice, through 1/64 sixteen times.</small>
-              <small id="twistMotionHelp">The clock never turns the puzzle. Orbit, Fold W, and ±90° twists remap clocked stickers while the loop keeps its place; they create no separate gesture synth.</small>
+              <small id="twistMotionHelp">Sticker loop and Corner stream stay still. Hyperbar, Hybrid coil, and Twist tape can apply the selected twist tape automatically.</small>
             </div>
 
-            <label class="control" for="tempo">
-              <span><b>Tempo</b><output id="tempoOut" for="tempo">112 BPM</output></span>
-              <input id="tempo" type="range" min="30" max="300" step="1" value="112" />
-            </label>
+            <div class="hyper-rubix-tempo-row">
+              <label class="control" for="tempo">
+                <span><b>Tempo</b><output id="tempoOut" for="tempo">112 BPM</output></span>
+                <input id="tempo" type="range" min="30" max="300" step="1" value="112" />
+              </label>
+              <button class="mini-action" id="reseedPattern" type="button" disabled>Reseed</button>
+            </div>
             <label class="control" for="swing">
               <span><b>Swing</b><output id="swingOut" for="swing">8%</output></span>
               <input id="swing" type="range" min="0" max="0.42" step="0.01" value="0.08" />
             </label>
-
-            <div hidden aria-hidden="true">
-              <label for="sequenceMethod">Loop method</label>
-              <select id="sequenceMethod" aria-describedby="sequenceMethodHelp">
-                <option value="sticker-stream" selected id="stickerStreamMethodOption">Sticker loop · 216</option>
-                <option id="cornerStreamMethodOption" value="corner-stream">Corner stream · 64</option>
-                <option id="stickerHyperbarMethodOption" value="sticker-hyperbar">Sticker hyperbar · 27</option>
-                <option id="hybridCoilMethodOption" value="hybrid-coil">Hybrid coil · 16 × 27</option>
-                <option value="twist-tape">Twist tape · 16</option>
-              </select>
-              <small id="sequenceMethodHelp">Every sticker sounds once in a fixed forward loop.</small>
-              <select id="sequencePattern"><option value="axis-break" selected>Axis break</option></select>
-              <select id="playbackMode"><option value="forward" selected>Forward</option></select>
-              <select id="twistMotion"><option value="off" selected>Off</option></select>
-              <button id="reseedPattern" type="button" disabled>Reseed</button>
-              <label for="twistDensity">Legacy density</label>
-              <output id="twistDensityOut" for="twistDensity">100%</output>
-              <input id="twistDensity" type="range" min="0.25" max="1" step="0.01" value="1" />
-            </div>
+            <label class="control" for="twistDensity">
+              <span><b>Twist density</b><output id="twistDensityOut" for="twistDensity">100%</output></span>
+              <input id="twistDensity" type="range" min="0.25" max="1" step="0.01" value="1" disabled />
+              <small>Sets how many optional tape turns remain; the authored rests stay silent.</small>
+            </label>
           </div>
         </details>
 

@@ -7,11 +7,12 @@ const freezePoints = (points) => Object.freeze(
   points.map(([time, value]) => Object.freeze([clamp(time), Number(value) || 0])),
 );
 
-function freezeGesture({ id, label, durationMs, pressure, ...curves }) {
+function freezeGesture({ id, label, durationMs, pressure, frequencyRatio = 1, ...curves }) {
   return Object.freeze({
     id,
     label,
     durationMs: clamp(durationMs, 80, 8_000),
+    frequencyRatio: clamp(frequencyRatio, 0.03, 24),
     curves: Object.freeze({
       pressure: freezePoints(pressure),
       ...Object.fromEntries(
@@ -25,6 +26,7 @@ const held = (id, label, durationMs, options = {}) => freezeGesture({
   id,
   label,
   durationMs,
+  frequencyRatio: options.frequencyRatio ?? 1,
   pressure: options.pressure ?? [[0, 0], [0.08, 0.88], [0.78, 1], [1, 0]],
   tension: options.tension ?? [[0, 0], [0.5, 0.02], [1, -0.01]],
   adduction: options.adduction ?? [[0, -0.08], [0.12, 0.06], [0.84, 0.03], [1, -0.12]],
@@ -39,6 +41,7 @@ const pulse = (id, label, durationMs, options = {}) => freezeGesture({
   id,
   label,
   durationMs,
+  frequencyRatio: options.frequencyRatio ?? 1,
   pressure: options.pressure ?? [[0, 0], [0.04, 1], [0.3, 0.82], [0.68, 0.28], [1, 0]],
   tension: options.tension ?? [[0, 0.04], [0.35, -0.03], [1, 0]],
   adduction: options.adduction ?? [[0, -0.18], [0.08, 0.14], [0.52, 0.02], [1, -0.2]],
@@ -64,6 +67,7 @@ const trill = (id, label, durationMs, cycles, options = {}) => freezeGesture({
   id,
   label,
   durationMs,
+  frequencyRatio: options.frequencyRatio ?? 1,
   pressure: options.pressure ?? trillPressure(cycles, options.floor ?? 0.1),
   tension: options.tension ?? [[0, -0.04], [0.48, 0.08], [1, -0.02]],
   adduction: options.adduction ?? [[0, -0.12], [0.06, 0.08], [0.92, 0.05], [1, -0.16]],
@@ -169,6 +173,77 @@ export const CALL_GESTURES = Object.freeze({
     tension: [[0, -0.18], [0.24, 0.2], [0.5, -0.04], [0.76, 0.28], [1, 0.1]],
     roughness: [[0, -0.1], [1, -0.08]],
   }),
+  "cat-meow": held("cat-meow", "Meow", 980, {
+    pressure: [[0, 0], [0.08, 0.8], [0.68, 0.94], [1, 0]],
+    tension: [[0, -0.08], [0.28, 0.1], [0.62, 0.2], [1, -0.03]],
+    mouthOpening: [[0, -0.2], [0.34, 0.3], [0.78, 0.18], [1, -0.08]],
+  }),
+  "cat-purr": held("cat-purr", "Purr", 2_600, {
+    frequencyRatio: 0.065,
+    pressure: [[0, 0], [0.08, 0.6], [0.92, 0.66], [1, 0]],
+    adduction: [[0, 0.08], [0.5, 0.14], [1, 0.06]],
+    mouthOpening: [[0, -0.28], [1, -0.24]],
+    roughness: [[0, 0.04], [0.5, 0.1], [1, 0.04]],
+  }),
+  "horse-whinny": held("horse-whinny", "Biphonic whinny", 2_350, {
+    pressure: [[0, 0], [0.06, 0.88], [0.58, 1], [0.82, 0.62], [1, 0]],
+    tension: [[0, -0.06], [0.18, 0.28], [0.56, 0.08], [0.82, -0.2], [1, -0.3]],
+    asymmetry: [[0, 0.08], [0.3, 0.42], [0.72, 0.3], [1, 0.12]],
+    roughness: [[0, 0], [0.68, 0.12], [1, 0.34]],
+  }),
+  "horse-nicker": held("horse-nicker", "Nicker", 920, {
+    frequencyRatio: 0.3,
+    pressure: [[0, 0], [0.12, 0.64], [0.74, 0.72], [1, 0]],
+    tension: [[0, -0.12], [0.6, -0.05], [1, -0.14]],
+    mouthOpening: [[0, -0.3], [0.5, -0.18], [1, -0.28]],
+  }),
+  "reddeer-common-roar": held("reddeer-common-roar", "Common roar", 2_050, {
+    pressure: [[0, 0], [0.1, 0.8], [0.76, 0.96], [1, 0]],
+    tension: [[0, -0.06], [0.4, 0.08], [1, -0.02]],
+    tractLengthM: [[0, 0], [0.78, 0.08], [1, 0.06]],
+    mouthOpening: [[0, -0.18], [0.3, 0.22], [1, 0.12]],
+  }),
+  "reddeer-harsh-roar": held("reddeer-harsh-roar", "Harsh roar", 1_520, {
+    pressure: [[0, 0], [0.03, 1], [0.84, 0.94], [1, 0]],
+    tractLengthM: [[0, 0.08], [1, 0.09]],
+    asymmetry: [[0, 0.14], [0.45, 0.32], [1, 0.24]],
+    roughness: [[0, 0.18], [0.42, 0.46], [1, 0.24]],
+  }),
+  "hyena-whoop": held("hyena-whoop", "Rising whoop", 1_950, {
+    pressure: [[0, 0], [0.1, 0.72], [0.68, 0.98], [1, 0]],
+    tension: [[0, -0.16], [0.44, -0.02], [0.76, 0.3], [1, 0.18]],
+    asymmetry: [[0, 0.04], [0.55, 0.16], [1, 0.1]],
+  }),
+  "hyena-giggle": trill("hyena-giggle", "Seven-note giggle", 920, 7, {
+    frequencyRatio: 1.28, floor: 0.04,
+    tension: [[0, -0.08], [0.42, 0.12], [0.72, -0.02], [1, 0.16]],
+    roughness: [[0, 0.06], [0.5, 0.18], [1, 0.08]],
+  }),
+  "wildboar-grunt": pulse("wildboar-grunt", "Low grunt", 540, {
+    frequencyRatio: 0.34,
+    tension: [[0, -0.12], [1, -0.16]],
+    mouthOpening: [[0, -0.28], [1, -0.18]],
+    roughness: [[0, 0.14], [0.5, 0.24], [1, 0.12]],
+  }),
+  "wildboar-squeal": held("wildboar-squeal", "Squeal", 1_280, {
+    frequencyRatio: 2.7,
+    pressure: [[0, 0], [0.04, 1], [0.8, 0.92], [1, 0]],
+    tension: [[0, 0.18], [0.35, 0.36], [0.7, 0.22], [1, 0.3]],
+    mouthOpening: [[0, -0.08], [0.18, 0.32], [1, 0.24]],
+    roughness: [[0, 0.12], [0.5, 0.36], [1, 0.18]],
+  }),
+  "cow-moo": held("cow-moo", "Open-mouth moo", 1_650, {
+    pressure: [[0, 0], [0.12, 0.76], [0.78, 0.92], [1, 0]],
+    tension: [[0, -0.08], [0.5, 0.02], [1, -0.1]],
+    mouthOpening: [[0, -0.14], [0.3, 0.24], [1, 0.16]],
+    cavityCoupling: [[0, 0.04], [0.5, 0.16], [1, 0.08]],
+  }),
+  "cow-contact": held("cow-contact", "Low contact moo", 1_150, {
+    frequencyRatio: 0.66,
+    pressure: [[0, 0], [0.14, 0.62], [0.76, 0.72], [1, 0]],
+    tension: [[0, -0.14], [1, -0.1]],
+    mouthOpening: [[0, -0.34], [1, -0.26]],
+  }),
 });
 
 function freezeAnimal(animal) {
@@ -256,6 +331,60 @@ export const ANIMALS = Object.freeze({
     controls: { pressure: 0.8, tension: 0.22, adduction: 0.8, sourceScale: 0.9, mouthOpening: 0.4, cavityCoupling: 0.46, asymmetry: 0.16, sourceBalance: 0.5, roughness: 0.4 },
     callIds: ["alligator-bellow", "alligator-grunt"],
   }),
+  cat: freezeAnimal({
+    id: "cat", label: "Cat", group: "Mammals & reptiles", model: "mammal",
+    apparatus: "larynx with low-frequency purr mode", baseFrequencyHz: 460, tractLengthM: 0.13,
+    frequencyRangeHz: [25, 1_400], tractRangeM: [0.09, 0.18],
+    rangeBasis: "meow articulation study + measured 25-30 Hz purr",
+    cavityFrequencyHz: 720, description: "Voiced meow plus a low-frequency purr regime.",
+    controls: { pressure: 0.54, tension: 0.52, adduction: 0.62, sourceScale: 0.4, mouthOpening: 0.48, cavityCoupling: 0.24, asymmetry: 0.08, sourceBalance: 0.5, roughness: 0.08 },
+    callIds: ["cat-meow", "cat-purr"],
+  }),
+  horse: freezeAnimal({
+    id: "horse", label: "Horse", group: "Mammals & reptiles", model: "mammal",
+    apparatus: "asynchronously coupled vocal folds", baseFrequencyHz: 400, tractLengthM: 0.48,
+    frequencyRangeHz: [50, 3_100], tractRangeM: [0.36, 0.62],
+    rangeBasis: "measured 52-1050 Hz F0 + 493-3012 Hz biphonic G0",
+    cavityFrequencyHz: 270, description: "Whinny moves between inharmonic fold regimes; nicker stays low and closed.",
+    controls: { pressure: 0.72, tension: 0.48, adduction: 0.68, sourceScale: 0.82, mouthOpening: 0.58, cavityCoupling: 0.26, asymmetry: 0.28, sourceBalance: 0.5, roughness: 0.22 },
+    callIds: ["horse-whinny", "horse-nicker"],
+  }),
+  reddeer: freezeAnimal({
+    id: "reddeer", label: "Red deer", group: "Mammals & reptiles", model: "mammal",
+    apparatus: "mobile larynx + 27-30 mm vocal folds", baseFrequencyHz: 112, tractLengthM: 0.52,
+    frequencyRangeHz: [60, 300], tractRangeM: [0.42, 0.7],
+    rangeBasis: "66-168 Hz common roars + measured retractable vocal tract",
+    cavityFrequencyHz: 190, description: "Common roar lengthens the tract; harsh roar pushes folds toward chaos.",
+    controls: { pressure: 0.8, tension: 0.3, adduction: 0.78, sourceScale: 0.86, mouthOpening: 0.62, cavityCoupling: 0.34, asymmetry: 0.18, sourceBalance: 0.5, roughness: 0.3 },
+    callIds: ["reddeer-common-roar", "reddeer-harsh-roar"],
+  }),
+  hyena: freezeAnimal({
+    id: "hyena", label: "Spotted hyena", group: "Mammals & reptiles", model: "mammal",
+    apparatus: "mammalian larynx with nonlinear regimes", baseFrequencyHz: 430, tractLengthM: 0.31,
+    frequencyRangeHz: [180, 1_300], tractRangeM: [0.24, 0.4],
+    rangeBasis: "field whoop contours + measured 547 Hz mean giggle notes",
+    cavityFrequencyHz: 360, description: "Rising whoops and short, modulated seven-note giggle bouts.",
+    controls: { pressure: 0.7, tension: 0.5, adduction: 0.7, sourceScale: 0.68, mouthOpening: 0.54, cavityCoupling: 0.2, asymmetry: 0.18, sourceBalance: 0.5, roughness: 0.26 },
+    callIds: ["hyena-whoop", "hyena-giggle"],
+  }),
+  wildboar: freezeAnimal({
+    id: "wildboar", label: "Wild boar", group: "Mammals & reptiles", model: "mammal",
+    apparatus: "two-mass larynx with fry and harsh regimes", baseFrequencyHz: 110, tractLengthM: 0.27,
+    frequencyRangeHz: [35, 1_800], tractRangeM: [0.2, 0.36],
+    rangeBasis: "sub-100 Hz grunt pulses + broadband squeal classification",
+    cavityFrequencyHz: 290, description: "Low pulsatile grunts and higher rough squeals share one tract.",
+    controls: { pressure: 0.7, tension: 0.38, adduction: 0.74, sourceScale: 0.7, mouthOpening: 0.46, cavityCoupling: 0.2, asymmetry: 0.16, sourceBalance: 0.5, roughness: 0.38 },
+    callIds: ["wildboar-grunt", "wildboar-squeal"],
+  }),
+  cow: freezeAnimal({
+    id: "cow", label: "Cow", group: "Mammals & reptiles", model: "mammal",
+    apparatus: "large two-mass larynx", baseFrequencyHz: 130, tractLengthM: 0.5,
+    frequencyRangeHz: [55, 600], tractRangeM: [0.38, 0.64],
+    rangeBasis: "80-180 Hz typical F0 + oral and nasal contact-call data",
+    cavityFrequencyHz: 250, description: "Stable harmonic moo with open-mouth and low contact gestures.",
+    controls: { pressure: 0.68, tension: 0.34, adduction: 0.7, sourceScale: 0.86, mouthOpening: 0.52, cavityCoupling: 0.38, asymmetry: 0.1, sourceBalance: 0.5, roughness: 0.18 },
+    callIds: ["cow-moo", "cow-contact"],
+  }),
   raven: freezeAnimal({
     id: "raven", label: "Raven", group: "Birds", model: "bird",
     apparatus: "bilateral nonlinear syrinx", baseFrequencyHz: 390, tractLengthM: 0.17,
@@ -341,6 +470,7 @@ export const CONTROL_LIMITS = Object.freeze({
   sourceBalance: Object.freeze([0, 1]),
   roughness: Object.freeze([0, 1]),
   gestureRate: Object.freeze([0.25, 2.5]),
+  loopGapMs: Object.freeze([0, 8_000]),
   level: Object.freeze([0, 1]),
 });
 
@@ -365,6 +495,7 @@ export function animalState(animalId = "raven", overrides = {}) {
     loop: false,
     biologicalLock: true,
     gestureRate: 1,
+    loopGapMs: 0,
     level: 0.48,
     tractLengthM: animal.tractLengthM,
     ...animal.controls,
@@ -373,6 +504,17 @@ export function animalState(animalId = "raven", overrides = {}) {
 }
 
 export const DEFAULT_SYRINX_STATE = Object.freeze(animalState("raven"));
+
+export const RANDOMIZABLE_CONTROLS = Object.freeze([
+  "pressure", "tension", "adduction", "tractLengthM",
+  "mouthOpening", "cavityCoupling", "asymmetry", "sourceBalance",
+  "roughness", "gestureRate", "loopGapMs", "level",
+]);
+
+export const MODULATION_TARGETS = Object.freeze([
+  "pressure", "tension", "adduction", "tractLengthM",
+  "mouthOpening", "cavityCoupling", "asymmetry", "sourceBalance", "roughness",
+]);
 
 export function sanitizeSyrinxState(candidate = {}, fallback = DEFAULT_SYRINX_STATE) {
   const source = candidate && typeof candidate === "object" ? candidate : {};
@@ -386,7 +528,7 @@ export function sanitizeSyrinxState(candidate = {}, fallback = DEFAULT_SYRINX_ST
     sourceModel: animal.model,
     active: Boolean(source.active ?? base.active),
     loop: Boolean(source.loop ?? base.loop),
-    biologicalLock: true,
+    biologicalLock: Boolean(source.biologicalLock ?? base.biologicalLock ?? true),
   };
   for (const name of controlNames) {
     const [minimum, maximum] = state.biologicalLock
@@ -395,10 +537,99 @@ export function sanitizeSyrinxState(candidate = {}, fallback = DEFAULT_SYRINX_ST
     const animalValue = name === "tractLengthM"
       ? animal.tractLengthM
       : animal.controls[name];
-    const defaultValue = name === "gestureRate" ? 1 : name === "level" ? 0.48 : animalValue;
+    const defaultValue = name === "gestureRate"
+      ? 1
+      : name === "loopGapMs"
+        ? 0
+        : name === "level" ? 0.48 : animalValue;
     state[name] = clamp(source[name] ?? base[name] ?? defaultValue, minimum, maximum);
   }
   return state;
+}
+
+export function randomizeSyrinxState(candidate = DEFAULT_SYRINX_STATE, random = Math.random) {
+  const base = sanitizeSyrinxState(candidate);
+  const animal = ANIMALS[base.animalId];
+  const next = { ...base };
+  for (const name of RANDOMIZABLE_CONTROLS) {
+    const [minimum, maximum] = base.biologicalLock
+      ? animal.bounds[name] ?? CONTROL_LIMITS[name]
+      : CONTROL_LIMITS[name];
+    const unit = clamp(typeof random === "function" ? random() : Math.random());
+    const shaped = 0.06 + unit * 0.88;
+    next[name] = name === "tractLengthM"
+      ? Math.exp(Math.log(minimum) + shaped * Math.log(maximum / minimum))
+      : minimum + shaped * (maximum - minimum);
+  }
+  return sanitizeSyrinxState(next, base);
+}
+
+export function sampleModulationWave(shape = "sine", phase = 0, seed = 0) {
+  const cycle = ((Number(phase) || 0) % 1 + 1) % 1;
+  if (shape === "triangle") return 1 - Math.abs(cycle - 0.5) * 4;
+  if (shape === "square") return cycle < 0.5 ? 1 : -1;
+  if (shape === "sample-hold") {
+    const bucket = Math.floor(Number(phase) || 0);
+    const value = Math.sin((bucket + Number(seed || 0) + 1) * 12.9898) * 43_758.5453;
+    return (value - Math.floor(value)) * 2 - 1;
+  }
+  return Math.sin(cycle * Math.PI * 2);
+}
+
+export function modulateSyrinxState(candidate, modulators = [], elapsedSeconds = 0) {
+  const base = sanitizeSyrinxState(candidate);
+  const animal = ANIMALS[base.animalId];
+  const next = { ...base };
+  modulators.forEach((modulator, index) => {
+    if (!modulator?.enabled || !MODULATION_TARGETS.includes(modulator.target)) return;
+    const [minimum, maximum] = base.biologicalLock
+      ? animal.bounds[modulator.target] ?? CONTROL_LIMITS[modulator.target]
+      : CONTROL_LIMITS[modulator.target];
+    const rateHz = clamp(modulator.rateHz, 0.02, 20);
+    const depth = clamp(modulator.depth);
+    const wave = sampleModulationWave(
+      modulator.shape,
+      elapsedSeconds * rateHz + (Number(modulator.phase) || 0),
+      index,
+    );
+    next[modulator.target] += wave * depth * (maximum - minimum) * 0.35;
+  });
+  return {
+    ...sanitizeSyrinxState(next, base),
+    active: Boolean(candidate?.active),
+    gesturePhase: Number(candidate?.gesturePhase) || 0,
+    sourceFrequencyRatio: clamp(candidate?.sourceFrequencyRatio ?? 1, 0.03, 24),
+  };
+}
+
+/**
+ * Resolve a call gesture's sounding phase and optional silent loop interval.
+ * Keeping this calculation outside the view makes transport continuity
+ * independent from preset selection and manual breath overrides.
+ */
+export function resolveGestureTimeline(elapsedMs, durationMs, loop = false, gapMs = 0) {
+  const elapsed = Math.max(0, Number(elapsedMs) || 0);
+  const duration = Math.max(1, Number(durationMs) || 1);
+  if (!loop) {
+    const complete = elapsed >= duration;
+    return Object.freeze({
+      active: !complete,
+      complete,
+      phase: clamp(elapsed / duration),
+      remainingGapMs: 0,
+    });
+  }
+
+  const gap = clamp(gapMs, ...CONTROL_LIMITS.loopGapMs);
+  const cycleDuration = duration + gap;
+  const cycleTime = elapsed % cycleDuration;
+  const active = cycleTime < duration;
+  return Object.freeze({
+    active,
+    complete: false,
+    phase: active ? clamp(cycleTime / duration) : 1,
+    remainingGapMs: active ? 0 : Math.max(0, cycleDuration - cycleTime),
+  });
 }
 
 export function sampleGestureCurve(points, phase) {
@@ -424,7 +655,12 @@ export function interpolateGesture(gestureOrId, normalizedPhase, baseState = DEF
   const base = sanitizeSyrinxState(baseState);
   if (!gesture?.curves) return { ...base, active: false, gesturePhase: 0 };
   const phase = clamp(normalizedPhase);
-  const next = { ...base, active: phase < 1, gesturePhase: phase };
+  const next = {
+    ...base,
+    active: phase < 1,
+    gesturePhase: phase,
+    sourceFrequencyRatio: gesture.frequencyRatio ?? 1,
+  };
   for (const [name, points] of Object.entries(gesture.curves)) {
     const value = sampleGestureCurve(points, phase);
     if (name === "pressure") next.pressure = clamp(base.pressure * value);
@@ -440,12 +676,13 @@ export function interpolateGesture(gestureOrId, normalizedPhase, baseState = DEF
 }
 
 export function resolveSourceControls(candidate = DEFAULT_SYRINX_STATE) {
+  const sourceFrequencyRatio = clamp(candidate?.sourceFrequencyRatio ?? 1, 0.03, 24);
   const state = sanitizeSyrinxState(candidate);
   const animal = ANIMALS[state.animalId];
   const tensionOffset = state.tension - animal.controls.tension;
   const scaleOffset = animal.controls.sourceScale - state.sourceScale;
   const frequencyHz = clamp(
-    animal.baseFrequencyHz * 2 ** (tensionOffset * 2.4 + scaleOffset * 1.15),
+    animal.baseFrequencyHz * sourceFrequencyRatio * 2 ** (tensionOffset * 2.4 + scaleOffset * 1.15),
     ...animal.frequencyRangeHz,
   );
   return Object.freeze({

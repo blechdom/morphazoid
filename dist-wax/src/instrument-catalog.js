@@ -133,6 +133,18 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose an animal and call, turn on audio, then trigger the gesture or hold Breath while reshaping its biological controls.",
     ["Built-in source", "Pointer"],
   ),
+  morphynx: define(
+    "Hybrid physical voice",
+    "Morphs Syrinx animal-source physics into Throatazoid voice anatomy, microphone formants, branching mouths, and the complete letter-key mutation system.",
+    "Choose an animal and voice, move the Syrinx–Throatazoid morph, then play a call or hold A–Z; use Shift for mutations and 0–9 for alien anatomies.",
+    ["Mic input", "Built-in source", "Computer keys", "Pointer"],
+  ),
+  "hyper-syrinx": define(
+    "Modular physical voice",
+    "Multiplies breaths, membranes, labia, tracheas, tracts, mouths, and lips into a patchable polyphonic physical-voice laboratory.",
+    "Turn on audio, duplicate or remove organ modules, choose how they share signals, then hold Breath while reshaping the combined voice.",
+    ["Built-in source", "Pointer", "Computer keys"],
+  ),
   "alien-larynx": define(
     "Experimental voice instrument",
     "Keeps the recognizable Throatazoid voice beneath five optional systems for coupled folds, true-scale propagation, mouth genomes, robot glands, and wormhole routing.",

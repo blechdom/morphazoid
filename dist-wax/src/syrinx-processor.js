@@ -3,6 +3,7 @@ import {
   sanitizeSyrinxSourceParameters,
   syrinxSourceModelId,
 } from "./syrinx-source-models.js";
+import { applyTongueToDiameter } from "./tongue-physics.js";
 
 const SPEED_OF_SOUND = 343;
 const MAX_WAVEGUIDE_RATE = 96_000;
@@ -82,6 +83,7 @@ export function tractDiameterAt(position, configuration = {}) {
     profile[profile.length - 1] * (0.18 + mouthOpening * 1.04),
   );
   diameter += (lipDiameter - diameter) * mouthBlend * mouthBlend;
+  diameter = applyTongueToDiameter(x, diameter, configuration);
   return Math.max(DIAMETER_FLOOR, diameter);
 }
 
@@ -131,6 +133,12 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
       mouthOpening: 0.52,
       cavityCoupling: 0.34,
       cavityFrequencyHz: 780,
+      tongueEnabled: false,
+      tongueAnatomy: "human",
+      tonguePosition: 0.5,
+      tongueHeight: 0.56,
+      tongueShape: 0.48,
+      tongueTip: 0.3,
       sourceBalance: 0,
       asymmetry: 0.3,
       ...initial.tract,
