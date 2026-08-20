@@ -28,7 +28,7 @@ const waveform = new Float32Array(512);
 const colors = isCandy
   ? ["#dc3c50", "#fff0d1", "#c9f04b", "#e650a0", "#8c32a0"]
   : isSandy
-    ? ["#20ccaa", "#21102f", "#00dcc8", "#7548bd", "#258d82"]
+    ? ["#20ccaa", "#9b79de", "#00dcc8", "#7548bd", "#4aaea2"]
     : ["#506428", "#d8c99e", "#50c8ff", "#3c5032", "#76552f"];
 
 const initialPreset = isSandy ? null : presets[0];
@@ -268,13 +268,15 @@ function updateInterface({ drawNow = true } = {}) {
       : formatMilliseconds(settings.range).toUpperCase(),
     state.audioOn ? "AUDIO ON" : "AUDIO OFF",
   ].join(" · ");
-  $("scopeState").textContent = state.audioOn ? "SCOPE · LIVE" : "SCOPE · IDLE";
+  $("scopeState").textContent = isSandy
+    ? `LIVE SCOPES · ${state.audioOn ? "ACTIVE" : "IDLE"}`
+    : `SCOPE · ${state.audioOn ? "LIVE" : "IDLE"}`;
   canvas.setAttribute(
     "aria-label",
     isCandy
       ? `Unboxed red, pink, cream, lime, and purple winding delay stripes with small waveform fragments moving ${settings.directionUp ? "upward" : "downward"} and fading into the stage edges. Audio ${state.audioOn ? "on" : "off"}.`
       : isSandy
-        ? `A ${settings.pitchOctaves.toFixed(1)} octave log-pitch path moving ${settings.directionUp ? "upward" : "downward"}, with ${settings.numVoices} paired grain markers, ${formatMilliseconds(settings.grainSize)} grains, and feedback echoes. Audio ${state.audioOn ? "on" : "off"}.`
+        ? `An escalator of ${settings.numVoices} live oscilloscope screens moves ${settings.directionUp ? "upward" : "downward"} through a ${settings.pitchOctaves.toFixed(1)} octave Shepard–Risset loop, fading each delay head in and out. Audio ${state.audioOn ? "on" : "off"}.`
         : `Unboxed olive, cyan, cream, and earth centered-hump delay paths with small waveform fragments moving ${settings.directionUp ? "upward" : "downward"} and fading into the stage edges. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 
@@ -754,21 +756,169 @@ function drawSludgeField(ctx, width, height) {
   ctx.restore();
 }
 
+function sandyScopeRateLabel(rate) {
+  if (rate < 0.1) return rate.toFixed(2);
+  if (rate < 10) return rate.toFixed(2);
+  return rate.toFixed(1);
+}
+
+function sandyScopeDelayLabel(seconds) {
+  return seconds < 1
+    ? Math.round(seconds * 1_000) + "ms"
+    : seconds.toFixed(seconds < 10 ? 1 : 0) + "s";
+}
+
+function drawSandyOscilloscope(
+  ctx,
+  head,
+  scope,
+  hasSignal,
+  signalPeak,
+) {
+  const scopeLeft = head.x - scope.width * 0.5;
+  const scopeTop = head.y - scope.height * 0.5;
+  const headerHeight = scope.compact ? 9 : 14;
+  const screenInset = scope.compact ? 3 : 5;
+  const screenLeft = scopeLeft + screenInset;
+  const screenTop = scopeTop + headerHeight;
+  const screenWidth = scope.width - screenInset * 2;
+  const screenHeight = scope.height - headerHeight - screenInset;
+  const centerY = screenTop + screenHeight * 0.5;
+  const headAlpha = 0.08 + head.window * 0.92;
+
+  ctx.save();
+  ctx.globalAlpha = headAlpha;
+  ctx.shadowColor = head.color;
+  ctx.shadowBlur = scope.compact ? 5 : 12;
+  ctx.fillStyle = "rgba(3, 5, 12, 0.96)";
+  ctx.fillRect(scopeLeft, scopeTop, scope.width, scope.height);
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = head.color;
+  ctx.lineWidth = head.window > 0.7 ? 1.4 : 0.8;
+  ctx.strokeRect(
+    scopeLeft + 0.5,
+    scopeTop + 0.5,
+    scope.width - 1,
+    scope.height - 1,
+  );
+
+  ctx.fillStyle = head.color;
+  ctx.font = (scope.compact ? "5.5px" : "7px") + " ui-monospace, monospace";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillText(
+    "H" + String(head.index + 1).padStart(2, "0")
+      + " · " + sandyScopeRateLabel(head.rate) + "×",
+    scopeLeft + screenInset,
+    scopeTop + headerHeight * 0.48,
+  );
+  if (!scope.compact) {
+    ctx.textAlign = "right";
+    ctx.globalAlpha = headAlpha * 0.72;
+    ctx.fillText(
+      sandyScopeDelayLabel(head.history),
+      scopeLeft + scope.width - screenInset,
+      scopeTop + headerHeight * 0.48,
+    );
+  }
+
+  ctx.globalAlpha = headAlpha;
+  ctx.fillStyle = "rgba(0, 8, 12, 0.94)";
+  ctx.fillRect(screenLeft, screenTop, screenWidth, screenHeight);
+
+  ctx.beginPath();
+  for (let column = 1; column < 4; column += 1) {
+    const x = screenLeft + screenWidth * column / 4;
+    ctx.moveTo(x, screenTop);
+    ctx.lineTo(x, screenTop + screenHeight);
+  }
+  for (let row = 1; row < 3; row += 1) {
+    const y = screenTop + screenHeight * row / 3;
+    ctx.moveTo(screenLeft, y);
+    ctx.lineTo(screenLeft + screenWidth, y);
+  }
+  ctx.globalAlpha = headAlpha * 0.16;
+  ctx.strokeStyle = head.color;
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(screenLeft, screenTop, screenWidth, screenHeight);
+  ctx.clip();
+  ctx.beginPath();
+  const pointCount = Math.max(28, Math.round(screenWidth));
+  const displayGain = Math.min(4.5, 0.72 / Math.max(0.02, signalPeak));
+  const sampleStride = Math.max(0.22, Math.min(4.5, head.rate ** 0.42));
+  const sampleOffset = Math.floor(
+    wrapPhase(
+      head.phase
+      + head.history / Math.max(0.1, state.settings.fbDelay) * 0.25,
+    ) * waveform.length,
+  );
+  for (let point = 0; point < pointCount; point += 1) {
+    const samplePosition = (
+      sampleOffset
+      + Math.floor(
+        point / Math.max(1, pointCount - 1)
+        * (waveform.length - 1)
+        * sampleStride,
+      )
+    ) % waveform.length;
+    const sample = hasSignal && Number.isFinite(waveform[samplePosition])
+      ? waveform[samplePosition]
+      : 0;
+    const x = screenLeft + point / Math.max(1, pointCount - 1) * screenWidth;
+    const y = centerY - sample * screenHeight * 0.42 * displayGain;
+    if (point === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.globalAlpha = headAlpha * (hasSignal ? 0.98 : 0.32);
+  ctx.strokeStyle = head.color;
+  ctx.lineWidth = scope.compact ? 0.85 : 1.15;
+  ctx.shadowColor = head.color;
+  ctx.shadowBlur = hasSignal ? (scope.compact ? 3 : 6) : 0;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.globalAlpha = headAlpha * 0.82;
+  ctx.fillStyle = head.color;
+  const meterHeight = Math.max(1, (screenHeight - 2) * head.window);
+  ctx.fillRect(
+    screenLeft + screenWidth - 2,
+    screenTop + screenHeight - 1 - meterHeight,
+    1,
+    meterHeight,
+  );
+  ctx.restore();
+}
+
 function drawSandyField(ctx, width, height) {
-  const fieldWidth = Math.min(width * 0.82, 900);
-  const fieldHeight = Math.min(height * 0.48, 390);
-  const left = (width - fieldWidth) * 0.5;
-  const top = Math.max(126, height * 0.25);
-  const centerY = top + fieldHeight * 0.5;
-  const pitchSpan = fieldHeight * (
-    0.22 + 0.72 * Math.sqrt(state.settings.pitchOctaves / 10)
-  );
-  const grainScale = (
-    (Math.sqrt(state.settings.grainSize) - Math.sqrt(0.005))
-    / (Math.sqrt(0.5) - Math.sqrt(0.005))
-  );
-  const pathWidth = 1.2 + grainScale * 8;
-  const blend = state.settings.blend;
+  const headCount = state.settings.numVoices;
+  const compact = height < 360;
+  const fieldWidth = Math.min(width * 0.86, 940);
+  const rawScopeWidth = fieldWidth / Math.max(4, headCount * 0.62);
+  const scopeWidth = compact
+    ? Math.max(58, Math.min(88, rawScopeWidth))
+    : Math.max(92, Math.min(166, rawScopeWidth));
+  const scopeHeight = scopeWidth * (compact ? 0.5 : 0.54);
+  const trackLeft = (width - fieldWidth) * 0.5 + scopeWidth * 0.5;
+  const trackRight = (width + fieldWidth) * 0.5 - scopeWidth * 0.5;
+  const top = compact
+    ? Math.max(92, height * 0.45)
+    : Math.max(158, height * 0.24);
+  const bottom = compact
+    ? Math.max(top + 42, height - 42)
+    : Math.min(height - 126, top + Math.min(370, height * 0.45));
+  const centerY = (top + bottom) * 0.5;
+  const pitchHeight = Math.max(42, bottom - top);
+  const hasSignal = state.audioOn && audio.getTimeDomainData(waveform);
+  let signalPeak = 0.02;
+  if (hasSignal) {
+    for (const sample of waveform) {
+      if (Number.isFinite(sample)) signalPeak = Math.max(signalPeak, Math.abs(sample));
+    }
+  }
 
   const pointAtPhase = (phase) => {
     const rate = sandySyrupTargetRate(
@@ -780,99 +930,126 @@ function drawSandyField(ctx, width, height) {
       Math.log2(rate) / Math.max(0.25, state.settings.pitchOctaves * 0.5)
     );
     return {
-      x: left + phase * fieldWidth,
-      y: centerY - normalizedPitch * pitchSpan * 0.5,
+      rate,
+      x: trackLeft + phase * (trackRight - trackLeft),
+      y: centerY - normalizedPitch * pitchHeight * 0.5,
     };
   };
 
   ctx.save();
-
-  // The foreground path is log pitch over one sweep. Sand breaks it into
-  // grain-sized pieces; Syrup joins the same path continuously.
-  const pathGradient = ctx.createLinearGradient(
-    left,
-    centerY,
-    left + fieldWidth,
-    centerY,
-  );
-  for (let index = 0; index < colors.length; index += 1) {
-    pathGradient.addColorStop(index / (colors.length - 1), colors[index]);
-  }
-  const segmentCount = Math.max(
-    16,
-    Math.min(180, Math.round(1 / Math.max(0.005, state.settings.grainSize))),
-  );
-  for (let segment = 0; segment < segmentCount; segment += 1) {
-    const startPhase = segment / segmentCount;
-    const endPhase = Math.min(
-      1,
-      startPhase + (0.35 + blend * 0.65) / segmentCount,
-    );
-    const start = pointAtPhase(startPhase);
-    const end = pointAtPhase(endPhase);
+  const guidePhases = [0, 0.5, 1];
+  for (const phase of guidePhases) {
+    const guide = pointAtPhase(phase);
     ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    ctx.lineTo(end.x, end.y);
-    ctx.strokeStyle = pathGradient;
-    ctx.globalAlpha = 0.18 + blend * 0.34;
-    ctx.lineWidth = pathWidth;
-    ctx.lineCap = blend > 0.7 ? "round" : "butt";
+    ctx.moveTo((width - fieldWidth) * 0.5, guide.y);
+    ctx.lineTo((width + fieldWidth) * 0.5, guide.y);
+    ctx.strokeStyle = "rgba(32, 204, 170, 0.08)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    if (!compact) {
+      ctx.fillStyle = "rgba(186, 222, 216, 0.38)";
+      ctx.font = "7px ui-monospace, monospace";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(
+        sandyScopeRateLabel(guide.rate) + "×",
+        (width - fieldWidth) * 0.5,
+        guide.y - 4,
+      );
+    }
+  }
+
+  const first = pointAtPhase(0);
+  const last = pointAtPhase(1);
+  const railGradient = ctx.createLinearGradient(
+    first.x,
+    first.y,
+    last.x,
+    last.y,
+  );
+  railGradient.addColorStop(0, "rgba(32, 204, 170, 0.05)");
+  railGradient.addColorStop(0.5, "rgba(0, 220, 200, 0.36)");
+  railGradient.addColorStop(1, "rgba(117, 72, 189, 0.05)");
+
+  ctx.beginPath();
+  ctx.moveTo(first.x, first.y);
+  ctx.lineTo(last.x, last.y);
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.42)";
+  ctx.lineWidth = scopeHeight * 0.38;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(first.x, first.y);
+  ctx.lineTo(last.x, last.y);
+  ctx.strokeStyle = railGradient;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(117, 72, 189, 0.18)";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 7]);
+  ctx.beginPath();
+  ctx.moveTo(last.x, last.y);
+  ctx.bezierCurveTo(
+    last.x + scopeWidth * 0.7,
+    last.y + pitchHeight * 0.18,
+    first.x - scopeWidth * 0.7,
+    first.y - pitchHeight * 0.18,
+    first.x,
+    first.y,
+  );
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const stepCount = Math.max(10, headCount * 2);
+  const railAngle = Math.atan2(last.y - first.y, last.x - first.x);
+  const normalX = Math.cos(railAngle + Math.PI * 0.5);
+  const normalY = Math.sin(railAngle + Math.PI * 0.5);
+  for (let step = 0; step <= stepCount; step += 1) {
+    const point = pointAtPhase(step / stepCount);
+    ctx.beginPath();
+    ctx.moveTo(point.x - normalX * 7, point.y - normalY * 7);
+    ctx.lineTo(point.x + normalX * 7, point.y + normalY * 7);
+    ctx.strokeStyle = "rgba(32, 204, 170, 0.12)";
+    ctx.lineWidth = 1;
     ctx.stroke();
   }
 
-  const heads = state.settings.numVoices;
-  for (let index = 0; index < heads; index += 1) {
-    const phase = wrapPhase(state.visualPhase + index / heads);
+  ctx.fillStyle = "rgba(32, 204, 170, 0.055)";
+  ctx.font = (compact ? "34px" : "58px") + " ui-monospace, monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("∞", width * 0.5, centerY);
+
+  const heads = [];
+  for (let index = 0; index < headCount; index += 1) {
+    const phase = wrapPhase(state.visualPhase + index / headCount);
     const point = pointAtPhase(phase);
-    const history = sandySyrupBaseDelay(
-      state.settings.pitchOctaves,
+    heads.push({
+      ...point,
+      index,
       phase,
-      state.settings.fbDelay,
-    );
-    const window = barberDelayWindow(phase, state.settings.tilt);
-    const color = colors[index % colors.length];
-
-    // Feedback is shown as fading prior grains, not as decorative background
-    // lines. Their separation follows the selected history length.
-    const echoes = Math.min(4, Math.ceil(state.settings.feedback * 4));
-    for (let echo = echoes; echo >= 1; echo -= 1) {
-      const echoPhase = wrapPhase(
-        phase - (
-          state.settings.directionUp ? 1 : -1
-        ) * echo * (0.018 + history / 15 * 0.028),
-      );
-      const echoPoint = pointAtPhase(echoPhase);
-      drawAudioFragment(
-        ctx,
-        echoPoint.x,
-        echoPoint.y,
-        2.4 + grainScale * 3,
-        color,
-        state.settings.feedback * (0.12 / echo),
-        index + echoPhase * 4,
-      );
-    }
-
-    const fragmentSize = 3.5 + grainScale * 8 + window * 2.5;
-    drawAudioFragment(
+      history: sandySyrupBaseDelay(
+        state.settings.pitchOctaves,
+        phase,
+        state.settings.fbDelay,
+      ),
+      window: barberDelayWindow(phase, state.settings.tilt),
+      color: colors[index % colors.length],
+    });
+  }
+  heads.sort((a, b) => a.window - b.window);
+  const scope = {
+    width: scopeWidth,
+    height: scopeHeight,
+    compact,
+  };
+  for (const head of heads) {
+    drawSandyOscilloscope(
       ctx,
-      point.x,
-      point.y,
-      fragmentSize,
-      color,
-      0.3 + window * 0.68,
-      index + phase * 3,
-    );
-
-    // The second marker is the complementary Hann grain stream.
-    drawAudioFragment(
-      ctx,
-      point.x + (state.settings.directionUp ? 1 : -1) * (4 + grainScale * 8),
-      point.y + 5,
-      fragmentSize * 0.62,
-      color,
-      0.2 + (1 - window) * 0.48,
-      index + phase * 5 + 0.5,
+      head,
+      scope,
+      hasSignal,
+      signalPeak,
     );
   }
   ctx.restore();
@@ -918,7 +1095,7 @@ function draw(timestamp, force = false) {
   if (isCandy) drawCandyField(context2d, canvasWidth, canvasHeight);
   else if (isSandy) drawSandyField(context2d, canvasWidth, canvasHeight);
   else drawSludgeField(context2d, canvasWidth, canvasHeight);
-  drawScope(context2d, canvasWidth, canvasHeight);
+  if (!isSandy) drawScope(context2d, canvasWidth, canvasHeight);
   fadeStageArtwork(context2d, canvasWidth, canvasHeight);
 }
 
@@ -944,9 +1121,12 @@ function animate(timestamp) {
     : 0;
   lastAnimationTime = timestamp;
   if (state.audioOn && !reducedMotion) {
+    const visualDirection = isSandy
+      ? 1
+      : state.settings.directionUp ? 1 : -1;
     state.visualPhase = wrapPhase(
       state.visualPhase
-      + elapsed * state.settings.speed * (state.settings.directionUp ? 1 : -1),
+      + elapsed * state.settings.speed * visualDirection,
     );
   }
   draw(timestamp);

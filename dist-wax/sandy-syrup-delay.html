@@ -60,16 +60,17 @@
             id="stage"
             tabindex="0"
             role="img"
-            aria-label="A log-pitch sweep path with paired grain markers and feedback echoes. Audio off."
+            aria-label="An escalator of oscilloscope screens shows the delay heads moving through pitch and fading in and out. Audio off."
             aria-describedby="delayDescription liveStatus"
           >
-            A log-pitch path shows the active grain streams, pitch direction, grain size, and feedback history.
+            Live oscilloscope screens show the active delay heads climbing an endless pitch loop.
           </canvas>
 
           <div class="barber-delay-heading">
-            <p>BARBER SHOP POLES · 04</p>
             <h1 id="delayTitle">Sandy Syrup Delay</h1>
-            <span>sample-and-hold sand ↔ continuous syrup</span>
+            <p class="barber-delay-deck">
+              Tape heads cycle endlessly through a Shepard–Risset loop, fading in and out to create an illusory pitch shift that rises or falls forever.
+            </p>
           </div>
 
           <div class="stage-meta" aria-hidden="true">
@@ -82,8 +83,8 @@
           </div>
 
           <div class="barber-delay-scope-labels" aria-hidden="true">
-            <span>PITCH PATH · GRAIN WINDOWS</span>
-            <span id="scopeState">SCOPE · IDLE</span>
+            <span>INFINITE HEAD LOOP · HANN FADE</span>
+            <span id="scopeState">LIVE SCOPES · IDLE</span>
           </div>
         </div>
       </section>
@@ -288,7 +289,7 @@
       </aside>
 
       <p class="sr-only" id="delayDescription">
-        Sandy Syrup uses twelve phase-staggered voices with two complementary Hann-windowed grain streams each. The foreground path plots log pitch over one sweep: Sand breaks the path into held-rate grain segments, while Syrup joins it continuously. Paired waveform markers show active grains and fading copies show feedback history.
+        Sandy Syrup cycles phase-staggered tape heads through a Shepard–Risset pitch loop. Each oscilloscope shows the live delay bus at one head's playback rate, while its brightness follows that head's fade window.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

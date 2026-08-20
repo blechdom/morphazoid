@@ -99,6 +99,20 @@
   letter-spacing: 0.11em;
 }
 
+.sandy-syrup-page .barber-delay-heading {
+  max-width: min(590px, 66%);
+}
+
+.sandy-syrup-page .barber-delay-heading .barber-delay-deck {
+  max-width: 560px;
+  margin: 8px 0 0;
+  color: color-mix(in oklab, var(--ink) 68%, var(--muted));
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.015em;
+  line-height: 1.5;
+  text-transform: none;
+}
+
 .barber-delay-interpretation {
   position: absolute;
   z-index: 3;
@@ -492,6 +506,24 @@
 
   .barber-delay-heading span {
     display: none;
+  }
+
+  .sandy-syrup-page .barber-delay-heading {
+    top: 38px;
+    max-width: calc(100% - 30px);
+  }
+
+  .sandy-syrup-page .barber-delay-heading h1 {
+    max-width: 78vw;
+  }
+
+  .sandy-syrup-page .barber-delay-heading .barber-delay-deck {
+    display: block;
+    max-width: min(82vw, 420px);
+    margin-top: 5px;
+    font-size: 7px;
+    letter-spacing: 0.01em;
+    line-height: 1.4;
   }
 
   .barber-delay-interpretation {
