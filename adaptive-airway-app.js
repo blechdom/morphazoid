@@ -96,7 +96,14 @@ function setOutput(id, value) {
 }
 
 async function ensureAudio() {
-  if (context && nodes) return;
+  if (context && nodes) {
+    if (context.state === "suspended") await context.resume();
+    state.audioReady = context.state === "running";
+    setOutput("audioState", state.audioReady ? "on" : "off");
+    $("audioButton")?.setAttribute("aria-pressed", String(state.audioReady));
+    applyState();
+    return;
+  }
   context = new AudioContext();
 
   const leftOsc = new OscillatorNode(context, { type: "sawtooth", frequency: 280 });
@@ -133,9 +140,10 @@ async function ensureAudio() {
   mainOsc.connect(mainGain).connect(sourceMix);
   noise.connect(noiseGain).connect(sourceMix);
 
-  flutterOsc.connect(flutterGain).connect(mainOsc.frequency);
-  flutterOsc.connect(flutterGain).connect(leftOsc.frequency);
-  flutterOsc.connect(flutterGain).connect(rightOsc.frequency);
+  flutterOsc.connect(flutterGain);
+  flutterGain.connect(mainOsc.frequency);
+  flutterGain.connect(leftOsc.frequency);
+  flutterGain.connect(rightOsc.frequency);
 
   sourceMix
     .connect(driveGain)
@@ -273,9 +281,11 @@ function applyAudioModel() {
   nodes.activityGain.gain.setTargetAtTime(activity, now, 0.025);
   nodes.master.gain.setTargetAtTime(state.outputLevel * Number(state.audioReady), now, 0.04);
 
-  const nonlinearState = aboveThreshold > 0.18
-    ? "nonlinear regime"
-    : aboveThreshold > 0.03 ? "near threshold" : "sub-threshold";
+  const nonlinearState = !state.running
+    ? "idle"
+    : aboveThreshold > 0.18
+      ? "nonlinear regime"
+      : aboveThreshold > 0.03 ? "near threshold" : "sub-threshold flow";
 
   setOutput("modelStatus", `${state.family} · ${nonlinearState}${state.running ? " · flowing" : " · stopped"}`);
   setOutput("sourceEstimate", formatHz(baseHz));
@@ -337,9 +347,14 @@ function applyPreset(presetId) {
 async function triggerBurst() {
   await ensureAudio();
   if (!context) return;
-  const now = context.currentTime;
+  if (context.state === "suspended") await context.resume();
+  state.audioReady = true;
+  setOutput("audioState", "on");
+  $("audioButton")?.setAttribute("aria-pressed", "true");
+
   const pressureControl = $("pressure");
   const start = state.pressure;
+  const wasRunning = state.running;
   const threshold = MODEL_THRESHOLDS[state.family];
   state.pressure = clamp(Math.max(start, threshold + 0.26));
   if (pressureControl) pressureControl.value = String(state.pressure);
@@ -348,9 +363,9 @@ async function triggerBurst() {
   window.setTimeout(() => {
     state.pressure = start;
     if (pressureControl) pressureControl.value = String(start);
+    setRunning(wasRunning);
     applyState();
   }, 420);
-  nodes?.activityGain.gain.cancelScheduledValues(now);
 }
 
 function bindSlider(id, assign) {
@@ -381,12 +396,18 @@ function init() {
       return;
     }
     if (context?.state === "running") {
+      if (nodes && context) {
+        const now = context.currentTime;
+        nodes.activityGain.gain.cancelScheduledValues(now);
+        nodes.master.gain.cancelScheduledValues(now);
+        nodes.activityGain.gain.setValueAtTime(0, now);
+        nodes.master.gain.setValueAtTime(0, now);
+      }
       await context.suspend();
       state.audioReady = false;
       setRunning(false);
       setOutput("audioState", "off");
       $("audioButton")?.setAttribute("aria-pressed", "false");
-      applyState();
       return;
     }
     await context?.resume();
