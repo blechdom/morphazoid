@@ -2,6 +2,45 @@
   min-width: 0;
 }
 
+.catalogue-tag-filter {
+  display: flex;
+  padding: 18px 0 2px;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.catalogue-tag-filter-button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  background: #0b0e11;
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.catalogue-tag-filter-button:hover {
+  border-color: color-mix(in oklab, var(--accent) 62%, var(--line-strong));
+  color: var(--ink);
+}
+
+.catalogue-tag-filter-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: #07100d;
+  background: var(--accent);
+}
+
+.catalogue-tag-filter-button:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent) 72%, white);
+  outline-offset: 2px;
+}
+
 .instrument-catalog-grid {
   display: grid;
   padding-top: 18px;
@@ -14,6 +53,11 @@
   padding-top: 28px;
   margin-top: 48px;
   border-top: 1px solid var(--line-strong);
+}
+
+.catalogue-experiments[hidden],
+.instrument-card[hidden] {
+  display: none;
 }
 
 .catalogue-experiments-heading {

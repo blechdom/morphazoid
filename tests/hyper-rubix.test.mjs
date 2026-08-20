@@ -31,6 +31,7 @@ import {
   createHyperRubixSequence,
   createSeededHyperRubixRandom,
   createSolvedHyperRubix,
+  createHyperRubixScopedStickerStream,
   createHyperRubixStickerStream,
   hyperRubixBoundaryCell,
   hyperRubixCellForNormal,
@@ -55,6 +56,7 @@ import {
   projectHyperRubixPoint4,
   rotateHyperRubixPoint4,
   rotateHyperRubixQuarterVector,
+  selectHyperRubixViewFacingCells,
   turnHyperRubixBoundaryCell,
 } from "../src/hyper-rubix.js";
 
@@ -1386,6 +1388,140 @@ test("the full sticker stream scans 27 spatial positions with eight current-cell
     createHyperRubixStickerStream(puzzle),
     stream,
     "the same puzzle must produce the same deterministic serial scan",
+  );
+});
+
+test("view-facing selection chooses one stable foreground cell per 4D axis", () => {
+  const scores = {
+    "x+": 0.92,
+    "x-": 0.14,
+    "y+": 0.31,
+    "y-": 0.88,
+    "z+": 0.64,
+    "z-": 0.22,
+    "w+": 0.18,
+    "w-": 0.76,
+  };
+  const selected = selectHyperRubixViewFacingCells(scores, { hysteresis: 0 });
+
+  assert.deepEqual(selected, ["x+", "y-", "z+", "w-"]);
+  assert.equal(Object.isFrozen(selected), true);
+  assert.equal(selected.length, HYPER_RUBIX_AXES.length);
+  for (const axis of HYPER_RUBIX_AXES) {
+    assert.equal(
+      selected.filter((cellId) => cellId.startsWith(axis)).length,
+      1,
+      `${axis.toUpperCase()} must contribute exactly one facing boundary cell`,
+    );
+  }
+  assert.deepEqual(
+    selectHyperRubixViewFacingCells(new Map(Object.entries(scores)), { hysteresis: 0 }),
+    selected,
+    "plain-object and Map score containers must resolve identically",
+  );
+});
+
+test("view-facing selection uses deterministic ties and previous-cell hysteresis", () => {
+  const tiedScores = Object.fromEntries(HYPER_RUBIX_CELL_ORDER.map((cellId) => [cellId, 1]));
+  assert.deepEqual(
+    selectHyperRubixViewFacingCells(tiedScores, { hysteresis: 0 }),
+    ["x+", "y+", "z+", "w+"],
+    "an exact edge-on tie must resolve to the positive member of every pair",
+  );
+
+  const nearTieScores = {
+    "x+": 1, "x-": 0.97,
+    "y+": 0.98, "y-": 1,
+    "z+": 1, "z-": 0.96,
+    "w+": 0.97, "w-": 1,
+  };
+  const previousCells = ["x-", "y+", "z-", "w+"];
+  assert.deepEqual(
+    selectHyperRubixViewFacingCells(nearTieScores, {
+      previousCells,
+      hysteresis: 0.05,
+    }),
+    previousCells,
+    "small score crossings must retain the prior one-per-axis facing set",
+  );
+  assert.deepEqual(
+    selectHyperRubixViewFacingCells(nearTieScores, {
+      previousCells,
+      hysteresis: 0,
+    }),
+    ["x+", "y-", "z+", "w-"],
+    "outside the hysteresis band the nearer member must win",
+  );
+
+  assert.throws(() => selectHyperRubixViewFacingCells(null), /scores must be an object or Map/i);
+  assert.throws(
+    () => selectHyperRubixViewFacingCells(tiedScores, { previousCells: "x+" }),
+    /previous view-facing cells must be an array/i,
+  );
+  assert.throws(
+    () => selectHyperRubixViewFacingCells({ ...tiedScores, "w-": Number.NaN }),
+    /score for w- must be finite/i,
+  );
+  assert.throws(
+    () => selectHyperRubixViewFacingCells(tiedScores, { hysteresis: Number.NaN }),
+    /hysteresis must be finite/i,
+  );
+});
+
+for (const [size, notesPerCell] of [[2, 8], [3, 27], [4, 64]]) {
+  test(`order-${size} playback scopes contain exactly 4, 1, or 8 current cells`, () => {
+    const puzzle = createSolvedHyperRubix(size);
+    const full = createHyperRubixStickerStream(puzzle);
+    const scopes = [
+      { name: "view-facing", cells: ["x+", "y-", "z+", "w-"], count: 4 },
+      { name: "selected-cell", cells: ["w+"], count: 1 },
+      { name: "whole-shape", cells: HYPER_RUBIX_CELL_ORDER, count: 8 },
+    ];
+
+    for (const { name, cells, count } of scopes) {
+      const scoped = createHyperRubixScopedStickerStream(puzzle, cells);
+      assert.equal(scoped.length, count * notesPerCell, `${name} note count`);
+      assert.equal(Object.isFrozen(scoped), true, `${name} stream must be frozen`);
+      assert.equal(new Set(scoped.map(({ id }) => id)).size, scoped.length);
+      assert.deepEqual(
+        scoped,
+        full.filter(({ cell }) => cells.includes(cell)),
+        `${name} must preserve the stable full-stream order`,
+      );
+      assert.equal(scoped.every(({ cell }) => cells.includes(cell)), true);
+      for (const cellId of cells) {
+        assert.equal(
+          scoped.filter(({ cell }) => cell === cellId).length,
+          notesPerCell,
+          `${name} must include all N^3 notes from ${cellId}`,
+        );
+      }
+    }
+  });
+}
+
+test("scoped streams follow current cells after a physical quarter turn", () => {
+  const turned = turnHyperRubixBoundaryCell(createSolvedHyperRubix(), {
+    cell: "w+",
+    plane: "xy",
+    quarterTurns: 1,
+  });
+  const selectedCell = createHyperRubixScopedStickerStream(turned, ["x+"]);
+
+  assert.equal(selectedCell.length, HYPER_RUBIX_STICKERS_PER_CELL);
+  assert.equal(selectedCell.every(({ cell }) => cell === "x+"), true);
+  assert.deepEqual(
+    new Set(selectedCell.map(({ homeCell }) => homeCell)),
+    new Set(["x+", "y-"]),
+    "scope follows the current cubic cell while colored home identities move through it",
+  );
+  assert.throws(
+    () => createHyperRubixScopedStickerStream(turned, []),
+    /scoped sticker cells must be a non-empty array/i,
+  );
+  assert.throws(
+    () => createHyperRubixScopedStickerStream(turned, ["q+"]),
+    /Unknown Hyper Rubix boundary cell/i,
   );
 });
 

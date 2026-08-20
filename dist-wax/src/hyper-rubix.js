@@ -721,6 +721,72 @@ export function createHyperRubixStickerStream(puzzle, options = {}) {
     : events);
 }
 
+/**
+ * Choose the foreground member of each opposite X/Y/Z/W boundary-cell pair.
+ *
+ * `scores` may be a plain object or Map containing one finite apparent-size or
+ * depth score per boundary cell. Larger values are considered nearer. Ties
+ * resolve to the positive cell unless a previous winner is supplied inside the
+ * relative hysteresis band, which prevents an orbit gesture from rapidly
+ * flipping an entire N³ lane near an edge-on view.
+ */
+export function selectHyperRubixViewFacingCells(scores, options = {}) {
+  if (!scores || typeof scores !== "object") {
+    throw new TypeError("Hyper Rubix view-facing scores must be an object or Map.");
+  }
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    throw new TypeError("Hyper Rubix view-facing options must be an object.");
+  }
+  const previousCells = options.previousCells ?? [];
+  if (!Array.isArray(previousCells)) {
+    throw new TypeError("Hyper Rubix previous view-facing cells must be an array.");
+  }
+  const previous = new Set(previousCells.map((cellId) => hyperRubixBoundaryCell(cellId).id));
+  const hysteresis = clamp(Number(options.hysteresis ?? 0.06), 0, 0.5);
+  if (!Number.isFinite(hysteresis)) {
+    throw new TypeError("Hyper Rubix view-facing hysteresis must be finite.");
+  }
+  const scoreFor = (cellId) => {
+    const value = scores instanceof Map ? scores.get(cellId) : scores[cellId];
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+      throw new TypeError(`Hyper Rubix view-facing score for ${cellId} must be finite.`);
+    }
+    return number;
+  };
+  const selected = new Set();
+  for (const axis of HYPER_RUBIX_AXES) {
+    const positive = `${axis}+`;
+    const negative = `${axis}-`;
+    const positiveScore = scoreFor(positive);
+    const negativeScore = scoreFor(negative);
+    const scale = Math.max(Math.abs(positiveScore), Math.abs(negativeScore), 1e-9);
+    const withinHysteresis = Math.abs(positiveScore - negativeScore) <= scale * hysteresis;
+    const previousWinner = previous.has(positive)
+      ? positive
+      : previous.has(negative) ? negative : null;
+    selected.add(withinHysteresis && previousWinner
+      ? previousWinner
+      : positiveScore >= negativeScore ? positive : negative);
+  }
+  return Object.freeze(HYPER_RUBIX_CELL_ORDER.filter((cellId) => selected.has(cellId)));
+}
+
+/** Return the stable sticker stream restricted to the supplied current cells. */
+export function createHyperRubixScopedStickerStream(puzzle, cellIds) {
+  if (!Array.isArray(cellIds) || cellIds.length === 0) {
+    throw new TypeError("Hyper Rubix scoped sticker cells must be a non-empty array.");
+  }
+  const included = new Set(cellIds.map((cellId) => hyperRubixBoundaryCell(cellId).id));
+  const stream = createHyperRubixStickerStream(puzzle)
+    .filter(({ cell }) => included.has(cell));
+  const expected = hyperRubixSizeMetrics(puzzle).stickersPerCell * included.size;
+  if (stream.length !== expected) {
+    throw new TypeError(`Hyper Rubix scoped sticker stream must contain ${expected} events.`);
+  }
+  return Object.freeze(stream);
+}
+
 function normalizedQuarterTurns(value) {
   const turns = Number(value);
   if (!Number.isInteger(turns)) {

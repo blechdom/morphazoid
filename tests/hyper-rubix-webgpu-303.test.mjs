@@ -13,6 +13,8 @@ import {
   createHyperRubixWebGpu303Pattern,
 } from "../src/hyper-rubix-webgpu-303.js";
 import {
+  HYPER_RUBIX_CELL_ORDER,
+  createHyperRubixScopedStickerStream,
   createHyperRubixStickerStream,
   createSolvedHyperRubix,
   hyperRubixSizeMetrics,
@@ -52,58 +54,117 @@ test("Hyper Rubix WebGPU 303 defaults are safe, frozen, and leave modulation hea
   assert.ok(HYPER_RUBIX_WEBGPU_303_DEFAULTS.partials < 128);
 });
 
-for (const size of [2, 3, 4]) {
-  test(`order-${size} Hyper Rubix maps every sticker into one forward serial note`, () => {
+for (const [size, notesPerCell] of [[2, 8], [3, 27], [4, 64]]) {
+  test(`order-${size} Hyper Rubix maps 4-cell, 1-cell, and 8-cell GPU scopes exactly`, () => {
     const puzzle = createSolvedHyperRubix(size);
     const metrics = hyperRubixSizeMetrics(puzzle);
-    const pattern = createHyperRubixWebGpu303Pattern(puzzle, {
-      tempo: 120,
-      subdivisionsPerBeat: 4,
-      swing: 0.2,
-    });
+    const scopes = [
+      { name: "view-facing", cellIds: ["x+", "y-", "z+", "w-"], expectedLength: notesPerCell * 4 },
+      { name: "selected-cell", cellIds: ["w+"], expectedLength: notesPerCell },
+      { name: "whole-shape", cellIds: HYPER_RUBIX_CELL_ORDER, expectedLength: notesPerCell * 8 },
+    ];
 
-    assertFinitePattern(pattern);
-    assert.equal(pattern.params.timeMod, metrics.stickerStreamLength);
-    assert.equal(pattern.params.timeScale, 8);
-    assert.equal(pattern.params.swing, 0.2);
-    assert.equal(pattern.steps.length, metrics.stickerStreamLength);
-    assert.equal(pattern.requiredSequenceCapacity, metrics.stickerStreamLength);
-    assert.equal(
-      pattern.runtimeCompatible,
-      metrics.stickerStreamLength <= WEBGPU_303_SEQUENCE_LENGTH,
-    );
-    assert.equal(new Set(pattern.steps.map(({ stickerId }) => stickerId)).size, metrics.stickerStreamLength);
-    assert.deepEqual(
-      pattern.steps.map(({ stickerId }) => stickerId),
-      createHyperRubixStickerStream(puzzle).map(({ stickerId }) => stickerId),
-      "the GPU score should retain the model's stable forward sticker order",
-    );
-    assert.ok(
-      pattern.stepModulation.every(([gain]) => gain > 0),
-      "every sticker pulse should be audible",
-    );
-    assert.ok(
-      pattern.sequence.every((value) => value >= 0 && value < 1),
-      "every sticker pulse should hold a drawn note",
-    );
-    assert.ok(Object.isFrozen(pattern));
-    assert.ok(Object.isFrozen(pattern.sequence));
-    assert.ok(Object.isFrozen(pattern.stepModulation));
-    assert.ok(Object.isFrozen(pattern.steps));
-    assert.equal(typeof pattern.fingerprint, "string");
-    assert.ok(pattern.fingerprint.length > metrics.stickerStreamLength * 10);
+    for (const { name, cellIds, expectedLength } of scopes) {
+      const pattern = createHyperRubixWebGpu303Pattern(puzzle, {
+        cellIds,
+        tempo: 120,
+        subdivisionsPerBeat: 4,
+        swing: 0.2,
+      });
+      const expectedStream = createHyperRubixScopedStickerStream(puzzle, cellIds);
+
+      assertFinitePattern(pattern);
+      assert.equal(pattern.params.timeMod, expectedLength, `${name} timeMod`);
+      assert.equal(pattern.params.timeScale, 8);
+      assert.equal(pattern.params.swing, 0.2);
+      assert.equal(pattern.steps.length, expectedLength, `${name} step count`);
+      assert.equal(pattern.requiredSequenceCapacity, expectedLength, `${name} capacity`);
+      assert.equal(
+        pattern.runtimeCompatible,
+        expectedLength <= WEBGPU_303_SEQUENCE_LENGTH,
+        `${name} runtime capacity`,
+      );
+      assert.equal(new Set(pattern.steps.map(({ stickerId }) => stickerId)).size, expectedLength);
+      assert.deepEqual(
+        pattern.steps.map(({ stickerId }) => stickerId),
+        expectedStream.map(({ stickerId }) => stickerId),
+        `${name} must retain the scoped model stream's stable forward order`,
+      );
+      assert.deepEqual(
+        new Set(pattern.steps.map(({ cell }) => cell)),
+        new Set(cellIds),
+        `${name} must contain exactly its requested current cells`,
+      );
+      for (const cellId of cellIds) {
+        assert.equal(
+          pattern.steps.filter(({ cell }) => cell === cellId).length,
+          notesPerCell,
+          `${name} must include every current-cell note from ${cellId}`,
+        );
+      }
+      assert.ok(
+        pattern.stepModulation.every(([gain]) => gain > 0),
+        "every sticker pulse should be audible",
+      );
+      assert.ok(
+        pattern.sequence.every((value) => value >= 0 && value < 1),
+        "every sticker pulse should hold a drawn note",
+      );
+      assert.ok(Object.isFrozen(pattern));
+      assert.ok(Object.isFrozen(pattern.sequence));
+      assert.ok(Object.isFrozen(pattern.stepModulation));
+      assert.ok(Object.isFrozen(pattern.steps));
+      assert.equal(typeof pattern.fingerprint, "string");
+      assert.ok(pattern.fingerprint.length > expectedLength * 10);
+    }
+
+    assert.equal(metrics.stickerStreamLength, notesPerCell * HYPER_RUBIX_CELL_ORDER.length);
   });
 }
 
-test("four-dimensional view rotation continuously changes the WebGPU sound mapping", () => {
+test("rotation-driven view-facing changes replace GPU sticker IDs and fingerprint", () => {
   const puzzle = createSolvedHyperRubix(3);
+  const stillCellIds = ["x+", "y+", "z+", "w+"];
+  const foldedCellIds = ["x-", "y+", "z-", "w-"];
   const still = createHyperRubixWebGpu303Pattern(puzzle, {
+    cellIds: stillCellIds,
     rotation: { xy: 0, xz: 0, xw: 0, yz: 0, yw: 0, zw: 0 },
   });
   const folded = createHyperRubixWebGpu303Pattern(puzzle, {
+    cellIds: foldedCellIds,
     rotation: { xy: 19, xz: -27, xw: 73, yz: 31, yw: -48, zw: 22 },
   });
 
+  assert.equal(still.steps.length, 108);
+  assert.equal(folded.steps.length, 108);
+  assert.deepEqual(new Set(still.steps.map(({ cell }) => cell)), new Set(stillCellIds));
+  assert.deepEqual(new Set(folded.steps.map(({ cell }) => cell)), new Set(foldedCellIds));
+  assert.notDeepEqual(
+    folded.steps.map(({ stickerId }) => stickerId),
+    still.steps.map(({ stickerId }) => stickerId),
+  );
+  assert.notEqual(folded.fingerprint, still.fingerprint);
+});
+
+test("whole-shape rotation preserves GPU sticker order while changing numeric mapping", () => {
+  const puzzle = createSolvedHyperRubix(3);
+  const still = createHyperRubixWebGpu303Pattern(puzzle, {
+    cellIds: HYPER_RUBIX_CELL_ORDER,
+    rotation: { xy: 0, xz: 0, xw: 0, yz: 0, yw: 0, zw: 0 },
+  });
+  const folded = createHyperRubixWebGpu303Pattern(puzzle, {
+    cellIds: HYPER_RUBIX_CELL_ORDER,
+    rotation: { xy: 19, xz: -27, xw: 73, yz: 31, yw: -48, zw: 22 },
+  });
+
+  assert.deepEqual(
+    folded.steps.map(({ stickerId }) => stickerId),
+    still.steps.map(({ stickerId }) => stickerId),
+  );
+  assert.deepEqual(
+    still.steps.map(({ stickerId }) => stickerId),
+    createHyperRubixStickerStream(puzzle).map(({ stickerId }) => stickerId),
+  );
   assert.notDeepEqual(folded.params, still.params);
   assert.notDeepEqual(folded.sequence, still.sequence);
   assert.notDeepEqual(
@@ -178,5 +239,9 @@ test("Hyper Rubix WebGPU mapper rejects malformed option containers and rotation
   assert.throws(
     () => createHyperRubixWebGpu303Pattern(puzzle, { rotation: [] }),
     /rotation must be an object/,
+  );
+  assert.throws(
+    () => createHyperRubixWebGpu303Pattern(puzzle, { cellIds: [] }),
+    /scoped sticker cells must be a non-empty array/,
   );
 });

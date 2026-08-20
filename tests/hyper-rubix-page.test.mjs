@@ -71,7 +71,10 @@ test("Hyper Rubix is a standalone accessible Morphazoid instrument", async () =>
     /id="canvasInstructions"[\s\S]*?Drag to orbit[\s\S]*?Fold W[\s\S]*?Press Space[\s\S]*?shape loop/i,
   );
   assert.match(html, /Arrow keys orbit[\s\S]*?Shift plus an arrow folds[\s\S]*?Backspace undoes/i);
-  assert.match(html, /id="serializationInstructions"[\s\S]*?216[\s\S]*?bright cursor[\s\S]*?time/i);
+  assert.match(
+    html,
+    /id="serializationInstructions"[\s\S]*?108[\s\S]*?four view-facing cells[\s\S]*?bright cursor[\s\S]*?time/i,
+  );
   assert.match(html, /clock[\s\S]*?never turns the puzzle automatically/i);
   assert.match(html, /id="liveStatus"[^>]*aria-live="polite"/);
   const statusTag = html.match(/<div class="hyper-rubix-status"[^>]*>/)?.[0] ?? "";
@@ -86,7 +89,7 @@ test("Hyper Rubix is a standalone accessible Morphazoid instrument", async () =>
   }
 });
 
-test("the open Shape loop exposes one forward all-sticker transport and five presets", async () => {
+test("the open Shape loop separates instrument and playback presets", async () => {
   const { html, app } = await pageSources();
   const sequencePanel = sourceSection(
     html,
@@ -95,24 +98,55 @@ test("the open Shape loop exposes one forward all-sticker transport and five pre
   );
 
   assert.match(sequencePanel, /<h2 class="group-title">Shape loop<\/h2>/);
-  assert.match(sequencePanel, /id="clockSummary">216 notes · 112 BPM · 1\/8<\/span>/);
-  const presets = selectOptions(sequencePanel, "voice");
-  assert.deepEqual(presets.map(({ value, label }) => [value, label]), [
+  assert.match(sequencePanel, /id="clockSummary">108 notes · 112 BPM · 1\/8<\/span>/);
+  assert.match(
+    sequencePanel,
+    /<label\b[^>]*for="voice"[^>]*>[\s\S]*?<span class="field-label">Instrument preset<\/span>/,
+  );
+  const instrumentPresets = selectOptions(sequencePanel, "voice");
+  assert.deepEqual(instrumentPresets.map(({ value, label }) => [value, label]), [
     ["pulse", "Hyper kit"],
     ["glass", "Prism kit"],
     ["dust", "Bit kit"],
     ["webgpu-303", "WebGPU 303"],
     ["rattlesnake", "Rattlesnake"],
   ]);
-  assert.equal(presets.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value, "pulse");
-  assert.ok(sequencePanel.indexOf('id="voice"') < sequencePanel.indexOf('id="playButton"'));
-  assert.match(sequencePanel, /id="voiceHelp"[^>]*>[^<]*live sticker loop[^<]*Orbit, fold, and twist/i);
+  assert.equal(
+    instrumentPresets.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value,
+    "pulse",
+  );
+
+  assert.match(
+    sequencePanel,
+    /<label\b[^>]*for="playbackPreset"[^>]*>[\s\S]*?<span class="field-label">Playback preset<\/span>/,
+  );
+  const playbackPresets = selectOptions(sequencePanel, "playbackPreset");
+  assert.deepEqual(playbackPresets.map(({ value, label }) => [value, label]), [
+    ["view-facing", "View-facing cells"],
+    ["selected-cell", "Selected cell"],
+    ["whole-shape", "Whole shape"],
+  ]);
+  assert.equal(
+    playbackPresets.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value,
+    "view-facing",
+  );
+  const compatibilityStart = sequencePanel.indexOf('<div hidden aria-hidden="true">');
+  assert.ok(sequencePanel.indexOf('id="voice"') < sequencePanel.indexOf('id="playbackPreset"'));
+  assert.ok(sequencePanel.indexOf('id="playbackPreset"') < sequencePanel.indexOf('id="playButton"'));
+  assert.ok(sequencePanel.indexOf('id="playbackPreset"') < compatibilityStart);
+  assert.equal(
+    hasBooleanAttribute(openingTag(sequencePanel, "select", "playbackPreset"), "hidden"),
+    false,
+  );
+  assert.match(sequencePanel, /id="playbackPresetHelp"[^>]*>[^<]*four[^<]*facing[^<]*108/i);
+  assert.match(sequencePanel, /id="playbackCells">four view-facing cells<\/small>/);
+  assert.match(sequencePanel, /id="playbackCount">108 notes<\/output>/);
 
   const play = openingTag(sequencePanel, "button", "playButton");
   assert.equal(attribute(play, "aria-pressed"), "false");
   assert.equal(hasBooleanAttribute(play, "data-primary-transport"), true);
   assert.match(sequencePanel, /id="playLabel">Play shape loop<\/b>/);
-  assert.match(sequencePanel, /id="playState">216 stickers · one note each<\/small>/);
+  assert.match(sequencePanel, /id="playState">108[^<]*(?:notes|stickers)[^<]*<\/small>/i);
   const restart = openingTag(sequencePanel, "button", "restartLoop");
   assert.match(attribute(restart, "aria-label") ?? "", /first sticker/i);
 
@@ -124,7 +158,7 @@ test("the open Shape loop exposes one forward all-sticker transport and five pre
     ["8", "27"],
   );
   assert.equal(hasBooleanAttribute(openingTag(sequencePanel, "div", "hyperbarPanel"), "hidden"), false);
-  assert.match(sequencePanel, /216-sticker loop[\s\S]*?one note per sticker · every note active/i);
+  assert.match(sequencePanel, /108[^<]*(?:note|sticker)[^<]*view-facing/i);
 
   const tempo = openingTag(sequencePanel, "input", "tempo");
   assert.deepEqual(
@@ -146,9 +180,17 @@ test("the open Shape loop exposes one forward all-sticker transport and five pre
   assert.match(app, /sequenceMethod: "sticker-stream"/);
   assert.match(app, /twistMotion: "off"/);
   assert.match(app, /playbackMode: "forward"/);
+  assert.match(app, /playbackPreset: "view-facing"/);
   assert.match(app, /autoRotate: false/);
   assert.match(app, /"sticker-stream": Object\.freeze\([\s\S]*?serial: true[\s\S]*?autoTwist: false/);
-  assert.match(app, /`Shape loop playing all \$\{method\.length\} stickers/);
+  assert.match(app, /createHyperRubixScopedStickerStream\(/);
+  assert.match(app, /\$\("playbackPreset"\)\.addEventListener\("change"/);
+  const viewFacingSelection = sourceSection(app, "function viewFacingScores()", "function pathPolygon(points)");
+  assert.match(viewFacingSelection, /projectToCanvas\(/);
+  assert.match(viewFacingSelection, /projectedPolygonArea\(hull\)/);
+  assert.match(viewFacingSelection, /selectHyperRubixViewFacingCells\(viewFacingScores\(\), \{[\s\S]*?previousCells: viewFacingCells/);
+  assert.match(app, /function drawScene\(time\) \{[\s\S]*?refreshViewFacingCells\(\)/);
+  assert.match(app, /cellInScope[\s\S]*?is-outside-score/);
   const tempoBinding = sourceSection(
     app,
     'bindRange("tempo", "tempo"',
@@ -158,11 +200,11 @@ test("the open Shape loop exposes one forward all-sticker transport and five pre
   const finishedTurn = sourceSection(app, "function finishActiveMove(time)", "function enqueueMove(");
   assert.match(finishedTurn, /if \(state\.playing && sequenceMethodConfig\(\)\.serial\)/);
   assert.match(finishedTurn, /transportPuzzle = state\.puzzle/);
-  assert.match(finishedTurn, /rebuildTransportStickerStream\(sequenceMethodConfig\(\), state\.puzzle\)/);
+  assert.match(finishedTurn, /rebuildTransportStickerStream\(/);
   assert.doesNotMatch(finishedTurn, /stopTransport/);
 });
 
-test("shape position, topology, Rattlesnake, and WebGPU 303 are mapped as live preset behavior", async () => {
+test("shape position, independent tails, Rattlesnake, and WebGPU 303 stay mapped to loop notes", async () => {
   const { html, app } = await pageSources();
   const soundPanel = sourceSection(
     html,
@@ -177,6 +219,40 @@ test("shape position, topology, Rattlesnake, and WebGPU 303 are mapped as live p
   assert.deepEqual(selectOptions(soundPanel, "topologyMode").map(({ value }) => value), [
     "mesh", "cohesion", "faults", "off",
   ]);
+
+  assert.match(
+    soundPanel,
+    /<label\b[^>]*for="decay"[^>]*>[\s\S]*?<b>Body decay<\/b>/,
+  );
+  const decayLink = openingTag(soundPanel, "select", "decayLink");
+  assert.equal(attribute(decayLink, "aria-describedby"), "decayLinkHelp");
+  assert.deepEqual(selectOptions(soundPanel, "decayLink").map(({ value, label, tag }) => ({
+    value,
+    label,
+    selected: hasBooleanAttribute(tag, "selected"),
+  })), [
+    { value: "linked", label: "Link body + neighbor tails", selected: true },
+    { value: "independent", label: "Separate neighbor tail", selected: false },
+  ]);
+  assert.match(
+    soundPanel,
+    /<label\b[^>]*for="decayLink"[^>]*>[\s\S]*?<span class="field-label">Tail relationship<\/span>/,
+  );
+  assert.match(
+    soundPanel,
+    /id="decayLinkHelp"[^>]*>Linked follows Body decay\. Separate unlocks an independent melodic neighbor tail\.<\/small>/,
+  );
+  assert.ok(soundPanel.indexOf('id="decayLink"') < soundPanel.indexOf('id="topologyRing"'));
+  assert.match(
+    soundPanel,
+    /<label\b[^>]*for="topologyRing"[^>]*>[\s\S]*?<b>Neighbor ring \(independent\)<\/b>/,
+  );
+  assert.match(
+    soundPanel,
+    /Sets the melodic tail made by connected stickers when Separate neighbor tail is selected\./,
+  );
+  assert.match(app, /decayLink: "linked"/);
+  assert.match(app, /\$\("decayLink"\)\.addEventListener\("change"/);
 
   for (const [id, value] of [
     ["pitchInfluence", "0.72"],
@@ -194,17 +270,17 @@ test("shape position, topology, Rattlesnake, and WebGPU 303 are mapped as live p
     assert.equal(attribute(input, "aria-describedby"), `${id}Help`);
   }
 
-  assert.deepEqual(selectOptions(soundPanel, "foldSound").map(({ value }) => value), [
-    "glide", "ticks", "both", "off",
-  ]);
-  assert.equal(hasBooleanAttribute(openingTag(soundPanel, "button", "hearAutoDrift"), "hidden"), true);
+  for (const id of ["foldSound", "foldSoundHelp", "foldLevel", "foldLevelOut", "hearAutoDrift", "hearAutoDriftState"]) {
+    assert.doesNotMatch(html, new RegExp(`\\bid="${id}"`), `${id} must not remain in the page`);
+  }
+  assert.doesNotMatch(app, /\b(?:FOLD_SOUND_LABELS|FOLD_TICK_DEGREES|FOLD_TICK_INTERVAL_MS|foldBus|foldOscillator|foldFilter|foldPanner|foldGain|foldTickSources|foldMotionActive|foldMotionSource|foldBuckets|lastFoldMotionAtMs|lastFoldTickAtMs|createFoldGraph|setFoldLevel|scheduleFoldTick|beginFoldMotion|updateFoldMotion|endFoldMotion|silenceFold|foldMotionGeometry)\b/);
   assert.equal(hasBooleanAttribute(openingTag(soundPanel, "button", "rattleButton"), "hidden"), true);
   assert.equal(hasBooleanAttribute(openingTag(soundPanel, "div", "rattlesnakeControls"), "hidden"), true);
   assert.deepEqual(selectOptions(soundPanel, "rattleRate").map(({ value, label }) => [value, label]), [
     ["2", "Loose"], ["4", "Dense"], ["8", "Swarm"],
   ]);
-  assert.match(soundPanel, /Each preset reads the same complete sticker loop/i);
-  assert.match(soundPanel, /manual quarter-turn changes both the immediate audition and every later visit/i);
+  assert.match(soundPanel, /playback preset|active (?:playback scope|sticker score)/i);
+  assert.match(soundPanel, /manual quarter-turn changes[\s\S]*?every later visit/i);
 
   const geometry = sourceSection(app, "function audioGeometryForCell(", "function audioGeometryForStickerEvent(");
   assert.match(geometry, /const rotated = transformed4\(sourcePosition\)/);
@@ -270,7 +346,9 @@ test("variable-order twists stay manual and the guide explains 64, 216, and 512 
   assert.equal(attribute(autoRotate, "aria-pressed"), "false");
   assert.equal(hasBooleanAttribute(autoRotate, "hidden"), true);
   assert.match(hyperspace, /projection stays still until you touch it/i);
-  assert.match(hyperspace, /Orbit changes[\s\S]*?Fold W changes[\s\S]*?clock continues/i);
+  assert.match(hyperspace, /Orbit changes the view-facing score/i);
+  assert.match(hyperspace, /Fold W changes the fourth-axis mapping/i);
+  assert.match(hyperspace, /Both remap clocked stickers[\s\S]*?no separate gesture synth[\s\S]*?clock continues/i);
 
   const guide = sourceSection(
     html,
@@ -279,8 +357,9 @@ test("variable-order twists stay manual and the guide explains 64, 216, and 512 
   );
   assert.match(guide, /tesseract has eight cubic boundary cells/i);
   assert.match(guide, /eight colored boundary cells across 27 spatial addresses/i);
-  assert.match(guide, /Size 2 has 64 notes, size 3 has 216, and size 4 has 512/i);
-  assert.match(guide, /clock never twists the puzzle/i);
+  assert.match(guide, /View-facing playback has 32 notes at size 2, 108 at size 3, and 256 at size 4/i);
+  assert.match(guide, /For Whole shape, size 2 has 64 notes, size 3 has 216, and size 4 has 512/i);
+  assert.match(guide, /Orbit, Fold W, and quarter-turns remap the running score without resetting its place/i);
 
   const resize = sourceSection(app, "function rebuildPuzzleForSize(", '$("puzzleSize").addEventListener');
   assert.match(resize, /stopTransport\(\{ hardAudio: true \}\)/);
@@ -297,13 +376,14 @@ test("the app keeps its pure core, keyboard play, local imports, and responsive 
     "HYPER_RUBIX_CELL_ORDER",
     "HYPER_RUBIX_TECHNO_VOICES",
     "createHyperRubixHyperbarSnapshot",
-    "createHyperRubixStickerStream",
+    "createHyperRubixScopedStickerStream",
     "createSolvedHyperRubix",
     "hyperRubixDisorder",
     "hyperRubixSizeMetrics",
     "hyperRubixTechnoVoiceParameters",
     "projectHyperRubixPoint4",
     "rotateHyperRubixPoint4",
+    "selectHyperRubixViewFacingCells",
     "turnHyperRubixBoundaryCell",
   ]) assert.match(coreImport[1], new RegExp(`\\b${name}\\b`));
 

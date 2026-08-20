@@ -172,7 +172,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "cascading-fm", label: "Cascading FM", href: "cascading-fm.html" },
     { id: "cascading-pm", label: "Cascading PM", href: "cascading-pm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
-    { id: "plasma-ball", label: "Plasma Ball", href: "plasma-ball.html" },
   ]),
   freezeGroup("instruments", "Instruments", [
     { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
@@ -217,6 +216,7 @@ export const TOOL_GROUPS = Object.freeze([
       label: "Escher",
       href: "escher-tessellation.html",
     },
+    { id: "plasma-ball", label: "Plasma Ball", href: "plasma-ball.html" },
     { id: "order-tones", label: "Order Tones", href: "order-tones.html" },
     {
       id: "morphazoidical",

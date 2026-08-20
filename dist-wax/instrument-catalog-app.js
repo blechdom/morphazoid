@@ -1,5 +1,7 @@
 import { INSTRUMENTS } from "./src/instrument-catalog.js";
 
+const ALL_TAG_ID = "all";
+
 function element(doc, tag, className, text) {
   const node = doc.createElement(tag);
   if (className) node.className = className;
@@ -83,6 +85,67 @@ function createCard(doc, instrument, index) {
   return card;
 }
 
+export function instrumentMatchesTag(instrument, tagId) {
+  return tagId === ALL_TAG_ID || instrument.tags.some(({ id }) => id === tagId);
+}
+
+function catalogueTags(records) {
+  const seen = new Set();
+  const tags = [];
+  const instruments = records
+    .map(({ instrument }) => instrument)
+    .filter((instrument) => !instrument.status);
+  const addTag = (tag) => {
+    if (!tag || tag.id === "experiments" || seen.has(tag.id)) return;
+    seen.add(tag.id);
+    tags.push(tag);
+  };
+
+  for (const instrument of instruments) addTag(instrument.tags[0]);
+  for (const instrument of instruments) {
+    for (const tag of instrument.tags) addTag(tag);
+  }
+  return tags;
+}
+
+function createTagFilter(doc, records, experiments) {
+  const filter = element(doc, "div", "catalogue-tag-filter");
+  filter.setAttribute("role", "group");
+  filter.setAttribute("aria-label", "Filter instruments by tag");
+  const buttons = [];
+
+  const setActiveTag = (tagId) => {
+    let visibleExperiments = 0;
+    for (const { instrument, card } of records) {
+      const matches = instrumentMatchesTag(instrument, tagId);
+      card.hidden = !matches;
+      if (matches && instrument.status) visibleExperiments += 1;
+    }
+    experiments.hidden = visibleExperiments === 0;
+    for (const button of buttons) {
+      button.setAttribute(
+        "aria-pressed",
+        String(button.dataset.catalogueTag === tagId),
+      );
+    }
+  };
+
+  for (const tag of [
+    { id: ALL_TAG_ID, label: "All" },
+    ...catalogueTags(records),
+  ]) {
+    const button = element(doc, "button", "catalogue-tag-filter-button", tag.label);
+    button.type = "button";
+    button.dataset.catalogueTag = tag.id;
+    button.setAttribute("aria-pressed", String(tag.id === ALL_TAG_ID));
+    button.addEventListener("click", () => setActiveTag(tag.id));
+    buttons.push(button);
+    filter.append(button);
+  }
+
+  return { filter, setActiveTag };
+}
+
 export function renderInstrumentCatalog(root) {
   if (!root?.ownerDocument) return null;
   const doc = root.ownerDocument;
@@ -112,12 +175,17 @@ export function renderInstrumentCatalog(root) {
   experimentGrid.append(...experimentCards);
   experiments.append(experimentsHeading, experimentGrid);
 
-  root.replaceChildren(grid, experiments);
+  const { filter, setActiveTag } = createTagFilter(doc, records, experiments);
+
+  root.replaceChildren(filter, grid, experiments);
   return Object.freeze({
     root,
+    filter,
     grid,
+    experiments,
     experimentGrid,
     cards: Object.freeze(records.map(({ card }) => card)),
+    setActiveTag,
   });
 }
 

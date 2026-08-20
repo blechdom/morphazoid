@@ -398,8 +398,8 @@ function runtimeFixture() {
     "autoRotate", "autoRotateState", "motionSummary", "rotationSpeed", "rotationSpeedOut",
     "projectionDepth", "projectionDepthOut", "cellSeparation", "cellSeparationOut",
     "stickerScale", "stickerScaleOut", "resetView", "randomView", "voice", "voiceHelp", "soundSummary",
-    "tone", "toneOut", "decay", "decayOut", "resetAll", "rotationReadout",
-    "foldSound", "foldLevel", "foldLevelOut", "hearAutoDrift", "hearAutoDriftState",
+    "playbackPreset", "playbackPresetHelp", "playbackScopeReadout", "playbackCells", "playbackCount",
+    "tone", "toneOut", "decay", "decayOut", "decayLink", "decayLinkHelp", "resetAll", "rotationReadout",
     "rattleButton", "rattleState", "rattlesnakeControls", "rattleLevel", "rattleLevelOut", "rattleRate",
     "shapeInfluence", "shapeInfluenceOut",
     "topologyMode", "topologyLevel", "topologyLevelOut", "topologySpan", "topologySpanOut",
@@ -418,24 +418,25 @@ function runtimeFixture() {
   for (const id of [
     "audioButton", "turnCounterclockwise", "turnClockwise", "scramblePuzzle", "undoMove",
     "unwindPuzzle", "autoRotate", "resetView", "randomView", "resetAll", "playButton",
-    "restartLoop", "reseedPattern", "rattleButton", "hearAutoDrift",
+    "restartLoop", "reseedPattern", "rattleButton",
   ]) elements.get(id).tagName = "BUTTON";
   for (const id of [
     "output", "tempo", "swing", "twistDensity", "rotationSpeed", "projectionDepth",
-    "cellSeparation", "stickerScale", "tone", "decay", "foldLevel", "rattleLevel", "shapeInfluence",
+    "cellSeparation", "stickerScale", "tone", "decay", "rattleLevel", "shapeInfluence",
     "topologyLevel", "topologySpan", "topologyStrum", "topologyRing", "topologyWarp",
     "pitchInfluence", "filterInfluence", "stereoInfluence", "neighborResponse",
     "wInfluence", "disorderInfluence",
   ]) elements.get(id).tagName = "INPUT";
   for (const id of [
-    "voice", "foldSound", "sequenceMethod", "sequencePattern", "playbackMode", "twistRate", "twistMotion", "rattleRate", "puzzleSize", "topologyMode",
+    "voice", "playbackPreset", "decayLink", "sequenceMethod", "sequencePattern", "playbackMode",
+    "twistRate", "twistMotion", "rattleRate", "puzzleSize", "topologyMode",
   ]) {
     elements.get(id).tagName = "SELECT";
   }
   elements.get("voice").value = "pulse";
+  elements.get("playbackPreset").value = "view-facing";
+  elements.get("decayLink").value = "linked";
   elements.get("puzzleSize").value = "3";
-  elements.get("foldSound").value = "glide";
-  elements.get("foldLevel").value = "0.12";
   elements.get("sequenceMethod").value = "sticker-stream";
   elements.get("sequencePattern").value = "axis-break";
   elements.get("playbackMode").value = "forward";
@@ -447,14 +448,13 @@ function runtimeFixture() {
   elements.get("topologyLevel").value = "0.22";
   elements.get("topologySpan").value = "12";
   elements.get("topologyStrum").value = "0.018";
-  elements.get("topologyRing").value = "0.48";
+  elements.get("topologyRing").value = "0.58";
   elements.get("topologyWarp").value = "1";
   elements.get("stage").tagName = "CANVAS";
   elements.get("stage").getContext = () => drawingContext();
   elements.get("audioButton").setAttribute("aria-pressed", "false");
   elements.get("playButton").setAttribute("aria-pressed", "false");
   elements.get("rattleButton").setAttribute("aria-pressed", "false");
-  elements.get("hearAutoDrift").setAttribute("aria-pressed", "false");
   elements.get("autoRotate").setAttribute("aria-pressed", "false");
   elements.get("audioError").hidden = true;
   elements.get("hyperbarPanel").hidden = false;
@@ -605,13 +605,21 @@ function gridButtons(fixture) {
   ));
 }
 
+function gridRows(fixture) {
+  return fixture.elements.get("hyperbarGrid").children;
+}
+
+function inScopeGridButtons(fixture) {
+  return gridButtons(fixture).filter(({ dataset }) => dataset.inPlayback === "true");
+}
+
 async function setControl(fixture, id, value, eventType = "change") {
   const control = fixture.elements.get(id);
   control.value = String(value);
   await control.emit(eventType);
 }
 
-test("Hyper Rubix runtime keeps projection manual, auditions folds and twists, and survives BFCache", async (t) => {
+test("Hyper Rubix keeps projection gestures silent, auditions twists, and survives BFCache", async (t) => {
   const fixture = runtimeFixture();
   const runtime = installRuntimeEnvironment(t, fixture);
 
@@ -623,13 +631,21 @@ test("Hyper Rubix runtime keeps projection manual, auditions folds and twists, a
   assert.equal(fixture.elements.get("motionSummary").textContent, "manual projection");
   assert.equal(fixture.elements.get("sequenceMethod").value, "sticker-stream");
   assert.equal(fixture.elements.get("twistMotion").value, "off");
+  assert.equal(fixture.elements.get("playbackPreset").value, "view-facing");
+  assert.equal(fixture.elements.get("playbackCount").textContent, "4 CELLS · 108 NOTES");
   assert.equal(fixture.elements.get("playLabel").textContent, "Play shape loop");
   assert.equal(fixture.elements.get("hyperbarPanel").hidden, false);
   assert.equal(gridButtons(fixture).length, HYPER_RUBIX_STICKER_STREAM_LENGTH);
+  assert.equal(inScopeGridButtons(fixture).length, 108);
+  assert.equal(
+    gridRows(fixture).filter(({ className }) => !className.includes("is-outside-score")).length,
+    4,
+    "the default score exposes exactly four view-facing cell rows",
+  );
   assert.equal(
     gridButtons(fixture).filter((cell) => cell.getAttribute("aria-selected") === "true").length,
     HYPER_RUBIX_STICKER_STREAM_LENGTH,
-    "every sticker starts audible",
+    "all 216 stickers remain editable even when only 108 are in the score",
   );
 
   await fixture.elements.get("audioButton").emit("click");
@@ -637,42 +653,67 @@ test("Hyper Rubix runtime keeps projection manual, auditions folds and twists, a
   const audioContext = FakeAudioContext.instances[0];
   assert.equal(fixture.elements.get("audioButton").getAttribute("aria-pressed"), "true");
   assert.equal(audioContext.compressors[0].connections.includes(audioContext.destination), true);
-  assert.equal(
-    audioContext.oscillators.filter(({ stops }) => stops.length === 0).length,
-    49,
-    "Fold W plus the bounded forty-eight-string topology graph stay reusable",
-  );
-  const persistentFold = audioContext.oscillators.find(({ stops }) => stops.length === 0);
-  const foldFilter = persistentFold.connections[0];
-  const foldPanner = foldFilter.connections[0];
-  const foldGain = foldPanner.connections[0];
-  assert.deepEqual(
-    [foldFilter.kind, foldPanner.kind, foldGain.kind],
-    ["filter", "panner", "gain"],
-  );
+  const persistentTopology = audioContext.oscillators.filter(({ stops }) => stops.length === 0);
+  assert.equal(persistentTopology.length, 48, "only the bounded topology strings stay persistent");
+  assert.equal(audioContext.oscillators.length, 48, "there is no separate fold or orbit oscillator");
+  const topologyGains = persistentTopology.map((oscillator) => oscillator.connections[0].connections[0]);
+  assert.equal(topologyGains.every(({ kind }) => kind === "gain"), true);
 
   const stage = fixture.elements.get("stage");
-  const foldEventsBefore = foldGain.gain.events.length;
+  const sourceCounts = () => ({
+    oscillators: audioContext.oscillators.length,
+    buffers: audioContext.bufferSources.length,
+  });
+  const gestureSourceCounts = sourceCounts();
+  const initialViewFacingCells = stage.dataset.audibleCellIds;
+  await stage.emit("pointerdown", {
+    pointerId: 10, clientX: 100, clientY: 100, shiftKey: false, timeStamp: 100,
+  });
+  await stage.emit("pointermove", {
+    pointerId: 10, clientX: 1_000, clientY: 100, shiftKey: false, timeStamp: 150,
+  });
+  await stage.emit("pointerup", {
+    pointerId: 10, clientX: 1_000, clientY: 100, shiftKey: false, timeStamp: 160,
+  });
+  runtime.runFrame(baseTime + 1);
+  assert.notEqual(
+    stage.dataset.audibleCellIds,
+    initialViewFacingCells,
+    "a real orbit drag changes which four cells face the view",
+  );
+  assert.deepEqual(sourceCounts(), gestureSourceCounts, "orbit pointer motion creates no audio source");
+
+  await stage.emit("keydown", { key: "ArrowRight", shiftKey: false });
+  runtime.runFrame(baseTime + 2);
+  assert.deepEqual(sourceCounts(), gestureSourceCounts, "orbit keyboard motion creates no audio source");
+
+  await fixture.elements.get("resetView").emit("click");
+  runtime.runFrame(baseTime + 3);
+  const resetViewFacingCells = stage.dataset.audibleCellIds;
   await stage.emit("pointerdown", {
     pointerId: 11, clientX: 100, clientY: 100, shiftKey: true, timeStamp: 100,
   });
   await stage.emit("pointermove", {
-    pointerId: 11, clientX: 190, clientY: 168, shiftKey: true, timeStamp: 150,
+    pointerId: 11, clientX: 100, clientY: -340, shiftKey: true, timeStamp: 150,
   });
-  assert.equal(
-    foldGain.gain.events.slice(foldEventsBefore).some(([kind, value]) => (
-      kind === "target" && value > 0
-    )),
-    true,
-    "a manual fourth-axis fold opens the continuous fold voice",
-  );
   await stage.emit("pointerup", {
-    pointerId: 11, clientX: 190, clientY: 168, timeStamp: 160,
+    pointerId: 11, clientX: 100, clientY: -340, timeStamp: 160,
   });
-  assert.deepEqual(foldGain.gain.events.at(-1).slice(0, 2), ["target", 0]);
+  runtime.runFrame(baseTime + 4);
+  assert.notEqual(
+    stage.dataset.audibleCellIds,
+    resetViewFacingCells,
+    "a real fourth-axis fold changes the view-facing cell set",
+  );
+  assert.deepEqual(sourceCounts(), gestureSourceCounts, "fold pointer motion creates no audio source");
+
+  await stage.emit("keydown", { key: "ArrowRight", shiftKey: true });
+  runtime.runFrame(baseTime + 5);
+  assert.deepEqual(sourceCounts(), gestureSourceCounts, "fold keyboard motion creates no audio source");
+  assert.equal(fixture.elements.get("playButton").getAttribute("aria-pressed"), "false");
 
   const oscillatorCountBeforeTurn = audioContext.oscillators.length;
-  const topologyEventsBeforeTurn = audioContext.oscillators.slice(1, 49)
+  const topologyEventsBeforeTurn = persistentTopology
     .reduce((count, oscillator) => count + oscillator.frequency.events.length, 0);
   await fixture.elements.get("turnClockwise").emit("click");
   runtime.runFrame(baseTime + 10);
@@ -685,12 +726,29 @@ test("Hyper Rubix runtime keeps projection manual, auditions folds and twists, a
     "a manual shape turn auditions affected sticker voices",
   );
   assert.ok(
-    audioContext.oscillators.slice(1, 49)
+    persistentTopology
       .reduce((count, oscillator) => count + oscillator.frequency.events.length, 0)
       > topologyEventsBeforeTurn,
     "the same turn excites the bounded neighbor-topology strings",
   );
   assert.match(fixture.elements.get("liveStatus").textContent, /plus 90 degrees complete/i);
+
+  assert.equal(fixture.elements.get("decayLink").value, "linked");
+  assert.equal(fixture.elements.get("topologyRing").disabled, true);
+  await setControl(fixture, "decay", 0.31, "input");
+  assert.equal(fixture.elements.get("topologyRing").value, "0.31");
+  assert.equal(fixture.elements.get("topologyRingOut").textContent, "0.31 s");
+  await setControl(fixture, "decayLink", "independent");
+  assert.equal(fixture.elements.get("topologyRing").disabled, false);
+  const topologyEventsBeforeShorterRing = topologyGains.map(({ gain }) => gain.events.length);
+  await setControl(fixture, "topologyRing", 0.12, "input");
+  topologyGains.forEach(({ gain }, index) => {
+    assert.ok(
+      gain.events.length > topologyEventsBeforeShorterRing[index],
+      "lowering an independent ring silences already-ringing topology lanes",
+    );
+    assert.deepEqual(gain.events.at(-1).slice(0, 2), ["set", 0]);
+  });
 
   const turnSources = audioContext.oscillators.slice(oscillatorCountBeforeTurn);
   audioContext.currentTime = 0.025;
@@ -719,6 +777,9 @@ test("Hyper Rubix runtime keeps projection manual, auditions folds and twists, a
   assert.equal(fixture.elements.get("puzzleState").textContent, "Solved");
   assert.equal(fixture.elements.get("moveCount").textContent, "00");
   assert.equal(fixture.elements.get("voice").value, "pulse");
+  assert.equal(fixture.elements.get("playbackPreset").value, "view-facing");
+  assert.equal(fixture.elements.get("decayLink").value, "linked");
+  assert.equal(fixture.elements.get("topologyRing").disabled, true);
   assert.equal(fixture.elements.get("sequenceMethod").value, "sticker-stream");
   assert.equal(fixture.elements.get("autoRotate").getAttribute("aria-pressed"), "false");
 
@@ -726,7 +787,11 @@ test("Hyper Rubix runtime keeps projection manual, auditions folds and twists, a
   fixture.documentObject.visibilityState = "hidden";
   await emitRuntime(fixture.documentListeners, "visibilitychange");
   assert.equal(audioContext.state, "suspended");
-  assert.deepEqual(foldGain.gain.events.at(-1).slice(0, 2), ["set", 0]);
+  assert.equal(
+    topologyGains.every(({ gain }) => gain.events.at(-1)?.[0] === "set" && gain.events.at(-1)?.[1] === 0),
+    true,
+    "visibility suspension silences every persistent topology lane",
+  );
   fixture.documentObject.hidden = false;
   fixture.documentObject.visibilityState = "visible";
   await emitRuntime(fixture.documentListeners, "visibilitychange");
@@ -734,14 +799,18 @@ test("Hyper Rubix runtime keeps projection manual, auditions folds and twists, a
 
   await emitRuntime(fixture.windowListeners, "pagehide", { persisted: true });
   assert.equal(audioContext.state, "suspended");
-  assert.equal(persistentFold.stops.length, 0, "BFCache preserves reusable audio nodes");
+  assert.equal(
+    persistentTopology.every(({ stops }) => stops.length === 0),
+    true,
+    "BFCache preserves the reusable topology oscillators",
+  );
   await emitRuntime(fixture.windowListeners, "pageshow", { persisted: true });
   assert.equal(audioContext.state, "running");
 
   await emitRuntime(fixture.windowListeners, "pagehide", { persisted: false });
   assert.equal(audioContext.state, "closed");
-  assert.equal(persistentFold.stops.length, 1);
-  assert.equal(persistentFold.disconnected, true);
+  assert.equal(persistentTopology.every(({ stops }) => stops.length === 1), true);
+  assert.equal(persistentTopology.every(({ disconnected }) => disconnected), true);
 });
 
 test("the single Shape loop traverses every sticker, stays running through edits, and hot-swaps presets", async (t) => {
@@ -762,14 +831,26 @@ test("the single Shape loop traverses every sticker, stays running through edits
   assert.equal(fixture.elements.get("sequenceMethod").value, "sticker-stream");
   assert.equal(fixture.elements.get("playbackMode").value, "forward");
   assert.equal(fixture.elements.get("twistMotion").value, "off");
-  assert.equal(fixture.elements.get("playState").textContent, "216 stickers · one note each");
-  assert.equal(fixture.elements.get("hyperbarReadout").textContent, "STICKER 001 / 216");
+  assert.equal(fixture.elements.get("playbackPreset").value, "view-facing");
+  assert.equal(
+    fixture.elements.get("playState").textContent,
+    "108 stickers · View-facing cells · one note each",
+  );
+  assert.equal(fixture.elements.get("hyperbarReadout").textContent, "STICKER 001 / 108");
+  assert.equal(fixture.elements.get("playbackCount").textContent, "4 CELLS · 108 NOTES");
   assert.equal(gridButtons(fixture).length, 216);
+  assert.equal(inScopeGridButtons(fixture).length, 108);
+  assert.equal(
+    gridRows(fixture).filter(({ className }) => !className.includes("is-outside-score")).length,
+    4,
+  );
   assert.equal(gridButtons(fixture).filter(({ disabled }) => disabled).length, 0);
   assert.equal(gridButtons(fixture).every((cell) => cell.getAttribute("role") === "gridcell"), true);
 
   await fixture.elements.get("audioButton").emit("click");
   const audioContext = FakeAudioContext.instances[0];
+  const persistentTopology = audioContext.oscillators.slice(0, 48);
+  assert.equal(persistentTopology.length, 48);
   await setControl(fixture, "tempo", 30, "input");
   await setControl(fixture, "twistRate", 1);
   await setControl(fixture, "swing", 0, "input");
@@ -794,11 +875,11 @@ test("the single Shape loop traverses every sticker, stays running through edits
   assert.equal(fixture.elements.get("playLabel").textContent, "Pause shape loop");
 
   clock.advanceBy(55);
-  assert.equal(currentStickerPosition().length, 216);
+  assert.equal(currentStickerPosition().length, 108);
   assert.notEqual(currentStickerId(), "");
   assert.equal(fixture.elements.get("moveCount").textContent, "00");
   const initialTransportSources = [
-    ...audioContext.oscillators.slice(49),
+    ...audioContext.oscillators.slice(48),
     ...audioContext.bufferSources.filter(({ loop }) => !loop),
   ];
   assert.ok(initialTransportSources.length > 0);
@@ -813,6 +894,34 @@ test("the single Shape loop traverses every sticker, stays running through edits
     assert.equal(currentCells[0].getAttribute("aria-current"), "step");
   }
   assert.equal(new Set(firstSix).size, 6, "successive fast pulses address separate stickers");
+
+  const unchangedInstrument = fixture.elements.get("voice").value;
+  assert.equal(unchangedInstrument, "pulse");
+  await setControl(fixture, "playbackPreset", "selected-cell");
+  assert.equal(fixture.elements.get("playbackCount").textContent, "1 CELL · 27 NOTES");
+  assert.equal(fixture.elements.get("stage").dataset.audibleCellIds, "w+");
+  assert.equal(inScopeGridButtons(fixture).length, 27);
+  assert.equal(fixture.elements.get("voice").value, unchangedInstrument);
+  assert.equal(fixture.elements.get("playButton").getAttribute("aria-pressed"), "true");
+
+  const xPositive = fixture.faceButtons.find(({ dataset }) => dataset.face === "x+");
+  await xPositive.emit("click");
+  assert.equal(fixture.elements.get("stage").dataset.audibleCellIds, "x+");
+  assert.equal(fixture.elements.get("playbackCount").textContent, "1 CELL · 27 NOTES");
+  assert.equal(inScopeGridButtons(fixture).length, 27, "selected-cell playback follows the face picker");
+  assert.equal(fixture.elements.get("playButton").getAttribute("aria-pressed"), "true");
+
+  await setControl(fixture, "playbackPreset", "whole-shape");
+  assert.equal(fixture.elements.get("playbackCount").textContent, "8 CELLS · 216 NOTES");
+  assert.equal(inScopeGridButtons(fixture).length, 216);
+  assert.equal(
+    gridRows(fixture).filter(({ className }) => !className.includes("is-outside-score")).length,
+    8,
+  );
+  assert.equal(fixture.elements.get("voice").value, unchangedInstrument);
+  assert.equal(fixture.elements.get("playButton").getAttribute("aria-pressed"), "true");
+  clock.advanceBy(40);
+  assert.equal(currentStickerPosition().length, 216);
 
   await setControl(fixture, "tempo", 196, "input");
   assert.equal(
@@ -830,7 +939,6 @@ test("the single Shape loop traverses every sticker, stays running through edits
     quarterTurns: 1,
   });
   const turnedIds = createHyperRubixStickerStream(turned).map(({ stickerId }) => stickerId);
-  const xPositive = fixture.faceButtons.find(({ dataset }) => dataset.face === "x+");
   const positionBeforeTurn = currentStickerPosition().index;
   await xPositive.emit("click");
   const yzPlane = fixture.elements.get("planePicker").children.find(({ dataset }) => (
@@ -864,10 +972,11 @@ test("the single Shape loop traverses every sticker, stays running through edits
   assert.equal(fixture.elements.get("moveCount").textContent, "01", "the clock itself never turns the puzzle");
 
   const positionBeforePreset = currentStickerPosition().index;
-  const topologyEventsBeforeRattlesnake = audioContext.oscillators.slice(1, 49)
+  const topologyEventsBeforeRattlesnake = persistentTopology
     .reduce((count, oscillator) => count + oscillator.frequency.events.length, 0);
   await setControl(fixture, "voice", "rattlesnake");
   assert.equal(fixture.elements.get("voice").value, "rattlesnake");
+  assert.equal(fixture.elements.get("playbackPreset").value, "whole-shape");
   assert.equal(fixture.elements.get("rattleButton").getAttribute("aria-pressed"), "true");
   assert.equal(fixture.elements.get("rattlesnakeControls").hidden, false);
   assert.equal(fixture.elements.get("playButton").getAttribute("aria-pressed"), "true");
@@ -882,13 +991,14 @@ test("the single Shape loop traverses every sticker, stays running through edits
     "sticker pulses excite the exclusive Rattlesnake preset",
   );
   assert.ok(
-    audioContext.oscillators.slice(1, 49)
+    persistentTopology
       .reduce((count, oscillator) => count + oscillator.frequency.events.length, 0)
       > topologyEventsBeforeRattlesnake,
     "Rattlesnake also excites the visible neighbor-resonator mapping",
   );
 
   await setControl(fixture, "voice", "glass");
+  assert.equal(fixture.elements.get("playbackPreset").value, "whole-shape");
   assert.equal(fixture.elements.get("rattleButton").getAttribute("aria-pressed"), "false");
   assert.equal(fixture.elements.get("rattlesnakeControls").hidden, true);
   assert.match(fixture.elements.get("soundSummary").textContent, /Prism kit/);
@@ -899,6 +1009,7 @@ test("the single Shape loop traverses every sticker, stays running through edits
   await Promise.resolve();
   await Promise.resolve();
   assert.equal(fixture.elements.get("voice").value, "webgpu-303");
+  assert.equal(fixture.elements.get("playbackPreset").value, "whole-shape");
   assert.match(fixture.elements.get("voiceHelp").textContent, /audible Web Audio acid fallback/i);
   assert.equal(
     fixture.elements.get("playButton").getAttribute("aria-pressed"),
@@ -925,11 +1036,11 @@ test("the single Shape loop traverses every sticker, stays running through edits
 
   await setControl(fixture, "puzzleSize", 2);
   assert.equal(gridButtons(fixture).length, 64);
-  assert.equal(fixture.elements.get("playState").textContent, "64 stickers · one note each");
+  assert.equal(fixture.elements.get("playState").textContent, "64 stickers · Whole shape · one note each");
   assert.match(fixture.elements.get("puzzleSizeHelp").textContent, /64 stickers · 8 spatial pulses/);
   await setControl(fixture, "puzzleSize", 4);
   assert.equal(gridButtons(fixture).length, 512);
-  assert.equal(fixture.elements.get("playState").textContent, "512 stickers · one note each");
+  assert.equal(fixture.elements.get("playState").textContent, "512 stickers · Whole shape · one note each");
   assert.match(fixture.elements.get("puzzleSizeHelp").textContent, /512 stickers · 64 spatial pulses/);
 
   await setControl(fixture, "puzzleSize", 3);

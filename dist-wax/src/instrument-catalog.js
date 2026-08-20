@@ -43,8 +43,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "hyper-rubix": define(
     "4D shape sequencer",
-    "Loops every sticker in an order-2, order-3, or order-4 tesseract-boundary puzzle as 64, 216, or 512 distinct notes, with five sound maps spanning color drums, resonant prisms, bit voices, WebGPU acid, and seed-shell rattles.",
-    "Turn on audio and Play shape loop, then orbit, Fold W, or make manual quarter-turns: transformed position, depth, neighbors, fault lines, displacement, and disorder reshape the running sound without resetting time.",
+    "Separates five instrument presets—color drums, resonant prisms, bit voices, WebGPU acid, and seed-shell rattles—from three playback views: one selected cell, four view-facing cells, or all 64, 216, or 512 distinct notes in an order-2, order-3, or order-4 tesseract boundary.",
+    "Turn on audio and Play shape loop, then orbit, Fold W, or make manual quarter-turns: the view chooses the clocked stickers while transformed position, depth, neighbors, fault lines, displacement, and disorder reshape each note without resetting time or adding a separate motion synth.",
     ["Pointer", "Built-in synth"],
   ),
 
@@ -464,14 +464,7 @@ const CATALOG_DETAILS = Object.freeze({
 });
 
 const ADDITIONAL_TAG_IDS = Object.freeze({
-  "escher-tessellation": Object.freeze(["geometry"]),
-  morphazoidical: Object.freeze(["geometry"]),
-  "fourier-epicycles": Object.freeze(["geometry"]),
-  "cantor-lock": Object.freeze(["fractals-recursion"]),
-  "escape-dust": Object.freeze(["fractals-recursion", "chaotic-synths"]),
-  linebreaker: Object.freeze(["fractals-recursion"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
-  "gear-ratio-drums": Object.freeze(["geometry-drums"]),
   "fm-drums": Object.freeze(["geometry-drums"]),
   "linear-drums": Object.freeze(["geometry-drums"]),
   "sample-drums": Object.freeze(["geometry-drums"]),
@@ -483,10 +476,6 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   "cascading-fm": Object.freeze(["fractals-recursion"]),
   "cascading-pm": Object.freeze(["fractals-recursion"]),
   weierstrass: Object.freeze(["fractals-recursion"]),
-  "cellular-automata": Object.freeze(["algorithmic-sequencers"]),
-  "prime-sieve": Object.freeze(["algorithmic-sequencers"]),
-  "dna-translator": Object.freeze(["algorithmic-sequencers"]),
-  "neural-pulse": Object.freeze(["algorithmic-sequencers"]),
 });
 
 const instrumentToolGroups = TOOL_GROUPS
@@ -524,7 +513,9 @@ if (missingDetails.length || unusedDetails.length || invalidAdditionalTags.lengt
 
 const instrumentByToolId = new Map(instrumentTools.map((tool) => {
   const primaryGroup = primaryGroupByToolId.get(tool.id);
-  const tagIds = [primaryGroup.id, ...(ADDITIONAL_TAG_IDS[tool.id] ?? [])];
+  const tagIds = primaryGroup.id === "experiments"
+    ? [primaryGroup.id]
+    : [primaryGroup.id, ...(ADDITIONAL_TAG_IDS[tool.id] ?? [])];
   const tags = Object.freeze([...new Set(tagIds)].map((tagId) => {
     const group = groupById.get(tagId);
     return Object.freeze({ id: group.id, label: group.label });

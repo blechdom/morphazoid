@@ -7,6 +7,7 @@ import {
 } from "./webgpu-303.js";
 import {
   HYPER_RUBIX_AXES,
+  createHyperRubixScopedStickerStream,
   createHyperRubixStickerStream,
   hyperRubixDisorder,
   hyperRubixSizeMetrics,
@@ -203,8 +204,9 @@ function sanitizeVariableStepModulation(stepModulation) {
 
 /**
  * Convert one Hyper Rubix state into a continuously gated WebGPU 303 loop.
- * Every sticker gets one forward serial pulse, so orders two through four
- * produce 64, 216, and 512 notes respectively.
+ * Every included sticker gets one forward serial pulse. `cellIds` can scope
+ * the same instrument to view-facing or selected current cells without
+ * inserting silent placeholders into the GPU timeline.
  */
 export function createHyperRubixWebGpu303Pattern(puzzle, options = {}) {
   if (!options || typeof options !== "object" || Array.isArray(options)) {
@@ -232,7 +234,9 @@ export function createHyperRubixWebGpu303Pattern(puzzle, options = {}) {
   );
   const disorder = hyperRubixDisorder(puzzle);
   const signals = rotationSignals(rotation);
-  const stream = createHyperRubixStickerStream(puzzle);
+  const stream = options.cellIds === undefined
+    ? createHyperRubixStickerStream(puzzle)
+    : createHyperRubixScopedStickerStream(puzzle, options.cellIds);
   const steps = Object.freeze(stream.map((event, stepIndex) => stepFromEvent(
     event,
     stepIndex,
@@ -245,7 +249,7 @@ export function createHyperRubixWebGpu303Pattern(puzzle, options = {}) {
   const rawStepModulation = steps.map(({ modulation }) => modulation);
   const params = Object.freeze(sanitizeWebGpu303Params({
     ...baseParams,
-    timeMod: metrics.stickerStreamLength,
+    timeMod: stream.length,
     timeScale: tempo * subdivisionsPerBeat / 60,
     swing: finiteOr(options.swing, baseParams.swing),
     fundamental: baseParams.fundamental * (2 ** (
@@ -273,7 +277,7 @@ export function createHyperRubixWebGpu303Pattern(puzzle, options = {}) {
     stepModulation,
     steps,
     fingerprint,
-    requiredSequenceCapacity: metrics.stickerStreamLength,
-    runtimeCompatible: metrics.stickerStreamLength <= WEBGPU_303_SEQUENCE_LENGTH,
+    requiredSequenceCapacity: stream.length,
+    runtimeCompatible: stream.length <= WEBGPU_303_SEQUENCE_LENGTH,
   });
 }

@@ -400,6 +400,56 @@
   line-height: 1.45;
 }
 
+.hyper-rubix-playback-preset {
+  --accent: var(--hyper-cyan);
+  border-color: color-mix(in oklab, var(--hyper-cyan) 35%, var(--line));
+  background:
+    linear-gradient(120deg, color-mix(in oklab, var(--hyper-cyan) 6%, transparent), transparent 62%),
+    var(--bg-deep);
+}
+
+.hyper-rubix-playback-scope {
+  display: flex;
+  min-height: 34px;
+  margin: -3px 0 9px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--hyper-cyan);
+  color: var(--faint);
+  background: color-mix(in oklab, var(--hyper-cyan) 4%, var(--bg-deep));
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hyper-rubix-playback-scope > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.hyper-rubix-playback-scope b {
+  color: var(--ink);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hyper-rubix-playback-scope small {
+  overflow: hidden;
+  font-size: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hyper-rubix-playback-scope output {
+  flex: 0 0 auto;
+  color: var(--hyper-cyan);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
 .hyper-rubix-method-select {
   display: grid;
   margin: 0 0 10px;
@@ -651,6 +701,26 @@
   letter-spacing: 0.02em;
   text-overflow: clip;
   white-space: nowrap;
+}
+
+.hyper-rubix-hyperbar-row > b,
+.hyper-rubix-hyperbar-cell {
+  transition: opacity 140ms ease, filter 140ms ease;
+}
+
+.hyper-rubix-hyperbar-row.is-outside-score > b,
+.hyper-rubix-hyperbar-row.is-outside-score .hyper-rubix-hyperbar-cell,
+.hyper-rubix-hyperbar-cell.is-outside-score {
+  filter: saturate(0.25);
+  opacity: 0.26;
+}
+
+.hyper-rubix-hyperbar-row.is-outside-score .hyper-rubix-hyperbar-cell:focus-visible,
+.hyper-rubix-hyperbar-row.is-outside-score .hyper-rubix-hyperbar-cell.is-current,
+.hyper-rubix-hyperbar-cell.is-outside-score:focus-visible,
+.hyper-rubix-hyperbar-cell.is-outside-score.is-current {
+  filter: none;
+  opacity: 1;
 }
 
 .hyper-rubix-hyperbar-cell {
@@ -1260,100 +1330,6 @@
   min-width: 0;
 }
 
-.hyper-rubix-fold-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: end;
-  gap: 8px;
-}
-
-.hyper-rubix-fold-controls .select-control,
-.hyper-rubix-fold-controls .control {
-  min-width: 0;
-}
-
-.hyper-rubix-fold-toggle {
-  display: grid;
-  width: 100%;
-  min-height: 48px;
-  margin: 0 0 7px;
-  padding: 7px 9px;
-  border: 1px solid var(--line-strong);
-  color: var(--muted);
-  background: var(--bg-deep);
-  grid-template-columns: 28px minmax(0, 1fr) 22px;
-  align-items: center;
-  gap: 8px;
-  text-align: left;
-}
-
-.hyper-rubix-fold-toggle > span:first-child {
-  display: grid;
-  width: 27px;
-  height: 27px;
-  border: 1px solid var(--hyper-cyan);
-  border-radius: 50%;
-  color: var(--hyper-cyan);
-  place-items: center;
-  font-size: 9px;
-}
-
-.hyper-rubix-fold-toggle > span:nth-child(2) {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.hyper-rubix-fold-toggle b {
-  color: var(--ink);
-  font-size: 8px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.hyper-rubix-fold-toggle small {
-  overflow: hidden;
-  color: var(--faint);
-  font-size: 6px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hyper-rubix-fold-toggle > i {
-  position: relative;
-  width: 20px;
-  height: 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-}
-
-.hyper-rubix-fold-toggle > i::after {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--faint);
-  content: "";
-  transition: 140ms ease;
-}
-
-.hyper-rubix-fold-toggle[aria-pressed="true"] {
-  border-color: color-mix(in oklab, var(--hyper-cyan) 42%, var(--line));
-  background: rgba(104, 236, 255, 0.05);
-}
-
-.hyper-rubix-fold-toggle[aria-pressed="true"] > i {
-  border-color: var(--hyper-cyan);
-}
-
-.hyper-rubix-fold-toggle[aria-pressed="true"] > i::after {
-  left: 12px;
-  background: var(--hyper-cyan);
-  box-shadow: 0 0 7px var(--hyper-cyan);
-}
-
 .hyper-rubix-control-help {
   margin: 0 0 12px;
   color: var(--faint);
@@ -1418,6 +1394,18 @@
 .hyper-rubix-modulation .control > small,
 .hyper-rubix-control-section[data-section="sequence"] .control > small {
   margin-top: -6px;
+  color: var(--faint);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.hyper-rubix-decay-link {
+  min-width: 0;
+  margin-bottom: 10px;
+}
+
+.hyper-rubix-decay-link > small {
+  margin-top: -4px;
   color: var(--faint);
   font-size: 7px;
   line-height: 1.45;
@@ -1601,8 +1589,7 @@
     bottom: 29px;
   }
 
-  .hyper-rubix-sequence-selects,
-  .hyper-rubix-fold-controls {
+  .hyper-rubix-sequence-selects {
     grid-template-columns: 1fr;
   }
 }

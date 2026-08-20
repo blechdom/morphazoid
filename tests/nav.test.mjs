@@ -523,7 +523,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "cascading-fm", href: "cascading-fm.html" },
       { id: "cascading-pm", href: "cascading-pm.html" },
       { id: "weierstrass", href: "weierstrass.html" },
-      { id: "plasma-ball", href: "plasma-ball.html" },
     ],
   );
   assert.equal(TOOL_GROUPS.some((group) => group.id === "webgpu-synths"), false);
@@ -537,6 +536,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
   );
   const experiments = TOOL_GROUPS.find((group) => group.id === "experiments");
   assert.equal(experiments?.picker, false);
+  assert.equal(experiments?.tools.some(({ id }) => id === "plasma-ball"), true);
   assert.deepEqual(experiments?.tools.slice(0, 4), [
     {
       id: "room-lobby",
@@ -571,6 +571,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "instrument-share-room", href: "instrument-share-room.html" },
       { id: "morphazoid-roulette", href: "morphazoid-roulette.html" },
       { id: "escher-tessellation", href: "escher-tessellation.html" },
+      { id: "plasma-ball", href: "plasma-ball.html" },
       { id: "order-tones", href: "order-tones.html" },
       { id: "morphazoidical", href: "morphazoidical/" },
       { id: "bell-square", href: "bell-square.html" },

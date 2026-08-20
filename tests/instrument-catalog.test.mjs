@@ -4,6 +4,10 @@ import test from "node:test";
 
 import { TOOL_GROUPS } from "../nav.js";
 import {
+  instrumentMatchesTag,
+  renderInstrumentCatalog,
+} from "../instrument-catalog-app.js";
+import {
   INSTRUMENT_GROUPS,
   INSTRUMENTS,
   instrumentById,
@@ -69,13 +73,105 @@ test("experiments carry a works-in-progress status while regular instruments do 
     instrument.tags.some(({ id }) => id === "experiments")
     && INSTRUMENT_GROUPS.find(({ id }) => id === "experiments")?.tools.includes(instrument)
   ));
-  assert.equal(experiments.length, 32);
+  assert.equal(experiments.length, 33);
   assert.equal(experiments.every(({ status }) => status === "Works in progress"), true);
+  assert.equal(experiments.every(({ tags }) => (
+    tags.length === 1 && tags[0].id === "experiments"
+  )), true);
   assert.equal(
     INSTRUMENTS.filter((instrument) => !experiments.includes(instrument))
       .every(({ status }) => status === null),
     true,
   );
+});
+
+test("Plasma Ball is an experiment with no secondary catalogue tags", () => {
+  const plasmaBall = instrumentById("plasma-ball");
+  assert.equal(plasmaBall?.status, "Works in progress");
+  assert.deepEqual(
+    plasmaBall?.tags.map(({ id }) => id),
+    ["experiments"],
+  );
+});
+
+test("catalogue tag matching includes secondary tags", () => {
+  assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "all"), true);
+  assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "chaotic-synths"), false);
+  assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "experiments"), true);
+  assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "geometry"), false);
+  assert.equal(instrumentMatchesTag(instrumentById("fm-drums"), "geometry-drums"), true);
+});
+
+test("catalogue tag controls hide experiments until All is restored", () => {
+  class FakeElement {
+    constructor(tagName, ownerDocument) {
+      this.tagName = tagName;
+      this.ownerDocument = ownerDocument;
+      this.children = [];
+      this.dataset = {};
+      this.attributes = new Map();
+      this.listeners = new Map();
+      this.hidden = false;
+      this.textContent = "";
+    }
+
+    append(...children) {
+      this.children.push(...children);
+    }
+
+    replaceChildren(...children) {
+      this.children = children;
+    }
+
+    setAttribute(name, value) {
+      this.attributes.set(name, value);
+    }
+
+    addEventListener(type, listener) {
+      this.listeners.set(type, listener);
+    }
+
+    click() {
+      this.listeners.get("click")?.();
+    }
+  }
+
+  const doc = {};
+  doc.createElement = (tagName) => new FakeElement(tagName, doc);
+  const rootElement = new FakeElement("div", doc);
+  const rendered = renderInstrumentCatalog(rootElement);
+  const filterLabels = rendered.filter.children.map(({ textContent }) => textContent);
+  assert.deepEqual(filterLabels, [
+    "All",
+    "Geometry Synths",
+    "Drum Machines",
+    "Sequencers",
+    "Signal & Voice",
+    "Barber Shop Poles",
+    "Fractals & Recursion",
+    "Chaotic Synths",
+    "Instruments",
+    "Algorithmic Sequencers",
+  ]);
+
+  const chaoticButton = rendered.filter.children.find(
+    ({ dataset }) => dataset.catalogueTag === "chaotic-synths",
+  );
+  chaoticButton.click();
+  assert.equal(rendered.experiments.hidden, true);
+  assert.equal(
+    rendered.cards.find(({ dataset }) => dataset.instrumentId === "plasma-ball").hidden,
+    true,
+  );
+  assert.equal(
+    rendered.cards.find(({ dataset }) => dataset.instrumentId === "recursive-fm").hidden,
+    false,
+  );
+  assert.equal(chaoticButton.attributes.get("aria-pressed"), "true");
+
+  rendered.filter.children[0].click();
+  assert.equal(rendered.experiments.hidden, false);
+  assert.equal(rendered.cards.every(({ hidden }) => !hidden), true);
 });
 
 test("input and plug-in availability facts remain explicit", () => {
@@ -110,7 +206,7 @@ test("input and plug-in availability facts remain explicit", () => {
   );
   assert.deepEqual(
     instrumentById("escher-tessellation")?.tags.map(({ id }) => id),
-    ["experiments", "geometry"],
+    ["experiments"],
   );
   assert.ok(instrumentById("lumber")?.features.includes("Mic input"));
   assert.ok(instrumentById("recursion")?.features.includes("File input"));
@@ -173,7 +269,7 @@ test("input and plug-in availability facts remain explicit", () => {
   );
 });
 
-test("Hyper Rubix copy documents every order, the complete loop, and five shape maps", async () => {
+test("Hyper Rubix copy documents every order, playback scope, and five instruments", async () => {
   const instrument = instrumentById("hyper-rubix");
   assert.match(instrument?.description ?? "", /order-2, order-3, or order-4/i);
   assert.match(instrument?.description ?? "", /64, 216, or 512 distinct notes/i);
@@ -186,8 +282,11 @@ test("Hyper Rubix copy documents every order, the complete loop, and five shape 
     /Hyper Rubix[\s\S]*?2 × 2 × 2 × 2[\s\S]*?3 × 3 × 3 × 3[\s\S]*?4 × 4 × 4 × 4/,
   );
   assert.match(readme, /64, 216, or 512 total/);
-  assert.match(readme, /fixed forward Shape Loop visits every sticker separately/i);
+  assert.match(readme, /View-facing reads the foreground cell from each X\/Y\/Z\/W pair/i);
+  assert.match(readme, /Selected cell isolates one cubic cell/i);
+  assert.match(readme, /Whole shape reads every sticker/i);
   assert.match(readme, /Hyper, Prism, Bit, WebGPU 303, and Rattlesnake/i);
+  assert.match(readme, /Orbit and Fold W remap the clocked score.*without starting a separate sustained gesture synth/i);
   assert.match(readme, /manual quarter-turns.*without rewinding its clock/i);
 });
 
@@ -202,7 +301,13 @@ test("card renderer separates in-development experiments from the main catalogue
   assert.ok(app.indexOf("image.loading =") < app.indexOf("image.src = instrument.imageHref"));
   assert.match(app, /grid\.append\(\.\.\.instrumentCards\)/);
   assert.match(app, /experimentGrid\.append\(\.\.\.experimentCards\)/);
-  assert.match(app, /root\.replaceChildren\(grid, experiments\)/);
+  assert.match(app, /root\.replaceChildren\(filter, grid, experiments\)/);
+  assert.match(app, /catalogue-tag-filter/);
+  assert.match(app, /Filter instruments by tag/);
+  assert.match(app, /button\.dataset\.catalogueTag = tag\.id/);
+  assert.match(app, /button\.setAttribute\("aria-pressed"/);
+  assert.match(app, /card\.hidden = !matches/);
+  assert.match(app, /experiments\.hidden = visibleExperiments === 0/);
   assert.match(app, /catalogue-experiments/);
   assert.match(app, /instrument-card-status/);
   assert.match(app, /"Works in progress"/);
@@ -230,6 +335,9 @@ test("card renderer separates in-development experiments from the main catalogue
   assert.doesNotMatch(app, /instrument-card-subtitle/);
   assert.match(css, /grid-template-columns: 92px minmax\(0, 1fr\)/);
   assert.match(css, /\.instrument-tags\s*\{/);
+  assert.match(css, /\.catalogue-tag-filter\s*\{/);
+  assert.match(css, /\.catalogue-tag-filter-button\[aria-pressed="true"\]/);
+  assert.match(css, /\.instrument-card\[hidden\]\s*\{/);
   assert.match(css, /\.catalogue-experiments\s*\{/);
   assert.match(css, /\.instrument-card-status\s*\{/);
   assert.match(css, /\.instrument-card-link\s*\{[^}]*min-height: 100%;[^}]*cursor: pointer;/s);

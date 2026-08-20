@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#05050a" />
     <meta
       name="description"
-      content="Morphazoid Hyper Rubix — hear every sticker in a 64, 216, or 512-note loop, then reshape five sound presets by orbiting, folding, and twisting a projected four-dimensional puzzle."
+      content="Morphazoid Hyper Rubix — hear view-facing, selected-cell, or whole-shape sticker loops, then reshape five instruments by orbiting, folding, and twisting a projected four-dimensional puzzle."
     />
     <title>Hyper Rubix — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -125,11 +125,11 @@
         <details class="group control-section hyper-rubix-control-section" data-section="sequence" open>
           <summary class="group-summary">
             <h2 class="group-title">Shape loop</h2>
-            <span class="section-state" id="clockSummary">216 notes · 112 BPM · 1/8</span>
+            <span class="section-state" id="clockSummary">108 notes · 112 BPM · 1/8</span>
           </summary>
           <div class="group-body">
             <label class="select-control hyper-rubix-preset-select" for="voice">
-              <span class="field-label">Sound preset</span>
+              <span class="field-label">Instrument preset</span>
               <span class="select-shell">
                 <select id="voice" aria-describedby="voiceHelp">
                   <option value="pulse" selected>Hyper kit</option>
@@ -139,8 +139,25 @@
                   <option value="rattlesnake">Rattlesnake</option>
                 </select>
               </span>
-              <small id="voiceHelp">Five maps of the same live sticker loop. Orbit, fold, and twist the shape to change its pitch, filter, stereo field, and topology.</small>
+              <small id="voiceHelp">Five instruments read the same clocked sticker score. Color keeps each voice identity while shape and topology remap its character.</small>
             </label>
+
+            <label class="select-control hyper-rubix-preset-select hyper-rubix-playback-preset" for="playbackPreset">
+              <span class="field-label">Playback preset</span>
+              <span class="select-shell">
+                <select id="playbackPreset" aria-describedby="playbackPresetHelp">
+                  <option value="view-facing" selected>View-facing cells</option>
+                  <option value="selected-cell">Selected cell</option>
+                  <option value="whole-shape">Whole shape</option>
+                </select>
+              </span>
+              <small id="playbackPresetHelp">Choose which boundary cells enter the clocked score. At size 3, View-facing follows four cells facing the canvas: 108 notes.</small>
+            </label>
+
+            <div class="hyper-rubix-playback-scope" id="playbackScopeReadout" role="group" aria-label="Active playback scope">
+              <span><b>Active score</b><small id="playbackCells">four view-facing cells</small></span>
+              <output id="playbackCount">108 notes</output>
+            </div>
 
             <div class="hyper-rubix-transport" aria-label="Shape-loop transport">
               <button
@@ -152,7 +169,7 @@
               >
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-                <span><b id="playLabel">Play shape loop</b><small id="playState">216 stickers · one note each</small></span>
+                <span><b id="playLabel">Play shape loop</b><small id="playState">108 view-facing stickers · one note each</small></span>
               </button>
               <button
                 class="hyper-rubix-restart-button"
@@ -165,20 +182,20 @@
 
             <div class="hyper-rubix-step-strip" id="stepStrip" role="group" aria-label="Legacy twist playhead" hidden></div>
             <div class="hyper-rubix-now-playing" aria-live="off">
-              <span id="sequenceNow">STICKER 001 / 216 · X+</span>
+              <span id="sequenceNow">STICKER 001 / 108 · X+</span>
               <span id="sequenceVoice">RED KICK · CORNER · 3 LINKS / 0 FAULTS</span>
             </div>
 
             <div class="hyper-rubix-hyperbar" id="hyperbarPanel">
               <div class="hyper-rubix-hyperbar-head">
-                <span><b id="hyperbarMatrixLabel">216-sticker loop</b><small id="hyperbarMatrixSummary">one note per sticker · every note active</small></span>
-                <output id="hyperbarReadout">STICKER 001 / 216</output>
+                <span><b id="hyperbarMatrixLabel">216-sticker map</b><small id="hyperbarMatrixSummary">108 notes · four view-facing cells</small></span>
+                <output id="hyperbarReadout">STICKER 001 / 108</output>
               </div>
               <div
                 class="hyper-rubix-hyperbar-grid"
                 id="hyperbarGrid"
                 role="grid"
-                aria-label="Eight color lanes containing all two hundred sixteen sticker notes"
+                aria-label="Eight color lanes containing all two hundred sixteen sticker notes; dimmed lanes are outside the active score"
                 aria-describedby="hyperbarInstructions"
                 aria-rowcount="8"
                 aria-colcount="27"
@@ -204,7 +221,7 @@
             </div>
             <div class="hyper-rubix-timing-help">
               <small id="pulseRateHelp">Pulse divisions set spacing: 1/4 fires once per quarter-note beat; 1/8 twice, through 1/64 sixteen times.</small>
-              <small id="twistMotionHelp">The clock never turns the puzzle. Manual orbit, Fold W, and ±90° twists reshape the notes while the loop keeps its place.</small>
+              <small id="twistMotionHelp">The clock never turns the puzzle. Orbit, Fold W, and ±90° twists remap clocked stickers while the loop keeps its place; they create no separate gesture synth.</small>
             </div>
 
             <label class="control" for="tempo">
@@ -314,7 +331,7 @@
               <span><b>Drift speed</b><output id="rotationSpeedOut" for="rotationSpeed">0.07 rev/min</output></span>
               <input id="rotationSpeed" type="range" min="0" max="0.24" step="0.01" value="0.07" />
             </label>
-            <p class="hyper-rubix-control-help">The projection stays still until you touch it. Orbit changes screen-space pan, height, and brightness; Fold W changes register, resonance, and tail while the clock continues.</p>
+            <p class="hyper-rubix-control-help">The projection stays still until you touch it. Orbit changes the view-facing score; Fold W changes the fourth-axis mapping. Both remap clocked stickers and create no separate gesture synth while the clock continues.</p>
             <label class="control" for="projectionDepth">
               <span><b>4D projection depth</b><output id="projectionDepthOut" for="projectionDepth">4.2</output></span>
               <input id="projectionDepth" type="range" min="3.4" max="7" step="0.1" value="4.2" />
@@ -345,7 +362,7 @@
               <input id="tone" type="range" min="0" max="1" step="0.01" value="0.64" />
             </label>
             <label class="control" for="decay">
-              <span><b>Decay</b><output id="decayOut" for="decay">0.58 s</output></span>
+              <span><b>Body decay</b><output id="decayOut" for="decay">0.58 s</output></span>
               <input id="decay" type="range" min="0.02" max="4" step="0.01" value="0.58" />
             </label>
             <div class="hyper-rubix-sound-divider" aria-hidden="true"><span>sticker topology</span></div>
@@ -379,10 +396,20 @@
                   <input id="topologyStrum" type="range" min="0" max="0.08" step="0.001" value="0.018" />
                   <small>Spreads the actual neighbor edges through time so they zip around the cell.</small>
                 </label>
+                <label class="select-control hyper-rubix-decay-link" for="decayLink">
+                  <span class="field-label">Tail relationship</span>
+                  <span class="select-shell">
+                    <select id="decayLink" aria-describedby="decayLinkHelp">
+                      <option value="linked" selected>Link body + neighbor tails</option>
+                      <option value="independent">Separate neighbor tail</option>
+                    </select>
+                  </span>
+                  <small id="decayLinkHelp">Linked follows Body decay. Separate unlocks an independent melodic neighbor tail.</small>
+                </label>
                 <label class="control" for="topologyRing">
-                  <span><b>String ring</b><output id="topologyRingOut" for="topologyRing">0.48 s</output></span>
-                  <input id="topologyRing" type="range" min="0.02" max="3.5" step="0.01" value="0.48" />
-                  <small>Controls connection decay independently from the eight drum bodies.</small>
+                  <span><b>Neighbor ring (independent)</b><output id="topologyRingOut" for="topologyRing">0.58 s</output></span>
+                  <input id="topologyRing" type="range" min="0.02" max="3.5" step="0.01" value="0.58" />
+                  <small>Sets the melodic tail made by connected stickers when Separate neighbor tail is selected.</small>
                 </label>
                 <label class="control" for="topologyWarp">
                   <span><b>Cell + W warp</b><output id="topologyWarpOut" for="topologyWarp">100%</output></span>
@@ -391,34 +418,10 @@
                 </label>
               </div>
             </fieldset>
-            <div class="hyper-rubix-sound-divider" aria-hidden="true"><span>fold motion</span></div>
-            <div class="hyper-rubix-fold-controls">
-              <label class="select-control" for="foldSound">
-                <span class="field-label">Fold sound</span>
-                <span class="select-shell">
-                  <select id="foldSound" aria-describedby="foldSoundHelp">
-                    <option value="glide" selected>Gesture glide</option>
-                    <option value="ticks">Crossing ticks</option>
-                    <option value="both">Glide + ticks</option>
-                    <option value="off">Off</option>
-                  </select>
-                </span>
-              </label>
-              <label class="control" for="foldLevel">
-                <span><b>Fold level</b><output id="foldLevelOut" for="foldLevel">12%</output></span>
-                <input id="foldLevel" type="range" min="0" max="0.6" step="0.01" value="0.12" aria-describedby="foldSoundHelp" />
-              </label>
-            </div>
-            <button class="hyper-rubix-fold-toggle" id="hearAutoDrift" type="button" aria-pressed="false" aria-describedby="foldSoundHelp" hidden>
-              <span aria-hidden="true">W</span>
-              <span><b>Hear auto-drift</b><small id="hearAutoDriftState">off · fold gestures only</small></span>
-              <i aria-hidden="true"></i>
-            </button>
-            <p class="hyper-rubix-control-help" id="foldSoundHelp">Drag Fold W to hear the selected preset bend continuously between clocked sticker notes.</p>
             <div class="hyper-rubix-sound-divider" aria-hidden="true"><span>rattlesnake preset</span></div>
             <button class="hyper-rubix-rattle-toggle" id="rattleButton" type="button" aria-pressed="false" hidden>
               <span aria-hidden="true">≋</span>
-              <span><b id="rattleVoiceLabel">Rattlesnake preset</b><small id="rattleState">off · choose Rattlesnake from Sound preset</small></span>
+              <span><b id="rattleVoiceLabel">Rattlesnake preset</b><small id="rattleState">off · choose Rattlesnake from Instrument preset</small></span>
               <i aria-hidden="true"></i>
             </button>
             <div class="hyper-rubix-rattle-controls" id="rattlesnakeControls" hidden>
@@ -473,7 +476,7 @@
                 </label>
               </div>
             </fieldset>
-            <p class="hyper-rubix-sound-note">Each preset reads the same complete sticker loop. Color keeps a recognizable voice identity; projected XYZW position, neighbor cohesion, fault lines, radial class, displacement, and disorder continuously reshape it. A manual quarter-turn changes both the immediate audition and every later visit to the moved stickers.</p>
+            <p class="hyper-rubix-sound-note">Each instrument reads the active playback scope. Color keeps a recognizable voice identity; projected XYZW position, neighbor cohesion, fault lines, radial class, displacement, and disorder continuously reshape it. Orbit and Fold W remap clocked stickers and create no separate gesture synth. A manual quarter-turn changes both the immediate audition and every later visit to the moved stickers.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>
@@ -485,8 +488,8 @@
           </summary>
           <div class="group-body hyper-rubix-guide">
             <p id="puzzleGeometryGuide">A tesseract has eight cubic boundary cells. Each one carries a 3 × 3 × 3 field of color, so this order-3 puzzle has 216 stickers.</p>
-            <p id="hyperbarGeometryGuide">The visible matrix lays out eight colored boundary cells across 27 spatial addresses. The loop visits all 216 stickers separately, so there are no authored rests unless you mute a sticker yourself.</p>
-            <p id="streamGeometryGuide">Time is the bright cursor moving through the sticker matrix. Size 2 has 64 notes, size 3 has 216, and size 4 has 512. The clock never twists the puzzle; manual orbiting, fourth-axis folding, and quarter-turns change the running sound without resetting its place.</p>
+            <p id="hyperbarGeometryGuide">The matrix lays out all eight colored boundary cells across 27 spatial addresses. By default, four view-facing cells form a 108-note score; rows outside that score are dimmed, not removed.</p>
+            <p id="streamGeometryGuide">Time is the single bright cursor moving through the active score. View-facing playback has 32 notes at size 2, 108 at size 3, and 256 at size 4. For Whole shape, size 2 has 64 notes, size 3 has 216, and size 4 has 512. Orbit, Fold W, and quarter-turns remap the running score without resetting its place or adding a separate gesture synth.</p>
             <p>A turn rotates one cubic cell through one of its three internal coordinate planes. The screen shows a perspective projection from 4D to 3D, then from 3D to your display.</p>
           </div>
         </details>
@@ -503,8 +506,9 @@
         cubic boundary cell and one of its three legal turn planes, then use the minus or plus
         ninety-degree buttons. Press Enter on the canvas for a clockwise turn. Press Space to play
         or pause the shape loop. <span id="restartInstructions">Press R to restart the shape loop
-        at its first sticker.</span> <span id="serializationInstructions">The loop visits all 216
-        stickers separately in a stable forward order; its bright cursor shows time.</span> The clock
+        at its first sticker.</span> <span id="serializationInstructions">The default loop visits 108
+        stickers across four view-facing cells in a stable forward order; Whole shape visits all 216.
+        One bright cursor shows time.</span> The clock
         never turns the puzzle automatically.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
