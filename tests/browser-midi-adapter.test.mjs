@@ -231,7 +231,7 @@ test("every playable catalog page loads shared browser MIDI and exposes a toolba
       ? path.join(repositoryRoot, cleanHref, "index.html")
       : path.join(repositoryRoot, cleanHref);
     const html = await readFile(htmlPath, "utf8");
-    assert.match(html, /<script[^>]+src="(?:\.\.\/)?nav\.js"/, `${instrument.id} loads nav.js`);
+    assert.match(html, /<script[^>]+src="(?:\.\.\/)?nav\.js(?:\?[^"]+)?"/, `${instrument.id} loads nav.js`);
     assert.match(
       html,
       /class="[^"]*masthead|data-midi-toolbar-host/,
