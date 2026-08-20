@@ -500,6 +500,36 @@
   }
 }
 
+/* The shared mobile shell normally locks the viewport and delegates scrolling
+   to a fixed-height control panel. Ouroboros has a document-flow performance
+   surface, so phones need native page scrolling instead. */
+@media (max-width: 960px) {
+  html {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  body.ouroboros-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+  }
+
+  .ouroboros-control-panel {
+    overflow: visible;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: auto;
+  }
+
+  .ouroboros-page #stage {
+    touch-action: pan-y;
+  }
+}
+
 @media (max-width: 820px) {
   .ouroboros-shell {
     display: block;

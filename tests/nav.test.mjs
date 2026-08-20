@@ -621,6 +621,17 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
   assert.deepEqual(SITE_LINKS, []);
 });
 
+test("every navigation tool ships a valid picker icon", async () => {
+  const tools = TOOL_GROUPS.flatMap((group) => group.tools);
+  await Promise.all(tools.map(async (tool) => {
+    const imageUrl = new URL(`../assets/instruments/${tool.id}.webp`, import.meta.url);
+    const bytes = await readFile(imageUrl);
+    assert.ok(bytes.length > 1000, `${tool.id} picker icon is unexpectedly small`);
+    assert.equal(bytes.subarray(0, 4).toString("ascii"), "RIFF", tool.id);
+    assert.equal(bytes.subarray(8, 12).toString("ascii"), "WEBP", tool.id);
+  }));
+});
+
 test("active tool resolution preserves GitHub Pages subpaths and nested workbench pages", () => {
   assert.equal(normalizeNavigationPath(`${SITE_ROOT}index.html?mode=test`, SITE_ROOT), "/blechdom/morphazoid/");
   assert.equal(resolveActiveTool("https://example.test/blechdom/morphazoid", SITE_ROOT), null);

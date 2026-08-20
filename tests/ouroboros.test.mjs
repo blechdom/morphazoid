@@ -1051,5 +1051,17 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   assert.match(styles, /#stage\s*\{[^}]*touch-action:\s*none/s);
   assert.match(styles, /\.ouroboros-stage-wrap\s*\{[^}]*height:\s*clamp/s);
   assert.match(styles, /\.ouroboros-performance-transport/);
+  assert.match(
+    styles,
+    /@media \(max-width: 960px\)[\s\S]*?body\.ouroboros-page\s*\{[^}]*height:\s*auto[^}]*overflow-y:\s*auto/s,
+  );
+  assert.match(
+    styles,
+    /@media \(max-width: 960px\)[\s\S]*?\.ouroboros-control-panel\s*\{[^}]*overflow:\s*visible/s,
+  );
+  assert.match(
+    styles,
+    /@media \(max-width: 960px\)[\s\S]*?\.ouroboros-page #stage\s*\{[^}]*touch-action:\s*pan-y/s,
+  );
   assert.match(styles, /@media \(max-width: 560px\)/);
 });
