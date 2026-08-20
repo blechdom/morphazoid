@@ -434,6 +434,12 @@
   --accent-glow: color-mix(in oklab, #df9d5a 18%, transparent);
 }
 
+.jaw-harp-page .control-section[data-section="breath"] {
+  --accent: #68bff1;
+  --accent-soft: color-mix(in oklab, #68bff1 55%, transparent);
+  --accent-glow: color-mix(in oklab, #68bff1 18%, transparent);
+}
+
 .jaw-harp-page .control-section[data-section="form"] {
   --accent: #76dfd3;
   --accent-soft: color-mix(in oklab, #76dfd3 55%, transparent);
@@ -466,6 +472,155 @@
 .jaw-harp-page input[type="range"]::-moz-range-track {
   background:
     linear-gradient(90deg, var(--accent) var(--range-progress, 50%), var(--line-strong) var(--range-progress, 50%));
+}
+
+.jaw-breath-pad {
+  display: grid;
+  margin: 1px 0 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.jaw-breath-pad button,
+.jaw-breath-cycle {
+  border: 1px solid rgba(104, 191, 241, 0.24);
+  cursor: pointer;
+  color: var(--jaw-muted);
+  background: #050706;
+  font-family: var(--mono);
+}
+
+.jaw-breath-pad button {
+  display: grid;
+  min-height: 56px;
+  padding: 8px 9px;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  text-align: left;
+}
+
+.jaw-breath-pad button > span {
+  grid-row: 1 / span 2;
+  color: #68bff1;
+  font-size: 18px;
+}
+
+.jaw-breath-pad #exhaleButton > span {
+  color: var(--jaw-amber);
+}
+
+.jaw-breath-pad b,
+.jaw-breath-pad small,
+.jaw-breath-cycle b,
+.jaw-breath-cycle small {
+  display: block;
+}
+
+.jaw-breath-pad b {
+  color: var(--jaw-bone);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.jaw-breath-pad small {
+  margin-top: 3px;
+  font-size: 6px;
+}
+
+.jaw-breath-pad button:hover,
+.jaw-breath-pad button:focus-visible,
+.jaw-breath-pad #inhaleButton[aria-pressed="true"] {
+  border-color: #68bff1;
+  color: #031018;
+  background: #68bff1;
+}
+
+.jaw-breath-pad #exhaleButton:hover,
+.jaw-breath-pad #exhaleButton:focus-visible,
+.jaw-breath-pad #exhaleButton[aria-pressed="true"] {
+  border-color: var(--jaw-amber);
+  color: #120d04;
+  background: var(--jaw-amber);
+}
+
+.jaw-breath-pad button[aria-pressed="true"] > span,
+.jaw-breath-pad button[aria-pressed="true"] b {
+  color: inherit;
+}
+
+.jaw-breath-cycle {
+  display: grid;
+  width: 100%;
+  min-height: 43px;
+  margin-bottom: 8px;
+  padding: 7px 9px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  text-align: left;
+}
+
+.jaw-breath-cycle > span:first-child {
+  color: #68bff1;
+  font-size: 18px;
+  text-align: center;
+}
+
+.jaw-breath-cycle b {
+  color: var(--jaw-bone);
+  font-size: 7px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.jaw-breath-cycle small {
+  margin-top: 3px;
+  font-size: 6px;
+}
+
+.jaw-breath-cycle[aria-pressed="true"] {
+  border-color: rgba(104, 191, 241, 0.62);
+  background: rgba(104, 191, 241, 0.09);
+  box-shadow: inset 3px 0 0 #68bff1;
+}
+
+.jaw-breath-meter {
+  display: grid;
+  height: 24px;
+  margin: 3px 0 9px;
+  grid-template-columns: auto repeat(4, minmax(0, 1fr)) auto repeat(4, minmax(0, 1fr)) auto;
+  align-items: center;
+  gap: 3px;
+}
+
+.jaw-breath-meter span,
+.jaw-breath-meter b {
+  color: var(--jaw-muted);
+  font: 600 6px/1 var(--mono);
+}
+
+.jaw-breath-meter i {
+  height: 7px;
+  border-top: 1px solid rgba(104, 191, 241, 0.4);
+  background: rgba(104, 191, 241, 0.07);
+}
+
+.jaw-breath-meter i:nth-of-type(n + 5) {
+  border-color: rgba(240, 196, 110, 0.4);
+  background: rgba(240, 196, 110, 0.07);
+}
+
+.jaw-breath-meter i.is-current {
+  height: 17px;
+  border-color: #68bff1;
+  background: rgba(104, 191, 241, 0.48);
+}
+
+.jaw-breath-meter i:nth-of-type(n + 5).is-current {
+  border-color: var(--jaw-amber);
+  background: rgba(240, 196, 110, 0.48);
 }
 
 .jaw-direction-row {

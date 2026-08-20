@@ -3,6 +3,8 @@ import {
   JAW_HARP_PRESETS,
   VOWEL_PRESETS,
   applyVowel,
+  breathCycleFlow,
+  breathCycleIntervalMs,
   clamp,
   dominantHarmonic,
   jawHarpPreset,
@@ -36,7 +38,9 @@ const CONTROL_SPECS = Object.freeze([
   { key: "cavityCoupling", format: formatPercent },
   { key: "frameCoupling", format: formatPercent },
   { key: "glottisOpening", format: formatPercent, mouth: true },
-  { key: "breath", format: formatPercent },
+  { key: "breathDepth", format: formatPercent },
+  { key: "breathRateBpm", format: (value) => `${Math.round(value)} cycles/min` },
+  { key: "breathBalance", format: (value) => `${Math.round(value * 100)} / ${Math.round((1 - value) * 100)}` },
   { key: "repeatRateBpm", format: (value) => `${Math.round(value)} BPM` },
   { key: "repeatSwing", format: (value) => `${Math.round(value * 100)}%` },
 ]);
@@ -56,12 +60,16 @@ let lastPluckAt = -Infinity;
 let pluckFlash = 0;
 let repeatStep = 0;
 let nextRepeatAt = 0;
+let breathCycleStartedAt = performance.now();
+let manualBreathDirection = 0;
+let commandedBreathFlow = 0;
 let waveform = new Float32Array(1024);
 let telemetry = {
   displacement: 0,
   energy: 0,
   peak: 0,
   rms: 0,
+  breathFlow: 0,
   formants: mouthFormants(state).frequenciesHz,
   ...dominantHarmonic(state),
 };
@@ -103,6 +111,81 @@ function audioConfiguration() {
 
 function postConfiguration() {
   graph?.sourceNode?.port.postMessage({ type: "configure", configuration: audioConfiguration() });
+}
+
+function breathLabel(flow = telemetry.breathFlow ?? commandedBreathFlow) {
+  const amount = Math.abs(flow);
+  if (amount < 0.025) return "rest";
+  return `${flow < 0 ? "inhale" : "exhale"} ${Math.round(amount * 100)}%`;
+}
+
+function sendBreath(flow) {
+  const next = clamp(flow, -1, 1);
+  if (Math.abs(next - commandedBreathFlow) < 0.006) return;
+  commandedBreathFlow = next;
+  graph?.sourceNode?.port.postMessage({ type: "breath", flow: next });
+}
+
+function breathFlowAt(time = performance.now()) {
+  if (manualBreathDirection) return manualBreathDirection * state.breathDepth;
+  if (!state.autoBreath) return 0;
+  const elapsed = Math.max(0, time - breathCycleStartedAt);
+  const phase = (elapsed / breathCycleIntervalMs(state.breathRateBpm)) % 1;
+  return breathCycleFlow(state, phase);
+}
+
+function updateBreathPresentation(flow = telemetry.breathFlow ?? commandedBreathFlow) {
+  const label = breathLabel(flow);
+  $("breathReadout").textContent = label;
+  $("breathSummary").textContent = manualBreathDirection
+    ? `manual · ${label}`
+    : state.autoBreath
+      ? `auto · ${label}`
+      : "manual · resting";
+  $("inhaleButton").setAttribute("aria-pressed", String(manualBreathDirection < 0));
+  $("exhaleButton").setAttribute("aria-pressed", String(manualBreathDirection > 0));
+  $("breathCycleButton").setAttribute("aria-pressed", String(state.autoBreath));
+  $("breathCycleState").textContent = state.autoBreath
+    ? `${Math.round(state.breathRateBpm)} cycles/min · alternating in and out`
+    : "off · hold either direction to breathe";
+  const meters = [...$("breathMeter").querySelectorAll("i")];
+  const amount = clamp(Math.abs(flow));
+  const half = flow < 0 ? 0 : 4;
+  const active = amount < 0.025 ? -1 : half + Math.min(3, Math.floor(amount * 4));
+  meters.forEach((meter, index) => meter.classList.toggle("is-current", index === active));
+}
+
+async function beginManualBreath(direction) {
+  const requestedDirection = direction < 0 ? -1 : 1;
+  manualBreathDirection = requestedDirection;
+  updateBreathPresentation(requestedDirection * state.breathDepth);
+  if (!(await ensureAudio())) {
+    if (manualBreathDirection === requestedDirection) manualBreathDirection = 0;
+    updateBreathPresentation(0);
+    return;
+  }
+  if (manualBreathDirection !== requestedDirection) return;
+  const flow = manualBreathDirection * state.breathDepth;
+  sendBreath(flow);
+  updateBreathPresentation(flow);
+  announce(`${manualBreathDirection < 0 ? "Inhaling" : "Exhaling"} through the vibrating reed`);
+}
+
+function endManualBreath(direction = manualBreathDirection) {
+  if (!manualBreathDirection || Math.sign(direction) !== manualBreathDirection) return;
+  manualBreathDirection = 0;
+  const flow = breathFlowAt();
+  sendBreath(flow);
+  updateBreathPresentation(flow);
+}
+
+function toggleBreathCycle() {
+  state = sanitizeJawHarpState({ ...state, autoBreath: !state.autoBreath }, state);
+  breathCycleStartedAt = performance.now();
+  const flow = breathFlowAt(breathCycleStartedAt);
+  sendBreath(flow);
+  updateBreathPresentation(flow);
+  announce(`Automatic breath cycle ${state.autoBreath ? "on" : "off"}`);
 }
 
 async function createAudioGraph() {
@@ -176,7 +259,10 @@ async function ensureAudio() {
 async function toggleAudio() {
   if (audioContext?.state === "running") {
     state = sanitizeJawHarpState({ ...state, repeat: false }, state);
+    manualBreathDirection = 0;
+    sendBreath(0);
     updateTransportPresentation();
+    updateBreathPresentation(0);
     graph.sourceNode.port.postMessage({ type: "silence" });
     await audioContext.suspend();
     setAudioPresentation("off");
@@ -237,7 +323,10 @@ function loadHarp(presetId) {
     lipRounding: state.lipRounding,
     glottisOpening: state.glottisOpening,
     cavityCoupling: state.cavityCoupling,
-    breath: state.breath,
+    breathDepth: state.breathDepth,
+    breathRateBpm: state.breathRateBpm,
+    breathBalance: state.breathBalance,
+    autoBreath: state.autoBreath,
     formantFocus: state.formantFocus,
     repeatRateBpm: state.repeatRateBpm,
     repeatSwing: state.repeatSwing,
@@ -298,6 +387,7 @@ function updatePresentation() {
   $("motionReadout").textContent = telemetry.rms > 0.0004 ? `${Math.round(clamp(telemetry.energy) * 100)}% energy` : "resting";
   $("pluckOutward").setAttribute("aria-pressed", String(state.pluckDirection > 0));
   $("pluckInward").setAttribute("aria-pressed", String(state.pluckDirection < 0));
+  updateBreathPresentation();
   updateTransportPresentation();
   telemetry.formants = telemetry.formants ?? formants.frequenciesHz;
 }
@@ -328,6 +418,36 @@ function installControls() {
   $("randomizeButton").addEventListener("click", randomizeModel);
   $("pluckOutward").addEventListener("click", () => setDirection(1));
   $("pluckInward").addEventListener("click", () => setDirection(-1));
+  $("breathCycleButton").addEventListener("click", toggleBreathCycle);
+  for (const [id, direction] of [["inhaleButton", -1], ["exhaleButton", 1]]) {
+    const button = $(id);
+    button.addEventListener("pointerdown", (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      event.preventDefault();
+      button.setPointerCapture?.(event.pointerId);
+      beginManualBreath(direction);
+    });
+    const release = (event) => {
+      if (event.pointerId !== undefined && button.hasPointerCapture?.(event.pointerId)) {
+        button.releasePointerCapture?.(event.pointerId);
+      }
+      endManualBreath(direction);
+    };
+    button.addEventListener("pointerup", release);
+    button.addEventListener("pointercancel", release);
+    button.addEventListener("keydown", (event) => {
+      if ((event.key === " " || event.key === "Enter") && !event.repeat) {
+        event.preventDefault();
+        beginManualBreath(direction);
+      }
+    });
+    button.addEventListener("keyup", (event) => {
+      if (event.key === " " || event.key === "Enter") {
+        event.preventDefault();
+        endManualBreath(direction);
+      }
+    });
+  }
   for (const specification of CONTROL_SPECS) {
     const input = $(specification.key);
     input.addEventListener("input", () => setControl(specification.key, Number(input.value), { mouth: specification.mouth }));
@@ -339,6 +459,8 @@ function installControls() {
   $("level").addEventListener("input", (event) => setControl("level", Number(event.currentTarget.value)));
   $("resetAll").addEventListener("click", () => {
     state = { ...JAW_HARP_DEFAULTS };
+    manualBreathDirection = 0;
+    breathCycleStartedAt = performance.now();
     activeVowelId = "a";
     updatePresentation();
     postConfiguration();
@@ -481,6 +603,40 @@ function drawHead(model) {
   drawing.fillText(`F3 ${Math.round(formants[2])}`, throatX + 154, mouthY - 40);
 }
 
+function drawBreathFlow(model) {
+  const flow = clamp(telemetry.breathFlow ?? commandedBreathFlow, -1, 1);
+  const amount = Math.abs(flow);
+  if (amount < 0.02) return;
+  const exhaling = flow > 0;
+  const startX = model.throatX + 24;
+  const endX = model.triggerX + 38;
+  const direction = exhaling ? 1 : -1;
+  const color = exhaling ? "#f0c46e" : "#68bff1";
+  const time = performance.now() * (0.0007 + amount * 0.0018);
+  drawing.save();
+  drawing.lineCap = "round";
+  for (let index = 0; index < 9; index += 1) {
+    const travel = (time + index / 9) % 1;
+    const position = exhaling ? travel : 1 - travel;
+    const x = startX + (endX - startX) * position;
+    const y = model.mouthY + Math.sin(index * 2.17 + time * Math.PI * 2) * (3 + amount * 5);
+    const length = 7 + amount * 11;
+    drawing.beginPath();
+    drawing.moveTo(x - direction * length * 0.5, y);
+    drawing.lineTo(x + direction * length * 0.5, y);
+    drawing.lineTo(x + direction * (length * 0.5 - 4), y - 3);
+    drawing.moveTo(x + direction * length * 0.5, y);
+    drawing.lineTo(x + direction * (length * 0.5 - 4), y + 3);
+    strokePath(color, 1.05, 0.16 + amount * 0.52);
+  }
+  drawing.fillStyle = color;
+  drawing.globalAlpha = 0.7;
+  drawing.font = "650 7px ui-monospace, SFMono-Regular, Consolas, monospace";
+  drawing.textAlign = "center";
+  drawing.fillText(exhaling ? "EXHALE · PRESSURE OUT" : "INHALE · PRESSURE IN", (startX + endX) * 0.5, model.mouthY + 29);
+  drawing.restore();
+}
+
 function drawHarp(model) {
   const { harpBowX, lipX, mouthY, triggerX, triggerY } = model;
   const gap = 15;
@@ -558,6 +714,7 @@ function drawStage() {
   const model = layout();
   handles = [];
   drawHead(model);
+  drawBreathFlow(model);
   drawHarp(model);
   drawSpectrum(model);
   drawNode(model.triggerX + 6, model.triggerY, "#f0c46e", "PULL / PLUCK", "reed", 8);
@@ -656,16 +813,31 @@ function installKeyboard() {
     } else if (key === "r" && !event.repeat) {
       event.preventDefault();
       toggleRepeat();
+    } else if (event.key === "[" && !event.repeat) {
+      event.preventDefault();
+      beginManualBreath(-1);
+    } else if (event.key === "]" && !event.repeat) {
+      event.preventDefault();
+      beginManualBreath(1);
     } else if (event.key === "Escape") {
       state = sanitizeJawHarpState({ ...state, repeat: false }, state);
+      manualBreathDirection = 0;
+      sendBreath(0);
       graph?.sourceNode?.port.postMessage({ type: "silence" });
       updateTransportPresentation();
+      updateBreathPresentation(0);
       announce("Jaw harp stopped");
     }
+  });
+  document.addEventListener("keyup", (event) => {
+    if (event.key === "[") endManualBreath(-1);
+    if (event.key === "]") endManualBreath(1);
   });
 }
 
 function tick(time) {
+  const flow = breathFlowAt(time);
+  if (graph && audioContext?.state === "running") sendBreath(flow);
   if (state.repeat && graph && audioContext?.state === "running" && time >= nextRepeatAt) {
     pluck({ automatic: true, direction: repeatStep % 2 ? -state.pluckDirection : state.pluckDirection });
     document.querySelectorAll(".jaw-pulse-map i").forEach((node, index) => node.classList.toggle("is-current", index === repeatStep % 8));
@@ -674,6 +846,7 @@ function tick(time) {
   }
   if (graph?.analyser) graph.analyser.getFloatTimeDomainData(waveform);
   $("motionReadout").textContent = telemetry.rms > 0.0004 ? `${Math.round(clamp(telemetry.energy) * 100)}% energy` : "resting";
+  updateBreathPresentation(telemetry.breathFlow ?? flow);
   drawStage();
   animationFrame = requestAnimationFrame(tick);
 }

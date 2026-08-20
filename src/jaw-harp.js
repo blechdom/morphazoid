@@ -19,7 +19,10 @@ export const JAW_HARP_LIMITS = Object.freeze({
   glottisOpening: Object.freeze([0, 1]),
   cavityCoupling: Object.freeze([0, 1]),
   frameCoupling: Object.freeze([0, 1]),
-  breath: Object.freeze([0, 1]),
+  breathDepth: Object.freeze([0, 1]),
+  breathRateBpm: Object.freeze([12, 120]),
+  breathBalance: Object.freeze([0.25, 0.75]),
+  breathFlow: Object.freeze([-1, 1]),
   formantFocus: Object.freeze([0, 1]),
   repeatRateBpm: Object.freeze([36, 480]),
   repeatSwing: Object.freeze([-0.42, 0.42]),
@@ -42,7 +45,11 @@ export const JAW_HARP_DEFAULTS = Object.freeze({
   glottisOpening: 0.42,
   cavityCoupling: 0.82,
   frameCoupling: 0.36,
-  breath: 0.08,
+  breathDepth: 0.72,
+  breathRateBpm: 42,
+  breathBalance: 0.46,
+  breathFlow: 0,
+  autoBreath: true,
   formantFocus: 0.48,
   repeatRateBpm: 148,
   repeatSwing: 0.08,
@@ -167,6 +174,7 @@ export function sanitizeJawHarpState(source = {}, fallback = JAW_HARP_DEFAULTS) 
   const direction = finiteOr(state.pluckDirection, finiteOr(base.pluckDirection, 1));
   result.pluckDirection = direction < 0 ? -1 : 1;
   result.repeat = Boolean(state.repeat ?? base.repeat ?? false);
+  result.autoBreath = Boolean(state.autoBreath ?? base.autoBreath ?? true);
   result.presetId = jawHarpPreset(state.presetId ?? base.presetId).id;
   result.vowelId = VOWEL_PRESETS.some(({ id }) => id === state.vowelId)
     ? state.vowelId
@@ -278,6 +286,22 @@ export function repeatIntervalMs(rateBpm, step = 0, swing = 0) {
   return base * (step % 2 === 0 ? 1 + amount : 1 - amount);
 }
 
+export function breathCycleFlow(source = JAW_HARP_DEFAULTS, phase = 0) {
+  const state = sanitizeJawHarpState(source);
+  const wrapped = ((finiteOr(phase, 0) % 1) + 1) % 1;
+  if (wrapped < state.breathBalance) {
+    const inhalePhase = wrapped / state.breathBalance;
+    return -state.breathDepth * Math.sin(Math.PI * inhalePhase);
+  }
+  const exhalePhase = (wrapped - state.breathBalance) / (1 - state.breathBalance);
+  return state.breathDepth * Math.sin(Math.PI * exhalePhase);
+}
+
+export function breathCycleIntervalMs(rateBpm) {
+  const bpm = clamp(rateBpm, JAW_HARP_LIMITS.breathRateBpm[0], JAW_HARP_LIMITS.breathRateBpm[1]);
+  return 60_000 / bpm;
+}
+
 export function randomizeJawHarpState(source = JAW_HARP_DEFAULTS, random = Math.random) {
   const state = sanitizeJawHarpState(source);
   const unit = () => clamp(typeof random === "function" ? random() : Math.random());
@@ -295,7 +319,10 @@ export function randomizeJawHarpState(source = JAW_HARP_DEFAULTS, random = Math.
     glottisOpening: unit(),
     cavityCoupling: 0.45 + unit() * 0.52,
     frameCoupling: unit() * 0.82,
-    breath: unit() * 0.3,
+    breathDepth: 0.42 + unit() * 0.56,
+    breathRateBpm: 22 + unit() * 62,
+    breathBalance: 0.34 + unit() * 0.3,
+    breathFlow: 0,
     formantFocus: unit(),
     repeatRateBpm: 70 + unit() * 250,
     repeatSwing: (unit() * 2 - 1) * 0.26,
