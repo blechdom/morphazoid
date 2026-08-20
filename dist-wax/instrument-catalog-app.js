@@ -11,11 +11,10 @@ function createCard(doc, instrument, index) {
   const card = element(doc, "article", "instrument-card");
   card.dataset.instrumentId = instrument.id;
   card.dataset.tagIds = instrument.tags.map(({ id }) => id).join(" ");
+  const cardLink = element(doc, "a", "instrument-card-link");
+  cardLink.href = instrument.href;
 
-  const visual = element(doc, "button", "instrument-card-visual");
-  visual.type = "button";
-  visual.setAttribute("aria-label", `Show enlarged ${instrument.label} artwork`);
-  visual.setAttribute("aria-pressed", "false");
+  const visual = element(doc, "div", "instrument-card-visual");
   const image = element(doc, "img", "instrument-card-image");
   image.alt = "";
   image.width = 512;
@@ -37,26 +36,11 @@ function createCard(doc, instrument, index) {
   previewImage.src = instrument.imageHref;
   preview.append(previewImage);
 
-  const setPreviewOpen = (open) => {
-    card.dataset.previewOpen = String(open);
-    visual.setAttribute("aria-pressed", String(open));
-  };
-  visual.addEventListener("click", () => {
-    setPreviewOpen(card.dataset.previewOpen !== "true");
-  });
-  visual.addEventListener("blur", () => setPreviewOpen(false));
-  visual.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    setPreviewOpen(false);
-    visual.blur();
-  });
-
   const heading = element(doc, "header", "instrument-card-heading");
   const headingCopy = element(doc, "div", "instrument-card-heading-copy");
-  const title = element(doc, "h3", "instrument-card-title");
-  const titleLink = element(doc, "a", "", instrument.label);
-  titleLink.href = instrument.href;
-  title.append(titleLink);
+  const title = element(doc, "h3", "instrument-card-title", instrument.label);
+  title.id = `catalogue-${instrument.id}-title`;
+  cardLink.setAttribute("aria-labelledby", title.id);
 
   const tags = element(doc, "ul", "instrument-tags");
   tags.setAttribute("aria-label", `${instrument.label} tags`);
@@ -87,11 +71,15 @@ function createCard(doc, instrument, index) {
   body.append(description, start);
 
   const actions = element(doc, "div", "instrument-card-actions");
-  const browserLink = element(doc, "a", "instrument-action instrument-action-primary", "Play in browser");
-  browserLink.href = instrument.href;
-  actions.append(browserLink);
+  actions.append(element(
+    doc,
+    "span",
+    "instrument-action instrument-action-primary",
+    "Play in browser",
+  ));
 
-  card.append(heading, body, actions, preview);
+  cardLink.append(heading, body, actions);
+  card.append(cardLink, preview);
   return card;
 }
 

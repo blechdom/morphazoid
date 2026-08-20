@@ -211,8 +211,12 @@ test("card renderer separates in-development experiments from the main catalogue
   assert.match(app, /instrument-card-heading/);
   assert.match(app, /instrument-card-heading-copy/);
   assert.match(app, /instrument-card-image-preview/);
-  assert.match(app, /Show enlarged \$\{instrument\.label\} artwork/);
-  assert.match(app, /card\.dataset\.previewOpen/);
+  assert.match(app, /element\(doc, "a", "instrument-card-link"\)/);
+  assert.match(app, /cardLink\.href = instrument\.href/);
+  assert.match(app, /cardLink\.setAttribute\("aria-labelledby", title\.id\)/);
+  assert.match(app, /cardLink\.append\(heading, body, actions\)/);
+  assert.match(app, /card\.append\(cardLink, preview\)/);
+  assert.doesNotMatch(app, /card\.dataset\.previewOpen|visual\.addEventListener/);
   assert.match(app, /instrument-tags/);
   assert.match(app, /instrument\.tags/);
   assert.doesNotMatch(app, /type = "search"/);
@@ -228,6 +232,8 @@ test("card renderer separates in-development experiments from the main catalogue
   assert.match(css, /\.instrument-tags\s*\{/);
   assert.match(css, /\.catalogue-experiments\s*\{/);
   assert.match(css, /\.instrument-card-status\s*\{/);
+  assert.match(css, /\.instrument-card-link\s*\{[^}]*min-height: 100%;[^}]*cursor: pointer;/s);
+  assert.match(css, /\.instrument-card:has\(\.instrument-card-link:focus-visible\)/);
   assert.doesNotMatch(css, /\.catalogue-controls|\.catalogue-section-index|\.catalogue-group-heading/);
   assert.match(css, /\.instrument-card-visual\s*\{[^}]*width: 92px;/s);
   assert.match(css, /\.instrument-card-image-preview\s*\{[^}]*bottom: -1px;/s);
