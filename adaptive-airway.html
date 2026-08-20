@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#04070a" />
+    <meta
+      name="description"
+      content="Adaptive airway lab: modular animal voice source-filter synthesis with explicit trachea and OEC controls."
+    />
+    <title>Adaptive Airway Lab - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="adaptive-airway.css" />
+  </head>
+  <body class="adaptive-airway-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="lattice.html">lattice</a>
+        <a class="tab" href="spiral.html">spiral</a>
+        <a class="tab" href="solid.html">solid</a>
+        <a class="tab" href="hyper.html">hyper</a>
+        <a class="tab" href="l-system.html">l-system</a>
+        <a class="tab" href="recursion.html">recursion</a>
+        <a class="tab" href="julia.html">julia</a>
+        <a class="tab" href="lumber.html">lumber loops</a>
+        <a class="tab" href="l-mic.html">L-system Delay</a>
+        <a class="tab" href="graph-delay.html">graph-delay</a>
+        <a class="tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab" href="syrinx.html">syrinx</a>
+        <a class="tab adaptive-airway-tab active" href="adaptive-airway.html" aria-current="page">adaptive airway</a>
+        <a class="tab" href="morphazoidical/">morphazoidical</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="lattice.html">lattice</option>
+          <option value="spiral.html">spiral</option>
+          <option value="solid.html">solid</option>
+          <option value="hyper.html">hyper</option>
+          <option value="l-system.html">l-system</option>
+          <option value="recursion.html">recursion</option>
+          <option value="julia.html">julia</option>
+          <option value="lumber.html">lumber loops</option>
+          <option value="l-mic.html">L-system Delay</option>
+          <option value="graph-delay.html">graph-delay</option>
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="syrinx.html">syrinx</option>
+          <option value="adaptive-airway.html" selected>adaptive airway</option>
+          <option value="morphazoidical/">morphazoidical</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="outputLevel">
+          <span><b>Output</b><output id="outputLevelOut" for="outputLevel">46%</output></span>
+          <input id="outputLevel" aria-label="Output level" type="range" min="0" max="1" step="0.01" value="0.46" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell adaptive-airway-shell" id="adaptiveAirway">
+      <section class="stage adaptive-airway-stage" aria-label="Adaptive airway research and model status">
+        <div class="adaptive-airway-summary">
+          <h1>Adaptive Airway Lab</h1>
+          <p>
+            Standalone source–filter study page: modular models for mammal larynx, deep avian syrinx,
+            and frog membrane with explicit trachea/OEC/beak filtering.
+          </p>
+          <ul>
+            <li><b>Research anchor:</b> upper respiratory tract remains an active acoustic filter.</li>
+            <li><b>Fix:</b> trachea length changes propagation-derived resonances.</li>
+            <li><b>Fix:</b> OEC volume reshapes full-spectrum filtering, not only one band.</li>
+            <li><b>Fix:</b> pressure threshold drives entry into nonlinear regimes.</li>
+          </ul>
+          <div class="adaptive-airway-live">
+            <span><small>Model status</small><output id="modelStatus">idle</output></span>
+            <span><small>Estimated source</small><output id="sourceEstimate">0 Hz</output></span>
+            <span><small>Resonances</small><output id="resonanceEstimate">F1 0 Hz · F2 0 Hz · F3 0 Hz</output></span>
+          </div>
+        </div>
+
+        <section class="adaptive-airway-comparison" aria-labelledby="comparisonTitle">
+          <h2 id="comparisonTitle">Comparison against prior pages + supplied synopsis</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Research requirement</th>
+                <th>Throatazoid gap</th>
+                <th>Syrinx gap</th>
+                <th>New page correction</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Source should cross phonation threshold from pressure.</td>
+                <td>Internal glottis is mostly imposed oscillator control.</td>
+                <td>Threshold behavior exists, but model remains preset-centric.</td>
+                <td>Unified pressure threshold and explicit nonlinear-region transition for all model families.</td>
+              </tr>
+              <tr>
+                <td>Trachea length and beak/gape should move resonances in mid bands.</td>
+                <td>Body-length controls often reshape geometry without dedicated tract-delay emphasis.</td>
+                <td>Length is present, but adaptation remains one shared topology.</td>
+                <td>Trachea, beak, and OEC controls are independent across mammal/bird/frog templates.</td>
+              </tr>
+              <tr>
+                <td>Oropharyngeal-oesophageal cavity should act as full-spectrum filter.</td>
+                <td>No explicit OEC-first framing for comparative animal use.</td>
+                <td>OEC mostly approximated by modal coupling labels.</td>
+                <td>Dedicated OEC volume and junction controls remap global resonance and damping.</td>
+              </tr>
+              <tr>
+                <td>Support multiple anatomies instead of one universal organ.</td>
+                <td>Alien branch model, not biologically grouped source families.</td>
+                <td>Broad coverage but fixed species lock and shared tract framing.</td>
+                <td>Model families + animal presets keep anatomy and gesture modular and swappable.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </section>
+
+      <aside class="panel adaptive-airway-panel" aria-label="Adaptive airway controls">
+        <section class="adaptive-airway-transport">
+          <button id="playButton" type="button" aria-pressed="false">
+            <span aria-hidden="true">▶</span>
+            <span><b id="playLabel">Start flow</b><small id="playState">stopped</small></span>
+          </button>
+          <button id="burstButton" type="button">
+            <span aria-hidden="true">✶</span>
+            <span><b>Trigger burst</b><small>pressure gesture</small></span>
+          </button>
+        </section>
+
+        <section class="adaptive-airway-selectors" aria-label="Model and anatomy selectors">
+          <label for="modelFamily">
+            <span>Model family</span>
+            <select id="modelFamily">
+              <option value="bird" selected>Bird · deep syrinx</option>
+              <option value="mammal">Mammal · larynx</option>
+              <option value="frog">Frog · membrane + sac</option>
+            </select>
+          </label>
+          <label for="animalPreset">
+            <span>Anatomy preset</span>
+            <select id="animalPreset"></select>
+          </label>
+          <p id="presetDescription">Dual-side syrinx with long trachea and strong OEC filtering.</p>
+        </section>
+
+        <section class="adaptive-airway-controls" aria-label="Acoustic and biomechanical controls">
+          <label for="pressure">
+            <span><b>Breath pressure</b><output id="pressureOut" for="pressure">68%</output></span>
+            <input id="pressure" type="range" min="0" max="1" step="0.01" value="0.68" />
+          </label>
+          <label for="tension">
+            <span><b>Tissue tension</b><output id="tensionOut" for="tension">44%</output></span>
+            <input id="tension" type="range" min="0" max="1" step="0.01" value="0.44" />
+          </label>
+          <label for="adduction">
+            <span><b>Adduction / closure</b><output id="adductionOut" for="adduction">63%</output></span>
+            <input id="adduction" type="range" min="0" max="1" step="0.01" value="0.63" />
+          </label>
+          <label for="tracheaLength">
+            <span><b>Trachea length</b><output id="tracheaLengthOut" for="tracheaLength">0.26 m</output></span>
+            <input id="tracheaLength" type="range" min="0.05" max="0.8" step="0.001" value="0.26" />
+          </label>
+          <label for="beakGape">
+            <span><b>Beak / mouth gape</b><output id="beakGapeOut" for="beakGape">52%</output></span>
+            <input id="beakGape" type="range" min="0" max="1" step="0.01" value="0.52" />
+          </label>
+          <label for="oecVolume">
+            <span><b>OEC volume</b><output id="oecVolumeOut" for="oecVolume">58%</output></span>
+            <input id="oecVolume" type="range" min="0" max="1" step="0.01" value="0.58" />
+          </label>
+          <label for="junctionCoupling">
+            <span><b>Trachea-junction coupling</b><output id="junctionCouplingOut" for="junctionCoupling">47%</output></span>
+            <input id="junctionCoupling" type="range" min="0" max="1" step="0.01" value="0.47" />
+          </label>
+          <label for="liquidLoad">
+            <span><b>Tissue / fluid loading</b><output id="liquidLoadOut" for="liquidLoad">26%</output></span>
+            <input id="liquidLoad" type="range" min="0" max="1" step="0.01" value="0.26" />
+          </label>
+        </section>
+
+        <section class="adaptive-airway-notes" aria-label="Research notes">
+          <h2>Research notes used</h2>
+          <ul>
+            <li>Deep syrinx placement improves coupling efficiency by using the full trachea as resonator.</li>
+            <li>~20% trachea and beak changes move mid-band resonances; OEC changes can remap the full spectrum.</li>
+            <li>High respiratory drive pushes vocal systems into nonlinear loud/fast regimes.</li>
+            <li>Upper respiratory pathways stay acoustically active after source generation.</li>
+          </ul>
+        </section>
+      </aside>
+    </main>
+
+    <script type="module" src="nav.js?v=adaptive-airway-20260820-1"></script>
+    <script type="module" src="adaptive-airway-app.js?v=adaptive-airway-20260820-1"></script>
+  </body>
+</html>
