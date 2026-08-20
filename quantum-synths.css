@@ -26,6 +26,24 @@
   --accent-glow: color-mix(in oklab, var(--quantum-pink) 20%, transparent);
 }
 
+.entanglement-dance-page {
+  --accent: var(--quantum-violet);
+  --accent-soft: color-mix(in oklab, var(--quantum-violet) 55%, transparent);
+  --accent-glow: color-mix(in oklab, var(--quantum-violet) 22%, transparent);
+}
+
+.entanglement-dance-page .quantum-stage .stage-wrap,
+.entanglement-dance-page .quantum-stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--quantum-violet) 2.6%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--quantum-pink) 2.8%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 28% 50%, color-mix(in oklab, var(--quantum-pink) 7%, transparent), transparent 38%),
+    radial-gradient(ellipse at 72% 50%, color-mix(in oklab, var(--quantum-cyan) 7%, transparent), transparent 38%),
+    radial-gradient(ellipse at 50% 48%, color-mix(in oklab, var(--quantum-violet) 5%, transparent), transparent 55%),
+    var(--bg-deep);
+  background-size: 36px 36px, 36px 36px, auto, auto, auto, auto;
+}
+
 .quantum-shell {
   grid-template-columns: minmax(0, 1fr) clamp(360px, 28vw, 430px);
 }
@@ -196,6 +214,10 @@
   margin: 9px 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
+}
+
+.quantum-action-grid-four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .quantum-transport-row,

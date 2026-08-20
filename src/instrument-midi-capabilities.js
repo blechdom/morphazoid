@@ -75,6 +75,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "order-tones",
     "morphazoidical",
     "bell-square",
+    "entanglement-dance",
     "annealogue",
     "gravity-walk",
     "ricochet",

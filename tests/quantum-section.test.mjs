@@ -24,12 +24,20 @@ const quantumPages = Object.freeze([
     number: "02",
   }),
   Object.freeze({
+    id: "entanglement-dance",
+    label: "Entanglement Dance",
+    page: "entanglement-dance.html",
+    app: "entanglement-dance-app.js",
+    core: "src/entanglement-dance.js",
+    number: "03",
+  }),
+  Object.freeze({
     id: "annealogue",
     label: "Annealogue",
     page: "annealogue.html",
     app: "annealogue-app.js",
     core: "src/annealogue.js",
-    number: "03",
+    number: "04",
   }),
 ]);
 
@@ -39,8 +47,8 @@ test("menu registry keeps the quantum simulators with Morphazoidical in Experime
   assert.equal(group.label, "Experiments");
   const quantumStart = group.tools.findIndex(({ id }) => id === "order-tones");
   assert.deepEqual(
-    group.tools.slice(quantumStart, quantumStart + 4).map(({ id }) => id),
-    ["order-tones", "morphazoidical", "bell-square", "annealogue"],
+    group.tools.slice(quantumStart, quantumStart + 5).map(({ id }) => id),
+    ["order-tones", "morphazoidical", "bell-square", "entanglement-dance", "annealogue"],
   );
   assert.deepEqual(
     group.tools
