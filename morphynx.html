@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#050307" />
+    <meta
+      name="description"
+      content="Morphynx morphs Syrinx animal-source physics into the playable Throatazoid tract, keyboard, microphone, and anatomy system."
+    />
+    <title>Morphynx - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="syrinx.css" />
+    <link rel="stylesheet" href="syrinx-ui.css" />
+    <link rel="stylesheet" href="morphynx.css" />
+  </head>
+  <body class="syrinx-page syrinx-ui-page morphynx-page" data-instrument-info="off">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab" href="syrinx.html">syrinx</a>
+        <a class="tab morphynx-tab active" href="morphynx.html" aria-current="page">morphynx</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="syrinx.html">syrinx</option>
+          <option value="morphynx.html" selected>Morphynx</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">48%</output></span>
+          <input id="level" aria-label="Morphynx output level" type="range" min="0" max="1" step="0.01" value="0.48" />
+        </label>
+      </div>
+    </header>
+
+    <main
+      class="shell morphynx-shell"
+      id="morphynx"
+      aria-keyshortcuts="0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P Q R S T U V W X Y Z Shift+A Shift+B Shift+C Shift+D Shift+E Shift+F Shift+G Shift+H Shift+I Shift+J Shift+K Shift+L Shift+M Shift+N Shift+O Shift+P Shift+Q Shift+R Shift+S Shift+T Shift+U Shift+V Shift+W Shift+X Shift+Y Shift+Z"
+    >
+      <section class="stage syrinx-stage morphynx-stage" aria-label="Interactive hybrid animal and human voice model">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Interactive Morphynx vocal anatomy. Drag the morph, source, tract, and mouth nodes, or play its letter keyboard."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A morphing animal and human vocal tract with a physical source, branching mouths, and live waveform.
+          </canvas>
+          <div class="morphynx-stage-title" aria-hidden="true">
+            <span>MORPHYNX</span>
+            <small>animal source × playable tract</small>
+          </div>
+          <div class="morphynx-stage-axis" aria-hidden="true">
+            <span>SYRINX</span><i><b id="stageMorphMarker"></b></i><span>THROATAZOID</span>
+          </div>
+          <p class="syrinx-drag-hint" aria-hidden="true">DRAG THE COLORED NODES · TYPE A–Z · SHIFT MUTATES · 0–9 LOADS ANATOMY</p>
+          <p class="syrinx-audio-error" id="audioError" role="alert" hidden></p>
+        </div>
+      </section>
+
+      <aside class="panel morphynx-panel" aria-label="Morphynx controls">
+        <div class="syrinx-call-dock syrinx-panel-transport morphynx-transport" aria-label="Voice transport">
+          <button id="playButton" type="button" data-primary-transport aria-pressed="false">
+            <span class="syrinx-play-icon" aria-hidden="true"></span>
+            <span><b id="playLabel">Play croak</b><small id="playState">ready</small></span>
+          </button>
+          <button id="loopButton" type="button" aria-pressed="false">
+            <span aria-hidden="true">↻</span>
+            <span><b>Loop</b><small id="loopState">off</small></span>
+          </button>
+          <button id="recordButton" type="button" aria-pressed="false">
+            <span aria-hidden="true">●</span>
+            <span><b>Record</b><small id="recordState">ready</small></span>
+          </button>
+          <a id="downloadTake" class="morphynx-download" href="#" hidden>Download take</a>
+        </div>
+
+        <section class="syrinx-animal-deck syrinx-preset-bank syrinx-panel-presets morphynx-lab" aria-labelledby="morphLabTitle">
+          <header class="morphynx-section-heading">
+            <span>HYBRID LAB</span>
+            <strong id="morphLabTitle">Morph the apparatus</strong>
+          </header>
+          <div class="syrinx-preset-selects morphynx-preset-grid">
+            <label for="animalSelect"><span>Animal anchor</span><select id="animalSelect"></select></label>
+            <label for="callSelect"><span>Call gesture</span><select id="callSelect"></select></label>
+            <label for="voicePresetSelect"><span>Voice / anatomy</span><select id="voicePresetSelect"></select></label>
+          </div>
+          <label class="control morphynx-morph-control" for="morphAmount">
+            <span><b>Syrinx ↔ Throatazoid</b><output id="morphAmountOut" for="morphAmount">56% throat</output></span>
+            <input id="morphAmount" type="range" min="0" max="1" step="0.01" value="0.56" />
+            <small id="morphSummary">Bilateral raven source crossing into one playable 44-section-style voice.</small>
+          </label>
+          <div class="morphynx-source-buttons" id="sourceButtons" role="group" aria-label="Audio source">
+            <button type="button" data-source="internal" aria-pressed="true">Internal</button>
+            <button type="button" data-source="mic" aria-pressed="false">Mic</button>
+            <button type="button" data-source="hybrid" aria-pressed="false">Hybrid</button>
+          </div>
+        </section>
+
+        <div class="syrinx-model-hud syrinx-panel-hud morphynx-hud" aria-live="polite">
+          <span><small>Source</small><output id="modelReadout">Dual nonlinear syrinx</output></span>
+          <span><small>Voice</small><output id="voiceReadout">Playable default · A</output></span>
+          <span><small>Physical tract</small><output id="tractReadout">17.0 cm</output></span>
+          <span><small>Gate</small><output id="pressureReadout">resting</output></span>
+        </div>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary"><h2 class="group-title">Source + tract</h2><span class="section-state" id="sourceSummary">pressure 68% · tension 42%</span></summary>
+          <div class="group-body morphynx-control-grid">
+            <label class="control" for="pressure"><span><b>Breath pressure</b><output id="pressureOut">68%</output></span><input id="pressure" type="range" min="0" max="1" step="0.01" value="0.68" /></label>
+            <label class="control" for="tension"><span><b>Membrane tension</b><output id="tensionOut">42%</output></span><input id="tension" type="range" min="0" max="1" step="0.01" value="0.42" /></label>
+            <label class="control" for="adduction"><span><b>Fold closure</b><output id="adductionOut">68%</output></span><input id="adduction" type="range" min="0" max="1" step="0.01" value="0.68" /></label>
+            <label class="control" for="tractLength"><span><b>Tract length</b><output id="tractLengthOut">17.0 cm</output></span><input id="tractLength" type="range" min="0.018" max="0.82" step="0.001" value="0.17" /></label>
+            <label class="control" for="mouthOpening"><span><b>Mouth / beak</b><output id="mouthOpeningOut">52%</output></span><input id="mouthOpening" type="range" min="0" max="1" step="0.01" value="0.52" /></label>
+            <label class="control" for="cavityCoupling"><span><b>Nose / cavity</b><output id="cavityCouplingOut">34%</output></span><input id="cavityCoupling" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
+            <label class="control" for="asymmetry"><span><b>Left / right split</b><output id="asymmetryOut">30%</output></span><input id="asymmetry" type="range" min="0" max="1" step="0.01" value="0.3" /></label>
+            <label class="control" for="sourceBalance"><span><b>Source balance</b><output id="sourceBalanceOut">center</output></span><input id="sourceBalance" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+            <label class="control" for="roughness"><span><b>Roughness</b><output id="roughnessOut">42%</output></span><input id="roughness" type="range" min="0" max="1" step="0.01" value="0.42" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section morphynx-keyboard-section" data-section="play" open>
+          <summary class="group-summary"><h2 class="group-title">Playable mouth</h2><span class="section-state" id="keyboardState">A–Z hold · Shift mutates</span></summary>
+          <div class="group-body">
+            <button class="morphynx-latch" id="keyboardLatch" type="button" aria-pressed="false"><b>Type latch</b><small>off · release closes the gate</small></button>
+            <div class="morphynx-phoneme-grid" id="phonemeButtons" aria-label="Letter articulation keyboard"></div>
+            <p class="control-note">Every letter uses Throatazoid’s articulation map. Hold a key to voice it, add Shift for its larger mutation, and use 0–9 for the original alien anatomy bank. Apostrophe or ? makes a glottal stop.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form">
+          <summary class="group-summary"><h2 class="group-title">Alien anatomy</h2><span class="section-state" id="anatomySummary">1 mouth · 1 tongue · 1 nose</span></summary>
+          <div class="group-body morphynx-control-grid">
+            <label class="control" for="throatCount"><span><b>Mouths</b><output id="throatCountOut">1</output></span><input id="throatCount" type="range" min="1" max="7" step="1" value="1" /></label>
+            <label class="control" for="tongueCount"><span><b>Tongues</b><output id="tongueCountOut">1</output></span><input id="tongueCount" type="range" min="1" max="5" step="1" value="1" /></label>
+            <label class="control" for="noseCount"><span><b>Nose branches</b><output id="noseCountOut">1</output></span><input id="noseCount" type="range" min="1" max="3" step="1" value="1" /></label>
+            <label class="control" for="mutation"><span><b>Mutation</b><output id="mutationOut">0%</output></span><input id="mutation" type="range" min="0" max="1" step="0.01" value="0" /></label>
+            <label class="control" for="coupling"><span><b>Mouth coupling</b><output id="couplingOut">0%</output></span><input id="coupling" type="range" min="0" max="1" step="0.01" value="0" /></label>
+            <label class="control" for="growl"><span><b>Growl</b><output id="growlOut">0%</output></span><input id="growl" type="range" min="0" max="1" step="0.01" value="0" /></label>
+            <button class="morphynx-motion" id="motionEnabled" type="button" aria-pressed="true"><b>Anatomy motion</b><small>on</small></button>
+            <label class="control" for="motionDepth"><span><b>Motion depth</b><output id="motionDepthOut">28%</output></span><input id="motionDepth" type="range" min="0" max="1" step="0.01" value="0.28" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="mapping">
+          <summary class="group-summary"><h2 class="group-title">Call timing</h2><span class="section-state" id="gestureSummary">1.00× · 0.65 s gap</span></summary>
+          <div class="group-body">
+            <label class="control" for="gestureRate"><span><b>Gesture rate</b><output id="gestureRateOut">1.00×</output></span><input id="gestureRate" type="range" min="0.25" max="2.5" step="0.01" value="1" /></label>
+            <label class="control" for="loopGap"><span><b>Silence between calls</b><output id="loopGapOut">0.65 s</output></span><input id="loopGap" type="range" min="0" max="8000" step="50" value="650" /></label>
+          </div>
+        </details>
+
+        <p class="morphynx-credit">Morphynx combines Morphazoid’s Syrinx model with the Throatazoid tract and keyboard system, which is inspired by <a href="https://dood.al/pinktrombone/" rel="noopener noreferrer">Pink Trombone</a>. See the <a href="THIRD_PARTY_NOTICES.md">license notice</a>.</p>
+        <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button></div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">Choose an animal, call, and human voice, then move the morph control. Press Play for the call contour or hold A through Z to articulate the physical model. Shift plus a letter applies its capital mutation. Number keys zero through nine load Throatazoid anatomies. Use Internal, Mic, or Hybrid source mode. Space toggles Play outside a control and Escape releases all pressure.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="morphynx-app.js"></script>
+  </body>
+</html>

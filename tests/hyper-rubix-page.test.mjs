@@ -89,7 +89,7 @@ test("Hyper Rubix is a standalone accessible Morphazoid instrument", async () =>
   }
 });
 
-test("the open Shape loop separates instrument and playback presets", async () => {
+test("the open Shape loop exposes every read path and automated-twist control", async () => {
   const { html, app } = await pageSources();
   const sequencePanel = sourceSection(
     html,
@@ -99,6 +99,22 @@ test("the open Shape loop separates instrument and playback presets", async () =
 
   assert.match(sequencePanel, /<h2 class="group-title">Shape loop<\/h2>/);
   assert.match(sequencePanel, /id="clockSummary">108 notes · 112 BPM · 1\/8<\/span>/);
+  assert.match(
+    sequencePanel,
+    /<label\b[^>]*for="sequenceMethod"[^>]*>[\s\S]*?<span class="field-label">Sticker read path<\/span>/,
+  );
+  const readPaths = selectOptions(sequencePanel, "sequenceMethod");
+  assert.deepEqual(readPaths.map(({ value, label }) => [value, label]), [
+    ["sticker-stream", "Sticker loop · 216"],
+    ["corner-stream", "Corner stream · 64"],
+    ["sticker-hyperbar", "Sticker hyperbar · 27"],
+    ["hybrid-coil", "Hybrid coil · 16 × 27"],
+    ["twist-tape", "Twist tape · 16"],
+  ]);
+  assert.equal(
+    readPaths.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value,
+    "sticker-stream",
+  );
   assert.match(
     sequencePanel,
     /<label\b[^>]*for="voice"[^>]*>[\s\S]*?<span class="field-label">Instrument preset<\/span>/,
@@ -130,10 +146,10 @@ test("the open Shape loop separates instrument and playback presets", async () =
     playbackPresets.find(({ tag }) => hasBooleanAttribute(tag, "selected"))?.value,
     "view-facing",
   );
-  const compatibilityStart = sequencePanel.indexOf('<div hidden aria-hidden="true">');
+  assert.ok(sequencePanel.indexOf('id="sequenceMethod"') < sequencePanel.indexOf('id="voice"'));
   assert.ok(sequencePanel.indexOf('id="voice"') < sequencePanel.indexOf('id="playbackPreset"'));
   assert.ok(sequencePanel.indexOf('id="playbackPreset"') < sequencePanel.indexOf('id="playButton"'));
-  assert.ok(sequencePanel.indexOf('id="playbackPreset"') < compatibilityStart);
+  assert.doesNotMatch(sequencePanel, /<div hidden aria-hidden="true">/);
   assert.equal(
     hasBooleanAttribute(openingTag(sequencePanel, "select", "playbackPreset"), "hidden"),
     false,
@@ -168,21 +184,31 @@ test("the open Shape loop separates instrument and playback presets", async () =
   const rates = selectOptions(sequencePanel, "twistRate");
   assert.deepEqual(rates.map(({ value }) => value), ["1", "2", "4", "8", "16"]);
   assert.match(sequencePanel, /id="pulseRateHelp"[^>]*>[^<]*1\/4[^<]*quarter-note beat[^<]*1\/64/i);
-
-  const compatibility = sourceSection(sequencePanel, '<div hidden aria-hidden="true">', "</div>");
-  assert.equal(selectOptions(compatibility, "sequenceMethod").find(({ tag }) => (
-    hasBooleanAttribute(tag, "selected")
-  ))?.value, "sticker-stream");
-  assert.deepEqual(selectOptions(compatibility, "playbackMode").map(({ value }) => value), ["forward"]);
-  assert.deepEqual(selectOptions(compatibility, "twistMotion").map(({ value }) => value), ["off"]);
-  assert.equal(hasBooleanAttribute(openingTag(compatibility, "button", "reseedPattern"), "disabled"), true);
+  assert.deepEqual(selectOptions(sequencePanel, "sequencePattern").map(({ value }) => value), [
+    "axis-break", "straight-xyz", "w-pressure", "random-walk",
+  ]);
+  assert.deepEqual(selectOptions(sequencePanel, "playbackMode").map(({ value }) => value), [
+    "forward", "reverse", "pendulum", "random",
+  ]);
+  assert.deepEqual(selectOptions(sequencePanel, "twistMotion").map(({ value }) => value), [
+    "auto", "beat", "bar", "off",
+  ]);
+  assert.match(sequencePanel, /<span class="field-label">Automated twists<\/span>/);
+  assert.equal(hasBooleanAttribute(openingTag(sequencePanel, "button", "reseedPattern"), "disabled"), true);
+  assert.equal(hasBooleanAttribute(openingTag(sequencePanel, "input", "twistDensity"), "disabled"), true);
 
   assert.match(app, /sequenceMethod: "sticker-stream"/);
-  assert.match(app, /twistMotion: "off"/);
+  assert.match(app, /twistMotion: "auto"/);
   assert.match(app, /playbackMode: "forward"/);
   assert.match(app, /playbackPreset: "view-facing"/);
   assert.match(app, /autoRotate: false/);
   assert.match(app, /"sticker-stream": Object\.freeze\([\s\S]*?serial: true[\s\S]*?autoTwist: false/);
+  assert.match(app, /"sticker-hyperbar": Object\.freeze\([\s\S]*?autoTwist: true/);
+  assert.match(app, /"hybrid-coil": Object\.freeze\([\s\S]*?autoTwist: true/);
+  const methodPainter = sourceSection(app, "function paintSequenceMethod()", "function updateSequencePlayhead(");
+  assert.match(methodPainter, /sequencePattern"\)\.disabled = !method\.autoTwist/);
+  assert.match(methodPainter, /twistDensity"\)\.disabled = !method\.autoTwist/);
+  assert.match(methodPainter, /twistMotion"\)\.disabled = !method\.autoTwist/);
   assert.match(app, /createHyperRubixScopedStickerStream\(/);
   assert.match(app, /\$\("playbackPreset"\)\.addEventListener\("change"/);
   const viewFacingSelection = sourceSection(app, "function viewFacingScores()", "function pathPolygon(points)");

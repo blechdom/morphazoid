@@ -1,0 +1,649 @@
+.jaw-harp-page {
+  --accent: #df9d5a;
+  --accent-soft: color-mix(in oklab, #df9d5a 55%, transparent);
+  --accent-glow: color-mix(in oklab, #df9d5a 20%, transparent);
+  --jaw-copper: #df9d5a;
+  --jaw-amber: #f0c46e;
+  --jaw-cyan: #76dfd3;
+  --jaw-violet: #ba9af6;
+  --jaw-coral: #ee786d;
+  --jaw-bone: #e5e5dc;
+  --jaw-muted: #8c918c;
+  height: 100dvh;
+  overflow: hidden;
+  background: #040605;
+}
+
+.jaw-harp-page .masthead {
+  background: #070908;
+}
+
+.jaw-harp-page .tab.active {
+  color: var(--jaw-copper);
+}
+
+.jaw-harp-page .shell {
+  height: calc(100dvh - 58px);
+  min-height: 0;
+  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr) clamp(390px, 30vw, 480px);
+}
+
+.jaw-harp-page .stage,
+.jaw-harp-page .stage-wrap,
+.jaw-harp-page #stage {
+  min-height: 0;
+}
+
+.jaw-harp-page .stage-wrap {
+  background:
+    radial-gradient(ellipse at 67% 47%, rgba(118, 223, 211, 0.065), transparent 30%),
+    radial-gradient(ellipse at 43% 57%, rgba(223, 157, 90, 0.055), transparent 31%),
+    linear-gradient(rgba(223, 157, 90, 0.024) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(223, 157, 90, 0.024) 1px, transparent 1px),
+    #040605;
+  background-size: auto, auto, 34px 34px, 34px 34px, auto;
+}
+
+.jaw-harp-page #stage {
+  cursor: crosshair;
+}
+
+.jaw-harp-page #stage.is-dragging {
+  cursor: grabbing;
+}
+
+.jaw-harp-page .panel {
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(105deg, rgba(223, 157, 90, 0.025), transparent 44%),
+    #090b0a;
+}
+
+.jaw-harp-page .audio-glyph {
+  color: currentColor;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.jaw-harp-page .audio-button[aria-pressed="true"] {
+  border-color: var(--jaw-copper);
+  color: #070908;
+  background: var(--jaw-copper);
+  box-shadow: 0 0 18px rgba(223, 157, 90, 0.18);
+}
+
+.jaw-stage-heading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(24px, 4.5vh, 54px);
+  left: clamp(24px, 3.5vw, 56px);
+  pointer-events: none;
+}
+
+.jaw-stage-heading p,
+.jaw-stage-heading h1,
+.jaw-stage-heading small {
+  margin: 0;
+}
+
+.jaw-stage-heading p {
+  color: rgba(223, 157, 90, 0.78);
+  font-size: 7px;
+  letter-spacing: 0.2em;
+}
+
+.jaw-stage-heading h1 {
+  margin-top: 8px;
+  color: rgba(229, 229, 220, 0.92);
+  font-size: clamp(31px, 4.8vw, 68px);
+  font-weight: 350;
+  letter-spacing: -0.065em;
+  line-height: 0.76;
+}
+
+.jaw-stage-heading small {
+  display: block;
+  margin-top: 13px;
+  color: rgba(140, 145, 140, 0.74);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.jaw-drag-hint {
+  position: absolute;
+  z-index: 2;
+  right: 24px;
+  bottom: 20px;
+  max-width: 460px;
+  margin: 0;
+  pointer-events: none;
+  color: rgba(223, 157, 90, 0.69);
+  font-size: 7px;
+  letter-spacing: 0.13em;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.jaw-audio-error {
+  position: absolute;
+  z-index: 5;
+  right: 24px;
+  bottom: 42px;
+  max-width: min(420px, 66%);
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(238, 120, 109, 0.48);
+  color: #ffb1aa;
+  background: rgba(26, 8, 7, 0.94);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.jaw-transport {
+  display: grid;
+  width: 100%;
+  border-bottom: 1px solid rgba(223, 157, 90, 0.25);
+  background:
+    linear-gradient(90deg, rgba(223, 157, 90, 0.1), transparent 72%),
+    #060807;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  grid-template-columns: minmax(170px, 1fr) 98px;
+}
+
+.jaw-transport button {
+  display: grid;
+  min-width: 0;
+  min-height: 70px;
+  padding: 9px 12px;
+  border: 0;
+  cursor: pointer;
+  color: var(--jaw-muted);
+  background: transparent;
+  align-content: center;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+}
+
+.jaw-transport button + button {
+  border-left: 1px solid rgba(229, 229, 220, 0.13);
+}
+
+.jaw-transport button:hover,
+.jaw-transport button:focus-visible {
+  color: var(--jaw-bone);
+  background: rgba(223, 157, 90, 0.06);
+  outline: 1px solid var(--jaw-copper);
+  outline-offset: -3px;
+}
+
+.jaw-transport button b,
+.jaw-transport button small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jaw-transport button b {
+  font-size: 9px;
+  font-weight: 680;
+  letter-spacing: 0.04em;
+}
+
+.jaw-transport button small {
+  margin-top: 3px;
+  color: var(--jaw-muted);
+  font-size: 7px;
+}
+
+.jaw-pluck-icon {
+  position: relative;
+  width: 20px;
+  height: 30px;
+  border-left: 2px solid currentColor;
+}
+
+.jaw-pluck-icon::before,
+.jaw-pluck-icon::after,
+.jaw-pluck-icon i {
+  position: absolute;
+  content: "";
+}
+
+.jaw-pluck-icon::before,
+.jaw-pluck-icon::after {
+  left: -5px;
+  width: 10px;
+  height: 10px;
+  border-left: 1px solid currentColor;
+}
+
+.jaw-pluck-icon::before {
+  top: 0;
+  border-top: 1px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.jaw-pluck-icon::after {
+  bottom: 0;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.jaw-pluck-icon i {
+  top: 13px;
+  right: 0;
+  width: 8px;
+  border-top: 1px solid currentColor;
+}
+
+#pluckButton.is-plucked {
+  color: #050706;
+  background: var(--jaw-copper);
+}
+
+#pluckButton.is-plucked small {
+  color: rgba(5, 7, 6, 0.62);
+}
+
+#repeatButton[aria-pressed="true"] {
+  color: #04100e;
+  background: var(--jaw-cyan);
+}
+
+#repeatButton > span:first-child {
+  font-size: 18px;
+}
+
+#repeatButton[aria-pressed="true"] small {
+  color: rgba(4, 16, 14, 0.64);
+}
+
+.jaw-preset-deck {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  padding: 14px 16px 13px;
+  border-bottom: 1px solid rgba(223, 157, 90, 0.2);
+  background:
+    linear-gradient(135deg, rgba(223, 157, 90, 0.075), transparent 54%),
+    #070908;
+  gap: 9px;
+}
+
+.jaw-preset-deck > label {
+  display: grid;
+  gap: 5px;
+}
+
+.jaw-preset-deck > label > span,
+.jaw-preset-deck::before {
+  color: var(--jaw-muted);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.jaw-preset-deck select {
+  width: 100%;
+  height: 42px;
+  padding: 0 10px;
+  border: 1px solid rgba(223, 157, 90, 0.24);
+  border-radius: 0;
+  color: var(--jaw-bone);
+  background: #040605;
+  font: 600 10px/1 var(--mono);
+}
+
+.jaw-preset-deck select:focus-visible {
+  border-color: var(--jaw-copper);
+  outline: 1px solid var(--jaw-copper);
+  outline-offset: 2px;
+}
+
+.jaw-preset-deck p {
+  min-height: 2.7em;
+  margin: 0;
+  color: var(--jaw-muted);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.jaw-vowel-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.jaw-vowel-row button,
+.jaw-direction-row button {
+  min-height: 35px;
+  border: 1px solid rgba(118, 223, 211, 0.2);
+  cursor: pointer;
+  color: var(--jaw-muted);
+  background: #050706;
+  font: 650 9px/1 var(--mono);
+}
+
+.jaw-vowel-row button small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(140, 145, 140, 0.75);
+  font-size: 6px;
+  font-weight: 450;
+}
+
+.jaw-vowel-row button:hover,
+.jaw-vowel-row button:focus-visible,
+.jaw-vowel-row button[aria-pressed="true"] {
+  border-color: var(--jaw-cyan);
+  color: #04100e;
+  background: var(--jaw-cyan);
+}
+
+.jaw-vowel-row button[aria-pressed="true"] small {
+  color: rgba(4, 16, 14, 0.62);
+}
+
+.jaw-randomize-button {
+  display: grid;
+  min-height: 47px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--jaw-muted);
+  background: transparent;
+  grid-template-columns: 25px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.jaw-randomize-button > span:first-child {
+  color: var(--jaw-copper);
+  font-size: 18px;
+  text-align: center;
+}
+
+.jaw-randomize-button b,
+.jaw-randomize-button small {
+  display: block;
+}
+
+.jaw-randomize-button b {
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.jaw-randomize-button small {
+  margin-top: 2px;
+  color: var(--jaw-muted);
+  font-size: 7px;
+}
+
+.jaw-randomize-button:hover,
+.jaw-randomize-button:focus-visible {
+  border-color: var(--jaw-copper);
+  color: var(--jaw-copper);
+  background: rgba(223, 157, 90, 0.06);
+}
+
+.jaw-model-hud {
+  display: grid;
+  width: 100%;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background: #060807;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.jaw-model-hud span {
+  display: grid;
+  min-width: 0;
+  padding: 8px 10px;
+  border-right: 1px solid rgba(118, 223, 211, 0.09);
+  border-bottom: 1px solid rgba(118, 223, 211, 0.07);
+  gap: 3px;
+}
+
+.jaw-model-hud small {
+  color: var(--jaw-muted);
+  font-size: 6px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.jaw-model-hud output {
+  overflow: hidden;
+  color: var(--jaw-cyan);
+  font-size: 8px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jaw-harp-page .control-section[data-section="sound"] {
+  --accent: #df9d5a;
+  --accent-soft: color-mix(in oklab, #df9d5a 55%, transparent);
+  --accent-glow: color-mix(in oklab, #df9d5a 18%, transparent);
+}
+
+.jaw-harp-page .control-section[data-section="form"] {
+  --accent: #76dfd3;
+  --accent-soft: color-mix(in oklab, #76dfd3 55%, transparent);
+  --accent-glow: color-mix(in oklab, #76dfd3 18%, transparent);
+}
+
+.jaw-harp-page .control-section[data-section="mapping"] {
+  --accent: #ba9af6;
+  --accent-soft: color-mix(in oklab, #ba9af6 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ba9af6 18%, transparent);
+}
+
+.jaw-harp-page .control-section[data-section="play"] {
+  --accent: #f0c46e;
+  --accent-soft: color-mix(in oklab, #f0c46e 55%, transparent);
+  --accent-glow: color-mix(in oklab, #f0c46e 18%, transparent);
+}
+
+.jaw-harp-page .control small {
+  color: var(--jaw-muted);
+  font-size: 8px;
+  line-height: 1.42;
+}
+
+.jaw-harp-page input[type="range"]::-webkit-slider-runnable-track {
+  background:
+    linear-gradient(90deg, var(--accent) var(--range-progress, 50%), var(--line-strong) var(--range-progress, 50%));
+}
+
+.jaw-harp-page input[type="range"]::-moz-range-track {
+  background:
+    linear-gradient(90deg, var(--accent) var(--range-progress, 50%), var(--line-strong) var(--range-progress, 50%));
+}
+
+.jaw-direction-row {
+  display: grid;
+  margin: 1px 0 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.jaw-direction-row button {
+  border-color: rgba(240, 196, 110, 0.2);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.jaw-direction-row button:hover,
+.jaw-direction-row button:focus-visible,
+.jaw-direction-row button[aria-pressed="true"] {
+  border-color: var(--jaw-amber);
+  color: #120d04;
+  background: var(--jaw-amber);
+}
+
+.jaw-pulse-map {
+  display: grid;
+  height: 22px;
+  margin: 2px 0 10px;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  align-items: end;
+  gap: 4px;
+}
+
+.jaw-pulse-map i {
+  height: 30%;
+  border-top: 1px solid rgba(240, 196, 110, 0.45);
+  background: rgba(240, 196, 110, 0.07);
+  transition: height 80ms ease, background 80ms ease;
+}
+
+.jaw-pulse-map i:nth-child(odd) {
+  height: 62%;
+}
+
+.jaw-pulse-map i.is-current {
+  height: 100%;
+  border-color: var(--jaw-amber);
+  background: rgba(240, 196, 110, 0.34);
+}
+
+.jaw-model-note {
+  background:
+    linear-gradient(135deg, rgba(118, 223, 211, 0.055), transparent 54%),
+    #070908;
+}
+
+.jaw-model-note header {
+  display: flex;
+  min-height: 48px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(118, 223, 211, 0.14);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.jaw-model-note header span {
+  color: var(--jaw-muted);
+  font-size: 7px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.jaw-model-note header strong {
+  color: var(--jaw-cyan);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.jaw-model-note > p {
+  margin: 0;
+  padding: 12px 16px;
+  color: var(--jaw-muted);
+  font-size: 8px;
+  line-height: 1.52;
+}
+
+.jaw-model-note > div {
+  display: grid;
+  padding: 0 16px 14px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+}
+
+.jaw-model-note > div span {
+  min-width: 0;
+  text-align: center;
+}
+
+.jaw-model-note > div b,
+.jaw-model-note > div small {
+  display: block;
+}
+
+.jaw-model-note > div b {
+  color: var(--jaw-bone);
+  font-size: 7px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.jaw-model-note > div small {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--jaw-muted);
+  font-size: 5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jaw-model-note > div > i {
+  color: rgba(118, 223, 211, 0.46);
+  font-size: 9px;
+  font-style: normal;
+}
+
+@media (max-width: 960px) {
+  .jaw-harp-page .shell {
+    height: calc(100dvh - 58px);
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(285px, 52dvh) minmax(0, 1fr);
+  }
+
+  .jaw-stage-heading h1 {
+    font-size: clamp(30px, 7vw, 54px);
+  }
+}
+
+@media (max-width: 650px) {
+  .jaw-harp-page .shell {
+    height: calc(100dvh - 54px);
+    grid-template-rows: minmax(245px, 43dvh) minmax(0, 1fr);
+  }
+
+  .jaw-stage-heading {
+    top: 18px;
+    left: 18px;
+  }
+
+  .jaw-stage-heading small,
+  .jaw-drag-hint,
+  .jaw-model-hud {
+    display: none;
+  }
+
+  .jaw-transport {
+    grid-template-columns: minmax(130px, 1fr) 78px;
+  }
+
+  .jaw-transport button {
+    min-height: 62px;
+    padding: 8px 9px;
+  }
+
+  .jaw-transport button small {
+    display: none;
+  }
+
+  .jaw-preset-deck {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jaw-pulse-map i,
+  .jaw-harp-page .control {
+    transition: none;
+  }
+}

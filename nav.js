@@ -125,7 +125,20 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
     { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
-    { id: "alien-larynx", label: "Alien Larynx", href: "alien-larynx.html" },
+    { id: "morphynx", label: "Morphynx", href: "morphynx.html" },
+    {
+      id: "tongued-beasts",
+      label: "Tongued Beasts",
+      href: "tongued-beasts.html",
+      catalogue: false,
+    },
+    { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html", catalogue: false },
+    {
+      id: "hyper-syrinx",
+      label: "Hyper-Syrinx",
+      href: "hyper-syrinx.html",
+      catalogue: false,
+    },
     {
       id: "spelling-synthesizer",
       label: "Spelling Synthesizer",
@@ -212,6 +225,7 @@ export const TOOL_GROUPS = Object.freeze([
       href: "morphazoid-roulette.html",
       catalogue: false,
     },
+    { id: "alien-larynx", label: "Alien Larynx", href: "alien-larynx.html" },
     {
       id: "escher-tessellation",
       label: "Escher",

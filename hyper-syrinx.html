@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#080a08" />
+    <meta
+      name="description"
+      content="Hyper-Syrinx is a modular, polyphonic physical voice laboratory where breaths, membranes, labia, tracheas, tracts, mouths, and lips multiply and share one another."
+    />
+    <title>Hyper-Syrinx — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="hyper-syrinx.css" />
+  </head>
+  <body class="hyper-syrinx-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab" href="syrinx.html">syrinx</a>
+        <a class="tab active" href="hyper-syrinx.html" aria-current="page">hyper-syrinx</a>
+        <a class="tab" href="alien-larynx.html">alien larynx</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="throatazoid.html">Throatazoid</option>
+          <option value="syrinx.html">Syrinx</option>
+          <option value="hyper-syrinx.html" selected>Hyper-Syrinx</option>
+          <option value="alien-larynx.html">Alien Larynx</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="hyper-audio-dot" aria-hidden="true"></span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">42%</output></span>
+          <input id="level" aria-label="Hyper-Syrinx output level" type="range" min="0" max="0.72" step="0.01" value="0.42" />
+        </label>
+      </div>
+    </header>
+
+    <main class="hyper-shell" id="hyperSyrinx">
+      <section class="hyper-hero" aria-labelledby="pageTitle">
+        <div class="hyper-title-block">
+          <p class="hyper-kicker">POLYPHONIC ANATOMY / PATCH 01</p>
+          <h1 id="pageTitle"><span>HYPER</span><i>—</i><span>SYRINX</span></h1>
+        </div>
+        <p class="hyper-thesis">
+          Every organ is a module. Multiply it in place, add its pressure to the others,
+          and let impossible animals borrow the same exit.
+        </p>
+        <div class="hyper-equation" id="headlineEquation" aria-live="polite">
+          ELEPHANT BREATH + BIRD LABIA → 1 SHARED LIP
+        </div>
+      </section>
+
+      <section class="hyper-workbench" aria-label="Interconnected vocal system workbench">
+        <div class="hyper-workbench-bar">
+          <div class="hyper-preset-bank" id="presetBank" role="group" aria-label="Organism presets">
+            <button type="button" data-preset="elephant-bird" aria-pressed="true">Elephant × Bird</button>
+            <button type="button" data-preset="murmuration" aria-pressed="false">Murmuration</button>
+            <button type="button" data-preset="hydra" aria-pressed="false">Hydra throat</button>
+            <button type="button" data-preset="soft-machine" aria-pressed="false">Soft machine</button>
+          </div>
+          <div class="hyper-workbench-actions">
+            <button class="hyper-mutate" id="mutateButton" type="button">
+              <span aria-hidden="true">✣</span> mutate anatomy
+            </button>
+            <button class="hyper-transport" id="transportButton" type="button" aria-pressed="false">
+              <span id="transportIcon" aria-hidden="true">▶</span><b id="transportLabel">animate</b>
+            </button>
+          </div>
+        </div>
+
+        <div class="hyper-flow-shell" id="flowShell">
+          <canvas id="connectionCanvas" aria-hidden="true"></canvas>
+          <div class="hyper-flow" id="moduleField"></div>
+        </div>
+
+        <div class="hyper-sum-strip" aria-label="Added physical parameters">
+          <span class="hyper-sum-label">ANATOMY SUM</span>
+          <div id="sumReadout" class="hyper-sums"></div>
+          <output id="pathReadout" class="hyper-path-count">08 LIVING PATHS</output>
+        </div>
+      </section>
+
+      <aside class="hyper-console" aria-label="Hyper-Syrinx performance controls">
+        <section class="hyper-breath-section">
+          <button class="hyper-breath-pad" id="breathPad" type="button" aria-pressed="false">
+            <span class="breath-rings" aria-hidden="true"><i></i><i></i><i></i></span>
+            <b>HOLD<br />TO BREATHE</b>
+            <small>space bar / pressure gate</small>
+          </button>
+          <div class="hyper-meter" aria-hidden="true"><i id="breathMeter"></i></div>
+        </section>
+
+        <section class="hyper-console-section" aria-labelledby="routeTitle">
+          <div class="hyper-section-heading">
+            <p>01 / INTERCONNECTION</p>
+            <h2 id="routeTitle">Who breathes through whom?</h2>
+          </div>
+          <div class="hyper-route-modes" id="routeModes" role="group" aria-label="Routing topology">
+            <button type="button" data-route="braid" aria-pressed="true"><b>Braid</b><small>each organ meets two</small></button>
+            <button type="button" data-route="chain" aria-pressed="false"><b>Chain</b><small>one body per lane</small></button>
+            <button type="button" data-route="all" aria-pressed="false"><b>All ⇄ all</b><small>total shared anatomy</small></button>
+          </div>
+        </section>
+
+        <section class="hyper-console-section" aria-labelledby="motionTitle">
+          <div class="hyper-section-heading">
+            <p>02 / METABOLISM</p>
+            <h2 id="motionTitle">Make the body unstable</h2>
+          </div>
+          <label class="hyper-control" for="metabolism">
+            <span><b>Metabolism</b><output id="metabolismOut" for="metabolism">34%</output></span>
+            <input id="metabolism" type="range" min="0" max="1" step="0.01" value="0.34" />
+            <small>Slowly deforms every module around its set point.</small>
+          </label>
+          <label class="hyper-control" for="crossCoupling">
+            <span><b>Cross-coupling</b><output id="crossCouplingOut" for="crossCoupling">58%</output></span>
+            <input id="crossCoupling" type="range" min="0" max="1" step="0.01" value="0.58" />
+            <small>How much neighboring tissues pull each other off pitch.</small>
+          </label>
+          <label class="hyper-control" for="wetness">
+            <span><b>Shared saliva</b><output id="wetnessOut" for="wetness">27%</output></span>
+            <input id="wetness" type="range" min="0" max="1" step="0.01" value="0.27" />
+            <small>A short common cavity after the final mouths and lips.</small>
+          </label>
+        </section>
+
+        <section class="hyper-console-section hyper-organism-card" aria-labelledby="organismTitle">
+          <div class="hyper-section-heading">
+            <p>03 / CURRENT CREATURE</p>
+            <h2 id="organismTitle">One voice, no animal</h2>
+          </div>
+          <dl id="organismReadout">
+            <div><dt>modules</dt><dd>09</dd></div>
+            <div><dt>source voices</dt><dd>02</dd></div>
+            <div><dt>shared exits</dt><dd>01</dd></div>
+            <div><dt>routing</dt><dd>BRAID</dd></div>
+          </dl>
+          <p id="statusText" role="status">Audio sleeps. The anatomy is still editable.</p>
+        </section>
+
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+        <button class="hyper-reset" id="resetButton" type="button" data-reset-all data-reset-in-place>Return to elephant × bird</button>
+      </aside>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <template id="moduleTemplate">
+      <article class="organ-module" draggable="true">
+        <span class="module-port module-port-in" aria-hidden="true"></span>
+        <div class="module-topline">
+          <span class="module-index"></span>
+          <span class="module-drag" aria-hidden="true">⠿</span>
+          <button class="module-duplicate" type="button" title="Duplicate this organ" aria-label="Duplicate this organ">×2</button>
+          <button class="module-remove" type="button" title="Remove this organ" aria-label="Remove this organ">−</button>
+        </div>
+        <label class="module-species-label">
+          <span class="sr-only">Animal material</span>
+          <select class="module-species"></select>
+        </label>
+        <h3 class="module-name"></h3>
+        <label class="module-control">
+          <span><b class="module-param-label"></b><output class="module-value"></output></span>
+          <input class="module-slider" type="range" min="0" max="1" step="0.01" />
+        </label>
+        <span class="module-form" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="module-port module-port-out" aria-hidden="true"></span>
+      </article>
+    </template>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="hyper-syrinx-app.js"></script>
+  </body>
+</html>

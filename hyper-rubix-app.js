@@ -66,7 +66,7 @@ const DEFAULTS = Object.freeze({
   swing: 0.08,
   subdivisionsPerBeat: 2,
   sequenceMethod: "sticker-stream",
-  twistMotion: "off",
+  twistMotion: "auto",
   patternId: "axis-break",
   playbackMode: "forward",
   twistDensity: 1,
@@ -2680,7 +2680,13 @@ function paintSerialIdlePlayhead() {
 
 function paintSequenceMethodHelp() {
   const method = sequenceMethodConfig();
-  $("sequenceMethodHelp").textContent = `${method.help} · no automatic turns; manual movement reshapes the running score`;
+  const activeTapeSteps = sequence.filter(({ active, move }) => active && move).length;
+  const twistHelp = method.autoTwist
+    ? state.twistMotion === "off"
+      ? ` · automated twist tape ready (${activeTapeSteps}/${HYPER_RUBIX_SEQUENCE_LENGTH} hits); motion is off`
+      : ` · ${TWIST_MOTION_LABELS[state.twistMotion]} automated twists · ${activeTapeSteps}/${HYPER_RUBIX_SEQUENCE_LENGTH} tape hits`
+    : " · no automatic turns; manual movement reshapes the running score";
+  $("sequenceMethodHelp").textContent = `${method.help}${twistHelp}`;
 }
 
 function paintSequenceMethod() {
@@ -2693,6 +2699,8 @@ function paintSequenceMethod() {
   $("sequencePattern").disabled = !method.autoTwist;
   $("twistDensity").disabled = !method.autoTwist;
   if ($("twistMotion")) $("twistMotion").disabled = !method.autoTwist;
+  $("playbackPreset").disabled = !method.serial;
+  $("playbackScopeReadout").hidden = !method.serial;
   if (method.hyperbar) renderHyperbarGrid();
   else $("hyperbarGrid").replaceChildren();
 }
@@ -2759,19 +2767,29 @@ function updateTimelineReadout(method, {
 
 function paintTransport() {
   const rate = RATE_LABELS[state.subdivisionsPerBeat] ?? "1/8";
+  const mode = PLAYBACK_LABELS[state.playbackMode] ?? "Forward";
   const method = sequenceMethodConfig();
+  const methodName = sequenceMethodName(method);
   $("playButton").setAttribute("aria-pressed", String(state.playing));
-  $("playLabel").textContent = state.playing
-    ? "Pause shape loop"
-    : "Play shape loop";
-  $("playState").textContent = state.playing
-    ? `${method.length} notes · ${playbackPresetLabel()} · ${rate} · running`
-    : `${method.length} stickers · ${playbackPresetLabel()} · one note each`;
-  const restartLabel = "Restart shape loop at its first sticker";
+  $("playLabel").textContent = `${state.playing ? "Pause" : "Play"} ${methodName.toLowerCase()}`;
+  if (state.playing) {
+    $("playState").textContent = `${method.length} ${method.serial ? "notes" : method.hyperbar ? "pulses" : "steps"} · ${mode.toLowerCase()} · ${rate} · running`;
+  } else if (method.serial) {
+    $("playState").textContent = `${method.length} stickers · ${playbackPresetLabel()} · one note each`;
+  } else {
+    const motion = state.twistMotion === "off"
+      ? "twists off"
+      : `${TWIST_MOTION_LABELS[state.twistMotion].toLowerCase()} twists`;
+    $("playState").textContent = `${method.length} ${method.hyperbar ? "sticker pulses" : "tape steps"} · ${motion}`;
+  }
+  const restartLabel = `Restart ${methodName} ${restartPositionPhrase(method)}`;
   $("restartLoop").setAttribute("aria-label", restartLabel);
   $("restartLoop").setAttribute("title", restartLabel);
   $("restartInstructions").textContent = `Press R to ${restartLabel.replace(/^Restart /, "restart ")}.`;
-  $("clockSummary").textContent = `${method.length} notes · ${Math.round(state.tempo)} BPM · ${rate}`;
+  const twistSummary = method.autoTwist && state.twistMotion !== "off"
+    ? ` · ${TWIST_MOTION_LABELS[state.twistMotion]} twists`
+    : "";
+  $("clockSummary").textContent = `${method.length} ${method.hyperbar && !method.serial ? "pulses" : method.serial ? "notes" : "steps"} · ${Math.round(state.tempo)} BPM · ${rate}${twistSummary}`;
   $("sequencePattern").value = state.patternId;
   $("playbackMode").value = state.playbackMode;
   $("twistRate").value = String(state.subdivisionsPerBeat);
@@ -3746,6 +3764,7 @@ $("twistMotion").addEventListener("change", (event) => {
   state.twistMotion = Object.hasOwn(TWIST_MOTION_LABELS, event.currentTarget.value)
     ? event.currentTarget.value
     : DEFAULTS.twistMotion;
+  paintSequenceMethodHelp();
   paintTransport();
   if (state.playing) restartTransportClock();
   announce(`${TWIST_MOTION_LABELS[state.twistMotion]} physical twist motion selected. Audio pulses keep their chosen rate.`);

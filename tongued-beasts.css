@@ -1,0 +1,287 @@
+.tongued-beasts-page {
+  --accent: #ff5f87;
+  --accent-soft: color-mix(in oklab, #ff5f87 54%, transparent);
+  --accent-glow: color-mix(in oklab, #ff5f87 20%, transparent);
+  --tongue: #ff5f87;
+  --tongue-pale: #ffb4c6;
+  background: #070507;
+}
+
+.tongued-beasts-page .masthead {
+  background:
+    linear-gradient(90deg, rgba(255, 95, 135, 0.06), transparent 42%),
+    #070507;
+}
+
+.tongued-beasts-page .tongued-beasts-tab,
+.tongued-beasts-page .instrument-picker-trigger[aria-current="page"] {
+  color: var(--tongue);
+}
+
+.tongued-beasts-page .shell {
+  grid-template-columns: minmax(0, 1fr) clamp(420px, 32vw, 520px);
+}
+
+.tongued-beasts-page .stage-wrap {
+  background:
+    radial-gradient(circle at 69% 45%, rgba(255, 95, 135, 0.12), transparent 20%),
+    radial-gradient(circle at 40% 66%, rgba(114, 231, 220, 0.06), transparent 30%),
+    linear-gradient(rgba(255, 95, 135, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 95, 135, 0.025) 1px, transparent 1px),
+    #050406;
+  background-size: auto, auto, 32px 32px, 32px 32px, auto;
+}
+
+.tongued-beasts-title {
+  position: absolute;
+  z-index: 4;
+  top: 24px;
+  left: 25px;
+  display: grid;
+  pointer-events: none;
+  gap: 3px;
+  text-transform: uppercase;
+}
+
+.tongued-beasts-title span {
+  color: rgba(255, 180, 198, 0.66);
+  font: 650 7px/1.2 var(--mono);
+  letter-spacing: 0.18em;
+}
+
+.tongued-beasts-title strong {
+  color: var(--tongue-pale);
+  font: 650 clamp(18px, 2vw, 29px)/1 var(--display);
+  letter-spacing: -0.025em;
+  text-transform: lowercase;
+}
+
+.tongued-beasts-page .syrinx-drag-hint {
+  color: rgba(255, 180, 198, 0.68);
+}
+
+.tongued-beasts-page .panel {
+  background:
+    linear-gradient(100deg, rgba(255, 95, 135, 0.028), transparent 42%),
+    #0b080b;
+}
+
+.tongued-beasts-page .syrinx-panel-transport,
+.tongued-beasts-page .syrinx-preset-bank,
+.tongued-beasts-page .syrinx-model-hud {
+  border-bottom-color: rgba(255, 95, 135, 0.2);
+}
+
+.tongued-beasts-page .syrinx-panel-transport {
+  background:
+    linear-gradient(90deg, rgba(255, 95, 135, 0.1), transparent 72%),
+    #080608;
+}
+
+.tongued-beasts-page .syrinx-preset-bank {
+  background:
+    linear-gradient(135deg, rgba(255, 95, 135, 0.09), transparent 52%),
+    #090609;
+}
+
+.tongued-beasts-page .syrinx-preset-bank select {
+  border-color: rgba(255, 95, 135, 0.22);
+}
+
+.tongue-section {
+  --accent: #ff5f87;
+  --accent-soft: color-mix(in oklab, #ff5f87 52%, transparent);
+  --accent-glow: color-mix(in oklab, #ff5f87 18%, transparent);
+}
+
+.tongue-section[open] {
+  background:
+    linear-gradient(135deg, rgba(255, 95, 135, 0.065), transparent 46%),
+    #0a070a;
+}
+
+.tongue-switch-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 142px;
+  gap: 8px;
+}
+
+.tongue-switch-row label {
+  display: grid;
+  gap: 5px;
+}
+
+.tongue-switch-row label > span {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.tongue-switch-row select,
+.tongue-switch-row button {
+  min-width: 0;
+  height: 40px;
+  border: 1px solid rgba(255, 95, 135, 0.24);
+  border-radius: 0;
+  color: var(--tongue-pale);
+  background: #070507;
+  font: 650 8px/1.2 var(--mono);
+}
+
+.tongue-switch-row select {
+  padding: 0 28px 0 9px;
+}
+
+.tongue-switch-row button {
+  padding: 0 8px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tongue-switch-row button:hover,
+.tongue-switch-row button:focus-visible,
+.tongue-switch-row button[aria-pressed="true"] {
+  border-color: var(--tongue);
+  color: #080507;
+  background: var(--tongue);
+}
+
+.tongue-switch-row select:focus-visible,
+.tongue-switch-row button:focus-visible {
+  outline: 1px solid var(--tongue);
+  outline-offset: 2px;
+}
+
+.tongue-description {
+  margin: 2px 0 4px;
+  color: #aa8b94;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.tongue-impact {
+  margin: 0 0 6px;
+  padding: 8px 9px;
+  border-left: 2px solid rgba(114, 231, 220, 0.72);
+  color: #aab9b6;
+  background: rgba(114, 231, 220, 0.025);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.tongue-cavity-readout {
+  display: grid;
+  border: 1px solid rgba(255, 95, 135, 0.14);
+  background: rgba(255, 95, 135, 0.025);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tongue-cavity-readout span {
+  display: grid;
+  padding: 8px 9px;
+  gap: 3px;
+}
+
+.tongue-cavity-readout span + span {
+  border-left: 1px solid rgba(255, 95, 135, 0.12);
+}
+
+.tongue-cavity-readout small {
+  color: var(--muted);
+  font-size: 6px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tongue-cavity-readout output {
+  color: var(--tongue-pale);
+  font: 650 10px/1.2 var(--mono);
+}
+
+.tongue-physics-card {
+  margin: 12px 14px;
+  border: 1px solid rgba(255, 95, 135, 0.2);
+  color: #a9949a;
+  background:
+    linear-gradient(145deg, rgba(255, 95, 135, 0.055), transparent 52%),
+    #090709;
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.tongue-physics-card summary {
+  padding: 11px 12px;
+  cursor: pointer;
+  color: var(--tongue-pale);
+  font: 650 8px/1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tongue-physics-card > :not(summary) {
+  margin-right: 12px;
+  margin-left: 12px;
+}
+
+.tongue-equations {
+  display: grid;
+  padding: 8px 9px;
+  border-top: 1px solid rgba(255, 95, 135, 0.12);
+  border-bottom: 1px solid rgba(255, 95, 135, 0.12);
+  color: #d8bac2;
+  background: rgba(0, 0, 0, 0.16);
+  gap: 4px;
+}
+
+.tongue-equations p,
+.tongue-physics-card p {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.tongue-caveat {
+  padding: 8px 9px;
+  border-left: 2px solid var(--tongue);
+  color: #c4a3ac;
+  background: rgba(255, 95, 135, 0.035);
+}
+
+.tongue-sources {
+  display: flex;
+  padding: 0 0 11px;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.tongue-sources a {
+  color: var(--tongue-pale);
+  text-underline-offset: 2px;
+}
+
+.tongue-is-bypassed .tongue-section .group-body {
+  opacity: 0.62;
+}
+
+.tongue-is-bypassed .tongue-switch-row {
+  opacity: 1;
+}
+
+@media (max-width: 980px) {
+  .tongued-beasts-page .shell {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .tongue-switch-row {
+    grid-template-columns: 1fr;
+  }
+
+  .tongued-beasts-title {
+    top: 15px;
+    left: 15px;
+  }
+}
