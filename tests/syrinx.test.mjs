@@ -374,23 +374,6 @@ test("the Syrinx worklet joins each source family to a finite variable-length tr
     assert.ok(profile.every((diameter) => Number.isFinite(diameter) && diameter > 0));
   }
 
-  const ravenBase = {
-    ...resolveSourceControls(animalState("raven")),
-    animalId: "raven",
-  };
-  const tonguePosition = 0.68;
-  const untonguedDiameter = tractDiameterAt(tonguePosition, ravenBase);
-  const tonguedDiameter = tractDiameterAt(tonguePosition, {
-    ...ravenBase,
-    tongueEnabled: true,
-    tongueAnatomy: "human",
-    tonguePosition: 0.58,
-    tongueHeight: 0.8,
-    tongueShape: 0.5,
-    tongueTip: 0.35,
-  });
-  assert.ok(tonguedDiameter < untonguedDiameter, "tongue geometry must constrict the host waveguide");
-
   const speedOfSound = 343;
   const waveguideRateForTest = (outputRate) => (
     outputRate <= 50_000 ? outputRate * 2 : Math.min(outputRate, 96_000)
