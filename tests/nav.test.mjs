@@ -227,7 +227,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 88);
+  assert.equal(tools.length, 89);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -262,6 +262,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       id: "linear-drums",
       label: "Rattlesnake",
       href: "linear-drums.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "karplus-strong"),
+    {
+      id: "karplus-strong",
+      label: "Karplus Strong",
+      href: "karplus-strong.html",
     },
   );
   assert.deepEqual(
@@ -424,6 +432,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       { id: "fm-drums", href: "fm-drums.html" },
       { id: "linear-drums", href: "linear-drums.html" },
+      { id: "karplus-strong", href: "karplus-strong.html" },
       { id: "sample-drums", href: "sample-drums.html" },
     ],
   );
@@ -687,6 +696,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}algorithmic-scores.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}fm-drums.html`, SITE_ROOT)?.id, "fm-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}linear-drums.html`, SITE_ROOT)?.id, "linear-drums");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}karplus-strong.html`, SITE_ROOT)?.id, "karplus-strong");
   assert.equal(
     resolveActiveTool(`${SITE_ROOT}linear-drums-machine.html`, SITE_ROOT)?.id,
     "linear-drums-machine",

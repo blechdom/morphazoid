@@ -21,6 +21,7 @@
         <a class="tab" href="shape.html">shape</a>
         <a class="tab" href="fm-drums.html">fm drums</a>
         <a class="tab active" href="linear-drums.html" aria-current="page">rattlesnake</a>
+        <a class="tab" href="karplus-strong.html">karplus strong</a>
         <a class="tab" href="ouroboros.html">ouroboros</a>
         <a class="tab" href="ouroboros-borealis.html">ouroboros borealis</a>
         <a class="tab" href="sample-drums.html">sample drums</a>
@@ -32,6 +33,7 @@
           <option value="shape.html">shape</option>
           <option value="fm-drums.html">fm drums</option>
           <option value="linear-drums.html" selected>rattlesnake</option>
+          <option value="karplus-strong.html">karplus strong</option>
           <option value="ouroboros.html">ouroboros</option>
           <option value="ouroboros-borealis.html">ouroboros borealis</option>
           <option value="sample-drums.html">sample drums</option>
@@ -61,7 +63,7 @@
           <div class="linear-live-readouts" aria-live="polite">
             <span><b id="frequencyReadout">100 Hz</b><small>FREQUENCY</small></span>
             <span><b id="blendReadout">kick / tom</b><small>CONTINUOUS BLEND</small></span>
-            <span><b id="modelReadout">Modal + FM</b><small>BODY MODEL</small></span>
+            <span><b id="modelReadout">Modal + FM</b><small>SOUND MODEL</small></span>
           </div>
         </header>
 
@@ -94,19 +96,28 @@
           <span data-range-maximum style="--position: 1">16k Hz</span>
         </div>
 
-        <div class="linear-transport" aria-label="Glissando transport">
-          <button class="linear-command" id="strikeButton" type="button">
-            <span aria-hidden="true">o</span><b>Strike</b>
-          </button>
-          <button class="linear-command is-primary" id="sweepButton" type="button" aria-pressed="false" data-primary-transport>
-            <span id="sweepIcon" aria-hidden="true">&#9654;</span><b id="sweepLabel">Sweep</b>
-          </button>
-          <fieldset class="linear-segmented" aria-label="Sweep direction">
-            <legend>Direction</legend>
-            <label><input type="radio" name="sweepMode" value="up" /><span>Up</span></label>
-            <label><input type="radio" name="sweepMode" value="pendulum" checked /><span>Both</span></label>
-            <label><input type="radio" name="sweepMode" value="down" /><span>Down</span></label>
-          </fieldset>
+      </section>
+
+      <aside class="linear-control-panel" aria-label="Linear drum controls">
+        <section class="linear-control-section linear-sweep-section" data-section="play">
+          <div class="linear-section-heading"><h2>Sweep</h2><output>GLISSANDO</output></div>
+          <div class="linear-sweep-row">
+            <button class="play-button" id="sweepButton" type="button" aria-pressed="false" aria-label="Start sweep" data-primary-transport>
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+            </button>
+            <div class="transport-button-array linear-sweep-direction" id="sweepMotion" role="group" aria-label="Sweep direction and movement">
+              <button class="direction-toggle" id="sweepDirectionButton" type="button" aria-label="Sweep direction: up">
+                <span id="sweepDirectionGlyph">&#8593;</span><small id="sweepDirectionText">Up</small>
+              </button>
+              <button id="sweepLoopMode" type="button" aria-pressed="false" aria-label="Loop sweep movement" title="Loop">
+                <span aria-hidden="true">&#8635;</span><small>Loop</small>
+              </button>
+              <button id="sweepPendulumMode" type="button" aria-pressed="true" aria-label="Back-and-forth sweep movement" title="Back and forth">
+                <span aria-hidden="true">&#8597;</span><small>Both</small>
+              </button>
+            </div>
+          </div>
           <div class="linear-inline-control" data-parameter-control="sweepRate">
             <span><label for="sweepRate">Hit density</label><span class="linear-value-actions"><output id="sweepRateOut" for="sweepRate">16 /s</output><button class="parameter-map-toggle" type="button" data-map-parameter="sweepRate" aria-label="Map hit density" aria-pressed="false" title="Map hit density"><span class="map-slope-icon" aria-hidden="true"></span></button></span></span>
             <input id="sweepRate" type="range" min="4" max="28" step="1" value="16" />
@@ -115,85 +126,95 @@
             <span><label for="sweepSpeed">Gliss speed</label><span class="linear-value-actions"><output id="sweepSpeedOut" for="sweepSpeed">1.5 oct/s</output><button class="parameter-map-toggle" type="button" data-map-parameter="sweepSpeed" aria-label="Map gliss speed" aria-pressed="false" title="Map gliss speed"><span class="map-slope-icon" aria-hidden="true"></span></button></span></span>
             <input id="sweepSpeed" type="range" min=".2" max="4" step=".05" value="1.5" />
           </div>
-        </div>
-      </section>
+        </section>
 
-      <aside class="linear-control-panel" aria-label="Linear drum controls">
         <section class="linear-control-section">
-          <div class="linear-section-heading"><h2>Body model</h2><output id="modelSummary">MODAL + FM</output></div>
+          <div class="linear-section-heading"><h2>Sound model</h2><output id="modelSummary">MODAL + FM</output></div>
           <fieldset class="linear-model-selector">
-            <legend class="sr-only">Body synthesis model</legend>
+            <legend class="sr-only">Sound synthesis model</legend>
             <label><input type="radio" name="bodyModel" value="hybrid" checked /><span>Modal + FM</span></label>
             <label><input type="radio" name="bodyModel" value="modal" /><span>Modal</span></label>
             <label><input type="radio" name="bodyModel" value="fm" /><span>FM</span></label>
             <label><input type="radio" name="bodyModel" value="pitched" /><span>Pitched</span></label>
+            <label><input type="radio" name="bodyModel" value="karplus-strong" /><span>Karplus</span></label>
           </fieldset>
         </section>
 
-        <section class="linear-control-section linear-preset-section">
+        <section class="linear-control-section linear-karplus-section" data-engine-panel="karplus-strong" hidden>
+          <div class="linear-section-heading"><h2>Karplus morph path</h2><output id="karplusMorphSummary">GUT TO GLASS</output></div>
+          <div class="linear-karplus-path">
+            <label><span>Low</span><select id="karplusMorphLow" data-karplus-anchor="0" aria-label="Low Karplus preset"></select></label>
+            <label><span>Low-mid</span><select id="karplusMorphLowMid" data-karplus-anchor="1" aria-label="Low-mid Karplus preset"></select></label>
+            <label><span>High-mid</span><select id="karplusMorphHighMid" data-karplus-anchor="2" aria-label="High-mid Karplus preset"></select></label>
+            <label><span>High</span><select id="karplusMorphHigh" data-karplus-anchor="3" aria-label="High Karplus preset"></select></label>
+          </div>
+          <p class="linear-engine-note">The four complete Karplus presets crossfade continuously from the low end of the snake to the high end.</p>
+        </section>
+
+        <section class="linear-control-section linear-preset-section" data-engine-panel="rattlesnake">
           <div class="linear-section-heading"><h2>Preset bank</h2><output id="presetSummary">NATURAL LINE</output></div>
           <div class="linear-preset-bank" id="presetBank" aria-label="Sixteen Rattlesnake presets"></div>
         </section>
 
-        <section class="linear-control-section">
-          <div class="linear-section-heading"><h2>Morph positions</h2><output id="morphSummary">110 / 720 / 4.6k</output></div>
-          <label class="linear-control" for="kickTom">
+        <section class="linear-control-section linear-knob-section">
+          <div class="linear-section-heading"><h2 id="morphTitle">Morph positions</h2><output id="morphSummary">110 / 720 / 4.6k</output></div>
+          <label class="linear-control linear-knob-control" for="kickTom">
             <span><b id="morphOneLabel">Kick to tom</b><output id="kickTomOut" for="kickTom">110 Hz</output></span>
             <input id="kickTom" type="range" min="55" max="220" step="1" value="110" />
           </label>
-          <label class="linear-control" for="tomHand">
+          <label class="linear-control linear-knob-control" for="tomHand">
             <span><b id="morphTwoLabel">Tom to hand</b><output id="tomHandOut" for="tomHand">720 Hz</output></span>
             <input id="tomHand" type="range" min="250" max="1800" step="10" value="720" />
           </label>
-          <label class="linear-control" for="handAir">
+          <label class="linear-control linear-knob-control" for="handAir">
             <span><b id="morphThreeLabel">Hand to air</b><output id="handAirOut" for="handAir">4.6 kHz</output></span>
             <input id="handAir" type="range" min="1900" max="10000" step="50" value="4600" />
           </label>
-          <label class="linear-control" for="morphWidth">
+          <label class="linear-control linear-knob-control" for="morphWidth">
             <span><b>Morph width</b><output id="morphWidthOut" for="morphWidth">1.05 oct</output></span>
             <input id="morphWidth" type="range" min=".3" max="2.5" step=".05" value="1.05" />
           </label>
         </section>
 
-        <section class="linear-control-section">
+        <section class="linear-control-section linear-knob-section">
           <div class="linear-section-heading"><h2>Envelope</h2><output id="envelopeSummary">1.5 ms / 760 ms</output></div>
-          <div class="linear-control" data-parameter-control="attack">
+          <div class="linear-control linear-knob-control" data-parameter-control="attack" data-engine-panel="rattlesnake">
             <span><label for="attack">Attack</label><span class="linear-value-actions"><output id="attackOut" for="attack">1.5 ms</output><button class="parameter-map-toggle" type="button" data-map-parameter="attack" aria-label="Map attack" aria-pressed="false" title="Map attack"><span class="map-slope-icon" aria-hidden="true"></span></button></span></span>
             <input id="attack" type="range" min="0" max="1" step=".001" value=".085" />
           </div>
-          <div class="linear-control" data-parameter-control="decay">
+          <div class="linear-control linear-knob-control" data-parameter-control="decay">
             <span><label for="decay">Decay</label><span class="linear-value-actions"><output id="decayOut" for="decay">760 ms</output><button class="parameter-map-toggle" type="button" data-map-parameter="decay" aria-label="Map decay" aria-pressed="false" title="Map decay"><span class="map-slope-icon" aria-hidden="true"></span></button></span></span>
             <input id="decay" type="range" min="0" max="1" step=".001" value=".712" />
           </div>
         </section>
 
-        <section class="linear-control-section">
-          <div class="linear-section-heading"><h2>Set character</h2><output>GLOBAL / MAPPED</output></div>
-          <div class="linear-control" data-parameter-control="pitchFall">
+        <section class="linear-control-section linear-knob-section">
+          <div class="linear-section-heading"><h2>Set character</h2><output id="characterSummary">GLOBAL / MAPPED</output></div>
+          <div class="linear-control linear-knob-control" data-parameter-control="pitchFall" data-engine-panel="rattlesnake">
             <span><label for="pitchFall">Pitch fall</label><span class="linear-value-actions"><output id="pitchFallOut" for="pitchFall">100%</output><button class="parameter-map-toggle" type="button" data-map-parameter="pitchFall" aria-label="Map pitch fall" aria-pressed="false" title="Map pitch fall"><span class="map-slope-icon" aria-hidden="true"></span></button></span></span>
             <input id="pitchFall" type="range" min="0" max="2" step=".01" value="1" />
           </div>
-          <div class="linear-control" data-parameter-control="strikeNoise">
+          <div class="linear-control linear-knob-control" data-parameter-control="strikeNoise">
             <span><label for="strikeNoise">Attack noise</label><span class="linear-value-actions"><output id="strikeNoiseOut" for="strikeNoise">100%</output><button class="parameter-map-toggle" type="button" data-map-parameter="strikeNoise" aria-label="Map attack noise" aria-pressed="false" title="Map attack noise"><span class="map-slope-icon" aria-hidden="true"></span></button></span></span>
             <input id="strikeNoise" type="range" min="0" max="1.6" step=".01" value="1" />
           </div>
-          <div class="linear-control" data-parameter-control="brightness">
+          <div class="linear-control linear-knob-control" data-parameter-control="brightness">
             <span><label for="brightness">Brightness</label><span class="linear-value-actions"><output id="brightnessOut" for="brightness">56%</output><button class="parameter-map-toggle" type="button" data-map-parameter="brightness" aria-label="Map brightness" aria-pressed="false" title="Map brightness"><span class="map-slope-icon" aria-hidden="true"></span></button></span></span>
             <input id="brightness" type="range" min="0" max="1" step=".01" value=".56" />
           </div>
-          <div class="linear-control" data-parameter-control="inharmonicity">
-            <span><label for="inharmonicity">Membrane stiffness</label><span class="linear-value-actions"><output id="inharmonicityOut" for="inharmonicity">58%</output><button class="parameter-map-toggle" type="button" data-map-parameter="inharmonicity" aria-label="Map membrane stiffness" aria-pressed="false" title="Map membrane stiffness"><span class="map-slope-icon" aria-hidden="true"></span></button></span></span>
+          <div class="linear-control linear-knob-control" data-parameter-control="inharmonicity">
+            <span><label for="inharmonicity" id="inharmonicityLabel">Membrane stiffness</label><span class="linear-value-actions"><output id="inharmonicityOut" for="inharmonicity">58%</output><button class="parameter-map-toggle" type="button" data-map-parameter="inharmonicity" aria-label="Map stiffness or dispersion" aria-pressed="false" title="Map stiffness or dispersion"><span class="map-slope-icon" aria-hidden="true"></span></button></span></span>
             <input id="inharmonicity" type="range" min="0" max="1" step=".01" value=".58" />
           </div>
-          <div class="linear-control" data-parameter-control="hardness">
+          <div class="linear-control linear-knob-control" data-parameter-control="hardness">
             <span><label for="hardness">Strike hardness</label><span class="linear-value-actions"><output id="hardnessOut" for="hardness">62%</output><button class="parameter-map-toggle" type="button" data-map-parameter="hardness" aria-label="Map strike hardness" aria-pressed="false" title="Map strike hardness"><span class="map-slope-icon" aria-hidden="true"></span></button></span></span>
             <input id="hardness" type="range" min="0" max="1" step=".01" value=".62" />
           </div>
         </section>
 
-        <section class="linear-control-section linear-range-section">
+        <section class="linear-control-section linear-knob-section linear-range-section">
           <div class="linear-section-heading"><h2>Sonification range</h2><output id="rangeSummary">20 Hz - 16 kHz</output></div>
-          <label class="linear-control" for="rangeMax">
+          <label class="linear-control linear-knob-control" for="rangeMax">
             <span><b>Range ceiling</b><output id="rangeMaxOut" for="rangeMax">16 kHz</output></span>
             <input id="rangeMax" type="range" min="0" max="1" step=".001" value=".861" />
           </label>
@@ -206,10 +227,10 @@
       <footer class="linear-footer" aria-label="Instrument details">
         <span>20 HZ - <b id="footerRange">16 KHZ</b></span>
         <span>CONTINUOUS LOG MAPPING</span>
-        <span>MODAL / FM / PITCHED</span>
+        <span id="synthesisFamilyState">MODAL / FM / PITCHED / KARPLUS</span>
         <span id="sampleRateState">AUDIO OFF</span>
       </footer>
-      <p class="sr-only" id="canvasInstructions">Drag across the spectrum or the pluck rail to trigger a continuous logarithmic range of percussion timbres. Use the sweep control for an automatic glissando.</p>
+      <p class="sr-only" id="canvasInstructions">Drag across the spectrum or the pluck rail to trigger a continuous logarithmic range of timbres. Drag a dotted vertical morph boundary left or right to reposition it without triggering sound. Use the sweep control for an automatic glissando.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 

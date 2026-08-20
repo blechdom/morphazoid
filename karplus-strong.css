@@ -1,0 +1,385 @@
+.karplus-strong-page {
+  --accent: #e6c56e;
+  --accent-soft: color-mix(in oklab, var(--accent) 54%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 20%, transparent);
+  --ks-cyan: #73d9d2;
+  --ks-coral: #ff8f72;
+  --ks-violet: #ba9cff;
+}
+
+.karplus-strong-page .shell {
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 24vw, 390px);
+}
+
+.karplus-strong-page .stage-wrap {
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 48%, rgba(230, 197, 110, .07), transparent 44%),
+    linear-gradient(rgba(230, 197, 110, .018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(230, 197, 110, .018) 1px, transparent 1px),
+    var(--bg-deep);
+  background-size: auto, 38px 38px, 38px 38px, auto;
+}
+
+.karplus-strong-page #stage {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.karplus-strong-page #stage:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.ks-stage-title {
+  position: absolute;
+  z-index: 3;
+  top: 22px;
+  left: 24px;
+  display: grid;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.ks-stage-title p,
+.ks-stage-title h1,
+.ks-stage-title small {
+  margin: 0;
+}
+
+.ks-stage-title p {
+  color: var(--accent);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .17em;
+}
+
+.ks-stage-title h1 {
+  margin-top: 5px;
+  color: var(--ink);
+  font-size: clamp(24px, 4vw, 54px);
+  font-style: italic;
+  font-weight: 760;
+  letter-spacing: -.02em;
+  line-height: .95;
+}
+
+.ks-stage-title small {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: .11em;
+}
+
+.ks-stage-legend {
+  position: absolute;
+  z-index: 3;
+  right: 24px;
+  bottom: 22px;
+  display: grid;
+  min-width: min(320px, 45vw);
+  pointer-events: none;
+  color: var(--muted);
+  grid-template-columns: auto minmax(18px, 1fr) auto minmax(18px, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  font-size: 7px;
+  letter-spacing: .11em;
+}
+
+.ks-stage-legend i {
+  height: 1px;
+  background: linear-gradient(90deg, var(--line), var(--accent), var(--line));
+}
+
+.ks-pluck-row {
+  display: grid;
+  margin: 7px 0 15px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.ks-selected-note {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 3px 9px;
+}
+
+.ks-selected-note b {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 620;
+  letter-spacing: .04em;
+}
+
+.ks-selected-note span {
+  color: var(--accent);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ks-selected-note small {
+  color: var(--muted);
+  grid-column: 1 / -1;
+  font-size: 7px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.ks-string-grid,
+.ks-preset-grid {
+  display: grid;
+  margin: 7px 0 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.ks-string-grid button,
+.ks-preset-grid button {
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 5px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg-deep);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ks-preset-grid button {
+  min-height: 39px;
+}
+
+.ks-string-grid button:hover,
+.ks-string-grid button:focus-visible,
+.ks-preset-grid button:hover,
+.ks-preset-grid button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.ks-string-grid button[aria-pressed="true"],
+.ks-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--bg-deep);
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.ks-knob-bank {
+  display: grid;
+  margin: 15px 0 18px;
+  grid-template-columns: repeat(3, minmax(70px, 1fr));
+  align-items: start;
+  gap: 15px 8px;
+}
+
+.ks-knob {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  justify-items: center;
+  gap: 6px;
+}
+
+.ks-knob > span {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  justify-items: center;
+  gap: 3px;
+}
+
+.ks-knob b,
+.ks-knob output {
+  width: 100%;
+  overflow: hidden;
+  font-size: 7px;
+  line-height: 1.1;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ks-knob b {
+  color: var(--muted);
+  letter-spacing: .06em;
+}
+
+.ks-knob output {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.ks-knob-dial {
+  --knob-angle: -135deg;
+  --knob-fill: 0%;
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border: 1px solid color-mix(in oklab, var(--accent) 58%, var(--line));
+  border-radius: 50%;
+  cursor: ns-resize;
+  background:
+    radial-gradient(circle at 50% 50%, #11171a 0 43%, transparent 44%),
+    conic-gradient(
+      from -135deg,
+      var(--accent) 0 var(--knob-fill),
+      rgba(255, 255, 255, .1) var(--knob-fill) 75%,
+      transparent 75% 100%
+    ),
+    radial-gradient(circle at 34% 27%, rgba(255, 255, 255, .16), transparent 37%),
+    var(--bg-deep);
+  box-shadow:
+    inset 0 -7px 13px rgba(0, 0, 0, .42),
+    0 0 14px var(--accent-glow);
+  touch-action: none;
+}
+
+.ks-knob-dial::before {
+  position: absolute;
+  inset: 9px;
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 50%;
+  content: "";
+}
+
+.ks-knob-dial::after {
+  position: absolute;
+  top: 8px;
+  left: calc(50% - 1px);
+  width: 2px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 7px var(--accent);
+  content: "";
+  transform: rotate(var(--knob-angle));
+  transform-origin: 1px 22px;
+}
+
+.ks-knob-dial:hover,
+.ks-knob-dial:focus-visible {
+  border-color: var(--ks-cyan);
+  outline: 1px solid var(--ink);
+  outline-offset: 3px;
+  box-shadow:
+    inset 0 -7px 13px rgba(0, 0, 0, .42),
+    0 0 18px color-mix(in oklab, var(--ks-cyan) 30%, transparent);
+}
+
+.ks-signal-card {
+  display: grid;
+  margin: 4px 0 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-deep);
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+}
+
+.ks-signal-card span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  text-align: center;
+}
+
+.ks-signal-card b,
+.ks-signal-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ks-signal-card b {
+  color: var(--accent);
+  font-size: 7px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.ks-signal-card small {
+  color: var(--muted);
+  font-size: 6px;
+}
+
+.ks-signal-card i {
+  color: var(--faint);
+  font-size: 8px;
+  font-style: normal;
+}
+
+@media (max-width: 900px) {
+  .karplus-strong-page .shell {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .ks-signal-card {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ks-signal-card i {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .karplus-strong-page .shell {
+    display: block;
+  }
+
+  .karplus-strong-page .panel {
+    border-top: 1px solid var(--line-strong);
+    border-left: 0;
+  }
+
+  .ks-knob-bank {
+    grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .ks-stage-title {
+    top: 16px;
+    left: 16px;
+  }
+
+  .ks-stage-title h1 {
+    font-size: 28px;
+  }
+
+  .ks-stage-legend {
+    right: 16px;
+    left: 16px;
+    min-width: 0;
+  }
+
+  .ks-knob-bank {
+    grid-template-columns: repeat(3, minmax(64px, 1fr));
+  }
+
+  .ks-knob-dial {
+    width: 54px;
+    height: 54px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .karplus-strong-page button,
+  .ks-knob-dial {
+    transition: none;
+  }
+}

@@ -191,6 +191,11 @@ for worktree_runtime_file in \
   linear-drums.css \
   linear-drums-app.js \
   src/linear-drums.js \
+  karplus-strong.html \
+  karplus-strong.css \
+  karplus-strong-app.js \
+  src/karplus-strong.js \
+  assets/instruments/karplus-strong.webp \
   linear-drums-machine.html \
   linear-drums-machine.css \
   linear-drums-machine-app.js \
@@ -597,6 +602,11 @@ required_files=(
   linear-drums.css
   linear-drums-app.js
   src/linear-drums.js
+  karplus-strong.html
+  karplus-strong.css
+  karplus-strong-app.js
+  src/karplus-strong.js
+  assets/instruments/karplus-strong.webp
   linear-drums-machine.html
   linear-drums-machine.css
   linear-drums-machine-app.js

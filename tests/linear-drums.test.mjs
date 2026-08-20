@@ -4,11 +4,13 @@ import test from "node:test";
 
 import {
   LINEAR_DRUM_DEFAULTS,
+  LINEAR_DRUM_MODELS,
   LINEAR_DRUM_PARAMETER_SPECS,
   LINEAR_DRUM_PITCHED_ARCHETYPES,
   LINEAR_DRUM_PRESETS,
   LinearDrumAudio,
   linearDrumFrequencyAtPosition,
+  linearDrumKarplusStrongSettings,
   linearDrumMappedParameterValues,
   linearDrumMappingAmount,
   linearDrumMorphWeights,
@@ -31,6 +33,28 @@ test("Rattlesnake maps its logarithmic rail to frequency and back", () => {
   }
   assert.equal(linearDrumFrequencyAtPosition(0, 20, 16_000), 20);
   assert.equal(linearDrumFrequencyAtPosition(1, 20, 16_000), 16_000);
+});
+
+test("Karplus Strong is the fifth Rattlesnake model and morphs complete presets", () => {
+  assert.deepEqual(
+    LINEAR_DRUM_MODELS.map(({ id }) => id),
+    ["hybrid", "modal", "fm", "pitched", "karplus-strong"],
+  );
+  const bass = linearDrumKarplusStrongSettings(440, {
+    model: "karplus-strong",
+    karplusMorphOrder: ["bass", "bass", "bass", "bass"],
+  }, { vertical: 0 });
+  const glass = linearDrumKarplusStrongSettings(440, {
+    model: "karplus-strong",
+    karplusMorphOrder: ["glass", "glass", "glass", "glass"],
+  }, { vertical: 1 });
+  assert.equal(bass.frequency, 440);
+  assert.equal(glass.frequency, 440);
+  assert.notEqual(bass.decay, glass.decay);
+  assert.notEqual(bass.brightness, glass.brightness);
+  assert.notEqual(bass.bodyTune, glass.bodyTune);
+  assert.ok(bass.pickPosition >= .04 && bass.pickPosition <= .96);
+  assert.ok(glass.pickPosition >= .04 && glass.pickPosition <= .96);
 });
 
 test("each morph center is smooth, monotonic, and exactly halfway", () => {
@@ -106,6 +130,7 @@ test("global controls and alternate body models sanitize to safe ranges", () => 
     sweepSpeed: 0,
     model: "pm",
     pitchedOrder: ["xylophone", "xylophone", "bad", "marimba", "kalimba"],
+    karplusMorphOrder: ["bad", "bad", "bad", "bad"],
     parameterMaps: {
       hardness: { enabled: true, source: "vertical", low: -2, high: 4, curve: 9 },
     },
@@ -117,7 +142,7 @@ test("global controls and alternate body models sanitize to safe ranges", () => 
   assert.equal(settings.handAirHz, 1_900);
   assert.equal(settings.morphWidth, .3);
   assert.equal(settings.attack, .001);
-  assert.equal(settings.decay, 2.5);
+  assert.equal(settings.decay, 8);
   assert.equal(settings.pitchFall, 0);
   assert.equal(settings.strikeNoise, 1.6);
   assert.equal(settings.brightness, 1);
@@ -127,6 +152,7 @@ test("global controls and alternate body models sanitize to safe ranges", () => 
   assert.equal(settings.sweepSpeed, .2);
   assert.equal(settings.model, "hybrid");
   assert.deepEqual(settings.pitchedOrder, ["xylophone", "marimba", "kalimba"]);
+  assert.deepEqual(settings.karplusMorphOrder, LINEAR_DRUM_DEFAULTS.karplusMorphOrder);
   assert.equal(Object.keys(settings.parameterMaps).length, LINEAR_DRUM_PARAMETER_SPECS.length);
   assert.deepEqual(settings.parameterMaps.hardness, {
     enabled: true, source: "vertical", low: 0, high: 1, curve: 1,
@@ -134,6 +160,7 @@ test("global controls and alternate body models sanitize to safe ranges", () => 
   assert.equal(linearDrumParameters(440, { model: "modal" }).model, "modal");
   assert.equal(linearDrumParameters(440, { model: "fm" }).model, "fm");
   assert.equal(linearDrumParameters(440, { model: "pitched" }).model, "pitched");
+  assert.equal(linearDrumParameters(440, { model: "karplus-strong" }).model, "karplus-strong");
 });
 
 test("mappable parameter scales are reversible across percussion bounds", () => {
@@ -253,6 +280,7 @@ test("the 4x4 preset bank contains sixteen distinct, bounded sounds", () => {
 test("Linear Drum audio builds each body model and releases its graph", async () => {
   let disconnected = 0;
   let oscillatorCount = 0;
+  let bufferSourceCount = 0;
   const parameter = (value = 0) => ({
     value,
     setValueAtTime(next) { this.value = next; },
@@ -293,7 +321,12 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
       });
     }
     createBiquadFilter() {
-      return node({ frequency: parameter(350), Q: parameter(1), type: "lowpass" });
+      return node({
+        frequency: parameter(350), Q: parameter(1), gain: parameter(0), type: "lowpass",
+      });
+    }
+    createStereoPanner() {
+      return node({ pan: parameter(0) });
     }
     createBuffer(channels, frameCount, sampleRate) {
       const samples = new Float32Array(frameCount);
@@ -303,6 +336,7 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
       };
     }
     createBufferSource() {
+      bufferSourceCount += 1;
       return node({ buffer: null, start() {}, stop() {}, onended: null });
     }
     async close() { this.state = "closed"; }
@@ -320,6 +354,17 @@ test("Linear Drum audio builds each body model and releases its graph", async ()
     assert.equal(parameters.frequency, frequency);
     assert.equal(parameters.model, model);
   }
+  const sourcesBeforeKarplusStrong = bufferSourceCount;
+  const karplusParameters = await audio.trigger(440, {
+    model: "karplus-strong",
+    decay: .5,
+    inharmonicity: .3,
+  }, {
+    performanceY: .75,
+  });
+  assert.equal(karplusParameters.frequency, 440);
+  assert.equal(karplusParameters.model, "karplus-strong");
+  assert.ok(bufferSourceCount > sourcesBeforeKarplusStrong);
   assert.ok(oscillatorCount >= 10);
   assert.ok(disconnected >= 3);
   audio.setOutput(.99);
@@ -338,11 +383,25 @@ test("Rattlesnake page exposes the continuous instrument and global controls", a
   assert.match(html, /<h1 id="linearDrumsTitle">Rattlesnake<\/h1>/);
   assert.match(html, /id="stage"[^>]*aria-describedby="canvasInstructions liveStatus"/);
   assert.match(html, /id="frequency"[^>]*min="0"[^>]*max="1"/);
-  assert.match(html, /id="sweepButton"[^>]*data-primary-transport/);
+  assert.match(html, /class="play-button" id="sweepButton"[^>]*data-primary-transport/);
+  assert.match(html, /class="transport-button-array linear-sweep-direction"/);
+  assert.match(html, /class="direction-toggle" id="sweepDirectionButton"/);
+  assert.match(html, /id="sweepLoopMode"[^>]*aria-pressed="false"/);
+  assert.match(html, /id="sweepPendulumMode"[^>]*aria-pressed="true"/);
+  assert.match(html, /class="linear-control-section linear-sweep-section"[^>]*data-section="play"/);
+  assert.doesNotMatch(html, /strikeButton|linear-stage-actions/);
+  assert.doesNotMatch(html, /class="linear-transport"/);
+  assert.equal((html.match(/class="linear-control linear-knob-control"/g) ?? []).length, 12);
+  assert.match(html, /href="karplus-strong\.html">karplus strong<\/a>/);
+  assert.doesNotMatch(html, /name="soundEngine"/);
   assert.match(html, /name="bodyModel" value="hybrid" checked/);
   assert.match(html, /name="bodyModel" value="modal"/);
   assert.match(html, /name="bodyModel" value="fm"/);
   assert.match(html, /name="bodyModel" value="pitched"/);
+  assert.match(html, /name="bodyModel" value="karplus-strong"/);
+  assert.equal((html.match(/data-karplus-anchor=/g) ?? []).length, 4);
+  assert.match(html, /data-engine-panel="karplus-strong" hidden/);
+  assert.match(html, /data-engine-panel="rattlesnake"/);
   for (const id of [
     "kickTom", "tomHand", "handAir", "morphWidth", "attack", "decay",
     "pitchFall", "strikeNoise", "brightness", "inharmonicity", "hardness",
@@ -355,16 +414,28 @@ test("Rattlesnake page exposes the continuous instrument and global controls", a
   assert.match(source, /new LinearDrumAudio\(globalThis\)/);
   assert.match(source, /linearDrumFrequencyAtPosition/);
   assert.match(source, /LINEAR_DRUM_PRESETS/);
+  assert.match(source, /state\.model === "karplus-strong"/);
+  assert.match(source, /function morphMarkerAtPosition/);
+  assert.match(source, /function updateMorphMarker/);
+  assert.match(source, /activeMorphMarker/);
+  const markerUpdate = source.match(/function updateMorphMarker\([\s\S]*?\n}/)?.[0] ?? "";
+  assert.ok(markerUpdate);
+  assert.doesNotMatch(markerUpdate, /strikeFrequency|audio\.trigger/);
   assert.match(source, /mappedTransport\(\)/);
   assert.match(source, /function startSweep\(\)/);
+  assert.match(source, /function paintSweepDirectionControls\(\)/);
   assert.doesNotMatch(source, /async function startSweep|function startSweep\(\)\s*\{[\s\S]{0,160}enableAudio/);
+  assert.match(source, /function initializeKnobControls/);
+  assert.match(css, /\.linear-knob-dial/);
   assert.match(source, /if \(!state\.audioOn \|\| !audio\.context\) return null/);
   assert.match(source, /renderMappingLanes\(\)/);
   assert.match(source, /mapping-curve-frame/);
   assert.match(source, /linearDrumMappingAmount/);
   assert.match(css, /@media \(max-width: 560px\)/);
   assert.match(css, /\.linear-preset-bank[\s\S]*grid-template-columns: repeat\(4/);
-  assert.match(css, /\.linear-model-selector\s*{[\s\S]*grid-template-columns: repeat\(4/);
+  assert.match(css, /\.linear-model-selector\s*{[\s\S]*grid-template-columns: repeat\(5/);
+  assert.match(css, /\.linear-karplus-path/);
+  assert.match(css, /\.linear-stage-wrap\.is-dragging-morph/);
   assert.match(css, /\.mapping-curve-plot[\s\S]*touch-action: none/);
   assert.match(css, /\.mapping-curve-handle/);
 });
