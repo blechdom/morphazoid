@@ -339,6 +339,11 @@ const CATALOG_DETAILS = Object.freeze({
     "Simulates two atoms with a controlled collision phase and sonifies correlated measurements along chosen axes.",
     "Turn on audio, choose measurement axes, then run repeated shots.",
   ),
+  "entanglement-dance": define(
+    "Quantum sonification",
+    "Hears quantum entanglement as a slowed-down square dance — two qubits precess together or in opposition based on their Bell state.",
+    "Turn on audio, press play, then try each Bell state and listen for correlated or anti-correlated melodic motion.",
+  ),
   annealogue: define(
     "Quantum sonification",
     "Moves eight three-qubit states through an anneal, mapping energy, probability, and phase to a cube and choir.",

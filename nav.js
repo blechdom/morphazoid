@@ -235,6 +235,7 @@ export const TOOL_GROUPS = Object.freeze([
       match: "directory",
     },
     { id: "bell-square", label: "Bell Square", href: "bell-square.html" },
+    { id: "entanglement-dance", label: "Entanglement Dance", href: "entanglement-dance.html" },
     { id: "annealogue", label: "Annealogue", href: "annealogue.html" },
     { id: "gravity-walk", label: "Gravity Walk", href: "gravity-walk.html" },
     { id: "ricochet", label: "Ricochet", href: "ricochet.html" },
