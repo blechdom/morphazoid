@@ -847,6 +847,24 @@ test("the single Shape loop traverses every sticker, stays running through edits
   assert.equal(gridButtons(fixture).filter(({ disabled }) => disabled).length, 0);
   assert.equal(gridButtons(fixture).every((cell) => cell.getAttribute("role") === "gridcell"), true);
 
+  assert.equal(fixture.elements.get("sequencePattern").disabled, true);
+  assert.equal(fixture.elements.get("twistMotion").disabled, true);
+  assert.equal(fixture.elements.get("twistDensity").disabled, true);
+  await setControl(fixture, "sequenceMethod", "sticker-hyperbar");
+  assert.equal(fixture.elements.get("sequencePattern").disabled, false);
+  assert.equal(fixture.elements.get("twistMotion").disabled, false);
+  assert.equal(fixture.elements.get("twistDensity").disabled, false);
+  assert.equal(fixture.elements.get("twistMotion").value, "auto");
+  assert.equal(fixture.elements.get("playbackPreset").disabled, true);
+  assert.equal(fixture.elements.get("playbackScopeReadout").hidden, true);
+  assert.equal(fixture.elements.get("playLabel").textContent, "Play sticker hyperbar");
+  assert.match(fixture.elements.get("sequenceMethodHelp").textContent, /automated twists/i);
+  await setControl(fixture, "sequenceMethod", "sticker-stream");
+  assert.equal(fixture.elements.get("twistMotion").value, "off");
+  assert.equal(fixture.elements.get("twistMotion").disabled, true);
+  assert.equal(fixture.elements.get("playbackPreset").disabled, false);
+  assert.equal(fixture.elements.get("playbackScopeReadout").hidden, false);
+
   await fixture.elements.get("audioButton").emit("click");
   const audioContext = FakeAudioContext.instances[0];
   const persistentTopology = audioContext.oscillators.slice(0, 48);

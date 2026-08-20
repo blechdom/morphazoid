@@ -23,7 +23,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 84);
+  assert.equal(INSTRUMENTS.length, 85);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -73,7 +73,7 @@ test("experiments carry a works-in-progress status while regular instruments do 
     instrument.tags.some(({ id }) => id === "experiments")
     && INSTRUMENT_GROUPS.find(({ id }) => id === "experiments")?.tools.includes(instrument)
   ));
-  assert.equal(experiments.length, 33);
+  assert.equal(experiments.length, 34);
   assert.equal(experiments.every(({ status }) => status === "Works in progress"), true);
   assert.equal(experiments.every(({ tags }) => (
     tags.length === 1 && tags[0].id === "experiments"
@@ -91,6 +91,19 @@ test("Plasma Ball is an experiment with no secondary catalogue tags", () => {
   assert.deepEqual(
     plasmaBall?.tags.map(({ id }) => id),
     ["experiments"],
+  );
+});
+
+test("Alien Larynx is a work-in-progress experiment", () => {
+  const alienLarynx = instrumentById("alien-larynx");
+  assert.equal(alienLarynx?.status, "Works in progress");
+  assert.deepEqual(
+    alienLarynx?.tags.map(({ id }) => id),
+    ["experiments"],
+  );
+  assert.equal(
+    INSTRUMENT_GROUPS.find(({ tools }) => tools.includes(alienLarynx))?.id,
+    "experiments",
   );
 });
 

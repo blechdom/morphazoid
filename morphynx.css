@@ -1,0 +1,412 @@
+.morphynx-page {
+  --accent: #ff5cab;
+  --accent-soft: color-mix(in oklab, #ff5cab 54%, transparent);
+  --accent-glow: color-mix(in oklab, #ff5cab 20%, transparent);
+  --morphynx-pink: #ff4da8;
+  --morphynx-lime: #caff49;
+  --morphynx-cyan: #61eee1;
+  --morphynx-orange: #ff9c42;
+  --morphynx-violet: #ad78ff;
+  --morphynx-ink: #050307;
+}
+
+.morphynx-page .morphynx-tab {
+  color: var(--morphynx-pink);
+}
+
+.morphynx-page .shell {
+  grid-template-columns: minmax(0, 1fr) clamp(410px, 32vw, 520px);
+}
+
+.morphynx-page .stage-wrap {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 34% 54%, rgba(97, 238, 225, 0.1), transparent 26%),
+    radial-gradient(circle at 72% 48%, rgba(255, 77, 168, 0.11), transparent 31%),
+    linear-gradient(rgba(202, 255, 73, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(202, 255, 73, 0.025) 1px, transparent 1px),
+    #050307;
+  background-size: auto, auto, 34px 34px, 34px 34px, auto;
+}
+
+.morphynx-page .stage-wrap::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(97, 238, 225, 0.025), transparent 46%, rgba(255, 77, 168, 0.035));
+}
+
+.morphynx-stage-title {
+  position: absolute;
+  top: 24px;
+  left: 26px;
+  display: grid;
+  pointer-events: none;
+  gap: 2px;
+}
+
+.morphynx-stage-title span {
+  color: rgba(255, 255, 255, 0.9);
+  font: 800 clamp(22px, 4vw, 58px)/0.9 var(--display);
+  letter-spacing: -0.045em;
+}
+
+.morphynx-stage-title small {
+  color: rgba(202, 255, 73, 0.62);
+  font: 650 8px/1.1 var(--mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.morphynx-stage-axis {
+  position: absolute;
+  top: 28px;
+  right: 26px;
+  display: grid;
+  width: min(310px, 42%);
+  color: rgba(255, 255, 255, 0.48);
+  font: 700 7px/1 var(--mono);
+  grid-template-columns: auto minmax(60px, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+}
+
+.morphynx-stage-axis i {
+  position: relative;
+  height: 2px;
+  background: linear-gradient(90deg, var(--morphynx-cyan), var(--morphynx-orange), var(--morphynx-pink));
+}
+
+.morphynx-stage-axis b {
+  position: absolute;
+  top: 50%;
+  left: 56%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--morphynx-pink);
+  box-shadow: 0 0 14px var(--morphynx-pink);
+  transform: translate(-50%, -50%);
+}
+
+.morphynx-page .panel {
+  background:
+    linear-gradient(110deg, rgba(255, 77, 168, 0.035), transparent 40%),
+    #09070a;
+}
+
+.morphynx-page .morphynx-transport {
+  grid-template-columns: minmax(145px, 1fr) 84px 94px;
+  border-bottom-color: rgba(255, 77, 168, 0.28);
+  background:
+    linear-gradient(90deg, rgba(255, 77, 168, 0.1), transparent 72%),
+    #090509;
+}
+
+.morphynx-page .morphynx-transport button {
+  min-width: 0;
+}
+
+.morphynx-page .morphynx-transport #recordButton[aria-pressed="true"] {
+  color: #fff;
+  background: rgba(255, 77, 168, 0.18);
+  box-shadow: inset 0 -2px var(--morphynx-pink);
+}
+
+.morphynx-download {
+  position: absolute;
+  right: 8px;
+  bottom: -21px;
+  z-index: 4;
+  padding: 4px 8px;
+  color: var(--morphynx-lime);
+  background: #090509;
+  font: 700 7px/1 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.morphynx-page .morphynx-lab {
+  background:
+    linear-gradient(135deg, rgba(255, 77, 168, 0.1), transparent 44%),
+    linear-gradient(315deg, rgba(97, 238, 225, 0.055), transparent 42%),
+    #090609;
+}
+
+.morphynx-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.morphynx-section-heading span {
+  color: var(--morphynx-pink);
+  font: 800 7px/1 var(--mono);
+  letter-spacing: 0.18em;
+}
+
+.morphynx-section-heading strong {
+  color: rgba(255, 255, 255, 0.86);
+  font: 650 10px/1.1 var(--mono);
+  letter-spacing: 0.04em;
+}
+
+.syrinx-ui-page .syrinx-preset-selects.morphynx-preset-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.morphynx-morph-control {
+  padding: 10px 0 2px;
+  border-top: 1px solid rgba(255, 77, 168, 0.16);
+}
+
+.morphynx-morph-control input {
+  --range-fill: 56%;
+  accent-color: var(--morphynx-pink);
+}
+
+.morphynx-morph-control > span b {
+  color: #fff;
+}
+
+.morphynx-morph-control output {
+  color: var(--morphynx-lime);
+}
+
+.morphynx-source-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.morphynx-source-buttons button,
+.morphynx-latch,
+.morphynx-motion {
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 77, 168, 0.24);
+  border-radius: 0;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.28);
+  font: 700 8px/1 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.morphynx-source-buttons button:hover,
+.morphynx-source-buttons button:focus-visible,
+.morphynx-source-buttons button[aria-pressed="true"],
+.morphynx-latch:hover,
+.morphynx-latch:focus-visible,
+.morphynx-latch[aria-pressed="true"],
+.morphynx-motion:hover,
+.morphynx-motion:focus-visible,
+.morphynx-motion[aria-pressed="true"] {
+  border-color: var(--morphynx-pink);
+  color: #fff;
+  background: rgba(255, 77, 168, 0.16);
+  box-shadow: inset 0 -2px var(--morphynx-pink);
+}
+
+.morphynx-page .morphynx-hud output {
+  color: var(--morphynx-lime);
+}
+
+.morphynx-control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+
+.morphynx-page .control-section[data-section="sound"] {
+  --accent: #ff796c;
+  --accent-soft: color-mix(in oklab, #ff796c 52%, transparent);
+  --accent-glow: color-mix(in oklab, #ff796c 17%, transparent);
+}
+
+.morphynx-page .control-section[data-section="play"] {
+  --accent: #caff49;
+  --accent-soft: color-mix(in oklab, #caff49 52%, transparent);
+  --accent-glow: color-mix(in oklab, #caff49 17%, transparent);
+}
+
+.morphynx-page .control-section[data-section="form"] {
+  --accent: #61eee1;
+  --accent-soft: color-mix(in oklab, #61eee1 52%, transparent);
+  --accent-glow: color-mix(in oklab, #61eee1 17%, transparent);
+}
+
+.morphynx-page .control-section[data-section="mapping"] {
+  --accent: #ad78ff;
+  --accent-soft: color-mix(in oklab, #ad78ff 52%, transparent);
+  --accent-glow: color-mix(in oklab, #ad78ff 17%, transparent);
+}
+
+.morphynx-latch,
+.morphynx-motion {
+  display: grid;
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 10px;
+  text-align: left;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.morphynx-latch small,
+.morphynx-motion small {
+  color: var(--syrinx-muted);
+  font-size: 7px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.morphynx-phoneme-grid {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.morphynx-phoneme-key {
+  position: relative;
+  aspect-ratio: 1.05;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid rgba(202, 255, 73, 0.22);
+  border-radius: 0;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.72);
+  background: #060805;
+  font: 800 10px/1 var(--mono);
+}
+
+.morphynx-phoneme-key::after {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 3px;
+  height: 3px;
+  content: "";
+  background: var(--morphynx-lime);
+  opacity: 0.28;
+}
+
+.morphynx-phoneme-key:hover,
+.morphynx-phoneme-key:focus-visible,
+.morphynx-phoneme-key[aria-pressed="true"] {
+  border-color: var(--morphynx-lime);
+  color: #050705;
+  background: var(--morphynx-lime);
+  box-shadow: 0 0 13px rgba(202, 255, 73, 0.2);
+}
+
+.morphynx-phoneme-key.is-capital {
+  border-color: var(--morphynx-pink);
+  color: #fff;
+  background: rgba(255, 77, 168, 0.25);
+}
+
+.morphynx-credit {
+  margin: 0;
+  padding: 14px 16px;
+  border-top: 1px solid rgba(255, 77, 168, 0.12);
+  color: var(--syrinx-muted);
+  background: #080608;
+  font: 500 8px/1.55 var(--mono);
+}
+
+.morphynx-credit a {
+  color: var(--morphynx-cyan);
+}
+
+.morphynx-page.is-sounding .stage-wrap {
+  box-shadow: inset 0 0 70px rgba(255, 77, 168, 0.08);
+}
+
+.morphynx-page.is-recording #recordButton {
+  animation: morphynx-record 1.15s ease-in-out infinite;
+}
+
+@keyframes morphynx-record {
+  50% { box-shadow: inset 0 -2px var(--morphynx-pink), 0 0 16px rgba(255, 77, 168, 0.3); }
+}
+
+@media (max-width: 1120px) {
+  .morphynx-page .shell {
+    grid-template-columns: minmax(0, 1fr) 410px;
+  }
+
+  .syrinx-ui-page .syrinx-preset-selects.morphynx-preset-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .syrinx-ui-page .syrinx-preset-selects.morphynx-preset-grid label:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 960px) {
+  .morphynx-page {
+    height: auto;
+    overflow: auto;
+  }
+
+  .morphynx-page .shell {
+    height: auto;
+    min-height: calc(100dvh - 58px);
+    overflow: visible;
+    grid-template-columns: 1fr;
+  }
+
+  .morphynx-page .morphynx-stage {
+    min-height: 58dvh;
+  }
+
+  .morphynx-page .panel {
+    max-height: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .morphynx-stage-title {
+    top: 16px;
+    left: 16px;
+  }
+
+  .morphynx-stage-axis {
+    top: 72px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+  }
+
+  .morphynx-page .morphynx-transport {
+    grid-template-columns: minmax(130px, 1fr) 74px 80px;
+  }
+
+  .syrinx-ui-page .syrinx-preset-selects.morphynx-preset-grid,
+  .morphynx-control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .syrinx-ui-page .syrinx-preset-selects.morphynx-preset-grid label:last-child {
+    grid-column: auto;
+  }
+
+  .morphynx-phoneme-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .morphynx-page.is-recording #recordButton {
+    animation: none;
+  }
+}

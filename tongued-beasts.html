@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#070507" />
+    <meta
+      name="description"
+      content="Tongued Beasts grafts human, macaque, canine, and avian tongue physics onto Morphazoid's animal voice models."
+    />
+    <title>Tongued Beasts · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="syrinx.css" />
+    <link rel="stylesheet" href="syrinx-ui.css" />
+    <link rel="stylesheet" href="tongued-beasts.css" />
+  </head>
+  <body class="syrinx-page syrinx-ui-page tongued-beasts-page" data-instrument-info="off">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab" href="syrinx.html">Syrinx</a>
+        <a class="tab tongued-beasts-tab active" href="tongued-beasts.html" aria-current="page">Tongued Beasts</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="syrinx.html">Syrinx</option>
+          <option value="tongued-beasts.html" selected>Tongued Beasts</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">48%</output></span>
+          <input id="level" aria-label="Tongued Beasts output level" type="range" min="0" max="1" step="0.01" value="0.48" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="tongued-beasts">
+      <section class="stage syrinx-stage" aria-label="Interactive animal and tongue physical model">
+        <div class="stage-wrap" id="stageWrap">
+          <div class="tongued-beasts-title" aria-hidden="true">
+            <span>hybrid articulator laboratory</span>
+            <strong>tongued beasts</strong>
+          </div>
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Interactive animal sound source, vocal tract, and grafted tongue. Drag the colored anatomy controls or use the tongue controls in the panel."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            An animated animal profile with lungs, sound source, vocal tract, tongue, cavities, and mouth.
+          </canvas>
+          <button class="sr-only" id="breathButton" type="button" aria-pressed="false">
+            Hold breath; manual pressure while transport continues
+          </button>
+          <p class="syrinx-drag-hint" aria-hidden="true">ANIMAL SOURCE → TONGUE-SHAPED AREA FUNCTION → RADIATION</p>
+          <p class="syrinx-audio-error" id="audioError" role="alert" hidden></p>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Tongued Beasts controls">
+        <div class="syrinx-call-dock syrinx-panel-transport" aria-label="Call transport">
+          <button id="playButton" type="button" data-primary-transport aria-pressed="false">
+            <span class="syrinx-play-icon" aria-hidden="true"></span>
+            <span><b id="playLabel">Play croak</b><small id="playState">ready</small></span>
+          </button>
+          <button id="loopButton" type="button" aria-pressed="false">
+            <span aria-hidden="true">↻</span>
+            <span><b>Loop</b><small id="loopState">off</small></span>
+          </button>
+        </div>
+
+        <section class="syrinx-animal-deck syrinx-preset-bank syrinx-panel-presets" aria-label="Host animal and call presets">
+          <div class="syrinx-preset-selects">
+            <label for="animalSelect">
+              <span>Host beast</span>
+              <select id="animalSelect" aria-label="Host animal physical model">
+                <optgroup label="Mammals &amp; reptiles">
+                  <option value="lion">Lion</option><option value="wolf">Wolf</option><option value="dog">Dog</option>
+                  <option value="elephant">Elephant</option><option value="alligator">Alligator</option><option value="cat">Cat</option>
+                  <option value="horse">Horse</option><option value="reddeer">Red deer</option><option value="hyena">Spotted hyena</option>
+                  <option value="wildboar">Wild boar</option><option value="cow">Cow</option>
+                </optgroup>
+                <optgroup label="Birds">
+                  <option value="raven" selected>Raven</option><option value="songbird">Songbird</option>
+                  <option value="dove">Dove</option><option value="owl">Owl</option>
+                </optgroup>
+                <optgroup label="Frogs"><option value="bullfrog">Bullfrog</option><option value="treefrog">Tree frog</option></optgroup>
+                <optgroup label="Jet whistles"><option value="mouse">Mouse · audible USV map</option></optgroup>
+              </select>
+            </label>
+            <label for="callSelect"><span>Native call</span><select id="callSelect" aria-label="Animal call gesture"><option value="raven-croak">Croak</option></select></label>
+          </div>
+          <p id="animalDescription">Two independently detuned syringeal sides for croak and rattle.</p>
+          <button class="syrinx-randomize-button" id="randomizeButton" type="button">
+            <span aria-hidden="true">✦</span><span><b>Mutate the host</b><small>tongue stays attached · anatomy and call remain selected</small></span>
+          </button>
+        </section>
+
+        <div class="syrinx-model-hud syrinx-panel-hud" aria-live="polite">
+          <span><small>Animal source</small><output id="modelReadout">Dual nonlinear syrinx</output></span>
+          <span><small>Estimated source</small><output id="frequencyReadout">390 Hz</output></span>
+          <span><small>Physical tract</small><output id="tractReadout">17.0 cm · 48 sections</output></span>
+          <span><small>Load</small><output id="pressureReadout">resting</output></span>
+        </div>
+
+        <details class="group control-section tongue-section" data-section="tongue" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Tongue entity</h2><span class="section-state" id="tongueSummary">Human · coupled</span>
+          </summary>
+          <div class="group-body">
+            <div class="tongue-switch-row">
+              <label for="tongueAnatomy"><span>Biomechanical prior</span>
+                <select id="tongueAnatomy">
+                  <option value="human" selected>Human muscular hydrostat</option>
+                  <option value="macaque">Macaque muscular hydrostat</option>
+                  <option value="canine">Canine long tongue</option>
+                  <option value="avian">Avian slender tongue</option>
+                </select>
+              </label>
+              <button id="tongueEnabled" type="button" aria-pressed="true">Tongue in circuit</button>
+            </div>
+            <p class="tongue-description" id="tongueDescription">A thick, rounded body with independent tip control and the largest modeled oral constriction range.</p>
+            <p class="tongue-impact" id="tongueImpact">The two syringeal sides keep their detuning and biphonation. The tongue reshapes only the shared downstream tract, filtering both sides together before beak radiation.</p>
+            <label class="control" for="tonguePosition"><span><b>Body position</b><output id="tonguePositionOut" for="tonguePosition">central</output></span><input id="tonguePosition" type="range" min="0" max="1" step="0.01" value="0.5" /><small>Moves the main constriction from pharyngeal/back to palatal/front.</small></label>
+            <label class="control" for="tongueHeight"><span><b>Body height</b><output id="tongueHeightOut" for="tongueHeight">56%</output></span><input id="tongueHeight" type="range" min="0" max="1" step="0.01" value="0.56" /><small>Raises the muscular body, narrowing the tube and strengthening its acoustic reflection.</small></label>
+            <label class="control" for="tongueShape"><span><b>Body focus</b><output id="tongueShapeOut" for="tongueShape">rounded</output></span><input id="tongueShape" type="range" min="0" max="1" step="0.01" value="0.48" /><small>Changes a broad vowel-like displacement into a localized consonant-like constriction.</small></label>
+            <label class="control" for="tongueTip"><span><b>Tip lift</b><output id="tongueTipOut" for="tongueTip">30%</output></span><input id="tongueTip" type="range" min="0" max="1" step="0.01" value="0.3" /><small>Adds a second, narrow anterior constriction.</small></label>
+            <div class="tongue-cavity-readout" aria-label="Approximate split-cavity guides">
+              <span><small>Rear λ/4 guide</small><output id="rearCavityReadout">1.01 kHz</output></span>
+              <span><small>Front λ/4 guide</small><output id="frontCavityReadout">1.01 kHz</output></span>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound">
+          <summary class="group-summary"><h2 class="group-title">Animal source</h2><span class="section-state" id="sourceSummary">pressure 68% · tension 42%</span></summary>
+          <div class="group-body">
+            <label class="control" for="pressure"><span><b>Breath pressure</b><output id="pressureOut" for="pressure">68%</output></span><input id="pressure" type="range" min="0" max="1" step="0.01" value="0.68" /></label>
+            <label class="control" for="tension"><span><b>Membrane tension</b><output id="tensionOut" for="tension">42%</output></span><input id="tension" type="range" min="0" max="1" step="0.01" value="0.42" /></label>
+            <label class="control" for="adduction"><span><b>Adduction / closure</b><output id="adductionOut" for="adduction">68%</output></span><input id="adduction" type="range" min="0" max="1" step="0.01" value="0.68" /></label>
+            <label class="control" for="sourceScale"><span><b>Source scale</b><output id="sourceScaleOut" for="sourceScale">50%</output></span><input id="sourceScale" type="range" min="0.08" max="1" step="0.01" value="0.5" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form">
+          <summary class="group-summary"><h2 class="group-title">Host tract</h2><span class="section-state" id="tractSummary">17.0 cm · opening 52%</span></summary>
+          <div class="group-body">
+            <label class="control" for="tractLength"><span><b>Physical tract length</b><output id="tractLengthOut" for="tractLength">17.0 cm</output></span><input id="tractLength" type="range" min="0.018" max="0.82" step="0.001" value="0.17" /></label>
+            <label class="control" for="mouthOpening"><span><b>Mouth / beak opening</b><output id="mouthOpeningOut" for="mouthOpening">52%</output></span><input id="mouthOpening" type="range" min="0" max="1" step="0.01" value="0.52" /></label>
+            <label class="control" for="cavityCoupling"><span><b>Side-cavity coupling</b><output id="cavityCouplingOut" for="cavityCoupling">34%</output></span><input id="cavityCoupling" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="mapping">
+          <summary class="group-summary"><h2 class="group-title">Nonlinear source</h2><span class="section-state" id="nonlinearSummary">30% split · 42% rough</span></summary>
+          <div class="group-body">
+            <label class="control" for="asymmetry"><span><b id="asymmetryLabel">Left / right asymmetry</b><output id="asymmetryOut" for="asymmetry">30%</output></span><input id="asymmetry" type="range" min="0" max="1" step="0.01" value="0.3" /></label>
+            <label class="control" for="sourceBalance" id="sourceBalanceControl"><span><b>Paired-source balance</b><output id="sourceBalanceOut" for="sourceBalance">center</output></span><input id="sourceBalance" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+            <label class="control" for="roughness"><span><b>Roughness / bifurcation</b><output id="roughnessOut" for="roughness">42%</output></span><input id="roughness" type="range" min="0" max="1" step="0.01" value="0.42" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="play">
+          <summary class="group-summary"><h2 class="group-title">Call gesture</h2><span class="section-state" id="gestureSummary">croak · 1×</span></summary>
+          <div class="group-body">
+            <label class="control" for="gestureRate"><span><b>Gesture rate</b><output id="gestureRateOut" for="gestureRate">1.00×</output></span><input id="gestureRate" type="range" min="0.25" max="2.5" step="0.01" value="1" /></label>
+            <label class="control" for="loopGap"><span><b>Silence between calls</b><output id="loopGapOut" for="loopGap">1.0 s</output></span><input id="loopGap" type="range" min="0" max="8000" step="50" value="1000" /></label>
+            <div class="syrinx-gesture-map" aria-hidden="true"><span>pressure</span><i id="pressureGestureBar"></i><span>tension</span><i id="tensionGestureBar"></i><span>mouth</span><i id="mouthGestureBar"></i></div>
+          </div>
+        </details>
+
+        <details class="tongue-physics-card" open>
+          <summary>Physical model / math</summary>
+          <div class="tongue-equations">
+            <p><b>Continuum:</b> ρü = ∇·σ + f<sub>muscle</sub> − cu̇, with near-incompressibility J = det F ≈ 1.</p>
+            <p><b>Real-time reduction:</b> D(x,t) = D<sub>host</sub>(x) · [1 − q<sub>body</sub>G(x; μ,σ) − q<sub>tip</sub>G<sub>tip</sub>(x)], then A = D².</p>
+            <p><b>Tube scattering:</b> r<sub>i</sub> = [A<sub>i</sub> − A<sub>i+1</sub>] / [A<sub>i</sub> + A<sub>i+1</sub>].</p>
+          </div>
+          <p>The full tongue is a nearly incompressible, actively stressed soft body. This instrument reduces it to moving Gaussian constrictions plus compensating shoulders, then recomputes every waveguide junction. It changes resonance and source loading; it does not change the animal's larynx, syrinx, membrane, or whistle source.</p>
+          <p class="tongue-caveat"><b>Thought experiment:</b> a literal human tongue does not fit every skull. Geometry is normalized to the host tract. Human-on-bird, frog, reptile, and mouse combinations are deliberately speculative hybrids.</p>
+          <div class="tongue-sources">
+            <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12440228/">3D human tongue FE model</a>
+            <a href="https://pubmed.ncbi.nlm.nih.gov/8675847/">MRI area functions</a>
+            <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5148209/">Macaque vocal-tract model</a>
+          </div>
+        </details>
+
+        <section class="syrinx-specimen-card" aria-labelledby="specimenTitle">
+          <header><span>Current chimera</span><strong id="specimenTitle">Raven</strong></header>
+          <dl>
+            <div><dt>Animal apparatus</dt><dd id="apparatusReadout">bilateral nonlinear syrinx</dd></div>
+            <div><dt>Source path</dt><dd id="topologyReadout">left + right labia → shared tracheal tract → OEC / beak modes</dd></div>
+            <div><dt>Bandwidth</dt><dd id="bandwidthReadout">audible real-time model</dd></div>
+            <div><dt>Tongue prior</dt><dd id="tongueModelReadout">Human muscular hydrostat</dd></div>
+            <div><dt>Animal basis</dt><dd id="modelBasisReadout">bilateral syrinx physiology + corvid-scale tract prior</dd></div>
+          </dl>
+        </section>
+        <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all data-reset-in-place>Reset beast</button></div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">Choose a host animal, its native call, and a tongue prior. Turn on audio and press Play. Move tongue position, height, focus, and tip lift to reshape the host vocal tract. Space starts or stops the call outside a control; Escape stops it.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="syrinx-app.js"></script>
+  </body>
+</html>

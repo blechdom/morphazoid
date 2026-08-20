@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#040605" />
+    <meta
+      name="description"
+      content="Jaw Harp is a playable plucked-reed and vocal-cavity physical model for Morphazoid."
+    />
+    <title>Jaw Harp · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="jaw-harp.css" />
+  </head>
+  <body class="jaw-harp-page" data-instrument-info="off">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="throatazoid.html">throatazoid</a>
+        <a class="tab" href="syrinx.html">syrinx</a>
+        <a class="tab" href="syrinx-ui.html">syrinx ui</a>
+        <a class="tab active" href="jaw-harp.html" aria-current="page">jaw harp</a>
+        <a class="tab" href="karplus-strong.html">karplus strong</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="throatazoid.html">throatazoid</option>
+          <option value="syrinx.html">syrinx</option>
+          <option value="syrinx-ui.html">syrinx ui</option>
+          <option value="jaw-harp.html" selected>jaw harp</option>
+          <option value="karplus-strong.html">karplus strong</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">∿</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">52%</output></span>
+          <input id="level" aria-label="Jaw harp output level" type="range" min="0" max="0.82" step="0.01" value="0.52" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="jawHarp">
+      <section class="stage jaw-harp-stage" aria-label="Interactive jaw harp physical model">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            aria-label="Interactive jaw harp and cutaway mouth. Pull and release the copper reed trigger to pluck; drag the colored mouth nodes to reshape the resonator."
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            A plucked jaw harp reed coupled to an interactive cutaway mouth resonator.
+          </canvas>
+
+          <div class="jaw-stage-heading" aria-hidden="true">
+            <p>PLUCKED REED × HUMAN RESONATOR</p>
+            <h1>JAW<br />HARP</h1>
+            <small>fixed reed fundamental / moving harmonic focus</small>
+          </div>
+
+          <p class="jaw-drag-hint" aria-hidden="true">
+            PULL + RELEASE THE COPPER TRIGGER · DRAG TONGUE / JAW / LIPS / CAVITY
+          </p>
+          <p class="jaw-audio-error" id="audioError" role="alert" hidden></p>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Jaw harp controls">
+        <div class="jaw-transport" aria-label="Jaw harp transport">
+          <button id="pluckButton" type="button" data-primary-transport>
+            <span class="jaw-pluck-icon" aria-hidden="true"><i></i></span>
+            <span><b>Pluck reed</b><small id="pluckState">space · pull canvas trigger</small></span>
+          </button>
+          <button id="repeatButton" type="button" aria-pressed="false">
+            <span aria-hidden="true">↻</span>
+            <span><b>Repeat</b><small id="repeatState">off</small></span>
+          </button>
+        </div>
+
+        <section class="jaw-preset-deck" aria-label="Harp and vowel presets">
+          <label for="harpSelect">
+            <span>Physical harp</span>
+            <select id="harpSelect" aria-label="Jaw harp physical preset"></select>
+          </label>
+          <p id="harpDescription">Low, elastic steel tongue with a long bloom and a strong, dark harmonic ladder.</p>
+          <div class="jaw-vowel-row" id="vowelButtons" role="group" aria-label="Mouth vowel shapes"></div>
+          <button class="jaw-randomize-button" id="randomizeButton" type="button">
+            <span aria-hidden="true">✦</span>
+            <span><b>Randomize the physical model</b><small>body, reed, mouth, coupling + rhythm</small></span>
+          </button>
+        </section>
+
+        <div class="jaw-model-hud" aria-live="polite">
+          <span><small>Reed fundamental</small><output id="reedReadout">74 Hz</output></span>
+          <span><small>Harmonic focus</small><output id="harmonicReadout">12 × · 888 Hz</output></span>
+          <span><small>Oral cavity</small><output id="cavityReadout">15.8 cm · 114 ml</output></span>
+          <span><small>Reed motion</small><output id="motionReadout">resting</output></span>
+        </div>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Free reed</h2>
+            <span class="section-state" id="reedSummary">74 Hz · forged steel</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="reedFrequencyHz">
+              <span><b>Reed fundamental</b><output id="reedFrequencyHzOut" for="reedFrequencyHz">74 Hz</output></span>
+              <input id="reedFrequencyHz" type="range" min="38" max="180" step="1" value="74" />
+              <small>Changes the cantilever tongue's rest frequency. Mouth motion leaves this pitch in place.</small>
+            </label>
+            <label class="control" for="reedDecaySeconds">
+              <span><b>Mechanical decay</b><output id="reedDecaySecondsOut" for="reedDecaySeconds">3.8 s</output></span>
+              <input id="reedDecaySeconds" type="range" min="0.35" max="8" step="0.05" value="3.8" />
+              <small>Energy loss in the tongue, root, frame, lips, and teeth.</small>
+            </label>
+            <label class="control" for="reedStiffness">
+              <span><b>Lamella stiffness</b><output id="reedStiffnessOut" for="reedStiffness">68%</output></span>
+              <input id="reedStiffness" type="range" min="0" max="1" step="0.01" value="0.68" />
+              <small>Tilts modal loss and high-partial stretch from soft bamboo toward hard metal.</small>
+            </label>
+            <label class="control" for="pluckPosition">
+              <span><b>Pluck point</b><output id="pluckPositionOut" for="pluckPosition">32%</output></span>
+              <input id="pluckPosition" type="range" min="0.08" max="0.92" step="0.01" value="0.32" />
+              <small>Moves the excitation comb along the flexible tongue.</small>
+            </label>
+            <label class="control" for="pluckForce">
+              <span><b>Pluck force</b><output id="pluckForceOut" for="pluckForce">72%</output></span>
+              <input id="pluckForce" type="range" min="0.08" max="1" step="0.01" value="0.72" />
+              <small>Sets initial reed displacement and the short frame-contact transient.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Mouth resonator</h2>
+            <span class="section-state" id="mouthSummary">/ɑ/ · 15.8 cm cavity</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="tonguePosition">
+              <span><b>Tongue front / back</b><output id="tonguePositionOut" for="tonguePosition">48% front</output></span>
+              <input id="tonguePosition" type="range" min="0" max="1" step="0.01" value="0.48" />
+              <small>Shortens or lengthens the front cavity, moving the upper harmonic focus.</small>
+            </label>
+            <label class="control" for="tongueHeight">
+              <span><b>Tongue height</b><output id="tongueHeightOut" for="tongueHeight">22%</output></span>
+              <input id="tongueHeight" type="range" min="0" max="1" step="0.01" value="0.22" />
+              <small>Changes the palatal constriction and the spacing between oral modes.</small>
+            </label>
+            <label class="control" for="jawOpening">
+              <span><b>Jaw opening</b><output id="jawOpeningOut" for="jawOpening">72%</output></span>
+              <input id="jawOpening" type="range" min="0" max="1" step="0.01" value="0.72" />
+              <small>Changes cavity volume, the lowest oral mode, and radiation aperture.</small>
+            </label>
+            <label class="control" for="lipRounding">
+              <span><b>Lip rounding</b><output id="lipRoundingOut" for="lipRounding">8%</output></span>
+              <input id="lipRounding" type="range" min="0" max="1" step="0.01" value="0.08" />
+              <small>Lengthens the lip opening and lowers the upper resonance region.</small>
+            </label>
+            <label class="control" for="formantFocus">
+              <span><b>Harmonic focus</b><output id="formantFocusOut" for="formantFocus">48%</output></span>
+              <input id="formantFocus" type="range" min="0" max="1" step="0.01" value="0.48" />
+              <small>Moves emphasis between the first and second oral modes without retuning the reed.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Body coupling</h2>
+            <span class="section-state" id="couplingSummary">82% mouth · 36% frame</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="cavityCoupling">
+              <span><b>Mouth coupling</b><output id="cavityCouplingOut" for="cavityCoupling">82%</output></span>
+              <input id="cavityCoupling" type="range" min="0" max="1" step="0.01" value="0.82" />
+              <small>Balances direct lamella radiation against the three moving oral modes.</small>
+            </label>
+            <label class="control" for="frameCoupling">
+              <span><b>Frame / teeth coupling</b><output id="frameCouplingOut" for="frameCoupling">36%</output></span>
+              <input id="frameCoupling" type="range" min="0" max="1" step="0.01" value="0.36" />
+              <small>Adds the damped structural mode and contact click transmitted through the frame.</small>
+            </label>
+            <label class="control" for="glottisOpening">
+              <span><b>Glottis opening</b><output id="glottisOpeningOut" for="glottisOpening">42%</output></span>
+              <input id="glottisOpening" type="range" min="0" max="1" step="0.01" value="0.42" />
+              <small>Opens the rear cavity toward the pharynx and trachea, adding length and acoustic loss.</small>
+            </label>
+            <label class="control" for="breath">
+              <span><b>Breath through reed</b><output id="breathOut" for="breath">8%</output></span>
+              <input id="breath" type="range" min="0" max="1" step="0.01" value="0.08" />
+              <small>Adds reed-modulated airflow; it colors the pluck but does not self-oscillate the lamella.</small>
+            </label>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Plucking hand</h2>
+            <span class="section-state" id="rhythmSummary">148 BPM · 8% swing</span>
+          </summary>
+          <div class="group-body">
+            <div class="jaw-direction-row" role="group" aria-label="Pluck direction">
+              <button id="pluckOutward" type="button" aria-pressed="true">Outward</button>
+              <button id="pluckInward" type="button" aria-pressed="false">Inward</button>
+            </div>
+            <label class="control" for="repeatRateBpm">
+              <span><b>Repeat rate</b><output id="repeatRateBpmOut" for="repeatRateBpm">148 BPM</output></span>
+              <input id="repeatRateBpm" type="range" min="36" max="480" step="1" value="148" />
+              <small>Schedules a new physical displacement at each pulse while Repeat is on.</small>
+            </label>
+            <label class="control" for="repeatSwing">
+              <span><b>Alternating swing</b><output id="repeatSwingOut" for="repeatSwing">8%</output></span>
+              <input id="repeatSwing" type="range" min="-0.42" max="0.42" step="0.01" value="0.08" />
+              <small>Lengthens one pluck interval and shortens the next by the same amount.</small>
+            </label>
+            <div class="jaw-pulse-map" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+        </details>
+
+        <section class="jaw-model-note" aria-labelledby="jawModelTitle">
+          <header>
+            <span>Model topology</span>
+            <strong id="jawModelTitle">One fixed reed, a moving filter</strong>
+          </header>
+          <p>
+            A pluck excites a damped modal lamella. Its harmonic ladder feeds three continuously
+            retuned oral resonances plus a structural frame mode. Articulation changes which partial
+            dominates, not the reed's fundamental.
+          </p>
+          <div aria-label="Jaw harp signal path">
+            <span><b>pluck</b><small>initial displacement</small></span>
+            <i aria-hidden="true">→</i>
+            <span><b>reed</b><small>damped modes</small></span>
+            <i aria-hidden="true">→</i>
+            <span><b>mouth</b><small>moving resonances</small></span>
+            <i aria-hidden="true">→</i>
+            <span><b>air</b><small>radiation</small></span>
+          </div>
+        </section>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        Pull the copper reed trigger up or down and release it to pluck. Drag the tongue node in two dimensions,
+        the jaw node vertically, the lip node horizontally, or the cavity node horizontally to change harmonic focus.
+        Space or Enter plucks the reed. A, E, I, O, and U load mouth shapes. Number keys one through five load harp bodies.
+        R toggles the repeater and Escape stops it.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="jaw-harp-app.js"></script>
+  </body>
+</html>

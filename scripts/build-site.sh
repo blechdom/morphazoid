@@ -73,9 +73,19 @@ for worktree_runtime_file in \
   syrinx-app.js \
   syrinx-ui.html \
   syrinx-ui.css \
+  morphynx.html \
+  morphynx.css \
+  morphynx-app.js \
+  src/morphynx.js \
+  tongued-beasts.html \
+  tongued-beasts.css \
+  hyper-syrinx.html \
+  hyper-syrinx.css \
+  hyper-syrinx-app.js \
   src/syrinx.js \
   src/syrinx-source-models.js \
   src/syrinx-processor.js \
+  src/tongue-physics.js \
   ANIMAL_VOICE_SYNTHESIS_RESEARCH.md \
   throatazoid-architecture.html \
   throatazoid-architecture.css \
@@ -337,9 +347,20 @@ required_files=(
   syrinx-app.js
   syrinx-ui.html
   syrinx-ui.css
+  morphynx.html
+  morphynx.css
+  morphynx-app.js
+  src/morphynx.js
+  assets/instruments/morphynx.webp
+  tongued-beasts.html
+  tongued-beasts.css
+  hyper-syrinx.html
+  hyper-syrinx.css
+  hyper-syrinx-app.js
   src/syrinx.js
   src/syrinx-source-models.js
   src/syrinx-processor.js
+  src/tongue-physics.js
   assets/instruments/syrinx.webp
   ANIMAL_VOICE_SYNTHESIS_RESEARCH.md
   throatazoid-architecture.html

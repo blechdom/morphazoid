@@ -227,7 +227,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 89);
+  assert.equal(tools.length, 93);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -452,7 +452,10 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
       { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
       { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
-      { id: "alien-larynx", label: "Alien Larynx", href: "alien-larynx.html" },
+      { id: "morphynx", label: "Morphynx", href: "morphynx.html" },
+      { id: "tongued-beasts", label: "Tongued Beasts", href: "tongued-beasts.html" },
+      { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
+      { id: "hyper-syrinx", label: "Hyper-Syrinx", href: "hyper-syrinx.html" },
       {
         id: "spelling-synthesizer",
         label: "Spelling Synthesizer",
@@ -579,6 +582,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "vocal-effects-room", href: "vocal-effects-room.html" },
       { id: "instrument-share-room", href: "instrument-share-room.html" },
       { id: "morphazoid-roulette", href: "morphazoid-roulette.html" },
+      { id: "alien-larynx", href: "alien-larynx.html" },
       { id: "escher-tessellation", href: "escher-tessellation.html" },
       { id: "plasma-ball", href: "plasma-ball.html" },
       { id: "order-tones", href: "order-tones.html" },
