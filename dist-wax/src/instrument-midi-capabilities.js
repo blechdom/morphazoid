@@ -51,6 +51,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "cascading-pm",
     "weierstrass",
     "plasma-ball",
+    "karplus-strong",
     "webgpu-303",
     "moire-organ",
     "chladni-plate",
@@ -112,6 +113,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "spelling-synthesizer",
   "lumber",
   "micmic",
+  "karplus-strong",
   "gesturama",
 ]);
 

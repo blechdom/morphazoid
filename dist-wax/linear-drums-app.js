@@ -18,6 +18,7 @@ import {
   linearDrumPositionAtFrequency,
   sanitizeLinearDrumSettings,
 } from "./src/linear-drums.js";
+import { KARPLUS_STRONG_PRESETS } from "./src/karplus-strong.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
@@ -26,6 +27,7 @@ const stageWrap = $("stageWrap");
 const context = canvas.getContext("2d", { alpha: false, desynchronized: true });
 const audio = new LinearDrumAudio(globalThis);
 const modelById = new Map(LINEAR_DRUM_MODELS.map((model) => [model.id, model]));
+const karplusPresetById = new Map(KARPLUS_STRONG_PRESETS.map((preset) => [preset.id, preset]));
 const parameterSpecById = new Map(
   LINEAR_DRUM_PARAMETER_SPECS.map((specification) => [specification.id, specification]),
 );
@@ -71,9 +73,17 @@ const controlSpecByKey = new Map(CONTROL_SPECS.map((specification) => [
   specification.key,
   specification,
 ]));
+const MORPH_MARKER_SPECS = Object.freeze([
+  Object.freeze({ key: "kickTomHz", inputId: "kickTom" }),
+  Object.freeze({ key: "tomHandHz", inputId: "tomHand" }),
+  Object.freeze({ key: "handAirHz", inputId: "handAir" }),
+]);
+const RATTLESNAKE_ONLY_PARAMETERS = new Set(["attack", "pitchFall"]);
+const knobDialByInputId = new Map();
 
 const state = {
   ...LINEAR_DRUM_DEFAULTS,
+  karplusMorphOrder: [...LINEAR_DRUM_DEFAULTS.karplusMorphOrder],
   parameterMaps: cloneDefaultLinearDrumParameterMaps(),
   position: linearDrumPositionAtFrequency(100, 20, 16_000),
   performanceY: .5,
@@ -100,6 +110,8 @@ let lastRailHitAt = 0;
 let pulses = [];
 let analyserData = null;
 let paintedScaleMaximum = 0;
+let activeKnobDrag = null;
+let activeMorphMarker = null;
 
 function formatFrequency(frequency) {
   if (frequency >= 10_000) return `${(frequency / 1_000).toFixed(frequency % 1_000 ? 1 : 0)} kHz`;
@@ -222,6 +234,7 @@ async function strikeFrequency(frequency, { velocity = .82, delay = 0, announceH
   if (lifecycleGeneration !== audioLifecycleGeneration) return null;
   try {
     const parameters = await audio.trigger(frequency, synthSettings(), {
+      engine: state.model === "karplus-strong" ? "karplus-strong" : "rattlesnake",
       velocity,
       delay,
       performanceY: state.performanceY,
@@ -249,7 +262,52 @@ function setPosition(position, { strike = false, velocity = .82, announceHit = f
   if (strike) void strikeFrequency(currentFrequency(), { velocity, announceHit });
 }
 
+function karplusPresetName(id) {
+  return karplusPresetById.get(id)?.name ?? id;
+}
+
+function karplusMorphBlendLabel(weights) {
+  const keys = ["kick", "tom", "hand", "air"];
+  return keys
+    .map((key, index) => [karplusPresetName(state.karplusMorphOrder[index]), weights[key] ?? 0])
+    .sort((left, right) => right[1] - left[1])
+    .filter(([, amount], index) => index === 0 || amount >= .08)
+    .slice(0, 2)
+    .map(([name, amount]) => `${Math.round(amount * 100)}% ${name.toLowerCase()}`)
+    .join(" / ");
+}
+
+function paintKarplusMorphPath() {
+  for (const select of document.querySelectorAll("[data-karplus-anchor]")) {
+    select.value = state.karplusMorphOrder[Number(select.dataset.karplusAnchor)];
+  }
+  const first = karplusPresetName(state.karplusMorphOrder[0]);
+  const last = karplusPresetName(state.karplusMorphOrder[3]);
+  $("karplusMorphSummary").textContent = `${first} TO ${last}`.toUpperCase();
+}
+
+function paintEnginePanels() {
+  const isKarplus = state.model === "karplus-strong";
+  for (const panel of document.querySelectorAll("[data-engine-panel]")) {
+    panel.hidden = panel.dataset.enginePanel !== (isKarplus ? "karplus-strong" : "rattlesnake");
+  }
+  $("morphTitle").textContent = isKarplus ? "Preset morph positions" : "Morph positions";
+  $("inharmonicityLabel").textContent = isKarplus ? "String dispersion" : "Membrane stiffness";
+  $("characterSummary").textContent = isKarplus ? "KARPLUS SHAPING" : "GLOBAL / MAPPED";
+  $("synthesisFamilyState").textContent = isKarplus
+    ? "KARPLUS-STRONG FEEDBACK DELAY"
+    : "MODAL / FM / PITCHED";
+  paintKarplusMorphPath();
+}
+
 function paintMorphLabels() {
+  if (state.model === "karplus-strong") {
+    const labels = state.karplusMorphOrder.map(karplusPresetName);
+    $("morphOneLabel").textContent = `${labels[0]} to ${labels[1]}`;
+    $("morphTwoLabel").textContent = `${labels[1]} to ${labels[2]}`;
+    $("morphThreeLabel").textContent = `${labels[2]} to ${labels[3]}`;
+    return;
+  }
   if (state.model !== "pitched") {
     $("morphOneLabel").textContent = "Kick to tom";
     $("morphTwoLabel").textContent = "Tom to hand";
@@ -270,12 +328,16 @@ function paintReadouts() {
   const formatted = formatFrequency(frequency);
   const color = blendColor(parameters.bodyWeights);
   const model = modelById.get(state.model) ?? LINEAR_DRUM_MODELS[0];
+  const isKarplus = state.model === "karplus-strong";
   $("frequencyReadout").textContent = formatted;
   $("frequencyOut").textContent = formatted;
   $("cursorReadout").textContent = formatted;
-  $("blendReadout").textContent = linearDrumBlendLabel(parameters.bodyWeights);
+  $("blendReadout").textContent = isKarplus
+    ? karplusMorphBlendLabel(parameters.bodyWeights)
+    : linearDrumBlendLabel(parameters.bodyWeights);
   $("modelReadout").textContent = model.label;
   $("modelSummary").textContent = model.label.toUpperCase();
+  paintEnginePanels();
   paintMorphLabels();
   stageWrap.style.setProperty("--cursor-position", `${state.position * 100}%`);
   stageWrap.style.setProperty("--cursor-color", color);
@@ -286,11 +348,14 @@ function paintReadouts() {
     .join(" / ");
   $("rangeSummary").textContent = `${formatFrequency(state.rangeMin)} - ${formatFrequency(state.rangeMax)}`;
   $("rangeMaxOut").textContent = formatFrequency(state.rangeMax);
+  paintKnobControl($("rangeMax"));
   $("footerRange").textContent = formatFrequency(state.rangeMax).toUpperCase();
   paintMappedControlOutputs(parameters.mappedValues);
-  $("envelopeSummary").textContent = [parameters.mappedValues.attack, parameters.mappedValues.decay]
-    .map(formatEnvelopeTime)
-    .join(" / ");
+  $("envelopeSummary").textContent = isKarplus
+    ? formatEnvelopeTime(parameters.mappedValues.decay)
+    : [parameters.mappedValues.attack, parameters.mappedValues.decay]
+      .map(formatEnvelopeTime)
+      .join(" / ");
   paintFrequencyScale();
 }
 
@@ -318,6 +383,100 @@ function markPresetCustom() {
   }
 }
 
+function knobInputStep(input) {
+  const step = Number(input.step);
+  return Number.isFinite(step) && step > 0 ? step : .01;
+}
+
+function commitKnobInput(input, value) {
+  if (input.disabled) return;
+  const minimum = Number(input.min);
+  const maximum = Number(input.max);
+  const step = knobInputStep(input);
+  const steps = Math.round((clamp(value, minimum, maximum) - minimum) / step);
+  input.value = String(Number(clamp(minimum + steps * step, minimum, maximum).toFixed(6)));
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function paintKnobControl(input, renderedValue = Number(input?.value)) {
+  if (!input) return;
+  const dial = knobDialByInputId.get(input.id);
+  if (!dial) return;
+  const minimum = Number(input.min);
+  const maximum = Number(input.max);
+  const value = clamp(Number(renderedValue), minimum, maximum);
+  const amount = (value - minimum) / Math.max(.000001, maximum - minimum);
+  const wrapper = dial.closest(".linear-knob-control");
+  const label = wrapper?.querySelector("label, b")?.textContent?.trim() || input.id;
+  const output = document.getElementById(input.id + "Out");
+  dial.style.setProperty("--knob-angle", (-135 + amount * 270) + "deg");
+  dial.style.setProperty("--knob-fill", (amount * 75) + "%");
+  dial.setAttribute("aria-label", label);
+  dial.setAttribute("aria-valuemin", String(minimum));
+  dial.setAttribute("aria-valuemax", String(maximum));
+  dial.setAttribute("aria-valuenow", String(Number(value.toFixed(6))));
+  dial.setAttribute("aria-valuetext", output?.textContent || String(value));
+  dial.setAttribute("aria-disabled", String(input.disabled));
+  dial.tabIndex = input.disabled ? -1 : 0;
+}
+
+function initializeKnobControls() {
+  for (const wrapper of document.querySelectorAll(".linear-knob-control")) {
+    const input = wrapper.querySelector('input[type="range"]');
+    if (!input || knobDialByInputId.has(input.id)) continue;
+    const dial = document.createElement("div");
+    dial.className = "linear-knob-dial";
+    dial.dataset.knobFor = input.id;
+    dial.setAttribute("role", "slider");
+    dial.setAttribute("aria-orientation", "vertical");
+    input.hidden = true;
+    wrapper.insertBefore(dial, input);
+    knobDialByInputId.set(input.id, dial);
+
+    dial.addEventListener("pointerdown", (event) => {
+      if (input.disabled || (event.button !== undefined && event.button !== 0)) return;
+      event.preventDefault();
+      dial.focus();
+      activeKnobDrag = {
+        input,
+        pointerId: event.pointerId,
+        startValue: Number(input.value),
+        startY: event.clientY,
+      };
+      dial.setPointerCapture?.(event.pointerId);
+    });
+    dial.addEventListener("pointermove", (event) => {
+      if (activeKnobDrag?.input !== input || activeKnobDrag.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      const range = Number(input.max) - Number(input.min);
+      commitKnobInput(input, activeKnobDrag.startValue
+        + (activeKnobDrag.startY - event.clientY) / 140 * range);
+    });
+    const finishDrag = (event) => {
+      if (activeKnobDrag?.input !== input || activeKnobDrag.pointerId !== event.pointerId) return;
+      activeKnobDrag = null;
+      dial.releasePointerCapture?.(event.pointerId);
+    };
+    dial.addEventListener("pointerup", finishDrag);
+    dial.addEventListener("pointercancel", finishDrag);
+    dial.addEventListener("keydown", (event) => {
+      if (input.disabled) return;
+      const step = knobInputStep(input);
+      let value = Number(input.value);
+      if (event.key === "ArrowUp" || event.key === "ArrowRight") value += step;
+      else if (event.key === "ArrowDown" || event.key === "ArrowLeft") value -= step;
+      else if (event.key === "PageUp") value += step * 8;
+      else if (event.key === "PageDown") value -= step * 8;
+      else if (event.key === "Home") value = Number(input.min);
+      else if (event.key === "End") value = Number(input.max);
+      else return;
+      event.preventDefault();
+      commitKnobInput(input, value);
+    });
+    paintKnobControl(input);
+  }
+}
+
 function refreshControl(specification) {
   const input = $(specification.id);
   const output = $(`${specification.id}Out`);
@@ -337,15 +496,16 @@ function refreshControl(specification) {
     button.style.setProperty("--map-color", mapSpecification?.color ?? "var(--accent)");
   }
   output.textContent = specification.format(state[specification.key]);
+  paintKnobControl(input);
 }
 
 function paintMappedControlOutputs(mappedValues) {
   for (const specification of CONTROL_SPECS) {
-    const output = $(`${specification.id}Out`);
+    const output = document.getElementById(specification.id + "Out");
     const mapping = state.parameterMaps[specification.key];
-    output.textContent = specification.format(
-      mapping?.enabled ? mappedValues[specification.key] : state[specification.key],
-    );
+    const value = mapping?.enabled ? mappedValues[specification.key] : state[specification.key];
+    output.textContent = specification.format(value);
+    paintKnobControl($(specification.id), specification.write ? specification.write(value) : value);
   }
 }
 
@@ -369,6 +529,7 @@ function bindControls() {
     audio.setOutput(state.audioOn ? state.output : 0);
   });
   $("rangeMax").value = String(linearDrumPositionAtFrequency(state.rangeMax, 4_000, 20_000));
+  paintKnobControl($("rangeMax"));
   $("rangeMax").addEventListener("input", () => {
     state.rangeMax = linearDrumFrequencyAtPosition(Number($("rangeMax").value), 4_000, 20_000);
     markPresetCustom();
@@ -390,24 +551,49 @@ function bindControls() {
     });
   }
 
+  for (const select of document.querySelectorAll("[data-karplus-anchor]")) {
+    select.addEventListener("change", () => {
+      const index = Number(select.dataset.karplusAnchor);
+      state.karplusMorphOrder = [...state.karplusMorphOrder];
+      state.karplusMorphOrder[index] = select.value;
+      markPresetCustom();
+      paintReadouts();
+      scheduleFrame();
+      void strikeFrequency(currentFrequency(), { velocity: .72 });
+      announce(karplusPresetName(select.value) + " set as Karplus morph anchor.");
+    });
+  }
+
   for (const input of document.querySelectorAll('input[name="bodyModel"]')) {
     input.addEventListener("change", () => {
       if (!input.checked) return;
       state.model = input.value;
       markPresetCustom();
       paintReadouts();
+      renderMappingLanes();
       scheduleFrame();
       void strikeFrequency(currentFrequency(), { velocity: .7 });
+      announce((modelById.get(state.model)?.label ?? state.model) + " sound model selected.");
     });
   }
-  for (const input of document.querySelectorAll('input[name="sweepMode"]')) {
-    input.addEventListener("change", () => {
-      if (!input.checked) return;
-      state.sweepMode = input.value;
-      if (state.sweepMode === "up") state.sweepDirection = 1;
-      if (state.sweepMode === "down") state.sweepDirection = -1;
-    });
-  }
+  $("sweepDirectionButton").addEventListener("click", () => {
+    state.sweepDirection *= -1;
+    if (state.sweepMode !== "pendulum") {
+      state.sweepMode = state.sweepDirection > 0 ? "up" : "down";
+    }
+    paintSweepDirectionControls();
+    announce("Sweep direction " + (state.sweepDirection > 0 ? "up." : "down."));
+  });
+  $("sweepLoopMode").addEventListener("click", () => {
+    state.sweepMode = state.sweepDirection > 0 ? "up" : "down";
+    paintSweepDirectionControls();
+    announce("Loop sweep movement selected.");
+  });
+  $("sweepPendulumMode").addEventListener("click", () => {
+    state.sweepMode = "pendulum";
+    paintSweepDirectionControls();
+    announce("Back-and-forth sweep movement selected.");
+  });
 }
 
 function mappingCurveText(curve) {
@@ -591,7 +777,8 @@ function paintMappingCurve(lane, specification, mapping) {
 
 function renderMappingLanes() {
   const activeSpecifications = LINEAR_DRUM_PARAMETER_SPECS.filter(
-    ({ id }) => state.parameterMaps[id]?.enabled,
+    ({ id }) => state.parameterMaps[id]?.enabled
+      && (state.model !== "karplus-strong" || !RATTLESNAKE_ONLY_PARAMETERS.has(id)),
   );
   const dock = $("mappingDock");
   dock.hidden = activeSpecifications.length === 0;
@@ -672,18 +859,24 @@ function paintPresetSelection() {
   $("presetSummary").textContent = preset ? preset.name.toUpperCase() : "CUSTOM";
 }
 
-function applyPreset(preset, { audition = true } = {}) {
+function applyPreset(preset, { audition = true, resetKarplus = false } = {}) {
+  const karplusMorphOrder = resetKarplus
+    ? [...LINEAR_DRUM_DEFAULTS.karplusMorphOrder]
+    : [...state.karplusMorphOrder];
   Object.assign(state, preset.settings);
+  state.karplusMorphOrder = karplusMorphOrder;
   state.parameterMaps = Object.fromEntries(Object.entries(preset.settings.parameterMaps).map(
     ([key, mapping]) => [key, { ...mapping }],
   ));
   state.selectedPresetId = preset.id;
   for (const specification of CONTROL_SPECS) refreshControl(specification);
   $("rangeMax").value = String(linearDrumPositionAtFrequency(state.rangeMax, 4_000, 20_000));
+  paintKnobControl($("rangeMax"));
   const modelInput = document.querySelector(`input[name="bodyModel"][value="${state.model}"]`);
   if (modelInput) modelInput.checked = true;
   paintedScaleMaximum = 0;
   renderMappingLanes();
+  paintKarplusMorphPath();
   paintPresetSelection();
   paintReadouts();
   scheduleFrame();
@@ -706,10 +899,36 @@ function renderPresetBank() {
   paintPresetSelection();
 }
 
+function renderKarplusMorphPath() {
+  for (const select of document.querySelectorAll("[data-karplus-anchor]")) {
+    const fragment = document.createDocumentFragment();
+    for (const preset of KARPLUS_STRONG_PRESETS) {
+      const option = document.createElement("option");
+      option.value = preset.id;
+      option.textContent = preset.name;
+      fragment.append(option);
+    }
+    select.replaceChildren(fragment);
+  }
+  paintKarplusMorphPath();
+}
+
 function paintSweepButton() {
-  $("sweepButton").setAttribute("aria-pressed", String(state.sweeping));
-  $("sweepIcon").textContent = state.sweeping ? "\u25a0" : "\u25b6";
-  $("sweepLabel").textContent = state.sweeping ? "Stop" : "Sweep";
+  const button = $("sweepButton");
+  button.setAttribute("aria-pressed", String(state.sweeping));
+  button.setAttribute("aria-label", state.sweeping ? "Stop sweep" : "Start sweep");
+}
+
+function paintSweepDirectionControls() {
+  const isUp = state.sweepDirection > 0;
+  $("sweepDirectionGlyph").textContent = isUp ? "\u2191" : "\u2193";
+  $("sweepDirectionText").textContent = isUp ? "Up" : "Down";
+  $("sweepDirectionButton").setAttribute(
+    "aria-label",
+    "Sweep direction: " + (isUp ? "up" : "down"),
+  );
+  $("sweepLoopMode").setAttribute("aria-pressed", String(state.sweepMode !== "pendulum"));
+  $("sweepPendulumMode").setAttribute("aria-pressed", String(state.sweepMode === "pendulum"));
 }
 
 function mappedTransport() {
@@ -721,6 +940,7 @@ function mappedTransport() {
 
 function advanceSweep() {
   const transport = mappedTransport();
+  const previousDirection = state.sweepDirection;
   const octaveRange = Math.max(.001, Math.log2(state.rangeMax / state.rangeMin));
   const positionStep = transport.sweepSpeed / transport.sweepRate / octaveRange;
   let next = state.position + positionStep * state.sweepDirection;
@@ -739,6 +959,7 @@ function advanceSweep() {
     state.sweepDirection = -1;
     if (next < 0) next += 1;
   }
+  if (state.sweepDirection !== previousDirection) paintSweepDirectionControls();
   setPosition(next);
 }
 
@@ -759,6 +980,7 @@ function startSweep() {
   if (state.sweepMode === "up") state.sweepDirection = 1;
   if (state.sweepMode === "down") state.sweepDirection = -1;
   paintSweepButton();
+  paintSweepDirectionControls();
   void strikeFrequency(currentFrequency(), { velocity: .66 });
   scheduleSweep();
   scheduleFrame();
@@ -784,11 +1006,42 @@ function canvasPoint(event) {
   };
 }
 
+function morphMarkerAtPosition(position) {
+  const threshold = Math.max(.008, 14 / Math.max(1, cssWidth));
+  return MORPH_MARKER_SPECS
+    .map((marker) => ({
+      ...marker,
+      distance: Math.abs(
+        linearDrumPositionAtFrequency(state[marker.key], state.rangeMin, state.rangeMax) - position
+      ),
+    }))
+    .sort((left, right) => left.distance - right.distance)
+    .find(({ distance }) => distance <= threshold) ?? null;
+}
+
+function updateMorphMarker(marker, position) {
+  const input = $(marker.inputId);
+  const frequency = linearDrumFrequencyAtPosition(position, state.rangeMin, state.rangeMax);
+  state[marker.key] = clamp(frequency, Number(input.min), Number(input.max));
+  input.value = String(state[marker.key]);
+  refreshControl(controlSpecByKey.get(marker.key));
+  markPresetCustom();
+  paintReadouts();
+  scheduleFrame();
+}
+
 canvas.addEventListener("pointerdown", (event) => {
   event.preventDefault();
-  pointerActive = true;
-  canvas.setPointerCapture?.(event.pointerId);
   const point = canvasPoint(event);
+  const marker = morphMarkerAtPosition(point.position);
+  canvas.setPointerCapture?.(event.pointerId);
+  if (marker) {
+    activeMorphMarker = marker;
+    stageWrap.classList.add("is-dragging-morph");
+    updateMorphMarker(marker, point.position);
+    return;
+  }
+  pointerActive = true;
   lastPointerPosition = point.position;
   lastPointerY = point.vertical;
   state.performanceY = point.vertical;
@@ -797,8 +1050,15 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 
 canvas.addEventListener("pointermove", (event) => {
-  if (!pointerActive) return;
   const point = canvasPoint(event);
+  if (activeMorphMarker) {
+    updateMorphMarker(activeMorphMarker, point.position);
+    return;
+  }
+  if (!pointerActive) {
+    canvas.style.cursor = morphMarkerAtPosition(point.position) ? "ew-resize" : "crosshair";
+    return;
+  }
   const movement = Math.hypot(
     point.position - lastPointerPosition,
     point.vertical - lastPointerY,
@@ -817,6 +1077,9 @@ canvas.addEventListener("pointermove", (event) => {
 
 const releasePointer = (event) => {
   pointerActive = false;
+  activeMorphMarker = null;
+  stageWrap.classList.remove("is-dragging-morph");
+  canvas.style.cursor = "crosshair";
   try { canvas.releasePointerCapture?.(event.pointerId); } catch { /* capture already released */ }
 };
 canvas.addEventListener("pointerup", releasePointer);
@@ -831,9 +1094,6 @@ $("frequency").addEventListener("input", () => {
   }
 });
 
-$("strikeButton").addEventListener("click", () => {
-  void strikeFrequency(currentFrequency(), { velocity: .86, announceHit: true });
-});
 
 $("sweepButton").addEventListener("click", () => {
   if (state.sweeping) {
@@ -859,8 +1119,8 @@ $("resetAll").addEventListener("click", () => {
   state.performanceY = .5;
   state.sweepMode = "pendulum";
   state.sweepDirection = 1;
-  document.querySelector('input[name="sweepMode"][value="pendulum"]').checked = true;
-  applyPreset(LINEAR_DRUM_PRESETS[0], { audition: false });
+  paintSweepDirectionControls();
+  applyPreset(LINEAR_DRUM_PRESETS[0], { audition: false, resetKarplus: true });
   setPosition(state.position);
   announce("Rattlesnake parameters reset.");
 });
@@ -909,6 +1169,7 @@ function drawFamilyCurves(settings) {
 function drawParameterMapCurves() {
   const mappings = LINEAR_DRUM_PARAMETER_SPECS.filter(({ id }) => (
     state.parameterMaps[id]?.enabled && state.parameterMaps[id].source === "pitch"
+      && (state.model !== "karplus-strong" || !RATTLESNAKE_ONLY_PARAMETERS.has(id))
   ));
   context.save();
   context.setLineDash([2, 5]);
@@ -934,37 +1195,47 @@ function drawParameterMapCurves() {
 }
 
 function drawMorphMarkers(settings) {
-  let markers;
-  if (settings.model === "pitched") {
-    const labels = settings.pitchedOrder.map((id) => (
+  let labels;
+  if (settings.model === "karplus-strong") {
+    const names = settings.karplusMorphOrder.map((id) => karplusPresetName(id).toUpperCase());
+    labels = [
+      `${names[0]} / ${names[1]}`,
+      `${names[1]} / ${names[2]}`,
+      `${names[2]} / ${names[3]}`,
+    ];
+  } else if (settings.model === "pitched") {
+    const names = settings.pitchedOrder.map((id) => (
       pitchedArchetypeById.get(id)?.label.toUpperCase() ?? id.toUpperCase()
     ));
-    markers = [
-      [settings.kickTomHz, `${labels[0]} / ${labels[1]}`],
-      [settings.tomHandHz, `${labels[1]} / ${labels[2]}`],
-      [settings.handAirHz, `${labels[2]} / AIR`],
+    labels = [
+      `${names[0]} / ${names[1]}`,
+      `${names[1]} / ${names[2]}`,
+      `${names[2]} / AIR`,
     ];
   } else {
-    markers = [
-      [settings.kickTomHz, "KICK / TOM"],
-      [settings.tomHandHz, "TOM / HAND"],
-      [settings.handAirHz, "HAND / AIR"],
-    ];
+    labels = ["KICK / TOM", "TOM / HAND", "HAND / AIR"];
   }
+  const markers = MORPH_MARKER_SPECS.map((marker, index) => [
+    settings[marker.key],
+    labels[index],
+    marker.key,
+  ]);
   context.save();
-  context.setLineDash([3, 5]);
   context.font = "7px ui-monospace, SFMono-Regular, Menlo, monospace";
   context.textAlign = "center";
-  for (const [frequency, label] of markers) {
+  for (const [frequency, label, key] of markers) {
     if (frequency >= state.rangeMax) continue;
+    const active = activeMorphMarker?.key === key;
     const position = linearDrumPositionAtFrequency(frequency, state.rangeMin, state.rangeMax);
     const x = position * cssWidth;
-    context.strokeStyle = "rgba(218, 229, 225, .22)";
+    context.setLineDash(active ? [5, 3] : [3, 5]);
+    context.lineWidth = active ? 2 : 1;
+    context.strokeStyle = active ? "rgba(94, 224, 192, .9)" : "rgba(218, 229, 225, .3)";
     context.beginPath();
     context.moveTo(x, 0);
     context.lineTo(x, cssHeight);
     context.stroke();
-    context.fillStyle = "rgba(218, 229, 225, .48)";
+    context.fillStyle = active ? "rgba(94, 224, 192, .96)" : "rgba(218, 229, 225, .58)";
     context.fillText(label, x, cssHeight - 13);
   }
   context.restore();
@@ -1058,9 +1329,12 @@ function drawStage(timestamp) {
 
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 renderPresetBank();
+renderKarplusMorphPath();
+initializeKnobControls();
 bindControls();
 renderMappingLanes();
 paintSweepButton();
+paintSweepDirectionControls();
 setPosition(state.position);
 resizeCanvas();
 

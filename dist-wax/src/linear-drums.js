@@ -1,5 +1,11 @@
 import { unlockAudioContext } from "./audio.js";
 import { connectAudioOutput } from "./audio-output-manager.js";
+import {
+  KARPLUS_STRONG_DEFAULTS,
+  KARPLUS_STRONG_PRESETS,
+  generateKarplusStrongSamples,
+  sanitizeKarplusStrongSettings,
+} from "./karplus-strong.js";
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const finiteOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -25,6 +31,7 @@ export const LINEAR_DRUM_DEFAULTS = Object.freeze({
   sweepSpeed: 1.5,
   model: "hybrid",
   pitchedOrder: Object.freeze(["harp", "harpsichord", "piano"]),
+  karplusMorphOrder: Object.freeze(["bass", "nylon", "steel", "glass"]),
 });
 
 export const LINEAR_DRUM_MODELS = Object.freeze([
@@ -32,6 +39,11 @@ export const LINEAR_DRUM_MODELS = Object.freeze([
   Object.freeze({ id: "modal", label: "Modal" }),
   Object.freeze({ id: "fm", label: "FM" }),
   Object.freeze({ id: "pitched", label: "Pitched Morph" }),
+  Object.freeze({ id: "karplus-strong", label: "Karplus Strong" }),
+]);
+export const LINEAR_DRUM_SOUND_ENGINES = Object.freeze([
+  Object.freeze({ id: "rattlesnake", label: "Rattlesnake" }),
+  Object.freeze({ id: "karplus-strong", label: "Karplus Strong" }),
 ]);
 
 export const LINEAR_DRUM_PITCHED_ARCHETYPES = Object.freeze([
@@ -79,7 +91,7 @@ export const LINEAR_DRUM_PARAMETER_SPECS = Object.freeze([
     scale: "log", defaultLow: .001, defaultHigh: .014, color: "#ff8464",
   }),
   Object.freeze({
-    id: "decay", label: "Decay", shortLabel: "DEC", min: .04, max: 2.5,
+    id: "decay", label: "Decay", shortLabel: "DEC", min: .04, max: 8,
     scale: "log", defaultLow: 1.1, defaultHigh: .13, color: "#efc85e",
   }),
   Object.freeze({
@@ -134,6 +146,13 @@ const PITCHED_ARCHETYPE_BY_ID = new Map(
   LINEAR_DRUM_PITCHED_ARCHETYPES.map((archetype) => [archetype.id, archetype]),
 );
 const PITCHED_ARCHETYPE_IDS = new Set(PITCHED_ARCHETYPE_BY_ID.keys());
+const KARPLUS_PRESET_BY_ID = new Map(
+  KARPLUS_STRONG_PRESETS.map((item) => [item.id, item]),
+);
+const KARPLUS_PRESET_IDS = new Set(KARPLUS_PRESET_BY_ID.keys());
+const KARPLUS_MORPH_PARAMETER_KEYS = Object.freeze(
+  Object.keys(KARPLUS_STRONG_DEFAULTS).filter((key) => key !== "frequency" && key !== "level"),
+);
 
 function sanitizePitchedOrder(source) {
   const requested = Array.isArray(source) ? source : LINEAR_DRUM_DEFAULTS.pitchedOrder;
@@ -143,6 +162,13 @@ function sanitizePitchedOrder(source) {
     if (order.length === 3) break;
   }
   return order;
+}
+
+function sanitizeKarplusMorphOrder(source) {
+  const requested = Array.isArray(source) ? source : [];
+  return LINEAR_DRUM_DEFAULTS.karplusMorphOrder.map((fallback, index) => (
+    KARPLUS_PRESET_IDS.has(requested[index]) ? requested[index] : fallback
+  ));
 }
 
 const ARCHETYPES = Object.freeze([
@@ -232,7 +258,7 @@ function sanitizeCoreLinearDrumSettings(source = {}) {
     handAirHz: clamp(finiteOr(settings.handAirHz, LINEAR_DRUM_DEFAULTS.handAirHz), 1_900, 10_000),
     morphWidth: clamp(finiteOr(settings.morphWidth, LINEAR_DRUM_DEFAULTS.morphWidth), .3, 2.5),
     attack: clamp(finiteOr(settings.attack, LINEAR_DRUM_DEFAULTS.attack), .001, .12),
-    decay: clamp(finiteOr(settings.decay, LINEAR_DRUM_DEFAULTS.decay), .04, 2.5),
+    decay: clamp(finiteOr(settings.decay, LINEAR_DRUM_DEFAULTS.decay), .04, 8),
     pitchFall: clamp(finiteOr(settings.pitchFall, LINEAR_DRUM_DEFAULTS.pitchFall), 0, 2),
     strikeNoise: clamp(finiteOr(settings.strikeNoise, LINEAR_DRUM_DEFAULTS.strikeNoise), 0, 1.6),
     brightness: clamp(finiteOr(settings.brightness, LINEAR_DRUM_DEFAULTS.brightness), 0, 1),
@@ -246,6 +272,7 @@ function sanitizeCoreLinearDrumSettings(source = {}) {
     sweepSpeed: clamp(finiteOr(settings.sweepSpeed, LINEAR_DRUM_DEFAULTS.sweepSpeed), .2, 4),
     model: MODEL_IDS.has(settings.model) ? settings.model : LINEAR_DRUM_DEFAULTS.model,
     pitchedOrder: sanitizePitchedOrder(settings.pitchedOrder),
+    karplusMorphOrder: sanitizeKarplusMorphOrder(settings.karplusMorphOrder),
   };
 }
 
@@ -307,6 +334,7 @@ function freezePreset(id, name, overrides = {}, parameterMaps = {}) {
     Object.entries(settings.parameterMaps).map(([key, mapping]) => [key, Object.freeze(mapping)]),
   ));
   settings.pitchedOrder = Object.freeze([...settings.pitchedOrder]);
+  settings.karplusMorphOrder = Object.freeze([...settings.karplusMorphOrder]);
   return Object.freeze({ id, name, settings: Object.freeze(settings) });
 }
 
@@ -630,6 +658,7 @@ export function linearDrumParameters(frequency, sourceSettings = {}, performance
     pitchedWeights,
     bodyWeights: isPitched ? pitchedWeights : weights,
     pitchedOrder: Object.freeze([...settings.pitchedOrder]),
+    karplusMorphOrder: Object.freeze([...settings.karplusMorphOrder]),
     mappedValues: Object.freeze(mappedValues),
     modalRatios: Object.freeze(modalRatios),
     modalGains: Object.freeze(modalGains),
@@ -661,6 +690,8 @@ export function linearDrumParameters(frequency, sourceSettings = {}, performance
       * (effectiveSettings.decay / LINEAR_DRUM_DEFAULTS.decay),
     hardness: effectiveSettings.hardness,
     brightness: effectiveSettings.brightness,
+    inharmonicity: effectiveSettings.inharmonicity,
+    strikeNoise: effectiveSettings.strikeNoise,
     sweepRate: effectiveSettings.sweepRate,
     sweepSpeed: effectiveSettings.sweepSpeed,
   });
@@ -676,6 +707,48 @@ export function linearDrumBlendLabel(weights) {
     .sort((left, right) => right[1] - left[1]);
   const visible = entries.filter(([, amount], index) => index === 0 || amount >= .08).slice(0, 2);
   return visible.map(([name, amount]) => `${Math.round(amount * 100)}% ${name}`).join(" / ");
+}
+
+function karplusStrongSettingsFromLinearParameters(parameters) {
+  const weightKeys = ["kick", "tom", "hand", "air"];
+  const morphed = Object.fromEntries(KARPLUS_MORPH_PARAMETER_KEYS.map((key) => {
+    const value = weightKeys.reduce((total, weightKey, index) => {
+      const presetId = parameters.karplusMorphOrder[index];
+      const preset = KARPLUS_PRESET_BY_ID.get(presetId) ?? KARPLUS_STRONG_PRESETS[index];
+      return total + parameters.weights[weightKey] * preset.settings[key];
+    }, 0);
+    return [key, value];
+  }));
+  const decayScale = parameters.mappedValues.decay / LINEAR_DRUM_DEFAULTS.decay;
+  const brightnessDelta = parameters.brightness - LINEAR_DRUM_DEFAULTS.brightness;
+  const hardnessDelta = parameters.hardness - LINEAR_DRUM_DEFAULTS.hardness;
+  const stiffnessDelta = parameters.inharmonicity - LINEAR_DRUM_DEFAULTS.inharmonicity;
+  const noiseScale = parameters.strikeNoise / LINEAR_DRUM_DEFAULTS.strikeNoise;
+  const gesturePick = .05 + parameters.verticalPosition * .9;
+
+  return sanitizeKarplusStrongSettings({
+    ...morphed,
+    frequency: parameters.frequency,
+    decay: morphed.decay * clamp(decayScale, .15, 6),
+    brightness: clamp(morphed.brightness + brightnessDelta * .72, 0, 1),
+    hardness: clamp(morphed.hardness + hardnessDelta * .72, 0, 1),
+    excitationColor: clamp(morphed.excitationColor + brightnessDelta * .24, 0, 1),
+    excitationShape: clamp(morphed.excitationShape + hardnessDelta * .28, 0, 1),
+    burstLength: morphed.burstLength * clamp(.62 + noiseScale * .38, .35, 1.35),
+    pickPosition: lerp(morphed.pickPosition, gesturePick, .72),
+    pickWidth: clamp(morphed.pickWidth + hardnessDelta * .2, 0, 1),
+    dispersion: clamp(morphed.dispersion + stiffnessDelta * .55, 0, 1),
+    drive: clamp(morphed.drive + hardnessDelta * .34, 0, 1),
+    roughness: clamp(morphed.roughness + Math.max(0, noiseScale - 1) * .28, 0, 1),
+    coupling: clamp(morphed.coupling + stiffnessDelta * .28, 0, 1),
+    level: .62,
+  });
+}
+
+export function linearDrumKarplusStrongSettings(frequency, sourceSettings = {}, performance = {}) {
+  return karplusStrongSettingsFromLinearParameters(
+    linearDrumParameters(frequency, sourceSettings, performance),
+  );
 }
 
 function cancelledAudioStart() {
@@ -755,17 +828,24 @@ export class LinearDrumAudio {
     const velocity = clamp(finiteOr(options.velocity, .82), .05, 1);
     const now = context.currentTime + clamp(finiteOr(options.delay, 0), 0, .12);
     const voice = this.#createVoice(now, velocity);
-    const model = parameters.model;
+    const engine = options.engine === "karplus-strong" || parameters.model === "karplus-strong"
+      ? "karplus-strong"
+      : "rattlesnake";
 
-    if (model === "pitched") {
-      this.#addPitchedBody(parameters, voice, now);
-    } else if (model === "modal" || model === "hybrid") {
-      this.#addModalBody(parameters, voice, now, model === "hybrid" ? .75 : 1);
+    if (engine === "karplus-strong") {
+      this.#addKarplusStrongBody(parameters, voice, now);
+    } else {
+      const model = parameters.model;
+      if (model === "pitched") {
+        this.#addPitchedBody(parameters, voice, now);
+      } else if (model === "modal" || model === "hybrid") {
+        this.#addModalBody(parameters, voice, now, model === "hybrid" ? .75 : 1);
+      }
+      if (model === "fm" || model === "hybrid") {
+        this.#addFmBody(parameters, voice, now, model === "hybrid" ? .42 : .82);
+      }
+      this.#addImpact(parameters, voice, now);
     }
-    if (model === "fm" || model === "hybrid") {
-      this.#addFmBody(parameters, voice, now, model === "hybrid" ? .42 : .82);
-    }
-    this.#addImpact(parameters, voice, now);
     this.#registerVoice(voice, now);
     return parameters;
   }
@@ -775,6 +855,87 @@ export class LinearDrumAudio {
     output.gain.setValueAtTime(.38 * velocity, now);
     output.connect(this.input);
     return { output, sources: [], stopAt: now + .2 };
+  }
+
+  #addKarplusStrongBody(parameters, voice, now) {
+    const settings = karplusStrongSettingsFromLinearParameters(parameters);
+    const pan = (parameters.frequencyPosition * 2 - 1) * settings.spread;
+    this.#addKarplusStrongVoice(settings, voice, now, 1.45, pan);
+
+    const coupledFrequency = settings.frequency
+      * settings.couplingRatio
+      * (2 ** (settings.couplingDetune / 1_200));
+    if (settings.coupling > .04 && coupledFrequency < this.context.sampleRate * .22) {
+      this.#addKarplusStrongVoice({
+        ...settings,
+        frequency: coupledFrequency,
+        decay: Math.max(.2, settings.decay * (.42 + settings.coupling * .28)),
+        damping: clamp(settings.damping + .12, 0, 1),
+        brightness: clamp(settings.brightness - .08, 0, 1),
+        hardness: settings.hardness * .72,
+        pickPosition: 1 - settings.pickPosition,
+        pickupPosition: 1 - settings.pickupPosition,
+        coupling: 0,
+      }, voice, now + .006, settings.coupling * .44, -pan);
+    }
+  }
+
+  #addKarplusStrongVoice(settings, voice, now, level, pan) {
+    const context = this.context;
+    const duration = clamp(.14 + settings.decay * 1.02, .18, 16.5);
+    const samples = generateKarplusStrongSamples({
+      ...settings,
+      sampleRate: context.sampleRate,
+      duration,
+    });
+    const analysisFrames = Math.min(samples.length, Math.ceil(context.sampleRate * .14));
+    let energy = 0;
+    for (let index = 0; index < analysisFrames; index += 1) {
+      energy += samples[index] * samples[index];
+    }
+    const openingRms = Math.sqrt(energy / Math.max(1, analysisFrames));
+    const normalization = clamp(.24 / Math.max(.0001, openingRms), 1.15, 3.6);
+    const normalizedSamples = new Float32Array(samples.length);
+    for (let index = 0; index < samples.length; index += 1) {
+      normalizedSamples[index] = clamp(samples[index] * normalization, -1, 1);
+    }
+    const buffer = context.createBuffer(1, normalizedSamples.length, context.sampleRate);
+    if (typeof buffer.copyToChannel === "function") buffer.copyToChannel(normalizedSamples, 0);
+    else buffer.getChannelData(0).set(normalizedSamples);
+
+    const source = context.createBufferSource();
+    const tone = context.createBiquadFilter();
+    const body = context.createBiquadFilter();
+    const mix = context.createGain();
+    const panner = typeof context.createStereoPanner === "function"
+      ? context.createStereoPanner()
+      : null;
+    source.buffer = buffer;
+    tone.type = "lowpass";
+    tone.frequency.value = Math.min(
+      context.sampleRate * .44,
+      500 + settings.brightness ** 1.45 * 19_000,
+    );
+    tone.Q.value = .3 + settings.dispersion * 1.1;
+    body.type = "peaking";
+    body.frequency.value = Math.min(
+      context.sampleRate * .4,
+      settings.frequency * settings.bodyTune,
+    );
+    body.Q.value = settings.bodyQ;
+    body.gain.value = settings.body * 10;
+    mix.gain.value = Math.max(.0002, level);
+    source.connect(tone).connect(body).connect(mix);
+    if (panner) {
+      panner.pan.value = pan;
+      mix.connect(panner).connect(voice.output);
+    } else {
+      mix.connect(voice.output);
+    }
+    source.start(now);
+    source.stop(now + duration + .01);
+    voice.sources.push(source);
+    voice.stopAt = Math.max(voice.stopAt, now + duration + .01);
   }
 
   #addModalBody(parameters, voice, now, modelLevel) {

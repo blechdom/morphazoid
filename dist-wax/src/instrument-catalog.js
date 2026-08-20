@@ -264,9 +264,15 @@ const CATALOG_DETAILS = Object.freeze({
     ["MIDI", "Computer keys"],
   ),
   "linear-drums": define(
-    "Percussion synth",
-    "Maps frequency onto one continuous percussion body that morphs smoothly through drums and pitched percussion.",
-    "Turn on audio, choose a preset, then drag across the spectrum and reshape its parameter curves.",
+    "Five-model percussion synth",
+    "Maps frequency onto one continuous body with four Rattlesnake models plus a Karplus Strong model whose four complete presets morph across the snake.",
+    "Turn on audio, choose a sound model, then drag across the spectrum or silently reposition its dotted morph boundaries.",
+  ),
+  "karplus-strong": define(
+    "Physical-model synth",
+    "Plucks noise or impulse excitation into a tunable feedback-delay model with spectral loss, polarity, nonlinearity, modulation, pickup, body, and sympathetic-string controls.",
+    "Turn on audio, choose a string or preset, then click or drag across the stage to pluck and strum.",
+    ["Built-in synth", "MIDI", "Pointer", "Computer keys"],
   ),
   "sample-drums": define(
     "Sample instrument",
