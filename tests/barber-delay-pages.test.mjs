@@ -175,7 +175,13 @@ test("Sandy keeps pitch span, history, and grain texture as separate controls", 
   assert.match(sandy, /id="blend"[^>]+min="0"[^>]+max="1"/);
   assert.match(sandy, /Sand · held rate/);
   assert.match(sandy, /Syrup · live rate/);
-  assert.match(sandy, /PITCH PATH · GRAIN WINDOWS/);
+  assert.match(sandy, /INFINITE HEAD LOOP · HANN FADE/);
+  assert.match(
+    sandy,
+    /Tape heads cycle endlessly through a Shepard–Risset loop/,
+  );
+  assert.doesNotMatch(sandy, /BARBER SHOP POLES · 04/);
+  assert.doesNotMatch(sandy, /sample-and-hold sand ↔ continuous syrup/);
   assert.doesNotMatch(sandy, /liquid grain stripes/i);
   assert.doesNotMatch(sandy, /id="range"/);
   assert.doesNotMatch(sandy, /id="tapRange"/);
