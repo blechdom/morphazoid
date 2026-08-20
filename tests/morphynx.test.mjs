@@ -90,8 +90,8 @@ test("Morphynx page exposes the hybrid lab, full keyboard, mic, recording, and c
   assert.match(html, /data-source="internal"[\s\S]*data-source="mic"[\s\S]*data-source="hybrid"/);
   assert.match(html, /id="recordButton"/);
   assert.match(html, /id="phonemeButtons"/);
-  assert.match(html, /src="nav\.js"/);
-  assert.match(html, /src="morphynx-app\.js"/);
+  assert.match(html, /src="nav\.js\?v=morphynx-responsive-[^"]+"/);
+  assert.match(html, /src="morphynx-app\.js\?v=morphynx-responsive-[^"]+"/);
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, "Morphynx element IDs stay unique");
 
@@ -101,6 +101,8 @@ test("Morphynx page exposes the hybrid lab, full keyboard, mic, recording, and c
   assert.match(app, /morphynxKeyboardCommand/);
   assert.match(css, /\.morphynx-phoneme-grid/);
   assert.match(css, /\.morphynx-stage-axis/);
+  assert.match(css, /orientation:\s*landscape[\s\S]*grid-template-columns:[\s\S]*\.morphynx-page \.panel[\s\S]*overflow-y:\s*auto/);
+  assert.match(html, /href="morphynx\.css\?v=morphynx-responsive-[^"]+"/);
   assert.ok(iconStat.size > 1_000);
   assert.equal(icon.subarray(0, 4).toString("ascii"), "RIFF");
   assert.equal(icon.subarray(8, 12).toString("ascii"), "WEBP");

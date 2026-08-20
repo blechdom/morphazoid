@@ -13,16 +13,16 @@ import {
   resolveSourceControls,
   sampleModulationWave,
   sanitizeSyrinxState,
-} from "./src/syrinx.js";
-import { connectAudioOutput } from "./src/audio-output-manager.js";
-import { unlockAudioContext } from "./src/audio.js";
+} from "./src/syrinx.js?v=syrinx-ui-20260819-1";
+import { connectAudioOutput } from "./src/audio-output-manager.js?v=syrinx-ui-20260819-1";
+import { unlockAudioContext } from "./src/audio.js?v=syrinx-ui-20260819-1";
 import {
   DEFAULT_TONGUE_STATE,
   TONGUE_ANATOMIES,
   sanitizeTongueState,
   tongueCavityGuides,
   tongueGeometry,
-} from "./src/tongue-physics.js";
+} from "./src/tongue-physics.js?v=syrinx-ui-20260819-1";
 
 const $ = (id) => document.getElementById(id);
 const animalSelect = $("animalSelect");
@@ -1772,10 +1772,8 @@ function renderUniversalStage(time) {
   drawProgress(layout);
   const handleLayout = universalFaceLayout(state);
   handles = universalHandleList(handleLayout, state);
-  if (cssHeight > 220 && cssWidth > 430) {
-    handles.forEach(drawUniversalRail);
-    handles.forEach(drawHandle);
-  }
+  handles.forEach(drawUniversalRail);
+  handles.forEach(drawHandle);
 }
 
 function renderStage(time) {

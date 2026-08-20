@@ -32,11 +32,12 @@ test("Syrinx UI exposes the two-menu preset bank, universal controls, and loop s
   assert.match(html, /id="loopGap"[^>]*type="range"[^>]*max="8000"/);
   assert.match(html, /id="loopGapOut"/);
   assert.match(html, /id="breathButton"/);
-  assert.match(html, /src="syrinx-app\.js"/);
-  assert.match(html, /href="syrinx-ui\.css"/);
+  assert.match(html, /src="syrinx-app\.js\?v=syrinx-ui-[^"]+"/);
+  assert.match(html, /href="syrinx-ui\.css\?v=syrinx-ui-[^"]+"/);
   assert.match(original, /<body[^>]*class="[^"]*syrinx-ui-page[^"]*"/);
-  assert.match(original, /href="syrinx-ui\.css"/);
+  assert.match(original, /href="syrinx-ui\.css\?v=syrinx-ui-[^"]+"/);
   assert.match(css, /\.syrinx-ui-page/);
+  assert.match(css, /orientation:\s*landscape[\s\S]*grid-template-columns:[\s\S]*\.syrinx-ui-page \.panel[\s\S]*overflow-y:\s*auto/);
   assert.doesNotMatch(html, /class="syrinx-word"/);
   assert.match(html, /syrinx-panel-transport[\s\S]*syrinx-panel-presets[\s\S]*syrinx-specimen-card/);
   const stageMarkup = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
@@ -52,6 +53,10 @@ test("Syrinx UI exposes the two-menu preset bank, universal controls, and loop s
   assert.match(app, /FOLD CAN/);
   assert.match(app, /radius:\s*12/);
   assert.match(app, /function drawUniversalRail/);
+  const universalStage = functionBody(app, "renderUniversalStage", "renderStage");
+  assert.match(universalStage, /handles\.forEach\(drawUniversalRail\)/);
+  assert.match(universalStage, /handles\.forEach\(drawHandle\)/);
+  assert.doesNotMatch(universalStage, /css(?:Width|Height)\s*[<>]/);
   assert.match(app, /const SILHOUETTE_PRESETS/);
   assert.match(app, /function drawAnimalSilhouette/);
   for (const control of ["level", "gestureRate", "loopGapMs", "modulators"]) {
@@ -104,6 +109,18 @@ test("Syrinx UI exposes the two-menu preset bank, universal controls, and loop s
   for (const runtimeFile of ["syrinx-ui.html", "syrinx-ui.css"]) {
     assert.match(build, new RegExp(runtimeFile.replaceAll(".", "\\.")));
   }
+});
+
+
+test("Tongued Beasts keeps viewport handles and the parameter panel available on mobile", async () => {
+  const [html, css] = await Promise.all([
+    readFile(new URL("tongued-beasts.html", root), "utf8"),
+    readFile(new URL("tongued-beasts.css", root), "utf8"),
+  ]);
+  assert.match(html, /class="[^"]*syrinx-ui-page[^"]*tongued-beasts-page[^"]*"/);
+  assert.match(html, /src="syrinx-app\.js\?v=syrinx-ui-[^"]+"/);
+  assert.match(html, /href="tongued-beasts\.css\?v=syrinx-ui-[^"]+"/);
+  assert.match(css, /orientation:\s*landscape[\s\S]*grid-template-columns:[\s\S]*\.tongued-beasts-page \.panel[\s\S]*overflow-y:\s*auto/);
 });
 
 test("unlocked Syrinx states use full safe ranges while locked presets retain species bounds", () => {
