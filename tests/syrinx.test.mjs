@@ -8,7 +8,10 @@ import {
   animalState,
   callsForAnimal,
   interpolateGesture,
+  modulateSyrinxState,
+  randomizeSyrinxState,
   resolveSourceControls,
+  sampleModulationWave,
   sanitizeSyrinxState,
 } from "../src/syrinx.js";
 import { syrinxSourceModelId } from "../src/syrinx-source-models.js";
@@ -19,6 +22,12 @@ const ANIMAL_IDS = Object.freeze([
   "dog",
   "elephant",
   "alligator",
+  "cat",
+  "horse",
+  "reddeer",
+  "hyena",
+  "wildboar",
+  "cow",
   "raven",
   "songbird",
   "dove",
@@ -138,6 +147,49 @@ test("animal presets cover four physical source families with complete playable 
   assert.equal(animalState("raven").sourceModel, "bird");
   assert.equal(animalState("bullfrog").sourceModel, "frog");
   assert.equal(animalState("mouse").sourceModel, "rodent");
+});
+
+test("new researched mammals expose additive call banks without replacing legacy presets", () => {
+  const expectedCalls = {
+    cat: ["cat-meow", "cat-purr"],
+    horse: ["horse-whinny", "horse-nicker"],
+    reddeer: ["reddeer-common-roar", "reddeer-harsh-roar"],
+    hyena: ["hyena-whoop", "hyena-giggle"],
+    wildboar: ["wildboar-grunt", "wildboar-squeal"],
+    cow: ["cow-moo", "cow-contact"],
+  };
+  for (const [animalId, callIds] of Object.entries(expectedCalls)) {
+    assert.deepEqual(ANIMALS[animalId].callIds, callIds);
+    assert.deepEqual(callsForAnimal(animalId).map(({ id }) => id), callIds);
+  }
+  assert.equal(resolveSourceControls(interpolateGesture("cat-purr", 0.5, animalState("cat"))).frequencyHz >= 25, true);
+});
+
+test("randomization preserves selected animal, call, loop, and safe bounds", () => {
+  const before = animalState("wolf", { callId: "wolf-howl", loop: true, biologicalLock: false });
+  const after = randomizeSyrinxState(before, () => 0.75);
+  assert.equal(after.animalId, before.animalId);
+  assert.equal(after.callId, before.callId);
+  assert.equal(after.loop, true);
+  assert.equal(after.biologicalLock, false);
+  assert.notEqual(after.pressure, before.pressure);
+});
+
+test("assignable modulators move targets without mutating their baseline", () => {
+  const baseline = animalState("wolf", { biologicalLock: false, active: true });
+  const snapshot = structuredClone(baseline);
+  const modulated = modulateSyrinxState(baseline, [{
+    enabled: true,
+    target: "tension",
+    shape: "sine",
+    rateHz: 1,
+    depth: 0.5,
+  }], 0.25);
+  assert.ok(modulated.tension > baseline.tension);
+  assert.equal(modulated.active, true);
+  assert.deepEqual(baseline, snapshot);
+  assert.equal(sampleModulationWave("triangle", 0.5), 1);
+  assert.equal(sampleModulationWave("square", 0.75), -1);
 });
 
 test("Syrinx state sanitation rejects invalid selectors and keeps physical controls bounded", () => {
@@ -321,6 +373,23 @@ test("the Syrinx worklet joins each source family to a finite variable-length tr
   for (const profile of profileSignatures) {
     assert.ok(profile.every((diameter) => Number.isFinite(diameter) && diameter > 0));
   }
+
+  const ravenBase = {
+    ...resolveSourceControls(animalState("raven")),
+    animalId: "raven",
+  };
+  const tonguePosition = 0.68;
+  const untonguedDiameter = tractDiameterAt(tonguePosition, ravenBase);
+  const tonguedDiameter = tractDiameterAt(tonguePosition, {
+    ...ravenBase,
+    tongueEnabled: true,
+    tongueAnatomy: "human",
+    tonguePosition: 0.58,
+    tongueHeight: 0.8,
+    tongueShape: 0.5,
+    tongueTip: 0.35,
+  });
+  assert.ok(tonguedDiameter < untonguedDiameter, "tongue geometry must constrict the host waveguide");
 
   const speedOfSound = 343;
   const waveguideRateForTest = (outputRate) => (

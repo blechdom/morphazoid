@@ -71,6 +71,8 @@ for worktree_runtime_file in \
   syrinx.html \
   syrinx.css \
   syrinx-app.js \
+  syrinx-ui.html \
+  syrinx-ui.css \
   src/syrinx.js \
   src/syrinx-source-models.js \
   src/syrinx-processor.js \
@@ -333,6 +335,8 @@ required_files=(
   syrinx.html
   syrinx.css
   syrinx-app.js
+  syrinx-ui.html
+  syrinx-ui.css
   src/syrinx.js
   src/syrinx-source-models.js
   src/syrinx-processor.js
