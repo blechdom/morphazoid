@@ -82,6 +82,7 @@ for worktree_runtime_file in \
   hyper-syrinx.html \
   hyper-syrinx.css \
   hyper-syrinx-app.js \
+  assets/instruments/hyper-syrinx.webp \
   src/syrinx.js \
   src/syrinx-source-models.js \
   src/syrinx-processor.js \
@@ -357,6 +358,7 @@ required_files=(
   hyper-syrinx.html
   hyper-syrinx.css
   hyper-syrinx-app.js
+  assets/instruments/hyper-syrinx.webp
   src/syrinx.js
   src/syrinx-source-models.js
   src/syrinx-processor.js

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { TOOL_GROUPS } from "../nav.js";
+import { instrumentById } from "../src/instrument-catalog.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -52,19 +53,26 @@ test("Hyper-Syrinx exposes a complete multiply-in-place vocal flow", async () =>
   assert.match(css, /prefers-reduced-motion/);
 });
 
-test("Hyper-Syrinx is discoverable and enters clean release builds", async () => {
+test("Hyper-Syrinx is an Experiments WIP and enters clean release builds", async () => {
   const tool = TOOL_GROUPS
-    .find(({ id }) => id === "signal-voice")
+    .find(({ id }) => id === "experiments")
     ?.tools.find(({ id }) => id === "hyper-syrinx");
   assert.deepEqual(tool, {
     id: "hyper-syrinx",
     label: "Hyper-Syrinx",
     href: "hyper-syrinx.html",
-    catalogue: false,
   });
+  const instrument = instrumentById("hyper-syrinx");
+  assert.equal(instrument?.status, "Works in progress");
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["experiments"]);
 
   const build = await readFile(new URL("scripts/build-site.sh", root), "utf8");
-  for (const file of ["hyper-syrinx.html", "hyper-syrinx.css", "hyper-syrinx-app.js"]) {
+  for (const file of [
+    "hyper-syrinx.html",
+    "hyper-syrinx.css",
+    "hyper-syrinx-app.js",
+    "assets/instruments/hyper-syrinx.webp",
+  ]) {
     assert.match(build, new RegExp(file.replaceAll(".", "\\.")));
   }
 });

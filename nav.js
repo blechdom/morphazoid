@@ -134,12 +134,6 @@ export const TOOL_GROUPS = Object.freeze([
     },
     { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html", catalogue: false },
     {
-      id: "hyper-syrinx",
-      label: "Hyper-Syrinx",
-      href: "hyper-syrinx.html",
-      catalogue: false,
-    },
-    {
       id: "spelling-synthesizer",
       label: "Spelling Synthesizer",
       href: "spelling-synthesizer.html",
@@ -226,6 +220,7 @@ export const TOOL_GROUPS = Object.freeze([
       catalogue: false,
     },
     { id: "alien-larynx", label: "Alien Larynx", href: "alien-larynx.html" },
+    { id: "hyper-syrinx", label: "Hyper-Syrinx", href: "hyper-syrinx.html" },
     {
       id: "escher-tessellation",
       label: "Escher",

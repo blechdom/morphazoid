@@ -455,7 +455,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "morphynx", label: "Morphynx", href: "morphynx.html" },
       { id: "tongued-beasts", label: "Tongued Beasts", href: "tongued-beasts.html" },
       { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
-      { id: "hyper-syrinx", label: "Hyper-Syrinx", href: "hyper-syrinx.html" },
       {
         id: "spelling-synthesizer",
         label: "Spelling Synthesizer",
@@ -583,6 +582,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "instrument-share-room", href: "instrument-share-room.html" },
       { id: "morphazoid-roulette", href: "morphazoid-roulette.html" },
       { id: "alien-larynx", href: "alien-larynx.html" },
+      { id: "hyper-syrinx", href: "hyper-syrinx.html" },
       { id: "escher-tessellation", href: "escher-tessellation.html" },
       { id: "plasma-ball", href: "plasma-ball.html" },
       { id: "order-tones", href: "order-tones.html" },
