@@ -1,0 +1,279 @@
+.adaptive-airway-page {
+  --accent: #7ee7ff;
+  --accent-soft: color-mix(in oklab, #7ee7ff 38%, transparent);
+  --panel-bg: #070b0f;
+  --ink: #dce8ef;
+  --muted: #88a0b0;
+  background: #03070b;
+}
+
+.adaptive-airway-page .masthead {
+  background: #05090d;
+}
+
+.adaptive-airway-tab {
+  color: var(--accent);
+}
+
+.adaptive-airway-shell {
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+}
+
+.adaptive-airway-stage {
+  padding: clamp(18px, 2.2vw, 30px);
+  background:
+    radial-gradient(ellipse at 15% 22%, rgba(126, 231, 255, 0.06), transparent 52%),
+    radial-gradient(ellipse at 92% 86%, rgba(186, 145, 255, 0.06), transparent 58%),
+    #04080d;
+}
+
+.adaptive-airway-summary h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(22px, 3vw, 34px);
+  letter-spacing: 0.01em;
+}
+
+.adaptive-airway-summary p {
+  max-width: 68ch;
+  margin: 10px 0 0;
+  color: #a4b9c5;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.adaptive-airway-summary ul {
+  margin: 14px 0 0;
+  padding-left: 18px;
+  color: #c0d1db;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.adaptive-airway-summary li + li {
+  margin-top: 4px;
+}
+
+.adaptive-airway-live {
+  display: grid;
+  margin-top: 14px;
+  border: 1px solid rgba(126, 231, 255, 0.28);
+  background: rgba(7, 11, 15, 0.7);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.adaptive-airway-live span {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border-right: 1px solid rgba(126, 231, 255, 0.15);
+}
+
+.adaptive-airway-live span:last-child {
+  border-right: 0;
+}
+
+.adaptive-airway-live small {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.adaptive-airway-live output {
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.adaptive-airway-comparison {
+  margin-top: 18px;
+  border: 1px solid rgba(220, 232, 239, 0.15);
+  background: rgba(4, 8, 13, 0.8);
+}
+
+.adaptive-airway-comparison h2 {
+  margin: 0;
+  padding: 12px;
+  border-bottom: 1px solid rgba(220, 232, 239, 0.12);
+  color: var(--ink);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.adaptive-airway-comparison table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.adaptive-airway-comparison th,
+.adaptive-airway-comparison td {
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(220, 232, 239, 0.08);
+  border-right: 1px solid rgba(220, 232, 239, 0.08);
+  color: #b7c9d5;
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: left;
+  vertical-align: top;
+}
+
+.adaptive-airway-comparison th {
+  color: #cde2f0;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.adaptive-airway-comparison tr:last-child td {
+  border-bottom: 0;
+}
+
+.adaptive-airway-comparison th:last-child,
+.adaptive-airway-comparison td:last-child {
+  border-right: 0;
+}
+
+.adaptive-airway-panel {
+  padding: clamp(16px, 2vw, 24px);
+  color: #b8cbd8;
+  background:
+    linear-gradient(160deg, rgba(126, 231, 255, 0.03), transparent 38%),
+    var(--panel-bg);
+}
+
+.adaptive-airway-panel section + section {
+  margin-top: 14px;
+}
+
+.adaptive-airway-transport {
+  display: grid;
+  border: 1px solid rgba(220, 232, 239, 0.16);
+  grid-template-columns: 1fr 1fr;
+}
+
+.adaptive-airway-transport button {
+  display: grid;
+  min-height: 58px;
+  border: 0;
+  border-right: 1px solid rgba(220, 232, 239, 0.14);
+  cursor: pointer;
+  color: #b6cad7;
+  background: #071018;
+  align-content: center;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  text-align: left;
+}
+
+.adaptive-airway-transport button:last-child {
+  border-right: 0;
+}
+
+.adaptive-airway-transport button:hover,
+.adaptive-airway-transport button:focus-visible {
+  color: #e3f4ff;
+  background: #0a1620;
+}
+
+.adaptive-airway-transport button[aria-pressed="true"] {
+  color: #041018;
+  background: var(--accent);
+}
+
+.adaptive-airway-transport button b,
+.adaptive-airway-transport button small {
+  display: block;
+}
+
+.adaptive-airway-transport button b {
+  font-size: 11px;
+}
+
+.adaptive-airway-transport button small {
+  color: color-mix(in oklab, currentColor 72%, #102532);
+  font-size: 8px;
+}
+
+.adaptive-airway-selectors,
+.adaptive-airway-controls,
+.adaptive-airway-notes {
+  padding: 10px;
+  border: 1px solid rgba(220, 232, 239, 0.14);
+  background: rgba(6, 11, 16, 0.7);
+}
+
+.adaptive-airway-selectors label,
+.adaptive-airway-controls label {
+  display: grid;
+  gap: 6px;
+}
+
+.adaptive-airway-selectors label + label,
+.adaptive-airway-controls label + label {
+  margin-top: 8px;
+}
+
+.adaptive-airway-selectors span,
+.adaptive-airway-controls span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.adaptive-airway-selectors select,
+.adaptive-airway-controls input {
+  width: 100%;
+}
+
+.adaptive-airway-controls output {
+  color: var(--ink);
+  letter-spacing: 0;
+}
+
+.adaptive-airway-selectors p {
+  margin: 8px 0 0;
+  color: #9bb0be;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.adaptive-airway-notes h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.adaptive-airway-notes ul {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  color: #a9bfcc;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+@media (max-width: 1180px) {
+  .adaptive-airway-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .adaptive-airway-live {
+    grid-template-columns: 1fr;
+  }
+
+  .adaptive-airway-live span {
+    border-right: 0;
+    border-bottom: 1px solid rgba(126, 231, 255, 0.15);
+  }
+
+  .adaptive-airway-live span:last-child {
+    border-bottom: 0;
+  }
+}

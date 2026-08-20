@@ -125,6 +125,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
     { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
+    { id: "adaptive-airway", label: "Adaptive Airway", href: "adaptive-airway.html", catalogue: false },
     { id: "morphynx", label: "Morphynx", href: "morphynx.html" },
     {
       id: "tongued-beasts",
