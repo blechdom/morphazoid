@@ -309,6 +309,7 @@ for worktree_runtime_file in \
   chladni-plate.html \
   spring-choir.html \
   gear-ratio-drums.html \
+  automata.html \
   cellular-automata.html \
   prime-sieve.html \
   lissajous-orbits.html \
@@ -570,6 +571,7 @@ required_files=(
   chladni-plate.html
   spring-choir.html
   gear-ratio-drums.html
+  automata.html
   cellular-automata.html
   prime-sieve.html
   lissajous-orbits.html

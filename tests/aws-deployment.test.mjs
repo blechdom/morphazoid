@@ -271,6 +271,7 @@ test("site builder publishes runtime files without development material", async 
       "chladni-plate.html",
       "spring-choir.html",
       "gear-ratio-drums.html",
+      "automata.html",
       "cellular-automata.html",
       "prime-sieve.html",
       "lissajous-orbits.html",

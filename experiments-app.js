@@ -166,6 +166,44 @@ class ExperimentAudio {
     oscillator.stop(now + duration + 0.03);
   }
 
+  triggerRowScan(cells, rate = 8) {
+    if (!this.running || !this.context || !cells?.some(Boolean)) return;
+    const now = this.context.currentTime;
+    const sampleRate = this.context.sampleRate || 48_000;
+    const duration = clamp(0.82 / clamp(rate, 1, 24), 0.03, 0.18);
+    const frameCount = Math.max(256, Math.round(sampleRate * duration));
+    const buffer = this.context.createBuffer(1, frameCount, sampleRate);
+    const samples = buffer.getChannelData(0);
+    const framesPerCell = frameCount / cells.length;
+    const edgeFrames = Math.max(2, Math.min(48, Math.round(framesPerCell * 0.3)));
+    let noiseState = cells.reduce(
+      (seed, cell, index) => (seed ^ ((cell ? 0x9e3779b9 : 0x85ebca6b) + index * 0x27d4eb2d)) >>> 0,
+      0x6d2b79f5,
+    );
+
+    for (let cellIndex = 0; cellIndex < cells.length; cellIndex += 1) {
+      if (!cells[cellIndex]) continue;
+      const start = Math.floor(cellIndex * framesPerCell);
+      const end = Math.min(frameCount, Math.floor((cellIndex + 1) * framesPerCell));
+      for (let frame = start; frame < end; frame += 1) {
+        noiseState = (1664525 * noiseState + 1013904223) >>> 0;
+        const noise = (noiseState / 0x100000000) * 2 - 1;
+        const attack = Math.min(1, (frame - start + 1) / edgeFrames);
+        const release = Math.min(1, (end - frame) / edgeFrames);
+        samples[frame] = noise * attack * release * 0.34;
+      }
+    }
+
+    const source = this.context.createBufferSource();
+    const output = this.context.createGain();
+    source.buffer = buffer;
+    output.gain.value = 0.72;
+    source.connect(output);
+    output.connect(this.master);
+    source.start(now);
+    source.stop(now + duration + 0.01);
+  }
+
   silence() {
     if (!this.context) return;
     const now = this.context.currentTime;
@@ -807,19 +845,7 @@ function stepAutomataRow(audition = true) {
 
 function soundAutomataRow(row) {
   if (!state.audioOn) return;
-  const stride = Math.max(1, Math.floor(row.length / 12));
-  for (let index = 0; index < row.length; index += stride) {
-    if (!row[index]) continue;
-    const degree = PENTATONIC[Math.floor((index / row.length) * PENTATONIC.length)];
-    const frequency = 92 * 2 ** (degree / 12);
-    audio.trigger({
-      frequency,
-      gain: 0.055 + state.caStats.density * 0.05,
-      duration: 0.045,
-      type: index % 2 ? "triangle" : "sine",
-      pan: (index / (row.length - 1)) * 2 - 1,
-    });
-  }
+  audio.triggerRowScan(row, state.caRate);
 }
 
 function stepAutomata(dt) {
@@ -2108,19 +2134,11 @@ const EXPERIMENTS = {
       stepAutomata(dt);
     },
     draw: drawAutomata,
-    drone() {
-      const density = state.caStats.density;
-      const transitions = state.caStats.transitions / Math.max(1, state.caWidth);
-      return [
-        { frequency: 68 + density * 260, gain: 0.025 + density * 0.07, type: "triangle", pan: -0.2 },
-        { frequency: 136 + transitions * 360, gain: 0.018 + transitions * 0.055, type: "sine", pan: 0.2 },
-      ];
-    },
     summary() {
       setText("metricPrimary", percent(state.caStats.density));
       setText("metricSecondary", `${state.caStats.transitions}`);
       setText("patternSummary", `Rule ${Math.round(state.caRule)}`);
-      setText("stageReadout", `CELLULAR AUTOMATA · RULE ${Math.round(state.caRule)} · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+      setText("stageReadout", `AUTOMATA · RULE ${Math.round(state.caRule)} · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
       updateAutomataButtons();
     },
   },

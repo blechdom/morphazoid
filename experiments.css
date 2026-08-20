@@ -122,6 +122,22 @@
   margin-bottom: 10px;
 }
 
+.experiment-reference-copy {
+  margin: 14px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.experiment-reference-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 0;
+  text-decoration: none;
+}
+
 .experiment-button-grid {
   display: grid;
   gap: 8px;

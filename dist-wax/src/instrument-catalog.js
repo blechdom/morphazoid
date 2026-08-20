@@ -410,9 +410,9 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose tooth counts, then start the gears and change their speed.",
   ),
   "cellular-automata": define(
-    "Algorithmic synth",
-    "Scrolls elementary cellular automata while live cells, density, and transitions drive sparse tones and drones.",
-    "Turn on audio, choose a rule and seed, then start the generations.",
+    "Algorithmic texture",
+    "Scrolls elementary automata while each generation becomes a short mono black-and-white pulse texture.",
+    "Turn on audio, choose a rule and seed, then hear every new row scan from beginning to end.",
   ),
   "prime-sieve": define(
     "Algorithmic sequencer",

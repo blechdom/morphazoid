@@ -255,8 +255,8 @@ export const TOOL_GROUPS = Object.freeze([
     },
     {
       id: "cellular-automata",
-      label: "Cellular Automata",
-      href: "cellular-automata.html",
+      label: "Automata, Automay-to",
+      href: "automata.html",
     },
     { id: "prime-sieve", label: "Prime Sieve", href: "prime-sieve.html" },
     {
