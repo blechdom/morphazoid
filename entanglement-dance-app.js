@@ -64,6 +64,8 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const pct = (v) => `${Math.round(clamp(v, 0, 1) * 100)}%`;
 
+const MEASURE_FLASH_MS = 680;
+
 // ─── quantum model ────────────────────────────────────────────────────────────
 // Physics functions (blochAngles, bellProbabilities, bellCorrelation,
 // bellConcurrence, sampleBellOutcome) are imported from src/entanglement-dance.js.
