@@ -2,6 +2,7 @@ import {
   BARBER_DELAY_DEFAULTS,
   BARBER_DELAY_PRESETS,
   BarberDelayAudio,
+  barberDelayCurve,
   barberDelayPitchEstimate,
   barberDelaySliderPosition,
   barberDelaySliderValue,
@@ -13,6 +14,8 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
+const CANDY_RED = "#dc2f3f";
+const CANDY_WHITE = "#fff7ea";
 const requestedMode = document.body.dataset.delayMode;
 const mode = requestedMode === "sandy" ? "sandy" : "candy";
 const isCandy = mode === "candy";
@@ -24,7 +27,7 @@ const context2d = canvas.getContext("2d", { alpha: true, desynchronized: true })
 const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 const waveform = new Float32Array(512);
 const colors = isCandy
-  ? ["#506428", "#d8c99e", "#50c8ff", "#3c5032", "#76552f"]
+  ? [CANDY_RED, CANDY_WHITE]
   : ["#20ccaa", "#9b79de", "#00dcc8", "#7548bd", "#4aaea2"];
 
 const initialPreset = isSandy ? null : presets[0];
@@ -264,13 +267,11 @@ function updateInterface({ drawNow = true } = {}) {
       : formatMilliseconds(settings.range).toUpperCase(),
     state.audioOn ? "AUDIO ON" : "AUDIO OFF",
   ].join(" · ");
-  $("scopeState").textContent = isSandy
-    ? `LIVE SCOPES · ${state.audioOn ? "ACTIVE" : "IDLE"}`
-    : `SCOPE · ${state.audioOn ? "LIVE" : "IDLE"}`;
+  $("scopeState").textContent = `LIVE SCOPES · ${state.audioOn ? "ACTIVE" : "IDLE"}`;
   canvas.setAttribute(
     "aria-label",
     isCandy
-      ? `Unboxed olive, cyan, cream, and earth centered-hump delay paths with small waveform fragments moving ${settings.directionUp ? "upward" : "downward"} and fading into the stage edges. Audio ${state.audioOn ? "on" : "off"}.`
+      ? `${settings.numVoices} unboxed live oscilloscopes alternate white on red and red on white along a candy-striped centered-hump path moving ${settings.directionUp ? "upward" : "downward"}. Audio ${state.audioOn ? "on" : "off"}.`
       : `An escalator of ${settings.numVoices} live oscilloscope screens moves ${settings.directionUp ? "upward" : "downward"} through a ${settings.pitchOctaves.toFixed(1)} octave Shepard–Risset loop, fading each delay head in and out. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 
@@ -564,37 +565,6 @@ function wrapPhase(value) {
   return ((value % 1) + 1) % 1;
 }
 
-function drawAudioFragment(ctx, x, y, size, color, alpha, seed = 0) {
-  const halfWidth = Math.max(4, size * 1.45);
-  const amplitude = Math.max(2, size * 0.58);
-  const lean = Math.sin(seed * 2.17) * amplitude * 0.24;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(Math.sin(seed * 1.31) * 0.16);
-  ctx.strokeStyle = color;
-  ctx.globalAlpha = alpha;
-  ctx.lineWidth = Math.max(0.8, Math.min(1.65, size * 0.18));
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.beginPath();
-  ctx.moveTo(-halfWidth, lean);
-  ctx.lineTo(-halfWidth * 0.58, -amplitude * 0.34);
-  ctx.lineTo(-halfWidth * 0.25, amplitude * 0.52);
-  ctx.lineTo(0, -amplitude);
-  ctx.lineTo(halfWidth * 0.24, amplitude * 0.78);
-  ctx.lineTo(halfWidth * 0.57, -amplitude * 0.28);
-  ctx.lineTo(halfWidth, -lean);
-  ctx.stroke();
-
-  ctx.globalAlpha = alpha * 0.46;
-  ctx.lineWidth = Math.max(0.65, size * 0.1);
-  ctx.beginPath();
-  ctx.moveTo(0, -amplitude * 1.52);
-  ctx.lineTo(0, amplitude * 1.45);
-  ctx.stroke();
-  ctx.restore();
-}
-
 function fadeStageArtwork(ctx, width, height) {
   const radius = Math.max(1, width * 0.56);
   ctx.save();
@@ -612,13 +582,96 @@ function fadeStageArtwork(ctx, width, height) {
   ctx.restore();
 }
 
+function readScopeSignal() {
+  const hasSignal = state.audioOn && audio.getTimeDomainData(waveform);
+  let signalPeak = 0.02;
+  if (hasSignal) {
+    for (const sample of waveform) {
+      if (Number.isFinite(sample)) {
+        signalPeak = Math.max(signalPeak, Math.abs(sample));
+      }
+    }
+  }
+  return { hasSignal, signalPeak };
+}
+
+function drawCandyOscilloscope(
+  ctx,
+  head,
+  scope,
+  hasSignal,
+  signalPeak,
+) {
+  const halfWidth = scope.width * 0.5;
+  const headAlpha = 0.08 + head.window * 0.92;
+  const pointCount = Math.max(36, Math.round(scope.width));
+  const displayGain = Math.min(4.5, 0.72 / Math.max(0.02, signalPeak));
+  const sampleStride = Math.max(0.22, Math.min(4.5, head.rate ** 0.42));
+  const sampleOffset = Math.floor(
+    wrapPhase(
+      head.phase
+      + head.history / Math.max(0.1, state.settings.range) * 0.25,
+    ) * waveform.length,
+  );
+
+  ctx.save();
+  ctx.translate(head.x, head.y);
+  // Stand each scope across the pitch path so neighboring heads remain
+  // visually separate instead of joining into one long waveform ribbon.
+  ctx.rotate(head.angle + Math.PI * 0.5);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  for (let point = 0; point < pointCount; point += 1) {
+    const normalized = point / Math.max(1, pointCount - 1);
+    const samplePosition = (
+      sampleOffset
+      + Math.floor(normalized * (waveform.length - 1) * sampleStride)
+    ) % waveform.length;
+    const sample = hasSignal && Number.isFinite(waveform[samplePosition])
+      ? waveform[samplePosition]
+      : 0;
+    const x = -halfWidth + normalized * scope.width;
+    const y = -sample * scope.height * 0.42 * displayGain;
+    if (point === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+
+  // The broad under-stroke is the scope body: candy-colored, curved, and
+  // deliberately unboxed. The thin live trace alternates white/red on top.
+  ctx.globalAlpha = headAlpha * (hasSignal ? 0.9 : 0.62);
+  ctx.strokeStyle = head.back;
+  ctx.lineWidth = scope.compact ? 10 : 15;
+  ctx.shadowColor = head.back;
+  ctx.shadowBlur = scope.compact ? 6 : 10;
+  ctx.stroke();
+
+  ctx.globalAlpha = headAlpha * (hasSignal ? 1 : 0.78);
+  ctx.strokeStyle = head.ink;
+  ctx.lineWidth = scope.compact ? 1.4 : 2;
+  ctx.shadowColor = head.ink;
+  ctx.shadowBlur = hasSignal ? (scope.compact ? 3 : 6) : 2;
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawCandyField(ctx, width, height) {
-  const fieldWidth = width * 1.04;
+  const headCount = state.settings.numVoices;
+  const compact = width <= 520 || height < 360;
+  const fieldWidth = Math.min(width * 0.94, 980);
   const fieldHeight = Math.min(height * 0.54, 440);
   const left = (width - fieldWidth) * 0.5;
   const centerY = height * 0.52;
-  const amplitude = fieldHeight * 0.36;
+  const amplitude = fieldHeight * 0.52;
   const direction = state.settings.directionUp ? 1 : -1;
+  const scope = {
+    width: compact
+      ? Math.max(32, Math.min(50, fieldWidth / (headCount * 0.92)))
+      : Math.max(68, Math.min(104, fieldWidth / (headCount * 1.05))),
+    height: compact ? 18 : 32,
+    compact,
+  };
+  const { hasSignal, signalPeak } = readScopeSignal();
 
   ctx.save();
   const glow = ctx.createRadialGradient(
@@ -629,13 +682,14 @@ function drawCandyField(ctx, width, height) {
     centerY,
     fieldWidth * 0.45,
   );
-  glow.addColorStop(0, "rgba(80, 200, 255, 0.09)");
-  glow.addColorStop(1, "rgba(80, 200, 255, 0)");
+  glow.addColorStop(0, "rgba(220, 47, 63, 0.18)");
+  glow.addColorStop(0.55, "rgba(255, 247, 234, 0.055)");
+  glow.addColorStop(1, "rgba(220, 47, 63, 0)");
   ctx.fillStyle = glow;
   ctx.fillRect(left, centerY - fieldHeight * 0.7, fieldWidth, fieldHeight * 1.4);
 
   ctx.setLineDash([5, 8]);
-  ctx.strokeStyle = "rgba(216, 201, 158, 0.22)";
+  ctx.strokeStyle = "rgba(255, 247, 234, 0.24)";
   ctx.beginPath();
   ctx.moveTo(left, centerY);
   ctx.lineTo(left + fieldWidth, centerY);
@@ -653,9 +707,9 @@ function drawCandyField(ctx, width, height) {
       if (step === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = colors[(stripe + 5) % colors.length];
-    ctx.lineWidth = stripe === 0 ? 5 : 2.4;
-    ctx.globalAlpha = stripe === 0 ? 0.54 : 0.25;
+    ctx.strokeStyle = stripe % 2 === 0 ? CANDY_RED : CANDY_WHITE;
+    ctx.lineWidth = stripe === 0 ? 6 : 2.6;
+    ctx.globalAlpha = stripe === 0 ? 0.66 : 0.3;
     ctx.stroke();
   }
 
@@ -670,25 +724,50 @@ function drawCandyField(ctx, width, height) {
     if (step === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
-  ctx.strokeStyle = "rgba(156, 173, 69, 0.42)";
+  ctx.strokeStyle = "rgba(255, 247, 234, 0.42)";
   ctx.lineWidth = 1;
   ctx.stroke();
   ctx.setLineDash([]);
 
-  const heads = state.settings.numVoices;
-  for (let index = 0; index < heads; index += 1) {
-    const phase = wrapPhase(state.visualPhase + index / heads);
+  const heads = [];
+  for (let index = 0; index < headCount; index += 1) {
+    const phase = wrapPhase(state.visualPhase + index / headCount);
     const x = left + phase * fieldWidth;
     const y = centerY + Math.cos(Math.PI * phase) * amplitude * direction;
     const window = barberDelayWindow(phase, state.settings.tilt);
-    drawAudioFragment(
-      ctx,
+    const tangentAngle = Math.atan2(
+      -Math.PI * Math.sin(Math.PI * phase) * amplitude * direction,
+      fieldWidth,
+    );
+    const tapeRate = 1 + (
+      state.settings.directionUp ? -1 : 1
+    ) * state.settings.speed * state.settings.range * Math.PI
+      * Math.sin(TAU * phase);
+    heads.push({
       x,
       y,
-      3.5 + window * 4.5,
-      colors[index % colors.length],
-      0.22 + window * 0.76,
-      index + phase * 2,
+      angle: tangentAngle,
+      index,
+      phase,
+      window,
+      history: barberDelayCurve(
+        "candy",
+        phase,
+        state.settings.directionUp,
+      ) * state.settings.range,
+      rate: Math.max(0.04, Math.abs(tapeRate)),
+      back: index % 2 === 0 ? CANDY_RED : CANDY_WHITE,
+      ink: index % 2 === 0 ? CANDY_WHITE : CANDY_RED,
+    });
+  }
+  heads.sort((a, b) => a.window - b.window);
+  for (const head of heads) {
+    drawCandyOscilloscope(
+      ctx,
+      head,
+      scope,
+      hasSignal,
+      signalPeak,
     );
   }
   ctx.restore();
@@ -850,13 +929,7 @@ function drawSandyField(ctx, width, height) {
     : Math.min(height - 126, top + Math.min(370, height * 0.45));
   const centerY = (top + bottom) * 0.5;
   const pitchHeight = Math.max(42, bottom - top);
-  const hasSignal = state.audioOn && audio.getTimeDomainData(waveform);
-  let signalPeak = 0.02;
-  if (hasSignal) {
-    for (const sample of waveform) {
-      if (Number.isFinite(sample)) signalPeak = Math.max(signalPeak, Math.abs(sample));
-    }
-  }
+  const { hasSignal, signalPeak } = readScopeSignal();
 
   const pointAtPhase = (phase) => {
     const rate = sandySyrupTargetRate(
@@ -993,36 +1066,6 @@ function drawSandyField(ctx, width, height) {
   ctx.restore();
 }
 
-function drawScope(ctx, width, height) {
-  const left = Math.max(20, width * 0.07);
-  const right = width - left;
-  const center = height * 0.82;
-  const amplitude = Math.min(56, height * 0.09);
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(left, center);
-  ctx.lineTo(right, center);
-  ctx.strokeStyle = "rgba(219, 228, 224, 0.07)";
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  if (state.audioOn && audio.getTimeDomainData(waveform)) {
-    ctx.beginPath();
-    for (let index = 0; index < waveform.length; index += 1) {
-      const x = left + index / (waveform.length - 1) * (right - left);
-      const y = center + waveform[index] * amplitude;
-      if (index === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = isCandy
-      ? "rgba(80, 200, 255, 0.42)"
-      : "rgba(32, 204, 170, 0.48)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
 function draw(timestamp, force = false) {
   if (!context2d || document.hidden || disposed) return;
   if (!force && timestamp - lastDrawTime < 1_000 / 30) return;
@@ -1030,7 +1073,6 @@ function draw(timestamp, force = false) {
   context2d.clearRect(0, 0, canvasWidth, canvasHeight);
   if (isCandy) drawCandyField(context2d, canvasWidth, canvasHeight);
   else if (isSandy) drawSandyField(context2d, canvasWidth, canvasHeight);
-  if (!isSandy) drawScope(context2d, canvasWidth, canvasHeight);
   fadeStageArtwork(context2d, canvasWidth, canvasHeight);
 }
 
@@ -1056,12 +1098,11 @@ function animate(timestamp) {
     : 0;
   lastAnimationTime = timestamp;
   if (state.audioOn && !reducedMotion) {
-    const visualDirection = isSandy
-      ? 1
-      : state.settings.directionUp ? 1 : -1;
+    // Both centered paths run left to right. Their geometry handles whether
+    // the heads climb or fall, so reversing phase here would flip Candy twice.
     state.visualPhase = wrapPhase(
       state.visualPhase
-      + elapsed * state.settings.speed * visualDirection,
+      + elapsed * state.settings.speed,
     );
   }
   draw(timestamp);
