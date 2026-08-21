@@ -486,6 +486,48 @@
   display: none;
 }
 
+.viewport-mod-close {
+  position: absolute;
+  z-index: 2;
+  top: 5px;
+  right: 5px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid color-mix(in oklab, var(--viewport-mod-color) 42%, transparent);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--viewport-mod-color);
+  background: rgba(5, 4, 6, 0.94);
+  font: 800 16px/1 var(--mono);
+  place-items: center;
+}
+
+.viewport-mod-close:hover,
+.viewport-mod-close:focus-visible,
+.viewport-mod-close:active {
+  border-color: var(--viewport-mod-color);
+  outline: none;
+  color: #050406;
+  background: var(--viewport-mod-color);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--viewport-mod-color) 34%, transparent);
+}
+
+.viewport-modulator.opens-left .viewport-mod-close {
+  right: auto;
+  left: 5px;
+}
+
+.viewport-mod-controls > .viewport-mod-range:first-of-type {
+  padding-right: 34px;
+}
+
+.viewport-modulator.opens-left .viewport-mod-controls > .viewport-mod-range:first-of-type {
+  padding-right: 0;
+  padding-left: 34px;
+}
+
 .viewport-mod-range {
   display: grid;
   min-width: 0;
