@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#040605" />
     <meta
       name="description"
-      content="Jaw Harp is a playable plucked-reed and vocal-cavity physical model for Morphazoid."
+      content="Jaw Harp is a playable breath-driven reed and vocal-cavity physical model for Morphazoid."
     />
     <title>Jaw Harp · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -57,20 +57,20 @@
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Interactive jaw harp and cutaway mouth. Pull and release the copper reed trigger to pluck; drag the colored mouth nodes to reshape the resonator."
+            aria-label="Interactive jaw harp and cutaway mouth. Pull and release the copper reed trigger to pluck, breathe in or out through the reed, and drag the colored mouth nodes to reshape the resonator."
             aria-describedby="canvasInstructions liveStatus"
           >
             A plucked jaw harp reed coupled to an interactive cutaway mouth resonator.
           </canvas>
 
           <div class="jaw-stage-heading" aria-hidden="true">
-            <p>PLUCKED REED × HUMAN RESONATOR</p>
+            <p>PLUCKED REED × SIGNED BREATH × HUMAN RESONATOR</p>
             <h1>JAW<br />HARP</h1>
-            <small>fixed reed fundamental / moving harmonic focus</small>
+            <small>fixed reed fundamental / inhaled + exhaled pressure drive / moving harmonic focus</small>
           </div>
 
           <p class="jaw-drag-hint" aria-hidden="true">
-            PULL + RELEASE THE COPPER TRIGGER · DRAG TONGUE / JAW / LIPS / CAVITY
+            PULL + RELEASE THE COPPER TRIGGER · HOLD INHALE / EXHALE · SHAPE THE MOUTH
           </p>
           <p class="jaw-audio-error" id="audioError" role="alert" hidden></p>
         </div>
@@ -105,6 +105,7 @@
           <span><small>Reed fundamental</small><output id="reedReadout">74 Hz</output></span>
           <span><small>Harmonic focus</small><output id="harmonicReadout">12 × · 888 Hz</output></span>
           <span><small>Oral cavity</small><output id="cavityReadout">15.8 cm · 114 ml</output></span>
+          <span><small>Signed airflow</small><output id="breathReadout">rest</output></span>
           <span><small>Reed motion</small><output id="motionReadout">resting</output></span>
         </div>
 
@@ -139,6 +140,55 @@
               <input id="pluckForce" type="range" min="0.08" max="1" step="0.01" value="0.72" />
               <small>Sets initial reed displacement and the short frame-contact transient.</small>
             </label>
+          </div>
+        </details>
+
+        <details class="group control-section jaw-breath-section" data-section="breath" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Breath drive</h2>
+            <span class="section-state" id="breathSummary">auto · inhale ↔ exhale</span>
+          </summary>
+          <div class="group-body">
+            <div class="jaw-breath-pad" role="group" aria-label="Manual breath direction">
+              <button id="inhaleButton" type="button" aria-pressed="false">
+                <span aria-hidden="true">←</span><b>Inhale</b><small>hold · darker pull</small>
+              </button>
+              <button id="exhaleButton" type="button" aria-pressed="false">
+                <span aria-hidden="true">→</span><b>Exhale</b><small>hold · brighter push</small>
+              </button>
+            </div>
+            <button
+              class="jaw-breath-cycle"
+              id="breathCycleButton"
+              type="button"
+              aria-pressed="true"
+            >
+              <span aria-hidden="true">↔</span>
+              <span>
+                <b>Automatic breath cycle</b>
+                <small id="breathCycleState">42 cycles/min · alternating in and out</small>
+              </span>
+            </button>
+            <label class="control" for="breathDepth">
+              <span><b>Breath pressure</b><output id="breathDepthOut" for="breathDepth">72%</output></span>
+              <input id="breathDepth" type="range" min="0" max="1" step="0.01" value="0.72" />
+              <small>Sets the signed pressure load that sustains and bends the moving reed.</small>
+            </label>
+            <label class="control" for="breathRateBpm">
+              <span><b>Breath rhythm</b><output id="breathRateBpmOut" for="breathRateBpm">42 cycles/min</output></span>
+              <input id="breathRateBpm" type="range" min="12" max="120" step="1" value="42" />
+              <small>
+                One cycle contains a complete inhalation and exhalation, independent of pluck repeat.
+              </small>
+            </label>
+            <label class="control" for="breathBalance">
+              <span><b>In / out duration</b><output id="breathBalanceOut" for="breathBalance">46 / 54</output></span>
+              <input id="breathBalance" type="range" min="0.25" max="0.75" step="0.01" value="0.46" />
+              <small>Moves time between the inward and outward halves while preserving the full cycle.</small>
+            </label>
+            <div class="jaw-breath-meter" id="breathMeter" aria-hidden="true">
+              <span>IN</span><i></i><i></i><i></i><i></i><b>0</b><i></i><i></i><i></i><i></i><span>OUT</span>
+            </div>
           </div>
         </details>
 
@@ -197,11 +247,6 @@
               <input id="glottisOpening" type="range" min="0" max="1" step="0.01" value="0.42" />
               <small>Opens the rear cavity toward the pharynx and trachea, adding length and acoustic loss.</small>
             </label>
-            <label class="control" for="breath">
-              <span><b>Breath through reed</b><output id="breathOut" for="breath">8%</output></span>
-              <input id="breath" type="range" min="0" max="1" step="0.01" value="0.08" />
-              <small>Adds reed-modulated airflow; it colors the pluck but does not self-oscillate the lamella.</small>
-            </label>
           </div>
         </details>
 
@@ -234,15 +279,16 @@
         <section class="jaw-model-note" aria-labelledby="jawModelTitle">
           <header>
             <span>Model topology</span>
-            <strong id="jawModelTitle">One fixed reed, a moving filter</strong>
+            <strong id="jawModelTitle">One reed, signed air load, moving filter</strong>
           </header>
           <p>
-            A pluck excites a damped modal lamella. Its harmonic ladder feeds three continuously
-            retuned oral resonances plus a structural frame mode. Articulation changes which partial
-            dominates, not the reed's fundamental.
+            A pluck starts the modal lamella; signed airflow then preloads and sustains it. Exhalation
+            bends the reed toward the outward gap and fills in brighter even partials. Inhalation reverses
+            the load for a darker, cavity-weighted spectrum. Mouth articulation still selects which
+            partial dominates without replacing the reed's fundamental.
           </p>
           <div aria-label="Jaw harp signal path">
-            <span><b>pluck</b><small>initial displacement</small></span>
+            <span><b>pluck + breath</b><small>displacement + signed pressure</small></span>
             <i aria-hidden="true">→</i>
             <span><b>reed</b><small>damped modes</small></span>
             <i aria-hidden="true">→</i>
@@ -258,10 +304,12 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        Pull the copper reed trigger up or down and release it to pluck. Drag the tongue node in two dimensions,
+        Pull the copper reed trigger up or down and release it to pluck. Hold the Inhale or Exhale button to drive
+        the vibrating reed manually, or leave Automatic breath cycle on for rhythmic bidirectional airflow.
+        Drag the tongue node in two dimensions,
         the jaw node vertically, the lip node horizontally, or the cavity node horizontally to change harmonic focus.
         Space or Enter plucks the reed. A, E, I, O, and U load mouth shapes. Number keys one through five load harp bodies.
-        R toggles the repeater and Escape stops it.
+        R toggles the repeater. Left bracket holds inhale, right bracket holds exhale, and Escape stops it.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

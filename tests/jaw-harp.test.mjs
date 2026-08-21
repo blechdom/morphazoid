@@ -7,6 +7,8 @@ import {
   JAW_HARP_PRESETS,
   VOWEL_PRESETS,
   applyVowel,
+  breathCycleFlow,
+  breathCycleIntervalMs,
   dominantHarmonic,
   jawHarpState,
   mouthFormants,
@@ -87,6 +89,21 @@ test("swing preserves each two-pluck pair duration", () => {
   assert.ok(Math.abs(long + short - straight * 2) < 1e-9);
 });
 
+test("automatic breath is a bounded signed inhale-exhale cycle", () => {
+  const state = sanitizeJawHarpState({
+    ...JAW_HARP_DEFAULTS,
+    breathDepth: 0.8,
+    breathBalance: 0.4,
+    breathRateBpm: 30,
+  });
+  assert.equal(breathCycleIntervalMs(state.breathRateBpm), 2_000);
+  assert.ok(breathCycleFlow(state, 0.2) < -0.79);
+  assert.ok(breathCycleFlow(state, 0.7) > 0.79);
+  assert.ok(Math.abs(breathCycleFlow(state, 0)) < 1e-12);
+  assert.ok(Math.abs(breathCycleFlow(state, 1)) < 1e-12);
+  assert.ok(Math.abs(breathCycleFlow(state, -0.3)) <= state.breathDepth);
+});
+
 test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
   const previousRate = globalThis.sampleRate;
   const previousBase = globalThis.AudioWorkletProcessor;
@@ -123,6 +140,34 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     assert.ok(peak > 0.05 && peak < 0.95);
     assert.equal(telemetry.type, "telemetry");
     assert.ok(telemetry.energy > 0);
+
+    const renderBreath = (flow) => {
+      const voiced = new Processor({ processorOptions: { configuration: JAW_HARP_DEFAULTS } });
+      voiced._handleMessage({ type: "pluck", force: 0.72, direction: 1, position: 0.32 });
+      voiced._handleMessage({ type: "breath", flow });
+      let lateSquareSum = 0;
+      let lateSamples = 0;
+      let latePeak = 0;
+      for (let block = 0; block < 700; block += 1) {
+        const left = new Float32Array(128);
+        const right = new Float32Array(128);
+        voiced.process([], [[left, right]]);
+        if (block < 500) continue;
+        for (const sample of left) {
+          lateSquareSum += sample * sample;
+          latePeak = Math.max(latePeak, Math.abs(sample));
+          lateSamples += 1;
+        }
+      }
+      return { rms: Math.sqrt(lateSquareSum / lateSamples), peak: latePeak };
+    };
+    const unbreathed = renderBreath(0);
+    const inhaled = renderBreath(-0.78);
+    const exhaled = renderBreath(0.78);
+    assert.ok(inhaled.rms > unbreathed.rms * 1.05);
+    assert.ok(exhaled.rms > unbreathed.rms * 1.05);
+    assert.ok(Math.abs(exhaled.rms - inhaled.rms) > 0.001);
+    assert.ok(inhaled.peak < 0.98 && exhaled.peak < 0.98);
   } finally {
     globalThis.sampleRate = previousRate;
     globalThis.AudioWorkletProcessor = previousBase;
@@ -143,6 +188,9 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(html, /id="tonguePosition"/);
   assert.match(html, /id="jawOpening"/);
   assert.match(html, /id="cavityCoupling"/);
+  assert.match(html, /id="inhaleButton"/);
+  assert.match(html, /id="exhaleButton"/);
+  assert.match(html, /id="breathCycleButton"/);
   assert.match(html, /src="jaw-harp-app\.js"/);
   assert.match(css, /\.jaw-harp-page \.shell/);
   assert.match(css, /@media \(max-width: 650px\)/);
@@ -150,4 +198,5 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(app, /pointerdown/);
   assert.match(processor, /registerProcessor\("jaw-harp-physical-model"/);
   assert.match(processor, /class StateVariableBandpass/);
+  assert.match(processor, /message\.type === "breath"/);
 });

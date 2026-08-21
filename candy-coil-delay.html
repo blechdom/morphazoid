@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#07090b" />
+    <meta name="theme-color" content="#18070a" />
     <meta
       name="description"
-      content="Morphazoid Candy Coil Delay — centered-hump, phase-staggered delay heads for microphone and local audio."
+      content="Morphazoid Candy Coil Delay — red-and-white live oscilloscope heads crossing a centered pitch hump for microphone and local audio."
     />
     <title>Candy Coil Delay — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -59,10 +59,11 @@
             id="stage"
             tabindex="0"
             role="img"
-            aria-label="Unboxed olive, cyan, cream, and earth centered-hump delay paths with waveform fragments fading into the stage edges. Audio off."
+            aria-keyshortcuts="ArrowLeft ArrowRight"
+            aria-label="Eight unboxed live oscilloscopes alternate white on red and red on white along a candy-striped centered-hump path. Audio off."
             aria-describedby="delayDescription liveStatus"
           >
-            Centered-hump coil paths and waveform fragments show delay heads crossing the original pitch.
+            Red and white unboxed oscilloscopes show centered-hump delay heads crossing the original pitch.
           </canvas>
 
           <div class="barber-delay-heading">
@@ -81,8 +82,8 @@
           </div>
 
           <div class="barber-delay-scope-labels" aria-hidden="true">
-            <span>CENTERED-HUMP FIELD</span>
-            <span id="scopeState">SCOPE · IDLE</span>
+            <span>CANDY SCOPE FIELD</span>
+            <span id="scopeState">LIVE SCOPES · IDLE</span>
           </div>
         </div>
       </section>
@@ -287,7 +288,7 @@
       </aside>
 
       <p class="sr-only" id="delayDescription">
-        Candy Coil uses phase-staggered centered-hump delay heads. With centered window tilt, each waveform fragment starts below the source pitch, crosses the original pitch at its loudest, and fades above it in an unboxed field.
+        Candy Coil uses phase-staggered centered-hump delay heads drawn as live, unboxed oscilloscopes that alternate white traces on red and red traces on white. With centered window tilt, each scope starts below the source pitch, crosses the original pitch at its loudest, and fades above it through a red-and-white candy field.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
