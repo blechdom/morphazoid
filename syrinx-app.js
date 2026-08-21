@@ -946,12 +946,19 @@ function hasActiveParameterModulators() {
 
 function updateParameterModulatorUI(modulator) {
   if (!modulator) return;
+  const expanded = expandedViewportModulatorTarget === modulator.target
+    && Boolean(modulator.enabled);
   const button = modulator.button;
   if (button) {
     button.setAttribute("aria-pressed", String(Boolean(modulator.enabled)));
+    const action = !modulator.enabled
+      ? `Enable ${titleCase(modulator.target)} viewport modulation`
+      : expanded
+        ? `Disable ${titleCase(modulator.target)} viewport modulation`
+        : `Open ${titleCase(modulator.target)} modulation controls; modulation is on`;
     button.setAttribute(
       "aria-label",
-      `${modulator.enabled ? "Disable" : "Enable"} ${titleCase(modulator.target)} viewport modulation`,
+      action,
     );
     button.title = `${titleCase(modulator.target)} ${modulator.shape} modulation`;
   }
@@ -960,8 +967,6 @@ function updateParameterModulatorUI(modulator) {
   if (modulator.rateOutput) modulator.rateOutput.textContent = `${modulator.rateHz.toFixed(2)} Hz`;
   if (modulator.depthOutput) modulator.depthOutput.textContent = formatPercent(modulator.depth);
   if (modulator.viewportControl) {
-    const expanded = expandedViewportModulatorTarget === modulator.target
-      && modulator.enabled;
     modulator.viewportControl.classList.toggle("is-active", Boolean(modulator.enabled));
     modulator.viewportControl.classList.toggle("is-expanded", expanded);
     if (modulator.controls) modulator.controls.hidden = !expanded;
@@ -1032,6 +1037,14 @@ function collapseViewportModulatorControls(exceptTarget = "") {
   parameterModulators.forEach(updateParameterModulatorUI);
 }
 
+function closeViewportModulatorControls(modulator) {
+  if (!modulator) return;
+  modulator.button?.focus({ preventScroll: true });
+  expandedViewportModulatorTarget = "";
+  parameterModulators.forEach(updateParameterModulatorUI);
+  announce(`${titleCase(modulator.target)} controls closed; modulation keeps running`);
+}
+
 function installViewportParameterModulators() {
   if (!TONGUE_MODE || !viewportModulationLayer) return;
   const fragment = document.createDocumentFragment();
@@ -1051,6 +1064,8 @@ function installViewportParameterModulators() {
     controls.className = "viewport-mod-controls";
     controls.id = `${modulator.elementId}ViewportModControls`;
     controls.hidden = true;
+    controls.setAttribute("role", "group");
+    controls.setAttribute("aria-label", `${titleCase(modulator.target)} modulation speed and width`);
     button.setAttribute("aria-controls", controls.id);
     button.addEventListener("click", () => {
       setViewportTonguePresetPaletteOpen(false, { pinned: false });
@@ -1065,7 +1080,21 @@ function installViewportParameterModulators() {
       audioDirty = true;
       announce(`${titleCase(modulator.target)} viewport modulation ${modulator.enabled ? "on; speed and width controls open" : "off"}`);
     });
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "viewport-mod-close";
+    closeButton.textContent = "×";
+    closeButton.setAttribute(
+      "aria-label",
+      `Close ${titleCase(modulator.target)} modulation controls; modulation stays on`,
+    );
+    closeButton.title = "Close controls · modulation stays on";
+    closeButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      closeViewportModulatorControls(modulator);
+    });
     controls.append(
+      closeButton,
       createViewportModulationRange(
         modulator,
         "rateHz",

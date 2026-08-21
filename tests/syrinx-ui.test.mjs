@@ -300,6 +300,92 @@ test("Tongued Beasts puts modulation buttons and expanded rate/depth controls on
   );
 });
 
+test("viewport modulation editors close without disabling their active wiggle", async () => {
+  const [html, css, app] = await Promise.all([
+    readFile(new URL("tongued-beasts.html", root), "utf8"),
+    readFile(new URL("tongued-beasts.css", root), "utf8"),
+    readFile(new URL("syrinx-app.js", root), "utf8"),
+  ]);
+  const panelMarkup = html.match(/<aside class="panel"[\s\S]*?<\/aside>/)?.[0] ?? "";
+  const installViewportModulators = functionBody(
+    app,
+    "installViewportParameterModulators",
+    "positionViewportParameterModulators",
+  );
+  const updateViewportModulator = functionBody(
+    app,
+    "updateParameterModulatorUI",
+    "createViewportModulationRange",
+  );
+  const lifecycle = standaloneFunctionBody(app, "installLifecycle");
+  const hasDedicatedCloser = /function\s+closeViewportModulatorControls\s*\(/.test(app);
+  const closeBehavior = hasDedicatedCloser
+    ? standaloneFunctionBody(app, "closeViewportModulatorControls")
+    : installViewportModulators;
+
+  assert.match(
+    installViewportModulators,
+    /className\s*=\s*["']viewport-mod-close["']|classList\.add\(["']viewport-mod-close["']\)/,
+    "each expanded editor exposes a dedicated close affordance",
+  );
+  assert.match(
+    installViewportModulators,
+    /viewport-mod-close[\s\S]{0,500}(?:\.type\s*=\s*["']button["']|<button)|(?:\.type\s*=\s*["']button["']|<button)[\s\S]{0,500}viewport-mod-close/,
+    "the close affordance is a native keyboard-operable button",
+  );
+  assert.match(
+    installViewportModulators,
+    /viewport-mod-close[\s\S]{0,900}(?:aria-label|textContent|innerText)[\s\S]{0,160}(?:close|dismiss)|(?:aria-label|textContent|innerText)[\s\S]{0,160}(?:close|dismiss)[\s\S]{0,900}viewport-mod-close/i,
+    "the close button has an understandable accessible name",
+  );
+  assert.match(
+    installViewportModulators,
+    /(?:closeViewportModulatorControls|viewport-mod-close)[\s\S]{0,1000}addEventListener\(["']click["']|addEventListener\(["']click["'][\s\S]{0,1000}(?:closeViewportModulatorControls|viewport-mod-close)/,
+    "mouse click and native button keyboard activation share the close path",
+  );
+  assert.match(
+    closeBehavior,
+    /expandedViewportModulatorTarget\s*=\s*["']{2}|collapseViewportModulatorControls\(\s*\)/,
+    "closing removes only the expanded-editor target",
+  );
+  assert.match(
+    closeBehavior,
+    /updateParameterModulatorUI\(|parameterModulators\.forEach\(updateParameterModulatorUI\)/,
+    "closing immediately refreshes the editor visibility and ARIA state",
+  );
+  assert.doesNotMatch(
+    closeBehavior,
+    /(?:modulator|modulation)\.enabled\s*=|enabled\s*:\s*false/,
+    "closing the editor leaves its oscillator enabled",
+  );
+  assert.match(
+    closeBehavior,
+    /(?:modulator\.)?button\?*\.focus\(|\.focus\(\)/,
+    "closing returns keyboard focus to a sensible viewport control",
+  );
+  assert.match(
+    updateViewportModulator,
+    /setAttribute\(\s*["']aria-pressed["']\s*,\s*String\(Boolean\(modulator\.enabled\)\)\s*\)/,
+    "the still-enabled oscillator keeps aria-pressed=true after its editor closes",
+  );
+  assert.match(
+    installViewportModulators,
+    /(?:modulator|modulation)\.enabled\s*=\s*!|enabled\s*:\s*!(?:[A-Za-z]*modulator|[A-Za-z]*modulation)\.enabled/i,
+    "the original modulation toggle can still disable one oscillator",
+  );
+  assert.match(
+    lifecycle,
+    /event\.key\s*!==?\s*["']Escape["'][\s\S]*collapseViewportModulatorControls\(\)/,
+    "Escape retains its existing all-editor collapse behavior",
+  );
+  assert.match(css, /\.viewport-mod-close\b/);
+  assert.doesNotMatch(
+    panelMarkup,
+    /viewport-mod-(?:toggle|controls|close)|data-viewport-modulator/,
+    "close controls stay in the viewport and do not repopulate the right panel",
+  );
+});
+
 test("viewport modulation editors remain draggable while expanded", async () => {
   const [css, app] = await Promise.all([
     readFile(new URL("tongued-beasts.css", root), "utf8"),
