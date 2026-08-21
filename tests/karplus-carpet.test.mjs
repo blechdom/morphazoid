@@ -9,6 +9,7 @@ import {
   buildKarplusCarpetEvents,
   generateKarplusCarpetSamples,
   karplusCarpetEvent,
+  karplusCarpetResumeTime,
   sanitizeKarplusCarpetSettings,
 } from "../src/karplus-carpet.js";
 import {
@@ -107,6 +108,16 @@ test("higher hit density shortens a carpet while seeded weave stays deterministi
   assert.deepEqual(first, repeated);
   assert.notDeepEqual(first, alternate);
   assert.ok(dense.at(-1).atMs < first.at(-1).atMs);
+});
+
+test("a late transport resumes its remaining weave instead of collapsing overdue hits", () => {
+  assert.equal(karplusCarpetResumeTime(900, 1_000), 1_008);
+  assert.equal(karplusCarpetResumeTime(960, 1_000), 960);
+  assert.equal(karplusCarpetResumeTime(1_100, 1_000), 1_100);
+  assert.equal(
+    karplusCarpetResumeTime(900, 1_000, { maximumLatenessMs: 200 }),
+    900,
+  );
 });
 
 test("a Carpet grain is a bounded Karplus waveform rather than a loaded sample", () => {

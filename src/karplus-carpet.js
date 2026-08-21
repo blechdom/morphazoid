@@ -117,6 +117,16 @@ export function karplusCarpetIntervalMs(source = {}, index = 0, options = {}) {
   return baseInterval * clamp(1 + jitter, 0.28, 1.72);
 }
 
+export function karplusCarpetResumeTime(nextHitAt, now, options = {}) {
+  const currentTime = Math.max(0, finiteOr(now, 0));
+  const scheduledTime = finiteOr(nextHitAt, currentTime);
+  const maximumLatenessMs = clamp(finiteOr(options.maximumLatenessMs, 50), 0, 1_000);
+  const restartDelayMs = clamp(finiteOr(options.restartDelayMs, 8), 0, 100);
+  return scheduledTime < currentTime - maximumLatenessMs
+    ? currentTime + restartDelayMs
+    : scheduledTime;
+}
+
 export function karplusCarpetEvent(source = {}, index = 0, options = {}) {
   const settings = sanitizeKarplusCarpetSettings(source);
   const serial = Math.max(0, Math.trunc(finiteOr(index, 0)));

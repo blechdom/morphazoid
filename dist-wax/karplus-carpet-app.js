@@ -15,6 +15,7 @@ import {
   buildKarplusCarpetEvents,
   karplusCarpetEvent,
   karplusCarpetIntervalMs,
+  karplusCarpetResumeTime,
   sanitizeKarplusCarpetSettings,
 } from "./src/karplus-carpet.js";
 
@@ -433,6 +434,7 @@ function scheduleTransport() {
   transportTimer = 0;
   if (!state.playing) return;
   const now = performance.now();
+  nextHitAt = karplusCarpetResumeTime(nextHitAt, now);
   const horizon = now + KARPLUS_CARPET_LIMITS.scheduleAheadSeconds * 1_000;
   let finalStartedAt = null;
   while (state.playing && nextHitAt <= horizon) {
