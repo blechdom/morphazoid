@@ -22,6 +22,8 @@ test("Home page is the About guide", async () => {
   assert.doesNotMatch(html, /manual-section-label">Browse|Instrument sections, titles, and order/);
   assert.doesNotMatch(html, /microphone input|audio files?|file instruments?/i);
   assert.doesNotMatch(html, /Select the speaker, Input/);
+  assert.match(html, /Audio defaults to "off"\./);
+  assert.doesNotMatch(html, /Audio starts off\./);
   assert.doesNotMatch(html, /class="about-summary"/);
   assert.doesNotMatch(html, /class="manual-index"/);
   assert.doesNotMatch(html, /<dt>(?:Instruments|Runtime|License)<\/dt>/);
@@ -54,7 +56,7 @@ test("Home mounts the only complete menu-ordered catalogue", async () => {
   assert.match(home, /class="mobile-instrument-select"/);
   assert.match(home, /<script type="module" src="nav\.js\?v=catalog-[^"]+"><\/script>/);
   assert.equal([home, about, catalogue].filter((html) => /data-instrument-catalog/.test(html)).length, 1);
-  assert.equal(INSTRUMENTS.length, 88);
+  assert.equal(INSTRUMENTS.length, 97);
   assert.equal(
     INSTRUMENTS.find(({ id }) => id === "escher-tessellation")?.label,
     "Escher",

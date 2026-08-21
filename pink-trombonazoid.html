@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#FFEEF5" />
+    <meta
+      name="description"
+      content="Pink Trombonazoid turns the Throatazoid physical vocal tract into an editable word and phoneme sequencer."
+    />
+    <title>Pink Trombonazoid · Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="pink-trombonazoid.css" />
+  </head>
+  <body class="pink-trombonazoid-page" data-instrument-info="off">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="throatazoid.html">Throatazoid</a>
+        <a
+          class="tab pink-trombonazoid-tab active"
+          href="pink-trombonazoid.html"
+          aria-current="page"
+        >Pink Trombonazoid</a>
+        <a class="tab" href="hybrinx.html">Hybrinx</a>
+        <a class="tab" href="spelling-synthesizer.html">Spelling Synth</a>
+        <a class="tab" href="vocalzoid.html">Vocalzoid</a>
+      </nav>
+
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="throatazoid.html">Throatazoid</option>
+          <option value="pink-trombonazoid.html" selected>Pink Trombonazoid</option>
+          <option value="hybrinx.html">Hybrinx</option>
+          <option value="spelling-synthesizer.html">Spelling Synth</option>
+          <option value="vocalzoid.html">Vocalzoid</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="ptz-audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">46%</output></span>
+          <input
+            id="level"
+            aria-label="Pink Trombonazoid output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.46"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="ptz-shell" id="pinkTrombonazoid">
+      <section class="ptz-workspace" aria-labelledby="ptzTitle">
+        <header class="ptz-hero">
+          <div>
+            <span class="ptz-kicker">THROATAZOID × HYBRINX</span>
+            <h1 id="ptzTitle">Pink Trombonazoid</h1>
+            <p>Draw a word through a physical vocal tract, one editable gesture at a time.</p>
+          </div>
+          <div class="ptz-hero-readouts" aria-label="Sequence summary">
+            <span><small>word</small><output id="wordReadout">hello</output></span>
+            <span><small>phones</small><output id="phoneCountOut">4</output></span>
+            <span><small>length</small><output id="durationOut">0.9 s</output></span>
+            <span><small>playhead</small><output id="playheadOut">ready</output></span>
+          </div>
+        </header>
+
+        <section class="ptz-tract-card" aria-label="Animated Pink Trombonazoid tract">
+          <canvas
+            id="tractCanvas"
+            width="960"
+            height="420"
+            tabindex="0"
+            aria-label="Animated side view of the sequenced vocal tract. The tongue, oral constriction, lips, velum, and glottis follow the current phoneme."
+            aria-describedby="tractHelp liveStatus"
+          ></canvas>
+          <div class="ptz-tract-title" aria-hidden="true">
+            <span>bare-handed word sequencing</span>
+            <b>Pink Trombonazoid</b>
+          </div>
+          <div class="ptz-tract-hud" aria-label="Current articulation">
+            <span><small>phone</small><output id="currentPhoneOut">—</output></span>
+            <span><small>mouth</small><output id="mouthOut">open</output></span>
+            <span><small>tongue</small><output id="tongueOut">back · raised</output></span>
+            <span><small>velum</small><output id="velumOut">oral</output></span>
+          </div>
+          <p class="ptz-tract-hint" id="tractHelp">
+            The drawing follows the same phoneme targets and continuous lanes sent to the 44-section audio worklet.
+          </p>
+        </section>
+
+        <section class="ptz-composer" aria-labelledby="composerTitle">
+          <div class="ptz-composer-input">
+            <label for="wordInput">
+              <span><small>pronunciation input</small><b id="composerTitle">What should it say?</b></span>
+              <input
+                id="wordInput"
+                type="text"
+                value="hello"
+                maxlength="64"
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck="false"
+                enterkeyhint="go"
+                aria-describedby="pronunciationStatus"
+              />
+            </label>
+            <button id="buildWordButton" type="button">
+              <span aria-hidden="true">↳</span><b>Build word</b><small>dictionary → tract gestures</small>
+            </button>
+          </div>
+          <div class="ptz-word-presets" role="group" aria-label="Example words">
+            <span>TRY</span>
+            <button type="button" data-word-preset="hello">hello</button>
+            <button type="button" data-word-preset="pink trombone">pink trombone</button>
+            <button type="button" data-word-preset="morphazoid">morphazoid</button>
+            <button type="button" data-word-preset="sequencer">sequencer</button>
+          </div>
+          <p id="pronunciationStatus">Local CMU pronunciation dictionary · no speech service or upload</p>
+        </section>
+
+        <section class="ptz-sequencer" aria-labelledby="timelineTitle">
+          <header class="ptz-timeline-header">
+            <div>
+              <span>drag a block edge · drag a lane key</span>
+              <h2 id="timelineTitle">Word gesture timeline</h2>
+            </div>
+            <div class="ptz-transport" aria-label="Word transport">
+              <button id="playButton" type="button" data-primary-transport aria-pressed="false">
+                <i aria-hidden="true"></i><span><b id="playLabel">Say word</b><small id="playState">ready</small></span>
+              </button>
+              <button id="stopButton" type="button" disabled>
+                <span aria-hidden="true">■</span><span><b>Stop</b><small>release tract</small></span>
+              </button>
+              <button id="loopButton" type="button" aria-pressed="false">
+                <span aria-hidden="true">↻</span><span><b>Loop</b><small id="loopState">off</small></span>
+              </button>
+            </div>
+          </header>
+
+          <div class="ptz-phoneme-ruler" id="phonemeRuler" aria-label="Editable phoneme segments"></div>
+
+          <div class="ptz-timeline-scroll" id="timelineScroll" tabindex="0">
+            <div class="ptz-lane-gutter" id="laneGutter" aria-label="Automation lanes"></div>
+            <svg
+              class="ptz-timeline-svg"
+              id="timelineSvg"
+              viewBox="0 0 920 300"
+              width="920"
+              height="300"
+              role="group"
+              aria-labelledby="timelineSvgTitle timelineSvgDescription"
+            >
+              <title id="timelineSvgTitle">Pink Trombonazoid word automation</title>
+              <desc id="timelineSvgDescription">Editable pitch, intensity, breath, tongue, lip, and nasal keyframes aligned to each phoneme.</desc>
+            </svg>
+          </div>
+          <p class="ptz-timeline-help">
+            Phones remain discrete so closures and bursts stay crisp; the lanes interpolate the continuous anatomy around them.
+          </p>
+        </section>
+      </section>
+
+      <aside class="ptz-panel" aria-label="Pink Trombonazoid controls">
+        <section class="ptz-panel-section ptz-selected-editor" aria-labelledby="selectedTitle">
+          <header>
+            <span><small>selected gesture</small><h2 id="selectedTitle">EH · vowel</h2></span>
+            <output id="selectedTimeOut">220 ms</output>
+          </header>
+          <label for="segmentDuration">
+            <span><b>Duration</b><output id="segmentDurationOut" for="segmentDuration">220 ms</output></span>
+            <input id="segmentDuration" type="range" min="55" max="2400" step="5" value="220" />
+          </label>
+          <label for="segmentPitch">
+            <span><b>Pitch contour</b><output id="segmentPitchOut" for="segmentPitch">0 st</output></span>
+            <input id="segmentPitch" type="range" min="-12" max="12" step="1" value="0" />
+          </label>
+          <label for="segmentIntensity">
+            <span><b>Emphasis</b><output id="segmentIntensityOut" for="segmentIntensity">70%</output></span>
+            <input id="segmentIntensity" type="range" min="0" max="1" step="0.01" value="0.7" />
+          </label>
+          <label for="segmentBreath">
+            <span><b>Breath accent</b><output id="segmentBreathOut" for="segmentBreath">12%</output></span>
+            <input id="segmentBreath" type="range" min="0" max="1" step="0.01" value="0.12" />
+          </label>
+        </section>
+
+        <section class="ptz-panel-section" aria-labelledby="voiceTitle">
+          <header><span><small>source + timing</small><h2 id="voiceTitle">Voice character</h2></span></header>
+          <label class="ptz-select" for="personality">
+            <span><b>Tract personality</b><small>one-mouth Throatazoid presets</small></span>
+            <select id="personality">
+              <option value="clear" selected>Clear · centered</option>
+              <option value="warm">Velvet · rounded</option>
+              <option value="whisper">Whisper · air-heavy</option>
+              <option value="reed">Reed · pinched</option>
+              <option value="creature">Creature · mutated</option>
+            </select>
+          </label>
+          <label for="speechRate">
+            <span><b>Speech rate</b><output id="speechRateOut" for="speechRate">1.00×</output></span>
+            <input id="speechRate" type="range" min="0.45" max="1.8" step="0.01" value="1" />
+          </label>
+          <label for="wordGap">
+            <span><b>Loop breath</b><output id="wordGapOut" for="wordGap">420 ms</output></span>
+            <input id="wordGap" type="range" min="0" max="2000" step="20" value="420" />
+          </label>
+        </section>
+
+        <section class="ptz-panel-section ptz-modulators" aria-labelledby="modulatorTitle">
+          <header>
+            <span><small>after the authored contour</small><h2 id="modulatorTitle">Modulators</h2></span>
+            <button id="modulationBypass" type="button" aria-pressed="false">bypass</button>
+          </header>
+          <fieldset>
+            <legend><i class="is-pitch" aria-hidden="true"></i> Pitch vibrato</legend>
+            <label for="pitchModShape"><span><b>Shape</b></span>
+              <select id="pitchModShape">
+                <option value="sine" selected>sine</option>
+                <option value="triangle">triangle</option>
+                <option value="square">square</option>
+                <option value="sample-hold">sample + hold</option>
+              </select>
+            </label>
+            <label for="pitchModRate">
+              <span><b>Rate</b><output id="pitchModRateOut" for="pitchModRate">5.2 Hz</output></span>
+              <input id="pitchModRate" type="range" min="0.1" max="14" step="0.1" value="5.2" />
+            </label>
+            <label for="pitchModDepth">
+              <span><b>Depth</b><output id="pitchModDepthOut" for="pitchModDepth">18 ct</output></span>
+              <input id="pitchModDepth" type="range" min="0" max="100" step="1" value="18" />
+            </label>
+          </fieldset>
+          <fieldset>
+            <legend><i class="is-breath" aria-hidden="true"></i> Breath flutter</legend>
+            <label for="breathModShape"><span><b>Shape</b></span>
+              <select id="breathModShape">
+                <option value="sine">sine</option>
+                <option value="triangle" selected>triangle</option>
+                <option value="square">square</option>
+                <option value="sample-hold">sample + hold</option>
+              </select>
+            </label>
+            <label for="breathModRate">
+              <span><b>Rate</b><output id="breathModRateOut" for="breathModRate">2.1 Hz</output></span>
+              <input id="breathModRate" type="range" min="0.1" max="12" step="0.1" value="2.1" />
+            </label>
+            <label for="breathModDepth">
+              <span><b>Depth</b><output id="breathModDepthOut" for="breathModDepth">9%</output></span>
+              <input id="breathModDepth" type="range" min="0" max="0.4" step="0.01" value="0.09" />
+            </label>
+          </fieldset>
+          <p>Small LFOs add life. Phoneme identity still comes from the timeline—not from modulation.</p>
+        </section>
+
+        <section class="ptz-panel-section ptz-effects" aria-labelledby="effectsTitle">
+          <header>
+            <span><small>post tract</small><h2 id="effectsTitle">Effects</h2></span>
+            <button id="effectsBypass" type="button" aria-pressed="false">dry</button>
+          </header>
+          <label for="drive">
+            <span><b>Saturation</b><output id="driveOut" for="drive">8%</output></span>
+            <input id="drive" type="range" min="0" max="1" step="0.01" value="0.08" />
+          </label>
+          <label for="tone">
+            <span><b>Tone</b><output id="toneOut" for="tone">open</output></span>
+            <input id="tone" type="range" min="0" max="1" step="0.01" value="0.86" />
+          </label>
+          <label for="echo">
+            <span><b>Vocal echo</b><output id="echoOut" for="echo">12%</output></span>
+            <input id="echo" type="range" min="0" max="0.62" step="0.01" value="0.12" />
+          </label>
+          <label for="echoTime">
+            <span><b>Echo time</b><output id="echoTimeOut" for="echoTime">185 ms</output></span>
+            <input id="echoTime" type="range" min="45" max="900" step="5" value="185" />
+          </label>
+        </section>
+
+        <details class="ptz-learning" open>
+          <summary>How does it say a word?</summary>
+          <ol>
+            <li>The local dictionary turns spelling into speech phones.</li>
+            <li>Each phone selects tongue, constriction, lip, velum, voicing, and noise targets.</li>
+            <li>Consonants keep discrete closures and releases; continuous lanes coarticulate around them.</li>
+            <li>The Throatazoid worklet propagates a glottal pulse through the resulting 44-section tract.</li>
+          </ol>
+          <p>
+            Inspired by and colored from Neil Thapen’s
+            <a href="https://dood.al/pinktrombone/" target="_blank" rel="noopener noreferrer">Pink Trombone</a>:
+            white, <code>#FFEEF5</code>, pink, orchid, and <code>#C070C6</code>.
+          </p>
+        </details>
+
+        <div class="ptz-reset-row">
+          <button id="resetPinkTrombonazoid" type="button" data-reset-all data-reset-in-place>
+            Reset Pink Trombonazoid
+          </button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="pink-trombonazoid-app.js"></script>
+  </body>
+</html>

@@ -59,6 +59,7 @@ export const TOOL_GROUPS = Object.freeze([
   freezeGroup("geometry", "Geometry Synths", [
     { id: "shape", label: "Shape", href: "shape.html" },
     { id: "playhead-paint", label: "Playhead Paint", href: "playhead-paint.html" },
+    { id: "boidzoid", label: "Boidzoid", href: "boidzoid.html" },
     { id: "lattice", label: "Lattice", href: "lattice.html" },
     { id: "spiral", label: "Spiral", href: "spiral.html" },
     { id: "solid", label: "Solid", href: "solid.html" },
@@ -115,29 +116,41 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "hyper-rubix", label: "Hyper Rubix", href: "hyper-rubix.html" },
     { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
   ]),
-  freezeGroup("signal-voice", "Signal & Voice", [
+  freezeGroup("voice-synths", "Voice Synths", [
     {
       id: "image-to-instrument-3",
       label: "Wheel of Organs",
       href: "image-to-instrument-3.html",
     },
-    { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
-    { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
-    { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
+    {
+      id: "pink-trombonazoid",
+      label: "Pink Trombonazoid",
+      href: "pink-trombonazoid.html",
+    },
     { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
     {
       id: "tongued-beasts",
       label: "Tongued Beasts",
       href: "tongued-beasts.html",
-      catalogue: false,
     },
-    { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html", catalogue: false },
+    { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
+    { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
     {
       id: "spelling-synthesizer",
       label: "Spelling Synthesizer",
       href: "spelling-synthesizer.html",
     },
+    {
+      id: "vocalzoid",
+      label: "Vocalzoid",
+      href: "vocalzoid.html",
+    },
+  ]),
+  freezeGroup("mic-fx", "Mic FX", [
+    { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
+    { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
+    { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
   ]),
   freezeGroup("barber-shop-poles", "Barber Shop Poles", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },
@@ -163,7 +176,6 @@ export const TOOL_GROUPS = Object.freeze([
       id: "striped-staircase",
       label: "Striped Staircase",
       href: "striped-staircase.html",
-      catalogue: false,
     },
   ]),
   freezeGroup("chaotic-synths", "Chaotic Synths", [
@@ -179,6 +191,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
     { id: "linear-drums", label: "Rattlesnake", href: "linear-drums.html" },
     { id: "karplus-strong", label: "Karplus Strong", href: "karplus-strong.html" },
+    { id: "karplus-carpet", label: "Karplus Carpet", href: "karplus-carpet.html" },
     { id: "sample-drums", label: "Sample Drums", href: "sample-drums.html" },
   ]),
   freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
@@ -221,7 +234,6 @@ export const TOOL_GROUPS = Object.freeze([
       id: "orbital-ferris",
       label: "Feral Fairy Ferris Ferry",
       href: "orbital-ferris.html",
-      catalogue: false,
       picker: true,
     },
     {
@@ -457,7 +469,11 @@ const INSTRUMENT_INFO_HOST_SELECTORS = Object.freeze([
   ".spelling-panel",
   ".image-instrument-panel",
   ".paint-inspector",
+  ".control-rail",
+  ".vocalzoid-rail",
+  ".hyper-console",
   ".analysis-rail",
+  ".fm-drums-shell",
 ]);
 
 function createInstrumentPageInfo(doc, activeTool) {
@@ -495,6 +511,9 @@ function renderInstrumentPickerCard(doc, preview, instrument, siteRoot) {
 
   const headingCopy = element(doc, "div", "instrument-picker-card-heading-copy");
   headingCopy.append(element(doc, "h2", "instrument-picker-card-title", instrument.label));
+  headingCopy.append(
+    element(doc, "p", "instrument-picker-card-subtitle", instrument.kind),
+  );
   if (instrument.status) {
     headingCopy.append(
       element(doc, "span", "instrument-picker-card-status", instrument.status),
@@ -507,8 +526,8 @@ function renderInstrumentPickerCard(doc, preview, instrument, siteRoot) {
   heading.append(visual, headingCopy);
 
   const traits = element(doc, "ul", "instrument-picker-card-traits");
-  traits.setAttribute("aria-label", `${instrument.label} type and inputs`);
-  for (const trait of [instrument.kind, ...instrument.features]) {
+  traits.setAttribute("aria-label", `${instrument.label} inputs and controls`);
+  for (const trait of instrument.features) {
     traits.append(element(doc, "li", "", trait));
   }
   const description = element(

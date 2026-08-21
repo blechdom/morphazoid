@@ -226,7 +226,8 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       "Geometry Synths",
       "Drum Machines",
       "Sequencers",
-      "Signal & Voice",
+      "Voice Synths",
+      "Mic FX",
       "Barber Shop Poles",
       "Fractals & Recursion",
       "Chaotic Synths",
@@ -236,7 +237,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 96);
+  assert.equal(tools.length, 101);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -255,6 +256,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       id: "playhead-paint",
       label: "Playhead Paint",
       href: "playhead-paint.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "boidzoid"),
+    {
+      id: "boidzoid",
+      label: "Boidzoid",
+      href: "boidzoid.html",
     },
   );
   assert.deepEqual(
@@ -287,6 +296,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       id: "karplus-strong",
       label: "Karplus Strong",
       href: "karplus-strong.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "karplus-carpet"),
+    {
+      id: "karplus-carpet",
+      label: "Karplus Carpet",
+      href: "karplus-carpet.html",
     },
   );
   assert.deepEqual(
@@ -412,6 +429,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       { id: "shape", href: "shape.html" },
       { id: "playhead-paint", href: "playhead-paint.html" },
+      { id: "boidzoid", href: "boidzoid.html" },
       { id: "lattice", href: "lattice.html" },
       { id: "spiral", href: "spiral.html" },
       { id: "solid", href: "solid.html" },
@@ -451,12 +469,13 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "fm-drums", href: "fm-drums.html" },
       { id: "linear-drums", href: "linear-drums.html" },
       { id: "karplus-strong", href: "karplus-strong.html" },
+      { id: "karplus-carpet", href: "karplus-carpet.html" },
       { id: "sample-drums", href: "sample-drums.html" },
     ],
   );
   assert.equal(TOOL_GROUPS.some((group) => group.id === "image-to-instrument"), false);
   assert.deepEqual(
-    TOOL_GROUPS.find((group) => group.id === "signal-voice")?.tools.map(
+    TOOL_GROUPS.find((group) => group.id === "voice-synths")?.tools.map(
       ({ id, label, href }) => ({ id, label, href }),
     ),
     [
@@ -465,18 +484,32 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
         label: "Wheel of Organs",
         href: "image-to-instrument-3.html",
       },
-      { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
-      { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
-      { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
       { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
+      {
+        id: "pink-trombonazoid",
+        label: "Pink Trombonazoid",
+        href: "pink-trombonazoid.html",
+      },
       { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
       { id: "tongued-beasts", label: "Tongued Beasts", href: "tongued-beasts.html" },
+      { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
       { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
       {
         id: "spelling-synthesizer",
         label: "Spelling Synthesizer",
         href: "spelling-synthesizer.html",
       },
+      { id: "vocalzoid", label: "Vocalzoid", href: "vocalzoid.html" },
+    ],
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "mic-fx")?.tools.map(
+      ({ id, label, href }) => ({ id, label, href }),
+    ),
+    [
+      { id: "lumber", label: "Lumber Loops", href: "lumber.html" },
+      { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
+      { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
     ],
   );
   assert.deepEqual(
@@ -675,6 +708,10 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}l-mic.html`, SITE_ROOT)?.id, "micmic");
   assert.equal(resolveActiveTool(`${SITE_ROOT}micmic.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}graph-delay.html`, SITE_ROOT)?.id, "graph-delay");
+  assert.equal(
+    resolveActiveTool(`${SITE_ROOT}pink-trombonazoid.html`, SITE_ROOT)?.id,
+    "pink-trombonazoid",
+  );
   assert.equal(resolveActiveTool(`${SITE_ROOT}alien-larynx.html`, SITE_ROOT)?.id, "alien-larynx");
   assert.equal(resolveActiveTool(`${SITE_ROOT}orbital-ferris.html`, SITE_ROOT)?.id, "orbital-ferris");
   assert.equal(resolveActiveTool(`${SITE_ROOT}audio-engine-lab.html`, SITE_ROOT), null);
@@ -741,6 +778,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}fm-drums.html`, SITE_ROOT)?.id, "fm-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}linear-drums.html`, SITE_ROOT)?.id, "linear-drums");
   assert.equal(resolveActiveTool(`${SITE_ROOT}karplus-strong.html`, SITE_ROOT)?.id, "karplus-strong");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}karplus-carpet.html`, SITE_ROOT)?.id, "karplus-carpet");
   assert.equal(
     resolveActiveTool(`${SITE_ROOT}linear-drums-machine.html`, SITE_ROOT)?.id,
     "linear-drums-machine",
@@ -920,6 +958,16 @@ test("instrument info lives once at the bottom of the page control rail", () => 
   assert.equal(
     pageInfo.findAll((node) => node.className === "instrument-picker-card-title")[0]?.textContent,
     "Julia",
+  );
+  assert.equal(
+    pageInfo.findAll((node) => node.className === "instrument-picker-card-subtitle")[0]?.textContent,
+    "Synth",
+  );
+  assert.deepEqual(
+    pageInfo.querySelector(".instrument-picker-card-traits").children.map(
+      ({ textContent }) => textContent,
+    ),
+    [],
   );
   assert.equal(
     pageInfo.findAll((node) => node.className === "instrument-picker-card-image")[0]?.src,

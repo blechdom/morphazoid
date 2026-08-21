@@ -70,10 +70,13 @@ test("all instrument pages share desktop and mobile navigation", async () => {
   assert.match(css, /\.tools-menu-label\s*\{[^}]*color: var\(--muted\);[^}]*font-size: 10px;/);
   assert.match(css, /\.tools-menu-current\s*\{[^}]*font-size: 13px;/);
   assert.match(css, /\.tools-menu-group\[data-tool-group="geometry-drums"\]\s*\{[^}]*--group-accent: var\(--orange\);/);
-  assert.match(css, /\.tools-menu-group\[data-tool-group="signal-voice"\]\s*\{[^}]*--group-accent: var\(--blue\);/);
+  assert.match(css, /\.tools-menu-group\[data-tool-group="voice-synths"\]\s*\{[^}]*--group-accent: var\(--blue\);/);
+  assert.match(css, /\.tools-menu-group\[data-tool-group="mic-fx"\]\s*\{[^}]*--group-accent: var\(--accent\);/);
   assert.doesNotMatch(css, /data-tool-group="image-to-instrument"/);
   assert.match(css, /\.tools-menu-group\[data-tool-group="sequencers"\]\s*\{[^}]*--group-accent: #9dff57;/);
   assert.match(css, /\.tools-menu-group\[data-tool-group="experiments"\]\s*\{[^}]*--group-accent: #e883ee;/);
+  assert.match(css, /\.experiment-title,[\s\S]*?\.stage-title-group > h1 \{\s*display: none !important;/);
+  assert.match(css, /\.instrument-picker-card-subtitle\s*\{[^}]*color: var\(--muted\);[^}]*font-size: 9px;/s);
   assert.match(css, /\.tools-menu-heading\s*\{[^}]*color: color-mix\(in oklab, var\(--group-accent\) 68%, var\(--muted\)\);[^}]*font-size: 10px;/);
   assert.match(css, /\.tools-menu-links\s*\{[^}]*flex-wrap: wrap;/);
   assert.match(css, /\.tools-menu-link\s*\{[^}]*font-size: 12px;/);

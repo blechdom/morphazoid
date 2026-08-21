@@ -38,6 +38,9 @@ const NOTE_MODE_IDS = Object.freeze({
     "image-to-instrument-3",
     "throatazoid",
     "syrinx",
+    "tongued-beasts",
+    "hybrinx",
+    "jaw-harp",
     "morphynx",
     "hyper-syrinx",
     "alien-larynx",
@@ -54,6 +57,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "weierstrass",
     "plasma-ball",
     "karplus-strong",
+    "karplus-carpet",
     "webgpu-303",
     "moire-organ",
     "chladni-plate",
@@ -64,6 +68,9 @@ const NOTE_MODE_IDS = Object.freeze({
     "gravity-lens",
   ]),
   sequence: Object.freeze([
+    "boidzoid",
+    "pink-trombonazoid",
+    "vocalzoid",
     "hyper-rubix",
     "sorting-algorithms",
     "dijkstra",
@@ -97,6 +104,8 @@ const NOTE_MODE_IDS = Object.freeze({
     "cantor-lock",
     "escape-dust",
     "linebreaker",
+    "striped-staircase",
+    "orbital-ferris",
   ]),
 });
 
@@ -113,6 +122,8 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "image-to-instrument-3",
   "throatazoid",
+  "tongued-beasts",
+  "jaw-harp",
   "morphynx",
   "hyper-syrinx",
   "alien-larynx",
@@ -120,6 +131,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "lumber",
   "micmic",
   "karplus-strong",
+  "karplus-carpet",
   "gesturama",
 ]);
 
@@ -127,6 +139,9 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
 // transport, but they have no conservative note action. Do not capture QWERTY
 // piano/drum keys until an explicit page mapping exists.
 export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
+  "boidzoid",
+  "pink-trombonazoid",
+  "vocalzoid",
   "hyper-rubix",
   "playhead-paint",
   "candy-coil-delay",
@@ -138,6 +153,7 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "neural-pulse",
   "cantor-lock",
   "quantum-square-dance",
+  "orbital-ferris",
 ]);
 
 const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);
@@ -164,6 +180,7 @@ const midiOutputExtraIds = new Set([
   "l-system",
   "julia",
 ]);
+const noMidiOutputIds = new Set(["pink-trombonazoid", "vocalzoid"]);
 
 export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(
   Object.entries(NOTE_MODE_IDS).flatMap(([noteMode, ids]) => ids.map((id) => Object.freeze({
@@ -172,7 +189,8 @@ export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(
     midiInputMode: nativeIds.has(id) ? "native" : "universal-control",
     noteMode,
     audioInput: audioInputIds.has(id),
-    midiOutput: noteMode === "drums" || noteMode === "sequence" || midiOutputExtraIds.has(id),
+    midiOutput: !noMidiOutputIds.has(id)
+      && (noteMode === "drums" || noteMode === "sequence" || midiOutputExtraIds.has(id)),
     startsAudio: noteMode !== "processor" || processorAudioIds.has(id),
     computerKeyboardMode: pageKeyboardIds.has(id)
       ? "page"

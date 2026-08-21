@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Karplus Carpet - a microsound field woven from many short, freshly synthesized Karplus delay-line attacks."
+    />
+    <title>Karplus Carpet - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="karplus-strong.css" />
+    <link rel="stylesheet" href="karplus-carpet.css" />
+  </head>
+  <body class="karplus-strong-page karplus-carpet-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="fm-drums.html">fm drums</a>
+        <a class="tab" href="linear-drums.html">rattlesnake</a>
+        <a class="tab" href="karplus-strong.html">karplus strong</a>
+        <a class="tab active" href="karplus-carpet.html" aria-current="page">karplus carpet</a>
+        <a class="tab" href="sample-drums.html">sample drums</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="fm-drums.html">fm drums</option>
+          <option value="linear-drums.html">rattlesnake</option>
+          <option value="karplus-strong.html">karplus strong</option>
+          <option value="karplus-carpet.html" selected>karplus carpet</option>
+          <option value="sample-drums.html">sample drums</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">*</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">62%</output></span>
+          <input id="level" aria-label="Karplus Carpet output level" type="range" min="0" max=".85" step=".01" value=".62" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell" id="karplusCarpet">
+      <section class="stage" aria-label="Karplus Carpet microsound stage">
+        <div class="stage-wrap kc-carpet-stage" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="slider"
+            data-interactive-track
+            aria-label="Karplus Carpet pitch center"
+            aria-orientation="horizontal"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="50"
+            aria-valuetext="Center 311.1 Hz, 72 percent pitch spread"
+            aria-describedby="canvasInstructions liveStatus"
+          >
+            An interactive woven field of synthesized Karplus micro-attacks.
+          </canvas>
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">64 HITS &middot; 16 /S &middot; 160 MS &middot; AUDIO OFF</span>
+          </div>
+          <div class="ks-stage-title kc-stage-title" aria-hidden="true">
+            <p>SYNTHESIZED MICROSOUND WEAVE</p>
+            <h1>Karplus Carpet</h1>
+            <small>micro excite &rarr; short tuned loop &rarr; many-thread field</small>
+          </div>
+          <div class="ks-stage-legend kc-stage-legend" aria-hidden="true">
+            <span>LOW</span><i></i><span id="stageSpacingLabel">12 DIV / OCT</span><i></i><span>HIGH</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Karplus Carpet controls">
+        <details class="group control-section" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Carpet</h2>
+            <span class="section-state" id="playSummary">64 hits &middot; ready</span>
+          </summary>
+          <div class="group-body">
+            <div class="kc-transport-row">
+              <button class="play-button" id="carpetButton" type="button" aria-pressed="false" aria-label="Start Karplus Carpet" data-primary-transport>
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <div class="kc-transport-readout">
+                <b id="hitReadout">64 micro-attacks</b>
+                <span id="densityReadout">16 hits / second</span>
+                <small id="progressOut">0 / 64 woven</small>
+              </div>
+              <button class="mini-action kc-loop-toggle" id="loopCarpet" type="button" aria-pressed="false">Loop</button>
+            </div>
+
+            <div class="kc-performance-sliders">
+              <label class="control kc-slider" for="hitCount">
+                <span><b>Hit count</b><output id="hitCountOut" for="hitCount">64 hits</output></span>
+                <input id="hitCount" type="range" min="8" max="128" step="1" value="64" />
+                <span class="form-range-poles" aria-hidden="true"><span>8</span><span>68</span><span>128</span></span>
+              </label>
+              <label class="control kc-slider" for="hitDensity">
+                <span><b>Hit density</b><output id="hitDensityOut" for="hitDensity">16 /s</output></span>
+                <input id="hitDensity" type="range" min="4" max="28" step="1" value="16" />
+                <span class="form-range-poles" aria-hidden="true"><span>4 /s</span><span>16 /s</span><span>28 /s</span></span>
+              </label>
+              <label class="control kc-slider" for="grainDuration">
+                <span><b>Micro tail</b><output id="grainDurationOut" for="grainDuration">160 ms</output></span>
+                <input id="grainDuration" type="range" min=".08" max=".4" step=".01" value=".16" />
+                <span class="form-range-poles" aria-hidden="true"><span>80 ms</span><span>240 ms</span><span>400 ms</span></span>
+              </label>
+              <label class="control kc-slider" for="timingJitter">
+                <span><b>Timing scatter</b><output id="timingJitterOut" for="timingJitter">18%</output></span>
+                <input id="timingJitter" type="range" min="0" max="1" step=".01" value=".18" />
+              </label>
+              <label class="control kc-slider" for="pitchSpread">
+                <span><b>Pitch spread</b><output id="pitchSpreadOut" for="pitchSpread">72%</output></span>
+                <input id="pitchSpread" type="range" min=".04" max="1" step=".01" value=".72" />
+              </label>
+              <label class="control kc-slider" for="velocityScatter">
+                <span><b>Attack scatter</b><output id="velocityScatterOut" for="velocityScatter">28%</output></span>
+                <input id="velocityScatter" type="range" min="0" max="1" step=".01" value=".28" />
+              </label>
+              <label class="control kc-slider" for="stereoSpread">
+                <span><b>Stereo weave</b><output id="stereoSpreadOut" for="stereoSpread">78%</output></span>
+                <input id="stereoSpread" type="range" min="0" max="1" step=".01" value=".78" />
+              </label>
+            </div>
+
+            <div class="field-label spaced">Pitch field</div>
+            <div class="choice-switch compact ks-spacing-switch" id="spacingMode" role="group" aria-label="Frequency spacing">
+              <button type="button" data-spacing="octave" aria-pressed="true">Equal octave</button>
+              <button type="button" data-spacing="equal-hz" aria-pressed="false">Equal Hz</button>
+            </div>
+            <div class="ks-tuning-sliders">
+              <label class="control ks-tuning-slider" for="lowFrequency">
+                <span><b>Low frequency</b><output id="lowFrequencyOut" for="lowFrequency">110.0 Hz</output></span>
+                <input id="lowFrequency" type="range" min="0" max="1" step=".0001" value=".28450" aria-valuetext="110.0 Hz" />
+                <span class="form-range-poles" aria-hidden="true"><span>20 Hz</span><span>400 Hz</span><span>8 kHz</span></span>
+              </label>
+              <label class="control ks-tuning-slider" for="highFrequency">
+                <span><b>High limit</b><output id="highFrequencyOut" for="highFrequency">880.0 Hz</output></span>
+                <input id="highFrequency" type="range" min="0" max="1" step=".0001" value=".63163" aria-valuetext="880.0 Hz" />
+                <span class="form-range-poles" aria-hidden="true"><span>20 Hz</span><span>400 Hz</span><span>8 kHz</span></span>
+              </label>
+              <label class="control ks-tuning-slider" for="divisionsPerOctave">
+                <span><b>Divisions / octave</b><output id="divisionsPerOctaveOut" for="divisionsPerOctave">12 div/oct</output></span>
+                <input id="divisionsPerOctave" type="range" min="1" max="48" step="1" value="12" aria-valuetext="12 divisions per octave" />
+                <span class="form-range-poles" aria-hidden="true"><span>1</span><span>24</span><span>48</span></span>
+              </label>
+            </div>
+            <div class="ks-field-stats" aria-live="polite">
+              <b id="pitchCellCountOut">37 pitch cells</b>
+              <span id="frequencyRangeOut">110.0 Hz&ndash;880.0 Hz</span>
+            </div>
+            <div class="form-range-row ks-bend-row">
+              <label class="control signed-form-range" for="pitchBend">
+                <span><b>Pitch bend</b><output id="pitchBendOut" for="pitchBend">center</output></span>
+                <input id="pitchBend" type="range" min="-200" max="200" step="1" value="0" />
+                <span class="form-range-poles" aria-hidden="true"><span>&minus;2 st</span><span>Center</span><span>+2 st</span></span>
+              </label>
+              <button class="mini-action form-range-reset" id="centerPitchBend" type="button">Center</button>
+            </div>
+            <p class="control-note">Click to plant a micro-attack cloud. Drag horizontally to move its pitch center; vertical position changes its spread. Every mote is synthesized now&mdash;no samples are loaded.</p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Thread presets</h2>
+            <span class="section-state" id="presetSummary">Warm Nylon</span>
+          </summary>
+          <div class="group-body">
+            <div class="ks-preset-grid" id="presetGrid" role="group" aria-label="Karplus Carpet thread presets"></div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="form" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Micro exciter</h2>
+            <span class="section-state" id="exciterSummary">30% hard &middot; 38% noise</span>
+          </summary>
+          <div class="group-body">
+            <div class="ks-knob-bank">
+              <label class="ks-knob" for="hardness"><span><b>Hardness</b><output id="hardnessOut" for="hardness">30%</output></span><input id="hardness" type="range" min="0" max="1" step=".01" value=".3" /></label>
+              <label class="ks-knob" for="excitationColor"><span><b>Noise color</b><output id="excitationColorOut" for="excitationColor">38%</output></span><input id="excitationColor" type="range" min="0" max="1" step=".01" value=".38" /></label>
+              <label class="ks-knob" for="excitationShape"><span><b>Impulse mix</b><output id="excitationShapeOut" for="excitationShape">18%</output></span><input id="excitationShape" type="range" min="0" max="1" step=".01" value=".18" /></label>
+              <label class="ks-knob" for="burstLength"><span><b>Burst length</b><output id="burstLengthOut" for="burstLength">0.72x</output></span><input id="burstLength" type="range" min=".1" max="4" step=".01" value=".72" /></label>
+              <label class="ks-knob" for="pickPosition"><span><b>Pick position</b><output id="pickPositionOut" for="pickPosition">30%</output></span><input id="pickPosition" type="range" min=".04" max=".96" step=".01" value=".3" /></label>
+              <label class="ks-knob" for="damping"><span><b>Damping</b><output id="dampingOut" for="damping">62%</output></span><input id="damping" type="range" min="0" max="1" step=".01" value=".62" /></label>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Thread character</h2>
+            <span class="section-state" id="characterSummary">48% bright &middot; 6% disperse</span>
+          </summary>
+          <div class="group-body">
+            <div class="ks-knob-bank">
+              <label class="ks-knob" for="brightness"><span><b>Brightness</b><output id="brightnessOut" for="brightness">48%</output></span><input id="brightness" type="range" min="0" max="1" step=".01" value=".48" /></label>
+              <label class="ks-knob" for="dispersion"><span><b>Dispersion</b><output id="dispersionOut" for="dispersion">6%</output></span><input id="dispersion" type="range" min="0" max="1" step=".01" value=".06" /></label>
+              <label class="ks-knob" for="roughness"><span><b>Roughness</b><output id="roughnessOut" for="roughness">0%</output></span><input id="roughness" type="range" min="0" max="1" step=".01" value="0" /></label>
+              <label class="ks-knob" for="body"><span><b>Body</b><output id="bodyOut" for="body">58%</output></span><input id="body" type="range" min="0" max="1" step=".01" value=".58" /></label>
+              <label class="ks-knob" for="bodyQ"><span><b>Body Q</b><output id="bodyQOut" for="bodyQ">3.8 Q</output></span><input id="bodyQ" type="range" min=".2" max="12" step=".1" value="3.8" /></label>
+              <label class="ks-knob" for="bodyTune"><span><b>Body tune</b><output id="bodyTuneOut" for="bodyTune">1.90x</output></span><input id="bodyTune" type="range" min=".5" max="8" step=".05" value="1.9" /></label>
+            </div>
+            <div class="ks-signal-card" aria-label="Karplus Carpet signal path">
+              <span><b>Excite</b><small>noise + impulse</small></span>
+              <i aria-hidden="true">&rarr;</i>
+              <span><b>Micro loop</b><small>80&ndash;400 ms</small></span>
+              <i aria-hidden="true">&rarr;</i>
+              <span><b>Weave</b><small>count + density</small></span>
+              <i aria-hidden="true">&rarr;</i>
+              <span><b>Carpet</b><small>pitch + stereo field</small></span>
+            </div>
+          </div>
+        </details>
+
+        <p class="audio-error kc-audio-error" id="audioError" role="alert" hidden></p>
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        The stage is a continuous Karplus microsound field rather than a row of strings. Pointer left and right changes the cloud pitch center; pointer height changes pitch spread. Press Left or Right to move the center, then Space or Enter to release a short cloud. Start plays the selected number of synthesized attacks at the chosen hit density.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="karplus-carpet-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

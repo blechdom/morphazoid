@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 88);
+  assert.equal(INSTRUMENTS.length, 97);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -46,6 +46,15 @@ test("catalogue data inherits exact section order, names, titles, and links from
   ]) {
     assert.equal(INSTRUMENTS.some((instrument) => instrument.id === id), false);
   }
+
+  const pickerTools = TOOL_GROUPS.flatMap((group) => group.tools.filter((tool) => (
+    group.picker !== false || tool.picker === true
+  )));
+  assert.deepEqual(
+    pickerTools.filter((tool) => !instrumentById(tool.id)).map(({ id }) => id),
+    [],
+    "every pull-down entry must have a catalogue card",
+  );
 });
 
 test("every instrument has factual card copy, a start action, traits, and a transparent icon path", async () => {
@@ -74,7 +83,7 @@ test("experiments carry a works-in-progress status while regular instruments do 
     instrument.tags.some(({ id }) => id === "experiments")
     && INSTRUMENT_GROUPS.find(({ id }) => id === "experiments")?.tools.includes(instrument)
   ));
-  assert.equal(experiments.length, 38);
+  assert.equal(experiments.length, 39);
   assert.equal(experiments.every(({ status }) => status === "Works in progress"), true);
   assert.equal(experiments.every(({ tags }) => (
     tags.length === 1 && tags[0].id === "experiments"
@@ -130,6 +139,69 @@ test("Playhead Paint is a pointer drawing synth without generic note keys", () =
 
   const midi = instrumentMidiCapabilityForId("playhead-paint");
   assert.equal(midi?.noteMode, "pitched");
+  assert.equal(midi?.midiOutput, false);
+  assert.equal(midi?.computerKeyboardMode, "none");
+});
+
+test("Karplus Carpet is a synthesized microsound field with page-owned note gestures", () => {
+  const instrument = instrumentById("karplus-carpet");
+  assert.equal(instrument?.label, "Karplus Carpet");
+  assert.equal(instrument?.href, "karplus-carpet.html");
+  assert.equal(instrument?.kind, "Microsound physical-model synth");
+  assert.match(instrument?.description ?? "", /freshly synthesized/i);
+  assert.match(instrument?.description ?? "", /without loading sample grains/i);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["instruments"]);
+  assert.ok(instrument?.features.includes("Built-in synth"));
+  assert.ok(instrument?.features.includes("Pointer"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.ok(instrument?.features.includes("Computer keys"));
+  assert.equal(instrument?.imageHref, "assets/instruments/karplus-carpet.webp");
+
+  const midi = instrumentMidiCapabilityForId("karplus-carpet");
+  assert.equal(midi?.noteMode, "pitched");
+  assert.equal(midi?.computerKeyboardMode, "page");
+  assert.equal(midi?.midiOutput, false);
+});
+
+test("Boidzoid is a flocking Karplus surface sequencer without generic note keys", () => {
+  const instrument = instrumentById("boidzoid");
+  assert.equal(instrument?.label, "Boidzoid");
+  assert.equal(instrument?.href, "boidzoid.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/boidzoid.webp");
+  assert.equal(instrument?.kind, "Flocking string sequencer");
+  assert.match(instrument?.description ?? "", /flocking playheads/i);
+  assert.match(instrument?.description ?? "", /Karplus.+Strong/i);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["geometry"]);
+  assert.ok(instrument?.features.includes("Pointer"));
+  assert.ok(instrument?.features.includes("Built-in synth"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.equal(instrument?.features.includes("Computer keys"), false);
+
+  const midi = instrumentMidiCapabilityForId("boidzoid");
+  assert.equal(midi?.noteMode, "sequence");
+  assert.equal(midi?.midiOutput, true);
+  assert.equal(midi?.computerKeyboardMode, "none");
+});
+
+test("Pink Trombonazoid is an articulatory voice sequencer without generic note keys or MIDI output", () => {
+  const instrument = instrumentById("pink-trombonazoid");
+  assert.equal(instrument?.label, "Pink Trombonazoid");
+  assert.equal(instrument?.href, "pink-trombonazoid.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/pink-trombonazoid.webp");
+  assert.equal(instrument?.kind, "Articulatory voice sequencer");
+  assert.match(instrument?.description ?? "", /editable phoneme blocks/i);
+  assert.match(instrument?.description ?? "", /physical vocal tract/i);
+  assert.deepEqual(
+    instrument?.tags.map(({ id }) => id),
+    ["voice-synths", "sequencers"],
+  );
+  assert.ok(instrument?.features.includes("Built-in source"));
+  assert.ok(instrument?.features.includes("Pointer"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.equal(instrument?.features.includes("Computer keys"), false);
+
+  const midi = instrumentMidiCapabilityForId("pink-trombonazoid");
+  assert.equal(midi?.noteMode, "sequence");
   assert.equal(midi?.midiOutput, false);
   assert.equal(midi?.computerKeyboardMode, "none");
 });
@@ -225,7 +297,8 @@ test("catalogue tag controls hide experiments until All is restored", () => {
     "Geometry Synths",
     "Drum Machines",
     "Sequencers",
-    "Signal & Voice",
+    "Voice Synths",
+    "Mic FX",
     "Barber Shop Poles",
     "Fractals & Recursion",
     "Chaotic Synths",
@@ -279,7 +352,7 @@ test("input and plug-in availability facts remain explicit", () => {
   assert.deepEqual(
     instrumentById("micmic")?.tags.map(({ id, label }) => ({ id, label })),
     [
-      { id: "signal-voice", label: "Signal & Voice" },
+      { id: "mic-fx", label: "Mic FX" },
       { id: "fractals-recursion", label: "Fractals & Recursion" },
     ],
   );
@@ -322,7 +395,7 @@ test("input and plug-in availability facts remain explicit", () => {
   assert.equal(instrumentById("image-to-instrument-2"), null);
   assert.equal(INSTRUMENT_GROUPS.some(({ id }) => id === "image-to-instrument"), false);
   assert.equal(
-    INSTRUMENT_GROUPS.find(({ id }) => id === "signal-voice")?.tools.some(
+    INSTRUMENT_GROUPS.find(({ id }) => id === "voice-synths")?.tools.some(
       ({ id }) => id === "image-to-instrument-3",
     ),
     true,

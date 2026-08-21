@@ -175,6 +175,25 @@ function periodicGlottis(audio, oscillator, tenseness = 0.58) {
   }
 }
 
+function saturationCurve(amount = 0, size = 2_048) {
+  const drive = clamp(finite(amount));
+  const curve = new Float32Array(size);
+  const shaping = 1 + drive * 18;
+  const normalization = Math.tanh(shaping);
+  for (let index = 0; index < size; index += 1) {
+    const input = index / (size - 1) * 2 - 1;
+    curve[index] = drive < 0.001
+      ? input
+      : Math.tanh(input * shaping) / normalization;
+  }
+  return curve;
+}
+
+function toneFrequency(value = 1) {
+  const normalized = clamp(finite(value, 1));
+  return 1_200 * (14_000 / 1_200) ** normalized;
+}
+
 function personalityFor(event) {
   return SPELLING_PERSONALITIES[event?.personality]
     ?? SPELLING_PERSONALITIES.clear;
@@ -257,9 +276,30 @@ class TubeSpellingEngine {
     this.releaseAudioOutput = null;
     this.pulse = null;
     this.pulseGain = null;
+    this.pulseModGain = null;
     this.breathGain = null;
+    this.breathModGain = null;
     this.noise = null;
+    this.saturation = null;
+    this.tone = null;
+    this.dryGain = null;
+    this.echoDelay = null;
+    this.echoFeedback = null;
+    this.echoGain = null;
+    this.effectsBus = null;
+    this.effects = {
+      drive: 0,
+      tone: 1,
+      echo: 0,
+      delayMs: 185,
+      feedback: 0.24,
+    };
     this.currentEvent = null;
+    this.currentPerformance = null;
+    this.currentConfiguredPerformance = null;
+    this.lastMutationOffset = 0;
+    this.currentPulsePeak = MIN_GAIN;
+    this.currentBreathPeak = MIN_GAIN;
     this.articulationTimer = 0;
     this.releaseTimer = 0;
     this.silenceTimer = 0;
@@ -341,11 +381,22 @@ class TubeSpellingEngine {
       pulse = audio.createOscillator();
       const pulseLowpass = audio.createBiquadFilter();
       const pulseGain = audio.createGain();
+      const pulseModGain = audio.createGain();
       const breathHighpass = audio.createBiquadFilter();
       const breathLowpass = audio.createBiquadFilter();
       const breathGain = audio.createGain();
+      const breathModGain = audio.createGain();
       noise = createNoiseSource(audio);
       const compressor = audio.createDynamicsCompressor();
+      const saturation = typeof audio.createWaveShaper === "function"
+        ? audio.createWaveShaper()
+        : audio.createGain();
+      const tone = audio.createBiquadFilter();
+      const dryGain = audio.createGain();
+      const echoDelay = audio.createDelay(1.2);
+      const echoFeedback = audio.createGain();
+      const echoGain = audio.createGain();
+      const effectsBus = audio.createGain();
       const master = audio.createGain();
 
       sourceBus.gain.value = 0.86;
@@ -355,23 +406,48 @@ class TubeSpellingEngine {
       pulseLowpass.frequency.value = 7_000;
       pulseLowpass.Q.value = 0.72;
       pulseGain.gain.value = MIN_GAIN;
+      pulseModGain.gain.value = 1;
       breathHighpass.type = "highpass";
       breathHighpass.frequency.value = 360;
       breathLowpass.type = "lowpass";
       breathLowpass.frequency.value = 8_400;
       breathGain.gain.value = MIN_GAIN;
+      breathModGain.gain.value = 1;
+      if ("curve" in saturation) {
+        saturation.curve = saturationCurve(this.effects.drive);
+        saturation.oversample = "2x";
+      }
+      tone.type = "lowpass";
+      tone.frequency.value = toneFrequency(this.effects.tone);
+      tone.Q.value = 0.45;
+      dryGain.gain.value = 1;
+      echoDelay.delayTime.value = this.effects.delayMs / 1_000;
+      echoFeedback.gain.value = this.effects.feedback;
+      echoGain.gain.value = this.effects.echo;
+      effectsBus.gain.value = 1;
       master.gain.value = 0;
       configureCompressor(compressor, audio);
 
       connect(pulse, pulseLowpass);
       connect(pulseLowpass, pulseGain);
-      connect(pulseGain, sourceBus);
+      connect(pulseGain, pulseModGain);
+      connect(pulseModGain, sourceBus);
       connect(noise, breathHighpass);
       connect(breathHighpass, breathLowpass);
       connect(breathLowpass, breathGain);
-      connect(breathGain, sourceBus);
+      connect(breathGain, breathModGain);
+      connect(breathModGain, sourceBus);
       connect(sourceBus, node, 0, 0);
-      connect(node, compressor);
+      connect(node, saturation);
+      connect(saturation, tone);
+      connect(tone, dryGain);
+      connect(dryGain, effectsBus);
+      connect(tone, echoDelay);
+      connect(echoDelay, echoGain);
+      connect(echoGain, effectsBus);
+      connect(echoDelay, echoFeedback);
+      connect(echoFeedback, echoDelay);
+      connect(effectsBus, compressor);
       connect(compressor, master);
       this.releaseAudioOutput = connectAudioOutput(audio, master, { runtime: this.runtime });
       pulse.start();
@@ -380,8 +456,17 @@ class TubeSpellingEngine {
       this.master = master;
       this.pulse = pulse;
       this.pulseGain = pulseGain;
+      this.pulseModGain = pulseModGain;
       this.breathGain = breathGain;
+      this.breathModGain = breathModGain;
       this.noise = noise;
+      this.saturation = saturation;
+      this.tone = tone;
+      this.dryGain = dryGain;
+      this.echoDelay = echoDelay;
+      this.echoFeedback = echoFeedback;
+      this.echoGain = echoGain;
+      this.effectsBus = effectsBus;
     } catch (error) {
       try { pulse?.stop?.(); } catch {}
       try { noise?.stop?.(); } catch {}
@@ -397,6 +482,7 @@ class TubeSpellingEngine {
 
   configure(performance, sounding = true) {
     if (!this.node || !this.context || !performance) return;
+    this.currentConfiguredPerformance = performance;
     this.node.port.postMessage({
       type: "configure",
       state: physicalConfig(performance, this.context.sampleRate || 48_000, sounding),
@@ -408,6 +494,27 @@ class TubeSpellingEngine {
     if (this.running) {
       smooth(this.master.gain, calibratedOutputGain(this.level), this.context.currentTime, 0.012);
     }
+  }
+
+  setEffects(options = {}) {
+    this.effects = {
+      drive: clamp(finite(options.drive, this.effects.drive)),
+      tone: clamp(finite(options.tone, this.effects.tone)),
+      echo: clamp(finite(options.echo, this.effects.echo), 0, 0.62),
+      delayMs: clamp(finite(options.delayMs, this.effects.delayMs), 45, 900),
+      feedback: clamp(finite(options.feedback, this.effects.feedback), 0, 0.72),
+    };
+    if (this.saturation && "curve" in this.saturation) {
+      this.saturation.curve = saturationCurve(this.effects.drive);
+    }
+    if (this.context) {
+      const now = this.context.currentTime;
+      smooth(this.tone?.frequency, toneFrequency(this.effects.tone), now, 0.025);
+      smooth(this.echoDelay?.delayTime, this.effects.delayMs / 1_000, now, 0.025);
+      smooth(this.echoFeedback?.gain, this.effects.feedback, now, 0.025);
+      smooth(this.echoGain?.gain, this.effects.echo, now, 0.025);
+    }
+    return Object.freeze({ ...this.effects });
   }
 
   durationMs(event) {
@@ -423,6 +530,8 @@ class TubeSpellingEngine {
     this.clearTimers();
     this.currentEvent = event;
     const { performance, dynamics } = event;
+    this.currentPerformance = performance;
+    this.lastMutationOffset = 0;
     const now = this.context.currentTime;
     const duration = dynamics.durationMs / 1_000;
     const release = dynamics.releaseMs / 1_000;
@@ -454,22 +563,24 @@ class TubeSpellingEngine {
       : performance;
     this.configure(initialPerformance, true);
     const shapeEnvelope = sustainedVowel ? sustainedEnvelope : envelope;
+    this.currentPulsePeak = performance.exciterIntensity
+      * (0.18 + performance.exciterTenseness * 0.31)
+      * (0.018 + performance.articulationVoicing * 0.982)
+      * dynamics.velocity;
+    this.currentBreathPeak = performance.exciterIntensity
+      * (performance.exciterBreath + (1 - performance.articulationVoicing) * 0.42)
+      * (0.2 + (1 - performance.exciterTenseness) * 0.34)
+      * dynamics.velocity;
     shapeEnvelope(this.pulseGain.gain, {
       at: now,
-      peak: performance.exciterIntensity
-        * (0.18 + performance.exciterTenseness * 0.31)
-        * (0.018 + performance.articulationVoicing * 0.982)
-        * dynamics.velocity,
+      peak: this.currentPulsePeak,
       attack: dynamics.attackMs / 1_000,
       duration,
       release,
     });
     shapeEnvelope(this.breathGain.gain, {
       at: now,
-      peak: performance.exciterIntensity
-        * (performance.exciterBreath + (1 - performance.articulationVoicing) * 0.42)
-        * (0.2 + (1 - performance.exciterTenseness) * 0.34)
-        * dynamics.velocity,
+      peak: this.currentBreathPeak,
       attack: Math.max(0.004, dynamics.attackMs / 1_000 * 0.7),
       duration,
       release,
@@ -535,6 +646,65 @@ class TubeSpellingEngine {
     return true;
   }
 
+  modulate({
+    pitchCents = 0,
+    amplitude = 1,
+    breath = 0,
+    mutation = 0,
+    performance = null,
+  } = {}) {
+    if (!this.running || !this.currentPerformance || !this.context) return false;
+    const now = this.context.currentTime;
+    const pitchRatio = 2 ** (clamp(finite(pitchCents), -240, 240) / 1_200);
+    const amplitudeScale = clamp(finite(amplitude, 1), 0, 1.6);
+    const breathOffset = clamp(finite(breath), -1, 1);
+    const authoredPerformance = performance ?? this.currentPerformance;
+    smooth(
+      this.pulse?.frequency,
+      authoredPerformance.exciterPitch * pitchRatio,
+      now,
+      0.009,
+    );
+    // Modulation gains sit after the authored articulation envelopes. Keeping
+    // them separate means an LFO cannot cancel a consonant release or reopen a
+    // stop by repeatedly replacing scheduled envelope values.
+    smooth(this.pulseModGain?.gain, amplitudeScale, now, 0.012);
+    smooth(
+      this.breathModGain?.gain,
+      clamp(amplitudeScale * (1 + breathOffset), 0, 2),
+      now,
+      0.014,
+    );
+    const mutationOffset = clamp(finite(mutation), -1, 1);
+    if (
+      performance
+      || Math.abs(mutationOffset) > 0.0001
+      || Math.abs(this.lastMutationOffset) > 0.0001
+    ) {
+      const configured = this.currentConfiguredPerformance ?? authoredPerformance;
+      const tongues = configured.tongues?.map((tongue, index) => ({
+        ...tongue,
+        ...(index === 0 && authoredPerformance.tongues?.[0] ? {
+          position: authoredPerformance.tongues[0].position,
+          height: authoredPerformance.tongues[0].height,
+          curl: authoredPerformance.tongues[0].curl,
+        } : {}),
+      })) ?? [];
+      this.configure({
+        ...configured,
+        exciterPitch: authoredPerformance.exciterPitch,
+        exciterIntensity: authoredPerformance.exciterIntensity,
+        exciterBreath: authoredPerformance.exciterBreath,
+        lipDiameter: authoredPerformance.lipDiameter,
+        nasalCoupling: authoredPerformance.nasalCoupling,
+        mutation: clamp(authoredPerformance.mutation + mutationOffset),
+        tongues,
+      }, true);
+    }
+    this.lastMutationOffset = mutationOffset;
+    return true;
+  }
+
   release({ releaseMs = 55, performance } = {}) {
     if (!this.context || !this.pulseGain || !this.breathGain) return false;
     this.clearTimers();
@@ -542,6 +712,10 @@ class TubeSpellingEngine {
     smooth(this.pulseGain.gain, MIN_GAIN, now, Math.max(0.005, releaseMs / 3_000));
     smooth(this.breathGain.gain, MIN_GAIN, now, Math.max(0.005, releaseMs / 3_000));
     this.configure(performance ?? this.currentEvent?.carrierPerformance ?? this.currentEvent?.performance, false);
+    this.currentEvent = null;
+    this.currentPerformance = null;
+    this.currentConfiguredPerformance = null;
+    this.lastMutationOffset = 0;
     return true;
   }
 
@@ -585,8 +759,20 @@ class TubeSpellingEngine {
     this.releaseAudioOutput = null;
     this.pulse = null;
     this.pulseGain = null;
+    this.pulseModGain = null;
     this.breathGain = null;
+    this.breathModGain = null;
     this.noise = null;
+    this.saturation = null;
+    this.tone = null;
+    this.dryGain = null;
+    this.echoDelay = null;
+    this.echoFeedback = null;
+    this.echoGain = null;
+    this.effectsBus = null;
+    this.currentPerformance = null;
+    this.currentConfiguredPerformance = null;
+    this.lastMutationOffset = 0;
   }
 }
 
@@ -1051,6 +1237,14 @@ export class SpellingSynthesizerAudio {
     this.level = clamp(value, 0, 0.82);
     for (const backend of Object.values(this.backends)) backend.setLevel(this.level);
     return this.level;
+  }
+
+  setEffects(options = {}) {
+    return this.backends[this.engineName]?.setEffects?.(options) ?? null;
+  }
+
+  modulate(options = {}) {
+    return this.backends[this.engineName]?.modulate?.(options) ?? false;
   }
 
   durationMs(event) {

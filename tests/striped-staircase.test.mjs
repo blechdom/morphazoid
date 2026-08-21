@@ -284,6 +284,5 @@ test("the Morphazoid page is audible, navigable, and publishable", async () => {
     id: "striped-staircase",
     label: "Striped Staircase",
     href: "striped-staircase.html",
-    catalogue: false,
   });
 });

@@ -21,7 +21,18 @@ function standaloneFunctionBody(source, name) {
   const signature = new RegExp(`function\\s+${name}\\s*\\(`);
   const match = signature.exec(source);
   assert.ok(match, `Missing ${name}()`);
-  const bodyStart = source.indexOf("{", match.index);
+  const parametersStart = source.indexOf("(", match.index);
+  let parameterDepth = 0;
+  let parametersEnd = -1;
+  for (let index = parametersStart; index < source.length; index += 1) {
+    if (source[index] === "(") parameterDepth += 1;
+    if (source[index] === ")") parameterDepth -= 1;
+    if (parameterDepth === 0) {
+      parametersEnd = index;
+      break;
+    }
+  }
+  const bodyStart = source.indexOf("{", parametersEnd);
   assert.ok(bodyStart >= 0, `Missing body for ${name}()`);
   let depth = 0;
   for (let index = bodyStart; index < source.length; index += 1) {
@@ -481,6 +492,7 @@ test("the viewport tongue reset restores free-hand defaults without interrupting
   const stageMarkup = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
   const resetButton = elementMarkup(stageMarkup, "button", "resetViewportTongue");
   const resetTongue = standaloneFunctionBody(app, "resetTonguePerformance");
+  const stopTongueAnimation = standaloneFunctionBody(app, "stopTongueAnimationForReset");
 
   assert.match(resetButton, /\btype=["']button["']/i);
   assert.match(
@@ -500,7 +512,12 @@ test("the viewport tongue reset restores free-hand defaults without interrupting
   );
   assert.match(resetTongue, /performanceTongueState\s*=\s*tongueState/);
   assert.match(resetTongue, /tongueArticulation\s*=\s*IDLE_TONGUE_ARTICULATION/);
-  const stopMotion = resetTongue.match(/setTongueMotion\(\s*["']{2}\s*,\s*\{[^}]*\}\s*\)/)?.[0] ?? "";
+  assert.match(
+    resetTongue,
+    /stopTongueAnimationForReset\(\)/,
+    "Reset Tongue explicitly cancels any running preset animation",
+  );
+  const stopMotion = stopTongueAnimation.match(/setTongueMotion\(\s*["']{2}\s*,\s*\{[^}]*\}\s*\)/)?.[0] ?? "";
   assert.match(stopMotion, /announceChange:\s*false/);
   assert.match(
     stopMotion,
@@ -534,7 +551,23 @@ test("the viewport tongue reset restores free-hand defaults without interrupting
   );
 });
 
-test("the viewport modulator reset restores every wiggle default and collapses its editor", async () => {
+test("the full Tongued Beasts reset cancels automatic tongue motion", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("tongued-beasts.html", root), "utf8"),
+    readFile(new URL("syrinx-app.js", root), "utf8"),
+  ]);
+  const resetButton = html.match(/<button\b[^>]*data-reset-all[^>]*>[\s\S]*?<\/button>/i)?.[0] ?? "";
+  const listeners = standaloneFunctionBody(app, "installControlListeners");
+
+  assert.match(resetButton, />\s*Reset beast\s*</i, "Tongued Beasts exposes its full reset");
+  assert.match(
+    listeners,
+    /querySelector\(\s*["']\[data-reset-all\]["']\s*\)\?*\.addEventListener\(\s*["']click["'][\s\S]{0,500}?stopTongueAnimationForReset\(\)/,
+    "the shared full-reset handler stops an active tongue preset",
+  );
+});
+
+test("the viewport modulator reset restores every wiggle default and stops tongue motion", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("tongued-beasts.html", root), "utf8"),
     readFile(new URL("syrinx-app.js", root), "utf8"),
@@ -542,6 +575,7 @@ test("the viewport modulator reset restores every wiggle default and collapses i
   const stageMarkup = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
   const resetButton = elementMarkup(stageMarkup, "button", "resetViewportModulators");
   const resetModulators = standaloneFunctionBody(app, "resetParameterModulators");
+  const resetViewportModulation = standaloneFunctionBody(app, "resetViewportModulationPerformance");
 
   assert.match(resetButton, /\btype=["']button["']/i);
   assert.match(
@@ -551,8 +585,23 @@ test("the viewport modulator reset restores every wiggle default and collapses i
   );
   assert.match(
     app,
-    /\$\(["']resetViewportModulators["']\)\?*\.addEventListener\(["']click["'],\s*(?:resetParameterModulators|\(\)\s*=>\s*resetParameterModulators\(\))\)/,
-    "the viewport button invokes the dedicated modulation reset",
+    /\$\(["']resetViewportModulators["']\)\?*\.addEventListener\(["']click["'],\s*resetViewportModulationPerformance\)/,
+    "the visible button invokes its dedicated performance-reset wrapper",
+  );
+  assert.match(
+    resetViewportModulation,
+    /stopTongueAnimationForReset\(\)/,
+    "RESET ALL MODS cancels an active procedural tongue preset",
+  );
+  assert.match(
+    resetViewportModulation,
+    /resetParameterModulators\(/,
+    "the viewport wrapper still restores every parameter modulator",
+  );
+  assert.doesNotMatch(
+    resetModulators,
+    /stopTongueAnimationForReset\(\)/,
+    "the lower-level modulator reset remains reusable without changing tongue motion",
   );
   assert.match(resetModulators, /PARAMETER_MODULATOR_DEFINITIONS/);
   assert.match(resetModulators, /parameterModulators\.forEach\(/);
