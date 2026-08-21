@@ -44,6 +44,73 @@ function rms(samples) {
   return Math.sqrt(total / Math.max(1, samples.length));
 }
 
+function maximumSampleStep(samples, priorSample = null) {
+  let maximum = 0;
+  let previous = priorSample;
+  for (const sample of samples) {
+    if (previous !== null) {
+      maximum = Math.max(maximum, Math.abs(sample - previous));
+    }
+    previous = sample;
+  }
+  return maximum;
+}
+
+function percentile(sortedValues, fraction) {
+  const index = Math.floor((sortedValues.length - 1) * fraction);
+  return sortedValues[Math.max(0, Math.min(sortedValues.length - 1, index))];
+}
+
+/**
+ * Summarize changes in local spectral activity without assuming an exact
+ * waveform or a particular rhythmic grid. Signal RMS captures audible accent
+ * depth, while first-difference RMS follows local spectral activity. Their
+ * 50 ms quantiles measure short accents, and one-second activity means reveal
+ * slower changes in the accent pattern.
+ */
+function temporalActivitySummary(samples, sampleRate) {
+  const windowFrames = Math.max(2, Math.round(sampleRate * 0.05));
+  const amplitude = [];
+  const activity = [];
+  for (let start = 0; start + windowFrames <= samples.length; start += windowFrames) {
+    let squaredAmplitude = 0;
+    let squaredDifference = 0;
+    for (let index = start + 1; index < start + windowFrames; index += 1) {
+      squaredAmplitude += samples[index] * samples[index];
+      const difference = samples[index] - samples[index - 1];
+      squaredDifference += difference * difference;
+    }
+    squaredAmplitude += samples[start] * samples[start];
+    amplitude.push(Math.sqrt(squaredAmplitude / windowFrames));
+    activity.push(Math.sqrt(squaredDifference / (windowFrames - 1)));
+  }
+
+  assert.ok(activity.length >= 20, "temporal analysis needs at least one second");
+  const mean = activity.reduce((total, value) => total + value, 0) / activity.length;
+  const sortedAmplitude = [...amplitude].sort((a, b) => a - b);
+  const sortedActivity = [...activity].sort((a, b) => a - b);
+  const oneSecondWindows = Math.max(1, Math.round(sampleRate / windowFrames));
+  const trajectory = [];
+  for (let start = 0; start < activity.length; start += oneSecondWindows) {
+    const end = Math.min(activity.length, start + oneSecondWindows);
+    let total = 0;
+    for (let index = start; index < end; index += 1) total += activity[index];
+    trajectory.push(total / (end - start));
+  }
+
+  return {
+    amplitudeContrastDb: 20 * Math.log10(
+      percentile(sortedAmplitude, 0.9)
+        / Math.max(1e-12, percentile(sortedAmplitude, 0.1)),
+    ),
+    accentContrast: percentile(sortedActivity, 0.9)
+      / Math.max(1e-12, percentile(sortedActivity, 0.1)),
+    trajectorySpread: (
+      Math.max(...trajectory) - Math.min(...trajectory)
+    ) / Math.max(1e-12, mean),
+  };
+}
+
 function methodBody(source, signature) {
   const methodStart = source.indexOf(signature);
   assert.ok(methodStart >= 0, `missing ${signature}`);
@@ -83,13 +150,25 @@ test("Cascading PM settings and presets are finite, bounded, and immutable", () 
   assert.ok(CASCADING_PM_PRESETS.every(Object.isFrozen));
   assert.ok(CASCADING_PM_PRESETS.every(({ settings }) => Object.isFrozen(settings)));
 
+  const motionCounts = { drone: 0, evolving: 0, rhythmic: 0 };
+
   for (const preset of CASCADING_PM_PRESETS) {
+    assert.ok(
+      Object.hasOwn(motionCounts, preset.motion),
+      `${preset.id} has unknown motion class ${preset.motion}`,
+    );
+    motionCounts[preset.motion] += 1;
     assert.deepEqual(
       sanitizeCascadingPmSettings(preset.settings),
       preset.settings,
       `${preset.id} is not already sanitized`,
     );
   }
+  assert.deepEqual(
+    motionCounts,
+    { drone: 2, evolving: 3, rhythmic: 1 },
+    "the bank should deliberately balance drones, evolving tones, and rhythm",
+  );
 });
 
 test("the operator ledger uses geometric base frequencies and radian phase indices", () => {
@@ -271,16 +350,28 @@ test("bandwidth pressure safely reduces extreme phase indices before Nyquist", (
   }
 });
 
-test("factory PM presets stay low and do not rely on safety guards", () => {
+test("factory PM presets span shallow and deep cascades without relying on safety guards", () => {
   assert.deepEqual(
     CASCADING_PM_DEFAULTS,
     CASCADING_PM_PRESETS.find(({ id }) => id === DEFAULT_CASCADING_PM_PRESET_ID).settings,
   );
+  const stageCounts = CASCADING_PM_PRESETS.map(({ settings }) => settings.stages);
+  assert.ok(stageCounts.includes(2), "the bank needs a direct two-operator PM voice");
+  assert.ok(stageCounts.includes(3), "the bank needs a compact three-operator cascade");
+  assert.ok(
+    stageCounts.some((stages) => stages >= 4 && stages <= 6),
+    "the bank needs at least one medium four-to-six-stage cascade",
+  );
+  assert.ok(
+    stageCounts.filter((stages) => stages >= 8).length <= 1,
+    "at most one factory preset should use a deep eight-to-ten-stage cascade",
+  );
+
   for (const preset of CASCADING_PM_PRESETS) {
-    assert.ok(preset.settings.stages >= 6 && preset.settings.stages <= 12);
-    assert.ok(preset.settings.rootHz <= 0.15, `${preset.id} root is too fast`);
-    assert.ok(preset.settings.cascadeRatio <= 4.5, `${preset.id} ratio is too steep`);
-    assert.ok(preset.settings.phaseIndex <= 1.5, `${preset.id} starts too deep`);
+    assert.ok(
+      preset.settings.stages >= 2 && preset.settings.stages <= 10,
+      `${preset.id} uses an excessive number of stages`,
+    );
     for (const sampleRate of [44_100, 48_000, 96_000]) {
       const stack = deriveCascadeStack(preset.settings, { sampleRate });
       const carrier = stack.oscillators.at(-1);
@@ -290,20 +381,88 @@ test("factory PM presets stay low and do not rely on safety guards", () => {
         `${preset.id} relies on a frequency clamp at ${sampleRate} Hz`,
       );
       assert.ok(
-        carrier.frequencyHz >= 60 && carrier.frequencyHz <= 900,
+        carrier.frequencyHz >= 45 && carrier.frequencyHz <= 440,
         `${preset.id} carrier ${carrier.frequencyHz} Hz is not comfortably audible`,
       );
       assert.equal(stack.boundedByInternalIndex, false, `${preset.id} index guard`);
       assert.equal(stack.boundedByBandwidth, false, `${preset.id} bandwidth guard`);
       assert.ok(stack.connections.every(({ rawPhaseIndex, phaseIndex }) => (
-        rawPhaseIndex <= 1.5 && phaseIndex === rawPhaseIndex
+        rawPhaseIndex <= CASCADING_PM_LIMITS.maxInternalPhaseIndex
+          && phaseIndex === rawPhaseIndex
       )));
       assert.ok(
-        carrier.estimatedBandwidthHz <= 1_000,
+        carrier.estimatedBandwidthHz <= 2_400,
         `${preset.id} bandwidth ${carrier.estimatedBandwidthHz} Hz is too bright`,
       );
     }
   }
+});
+
+test("preset motion classes sound distinct without forcing drones to pulse", () => {
+  const sampleRate = 48_000;
+  const frameCount = sampleRate * 8;
+  const summaries = new Map();
+
+  for (const preset of CASCADING_PM_PRESETS) {
+    const rendered = renderCascadingPmSamples(preset.settings, {
+      sampleRate,
+      frameCount,
+    });
+    const unmodulated = renderCascadingPmSamples({
+      ...preset.settings,
+      phaseIndex: 0,
+    }, {
+      sampleRate,
+      frameCount,
+    });
+    const motion = temporalActivitySummary(rendered, sampleRate);
+    const carrierBaseline = temporalActivitySummary(unmodulated, sampleRate);
+    summaries.set(preset.id, {
+      ...motion,
+      accentLift: motion.accentContrast - carrierBaseline.accentContrast,
+      trajectoryLift: motion.trajectorySpread - carrierBaseline.trajectorySpread,
+    });
+
+    if (preset.motion === "evolving") {
+      assert.ok(
+        motion.trajectorySpread >= carrierBaseline.trajectorySpread + 0.001,
+        `${preset.id} long-form motion ${motion.trajectorySpread.toFixed(4)} `
+          + `barely exceeds its carrier baseline ${carrierBaseline.trajectorySpread.toFixed(4)}`,
+      );
+    }
+    if (preset.motion === "rhythmic") {
+      assert.ok(
+        motion.amplitudeContrastDb >= 0.6,
+        `${preset.id} has only ${motion.amplitudeContrastDb.toFixed(2)} dB `
+          + "of short-time accent contrast",
+      );
+      assert.ok(
+        motion.accentContrast >= carrierBaseline.accentContrast + 0.05,
+        `${preset.id} rhythmic contrast ${motion.accentContrast.toFixed(3)} `
+          + `barely exceeds its carrier baseline ${carrierBaseline.accentContrast.toFixed(3)}`,
+      );
+    }
+  }
+
+  const evolvingRates = CASCADING_PM_PRESETS
+    .filter(({ motion }) => motion === "evolving")
+    .map(({ settings }) => settings.rootHz)
+    .sort((a, b) => a - b);
+  assert.equal(new Set(evolvingRates).size, 3, "evolving presets need three distinct rates");
+  for (let index = 1; index < evolvingRates.length; index += 1) {
+    assert.ok(
+      evolvingRates[index] / evolvingRates[index - 1] >= 3,
+      "neighboring evolving presets should differ by at least threefold in motion rate",
+    );
+  }
+
+  const motionValues = [...summaries.values()];
+  const amplitudeRange = Math.max(...motionValues.map(({ amplitudeContrastDb }) => amplitudeContrastDb))
+    - Math.min(...motionValues.map(({ amplitudeContrastDb }) => amplitudeContrastDb));
+  const trajectoryRange = Math.max(...motionValues.map(({ trajectoryLift }) => trajectoryLift))
+    - Math.min(...motionValues.map(({ trajectoryLift }) => trajectoryLift));
+  assert.ok(amplitudeRange >= 0.4, "the preset bank still has one shared accent profile");
+  assert.ok(trajectoryRange >= 0.004, "the preset bank still has one shared evolution profile");
 });
 
 test("the phase cascade evaluates the nested PM equation exactly", () => {
@@ -393,22 +552,50 @@ test("ratio slider stays monotonic and precise across twelve stages", () => {
   }
 });
 
-test("preset ratios occupy the usable rising side of the slider", () => {
-  const sorted = [...CASCADING_PM_PRESETS]
-    .sort((a, b) => a.settings.cascadeRatio - b.settings.cascadeRatio);
-  let previousPosition = RATIO_UNITY_POSITION;
-  for (const preset of sorted) {
+test("preset ratios occupy a broad usable part of the rising slider", () => {
+  const positions = [];
+  for (const preset of CASCADING_PM_PRESETS) {
     const ratio = preset.settings.cascadeRatio;
     const position = ratioSliderPosition(ratio);
     approximatelyEqual(ratioSliderValue(position), ratio, 1e-10);
-    assert.ok(position > previousPosition, `${preset.id} should have a distinct slider position`);
-    previousPosition = position;
+    assert.ok(position > RATIO_UNITY_POSITION, `${preset.id} should rise toward its carrier`);
+    positions.push(position);
   }
-  const positions = sorted.map(({ settings }) => ratioSliderPosition(settings.cascadeRatio));
   assert.ok(
-    positions.at(-1) - positions[0] >= 0.16,
+    Math.max(...positions) - Math.min(...positions) >= 0.16,
     "factory ratios should not be bunched into a narrow part of the track",
   );
+  assert.ok(
+    new Set(positions.map((position) => position.toFixed(3))).size >= 4,
+    "the bank should use at least four materially different cascade ratios",
+  );
+});
+
+test("no two factory presets are near-clones in their audible design", () => {
+  const presets = CASCADING_PM_PRESETS.map((preset) => ({
+    ...preset,
+    carrierHz: deriveCascadeStack(preset.settings).oscillators.at(-1).frequencyHz,
+  }));
+  const octaveDistance = (left, right) => Math.abs(Math.log2(left / right));
+
+  for (let leftIndex = 0; leftIndex < presets.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < presets.length; rightIndex += 1) {
+      const left = presets[leftIndex];
+      const right = presets[rightIndex];
+      const materialDifferences = [
+        Math.abs(left.settings.stages - right.settings.stages) >= 2,
+        octaveDistance(left.settings.rootHz, right.settings.rootHz) >= 0.5,
+        octaveDistance(left.settings.cascadeRatio, right.settings.cascadeRatio) >= 0.15,
+        Math.abs(left.settings.phaseIndex - right.settings.phaseIndex) >= 0.2,
+        Math.abs(left.settings.indexTaper - right.settings.indexTaper) >= 0.08,
+        octaveDistance(left.carrierHz, right.carrierHz) >= 0.25,
+      ].filter(Boolean).length;
+      assert.ok(
+        materialDifferences >= 2,
+        `${left.id} and ${right.id} differ materially on only ${materialDifferences} design axis`,
+      );
+    }
+  }
 });
 
 test("all presets render bounded, finite, and audible at common sample rates", () => {
@@ -486,6 +673,97 @@ test("rapid stage changes remain bounded and continuous", () => {
     assert.ok(rendered.every(Number.isFinite));
     assert.ok(rendered.every((sample) => Math.abs(sample) <= 1));
     assert.ok(maximumStep < 0.12, `stage changes produced a ${maximumStep} sample step`);
+  } finally {
+    if (priorSampleRate === undefined) delete globalThis.sampleRate;
+    else globalThis.sampleRate = priorSampleRate;
+  }
+});
+
+test("all ordered live preset transitions stay click-safe with preallocated storage", () => {
+  const priorSampleRate = globalThis.sampleRate;
+  globalThis.sampleRate = 48_000;
+  try {
+    const staticSteps = new Map();
+    for (const preset of CASCADING_PM_PRESETS) {
+      const processor = new CascadingPmProcessor({
+        processorOptions: { settings: preset.settings },
+      });
+      const block = new Float32Array(12_000);
+      assert.equal(processor.process([], [[block]]), true);
+      assert.ok(block.every(Number.isFinite), `${preset.id} static render is non-finite`);
+      staticSteps.set(preset.id, maximumSampleStep(block));
+    }
+    const staticMaximumStep = Math.max(...staticSteps.values());
+    const transitionCeiling = Math.min(
+      0.12,
+      Math.max(0.06, staticMaximumStep * 4),
+    );
+    let pairCount = 0;
+    let shrinkingPairCount = 0;
+    let worstTransition = { from: "", to: "", step: 0 };
+
+    for (let fromIndex = 0; fromIndex < CASCADING_PM_PRESETS.length; fromIndex += 1) {
+      const from = CASCADING_PM_PRESETS[fromIndex];
+      for (let toIndex = 0; toIndex < CASCADING_PM_PRESETS.length; toIndex += 1) {
+        const to = CASCADING_PM_PRESETS[toIndex];
+        pairCount += 1;
+        if (to.settings.stages < from.settings.stages) shrinkingPairCount += 1;
+
+        const processor = new CascadingPmProcessor({
+          processorOptions: { settings: from.settings },
+        });
+        const storage = Object.fromEntries(
+          Object.entries(processor).filter(([, value]) => ArrayBuffer.isView(value)),
+        );
+        assert.ok(
+          Object.keys(storage).length >= 9,
+          "the worklet should allocate its fixed render storage in the constructor",
+        );
+        // Vary the hand-off phase deterministically so the matrix does not only
+        // exercise six transitions from the same all-zero alignment.
+        const preRoll = new Float32Array(4_096 + (fromIndex * 6 + toIndex) * 97);
+        assert.equal(processor.process([], [[preRoll]]), true);
+        const priorSample = preRoll.at(-1);
+        processor._applySettings(to.settings, false);
+        const transition = new Float32Array(8_192);
+        assert.equal(processor.process([], [[transition]]), true);
+
+        assert.ok(
+          transition.every(Number.isFinite),
+          `${from.id} -> ${to.id} produced non-finite samples`,
+        );
+        assert.ok(
+          transition.every((sample) => Math.abs(sample) <= 1),
+          `${from.id} -> ${to.id} exceeded the bounded PM output`,
+        );
+        for (const [name, reference] of Object.entries(storage)) {
+          assert.equal(
+            processor[name],
+            reference,
+            `${from.id} -> ${to.id} replaced preallocated ${name} storage`,
+          );
+        }
+
+        const step = maximumSampleStep(transition, priorSample);
+        if (step > worstTransition.step) {
+          worstTransition = { from: from.id, to: to.id, step };
+        }
+      }
+    }
+
+    assert.equal(pairCount, 36, "the transition matrix must cover every ordered preset pair");
+    assert.equal(
+      shrinkingPairCount,
+      15,
+      "the transition matrix must include every deep-to-shallow stage change",
+    );
+    assert.ok(
+      worstTransition.step < transitionCeiling,
+      `${worstTransition.from} -> ${worstTransition.to} produced a `
+        + `${worstTransition.step.toFixed(4)} sample step; static maximum is `
+        + `${staticMaximumStep.toFixed(4)} and transition ceiling is `
+        + transitionCeiling.toFixed(4),
+    );
   } finally {
     if (priorSampleRate === undefined) delete globalThis.sampleRate;
     else globalThis.sampleRate = priorSampleRate;
@@ -611,10 +889,26 @@ test("the page explains phase—not frequency—modulation and exposes the paral
     CASCADING_PM_PRESETS.find(({ id }) => id === DEFAULT_CASCADING_PM_PRESET_ID)
       .settings.cascadeRatio,
   ).toFixed(4);
+  const defaultRatio = CASCADING_PM_PRESETS.find(
+    ({ id }) => id === DEFAULT_CASCADING_PM_PRESET_ID,
+  ).settings.cascadeRatio;
+  const defaultRatioLabel = defaultRatio
+    .toFixed(defaultRatio < 10 ? 2 : (defaultRatio < 100 ? 1 : 0))
+    .replace(/\.?0+$/, "");
   assert.match(
     html,
     new RegExp(`id="cascadeRatio"[\\s\\S]*?value="${defaultRatioPosition}"[\\s\\S]*?aria-describedby="cascadeRatioNote"`),
     "the static ratio thumb should match the default preset mapping",
+  );
+  assert.match(
+    html,
+    new RegExp(`id="cascadeRatioOut"[^>]*>×${defaultRatioLabel}<\\/output>`),
+    "the default ratio should be visible before JavaScript runs",
+  );
+  assert.match(
+    app,
+    /const digits = number < 10 \? 2 : \(number < 100 \? 1 : 0\);/,
+    "ratio readouts through ×100 must retain enough precision to show preset offsets",
   );
   assert.doesNotMatch(html, /center ×1|unity detent at center/i);
   assert.match(html, /below 1 descends, above 1 rises/i);

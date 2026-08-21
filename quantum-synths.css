@@ -44,6 +44,15 @@
   background-size: 36px 36px, 36px 36px, auto, auto, auto, auto;
 }
 
+.quantum-square-dance-page {
+  --accent: #ffc86b;
+  --accent-soft: color-mix(in oklab, #ffc86b 56%, transparent);
+  --accent-glow: color-mix(in oklab, #ffc86b 21%, transparent);
+  --square-dance-blue: #77baff;
+  --square-dance-coral: #ff8d79;
+  --square-dance-orchid: #c49bff;
+}
+
 .quantum-shell {
   grid-template-columns: minmax(0, 1fr) clamp(360px, 28vw, 430px);
 }
@@ -78,6 +87,19 @@
     radial-gradient(ellipse at 52% 50%, color-mix(in oklab, var(--quantum-pink) 8%, transparent), transparent 48%),
     var(--bg-deep);
   background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.quantum-square-dance-page .quantum-stage .stage-wrap,
+.quantum-square-dance-page .quantum-stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--accent) 3.4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 3.4%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in oklab, var(--square-dance-blue) 2.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--square-dance-blue) 2.5%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 52%, color-mix(in oklab, var(--accent) 9%, transparent), transparent 46%),
+    radial-gradient(ellipse at 50% 52%, color-mix(in oklab, var(--square-dance-blue) 5%, transparent), transparent 70%),
+    var(--bg-deep);
+  background-size: 64px 64px, 64px 64px, 32px 32px, 32px 32px, auto, auto, auto;
 }
 
 .quantum-page #stage {
@@ -640,5 +662,373 @@
 
   .quantum-page canvas {
     transition: none;
+  }
+}
+
+/* Quantum Square Dance --------------------------------------------------- */
+
+.square-dance-heading {
+  max-width: min(680px, 70%);
+}
+
+.square-dance-heading h1 {
+  max-width: 680px;
+}
+
+.square-dance-stage-notice {
+  max-width: min(610px, calc(100% - 64px));
+}
+
+.quantum-square-dance-page canvas {
+  cursor: ew-resize;
+  touch-action: pan-y;
+}
+
+.square-dance-panel .quantum-control-note:last-child {
+  margin-bottom: 0;
+}
+
+.square-dance-transport-row {
+  margin-top: 2px;
+}
+
+.square-dance-key-note {
+  margin-top: 8px;
+}
+
+.square-dance-phase-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.square-dance-phase-actions > button {
+  padding-right: 6px;
+  padding-left: 6px;
+  font-size: 8px;
+}
+
+.square-dance-anatomy {
+  display: grid;
+  padding: 11px;
+  margin-top: 12px;
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line));
+  background:
+    linear-gradient(120deg, color-mix(in oklab, var(--accent) 6%, transparent), transparent 62%),
+    var(--bg-deep);
+  gap: 7px;
+}
+
+.square-dance-eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.square-dance-anatomy-ledger {
+  margin: 0;
+  padding: 0 9px;
+  background: color-mix(in oklab, var(--panel-high) 72%, transparent);
+}
+
+.square-dance-anatomy-ledger code {
+  max-width: 66%;
+  white-space: normal;
+}
+
+.quantum-square-dance-page #soundDiagnosis {
+  margin: 0;
+  color: color-mix(in oklab, var(--ink) 76%, var(--muted));
+  font-size: 8px;
+  line-height: 1.65;
+}
+
+.square-dance-equation {
+  display: grid;
+  padding: 12px;
+  margin: 2px 0 10px;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--accent) 34%, var(--line));
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in oklab, var(--square-dance-orchid) 8%, transparent), transparent 52%),
+    var(--bg-deep);
+  gap: 7px;
+}
+
+.square-dance-equation b {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.square-dance-equation code {
+  color: var(--accent);
+  font: clamp(10px, 0.75vw, 13px)/1.55 var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.square-dance-equation small {
+  color: var(--muted);
+  font: 8px/1.55 var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.square-dance-state-ledger code,
+.square-dance-state-ledger output {
+  max-width: 64%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.square-dance-state-ledger .square-dance-wide-readout {
+  display: grid;
+  padding: 6px 0;
+  align-items: start;
+  gap: 4px;
+}
+
+.square-dance-state-ledger .square-dance-wide-readout code {
+  max-width: none;
+  text-align: left;
+}
+
+.square-dance-measure-actions {
+  margin-top: 11px;
+}
+
+.square-dance-measure-actions > button {
+  min-height: 44px;
+}
+
+.square-dance-mapping-ledger {
+  display: grid;
+  padding: 0;
+  margin: 10px 0 0;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-high) 78%, transparent);
+}
+
+.square-dance-mapping-ledger > div {
+  display: grid;
+  min-width: 0;
+  padding: 9px 10px;
+  border-bottom: 1px solid color-mix(in oklab, var(--line) 72%, transparent);
+  grid-template-columns: minmax(78px, 0.42fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 12px;
+}
+
+.square-dance-mapping-ledger > div:last-child {
+  border-bottom: 0;
+}
+
+.square-dance-mapping-ledger dt,
+.square-dance-mapping-ledger dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.square-dance-mapping-ledger dt {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.square-dance-mapping-ledger dd {
+  color: color-mix(in oklab, var(--ink) 78%, var(--muted));
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.square-dance-mapping-ledger code {
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
+.square-dance-truth {
+  display: grid;
+  padding: 18px 20px 20px;
+  border-bottom: 1px solid var(--line-strong);
+  background:
+    linear-gradient(140deg, color-mix(in oklab, var(--accent) 6%, transparent), transparent 42%),
+    color-mix(in oklab, var(--panel-high) 58%, transparent);
+  gap: 10px;
+}
+
+.square-dance-truth h2,
+.square-dance-truth p,
+.square-dance-truth ul {
+  margin: 0;
+}
+
+.square-dance-truth h2 {
+  max-width: 34ch;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 540;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.square-dance-truth > p:not(.square-dance-eyebrow),
+.square-dance-truth li {
+  color: color-mix(in oklab, var(--ink) 72%, var(--muted));
+  font-size: 8px;
+  line-height: 1.65;
+}
+
+.square-dance-truth ul {
+  display: grid;
+  padding-left: 16px;
+  gap: 7px;
+}
+
+.square-dance-truth li::marker {
+  color: var(--accent);
+}
+
+.square-dance-truth li b {
+  color: var(--ink);
+  font-weight: 620;
+}
+
+.square-dance-source-links {
+  display: grid;
+  margin-top: 2px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.square-dance-source-links a {
+  display: flex;
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--bg-deep);
+  align-items: center;
+  font-size: 7px;
+  letter-spacing: 0.035em;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.square-dance-source-links a:hover,
+.square-dance-source-links a:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.quantum-square-dance-page .reset-all-row {
+  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 960px) {
+  .square-dance-heading {
+    max-width: min(680px, 72%);
+  }
+
+  .square-dance-truth {
+    padding-right: clamp(20px, 5vw, 46px);
+    padding-left: clamp(20px, 5vw, 46px);
+  }
+}
+
+@media (max-width: 650px) {
+  .square-dance-heading {
+    top: 27px;
+    max-width: 70%;
+  }
+
+  .square-dance-heading h1 {
+    font-size: clamp(23px, 8.6vw, 34px);
+    letter-spacing: -0.055em;
+  }
+
+  .quantum-square-dance-page .stage-meta {
+    top: auto;
+    right: 13px;
+    bottom: 47px;
+    left: 13px;
+    font-size: 7px;
+    letter-spacing: 0.08em;
+  }
+
+  .square-dance-stage-notice {
+    max-width: calc(100% - 26px);
+  }
+
+  .square-dance-phase-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .square-dance-phase-actions > button {
+    min-height: 46px;
+    font-size: 7px;
+    letter-spacing: 0.045em;
+  }
+
+  .square-dance-mapping-ledger > div {
+    grid-template-columns: minmax(72px, 0.38fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 390px) {
+  .square-dance-heading {
+    max-width: 76%;
+  }
+
+  .square-dance-heading h1 {
+    font-size: clamp(22px, 8.8vw, 30px);
+  }
+
+  .square-dance-phase-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .square-dance-measure-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .square-dance-source-links {
+    grid-template-columns: 1fr;
+  }
+
+  .square-dance-mapping-ledger > div {
+    padding: 8px;
+    grid-template-columns: 66px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .square-dance-state-ledger code,
+  .square-dance-state-ledger output {
+    max-width: 60%;
+    font-size: 8px;
+  }
+
+  .square-dance-anatomy-ledger > span {
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quantum-square-dance-page .audio-button,
+  .quantum-square-dance-page .play-button,
+  .quantum-square-dance-page canvas {
+    transition: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .square-dance-measure-actions > button {
+    min-height: 48px;
   }
 }

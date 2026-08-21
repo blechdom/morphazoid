@@ -1,4 +1,4 @@
-import { TOOL_GROUPS } from "../nav.js?v=catalog-20260819-1";
+import { TOOL_GROUPS } from "../nav.js?v=catalog-20260820-2";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -15,6 +15,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Scans a 2D contour with moving points, lines, or rays; each geometric contact shapes pitch, pan, level, and timbre.",
     "Turn on audio, choose a reader, then move the contour or play a MIDI or computer key.",
     ["MIDI", "Computer keys"],
+  ),
+  "playhead-paint": define(
+    "Drawing synth",
+    "Turns freehand pointer strokes into playable sound gestures, mapping position, color, and pen size to pitch and timbre while mirrored axes create polyphonic reflections.",
+    "Turn on audio, choose X and Y mappings and a pen, then draw; release to end the note or loop the recorded path.",
+    ["Pointer", "Built-in synth"],
   ),
   lattice: define(
     "Synth",
@@ -135,8 +141,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   morphynx: define(
     "Hybrid physical voice",
-    "Morphs Syrinx animal-source physics into Throatazoid voice anatomy, microphone formants, branching mouths, and the complete letter-key mutation system.",
-    "Choose an animal and voice, move the Syrinx–Throatazoid morph, then play a call or hold A–Z; use Shift for mutations and 0–9 for alien anatomies.",
+    "Crossfades persistent Syrinx and larynx models while multiple physical voices, tongue constrictions, nasal resonances, microphone formants, and letter-key mutations reshape the tract.",
+    "Choose an animal and voice, move the Syrinx–Larynx morph, then play a call or hold A–Z; add voices, tongues, or nasal cavities to hear the anatomy branch out.",
     ["Mic input", "Built-in source", "Computer keys", "Pointer"],
   ),
   "hyper-syrinx": define(
@@ -187,16 +193,10 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose microphone or a file, start the source, then move between Sand and Syrup behavior.",
     ["Mic input", "File input"],
   ),
-  "striped-sludge-delay": define(
-    "Delay instrument",
-    "Uses staggered delay heads that converge on the source pitch mid-sweep and then move away again.",
-    "Choose microphone or a file, start the source, then set direction, spread, and feedback.",
-    ["Mic input", "File input"],
-  ),
   "candy-coil-delay": define(
     "Delay instrument",
-    "Uses staggered variable delays to repeat rising or falling sweeps with adjustable timing, tilt, feedback, and mix.",
-    "Choose microphone or a file, start the source, then set the coil direction and rate.",
+    "Uses staggered centered-hump delay heads that pass below, through, and above the source pitch.",
+    "Choose microphone or a file, start the source, then tap a range or lock its reciprocal relationship with head speed.",
     ["Mic input", "File input"],
   ),
 
@@ -343,6 +343,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Quantum sonification",
     "Hears quantum entanglement as a slowed-down square dance — two qubits precess together or in opposition based on their Bell state.",
     "Turn on audio, press play, then try each Bell state and listen for correlated or anti-correlated melodic motion.",
+  ),
+  "quantum-square-dance": define(
+    "Quantum sonification",
+    "Runs an exact classical simulation of controlled spin exchange in paired atoms and sonifies the evolving joint state, phase, and correlations.",
+    "Turn on audio, then play or scrub the exchange dance and compare its paired-atom scenes.",
+    ["Built-in synth"],
   ),
   annealogue: define(
     "Quantum sonification",

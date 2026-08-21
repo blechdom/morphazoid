@@ -14,9 +14,7 @@ import {
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
 const requestedMode = document.body.dataset.delayMode;
-const mode = requestedMode === "sludge" || requestedMode === "sandy"
-  ? requestedMode
-  : "candy";
+const mode = requestedMode === "sandy" ? "sandy" : "candy";
 const isCandy = mode === "candy";
 const isSandy = mode === "sandy";
 const presets = BARBER_DELAY_PRESETS[mode];
@@ -26,10 +24,8 @@ const context2d = canvas.getContext("2d", { alpha: true, desynchronized: true })
 const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 const waveform = new Float32Array(512);
 const colors = isCandy
-  ? ["#dc3c50", "#fff0d1", "#c9f04b", "#e650a0", "#8c32a0"]
-  : isSandy
-    ? ["#20ccaa", "#9b79de", "#00dcc8", "#7548bd", "#4aaea2"]
-    : ["#506428", "#d8c99e", "#50c8ff", "#3c5032", "#76552f"];
+  ? ["#506428", "#d8c99e", "#50c8ff", "#3c5032", "#76552f"]
+  : ["#20ccaa", "#9b79de", "#00dcc8", "#7548bd", "#4aaea2"];
 
 const initialPreset = isSandy ? null : presets[0];
 const state = {
@@ -274,10 +270,8 @@ function updateInterface({ drawNow = true } = {}) {
   canvas.setAttribute(
     "aria-label",
     isCandy
-      ? `Unboxed red, pink, cream, lime, and purple winding delay stripes with small waveform fragments moving ${settings.directionUp ? "upward" : "downward"} and fading into the stage edges. Audio ${state.audioOn ? "on" : "off"}.`
-      : isSandy
-        ? `An escalator of ${settings.numVoices} live oscilloscope screens moves ${settings.directionUp ? "upward" : "downward"} through a ${settings.pitchOctaves.toFixed(1)} octave Shepard–Risset loop, fading each delay head in and out. Audio ${state.audioOn ? "on" : "off"}.`
-        : `Unboxed olive, cyan, cream, and earth centered-hump delay paths with small waveform fragments moving ${settings.directionUp ? "upward" : "downward"} and fading into the stage edges. Audio ${state.audioOn ? "on" : "off"}.`,
+      ? `Unboxed olive, cyan, cream, and earth centered-hump delay paths with small waveform fragments moving ${settings.directionUp ? "upward" : "downward"} and fading into the stage edges. Audio ${state.audioOn ? "on" : "off"}.`
+      : `An escalator of ${settings.numVoices} live oscilloscope screens moves ${settings.directionUp ? "upward" : "downward"} through a ${settings.pitchOctaves.toFixed(1)} octave Shepard–Risset loop, fading each delay head in and out. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 
   updatePitchReadout();
@@ -619,62 +613,6 @@ function fadeStageArtwork(ctx, width, height) {
 }
 
 function drawCandyField(ctx, width, height) {
-  const fieldWidth = Math.min(width * 0.82, 920);
-  const fieldHeight = Math.min(height * 0.72, 610);
-  const x = (width - fieldWidth) * 0.5;
-  const y = (height - fieldHeight) * 0.51;
-  const stripeHeight = Math.max(16, fieldHeight / 18);
-  const travel = state.visualPhase * stripeHeight * 5;
-
-  ctx.save();
-  ctx.translate(width * 0.5, height * 0.5);
-  ctx.rotate(state.settings.directionUp ? -0.55 : 0.55);
-  const diagonal = width + height;
-  const origin = -diagonal;
-  for (let band = -36; band < 38; band += 1) {
-    const offset = band * stripeHeight + travel;
-    const bandY = wrapPhase(offset / (stripeHeight * 5)) * stripeHeight * 5
-      + origin
-      + band * stripeHeight;
-    ctx.beginPath();
-    for (let step = 0; step <= 28; step += 1) {
-      const px = origin + step / 28 * diagonal * 2;
-      const py = bandY + Math.sin((px / 88) + band * 0.7) * 8;
-      if (step === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    for (let step = 28; step >= 0; step -= 1) {
-      const px = origin + step / 28 * diagonal * 2;
-      const py = bandY + stripeHeight * 0.68 + Math.sin((px / 88) + band * 0.7) * 8;
-      ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fillStyle = colors[((band % colors.length) + colors.length) % colors.length];
-    ctx.globalAlpha = 0.34;
-    ctx.fill();
-  }
-  ctx.restore();
-
-  const heads = state.settings.numVoices;
-  for (let index = 0; index < heads; index += 1) {
-    const phase = wrapPhase(state.visualPhase + index / heads);
-    const angle = phase * Math.PI * 4 + (state.settings.directionUp ? 0 : Math.PI);
-    const headX = width * 0.5 + Math.cos(angle) * fieldWidth * (0.12 + phase * 0.2);
-    const headY = y + fieldHeight * (0.1 + phase * 0.8);
-    const window = barberDelayWindow(phase, state.settings.tilt);
-    drawAudioFragment(
-      ctx,
-      headX,
-      headY,
-      3.5 + window * 4.2,
-      colors[index % colors.length],
-      0.25 + window * 0.7,
-      index + phase,
-    );
-  }
-}
-
-function drawSludgeField(ctx, width, height) {
   const fieldWidth = width * 1.04;
   const fieldHeight = Math.min(height * 0.54, 440);
   const left = (width - fieldWidth) * 0.5;
@@ -1077,10 +1015,8 @@ function drawScope(ctx, width, height) {
       else ctx.lineTo(x, y);
     }
     ctx.strokeStyle = isCandy
-      ? "rgba(255, 240, 209, 0.44)"
-      : isSandy
-        ? "rgba(32, 204, 170, 0.48)"
-        : "rgba(80, 200, 255, 0.42)";
+      ? "rgba(80, 200, 255, 0.42)"
+      : "rgba(32, 204, 170, 0.48)";
     ctx.lineWidth = 1;
     ctx.stroke();
   }
@@ -1094,7 +1030,6 @@ function draw(timestamp, force = false) {
   context2d.clearRect(0, 0, canvasWidth, canvasHeight);
   if (isCandy) drawCandyField(context2d, canvasWidth, canvasHeight);
   else if (isSandy) drawSandyField(context2d, canvasWidth, canvasHeight);
-  else drawSludgeField(context2d, canvasWidth, canvasHeight);
   if (!isSandy) drawScope(context2d, canvasWidth, canvasHeight);
   fadeStageArtwork(context2d, canvasWidth, canvasHeight);
 }

@@ -4,13 +4,19 @@ import test from "node:test";
 
 import {
   KARPLUS_STRONG_DEFAULTS,
+  KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS,
   KARPLUS_STRONG_PRESETS,
+  KARPLUS_STRONG_TUNING_DEFAULTS,
+  KARPLUS_STRONG_TUNING_LIMITS,
   KarplusStrongAudio,
   generateKarplusStrongSamples,
+  karplusStrongStringFrequencies,
   karplusStrongDelayLength,
   midiNoteFrequency,
   midiNoteName,
+  nearestKarplusStrongStringIndex,
   sanitizeKarplusStrongSettings,
+  sanitizeKarplusStrongTuning,
 } from "../src/karplus-strong.js";
 
 const root = new URL("../", import.meta.url);
@@ -99,6 +105,90 @@ test("Karplus Strong settings, MIDI notes, and delay tuning are bounded", () => 
   assert.equal(sanitizeKarplusStrongSettings({ decay: 99 }).decay, 16);
   assert.ok(Math.abs(karplusStrongDelayLength(48_000, 110, 0) - 48_000 / 110) < 1e-12);
   assert.ok(karplusStrongDelayLength(48_000, 220) < karplusStrongDelayLength(48_000, 110));
+});
+
+test("Karplus Strong tuning builds equal-octave and equal-Hz string fields", () => {
+  const defaults = karplusStrongStringFrequencies(KARPLUS_STRONG_TUNING_DEFAULTS);
+  assert.equal(defaults.length, 16);
+  const semitoneRatio = 2 ** (1 / 12);
+  for (let index = 1; index < defaults.length; index += 1) {
+    assert.ok(Math.abs(defaults[index] / defaults[index - 1] - semitoneRatio) < 1e-12);
+  }
+
+  const octaveField = karplusStrongStringFrequencies({
+    lowFrequency: 100,
+    highFrequency: 800,
+    divisionsPerOctave: 4,
+    spacing: "octave",
+  });
+  assert.equal(octaveField.length, 13);
+  assert.ok(Math.abs(octaveField[0] - 100) < 1e-10);
+  assert.ok(Math.abs(octaveField[4] - 200) < 1e-10);
+  assert.ok(Math.abs(octaveField[8] - 400) < 1e-10);
+  assert.ok(Math.abs(octaveField[12] - 800) < 1e-10);
+
+  const hzField = karplusStrongStringFrequencies({
+    lowFrequency: 100,
+    highFrequency: 800,
+    divisionsPerOctave: 4,
+    spacing: "equal-hz",
+  });
+  assert.equal(hzField.length, octaveField.length);
+  assert.equal(hzField[0], 100);
+  assert.equal(hzField.at(-1), 800);
+  const hzStep = hzField[1] - hzField[0];
+  for (let index = 2; index < hzField.length; index += 1) {
+    assert.ok(Math.abs(hzField[index] - hzField[index - 1] - hzStep) < 1e-10);
+  }
+});
+
+test("Karplus Strong tuning input and string density stay bounded", () => {
+  const sanitized = sanitizeKarplusStrongTuning({
+    lowFrequency: -30,
+    highFrequency: Infinity,
+    divisionsPerOctave: 900,
+    spacing: "unknown",
+  });
+  assert.equal(sanitized.lowFrequency, KARPLUS_STRONG_TUNING_LIMITS.minimumFrequency);
+  assert.equal(sanitized.highFrequency, KARPLUS_STRONG_TUNING_DEFAULTS.highFrequency);
+  assert.equal(sanitized.divisionsPerOctave, KARPLUS_STRONG_TUNING_LIMITS.maximumDivisions);
+  assert.equal(sanitized.spacing, "octave");
+
+  const reversed = sanitizeKarplusStrongTuning({ lowFrequency: 1_000, highFrequency: 100 });
+  assert.ok(reversed.highFrequency > reversed.lowFrequency);
+  const dense = karplusStrongStringFrequencies({
+    lowFrequency: 20,
+    highFrequency: 8_000,
+    divisionsPerOctave: 48,
+  });
+  assert.equal(dense.length, KARPLUS_STRONG_TUNING_LIMITS.maximumStrings);
+  assert.ok(Math.abs(dense[0] - 20) < 1e-10);
+  assert.ok(Math.abs(dense.at(-1) - 8_000) < 1e-8);
+  const denseRatio = dense[1] / dense[0];
+  for (let index = 2; index < dense.length; index += 1) {
+    assert.ok(Math.abs(dense[index] / dense[index - 1] - denseRatio) < 1e-10);
+  }
+  assert.equal(nearestKarplusStrongStringIndex([100, 200, 400], 190), 1);
+  assert.equal(nearestKarplusStrongStringIndex([100, 200, 400], 1_000), 2);
+});
+
+test("Karplus Strong pitch bend updates active voices and clamps to its live range", () => {
+  const calls = [];
+  const detune = {
+    value: 0,
+    cancelScheduledValues: (time) => calls.push(["cancel", time]),
+    setTargetAtTime: (value, time, smoothing) => calls.push(["target", value, time, smoothing]),
+    setValueAtTime: (value, time) => calls.push(["value", value, time]),
+  };
+  const audio = new KarplusStrongAudio({});
+  audio.context = { currentTime: 2.5 };
+  audio.activeVoices = [{ source: { detune } }];
+
+  assert.equal(audio.setPitchBend(125), 125);
+  assert.deepEqual(calls.at(-1), ["target", 125, 2.5, .012]);
+  assert.equal(audio.setPitchBend(9_000, { immediate: true }), KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS);
+  assert.deepEqual(calls.at(-1), ["value", KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS, 2.5]);
+  assert.equal(audio.setPitchBend(-9_000), -KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS);
 });
 
 test("generated strings are finite, bounded, deterministic, and decay", () => {
@@ -232,10 +322,23 @@ test("Karplus Strong page exposes a standalone playable instrument", async () =>
   assert.match(html, /<h1>Karplus Strong<\/h1>/);
   assert.match(html, /class="tab active" href="karplus-strong\.html" aria-current="page"/);
   assert.match(html, /id="stage"[^>]*data-interactive-track/);
+  assert.match(html, /id="stage"[^>]*role="slider"[^>]*aria-valuetext="String 01, 130\.81 Hz"/);
   assert.match(html, /id="pluckButton"[^>]*data-primary-transport/);
-  assert.match(html, /id="stringGrid"[^>]*Sixteen chromatic strings/);
-  assert.match(html, /Sixteen vertical chromatic strings, ordered low on the left and high on the right/);
-  assert.match(app, /stringIndex: clamp\(Math\.floor\(x \* STRING_COUNT\)/);
+  assert.match(html, /id="lowFrequency"[^>]*type="range"/);
+  assert.match(html, /id="highFrequency"[^>]*type="range"/);
+  assert.match(html, /id="divisionsPerOctave"[^>]*type="range"[^>]*step="1"/);
+  assert.match(html, /id="lowFrequencyOut"[^>]*for="lowFrequency"/);
+  assert.match(html, /id="highFrequencyOut"[^>]*for="highFrequency"/);
+  assert.match(html, /id="divisionsPerOctaveOut"[^>]*for="divisionsPerOctave"/);
+  assert.doesNotMatch(
+    html,
+    /id="(?:lowFrequency|highFrequency|divisionsPerOctave)"[^>]*type="number"/,
+  );
+  assert.match(html, /id="spacingMode"[^>]*Frequency spacing/);
+  assert.match(html, /id="pitchBend"[^>]*min="-200"[^>]*max="200"/);
+  assert.doesNotMatch(html, /Chromatic strings|chromatic strings|id="stringGrid"|id="rootNote"/);
+  assert.match(html, /A tunable field of playable Karplus Strong strings/);
+  assert.match(app, /Math\.floor\(x \* stringFrequencies\.length\)/);
   assert.equal((html.match(/class="ks-knob"/g) ?? []).length, 26);
   for (const id of [
     "hardness", "excitationColor", "excitationShape", "burstLength",
@@ -247,12 +350,24 @@ test("Karplus Strong page exposes a standalone playable instrument", async () =>
   assert.match(html, /id="decay"[^>]*max="16"/);
 
   assert.match(css, /\.ks-knob-dial[\s\S]*conic-gradient/);
+  assert.match(css, /\.ks-tuning-sliders/);
+  assert.match(css, /\.ks-tuning-slider input\[type="range"\]/);
+  assert.match(css, /\.ks-bend-row/);
   assert.match(css, /\.karplus-strong-page \.shell/);
-  assert.match(app, /KEY_BINDINGS[\s\S]*16/);
+  assert.match(app, /KEY_BINDINGS\.length/);
+  assert.match(app, /message\?\.type === "pitchBend"/);
+  assert.match(app, /audio\.setPitchBend\(/);
+  assert.match(app, /state\.detune \+ state\.pitchBendCents/);
+  assert.match(app, /function frequencySliderValue\(frequency\)/);
+  assert.match(app, /function frequencyFromSlider\(value\)/);
+  assert.match(app, /aria-valuetext/);
   assert.match(app, /audio\.pluck\(/);
   assert.match(app, /initializeKnobs\(\)/);
   assert.match(app, /morphazoid:midi-input/);
   assert.match(source, /generateKarplusStrongSamples/);
+  assert.match(source, /karplusStrongStringFrequencies/);
+  assert.match(source, /setPitchBend\(cents/);
+  assert.match(source, /source\.detune/);
   assert.match(source, /const readPosition = index - Math\.max/);
   assert.match(source, /settings\.excitationShape/);
   assert.match(source, /settings\.chorusDepth/);

@@ -7,9 +7,9 @@
     "fuzzy": 10,
     "op-art": 10,
     "psychedelic": 9,
-    "special": 10
+    "special": 9
   },
-  "selected": 59,
+  "selected": 58,
   "unchanged": 14,
   "selections": [
     {
@@ -521,14 +521,6 @@
       "pinned": false,
       "source": "artwork/instrument-icon-variants/spring-choir/round-3-v2-digital-matrix.webp",
       "destination": "assets/instruments/spring-choir.webp"
-    },
-    {
-      "instrument": "striped-sludge-delay",
-      "status": "selected",
-      "category": "special",
-      "pinned": true,
-      "source": "artwork/instrument-icon-variants/striped-sludge-delay/round-2-v1.webp",
-      "destination": "assets/instruments/striped-sludge-delay.webp"
     },
     {
       "instrument": "throatazoid",

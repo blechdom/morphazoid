@@ -38,11 +38,11 @@ export const CASCADING_PM_LIMITS = Object.freeze({
 });
 
 export const CASCADING_PM_DEFAULTS = Object.freeze({
-  stages: 8,
-  rootHz: 0.12,
-  cascadeRatio: 2.7,
-  phaseIndex: 0.65,
-  indexTaper: 0.86,
+  stages: 4,
+  rootHz: 0.05,
+  cascadeRatio: 11.3,
+  phaseIndex: 2,
+  indexTaper: 0.58,
 });
 
 const freezePreset = (preset) => Object.freeze({
@@ -50,79 +50,86 @@ const freezePreset = (preset) => Object.freeze({
   settings: Object.freeze({ ...preset.settings }),
 });
 
-// The ids intentionally parallel Cascading FM so the two instruments can be
-// compared preset-for-preset. Values are retuned for radians rather than Hz.
+// Keep the ids parallel with Cascading FM, but give each PM preset a different
+// structural job. Fewer stages and deliberately varied index contours prevent
+// every patch from collapsing into the same dense, low growl.
 export const CASCADING_PM_PRESETS = Object.freeze([
   freezePreset({
     id: "slow-cascade",
-    label: "Slow Cascade",
-    description: "Eight measured phase turns rise from 0.12 Hz to a warm 126 Hz carrier while each turn becomes gentler.",
+    label: "Long Bloom",
+    motion: "evolving",
+    description: "Four widely spaced stages open around a 72 Hz bass over a calm 20-second cycle.",
     settings: {
-      stages: 8,
-      rootHz: 0.12,
-      cascadeRatio: 2.7,
-      phaseIndex: 0.65,
-      indexTaper: 0.86,
+      stages: 4,
+      rootHz: 0.05,
+      cascadeRatio: 11.3,
+      phaseIndex: 2,
+      indexTaper: 0.58,
     },
   }),
   freezePreset({
     id: "dense-wave",
-    label: "Dense Wave",
-    description: "Twelve close stages form a dense 107 Hz wave from restrained sub-radian phase turns.",
+    label: "Low Lantern",
+    motion: "drone",
+    description: "Two audio-rate operators hold a warm 54 Hz drone with a light phase halo and no deep-chain growl.",
     settings: {
-      stages: 12,
-      rootHz: 0.04,
-      cascadeRatio: 2.05,
-      phaseIndex: 0.55,
-      indexTaper: 0.9,
+      stages: 2,
+      rootHz: 36,
+      cascadeRatio: 1.5,
+      phaseIndex: 0.24,
+      indexTaper: 1,
     },
   }),
   freezePreset({
     id: "wide-steps",
-    label: "Wide Steps",
-    description: "Seven broad steps reach a rounded 274 Hz carrier with controlled nested phase motion.",
+    label: "Soft Alloy",
+    motion: "drone",
+    description: "Three golden-ratio stages sustain a clear 99 Hz drone with a fine, inharmonic shimmer.",
     settings: {
-      stages: 7,
-      rootHz: 0.05,
-      cascadeRatio: 4.2,
-      phaseIndex: 1.15,
-      indexTaper: 0.78,
+      stages: 3,
+      rootHz: 38,
+      cascadeRatio: 1.618,
+      phaseIndex: 0.55,
+      indexTaper: 0.7,
     },
   }),
   freezePreset({
     id: "bright-shimmer",
-    label: "Bright Shimmer",
-    description: "Eight rising stages settle at 515 Hz while a restrained rising index adds a soft halo.",
+    label: "Glass Current",
+    motion: "evolving",
+    description: "Five stages brighten and recede around 132 Hz, completing the slowest turn every 3.6 seconds.",
     settings: {
-      stages: 8,
-      rootHz: 0.08,
-      cascadeRatio: 3.5,
-      phaseIndex: 0.7,
-      indexTaper: 1.03,
+      stages: 5,
+      rootHz: 0.28,
+      cascadeRatio: 4.66,
+      phaseIndex: 1.2,
+      indexTaper: 1.05,
     },
   }),
   freezePreset({
     id: "deep-strata",
-    label: "Deep Strata",
-    description: "Eight low strata climb from 0.025 Hz to an 86 Hz carrier with a falling phase index.",
+    label: "Quickening Coil",
+    motion: "evolving",
+    description: "Six strengthening hand-offs swell around 107 Hz on a quicker 1.1-second cycle.",
     settings: {
-      stages: 8,
-      rootHz: 0.025,
-      cascadeRatio: 3.2,
-      phaseIndex: 1.25,
-      indexTaper: 0.78,
+      stages: 6,
+      rootHz: 0.88,
+      cascadeRatio: 2.61,
+      phaseIndex: 0.9,
+      indexTaper: 1.2,
     },
   }),
   freezePreset({
     id: "harmonic-rain",
-    label: "Harmonic Rain",
-    description: "Ten gentle phase steps reach 763 Hz while falling indices scatter soft sidebands.",
+    label: "Clockwork Lace",
+    motion: "rhythmic",
+    description: "One deliberate nine-stage chain interlocks at 2.8 Hz around a rounded 64 Hz rhythmic bass.",
     settings: {
-      stages: 10,
-      rootHz: 0.025,
-      cascadeRatio: 3.15,
-      phaseIndex: 0.75,
-      indexTaper: 0.84,
+      stages: 9,
+      rootHz: 2.8,
+      cascadeRatio: 1.48,
+      phaseIndex: 1.5,
+      indexTaper: 0.95,
     },
   }),
 ]);
@@ -699,19 +706,47 @@ export class CascadingPmProcessor extends AudioWorkletProcessorBase {
     const maximumBandwidthHz = cascadingPmBandwidthCeiling(this._sampleRate);
     this._maximumBandwidthHz = maximumBandwidthHz;
 
+    const previousOutputIndex = this._outputIndex;
+    const nextOutputIndex = stages - 1;
+    let highestAudibleOutputIndex = previousOutputIndex;
+    if (!immediate) {
+      highestAudibleOutputIndex = -1;
+      for (let index = 0; index < CASCADING_PM_LIMITS.maxStages; index += 1) {
+        if (this._tapGains[index] > 0 || this._tapTargets[index] > 0) {
+          highestAudibleOutputIndex = index;
+        }
+      }
+    }
+
     for (let index = 0; index < CASCADING_PM_LIMITS.maxStages; index += 1) {
       const rawFrequency = rootHz * (cascadeRatio ** index);
-      const target = Math.min(rawFrequency, maximumFrequencyHz);
-      this._targetFrequencies[index] = target;
-      if (immediate) this._frequencies[index] = target;
+      const requestedFrequency = Math.min(rawFrequency, maximumFrequencyHz);
+      if (immediate) {
+        const activeFrequency = index < stages ? requestedFrequency : 0;
+        this._targetFrequencies[index] = activeFrequency;
+        this._frequencies[index] = activeFrequency;
+      } else if (index < stages) {
+        this._targetFrequencies[index] = requestedFrequency;
+        // A newly introduced tail is still silent, so tune it before its tap
+        // fades in. During an interrupted fade, preserve any stages feeding a
+        // still-audible older tap and let their normal smoothing stay continuous.
+        if (
+          index > previousOutputIndex
+          && index > highestAudibleOutputIndex
+        ) {
+          this._frequencies[index] = requestedFrequency;
+        }
+      }
+      // On a non-immediate shrink, inactive targets deliberately remain at
+      // their outgoing tuning until the old tap has fully faded to silence.
     }
     let priorEstimatedBandwidthHz = this._targetFrequencies[0];
     for (let index = 0; index < CASCADING_PM_LIMITS.maxStages - 1; index += 1) {
       const rawIndex = startingPhaseIndex * (indexTaper ** index);
-      let target = 0;
+      let requestedPhaseIndex = 0;
       if (index < stages - 1) {
         const destinationFrequencyHz = this._targetFrequencies[index + 1];
-        target = bandwidthSafePhaseIndex(
+        requestedPhaseIndex = bandwidthSafePhaseIndex(
           rawIndex,
           destinationFrequencyHz,
           priorEstimatedBandwidthHz,
@@ -719,16 +754,25 @@ export class CascadingPmProcessor extends AudioWorkletProcessorBase {
         );
         priorEstimatedBandwidthHz = estimateCascadingPmBandwidth(
           destinationFrequencyHz,
-          target,
+          requestedPhaseIndex,
           priorEstimatedBandwidthHz,
           maximumBandwidthHz,
         );
       }
-      this._targetPhaseIndices[index] = target;
-      if (immediate) this._phaseIndices[index] = target;
+      if (immediate) {
+        this._targetPhaseIndices[index] = requestedPhaseIndex;
+        this._phaseIndices[index] = requestedPhaseIndex;
+      } else if (index < stages - 1) {
+        this._targetPhaseIndices[index] = requestedPhaseIndex;
+        if (
+          index >= previousOutputIndex
+          && index >= highestAudibleOutputIndex
+        ) {
+          this._phaseIndices[index] = requestedPhaseIndex;
+        }
+      }
     }
 
-    const nextOutputIndex = stages - 1;
     if (immediate) {
       this._outputIndex = nextOutputIndex;
       for (let index = 0; index < CASCADING_PM_LIMITS.maxStages; index += 1) {
@@ -792,6 +836,8 @@ export class CascadingPmProcessor extends AudioWorkletProcessorBase {
       if (this._tapMix < 1) {
         this._tapMix = Math.min(1, this._tapMix + this._crossfadeStep);
       }
+      const completedTapFade = this._tapMix === 1
+        && this._tapTargets[this._outputIndex] !== this._tapGains[this._outputIndex];
       let output = 0;
       for (let index = 0; index < CASCADING_PM_LIMITS.maxStages; index += 1) {
         const gain = this._tapStarts[index]
@@ -805,6 +851,28 @@ export class CascadingPmProcessor extends AudioWorkletProcessorBase {
 
       for (let channel = 0; channel < channels.length; channel += 1) {
         channels[channel][frame] = boundedOutput;
+      }
+
+      if (completedTapFade) {
+        // The outgoing tap is now exactly silent. Clear its unused tail in one
+        // step so future expansions can be tuned before they fade in, without
+        // leaving ultrasonic inactive targets running in the background.
+        for (
+          let index = this._outputIndex + 1;
+          index < CASCADING_PM_LIMITS.maxStages;
+          index += 1
+        ) {
+          this._frequencies[index] = 0;
+          this._targetFrequencies[index] = 0;
+        }
+        for (
+          let index = this._outputIndex;
+          index < CASCADING_PM_LIMITS.maxStages - 1;
+          index += 1
+        ) {
+          this._phaseIndices[index] = 0;
+          this._targetPhaseIndices[index] = 0;
+        }
       }
 
       for (let index = 0; index < CASCADING_PM_LIMITS.maxStages; index += 1) {

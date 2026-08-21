@@ -22,6 +22,15 @@ import {
 
 const SITE_ROOT = "https://example.test/blechdom/morphazoid/";
 
+function expectedPickerGroups() {
+  return TOOL_GROUPS.flatMap((group) => {
+    const tools = group.tools.filter((tool) => (
+      group.picker !== false || tool.picker === true
+    ));
+    return tools.length > 0 ? [{ ...group, tools }] : [];
+  });
+}
+
 class FakeClassList {
   constructor(owner) {
     this.owner = owner;
@@ -227,7 +236,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 94);
+  assert.equal(tools.length, 96);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -239,6 +248,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     tools.every((tool) => !Object.hasOwn(tool, "external")),
     true,
     "the menu registry must not introduce external destinations",
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "playhead-paint"),
+    {
+      id: "playhead-paint",
+      label: "Playhead Paint",
+      href: "playhead-paint.html",
+    },
   );
   assert.deepEqual(
     tools.find((tool) => tool.id === "hyper-rubix"),
@@ -394,6 +411,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ),
     [
       { id: "shape", href: "shape.html" },
+      { id: "playhead-paint", href: "playhead-paint.html" },
       { id: "lattice", href: "lattice.html" },
       { id: "spiral", href: "spiral.html" },
       { id: "solid", href: "solid.html" },
@@ -452,7 +470,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
       { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
       { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
-      { id: "morphynx", label: "Morphynx", href: "morphynx.html" },
       { id: "tongued-beasts", label: "Tongued Beasts", href: "tongued-beasts.html" },
       { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
       {
@@ -518,7 +535,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "ouroboros", href: "ouroboros.html" },
       { id: "ouroboros-borealis", href: "ouroboros-borealis.html" },
       { id: "sandy-syrup-delay", href: "sandy-syrup-delay.html" },
-      { id: "striped-sludge-delay", href: "striped-sludge-delay.html" },
       { id: "candy-coil-delay", href: "candy-coil-delay.html" },
     ],
   );
@@ -583,12 +599,15 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "morphazoid-roulette", href: "morphazoid-roulette.html" },
       { id: "alien-larynx", href: "alien-larynx.html" },
       { id: "hyper-syrinx", href: "hyper-syrinx.html" },
+      { id: "morphynx", href: "morphynx.html" },
+      { id: "orbital-ferris", href: "orbital-ferris.html" },
       { id: "escher-tessellation", href: "escher-tessellation.html" },
       { id: "plasma-ball", href: "plasma-ball.html" },
       { id: "order-tones", href: "order-tones.html" },
       { id: "morphazoidical", href: "morphazoidical/" },
       { id: "bell-square", href: "bell-square.html" },
       { id: "entanglement-dance", href: "entanglement-dance.html" },
+      { id: "quantum-square-dance", href: "quantum-square-dance.html" },
       { id: "annealogue", href: "annealogue.html" },
       { id: "gravity-walk", href: "gravity-walk.html" },
       { id: "ricochet", href: "ricochet.html" },
@@ -639,6 +658,10 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveSiteLink("https://example.test/blechdom/morphazoid", SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}shape.html`, SITE_ROOT)?.id, "shape");
   assert.equal(
+    resolveActiveTool(`${SITE_ROOT}playhead-paint.html`, SITE_ROOT)?.id,
+    "playhead-paint",
+  );
+  assert.equal(
     resolveActiveTool(`${SITE_ROOT}escher-tessellation.html`, SITE_ROOT)?.id,
     "escher-tessellation",
   );
@@ -653,12 +676,13 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}micmic.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}graph-delay.html`, SITE_ROOT)?.id, "graph-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}alien-larynx.html`, SITE_ROOT)?.id, "alien-larynx");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}orbital-ferris.html`, SITE_ROOT)?.id, "orbital-ferris");
   assert.equal(resolveActiveTool(`${SITE_ROOT}audio-engine-lab.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}shepard-risset.html`, SITE_ROOT)?.id, "shepard-risset");
   assert.equal(resolveActiveTool(`${SITE_ROOT}drum-roll-please.html`, SITE_ROOT)?.id, "drum-roll-please");
   assert.equal(resolveActiveTool(`${SITE_ROOT}ouroboros.html`, SITE_ROOT)?.id, "ouroboros");
   assert.equal(resolveActiveTool(`${SITE_ROOT}candy-coil-delay.html`, SITE_ROOT)?.id, "candy-coil-delay");
-  assert.equal(resolveActiveTool(`${SITE_ROOT}striped-sludge-delay.html`, SITE_ROOT)?.id, "striped-sludge-delay");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}striped-sludge-delay.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}sandy-syrup-delay.html`, SITE_ROOT)?.id, "sandy-syrup-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}recursive-fm.html`, SITE_ROOT)?.id, "recursive-fm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}cascading-fm.html`, SITE_ROOT)?.id, "cascading-fm");
@@ -679,6 +703,10 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}kinetic-hull.html`, SITE_ROOT)?.id, "kinetic-hull");
   assert.equal(resolveActiveTool(`${SITE_ROOT}order-tones.html`, SITE_ROOT)?.id, "order-tones");
   assert.equal(resolveActiveTool(`${SITE_ROOT}bell-square.html`, SITE_ROOT)?.id, "bell-square");
+  assert.equal(
+    resolveActiveTool(`${SITE_ROOT}quantum-square-dance.html`, SITE_ROOT)?.id,
+    "quantum-square-dance",
+  );
   assert.equal(resolveActiveTool(`${SITE_ROOT}annealogue.html`, SITE_ROOT)?.id, "annealogue");
   assert.equal(resolveActiveTool(`${SITE_ROOT}plasma-ball.html`, SITE_ROOT)?.id, "plasma-ball");
   assert.equal(resolveActiveTool(`${SITE_ROOT}moire-organ.html`, SITE_ROOT)?.id, "moire-organ");
@@ -765,8 +793,12 @@ test("shared navigation creates a title-only picker and preserves the native sel
     "Julia",
   );
   assert.doesNotMatch(trigger.textContent, /Fractals|Recursion/);
-  const pickerGroups = TOOL_GROUPS.filter((group) => group.picker !== false);
+  const pickerGroups = expectedPickerGroups();
   const pickerTools = pickerGroups.flatMap((group) => group.tools);
+  assert.deepEqual(
+    pickerGroups.find(({ id }) => id === "experiments")?.tools.map(({ id }) => id),
+    ["orbital-ferris"],
+  );
   assert.deepEqual(
     picker.findAll((node) => node.classList.contains("instrument-picker-group-title"))
       .map((heading) => heading.textContent),
@@ -790,6 +822,14 @@ test("shared navigation creates a title-only picker and preserves the native sel
     picker.findAll((node) => node.getAttribute("data-tool-id") === "escher-tessellation").length,
     0,
   );
+  const orbitalFerrisLink = picker.findAll(
+    (node) => node.getAttribute("data-tool-id") === "orbital-ferris",
+  );
+  assert.equal(orbitalFerrisLink.length, 1);
+  assert.equal(
+    orbitalFerrisLink[0].getAttribute("href"),
+    `${SITE_ROOT}orbital-ferris.html`,
+  );
   const pageInfo = result.pageInfos[0];
   assert.equal(pageInfo.getAttribute("data-tool-id"), "julia");
   assert.equal(pageInfo.getAttribute("aria-label"), "About Julia");
@@ -800,6 +840,11 @@ test("shared navigation creates a title-only picker and preserves the native sel
     pickerGroups.map((group) => group.label),
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);
+  const orbitalFerrisOption = doc.select.findAll(
+    (node) => node.tagName === "OPTION" && node.textContent === "Feral Fairy Ferris Ferry",
+  );
+  assert.equal(orbitalFerrisOption.length, 1);
+  assert.equal(orbitalFerrisOption[0].value, `${SITE_ROOT}orbital-ferris.html`);
   assert.equal(selectedOptions.length, 1);
   assert.equal(selectedOptions[0].textContent, "Julia");
   assert.doesNotMatch(selectedOptions[0].textContent, /Fractals|Recursion/);
@@ -824,7 +869,7 @@ test("home navigation shows Choose in both enhanced and fallback controls", () =
   );
   assert.equal(
     doc.select.children.length,
-    TOOL_GROUPS.filter((group) => group.picker !== false).length + 1,
+    expectedPickerGroups().length + 1,
   );
 
   const selectedOptions = doc.select.findAll(

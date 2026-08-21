@@ -11,9 +11,9 @@
     <title>Tongued Beasts · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="syrinx.css?v=syrinx-ui-20260819-1" />
-    <link rel="stylesheet" href="syrinx-ui.css?v=syrinx-ui-20260819-1" />
-    <link rel="stylesheet" href="tongued-beasts.css?v=syrinx-ui-20260819-1" />
+    <link rel="stylesheet" href="syrinx.css?v=syrinx-ui-20260820-2" />
+    <link rel="stylesheet" href="syrinx-ui.css?v=syrinx-ui-20260820-2" />
+    <link rel="stylesheet" href="tongued-beasts.css?v=syrinx-ui-20260820-3" />
   </head>
   <body class="syrinx-page syrinx-ui-page tongued-beasts-page" data-instrument-info="off">
     <header class="masthead">
@@ -54,11 +54,55 @@
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Interactive animal sound source, vocal tract, and grafted tongue. Drag the colored anatomy controls or use the tongue controls in the panel."
+            aria-label="Interactive animal sound source, vocal tract, and grafted tongue. Drag the colored anatomy controls, use their viewport modulation buttons, or choose a tongue move from the viewport palette."
             aria-describedby="canvasInstructions liveStatus"
           >
             An animated animal profile with lungs, sound source, vocal tract, tongue, cavities, and mouth.
           </canvas>
+          <div
+            class="viewport-modulation-layer"
+            id="viewportModulationLayer"
+            role="group"
+            aria-label="Viewport parameter modulation controls"
+          ></div>
+          <div class="viewport-tongue-presets" id="viewportTonguePresets">
+            <button
+              class="viewport-tongue-preset-trigger"
+              id="viewportTonguePresetTrigger"
+              type="button"
+              aria-controls="viewportTonguePresetPopover"
+              aria-expanded="false"
+            >
+              <span aria-hidden="true">⌁</span>
+              <b>Tongue moves</b>
+              <small>hover · focus · choose</small>
+            </button>
+            <div
+              class="viewport-tongue-preset-popover"
+              id="viewportTonguePresetPopover"
+              role="group"
+              aria-label="Tongue sound and movement presets in viewport"
+            >
+              <header><small>instant articulation</small><strong>PRESET TONGUES</strong></header>
+              <div class="viewport-tongue-preset-grid">
+                <button type="button" data-tongue-motion="p"><b>P</b><small>pop</small></button>
+                <button type="button" data-tongue-motion="b"><b>B</b><small>buzz</small></button>
+                <button type="button" data-tongue-motion="l"><b>L</b><small>lateral</small></button>
+                <button type="button" data-tongue-motion="rolled-r"><b>RR</b><small>roll</small></button>
+                <button type="button" data-tongue-motion="raspberry"><b>BRR</b><small>raspberry</small></button>
+                <button type="button" data-tongue-motion="la-la"><b>LA</b><small>la la la</small></button>
+                <button type="button" data-tongue-motion="wiggle"><b>~</b><small>wiggle</small></button>
+                <button type="button" data-tongue-motion="gyrate"><b>@</b><small>gyrate</small></button>
+                <button type="button" data-tongue-motion="lick"><b>LICK</b><small>reach</small></button>
+                <button type="button" data-tongue-motion="suck"><b>SUK</b><small>ingressive</small></button>
+                <button class="tongue-free-button" type="button" data-tongue-motion=""><b>HAND</b><small>stop motion</small></button>
+              </div>
+            </div>
+          </div>
+          <div class="tongue-stage-status" aria-label="Live tongue status">
+            <span><small>airway</small><output id="tongueAirwayOut">open</output></span>
+            <span><small>motion</small><output id="tongueMotionOut">free hand</output></span>
+          </div>
           <button class="sr-only" id="breathButton" type="button" aria-pressed="false">
             Hold breath; manual pressure while transport continues
           </button>
@@ -131,13 +175,30 @@
             </div>
             <p class="tongue-description" id="tongueDescription">A thick, rounded body with independent tip control and the largest modeled oral constriction range.</p>
             <p class="tongue-impact" id="tongueImpact">The two syringeal sides keep their detuning and biphonation. The tongue reshapes only the shared downstream tract, filtering both sides together before beak radiation.</p>
+            <div class="tongue-motion-presets" aria-label="Tongue sound and movement presets">
+              <button type="button" data-tongue-motion="p"><b>P</b><small>pop</small></button>
+              <button type="button" data-tongue-motion="b"><b>B</b><small>buzz</small></button>
+              <button type="button" data-tongue-motion="l"><b>L</b><small>lateral</small></button>
+              <button type="button" data-tongue-motion="rolled-r"><b>RR</b><small>roll</small></button>
+              <button type="button" data-tongue-motion="raspberry"><b>BRR</b><small>raspberry</small></button>
+              <button type="button" data-tongue-motion="la-la"><b>LA</b><small>la la la</small></button>
+              <button type="button" data-tongue-motion="wiggle"><b>~</b><small>wiggle</small></button>
+              <button type="button" data-tongue-motion="gyrate"><b>@</b><small>gyrate</small></button>
+              <button type="button" data-tongue-motion="lick"><b>LICK</b><small>reach</small></button>
+              <button type="button" data-tongue-motion="suck"><b>SUK</b><small>ingressive</small></button>
+              <button class="tongue-free-button" type="button" data-tongue-motion=""><b>HAND</b><small>stop motion</small></button>
+            </div>
             <label class="control" for="tonguePosition"><span><b>Body position</b><output id="tonguePositionOut" for="tonguePosition">central</output></span><input id="tonguePosition" type="range" min="0" max="1" step="0.01" value="0.5" /><small>Moves the main constriction from pharyngeal/back to palatal/front.</small></label>
             <label class="control" for="tongueHeight"><span><b>Body height</b><output id="tongueHeightOut" for="tongueHeight">56%</output></span><input id="tongueHeight" type="range" min="0" max="1" step="0.01" value="0.56" /><small>Raises the muscular body, narrowing the tube and strengthening its acoustic reflection.</small></label>
             <label class="control" for="tongueShape"><span><b>Body focus</b><output id="tongueShapeOut" for="tongueShape">rounded</output></span><input id="tongueShape" type="range" min="0" max="1" step="0.01" value="0.48" /><small>Changes a broad vowel-like displacement into a localized consonant-like constriction.</small></label>
             <label class="control" for="tongueTip"><span><b>Tip lift</b><output id="tongueTipOut" for="tongueTip">30%</output></span><input id="tongueTip" type="range" min="0" max="1" step="0.01" value="0.3" /><small>Adds a second, narrow anterior constriction.</small></label>
+            <label class="control" for="tongueExtension"><span><b>Elastic reach</b><output id="tongueExtensionOut" for="tongueExtension">8%</output></span><input id="tongueExtension" type="range" min="0" max="1" step="0.01" value="0.08" /><small>Pulls the tip far beyond the lips and stretches the internal constriction forward.</small></label>
+            <label class="control" for="tongueCurl"><span><b>Tip curl</b><output id="tongueCurlOut" for="tongueCurl">flat</output></span><input id="tongueCurl" type="range" min="0" max="1" step="0.01" value="0.5" /><small>Flips the tip down or up into palate contact.</small></label>
+            <label class="control" for="tongueLateral"><span><b>Lateral side leak</b><output id="tongueLateralOut" for="tongueLateral">12%</output></span><input id="tongueLateral" type="range" min="0" max="1" step="0.01" value="0.12" /><small>Opens side channels around a sealed tip for liquid L-like sound.</small></label>
             <div class="tongue-cavity-readout" aria-label="Approximate split-cavity guides">
               <span><small>Rear λ/4 guide</small><output id="rearCavityReadout">1.01 kHz</output></span>
               <span><small>Front λ/4 guide</small><output id="frontCavityReadout">1.01 kHz</output></span>
+              <span><small>Valve aperture</small><output id="airwayApertureReadout">open</output></span>
             </div>
           </div>
         </details>
@@ -179,6 +240,17 @@
           </div>
         </details>
 
+        <section class="tongue-feral-bank" aria-labelledby="feralTitle">
+          <header><span>every parameter misbehaves</span><strong id="feralTitle">FERAL MACROS</strong></header>
+          <div>
+            <button type="button" data-feral-preset="meat-tornado">Meat tornado</button>
+            <button type="button" data-feral-preset="rubber-opera">Rubber opera</button>
+            <button type="button" data-feral-preset="panic-goblin">Panic goblin</button>
+            <button type="button" data-feral-preset="inside-out">Inside-out suck</button>
+          </div>
+          <p>Sets the full source, tract, tongue, motion, and every adjacent wiggle modulator at once.</p>
+        </section>
+
         <details class="tongue-physics-card" open>
           <summary>Physical model / math</summary>
           <div class="tongue-equations">
@@ -208,10 +280,10 @@
         <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all data-reset-in-place>Reset beast</button></div>
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">Choose a host animal, its native call, and a tongue prior. Turn on audio and press Play. Move tongue position, height, focus, and tip lift to reshape the host vocal tract. Space starts or stops the call outside a control; Escape stops it.</p>
+      <p class="sr-only" id="canvasInstructions">Grab the pink tongue anywhere in the viewport. Pull sideways to stretch or retract it and move vertically to curl it into or away from airway contact. Open Tongue moves in the viewport to choose an automatic articulation. Each colored viewport slider has a nearby modulation button that reveals speed and width controls. Space or Enter holds breath while pressed. Escape stops all sound and automatic tongue motion.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
-    <script type="module" src="nav.js?v=syrinx-ui-20260819-1"></script>
-    <script type="module" src="syrinx-app.js?v=syrinx-ui-20260819-1"></script>
+    <script type="module" src="nav.js?v=syrinx-ui-20260820-2"></script>
+    <script type="module" src="syrinx-app.js?v=syrinx-ui-20260820-3"></script>
   </body>
 </html>

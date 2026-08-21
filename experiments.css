@@ -239,6 +239,194 @@
   accent-color: var(--accent);
 }
 
+.orbital-transport-row {
+  display: grid;
+  margin-top: 14px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+}
+
+.orbital-transport-row .control {
+  min-width: 0;
+  margin: 0;
+}
+
+.orbital-master-row {
+  display: grid;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.orbital-master-row > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.orbital-master-row b,
+.orbital-master-row span {
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.orbital-master-row b {
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.orbital-master-row span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.orbital-level-control {
+  padding-top: 12px;
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.orbital-level-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.orbital-level-heading b {
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.orbital-level-reset {
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.orbital-level-reset:hover,
+.orbital-level-reset:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.orbital-level-grid {
+  display: grid;
+  margin-top: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.orbital-level-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+}
+
+.orbital-level-selects {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.orbital-level-row label {
+  display: flex;
+  min-width: 0;
+  min-height: 30px;
+  padding: 5px 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--muted);
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.orbital-level-row label:has(input:checked) {
+  border-color: color-mix(in oklab, var(--accent) 64%, var(--line-strong));
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+}
+
+.orbital-level-row.is-unavailable {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.orbital-level-grid input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.orbital-level-grid select {
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--bg-deep);
+  appearance: auto;
+  font-size: 9px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.orbital-level-grid select:disabled {
+  cursor: default;
+}
+
+.orbital-level-row:not(.is-unavailable) [data-orbital-processor="1"] {
+  border-color: color-mix(in oklab, var(--accent) 42%, var(--line-strong));
+  color: var(--accent);
+  opacity: 1;
+}
+
+.experiment-page[data-experiment="orbitalFerris"] .experiment-title {
+  max-width: min(620px, calc(100% - 44px));
+}
+
+.experiment-page[data-experiment="orbitalFerris"] .experiment-title h1 {
+  font-size: 42px;
+}
+
+.orbital-level-grid select:focus-visible {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.orbital-motion-grid {
+  margin-top: 12px;
+}
+
 .experiment-page canvas {
   background: #050608;
 }
@@ -266,5 +454,9 @@
   .experiment-page[data-experiment="fourier"] .experiment-title h1,
   .experiment-page[data-experiment="doublependulum"] .experiment-title h1 {
     font-size: 26px;
+  }
+
+  .experiment-page[data-experiment="orbitalFerris"] .experiment-title h1 {
+    font-size: 28px;
   }
 }

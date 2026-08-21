@@ -4,6 +4,23 @@ import { connectAudioOutput } from "./audio-output-manager.js";
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const finiteOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 
+export const KARPLUS_STRONG_TUNING_DEFAULTS = Object.freeze({
+  lowFrequency: 130.8127826502993,
+  highFrequency: 311.1269837220809,
+  divisionsPerOctave: 12,
+  spacing: "octave",
+});
+
+export const KARPLUS_STRONG_TUNING_LIMITS = Object.freeze({
+  minimumFrequency: 20,
+  maximumFrequency: 8_000,
+  minimumDivisions: 1,
+  maximumDivisions: 48,
+  maximumStrings: 128,
+});
+
+export const KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS = 200;
+
 export const KARPLUS_STRONG_DEFAULTS = Object.freeze({
   frequency: 130.81,
   decay: 3.2,
@@ -225,6 +242,93 @@ export function midiNoteName(note) {
   return names[midi % 12] + (Math.floor(midi / 12) - 1);
 }
 
+export function sanitizeKarplusStrongTuning(source = {}) {
+  const tuning = source && typeof source === "object" ? source : {};
+  const limits = KARPLUS_STRONG_TUNING_LIMITS;
+  const lowFrequency = clamp(
+    finiteOr(tuning.lowFrequency, KARPLUS_STRONG_TUNING_DEFAULTS.lowFrequency),
+    limits.minimumFrequency,
+    limits.maximumFrequency - .01,
+  );
+  const requestedHigh = clamp(
+    finiteOr(tuning.highFrequency, KARPLUS_STRONG_TUNING_DEFAULTS.highFrequency),
+    limits.minimumFrequency + .01,
+    limits.maximumFrequency,
+  );
+  const highFrequency = requestedHigh > lowFrequency
+    ? requestedHigh
+    : Math.min(limits.maximumFrequency, lowFrequency + Math.max(.01, lowFrequency * .001));
+  const divisionsPerOctave = clamp(
+    Math.round(finiteOr(
+      tuning.divisionsPerOctave,
+      KARPLUS_STRONG_TUNING_DEFAULTS.divisionsPerOctave,
+    )),
+    limits.minimumDivisions,
+    limits.maximumDivisions,
+  );
+  return {
+    lowFrequency,
+    highFrequency,
+    divisionsPerOctave,
+    spacing: tuning.spacing === "equal-hz" ? "equal-hz" : "octave",
+  };
+}
+
+export function karplusStrongStringFrequencies(source = {}) {
+  const tuning = sanitizeKarplusStrongTuning(source);
+  const octaveSpan = Math.log2(tuning.highFrequency / tuning.lowFrequency);
+  const requestedIntervals = Math.floor(
+    octaveSpan * tuning.divisionsPerOctave + 1e-9,
+  );
+  const intervalCount = clamp(
+    Math.max(1, requestedIntervals),
+    1,
+    KARPLUS_STRONG_TUNING_LIMITS.maximumStrings - 1,
+  );
+  const capped = requestedIntervals > intervalCount;
+
+  if (tuning.spacing === "equal-hz") {
+    const step = (tuning.highFrequency - tuning.lowFrequency) / intervalCount;
+    return Object.freeze(Array.from(
+      { length: intervalCount + 1 },
+      (_, index) => tuning.lowFrequency + step * index,
+    ));
+  }
+
+  if (requestedIntervals < 1) {
+    return Object.freeze([tuning.lowFrequency, tuning.highFrequency]);
+  }
+
+  if (capped) {
+    const ratio = tuning.highFrequency / tuning.lowFrequency;
+    return Object.freeze(Array.from(
+      { length: intervalCount + 1 },
+      (_, index) => tuning.lowFrequency * (ratio ** (index / intervalCount)),
+    ));
+  }
+
+  return Object.freeze(Array.from(
+    { length: intervalCount + 1 },
+    (_, index) => tuning.lowFrequency * (2 ** (index / tuning.divisionsPerOctave)),
+  ));
+}
+
+export function nearestKarplusStrongStringIndex(frequencies, targetFrequency) {
+  if (!Array.isArray(frequencies) || frequencies.length === 0) return 0;
+  const target = Math.max(.000001, finiteOr(targetFrequency, frequencies[0]));
+  let nearestIndex = 0;
+  let nearestDistance = Infinity;
+  for (let index = 0; index < frequencies.length; index += 1) {
+    const frequency = Math.max(.000001, finiteOr(frequencies[index], target));
+    const distance = Math.abs(Math.log2(frequency / target));
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestIndex = index;
+    }
+  }
+  return nearestIndex;
+}
+
 export function karplusStrongDelayLength(sampleRate, frequency, damping = .38) {
   const rate = clamp(finiteOr(sampleRate, 48_000), 8_000, 384_000);
   const pitch = clamp(finiteOr(frequency, 110), 20, Math.min(16_000, rate * .22));
@@ -347,6 +451,7 @@ export class KarplusStrongAudio {
     this.releaseAudioOutput = null;
     this.activeVoices = [];
     this.output = KARPLUS_STRONG_DEFAULTS.level;
+    this.pitchBendCents = 0;
     this.lifecycleGeneration = 0;
   }
 
@@ -394,6 +499,32 @@ export class KarplusStrongAudio {
     if (this.master && this.context) {
       this.master.gain.setTargetAtTime(this.output, this.context.currentTime, .015);
     }
+  }
+
+  setPitchBend(cents, options = {}) {
+    this.pitchBendCents = clamp(
+      finiteOr(cents, 0),
+      -KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS,
+      KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS,
+    );
+    const now = this.context?.currentTime ?? 0;
+    const immediate = Boolean(options.immediate);
+    const playbackRate = 2 ** (this.pitchBendCents / 1_200);
+    for (const voice of this.activeVoices) {
+      const source = voice.source;
+      if (!source) continue;
+      const parameter = source.detune ?? source.playbackRate;
+      if (!parameter) continue;
+      const value = source.detune ? this.pitchBendCents : playbackRate;
+      parameter.cancelScheduledValues?.(now);
+      if (immediate || typeof parameter.setTargetAtTime !== "function") {
+        if (typeof parameter.setValueAtTime === "function") parameter.setValueAtTime(value, now);
+        else parameter.value = value;
+      } else {
+        parameter.setTargetAtTime(value, now, .012);
+      }
+    }
+    return this.pitchBendCents;
   }
 
   async pluck(frequency, sourceSettings = {}, options = {}) {
@@ -448,6 +579,16 @@ export class KarplusStrongAudio {
       ? context.createStereoPanner()
       : null;
     source.buffer = buffer;
+    if (source.detune) {
+      if (typeof source.detune.setValueAtTime === "function") {
+        source.detune.setValueAtTime(this.pitchBendCents, now);
+      } else source.detune.value = this.pitchBendCents;
+    } else if (source.playbackRate) {
+      const playbackRate = 2 ** (this.pitchBendCents / 1_200);
+      if (typeof source.playbackRate.setValueAtTime === "function") {
+        source.playbackRate.setValueAtTime(playbackRate, now);
+      } else source.playbackRate.value = playbackRate;
+    }
     tone.type = "lowpass";
     tone.frequency.value = Math.min(
       context.sampleRate * .44,

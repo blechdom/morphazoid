@@ -56,7 +56,9 @@ function formatPhaseIndex(value, { unit = true } = {}) {
 
 function formatCascadeRatio(value) {
   const number = Number(value) || 0;
-  const digits = number < 1 ? 2 : (number < 10 ? 1 : 0);
+  // Several presets deliberately sit just off simple ratios. Preserve a
+  // decimal through the extended musical range so 11.3 does not read as 11.
+  const digits = number < 10 ? 2 : (number < 100 ? 1 : 0);
   return number.toFixed(digits).replace(/\.?0+$/, "");
 }
 

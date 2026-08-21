@@ -3,7 +3,10 @@ import {
   sanitizeSyrinxSourceParameters,
   syrinxSourceModelId,
 } from "./syrinx-source-models.js";
-import { applyTongueToDiameter } from "./tongue-physics.js";
+import {
+  applyTonguesToDiameter,
+  tongueAirwayState,
+} from "./tongue-physics.js";
 
 const SPEED_OF_SOUND = 343;
 const MAX_WAVEGUIDE_RATE = 96_000;
@@ -18,6 +21,7 @@ const SOURCE_REFLECTION = 0.72;
 const OUTPUT_LIMIT = 0.94;
 const DENORMAL_LIMIT = 1e-20;
 const TELEMETRY_BLOCKS = 12;
+const MAX_VOICE_SOURCES = 7;
 
 // Species-informed diameter priors in centimeters. These are deliberately
 // coarse playable area functions, not claims of individualized CT geometry.
@@ -44,6 +48,11 @@ const TRACT_DIAMETER_PROFILES = Object.freeze({
 const clamp = (value, minimum = 0, maximum = 1) => {
   const number = Number(value);
   return Math.min(maximum, Math.max(minimum, Number.isFinite(number) ? number : minimum));
+};
+
+const integer = (value, minimum, maximum, fallback = minimum) => {
+  const number = Number(value);
+  return Math.round(clamp(Number.isFinite(number) ? number : fallback, minimum, maximum));
 };
 
 const clean = (value) => (
@@ -83,7 +92,7 @@ export function tractDiameterAt(position, configuration = {}) {
     profile[profile.length - 1] * (0.18 + mouthOpening * 1.04),
   );
   diameter += (lipDiameter - diameter) * mouthBlend * mouthBlend;
-  diameter = applyTongueToDiameter(x, diameter, configuration);
+  diameter = applyTonguesToDiameter(x, diameter, configuration);
   return Math.max(DIAMETER_FLOOR, diameter);
 }
 
@@ -139,13 +148,70 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
       tongueHeight: 0.56,
       tongueShape: 0.48,
       tongueTip: 0.3,
+      tongueExtension: 0.08,
+      tongueCurl: 0.5,
+      tongueLateral: 0.12,
+      tongueCount: 1,
+      tongues: [],
+      airwayGate: null,
+      gatePosition: null,
+      lateralBypass: 0,
+      nasalBypass: 0,
+      flutterHz: 0,
+      flutterDepth: 0,
+      turbulence: 0,
+      flowDirection: 1,
+      articulationVoicing: 1,
+      articulationPressure: 0,
+      burstGain: 0,
+      burstFrequencyHz: 1_050,
+      cavityBranches: 2,
       sourceBalance: 0,
       asymmetry: 0.3,
+      voiceCount: 1,
+      voiceSpreadCents: 0,
       ...initial.tract,
       ...initial,
     };
     this.configuration.model = syrinxSourceModelId(
       initial.source?.model ?? initial.model ?? this.configuration.model,
+    );
+    const initialSourceParameters = sanitizeSyrinxSourceParameters(
+      initial.source ?? initial,
+      this.sourceRate,
+    );
+    this.configuration.sourceBalance = initialSourceParameters.sourceBalance;
+    this.configuration.asymmetry = initialSourceParameters.asymmetry;
+    this.configuration.voiceCount = integer(
+      initial.source?.voiceCount ?? this.configuration.voiceCount,
+      1,
+      MAX_VOICE_SOURCES,
+      1,
+    );
+    this.configuration.voiceSpreadCents = clamp(
+      initial.source?.voiceSpreadCents ?? this.configuration.voiceSpreadCents,
+      0,
+      80,
+    );
+    this.sources = Array.from({ length: MAX_VOICE_SOURCES }, (_, index) => (
+      index === 0
+        ? this.source
+        : new SyrinxSourceEngine({
+          sampleRate: this.sourceRate,
+          parameters: initial.source,
+          model: initial.source?.model ?? initial.model ?? "syrinx",
+          seed: (initial.seed ?? 0x51f15e) + index * 0x9e37,
+        })
+    ));
+    this.voiceGains = new Float64Array(MAX_VOICE_SOURCES);
+    this.voiceTargetGains = new Float64Array(MAX_VOICE_SOURCES);
+    this.voicePans = new Float64Array(MAX_VOICE_SOURCES);
+    this.voiceGains[0] = 1;
+    this.voiceTargetGains[0] = 1;
+    this.voiceGainSmoothing = 1 - Math.exp(-1 / (this.sourceRate * 0.045));
+    this._configureSourceBank(
+      initialSourceParameters,
+      initial.source ?? initial,
     );
     this.activeSections = tractSectionCount(this.configuration.tractLengthM, this.workletRate);
     this.targetSections = this.activeSections;
@@ -153,6 +219,7 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
     this.sourceLowpassOne = 0;
     this.sourceLowpassTwo = 0;
     this.lastLipWave = 0;
+    this.nasalDrive = 0;
     const sourceCutoff = Math.min(18_000, this.workletRate * 0.38);
     this.sourceLowpassAlpha = 1 - Math.exp(-Math.PI * 2 * sourceCutoff / this.sourceRate);
     this.lipLowpass = 0;
@@ -160,6 +227,20 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
     this.cavityOnePrevious = 0;
     this.cavityTwo = 0;
     this.cavityTwoPrevious = 0;
+    this.cavityThree = 0;
+    this.cavityThreePrevious = 0;
+    this.bilateralDifference = 0;
+    this.flutterPhase = 0;
+    this.previousAirwayGate = 1;
+    this.currentAirwayGate = 1;
+    this.pressureEnergy = 0;
+    this.transientStrength = 0;
+    this.transientAge = Infinity;
+    this.releaseBurstGain = 0;
+    this.transientFrequencyHz = this.configuration.burstFrequencyHz;
+    this.noiseState = (Number(initial.seed) || 0x51f15e) >>> 0;
+    this.burstOne = 0;
+    this.burstTwo = 0;
     this.previousOutputLeft = 0;
     this.previousOutputRight = 0;
     this.transitionLeft = 0;
@@ -174,11 +255,42 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
     this.port.onmessage = (event) => this._handleMessage(event.data);
   }
 
+  _configureSourceBank(parameters, raw = {}) {
+    this.configuration.voiceCount = integer(
+      raw.voiceCount ?? this.configuration.voiceCount,
+      1,
+      MAX_VOICE_SOURCES,
+      1,
+    );
+    this.configuration.voiceSpreadCents = clamp(
+      raw.voiceSpreadCents ?? this.configuration.voiceSpreadCents,
+      0,
+      80,
+    );
+    const count = this.configuration.voiceCount;
+    const spread = this.configuration.voiceSpreadCents;
+    for (let index = 0; index < this.sources.length; index += 1) {
+      const active = index < count;
+      this.voiceTargetGains[index] = active ? 1 : 0;
+      if (!active) continue;
+      const pan = count <= 1 ? 0 : index / Math.max(1, count - 1) * 2 - 1;
+      const unit = pan * 0.5;
+      this.voicePans[index] = pan;
+      this.sources[index].setParameters({
+        ...parameters,
+        frequencyHz: parameters.frequencyHz * 2 ** (unit * spread / 1_200),
+        asymmetry: clamp(parameters.asymmetry + unit * spread / 180, -1, 1),
+      });
+    }
+  }
+
   _handleMessage(message = {}) {
     if (!message || typeof message !== "object") return;
     if (message.type === "reset") {
       this._beginTransition();
-      this.source.reset(message.seed);
+      for (let index = 0; index < this.sources.length; index += 1) {
+        this.sources[index].reset((message.seed ?? 0x51f15e) + index * 0x9e37);
+      }
       this._resetWaveguide();
       return;
     }
@@ -199,7 +311,7 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
         asymmetry: requestedSource.asymmetry,
       } : {}),
     };
-    if (requestedSource) this.source.setParameters(requestedSource);
+    if (requestedSource) this._configureSourceBank(requestedSource, message.source);
     this.targetSections = tractSectionCount(
       this.configuration.tractLengthM,
       this.workletRate,
@@ -228,12 +340,70 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
     this.sourceLowpassOne = 0;
     this.sourceLowpassTwo = 0;
     this.lastLipWave = 0;
+    this.nasalDrive = 0;
     this.waveguidePhase = 0;
     this.lipLowpass = 0;
     this.cavityOne = 0;
     this.cavityOnePrevious = 0;
     this.cavityTwo = 0;
     this.cavityTwoPrevious = 0;
+    this.cavityThree = 0;
+    this.cavityThreePrevious = 0;
+    this.bilateralDifference = 0;
+    this.flutterPhase = 0;
+    this.previousAirwayGate = 1;
+    this.currentAirwayGate = 1;
+    this.pressureEnergy = 0;
+    this.transientStrength = 0;
+    this.transientAge = Infinity;
+    this.releaseBurstGain = 0;
+    this.transientFrequencyHz = this.configuration.burstFrequencyHz;
+    this.burstOne = 0;
+    this.burstTwo = 0;
+  }
+
+  _noise() {
+    let value = this.noiseState || 0x51f15e;
+    value ^= value << 13;
+    value ^= value >>> 17;
+    value ^= value << 5;
+    this.noiseState = value >>> 0;
+    return this.noiseState / 0x80000000 - 1;
+  }
+
+  _airwayGate() {
+    const base = clamp(this.baseAirwayGate ?? 1);
+    const flutterHz = clamp(this.configuration.flutterHz, 0, 60);
+    const flutterDepth = clamp(this.configuration.flutterDepth);
+    let opening = base;
+    if (flutterHz > 0 && flutterDepth > 0) {
+      this.flutterPhase = (this.flutterPhase + flutterHz / this.waveguideRate) % 1;
+      const flutter = Math.sin(this.flutterPhase * Math.PI * 2) * 0.5 + 0.5;
+      const flick = flutter * flutter * (3 - 2 * flutter);
+      opening += (1 - opening) * flick * flutterDepth;
+    }
+    const lateral = clamp(this.configuration.lateralBypass);
+    return lateral + clamp(opening) * (1 - lateral);
+  }
+
+  _burstSample(noise) {
+    if (this.transientAge > 0.18 || this.transientStrength <= 0.00001) return 0;
+    const frequency = clamp(
+      this.transientFrequencyHz,
+      80,
+      this.waveguideRate * 0.38,
+    );
+    const radius = 0.92;
+    const resonated = clean(
+      noise * (1 - radius)
+        + 2 * radius * Math.cos(Math.PI * 2 * frequency / this.waveguideRate) * this.burstOne
+        - radius * radius * this.burstTwo,
+    );
+    this.burstTwo = this.burstOne;
+    this.burstOne = resonated;
+    const envelope = this.transientStrength * 2 ** (-this.transientAge * 190);
+    this.transientAge += 1 / this.waveguideRate;
+    return resonated * envelope * 2.4;
   }
 
   _updateGeometry(immediate) {
@@ -247,6 +417,16 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
     }
     updateReflections(this.diameter, this.area, this.reflection, this.activeSections);
     this._updateCavityCoefficients();
+    const airway = tongueAirwayState(this.configuration);
+    const requestedGate = this.configuration.airwayGate;
+    this.baseAirwayGate = requestedGate == null || !Number.isFinite(Number(requestedGate))
+      ? airway.aperture
+      : clamp(requestedGate);
+    const requestedPosition = this.configuration.gatePosition;
+    const numericPosition = Number(requestedPosition);
+    this.valvePosition = requestedPosition != null && Number.isFinite(numericPosition)
+      ? clamp(numericPosition)
+      : airway.position;
   }
 
   _prepareBlock() {
@@ -279,19 +459,78 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
     const radius = 0.91 + coupling * 0.076;
     this.cavityOneRadius = Math.min(0.994, radius);
     this.cavityTwoRadius = Math.min(0.991, radius - 0.008);
+    this.cavityThreeRadius = Math.min(0.988, radius - 0.014);
     this.cavityOneCosine = Math.cos(Math.PI * 2 * frequency / this.workletRate);
     this.cavityTwoCosine = Math.cos(
       Math.PI * 2 * Math.min(this.workletRate * 0.4, frequency * 1.72) / this.workletRate,
+    );
+    this.cavityThreeCosine = Math.cos(
+      Math.PI * 2 * Math.min(this.workletRate * 0.4, frequency * 2.37) / this.workletRate,
     );
   }
 
   _propagate(sourceFlow) {
     const count = this.activeSections;
+    const gate = this._airwayGate();
+    const pressureDrive = clamp(this.configuration.articulationPressure);
+    if (gate <= 0.075) {
+      const targetEnergy = pressureDrive * pressureDrive * 0.42 + sourceFlow * sourceFlow;
+      this.pressureEnergy += (targetEnergy - this.pressureEnergy) * 0.0009;
+      this.releaseBurstGain = Math.max(
+        this.releaseBurstGain,
+        clamp(this.configuration.burstGain, 0, 1.5),
+      );
+      this.transientFrequencyHz = this.configuration.burstFrequencyHz;
+    } else {
+      this.pressureEnergy *= 0.9992;
+    }
+    if (this.previousAirwayGate <= 0.075 && gate >= 0.2) {
+      this.transientStrength = clamp(
+        Math.sqrt(Math.max(0, this.pressureEnergy))
+          * this.releaseBurstGain,
+        0,
+        1.2,
+      );
+      this.transientAge = 0;
+      this.pressureEnergy *= 0.16;
+      this.releaseBurstGain = 0;
+    }
+    this.previousAirwayGate = gate;
+    this.currentAirwayGate = gate;
+
+    const noise = this._noise();
+    const voicing = clamp(this.configuration.articulationVoicing ?? 1);
+    const turbulence = clamp(this.configuration.turbulence, 0, 1.5);
+    const direction = Number(this.configuration.flowDirection) < 0 ? -1 : 1;
+    const articulationNoise = noise
+      * turbulence
+      * (0.035 + pressureDrive * 0.14)
+      * (0.55 + gate * 0.45);
+    sourceFlow = (sourceFlow * voicing + this._burstSample(noise)) * direction;
+    this.nasalDrive = sourceFlow
+      * clamp(this.configuration.nasalBypass)
+      * (1 - gate);
+
+    const gateIndex = Math.max(1, Math.min(
+      count - 1,
+      Math.round(clamp(this.valvePosition ?? 0.9) * (count - 1)),
+    ));
     this.rightJunction[0] = clean(sourceFlow + this.left[0] * SOURCE_REFLECTION);
     for (let index = 1; index < count; index += 1) {
       const offset = this.reflection[index] * (this.right[index - 1] + this.left[index]);
-      this.rightJunction[index] = clean(this.right[index - 1] - offset);
-      this.leftJunction[index] = clean(this.left[index] + offset);
+      const normalRight = this.right[index - 1] - offset;
+      const normalLeft = this.left[index] + offset;
+      if (index === gateIndex && gate < 0.999) {
+        this.rightJunction[index] = clean(
+          normalRight * gate + this.left[index] * (1 - gate) + articulationNoise,
+        );
+        this.leftJunction[index] = clean(
+          normalLeft * gate + this.right[index - 1] * (1 - gate),
+        );
+      } else {
+        this.rightJunction[index] = clean(normalRight);
+        this.leftJunction[index] = clean(normalLeft);
+      }
     }
     const opening = clamp(this.configuration.mouthOpening);
     const lipReflection = -0.95 + opening * 0.28;
@@ -322,27 +561,44 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
   }
 
   _radiate(lipWave) {
-    const opening = clamp(this.configuration.mouthOpening);
+    const opening = clamp(this.configuration.mouthOpening)
+      * (0.04 + this.currentAirwayGate * 0.96);
     const smoothing = 0.06 + opening * 0.22;
     this.lipLowpass += (lipWave - this.lipLowpass) * smoothing;
     const differentiated = lipWave - this.lipLowpass;
     const oral = lipWave * (0.28 + opening * 0.42) + differentiated * (0.7 + opening * 0.45);
+    const cavityInput = oral + this.nasalDrive;
     const modeOne = this._resonate(
-      oral,
+      cavityInput,
       this.cavityOneRadius,
       this.cavityOneCosine,
       "cavityOne",
       "cavityOnePrevious",
     );
     const modeTwo = this._resonate(
-      oral,
+      cavityInput,
       this.cavityTwoRadius,
       this.cavityTwoCosine,
       "cavityTwo",
       "cavityTwoPrevious",
     );
+    const modeThree = this._resonate(
+      cavityInput,
+      this.cavityThreeRadius,
+      this.cavityThreeCosine,
+      "cavityThree",
+      "cavityThreePrevious",
+    );
     const cavity = clamp(this.configuration.cavityCoupling);
-    return oral * (1 - cavity * 0.32) + (modeOne * 0.62 + modeTwo * 0.28) * cavity;
+    const branches = integer(this.configuration.cavityBranches, 0, 3, 2);
+    const resonant = branches <= 0
+      ? 0
+      : branches === 1
+        ? modeOne * 0.72
+        : branches === 2
+          ? modeOne * 0.62 + modeTwo * 0.28
+          : (modeOne * 0.58 + modeTwo * 0.28 + modeThree * 0.2) / 1.06;
+    return oral * (1 - cavity * 0.32) + resonant * cavity;
   }
 
   process(_inputs, outputs) {
@@ -353,7 +609,12 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
     this._prepareBlock();
     let squareSum = 0;
     let peak = 0;
-    const spread = clamp(Math.abs(this.configuration.asymmetry) * 0.28, 0, 0.24);
+    const spread = clamp(
+      Math.abs(this.configuration.asymmetry) * 0.28
+        + (this.configuration.voiceCount - 1) * 0.045,
+      0,
+      0.34,
+    );
 
     for (let frame = 0; frame < leftOutput.length; frame += 1) {
       this.waveguidePhase += this.waveguideStepsPerOutput;
@@ -364,27 +625,51 @@ class SyrinxPhysicalProcessor extends AudioWorkletProcessor {
         lipWave = 0;
         for (let step = 0; step < waveguideSteps; step += 1) {
           let sourceFlow = 0;
+          let sourceDifference = 0;
           for (let sourceStep = 0; sourceStep < SOURCE_OVERSAMPLE; sourceStep += 1) {
-            const rawSource = this.source.renderSample(this.feedbackPressure);
+            let rawSource = 0;
+            let rawDifference = 0;
+            let voicePower = 0;
+            for (let voiceIndex = 0; voiceIndex < this.sources.length; voiceIndex += 1) {
+              this.voiceGains[voiceIndex] += (
+                this.voiceTargetGains[voiceIndex] - this.voiceGains[voiceIndex]
+              ) * this.voiceGainSmoothing;
+              const gain = this.voiceGains[voiceIndex];
+              if (gain < 0.0001 && this.voiceTargetGains[voiceIndex] <= 0) continue;
+              const voice = this.sources[voiceIndex];
+              const voiceSample = voice.renderSample(this.feedbackPressure);
+              const pan = this.voicePans[voiceIndex];
+              rawSource += voiceSample * gain;
+              rawDifference += (voice.bilateralDifference + voiceSample * pan * 0.16) * gain;
+              voicePower += gain * gain;
+            }
+            const voiceNormalization = 1 / Math.sqrt(Math.max(1, voicePower));
+            rawSource *= voiceNormalization;
+            rawDifference *= voiceNormalization;
             this.sourceLowpassOne += (rawSource - this.sourceLowpassOne) * this.sourceLowpassAlpha;
             this.sourceLowpassTwo += (
               this.sourceLowpassOne - this.sourceLowpassTwo
             ) * this.sourceLowpassAlpha;
             sourceFlow += this.sourceLowpassTwo;
+            sourceDifference += rawDifference;
           }
           sourceFlow /= SOURCE_OVERSAMPLE;
+          this.bilateralDifference = sourceDifference / SOURCE_OVERSAMPLE;
           this.lastLipWave = this._propagate(sourceFlow);
           lipWave += this.lastLipWave;
         }
         lipWave /= waveguideSteps;
       }
       const radiated = this._radiate(lipWave);
-      const bilateralDifference = Number.isFinite(this.source.bilateralDifference)
-        ? this.source.bilateralDifference
+      const bilateralDifference = Number.isFinite(this.bilateralDifference)
+        ? this.bilateralDifference
         : 0;
       const side = bilateralDifference * spread * 0.18;
       let left = Math.tanh((radiated + side) * 0.72) * OUTPUT_LIMIT;
       let right = Math.tanh((radiated - side) * 0.72) * OUTPUT_LIMIT;
+      const balance = clamp(this.configuration.sourceBalance, -1, 1);
+      left *= 1 - Math.max(0, balance) * 0.85;
+      right *= 1 - Math.max(0, -balance) * 0.85;
       if (this.transitionRemaining > 0) {
         const amount = 1 - this.transitionRemaining / this.transitionLength;
         const oldAmount = 1 - amount;

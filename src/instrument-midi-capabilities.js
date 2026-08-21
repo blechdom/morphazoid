@@ -7,7 +7,6 @@ const NOTE_MODE_IDS = Object.freeze({
     "micmic",
     "graph-delay",
     "sandy-syrup-delay",
-    "striped-sludge-delay",
     "candy-coil-delay",
     "recursion",
   ]),
@@ -31,6 +30,7 @@ const NOTE_MODE_IDS = Object.freeze({
   ]),
   pitched: Object.freeze([
     "shape",
+    "playhead-paint",
     "lattice",
     "spiral",
     "solid",
@@ -76,6 +76,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "morphazoidical",
     "bell-square",
     "entanglement-dance",
+    "quantum-square-dance",
     "annealogue",
     "gravity-walk",
     "ricochet",
@@ -127,7 +128,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
 // piano/drum keys until an explicit page mapping exists.
 export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "hyper-rubix",
-  "striped-sludge-delay",
+  "playhead-paint",
   "candy-coil-delay",
   "chladni-plate",
   "spring-choir",
@@ -136,6 +137,7 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "reaction-diffusion",
   "neural-pulse",
   "cantor-lock",
+  "quantum-square-dance",
 ]);
 
 const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);
@@ -147,7 +149,6 @@ const audioInputIds = new Set([
   "micmic",
   "graph-delay",
   "sandy-syrup-delay",
-  "striped-sludge-delay",
   "candy-coil-delay",
   "recursion",
   "throatazoid",

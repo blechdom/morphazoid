@@ -234,22 +234,23 @@ test("factory cascade structures avoid hidden safety clamps", () => {
 
   for (const pmPreset of CASCADING_PM_PRESETS) {
     assert.deepEqual(sanitizeCascadingPmSettings(pmPreset.settings), pmPreset.settings);
-    assert.ok(pmPreset.settings.stages >= 6 && pmPreset.settings.stages <= 12);
-    assert.ok(pmPreset.settings.rootHz <= 0.15, `${pmPreset.id} root is too fast`);
-    assert.ok(pmPreset.settings.cascadeRatio <= 4.5, `${pmPreset.id} ratio is too steep`);
+    assert.ok(
+      pmPreset.settings.stages >= 2 && pmPreset.settings.stages <= 10,
+      `${pmPreset.id} has too many factory stages`,
+    );
     for (const sampleRate of [44_100, 48_000, 96_000]) {
       const pmStack = derivePmStack(pmPreset.settings, { sampleRate });
       const pmCarrier = pmStack.oscillators.at(-1).frequencyHz;
-      assert.ok(pmCarrier >= 60 && pmCarrier <= 900, `${pmPreset.id} carrier ${pmCarrier} Hz`);
+      assert.ok(pmCarrier >= 45 && pmCarrier <= 440, `${pmPreset.id} carrier ${pmCarrier} Hz`);
       assert.equal(pmStack.boundedByFrequency, false, `${pmPreset.id} frequency guard`);
       assert.equal(pmStack.boundedByInternalIndex, false, `${pmPreset.id} index guard`);
       assert.equal(pmStack.boundedByBandwidth, false, `${pmPreset.id} bandwidth guard`);
-      assert.ok(pmPreset.settings.phaseIndex <= 1.5, `${pmPreset.id} starts too deep`);
       assert.ok(pmStack.connections.every(({ rawPhaseIndex, phaseIndex }) => (
-        rawPhaseIndex <= 1.5 && phaseIndex === rawPhaseIndex
+        rawPhaseIndex <= CASCADING_PM_LIMITS.maxInternalPhaseIndex
+          && phaseIndex === rawPhaseIndex
       )));
       assert.ok(
-        pmStack.oscillators.at(-1).estimatedBandwidthHz <= 1_000,
+        pmStack.oscillators.at(-1).estimatedBandwidthHz <= 2_400,
         `${pmPreset.id} bandwidth exceeds the factory envelope`,
       );
     }
@@ -284,15 +285,15 @@ test("factory PM cascades keep almost all rendered energy below the piercing ban
       assert.ok(samples.every(Number.isFinite), `PM ${preset.id} is non-finite`);
       const summary = spectrumSummary(samples);
       assert.ok(
-        summary.rolloff99Hz <= 1_200,
+        summary.rolloff99Hz <= 900,
         `PM ${preset.id} 99% rolloff is ${summary.rolloff99Hz.toFixed(1)} Hz`,
       );
       assert.ok(
-        summary.highFrequencyEnergyFraction <= 0.0001,
+        summary.highFrequencyEnergyFraction <= 0.000001,
         `PM ${preset.id} has ${summary.highFrequencyEnergyFraction} energy above 5 kHz`,
       );
       assert.ok(
-        summary.maximumStep <= 0.15,
+        summary.maximumStep <= 0.25,
         `PM ${preset.id} maximum sample step is ${summary.maximumStep}`,
       );
     }
