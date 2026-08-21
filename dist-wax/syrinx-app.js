@@ -1196,12 +1196,45 @@ function disableTongueParameterModulators() {
   });
 }
 
-function clearParameterModulators() {
-  expandedViewportModulatorTarget = "";
-  parameterModulators.forEach((modulator) => {
-    modulator.enabled = false;
+function resetTongueParameterModulators() {
+  parameterModulators.forEach((modulator, index) => {
+    if (modulator.family !== "tongue") return;
+    const definition = PARAMETER_MODULATOR_DEFINITIONS[index];
+    Object.assign(modulator, definition, { enabled: false });
+    modulator.phase = (index * 0.173) % 1;
     updateParameterModulatorUI(modulator);
   });
+}
+
+function resetParameterModulators() {
+  expandedViewportModulatorTarget = "";
+  parameterModulators.forEach((modulator, index) => {
+    const definition = PARAMETER_MODULATOR_DEFINITIONS[index];
+    Object.assign(modulator, definition, { enabled: false });
+    modulator.phase = (index * 0.173) % 1;
+    updateParameterModulatorUI(modulator);
+  });
+  performanceState = manualBreath
+    ? { ...state, active: true }
+    : gesturePlaying
+      ? interpolateGesture(activeGesture(), gesturePhase, state)
+      : { ...state, active: false };
+  if (!tongueMotionId) performanceTongueState = tongueState;
+  audioDirty = true;
+  announce("All viewport modulators stopped and reset to their starting speed and width");
+}
+
+function resetTonguePerformance() {
+  if (!TONGUE_MODE) return;
+  tongueState = sanitizeTongueState(DEFAULT_TONGUE_STATE);
+  performanceTongueState = tongueState;
+  tongueArticulation = IDLE_TONGUE_ARTICULATION;
+  resetTongueParameterModulators();
+  setTongueMotion("", { announceChange: false, startAudio: false });
+  setViewportTonguePresetPaletteOpen(false, { pinned: false });
+  updateTonguePresentation(performanceState);
+  audioDirty = true;
+  announce("Tongue reset to its free-hand starting pose; call transport continues");
 }
 
 function randomizeBody() {
@@ -1266,7 +1299,7 @@ function installControlListeners() {
       performanceTongueState = tongueState;
       tongueArticulation = IDLE_TONGUE_ARTICULATION;
       setTongueMotion("", { announceChange: false, startAudio: false });
-      clearParameterModulators();
+      resetParameterModulators();
     }
     loadAnimal(state.animalId);
     announce(state.biologicalLock
@@ -1278,6 +1311,8 @@ function installControlListeners() {
   installViewportParameterModulators();
   installViewportTonguePresetPalette();
   installTongueListeners();
+  $("resetViewportTongue")?.addEventListener("click", resetTonguePerformance);
+  $("resetViewportModulators")?.addEventListener("click", resetParameterModulators);
 
   breathButton.addEventListener("pointerdown", (event) => {
     event.preventDefault();

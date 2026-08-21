@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="syrinx.css?v=syrinx-ui-20260820-2" />
     <link rel="stylesheet" href="syrinx-ui.css?v=syrinx-ui-20260820-2" />
-    <link rel="stylesheet" href="tongued-beasts.css?v=syrinx-ui-20260820-3" />
+    <link rel="stylesheet" href="tongued-beasts.css?v=syrinx-ui-20260820-4" />
   </head>
   <body class="syrinx-page syrinx-ui-page tongued-beasts-page" data-instrument-info="off">
     <header class="masthead">
@@ -54,7 +54,7 @@
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Interactive animal sound source, vocal tract, and grafted tongue. Drag the colored anatomy controls, use their viewport modulation buttons, or choose a tongue move from the viewport palette."
+            aria-label="Interactive animal sound source, vocal tract, and grafted tongue. Drag the colored anatomy controls, use their viewport modulation buttons, choose a tongue move, or reset the tongue and modulators from the viewport."
             aria-describedby="canvasInstructions liveStatus"
           >
             An animated animal profile with lungs, sound source, vocal tract, tongue, cavities, and mouth.
@@ -99,9 +99,24 @@
               </div>
             </div>
           </div>
+          <button
+            class="viewport-stage-reset viewport-modulator-reset"
+            id="resetViewportModulators"
+            type="button"
+            aria-label="Reset all viewport modulators"
+          >
+            <span aria-hidden="true">↺</span><b>RESET</b><small>ALL MODS</small>
+          </button>
           <div class="tongue-stage-status" aria-label="Live tongue status">
             <span><small>airway</small><output id="tongueAirwayOut">open</output></span>
             <span><small>motion</small><output id="tongueMotionOut">free hand</output></span>
+            <button
+              class="tongue-stage-reset"
+              id="resetViewportTongue"
+              type="button"
+              aria-label="Reset tongue pose, motion, and tongue modulation"
+              title="Reset tongue"
+            ><b aria-hidden="true">↺</b><small aria-hidden="true">reset</small></button>
           </div>
           <button class="sr-only" id="breathButton" type="button" aria-pressed="false">
             Hold breath; manual pressure while transport continues
@@ -280,10 +295,10 @@
         <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all data-reset-in-place>Reset beast</button></div>
       </aside>
 
-      <p class="sr-only" id="canvasInstructions">Grab the pink tongue anywhere in the viewport. Pull sideways to stretch or retract it and move vertically to curl it into or away from airway contact. Open Tongue moves in the viewport to choose an automatic articulation. Each colored viewport slider has a nearby modulation button that reveals speed and width controls. Space or Enter holds breath while pressed. Escape stops all sound and automatic tongue motion.</p>
+      <p class="sr-only" id="canvasInstructions">Grab the pink tongue anywhere in the viewport. Pull sideways to stretch or retract it and move vertically to curl it into or away from airway contact. Open Tongue moves in the viewport to choose an automatic articulation. Each colored viewport slider has a nearby modulation button that reveals speed and width controls. Reset Tongue restores its free-hand pose; Reset Modulators stops every wiggle and restores its speed, width, shape, and phase defaults. Space or Enter holds breath while pressed. Escape stops all sound and automatic tongue motion.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
     <script type="module" src="nav.js?v=syrinx-ui-20260820-2"></script>
-    <script type="module" src="syrinx-app.js?v=syrinx-ui-20260820-3"></script>
+    <script type="module" src="syrinx-app.js?v=syrinx-ui-20260820-4"></script>
   </body>
 </html>

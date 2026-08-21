@@ -17,6 +17,30 @@ function functionBody(source, name, nextName) {
   return source.slice(start, end);
 }
 
+function standaloneFunctionBody(source, name) {
+  const signature = new RegExp(`function\\s+${name}\\s*\\(`);
+  const match = signature.exec(source);
+  assert.ok(match, `Missing ${name}()`);
+  const bodyStart = source.indexOf("{", match.index);
+  assert.ok(bodyStart >= 0, `Missing body for ${name}()`);
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") depth -= 1;
+    if (depth === 0) return source.slice(bodyStart + 1, index);
+  }
+  assert.fail(`Unterminated ${name}()`);
+}
+
+function elementMarkup(source, tagName, id) {
+  const match = source.match(new RegExp(
+    `<${tagName}\\b[^>]*\\bid=["']${id}["'][^>]*>[\\s\\S]*?</${tagName}>`,
+    "i",
+  ));
+  assert.ok(match, `Missing ${tagName}#${id}`);
+  return match[0];
+}
+
 test("Syrinx UI exposes the two-menu preset bank, universal controls, and loop silence", async () => {
   const [html, css, app, original, build] = await Promise.all([
     readFile(new URL("syrinx-ui.html", root), "utf8"),
@@ -360,6 +384,126 @@ test("Tongued Beasts exposes its motion presets in a viewport hover and focus pa
     css,
     /\.viewport-tongue-preset-popover[^}]*\{[^}]*pointer-events:\s*(?:auto|none)/i,
     "the palette explicitly owns pointer interaction rather than leaking drags to the canvas",
+  );
+});
+
+test("the viewport tongue reset restores free-hand defaults without interrupting transport", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("tongued-beasts.html", root), "utf8"),
+    readFile(new URL("syrinx-app.js", root), "utf8"),
+  ]);
+  const stageMarkup = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
+  const resetButton = elementMarkup(stageMarkup, "button", "resetViewportTongue");
+  const resetTongue = standaloneFunctionBody(app, "resetTonguePerformance");
+
+  assert.match(resetButton, /\btype=["']button["']/i);
+  assert.match(
+    resetButton,
+    /reset[\s\S]{0,80}tongue|tongue[\s\S]{0,80}reset/i,
+    "the stage-local tongue reset has an understandable accessible name",
+  );
+  assert.match(
+    app,
+    /\$\(["']resetViewportTongue["']\)\?*\.addEventListener\(["']click["'],\s*(?:resetTonguePerformance|\(\)\s*=>\s*resetTonguePerformance\(\))\)/,
+    "the viewport button invokes the dedicated tongue reset",
+  );
+  assert.match(
+    resetTongue,
+    /tongueState\s*=\s*sanitizeTongueState\(\s*DEFAULT_TONGUE_STATE\s*\)/,
+    "manual tongue controls return to their canonical defaults",
+  );
+  assert.match(resetTongue, /performanceTongueState\s*=\s*tongueState/);
+  assert.match(resetTongue, /tongueArticulation\s*=\s*IDLE_TONGUE_ARTICULATION/);
+  const stopMotion = resetTongue.match(/setTongueMotion\(\s*["']{2}\s*,\s*\{[^}]*\}\s*\)/)?.[0] ?? "";
+  assert.match(stopMotion, /announceChange:\s*false/);
+  assert.match(
+    stopMotion,
+    /startAudio:\s*false/,
+    "reset stops automatic articulation without powering audio on",
+  );
+  assert.match(
+    resetTongue,
+    /resetTongueParameterModulators\(\)/,
+    "hidden tongue-family modulation is disabled and restored to defaults with the tongue",
+  );
+  assert.match(
+    resetTongue,
+    /setViewportTonguePresetPaletteOpen\(\s*false\s*,\s*\{\s*pinned:\s*false\s*\}\s*\)/,
+    "the preset palette closes after reset",
+  );
+  assert.match(
+    resetTongue,
+    /updateTonguePresentation\(|setTongueMotion\(/,
+    "right-panel sliders, readouts, and preset pressed states are synchronized",
+  );
+  assert.doesNotMatch(
+    resetTongue,
+    /\b(?:stopPerformance|loadAnimal|playGesture|setManualBreath|toggleAudio|ensureAudio)\s*\(/,
+    "tongue reset must not stop the call, alter breath transport, or toggle audio power",
+  );
+  assert.doesNotMatch(
+    resetTongue,
+    /\b(?:gesturePlaying|manualBreath|state)\s*=/,
+    "tongue reset leaves call transport and host parameters intact",
+  );
+});
+
+test("the viewport modulator reset restores every wiggle default and collapses its editor", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("tongued-beasts.html", root), "utf8"),
+    readFile(new URL("syrinx-app.js", root), "utf8"),
+  ]);
+  const stageMarkup = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
+  const resetButton = elementMarkup(stageMarkup, "button", "resetViewportModulators");
+  const resetModulators = standaloneFunctionBody(app, "resetParameterModulators");
+
+  assert.match(resetButton, /\btype=["']button["']/i);
+  assert.match(
+    resetButton,
+    /reset[\s\S]{0,80}modulat|modulat[\s\S]{0,80}reset/i,
+    "the stage-local modulation reset has an understandable accessible name",
+  );
+  assert.match(
+    app,
+    /\$\(["']resetViewportModulators["']\)\?*\.addEventListener\(["']click["'],\s*(?:resetParameterModulators|\(\)\s*=>\s*resetParameterModulators\(\))\)/,
+    "the viewport button invokes the dedicated modulation reset",
+  );
+  assert.match(resetModulators, /PARAMETER_MODULATOR_DEFINITIONS/);
+  assert.match(resetModulators, /parameterModulators\.forEach\(/);
+  assert.match(resetModulators, /enabled\s*(?::|=)\s*false/);
+
+  const assignsDefinition = /Object\.assign\(\s*modulator\s*,\s*(?:definition|defaults?)/.test(resetModulators);
+  for (const key of ["rateHz", "depth", "shape"]) {
+    assert.ok(
+      assignsDefinition
+        || new RegExp(`modulator\\.${key}\\s*=\\s*(?:definition|defaults?)\\.${key}`).test(resetModulators),
+      `${key} returns to its PARAMETER_MODULATOR_DEFINITIONS value`,
+    );
+  }
+  assert.ok(
+    /modulator\.phase\s*=/.test(resetModulators)
+      || (assignsDefinition && /\bphase\b/.test(resetModulators)),
+    "the reset restores a deterministic oscillator phase",
+  );
+  assert.match(
+    resetModulators,
+    /expandedViewportModulatorTarget\s*=\s*["']{2}|collapseViewportModulatorControls\(\s*\)/,
+    "the expanded Speed/Width editor collapses",
+  );
+  assert.match(
+    resetModulators,
+    /updateParameterModulatorUI\(|collapseViewportModulatorControls\(/,
+    "pressed state, aria state, native inputs, and editor visibility are refreshed",
+  );
+  assert.match(
+    resetModulators,
+    /audioDirty\s*=\s*true|updatePerformance\(\s*performance\.now\(\)\s*\)/,
+    "the effective state is refreshed so viewport handles return to their base values",
+  );
+  assert.doesNotMatch(
+    resetModulators,
+    /\b(?:stopPerformance|loadAnimal|playGesture|setManualBreath|toggleAudio|ensureAudio)\s*\(/,
+    "modulator reset does not interrupt transport or toggle audio power",
   );
 });
 
