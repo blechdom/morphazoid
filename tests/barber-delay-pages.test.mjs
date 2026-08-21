@@ -126,8 +126,33 @@ test("Candy combines tap and one-to-one controls with the centered-hump sweep", 
   assert.match(candy, /id="rangeOut"[^>]*>2000 ms</);
   assert.match(candy, /id="feedbackTimeOut"[^>]*>1000 ms</);
   assert.match(candy, /below → original → above/);
+  assert.match(candy, /unboxed live oscilloscopes/i);
+  assert.match(candy, /white on red and red on white/i);
+  assert.match(candy, /CANDY SCOPE FIELD/);
+  assert.match(candy, /LIVE SCOPES · IDLE/);
   assert.match(candy, /With centered window tilt/i);
   assert.match(candy, /crosses the original pitch at its loudest/i);
+});
+
+test("Candy restores its original red-and-white catalogue logo", async () => {
+  const [liveLogo, currentLogo, pinnedLogo, originalLogo] = await Promise.all([
+    readFile(new URL("assets/instruments/candy-coil-delay.webp", root)),
+    readFile(new URL(
+      "artwork/instrument-icon-variants/candy-coil-delay/catalogue-current.webp",
+      root,
+    )),
+    readFile(new URL(
+      "artwork/instrument-icon-variants/candy-coil-delay/round-2-v1.webp",
+      root,
+    )),
+    readFile(new URL(
+      "artwork/instrument-icons-round-2/candy-coil-delay.webp",
+      root,
+    )),
+  ]);
+  assert.deepEqual(liveLogo, originalLogo);
+  assert.deepEqual(currentLogo, originalLogo);
+  assert.deepEqual(pinnedLogo, originalLogo);
 });
 
 test("the retired centered-hump route is removed", async () => {
@@ -199,7 +224,8 @@ test("the shared controller keeps audio behind the menu gesture and cleans resou
   assert.match(app, /audio\.start\(selectedSource\(\)\)/);
   assert.match(app, /getTimeDomainData\(waveform\)/);
   assert.match(app, /1_000 \/ 30/);
-  assert.match(app, /function drawAudioFragment/);
+  assert.match(app, /function drawCandyOscilloscope/);
+  assert.doesNotMatch(app, /function drawAudioFragment/);
   assert.match(app, /sandySyrupTargetRate/);
   assert.match(app, /sandySyrupBaseDelay/);
   assert.match(app, /audio\.reseedSandyGrains\(\)/);
@@ -213,10 +239,25 @@ test("the shared controller keeps audio behind the menu gesture and cleans resou
   assert.match(css, /\.candy-coil-page/);
   assert.doesNotMatch(css, /\.striped-sludge-page/);
   assert.match(css, /\.sandy-syrup-page/);
-  assert.match(css, /#9cad45/i);
-  assert.match(css, /#69d9ee/i);
+  assert.match(css, /#dc2f3f/i);
+  assert.match(css, /#fff7ea/i);
+  assert.match(css, /repeating-linear-gradient/i);
+  assert.doesNotMatch(css, /#9cad45/i);
   assert.match(css, /#20ccaa/i);
   assert.doesNotMatch(app, /drawSludgeField/);
+
+  const candyScope = app.match(
+    /function drawCandyOscilloscope\([\s\S]*?\n}\n\nfunction drawCandyField/,
+  )?.[0] ?? "";
+  assert.match(candyScope, /head\.back/);
+  assert.match(candyScope, /head\.ink/);
+  assert.match(candyScope, /head\.angle \+ Math\.PI \* 0\.5/);
+  assert.match(candyScope, /scope\.compact \? 10 : 15/);
+  assert.match(candyScope, /: 0;/);
+  assert.doesNotMatch(candyScope, /fillRect|strokeRect|\.rect\(/);
+
+  assert.doesNotMatch(app, /const visualDirection/);
+  assert.match(app, /state\.visualPhase[\s\S]*?\+ elapsed \* state\.settings\.speed/);
 
   const inertAudio = new BarberDelayAudio("candy", {});
   assert.equal(inertAudio.context, null);
