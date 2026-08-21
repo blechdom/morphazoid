@@ -1,4 +1,4 @@
-import { TOOL_GROUPS } from "../nav.js?v=catalog-20260820-2";
+import { TOOL_GROUPS } from "../nav.js?v=catalog-20260821-1";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -138,6 +138,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Models mammal folds, paired bird labia, frog membranes, and a rodent jet whistle through species-bounded vocal anatomy.",
     "Choose an animal and call, turn on audio, then trigger the gesture or hold Breath while reshaping its biological controls.",
     ["Built-in source", "Pointer"],
+  ),
+  hybrinx: define(
+    "Animal voice sequencer",
+    "Reveals the native keyframed pressure, pitch, closure, mouth, cavity, roughness, source-split, and bilateral-balance contours that animate physical animal calls through a playable tongue-shaped tract.",
+    "Turn on audio, choose a host beast and native call, then play or loop it while the live timeline traces every sounding parameter contour beneath the animal.",
+    ["Built-in source", "Pointer", "Computer keys"],
   ),
   morphynx: define(
     "Hybrid physical voice",
@@ -493,6 +499,7 @@ const CATALOG_DETAILS = Object.freeze({
 });
 
 const ADDITIONAL_TAG_IDS = Object.freeze({
+  hybrinx: Object.freeze(["sequencers"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
   "fm-drums": Object.freeze(["geometry-drums"]),
   "linear-drums": Object.freeze(["geometry-drums"]),

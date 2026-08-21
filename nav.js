@@ -132,6 +132,7 @@ export const TOOL_GROUPS = Object.freeze([
       href: "tongued-beasts.html",
       catalogue: false,
     },
+    { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
     { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html", catalogue: false },
     {
       id: "spelling-synthesizer",

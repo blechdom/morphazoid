@@ -31,6 +31,7 @@ import {
   modulateTongueState,
   sampleTongueMotionPreset,
 } from "./src/tongue-performance.js?v=syrinx-ui-20260820-1";
+import { createHybrinxTimeline } from "./src/hybrinx-timeline.js?v=hybrinx-20260821-1";
 
 const $ = (id) => document.getElementById(id);
 const animalSelect = $("animalSelect");
@@ -47,6 +48,10 @@ const loopButton = $("loopButton");
 const breathButton = $("breathButton");
 const UI_MODE = document.body.classList.contains("syrinx-ui-page");
 const TONGUE_MODE = document.body.classList.contains("tongued-beasts-page");
+const HYBRINX_MODE = document.body.classList.contains("hybrinx-page");
+const hybrinxTimeline = HYBRINX_MODE
+  ? createHybrinxTimeline($("hybrinxTimelineSection"))
+  : null;
 const prefersReducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 
 const CONTROL_IDS = Object.freeze({
@@ -2849,8 +2854,25 @@ function updatePerformance(time) {
   }
 }
 
+function updateHybrinxTimeline() {
+  if (!hybrinxTimeline) return;
+  hybrinxTimeline.update({
+    gesture: activeGesture(),
+    animalLabel: activeAnimal().label,
+    baseState: state,
+    performanceState,
+    phase: gesturePhase,
+    playing: gesturePlaying,
+    loop: state.loop,
+    gapRemainingMs: loopGapRemainingMs,
+    gestureRate: state.gestureRate,
+    loopGapMs: state.loopGapMs,
+  });
+}
+
 function animate(time) {
   updatePerformance(time);
+  updateHybrinxTimeline();
   renderStage(time);
   animationFrame = requestAnimationFrame(animate);
 }
@@ -2892,5 +2914,6 @@ resizeCanvas();
 updateAnimalPresentation();
 updatePerformancePresentation(performanceState);
 updateModulationPresentation(0);
+updateHybrinxTimeline();
 setAudioPresentation("off");
 animationFrame = requestAnimationFrame(animate);

@@ -86,6 +86,10 @@ for worktree_runtime_file in \
   tongued-beasts.html \
   tongued-beasts.css \
   assets/instruments/tongued-beasts.webp \
+  hybrinx.html \
+  hybrinx.css \
+  src/hybrinx-timeline.js \
+  assets/instruments/hybrinx.webp \
   hyper-syrinx.html \
   hyper-syrinx.css \
   hyper-syrinx-app.js \
@@ -382,6 +386,10 @@ required_files=(
   tongued-beasts.html
   tongued-beasts.css
   assets/instruments/tongued-beasts.webp
+  hybrinx.html
+  hybrinx.css
+  src/hybrinx-timeline.js
+  assets/instruments/hybrinx.webp
   hyper-syrinx.html
   hyper-syrinx.css
   hyper-syrinx-app.js

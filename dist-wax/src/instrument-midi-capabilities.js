@@ -38,6 +38,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "image-to-instrument-3",
     "throatazoid",
     "syrinx",
+    "hybrinx",
     "morphynx",
     "hyper-syrinx",
     "alien-larynx",
