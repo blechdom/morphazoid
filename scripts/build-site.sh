@@ -63,6 +63,11 @@ for worktree_runtime_file in \
   src/playhead-paint.js \
   src/playhead-paint-audio.js \
   assets/instruments/playhead-paint.webp \
+  boidzoid.html \
+  boidzoid.css \
+  boidzoid-app.js \
+  src/boidzoid.js \
+  assets/instruments/boidzoid.webp \
   striped-staircase.html \
   striped-staircase.css \
   striped-staircase-app.js \
@@ -86,6 +91,16 @@ for worktree_runtime_file in \
   tongued-beasts.html \
   tongued-beasts.css \
   assets/instruments/tongued-beasts.webp \
+  hybrinx.html \
+  hybrinx.css \
+  src/hybrinx-layout.js \
+  src/hybrinx-timeline.js \
+  assets/instruments/hybrinx.webp \
+  pink-trombonazoid.html \
+  pink-trombonazoid.css \
+  pink-trombonazoid-app.js \
+  src/pink-trombonazoid.js \
+  assets/instruments/pink-trombonazoid.webp \
   hyper-syrinx.html \
   hyper-syrinx.css \
   hyper-syrinx-app.js \
@@ -144,6 +159,18 @@ for worktree_runtime_file in \
   src/spelling-vocoder-processor.js \
   assets/audio/spelling-diphone-kal16.wav \
   assets/instruments/spelling-synthesizer.webp \
+  vocalzoid.html \
+  vocalzoid.css \
+  vocalzoid-app.js \
+  src/vocalzoid.js \
+  src/vocalzoid-audio.js \
+  src/vocalzoid-bank.js \
+  src/vocalzoid-open-banks.js \
+  assets/audio/vocalzoid-oddvoices-air.wav \
+  assets/audio/vocalzoid-oddvoices-cicada.wav \
+  assets/audio/vocalzoid-oddvoices-quake.wav \
+  assets/instruments/vocalzoid.webp \
+  vendor/oddvoices/LICENSE \
   vendor/cmudict/cmudict-en-us.dict \
   vendor/cmudict/LICENSE \
   plugins.html \
@@ -221,6 +248,11 @@ for worktree_runtime_file in \
   karplus-strong-app.js \
   src/karplus-strong.js \
   assets/instruments/karplus-strong.webp \
+  karplus-carpet.html \
+  karplus-carpet.css \
+  karplus-carpet-app.js \
+  src/karplus-carpet.js \
+  assets/instruments/karplus-carpet.webp \
   linear-drums-machine.html \
   linear-drums-machine.css \
   linear-drums-machine-app.js \
@@ -356,6 +388,11 @@ required_files=(
   src/playhead-paint.js
   src/playhead-paint-audio.js
   assets/instruments/playhead-paint.webp
+  boidzoid.html
+  boidzoid.css
+  boidzoid-app.js
+  src/boidzoid.js
+  assets/instruments/boidzoid.webp
   striped-staircase.html
   striped-staircase.css
   striped-staircase-app.js
@@ -382,6 +419,16 @@ required_files=(
   tongued-beasts.html
   tongued-beasts.css
   assets/instruments/tongued-beasts.webp
+  hybrinx.html
+  hybrinx.css
+  src/hybrinx-layout.js
+  src/hybrinx-timeline.js
+  assets/instruments/hybrinx.webp
+  pink-trombonazoid.html
+  pink-trombonazoid.css
+  pink-trombonazoid-app.js
+  src/pink-trombonazoid.js
+  assets/instruments/pink-trombonazoid.webp
   hyper-syrinx.html
   hyper-syrinx.css
   hyper-syrinx-app.js
@@ -447,6 +494,18 @@ required_files=(
   src/spelling-vocoder-processor.js
   assets/audio/spelling-diphone-kal16.wav
   assets/instruments/spelling-synthesizer.webp
+  vocalzoid.html
+  vocalzoid.css
+  vocalzoid-app.js
+  src/vocalzoid.js
+  src/vocalzoid-audio.js
+  src/vocalzoid-bank.js
+  src/vocalzoid-open-banks.js
+  assets/audio/vocalzoid-oddvoices-air.wav
+  assets/audio/vocalzoid-oddvoices-cicada.wav
+  assets/audio/vocalzoid-oddvoices-quake.wav
+  assets/instruments/vocalzoid.webp
+  vendor/oddvoices/LICENSE
   vendor/cmudict/cmudict-en-us.dict
   vendor/cmudict/LICENSE
   plugins.html
@@ -673,6 +732,11 @@ required_files=(
   karplus-strong-app.js
   src/karplus-strong.js
   assets/instruments/karplus-strong.webp
+  karplus-carpet.html
+  karplus-carpet.css
+  karplus-carpet-app.js
+  src/karplus-carpet.js
+  assets/instruments/karplus-carpet.webp
   linear-drums-machine.html
   linear-drums-machine.css
   linear-drums-machine-app.js

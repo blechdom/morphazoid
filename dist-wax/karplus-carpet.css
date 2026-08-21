@@ -1,0 +1,241 @@
+.karplus-carpet-page {
+  --accent: #e7a55d;
+  --accent-soft: color-mix(in oklab, var(--accent) 58%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
+  --ks-cyan: #6ed9c5;
+  --ks-coral: #ef765f;
+  --ks-violet: #b29cff;
+  --kc-indigo: #7787d8;
+}
+
+.karplus-carpet-page .shell {
+  grid-template-columns: minmax(0, 1fr) clamp(330px, 25vw, 405px);
+}
+
+.kc-carpet-stage {
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(231, 165, 93, .035) 25%, transparent 25%) 0 0 / 18px 18px,
+    linear-gradient(315deg, rgba(110, 217, 197, .025) 25%, transparent 25%) 0 0 / 18px 18px,
+    radial-gradient(ellipse at 50% 52%, rgba(119, 135, 216, .08), transparent 47%),
+    var(--bg-deep);
+}
+
+.karplus-carpet-page #stage {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.karplus-carpet-page #stage:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -4px;
+}
+
+.kc-stage-title h1 {
+  max-width: min(700px, 74vw);
+  font-size: clamp(26px, 4.6vw, 62px);
+}
+
+.kc-stage-title small {
+  color: color-mix(in oklab, var(--ks-cyan) 58%, var(--muted));
+}
+
+.kc-stage-legend {
+  min-width: min(380px, 50vw);
+}
+
+.kc-transport-row {
+  display: grid;
+  margin: 7px 0 17px;
+  grid-template-columns: 44px minmax(0, 1fr) 54px;
+  align-items: center;
+  gap: 13px;
+}
+
+.kc-transport-readout {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.kc-transport-readout b,
+.kc-transport-readout span,
+.kc-transport-readout small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kc-transport-readout b {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .035em;
+}
+
+.kc-transport-readout span {
+  color: var(--ks-cyan);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kc-transport-readout small {
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.kc-loop-toggle {
+  min-width: 54px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.kc-loop-toggle:hover,
+.kc-loop-toggle:focus-visible,
+.kc-loop-toggle[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.kc-performance-sliders {
+  display: grid;
+  margin: 0 0 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 15px;
+}
+
+.kc-slider {
+  margin: 0;
+}
+
+.kc-slider:first-child,
+.kc-slider:nth-child(2),
+.kc-slider:nth-child(3) {
+  grid-column: 1 / -1;
+}
+
+.kc-slider output {
+  color: var(--ks-cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+.kc-slider input[type="range"] {
+  height: 34px;
+  padding-top: 12px;
+  padding-bottom: 7px;
+}
+
+.kc-slider .form-range-poles {
+  margin-top: -5px;
+}
+
+.karplus-carpet-page .ks-field-stats {
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--ks-cyan) 7%, transparent), transparent),
+    var(--bg-deep);
+}
+
+.karplus-carpet-page .ks-preset-grid button[aria-pressed="true"] {
+  color: #090a0d;
+  background:
+    linear-gradient(120deg, var(--accent), color-mix(in oklab, var(--accent) 55%, var(--ks-cyan)));
+}
+
+.karplus-carpet-page .ks-signal-card {
+  background:
+    linear-gradient(135deg, rgba(231, 165, 93, .035) 25%, transparent 25%) 0 0 / 12px 12px,
+    var(--bg-deep);
+}
+
+.kc-audio-error {
+  margin: 12px 22px;
+}
+
+@media (max-width: 940px) {
+  .karplus-carpet-page .shell {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  .kc-performance-sliders {
+    grid-template-columns: 1fr;
+  }
+
+  .kc-slider,
+  .kc-slider:first-child,
+  .kc-slider:nth-child(2),
+  .kc-slider:nth-child(3) {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .karplus-carpet-page .shell {
+    display: block;
+  }
+
+  .karplus-carpet-page .panel {
+    border-top: 1px solid var(--line-strong);
+    border-left: 0;
+  }
+
+  .kc-performance-sliders {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kc-slider:first-child,
+  .kc-slider:nth-child(2),
+  .kc-slider:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 520px) {
+  .kc-stage-title h1 {
+    font-size: 28px;
+  }
+
+  .kc-stage-title small {
+    max-width: 270px;
+    line-height: 1.35;
+  }
+
+  .kc-stage-legend {
+    min-width: 0;
+  }
+
+  .kc-performance-sliders {
+    grid-template-columns: 1fr;
+  }
+
+  .kc-slider,
+  .kc-slider:first-child,
+  .kc-slider:nth-child(2),
+  .kc-slider:nth-child(3) {
+    grid-column: auto;
+  }
+
+  .kc-transport-row {
+    grid-template-columns: 44px minmax(0, 1fr) 48px;
+    gap: 10px;
+  }
+
+  .kc-loop-toggle {
+    min-width: 48px;
+    padding: 0 5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .karplus-carpet-page button,
+  .karplus-carpet-page .ks-knob-dial {
+    transition: none;
+  }
+}

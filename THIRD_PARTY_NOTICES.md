@@ -32,9 +32,10 @@ load the Shadertoy page as a runtime dependency.
 
 ## Pink Trombone
 
-The shared classic 44-section vocal-tract geometry used by Throatazoid and
-Spelling Synthesizer, including its tongue-rest curve, reflection coefficients,
-and two-step waveguide behavior, is adapted from Neil Thapen's Pink Trombone:
+The shared classic 44-section vocal-tract geometry used by Throatazoid, Pink
+Trombonazoid, and Spelling Synthesizer, including its tongue-rest curve,
+reflection coefficients, and two-step waveguide behavior, is adapted from Neil
+Thapen's Pink Trombone:
 
 - https://dood.al/pinktrombone/
 - https://github.com/IMAGINARY/pink-trombone
@@ -93,6 +94,24 @@ THE CONTRIBUTORS BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES
 OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER
 IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+## OddVoices CC0 voice recordings
+
+Vocalzoid includes compact audio sprites derived from the Air, Cicada, and
+Quake voice recordings in OddVoices. Morphazoid extracts only eight labelled
+English units per voice, trims long vowel bodies, removes DC offset, normalizes
+level, adds short edge fades, and packs the units into browser-sized WAV files.
+These packaging changes are not endorsed by the OddVoices authors. The
+reproducible builder is `scripts/generate-vocalzoid-oddvoices.py`.
+
+- https://gitlab.com/oddvoices/oddvoices/
+- https://gitlab.com/oddvoices/oddvoices/-/tree/develop/voices
+- Source revision: 33a248af8df88edf5166593bf36b7e24e7bc1f94
+
+Public Domain.
+
+OddVoices vocal data by Nathan Ho is marked CC0 1.0. To view a copy of this
+mark, visit https://creativecommons.org/publicdomain/zero/1.0/
 
 ## PocketSphinx English pronunciation dictionary
 

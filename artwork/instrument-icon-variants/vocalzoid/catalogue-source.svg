@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Vocalzoid sample sequencer artwork">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#11150d"/>
+      <stop offset=".52" stop-color="#070807"/>
+      <stop offset="1" stop-color="#170d0b"/>
+    </linearGradient>
+    <linearGradient id="note" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#e8ffc9"/>
+      <stop offset="1" stop-color="#9ee93e"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="grid" width="42" height="28" patternUnits="userSpaceOnUse">
+      <path d="M42 0H0V28" fill="none" stroke="#dbe4e0" stroke-opacity=".055"/>
+    </pattern>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="90" cy="72" r="142" fill="#b7ff5f" opacity=".035"/>
+  <circle cx="450" cy="438" r="160" fill="#ff765f" opacity=".035"/>
+  <rect x="54" y="80" width="404" height="352" fill="#050605" stroke="#dbe4e0" stroke-opacity=".14"/>
+  <rect x="93" y="112" width="333" height="240" fill="url(#grid)"/>
+  <path d="M93 112V352M93 112H426" fill="none" stroke="#dbe4e0" stroke-opacity=".14"/>
+  <g fill="#777f78" font-family="monospace" font-size="9" text-anchor="end">
+    <text x="84" y="140">G4</text><text x="84" y="196">E4</text><text x="84" y="252">C4</text><text x="84" y="308">A3</text>
+  </g>
+  <path d="M105 280C158 280 170 226 223 226S285 151 337 151 375 198 416 198" fill="none" stroke="#b7ff5f" stroke-opacity=".35" stroke-width="2" filter="url(#glow)"/>
+  <g filter="url(#glow)">
+    <rect x="108" y="269" width="102" height="24" rx="3" fill="url(#note)"/>
+    <rect x="205" y="215" width="116" height="24" rx="3" fill="url(#note)"/>
+    <rect x="317" y="139" width="98" height="24" rx="3" fill="#ff765f"/>
+  </g>
+  <g fill="#11150d" font-family="monospace" font-size="12" font-weight="700">
+    <text x="121" y="286">VO</text><text x="218" y="232">CAL</text><text x="330" y="156">ZOID</text>
+  </g>
+  <g fill="#b7ff5f" font-family="monospace" font-size="8" letter-spacing="2">
+    <text x="108" y="331">V · OW</text><text x="207" y="331">K · AH · L</text><text x="329" y="331">Z · OY · D</text>
+  </g>
+  <path d="M100 380h312" stroke="#dbe4e0" stroke-opacity=".12"/>
+  <g fill="none" stroke="#b7ff5f" stroke-opacity=".62">
+    <path d="M108 400v-6m8 6v-13m8 13v-20m8 20v-9m8 9v-24m8 24v-15m8 15v-5m8 5v-19m8 19v-28m8 28v-11m8 11v-21m8 21v-8m8 8v-27m8 27v-18m8 18v-6m8 6v-16m8 16v-25m8 25v-9m8 9v-20m8 20v-13m8 13v-4m8 4v-17m8 17v-23m8 23v-8m8 8v-18m8 18v-12m8 12v-6m8 6v-15m8 15v-21m8 21v-7m8 7v-13m8 13v-5m8 5v-10m8 10v-4"/>
+  </g>
+  <text x="54" y="52" fill="#e9ebe3" font-family="monospace" font-size="25" font-weight="300" letter-spacing="-2">vocal<tspan fill="#b7ff5f">zoid</tspan></text>
+  <text x="458" y="51" fill="#687069" font-family="monospace" font-size="8" text-anchor="end" letter-spacing="2">SAMPLE VOICE / 01</text>
+</svg>

@@ -31,6 +31,11 @@ import {
   modulateTongueState,
   sampleTongueMotionPreset,
 } from "./src/tongue-performance.js?v=syrinx-ui-20260820-1";
+import { createHybrinxTimeline } from "./src/hybrinx-timeline.js?v=hybrinx-20260821-3";
+import {
+  applyHybrinxTimelinePerformance,
+  createHybrinxGestureStore,
+} from "./src/hybrinx-timeline.js?v=hybrinx-20260821-3";
 
 const $ = (id) => document.getElementById(id);
 const animalSelect = $("animalSelect");
@@ -47,6 +52,15 @@ const loopButton = $("loopButton");
 const breathButton = $("breathButton");
 const UI_MODE = document.body.classList.contains("syrinx-ui-page");
 const TONGUE_MODE = document.body.classList.contains("tongued-beasts-page");
+const HYBRINX_MODE = document.body.classList.contains("hybrinx-page");
+const PARAMETER_MODULATION_MODE = TONGUE_MODE && !HYBRINX_MODE;
+const hybrinxGestureStore = HYBRINX_MODE
+  ? createHybrinxGestureStore(CALL_GESTURES)
+  : null;
+const hybrinxTimeline = HYBRINX_MODE
+  ? createHybrinxTimeline($("hybrinxTimelineSection"))
+  : null;
+hybrinxTimeline?.setEditHandler(handleHybrinxTimelineEdit);
 const prefersReducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 
 const CONTROL_IDS = Object.freeze({
@@ -278,7 +292,112 @@ function activeAnimal() {
 }
 
 function activeGesture() {
-  return CALL_GESTURES[state.callId] ?? callsForAnimal(state.animalId)[0];
+  const nativeGesture = CALL_GESTURES[state.callId] ?? callsForAnimal(state.animalId)[0];
+  return HYBRINX_MODE
+    ? hybrinxGestureStore?.get(state.callId) ?? nativeGesture
+    : nativeGesture;
+}
+
+function handleHybrinxTimelineEdit(action = {}) {
+  if (!HYBRINX_MODE || !hybrinxGestureStore) return activeGesture();
+  const gestureId = state.callId;
+  const previousGesture = activeGesture();
+  let nextGesture = previousGesture;
+  if (action.type === "keyframe") {
+    nextGesture = hybrinxGestureStore.updateKeyframe(
+      gestureId,
+      action.parameter,
+      action.index,
+      action,
+      state,
+    );
+  } else if (action.type === "add-keyframe") {
+    nextGesture = hybrinxGestureStore.addKeyframe(
+      gestureId,
+      action.parameter,
+      action,
+      state,
+    );
+  } else if (action.type === "remove-keyframe") {
+    nextGesture = hybrinxGestureStore.removeKeyframe(
+      gestureId,
+      action.parameter,
+      action.index,
+    );
+  } else if (action.type === "duration") {
+    nextGesture = hybrinxGestureStore.setDuration(gestureId, action.durationMs);
+  } else if (action.type === "add-parameter") {
+    nextGesture = hybrinxGestureStore.addParameter(
+      gestureId,
+      action.parameter,
+      state,
+      tongueState,
+    );
+  } else if (action.type === "toggle-modulation") {
+    nextGesture = hybrinxGestureStore.toggleModulation(
+      gestureId,
+      action.parameter,
+      action.enabled,
+    );
+  } else if (action.type === "modulation-keyframe") {
+    nextGesture = hybrinxGestureStore.updateModulationKeyframe(
+      gestureId,
+      action.parameter,
+      action.contour,
+      action.index,
+      action,
+    );
+  } else if (action.type === "add-modulation-keyframe") {
+    nextGesture = hybrinxGestureStore.addModulationKeyframe(
+      gestureId,
+      action.parameter,
+      action.contour,
+      action,
+    );
+  } else if (action.type === "remove-modulation-keyframe") {
+    nextGesture = hybrinxGestureStore.removeModulationKeyframe(
+      gestureId,
+      action.parameter,
+      action.contour,
+      action.index,
+    );
+  } else if (action.type === "reset") {
+    nextGesture = hybrinxGestureStore.reset(gestureId);
+    stopTongueAnimationForReset();
+  }
+  if (!nextGesture) return previousGesture;
+
+  if (gesturePlaying && nextGesture.durationMs !== previousGesture.durationMs) {
+    const now = performance.now();
+    const soundingDuration = nextGesture.durationMs / state.gestureRate;
+    gestureStartTime = loopGapRemainingMs > 0
+      ? now - soundingDuration - Math.max(0, state.loopGapMs - loopGapRemainingMs)
+      : now - gesturePhase * soundingDuration;
+  }
+  const editedPerformanceState = manualBreath
+    ? { ...state, active: true }
+    : gesturePlaying && loopGapRemainingMs <= 0
+      ? interpolateGesture(nextGesture, gesturePhase, state)
+      : { ...state, active: false };
+  if (gesturePlaying && loopGapRemainingMs <= 0) {
+    const sequenced = applyHybrinxTimelinePerformance(
+      nextGesture,
+      editedPerformanceState,
+      performanceTongueState,
+      gesturePhase,
+      { hostIsResolved: true, gestureRate: state.gestureRate },
+    );
+    performanceState = sequenced.host;
+    performanceTongueState = sequenced.tongue;
+  } else {
+    performanceState = editedPerformanceState;
+  }
+  setGesturePresentation();
+  audioDirty = true;
+  if (action.type === "reset") {
+    announce(`${nextGesture.label} contour restored to its native keyframes and duration; tongue motion stopped`);
+  }
+  return nextGesture;
 }
 
 function sourceConfiguration(soundingState = performanceState) {
@@ -311,6 +430,13 @@ function tractConfiguration(soundingState = performanceState) {
 
 function postConfiguration(soundingState = performanceState, resetTract = false) {
   if (!graph?.sourceNode) return;
+  if (graph.masterGain && audioContext) {
+    graph.masterGain.gain.setTargetAtTime(
+      clamp(soundingState.level),
+      audioContext.currentTime,
+      0.025,
+    );
+  }
   graph.sourceNode.port.postMessage({
     type: "configure",
     source: sourceConfiguration(soundingState),
@@ -648,7 +774,7 @@ function setTongueMotion(id, { announceChange = true, startAudio = true } = {}) 
   if (!TONGUE_MODE) return;
   const next = Object.hasOwn(TONGUE_MOTION_PRESETS, id) ? id : "";
   tongueMotionId = next;
-  tongueMotionStartTime = performance.now();
+  tongueMotionStartTime = next ? performance.now() : 0;
   if (!next) {
     tongueArticulation = IDLE_TONGUE_ARTICULATION;
     performanceTongueState = tongueState;
@@ -666,6 +792,11 @@ function setTongueMotion(id, { announceChange = true, startAudio = true } = {}) 
   }
 }
 
+function stopTongueAnimationForReset() {
+  if (!TONGUE_MODE) return;
+  setTongueMotion("", { announceChange: false, startAudio: false });
+}
+
 function applyFeralTonguePreset(id) {
   const preset = FERAL_TONGUE_PRESETS[id];
   if (!TONGUE_MODE || !preset) return;
@@ -679,24 +810,28 @@ function applyFeralTonguePreset(id) {
     tongueEnabled: true,
     ...preset.tongue,
   }, tongueState);
-  const shapes = preset.modulation.shapes;
   expandedViewportModulatorTarget = "";
-  parameterModulators.forEach((modulator, index) => {
-    modulator.enabled = true;
-    modulator.rateHz = clamp(
-      preset.modulation.rateBase + (index % 7) * preset.modulation.rateSpread,
-      0.02,
-      modulator.family === "host" ? 20 : 30,
-    );
-    modulator.depth = clamp(preset.modulation.depth - (index % 4) * 0.055);
-    modulator.shape = shapes[index % shapes.length];
-    modulator.phase = (index * 0.137) % 1;
-    updateParameterModulatorUI(modulator);
-  });
+  if (PARAMETER_MODULATION_MODE) {
+    const shapes = preset.modulation.shapes;
+    parameterModulators.forEach((modulator, index) => {
+      modulator.enabled = true;
+      modulator.rateHz = clamp(
+        preset.modulation.rateBase + (index % 7) * preset.modulation.rateSpread,
+        0.02,
+        modulator.family === "host" ? 20 : 30,
+      );
+      modulator.depth = clamp(preset.modulation.depth - (index % 4) * 0.055);
+      modulator.shape = shapes[index % shapes.length];
+      modulator.phase = (index * 0.137) % 1;
+      updateParameterModulatorUI(modulator);
+    });
+  }
   updateControlValues();
   setTongueMotion(preset.motion, { announceChange: false });
   audioDirty = true;
-  announce(`${preset.label}: every source, tract, tongue, and wiggle parameter is live`);
+  announce(PARAMETER_MODULATION_MODE
+    ? `${preset.label}: every source, tract, tongue, and wiggle parameter is live`
+    : `${preset.label}: source, tract, and tongue pose loaded`);
 }
 
 function installTongueListeners() {
@@ -935,13 +1070,15 @@ function installModulationListeners() {
 }
 
 function parameterModulatorsFor(family) {
+  if (!PARAMETER_MODULATION_MODE) return [];
   return parameterModulators.filter((modulator) => (
     modulator.family === family && modulator.enabled
   ));
 }
 
 function hasActiveParameterModulators() {
-  return parameterModulators.some((modulator) => modulator.enabled);
+  return PARAMETER_MODULATION_MODE
+    && parameterModulators.some((modulator) => modulator.enabled);
 }
 
 function updateParameterModulatorUI(modulator) {
@@ -1046,7 +1183,7 @@ function closeViewportModulatorControls(modulator) {
 }
 
 function installViewportParameterModulators() {
-  if (!TONGUE_MODE || !viewportModulationLayer) return;
+  if (!PARAMETER_MODULATION_MODE || !viewportModulationLayer) return;
   const fragment = document.createDocumentFragment();
   parameterModulators.forEach((modulator) => {
     if (!VIEWPORT_MODULATION_TARGETS.includes(modulator.target)) return;
@@ -1235,7 +1372,7 @@ function resetTongueParameterModulators() {
   });
 }
 
-function resetParameterModulators() {
+function resetParameterModulators({ announceChange = true } = {}) {
   expandedViewportModulatorTarget = "";
   parameterModulators.forEach((modulator, index) => {
     const definition = PARAMETER_MODULATOR_DEFINITIONS[index];
@@ -1250,16 +1387,27 @@ function resetParameterModulators() {
       : { ...state, active: false };
   if (!tongueMotionId) performanceTongueState = tongueState;
   audioDirty = true;
-  announce("All viewport modulators stopped and reset to their starting speed and width");
+  if (announceChange) {
+    announce("All viewport modulators stopped and reset to their starting speed and width");
+  }
+}
+
+function resetViewportModulationPerformance() {
+  stopTongueAnimationForReset();
+  resetParameterModulators({ announceChange: false });
+  announce("All viewport modulators reset; automatic tongue motion stopped");
 }
 
 function resetTonguePerformance() {
   if (!TONGUE_MODE) return;
+  if (HYBRINX_MODE) {
+    hybrinxGestureStore?.resetParameterFamily(state.callId, "tongue");
+  }
   tongueState = sanitizeTongueState(DEFAULT_TONGUE_STATE);
   performanceTongueState = tongueState;
   tongueArticulation = IDLE_TONGUE_ARTICULATION;
   resetTongueParameterModulators();
-  setTongueMotion("", { announceChange: false, startAudio: false });
+  stopTongueAnimationForReset();
   setViewportTonguePresetPaletteOpen(false, { pinned: false });
   updateTonguePresentation(performanceState);
   audioDirty = true;
@@ -1276,14 +1424,16 @@ function randomizeBody() {
       ...Object.fromEntries(TONGUE_CONTROL_KEYS.map((key) => [key, Math.random()])),
     }, tongueState);
     expandedViewportModulatorTarget = "";
-    parameterModulators.forEach((modulator, index) => {
-      modulator.enabled = Math.random() > 0.28;
-      const maximumRate = modulator.family === "host" ? 20 : 30;
-      modulator.rateHz = 0.02 + Math.random() ** 2 * (maximumRate - 0.02);
-      modulator.depth = 0.36 + Math.random() * 0.64;
-      modulator.shape = ["sine", "triangle", "square", "sample-hold"][index % 4];
-      updateParameterModulatorUI(modulator);
-    });
+    if (PARAMETER_MODULATION_MODE) {
+      parameterModulators.forEach((modulator, index) => {
+        modulator.enabled = Math.random() > 0.28;
+        const maximumRate = modulator.family === "host" ? 20 : 30;
+        modulator.rateHz = 0.02 + Math.random() ** 2 * (maximumRate - 0.02);
+        modulator.depth = 0.36 + Math.random() * 0.64;
+        modulator.shape = ["sine", "triangle", "square", "sample-hold"][index % 4];
+        updateParameterModulatorUI(modulator);
+      });
+    }
     const motions = Object.keys(TONGUE_MOTION_PRESETS);
     setTongueMotion(motions[Math.floor(Math.random() * motions.length)], {
       announceChange: false,
@@ -1301,7 +1451,7 @@ function randomizeBody() {
   postConfiguration(performanceState, true);
   audioDirty = true;
   announce(TONGUE_MODE
-    ? `${activeAnimal().label} mutated with a new feral tongue and live parameter wiggles`
+    ? `${activeAnimal().label} mutated with a new feral tongue${PARAMETER_MODULATION_MODE ? " and live parameter wiggles" : ""}`
     : `${activeAnimal().label} parameters randomized; selected preset and transport retained`);
 }
 
@@ -1323,11 +1473,12 @@ function installControlListeners() {
     announce(`Call loop ${state.loop ? "on" : "off"}`);
   });
   document.querySelector("[data-reset-all]")?.addEventListener("click", () => {
+    if (HYBRINX_MODE) hybrinxGestureStore?.resetAll();
     if (TONGUE_MODE) {
       tongueState = sanitizeTongueState(DEFAULT_TONGUE_STATE);
       performanceTongueState = tongueState;
       tongueArticulation = IDLE_TONGUE_ARTICULATION;
-      setTongueMotion("", { announceChange: false, startAudio: false });
+      stopTongueAnimationForReset();
       resetParameterModulators();
     }
     loadAnimal(state.animalId);
@@ -1341,7 +1492,7 @@ function installControlListeners() {
   installViewportTonguePresetPalette();
   installTongueListeners();
   $("resetViewportTongue")?.addEventListener("click", resetTonguePerformance);
-  $("resetViewportModulators")?.addEventListener("click", resetParameterModulators);
+  $("resetViewportModulators")?.addEventListener("click", resetViewportModulationPerformance);
 
   breathButton.addEventListener("pointerdown", (event) => {
     event.preventDefault();
@@ -2839,6 +2990,17 @@ function updatePerformance(time) {
         elapsedSeconds,
       );
     }
+    if (HYBRINX_MODE && gesturePlaying && loopGapRemainingMs <= 0) {
+      const sequenced = applyHybrinxTimelinePerformance(
+        activeGesture(),
+        performanceState,
+        performanceTongueState,
+        gesturePhase,
+        { hostIsResolved: true, gestureRate: state.gestureRate },
+      );
+      performanceState = sequenced.host;
+      performanceTongueState = sequenced.tongue;
+    }
   }
   updatePerformancePresentation(performanceState);
 
@@ -2849,8 +3011,28 @@ function updatePerformance(time) {
   }
 }
 
+function updateHybrinxTimeline() {
+  if (!hybrinxTimeline) return;
+  hybrinxTimeline.update({
+    gesture: activeGesture(),
+    animalLabel: activeAnimal().label,
+    baseState: state,
+    tongueState,
+    performanceState,
+    performanceTongueState,
+    phase: gesturePhase,
+    playing: gesturePlaying,
+    loop: state.loop,
+    gapRemainingMs: loopGapRemainingMs,
+    gestureRate: state.gestureRate,
+    loopGapMs: state.loopGapMs,
+    edited: Boolean(hybrinxGestureStore?.isEdited(state.callId)),
+  });
+}
+
 function animate(time) {
   updatePerformance(time);
+  updateHybrinxTimeline();
   renderStage(time);
   animationFrame = requestAnimationFrame(animate);
 }
@@ -2892,5 +3074,6 @@ resizeCanvas();
 updateAnimalPresentation();
 updatePerformancePresentation(performanceState);
 updateModulationPresentation(0);
+updateHybrinxTimeline();
 setAudioPresentation("off");
 animationFrame = requestAnimationFrame(animate);

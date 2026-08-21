@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#060807" />
+    <meta
+      name="description"
+      content="Boidzoid — a flock of autonomous playheads maps an iridescent snake-skin surface onto a Karplus–Strong string karpet."
+    />
+    <title>Boidzoid — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="boidzoid.css" />
+  </head>
+  <body class="boidzoid-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="playhead-paint.html">playhead paint</a>
+        <a class="tab active" href="boidzoid.html" aria-current="page">boidzoid</a>
+        <a class="tab" href="linear-drums-machine.html">rattle snake skin</a>
+        <a class="tab" href="karplus-strong.html">karplus strong</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="playhead-paint.html">playhead paint</option>
+          <option value="boidzoid.html" selected>boidzoid</option>
+          <option value="linear-drums-machine.html">rattle snake skin</option>
+          <option value="karplus-strong.html">karplus strong</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Pod level</b><output id="levelOut" for="level">46%</output></span>
+          <input id="level" aria-label="Boidzoid master audio level" type="range" min="0" max="0.78" step="0.01" value="0.46" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell boidzoid-shell" id="boidzoid">
+      <section class="stage boidzoid-stage" aria-labelledby="sceneTitle">
+        <div class="stage-wrap boidzoid-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="application"
+            aria-label="A flock of luminous playheads crossing a staggered snake-scale musical surface."
+            aria-describedby="sceneInstruction sceneMapping"
+          >
+            Animated boids cross a musical snake-skin grid and pluck mapped strings.
+          </canvas>
+
+          <header class="boidzoid-title-card">
+            <p><i></i> morphazpod / specimen 01</p>
+            <h1 id="sceneTitle">boid<span>zoid</span></h1>
+            <small>a flock is a clock is a string</small>
+          </header>
+
+          <div class="boidzoid-stage-readout" aria-hidden="true">
+            <span id="stageReadout">24 PLAYHEADS · D DORIAN · POD ASLEEP</span>
+          </div>
+
+          <div class="boidzoid-legend" aria-hidden="true">
+            <span><i class="legend-boid"></i>playhead</span>
+            <span><i class="legend-ridge"></i>string ridge</span>
+            <span><i class="legend-bloom"></i>pluck bloom</span>
+          </div>
+
+          <div class="boidzoid-invitation" id="stageInvitation" aria-hidden="true">
+            <b>turn on audio</b>
+            <span>drag the skin to shepherd the pod</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel boidzoid-panel" aria-label="Boidzoid controls">
+        <section class="boidzoid-pod-card" aria-labelledby="podStateTitle">
+          <div class="boidzoid-card-heading">
+            <div>
+              <span>live organism</span>
+              <h2 id="podStateTitle">Morphazpod</h2>
+            </div>
+            <output class="boidzoid-status-light" id="podState" aria-label="Pod state">drifting</output>
+          </div>
+          <dl class="boidzoid-metrics">
+            <div><dt>Playheads</dt><dd id="metricPlayheads">24</dd></div>
+            <div><dt>Cell</dt><dd id="metricCell">—</dd></div>
+            <div><dt>Plucks</dt><dd id="metricPlucks">0</dd></div>
+          </dl>
+        </section>
+
+        <details class="group control-section boidzoid-play" data-section="play" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Pod motion</h2>
+            <span class="section-state" id="motionSummary">running · untamed</span>
+          </summary>
+          <div class="group-body">
+            <div class="boidzoid-transport-row">
+              <button
+                class="play-button"
+                id="flockButton"
+                type="button"
+                aria-pressed="true"
+                aria-label="Pause the flock"
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <div class="boidzoid-action-grid" role="group" aria-label="Flock actions">
+                <button id="scatterButton" type="button">Scatter</button>
+                <button id="clearLureButton" type="button">Clear lure</button>
+              </div>
+            </div>
+            <div class="boidzoid-preset-grid" role="group" aria-label="Pod temperament">
+              <button type="button" data-temperament="lull">Lull</button>
+              <button type="button" data-temperament="graze" aria-pressed="true">Graze</button>
+              <button type="button" data-temperament="murmur">Murmur</button>
+              <button type="button" data-temperament="fury">Fury</button>
+            </div>
+            <p class="boidzoid-hint" id="sceneInstruction">Drag anywhere to attract the flock. Hold Shift while dragging to repel it. Arrow keys move a persistent lure; Escape clears it.</p>
+          </div>
+        </details>
+
+        <details class="group control-section boidzoid-flock" data-section="form" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Flock law</h2>
+            <span class="section-state" id="flockSummary">24 · balanced</span>
+          </summary>
+          <div class="group-body">
+            <label class="control boidzoid-morph-control" for="morph">
+              <span><b>Morph / ferality</b><output id="morphOut" for="morph">42%</output></span>
+              <input id="morph" type="range" min="0" max="1" step="0.01" value="0.42" />
+              <small><i>calm membrane</i><i>feral swarm</i></small>
+            </label>
+            <label class="control" for="boidCount"><span><b>Playheads</b><output id="boidCountOut" for="boidCount">24</output></span><input id="boidCount" type="range" min="6" max="48" step="1" value="24" /></label>
+            <label class="control" for="speed"><span><b>Travel speed</b><output id="speedOut" for="speed">0.12 /s</output></span><input id="speed" type="range" min="0.045" max="0.24" step="0.005" value="0.12" /></label>
+            <div class="boidzoid-control-pair">
+              <label class="control" for="cohesion"><span><b>Cohesion</b><output id="cohesionOut" for="cohesion">54%</output></span><input id="cohesion" type="range" min="0" max="1" step="0.01" value="0.54" /></label>
+              <label class="control" for="alignment"><span><b>Alignment</b><output id="alignmentOut" for="alignment">68%</output></span><input id="alignment" type="range" min="0" max="1" step="0.01" value="0.68" /></label>
+            </div>
+            <label class="control" for="separation"><span><b>Separation</b><output id="separationOut" for="separation">72%</output></span><input id="separation" type="range" min="0" max="1" step="0.01" value="0.72" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section boidzoid-skin" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Snake skin</h2>
+            <span class="section-state" id="skinSummary">D · dorian · 18×11</span>
+          </summary>
+          <div class="group-body">
+            <div class="boidzoid-select-pair">
+              <label class="boidzoid-select" for="rootNote"><span>Root</span><select id="rootNote"><option value="36">C</option><option value="38" selected>D</option><option value="40">E</option><option value="41">F</option><option value="43">G</option><option value="45">A</option><option value="47">B</option></select></label>
+              <label class="boidzoid-select" for="scaleMode"><span>Scale map</span><select id="scaleMode"><option value="dorian" selected>Dorian</option><option value="minorPentatonic">Minor pentatonic</option><option value="majorPentatonic">Major pentatonic</option><option value="wholeTone">Whole tone</option><option value="pelog">Pelog</option></select></label>
+            </div>
+            <label class="control" for="skinDensity"><span><b>Ridge density</b><output id="skinDensityOut" for="skinDensity">18 × 11</output></span><input id="skinDensity" type="range" min="10" max="26" step="1" value="18" /></label>
+            <label class="control" for="pitchSpread"><span><b>Pitch spread</b><output id="pitchSpreadOut" for="pitchSpread">3 oct</output></span><input id="pitchSpread" type="range" min="1" max="4" step="1" value="3" /></label>
+            <button class="boidzoid-wide-action" id="remapButton" type="button">Shed / remap skin</button>
+          </div>
+        </details>
+
+        <details class="group control-section boidzoid-string" data-section="sound">
+          <summary class="group-summary">
+            <h2 class="group-title">Karplus karpet</h2>
+            <span class="section-state" id="stringSummary">gut → wire → glass</span>
+          </summary>
+          <div class="group-body">
+            <p class="boidzoid-material-strip"><span>gut</span><i></i><span>wire</span><i></i><span>glass</span></p>
+            <label class="control" for="decay"><span><b>String decay</b><output id="decayOut" for="decay">1.8 s</output></span><input id="decay" type="range" min="0.45" max="3.8" step="0.05" value="1.8" /></label>
+            <label class="control" for="damping"><span><b>Damping</b><output id="dampingOut" for="damping">46%</output></span><input id="damping" type="range" min="0.05" max="0.92" step="0.01" value="0.46" /></label>
+            <label class="control" for="brightness"><span><b>Brightness</b><output id="brightnessOut" for="brightness">74%</output></span><input id="brightness" type="range" min="0.08" max="1" step="0.01" value="0.74" /></label>
+            <label class="control" for="body"><span><b>Skin body</b><output id="bodyOut" for="body">38%</output></span><input id="body" type="range" min="0" max="1" step="0.01" value="0.38" /></label>
+            <p class="boidzoid-audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section boidzoid-map" data-section="output">
+          <summary class="group-summary">
+            <h2 class="group-title">Surface mapping</h2>
+            <span class="section-state">motion → string</span>
+          </summary>
+          <div class="group-body">
+            <p class="boidzoid-map-copy" id="sceneMapping">Each scale is one tuned patch of the karpet. A boid plucks when its body crosses a ridge into the next scale.</p>
+            <dl class="boidzoid-mapping">
+              <div><dt>Skin height</dt><dd>quantized pitch</dd></div>
+              <div><dt>Left → right</dt><dd>gut → glass</dd></div>
+              <div><dt>Playhead speed</dt><dd>pluck force</dd></div>
+              <div><dt>Playhead position</dt><dd>stereo field</dd></div>
+            </dl>
+          </div>
+        </details>
+
+        <div class="reset-all-row"><button class="reset-all-button" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset the pod</button></div>
+      </aside>
+
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="boidzoid-app.js"></script>
+  </body>
+</html>

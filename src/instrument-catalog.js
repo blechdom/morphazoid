@@ -1,4 +1,4 @@
-import { TOOL_GROUPS } from "../nav.js?v=catalog-20260820-2";
+import { TOOL_GROUPS } from "../nav.js?v=catalog-20260821-4";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -20,6 +20,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Drawing synth",
     "Turns freehand pointer strokes into playable sound gestures, mapping position, color, and pen size to pitch and timbre while mirrored axes create polyphonic reflections.",
     "Turn on audio, choose X and Y mappings and a pen, then draw; release to end the note or loop the recorded path.",
+    ["Pointer", "Built-in synth"],
+  ),
+  boidzoid: define(
+    "Flocking string sequencer",
+    "Sends autonomous flocking playheads across an iridescent snake-scale surface, plucking its mapped Karplus–Strong string cells whenever a boid crosses a ridge.",
+    "Turn on audio, let the pod drift, then drag across the skin to shepherd its playheads through new pitches and string materials.",
     ["Pointer", "Built-in synth"],
   ),
   lattice: define(
@@ -133,11 +139,35 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose the glottis or microphone source, turn on audio, then drag the tongue and tract controls.",
     ["Mic input", "Built-in source"],
   ),
+  "pink-trombonazoid": define(
+    "Articulatory voice sequencer",
+    "Turns a written word into editable phoneme blocks and automation lanes that animate pitch, breath, tongue, lips, nasal coupling, and mutation through a physical vocal tract.",
+    "Enter a word, turn on audio, press Say word, then reshape its phoneme timing and articulatory automation lanes.",
+    ["Built-in source", "Pointer"],
+  ),
   syrinx: define(
     "Physical animal voice",
     "Models mammal folds, paired bird labia, frog membranes, and a rodent jet whistle through species-bounded vocal anatomy.",
     "Choose an animal and call, turn on audio, then trigger the gesture or hold Breath while reshaping its biological controls.",
     ["Built-in source", "Pointer"],
+  ),
+  "tongued-beasts": define(
+    "Articulatory voice instrument",
+    "Grafts human, macaque, canine, and avian tongue mechanics onto physical animal voice sources so tongue shape and motion continuously reshape the tract.",
+    "Turn on audio, choose a host animal and tongue entity, then drag the anatomy or trigger a tongue movement preset.",
+    ["Built-in source", "Pointer", "Computer keys"],
+  ),
+  hybrinx: define(
+    "Animal voice sequencer",
+    "Reveals the native keyframed pressure, pitch, closure, mouth, cavity, roughness, source-split, and bilateral-balance contours that animate physical animal calls through a playable tongue-shaped tract.",
+    "Turn on audio, choose a host beast and native call, then play or loop it while the live timeline traces every sounding parameter contour beneath the animal.",
+    ["Built-in source", "Pointer", "Computer keys"],
+  ),
+  "jaw-harp": define(
+    "Physical-model instrument",
+    "Couples a plucked cantilever reed to an interactive mouth cavity so one fixed reed fundamental excites harmonics selected by the tongue, jaw, lips, and cavity.",
+    "Turn on audio, choose a harp and vowel preset, then pull and release the copper trigger or press Space to pluck.",
+    ["Built-in source", "Pointer", "Computer keys"],
   ),
   morphynx: define(
     "Hybrid physical voice",
@@ -162,6 +192,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Sounds each typed letter through the Bellazoid tract, sustained KAL phone samples, or the twenty-band Voxazoid vocoder while typing rhythm shapes the voice.",
     "Begin typing, choose an engine and personality, then adjust rhythm dynamics and the vowel-pair delay.",
     ["Built-in synth", "Computer keys"],
+  ),
+  vocalzoid: define(
+    "Singing sequencer",
+    "Turns one written word into editable pitched notes, sustained vowel bodies, and overlapped phoneme joins using bundled open sample voices or a local UTAU bank.",
+    "Turn on audio, drag the syllable notes into a melody, choose KAL16 or a CC0 OddVoices bank, then press Sing word; extracted UTAU folders can be imported locally.",
+    ["Open sample banks", "Local file input", "Pointer"],
   ),
 
   "shepard-risset": define(
@@ -215,6 +251,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Synth",
     "Traces a Julia-set boundary and maps left and right turns to cyclic Shepard pitch.",
     "Turn on audio, choose or drag the Julia parameter, then start the boundary trace.",
+  ),
+  "striped-staircase": define(
+    "Fractal sequencer",
+    "Browses a live Mandelbrot field and turns escape-depth stripes into discrete steps or sliding musical moments while zoom and traversal reshape timing.",
+    "Turn on audio, choose Steps or Slide, then play the depth motion and drag, scroll, or pinch through the live fractal.",
+    ["Pointer", "Computer keys", "WebGL"],
   ),
 
   "recursive-fm": define(
@@ -286,6 +328,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose a string or preset, then click or drag across the stage to pluck and strum.",
     ["Built-in synth", "MIDI", "Pointer", "Computer keys"],
   ),
+  "karplus-carpet": define(
+    "Microsound physical-model synth",
+    "Weaves dense clouds from many freshly synthesized 80–400 millisecond Karplus delay-line attacks, distributed across a tunable microtonal pitch field without loading sample grains.",
+    "Set the hit count and Rattlesnake-style density, turn on audio, then start a carpet or drag the woven stage to plant a pitch-centered cloud.",
+    ["Built-in synth", "MIDI", "Pointer", "Computer keys"],
+  ),
   "sample-drums": define(
     "Sample instrument",
     "Edits a sixteen-slot 808/909-style sample bank that can also replace the Lattice Drum Machine synth bank.",
@@ -322,6 +370,13 @@ const CATALOG_DETAILS = Object.freeze({
     "Number theory rhythm synth",
     "Turns Euclidean remainders into descending bass and each exact quotient into a repeated rhythmic pulse cell.",
     "Turn on audio, choose a new ratio, then play or scrub its division chain.",
+  ),
+
+  "orbital-ferris": define(
+    "Nested contour synth",
+    "Carries an audible Level 1 contour through nested moving shapes whose inherited positions control pitch, amplitude modulation, delay time, and feedback.",
+    "Turn on audio, start the Ferris transport, then assign shapes and Pass, Modulator, or Delay processing to the higher levels.",
+    ["Built-in synth"],
   ),
 
   "order-tones": define(
@@ -493,6 +548,8 @@ const CATALOG_DETAILS = Object.freeze({
 });
 
 const ADDITIONAL_TAG_IDS = Object.freeze({
+  "pink-trombonazoid": Object.freeze(["sequencers"]),
+  hybrinx: Object.freeze(["sequencers"]),
   "l-system-drums": Object.freeze(["fractals-recursion"]),
   "fm-drums": Object.freeze(["geometry-drums"]),
   "linear-drums": Object.freeze(["geometry-drums"]),

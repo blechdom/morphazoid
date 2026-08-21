@@ -18,6 +18,7 @@ const instrumentScripts = [
   "lumber-app.js",
   "micmic-app.js",
   "throatazoid-app.js",
+  "pink-trombonazoid-app.js",
   "syrinx-app.js",
   "shepard-risset-app.js",
   "drum-roll-please-app.js",

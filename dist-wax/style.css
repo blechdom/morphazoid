@@ -312,8 +312,12 @@ a {
   --group-accent: var(--orange);
 }
 
-.tools-menu-group[data-tool-group="signal-voice"] {
+.tools-menu-group[data-tool-group="voice-synths"] {
   --group-accent: var(--blue);
+}
+
+.tools-menu-group[data-tool-group="mic-fx"] {
+  --group-accent: var(--accent);
 }
 
 .tools-menu-group[data-tool-group="barber-shop-poles"] {
@@ -597,6 +601,53 @@ a {
   background: #090c0e;
 }
 
+/* Instrument identity belongs in the catalogue card, not over the playable surface. */
+.algorithmic-sequencers-heading,
+.algorithmic-scores-heading,
+.barber-delay-heading,
+.borealis-stage-label,
+.cascading-fm-heading,
+.cascading-pm-heading,
+.chaotic-fm-heading,
+.chaotic-pm-heading,
+.drum-roll-stage-label,
+.escher-stage-heading,
+.experiment-title,
+.fractal-uncertainty-heading,
+.hyper-rubix-heading,
+.hyper-title-block,
+.hyper-thesis,
+.image-stage-title,
+.jaw-stage-heading,
+.ks-stage-title,
+.linear-identity,
+.morphynx-stage-title,
+.ouroboros-title-identity,
+.paint-machine-identity,
+.physics-title-card,
+.plasma-title,
+.pp-compact-identity,
+.quantum-heading,
+.recursion-stage-heading,
+.recursive-fm-heading,
+.recursive-pm-heading,
+.rubix-heading,
+.spelling-heading,
+.staircase-heading,
+.tongued-beasts-title,
+.vocalzoid-heading,
+.webgpu-303-heading,
+.weierstrass-heading,
+.stage .instrument-info,
+.stage-title-group > h1 {
+  display: none !important;
+}
+
+.adaptive-airway-summary > h1,
+.adaptive-airway-summary > h1 + p {
+  display: none !important;
+}
+
 .instrument-picker-card {
   display: grid;
   min-height: 0;
@@ -643,6 +694,13 @@ a {
   letter-spacing: 0;
   line-height: 1.25;
   overflow-wrap: anywhere;
+}
+
+.instrument-picker-card-subtitle {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
 }
 
 .instrument-picker-card-status {

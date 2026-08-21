@@ -4,7 +4,7 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("Wheel of Organs keeps its stable route inside Signal & Voice", async () => {
+test("Wheel of Organs keeps its stable route inside Voice Synths", async () => {
   const html = await readFile(new URL("image-to-instrument-3.html", root), "utf8");
   assert.match(html, /data-image-instrument="3"/);
   assert.match(html, /<title>Wheel of Organs \| Morphazoid<\/title>/);

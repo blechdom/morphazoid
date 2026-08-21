@@ -447,8 +447,61 @@ test("the tube backend reuses Throatazoid's worklet and sends bounded performanc
     "the transport can wait for Bellazoid's complete gesture",
   );
 
+  const backend = audio.backends.tube;
+  const pulseEnvelopeEvents = backend.pulseGain.gain.events.length;
+  const breathEnvelopeEvents = backend.breathGain.gain.events.length;
+  assert.equal(audio.modulate({ pitchCents: 18, amplitude: 1.2, breath: 0.16 }), true);
+  assert.equal(
+    backend.pulseGain.gain.events.length,
+    pulseEnvelopeEvents,
+    "vibrato must not replace the authored pulse envelope",
+  );
+  assert.equal(
+    backend.breathGain.gain.events.length,
+    breathEnvelopeEvents,
+    "breath flutter must not replace the authored breath envelope",
+  );
+  assert.equal(backend.pulseModGain.gain.events.at(-1)[0], "setTargetAtTime");
+  assert.equal(backend.breathModGain.gain.events.at(-1)[0], "setTargetAtTime");
+  const continuousPerformance = {
+    ...tubeDurationEvent.performance,
+    lipDiameter: 0.8,
+    nasalCoupling: 0.42,
+    tongues: tubeDurationEvent.performance.tongues.map((tongue, index) => ({
+      ...tongue,
+      ...(index === 0 ? { position: 0.21, height: 0.79 } : {}),
+    })),
+  };
+  assert.equal(audio.modulate({ performance: continuousPerformance }), true);
+  assert.equal(worklet.messages.at(-1).state.lipDiameter, 0.8);
+  assert.equal(worklet.messages.at(-1).state.nasalCoupling, 0.42);
+  assert.equal(worklet.messages.at(-1).state.tongues[0].position, 0.21);
+  assert.equal(worklet.messages.at(-1).state.tongues[0].height, 0.79);
+
+  const effects = audio.setEffects({
+    drive: 0.32,
+    tone: 0.44,
+    echo: 0.18,
+    delayMs: 240,
+    feedback: 0.3,
+  });
+  assert.deepEqual(effects, {
+    drive: 0.32,
+    tone: 0.44,
+    echo: 0.18,
+    delayMs: 240,
+    feedback: 0.3,
+  });
+  assert.ok(context.shapers[0].curve instanceof Float32Array);
+  assert.equal(context.delays[0].delayTime.events.at(-1)[1], 0.24);
+  assert.equal(backend.effectsBus.connections[0].destination, context.compressors[0]);
+  assert.equal(context.compressors[0].connections[0].destination, backend.master);
+
   assert.equal(audio.release({ releaseMs: 70 }), true);
   assert.equal(worklet.messages.at(-1).state.performanceGate, 0);
+  const releasedMessageCount = worklet.messages.length;
+  assert.equal(audio.modulate({ mutation: 0.4 }), false, "release disarms live modulation");
+  assert.equal(worklet.messages.length, releasedMessageCount, "modulation cannot reopen a release");
   assert.equal(audio.setLevel(99), 0.82);
   await audio.disable();
   assert.equal(context.state, "suspended");

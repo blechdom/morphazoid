@@ -159,10 +159,14 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("ouroboros").noteMode, "drums");
   assert.equal(instrumentMidiCapabilityForId("ouroboros-borealis").noteMode, "drums");
   assert.equal(instrumentMidiCapabilityForId("hyper-rubix").noteMode, "sequence");
+  assert.equal(instrumentMidiCapabilityForId("karplus-carpet").noteMode, "pitched");
+  assert.equal(instrumentMidiCapabilityForId("pink-trombonazoid").noteMode, "sequence");
   assert.equal(instrumentMidiCapabilityForId("morphazoidical").noteMode, "sequence");
   assert.deepEqual(PAGE_KEYBOARD_INSTRUMENT_IDS, [
     "image-to-instrument-3",
     "throatazoid",
+    "tongued-beasts",
+    "jaw-harp",
     "morphynx",
     "hyper-syrinx",
     "alien-larynx",
@@ -170,9 +174,13 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "lumber",
     "micmic",
     "karplus-strong",
+    "karplus-carpet",
     "gesturama",
   ]);
   assert.deepEqual(NO_GENERIC_NOTE_KEYBOARD_IDS, [
+    "boidzoid",
+    "pink-trombonazoid",
+    "vocalzoid",
     "hyper-rubix",
     "playhead-paint",
     "candy-coil-delay",
@@ -184,6 +192,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "neural-pulse",
     "cantor-lock",
     "quantum-square-dance",
+    "orbital-ferris",
   ]);
   assert.equal(instrumentMidiCapabilityForId("spelling-synthesizer").computerKeyboardMode, "page");
   assert.equal(instrumentMidiCapabilityForId("shape-drums").computerKeyboardMode, "midi");
@@ -195,6 +204,9 @@ test("one acyclic capability registry covers every playable catalog instrument",
   assert.equal(instrumentMidiCapabilityForId("alien-larynx").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("chaotic-fm").audioInput, false);
   assert.equal(instrumentMidiCapabilityForId("rubix").midiOutput, true);
+  assert.equal(instrumentMidiCapabilityForId("pink-trombonazoid").midiOutput, false);
+  assert.equal(instrumentMidiCapabilityForId("pink-trombonazoid").computerKeyboardMode, "none");
+  assert.equal(instrumentMidiCapabilityForId("vocalzoid").midiOutput, false);
   assert.equal(instrumentMidiCapabilityForId("chaotic-fm").midiOutput, false);
   assert.equal(instrumentMidiCapabilityForId("wax"), null);
   assert.deepEqual(
@@ -202,8 +214,8 @@ test("one acyclic capability registry covers every playable catalog instrument",
       noteMode,
       INSTRUMENT_MIDI_CAPABILITIES.filter((capability) => capability.noteMode === noteMode).length,
     ])),
-    { processor: 6, drums: 16, pitched: 33, sequence: 33 },
-    "all 88 routes have exactly one intentional note behavior",
+    { processor: 6, drums: 16, pitched: 37, sequence: 38 },
+    "all 97 routes have exactly one intentional note behavior",
   );
   assert.equal(
     INSTRUMENT_MIDI_CAPABILITIES.every(({
@@ -259,7 +271,7 @@ test("every playable catalog page loads shared browser MIDI and exposes a toolba
       );
     }
   }
-  assert.equal(mastheadPages, 87);
+  assert.equal(mastheadPages, 96);
   assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
 
   const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");
