@@ -55,15 +55,20 @@
           <canvas
             id="stage"
             tabindex="0"
-            role="img"
+            role="slider"
             data-interactive-track
-            aria-label="Sixteen vertical chromatic strings, ordered low on the left and high on the right. Move vertically to choose the pick position and horizontally to choose a note."
+            aria-label="Selected Karplus Strong string"
+            aria-orientation="horizontal"
+            aria-valuemin="1"
+            aria-valuemax="16"
+            aria-valuenow="1"
+            aria-valuetext="String 01, 130.81 Hz"
             aria-describedby="canvasInstructions liveStatus"
           >
-            A field of sixteen playable Karplus Strong strings.
+            A tunable field of playable Karplus Strong strings.
           </canvas>
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">C3 &middot; 130.8 HZ &middot; WARM NYLON &middot; AUDIO OFF</span>
+            <span id="stageReadout">STRING 01 &middot; 130.8 HZ &middot; WARM NYLON &middot; AUDIO OFF</span>
           </div>
           <div class="ks-stage-title" aria-hidden="true">
             <p>PLUCKED DELAY-LINE SYNTHESIS</p>
@@ -71,7 +76,7 @@
             <small>noise burst &rarr; tuned loop &rarr; damping filter</small>
           </div>
           <div class="ks-stage-legend" aria-hidden="true">
-            <span>LOW</span><i></i><span>VERTICAL STRINGS</span><i></i><span>HIGH</span>
+            <span>LOW</span><i></i><span id="stageSpacingLabel">EQUAL OCTAVE</span><i></i><span>HIGH</span>
           </div>
         </div>
       </section>
@@ -80,7 +85,7 @@
         <details class="group control-section" data-section="play" open>
           <summary class="group-summary">
             <h2 class="group-title">Play</h2>
-            <span class="section-state" id="playSummary">C3 &middot; ready</span>
+            <span class="section-state" id="playSummary">String 01 &middot; ready</span>
           </summary>
           <div class="group-body">
             <div class="ks-pluck-row">
@@ -88,15 +93,47 @@
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
               </button>
               <div class="ks-selected-note">
-                <b id="selectedNote">C3</b>
+                <b id="selectedNote">String 01</b>
                 <span id="selectedFrequency">130.81 Hz</span>
                 <small>selected string</small>
               </div>
             </div>
 
-            <div class="field-label">Chromatic strings</div>
-            <div class="ks-string-grid" id="stringGrid" role="group" aria-label="Sixteen chromatic strings"></div>
-            <p class="control-note">Drag left to right across the vertical strings to strum from low to high. Vertical position moves the virtual pick; keys A through semicolon play the visible strings.</p>
+            <div class="field-label">String field</div>
+            <div class="choice-switch compact ks-spacing-switch" id="spacingMode" role="group" aria-label="Frequency spacing">
+              <button type="button" data-spacing="octave" aria-pressed="true">Equal octave</button>
+              <button type="button" data-spacing="equal-hz" aria-pressed="false">Equal Hz</button>
+            </div>
+            <div class="ks-tuning-sliders">
+              <label class="control ks-tuning-slider" for="lowFrequency">
+                <span><b>Low frequency</b><output id="lowFrequencyOut" for="lowFrequency">130.8 Hz</output></span>
+                <input id="lowFrequency" type="range" min="0" max="1" step="0.0001" value="0.31345" aria-valuetext="130.8 Hz" />
+                <span class="form-range-poles" aria-hidden="true"><span>20 Hz</span><span>400 Hz</span><span>8 kHz</span></span>
+              </label>
+              <label class="control ks-tuning-slider" for="highFrequency">
+                <span><b>High limit</b><output id="highFrequencyOut" for="highFrequency">311.1 Hz</output></span>
+                <input id="highFrequency" type="range" min="0" max="1" step="0.0001" value="0.45806" aria-valuetext="311.1 Hz" />
+                <span class="form-range-poles" aria-hidden="true"><span>20 Hz</span><span>400 Hz</span><span>8 kHz</span></span>
+              </label>
+              <label class="control ks-tuning-slider" for="divisionsPerOctave">
+                <span><b>Divisions / octave</b><output id="divisionsPerOctaveOut" for="divisionsPerOctave">12 div/oct</output></span>
+                <input id="divisionsPerOctave" type="range" min="1" max="48" step="1" value="12" aria-valuetext="12 divisions per octave" />
+                <span class="form-range-poles" aria-hidden="true"><span>1</span><span>24</span><span>48</span></span>
+              </label>
+            </div>
+            <div class="ks-field-stats" aria-live="polite">
+              <b id="stringCountOut">16 strings</b>
+              <span id="frequencyRangeOut">130.81–311.13 Hz</span>
+            </div>
+            <div class="form-range-row ks-bend-row">
+              <label class="control signed-form-range" for="pitchBend">
+                <span><b>Pitch bend</b><output id="pitchBendOut" for="pitchBend">center</output></span>
+                <input id="pitchBend" type="range" min="-200" max="200" step="1" value="0" />
+                <span class="form-range-poles" aria-hidden="true"><span>&minus;2 st</span><span>Center</span><span>+2 st</span></span>
+              </label>
+              <button class="mini-action form-range-reset" id="centerPitchBend" type="button">Center</button>
+            </div>
+            <p class="control-note">Drag left to right across the vertical strings to strum from low to high. Vertical position still moves the virtual pick; keys A through semicolon span the field.</p>
           </div>
         </details>
 
@@ -113,19 +150,9 @@
         <details class="group control-section" data-section="form" open>
           <summary class="group-summary">
             <h2 class="group-title">Exciter</h2>
-            <span class="section-state" id="fieldSummary">C3 - D#4</span>
+            <span class="section-state" id="fieldSummary">58% hard &middot; 66% noise</span>
           </summary>
           <div class="group-body">
-            <label class="select-control" for="rootNote">
-              <span class="field-label">Lowest string</span>
-              <span class="select-shell">
-                <select id="rootNote">
-                  <option value="36">C2</option>
-                  <option value="48" selected>C3</option>
-                  <option value="60">C4</option>
-                </select>
-              </span>
-            </label>
             <div class="ks-knob-bank">
               <label class="ks-knob" for="hardness"><span><b>Hardness</b><output id="hardnessOut" for="hardness">58%</output></span><input id="hardness" type="range" min="0" max="1" step=".01" value=".58" /></label>
               <label class="ks-knob" for="excitationColor"><span><b>Noise color</b><output id="excitationColorOut" for="excitationColor">66%</output></span><input id="excitationColor" type="range" min="0" max="1" step=".01" value=".66" /></label>
@@ -196,7 +223,7 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        The stage contains sixteen vertical strings ordered low on the left and high on the right. Click or drag horizontally to choose strings and vertically to set pick position. Use Left and Right arrows to select a string, then Space or Enter to pluck it.
+        The stage contains a tunable set of vertical strings ordered low on the left and high on the right. Click or drag horizontally to choose strings and vertically to set pick position. Use Left and Right arrows to select a string, then Space or Enter to pluck it. The separate pitch bend control bends ringing strings without changing the pluck gesture.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

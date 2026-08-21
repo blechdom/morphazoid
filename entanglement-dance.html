@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Entanglement Dance — the math, physics, and geometry of quantum entanglement heard as a slowed-down square dance. Two qubits precess, entangle, and collapse in correlated melody."
+    />
+    <title>Entanglement Dance — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="quantum-synths.css" />
+  </head>
+  <body class="quantum-page entanglement-dance-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="order-tones.html">order tones</a>
+        <a class="tab" href="bell-square.html">bell square</a>
+        <a class="tab active" href="entanglement-dance.html" aria-current="page">entanglement dance</a>
+        <a class="tab" href="quantum-square-dance.html">square dance</a>
+        <a class="tab" href="annealogue.html">annealogue</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="order-tones.html">order tones</option>
+          <option value="bell-square.html">bell square</option>
+          <option value="entanglement-dance.html" selected>entanglement dance</option>
+          <option value="quantum-square-dance.html">square dance</option>
+          <option value="annealogue.html">annealogue</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">◇</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">44%</output></span>
+          <input
+            id="level"
+            aria-label="Entanglement Dance output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.44"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell quantum-shell" id="entanglementDance">
+      <section class="stage quantum-stage entanglement-dance-stage" aria-labelledby="danceTitle">
+        <div class="stage-wrap quantum-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-label="A luminous hexagonal dance floor showing two qubit dancers — Alice and Bob — tracing correlated arcs on the Bloch sphere surface as they move through quantum square dance figures."
+            aria-describedby="danceDescription canvasInstructions liveStatus"
+          >
+            Two entangled qubit dancers, Alice and Bob, tracing correlated paths on a quantum dance floor.
+          </canvas>
+
+          <div class="quantum-heading">
+            <p class="quantum-kicker">QUANTUM SYNTHS · 03</p>
+            <h1 id="danceTitle">Entanglement Dance</h1>
+            <p class="quantum-caption">QUANTUM ENTANGLEMENT · SLOWED TO DANCE TEMPO · CORRELATED MELODY</p>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">BELL Φ+ · PROMENADE · C 1.000 · AUDIO OFF</span>
+          </div>
+
+          <p class="quantum-simulation-notice">
+            A classical simulation of two-qubit entanglement heard as a slowed-down square dance. Exact quantum math — not audio from quantum matter.
+          </p>
+        </div>
+      </section>
+
+      <aside class="panel quantum-panel entanglement-dance-panel" aria-label="Entanglement Dance controls">
+
+        <details class="group control-section" data-section="dance" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Dance</h2>
+            <span class="section-state" id="danceSummary">Promenade · 2 BPM</span>
+          </summary>
+          <div class="group-body">
+            <div class="position-row quantum-transport-row">
+              <button
+                class="play-button"
+                id="playButton"
+                type="button"
+                aria-pressed="false"
+                aria-label="Play entanglement dance"
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="tempo">
+                <span><b>Tempo</b><output id="tempoOut" for="tempo">2 BPM</output></span>
+                <input id="tempo" type="range" min="0.3" max="8" step="0.1" value="2" />
+              </label>
+            </div>
+            <div class="quantum-action-grid" role="group" aria-label="Dance actions">
+              <button class="mini-action" id="callButton" type="button">Call figure</button>
+              <button class="mini-action" id="measureButton" type="button">Measure</button>
+            </div>
+            <p class="quantum-control-note">
+              Tempo controls how slowly the dance unfolds. Each figure (Do-Si-Do, Swing, Promenade…) lasts four beats at this tempo.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="state" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Bell State</h2>
+            <span class="section-state" id="bellStateSummary">Φ+ · correlated</span>
+          </summary>
+          <div class="group-body">
+            <div class="quantum-action-grid quantum-action-grid-four" role="group" aria-label="Bell state presets">
+              <button type="button" data-bell="phi-plus" aria-pressed="true">Φ+</button>
+              <button type="button" data-bell="phi-minus" aria-pressed="false">Φ−</button>
+              <button type="button" data-bell="psi-plus" aria-pressed="false">Ψ+</button>
+              <button type="button" data-bell="psi-minus" aria-pressed="false">Ψ−</button>
+            </div>
+            <label class="control" for="dephasing">
+              <span><b>Decoherence</b><output id="dephasingOut" for="dephasing">0%</output></span>
+              <input id="dephasing" type="range" min="0" max="1" step="0.01" value="0" />
+            </label>
+            <p class="quantum-control-note">
+              Φ+ and Φ− are correlated states (both spin the same direction). Ψ+ and Ψ− are anti-correlated (they spin opposite). Decoherence untangles the partners.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="voices" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Voices</h2>
+            <span class="section-state" id="voiceSummary">Alice 220 Hz · Bob 110 Hz</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="aliceRoot">
+              <span><b>Alice root</b><output id="aliceRootOut" for="aliceRoot">220 Hz</output></span>
+              <input id="aliceRoot" type="range" min="110" max="440" step="1" value="220" />
+            </label>
+            <label class="control" for="bobRoot">
+              <span><b>Bob root</b><output id="bobRootOut" for="bobRoot">110 Hz</output></span>
+              <input id="bobRoot" type="range" min="55" max="220" step="1" value="110" />
+            </label>
+            <label class="control" for="scaleSpread">
+              <span><b>Interval spread</b><output id="scaleSpreadOut" for="scaleSpread">7 st</output></span>
+              <input id="scaleSpread" type="range" min="2" max="14" step="1" value="7" />
+            </label>
+            <p class="quantum-control-note">
+              Alice and Bob each trace a pentatonic arc. Their intervals correlate or anti-correlate depending on the Bell state.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="readout">
+          <summary class="group-summary">
+            <h2 class="group-title">Readout</h2>
+            <span class="section-state" id="readoutSummary">C 1.000 · +1.000</span>
+          </summary>
+          <div class="group-body">
+            <div class="quantum-ledger" aria-label="Entanglement diagnostics">
+              <span><b>Concurrence</b><code id="concurrenceReadout">1.000</code></span>
+              <span><b>Correlation</b><code id="correlationReadout">+1.000</code></span>
+              <span><b>Figure</b><code id="figureReadout">Promenade</code></span>
+              <span><b>Beat</b><code id="beatReadout">1 / 4</code></span>
+              <span><b>Alice θ</b><code id="aliceThetaReadout">90°</code></span>
+              <span><b>Bob θ</b><code id="bobThetaReadout">90°</code></span>
+              <span><b>Last outcome</b><code id="lastOutcome">—</code></span>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetDance" type="button" data-reset-all>Reset Dance</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="danceDescription">
+        Entanglement Dance exactly simulates a two-qubit Bell state and lets you hear the entanglement as a correlated square dance. Alice occupies the left channel and Bob the right. Their tones follow each other or oppose each other depending on the chosen Bell state. Decoherence gradually untangles the partners into independent voices.
+      </p>
+      <p class="sr-only" id="canvasInstructions">
+        Press Space to play or pause the dance. Press C to call the next figure. Press M to collapse the state. Use Escape to turn audio off.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="entanglement-dance-app.js"></script>
+  </body>
+</html>

@@ -33,8 +33,7 @@ folder.
 
 17. [ ] Shepard-Risset - [open folder](shepard-risset/)
 18. [ ] Sandy Syrup Delay - [open folder](sandy-syrup-delay/)
-19. [ ] Striped Sludge Delay - [open folder](striped-sludge-delay/)
-20. [ ] Candy Coil Delay - [open folder](candy-coil-delay/)
+19. [ ] Candy Coil Delay - [open folder](candy-coil-delay/)
 
 ## Fractals & Recursion
 
@@ -88,7 +87,7 @@ folder.
 53. [ ] Chladni Plate - [open folder](chladni-plate/)
 54. [ ] Spring Choir - [open folder](spring-choir/)
 55. [ ] Gear Ratio Drums - [open folder](gear-ratio-drums/)
-56. [ ] Cellular Automata - [open folder](cellular-automata/)
+56. [ ] Automata, Automay-to - [open folder](cellular-automata/)
 57. [ ] Prime Sieve - [open folder](prime-sieve/)
 58. [ ] Lissajous Orbits - [open folder](lissajous-orbits/)
 59. [ ] Pendulum Wave - [open folder](pendulum-wave/)

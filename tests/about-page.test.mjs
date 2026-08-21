@@ -18,7 +18,7 @@ test("Home page is the About guide", async () => {
   assert.match(html, /<option value="" selected>choose<\/option>/);
   assert.doesNotMatch(html, /href="(?:plugins|instruments|about)\.html"/);
   assert.match(html, /id="homeInstrumentCatalogue"[\s\S]*?data-instrument-catalog/);
-  assert.match(html, /src="instrument-catalog-app\.js"/);
+  assert.match(html, /src="instrument-catalog-app\.js\?v=catalog-[^"]+"/);
   assert.doesNotMatch(html, /manual-section-label">Browse|Instrument sections, titles, and order/);
   assert.doesNotMatch(html, /microphone input|audio files?|file instruments?/i);
   assert.doesNotMatch(html, /Select the speaker, Input/);
@@ -52,9 +52,9 @@ test("Home mounts the only complete menu-ordered catalogue", async () => {
 
   assert.match(home, /<title>Morphazoid<\/title>/);
   assert.match(home, /class="mobile-instrument-select"/);
-  assert.match(home, /<script type="module" src="nav\.js"><\/script>/);
+  assert.match(home, /<script type="module" src="nav\.js\?v=catalog-[^"]+"><\/script>/);
   assert.equal([home, about, catalogue].filter((html) => /data-instrument-catalog/.test(html)).length, 1);
-  assert.equal(INSTRUMENTS.length, 86);
+  assert.equal(INSTRUMENTS.length, 88);
   assert.equal(
     INSTRUMENTS.find(({ id }) => id === "escher-tessellation")?.label,
     "Escher",

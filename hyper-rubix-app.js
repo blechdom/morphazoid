@@ -524,7 +524,7 @@ function refreshViewFacingCells({ force = false } = {}) {
   paintPlaybackScope();
   if (state.playbackPreset === "view-facing") {
     if (state.playing && transportStickerStream.length) {
-      transportStickerStream = [...createCurrentPlaybackStream(transportPuzzle ?? state.puzzle)];
+      invalidateTransportLookahead(transportPuzzle ?? state.puzzle);
     }
     if (hyperbarSnapshot) renderHyperbarGrid();
     paintTransport();
@@ -2332,10 +2332,19 @@ function auditionManualMove(move, scheduledWhen = audio.context?.currentTime) {
   const representatives = method.hyperbar || isRattlesnakePreset()
     ? representativeStickerEventsForMove(move)
     : [];
+  const liveWebGpu = isWebGpu303Preset() && webGpu303Engine && !webGpu303Failed;
   if (method.legacy) audio.strike(move, scheduledWhen, method.hyperbar ? 0.72 : 1);
-  if (method.hyperbar && !isRattlesnakePreset()) {
+  if (method.hyperbar && !isRattlesnakePreset() && !liveWebGpu) {
     representatives.forEach(({ event, stepIndex }, index) => {
       audio.strikeSticker(event, scheduledWhen + index * 0.011, 0.54, {
+        ...audioGeometryForStickerEvent(event, stepIndex),
+        direction: move.quarterTurns,
+      });
+    });
+  }
+  if (method.hyperbar && liveWebGpu) {
+    representatives.forEach(({ event, stepIndex }, index) => {
+      audio.strikeStickerTopology(event, scheduledWhen + index * 0.011, 0.72, {
         ...audioGeometryForStickerEvent(event, stepIndex),
         direction: move.quarterTurns,
       });
@@ -2849,10 +2858,35 @@ function remapPlaybackScope({ cancelLookahead = true } = {}) {
     paintSerialIdlePlayhead();
   } else {
     transportStickerStream = [...createCurrentPlaybackStream(transportPuzzle ?? state.puzzle)];
+    realignRunningWebGpu303Phase();
+    queueWebGpu303Sync({ force: true });
   }
-  realignRunningWebGpu303Phase();
-  queueWebGpu303Sync({ force: true });
   scheduleFrame();
+}
+
+function transportBoundaryAfterCurrentPulse(nowMs = performance.now()) {
+  if (transportVisualPosition < 0 || !Number.isFinite(transportVisualStartedAtMs)) {
+    return nowMs + 12;
+  }
+  const durationMs = hyperRubixStepDurationSeconds(
+    state.tempo,
+    state.subdivisionsPerBeat,
+    state.swing,
+    transportVisualPosition,
+  ) * 1_000;
+  return Math.max(nowMs + 12, transportVisualStartedAtMs + durationMs);
+}
+
+function invalidateTransportLookahead(puzzle = state.puzzle) {
+  if (!state.playing) return false;
+  const resumeAtMs = transportBoundaryAfterCurrentPulse();
+  transportPosition = nextPositionAfterAudiblePulse();
+  clearScheduler();
+  transportPuzzle = puzzle;
+  rebuildTransportStickerStream(sequenceMethodConfig(), puzzle);
+  nextStepAtMs = resumeAtMs;
+  schedulerTick();
+  return true;
 }
 
 function rebuildTransportStickerStream(method, puzzle = state.puzzle) {
@@ -3389,7 +3423,7 @@ function finishActiveMove(time) {
   rebuildHyperbarSnapshot();
   if (state.playing && sequenceMethodConfig().serial) {
     transportPuzzle = state.puzzle;
-    rebuildTransportStickerStream(sequenceMethodConfig(), state.puzzle);
+    invalidateTransportLookahead(transportPuzzle);
   }
   queueWebGpu303Sync({ force: true });
   finished.onComplete?.();

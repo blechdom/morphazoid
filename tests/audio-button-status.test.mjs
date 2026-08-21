@@ -5,6 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 const instrumentScripts = [
   "app.js",
+  "playhead-paint-app.js",
   "lattice-app.js",
   "spiral-app.js",
   "solid-app.js",

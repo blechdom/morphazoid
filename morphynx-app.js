@@ -11,10 +11,12 @@ import {
 import {
   DEFAULT_MORPHYNX_STATE,
   MORPHYNX_ANATOMIES,
+  MORPHYNX_HUMAN_BRANCH_TRIM,
   MORPHYNX_VOICE_PRESETS,
   morphynxConfiguration,
   morphynxFormants,
   morphynxKeyboardCommand,
+  morphynxLevelMatchTrim,
   morphynxVoiceState,
 } from "./src/morphynx.js";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
@@ -90,7 +92,13 @@ let handles = [];
 let animationFrame = 0;
 let lastAudioUpdate = Number.NEGATIVE_INFINITY;
 let latestConfiguration = morphynxConfiguration({ animal: state.animal });
-let telemetry = { peak: 0, rms: 0, pressure: 0 };
+let humanBranchTrim = MORPHYNX_HUMAN_BRANCH_TRIM;
+let levelMatchSamples = 0;
+let levelMatchReady = false;
+const branchTelemetry = {
+  animal: { peak: 0, rms: 0, receivedAt: 0 },
+  human: { peak: 0, rms: 0, receivedAt: 0 },
+};
 const waveform = new Float32Array(1_024);
 
 const percent = (value) => `${Math.round(clamp(value) * 100)}%`;
@@ -107,6 +115,50 @@ function showError(message = "") {
   const error = $("audioError");
   error.hidden = !message;
   error.textContent = message;
+}
+
+function resetBranchLevelMatch() {
+  humanBranchTrim = MORPHYNX_HUMAN_BRANCH_TRIM;
+  levelMatchSamples = 0;
+  levelMatchReady = false;
+  branchTelemetry.animal = { peak: 0, rms: 0, receivedAt: 0 };
+  branchTelemetry.human = { peak: 0, rms: 0, receivedAt: 0 };
+}
+
+function reopenBranchLevelMatch() {
+  levelMatchSamples = 0;
+  levelMatchReady = false;
+  branchTelemetry.animal.receivedAt = 0;
+  branchTelemetry.human.receivedAt = 0;
+}
+
+function receiveBranchTelemetry(branch, message) {
+  const meter = branchTelemetry[branch];
+  if (!meter || message?.type !== "telemetry") return;
+  meter.peak = Math.max(0, Number(message.peak) || 0);
+  meter.rms = Math.max(0, Number(message.rms) || 0);
+  meter.receivedAt = performance.now();
+  if (!graph || !gateActive() || !latestConfiguration.human.levelMatchEligible) return;
+  if (levelMatchReady && (state.morph === 0 || state.morph === 1)) return;
+  if (latestConfiguration.source.pressure < 0.04) return;
+  const animal = branchTelemetry.animal;
+  const human = branchTelemetry.human;
+  if (Math.abs(animal.receivedAt - human.receivedAt) > 180) return;
+  if (animal.rms < 0.0005 || human.rms < 0.0005) return;
+  const target = morphynxLevelMatchTrim(animal, human, humanBranchTrim);
+  const response = target < humanBranchTrim ? 0.24 : 0.12;
+  humanBranchTrim += (target - humanBranchTrim) * response;
+  levelMatchSamples += 1;
+  if (levelMatchSamples >= 24) levelMatchReady = true;
+  const effectiveTrim = Math.max(
+    humanBranchTrim,
+    latestConfiguration.human.minimumLevelTrim,
+  );
+  const gain = Math.sin(state.morph * Math.PI * 0.5) * effectiveTrim;
+  graph.humanMorphGain.gain.setTargetAtTime(gain, audioContext.currentTime, 0.1);
+  if (levelMatchSamples === 24 && (state.morph === 0 || state.morph === 1)) {
+    configureAudio(performance.now(), true);
+  }
 }
 
 function option(value, label) {
@@ -181,7 +233,7 @@ function loadVoiceSelection(value, { announceChange = true } = {}) {
   const voice = morphynxVoiceState({
     voicePreset: state.voicePreset,
     anatomyId: state.anatomyId,
-    phoneme: state.phoneme,
+    phoneme: "",
   });
   state.anatomy = {
     throatCount: Math.round(clamp(voice.throatCount ?? 1, 1, 7)),
@@ -191,6 +243,7 @@ function loadVoiceSelection(value, { announceChange = true } = {}) {
     coupling: clamp(voice.coupling ?? 0),
     growl: clamp(voice.growl ?? 0),
   };
+  resetBranchLevelMatch();
   syncAnatomyInputs();
   updateUi();
   configureAudio(performance.now(), true);
@@ -274,14 +327,30 @@ async function createAudioGraph() {
     morph: state.morph,
     active: false,
   });
-  const sourceNode = new AudioWorkletNode(context, "syrinx-physical-model", {
-    numberOfInputs: 0,
-    numberOfOutputs: 1,
-    outputChannelCount: [2],
-    channelCount: 2,
-    channelCountMode: "explicit",
-    processorOptions: { configuration: { ...configuration, seed: 0x4d4f5250 } },
-  });
+  const createSourceNode = (source, tract, seed) => new AudioWorkletNode(
+    context,
+    "syrinx-physical-model",
+    {
+      numberOfInputs: 0,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],
+      channelCount: 2,
+      channelCountMode: "explicit",
+      processorOptions: { configuration: { source, tract, seed } },
+    },
+  );
+  const animalNode = createSourceNode(
+    configuration.animalSource,
+    configuration.animalTract,
+    0x4d4f5250,
+  );
+  const humanNode = createSourceNode(
+    configuration.humanSource,
+    configuration.humanTract,
+    0x4c415259,
+  );
+  const animalMorphGain = context.createGain();
+  const humanMorphGain = context.createGain();
   const internalGain = context.createGain();
   const micGain = context.createGain();
   const mixBus = context.createGain();
@@ -289,6 +358,8 @@ async function createAudioGraph() {
   const compressor = context.createDynamicsCompressor();
   const analyser = context.createAnalyser();
   const recordingDestination = context.createMediaStreamDestination();
+  animalMorphGain.gain.value = configuration.mix.animalGain;
+  humanMorphGain.gain.value = configuration.mix.humanGain;
   internalGain.gain.value = 0;
   micGain.gain.value = 0;
   masterGain.gain.value = state.level;
@@ -299,18 +370,24 @@ async function createAudioGraph() {
   compressor.release.value = 0.18;
   analyser.fftSize = 1_024;
   analyser.smoothingTimeConstant = 0.64;
-  sourceNode.connect(internalGain).connect(mixBus);
+  animalNode.connect(animalMorphGain).connect(internalGain);
+  humanNode.connect(humanMorphGain).connect(internalGain);
+  internalGain.connect(mixBus);
   micGain.connect(mixBus);
   mixBus.connect(masterGain).connect(compressor).connect(analyser);
   analyser.connect(recordingDestination);
   const releaseOutput = connectAudioOutput(context, analyser, { runtime: globalThis });
-  sourceNode.port.onmessage = (event) => {
-    if (event.data?.type === "telemetry") telemetry = { ...telemetry, ...event.data };
-  };
-  sourceNode.onprocessorerror = () => showError("The Morphynx physical-model processor stopped. Reload to reset it.");
+  animalNode.port.onmessage = (event) => receiveBranchTelemetry("animal", event.data);
+  humanNode.port.onmessage = (event) => receiveBranchTelemetry("human", event.data);
+  for (const sourceNode of [animalNode, humanNode]) {
+    sourceNode.onprocessorerror = () => showError("A Morphynx physical-model branch stopped. Reload to reset it.");
+  }
   return {
     context,
-    sourceNode,
+    animalNode,
+    humanNode,
+    animalMorphGain,
+    humanMorphGain,
     internalGain,
     micGain,
     mixBus,
@@ -428,16 +505,33 @@ function configureAudio(time = performance.now(), immediate = false) {
     morph: state.morph,
     active,
     motion: motionValue(time),
+    humanTrim: humanBranchTrim,
+    calibrateEndpoints: !levelMatchReady,
   });
   if (!graph || (!immediate && time - lastAudioUpdate < 28)) return;
   lastAudioUpdate = time;
-  graph.sourceNode.port.postMessage({
+  graph.animalNode.port.postMessage({
     type: "configure",
-    source: latestConfiguration.source,
-    tract: latestConfiguration.tract,
+    source: latestConfiguration.animalSource,
+    tract: latestConfiguration.animalTract,
+  });
+  graph.humanNode.port.postMessage({
+    type: "configure",
+    source: latestConfiguration.humanSource,
+    tract: latestConfiguration.humanTract,
   });
   const now = audioContext.currentTime;
   const gains = sourceModeGains(active);
+  graph.animalMorphGain.gain.setTargetAtTime(
+    latestConfiguration.mix.animalGain,
+    now,
+    0.032,
+  );
+  graph.humanMorphGain.gain.setTargetAtTime(
+    latestConfiguration.mix.humanGain,
+    now,
+    0.032,
+  );
   graph.internalGain.gain.setTargetAtTime(gains.internal, now, 0.018);
   graph.micGain.gain.setTargetAtTime(gains.mic, now, 0.018);
   graph.masterGain.gain.setTargetAtTime(state.level, now, 0.025);
@@ -535,6 +629,7 @@ function loadAnimal(animalId) {
     gestureRate: state.gestureRate,
     loopGapMs: state.loopGapMs,
   });
+  resetBranchLevelMatch();
   state.callId = state.animal.callId;
   populateCallOptions();
   syncAnimalInputs();
@@ -582,12 +677,22 @@ function updateUi() {
   $("callSelect").value = state.callId;
   $("voicePresetSelect").value = selectionValue();
   $("morphAmount").value = String(state.morph);
-  $("morphAmountOut").textContent = `${Math.round(state.morph * 100)}% throat`;
-  $("morphSummary").textContent = `${activeAnimal().apparatus} crossing into ${voice.throatCount} playable ${voice.throatCount === 1 ? "mouth" : "mouths"}.`;
+  $("morphAmountOut").textContent = `${Math.round(state.morph * 100)}% larynx`;
+  $("morphSummary").textContent = state.sourceMode === "mic"
+    ? "The morph retunes the live microphone formants; physical topology is bypassed."
+    : `${activeAnimal().apparatus} and ${voice.throatCount} ${voice.throatCount === 1 ? "laryngeal voice" : "detuned laryngeal voices"} crossfade without swapping models.`;
   $("stageMorphMarker").style.left = `${state.morph * 100}%`;
-  $("modelReadout").textContent = MODEL_LABELS[latestConfiguration.source.model] ?? latestConfiguration.source.model;
+  $("modelReadout").textContent = state.morph <= 0.01
+    ? MODEL_LABELS[latestConfiguration.animalSource.model] ?? latestConfiguration.animalSource.model
+    : state.morph >= 0.99
+      ? "Two-mass larynx"
+      : `${MODEL_LABELS[latestConfiguration.animalSource.model] ?? "Animal source"} ↔ two-mass larynx`;
   $("voiceReadout").textContent = `${voiceName()} · ${state.phoneme.toUpperCase()}${state.capitalLetter ? "+" : ""}`;
-  $("tractReadout").textContent = centimeters(latestConfiguration.tract.tractLengthM);
+  $("tractReadout").textContent = state.morph <= 0.01
+    ? centimeters(latestConfiguration.animalTract.tractLengthM)
+    : state.morph >= 0.99
+      ? centimeters(latestConfiguration.humanTract.tractLengthM)
+      : `${centimeters(latestConfiguration.animalTract.tractLengthM)} ↔ ${centimeters(latestConfiguration.humanTract.tractLengthM)}`;
   $("pressureReadout").textContent = active ? `${percent(latestConfiguration.source.pressure)} open` : "resting";
   $("sourceSummary").textContent = `pressure ${percent(state.animal.pressure)} · tension ${percent(state.animal.tension)}`;
   $("playLabel").textContent = `${gesturePlaying ? "Release" : "Play"} ${call?.label?.toLowerCase() ?? "call"}`;
@@ -604,7 +709,7 @@ function updateUi() {
     : "A–Z hold · Shift mutates";
   $("motionEnabled").setAttribute("aria-pressed", String(state.motionEnabled));
   $("motionEnabled").querySelector("small").textContent = state.motionEnabled ? "on" : "off";
-  $("anatomySummary").textContent = `${voice.throatCount} ${voice.throatCount === 1 ? "mouth" : "mouths"} · ${voice.tongueCount} ${voice.tongueCount === 1 ? "tongue" : "tongues"} · ${voice.noseCount} ${voice.noseCount === 1 ? "nose" : "noses"}`;
+  $("anatomySummary").textContent = `${voice.throatCount} ${voice.throatCount === 1 ? "voice" : "voices"} · ${voice.tongueCount} ${voice.tongueCount === 1 ? "tongue" : "tongues"} · ${voice.noseCount} ${voice.noseCount === 1 ? "cavity" : "cavities"}`;
   $("gestureSummary").textContent = `${state.gestureRate.toFixed(2)}× · ${(state.loopGapMs / 1_000).toFixed(2)} s gap`;
   $("levelOut").textContent = percent(state.level);
   $("pressureOut").textContent = percent(state.animal.pressure);
@@ -628,6 +733,18 @@ function updateUi() {
   for (const button of $("sourceButtons").querySelectorAll("[data-source]")) {
     button.setAttribute("aria-pressed", String(button.dataset.source === state.sourceMode));
   }
+  const physicalControlsAudible = state.sourceMode !== "mic";
+  for (const id of [...Object.values(CONTROL_IDS), ...Object.values(ANATOMY_IDS)]) {
+    $(id).disabled = !physicalControlsAudible;
+  }
+  $("motionEnabled").disabled = !physicalControlsAudible;
+  $("motionDepth").disabled = !physicalControlsAudible;
+  $("physicalModeNote").textContent = physicalControlsAudible
+    ? "These controls reshape both physical engines, so they remain audible across the full morph."
+    : "Mic mode bypasses the physical engines; choose Internal or Hybrid to use these controls.";
+  $("anatomyModeNote").textContent = physicalControlsAudible
+    ? "Larynx voices add detuned physical sources; every tongue adds a tract constriction; each nasal cavity adds another resonance mode. Their influence grows toward the larynx end."
+    : "Mic mode keeps the live formant filter only; choose Internal or Hybrid to hear anatomy topology.";
   for (const input of document.querySelectorAll('input[type="range"]')) updateRange(input);
   document.body.classList.toggle("is-sounding", active);
   syncPhonemeButtons();
@@ -648,6 +765,9 @@ async function beginPhoneme(command, identity, capital = false) {
   heldKeys.set(identity, { ...command, identity, capital });
   state.phoneme = command.phoneme;
   state.capitalLetter = capital ? command.letter : "";
+  if (baseVoice().articulationManner === "vowel") {
+    reopenBranchLevelMatch();
+  }
   if (state.keyboardLatch) state.latchedVoice = true;
   updateUi();
   await ensureAudio();
@@ -666,6 +786,9 @@ function endPhoneme(identity) {
   } else if (!state.keyboardLatch) {
     state.phoneme = activePhonemeBeforeKeys;
     state.capitalLetter = "";
+  }
+  if (baseVoice().articulationManner === "vowel") {
+    reopenBranchLevelMatch();
   }
   updateUi();
   configureAudio(performance.now(), true);
@@ -759,13 +882,14 @@ function installControls() {
     updateUi();
     configureAudio(performance.now(), true);
   });
-  $("morphAmount").addEventListener("change", () => announce(`Morph set to ${Math.round(state.morph * 100)} percent Throatazoid`));
+  $("morphAmount").addEventListener("change", () => announce(`Morph set to ${Math.round(state.morph * 100)} percent larynx`));
   for (const button of $("sourceButtons").querySelectorAll("[data-source]")) {
     button.addEventListener("click", () => setSourceMode(button.dataset.source));
   }
   for (const [key, id] of Object.entries(CONTROL_IDS)) {
     $(id).addEventListener("input", (event) => {
       state.animal = { ...state.animal, [key]: Number(event.currentTarget.value) };
+      reopenBranchLevelMatch();
       updateUi();
       configureAudio(performance.now(), true);
     });
@@ -776,6 +900,7 @@ function installControls() {
       state.anatomy[key] = integer
         ? Math.round(Number(event.currentTarget.value))
         : clamp(Number(event.currentTarget.value));
+      reopenBranchLevelMatch();
       updateUi();
       configureAudio(performance.now(), true);
     });
@@ -831,6 +956,7 @@ function resetAll() {
     coupling: 0,
     growl: 0,
   };
+  resetBranchLevelMatch();
   populateAnimalOptions();
   populateCallOptions();
   populateVoiceOptions();
@@ -1129,7 +1255,8 @@ function installLifecycle() {
     mediaStream?.getTracks?.().forEach((track) => track.stop());
     cancelAnimationFrame(animationFrame);
     graph?.releaseOutput?.();
-    graph?.sourceNode?.disconnect?.();
+    graph?.animalNode?.disconnect?.();
+    graph?.humanNode?.disconnect?.();
     audioContext?.close?.().catch?.(() => {});
     if (lastTakeUrl) URL.revokeObjectURL(lastTakeUrl);
   }, { once: true });

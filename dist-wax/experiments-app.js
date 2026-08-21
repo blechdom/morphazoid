@@ -1,5 +1,16 @@
 import { unlockAudioContext } from "./src/audio.js";
 import { connectAudioOutput } from "./src/audio-output-manager.js";
+import {
+  ORBITAL_FERRIS_DEFAULTS,
+  advanceOrbitalFerrisMotion,
+  orbitalFerrisContourSample,
+  orbitalFerrisDelayForScene,
+  orbitalFerrisLeafCount,
+  orbitalFerrisPitchAtY,
+  orbitalFerrisScene,
+  orbitalFerrisShapeSample,
+  orbitalFerrisVoiceModulation,
+} from "./src/orbital-ferris.js";
 
 const TAU = Math.PI * 2;
 const MAX_CONTINUOUS_VOICES = 48;
@@ -59,6 +70,10 @@ class ExperimentAudio {
     this.context = null;
     this.master = null;
     this.compressor = null;
+    this.orbitalDry = null;
+    this.orbitalDelay = null;
+    this.orbitalFeedback = null;
+    this.orbitalWet = null;
     this.outputRelease = null;
     this.voices = [];
     this.level = 0.45;
@@ -80,7 +95,21 @@ class ExperimentAudio {
       this.compressor.ratio.value = 7;
       this.compressor.attack.value = 0.006;
       this.compressor.release.value = 0.12;
-      this.master.connect(this.compressor);
+      this.orbitalDry = this.context.createGain();
+      this.orbitalDry.gain.value = 1;
+      this.orbitalDelay = this.context.createDelay(0.8);
+      this.orbitalDelay.delayTime.value = 0.18;
+      this.orbitalFeedback = this.context.createGain();
+      this.orbitalFeedback.gain.value = 0;
+      this.orbitalWet = this.context.createGain();
+      this.orbitalWet.gain.value = 0;
+      this.master.connect(this.orbitalDry);
+      this.orbitalDry.connect(this.compressor);
+      this.master.connect(this.orbitalDelay);
+      this.orbitalDelay.connect(this.orbitalWet);
+      this.orbitalWet.connect(this.compressor);
+      this.orbitalDelay.connect(this.orbitalFeedback);
+      this.orbitalFeedback.connect(this.orbitalDelay);
       this.outputRelease = connectAudioOutput(this.context, this.compressor);
     }
     if (this.context.state === "suspended") {
@@ -94,6 +123,26 @@ class ExperimentAudio {
     this.level = clamp(Number(level) || 0, 0, 0.82);
     const now = this.context?.currentTime ?? 0;
     this.master?.gain.setTargetAtTime(this.level, now, 0.025);
+  }
+
+  setOrbitalDelay({ delayTime = 0.18, feedback = 0, wet = 0 } = {}) {
+    if (!this.context) return;
+    const now = this.context.currentTime;
+    this.orbitalDelay?.delayTime.setTargetAtTime(
+      clamp(Number(delayTime) || 0.18, 0.04, 0.65),
+      now,
+      0.04,
+    );
+    this.orbitalFeedback?.gain.setTargetAtTime(
+      clamp(Number(feedback) || 0, 0, 0.62),
+      now,
+      0.04,
+    );
+    this.orbitalWet?.gain.setTargetAtTime(
+      clamp(Number(wet) || 0, 0, 0.38),
+      now,
+      0.04,
+    );
   }
 
   ensureVoice(index, type = "sine") {
@@ -164,6 +213,44 @@ class ExperimentAudio {
     }
     oscillator.start(now);
     oscillator.stop(now + duration + 0.03);
+  }
+
+  triggerRowScan(cells, rate = 8) {
+    if (!this.running || !this.context || !cells?.some(Boolean)) return;
+    const now = this.context.currentTime;
+    const sampleRate = this.context.sampleRate || 48_000;
+    const duration = clamp(0.82 / clamp(rate, 1, 24), 0.03, 0.18);
+    const frameCount = Math.max(256, Math.round(sampleRate * duration));
+    const buffer = this.context.createBuffer(1, frameCount, sampleRate);
+    const samples = buffer.getChannelData(0);
+    const framesPerCell = frameCount / cells.length;
+    const edgeFrames = Math.max(2, Math.min(48, Math.round(framesPerCell * 0.3)));
+    let noiseState = cells.reduce(
+      (seed, cell, index) => (seed ^ ((cell ? 0x9e3779b9 : 0x85ebca6b) + index * 0x27d4eb2d)) >>> 0,
+      0x6d2b79f5,
+    );
+
+    for (let cellIndex = 0; cellIndex < cells.length; cellIndex += 1) {
+      if (!cells[cellIndex]) continue;
+      const start = Math.floor(cellIndex * framesPerCell);
+      const end = Math.min(frameCount, Math.floor((cellIndex + 1) * framesPerCell));
+      for (let frame = start; frame < end; frame += 1) {
+        noiseState = (1664525 * noiseState + 1013904223) >>> 0;
+        const noise = (noiseState / 0x100000000) * 2 - 1;
+        const attack = Math.min(1, (frame - start + 1) / edgeFrames);
+        const release = Math.min(1, (end - frame) / edgeFrames);
+        samples[frame] = noise * attack * release * 0.34;
+      }
+    }
+
+    const source = this.context.createBufferSource();
+    const output = this.context.createGain();
+    source.buffer = buffer;
+    output.gain.value = 0.72;
+    source.connect(output);
+    output.connect(this.master);
+    source.start(now);
+    source.stop(now + duration + 0.01);
   }
 
   silence() {
@@ -249,6 +336,21 @@ const state = {
   neuralAccumulator: 0,
   neuralSeed: 19,
   fourierWave: "square",
+  orbitalGestures: ORBITAL_FERRIS_DEFAULTS.gestures,
+  orbitalLevels: ORBITAL_FERRIS_DEFAULTS.levels,
+  orbitalRate: ORBITAL_FERRIS_DEFAULTS.outerRate,
+  orbitalRatio: ORBITAL_FERRIS_DEFAULTS.ratio,
+  orbitalPitchSpan: ORBITAL_FERRIS_DEFAULTS.pitchSpan,
+  orbitalZoom: ORBITAL_FERRIS_DEFAULTS.zoom,
+  orbitalTone: ORBITAL_FERRIS_DEFAULTS.tone,
+  orbitalGestureSeconds: ORBITAL_FERRIS_DEFAULTS.gestureSeconds,
+  orbitalGestureMode: ORBITAL_FERRIS_DEFAULTS.gestureMode,
+  orbitalPlaying: ORBITAL_FERRIS_DEFAULTS.playing,
+  orbitalLevelEnabled: [...ORBITAL_FERRIS_DEFAULTS.levelEnabled],
+  orbitalLevelShapes: [...ORBITAL_FERRIS_DEFAULTS.levelShapes],
+  orbitalLevelProcessors: [...ORBITAL_FERRIS_DEFAULTS.levelProcessors],
+  orbitalLevelPhases: [0, 0, 0, 0],
+  orbitalGestureTravel: 0,
 };
 
 let canvasWidth = 1;
@@ -256,6 +358,7 @@ let canvasHeight = 1;
 let canvasScale = 1;
 let animationFrame = 0;
 let patternCanvas = null;
+let orbitalFerrisFrameScene = null;
 
 function readControl(id, fallback = 0) {
   const element = $(id);
@@ -807,19 +910,7 @@ function stepAutomataRow(audition = true) {
 
 function soundAutomataRow(row) {
   if (!state.audioOn) return;
-  const stride = Math.max(1, Math.floor(row.length / 12));
-  for (let index = 0; index < row.length; index += stride) {
-    if (!row[index]) continue;
-    const degree = PENTATONIC[Math.floor((index / row.length) * PENTATONIC.length)];
-    const frequency = 92 * 2 ** (degree / 12);
-    audio.trigger({
-      frequency,
-      gain: 0.055 + state.caStats.density * 0.05,
-      duration: 0.045,
-      type: index % 2 ? "triangle" : "sine",
-      pan: (index / (row.length - 1)) * 2 - 1,
-    });
-  }
+  audio.triggerRowScan(row, state.caRate);
 }
 
 function stepAutomata(dt) {
@@ -1925,6 +2016,362 @@ function springModeAmplitudes() {
   return modes;
 }
 
+function orbitalFerrisActiveLevelCount(levels = Math.round(state.orbitalLevels)) {
+  return state.orbitalLevelEnabled
+    .slice(0, levels)
+    .filter(Boolean)
+    .length;
+}
+
+function orbitalFerrisLevelOnePlaying() {
+  return state.orbitalPlaying && Boolean(state.orbitalLevelEnabled[0]);
+}
+
+function currentOrbitalFerrisScene() {
+  if (orbitalFerrisFrameScene) return orbitalFerrisFrameScene;
+  orbitalFerrisFrameScene = orbitalFerrisScene({
+    gestures: state.orbitalGestures,
+    levels: state.orbitalLevels,
+    ratio: state.orbitalRatio,
+    levelPhases: state.orbitalLevelPhases,
+    levelEnabled: state.orbitalLevelEnabled,
+    levelShapes: state.orbitalLevelShapes,
+    gestureTravel: state.orbitalGestureTravel,
+    gestureMode: state.orbitalGestureMode,
+  });
+  return orbitalFerrisFrameScene;
+}
+
+function drawOrbitalGesture(
+  ctx,
+  cx,
+  cy,
+  gestureRadius,
+  playheadX,
+  playheadY,
+  sample,
+  shape,
+  color,
+  alpha,
+) {
+  ctx.save();
+  ctx.strokeStyle = `rgba(${color}, ${alpha})`;
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  traceOrbitalGesturePath(ctx, cx, cy, gestureRadius, shape, 1);
+  ctx.stroke();
+
+  ctx.strokeStyle = `rgba(${color}, ${Math.min(1, alpha + 0.22)})`;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  traceOrbitalGesturePath(ctx, cx, cy, gestureRadius, shape, sample.progress);
+  ctx.stroke();
+
+  ctx.fillStyle = `rgba(${color}, ${Math.min(1, alpha + 0.32)})`;
+  ctx.shadowColor = `rgba(${color}, 0.82)`;
+  ctx.shadowBlur = orbitalFerrisLevelOnePlaying() ? 9 : 0;
+  ctx.beginPath();
+  ctx.arc(playheadX, playheadY, orbitalFerrisLevelOnePlaying() ? 3.6 : 2.7, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+function traceOrbitalGesturePath(ctx, cx, cy, radius, shape, progress) {
+  const limitedProgress = clamp(progress, 0, 1);
+  if (shape === "circle") {
+    ctx.arc(
+      cx,
+      cy,
+      radius,
+      -Math.PI / 2,
+      -Math.PI / 2 + limitedProgress * TAU,
+    );
+    return;
+  }
+
+  const segmentCount = shape === "triangle" ? 3 : shape === "square" ? 4 : 10;
+  const segmentPosition = limitedProgress * segmentCount;
+  const completedSegments = Math.floor(segmentPosition);
+  const samplePoint = (pathProgress) => orbitalFerrisContourSample(
+    pathProgress,
+    "loop",
+    0,
+    shape,
+  );
+  const start = samplePoint(0);
+  ctx.moveTo(cx + start.x * radius, cy + start.y * radius);
+  for (let segment = 1; segment <= completedSegments; segment += 1) {
+    const point = samplePoint(segment / segmentCount);
+    ctx.lineTo(cx + point.x * radius, cy + point.y * radius);
+  }
+  if (limitedProgress < 1 && segmentPosition > completedSegments) {
+    const point = samplePoint(limitedProgress);
+    ctx.lineTo(cx + point.x * radius, cy + point.y * radius);
+  }
+}
+
+function traceOrbitalFerrisRing(ctx, ring, sceneRadius, screenX, screenY) {
+  const centerX = screenX(ring.x);
+  const centerY = screenY(ring.y);
+  const radius = ring.radius * sceneRadius;
+  if (ring.shape === "circle") {
+    ctx.arc(centerX, centerY, radius, 0, TAU);
+    return;
+  }
+
+  const segmentCount = ring.shape === "triangle"
+    ? 3
+    : ring.shape === "square"
+      ? 4
+      : ring.shape === "star"
+        ? 10
+        : 1;
+  const pointCount = ring.shape === "line" ? 2 : segmentCount + 1;
+  for (let index = 0; index < pointCount; index += 1) {
+    const progress = ring.shape === "line" ? index : index / segmentCount;
+    const point = orbitalFerrisShapeSample(ring.shape, progress);
+    const x = centerX + point.x * radius;
+    const y = centerY + point.y * radius;
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+}
+
+function drawOrbitalFerris() {
+  const ctx = context2d;
+  clearStage();
+  const top = stageTopInset();
+  const cx = canvasWidth / 2;
+  const cy = top + (canvasHeight - top) * 0.5;
+  const available = Math.min(canvasWidth * 0.84, (canvasHeight - top) * 0.88);
+  const levels = Math.round(state.orbitalLevels);
+  const G = Math.round(state.orbitalGestures);
+  const zoom = state.orbitalZoom;
+  const scene = currentOrbitalFerrisScene();
+  const sceneRadius = available * 0.48;
+  const zoomScale = 1 + zoom * 8;
+  const screenX = (value) => cx + value * sceneRadius;
+  const screenY = (value) => cy + value * sceneRadius;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(zoomScale, zoomScale);
+  ctx.translate(-cx, -cy);
+
+  for (const ring of scene.rings) {
+    const levelFrac = ring.level / levels;
+    const ringAlpha = (0.08 + levelFrac * 0.16)
+      * (1 - zoom * levelFrac * 0.88)
+      * (ring.enabled ? 1 : 0.38);
+
+    ctx.strokeStyle = `rgba(219, 228, 224, ${Math.max(0, ringAlpha)})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash(ring.enabled ? [] : [4, 6]);
+    ctx.beginPath();
+    traceOrbitalFerrisRing(ctx, ring, sceneRadius, screenX, screenY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  for (const spoke of scene.spokes) {
+    const levelFrac = spoke.level / levels;
+    const alpha = (0.07 + levelFrac * 0.09) * (spoke.enabled ? 1 : 0.34);
+    ctx.strokeStyle = `rgba(219, 228, 224, ${alpha})`;
+    ctx.lineWidth = 0.65;
+    ctx.beginPath();
+    ctx.moveTo(screenX(spoke.x1), screenY(spoke.y1));
+    ctx.lineTo(screenX(spoke.x2), screenY(spoke.y2));
+    ctx.stroke();
+  }
+
+  for (const gesture of scene.gestures) {
+    const hue = (gesture.index % Math.max(1, G)) / Math.max(1, G);
+    const rr = Math.round(95 + hue * 115);
+    const gg = Math.round(232 - hue * 70);
+    const bb = Math.round(196 + hue * 45);
+    drawOrbitalGesture(
+      ctx,
+      screenX(gesture.x),
+      screenY(gesture.y),
+      Math.max(4, gesture.radius * sceneRadius),
+      screenX(gesture.playheadX),
+      screenY(gesture.playheadY),
+      gesture.sample,
+      gesture.shape,
+      `${rr}, ${gg}, ${bb}`,
+      0.58 + zoom * 0.36,
+    );
+  }
+
+  ctx.fillStyle = "rgba(95, 232, 196, 0.88)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, 4, 0, TAU);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function setOrbitalFerrisTransportState(id, playing, label) {
+  const button = $(id);
+  if (!button) return;
+  button.setAttribute("aria-pressed", String(playing));
+  button.setAttribute("aria-label", `${playing ? "Pause" : "Play"} ${label}`);
+  button.title = `${playing ? "Pause" : "Play"} ${label}`;
+}
+
+function updateOrbitalFerrisControls() {
+  const levels = Math.round(state.orbitalLevels);
+  setOrbitalFerrisTransportState(
+    "orbitalMasterPlay",
+    state.orbitalPlaying,
+    "Feral Fairy Ferris Ferry",
+  );
+  setText("orbitalMasterState", state.orbitalPlaying ? "playing" : "paused");
+
+  for (const input of document.querySelectorAll("[data-orbital-level]")) {
+    const level = Number(input.dataset.orbitalLevel);
+    const available = level >= 1 && level <= levels;
+    input.disabled = !available;
+    input.checked = available && Boolean(state.orbitalLevelEnabled[level - 1]);
+    input.closest?.("label")?.classList.toggle("is-unavailable", !available);
+    input.closest?.(".orbital-level-row")?.classList.toggle("is-unavailable", !available);
+  }
+  for (const select of document.querySelectorAll("[data-orbital-shape]")) {
+    const level = Number(select.dataset.orbitalShape);
+    const available = level >= 1 && level <= levels;
+    select.disabled = !available;
+    select.value = state.orbitalLevelShapes[level - 1] ?? "circle";
+  }
+  for (const select of document.querySelectorAll("[data-orbital-processor]")) {
+    const level = Number(select.dataset.orbitalProcessor);
+    const available = level >= 1 && level <= levels;
+    select.disabled = !available || level === 1;
+    select.value = state.orbitalLevelProcessors[level - 1] ?? "pass";
+  }
+  for (const button of document.querySelectorAll("[data-orbital-motion]")) {
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.orbitalMotion === state.orbitalGestureMode),
+    );
+  }
+
+  const activeLevels = orbitalFerrisActiveLevelCount(levels);
+  setText(
+    "patternSummary",
+    `${state.orbitalPlaying ? "playing" : "paused"} · ${activeLevels}/${levels} active`,
+  );
+  setText(
+    "gestureSummary",
+    `Level 1 ${orbitalFerrisLevelOnePlaying() ? "playing" : "paused"} · ${state.orbitalGestureMode === "bounce" ? "back & forth" : "loop"}`,
+  );
+}
+
+function bindOrbitalFerrisControls() {
+  $("orbitalMasterPlay")?.addEventListener("click", () => {
+    state.orbitalPlaying = !state.orbitalPlaying;
+    setText(
+      "liveStatus",
+      `Feral Fairy Ferris Ferry ${state.orbitalPlaying ? "playing" : "paused"}.`,
+    );
+    updateOrbitalFerrisControls();
+  });
+  $("orbitalLevelOneOnly")?.addEventListener("click", () => {
+    state.orbitalLevelEnabled.fill(false);
+    state.orbitalLevelEnabled[0] = true;
+    state.orbitalPlaying = true;
+    setText("liveStatus", "Level 1 contour playing; higher-level motion and processing are off.");
+    updateOrbitalFerrisControls();
+  });
+  for (const input of document.querySelectorAll("[data-orbital-level]")) {
+    input.addEventListener("change", () => {
+      const index = Number(input.dataset.orbitalLevel) - 1;
+      if (index < 0 || index >= state.orbitalLevelEnabled.length) return;
+      state.orbitalLevelEnabled[index] = input.checked;
+      updateOrbitalFerrisControls();
+    });
+  }
+  for (const select of document.querySelectorAll("[data-orbital-shape]")) {
+    select.addEventListener("change", () => {
+      const index = Number(select.dataset.orbitalShape) - 1;
+      if (index < 0 || index >= state.orbitalLevelShapes.length) return;
+      state.orbitalLevelShapes[index] = select.value;
+      orbitalFerrisFrameScene = null;
+      updateOrbitalFerrisControls();
+    });
+  }
+  for (const select of document.querySelectorAll("[data-orbital-processor]")) {
+    select.addEventListener("change", () => {
+      const index = Number(select.dataset.orbitalProcessor) - 1;
+      if (index < 1 || index >= state.orbitalLevelProcessors.length) return;
+      state.orbitalLevelProcessors[index] = select.value;
+      updateOrbitalFerrisControls();
+    });
+  }
+  for (const button of document.querySelectorAll("[data-orbital-motion]")) {
+    button.addEventListener("click", () => {
+      state.orbitalGestureMode = button.dataset.orbitalMotion === "bounce" ? "bounce" : "loop";
+      updateOrbitalFerrisControls();
+    });
+  }
+  updateOrbitalFerrisControls();
+}
+
+function updateOrbitalFerrisMotion(dt) {
+  const motion = advanceOrbitalFerrisMotion({
+    dt,
+    levelPhases: state.orbitalLevelPhases,
+    levelEnabled: state.orbitalLevelEnabled,
+    levels: state.orbitalLevels,
+    outerRate: state.orbitalRate,
+    ratio: state.orbitalRatio,
+    rotationPlaying: state.orbitalPlaying,
+    gestureTravel: state.orbitalGestureTravel,
+    gestureSeconds: state.orbitalGestureSeconds,
+    gesturePlaying: orbitalFerrisLevelOnePlaying(),
+  });
+  state.orbitalLevelPhases = motion.levelPhases;
+  state.orbitalGestureTravel = motion.gestureTravel;
+  orbitalFerrisFrameScene = null;
+}
+
+function orbitalFerrisDrone() {
+  const scene = currentOrbitalFerrisScene();
+  audio.setOrbitalDelay(orbitalFerrisDelayForScene(
+    scene,
+    state.orbitalLevelProcessors,
+    state.orbitalLevelEnabled,
+  ));
+  if (!orbitalFerrisLevelOnePlaying()) return [];
+  const voiceCount = Math.min(
+    MAX_CONTINUOUS_VOICES,
+    scene.gestures.length,
+  );
+  const voiceGain = clamp(0.15 / Math.sqrt(Math.max(1, voiceCount)), 0.014, 0.05);
+
+  return Array.from({ length: voiceCount }, (_, index) => {
+    const gesture = scene.gestures[Math.floor(
+      index * scene.gestures.length / Math.max(1, voiceCount),
+    )];
+    const frequency = orbitalFerrisPitchAtY(
+      gesture.playheadY,
+      state.orbitalTone,
+      state.orbitalPitchSpan,
+    );
+    return {
+      frequency,
+      gain: voiceGain
+        * (0.78 + (1 - Math.abs(gesture.playheadY)) * 0.22)
+        * orbitalFerrisVoiceModulation(
+          gesture,
+          state.orbitalLevelProcessors,
+          state.orbitalLevelEnabled,
+        ),
+      type: "sine",
+      pan: clamp(gesture.playheadX * 0.92, -0.92, 0.92),
+    };
+  });
+}
+
 const EXPERIMENTS = {
   moire: {
     bind() {
@@ -2108,19 +2555,11 @@ const EXPERIMENTS = {
       stepAutomata(dt);
     },
     draw: drawAutomata,
-    drone() {
-      const density = state.caStats.density;
-      const transitions = state.caStats.transitions / Math.max(1, state.caWidth);
-      return [
-        { frequency: 68 + density * 260, gain: 0.025 + density * 0.07, type: "triangle", pan: -0.2 },
-        { frequency: 136 + transitions * 360, gain: 0.018 + transitions * 0.055, type: "sine", pan: 0.2 },
-      ];
-    },
     summary() {
       setText("metricPrimary", percent(state.caStats.density));
       setText("metricSecondary", `${state.caStats.transitions}`);
       setText("patternSummary", `Rule ${Math.round(state.caRule)}`);
-      setText("stageReadout", `CELLULAR AUTOMATA · RULE ${Math.round(state.caRule)} · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+      setText("stageReadout", `AUTOMATA · RULE ${Math.round(state.caRule)} · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
       updateAutomataButtons();
     },
   },
@@ -2459,6 +2898,45 @@ const EXPERIMENTS = {
       setText("metricSecondary", compact(geometry.delay, 3));
       setText("patternSummary", `source beta ${compact(geometry.beta, 2)}`);
       setText("stageReadout", `GRAVITY LENS · TWO IMAGES · AUDIO ${state.audioOn ? "ON" : "OFF"}`);
+    },
+  },
+  orbitalFerris: {
+    bind() {
+      bindRange("orbitalGestures", "orbitalGestures", (v) => `${Math.round(v)} gestures`);
+      bindRange("orbitalLevels", "orbitalLevels", (v) => `${Math.round(v)} levels`);
+      bindRange("orbitalRate", "orbitalRate", (v) => `${compact(v, 3)} cyc/s`);
+      bindRange("orbitalRatio", "orbitalRatio", (v) => `${compact(v, 2)}× per level`);
+      bindRange(
+        "orbitalGestureSeconds",
+        "orbitalGestureSeconds",
+        (v) => `${compact(v, 2)} s one way`,
+      );
+      bindRange(
+        "orbitalPitchSpan",
+        "orbitalPitchSpan",
+        (v) => `${compact(v, 1)} octaves`,
+      );
+      bindRange("orbitalZoom", "orbitalZoom", percent);
+      bindRange("orbitalTone", "orbitalTone", (v) => `${Math.round(v)} Hz`);
+      bindOrbitalFerrisControls();
+    },
+    update: updateOrbitalFerrisMotion,
+    draw: drawOrbitalFerris,
+    drone: orbitalFerrisDrone,
+    summary() {
+      const G = Math.round(state.orbitalGestures);
+      const levels = Math.round(state.orbitalLevels);
+      const requestedLeaves = G ** Math.max(0, levels - 1);
+      const leaves = orbitalFerrisLeafCount(G, levels);
+      const activeLevels = orbitalFerrisActiveLevelCount(levels);
+      setText("metricPrimary", requestedLeaves > leaves ? `${leaves} / ${requestedLeaves}` : `${leaves}`);
+      setText("metricSecondary", `${activeLevels} / ${levels}`);
+      setText("experimentSummary", "nested processing");
+      setText(
+        "stageReadout",
+        `FERAL FAIRY FERRIS FERRY · ${leaves} ${leaves === 1 ? "GESTURE" : "GESTURES"} · ${levels} LEVELS · ${state.orbitalPlaying ? "PLAYING" : "PAUSED"} · AUDIO ${state.audioOn ? "ON" : "OFF"}`,
+      );
+      updateOrbitalFerrisControls();
     },
   },
 };

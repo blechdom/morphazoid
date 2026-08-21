@@ -60,6 +60,107 @@
   color: rgba(255, 180, 198, 0.68);
 }
 
+.tongued-beasts-page #stage {
+  cursor: grab;
+}
+
+.tongued-beasts-page #stage.is-dragging {
+  cursor: grabbing;
+}
+
+.tongue-stage-status {
+  position: absolute;
+  z-index: 6;
+  top: 22px;
+  right: 22px;
+  display: grid;
+  min-width: 116px;
+  border: 1px solid rgba(255, 95, 135, 0.24);
+  pointer-events: none;
+  background: rgba(7, 5, 7, 0.82);
+  backdrop-filter: blur(10px);
+  grid-template-columns: repeat(2, minmax(0, 1fr)) 42px;
+}
+
+.tongue-stage-status span {
+  display: grid;
+  min-width: 0;
+  padding: 7px 9px;
+  gap: 2px;
+}
+
+.tongue-stage-status span + span {
+  border-left: 1px solid rgba(255, 95, 135, 0.16);
+}
+
+.tongue-stage-status small {
+  color: #8d747b;
+  font: 650 6px/1 var(--mono);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.tongue-stage-status output {
+  overflow: hidden;
+  color: var(--tongue-pale);
+  font: 700 8px/1.25 var(--mono);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tongue-stage-reset {
+  display: grid;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 4px;
+  border: 0;
+  border-left: 1px solid rgba(255, 95, 135, 0.2);
+  border-radius: 0;
+  cursor: pointer;
+  color: var(--tongue-pale);
+  pointer-events: auto;
+  background: rgba(255, 95, 135, 0.035);
+  font-family: var(--mono);
+  align-content: center;
+  gap: 2px;
+}
+
+.tongue-stage-reset b {
+  font: 800 14px/1 var(--display);
+}
+
+.tongue-stage-reset small {
+  color: #8d747b;
+  font: 700 5px/1 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tongue-stage-reset:hover,
+.tongue-stage-reset:focus-visible,
+.tongue-stage-reset:active {
+  outline: none;
+  color: #090507;
+  background: var(--tongue);
+  box-shadow: inset 0 0 0 1px var(--tongue), 0 0 18px rgba(255, 95, 135, 0.25);
+}
+
+.tongue-stage-reset:hover small,
+.tongue-stage-reset:focus-visible small,
+.tongue-stage-reset:active small {
+  color: rgba(9, 5, 7, 0.72);
+}
+
+.tongue-airway-sealed .tongue-stage-status {
+  border-color: #ff375f;
+  box-shadow: 0 0 24px rgba(255, 55, 95, 0.24);
+}
+
+.tongue-airway-sealed #tongueAirwayOut {
+  color: #ff5575;
+}
+
 .tongued-beasts-page .panel {
   background:
     linear-gradient(100deg, rgba(255, 95, 135, 0.028), transparent 42%),
@@ -172,11 +273,535 @@
   line-height: 1.5;
 }
 
+.tongue-motion-presets {
+  display: grid;
+  margin: 2px 0 7px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.tongue-motion-presets button {
+  display: grid;
+  min-width: 0;
+  min-height: 43px;
+  padding: 6px 4px 5px;
+  border: 1px solid rgba(255, 95, 135, 0.18);
+  border-radius: 0;
+  cursor: pointer;
+  color: #be8795;
+  background: rgba(255, 95, 135, 0.018);
+  align-content: center;
+  gap: 2px;
+}
+
+.tongue-motion-presets button b {
+  overflow: hidden;
+  font: 750 9px/1 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tongue-motion-presets button small {
+  overflow: hidden;
+  color: #755b62;
+  font: 600 6px/1 var(--mono);
+  letter-spacing: 0.05em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tongue-motion-presets button:hover,
+.tongue-motion-presets button:focus-visible,
+.tongue-motion-presets button[aria-pressed="true"] {
+  border-color: var(--tongue);
+  color: #090507;
+  background: var(--tongue);
+  box-shadow: 0 0 18px rgba(255, 95, 135, 0.18);
+}
+
+.tongue-motion-presets button[aria-pressed="true"] small,
+.tongue-motion-presets button:hover small,
+.tongue-motion-presets button:focus-visible small {
+  color: #54202d;
+}
+
+.tongue-motion-presets .tongue-free-button {
+  grid-column: span 2;
+}
+
+.viewport-modulation-layer {
+  position: absolute;
+  z-index: 7;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.viewport-stage-reset {
+  position: absolute;
+  z-index: 18;
+  bottom: 42px;
+  display: grid;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 5px 8px;
+  border: 1px solid color-mix(in oklab, var(--viewport-reset-color) 46%, transparent);
+  border-radius: 0;
+  cursor: pointer;
+  color: color-mix(in oklab, var(--viewport-reset-color) 82%, #fff);
+  background: rgba(7, 5, 7, 0.94);
+  box-shadow: 0 7px 24px rgba(0, 0, 0, 0.52), 0 0 15px color-mix(in oklab, var(--viewport-reset-color) 10%, transparent);
+  font-family: var(--mono);
+  align-content: center;
+  grid-template-columns: auto auto;
+  gap: 1px 5px;
+}
+
+.viewport-stage-reset span {
+  font: 800 16px/1 var(--display);
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.viewport-stage-reset b,
+.viewport-stage-reset small {
+  font: 750 7px/1 var(--mono);
+  letter-spacing: 0.07em;
+  text-align: left;
+}
+
+.viewport-stage-reset small {
+  color: #80666d;
+  font-size: 6px;
+}
+
+.viewport-stage-reset:hover,
+.viewport-stage-reset:focus-visible,
+.viewport-stage-reset:active {
+  border-color: var(--viewport-reset-color);
+  outline: none;
+  color: #090507;
+  background: var(--viewport-reset-color);
+  box-shadow: 0 0 0 3px rgba(5, 4, 6, 0.6), 0 0 20px color-mix(in oklab, var(--viewport-reset-color) 34%, transparent);
+}
+
+.viewport-stage-reset:hover small,
+.viewport-stage-reset:focus-visible small,
+.viewport-stage-reset:active small {
+  color: rgba(9, 5, 7, 0.7);
+}
+
+.viewport-modulator-reset {
+  right: 22px;
+  width: 92px;
+  --viewport-reset-color: #72e7dc;
+}
+
+.viewport-modulator {
+  position: absolute;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+
+.viewport-modulator.is-expanded {
+  z-index: 12;
+}
+
+.viewport-mod-toggle {
+  position: relative;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid color-mix(in oklab, var(--viewport-mod-color) 62%, transparent);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--viewport-mod-color);
+  background: rgba(5, 4, 6, 0.92);
+  box-shadow: 0 0 0 5px rgba(5, 4, 6, 0.5), 0 0 12px color-mix(in oklab, var(--viewport-mod-color) 18%, transparent);
+  font: 800 14px/1 var(--mono);
+}
+
+.viewport-mod-toggle:hover,
+.viewport-mod-toggle:focus-visible,
+.viewport-mod-toggle[aria-pressed="true"] {
+  border-color: var(--viewport-mod-color);
+  outline: none;
+  color: #050406;
+  background: var(--viewport-mod-color);
+  box-shadow: 0 0 0 5px rgba(5, 4, 6, 0.62), 0 0 20px color-mix(in oklab, var(--viewport-mod-color) 42%, transparent);
+}
+
+.viewport-mod-toggle[aria-pressed="true"]::after {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #050406;
+  border-radius: 50%;
+  content: "";
+  background: #fff7cf;
+  box-shadow: 0 0 8px var(--viewport-mod-color);
+}
+
+.viewport-mod-controls {
+  position: absolute;
+  z-index: 1;
+  top: -9px;
+  left: 25px;
+  display: grid;
+  box-sizing: border-box;
+  width: 168px;
+  padding: 9px 9px 8px 17px;
+  border: 1px solid color-mix(in oklab, var(--viewport-mod-color) 54%, transparent);
+  pointer-events: auto;
+  background: rgba(5, 4, 6, 0.96);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.58), 0 0 16px color-mix(in oklab, var(--viewport-mod-color) 12%, transparent);
+  gap: 7px;
+}
+
+.viewport-modulator.is-adjusting .viewport-mod-controls {
+  border-color: var(--viewport-mod-color);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.72), 0 0 20px color-mix(in oklab, var(--viewport-mod-color) 28%, transparent);
+}
+
+.viewport-modulator.opens-left .viewport-mod-controls {
+  right: 25px;
+  left: auto;
+  padding-right: 17px;
+  padding-left: 9px;
+}
+
+.viewport-modulator.opens-up .viewport-mod-controls {
+  top: auto;
+  bottom: -9px;
+}
+
+.viewport-mod-controls[hidden] {
+  display: none;
+}
+
+.viewport-mod-close {
+  position: absolute;
+  z-index: 2;
+  top: 5px;
+  right: 5px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid color-mix(in oklab, var(--viewport-mod-color) 42%, transparent);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--viewport-mod-color);
+  background: rgba(5, 4, 6, 0.94);
+  font: 800 16px/1 var(--mono);
+  place-items: center;
+}
+
+.viewport-mod-close:hover,
+.viewport-mod-close:focus-visible,
+.viewport-mod-close:active {
+  border-color: var(--viewport-mod-color);
+  outline: none;
+  color: #050406;
+  background: var(--viewport-mod-color);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--viewport-mod-color) 34%, transparent);
+}
+
+.viewport-modulator.opens-left .viewport-mod-close {
+  right: auto;
+  left: 5px;
+}
+
+.viewport-mod-controls > .viewport-mod-range:first-of-type {
+  padding-right: 34px;
+}
+
+.viewport-modulator.opens-left .viewport-mod-controls > .viewport-mod-range:first-of-type {
+  padding-right: 0;
+  padding-left: 34px;
+}
+
+.viewport-mod-range {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.viewport-mod-range > span {
+  display: flex;
+  color: #9a858b;
+  font: 700 6px/1 var(--mono);
+  letter-spacing: 0.1em;
+  justify-content: space-between;
+}
+
+.viewport-mod-range output {
+  color: var(--viewport-mod-color);
+  letter-spacing: 0;
+}
+
+.viewport-mod-range input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  margin: 0;
+  cursor: ew-resize;
+  touch-action: none;
+  accent-color: var(--viewport-mod-color);
+}
+
+.viewport-mod-range input[type="range"]:focus-visible {
+  outline: 1px solid var(--viewport-mod-color);
+  outline-offset: 2px;
+}
+
+.viewport-tongue-presets {
+  position: absolute;
+  z-index: 18;
+  bottom: 42px;
+  left: 22px;
+  pointer-events: none;
+  --tongue-preset-width: min(336px, calc(100vw - 38px));
+}
+
+.viewport-tongue-preset-trigger {
+  display: grid;
+  width: 124px;
+  min-height: 42px;
+  padding: 6px 9px 6px 35px;
+  border: 1px solid rgba(255, 95, 135, 0.45);
+  border-radius: 0;
+  cursor: pointer;
+  color: var(--tongue-pale);
+  pointer-events: auto;
+  background: rgba(7, 5, 7, 0.94);
+  box-shadow: 0 7px 24px rgba(0, 0, 0, 0.52), 0 0 15px rgba(255, 95, 135, 0.1);
+  font-family: var(--mono);
+  text-align: left;
+  gap: 2px;
+}
+
+.viewport-tongue-preset-trigger > span {
+  position: absolute;
+  top: 10px;
+  left: 11px;
+  color: var(--tongue);
+  font: 800 19px/1 var(--display);
+}
+
+.viewport-tongue-preset-trigger b {
+  font: 750 8px/1.1 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.viewport-tongue-preset-trigger small {
+  color: #80666d;
+  font: 650 6px/1.1 var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.viewport-tongue-preset-trigger:hover,
+.viewport-tongue-preset-trigger:focus-visible,
+.viewport-tongue-presets.is-open .viewport-tongue-preset-trigger {
+  border-color: var(--tongue);
+  outline: none;
+  color: #090507;
+  background: var(--tongue);
+}
+
+.viewport-tongue-preset-trigger:hover > span,
+.viewport-tongue-preset-trigger:focus-visible > span,
+.viewport-tongue-presets.is-open .viewport-tongue-preset-trigger > span,
+.viewport-tongue-preset-trigger:hover small,
+.viewport-tongue-preset-trigger:focus-visible small,
+.viewport-tongue-presets.is-open .viewport-tongue-preset-trigger small {
+  color: #090507;
+}
+
+.viewport-tongue-preset-popover {
+  position: absolute;
+  bottom: calc(100% - 1px);
+  left: 0;
+  box-sizing: border-box;
+  width: var(--tongue-preset-width);
+  max-height: min(184px, calc(100dvh - 118px));
+  padding: 10px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 95, 135, 0.5);
+  visibility: hidden;
+  opacity: 0;
+  color: var(--tongue-pale);
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 95, 135, 0.035) 0 4px, transparent 4px 9px),
+    rgba(7, 5, 7, 0.98);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.72), 0 0 24px rgba(255, 95, 135, 0.16);
+  transform: translateY(7px);
+  transition: opacity 100ms ease, transform 100ms ease, visibility 0s linear 100ms;
+}
+
+.viewport-tongue-presets:hover .viewport-tongue-preset-popover,
+.viewport-tongue-presets:focus-within .viewport-tongue-preset-popover,
+.viewport-tongue-presets.is-open .viewport-tongue-preset-popover {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  transition-delay: 0s;
+}
+
+.viewport-tongue-preset-popover header {
+  display: flex;
+  margin-bottom: 8px;
+  align-items: end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.viewport-tongue-preset-popover header small {
+  color: #80666d;
+  font: 650 6px/1 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.viewport-tongue-preset-popover header strong {
+  color: var(--tongue-pale);
+  font: 750 8px/1 var(--mono);
+  letter-spacing: 0.1em;
+}
+
+.viewport-tongue-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.viewport-tongue-preset-grid button {
+  display: grid;
+  min-width: 0;
+  min-height: 39px;
+  padding: 5px 3px;
+  border: 1px solid rgba(255, 95, 135, 0.22);
+  border-radius: 0;
+  cursor: pointer;
+  color: #d1a0ad;
+  background: rgba(255, 95, 135, 0.035);
+  font-family: var(--mono);
+  gap: 2px;
+}
+
+.viewport-tongue-preset-grid button b {
+  overflow: hidden;
+  font-size: 9px;
+  line-height: 1;
+  text-overflow: ellipsis;
+}
+
+.viewport-tongue-preset-grid button small {
+  overflow: hidden;
+  color: #765c63;
+  font-size: 6px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewport-tongue-preset-grid button:hover,
+.viewport-tongue-preset-grid button:focus-visible,
+.viewport-tongue-preset-grid button[aria-pressed="true"] {
+  border-color: var(--tongue);
+  outline: none;
+  color: #090507;
+  background: var(--tongue);
+}
+
+.viewport-tongue-preset-grid button:hover small,
+.viewport-tongue-preset-grid button:focus-visible small,
+.viewport-tongue-preset-grid button[aria-pressed="true"] small {
+  color: rgba(9, 5, 7, 0.72);
+}
+
+.viewport-tongue-preset-grid .tongue-free-button {
+  grid-column: span 2;
+}
+
 .tongue-cavity-readout {
   display: grid;
   border: 1px solid rgba(255, 95, 135, 0.14);
   background: rgba(255, 95, 135, 0.025);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tongue-feral-bank {
+  margin: 12px 14px;
+  padding: 11px;
+  border: 1px solid rgba(255, 95, 135, 0.24);
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 95, 135, 0.025) 0 4px, transparent 4px 9px),
+    #0b0609;
+}
+
+.tongue-feral-bank header {
+  display: flex;
+  margin-bottom: 8px;
+  align-items: end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tongue-feral-bank header span {
+  color: #725760;
+  font: 650 6px/1 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.tongue-feral-bank header strong {
+  color: var(--tongue-pale);
+  font: 750 9px/1 var(--mono);
+  letter-spacing: 0.1em;
+}
+
+.tongue-feral-bank > div {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.tongue-feral-bank button {
+  min-height: 36px;
+  padding: 6px;
+  border: 1px solid rgba(255, 95, 135, 0.2);
+  border-radius: 0;
+  cursor: pointer;
+  color: #c596a2;
+  background: rgba(255, 95, 135, 0.025);
+  font: 700 7px/1.2 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tongue-feral-bank button:hover,
+.tongue-feral-bank button:focus-visible {
+  border-color: var(--tongue);
+  color: #080507;
+  background: var(--tongue);
+}
+
+.tongue-feral-bank p {
+  margin: 7px 0 0;
+  color: #785e65;
+  font: 600 6px/1.5 var(--mono);
 }
 
 .tongue-cavity-readout span {
@@ -283,5 +908,64 @@
   .tongued-beasts-title {
     top: 15px;
     left: 15px;
+  }
+
+  .tongue-stage-status {
+    top: 12px;
+    right: 12px;
+  }
+
+  .tongue-motion-presets {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .viewport-mod-controls {
+    width: 142px;
+  }
+
+  .viewport-tongue-presets {
+    bottom: 36px;
+    left: 14px;
+    --tongue-preset-width: min(320px, calc(100vw - 28px));
+  }
+
+  .viewport-stage-reset {
+    bottom: 36px;
+  }
+
+  .viewport-modulator-reset {
+    right: 14px;
+    bottom: 28px;
+  }
+
+  .viewport-tongue-preset-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 350px) {
+  .tongued-beasts-title span {
+    display: none;
+  }
+}
+
+@media (orientation: landscape) and (max-width: 980px) and (max-height: 650px) {
+  .tongued-beasts-page .shell {
+    height: calc(100dvh - 50px);
+    grid-template-columns: minmax(0, 1fr) clamp(260px, 42vw, 400px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .tongued-beasts-page .syrinx-stage {
+    position: static;
+    z-index: auto;
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+    box-shadow: none;
+  }
+
+  .tongued-beasts-page .panel {
+    min-height: 0;
+    overflow-y: auto;
   }
 }

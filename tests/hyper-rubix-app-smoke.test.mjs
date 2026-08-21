@@ -14,6 +14,7 @@ import {
   hyperRubixTechnoVoiceParameters,
   turnHyperRubixBoundaryCell,
 } from "../src/hyper-rubix.js";
+import { WebGpu303Audio } from "../src/webgpu-303.js";
 import { WAX_ROLE_IDS, waxSupportForId } from "../src/wax-instrument-roles.js";
 
 class FakeClassList {
@@ -275,9 +276,13 @@ class FakeAudioContext {
     return node;
   }
 
-  createBuffer(channels, length) {
+  createBuffer(channels, length, sampleRate = this.sampleRate) {
     const data = Array.from({ length: channels }, () => new Float32Array(length));
-    return { getChannelData: (channel) => data[channel] };
+    return {
+      duration: length / sampleRate,
+      length,
+      getChannelData: (channel) => data[channel],
+    };
   }
 
   createBufferSource() {
@@ -384,7 +389,7 @@ function drawingContext() {
   };
 }
 
-function runtimeFixture() {
+function runtimeFixture({ webGpu = false } = {}) {
   const elementIds = [
     "stage", "stageWrap", "audioButton", "audioState", "audioError", "output", "outputOut",
     "puzzleState", "disorderState", "moveCount", "stageReadout", "liveStatus", "moveTrace",
@@ -509,6 +514,7 @@ function runtimeFixture() {
   const windowObject = {
     AudioContext: FakeAudioContext,
     devicePixelRatio: 2,
+    navigator: webGpu ? { gpu: { requestAdapter() {} } } : {},
     matchMedia() { return { matches: true }; },
     addEventListener(type, listener) { addListener(windowListeners, type, listener); },
     removeEventListener(type, listener) { removeListener(windowListeners, type, listener); },
@@ -531,7 +537,7 @@ async function emitRuntime(listeners, type, event = {}) {
 
 function installRuntimeEnvironment(t, fixture, clock = null) {
   const propertyNames = [
-    "document", "window", "AudioContext", "webkitAudioContext", "ResizeObserver",
+    "document", "window", "navigator", "AudioContext", "webkitAudioContext", "ResizeObserver",
     "requestAnimationFrame", "cancelAnimationFrame",
     ...(clock ? ["performance", "setTimeout", "clearTimeout"] : []),
   ];
@@ -552,6 +558,10 @@ function installRuntimeEnvironment(t, fixture, clock = null) {
   let queuedFrame = null;
   globalThis.document = fixture.documentObject;
   globalThis.window = fixture.windowObject;
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: fixture.windowObject.navigator,
+  });
   globalThis.AudioContext = FakeAudioContext;
   globalThis.webkitAudioContext = undefined;
   globalThis.ResizeObserver = class {
@@ -599,6 +609,84 @@ function installRuntimeEnvironment(t, fixture, clock = null) {
   };
 }
 
+function installFakeWebGpu303Engine(t) {
+  const prototype = WebGpu303Audio.prototype;
+  const methodNames = [
+    "start", "stop", "pauseTimeline", "restartTimeline", "currentPlaybackTime", "updateParams",
+  ];
+  const originals = new Map(methodNames.map((name) => [name, prototype[name]]));
+  const instances = [];
+
+  prototype.start = async function start(params, options = {}) {
+    this.context = options.context;
+    this.destination = options.destination;
+    this.input = audioNode("webgpu-input");
+    this.master = audioNode("webgpu-master", { gain: audioParam(0) });
+    this.device = {};
+    this.params = { ...params };
+    this.running = false;
+    this.__phaseWrites = [this.params.sequencePhase];
+    this.__restartCalls = [];
+    instances.push(this);
+    return this.context;
+  };
+  prototype.updateParams = function updateParams(params) {
+    originals.get("updateParams").call(this, params);
+    this.__phaseWrites ??= [];
+    this.__phaseWrites.push(this.params.sequencePhase);
+  };
+  prototype.restartTimeline = async function restartTimeline({ startAt, offset = 0 } = {}) {
+    this.__restartCalls ??= [];
+    this.__restartCalls.push({
+      offset,
+      sequencePhase: this.params.sequencePhase,
+      startAt,
+    });
+    this.renderOffset = offset;
+    this.nextStartTime = startAt;
+    this.running = true;
+    return startAt;
+  };
+  prototype.currentPlaybackTime = function currentPlaybackTime() {
+    return this.running ? 0 : null;
+  };
+  prototype.pauseTimeline = function pauseTimeline() {
+    this.running = false;
+    return this.renderOffset;
+  };
+  prototype.stop = async function stop() {
+    this.running = false;
+    this.context = null;
+    this.input = null;
+    this.master = null;
+    this.device = null;
+  };
+
+  t.after(() => {
+    for (const [name, method] of originals) prototype[name] = method;
+  });
+  return { instances };
+}
+
+async function flushMicrotasks(count = 8) {
+  for (let index = 0; index < count; index += 1) await Promise.resolve();
+}
+
+function activeOneShotSources(audioContext) {
+  return [
+    ...audioContext.oscillators.filter(({ stops, disconnected }) => stops.length && !disconnected),
+    ...audioContext.bufferSources.filter(({ loop, disconnected }) => !loop && !disconnected),
+  ];
+}
+
+function currentStickerPosition(fixture) {
+  const match = fixture.elements.get("sequenceNow").textContent.match(
+    /^STICKER\s+(\d+)\s+\/\s+(\d+)/,
+  );
+  assert.ok(match, "the timeline should expose its exact sticker position");
+  return { index: Number(match[1]) - 1, length: Number(match[2]) };
+}
+
 function gridButtons(fixture) {
   return fixture.elements.get("hyperbarGrid").children.flatMap((row) => (
     row.children.filter(({ tagName }) => tagName === "BUTTON")
@@ -618,6 +706,163 @@ async function setControl(fixture, id, value, eventType = "change") {
   control.value = String(value);
   await control.emit(eventType);
 }
+
+test("view-facing projection changes cancel old lookahead without resetting the shape clock", async (t) => {
+  const fixture = runtimeFixture();
+  const clock = new FakeClock(20_000);
+  const runtime = installRuntimeEnvironment(t, fixture, clock);
+
+  await import("../hyper-rubix-app.js?projection-lookahead=" + Date.now());
+  runtime.runFrame();
+  await fixture.elements.get("audioButton").emit("click");
+  await setControl(fixture, "tempo", 300, "input");
+  await setControl(fixture, "twistRate", 16);
+  await setControl(fixture, "swing", 0, "input");
+  await fixture.elements.get("playButton").emit("click");
+  clock.advanceBy(55);
+
+  const audioContext = FakeAudioContext.instances[0];
+  const oldScope = fixture.elements.get("stage").dataset.audibleCellIds;
+  const oldPosition = currentStickerPosition(fixture);
+  const oldSources = activeOneShotSources(audioContext);
+  const oldTimerHandles = [...clock.timers.keys()];
+  assert.ok(oldSources.length > 0, "the fast loop should have future Web Audio notes queued");
+  assert.ok(oldTimerHandles.length > 1, "the fast loop should have future visual pulses queued");
+
+  const stage = fixture.elements.get("stage");
+  await stage.emit("pointerdown", { pointerId: 31, clientX: 100, clientY: 100 });
+  await stage.emit("pointermove", { pointerId: 31, clientX: 1_000, clientY: 100 });
+  await stage.emit("pointerup", { pointerId: 31, clientX: 1_000, clientY: 100 });
+  runtime.runFrame(clock.now + 1);
+
+  assert.notEqual(stage.dataset.audibleCellIds, oldScope, "the orbit must actually remap the score");
+  assert.deepEqual(currentStickerPosition(fixture), oldPosition, "projection remaps preserve the visible phase");
+  assert.equal(fixture.elements.get("playButton").getAttribute("aria-pressed"), "true");
+  assert.equal(
+    oldSources.every(({ disconnected, stops }) => (
+      disconnected && stops.at(-1) === audioContext.currentTime
+    )),
+    true,
+    "notes queued from cells that left the view-facing score must be canceled",
+  );
+  assert.equal(
+    oldTimerHandles.every((handle) => !clock.timers.has(handle)),
+    true,
+    "visual pulses captured from the old view-facing score must be canceled",
+  );
+});
+
+test("a completed manual twist cancels old-score lookahead without resetting the shape clock", async (t) => {
+  const fixture = runtimeFixture();
+  const clock = new FakeClock(30_000);
+  const runtime = installRuntimeEnvironment(t, fixture, clock);
+
+  await import("../hyper-rubix-app.js?twist-lookahead=" + Date.now());
+  runtime.runFrame();
+  await fixture.elements.get("audioButton").emit("click");
+  await setControl(fixture, "tempo", 300, "input");
+  await setControl(fixture, "twistRate", 16);
+  await setControl(fixture, "swing", 0, "input");
+  await fixture.elements.get("playButton").emit("click");
+  clock.advanceBy(55);
+
+  const audioContext = FakeAudioContext.instances[0];
+  const oldPosition = currentStickerPosition(fixture);
+  const oldSources = activeOneShotSources(audioContext);
+  const oldTimerHandles = [...clock.timers.keys()];
+  assert.ok(oldSources.length > 0, "the fast loop should have old-puzzle notes queued");
+  assert.ok(oldTimerHandles.length > 1, "the fast loop should have old-puzzle visuals queued");
+
+  await fixture.elements.get("turnClockwise").emit("click");
+  runtime.runFrame(clock.now + 1);
+  runtime.runFrame(clock.now + 501);
+
+  assert.equal(fixture.elements.get("moveCount").textContent, "01");
+  assert.deepEqual(currentStickerPosition(fixture), oldPosition, "a turn preserves the visible phase");
+  assert.equal(fixture.elements.get("playButton").getAttribute("aria-pressed"), "true");
+  assert.equal(
+    oldSources.every(({ disconnected, stops }) => (
+      disconnected && stops.at(-1) === audioContext.currentTime
+    )),
+    true,
+    "future notes derived from the pre-turn sticker configuration must be canceled",
+  );
+  assert.equal(
+    oldTimerHandles.every((handle) => !clock.timers.has(handle)),
+    true,
+    "future visual pulses derived from the pre-turn configuration must be canceled",
+  );
+});
+
+test("manual twists never layer the Web Audio acid fallback over a live WebGPU 303 preset", async (t) => {
+  const fixture = runtimeFixture({ webGpu: true });
+  const clock = new FakeClock(40_000);
+  const runtime = installRuntimeEnvironment(t, fixture, clock);
+  const webGpu = installFakeWebGpu303Engine(t);
+
+  await import("../hyper-rubix-app.js?webgpu-exclusive=" + Date.now());
+  runtime.runFrame();
+  await fixture.elements.get("audioButton").emit("click");
+  await setControl(fixture, "voice", "webgpu-303");
+  await flushMicrotasks();
+  assert.equal(webGpu.instances.length, 1, "the supported WebGPU engine should start");
+
+  await fixture.elements.get("playButton").emit("click");
+  await flushMicrotasks();
+  clock.advanceBy(55);
+  const audioContext = FakeAudioContext.instances[0];
+  const sourcesBeforeTurn = {
+    buffers: audioContext.bufferSources.length,
+    oscillators: audioContext.oscillators.length,
+  };
+
+  await fixture.elements.get("turnClockwise").emit("click");
+  runtime.runFrame(clock.now + 1);
+
+  assert.deepEqual({
+    buffers: audioContext.bufferSources.length,
+    oscillators: audioContext.oscillators.length,
+  }, sourcesBeforeTurn, "manual turns may excite topology but must not instantiate fallback voices");
+  assert.equal(fixture.elements.get("voice").value, "webgpu-303");
+  assert.equal(fixture.elements.get("playButton").getAttribute("aria-pressed"), "true");
+});
+
+test("a WebGPU scope restart keeps the single phase calculated for its scheduled start", async (t) => {
+  const fixture = runtimeFixture({ webGpu: true });
+  const clock = new FakeClock(50_000);
+  const runtime = installRuntimeEnvironment(t, fixture, clock);
+  const webGpu = installFakeWebGpu303Engine(t);
+
+  await import("../hyper-rubix-app.js?webgpu-scope-phase=" + Date.now());
+  runtime.runFrame();
+  await fixture.elements.get("audioButton").emit("click");
+  await setControl(fixture, "voice", "webgpu-303");
+  await flushMicrotasks();
+  await setControl(fixture, "tempo", 300, "input");
+  await setControl(fixture, "twistRate", 16);
+  await setControl(fixture, "swing", 0, "input");
+  await fixture.elements.get("playButton").emit("click");
+  await flushMicrotasks();
+  clock.advanceBy(55);
+
+  const engine = webGpu.instances[0];
+  const restartCount = engine.__restartCalls.length;
+  await setControl(fixture, "playbackPreset", "selected-cell");
+  await flushMicrotasks();
+  clock.advanceBy(0);
+  await flushMicrotasks();
+
+  assert.equal(engine.__restartCalls.length, restartCount + 1);
+  const scopeRestart = engine.__restartCalls.at(-1);
+  assert.ok(scopeRestart.sequencePhase > 1, "the scheduled start should project several fast steps ahead");
+  assert.equal(
+    engine.params.sequencePhase,
+    scopeRestart.sequencePhase,
+    "no immediate second alignment may overwrite the phase used by restartTimeline",
+  );
+  assert.equal(fixture.elements.get("playbackCount").textContent, "1 CELL · 27 NOTES");
+  assert.equal(fixture.elements.get("playButton").getAttribute("aria-pressed"), "true");
+});
 
 test("Hyper Rubix keeps projection gestures silent, auditions twists, and survives BFCache", async (t) => {
   const fixture = runtimeFixture();

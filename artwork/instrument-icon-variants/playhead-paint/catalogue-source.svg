@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Playhead Paint instrument icon</title>
+  <desc id="desc">A luminous multicolor drawing mirrored across four axes into an ornate snowflake.</desc>
+
+  <defs>
+    <radialGradient id="field" cx="50%" cy="43%" r="70%">
+      <stop offset="0" stop-color="#17243a" />
+      <stop offset="0.62" stop-color="#0a1220" />
+      <stop offset="1" stop-color="#050910" />
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#40516f" />
+      <stop offset="0.48" stop-color="#17243a" />
+      <stop offset="1" stop-color="#36506a" />
+    </linearGradient>
+    <radialGradient id="point" cx="35%" cy="30%" r="75%">
+      <stop stop-color="#ffffff" />
+      <stop offset="0.28" stop-color="#c9ffff" />
+      <stop offset="1" stop-color="#43ddd8" />
+    </radialGradient>
+    <filter id="softGlow" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur stdDeviation="7" result="blur" />
+      <feColorMatrix in="blur" type="matrix" values="
+        1 0 0 0 0
+        0 1 0 0 0
+        0 0 1 0 0
+        0 0 0 .65 0" result="coloredBlur" />
+      <feMerge>
+        <feMergeNode in="coloredBlur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="pointGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- One hand-drawn snowflake arm. Repeated at 45-degree intervals to show
+         the four enabled reflection axes and the resulting D4 symmetry. -->
+    <g id="arm" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M256 256 C252 236 259 222 255 204"
+            stroke="#ffd557" stroke-width="12" />
+      <path d="M255 206 C251 188 260 173 256 154"
+            stroke="#ff4fa8" stroke-width="11" />
+      <path d="M256 156 C253 137 259 119 256 91"
+            stroke="#54eee8" stroke-width="10" />
+      <path d="M255 219 C244 211 236 200 233 186 C244 194 251 195 256 194"
+            stroke="#ff9d53" stroke-width="8" />
+      <path d="M256 219 C268 211 276 200 279 186 C268 194 261 195 256 194"
+            stroke="#ff9d53" stroke-width="8" />
+      <path d="M256 177 C242 170 232 158 227 143 C241 153 249 154 256 151"
+            stroke="#d66cff" stroke-width="7" />
+      <path d="M256 177 C270 170 280 158 285 143 C271 153 263 154 256 151"
+            stroke="#d66cff" stroke-width="7" />
+      <path d="M255 139 C244 130 238 119 238 107 C246 114 252 115 256 112"
+            stroke="#66e9f2" stroke-width="6" />
+      <path d="M257 139 C268 130 274 119 274 107 C266 114 260 115 256 112"
+            stroke="#66e9f2" stroke-width="6" />
+    </g>
+  </defs>
+
+  <!-- The transparent outer corners match the alpha catalogue convention. -->
+  <rect x="24" y="24" width="464" height="464" rx="72" fill="url(#field)" stroke="url(#rim)" stroke-width="6" />
+  <rect x="49" y="49" width="414" height="414" rx="42" fill="none" stroke="#7d91b0" stroke-opacity="0.16" stroke-width="2" />
+
+  <!-- Four selectable reflection axes: horizontal, vertical, and both diagonals. -->
+  <g fill="none" stroke="#b9c9e4" stroke-opacity="0.2" stroke-width="3" stroke-dasharray="7 10" stroke-linecap="round">
+    <path d="M70 256 H442" />
+    <path d="M256 70 V442" />
+    <path d="M124 124 L388 388" />
+    <path d="M388 124 L124 388" />
+  </g>
+  <g fill="#9fb3d4" fill-opacity="0.28">
+    <circle cx="70" cy="256" r="4" /><circle cx="442" cy="256" r="4" />
+    <circle cx="256" cy="70" r="4" /><circle cx="256" cy="442" r="4" />
+    <circle cx="124" cy="124" r="4" /><circle cx="388" cy="388" r="4" />
+    <circle cx="388" cy="124" r="4" /><circle cx="124" cy="388" r="4" />
+  </g>
+
+  <!-- A single freehand gesture becomes an ornate, polyphonic snowflake. -->
+  <g filter="url(#softGlow)" opacity="0.97">
+    <use xlink:href="#arm" />
+    <use xlink:href="#arm" transform="rotate(45 256 256)" />
+    <use xlink:href="#arm" transform="rotate(90 256 256)" />
+    <use xlink:href="#arm" transform="rotate(135 256 256)" />
+    <use xlink:href="#arm" transform="rotate(180 256 256)" />
+    <use xlink:href="#arm" transform="rotate(225 256 256)" />
+    <use xlink:href="#arm" transform="rotate(270 256 256)" />
+    <use xlink:href="#arm" transform="rotate(315 256 256)" />
+  </g>
+
+  <!-- Playhead points vary in size like pen marks and follow the mirrored path. -->
+  <g filter="url(#pointGlow)">
+    <g fill="#ffbd52" stroke="#fff4a0" stroke-width="2">
+      <circle cx="256" cy="197" r="6" />
+      <circle cx="315" cy="256" r="6" />
+      <circle cx="256" cy="315" r="6" />
+      <circle cx="197" cy="256" r="6" />
+      <circle cx="214.3" cy="214.3" r="6" />
+      <circle cx="297.7" cy="214.3" r="6" />
+      <circle cx="297.7" cy="297.7" r="6" />
+      <circle cx="214.3" cy="297.7" r="6" />
+    </g>
+    <g fill="#ff4da6" stroke="#ffb4dd" stroke-width="2">
+      <circle cx="256" cy="151" r="8" />
+      <circle cx="361" cy="256" r="8" />
+      <circle cx="256" cy="361" r="8" />
+      <circle cx="151" cy="256" r="8" />
+      <circle cx="181.8" cy="181.8" r="8" />
+      <circle cx="330.2" cy="181.8" r="8" />
+      <circle cx="330.2" cy="330.2" r="8" />
+      <circle cx="181.8" cy="330.2" r="8" />
+    </g>
+    <g fill="url(#point)" stroke="#d5ffff" stroke-width="3">
+      <circle cx="256" cy="91" r="11" />
+      <circle cx="421" cy="256" r="11" />
+      <circle cx="256" cy="421" r="11" />
+      <circle cx="91" cy="256" r="11" />
+      <circle cx="139.3" cy="139.3" r="11" />
+      <circle cx="372.7" cy="139.3" r="11" />
+      <circle cx="372.7" cy="372.7" r="11" />
+      <circle cx="139.3" cy="372.7" r="11" />
+    </g>
+  </g>
+
+  <circle cx="256" cy="256" r="19" fill="#0b1421" stroke="#fff27a" stroke-width="7" filter="url(#pointGlow)" />
+  <circle cx="256" cy="256" r="6" fill="#ffffff" />
+</svg>

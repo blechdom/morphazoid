@@ -40,20 +40,6 @@ export const BARBER_DELAY_LIMITS = Object.freeze({
 
 const CANDY_DEFAULTS = Object.freeze({
   numVoices: 8,
-  speed: 1,
-  range: 1,
-  directionUp: true,
-  tilt: 0,
-  feedback: 0,
-  fbDelay: 0.25,
-  globalFeedback: 0,
-  dryWet: 0.7,
-  inputGain: 1,
-  outputLevel: 0.5,
-});
-
-const SLUDGE_DEFAULTS = Object.freeze({
-  numVoices: 8,
   speed: 0.5,
   range: 2,
   directionUp: true,
@@ -84,13 +70,11 @@ const SANDY_DEFAULTS = Object.freeze({
 
 export const BARBER_DELAY_DEFAULTS = Object.freeze({
   candy: CANDY_DEFAULTS,
-  sludge: SLUDGE_DEFAULTS,
   sandy: SANDY_DEFAULTS,
 });
 
 export function sanitizeBarberDelayMode(mode) {
-  if (mode === "sludge" || mode === "sandy") return mode;
-  return "candy";
+  return mode === "sandy" ? "sandy" : "candy";
 }
 
 function finiteNumber(value, fallback) {
@@ -280,10 +264,8 @@ export function sanitizeBarberDelayParams(params = {}, mode = "candy") {
 }
 
 /**
- * The two delay-head paths preserved from Morphisma.
- *
- * Candy traverses its range exponentially. Sludge makes a centered sin² hump,
- * passing from one side of the source pitch to the other during each turn.
+ * Candy's centered sin² path passes from one side of the source pitch to the
+ * other during each turn. Direction chooses which side is heard first.
  */
 export function barberDelayCurve(
   mode,
@@ -291,14 +273,9 @@ export function barberDelayCurve(
   directionUp = true,
 ) {
   const position = wrapBarberPhase(phase);
-  let rising;
-  if (sanitizeBarberDelayMode(mode) === "sludge") {
-    const sine = Math.sin(Math.PI * position);
-    rising = sine * sine;
-  } else {
-    rising = (2 ** (1 - position)) - 1;
-  }
-  return directionUp ? rising : 1 - rising;
+  const sine = Math.sin(Math.PI * position);
+  const hump = sine * sine;
+  return directionUp ? hump : 1 - hump;
 }
 
 /**
@@ -501,30 +478,15 @@ export function barberDelayPitchEstimate(params = {}, mode = "candy") {
       octaves: safe.pitchOctaves,
     });
   }
-  if (safeMode === "sludge") {
-    const product = safe.speed * safe.range * Math.PI;
-    const ratio = 1 + product;
-    return Object.freeze({
-      product,
-      ratio,
-      lowRatio: 1 / ratio,
-      highRatio: ratio,
-      semitones: 12 * Math.log2(ratio),
-      symmetric: true,
-    });
-  }
-
-  const product = safe.speed * safe.range;
-  const ratio = safe.directionUp
-    ? 1 + product
-    : Math.max(1 - product, 0.01);
+  const product = safe.speed * safe.range * Math.PI;
+  const ratio = 1 + product;
   return Object.freeze({
     product,
     ratio,
-    lowRatio: ratio,
+    lowRatio: 1 / ratio,
     highRatio: ratio,
     semitones: 12 * Math.log2(ratio),
-    symmetric: false,
+    symmetric: true,
   });
 }
 
@@ -540,102 +502,51 @@ function makePreset(mode, id, label, settings) {
 }
 
 const CANDY_PRESETS = Object.freeze([
-  makePreset("candy", "dry-coil", "Dry Coil", {
-    speed: 1, range: 1, directionUp: true, numVoices: 8, tilt: 0,
-    feedback: 0, fbDelay: 0.25, globalFeedback: 0, dryWet: 0.5,
-  }),
-  makePreset("candy", "short-echo", "Short Echo", {
-    speed: 0.3, range: 0.4, directionUp: true, numVoices: 6, tilt: -0.6,
-    feedback: 0.4, fbDelay: 0.1, globalFeedback: 0, dryWet: 0.65,
-  }),
-  makePreset("candy", "dual-grind", "Dual Grind", {
-    speed: 1.309, range: 0.104, directionUp: false, numVoices: 2, tilt: -0.5,
-    feedback: 0.95, fbDelay: 0.006, globalFeedback: 0, dryWet: 1,
-  }),
-  makePreset("candy", "tape-sustain", "Tape Sustain", {
-    speed: 2.5, range: 0.3, directionUp: false, numVoices: 3, tilt: 0.7,
-    feedback: 0.85, fbDelay: 0.35, globalFeedback: 0, dryWet: 0.45,
-  }),
-  makePreset("candy", "dense-spiral", "Dense Spiral", {
-    speed: 0.77, range: 2.032, directionUp: true, numVoices: 12, tilt: 0.28,
-    feedback: 0.95, fbDelay: 4.487, globalFeedback: 0, dryWet: 1,
-  }),
-  makePreset("candy", "tight-comb", "Tight Comb", {
-    speed: 4, range: 0.2, directionUp: true, numVoices: 4, tilt: 0,
-    feedback: 0.65, fbDelay: 0.015, globalFeedback: 0, dryWet: 0.55,
-  }),
-  makePreset("candy", "slow-wash", "Slow Wash", {
-    speed: 0.08, range: 5, directionUp: true, numVoices: 12, tilt: -0.5,
-    feedback: 0.85, fbDelay: 3.5, globalFeedback: 0, dryWet: 0.9,
-  }),
-  makePreset("candy", "falling-deep", "Falling Deep", {
-    speed: 0.6, range: 2.5, directionUp: false, numVoices: 10, tilt: 0.4,
-    feedback: 0.7, fbDelay: 1.5, globalFeedback: 0, dryWet: 0.8,
-  }),
-  makePreset("candy", "fast-dirty", "Fast & Dirty", {
-    speed: 4.5, range: 0.6, directionUp: true, numVoices: 2, tilt: 0.8,
-    feedback: 0.5, fbDelay: 0.04, globalFeedback: 0, dryWet: 0.75,
-  }),
-  makePreset("candy", "frozen-lake", "Frozen Lake", {
-    speed: 0.03, range: 7, directionUp: true, numVoices: 12, tilt: 0,
-    feedback: 0.92, fbDelay: 4, globalFeedback: 0, dryWet: 1,
-  }),
-  makePreset("candy", "still-resonance", "Still Resonance", {
-    speed: 0, range: 0.101, directionUp: true, numVoices: 6, tilt: -0.67,
-    feedback: 0, fbDelay: 0.001, globalFeedback: 0, dryWet: 1,
-  }),
-  makePreset("candy", "long-repeat", "Long Repeat", {
-    speed: 1.2, range: 3.5, directionUp: false, numVoices: 8, tilt: 0.15,
-    feedback: 0.75, fbDelay: 2, globalFeedback: 0, dryWet: 0.7,
-  }),
-]);
-
-const SLUDGE_PRESETS = Object.freeze([
-  makePreset("sludge", "centered-rise", "Centered Rise", {
+  makePreset("candy", "centered-rise", "Centered Rise", {
     speed: 0.5, range: 2, directionUp: true, numVoices: 8, tilt: 0,
     feedback: 0, fbDelay: 1, globalFeedback: 0, dryWet: 0.8,
   }),
-  makePreset("sludge", "centered-fall", "Centered Fall", {
+  makePreset("candy", "centered-fall", "Centered Fall", {
     speed: 0.5, range: 2, directionUp: false, numVoices: 8, tilt: 0,
     feedback: 0, fbDelay: 1, globalFeedback: 0, dryWet: 0.8,
   }),
-  makePreset("sludge", "slow-sludge", "Slow Sludge", {
+  makePreset("candy", "slow-coil", "Slow Coil", {
     speed: 0.1, range: 4, directionUp: true, numVoices: 12, tilt: 0,
     feedback: 0.7, fbDelay: 3, globalFeedback: 0, dryWet: 0.9,
   }),
-  makePreset("sludge", "thick-tar", "Thick Tar", {
+  makePreset("candy", "thick-tar", "Thick Tar", {
     speed: 0.08, range: 6, directionUp: false, numVoices: 12, tilt: -0.3,
     feedback: 0.85, fbDelay: 4, globalFeedback: 0, dryWet: 1,
   }),
-  makePreset("sludge", "quick-stripe", "Quick Stripe", {
+  makePreset("candy", "quick-stripe", "Quick Stripe", {
     speed: 2, range: 0.5, directionUp: true, numVoices: 4, tilt: 0.5,
     feedback: 0.4, fbDelay: 0.5, globalFeedback: 0, dryWet: 0.6,
   }),
-  makePreset("sludge", "mud-churn", "Mud Churn", {
+  makePreset("candy", "mud-churn", "Mud Churn", {
     speed: 0.3, range: 3, directionUp: false, numVoices: 10, tilt: 0.4,
     feedback: 0.8, fbDelay: 2, globalFeedback: 0, dryWet: 0.85,
   }),
-  makePreset("sludge", "dual-grind", "Dual Grind", {
+  makePreset("candy", "dual-grind", "Dual Grind", {
     speed: 1.3, range: 0.1, directionUp: false, numVoices: 2, tilt: -0.5,
     feedback: 0.95, fbDelay: 0.01, globalFeedback: 0, dryWet: 1,
   }),
-  makePreset("sludge", "wide-sweep", "Wide Sweep", {
+  makePreset("candy", "wide-sweep", "Wide Sweep", {
     speed: 0.15, range: 5, directionUp: true, numVoices: 12, tilt: 0,
     feedback: 0, fbDelay: 2, globalFeedback: 0, dryWet: 0.85,
   }),
-  makePreset("sludge", "frozen-bog", "Frozen Bog", {
+  makePreset("candy", "frozen-bog", "Frozen Bog", {
     speed: 0.02, range: 8, directionUp: true, numVoices: 12, tilt: 0,
     feedback: 0.9, fbDelay: 5, globalFeedback: 0, dryWet: 1,
   }),
-  makePreset("sludge", "tight-wobble", "Tight Wobble", {
+  makePreset("candy", "tight-wobble", "Tight Wobble", {
     speed: 1.5, range: 0.3, directionUp: true, numVoices: 6, tilt: -0.4,
     feedback: 0.5, fbDelay: 0.2, globalFeedback: 0, dryWet: 0.55,
   }),
-  makePreset("sludge", "long-pour", "Long Pour", {
+  makePreset("candy", "long-pour", "Long Pour", {
     speed: 0.06, range: 7, directionUp: false, numVoices: 12, tilt: 0.2,
     feedback: 0.75, fbDelay: 4, globalFeedback: 0, dryWet: 0.95,
   }),
-  makePreset("sludge", "gentle-ooze", "Gentle Ooze", {
+  makePreset("candy", "gentle-ooze", "Gentle Ooze", {
     speed: 0.2, range: 1.5, directionUp: true, numVoices: 8, tilt: 0.2,
     feedback: 0.3, fbDelay: 1, globalFeedback: 0, dryWet: 0.5,
   }),
@@ -706,7 +617,6 @@ const SANDY_PRESETS = Object.freeze([
 
 export const BARBER_DELAY_PRESETS = Object.freeze({
   candy: CANDY_PRESETS,
-  sludge: SLUDGE_PRESETS,
   sandy: SANDY_PRESETS,
 });
 
@@ -922,7 +832,6 @@ function createProcessorClass(AudioWorkletBase) {
       const input = inputs[0] ?? [];
       const leftInput = input[0];
       const rightInput = input[1] ?? leftInput;
-      const isSludge = this.mode === "sludge";
       const isSandy = this.isSandy;
       const parameterSlew = 1 - Math.exp(-1 / (this.sampleRate * 0.02));
       const voiceSlew = 1 - Math.exp(-1 / (this.sampleRate * 0.075));
@@ -1151,13 +1060,8 @@ function createProcessorClass(AudioWorkletBase) {
             let voicePhase = this.phase + (voiceIndex / voiceCount);
             voicePhase -= Math.floor(voicePhase);
 
-            let risingCurve;
-            if (isSludge) {
-              const sine = Math.sin(Math.PI * voicePhase);
-              risingCurve = sine * sine;
-            } else {
-              risingCurve = (2 ** (1 - voicePhase)) - 1;
-            }
+            const sine = Math.sin(Math.PI * voicePhase);
+            const risingCurve = sine * sine;
             const curve = (
               (risingCurve * this.current.directionMix)
               + ((1 - risingCurve) * (1 - this.current.directionMix))

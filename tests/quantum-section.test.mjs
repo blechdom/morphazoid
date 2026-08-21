@@ -24,12 +24,28 @@ const quantumPages = Object.freeze([
     number: "02",
   }),
   Object.freeze({
+    id: "entanglement-dance",
+    label: "Entanglement Dance",
+    page: "entanglement-dance.html",
+    app: "entanglement-dance-app.js",
+    core: "src/entanglement-dance.js",
+    number: "03",
+  }),
+  Object.freeze({
+    id: "quantum-square-dance",
+    label: "Quantum Square Dance",
+    page: "quantum-square-dance.html",
+    app: "quantum-square-dance-app.js",
+    core: "src/quantum-square-dance.js",
+    number: "04",
+  }),
+  Object.freeze({
     id: "annealogue",
     label: "Annealogue",
     page: "annealogue.html",
     app: "annealogue-app.js",
     core: "src/annealogue.js",
-    number: "03",
+    number: "05",
   }),
 ]);
 
@@ -39,8 +55,15 @@ test("menu registry keeps the quantum simulators with Morphazoidical in Experime
   assert.equal(group.label, "Experiments");
   const quantumStart = group.tools.findIndex(({ id }) => id === "order-tones");
   assert.deepEqual(
-    group.tools.slice(quantumStart, quantumStart + 4).map(({ id }) => id),
-    ["order-tones", "morphazoidical", "bell-square", "annealogue"],
+    group.tools.slice(quantumStart, quantumStart + 6).map(({ id }) => id),
+    [
+      "order-tones",
+      "morphazoidical",
+      "bell-square",
+      "entanglement-dance",
+      "quantum-square-dance",
+      "annealogue",
+    ],
   );
   assert.deepEqual(
     group.tools
@@ -73,6 +96,9 @@ test("Quantum Synth pages share the instrument shell and disclose simulation sco
     assert.match(html, new RegExp(`<h1[^>]*>${instrument.label}<\\/h1>`, "i"));
     assert.match(html, new RegExp(`<script type="module" src="${instrument.app.replace(".", "\\.")}">`));
     assert.match(app, new RegExp(`from ["']\\./${instrument.core.replace("src/", "src/").replace(".", "\\.")}["']`));
+    for (const route of quantumPages) {
+      assert.match(html, new RegExp(`(?:href|value)="${route.page.replace(".", "\\.")}"`));
+    }
     assert.match(app, /audioState/);
     assert.match(app, /pagehide/);
     assert.doesNotMatch(core, /\bdocument\.|\bwindow\./, `${instrument.core} must stay import-safe`);

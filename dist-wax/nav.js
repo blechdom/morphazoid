@@ -58,6 +58,7 @@ const freezeGroup = (id, label, tools, metadata = {}) => Object.freeze({
 export const TOOL_GROUPS = Object.freeze([
   freezeGroup("geometry", "Geometry Synths", [
     { id: "shape", label: "Shape", href: "shape.html" },
+    { id: "playhead-paint", label: "Playhead Paint", href: "playhead-paint.html" },
     { id: "lattice", label: "Lattice", href: "lattice.html" },
     { id: "spiral", label: "Spiral", href: "spiral.html" },
     { id: "solid", label: "Solid", href: "solid.html" },
@@ -125,7 +126,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
     { id: "syrinx", label: "Syrinx", href: "syrinx.html" },
-    { id: "morphynx", label: "Morphynx", href: "morphynx.html" },
     {
       id: "tongued-beasts",
       label: "Tongued Beasts",
@@ -153,11 +153,6 @@ export const TOOL_GROUPS = Object.freeze([
       href: "ouroboros-borealis.html",
     },
     { id: "sandy-syrup-delay", label: "Sandy Syrup Delay", href: "sandy-syrup-delay.html" },
-    {
-      id: "striped-sludge-delay",
-      label: "Striped Sludge Delay",
-      href: "striped-sludge-delay.html",
-    },
     { id: "candy-coil-delay", label: "Candy Coil Delay", href: "candy-coil-delay.html" },
   ]),
   freezeGroup("fractals-recursion", "Fractals & Recursion", [
@@ -221,6 +216,14 @@ export const TOOL_GROUPS = Object.freeze([
     },
     { id: "alien-larynx", label: "Alien Larynx", href: "alien-larynx.html" },
     { id: "hyper-syrinx", label: "Hyper-Syrinx", href: "hyper-syrinx.html" },
+    { id: "morphynx", label: "Morphynx", href: "morphynx.html" },
+    {
+      id: "orbital-ferris",
+      label: "Feral Fairy Ferris Ferry",
+      href: "orbital-ferris.html",
+      catalogue: false,
+      picker: true,
+    },
     {
       id: "escher-tessellation",
       label: "Escher",
@@ -235,6 +238,12 @@ export const TOOL_GROUPS = Object.freeze([
       match: "directory",
     },
     { id: "bell-square", label: "Bell Square", href: "bell-square.html" },
+    { id: "entanglement-dance", label: "Entanglement Dance", href: "entanglement-dance.html" },
+    {
+      id: "quantum-square-dance",
+      label: "Quantum Square Dance",
+      href: "quantum-square-dance.html",
+    },
     { id: "annealogue", label: "Annealogue", href: "annealogue.html" },
     { id: "gravity-walk", label: "Gravity Walk", href: "gravity-walk.html" },
     { id: "ricochet", label: "Ricochet", href: "ricochet.html" },
@@ -255,8 +264,8 @@ export const TOOL_GROUPS = Object.freeze([
     },
     {
       id: "cellular-automata",
-      label: "Cellular Automata",
-      href: "cellular-automata.html",
+      label: "Automata, Automay-to",
+      href: "automata.html",
     },
     { id: "prime-sieve", label: "Prime Sieve", href: "prime-sieve.html" },
     {
@@ -300,7 +309,12 @@ const SITE_LINK_ALIASES = Object.freeze({});
 export const NAVIGATION_BASE_URL = new URL("./", import.meta.url).href;
 
 const allTools = () => TOOL_GROUPS.flatMap((group) => group.tools);
-const pickerGroups = () => TOOL_GROUPS.filter((group) => group.picker !== false);
+const pickerGroups = () => TOOL_GROUPS.flatMap((group) => {
+  const tools = group.tools.filter((tool) => (
+    group.picker !== false || tool.picker === true
+  ));
+  return tools.length > 0 ? [{ ...group, tools }] : [];
+});
 
 /**
  * Normalize a navigation URL to a pathname suitable for route comparison.

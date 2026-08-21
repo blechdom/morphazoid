@@ -4,21 +4,21 @@
 }
 
 .candy-coil-page {
-  --barber-primary: #ed5f9f;
-  --accent: #ed5f9f;
-  --accent-soft: color-mix(in oklab, #ed5f9f 56%, transparent);
-  --accent-glow: color-mix(in oklab, #ed5f9f 22%, transparent);
-  --barber-secondary: #c9f04b;
-  --barber-tertiary: #9f58c7;
-}
-
-.striped-sludge-page {
-  --barber-primary: #9cad45;
-  --accent: #9cad45;
-  --accent-soft: color-mix(in oklab, #9cad45 56%, transparent);
-  --accent-glow: color-mix(in oklab, #9cad45 22%, transparent);
-  --barber-secondary: #69d9ee;
-  --barber-tertiary: #76552f;
+  --bg: #18070a;
+  --bg-deep: #0d0305;
+  --panel: #16090b;
+  --panel-high: #211013;
+  --ink: #fff7ea;
+  --muted: #c99da0;
+  --faint: #8e5c61;
+  --line: rgba(255, 247, 234, 0.1);
+  --line-strong: rgba(255, 247, 234, 0.2);
+  --barber-primary: #dc2f3f;
+  --accent: #dc2f3f;
+  --accent-soft: color-mix(in oklab, #dc2f3f 58%, transparent);
+  --accent-glow: color-mix(in oklab, #dc2f3f 25%, transparent);
+  --barber-secondary: #fff7ea;
+  --barber-tertiary: #f46d78;
 }
 
 .sandy-syrup-page {
@@ -42,11 +42,18 @@
     var(--bg-deep);
 }
 
-.striped-sludge-page .barber-delay-stage .stage-wrap {
+.candy-coil-page .barber-delay-stage .stage-wrap {
   background:
-    radial-gradient(ellipse at 50% 51%, color-mix(in oklab, var(--barber-secondary) 8%, transparent), transparent 64%),
-    radial-gradient(ellipse at 50% 48%, color-mix(in oklab, var(--accent) 4%, transparent), transparent 78%),
-    var(--bg-deep);
+    radial-gradient(ellipse at 50% 51%, rgba(220, 47, 63, 0.22), transparent 62%),
+    radial-gradient(ellipse at 50% 48%, rgba(255, 247, 234, 0.09), transparent 76%),
+    repeating-linear-gradient(
+      -34deg,
+      rgba(220, 47, 63, 0.2) 0 24px,
+      rgba(255, 247, 234, 0.12) 24px 48px,
+      rgba(220, 47, 63, 0.07) 48px 72px,
+      rgba(255, 247, 234, 0.035) 72px 96px
+    ),
+    #0d0305;
 }
 
 .sandy-syrup-page .barber-delay-stage .stage-wrap {
@@ -187,16 +194,16 @@
   --accent-glow: color-mix(in oklab, var(--barber-cyan) 20%, transparent);
 }
 
-.striped-sludge-page .control-section.barber-delay-presets[data-section="form"] {
+.candy-coil-page .control-section.barber-delay-presets[data-section="form"] {
   --accent: var(--barber-secondary);
   --accent-soft: color-mix(in oklab, var(--barber-secondary) 55%, transparent);
   --accent-glow: color-mix(in oklab, var(--barber-secondary) 18%, transparent);
 }
 
-.striped-sludge-page .control-section.barber-delay-sound[data-section="sound"] {
-  --accent: #d7c59a;
-  --accent-soft: color-mix(in oklab, #d7c59a 55%, transparent);
-  --accent-glow: color-mix(in oklab, #d7c59a 18%, transparent);
+.candy-coil-page .control-section.barber-delay-sound[data-section="sound"] {
+  --accent: #f46d78;
+  --accent-soft: color-mix(in oklab, #f46d78 55%, transparent);
+  --accent-glow: color-mix(in oklab, #f46d78 20%, transparent);
 }
 
 .sandy-syrup-page .control-section.barber-delay-source[data-section="play"] {

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" /><meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Morphazoid Feral Fairy Ferris Ferry - audible contours nested inside moving shapes that modulate and delay their descendants." /><title>Feral Fairy Ferris Ferry - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" /><link rel="stylesheet" href="style.css" /><link rel="stylesheet" href="experiments.css" />
+  </head>
+  <body class="experiment-page" data-experiment="orbitalFerris">
+    <header class="masthead"><a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a><nav class="tabs" aria-label="Morphazoid main menu"><a class="tab active" href="orbital-ferris.html" aria-current="page">feral fairy ferris ferry</a></nav><label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="orbital-ferris.html" selected>feral fairy ferris ferry</option></select></label><div class="header-actions"><button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-dot" aria-hidden="true"></span><span>audio</span><strong id="audioState">off</strong></button><label class="header-level" for="level"><span><b>level</b><output id="levelOut" for="level">40%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="0.82" step="0.01" value="0.40" /></label></div></header>
+    <main class="shell experiment-shell" id="orbitalFerris">
+      <section class="stage" aria-label="Feral Fairy Ferris Ferry stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" role="img" aria-label="Nested path shapes carrying gesture contours around their perimeters, with moving playheads." aria-describedby="canvasInstructions liveStatus">Nested paths carrying shaped gesture playheads.</canvas>
+          <div class="stage-meta" aria-hidden="true"><span id="stageReadout">FERAL FAIRY FERRIS FERRY · 1 GESTURE · 3 LEVELS · PAUSED · AUDIO OFF</span></div>
+          <div class="experiment-title" aria-hidden="true"><h1>Feral Fairy Ferris Ferry</h1><small>wheels within wheels</small></div>
+        </div>
+        <p class="sr-only" id="canvasInstructions">Level 1 carries the audible playhead. Higher levels move it around nested shape perimeters and process its sound.</p>
+        <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+      </section>
+      <aside class="panel experiment-panel" aria-label="Feral Fairy Ferris Ferry controls">
+        <section class="group experiment-card" aria-labelledby="experimentTitle">
+          <div class="orbital-master-row">
+            <button class="play-button" id="orbitalMasterPlay" type="button" aria-pressed="false" aria-label="Play Feral Fairy Ferris Ferry" data-primary-transport data-no-midi-preview>
+              <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+              <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+            </button>
+            <div><b>Ferris transport</b><span id="orbitalMasterState">paused</span></div>
+          </div>
+          <div class="experiment-card-heading"><h2 class="group-title" id="experimentTitle">Experiment</h2><span class="section-state" id="experimentSummary">nested processing</span></div>
+          <dl class="experiment-meter-grid"><div><dt>Total gestures</dt><dd id="metricPrimary">1</dd></div><div><dt>Active levels</dt><dd id="metricSecondary">3 / 3</dd></div></dl>
+        </section>
+        <section class="group control-section" aria-labelledby="gestureTitle">
+          <div class="experiment-card-heading"><h2 class="group-title" id="gestureTitle">Structure</h2><span class="section-state" id="patternSummary">paused &middot; 3/3 active</span></div>
+          <div class="group-body">
+            <label class="control" for="orbitalGestures"><span><b>Gestures per path</b><output id="orbitalGesturesOut" for="orbitalGestures">1 gesture</output></span><input id="orbitalGestures" type="range" min="1" max="6" step="1" value="1" /></label>
+            <label class="control" for="orbitalLevels"><span><b>Levels</b><output id="orbitalLevelsOut" for="orbitalLevels">3 levels</output></span><input id="orbitalLevels" type="range" min="1" max="5" step="1" value="3" /></label>
+            <div class="orbital-level-control" role="group" aria-label="Level shapes, motion, and processors">
+              <div class="orbital-level-heading"><b>Shape &amp; processor</b><button class="orbital-level-reset" id="orbitalLevelOneOnly" type="button">Level 1 only</button></div>
+              <div class="orbital-level-grid">
+                <div class="orbital-level-row">
+                  <label><input type="checkbox" data-orbital-level="1" checked /><span>Level 1</span></label>
+                  <div class="orbital-level-selects"><select data-orbital-shape="1" aria-label="Level 1 shape"><option value="circle" selected>Circle</option><option value="triangle">Triangle</option><option value="square">Square</option><option value="star">Star</option></select><select data-orbital-processor="1" aria-label="Level 1 processor" title="Level 1 is the audible voice" disabled><option value="voice" selected>Voice</option></select></div>
+                </div>
+                <div class="orbital-level-row">
+                  <label><input type="checkbox" data-orbital-level="2" checked /><span>Level 2</span></label>
+                  <div class="orbital-level-selects"><select data-orbital-shape="2" aria-label="Level 2 shape"><option value="circle">Circle</option><option value="triangle" selected>Triangle</option><option value="square">Square</option><option value="line">Line</option><option value="star">Star</option></select><select data-orbital-processor="2" aria-label="Level 2 processor" title="Processor follows this level's inherited position"><option value="pass">Pass</option><option value="modulator" selected>Modulator</option><option value="delay">Delay</option></select></div>
+                </div>
+                <div class="orbital-level-row">
+                  <label><input type="checkbox" data-orbital-level="3" checked /><span>Level 3</span></label>
+                  <div class="orbital-level-selects"><select data-orbital-shape="3" aria-label="Level 3 shape"><option value="circle">Circle</option><option value="triangle">Triangle</option><option value="square" selected>Square</option><option value="line">Line</option><option value="star">Star</option></select><select data-orbital-processor="3" aria-label="Level 3 processor" title="Processor follows this level's inherited position"><option value="pass">Pass</option><option value="modulator">Modulator</option><option value="delay" selected>Delay</option></select></div>
+                </div>
+                <div class="orbital-level-row">
+                  <label><input type="checkbox" data-orbital-level="4" /><span>Level 4</span></label>
+                  <div class="orbital-level-selects"><select data-orbital-shape="4" aria-label="Level 4 shape"><option value="circle">Circle</option><option value="triangle">Triangle</option><option value="square">Square</option><option value="line" selected>Line</option><option value="star">Star</option></select><select data-orbital-processor="4" aria-label="Level 4 processor" title="Processor follows this level's inherited position"><option value="pass" selected>Pass</option><option value="modulator">Modulator</option><option value="delay">Delay</option></select></div>
+                </div>
+                <div class="orbital-level-row">
+                  <label><input type="checkbox" data-orbital-level="5" /><span>Level 5</span></label>
+                  <div class="orbital-level-selects"><select data-orbital-shape="5" aria-label="Level 5 shape"><option value="circle">Circle</option><option value="triangle">Triangle</option><option value="square">Square</option><option value="line">Line</option><option value="star" selected>Star</option></select><select data-orbital-processor="5" aria-label="Level 5 processor" title="Processor follows this level's inherited position"><option value="pass" selected>Pass</option><option value="modulator">Modulator</option><option value="delay">Delay</option></select></div>
+                </div>
+              </div>
+            </div>
+            <label class="control" for="orbitalRate"><span><b>Path speed</b><output id="orbitalRateOut" for="orbitalRate">0.1 cyc/s</output></span><input id="orbitalRate" type="range" min="0.02" max="0.6" step="0.005" value="0.1" /></label>
+            <label class="control" for="orbitalRatio"><span><b>Speed ratio</b><output id="orbitalRatioOut" for="orbitalRatio">3× per level</output></span><input id="orbitalRatio" type="range" min="1.5" max="8" step="0.1" value="3" /></label>
+          </div>
+        </section>
+        <section class="group control-section" aria-labelledby="gesturePlaybackTitle">
+          <div class="experiment-card-heading"><h2 class="group-title" id="gesturePlaybackTitle">Level 1 playback</h2><span class="section-state" id="gestureSummary">Level 1 paused &middot; loop</span></div>
+          <div class="group-body">
+            <label class="control" for="orbitalGestureSeconds"><span><b>Contour time</b><output id="orbitalGestureSecondsOut" for="orbitalGestureSeconds">4 s one way</output></span><input id="orbitalGestureSeconds" type="range" min="0.1" max="4" step="0.05" value="4" /></label>
+            <div class="experiment-button-grid orbital-motion-grid" role="group" aria-label="Gesture contour motion">
+              <button type="button" data-orbital-motion="loop" aria-pressed="true">Loop path</button>
+              <button type="button" data-orbital-motion="bounce" aria-pressed="false">Back &amp; forth</button>
+            </div>
+            <label class="control" for="orbitalPitchSpan"><span><b>Pitch span</b><output id="orbitalPitchSpanOut" for="orbitalPitchSpan">4 octaves</output></span><input id="orbitalPitchSpan" type="range" min="1" max="8" step="0.5" value="4" /></label>
+            <label class="control" for="orbitalZoom"><span><b>Zoom into core</b><output id="orbitalZoomOut" for="orbitalZoom">0%</output></span><input id="orbitalZoom" type="range" min="0" max="1" step="0.01" value="0" /></label>
+            <label class="control" for="orbitalTone"><span><b>Center pitch</b><output id="orbitalToneOut" for="orbitalTone">110 Hz</output></span><input id="orbitalTone" type="range" min="40" max="220" step="1" value="110" /></label>
+          </div>
+        </section>
+        <div class="reset-all-row"><button class="reset-all-button" type="button" data-reset-all>Reset all parameters</button></div>
+      </aside>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="experiments-app.js"></script>
+  </body>
+</html>

@@ -9,7 +9,7 @@ const experimentPages = [
   ["chladni-plate.html", "chladni", "Chladni Plate", "chladni-plate"],
   ["spring-choir.html", "springs", "Spring Choir", "spring-choir"],
   ["gear-ratio-drums.html", "gears", "Gear Ratio Drums", "gear-ratio-drums"],
-  ["cellular-automata.html", "automata", "Cellular Automata", "cellular-automata"],
+  ["automata.html", "automata", "Automata, Automay-to", "cellular-automata"],
   ["prime-sieve.html", "primes", "Prime Sieve", "prime-sieve"],
   ["lissajous-orbits.html", "lissajous", "Lissajous Orbits", "lissajous-orbits"],
   ["pendulum-wave.html", "pendulums", "Pendulum Wave", "pendulum-wave"],
@@ -20,6 +20,7 @@ const experimentPages = [
   ["neural-pulse.html", "neural", "Neural Pulse", "neural-pulse"],
   ["fourier-epicycles.html", "fourier", "Fourier Epicycles", "fourier-epicycles"],
   ["gravity-lens.html", "lensing", "Gravity Lens", "gravity-lens"],
+  ["orbital-ferris.html", "orbitalFerris", "Feral Fairy Ferris Ferry", "orbital-ferris"],
 ];
 
 test("experiment pages are native Morphazoid pages with shared controls", async () => {
@@ -66,6 +67,7 @@ test("experiment runtime contains each simulation and audio mapping", async () =
     "neural",
     "fourier",
     "lensing",
+    "orbitalFerris",
   ]) {
     assert.match(app, new RegExp(`${key}: \\{`));
   }
@@ -90,14 +92,33 @@ test("experiment runtime contains each simulation and audio mapping", async () =
     "fireNeuralInput",
     "fourierCoefficient",
     "lensGeometry",
+    "drawOrbitalGesture",
+    "drawOrbitalFerris",
   ]) {
     assert.match(app, new RegExp(name));
   }
   assert.match(app, /class ExperimentAudio/);
+  assert.match(app, /triggerRowScan\(cells, rate = 8\)/);
+  assert.match(app, /audio\.triggerRowScan\(row, state\.caRate\)/);
+  assert.doesNotMatch(app, /const degree = PENTATONIC\[Math\.floor\(\(index \/ row\.length\)/);
+  assert.doesNotMatch(app, /frequency: 68 \+ density \* 260/);
+  assert.doesNotMatch(app, /pan: \(index \/ \(row\.length - 1\)\) \* 2 - 1/);
   assert.match(app, /createDynamicsCompressor/);
   assert.match(app, /pagehide/);
   assert.match(css, /\.experiment-title/);
   assert.match(css, /\.experiment-meter-grid/);
+});
+
+test("Automata, Automay-to keeps the NKS questions and uses literal mono row scans", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("automata.html", root), "utf8"),
+    readFile(new URL("experiments-app.js", root), "utf8"),
+  ]);
+  assert.match(html, /NKS Open Problems/);
+  assert.match(html, /https:\/\/www\.wolframscience\.com\/openproblems\/NKSOpenProblems\.pdf/);
+  assert.match(html, /mono pulse texture/i);
+  assert.match(app, /createBuffer\(1, frameCount, sampleRate\)/);
+  assert.match(app, /audio\.triggerRowScan\(row, state\.caRate\)/);
 });
 
 test("RISSET-MOIRE pairs every line with a counter-moving Shepard oscillator", async () => {

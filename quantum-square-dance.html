@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Quantum Square Dance — a musical, rhythmic classical simulation of the exchange interaction and square-root-of-SWAP entanglement observed in paired rubidium atoms."
+    />
+    <title>Quantum Square Dance — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="quantum-synths.css" />
+  </head>
+  <body class="quantum-page quantum-square-dance-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs quantum-tabs" aria-label="Quantum Synths">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab" href="order-tones.html">order tones</a>
+        <a class="tab" href="bell-square.html">bell square</a>
+        <a class="tab" href="entanglement-dance.html">entanglement dance</a>
+        <a class="tab active" href="quantum-square-dance.html" aria-current="page">square dance</a>
+        <a class="tab" href="annealogue.html">annealogue</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Quantum Synth</span>
+        <select class="mobile-instrument-select" aria-label="Quantum Synth">
+          <option value="shape.html">shape</option>
+          <option value="order-tones.html">order tones</option>
+          <option value="bell-square.html">bell square</option>
+          <option value="entanglement-dance.html">entanglement dance</option>
+          <option value="quantum-square-dance.html" selected>square dance</option>
+          <option value="annealogue.html">annealogue</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button
+          class="audio-button"
+          id="audioButton"
+          type="button"
+          aria-label="Turn Quantum Square Dance audio on"
+          aria-pressed="false"
+          title="Audio off"
+        >
+          <span class="audio-speaker-icon" aria-hidden="true"></span>
+          <span class="sr-only">Audio <span id="audioState">off</span></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Output</b><output id="levelOut" for="level">46%</output></span>
+          <input
+            id="level"
+            aria-label="Quantum Square Dance output level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.46"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell quantum-shell square-dance-shell" id="quantumSquareDance">
+      <section class="stage quantum-stage square-dance-stage" aria-labelledby="squareDanceTitle">
+        <div class="stage-wrap quantum-stage-wrap square-dance-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            tabindex="0"
+            role="img"
+            aria-roledescription="interactive exchange visualization"
+            aria-keyshortcuts="Space ArrowLeft ArrowRight H S M R Escape"
+            aria-label="A representative optical-lattice floor, one enlarged double well, and an exchange-phase ring. The prepared opposite-spin pair has not begun exchanging. Audio is off."
+            aria-describedby="squareDanceDescription canvasInstructions liveStatus"
+          >
+            A representative lattice of paired rubidium atoms. One enlarged double well shows the coherent exchange between the joint states up-down and down-up. A phase ring marks prepare, square-root-of-SWAP, SWAP, and inverse square-root-of-SWAP.
+          </canvas>
+
+          <div class="quantum-heading square-dance-heading">
+            <p class="quantum-kicker">QUANTUM SYNTHS · 04</p>
+            <h1 id="squareDanceTitle">Quantum Square Dance</h1>
+            <span>EXCHANGE PAIRS · √SWAP ENTANGLEMENT · MUSICAL TIME LENS</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">PREPARE · θ 0 · C 0.000 · 1 PAIR · AUDIO OFF</span>
+          </div>
+
+          <p class="quantum-simulation-notice square-dance-stage-notice">
+            Exact ideal two-state classical simulation · not a QPU or audio emitted by atoms
+          </p>
+        </div>
+      </section>
+
+      <aside class="panel quantum-panel square-dance-panel" aria-label="Quantum Square Dance controls and explanation">
+        <details class="group control-section square-dance-transport" data-section="exchange" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Exchange</h2>
+            <span class="section-state" id="exchangeSummary">prepared · θ 0 · separable</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="scene">
+              <span class="field-label">Scene</span>
+              <span class="select-shell">
+                <select id="scene">
+                  <option value="one-pair" selected>1 · Swing one pair</option>
+                  <option value="hold-half-swap">2 · Hold the √SWAP</option>
+                  <option value="whole-floor">3 · The whole floor</option>
+                </select>
+              </span>
+            </label>
+
+            <div class="quantum-transport-row square-dance-transport-row">
+              <button
+                class="play-button"
+                id="playButton"
+                type="button"
+                aria-label="Play the exchange cycle"
+                aria-pressed="false"
+                data-primary-transport
+                data-no-midi-preview
+              >
+                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+              </button>
+              <label class="control position-control" for="exchangePhase">
+                <span><b>Exchange phase θ</b><output id="exchangePhaseOut" for="exchangePhase">0 · 0°</output></span>
+                <input
+                  id="exchangePhase"
+                  type="range"
+                  min="0"
+                  max="360"
+                  step="0.1"
+                  value="0"
+                  data-no-midi-preview
+                />
+              </label>
+            </div>
+
+            <div class="quantum-action-grid square-dance-phase-actions" role="group" aria-label="Exchange landmarks">
+              <button class="mini-action" id="halfSwapButton" type="button">Hold √SWAP</button>
+              <button class="mini-action" id="swapButton" type="button">Full SWAP</button>
+              <button class="mini-action" id="reprepareButton" type="button">Reprepare</button>
+            </div>
+
+            <label class="control" for="cycleDuration">
+              <span><b>Musical recurrence</b><output id="cycleDurationOut" for="cycleDuration">2.400 s · 1 bar</output></span>
+              <input
+                id="cycleDuration"
+                type="range"
+                min="0.6"
+                max="9.6"
+                step="0.05"
+                value="2.4"
+                data-no-midi-preview
+              />
+            </label>
+            <p class="quantum-control-note square-dance-key-note">
+              Arm the speaker explicitly. Space plays or pauses. Dragging θ sounds the exchange landmarks while paused.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="pair" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Pair &amp; environment</h2>
+            <span class="section-state">opposite spins · coherent</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="preparation">
+              <span class="field-label">Initial spin preparation</span>
+              <span class="select-shell">
+                <select id="preparation">
+                  <option value="01" selected>|↑↓⟩ · exchanges</option>
+                  <option value="10">|↓↑⟩ · exchanges</option>
+                  <option value="00">|↑↑⟩ · no spin swap</option>
+                  <option value="11">|↓↓⟩ · no spin swap</option>
+                </select>
+              </span>
+            </label>
+            <p class="quantum-control-note">
+              Only opposite-spin preparations reveal the two-path exchange. Aligned pairs acquire phase but do not trade spin assignments.
+            </p>
+
+            <label class="control" for="coherence">
+              <span><b>Coherence</b><output id="coherenceOut" for="coherence">100%</output></span>
+              <input id="coherence" type="range" min="0" max="1" step="0.01" value="1" />
+            </label>
+            <p class="quantum-control-note">
+              Dephasing removes the phase-sensitive center voice without changing the stay/swap populations.
+            </p>
+
+            <label class="control" for="pairCount">
+              <span><b>Representative lattice pairs</b><output id="pairCountOut" for="pairCount">1 pair</output></span>
+              <input id="pairCount" type="range" min="1" max="32" step="1" value="1" />
+            </label>
+            <p class="quantum-control-note">
+              The whole-floor scene renders at most four normalized, detuned audio layers from the selected representative pairs—not one browser voice for every atom in the experiment.
+            </p>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Sound</h2>
+            <span class="section-state" id="soundSummary">A3 exchange pulse · 6 events</span>
+          </summary>
+          <div class="group-body">
+            <label class="select-control" for="rootNote">
+              <span class="field-label">Exchange root</span>
+              <span class="select-shell">
+                <select id="rootNote">
+                  <option value="109.65">A2 · 109.65 Hz</option>
+                  <option value="164.48">E3 · 164.48 Hz</option>
+                  <option value="219.3" selected>A3 · 219.30 Hz</option>
+                  <option value="293.66">D4 · 293.66 Hz</option>
+                  <option value="438.6">A4 · 438.60 Hz</option>
+                </select>
+              </span>
+            </label>
+            <p class="quantum-control-note">
+              219.30 Hz is the measured 3.509 kHz exchange recurrence transposed down exactly four octaves.
+            </p>
+
+            <label class="control" for="contourRange">
+              <span><b>Melodic contour</b><output id="contourRangeOut" for="contourRange">12 semitones</output></span>
+              <input id="contourRange" type="range" min="0" max="24" step="1" value="12" />
+            </label>
+
+            <label class="control" for="phraseDensity">
+              <span><b>Phrase density</b><output id="phraseDensityOut" for="phraseDensity">6 events / cycle</output></span>
+              <input id="phraseDensity" type="range" min="2" max="12" step="1" value="6" />
+            </label>
+
+            <label class="control" for="spectralColor">
+              <span><b>Spectral color</b><output id="spectralColorOut" for="spectralColor">58% · glass / wood</output></span>
+              <input id="spectralColor" type="range" min="0" max="1" step="0.01" value="0.58" />
+            </label>
+
+            <div class="square-dance-anatomy" aria-label="What the current sound means">
+              <p class="square-dance-eyebrow">What you are hearing now</p>
+              <div class="quantum-ledger square-dance-anatomy-ledger">
+                <span><b>State</b><code id="soundAnatomyState">prepared · no exchange</code></span>
+                <span><b>Voices</b><code id="soundAnatomyVoices">stay rises left · swap falls right</code></span>
+              </div>
+              <p id="soundDiagnosis">
+                One dry call occupies the prepared path. Start the cycle or drag θ: the partner contour crosses the stereo field, and a coherent center color appears only where both amplitudes coexist.
+              </p>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="state" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Joint state</h2>
+            <span class="section-state" id="stateSummary">separable · C 0.000</span>
+          </summary>
+          <div class="group-body">
+            <div class="square-dance-equation" role="img" aria-label="Psi of theta equals cosine of theta over two times spin up in the excited mode and spin down in the ground mode, minus i sine of theta over two times spin down in the excited mode and spin up in the ground mode.">
+              <b>Ideal exchange path</b>
+              <code>|ψ(θ)⟩ = cos(θ/2)|↑ₑ↓ᵍ⟩ − i sin(θ/2)|↓ₑ↑ᵍ⟩</code>
+              <small>P<sub>stay</sub> = cos²(θ/2) · P<sub>swap</sub> = sin²(θ/2) · C = |sin θ|</small>
+            </div>
+
+            <div class="quantum-ledger square-dance-state-ledger" aria-label="Live exchange-state diagnostics">
+              <span class="square-dance-wide-readout"><b>State / density</b><code id="stateVectorReadout">|ψ⟩ = 1.000|↑ₑ↓ᵍ⟩</code></span>
+              <span><b>Stay probability</b><code id="stayProbability">100.0%</code></span>
+              <span><b>Swap probability</b><code id="swapProbability">0.0%</code></span>
+              <span><b>Relative phase</b><code id="relativePhase">−π/2 on swap path</code></span>
+              <span><b>Concurrence</b><code id="concurrenceReadout">0.000</code></span>
+              <span><b>Entanglement</b><code id="entanglementReadout">separable</code></span>
+              <span><b>Local purity</b><code id="localPurityReadout">1.000 / 1.000</code></span>
+              <span><b>Joint purity</b><code id="jointPurityReadout">1.000</code></span>
+              <span><b>½(XY−YX) witness</b><code id="xyWitnessReadout">0.000</code></span>
+              <span><b>Physical recurrence</b><code id="physicalCycleReadout">285 μs · 3.509 kHz</code></span>
+              <span><b>Musical recurrence</b><code id="musicalCycleReadout">2.400 s · 1 bar at 100 BPM</code></span>
+              <span><b>Time lens</b><code id="timeLensReadout">8,421× slower</code></span>
+              <span><b>Last measurement</b><code id="lastMeasurement">—</code></span>
+              <span><b>Shot ledger</b><code id="shotLedger">no shots yet</code></span>
+            </div>
+
+            <div class="quantum-action-grid square-dance-measure-actions" role="group" aria-label="Measurement actions">
+              <button class="mini-action" id="measureButton" type="button">Measure once</button>
+              <button class="mini-action" id="shotsButton" type="button">32 shots</button>
+            </div>
+            <p class="quantum-control-note">
+              Each measurement samples an independently prepared copy at the current θ. It updates the shot ledger but leaves the displayed preparation and coherent evolution intact.
+            </p>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section square-dance-mapping" data-section="mapping" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Sound mapping</h2>
+            <span class="section-state">amplitude · phase · lattice</span>
+          </summary>
+          <div class="group-body">
+            <p class="quantum-control-note">
+              The mapping preserves the exchange model’s structure. These are short synthesized events, not a continuous atom “drone.”
+            </p>
+            <dl class="square-dance-mapping-ledger">
+              <div>
+                <dt>Amplitude</dt>
+                <dd><code>|cos(θ/2)|, |sin(θ/2)|</code> → linear branch gain</dd>
+              </div>
+              <div>
+                <dt>Probability</dt>
+                <dd><code>|amplitude|²</code> → path energy and halo area</dd>
+              </div>
+              <div>
+                <dt>Relative phase</dt>
+                <dd><code>±π/2</code> → branch-entry direction and phase-sensitive center color</dd>
+              </div>
+              <div>
+                <dt>Concurrence</dt>
+                <dd><code>2|ab|</code> → coherent center sidebands</dd>
+              </div>
+              <div>
+                <dt>Spin assignment</dt>
+                <dd>rising / falling contours trade modes at SWAP</dd>
+              </div>
+              <div>
+                <dt>Lattice geometry</dt>
+                <dd><code>λ : λ/2</code> → octave-related ensemble layers</dd>
+              </div>
+              <div>
+                <dt>Many pairs</dt>
+                <dd>position → pan and onset offset; power stays normalized</dd>
+              </div>
+            </dl>
+          </div>
+        </details>
+
+        <section class="square-dance-truth" aria-labelledby="squareDanceTruthTitle">
+          <p class="square-dance-eyebrow">What the “square dance” really was</p>
+          <h2 id="squareDanceTruthTitle">Partners exchange spin states—not places on a drawn square.</h2>
+          <p>
+            In the 2007 NIST experiment, about 60,000 rubidium-87 atoms were paired in optical-lattice double wells. Merging each pair created an exchange interaction between ground and excited vibrational modes. The measured population recurrence was 285(1) μs, with coherence lasting more than 10 ms.
+          </p>
+          <ul>
+            <li><b>Atoms do not trace square paths.</b> “Square dance” is a metaphor for many partner pairs swapping spins in parallel across a lattice.</li>
+            <li><b>50/50 populations alone do not prove entanglement.</b> A dephased classical mixture can have the same populations; coherent relative phase is essential.</li>
+            <li><b>There is no faster-than-light signal.</b> Neither partner’s random local result carries a controllable message.</li>
+            <li><b>This is a classical browser simulation.</b> It is not live quantum hardware, QPU output, experimental data streaming, or audio emitted by atoms.</li>
+          </ul>
+          <div class="square-dance-source-links" aria-label="Primary sources and related instrument">
+            <a href="https://www.nist.gov/news-events/news/2007/08/thousands-atoms-swap-spins-quantum-square-dance" target="_blank" rel="noreferrer">NIST · Quantum Square Dance</a>
+            <a href="https://arxiv.org/abs/0708.2073" target="_blank" rel="noreferrer">Anderlini et al. · Primary paper</a>
+            <a href="https://doi.org/10.1038/nature06011" target="_blank" rel="noreferrer">Nature · DOI</a>
+            <a href="bell-square.html">Bell Square · measurement correlations</a>
+          </div>
+        </section>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetSquareDance" type="button" data-reset-all>
+            Reset Quantum Square Dance
+          </button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="squareDanceDescription">
+        Quantum Square Dance classically simulates the ideal two-state exchange of one opposite-spin rubidium pair. The central double well represents the experiment’s merged ground and excited vibrational modes. The exchange phase moves the joint state from up-down through a maximally entangled square-root-of-SWAP, to a separable down-up full SWAP, through a second maximally entangled point, and back. A dim lattice represents many pairs exchanging in parallel. No atom follows a literal square trajectory.
+      </p>
+      <p class="sr-only" id="canvasInstructions">
+        Press Space to play or pause without changing audio permission. Use Left and Right Arrow to scrub the exchange phase. Press H for the half-SWAP, S for the full SWAP, M to measure, R to reprepare, and Escape to switch audio off. Once audio is armed, scrubbing the canvas or phase control sounds exchange landmarks even while transport is paused.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="quantum-square-dance-app.js"></script>
+  </body>
+</html>

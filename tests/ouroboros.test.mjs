@@ -867,29 +867,49 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   assert.match(markup, /id="audioButton"[\s\S]{0,220}aria-label="Turn Ouroboros audio on"/);
   assert.match(markup, /id="audioAction"[^>]*>Audio</);
   assert.match(markup, /id="audioState">off</);
-  assert.match(
-    markup,
-    /<canvas[\s\S]+id="stage"[\s\S]+data-interactive-track[\s\S]+role="img"[\s\S]+aria-describedby=/,
-  );
+  const canvasTag = markup.match(/<canvas\b[^>]*\bid="stage"[^>]*>/)?.[0];
+  assert.ok(canvasTag, "missing circular Ouroboros pluck rail");
+  assert.match(canvasTag, /\bdata-interactive-track(?:\s|=|>)/);
+  assert.match(canvasTag, /\btabindex="0"/);
+  assert.match(canvasTag, /\brole="slider"/);
+  assert.match(canvasTag, /\baria-valuemin="0"/);
+  assert.match(canvasTag, /\baria-valuemax="100"/);
+  assert.match(canvasTag, /\baria-valuenow="50"/);
+  assert.match(canvasTag, /\baria-valuetext=/);
+  assert.match(canvasTag, /\baria-describedby="canvasInstructions liveStatus"/);
   const transportTag = markup.match(/<button\b[^>]*\bid="transportButton"[^>]*>/)?.[0];
-  assert.ok(transportTag, "missing explicit Ouroboros Sweep/Stop transport");
+  assert.ok(transportTag, "missing explicit Ouroboros Play/Pause transport");
   assert.match(transportTag, /\baria-pressed="false"/);
   assert.match(transportTag, /\bdata-primary-transport(?:\s|=|>)/);
   assert.match(markup, /id="transportIcon"[^>]*>[\s\S]*▶/);
-  assert.match(markup, /id="transportLabel"[^>]*>Sweep</);
+  assert.match(markup, /id="transportLabel"[^>]*>Play</);
   assert.match(markup, /id="liveStatus"[^>]+aria-live="polite"/);
   assert.match(markup, /id="audioError"[^>]+role="alert"[^>]+hidden/);
   assert.match(markup, /data-reset-all[^>]+data-reset-in-place/);
-  assert.match(
-    markup,
-    /id="strikeButton"[^>]+data-midi-trigger="strike"[^>]+aria-label=/,
+  assert.doesNotMatch(markup, /id="strikeButton"|data-midi-trigger="strike"/);
+  const controlPanelStart = markup.indexOf('<aside class="panel ouroboros-control-panel"');
+  const playSectionStart = markup.indexOf('data-section="play"', controlPanelStart);
+  const presetsStart = markup.indexOf('data-section="presets"', controlPanelStart);
+  assert.ok(
+    controlPanelStart >= 0
+      && playSectionStart > controlPanelStart
+      && presetsStart > playSectionStart,
+    "the right panel must lead with Play before Presets",
   );
+  assert.match(markup.slice(playSectionStart, presetsStart), /<h2[^>]*>Play<\/h2>/);
+  for (const id of ["transportButton", "direction", "hitRate", "glissRate"]) {
+    const position = markup.indexOf(`id="${id}"`, playSectionStart);
+    assert.ok(
+      position > playSectionStart && position < presetsStart,
+      `#${id} belongs together in the right-panel Play section before Presets`,
+    );
+  }
   assert.match(markup, /id="presetGrid"[^>]+role="group"/);
-  assert.match(markup, /<fieldset[^>]+id="direction"[^>]+aria-label="Sweep direction"/);
+  assert.match(markup, /<fieldset[^>]+id="direction"[^>]+aria-label="Motion direction"/);
   assert.match(markup, /id="directionRise"[^>]+name="sweepDirection"[^>]+value="1"[^>]+checked/);
   assert.match(markup, /id="directionFall"[^>]+name="sweepDirection"[^>]+value="-1"/);
   for (const id of [
-    "level", "pluckPosition", "glissRate", "hitRate", "centerPitch", "bankWidth", "voiceInterval", "spread",
+    "level", "glissRate", "hitRate", "centerPitch", "bankWidth", "voiceInterval", "spread",
     "decay", "character", "morphDepth", "noiseMix", "cutoff",
   ]) {
     assert.match(markup, new RegExp(`<label[^>]+for="${id}"`), id);
@@ -908,10 +928,10 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
     /id="voiceInterval"[^>]+min="0\.5"[^>]+max="2"[^>]+step="0\.01"[^>]+value="1"/,
   );
   assert.match(markup, /id="hitRate"[^>]+min="0\.5"[^>]+max="24"[^>]+value="4"/);
-  assert.match(markup, /id="pluckPosition"[^>]+min="0"[^>]+max="1"[^>]+step="\.0001"/);
+  assert.doesNotMatch(markup, /<input[^>]+id="pluckPosition"|<label[^>]+for="pluckPosition"/);
   assert.match(markup, /Pluck rail/i);
-  assert.match(markup, /Hit density/i);
-  assert.match(markup, /Gliss speed/i);
+  assert.match(markup, />Density</i);
+  assert.match(markup, />Speed</i);
   assert.match(markup, /id="shepardSummary">19\.4 Hz–622 Hz · 5\.0 oct</);
   assert.match(markup, /id="noiseMixOut"[^>]*>30%</);
   assert.match(markup, /id="cutoffOut"[^>]*>8\.0 kHz</);
@@ -921,7 +941,8 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   assert.match(markup, /voice interval|parallel voice/i);
   assert.match(markup, /one octave|2:1/i);
   assert.match(markup, /drag|pointer/i);
-  assert.match(markup, /thick[^<]+oval|closed oval/i);
+  assert.match(markup, /circular[^<]+(?:loop|rail)|(?:loop|rail)[^<]+circle/i);
+  assert.doesNotMatch(markup, /\boval\b/i);
   assert.match(markup, /src="ouroboros-app\.js"/);
   assert.doesNotMatch(markup, /https?:\/\//);
 
@@ -932,12 +953,9 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   assert.match(app, /setPressed\(\$\("transportButton"\), state\.sweeping\)/);
   assert.match(
     app,
-    /transportLabel"\)\.textContent = state\.audioStarting[\s\S]{0,180}"Stop"[\s\S]{0,80}"Sweep"/,
+    /transportLabel"\)\.textContent = state\.audioStarting[\s\S]{0,180}"Pause"[\s\S]{0,80}"Play"/,
   );
-  assert.match(
-    app,
-    /transportIcon"\)\.textContent = state\.audioStarting[\s\S]{0,120}state\.sweeping[\s\S]{0,80}"■"[\s\S]{0,80}"▶"/,
-  );
+  assert.doesNotMatch(app, /strikeButton/);
   const audioStart = functionBody(app, "startAudio");
   assert.match(audioStart, /await audio\.enable\(\)/);
   assert.doesNotMatch(audioStart, /audio\.start\(\)|setTransport\(/);
@@ -964,12 +982,23 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   assert.match(app, /canvas\.addEventListener\("pointercancel", releaseTrackPointer\)/);
   assert.match(app, /canvas\.setPointerCapture\?\.\(event\.pointerId\)/);
   assert.match(app, /canvas\.releasePointerCapture\?\.\(event\.pointerId\)/);
+  const midiInput = functionBody(app, "handleMidiInput");
+  assert.match(midiInput, /routeId !== "ouroboros" \|\| message\?\.type !== "noteOn"/);
+  assert.match(midiInput, /event\.preventDefault\(\)/);
+  assert.match(midiInput, /strikeTrackPosition\(position, velocity\)/);
+  assert.match(app, /addEventListener\?\.\("morphazoid:midi-input", handleMidiInput\)/);
+  assert.match(app, /removeEventListener\("morphazoid:midi-input", handleMidiInput\)/);
   const pointerMapping = functionBody(app, "trackPositionFromPointer");
   assert.match(pointerMapping, /canvas\.getBoundingClientRect\(\)/);
   assert.match(pointerMapping, /event\.clientX/);
   assert.match(pointerMapping, /event\.clientY/);
-  assert.match(pointerMapping, /pointOnCoil\(/);
-  assert.match(pointerMapping, /return wrapUnit\(closestPosition\)/);
+  assert.match(pointerMapping, /Math\.atan2\(/);
+  assert.match(pointerMapping, /geometry\.centerX/);
+  assert.match(pointerMapping, /geometry\.centerY/);
+  assert.match(pointerMapping, /return wrapUnit\([^)]*angle/);
+  const ringHitTest = functionBody(app, "pointerIsOnInteractiveRing");
+  assert.match(ringHitTest, /geometry\.radius/);
+  assert.match(ringHitTest, /geometry\.railRadius/);
   assert.match(
     app,
     /canvas\.addEventListener\("pointerdown",[\s\S]{0,800}trackPositionFromPointer\(event\)[\s\S]{0,500}setPluckPosition\(position\)[\s\S]{0,500}strikeTrackPosition\(position,/,
@@ -998,15 +1027,18 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
     app,
     /canvas\.addEventListener\("pointerdown",[\s\S]{0,400}stopSweep\(\{ announceStop: false \}\)/,
   );
-  assert.match(app, /pluckPosition"\)\.addEventListener\("input"/);
-  assert.match(
-    app,
-    /pluckPosition"\)\.addEventListener\("input"[\s\S]{0,500}strikeTrackPosition\(position,/,
-  );
+  assert.doesNotMatch(app, /\$\("pluckPosition"\)|pluckPosition"\)\.addEventListener/);
   const playhead = functionBody(app, "drawPlayhead");
   assert.match(playhead, /state\.visualPosition/);
   assert.match(playhead, /pointOnCoil\(normalized, geometry\)/);
   assert.doesNotMatch(playhead, /AUDITION|pointerTrackPosition/);
+  const geometry = functionBody(app, "coilGeometry");
+  assert.match(geometry, /\b(?:radius|diameter)\b/);
+  assert.doesNotMatch(geometry, /radiusX|radiusY/);
+  assert.doesNotMatch(app, /radiusX|radiusY|ellipsePoint/);
+  const pluckRail = functionBody(app, "drawPluckRail");
+  assert.match(pluckRail, /(?:traceCoilPath|pointOnCoil)\(/);
+  assert.match(app, /drawPluckRail\(context2d, geometry/);
   assert.match(app, /function drawHitFlash\(/);
   assert.doesNotMatch(app, /function drawLayerNodes\(|function drawStrikeGlyph\(/);
   assert.match(app, /drawPlayhead\(context2d, geometry, safe\)/);
@@ -1050,6 +1082,17 @@ test("the native page exposes an accessible, lazy Ouroboros instrument", async (
   assert.match(source, /const transportActive = this\.transportTarget > 0\.5/);
   assert.match(styles, /#stage\s*\{[^}]*touch-action:\s*none/s);
   assert.match(styles, /\.ouroboros-stage-wrap\s*\{[^}]*height:\s*clamp/s);
-  assert.match(styles, /\.ouroboros-performance-transport/);
+  assert.match(styles, /\.ouroboros-play-section/);
+  assert.match(styles, /\.ouroboros-play-button/);
+  assert.match(styles, /\.ouroboros-pluck-readout/);
+  assert.match(
+    styles,
+    /@media \(max-width: 960px\)[\s\S]*?body\.ouroboros-page\s*\{[^}]*height:\s*auto[^}]*overflow-y:\s*auto/s,
+  );
+  assert.match(
+    styles,
+    /@media \(max-width: 960px\)[\s\S]*?\.ouroboros-control-panel\s*\{[^}]*overflow:\s*visible/s,
+  );
+  assert.doesNotMatch(styles, /touch-action:\s*pan-y/);
   assert.match(styles, /@media \(max-width: 560px\)/);
 });

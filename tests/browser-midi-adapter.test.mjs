@@ -174,7 +174,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
   ]);
   assert.deepEqual(NO_GENERIC_NOTE_KEYBOARD_IDS, [
     "hyper-rubix",
-    "striped-sludge-delay",
+    "playhead-paint",
     "candy-coil-delay",
     "chladni-plate",
     "spring-choir",
@@ -183,6 +183,7 @@ test("one acyclic capability registry covers every playable catalog instrument",
     "reaction-diffusion",
     "neural-pulse",
     "cantor-lock",
+    "quantum-square-dance",
   ]);
   assert.equal(instrumentMidiCapabilityForId("spelling-synthesizer").computerKeyboardMode, "page");
   assert.equal(instrumentMidiCapabilityForId("shape-drums").computerKeyboardMode, "midi");
@@ -201,8 +202,8 @@ test("one acyclic capability registry covers every playable catalog instrument",
       noteMode,
       INSTRUMENT_MIDI_CAPABILITIES.filter((capability) => capability.noteMode === noteMode).length,
     ])),
-    { processor: 7, drums: 16, pitched: 32, sequence: 31 },
-    "all 86 routes have exactly one intentional note behavior",
+    { processor: 6, drums: 16, pitched: 33, sequence: 33 },
+    "all 88 routes have exactly one intentional note behavior",
   );
   assert.equal(
     INSTRUMENT_MIDI_CAPABILITIES.every(({
@@ -231,7 +232,7 @@ test("every playable catalog page loads shared browser MIDI and exposes a toolba
       ? path.join(repositoryRoot, cleanHref, "index.html")
       : path.join(repositoryRoot, cleanHref);
     const html = await readFile(htmlPath, "utf8");
-    assert.match(html, /<script[^>]+src="(?:\.\.\/)?nav\.js"/, `${instrument.id} loads nav.js`);
+    assert.match(html, /<script[^>]+src="(?:\.\.\/)?nav\.js(?:\?[^"]+)?"/, `${instrument.id} loads nav.js`);
     assert.match(
       html,
       /class="[^"]*masthead|data-midi-toolbar-host/,
@@ -258,7 +259,7 @@ test("every playable catalog page loads shared browser MIDI and exposes a toolba
       );
     }
   }
-  assert.equal(mastheadPages, 85);
+  assert.equal(mastheadPages, 87);
   assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
 
   const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");

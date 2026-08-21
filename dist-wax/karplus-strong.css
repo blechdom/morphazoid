@@ -130,7 +130,6 @@
   text-transform: uppercase;
 }
 
-.ks-string-grid,
 .ks-preset-grid {
   display: grid;
   margin: 7px 0 12px;
@@ -138,7 +137,6 @@
   gap: 5px;
 }
 
-.ks-string-grid button,
 .ks-preset-grid button {
   min-width: 0;
   min-height: 34px;
@@ -160,20 +158,87 @@
   min-height: 39px;
 }
 
-.ks-string-grid button:hover,
-.ks-string-grid button:focus-visible,
 .ks-preset-grid button:hover,
 .ks-preset-grid button:focus-visible {
   border-color: var(--accent);
   color: var(--ink);
 }
 
-.ks-string-grid button[aria-pressed="true"],
 .ks-preset-grid button[aria-pressed="true"] {
   border-color: var(--accent);
   color: var(--bg-deep);
   background: var(--accent);
   box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.ks-spacing-switch {
+  margin-bottom: 9px;
+}
+
+.ks-tuning-sliders {
+  display: grid;
+  margin: 2px 0 9px;
+  gap: 2px;
+}
+
+.ks-tuning-slider {
+  margin: 0;
+}
+
+.ks-tuning-slider output {
+  color: var(--ks-cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+.ks-tuning-slider input[type="range"] {
+  height: 34px;
+  padding-top: 12px;
+  padding-bottom: 7px;
+}
+
+.ks-tuning-slider .form-range-poles {
+  margin-top: -5px;
+}
+
+.ks-field-stats {
+  display: flex;
+  min-width: 0;
+  margin-bottom: 12px;
+  padding: 7px 9px;
+  border-left: 2px solid var(--ks-cyan);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--ks-cyan) 5%, transparent);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 9px;
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ks-field-stats b {
+  color: var(--ks-cyan);
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ks-field-stats span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ks-bend-row {
+  margin: 2px 0 11px;
+  align-items: end;
+}
+
+.ks-bend-row .control {
+  margin: 0;
+}
+
+.ks-bend-row .form-range-reset {
+  min-height: 44px;
 }
 
 .ks-knob-bank {
@@ -352,6 +417,17 @@
 }
 
 @media (max-width: 520px) {
+  .karplus-strong-page .stage-meta {
+    top: 80px;
+    font-size: 7px;
+  }
+
+  .karplus-strong-page .stage-meta span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .ks-stage-title {
     top: 16px;
     left: 16px;

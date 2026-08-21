@@ -11,9 +11,9 @@
     <title>Morphynx - Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="syrinx.css" />
-    <link rel="stylesheet" href="syrinx-ui.css" />
-    <link rel="stylesheet" href="morphynx.css" />
+    <link rel="stylesheet" href="syrinx.css?v=morphynx-responsive-20260820-3" />
+    <link rel="stylesheet" href="syrinx-ui.css?v=morphynx-responsive-20260820-3" />
+    <link rel="stylesheet" href="morphynx.css?v=morphynx-responsive-20260820-3" />
   </head>
   <body class="syrinx-page syrinx-ui-page morphynx-page" data-instrument-info="off">
     <header class="masthead">
@@ -61,14 +61,14 @@
             aria-label="Interactive Morphynx vocal anatomy. Drag the morph, source, tract, and mouth nodes, or play its letter keyboard."
             aria-describedby="canvasInstructions liveStatus"
           >
-            A morphing animal and human vocal tract with a physical source, branching mouths, and live waveform.
+            Persistent animal and larynx sources crossfade through playable tongue and nasal tract shapes.
           </canvas>
           <div class="morphynx-stage-title" aria-hidden="true">
             <span>MORPHYNX</span>
             <small>animal source × playable tract</small>
           </div>
           <div class="morphynx-stage-axis" aria-hidden="true">
-            <span>SYRINX</span><i><b id="stageMorphMarker"></b></i><span>THROATAZOID</span>
+            <span>SYRINX</span><i><b id="stageMorphMarker"></b></i><span>LARYNX</span>
           </div>
           <p class="syrinx-drag-hint" aria-hidden="true">DRAG THE COLORED NODES · TYPE A–Z · SHIFT MUTATES · 0–9 LOADS ANATOMY</p>
           <p class="syrinx-audio-error" id="audioError" role="alert" hidden></p>
@@ -94,7 +94,7 @@
 
         <section class="syrinx-animal-deck syrinx-preset-bank syrinx-panel-presets morphynx-lab" aria-labelledby="morphLabTitle">
           <header class="morphynx-section-heading">
-            <span>HYBRID LAB</span>
+            <span>EXPERIMENT · DUAL ENGINE</span>
             <strong id="morphLabTitle">Morph the apparatus</strong>
           </header>
           <div class="syrinx-preset-selects morphynx-preset-grid">
@@ -103,9 +103,9 @@
             <label for="voicePresetSelect"><span>Voice / anatomy</span><select id="voicePresetSelect"></select></label>
           </div>
           <label class="control morphynx-morph-control" for="morphAmount">
-            <span><b>Syrinx ↔ Throatazoid</b><output id="morphAmountOut" for="morphAmount">56% throat</output></span>
+            <span><b>Syrinx ↔ Larynx</b><output id="morphAmountOut" for="morphAmount">56% larynx</output></span>
             <input id="morphAmount" type="range" min="0" max="1" step="0.01" value="0.56" />
-            <small id="morphSummary">Bilateral raven source crossing into one playable 44-section-style voice.</small>
+            <small id="morphSummary">Both physical sources stay alive and crossfade continuously.</small>
           </label>
           <div class="morphynx-source-buttons" id="sourceButtons" role="group" aria-label="Audio source">
             <button type="button" data-source="internal" aria-pressed="true">Internal</button>
@@ -134,6 +134,7 @@
             <label class="control" for="sourceBalance"><span><b>Source balance</b><output id="sourceBalanceOut">center</output></span><input id="sourceBalance" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
             <label class="control" for="roughness"><span><b>Roughness</b><output id="roughnessOut">42%</output></span><input id="roughness" type="range" min="0" max="1" step="0.01" value="0.42" /></label>
           </div>
+          <p class="control-note" id="physicalModeNote">These controls reshape both physical engines, so they remain audible across the full morph.</p>
         </details>
 
         <details class="group control-section morphynx-keyboard-section" data-section="play" open>
@@ -146,17 +147,18 @@
         </details>
 
         <details class="group control-section" data-section="form">
-          <summary class="group-summary"><h2 class="group-title">Alien anatomy</h2><span class="section-state" id="anatomySummary">1 mouth · 1 tongue · 1 nose</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Alien anatomy</h2><span class="section-state" id="anatomySummary">1 voice · 1 tongue · 1 cavity</span></summary>
           <div class="group-body morphynx-control-grid">
-            <label class="control" for="throatCount"><span><b>Mouths</b><output id="throatCountOut">1</output></span><input id="throatCount" type="range" min="1" max="7" step="1" value="1" /></label>
-            <label class="control" for="tongueCount"><span><b>Tongues</b><output id="tongueCountOut">1</output></span><input id="tongueCount" type="range" min="1" max="5" step="1" value="1" /></label>
-            <label class="control" for="noseCount"><span><b>Nose branches</b><output id="noseCountOut">1</output></span><input id="noseCount" type="range" min="1" max="3" step="1" value="1" /></label>
+            <label class="control" for="throatCount"><span><b>Larynx voices</b><output id="throatCountOut">1</output></span><input id="throatCount" type="range" min="1" max="7" step="1" value="1" /></label>
+            <label class="control" for="tongueCount"><span><b>Tongue contours</b><output id="tongueCountOut">1</output></span><input id="tongueCount" type="range" min="1" max="5" step="1" value="1" /></label>
+            <label class="control" for="noseCount"><span><b>Nasal cavities</b><output id="noseCountOut">1</output></span><input id="noseCount" type="range" min="1" max="3" step="1" value="1" /></label>
             <label class="control" for="mutation"><span><b>Mutation</b><output id="mutationOut">0%</output></span><input id="mutation" type="range" min="0" max="1" step="0.01" value="0" /></label>
-            <label class="control" for="coupling"><span><b>Mouth coupling</b><output id="couplingOut">0%</output></span><input id="coupling" type="range" min="0" max="1" step="0.01" value="0" /></label>
+            <label class="control" for="coupling"><span><b>Voice coupling</b><output id="couplingOut">0%</output></span><input id="coupling" type="range" min="0" max="1" step="0.01" value="0" /></label>
             <label class="control" for="growl"><span><b>Growl</b><output id="growlOut">0%</output></span><input id="growl" type="range" min="0" max="1" step="0.01" value="0" /></label>
             <button class="morphynx-motion" id="motionEnabled" type="button" aria-pressed="true"><b>Anatomy motion</b><small>on</small></button>
             <label class="control" for="motionDepth"><span><b>Motion depth</b><output id="motionDepthOut">28%</output></span><input id="motionDepth" type="range" min="0" max="1" step="0.01" value="0.28" /></label>
           </div>
+          <p class="control-note" id="anatomyModeNote">Larynx voices add detuned physical sources; every tongue adds a tract constriction; each nasal cavity adds another resonance mode. Their influence grows toward the larynx end.</p>
         </details>
 
         <details class="group control-section" data-section="mapping">
@@ -175,7 +177,7 @@
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
-    <script type="module" src="nav.js"></script>
-    <script type="module" src="morphynx-app.js"></script>
+    <script type="module" src="nav.js?v=morphynx-responsive-20260820-3"></script>
+    <script type="module" src="morphynx-app.js?v=morphynx-responsive-20260820-3"></script>
   </body>
 </html>

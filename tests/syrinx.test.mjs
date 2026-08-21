@@ -400,14 +400,18 @@ test("the Syrinx worklet joins each source family to a finite variable-length tr
     );
   }
 
-  const renderAnimal = (animalId, active = true) => {
+  const renderAnimal = (
+    animalId,
+    active = true,
+    { sourceOverrides = {}, tractOverrides = {} } = {},
+  ) => {
     const state = animalState(animalId, { active });
     const controls = resolveSourceControls(state);
     const processor = new ProcessorConstructor({
       processorOptions: {
         configuration: {
-          source: controls,
-          tract: controls,
+          source: { ...controls, ...sourceOverrides },
+          tract: { ...controls, animalId, ...tractOverrides },
           seed: 0x51f15e,
         },
       },
@@ -439,6 +443,15 @@ test("the Syrinx worklet joins each source family to a finite variable-length tr
     };
   };
 
+  const differenceRms = (first, second) => {
+    assert.equal(first.length, second.length);
+    let squareDifference = 0;
+    for (let index = 0; index < first.length; index += 1) {
+      squareDifference += (first[index] - second[index]) ** 2;
+    }
+    return Math.sqrt(squareDifference / Math.max(1, first.length));
+  };
+
   const representatives = ["lion", "raven", "bullfrog", "mouse"]
     .map((animalId) => [animalId, renderAnimal(animalId)]);
   for (const [animalId, rendered] of representatives) {
@@ -457,17 +470,157 @@ test("the Syrinx worklet joins each source family to a finite variable-length tr
   const signatures = representatives.map(([, { samples }]) => samples);
   for (let first = 0; first < signatures.length; first += 1) {
     for (let second = first + 1; second < signatures.length; second += 1) {
-      let squareDifference = 0;
-      for (let index = 0; index < signatures[first].length; index += 1) {
-        squareDifference += (signatures[first][index] - signatures[second][index]) ** 2;
-      }
-      const differenceRms = Math.sqrt(squareDifference / signatures[first].length);
       assert.ok(
-        differenceRms > 1e-6,
+        differenceRms(signatures[first], signatures[second]) > 1e-6,
         `${representatives[first][0]} and ${representatives[second][0]} need distinct renders`,
       );
     }
   }
+
+  const leftBiasedMammal = renderAnimal("lion", true, {
+    sourceOverrides: { sourceBalance: -1 },
+  });
+  const rightBiasedMammal = renderAnimal("lion", true, {
+    sourceOverrides: { sourceBalance: 1 },
+  });
+  const channelRms = (samples, offset) => {
+    let sum = 0;
+    let count = 0;
+    for (let index = offset; index < samples.length; index += 2) {
+      sum += samples[index] ** 2;
+      count += 1;
+    }
+    return Math.sqrt(sum / Math.max(1, count));
+  };
+  assert.ok(channelRms(leftBiasedMammal.samples, 0) > channelRms(leftBiasedMammal.samples, 1) * 2);
+  assert.ok(channelRms(rightBiasedMammal.samples, 1) > channelRms(rightBiasedMammal.samples, 0) * 2);
+  assert.ok(
+    differenceRms(leftBiasedMammal.samples, rightBiasedMammal.samples) > 1e-5,
+    "source balance must remain audible on a mammal source",
+  );
+
+  const singleVoice = renderAnimal("raven", true, {
+    sourceOverrides: { voiceCount: 1, voiceSpreadCents: 40 },
+    tractOverrides: { cavityBranches: 1 },
+  });
+  const fourVoices = renderAnimal("raven", true, {
+    sourceOverrides: { voiceCount: 4, voiceSpreadCents: 40 },
+    tractOverrides: { cavityBranches: 1 },
+  });
+  assert.equal(fourVoices.processor.configuration.voiceCount, 4);
+  assert.deepEqual([...fourVoices.processor.voiceTargetGains], [1, 1, 1, 1, 0, 0, 0]);
+  const voiceFrequencies = fourVoices.processor.sources
+    .slice(0, 4)
+    .map((source) => source.target.frequencyHz);
+  assert.equal(new Set(voiceFrequencies.map((frequency) => frequency.toFixed(6))).size, 4);
+  assert.ok(
+    differenceRms(singleVoice.samples, fourVoices.samples) > 1e-5,
+    "a four-voice source bank must differ audibly from one voice",
+  );
+  const fadingFrequencies = fourVoices.processor.sources.map(({ target }) => target.frequencyHz);
+  const fadingPans = [...fourVoices.processor.voicePans];
+  fourVoices.processor.port.onmessage({
+    data: {
+      type: "configure",
+      source: { ...resolveSourceControls(animalState("raven", { active: true })), voiceCount: 1 },
+    },
+  });
+  assert.deepEqual(
+    fourVoices.processor.sources.slice(1).map(({ target }) => target.frequencyHz),
+    fadingFrequencies.slice(1),
+    "voices fading out must retain their old tuning",
+  );
+  assert.deepEqual([...fourVoices.processor.voicePans].slice(1), fadingPans.slice(1));
+  assert.ok([...fourVoices.processor.voicePans].every((pan) => pan >= -1 && pan <= 1));
+
+  const threeCavities = renderAnimal("raven", true, {
+    sourceOverrides: { voiceCount: 1, voiceSpreadCents: 40 },
+    tractOverrides: { cavityBranches: 3 },
+  });
+  assert.equal(singleVoice.processor.configuration.cavityBranches, 1);
+  assert.equal(threeCavities.processor.configuration.cavityBranches, 3);
+  assert.ok(
+    differenceRms(singleVoice.samples, threeCavities.samples) > 1e-5,
+    "three cavity branches must color the tract differently from one branch",
+  );
+
+  const openValve = renderAnimal("raven", true, {
+    tractOverrides: {
+      tongueEnabled: false,
+      airwayGate: 1,
+      gatePosition: 0.99,
+      articulationPressure: 0.85,
+    },
+  });
+  const sealedValve = renderAnimal("raven", true, {
+    tractOverrides: {
+      tongueEnabled: false,
+      airwayGate: 0,
+      gatePosition: 0.99,
+      articulationPressure: 0.85,
+    },
+  });
+  assert.ok(
+    sealedValve.rms < openValve.rms * 0.35,
+    "a closed tongue/lip valve must materially stop the radiated airway",
+  );
+
+  const flutterValve = renderAnimal("raven", true, {
+    tractOverrides: {
+      tongueEnabled: false,
+      airwayGate: 0.03,
+      gatePosition: 0.9,
+      flutterHz: 24,
+      flutterDepth: 0.96,
+      articulationPressure: 0.85,
+      turbulence: 0.08,
+    },
+  });
+  assert.ok(flutterValve.processor.flutterPhase > 0);
+  assert.ok(flutterValve.peak <= 0.940001);
+  assert.ok(
+    differenceRms(openValve.samples, flutterValve.samples) > 1e-5,
+    "worklet-rate tip flutter must audibly differ from an open valve",
+  );
+
+  const plosiveState = animalState("raven", { active: true });
+  const plosiveControls = resolveSourceControls(plosiveState);
+  const plosiveProcessor = new ProcessorConstructor({
+    processorOptions: {
+      configuration: {
+        source: plosiveControls,
+        tract: {
+          ...plosiveControls,
+          animalId: "raven",
+          tongueEnabled: false,
+          airwayGate: 0,
+          gatePosition: 0.995,
+          articulationVoicing: 0,
+          articulationPressure: 0.94,
+          burstGain: 0.82,
+          burstFrequencyHz: 1_050,
+        },
+        seed: 0x51f15e,
+      },
+    },
+  });
+  for (let block = 0; block < 100; block += 1) {
+    plosiveProcessor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+  }
+  assert.ok(plosiveProcessor.pressureEnergy > 0.001, "a sealed P must store pressure");
+  plosiveProcessor.port.onmessage({
+    data: { type: "configure", tract: { airwayGate: 1 } },
+  });
+  let releasePeak = 0;
+  for (let block = 0; block < 24; block += 1) {
+    const left = new Float32Array(128);
+    const right = new Float32Array(128);
+    plosiveProcessor.process([], [[left, right]]);
+    for (let index = 0; index < left.length; index += 1) {
+      releasePeak = Math.max(releasePeak, Math.abs(left[index]), Math.abs(right[index]));
+    }
+  }
+  assert.ok(releasePeak > 1e-5, "opening a pressurized P closure must emit a release burst");
 
   const silent = renderAnimal("lion", false);
   assert.equal(silent.peak, 0, "an inactive pressure source must leave a reset tract silent");

@@ -12,6 +12,7 @@ import {
   INSTRUMENTS,
   instrumentById,
 } from "../src/instrument-catalog.js";
+import { instrumentMidiCapabilityForId } from "../src/instrument-midi-capabilities.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -23,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 86);
+  assert.equal(INSTRUMENTS.length, 88);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -73,7 +74,7 @@ test("experiments carry a works-in-progress status while regular instruments do 
     instrument.tags.some(({ id }) => id === "experiments")
     && INSTRUMENT_GROUPS.find(({ id }) => id === "experiments")?.tools.includes(instrument)
   ));
-  assert.equal(experiments.length, 35);
+  assert.equal(experiments.length, 38);
   assert.equal(experiments.every(({ status }) => status === "Works in progress"), true);
   assert.equal(experiments.every(({ tags }) => (
     tags.length === 1 && tags[0].id === "experiments"
@@ -92,6 +93,45 @@ test("Plasma Ball is an experiment with no secondary catalogue tags", () => {
     plasmaBall?.tags.map(({ id }) => id),
     ["experiments"],
   );
+});
+
+test("Quantum Square Dance is an exact paired-atom sonification with sequence output", () => {
+  const instrument = instrumentById("quantum-square-dance");
+  assert.equal(instrument?.label, "Quantum Square Dance");
+  assert.equal(instrument?.href, "quantum-square-dance.html");
+  assert.equal(instrument?.kind, "Quantum sonification");
+  assert.match(instrument?.description ?? "", /exact classical simulation/i);
+  assert.match(instrument?.description ?? "", /controlled spin exchange/i);
+  assert.match(instrument?.description ?? "", /paired atoms/i);
+  assert.doesNotMatch(instrument?.description ?? "", /QPU|quantum hardware/i);
+  assert.ok(instrument?.features.includes("Built-in synth"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.equal(instrument?.features.includes("Computer keys"), false);
+
+  const midi = instrumentMidiCapabilityForId("quantum-square-dance");
+  assert.equal(midi?.noteMode, "sequence");
+  assert.equal(midi?.midiOutput, true);
+  assert.equal(midi?.computerKeyboardMode, "none");
+});
+
+test("Playhead Paint is a pointer drawing synth without generic note keys", () => {
+  const instrument = instrumentById("playhead-paint");
+  assert.equal(instrument?.label, "Playhead Paint");
+  assert.equal(instrument?.href, "playhead-paint.html");
+  assert.equal(instrument?.imageHref, "assets/instruments/playhead-paint.webp");
+  assert.equal(instrument?.kind, "Drawing synth");
+  assert.match(instrument?.description ?? "", /freehand pointer strokes/i);
+  assert.match(instrument?.description ?? "", /mirrored axes/i);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["geometry"]);
+  assert.ok(instrument?.features.includes("Pointer"));
+  assert.ok(instrument?.features.includes("Built-in synth"));
+  assert.ok(instrument?.features.includes("MIDI"));
+  assert.equal(instrument?.features.includes("Computer keys"), false);
+
+  const midi = instrumentMidiCapabilityForId("playhead-paint");
+  assert.equal(midi?.noteMode, "pitched");
+  assert.equal(midi?.midiOutput, false);
+  assert.equal(midi?.computerKeyboardMode, "none");
 });
 
 test("Alien Larynx is a work-in-progress experiment", () => {
@@ -116,6 +156,19 @@ test("Hyper-Syrinx is a work-in-progress experiment", () => {
   );
   assert.equal(
     INSTRUMENT_GROUPS.find(({ tools }) => tools.includes(hyperSyrinx))?.id,
+    "experiments",
+  );
+});
+
+test("Morphynx is a work-in-progress experiment", () => {
+  const morphynx = instrumentById("morphynx");
+  assert.equal(morphynx?.status, "Works in progress");
+  assert.deepEqual(
+    morphynx?.tags.map(({ id }) => id),
+    ["experiments"],
+  );
+  assert.equal(
+    INSTRUMENT_GROUPS.find(({ tools }) => tools.includes(morphynx))?.id,
     "experiments",
   );
 });
@@ -243,7 +296,7 @@ test("input and plug-in availability facts remain explicit", () => {
   );
   assert.deepEqual(instrumentById("rubix")?.features, ["Pointer", "MIDI", "Computer keys"]);
   for (const id of [
-    "striped-sludge-delay", "candy-coil-delay", "chladni-plate", "spring-choir",
+    "candy-coil-delay", "chladni-plate", "spring-choir",
     "gear-ratio-drums", "cellular-automata", "reaction-diffusion", "neural-pulse",
     "cantor-lock",
   ]) {
@@ -254,6 +307,7 @@ test("input and plug-in availability facts remain explicit", () => {
       `${id} must not advertise no-op note keys`,
     );
   }
+  assert.equal(instrumentById("striped-sludge-delay"), null);
   assert.equal(instrumentById("rubix")?.kind, "Geometric sequencer");
   for (const id of ["cascading-fm", "cascading-pm"]) {
     assert.equal(instrumentById(id)?.kind, "Synth");

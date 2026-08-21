@@ -42,14 +42,6 @@ const migratedPages = [
     requiredCopy: ["Candy", "Coil", "Delay"],
   },
   {
-    id: "striped-sludge-delay",
-    html: "striped-sludge-delay.html",
-    app: "barber-delay-app.js",
-    source: "src/barber-delay.js",
-    sourceImport: "barber-delay",
-    requiredCopy: ["Striped", "Sludge", "Delay"],
-  },
-  {
     id: "sandy-syrup-delay",
     html: "sandy-syrup-delay.html",
     app: "barber-delay-app.js",

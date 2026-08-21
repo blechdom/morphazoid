@@ -1,15 +1,19 @@
 import {
   KARPLUS_STRONG_DEFAULTS,
+  KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS,
   KARPLUS_STRONG_PRESETS,
+  KARPLUS_STRONG_TUNING_DEFAULTS,
+  KARPLUS_STRONG_TUNING_LIMITS,
   KarplusStrongAudio,
+  karplusStrongStringFrequencies,
   midiNoteFrequency,
-  midiNoteName,
+  nearestKarplusStrongStringIndex,
   sanitizeKarplusStrongSettings,
+  sanitizeKarplusStrongTuning,
 } from "./src/karplus-strong.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
-const STRING_COUNT = 16;
 const KEY_BINDINGS = ["a", "w", "s", "e", "d", "f", "t", "g", "y", "h", "u", "j", "k", "o", "l", ";"];
 const CONTROL_SPECS = Object.freeze([
   { id: "hardness", format: formatPercent },
@@ -48,11 +52,13 @@ const firstPreset = KARPLUS_STRONG_PRESETS[0];
 const state = {
   ...KARPLUS_STRONG_DEFAULTS,
   ...firstPreset.settings,
-  rootNote: 48,
+  ...KARPLUS_STRONG_TUNING_DEFAULTS,
+  pitchBendCents: 0,
   selectedIndex: 0,
   selectedPresetId: firstPreset.id,
   audioOn: false,
 };
+let stringFrequencies = karplusStrongStringFrequencies(state);
 
 function formatRatio(value) {
   return value.toFixed(2) + "x";
@@ -84,6 +90,29 @@ function formatFrequency(frequency) {
     : frequency.toFixed(frequency < 100 ? 2 : 1) + " Hz";
 }
 
+function formatStageFrequency(frequency) {
+  if (frequency >= 1_000) return (frequency / 1_000).toFixed(frequency >= 10_000 ? 1 : 2) + "k";
+  return frequency < 100 ? frequency.toFixed(1) : String(Math.round(frequency));
+}
+
+function formatPitchBend(cents) {
+  const rounded = Math.round(cents);
+  return rounded === 0 ? "center" : (rounded > 0 ? "+" : "") + rounded + " ct";
+}
+
+function frequencySliderValue(frequency) {
+  const minimum = KARPLUS_STRONG_TUNING_LIMITS.minimumFrequency;
+  const maximum = KARPLUS_STRONG_TUNING_LIMITS.maximumFrequency;
+  const safeFrequency = clamp(Number(frequency) || minimum, minimum, maximum);
+  return Math.log(safeFrequency / minimum) / Math.log(maximum / minimum);
+}
+
+function frequencyFromSlider(value) {
+  const minimum = KARPLUS_STRONG_TUNING_LIMITS.minimumFrequency;
+  const maximum = KARPLUS_STRONG_TUNING_LIMITS.maximumFrequency;
+  return minimum * ((maximum / minimum) ** clamp(Number(value) || 0, 0, 1));
+}
+
 function announce(message) {
   $("liveStatus").textContent = "";
   requestAnimationFrame(() => {
@@ -91,12 +120,21 @@ function announce(message) {
   });
 }
 
-function currentNote() {
-  return state.rootNote + state.selectedIndex;
+function stringLabel(index = state.selectedIndex) {
+  const digits = Math.max(2, String(stringFrequencies.length).length);
+  return "String " + String(index + 1).padStart(digits, "0");
+}
+
+function currentBaseFrequency() {
+  return stringFrequencies[state.selectedIndex] ?? stringFrequencies[0];
+}
+
+function bentFrequency(frequency) {
+  return frequency * (2 ** ((state.detune + state.pitchBendCents) / 1_200));
 }
 
 function currentFrequency() {
-  return midiNoteFrequency(currentNote());
+  return bentFrequency(currentBaseFrequency());
 }
 
 function synthSettings() {
@@ -111,7 +149,7 @@ function paintAudioState() {
   $("audioButton").setAttribute("aria-pressed", String(state.audioOn));
   $("audioState").textContent = state.audioOn ? "on" : "off";
   $("stageReadout").textContent = [
-    midiNoteName(currentNote()),
+    stringLabel().toUpperCase(),
     formatFrequency(currentFrequency()).toUpperCase(),
     (KARPLUS_STRONG_PRESETS.find(({ id }) => id === state.selectedPresetId)?.name ?? "Custom").toUpperCase(),
     state.audioOn ? "AUDIO ON" : "AUDIO OFF",
@@ -260,40 +298,86 @@ function bindControls() {
     $("levelOut").textContent = formatPercent(state.level);
     audio.setOutput(state.audioOn ? state.level : 0);
   });
-  $("rootNote").addEventListener("change", (event) => {
-    state.rootNote = Number(event.currentTarget.value);
-    state.selectedIndex = clamp(state.selectedIndex, 0, STRING_COUNT - 1);
-    renderStringGrid();
-    paintReadouts();
-    scheduleFrame();
+
+  for (const id of ["lowFrequency", "highFrequency"]) {
+    $(id).addEventListener("input", (event) => {
+      const frequency = frequencyFromSlider(event.currentTarget.value);
+      state[id] = frequency;
+      const crossingRatio = 2 ** (1 / 1_200);
+      if (id === "lowFrequency" && state.lowFrequency >= state.highFrequency) {
+        state.highFrequency = Math.min(
+          KARPLUS_STRONG_TUNING_LIMITS.maximumFrequency,
+          state.lowFrequency * crossingRatio,
+        );
+      } else if (id === "highFrequency" && state.highFrequency <= state.lowFrequency) {
+        state.lowFrequency = Math.max(
+          KARPLUS_STRONG_TUNING_LIMITS.minimumFrequency,
+          state.highFrequency / crossingRatio,
+        );
+      }
+      rebuildStringField();
+    });
+  }
+
+  $("divisionsPerOctave").addEventListener("input", (event) => {
+    state.divisionsPerOctave = Number(event.currentTarget.value);
+    rebuildStringField();
+  });
+
+  for (const button of $("spacingMode").querySelectorAll("button")) {
+    button.addEventListener("click", () => {
+      state.spacing = button.dataset.spacing;
+      rebuildStringField();
+      announce(button.textContent + " string spacing.");
+    });
+  }
+
+  $("pitchBend").addEventListener("input", (event) => {
+    setPitchBend(Number(event.currentTarget.value));
+  });
+  $("centerPitchBend").addEventListener("click", () => {
+    setPitchBend(0);
+    announce("Pitch bend centered.");
   });
 }
 
-function renderStringGrid() {
-  const fragment = document.createDocumentFragment();
-  for (let index = 0; index < STRING_COUNT; index += 1) {
-    const note = state.rootNote + index;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.stringIndex = String(index);
-    button.textContent = midiNoteName(note);
-    button.title = formatFrequency(midiNoteFrequency(note));
-    button.setAttribute("aria-pressed", String(index === state.selectedIndex));
-    button.addEventListener("click", () => {
-      void pluckString(index, { announceHit: true });
-    });
-    fragment.append(button);
+function syncTuningControls() {
+  for (const id of ["lowFrequency", "highFrequency"]) {
+    const input = $(id);
+    const label = formatFrequency(state[id]);
+    input.value = String(frequencySliderValue(state[id]));
+    input.setAttribute("aria-valuetext", label);
+    $(id + "Out").textContent = label;
   }
-  $("stringGrid").replaceChildren(fragment);
+  $("divisionsPerOctave").value = String(state.divisionsPerOctave);
+  $("divisionsPerOctave").setAttribute(
+    "aria-valuetext",
+    state.divisionsPerOctave + " divisions per octave",
+  );
+  $("divisionsPerOctaveOut").textContent = state.divisionsPerOctave + " div/oct";
+  for (const button of $("spacingMode").querySelectorAll("button")) {
+    button.setAttribute("aria-pressed", String(button.dataset.spacing === state.spacing));
+  }
 }
 
-function paintStringSelection() {
-  for (const button of $("stringGrid").querySelectorAll("button")) {
-    button.setAttribute(
-      "aria-pressed",
-      String(Number(button.dataset.stringIndex) === state.selectedIndex),
-    );
-  }
+function rebuildStringField() {
+  const previousFrequency = currentBaseFrequency();
+  Object.assign(state, sanitizeKarplusStrongTuning(state));
+  const nextFrequencies = karplusStrongStringFrequencies(state);
+  state.selectedIndex = nearestKarplusStrongStringIndex(nextFrequencies, previousFrequency);
+  stringFrequencies = nextFrequencies;
+  pulses = [];
+  syncTuningControls();
+  paintReadouts();
+  scheduleFrame();
+}
+
+function setPitchBend(cents, options = {}) {
+  state.pitchBendCents = audio.setPitchBend(cents, options);
+  $("pitchBend").value = String(state.pitchBendCents);
+  $("pitchBendOut").textContent = formatPitchBend(state.pitchBendCents);
+  paintReadouts();
+  scheduleFrame();
 }
 
 function renderPresets() {
@@ -328,25 +412,47 @@ function applyPreset(item) {
 }
 
 function paintReadouts() {
-  const note = currentNote();
-  const name = midiNoteName(note);
-  const frequency = midiNoteFrequency(note);
+  const name = stringLabel();
+  const frequency = currentFrequency();
+  const firstFrequency = stringFrequencies[0];
+  const lastFrequency = stringFrequencies[stringFrequencies.length - 1];
+  const requestedCount = Math.floor(
+    Math.log2(state.highFrequency / state.lowFrequency) * state.divisionsPerOctave + 1e-9,
+  ) + 1;
+  const capped = requestedCount > KARPLUS_STRONG_TUNING_LIMITS.maximumStrings;
   $("selectedNote").textContent = name;
   $("selectedFrequency").textContent = formatFrequency(frequency);
   $("playSummary").textContent = name + " \u00b7 " + (state.audioOn ? "audio on" : "ready");
-  $("fieldSummary").textContent = midiNoteName(state.rootNote)
-    + " - " + midiNoteName(state.rootNote + STRING_COUNT - 1);
+  $("fieldSummary").textContent = formatPercent(state.hardness) + " hard \u00b7 "
+    + formatPercent(state.excitationColor) + " noise";
   $("loopSummary").textContent = state.decay.toFixed(1) + " s - "
     + formatPercent(state.brightness) + " bright";
   $("bodySummary").textContent = formatPercent(state.body) + " body - "
     + formatPercent(state.coupling) + " coupled";
+  $("stringCountOut").textContent = stringFrequencies.length + " string"
+    + (stringFrequencies.length === 1 ? "" : "s") + (capped ? " \u00b7 max" : "");
+  $("frequencyRangeOut").textContent = formatFrequency(firstFrequency) + "\u2013"
+    + formatFrequency(lastFrequency);
+  $("stageSpacingLabel").textContent = state.spacing === "equal-hz"
+    ? "EQUAL HZ" : state.divisionsPerOctave + " DIV / OCT";
+  $("pitchBendOut").textContent = formatPitchBend(state.pitchBendCents);
+  canvas.setAttribute("aria-valuemax", String(stringFrequencies.length));
+  canvas.setAttribute("aria-valuenow", String(state.selectedIndex + 1));
+  canvas.setAttribute(
+    "aria-valuetext",
+    name + ", " + formatFrequency(frequency) + ", "
+      + stringFrequencies.length + " strings from " + formatFrequency(firstFrequency)
+      + " to " + formatFrequency(lastFrequency),
+  );
   $("levelOut").textContent = formatPercent(state.level);
-  paintStringSelection();
   paintAudioState();
 }
 
 async function pluckString(index, options = {}) {
-  const nextIndex = clamp(Math.round(Number(index) || 0), 0, STRING_COUNT - 1);
+  const frequencyField = stringFrequencies;
+  const stringCount = frequencyField.length;
+  const nextIndex = clamp(Math.round(Number(index) || 0), 0, stringCount - 1);
+  const frequency = frequencyField[nextIndex];
   state.selectedIndex = nextIndex;
   if (Number.isFinite(options.pickPosition)) {
     state.pickPosition = clamp(options.pickPosition, .04, .96);
@@ -356,23 +462,24 @@ async function pluckString(index, options = {}) {
   paintReadouts();
   scheduleFrame();
   if (!state.audioOn && !(await enableAudio())) return;
-  const frequency = midiNoteFrequency(state.rootNote + nextIndex);
-  const pan = STRING_COUNT === 1 ? 0 : nextIndex / (STRING_COUNT - 1) * 2 - 1;
+  const pan = stringCount === 1 ? 0 : nextIndex / (stringCount - 1) * 2 - 1;
   await audio.pluck(frequency, synthSettings(), {
     velocity: clamp(Number(options.velocity) || .82, .05, 1),
     pan,
   });
-  pulses.push({
-    index: nextIndex,
-    pickPosition: state.pickPosition,
-    startedAt: performance.now(),
-    velocity: clamp(Number(options.velocity) || .82, .05, 1),
-  });
+  if (frequencyField === stringFrequencies) {
+    pulses.push({
+      index: nextIndex,
+      pickPosition: state.pickPosition,
+      startedAt: performance.now(),
+      velocity: clamp(Number(options.velocity) || .82, .05, 1),
+    });
+  }
   if (pulses.length > 32) pulses = pulses.slice(-32);
   scheduleFrame();
   if (options.announceHit) {
-    announce(midiNoteName(state.rootNote + nextIndex) + ", "
-      + formatFrequency(frequency) + ", plucked.");
+    announce(stringLabel(nextIndex) + ", "
+      + formatFrequency(bentFrequency(frequency)) + ", plucked.");
   }
 }
 
@@ -382,7 +489,11 @@ function stagePoint(event) {
   const y = clamp((event.clientY - bounds.top) / Math.max(1, bounds.height), 0, 1);
   return {
     pickPosition: clamp(y, .04, .96),
-    stringIndex: clamp(Math.floor(x * STRING_COUNT), 0, STRING_COUNT - 1),
+    stringIndex: clamp(
+      Math.floor(x * stringFrequencies.length),
+      0,
+      stringFrequencies.length - 1,
+    ),
   };
 }
 
@@ -424,14 +535,16 @@ canvas.addEventListener("pointercancel", releasePointer);
 function handlePlayKey(event) {
   if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
     event.preventDefault();
-    state.selectedIndex = clamp(state.selectedIndex - 1, 0, STRING_COUNT - 1);
+    state.selectedIndex = clamp(state.selectedIndex - 1, 0, stringFrequencies.length - 1);
     paintReadouts();
     scheduleFrame();
+    announce(stringLabel() + ", " + formatFrequency(currentFrequency()) + ".");
   } else if (event.key === "ArrowRight" || event.key === "ArrowDown") {
     event.preventDefault();
-    state.selectedIndex = clamp(state.selectedIndex + 1, 0, STRING_COUNT - 1);
+    state.selectedIndex = clamp(state.selectedIndex + 1, 0, stringFrequencies.length - 1);
     paintReadouts();
     scheduleFrame();
+    announce(stringLabel() + ", " + formatFrequency(currentFrequency()) + ".");
   } else if (event.key === " " || event.key === "Enter") {
     event.preventDefault();
     void pluckString(state.selectedIndex, { announceHit: true });
@@ -440,27 +553,25 @@ function handlePlayKey(event) {
 
 window.addEventListener("morphazoid:midi-input", (event) => {
   const { message, routeId } = event.detail ?? {};
-  if (routeId !== "karplus-strong" || message?.type !== "noteOn") return;
+  if (routeId !== "karplus-strong") return;
+  if (message?.type === "pitchBend") {
+    event.preventDefault();
+    setPitchBend(
+      clamp(Number(message.normalized) || 0, -1, 1)
+        * KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS,
+    );
+    return;
+  }
+  if (message?.type !== "noteOn") return;
   event.preventDefault();
-  const note = clamp(Math.round(Number(message.note) || state.rootNote), 0, 127);
-  const index = clamp(note - state.rootNote, 0, STRING_COUNT - 1);
-  state.selectedIndex = index;
-  paintReadouts();
-  scheduleFrame();
-  void (async () => {
-    if (!state.audioOn && !(await enableAudio())) return;
-    const velocity = clamp((Number(message.velocity) || 100) / 127, .05, 1);
-    const pan = index / (STRING_COUNT - 1) * 2 - 1;
-    await audio.pluck(midiNoteFrequency(note), synthSettings(), { velocity, pan });
-    pulses.push({
-      index,
-      pickPosition: state.pickPosition,
-      startedAt: performance.now(),
-      velocity,
-    });
-    if (pulses.length > 32) pulses = pulses.slice(-32);
-    scheduleFrame();
-  })();
+  const note = clamp(Math.round(Number(message.note) || 60), 0, 127);
+  const index = nearestKarplusStrongStringIndex(
+    stringFrequencies,
+    midiNoteFrequency(note),
+  );
+  void pluckString(index, {
+    velocity: clamp((Number(message.velocity) || 100) / 127, .05, 1),
+  });
 });
 
 canvas.addEventListener("keydown", handlePlayKey);
@@ -474,7 +585,10 @@ document.addEventListener("keydown", (event) => {
   const index = KEY_BINDINGS.indexOf(event.key.toLowerCase());
   if (index < 0) return;
   event.preventDefault();
-  void pluckString(index, { velocity: .8 + (index % 3) * .05 });
+  const stringIndex = Math.round(
+    index / Math.max(1, KEY_BINDINGS.length - 1) * (stringFrequencies.length - 1),
+  );
+  void pluckString(stringIndex, { velocity: .8 + (index % 3) * .05 });
 });
 
 $("audioButton").addEventListener("click", async () => {
@@ -487,9 +601,12 @@ $("audioButton").addEventListener("click", async () => {
 });
 
 $("resetAll").addEventListener("click", () => {
-  state.rootNote = 48;
+  Object.assign(state, KARPLUS_STRONG_TUNING_DEFAULTS);
+  stringFrequencies = karplusStrongStringFrequencies(state);
   state.selectedIndex = 0;
-  $("rootNote").value = "48";
+  pulses = [];
+  syncTuningControls();
+  setPitchBend(0, { immediate: true });
   applyPreset(firstPreset);
   announce("Karplus Strong parameters reset.");
 });
@@ -523,24 +640,35 @@ function drawStage(timestamp = performance.now()) {
   const bottom = Math.max(top + 100, cssHeight - 74);
   const left = Math.min(62, cssWidth * .09);
   const right = Math.max(left + 120, cssWidth - 44);
-  const columnWidth = (right - left) / Math.max(1, STRING_COUNT - 1);
+  const stringCount = stringFrequencies.length;
+  const columnWidth = (right - left) / Math.max(1, stringCount - 1);
+  const bendAmount = state.pitchBendCents / KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS;
+  const bendPixels = bendAmount * Math.min(24, Math.max(8, columnWidth * 1.5));
+  const labelStride = Math.max(1, Math.ceil(44 / Math.max(1, columnWidth)));
 
   context.font = "7px ui-monospace, SFMono-Regular, Consolas, monospace";
   context.textBaseline = "top";
-  for (let index = 0; index < STRING_COUNT; index += 1) {
+  for (let index = 0; index < stringCount; index += 1) {
     const x = left + index * columnWidth;
     const selected = index === state.selectedIndex;
-    const frequencyAmount = index / Math.max(1, STRING_COUNT - 1);
+    const frequencyAmount = index / Math.max(1, stringCount - 1);
     const color = selected ? "#e6c56e" : "rgba(183, 196, 190, .28)";
     context.strokeStyle = color;
     context.lineWidth = selected ? 1.5 : .75;
     context.beginPath();
     context.moveTo(x, top);
-    context.lineTo(x, bottom);
+    context.quadraticCurveTo(x + bendPixels, (top + bottom) * .5, x, bottom);
     context.stroke();
-    context.fillStyle = selected ? "#e6c56e" : "rgba(183, 196, 190, .48)";
-    context.textAlign = "center";
-    context.fillText(midiNoteName(state.rootNote + index), x, bottom + 12);
+    if (
+      selected
+      || index === 0
+      || index === stringCount - 1
+      || index % labelStride === 0
+    ) {
+      context.fillStyle = selected ? "#e6c56e" : "rgba(183, 196, 190, .48)";
+      context.textAlign = "center";
+      context.fillText(formatStageFrequency(stringFrequencies[index]), x, bottom + 12);
+    }
     context.fillStyle = "rgba(115, 217, 210, " + (.18 + frequencyAmount * .28) + ")";
     context.fillRect(x - 1, top - 8 - frequencyAmount * 12, 2, 5 + frequencyAmount * 12);
   }
@@ -550,8 +678,9 @@ function drawStage(timestamp = performance.now()) {
     const age = Math.max(0, (timestamp - pulse.startedAt) / 1_000);
     const x = left + pulse.index * columnWidth;
     const life = Math.exp(-age / Math.max(.16, state.decay * .34));
-    const amplitude = Math.min(columnWidth * .44, 4 + pulse.velocity * 15) * life;
-    const cycles = 2.5 + pulse.index * .12 + state.dispersion * 3.5;
+    const amplitude = Math.min(Math.max(2, columnWidth * .44), 4 + pulse.velocity * 15) * life;
+    const frequencyAmount = pulse.index / Math.max(1, stringCount - 1);
+    const cycles = 2.5 + frequencyAmount * 2 + state.dispersion * 3.5;
     context.strokeStyle = "rgba(230, 197, 110, " + Math.min(.9, life) + ")";
     context.lineWidth = 1.2;
     context.beginPath();
@@ -560,14 +689,15 @@ function drawStage(timestamp = performance.now()) {
       const y = top + amount * (bottom - top);
       const envelope = Math.sin(Math.PI * amount);
       const displacement = Math.sin(amount * Math.PI * 2 * cycles + age * 27)
-        * envelope * amplitude;
+        * envelope * amplitude + bendPixels * envelope;
       if (step === 0) context.moveTo(x + displacement, y);
       else context.lineTo(x + displacement, y);
     }
     context.stroke();
     const pickY = top + pulse.pickPosition * (bottom - top);
+    const pickBend = bendPixels * Math.sin(Math.PI * pulse.pickPosition);
     context.fillStyle = "rgba(255, 143, 114, " + Math.min(.85, life) + ")";
-    context.fillRect(x - 5 - amplitude, pickY - 1, 10 + amplitude * 2, 2);
+    context.fillRect(x + pickBend - 5 - amplitude, pickY - 1, 10 + amplitude * 2, 2);
   }
 
   const markerY = top + state.pickPosition * (bottom - top);
@@ -584,8 +714,8 @@ function drawStage(timestamp = performance.now()) {
 
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 renderPresets();
-renderStringGrid();
 initializeKnobs();
+syncTuningControls();
 bindControls();
 paintReadouts();
 paintAudioState();
