@@ -675,6 +675,7 @@ $("resetAll").addEventListener("click", () => {
   Object.assign(state, KARPLUS_CARPET_DEFAULTS);
   state.level = KARPLUS_STRONG_DEFAULTS.level;
   $("level").value = String(state.level);
+  audio.setOutput(state.audioOn ? state.level : 0);
   state.looping = false;
   state.wovenHits = 0;
   pitchCells = karplusStrongStringFrequencies(state);
