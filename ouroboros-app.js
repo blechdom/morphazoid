@@ -97,7 +97,6 @@ let strikeEvents = [];
 let activeTrackPointer = null;
 let lastPointerPosition = null;
 let lastPointerStrikeTime = -Infinity;
-let lastRailStrikeTime = -Infinity;
 let pendingTrackStrike = null;
 let trackStrikePromise = null;
 
@@ -298,14 +297,12 @@ function paintPluckPosition(position = state.pluckPosition) {
   const safe = currentParameters();
   const normalized = clamp(position, 0, 1);
   const frequency = trackFrequencyAtPosition(normalized, safe);
-  const { low, high } = registerBounds(safe.centerPitch, safe.bankWidth);
+  const valueText = `${formatFrequency(frequency)} · ${trackTimbreLabel(normalized)}`;
   state.pluckPosition = normalized;
-  $("pluckPosition").value = String(normalized);
-  $("pluckPositionOut").textContent = `${formatFrequency(frequency)} · ${trackTimbreLabel(normalized)}`;
+  $("pluckPositionOut").textContent = valueText;
   $("pluckReadout").textContent = formatFrequency(frequency);
-  $("pluckLowOut").textContent = formatFrequency(low);
-  $("pluckCenterOut").textContent = formatFrequency(safe.centerPitch);
-  $("pluckHighOut").textContent = formatFrequency(high);
+  canvas.setAttribute("aria-valuenow", String(Math.round(normalized * 100)));
+  canvas.setAttribute("aria-valuetext", valueText);
 }
 
 function updateInterface({ rebuildPresets = false } = {}) {
@@ -322,7 +319,6 @@ function updateInterface({ rebuildPresets = false } = {}) {
   setPressed($("transportButton"), state.sweeping);
   $("audioButton").disabled = state.audioStarting;
   $("transportButton").disabled = state.audioStarting;
-  $("strikeButton").disabled = state.audioStarting;
   $("audioButton").dataset.audioState = state.audioStarting
     ? "starting"
     : state.audioOn
@@ -334,17 +330,17 @@ function updateInterface({ rebuildPresets = false } = {}) {
   );
   $("audioAction").textContent = "Audio";
   $("audioState").textContent = state.audioOn ? "on" : "off";
-  $("transportIcon").textContent = state.audioStarting ? "…" : state.sweeping ? "■" : "▶";
+  $("transportIcon").textContent = state.audioStarting ? "…" : state.sweeping ? "Ⅱ" : "▶";
   $("transportLabel").textContent = state.audioStarting
     ? "Starting"
     : state.sweeping
-      ? "Stop"
-      : "Sweep";
+      ? "Pause"
+      : "Play";
   $("transportButton").setAttribute(
     "aria-label",
     state.sweeping
-      ? "Stop automatic Ouroboros sweep"
-      : "Start automatic Ouroboros sweep",
+      ? "Pause automatic Ouroboros motion"
+      : "Play automatic Ouroboros motion",
   );
 
   for (const id of [
@@ -380,6 +376,7 @@ function updateInterface({ rebuildPresets = false } = {}) {
 
   $("engineSummary").textContent = `${active} active parallel bodies`;
   $("motionSummary").textContent = `${rising ? "rise" : "fall"} · ${safe.glissRate.toFixed(2)} oct/s · ${compactNumber(safe.hitRate, 2)} hits/s`;
+  $("playSummary").textContent = `${state.sweeping ? "playing" : "ready"} · ${safe.glissRate.toFixed(2)} oct/s · ${compactNumber(safe.hitRate, 2)} hits/s`;
   $("shepardSummary").textContent = `${register} · ${safe.voiceInterval.toFixed(2)} oct voices`;
   $("soundSummary").textContent = `${morphDepthLabel(safe.morphDepth).toLowerCase()} morph · ${characterLabel(safe.character).toLowerCase()}`;
   $("directionMarker").textContent = rising ? "↻" : "↺";
@@ -393,12 +390,12 @@ function updateInterface({ rebuildPresets = false } = {}) {
     `${register.toUpperCase()} REGISTER`,
     `${safe.voiceInterval.toFixed(2)} OCT VOICES`,
     `${active} BODIES`,
-    state.sweeping ? "SWEEPING" : "MANUAL",
+    state.sweeping ? "PLAYING" : "MANUAL",
     state.audioOn ? "AUDIO ON" : "AUDIO OFF",
   ].join(" · ");
   canvas.setAttribute(
     "aria-label",
-    `A thick closed ${active}-body oval maps the Rattlesnake spectrum across a ${register} Shepard register. Drag around the oval or across the pluck rail for manual hits without starting the automatic sweep.`,
+    `Circular Ouroboros pluck rail around a closed ${active}-body loop spanning the ${register} Shepard register`,
   );
 
   paintPluckPosition();
@@ -547,7 +544,7 @@ async function startSweep() {
     : null;
   updateInterface();
   scheduleAnimation();
-  announce(`Ouroboros sweep started ${state.coil.direction > 0 ? "up" : "down"}.`);
+  announce(`Ouroboros playing ${state.coil.direction > 0 ? "up" : "down"}.`);
   return true;
 }
 
@@ -559,7 +556,7 @@ function stopSweep(options = null) {
   state.sweeping = false;
   state.pluckPosition = state.visualPosition;
   updateInterface();
-  if (announceStop) announce("Ouroboros sweep stopped. Manual playing remains active.");
+  if (announceStop) announce("Automatic motion paused. Manual playing remains active.");
   return true;
 }
 
@@ -586,19 +583,12 @@ function visualStrike(
   visualizationDirty = true;
 }
 
-function flashStrikeButton() {
-  const button = $("strikeButton");
-  button.classList.add("is-striking");
-  globalThis.setTimeout?.(() => button.classList.remove("is-striking"), 80);
-}
-
 async function strikeCurrentBank(velocity = 0.9) {
   if (!await startAudio()) return false;
   audio.setPosition(state.pluckPosition);
   const struck = audio.strike(velocity);
   if (!struck) return false;
   visualStrike(state.pluckPosition, velocity);
-  flashStrikeButton();
   scheduleAnimation();
   announce(`Ouroboros struck at ${formatFrequency(trackFrequencyAtPosition(state.pluckPosition))}.`);
   return true;
@@ -625,10 +615,7 @@ function strikeTrackPosition(position, velocity = 0.8) {
         struck = true;
       }
     }
-    if (struck) {
-      flashStrikeButton();
-      scheduleAnimation();
-    }
+    if (struck) scheduleAnimation();
     return struck;
   })().finally(() => {
     if (trackStrikePromise === promise) trackStrikePromise = null;
@@ -636,10 +623,6 @@ function strikeTrackPosition(position, velocity = 0.8) {
   trackStrikePromise = promise;
   return promise;
 }
-
-$("strikeButton").addEventListener("click", () => {
-  strikeCurrentBank();
-});
 
 document.querySelector("[data-reset-all]").addEventListener("click", () => {
   stopSweep({ announceStop: false });
@@ -655,7 +638,21 @@ document.querySelector("[data-reset-all]").addEventListener("click", () => {
 });
 
 canvas.addEventListener("keydown", (event) => {
-  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    event.preventDefault();
+    stopSweep({ announceStop: false });
+    const step = event.shiftKey ? 0.05 : 0.01;
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    const position = setPluckPosition(wrapUnit(state.pluckPosition + direction * step));
+    void strikeTrackPosition(position, 0.72);
+    announce(`Pluck rail at ${formatFrequency(trackFrequencyAtPosition(position))}.`);
+  } else if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    stopSweep({ announceStop: false });
+    const position = setPluckPosition(event.key === "Home" ? 0 : 1);
+    void strikeTrackPosition(position, 0.72);
+    announce(`Pluck rail at ${formatFrequency(trackFrequencyAtPosition(position))}.`);
+  } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
     event.preventDefault();
     state.coil.direction = event.key === "ArrowUp" ? 1 : -1;
     markCustom();
@@ -678,19 +675,23 @@ function trackPositionFromPointer(event) {
     Math.max(1, bounds.width),
     Math.max(1, bounds.height),
   );
-  let closestPosition = 0;
-  let closestDistance = Infinity;
-  const sampleCount = 192;
-  for (let index = 0; index <= sampleCount; index += 1) {
-    const position = index / sampleCount;
-    const point = pointOnCoil(position, geometry);
-    const distance = (point.x - x) ** 2 + (point.y - y) ** 2;
-    if (distance < closestDistance) {
-      closestDistance = distance;
-      closestPosition = position;
-    }
-  }
-  return wrapUnit(closestPosition);
+  const angle = Math.atan2(y - geometry.centerY, x - geometry.centerX);
+  return wrapUnit((angle - COIL_START_ANGLE) / TAU);
+}
+
+function pointerIsOnInteractiveRing(event) {
+  const bounds = canvas.getBoundingClientRect();
+  const x = clamp(event.clientX - bounds.left, 0, Math.max(1, bounds.width));
+  const y = clamp(event.clientY - bounds.top, 0, Math.max(1, bounds.height));
+  const geometry = coilGeometry(
+    Math.max(1, bounds.width),
+    Math.max(1, bounds.height),
+  );
+  const distance = Math.hypot(x - geometry.centerX, y - geometry.centerY);
+  const loopHitWidth = geometry.bodyWidth * 0.62 + 8;
+  const railHitWidth = Math.max(18, geometry.bodyWidth * 0.38);
+  return Math.abs(distance - geometry.radius) <= loopHitWidth
+    || Math.abs(distance - geometry.railRadius) <= railHitWidth;
 }
 
 function trackDistance(first, second) {
@@ -732,6 +733,7 @@ function cancelTrackInteraction() {
 
 canvas.addEventListener("pointerdown", (event) => {
   if (event.isPrimary === false) return;
+  if (!pointerIsOnInteractiveRing(event)) return;
   event.preventDefault();
   canvas.focus?.();
   stopSweep({ announceStop: false });
@@ -768,20 +770,19 @@ canvas.addEventListener("pointermove", (event) => {
 canvas.addEventListener("pointerup", releaseTrackPointer);
 canvas.addEventListener("pointercancel", releaseTrackPointer);
 
-$("pluckPosition").addEventListener("input", (event) => {
+function handleMidiInput(event) {
+  const { message, routeId } = event.detail ?? {};
+  if (routeId !== "ouroboros" || message?.type !== "noteOn") return;
+  event.preventDefault();
   stopSweep({ announceStop: false });
-  const position = setPluckPosition(Number(event.currentTarget.value));
-  const now = performance.now();
-  if (now - lastRailStrikeTime >= 30) {
-    lastRailStrikeTime = now;
-    void strikeTrackPosition(position, 0.72);
-  }
-});
+  const note = clamp(Math.round(Number(message.note) || 60), 0, 127);
+  const position = setPluckPosition(clamp((note - 24) / 84, 0, 1));
+  const velocity = clamp((Number(message.velocity) || 100) / 127, 0.05, 1);
+  void strikeTrackPosition(position, velocity);
+  announce(`MIDI pluck at ${formatFrequency(trackFrequencyAtPosition(position))}.`);
+}
 
-$("pluckPosition").addEventListener("change", () => {
-  visualizationDirty = true;
-  scheduleAnimation();
-});
+globalThis.addEventListener?.("morphazoid:midi-input", handleMidiInput);
 
 function resizeCanvas() {
   if (disposed) return;
@@ -802,40 +803,36 @@ function resizeCanvas() {
 }
 
 function coilGeometry(width, height) {
-  const compact = width < 640;
+  const minimumDimension = Math.max(1, Math.min(width, height));
+  const compact = minimumDimension < 520 || width < 640;
   const centerX = width * 0.5;
   const centerY = height * 0.5;
-  const availableWidth = Math.max(120, width - (compact ? 40 : 72));
-  const availableHeight = Math.max(90, height - (compact ? 56 : 84));
-  const radiusX = Math.max(58, availableWidth * 0.42);
-  const radiusY = Math.max(
-    38,
-    Math.min(availableHeight * 0.34, radiusX * (compact ? 0.48 : 0.4)),
+  const half = minimumDimension * 0.5;
+  const edgePadding = Math.min(compact ? 20 : 28, half * 0.2);
+  const railRadius = Math.max(1, half - edgePadding);
+  const minimumBody = Math.min(compact ? 28 : 36, railRadius * 0.32);
+  const maximumBody = Math.max(
+    minimumBody,
+    Math.min(compact ? 52 : 72, railRadius * 0.38),
   );
-  const bodyWidth = clamp(radiusY * 0.46, compact ? 28 : 36, compact ? 54 : 82);
-  return { centerX, centerY, radiusX, radiusY, bodyWidth };
-}
-
-function ellipsePoint(angle, radiusX, radiusY) {
-  return {
-    x: Math.cos(angle) * radiusX,
-    y: Math.sin(angle) * radiusY,
-  };
+  const bodyWidth = clamp(railRadius * 0.22, minimumBody, maximumBody);
+  const railGap = Math.min(
+    clamp(bodyWidth * 0.65, 18, 30),
+    railRadius * 0.2,
+  );
+  const radius = Math.max(1, railRadius - bodyWidth * 0.5 - railGap);
+  return { centerX, centerY, radius, railRadius, bodyWidth };
 }
 
 function pointOnCoil(normalized, geometry, radialOffset = 0) {
   const amount = clamp(normalized, 0, 1);
   const angle = COIL_START_ANGLE + amount * TAU;
-  const radiusX = geometry.radiusX + radialOffset;
-  const radiusY = geometry.radiusY + radialOffset * 0.78;
-  const point = ellipsePoint(angle, radiusX, radiusY);
-  const before = ellipsePoint(angle - 0.001, radiusX, radiusY);
-  const after = ellipsePoint(angle + 0.001, radiusX, radiusY);
+  const radius = Math.max(0, geometry.radius + radialOffset);
   return {
-    x: geometry.centerX + point.x,
-    y: geometry.centerY + point.y,
+    x: geometry.centerX + Math.cos(angle) * radius,
+    y: geometry.centerY + Math.sin(angle) * radius,
     angle,
-    tangentAngle: Math.atan2(after.y - before.y, after.x - before.x),
+    tangentAngle: angle + Math.PI * 0.5,
   };
 }
 
@@ -863,9 +860,107 @@ function traceCoilPath(ctx, geometry, radialOffset = 0, variation = null) {
   ctx.closePath();
 }
 
+function drawPluckRail(ctx, geometry) {
+  const radialOffset = geometry.railRadius - geometry.radius;
+  const selected = wrapUnit(state.pluckPosition);
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  traceCoilPath(ctx, geometry, radialOffset);
+  ctx.strokeStyle = "rgba(2, 5, 6, 0.94)";
+  ctx.lineWidth = 11;
+  ctx.stroke();
+
+  traceCoilPath(ctx, geometry, radialOffset);
+  ctx.strokeStyle = "rgba(214, 232, 226, 0.2)";
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  const segmentCount = 120;
+  ctx.lineCap = "butt";
+  for (let index = 0; index < segmentCount; index += 1) {
+    const start = index / segmentCount;
+    const end = (index + 1.1) / segmentCount;
+    const first = pointOnCoil(start, geometry, radialOffset);
+    const second = pointOnCoil(Math.min(1, end), geometry, radialOffset);
+    ctx.beginPath();
+    ctx.moveTo(first.x, first.y);
+    ctx.lineTo(second.x, second.y);
+    ctx.strokeStyle = mixFamilyColor(start, 0.78);
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+  }
+
+  const tickCount = 40;
+  for (let index = 0; index < tickCount; index += 1) {
+    const position = index / tickCount;
+    const major = index % 10 === 0;
+    const inner = pointOnCoil(
+      position,
+      geometry,
+      radialOffset - (major ? 6 : 3),
+    );
+    const outer = pointOnCoil(
+      position,
+      geometry,
+      radialOffset + (major ? 6 : 3),
+    );
+    ctx.beginPath();
+    ctx.moveTo(inner.x, inner.y);
+    ctx.lineTo(outer.x, outer.y);
+    ctx.strokeStyle = major
+      ? "rgba(238, 255, 248, 0.72)"
+      : "rgba(214, 232, 226, 0.28)";
+    ctx.lineWidth = major ? 1.15 : 0.7;
+    ctx.stroke();
+  }
+
+  const labels = [
+    [0.06, "LOW BODY"],
+    [0.31, "TOM"],
+    [0.56, "HAND"],
+    [0.81, "HIGH AIR"],
+  ];
+  const labelInset = Math.max(12, geometry.bodyWidth * 0.34);
+  ctx.font = "7px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (const [position, label] of labels) {
+    const point = pointOnCoil(position, geometry, radialOffset - labelInset);
+    ctx.fillStyle = mixFamilyColor(position, 0.82);
+    ctx.fillText(label, point.x, point.y);
+  }
+
+  const loopEdge = pointOnCoil(selected, geometry, geometry.bodyWidth * 0.58);
+  const handle = pointOnCoil(selected, geometry, radialOffset);
+  ctx.beginPath();
+  ctx.moveTo(loopEdge.x, loopEdge.y);
+  ctx.lineTo(handle.x, handle.y);
+  ctx.strokeStyle = "rgba(133, 228, 183, 0.48)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.shadowColor = "rgba(133, 228, 183, 0.88)";
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = "rgba(8, 13, 13, 0.98)";
+  ctx.strokeStyle = "rgba(222, 255, 239, 0.98)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(handle.x, handle.y, Math.max(5.5, geometry.bodyWidth * 0.12), 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = mixFamilyColor(selected, 1);
+  ctx.beginPath();
+  ctx.arc(handle.x, handle.y, 2.2, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawPitchGuides(ctx, geometry) {
   ctx.save();
-  const guideCount = geometry.radiusX > 300 ? 72 : 48;
+  const guideCount = geometry.radius > 300 ? 72 : 48;
   for (let index = 0; index < guideCount; index += 1) {
     const position = index / guideCount;
     const major = index % 6 === 0;
@@ -887,21 +982,6 @@ function drawPitchGuides(ctx, geometry) {
       : "rgba(214, 232, 226, 0.14)";
     ctx.lineWidth = major ? 1.15 : 0.7;
     ctx.stroke();
-  }
-
-  const labels = [
-    [0.04, "LOW BODY"],
-    [0.29, "TOM"],
-    [0.54, "HAND"],
-    [0.79, "HIGH AIR"],
-  ];
-  ctx.font = "7px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  for (const [position, label] of labels) {
-    const point = pointOnCoil(position, geometry, geometry.bodyWidth * 0.72);
-    ctx.fillStyle = mixFamilyColor(position, 0.72);
-    ctx.fillText(label, point.x, point.y);
   }
 
   ctx.restore();
@@ -1051,6 +1131,7 @@ function draw(timestamp, force = false) {
   const safe = currentParameters();
   const geometry = coilGeometry(canvasWidth, canvasHeight);
   drawSerpent(context2d, geometry, safe);
+  drawPluckRail(context2d, geometry);
   drawPitchGuides(context2d, geometry);
   drawStrikeHistory(context2d, geometry);
   drawPlayhead(context2d, geometry, safe);
@@ -1186,6 +1267,7 @@ function handlePageHide(event) {
   animationFrame = 0;
   resizeObserver?.disconnect();
   globalThis.removeEventListener("resize", resizeCanvas);
+  globalThis.removeEventListener("morphazoid:midi-input", handleMidiInput);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
   globalThis.removeEventListener("pageshow", handlePageShow);
   audio.close();

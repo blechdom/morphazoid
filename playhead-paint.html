@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#08090c" />
+    <meta
+      name="description"
+      content="Draw sounding paths, reflect them into symmetrical polyphony, and replay every gesture with its original timing or at a steady speed."
+    />
+    <title>Playhead Paint - Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="playhead-paint.css" />
+  </head>
+  <body class="playhead-paint-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shape.html">shape</a>
+        <a class="tab active" href="playhead-paint.html" aria-current="page">playhead paint</a>
+        <a class="tab" href="linear-drums-machine.html">rattle snake skin</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shape.html">shape</option>
+          <option value="playhead-paint.html" selected>playhead paint</option>
+          <option value="linear-drums-machine.html">rattle snake skin</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph" aria-hidden="true">*</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">56%</output></span>
+          <input id="output" aria-label="Playhead Paint output level" type="range" min="0" max="0.9" step="0.01" value="0.56" />
+        </label>
+      </div>
+    </header>
+
+    <main class="pp-shell">
+      <section class="pp-workspace">
+        <div class="pp-canvas-column">
+          <div class="pp-toolbar">
+            <div class="pp-compact-identity" aria-label="Playhead Paint gesture and symmetry synth">
+              <b>Playhead Paint</b><small>GESTURE / SYMMETRY</small>
+            </div>
+            <div class="pp-quick-transport" aria-label="Drawing playback transport">
+              <button class="pp-command is-primary" id="playButton" type="button" aria-pressed="false" title="Play drawing">
+                <span id="playIcon" aria-hidden="true">&#9654;</span><b id="playLabel">Play</b>
+              </button>
+              <button class="pp-command" id="stopButton" type="button" title="Stop and return to the beginning">
+                <span aria-hidden="true">&#9632;</span><b>Stop</b>
+              </button>
+            </div>
+            <div class="pp-tools" role="toolbar" aria-label="Drawing tools">
+              <button class="pp-tool is-active" type="button" data-tool="draw" aria-pressed="true" aria-label="Draw sounding marks" title="Draw">
+                <span class="pp-tool-glyph is-pen" aria-hidden="true"></span>
+              </button>
+              <button class="pp-tool" type="button" data-tool="select" aria-pressed="false" aria-label="Select a mark" title="Select">
+                <span class="pp-tool-glyph is-select" aria-hidden="true"></span>
+              </button>
+              <button class="pp-tool" type="button" data-tool="erase" aria-pressed="false" aria-label="Erase marks" title="Erase">
+                <span class="pp-tool-glyph is-erase" aria-hidden="true"></span>
+              </button>
+            </div>
+
+            <div class="pp-palette" id="paintPalette" role="toolbar" aria-label="Sound colors"></div>
+
+            <div class="pp-edit-actions">
+              <button class="pp-icon-command" id="undoButton" type="button" aria-label="Undo" title="Undo" disabled><span aria-hidden="true">&#8630;</span></button>
+              <button class="pp-text-command" id="clearButton" type="button">Clear</button>
+            </div>
+          </div>
+
+          <div class="pp-stage-frame">
+            <div class="pp-stage-wrap" id="stageWrap">
+              <canvas
+                id="paintStage"
+                tabindex="0"
+                role="img"
+                aria-label="Square Playhead Paint drawing space"
+                aria-describedby="paintInstructions liveStatus"
+              ></canvas>
+              <output class="pp-cursor-readout" id="cursorReadout" hidden>440 Hz</output>
+              <div class="pp-stage-badge" aria-hidden="true"><span id="stageSourceOne">X</span><span id="stageSourceTwo">Y</span></div>
+            </div>
+          </div>
+
+          <footer class="pp-canvas-footer">
+            <span><b id="markCount">0</b> MARKS</span>
+            <span><b id="voiceCount">1</b> PLAYHEAD</span>
+            <span id="selectedReadout">NO SELECTION</span>
+            <span id="timelineReadout">0.0 S LOOP</span>
+          </footer>
+        </div>
+
+        <aside class="panel pp-inspector" aria-label="Playhead Paint controls">
+          <section class="pp-inspector-section pp-playback-section">
+            <div class="pp-section-heading"><h2>Playback</h2><output id="playbackReadout">READY</output></div>
+            <fieldset class="pp-segmented pp-time-mode" aria-label="Playback timing">
+              <legend class="sr-only">Timing</legend>
+              <label><input id="playbackModeOriginal" type="radio" name="playbackMode" value="original" checked /><span>Original</span></label>
+              <label><input id="playbackModeSteady" type="radio" name="playbackMode" value="steady" /><span>Steady</span></label>
+            </fieldset>
+            <label class="pp-range-control" for="playbackRate">
+              <span><b>Rate</b><output id="playbackRateOut" for="playbackRate">1.00×</output></span>
+              <input id="playbackRate" type="range" min="0.25" max="2" step="0.05" value="1" />
+            </label>
+          </section>
+
+          <section class="pp-inspector-section pp-symmetry-section">
+            <div class="pp-section-heading">
+              <h2>Reflection axes</h2>
+              <output id="symmetryCount">1 VOICE</output>
+            </div>
+            <div class="pp-symmetry-picker" role="group" aria-label="Reflection axes">
+              <span class="pp-symmetry-square" aria-hidden="true"></span>
+              <button type="button" class="pp-axis is-horizontal" data-axis="horizontal" aria-pressed="false" aria-label="Reflect across horizontal axis"></button>
+              <button type="button" class="pp-axis is-vertical" data-axis="vertical" aria-pressed="false" aria-label="Reflect across vertical axis"></button>
+              <button type="button" class="pp-axis is-diagonal" data-axis="diagonal" aria-pressed="false" aria-label="Reflect across rising diagonal axis"></button>
+              <button type="button" class="pp-axis is-anti-diagonal" data-axis="antiDiagonal" aria-pressed="false" aria-label="Reflect across falling diagonal axis"></button>
+              <i class="pp-symmetry-center" aria-hidden="true"></i>
+            </div>
+            <p class="pp-help">Choose any lines. Their combined reflections form one deduplicated ornament.</p>
+          </section>
+
+          <section class="pp-inspector-section">
+            <div class="pp-section-heading"><h2>Sound color</h2><output id="layerName">AQUA / SINE</output></div>
+            <label class="pp-select-control" for="waveform">
+              <span>Voice</span>
+              <select id="waveform">
+                <option value="sine">Sine glass</option>
+                <option value="triangle">Triangle reed</option>
+                <option value="sawtooth">Saw ribbon</option>
+                <option value="square">Square pulse</option>
+                <option value="fm">FM metal</option>
+              </select>
+            </label>
+            <label class="pp-range-control" for="brushSize">
+              <span><b>Pen size</b><output id="brushSizeOut" for="brushSize">14</output></span>
+              <input id="brushSize" type="range" min="0.005" max="0.06" step="0.001" value="0.014" />
+            </label>
+          </section>
+
+          <section class="pp-inspector-section">
+            <div class="pp-section-heading"><h2>Coordinate mapping</h2><output id="coordinateReadout">X / Y</output></div>
+            <label class="pp-select-control" for="coordinateMode">
+              <span>Space</span>
+              <select id="coordinateMode">
+                <option value="cartesian">Cartesian X / Y</option>
+                <option value="polar">Center polar radar</option>
+                <option value="spokes">Quantized radial spokes</option>
+              </select>
+            </label>
+            <label class="pp-select-control" for="xTarget"><span id="xSourceLabel">X axis</span><select id="xTarget"></select></label>
+            <label class="pp-select-control" for="yTarget"><span id="ySourceLabel">Y axis</span><select id="yTarget"></select></label>
+            <label class="pp-select-control" for="sizeTarget"><span>Pen size</span><select id="sizeTarget"></select></label>
+            <label class="pp-range-control" id="radialSpokesControl" for="radialSpokes" hidden>
+              <span><b>Radar spokes</b><output id="radialSpokesOut" for="radialSpokes">8</output></span>
+              <input id="radialSpokes" type="range" min="3" max="32" step="1" value="8" />
+            </label>
+            <div class="pp-range-pair">
+              <label class="pp-range-control" for="pitchMin">
+                <span><b>Pitch floor</b><output id="pitchMinOut" for="pitchMin">55 Hz</output></span>
+                <input id="pitchMin" type="range" min="24" max="440" step="1" value="55" />
+              </label>
+              <label class="pp-range-control" for="pitchMax">
+                <span><b>Pitch ceiling</b><output id="pitchMaxOut" for="pitchMax">1760 Hz</output></span>
+                <input id="pitchMax" type="range" min="220" max="6000" step="10" value="1760" />
+              </label>
+            </div>
+          </section>
+
+          <section class="pp-inspector-section">
+            <div class="pp-section-heading"><h2>Mark envelope</h2><output id="envelopeScope">AQUA DEFAULT</output></div>
+            <div class="pp-envelope-grid">
+              <label class="pp-range-control" for="attack"><span><b>Attack</b><output id="attackOut" for="attack">12 ms</output></span><input id="attack" type="range" min="0" max="1200" step="1" value="12" /></label>
+              <label class="pp-range-control" for="decay"><span><b>Decay</b><output id="decayOut" for="decay">120 ms</output></span><input id="decay" type="range" min="0" max="2000" step="1" value="120" /></label>
+              <label class="pp-range-control" for="sustain"><span><b>Sustain</b><output id="sustainOut" for="sustain">72%</output></span><input id="sustain" type="range" min="0" max="1" step="0.01" value="0.72" /></label>
+              <label class="pp-range-control" for="release"><span><b>Release</b><output id="releaseOut" for="release">240 ms</output></span><input id="release" type="range" min="8" max="4000" step="1" value="240" /></label>
+            </div>
+          </section>
+
+          <section class="pp-inspector-section">
+            <div class="pp-section-heading"><h2>Transform</h2><output id="transformReadout">ALL MARKS</output></div>
+            <label class="pp-select-control" for="transformTarget"><span>Target</span><select id="transformTarget"><option value="all">All marks</option><option value="selected">Selected mark</option></select></label>
+            <label class="pp-range-control" for="translateX"><span><b>Move X</b><output id="translateXOut" for="translateX">0%</output></span><input id="translateX" type="range" min="-0.5" max="0.5" step="0.005" value="0" /></label>
+            <label class="pp-range-control" for="translateY"><span><b>Move Y</b><output id="translateYOut" for="translateY">0%</output></span><input id="translateY" type="range" min="-0.5" max="0.5" step="0.005" value="0" /></label>
+            <label class="pp-range-control" for="rotation"><span><b>Rotate</b><output id="rotationOut" for="rotation">0°</output></span><input id="rotation" type="range" min="-180" max="180" step="1" value="0" /></label>
+            <div class="pp-range-pair">
+              <label class="pp-range-control" for="scaleX"><span><b>Scale X</b><output id="scaleXOut" for="scaleX">100%</output></span><input id="scaleX" type="range" min="0.2" max="2" step="0.01" value="1" /></label>
+              <label class="pp-range-control" for="scaleY"><span><b>Scale Y</b><output id="scaleYOut" for="scaleY">100%</output></span><input id="scaleY" type="range" min="0.2" max="2" step="0.01" value="1" /></label>
+            </div>
+            <button class="pp-text-command pp-wide-command" id="resetTransform" type="button">Reset transform</button>
+          </section>
+
+          <section class="pp-inspector-section">
+            <div class="pp-section-heading"><h2>Loop</h2><output id="loopDurationOut">0.0 S</output></div>
+            <label class="pp-range-control" for="steadySpeed"><span><b>Steady speed</b><output id="steadySpeedOut" for="steadySpeed">0.35 /s</output></span><input id="steadySpeed" type="range" min="0.05" max="1.5" step="0.01" value="0.35" /></label>
+            <label class="pp-range-control" for="loopGap"><span><b>Loop gap</b><output id="loopGapOut" for="loopGap">300 ms</output></span><input id="loopGap" type="range" min="0" max="3000" step="10" value="300" /></label>
+          </section>
+
+          <p class="audio-error" id="audioError" role="alert" hidden></p>
+        </aside>
+      </section>
+
+      <p class="sr-only" id="paintInstructions">Choose Draw, then press and drag in the square. Pointer down starts a note and pointer release ends it. Select reflection axes to add mirrored playheads. Use Select to edit a mark or Erase to remove it.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="playhead-paint-app.js"></script>
+  </body>
+</html>

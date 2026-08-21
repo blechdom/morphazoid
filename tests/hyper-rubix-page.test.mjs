@@ -226,7 +226,7 @@ test("the open Shape loop exposes every read path and automated-twist control", 
   const finishedTurn = sourceSection(app, "function finishActiveMove(time)", "function enqueueMove(");
   assert.match(finishedTurn, /if \(state\.playing && sequenceMethodConfig\(\)\.serial\)/);
   assert.match(finishedTurn, /transportPuzzle = state\.puzzle/);
-  assert.match(finishedTurn, /rebuildTransportStickerStream\(/);
+  assert.match(finishedTurn, /invalidateTransportLookahead\(transportPuzzle\)/);
   assert.doesNotMatch(finishedTurn, /stopTransport/);
 });
 
@@ -272,6 +272,13 @@ test("shape position, independent tails, Rattlesnake, and WebGPU 303 stay mapped
   assert.match(
     soundPanel,
     /<label\b[^>]*for="topologyRing"[^>]*>[\s\S]*?<b>Neighbor ring \(independent\)<\/b>/,
+  );
+  const bodyDecay = openingTag(soundPanel, "input", "decay");
+  const neighborRing = openingTag(soundPanel, "input", "topologyRing");
+  assert.deepEqual(
+    [attribute(neighborRing, "min"), attribute(neighborRing, "max"), attribute(neighborRing, "step")],
+    [attribute(bodyDecay, "min"), attribute(bodyDecay, "max"), attribute(bodyDecay, "step")],
+    "linked body and topology decay controls must share the full authored range",
   );
   assert.match(
     soundPanel,

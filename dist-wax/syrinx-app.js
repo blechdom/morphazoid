@@ -13,16 +13,24 @@ import {
   resolveSourceControls,
   sampleModulationWave,
   sanitizeSyrinxState,
-} from "./src/syrinx.js?v=syrinx-ui-20260819-1";
+} from "./src/syrinx.js?v=syrinx-ui-20260820-1";
 import { connectAudioOutput } from "./src/audio-output-manager.js?v=syrinx-ui-20260819-1";
 import { unlockAudioContext } from "./src/audio.js?v=syrinx-ui-20260819-1";
 import {
   DEFAULT_TONGUE_STATE,
   TONGUE_ANATOMIES,
   sanitizeTongueState,
+  tongueAirwayAperture,
   tongueCavityGuides,
   tongueGeometry,
-} from "./src/tongue-physics.js?v=syrinx-ui-20260819-1";
+} from "./src/tongue-physics.js?v=syrinx-ui-20260820-1";
+import {
+  FERAL_TONGUE_PRESETS,
+  TONGUE_MOTION_PRESETS,
+  TONGUE_PARAMETER_LIMITS,
+  modulateTongueState,
+  sampleTongueMotionPreset,
+} from "./src/tongue-performance.js?v=syrinx-ui-20260820-1";
 
 const $ = (id) => document.getElementById(id);
 const animalSelect = $("animalSelect");
@@ -30,6 +38,9 @@ const callSelect = $("callSelect");
 const canvas = $("stage");
 const drawing = canvas.getContext("2d");
 const stageWrap = $("stageWrap");
+const viewportModulationLayer = $("viewportModulationLayer");
+const viewportTonguePresets = $("viewportTonguePresets");
+const viewportTonguePresetTrigger = $("viewportTonguePresetTrigger");
 const audioButton = $("audioButton");
 const playButton = $("playButton");
 const loopButton = $("loopButton");
@@ -116,6 +127,54 @@ const TONGUE_HOST_EFFECTS = Object.freeze({
   mouse: "The jet-wall whistle still selects the ultrasonic mode upstream. The tongue filters the tract and audible mapping; it does not directly retune the whistle's Strouhal mechanism.",
 });
 
+const TONGUE_CONTROL_KEYS = Object.freeze(Object.keys(TONGUE_PARAMETER_LIMITS));
+const VIEWPORT_MODULATION_TARGETS = Object.freeze([
+  "pressure",
+  "tension",
+  "adduction",
+  "roughness",
+  "asymmetry",
+  "sourceBalance",
+  "cavityCoupling",
+  "tractLengthM",
+  "mouthOpening",
+]);
+const PARAMETER_MODULATOR_DEFINITIONS = Object.freeze([
+  { target: "tonguePosition", elementId: "tonguePosition", family: "tongue", rateHz: 1.7, depth: 0.42, shape: "sine" },
+  { target: "tongueHeight", elementId: "tongueHeight", family: "tongue", rateHz: 3.1, depth: 0.48, shape: "triangle" },
+  { target: "tongueShape", elementId: "tongueShape", family: "tongue", rateHz: 0.73, depth: 0.52, shape: "sine" },
+  { target: "tongueTip", elementId: "tongueTip", family: "tongue", rateHz: 7.8, depth: 0.58, shape: "square" },
+  { target: "tongueExtension", elementId: "tongueExtension", family: "tongue", rateHz: 1.2, depth: 0.68, shape: "triangle" },
+  { target: "tongueCurl", elementId: "tongueCurl", family: "tongue", rateHz: 4.3, depth: 0.62, shape: "sine" },
+  { target: "tongueLateral", elementId: "tongueLateral", family: "tongue", rateHz: 2.4, depth: 0.54, shape: "square" },
+  { target: "pressure", elementId: "pressure", family: "host", rateHz: 0.82, depth: 0.5, shape: "triangle" },
+  { target: "tension", elementId: "tension", family: "host", rateHz: 5.4, depth: 0.34, shape: "sine" },
+  { target: "adduction", elementId: "adduction", family: "host", rateHz: 2.6, depth: 0.48, shape: "square" },
+  { target: "sourceScale", elementId: "sourceScale", family: "host", rateHz: 0.17, depth: 0.6, shape: "triangle" },
+  { target: "tractLengthM", elementId: "tractLength", family: "host", rateHz: 0.13, depth: 0.46, shape: "sine" },
+  { target: "mouthOpening", elementId: "mouthOpening", family: "host", rateHz: 3.7, depth: 0.72, shape: "square" },
+  { target: "cavityCoupling", elementId: "cavityCoupling", family: "host", rateHz: 0.47, depth: 0.62, shape: "sine" },
+  { target: "asymmetry", elementId: "asymmetry", family: "host", rateHz: 1.33, depth: 0.7, shape: "sample-hold" },
+  { target: "sourceBalance", elementId: "sourceBalance", family: "host", rateHz: 0.29, depth: 0.82, shape: "triangle" },
+  { target: "roughness", elementId: "roughness", family: "host", rateHz: 8.6, depth: 0.66, shape: "sample-hold" },
+  { target: "gestureRate", elementId: "gestureRate", family: "host", rateHz: 0.21, depth: 0.58, shape: "triangle" },
+  { target: "loopGapMs", elementId: "loopGap", family: "host", rateHz: 0.08, depth: 0.82, shape: "sample-hold" },
+]);
+
+const IDLE_TONGUE_ARTICULATION = Object.freeze({
+  active: false,
+  airwayGate: null,
+  gatePosition: null,
+  lateralBypass: 0,
+  flutterHz: 0,
+  flutterDepth: 0,
+  turbulence: 0,
+  flowDirection: 1,
+  voicing: 1,
+  burstGain: 0,
+  burstFrequencyHz: 1_050,
+});
+
 let state = animalState("raven", UI_MODE
   ? { biologicalLock: false, loopGapMs: 1_000 }
   : { loopGapMs: 0 });
@@ -123,6 +182,15 @@ let tongueState = sanitizeTongueState(TONGUE_MODE ? DEFAULT_TONGUE_STATE : {
   ...DEFAULT_TONGUE_STATE,
   tongueEnabled: false,
 });
+let performanceTongueState = tongueState;
+let tongueArticulation = IDLE_TONGUE_ARTICULATION;
+let tongueMotionId = "";
+let tongueMotionStartTime = 0;
+const parameterModulators = PARAMETER_MODULATOR_DEFINITIONS.map((definition, index) => ({
+  ...definition,
+  enabled: false,
+  phase: (index * 0.173) % 1,
+}));
 let performanceState = { ...state, active: false };
 const modulators = [
   { enabled: false, target: "tension", shape: "sine", rateHz: 5.4, depth: 0.12, phase: 0 },
@@ -144,6 +212,11 @@ let cssHeight = 1;
 let pixelRatio = 1;
 let handles = [];
 let pointerDrag = null;
+let activePointerId = null;
+let expandedViewportModulatorTarget = "";
+let viewportTonguePresetsPinned = false;
+let tongueHitGeometry = null;
+let tongueDragStartedBreath = false;
 let canvasBreathControl = null;
 let canvasBreathPressed = false;
 let waveform = new Float32Array(1_024);
@@ -194,7 +267,9 @@ function balanceLabel(value) {
 }
 
 function titleCase(value) {
-  const text = String(value ?? "").replaceAll("-", " ");
+  const text = String(value ?? "")
+    .replaceAll("-", " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2");
   return text ? text[0].toUpperCase() + text.slice(1) : "";
 }
 
@@ -219,7 +294,18 @@ function tractConfiguration(soundingState = performanceState) {
     mouthOpening: soundingState.mouthOpening,
     cavityCoupling: soundingState.cavityCoupling,
     cavityFrequencyHz: animal.cavityFrequencyHz,
-    ...tongueState,
+    ...performanceTongueState,
+    airwayGate: tongueArticulation.airwayGate,
+    gatePosition: tongueArticulation.gatePosition,
+    lateralBypass: tongueArticulation.lateralBypass,
+    flutterHz: tongueArticulation.flutterHz,
+    flutterDepth: tongueArticulation.flutterDepth,
+    turbulence: tongueArticulation.turbulence,
+    flowDirection: tongueArticulation.flowDirection,
+    articulationVoicing: tongueArticulation.voicing,
+    articulationPressure: soundingState.active ? soundingState.pressure : 0,
+    burstGain: tongueArticulation.burstGain,
+    burstFrequencyHz: tongueArticulation.burstFrequencyHz,
   };
 }
 
@@ -249,7 +335,7 @@ async function createAudioGraph() {
   if (!Context) throw new Error("This browser does not provide Web Audio.");
   const context = new Context({ latencyHint: "interactive", sampleRate: 48_000 });
   unlockAudioContext(context);
-  await context.audioWorklet.addModule(new URL("./src/syrinx-processor.js", import.meta.url));
+  await context.audioWorklet.addModule(new URL("./src/syrinx-processor.js?v=tongue-live-20260820-1", import.meta.url));
 
   const sourceNode = new AudioWorkletNode(context, "syrinx-physical-model", {
     numberOfInputs: 0,
@@ -391,7 +477,9 @@ function setManualBreath(active) {
       ? interpolateGesture(activeGesture(), gesturePhase, state)
       : { ...state, active: false };
   postConfiguration(performanceState);
-  audioDirty = gesturePlaying;
+  audioDirty = gesturePlaying
+    || Boolean(tongueMotionId)
+    || hasActiveParameterModulators();
   const transportNote = gesturePlaying ? "; call transport continues" : "";
   announce(active
     ? `${activeAnimal().label} manual pressure on${transportNote}`
@@ -466,15 +554,27 @@ function updateControlValues() {
 function updateTonguePresentation(soundingState = state) {
   if (!TONGUE_MODE) return;
   const anatomy = TONGUE_ANATOMIES[tongueState.tongueAnatomy];
-  const guides = tongueCavityGuides(soundingState.tractLengthM, tongueState);
+  const effectiveTongue = performanceTongueState ?? tongueState;
+  const guides = tongueCavityGuides(soundingState.tractLengthM, effectiveTongue);
   const enabled = Boolean(tongueState.tongueEnabled);
+  const requestedGate = tongueArticulation.airwayGate;
+  const naturalAperture = tongueAirwayAperture(effectiveTongue);
+  const lateral = clamp(tongueArticulation.lateralBypass);
+  const aperture = enabled
+    ? lateral + clamp(requestedGate == null ? naturalAperture : requestedGate) * (1 - lateral)
+    : 1;
+  const airwayLabel = tongueArticulation.flutterHz > 0
+    ? `flutter ${tongueArticulation.flutterHz.toFixed(1)} Hz`
+    : aperture <= 0.07
+      ? "sealed"
+      : aperture <= 0.35 ? "pinched" : aperture >= 0.9 ? "open" : `${Math.round(aperture * 100)}% open`;
   const toggle = $("tongueEnabled");
   if (toggle) {
     toggle.setAttribute("aria-pressed", String(enabled));
     toggle.textContent = enabled ? "Tongue in circuit" : "Bypass tongue";
   }
   if ($("tongueAnatomy")) $("tongueAnatomy").value = tongueState.tongueAnatomy;
-  for (const key of ["tonguePosition", "tongueHeight", "tongueShape", "tongueTip"]) {
+  for (const key of TONGUE_CONTROL_KEYS) {
     const input = $(key);
     if (!input) continue;
     input.value = String(tongueState[key]);
@@ -492,8 +592,16 @@ function updateTonguePresentation(soundingState = state) {
       : tongueState.tongueShape > 0.66 ? "focused" : "rounded";
   }
   if ($("tongueTipOut")) $("tongueTipOut").textContent = formatPercent(tongueState.tongueTip);
+  if ($("tongueExtensionOut")) $("tongueExtensionOut").textContent = formatPercent(tongueState.tongueExtension);
+  if ($("tongueCurlOut")) {
+    $("tongueCurlOut").textContent = tongueState.tongueCurl < 0.38
+      ? "down"
+      : tongueState.tongueCurl > 0.62 ? "up" : "flat";
+  }
+  if ($("tongueLateralOut")) $("tongueLateralOut").textContent = formatPercent(tongueState.tongueLateral);
   if ($("tongueSummary")) {
-    $("tongueSummary").textContent = `${anatomy.label.replace(" muscular hydrostat", "")} · ${enabled ? "coupled" : "bypassed"}`;
+    const motion = tongueMotionId ? ` · ${TONGUE_MOTION_PRESETS[tongueMotionId].label}` : "";
+    $("tongueSummary").textContent = `${anatomy.label.replace(" muscular hydrostat", "")} · ${enabled ? "coupled" : "bypassed"}${motion}`;
   }
   if ($("tongueDescription")) $("tongueDescription").textContent = anatomy.description;
   if ($("tongueImpact")) $("tongueImpact").textContent = TONGUE_HOST_EFFECTS[soundingState.animalId]
@@ -505,20 +613,90 @@ function updateTonguePresentation(soundingState = state) {
   if ($("frontCavityReadout")) {
     $("frontCavityReadout").textContent = enabled ? formatFrequency(guides.frontQuarterWaveHz) : "unchanged";
   }
+  if ($("airwayApertureReadout")) $("airwayApertureReadout").textContent = airwayLabel;
+  if ($("tongueAirwayOut")) $("tongueAirwayOut").textContent = airwayLabel;
+  if ($("tongueMotionOut")) {
+    $("tongueMotionOut").textContent = tongueMotionId
+      ? TONGUE_MOTION_PRESETS[tongueMotionId].label
+      : "free hand";
+  }
   document.body.classList.toggle("tongue-is-bypassed", !enabled);
+  document.body.classList.toggle("tongue-airway-sealed", enabled && aperture <= 0.07);
 }
 
 function setTongueControl(key, value, announceChange = false) {
   tongueState = sanitizeTongueState({ ...tongueState, [key]: value }, tongueState);
+  if (!tongueMotionId) performanceTongueState = tongueState;
   updateTonguePresentation(performanceState);
   audioDirty = true;
-  postConfiguration(performanceState);
   if (announceChange) {
     const label = key === "tongueAnatomy"
       ? TONGUE_ANATOMIES[tongueState.tongueAnatomy].label
       : `${titleCase(key)} ${Math.round(tongueState[key] * 100)} percent`;
     announce(label);
   }
+}
+
+function updateTongueMotionButtons() {
+  if (!TONGUE_MODE) return;
+  document.querySelectorAll("[data-tongue-motion]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.tongueMotion === tongueMotionId));
+  });
+}
+
+function setTongueMotion(id, { announceChange = true, startAudio = true } = {}) {
+  if (!TONGUE_MODE) return;
+  const next = Object.hasOwn(TONGUE_MOTION_PRESETS, id) ? id : "";
+  tongueMotionId = next;
+  tongueMotionStartTime = performance.now();
+  if (!next) {
+    tongueArticulation = IDLE_TONGUE_ARTICULATION;
+    performanceTongueState = tongueState;
+  } else {
+    tongueState = sanitizeTongueState({ ...tongueState, tongueEnabled: true }, tongueState);
+    if (startAudio) void ensureAudio();
+  }
+  updateTongueMotionButtons();
+  updateTonguePresentation(performanceState);
+  audioDirty = true;
+  if (announceChange) {
+    announce(next
+      ? `${TONGUE_MOTION_PRESETS[next].label} tongue motion started; grab the tongue to interrupt it`
+      : "Automatic tongue motion stopped; free-hand control active");
+  }
+}
+
+function applyFeralTonguePreset(id) {
+  const preset = FERAL_TONGUE_PRESETS[id];
+  if (!TONGUE_MODE || !preset) return;
+  state = sanitizeSyrinxState({
+    ...state,
+    biologicalLock: false,
+    ...preset.host,
+  }, state);
+  tongueState = sanitizeTongueState({
+    ...tongueState,
+    tongueEnabled: true,
+    ...preset.tongue,
+  }, tongueState);
+  const shapes = preset.modulation.shapes;
+  expandedViewportModulatorTarget = "";
+  parameterModulators.forEach((modulator, index) => {
+    modulator.enabled = true;
+    modulator.rateHz = clamp(
+      preset.modulation.rateBase + (index % 7) * preset.modulation.rateSpread,
+      0.02,
+      modulator.family === "host" ? 20 : 30,
+    );
+    modulator.depth = clamp(preset.modulation.depth - (index % 4) * 0.055);
+    modulator.shape = shapes[index % shapes.length];
+    modulator.phase = (index * 0.137) % 1;
+    updateParameterModulatorUI(modulator);
+  });
+  updateControlValues();
+  setTongueMotion(preset.motion, { announceChange: false });
+  audioDirty = true;
+  announce(`${preset.label}: every source, tract, tongue, and wiggle parameter is live`);
 }
 
 function installTongueListeners() {
@@ -530,11 +708,24 @@ function installTongueListeners() {
   $("tongueAnatomy")?.addEventListener("change", (event) => {
     setTongueControl("tongueAnatomy", event.currentTarget.value, true);
   });
-  for (const key of ["tonguePosition", "tongueHeight", "tongueShape", "tongueTip"]) {
+  for (const key of TONGUE_CONTROL_KEYS) {
     const input = $(key);
-    input?.addEventListener("input", () => setTongueControl(key, Number(input.value)));
+    input?.addEventListener("input", () => {
+      if (tongueMotionId) setTongueMotion("", { announceChange: false, startAudio: false });
+      setTongueControl(key, Number(input.value));
+    });
     input?.addEventListener("change", () => setTongueControl(key, Number(input.value), true));
   }
+  document.querySelectorAll("[data-tongue-motion]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const requested = button.dataset.tongueMotion;
+      setTongueMotion(requested === tongueMotionId ? "" : requested);
+    });
+  });
+  document.querySelectorAll("[data-feral-preset]").forEach((button) => {
+    button.addEventListener("click", () => applyFeralTonguePreset(button.dataset.feralPreset));
+  });
+  updateTongueMotionButtons();
 }
 
 function updateAnimalPresentation() {
@@ -743,9 +934,299 @@ function installModulationListeners() {
   });
 }
 
+function parameterModulatorsFor(family) {
+  return parameterModulators.filter((modulator) => (
+    modulator.family === family && modulator.enabled
+  ));
+}
+
+function hasActiveParameterModulators() {
+  return parameterModulators.some((modulator) => modulator.enabled);
+}
+
+function updateParameterModulatorUI(modulator) {
+  if (!modulator) return;
+  const button = modulator.button;
+  if (button) {
+    button.setAttribute("aria-pressed", String(Boolean(modulator.enabled)));
+    button.setAttribute(
+      "aria-label",
+      `${modulator.enabled ? "Disable" : "Enable"} ${titleCase(modulator.target)} viewport modulation`,
+    );
+    button.title = `${titleCase(modulator.target)} ${modulator.shape} modulation`;
+  }
+  if (modulator.rateInput) modulator.rateInput.value = String(modulator.rateHz);
+  if (modulator.depthInput) modulator.depthInput.value = String(modulator.depth);
+  if (modulator.rateOutput) modulator.rateOutput.textContent = `${modulator.rateHz.toFixed(2)} Hz`;
+  if (modulator.depthOutput) modulator.depthOutput.textContent = formatPercent(modulator.depth);
+  if (modulator.viewportControl) {
+    const expanded = expandedViewportModulatorTarget === modulator.target
+      && modulator.enabled;
+    modulator.viewportControl.classList.toggle("is-active", Boolean(modulator.enabled));
+    modulator.viewportControl.classList.toggle("is-expanded", expanded);
+    if (modulator.controls) modulator.controls.hidden = !expanded;
+    button?.setAttribute("aria-expanded", String(expanded));
+  }
+}
+
+function createViewportModulationRange(
+  modulator,
+  kind,
+  label,
+  minimum,
+  maximum,
+  step,
+  value,
+) {
+  const holder = document.createElement("label");
+  holder.className = "viewport-mod-range";
+  const heading = document.createElement("span");
+  heading.textContent = label;
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = String(minimum);
+  input.max = String(maximum);
+  input.step = String(step);
+  input.value = String(value);
+  input.setAttribute("aria-label", `${titleCase(modulator.target)} modulation ${label.toLowerCase()}`);
+  const output = document.createElement("output");
+  heading.append(output);
+  holder.append(heading, input);
+  input.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+    expandedViewportModulatorTarget = modulator.target;
+    modulator.viewportControl?.classList.add("is-adjusting");
+    updateParameterModulatorUI(modulator);
+    if (input.setPointerCapture) input.setPointerCapture(event.pointerId);
+  });
+  const finishPointerAdjustment = (event) => {
+    if (event.type !== "lostpointercapture"
+      && input.hasPointerCapture?.(event.pointerId)) {
+      input.releasePointerCapture(event.pointerId);
+    }
+    modulator.viewportControl?.classList.remove("is-adjusting");
+  };
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    input.addEventListener(type, finishPointerAdjustment);
+  }
+  input.addEventListener("input", () => {
+    modulator[kind] = Number(input.value);
+    updateParameterModulatorUI(modulator);
+    audioDirty = true;
+  });
+  input.addEventListener("change", () => {
+    announce(`${titleCase(modulator.target)} wiggle ${label.toLowerCase()} ${output.textContent}`);
+  });
+  if (kind === "rateHz") {
+    modulator.rateInput = input;
+    modulator.rateOutput = output;
+  } else {
+    modulator.depthInput = input;
+    modulator.depthOutput = output;
+  }
+  return holder;
+}
+
+function collapseViewportModulatorControls(exceptTarget = "") {
+  expandedViewportModulatorTarget = exceptTarget;
+  parameterModulators.forEach(updateParameterModulatorUI);
+}
+
+function installViewportParameterModulators() {
+  if (!TONGUE_MODE || !viewportModulationLayer) return;
+  const fragment = document.createDocumentFragment();
+  parameterModulators.forEach((modulator) => {
+    if (!VIEWPORT_MODULATION_TARGETS.includes(modulator.target)) return;
+    const control = document.createElement("div");
+    control.className = "viewport-modulator";
+    control.dataset.viewportModulator = modulator.target;
+    control.hidden = true;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "viewport-mod-toggle";
+    button.textContent = "∿";
+    button.id = `${modulator.elementId}ViewportModButton`;
+    button.setAttribute("aria-pressed", "false");
+    const controls = document.createElement("div");
+    controls.className = "viewport-mod-controls";
+    controls.id = `${modulator.elementId}ViewportModControls`;
+    controls.hidden = true;
+    button.setAttribute("aria-controls", controls.id);
+    button.addEventListener("click", () => {
+      setViewportTonguePresetPaletteOpen(false, { pinned: false });
+      if (modulator.enabled && expandedViewportModulatorTarget !== modulator.target) {
+        expandedViewportModulatorTarget = modulator.target;
+      } else {
+        modulator.enabled = !modulator.enabled;
+        expandedViewportModulatorTarget = modulator.enabled ? modulator.target : "";
+      }
+      if (modulator.enabled) void ensureAudio();
+      parameterModulators.forEach(updateParameterModulatorUI);
+      audioDirty = true;
+      announce(`${titleCase(modulator.target)} viewport modulation ${modulator.enabled ? "on; speed and width controls open" : "off"}`);
+    });
+    controls.append(
+      createViewportModulationRange(
+        modulator,
+        "rateHz",
+        "SPEED",
+        0.02,
+        20,
+        0.01,
+        modulator.rateHz,
+      ),
+      createViewportModulationRange(
+        modulator,
+        "depth",
+        "WIDTH",
+        0,
+        1,
+        0.01,
+        modulator.depth,
+      ),
+    );
+    control.append(button, controls);
+    modulator.button = button;
+    modulator.controls = controls;
+    modulator.viewportControl = control;
+    control.style.setProperty("--viewport-mod-color", HANDLE_COLORS[modulator.target]);
+    fragment.append(control);
+    updateParameterModulatorUI(modulator);
+  });
+  viewportModulationLayer.replaceChildren(fragment);
+  viewportModulationLayer.addEventListener("pointerdown", (event) => {
+    setViewportTonguePresetPaletteOpen(false, { pinned: false });
+    event.stopPropagation();
+  });
+}
+
+function positionViewportParameterModulators(viewportHandles = handles) {
+  if (!TONGUE_MODE || !viewportModulationLayer) return;
+  parameterModulators.forEach((modulator) => {
+    const control = modulator.viewportControl;
+    if (!control) return;
+    const handle = viewportHandles.find(({ type }) => type === modulator.target);
+    if (!handle?.modAnchor) {
+      control.hidden = true;
+      return;
+    }
+    const x = clamp(handle.modAnchor.x, 18, Math.max(18, cssWidth - 18));
+    const y = clamp(handle.modAnchor.y, 18, Math.max(18, cssHeight - 18));
+    const popoverWidth = cssWidth <= 520 ? 142 : 168;
+    const horizontalDirection = handle.modDirection?.x ?? 0;
+    const verticalDirection = handle.modDirection?.y ?? 0;
+    const canOpenLeft = x >= popoverWidth + 34;
+    const canOpenRight = cssWidth - x >= popoverWidth + 34;
+    const opensLeft = horizontalDirection < 0 && canOpenLeft
+      ? true
+      : horizontalDirection > 0 && canOpenRight
+        ? false
+        : x > cssWidth * 0.5;
+    const opensUp = verticalDirection < 0 && y >= 94
+      ? true
+      : verticalDirection > 0 && cssHeight - y >= 94
+        ? false
+        : y > cssHeight * 0.56;
+    const placement = `${x.toFixed(2)}:${y.toFixed(2)}:${Number(opensLeft)}:${Number(opensUp)}`;
+    if (control.dataset.placement !== placement) {
+      control.dataset.placement = placement;
+      control.style.left = `${x}px`;
+      control.style.top = `${y}px`;
+      control.classList.toggle("opens-left", opensLeft);
+      control.classList.toggle("opens-up", opensUp);
+    }
+    control.hidden = false;
+  });
+}
+
+function setViewportTonguePresetPaletteOpen(open, { pinned = viewportTonguePresetsPinned } = {}) {
+  if (!viewportTonguePresets || !viewportTonguePresetTrigger) return;
+  viewportTonguePresetsPinned = Boolean(pinned && open);
+  viewportTonguePresets.classList.toggle("is-open", Boolean(open));
+  viewportTonguePresetTrigger.setAttribute("aria-expanded", String(Boolean(open)));
+}
+
+function installViewportTonguePresetPalette() {
+  if (!TONGUE_MODE || !viewportTonguePresets || !viewportTonguePresetTrigger) return;
+  let closeTimer = 0;
+  const cancelClose = () => {
+    globalThis.clearTimeout(closeTimer);
+    closeTimer = 0;
+  };
+  const keepOpen = () => {
+    cancelClose();
+    if (!viewportTonguePresets.classList.contains("is-open")) {
+      collapseViewportModulatorControls();
+    }
+    setViewportTonguePresetPaletteOpen(true);
+  };
+  const closeAfterPointerExit = () => {
+    cancelClose();
+    closeTimer = globalThis.setTimeout(() => {
+      if (viewportTonguePresetsPinned
+        || viewportTonguePresets.matches(":hover")
+        || viewportTonguePresets.contains(document.activeElement)) return;
+      setViewportTonguePresetPaletteOpen(false, { pinned: false });
+    }, 180);
+  };
+  viewportTonguePresets.addEventListener("pointerenter", keepOpen);
+  viewportTonguePresets.addEventListener("pointerleave", closeAfterPointerExit);
+  viewportTonguePresets.addEventListener("focusin", keepOpen);
+  viewportTonguePresets.addEventListener("focusout", closeAfterPointerExit);
+  viewportTonguePresets.addEventListener("pointerdown", (event) => event.stopPropagation());
+  viewportTonguePresetTrigger.addEventListener("click", () => {
+    const pin = !viewportTonguePresetsPinned;
+    setViewportTonguePresetPaletteOpen(
+      pin || viewportTonguePresets.matches(":hover") || viewportTonguePresets.matches(":focus-within"),
+      { pinned: pin },
+    );
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (viewportTonguePresets.contains(event.target)) return;
+    setViewportTonguePresetPaletteOpen(false, { pinned: false });
+    if (viewportTonguePresets.contains(document.activeElement)) document.activeElement.blur?.();
+  });
+}
+
+function disableTongueParameterModulators() {
+  parameterModulators.forEach((modulator) => {
+    if (modulator.family !== "tongue") return;
+    modulator.enabled = false;
+    updateParameterModulatorUI(modulator);
+  });
+}
+
+function clearParameterModulators() {
+  expandedViewportModulatorTarget = "";
+  parameterModulators.forEach((modulator) => {
+    modulator.enabled = false;
+    updateParameterModulatorUI(modulator);
+  });
+}
+
 function randomizeBody() {
   const wasPlaying = gesturePlaying;
   state = randomizeSyrinxState(state);
+  if (TONGUE_MODE) {
+    tongueState = sanitizeTongueState({
+      ...tongueState,
+      tongueEnabled: true,
+      ...Object.fromEntries(TONGUE_CONTROL_KEYS.map((key) => [key, Math.random()])),
+    }, tongueState);
+    expandedViewportModulatorTarget = "";
+    parameterModulators.forEach((modulator, index) => {
+      modulator.enabled = Math.random() > 0.28;
+      const maximumRate = modulator.family === "host" ? 20 : 30;
+      modulator.rateHz = 0.02 + Math.random() ** 2 * (maximumRate - 0.02);
+      modulator.depth = 0.36 + Math.random() * 0.64;
+      modulator.shape = ["sine", "triangle", "square", "sample-hold"][index % 4];
+      updateParameterModulatorUI(modulator);
+    });
+    const motions = Object.keys(TONGUE_MOTION_PRESETS);
+    setTongueMotion(motions[Math.floor(Math.random() * motions.length)], {
+      announceChange: false,
+    });
+  }
   performanceState = manualBreath
     ? { ...state, active: true }
     : wasPlaying
@@ -757,7 +1238,9 @@ function randomizeBody() {
   }
   postConfiguration(performanceState, true);
   audioDirty = true;
-  announce(`${activeAnimal().label} parameters randomized; selected preset and transport retained`);
+  announce(TONGUE_MODE
+    ? `${activeAnimal().label} mutated with a new feral tongue and live parameter wiggles`
+    : `${activeAnimal().label} parameters randomized; selected preset and transport retained`);
 }
 
 function installControlListeners() {
@@ -778,6 +1261,13 @@ function installControlListeners() {
     announce(`Call loop ${state.loop ? "on" : "off"}`);
   });
   document.querySelector("[data-reset-all]")?.addEventListener("click", () => {
+    if (TONGUE_MODE) {
+      tongueState = sanitizeTongueState(DEFAULT_TONGUE_STATE);
+      performanceTongueState = tongueState;
+      tongueArticulation = IDLE_TONGUE_ARTICULATION;
+      setTongueMotion("", { announceChange: false, startAudio: false });
+      clearParameterModulators();
+    }
     loadAnimal(state.animalId);
     announce(state.biologicalLock
       ? `${activeAnimal().label} restored to its species-informed starting range`
@@ -785,6 +1275,8 @@ function installControlListeners() {
   });
   $("randomizeButton")?.addEventListener("click", randomizeBody);
   installModulationListeners();
+  installViewportParameterModulators();
+  installViewportTonguePresetPalette();
   installTongueListeners();
 
   breathButton.addEventListener("pointerdown", (event) => {
@@ -1452,24 +1944,33 @@ function drawAnimalSilhouette(layout, soundingState, time) {
 }
 
 function drawTongue(layout) {
-  if (!TONGUE_MODE || !tongueState.tongueEnabled) return;
+  tongueHitGeometry = null;
+  if (!TONGUE_MODE || !performanceTongueState.tongueEnabled) return;
   const r = layout.radius;
-  const { state: tongue, center, width } = tongueGeometry(tongueState);
+  const { state: tongue, center, width } = tongueGeometry(performanceTongueState);
   const oralStart = layout.faceX - r * 0.24;
-  const oralEnd = layout.mouthX + r * 0.025;
-  const span = Math.max(r * 0.32, oralEnd - oralStart);
-  const centerX = oralStart + span * clamp((center - 0.32) / 0.66);
-  const halfWidth = span * Math.max(0.09, width * 1.42);
+  const mouthEnd = layout.mouthX + r * 0.025;
+  const maximumTipX = Math.max(mouthEnd, Math.min(cssWidth - 18, mouthEnd + r * 1.58));
+  const tipX = mouthEnd + (maximumTipX - mouthEnd) * tongue.tongueExtension;
+  const internalSpan = Math.max(r * 0.32, mouthEnd - oralStart);
+  const centerX = oralStart + internalSpan * clamp((center - 0.32) / 0.66);
+  const halfWidth = internalSpan * Math.max(0.075, width * 1.42);
   const floorY = layout.mouthY + layout.mouthGap * 0.24;
-  const bodyTop = floorY - r * (0.035 + tongue.tongueHeight * 0.18);
-  const tipY = floorY - r * tongue.tongueTip * 0.11;
+  const roofY = floorY - r * 0.255;
+  const bodyTop = floorY - r * (0.035 + tongue.tongueHeight * 0.235);
+  const curlOffset = (tongue.tongueCurl - 0.5) * r * 0.42;
+  const tipY = floorY - r * tongue.tongueTip * 0.13 - curlOffset;
+  const stretched = tongue.tongueExtension > 0.08;
+  const thickness = r * (0.035 + (1 - tongue.tongueExtension * 0.52) * 0.055);
 
   drawing.save();
   drawing.shadowColor = "#ff5f87";
-  drawing.shadowBlur = 6;
-  drawing.fillStyle = "rgba(255,95,135,0.24)";
+  drawing.shadowBlur = pointerDrag?.type === "tongue" ? 24 : 9;
+  drawing.fillStyle = pointerDrag?.type === "tongue"
+    ? "rgba(255,95,135,0.48)"
+    : "rgba(255,95,135,0.3)";
   drawing.strokeStyle = "rgba(255,128,157,0.92)";
-  drawing.lineWidth = 1.5;
+  drawing.lineWidth = pointerDrag?.type === "tongue" ? 2.4 : 1.7;
   drawing.beginPath();
   drawing.moveTo(oralStart, floorY + r * 0.035);
   drawing.bezierCurveTo(
@@ -1483,29 +1984,82 @@ function drawTongue(layout) {
   drawing.bezierCurveTo(
     centerX + halfWidth * 0.58,
     bodyTop,
-    oralEnd - r * 0.08,
-    tipY,
-    oralEnd,
-    tipY,
+    mouthEnd + (tipX - mouthEnd) * 0.5,
+    tipY - thickness * (0.5 + tongue.tongueCurl * 0.5),
+    tipX,
+    tipY - thickness * 0.15,
   );
-  drawing.quadraticCurveTo(oralEnd - r * 0.04, floorY + r * 0.04, oralStart, floorY + r * 0.035);
+  drawing.quadraticCurveTo(
+    tipX - Math.max(thickness, (tipX - mouthEnd) * 0.28),
+    tipY + thickness,
+    oralStart,
+    floorY + r * 0.035,
+  );
   drawing.closePath();
   drawing.fill();
   drawing.stroke();
 
   drawing.shadowBlur = 0;
-  drawing.setLineDash([2, 4]);
+  drawing.setLineDash([2 + tongue.tongueExtension * 4, 4]);
   drawing.strokeStyle = "rgba(255,185,201,0.62)";
   drawing.beginPath();
   drawing.moveTo(centerX, bodyTop + r * 0.012);
   drawing.lineTo(centerX, floorY + r * 0.02);
   drawing.stroke();
+  if (stretched) {
+    drawing.beginPath();
+    drawing.moveTo(mouthEnd, floorY - thickness * 0.12);
+    drawing.quadraticCurveTo((mouthEnd + tipX) * 0.5, tipY, tipX - thickness * 0.4, tipY);
+    drawing.stroke();
+  }
+  if (tongue.tongueLateral > 0.12) {
+    drawing.strokeStyle = `rgba(114,231,220,${0.2 + tongue.tongueLateral * 0.58})`;
+    drawing.beginPath();
+    drawing.moveTo(centerX - halfWidth * 0.3, bodyTop + thickness * 0.25);
+    drawing.quadraticCurveTo(mouthEnd, tipY + thickness * 0.52, tipX - thickness, tipY + thickness * 0.4);
+    drawing.stroke();
+  }
   drawing.setLineDash([]);
+  const handleRadius = Math.max(10, r * 0.048);
+  drawing.fillStyle = "#080507";
+  drawing.strokeStyle = "#ffb4c6";
+  drawing.lineWidth = 1.5;
+  drawing.beginPath();
+  drawing.arc(tipX, tipY, handleRadius, 0, Math.PI * 2);
+  drawing.fill();
+  drawing.stroke();
+  drawing.fillStyle = "#ff5f87";
+  drawing.beginPath();
+  drawing.arc(tipX, tipY, 2.7, 0, Math.PI * 2);
+  drawing.fill();
+  if (bodyTop <= roofY + r * 0.018 || tipY <= roofY + r * 0.018) {
+    drawing.strokeStyle = "rgba(255,207,104,0.9)";
+    drawing.lineWidth = 1;
+    for (const offset of [-1, 0, 1]) {
+      drawing.beginPath();
+      drawing.moveTo(tipX + offset * 5, roofY - 2);
+      drawing.lineTo(tipX + offset * 7, roofY - 8 - Math.abs(offset) * 2);
+      drawing.stroke();
+    }
+  }
   drawing.fillStyle = "rgba(255,173,193,0.76)";
   drawing.font = "700 7px ui-monospace, monospace";
   drawing.textAlign = "center";
-  drawing.fillText("TONGUE", centerX, floorY + r * 0.085);
+  drawing.fillText(pointerDrag?.type === "tongue" ? "PULL / SEAL / FLIP" : "GRAB TONGUE", centerX, floorY + r * 0.09);
   drawing.restore();
+
+  tongueHitGeometry = {
+    rootX: oralStart,
+    rootY: floorY,
+    mouthX: mouthEnd,
+    tipX,
+    tipY,
+    floorY,
+    roofY,
+    maximumTipX,
+    radius: r,
+    thickness: Math.max(handleRadius + 8, thickness * 2.2),
+  };
 }
 
 function drawUniversalFace(layout, soundingState, time) {
@@ -1710,7 +2264,8 @@ function drawUniversalFace(layout, soundingState, time) {
 
 function universalHandleList(layout, displayedState) {
   const r = layout.radius;
-  const rail = (type, label, x1, y1, x2, y2) => {
+  const modulationGap = Math.min(30, Math.max(22, r * 0.09));
+  const rail = (type, label, x1, y1, x2, y2, modOffsetX, modOffsetY) => {
     const amount = normalizedControl(type, displayedState[type]);
     return {
       type,
@@ -1719,18 +2274,23 @@ function universalHandleList(layout, displayedState) {
       y: y1 + (y2 - y1) * amount,
       radius: 12,
       rail: { x1, y1, x2, y2 },
+      modAnchor: {
+        x: (x1 + x2) * 0.5 + modOffsetX * modulationGap,
+        y: (y1 + y2) * 0.5 + modOffsetY * modulationGap,
+      },
+      modDirection: { x: modOffsetX, y: modOffsetY },
     };
   };
   return [
-    rail("pressure", "PRESSURE", layout.lungX - r * 0.46, layout.lungY + r * 0.32, layout.lungX - r * 0.46, layout.lungY - r * 0.36),
-    rail("tension", "TENSION", layout.sourceX - r * 0.36, layout.sourceY + r * 0.31, layout.sourceX - r * 0.36, layout.sourceY - r * 0.31),
-    rail("adduction", "CLOSURE", layout.sourceX + r * 0.36, layout.sourceY + r * 0.31, layout.sourceX + r * 0.36, layout.sourceY - r * 0.31),
-    rail("roughness", "ROUGH", layout.sourceX + r * 0.58, layout.sourceY + r * 0.31, layout.sourceX + r * 0.58, layout.sourceY - r * 0.31),
-    rail("asymmetry", "ASYMMETRY", layout.sourceX - r * 0.38, layout.sourceY + r * 0.48, layout.sourceX + r * 0.38, layout.sourceY + r * 0.48),
-    rail("sourceBalance", "BALANCE", layout.sourceX - r * 0.38, layout.sourceY - r * 0.48, layout.sourceX + r * 0.38, layout.sourceY - r * 0.48),
-    rail("cavityCoupling", "CAVITY", layout.cavityX - r * 0.22, layout.cavityY - r * 0.3, layout.cavityX + r * 0.26, layout.cavityY - r * 0.3),
-    rail("tractLengthM", "TRACT", layout.faceX + r * 0.12, layout.mouthY - r * 0.45, layout.faceX + r * 0.72, layout.mouthY - r * 0.45),
-    rail("mouthOpening", "MOUTH", layout.mouthX + r * 0.17, layout.mouthY + r * 0.27, layout.mouthX + r * 0.17, layout.mouthY - r * 0.27),
+    rail("pressure", "PRESSURE", layout.lungX - r * 0.46, layout.lungY + r * 0.32, layout.lungX - r * 0.46, layout.lungY - r * 0.36, -1, 0),
+    rail("tension", "TENSION", layout.sourceX - r * 0.36, layout.sourceY + r * 0.31, layout.sourceX - r * 0.36, layout.sourceY - r * 0.31, -1, 0),
+    rail("adduction", "CLOSURE", layout.sourceX + r * 0.36, layout.sourceY + r * 0.31, layout.sourceX + r * 0.36, layout.sourceY - r * 0.31, 1, 0),
+    rail("roughness", "ROUGH", layout.sourceX + r * 0.58, layout.sourceY + r * 0.31, layout.sourceX + r * 0.58, layout.sourceY - r * 0.31, 1, 0),
+    rail("asymmetry", "ASYMMETRY", layout.sourceX - r * 0.38, layout.sourceY + r * 0.48, layout.sourceX + r * 0.38, layout.sourceY + r * 0.48, 0, 1),
+    rail("sourceBalance", "BALANCE", layout.sourceX - r * 0.38, layout.sourceY - r * 0.48, layout.sourceX + r * 0.38, layout.sourceY - r * 0.48, 0, -1),
+    rail("cavityCoupling", "CAVITY", layout.cavityX - r * 0.22, layout.cavityY - r * 0.3, layout.cavityX + r * 0.26, layout.cavityY - r * 0.3, 0, -1),
+    rail("tractLengthM", "TRACT", layout.faceX + r * 0.12, layout.mouthY - r * 0.45, layout.faceX + r * 0.72, layout.mouthY - r * 0.45, 0, -1),
+    rail("mouthOpening", "MOUTH", layout.mouthX + r * 0.17, layout.mouthY + r * 0.27, layout.mouthX + r * 0.17, layout.mouthY - r * 0.27, 1, 0),
   ];
 }
 
@@ -1771,9 +2331,10 @@ function renderUniversalStage(time) {
   drawUniversalFace(layout, performanceState, time);
   drawProgress(layout);
   const handleLayout = universalFaceLayout(state);
-  handles = universalHandleList(handleLayout, state);
+  handles = universalHandleList(handleLayout, performanceState);
   handles.forEach(drawUniversalRail);
   handles.forEach(drawHandle);
+  positionViewportParameterModulators(handles);
 }
 
 function renderStage(time) {
@@ -1881,6 +2442,22 @@ function handleAt(x, y) {
       nearestDistance = distance;
     }
   }
+  if (nearest) return nearest;
+  const point = { x, y };
+  for (const handle of handles) {
+    if (!handle.rail) continue;
+    const distance = distanceToSegment(
+      point,
+      handle.rail.x1,
+      handle.rail.y1,
+      handle.rail.x2,
+      handle.rail.y2,
+    );
+    if (distance <= 17 && distance < nearestDistance) {
+      nearest = handle;
+      nearestDistance = distance;
+    }
+  }
   return nearest;
 }
 
@@ -1890,6 +2467,72 @@ function canvasPoint(event) {
     x: event.clientX - bounds.left,
     y: event.clientY - bounds.top,
   };
+}
+
+function distanceToSegment(point, startX, startY, endX, endY) {
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const amount = clamp(
+    ((point.x - startX) * dx + (point.y - startY) * dy)
+      / Math.max(1e-9, dx * dx + dy * dy),
+  );
+  return Math.hypot(
+    point.x - (startX + dx * amount),
+    point.y - (startY + dy * amount),
+  );
+}
+
+function tongueAtPoint(point) {
+  if (!TONGUE_MODE || !tongueHitGeometry || !tongueState.tongueEnabled) return false;
+  const geometry = tongueHitGeometry;
+  if (Math.hypot(point.x - geometry.tipX, point.y - geometry.tipY) <= geometry.thickness + 9) {
+    return true;
+  }
+  return distanceToSegment(
+    point,
+    geometry.rootX,
+    geometry.rootY,
+    geometry.tipX,
+    geometry.tipY,
+  ) <= geometry.thickness;
+}
+
+function dragTongue(point) {
+  const geometry = tongueHitGeometry;
+  if (!geometry) return;
+  const insideReach = clamp(
+    (Math.min(point.x, geometry.mouthX) - geometry.rootX)
+      / Math.max(1, geometry.mouthX - geometry.rootX),
+  );
+  const extension = clamp(
+    (point.x - geometry.mouthX)
+      / Math.max(1, geometry.maximumTipX - geometry.mouthX),
+  );
+  const height = clamp(
+    (geometry.floorY - point.y)
+      / Math.max(1, geometry.floorY - geometry.roofY),
+  );
+  const curl = clamp(0.5 + (geometry.floorY - point.y) / (geometry.radius * 0.46));
+  const tip = clamp(
+    (geometry.floorY - point.y + geometry.radius * 0.035)
+      / (geometry.radius * 0.21),
+  );
+  const startLateral = pointerDrag?.startTongue?.tongueLateral ?? tongueState.tongueLateral;
+  tongueState = sanitizeTongueState({
+    ...tongueState,
+    tongueEnabled: true,
+    tonguePosition: insideReach,
+    tongueHeight: height,
+    tongueShape: clamp(tongueState.tongueShape * 0.55 + extension * 0.38 + height * 0.24),
+    tongueTip: tip,
+    tongueExtension: extension,
+    tongueCurl: curl,
+    tongueLateral: height >= 0.88 ? 0 : startLateral,
+  }, tongueState);
+  performanceTongueState = tongueState;
+  tongueArticulation = IDLE_TONGUE_ARTICULATION;
+  updateTonguePresentation(performanceState);
+  audioDirty = true;
 }
 
 function dragControl(type, point) {
@@ -1939,13 +2582,34 @@ function dragControl(type, point) {
 
 function installCanvasInteraction() {
   canvas.addEventListener("pointerdown", (event) => {
+    if (activePointerId != null && activePointerId !== event.pointerId) return;
     const point = canvasPoint(event);
+    if (tongueAtPoint(point)) {
+      event.preventDefault();
+      void ensureAudio();
+      if (tongueMotionId) setTongueMotion("", { announceChange: false, startAudio: false });
+      disableTongueParameterModulators();
+      tongueDragStartedBreath = !gesturePlaying && !manualBreath;
+      if (tongueDragStartedBreath) setManualBreath(true);
+      pointerDrag = {
+        type: "tongue",
+        label: "TONGUE",
+        pointerId: event.pointerId,
+        startTongue: { ...tongueState },
+      };
+      activePointerId = event.pointerId;
+      canvas.classList.add("is-dragging", "is-tongue-dragging");
+      canvas.setPointerCapture?.(event.pointerId);
+      dragTongue(point);
+      return;
+    }
     if (UI_MODE
       && canvasBreathControl
       && Math.hypot(point.x - canvasBreathControl.x, point.y - canvasBreathControl.y)
         <= canvasBreathControl.radius + 8) {
       event.preventDefault();
       canvasBreathPressed = true;
+      activePointerId = event.pointerId;
       canvas.classList.add("is-breathing");
       canvas.setPointerCapture?.(event.pointerId);
       setManualBreath(true);
@@ -1954,29 +2618,45 @@ function installCanvasInteraction() {
     const handle = handleAt(point.x, point.y);
     if (!handle) return;
     event.preventDefault();
-    pointerDrag = handle;
+    pointerDrag = { ...handle, pointerId: event.pointerId };
+    activePointerId = event.pointerId;
     canvas.classList.add("is-dragging");
     canvas.setPointerCapture?.(event.pointerId);
     dragControl(handle.type, point);
   });
   canvas.addEventListener("pointermove", (event) => {
+    if (activePointerId != null && event.pointerId !== activePointerId) return;
     if (canvasBreathPressed) {
       event.preventDefault();
       return;
     }
     if (!pointerDrag) return;
     event.preventDefault();
-    dragControl(pointerDrag.type, canvasPoint(event));
+    if (pointerDrag.type === "tongue") dragTongue(canvasPoint(event));
+    else dragControl(pointerDrag.type, canvasPoint(event));
   });
-  const release = () => {
+  const release = (event) => {
+    if (activePointerId != null && event?.pointerId != null && event.pointerId !== activePointerId) return;
+    let releaseMessage = "";
     if (canvasBreathPressed) {
       canvasBreathPressed = false;
       canvas.classList.remove("is-breathing");
       setManualBreath(false);
     }
-    if (pointerDrag) announce(`${pointerDrag.label.toLowerCase()} set within ${state.biologicalLock ? activeAnimal().label : "universal"} range`);
+    if (pointerDrag?.type === "tongue") {
+      const aperture = tongueAirwayAperture(tongueState);
+      releaseMessage = `Free-hand tongue set: ${Math.round(tongueState.tongueExtension * 100)} percent stretch, ${aperture <= 0.07 ? "airway sealed" : `${Math.round(aperture * 100)} percent airway`}`;
+    } else if (pointerDrag) {
+      releaseMessage = `${pointerDrag.label.toLowerCase()} set within ${state.biologicalLock ? activeAnimal().label : "universal"} range`;
+    }
     pointerDrag = null;
-    canvas.classList.remove("is-dragging");
+    if (tongueDragStartedBreath) {
+      tongueDragStartedBreath = false;
+      setManualBreath(false);
+    }
+    if (releaseMessage) announce(releaseMessage);
+    activePointerId = null;
+    canvas.classList.remove("is-dragging", "is-tongue-dragging");
   };
   canvas.addEventListener("pointerup", release);
   canvas.addEventListener("pointercancel", release);
@@ -2019,14 +2699,19 @@ function installCanvasInteraction() {
 }
 
 function updatePerformance(time) {
+  const elapsedSeconds = time * 0.001;
+  const hostParameterModulators = TONGUE_MODE ? parameterModulatorsFor("host") : [];
+  const transportState = hostParameterModulators.length
+    ? modulateSyrinxState(state, hostParameterModulators, elapsedSeconds)
+    : state;
   if (gesturePlaying) {
     const gesture = activeGesture();
-    const duration = gesture.durationMs / state.gestureRate;
+    const duration = gesture.durationMs / transportState.gestureRate;
     const timeline = resolveGestureTimeline(
       time - gestureStartTime,
       duration,
       state.loop,
-      state.loopGapMs,
+      transportState.loopGapMs,
     );
     if (timeline.complete) {
       gesturePhase = 1;
@@ -2051,15 +2736,52 @@ function updatePerformance(time) {
     performanceState = { ...state, active: false };
   }
   if (UI_MODE) {
-    performanceState = modulateSyrinxState(performanceState, modulators, time * 0.001);
+    performanceState = modulateSyrinxState(performanceState, modulators, elapsedSeconds);
     updateModulationPresentation(time);
+  }
+  if (TONGUE_MODE) {
+    if (tongueMotionId) {
+      const motion = sampleTongueMotionPreset(
+        tongueMotionId,
+        Math.max(0, time - tongueMotionStartTime) * 0.001,
+        tongueState,
+      );
+      performanceTongueState = motion.tongue;
+      tongueArticulation = motion.articulation;
+      performanceState = {
+        ...sanitizeSyrinxState({
+          ...performanceState,
+          ...motion.host,
+          active: true,
+        }, performanceState),
+        active: true,
+      };
+    } else {
+      performanceTongueState = tongueState;
+      tongueArticulation = IDLE_TONGUE_ARTICULATION;
+    }
+    if (hostParameterModulators.length) {
+      performanceState = modulateSyrinxState(
+        performanceState,
+        hostParameterModulators,
+        elapsedSeconds,
+      );
+    }
+    const tongueParameterModulators = parameterModulatorsFor("tongue");
+    if (tongueParameterModulators.length) {
+      performanceTongueState = modulateTongueState(
+        performanceTongueState,
+        tongueParameterModulators,
+        elapsedSeconds,
+      );
+    }
   }
   updatePerformancePresentation(performanceState);
 
   if (audioDirty && time - lastConfigurationTime >= 26) {
     postConfiguration(performanceState);
     lastConfigurationTime = time;
-    audioDirty = gesturePlaying;
+    audioDirty = gesturePlaying || Boolean(tongueMotionId) || hasActiveParameterModulators();
   }
 }
 
@@ -2075,12 +2797,22 @@ function installLifecycle() {
   globalThis.addEventListener("resize", resizeCanvas, { passive: true });
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
+    if (TONGUE_MODE) collapseViewportModulatorControls();
+    if (TONGUE_MODE) {
+      setViewportTonguePresetPaletteOpen(false, { pinned: false });
+      if (viewportTonguePresets?.contains(document.activeElement)) document.activeElement.blur?.();
+    }
+    if (TONGUE_MODE) setTongueMotion("", { announceChange: false, startAudio: false });
     stopPerformance("All pressure released");
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) stopPerformance("");
+    if (document.hidden) {
+      if (TONGUE_MODE) setTongueMotion("", { announceChange: false, startAudio: false });
+      stopPerformance("");
+    }
   });
   globalThis.addEventListener("pagehide", () => {
+    if (TONGUE_MODE) setTongueMotion("", { announceChange: false, startAudio: false });
     stopPerformance("");
     cancelAnimationFrame(animationFrame);
     graph?.releaseOutput?.();

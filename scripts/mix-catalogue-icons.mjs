@@ -16,7 +16,6 @@ const correctedSeries = new Map([
 const pinnedVariants = new Map([
   ["candy-coil-delay", "round-2-v1.webp"],
   ["shepard-risset", "round-2-v1.webp"],
-  ["striped-sludge-delay", "round-2-v1.webp"],
 ]);
 
 function parseArguments(argv) {

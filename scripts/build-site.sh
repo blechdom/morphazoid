@@ -57,6 +57,12 @@ done < <(git -C "$repo_root" ls-files -z)
 # commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
   shape.html \
+  playhead-paint.html \
+  playhead-paint.css \
+  playhead-paint-app.js \
+  src/playhead-paint.js \
+  src/playhead-paint-audio.js \
+  assets/instruments/playhead-paint.webp \
   striped-staircase.html \
   striped-staircase.css \
   striped-staircase-app.js \
@@ -88,6 +94,7 @@ for worktree_runtime_file in \
   src/syrinx-source-models.js \
   src/syrinx-processor.js \
   src/tongue-physics.js \
+  src/tongue-performance.js \
   ANIMAL_VOICE_SYNTHESIS_RESEARCH.md \
   throatazoid-architecture.html \
   throatazoid-architecture.css \
@@ -288,6 +295,10 @@ for worktree_runtime_file in \
   bell-square.html \
   bell-square-app.js \
   src/bell-square.js \
+  quantum-square-dance.html \
+  quantum-square-dance-app.js \
+  src/quantum-square-dance.js \
+  assets/instruments/quantum-square-dance.webp \
   annealogue.html \
   annealogue-app.js \
   src/annealogue.js \
@@ -321,8 +332,11 @@ for worktree_runtime_file in \
   neural-pulse.html \
   fourier-epicycles.html \
   gravity-lens.html \
+  orbital-ferris.html \
   experiments.css \
-  experiments-app.js
+  experiments-app.js \
+  src/orbital-ferris.js \
+  assets/instruments/orbital-ferris.webp
 do
   [[ -f "$repo_root/$worktree_runtime_file" ]] && copy_runtime_file "$worktree_runtime_file"
 done
@@ -336,6 +350,12 @@ required_files=(
   index.html
   midi-guide.html
   shape.html
+  playhead-paint.html
+  playhead-paint.css
+  playhead-paint-app.js
+  src/playhead-paint.js
+  src/playhead-paint-audio.js
+  assets/instruments/playhead-paint.webp
   striped-staircase.html
   striped-staircase.css
   striped-staircase-app.js
@@ -370,6 +390,7 @@ required_files=(
   src/syrinx-source-models.js
   src/syrinx-processor.js
   src/tongue-physics.js
+  src/tongue-performance.js
   assets/instruments/syrinx.webp
   ANIMAL_VOICE_SYNTHESIS_RESEARCH.md
   throatazoid-architecture.html
@@ -468,7 +489,6 @@ required_files=(
   ouroboros-borealis-app.js
   src/ouroboros-borealis.js
   candy-coil-delay.html
-  striped-sludge-delay.html
   sandy-syrup-delay.html
   barber-delay.css
   barber-delay-app.js
@@ -547,6 +567,10 @@ required_files=(
   bell-square.html
   bell-square-app.js
   src/bell-square.js
+  quantum-square-dance.html
+  quantum-square-dance-app.js
+  src/quantum-square-dance.js
+  assets/instruments/quantum-square-dance.webp
   annealogue.html
   annealogue-app.js
   src/annealogue.js
@@ -583,8 +607,11 @@ required_files=(
   neural-pulse.html
   fourier-epicycles.html
   gravity-lens.html
+  orbital-ferris.html
   experiments.css
   experiments-app.js
+  src/orbital-ferris.js
+  assets/instruments/orbital-ferris.webp
   fm-drums.html
   fm-drums.css
   fm-drums-app.js

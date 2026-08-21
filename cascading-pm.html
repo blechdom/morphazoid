@@ -66,7 +66,7 @@
           </div>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">8 STAGES · PHASE CHAIN · OFF</span>
+            <span id="stageReadout">4 STAGES · PHASE CHAIN · OFF</span>
           </div>
 
           <div
@@ -82,12 +82,12 @@
         <details class="group control-section cascading-pm-presets" open>
           <summary class="group-summary">
             <h2 class="group-title">Character</h2>
-            <span class="section-state" id="presetState">Slow Cascade</span>
+            <span class="section-state" id="presetState">Long Bloom</span>
           </summary>
           <div class="group-body">
             <div class="cascading-pm-preset-grid" id="presetButtons" role="group" aria-label="Cascading PM presets"></div>
             <p class="cascading-pm-preset-description" id="presetDescription">
-              Eight measured phase turns rise from 0.12 Hz to a warm 126 Hz carrier while each turn becomes gentler.
+              Four widely spaced stages open around a 72 Hz bass over a calm 20-second cycle.
             </p>
           </div>
         </details>
@@ -95,36 +95,36 @@
         <details class="group control-section cascading-pm-structure" open>
           <summary class="group-summary">
             <h2 class="group-title">Phase cascade</h2>
-            <span class="section-state" id="structureState">8 stages · ×2.7 · rising</span>
+            <span class="section-state" id="structureState">4 stages · ×11.3 · rising</span>
           </summary>
           <div class="group-body">
             <label class="control" for="stages">
-              <span><b>Stages</b><output id="stagesOut" for="stages">8</output></span>
-              <input id="stages" type="range" min="2" max="12" step="1" value="8" />
+              <span><b>Stages</b><output id="stagesOut" for="stages">4</output></span>
+              <input id="stages" type="range" min="2" max="12" step="1" value="4" />
             </label>
             <small class="cascading-pm-control-note">Number of sine operators · 2 is classic PM · 12 is a deep chain · carrier pitch is preserved</small>
 
             <label class="control" for="rootHz">
-              <span><b>Root</b><output id="rootHzOut" for="rootHz">0.12 Hz</output></span>
-              <input id="rootHz" type="range" min="0" max="1" step="0.0001" value="0.2080" aria-describedby="rootHzNote" />
+              <span><b>Root</b><output id="rootHzOut" for="rootHz">0.05 Hz</output></span>
+              <input id="rootHz" type="range" min="0" max="1" step="0.0001" value="0.1064" aria-describedby="rootHzNote" />
             </label>
-            <small class="cascading-pm-control-note" id="rootHzNote">Logarithmic · 0.02 Hz to 110 Hz · base frequency of the first phase operator</small>
+            <small class="cascading-pm-control-note" id="rootHzNote">Logarithmic · 0.02 Hz to 110 Hz · first phase operator · sub-audio values set the slowest rhythmic motion</small>
 
             <label class="control" for="cascadeRatio">
-              <span><b>Cascade ratio</b><output id="cascadeRatioOut" for="cascadeRatio">×2.7</output></span>
-              <input id="cascadeRatio" type="range" min="0" max="1" step="0.0001" value="0.5914" aria-describedby="cascadeRatioNote" />
+              <span><b>Cascade ratio</b><output id="cascadeRatioOut" for="cascadeRatio">×11.3</output></span>
+              <input id="cascadeRatio" type="range" min="0" max="1" step="0.0001" value="0.8010" aria-describedby="cascadeRatioNote" />
             </label>
             <small class="cascading-pm-control-note" id="cascadeRatioNote">Focused logarithmic · 40% of the track covers ×1 to ×5 · below 1 descends, above 1 rises · extended range ×0.25 to ×200</small>
 
             <label class="control" for="phaseIndex">
-              <span><b>Phase index</b><output id="phaseIndexOut" for="phaseIndex">0.65 rad</output></span>
-              <input id="phaseIndex" type="range" min="0" max="1" step="0.0001" value="0.2016" aria-describedby="phaseIndexNote" />
+              <span><b>Phase index</b><output id="phaseIndexOut" for="phaseIndex">2 rad</output></span>
+              <input id="phaseIndex" type="range" min="0" max="1" step="0.0001" value="0.3536" aria-describedby="phaseIndexNote" />
             </label>
-            <small class="cascading-pm-control-note" id="phaseIndexNote">Radians · maximum phase offset sent from stage 0 into stage 1</small>
+            <small class="cascading-pm-control-note" id="phaseIndexNote">Radians · maximum phase offset sent from stage 0 into stage 1 · stronger turns create clearer rhythmic accents</small>
 
             <label class="control" for="indexTaper">
-              <span><b>Index taper</b><output id="indexTaperOut" for="indexTaper">0.86×</output></span>
-              <input id="indexTaper" type="range" min="0.05" max="4" step="0.01" value="0.86" aria-describedby="indexTaperNote" />
+              <span><b>Index taper</b><output id="indexTaperOut" for="indexTaper">0.58×</output></span>
+              <input id="indexTaper" type="range" min="0.05" max="4" step="0.01" value="0.58" aria-describedby="indexTaperNote" />
             </label>
             <small class="cascading-pm-control-note" id="indexTaperNote">Multiplier applied to the phase index at each successive hand-off</small>
             <p class="cascading-pm-taper-hint" id="taperHint">
@@ -132,11 +132,11 @@
             </p>
 
             <div class="grammar-card cascading-pm-ledger chaotic-turn-ledger" aria-label="Current phase-cascade model">
-              <span><b>Root</b><code id="rootReadout">0.12 Hz LFO</code></span>
-              <span><b>Carrier</b><code id="carrierReadout">126 Hz</code></span>
-              <span><b>Stages</b><code id="stagesReadout">0.12 → 0.324 → 0.875 → 2.36 → 6.38 → 17 → 46 → 126 Hz</code></span>
-              <span><b>Indices</b><code id="indicesReadout">0.65 → 0.559 → 0.481 → 0.413 → 0.356 → 0.306 → 0.263 rad</code></span>
-              <span><b>Output</b><code id="outputReadout">stage 8 · bounded final sine</code></span>
+              <span><b>Root</b><code id="rootReadout">0.05 Hz LFO</code></span>
+              <span><b>Carrier</b><code id="carrierReadout">72 Hz</code></span>
+              <span><b>Stages</b><code id="stagesReadout">0.05 Hz → 0.565 Hz → 6.38 Hz → 72 Hz</code></span>
+              <span><b>Indices</b><code id="indicesReadout">2 rad · 1.16 rad · 0.673 rad</code></span>
+              <span><b>Output</b><code id="outputReadout">stage 4 · bounded final sine</code></span>
             </div>
 
             <p class="cascading-pm-safety-note" id="cascadeSafetyNote">

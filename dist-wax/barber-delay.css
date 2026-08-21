@@ -4,15 +4,6 @@
 }
 
 .candy-coil-page {
-  --barber-primary: #ed5f9f;
-  --accent: #ed5f9f;
-  --accent-soft: color-mix(in oklab, #ed5f9f 56%, transparent);
-  --accent-glow: color-mix(in oklab, #ed5f9f 22%, transparent);
-  --barber-secondary: #c9f04b;
-  --barber-tertiary: #9f58c7;
-}
-
-.striped-sludge-page {
   --barber-primary: #9cad45;
   --accent: #9cad45;
   --accent-soft: color-mix(in oklab, #9cad45 56%, transparent);
@@ -42,7 +33,7 @@
     var(--bg-deep);
 }
 
-.striped-sludge-page .barber-delay-stage .stage-wrap {
+.candy-coil-page .barber-delay-stage .stage-wrap {
   background:
     radial-gradient(ellipse at 50% 51%, color-mix(in oklab, var(--barber-secondary) 8%, transparent), transparent 64%),
     radial-gradient(ellipse at 50% 48%, color-mix(in oklab, var(--accent) 4%, transparent), transparent 78%),
@@ -187,13 +178,13 @@
   --accent-glow: color-mix(in oklab, var(--barber-cyan) 20%, transparent);
 }
 
-.striped-sludge-page .control-section.barber-delay-presets[data-section="form"] {
+.candy-coil-page .control-section.barber-delay-presets[data-section="form"] {
   --accent: var(--barber-secondary);
   --accent-soft: color-mix(in oklab, var(--barber-secondary) 55%, transparent);
   --accent-glow: color-mix(in oklab, var(--barber-secondary) 18%, transparent);
 }
 
-.striped-sludge-page .control-section.barber-delay-sound[data-section="sound"] {
+.candy-coil-page .control-section.barber-delay-sound[data-section="sound"] {
   --accent: #d7c59a;
   --accent-soft: color-mix(in oklab, #d7c59a 55%, transparent);
   --accent-glow: color-mix(in oklab, #d7c59a 18%, transparent);

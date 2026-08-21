@@ -298,7 +298,7 @@ test("Annealogue markup and browser controller honor the quantum instrument cont
   assert.match(html, /class="panel quantum-panel annealogue-panel"/);
   assert.match(html, /href="style\.css"/);
   assert.match(html, /href="quantum-synths\.css"/);
-  assert.match(html, /QUANTUM SYNTHS · 04/);
+  assert.match(html, /QUANTUM SYNTHS · 05/);
   assert.match(html, /<h1 id="annealogueTitle">Annealogue<\/h1>/);
   assert.match(html, /EXACT THREE-QUBIT CLASSICAL SIMULATION · NO SPEEDUP CLAIM/);
   assert.match(html, /no QPU · no speedup claim/i);

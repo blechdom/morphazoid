@@ -506,14 +506,15 @@ export function animalState(animalId = "raven", overrides = {}) {
 export const DEFAULT_SYRINX_STATE = Object.freeze(animalState("raven"));
 
 export const RANDOMIZABLE_CONTROLS = Object.freeze([
-  "pressure", "tension", "adduction", "tractLengthM",
+  "pressure", "tension", "adduction", "sourceScale", "tractLengthM",
   "mouthOpening", "cavityCoupling", "asymmetry", "sourceBalance",
   "roughness", "gestureRate", "loopGapMs", "level",
 ]);
 
 export const MODULATION_TARGETS = Object.freeze([
-  "pressure", "tension", "adduction", "tractLengthM",
+  "pressure", "tension", "adduction", "sourceScale", "tractLengthM",
   "mouthOpening", "cavityCoupling", "asymmetry", "sourceBalance", "roughness",
+  "gestureRate", "loopGapMs",
 ]);
 
 export function sanitizeSyrinxState(candidate = {}, fallback = DEFAULT_SYRINX_STATE) {

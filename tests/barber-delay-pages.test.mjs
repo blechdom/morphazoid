@@ -14,28 +14,9 @@ const pages = [
     file: "candy-coil-delay.html",
     title: "Candy Coil Delay",
     presetNames: [
-      "Dry Coil",
-      "Short Echo",
-      "Dual Grind",
-      "Tape Sustain",
-      "Dense Spiral",
-      "Tight Comb",
-      "Slow Wash",
-      "Falling Deep",
-      "Fast & Dirty",
-      "Frozen Lake",
-      "Still Resonance",
-      "Long Repeat",
-    ],
-  },
-  {
-    mode: "sludge",
-    file: "striped-sludge-delay.html",
-    title: "Striped Sludge Delay",
-    presetNames: [
       "Centered Rise",
       "Centered Fall",
-      "Slow Sludge",
+      "Slow Coil",
       "Thick Tar",
       "Quick Stripe",
       "Mud Churn",
@@ -68,7 +49,7 @@ const pages = [
   },
 ];
 
-test("all three barber delays are native internal Morphazoid pages", async () => {
+test("both barber delays are native internal Morphazoid pages", async () => {
   for (const page of pages) {
     const markup = await readFile(new URL(page.file, root), "utf8");
     assert.match(markup, new RegExp(`<body[^>]+data-delay-mode="${page.mode}"`));
@@ -130,11 +111,11 @@ test("all three barber delays are native internal Morphazoid pages", async () =>
   }
 });
 
-test("Candy keeps tap range and one-to-one lock while Sludge stays centered-hump focused", async () => {
-  const [candy, sludge] = await Promise.all([
-    readFile(new URL("candy-coil-delay.html", root), "utf8"),
-    readFile(new URL("striped-sludge-delay.html", root), "utf8"),
-  ]);
+test("Candy combines tap and one-to-one controls with the centered-hump sweep", async () => {
+  const candy = await readFile(
+    new URL("candy-coil-delay.html", root),
+    "utf8",
+  );
   assert.match(candy, /id="tapRange"/);
   assert.match(candy, /id="ratioLock"/);
   assert.match(candy, /range = 1 ÷ speed/);
@@ -142,17 +123,18 @@ test("Candy keeps tap range and one-to-one lock while Sludge stays centered-hump
     candy,
     /id="range"[\s\S]*?data-value-min="0\.1"[\s\S]*?data-value-max="10"[\s\S]*?data-value-step="0\.001"[\s\S]*?data-curve="3"/,
   );
-  assert.match(candy, /id="rangeOut"[^>]*>1000 ms</);
-  assert.doesNotMatch(sludge, /id="tapRange"/);
-  assert.doesNotMatch(sludge, /id="ratioLock"/);
-  assert.match(
-    sludge,
-    /id="range"[\s\S]*?data-value-min="0\.1"[\s\S]*?data-value-max="10"[\s\S]*?data-value-step="0\.001"[\s\S]*?data-curve="3"/,
+  assert.match(candy, /id="rangeOut"[^>]*>2000 ms</);
+  assert.match(candy, /id="feedbackTimeOut"[^>]*>1000 ms</);
+  assert.match(candy, /below → original → above/);
+  assert.match(candy, /With centered window tilt/i);
+  assert.match(candy, /crosses the original pitch at its loudest/i);
+});
+
+test("the retired centered-hump route is removed", async () => {
+  await assert.rejects(
+    readFile(new URL("striped-sludge-delay.html", root), "utf8"),
+    { code: "ENOENT" },
   );
-  assert.match(sludge, /id="rangeOut"[^>]*>2000 ms</);
-  assert.match(sludge, /id="feedbackTimeOut"[^>]*>1000 ms</);
-  assert.match(sludge, /below → original → above/);
-  assert.match(sludge, /crosses the original pitch at its loudest/i);
 });
 
 test("Sandy keeps pitch span, history, and grain texture as separate controls", async () => {
@@ -229,11 +211,12 @@ test("the shared controller keeps audio behind the menu gesture and cleans resou
   assert.doesNotMatch(app, /new AudioContext/);
   assert.doesNotMatch(app, /setInterval/);
   assert.match(css, /\.candy-coil-page/);
-  assert.match(css, /\.striped-sludge-page/);
+  assert.doesNotMatch(css, /\.striped-sludge-page/);
   assert.match(css, /\.sandy-syrup-page/);
-  assert.match(css, /#c9f04b/i);
+  assert.match(css, /#9cad45/i);
   assert.match(css, /#69d9ee/i);
   assert.match(css, /#20ccaa/i);
+  assert.doesNotMatch(app, /drawSludgeField/);
 
   const inertAudio = new BarberDelayAudio("candy", {});
   assert.equal(inertAudio.context, null);

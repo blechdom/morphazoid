@@ -1,4 +1,4 @@
-import { INSTRUMENTS } from "./src/instrument-catalog.js?v=catalog-20260819-1";
+import { INSTRUMENTS } from "./src/instrument-catalog.js?v=catalog-20260820-2";
 
 const ALL_TAG_ID = "all";
 

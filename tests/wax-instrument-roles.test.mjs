@@ -64,7 +64,6 @@ test("input processors are conservative previews and musical generators expose u
     "micmic",
     "graph-delay",
     "sandy-syrup-delay",
-    "striped-sludge-delay",
     "candy-coil-delay",
     "recursion",
   ]) {

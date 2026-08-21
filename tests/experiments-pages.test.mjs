@@ -20,6 +20,7 @@ const experimentPages = [
   ["neural-pulse.html", "neural", "Neural Pulse", "neural-pulse"],
   ["fourier-epicycles.html", "fourier", "Fourier Epicycles", "fourier-epicycles"],
   ["gravity-lens.html", "lensing", "Gravity Lens", "gravity-lens"],
+  ["orbital-ferris.html", "orbitalFerris", "Feral Fairy Ferris Ferry", "orbital-ferris"],
 ];
 
 test("experiment pages are native Morphazoid pages with shared controls", async () => {
@@ -66,6 +67,7 @@ test("experiment runtime contains each simulation and audio mapping", async () =
     "neural",
     "fourier",
     "lensing",
+    "orbitalFerris",
   ]) {
     assert.match(app, new RegExp(`${key}: \\{`));
   }
@@ -90,6 +92,8 @@ test("experiment runtime contains each simulation and audio mapping", async () =
     "fireNeuralInput",
     "fourierCoefficient",
     "lensGeometry",
+    "drawOrbitalGesture",
+    "drawOrbitalFerris",
   ]) {
     assert.match(app, new RegExp(name));
   }

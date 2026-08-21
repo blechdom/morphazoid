@@ -99,51 +99,37 @@ test("barber-delay parameters are finite, bounded, and share a feedback budget",
   assert.equal(safe.outputLevel, BARBER_DELAY_DEFAULTS.candy.outputLevel);
   assert.ok(Object.isFrozen(safe));
   assert.equal(sanitizeBarberDelayMode("unknown"), "candy");
-  assert.equal(sanitizeBarberDelayMode("sludge"), "sludge");
   assert.equal(sanitizeBarberDelayMode("sandy"), "sandy");
 });
 
-test("all 36 Morphisma delay presets are retained and immutable", () => {
+test("all 24 consolidated delay presets are retained and immutable", () => {
   assert.equal(BARBER_DELAY_PRESETS.candy.length, 12);
-  assert.equal(BARBER_DELAY_PRESETS.sludge.length, 12);
   assert.equal(BARBER_DELAY_PRESETS.sandy.length, 12);
+  assert.deepEqual(Object.keys(BARBER_DELAY_PRESETS), ["candy", "sandy"]);
   assert.equal(
     new Set(BARBER_DELAY_PRESETS.candy.map(({ id }) => id)).size,
-    12,
-  );
-  assert.equal(
-    new Set(BARBER_DELAY_PRESETS.sludge.map(({ id }) => id)).size,
     12,
   );
   const candyDualGrind = BARBER_DELAY_PRESETS.candy.find(
     ({ id }) => id === "dual-grind",
   );
-  const centeredFall = BARBER_DELAY_PRESETS.sludge.find(
+  const centeredFall = BARBER_DELAY_PRESETS.candy.find(
     ({ id }) => id === "centered-fall",
   );
-  assert.equal(candyDualGrind.settings.speed, 1.309);
-  assert.equal(candyDualGrind.settings.range, 0.104);
+  assert.equal(candyDualGrind.settings.speed, 1.3);
+  assert.equal(candyDualGrind.settings.range, 0.1);
   assert.equal(candyDualGrind.settings.feedback, 0.95);
   assert.equal(centeredFall.settings.directionUp, false);
   assert.ok(Object.isFrozen(BARBER_DELAY_PRESETS));
   assert.ok(Object.isFrozen(candyDualGrind.settings));
 });
 
-test("Candy and Sludge retain their authoritative delay-head curves", () => {
-  assert.equal(barberDelayCurve("candy", 0, true), 1);
-  assert.ok(Math.abs(
-    barberDelayCurve("candy", 0.5, true) - (Math.SQRT2 - 1)
-  ) < 1e-12);
-  assert.ok(Math.abs(
-    barberDelayCurve("candy", 0.5, false)
-    - (2 - Math.SQRT2)
-  ) < 1e-12);
-  assert.ok(barberDelayCurve("candy", 1 - 1e-9, true) < 1e-8);
-
-  assert.equal(barberDelayCurve("sludge", 0, true), 0);
-  assert.equal(barberDelayCurve("sludge", 0.5, true), 1);
-  assert.ok(Math.abs(barberDelayCurve("sludge", 0.25, true) - 0.5) < 1e-12);
-  assert.ok(Math.abs(barberDelayCurve("sludge", 0.25, false) - 0.5) < 1e-12);
+test("Candy retains the centered-hump delay-head curve", () => {
+  assert.equal(barberDelayCurve("candy", 0, true), 0);
+  assert.equal(barberDelayCurve("candy", 0.5, true), 1);
+  assert.ok(Math.abs(barberDelayCurve("candy", 0.25, true) - 0.5) < 1e-12);
+  assert.ok(Math.abs(barberDelayCurve("candy", 0.25, false) - 0.5) < 1e-12);
+  assert.equal(barberDelayCurve("candy", 0, false), 1);
 });
 
 test("skewed Hann windows remain bounded and move their peak with tilt", () => {
@@ -158,30 +144,23 @@ test("skewed Hann windows remain bounded and move their peak with tilt", () => {
   }
 });
 
-test("pitch estimates preserve Candy direction and Sludge's symmetric range", () => {
+test("Candy pitch estimates preserve the centered sweep's symmetric range", () => {
   const rising = barberDelayPitchEstimate({
-    speed: 1,
-    range: 1,
+    speed: 0.5,
+    range: 2,
     directionUp: true,
   }, "candy");
   const falling = barberDelayPitchEstimate({
     speed: 0.5,
-    range: 1,
+    range: 2,
     directionUp: false,
   }, "candy");
-  const sludge = barberDelayPitchEstimate({
-    speed: 0.5,
-    range: 2,
-  }, "sludge");
 
-  assert.equal(rising.product, 1);
-  assert.equal(rising.ratio, 2);
-  assert.equal(rising.semitones, 12);
-  assert.equal(falling.ratio, 0.5);
-  assert.equal(falling.semitones, -12);
-  assert.equal(sludge.symmetric, true);
-  assert.ok(Math.abs(sludge.product - Math.PI) < 1e-12);
-  assert.ok(Math.abs(sludge.lowRatio * sludge.highRatio - 1) < 1e-12);
+  assert.equal(rising.symmetric, true);
+  assert.ok(Math.abs(rising.product - Math.PI) < 1e-12);
+  assert.ok(Math.abs(rising.lowRatio * rising.highRatio - 1) < 1e-12);
+  assert.equal(falling.ratio, rising.ratio);
+  assert.equal(falling.semitones, rising.semitones);
 });
 
 test("barber soft ceiling is symmetric, monotonic, and bounded", () => {
@@ -250,7 +229,7 @@ test("worklet uses one bounded stereo ring and stays finite at feedback limits",
     for (let index = 0; index < sourceInput.length; index += 1) {
       sourceInput[index] = Math.sin((Math.PI * 2 * index) / 37) * 0.8;
     }
-    for (const mode of ["candy", "sludge", "sandy"]) {
+    for (const mode of ["candy", "sandy"]) {
       const linearProcessor = new Processor({
         processorOptions: {
           mode,
@@ -282,7 +261,7 @@ test("worklet uses one bounded stereo ring and stays finite at feedback limits",
 
     const guardedProcessor = new Processor({
       processorOptions: {
-        mode: "sludge",
+        mode: "candy",
         parameters: {
           numVoices: 1,
           speed: 0,
@@ -308,7 +287,7 @@ test("worklet uses one bounded stereo ring and stays finite at feedback limits",
       "the extreme-only record guard must bound internal runaway",
     );
 
-    for (const mode of ["candy", "sludge"]) {
+    for (const mode of ["candy"]) {
       const latencyProcessor = new Processor({
         processorOptions: {
           mode,
@@ -350,7 +329,7 @@ test("worklet uses one bounded stereo ring and stays finite at feedback limits",
 
     const globalLatency = new Processor({
       processorOptions: {
-        mode: "sludge",
+        mode: "candy",
         parameters: {
           numVoices: 1,
           speed: 0,
@@ -389,7 +368,7 @@ test("worklet uses one bounded stereo ring and stays finite at feedback limits",
       "global wet feedback must recur after one 128-sample tap block",
     );
 
-    for (const mode of ["candy", "sludge"]) {
+    for (const mode of ["candy"]) {
       const protectedProcessor = new Processor({
         processorOptions: {
           mode,
@@ -466,7 +445,7 @@ test("worklet uses one bounded stereo ring and stays finite at feedback limits",
 
     const processor = new Processor({
       processorOptions: {
-        mode: "sludge",
+        mode: "candy",
         parameters: {
           numVoices: 12,
           speed: 5,
@@ -757,11 +736,11 @@ test("browser wrapper is gesture-inert and releases a file source completely", a
   assert.equal(microphoneTrackStops, 1);
   await microphoneAudio.close();
 
-  const sludgeAudio = new BarberDelayAudio("sludge", runtime);
-  await sludgeAudio.initialize();
-  assert.equal(sludgeAudio.node.connectedTarget, sludgeAudio.ceiling);
-  assert.equal(sludgeAudio.ceiling.connectedTarget, sludgeAudio.master);
-  assert.equal(sludgeAudio.ceiling.oversample, "none");
+  const centeredCandyAudio = new BarberDelayAudio("candy", runtime);
+  await centeredCandyAudio.initialize();
+  assert.equal(centeredCandyAudio.node.connectedTarget, centeredCandyAudio.ceiling);
+  assert.equal(centeredCandyAudio.ceiling.connectedTarget, centeredCandyAudio.master);
+  assert.equal(centeredCandyAudio.ceiling.oversample, "none");
   assert.equal(filterCreations, 0);
-  await sludgeAudio.close();
+  await centeredCandyAudio.close();
 });

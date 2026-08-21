@@ -33,8 +33,7 @@ folder.
 
 17. [ ] Shepard-Risset - [open folder](shepard-risset/)
 18. [ ] Sandy Syrup Delay - [open folder](sandy-syrup-delay/)
-19. [ ] Striped Sludge Delay - [open folder](striped-sludge-delay/)
-20. [ ] Candy Coil Delay - [open folder](candy-coil-delay/)
+19. [ ] Candy Coil Delay - [open folder](candy-coil-delay/)
 
 ## Fractals & Recursion
 
