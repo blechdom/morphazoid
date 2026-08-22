@@ -70,7 +70,7 @@
     </header>
 
     <main class="shell recursive-fm-shell" id="recursiveFm">
-      <section class="stage recursive-fm-stage" aria-labelledby="recursiveFmTitle">
+      <section class="stage recursive-fm-stage" aria-label="Recursive FM graphic pane">
         <div class="stage-wrap" id="stageWrap">
           <canvas
             id="stage"
@@ -81,11 +81,6 @@
           >
             A live frequency spectrum, foreground oscilloscope, and signal-flow explanation for Recursive FM.
           </canvas>
-
-          <div class="recursive-fm-heading">
-            <p>CHAOTIC SYNTHS · 01</p>
-            <h1 id="recursiveFmTitle">Recursive FM</h1>
-          </div>
 
           <div class="stage-meta" aria-hidden="true">
             <span id="stageReadout">3 RECURSIONS · 5 OPERATORS · OFF</span>
@@ -139,30 +134,32 @@
               <span class="recursive-fm-midi-activity" id="midiActivity" aria-live="polite">Waiting for MIDI</span>
             </div>
 
-            <div class="recursive-fm-adsr-preview" aria-label="Amplitude ADSR shape">
-              <svg viewBox="0 0 240 72" role="img" aria-label="Attack, decay, sustain and release envelope">
-                <path class="recursive-fm-adsr-grid" d="M 8 64 H 232 M 8 8 V 64" />
-                <path id="adsrCurve" d="M 8 64 Q 31 12 52 8 Q 76 26 103 26 L 171 26 Q 202 26 232 64" />
-              </svg>
-              <span>A</span><span>D</span><span>S</span><span>R</span>
-            </div>
+            <div class="recursive-fm-midi-envelope" id="midiEnvelopeControls" hidden>
+              <div class="recursive-fm-adsr-preview" aria-label="Amplitude ADSR shape">
+                <svg viewBox="0 0 240 72" role="img" aria-label="Attack, decay, sustain and release envelope">
+                  <path class="recursive-fm-adsr-grid" d="M 8 64 H 232 M 8 8 V 64" />
+                  <path id="adsrCurve" d="M 8 64 Q 31 12 52 8 Q 76 26 103 26 L 171 26 Q 202 26 232 64" />
+                </svg>
+                <span>A</span><span>D</span><span>S</span><span>R</span>
+              </div>
 
-            <label class="control" for="ampAttackMs">
-              <span><b>Attack</b><output id="ampAttackMsOut" for="ampAttackMs">8 ms</output></span>
-              <input id="ampAttackMs" data-parameter-id="performance.ampAttackMs" type="range" min="0" max="1" step="0.001" value="0.302" />
-            </label>
-            <label class="control" for="ampDecayMs">
-              <span><b>Decay</b><output id="ampDecayMsOut" for="ampDecayMs">120 ms</output></span>
-              <input id="ampDecayMs" data-parameter-id="performance.ampDecayMs" type="range" min="0" max="1" step="0.001" value="0.563" />
-            </label>
-            <label class="control" for="ampSustainLevel">
-              <span><b>Sustain level</b><output id="ampSustainLevelOut" for="ampSustainLevel">72%</output></span>
-              <input id="ampSustainLevel" data-parameter-id="performance.ampSustainLevel" type="range" min="0" max="1" step="0.01" value="0.72" />
-            </label>
-            <label class="control" for="ampReleaseMs">
-              <span><b>Release</b><output id="ampReleaseMsOut" for="ampReleaseMs">180 ms</output></span>
-              <input id="ampReleaseMs" data-parameter-id="performance.ampReleaseMs" type="range" min="0" max="1" step="0.001" value="0.528" />
-            </label>
+              <label class="control" for="ampAttackMs">
+                <span><b>Attack</b><output id="ampAttackMsOut" for="ampAttackMs">8 ms</output></span>
+                <input id="ampAttackMs" data-parameter-id="performance.ampAttackMs" type="range" min="0" max="1" step="0.001" value="0.302" />
+              </label>
+              <label class="control" for="ampDecayMs">
+                <span><b>Decay</b><output id="ampDecayMsOut" for="ampDecayMs">120 ms</output></span>
+                <input id="ampDecayMs" data-parameter-id="performance.ampDecayMs" type="range" min="0" max="1" step="0.001" value="0.563" />
+              </label>
+              <label class="control" for="ampSustainLevel">
+                <span><b>Sustain level</b><output id="ampSustainLevelOut" for="ampSustainLevel">72%</output></span>
+                <input id="ampSustainLevel" data-parameter-id="performance.ampSustainLevel" type="range" min="0" max="1" step="0.01" value="0.72" />
+              </label>
+              <label class="control" for="ampReleaseMs">
+                <span><b>Release</b><output id="ampReleaseMsOut" for="ampReleaseMs">180 ms</output></span>
+                <input id="ampReleaseMs" data-parameter-id="performance.ampReleaseMs" type="range" min="0" max="1" step="0.001" value="0.528" />
+              </label>
+            </div>
 
             <div class="recursive-fm-glide-row">
               <label for="glideMode">

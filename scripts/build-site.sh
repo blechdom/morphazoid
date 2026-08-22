@@ -169,8 +169,15 @@ for worktree_runtime_file in \
   assets/audio/vocalzoid-oddvoices-air.wav \
   assets/audio/vocalzoid-oddvoices-cicada.wav \
   assets/audio/vocalzoid-oddvoices-quake.wav \
+  assets/audio/vocalzoid-cmu-arctic-bdl.wav \
+  assets/audio/vocalzoid-cmu-arctic-clb.wav \
+  assets/audio/vocalzoid-cmu-arctic-jmk.wav \
+  assets/audio/vocalzoid-cmu-arctic-ksp.wav \
+  assets/audio/vocalzoid-cmu-arctic-slt.wav \
   assets/instruments/vocalzoid.webp \
   vendor/oddvoices/LICENSE \
+  vendor/cmu-arctic/COPYING \
+  vendor/cmu-arctic/COPYING-2005 \
   vendor/cmudict/cmudict-en-us.dict \
   vendor/cmudict/LICENSE \
   plugins.html \
@@ -183,6 +190,7 @@ for worktree_runtime_file in \
   src/browser-midi-adapter.js \
   src/instrument-midi-capabilities.js \
   src/midi-output-preview.js \
+  src/chaotic-viewport-controls.js \
   src/shape-midi.js \
   src/fm-drums-midi.js \
   downloads/plugins/chaotic-fm/0.2.1/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx \
@@ -504,8 +512,15 @@ required_files=(
   assets/audio/vocalzoid-oddvoices-air.wav
   assets/audio/vocalzoid-oddvoices-cicada.wav
   assets/audio/vocalzoid-oddvoices-quake.wav
+  assets/audio/vocalzoid-cmu-arctic-bdl.wav
+  assets/audio/vocalzoid-cmu-arctic-clb.wav
+  assets/audio/vocalzoid-cmu-arctic-jmk.wav
+  assets/audio/vocalzoid-cmu-arctic-ksp.wav
+  assets/audio/vocalzoid-cmu-arctic-slt.wav
   assets/instruments/vocalzoid.webp
   vendor/oddvoices/LICENSE
+  vendor/cmu-arctic/COPYING
+  vendor/cmu-arctic/COPYING-2005
   vendor/cmudict/cmudict-en-us.dict
   vendor/cmudict/LICENSE
   plugins.html

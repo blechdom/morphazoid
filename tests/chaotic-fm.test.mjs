@@ -675,6 +675,7 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   assert.doesNotMatch(markup, /id="midiButton"|id="midiState"|id="midiError"/);
   assert.doesNotMatch(markup, /id="playModeDrone"|id="playModeMidi"/);
   assert.match(markup, /id="midiActivity"/);
+  assert.match(markup, /id="midiEnvelopeControls" hidden/);
   for (const id of [
     "ampAttackMs",
     "ampDecayMs",
@@ -729,6 +730,10 @@ test("native page exposes binary gesture audio, accurate naming, and cleanup", a
   assert.doesNotMatch(markup, />\s*filter\s*</i);
 
   assert.match(app, /audioButton"\)\.addEventListener\("click", toggleAudio\)/);
+  assert.match(
+    app,
+    /midiEnvelopeControls"\)\.hidden = state\.performance\.playMode !== "midi"/,
+  );
   assert.match(app, /drawChaoticLiveAnalysis/);
   assert.match(app, /createChaoticSpectrum/);
   assert.match(app, /new ChaoticFmWebMidi/);

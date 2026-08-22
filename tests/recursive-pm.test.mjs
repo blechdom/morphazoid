@@ -335,10 +335,15 @@ test("Recursive PM page is internal, gesture controlled, and cleans up audio", a
   assert.match(html, /id="audioButton"/);
   assert.match(html, /id="level"/);
   assert.match(html, /id="stage"/);
+  assert.match(html, /id="midiEnvelopeControls" hidden/);
   assert.match(html, /href="chaotic-synth-ui\.css"/);
   assert.match(html, /class="chaotic-path-graph"/);
   assert.match(html, /id="recursivePmFlow"/);
   assert.match(app, /function updateSignalFlow\(stack\)/);
+  assert.match(
+    app,
+    /midiEnvelopeControls"\)\.hidden = state\.performance\.playMode !== "midi"/,
+  );
   assert.match(app, /× INDEX/);
   assert.match(app, />PHASOR</);
   assert.match(app, /chaotic-path-junction/);

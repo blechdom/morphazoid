@@ -113,6 +113,30 @@ Public Domain.
 OddVoices vocal data by Nathan Ho is marked CC0 1.0. To view a copy of this
 mark, visit https://creativecommons.org/publicdomain/zero/1.0/
 
+## CMU ARCTIC voice recordings
+
+Vocalzoid includes five compact audio sprites made from the BDL, CLB, JMK,
+KSP, and SLT voices in the CMU ARCTIC 0.95 releases. These files are modified
+excerpts, not the original voices: Morphazoid selects eight automatically
+aligned phone units per speaker, trims them to the “vocalzoid” demo inventory,
+removes DC offset, normalizes level, adds edge fades, finds phase-matched vowel
+loops, and packs the results into browser-sized mono WAV files. The original
+authors do not endorse these modifications. The reproducible builder is
+`scripts/generate-vocalzoid-arctic.py`.
+
+- http://www.festvox.org/cmu_arctic/
+- https://www.cs.cmu.edu/~awb/papers/ssw5/arctic.pdf
+- Source releases: `cmu_us_{bdl,clb,jmk,ksp,slt}_arctic-0.95-release`
+
+BDL, JMK, and SLT: Copyright (c) 2003 Carnegie Mellon University.
+CLB and KSP: Copyright (c) 2005 Carnegie Mellon University.
+All Rights Reserved.
+
+Permission to use, copy, modify, and license the voices and their documentation
+for any purpose is granted without fee, subject to the conditions and warranty
+disclaimers reproduced in `vendor/cmu-arctic/COPYING` (2003 voices) and
+`vendor/cmu-arctic/COPYING-2005` (2005 voices).
+
 ## PocketSphinx English pronunciation dictionary
 
 Spelling Synthesizer uses the PocketSphinx English CMU pronunciation

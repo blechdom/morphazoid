@@ -7,12 +7,21 @@ const freezePoints = (points) => Object.freeze(
   points.map(([time, value]) => Object.freeze([clamp(time), Number(value) || 0])),
 );
 
-function freezeGesture({ id, label, durationMs, pressure, frequencyRatio = 1, ...curves }) {
+function freezeGesture({
+  id,
+  label,
+  durationMs,
+  pressure,
+  frequencyRatio = 1,
+  levelTrim = 1,
+  ...curves
+}) {
   return Object.freeze({
     id,
     label,
     durationMs: clamp(durationMs, 80, 8_000),
     frequencyRatio: clamp(frequencyRatio, 0.03, 24),
+    levelTrim: clamp(levelTrim, 0.05, 1),
     curves: Object.freeze({
       pressure: freezePoints(pressure),
       ...Object.fromEntries(
@@ -27,6 +36,7 @@ const held = (id, label, durationMs, options = {}) => freezeGesture({
   label,
   durationMs,
   frequencyRatio: options.frequencyRatio ?? 1,
+  levelTrim: options.levelTrim ?? 1,
   pressure: options.pressure ?? [[0, 0], [0.08, 0.88], [0.78, 1], [1, 0]],
   tension: options.tension ?? [[0, 0], [0.5, 0.02], [1, -0.01]],
   adduction: options.adduction ?? [[0, -0.08], [0.12, 0.06], [0.84, 0.03], [1, -0.12]],
@@ -42,6 +52,7 @@ const pulse = (id, label, durationMs, options = {}) => freezeGesture({
   label,
   durationMs,
   frequencyRatio: options.frequencyRatio ?? 1,
+  levelTrim: options.levelTrim ?? 1,
   pressure: options.pressure ?? [[0, 0], [0.04, 1], [0.3, 0.82], [0.68, 0.28], [1, 0]],
   tension: options.tension ?? [[0, 0.04], [0.35, -0.03], [1, 0]],
   adduction: options.adduction ?? [[0, -0.18], [0.08, 0.14], [0.52, 0.02], [1, -0.2]],
@@ -68,6 +79,7 @@ const trill = (id, label, durationMs, cycles, options = {}) => freezeGesture({
   label,
   durationMs,
   frequencyRatio: options.frequencyRatio ?? 1,
+  levelTrim: options.levelTrim ?? 1,
   pressure: options.pressure ?? trillPressure(cycles, options.floor ?? 0.1),
   tension: options.tension ?? [[0, -0.04], [0.48, 0.08], [1, -0.02]],
   adduction: options.adduction ?? [[0, -0.12], [0.06, 0.08], [0.92, 0.05], [1, -0.16]],
@@ -174,6 +186,7 @@ export const CALL_GESTURES = Object.freeze({
     roughness: [[0, -0.1], [1, -0.08]],
   }),
   "cat-meow": held("cat-meow", "Meow", 980, {
+    levelTrim: 0.65,
     pressure: [[0, 0], [0.08, 0.8], [0.68, 0.94], [1, 0]],
     tension: [[0, -0.08], [0.28, 0.1], [0.62, 0.2], [1, -0.03]],
     mouthOpening: [[0, -0.2], [0.34, 0.3], [0.78, 0.18], [1, -0.08]],
@@ -186,6 +199,7 @@ export const CALL_GESTURES = Object.freeze({
     roughness: [[0, 0.04], [0.5, 0.1], [1, 0.04]],
   }),
   "horse-whinny": held("horse-whinny", "Biphonic whinny", 2_350, {
+    levelTrim: 0.58,
     pressure: [[0, 0], [0.06, 0.88], [0.58, 1], [0.82, 0.62], [1, 0]],
     tension: [[0, -0.06], [0.18, 0.28], [0.56, 0.08], [0.82, -0.2], [1, -0.3]],
     asymmetry: [[0, 0.08], [0.3, 0.42], [0.72, 0.3], [1, 0.12]],
@@ -204,18 +218,20 @@ export const CALL_GESTURES = Object.freeze({
     mouthOpening: [[0, -0.18], [0.3, 0.22], [1, 0.12]],
   }),
   "reddeer-harsh-roar": held("reddeer-harsh-roar", "Harsh roar", 1_520, {
+    levelTrim: 0.9,
     pressure: [[0, 0], [0.03, 1], [0.84, 0.94], [1, 0]],
     tractLengthM: [[0, 0.08], [1, 0.09]],
     asymmetry: [[0, 0.14], [0.45, 0.32], [1, 0.24]],
     roughness: [[0, 0.18], [0.42, 0.46], [1, 0.24]],
   }),
   "hyena-whoop": held("hyena-whoop", "Rising whoop", 1_950, {
+    levelTrim: 0.6,
     pressure: [[0, 0], [0.1, 0.72], [0.68, 0.98], [1, 0]],
     tension: [[0, -0.16], [0.44, -0.02], [0.76, 0.3], [1, 0.18]],
     asymmetry: [[0, 0.04], [0.55, 0.16], [1, 0.1]],
   }),
   "hyena-giggle": trill("hyena-giggle", "Seven-note giggle", 920, 7, {
-    frequencyRatio: 1.28, floor: 0.04,
+    frequencyRatio: 1.28, floor: 0.04, levelTrim: 0.52,
     tension: [[0, -0.08], [0.42, 0.12], [0.72, -0.02], [1, 0.16]],
     roughness: [[0, 0.06], [0.5, 0.18], [1, 0.08]],
   }),
@@ -226,6 +242,7 @@ export const CALL_GESTURES = Object.freeze({
     roughness: [[0, 0.14], [0.5, 0.24], [1, 0.12]],
   }),
   "wildboar-squeal": held("wildboar-squeal", "Squeal", 1_280, {
+    levelTrim: 0.5,
     frequencyRatio: 2.7,
     pressure: [[0, 0], [0.04, 1], [0.8, 0.92], [1, 0]],
     tension: [[0, 0.18], [0.35, 0.36], [0.7, 0.22], [1, 0.3]],
@@ -277,6 +294,7 @@ function freezeAnimal(animal) {
   return Object.freeze({
     ...animal,
     biologicalLock: true,
+    manualLevelTrim: clamp(animal.manualLevelTrim ?? 1, 0.05, 1),
     controls: Object.freeze(controls),
     tractRangeM: Object.freeze([...tractRangeM]),
     frequencyRangeHz: Object.freeze([...(animal.frequencyRangeHz ?? [20, 8_000])]),
@@ -292,6 +310,7 @@ export const ANIMALS = Object.freeze({
     frequencyRangeHz: [35, 130], tractRangeM: [0.34, 0.5],
     rangeBasis: "excised lion/tiger source data + tract-length prior",
     cavityFrequencyHz: 118, description: "Heavy folds, long tract and controlled nonlinear roughness.",
+    manualLevelTrim: 0.64,
     controls: { pressure: 0.82, tension: 0.24, adduction: 0.78, sourceScale: 0.92, mouthOpening: 0.7, cavityCoupling: 0.3, asymmetry: 0.28, sourceBalance: 0.5, roughness: 0.52 },
     callIds: ["lion-roar", "lion-grunt"],
   }),
@@ -301,6 +320,7 @@ export const ANIMALS = Object.freeze({
     frequencyRangeHz: [80, 700], tractRangeM: [0.24, 0.36],
     rangeBasis: "mammalian two-mass model + body-size tract prior",
     cavityFrequencyHz: 210, description: "Stable fold oscillation with a long, rising howl gesture.",
+    manualLevelTrim: 0.39,
     controls: { pressure: 0.68, tension: 0.48, adduction: 0.68, sourceScale: 0.7, mouthOpening: 0.66, cavityCoupling: 0.14, asymmetry: 0.08, sourceBalance: 0.5, roughness: 0.18 },
     callIds: ["wolf-howl", "wolf-yip"],
   }),
@@ -310,6 +330,7 @@ export const ANIMALS = Object.freeze({
     frequencyRangeHz: [75, 1_100], tractRangeM: [0.11, 0.28],
     rangeBasis: "mammalian two-mass model + breed-spanning tract prior",
     cavityFrequencyHz: 310, description: "Fast pressure bursts for bark and asymmetric sustained growl.",
+    manualLevelTrim: 0.26,
     controls: { pressure: 0.78, tension: 0.52, adduction: 0.74, sourceScale: 0.58, mouthOpening: 0.62, cavityCoupling: 0.1, asymmetry: 0.16, sourceBalance: 0.5, roughness: 0.34 },
     callIds: ["dog-bark", "dog-growl"],
   }),
@@ -328,6 +349,7 @@ export const ANIMALS = Object.freeze({
     frequencyRangeHz: [20, 130], tractRangeM: [0.38, 0.62],
     rangeBasis: "reptile laryngeal family model + adult tract prior",
     cavityFrequencyHz: 72, description: "Low laryngeal bellow with strong body and tract resonance.",
+    manualLevelTrim: 0.93,
     controls: { pressure: 0.8, tension: 0.22, adduction: 0.8, sourceScale: 0.9, mouthOpening: 0.4, cavityCoupling: 0.46, asymmetry: 0.16, sourceBalance: 0.5, roughness: 0.4 },
     callIds: ["alligator-bellow", "alligator-grunt"],
   }),
@@ -337,6 +359,7 @@ export const ANIMALS = Object.freeze({
     frequencyRangeHz: [25, 1_400], tractRangeM: [0.09, 0.18],
     rangeBasis: "meow articulation study + measured 25-30 Hz purr",
     cavityFrequencyHz: 720, description: "Voiced meow plus a low-frequency purr regime.",
+    manualLevelTrim: 0.26,
     controls: { pressure: 0.54, tension: 0.52, adduction: 0.62, sourceScale: 0.4, mouthOpening: 0.48, cavityCoupling: 0.24, asymmetry: 0.08, sourceBalance: 0.5, roughness: 0.08 },
     callIds: ["cat-meow", "cat-purr"],
   }),
@@ -346,6 +369,7 @@ export const ANIMALS = Object.freeze({
     frequencyRangeHz: [50, 3_100], tractRangeM: [0.36, 0.62],
     rangeBasis: "measured 52-1050 Hz F0 + 493-3012 Hz biphonic G0",
     cavityFrequencyHz: 270, description: "Whinny moves between inharmonic fold regimes; nicker stays low and closed.",
+    manualLevelTrim: 0.21,
     controls: { pressure: 0.72, tension: 0.48, adduction: 0.68, sourceScale: 0.82, mouthOpening: 0.58, cavityCoupling: 0.26, asymmetry: 0.28, sourceBalance: 0.5, roughness: 0.22 },
     callIds: ["horse-whinny", "horse-nicker"],
   }),
@@ -355,6 +379,7 @@ export const ANIMALS = Object.freeze({
     frequencyRangeHz: [60, 300], tractRangeM: [0.42, 0.7],
     rangeBasis: "66-168 Hz common roars + measured retractable vocal tract",
     cavityFrequencyHz: 190, description: "Common roar lengthens the tract; harsh roar pushes folds toward chaos.",
+    manualLevelTrim: 0.37,
     controls: { pressure: 0.8, tension: 0.3, adduction: 0.78, sourceScale: 0.86, mouthOpening: 0.62, cavityCoupling: 0.34, asymmetry: 0.18, sourceBalance: 0.5, roughness: 0.3 },
     callIds: ["reddeer-common-roar", "reddeer-harsh-roar"],
   }),
@@ -364,6 +389,7 @@ export const ANIMALS = Object.freeze({
     frequencyRangeHz: [180, 1_300], tractRangeM: [0.24, 0.4],
     rangeBasis: "field whoop contours + measured 547 Hz mean giggle notes",
     cavityFrequencyHz: 360, description: "Rising whoops and short, modulated seven-note giggle bouts.",
+    manualLevelTrim: 0.2,
     controls: { pressure: 0.7, tension: 0.5, adduction: 0.7, sourceScale: 0.68, mouthOpening: 0.54, cavityCoupling: 0.2, asymmetry: 0.18, sourceBalance: 0.5, roughness: 0.26 },
     callIds: ["hyena-whoop", "hyena-giggle"],
   }),
@@ -373,6 +399,7 @@ export const ANIMALS = Object.freeze({
     frequencyRangeHz: [35, 1_800], tractRangeM: [0.2, 0.36],
     rangeBasis: "sub-100 Hz grunt pulses + broadband squeal classification",
     cavityFrequencyHz: 290, description: "Low pulsatile grunts and higher rough squeals share one tract.",
+    manualLevelTrim: 0.68,
     controls: { pressure: 0.7, tension: 0.38, adduction: 0.74, sourceScale: 0.7, mouthOpening: 0.46, cavityCoupling: 0.2, asymmetry: 0.16, sourceBalance: 0.5, roughness: 0.38 },
     callIds: ["wildboar-grunt", "wildboar-squeal"],
   }),
@@ -382,6 +409,7 @@ export const ANIMALS = Object.freeze({
     frequencyRangeHz: [55, 600], tractRangeM: [0.38, 0.64],
     rangeBasis: "80-180 Hz typical F0 + oral and nasal contact-call data",
     cavityFrequencyHz: 250, description: "Stable harmonic moo with open-mouth and low contact gestures.",
+    manualLevelTrim: 0.45,
     controls: { pressure: 0.68, tension: 0.34, adduction: 0.7, sourceScale: 0.86, mouthOpening: 0.52, cavityCoupling: 0.38, asymmetry: 0.1, sourceBalance: 0.5, roughness: 0.18 },
     callIds: ["cow-moo", "cow-contact"],
   }),
@@ -427,6 +455,7 @@ export const ANIMALS = Object.freeze({
     frequencyRangeHz: [60, 520], tractRangeM: [0.045, 0.09],
     rangeBasis: "excised anuran membranes + closed-mouth modal radiation",
     cavityFrequencyHz: 330, description: "Pulsed membranes radiating through sac, head and tympanic modes.",
+    manualLevelTrim: 0.45,
     controls: { pressure: 0.76, tension: 0.36, adduction: 0.72, sourceScale: 0.62, mouthOpening: 0.18, cavityCoupling: 0.78, asymmetry: 0.12, sourceBalance: 0.5, roughness: 0.28 },
     callIds: ["bullfrog-call", "bullfrog-grunt"],
   }),
@@ -446,6 +475,7 @@ export const ANIMALS = Object.freeze({
     tractRangeM: [0.018, 0.032],
     rangeBasis: "impinging-jet USV physiology; explicitly audible-mapped",
     cavityFrequencyHz: 5_600, description: "Ultrasonic mode trajectories mapped into the audible band.",
+    manualLevelTrim: 0.33,
     controls: { pressure: 0.6, tension: 0.68, adduction: 0.36, sourceScale: 0.18, mouthOpening: 0.42, cavityCoupling: 0.12, asymmetry: 0.08, sourceBalance: 0.5, roughness: 0.02 },
     callIds: ["mouse-sweep", "mouse-steps"], audibleMapping: true,
   }),
@@ -504,6 +534,25 @@ export function animalState(animalId = "raven", overrides = {}) {
 }
 
 export const DEFAULT_SYRINX_STATE = Object.freeze(animalState("raven"));
+
+export function resolveSyrinxPresetGain(candidate = DEFAULT_SYRINX_STATE) {
+  const hasGestureContour = typeof candidate?.sourceFrequencyRatio === "number"
+    && Number.isFinite(candidate.sourceFrequencyRatio);
+  const state = sanitizeSyrinxState(candidate);
+  const trim = hasGestureContour
+    ? CALL_GESTURES[state.callId]?.levelTrim
+    : ANIMALS[state.animalId]?.manualLevelTrim;
+  return clamp(trim ?? 1, 0.05, 1);
+}
+
+/**
+ * Applies the selected call's calibrated post-model trim without changing the
+ * user's Level control or the physical source/tract simulation.
+ */
+export function resolveSyrinxOutputLevel(candidate = DEFAULT_SYRINX_STATE) {
+  const state = sanitizeSyrinxState(candidate);
+  return clamp(state.level * resolveSyrinxPresetGain(candidate));
+}
 
 export const RANDOMIZABLE_CONTROLS = Object.freeze([
   "pressure", "tension", "adduction", "sourceScale", "tractLengthM",
@@ -595,11 +644,14 @@ export function modulateSyrinxState(candidate, modulators = [], elapsedSeconds =
     );
     next[modulator.target] += wave * depth * (maximum - minimum) * 0.35;
   });
+  const sourceFrequencyRatio = candidate?.sourceFrequencyRatio;
   return {
     ...sanitizeSyrinxState(next, base),
     active: Boolean(candidate?.active),
     gesturePhase: Number(candidate?.gesturePhase) || 0,
-    sourceFrequencyRatio: clamp(candidate?.sourceFrequencyRatio ?? 1, 0.03, 24),
+    ...(typeof sourceFrequencyRatio === "number" && Number.isFinite(sourceFrequencyRatio)
+      ? { sourceFrequencyRatio: clamp(sourceFrequencyRatio, 0.03, 24) }
+      : {}),
   };
 }
 

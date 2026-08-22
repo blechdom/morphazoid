@@ -6,8 +6,13 @@ import {
   VOCALZOID_STYLES,
   applyVocalzoidMelody,
   clampVocalzoid,
+  createRandomVocalzoidScore,
   createVocalzoidSequence,
+  deleteVocalzoidNote,
+  insertVocalzoidNote,
   normalizeVocalzoidWord,
+  replaceVocalzoidNotePhone,
+  splitVocalzoidNote,
   updateVocalzoidNote,
   vocalzoidBankCoverage,
   vocalzoidMidiFrequency,
@@ -26,6 +31,7 @@ import {
   vocalzoidOpenBankCoverage,
 } from "./src/vocalzoid-open-banks.js";
 import {
+  SPELLING_PRONUNCIATION_PHONE_CATALOG,
   loadSpellingPronunciations,
   spellingPronunciationTokens,
 } from "./src/spelling-pronunciation.js";
@@ -33,6 +39,14 @@ import {
 const $ = (id) => document.getElementById(id);
 const ROW_HEIGHT = 20;
 const ROW_COUNT = VOCALZOID_MAX_MIDI - VOCALZOID_MIN_MIDI + 1;
+const PHONE_CATALOG_BY_ID = new Map(
+  SPELLING_PRONUNCIATION_PHONE_CATALOG.map((phone) => [phone.id, phone]),
+);
+const PHONE_MENU_GROUPS = Object.freeze([
+  Object.freeze(["vowel", "Vowels"]),
+  Object.freeze(["gliding-vowel", "Diphthongs + R-colored vowels"]),
+  Object.freeze(["consonant", "Consonants"]),
+]);
 
 const DEFAULTS = Object.freeze({
   word: VOCALZOID_DEFAULT_WORD,
@@ -43,6 +57,8 @@ const DEFAULTS = Object.freeze({
   vibrato: 22,
   glide: 65,
   loop: false,
+  scoreBeats: 8,
+  randomScore: false,
 });
 
 const state = {
@@ -74,6 +90,7 @@ let canvasWidth = 0;
 let canvasHeight = 0;
 let spectrumBins = new Uint8Array(512);
 let drag = null;
+let noteSerial = 0;
 
 function setPressed(element, pressed) {
   element?.setAttribute("aria-pressed", String(Boolean(pressed)));
@@ -97,6 +114,19 @@ function selectedNote() {
   return state.notes.find((note) => note.id === state.selectedId) ?? state.notes[0] ?? null;
 }
 
+function sortNotesChronologically() {
+  state.notes = [...state.notes].sort((left, right) => left.start - right.start);
+}
+
+function nextNoteId() {
+  let id;
+  do {
+    noteSerial += 1;
+    id = `vz-edit-${noteSerial}`;
+  } while (state.notes.some((note) => note.id === id));
+  return id;
+}
+
 function replaceNote(noteId, changes, { render = true } = {}) {
   state.notes = state.notes.map((note) => (
     note.id === noteId ? updateVocalzoidNote(note, changes) : note
@@ -104,17 +134,102 @@ function replaceNote(noteId, changes, { render = true } = {}) {
   if (render) renderScore();
   else {
     renderSelectedNote();
-    renderPitchCurve();
     updateBankCoverage();
   }
 }
 
+function commitNoteChange(noteId, changes, message) {
+  const current = state.notes.find((note) => note.id === noteId);
+  if (!current) return false;
+  const edited = updateVocalzoidNote(current, changes);
+  const changed = ["lyric", "alias", "start", "duration", "midi"].some(
+    (key) => current[key] !== edited[key],
+  ) || current.phones.length !== edited.phones.length
+    || current.phones.some((phone, index) => phone !== edited.phones[index]);
+  if (!changed) return false;
+  haltPlayback();
+  state.notes = state.notes.map((note) => (
+    note.id === noteId ? edited : note
+  ));
+  sortNotesChronologically();
+  state.selectedId = noteId;
+  renderScore();
+  selectNote(noteId, { focus: true });
+  announce(message);
+  return true;
+}
+
 function sequenceBeats() {
-  return Math.max(4, Math.ceil(vocalzoidSequenceBeats(state.notes)));
+  const contentBeats = state.notes.length ? vocalzoidSequenceBeats(state.notes) : 0;
+  state.scoreBeats = Math.max(4, state.scoreBeats, Math.ceil(contentBeats + 1));
+  return state.scoreBeats;
+}
+
+function addNote({ start, midi } = {}) {
+  const template = selectedNote();
+  const id = nextNoteId();
+  const noteStart = clampVocalzoid(
+    start ?? (template ? template.start + template.duration : 0),
+    0,
+    62,
+  );
+  const note = {
+    id,
+    lyric: template?.lyric ?? "ah",
+    phones: [...(template?.phones ?? ["AH"])],
+    alias: template?.alias ?? "",
+    start: Math.round(noteStart * 4) / 4,
+    duration: 1,
+    midi: Math.round(clampVocalzoid(midi ?? template?.midi ?? 60, VOCALZOID_MIN_MIDI, VOCALZOID_MAX_MIDI)),
+  };
+  haltPlayback();
+  state.notes = insertVocalzoidNote(state.notes, note);
+  state.selectedId = id;
+  state.scoreBeats = Math.max(state.scoreBeats, Math.ceil(note.start + note.duration + 1));
+  renderScore();
+  selectNote(id, { focus: true });
+  announce(`Added ${note.lyric} at beat ${Number(note.start.toFixed(2)) + 1}.`);
+}
+
+function deleteNote(noteId = state.selectedId) {
+  const index = state.notes.findIndex((note) => note.id === noteId);
+  if (index < 0) return false;
+  const removed = state.notes[index];
+  haltPlayback();
+  state.notes = deleteVocalzoidNote(state.notes, noteId);
+  const next = state.notes[Math.min(index, state.notes.length - 1)] ?? null;
+  state.selectedId = next?.id ?? "";
+  renderScore();
+  if (next) selectNote(next.id, { focus: true });
+  announce(`Deleted ${removed.lyric}. ${state.notes.length} note${state.notes.length === 1 ? "" : "s"} remain.`);
+  return true;
+}
+
+function splitNote(noteId = state.selectedId, splitBeat = null) {
+  const note = state.notes.find((entry) => entry.id === noteId);
+  if (!note) return false;
+  const cutAt = Math.round((splitBeat ?? note.start + note.duration / 2) * 4) / 4;
+  const id = nextNoteId();
+  const split = splitVocalzoidNote(state.notes, noteId, cutAt, id);
+  if (split.length !== state.notes.length + 1) {
+    announce("Move the cut at least a quarter beat away from either note edge.");
+    return false;
+  }
+  haltPlayback();
+  state.notes = split;
+  state.selectedId = id;
+  renderScore();
+  selectNote(id, { focus: true });
+  announce(`Cut ${note.lyric} at beat ${Number(cutAt.toFixed(2)) + 1}.`);
+  return true;
 }
 
 function phoneText(phones) {
   return [...(phones ?? [])].join(" · ");
+}
+
+function phoneJoinText(phones) {
+  return [...(phones ?? [])].join("→");
 }
 
 function updateAudioUi() {
@@ -162,7 +277,7 @@ function updateSourceUi() {
   const open = VOCALZOID_OPEN_BANKS[state.openBankId];
   const sourceName = state.source === "local"
     ? state.localBank?.name || "local bank"
-    : state.source === "open" ? open?.name || "CC0 bank" : "built in";
+    : state.source === "open" ? open?.name || "open demo voice" : "built in";
   $("sourceBadge").textContent = sourceName;
   for (const button of $("openBankButtons").querySelectorAll("[data-open-bank]")) {
     setPressed(button, state.source === "open" && button.dataset.openBank === state.openBankId);
@@ -203,6 +318,20 @@ function notePosition(note, totalBeats) {
   };
 }
 
+function pianoGridPoint(clientX, clientY) {
+  const rect = $("pianoGrid").getBoundingClientRect();
+  const x = clampVocalzoid((clientX - rect.left) / Math.max(1, rect.width), 0, 1);
+  const row = Math.floor(clampVocalzoid(
+    (clientY - rect.top) / ROW_HEIGHT,
+    0,
+    ROW_COUNT - 0.001,
+  ));
+  return Object.freeze({
+    beat: Math.round(x * sequenceBeats() * 4) / 4,
+    midi: VOCALZOID_MAX_MIDI - row,
+  });
+}
+
 function selectNote(noteId, { focus = false } = {}) {
   state.selectedId = noteId;
   for (const node of $("noteLayer").querySelectorAll(".vocal-note")) {
@@ -221,14 +350,16 @@ function startNoteDrag(event, noteId) {
   event.currentTarget.setPointerCapture?.(event.pointerId);
   selectNote(noteId);
   drag = {
+    kind: event.target?.closest?.(".note-resize-handle") ? "resize" : "move",
     noteId,
     pointerId: event.pointerId,
     clientX: event.clientX,
     clientY: event.clientY,
     start: note.start,
+    duration: note.duration,
     midi: note.midi,
     totalBeats: sequenceBeats(),
-    moved: false,
+    changed: false,
   };
 }
 
@@ -237,33 +368,63 @@ function renderNotes(totalBeats) {
   state.notes.forEach((note, index) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `vocal-note${note.id === state.selectedId ? " is-selected" : ""}`;
+    button.className = `vocal-note${note.id === state.selectedId ? " is-selected" : ""}${note.duration <= 0.5 ? " is-compact" : ""}`;
     button.dataset.noteId = note.id;
     button.setAttribute("aria-pressed", String(note.id === state.selectedId));
     button.setAttribute(
       "aria-label",
-      `${note.lyric}, ${vocalzoidMidiName(note.midi)}, ${note.duration} beats. Drag to change time and pitch.`,
+      `${note.lyric}, phones ${note.phones.join(", ")}, ${vocalzoidMidiName(note.midi)}, starts at beat ${Number(note.start.toFixed(2)) + 1}, ${note.duration} beats. Drag to move; drag the right edge to resize; press Delete to remove.`,
     );
     Object.assign(button.style, notePosition(note, totalBeats));
-    const lyric = document.createElement("span");
+    const noteLabel = document.createElement("span");
+    const lyric = document.createElement("b");
     lyric.textContent = note.lyric;
+    const pronunciation = document.createElement("i");
+    pronunciation.textContent = phoneJoinText(note.phones);
+    noteLabel.append(lyric, pronunciation);
     const pitch = document.createElement("small");
+    pitch.className = "note-pitch";
     pitch.textContent = vocalzoidMidiName(note.midi);
-    button.append(lyric, pitch);
+    const resizeHandle = document.createElement("span");
+    resizeHandle.className = "note-resize-handle";
+    resizeHandle.setAttribute("aria-hidden", "true");
+    button.append(noteLabel, pitch, resizeHandle);
     button.addEventListener("pointerdown", (event) => startNoteDrag(event, note.id));
     button.addEventListener("click", () => selectNote(note.id));
+    button.addEventListener("dblclick", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      splitNote(note.id, pianoGridPoint(event.clientX, event.clientY).beat);
+    });
     button.addEventListener("keydown", (event) => {
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        deleteNote(note.id);
+        return;
+      }
       const vertical = event.key === "ArrowUp" ? 1 : event.key === "ArrowDown" ? -1 : 0;
       const horizontal = event.key === "ArrowRight" ? 0.25 : event.key === "ArrowLeft" ? -0.25 : 0;
       if (!vertical && !horizontal) return;
       event.preventDefault();
-      haltPlayback();
       if (event.shiftKey && horizontal) {
-        replaceNote(note.id, { duration: note.duration + horizontal });
+        commitNoteChange(
+          note.id,
+          { duration: note.duration + horizontal },
+          `${note.lyric} resized to ${Number(clampVocalzoid(note.duration + horizontal, 0.25, 16).toFixed(2))} beats.`,
+        );
       } else {
-        replaceNote(note.id, { midi: note.midi + vertical, start: Math.max(0, note.start + horizontal) });
+        const nextStart = clampVocalzoid(note.start + horizontal, 0, 62);
+        const nextMidi = Math.round(clampVocalzoid(
+          note.midi + vertical,
+          VOCALZOID_MIN_MIDI,
+          VOCALZOID_MAX_MIDI,
+        ));
+        commitNoteChange(
+          note.id,
+          { midi: nextMidi, start: nextStart },
+          `${note.lyric} moved to beat ${Number(nextStart.toFixed(2)) + 1}, ${vocalzoidMidiName(nextMidi)}.`,
+        );
       }
-      selectNote(note.id, { focus: true });
     });
     fragment.append(button);
   });
@@ -296,22 +457,127 @@ function renderPitchCurve() {
 }
 
 function renderPhonemeRibbon() {
-  const fragment = document.createDocumentFragment();
-  for (const note of state.notes) {
-    for (const phone of note.phones) {
-      const cell = document.createElement("span");
-      cell.className = `phoneme-cell${/[AEIOU]/.test(phone[0]) ? " is-vowel" : ""}`;
-      cell.style.flexGrow = String(note.duration / Math.max(1, note.phones.length));
-      cell.textContent = phone;
-      fragment.append(cell);
-    }
+  const lane = document.createElement("div");
+  lane.className = "phoneme-lane";
+  lane.style.setProperty("--beat-count", String(sequenceBeats()));
+  const beatSeconds = 60 / state.bpm;
+  const totalSeconds = sequenceBeats() * beatSeconds;
+  const plan = vocalzoidRenderPlan(state.notes, state.bpm);
+  for (const event of plan) {
+    const visibleStart = Math.max(0, event.start);
+    const visibleEnd = Math.min(totalSeconds, event.start + event.duration);
+    if (visibleEnd <= visibleStart) continue;
+    const cell = document.createElement("span");
+    cell.className = `phoneme-cell${event.sustain ? " is-vowel" : ""} is-${event.role}`;
+    cell.dataset.noteId = event.noteId;
+    cell.style.left = `${visibleStart / totalSeconds * 100}%`;
+    cell.style.width = `${(visibleEnd - visibleStart) / totalSeconds * 100}%`;
+    cell.title = `${event.phone} · ${event.role} · ${event.duration.toFixed(3)} s`;
+    cell.textContent = event.phone;
+    lane.append(cell);
   }
-  $("phonemeRibbon").replaceChildren(fragment);
+  $("phonemeRibbon").replaceChildren(lane);
+}
+
+function phoneSlotRole(note, index) {
+  const definition = PHONE_CATALOG_BY_ID.get(note.phones[index]);
+  if (definition?.vowel) return "vowel nucleus";
+  const nucleus = note.phones.findIndex((phone) => PHONE_CATALOG_BY_ID.get(phone)?.vowel);
+  if (nucleus < 0) return "consonant";
+  return index < nucleus ? "onset" : "coda";
+}
+
+function renderNotePhoneMenus(note) {
+  const container = $("notePhoneMenus");
+  if (!note) {
+    const empty = document.createElement("span");
+    empty.className = "note-phone-empty";
+    empty.textContent = "Add or select a note to edit its pronunciation.";
+    container.replaceChildren(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  note.phones.forEach((phoneId, index) => {
+    const definition = PHONE_CATALOG_BY_ID.get(phoneId);
+    const vowelSlot = Boolean(definition?.vowel);
+    const role = phoneSlotRole(note, index);
+    const picker = document.createElement("div");
+    picker.className = `note-phone-picker is-${vowelSlot ? "vowel" : "consonant"}`;
+    const position = document.createElement("span");
+    position.textContent = `${String(index + 1).padStart(2, "0")} · ${role}`;
+    const select = document.createElement("select");
+    select.dataset.phoneIndex = String(index);
+    select.setAttribute(
+      "aria-label",
+      `Sound ${index + 1} of ${note.phones.length} for ${note.lyric}, ${role}`,
+    );
+    select.setAttribute("aria-describedby", "phoneMenuHelp");
+    for (const [groupId, label] of PHONE_MENU_GROUPS) {
+      if (vowelSlot ? groupId === "consonant" : groupId !== "consonant") continue;
+      const group = document.createElement("optgroup");
+      group.label = label;
+      for (const phone of SPELLING_PRONUNCIATION_PHONE_CATALOG) {
+        if (phone.group !== groupId) continue;
+        const option = document.createElement("option");
+        option.value = phone.id;
+        option.textContent = phone.label;
+        group.append(option);
+      }
+      select.append(group);
+    }
+    select.value = phoneId;
+    select.addEventListener("change", (event) => {
+      changeNotePhone(note.id, index, event.currentTarget.value);
+    });
+    picker.append(position, select);
+    fragment.append(picker);
+  });
+  container.replaceChildren(fragment);
+}
+
+function changeNotePhone(noteId, phoneIndex, replacementId) {
+  const current = state.notes.find((note) => note.id === noteId);
+  if (!current) return false;
+  const edited = replaceVocalzoidNotePhone(current, phoneIndex, replacementId);
+  if (edited === current) return false;
+  const previousPhone = current.phones[phoneIndex];
+  const replacement = PHONE_CATALOG_BY_ID.get(edited.phones[phoneIndex]);
+  const clearedAlias = Boolean(current.alias);
+  haltPlayback();
+  state.notes = state.notes.map((note) => note.id === noteId ? edited : note);
+  state.selectedId = noteId;
+  renderScore();
+  $("notePhoneMenus").querySelector(`[data-phone-index="${phoneIndex}"]`)?.focus();
+  announce(
+    `${current.lyric}: ${previousPhone} changed to ${replacement.id}, /${replacement.ipa}/ as in ${replacement.example}. `
+      + `The ${phoneText(edited.phones)} diphone sequence is ready.`
+      + (clearedAlias ? " The previous exact bank alias was cleared." : ""),
+  );
+  return true;
 }
 
 function renderSelectedNote() {
   const note = selectedNote();
-  if (!note) return;
+  const hasNote = Boolean(note);
+  $("notePitch").disabled = !hasNote;
+  $("noteDuration").disabled = !hasNote;
+  $("aliasInput").disabled = !hasNote;
+  $("phoneEditor").setAttribute("aria-disabled", String(!hasNote));
+  renderNotePhoneMenus(note);
+  $("splitNoteButton").disabled = !note || note.duration < 0.5;
+  $("deleteNoteButton").disabled = !hasNote;
+  if (!note) {
+    state.selectedId = "";
+    $("selectedLyric").textContent = "No note";
+    $("selectedPhones").textContent = "double-click the grid or choose + Note";
+    $("selectedNoteNumber").textContent = "00 / 00";
+    $("notePitchOut").textContent = "—";
+    $("noteDurationOut").textContent = "—";
+    $("aliasInput").value = "";
+    return;
+  }
+  if (state.selectedId !== note.id) state.selectedId = note.id;
   const index = state.notes.findIndex((entry) => entry.id === note.id);
   $("selectedLyric").textContent = note.lyric;
   $("selectedPhones").textContent = phoneText(note.phones);
@@ -331,11 +597,19 @@ function renderScore() {
   renderPitchCurve();
   renderPhonemeRibbon();
   renderSelectedNote();
-  $("phoneReadout").textContent = state.notes.map((note) => phoneText(note.phones)).join(" / ");
+  $("phoneReadout").textContent = state.notes.length
+    ? state.notes.map((note) => phoneText(note.phones)).join(" / ")
+    : "No notes · double-click the grid to add one";
   updateBankCoverage();
 }
 
 function updateBankCoverage() {
+  if (state.source === "open" && state.openBankId) {
+    const bank = VOCALZOID_OPEN_BANKS[state.openBankId];
+    const coverage = vocalzoidOpenBankCoverage(state.notes);
+    $("bankStatus").textContent = `${bank.name}: ${coverage.matched}/${coverage.total} notes use its ${bank.license} samples; the rest use KAL16.`;
+    return;
+  }
   if (!state.localBank) return;
   const coverage = vocalzoidBankCoverage(state.localBank.entries, state.notes);
   $("coverageFill").style.width = `${coverage.ratio * 100}%`;
@@ -345,9 +619,19 @@ function updateBankCoverage() {
 function updateCurrentEvent(progressSeconds) {
   const beatSeconds = 60 / state.bpm;
   const beat = progressSeconds / beatSeconds;
-  const note = state.notes.find((entry) => beat >= entry.start && beat < entry.start + entry.duration);
+  let note = null;
+  for (const entry of state.notes) {
+    const active = beat >= entry.start && beat < entry.start + entry.duration;
+    if (active && (!note || entry.start >= note.start)) note = entry;
+  }
   const plan = vocalzoidRenderPlan(state.notes, state.bpm);
-  const event = plan.find((entry) => progressSeconds >= entry.start && progressSeconds < entry.start + entry.duration);
+  let event = null;
+  for (const entry of plan) {
+    const active = progressSeconds >= entry.start && progressSeconds < entry.start + entry.duration;
+    // Vowels deliberately remain underneath codas. Prefer the most recently
+    // started active unit so the readout advances from nucleus to release.
+    if (active && (!event || entry.start >= event.start)) event = entry;
+  }
   const token = note?.lyric ?? (state.playing ? "join" : "ready");
   const phone = event?.phone ?? "—";
   if ($("currentToken").textContent !== token) $("currentToken").textContent = token;
@@ -442,6 +726,8 @@ async function playSequence() {
       const message = "Turn on Audio before singing the word.";
       showError(message);
       announce(message);
+    } else if (!state.notes.length) {
+      announce("Add a note before singing the score.");
     }
     return;
   }
@@ -459,14 +745,15 @@ async function playSequence() {
     state.playResult = result;
     state.playing = true;
     if (state.source === "open" && result.openNotes === 0) {
-      $("bankStatus").textContent = `${VOCALZOID_OPEN_BANKS[state.openBankId]?.name ?? "The CC0 bank"} could not render this score; every note is using KAL16.`;
+      $("bankStatus").textContent = `${VOCALZOID_OPEN_BANKS[state.openBankId]?.name ?? "The open demo voice"} could not render this score; every note is using KAL16.`;
     } else if (state.source === "open" && result.fallbackNotes > 0) {
       $("bankStatus").textContent = `${result.openNotes} notes use ${result.sourceName}; ${result.fallbackNotes} use KAL16.`;
     }
     const fallback = result.fallbackNotes
       ? ` ${result.fallbackNotes} note${result.fallbackNotes === 1 ? "" : "s"} fell back to KAL16.`
       : "";
-    announce(`${result.sourceName} is singing ${state.word}.${fallback}`);
+    const scoreName = state.randomScore ? "the randomized score" : state.word;
+    announce(`${result.sourceName} is singing ${scoreName}.${fallback}`);
     ensureAnimation();
   } catch (error) {
     if (request === state.playRequest) showError(error instanceof Error ? error.message : String(error));
@@ -524,6 +811,32 @@ async function pronunciationFor(word) {
   return vocalzoidPronunciation(word);
 }
 
+function randomizeScore() {
+  state.scoreRequest += 1;
+  haltPlayback();
+  const randomized = createRandomVocalzoidScore();
+  Object.assign(state, {
+    notes: randomized.notes,
+    selectedId: randomized.notes[0]?.id ?? "",
+    style: randomized.style,
+    bpm: randomized.bpm,
+    vibrato: randomized.vibrato,
+    glide: randomized.glide,
+    scoreBeats: randomized.scoreBeats,
+    randomScore: true,
+  });
+  audio.setStyle(state.style);
+  $("buildScore").disabled = false;
+  $("buildScore").textContent = "Set lyric";
+  updateControlUi();
+  updateSourceUi();
+  renderScore();
+  announce(
+    `Randomized ${state.notes.length} notes at ${state.bpm} BPM, ${state.vibrato} cent vibrato, `
+      + `${state.glide} millisecond glide, and ${VOCALZOID_STYLES[state.style].name}.`,
+  );
+}
+
 async function buildScore() {
   const request = ++state.scoreRequest;
   const word = normalizeVocalzoidWord($("wordInput").value) || VOCALZOID_DEFAULT_WORD;
@@ -535,6 +848,8 @@ async function buildScore() {
     if (request !== state.scoreRequest) return;
     state.word = word;
     state.notes = createVocalzoidSequence(word, { phones, preset: state.melody });
+    state.scoreBeats = Math.max(8, Math.ceil(vocalzoidSequenceBeats(state.notes) + 1));
+    state.randomScore = false;
     state.selectedId = state.notes[0]?.id ?? "";
     renderScore();
     announce(`${word} became ${state.notes.length} melody notes.`);
@@ -571,7 +886,7 @@ function chooseOpenBank(bankId) {
   updateControlUi();
   updateSourceUi();
   const coverage = vocalzoidOpenBankCoverage(state.notes);
-  $("bankStatus").textContent = `${bank.name}: ${coverage.matched}/${coverage.total} notes use CC0 diphones; the rest use KAL16.`;
+  $("bankStatus").textContent = `${bank.name}: ${coverage.matched}/${coverage.total} notes use its ${bank.license} samples; the rest use KAL16.`;
   announce(`${bank.name} selected.`);
 }
 
@@ -698,6 +1013,7 @@ function installEvents() {
   $("bpm").addEventListener("input", (event) => {
     state.bpm = clampVocalzoid(event.target.value, 40, 220);
     $("bpmOut").textContent = `${Math.round(state.bpm)} BPM`;
+    renderPhonemeRibbon();
     if (state.playing) haltPlayback("Tempo changed. Play the word again.");
   });
   $("vibrato").addEventListener("input", (event) => {
@@ -724,6 +1040,18 @@ function installEvents() {
   for (const button of $("openBankButtons").querySelectorAll("[data-open-bank]")) {
     button.addEventListener("click", () => chooseOpenBank(button.dataset.openBank));
   }
+  $("addNoteButton").addEventListener("click", () => addNote());
+  $("randomizeButton").addEventListener("click", randomizeScore);
+  $("splitNoteButton").addEventListener("click", () => splitNote());
+  $("deleteNoteButton").addEventListener("click", () => deleteNote());
+  $("pianoGrid").addEventListener("dblclick", (event) => {
+    if (event.target?.closest?.(".vocal-note")) return;
+    const point = pianoGridPoint(event.clientX, event.clientY);
+    addNote({
+      start: Math.min(point.beat, sequenceBeats() - 0.25),
+      midi: point.midi,
+    });
+  });
   $("useKalButton").addEventListener("click", () => chooseKalStyle(state.style));
   $("useLocalBank").addEventListener("click", chooseLocalBank);
   $("notePitch").addEventListener("input", (event) => {
@@ -759,28 +1087,64 @@ function installEvents() {
 
   document.addEventListener("pointermove", (event) => {
     if (!drag || event.pointerId !== drag.pointerId) return;
+    event.preventDefault();
     const grid = $("pianoGrid");
     const rect = grid.getBoundingClientRect();
-    const deltaMidi = -Math.round((event.clientY - drag.clientY) / ROW_HEIGHT);
     const deltaBeats = Math.round((event.clientX - drag.clientX) / Math.max(1, rect.width) * drag.totalBeats * 4) / 4;
     const note = state.notes.find((entry) => entry.id === drag.noteId);
     if (!note) return;
-    drag.moved ||= Math.abs(event.clientX - drag.clientX) > 2 || Math.abs(event.clientY - drag.clientY) > 2;
-    replaceNote(drag.noteId, {
-      midi: drag.midi + deltaMidi,
-      start: clampVocalzoid(drag.start + deltaBeats, 0, Math.max(0, drag.totalBeats - note.duration)),
-    }, { render: false });
+    const changes = drag.kind === "resize"
+      ? {
+          duration: clampVocalzoid(
+            drag.duration + deltaBeats,
+            0.25,
+            Math.min(16, Math.max(0.25, drag.totalBeats - drag.start)),
+          ),
+        }
+      : {
+          midi: Math.round(clampVocalzoid(
+            drag.midi - Math.round((event.clientY - drag.clientY) / ROW_HEIGHT),
+            VOCALZOID_MIN_MIDI,
+            VOCALZOID_MAX_MIDI,
+          )),
+          start: clampVocalzoid(
+            drag.start + deltaBeats,
+            0,
+            Math.max(0, drag.totalBeats - drag.duration),
+          ),
+        };
+    const changed = Object.entries(changes).some(([key, value]) => note[key] !== value);
+    if (!changed) return;
+    if (!drag.changed) haltPlayback();
+    drag.changed = true;
+    replaceNote(drag.noteId, changes, { render: false });
+    const edited = state.notes.find((entry) => entry.id === drag.noteId);
     const node = $("noteLayer").querySelector(`[data-note-id="${CSS.escape(drag.noteId)}"]`);
-    if (node) {
-      Object.assign(node.style, notePosition(selectedNote(), drag.totalBeats));
-      node.querySelector("small").textContent = vocalzoidMidiName(selectedNote().midi);
+    if (node && edited) {
+      Object.assign(node.style, notePosition(edited, drag.totalBeats));
+      node.classList.toggle("is-resizing", drag.kind === "resize");
+      node.classList.toggle("is-compact", edited.duration <= 0.5);
+      node.querySelector(".note-pitch").textContent = vocalzoidMidiName(edited.midi);
     }
   });
   const endDrag = (event) => {
     if (!drag || (event.pointerId != null && event.pointerId !== drag.pointerId)) return;
-    if (drag.moved) haltPlayback("Melody changed.");
+    const completed = drag;
     drag = null;
-    renderScore();
+    if (completed.changed) {
+      sortNotesChronologically();
+      const edited = state.notes.find((note) => note.id === completed.noteId);
+      if (edited) {
+        state.scoreBeats = Math.max(
+          state.scoreBeats,
+          Math.ceil(edited.start + edited.duration + 1),
+        );
+        announce(completed.kind === "resize"
+          ? `${edited.lyric} resized to ${Number(edited.duration.toFixed(2))} beats.`
+          : `${edited.lyric} moved to beat ${Number(edited.start.toFixed(2)) + 1}, ${vocalzoidMidiName(edited.midi)}.`);
+      }
+      renderScore();
+    }
   };
   document.addEventListener("pointerup", endDrag);
   document.addEventListener("pointercancel", endDrag);

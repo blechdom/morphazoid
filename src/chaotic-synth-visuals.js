@@ -43,15 +43,15 @@ export function chaoticLiveVisualRegions(width, height) {
   const safeHeight = Math.max(1, finiteNumber(height, 1));
   const left = Math.max(38, safeWidth * 0.055);
   const right = safeWidth - Math.max(24, safeWidth * 0.045);
-  // Reserve the opening band for the title and explanatory subtitle. The
-  // analyzer still grows with the stage, but never rises into that copy.
+  // The stage identity now lives in the control pane, so analysis can begin
+  // close to the top status strip and leave more room for the signal path.
   const analysisTop = Math.max(
-    145,
-    Math.min(safeHeight * 0.31, safeHeight - 235),
+    44,
+    Math.min(safeHeight * 0.1, safeHeight - 235),
   );
   const analysisBottom = Math.max(
     analysisTop + 120,
-    Math.min(safeHeight * 0.56, safeHeight - 92),
+    Math.min(safeHeight * 0.38, safeHeight - 92),
   );
   return Object.freeze({
     left,

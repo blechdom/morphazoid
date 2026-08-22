@@ -412,6 +412,7 @@ function updateAdsrPreview() {
 }
 
 function writePerformanceControls() {
+  $("midiEnvelopeControls").hidden = state.performance.playMode !== "midi";
   for (const [key, control] of Object.entries(performanceControls)) {
     control.input.value = String(state.performance[key]);
   }

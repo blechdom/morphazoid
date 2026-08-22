@@ -159,41 +159,17 @@
   margin: 12px 22px;
 }
 
-@media (max-width: 940px) {
+@media (max-width: 960px) {
   .karplus-carpet-page .shell {
-    grid-template-columns: minmax(0, 1fr) 340px;
-  }
-
-  .kc-performance-sliders {
-    grid-template-columns: 1fr;
-  }
-
-  .kc-slider,
-  .kc-slider:first-child,
-  .kc-slider:nth-child(2),
-  .kc-slider:nth-child(3) {
-    grid-column: auto;
-  }
-}
-
-@media (max-width: 760px) {
-  .karplus-carpet-page .shell {
-    display: block;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .karplus-carpet-page .panel {
+    min-height: 0;
+    overflow-y: auto;
     border-top: 1px solid var(--line-strong);
     border-left: 0;
-  }
-
-  .kc-performance-sliders {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .kc-slider:first-child,
-  .kc-slider:nth-child(2),
-  .kc-slider:nth-child(3) {
-    grid-column: 1 / -1;
   }
 }
 

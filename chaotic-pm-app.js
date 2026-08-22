@@ -240,6 +240,7 @@ function updateAdsrPreview() {
 }
 
 function writePerformanceControls() {
+  $("midiEnvelopeControls").hidden = state.performance.playMode !== "midi";
   for (const [key, control] of Object.entries(performanceControls)) {
     control.write(state.performance[key], control.input);
     control.input.dataset.parameterId = CHAOTIC_PM_PARAMETER_IDS[key];

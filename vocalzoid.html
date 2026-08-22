@@ -117,6 +117,24 @@
             </div>
           </header>
 
+          <div class="roll-edit-bar">
+            <p id="rollInstructions">
+              Drag a note to move it · drag its right edge to resize · double-click a note to cut · double-click empty space to add
+            </p>
+            <div class="note-tools" role="toolbar" aria-label="Score editing tools">
+              <button id="addNoteButton" type="button"><i aria-hidden="true">+</i><span>Note</span></button>
+              <button
+                class="randomize-score"
+                id="randomizeButton"
+                type="button"
+                title="Generate random phones, notes, and performance settings"
+                aria-label="Randomize phones, notes, and performance parameters"
+              ><i aria-hidden="true">✦</i><span>Randomize</span></button>
+              <button id="splitNoteButton" type="button"><i aria-hidden="true">✂</i><span>Cut / split</span></button>
+              <button id="deleteNoteButton" type="button"><i aria-hidden="true">×</i><span>Delete</span></button>
+            </div>
+          </div>
+
           <div class="piano-roll" id="pianoRoll">
             <div class="piano-corner" aria-hidden="true">pitch</div>
             <div class="beat-ruler" id="beatRuler" aria-hidden="true"></div>
@@ -124,7 +142,8 @@
             <div
               class="piano-grid"
               id="pianoGrid"
-              aria-label="Vocal melody piano roll. Select and drag notes vertically to change pitch."
+              aria-label="Editable vocal melody piano roll"
+              aria-describedby="rollInstructions"
             >
               <svg class="pitch-curve" id="pitchCurve" aria-hidden="true"></svg>
               <div class="note-layer" id="noteLayer"></div>
@@ -153,13 +172,29 @@
             <output id="selectedNoteNumber">01 / 03</output>
           </header>
           <div class="note-editor-controls">
+            <div
+              class="note-phone-field"
+              id="phoneEditor"
+              role="group"
+              aria-labelledby="notePhoneLabel"
+              aria-describedby="phoneMenuHelp"
+            >
+              <span class="note-phone-heading">
+                <b id="notePhoneLabel">Phonemes / diphones</b>
+                <small>39 renderable ARPAbet sounds</small>
+              </span>
+              <div class="note-phone-menus" id="notePhoneMenus"></div>
+              <p id="phoneMenuHelp">
+                Each pull-down changes one sound. Adjacent sounds form diphone joins; the vowel stays stretched across the note.
+              </p>
+            </div>
             <label for="notePitch">
               <span><b>Pitch</b><output id="notePitchOut" for="notePitch">G3 · 196 Hz</output></span>
               <input id="notePitch" type="range" min="48" max="72" step="1" value="55" />
             </label>
             <label for="noteDuration">
               <span><b>Length</b><output id="noteDurationOut" for="noteDuration">2 beats</output></span>
-              <input id="noteDuration" type="range" min="0.5" max="4" step="0.25" value="2" />
+              <input id="noteDuration" type="range" min="0.25" max="16" step="0.25" value="2" />
             </label>
             <label class="alias-field" for="aliasInput">
               <span><b>Local-bank alias</b><small>optional exact UTAU alias</small></span>
@@ -219,9 +254,66 @@
           </label>
         </section>
 
+        <section class="rail-section bank-library" aria-labelledby="libraryTitle">
+          <header class="rail-heading">
+            <div><span>04</span><h2 id="libraryTitle">Voicebank shelf</h2></div>
+          </header>
+          <p class="library-intro">Eight compact one-word demo extracts are ready to sing “vocalzoid”: three CC0 OddVoices sources and five permissively licensed CMU ARCTIC speakers. Other lyrics fall back note-by-note to KAL16.</p>
+          <div class="open-bank-grid" id="openBankButtons" role="group" aria-label="Bundled open demo voices">
+            <button type="button" data-open-bank="air" aria-pressed="false">
+              <span><b>Air</b><small>breathy alto · D4</small></span><i>try</i>
+            </button>
+            <button type="button" data-open-bank="cicada" aria-pressed="false">
+              <span><b>Cicada</b><small>buzzy baritone · G3</small></span><i>try</i>
+            </button>
+            <button type="button" data-open-bank="quake" aria-pressed="false">
+              <span><b>Quake</b><small>dark bass · G♯2</small></span><i>try</i>
+            </button>
+            <button type="button" data-open-bank="bdl" aria-pressed="false">
+              <span><b>BDL</b><small>warm US male · C♯3</small></span><i>try</i>
+            </button>
+            <button type="button" data-open-bank="clb" aria-pressed="false">
+              <span><b>CLB</b><small>clear US female · F♯3</small></span><i>try</i>
+            </button>
+            <button type="button" data-open-bank="jmk" aria-pressed="false">
+              <span><b>JMK</b><small>Canadian male · A♯2</small></span><i>try</i>
+            </button>
+            <button type="button" data-open-bank="ksp" aria-pressed="false">
+              <span><b>KSP</b><small>Indian English male · D3</small></span><i>try</i>
+            </button>
+            <button type="button" data-open-bank="slt" aria-pressed="false">
+              <span><b>SLT</b><small>light US female · F♯3</small></span><i>try</i>
+            </button>
+          </div>
+          <button class="return-kal" id="useKalButton" type="button">Return to KAL16 source</button>
+          <p class="library-intro library-more">More banks / full sources</p>
+          <div class="library-links">
+            <a href="https://github.com/festvox/flite" target="_blank" rel="noreferrer">
+              <span><b>CMU Flite · KAL16</b><small>Permissive source · built in here</small></span><i>↗</i>
+            </a>
+            <a href="https://github.com/openutau/OpenUtau/wiki/Getting-Started" target="_blank" rel="noreferrer">
+              <span><b>OpenUtau singer guide</b><small>Install and find compatible singers</small></span><i>↗</i>
+            </a>
+            <a href="https://gitlab.com/oddvoices/oddvoices/-/tree/develop/voices" target="_blank" rel="noreferrer">
+              <span><b>OddVoices · full sources</b><small>Air / Cicada / Quake · CC0 recordings</small></span><i>↗</i>
+            </a>
+            <a href="https://www.cs.cmu.edu/~awb/papers/ssw5/arctic.pdf" target="_blank" rel="noreferrer">
+              <span><b>CMU ARCTIC · corpus paper</b><small>Five aligned speakers · permissive voice data</small></span><i>↗</i>
+            </a>
+            <a href="https://kasaneteto.jp/utau/" target="_blank" rel="noreferrer">
+              <span><b>Kasane Teto · UTAU</b><small>Official banks · separate usage terms</small></span><i>↗</i>
+            </a>
+          </div>
+          <p class="license-warning">
+            “Free to download” does not mean open source. Vocaloid voicebanks are proprietary and
+            are not imported by this page; every UTAU singer keeps its own terms. The bundled CMU
+            excerpts are modified, compact demo derivatives—not full ARCTIC voices.
+          </p>
+        </section>
+
         <section class="rail-section import-section" aria-labelledby="importTitle">
           <header class="rail-heading">
-            <div><span>04</span><h2 id="importTitle">Import a voicebank</h2></div>
+            <div><span>05</span><h2 id="importTitle">Import a voicebank</h2></div>
             <output>local only</output>
           </header>
           <p>
@@ -253,63 +345,44 @@
           </article>
         </section>
 
-        <section class="rail-section bank-library" aria-labelledby="libraryTitle">
-          <header class="rail-heading">
-            <div><span>05</span><h2 id="libraryTitle">Voicebank shelf</h2></div>
-          </header>
-          <p class="library-intro">Three tiny CC0 English diphone banks are ready to sing “vocalzoid.” Other lyrics fall back note-by-note to KAL16.</p>
-          <div class="open-bank-grid" id="openBankButtons" role="group" aria-label="Bundled CC0 demo voicebank">
-            <button type="button" data-open-bank="air" aria-pressed="false">
-              <span><b>Air</b><small>breathy alto · D4</small></span><i>try</i>
-            </button>
-            <button type="button" data-open-bank="cicada" aria-pressed="false">
-              <span><b>Cicada</b><small>buzzy baritone · G3</small></span><i>try</i>
-            </button>
-            <button type="button" data-open-bank="quake" aria-pressed="false">
-              <span><b>Quake</b><small>dark bass · G♯2</small></span><i>try</i>
-            </button>
-          </div>
-          <button class="return-kal" id="useKalButton" type="button">Return to KAL16 source</button>
-          <p class="library-intro library-more">More banks / full sources</p>
-          <div class="library-links">
-            <a href="https://github.com/festvox/flite" target="_blank" rel="noreferrer">
-              <span><b>CMU Flite · KAL16</b><small>Permissive source · built in here</small></span><i>↗</i>
-            </a>
-            <a href="https://github.com/openutau/OpenUtau/wiki/Getting-Started" target="_blank" rel="noreferrer">
-              <span><b>OpenUtau singer guide</b><small>Install and find compatible singers</small></span><i>↗</i>
-            </a>
-            <a href="https://gitlab.com/oddvoices/oddvoices/-/tree/develop/voices" target="_blank" rel="noreferrer">
-              <span><b>OddVoices · full sources</b><small>Air / Cicada / Quake · CC0 recordings</small></span><i>↗</i>
-            </a>
-            <a href="https://kasaneteto.jp/utau/" target="_blank" rel="noreferrer">
-              <span><b>Kasane Teto · UTAU</b><small>Official banks · separate usage terms</small></span><i>↗</i>
-            </a>
-          </div>
-          <p class="license-warning">
-            “Free to download” does not mean open source. Vocaloid voicebanks are proprietary and
-            are not imported by this page; every UTAU singer keeps its own terms.
-          </p>
-        </section>
-
         <details class="rail-section research-note">
           <summary><span>06</span><b>How the old machines sang</b><i aria-hidden="true"></i></summary>
           <div>
             <p>
-              Classic Vocaloid libraries were mostly diphones plus sustained vowels. Yamaha
-              documented about 2,000 samples per recorded pitch; one published example recorded
-              three pitch ranges. Its renderer corrected phase and spectral shape across joins —
-              more than an ordinary audio fade.
+              Vocalzoid is closer to a Web Audio sampler than a port of OpenUtau. It retunes
+              waveform clips, repeats steady vowel windows, and fades units together. The KAL
+              path has roughly forty isolated phone / letter clips; each bundled demo bank has
+              eight units for “vocalzoid.” Raw, Glass, and Velvet are colors of one KAL source,
+              not separate singers.
             </p>
             <p>
-              UTAU separates pitch/time resampling from WAV concatenation. Its <code>oto.ini</code>
-              stores the sample offset, fixed consonant region, cutoff, preutterance, and overlap.
-              Vocalzoid reads those six timings but uses a deliberately lightweight Web Audio
-              renderer, so it is neither Vocaloid-compatible nor a replacement for OpenUtau.
+              OpenUtau first phonemizes lyrics into several bank-aware aliases, independently
+              resamples their pitch and duration, then uses a wavtool to envelope and concatenate
+              them. Vocalzoid resolves only one local OTO alias per note, reads its alias plus five
+              timing values, and loops the waveform directly. Local support is useful but partial.
+            </p>
+            <div class="engine-compare" tabindex="0" role="region" aria-label="Vocalzoid, OpenUtau, and classic Vocaloid comparison">
+              <table>
+                <thead><tr><th>System</th><th>Units</th><th>Pitch / time</th><th>Joins</th></tr></thead>
+                <tbody>
+                  <tr><th>Vocalzoid</th><td>1 clip / note</td><td>Web Audio rate; coupled</td><td>Loop + gain fade</td></tr>
+                  <tr><th>OpenUtau</th><td>Phonemizer emits CV / VC / VCV…</td><td>Resampler or phrase renderer</td><td>Wavtool concatenation; optional phase compensation</td></tr>
+                  <tr><th>Vocaloid V1–V2</th><td>Contextual CV, VC, VV + holds</td><td>Frequency-domain transform</td><td>Phase + spectral-envelope correction</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p>
+              Classic Vocaloid libraries were mostly contextual diphones plus sustained vowels.
+              Yamaha documented about 2,000 samples per recorded pitch; one example used three
+              pitch ranges. Consonants began before the score line so the vowel landed on Note-On,
+              while the proprietary renderer corrected harmonic phase and spectral shape across
+              joins—far beyond an ordinary waveform crossfade.
             </p>
             <ul>
               <li><a href="https://www.isca-archive.org/interspeech_2007/kenmochi07_interspeech.pdf" target="_blank" rel="noreferrer">Yamaha’s 2007 system paper ↗</a></li>
               <li><a href="https://mtg.upf.edu/files/publications/SMAC2003-aloscos.pdf" target="_blank" rel="noreferrer">Original spectral-concatenation paper ↗</a></li>
               <li><a href="https://github.com/openutau/OpenUtau/wiki/Voicebank-Development" target="_blank" rel="noreferrer">OpenUtau voicebank anatomy ↗</a></li>
+              <li><a href="https://github.com/openutau/OpenUtau/wiki/Phonemizers" target="_blank" rel="noreferrer">OpenUtau phonemizers ↗</a></li>
               <li><a href="https://github.com/openutau/OpenUtau/wiki/Resamplers-and-Wavtools" target="_blank" rel="noreferrer">OpenUtau render pipeline ↗</a></li>
             </ul>
           </div>

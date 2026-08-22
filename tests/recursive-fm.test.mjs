@@ -446,6 +446,9 @@ test("Recursive FM page is internal and uses a gesture-controlled audio button",
   assert.match(html, /id="audioButton"/);
   assert.match(html, /id="level"/);
   assert.match(html, /id="stage"/);
+  assert.match(html, /aria-label="Recursive FM graphic pane"/);
+  assert.doesNotMatch(html, /recursive-fm-heading|recursiveFmTitle/);
+  assert.match(html, /id="midiEnvelopeControls" hidden/);
   assert.match(html, /href="chaotic-synth-ui\.css"/);
   assert.match(html, /class="recursive-fm-signal-graph"/);
   assert.match(html, /id="recursiveFmFlow"/);
@@ -471,6 +474,10 @@ test("Recursive FM page is internal and uses a gesture-controlled audio button",
   assert.doesNotMatch(html, /SPECTROGRAM · LOG FREQUENCY|signal → frequency → signal/);
   assert.doesNotMatch(html, /flowCarrierValue|flowEntryValue|flowRecursionValue|flowOutputValue/);
   assert.match(app, /function updateSignalFlow\(stack\)/);
+  assert.match(
+    app,
+    /midiEnvelopeControls"\)\.hidden = state\.performance\.playMode !== "midi"/,
+  );
   assert.match(app, /recursive-fm-modulator/);
   assert.match(app, /recursive-fm-bias/);
   assert.match(app, /recursive-fm-input-junction/);

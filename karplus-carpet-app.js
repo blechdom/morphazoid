@@ -15,7 +15,11 @@ import {
   buildKarplusCarpetEvents,
   karplusCarpetEvent,
   karplusCarpetIntervalMs,
+  karplusCarpetPointerEvent,
+  karplusCarpetPositionFromStageX,
+  karplusCarpetRephaseTime,
   karplusCarpetResumeTime,
+  karplusCarpetStageGeometry,
   sanitizeKarplusCarpetSettings,
 } from "./src/karplus-carpet.js";
 
@@ -70,10 +74,15 @@ let pixelRatio = 1;
 let scheduledFrame = 0;
 let transportTimer = 0;
 let nextHitAt = 0;
+let lastScheduledHitAt = null;
+let lastScheduledEventIndex = 0;
 let hitIndex = 0;
 let passSeed = 1;
 let pointerActive = false;
-let lastPointerGrainAt = 0;
+let pointerGesture = 0;
+let pointerVisualY = 0.5;
+let directPitchPass = false;
+let audioClockAnchor = null;
 let pulses = [];
 const knobDials = new Map();
 let activeKnobDrag = null;
@@ -152,10 +161,31 @@ function paintAudioState() {
   $("audioState").textContent = state.audioOn ? "on" : "off";
 }
 
+function captureAudioClockAnchor(force = false) {
+  if (!audio.context) return null;
+  const performanceTime = performance.now();
+  const audioTime = audio.context.currentTime;
+  const expectedAudioTime = audioClockAnchor
+    ? audioClockAnchor.audioTime
+      + (performanceTime - audioClockAnchor.performanceTime) / 1_000
+    : audioTime;
+  if (
+    force
+    || audioClockAnchor?.context !== audio.context
+    || Math.abs(audioTime - expectedAudioTime) > 0.05
+  ) {
+    audioClockAnchor = { context: audio.context, performanceTime, audioTime };
+  }
+  return audioClockAnchor;
+}
+
 function setAudioState(on) {
   state.audioOn = Boolean(on);
   audio.setOutput(state.audioOn ? state.level : 0);
-  if (!state.audioOn) audio.stopAll();
+  if (!state.audioOn) {
+    audio.stopAll();
+    audioClockAnchor = null;
+  }
   paintAudioState();
   paintReadouts();
 }
@@ -164,6 +194,7 @@ async function enableAudio() {
   $("audioError").hidden = true;
   try {
     await audio.start();
+    captureAudioClockAnchor(true);
     audio.setOutput(state.level);
     state.audioOn = true;
     paintAudioState();
@@ -284,7 +315,9 @@ function syncCarpetControls() {
   $("hitCountOut").textContent = state.hitCount + " hits";
   $("hitDensityOut").textContent = state.hitDensity + " /s";
   $("grainDurationOut").textContent = Math.round(state.grainDuration * 1_000) + " ms";
-  $("timingJitterOut").textContent = formatPercent(state.timingJitter);
+  $("timingJitterOut").textContent = state.timingJitter === 0
+    ? "0% · even"
+    : formatPercent(state.timingJitter);
   $("pitchSpreadOut").textContent = formatPercent(state.pitchSpread);
   $("velocityScatterOut").textContent = formatPercent(state.velocityScatter);
   $("stereoSpreadOut").textContent = formatPercent(state.stereoSpread);
@@ -312,7 +345,7 @@ function paintReadouts() {
   const firstFrequency = pitchCells[0] ?? state.lowFrequency;
   const lastFrequency = pitchCells.at(-1) ?? state.highFrequency;
   $("playSummary").textContent = state.hitCount + " hits \u00b7 "
-    + (state.playing ? "weaving" : "ready");
+    + (state.playing ? directPitchPass ? "direct pitch" : "weaving" : "ready");
   $("hitReadout").textContent = state.hitCount + " micro-attacks";
   $("densityReadout").textContent = state.hitDensity + " hits / second";
   $("progressOut").textContent = state.wovenHits + " / " + state.hitCount + " woven";
@@ -332,13 +365,16 @@ function paintReadouts() {
     state.hitCount + " HITS",
     state.hitDensity + " /S",
     Math.round(state.grainDuration * 1_000) + " MS",
-    state.playing ? "WEAVING" : state.audioOn ? "AUDIO ON" : "AUDIO OFF",
+    state.playing
+      ? directPitchPass ? "DIRECT PITCH" : "WEAVING"
+      : state.audioOn ? "AUDIO ON" : "AUDIO OFF",
   ].join(" \u00b7 ");
   canvas.setAttribute("aria-valuenow", String(Math.round(state.centerPosition * 100)));
   canvas.setAttribute(
     "aria-valuetext",
-    "Center " + formatFrequency(centerFrequency) + ", "
-      + formatPercent(state.pitchSpread) + " pitch spread",
+    (directPitchPass ? "Direct pitch " : "Pitch center ")
+      + formatFrequency(centerFrequency) + ", automatic carpet spread "
+      + formatPercent(state.pitchSpread),
   );
   $("carpetButton").setAttribute("aria-pressed", String(state.playing));
   $("carpetButton").setAttribute(
@@ -391,7 +427,7 @@ function applyPreset(item, options = {}) {
   }
   audio.clearBufferCache();
   paintReadouts();
-  if (options.audition !== false && state.audioOn) {
+  if (options.audition !== false && state.audioOn && !state.playing) {
     void plantCloud({ count: 8, announceCloud: false });
   }
 }
@@ -404,11 +440,18 @@ function pushPulse(event, startedAt) {
 
 function scheduleAudioGrain(event, startedAt) {
   if (!state.audioOn || !audio.context) return;
-  const secondsAhead = Math.max(0, (startedAt - performance.now()) / 1_000);
-  const when = audio.context.currentTime + secondsAhead;
+  const anchor = captureAudioClockAnchor();
+  const when = anchor
+    ? anchor.audioTime + (startedAt - anchor.performanceTime) / 1_000
+    : audio.context.currentTime;
   void audio.scheduleGrain(event, synthSettings(), {
     when,
     density: state.hitDensity,
+    renderDuration: clamp(
+      state.grainDuration * 1.22,
+      KARPLUS_CARPET_LIMITS.minimumGrainDuration,
+      KARPLUS_CARPET_LIMITS.maximumGrainDuration,
+    ),
   }).catch((error) => {
     if (error?.name === "AbortError") return;
     $("audioError").textContent = error?.message || "Unable to synthesize a carpet grain.";
@@ -426,6 +469,7 @@ function finishTransport() {
   transportTimer = 0;
   if (!state.playing) return;
   state.playing = false;
+  directPitchPass = false;
   paintReadouts();
   announce("Karplus Carpet completed " + state.hitCount + " synthesized micro-attacks.");
 }
@@ -435,15 +479,24 @@ function scheduleTransport() {
   if (!state.playing) return;
   const now = performance.now();
   nextHitAt = karplusCarpetResumeTime(nextHitAt, now);
-  const horizon = now + KARPLUS_CARPET_LIMITS.scheduleAheadSeconds * 1_000;
+  const scheduleAheadSeconds = directPitchPass
+    ? Math.min(KARPLUS_CARPET_LIMITS.scheduleAheadSeconds, 0.04)
+    : KARPLUS_CARPET_LIMITS.scheduleAheadSeconds;
+  const horizon = now + scheduleAheadSeconds * 1_000;
   let finalStartedAt = null;
   while (state.playing && nextHitAt <= horizon) {
     const settings = carpetSettings();
-    const event = karplusCarpetEvent(settings, hitIndex, {
-      seed: passSeed,
-      frequencies: pitchCells,
-    });
+    const eventOptions = { seed: passSeed, frequencies: pitchCells };
+    const event = directPitchPass
+      ? karplusCarpetPointerEvent(settings, hitIndex, {
+        ...eventOptions,
+        position: state.centerPosition,
+        visualY: pointerVisualY,
+      })
+      : karplusCarpetEvent(settings, hitIndex, eventOptions);
     queueGrain(event, nextHitAt);
+    lastScheduledHitAt = nextHitAt;
+    lastScheduledEventIndex = hitIndex;
     finalStartedAt = nextHitAt;
     nextHitAt += karplusCarpetIntervalMs(settings, hitIndex, { seed: passSeed });
     hitIndex += 1;
@@ -468,11 +521,15 @@ function scheduleTransport() {
 
 function startTransport(options = {}) {
   if (state.playing) stopTransport({ silence: true, announceStop: false });
+  directPitchPass = Boolean(options.directPitch);
+  if (state.audioOn) captureAudioClockAnchor(true);
   state.playing = true;
   state.wovenHits = 0;
   hitIndex = 0;
+  lastScheduledHitAt = null;
+  lastScheduledEventIndex = 0;
   passSeed = Math.trunc(Number(options.seed) || Date.now()) >>> 0;
-  nextHitAt = performance.now() + 8;
+  nextHitAt = performance.now() + (directPitchPass ? 40 : 100);
   paintReadouts();
   scheduleTransport();
   if (options.announceStart !== false) {
@@ -487,13 +544,34 @@ function stopTransport(options = {}) {
   transportTimer = 0;
   const wasPlaying = state.playing;
   state.playing = false;
+  directPitchPass = false;
   state.wovenHits = 0;
+  lastScheduledHitAt = null;
+  lastScheduledEventIndex = 0;
   if (options.silence !== false) {
     audio.stopAll();
     pulses = pulses.filter(({ startedAt }) => startedAt <= performance.now());
   }
   paintReadouts();
   if (wasPlaying && options.announceStop !== false) announce("Karplus Carpet stopped.");
+}
+
+function rephaseTransportClock() {
+  if (!state.playing || (!state.looping && hitIndex >= state.hitCount)) return;
+  const now = performance.now();
+  nextHitAt = karplusCarpetRephaseTime(
+    carpetSettings(),
+    lastScheduledHitAt,
+    now,
+    lastScheduledEventIndex,
+    {
+      seed: passSeed,
+      minimumLeadMs: directPitchPass ? 40 : 100,
+    },
+  );
+  if (transportTimer) window.clearTimeout(transportTimer);
+  transportTimer = 0;
+  scheduleTransport();
 }
 
 async function plantCloud(options = {}) {
@@ -513,32 +591,38 @@ async function plantCloud(options = {}) {
   }
 }
 
-function setStagePosition(centerPosition, pitchSpread = state.pitchSpread) {
+function setStagePosition(centerPosition) {
   state.centerPosition = clamp(centerPosition, 0, 1);
-  state.pitchSpread = clamp(pitchSpread, 0.04, 1);
-  $("pitchSpread").value = String(state.pitchSpread);
-  $("pitchSpreadOut").textContent = formatPercent(state.pitchSpread);
   paintReadouts();
 }
 
 function stagePoint(event) {
   const bounds = canvas.getBoundingClientRect();
+  const geometry = karplusCarpetStageGeometry(bounds.width, bounds.height);
+  const localX = event.clientX - bounds.left;
+  const localY = event.clientY - bounds.top;
   return {
-    centerPosition: clamp((event.clientX - bounds.left) / Math.max(1, bounds.width), 0, 1),
-    pitchSpread: clamp(
-      0.04 + (event.clientY - bounds.top) / Math.max(1, bounds.height) * 0.96,
-      0.04,
+    centerPosition: karplusCarpetPositionFromStageX(localX, bounds.width),
+    visualY: clamp(
+      (localY - geometry.top) / Math.max(1, geometry.bottom - geometry.top),
+      0,
       1,
     ),
   };
 }
 
-function emitPointerGrain() {
-  const event = karplusCarpetEvent(carpetSettings(), Date.now() & 0xffff, {
-    seed: Date.now(),
-    frequencies: pitchCells,
-  });
-  queueGrain(event, performance.now() + 4);
+async function startDirectCarpet() {
+  const gesture = ++pointerGesture;
+  if (!state.audioOn && !(await enableAudio())) return;
+  if (gesture !== pointerGesture) return;
+  startTransport({ seed: Date.now(), directPitch: true, announceStart: false });
+  announce(
+    "Direct carpet at " + formatFrequency(displayedCenterFrequency()) + ", "
+      + state.hitDensity + " hits per second, "
+      + (state.timingJitter === 0
+        ? "even timing."
+        : formatPercent(state.timingJitter) + " timing scatter."),
+  );
 }
 
 canvas.addEventListener("pointerdown", (event) => {
@@ -548,28 +632,30 @@ canvas.addEventListener("pointerdown", (event) => {
   pointerActive = true;
   canvas.setPointerCapture?.(event.pointerId);
   const point = stagePoint(event);
-  setStagePosition(point.centerPosition, point.pitchSpread);
-  lastPointerGrainAt = performance.now();
-  void plantCloud();
+  pointerVisualY = point.visualY;
+  setStagePosition(point.centerPosition);
+  void startDirectCarpet();
 });
 
 canvas.addEventListener("pointermove", (event) => {
   if (!pointerActive) return;
   const point = stagePoint(event);
-  setStagePosition(point.centerPosition, point.pitchSpread);
-  const now = performance.now();
-  if (now - lastPointerGrainAt < 55 || !state.audioOn) return;
-  lastPointerGrainAt = now;
-  emitPointerGrain();
+  pointerVisualY = point.visualY;
+  setStagePosition(point.centerPosition);
 });
 
 function releasePointer(event) {
   pointerActive = false;
   try { canvas.releasePointerCapture?.(event.pointerId); } catch { /* released */ }
+  scheduleFrame();
 }
 
 canvas.addEventListener("pointerup", releasePointer);
 canvas.addEventListener("pointercancel", releasePointer);
+canvas.addEventListener("lostpointercapture", () => {
+  pointerActive = false;
+  scheduleFrame();
+});
 
 canvas.addEventListener("keydown", (event) => {
   if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -579,7 +665,8 @@ canvas.addEventListener("keydown", (event) => {
     announce("Carpet center " + formatFrequency(displayedCenterFrequency()) + ".");
   } else if (event.key === " " || event.key === "Enter") {
     event.preventDefault();
-    void plantCloud();
+    pointerVisualY = 0.5;
+    void startDirectCarpet();
   }
 });
 
@@ -608,6 +695,7 @@ function bindControls() {
       Object.assign(state, sanitizeKarplusCarpetSettings(state));
       syncCarpetControls();
       if (id === "grainDuration") audio.clearBufferCache();
+      if (id === "hitDensity" || id === "timingJitter") rephaseTransportClock();
       paintReadouts();
     });
   }
@@ -707,8 +795,13 @@ window.addEventListener("morphazoid:midi-input", (event) => {
   paintReadouts();
   void (async () => {
     if (!state.audioOn && !(await enableAudio())) return;
-    startTransport({ seed: note * 65_537 + Date.now(), announceStart: false });
-    announce("MIDI note centered a " + state.hitCount + " hit Karplus Carpet.");
+    pointerVisualY = 0.5;
+    startTransport({
+      seed: note * 65_537 + Date.now(),
+      directPitch: true,
+      announceStart: false,
+    });
+    announce("MIDI note started an exact-pitch " + state.hitCount + " hit Karplus Carpet.");
   })();
 });
 
@@ -719,7 +812,8 @@ document.addEventListener("keydown", (event) => {
   if (index < 0) return;
   event.preventDefault();
   setStagePosition(index / Math.max(1, KEY_BINDINGS.length - 1));
-  void plantCloud({ count: 8 });
+  pointerVisualY = 0.5;
+  void startDirectCarpet();
 });
 
 function resizeCanvas() {
@@ -811,20 +905,34 @@ function drawStage(timestamp = performance.now()) {
   scheduledFrame = 0;
   context.fillStyle = "#07090b";
   context.fillRect(0, 0, cssWidth, cssHeight);
-  const top = Math.min(118, cssHeight * 0.22);
-  const bottom = Math.max(top + 100, cssHeight - 68);
-  const left = Math.min(48, cssWidth * 0.07);
-  const right = Math.max(left + 120, cssWidth - 42);
+  const { top, bottom, left, right } = karplusCarpetStageGeometry(cssWidth, cssHeight);
   drawWovenGround(top, bottom, left, right, timestamp);
 
   const centerX = left + state.centerPosition * (right - left);
-  const halfWidth = Math.max(7, state.pitchSpread * (right - left) * 0.5);
+  const halfWidth = directPitchPass
+    ? 7
+    : Math.max(7, state.pitchSpread * (right - left) * 0.5);
   const gradient = context.createLinearGradient(centerX - halfWidth, 0, centerX + halfWidth, 0);
   gradient.addColorStop(0, "rgba(231, 165, 93, 0)");
   gradient.addColorStop(0.5, "rgba(231, 165, 93, .055)");
   gradient.addColorStop(1, "rgba(231, 165, 93, 0)");
   context.fillStyle = gradient;
   context.fillRect(centerX - halfWidth, top, halfWidth * 2, bottom - top);
+  context.strokeStyle = directPitchPass
+    ? "rgba(110, 217, 197, .5)"
+    : "rgba(231, 165, 93, .24)";
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(centerX, top);
+  context.lineTo(centerX, bottom);
+  context.stroke();
+  if (pointerActive || directPitchPass) {
+    const pointerY = top + pointerVisualY * (bottom - top);
+    context.fillStyle = "rgba(110, 217, 197, .86)";
+    context.beginPath();
+    context.arc(centerX, pointerY, 3.5, 0, Math.PI * 2);
+    context.fill();
+  }
 
   pulses = pulses.filter(({ startedAt, duration }) => (
     timestamp - startedAt < duration * 1_000 + 420

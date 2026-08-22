@@ -1,6 +1,7 @@
 import {
   fallbackSpellingPronunciation,
   isSpellingPronunciationVowel,
+  SPELLING_PRONUNCIATION_PHONE_CATALOG,
   spellingPhoneDefinition,
 } from "./spelling-pronunciation.js";
 
@@ -55,6 +56,17 @@ export const VOCALZOID_MELODY_PRESETS = Object.freeze({
   answer: Object.freeze({ name: "Answer", offsets: Object.freeze([7, 5, 4, 2, 0, -1]) }),
   orbit: Object.freeze({ name: "Orbit", offsets: Object.freeze([0, 7, 3, 10, 5, 0]) }),
 });
+
+const RANDOM_VOCALZOID_VOWELS = Object.freeze(
+  SPELLING_PRONUNCIATION_PHONE_CATALOG
+    .filter(({ vowel }) => vowel)
+    .map(({ id }) => id),
+);
+const RANDOM_VOCALZOID_CONSONANTS = Object.freeze(
+  SPELLING_PRONUNCIATION_PHONE_CATALOG
+    .filter(({ vowel }) => !vowel)
+    .map(({ id }) => id),
+);
 
 const SHARP_NAMES = Object.freeze([
   "C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B",
@@ -202,6 +214,71 @@ export function createVocalzoidSequence(value, {
   }));
 }
 
+function vocalzoidRandomUnit(random) {
+  try {
+    const value = Number(typeof random === "function" ? random() : Number.NaN);
+    if (!Number.isFinite(value)) return 0;
+    return Math.min(1 - Number.EPSILON, Math.max(0, value));
+  } catch {
+    return 0;
+  }
+}
+
+function vocalzoidRandomInteger(random, minimum, maximum) {
+  return minimum + Math.floor(vocalzoidRandomUnit(random) * (maximum - minimum + 1));
+}
+
+function vocalzoidRandomItem(random, values) {
+  return values[vocalzoidRandomInteger(random, 0, values.length - 1)];
+}
+
+export function createRandomVocalzoidScore(random = Math.random) {
+  const noteCount = vocalzoidRandomInteger(random, 6, 10);
+  const style = vocalzoidRandomItem(random, Object.keys(VOCALZOID_STYLES));
+  const bpm = vocalzoidRandomInteger(random, 64, 176);
+  const vibrato = vocalzoidRandomInteger(random, 0, 80);
+  const glide = vocalzoidRandomInteger(random, 0, 48) * 5;
+  const notes = [];
+  let start = 0;
+
+  for (let index = 0; index < noteCount; index += 1) {
+    const onset = vocalzoidRandomUnit(random) >= 0.32
+      ? vocalzoidRandomItem(random, RANDOM_VOCALZOID_CONSONANTS)
+      : null;
+    const vowel = vocalzoidRandomItem(random, RANDOM_VOCALZOID_VOWELS);
+    const coda = vocalzoidRandomUnit(random) >= 0.45
+      ? vocalzoidRandomItem(random, RANDOM_VOCALZOID_CONSONANTS)
+      : null;
+    const phones = Object.freeze([onset, vowel, coda].filter(Boolean));
+    const duration = vocalzoidRandomInteger(random, 2, 8) * 0.25;
+    const midi = vocalzoidRandomInteger(
+      random,
+      VOCALZOID_MIN_MIDI,
+      VOCALZOID_MAX_MIDI,
+    );
+    notes.push(Object.freeze({
+      id: `vz-random-${index + 1}`,
+      lyric: phones.join("").toLowerCase(),
+      phones,
+      alias: "",
+      phonesEdited: true,
+      start,
+      duration,
+      midi,
+    }));
+    start += duration;
+  }
+
+  return Object.freeze({
+    notes: Object.freeze(notes),
+    style,
+    bpm,
+    vibrato,
+    glide,
+    scoreBeats: Math.max(8, Math.ceil(start + 1)),
+  });
+}
+
 export function updateVocalzoidNote(note, changes = {}) {
   return Object.freeze({
     ...note,
@@ -217,6 +294,113 @@ export function updateVocalzoidNote(note, changes = {}) {
     )),
     phones: Object.freeze([...(changes.phones ?? note.phones ?? [])]),
   });
+}
+
+export function replaceVocalzoidNotePhone(note, phoneIndex, replacementId) {
+  if (!note || !Array.isArray(note.phones)) return note;
+  const index = Number(phoneIndex);
+  const replacement = String(replacementId ?? "").replace(/\d/g, "").toUpperCase();
+  if (!Number.isInteger(index) || index < 0 || index >= note.phones.length) return note;
+
+  const current = String(note.phones[index] ?? "").replace(/\d/g, "").toUpperCase();
+  const currentDefinition = spellingPhoneDefinition(current);
+  const replacementDefinition = spellingPhoneDefinition(replacement);
+  if (!currentDefinition || !replacementDefinition) return note;
+  if (currentDefinition.vowel !== replacementDefinition.vowel || current === replacement) return note;
+
+  const phones = [...note.phones];
+  phones[index] = replacement;
+  return updateVocalzoidNote(note, {
+    phones,
+    alias: "",
+    phonesEdited: true,
+  });
+}
+
+function freezeVocalzoidNotes(notes) {
+  return Object.freeze((notes ?? []).map((note) => (
+    Object.isFrozen(note) && Object.isFrozen(note.phones)
+      ? note
+      : Object.freeze({
+        ...note,
+        phones: Object.freeze([...(note?.phones ?? [])]),
+      })
+  )));
+}
+
+function uniqueVocalzoidNoteId(notes, requestedId = "vz-note") {
+  const used = new Set((notes ?? []).map((note) => String(note?.id ?? "")));
+  const base = String(requestedId ?? "").trim() || "vz-note";
+  if (!used.has(base)) return base;
+  let suffix = 2;
+  while (used.has(`${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
+}
+
+export function insertVocalzoidNote(notes, note = {}) {
+  const source = notes ?? [];
+  const template = note?.template && typeof note.template === "object"
+    ? note.template
+    : {};
+  const requested = { ...template, ...note };
+  delete requested.template;
+  const inserted = updateVocalzoidNote({
+    lyric: "ah",
+    phones: ["AH"],
+    alias: "",
+    duration: 1,
+    ...requested,
+    id: uniqueVocalzoidNoteId(source, requested.id),
+    start: requested.start ?? 0,
+    midi: requested.midi ?? 55,
+  });
+  return freezeVocalzoidNotes([...source, inserted].sort((left, right) => (
+    finite(left?.start) - finite(right?.start)
+  )));
+}
+
+export function deleteVocalzoidNote(notes, noteId) {
+  const target = String(noteId ?? "");
+  return freezeVocalzoidNotes((notes ?? []).filter((note) => String(note?.id ?? "") !== target));
+}
+
+export function splitVocalzoidNote(notes, noteId, splitBeat, newId) {
+  const source = notes ?? [];
+  const target = String(noteId ?? "");
+  const index = source.findIndex((note) => String(note?.id ?? "") === target);
+  const split = Number(splitBeat);
+  if (index < 0 || !Number.isFinite(split)) return freezeVocalzoidNotes(source);
+
+  const note = source[index];
+  const start = finite(note.start);
+  const duration = finite(note.duration);
+  const end = start + duration;
+  if (split < start + 0.25 || split > end - 0.25) return freezeVocalzoidNotes(source);
+
+  const phones = note.phones?.length ? [...note.phones] : ["AH"];
+  const vowelIndex = phones.findIndex(isSpellingPronunciationVowel);
+  const leftPhones = vowelIndex >= 0 ? phones.slice(0, vowelIndex + 1) : phones;
+  const rightPhones = vowelIndex >= 0 ? phones.slice(vowelIndex) : phones;
+  const left = updateVocalzoidNote(note, {
+    duration: split - start,
+    phones: leftPhones,
+    alias: "",
+    phonesEdited: true,
+  });
+  const right = updateVocalzoidNote(note, {
+    id: uniqueVocalzoidNoteId(source, newId || `${note.id}-split`),
+    start: split,
+    duration: end - split,
+    phones: rightPhones,
+    alias: "",
+    phonesEdited: true,
+  });
+  return freezeVocalzoidNotes([
+    ...source.slice(0, index),
+    left,
+    right,
+    ...source.slice(index + 1),
+  ]);
 }
 
 export function applyVocalzoidMelody(notes, preset = "lift", baseMidi = 55) {
@@ -349,16 +533,17 @@ export function utauAliasCandidates(note, previousPhone = "-") {
     prior = phone;
   }
   // A single lightweight note renderer needs the unit that reaches the vowel
-  // body before a boundary onset or bare consonant. Exact user aliases and
-  // whole-lyric CV aliases still take precedence.
+  // body before a boundary onset or bare consonant. Phone-derived candidates
+  // lead so a pronunciation edit changes the sound. The written lyric remains
+  // a fallback until the note's phones have been edited by hand.
   const candidates = [
     explicit,
-    lyric,
     ...vowelContextual,
     ...internalContextual,
     ...boundaryContextual,
     ...vowelSimple,
     ...simple,
+    ...(note?.phonesEdited ? [] : [lyric]),
   ];
   return [...new Set(candidates.map(normalizeUtauAlias).filter(Boolean))];
 }
@@ -405,30 +590,38 @@ export function vocalzoidRenderPlan(notes, bpm = 108) {
     const trailingCount = vowelIndex < 0 ? 0 : phones.length - vowelIndex - 1;
     const leadingSeconds = Math.min(noteDuration * 0.32, leadingCount * 0.085);
     const trailingSeconds = Math.min(noteDuration * 0.24, trailingCount * 0.07);
-    const bodyStart = noteStart + leadingSeconds;
     const bodyEnd = noteStart + noteDuration - trailingSeconds;
     phones.forEach((phone, phoneIndex) => {
       let start;
       let duration;
+      let role;
       if (phoneIndex < leadingCount) {
         duration = leadingCount ? leadingSeconds / leadingCount + 0.022 : 0.08;
-        start = noteStart + phoneIndex * (leadingSeconds / Math.max(1, leadingCount));
+        start = noteStart - leadingSeconds
+          + phoneIndex * (leadingSeconds / Math.max(1, leadingCount));
+        role = "onset";
       } else if (phoneIndex === vowelIndex || (vowelIndex < 0 && phoneIndex === phones.length - 1)) {
-        start = bodyStart - 0.018;
-        duration = Math.max(0.09, bodyEnd - bodyStart + 0.036);
+        // In both classic Vocaloid and UTAU-style timing, consonants are a
+        // pickup: the vowel, not the consonant, lands on the score line. Keep
+        // the held body underneath any coda so the note never opens a hole.
+        start = noteStart;
+        duration = noteDuration;
+        role = "sustain";
       } else {
         const trailingIndex = phoneIndex - vowelIndex - 1;
         duration = trailingCount ? trailingSeconds / trailingCount + 0.018 : 0.075;
         start = bodyEnd + trailingIndex * (trailingSeconds / Math.max(1, trailingCount)) - 0.018;
+        role = "release";
       }
       plan.push(Object.freeze({
         noteId: note.id,
         lyric: note.lyric,
         phone,
         midi: note.midi,
-        start: Math.max(0, start),
+        start,
         duration: Math.max(0.04, duration),
         sustain: isSpellingPronunciationVowel(phone),
+        role,
       }));
     });
   }

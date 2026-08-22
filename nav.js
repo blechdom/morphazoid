@@ -6,6 +6,7 @@ import { getSharedAudioOutputManager } from "./src/audio-output-manager.js";
 import { installBrowserMidiAdapter } from "./src/browser-midi-adapter.js";
 import { instrumentMidiCapabilityForId } from "./src/instrument-midi-capabilities.js";
 import { initializeMidiOutputMonitor } from "./src/midi-output-preview.js";
+import { initializeChaoticViewportControls } from "./src/chaotic-viewport-controls.js";
 
 const LEGACY_SETTINGS_KEYS = [
   "morphazoid:shape:audio:v1",
@@ -1628,6 +1629,9 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
     siteRoot,
   });
   loadInstrumentPageInfo(doc, siteRoot);
+  initializeChaoticViewportControls(doc, runtime, {
+    instrumentId: navigation.activeTool?.id,
+  });
 
   installBrowserMidiAdapter(runtime, doc, { routeId: navigation.activeTool?.id });
   if (navigation.activeTool) {

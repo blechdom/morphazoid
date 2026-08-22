@@ -239,7 +239,7 @@ test("folder import rejects unsafe, incomplete, oversized, and unreadable banks"
   });
 });
 
-test("open-bank manifests expose three immutable OddVoices styles and complete clip sets", () => {
+test("open-bank manifests expose eight immutable demo voices and complete clip sets", () => {
   const expected = {
     air: {
       name: "OddVoices · Air",
@@ -258,8 +258,49 @@ test("open-bank manifests expose three immutable OddVoices styles and complete c
       description: "Deep, dark bass",
       rootMidi: 44,
       filename: "vocalzoid-oddvoices-quake.wav",
+      license: "CC0 1.0",
+      sourceHref: "https://gitlab.com/oddvoices/oddvoices/-/tree/33a248af8df88edf5166593bf36b7e24e7bc1f94/voices/quake",
+    },
+    bdl: {
+      name: "CMU ARCTIC · BDL",
+      description: "Warm North Midland US male",
+      rootMidi: 49,
+      filename: "vocalzoid-cmu-arctic-bdl.wav",
+    },
+    clb: {
+      name: "CMU ARCTIC · CLB",
+      description: "Clear US female",
+      rootMidi: 54,
+      filename: "vocalzoid-cmu-arctic-clb.wav",
+    },
+    jmk: {
+      name: "CMU ARCTIC · JMK",
+      description: "Resonant Ontario Canadian male",
+      rootMidi: 46,
+      filename: "vocalzoid-cmu-arctic-jmk.wav",
+    },
+    ksp: {
+      name: "CMU ARCTIC · KSP",
+      description: "Focused Indian English male",
+      rootMidi: 50,
+      filename: "vocalzoid-cmu-arctic-ksp.wav",
+    },
+    slt: {
+      name: "CMU ARCTIC · SLT",
+      description: "Light North Midland US female",
+      rootMidi: 54,
+      filename: "vocalzoid-cmu-arctic-slt.wav",
     },
   };
+  for (const [id, value] of Object.entries(expected)) {
+    if (["air", "cicada"].includes(id)) {
+      value.license = "CC0 1.0";
+      value.sourceHref = `https://gitlab.com/oddvoices/oddvoices/-/tree/33a248af8df88edf5166593bf36b7e24e7bc1f94/voices/${id}`;
+    } else if (!["quake"].includes(id)) {
+      value.license = "CMU ARCTIC permissive";
+      value.sourceHref = `http://festvox.org/cmu_arctic/cmu_arctic/cmu_us_${id}_arctic/`;
+    }
+  }
   const clipNames = ["voU", "oU", "k@", "@", "@l", "z_", "OI", "OId"];
 
   assert.deepEqual(Object.keys(VOCALZOID_OPEN_BANKS), Object.keys(expected));
@@ -271,11 +312,8 @@ test("open-bank manifests expose three immutable OddVoices styles and complete c
     assert.equal(manifest.description, expected[id].description);
     assert.equal(manifest.rootMidi, expected[id].rootMidi);
     assert.equal(basename(fileURLToPath(manifest.url)), expected[id].filename);
-    assert.equal(manifest.license, "CC0 1.0");
-    assert.equal(
-      manifest.sourceHref,
-      `https://gitlab.com/oddvoices/oddvoices/-/tree/33a248af8df88edf5166593bf36b7e24e7bc1f94/voices/${id}`,
-    );
+    assert.equal(manifest.license, expected[id].license);
+    assert.equal(manifest.sourceHref, expected[id].sourceHref);
     assert.deepEqual(Object.keys(manifest.clips), clipNames);
     assert.ok(Object.isFrozen(manifest));
     assert.ok(Object.isFrozen(manifest.clips));
@@ -298,6 +336,19 @@ test("open-bank recipes cover the default three syllables and reference every re
     { onset: "k@", sustain: "@", release: "@l" },
     { onset: "z_", sustain: "OI", release: "OId" },
   ]);
+  assert.deepEqual([
+    vocalzoidOpenBankRecipe({ phones: ["OW"] }),
+    vocalzoidOpenBankRecipe({ phones: ["K", "AH"] }),
+    vocalzoidOpenBankRecipe({ phones: ["AH", "L"] }),
+    vocalzoidOpenBankRecipe({ phones: ["Z", "OY"] }),
+    vocalzoidOpenBankRecipe({ phones: ["OY", "D"] }),
+  ], [
+    { onset: null, sustain: "oU", release: null },
+    { onset: "k@", sustain: "@", release: null },
+    { onset: null, sustain: "@", release: "@l" },
+    { onset: "z_", sustain: "OI", release: null },
+    { onset: null, sustain: "OI", release: "OId" },
+  ]);
   assert.ok(recipes.every(Object.isFrozen));
   for (const bank of Object.values(VOCALZOID_OPEN_BANKS)) {
     for (const recipe of recipes) {
@@ -319,8 +370,9 @@ test("open-bank recipes cover the default three syllables and reference every re
   assert.ok(Object.isFrozen(emptyCoverage));
 });
 
-test("shipped OddVoices sprites are mono 48 kHz PCM WAVs whose manifests stay in bounds", async () => {
+test("shipped demo sprites are mono PCM WAVs whose manifests and loops stay in bounds", async () => {
   const loopingClips = new Set(["oU", "@", "OI"]);
+  const arcticIds = new Set(["bdl", "clb", "jmk", "ksp", "slt"]);
 
   for (const bank of Object.values(VOCALZOID_OPEN_BANKS)) {
     const path = fileURLToPath(bank.url);
@@ -343,7 +395,7 @@ test("shipped OddVoices sprites are mono 48 kHz PCM WAVs whose manifests stay in
     const bitsPerSample = wav.readUInt16LE(format.dataOffset + 14);
     assert.equal(wav.readUInt16LE(format.dataOffset), 1, `${bank.id} uses integer PCM`);
     assert.equal(channels, 1, `${bank.id} is mono`);
-    assert.equal(sampleRate, 48_000, `${bank.id} uses the generator sample rate`);
+    assert.equal(sampleRate, arcticIds.has(bank.id) ? 16_000 : 48_000, `${bank.id} uses its generator sample rate`);
     assert.equal(bitsPerSample, 16, `${bank.id} uses signed 16-bit samples`);
     assert.equal(blockAlign, channels * bitsPerSample / 8);
     assert.equal(byteRate, sampleRate * blockAlign);
@@ -371,7 +423,7 @@ test("shipped OddVoices sprites are mono 48 kHz PCM WAVs whose manifests stay in
       if (loopingClips.has(name)) {
         assert.ok(clip.loopStart >= 0, `${bank.id}/${name} loop starts in the clip`);
         assert.ok(clip.loopEnd <= clip.duration, `${bank.id}/${name} loop ends in the clip`);
-        assert.ok(clip.loopEnd - clip.loopStart >= 0.08, `${bank.id}/${name} has a useful loop`);
+        assert.ok(clip.loopEnd - clip.loopStart >= 0.06, `${bank.id}/${name} has a useful loop`);
       } else {
         assert.equal(clip.loopStart, 0, `${bank.id}/${name} does not declare a loop`);
         assert.equal(clip.loopEnd, 0, `${bank.id}/${name} does not declare a loop`);

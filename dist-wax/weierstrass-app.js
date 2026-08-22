@@ -832,15 +832,15 @@ function latticeFrequencyBounds(bank) {
 function analysisRegions(width, height) {
   const left = Math.max(24, width * 0.045);
   const right = width - left;
-  const scopeTop = Math.max(108, Math.min(height * 0.19, 146));
+  const scopeTop = Math.max(36, Math.min(height * 0.06, 70));
   const scopeBottom = Math.max(
     scopeTop + 48,
-    Math.min(height * 0.3, scopeTop + 96),
+    Math.min(height * 0.16, scopeTop + 96),
   );
   const spectrogramTop = scopeBottom + 8;
   const spectrogramBottom = Math.max(
     spectrogramTop + 42,
-    Math.min(height * 0.43, spectrogramTop + 96),
+    Math.min(height * 0.28, spectrogramTop + 96),
   );
   return {
     left,
@@ -855,7 +855,7 @@ function analysisRegions(width, height) {
 function drawPartialLattice(context, bank, width, height, timestamp) {
   const left = Math.max(28, width * 0.055);
   const right = width - left;
-  const top = Math.max(250, height * 0.51);
+  const top = Math.max(156, height * 0.34);
   const bottom = Math.max(top + 80, height - 54);
   const frequencyBounds = latticeFrequencyBounds(bank);
   const minimumHz = frequencyBounds.minimum;

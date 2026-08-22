@@ -19,6 +19,7 @@ import {
 } from "./vocalzoid.js";
 
 const SILENCE = 0.0001;
+const JOIN_OVERLAP_SECONDS = 0.024;
 export const VOCALZOID_MAX_BANK_FILES = 12_000;
 export const VOCALZOID_MAX_BANK_BYTES = 512 * 1024 * 1024;
 export const VOCALZOID_MAX_DECODED_BANK_BYTES = 256 * 1024 * 1024;
@@ -144,6 +145,59 @@ function sourceMidiFor(bank, entry) {
   return clampVocalzoid(bank.rootMidi, 24, 96);
 }
 
+function risingZeroNear(buffer, targetSeconds, minimumSeconds, maximumSeconds) {
+  if (
+    typeof buffer?.getChannelData !== "function"
+    || !(buffer.sampleRate > 0)
+  ) return targetSeconds;
+  let samples;
+  try { samples = buffer.getChannelData(0); } catch { return targetSeconds; }
+  if (!samples?.length) return targetSeconds;
+  const minimum = Math.max(1, Math.floor(minimumSeconds * buffer.sampleRate));
+  const maximum = Math.min(samples.length - 1, Math.ceil(maximumSeconds * buffer.sampleRate));
+  const target = Math.round(targetSeconds * buffer.sampleRate);
+  let best = -1;
+  let distance = Infinity;
+  for (let index = minimum; index <= maximum; index += 1) {
+    if (samples[index - 1] <= 0 && samples[index] > 0) {
+      const candidateDistance = Math.abs(index - target);
+      if (candidateDistance < distance) {
+        best = index;
+        distance = candidateDistance;
+      }
+    }
+  }
+  return best >= 0 ? best / buffer.sampleRate : targetSeconds;
+}
+
+function builtInSustainWindow(buffer, clip) {
+  if (clip.sustainEnd > clip.sustainStart) {
+    return Object.freeze({
+      start: clip.offset + clip.sustainStart,
+      end: clip.offset + clip.sustainEnd,
+    });
+  }
+  if (!(clip.duration >= 0.14) || !["vowel", "glide"].includes(clip.kind)) return null;
+  const minimum = clip.offset + clip.duration * 0.42;
+  const maximum = clip.offset + clip.duration * 0.9;
+  const start = risingZeroNear(
+    buffer,
+    clip.offset + clip.duration * 0.54,
+    minimum,
+    clip.offset + clip.duration * 0.66,
+  );
+  const end = risingZeroNear(
+    buffer,
+    clip.offset + clip.duration * 0.82,
+    clip.offset + clip.duration * 0.7,
+    maximum,
+  );
+  if (!(end - start >= 0.045) || start < clip.offset || end > clip.offset + clip.duration) {
+    return null;
+  }
+  return Object.freeze({ start, end });
+}
+
 export class VocalzoidAudio {
   constructor({ runtime = globalThis, level = 0.52, style = "raw" } = {}) {
     this.runtime = runtime;
@@ -154,6 +208,7 @@ export class VocalzoidAudio {
     this.bank = null;
     this.openBank = null;
     this.openBuffers = new Map();
+    this.builtInLoops = new WeakMap();
     this.input = null;
     this.highpass = null;
     this.presence = null;
@@ -461,20 +516,44 @@ export class VocalzoidAudio {
     const clip = definition ? SPELLING_DIPHONE_CLIPS[definition.sampleKey] : null;
     if (!clip) return false;
     const context = this.context;
-    const at = baseTime + event.start;
-    const duration = Math.max(0.045, event.duration);
+    const plannedAt = baseTime + event.start;
+    const plannedDuration = Math.max(0.045, event.duration);
     const source = context.createBufferSource();
     const gain = context.createGain();
     const rootMidi = this.style.rootMidi;
     const ratio = 2 ** ((event.midi - rootMidi) / 12);
     const previousRatio = 2 ** (((previousMidi ?? event.midi) - rootMidi) / 12);
     source.buffer = this.atlas;
-    source.loop = Boolean(event.sustain && clip.sustainEnd > clip.sustainStart);
-    if (source.loop) {
-      source.loopStart = clip.offset + clip.sustainStart;
-      source.loopEnd = clip.offset + clip.sustainEnd;
+    let sustainWindow = null;
+    if (event.sustain) {
+      sustainWindow = this.builtInLoops.get(clip);
+      if (sustainWindow === undefined) {
+        sustainWindow = builtInSustainWindow(this.atlas, clip);
+        this.builtInLoops.set(clip, sustainWindow);
+      }
     }
-    this.rateAutomation(source.playbackRate, ratio, at, duration, {
+    source.loop = Boolean(sustainWindow);
+    if (sustainWindow) {
+      source.loopStart = sustainWindow.start;
+      source.loopEnd = sustainWindow.end;
+    }
+    const availableWall = clip.duration / Math.max(0.001, ratio);
+    const audibleDuration = source.loop
+      ? plannedDuration
+      : Math.min(plannedDuration, availableWall);
+    // Short edge consonants must touch their score boundary after pitching.
+    // The plan gives pickups a 22 ms tail beyond that boundary; keep only a
+    // bounded fraction of the real pitched clip there so even tiny onsets
+    // begin before (and still cross) Note-On.
+    let at = plannedAt;
+    if (event.role === "onset") {
+      const boundary = plannedAt + plannedDuration - 0.022;
+      const overlap = Math.min(0.022, audibleDuration * 0.35);
+      at = boundary + overlap - audibleDuration;
+    } else if (event.role === "release") {
+      at = plannedAt + plannedDuration - audibleDuration;
+    }
+    this.rateAutomation(source.playbackRate, ratio, at, audibleDuration, {
       vibratoCents: event.sustain ? options.vibratoCents : 0,
       vibratoRate: options.vibratoRate,
       previousRatio,
@@ -483,15 +562,13 @@ export class VocalzoidAudio {
     gain.gain.value = 0;
     source.connect(gain);
     gain.connect(this.input);
-    setEnvelope(gain.gain, at, duration, clip.gain * (event.sustain ? 0.78 : 0.9), 0.024);
+    setEnvelope(gain.gain, at, audibleDuration, clip.gain * (event.sustain ? 0.78 : 0.9), 0.024);
     this.trackSource(source, gain);
     try {
       if (source.loop) {
         source.start(at, clip.offset);
-        source.stop(at + duration + 0.006);
+        source.stop(at + audibleDuration + 0.006);
       } else {
-        const available = clip.duration / Math.max(0.001, ratio);
-        const audibleDuration = Math.min(duration, available);
         source.start(at, clip.offset, Math.min(clip.duration, audibleDuration * ratio));
       }
       return true;
@@ -526,13 +603,18 @@ export class VocalzoidAudio {
       : Math.max(offset, buffer.duration - entry.cutoff / 1_000);
     const sourceLength = end - offset;
     if (!(sourceLength >= 0.018)) return false;
-    const source = context.createBufferSource();
-    const gain = context.createGain();
-    source.buffer = buffer;
     const fixedEnd = offset + entry.consonant / 1_000;
     const loopStart = Math.min(end - 0.014, Math.max(offset + 0.006, fixedEnd));
     const loopEnd = end - 0.004;
-    source.loop = noteDuration * ratio > sourceLength && loopEnd - loopStart >= 0.012;
+    const requiresExtension = noteDuration * ratio > sourceLength;
+    const canLoop = loopEnd - loopStart >= 0.012;
+    // Unlike an OpenUtau resampler, Web Audio cannot safely stretch a sample
+    // with no vowel body. Report failure so the complete KAL note is used.
+    if (requiresExtension && !canLoop) return false;
+    const source = context.createBufferSource();
+    const gain = context.createGain();
+    source.buffer = buffer;
+    source.loop = requiresExtension && canLoop;
     if (source.loop) {
       source.loopStart = loopStart;
       source.loopEnd = loopEnd;
@@ -571,16 +653,17 @@ export class VocalzoidAudio {
   scheduleOpenUnit(key, buffer, at, duration, midi, options, previousMidi, sustain = false) {
     const clip = this.openBank?.clips?.[key];
     if (!clip || !buffer) return false;
-    const context = this.context;
-    const source = context.createBufferSource();
-    const gain = context.createGain();
     const ratio = 2 ** ((midi - this.openBank.rootMidi) / 12);
     const previousRatio = 2 ** (((previousMidi ?? midi) - this.openBank.rootMidi) / 12);
     const canLoop = sustain && clip.loopEnd - clip.loopStart >= 0.06;
+    if (sustain && duration * ratio > clip.duration && !canLoop) return false;
     const audibleDuration = canLoop
       ? duration
       : Math.min(duration, clip.duration / Math.max(0.001, ratio));
     if (!(audibleDuration >= 0.025)) return false;
+    const context = this.context;
+    const source = context.createBufferSource();
+    const gain = context.createGain();
     source.buffer = buffer;
     source.loop = canLoop;
     if (canLoop) {
@@ -622,18 +705,22 @@ export class VocalzoidAudio {
     if (!recipe) return false;
     const at = baseTime + note.start * beatSeconds;
     const duration = Math.max(0.14, note.duration * beatSeconds);
+    const ratio = 2 ** ((note.midi - this.openBank.rootMidi) / 12);
     const releaseClip = recipe.release ? this.openBank.clips[recipe.release] : null;
     const releaseDuration = releaseClip
-      ? Math.min(duration * 0.28, Math.max(0.09, releaseClip.duration * 0.72))
+      ? Math.min(duration * 0.28, releaseClip.duration / Math.max(0.001, ratio))
       : 0;
-    const onsetClip = this.openBank.clips[recipe.onset];
-    const onsetDuration = Math.min(duration * 0.32, Math.max(0.075, onsetClip.duration * 0.82));
-    const sustainAt = at + Math.max(0.045, onsetDuration - 0.028);
-    const sustainEnd = at + duration - releaseDuration + (releaseDuration ? 0.025 : 0);
-    const onsetOk = this.scheduleOpenUnit(
+    const onsetClip = recipe.onset ? this.openBank.clips[recipe.onset] : null;
+    const onsetDuration = onsetClip
+      ? Math.min(duration * 0.32, onsetClip.duration / Math.max(0.001, ratio))
+      : 0;
+    const onsetOverlap = Math.min(JOIN_OVERLAP_SECONDS, onsetDuration * 0.35);
+    const onsetAt = at - Math.max(0, onsetDuration - onsetOverlap);
+    const releaseAt = at + duration - releaseDuration;
+    const onsetOk = !recipe.onset || this.scheduleOpenUnit(
       recipe.onset,
       buffer,
-      at,
+      onsetAt,
       onsetDuration,
       note.midi,
       options,
@@ -643,8 +730,8 @@ export class VocalzoidAudio {
     const sustainOk = this.scheduleOpenUnit(
       recipe.sustain,
       buffer,
-      sustainAt,
-      Math.max(0.08, sustainEnd - sustainAt),
+      at,
+      duration,
       note.midi,
       options,
       previousMidi,
@@ -653,7 +740,7 @@ export class VocalzoidAudio {
     const releaseOk = !recipe.release || this.scheduleOpenUnit(
       recipe.release,
       buffer,
-      at + duration - releaseDuration,
+      releaseAt,
       releaseDuration,
       note.midi,
       options,
@@ -694,7 +781,21 @@ export class VocalzoidAudio {
         );
       }))
       : 0;
-    const baseTime = this.context.currentTime + 0.055 + Math.min(0.45, maximumPreutter);
+    const renderPlan = vocalzoidRenderPlan(sequence, bpm);
+    const builtInPickup = Math.max(0, -Math.min(0, ...renderPlan.map(({ start }) => start)));
+    let openPickup = 0;
+    if (this.openBank) {
+      const first = sequence[0];
+      const recipe = vocalzoidOpenBankRecipe(first);
+      const onset = recipe && this.openBank.clips[recipe.onset];
+      if (onset) {
+        const ratio = 2 ** ((first.midi - this.openBank.rootMidi) / 12);
+        const wall = Math.min(first.duration * beatSeconds * 0.32, onset.duration / Math.max(0.001, ratio));
+        openPickup = Math.max(0, wall - Math.min(JOIN_OVERLAP_SECONDS, wall * 0.35));
+      }
+    }
+    const pickup = Math.min(0.45, Math.max(maximumPreutter, builtInPickup, openPickup));
+    const baseTime = this.context.currentTime + 0.055 + pickup;
     const options = {
       vibratoCents: clampVocalzoid(vibratoCents, 0, 100),
       vibratoRate: clampVocalzoid(vibratoRate, 2, 9),
@@ -721,7 +822,6 @@ export class VocalzoidAudio {
       }
     }
 
-    const renderPlan = vocalzoidRenderPlan(sequence, bpm);
     const previousMidiByNote = new Map();
     previousMidi = sequence[0].midi;
     for (const note of sequence) {

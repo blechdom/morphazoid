@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
 import { VOCALZOID_OPEN_BANKS } from "../src/vocalzoid-open-banks.js";
+import { SPELLING_PRONUNCIATION_PHONE_CATALOG } from "../src/spelling-pronunciation.js";
 
 const ROOT = new URL("../", import.meta.url);
 const ODDVOICES_REVISION = "33a248af8df88edf5166593bf36b7e24e7bc1f94";
@@ -87,10 +88,19 @@ test("Vocalzoid page wires every control, module, and local asset", async () => 
     "noteLayer",
     "pitchCurve",
     "rollPlayhead",
+    "rollInstructions",
+    "addNoteButton",
+    "randomizeButton",
+    "splitNoteButton",
+    "deleteNoteButton",
     "phonemeRibbon",
     "spectrumCanvas",
     "notePitch",
     "noteDuration",
+    "phoneEditor",
+    "notePhoneLabel",
+    "notePhoneMenus",
+    "phoneMenuHelp",
     "aliasInput",
     "styleButtons",
     "melodyPresets",
@@ -154,8 +164,107 @@ test("Vocalzoid page wires every control, module, and local asset", async () => 
   }
 });
 
+test("the piano roll exposes complete note editing for pointer, touch, and keyboard", async () => {
+  const [html, app, css] = await Promise.all([
+    readFile(new URL("vocalzoid.html", ROOT), "utf8"),
+    readFile(new URL("vocalzoid-app.js", ROOT), "utf8"),
+    readFile(new URL("vocalzoid.css", ROOT), "utf8"),
+  ]);
+  for (const id of ["addNoteButton", "randomizeButton", "splitNoteButton", "deleteNoteButton"]) {
+    assert.match(html, new RegExp(`<button\\b[^>]*\\bid="${id}"[^>]*\\btype="button"`));
+  }
+  const randomize = html.match(/<button\b[^>]*\bid="randomizeButton"[^>]*>/)?.[0] ?? "";
+  assert.match(attribute(randomize, "aria-label"), /Randomize phones, notes, and performance parameters/i);
+  assert.match(html, /drag its right edge to resize/i);
+  assert.match(html, /double-click a note to cut/i);
+  const duration = html.match(/<input\b[^>]*\bid="noteDuration"[^>]*>/)?.[0] ?? "";
+  assert.equal(attribute(duration, "min"), "0.25");
+  assert.equal(attribute(duration, "max"), "16");
+
+  const notes = sourceSection(app, "function renderNotes(totalBeats)", "function renderPitchCurve()");
+  assert.match(notes, /note-resize-handle/);
+  assert.match(notes, /button\.addEventListener\("dblclick"/);
+  assert.match(notes, /event\.key === "Delete" \|\| event\.key === "Backspace"/);
+  const dragStart = sourceSection(app, "function startNoteDrag(event, noteId)", "function renderNotes(totalBeats)");
+  assert.match(dragStart, /"resize"\s*:\s*"move"/);
+  const events = sourceSection(app, "function installEvents()", "renderPitchLabels();");
+  assert.match(events, /\$\("pianoGrid"\)\.addEventListener\("dblclick"/);
+  assert.match(events, /drag\.kind === "resize"/);
+  assert.match(events, /duration:\s*clampVocalzoid/);
+
+  assert.match(css, /\.vocal-note \.note-resize-handle\s*\{/);
+  assert.match(css, /\.note-resize-handle[\s\S]*?width:\s*16px/);
+  assert.doesNotMatch(css, /\.vocal-note\s*\{[^}]*min-width:\s*31px/);
+  assert.match(css, /\.vocal-note:focus-visible/);
+});
+
+test("each MIDI note exposes editable, role-safe phoneme pull-downs", async () => {
+  const [html, app, css] = await Promise.all([
+    readFile(new URL("vocalzoid.html", ROOT), "utf8"),
+    readFile(new URL("vocalzoid-app.js", ROOT), "utf8"),
+    readFile(new URL("vocalzoid.css", ROOT), "utf8"),
+  ]);
+  assert.equal(SPELLING_PRONUNCIATION_PHONE_CATALOG.length, 39);
+  assert.equal(SPELLING_PRONUNCIATION_PHONE_CATALOG.filter(({ vowel }) => vowel).length, 15);
+  assert.equal(SPELLING_PRONUNCIATION_PHONE_CATALOG.filter(({ vowel }) => !vowel).length, 24);
+  assert.match(html, /id="notePhoneLabel">Phonemes \/ diphones/);
+  assert.match(html, /39 renderable ARPAbet sounds/);
+  assert.match(html, /Each pull-down changes one sound/);
+  assert.match(html, /Adjacent sounds form diphone joins/);
+
+  const notes = sourceSection(app, "function renderNotes(totalBeats)", "function renderPitchCurve()");
+  assert.match(notes, /phoneJoinText\(note\.phones\)/);
+  assert.match(notes, /phones \$\{note\.phones\.join\(", "\)\}/);
+  const menus = sourceSection(app, "function renderNotePhoneMenus(note)", "function changeNotePhone(");
+  assert.match(menus, /SPELLING_PRONUNCIATION_PHONE_CATALOG/);
+  assert.match(app, /Diphthongs \+ R-colored vowels/);
+  assert.match(menus, /vowelSlot \? groupId === "consonant" : groupId !== "consonant"/);
+  assert.match(menus, /select\.addEventListener\("change"/);
+  const change = sourceSection(app, "function changeNotePhone(", "function renderSelectedNote()");
+  assert.match(change, /replaceVocalzoidNotePhone/);
+  assert.match(change, /haltPlayback\(\)/);
+  assert.match(change, /data-phone-index/);
+
+  assert.match(css, /\.note-phone-menus\s*\{/);
+  assert.match(css, /\.note-phone-picker select\s*\{/);
+  assert.match(css, /\.note-phone-picker\.is-vowel select\s*\{/);
+  assert.match(css, /\.note-phone-picker select:focus-visible/);
+});
+
+test("Randomize replaces the score and synchronizes musical parameters without autoplay", async () => {
+  const app = await readFile(new URL("vocalzoid-app.js", ROOT), "utf8");
+  const randomize = sourceSection(app, "function randomizeScore()", "async function buildScore()");
+  assertOrdered(
+    randomize,
+    "state.scoreRequest += 1;",
+    "haltPlayback();",
+    "const randomized = createRandomVocalzoidScore();",
+    "Object.assign(state, {",
+    "notes: randomized.notes,",
+    'selectedId: randomized.notes[0]?.id ?? "",',
+    "style: randomized.style,",
+    "bpm: randomized.bpm,",
+    "vibrato: randomized.vibrato,",
+    "glide: randomized.glide,",
+    "scoreBeats: randomized.scoreBeats,",
+    "randomScore: true,",
+    "audio.setStyle(state.style);",
+    "updateControlUi();",
+    "updateSourceUi();",
+    "renderScore();",
+    "announce(",
+  );
+  assert.doesNotMatch(randomize, /audio\.play|playSequence|selectNote/);
+  assert.match(randomize, /Randomized \$\{state\.notes\.length\} notes/);
+  const events = sourceSection(app, "function installEvents()", "renderPitchLabels();");
+  assert.match(events, /\$\("randomizeButton"\)\.addEventListener\("click", randomizeScore\)/);
+  const build = sourceSection(app, "async function buildScore()", "function chooseKalStyle(");
+  assert.match(build, /state\.randomScore = false;/);
+});
+
 test("Vocalzoid exposes local import, source terms, and accessible status", async () => {
   const html = await readFile(new URL("vocalzoid.html", ROOT), "utf8");
+  assertOrdered(html, "id=\"libraryTitle\"", "id=\"importTitle\"");
   const fileInput = html.match(/<input\b[^>]*\bid="bankInput"[^>]*>/)?.[0] ?? "";
   assert.match(fileInput, /\bmultiple\b/);
   assert.match(fileInput, /\bwebkitdirectory\b/);
@@ -171,7 +280,7 @@ test("Vocalzoid exposes local import, source terms, and accessible status", asyn
 
   const openBankIds = [...html.matchAll(/data-open-bank="([^"]+)"/g)]
     .map((match) => match[1]);
-  assert.deepEqual(openBankIds, ["air", "cicada", "quake"]);
+  assert.deepEqual(openBankIds, ["air", "cicada", "quake", "bdl", "clb", "jmk", "ksp", "slt"]);
   assert.equal((html.match(/data-style="/g) ?? []).length, 3);
   assert.equal((html.match(/data-melody="/g) ?? []).length, 3);
 
@@ -179,10 +288,12 @@ test("Vocalzoid exposes local import, source terms, and accessible status", asyn
     "https://github.com/festvox/flite",
     "https://github.com/openutau/OpenUtau/wiki/Getting-Started",
     "https://gitlab.com/oddvoices/oddvoices/-/tree/develop/voices",
+    "https://www.cs.cmu.edu/~awb/papers/ssw5/arctic.pdf",
     "https://kasaneteto.jp/utau/",
     "https://www.isca-archive.org/interspeech_2007/kenmochi07_interspeech.pdf",
     "https://mtg.upf.edu/files/publications/SMAC2003-aloscos.pdf",
     "https://github.com/openutau/OpenUtau/wiki/Voicebank-Development",
+    "https://github.com/openutau/OpenUtau/wiki/Phonemizers",
     "https://github.com/openutau/OpenUtau/wiki/Resamplers-and-Wavtools",
   ];
   for (const url of sourceUrls) {
@@ -195,8 +306,37 @@ test("Vocalzoid exposes local import, source terms, and accessible status", asyn
 });
 
 test("Vocalzoid keeps a usable responsive piano roll and reduced-motion mode", async () => {
-  const css = await readFile(new URL("vocalzoid.css", ROOT), "utf8");
+  const [html, app, css] = await Promise.all([
+    readFile(new URL("vocalzoid.html", ROOT), "utf8"),
+    readFile(new URL("vocalzoid-app.js", ROOT), "utf8"),
+    readFile(new URL("vocalzoid.css", ROOT), "utf8"),
+  ]);
   assert.match(css, /\.piano-roll\s*\{[\s\S]*?overflow-x:\s*auto/);
+  assert.match(css, /\.vocalzoid-workspace\s*\{[^}]*padding:\s*clamp\(8px,\s*1vw,\s*14px\)/);
+  assert.match(css, /\.phrase-console\s*\{[^}]*margin-top:\s*0/);
+  assert.match(
+    css,
+    /@media \(max-width:\s*820px\)[\s\S]*?\.vocalzoid-workspace\s*\{[^}]*padding:\s*8px 18px 48px[\s\S]*?\.phrase-console\s*\{[^}]*margin-top:\s*0/,
+  );
+  assert.match(css, /\.phoneme-lane\s*\{[\s\S]*?position:\s*relative/);
+  assert.match(css, /\.phoneme-cell\s*\{[\s\S]*?position:\s*absolute/);
+  const ribbon = sourceSection(app, "function renderPhonemeRibbon()", "function renderSelectedNote()");
+  assert.match(ribbon, /vocalzoidRenderPlan\(state\.notes, state\.bpm\)/);
+  assert.match(ribbon, /cell\.style\.left\s*=/);
+  assert.match(ribbon, /cell\.style\.width\s*=/);
+  assert.doesNotMatch(ribbon, /flexGrow/);
+  const currentEvent = sourceSection(app, "function updateCurrentEvent(progressSeconds)", "function resizeSpectrum()");
+  assert.match(currentEvent, /entry\.start >= event\.start/);
+  assert.doesNotMatch(currentEvent, /plan\.find\(/);
+  const events = sourceSection(app, "function installEvents()", "installEvents();");
+  assert.match(
+    events,
+    /\$\("bpm"\)\.addEventListener\("input",[\s\S]*?renderPhonemeRibbon\(\);/,
+  );
+  const openChoice = sourceSection(app, "function chooseOpenBank(bankId)", "function chooseLocalBank()");
+  assert.match(openChoice, /bank\.license/);
+  assert.doesNotMatch(app, /CC0 bank|CC0 diphones/);
+  assert.match(html, /<table>[\s\S]*?<th>Vocalzoid<\/th>[\s\S]*?<th>OpenUtau<\/th>[\s\S]*?<th>Vocaloid V1–V2<\/th>/);
   assert.match(
     css,
     /@media \(max-width:\s*820px\)[\s\S]*?\.vocalzoid-page\s*\{[\s\S]*?overflow:\s*auto[\s\S]*?\.vocalzoid-shell\s*\{[\s\S]*?display:\s*block/,
@@ -352,20 +492,40 @@ test("a completed import preserves a voice source chosen after that import began
   );
 });
 
-test("bundled CC0 banks point to complete RIFF/WAVE assets with in-bounds clips", async () => {
-  assert.deepEqual(Object.keys(VOCALZOID_OPEN_BANKS), ["air", "cicada", "quake"]);
+test("bundled open banks point to licensed, complete RIFF/WAVE assets with in-bounds clips", async () => {
+  const oddIds = new Set(["air", "cicada", "quake"]);
+  const arcticIds = new Set(["bdl", "clb", "jmk", "ksp", "slt"]);
+  assert.deepEqual(Object.keys(VOCALZOID_OPEN_BANKS), [...oddIds, ...arcticIds]);
   const oddVoicesLicense = await readFile(new URL("vendor/oddvoices/LICENSE", ROOT), "utf8");
+  const [arcticLicense2003, arcticLicense2005] = await Promise.all([
+    readFile(new URL("vendor/cmu-arctic/COPYING", ROOT), "utf8"),
+    readFile(new URL("vendor/cmu-arctic/COPYING-2005", ROOT), "utf8"),
+  ]);
   assert.match(oddVoicesLicense, /CC0 1\.0/i);
+  assert.match(arcticLicense2003, /Copyright \(c\) 2003/);
+  assert.match(arcticLicense2005, /Copyright \(c\) 2005/);
+  for (const arcticLicense of [arcticLicense2003, arcticLicense2005]) {
+    assert.match(arcticLicense, /Permission to use, copy, modify,\s+and licence/);
+  }
 
   for (const [id, bank] of Object.entries(VOCALZOID_OPEN_BANKS)) {
     assert.equal(bank.id, id);
-    assert.equal(bank.license, "CC0 1.0");
     assert.equal(bank.url.protocol, "file:");
-    assert.match(bank.url.pathname, new RegExp(`/vocalzoid-oddvoices-${id}\\.wav$`));
-    assert.equal(
-      bank.sourceHref,
-      `https://gitlab.com/oddvoices/oddvoices/-/tree/${ODDVOICES_REVISION}/voices/${id}`,
-    );
+    if (oddIds.has(id)) {
+      assert.equal(bank.license, "CC0 1.0");
+      assert.match(bank.url.pathname, new RegExp(`/vocalzoid-oddvoices-${id}\\.wav$`));
+      assert.equal(
+        bank.sourceHref,
+        `https://gitlab.com/oddvoices/oddvoices/-/tree/${ODDVOICES_REVISION}/voices/${id}`,
+      );
+    } else {
+      assert.equal(bank.license, "CMU ARCTIC permissive");
+      assert.match(bank.url.pathname, new RegExp(`/vocalzoid-cmu-arctic-${id}\\.wav$`));
+      assert.equal(
+        bank.sourceHref,
+        `http://festvox.org/cmu_arctic/cmu_arctic/cmu_us_${id}_arctic/`,
+      );
+    }
     assert.ok(Number.isFinite(bank.rootMidi));
 
     const bytes = await readFile(bank.url);

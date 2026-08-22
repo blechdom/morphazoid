@@ -59,12 +59,12 @@
             tabindex="0"
             role="slider"
             data-interactive-track
-            aria-label="Karplus Carpet pitch center"
+            aria-label="Karplus Carpet direct pitch"
             aria-orientation="horizontal"
             aria-valuemin="0"
             aria-valuemax="100"
             aria-valuenow="50"
-            aria-valuetext="Center 311.1 Hz, 72 percent pitch spread"
+            aria-valuetext="Pitch center 311.1 Hz; pointer starts the exact pitch; automatic carpet spread 72 percent"
             aria-describedby="canvasInstructions liveStatus"
           >
             An interactive woven field of synthesized Karplus micro-attacks.
@@ -75,7 +75,7 @@
           <div class="ks-stage-title kc-stage-title" aria-hidden="true">
             <p>SYNTHESIZED MICROSOUND WEAVE</p>
             <h1>Karplus Carpet</h1>
-            <small>micro excite &rarr; short tuned loop &rarr; many-thread field</small>
+            <small>drag = exact pitch &middot; density = clock &middot; scatter = deviation</small>
           </div>
           <div class="ks-stage-legend kc-stage-legend" aria-hidden="true">
             <span>LOW</span><i></i><span id="stageSpacingLabel">12 DIV / OCT</span><i></i><span>HIGH</span>
@@ -122,10 +122,12 @@
               <label class="control kc-slider" for="timingJitter">
                 <span><b>Timing scatter</b><output id="timingJitterOut" for="timingJitter">18%</output></span>
                 <input id="timingJitter" type="range" min="0" max="1" step=".01" value=".18" />
+                <span class="form-range-poles" aria-hidden="true"><span>Even</span><span>50%</span><span>Loose</span></span>
               </label>
               <label class="control kc-slider" for="pitchSpread">
-                <span><b>Pitch spread</b><output id="pitchSpreadOut" for="pitchSpread">72%</output></span>
+                <span><b>Automatic pitch spread</b><output id="pitchSpreadOut" for="pitchSpread">72%</output></span>
                 <input id="pitchSpread" type="range" min=".04" max="1" step=".01" value=".72" />
+                <span class="form-range-poles" aria-hidden="true"><span>Narrow</span><span>Play / Loop only</span><span>Wide</span></span>
               </label>
               <label class="control kc-slider" for="velocityScatter">
                 <span><b>Attack scatter</b><output id="velocityScatterOut" for="velocityScatter">28%</output></span>
@@ -171,7 +173,7 @@
               </label>
               <button class="mini-action form-range-reset" id="centerPitchBend" type="button">Center</button>
             </div>
-            <p class="control-note">Click to plant a micro-attack cloud. Drag horizontally to move its pitch center; vertical position changes its spread. Every mote is synthesized now&mdash;no samples are loaded.</p>
+            <p class="control-note">Click to start the exact pitch under the pointer. Drag horizontally and the next density-clocked attack follows. Timing Scatter is the only clock deviation; Automatic Pitch Spread belongs to Play and Loop. Every mote is synthesized now&mdash;no samples are loaded.</p>
           </div>
         </details>
 
@@ -235,7 +237,7 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        The stage is a continuous Karplus microsound field rather than a row of strings. Pointer left and right changes the cloud pitch center; pointer height changes pitch spread. Press Left or Right to move the center, then Space or Enter to release a short cloud. Start plays the selected number of synthesized attacks at the chosen hit density.
+        The stage is a continuous Karplus microsound field rather than a row of strings. Pointer left and right directly selects the played pitch. Dragging changes each subsequent attack while Hit density controls its clock and Timing scatter controls deviation from that clock. Automatic pitch spread applies only when Start or Loop is used without the pointer. Press Left or Right to move the pitch, then Space or Enter to start a direct-pitch carpet.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

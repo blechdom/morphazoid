@@ -1370,6 +1370,7 @@ test("Chaotic PM exposes Smooth and Legacy transfers with shared MIDI performanc
   assert.doesNotMatch(markup, /id="playModeDrone"|id="playModeMidi"/);
   assert.doesNotMatch(markup, /Web MIDI permission is requested/);
   assert.match(markup, /id="midiActivity"/);
+  assert.match(markup, /id="midiEnvelopeControls" hidden/);
   assert.match(markup, /id="ampAttackMs"/);
   assert.match(markup, /id="ampDecayMs"/);
   assert.match(markup, /id="ampSustainLevel"/);
@@ -1384,6 +1385,10 @@ test("Chaotic PM exposes Smooth and Legacy transfers with shared MIDI performanc
   assert.match(markup, /CC11 expression · CC64 sustain/);
   assert.match(markup, /non-scrolling log-frequency spectrum/);
   assert.match(app, /getSharedMidiManager/);
+  assert.match(
+    app,
+    /midiEnvelopeControls"\)\.hidden = state\.performance\.playMode !== "midi"/,
+  );
   assert.match(app, /sharedMidiManager\.registerClient\(\{/);
   assert.match(app, /id: "chaotic-pm"/);
   assert.match(app, /onMessage: handleSharedMidiMessage/);

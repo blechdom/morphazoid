@@ -7,7 +7,8 @@ import {
   VocalzoidAudio,
 } from "../src/vocalzoid-audio.js";
 import { SPELLING_DIPHONE_CLIPS } from "../src/spelling-diphone-atlas.js";
-import { parseUtauOto } from "../src/vocalzoid.js";
+import { createVocalzoidSequence, parseUtauOto, splitVocalzoidNote } from "../src/vocalzoid.js";
+import { VOCALZOID_OPEN_BANKS } from "../src/vocalzoid-open-banks.js";
 
 class FakeAudioParam {
   constructor(value = 0) {
@@ -320,13 +321,142 @@ test("built-in playback schedules pitched phone slices, vowel loops, and a bound
   assert.equal(source.loopEnd, clip.offset + clip.sustainEnd);
   assert.equal(source.starts[0].time, playback.startedAt);
   assert.equal(source.starts[0].offset, clip.offset);
-  assert.equal(source.stops[0], playback.startedAt + 0.536 + 0.006);
+  assert.equal(source.stops[0], playback.startedAt + 0.5 + 0.006);
   assert.ok(source.playbackRate.events.some(([method, value]) => (
     method === "exponentialRampToValueAtTime" && value === 2
   )));
 
   assert.equal(audio.stop({ fadeMs: 20 }), true);
   assert.equal(source.stops.at(-1), context.currentTime + 0.02);
+  await audio.close();
+});
+
+test("default OW and OY nuclei loop through their complete note spaces", async () => {
+  const runtime = fakeRuntime();
+  const audio = new VocalzoidAudio({ runtime, style: "raw" });
+  const notes = createVocalzoidSequence("vocalzoid");
+  const playback = await audio.play(notes, {
+    bpm: 108,
+    vibratoCents: 0,
+    glideMs: 0,
+  });
+  const [context] = FakeAudioContext.instances;
+  const sources = atlasSources(context);
+  const beatSeconds = 60 / 108;
+
+  for (const [noteIndex, clipName] of [[0, "oa"], [2, "oi"]]) {
+    const clip = SPELLING_DIPHONE_CLIPS[clipName];
+    const source = sources.find(({ starts }) => starts[0]?.offset === clip.offset);
+    assert.ok(source, `${clipName} is scheduled`);
+    assert.equal(source.loop, true, `${clipName} has a fallback sustain window`);
+    assert.ok(source.loopStart >= clip.offset);
+    assert.ok(source.loopEnd <= clip.offset + clip.duration);
+    assert.ok(source.loopEnd - source.loopStart >= 0.045);
+    const note = notes[noteIndex];
+    const expectedEnd = playback.startedAt + (note.start + note.duration) * beatSeconds + 0.006;
+    assert.ok(Math.abs(source.stops[0] - expectedEnd) < 1e-12);
+  }
+  for (const [noteIndex, clipName] of [[1, "l"], [2, "d"]]) {
+    const note = notes[noteIndex];
+    const clip = SPELLING_DIPHONE_CLIPS[clipName];
+    const source = sources.find(({ starts }) => starts[0]?.offset === clip.offset);
+    const ratio = 2 ** ((note.midi - audio.style.rootMidi) / 12);
+    const audibleEnd = source.starts[0].time + source.starts[0].duration / ratio;
+    const noteEnd = playback.startedAt + (note.start + note.duration) * beatSeconds;
+    assert.ok(Math.abs(audibleEnd - noteEnd) < 1e-12, `${clipName} is right-aligned to Note-Off`);
+  }
+  await audio.close();
+});
+
+test("a highest-pitch built-in onset still crosses Note-On", async () => {
+  const runtime = fakeRuntime();
+  const audio = new VocalzoidAudio({ runtime, style: "raw" });
+  const playback = await audio.play([{
+    id: "high-vo",
+    lyric: "vo",
+    alias: "",
+    phones: ["V", "OW"],
+    start: 0,
+    duration: 1,
+    midi: 72,
+  }], { bpm: 120, vibratoCents: 0, glideMs: 0 });
+  const [context] = FakeAudioContext.instances;
+  const clip = SPELLING_DIPHONE_CLIPS.v;
+  const source = atlasSources(context).find(({ starts }) => starts[0]?.offset === clip.offset);
+  const ratio = 2 ** ((72 - audio.style.rootMidi) / 12);
+  const audibleEnd = source.starts[0].time + source.starts[0].duration / ratio;
+
+  assert.ok(source.starts[0].time < playback.startedAt);
+  assert.ok(audibleEnd > playback.startedAt);
+  await audio.close();
+});
+
+test("pitched open-bank onsets, holds, and releases overlap without timing holes", async () => {
+  const runtime = fakeRuntime();
+  const audio = new VocalzoidAudio({ runtime });
+  const bank = audio.setOpenBank("quake");
+  const notes = createVocalzoidSequence("vocalzoid");
+  const playback = await audio.play(notes, {
+    bpm: 108,
+    vibratoCents: 0,
+    glideMs: 0,
+  });
+  const [context] = FakeAudioContext.instances;
+  const sources = bankSources(context);
+  const beatSeconds = 60 / 108;
+
+  assert.equal(bank, VOCALZOID_OPEN_BANKS.quake);
+  assert.equal(playback.openNotes, 3);
+  assert.equal(playback.fallbackNotes, 0);
+  assert.equal(sources.length, 8);
+
+  const sourceFor = (clip) => sources.find(({ starts }) => starts[0]?.offset === clip.offset);
+  for (const [noteIndex, onsetName, sustainName, releaseName] of [
+    [0, "voU", "oU", null],
+    [1, "k@", "@", "@l"],
+    [2, "z_", "OI", "OId"],
+  ]) {
+    const note = notes[noteIndex];
+    const noteAt = playback.startedAt + note.start * beatSeconds;
+    const noteEnd = noteAt + note.duration * beatSeconds;
+    const ratio = 2 ** ((note.midi - bank.rootMidi) / 12);
+    const onset = sourceFor(bank.clips[onsetName]);
+    const sustain = sourceFor(bank.clips[sustainName]);
+    const onsetWall = onset.starts[0].duration / ratio;
+    assert.ok(onset.starts[0].time < noteAt, `${onsetName} is a pickup`);
+    assert.ok(onset.starts[0].time + onsetWall >= noteAt, `${onsetName} overlaps Note-On`);
+    assert.ok(Math.abs(sustain.starts[0].time - noteAt) < 1e-12);
+    assert.ok(Math.abs(sustain.stops[0] - (noteEnd + 0.006)) < 1e-12);
+    if (releaseName) {
+      const release = sourceFor(bank.clips[releaseName]);
+      const releaseWall = release.starts[0].duration / ratio;
+      assert.ok(release.starts[0].time < noteEnd);
+      assert.ok(Math.abs(release.starts[0].time + releaseWall - noteEnd) < 1e-12);
+    }
+  }
+  await audio.close();
+});
+
+test("split default syllables keep using bundled open-bank continuation units", async () => {
+  const runtime = fakeRuntime();
+  const audio = new VocalzoidAudio({ runtime });
+  audio.setOpenBank("quake");
+  const notes = splitVocalzoidNote(
+    createVocalzoidSequence("vocalzoid"),
+    "vz-2",
+    3,
+    "vz-2-right",
+  );
+  const playback = await audio.play(notes, {
+    bpm: 108,
+    vibratoCents: 0,
+    glideMs: 0,
+  });
+  const [context] = FakeAudioContext.instances;
+
+  assert.equal(playback.openNotes, 4);
+  assert.equal(playback.fallbackNotes, 0);
+  assert.equal(bankSources(context).length, 9);
   await audio.close();
 });
 
@@ -373,6 +503,35 @@ test("custom OTO samples decode once and preserve pitch, slice, loop, and pickup
 
   await audio.play([note], { bpm: 120, vibratoCents: 0, glideMs: 60 });
   assert.equal(context.decodeCalls.length, 2, "the atlas and one bank sample are each decoded once");
+  await audio.close();
+});
+
+test("a too-short local OTO region without a stretchable body falls back to KAL", async () => {
+  const runtime = fakeRuntime();
+  const audio = new VocalzoidAudio({ runtime });
+  await audio.enable();
+  const [entry] = parseUtauOto("short.wav=ah,0,1190,0,0,0");
+  audio.setBank({
+    name: "Short bank",
+    entries: [entry],
+    files: new Map([["short.wav", { size: 64, async arrayBuffer() { return new ArrayBuffer(64); } }]]),
+    rootMidi: 60,
+  });
+  const playback = await audio.play([{
+    id: "short-note",
+    lyric: "ah",
+    alias: "ah",
+    phones: ["AH"],
+    start: 0,
+    duration: 4,
+    midi: 60,
+  }], { bpm: 120, vibratoCents: 0, glideMs: 0 });
+  const [context] = FakeAudioContext.instances;
+
+  assert.equal(playback.customNotes, 0);
+  assert.equal(playback.fallbackNotes, 1);
+  assert.equal(bankSources(context).length, 0, "an unusable bank source is not scheduled");
+  assert.equal(atlasSources(context).length, 1, "KAL sustains the whole replacement note");
   await audio.close();
 });
 

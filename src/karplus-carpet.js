@@ -127,6 +127,58 @@ export function karplusCarpetResumeTime(nextHitAt, now, options = {}) {
     : scheduledTime;
 }
 
+export function karplusCarpetRephaseTime(
+  source,
+  lastScheduledHitAt,
+  now,
+  index = 0,
+  options = {},
+) {
+  const currentTime = Math.max(0, finiteOr(now, 0));
+  const scheduledTime = lastScheduledHitAt == null
+    ? currentTime
+    : finiteOr(lastScheduledHitAt, currentTime);
+  const minimumLeadMs = clamp(finiteOr(options.minimumLeadMs, 8), 0, 1_000);
+  return Math.max(
+    currentTime + minimumLeadMs,
+    scheduledTime + karplusCarpetIntervalMs(source, index, options),
+  );
+}
+
+export function karplusCarpetStageGeometry(width, height) {
+  const safeWidth = Math.max(1, finiteOr(width, 1));
+  const safeHeight = Math.max(1, finiteOr(height, 1));
+  const left = Math.min(48, safeWidth * 0.07);
+  const right = Math.min(safeWidth, Math.max(left + 1, safeWidth - 42));
+  const top = Math.min(118, safeHeight * 0.22);
+  const bottom = Math.min(safeHeight, Math.max(top + 1, safeHeight - 68));
+  return Object.freeze({ top, bottom, left, right });
+}
+
+export function karplusCarpetPositionFromStageX(x, width) {
+  const { left, right } = karplusCarpetStageGeometry(width, 1);
+  return clamp((finiteOr(x, left) - left) / Math.max(1, right - left), 0, 1);
+}
+
+export function karplusCarpetPitchAtPosition(source = {}, position, frequencySource) {
+  const settings = sanitizeKarplusCarpetSettings(source);
+  const frequencies = Array.isArray(frequencySource) && frequencySource.length
+    ? frequencySource
+    : karplusStrongStringFrequencies(settings);
+  const maximumIndex = Math.max(0, frequencies.length - 1);
+  const normalizedPosition = clamp(
+    finiteOr(position, settings.centerPosition),
+    0,
+    1,
+  );
+  const frequencyIndex = clamp(Math.round(normalizedPosition * maximumIndex), 0, maximumIndex);
+  return Object.freeze({
+    frequencyIndex,
+    frequency: finiteOr(frequencies[frequencyIndex], settings.lowFrequency),
+    fieldPosition: maximumIndex ? frequencyIndex / maximumIndex : 0.5,
+  });
+}
+
 export function karplusCarpetEvent(source = {}, index = 0, options = {}) {
   const settings = sanitizeKarplusCarpetSettings(source);
   const serial = Math.max(0, Math.trunc(finiteOr(index, 0)));
@@ -178,6 +230,25 @@ export function karplusCarpetEvent(source = {}, index = 0, options = {}) {
   });
 }
 
+export function karplusCarpetPointerEvent(source = {}, index = 0, options = {}) {
+  const settings = sanitizeKarplusCarpetSettings(source);
+  const frequencies = Array.isArray(options.frequencies) && options.frequencies.length
+    ? options.frequencies
+    : karplusStrongStringFrequencies(settings);
+  const event = karplusCarpetEvent(settings, index, { ...options, frequencies });
+  const pitch = karplusCarpetPitchAtPosition(
+    settings,
+    options.position,
+    frequencies,
+  );
+  return Object.freeze({
+    ...event,
+    ...pitch,
+    visualY: clamp(finiteOr(options.visualY, 0.5), 0, 1),
+    pan: clamp((pitch.fieldPosition * 2 - 1) * settings.stereoSpread, -1, 1),
+  });
+}
+
 export function buildKarplusCarpetEvents(source = {}, options = {}) {
   const settings = sanitizeKarplusCarpetSettings(source);
   const frequencies = karplusStrongStringFrequencies(settings);
@@ -225,6 +296,26 @@ export function generateKarplusCarpetSamples(event = {}, sourceSettings = {}, sa
   });
 }
 
+export function normalizeKarplusCarpetSamples(samples, sampleRate = 48_000) {
+  const source = samples && typeof samples.length === "number" ? samples : [];
+  const analysisFrames = Math.min(
+    source.length,
+    Math.max(1, Math.ceil(Math.max(1, finiteOr(sampleRate, 48_000)) * 0.14)),
+  );
+  let energy = 0;
+  for (let index = 0; index < analysisFrames; index += 1) {
+    const sample = finiteOr(source[index], 0);
+    energy += sample * sample;
+  }
+  const openingRms = Math.sqrt(energy / Math.max(1, analysisFrames));
+  const normalization = clamp(0.24 / Math.max(0.0001, openingRms), 1.15, 3.6);
+  const normalized = new Float32Array(source.length);
+  for (let index = 0; index < source.length; index += 1) {
+    normalized[index] = clamp(finiteOr(source[index], 0) * normalization, -1, 1);
+  }
+  return normalized;
+}
+
 function cancelledStartError() {
   const error = new Error("Karplus Carpet audio start was cancelled.");
   error.name = "AbortError";
@@ -256,13 +347,13 @@ export class KarplusCarpetAudio {
       context = new Context();
       this.context = context;
       this.input = context.createGain();
-      this.input.gain.value = 0.66;
+      this.input.gain.value = 0.72;
       const compressor = context.createDynamicsCompressor();
-      compressor.threshold.value = -24;
-      compressor.knee.value = 15;
-      compressor.ratio.value = 10;
+      compressor.threshold.value = -18;
+      compressor.knee.value = 12;
+      compressor.ratio.value = 8;
       compressor.attack.value = 0.002;
-      compressor.release.value = 0.14;
+      compressor.release.value = 0.18;
       this.master = context.createGain();
       this.master.gain.value = this.output;
       this.analyser = context.createAnalyser();
@@ -337,10 +428,24 @@ export class KarplusCarpetAudio {
       coupling: finiteOr(sourceSettings.coupling, KARPLUS_STRONG_DEFAULTS.coupling) * 0.28,
       spread: 1,
     });
-    const cacheKey = this.#bufferKey(event, settings, duration);
+    const renderDuration = clamp(
+      finiteOr(options.renderDuration, duration),
+      duration,
+      KARPLUS_CARPET_LIMITS.maximumGrainDuration,
+    );
+    const renderEvent = {
+      ...event,
+      duration: renderDuration,
+      seed: Math.max(1, Math.round(settings.frequency * 1_000)) >>> 0,
+      timbre: 0,
+    };
+    const cacheKey = this.#bufferKey(renderEvent, settings, renderDuration);
     let buffer = this.bufferCache.get(cacheKey);
     if (!buffer) {
-      const samples = generateKarplusCarpetSamples(event, settings, context.sampleRate);
+      const samples = normalizeKarplusCarpetSamples(
+        generateKarplusCarpetSamples(renderEvent, settings, context.sampleRate),
+        context.sampleRate,
+      );
       buffer = context.createBuffer(1, samples.length, context.sampleRate);
       if (typeof buffer.copyToChannel === "function") buffer.copyToChannel(samples, 0);
       else buffer.getChannelData(0).set(samples);
@@ -366,9 +471,10 @@ export class KarplusCarpetAudio {
       source.playbackRate.setValueAtTime?.(2 ** (this.pitchBendCents / 1_200), when);
     }
     tone.type = "lowpass";
+    const eventTimbre = clamp(finiteOr(event.timbre, 0), -1, 1);
     tone.frequency.value = Math.min(
       context.sampleRate * 0.44,
-      700 + settings.brightness ** 1.35 * 17_000,
+      (700 + settings.brightness ** 1.35 * 17_000) * (2 ** (eventTimbre * 0.12)),
     );
     tone.Q.value = 0.25 + settings.dispersion * 0.9;
     body.type = "peaking";

@@ -196,7 +196,7 @@ const CATALOG_DETAILS = Object.freeze({
   vocalzoid: define(
     "Singing sequencer",
     "Turns one written word into editable pitched notes, sustained vowel bodies, and overlapped phoneme joins using bundled open sample voices or a local UTAU bank.",
-    "Turn on audio, drag the syllable notes into a melody, choose KAL16 or a CC0 OddVoices bank, then press Sing word; extracted UTAU folders can be imported locally.",
+    "Turn on audio, drag the syllable notes into a melody, choose KAL16 or one of eight bundled open demo voices, then press Sing word; extracted UTAU folders can be imported locally.",
     ["Open sample banks", "Local file input", "Pointer"],
   ),
 
@@ -331,7 +331,7 @@ const CATALOG_DETAILS = Object.freeze({
   "karplus-carpet": define(
     "Microsound physical-model synth",
     "Weaves dense clouds from many freshly synthesized 80–400 millisecond Karplus delay-line attacks, distributed across a tunable microtonal pitch field without loading sample grains.",
-    "Set the hit count and Rattlesnake-style density, turn on audio, then start a carpet or drag the woven stage to plant a pitch-centered cloud.",
+    "Set hit count and density, use Play for an automatically spread carpet, or drag the woven stage for an exact pointer-pitch pass whose clock follows Density and Timing Scatter.",
     ["Built-in synth", "MIDI", "Pointer", "Computer keys"],
   ),
   "sample-drums": define(

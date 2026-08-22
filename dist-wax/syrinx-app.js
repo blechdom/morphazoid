@@ -10,10 +10,11 @@ import {
   modulateSyrinxState,
   randomizeSyrinxState,
   resolveGestureTimeline,
+  resolveSyrinxPresetGain,
   resolveSourceControls,
   sampleModulationWave,
   sanitizeSyrinxState,
-} from "./src/syrinx.js?v=syrinx-ui-20260820-1";
+} from "./src/syrinx.js?v=syrinx-ui-20260821-4";
 import { connectAudioOutput } from "./src/audio-output-manager.js?v=syrinx-ui-20260819-1";
 import { unlockAudioContext } from "./src/audio.js?v=syrinx-ui-20260819-1";
 import {
@@ -430,6 +431,13 @@ function tractConfiguration(soundingState = performanceState) {
 
 function postConfiguration(soundingState = performanceState, resetTract = false) {
   if (!graph?.sourceNode) return;
+  if (graph.presetGain && audioContext) {
+    graph.presetGain.gain.setTargetAtTime(
+      resolveSyrinxPresetGain(soundingState),
+      audioContext.currentTime,
+      0.025,
+    );
+  }
   if (graph.masterGain && audioContext) {
     graph.masterGain.gain.setTargetAtTime(
       clamp(soundingState.level),
@@ -477,9 +485,11 @@ async function createAudioGraph() {
       },
     },
   });
+  const presetGain = context.createGain();
   const masterGain = context.createGain();
   const compressor = context.createDynamicsCompressor();
   const analyser = context.createAnalyser();
+  presetGain.gain.value = resolveSyrinxPresetGain(state);
   masterGain.gain.value = state.level;
   compressor.threshold.value = -11;
   compressor.knee.value = 12;
@@ -488,7 +498,8 @@ async function createAudioGraph() {
   compressor.release.value = 0.16;
   analyser.fftSize = 1_024;
   analyser.smoothingTimeConstant = 0.62;
-  sourceNode.connect(masterGain);
+  sourceNode.connect(presetGain);
+  presetGain.connect(masterGain);
   masterGain.connect(compressor);
   compressor.connect(analyser);
   const releaseOutput = connectAudioOutput(context, analyser, { runtime: globalThis });
@@ -501,7 +512,15 @@ async function createAudioGraph() {
     setAudioPresentation("error", "The physical-model audio processor stopped unexpectedly. Reload the page to reset it.");
   };
 
-  return { context, sourceNode, masterGain, compressor, analyser, releaseOutput };
+  return {
+    context,
+    sourceNode,
+    presetGain,
+    masterGain,
+    compressor,
+    analyser,
+    releaseOutput,
+  };
 }
 
 async function ensureAudio() {
@@ -967,7 +986,11 @@ function setControl(stateKey, value, { announceChange = false } = {}) {
   audioDirty = true;
   if (!gesturePlaying && !manualBreath) performanceState = { ...state, active: false };
   if (stateKey === "level" && graph?.masterGain && audioContext) {
-    graph.masterGain.gain.setTargetAtTime(state.level, audioContext.currentTime, 0.025);
+    graph.masterGain.gain.setTargetAtTime(
+      state.level,
+      audioContext.currentTime,
+      0.025,
+    );
   }
   if (announceChange) announce(`${titleCase(stateKey)} ${state[stateKey].toFixed(2)}`);
 }
@@ -1446,7 +1469,11 @@ function randomizeBody() {
       : { ...state, active: false };
   updateControlValues();
   if (graph?.masterGain && audioContext) {
-    graph.masterGain.gain.setTargetAtTime(state.level, audioContext.currentTime, 0.025);
+    graph.masterGain.gain.setTargetAtTime(
+      state.level,
+      audioContext.currentTime,
+      0.025,
+    );
   }
   postConfiguration(performanceState, true);
   audioDirty = true;
@@ -2956,6 +2983,7 @@ function updatePerformance(time) {
   }
   if (TONGUE_MODE) {
     if (tongueMotionId) {
+      const gestureSourceFrequencyRatio = performanceState.sourceFrequencyRatio;
       const motion = sampleTongueMotionPreset(
         tongueMotionId,
         Math.max(0, time - tongueMotionStartTime) * 0.001,
@@ -2970,6 +2998,9 @@ function updatePerformance(time) {
           active: true,
         }, performanceState),
         active: true,
+        ...(Number.isFinite(gestureSourceFrequencyRatio)
+          ? { sourceFrequencyRatio: gestureSourceFrequencyRatio }
+          : {}),
       };
     } else {
       performanceTongueState = tongueState;
