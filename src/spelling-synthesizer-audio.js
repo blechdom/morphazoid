@@ -1,5 +1,5 @@
-import { unlockAudioContext } from "./audio.js";
-import { connectAudioOutput } from "./audio-output-manager.js";
+import { unlockAudioContext } from "./audio.js?v=pink-trombonazoid-20260821-6";
+import { connectAudioOutput } from "./audio-output-manager.js?v=pink-trombonazoid-20260821-6";
 import {
   MAX_THROATS,
   alienTongueDeformations,
@@ -7,17 +7,18 @@ import {
   clamp,
   consonantVoiceParameters,
   glottalHarmonics,
-} from "./throatazoid.js";
+  singingVoiceParameters,
+} from "./throatazoid.js?v=pink-trombonazoid-20260821-6";
 import {
   SPELLING_PERSONALITIES,
   spellingEngine,
   spellingPerformanceState,
-} from "./spelling-synthesizer.js";
+} from "./spelling-synthesizer.js?v=pink-trombonazoid-20260821-6";
 import {
   SPELLING_DIPHONE_ATLAS_URL,
   SPELLING_DIPHONE_CLIPS,
   spellingDiphoneClipKey,
-} from "./spelling-diphone-atlas.js";
+} from "./spelling-diphone-atlas.js?v=pink-trombonazoid-20260821-6";
 
 const MIN_GAIN = 0.0001;
 
@@ -175,6 +176,60 @@ function periodicGlottis(audio, oscillator, tenseness = 0.58) {
   }
 }
 
+function createSingingVoiceBank(audio, node) {
+  return Array.from({ length: MAX_THROATS }, (_, index) => {
+    const oscillator = audio.createOscillator();
+    const envelopeGain = audio.createGain();
+    const modGain = audio.createGain();
+    oscillator.frequency.value = 140;
+    envelopeGain.gain.value = MIN_GAIN;
+    modGain.gain.value = 0;
+    periodicGlottis(audio, oscillator, 0.58);
+    connect(oscillator, envelopeGain);
+    connect(envelopeGain, modGain);
+    connect(modGain, node, 0, index + 1);
+    oscillator.start();
+    return {
+      oscillator,
+      envelopeGain,
+      modGain,
+      waveKey: "58",
+    };
+  });
+}
+
+function updateSingingWave(audio, singer, tenseness) {
+  const waveKey = String(Math.round(clamp(finite(tenseness, 0.58)) * 100));
+  if (!singer?.oscillator || singer.waveKey === waveKey) return;
+  periodicGlottis(audio, singer.oscillator, tenseness);
+  singer.waveKey = waveKey;
+}
+
+function polyphonicPerformance(performance) {
+  return performance?.voiceMode === "polyphonic"
+    && finite(performance?.throatCount, 1) > 1;
+}
+
+function voiceStructure(performance, source) {
+  if (!performance || !source) return performance;
+  return {
+    ...performance,
+    throatCount: source.throatCount,
+    bodyLength: source.bodyLength,
+    coupling: source.coupling,
+    spread: source.spread,
+    exciterPitch: source.exciterPitch,
+    exciterIntensity: source.exciterIntensity,
+    exciterTenseness: source.exciterTenseness,
+    exciterBreath: source.exciterBreath,
+    classicTopology: Boolean(source.classicTopology),
+    voiceMode: source.voiceMode,
+    voiceIntervals: [...(source.voiceIntervals ?? [])],
+    voiceDetunes: [...(source.voiceDetunes ?? [])],
+    throats: source.throats?.map((throat) => ({ ...throat })) ?? [],
+  };
+}
+
 function saturationCurve(amount = 0, size = 2_048) {
   const drive = clamp(finite(amount));
   const curve = new Float32Array(size);
@@ -277,6 +332,8 @@ class TubeSpellingEngine {
     this.pulse = null;
     this.pulseGain = null;
     this.pulseModGain = null;
+    this.pulseWaveKey = "";
+    this.singingVoices = [];
     this.breathGain = null;
     this.breathModGain = null;
     this.noise = null;
@@ -349,6 +406,7 @@ class TubeSpellingEngine {
     const audio = new Audio({ latencyHint: "interactive" });
     let pulse = null;
     let noise = null;
+    let singingVoices = [];
     this.context = audio;
     try {
       if (!audio.audioWorklet?.addModule) {
@@ -438,6 +496,7 @@ class TubeSpellingEngine {
       connect(breathGain, breathModGain);
       connect(breathModGain, sourceBus);
       connect(sourceBus, node, 0, 0);
+      singingVoices = createSingingVoiceBank(audio, node);
       connect(node, saturation);
       connect(saturation, tone);
       connect(tone, dryGain);
@@ -457,6 +516,8 @@ class TubeSpellingEngine {
       this.pulse = pulse;
       this.pulseGain = pulseGain;
       this.pulseModGain = pulseModGain;
+      this.pulseWaveKey = "58";
+      this.singingVoices = singingVoices;
       this.breathGain = breathGain;
       this.breathModGain = breathModGain;
       this.noise = noise;
@@ -469,6 +530,9 @@ class TubeSpellingEngine {
       this.effectsBus = effectsBus;
     } catch (error) {
       try { pulse?.stop?.(); } catch {}
+      for (const singer of singingVoices) {
+        try { singer.oscillator?.stop?.(); } catch {}
+      }
       try { noise?.stop?.(); } catch {}
       this.releaseAudioOutput?.();
       this.releaseAudioOutput = null;
@@ -536,20 +600,23 @@ class TubeSpellingEngine {
     const duration = dynamics.durationMs / 1_000;
     const release = dynamics.releaseMs / 1_000;
     periodicGlottis(this.context, this.pulse, performance.exciterTenseness);
+    this.pulseWaveKey = String(Math.round(clamp(performance.exciterTenseness) * 100));
     smooth(this.pulse.frequency, performance.exciterPitch, now, 0.012);
     smooth(this.pulseGain.gain, MIN_GAIN, now, 0.002);
     smooth(this.breathGain.gain, MIN_GAIN, now, 0.002);
+    const polyphonic = polyphonicPerformance(performance);
+    smooth(this.pulseModGain.gain, polyphonic ? 0 : 1, now, 0.006);
     const manner = performance.articulationManner;
     const sustainedVowel = Boolean(event.sustain && manner === "vowel");
     const ksCluster = performance.phoneme === "x";
     const affricate = manner === "affricate";
     const ksPerformance = ksCluster
-      ? ["k", "s"].map((articulation) => spellingPerformanceState({
+      ? ["k", "s"].map((articulation) => voiceStructure(spellingPerformanceState({
         personality: event.personality,
         articulation,
         carrierVowel: event.carrierVowel,
         dynamics,
-      }))
+      }), performance))
       : null;
     const initialPerformance = ksCluster
       ? ksPerformance[0]
@@ -578,6 +645,26 @@ class TubeSpellingEngine {
       duration,
       release,
     });
+    for (let index = 0; index < this.singingVoices.length; index += 1) {
+      const singer = this.singingVoices[index];
+      const voice = singingVoiceParameters(performance, index);
+      updateSingingWave(this.context, singer, performance.exciterTenseness);
+      smooth(singer.oscillator?.frequency, voice.frequency, now, 0.012);
+      smooth(singer.oscillator?.detune, voice.detune, now, 0.014);
+      smooth(
+        singer.modGain?.gain,
+        polyphonic ? voice.gain * (1 - clamp(performance.glottalClosure)) : 0,
+        now,
+        0.006,
+      );
+      shapeEnvelope(singer.envelopeGain?.gain, {
+        at: now,
+        peak: this.currentPulsePeak,
+        attack: dynamics.attackMs / 1_000,
+        duration,
+        release,
+      });
+    }
     shapeEnvelope(this.breathGain.gain, {
       at: now,
       peak: this.currentBreathPeak,
@@ -659,6 +746,7 @@ class TubeSpellingEngine {
     const amplitudeScale = clamp(finite(amplitude, 1), 0, 1.6);
     const breathOffset = clamp(finite(breath), -1, 1);
     const authoredPerformance = performance ?? this.currentPerformance;
+    const polyphonic = polyphonicPerformance(authoredPerformance);
     smooth(
       this.pulse?.frequency,
       authoredPerformance.exciterPitch * pitchRatio,
@@ -668,7 +756,31 @@ class TubeSpellingEngine {
     // Modulation gains sit after the authored articulation envelopes. Keeping
     // them separate means an LFO cannot cancel a consonant release or reopen a
     // stop by repeatedly replacing scheduled envelope values.
-    smooth(this.pulseModGain?.gain, amplitudeScale, now, 0.012);
+    smooth(this.pulseModGain?.gain, polyphonic ? 0 : amplitudeScale, now, 0.012);
+    const pulseWaveKey = String(
+      Math.round(clamp(finite(authoredPerformance.exciterTenseness, 0.58)) * 100),
+    );
+    if (this.pulseWaveKey !== pulseWaveKey) {
+      periodicGlottis(this.context, this.pulse, authoredPerformance.exciterTenseness);
+      this.pulseWaveKey = pulseWaveKey;
+    }
+    for (let index = 0; index < this.singingVoices.length; index += 1) {
+      const singer = this.singingVoices[index];
+      const voice = singingVoiceParameters(authoredPerformance, index);
+      updateSingingWave(this.context, singer, authoredPerformance.exciterTenseness);
+      smooth(singer.oscillator?.frequency, voice.frequency * pitchRatio, now, 0.009);
+      smooth(singer.oscillator?.detune, voice.detune, now, 0.012);
+      smooth(
+        singer.modGain?.gain,
+        polyphonic
+          ? amplitudeScale
+            * voice.gain
+            * (1 - clamp(authoredPerformance.glottalClosure))
+          : 0,
+        now,
+        0.012,
+      );
+    }
     smooth(
       this.breathModGain?.gain,
       clamp(amplitudeScale * (1 + breathOffset), 0, 2),
@@ -692,9 +804,19 @@ class TubeSpellingEngine {
       })) ?? [];
       this.configure({
         ...configured,
+        throatCount: authoredPerformance.throatCount,
+        bodyLength: authoredPerformance.bodyLength,
+        coupling: authoredPerformance.coupling,
+        spread: authoredPerformance.spread,
         exciterPitch: authoredPerformance.exciterPitch,
         exciterIntensity: authoredPerformance.exciterIntensity,
+        exciterTenseness: authoredPerformance.exciterTenseness,
         exciterBreath: authoredPerformance.exciterBreath,
+        classicTopology: Boolean(authoredPerformance.classicTopology),
+        voiceMode: authoredPerformance.voiceMode,
+        voiceIntervals: [...(authoredPerformance.voiceIntervals ?? [])],
+        voiceDetunes: [...(authoredPerformance.voiceDetunes ?? [])],
+        throats: authoredPerformance.throats?.map((throat) => ({ ...throat })) ?? [],
         lipDiameter: authoredPerformance.lipDiameter,
         nasalCoupling: authoredPerformance.nasalCoupling,
         mutation: clamp(authoredPerformance.mutation + mutationOffset),
@@ -711,6 +833,14 @@ class TubeSpellingEngine {
     const now = this.context.currentTime;
     smooth(this.pulseGain.gain, MIN_GAIN, now, Math.max(0.005, releaseMs / 3_000));
     smooth(this.breathGain.gain, MIN_GAIN, now, Math.max(0.005, releaseMs / 3_000));
+    for (const singer of this.singingVoices) {
+      smooth(
+        singer.envelopeGain?.gain,
+        MIN_GAIN,
+        now,
+        Math.max(0.005, releaseMs / 3_000),
+      );
+    }
     this.configure(performance ?? this.currentEvent?.carrierPerformance ?? this.currentEvent?.performance, false);
     this.currentEvent = null;
     this.currentPerformance = null;
@@ -734,6 +864,7 @@ class TubeSpellingEngine {
       for (const parameter of [
         this.pulseGain?.gain,
         this.breathGain?.gain,
+        ...this.singingVoices.map((singer) => singer.envelopeGain?.gain),
         this.master?.gain,
       ]) {
         if (!parameter) continue;
@@ -749,6 +880,9 @@ class TubeSpellingEngine {
     this.clearTimers();
     this.enabled = false;
     try { this.pulse?.stop?.(); } catch {}
+    for (const singer of this.singingVoices) {
+      try { singer.oscillator?.stop?.(); } catch {}
+    }
     try { this.noise?.stop?.(); } catch {}
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
@@ -760,6 +894,8 @@ class TubeSpellingEngine {
     this.pulse = null;
     this.pulseGain = null;
     this.pulseModGain = null;
+    this.pulseWaveKey = "";
+    this.singingVoices = [];
     this.breathGain = null;
     this.breathModGain = null;
     this.noise = null;

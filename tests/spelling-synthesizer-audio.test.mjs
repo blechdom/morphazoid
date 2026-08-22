@@ -12,6 +12,7 @@ import {
   spellingPerformanceState,
   typingDynamics,
 } from "../src/spelling-synthesizer.js";
+import { singingVoiceParameters } from "../src/throatazoid.js";
 
 const MOCK_ATLAS_SAMPLE_RATE = 16_000;
 const MOCK_ATLAS_DURATION = Math.max(
@@ -507,6 +508,107 @@ test("the tube backend reuses Throatazoid's worklet and sends bounded performanc
   assert.equal(context.state, "suspended");
   assert.equal(audio.running, false);
   await audio.close();
+  assert.equal(context.state, "closed");
+});
+
+test("the tube backend routes a fixed seven-voice bank into true per-throat polyphony", async () => {
+  const runtime = fakeRuntime();
+  const audio = new SpellingSynthesizerAudio({ runtime, engine: "tube" });
+  await audio.enable();
+  const [context] = FakeAudioContext.instances;
+  const [worklet] = FakeAudioWorkletNode.instances;
+  const backend = audio.backends.tube;
+
+  assert.equal(backend.singingVoices.length, 7);
+  assert.equal(context.oscillators.length, 8, "one shared glottis plus seven mouth voices");
+  backend.singingVoices.forEach((singer, index) => {
+    assert.equal(singer.oscillator.starts.length, 1);
+    assert.equal(singer.oscillator.connections[0].destination, singer.envelopeGain);
+    assert.equal(singer.envelopeGain.connections[0].destination, singer.modGain);
+    assert.deepEqual(singer.modGain.connections[0], {
+      destination: worklet,
+      output: 0,
+      input: index + 1,
+    });
+  });
+
+  const event = voiceEvent("a", "clear");
+  const polyphonicPerformance = (performance, pitch = performance.exciterPitch) => ({
+    ...performance,
+    exciterPitch: pitch,
+    throatCount: 3,
+    coupling: 0.34,
+    spread: 0.9,
+    classicTopology: false,
+    voiceMode: "polyphonic",
+    voiceIntervals: [-12, 0, 7, 12, 19, 24, 31],
+    voiceDetunes: [-8, 5, -4, 7, -6, 4, -2],
+    throats: Array.from({ length: 7 }, (_, index) => ({
+      ...(performance.throats[index] ?? performance.throats[0]),
+      aperture: 0.72 + index * 0.03,
+      length: 0.42 + index * 0.05,
+      muted: false,
+    })),
+  });
+  event.performance = polyphonicPerformance(event.performance);
+  event.carrierPerformance = polyphonicPerformance(event.carrierPerformance);
+  const graphBefore = graphCounts(context);
+
+  assert.equal(audio.articulate(event), true);
+  assert.deepEqual(graphCounts(context), graphBefore, "polyphonic gestures reuse the fixed bank");
+  assert.equal(backend.pulseModGain.gain.value, 0, "the shared glottis closes in polyphonic mode");
+  backend.singingVoices.forEach((singer, index) => {
+    const voice = singingVoiceParameters(event.performance, index);
+    assert.equal(singer.oscillator.frequency.value, voice.frequency);
+    assert.equal(singer.oscillator.detune.value, voice.detune);
+    assert.equal(singer.modGain.gain.value, index < 3 ? voice.gain : 0);
+    assert.ok(
+      singer.envelopeGain.gain.events.some((entry) => (
+        entry[0] === "linearRampToValueAtTime" && entry[1] > 0.0001
+      )),
+      "each fixed voice receives the authored articulation envelope",
+    );
+  });
+
+  const retuned = polyphonicPerformance(event.performance, 196);
+  assert.equal(audio.modulate({
+    pitchCents: 120,
+    amplitude: 0.75,
+    performance: retuned,
+  }), true);
+  backend.singingVoices.forEach((singer, index) => {
+    const voice = singingVoiceParameters(retuned, index);
+    assert.equal(singer.oscillator.frequency.value, voice.frequency * 2 ** (120 / 1_200));
+    assert.equal(singer.modGain.gain.value, index < 3 ? 0.75 * voice.gain : 0);
+  });
+  assert.equal(worklet.messages.at(-1).state.throatCount, 3);
+  assert.equal(worklet.messages.at(-1).state.coupling, 0.34);
+  assert.equal(worklet.messages.at(-1).state.spread, 0.9);
+
+  assert.equal(audio.modulate({
+    amplitude: 0.75,
+    performance: { ...retuned, glottalClosure: 1 },
+  }), true);
+  for (const singer of backend.singingVoices) {
+    assert.equal(singer.modGain.gain.value, 0, "a phoneme's glottal closure gates direct voices");
+  }
+  assert.equal(audio.modulate({
+    amplitude: 0.6,
+    performance: { ...retuned, voiceMode: "shared" },
+  }), true);
+  assert.equal(backend.pulseModGain.gain.value, 0.6, "linked throats reopen the shared glottis");
+  for (const singer of backend.singingVoices) assert.equal(singer.modGain.gain.value, 0);
+
+  const singers = [...backend.singingVoices];
+  assert.equal(audio.release({ releaseMs: 70 }), true);
+  for (const singer of singers) {
+    assert.deepEqual(singer.envelopeGain.gain.events.at(-1).slice(0, 2), [
+      "setTargetAtTime",
+      0.0001,
+    ]);
+  }
+  await audio.close();
+  for (const singer of singers) assert.equal(singer.oscillator.stops.length, 1);
   assert.equal(context.state, "closed");
 });
 

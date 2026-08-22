@@ -50,6 +50,71 @@ const PHONE_DEFINITIONS = Object.freeze({
   ZH: phone("zh", ["sh"], false, 0.88),
 });
 
+const PHONE_PRESENTATION = Object.freeze({
+  AA: ["ɑ", "father"],
+  AE: ["æ", "cat"],
+  AH: ["ʌ, ə", "cup / about"],
+  AO: ["ɔ", "thought"],
+  AW: ["aʊ", "mouth"],
+  AY: ["aɪ", "my"],
+  B: ["b", "bed"],
+  CH: ["tʃ", "chin"],
+  D: ["d", "dog"],
+  DH: ["ð", "this"],
+  EH: ["ɛ", "bed"],
+  ER: ["ɝ, ɚ", "bird"],
+  EY: ["eɪ", "day"],
+  F: ["f", "fine"],
+  G: ["ɡ", "go"],
+  HH: ["h", "hat"],
+  IH: ["ɪ", "sit"],
+  IY: ["i", "see"],
+  JH: ["dʒ", "jam"],
+  K: ["k", "cat"],
+  L: ["l", "lip"],
+  M: ["m", "man"],
+  N: ["n", "no"],
+  NG: ["ŋ", "sing"],
+  OW: ["oʊ", "go"],
+  OY: ["ɔɪ", "boy"],
+  P: ["p", "pin"],
+  R: ["ɹ", "red"],
+  S: ["s", "see"],
+  SH: ["ʃ", "ship"],
+  T: ["t", "top"],
+  TH: ["θ", "thin"],
+  UH: ["ʊ", "book"],
+  UW: ["u", "blue"],
+  V: ["v", "voice"],
+  W: ["w", "we"],
+  Y: ["j", "yes"],
+  Z: ["z", "zoo"],
+  ZH: ["ʒ", "measure"],
+});
+
+/**
+ * The complete CMU/ARPAbet inventory understood by the spelling voice.
+ * Diphthongs and ER remain one phone even though the tract moves through two
+ * gestures while rendering them.
+ */
+export const SPELLING_PRONUNCIATION_PHONE_CATALOG = Object.freeze(
+  Object.entries(PHONE_DEFINITIONS).map(([id, definition]) => {
+    const [ipa, example] = PHONE_PRESENTATION[id];
+    const gliding = definition.vowel && definition.gestures.length > 1;
+    return Object.freeze({
+      id,
+      ipa,
+      example,
+      label: `${id} · /${ipa}/ · ${example}`,
+      sampleKey: definition.sampleKey,
+      gestures: definition.gestures,
+      vowel: definition.vowel,
+      gliding,
+      group: definition.vowel ? (gliding ? "gliding-vowel" : "vowel") : "consonant",
+    });
+  }),
+);
+
 const PRONUNCIATION_OVERRIDES = new Map(Object.entries({
   live: ["L", "IH", "V"],
   read: ["R", "IY", "D"],

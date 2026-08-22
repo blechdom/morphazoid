@@ -1,14 +1,16 @@
 import {
+  SPELLING_PRONUNCIATION_PHONE_CATALOG,
   isSpellingPronunciationVowel,
   spellingPhoneDefinition,
   spellingPronunciationTokens,
-} from "./spelling-pronunciation.js";
+} from "./spelling-pronunciation.js?v=pink-trombonazoid-20260821-6";
 import {
   isSpellingVowel,
   spellingPerformanceState,
   spellingSoundLabel,
   typingDynamics,
-} from "./spelling-synthesizer.js";
+} from "./spelling-synthesizer.js?v=pink-trombonazoid-20260821-6";
+import { MAX_THROATS } from "./throatazoid.js?v=pink-trombonazoid-20260821-6";
 
 const DEFAULT_SAMPLE_COUNT = 128;
 const MIN_SAMPLE_COUNT = 2;
@@ -38,18 +40,19 @@ export const PINK_TROMBONAZOID_DURATION_LIMITS = Object.freeze([
 ]);
 
 export const PINK_TROMBONAZOID_LANES = Object.freeze([
-  lane("pitch", "Pitch", "PITCH", "#c070c6", [40, 520], "Hz"),
-  lane("intensity", "Voice intensity", "VOICE", "#da70d6", [0, 1]),
+  lane("pitch", "Pitch", "PITCH", "#d85f92", [40, 520], "Hz"),
+  lane("intensity", "Voice intensity", "VOICE", "#e779a8", [0, 1]),
   lane("breath", "Breath", "BREATH", "#ffc0cb", [0, 1]),
-  lane("tonguePosition", "Tongue position", "T POS", "#c070c6", [0, 1]),
-  lane("tongueHeight", "Tongue height", "T HIGH", "#da70d6", [0, 1]),
+  lane("tonguePosition", "Tongue position", "T POS", "#d85f92", [0, 1]),
+  lane("tongueHeight", "Tongue height", "T HIGH", "#e779a8", [0, 1]),
   lane("lipOpening", "Lip opening", "LIPS", "#ffc0cb", [0, 4], "cm"),
-  lane("nasalCoupling", "Nasal coupling", "NOSE", "#9b4fa0", [0, 1]),
-  lane("mutation", "Mutation", "MUTATE", "#633268", [0, 1]),
+  lane("nasalCoupling", "Nasal coupling", "NOSE", "#bd4f7a", [0, 1]),
+  lane("mutation", "Mutation", "MUTATE", "#713047", [0, 1]),
 ]);
 
 export const PINK_TROMBONAZOID_LANE_CATALOG = PINK_TROMBONAZOID_LANES;
 export const PINK_TROMBONAZOID_AUTOMATION_LANES = PINK_TROMBONAZOID_LANES;
+export const PINK_TROMBONAZOID_PHONE_CATALOG = SPELLING_PRONUNCIATION_PHONE_CATALOG;
 
 export const PINK_TROMBONAZOID_PRESETS = deepFreeze({
   hello: {
@@ -93,10 +96,137 @@ export const PINK_TROMBONAZOID_DEFAULTS = Object.freeze({
   sampleCount: DEFAULT_SAMPLE_COUNT,
 });
 
+export const PINK_TROMBONAZOID_VOICE_HARMONIES = deepFreeze({
+  shared: {
+    id: "shared",
+    name: "Linked throats",
+    note: "one glottis through every branch",
+    intervals: [0, 0, 0, 0, 0, 0, 0],
+  },
+  unison: {
+    id: "unison",
+    name: "Polyphonic unison",
+    note: "one independent pitch per throat",
+    intervals: [0, 0, 0, 0, 0, 0, 0],
+  },
+  fifths: {
+    id: "fifths",
+    name: "Open fifths",
+    note: "stacked octaves and fifths",
+    intervals: [-12, 0, 7, 12, 19, 24, 31],
+  },
+  choir: {
+    id: "choir",
+    name: "Choir chord",
+    note: "wide fourths and fifths",
+    intervals: [-12, -5, 0, 7, 12, 19, 24],
+  },
+});
+
+export const PINK_TROMBONAZOID_VOICE_PRESETS = deepFreeze({
+  clear: voicePreset("clear", "Clear solo", "plain and centered", "core", "clear"),
+  warm: voicePreset("warm", "Velvet solo", "low and rounded", "core", "warm"),
+  deep: voicePreset("deep", "Deep body", "larger, lower tract color", "core", "warm", {
+    registerSemitones: -5,
+    bodyLengthOffset: 0.18,
+    tensionOffset: -0.05,
+  }),
+  bright: voicePreset("bright", "Bright body", "small, focused and taut", "core", "reed", {
+    registerSemitones: 2,
+    bodyLengthOffset: -0.12,
+    tensionOffset: 0.05,
+  }),
+  alto: voicePreset("alto", "Alto", "raised velvet register", "register", "warm", {
+    registerSemitones: 4,
+    bodyLengthOffset: -0.06,
+    tensionOffset: 0.02,
+  }),
+  mezzo: voicePreset("mezzo", "Mezzo", "clear upper-middle voice", "register", "clear", {
+    registerSemitones: 6,
+    bodyLengthOffset: -0.09,
+    tensionOffset: 0.03,
+  }),
+  soprano: voicePreset("soprano", "Soprano", "light high register", "register", "clear", {
+    registerSemitones: 9,
+    bodyLengthOffset: -0.13,
+    tensionOffset: 0.06,
+  }),
+  airy: voicePreset("airy", "Airy upper", "breathy and lifted", "register", "whisper", {
+    registerSemitones: 4,
+    bodyLengthOffset: -0.1,
+    tensionOffset: -0.08,
+  }),
+  bell: voicePreset("bell", "Bell", "ringing high folds", "register", "reed", {
+    registerSemitones: 9,
+    bodyLengthOffset: -0.14,
+    tensionOffset: 0.08,
+  }),
+  coloratura: voicePreset("coloratura", "Coloratura", "highest agile register", "register", "reed", {
+    registerSemitones: 12,
+    bodyLengthOffset: -0.18,
+    tensionOffset: 0.06,
+  }),
+  whisper: voicePreset("whisper", "Whisper", "air-heavy and soft", "texture", "whisper", {
+    tensionOffset: -0.08,
+  }),
+  reed: voicePreset("reed", "Reed", "pressed and electric", "texture", "reed", {
+    tensionOffset: 0.08,
+  }),
+  beatbox: voicePreset("beatbox", "Beatbox", "low, taut consonant source", "texture", "clear", {
+    registerSemitones: -4,
+    tensionOffset: 0.12,
+  }),
+  double: voicePreset("double", "Double throat", "two linked resonators", "ensemble", "clear", {
+    throatCount: 2,
+    mouthVariation: 0.25,
+    coupling: 0.18,
+    spread: 0.55,
+  }),
+  unison: voicePreset("unison", "Unison stack", "three independently pitched throats", "ensemble", "clear", {
+    throatCount: 3,
+    harmony: "unison",
+    detuneCents: 10,
+    mouthVariation: 0.18,
+    coupling: 0.12,
+    spread: 0.85,
+  }),
+  fifths: voicePreset("fifths", "Open fifths", "three-voice octave and fifth", "ensemble", "warm", {
+    throatCount: 3,
+    harmony: "fifths",
+    detuneCents: 6,
+    bodyLengthOffset: 0.02,
+    mouthVariation: 0.25,
+    coupling: 0.22,
+    spread: 0.85,
+  }),
+  choir: voicePreset("choir", "Choir", "five independently pitched throats", "ensemble", "warm", {
+    throatCount: 5,
+    harmony: "choir",
+    detuneCents: 10,
+    bodyLengthOffset: 0.04,
+    tensionOffset: -0.04,
+    mouthVariation: 0.32,
+    coupling: 0.46,
+    spread: 1,
+  }),
+  creature: voicePreset("creature", "Creature", "three coupled mutant throats", "ensemble", "creature", {
+    throatCount: 3,
+    registerSemitones: -3,
+    bodyLengthOffset: 0.08,
+    tensionOffset: 0.04,
+    mouthVariation: 0.55,
+    coupling: 0.5,
+    spread: 0.92,
+  }),
+});
+
+export const DEFAULT_PINK_TROMBONAZOID_VOICE_PRESET = "clear";
+
 const LANE_BY_ID = new Map(PINK_TROMBONAZOID_LANES.map((definition) => (
   [definition.id, definition]
 )));
 const CARRIER_SOURCE_LANE_IDS = new Set(["pitch", "intensity", "breath", "mutation"]);
+const VOICE_DETUNE_PATTERN = Object.freeze([-1, 0.68, -0.38, 1, -0.72, 0.44, -0.22]);
 
 function lane(id, label, shortLabel, color, range, unit = "") {
   return Object.freeze({
@@ -111,6 +241,29 @@ function lane(id, label, shortLabel, color, range, unit = "") {
   });
 }
 
+function voicePreset(id, name, note, group, personality, settings = {}) {
+  return {
+    id,
+    name,
+    note,
+    group,
+    personality,
+    voice: {
+      preset: id,
+      throatCount: 1,
+      harmony: "shared",
+      registerSemitones: 0,
+      detuneCents: 0,
+      bodyLengthOffset: 0,
+      tensionOffset: 0,
+      mouthVariation: 0,
+      coupling: 0,
+      spread: 0,
+      ...settings,
+    },
+  };
+}
+
 function finite(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -122,6 +275,33 @@ function clamp(value, minimum = 0, maximum = 1) {
 
 function clampInteger(value, minimum, maximum, fallback) {
   return Math.round(clamp(finite(value, fallback), minimum, maximum));
+}
+
+function pinkVoicePreset(value) {
+  const key = String(value ?? DEFAULT_PINK_TROMBONAZOID_VOICE_PRESET).toLowerCase();
+  return PINK_TROMBONAZOID_VOICE_PRESETS[key]
+    ?? PINK_TROMBONAZOID_VOICE_PRESETS[DEFAULT_PINK_TROMBONAZOID_VOICE_PRESET];
+}
+
+export function normalizePinkTrombonazoidVoice(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const preset = pinkVoicePreset(source.preset);
+  const requested = { ...preset.voice, ...source };
+  const harmony = PINK_TROMBONAZOID_VOICE_HARMONIES[requested.harmony]
+    ? requested.harmony
+    : "shared";
+  return deepFreeze({
+    preset: preset.id,
+    throatCount: clampInteger(requested.throatCount, 1, MAX_THROATS, 1),
+    harmony,
+    registerSemitones: clamp(requested.registerSemitones, -12, 12),
+    detuneCents: clamp(requested.detuneCents, 0, 30),
+    bodyLengthOffset: clamp(requested.bodyLengthOffset, -0.22, 0.22),
+    tensionOffset: clamp(requested.tensionOffset, -0.25, 0.25),
+    mouthVariation: clamp(requested.mouthVariation),
+    coupling: clamp(requested.coupling, 0, 0.72),
+    spread: clamp(requested.spread),
+  });
 }
 
 function deepFreeze(value, seen = new WeakSet()) {
@@ -206,6 +386,74 @@ function performanceWithLaneValues(performance, values = {}) {
       next.tongues[0].height = rawLaneValue("tongueHeight", values.tongueHeight);
     }
   }
+  return deepFreeze(next);
+}
+
+/**
+ * Apply pronunciation-safe global voice coloration to a performance state.
+ * Articulation, tongue, lip, nasal, closure, and timing fields are deliberately
+ * left untouched so this layer cannot rewrite the selected phone.
+ */
+export function pinkTrombonazoidVoicePerformance(performance, settings = {}) {
+  if (!performance || typeof performance !== "object") return performance;
+  const voice = normalizePinkTrombonazoidVoice(settings);
+  const harmony = PINK_TROMBONAZOID_VOICE_HARMONIES[voice.harmony];
+  const polyphonic = voice.throatCount > 1 && voice.harmony !== "shared";
+  const baseThroats = performance.throats ?? [];
+  const throats = Array.from({ length: MAX_THROATS }, (_, index) => {
+    const source = baseThroats[index]
+      ?? baseThroats[index % Math.max(1, baseThroats.length)]
+      ?? { aperture: 0.9, length: 0.56, muted: false };
+    const position = voice.throatCount <= 1
+      ? 0
+      : clamp(index / Math.max(1, voice.throatCount - 1) * 2 - 1, -1, 1);
+    const irregularity = Math.sin((index + 1) * 1.93);
+    return {
+      ...source,
+      aperture: clamp(
+        finite(source.aperture, 0.9) + irregularity * voice.mouthVariation * 0.08,
+        0.08,
+        1,
+      ),
+      length: clamp(
+        finite(source.length, 0.56)
+          + position * voice.mouthVariation * 0.12
+          + irregularity * voice.mouthVariation * 0.025,
+        0.05,
+        1,
+      ),
+      muted: index < voice.throatCount ? false : Boolean(source.muted),
+    };
+  });
+  const next = {
+    ...performance,
+    throatCount: voice.throatCount,
+    bodyLength: clamp(finite(performance.bodyLength, 0.55) + voice.bodyLengthOffset),
+    coupling: voice.throatCount > 1 ? voice.coupling : 0,
+    spread: voice.throatCount > 1 ? voice.spread : 0,
+    exciterPitch: clamp(
+      finite(performance.exciterPitch, 140) * 2 ** (voice.registerSemitones / 12),
+      40,
+      520,
+    ),
+    exciterTenseness: clamp(
+      finite(performance.exciterTenseness, 0.58) + voice.tensionOffset,
+    ),
+    classicTopology: Boolean(
+      voice.throatCount === 1
+      && !polyphonic
+      && performance.classicTopology
+    ),
+    voiceMode: polyphonic ? "polyphonic" : "shared",
+    voiceIntervals: harmony.intervals.map((interval) => interval),
+    voiceDetunes: VOICE_DETUNE_PATTERN.map((amount) => amount * voice.detuneCents),
+    throats,
+    tongues: performance.tongues?.map((tongue) => ({ ...tongue })) ?? [],
+    noses: performance.noses?.map((nose) => ({ ...nose })) ?? [],
+    pressureSources: performance.pressureSources?.map((source) => ({ ...source })) ?? [],
+    pinkVoicePreset: voice.preset,
+    pinkVoiceHarmony: voice.harmony,
+  };
   return deepFreeze(next);
 }
 
@@ -838,6 +1086,260 @@ function patchedLaneOverrides(segment, patch) {
   return sanitizeLaneOverrides(requested);
 }
 
+function resolvedPhone(sequence, idOrIndex) {
+  if (!Array.isArray(sequence?.phones)) return null;
+  if (typeof idOrIndex === "number") {
+    return sequence.phones[Math.trunc(idOrIndex)] ?? null;
+  }
+  const requested = String(idOrIndex ?? "");
+  const direct = sequence.phones.find(({ id }) => id === requested);
+  if (direct) return direct;
+  const segment = sequence.segments?.find(({ id }) => id === requested);
+  return segment
+    ? sequence.phones.find(({ id }) => id === segment.phoneId) ?? null
+    : null;
+}
+
+function expressiveLaneOverrides(segments) {
+  const overrides = {};
+  for (const id of CARRIER_SOURCE_LANE_IDS) {
+    let weightedValue = 0;
+    let totalWeight = 0;
+    for (const segment of segments) {
+      const value = segment?.laneOverrides?.[id];
+      if (!Number.isFinite(Number(value))) continue;
+      const weight = Math.max(1, finite(segment.durationMs, 1));
+      weightedValue += clamp(value) * weight;
+      totalWeight += weight;
+    }
+    if (totalWeight) overrides[id] = weightedValue / totalWeight;
+  }
+  return sanitizeLaneOverrides(overrides);
+}
+
+function phoneEntries(sequence) {
+  return (sequence?.phones ?? []).map((phone) => ({
+    id: phone.phone,
+    stress: phone.stress,
+    origin: phone,
+  }));
+}
+
+function wordPhoneCounts(tokens) {
+  return tokens
+    .filter(({ type }) => type === "word")
+    .map(({ phones }) => phones.length);
+}
+
+function copyAuthoredPhoneDraft(draft, origin) {
+  const previous = origin?.articulations?.[draft.articulationIndex];
+  if (!previous) return draft;
+  draft.durationMs = previous.durationMs;
+  draft.laneOverrides = sanitizeLaneOverrides(previous.laneOverrides);
+  draft.personality = previous.personality;
+  draft.rhythmAmount = previous.rhythmAmount;
+  draft.intervalMs = previous.intervalMs;
+  draft.sustain = Boolean(previous.sustain);
+  return draft;
+}
+
+function rebuildWithPhoneEntries(sequence, entries, counts) {
+  const metadata = metadataFromSequence(sequence);
+  const tokens = cloneTokens(metadata.tokens);
+  const origins = new Map();
+  let wordIndex = 0;
+  let entryIndex = 0;
+  for (const token of tokens) {
+    if (token.type !== "word") continue;
+    const count = Math.max(0, Math.trunc(counts[wordIndex] ?? token.phones.length));
+    const assigned = entries.slice(entryIndex, entryIndex + count);
+    token.phones = assigned.map(({ id, stress }, phoneIndex) => {
+      origins.set(`${wordIndex}:${phoneIndex}`, assigned[phoneIndex].origin ?? null);
+      return { id, stress };
+    });
+    entryIndex += assigned.length;
+    wordIndex += 1;
+  }
+  if (entryIndex !== entries.length) return sequence;
+  metadata.tokens = tokens;
+
+  const previousBoundaries = new Map(
+    sequence.boundarySegments.map((segment) => [segment.id, segment]),
+  );
+  const drafts = draftsFromTokens(tokens, metadata).map((draft) => {
+    if (draft.type === "boundary") {
+      const previous = previousBoundaries.get(draft.id);
+      if (previous) draft.durationMs = previous.durationMs;
+      return draft;
+    }
+    return copyAuthoredPhoneDraft(
+      draft,
+      origins.get(`${draft.wordIndex}:${draft.phoneIndex}`),
+    );
+  });
+  return buildSequence(drafts, metadata);
+}
+
+/**
+ * Replace one complete pronunciation phone and return a new frozen sequence.
+ * A phone may contain more than one tract gesture (for example OW = ao → uw),
+ * so this operation expands or collapses its segment group as one edit.
+ */
+export function replacePinkTrombonazoidPhone(sequence, idOrIndex, replacementId) {
+  if (!sequence || !Array.isArray(sequence.segments)) return sequence;
+  const target = resolvedPhone(sequence, idOrIndex);
+  const replacement = String(replacementId ?? "").toUpperCase();
+  const definition = spellingPhoneDefinition(replacement);
+  if (!target || !definition?.gestures?.length || target.phone === replacement) return sequence;
+
+  const metadata = metadataFromSequence(sequence);
+  const tokens = cloneTokens(metadata.tokens);
+  const wordToken = tokens.filter(({ type }) => type === "word")[target.wordIndex];
+  const tokenPhone = wordToken?.phones?.[target.phoneIndex];
+  if (!tokenPhone) return sequence;
+  wordToken.phones[target.phoneIndex] = { ...tokenPhone, id: replacement };
+  metadata.tokens = tokens;
+
+  const previousById = new Map(sequence.segments.map((segment) => [segment.id, segment]));
+  const previousTarget = target.articulations ?? target.segments ?? [];
+  const targetDurationMs = previousTarget.reduce(
+    (total, segment) => total + Math.max(0, finite(segment.durationMs)),
+    0,
+  );
+  const targetOverrides = expressiveLaneOverrides(previousTarget);
+  const targetPersonality = previousTarget[0]?.personality ?? metadata.personality;
+  const targetRhythmAmount = previousTarget[0]?.rhythmAmount ?? metadata.rhythmAmount;
+  const targetIntervalMs = previousTarget[0]?.intervalMs ?? metadata.intervalMs;
+  const targetSustain = previousTarget.some(({ sustain }) => sustain);
+  const weights = gestureWeights(definition.gestures.length, definition.vowel);
+
+  const drafts = draftsFromTokens(tokens, metadata).map((draft) => {
+    const previous = previousById.get(draft.id);
+    if (draft.type === "boundary") {
+      if (previous) draft.durationMs = previous.durationMs;
+      return draft;
+    }
+    if (draft.phoneId === target.id) {
+      draft.durationMs = targetDurationMs * weights[draft.articulationIndex];
+      draft.laneOverrides = targetOverrides;
+      draft.personality = targetPersonality;
+      draft.rhythmAmount = targetRhythmAmount;
+      draft.intervalMs = targetIntervalMs;
+      draft.sustain = targetSustain;
+      return draft;
+    }
+    if (!previous) return draft;
+    draft.durationMs = previous.durationMs;
+    draft.laneOverrides = sanitizeLaneOverrides(previous.laneOverrides);
+    draft.personality = previous.personality;
+    draft.rhythmAmount = previous.rhythmAmount;
+    draft.intervalMs = previous.intervalMs;
+    draft.sustain = Boolean(previous.sustain);
+    return draft;
+  });
+
+  return buildSequence(drafts, metadata);
+}
+
+/** Remove one complete pronunciation phone and close the resulting time gap. */
+export function removePinkTrombonazoidPhone(sequence, idOrIndex) {
+  if (!sequence || !Array.isArray(sequence.segments)) return sequence;
+  const target = resolvedPhone(sequence, idOrIndex);
+  if (!target) return sequence;
+
+  const metadata = metadataFromSequence(sequence);
+  const tokens = cloneTokens(metadata.tokens);
+  const wordToken = tokens.filter(({ type }) => type === "word")[target.wordIndex];
+  if (!wordToken?.phones?.[target.phoneIndex]) return sequence;
+  wordToken.phones.splice(target.phoneIndex, 1);
+  metadata.tokens = tokens;
+
+  const previousBoundaries = new Map(
+    sequence.boundarySegments.map((segment) => [segment.id, segment]),
+  );
+  const previousArticulations = new Map(
+    sequence.articulationSegments.map((segment) => [
+      `${segment.wordIndex}:${segment.phoneIndex}:${segment.articulationIndex}`,
+      segment,
+    ]),
+  );
+  const drafts = draftsFromTokens(tokens, metadata).map((draft) => {
+    if (draft.type === "boundary") {
+      const previous = previousBoundaries.get(draft.id);
+      if (previous) draft.durationMs = previous.durationMs;
+      return draft;
+    }
+    const previousPhoneIndex = draft.wordIndex === target.wordIndex
+      && draft.phoneIndex >= target.phoneIndex
+      ? draft.phoneIndex + 1
+      : draft.phoneIndex;
+    const previous = previousArticulations.get(
+      `${draft.wordIndex}:${previousPhoneIndex}:${draft.articulationIndex}`,
+    );
+    if (!previous) return draft;
+    draft.durationMs = previous.durationMs;
+    draft.laneOverrides = sanitizeLaneOverrides(previous.laneOverrides);
+    draft.personality = previous.personality;
+    draft.rhythmAmount = previous.rhythmAmount;
+    draft.intervalMs = previous.intervalMs;
+    draft.sustain = Boolean(previous.sustain);
+    return draft;
+  });
+
+  return buildSequence(drafts, metadata);
+}
+
+/** Insert one pronunciation phone immediately before or after an existing phone. */
+export function insertPinkTrombonazoidPhone(sequence, idOrIndex, insertedId, {
+  position = "after",
+} = {}) {
+  if (!sequence || !Array.isArray(sequence.segments)) return sequence;
+  const inserted = String(insertedId ?? "").toUpperCase();
+  const definition = spellingPhoneDefinition(inserted);
+  if (!definition?.gestures?.length) return sequence;
+
+  const metadata = metadataFromSequence(sequence);
+  const counts = wordPhoneCounts(metadata.tokens);
+  if (!counts.length) return sequence;
+  const entries = phoneEntries(sequence);
+  const target = resolvedPhone(sequence, idOrIndex);
+  let insertionIndex = 0;
+  let wordIndex = counts.findIndex((count) => count > 0);
+  if (target) {
+    const targetIndex = sequence.phones.findIndex(({ id }) => id === target.id);
+    insertionIndex = targetIndex + (position === "before" ? 0 : 1);
+    wordIndex = target.wordIndex;
+  } else {
+    if (entries.length) return sequence;
+    if (wordIndex < 0) wordIndex = 0;
+  }
+  entries.splice(insertionIndex, 0, {
+    id: inserted,
+    stress: definition.vowel ? 1 : 0,
+    origin: null,
+  });
+  counts[wordIndex] += 1;
+  return rebuildWithPhoneEntries(sequence, entries, counts);
+}
+
+/** Move one complete phone to a new index in pronunciation-timeline order. */
+export function movePinkTrombonazoidPhone(sequence, idOrIndex, targetIndex) {
+  if (!sequence || !Array.isArray(sequence.segments) || sequence.phones.length < 2) {
+    return sequence;
+  }
+  const target = resolvedPhone(sequence, idOrIndex);
+  if (!target) return sequence;
+  const entries = phoneEntries(sequence);
+  const sourceIndex = sequence.phones.findIndex(({ id }) => id === target.id);
+  const destination = Math.round(clamp(targetIndex, 0, entries.length - 1));
+  if (sourceIndex < 0 || sourceIndex === destination) return sequence;
+  if (sequence.phones[destination]?.wordIndex !== target.wordIndex) return sequence;
+  const [moved] = entries.splice(sourceIndex, 1);
+  entries.splice(destination, 0, moved);
+  const metadata = metadataFromSequence(sequence);
+  return rebuildWithPhoneEntries(sequence, entries, wordPhoneCounts(metadata.tokens));
+}
+
 /** Return a new frozen sequence after editing one articulation or pause. */
 export function updatePinkTrombonazoidSegment(sequence, idOrIndex, patch = {}) {
   if (!sequence || !Array.isArray(sequence.segments)) return sequence;
@@ -877,6 +1379,21 @@ export function updatePinkTrombonazoidSegment(sequence, idOrIndex, patch = {}) {
     if (typeof patch.sustain === "boolean") draft.sustain = patch.sustain;
   }
   return buildSequence(drafts, metadataFromSequence(sequence));
+}
+
+/** Change the tract personality without discarding phone, timing, or lane edits. */
+export function updatePinkTrombonazoidPersonality(sequence, personality) {
+  if (!sequence || !Array.isArray(sequence.segments)) return sequence;
+  const requested = String(personality ?? "").trim();
+  if (!requested || requested === sequence.personality) return sequence;
+  const drafts = sequence.segments.map((segment) => {
+    const draft = draftFromSegment(segment);
+    if (draft.type === "articulation") draft.personality = requested;
+    return draft;
+  });
+  const metadata = metadataFromSequence(sequence);
+  metadata.personality = requested;
+  return buildSequence(drafts, metadata);
 }
 
 /**
@@ -957,6 +1474,7 @@ export function pinkTrombonazoidAudioEvent(segment, {
   modulators = [],
   elapsedSeconds = 0,
   laneValues = null,
+  voice = null,
 } = {}) {
   if (!segment || segment.type !== "articulation" || !segment.performance) return null;
   const values = applyPinkTrombonazoidModulation(
@@ -971,11 +1489,18 @@ export function pinkTrombonazoidAudioEvent(segment, {
       clamp(carrierBaseValues[id] + values[id] - segment.laneValues[id]),
     ]),
   ));
-  const performance = performanceWithLaneValues(segment.performance, values);
-  const carrierPerformance = performanceWithLaneValues(
+  const lanePerformance = performanceWithLaneValues(segment.performance, values);
+  const laneCarrierPerformance = performanceWithLaneValues(
     segment.carrierPerformance,
     carrierValues,
   );
+  const voiceSettings = voice ? normalizePinkTrombonazoidVoice(voice) : null;
+  const performance = voiceSettings
+    ? pinkTrombonazoidVoicePerformance(lanePerformance, voiceSettings)
+    : lanePerformance;
+  const carrierPerformance = voiceSettings
+    ? pinkTrombonazoidVoicePerformance(laneCarrierPerformance, voiceSettings)
+    : laneCarrierPerformance;
   return deepFreeze({
     character: segment.character,
     articulation: segment.articulation,
@@ -999,6 +1524,7 @@ export function pinkTrombonazoidAudioEvent(segment, {
     sampleKey: segment.sampleKey,
     sustain: Boolean(segment.sustain),
     laneValues: values,
+    voiceSettings,
   });
 }
 

@@ -4,12 +4,22 @@ import test from "node:test";
 import { fallbackSpellingPronunciation } from "../src/spelling-pronunciation.js";
 import {
   DEFAULT_PINK_TROMBONAZOID_PRESET,
+  DEFAULT_PINK_TROMBONAZOID_VOICE_PRESET,
   PINK_TROMBONAZOID_LANES,
+  PINK_TROMBONAZOID_PHONE_CATALOG,
   PINK_TROMBONAZOID_PRESETS,
+  PINK_TROMBONAZOID_VOICE_HARMONIES,
+  PINK_TROMBONAZOID_VOICE_PRESETS,
   applyPinkTrombonazoidModulation,
   compilePinkTrombonazoid,
+  insertPinkTrombonazoidPhone,
+  movePinkTrombonazoidPhone,
+  normalizePinkTrombonazoidVoice,
   pinkTrombonazoidAudioEvent,
   pinkTrombonazoidSequenceDuration,
+  pinkTrombonazoidVoicePerformance,
+  removePinkTrombonazoidPhone,
+  replacePinkTrombonazoidPhone,
   retimePinkTrombonazoidSequence,
   samplePinkTrombonazoidAutomation,
   samplePinkTrombonazoidLfo,
@@ -45,6 +55,79 @@ test("Pink Trombonazoid exposes four playable, immutable text presets", () => {
   assert.equal(defaultSequence.text, "hello");
   assert.equal(pinkTrombone.text, "pink trombone");
   assert.equal(pinkTrombone.words.length, 2);
+});
+
+test("the pronunciation picker catalog exposes all 39 immutable CMU phones", () => {
+  assert.equal(PINK_TROMBONAZOID_PHONE_CATALOG.length, 39);
+  assert.equal(new Set(PINK_TROMBONAZOID_PHONE_CATALOG.map(({ id }) => id)).size, 39);
+  assert.equal(PINK_TROMBONAZOID_PHONE_CATALOG.filter(({ vowel }) => vowel).length, 15);
+  assert.deepEqual(
+    PINK_TROMBONAZOID_PHONE_CATALOG.filter(({ gliding }) => gliding).map(({ id }) => id),
+    ["AW", "AY", "ER", "EY", "OW", "OY"],
+  );
+  for (const phone of PINK_TROMBONAZOID_PHONE_CATALOG) {
+    assert.equal(Object.isFrozen(phone), true);
+    assert.equal(Object.isFrozen(phone.gestures), true);
+    assert.match(phone.label, new RegExp(`^${phone.id} · /`));
+  }
+  for (const phone of PINK_TROMBONAZOID_PHONE_CATALOG.filter(({ vowel, gliding }) => (
+    vowel && !gliding
+  ))) {
+    const sequence = compilePinkTrombonazoid([{
+      type: "word",
+      source: phone.id.toLowerCase(),
+      start: 0,
+      end: phone.id.length,
+      phones: [{ id: phone.id, stress: 1 }],
+    }]);
+    assert.equal(sequence.phoneSegments.length, 1, `${phone.id} must remain one phone`);
+    assert.equal(sequence.articulationSegments.length, 1, `${phone.id} must trigger one gesture`);
+  }
+});
+
+test("Pink Trombonazoid exposes bounded immutable solo, register, texture, and ensemble voices", () => {
+  assert.equal(DEFAULT_PINK_TROMBONAZOID_VOICE_PRESET, "clear");
+  assert.equal(Object.keys(PINK_TROMBONAZOID_VOICE_PRESETS).length, 18);
+  assert.deepEqual(
+    [...new Set(Object.values(PINK_TROMBONAZOID_VOICE_PRESETS).map(({ group }) => group))],
+    ["core", "register", "texture", "ensemble"],
+  );
+  assert.deepEqual(Object.keys(PINK_TROMBONAZOID_VOICE_HARMONIES), [
+    "shared",
+    "unison",
+    "fifths",
+    "choir",
+  ]);
+  for (const preset of Object.values(PINK_TROMBONAZOID_VOICE_PRESETS)) {
+    assert.equal(Object.isFrozen(preset), true);
+    assert.equal(Object.isFrozen(preset.voice), true);
+    assert.ok(preset.voice.throatCount >= 1 && preset.voice.throatCount <= 7);
+  }
+
+  const bounded = normalizePinkTrombonazoidVoice({
+    preset: "choir",
+    throatCount: 99,
+    harmony: "unknown",
+    registerSemitones: -90,
+    detuneCents: 500,
+    bodyLengthOffset: 2,
+    tensionOffset: -2,
+    coupling: 5,
+    spread: -4,
+  });
+  assert.deepEqual(bounded, {
+    preset: "choir",
+    throatCount: 7,
+    harmony: "shared",
+    registerSemitones: -12,
+    detuneCents: 30,
+    bodyLengthOffset: 0.22,
+    tensionOffset: -0.25,
+    mouthVariation: 0.32,
+    coupling: 0.72,
+    spread: 0,
+  });
+  assert.equal(Object.isFrozen(bounded), true);
 });
 
 test("a supplied CMU-style HELLO pronunciation compiles to word, phone, and articulation segments", () => {
@@ -275,6 +358,250 @@ test("consonant tract edits do not overwrite their anticipated vowel release ana
     consonant.carrierPerformance.nasalCoupling,
   );
   closeTo(edited.carrierPerformance.exciterPitch, 40 + 0.82 * 480);
+});
+
+test("voice shaping changes source and resonators without changing the authored pronunciation", () => {
+  const sequence = compilePinkTrombonazoid("tap", {
+    pronunciations: new Map([["tap", ["T", "AE", "P"]]]),
+  });
+  const segment = sequence.articulationSegments[0];
+  const sourcePerformance = segment.performance;
+  const plain = pinkTrombonazoidAudioEvent(segment);
+  const voice = {
+    preset: "choir",
+    throatCount: 5,
+    harmony: "choir",
+    registerSemitones: -3,
+    detuneCents: 14,
+    bodyLengthOffset: 0.08,
+    tensionOffset: -0.06,
+    mouthVariation: 0.46,
+    coupling: 0.52,
+    spread: 0.94,
+  };
+  const shaped = pinkTrombonazoidAudioEvent(segment, { voice });
+  const pronunciationFields = [
+    "phoneme",
+    "articulationManner",
+    "articulationPlace",
+    "articulationAperture",
+    "articulationVoicing",
+    "oralClosure",
+    "glottalClosure",
+    "lipDiameter",
+    "nasalCoupling",
+    "mutation",
+    "tongueCount",
+    "noseCount",
+  ];
+
+  for (const target of ["performance", "carrierPerformance"]) {
+    for (const field of pronunciationFields) {
+      assert.deepEqual(shaped[target][field], plain[target][field], `${target}.${field}`);
+    }
+    assert.deepEqual(shaped[target].tongues, plain[target].tongues);
+    assert.deepEqual(shaped[target].noses, plain[target].noses);
+    assert.deepEqual(shaped[target].pressureSources, plain[target].pressureSources);
+    assert.equal(shaped[target].throatCount, 5);
+    assert.equal(shaped[target].voiceMode, "polyphonic");
+    assert.deepEqual(shaped[target].voiceIntervals, [-12, -5, 0, 7, 12, 19, 24]);
+    assert.equal(shaped[target].coupling, 0.52);
+    assert.equal(shaped[target].spread, 0.94);
+    assert.notEqual(shaped[target].exciterPitch, plain[target].exciterPitch);
+    assert.equal(Object.isFrozen(shaped[target]), true);
+    assert.equal(Object.isFrozen(shaped[target].throats), true);
+  }
+  assert.equal(shaped.dynamics.durationMs, plain.dynamics.durationMs);
+  assert.equal(shaped.segmentId, plain.segmentId);
+  assert.equal(segment.performance, sourcePerformance, "the timeline state is not mutated");
+  assert.equal(shaped.voiceSettings.preset, "choir");
+  assert.equal(Object.isFrozen(shaped.voiceSettings), true);
+
+  const direct = pinkTrombonazoidVoicePerformance(sourcePerformance, voice);
+  assert.equal(direct.phoneme, sourcePerformance.phoneme);
+  assert.deepEqual(direct.tongues, sourcePerformance.tongues);
+});
+
+test("replacing a vowel with a diphthong updates the whole phone while preserving timing and expression", () => {
+  const source = compilePinkTrombonazoid("tap", {
+    pronunciations: new Map([["tap", ["T", "AE", "P"]]]),
+    sampleCount: 19,
+  });
+  const ae = source.phoneSegments[1];
+  const authored = updatePinkTrombonazoidSegment(source, ae.articulations[0].id, {
+    durationMs: ae.durationMs + 42,
+    lanes: {
+      pitch: 0.83,
+      intensity: 0.71,
+      breath: 0.24,
+      mutation: 0.36,
+      tonguePosition: 0.02,
+      tongueHeight: 0.98,
+      lipOpening: 0.06,
+      nasalCoupling: 0.9,
+    },
+  });
+  const authoredPhone = authored.phoneSegments[1];
+  const followingStart = authored.phoneSegments[2].startMs;
+  const changed = replacePinkTrombonazoidPhone(
+    authored,
+    authoredPhone.articulations[0].id,
+    "OY",
+  );
+  const oy = changed.phoneSegments[1];
+
+  assert.notEqual(changed, authored);
+  assert.deepEqual(changed.phoneSegments.map(({ phone }) => phone), ["T", "OY", "P"]);
+  assert.deepEqual(oy.articulations.map(({ articulation }) => articulation), ["ao", "iy"]);
+  closeTo(oy.durationMs, authoredPhone.durationMs);
+  closeTo(changed.phoneSegments[2].startMs, followingStart);
+  closeTo(changed.durationMs, authored.durationMs);
+  assert.equal(oy.id, authoredPhone.id, "the stable phone identity survives replacement");
+  assert.ok(oy.articulations[0].sampleKey);
+  assert.equal(oy.articulations[1].sampleKey, "");
+  assert.deepEqual(changed.tokens[0].phones.map(({ id }) => id), ["T", "OY", "P"]);
+  assert.deepEqual(changed.words[0].phones.map(({ phone }) => phone), ["T", "OY", "P"]);
+  assert.deepEqual(changed.articulationSegments[0].word.phones.map(({ id }) => id), ["T", "OY", "P"]);
+  assert.equal(changed.articulationSegments[0].activeCarrierVowel, "ao");
+  for (const articulation of oy.articulations) {
+    assert.deepEqual(articulation.laneOverrides, {
+      pitch: 0.83,
+      intensity: 0.71,
+      breath: 0.24,
+      mutation: 0.36,
+    });
+  }
+  assert.equal(Object.isFrozen(changed), true);
+  assert.equal(Object.isFrozen(changed.tokens), true);
+  assert.equal(source.phoneSegments[1].phone, "AE", "the original sequence remains unchanged");
+});
+
+test("replacing a diphthong with a steady vowel collapses both linked gestures", () => {
+  const source = compilePinkTrombonazoid("go", {
+    pronunciations: new Map([["go", ["G", "OW"]]]),
+  });
+  const ow = source.phoneSegments[1];
+  const changed = replacePinkTrombonazoidPhone(
+    source,
+    ow.articulations[1].id,
+    "EH",
+  );
+  const eh = changed.phoneSegments[1];
+
+  assert.equal(eh.phone, "EH");
+  assert.deepEqual(eh.articulations.map(({ articulation }) => articulation), ["e"]);
+  closeTo(eh.durationMs, ow.durationMs);
+  closeTo(changed.durationMs, source.durationMs);
+  assert.equal(changed.tokens[0].phones[1].id, "EH");
+  assert.equal(replacePinkTrombonazoidPhone(changed, eh.id, "EH"), changed);
+  assert.equal(replacePinkTrombonazoidPhone(changed, "missing-phone", "UW"), changed);
+  assert.equal(replacePinkTrombonazoidPhone(changed, eh.id, "NOPE"), changed);
+});
+
+test("removing a complete phone closes its timeline gap and preserves later edits", () => {
+  const source = compilePinkTrombonazoid("tap", {
+    pronunciations: new Map([["tap", ["T", "AE", "P"]]]),
+  });
+  const authored = updatePinkTrombonazoidSegment(
+    source,
+    source.phoneSegments[2].articulations[0].id,
+    { durationMs: 133, lanes: { pitch: 0.84, intensity: 0.63 } },
+  );
+  const removed = authored.phoneSegments[1];
+  const following = authored.phoneSegments[2];
+  const changed = removePinkTrombonazoidPhone(authored, removed.id);
+
+  assert.deepEqual(changed.phoneSegments.map(({ phone }) => phone), ["T", "P"]);
+  closeTo(changed.phoneSegments[1].startMs, removed.startMs);
+  closeTo(changed.phoneSegments[1].durationMs, following.durationMs);
+  closeTo(changed.durationMs, authored.durationMs - removed.durationMs);
+  assert.deepEqual(changed.phoneSegments[1].articulations[0].laneOverrides, {
+    pitch: 0.84,
+    intensity: 0.63,
+  });
+  assert.deepEqual(changed.tokens[0].phones.map(({ id }) => id), ["T", "P"]);
+  assert.equal(Object.isFrozen(changed), true);
+  assert.equal(removePinkTrombonazoidPhone(changed, "missing-phone"), changed);
+  assert.deepEqual(source.phoneSegments.map(({ phone }) => phone), ["T", "AE", "P"]);
+
+  const single = compilePinkTrombonazoid("a", {
+    pronunciations: new Map([["a", ["AH"]]]),
+  });
+  const empty = removePinkTrombonazoidPhone(single, single.phoneSegments[0].id);
+  assert.equal(empty.durationMs, 0);
+  assert.equal(empty.segments.length, 0);
+  assert.equal(empty.phoneSegments.length, 0);
+});
+
+test("inserting a phone opens one timeline slot and preserves every authored neighbor", () => {
+  const source = compilePinkTrombonazoid("tap", {
+    pronunciations: new Map([["tap", ["T", "AE", "P"]]]),
+  });
+  const authored = updatePinkTrombonazoidSegment(
+    source,
+    source.phoneSegments[1].articulations[0].id,
+    { durationMs: 247, lanes: { pitch: 0.82, intensity: 0.61 } },
+  );
+  const inserted = insertPinkTrombonazoidPhone(
+    authored,
+    authored.phoneSegments[0].id,
+    "OY",
+  );
+
+  assert.deepEqual(inserted.phoneSegments.map(({ phone }) => phone), ["T", "OY", "AE", "P"]);
+  assert.deepEqual(
+    inserted.phoneSegments[1].articulations.map(({ articulation }) => articulation),
+    ["ao", "iy"],
+  );
+  closeTo(inserted.phoneSegments[2].durationMs, 247);
+  assert.deepEqual(inserted.phoneSegments[2].articulations[0].laneOverrides, {
+    pitch: 0.82,
+    intensity: 0.61,
+  });
+  closeTo(inserted.durationMs, authored.durationMs + inserted.phoneSegments[1].durationMs);
+  assert.deepEqual(inserted.tokens[0].phones.map(({ id }) => id), ["T", "OY", "AE", "P"]);
+  assert.equal(Object.isFrozen(inserted), true);
+  assert.equal(insertPinkTrombonazoidPhone(inserted, inserted.phoneSegments[0].id, "NOPE"), inserted);
+});
+
+test("an empty pronunciation can recover with plus and reordered phones keep their identity", () => {
+  const single = compilePinkTrombonazoid("a", {
+    pronunciations: new Map([["a", ["AH"]]]),
+  });
+  const empty = removePinkTrombonazoidPhone(single, single.phoneSegments[0].id);
+  const restored = insertPinkTrombonazoidPhone(empty, null, "EH");
+  assert.deepEqual(restored.phoneSegments.map(({ phone }) => phone), ["EH"]);
+
+  const source = compilePinkTrombonazoid("mama", {
+    pronunciations: new Map([["mama", ["M", "AE", "M", "AH"]]]),
+  });
+  const secondM = source.phoneSegments[2];
+  const authored = updatePinkTrombonazoidSegment(
+    source,
+    secondM.articulations[0].id,
+    { durationMs: 167, lanes: { mutation: 0.77 } },
+  );
+  const moved = movePinkTrombonazoidPhone(authored, authored.phoneSegments[2].id, 0);
+  assert.deepEqual(moved.phoneSegments.map(({ phone }) => phone), ["M", "M", "AE", "AH"]);
+  closeTo(moved.phoneSegments[0].durationMs, 167);
+  assert.deepEqual(moved.phoneSegments[0].articulations[0].laneOverrides, { mutation: 0.77 });
+  assert.deepEqual(moved.phoneSegments[1].articulations[0].laneOverrides, {});
+  closeTo(moved.durationMs, authored.durationMs);
+  assert.deepEqual(moved.tokens[0].phones.map(({ id }) => id), ["M", "M", "AE", "AH"]);
+  assert.equal(Object.isFrozen(moved), true);
+  assert.equal(movePinkTrombonazoidPhone(moved, moved.phoneSegments[0].id, 0), moved);
+
+  const twoWords = compilePinkTrombonazoid("hi there", {
+    pronunciations: new Map([
+      ["hi", ["HH", "AY"]],
+      ["there", ["DH", "EH", "R"]],
+    ]),
+  });
+  assert.equal(
+    movePinkTrombonazoidPhone(twoWords, twoWords.phoneSegments[0].id, 3),
+    twoWords,
+    "word boundaries stay fixed",
+  );
 });
 
 test("whole-sequence retiming preserves content and rescales articulation and pause timing", () => {

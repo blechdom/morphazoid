@@ -1,25 +1,34 @@
 import {
+  DEFAULT_PINK_TROMBONAZOID_VOICE_PRESET,
+  PINK_TROMBONAZOID_VOICE_HARMONIES,
+  PINK_TROMBONAZOID_VOICE_PRESETS,
+  PINK_TROMBONAZOID_PHONE_CATALOG,
   PINK_TROMBONAZOID_LANES,
   compilePinkTrombonazoid,
+  insertPinkTrombonazoidPhone,
+  movePinkTrombonazoidPhone,
   pinkTrombonazoidAudioEvent,
+  removePinkTrombonazoidPhone,
+  replacePinkTrombonazoidPhone,
   retimePinkTrombonazoidSequence,
   samplePinkTrombonazoidLfo,
+  updatePinkTrombonazoidPersonality,
   updatePinkTrombonazoidSegment,
-} from "./src/pink-trombonazoid.js";
+} from "./src/pink-trombonazoid.js?v=pink-trombonazoid-20260821-6";
 import {
   loadSpellingPronunciations,
-} from "./src/spelling-pronunciation.js";
-import { SpellingSynthesizerAudio } from "./src/spelling-synthesizer-audio.js";
+} from "./src/spelling-pronunciation.js?v=pink-trombonazoid-20260821-6";
+import { SpellingSynthesizerAudio } from "./src/spelling-synthesizer-audio.js?v=pink-trombonazoid-20260821-6";
 
 const $ = (id) => document.getElementById(id);
 const SVG_NS = "http://www.w3.org/2000/svg";
 const TIMELINE_MIN_WIDTH = 920;
 const TIMELINE_PIXELS_PER_MS = 0.72;
+const PHONE_MIN_WIDTH = 132;
 const LANE_TOP = 18;
 const LANE_HEIGHT = 40;
 const LANE_GRAPH_HEIGHT = 27;
 const TIMELINE_BOTTOM = 28;
-const prefersReducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 
 const state = {
   sequence: null,
@@ -37,9 +46,9 @@ const state = {
   animationFrame: 0,
   lastAudioModulationAt: 0,
   drag: null,
-  tractDrag: false,
-  displayedPerformance: null,
-  livePerformance: null,
+  draggedPhoneId: "",
+  timelineResizeFrame: 0,
+  timelineViewportWidth: 0,
   buildGeneration: 0,
 };
 
@@ -89,11 +98,159 @@ function rawPitch(normalized) {
   return 40 + clamp(normalized) * 480;
 }
 
-function lipOpeningLabel(value) {
-  if (value < 0.12) return "closed";
-  if (value < 0.34) return "rounded";
-  if (value < 0.7) return "narrow";
-  return "open";
+const PHONE_CATALOG_BY_ID = new Map(
+  PINK_TROMBONAZOID_PHONE_CATALOG.map((phone) => [phone.id, phone]),
+);
+const VOICE_PRESET_BY_ID = new Map(
+  Object.values(PINK_TROMBONAZOID_VOICE_PRESETS).map((preset) => [preset.id, preset]),
+);
+const PHONE_MENU_GROUPS = Object.freeze([
+  Object.freeze(["vowel", "Vowels"]),
+  Object.freeze(["gliding-vowel", "Diphthongs + R-colored vowels"]),
+  Object.freeze(["consonant", "Consonants"]),
+]);
+const VOICE_CONTROL_IDS = Object.freeze([
+  "voiceThroats",
+  "voiceHarmony",
+  "voiceRegister",
+  "voiceDetune",
+  "voiceBody",
+  "voiceTension",
+  "voiceVariation",
+  "voiceCoupling",
+  "voiceSpread",
+]);
+
+function populatePhoneOptions(select, {
+  placeholder = false,
+  placeholderLabel = "Choose a phoneme",
+} = {}) {
+  select.replaceChildren();
+  if (placeholder) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = placeholderLabel;
+    select.append(option);
+  }
+  for (const [groupId, label] of PHONE_MENU_GROUPS) {
+    const group = document.createElement("optgroup");
+    group.label = label;
+    for (const phone of PINK_TROMBONAZOID_PHONE_CATALOG) {
+      if (phone.group !== groupId) continue;
+      const option = document.createElement("option");
+      option.value = phone.id;
+      option.textContent = phone.label;
+      group.append(option);
+    }
+    select.append(group);
+  }
+}
+
+function populatePhoneMenu() {
+  populatePhoneOptions($("selectedPhone"), { placeholder: true });
+}
+
+function populateVoiceMenus() {
+  const presetSelect = $("personality");
+  const presetGroups = [
+    ["core", "Core voices"],
+    ["register", "Register voices"],
+    ["texture", "Textures"],
+    ["ensemble", "Ensembles · layered throats"],
+  ];
+  presetSelect.replaceChildren();
+  for (const [groupId, label] of presetGroups) {
+    const group = document.createElement("optgroup");
+    group.label = label;
+    for (const preset of VOICE_PRESET_BY_ID.values()) {
+      if (preset.group !== groupId) continue;
+      const option = document.createElement("option");
+      option.value = preset.id;
+      option.textContent = `${preset.name} · ${preset.note}`;
+      group.append(option);
+    }
+    presetSelect.append(group);
+  }
+  presetSelect.value = DEFAULT_PINK_TROMBONAZOID_VOICE_PRESET;
+
+  const harmonySelect = $("voiceHarmony");
+  harmonySelect.replaceChildren();
+  for (const harmony of Object.values(PINK_TROMBONAZOID_VOICE_HARMONIES)) {
+    const option = document.createElement("option");
+    option.value = harmony.id;
+    option.textContent = harmony.name;
+    harmonySelect.append(option);
+  }
+}
+
+function selectedVoicePreset() {
+  return VOICE_PRESET_BY_ID.get($("personality").value)
+    ?? VOICE_PRESET_BY_ID.get(DEFAULT_PINK_TROMBONAZOID_VOICE_PRESET);
+}
+
+function voiceSettings() {
+  return {
+    preset: selectedVoicePreset().id,
+    throatCount: Number($("voiceThroats").value),
+    harmony: $("voiceHarmony").value,
+    registerSemitones: Number($("voiceRegister").value),
+    detuneCents: Number($("voiceDetune").value),
+    bodyLengthOffset: Number($("voiceBody").value),
+    tensionOffset: Number($("voiceTension").value),
+    mouthVariation: Number($("voiceVariation").value),
+    coupling: Number($("voiceCoupling").value),
+    spread: Number($("voiceSpread").value),
+  };
+}
+
+function updateVoiceReadouts() {
+  const signed = (value, suffix) => `${value > 0 ? "+" : ""}${value}${suffix}`;
+  $("voiceThroatsOut").textContent = $("voiceThroats").value;
+  $("voiceRegisterOut").textContent = signed(Number($("voiceRegister").value), " st");
+  $("voiceDetuneOut").textContent = `${Math.round(Number($("voiceDetune").value))} ct`;
+  $("voiceBodyOut").textContent = signed(Math.round(Number($("voiceBody").value) * 100), "%");
+  $("voiceTensionOut").textContent = signed(Math.round(Number($("voiceTension").value) * 100), "%");
+  $("voiceVariationOut").textContent = `${Math.round(Number($("voiceVariation").value) * 100)}%`;
+  $("voiceCouplingOut").textContent = `${Math.round(Number($("voiceCoupling").value) * 100)}%`;
+  $("voiceSpreadOut").textContent = `${Math.round(Number($("voiceSpread").value) * 100)}%`;
+}
+
+function setVoiceControls(settings) {
+  const voice = settings ?? selectedVoicePreset().voice;
+  $("voiceThroats").value = String(voice.throatCount);
+  $("voiceHarmony").value = voice.harmony;
+  $("voiceRegister").value = String(voice.registerSemitones);
+  $("voiceDetune").value = String(voice.detuneCents);
+  $("voiceBody").value = String(voice.bodyLengthOffset);
+  $("voiceTension").value = String(voice.tensionOffset);
+  $("voiceVariation").value = String(voice.mouthVariation);
+  $("voiceCoupling").value = String(voice.coupling);
+  $("voiceSpread").value = String(voice.spread);
+  updateVoiceReadouts();
+  updateVoiceControlAvailability();
+}
+
+function updateVoiceControlAvailability() {
+  const fallback = state.audioEnabled && audio.activeEngine !== "tube";
+  const throatCount = Number($("voiceThroats").value);
+  const shared = $("voiceHarmony").value === "shared";
+  for (const id of VOICE_CONTROL_IDS) $(id).disabled = fallback;
+  if (!fallback) {
+    $("voiceDetune").disabled = shared;
+    for (const id of ["voiceVariation", "voiceCoupling", "voiceSpread"]) {
+      $(id).disabled = throatCount <= 1;
+    }
+  }
+  $("voiceEngineNote").textContent = fallback
+    ? "Multi-throat shaping needs the physical tube. The fallback keeps the selected base voice and pronunciation."
+    : "Source and resonator controls only. Ensemble presets layer the same phone across throats; they never add timeline phones. Pronunciation, tongue, lip, nose, closure, and timing remain in the timeline.";
+}
+
+function voiceDescription() {
+  const voice = voiceSettings();
+  const harmony = PINK_TROMBONAZOID_VOICE_HARMONIES[voice.harmony];
+  const mode = voice.harmony === "shared" ? "linked" : "independently pitched";
+  return `${voice.throatCount} ${mode} ${voice.throatCount === 1 ? "throat" : "throats"}, ${harmony.name.toLowerCase()}, ${voice.registerSemitones > 0 ? "+" : ""}${voice.registerSemitones} semitones`;
 }
 
 function updateSummary() {
@@ -115,6 +272,7 @@ function updateAudioUi() {
   $("stopButton").disabled = !state.playing;
   $("loopButton").setAttribute("aria-pressed", String(state.loop));
   $("loopState").textContent = state.loop ? "on" : "off";
+  updateVoiceControlAvailability();
 }
 
 async function enableAudio() {
@@ -151,15 +309,74 @@ async function disableAudio() {
 }
 
 function timelineWidth() {
-  const requiredScale = state.sequence?.segments.reduce((scale, segment) => {
-    if (!(segment.durationMs > 0)) return scale;
-    const targetWidth = segment.type === "boundary" ? 22 : 48;
-    return Math.max(scale, targetWidth / segment.durationMs);
+  const sequence = state.sequence;
+  const rulerEntries = sequence
+    ? [...sequence.phones, ...sequence.boundarySegments]
+    : [];
+  const requiredScale = rulerEntries.reduce((scale, entry) => {
+    if (!(entry.durationMs > 0)) return scale;
+    const targetWidth = entry.type === "boundary" ? 22 : PHONE_MIN_WIDTH;
+    return Math.max(scale, targetWidth / entry.durationMs);
   }, TIMELINE_PIXELS_PER_MS) ?? TIMELINE_PIXELS_PER_MS;
+  const timelineScroll = $("timelineScroll");
+  const gutterWidth = $("laneGutter")?.getBoundingClientRect().width ?? 0;
+  const availableWidth = Math.max(0, (timelineScroll?.clientWidth ?? 0) - gutterWidth);
   return Math.max(
     TIMELINE_MIN_WIDTH,
+    Math.floor(availableWidth),
     Math.round((state.sequence?.durationMs ?? 1) * Math.min(2.4, requiredScale)),
   );
+}
+
+function durationHandle(segment, { edgePercent = null } = {}) {
+  const handle = document.createElement("span");
+  handle.className = "ptz-duration-grab";
+  handle.dataset.segmentId = segment.id;
+  handle.tabIndex = 0;
+  handle.setAttribute("role", "slider");
+  handle.setAttribute("aria-label", `Duration of ${segment.phoneLabel ?? "pause"}`);
+  handle.setAttribute("aria-valuemin", segment.type === "boundary" ? "0" : "24");
+  handle.setAttribute("aria-valuemax", "2400");
+  handle.setAttribute("aria-valuenow", String(Math.round(segment.durationMs)));
+  if (Number.isFinite(edgePercent)) {
+    handle.classList.add("is-internal");
+    handle.style.setProperty("--edge-position", `${edgePercent}%`);
+  }
+  handle.addEventListener("pointerdown", (event) => beginDurationDrag(event, segment));
+  handle.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    event.preventDefault();
+    const step = event.shiftKey ? 25 : 5;
+    editSegment(segment.id, {
+      durationMs: segment.durationMs + (event.key === "ArrowRight" ? step : -step),
+    }, {
+      focus: { type: "duration", segmentId: segment.id },
+    });
+  });
+  return handle;
+}
+
+function phoneAddSelect(afterPhone = null) {
+  const select = document.createElement("select");
+  select.className = afterPhone ? "ptz-phone-add" : "ptz-phone-add ptz-empty-phone-add";
+  select.dataset.afterPhoneId = afterPhone?.id ?? "";
+  populatePhoneOptions(select, { placeholder: true, placeholderLabel: "+" });
+  select.value = "";
+  select.setAttribute(
+    "aria-label",
+    afterPhone
+      ? `Add a phoneme after ${afterPhone.phoneLabel}`
+      : "Add the first phoneme to the pronunciation timeline",
+  );
+  select.title = afterPhone ? `Add after ${afterPhone.phoneLabel}` : "Add first phoneme";
+  select.addEventListener("pointerdown", (event) => event.stopPropagation());
+  select.addEventListener("change", (event) => {
+    event.stopPropagation();
+    if (event.currentTarget.value) {
+      insertPhone(afterPhone?.id ?? null, event.currentTarget.value);
+    }
+  });
+  return select;
 }
 
 function renderPhonemeRuler() {
@@ -168,55 +385,149 @@ function renderPhonemeRuler() {
   ruler.replaceChildren();
   if (!sequence) return;
   const width = timelineWidth();
-  for (const segment of sequence.segments) {
+  const activeSegment = sequence.segments[state.activeSegmentIndex];
+  const entries = [...sequence.phones, ...sequence.boundarySegments]
+    .sort((left, right) => left.startMs - right.startMs);
+  if (!sequence.phones.length) {
+    const emptyAdd = document.createElement("div");
+    emptyAdd.className = "ptz-empty-phone-slot";
+    emptyAdd.append(phoneAddSelect());
+    ruler.append(emptyAdd);
+  }
+  for (const entry of entries) {
+    const boundary = entry.type === "boundary";
+    const selectedArticulation = boundary
+      ? null
+      : entry.articulations.find(({ id }) => id === state.selectedSegmentId)
+        ?? entry.articulations[0];
     const cell = document.createElement("div");
     cell.className = [
       "ptz-phoneme-cell",
-      segment.type === "boundary" ? "is-boundary" : "",
-      segment.vowel ? "is-vowel" : "",
+      boundary ? "is-boundary" : "",
+      entry.vowel ? "is-vowel" : "",
     ].filter(Boolean).join(" ");
-    cell.dataset.segmentId = segment.id;
+    cell.dataset.segmentId = boundary ? entry.id : selectedArticulation.id;
+    if (!boundary) cell.dataset.phoneId = entry.id;
     cell.style.setProperty(
       "--segment-width",
-      `${Math.max(segment.type === "boundary" ? 22 : 48, segment.durationMs / sequence.durationMs * width)}px`,
+      `${Math.max(boundary ? 22 : PHONE_MIN_WIDTH, entry.durationMs / sequence.durationMs * width)}px`,
     );
-    cell.classList.toggle("is-selected", segment.id === state.selectedSegmentId);
-    const select = document.createElement("button");
-    select.type = "button";
-    select.className = "ptz-phoneme-select";
-    select.setAttribute("aria-pressed", String(segment.id === state.selectedSegmentId));
-    if (segment.type === "boundary") {
-      select.innerHTML = `<b aria-hidden="true">·</b><small>${Math.round(segment.durationMs)} ms pause</small>`;
-      select.setAttribute("aria-label", `${Math.round(segment.durationMs)} millisecond pause`);
+    cell.classList.toggle(
+      "is-selected",
+      boundary
+        ? entry.id === state.selectedSegmentId
+        : entry.articulations.some(({ id }) => id === state.selectedSegmentId),
+    );
+    cell.classList.toggle(
+      "is-playing",
+      activeSegment?.type === "articulation"
+        ? !boundary && entry.id === activeSegment.phoneId
+        : boundary && entry.id === activeSegment?.id,
+    );
+    if (boundary) {
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "ptz-phoneme-trigger";
+      trigger.dataset.segmentId = entry.id;
+      trigger.setAttribute("aria-pressed", String(entry.id === state.selectedSegmentId));
+      trigger.innerHTML = `<b aria-hidden="true">·</b><small>${Math.round(entry.durationMs)} ms pause</small>`;
+      trigger.setAttribute("aria-label", `${Math.round(entry.durationMs)} millisecond pause`);
+      trigger.addEventListener("click", () => selectSegment(entry.id));
+      cell.append(trigger);
     } else {
-      select.innerHTML = `<b>${segment.phoneLabel}</b><small>${segment.articulationLabel} · ${Math.round(segment.durationMs)} ms</small>`;
+      const phone = PHONE_CATALOG_BY_ID.get(entry.phone);
+      const shell = document.createElement("span");
+      const select = document.createElement("select");
+      const meta = document.createElement("small");
+      const shortLabel = document.createElement("span");
+      const tools = document.createElement("span");
+      const moveButton = document.createElement("button");
+      const addSelect = phoneAddSelect(entry);
+      const removeButton = document.createElement("button");
+      shell.className = "ptz-phoneme-select-shell";
+      select.className = "ptz-phoneme-select ptz-inline-phone-select";
+      select.dataset.segmentId = selectedArticulation.id;
+      select.dataset.phoneId = entry.id;
+      select.dataset.articulationIndex = String(selectedArticulation.articulationIndex);
+      populatePhoneOptions(select);
+      select.value = entry.phone;
+      shortLabel.className = "ptz-phoneme-short";
+      shortLabel.textContent = entry.phoneLabel;
+      shortLabel.setAttribute("aria-hidden", "true");
+      meta.className = "sr-only";
+      meta.id = `${entry.id}-phone-meta`;
+      meta.textContent = `${entry.articulations.map(({ articulationLabel }) => articulationLabel).join(" to ")} gesture, ${Math.round(entry.durationMs)} milliseconds`;
+      tools.className = "ptz-phone-tools";
+      tools.setAttribute("role", "group");
+      tools.setAttribute("aria-label", `${entry.phoneLabel} phone actions`);
+      moveButton.type = "button";
+      moveButton.className = "ptz-phone-move";
+      moveButton.dataset.phoneId = entry.id;
+      moveButton.draggable = true;
+      moveButton.textContent = "↔";
+      moveButton.setAttribute(
+        "aria-label",
+        `Move ${entry.phoneLabel}; drag, or use the left and right arrow keys`,
+      );
+      moveButton.title = `Move ${entry.phoneLabel}`;
+      removeButton.type = "button";
+      removeButton.className = "ptz-phone-delete";
+      removeButton.textContent = "x";
+      removeButton.setAttribute("aria-label", `Remove ${entry.phoneLabel} from the pronunciation timeline`);
+      removeButton.title = `Remove ${entry.phoneLabel}`;
       select.setAttribute(
         "aria-label",
-        `${segment.phoneLabel}, ${segment.manner}, ${Math.round(segment.durationMs)} milliseconds`,
+        `Change pronunciation for ${entry.phoneLabel}, /${phone?.ipa ?? entry.phoneLabel}/ as in ${phone?.example ?? "this sound"}`,
       );
-    }
-    select.addEventListener("click", () => selectSegment(segment.id));
-    const handle = document.createElement("span");
-    handle.className = "ptz-duration-grab";
-    handle.dataset.segmentId = segment.id;
-    handle.tabIndex = 0;
-    handle.setAttribute("role", "slider");
-    handle.setAttribute("aria-label", `Duration of ${segment.phoneLabel ?? "pause"}`);
-    handle.setAttribute("aria-valuemin", segment.type === "boundary" ? "0" : "24");
-    handle.setAttribute("aria-valuemax", "2400");
-    handle.setAttribute("aria-valuenow", String(Math.round(segment.durationMs)));
-    handle.addEventListener("pointerdown", (event) => beginDurationDrag(event, segment));
-    handle.addEventListener("keydown", (event) => {
-      if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
-      event.preventDefault();
-      const step = event.shiftKey ? 25 : 5;
-      editSegment(segment.id, {
-        durationMs: segment.durationMs + (event.key === "ArrowRight" ? step : -step),
-      }, {
-        focus: { type: "duration", segmentId: segment.id },
+      select.setAttribute("aria-describedby", meta.id);
+      const selectCurrentArticulation = () => {
+        const current = selectedSegment();
+        selectSegment(current?.phoneId === entry.id ? current.id : entry.articulations[0].id);
+      };
+      select.addEventListener("focus", selectCurrentArticulation);
+      select.addEventListener("pointerdown", selectCurrentArticulation);
+      select.addEventListener("click", (event) => event.stopPropagation());
+      select.addEventListener("change", (event) => {
+        event.stopPropagation();
+        const current = selectedSegment();
+        replacePhone(entry.id, event.currentTarget.value, {
+          articulationIndex: current?.phoneId === entry.id ? current.articulationIndex : 0,
+          focusOrigin: "timeline",
+        });
       });
+      moveButton.addEventListener("click", () => {
+        selectSegment(entry.articulations[0].id);
+        announce(`Move ${entry.phoneLabel} with the left and right arrow keys, or drag this handle.`);
+      });
+      moveButton.addEventListener("keydown", (event) => {
+        if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+        event.preventDefault();
+        const phoneIndex = state.sequence?.phones.findIndex(({ id }) => id === entry.id) ?? -1;
+        movePhone(entry.id, phoneIndex + (event.key === "ArrowRight" ? 1 : -1));
+      });
+      moveButton.addEventListener("dragstart", (event) => beginPhoneDrag(event, entry.id));
+      moveButton.addEventListener("dragend", endPhoneDrag);
+      cell.addEventListener("dragover", (event) => continuePhoneDrag(event, entry.id));
+      cell.addEventListener("drop", (event) => dropPhone(event, entry.id));
+      cell.addEventListener("dragleave", (event) => {
+        if (!cell.contains(event.relatedTarget)) cell.classList.remove("is-drop-before", "is-drop-after");
+      });
+      removeButton.addEventListener("pointerdown", (event) => event.stopPropagation());
+      removeButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        removePhone(entry.id);
+      });
+      shell.append(select, shortLabel);
+      tools.append(moveButton, addSelect, removeButton);
+      cell.append(tools, shell, meta);
+    }
+    const articulations = boundary ? [entry] : entry.articulations;
+    articulations.forEach((segment, index) => {
+      const edgePercent = !boundary && index < articulations.length - 1
+        ? (segment.endMs - entry.startMs) / Math.max(1, entry.durationMs) * 100
+        : null;
+      cell.append(durationHandle(segment, { edgePercent }));
     });
-    cell.append(select, handle);
     ruler.append(cell);
   }
 }
@@ -387,7 +698,17 @@ function selectSegment(id) {
   if (!segment) return;
   state.selectedSegmentId = segment.id;
   state.selectedPitchBaseHz = segment.performance?.exciterPitch ?? 140;
-  renderPhonemeRuler();
+  document.querySelectorAll(".ptz-phoneme-cell").forEach((cell) => {
+    cell.classList.toggle(
+      "is-selected",
+      segment.type === "articulation"
+        ? cell.dataset.phoneId === segment.phoneId
+        : cell.dataset.segmentId === id,
+    );
+  });
+  document.querySelectorAll(".ptz-phoneme-trigger").forEach((trigger) => {
+    trigger.setAttribute("aria-pressed", String(trigger.dataset.segmentId === id));
+  });
   updateSelectedEditor();
   document.querySelectorAll(".ptz-keyframe").forEach((key) => {
     key.classList.toggle("is-selected", key.dataset.segmentId === id);
@@ -396,8 +717,20 @@ function selectSegment(id) {
 
 function updateSelectedEditor() {
   const segment = selectedSegment();
-  if (!segment) return;
+  if (!segment) {
+    $("selectedTitle").textContent = "No phone selected";
+    $("selectedTimeOut").textContent = "—";
+    $("selectedPhone").value = "";
+    $("selectedPhone").disabled = true;
+    $("selectedPhoneKind").textContent = "timeline is empty";
+    $("selectedPhoneHelp").textContent = "Build another word or choose a word preset to restore pronunciation phones.";
+    for (const id of ["segmentDuration", "segmentPitch", "segmentIntensity", "segmentBreath"]) {
+      $(id).disabled = true;
+    }
+    return;
+  }
   const articulation = segment.type === "articulation";
+  const phone = articulation ? PHONE_CATALOG_BY_ID.get(segment.phone) : null;
   $("selectedTitle").textContent = articulation
     ? `${segment.phoneLabel} · ${segment.manner}`
     : "Pause · boundary";
@@ -406,6 +739,20 @@ function updateSelectedEditor() {
   $("segmentDuration").value = String(segment.durationMs);
   $("segmentDurationOut").textContent = formatDuration(segment.durationMs);
   for (const id of ["segmentPitch", "segmentIntensity", "segmentBreath"]) $(id).disabled = !articulation;
+  $("selectedPhone").disabled = !phone;
+  $("selectedPhone").value = phone?.id ?? "";
+  $("selectedPhoneKind").textContent = phone?.gliding
+    ? "two-gesture vowel"
+    : phone?.vowel
+      ? "vowel phoneme"
+      : phone
+        ? `${segment.manner} consonant`
+        : "select a phone block";
+  $("selectedPhoneHelp").textContent = phone
+    ? phone.gliding
+      ? `${phone.id} is one phoneme rendered as ${phone.gestures.join(" → ")}. Changing it keeps the phone's total time.`
+      : `Choose another phoneme for this whole phone. Timing and expressive edits are preserved.`
+    : "Choose a phone block in the pronunciation timeline before changing its sound.";
   updateLaneReadouts(segment.startMs + segment.durationMs * 0.5);
   if (!articulation) return;
   state.selectedPitchBaseHz = segment.performance?.exciterPitch ?? rawPitch(segment.laneValues.pitch);
@@ -417,12 +764,34 @@ function updateSelectedEditor() {
   $("segmentBreathOut").textContent = `${Math.round(segment.laneValues.breath * 100)}%`;
 }
 
+function playbackSegmentIndex(elapsedMs = state.elapsedMs) {
+  const segments = state.sequence?.segments ?? [];
+  const index = segments.findIndex(({ startMs, endMs }) => (
+    elapsedMs >= startMs && elapsedMs < endMs
+  ));
+  return index >= 0 ? index : Math.max(-1, segments.length - 1);
+}
+
+function keepPlaybackAfterEdit(elapsedMs = state.elapsedMs, { rearticulate = false } = {}) {
+  if (!state.playing) return;
+  if (!state.sequence?.segments.length) {
+    stopPlayback({ announceStop: false });
+    return;
+  }
+  state.elapsedMs = clamp(elapsedMs, 0, Math.max(0, state.sequence.durationMs - 1));
+  if (!state.loopRestartAt) state.playStartedAt = performance.now() - state.elapsedMs;
+  state.activeSegmentIndex = state.loopRestartAt || rearticulate
+    ? -1
+    : playbackSegmentIndex(state.elapsedMs);
+  updateAudioUi();
+}
+
 function editSegment(id, patch, { focus = null } = {}) {
   if (!state.sequence) return;
-  const stoppedPlayback = state.playing;
-  if (stoppedPlayback) stopPlayback({ announceStop: false });
+  const elapsedMs = state.elapsedMs;
   state.sequence = updatePinkTrombonazoidSegment(state.sequence, id, patch);
   renderAll();
+  keepPlaybackAfterEdit(elapsedMs);
   if (state.drag?.type === "lane") state.drag.svg = $("timelineSvg");
   if (focus?.type === "duration") {
     [...document.querySelectorAll(".ptz-duration-grab")]
@@ -435,7 +804,235 @@ function editSegment(id, patch, { focus = null } = {}) {
       ))
       ?.focus();
   }
-  if (stoppedPlayback) announce("Playback stopped for the timeline edit.");
+}
+
+function replacePhone(phoneId, replacementId, {
+  articulationIndex = 0,
+  focusOrigin = "side",
+} = {}) {
+  const replacement = PHONE_CATALOG_BY_ID.get(String(replacementId ?? ""));
+  if (!state.sequence || !replacement) return;
+  const previousPhone = state.sequence.phones.find(({ id }) => id === phoneId);
+  if (!previousPhone || previousPhone.phone === replacement.id) return;
+  const wasPlaying = state.playing;
+  const elapsedMs = state.elapsedMs;
+  const rulerScrollLeft = $("phonemeRuler").scrollLeft;
+  const timelineScrollLeft = $("timelineScroll").scrollLeft;
+  const previousId = previousPhone.phone;
+  const previousDurationMs = previousPhone.durationMs;
+  const next = replacePinkTrombonazoidPhone(
+    state.sequence,
+    previousPhone.id,
+    replacement.id,
+  );
+  if (next === state.sequence) return;
+  state.sequence = next;
+  const nextPhone = next.phones.find(({ id }) => id === previousPhone.id);
+  const nextArticulationIndex = Math.min(
+    Math.max(0, Math.round(Number(articulationIndex) || 0)),
+    Math.max(0, (nextPhone?.articulations?.length ?? 1) - 1),
+  );
+  state.selectedSegmentId = nextPhone?.articulations?.[nextArticulationIndex]?.id
+    ?? next.articulationSegments[0]?.id
+    ?? "";
+  state.elapsedMs = wasPlaying ? elapsedMs : 0;
+  renderAll();
+  keepPlaybackAfterEdit(state.elapsedMs);
+  $("phonemeRuler").scrollLeft = rulerScrollLeft;
+  $("timelineScroll").scrollLeft = timelineScrollLeft;
+  if (focusOrigin === "timeline") {
+    const inlineSelects = [...document.querySelectorAll(".ptz-inline-phone-select")]
+      .filter((select) => select.dataset.phoneId === previousPhone.id);
+    const focusTarget = inlineSelects.find(
+      (select) => Number(select.dataset.articulationIndex) === nextArticulationIndex,
+    ) ?? inlineSelects[0];
+    focusTarget?.focus({ preventScroll: true });
+  } else {
+    $("selectedPhone").focus({ preventScroll: true });
+  }
+  const timingPreserved = Math.abs((nextPhone?.durationMs ?? 0) - previousDurationMs) < 0.01;
+  announce(
+    `${previousId} changed to ${replacement.id}, /${replacement.ipa}/ as in ${replacement.example}. `
+      + `${replacement.gliding ? "It moves through two tract gestures. " : ""}`
+      + `${timingPreserved ? "Phone timing preserved." : "The phone was lengthened to fit both gestures."}`
+      + `${wasPlaying ? ` ${state.loop ? "Loop" : "Playback"} continues.` : ""}`,
+  );
+}
+
+function replaceSelectedPhone(replacementId) {
+  const segment = selectedSegment();
+  if (!segment || segment.type !== "articulation") return;
+  replacePhone(segment.phoneId, replacementId, {
+    articulationIndex: segment.articulationIndex,
+    focusOrigin: "side",
+  });
+}
+
+function insertPhone(afterPhoneId, insertedId) {
+  if (!state.sequence || !PHONE_CATALOG_BY_ID.has(String(insertedId ?? ""))) return;
+  const wasPlaying = state.playing;
+  const elapsedMs = state.elapsedMs;
+  const previousPhones = state.sequence.phones;
+  const anchorIndex = afterPhoneId
+    ? previousPhones.findIndex(({ id }) => id === afterPhoneId)
+    : -1;
+  const insertionIndex = anchorIndex >= 0 ? anchorIndex + 1 : 0;
+  const insertionMs = anchorIndex >= 0 ? previousPhones[anchorIndex].endMs : 0;
+  const rulerScrollLeft = $("phonemeRuler").scrollLeft;
+  const timelineScrollLeft = $("timelineScroll").scrollLeft;
+  const next = insertPinkTrombonazoidPhone(
+    state.sequence,
+    afterPhoneId,
+    insertedId,
+  );
+  if (next === state.sequence) return;
+  state.sequence = next;
+  const inserted = next.phones[insertionIndex];
+  state.selectedSegmentId = inserted?.articulations?.[0]?.id
+    ?? next.articulationSegments[0]?.id
+    ?? "";
+  const mappedElapsed = wasPlaying && elapsedMs >= insertionMs
+    ? elapsedMs + (inserted?.durationMs ?? 0)
+    : elapsedMs;
+  state.elapsedMs = wasPlaying ? mappedElapsed : 0;
+  renderAll();
+  keepPlaybackAfterEdit(state.elapsedMs);
+  $("phonemeRuler").scrollLeft = rulerScrollLeft;
+  $("timelineScroll").scrollLeft = timelineScrollLeft;
+  [...document.querySelectorAll(".ptz-inline-phone-select")]
+    .find((select) => select.dataset.phoneId === inserted?.id)
+    ?.focus({ preventScroll: true });
+  announce(
+    `${insertedId} added to the pronunciation timeline.`
+      + `${wasPlaying ? ` ${state.loop ? "Loop" : "Playback"} continues.` : ""}`,
+  );
+}
+
+function movePhone(phoneId, targetIndex) {
+  if (!state.sequence) return;
+  const sourceIndex = state.sequence.phones.findIndex(({ id }) => id === phoneId);
+  const destination = Math.round(clamp(targetIndex, 0, state.sequence.phones.length - 1));
+  const source = state.sequence.phones[sourceIndex];
+  const destinationPhone = state.sequence.phones[destination];
+  if (!source || !destinationPhone || sourceIndex === destination) return;
+  if (source.wordIndex !== destinationPhone.wordIndex) {
+    announce("Phones can move within a word; pauses and word boundaries stay fixed.");
+    return;
+  }
+  const wasPlaying = state.playing;
+  const elapsedMs = state.elapsedMs;
+  const rulerScrollLeft = $("phonemeRuler").scrollLeft;
+  const timelineScrollLeft = $("timelineScroll").scrollLeft;
+  const next = movePinkTrombonazoidPhone(state.sequence, phoneId, destination);
+  if (next === state.sequence) return;
+  state.sequence = next;
+  const moved = next.phones[destination];
+  state.selectedSegmentId = moved?.articulations?.[0]?.id
+    ?? next.articulationSegments[0]?.id
+    ?? "";
+  state.elapsedMs = wasPlaying ? elapsedMs : 0;
+  renderAll();
+  keepPlaybackAfterEdit(state.elapsedMs, { rearticulate: true });
+  $("phonemeRuler").scrollLeft = rulerScrollLeft;
+  $("timelineScroll").scrollLeft = timelineScrollLeft;
+  [...document.querySelectorAll(".ptz-phone-move")]
+    .find((button) => button.dataset.phoneId === moved?.id)
+    ?.focus({ preventScroll: true });
+  announce(
+    `${source.phoneLabel} moved to position ${destination + 1}.`
+      + `${wasPlaying ? ` ${state.loop ? "Loop" : "Playback"} continues.` : ""}`,
+  );
+}
+
+function clearPhoneDropTargets() {
+  document.querySelectorAll(".ptz-phoneme-cell").forEach((cell) => {
+    cell.classList.remove("is-phone-dragging", "is-drop-before", "is-drop-after");
+    delete cell.dataset.dropPosition;
+  });
+}
+
+function beginPhoneDrag(event, phoneId) {
+  const source = state.sequence?.phones.find(({ id }) => id === phoneId);
+  if (!source) return;
+  state.draggedPhoneId = source.id;
+  selectSegment(source.articulations[0].id);
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", source.id);
+  }
+  requestAnimationFrame(() => {
+    document.querySelector(`.ptz-phoneme-cell[data-phone-id="${source.id}"]`)
+      ?.classList.add("is-phone-dragging");
+  });
+}
+
+function continuePhoneDrag(event, targetPhoneId) {
+  const source = state.sequence?.phones.find(({ id }) => id === state.draggedPhoneId);
+  const target = state.sequence?.phones.find(({ id }) => id === targetPhoneId);
+  if (!source || !target || source.wordIndex !== target.wordIndex) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  const cell = event.currentTarget;
+  const before = event.clientX < cell.getBoundingClientRect().left + cell.clientWidth / 2;
+  document.querySelectorAll(".ptz-phoneme-cell").forEach((candidate) => {
+    if (candidate !== cell) candidate.classList.remove("is-drop-before", "is-drop-after");
+  });
+  cell.classList.toggle("is-drop-before", before);
+  cell.classList.toggle("is-drop-after", !before);
+  cell.dataset.dropPosition = before ? "before" : "after";
+}
+
+function dropPhone(event, targetPhoneId) {
+  event.preventDefault();
+  const sourceIndex = state.sequence?.phones.findIndex(({ id }) => id === state.draggedPhoneId) ?? -1;
+  const targetIndex = state.sequence?.phones.findIndex(({ id }) => id === targetPhoneId) ?? -1;
+  const after = event.currentTarget.dataset.dropPosition === "after";
+  const destination = state.draggedPhoneId === targetPhoneId
+    ? sourceIndex
+    : targetIndex + (after ? 1 : 0) - (sourceIndex < targetIndex ? 1 : 0);
+  const sourceId = state.draggedPhoneId;
+  endPhoneDrag();
+  if (sourceIndex >= 0 && targetIndex >= 0) movePhone(sourceId, destination);
+}
+
+function endPhoneDrag() {
+  state.draggedPhoneId = "";
+  clearPhoneDropTargets();
+}
+
+function removePhone(phoneId) {
+  if (!state.sequence) return;
+  const target = state.sequence.phones.find(({ id }) => id === phoneId);
+  if (!target) return;
+  const wasPlaying = state.playing;
+  const rulerScrollLeft = $("phonemeRuler").scrollLeft;
+  const timelineScrollLeft = $("timelineScroll").scrollLeft;
+  const targetIndex = state.sequence.segments.findIndex(({ phoneId: id }) => id === phoneId);
+  let elapsedMs = state.elapsedMs;
+  if (elapsedMs >= target.endMs) elapsedMs -= target.durationMs;
+  else if (elapsedMs > target.startMs) elapsedMs = target.startMs;
+  const next = removePinkTrombonazoidPhone(state.sequence, phoneId);
+  if (next === state.sequence) return;
+  state.sequence = next;
+  const nextSelected = next.segments[Math.min(Math.max(0, targetIndex), next.segments.length - 1)]
+    ?? next.segments.at(-1)
+    ?? null;
+  state.selectedSegmentId = nextSelected?.id ?? "";
+  state.elapsedMs = wasPlaying ? elapsedMs : 0;
+  renderAll();
+  keepPlaybackAfterEdit(state.elapsedMs, { rearticulate: true });
+  $("phonemeRuler").scrollLeft = rulerScrollLeft;
+  $("timelineScroll").scrollLeft = timelineScrollLeft;
+  const selected = selectedSegment();
+  const focusTarget = selected?.type === "articulation"
+    ? [...document.querySelectorAll(".ptz-inline-phone-select")]
+      .find((select) => select.dataset.phoneId === selected.phoneId)
+    : document.querySelector(`.ptz-phoneme-trigger[data-segment-id="${selected?.id ?? ""}"]`);
+  (focusTarget ?? $("wordInput")).focus({ preventScroll: true });
+  announce(
+    `${target.phone} removed. Timeline shortened by ${Math.round(target.durationMs)} milliseconds.`
+      + `${wasPlaying ? ` ${state.loop ? "Loop" : "Playback"} continues.` : ""}`,
+  );
 }
 
 function beginDurationDrag(event, segment) {
@@ -491,7 +1088,7 @@ function endDrag(event) {
 function sequenceSettings() {
   return {
     pronunciations: state.pronunciations,
-    personality: $("personality").value,
+    personality: selectedVoicePreset().personality,
     speechRate: Number($("speechRate").value),
     sampleCount: 160,
   };
@@ -511,7 +1108,7 @@ async function buildWord(value = $("wordInput").value, { announceBuild = true } 
     state.sequence = compilePinkTrombonazoid(text, sequenceSettings());
     state.elapsedMs = 0;
     renderAll({ preserveSelection: false });
-    $("pronunciationStatus").textContent = "Local CMU pronunciation dictionary · no speech service or upload";
+    $("pronunciationStatus").textContent = "Pronunciation ready.";
     if (announceBuild) {
       announce(`${text}: ${state.sequence.phones.map(({ phone }) => phone).join(" ")}.`);
     }
@@ -541,24 +1138,47 @@ function activateSegment(index, elapsedSeconds) {
   const segment = state.sequence?.segments[index];
   state.activeSegmentIndex = index;
   document.querySelectorAll(".ptz-phoneme-cell").forEach((cell) => {
-    cell.classList.toggle("is-playing", cell.dataset.segmentId === segment?.id);
+    cell.classList.toggle(
+      "is-playing",
+      segment?.type === "articulation"
+        ? cell.dataset.phoneId === segment.phoneId
+        : cell.dataset.segmentId === segment?.id,
+    );
   });
   if (!segment || segment.type === "boundary") {
-    state.livePerformance = null;
     audio.release({ releaseMs: Math.min(80, segment?.durationMs ?? 55) });
     return;
   }
-  let event = pinkTrombonazoidAudioEvent(segment, { elapsedSeconds });
-  state.livePerformance = event?.performance ?? null;
+  let event = pinkTrombonazoidAudioEvent(segment, {
+    elapsedSeconds,
+    voice: voiceSettings(),
+  });
+  const phone = state.sequence?.phones.find(({ id }) => id === segment.phoneId);
   if (audio.activeEngine !== "tube") {
     if (segment.articulationIndex > 0) return;
-    const phone = state.sequence?.phones.find(({ id }) => id === segment.phoneId);
     if (phone) {
       event = {
         ...event,
         dynamics: { ...event.dynamics, durationMs: phone.durationMs },
       };
     }
+  } else if (segment.articulationIndex > 0) {
+    // A diphthong is one phone and one acoustic envelope. Later tract
+    // gestures morph the running tube instead of attacking the vowel again.
+    audio.modulate({ performance: event.performance });
+    return;
+  } else {
+    // The following timeline phone owns its own onset. Suppressing the
+    // spelling engine's anticipatory carrier release prevents a short ghost
+    // vowel before that explicit phone begins.
+    event = {
+      ...event,
+      carrierPerformance: null,
+      dynamics: {
+        ...event.dynamics,
+        durationMs: phone?.durationMs ?? event.dynamics.durationMs,
+      },
+    };
   }
   audio.articulate(event);
 }
@@ -574,7 +1194,6 @@ async function startPlayback() {
   state.playStartedAt = performance.now() - clamp(state.elapsedMs, 0, state.sequence.durationMs - 1);
   state.loopRestartAt = 0;
   state.activeSegmentIndex = -1;
-  state.livePerformance = null;
   updateAudioUi();
   announce(`Speaking ${state.sequence.source}.`);
 }
@@ -584,12 +1203,29 @@ function stopPlayback({ announceStop = true, reset = true } = {}) {
   state.playing = false;
   state.loopRestartAt = 0;
   state.activeSegmentIndex = -1;
-  state.livePerformance = null;
   if (reset) state.elapsedMs = 0;
   document.querySelectorAll(".ptz-phoneme-cell.is-playing").forEach((cell) => cell.classList.remove("is-playing"));
   updatePlayhead(state.elapsedMs);
   updateAudioUi();
   if (announceStop) announce("Word stopped.");
+}
+
+function followPlayhead(x) {
+  if (!state.playing || state.drag || state.draggedPhoneId) return;
+  const scroller = $("timelineScroll");
+  const ruler = $("phonemeRuler");
+  const gutterWidth = $("laneGutter").getBoundingClientRect().width;
+  const visibleWidth = Math.max(1, scroller.clientWidth - gutterWidth);
+  const margin = Math.min(120, visibleWidth * 0.22);
+  const current = scroller.scrollLeft;
+  let next = current;
+  if (x < current + margin) next = x - margin;
+  else if (x > current + visibleWidth - margin) next = x - visibleWidth + margin;
+  const maximum = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+  next = clamp(next, 0, maximum);
+  if (Math.abs(next - current) < 0.5) return;
+  scroller.scrollLeft = next;
+  ruler.scrollLeft = next;
 }
 
 function updatePlayhead(milliseconds) {
@@ -602,6 +1238,7 @@ function updatePlayhead(milliseconds) {
     playhead.setAttribute("x2", String(x));
   }
   cap?.setAttribute("transform", `translate(${x - 4} 0)`);
+  followPlayhead(x);
   $("playheadOut").textContent = state.playing
     ? `${(milliseconds / 1_000).toFixed(2)} s`
     : "ready";
@@ -655,7 +1292,6 @@ function updateTransport(now) {
       state.elapsedMs = state.sequence.durationMs;
       state.loopRestartAt = now + Number($("wordGap").value);
       state.activeSegmentIndex = -1;
-      state.livePerformance = null;
       document.querySelectorAll(".ptz-phoneme-cell.is-playing").forEach((cell) => cell.classList.remove("is-playing"));
       updatePlayhead(state.elapsedMs);
       $("playheadOut").textContent = "breath";
@@ -665,9 +1301,7 @@ function updateTransport(now) {
     announce(`${state.sequence.source} finished.`);
     return;
   }
-  const index = state.sequence.segments.findIndex(({ startMs, endMs }) => (
-    state.elapsedMs >= startMs && state.elapsedMs < endMs
-  ));
+  const index = playbackSegmentIndex(state.elapsedMs);
   if (index !== state.activeSegmentIndex) activateSegment(index, state.elapsedMs / 1_000);
   if (audio.activeEngine === "tube" && now - state.lastAudioModulationAt > 26) {
     state.lastAudioModulationAt = now;
@@ -688,8 +1322,8 @@ function updateTransport(now) {
       const event = pinkTrombonazoidAudioEvent(segment, {
         elapsedSeconds: state.elapsedMs / 1_000,
         laneValues,
+        voice: voiceSettings(),
       });
-      state.livePerformance = event?.performance ?? segment.performance;
       const intensityScale = clamp(
         laneValues.intensity / Math.max(0.001, segment.laneValues.intensity),
         0,
@@ -712,249 +1346,9 @@ function updateTransport(now) {
   updatePlayhead(state.elapsedMs);
 }
 
-function activePerformance() {
-  const active = state.sequence?.segments[state.activeSegmentIndex];
-  return (state.playing ? state.livePerformance : null)
-    ?? active?.performance
-    ?? selectedSegment()?.performance
-    ?? state.sequence?.articulationSegments?.[0]?.performance
-    ?? null;
-}
-
-function interpolatePerformance(from, to, amount = 0.13) {
-  if (!to) return from;
-  if (!from) return structuredClone(to);
-  const mix = prefersReducedMotion ? 1 : clamp(amount);
-  const numeric = (key) => from[key] = (Number(from[key]) || 0) + ((Number(to[key]) || 0) - (Number(from[key]) || 0)) * mix;
-  for (const key of [
-    "articulationAperture", "articulationPlace", "articulationVoicing",
-    "glottalClosure", "lipDiameter", "nasalCoupling", "exciterIntensity",
-    "exciterPitch", "mutation",
-  ]) numeric(key);
-  from.phoneme = to.phoneme;
-  from.articulationManner = to.articulationManner;
-  from.tongues ??= [{ position: 0.3, height: 0.6 }];
-  const targetTongue = to.tongues?.[0] ?? {};
-  from.tongues[0].position += ((targetTongue.position ?? 0.3) - from.tongues[0].position) * mix;
-  from.tongues[0].height += ((targetTongue.height ?? 0.6) - from.tongues[0].height) * mix;
-  return from;
-}
-
-function resizeCanvas(canvas) {
-  const rect = canvas.getBoundingClientRect();
-  const ratio = Math.min(2, globalThis.devicePixelRatio || 1);
-  const width = Math.max(1, Math.round(rect.width * ratio));
-  const height = Math.max(1, Math.round(rect.height * ratio));
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width;
-    canvas.height = height;
-  }
-  return { width: rect.width, height: rect.height, ratio };
-}
-
-function roundedPath(context, points, close = false) {
-  if (!points.length) return;
-  context.beginPath();
-  context.moveTo(points[0].x, points[0].y);
-  for (let index = 1; index < points.length - 1; index += 1) {
-    const current = points[index];
-    const next = points[index + 1];
-    context.quadraticCurveTo(current.x, current.y, (current.x + next.x) / 2, (current.y + next.y) / 2);
-  }
-  context.lineTo(points.at(-1).x, points.at(-1).y);
-  if (close) context.closePath();
-}
-
-function drawTract(now) {
-  const canvas = $("tractCanvas");
-  const { width, height, ratio } = resizeCanvas(canvas);
-  const context = canvas.getContext("2d");
-  context.setTransform(ratio, 0, 0, ratio, 0, 0);
-  context.clearRect(0, 0, width, height);
-  const target = activePerformance();
-  state.displayedPerformance = interpolatePerformance(state.displayedPerformance, target);
-  const performanceState = state.displayedPerformance;
-  if (!performanceState) return;
-
-  const tongue = performanceState.tongues?.[0] ?? { position: 0.3, height: 0.6 };
-  const place = clamp(performanceState.articulationPlace);
-  const aperture = clamp(performanceState.articulationAperture);
-  const nasal = clamp(performanceState.nasalCoupling);
-  const lip = clamp((performanceState.lipDiameter ?? 3) / 3);
-  const intensity = clamp(performanceState.exciterIntensity);
-  const originX = width * 0.12;
-  const originY = height * 0.69;
-  const oralStartX = width * 0.39;
-  const mouthX = width * 0.87;
-  const mouthY = height * 0.48;
-  const tractHalf = Math.max(18, height * 0.065);
-
-  context.lineCap = "round";
-  context.lineJoin = "round";
-
-  // Head and nose silhouette.
-  context.strokeStyle = "rgba(192,112,198,0.25)";
-  context.lineWidth = 2;
-  context.setLineDash([4, 8]);
-  roundedPath(context, [
-    { x: width * 0.43, y: height * 0.16 },
-    { x: width * 0.69, y: height * 0.12 },
-    { x: width * 0.82, y: height * 0.25 },
-    { x: width * 0.91, y: height * 0.34 },
-    { x: width * 0.88, y: height * 0.47 },
-    { x: width * 0.92, y: height * 0.61 },
-    { x: width * 0.8, y: height * 0.78 },
-    { x: width * 0.56, y: height * 0.86 },
-  ]);
-  context.stroke();
-  context.setLineDash([]);
-
-  // Main airway, from larynx around the tongue to the lips.
-  const centre = [
-    { x: originX, y: originY },
-    { x: width * 0.24, y: height * 0.67 },
-    { x: width * 0.32, y: height * 0.58 },
-    { x: oralStartX, y: mouthY },
-    { x: width * 0.57, y: height * 0.42 },
-    { x: width * 0.73, y: height * 0.43 },
-    { x: mouthX, y: mouthY },
-  ];
-  const upper = centre.map((point, index) => ({
-    x: point.x,
-    y: point.y - tractHalf * (index < 3 ? 0.72 : 1),
-  }));
-  const lower = centre.map((point, index) => ({
-    x: point.x,
-    y: point.y + tractHalf * (index < 3 ? 0.72 : 1),
-  })).reverse();
-  roundedPath(context, [...upper, ...lower], true);
-  context.fillStyle = "#FFEEF5";
-  context.strokeStyle = "#C070C6";
-  context.lineWidth = 4;
-  context.fill();
-  context.stroke();
-
-  // Nasal branch and velum gate.
-  const nasalStartX = width * 0.55;
-  context.beginPath();
-  context.moveTo(nasalStartX, height * 0.41);
-  context.bezierCurveTo(width * 0.58, height * 0.27, width * 0.76, height * 0.25, width * 0.86, height * 0.34);
-  context.lineWidth = 12 + nasal * 10;
-  context.strokeStyle = "#FFEEF5";
-  context.stroke();
-  context.lineWidth = 3;
-  context.strokeStyle = "#C070C6";
-  context.stroke();
-  context.beginPath();
-  context.moveTo(nasalStartX - 7, height * 0.4 + nasal * 10);
-  context.lineTo(nasalStartX + 9, height * 0.43 - nasal * 9);
-  context.lineWidth = 4;
-  context.strokeStyle = "#DA70D6";
-  context.stroke();
-
-  // Tongue body. Position is back→front; height raises it toward the palate.
-  const tongueX = oralStartX + clamp(tongue.position) * (mouthX - oralStartX - width * 0.07);
-  const tongueY = height * (0.57 - clamp(tongue.height) * 0.12);
-  const tongueWidth = width * (0.18 - clamp(tongue.height) * 0.045);
-  const tongueHeight = height * (0.085 + clamp(tongue.height) * 0.035);
-  context.beginPath();
-  context.ellipse(tongueX, tongueY, tongueWidth, tongueHeight, -0.08, Math.PI, Math.PI * 2);
-  context.quadraticCurveTo(tongueX + tongueWidth * 0.8, tongueY + tongueHeight * 1.2, tongueX - tongueWidth, tongueY);
-  context.closePath();
-  context.fillStyle = "#FFC0CB";
-  context.strokeStyle = "#C070C6";
-  context.lineWidth = 3;
-  context.fill();
-  context.stroke();
-
-  // Discrete consonant constriction: drawn separately so a stop stays a stop.
-  const constrictionX = oralStartX + place * (mouthX - oralStartX);
-  const gap = 2 + aperture * tractHalf * 1.15;
-  context.beginPath();
-  context.moveTo(constrictionX, mouthY - tractHalf);
-  context.lineTo(constrictionX, mouthY - gap);
-  context.moveTo(constrictionX, mouthY + gap);
-  context.lineTo(constrictionX, mouthY + tractHalf);
-  context.strokeStyle = aperture < 0.15 ? "#633268" : "#DA70D6";
-  context.lineWidth = aperture < 0.15 ? 7 : 4;
-  context.stroke();
-
-  // Lips and their current rounded/open aperture.
-  const lipGap = 2 + lip * 20;
-  context.beginPath();
-  context.moveTo(mouthX - 4, mouthY - tractHalf * 0.9);
-  context.quadraticCurveTo(mouthX + 18, mouthY - lipGap, mouthX + 8, mouthY - 2);
-  context.moveTo(mouthX + 8, mouthY + 2);
-  context.quadraticCurveTo(mouthX + 18, mouthY + lipGap, mouthX - 4, mouthY + tractHalf * 0.9);
-  context.strokeStyle = "#C070C6";
-  context.lineWidth = 7;
-  context.stroke();
-
-  // Glottis and pitch/intensity source.
-  const glottalGap = 2 + (1 - clamp(performanceState.glottalClosure)) * 8;
-  context.beginPath();
-  context.moveTo(originX - 14, originY - 21);
-  context.lineTo(originX - glottalGap, originY);
-  context.lineTo(originX - 14, originY + 21);
-  context.moveTo(originX + 14, originY - 21);
-  context.lineTo(originX + glottalGap, originY);
-  context.lineTo(originX + 14, originY + 21);
-  context.strokeStyle = "#C070C6";
-  context.lineWidth = 5;
-  context.stroke();
-
-  if (!prefersReducedMotion && state.playing) {
-    const dots = 14;
-    for (let index = 0; index < dots; index += 1) {
-      const phase = ((now * 0.0007 * (0.6 + intensity) + index / dots) % 1 + 1) % 1;
-      const pointIndex = Math.min(centre.length - 2, Math.floor(phase * (centre.length - 1)));
-      const local = phase * (centre.length - 1) - pointIndex;
-      const from = centre[pointIndex];
-      const to = centre[pointIndex + 1];
-      const x = from.x + (to.x - from.x) * local;
-      const y = from.y + (to.y - from.y) * local;
-      context.beginPath();
-      context.arc(x, y, 1.5 + intensity * 1.8, 0, Math.PI * 2);
-      context.fillStyle = `rgba(218,112,214,${0.18 + intensity * 0.42})`;
-      context.fill();
-    }
-  }
-
-  context.fillStyle = "rgba(192,112,198,0.72)";
-  context.font = `${Math.max(34, width * 0.055)}px Arial`;
-  context.textAlign = "center";
-  context.fillText(
-    performanceState.phoneme ? String(performanceState.phoneme).toUpperCase() : "—",
-    width * 0.72,
-    height * 0.76,
-  );
-  context.font = `${Math.max(9, width * 0.012)}px Arial`;
-  context.fillStyle = "rgba(99,50,104,0.7)";
-  context.fillText(`${Math.round(performanceState.exciterPitch || 0)} HZ`, width * 0.72, height * 0.82);
-
-  $("currentPhoneOut").textContent = performanceState.phoneme
-    ? String(performanceState.phoneme).toUpperCase()
-    : "—";
-  $("mouthOut").textContent = lipOpeningLabel(aperture * lip);
-  $("tongueOut").textContent = `${tongue.position < 0.34 ? "back" : tongue.position > 0.66 ? "front" : "middle"} · ${tongue.height > 0.7 ? "raised" : tongue.height < 0.3 ? "low" : "mid"}`;
-  $("velumOut").textContent = nasal > 0.52 ? "nasal" : nasal > 0.16 ? "coupled" : "oral";
-}
-
 function animationFrame(now) {
   updateTransport(now);
-  drawTract(now);
   state.animationFrame = requestAnimationFrame(animationFrame);
-}
-
-function editTractFromPointer(event) {
-  const segment = selectedSegment();
-  if (!segment || segment.type !== "articulation") return;
-  const rect = $("tractCanvas").getBoundingClientRect();
-  const x = clamp((event.clientX - rect.left) / rect.width);
-  const y = clamp((event.clientY - rect.top) / rect.height);
-  const tonguePosition = clamp((x - 0.38) / 0.48);
-  const tongueHeight = clamp((0.68 - y) / 0.34);
-  editSegment(segment.id, { lanes: { tonguePosition, tongueHeight } });
 }
 
 function bindRange(id, formatter, handler = null) {
@@ -989,6 +1383,10 @@ for (const button of document.querySelectorAll("[data-word-preset]")) {
   button.addEventListener("click", () => void buildWord(button.dataset.wordPreset));
 }
 
+$("selectedPhone").addEventListener("change", () => {
+  replaceSelectedPhone($("selectedPhone").value);
+});
+
 $("segmentDuration").addEventListener("input", () => {
   $("segmentDurationOut").textContent = formatDuration($("segmentDuration").value);
   editSegment(state.selectedSegmentId, { durationMs: Number($("segmentDuration").value) });
@@ -1015,19 +1413,37 @@ $("segmentBreath").addEventListener("input", () => {
   editSegment(state.selectedSegmentId, { lanes: { breath: value } });
 });
 
-$("personality").addEventListener("change", () => void buildWord($("wordInput").value));
+$("personality").addEventListener("change", () => {
+  const preset = selectedVoicePreset();
+  setVoiceControls(preset.voice);
+  if (!state.sequence) return;
+  const elapsedMs = state.elapsedMs;
+  state.sequence = updatePinkTrombonazoidPersonality(
+    state.sequence,
+    preset.personality,
+  );
+  renderAll();
+  keepPlaybackAfterEdit(elapsedMs);
+  announce(
+    `${preset.name}: ${voiceDescription()}. Pronunciation edits preserved.`
+      + `${state.playing ? ` ${state.loop ? "Loop" : "Playback"} continues.` : ""}`,
+  );
+});
 let previousSpeechRate = Number($("speechRate").value);
 bindRange("speechRate", (value) => `${value.toFixed(2)}×`, (value) => {
   if (!state.sequence || value === previousSpeechRate) {
     previousSpeechRate = value;
     return;
   }
-  stopPlayback({ announceStop: false });
+  const elapsedPhase = state.sequence.durationMs > 0
+    ? state.elapsedMs / state.sequence.durationMs
+    : 0;
   state.sequence = retimePinkTrombonazoidSequence(state.sequence, {
     scale: previousSpeechRate / Math.max(0.01, value),
   });
   previousSpeechRate = value;
   renderAll();
+  keepPlaybackAfterEdit(elapsedPhase * state.sequence.durationMs);
 });
 bindRange("wordGap", (value) => `${Math.round(value)} ms`);
 bindRange("level", (value) => `${Math.round(value * 100)}%`, (value) => audio.setLevel(value));
@@ -1035,10 +1451,29 @@ bindRange("pitchModRate", (value) => `${value.toFixed(1)} Hz`);
 bindRange("pitchModDepth", (value) => `${Math.round(value)} ct`);
 bindRange("breathModRate", (value) => `${value.toFixed(1)} Hz`);
 bindRange("breathModDepth", (value) => `${Math.round(value * 100)}%`);
+bindRange("voiceThroats", (value) => String(Math.round(value)), updateVoiceControlAvailability);
+bindRange("voiceRegister", (value) => `${value > 0 ? "+" : ""}${Math.round(value)} st`);
+bindRange("voiceDetune", (value) => `${Math.round(value)} ct`);
+bindRange("voiceBody", (value) => `${value > 0 ? "+" : ""}${Math.round(value * 100)}%`);
+bindRange("voiceTension", (value) => `${value > 0 ? "+" : ""}${Math.round(value * 100)}%`);
+bindRange("voiceVariation", (value) => `${Math.round(value * 100)}%`);
+bindRange("voiceCoupling", (value) => `${Math.round(value * 100)}%`);
+bindRange("voiceSpread", (value) => `${Math.round(value * 100)}%`);
 bindRange("drive", (value) => `${Math.round(value * 100)}%`, applyEffects);
 bindRange("tone", (value) => value > 0.76 ? "open" : value > 0.42 ? "warm" : "dark", applyEffects);
 bindRange("echo", (value) => `${Math.round(value * 100)}%`, applyEffects);
 bindRange("echoTime", (value) => `${Math.round(value)} ms`, applyEffects);
+
+$("voiceHarmony").addEventListener("change", () => {
+  updateVoiceControlAvailability();
+  announce(`Voice stack changed: ${voiceDescription()}. Pronunciation unchanged.`);
+});
+for (const id of VOICE_CONTROL_IDS.filter((controlId) => controlId !== "voiceHarmony")) {
+  $(id).addEventListener("change", () => {
+    updateVoiceControlAvailability();
+    announce(`Voice shaped to ${voiceDescription()}. Pronunciation unchanged.`);
+  });
+}
 
 for (const id of ["modulationBypass", "effectsBypass"]) {
   $(id).addEventListener("click", () => {
@@ -1050,7 +1485,8 @@ for (const id of ["modulationBypass", "effectsBypass"]) {
 }
 
 $("resetPinkTrombonazoid").addEventListener("click", () => {
-  $("personality").value = "clear";
+  $("personality").value = DEFAULT_PINK_TROMBONAZOID_VOICE_PRESET;
+  setVoiceControls(selectedVoicePreset().voice);
   $("speechRate").value = "1";
   $("wordGap").value = "420";
   $("pitchModShape").value = "sine";
@@ -1061,7 +1497,7 @@ $("resetPinkTrombonazoid").addEventListener("click", () => {
   $("breathModDepth").value = "0.09";
   $("drive").value = "0.08";
   $("tone").value = "0.86";
-  $("echo").value = "0.12";
+  $("echo").value = "0";
   $("echoTime").value = "185";
   for (const id of ["modulationBypass", "effectsBypass"]) $(id).setAttribute("aria-pressed", "false");
   previousSpeechRate = 1;
@@ -1082,23 +1518,24 @@ $("phonemeRuler").addEventListener("scroll", () => {
   $("timelineScroll").scrollLeft = $("phonemeRuler").scrollLeft;
 });
 
-const tractCanvas = $("tractCanvas");
-tractCanvas.addEventListener("pointerdown", (event) => {
-  state.tractDrag = true;
-  tractCanvas.setPointerCapture?.(event.pointerId);
-  editTractFromPointer(event);
-});
-tractCanvas.addEventListener("pointermove", (event) => {
-  if (state.tractDrag) editTractFromPointer(event);
-});
-for (const type of ["pointerup", "pointercancel"]) {
-  tractCanvas.addEventListener(type, () => { state.tractDrag = false; });
+function resizeTimeline(width = $("timelineScroll").clientWidth) {
+  const roundedWidth = Math.round(width);
+  if (!state.sequence || roundedWidth === state.timelineViewportWidth) return;
+  state.timelineViewportWidth = roundedWidth;
+  cancelAnimationFrame(state.timelineResizeFrame);
+  state.timelineResizeFrame = requestAnimationFrame(() => {
+    state.timelineResizeFrame = 0;
+    renderPhonemeRuler();
+    renderTimeline();
+    updatePlayhead(state.elapsedMs);
+  });
 }
-tractCanvas.addEventListener("keydown", (event) => {
-  if (![" ", "Enter"].includes(event.key)) return;
-  event.preventDefault();
-  void startPlayback();
-});
+
+const timelineResizeObserver = typeof ResizeObserver === "function"
+  ? new ResizeObserver(([entry]) => resizeTimeline(entry?.contentRect?.width))
+  : null;
+timelineResizeObserver?.observe($("timelineScroll"));
+if (!timelineResizeObserver) globalThis.addEventListener?.("resize", () => resizeTimeline());
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
@@ -1109,9 +1546,14 @@ document.addEventListener("visibilitychange", () => {
 });
 globalThis.addEventListener?.("pagehide", () => {
   cancelAnimationFrame(state.animationFrame);
+  cancelAnimationFrame(state.timelineResizeFrame);
+  timelineResizeObserver?.disconnect();
   void audio.close();
 });
 
+populatePhoneMenu();
+populateVoiceMenus();
+setVoiceControls(selectedVoicePreset().voice);
 updateAudioUi();
 applyEffects();
 await buildWord("hello", { announceBuild: false });
