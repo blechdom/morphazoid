@@ -25,6 +25,10 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
   assert.match(html, /<option value="pink-trombonazoid\.html" selected>Pink Trombonazoid<\/option>/);
   assert.match(
     html,
+    /href="pink-trombonazoid\.css\?v=pink-trombonazoid-20260821-7"/,
+  );
+  assert.match(
+    html,
     /<script type="module" src="pink-trombonazoid-app\.js\?v=pink-trombonazoid-20260821-6"><\/script>/,
   );
   assert.match(
@@ -193,12 +197,13 @@ test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lan
   assert.match(css, /\.ptz-lane-gutter\s*\{[\s\S]*?position:\s*sticky/);
   assert.match(css, /\.ptz-phone-pill select\s*\{[\s\S]*?border-radius:\s*999px/);
   assert.match(css, /\.ptz-phone-pill select\s*\{[\s\S]*?appearance:\s*none/);
-  assert.match(css, /\.ptz-phoneme-select\s*\{[\s\S]*?min-height:\s*42px/);
+  assert.match(css, /\.ptz-phoneme-select\s*\{[\s\S]*?min-height:\s*32px/);
   assert.match(css, /\.ptz-phoneme-select\s*\{[\s\S]*?touch-action:\s*manipulation/);
-  assert.match(css, /\.ptz-phone-tools\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, 34px\)/);
-  assert.match(css, /\.ptz-phone-delete\s*\{[\s\S]*?border:\s*1px solid currentColor/);
-  assert.match(css, /\.ptz-phone-delete\s*\{[\s\S]*?background:\s*transparent/);
-  assert.match(css, /\.ptz-empty-phone-add\s*\{/);
+  assert.match(css, /\.ptz-phoneme-short\s*\{[\s\S]*?font-size:\s*12px/);
+  assert.match(css, /\.ptz-phone-tools\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, 24px\)/);
+  assert.match(css, /\.ptz-phone-move,[\s\S]*?\.ptz-phone-delete\s*\{[\s\S]*?width:\s*24px;[\s\S]*?height:\s*24px/);
+  assert.match(css, /\.ptz-phone-delete\s*\{[\s\S]*?font-size:\s*11px/);
+  assert.match(css, /\.ptz-empty-phone-add\s*\{[\s\S]*?width:\s*28px;[\s\S]*?height:\s*28px/);
   assert.match(css, /\.ptz-phoneme-cell\.is-drop-before/);
   assert.match(css, /@media \(max-width:\s*650px\)[\s\S]*?\.ptz-phoneme-select\s*\{[\s\S]*?font-size:\s*16px/);
   assert.match(css, /\.ptz-voice-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2/);

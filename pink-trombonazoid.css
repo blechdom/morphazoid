@@ -385,7 +385,7 @@
 
 .ptz-phoneme-ruler {
   display: flex;
-  min-height: 108px;
+  min-height: 88px;
   padding-left: 128px;
   overflow-x: auto;
   border-bottom: 1px solid var(--ptz-line);
@@ -399,7 +399,7 @@
   display: block;
   flex: 0 0 var(--segment-width, 90px);
   min-width: 48px;
-  min-height: 107px;
+  min-height: 87px;
   border: 0;
   border-right: 1px solid rgba(190, 79, 122, 0.18);
   color: var(--ptz-deep);
@@ -411,8 +411,8 @@
   width: 100%;
   min-width: 0;
   height: 100%;
-  min-height: 107px;
-  padding: 10px 12px 8px;
+  min-height: 87px;
+  padding: 8px 10px 6px;
   border: 0;
   color: inherit;
   background: transparent;
@@ -423,19 +423,19 @@
 .ptz-phoneme-select-shell {
   position: relative;
   display: block;
-  width: calc(100% - 16px);
+  width: min(calc(100% - 20px), 92px);
   min-width: 0;
-  min-height: 42px;
-  margin: 50px 8px 8px;
+  min-height: 32px;
+  margin: 38px auto 6px;
 }
 
 .ptz-phoneme-select {
   display: block;
   width: 100%;
   min-width: 0;
-  min-height: 42px;
+  min-height: 32px;
   margin: 0;
-  padding: 0 26px 0 9px;
+  padding: 0 21px 0 7px;
   overflow: hidden;
   border: 1px solid rgba(99, 50, 104, 0.34);
   border-radius: 999px;
@@ -443,7 +443,7 @@
   background: var(--ptz-pale);
   color-scheme: light;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-overflow: ellipsis;
   touch-action: manipulation;
@@ -453,7 +453,7 @@
 .ptz-phoneme-select:hover,
 .ptz-phoneme-select:focus-visible {
   border-color: var(--ptz-outline);
-  box-shadow: 0 0 0 2px rgba(216, 95, 146, 0.16);
+  box-shadow: 0 0 0 1px rgba(216, 95, 146, 0.18);
 }
 
 .ptz-phoneme-select option,
@@ -468,14 +468,14 @@
 .ptz-phoneme-short {
   position: absolute;
   z-index: 1;
-  inset: 1px 25px 1px 1px;
+  inset: 1px 20px 1px 1px;
   display: grid;
   overflow: hidden;
   border-radius: 999px 0 0 999px;
   color: var(--ptz-deep);
   background: var(--ptz-pale);
   place-items: center;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
   pointer-events: none;
@@ -487,13 +487,13 @@
 .ptz-phone-tools {
   position: absolute;
   z-index: 4;
-  top: 6px;
-  right: 9px;
+  top: 5px;
+  right: 6px;
   left: 6px;
   display: grid;
   align-items: center;
   justify-content: space-between;
-  grid-template-columns: repeat(3, 34px);
+  grid-template-columns: repeat(3, 24px);
   pointer-events: none;
 }
 
@@ -501,20 +501,20 @@
 .ptz-phone-add,
 .ptz-phone-delete {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 24px;
+  height: 24px;
   padding: 0;
-  border: 1px solid currentColor;
+  border: 1px solid rgba(61, 34, 63, 0.42);
   border-radius: 50%;
-  color: var(--ptz-black);
-  background: transparent;
+  color: rgba(61, 34, 63, 0.72);
+  background: rgba(255, 250, 253, 0.34);
   place-items: center;
   pointer-events: auto;
 }
 
 .ptz-phone-move {
   cursor: grab;
-  font-size: 15px;
+  font-size: 11px;
 }
 
 .ptz-phone-move:active {
@@ -525,7 +525,7 @@
   appearance: none;
   color-scheme: light;
   cursor: pointer;
-  font-size: 19px;
+  font-size: 14px;
   font-weight: 800;
   text-align: center;
   text-align-last: center;
@@ -534,7 +534,7 @@
 .ptz-phone-delete {
   cursor: pointer;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -544,25 +544,25 @@
 .ptz-phone-add:focus-visible,
 .ptz-phone-delete:hover,
 .ptz-phone-delete:focus-visible {
-  border-width: 2px;
+  border-color: var(--ptz-deep);
   color: var(--ptz-deep);
-  background: transparent;
-  outline: 2px solid var(--ptz-deep);
+  background: rgba(255, 238, 245, 0.72);
+  outline: 1px solid rgba(99, 50, 104, 0.5);
   outline-offset: 1px;
 }
 
 .ptz-empty-phone-slot {
   display: grid;
-  flex: 0 0 132px;
-  min-height: 107px;
+  flex: 0 0 96px;
+  min-height: 87px;
   border-right: 1px solid var(--ptz-line);
   background: var(--ptz-pale);
   place-items: center;
 }
 
 .ptz-empty-phone-add {
-  width: 42px;
-  height: 42px;
+  width: 28px;
+  height: 28px;
 }
 
 .ptz-phoneme-cell:nth-child(even) {
@@ -593,7 +593,7 @@
 
 .ptz-phoneme-cell.is-selected .ptz-phoneme-select {
   border-color: var(--ptz-white);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.24);
 }
 
 .ptz-phoneme-cell.is-selected .ptz-phone-tools > * {
@@ -1243,8 +1243,12 @@
   }
 
   .ptz-phoneme-select {
-    min-height: 44px;
+    min-height: 36px;
     font-size: 16px;
+  }
+
+  .ptz-phoneme-select-shell {
+    min-height: 36px;
   }
 
   .ptz-timeline-scroll {
