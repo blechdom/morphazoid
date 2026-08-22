@@ -231,6 +231,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       "Barber Shop Poles",
       "Fractals & Recursion",
       "Chaotic Synths",
+      "Misc",
       "Instruments",
       "Algorithmic Sequencers",
       "Experiments",
@@ -428,8 +429,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ),
     [
       { id: "shape", href: "shape.html" },
-      { id: "playhead-paint", href: "playhead-paint.html" },
-      { id: "boidzoid", href: "boidzoid.html" },
       { id: "lattice", href: "lattice.html" },
       { id: "spiral", href: "spiral.html" },
       { id: "solid", href: "solid.html" },
@@ -448,7 +447,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "hyper-drums", href: "hyper-drums.html" },
       { id: "l-system-drums", href: "l-system-drums.html" },
       { id: "linear-drums-machine", href: "linear-drums-machine.html" },
-      { id: "gesturama", href: "gesturama.html" },
     ],
   );
   assert.deepEqual(
@@ -459,6 +457,18 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "rubix", href: "rubix.html" },
       { id: "hyper-rubix", href: "hyper-rubix.html" },
       { id: "webgpu-303", href: "webgpu-303.html" },
+    ],
+  );
+  assert.deepEqual(
+    TOOL_GROUPS.find((group) => group.id === "misc")?.tools.map(
+      ({ id, href }) => ({ id, href }),
+    ),
+    [
+      { id: "playhead-paint", href: "playhead-paint.html" },
+      { id: "boidzoid", href: "boidzoid.html" },
+      { id: "gesturama", href: "gesturama.html" },
+      { id: "image-to-instrument-3", href: "image-to-instrument-3.html" },
+      { id: "orbital-ferris", href: "orbital-ferris.html" },
     ],
   );
   assert.deepEqual(
@@ -479,11 +489,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       ({ id, label, href }) => ({ id, label, href }),
     ),
     [
-      {
-        id: "image-to-instrument-3",
-        label: "Wheel of Organs",
-        href: "image-to-instrument-3.html",
-      },
       { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
       {
         id: "pink-trombonazoid",
@@ -633,7 +638,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "alien-larynx", href: "alien-larynx.html" },
       { id: "hyper-syrinx", href: "hyper-syrinx.html" },
       { id: "morphynx", href: "morphynx.html" },
-      { id: "orbital-ferris", href: "orbital-ferris.html" },
       { id: "escher-tessellation", href: "escher-tessellation.html" },
       { id: "plasma-ball", href: "plasma-ball.html" },
       { id: "order-tones", href: "order-tones.html" },
@@ -833,10 +837,7 @@ test("shared navigation creates a title-only picker and preserves the native sel
   assert.doesNotMatch(trigger.textContent, /Fractals|Recursion/);
   const pickerGroups = expectedPickerGroups();
   const pickerTools = pickerGroups.flatMap((group) => group.tools);
-  assert.deepEqual(
-    pickerGroups.find(({ id }) => id === "experiments")?.tools.map(({ id }) => id),
-    ["orbital-ferris"],
-  );
+  assert.equal(pickerGroups.some(({ id }) => id === "experiments"), false);
   assert.deepEqual(
     picker.findAll((node) => node.classList.contains("instrument-picker-group-title"))
       .map((heading) => heading.textContent),

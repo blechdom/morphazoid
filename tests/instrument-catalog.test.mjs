@@ -83,7 +83,7 @@ test("experiments carry a works-in-progress status while regular instruments do 
     instrument.tags.some(({ id }) => id === "experiments")
     && INSTRUMENT_GROUPS.find(({ id }) => id === "experiments")?.tools.includes(instrument)
   ));
-  assert.equal(experiments.length, 39);
+  assert.equal(experiments.length, 38);
   assert.equal(experiments.every(({ status }) => status === "Works in progress"), true);
   assert.equal(experiments.every(({ tags }) => (
     tags.length === 1 && tags[0].id === "experiments"
@@ -93,6 +93,22 @@ test("experiments carry a works-in-progress status while regular instruments do 
       .every(({ status }) => status === null),
     true,
   );
+});
+
+test("temporary Misc group owns the five uncategorized instruments", () => {
+  const ids = [
+    "playhead-paint",
+    "boidzoid",
+    "gesturama",
+    "image-to-instrument-3",
+    "orbital-ferris",
+  ];
+  const misc = INSTRUMENT_GROUPS.find(({ id }) => id === "misc");
+  assert.deepEqual(misc?.tools.map(({ id }) => id), ids);
+  for (const id of ids) {
+    assert.deepEqual(instrumentById(id)?.tags.map(({ id: tagId }) => tagId), ["misc"]);
+    assert.equal(instrumentById(id)?.status, null);
+  }
 });
 
 test("Plasma Ball is an experiment with no secondary catalogue tags", () => {
@@ -131,7 +147,7 @@ test("Playhead Paint is a pointer drawing synth without generic note keys", () =
   assert.equal(instrument?.kind, "Drawing synth");
   assert.match(instrument?.description ?? "", /freehand pointer strokes/i);
   assert.match(instrument?.description ?? "", /mirrored axes/i);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["geometry"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["misc"]);
   assert.ok(instrument?.features.includes("Pointer"));
   assert.ok(instrument?.features.includes("Built-in synth"));
   assert.ok(instrument?.features.includes("MIDI"));
@@ -172,7 +188,7 @@ test("Boidzoid is a continuous flocking sine field without generic note keys", (
   assert.match(instrument?.description ?? "", /arrow playheads/i);
   assert.match(instrument?.description ?? "", /continuous sine voice/i);
   assert.match(instrument?.description ?? "", /without note divisions/i);
-  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["geometry"]);
+  assert.deepEqual(instrument?.tags.map(({ id }) => id), ["misc"]);
   assert.ok(instrument?.features.includes("Pointer"));
   assert.ok(instrument?.features.includes("Built-in synth"));
   assert.ok(instrument?.features.includes("MIDI"));
@@ -303,6 +319,7 @@ test("catalogue tag controls hide experiments until All is restored", () => {
     "Barber Shop Poles",
     "Fractals & Recursion",
     "Chaotic Synths",
+    "Misc",
     "Instruments",
     "Algorithmic Sequencers",
   ]);
@@ -396,7 +413,7 @@ test("input and plug-in availability facts remain explicit", () => {
   assert.equal(instrumentById("image-to-instrument-2"), null);
   assert.equal(INSTRUMENT_GROUPS.some(({ id }) => id === "image-to-instrument"), false);
   assert.equal(
-    INSTRUMENT_GROUPS.find(({ id }) => id === "voice-synths")?.tools.some(
+    INSTRUMENT_GROUPS.find(({ id }) => id === "misc")?.tools.some(
       ({ id }) => id === "image-to-instrument-3",
     ),
     true,

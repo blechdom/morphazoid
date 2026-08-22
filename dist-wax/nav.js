@@ -58,8 +58,6 @@ const freezeGroup = (id, label, tools, metadata = {}) => Object.freeze({
 export const TOOL_GROUPS = Object.freeze([
   freezeGroup("geometry", "Geometry Synths", [
     { id: "shape", label: "Shape", href: "shape.html" },
-    { id: "playhead-paint", label: "Playhead Paint", href: "playhead-paint.html" },
-    { id: "boidzoid", label: "Boidzoid", href: "boidzoid.html" },
     { id: "lattice", label: "Lattice", href: "lattice.html" },
     { id: "spiral", label: "Spiral", href: "spiral.html" },
     { id: "solid", label: "Solid", href: "solid.html" },
@@ -101,11 +99,6 @@ export const TOOL_GROUPS = Object.freeze([
       label: "Rattle Snake Skin",
       href: "linear-drums-machine.html",
     },
-    {
-      id: "gesturama",
-      label: "Gesturama",
-      href: "gesturama.html",
-    },
   ]),
   freezeGroup("sequencers", "Sequencers", [
     {
@@ -117,11 +110,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
   ]),
   freezeGroup("voice-synths", "Voice Synths", [
-    {
-      id: "image-to-instrument-3",
-      label: "Wheel of Organs",
-      href: "image-to-instrument-3.html",
-    },
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
     {
       id: "pink-trombonazoid",
@@ -187,6 +175,21 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "cascading-pm", label: "Cascading PM", href: "cascading-pm.html" },
     { id: "weierstrass", label: "Weierstrass", href: "weierstrass.html" },
   ]),
+  freezeGroup("misc", "Misc", [
+    { id: "playhead-paint", label: "Playhead Paint", href: "playhead-paint.html" },
+    { id: "boidzoid", label: "Boidzoid", href: "boidzoid.html" },
+    { id: "gesturama", label: "Gesturama", href: "gesturama.html" },
+    {
+      id: "image-to-instrument-3",
+      label: "Wheel of Organs",
+      href: "image-to-instrument-3.html",
+    },
+    {
+      id: "orbital-ferris",
+      label: "Feral Fairy Ferris Ferry",
+      href: "orbital-ferris.html",
+    },
+  ]),
   freezeGroup("instruments", "Instruments", [
     { id: "fm-drums", label: "FM Drums", href: "fm-drums.html" },
     { id: "linear-drums", label: "Rattlesnake", href: "linear-drums.html" },
@@ -230,12 +233,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "alien-larynx", label: "Alien Larynx", href: "alien-larynx.html" },
     { id: "hyper-syrinx", label: "Hyper-Syrinx", href: "hyper-syrinx.html" },
     { id: "morphynx", label: "Morphynx", href: "morphynx.html" },
-    {
-      id: "orbital-ferris",
-      label: "Feral Fairy Ferris Ferry",
-      href: "orbital-ferris.html",
-      picker: true,
-    },
     {
       id: "escher-tessellation",
       label: "Escher",
