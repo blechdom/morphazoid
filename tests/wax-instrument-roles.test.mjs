@@ -82,6 +82,12 @@ test("input processors are conservative previews and musical generators expose u
   assert.equal(waxSupportForId("ouroboros").noteMode, "drums");
   assert.equal(waxSupportForId("ouroboros").hostSync, true);
   assert.deepEqual(
+    waxSupportForId("ouroborousel").roles,
+    [WAX_ROLE_IDS.instrument, WAX_ROLE_IDS.midiFx],
+  );
+  assert.equal(waxSupportForId("ouroborousel").noteMode, "drums");
+  assert.equal(waxSupportForId("ouroborousel").hostSync, true);
+  assert.deepEqual(
     waxSupportForId("ouroboros-borealis").roles,
     [WAX_ROLE_IDS.instrument, WAX_ROLE_IDS.midiFx],
   );

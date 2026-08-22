@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#260611" />
+    <meta
+      name="description"
+      content="Ouroborousel — an endless carousel snake where higher-note chunks, Ouroboros drums, or both fuse rhythm back into pitch."
+    />
+    <title>Ouroborousel — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="ouroborousel.css" />
+  </head>
+  <body class="ouroborousel-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shepard-risset.html">shepard–risset</a>
+        <a class="tab" href="drum-roll-please.html">drum roll please!</a>
+        <a class="tab active" href="ouroborousel.html" aria-current="page">ouroborousel</a>
+        <a class="tab" href="ouroboros.html">ouroboros</a>
+        <a class="tab" href="ouroboros-borealis.html">ouroboros borealis</a>
+        <a class="tab" href="linear-drums.html">rattlesnake</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shepard-risset.html">shepard–risset</option>
+          <option value="drum-roll-please.html">drum roll please!</option>
+          <option value="ouroborousel.html" selected>ouroborousel</option>
+          <option value="ouroboros.html">ouroboros</option>
+          <option value="ouroboros-borealis.html">ouroboros borealis</option>
+          <option value="linear-drums.html">rattlesnake</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button
+          class="audio-button"
+          id="audioButton"
+          type="button"
+          aria-pressed="false"
+          aria-label="Turn Ouroborousel audio on"
+        >
+          <span class="audio-glyph ouroborousel-audio-glyph" aria-hidden="true">↻</span>
+          <span class="audio-copy"><b id="audioAction">Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">52%</output></span>
+          <input
+            id="level"
+            aria-label="Master audio level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.52"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="ouroborousel-shell" id="ouroborousel">
+      <section class="ouroborousel-performance" aria-labelledby="ouroborouselTitle">
+        <header class="ouroborousel-titlebar">
+          <div class="ouroborousel-title-identity">
+            <p>ENDLESS RECURSIVE RHYTHM · PITCH</p>
+            <h1 id="ouroborouselTitle">Ouroborousel</h1>
+          </div>
+          <div class="ouroborousel-live-readouts" aria-live="polite">
+            <span><b id="rateReadout">8 pulses/s</b><small>CENTER RHYTHM</small></span>
+            <span><b id="sourceReadout">64× higher note</b><small id="sourceReadoutLabel">NOTE SOURCE</small></span>
+            <span><b id="fusionReadout">18 Hz · crossing</b><small id="fusionReadoutLabel">FUSION BAND</small></span>
+          </div>
+        </header>
+
+        <div class="ouroborousel-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            data-interactive-track
+            tabindex="0"
+            role="slider"
+            aria-label="Circular Ouroborousel rhythm and pitch rail"
+            aria-orientation="horizontal"
+            aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Home End Space Enter P"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="50"
+            aria-valuetext="center of the endless octave cycle"
+            aria-describedby="canvasInstructions ouroborouselRule liveStatus"
+          >
+            An endless carousel snake carries note chunks and Ouroboros drum strikes through a
+            pink fusion band, where repetition joins into continuous pitched rails.
+          </canvas>
+
+          <div class="ouroborousel-stage-meta" aria-hidden="true">
+            <span id="stageReadout">CHUNKS → FUSION → PITCH · MANUAL · AUDIO OFF</span>
+          </div>
+
+          <div class="ouroborousel-axis-labels" aria-hidden="true">
+            <span class="is-chunks">CHUNKS</span>
+            <span class="is-fusion">FUSION</span>
+            <span class="is-pitch">PITCH RAIL</span>
+          </div>
+
+          <div class="ouroborousel-loop-core" aria-hidden="true">
+            <span id="directionMarker">↻</span>
+            <b>RHYTHM<br />EATS<br />PITCH</b>
+            <small id="directionMarkerText">rising forever</small>
+          </div>
+
+          <p class="ouroborousel-rule" id="ouroborouselRule">
+            <strong id="ruleLead">Notes made from rhythms.</strong>
+            <span id="ruleTail">Rhythms made from chunks of notes.</span>
+          </p>
+        </div>
+
+        <div class="ouroborousel-explainer" aria-label="Ouroborousel signal explanation">
+          <span><i aria-hidden="true"></i><b>Higher source</b><small>note or Ouroboros body</small></span>
+          <em aria-hidden="true">→</em>
+          <span><i aria-hidden="true"></i><b>Rhythmic bites</b><small>chunks and drum strikes</small></span>
+          <em aria-hidden="true">→</em>
+          <span><i aria-hidden="true"></i><b>Fusion band</b><small>events become tone</small></span>
+          <em aria-hidden="true">→</em>
+          <span><i aria-hidden="true"></i><b>Continuous rail</b><small>the next pitch layer</small></span>
+        </div>
+      </section>
+
+      <aside class="panel ouroborousel-control-panel" aria-label="Ouroborousel controls">
+        <section class="group control-section ouroborousel-play-section" data-section="play" aria-labelledby="playSectionTitle">
+          <div class="group-summary static-group-summary">
+            <h2 class="group-title" id="playSectionTitle">Play</h2>
+            <span class="section-state" id="playSummary">ready · notes · rising · 8 pulses/s</span>
+          </div>
+          <div class="group-body">
+            <button
+              class="ouroborousel-play-button"
+              id="transportButton"
+              type="button"
+              data-primary-transport
+              aria-pressed="false"
+              aria-label="Play automatic Ouroborousel motion"
+            >
+              <span class="ouroborousel-play-icon" id="transportIcon" aria-hidden="true">▶</span>
+              <span class="ouroborousel-play-copy">
+                <b id="transportLabel">Play</b>
+                <small>send the snake around forever</small>
+              </span>
+            </button>
+
+            <fieldset class="ouroborousel-segmented" id="direction" aria-label="Motion direction">
+              <legend>Direction</legend>
+              <label><input id="directionRise" type="radio" name="sweepDirection" value="1" checked /><span>Rise</span></label>
+              <label><input id="directionFall" type="radio" name="sweepDirection" value="-1" /><span>Fall</span></label>
+            </fieldset>
+
+            <fieldset class="ouroborousel-segmented ouroborousel-material-mode" id="materialMode" aria-label="Sound material" aria-describedby="materialModeHelp">
+              <legend>Material</legend>
+              <label><input id="materialNotes" type="radio" name="soundMaterial" value="notes" checked /><span>Notes</span></label>
+              <label><input id="materialDrums" type="radio" name="soundMaterial" value="drums" /><span>Ouroboros drums</span></label>
+              <label><input id="materialCombo" type="radio" name="soundMaterial" value="combo" /><span>Notes + drums</span></label>
+            </fieldset>
+            <small class="ouroborousel-material-help" id="materialModeHelp">
+              Choose phase-locked note bites, the Ouroboros kick-to-air bodies, or both together.
+            </small>
+
+            <label class="control" for="glissRate">
+              <span><b>Carousel speed</b><output id="glissRateOut" for="glissRate">0.12 oct/s</output></span>
+              <input id="glissRate" type="range" min="0.02" max="1.2" step="0.01" value="0.12" />
+            </label>
+
+            <label class="control" for="centerRate">
+              <span><b>Center rhythm</b><output id="centerRateOut" for="centerRate">8 pulses/s</output></span>
+              <input id="centerRate" type="range" min="0.5" max="24" step="0.25" value="8" />
+            </label>
+          </div>
+        </section>
+
+        <details class="group control-section" data-section="presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Presets</h2>
+            <span class="section-state" id="presetSummary">Default</span>
+          </summary>
+          <div class="group-body">
+            <div
+              class="ouroborousel-preset-grid"
+              id="presetGrid"
+              role="group"
+              aria-label="Ouroborousel presets"
+            ></div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="recursion" open>
+          <summary class="group-summary">
+            <h2 class="group-title" id="recursionSectionTitle">Eat the note</h2>
+            <span class="section-state" id="recursionSummary">6 oct higher · 72% chunks</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="bankWidth">
+              <span><b>Endless bank</b><output id="bankWidthOut" for="bankWidth">6.0 octaves</output></span>
+              <input id="bankWidth" type="range" min="3" max="9" step="0.5" value="6" />
+            </label>
+
+            <label class="control" for="noteLift" data-note-material-control>
+              <span><b>Source note lift</b><output id="noteLiftOut" for="noteLift">6 oct · 64×</output></span>
+              <input id="noteLift" type="range" min="3" max="7" step="1" value="6" />
+            </label>
+
+            <label class="control" for="chunkDuty" data-note-material-control>
+              <span><b>Chunk length</b><output id="chunkDutyOut" for="chunkDuty">72% of each turn</output></span>
+              <input id="chunkDuty" type="range" min="0.15" max="1" step="0.01" value="0.72" />
+            </label>
+
+            <small class="ouroborousel-control-note" id="recursionNote">
+              Every pulse repeats a window cut from the note an exact number of octaves above it.
+              Drum material strikes the corresponding kick-to-air Ouroboros body; Combo layers
+              both. The exact octave relationship lets repetition become pitch without a seam.
+            </small>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="fusion" open>
+          <summary class="group-summary">
+            <h2 class="group-title" id="fusionSectionTitle">Cross the threshold</h2>
+            <span class="section-state" id="fusionSummary">18 Hz · 1.0 oct bridge</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="fusionPoint" data-note-material-control>
+              <span><b>Fusion point</b><output id="fusionPointOut" for="fusionPoint">18 Hz</output></span>
+              <input id="fusionPoint" type="range" min="8" max="48" step="1" value="18" />
+            </label>
+
+            <label class="control" for="fusionWidth" data-note-material-control>
+              <span><b>Fusion bridge</b><output id="fusionWidthOut" for="fusionWidth">1.00 oct</output></span>
+              <input id="fusionWidth" type="range" min="0.25" max="2" step="0.05" value="1" />
+            </label>
+
+            <div class="ouroborousel-fusion-key" aria-hidden="true">
+              <span><i></i>separate hits</span>
+              <span><i></i>both at once</span>
+              <span><i></i>continuous pitch</span>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Carousel color</h2>
+            <span class="section-state" id="soundSummary">open · bright</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="spread">
+              <span><b>Stereo spread</b><output id="spreadOut" for="spread">48%</output></span>
+              <input id="spread" type="range" min="0" max="1" step="0.01" value="0.48" />
+            </label>
+
+            <label class="control" for="brightness" data-note-material-control>
+              <span><b id="brightnessLabel">Material brightness</b><output id="brightnessOut" for="brightness">68%</output></span>
+              <input id="brightness" type="range" min="0" max="1" step="0.01" value="0.68" />
+            </label>
+
+            <label class="control" for="cutoff">
+              <span><b>Brightness ceiling</b><output id="cutoffOut" for="cutoff">12.0 kHz</output></span>
+              <input id="cutoff" type="range" min="800" max="18000" step="100" value="12000" />
+            </label>
+
+            <div class="ouroborousel-signal-card" aria-label="Audio signal path">
+              <span><b id="signalSourceLabel">High note</b><small id="signalSourceDetail">64× pulse rate</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b id="signalChunkLabel">Chunk window</b><small id="signalChunkDetail">72% duty</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b id="signalFusionLabel">Fusion rail</b><small id="signalFusionDetail">18 Hz crossing</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Output</b><small>filter · soft ceiling</small></span>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all data-reset-in-place>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        The circular display is an interactive octave rail. Drag around the snake, or use Left and
+        Right Arrow, to place the endless bank. Press Space or Enter to audition the selected turn.
+        Use Up and Down Arrow to choose rising or falling motion, and P to play or pause. Broken red
+        and white arcs are rhythmic note chunks; pink and cream dots are Ouroboros drum strikes;
+        pink crossings are the fusion band; unbroken arcs are tones produced when events repeat too
+        quickly to hear separately.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="ouroborousel-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

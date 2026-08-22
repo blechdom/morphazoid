@@ -20,6 +20,13 @@ const migratedPages = [
     requiredCopy: ["Drum", "Roll", "Rattlesnake"],
   },
   {
+    id: "ouroborousel",
+    html: "ouroborousel.html",
+    app: "ouroborousel-app.js",
+    source: "src/ouroborousel.js",
+    requiredCopy: ["Ouroborousel", "rhythm", "pitch", "chunks"],
+  },
+  {
     id: "ouroboros",
     html: "ouroboros.html",
     app: "ouroboros-app.js",

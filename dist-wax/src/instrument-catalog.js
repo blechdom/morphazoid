@@ -1,4 +1,4 @@
-import { TOOL_GROUPS } from "../nav.js?v=catalog-20260821-4";
+import { TOOL_GROUPS } from "../nav.js?v=catalog-20260822-1";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -210,6 +210,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Translates the Shepard–Risset illusion into overlapping tempo octaves whose struck voices morph from kick through tom, hand drum, and air.",
     "Choose a direction and tempo glissando, then optionally make pitch follow the endlessly changing rhythm rate.",
     ["Built-in synth"],
+  ),
+  ouroborousel: define(
+    "Rhythm-pitch synth",
+    "Builds an endless roll from higher-note chunks, Ouroboros drum bodies, or both, carrying octave-related pulses through the rhythm–pitch fusion threshold.",
+    "Choose Notes, Ouroboros Drums, or Notes + Drums, start the carousel, and shape its shared direction, roll rate, and bank width; Notes and Combo add chunk and fusion controls.",
+    ["Built-in synth", "Pointer"],
   ),
   ouroboros: define(
     "Percussion synth",

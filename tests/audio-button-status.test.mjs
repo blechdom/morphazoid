@@ -22,6 +22,7 @@ const instrumentScripts = [
   "syrinx-app.js",
   "shepard-risset-app.js",
   "drum-roll-please-app.js",
+  "ouroborousel-app.js",
   "ouroboros-app.js",
   "ouroboros-borealis-app.js",
   "barber-delay-app.js",

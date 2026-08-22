@@ -282,6 +282,11 @@ for worktree_runtime_file in \
   drum-roll-please.css \
   drum-roll-please-app.js \
   src/drum-roll-please.js \
+  ouroborousel.html \
+  ouroborousel.css \
+  ouroborousel-app.js \
+  src/ouroborousel.js \
+  assets/instruments/ouroborousel.webp \
   ouroboros.html \
   ouroboros.css \
   ouroboros-app.js \
@@ -554,6 +559,11 @@ required_files=(
   drum-roll-please.css
   drum-roll-please-app.js
   src/drum-roll-please.js
+  ouroborousel.html
+  ouroborousel.css
+  ouroborousel-app.js
+  src/ouroborousel.js
+  assets/instruments/ouroborousel.webp
   ouroboros.html
   ouroboros.css
   ouroboros-app.js

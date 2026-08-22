@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 97);
+  assert.equal(INSTRUMENTS.length, 98);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -345,6 +345,15 @@ test("catalogue tag controls hide experiments until All is restored", () => {
 });
 
 test("input and plug-in availability facts remain explicit", () => {
+  assert.equal(instrumentById("ouroborousel")?.label, "Ouroborousel");
+  assert.equal(instrumentById("ouroborousel")?.href, "ouroborousel.html");
+  assert.equal(instrumentById("ouroborousel")?.kind, "Rhythm-pitch synth");
+  assert.match(instrumentById("ouroborousel")?.description ?? "", /higher-note chunks/i);
+  assert.match(instrumentById("ouroborousel")?.description ?? "", /Ouroboros drum bodies/i);
+  assert.match(instrumentById("ouroborousel")?.description ?? "", /rhythm.*pitch fusion threshold/i);
+  assert.match(instrumentById("ouroborousel")?.start ?? "", /Notes \+ Drums/i);
+  assert.ok(instrumentById("ouroborousel")?.features.includes("Built-in synth"));
+  assert.ok(instrumentById("ouroborousel")?.features.includes("Pointer"));
   assert.equal(instrumentById("ouroboros")?.kind, "Percussion synth");
   assert.match(instrumentById("ouroboros")?.description ?? "", /Shepard.*Rattlesnake|Rattlesnake.*Shepard/i);
   assert.ok(instrumentById("ouroboros")?.features.includes("Built-in synth"));

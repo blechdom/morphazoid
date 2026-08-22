@@ -238,7 +238,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 101);
+  assert.equal(tools.length, 102);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -308,6 +308,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     },
   );
   assert.deepEqual(
+    tools.find((tool) => tool.id === "ouroborousel"),
+    {
+      id: "ouroborousel",
+      label: "Ouroborousel",
+      href: "ouroborousel.html",
+    },
+  );
+  assert.deepEqual(
     tools.find((tool) => tool.id === "ouroboros"),
     {
       id: "ouroboros",
@@ -326,6 +334,16 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
   const barberShopTools = TOOL_GROUPS.find(({ id }) => (
     id === "barber-shop-poles"
   ))?.tools ?? [];
+  assert.equal(
+    barberShopTools.findIndex(({ id }) => id === "ouroborousel"),
+    barberShopTools.findIndex(({ id }) => id === "drum-roll-please") + 1,
+    "Ouroborousel belongs immediately after Drum Roll Please",
+  );
+  assert.equal(
+    barberShopTools.findIndex(({ id }) => id === "ouroboros"),
+    barberShopTools.findIndex(({ id }) => id === "ouroborousel") + 1,
+    "Ouroboros belongs immediately after Ouroborousel",
+  );
   assert.equal(
     barberShopTools.findIndex(({ id }) => id === "ouroboros-borealis"),
     barberShopTools.findIndex(({ id }) => id === "ouroboros") + 1,
@@ -570,6 +588,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       { id: "shepard-risset", href: "shepard-risset.html" },
       { id: "drum-roll-please", href: "drum-roll-please.html" },
+      { id: "ouroborousel", href: "ouroborousel.html" },
       { id: "ouroboros", href: "ouroboros.html" },
       { id: "ouroboros-borealis", href: "ouroboros-borealis.html" },
       { id: "sandy-syrup-delay", href: "sandy-syrup-delay.html" },
@@ -721,6 +740,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}audio-engine-lab.html`, SITE_ROOT), null);
   assert.equal(resolveActiveTool(`${SITE_ROOT}shepard-risset.html`, SITE_ROOT)?.id, "shepard-risset");
   assert.equal(resolveActiveTool(`${SITE_ROOT}drum-roll-please.html`, SITE_ROOT)?.id, "drum-roll-please");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}ouroborousel.html`, SITE_ROOT)?.id, "ouroborousel");
   assert.equal(resolveActiveTool(`${SITE_ROOT}ouroboros.html`, SITE_ROOT)?.id, "ouroboros");
   assert.equal(resolveActiveTool(`${SITE_ROOT}candy-coil-delay.html`, SITE_ROOT)?.id, "candy-coil-delay");
   assert.equal(resolveActiveTool(`${SITE_ROOT}striped-sludge-delay.html`, SITE_ROOT), null);
