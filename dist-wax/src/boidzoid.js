@@ -1,5 +1,5 @@
 /**
- * Deterministic flocking and snakeskin-to-string mapping for Boidzoid.
+ * Deterministic flocking and continuous position-to-sine mapping for Boidzoid.
  *
  * Positions live on a normalized torus. Velocities are normalized-height
  * units per second; `aspect` converts horizontal motion into the same visual
@@ -53,6 +53,12 @@ export const BOIDZOID_VOICE_DEFAULTS = Object.freeze({
   body: 0.42,
   level: 0.62,
   seed: BOIDZOID_DEFAULTS.seed,
+});
+
+export const BOIDZOID_SINE_DEFAULTS = Object.freeze({
+  minimumFrequency: 70,
+  maximumFrequency: 1_200,
+  gain: 0.18,
 });
 
 function finiteOr(value, fallback) {
@@ -470,6 +476,56 @@ export function resolveBoidzoidScale(source = BOIDZOID_VOICE_DEFAULTS.scale) {
 
 function midiFrequency(note) {
   return 440 * (2 ** ((note - 69) / 12));
+}
+
+/**
+ * Map one arrow directly to a continuously moving sine voice.
+ *
+ * This deliberately has no scale, note grid, or octave division: normalized
+ * height sweeps smoothly through a frequency interval, horizontal position
+ * controls stereo, and physical speed makes the voice breathe slightly.
+ */
+export function mapBoidToSineVoice(boid = {}, source = {}) {
+  const minimumFrequency = clamp(
+    finiteOr(source.minimumFrequency, BOIDZOID_SINE_DEFAULTS.minimumFrequency),
+    20,
+    8_000,
+  );
+  const maximumFrequency = clamp(
+    finiteOr(source.maximumFrequency, BOIDZOID_SINE_DEFAULTS.maximumFrequency),
+    minimumFrequency,
+    20_000,
+  );
+  const x = wrap(finiteOr(boid.x, 0.5), 1);
+  const y = clamp(finiteOr(boid.y, 0.5));
+  const aspect = clamp(finiteOr(source.aspect, 1), 0.25, 4);
+  const speed = Math.hypot(
+    finiteOr(boid.vx, 0) * aspect,
+    finiteOr(boid.vy, 0),
+  );
+  const minimumSpeed = clamp(finiteOr(source.minimumSpeed, BOIDZOID_DEFAULTS.minSpeed), 0, 1.2);
+  const maximumSpeed = clamp(
+    finiteOr(source.maximumSpeed, BOIDZOID_DEFAULTS.maxSpeed),
+    minimumSpeed,
+    1.2,
+  );
+  const energy = clamp(
+    (speed - minimumSpeed) / Math.max(EPSILON, maximumSpeed - minimumSpeed),
+  );
+  const gain = clamp(
+    finiteOr(source.gain, BOIDZOID_SINE_DEFAULTS.gain) * lerp(0.72, 1.08, energy),
+    0.001,
+    1,
+  );
+
+  return Object.freeze({
+    key: `boidzoid:${Math.trunc(finiteOr(boid.id, 0))}`,
+    frequency: minimumFrequency * ((maximumFrequency / minimumFrequency) ** (1 - y)),
+    gain,
+    pan: x * 2 - 1,
+    waveform: "sine",
+    mode: "sine",
+  });
 }
 
 /**

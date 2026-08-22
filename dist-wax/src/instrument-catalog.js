@@ -23,9 +23,9 @@ const CATALOG_DETAILS = Object.freeze({
     ["Pointer", "Built-in synth"],
   ),
   boidzoid: define(
-    "Flocking string sequencer",
-    "Sends autonomous flocking playheads across an iridescent snake-scale surface, plucking its mapped Karplus–Strong string cells whenever a boid crosses a ridge.",
-    "Turn on audio, let the pod drift, then drag across the skin to shepherd its playheads through new pitches and string materials.",
+    "Flocking sine field",
+    "Makes autonomous arrow playheads into continuous sine voices: height sweeps frequency without note divisions, horizontal position sets stereo, and speed breathes the level.",
+    "Turn on audio, let the arrows drift, then drag the open surface to steer the sine field.",
     ["Pointer", "Built-in synth"],
   ),
   lattice: define(

@@ -5,8 +5,10 @@ import test from "node:test";
 import {
   BOIDZOID_DEFAULTS,
   BOIDZOID_SCALES,
+  BOIDZOID_SINE_DEFAULTS,
   boidzoidSeed,
   createFlock,
+  mapBoidToSineVoice,
   mapCrossingToVoice,
   minimumImage,
   resolveBoidzoidScale,
@@ -325,24 +327,62 @@ test("crossing-to-string mapping is deterministic, quantized, and expressive", (
   );
 });
 
-test("Boidzoid page exposes the flock, skin, Karplus, and explicit-audio controls", async () => {
+test("arrow positions map directly to continuous sine voices without quantization", () => {
+  const common = { id: 7, vx: 0.08, vy: 0.03 };
+  const top = mapBoidToSineVoice({ ...common, x: 0.75, y: 0 });
+  const middle = mapBoidToSineVoice({ ...common, x: 0.25, y: 0.413 });
+  const bottom = mapBoidToSineVoice({ ...common, x: 0.5, y: 1 });
+
+  assert.equal(top.frequency, BOIDZOID_SINE_DEFAULTS.maximumFrequency);
+  assert.equal(bottom.frequency, BOIDZOID_SINE_DEFAULTS.minimumFrequency);
+  assert.equal(
+    middle.frequency,
+    BOIDZOID_SINE_DEFAULTS.minimumFrequency
+      * ((BOIDZOID_SINE_DEFAULTS.maximumFrequency / BOIDZOID_SINE_DEFAULTS.minimumFrequency) ** (1 - 0.413)),
+  );
+  assert.equal(top.pan, 0.5);
+  assert.equal(middle.pan, -0.5);
+  assert.equal(top.waveform, "sine");
+  assert.equal(top.mode, "sine");
+  assert.equal(top.key, "boidzoid:7");
+  assert.ok(Object.isFrozen(top));
+
+  const slower = mapBoidToSineVoice({ ...common, x: 0.5, y: 0.5, vx: 0.01, vy: 0 }, {
+    minimumSpeed: 0.01,
+    maximumSpeed: 0.2,
+  });
+  const faster = mapBoidToSineVoice({ ...common, x: 0.5, y: 0.5, vx: 0.2, vy: 0 }, {
+    minimumSpeed: 0.01,
+    maximumSpeed: 0.2,
+  });
+  assert.ok(faster.gain > slower.gain);
+});
+
+test("Boidzoid page exposes only continuous sine arrows and explicit audio", async () => {
   const [html, css, app] = await Promise.all([
     readFile(new URL("boidzoid.html", root), "utf8"),
     readFile(new URL("boidzoid.css", root), "utf8"),
     readFile(new URL("boidzoid-app.js", root), "utf8"),
   ]);
-  assert.match(html, /<h1 id="sceneTitle">boid<span>zoid<\/span><\/h1>/i);
+  assert.match(html, /<h1 class="sr-only" id="sceneTitle">Boidzoid<\/h1>/i);
+  assert.doesNotMatch(html, /boidzoid-title-card/);
   assert.match(html, /id="flockButton"/);
   assert.match(html, /id="morph"[^>]*type="range"/);
-  assert.match(html, /id="skinDensity"[^>]*type="range"/);
-  assert.match(html, /id="scaleMode"/);
-  assert.match(html, /Karplus karpet/i);
+  assert.match(html, /continuous sine/i);
+  assert.doesNotMatch(html, /id="skinDensity"|id="scaleMode"|id="pitchSpread"/);
+  assert.doesNotMatch(html, /name="audioEngine"|Geometric grid/i);
   assert.match(html, /id="audioButton"[^>]*aria-pressed="false"/);
   assert.doesNotMatch(html, /<audio\b|type="file"/);
   assert.match(css, /\.boidzoid-stage-wrap/);
+  assert.match(css, /clip-path: polygon\(0 35%/);
+  assert.match(css, /\.legend-wave/);
+  assert.doesNotMatch(css, /feTurbulence|boidzoid-title-card|legend-ridge|legend-bloom/);
   assert.match(css, /@media \(max-width: 650px\)/);
   assert.match(app, /stepFlock\(/);
-  assert.match(app, /mapCrossingToVoice\(/);
-  assert.match(app, /new KarplusStrongAudio/);
-  assert.match(app, /if \(!state\.audioOn/);
+  assert.match(app, /mapBoidToSineVoice\(/);
+  assert.match(app, /new VoicePool\(48/);
+  assert.match(app, /function drawPlayheads\(/);
+  assert.doesNotMatch(app, /mapCrossingToVoice|drawPulses|strokeRect|gridCanvas|skinScalePath|bezierCurveTo/);
+  assert.match(app, /audio\.setVoices\(sineVoices\(\)/);
+  assert.match(app, /audio\.disable\(\)/);
 });

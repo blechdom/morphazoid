@@ -163,14 +163,15 @@ test("Karplus Carpet is a synthesized microsound field with page-owned note gest
   assert.equal(midi?.midiOutput, false);
 });
 
-test("Boidzoid is a flocking Karplus surface sequencer without generic note keys", () => {
+test("Boidzoid is a continuous flocking sine field without generic note keys", () => {
   const instrument = instrumentById("boidzoid");
   assert.equal(instrument?.label, "Boidzoid");
   assert.equal(instrument?.href, "boidzoid.html");
   assert.equal(instrument?.imageHref, "assets/instruments/boidzoid.webp");
-  assert.equal(instrument?.kind, "Flocking string sequencer");
-  assert.match(instrument?.description ?? "", /flocking playheads/i);
-  assert.match(instrument?.description ?? "", /Karplus.+Strong/i);
+  assert.equal(instrument?.kind, "Flocking sine field");
+  assert.match(instrument?.description ?? "", /arrow playheads/i);
+  assert.match(instrument?.description ?? "", /continuous sine voice/i);
+  assert.match(instrument?.description ?? "", /without note divisions/i);
   assert.deepEqual(instrument?.tags.map(({ id }) => id), ["geometry"]);
   assert.ok(instrument?.features.includes("Pointer"));
   assert.ok(instrument?.features.includes("Built-in synth"));

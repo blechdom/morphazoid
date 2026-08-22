@@ -1,16 +1,10 @@
 .boidzoid-page {
   --boid-lime: #bdff67;
   --boid-mint: #5cf3c4;
-  --boid-cyan: #65dff1;
-  --boid-violet: #ad83ff;
-  --boid-plum: #24142f;
-  --boid-scale: #111a16;
   --accent: var(--boid-lime);
   --accent-soft: color-mix(in oklab, var(--boid-lime) 56%, transparent);
   --accent-glow: color-mix(in oklab, var(--boid-lime) 22%, transparent);
-  background:
-    radial-gradient(circle at 38% -20%, rgba(173, 131, 255, 0.09), transparent 35rem),
-    #060807;
+  background: #060807;
 }
 
 .boidzoid-page .masthead {
@@ -24,29 +18,7 @@
 
 .boidzoid-stage-wrap {
   isolation: isolate;
-  background: #050806;
-}
-
-.boidzoid-stage-wrap::before,
-.boidzoid-stage-wrap::after {
-  position: absolute;
-  z-index: 1;
-  pointer-events: none;
-  content: "";
-  inset: 0;
-}
-
-.boidzoid-stage-wrap::before {
-  background:
-    linear-gradient(115deg, rgba(189, 255, 103, 0.035), transparent 28%, rgba(173, 131, 255, 0.025) 67%, transparent),
-    radial-gradient(circle at 48% 48%, transparent 36%, rgba(0, 0, 0, 0.45) 105%);
-  mix-blend-mode: screen;
-}
-
-.boidzoid-stage-wrap::after {
-  opacity: 0.18;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.16'/%3E%3C/svg%3E");
-  mix-blend-mode: soft-light;
+  background: #070b09;
 }
 
 .boidzoid-page #stage {
@@ -59,68 +31,12 @@
   cursor: grabbing;
 }
 
-.boidzoid-title-card {
-  position: absolute;
-  z-index: 3;
-  top: clamp(20px, 3vw, 38px);
-  left: clamp(20px, 3vw, 40px);
-  display: grid;
-  pointer-events: none;
-  gap: 2px;
-}
-
-.boidzoid-title-card p,
-.boidzoid-title-card h1,
-.boidzoid-title-card small {
-  margin: 0;
-  text-transform: uppercase;
-}
-
-.boidzoid-title-card p {
-  display: flex;
-  color: color-mix(in oklab, var(--boid-lime) 74%, var(--muted));
-  align-items: center;
-  gap: 8px;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.17em;
-}
-
-.boidzoid-title-card p i {
-  width: 20px;
-  height: 1px;
-  background: var(--boid-lime);
-  box-shadow: 0 0 8px var(--boid-lime);
-}
-
-.boidzoid-title-card h1 {
-  color: #e8f4df;
-  font-size: clamp(34px, 6.5vw, 94px);
-  font-style: italic;
-  font-weight: 780;
-  letter-spacing: -0.085em;
-  line-height: 0.88;
-  text-shadow: 0 4px 28px rgba(0, 0, 0, 0.55);
-}
-
-.boidzoid-title-card h1 span {
-  color: transparent;
-  -webkit-text-stroke: 1px rgba(189, 255, 103, 0.72);
-}
-
-.boidzoid-title-card small {
-  margin-top: 8px;
-  color: rgba(219, 228, 224, 0.53);
-  font-size: clamp(7px, 0.8vw, 10px);
-  letter-spacing: 0.19em;
-}
-
 .boidzoid-stage-readout {
   position: absolute;
   z-index: 3;
   top: clamp(22px, 3vw, 38px);
   right: clamp(20px, 3vw, 40px);
-  max-width: min(48%, 440px);
+  max-width: min(70%, 520px);
   pointer-events: none;
   color: var(--boid-mint);
   font-size: 8px;
@@ -158,20 +74,13 @@
 }
 
 .legend-boid {
-  border-radius: 100% 18% 18% 100%;
   background: var(--boid-mint);
   box-shadow: 0 0 8px rgba(92, 243, 196, 0.62);
-  clip-path: polygon(0 50%, 64% 0, 100% 50%, 64% 100%);
+  clip-path: polygon(0 35%, 62% 35%, 62% 0, 100% 50%, 62% 100%, 62% 65%, 0 65%);
 }
 
-.legend-ridge {
-  border-bottom: 1px solid rgba(189, 255, 103, 0.48);
-}
-
-.legend-bloom {
-  border: 1px solid var(--boid-violet);
-  border-radius: 50%;
-  box-shadow: 0 0 8px rgba(173, 131, 255, 0.5);
+.legend-wave {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 12'%3E%3Cpath d='M0 6C4 0 8 0 12 6s8 6 12 0 8-6 8-6' fill='none' stroke='%235cf3c4' stroke-width='1.4'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 .boidzoid-invitation {
@@ -184,11 +93,9 @@
   padding: 9px 12px;
   border: 1px solid rgba(189, 255, 103, 0.25);
   pointer-events: none;
-  background: rgba(4, 8, 5, 0.63);
-  box-shadow: 0 0 26px rgba(189, 255, 103, 0.05);
+  background: rgba(4, 8, 5, 0.78);
   gap: 3px;
   text-align: right;
-  backdrop-filter: blur(9px);
 }
 
 .boidzoid-invitation b {
@@ -204,54 +111,24 @@
   letter-spacing: 0.05em;
 }
 
-.boidzoid-invitation.is-awake {
-  border-color: rgba(92, 243, 196, 0.18);
-}
-
 .boidzoid-invitation.is-awake b {
   color: var(--boid-mint);
 }
 
 .boidzoid-panel {
-  background:
-    linear-gradient(145deg, rgba(173, 131, 255, 0.035), transparent 22%),
-    #0a0e0c;
+  background: #0a0e0c;
 }
 
 .boidzoid-pod-card {
-  padding: 19px 22px 16px;
+  padding: 16px 22px;
   border-bottom: 1px solid var(--line-strong);
-  background:
-    linear-gradient(115deg, rgba(189, 255, 103, 0.09), transparent 52%),
-    rgba(5, 9, 6, 0.72);
+  background: #080d0a;
 }
 
 .boidzoid-card-heading {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.boidzoid-card-heading span,
-.boidzoid-card-heading h2 {
-  display: block;
-  margin: 0;
-  text-transform: uppercase;
-}
-
-.boidzoid-card-heading span {
-  color: var(--muted);
-  font-size: 7px;
-  letter-spacing: 0.15em;
-}
-
-.boidzoid-card-heading h2 {
-  margin-top: 3px;
-  color: var(--ink);
-  font-size: 17px;
-  font-style: italic;
-  letter-spacing: -0.04em;
+  min-height: 12px;
+  justify-content: flex-end;
 }
 
 .boidzoid-status-light {
@@ -281,7 +158,7 @@
 
 .boidzoid-metrics {
   display: grid;
-  margin: 16px 0 0;
+  margin: 12px 0 0;
   border-top: 1px solid rgba(219, 228, 224, 0.11);
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -330,24 +207,6 @@
   --accent-glow: color-mix(in oklab, var(--boid-lime) 18%, transparent) !important;
 }
 
-.boidzoid-skin {
-  --accent: var(--boid-violet) !important;
-  --accent-soft: color-mix(in oklab, var(--boid-violet) 56%, transparent) !important;
-  --accent-glow: color-mix(in oklab, var(--boid-violet) 18%, transparent) !important;
-}
-
-.boidzoid-string {
-  --accent: var(--boid-cyan) !important;
-  --accent-soft: color-mix(in oklab, var(--boid-cyan) 56%, transparent) !important;
-  --accent-glow: color-mix(in oklab, var(--boid-cyan) 18%, transparent) !important;
-}
-
-.boidzoid-map {
-  --accent: #dba2ff !important;
-  --accent-soft: color-mix(in oklab, #dba2ff 56%, transparent) !important;
-  --accent-glow: color-mix(in oklab, #dba2ff 18%, transparent) !important;
-}
-
 .boidzoid-transport-row {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
@@ -371,15 +230,14 @@
 }
 
 .boidzoid-action-grid button,
-.boidzoid-preset-grid button,
-.boidzoid-wide-action {
+.boidzoid-preset-grid button {
   min-width: 0;
   min-height: 36px;
   padding: 7px 8px;
   border: 1px solid var(--line-strong);
   cursor: pointer;
   color: var(--muted);
-  background: rgba(5, 9, 7, 0.5);
+  background: #070b09;
   font-size: 7px;
   font-weight: 650;
   letter-spacing: 0.08em;
@@ -390,9 +248,7 @@
 .boidzoid-action-grid button:focus-visible,
 .boidzoid-preset-grid button:hover,
 .boidzoid-preset-grid button:focus-visible,
-.boidzoid-preset-grid button[aria-pressed="true"],
-.boidzoid-wide-action:hover,
-.boidzoid-wide-action:focus-visible {
+.boidzoid-preset-grid button[aria-pressed="true"] {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-glow);
@@ -402,8 +258,7 @@
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
-.boidzoid-hint,
-.boidzoid-map-copy {
+.boidzoid-hint {
   margin: 12px 0 4px;
   color: var(--muted);
   font-size: 8px;
@@ -415,7 +270,7 @@
   padding: 11px 12px 8px;
   margin-bottom: 10px;
   border: 1px solid color-mix(in oklab, var(--accent) 28%, var(--line));
-  background: linear-gradient(90deg, rgba(92, 243, 196, 0.05), rgba(189, 255, 103, 0.07));
+  background: rgba(189, 255, 103, 0.035);
 }
 
 .boidzoid-morph-control small {
@@ -432,93 +287,10 @@
   font-style: normal;
 }
 
-.boidzoid-control-pair,
-.boidzoid-select-pair {
+.boidzoid-control-pair {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-}
-
-.boidzoid-select-pair {
-  margin-bottom: 12px;
-}
-
-.boidzoid-select {
-  display: grid;
-  min-width: 0;
-  gap: 6px;
-}
-
-.boidzoid-select > span {
-  color: var(--muted);
-  font-size: 8px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.boidzoid-select select {
-  width: 100%;
-  height: 38px;
-  padding: 0 9px;
-  border: 1px solid var(--line-strong);
-  border-radius: 0;
-  color: var(--ink);
-  background: #070b09;
-  font-size: 9px;
-}
-
-.boidzoid-wide-action {
-  width: 100%;
-  margin: 4px 0 7px;
-}
-
-.boidzoid-material-strip {
-  display: grid;
-  margin: 0 0 11px;
-  color: var(--muted);
-  grid-template-columns: auto 1fr auto 1fr auto;
-  align-items: center;
-  gap: 6px;
-  font-size: 6px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.boidzoid-material-strip i {
-  height: 1px;
-  background: linear-gradient(90deg, rgba(189, 255, 103, 0.5), rgba(101, 223, 241, 0.5));
-}
-
-.boidzoid-mapping {
-  display: grid;
-  margin: 13px 0 7px;
-  border: 1px solid var(--line);
-}
-
-.boidzoid-mapping > div {
-  display: grid;
-  padding: 8px 9px;
-  grid-template-columns: minmax(92px, 0.8fr) minmax(0, 1.2fr);
-  gap: 8px;
-}
-
-.boidzoid-mapping > div + div {
-  border-top: 1px solid var(--line);
-}
-
-.boidzoid-mapping dt,
-.boidzoid-mapping dd {
-  margin: 0;
-  font-size: 8px;
-}
-
-.boidzoid-mapping dt {
-  color: var(--accent);
-  text-transform: uppercase;
-}
-
-.boidzoid-mapping dd {
-  color: var(--muted);
 }
 
 .boidzoid-audio-error {
@@ -533,10 +305,6 @@
     grid-template-columns: 1fr;
     grid-template-rows: clamp(300px, 50dvh, 470px) minmax(0, 1fr);
   }
-
-  .boidzoid-title-card h1 {
-    font-size: clamp(38px, 10vw, 72px);
-  }
 }
 
 @media (max-width: 650px) {
@@ -544,24 +312,9 @@
     grid-template-rows: clamp(265px, 43dvh, 360px) minmax(0, 1fr);
   }
 
-  .boidzoid-title-card {
-    top: 15px;
-    left: 15px;
-  }
-
-  .boidzoid-title-card h1 {
-    font-size: clamp(34px, 13vw, 56px);
-  }
-
-  .boidzoid-title-card small,
   .boidzoid-stage-readout,
-  .boidzoid-legend span:nth-child(2),
-  .boidzoid-legend span:nth-child(3) {
+  .boidzoid-legend span:nth-child(2) {
     display: none;
-  }
-
-  .boidzoid-title-card p {
-    font-size: 7px;
   }
 
   .boidzoid-legend {
@@ -589,10 +342,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .boidzoid-stage-wrap::after {
-    display: none;
-  }
-
   .boidzoid-status-light::before {
     box-shadow: none;
   }
