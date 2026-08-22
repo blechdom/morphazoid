@@ -26,6 +26,8 @@ export const JAW_HARP_LIMITS = Object.freeze({
   formantFocus: Object.freeze([0, 1]),
   repeatRateBpm: Object.freeze([36, 480]),
   repeatSwing: Object.freeze([-0.42, 0.42]),
+  breathsPerLoop: Object.freeze([0.5, 3]),
+  dryResonance: Object.freeze([0, 0.35]),
   level: Object.freeze([0, 0.82]),
 });
 
@@ -54,6 +56,10 @@ export const JAW_HARP_DEFAULTS = Object.freeze({
   repeatRateBpm: 148,
   repeatSwing: 0.08,
   repeat: false,
+  rhythmId: "quarter-eighths",
+  breathLinked: true,
+  breathsPerLoop: 1,
+  dryResonance: 0.06,
   level: 0.52,
 });
 
@@ -152,6 +158,15 @@ export const VOWEL_PRESETS = Object.freeze([
   }) }),
 ]);
 
+export const JAW_HARP_RHYTHMS = Object.freeze([
+  Object.freeze({ id: "quarter-eighths", label: "Quarter · eighth · eighth", steps: Object.freeze([1, 0, 0.82, 0.72]) }),
+  Object.freeze({ id: "tresillo", label: "Tresillo 3–3–2", steps: Object.freeze([1, 0, 0, 0.78, 0, 0, 0.88, 0]) }),
+  Object.freeze({ id: "two-one", label: "Two close · one far", steps: Object.freeze([1, 0.7, 0, 0, 0.86, 0, 0, 0]) }),
+  Object.freeze({ id: "five-step", label: "Five-step lilt", steps: Object.freeze([1, 0, 0.62, 0, 0.83]) }),
+  Object.freeze({ id: "soft-machine", label: "Soft / hard / ghost", steps: Object.freeze([0.42, 0, 1, 0, 0.2, 0.72, 0, 0]) }),
+  Object.freeze({ id: "sparse-seven", label: "Sparse seven", steps: Object.freeze([1, 0, 0, 0.58, 0, 0.8, 0]) }),
+]);
+
 export function jawHarpPreset(id) {
   return JAW_HARP_PRESETS.find((preset) => preset.id === id) ?? JAW_HARP_PRESETS[0];
 }
@@ -175,6 +190,8 @@ export function sanitizeJawHarpState(source = {}, fallback = JAW_HARP_DEFAULTS) 
   result.pluckDirection = direction < 0 ? -1 : 1;
   result.repeat = Boolean(state.repeat ?? base.repeat ?? false);
   result.autoBreath = Boolean(state.autoBreath ?? base.autoBreath ?? true);
+  result.breathLinked = Boolean(state.breathLinked ?? base.breathLinked ?? true);
+  result.rhythmId = jawHarpRhythm(state.rhythmId ?? base.rhythmId).id;
   result.presetId = jawHarpPreset(state.presetId ?? base.presetId).id;
   result.vowelId = VOWEL_PRESETS.some(({ id }) => id === state.vowelId)
     ? state.vowelId
@@ -284,6 +301,32 @@ export function repeatIntervalMs(rateBpm, step = 0, swing = 0) {
   const amount = clamp(swing, JAW_HARP_LIMITS.repeatSwing[0], JAW_HARP_LIMITS.repeatSwing[1]);
   const base = 60_000 / bpm;
   return base * (step % 2 === 0 ? 1 + amount : 1 - amount);
+}
+
+export function jawHarpRhythm(id) {
+  return JAW_HARP_RHYTHMS.find((rhythm) => rhythm.id === id) ?? JAW_HARP_RHYTHMS[0];
+}
+
+export function repeatStepIntervalMs(rateBpm) {
+  const bpm = clamp(rateBpm, JAW_HARP_LIMITS.repeatRateBpm[0], JAW_HARP_LIMITS.repeatRateBpm[1]);
+  return 30_000 / bpm;
+}
+
+export function jawHarpRhythmHit(source = JAW_HARP_DEFAULTS, step = 0) {
+  const state = sanitizeJawHarpState(source);
+  const steps = jawHarpRhythm(state.rhythmId).steps;
+  const index = ((Math.trunc(finiteOr(step, 0)) % steps.length) + steps.length) % steps.length;
+  return Object.freeze({ index, velocity: steps[index], active: steps[index] > 0 });
+}
+
+export function jawHarpRhythmLoopMs(source = JAW_HARP_DEFAULTS) {
+  const state = sanitizeJawHarpState(source);
+  return jawHarpRhythm(state.rhythmId).steps.length * repeatStepIntervalMs(state.repeatRateBpm);
+}
+
+export function linkedBreathIntervalMs(source = JAW_HARP_DEFAULTS) {
+  const state = sanitizeJawHarpState(source);
+  return jawHarpRhythmLoopMs(state) / state.breathsPerLoop;
 }
 
 export function breathCycleFlow(source = JAW_HARP_DEFAULTS, phase = 0) {

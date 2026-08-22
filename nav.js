@@ -126,6 +126,11 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "hybrinx", label: "Hybrinx", href: "hybrinx.html" },
     { id: "jaw-harp", label: "Jaw Harp", href: "jaw-harp.html" },
     {
+      id: "breath-atlas",
+      label: "Breath Atlas",
+      href: "breath-atlas.html",
+    },
+    {
       id: "spelling-synthesizer",
       label: "Spelling Synthesizer",
       href: "spelling-synthesizer.html",

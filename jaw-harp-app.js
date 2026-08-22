@@ -1,6 +1,7 @@
 import {
   JAW_HARP_DEFAULTS,
   JAW_HARP_PRESETS,
+  JAW_HARP_RHYTHMS,
   VOWEL_PRESETS,
   applyVowel,
   breathCycleFlow,
@@ -8,7 +9,11 @@ import {
   clamp,
   dominantHarmonic,
   jawHarpPreset,
+  jawHarpRhythm,
+  jawHarpRhythmHit,
+  jawHarpRhythmLoopMs,
   jawHarpState,
+  linkedBreathIntervalMs,
   mouthFormants,
   mouthGeometry,
   randomizeJawHarpState,
@@ -37,6 +42,7 @@ const CONTROL_SPECS = Object.freeze([
   { key: "formantFocus", format: formatPercent, mouth: true },
   { key: "cavityCoupling", format: formatPercent },
   { key: "frameCoupling", format: formatPercent },
+  { key: "dryResonance", format: formatPercent },
   { key: "glottisOpening", format: formatPercent, mouth: true },
   { key: "breathDepth", format: formatPercent },
   { key: "breathRateBpm", format: (value) => `${Math.round(value)} cycles/min` },
@@ -59,6 +65,7 @@ let animationFrame = 0;
 let lastPluckAt = -Infinity;
 let pluckFlash = 0;
 let repeatStep = 0;
+let repeatHitCount = 0;
 let nextRepeatAt = 0;
 let breathCycleStartedAt = performance.now();
 let manualBreathDirection = 0;
@@ -130,7 +137,10 @@ function breathFlowAt(time = performance.now()) {
   if (manualBreathDirection) return manualBreathDirection * state.breathDepth;
   if (!state.autoBreath) return 0;
   const elapsed = Math.max(0, time - breathCycleStartedAt);
-  const phase = (elapsed / breathCycleIntervalMs(state.breathRateBpm)) % 1;
+  const interval = state.breathLinked && state.repeat
+    ? linkedBreathIntervalMs(state)
+    : breathCycleIntervalMs(state.breathRateBpm);
+  const phase = (elapsed / interval + (state.breathLinked && state.repeat ? state.breathBalance * 0.5 : 0)) % 1;
   return breathCycleFlow(state, phase);
 }
 
@@ -145,8 +155,11 @@ function updateBreathPresentation(flow = telemetry.breathFlow ?? commandedBreath
   $("inhaleButton").setAttribute("aria-pressed", String(manualBreathDirection < 0));
   $("exhaleButton").setAttribute("aria-pressed", String(manualBreathDirection > 0));
   $("breathCycleButton").setAttribute("aria-pressed", String(state.autoBreath));
+  const effectiveRate = state.breathLinked && state.repeat
+    ? 60_000 / linkedBreathIntervalMs(state)
+    : state.breathRateBpm;
   $("breathCycleState").textContent = state.autoBreath
-    ? `${Math.round(state.breathRateBpm)} cycles/min · alternating in and out`
+    ? `${Math.round(effectiveRate)} cycles/min · ${state.breathLinked && state.repeat ? "locked to hand" : "free-running"}`
     : "off · hold either direction to breathe";
   const meters = [...$("breathMeter").querySelectorAll("i")];
   const amount = clamp(Math.abs(flow));
@@ -293,9 +306,33 @@ async function toggleRepeat() {
   if (next && !(await ensureAudio())) return;
   state = sanitizeJawHarpState({ ...state, repeat: next }, state);
   repeatStep = 0;
+  repeatHitCount = 0;
   nextRepeatAt = performance.now();
+  if (state.breathLinked) breathCycleStartedAt = nextRepeatAt;
   updateTransportPresentation();
   announce(`Jaw-harp repeat ${next ? "on" : "off"}`);
+}
+
+function toggleBreathLink() {
+  state = sanitizeJawHarpState({ ...state, breathLinked: !state.breathLinked }, state);
+  repeatStep = 0;
+  repeatHitCount = 0;
+  nextRepeatAt = performance.now();
+  breathCycleStartedAt = nextRepeatAt;
+  updatePresentation();
+  postConfiguration();
+  announce(`Breath and plucking clocks ${state.breathLinked ? "linked" : "independent"}`);
+}
+
+function setRhythm(rhythmId) {
+  state = sanitizeJawHarpState({ ...state, rhythmId }, state);
+  repeatStep = 0;
+  repeatHitCount = 0;
+  nextRepeatAt = performance.now();
+  if (state.breathLinked) breathCycleStartedAt = nextRepeatAt;
+  updatePresentation();
+  postConfiguration();
+  announce(`${jawHarpRhythm(state.rhythmId).label} pluck loop loaded`);
 }
 
 function setDirection(direction) {
@@ -307,6 +344,12 @@ function setDirection(direction) {
 
 function setControl(key, value, { mouth = false, announceChange = false } = {}) {
   state = sanitizeJawHarpState({ ...state, [key]: value }, state);
+  if (["repeatRateBpm", "repeatSwing", "breathsPerLoop"].includes(key)) {
+    repeatStep = 0;
+    repeatHitCount = 0;
+    nextRepeatAt = performance.now();
+    if (state.breathLinked) breathCycleStartedAt = nextRepeatAt;
+  }
   if (mouth) activeVowelId = null;
   updatePresentation();
   if (key === "level" && graph?.masterGain && audioContext) {
@@ -331,6 +374,10 @@ function loadHarp(presetId) {
     repeatRateBpm: state.repeatRateBpm,
     repeatSwing: state.repeatSwing,
     repeat: state.repeat,
+    rhythmId: state.rhythmId,
+    breathLinked: state.breathLinked,
+    breathsPerLoop: state.breathsPerLoop,
+    dryResonance: state.dryResonance,
     level: state.level,
     pluckDirection: state.pluckDirection,
     vowelId: state.vowelId,
@@ -383,13 +430,36 @@ function updatePresentation() {
   $("reedSummary").textContent = `${Math.round(state.reedFrequencyHz)} Hz · ${preset.family}`;
   $("mouthSummary").textContent = `${activeVowelId ? VOWEL_PRESETS.find(({ id }) => id === activeVowelId)?.phoneme : "custom"} · ${(geometry.lengthM * 100).toFixed(1)} cm cavity`;
   $("couplingSummary").textContent = `${formatPercent(state.cavityCoupling)} mouth · ${formatPercent(state.frameCoupling)} frame`;
-  $("rhythmSummary").textContent = `${Math.round(state.repeatRateBpm)} BPM · ${formatPercent(state.repeatSwing)} swing`;
+  const rhythm = jawHarpRhythm(state.rhythmId);
+  $("rhythmSummary").textContent = `${rhythm.label} · ${state.breathLinked ? `${state.breathsPerLoop}× breath` : "free breath"}`;
+  $("rhythmSelect").value = state.rhythmId;
+  $("breathsPerLoop").value = String(state.breathsPerLoop);
+  $("breathLinkButton").setAttribute("aria-pressed", String(state.breathLinked));
+  $("breathLinkState").textContent = state.breathLinked
+    ? "linked · pressure resets on the first step"
+    : "independent breath and hand clocks";
+  renderPulseMap(rhythm);
   $("motionReadout").textContent = telemetry.rms > 0.0004 ? `${Math.round(clamp(telemetry.energy) * 100)}% energy` : "resting";
   $("pluckOutward").setAttribute("aria-pressed", String(state.pluckDirection > 0));
   $("pluckInward").setAttribute("aria-pressed", String(state.pluckDirection < 0));
   updateBreathPresentation();
   updateTransportPresentation();
   telemetry.formants = telemetry.formants ?? formants.frequenciesHz;
+}
+
+function renderPulseMap(rhythm = jawHarpRhythm(state.rhythmId)) {
+  const map = $("pulseMap");
+  map.style.setProperty("--pulse-count", String(rhythm.steps.length));
+  if (map.children.length !== rhythm.steps.length || map.dataset.rhythm !== rhythm.id) {
+    map.dataset.rhythm = rhythm.id;
+    map.replaceChildren(...rhythm.steps.map((velocity) => {
+      const pulse = document.createElement("i");
+      pulse.style.height = `${18 + velocity * 82}%`;
+      pulse.style.opacity = String(velocity ? 0.35 + velocity * 0.65 : 0.2);
+      return pulse;
+    }));
+  }
+  [...map.children].forEach((node, index) => node.classList.toggle("is-current", index === repeatStep % rhythm.steps.length));
 }
 
 function buildPresets() {
@@ -408,12 +478,21 @@ function buildPresets() {
     button.addEventListener("click", () => loadVowel(vowel.id));
     return button;
   }));
+  $("rhythmSelect").replaceChildren(...JAW_HARP_RHYTHMS.map((rhythm) => {
+    const option = document.createElement("option");
+    option.value = rhythm.id;
+    option.textContent = `${rhythm.label} · ${rhythm.steps.map((velocity) => velocity ? "●" : "·").join("")}`;
+    return option;
+  }));
 }
 
 function installControls() {
   $("audioButton").addEventListener("click", toggleAudio);
   $("pluckButton").addEventListener("click", () => pluck());
   $("repeatButton").addEventListener("click", toggleRepeat);
+  $("rhythmSelect").addEventListener("change", (event) => setRhythm(event.currentTarget.value));
+  $("breathsPerLoop").addEventListener("change", (event) => setControl("breathsPerLoop", Number(event.currentTarget.value), { announceChange: true }));
+  $("breathLinkButton").addEventListener("click", toggleBreathLink);
   $("harpSelect").addEventListener("change", (event) => loadHarp(event.currentTarget.value));
   $("randomizeButton").addEventListener("click", randomizeModel);
   $("pluckOutward").addEventListener("click", () => setDirection(1));
@@ -836,14 +915,23 @@ function installKeyboard() {
 }
 
 function tick(time) {
-  const flow = breathFlowAt(time);
-  if (graph && audioContext?.state === "running") sendBreath(flow);
   if (state.repeat && graph && audioContext?.state === "running" && time >= nextRepeatAt) {
-    pluck({ automatic: true, direction: repeatStep % 2 ? -state.pluckDirection : state.pluckDirection });
-    document.querySelectorAll(".jaw-pulse-map i").forEach((node, index) => node.classList.toggle("is-current", index === repeatStep % 8));
-    nextRepeatAt = time + repeatIntervalMs(state.repeatRateBpm, repeatStep, state.repeatSwing);
+    const hit = jawHarpRhythmHit(state, repeatStep);
+    if (hit.index === 0 && state.breathLinked) breathCycleStartedAt = time;
+    if (hit.active) {
+      pluck({
+        automatic: true,
+        force: state.pluckForce * hit.velocity,
+        direction: repeatHitCount % 2 ? -state.pluckDirection : state.pluckDirection,
+      });
+      repeatHitCount += 1;
+    }
+    renderPulseMap();
+    nextRepeatAt = time + repeatIntervalMs(state.repeatRateBpm, repeatStep, state.repeatSwing) * 0.5;
     repeatStep += 1;
   }
+  const flow = breathFlowAt(time);
+  if (graph && audioContext?.state === "running") sendBreath(flow);
   if (graph?.analyser) graph.analyser.getFloatTimeDomainData(waveform);
   $("motionReadout").textContent = telemetry.rms > 0.0004 ? `${Math.round(clamp(telemetry.energy) * 100)}% energy` : "resting";
   updateBreathPresentation(telemetry.breathFlow ?? flow);

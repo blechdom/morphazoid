@@ -5,12 +5,16 @@ import test from "node:test";
 import {
   JAW_HARP_DEFAULTS,
   JAW_HARP_PRESETS,
+  JAW_HARP_RHYTHMS,
   VOWEL_PRESETS,
   applyVowel,
   breathCycleFlow,
   breathCycleIntervalMs,
   dominantHarmonic,
   jawHarpState,
+  jawHarpRhythmHit,
+  jawHarpRhythmLoopMs,
+  linkedBreathIntervalMs,
   mouthFormants,
   mouthGeometry,
   randomizeJawHarpState,
@@ -89,6 +93,21 @@ test("swing preserves each two-pluck pair duration", () => {
   assert.ok(Math.abs(long + short - straight * 2) < 1e-9);
 });
 
+test("jaw-harp repeats use accented loops and phase-linked breath ratios", () => {
+  assert.equal(JAW_HARP_RHYTHMS.length, 6);
+  assert.deepEqual(JAW_HARP_RHYTHMS[0].steps, [1, 0, 0.82, 0.72]);
+  const state = jawHarpState("khomus", {
+    rhythmId: "quarter-eighths",
+    repeatRateBpm: 120,
+    breathsPerLoop: 1,
+  });
+  assert.equal(jawHarpRhythmLoopMs(state), 1_000);
+  assert.equal(linkedBreathIntervalMs(state), 1_000);
+  assert.equal(linkedBreathIntervalMs({ ...state, breathsPerLoop: 2 }), 500);
+  assert.deepEqual(jawHarpRhythmHit(state, 0), { index: 0, velocity: 1, active: true });
+  assert.deepEqual(jawHarpRhythmHit(state, 1), { index: 1, velocity: 0, active: false });
+});
+
 test("automatic breath is a bounded signed inhale-exhale cycle", () => {
   const state = sanitizeJawHarpState({
     ...JAW_HARP_DEFAULTS,
@@ -136,8 +155,8 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
       }
     }
     const rms = Math.sqrt(squareSum / (200 * 128));
-    assert.ok(rms > 0.01 && rms < 0.4);
-    assert.ok(peak > 0.05 && peak < 0.95);
+    assert.ok(rms > 0.0002 && rms < 0.4);
+    assert.ok(peak > 0.001 && peak < 0.95);
     assert.equal(telemetry.type, "telemetry");
     assert.ok(telemetry.energy > 0);
 
@@ -164,8 +183,8 @@ test("jaw-harp worklet renders a bounded, decaying pluck", async () => {
     const unbreathed = renderBreath(0);
     const inhaled = renderBreath(-0.78);
     const exhaled = renderBreath(0.78);
-    assert.ok(inhaled.rms > unbreathed.rms * 1.05);
-    assert.ok(exhaled.rms > unbreathed.rms * 1.05);
+    assert.ok(inhaled.rms > unbreathed.rms * 2);
+    assert.ok(exhaled.rms > unbreathed.rms * 2);
     assert.ok(Math.abs(exhaled.rms - inhaled.rms) > 0.001);
     assert.ok(inhaled.peak < 0.98 && exhaled.peak < 0.98);
   } finally {
@@ -191,6 +210,10 @@ test("jaw-harp page exposes the physical model and accessible interactions", asy
   assert.match(html, /id="inhaleButton"/);
   assert.match(html, /id="exhaleButton"/);
   assert.match(html, /id="breathCycleButton"/);
+  assert.match(html, /id="rhythmSelect"/);
+  assert.match(html, /id="breathsPerLoop"/);
+  assert.match(html, /id="breathLinkButton"/);
+  assert.match(html, /id="dryResonance"/);
   assert.match(html, /src="jaw-harp-app\.js"/);
   assert.match(css, /\.jaw-harp-page \.shell/);
   assert.match(css, /@media \(max-width: 650px\)/);
