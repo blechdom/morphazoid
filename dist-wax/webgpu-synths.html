@@ -7,9 +7,9 @@
     <meta name="theme-color" content="#06070a" />
     <meta
       name="description"
-      content="Morphazoid WebGPU Synths — a WGSL-native sequencing and synthesis laboratory with morphable sound models."
+      content="Morphazoid GPU Shader Synths — WGSL-native sequencing, adjustable synthesis models, and GPU post effects."
     />
-    <title>WebGPU Synths — Morphazoid</title>
+    <title>GPU Shader Synths — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="webgpu-synths.css" />
@@ -25,7 +25,7 @@
         <a class="tab" href="rubix.html">rubix</a>
         <a class="tab" href="hyper-rubix.html">hyper rubix</a>
         <a class="tab" href="webgpu-303.html">webgpu 303</a>
-        <a class="tab active webgpu-synths-tab" href="webgpu-synths.html" aria-current="page">webgpu synths</a>
+        <a class="tab active webgpu-synths-tab" href="webgpu-synths.html" aria-current="page">gpu shader synths</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
@@ -33,7 +33,7 @@
           <option value="rubix.html">rubix</option>
           <option value="hyper-rubix.html">hyper rubix</option>
           <option value="webgpu-303.html">webgpu 303</option>
-          <option value="webgpu-synths.html" selected>webgpu synths</option>
+          <option value="webgpu-synths.html" selected>gpu shader synths</option>
         </select>
       </label>
 
@@ -43,11 +43,11 @@
           <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
         </button>
         <button class="synth-play-button" id="synthPlayButton" type="button" aria-pressed="false" data-primary-transport>
-          Play genome
+          Play sequence
         </button>
         <label class="header-level" for="output">
           <span><b>Output</b><output id="outputOut" for="output">100%</output></span>
-          <input id="output" aria-label="WebGPU Synths output level" type="range" min="0" max="1" step="0.01" value="1" />
+          <input id="output" aria-label="GPU Shader Synths output level" type="range" min="0" max="1" step="0.01" value="1" />
         </label>
       </div>
     </header>
@@ -56,18 +56,18 @@
       <section class="stage webgpu-synths-stage" aria-labelledby="webgpuSynthsTitle">
         <div class="webgpu-synths-stage-wrap" id="stageWrap">
           <canvas
-            id="genomeStage"
+            id="sequenceStage"
             role="img"
-            aria-label="Four-lane WebGPU musical genome editor. Audio off."
+            aria-label="Four-lane GPU sequence and modulation editor. Audio off."
             aria-describedby="webgpuSynthsDescription liveStatus"
           >
-            WebGPU musical genome lanes and output organism.
+            GPU sequence lanes and synthesis-model display.
           </canvas>
 
           <div class="webgpu-synths-heading">
             <p>ALL MUSICAL LOGIC IN WGSL</p>
-            <h1 id="webgpuSynthsTitle">WebGPU Synths</h1>
-            <span id="engineBadge">one shader · five organisms</span>
+            <h1 id="webgpuSynthsTitle">GPU Shader Synths</h1>
+            <span id="engineBadge">six synthesis models · two GPU passes</span>
           </div>
 
           <div class="shader-contract" aria-hidden="true">
@@ -79,9 +79,9 @@
           </div>
         </div>
 
-        <div class="genome-deck">
-          <div class="genome-lane-tabs" id="laneButtons" role="group" aria-label="Editable genome lane"></div>
-          <div class="genome-actions" aria-label="Genome transformations">
+        <div class="sequence-deck">
+          <div class="sequence-lane-tabs" id="laneButtons" role="group" aria-label="Editable sequence lane"></div>
+          <div class="sequence-actions" aria-label="Sequence transformations">
             <button class="mini-action" id="rotateLeft" type="button">Rotate −1</button>
             <button class="mini-action" id="rotateRight" type="button">Rotate +1</button>
             <button class="mini-action" id="reverseSequence" type="button">Reverse</button>
@@ -90,10 +90,10 @@
           <div class="webgpu-synth-knob-bank" id="knobControls" aria-label="Shared WGSL macro controls"></div>
         </div>
 
-        <div class="model-rail" id="modelRail" aria-label="Morphable synthesis topology"></div>
+        <div class="model-rail" id="modelRail" aria-label="Morphable synthesis-model continuum"></div>
       </section>
 
-      <aside class="panel webgpu-synths-panel" aria-label="WebGPU Synths controls">
+      <aside class="panel webgpu-synths-panel" aria-label="GPU Shader Synths controls">
         <div class="webgpu-status-strip" aria-live="polite">
           <b id="gpuState">Checking WebGPU</b>
           <small id="streamState">WGSL owns the signal path</small>
@@ -101,8 +101,8 @@
 
         <div class="wgsl-boundary">
           <span>GPU / WGSL DOMAIN</span>
-          <p>Clock, swing, four sequence lanes, scales, envelopes, model morphs, synthesis, stereo, drive, and limiter.</p>
-          <small>Web Audio is buffer playback only.</small>
+          <p>Clock, swing, four sequence lanes, scales, envelopes, adjustable model component counts, editable additive ranks, synthesis, stereo, and two-pass GPU effects.</p>
+          <small>Web Audio is buffer playback only. Cascade PM is a deterministic feed-forward phase-modulation cascade; Model morph depth is a modulation amount, not a claim of mathematical chaos.</small>
         </div>
 
         <details class="group control-section webgpu-synths-section" data-section="themes" open>
@@ -118,7 +118,7 @@
         <details class="group control-section webgpu-synths-section" data-section="variations" open>
           <summary class="group-summary">
             <h2 class="group-title">Variations</h2>
-            <span class="section-state" id="variationState">Euclidean DNA</span>
+            <span class="section-state" id="variationState">Euclidean Pattern</span>
           </summary>
           <div class="group-body">
             <div class="technique-grid" id="techniqueButtons" role="group" aria-label="Sequence generators"></div>
@@ -127,17 +127,43 @@
               <button class="mini-action" type="button" data-vary="energy">Vary pulse</button>
               <button class="mini-action" type="button" data-vary="timbre">Vary timbre</button>
               <button class="mini-action" type="button" data-vary="morph">Vary morph</button>
-              <button class="mini-action variation-all" type="button" data-vary="all">Mutate all DNA</button>
+              <button class="mini-action variation-all" type="button" data-vary="all">Vary all lanes</button>
             </div>
           </div>
         </details>
 
-        <details class="group control-section webgpu-synths-section" data-section="organism" open>
+        <details class="group control-section webgpu-synths-section" data-section="model" open>
           <summary class="group-summary">
-            <h2 class="group-title">Organism</h2>
-            <span class="section-state" id="organismState">Spectral Acid</span>
+            <h2 class="group-title">Synthesis model</h2>
+            <span class="section-state" id="modelState">Spectral Acid</span>
           </summary>
-          <div class="group-body" id="organismControls"></div>
+          <div class="group-body" id="modelControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-synths-section" data-section="components">
+          <summary class="group-summary">
+            <h2 class="group-title">Component counts</h2>
+            <span class="section-state" id="componentsState">six adjustable banks</span>
+          </summary>
+          <div class="group-body" id="componentsControls"></div>
+          <p class="control-note">These are logical WGSL components evaluated directly for every output sample—not Web Audio OscillatorNodes.</p>
+        </details>
+
+        <details class="group control-section webgpu-synths-section" data-section="organ-ranks">
+          <summary class="group-summary">
+            <h2 class="group-title">Additive rank table</h2>
+            <span class="section-state" id="organRanksState">9 active</span>
+          </summary>
+          <div class="group-body organ-rank-table" id="organRankControls"></div>
+          <p class="control-note">Each active rank has its own frequency ratio, level, amplitude-modulation frequency, and AM depth.</p>
+        </details>
+
+        <details class="group control-section webgpu-synths-section" data-section="effects">
+          <summary class="group-summary">
+            <h2 class="group-title">GPU post effects</h2>
+            <span class="section-state" id="effectsState">bypassed</span>
+          </summary>
+          <div class="group-body" id="effectsControls"></div>
         </details>
 
         <details class="group control-section webgpu-synths-section" data-section="time" open>
@@ -177,26 +203,32 @@
                 </select>
               </span>
             </label>
-            <p class="gpu-stream-note">The compute shader writes finished interleaved stereo samples. The browser audio graph adds no synthesis nodes or effects.</p>
+            <p class="gpu-stream-note">Pass 1 writes dry synthesis and GPU history. Pass 2 applies FIR filtering, multi-tap delay, and waveshaping before the single CPU readback. The browser audio graph adds no synthesis nodes or effects.</p>
+            <div class="gpu-execution-map" aria-label="GPU audio execution and latency map">
+              <div><b>GPU-parallel</b><span>Oscillator/partial banks, feed-forward PM, grains, modal sums, FIR taps, delay taps, and stateless waveshaping.</span></div>
+              <div><b>State-sensitive</b><span>Recursive IIR filters and true feedback delays need serialized state or block algorithms; this page uses a causal FIR and feed-forward taps.</span></div>
+              <div><b>Per chunk</b><span>CPU time-offset upload → one GPU submission with two compute passes → one GPU readback → finished buffer playback. Parameters, lanes, and ranks upload only when edited; the second pass adds no CPU hop.</span></div>
+              <div><b>Latency</b><span>Default chunks are 100 ms and queued ahead for stable playback. FIR adds at most 15 samples of group delay; delay time is an intentional echo.</span></div>
+            </div>
           </div>
         </details>
 
         <div class="reset-all-row">
           <button class="reset-all-button" id="resetPatch" type="button" data-reset-all data-reset-in-place>
-            Reset organism
+            Reset shader synth
           </button>
         </div>
         <p class="audio-error" id="audioError" role="alert" hidden></p>
       </aside>
 
       <p class="sr-only" id="webgpuSynthsDescription">
-        A WebGPU compute shader sequences four parameter lanes and synthesizes morphs between five sound generator families. Web Audio only plays completed shader buffers.
+        GPU compute shaders sequence four control lanes, render six synthesis models, and apply FIR filtering, multi-tap delay, and waveshaping. Web Audio only plays completed shader buffers.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
     <script type="module" src="nav.js"></script>
     <script type="module" src="webgpu-synths-app.js"></script>
-    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
-</body>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+  </body>
 </html>

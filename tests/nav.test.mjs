@@ -636,7 +636,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     tools.find((tool) => tool.id === "webgpu-synths"),
     {
       id: "webgpu-synths",
-      label: "WebGPU Synths",
+      label: "GPU Shader Synths",
       href: "webgpu-synths.html",
     },
   );

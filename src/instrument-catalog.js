@@ -326,9 +326,9 @@ const CATALOG_DETAILS = Object.freeze({
     "Use a WebGPU-capable browser, turn on Audio, then shape the pattern, partials, filter, and chunk settings.",
   ),
   "webgpu-synths": define(
-    "WGSL synth laboratory",
-    "Runs clocking, swing, scale quantization, four parameter lanes, envelopes, five morphable synthesis models, stereo motion, drive, and limiting inside one WebGPU compute shader.",
-    "Use a WebGPU-capable browser, turn on Audio, choose a theme or sequence generator, then draw pitch, pulse, timbre, and morph DNA directly on the stage.",
+    "GPU shader synth laboratory",
+    "Runs four control lanes, six adjustable synthesis models, editable additive ranks, a causal FIR, feed-forward delay taps, and waveshaping across two WGSL compute passes.",
+    "Use a WebGPU-capable browser, turn on Audio, choose a theme or sequence generator, then draw pitch, pulse, timbre, and model motion directly on the stage.",
     ["WebGPU", "Pointer", "Built-in synth"],
   ),
 

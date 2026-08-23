@@ -1,12 +1,15 @@
 import {
   WEBGPU_SYNTHS_DEFAULTS,
+  WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_LIMITS,
   WEBGPU_SYNTHS_MODELS,
+  WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
   WEBGPU_SYNTHS_RUNTIME_DEFAULTS,
   WEBGPU_SYNTHS_SCALES,
   WEBGPU_SYNTHS_WORKGROUP_SIZES,
   WebGpuSynthLabAudio,
   createWebGpuSynthSequence,
+  sanitizeWebGpuSynthOrganRanks,
   sanitizeWebGpuSynthParams,
   sanitizeWebGpuSynthSequence,
   varyWebGpuSynthSequence,
@@ -21,21 +24,24 @@ const LANE_SPECS = Object.freeze([
   Object.freeze({ id: "pitch", label: "Pitch", color: "#74f7ff", description: "scale degree" }),
   Object.freeze({ id: "energy", label: "Pulse", color: "#ffda57", description: "gate + energy" }),
   Object.freeze({ id: "timbre", label: "Timbre", color: "#ff6eaa", description: "model color" }),
-  Object.freeze({ id: "morph", label: "Morph", color: "#a78bff", description: "topology + motion" }),
+  Object.freeze({ id: "morph", label: "Morph", color: "#a78bff", description: "model + motion" }),
 ]);
+
+const ORGAN_RANK_LABELS = Object.freeze(["16′", "5⅓′", "8′", "4′", "2⅔′", "2′", "1⅗′", "1⅓′", "1′"]);
 
 const MODEL_DETAILS = Object.freeze([
-  "harmonic filter bank",
-  "recursive operators",
-  "table + nonlinear fold",
-  "inharmonic resonators",
-  "windowed micrograins",
+  "1–48 resonant harmonic partials",
+  "1–12 feed-forward phase operators",
+  "1–8 detuned wavefold layers",
+  "1–32 stiff inharmonic resonators",
+  "1–16 windowed micrograins",
+  "1–9 editable additive ranks",
 ]);
 
-const MODEL_COLORS = Object.freeze(["#91ff63", "#74f7ff", "#ffda57", "#ff6eaa", "#a78bff"]);
+const MODEL_COLORS = Object.freeze(["#91ff63", "#74f7ff", "#ffda57", "#ff6eaa", "#a78bff", "#ffe6a8"]);
 
 const TECHNIQUES = Object.freeze([
-  Object.freeze({ id: "euclid", label: "Euclidean DNA" }),
+  Object.freeze({ id: "euclid", label: "Euclidean Pattern" }),
   Object.freeze({ id: "brownian", label: "Brownian Walk" }),
   Object.freeze({ id: "cellular", label: "Rule 110" }),
   Object.freeze({ id: "recurrence", label: "Golden Recurrence" }),
@@ -53,47 +59,54 @@ const THEMES = Object.freeze([
     label: "Acid Fossil",
     technique: "euclid",
     variation: 0.18,
-    params: themedParams({ topology: 0.08, baseNote: 32, clock: 6.2, steps: 16, complexity: 0.82, color: 0.72, decay: 0.3, fold: 0.42, space: 0.28, chaos: 0.12, swing: 0.14, seed: 17011, scale: 2 }),
+    params: themedParams({ topology: 0.08, baseNote: 32, clock: 6.2, steps: 16, complexity: 0.82, color: 0.72, decay: 0.3, fold: 0.42, space: 0.28, chaos: 0.12, swing: 0.14, seed: 17011, scale: 2, acidPartials: 24, filterCutoff: 4200, filterTaps: 13, filterMix: 0.42, shaperDrive: 2.2, shaperMix: 0.18 }),
   }),
   Object.freeze({
     id: "recursive-chrome",
     label: "Recursive Chrome",
     technique: "recurrence",
     variation: 0.32,
-    params: themedParams({ topology: 1.14, baseNote: 30, clock: 4.8, steps: 21, glide: 0.18, complexity: 0.74, color: 0.63, motion: 0.58, decay: 0.52, fold: 0.3, space: 0.66, chaos: 0.26, seed: 24117, scale: 3 }),
+    params: themedParams({ topology: 1.14, baseNote: 30, clock: 4.8, steps: 21, glide: 0.18, complexity: 0.74, color: 0.63, motion: 0.58, decay: 0.52, fold: 0.3, space: 0.66, chaos: 0.26, seed: 24117, scale: 3, pmOperators: 7, delayTime: 0.19, delayRepeats: 3, delayDecay: 0.5, delayMix: 0.22 }),
   }),
   Object.freeze({
     id: "folded-mutant",
     label: "Folded Mutant",
     technique: "cellular",
     variation: 0.54,
-    params: themedParams({ topology: 2.18, baseNote: 38, clock: 8.4, steps: 32, glide: 0.04, complexity: 0.68, color: 0.38, motion: 0.72, decay: 0.2, fold: 0.88, space: 0.5, chaos: 0.48, swing: 0.06, seed: 39117, scale: 5 }),
+    params: themedParams({ topology: 2.18, baseNote: 38, clock: 8.4, steps: 32, glide: 0.04, complexity: 0.68, color: 0.38, motion: 0.72, decay: 0.2, fold: 0.88, space: 0.5, chaos: 0.48, swing: 0.06, seed: 39117, scale: 5, foldLayers: 5, shaperDrive: 4.8, shaperFold: 0.72, shaperMix: 0.48 }),
   }),
   Object.freeze({
     id: "bell-swarm",
     label: "Bell Swarm",
     technique: "orbit",
     variation: 0.2,
-    params: themedParams({ topology: 3.06, baseNote: 46, clock: 2.7, steps: 20, glide: 0, complexity: 0.9, color: 0.78, motion: 0.48, decay: 1.22, fold: 0.18, space: 0.9, chaos: 0.12, swing: 0.02, gain: 0.1, seed: 8271, scale: 4 }),
+    params: themedParams({ topology: 3.06, baseNote: 46, clock: 2.7, steps: 20, glide: 0, complexity: 0.9, color: 0.78, motion: 0.48, decay: 1.22, fold: 0.18, space: 0.9, chaos: 0.12, swing: 0.02, gain: 0.1, seed: 8271, scale: 4, modalModes: 18, delayTime: 0.37, delayRepeats: 4, delayDecay: 0.63, delayMix: 0.34 }),
   }),
   Object.freeze({
     id: "dust-engine",
     label: "Dust Engine",
     technique: "brownian",
     variation: 0.46,
-    params: themedParams({ topology: 3.88, baseNote: 27, clock: 7.7, steps: 24, glide: 0.42, complexity: 0.86, color: 0.9, motion: 0.82, decay: 0.34, fold: 0.56, space: 0.94, chaos: 0.72, swing: 0.21, gain: 0.11, seed: 51733, scale: 1 }),
+    params: themedParams({ topology: 3.88, baseNote: 27, clock: 7.7, steps: 24, glide: 0.42, complexity: 0.86, color: 0.9, motion: 0.82, decay: 0.34, fold: 0.56, space: 0.94, chaos: 0.72, swing: 0.21, gain: 0.11, seed: 51733, scale: 1, grainCount: 13, filterCutoff: 6100, filterTaps: 17, filterMix: 0.31, delayTime: 0.11, delayRepeats: 2, delayMix: 0.16 }),
+  }),
+  Object.freeze({
+    id: "velvet-drawbars",
+    label: "Velvet Drawbars",
+    technique: "orbit",
+    variation: 0.16,
+    params: themedParams({ topology: 5, baseNote: 36, clock: 2.2, steps: 16, glide: 0.36, complexity: 0.82, color: 0.34, motion: 0.28, decay: 1.65, fold: 0.04, space: 0.68, chaos: 0.03, swing: 0.04, gain: 0.092, seed: 31991, scale: 1, organRanks: 9, filterCutoff: 9200, filterTaps: 11, filterMix: 0.18, delayTime: 0.31, delayRepeats: 2, delayDecay: 0.38, delayMix: 0.13 }),
   }),
   Object.freeze({
     id: "interzone",
     label: "Interzone",
     technique: "noise",
     variation: 0.68,
-    params: themedParams({ topology: 1.72, baseNote: 24, clock: 11.3, steps: 48, glide: 0.28, complexity: 0.96, color: 0.54, motion: 0.93, decay: 0.14, fold: 0.74, space: 0.78, chaos: 0.94, swing: 0.31, gain: 0.085, seed: 64439, scale: 5 }),
+    params: themedParams({ topology: 1.72, baseNote: 24, clock: 11.3, steps: 48, glide: 0.28, complexity: 0.96, color: 0.54, motion: 0.93, decay: 0.14, fold: 0.74, space: 0.78, chaos: 0.94, swing: 0.31, gain: 0.085, seed: 64439, scale: 5, pmOperators: 10, foldLayers: 7, filterCutoff: 2800, filterTaps: 25, filterMix: 0.55, delayTime: 0.073, delayRepeats: 4, delayDecay: 0.72, delayMix: 0.27, shaperDrive: 7.4, shaperFold: 0.84, shaperMix: 0.62 }),
   }),
 ]);
 
 const CONTROL_GROUPS = Object.freeze({
-  organism: Object.freeze([
+  model: Object.freeze([
     { key: "topology", label: "Model topology", step: 0.01 },
     { key: "complexity", label: "Complexity", step: 0.01 },
     { key: "color", label: "Color", step: 0.01 },
@@ -111,22 +124,61 @@ const CONTROL_GROUPS = Object.freeze({
     { key: "scale", label: "Scale", type: "select", options: WEBGPU_SYNTHS_SCALES },
     { key: "motion", label: "Motion", step: 0.01 },
     { key: "space", label: "Stereo field", step: 0.01 },
-    { key: "chaos", label: "Topology chaos", step: 0.01 },
+    { key: "chaos", label: "Model morph depth", step: 0.01 },
     { key: "gain", label: "Shader gain", step: 0.001 },
     { key: "seed", label: "Shader seed", step: 1 },
+  ]),
+  components: Object.freeze([
+    { key: "acidPartials", label: "Acid partials", step: 1 },
+    { key: "pmOperators", label: "PM operators", step: 1 },
+    { key: "foldLayers", label: "Wavefold layers", step: 1 },
+    { key: "modalModes", label: "Modal resonators", step: 1 },
+    { key: "grainCount", label: "Particle grains", step: 1 },
+    { key: "organRanks", label: "Organ ranks", step: 1 },
+  ]),
+  effects: Object.freeze([
+    { key: "filterCutoff", label: "FIR cutoff", step: 10 },
+    { key: "filterTaps", label: "FIR taps", step: 2 },
+    { key: "filterMix", label: "Filter mix", step: 0.01 },
+    { key: "delayTime", label: "Delay time", step: 0.01 },
+    { key: "delayRepeats", label: "Delay taps", step: 1 },
+    { key: "delayDecay", label: "Tap decay", step: 0.01 },
+    { key: "delayMix", label: "Delay mix", step: 0.01 },
+    { key: "shaperDrive", label: "Shaper drive", step: 0.1 },
+    { key: "shaperFold", label: "Shaper fold", step: 0.01 },
+    { key: "shaperMix", label: "Shaper mix", step: 0.01 },
   ]),
 });
 
 const CONTROL_SPECS = Object.freeze(Object.values(CONTROL_GROUPS).flat());
 const CONTROL_BY_KEY = new Map(CONTROL_SPECS.map((spec) => [spec.key, spec]));
+const EFFECT_CONTROL_SECTIONS = Object.freeze([
+  Object.freeze({ label: "FIR low-pass", detail: "Causal windowed-sinc taps", keys: Object.freeze(["filterCutoff", "filterTaps", "filterMix"]) }),
+  Object.freeze({ label: "Feed-forward delay", detail: "GPU history with stereo taps", keys: Object.freeze(["delayTime", "delayRepeats", "delayDecay", "delayMix"]) }),
+  Object.freeze({ label: "Waveshaper", detail: "Soft clipping to sine folding", keys: Object.freeze(["shaperDrive", "shaperFold", "shaperMix"]) }),
+]);
+const DISCRETE_KEYS = new Set([
+  "steps",
+  "baseNote",
+  "seed",
+  "scale",
+  "acidPartials",
+  "pmOperators",
+  "foldLayers",
+  "modalModes",
+  "grainCount",
+  "organRanks",
+  "filterTaps",
+  "delayRepeats",
+]);
 const KNOB_ORDER = Object.freeze(["topology", "complexity", "color", "fold", "motion", "chaos"]);
 const KNOB_LABELS = Object.freeze({
-  topology: "Organism",
-  complexity: "Organs",
-  color: "Pigment",
-  fold: "Mutation",
+  topology: "Model",
+  complexity: "Density",
+  color: "Color",
+  fold: "Fold",
   motion: "Orbit",
-  chaos: "Instability",
+  chaos: "Morph depth",
 });
 
 const support = webGpuSynthSupport(globalThis);
@@ -138,6 +190,7 @@ const state = {
     seed: firstTheme.params.seed,
     variation: firstTheme.variation,
   }),
+  organRanks: sanitizeWebGpuSynthOrganRanks(WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS),
   themeId: firstTheme.id,
   techniqueId: firstTheme.technique,
   activeLane: 0,
@@ -153,6 +206,7 @@ const controlInputs = new Map();
 const controlOutputs = new Map();
 const knobControls = new Map();
 const knobOutputs = new Map();
+const organRankInputs = new Map();
 let engine = null;
 let audioStartPromise = null;
 let audioGeneration = 0;
@@ -177,13 +231,18 @@ function clearError() {
 function formatParam(key, value) {
   if (key === "topology") return webGpuSynthModelLabel(value);
   if (key === "baseNote") return `MIDI ${Math.round(value)}`;
-  if (key === "clock") return `${value.toFixed(2)} Hz`;
+  if (["clock", "filterCutoff"].includes(key)) return `${value < 1000 ? value.toFixed(2) : (value / 1000).toFixed(2)} ${value < 1000 ? "Hz" : "kHz"}`;
   if (key === "steps") return `${Math.round(value)} steps`;
   if (key === "decay") return `${Math.round(value * 1000)} ms`;
+  if (key === "delayTime") return `${Math.round(value * 1000)} ms`;
   if (key === "swing") return `${Math.round(value * 100)}%`;
   if (key === "gain") return `${Math.round(value * 100)}%`;
   if (key === "seed") return `${Math.round(value)}`;
   if (key === "scale") return WEBGPU_SYNTHS_SCALES[Math.round(value)];
+  if (["acidPartials", "pmOperators", "foldLayers", "modalModes", "grainCount", "organRanks", "filterTaps", "delayRepeats"].includes(key)) {
+    return `${Math.round(value)}`;
+  }
+  if (key === "shaperDrive") return `${value.toFixed(1)}×`;
   return `${Math.round(value * 100)}%`;
 }
 
@@ -202,9 +261,13 @@ function syncReadouts() {
     const output = knobOutputs.get(key);
     if (output) output.textContent = formatParam(key, value);
   }
-  $("organismState").textContent = webGpuSynthModelLabel(state.params.topology);
+  $("modelState").textContent = webGpuSynthModelLabel(state.params.topology);
   $("timeState").textContent = `${state.params.steps} steps · ${state.params.clock.toFixed(2)} Hz`;
   $("fieldState").textContent = `${WEBGPU_SYNTHS_SCALES[state.params.scale]} · MIDI ${state.params.baseNote}`;
+  $("componentsState").textContent = "six adjustable banks";
+  const activeFx = [state.params.filterMix, state.params.delayMix, state.params.shaperMix].filter((value) => value > 0.001).length;
+  $("effectsState").textContent = activeFx ? `${activeFx} active` : "bypassed";
+  $("organRanksState").textContent = `${state.params.organRanks} active`;
   for (const node of $("modelRail").querySelectorAll("button")) {
     node.setAttribute("aria-pressed", String(Math.abs(Number(node.dataset.model) - state.params.topology) < 0.08));
   }
@@ -233,9 +296,9 @@ function syncPressedStates() {
     button.setAttribute("aria-pressed", String(button.dataset.technique === state.techniqueId));
   }
   const theme = THEMES.find(({ id }) => id === state.themeId);
-  $("themeState").textContent = theme?.label ?? "Custom organism";
+  $("themeState").textContent = theme?.label ?? "Custom patch";
   const technique = TECHNIQUES.find(({ id }) => id === state.techniqueId);
-  $("variationState").textContent = technique?.label ?? "Hand-drawn DNA";
+  $("variationState").textContent = technique?.label ?? "Hand-drawn sequence";
 }
 
 function applyTheme(theme) {
@@ -263,13 +326,13 @@ function applyTechnique(technique) {
     variation,
   }));
   $("variationState").textContent = technique.label;
-  announce(`${technique.label} generated four-lane DNA.`);
+  announce(`${technique.label} generated four control lanes.`);
 }
 
 function changeParam(key, rawValue) {
   const [minimum, maximum] = WEBGPU_SYNTHS_LIMITS[key];
   let value = clamp(rawValue, minimum, maximum);
-  if (["steps", "baseNote", "seed", "scale"].includes(key)) value = Math.round(value);
+  if (DISCRETE_KEYS.has(key)) value = Math.round(value);
   const previousSteps = state.params.steps;
   applyParams({ [key]: value });
   if (key === "steps" && value !== previousSteps) {
@@ -401,13 +464,99 @@ function createKnobControl(key, index) {
   return wrapper;
 }
 
+const ORGAN_RANK_FIELDS = Object.freeze([
+  Object.freeze({ key: "ratio", label: "Ratio", minimum: 0.125, maximum: 16, step: 0.01 }),
+  Object.freeze({ key: "level", label: "Level", minimum: 0, maximum: 1, step: 0.01 }),
+  Object.freeze({ key: "amRate", label: "AM Hz", minimum: 0, maximum: 30, step: 0.01 }),
+  Object.freeze({ key: "amDepth", label: "AM depth", minimum: 0, maximum: 1, step: 0.01 }),
+]);
+
+function syncOrganRankInputs() {
+  state.organRanks.forEach((rank, rankIndex) => {
+    for (const field of ORGAN_RANK_FIELDS) {
+      const input = organRankInputs.get(`${rankIndex}:${field.key}`);
+      if (input) input.value = String(rank[field.key]);
+    }
+  });
+}
+
+function changeOrganRank(rankIndex, field, rawValue) {
+  const next = state.organRanks.map((rank) => ({ ...rank }));
+  next[rankIndex][field] = Number(rawValue);
+  state.organRanks = sanitizeWebGpuSynthOrganRanks(next);
+  state.themeId = "custom";
+  engine?.updateOrganRanks(state.organRanks);
+  syncOrganRankInputs();
+  syncPressedStates();
+}
+
+function createOrganRankRow(rankIndex) {
+  const row = document.createElement("div");
+  row.className = "organ-rank-row";
+  const title = document.createElement("b");
+  title.textContent = `Rank ${rankIndex + 1} · ${ORGAN_RANK_LABELS[rankIndex]}`;
+  row.append(title);
+  for (const field of ORGAN_RANK_FIELDS) {
+    const label = document.createElement("label");
+    const caption = document.createElement("span");
+    caption.textContent = field.label;
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = String(field.minimum);
+    input.max = String(field.maximum);
+    input.step = String(field.step);
+    input.value = String(state.organRanks[rankIndex][field.key]);
+    input.setAttribute("aria-label", `${ORGAN_RANK_LABELS[rankIndex]} ${field.label}`);
+    input.addEventListener("input", () => changeOrganRank(rankIndex, field.key, input.value));
+    organRankInputs.set(`${rankIndex}:${field.key}`, input);
+    label.append(caption, input);
+    row.append(label);
+  }
+  return row;
+}
+
+function renderOrganRankControls() {
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.className = "mini-action organ-rank-reset";
+  reset.textContent = "Reset rank table";
+  reset.addEventListener("click", () => {
+    state.organRanks = sanitizeWebGpuSynthOrganRanks(WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS);
+    state.themeId = "custom";
+    engine?.updateOrganRanks(state.organRanks);
+    syncOrganRankInputs();
+    syncPressedStates();
+    announce("Additive rank table reset.");
+  });
+  $("organRankControls").replaceChildren(
+    ...Array.from({ length: WEBGPU_SYNTHS_ORGAN_RANK_COUNT }, (_, index) => createOrganRankRow(index)),
+    reset,
+  );
+}
+
+function renderEffectsControls() {
+  $("effectsControls").replaceChildren(...EFFECT_CONTROL_SECTIONS.map((section) => {
+    const module = document.createElement("section");
+    module.className = "effect-module";
+    const heading = document.createElement("h3");
+    heading.textContent = section.label;
+    const detail = document.createElement("small");
+    detail.textContent = section.detail;
+    module.append(heading, detail, ...section.keys.map((key) => createRangeControl(CONTROL_BY_KEY.get(key))));
+    return module;
+  }));
+}
+
 function renderControls() {
   for (const [group, specs] of Object.entries(CONTROL_GROUPS)) {
+    if (group === "effects") continue;
     $(`${group}Controls`).replaceChildren(...specs.map((spec) => (
       spec.type === "select" ? createSelectControl(spec) : createRangeControl(spec)
     )));
   }
   $("knobControls").replaceChildren(...KNOB_ORDER.map(createKnobControl));
+  renderOrganRankControls();
+  renderEffectsControls();
   $("laneButtons").replaceChildren(...LANE_SPECS.map((lane, index) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -436,7 +585,7 @@ function renderControls() {
     button.append(name, detail);
     button.addEventListener("click", () => {
       changeParam("topology", index);
-      announce(`${model} topology selected.`);
+      announce(`${model} synthesis model selected.`);
     });
     return button;
   }));
@@ -486,12 +635,12 @@ function setSupportState() {
 
 function paintAudioReadout() {
   $("engineBadge").textContent = state.audioOn
-    ? state.synthPlaying ? "WGSL organism running" : "WGSL organism ready"
-    : "one shader · five organisms";
+    ? state.synthPlaying ? "WGSL synthesis running" : "WGSL synthesis ready"
+    : "six synthesis models · two GPU passes";
   $("stageReadout").textContent = state.audioOn
-    ? `WEBGPU · ${Math.round(engine?.sampleRate ?? 44100)} HZ · ${state.synthPlaying ? "GENOME PLAYING" : "GENOME PAUSED"}`
+    ? `WEBGPU · ${Math.round(engine?.sampleRate ?? 44100)} HZ · ${state.synthPlaying ? "SEQUENCE PLAYING" : "SEQUENCE PAUSED"}`
     : "WEBGPU · STANDBY · AUDIO OFF";
-  $("genomeStage").setAttribute("aria-label", `Four-lane WebGPU musical genome editor. Audio ${state.audioOn ? "on" : "off"}.`);
+  $("sequenceStage").setAttribute("aria-label", `Four-lane GPU sequence and modulation editor. Audio ${state.audioOn ? "on" : "off"}.`);
 }
 
 function setAudioState(enabled) {
@@ -510,9 +659,9 @@ function setSynthPlayState(enabled, { quiet = false } = {}) {
   state.synthPlaying = Boolean(enabled && state.audioOn);
   engine?.setPlaybackEnabled(state.synthPlaying);
   $("synthPlayButton").setAttribute("aria-pressed", String(state.synthPlaying));
-  $("synthPlayButton").textContent = state.synthPlaying ? "Pause genome" : "Play genome";
+  $("synthPlayButton").textContent = state.synthPlaying ? "Pause sequence" : "Play sequence";
   paintAudioReadout();
-  if (!quiet) announce(state.synthPlaying ? "WGSL genome playing." : "WGSL genome paused.");
+  if (!quiet) announce(state.synthPlaying ? "WGSL sequence playing." : "WGSL sequence paused.");
 }
 
 async function startAudio() {
@@ -525,6 +674,7 @@ async function startAudio() {
     workgroupSize: state.workgroupSize,
   });
   nextEngine.sequence = state.sequence;
+  nextEngine.organRanks = state.organRanks;
   nextEngine.setOutput(Number($("output").value));
   nextEngine.setPlaybackEnabled(state.synthPlaying);
   nextEngine.setErrorHandler((error) => {
@@ -541,6 +691,7 @@ async function startAudio() {
       return false;
     }
     nextEngine.updateSequence(state.sequence);
+    nextEngine.updateOrganRanks(state.organRanks);
     nextEngine.setOutput(Number($("output").value));
     nextEngine.setPlaybackEnabled(state.synthPlaying);
     setAudioState(true);
@@ -568,7 +719,7 @@ async function stopAudio({ quiet = false } = {}) {
   audioStartPromise = null;
   if (previous) await previous.stop();
   setAudioState(false);
-  if (!quiet) announce("WebGPU Synths audio off.");
+  if (!quiet) announce("GPU Shader Synths audio off.");
 }
 
 async function toggleAudio() {
@@ -578,7 +729,7 @@ async function toggleAudio() {
 
 function toggleSynthPlay() {
   if (!state.audioOn) {
-    announce("Turn Audio on before playing the WGSL genome.");
+    announce("Turn Audio on before playing the WGSL sequence.");
     return;
   }
   setSynthPlayState(!state.synthPlaying);
@@ -610,7 +761,7 @@ function runtimeChanged() {
 function varyLane(lane) {
   const amount = 0.08 + state.params.chaos * 0.28;
   applySequence(varyWebGpuSynthSequence(state.sequence, lane, amount, state.params.seed + performance.now()));
-  announce(`${lane === "all" ? "All genome lanes" : `${lane} lane`} varied.`);
+  announce(`${lane === "all" ? "All control lanes" : `${lane} lane`} varied.`);
 }
 
 function rotateSequence(direction) {
@@ -619,13 +770,13 @@ function rotateSequence(direction) {
   const amount = ((direction % steps) + steps) % steps;
   const rotated = [...active.slice(steps - amount), ...active.slice(0, steps - amount)];
   applySequence([...rotated, ...state.sequence.slice(steps)]);
-  announce(`Genome rotated ${direction > 0 ? "right" : "left"}.`);
+  announce(`Sequence rotated ${direction > 0 ? "right" : "left"}.`);
 }
 
 function reverseSequence() {
   const steps = state.params.steps;
   applySequence([...state.sequence.slice(0, steps).reverse(), ...state.sequence.slice(steps)]);
-  announce("Genome direction reversed.");
+  announce("Sequence direction reversed.");
 }
 
 function invertActiveLane() {
@@ -667,7 +818,7 @@ function visualTime() {
   return state.visualHoldTime;
 }
 
-function drawOrganism(context, width, height, time) {
+function drawModelGraphic(context, width, height, time) {
   const centerX = width * 0.73;
   const centerY = height * 0.18;
   const topology = state.params.topology;
@@ -681,9 +832,9 @@ function drawOrganism(context, width, height, time) {
     context.beginPath();
     for (let point = 0; point <= points; point += 1) {
       const angle = (point / points) * Math.PI * 2;
-      const mutation = Math.sin(angle * (2 + lower) + time * (0.2 + state.params.motion) + ring) * radius * (0.08 + state.params.chaos * 0.28);
-      const x = centerX + Math.cos(angle) * (radius + mutation) * (1 + state.params.space * 0.5);
-      const y = centerY + Math.sin(angle) * (radius + mutation);
+      const deformation = Math.sin(angle * (2 + lower) + time * (0.2 + state.params.motion) + ring) * radius * (0.08 + state.params.chaos * 0.28);
+      const x = centerX + Math.cos(angle) * (radius + deformation) * (1 + state.params.space * 0.5);
+      const y = centerY + Math.sin(angle) * (radius + deformation);
       if (point === 0) context.moveTo(x, y);
       else context.lineTo(x, y);
     }
@@ -748,7 +899,7 @@ function drawLanes(context, width, height, time) {
 }
 
 function draw() {
-  const canvas = $("genomeStage");
+  const canvas = $("sequenceStage");
   const context = canvas.getContext("2d");
   if (!context) return;
   const { width, height } = resizeCanvas(canvas);
@@ -764,13 +915,13 @@ function draw() {
   for (let y = 0; y < height; y += 32) {
     context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke();
   }
-  drawOrganism(context, width, height, time);
+  drawModelGraphic(context, width, height, time);
   drawLanes(context, width, height, time);
   animationFrame = requestAnimationFrame(draw);
 }
 
-function editGenome(event) {
-  const canvas = $("genomeStage");
+function editSequenceLane(event) {
+  const canvas = $("sequenceStage");
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
   const metrics = laneMetrics(rect.width, rect.height);
@@ -778,7 +929,7 @@ function editGenome(event) {
   const localY = event.clientY - rect.top;
   const value = clamp(1 - ((localY - laneY) / metrics.heightEach), 0, 1);
   const step = Math.min(state.params.steps - 1, Math.floor(clamp((event.clientX - rect.left) / rect.width, 0, 0.9999) * state.params.steps));
-  const next = state.sequence.map((genes) => [...genes]);
+  const next = state.sequence.map((stepValues) => [...stepValues]);
   next[step][state.activeLane] = event.shiftKey ? 0 : value;
   state.techniqueId = "custom";
   applySequence(next);
@@ -786,25 +937,25 @@ function editGenome(event) {
 
 function handlePointerDown(event) {
   if (event.button !== undefined && event.button !== 0) return;
-  const rect = $("genomeStage").getBoundingClientRect();
+  const rect = $("sequenceStage").getBoundingClientRect();
   if ((event.clientY - rect.top) < rect.height * 0.31) return;
   event.preventDefault();
   state.editing = true;
-  $("genomeStage").setPointerCapture?.(event.pointerId);
-  editGenome(event);
+  $("sequenceStage").setPointerCapture?.(event.pointerId);
+  editSequenceLane(event);
 }
 
 function handlePointerMove(event) {
   if (!state.editing) return;
   event.preventDefault();
-  editGenome(event);
+  editSequenceLane(event);
 }
 
 function handlePointerEnd(event) {
   if (!state.editing) return;
   state.editing = false;
-  $("genomeStage").releasePointerCapture?.(event.pointerId);
-  announce(`${LANE_SPECS[state.activeLane].label} genome edited.`);
+  $("sequenceStage").releasePointerCapture?.(event.pointerId);
+  announce(`${LANE_SPECS[state.activeLane].label} sequence lane edited.`);
 }
 
 renderControls();
@@ -818,7 +969,12 @@ $("output").addEventListener("input", outputChanged);
 $("chunkDuration").addEventListener("input", runtimeChanged);
 $("chunkDuration").addEventListener("change", () => { void restartAudio(); });
 $("workgroupSize").addEventListener("change", () => { runtimeChanged(); void restartAudio(); });
-$("resetPatch").addEventListener("click", () => applyTheme(THEMES[0]));
+$("resetPatch").addEventListener("click", () => {
+  state.organRanks = sanitizeWebGpuSynthOrganRanks(WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS);
+  engine?.updateOrganRanks(state.organRanks);
+  syncOrganRankInputs();
+  applyTheme(THEMES[0]);
+});
 $("rotateLeft").addEventListener("click", () => rotateSequence(-1));
 $("rotateRight").addEventListener("click", () => rotateSequence(1));
 $("reverseSequence").addEventListener("click", reverseSequence);
@@ -826,10 +982,10 @@ $("invertLane").addEventListener("click", invertActiveLane);
 for (const button of document.querySelectorAll("[data-vary]")) {
   button.addEventListener("click", () => varyLane(button.dataset.vary));
 }
-$("genomeStage").addEventListener("pointerdown", handlePointerDown);
-$("genomeStage").addEventListener("pointermove", handlePointerMove);
-$("genomeStage").addEventListener("pointerup", handlePointerEnd);
-$("genomeStage").addEventListener("pointercancel", handlePointerEnd);
+$("sequenceStage").addEventListener("pointerdown", handlePointerDown);
+$("sequenceStage").addEventListener("pointermove", handlePointerMove);
+$("sequenceStage").addEventListener("pointerup", handlePointerEnd);
+$("sequenceStage").addEventListener("pointercancel", handlePointerEnd);
 animationFrame = requestAnimationFrame(draw);
 
 globalThis.addEventListener?.("pagehide", () => {

@@ -3,23 +3,27 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
   WEBGPU_SYNTHS_DEFAULTS,
   WEBGPU_SYNTHS_MODELS,
+  WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
   WEBGPU_SYNTHS_PARAM_ORDER,
   WEBGPU_SYNTHS_SEQUENCE_LENGTH,
   WEBGPU_SYNTHS_SHADER,
   createWebGpuSynthSequence,
+  sanitizeWebGpuSynthOrganRanks,
   sanitizeWebGpuSynthParams,
   sanitizeWebGpuSynthSequence,
   varyWebGpuSynthSequence,
   webGpuSynthModelLabel,
+  webGpuSynthOrganRankArray,
   webGpuSynthParamArray,
   webGpuSynthSequenceArray,
 } from "../src/webgpu-synths.js";
 
 const root = new URL("../", import.meta.url);
 
-test("WebGPU Synths packs one stable 16-float shader parameter contract", () => {
+test("GPU Shader Synths packs one stable 32-float shader parameter contract", () => {
   assert.deepEqual(WEBGPU_SYNTHS_PARAM_ORDER, [
     "topology",
     "baseNote",
@@ -37,17 +41,35 @@ test("WebGPU Synths packs one stable 16-float shader parameter contract", () => 
     "gain",
     "seed",
     "scale",
+    "acidPartials",
+    "pmOperators",
+    "foldLayers",
+    "modalModes",
+    "grainCount",
+    "organRanks",
+    "filterCutoff",
+    "filterTaps",
+    "filterMix",
+    "delayTime",
+    "delayRepeats",
+    "delayDecay",
+    "delayMix",
+    "shaperDrive",
+    "shaperFold",
+    "shaperMix",
   ]);
-  assert.equal(webGpuSynthParamArray().length, 16);
+  assert.equal(webGpuSynthParamArray().length, 32);
   assert.deepEqual(sanitizeWebGpuSynthParams(), WEBGPU_SYNTHS_DEFAULTS);
-  const clamped = sanitizeWebGpuSynthParams({ topology: 99, steps: 2, gain: 9, scale: -4 });
-  assert.equal(clamped.topology, 4);
+  const clamped = sanitizeWebGpuSynthParams({ topology: 99, steps: 2, gain: 9, scale: -4, pmOperators: 99, filterTaps: 10 });
+  assert.equal(clamped.topology, 5);
   assert.equal(clamped.steps, 4);
   assert.equal(clamped.gain, 0.22);
   assert.equal(clamped.scale, 0);
+  assert.equal(clamped.pmOperators, 12);
+  assert.equal(clamped.filterTaps, 11);
 });
 
-test("four-lane genomes are deterministic, bounded, and GPU-buffer ready", () => {
+test("four control lanes are deterministic, bounded, and GPU-buffer ready", () => {
   assert.equal(WEBGPU_SYNTHS_SEQUENCE_LENGTH, 64);
   for (const technique of ["euclid", "brownian", "cellular", "recurrence", "orbit", "noise"]) {
     const first = createWebGpuSynthSequence(technique, { steps: 21, seed: 1447, variation: 0.62 });
@@ -62,7 +84,7 @@ test("four-lane genomes are deterministic, bounded, and GPU-buffer ready", () =>
   assert.deepEqual(invalid[0], [0.5, 0, 1, 0.5]);
 });
 
-test("lane variations preserve unselected genes and model topology labels expose morphs", () => {
+test("lane variations preserve unselected values and model topology labels expose morphs", () => {
   const sequence = createWebGpuSynthSequence("orbit", { steps: 16, seed: 91 });
   const varied = varyWebGpuSynthSequence(sequence, "timbre", 0.4, 123);
   for (let step = 0; step < sequence.length; step += 1) {
@@ -70,27 +92,51 @@ test("lane variations preserve unselected genes and model topology labels expose
     assert.equal(varied[step][1], sequence[step][1]);
     assert.equal(varied[step][3], sequence[step][3]);
   }
-  assert.equal(WEBGPU_SYNTHS_MODELS.length, 5);
+  assert.equal(WEBGPU_SYNTHS_MODELS.length, 6);
   assert.equal(webGpuSynthModelLabel(0), "Spectral Acid");
-  assert.equal(webGpuSynthModelLabel(1.5), "Cascade FM × Wavefold Table");
+  assert.equal(webGpuSynthModelLabel(1.5), "Cascade PM × Wavefold Table");
   assert.equal(webGpuSynthModelLabel(4), "Particle Cloud");
+  assert.equal(webGpuSynthModelLabel(4.5), "Particle Cloud × Additive Organ");
+  assert.equal(webGpuSynthModelLabel(5), "Additive Organ");
+});
+
+test("additive organ ranks expose editable ratios, levels, and per-rank AM", () => {
+  assert.equal(WEBGPU_SYNTHS_ORGAN_RANK_COUNT, 9);
+  assert.equal(WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS.length, 9);
+  assert.equal(webGpuSynthOrganRankArray().length, 36);
+  const ranks = sanitizeWebGpuSynthOrganRanks([
+    { ratio: 99, level: -1, amRate: 99, amDepth: 4 },
+  ]);
+  assert.deepEqual(ranks[0], { ratio: 16, level: 0, amRate: 30, amDepth: 1 });
+  assert.deepEqual(ranks[1], WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS[1]);
 });
 
 test("the WGSL shader owns sequencing and the complete synthesis signal path", () => {
   assert.match(WEBGPU_SYNTHS_SHADER, /@compute/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn swingTime/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn scaleNote/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /@binding\(3\) var<storage, read> sequence_dna: array<vec4<f32>>/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /@binding\(3\) var<storage, read> sequence_lanes: array<vec4<f32>>/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /@binding\(4\) var<storage, read> organ_rank: array<vec4<f32>>/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn spectralAcid/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /fn cascadeFm/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn cascadePm/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn wavefoldTable/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn modalMetal/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn particleCloud/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn additiveOrgan/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /for \(var drawbar = 0u; drawbar < 9u/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /synth_param\.pmOperators/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /synth_param\.modalModes/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /rank\.z/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /rank\.w/);
   assert.match(WEBGPU_SYNTHS_SHADER, /let topology = clamp/);
   assert.match(WEBGPU_SYNTHS_SHADER, /let envelope =/);
   assert.match(WEBGPU_SYNTHS_SHADER, /let pan =/);
   assert.match(WEBGPU_SYNTHS_SHADER, /softClip/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /sound_chunk\[sample\] = mainSound\(time\)/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn synthesizeDry/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn sincLowpass/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn multiTapDelay/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn postWaveshaper/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn processFx/);
 });
 
 test("the new page exposes themes, variations, direct lane drawing, and no Web Audio synthesis nodes", async () => {
@@ -103,26 +149,45 @@ test("the new page exposes themes, variations, direct lane drawing, and no Web A
     readFile(new URL("src/instrument-catalog.js", root), "utf8"),
     readFile(new URL("scripts/build-site.sh", root), "utf8"),
   ]);
-  assert.match(html, /<h1 id="webgpuSynthsTitle">WebGPU Synths<\/h1>/);
+  assert.match(html, /<h1 id="webgpuSynthsTitle">GPU Shader Synths<\/h1>/);
   assert.match(html, /ALL MUSICAL LOGIC IN WGSL/);
-  assert.match(html, /id="genomeStage"/);
+  assert.match(html, /id="sequenceStage"/);
   assert.match(html, /id="themeButtons"/);
   assert.match(html, /id="techniqueButtons"/);
   assert.match(html, /Web Audio is buffer playback only/);
+  assert.match(html, /six synthesis models · two GPU passes/);
+  assert.match(html, /not a claim of mathematical chaos/);
+  assert.match(html, /id="componentsControls"/);
+  assert.match(html, /id="organRankControls"/);
+  assert.match(html, /id="effectsControls"/);
+  assert.match(html, /one GPU submission with two compute passes/);
+  assert.match(html, /upload only when edited/);
   assert.match(css, /\.model-rail/);
-  assert.match(css, /\.genome-lane-tabs/);
+  assert.match(css, /\.sequence-lane-tabs/);
+  assert.match(css, /\.organ-rank-row/);
+  assert.match(css, /\.effect-module/);
   assert.match(css, /\.webgpu-synth-knob-bank/);
   assert.match(app, /Acid Fossil/);
   assert.match(app, /Recursive Chrome/);
   assert.match(app, /Folded Mutant/);
   assert.match(app, /Bell Swarm/);
   assert.match(app, /Dust Engine/);
+  assert.match(app, /Velvet Drawbars/);
   assert.match(app, /Interzone/);
   assert.match(app, /createWebGpuSynthSequence/);
   assert.match(app, /varyWebGpuSynthSequence/);
-  assert.match(app, /editGenome/);
+  assert.match(app, /editSequenceLane/);
+  assert.match(app, /FIR low-pass/);
+  assert.match(app, /Feed-forward delay/);
+  assert.match(app, /Waveshaper/);
+  assert.doesNotMatch(`${html}\n${css}\n${app}\n${engine}`, /\b(?:genome|organism|DNA)\b/i);
   assert.doesNotMatch(`${app}\n${engine}`, /createOscillator|createBiquadFilter|createDelay|createWaveShaper|audioWorklet|OscillatorNode|BiquadFilterNode/);
   assert.match(engine, /createBufferSource/);
+  assert.match(engine, /entryPoint: "synthesizeDry"/);
+  assert.match(engine, /entryPoint: "processFx"/);
+  const renderChunkStart = engine.indexOf("async renderChunk");
+  const renderChunk = engine.slice(renderChunkStart, engine.indexOf("  handleRenderError(", renderChunkStart));
+  assert.equal((renderChunk.match(/queue\.writeBuffer/g) ?? []).length, 1);
   assert.match(nav, /webgpu-synths\.html/);
   assert.match(catalogue, /"webgpu-synths": define/);
   assert.match(build, /webgpu-synths\.html/);
