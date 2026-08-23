@@ -70,7 +70,7 @@
             An interactive woven field of synthesized Karplus micro-attacks.
           </canvas>
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">DENSE AREAS &middot; 160 MS &middot; AUDIO OFF</span>
+            <span id="stageReadout">DENSE AREAS &middot; 240 MS ENV &middot; AUDIO OFF</span>
           </div>
           <div class="ks-stage-title kc-stage-title" aria-hidden="true">
             <p>SYNTHESIZED MICROSOUND SURFACE</p>
@@ -92,12 +92,12 @@
           <div class="group-body">
             <div class="kc-performance-sliders">
               <label class="control kc-slider" for="grainDuration">
-                <span><b>Micro tail</b><output id="grainDurationOut" for="grainDuration">160 ms</output></span>
-                <input id="grainDuration" type="range" min=".08" max=".4" step=".01" value=".16" />
+                <span><b>Body time</b><output id="grainDurationOut" for="grainDuration">160 ms</output></span>
+                <input id="grainDuration" type="range" min=".08" max=".4" step=".01" value=".16" aria-valuetext="160 ms" />
                 <span class="form-range-poles" aria-hidden="true"><span>80 ms</span><span>240 ms</span><span>400 ms</span></span>
               </label>
               <label class="control kc-slider" for="velocityScatter">
-                <span><b>Area variation</b><output id="velocityScatterOut" for="velocityScatter">28%</output></span>
+                <span><b>Level variation</b><output id="velocityScatterOut" for="velocityScatter">28%</output></span>
                 <input id="velocityScatter" type="range" min="0" max="1" step=".01" value=".28" />
               </label>
               <label class="control kc-slider" for="stereoSpread">
@@ -105,6 +105,27 @@
                 <input id="stereoSpread" type="range" min="0" max="1" step=".01" value=".78" />
               </label>
             </div>
+
+            <div class="field-label spaced">Amplitude ADSR</div>
+            <div class="kc-envelope-sliders" role="group" aria-label="Karplus Carpet amplitude ADSR">
+              <label class="control kc-slider" for="attackDuration">
+                <span><b>Attack</b><output id="attackDurationOut" for="attackDuration">2 ms</output></span>
+                <input id="attackDuration" type="range" min=".001" max=".12" step=".001" value=".002" aria-valuetext="2 ms" />
+              </label>
+              <label class="control kc-slider" for="decayDuration">
+                <span><b>Decay</b><output id="decayDurationOut" for="decayDuration">45 ms</output></span>
+                <input id="decayDuration" type="range" min=".005" max=".3" step=".005" value=".045" aria-valuetext="45 ms" />
+              </label>
+              <label class="control kc-slider" for="sustainLevel">
+                <span><b>Sustain</b><output id="sustainLevelOut" for="sustainLevel">28%</output></span>
+                <input id="sustainLevel" type="range" min="0" max="1" step=".01" value=".28" aria-valuetext="28%" />
+              </label>
+              <label class="control kc-slider" for="releaseDuration">
+                <span><b>Release</b><output id="releaseDurationOut" for="releaseDuration">80 ms</output></span>
+                <input id="releaseDuration" type="range" min=".005" max=".4" step=".005" value=".08" aria-valuetext="80 ms" />
+              </label>
+            </div>
+            <p class="kc-envelope-note">Body time sets the earliest release point; a longer Attack + Decay finishes first, then Release adds the final tail.</p>
 
             <div class="field-label spaced">Pitch field</div>
             <div class="choice-switch compact ks-spacing-switch" id="spacingMode" role="group" aria-label="Frequency spacing">
@@ -140,21 +161,31 @@
               </label>
               <button class="mini-action form-range-reset" id="centerPitchBend" type="button">Center</button>
             </div>
-            <p class="control-note">Press and drag in any direction. Entering a close micro-area strikes it once; moving inside it or holding still stays silent. Previously crossed areas remain silent until the next gesture. Horizontal position selects pitch, while every mote is synthesized now&mdash;no samples are loaded.</p>
+            <p class="control-note">Press and drag in any direction. Entering a close micro-area strikes it once; moving inside it or holding still stays silent. Previously crossed areas remain silent until the next gesture. Horizontal position selects pitch, while ADSR and deterministic cell color shape each freshly synthesized mote&mdash;no samples are loaded.</p>
           </div>
         </details>
 
         <details class="group control-section" data-section="presets" open>
           <summary class="group-summary">
-            <h2 class="group-title">Thread presets</h2>
+            <h2 class="group-title">Sound varieties</h2>
             <span class="section-state" id="presetSummary">Warm Nylon</span>
           </summary>
           <div class="group-body">
-            <div class="ks-preset-grid" id="presetGrid" role="group" aria-label="Karplus Carpet thread presets"></div>
+            <div class="choice-switch compact kc-preset-bank" id="presetBank" role="group" aria-label="Sound variety bank">
+              <button type="button" data-preset-bank="materials" aria-pressed="true">Materials</button>
+              <button type="button" data-preset-bank="textures" aria-pressed="false">Textures</button>
+            </div>
+            <div class="ks-preset-grid" id="presetGrid" role="group" aria-label="Materials sound varieties"></div>
+            <p class="kc-preset-description" id="presetDescription">Classic thread materials keep the current Carpet timing and cell variation.</p>
+            <label class="control kc-slider kc-cell-color" for="timbreVariation">
+              <span><b>Cell color</b><output id="timbreVariationOut" for="timbreVariation">42%</output></span>
+              <input id="timbreVariation" type="range" min="0" max="1" step=".01" value=".42" aria-valuetext="42% cell color variation" />
+            </label>
+            <p class="kc-envelope-note">Each micro-area deterministically chooses one of four excitation colors. Set Cell color to 0% for identical cells at the same pitch.</p>
           </div>
         </details>
 
-        <details class="group control-section" data-section="form" open>
+        <details class="group control-section" data-section="form">
           <summary class="group-summary">
             <h2 class="group-title">Micro exciter</h2>
             <span class="section-state" id="exciterSummary">30% hard &middot; 38% noise</span>
@@ -171,7 +202,7 @@
           </div>
         </details>
 
-        <details class="group control-section" data-section="sound" open>
+        <details class="group control-section" data-section="sound">
           <summary class="group-summary">
             <h2 class="group-title">Thread character</h2>
             <span class="section-state" id="characterSummary">48% bright &middot; 6% disperse</span>
@@ -188,11 +219,11 @@
             <div class="ks-signal-card" aria-label="Karplus Carpet signal path">
               <span><b>Excite</b><small>noise + impulse</small></span>
               <i aria-hidden="true">&rarr;</i>
-              <span><b>Micro loop</b><small>80&ndash;400 ms</small></span>
+              <span><b>Micro loop</b><small>body time</small></span>
               <i aria-hidden="true">&rarr;</i>
-              <span><b>Cross</b><small>one area, one attack</small></span>
+              <span><b>Color</b><small>four cell variants</small></span>
               <i aria-hidden="true">&rarr;</i>
-              <span><b>Carpet</b><small>pitch + stereo field</small></span>
+              <span><b>Carpet</b><small>one crossed area</small></span>
             </div>
           </div>
         </details>

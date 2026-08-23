@@ -198,6 +198,10 @@ test("Karplus Carpet is a synthesized microsound field with page-owned note gest
   assert.equal(instrument?.href, "karplus-carpet.html");
   assert.equal(instrument?.kind, "Microsound physical-model synth");
   assert.match(instrument?.description ?? "", /freshly synthesized/i);
+  assert.match(instrument?.description ?? "", /amplitude ADSR/i);
+  assert.match(instrument?.description ?? "", /two sound-variety banks/i);
+  assert.match(instrument?.description ?? "", /deterministic cell color/i);
+  assert.match(instrument?.description ?? "", /coupled resonators/i);
   assert.match(instrument?.description ?? "", /without loading sample grains/i);
   assert.match(instrument?.start ?? "", /each newly crossed area sounds once per gesture/i);
   assert.match(instrument?.start ?? "", /holding still stays silent/i);

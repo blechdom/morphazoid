@@ -56,7 +56,7 @@
   margin: 0;
 }
 
-.kc-slider:first-child {
+.kc-performance-sliders > .kc-slider:first-child {
   grid-column: 1 / -1;
 }
 
@@ -75,6 +75,20 @@
   margin-top: -5px;
 }
 
+.kc-envelope-sliders {
+  display: grid;
+  margin: 0 0 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 15px;
+}
+
+.kc-envelope-note {
+  margin: 3px 0 10px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
 .karplus-carpet-page .ks-field-stats {
   background:
     linear-gradient(90deg, color-mix(in oklab, var(--ks-cyan) 7%, transparent), transparent),
@@ -85,6 +99,22 @@
   color: #090a0d;
   background:
     linear-gradient(120deg, var(--accent), color-mix(in oklab, var(--accent) 55%, var(--ks-cyan)));
+}
+
+.kc-preset-bank {
+  margin: 0 0 6px;
+}
+
+.kc-preset-description {
+  min-height: 2.9em;
+  margin: -4px 0 8px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.kc-cell-color {
+  margin: 2px 0 0;
 }
 
 .karplus-carpet-page .ks-signal-card {
@@ -129,8 +159,8 @@
     grid-template-columns: 1fr;
   }
 
-  .kc-slider,
-  .kc-slider:first-child {
+  .kc-performance-sliders > .kc-slider,
+  .kc-performance-sliders > .kc-slider:first-child {
     grid-column: auto;
   }
 }

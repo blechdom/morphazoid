@@ -3,6 +3,7 @@ import { connectAudioOutput } from "./audio-output-manager.js";
 import {
   KARPLUS_STRONG_DEFAULTS,
   KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS,
+  KARPLUS_STRONG_PRESETS,
   KARPLUS_STRONG_TUNING_DEFAULTS,
   generateKarplusStrongSamples,
   karplusStrongStringFrequencies,
@@ -16,6 +17,18 @@ const finiteOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(va
 export const KARPLUS_CARPET_LIMITS = Object.freeze({
   minimumGrainDuration: 0.08,
   maximumGrainDuration: 0.4,
+  minimumAttackDuration: 0.001,
+  maximumAttackDuration: 0.12,
+  minimumDecayDuration: 0.005,
+  maximumDecayDuration: 0.3,
+  minimumReleaseDuration: 0.005,
+  maximumReleaseDuration: 0.4,
+  maximumRenderDuration: 1,
+  minimumGainTrim: 0.55,
+  maximumGainTrim: 1.25,
+  minimumCoupledRenderAmount: 0.35,
+  maximumCoupledRenderDuration: 0.32,
+  voiceGainScale: 0.58,
   spatialCellSize: 10,
   minimumSpatialColumns: 24,
   maximumSpatialColumns: 512,
@@ -33,8 +46,14 @@ export const KARPLUS_CARPET_DEFAULTS = Object.freeze({
   lowFrequency: 110,
   highFrequency: 880,
   grainDuration: 0.16,
+  attackDuration: 0.002,
+  decayDuration: 0.045,
+  sustainLevel: 0.28,
+  releaseDuration: 0.08,
+  timbreVariation: 0.42,
   velocityScatter: 0.28,
   stereoSpread: 0.78,
+  gainTrim: 1,
   centerPosition: 0.5,
 });
 
@@ -53,6 +72,31 @@ export function sanitizeKarplusCarpetSettings(source = {}) {
       KARPLUS_CARPET_LIMITS.minimumGrainDuration,
       KARPLUS_CARPET_LIMITS.maximumGrainDuration,
     ),
+    attackDuration: clamp(
+      finiteOr(settings.attackDuration, KARPLUS_CARPET_DEFAULTS.attackDuration),
+      KARPLUS_CARPET_LIMITS.minimumAttackDuration,
+      KARPLUS_CARPET_LIMITS.maximumAttackDuration,
+    ),
+    decayDuration: clamp(
+      finiteOr(settings.decayDuration, KARPLUS_CARPET_DEFAULTS.decayDuration),
+      KARPLUS_CARPET_LIMITS.minimumDecayDuration,
+      KARPLUS_CARPET_LIMITS.maximumDecayDuration,
+    ),
+    sustainLevel: clamp(
+      finiteOr(settings.sustainLevel, KARPLUS_CARPET_DEFAULTS.sustainLevel),
+      0,
+      1,
+    ),
+    releaseDuration: clamp(
+      finiteOr(settings.releaseDuration, KARPLUS_CARPET_DEFAULTS.releaseDuration),
+      KARPLUS_CARPET_LIMITS.minimumReleaseDuration,
+      KARPLUS_CARPET_LIMITS.maximumReleaseDuration,
+    ),
+    timbreVariation: clamp(
+      finiteOr(settings.timbreVariation, KARPLUS_CARPET_DEFAULTS.timbreVariation),
+      0,
+      1,
+    ),
     velocityScatter: clamp(
       finiteOr(settings.velocityScatter, KARPLUS_CARPET_DEFAULTS.velocityScatter),
       0,
@@ -63,12 +107,236 @@ export function sanitizeKarplusCarpetSettings(source = {}) {
       0,
       1,
     ),
+    gainTrim: clamp(
+      finiteOr(settings.gainTrim, KARPLUS_CARPET_DEFAULTS.gainTrim),
+      KARPLUS_CARPET_LIMITS.minimumGainTrim,
+      KARPLUS_CARPET_LIMITS.maximumGainTrim,
+    ),
     centerPosition: clamp(
       finiteOr(settings.centerPosition, KARPLUS_CARPET_DEFAULTS.centerPosition),
       0,
       1,
     ),
   };
+}
+
+function carpetTexturePreset(
+  id,
+  name,
+  description,
+  materialId,
+  carpetSettings = {},
+  threadSettings = {},
+) {
+  const material = KARPLUS_STRONG_PRESETS.find((item) => item.id === materialId)
+    ?? KARPLUS_STRONG_PRESETS[0];
+  const thread = sanitizeKarplusStrongSettings({ ...material.settings, ...threadSettings });
+  const carpet = sanitizeKarplusCarpetSettings({
+    ...KARPLUS_CARPET_DEFAULTS,
+    ...carpetSettings,
+  });
+  return Object.freeze({
+    id: "texture-" + id,
+    name,
+    description,
+    materialId: material.id,
+    settings: Object.freeze({
+      ...thread,
+      grainDuration: carpet.grainDuration,
+      attackDuration: carpet.attackDuration,
+      decayDuration: carpet.decayDuration,
+      sustainLevel: carpet.sustainLevel,
+      releaseDuration: carpet.releaseDuration,
+      timbreVariation: carpet.timbreVariation,
+      velocityScatter: carpet.velocityScatter,
+      stereoSpread: carpet.stereoSpread,
+      gainTrim: carpet.gainTrim,
+    }),
+  });
+}
+
+export const KARPLUS_CARPET_TEXTURE_PRESETS = Object.freeze([
+  carpetTexturePreset(
+    "felt-motes",
+    "Felt Motes",
+    "Dark, close thuds with a soft body and almost no lingering thread.",
+    "muted",
+    {
+      grainDuration: 0.11, attackDuration: 0.001, decayDuration: 0.035,
+      sustainLevel: 0.18, releaseDuration: 0.04, timbreVariation: 0.18,
+      velocityScatter: 0.2, stereoSpread: 0.5, gainTrim: 1.1,
+    },
+  ),
+  carpetTexturePreset(
+    "thumb-ticks",
+    "Thumb Ticks",
+    "Tight kalimba-like points with a small wooden after-ring.",
+    "kalimba",
+    {
+      grainDuration: 0.11, attackDuration: 0.001, decayDuration: 0.024,
+      sustainLevel: 0.18, releaseDuration: 0.045, timbreVariation: 0.24,
+      velocityScatter: 0.24, stereoSpread: 0.62, gainTrim: 1.15,
+    },
+  ),
+  carpetTexturePreset(
+    "wire-sparks",
+    "Wire Sparks",
+    "Hard steel pinpricks that open into a bright metallic tail.",
+    "steel",
+    {
+      grainDuration: 0.15, attackDuration: 0.001, decayDuration: 0.032,
+      sustainLevel: 0.28, releaseDuration: 0.095, timbreVariation: 0.4,
+      velocityScatter: 0.32, stereoSpread: 0.86, gainTrim: 0.72,
+    },
+  ),
+  carpetTexturePreset(
+    "glass-rain",
+    "Glass Rain",
+    "Dispersed glass filaments with a slow shimmer and wide release.",
+    "glass",
+    {
+      grainDuration: 0.24, attackDuration: 0.006, decayDuration: 0.12,
+      sustainLevel: 0.55, releaseDuration: 0.28, timbreVariation: 0.46,
+      velocityScatter: 0.18, stereoSpread: 1, gainTrim: 0.68,
+    },
+  ),
+  carpetTexturePreset(
+    "hollow-seeds",
+    "Hollow Seeds",
+    "Round low-body knocks with a woody resonant center.",
+    "bass",
+    {
+      grainDuration: 0.2, attackDuration: 0.014, decayDuration: 0.065,
+      sustainLevel: 0.32, releaseDuration: 0.14, timbreVariation: 0.2,
+      velocityScatter: 0.16, stereoSpread: 0.46, gainTrim: 0.9,
+    },
+  ),
+  carpetTexturePreset(
+    "rubber-pops",
+    "Rubber Pops",
+    "Elastic, rounded pops that flex before snapping shut.",
+    "rubber",
+    {
+      grainDuration: 0.16, attackDuration: 0.002, decayDuration: 0.045,
+      sustainLevel: 0.3, releaseDuration: 0.085, timbreVariation: 0.26,
+      velocityScatter: 0.3, stereoSpread: 0.58, gainTrim: 1.15,
+    },
+  ),
+  carpetTexturePreset(
+    "jawari-insects",
+    "Jawari Insects",
+    "Short buzzing filaments with driven bridge chatter.",
+    "jawari",
+    {
+      grainDuration: 0.12, attackDuration: 0.001, decayDuration: 0.026,
+      sustainLevel: 0.2, releaseDuration: 0.055, timbreVariation: 0.7,
+      velocityScatter: 0.45, stereoSpread: 0.9, gainTrim: 0.72,
+    },
+  ),
+  carpetTexturePreset(
+    "bolt-static",
+    "Bolt Static",
+    "Dry prepared-metal flecks with an abrupt electrical cutoff.",
+    "prepared",
+    {
+      grainDuration: 0.1, attackDuration: 0.001, decayDuration: 0.018,
+      sustainLevel: 0.12, releaseDuration: 0.025, timbreVariation: 0.82,
+      velocityScatter: 0.52, stereoSpread: 1, gainTrim: 1,
+    },
+  ),
+  carpetTexturePreset(
+    "inside-out",
+    "Inside-Out",
+    "Polarity-flipped strings that bend into a hollow chime.",
+    "inverted",
+    {
+      grainDuration: 0.17, attackDuration: 0.003, decayDuration: 0.05,
+      sustainLevel: 0.36, releaseDuration: 0.12, timbreVariation: 0.4,
+      velocityScatter: 0.25, stereoSpread: 0.78, gainTrim: 0.7,
+    },
+  ),
+  carpetTexturePreset(
+    "ghost-fibers",
+    "Ghost Fibers",
+    "Soft paired resonances that hover across the stereo carpet.",
+    "ghost",
+    {
+      grainDuration: 0.3, attackDuration: 0.04, decayDuration: 0.16,
+      sustainLevel: 0.62, releaseDuration: 0.35, timbreVariation: 0.34,
+      velocityScatter: 0.12, stereoSpread: 1, gainTrim: 0.72,
+    },
+  ),
+  carpetTexturePreset(
+    "frozen-halo",
+    "Frozen Halo",
+    "A long crystalline bloom with coupled upper reflections.",
+    "frozen",
+    {
+      grainDuration: 0.32, attackDuration: 0.02, decayDuration: 0.2,
+      sustainLevel: 0.7, releaseDuration: 0.38, timbreVariation: 0.52,
+      velocityScatter: 0.1, stereoSpread: 1, gainTrim: 0.65,
+    },
+  ),
+  carpetTexturePreset(
+    "dust-needles",
+    "Dust Needles",
+    "Tiny noisy punctures with maximum cell-to-cell color change.",
+    "dust",
+    {
+      grainDuration: 0.09, attackDuration: 0.001, decayDuration: 0.015,
+      sustainLevel: 0.1, releaseDuration: 0.018, timbreVariation: 1,
+      velocityScatter: 0.7, stereoSpread: 0.94, gainTrim: 1.2,
+    },
+    { lowCut: 0.58, pickupMix: 0.48 },
+  ),
+]);
+
+export function karplusCarpetEnvelopeTiming(source = {}, duration) {
+  const settings = sanitizeKarplusCarpetSettings(source);
+  const gateDuration = clamp(
+    finiteOr(duration, settings.grainDuration),
+    KARPLUS_CARPET_LIMITS.minimumGrainDuration,
+    KARPLUS_CARPET_LIMITS.maximumGrainDuration,
+  );
+  const attackEndOffset = settings.attackDuration;
+  const decayEndOffset = attackEndOffset + settings.decayDuration;
+  const releaseStartOffset = Math.max(gateDuration, decayEndOffset);
+  return Object.freeze({
+    attackDuration: settings.attackDuration,
+    decayDuration: settings.decayDuration,
+    sustainLevel: settings.sustainLevel,
+    releaseDuration: settings.releaseDuration,
+    gateDuration,
+    attackEndOffset,
+    decayEndOffset,
+    releaseStartOffset,
+    endOffset: releaseStartOffset + settings.releaseDuration,
+  });
+}
+
+export function mergeKarplusCarpetPresetSettings(current = {}, preset = {}) {
+  const patch = preset && typeof preset === "object" ? preset : {};
+  const merged = {
+    ...(current && typeof current === "object" ? current : {}),
+    ...patch,
+  };
+  if (!Object.hasOwn(patch, "gainTrim")) {
+    merged.gainTrim = KARPLUS_CARPET_DEFAULTS.gainTrim;
+  }
+  return Object.freeze({
+    ...merged,
+    ...sanitizeKarplusCarpetSettings(merged),
+  });
+}
+
+export function karplusCarpetRenderSampleRate(outputSampleRate, frequency, coupledFrequency) {
+  const outputRate = clamp(finiteOr(outputSampleRate, 48_000), 8_000, 384_000);
+  const highestFrequency = Math.max(
+    20,
+    finiteOr(frequency, KARPLUS_STRONG_DEFAULTS.frequency),
+    finiteOr(coupledFrequency, frequency),
+  );
+  return Math.min(outputRate, Math.max(24_000, Math.ceil(highestFrequency * 5)));
 }
 
 export function createKarplusCarpetRandom(seed = 0x6d2b79f5) {
@@ -281,15 +549,28 @@ export function karplusCarpetPointerEvent(source = {}, index = 0, options = {}) 
     KARPLUS_CARPET_LIMITS.maximumGrainDuration,
   );
   const variedVelocity = 0.42 + (random() * 2 - 1) * settings.velocityScatter * 0.18;
+  const colorBand = settings.timbreVariation > 0
+    ? clamp(Math.floor(random() * 4), 0, 3)
+    : 0;
+  const timbre = settings.timbreVariation > 0
+    ? (-1 + colorBand * (2 / 3)) * settings.timbreVariation
+    : 0;
   return Object.freeze({
     index: serial,
     seed: (seed ^ Math.imul(serial + 11, 0x85ebca6b)) >>> 0,
     ...pitch,
     visualY: clamp(finiteOr(options.visualY, 0.5), 0, 1),
     duration,
+    attackDuration: settings.attackDuration,
+    decayDuration: settings.decayDuration,
+    sustainLevel: settings.sustainLevel,
+    releaseDuration: settings.releaseDuration,
+    timbreVariation: settings.timbreVariation,
+    timbreVariant: colorBand,
+    gainTrim: settings.gainTrim,
     velocity: clamp(finiteOr(options.velocity, variedVelocity), 0.16, 0.7),
     pan: clamp((pitch.fieldPosition * 2 - 1) * settings.stereoSpread, -1, 1),
-    timbre: random() * 2 - 1,
+    timbre,
   });
 }
 
@@ -297,31 +578,76 @@ export function generateKarplusCarpetSamples(event = {}, sourceSettings = {}, sa
   const duration = clamp(
     finiteOr(event.duration, KARPLUS_CARPET_DEFAULTS.grainDuration),
     KARPLUS_CARPET_LIMITS.minimumGrainDuration,
-    KARPLUS_CARPET_LIMITS.maximumGrainDuration,
+    KARPLUS_CARPET_LIMITS.maximumRenderDuration,
   );
   const timbre = clamp(finiteOr(event.timbre, 0), -1, 1);
   const settings = sanitizeKarplusStrongSettings({
     ...sourceSettings,
     frequency: finiteOr(event.frequency, KARPLUS_STRONG_DEFAULTS.frequency),
-    decay: Math.max(0.2, duration),
+    decay: finiteOr(sourceSettings.decay, Math.max(0.2, duration)),
     hardness: finiteOr(sourceSettings.hardness, KARPLUS_STRONG_DEFAULTS.hardness)
-      + timbre * 0.08,
+      + timbre * 0.18,
     brightness: finiteOr(sourceSettings.brightness, KARPLUS_STRONG_DEFAULTS.brightness)
-      + timbre * 0.06,
+      + timbre * 0.14,
     pickPosition: finiteOr(sourceSettings.pickPosition, KARPLUS_STRONG_DEFAULTS.pickPosition)
-      + timbre * 0.035,
+      + timbre * 0.08,
     roughness: finiteOr(sourceSettings.roughness, KARPLUS_STRONG_DEFAULTS.roughness)
-      + Math.abs(timbre) * 0.035,
-    coupling: finiteOr(sourceSettings.coupling, KARPLUS_STRONG_DEFAULTS.coupling) * 0.28,
+      + Math.abs(timbre) * 0.08,
+    coupling: finiteOr(sourceSettings.coupling, KARPLUS_STRONG_DEFAULTS.coupling),
     spread: 1,
   });
-  const variantSeed = ((Math.trunc(finiteOr(event.seed, 1)) >>> 0) & 3) + 1;
-  return generateKarplusStrongSamples({
+  const variant = Number.isFinite(Number(event.timbreVariant))
+    ? clamp(Math.trunc(Number(event.timbreVariant)), 0, 3)
+    : (Math.trunc(finiteOr(event.seed, 1)) >>> 0) & 3;
+  const variantSeed = variant + 1;
+  const primary = generateKarplusStrongSamples({
     ...settings,
     sampleRate,
     duration,
     random: createKarplusCarpetRandom(variantSeed),
   });
+  const coupledFrequency = settings.frequency
+    * settings.couplingRatio
+    * (2 ** (settings.couplingDetune / 1_200));
+  if (
+    settings.coupling <= KARPLUS_CARPET_LIMITS.minimumCoupledRenderAmount
+    || coupledFrequency < 20
+    || coupledFrequency >= sampleRate * 0.22
+  ) return primary;
+
+  const coupledDuration = Math.min(
+    duration,
+    KARPLUS_CARPET_LIMITS.maximumCoupledRenderDuration,
+  );
+  const coupled = generateKarplusStrongSamples({
+    ...settings,
+    frequency: coupledFrequency,
+    decay: Math.max(0.2, settings.decay * (0.42 + settings.coupling * 0.28)),
+    damping: clamp(settings.damping + 0.12, 0, 1),
+    brightness: clamp(settings.brightness - 0.08, 0, 1),
+    hardness: settings.hardness * 0.72,
+    pickPosition: 1 - settings.pickPosition,
+    pickupPosition: 1 - settings.pickupPosition,
+    coupling: 0,
+    sampleRate,
+    duration: coupledDuration,
+    random: createKarplusCarpetRandom((variantSeed + 0x9e3779b9) >>> 0),
+  });
+  const coupledGain = settings.coupling * 0.42;
+  const mixScale = 1 / (1 + coupledGain * 0.55);
+  const coupledFadeFrames = Math.max(1, Math.round(sampleRate * 0.018));
+  const mixed = new Float32Array(primary.length);
+  for (let index = 0; index < mixed.length; index += 1) {
+    const coupledFade = index < coupled.length
+      ? clamp((coupled.length - index) / coupledFadeFrames, 0, 1)
+      : 0;
+    mixed[index] = clamp(
+      (primary[index] + (coupled[index] ?? 0) * coupledGain * coupledFade) * mixScale,
+      -1,
+      1,
+    );
+  }
+  return mixed;
 }
 
 export function normalizeKarplusCarpetSamples(samples, sampleRate = 48_000) {
@@ -452,29 +778,53 @@ export class KarplusCarpetAudio {
     const settings = sanitizeKarplusStrongSettings({
       ...sourceSettings,
       frequency: finiteOr(event.frequency, KARPLUS_STRONG_DEFAULTS.frequency),
-      decay: Math.max(0.2, duration),
-      coupling: finiteOr(sourceSettings.coupling, KARPLUS_STRONG_DEFAULTS.coupling) * 0.28,
+      decay: finiteOr(sourceSettings.decay, Math.max(0.2, duration)),
+      coupling: finiteOr(sourceSettings.coupling, KARPLUS_STRONG_DEFAULTS.coupling),
       spread: 1,
     });
+    const envelope = karplusCarpetEnvelopeTiming(event, duration);
+    const pitchBendHeadroom = 2 ** (KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS / 1_200);
+    const requiredRenderDuration = envelope.endOffset * pitchBendHeadroom;
     const renderDuration = clamp(
-      finiteOr(options.renderDuration, duration),
-      duration,
-      KARPLUS_CARPET_LIMITS.maximumGrainDuration,
+      Math.max(finiteOr(options.renderDuration, 0), requiredRenderDuration),
+      KARPLUS_CARPET_LIMITS.minimumGrainDuration,
+      KARPLUS_CARPET_LIMITS.maximumRenderDuration,
+    );
+    const timbreVariant = clamp(
+      Math.trunc(finiteOr(event.timbreVariant, 0)),
+      0,
+      3,
     );
     const renderEvent = {
       ...event,
       duration: renderDuration,
-      seed: Math.max(1, Math.round(settings.frequency * 1_000)) >>> 0,
-      timbre: 0,
+      seed: timbreVariant + 1,
+      timbre: clamp(finiteOr(event.timbre, 0), -1, 1),
+      timbreVariant,
     };
-    const cacheKey = this.#bufferKey(renderEvent, settings, renderDuration);
+    const coupledFrequency = settings.frequency
+      * settings.couplingRatio
+      * (2 ** (settings.couplingDetune / 1_200));
+    const renderSampleRate = karplusCarpetRenderSampleRate(
+      context.sampleRate,
+      settings.frequency,
+      settings.coupling > KARPLUS_CARPET_LIMITS.minimumCoupledRenderAmount
+        ? coupledFrequency
+        : settings.frequency,
+    );
+    const cacheKey = this.#bufferKey(
+      renderEvent,
+      settings,
+      renderDuration,
+      renderSampleRate,
+    );
     let buffer = this.bufferCache.get(cacheKey);
     if (!buffer) {
       const samples = normalizeKarplusCarpetSamples(
-        generateKarplusCarpetSamples(renderEvent, settings, context.sampleRate),
-        context.sampleRate,
+        generateKarplusCarpetSamples(renderEvent, settings, renderSampleRate),
+        renderSampleRate,
       );
-      buffer = context.createBuffer(1, samples.length, context.sampleRate);
+      buffer = context.createBuffer(1, samples.length, renderSampleRate);
       if (typeof buffer.copyToChannel === "function") buffer.copyToChannel(samples, 0);
       else buffer.getChannelData(0).set(samples);
       this.bufferCache.set(cacheKey, buffer);
@@ -502,7 +852,7 @@ export class KarplusCarpetAudio {
     const eventTimbre = clamp(finiteOr(event.timbre, 0), -1, 1);
     tone.frequency.value = Math.min(
       context.sampleRate * 0.44,
-      (700 + settings.brightness ** 1.35 * 17_000) * (2 ** (eventTimbre * 0.12)),
+      (700 + settings.brightness ** 1.35 * 17_000) * (2 ** (eventTimbre * 0.28)),
     );
     tone.Q.value = 0.25 + settings.dispersion * 0.9;
     body.type = "peaking";
@@ -515,10 +865,25 @@ export class KarplusCarpetAudio {
       KARPLUS_CARPET_LIMITS.maximumHeadroomDensity,
     );
     const densityHeadroom = Math.sqrt(KARPLUS_CARPET_LIMITS.minimumHeadroomDensity / density);
-    const peak = clamp(finiteOr(event.velocity, 0.38), 0.05, 0.7) * 0.46 * densityHeadroom;
+    const gainTrim = clamp(
+      finiteOr(event.gainTrim, KARPLUS_CARPET_DEFAULTS.gainTrim),
+      KARPLUS_CARPET_LIMITS.minimumGainTrim,
+      KARPLUS_CARPET_LIMITS.maximumGainTrim,
+    );
+    const peak = clamp(finiteOr(event.velocity, 0.38), 0.05, 0.7)
+      * KARPLUS_CARPET_LIMITS.voiceGainScale
+      * densityHeadroom
+      * gainTrim;
+    const floor = 0.0001;
+    const sustain = Math.max(floor, peak * envelope.sustainLevel);
     gain.gain.setValueAtTime(0.0001, when);
-    gain.gain.linearRampToValueAtTime(Math.max(0.0002, peak), when + 0.002);
-    gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+    gain.gain.linearRampToValueAtTime(
+      Math.max(0.0002, peak),
+      when + envelope.attackEndOffset,
+    );
+    gain.gain.exponentialRampToValueAtTime(sustain, when + envelope.decayEndOffset);
+    gain.gain.setValueAtTime(sustain, when + envelope.releaseStartOffset);
+    gain.gain.exponentialRampToValueAtTime(floor, when + envelope.endOffset);
     if (panner) panner.pan.value = clamp(finiteOr(event.pan, 0), -1, 1);
     source.connect(tone).connect(body).connect(gain);
     if (panner) gain.connect(panner).connect(this.input);
@@ -545,7 +910,14 @@ export class KarplusCarpetAudio {
       voice.source = null;
       this.activeVoices = this.activeVoices.filter((candidate) => candidate !== voice);
     };
-    return Object.freeze({ ...event, when, duration });
+    return Object.freeze({
+      ...event,
+      when,
+      duration,
+      envelope,
+      renderDuration,
+      renderSampleRate,
+    });
   }
 
   stopAll() {
@@ -560,13 +932,15 @@ export class KarplusCarpetAudio {
     }
   }
 
-  #bufferKey(event, settings, duration) {
+  #bufferKey(event, settings, duration, sampleRate) {
     const variant = (Math.trunc(finiteOr(event.seed, 1)) >>> 0) & 3;
     return [
       settings.frequency.toFixed(3),
       duration.toFixed(3),
+      Math.round(finiteOr(sampleRate, 48_000)),
       variant,
       clamp(finiteOr(event.timbre, 0), -1, 1).toFixed(2),
+      settings.decay.toFixed(2),
       settings.hardness.toFixed(2),
       settings.excitationColor.toFixed(2),
       settings.excitationShape.toFixed(2),
@@ -588,6 +962,9 @@ export class KarplusCarpetAudio {
       settings.body.toFixed(2),
       settings.bodyTune.toFixed(2),
       settings.bodyQ.toFixed(2),
+      settings.coupling.toFixed(2),
+      settings.couplingRatio.toFixed(2),
+      settings.couplingDetune.toFixed(1),
     ].join(":");
   }
 

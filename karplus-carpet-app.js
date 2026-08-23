@@ -11,7 +11,10 @@ import {
 import {
   KARPLUS_CARPET_DEFAULTS,
   KARPLUS_CARPET_LIMITS,
+  KARPLUS_CARPET_TEXTURE_PRESETS,
   KarplusCarpetAudio,
+  karplusCarpetEnvelopeTiming,
+  mergeKarplusCarpetPresetSettings,
   karplusCarpetPointerEvent,
   karplusCarpetSpatialCellAtPosition,
   karplusCarpetSpatialCellSeed,
@@ -39,9 +42,35 @@ const TIMBRE_CONTROL_SPECS = Object.freeze([
 ]);
 const CARPET_CONTROL_IDS = Object.freeze([
   "grainDuration",
+  "attackDuration",
+  "decayDuration",
+  "sustainLevel",
+  "releaseDuration",
+  "timbreVariation",
   "velocityScatter",
   "stereoSpread",
 ]);
+const BUFFER_DURATION_CONTROL_IDS = new Set([
+  "grainDuration",
+  "attackDuration",
+  "decayDuration",
+  "releaseDuration",
+  "timbreVariation",
+]);
+const PRESET_BANKS = Object.freeze({
+  materials: Object.freeze({
+    id: "materials",
+    name: "Materials",
+    description: "Classic thread materials keep the current Carpet timing and cell variation.",
+    items: KARPLUS_STRONG_PRESETS,
+  }),
+  textures: Object.freeze({
+    id: "textures",
+    name: "Textures",
+    description: "Carpet-native textures change material, envelope, spread, and cell color together.",
+    items: KARPLUS_CARPET_TEXTURE_PRESETS,
+  }),
+});
 
 const canvas = $("stage");
 const stageWrap = $("stageWrap");
@@ -53,6 +82,7 @@ const state = {
   ...firstPreset.settings,
   ...KARPLUS_CARPET_DEFAULTS,
   selectedPresetId: firstPreset.id,
+  presetBankId: "materials",
   pitchBendCents: 0,
   audioOn: false,
 };
@@ -77,6 +107,10 @@ function formatPercent(value) {
 
 function formatRatio(value) {
   return Number(value).toFixed(2) + "x";
+}
+
+function formatMilliseconds(value) {
+  return Math.round(Number(value) * 1_000) + " ms";
 }
 
 function formatFrequency(frequency) {
@@ -197,6 +231,7 @@ async function enableAudio() {
 function markPresetCustom() {
   state.selectedPresetId = null;
   $("presetSummary").textContent = "Custom";
+  $("presetDescription").textContent = "Custom sound · cross a new area to hear the change.";
   for (const button of $("presetGrid").querySelectorAll("button")) {
     button.setAttribute("aria-pressed", "false");
   }
@@ -299,7 +334,18 @@ function paintTimbreControl(specification) {
 
 function syncCarpetControls() {
   for (const id of CARPET_CONTROL_IDS) $(id).value = String(state[id]);
-  $("grainDurationOut").textContent = Math.round(state.grainDuration * 1_000) + " ms";
+  for (const id of ["grainDuration", "attackDuration", "decayDuration", "releaseDuration"]) {
+    const label = formatMilliseconds(state[id]);
+    $(id).setAttribute("aria-valuetext", label);
+    $(id + "Out").textContent = label;
+  }
+  $("sustainLevelOut").textContent = formatPercent(state.sustainLevel);
+  $("sustainLevel").setAttribute("aria-valuetext", formatPercent(state.sustainLevel));
+  $("timbreVariationOut").textContent = formatPercent(state.timbreVariation);
+  $("timbreVariation").setAttribute(
+    "aria-valuetext",
+    formatPercent(state.timbreVariation) + " cell color variation",
+  );
   $("velocityScatterOut").textContent = formatPercent(state.velocityScatter);
   $("stereoSpreadOut").textContent = formatPercent(state.stereoSpread);
 
@@ -326,6 +372,7 @@ function paintReadouts() {
   const firstFrequency = pitchCells[0] ?? state.lowFrequency;
   const lastFrequency = pitchCells.at(-1) ?? state.highFrequency;
   const grid = currentSpatialGrid();
+  const envelope = karplusCarpetEnvelopeTiming(state, state.grainDuration);
   $("surfaceSummary").textContent = (grid.columns * grid.rows).toLocaleString()
     + " close areas \u00b7 drag to cross";
   $("pitchCellCountOut").textContent = pitchCells.length + " pitch cell"
@@ -342,7 +389,7 @@ function paintReadouts() {
   $("levelOut").textContent = formatPercent(state.level);
   $("stageReadout").textContent = [
     grid.columns + "\u00d7" + grid.rows + " AREAS",
-    Math.round(state.grainDuration * 1_000) + " MS",
+    Math.round(envelope.endOffset * 1_000) + " MS ENV",
     pointerActive ? "CROSSING" : state.audioOn ? "AUDIO ON" : "AUDIO OFF",
   ].join(" \u00b7 ");
   canvas.setAttribute("aria-valuenow", String(Math.round(state.centerPosition * 100)));
@@ -371,26 +418,51 @@ function setPitchBend(cents, options = {}) {
 }
 
 function renderPresets() {
+  const bank = PRESET_BANKS[state.presetBankId] ?? PRESET_BANKS.materials;
   const fragment = document.createDocumentFragment();
-  for (const item of KARPLUS_STRONG_PRESETS) {
+  for (const item of bank.items) {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.presetId = item.id;
     button.textContent = item.name;
+    button.title = item.description ?? item.name + " thread material";
+    button.setAttribute(
+      "aria-label",
+      item.description ? item.name + ": " + item.description : item.name,
+    );
     button.setAttribute("aria-pressed", String(item.id === state.selectedPresetId));
     button.addEventListener("click", () => applyPreset(item));
     fragment.append(button);
   }
+  $("presetGrid").setAttribute("aria-label", bank.name + " sound varieties");
   $("presetGrid").replaceChildren(fragment);
+  for (const button of $("presetBank").querySelectorAll("button")) {
+    button.setAttribute("aria-pressed", String(button.dataset.presetBank === bank.id));
+  }
+  const selected = bank.items.find((item) => item.id === state.selectedPresetId);
+  $("presetDescription").textContent = selected?.description ?? bank.description;
+}
+
+function selectPresetBank(bankId, options = {}) {
+  const bank = PRESET_BANKS[bankId];
+  if (!bank) return;
+  state.presetBankId = bank.id;
+  renderPresets();
+  if (options.announce !== false) {
+    announce(bank.name + " sound varieties shown. Selection remains silent.");
+  }
 }
 
 function applyPreset(item) {
   const outputLevel = state.level;
-  Object.assign(state, item.settings);
+  Object.assign(state, mergeKarplusCarpetPresetSettings(state, item.settings));
   state.level = outputLevel;
   state.selectedPresetId = item.id;
   $("presetSummary").textContent = item.name;
+  $("presetDescription").textContent = item.description
+    ?? item.name + " material · current Carpet timing and cell variation retained.";
   for (const specification of TIMBRE_CONTROL_SPECS) paintTimbreControl(specification);
+  syncCarpetControls();
   for (const button of $("presetGrid").querySelectorAll("button")) {
     button.setAttribute("aria-pressed", String(button.dataset.presetId === item.id));
   }
@@ -410,13 +482,20 @@ function scheduleAudioGrain(event, startedAt) {
   const when = anchor
     ? anchor.audioTime + (startedAt - anchor.performanceTime) / 1_000
     : audio.context.currentTime;
+  const maximumGateDuration = clamp(
+    state.grainDuration * 1.1,
+    KARPLUS_CARPET_LIMITS.minimumGrainDuration,
+    KARPLUS_CARPET_LIMITS.maximumGrainDuration,
+  );
+  const longestEnvelope = karplusCarpetEnvelopeTiming(state, maximumGateDuration);
+  const pitchBendHeadroom = 2 ** (KARPLUS_STRONG_PITCH_BEND_RANGE_CENTS / 1_200);
   void audio.scheduleGrain(event, synthSettings(), {
     when,
     density: KARPLUS_CARPET_LIMITS.defaultHeadroomDensity,
     renderDuration: clamp(
-      state.grainDuration * 1.22,
+      longestEnvelope.endOffset * pitchBendHeadroom,
       KARPLUS_CARPET_LIMITS.minimumGrainDuration,
-      KARPLUS_CARPET_LIMITS.maximumGrainDuration,
+      KARPLUS_CARPET_LIMITS.maximumRenderDuration,
     ),
   }).catch((error) => {
     if (error?.name === "AbortError") return;
@@ -459,7 +538,12 @@ function spatialEvent(cell, options = {}) {
     visualY: cell.visualY,
     velocity: options.velocity,
   });
-  return Object.freeze({ ...event, spatialPosition: cell.position });
+  const envelope = karplusCarpetEnvelopeTiming(event, event.duration);
+  return Object.freeze({
+    ...event,
+    envelopeDuration: envelope.endOffset,
+    spatialPosition: cell.position,
+  });
 }
 
 function strikeSpatialCells(cells, options = {}) {
@@ -638,9 +722,14 @@ function bindControls() {
       state[id] = Number(event.currentTarget.value);
       Object.assign(state, sanitizeKarplusCarpetSettings(state));
       syncCarpetControls();
-      if (id === "grainDuration") audio.clearBufferCache();
+      if (BUFFER_DURATION_CONTROL_IDS.has(id)) audio.clearBufferCache();
+      markPresetCustom();
       paintReadouts();
     });
+  }
+
+  for (const button of $("presetBank").querySelectorAll("button")) {
+    button.addEventListener("click", () => selectPresetBank(button.dataset.presetBank));
   }
 
   for (const id of ["lowFrequency", "highFrequency"]) {
@@ -706,6 +795,7 @@ $("resetAll").addEventListener("click", () => {
   pulses = [];
   syncCarpetControls();
   setPitchBend(0, { immediate: true });
+  selectPresetBank("materials", { announce: false });
   applyPreset(firstPreset);
   announce("Karplus Carpet parameters reset.");
 });
@@ -827,7 +917,11 @@ function drawSpatialLattice(grid) {
 function drawPulse(pulse, timestamp, top, bottom, left, right) {
   if (timestamp < pulse.startedAt) return;
   const age = Math.max(0, (timestamp - pulse.startedAt) / 1_000);
-  const life = clamp(1 - age / Math.max(0.08, pulse.duration + 0.34), 0, 1);
+  const life = clamp(
+    1 - age / Math.max(0.08, pulse.envelopeDuration ?? pulse.duration + 0.34),
+    0,
+    1,
+  );
   if (life <= 0) return;
   const x = left + (pulse.spatialPosition ?? pulse.fieldPosition) * (right - left);
   const y = top + pulse.visualY * (bottom - top);
@@ -890,8 +984,8 @@ function drawStage(timestamp = performance.now()) {
     context.fill();
   }
 
-  pulses = pulses.filter(({ startedAt, duration }) => (
-    timestamp - startedAt < duration * 1_000 + 420
+  pulses = pulses.filter(({ startedAt, duration, envelopeDuration }) => (
+    timestamp - startedAt < (envelopeDuration ?? duration) * 1_000 + 80
   ));
   for (const pulse of pulses) drawPulse(pulse, timestamp, top, bottom, left, right);
 

@@ -363,7 +363,7 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "karplus-carpet": define(
     "Microsound physical-model synth",
-    "Turns a dense two-dimensional surface of close areas into freshly synthesized 80–400 millisecond Karplus delay-line attacks across a tunable microtonal pitch field, without loading sample grains.",
+    "Turns a dense two-dimensional surface of close areas into freshly synthesized Karplus attacks with adjustable one-shot amplitude ADSR, two sound-variety banks, deterministic cell color, and coupled resonators across a tunable microtonal pitch field, without loading sample grains.",
     "Press and drag across the surface: each newly crossed area sounds once per gesture, while moving inside an area or holding still stays silent.",
     ["Built-in synth", "MIDI", "Pointer", "Computer keys"],
   ),
