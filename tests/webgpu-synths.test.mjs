@@ -129,7 +129,12 @@ test("the WGSL shader owns sequencing and the complete synthesis signal path", (
   assert.match(WEBGPU_SYNTHS_SHADER, /rank\.z/);
   assert.match(WEBGPU_SYNTHS_SHADER, /rank\.w/);
   assert.match(WEBGPU_SYNTHS_SHADER, /let topology = clamp/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /let currentNote = synth_param\.baseNote \+ scaleNote\(current\.x/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /let followingNote = synth_param\.baseNote \+ scaleNote\(following\.x/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /let note = mix\(currentNote, followingNote, glide\)/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /let release = 1\.0 - smoothstep\(0\.982, 1\.0, phase\)/);
   assert.match(WEBGPU_SYNTHS_SHADER, /let envelope =/);
+  assert.doesNotMatch(WEBGPU_SYNTHS_SHADER, /smoothTail/);
   assert.match(WEBGPU_SYNTHS_SHADER, /let pan =/);
   assert.match(WEBGPU_SYNTHS_SHADER, /softClip/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn synthesizeDry/);
@@ -183,9 +188,24 @@ test("the page exposes 32 ordered presets, variations, direct lane drawing, and 
   assert.match(app, /Interzone/);
   assert.match(app, /Void Grinder/);
   const presetBlock = app.slice(app.indexOf("const PRESETS"), app.indexOf("const CONTROL_GROUPS"));
-  assert.equal((presetBlock.match(/\bpreset\("/g) ?? []).length, 32);
+  const presetMatches = [...presetBlock.matchAll(/preset\("([^"]+)", "([^"]+)", "[^"]+", [^,]+, \{([^}]+)\}\)/g)];
+  assert.equal(presetMatches.length, 32);
+  const earlyPresetParams = presetMatches.slice(0, 8).map(([, , , params]) => ({
+    baseNote: Number(params.match(/baseNote: ([\d.]+)/)?.[1]),
+    clock: Number(params.match(/clock: ([\d.]+)/)?.[1]),
+  }));
+  assert.ok(Math.min(...earlyPresetParams.map(({ clock }) => clock)) <= 0.72);
+  assert.ok(Math.max(...earlyPresetParams.map(({ clock }) => clock)) >= 12.6);
+  assert.ok(Math.max(...earlyPresetParams.map(({ baseNote }) => baseNote)) - Math.min(...earlyPresetParams.map(({ baseNote }) => baseNote)) >= 40);
   assert.ok(presetBlock.indexOf("Velvet Drawbars") < presetBlock.indexOf("Dust Engine"));
   assert.ok(presetBlock.indexOf("Dust Engine") < presetBlock.indexOf("Void Grinder"));
+  assert.ok(presetMatches.findIndex(([, id]) => id === "folded-mutant") >= 12);
+  assert.ok(presetMatches.findIndex(([, id]) => id === "interzone") >= 20);
+  assert.ok(presetMatches.findIndex(([, id]) => id === "dust-engine") >= 20);
+  assert.match(presetBlock, /preset\("velvet-drawbars", "Velvet Drawbars", "orbit", 0\.16, \{[^}]*clock: 2\.2[^}]*gain: 0\.092/);
+  assert.match(presetBlock, /preset\("folded-mutant", "Folded Mutant", "cellular", 0\.54/);
+  assert.match(presetBlock, /preset\("interzone", "Interzone", "noise", 0\.68, \{[^}]*chaos: 0\.94/);
+  assert.match(presetBlock, /preset\("dust-engine", "Dust Engine", "brownian", 0\.46, \{[^}]*gain: 0\.11/);
   assert.match(app, /createWebGpuSynthSequence/);
   assert.match(app, /varyWebGpuSynthSequence/);
   assert.match(app, /editSequenceLane/);

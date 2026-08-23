@@ -548,8 +548,6 @@ fn additiveOrgan(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -
   let rotorRate = 0.34 + motion * 4.8;
   let chorale = sin(t * choraleRate * TAU) * motion * 0.038;
   let rotor = sin(t * rotorRate * TAU);
-  let eventPhase = clamp(local * synth_param.clock, 0.0, 1.0);
-  let smoothTail = 1.0 - smoothstep(0.82, 1.0, eventPhase);
   let requested = u32(round(clamp(synth_param.organRanks, 1.0, f32(arrayLength(&organ_rank)))));
   for (var drawbar = 0u; drawbar < 9u; drawbar += 1u) {
     if (drawbar >= requested) { break; }
@@ -568,7 +566,7 @@ fn additiveOrgan(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -
   }
   let rotorDepth = synth_param.space * motion * 0.16;
   voice *= vec2(1.0 - rotor * rotorDepth, 1.0 + rotor * rotorDepth);
-  return voice * (0.15 * smoothTail);
+  return voice * 0.15;
 }
 
 fn synthModel(model: u32, t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -> vec2<f32> {
@@ -594,12 +592,14 @@ fn drySound(time: f32) -> vec2<f32> {
   let following = sequence_lanes[nextIndex];
   let glideWindow = max(0.001, 1.0 - synth_param.glide);
   let glide = smoothstep(glideWindow, 1.0, phase);
-  let pitchLane = mix(current.x, following.x, glide);
-  let note = synth_param.baseNote + scaleNote(pitchLane, synth_param.scale);
+  let currentNote = synth_param.baseNote + scaleNote(current.x, synth_param.scale);
+  let followingNote = synth_param.baseNote + scaleNote(following.x, synth_param.scale);
+  let note = mix(currentNote, followingNote, glide);
   let frequency = midiFrequency(note);
   let energy = current.y;
   let attack = smoothstep(0.0, 0.018, phase);
-  let envelope = attack * exp(-phase / max(0.03, synth_param.decay)) * energy;
+  let release = 1.0 - smoothstep(0.982, 1.0, phase);
+  let envelope = attack * release * exp(-phase / max(0.03, synth_param.decay)) * energy;
   let timbre = clamp(mix(synth_param.color, current.z, 0.7), 0.0, 1.0);
   let motion = clamp(mix(synth_param.motion, current.w, 0.68), 0.0, 1.0);
   let local = phase / max(synth_param.clock, 0.001);
