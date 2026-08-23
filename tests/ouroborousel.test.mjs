@@ -241,6 +241,7 @@ test("the page wires its recursive rail, transport, controls, and reset accessib
   assert.match(markup, /id="materialDrums"[^>]+value="drums"/);
   assert.match(markup, /id="materialCombo"[^>]+value="combo"/);
   assert.match(markup, /id="materialModeHelp"/);
+  assert.match(markup, /id="centerRate"[^>]+value="4"/);
   assert.match(markup, /pink and cream dots are Ouroboros drum strikes/);
   assert.match(markup, /data-reset-all[^>]+data-reset-in-place/);
   assert.match(
