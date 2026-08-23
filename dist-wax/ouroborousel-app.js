@@ -274,7 +274,14 @@ function materialCopy(mode) {
 
 function updateCanvasAccessibility(frame, safe) {
   const center = centralLayer(frame);
-  const blend = clamp(center?.fusionBlend, 0, 1, 0);
+  const blend = clamp(
+    safe.materialMode === "drums"
+      ? center?.fusionBlend
+      : center?.toneGain ?? center?.fusionBlend,
+    0,
+    1,
+    0,
+  );
   const positionPercent = Math.round(wrapUnit(state.visualPosition) * 100);
   const rate = Number(center?.hitRate) || safe.centerRate;
   const source = materialSourceCopy(center, safe);
@@ -310,6 +317,7 @@ function updateInterface({ rebuildPresets = false } = {}) {
     "chunkDuty",
     "fusionPoint",
     "fusionWidth",
+    "fusionEmphasis",
     "brightness",
   ]) {
     $(id).disabled = drumsOnly;
@@ -347,6 +355,7 @@ function updateInterface({ rebuildPresets = false } = {}) {
     "chunkDuty",
     "fusionPoint",
     "fusionWidth",
+    "fusionEmphasis",
     "spread",
     "brightness",
     "cutoff",
@@ -362,6 +371,12 @@ function updateInterface({ rebuildPresets = false } = {}) {
   $("chunkDutyOut").textContent = `${Math.round(safe.chunkDuty * 100)}% of each turn`;
   $("fusionPointOut").textContent = formatFrequency(safe.fusionPoint);
   $("fusionWidthOut").textContent = `${safe.fusionWidth.toFixed(2)} oct`;
+  const fusionEmphasisPercent = Math.round(safe.fusionEmphasis * 100);
+  $("fusionEmphasisOut").textContent = `${fusionEmphasisPercent}%`;
+  $("fusionEmphasis").setAttribute(
+    "aria-valuetext",
+    `${fusionEmphasisPercent}% pulse emphasis`,
+  );
   $("spreadOut").textContent = `${Math.round(safe.spread * 100)}%`;
   $("brightnessOut").textContent = `${Math.round(safe.brightness * 100)}%`;
   $("cutoffOut").textContent = formatFrequency(safe.cutoff);
@@ -380,10 +395,13 @@ function updateInterface({ rebuildPresets = false } = {}) {
   $("recursionNote").textContent = drumsOnly
     ? "The drum bank is sounding now. These note-lift and chunk controls are preserved for Notes and Notes + drums."
     : "Every pulse repeats a window cut from the note an exact number of octaves above it. Drum material strikes the corresponding kick-to-air Ouroboros body; Combo layers both. The exact octave relationship lets repetition become pitch without a seam.";
+  const fusionPulseSummary = safe.fusionEmphasis > 0.001
+    ? ` · ${fusionEmphasisPercent}% pulse`
+    : "";
   $("fusionSectionTitle").textContent = drumsOnly ? "Drum overlap" : "Cross the threshold";
   $("fusionSummary").textContent = drumsOnly
     ? "natural resonator overlap · note bridge parked"
-    : `${formatFrequency(safe.fusionPoint)} · ${safe.fusionWidth.toFixed(2)} oct bridge`;
+    : `${formatFrequency(safe.fusionPoint)} · ${safe.fusionWidth.toFixed(2)} oct bridge${fusionPulseSummary}`;
   const tonalBrightness = drumsOnly
     ? (safe.cutoff - 800) / (18_000 - 800)
     : safe.brightness;
@@ -484,6 +502,7 @@ for (const id of [
   "chunkDuty",
   "fusionPoint",
   "fusionWidth",
+  "fusionEmphasis",
   "spread",
   "brightness",
   "cutoff",
@@ -927,7 +946,7 @@ function layerVisual(layer, safe) {
       DRUM_OVERLAP_POINT,
       DRUM_OVERLAP_WIDTH,
     )
-    : clamp(layer?.fusionBlend, 0, 1, 0);
+    : clamp(layer?.toneGain ?? layer?.fusionBlend, 0, 1, 0);
   const pulsePhase = wrapUnit(
     (Number(layer?.pulsePhase) || OUROBOROUSEL_PHASE_SEED)
       + state.visualSeconds * hitRate,
@@ -1053,19 +1072,25 @@ function drawFusionBand(ctx, layout, layers, safe, radii) {
     }
   }
   const radius = radii[closestIndex];
+  const emphasis = safe.materialMode === "drums"
+    ? 0
+    : clamp(safe.fusionEmphasis, 0, 1, 0);
   ctx.save();
   ctx.shadowColor = rgba(PINK, 0.78);
-  ctx.shadowBlur = 18;
+  ctx.shadowBlur = 18 + emphasis * 18;
   ctx.beginPath();
   ctx.arc(layout.centerX, layout.centerY, radius, 0, TAU);
-  ctx.strokeStyle = rgba(PINK, 0.34);
-  ctx.lineWidth = Math.max(8, (layout.railOuter - layout.railInner) / Math.max(5, layers.length));
+  ctx.strokeStyle = rgba(PINK, 0.34 + emphasis * 0.22);
+  ctx.lineWidth = Math.max(
+    8,
+    (layout.railOuter - layout.railInner) / Math.max(5, layers.length),
+  ) * (1 + emphasis * 0.35);
   ctx.stroke();
   ctx.shadowBlur = 0;
   ctx.beginPath();
   ctx.arc(layout.centerX, layout.centerY, radius, 0, TAU);
-  ctx.strokeStyle = rgba(PINK, 0.8);
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = rgba(PINK, 0.8 + emphasis * 0.16);
+  ctx.lineWidth = 1 + emphasis * 0.75;
   ctx.setLineDash([1.5, 5]);
   ctx.stroke();
   ctx.setLineDash([]);

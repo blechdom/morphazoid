@@ -13,6 +13,8 @@ import {
   ouroborouselChunkEnvelope,
   ouroborouselFrequencySafety,
   ouroborouselFusionBlend,
+  ouroborouselFusionSpotlight,
+  ouroborouselFusionToneGain,
   ouroborouselWindow,
   sanitizeOuroborouselParams,
 } from "../src/ouroborousel.js";
@@ -49,6 +51,7 @@ test("Ouroborousel parameters are finite, bounded, integral where required, and 
     chunkDuty: -1,
     fusionPoint: 99,
     fusionWidth: 0,
+    fusionEmphasis: 9,
     spread: 9,
     brightness: -2,
     cutoff: 99_000,
@@ -65,6 +68,7 @@ test("Ouroborousel parameters are finite, bounded, integral where required, and 
   assert.equal(sanitized.chunkDuty, 0.15);
   assert.equal(sanitized.fusionPoint, 48);
   assert.equal(sanitized.fusionWidth, 0.25);
+  assert.equal(sanitized.fusionEmphasis, 1);
   assert.equal(sanitized.spread, 1);
   assert.equal(sanitized.brightness, 0);
   assert.equal(sanitized.cutoff, 18_000);
@@ -87,12 +91,17 @@ test("Ouroborousel parameters are finite, bounded, integral where required, and 
     chunkDuty: Number.NaN,
     fusionPoint: Number.NaN,
     fusionWidth: Number.NaN,
+    fusionEmphasis: Number.NaN,
     spread: Number.NaN,
     brightness: Number.NaN,
     cutoff: Number.NaN,
     level: Number.NaN,
   }), OUROBOROUSEL_DEFAULTS);
-  assert.equal(sanitizeOuroborouselParams({ fusionWidth: 99 }).fusionWidth, 4);
+  assert.equal(sanitizeOuroborouselParams({ fusionWidth: 99 }).fusionWidth, 6);
+  assert.equal(
+    sanitizeOuroborouselParams({ fusionEmphasis: -1 }).fusionEmphasis,
+    0,
+  );
 });
 
 test("low note materials raise only their source lift enough to keep a full-safe lane", () => {
@@ -182,6 +191,7 @@ test("defaults match the page contract and whimsical presets are complete", () =
     chunkDuty: 0.72,
     fusionPoint: 18,
     fusionWidth: 1,
+    fusionEmphasis: 0,
     spread: 0.48,
     brightness: 0.68,
     cutoff: 12_000,
@@ -243,7 +253,13 @@ test("the page wires its recursive rail, transport, controls, and reset accessib
   assert.match(markup, /id="materialCombo"[^>]+value="combo"/);
   assert.match(markup, /id="materialModeHelp"/);
   assert.match(markup, /id="centerRate"[^>]+value="4"/);
-  assert.match(markup, /id="fusionWidth"[^>]+min="0.25"[^>]+max="4"/);
+  assert.match(markup, /id="fusionWidth"[^>]+min="0.25"[^>]+max="6"/);
+  assert.match(
+    markup,
+    /for="fusionEmphasis"[\s\S]*?id="fusionEmphasisOut"[\s\S]*?id="fusionEmphasis"[^>]+min="0"[^>]+max="1"[^>]+value="0"/,
+  );
+  assert.match(app, /\$\("fusionEmphasisOut"\)\.textContent/);
+  assert.match(app, /\$\("fusionEmphasis"\)\.setAttribute\([\s\S]*?"aria-valuetext"/);
   assert.match(markup, /pink and cream dots are Ouroboros drum strikes/);
   assert.match(markup, /data-reset-all[^>]+data-reset-in-place/);
   assert.match(
@@ -317,6 +333,7 @@ test("the page wires its recursive rail, transport, controls, and reset accessib
     "chunkDuty",
     "fusionPoint",
     "fusionWidth",
+    "fusionEmphasis",
     "spread",
     "brightness",
     "cutoff",
@@ -354,6 +371,13 @@ test("cosine bank, carrier safety, Hann chunks, and fusion bridge are continuous
   );
   assert.ok(1 - ouroborouselFusionBlend(point * 2, point, extendedWidth) > 0.14);
   assert.ok(1 - ouroborouselFusionBlend(point * 4, point, extendedWidth) < 1e-12);
+  const maximumWidth = 6;
+  assert.ok(ouroborouselFusionBlend(point / 8, point, maximumWidth) < 1e-12);
+  assert.ok(
+    Math.abs(ouroborouselFusionBlend(point, point, maximumWidth) - 0.5) < 1e-12,
+  );
+  assert.ok(1 - ouroborouselFusionBlend(point * 4, point, maximumWidth) > 0.04);
+  assert.ok(1 - ouroborouselFusionBlend(point * 8, point, maximumWidth) < 1e-12);
   let previous = -1;
   for (let step = -20; step <= 20; step += 1) {
     const blend = ouroborouselFusionBlend(point * 2 ** (step / 20), point, width);
@@ -368,6 +392,69 @@ test("cosine bank, carrier safety, Hann chunks, and fusion bridge are continuous
   assert.equal(ouroborouselChunkEnvelope(0.72, 0.72), 0);
   assert.equal(ouroborouselChunkEnvelope(0.9, 0.72), 0);
   assert.equal(ouroborouselChunkEnvelope(1, 0.72), 0);
+});
+
+test("fusion pulse emphasis deepens and spotlights the crossing without changing endpoints", () => {
+  for (let step = 0; step <= 100; step += 1) {
+    const blend = step / 100;
+    assert.equal(
+      ouroborouselFusionToneGain(blend, 0),
+      blend,
+      "zero emphasis must preserve the existing bridge exactly",
+    );
+  }
+
+  assert.equal(ouroborouselFusionToneGain(0, 1), 0);
+  assert.equal(ouroborouselFusionToneGain(1, 1), 1);
+  assert.ok(Math.abs(ouroborouselFusionToneGain(0.5, 1) - 0.125) < 1e-12);
+  assert.equal(ouroborouselFusionSpotlight(0, 1), 1);
+  assert.equal(ouroborouselFusionSpotlight(1, 1), 1);
+  assert.equal(ouroborouselFusionSpotlight(0.5, 0), 1);
+  assert.ok(Math.abs(ouroborouselFusionSpotlight(0.5, 1) - 1.75) < 1e-12);
+
+  let previousToneGain = -1;
+  for (let step = 0; step <= 100; step += 1) {
+    const blend = step / 100;
+    const toneGain = ouroborouselFusionToneGain(blend, 1);
+    const chunkGain = 1 - toneGain;
+    assert.ok(toneGain >= previousToneGain, "emphasized fusion must stay monotonic");
+    assert.ok(toneGain >= 0 && toneGain <= 1);
+    assert.ok(Math.abs(toneGain + chunkGain - 1) < 1e-12);
+    previousToneGain = toneGain;
+  }
+
+  const blendAtTwenty = ouroborouselFusionBlend(20, 18, 1);
+  const originalRhythmDepth = 1 - blendAtTwenty;
+  const emphasizedRhythmDepth = 1 - ouroborouselFusionToneGain(blendAtTwenty, 1);
+  assert.ok(originalRhythmDepth > 0.26 && originalRhythmDepth < 0.28);
+  assert.ok(emphasizedRhythmDepth > 0.69 && emphasizedRhythmDepth < 0.72);
+  assert.ok(1 - emphasizedRhythmDepth > 0.28, "the crossing must retain a pitch floor");
+
+  const common = { position: 0.25, centerRate: 4, bankWidth: 6 };
+  const ordinary = calculateOuroborouselLayers({
+    ...common,
+    fusionEmphasis: 0,
+  });
+  const emphasized = calculateOuroborouselLayers({
+    ...common,
+    fusionEmphasis: 1,
+  });
+  const crossingIndex = ordinary.layers.reduce((best, layer, index) => (
+    Math.abs(layer.hitRate - 20) < Math.abs(ordinary.layers[best].hitRate - 20)
+      ? index
+      : best
+  ), 0);
+  assert.ok(emphasized.layers[crossingIndex].gain > ordinary.layers[crossingIndex].gain);
+  assert.ok(Math.abs(
+    emphasized.layers.reduce((sum, layer) => sum + layer.gain ** 2, 0) - 1,
+  ) < 1e-12, "the spotlight must preserve normalized note-bank power");
+  for (let index = 0; index < ordinary.layers.length; index += 1) {
+    assert.equal(
+      emphasized.layers[index].drumWeight,
+      ordinary.layers[index].drumWeight,
+      "note emphasis must not alter drum weighting",
+    );
+  }
 });
 
 test("position wraps report every crossed octave in either direction", () => {
@@ -393,6 +480,7 @@ test("tempo lanes and their upper note chunks remain exact octave relatives", ()
     noteLift: 6,
     fusionPoint: 18,
     fusionWidth: 1.2,
+    fusionEmphasis: 0.7,
     spread: 0.7,
   });
 
@@ -412,6 +500,15 @@ test("tempo lanes and their upper note chunks remain exact octave relatives", ()
     ) < 1e-12);
     assert.ok(Math.abs(layer.chunkGain + layer.toneGain - 1) < 1e-12);
     assert.ok(layer.chunkGain >= 0 && layer.toneGain >= 0);
+    assert.ok(Math.abs(
+      layer.toneGain
+        - ouroborouselFusionToneGain(layer.fusionBlend, 0.7),
+    ) < 1e-12);
+    assert.ok(Math.abs(
+      layer.weight
+        - layer.window * layer.safety
+          * ouroborouselFusionSpotlight(layer.fusionBlend, 0.7),
+    ) < 1e-12);
     // At the Hann peak the two correlated paths sum to exactly one carrier;
     // the fusion bridge must not create an equal-power gain hump.
     assert.ok(layer.chunkGain + layer.toneGain <= 1 + 1e-12);
@@ -496,6 +593,7 @@ test("crossing either endless seam only relabels phase-coherent lanes", () => {
     chunkDuty: 0.64,
     fusionPoint: 21,
     fusionWidth: 1.1,
+    fusionEmphasis: 0.62,
     spread: 0.6,
   };
   const before = calculateOuroborouselLayers({ ...common, position: 1 - epsilon });
@@ -511,6 +609,8 @@ test("crossing either endless seam only relabels phase-coherent lanes", () => {
     assert.ok(Math.abs(newLayer.weight - oldLayer.weight) < 3e-8);
     assert.ok(Math.abs(newLayer.gain - oldLayer.gain) < 4e-8);
     assert.ok(Math.abs(newLayer.fusionBlend - oldLayer.fusionBlend) < 3e-8);
+    assert.ok(Math.abs(newLayer.toneGain - oldLayer.toneGain) < 3e-8);
+    assert.ok(Math.abs(newLayer.chunkGain - oldLayer.chunkGain) < 3e-8);
     assert.ok(circularDistance(newLayer.pulsePhase, oldLayer.pulsePhase) < 3e-8);
     assert.ok(circularDistance(newLayer.carrierPhase, oldLayer.carrierPhase) < 1e-6);
   }
@@ -525,6 +625,7 @@ test("crossing either endless seam only relabels phase-coherent lanes", () => {
     assert.ok(relativeError(newLayer.hitRate, oldLayer.hitRate) < 3e-8);
     assert.ok(relativeError(newLayer.sourceHz, oldLayer.sourceHz) < 3e-8);
     assert.ok(Math.abs(newLayer.weight - oldLayer.weight) < 3e-8);
+    assert.ok(Math.abs(newLayer.toneGain - oldLayer.toneGain) < 3e-8);
   }
 });
 
@@ -605,6 +706,7 @@ test("worklet renders bounded stereo chunks and tones through its octave seam", 
         noteLift: 3,
         fusionPoint: 18,
         fusionWidth: 0.75,
+        fusionEmphasis: 1,
         spread: 0.82,
       },
     });
@@ -730,6 +832,23 @@ test("worklet renders bounded stereo chunks and tones through its octave seam", 
       changed.noteLifts.some((value) => value === 7),
       "lanes did not adopt the new lift at their pulse boundaries",
     );
+
+    const emphasisChange = new Processor({
+      processorOptions: OUROBOROUSEL_DEFAULTS,
+    });
+    emphasisChange.port.onmessage({ data: { type: "audible", value: true } });
+    emphasisChange.port.onmessage({ data: { type: "transport", value: true } });
+    emphasisChange.port.onmessage({
+      data: {
+        type: "parameters",
+        parameters: { fusionEmphasis: 0.9 },
+      },
+    });
+    assert.equal(emphasisChange.target.fusionEmphasis, 0.9);
+    assert.equal(emphasisChange.current.fusionEmphasis, 0);
+    emphasisChange.process([], [[new Float32Array(128), new Float32Array(128)]]);
+    assert.ok(emphasisChange.current.fusionEmphasis > 0);
+    assert.ok(emphasisChange.current.fusionEmphasis < 0.9);
 
     const drumLayerStateNames = [
       "drumSlowEnvelopes",

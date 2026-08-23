@@ -8,6 +8,8 @@ const LAYER_CENTER = Math.floor(LAYER_COUNT / 2);
 const DEFAULT_SAMPLE_RATE = 48_000;
 const MODE_COUNT = 4;
 const NOTE_FULL_BAND_MIN = 20;
+const FUSION_EMPHASIS_DEPTH = 0.75;
+const FUSION_SPOTLIGHT_DEPTH = 0.75;
 const DRUM_CENTER_PITCH = 110;
 const DRUM_DECAY = 0.18;
 const DRUM_CHARACTER = 0.5;
@@ -57,6 +59,7 @@ export const OUROBOROUSEL_DEFAULTS = Object.freeze({
   chunkDuty: 0.72,
   fusionPoint: 18,
   fusionWidth: 1,
+  fusionEmphasis: 0,
   spread: 0.48,
   brightness: 0.68,
   cutoff: 12_000,
@@ -246,8 +249,14 @@ export function sanitizeOuroborouselParams(params = {}) {
     fusionWidth: clamp(
       params.fusionWidth,
       0.25,
-      4,
+      6,
       OUROBOROUSEL_DEFAULTS.fusionWidth,
+    ),
+    fusionEmphasis: clamp(
+      params.fusionEmphasis,
+      0,
+      1,
+      OUROBOROUSEL_DEFAULTS.fusionEmphasis,
     ),
     spread: clamp(params.spread, 0, 1, OUROBOROUSEL_DEFAULTS.spread),
     brightness: clamp(
@@ -315,13 +324,51 @@ export function ouroborouselFusionBlend(
   const width = clamp(
     fusionWidth,
     0.25,
-    4,
+    6,
     OUROBOROUSEL_DEFAULTS.fusionWidth,
   );
   const normalized = Math.log2(rate / point) / width + 0.5;
   if (normalized <= 0) return 0;
   if (normalized >= 1) return 1;
   return 0.5 - 0.5 * Math.cos(Math.PI * normalized);
+}
+
+/**
+ * Continuous-tone share after optional rhythmic emphasis at the crossing.
+ * The focus term vanishes at either end of the bridge, so emphasis only
+ * deepens the pulse where rhythm and pitch coexist. Peaks remain unity.
+ */
+export function ouroborouselFusionToneGain(
+  fusionBlend,
+  fusionEmphasis = OUROBOROUSEL_DEFAULTS.fusionEmphasis,
+) {
+  const blend = clamp(fusionBlend, 0, 1, 0);
+  const emphasis = clamp(
+    fusionEmphasis,
+    0,
+    1,
+    OUROBOROUSEL_DEFAULTS.fusionEmphasis,
+  );
+  if (emphasis <= 0 || blend <= 0 || blend >= 1) return blend;
+  const focus = 4 * blend * (1 - blend);
+  return blend * (1 - FUSION_EMPHASIS_DEPTH * emphasis * focus);
+}
+
+/** Lane preference applied before bank-power normalization. */
+export function ouroborouselFusionSpotlight(
+  fusionBlend,
+  fusionEmphasis = OUROBOROUSEL_DEFAULTS.fusionEmphasis,
+) {
+  const blend = clamp(fusionBlend, 0, 1, 0);
+  const emphasis = clamp(
+    fusionEmphasis,
+    0,
+    1,
+    OUROBOROUSEL_DEFAULTS.fusionEmphasis,
+  );
+  if (emphasis <= 0 || blend <= 0 || blend >= 1) return 1;
+  const focus = 4 * blend * (1 - blend);
+  return 1 + FUSION_SPOTLIGHT_DEPTH * emphasis * focus;
 }
 
 /** One Hann-windowed note bite within a normalized pulse cycle. */
@@ -416,20 +463,26 @@ export function calculateOuroborouselLayers({
     const drumFundamentalHz = DRUM_CENTER_PITCH * 2 ** octaveOffset;
     const window = ouroborouselWindow(octaveOffset, safe.bankWidth);
     const safety = ouroborouselFrequencySafety(sourceHz, sampleRate);
-    const weight = window * safety;
+    const fusionBlend = ouroborouselFusionBlend(
+      hitRate,
+      safe.fusionPoint,
+      safe.fusionWidth,
+    );
+    const weight = window * safety * ouroborouselFusionSpotlight(
+      fusionBlend,
+      safe.fusionEmphasis,
+    );
     const drumSafety = ouroborouselFrequencySafety(
       drumFundamentalHz,
       sampleRate,
     );
     const drumWeight = window * drumSafety;
     const morphWeights = drumMorphWeights(octaveOffset, safe.bankWidth);
-    const fusionBlend = ouroborouselFusionBlend(
-      hitRate,
-      safe.fusionPoint,
-      safe.fusionWidth,
+    const toneGain = ouroborouselFusionToneGain(
+      fusionBlend,
+      safe.fusionEmphasis,
     );
-    const chunkGain = 1 - fusionBlend;
-    const toneGain = fusionBlend;
+    const chunkGain = 1 - toneGain;
     const normalizedOffset = octaveOffset / Math.max(1.5, safe.bankWidth * 0.5);
     const pan = clamp(normalizedOffset, -1, 1, 0) * safe.spread;
     const pulsePhase = wrapUnit(
@@ -752,6 +805,7 @@ function createProcessorClass(AudioWorkletBase) {
       this.current.chunkDuty = this.target.chunkDuty;
       this.current.fusionPoint = this.target.fusionPoint;
       this.current.fusionWidth = this.target.fusionWidth;
+      this.current.fusionEmphasis = this.target.fusionEmphasis;
       this.current.spread = this.target.spread;
       this.current.brightness = this.target.brightness;
       this.current.cutoff = this.target.cutoff;
@@ -1024,6 +1078,9 @@ function createProcessorClass(AudioWorkletBase) {
         this.current.fusionWidth += (
           this.target.fusionWidth - this.current.fusionWidth
         ) * parameterSlew;
+        this.current.fusionEmphasis += (
+          this.target.fusionEmphasis - this.current.fusionEmphasis
+        ) * parameterSlew;
         this.current.spread += (
           this.target.spread - this.current.spread
         ) * parameterSlew;
@@ -1113,13 +1170,22 @@ function createProcessorClass(AudioWorkletBase) {
           let noteSafety = 0;
           let noteWeight = 0;
           let drumWeight = 0;
+          let fusionBlend = 0;
           if (distance < 1) {
             window = 0.5 + 0.5 * Math.cos(Math.PI * distance);
             noteSafety = ouroborouselFrequencySafety(
               sourceHz,
               workletSampleRate,
             );
-            noteWeight = window * noteSafety;
+            fusionBlend = ouroborouselFusionBlend(
+              hitRate,
+              this.current.fusionPoint,
+              this.current.fusionWidth,
+            );
+            noteWeight = window * noteSafety * ouroborouselFusionSpotlight(
+              fusionBlend,
+              this.current.fusionEmphasis,
+            );
             drumWeight = window * ouroborouselFrequencySafety(
               drumFundamental,
               workletSampleRate,
@@ -1250,15 +1316,13 @@ function createProcessorClass(AudioWorkletBase) {
           const panAngle = (pan + 1) * Math.PI * 0.25;
 
           if (noteWeight > 1e-9) {
-            const blend = ouroborouselFusionBlend(
-              hitRate,
-              this.current.fusionPoint,
-              this.current.fusionWidth,
-            );
             // These are correlated versions of one carrier, so complementary
             // gains fill the Hann gaps without an equal-power gain hump.
-            const chunkGain = 1 - blend;
-            const toneGain = blend;
+            const toneGain = ouroborouselFusionToneGain(
+              fusionBlend,
+              this.current.fusionEmphasis,
+            );
+            const chunkGain = 1 - toneGain;
             const envelope = ouroborouselChunkEnvelope(
               pulsePhase,
               this.current.chunkDuty,
