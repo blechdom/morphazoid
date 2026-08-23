@@ -68,19 +68,7 @@
     </header>
 
     <main class="ouroborousel-shell" id="ouroborousel">
-      <section class="ouroborousel-performance" aria-labelledby="ouroborouselTitle">
-        <header class="ouroborousel-titlebar">
-          <div class="ouroborousel-title-identity">
-            <p>ENDLESS RECURSIVE RHYTHM · PITCH</p>
-            <h1 id="ouroborouselTitle">Ouroborousel</h1>
-          </div>
-          <div class="ouroborousel-live-readouts" aria-live="polite">
-            <span><b id="rateReadout">8 pulses/s</b><small>CENTER RHYTHM</small></span>
-            <span><b id="sourceReadout">64× higher note</b><small id="sourceReadoutLabel">NOTE SOURCE</small></span>
-            <span><b id="fusionReadout">18 Hz · crossing</b><small id="fusionReadoutLabel">FUSION BAND</small></span>
-          </div>
-        </header>
-
+      <section class="ouroborousel-performance" aria-label="Ouroborousel">
         <div class="ouroborousel-stage-wrap" id="stageWrap">
           <canvas
             id="stage"
@@ -94,42 +82,12 @@
             aria-valuemax="100"
             aria-valuenow="50"
             aria-valuetext="center of the endless octave cycle"
-            aria-describedby="canvasInstructions ouroborouselRule liveStatus"
+            aria-describedby="canvasInstructions liveStatus"
           >
             An endless carousel snake carries note chunks and Ouroboros drum strikes through a
             pink fusion band, where repetition joins into continuous pitched rails.
           </canvas>
 
-          <div class="ouroborousel-stage-meta" aria-hidden="true">
-            <span id="stageReadout">CHUNKS → FUSION → PITCH · MANUAL · AUDIO OFF</span>
-          </div>
-
-          <div class="ouroborousel-axis-labels" aria-hidden="true">
-            <span class="is-chunks">CHUNKS</span>
-            <span class="is-fusion">FUSION</span>
-            <span class="is-pitch">PITCH RAIL</span>
-          </div>
-
-          <div class="ouroborousel-loop-core" aria-hidden="true">
-            <span id="directionMarker">↻</span>
-            <b>RHYTHM<br />EATS<br />PITCH</b>
-            <small id="directionMarkerText">rising forever</small>
-          </div>
-
-          <p class="ouroborousel-rule" id="ouroborouselRule">
-            <strong id="ruleLead">Notes made from rhythms.</strong>
-            <span id="ruleTail">Rhythms made from chunks of notes.</span>
-          </p>
-        </div>
-
-        <div class="ouroborousel-explainer" aria-label="Ouroborousel signal explanation">
-          <span><i aria-hidden="true"></i><b>Higher source</b><small>note or Ouroboros body</small></span>
-          <em aria-hidden="true">→</em>
-          <span><i aria-hidden="true"></i><b>Rhythmic bites</b><small>chunks and drum strikes</small></span>
-          <em aria-hidden="true">→</em>
-          <span><i aria-hidden="true"></i><b>Fusion band</b><small>events become tone</small></span>
-          <em aria-hidden="true">→</em>
-          <span><i aria-hidden="true"></i><b>Continuous rail</b><small>the next pitch layer</small></span>
         </div>
       </section>
 
@@ -137,7 +95,7 @@
         <section class="group control-section ouroborousel-play-section" data-section="play" aria-labelledby="playSectionTitle">
           <div class="group-summary static-group-summary">
             <h2 class="group-title" id="playSectionTitle">Play</h2>
-            <span class="section-state" id="playSummary">ready · notes · rising · 8 pulses/s</span>
+            <span class="section-state" id="playSummary">ready · notes · rising · 4 pulses/s</span>
           </div>
           <div class="group-body">
             <button
@@ -177,7 +135,7 @@
             </label>
 
             <label class="control" for="centerRate">
-              <span><b>Center rhythm</b><output id="centerRateOut" for="centerRate">8 pulses/s</output></span>
+              <span><b>Center rhythm</b><output id="centerRateOut" for="centerRate">4 pulses/s</output></span>
               <input id="centerRate" type="range" min="0.5" max="24" step="0.25" value="8" />
             </label>
           </div>

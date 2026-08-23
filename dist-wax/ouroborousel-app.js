@@ -197,14 +197,6 @@ function updateAudioParameters() {
   audio.setParameters(currentParameters());
 }
 
-function fusionBounds(safe) {
-  const halfWidth = safe.fusionWidth * 0.5;
-  return {
-    low: safe.fusionPoint * 2 ** -halfWidth,
-    high: safe.fusionPoint * 2 ** halfWidth,
-  };
-}
-
 function centralLayer(frame) {
   const layers = activeLayers(frame);
   if (!layers.length) return null;
@@ -260,32 +252,23 @@ function materialCopy(mode) {
     return {
       short: "drums",
       aria: "Ouroboros drum strikes",
-      sourceLabel: "DRUM SOURCE",
       sourceTitle: "Ouroboros body",
       chunkTitle: "Per-lane strike",
-      ruleLead: "Drums made from rhythms.",
-      ruleTail: "Fast drum trains curl back into pitch.",
     };
   }
   if (mode === "combo") {
     return {
       short: "notes + drums",
       aria: "note chunks and Ouroboros drum strikes",
-      sourceLabel: "COMBINED SOURCE",
       sourceTitle: "Note + drum",
       chunkTitle: "Chunk + impact",
-      ruleLead: "Notes bite drums.",
-      ruleTail: "Drums chase notes around the threshold.",
     };
   }
   return {
     short: "notes",
     aria: "phase-locked note chunks",
-    sourceLabel: "NOTE SOURCE",
     sourceTitle: "High note",
     chunkTitle: "Chunk window",
-    ruleLead: "Notes made from rhythms.",
-    ruleTail: "Rhythms made from chunks of notes.",
   };
 }
 
@@ -312,11 +295,8 @@ function updateCanvasAccessibility(frame, safe) {
 function updateInterface({ rebuildPresets = false } = {}) {
   const safe = currentParameters();
   const frame = currentFrame();
-  const layers = activeLayers(frame);
   const rising = safe.direction > 0;
   const cyclesPerChunk = 2 ** safe.noteLift;
-  const centerSource = safe.centerRate * cyclesPerChunk;
-  const bounds = fusionBounds(safe);
   const material = materialCopy(safe.materialMode);
   const drumsOnly = safe.materialMode === "drums";
 
@@ -387,17 +367,6 @@ function updateInterface({ rebuildPresets = false } = {}) {
   $("cutoffOut").textContent = formatFrequency(safe.cutoff);
   $("levelOut").textContent = `${Math.round(safe.level * 100)}%`;
 
-  $("rateReadout").textContent = formatRate(safe.centerRate);
-  $("sourceReadout").textContent = safe.materialMode === "drums"
-    ? "110 Hz · kick → air"
-    : safe.materialMode === "combo"
-      ? `${formatFrequency(centerSource)} + drums`
-      : `${cyclesPerChunk}× · ${formatFrequency(centerSource)}`;
-  $("sourceReadoutLabel").textContent = material.sourceLabel;
-  $("fusionReadout").textContent = drumsOnly
-    ? "fast hits · overlap"
-    : `${formatFrequency(safe.fusionPoint)} · crossing`;
-  $("fusionReadoutLabel").textContent = drumsOnly ? "DRUM THRESHOLD" : "FUSION BAND";
   $("playSummary").textContent = `${state.playing ? "playing" : "ready"} · ${material.short} · ${rising ? "rising" : "falling"} · ${formatRate(safe.centerRate)}`;
   $("materialModeHelp").textContent = drumsOnly
     ? "Ouroboros bodies are live. Note-only settings stay parked until Notes or Notes + drums is selected."
@@ -420,8 +389,6 @@ function updateInterface({ rebuildPresets = false } = {}) {
     : safe.brightness;
   $("soundSummary").textContent = `${safe.spread > 0.55 ? "wide" : safe.spread > 0.2 ? "open" : "centered"} · ${tonalBrightness > 0.66 ? "bright" : tonalBrightness > 0.33 ? "balanced" : "soft"}`;
   $("brightnessLabel").textContent = drumsOnly ? "Note brightness (parked)" : "Material brightness";
-  $("directionMarker").textContent = rising ? "↻" : "↺";
-  $("directionMarkerText").textContent = `${rising ? "rising" : "falling"} forever`;
   $("signalSourceLabel").textContent = material.sourceTitle;
   $("signalChunkLabel").textContent = material.chunkTitle;
   $("signalSourceDetail").textContent = safe.materialMode === "drums"
@@ -440,22 +407,6 @@ function updateInterface({ rebuildPresets = false } = {}) {
   $("signalFusionDetail").textContent = drumsOnly
     ? "fast hits become tone"
     : `${formatFrequency(safe.fusionPoint)} crossing`;
-  $("ruleLead").textContent = material.ruleLead;
-  $("ruleTail").textContent = material.ruleTail;
-  $("stageReadout").textContent = [
-    "OUROBOROUSEL",
-    `${layers.length} ACTIVE LANES`,
-    `${formatRate(safe.centerRate).toUpperCase()}`,
-    drumsOnly
-      ? "NATURAL RESONATOR OVERLAP"
-      : `${formatFrequency(bounds.low)}–${formatFrequency(bounds.high)} FUSION`,
-    drumsOnly ? "OUROBOROS BODY BANK" : `${safe.noteLift} OCT NOTE LIFT`,
-    material.short.toUpperCase(),
-    rising ? "RISING" : "FALLING",
-    state.playing ? "PLAYING" : "MANUAL",
-    state.audioOn ? "AUDIO ON" : "AUDIO OFF",
-  ].join(" · ");
-
   const preset = selectedPreset();
   $("presetSummary").textContent = preset ? presetLabel(preset) : "Custom";
   if (rebuildPresets) renderPresetGrid();
@@ -658,7 +609,9 @@ async function auditionPosition(position, velocity = 0.82) {
   const normalized = setRailPosition(position);
   if (!await startAudio()) return false;
   audio.setPosition(normalized);
-  const struck = audio.strike(velocity, normalized);
+  // Moving the playhead transposes the octave bank. The manual strike itself
+  // stays unpositioned so every active band sounds together under the mouse.
+  const struck = audio.strike(velocity);
   if (struck === false) return false;
   addFlash(normalized, velocity);
   scheduleAnimation();
@@ -688,7 +641,10 @@ function geometry(width, height) {
   const compact = minimum < 500 || width < 620;
   const centerX = width * 0.5;
   const centerY = height * 0.5;
-  const outerRadius = Math.max(72, minimum * 0.5 - (compact ? 26 : 38));
+  // Reserve enough room for the snake's head, playhead, audition rings, and
+  // their antialiasing so the carousel reads wholly inside the stage border.
+  const edgePadding = clamp(minimum * 0.12, 42, 54, 48);
+  const outerRadius = Math.max(64, minimum * 0.5 - edgePadding);
   const snakeWidth = clamp(outerRadius * 0.14, 20, compact ? 34 : 46);
   const railOuter = outerRadius - snakeWidth * 0.88;
   const railInner = Math.max(54, outerRadius * (compact ? 0.32 : 0.29));
@@ -880,7 +836,54 @@ function drawBackdrop(ctx, layout) {
   ctx.restore();
 }
 
-function drawSnake(ctx, layout) {
+function traceCoiledSnake(ctx, layout, radius) {
+  const coilTurns = 3.15;
+  const pathSteps = 240;
+  const innerRadius = 3;
+  ctx.beginPath();
+  for (let step = 0; step <= pathSteps; step += 1) {
+    const amount = step / pathSteps;
+    const distance = innerRadius + (radius - innerRadius) * amount;
+    const angle = START_ANGLE + amount * coilTurns * TAU;
+    const x = layout.centerX + Math.cos(angle) * distance;
+    const y = layout.centerY + Math.sin(angle) * distance;
+    if (step === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+}
+
+function drawCoiledCandySnake(ctx, layout) {
+  const radius = Math.max(42, layout.railInner * 0.86);
+  const snakeWidth = clamp(radius * 0.18, 8, 12, 10);
+  const stripeLength = snakeWidth * 0.82;
+
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.shadowColor = rgba(PINK, 0.48);
+  ctx.shadowBlur = 14;
+  traceCoiledSnake(ctx, layout, radius);
+  ctx.strokeStyle = "rgba(22, 2, 7, 0.98)";
+  ctx.lineWidth = snakeWidth + 6;
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  traceCoiledSnake(ctx, layout, radius);
+  ctx.strokeStyle = rgba(CREAM, 0.98);
+  ctx.lineWidth = snakeWidth;
+  ctx.stroke();
+
+  ctx.lineCap = "butt";
+  ctx.setLineDash([stripeLength, stripeLength]);
+  traceCoiledSnake(ctx, layout, radius);
+  ctx.strokeStyle = rgba(RED, 0.98);
+  ctx.lineWidth = snakeWidth;
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function drawCandyCaneRing(ctx, layout) {
   const radius = layout.outerRadius;
   const width = layout.snakeWidth;
   ctx.save();
@@ -892,7 +895,8 @@ function drawSnake(ctx, layout) {
   ctx.lineWidth = width + 9;
   ctx.stroke();
 
-  const scaleCount = Math.max(38, Math.round(radius * 0.34));
+  const requestedScaleCount = Math.max(38, Math.round(radius * 0.34));
+  const scaleCount = requestedScaleCount + requestedScaleCount % 2;
   const gap = 0.018;
   for (let index = 0; index < scaleCount; index += 1) {
     const start = START_ANGLE + index / scaleCount * TAU + gap;
@@ -911,45 +915,11 @@ function drawSnake(ctx, layout) {
   ctx.strokeStyle = "rgba(255, 127, 168, 0.55)";
   ctx.lineWidth = 1.2;
   ctx.stroke();
-
-  const headAngle = START_ANGLE + 0.035 * TAU;
-  const headX = layout.centerX + Math.cos(headAngle) * radius;
-  const headY = layout.centerY + Math.sin(headAngle) * radius;
-  ctx.translate(headX, headY);
-  ctx.rotate(headAngle + Math.PI * 0.5);
-  ctx.fillStyle = rgba(RED, 1);
-  ctx.strokeStyle = rgba(PINK, 0.86);
-  ctx.lineWidth = 1.3;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, width * 0.66, width * 0.48, 0, 0, TAU);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = rgba(CREAM, 0.98);
-  ctx.beginPath();
-  ctx.arc(-width * 0.22, -width * 0.2, Math.max(2, width * 0.075), 0, TAU);
-  ctx.arc(width * 0.22, -width * 0.2, Math.max(2, width * 0.075), 0, TAU);
-  ctx.fill();
-  ctx.fillStyle = "rgba(25, 3, 3, 0.98)";
-  ctx.beginPath();
-  ctx.arc(-width * 0.22, -width * 0.2, Math.max(1, width * 0.032), 0, TAU);
-  ctx.arc(width * 0.22, -width * 0.2, Math.max(1, width * 0.032), 0, TAU);
-  ctx.fill();
-  ctx.strokeStyle = rgba(CREAM, 0.9);
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.arc(0, width * 0.04, width * 0.3, 0.1 * Math.PI, 0.9 * Math.PI);
-  ctx.stroke();
   ctx.restore();
 }
 
 function layerVisual(layer, safe) {
   const hitRate = Math.max(0.0001, Number(layer?.hitRate ?? layer?.rate) || safe.centerRate);
-  const sourceHz = Math.max(0, Number(layer?.sourceHz ?? layer?.fundamentalHz)
-    || hitRate * 2 ** safe.noteLift);
-  const drumSourceHz = Math.max(
-    0,
-    Number(layer?.drumFundamentalHz) || 110 * 2 ** (Number(layer?.octaveOffset) || 0),
-  );
   const weight = layerMaterialWeight(layer, safe.materialMode);
   const fusion = safe.materialMode === "drums"
     ? ouroborouselFusionBlend(
@@ -962,7 +932,7 @@ function layerVisual(layer, safe) {
     (Number(layer?.pulsePhase) || OUROBOROUSEL_PHASE_SEED)
       + state.visualSeconds * hitRate,
   );
-  return { hitRate, sourceHz, drumSourceHz, weight, fusion, pulsePhase };
+  return { hitRate, weight, fusion, pulsePhase };
 }
 
 function drawChunkLane(ctx, layout, radius, layer, safe, laneIndex, laneCount) {
@@ -1067,36 +1037,6 @@ function drawChunkLane(ctx, layout, radius, layer, safe, laneIndex, laneCount) {
   ctx.restore();
 }
 
-function drawLayerLabels(ctx, layout, layers, safe, radii) {
-  if (canvasWidth < 620 || !layers.length) return;
-  const candidates = [0, Math.floor((layers.length - 1) * 0.5), layers.length - 1];
-  ctx.save();
-  ctx.font = "7px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-  ctx.textBaseline = "middle";
-  for (const index of [...new Set(candidates)]) {
-    const visual = layerVisual(layers[index], safe);
-    const radius = radii[index];
-    const rightSide = index % 2 === 1;
-    const point = pointOnCircle(rightSide ? 0.25 : 0.75, radius, layout);
-    ctx.textAlign = rightSide ? "left" : "right";
-    ctx.fillStyle = visual.fusion > 0.85
-      ? rgba(CREAM, 0.65)
-      : visual.fusion < 0.15 ? rgba(RED, 0.76) : rgba(PINK, 0.82);
-    ctx.fillText(
-      `${formatFrequency(visual.hitRate)} → ${
-        safe.materialMode === "drums"
-          ? `${formatFrequency(visual.drumSourceHz)} body`
-          : safe.materialMode === "combo"
-            ? `${formatFrequency(visual.sourceHz)} + ${formatFrequency(visual.drumSourceHz)}`
-            : formatFrequency(visual.sourceHz)
-      }`,
-      point.x + (rightSide ? 9 : -9),
-      point.y,
-    );
-  }
-  ctx.restore();
-}
-
 function drawFusionBand(ctx, layout, layers, safe, radii) {
   if (!layers.length) return;
   const overlapPoint = safe.materialMode === "drums"
@@ -1197,6 +1137,7 @@ function draw(timestamp, force = false) {
   });
 
   drawBackdrop(context2d, layout);
+  drawCoiledCandySnake(context2d, layout);
   for (let index = 0; index < layers.length; index += 1) {
     drawChunkLane(
       context2d,
@@ -1209,8 +1150,7 @@ function draw(timestamp, force = false) {
     );
   }
   drawFusionBand(context2d, layout, layers, safe, radii);
-  drawLayerLabels(context2d, layout, layers, safe, radii);
-  drawSnake(context2d, layout);
+  drawCandyCaneRing(context2d, layout);
   drawFlashes(context2d, layout);
   drawPlayhead(context2d, layout, safe);
 }
