@@ -23,7 +23,7 @@
 
 .ouroborousel-shell {
   display: grid;
-  width: min(1720px, 100%);
+  width: 100%;
   min-height: calc(100dvh - var(--header-height, 62px));
   margin: 0 auto;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
@@ -394,6 +394,20 @@
 
 .ouroborousel-audio-glyph {
   color: var(--carousel-pink);
+}
+
+@media (min-width: 961px) {
+  .ouroborousel-performance {
+    display: flex;
+    min-height: 0;
+    padding-block: clamp(18px, 2.5vh, 38px);
+    flex-direction: column;
+  }
+
+  .ouroborousel-stage-wrap {
+    height: auto;
+    flex: 1 1 auto;
+  }
 }
 
 @media (max-width: 1360px) {

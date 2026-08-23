@@ -282,6 +282,12 @@ test("the page wires its recursive rail, transport, controls, and reset accessib
   );
   assert.doesNotMatch(styles, /\.ouroborousel-stage-wrap::before/);
   assert.match(styles, /\.ouroborousel-page\s*\{[^}]*background:\s*#050505/s);
+  assert.match(styles, /\.ouroborousel-shell\s*\{[^}]*width:\s*100%/s);
+  assert.doesNotMatch(styles, /width:\s*min\(1720px,\s*100%\)/);
+  assert.match(
+    styles,
+    /@media \(min-width: 961px\)[\s\S]*?\.ouroborousel-performance\s*\{[^}]*display:\s*flex[^}]*min-height:\s*0[^}]*padding-block:\s*clamp\(18px,\s*2\.5vh,\s*38px\)[^}]*flex-direction:\s*column[^}]*\}[\s\S]*?\.ouroborousel-stage-wrap\s*\{[^}]*height:\s*auto[^}]*flex:\s*1 1 auto/s,
+  );
   assert.doesNotMatch(
     styles,
     /\.ouroborousel-stage-wrap\s*\{[^}]*(?:border|background|box-shadow)\s*:/s,
