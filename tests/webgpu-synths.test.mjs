@@ -167,6 +167,8 @@ test("the new page exposes themes, variations, direct lane drawing, and no Web A
   assert.match(css, /\.organ-rank-row/);
   assert.match(css, /\.effect-module/);
   assert.match(css, /\.webgpu-synth-knob-bank/);
+  assert.match(css, /\.webgpu-synths-stage \{[\s\S]*overflow-y: auto/);
+  assert.match(css, /@media \(min-width: 981px\) and \(max-height: 1000px\) \{[\s\S]*#sequenceStage \{[\s\S]*min-height: 0/);
   assert.match(app, /Acid Fossil/);
   assert.match(app, /Recursive Chrome/);
   assert.match(app, /Folded Mutant/);
