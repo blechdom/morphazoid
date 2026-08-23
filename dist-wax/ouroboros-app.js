@@ -300,7 +300,6 @@ function paintPluckPosition(position = state.pluckPosition) {
   const valueText = `${formatFrequency(frequency)} · ${trackTimbreLabel(normalized)}`;
   state.pluckPosition = normalized;
   $("pluckPositionOut").textContent = valueText;
-  $("pluckReadout").textContent = formatFrequency(frequency);
   canvas.setAttribute("aria-valuenow", String(Math.round(normalized * 100)));
   canvas.setAttribute("aria-valuetext", valueText);
 }
@@ -374,28 +373,15 @@ function updateInterface({ rebuildPresets = false } = {}) {
   $("cutoffOut").textContent = formatFrequency(safe.cutoff);
   $("levelOut").textContent = `${Math.round(safe.level * 100)}%`;
 
-  $("engineSummary").textContent = `${active} active parallel bodies`;
-  $("motionSummary").textContent = `${rising ? "rise" : "fall"} · ${safe.glissRate.toFixed(2)} oct/s · ${compactNumber(safe.hitRate, 2)} hits/s`;
   $("playSummary").textContent = `${state.sweeping ? "playing" : "ready"} · ${safe.glissRate.toFixed(2)} oct/s · ${compactNumber(safe.hitRate, 2)} hits/s`;
   $("shepardSummary").textContent = `${register} · ${safe.voiceInterval.toFixed(2)} oct voices`;
   $("soundSummary").textContent = `${morphDepthLabel(safe.morphDepth).toLowerCase()} morph · ${characterLabel(safe.character).toLowerCase()}`;
   $("directionMarker").textContent = rising ? "↻" : "↺";
   $("directionMarkerText").textContent = `endlessly ${rising ? "rising" : "falling"}`;
   $("signalBankDetail").textContent = `${(2 ** safe.voiceInterval).toFixed(2)}:1 · edge faded`;
-  $("stageReadout").textContent = [
-    "SHEPARD RATTLE",
-    rising ? "RISING" : "FALLING",
-    `${safe.glissRate.toFixed(2)} OCT/S`,
-    `${compactNumber(safe.hitRate, 2)} HITS/S`,
-    `${register.toUpperCase()} REGISTER`,
-    `${safe.voiceInterval.toFixed(2)} OCT VOICES`,
-    `${active} BODIES`,
-    state.sweeping ? "PLAYING" : "MANUAL",
-    state.audioOn ? "AUDIO ON" : "AUDIO OFF",
-  ].join(" · ");
   canvas.setAttribute(
     "aria-label",
-    `Circular Ouroboros pluck rail around a closed ${active}-body loop spanning the ${register} Shepard register`,
+    `Thick circular Ouroboros ring with a closed ${active}-body loop spanning the ${register} Shepard register`,
   );
 
   paintPluckPosition();
@@ -418,6 +404,24 @@ function markCustom() {
   state.coil.presetId = null;
 }
 
+function setMotionDirection(direction, message = null) {
+  const nextDirection = directionSign(direction, state.coil.direction);
+  state.coil.direction = nextDirection;
+  markCustom();
+  updateInterface();
+  announce(message ?? `Ouroboros pitch now ${nextDirection > 0 ? "rises" : "falls"} endlessly.`);
+  return nextDirection;
+}
+
+function reverseMotionDirection() {
+  synchronizeVisualClock();
+  const nextDirection = setMotionDirection(
+    state.coil.direction > 0 ? -1 : 1,
+    `Ouroboros reversed; now ${state.coil.direction > 0 ? "falling" : "rising"}.`,
+  );
+  return nextDirection;
+}
+
 function applyPreset(id) {
   const preset = OUROBOROS_PRESETS.find((candidate) => candidate.id === id);
   if (!preset) return;
@@ -438,10 +442,7 @@ $("direction").addEventListener("change", (event) => {
   const input = event.target.closest('input[name="sweepDirection"]');
   if (!input) return;
   synchronizeVisualClock();
-  state.coil.direction = Number(input.value) < 0 ? -1 : 1;
-  markCustom();
-  updateInterface();
-  announce(`Ouroboros pitch now ${state.coil.direction > 0 ? "rises" : "falls"} endlessly.`);
+  setMotionDirection(Number(input.value) < 0 ? -1 : 1);
 });
 
 function bindRange(id, onInput) {
@@ -640,24 +641,31 @@ document.querySelector("[data-reset-all]").addEventListener("click", () => {
 canvas.addEventListener("keydown", (event) => {
   if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     event.preventDefault();
+    if (state.sweeping) {
+      const nextDirection = event.key === "ArrowRight" ? 1 : -1;
+      synchronizeVisualClock();
+      setMotionDirection(
+        nextDirection,
+        `Ouroboros now ${nextDirection > 0 ? "rising" : "falling"}.`,
+      );
+      return;
+    }
     stopSweep({ announceStop: false });
     const step = event.shiftKey ? 0.05 : 0.01;
     const direction = event.key === "ArrowRight" ? 1 : -1;
     const position = setPluckPosition(wrapUnit(state.pluckPosition + direction * step));
     void strikeTrackPosition(position, 0.72);
-    announce(`Pluck rail at ${formatFrequency(trackFrequencyAtPosition(position))}.`);
+    announce(`Ring touch at ${formatFrequency(trackFrequencyAtPosition(position))}.`);
   } else if (event.key === "Home" || event.key === "End") {
     event.preventDefault();
     stopSweep({ announceStop: false });
     const position = setPluckPosition(event.key === "Home" ? 0 : 1);
     void strikeTrackPosition(position, 0.72);
-    announce(`Pluck rail at ${formatFrequency(trackFrequencyAtPosition(position))}.`);
+    announce(`Ring touch at ${formatFrequency(trackFrequencyAtPosition(position))}.`);
   } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
     event.preventDefault();
-    state.coil.direction = event.key === "ArrowUp" ? 1 : -1;
-    markCustom();
-    updateInterface();
-    announce(`Ouroboros pitch now ${state.coil.direction > 0 ? "rises" : "falls"} endlessly.`);
+    synchronizeVisualClock();
+    setMotionDirection(event.key === "ArrowUp" ? 1 : -1);
   } else if (event.key === " " || event.key === "Enter") {
     event.preventDefault();
     if (!event.repeat) strikeCurrentBank();
@@ -667,19 +675,7 @@ canvas.addEventListener("keydown", (event) => {
   }
 });
 
-function trackPositionFromPointer(event) {
-  const bounds = canvas.getBoundingClientRect();
-  const x = clamp(event.clientX - bounds.left, 0, Math.max(1, bounds.width));
-  const y = clamp(event.clientY - bounds.top, 0, Math.max(1, bounds.height));
-  const geometry = coilGeometry(
-    Math.max(1, bounds.width),
-    Math.max(1, bounds.height),
-  );
-  const angle = Math.atan2(y - geometry.centerY, x - geometry.centerX);
-  return wrapUnit((angle - COIL_START_ANGLE) / TAU);
-}
-
-function pointerIsOnInteractiveRing(event) {
+function canvasPointerSnapshot(event) {
   const bounds = canvas.getBoundingClientRect();
   const x = clamp(event.clientX - bounds.left, 0, Math.max(1, bounds.width));
   const y = clamp(event.clientY - bounds.top, 0, Math.max(1, bounds.height));
@@ -688,10 +684,31 @@ function pointerIsOnInteractiveRing(event) {
     Math.max(1, bounds.height),
   );
   const distance = Math.hypot(x - geometry.centerX, y - geometry.centerY);
-  const loopHitWidth = geometry.bodyWidth * 0.62 + 8;
-  const railHitWidth = Math.max(18, geometry.bodyWidth * 0.38);
-  return Math.abs(distance - geometry.radius) <= loopHitWidth
-    || Math.abs(distance - geometry.railRadius) <= railHitWidth;
+  return { bounds, x, y, geometry, distance };
+}
+
+function trackPositionFromPointer(event) {
+  const { x, y, geometry } = canvasPointerSnapshot(event);
+  const angle = Math.atan2(y - geometry.centerY, x - geometry.centerX);
+  return wrapUnit((angle - COIL_START_ANGLE) / TAU);
+}
+
+function pointerIsInsideCore(event) {
+  const { distance, geometry } = canvasPointerSnapshot(event);
+  return distance <= geometry.coreRadius;
+}
+
+function pointerIsOnInteractiveRing(event) {
+  const { distance, geometry } = canvasPointerSnapshot(event);
+  const hitSlop = Math.max(10, geometry.bodyWidth * 0.18);
+  return distance >= geometry.innerRadius - hitSlop
+    && distance <= geometry.outerRadius + hitSlop;
+}
+
+function pointerInteractionTarget(event) {
+  if (pointerIsInsideCore(event)) return "core";
+  if (pointerIsOnInteractiveRing(event)) return "ring";
+  return null;
 }
 
 function trackDistance(first, second) {
@@ -733,9 +750,17 @@ function cancelTrackInteraction() {
 
 canvas.addEventListener("pointerdown", (event) => {
   if (event.isPrimary === false) return;
-  if (!pointerIsOnInteractiveRing(event)) return;
+  const target = pointerInteractionTarget(event);
+  if (!target) return;
   event.preventDefault();
   canvas.focus?.();
+  if (target === "core") {
+    if (state.sweeping) reverseMotionDirection();
+    else void toggleSweep();
+    visualizationDirty = true;
+    scheduleAnimation();
+    return;
+  }
   stopSweep({ announceStop: false });
   activeTrackPointer = event.pointerId;
   canvas.setPointerCapture?.(event.pointerId);
@@ -809,19 +834,17 @@ function coilGeometry(width, height) {
   const centerY = height * 0.5;
   const half = minimumDimension * 0.5;
   const edgePadding = Math.min(compact ? 20 : 28, half * 0.2);
-  const railRadius = Math.max(1, half - edgePadding);
-  const minimumBody = Math.min(compact ? 28 : 36, railRadius * 0.32);
+  const outerRadius = Math.max(1, half - edgePadding);
+  const minimumBody = Math.min(compact ? 44 : 54, outerRadius * 0.48);
   const maximumBody = Math.max(
     minimumBody,
-    Math.min(compact ? 52 : 72, railRadius * 0.38),
+    Math.min(compact ? 76 : 108, outerRadius * 0.64),
   );
-  const bodyWidth = clamp(railRadius * 0.22, minimumBody, maximumBody);
-  const railGap = Math.min(
-    clamp(bodyWidth * 0.65, 18, 30),
-    railRadius * 0.2,
-  );
-  const radius = Math.max(1, railRadius - bodyWidth * 0.5 - railGap);
-  return { centerX, centerY, radius, railRadius, bodyWidth };
+  const bodyWidth = clamp(outerRadius * 0.36, minimumBody, maximumBody);
+  const radius = Math.max(1, outerRadius - bodyWidth * 0.5);
+  const innerRadius = Math.max(0, radius - bodyWidth * 0.5);
+  const coreRadius = Math.max(0, innerRadius - Math.max(8, bodyWidth * 0.12));
+  return { centerX, centerY, radius, outerRadius, innerRadius, coreRadius, bodyWidth };
 }
 
 function pointOnCoil(normalized, geometry, radialOffset = 0) {
@@ -858,104 +881,6 @@ function traceCoilPath(ctx, geometry, radialOffset = 0, variation = null) {
     else ctx.lineTo(point.x, point.y);
   }
   ctx.closePath();
-}
-
-function drawPluckRail(ctx, geometry) {
-  const radialOffset = geometry.railRadius - geometry.radius;
-  const selected = wrapUnit(state.pluckPosition);
-  ctx.save();
-  ctx.lineJoin = "round";
-  ctx.lineCap = "round";
-
-  traceCoilPath(ctx, geometry, radialOffset);
-  ctx.strokeStyle = "rgba(2, 5, 6, 0.94)";
-  ctx.lineWidth = 11;
-  ctx.stroke();
-
-  traceCoilPath(ctx, geometry, radialOffset);
-  ctx.strokeStyle = "rgba(214, 232, 226, 0.2)";
-  ctx.lineWidth = 5;
-  ctx.stroke();
-
-  const segmentCount = 120;
-  ctx.lineCap = "butt";
-  for (let index = 0; index < segmentCount; index += 1) {
-    const start = index / segmentCount;
-    const end = (index + 1.1) / segmentCount;
-    const first = pointOnCoil(start, geometry, radialOffset);
-    const second = pointOnCoil(Math.min(1, end), geometry, radialOffset);
-    ctx.beginPath();
-    ctx.moveTo(first.x, first.y);
-    ctx.lineTo(second.x, second.y);
-    ctx.strokeStyle = mixFamilyColor(start, 0.78);
-    ctx.lineWidth = 2.2;
-    ctx.stroke();
-  }
-
-  const tickCount = 40;
-  for (let index = 0; index < tickCount; index += 1) {
-    const position = index / tickCount;
-    const major = index % 10 === 0;
-    const inner = pointOnCoil(
-      position,
-      geometry,
-      radialOffset - (major ? 6 : 3),
-    );
-    const outer = pointOnCoil(
-      position,
-      geometry,
-      radialOffset + (major ? 6 : 3),
-    );
-    ctx.beginPath();
-    ctx.moveTo(inner.x, inner.y);
-    ctx.lineTo(outer.x, outer.y);
-    ctx.strokeStyle = major
-      ? "rgba(238, 255, 248, 0.72)"
-      : "rgba(214, 232, 226, 0.28)";
-    ctx.lineWidth = major ? 1.15 : 0.7;
-    ctx.stroke();
-  }
-
-  const labels = [
-    [0.06, "LOW BODY"],
-    [0.31, "TOM"],
-    [0.56, "HAND"],
-    [0.81, "HIGH AIR"],
-  ];
-  const labelInset = Math.max(12, geometry.bodyWidth * 0.34);
-  ctx.font = "7px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  for (const [position, label] of labels) {
-    const point = pointOnCoil(position, geometry, radialOffset - labelInset);
-    ctx.fillStyle = mixFamilyColor(position, 0.82);
-    ctx.fillText(label, point.x, point.y);
-  }
-
-  const loopEdge = pointOnCoil(selected, geometry, geometry.bodyWidth * 0.58);
-  const handle = pointOnCoil(selected, geometry, radialOffset);
-  ctx.beginPath();
-  ctx.moveTo(loopEdge.x, loopEdge.y);
-  ctx.lineTo(handle.x, handle.y);
-  ctx.strokeStyle = "rgba(133, 228, 183, 0.48)";
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  ctx.shadowColor = "rgba(133, 228, 183, 0.88)";
-  ctx.shadowBlur = 12;
-  ctx.fillStyle = "rgba(8, 13, 13, 0.98)";
-  ctx.strokeStyle = "rgba(222, 255, 239, 0.98)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(handle.x, handle.y, Math.max(5.5, geometry.bodyWidth * 0.12), 0, TAU);
-  ctx.fill();
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = mixFamilyColor(selected, 1);
-  ctx.beginPath();
-  ctx.arc(handle.x, handle.y, 2.2, 0, TAU);
-  ctx.fill();
-  ctx.restore();
 }
 
 function drawPitchGuides(ctx, geometry) {
@@ -1076,7 +1001,7 @@ function drawPlayhead(ctx, geometry, safe) {
   const normalY = Math.cos(point.tangentAngle);
   const tangentX = Math.cos(point.tangentAngle) * safe.direction;
   const tangentY = Math.sin(point.tangentAngle) * safe.direction;
-  const half = geometry.bodyWidth * 1.08;
+  const half = geometry.bodyWidth * 0.58;
   const arrowLength = Math.max(7, geometry.bodyWidth * 0.62);
 
   ctx.save();
@@ -1131,7 +1056,6 @@ function draw(timestamp, force = false) {
   const safe = currentParameters();
   const geometry = coilGeometry(canvasWidth, canvasHeight);
   drawSerpent(context2d, geometry, safe);
-  drawPluckRail(context2d, geometry);
   drawPitchGuides(context2d, geometry);
   drawStrikeHistory(context2d, geometry);
   drawPlayhead(context2d, geometry, safe);

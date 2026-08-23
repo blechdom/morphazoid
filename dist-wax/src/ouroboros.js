@@ -140,14 +140,14 @@ export function sanitizeOuroborosParams(params = {}) {
     direction,
     glissRate: clamp(
       params.glissRate,
-      0.02,
-      1.2,
+      0.01,
+      2,
       OUROBOROS_DEFAULTS.glissRate,
     ),
     hitRate: clamp(
       params.hitRate,
       0.5,
-      24,
+      48,
       OUROBOROS_DEFAULTS.hitRate,
     ),
     centerPitch: clamp(

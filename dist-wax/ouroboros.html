@@ -74,11 +74,6 @@
             <p>ENDLESS PARAMETRIC PERCUSSION</p>
             <h1 id="ouroborosTitle">Ouroboros</h1>
           </div>
-          <div class="ouroboros-live-readouts" aria-live="polite">
-            <span><b id="pluckReadout">110 Hz</b><small>PLUCK POSITION</small></span>
-            <span><b id="motionSummary">rise · 0.12 oct/s · 4 hits/s</b><small>ENDLESS MOTION</small></span>
-            <span><b id="engineSummary">17 octave-ratio bodies</b><small>SHEPARD BANK</small></span>
-          </div>
         </header>
 
         <div class="ouroboros-stage-wrap" id="stageWrap">
@@ -87,7 +82,7 @@
             data-interactive-track
             tabindex="0"
             role="slider"
-            aria-label="Circular Ouroboros pluck rail"
+            aria-label="Circular Ouroboros ring"
             aria-orientation="horizontal"
             aria-valuemin="0"
             aria-valuemax="100"
@@ -95,12 +90,9 @@
             aria-valuetext="110 Hz · tom / hand"
             aria-describedby="canvasInstructions liveStatus"
           >
-            A circular rail surrounding a closed circular loop of percussion voices that fade into
-            one another while pitch rises or falls endlessly.
+            A thick circular loop of percussion voices that fade into one another while pitch rises
+            or falls endlessly.
           </canvas>
-          <div class="ouroboros-stage-meta" aria-hidden="true">
-            <span id="stageReadout">SHEPARD RATTLE · RISING · 0.12 OCT/S · 4 HITS/S · 19.4 HZ–622 HZ REGISTER · AUDIO OFF</span>
-          </div>
           <div class="ouroboros-loop-core" aria-hidden="true">
             <span id="directionMarker">↻</span>
             <small id="directionMarkerText">endlessly rising</small>
@@ -132,8 +124,8 @@
             </button>
 
             <div class="ouroboros-pluck-readout" aria-live="polite">
-              <span><b>Pluck rail</b><output id="pluckPositionOut">110 Hz · tom / hand</output></span>
-              <small>Drag the circular rail around the loop</small>
+              <span><b>Ring touch</b><output id="pluckPositionOut">110 Hz · tom / hand</output></span>
+              <small>Drag the thick ring. Click the center while playing to reverse.</small>
             </div>
 
             <fieldset class="ouroboros-segmented" id="direction" aria-label="Motion direction">
@@ -144,12 +136,12 @@
 
             <label class="control" for="glissRate">
               <span><b>Speed</b><output id="glissRateOut" for="glissRate">0.12 oct/s</output></span>
-              <input id="glissRate" type="range" min="0.02" max="1.2" step="0.01" value="0.12" />
+              <input id="glissRate" type="range" min="0.01" max="2" step="0.01" value="0.12" />
             </label>
 
             <label class="control" for="hitRate">
               <span><b>Density</b><output id="hitRateOut" for="hitRate">4 /s</output></span>
-              <input id="hitRate" type="range" min="0.5" max="24" step="0.25" value="4" />
+              <input id="hitRate" type="range" min="0.5" max="48" step="0.25" value="4" />
             </label>
           </div>
         </section>
@@ -253,11 +245,12 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        Drag around the circular pluck rail surrounding the closed loop to play low body, tom, hand,
-        and high air hits without starting the automatic clock. The rail handle and triangle show the
-        current manual or play position, and recent hits leave brief fading flashes. The Play button
-        starts or pauses automatic motion. Use Left and Right Arrow to move around the circular rail.
-        Use the direction controls or Up and Down Arrow to make perceived pitch rise or fall endlessly.
+        Drag around the thick circular loop to play the morphing bank without starting the automatic
+        clock. The triangle shows the current manual or play position, and recent hits leave brief
+        fading flashes. The Play button starts or pauses automatic motion. Click the center while
+        playing to reverse direction. Use Left and Right Arrow to move around the circular loop while
+        paused, or to set falling and rising direction while playing. Use the direction controls or Up
+        and Down Arrow to make perceived pitch rise or fall endlessly.
         Press Space or Enter to strike the selected position.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
