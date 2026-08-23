@@ -12,7 +12,7 @@
     <title>Pink Trombonazoid · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="pink-trombonazoid.css?v=pink-trombonazoid-20260822-10" />
+    <link rel="stylesheet" href="pink-trombonazoid.css?v=pink-trombonazoid-20260823-2" />
   </head>
   <body class="pink-trombonazoid-page" data-instrument-info="off">
     <header class="masthead">
@@ -71,18 +71,12 @@
             <h1 id="ptzTitle">Pink Trombonazoid</h1>
             <p>Pronunciations through a Pink Trombone.</p>
           </div>
-          <div class="ptz-hero-readouts" aria-label="Sequence summary">
-            <span><small>word</small><output id="wordReadout">hello</output></span>
-            <span><small>phones</small><output id="phoneCountOut">4</output></span>
-            <span><small>length</small><output id="durationOut">0.9 s</output></span>
-            <span><small>playhead</small><output id="playheadOut">ready</output></span>
-          </div>
         </header>
 
-        <section class="ptz-composer" aria-labelledby="composerTitle">
+        <section class="ptz-composer" aria-label="Word composer">
           <div class="ptz-composer-input">
             <label for="wordInput">
-              <span><small>pronunciation input</small><b id="composerTitle">What should it say?</b></span>
+              <span><small>pronunciation input</small></span>
               <input
                 id="wordInput"
                 type="text"
@@ -95,7 +89,7 @@
               />
             </label>
             <button id="buildWordButton" type="button">
-              <span aria-hidden="true">↳</span><b>Build word</b><small>dictionary → tract gestures</small>
+              <span aria-hidden="true">↳</span><b>Build word</b>
             </button>
           </div>
           <div class="ptz-word-presets" role="group" aria-label="Example words">
@@ -111,25 +105,9 @@
         <section class="ptz-sequencer" aria-labelledby="timelineTitle">
           <header class="ptz-timeline-header">
             <div class="ptz-timeline-heading">
-              <span>drag keys in 2D · double-click to add</span>
               <h2 id="timelineTitle">Pronunciation timeline</h2>
             </div>
             <div class="ptz-timeline-controls">
-              <label class="ptz-timeline-zoom" for="timelineZoomY">
-                <small>lane zoom</small>
-                <span>
-                  <input
-                    id="timelineZoomY"
-                    type="range"
-                    min="100"
-                    max="400"
-                    step="25"
-                    value="100"
-                    aria-label="Vertical timeline zoom"
-                  />
-                  <output id="timelineZoomYOut" for="timelineZoomY">100%</output>
-                </span>
-              </label>
               <div class="ptz-transport" aria-label="Word transport">
                 <button id="playButton" type="button" data-primary-transport aria-pressed="false">
                   <i aria-hidden="true"></i><span><b id="playLabel">Say word</b><small id="playState">ready</small></span>
@@ -144,7 +122,27 @@
             </div>
           </header>
 
-          <div class="ptz-phoneme-ruler" id="phonemeRuler" aria-label="Editable phoneme segments"></div>
+          <div class="ptz-phoneme-row">
+            <label class="ptz-timeline-zoom" for="timelineZoomY">
+              <span class="ptz-zoom-knob">
+                <input
+                  id="timelineZoomY"
+                  type="range"
+                  min="100"
+                  max="400"
+                  step="25"
+                  value="100"
+                  aria-label="Vertical timeline zoom"
+                />
+                <i aria-hidden="true"></i>
+              </span>
+              <span class="ptz-zoom-copy">
+                <small>lane zoom</small>
+                <output id="timelineZoomYOut" for="timelineZoomY">100%</output>
+              </span>
+            </label>
+            <div class="ptz-phoneme-ruler" id="phonemeRuler" aria-label="Editable phoneme segments"></div>
+          </div>
 
           <div class="ptz-timeline-scroll" id="timelineScroll" tabindex="0">
             <div class="ptz-lane-gutter" id="laneGutter" aria-label="Automation lanes"></div>
@@ -158,11 +156,11 @@
               aria-labelledby="timelineSvgTitle timelineSvgDescription"
             >
               <title id="timelineSvgTitle">Pink Trombonazoid word automation</title>
-              <desc id="timelineSvgDescription">Editable pitch, intensity, breath, tongue, lip, and nasal keyframes. Drag a key in time and value, or add another key to a lane.</desc>
+              <desc id="timelineSvgDescription">Editable pitch, intensity, breath, tongue, lip, and nasal keyframes, with optional modulation speed and depth contours for every lane.</desc>
             </svg>
           </div>
           <p class="ptz-timeline-help">
-            Drag a key left or right within its phoneme for time, and up or down for value. Double-click a lane—or use its +—to add a key; focus an added key and press Delete to remove it. Phone + inserts a sound, ↔ reorders it within the word, and x removes it. Diphthongs keep two tract gestures under one block and one acoustic envelope.
+            Drag keys in 2D: left or right within a phoneme for time, and up or down for value. Use MOD to reveal whole-word Speed and Depth contours for any lane; their keys edit the same way. Double-click to add a key to any lane or contour, then press Delete to remove it; modulation endpoints stay fixed. Phone + inserts a sound, ↔ reorders it within the word, and x removes it. Diphthongs keep two tract gestures under one block and one acoustic envelope.
           </p>
         </section>
       </section>
@@ -270,45 +268,7 @@
             <span><small>after the authored contour</small><span class="ptz-panel-heading" id="modulatorTitle" role="heading" aria-level="2">Modulators</span></span>
           </summary>
           <button class="ptz-section-action" id="modulationBypass" type="button" aria-pressed="false">bypass modulators</button>
-          <fieldset>
-            <legend><i class="is-pitch" aria-hidden="true"></i> Pitch vibrato</legend>
-            <label for="pitchModShape"><span><b>Shape</b></span>
-              <select id="pitchModShape">
-                <option value="sine" selected>sine</option>
-                <option value="triangle">triangle</option>
-                <option value="square">square</option>
-                <option value="sample-hold">sample + hold</option>
-              </select>
-            </label>
-            <label for="pitchModRate">
-              <span><b>Rate</b><output id="pitchModRateOut" for="pitchModRate">5.2 Hz</output></span>
-              <input id="pitchModRate" type="range" min="0.1" max="14" step="0.1" value="5.2" />
-            </label>
-            <label for="pitchModDepth">
-              <span><b>Depth</b><output id="pitchModDepthOut" for="pitchModDepth">18 ct</output></span>
-              <input id="pitchModDepth" type="range" min="0" max="100" step="1" value="18" />
-            </label>
-          </fieldset>
-          <fieldset>
-            <legend><i class="is-breath" aria-hidden="true"></i> Breath flutter</legend>
-            <label for="breathModShape"><span><b>Shape</b></span>
-              <select id="breathModShape">
-                <option value="sine">sine</option>
-                <option value="triangle" selected>triangle</option>
-                <option value="square">square</option>
-                <option value="sample-hold">sample + hold</option>
-              </select>
-            </label>
-            <label for="breathModRate">
-              <span><b>Rate</b><output id="breathModRateOut" for="breathModRate">2.1 Hz</output></span>
-              <input id="breathModRate" type="range" min="0.1" max="12" step="0.1" value="2.1" />
-            </label>
-            <label for="breathModDepth">
-              <span><b>Depth</b><output id="breathModDepthOut" for="breathModDepth">9%</output></span>
-              <input id="breathModDepth" type="range" min="0" max="0.4" step="0.01" value="0.09" />
-            </label>
-          </fieldset>
-          <p>Small LFOs add life. Phoneme identity still comes from the timeline—not from modulation.</p>
+          <p>Each timeline lane has a MOD switch. Enabled lanes reveal editable Speed and Depth contours beneath the authored values, following Hybrinx. Pitch and breath start active. Phoneme identity still comes from the timeline; modulation never rewrites the pronunciation.</p>
         </details>
 
         <details class="ptz-panel-section ptz-effects" aria-labelledby="effectsTitle">
@@ -362,7 +322,7 @@
     </main>
 
     <script type="module" src="nav.js?v=pink-trombonazoid-20260821-3"></script>
-    <script type="module" src="pink-trombonazoid-app.js?v=pink-trombonazoid-20260822-10"></script>
+    <script type="module" src="pink-trombonazoid-app.js?v=pink-trombonazoid-20260823-2"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>
