@@ -58,7 +58,7 @@
             id="sequenceStage"
             role="img"
             aria-label="Four-lane GPU sequence and modulation editor. Audio off."
-            aria-describedby="webgpuSynthsDescription liveStatus"
+            aria-describedby="sequenceEditHint webgpuSynthsDescription liveStatus"
           >
             GPU sequence lanes and synthesis-model display.
           </canvas>
@@ -80,6 +80,7 @@
 
         <div class="sequence-deck">
           <div class="sequence-lane-tabs" id="laneButtons" role="group" aria-label="Editable sequence lane"></div>
+          <p class="sequence-edit-hint" id="sequenceEditHint">Click a lane to add or edit · drag vertically to change height · double-click Pitch or Pulse to remove a note</p>
           <div class="sequence-actions" aria-label="Sequence transformations">
             <button class="mini-action" id="rotateLeft" type="button">Rotate −1</button>
             <button class="mini-action" id="rotateRight" type="button">Rotate +1</button>
@@ -100,17 +101,17 @@
         <details class="group control-section webgpu-synths-section" data-section="presets" open>
           <summary class="group-summary">
             <h2 class="group-title">Presets</h2>
-            <span class="section-state" id="presetState">Velvet Drawbars</span>
+            <span class="section-state" id="presetState">Modal Bloom</span>
           </summary>
           <div class="group-body preset-grid-wrap">
-            <div class="preset-grid" id="presetButtons" role="group" aria-label="32 shader synth presets ordered from tonal to noisy"></div>
+            <div class="preset-grid" id="presetButtons" role="group" aria-label="32 shader synth presets with Modal Bloom first and a shuffled remainder"></div>
           </div>
         </details>
 
         <details class="group control-section webgpu-synths-section" data-section="time" open>
           <summary class="group-summary">
             <h2 class="group-title">Time</h2>
-            <span class="section-state" id="timeState">16 steps · 2.20 Hz</span>
+            <span class="section-state" id="timeState">27 steps · 9.80 Hz</span>
           </summary>
           <div class="group-body" id="timeControls"></div>
         </details>
@@ -118,7 +119,7 @@
         <details class="group control-section webgpu-synths-section" data-section="variations" open>
           <summary class="group-summary">
             <h2 class="group-title">Variations</h2>
-            <span class="section-state" id="variationState">Orbital Phase</span>
+            <span class="section-state" id="variationState">Golden Recurrence</span>
           </summary>
           <div class="group-body">
             <div class="technique-grid" id="techniqueButtons" role="group" aria-label="Sequence generators"></div>
@@ -135,7 +136,7 @@
         <details class="group control-section webgpu-synths-section" data-section="model" open>
           <summary class="group-summary">
             <h2 class="group-title">Synthesis model</h2>
-            <span class="section-state" id="modelState">Additive Organ</span>
+            <span class="section-state" id="modelState">Modal Metal × Particle Cloud</span>
           </summary>
           <div class="group-body" id="modelControls"></div>
         </details>
@@ -161,7 +162,7 @@
         <details class="group control-section webgpu-synths-section" data-section="effects">
           <summary class="group-summary">
             <h2 class="group-title">GPU post effects</h2>
-            <span class="section-state" id="effectsState">bypassed</span>
+            <span class="section-state" id="effectsState">2 active</span>
           </summary>
           <div class="group-body" id="effectsControls"></div>
         </details>
@@ -169,7 +170,7 @@
         <details class="group control-section webgpu-synths-section" data-section="field" open>
           <summary class="group-summary">
             <h2 class="group-title">Field</h2>
-            <span class="section-state" id="fieldState">Dorian · MIDI 36</span>
+            <span class="section-state" id="fieldState">Harmonic Minor · MIDI 52</span>
           </summary>
           <div class="group-body" id="fieldControls"></div>
         </details>

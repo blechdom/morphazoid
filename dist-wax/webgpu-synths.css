@@ -178,6 +178,17 @@
   gap: 6px;
 }
 
+.sequence-edit-hint {
+  margin: 0;
+  color: color-mix(in oklab, var(--lane-pitch) 64%, var(--muted));
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  line-height: 1.35;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .sequence-lane-tabs button,
 .sequence-actions .mini-action {
   min-width: 92px;

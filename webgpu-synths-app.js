@@ -57,8 +57,9 @@ function preset(id, label, technique, variation, overrides) {
   return Object.freeze({ id, label, technique, variation, params: presetParams(overrides) });
 }
 
-// Ordered from smooth and tonal to increasingly noisy and destructive.
-const PRESETS = Object.freeze([
+// Keep the source library stable, then present it as one reproducible shuffle
+// with Modal Bloom fixed at the top of the grid.
+const PRESET_LIBRARY = Object.freeze([
   preset("velvet-drawbars", "Velvet Drawbars", "orbit", 0.16, { topology: 5, baseNote: 36, clock: 2.2, steps: 16, glide: 0.36, complexity: 0.82, color: 0.34, motion: 0.28, decay: 1.65, fold: 0.04, space: 0.68, chaos: 0.03, swing: 0.04, gain: 0.092, seed: 31991, scale: 1, organRanks: 9, filterCutoff: 9200, filterTaps: 11, filterMix: 0.18, delayTime: 0.31, delayRepeats: 2, delayDecay: 0.38, delayMix: 0.13 }),
   preset("glass-choir", "Glass Choir", "recurrence", 0.1, { topology: 4.78, baseNote: 60, clock: 4.4, steps: 24, glide: 0.62, complexity: 0.54, color: 0.16, motion: 0.24, decay: 1.56, fold: 0.03, space: 0.88, chaos: 0.02, gain: 0.074, seed: 4221, scale: 4, grainCount: 4, organRanks: 7, filterCutoff: 13200, filterTaps: 9, filterMix: 0.12, delayTime: 0.48, delayRepeats: 3, delayDecay: 0.46, delayMix: 0.18 }),
   preset("slow-pipes", "Slow Pipes", "euclid", 0.06, { topology: 5, baseNote: 24, clock: 0.72, steps: 12, glide: 0.78, complexity: 0.62, color: 0.42, motion: 0.1, decay: 1.8, fold: 0, space: 0.54, chaos: 0, gain: 0.094, seed: 1139, scale: 3, organRanks: 6, filterCutoff: 6900, filterTaps: 15, filterMix: 0.28 }),
@@ -95,6 +96,24 @@ const PRESETS = Object.freeze([
   preset("radio-storm", "Radio Storm", "noise", 0.94, { topology: 4.26, baseNote: 25, clock: 17.4, steps: 64, glide: 0.36, complexity: 1, color: 1, motion: 1, decay: 0.08, fold: 0.94, space: 1, chaos: 1, swing: 0.42, gain: 0.05, seed: 64937, scale: 0, grainCount: 16, filterCutoff: 840, filterTaps: 31, filterMix: 0.74, delayTime: 0.031, delayRepeats: 4, delayDecay: 0.88, delayMix: 0.48, shaperDrive: 12.8, shaperFold: 0.92, shaperMix: 0.82 }),
   preset("void-grinder", "Void Grinder", "noise", 1, { topology: 2.9, baseNote: 18, clock: 20, steps: 64, glide: 0.9, complexity: 1, color: 0.04, motion: 1, decay: 0.03, fold: 1, space: 1, chaos: 1, swing: 0.42, gain: 0.045, seed: 65535, scale: 5, acidPartials: 48, pmOperators: 12, foldLayers: 8, modalModes: 32, grainCount: 16, filterCutoff: 420, filterTaps: 31, filterMix: 0.82, delayTime: 0.019, delayRepeats: 4, delayDecay: 0.88, delayMix: 0.56, shaperDrive: 16, shaperFold: 1, shaperMix: 1 }),
 ]);
+
+function shuffledPresetBank(presets, seed = 0x4d4f5250) {
+  const featured = presets.find(({ id }) => id === "modal-bloom");
+  if (!featured) throw new Error("Modal Bloom preset is required.");
+  const shuffled = presets.filter((candidate) => candidate !== featured);
+  let state = seed >>> 0;
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    state >>>= 0;
+    const swapIndex = state % (index + 1);
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return Object.freeze([featured, ...shuffled]);
+}
+
+const PRESETS = shuffledPresetBank(PRESET_LIBRARY);
 
 const CONTROL_GROUPS = Object.freeze({
   model: Object.freeze([
@@ -191,6 +210,8 @@ const state = {
   chunkDuration: WEBGPU_SYNTHS_RUNTIME_DEFAULTS.chunkDuration,
   workgroupSize: WEBGPU_SYNTHS_RUNTIME_DEFAULTS.workgroupSize,
   editing: false,
+  editingLane: null,
+  editingStep: null,
 };
 
 const controlInputs = new Map();
@@ -290,6 +311,14 @@ function syncPressedStates() {
   $("presetState").textContent = preset?.label ?? "Custom patch";
   const technique = TECHNIQUES.find(({ id }) => id === state.techniqueId);
   $("variationState").textContent = technique?.label ?? "Hand-drawn sequence";
+}
+
+function selectSequenceLane(index, { quiet = false } = {}) {
+  state.activeLane = clamp(Math.round(index), 0, LANE_SPECS.length - 1);
+  for (const [buttonIndex, candidate] of [...$("laneButtons").children].entries()) {
+    candidate.setAttribute("aria-pressed", String(buttonIndex === state.activeLane));
+  }
+  if (!quiet) announce(`${LANE_SPECS[state.activeLane].label} lane selected for editing.`);
 }
 
 function applyPreset(presetDefinition) {
@@ -554,13 +583,7 @@ function renderControls() {
     button.textContent = `${lane.label} · ${lane.description}`;
     button.style.setProperty("--lane-color", lane.color);
     button.setAttribute("aria-pressed", String(index === state.activeLane));
-    button.addEventListener("click", () => {
-      state.activeLane = index;
-      for (const [buttonIndex, candidate] of [...$("laneButtons").children].entries()) {
-        candidate.setAttribute("aria-pressed", String(buttonIndex === index));
-      }
-      announce(`${lane.label} lane selected for drawing.`);
-    });
+    button.addEventListener("click", () => selectSequenceLane(index));
     return button;
   }));
   $("modelRail").replaceChildren(...WEBGPU_SYNTHS_MODELS.map((model, index) => {
@@ -631,7 +654,7 @@ function paintAudioReadout() {
   $("stageReadout").textContent = state.audioOn
     ? `WEBGPU · ${Math.round(engine?.sampleRate ?? 44100)} HZ · ${state.synthPlaying ? "SEQUENCE PLAYING" : "SEQUENCE PAUSED"}`
     : "WEBGPU · STANDBY · AUDIO OFF";
-  $("sequenceStage").setAttribute("aria-label", `Four-lane GPU sequence and modulation editor. Audio ${state.audioOn ? "on" : "off"}.`);
+  $("sequenceStage").setAttribute("aria-label", `Editable four-lane GPU sequence. Click to add, drag vertically to change height, and double-click Pitch or Pulse to remove a note. Audio ${state.audioOn ? "on" : "off"}.`);
 }
 
 function setAudioState(enabled) {
@@ -850,30 +873,46 @@ function drawLanes(context, width, height, time) {
     context.fillStyle = `${lane.color}b8`;
     context.font = `${Math.max(8, height * 0.018)}px ui-monospace, monospace`;
     context.fillText(lane.label.toUpperCase(), 9, y + 14);
-    context.beginPath();
-    for (let step = 0; step < steps; step += 1) {
-      const value = state.sequence[step][laneIndex];
-      const x = (step + 0.5) * cellWidth;
-      const valueY = y + heightEach - value * (heightEach - 8) - 4;
-      if (laneIndex === 1) {
+    if (laneIndex === 1) {
+      for (let step = 0; step < steps; step += 1) {
+        const value = state.sequence[step][laneIndex];
+        const valueY = y + heightEach - value * (heightEach - 8) - 4;
         const barWidth = Math.max(1, cellWidth - 3);
         context.fillStyle = value <= 0.01 ? "rgba(255,255,255,0.035)" : `${lane.color}${step === activeStep ? "f2" : "72"}`;
         context.fillRect(step * cellWidth + 1.5, valueY, barWidth, y + heightEach - 4 - valueY);
-      } else {
+      }
+    } else {
+      context.beginPath();
+      for (let step = 0; step < steps; step += 1) {
+        const value = state.sequence[step][laneIndex];
+        const x = (step + 0.5) * cellWidth;
+        const valueY = y + heightEach - value * (heightEach - 8) - 4;
         if (step === 0) context.moveTo(x, valueY);
         else context.lineTo(x, valueY);
       }
-      if (step === activeStep) {
-        context.fillStyle = lane.color;
-        context.beginPath();
-        context.arc(x, valueY, 2.5, 0, Math.PI * 2);
-        context.fill();
-      }
-    }
-    if (laneIndex !== 1) {
       context.strokeStyle = `${lane.color}${laneIndex === state.activeLane ? "d8" : "78"}`;
       context.lineWidth = laneIndex === state.activeLane ? 2 : 1;
       context.stroke();
+    }
+    if (laneIndex === 0) {
+      for (let step = 0; step < steps; step += 1) {
+        if (state.sequence[step][1] <= 0.01) continue;
+        const x = (step + 0.5) * cellWidth;
+        const value = state.sequence[step][laneIndex];
+        const valueY = y + heightEach - value * (heightEach - 8) - 4;
+        context.fillStyle = `${lane.color}${step === activeStep ? "ff" : "c8"}`;
+        context.beginPath();
+        context.arc(x, valueY, step === activeStep ? 4 : 2.6, 0, Math.PI * 2);
+        context.fill();
+      }
+    } else if (laneIndex !== 1) {
+      const value = state.sequence[activeStep][laneIndex];
+      const x = (activeStep + 0.5) * cellWidth;
+      const valueY = y + heightEach - value * (heightEach - 8) - 4;
+      context.fillStyle = lane.color;
+      context.beginPath();
+      context.arc(x, valueY, 2.5, 0, Math.PI * 2);
+      context.fill();
     }
   }
   const playheadX = (activeStep + 0.5) * cellWidth;
@@ -911,27 +950,48 @@ function draw() {
   animationFrame = requestAnimationFrame(draw);
 }
 
-function editSequenceLane(event) {
+function sequencePointerPosition(event, { laneIndex = null, stepIndex = null } = {}) {
   const canvas = $("sequenceStage");
   const rect = canvas.getBoundingClientRect();
-  if (!rect.width || !rect.height) return;
+  if (!rect.width || !rect.height) return null;
   const metrics = laneMetrics(rect.width, rect.height);
-  const laneY = metrics.top + state.activeLane * (metrics.heightEach + metrics.gap);
   const localY = event.clientY - rect.top;
+  let selectedLane = laneIndex;
+  if (!Number.isInteger(selectedLane)) {
+    const laneStride = metrics.heightEach + metrics.gap;
+    selectedLane = Math.floor((localY - metrics.top) / laneStride);
+    const candidateY = metrics.top + selectedLane * laneStride;
+    if (selectedLane < 0 || selectedLane >= LANE_SPECS.length || localY < candidateY || localY > candidateY + metrics.heightEach) return null;
+  }
+  const laneY = metrics.top + selectedLane * (metrics.heightEach + metrics.gap);
   const value = clamp(1 - ((localY - laneY) / metrics.heightEach), 0, 1);
-  const step = Math.min(state.params.steps - 1, Math.floor(clamp((event.clientX - rect.left) / rect.width, 0, 0.9999) * state.params.steps));
+  const selectedStep = Number.isInteger(stepIndex)
+    ? stepIndex
+    : Math.min(state.params.steps - 1, Math.floor(clamp((event.clientX - rect.left) / rect.width, 0, 0.9999) * state.params.steps));
+  return { laneIndex: selectedLane, stepIndex: selectedStep, value };
+}
+
+function editSequenceLane(event) {
+  const position = sequencePointerPosition(event, { laneIndex: state.editingLane, stepIndex: state.editingStep });
+  if (!position) return;
   const next = state.sequence.map((stepValues) => [...stepValues]);
-  next[step][state.activeLane] = event.shiftKey ? 0 : value;
+  next[position.stepIndex][position.laneIndex] = event.shiftKey ? 0 : position.value;
+  if (position.laneIndex === 0 && next[position.stepIndex][1] <= 0.01) {
+    next[position.stepIndex][1] = 0.82;
+  }
   state.techniqueId = "custom";
   applySequence(next);
 }
 
 function handlePointerDown(event) {
   if (event.button !== undefined && event.button !== 0) return;
-  const rect = $("sequenceStage").getBoundingClientRect();
-  if ((event.clientY - rect.top) < rect.height * 0.31) return;
+  const position = sequencePointerPosition(event);
+  if (!position) return;
   event.preventDefault();
   state.editing = true;
+  state.editingLane = position.laneIndex;
+  state.editingStep = position.stepIndex;
+  selectSequenceLane(position.laneIndex, { quiet: true });
   $("sequenceStage").setPointerCapture?.(event.pointerId);
   editSequenceLane(event);
 }
@@ -944,9 +1004,23 @@ function handlePointerMove(event) {
 
 function handlePointerEnd(event) {
   if (!state.editing) return;
+  const editedLane = state.editingLane;
   state.editing = false;
+  state.editingLane = null;
+  state.editingStep = null;
   $("sequenceStage").releasePointerCapture?.(event.pointerId);
-  announce(`${LANE_SPECS[state.activeLane].label} sequence lane edited.`);
+  announce(`${LANE_SPECS[editedLane ?? state.activeLane].label} sequence lane edited.`);
+}
+
+function removeSequenceNote(event) {
+  const position = sequencePointerPosition(event);
+  if (!position || position.laneIndex > 1) return;
+  event.preventDefault();
+  const next = state.sequence.map((stepValues) => [...stepValues]);
+  next[position.stepIndex][1] = 0;
+  state.techniqueId = "custom";
+  applySequence(next);
+  announce(`Sequence note ${position.stepIndex + 1} removed.`);
 }
 
 renderControls();
@@ -977,6 +1051,7 @@ $("sequenceStage").addEventListener("pointerdown", handlePointerDown);
 $("sequenceStage").addEventListener("pointermove", handlePointerMove);
 $("sequenceStage").addEventListener("pointerup", handlePointerEnd);
 $("sequenceStage").addEventListener("pointercancel", handlePointerEnd);
+$("sequenceStage").addEventListener("dblclick", removeSequenceNote);
 animationFrame = requestAnimationFrame(draw);
 
 globalThis.addEventListener?.("pagehide", () => {
