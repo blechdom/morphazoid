@@ -96,22 +96,14 @@
   pointer-events: none;
 }
 
-.webgpu-synths-heading p,
 .webgpu-synths-heading h1,
 .webgpu-synths-heading span {
   margin: 0;
   letter-spacing: 0;
 }
 
-.webgpu-synths-heading p {
-  color: var(--gpu-green);
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
 .webgpu-synths-heading h1 {
-  margin-top: 7px;
+  margin-top: 0;
   color: var(--ink);
   font-size: clamp(32px, 4.2vw, 56px);
   font-weight: 650;
@@ -299,74 +291,6 @@
 .webgpu-synth-knob-value {
   color: var(--muted);
   font-size: 7px;
-}
-
-.model-rail {
-  display: grid;
-  flex: 0 0 auto;
-  border-top: 1px solid var(--line);
-  background: #050609;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-.model-node {
-  position: relative;
-  min-width: 0;
-  min-height: 55px;
-  padding: 9px 10px 8px;
-  border: 0;
-  border-right: 1px solid var(--line);
-  cursor: pointer;
-  color: var(--muted);
-  background: transparent;
-  text-align: left;
-}
-
-.model-node:last-child {
-  border-right: 0;
-}
-
-.model-node::before {
-  position: absolute;
-  right: 8px;
-  bottom: 7px;
-  left: 8px;
-  height: 2px;
-  background: color-mix(in oklab, var(--model-color) 20%, transparent);
-  content: "";
-}
-
-.model-node b,
-.model-node small {
-  display: block;
-  overflow: hidden;
-  letter-spacing: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.model-node b {
-  color: color-mix(in oklab, var(--model-color) 74%, var(--ink));
-  font-size: 8px;
-  text-transform: uppercase;
-}
-
-.model-node small {
-  margin-top: 3px;
-  font-size: 7px;
-}
-
-.model-node:hover,
-.model-node:focus-visible,
-.model-node[aria-pressed="true"] {
-  color: var(--ink);
-  background: color-mix(in oklab, var(--model-color) 10%, transparent);
-}
-
-.model-node[aria-pressed="true"]::before {
-  height: 3px;
-  background: var(--model-color);
-  box-shadow: 0 0 12px var(--model-color);
 }
 
 .webgpu-synths-panel {
@@ -827,19 +751,6 @@
     top: 7px;
     height: 15px;
     transform-origin: 1px 17px;
-  }
-
-  .model-node {
-    min-height: 48px;
-    padding: 8px 6px 7px;
-  }
-
-  .model-node b {
-    font-size: 7px;
-  }
-
-  .model-node small {
-    display: none;
   }
 
   .organ-rank-row {

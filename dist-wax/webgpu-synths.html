@@ -12,7 +12,7 @@
     <title>GPU Shader Synths — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="webgpu-synths.css" />
+    <link rel="stylesheet" href="webgpu-synths.css?v=20260823-model-pairs" />
   </head>
   <body class="webgpu-synths-page">
     <header class="masthead">
@@ -65,7 +65,6 @@
           </canvas>
 
           <div class="webgpu-synths-heading">
-            <p>ALL MUSICAL LOGIC IN WGSL</p>
             <h1 id="webgpuSynthsTitle">GPU Shader Synths</h1>
             <span id="engineBadge">six synthesis models · two GPU passes</span>
           </div>
@@ -91,7 +90,6 @@
           <div class="webgpu-synth-knob-bank" id="knobControls" aria-label="Shared WGSL macro controls"></div>
         </div>
 
-        <div class="model-rail" id="modelRail" aria-label="Morphable synthesis-model continuum"></div>
       </section>
 
       <aside class="panel webgpu-synths-panel" aria-label="GPU Shader Synths controls">
@@ -140,6 +138,7 @@
             <span class="section-state" id="modelState">Modal Metal × Particle Cloud</span>
           </summary>
           <div class="group-body" id="modelControls"></div>
+          <p class="control-note">Choose any Model A and Model B. The Blend knob crossfades that pair; Morph Depth animates the same crossfade in WGSL.</p>
         </details>
 
         <details class="group control-section webgpu-synths-section" data-section="components">
@@ -230,7 +229,7 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="webgpu-synths-app.js"></script>
+    <script type="module" src="webgpu-synths-app.js?v=20260823-model-pairs"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

@@ -15,7 +15,7 @@ import {
   varyWebGpuSynthSequence,
   webGpuSynthModelLabel,
   webGpuSynthSupport,
-} from "./src/webgpu-synths.js";
+} from "./src/webgpu-synths.js?v=20260823-model-pairs";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
@@ -29,15 +29,6 @@ const LANE_SPECS = Object.freeze([
 
 const ORGAN_RANK_LABELS = Object.freeze(["16′", "5⅓′", "8′", "4′", "2⅔′", "2′", "1⅗′", "1⅓′", "1′"]);
 
-const MODEL_DETAILS = Object.freeze([
-  "1–48 resonant harmonic partials",
-  "1–12 feed-forward phase operators",
-  "1–8 detuned wavefold layers",
-  "1–32 stiff inharmonic resonators",
-  "1–16 windowed micrograins",
-  "1–9 editable additive ranks",
-]);
-
 const MODEL_COLORS = Object.freeze(["#91ff63", "#74f7ff", "#ffda57", "#ff6eaa", "#a78bff", "#ffe6a8"]);
 
 const TECHNIQUES = Object.freeze([
@@ -50,7 +41,17 @@ const TECHNIQUES = Object.freeze([
 ]);
 
 function presetParams(overrides) {
-  return sanitizeWebGpuSynthParams({ ...WEBGPU_SYNTHS_DEFAULTS, ...overrides });
+  const legacyTopology = clamp(overrides.topology ?? WEBGPU_SYNTHS_DEFAULTS.topology, 0, WEBGPU_SYNTHS_MODELS.length - 1);
+  const modelA = Math.floor(legacyTopology);
+  const legacyBlend = legacyTopology - modelA;
+  const modelB = legacyBlend > 0.001 ? Math.ceil(legacyTopology) : (modelA + 1) % WEBGPU_SYNTHS_MODELS.length;
+  return sanitizeWebGpuSynthParams({
+    ...WEBGPU_SYNTHS_DEFAULTS,
+    ...overrides,
+    topology: modelA,
+    modelB: overrides.modelB ?? modelB,
+    modelMix: overrides.modelMix ?? legacyBlend,
+  });
 }
 
 function preset(id, label, technique, variation, overrides) {
@@ -117,7 +118,9 @@ const PRESETS = shuffledPresetBank(PRESET_LIBRARY);
 
 const CONTROL_GROUPS = Object.freeze({
   model: Object.freeze([
-    { key: "topology", label: "Model topology", step: 0.01 },
+    { key: "topology", label: "Model A", type: "select", options: WEBGPU_SYNTHS_MODELS },
+    { key: "modelB", label: "Model B", type: "select", options: WEBGPU_SYNTHS_MODELS },
+    { key: "modelMix", label: "Model blend", step: 0.01, knobOnly: true },
     { key: "complexity", label: "Complexity", step: 0.01 },
     { key: "color", label: "Color", step: 0.01 },
     { key: "fold", label: "Nonlinearity", step: 0.01 },
@@ -168,6 +171,8 @@ const EFFECT_CONTROL_SECTIONS = Object.freeze([
   Object.freeze({ label: "Waveshaper", detail: "Soft clipping to sine folding", keys: Object.freeze(["shaperDrive", "shaperFold", "shaperMix"]) }),
 ]);
 const DISCRETE_KEYS = new Set([
+  "topology",
+  "modelB",
   "steps",
   "baseNote",
   "seed",
@@ -181,9 +186,9 @@ const DISCRETE_KEYS = new Set([
   "filterTaps",
   "delayRepeats",
 ]);
-const KNOB_ORDER = Object.freeze(["topology", "complexity", "color", "fold", "motion", "chaos"]);
+const KNOB_ORDER = Object.freeze(["modelMix", "complexity", "color", "fold", "motion", "chaos"]);
 const KNOB_LABELS = Object.freeze({
-  topology: "Model",
+  modelMix: "A/B blend",
   complexity: "Density",
   color: "Color",
   fold: "Fold",
@@ -241,7 +246,7 @@ function clearError() {
 }
 
 function formatParam(key, value) {
-  if (key === "topology") return webGpuSynthModelLabel(value);
+  if (["topology", "modelB"].includes(key)) return WEBGPU_SYNTHS_MODELS[Math.round(value)];
   if (key === "baseNote") return `MIDI ${Math.round(value)}`;
   if (["clock", "filterCutoff"].includes(key)) return `${value < 1000 ? value.toFixed(2) : (value / 1000).toFixed(2)} ${value < 1000 ? "Hz" : "kHz"}`;
   if (key === "steps") return `${Math.round(value)} steps`;
@@ -273,16 +278,13 @@ function syncReadouts() {
     const output = knobOutputs.get(key);
     if (output) output.textContent = formatParam(key, value);
   }
-  $("modelState").textContent = webGpuSynthModelLabel(state.params.topology);
+  $("modelState").textContent = webGpuSynthModelLabel(state.params.topology, state.params.modelB, state.params.modelMix);
   $("timeState").textContent = `${state.params.steps} steps · ${state.params.clock.toFixed(2)} Hz`;
   $("fieldState").textContent = `${WEBGPU_SYNTHS_SCALES[state.params.scale]} · MIDI ${state.params.baseNote}`;
   $("componentsState").textContent = "six adjustable banks";
   const activeFx = [state.params.filterMix, state.params.delayMix, state.params.shaperMix].filter((value) => value > 0.001).length;
   $("effectsState").textContent = activeFx ? `${activeFx} active` : "bypassed";
   $("organRanksState").textContent = `${state.params.organRanks} active`;
-  for (const node of $("modelRail").querySelectorAll("button")) {
-    node.setAttribute("aria-pressed", String(Math.abs(Number(node.dataset.model) - state.params.topology) < 0.08));
-  }
 }
 
 function applyParams(params, { preservePreset = false } = {}) {
@@ -570,7 +572,7 @@ function renderEffectsControls() {
 function renderControls() {
   for (const [group, specs] of Object.entries(CONTROL_GROUPS)) {
     if (group === "effects") continue;
-    $(`${group}Controls`).replaceChildren(...specs.map((spec) => (
+    $(`${group}Controls`).replaceChildren(...specs.filter((spec) => !spec.knobOnly).map((spec) => (
       spec.type === "select" ? createSelectControl(spec) : createRangeControl(spec)
     )));
   }
@@ -584,23 +586,6 @@ function renderControls() {
     button.style.setProperty("--lane-color", lane.color);
     button.setAttribute("aria-pressed", String(index === state.activeLane));
     button.addEventListener("click", () => selectSequenceLane(index));
-    return button;
-  }));
-  $("modelRail").replaceChildren(...WEBGPU_SYNTHS_MODELS.map((model, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "model-node";
-    button.dataset.model = String(index);
-    button.style.setProperty("--model-color", MODEL_COLORS[index]);
-    const name = document.createElement("b");
-    name.textContent = model;
-    const detail = document.createElement("small");
-    detail.textContent = MODEL_DETAILS[index];
-    button.append(name, detail);
-    button.addEventListener("click", () => {
-      changeParam("topology", index);
-      announce(`${model} synthesis model selected.`);
-    });
     return button;
   }));
   $("presetButtons").replaceChildren(...PRESETS.map((presetDefinition) => {
@@ -649,7 +634,7 @@ function setSupportState() {
 
 function paintAudioReadout() {
   $("engineBadge").textContent = state.audioOn
-    ? state.synthPlaying ? "WGSL synthesis running" : "WGSL synthesis ready"
+    ? state.synthPlaying ? "sequence running" : "sequence ready"
     : "six synthesis models · two GPU passes";
   $("stageReadout").textContent = state.audioOn
     ? `WEBGPU · ${Math.round(engine?.sampleRate ?? 44100)} HZ · ${state.synthPlaying ? "SEQUENCE PLAYING" : "SEQUENCE PAUSED"}`
@@ -832,33 +817,6 @@ function visualTime() {
   return state.visualHoldTime;
 }
 
-function drawModelGraphic(context, width, height, time) {
-  const centerX = width * 0.73;
-  const centerY = height * 0.18;
-  const topology = state.params.topology;
-  const lower = Math.floor(topology);
-  const color = MODEL_COLORS[lower];
-  context.save();
-  context.globalCompositeOperation = "lighter";
-  for (let ring = 0; ring < 7; ring += 1) {
-    const points = 36;
-    const radius = height * (0.025 + ring * 0.013) * (0.8 + state.params.complexity * 0.5);
-    context.beginPath();
-    for (let point = 0; point <= points; point += 1) {
-      const angle = (point / points) * Math.PI * 2;
-      const deformation = Math.sin(angle * (2 + lower) + time * (0.2 + state.params.motion) + ring) * radius * (0.08 + state.params.chaos * 0.28);
-      const x = centerX + Math.cos(angle) * (radius + deformation) * (1 + state.params.space * 0.5);
-      const y = centerY + Math.sin(angle) * (radius + deformation);
-      if (point === 0) context.moveTo(x, y);
-      else context.lineTo(x, y);
-    }
-    context.strokeStyle = `${color}${Math.round((0.1 + ring * 0.035) * 255).toString(16).padStart(2, "0")}`;
-    context.lineWidth = 1 + (ring === Math.round(topology) ? 1 : 0);
-    context.stroke();
-  }
-  context.restore();
-}
-
 function drawLanes(context, width, height, time) {
   const { top, gap, heightEach } = laneMetrics(width, height);
   const steps = state.params.steps;
@@ -919,7 +877,7 @@ function drawLanes(context, width, height, time) {
   context.save();
   context.strokeStyle = "rgba(255,255,255,0.9)";
   context.shadowBlur = 18;
-  context.shadowColor = MODEL_COLORS[Math.round(state.params.topology)];
+  context.shadowColor = MODEL_COLORS[state.params.modelMix < 0.5 ? Math.round(state.params.topology) : Math.round(state.params.modelB)];
   context.lineWidth = 2;
   context.beginPath();
   context.moveTo(playheadX, top - 5);
@@ -945,7 +903,6 @@ function draw() {
   for (let y = 0; y < height; y += 32) {
     context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke();
   }
-  drawModelGraphic(context, width, height, time);
   drawLanes(context, width, height, time);
   animationFrame = requestAnimationFrame(draw);
 }

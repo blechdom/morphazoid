@@ -5,7 +5,6 @@ const TIME_INFO_BUFFER_SIZE = 16;
 const MAX_BUFFERED_CHUNKS = 2.5;
 export const WEBGPU_SYNTHS_SEQUENCE_LENGTH = 64;
 export const WEBGPU_SYNTHS_ORGAN_RANK_COUNT = 9;
-const PARAM_BUFFER_SIZE = 32 * Float32Array.BYTES_PER_ELEMENT;
 const SEQUENCE_BUFFER_SIZE = WEBGPU_SYNTHS_SEQUENCE_LENGTH * 4 * Float32Array.BYTES_PER_ELEMENT;
 const ORGAN_RANK_BUFFER_SIZE = WEBGPU_SYNTHS_ORGAN_RANK_COUNT * 4 * Float32Array.BYTES_PER_ELEMENT;
 const FX_HISTORY_SECONDS = 8;
@@ -47,6 +46,8 @@ export const WEBGPU_SYNTHS_SCALES = Object.freeze([
 
 export const WEBGPU_SYNTHS_PARAM_ORDER = Object.freeze([
   "topology",
+  "modelB",
+  "modelMix",
   "baseNote",
   "clock",
   "steps",
@@ -80,8 +81,12 @@ export const WEBGPU_SYNTHS_PARAM_ORDER = Object.freeze([
   "shaperMix",
 ]);
 
+const PARAM_BUFFER_SIZE = WEBGPU_SYNTHS_PARAM_ORDER.length * Float32Array.BYTES_PER_ELEMENT;
+
 export const WEBGPU_SYNTHS_DEFAULTS = Object.freeze({
   topology: 0,
+  modelB: 1,
+  modelMix: 0,
   baseNote: 34,
   clock: 5.2,
   steps: 16,
@@ -117,6 +122,8 @@ export const WEBGPU_SYNTHS_DEFAULTS = Object.freeze({
 
 export const WEBGPU_SYNTHS_LIMITS = Object.freeze({
   topology: Object.freeze([0, WEBGPU_SYNTHS_MODELS.length - 1]),
+  modelB: Object.freeze([0, WEBGPU_SYNTHS_MODELS.length - 1]),
+  modelMix: Object.freeze([0, 1]),
   baseNote: Object.freeze([18, 78]),
   clock: Object.freeze([0.25, 20]),
   steps: Object.freeze([4, WEBGPU_SYNTHS_SEQUENCE_LENGTH]),
@@ -159,6 +166,8 @@ export const WEBGPU_SYNTHS_RUNTIME_DEFAULTS = Object.freeze({
 export const WEBGPU_SYNTHS_WORKGROUP_SIZES = Object.freeze([32, 64, 128, 256]);
 
 const INTEGER_PARAM_KEYS = new Set([
+  "topology",
+  "modelB",
   "steps",
   "seed",
   "scale",
@@ -335,12 +344,16 @@ export function varyWebGpuSynthSequence(sequence, lane = "all", amount = 0.18, s
   }));
 }
 
-export function webGpuSynthModelLabel(topology) {
-  const value = clamp(finiteOr(topology, 0), 0, WEBGPU_SYNTHS_MODELS.length - 1);
-  const lower = Math.floor(value);
-  const upper = Math.ceil(value);
-  if (lower === upper) return WEBGPU_SYNTHS_MODELS[lower];
-  return `${WEBGPU_SYNTHS_MODELS[lower]} × ${WEBGPU_SYNTHS_MODELS[upper]}`;
+export function webGpuSynthModelLabel(modelA, modelB, modelMix) {
+  const legacy = clamp(finiteOr(modelA, 0), 0, WEBGPU_SYNTHS_MODELS.length - 1);
+  const first = Math.floor(legacy);
+  const second = modelB === undefined
+    ? Math.ceil(legacy)
+    : Math.round(clamp(finiteOr(modelB, first), 0, WEBGPU_SYNTHS_MODELS.length - 1));
+  const blend = modelMix === undefined ? fract(legacy) : clamp(finiteOr(modelMix, 0), 0, 1);
+  if (first === second || blend <= 0.001) return WEBGPU_SYNTHS_MODELS[first];
+  if (blend >= 0.999) return WEBGPU_SYNTHS_MODELS[second];
+  return `${WEBGPU_SYNTHS_MODELS[first]} × ${WEBGPU_SYNTHS_MODELS[second]}`;
 }
 
 export function webGpuSynthSupport(runtime = globalThis) {
@@ -364,6 +377,8 @@ override SAMPLE_RATE: f32 = 44100.0;
 struct TimeInfo { offset: f32 }
 struct SynthParam {
   topology: f32,
+  modelB: f32,
+  modelMix: f32,
   baseNote: f32,
   clock: f32,
   steps: f32,
@@ -604,16 +619,16 @@ fn drySound(time: f32) -> vec2<f32> {
   let motion = clamp(mix(synth_param.motion, current.w, 0.68), 0.0, 1.0);
   let local = phase / max(synth_param.clock, 0.001);
 
-  let topology = clamp(
-    synth_param.topology + (current.w - 0.5) * synth_param.chaos * 1.8,
+  let modelAIndex = u32(round(clamp(synth_param.topology, 0.0, 5.0)));
+  let modelBIndex = u32(round(clamp(synth_param.modelB, 0.0, 5.0)));
+  let animatedBlend = clamp(
+    synth_param.modelMix + (current.w - 0.5) * synth_param.chaos * 1.8,
     0.0,
-    5.0
+    1.0
   );
-  let lower = u32(floor(topology));
-  let upper = min(lower + 1u, 5u);
-  let blend = smoothstep(0.0, 1.0, fract(topology));
-  let modelA = synthModel(lower, time, local, frequency, timbre, motion);
-  let modelB = synthModel(upper, time, local, frequency, timbre, motion);
+  let blend = smoothstep(0.0, 1.0, animatedBlend);
+  let modelA = synthModel(modelAIndex, time, local, frequency, timbre, motion);
+  let modelB = synthModel(modelBIndex, time, local, frequency, timbre, motion);
   var voice = mix(modelA, modelB, blend) * envelope;
 
   let orbit = sin((time * (0.07 + motion * 0.41) + f32(stepIndex) * 0.173) * TAU);

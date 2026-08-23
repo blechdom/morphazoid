@@ -23,9 +23,11 @@ import {
 
 const root = new URL("../", import.meta.url);
 
-test("GPU Shader Synths packs one stable 32-float shader parameter contract", () => {
+test("GPU Shader Synths packs one stable 34-float shader parameter contract", () => {
   assert.deepEqual(WEBGPU_SYNTHS_PARAM_ORDER, [
     "topology",
+    "modelB",
+    "modelMix",
     "baseNote",
     "clock",
     "steps",
@@ -58,10 +60,12 @@ test("GPU Shader Synths packs one stable 32-float shader parameter contract", ()
     "shaperFold",
     "shaperMix",
   ]);
-  assert.equal(webGpuSynthParamArray().length, 32);
+  assert.equal(webGpuSynthParamArray().length, 34);
   assert.deepEqual(sanitizeWebGpuSynthParams(), WEBGPU_SYNTHS_DEFAULTS);
-  const clamped = sanitizeWebGpuSynthParams({ topology: 99, steps: 2, gain: 9, scale: -4, pmOperators: 99, filterTaps: 10 });
+  const clamped = sanitizeWebGpuSynthParams({ topology: 99, modelB: -4, modelMix: 9, steps: 2, gain: 9, scale: -4, pmOperators: 99, filterTaps: 10 });
   assert.equal(clamped.topology, 5);
+  assert.equal(clamped.modelB, 0);
+  assert.equal(clamped.modelMix, 1);
   assert.equal(clamped.steps, 4);
   assert.equal(clamped.gain, 0.22);
   assert.equal(clamped.scale, 0);
@@ -98,6 +102,8 @@ test("lane variations preserve unselected values and model topology labels expos
   assert.equal(webGpuSynthModelLabel(4), "Particle Cloud");
   assert.equal(webGpuSynthModelLabel(4.5), "Particle Cloud × Additive Organ");
   assert.equal(webGpuSynthModelLabel(5), "Additive Organ");
+  assert.equal(webGpuSynthModelLabel(5, 0, 0.4), "Additive Organ × Spectral Acid");
+  assert.equal(webGpuSynthModelLabel(5, 0, 1), "Spectral Acid");
 });
 
 test("additive organ ranks expose editable ratios, levels, and per-rank AM", () => {
@@ -128,7 +134,11 @@ test("the WGSL shader owns sequencing and the complete synthesis signal path", (
   assert.match(WEBGPU_SYNTHS_SHADER, /synth_param\.modalModes/);
   assert.match(WEBGPU_SYNTHS_SHADER, /rank\.z/);
   assert.match(WEBGPU_SYNTHS_SHADER, /rank\.w/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /let topology = clamp/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /let modelAIndex = u32\(round\(clamp\(synth_param\.topology/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /let modelBIndex = u32\(round\(clamp\(synth_param\.modelB/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /let animatedBlend = clamp/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /synth_param\.modelMix \+ \(current\.w - 0\.5\) \* synth_param\.chaos/);
+  assert.doesNotMatch(WEBGPU_SYNTHS_SHADER, /lower \+ 1u/);
   assert.match(WEBGPU_SYNTHS_SHADER, /let currentNote = synth_param\.baseNote \+ scaleNote\(current\.x/);
   assert.match(WEBGPU_SYNTHS_SHADER, /let followingNote = synth_param\.baseNote \+ scaleNote\(following\.x/);
   assert.match(WEBGPU_SYNTHS_SHADER, /let note = mix\(currentNote, followingNote, glide\)/);
@@ -155,8 +165,10 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
     readFile(new URL("scripts/build-site.sh", root), "utf8"),
   ]);
   assert.match(html, /<h1 id="webgpuSynthsTitle">GPU Shader Synths<\/h1>/);
-  assert.match(html, /ALL MUSICAL LOGIC IN WGSL/);
+  assert.doesNotMatch(html, /ALL MUSICAL LOGIC IN WGSL/);
   assert.match(html, /id="sequenceStage"/);
+  assert.doesNotMatch(html, /id="modelRail"/);
+  assert.match(html, /Choose any Model A and Model B\. The Blend knob crossfades that pair/);
   assert.match(html, /id="sequenceEditHint">Click a lane to add or edit · drag vertically to change height · double-click Pitch or Pulse to remove a note/);
   assert.match(html, /<h2 class="group-title">Presets<\/h2>/);
   assert.match(html, /id="presetButtons"/);
@@ -172,7 +184,7 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.ok(html.indexOf('data-section="presets"') < html.indexOf('data-section="time"'));
   assert.ok(html.indexOf('data-section="time"') < html.indexOf('data-section="variations"'));
   assert.ok(html.indexOf('id="resetPatch"') < html.indexOf('class="wgsl-boundary"'));
-  assert.match(css, /\.model-rail/);
+  assert.doesNotMatch(css, /\.model-rail/);
   assert.match(css, /\.sequence-lane-tabs/);
   assert.match(css, /\.sequence-edit-hint/);
   assert.match(css, /\.preset-grid \{[\s\S]*grid-template-columns: repeat\(4/);
@@ -213,6 +225,16 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(app, /addEventListener\("dblclick", removeSequenceNote\)/);
   assert.match(app, /if \(state\.sequence\[step\]\[1\] <= 0\.01\) continue/);
   assert.match(app, /context\.stroke\(\);\s*}\s*if \(laneIndex === 0\)/);
+  const modelControls = app.slice(app.indexOf("model: Object.freeze"), app.indexOf("time: Object.freeze"));
+  assert.match(modelControls, /key: "topology", label: "Model A", type: "select"/);
+  assert.match(modelControls, /key: "modelB", label: "Model B", type: "select"/);
+  assert.match(modelControls, /key: "modelMix", label: "Model blend", step: 0\.01, knobOnly: true/);
+  assert.match(app, /const KNOB_ORDER = Object\.freeze\(\["modelMix", "complexity", "color", "fold", "motion", "chaos"\]\)/);
+  assert.match(app, /modelMix: "A\/B blend"/);
+  assert.doesNotMatch(app, /topology: "Model"/);
+  assert.match(css, /\.webgpu-synth-knob-bank \{[\s\S]*grid-template-columns: repeat\(6, var\(--knob-size\)\)/);
+  assert.doesNotMatch(app, /function drawModelGraphic/);
+  assert.doesNotMatch(app, /WGSL synthesis running/);
   assert.match(app, /FIR low-pass/);
   assert.match(app, /Feed-forward delay/);
   assert.match(app, /Waveshaper/);
