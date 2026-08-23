@@ -246,7 +246,7 @@ export function sanitizeOuroborouselParams(params = {}) {
     fusionWidth: clamp(
       params.fusionWidth,
       0.25,
-      2,
+      4,
       OUROBOROUSEL_DEFAULTS.fusionWidth,
     ),
     spread: clamp(params.spread, 0, 1, OUROBOROUSEL_DEFAULTS.spread),
@@ -315,7 +315,7 @@ export function ouroborouselFusionBlend(
   const width = clamp(
     fusionWidth,
     0.25,
-    2,
+    4,
     OUROBOROUSEL_DEFAULTS.fusionWidth,
   );
   const normalized = Math.log2(rate / point) / width + 0.5;

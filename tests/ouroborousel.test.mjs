@@ -92,6 +92,7 @@ test("Ouroborousel parameters are finite, bounded, integral where required, and 
     cutoff: Number.NaN,
     level: Number.NaN,
   }), OUROBOROUSEL_DEFAULTS);
+  assert.equal(sanitizeOuroborouselParams({ fusionWidth: 99 }).fusionWidth, 4);
 });
 
 test("low note materials raise only their source lift enough to keep a full-safe lane", () => {
@@ -242,6 +243,7 @@ test("the page wires its recursive rail, transport, controls, and reset accessib
   assert.match(markup, /id="materialCombo"[^>]+value="combo"/);
   assert.match(markup, /id="materialModeHelp"/);
   assert.match(markup, /id="centerRate"[^>]+value="4"/);
+  assert.match(markup, /id="fusionWidth"[^>]+min="0.25"[^>]+max="4"/);
   assert.match(markup, /pink and cream dots are Ouroboros drum strikes/);
   assert.match(markup, /data-reset-all[^>]+data-reset-in-place/);
   assert.match(
@@ -345,6 +347,13 @@ test("cosine bank, carrier safety, Hann chunks, and fusion bridge are continuous
   assert.ok(ouroborouselFusionBlend(point / Math.SQRT2, point, width) < 1e-12);
   assert.ok(Math.abs(ouroborouselFusionBlend(point, point, width) - 0.5) < 1e-12);
   assert.ok(1 - ouroborouselFusionBlend(point * Math.SQRT2, point, width) < 1e-12);
+  const extendedWidth = 4;
+  assert.ok(ouroborouselFusionBlend(point / 4, point, extendedWidth) < 1e-12);
+  assert.ok(
+    Math.abs(ouroborouselFusionBlend(point, point, extendedWidth) - 0.5) < 1e-12,
+  );
+  assert.ok(1 - ouroborouselFusionBlend(point * 2, point, extendedWidth) > 0.14);
+  assert.ok(1 - ouroborouselFusionBlend(point * 4, point, extendedWidth) < 1e-12);
   let previous = -1;
   for (let step = -20; step <= 20; step += 1) {
     const blend = ouroborouselFusionBlend(point * 2 ** (step / 20), point, width);
