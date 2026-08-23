@@ -51,7 +51,7 @@ export const OUROBOROUSEL_DEFAULTS = Object.freeze({
   materialMode: "notes",
   direction: 1,
   glissRate: 0.12,
-  centerRate: 8,
+  centerRate: 4,
   bankWidth: 6,
   noteLift: 6,
   chunkDuty: 0.72,

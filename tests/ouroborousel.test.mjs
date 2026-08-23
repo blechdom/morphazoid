@@ -175,7 +175,7 @@ test("defaults match the page contract and whimsical presets are complete", () =
     materialMode: "notes",
     direction: 1,
     glissRate: 0.12,
-    centerRate: 8,
+    centerRate: 4,
     bankWidth: 6,
     noteLift: 6,
     chunkDuty: 0.72,
@@ -191,6 +191,7 @@ test("defaults match the page contract and whimsical presets are complete", () =
   assert.ok(Object.isFrozen(OUROBOROUSEL_MATERIAL_MODES));
   assert.ok(Object.isFrozen(OUROBOROUSEL_PRESETS));
   assert.equal(OUROBOROUSEL_PRESETS.length, 6);
+  assert.equal(OUROBOROUSEL_PRESETS[0].centerRate, 4);
   assert.equal(
     new Set(OUROBOROUSEL_PRESETS.map(({ id }) => id)).size,
     OUROBOROUSEL_PRESETS.length,
@@ -219,8 +220,13 @@ test("the page wires its recursive rail, transport, controls, and reset accessib
   ]);
 
   assert.match(markup, /<title>Ouroborousel — Morphazoid<\/title>/);
-  assert.equal((markup.match(/<h1\b/g) ?? []).length, 1);
-  assert.match(markup, /<h1[^>]*>Ouroborousel<\/h1>/);
+  assert.equal((markup.match(/<h1\b/g) ?? []).length, 0);
+  assert.match(markup, /<section class="ouroborousel-performance" aria-label="Ouroborousel">/);
+  assert.doesNotMatch(markup, /ENDLESS RECURSIVE RHYTHM|id="rateReadout"|id="sourceReadout"|id="fusionReadout"/);
+  assert.doesNotMatch(
+    markup,
+    /ouroborousel-stage-meta|ouroborousel-axis-labels|ouroborousel-loop-core|ouroborousel-rule|ouroborousel-explainer/,
+  );
   assert.match(markup, /<canvas[^>]+id="stage"[^>]+role="slider"/);
   assert.match(markup, /id="transportButton"[^>]+data-primary-transport/);
   assert.match(markup, /id="audioButton"[^>]+aria-pressed="false"/);
@@ -245,7 +251,15 @@ test("the page wires its recursive rail, transport, controls, and reset accessib
   assert.match(app, /const DRUM_OVERLAP_POINT = 18/);
   assert.match(app, /ouroborouselFusionBlend\([\s\S]*?DRUM_OVERLAP_POINT/);
   assert.match(app, /new OuroborouselAudio/);
-  assert.match(app, /audio\.strike\(velocity, normalized\)/);
+  assert.match(app, /const struck = audio\.strike\(velocity\);/);
+  assert.doesNotMatch(app, /audio\.strike\(velocity, normalized\)/);
+  assert.match(app, /const edgePadding = clamp\(minimum \* 0\.12, 42, 54, 48\)/);
+  assert.match(app, /function drawCoiledCandySnake\(ctx, layout\)/);
+  assert.match(app, /const coilTurns = 3\.15/);
+  assert.match(app, /ctx\.setLineDash\(\[stripeLength, stripeLength\]\)/);
+  assert.doesNotMatch(app, /drawCandyCenter|createRadialGradient/);
+  assert.match(app, /requestedScaleCount \+ requestedScaleCount % 2/);
+  assert.doesNotMatch(app, /drawLayerLabels|fillText\(|ctx\.ellipse\(/);
   assert.match(app, /function layerMaterialWeight\(layer, materialMode = "notes"\)/);
   assert.match(app, /Number\(layer\?\.drumWeight\)/);
   assert.match(app, /\$\(id\)\.disabled = drumsOnly/);
@@ -261,7 +275,16 @@ test("the page wires its recursive rail, transport, controls, and reset accessib
     app,
     /\(note - 24\) \/ 84,[\s\S]*?RAIL_END_POSITION/,
   );
-  assert.match(styles, /repeating-conic-gradient/);
+  assert.doesNotMatch(
+    styles,
+    /ouroborousel-stage-meta|ouroborousel-axis-labels|ouroborousel-loop-core|ouroborousel-rule|ouroborousel-explainer/,
+  );
+  assert.doesNotMatch(styles, /\.ouroborousel-stage-wrap::before/);
+  assert.match(styles, /\.ouroborousel-page\s*\{[^}]*background:\s*#050505/s);
+  assert.doesNotMatch(
+    styles,
+    /\.ouroborousel-stage-wrap\s*\{[^}]*(?:border|background|box-shadow)\s*:/s,
+  );
   assert.match(styles, /--carousel-red: #e94057/);
   assert.match(styles, /--carousel-pink: #ff7fa8/);
   assert.match(
@@ -792,6 +815,29 @@ test("worklet renders bounded stereo chunks and tones through its octave seam", 
     assert.ok(
       manualDrums[0] < manualDrums[1],
       "opposite rail strikes should excite different low/high drum lanes",
+    );
+
+    const manualBank = new Processor({
+      processorOptions: {
+        ...OUROBOROUSEL_DEFAULTS,
+        materialMode: "drums",
+        centerRate: 2,
+        bankWidth: 7,
+      },
+    });
+    manualBank.port.onmessage({ data: { type: "audible", value: true } });
+    manualBank.port.onmessage({
+      data: { type: "strike", velocity: 0.82 },
+    });
+    manualBank.process([], [[new Float32Array(128), new Float32Array(128)]]);
+    assert.ok(
+      manualBank.drumSlowEnvelopes.filter((value) => value > 1e-7).length >= 5,
+      "an unpositioned manual strike should excite the complete active drum bank",
+    );
+    assert.equal(
+      Number.isNaN(manualBank.manualPosition),
+      true,
+      "an all-bank strike should not retain a single-lane position",
     );
 
     const materialResults = new Map();
