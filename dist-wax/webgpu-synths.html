@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#06070a" />
+    <meta
+      name="description"
+      content="Morphazoid WebGPU Synths — a WGSL-native sequencing and synthesis laboratory with morphable sound models."
+    />
+    <title>WebGPU Synths — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="webgpu-synths.css" />
+  </head>
+  <body class="webgpu-synths-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="rubix.html">rubix</a>
+        <a class="tab" href="hyper-rubix.html">hyper rubix</a>
+        <a class="tab" href="webgpu-303.html">webgpu 303</a>
+        <a class="tab active webgpu-synths-tab" href="webgpu-synths.html" aria-current="page">webgpu synths</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="rubix.html">rubix</option>
+          <option value="hyper-rubix.html">hyper rubix</option>
+          <option value="webgpu-303.html">webgpu 303</option>
+          <option value="webgpu-synths.html" selected>webgpu synths</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph webgpu-synths-audio-glyph" aria-hidden="true">✣</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <button class="synth-play-button" id="synthPlayButton" type="button" aria-pressed="false" data-primary-transport>
+          Play genome
+        </button>
+        <label class="header-level" for="output">
+          <span><b>Output</b><output id="outputOut" for="output">100%</output></span>
+          <input id="output" aria-label="WebGPU Synths output level" type="range" min="0" max="1" step="0.01" value="1" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell webgpu-synths-shell" id="webgpuSynths">
+      <section class="stage webgpu-synths-stage" aria-labelledby="webgpuSynthsTitle">
+        <div class="webgpu-synths-stage-wrap" id="stageWrap">
+          <canvas
+            id="genomeStage"
+            role="img"
+            aria-label="Four-lane WebGPU musical genome editor. Audio off."
+            aria-describedby="webgpuSynthsDescription liveStatus"
+          >
+            WebGPU musical genome lanes and output organism.
+          </canvas>
+
+          <div class="webgpu-synths-heading">
+            <p>ALL MUSICAL LOGIC IN WGSL</p>
+            <h1 id="webgpuSynthsTitle">WebGPU Synths</h1>
+            <span id="engineBadge">one shader · five organisms</span>
+          </div>
+
+          <div class="shader-contract" aria-hidden="true">
+            <span>SEQUENCE</span><i>→</i><span>QUANTIZE</span><i>→</i><span>MORPH</span><i>→</i><span>SYNTH</span><i>→</i><span>STEREO</span>
+          </div>
+
+          <div class="stage-meta" aria-hidden="true">
+            <span id="stageReadout">WEBGPU · STANDBY · AUDIO OFF</span>
+          </div>
+        </div>
+
+        <div class="genome-deck">
+          <div class="genome-lane-tabs" id="laneButtons" role="group" aria-label="Editable genome lane"></div>
+          <div class="genome-actions" aria-label="Genome transformations">
+            <button class="mini-action" id="rotateLeft" type="button">Rotate −1</button>
+            <button class="mini-action" id="rotateRight" type="button">Rotate +1</button>
+            <button class="mini-action" id="reverseSequence" type="button">Reverse</button>
+            <button class="mini-action" id="invertLane" type="button">Invert lane</button>
+          </div>
+          <div class="webgpu-synth-knob-bank" id="knobControls" aria-label="Shared WGSL macro controls"></div>
+        </div>
+
+        <div class="model-rail" id="modelRail" aria-label="Morphable synthesis topology"></div>
+      </section>
+
+      <aside class="panel webgpu-synths-panel" aria-label="WebGPU Synths controls">
+        <div class="webgpu-status-strip" aria-live="polite">
+          <b id="gpuState">Checking WebGPU</b>
+          <small id="streamState">WGSL owns the signal path</small>
+        </div>
+
+        <div class="wgsl-boundary">
+          <span>GPU / WGSL DOMAIN</span>
+          <p>Clock, swing, four sequence lanes, scales, envelopes, model morphs, synthesis, stereo, drive, and limiter.</p>
+          <small>Web Audio is buffer playback only.</small>
+        </div>
+
+        <details class="group control-section webgpu-synths-section" data-section="themes" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Themes</h2>
+            <span class="section-state" id="themeState">Acid Fossil</span>
+          </summary>
+          <div class="group-body">
+            <div class="theme-grid" id="themeButtons" role="group" aria-label="Shader themes"></div>
+          </div>
+        </details>
+
+        <details class="group control-section webgpu-synths-section" data-section="variations" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Variations</h2>
+            <span class="section-state" id="variationState">Euclidean DNA</span>
+          </summary>
+          <div class="group-body">
+            <div class="technique-grid" id="techniqueButtons" role="group" aria-label="Sequence generators"></div>
+            <div class="variation-grid" aria-label="Variation actions">
+              <button class="mini-action" type="button" data-vary="pitch">Vary pitch</button>
+              <button class="mini-action" type="button" data-vary="energy">Vary pulse</button>
+              <button class="mini-action" type="button" data-vary="timbre">Vary timbre</button>
+              <button class="mini-action" type="button" data-vary="morph">Vary morph</button>
+              <button class="mini-action variation-all" type="button" data-vary="all">Mutate all DNA</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section webgpu-synths-section" data-section="organism" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Organism</h2>
+            <span class="section-state" id="organismState">Spectral Acid</span>
+          </summary>
+          <div class="group-body" id="organismControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-synths-section" data-section="time" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Time</h2>
+            <span class="section-state" id="timeState">16 steps · 5.20 Hz</span>
+          </summary>
+          <div class="group-body" id="timeControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-synths-section" data-section="field" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Field</h2>
+            <span class="section-state" id="fieldState">Dorian · MIDI 34</span>
+          </summary>
+          <div class="group-body" id="fieldControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-synths-section" data-section="gpu">
+          <summary class="group-summary">
+            <h2 class="group-title">GPU Stream</h2>
+            <span class="section-state" id="runtimeState">256 lanes</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="chunkDuration">
+              <span><b>Chunk length</b><output id="chunkDurationOut" for="chunkDuration">100 ms</output></span>
+              <input id="chunkDuration" type="range" min="0.03" max="0.25" step="0.01" value="0.10" />
+            </label>
+            <label class="select-control" for="workgroupSize">
+              <span><b>Workgroup</b><output id="workgroupSizeOut" for="workgroupSize">256 lanes</output></span>
+              <span class="select-shell">
+                <select id="workgroupSize" aria-label="WebGPU workgroup size">
+                  <option value="32">32 lanes</option>
+                  <option value="64">64 lanes</option>
+                  <option value="128">128 lanes</option>
+                  <option value="256" selected>256 lanes</option>
+                </select>
+              </span>
+            </label>
+            <p class="gpu-stream-note">The compute shader writes finished interleaved stereo samples. The browser audio graph adds no synthesis nodes or effects.</p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" id="resetPatch" type="button" data-reset-all data-reset-in-place>
+            Reset organism
+          </button>
+        </div>
+        <p class="audio-error" id="audioError" role="alert" hidden></p>
+      </aside>
+
+      <p class="sr-only" id="webgpuSynthsDescription">
+        A WebGPU compute shader sequences four parameter lanes and synthesizes morphs between five sound generator families. Web Audio only plays completed shader buffers.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="webgpu-synths-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

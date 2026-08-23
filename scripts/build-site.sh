@@ -311,6 +311,11 @@ for worktree_runtime_file in \
   webgpu-303.css \
   webgpu-303-app.js \
   src/webgpu-303.js \
+  webgpu-synths.html \
+  webgpu-synths.css \
+  webgpu-synths-app.js \
+  src/webgpu-synths.js \
+  assets/instruments/webgpu-synths.webp \
   algorithmic-sequencers.html \
   algorithmic-sequencers.css \
   algorithmic-sequencers-app.js \
@@ -618,6 +623,11 @@ required_files=(
   webgpu-303.css
   webgpu-303-app.js
   src/webgpu-303.js
+  webgpu-synths.html
+  webgpu-synths.css
+  webgpu-synths-app.js
+  src/webgpu-synths.js
+  assets/instruments/webgpu-synths.webp
   weierstrass.html
   weierstrass.css
   weierstrass-app.js

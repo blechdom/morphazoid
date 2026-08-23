@@ -325,6 +325,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Streams a WGSL compute-shader acid voice into Web Audio chunks as a separate GPU synthesis instrument.",
     "Use a WebGPU-capable browser, turn on Audio, then shape the pattern, partials, filter, and chunk settings.",
   ),
+  "webgpu-synths": define(
+    "WGSL synth laboratory",
+    "Runs clocking, swing, scale quantization, four parameter lanes, envelopes, five morphable synthesis models, stereo motion, drive, and limiting inside one WebGPU compute shader.",
+    "Use a WebGPU-capable browser, turn on Audio, choose a theme or sequence generator, then draw pitch, pulse, timbre, and morph DNA directly on the stage.",
+    ["WebGPU", "Pointer", "Built-in synth"],
+  ),
 
   "fm-drums": define(
     "Drum synth",

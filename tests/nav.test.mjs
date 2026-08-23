@@ -254,7 +254,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 103);
+  assert.equal(tools.length, 104);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(
@@ -491,6 +491,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "rubix", href: "rubix.html" },
       { id: "hyper-rubix", href: "hyper-rubix.html" },
       { id: "webgpu-303", href: "webgpu-303.html" },
+      { id: "webgpu-synths", href: "webgpu-synths.html" },
     ],
   );
   assert.deepEqual(
@@ -629,6 +630,14 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       id: "webgpu-303",
       label: "WebGPU 303",
       href: "webgpu-303.html",
+    },
+  );
+  assert.deepEqual(
+    tools.find((tool) => tool.id === "webgpu-synths"),
+    {
+      id: "webgpu-synths",
+      label: "WebGPU Synths",
+      href: "webgpu-synths.html",
     },
   );
   const experiments = TOOL_GROUPS.find((group) => group.id === "experiments");
@@ -770,6 +779,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveTool(`${SITE_ROOT}chaotic-pm.html`, SITE_ROOT)?.id, "chaotic-pm");
   assert.equal(resolveActiveTool(`${SITE_ROOT}weierstrass.html`, SITE_ROOT)?.id, "weierstrass");
   assert.equal(resolveActiveTool(`${SITE_ROOT}webgpu-303.html`, SITE_ROOT)?.id, "webgpu-303");
+  assert.equal(resolveActiveTool(`${SITE_ROOT}webgpu-synths.html`, SITE_ROOT)?.id, "webgpu-synths");
   assert.equal(resolveActiveTool(`${SITE_ROOT}gravity-walk.html`, SITE_ROOT)?.id, "gravity-walk");
   assert.equal(resolveActiveTool(`${SITE_ROOT}ricochet.html`, SITE_ROOT)?.id, "ricochet");
   assert.equal(resolveActiveTool(`${SITE_ROOT}rigidity.html`, SITE_ROOT)?.id, "rigidity");

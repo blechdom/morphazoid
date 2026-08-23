@@ -82,7 +82,7 @@ function caveatFor(instrument, noteMode, midiOutput) {
   if (AUDIO_FX_IDS.has(instrument.id)) {
     return "Preview: confirm DAW track-input capture in your WAX host; the browser mic/file path may still need a page-specific adapter.";
   }
-  if (instrument.id === "webgpu-303") {
+  if (instrument.id === "webgpu-303" || instrument.id === "webgpu-synths") {
     return "Preview: requires WebGPU support in WAX's embedded browser and should be host-tested before a session.";
   }
   if (instrument.status) {

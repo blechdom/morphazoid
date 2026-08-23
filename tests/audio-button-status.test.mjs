@@ -33,6 +33,7 @@ const instrumentScripts = [
   "chaotic-fm-app.js",
   "chaotic-pm-app.js",
   "webgpu-303-app.js",
+  "webgpu-synths-app.js",
   "rubix-app.js",
   "weierstrass-app.js",
   "algorithmic-sequencers-app.js",

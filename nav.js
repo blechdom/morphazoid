@@ -120,6 +120,7 @@ export const TOOL_GROUPS = Object.freeze([
     },
     { id: "hyper-rubix", label: "Hyper Rubix", href: "hyper-rubix.html" },
     { id: "webgpu-303", label: "WebGPU 303", href: "webgpu-303.html" },
+    { id: "webgpu-synths", label: "WebGPU Synths", href: "webgpu-synths.html" },
   ]),
   freezeGroup("voice-synths", "Voice Synths", [
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
