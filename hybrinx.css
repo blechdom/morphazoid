@@ -569,7 +569,8 @@
   min-height: 0;
   flex: 1 1 auto;
   overflow: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   scrollbar-color: rgba(186, 255, 84, 0.36) rgba(3, 8, 6, 0.6);
   scrollbar-gutter: stable both-edges;
   scrollbar-width: thin;
@@ -1015,15 +1016,45 @@
 }
 
 @media (max-width: 980px) {
+  html {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
   .hybrinx-page {
-    --hybrinx-min-viewport: 82px;
-    --hybrinx-min-timeline: 98px;
+    --hybrinx-min-viewport: 180px;
+    --hybrinx-min-timeline: 190px;
     --hybrinx-divider-size: 19px;
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .hybrinx-page .shell {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(390px, 55dvh) minmax(0, 1fr);
+    display: block;
+    height: auto;
+    min-height: calc(100dvh - 58px);
+    overflow: visible;
+  }
+
+  .hybrinx-page .syrinx-stage {
+    position: relative;
+    height: clamp(540px, 78dvh, 700px);
+    min-height: 540px;
+  }
+
+  .hybrinx-page #stage {
+    touch-action: pan-y;
+  }
+
+  .hybrinx-page .panel {
+    overflow: visible;
+    overscroll-behavior-y: auto;
   }
 
   .hybrinx-page .stage-wrap {
@@ -1062,8 +1093,13 @@
 
 @media (max-width: 650px) {
   .hybrinx-page .shell {
-    height: calc(100dvh - 54px);
-    grid-template-rows: minmax(350px, 55dvh) minmax(0, 1fr);
+    height: auto;
+    min-height: calc(100dvh - 54px);
+  }
+
+  .hybrinx-page .syrinx-stage {
+    height: clamp(520px, 78dvh, 640px);
+    min-height: 520px;
   }
 
   .hybrinx-page .stage-wrap {
@@ -1173,7 +1209,8 @@
 
 @media (max-width: 520px) {
   .hybrinx-page .masthead.has-midi-toolbar + .shell {
-    height: calc(100dvh - 99px);
+    height: auto;
+    min-height: calc(100dvh - 99px);
   }
 }
 
@@ -1209,15 +1246,26 @@
 
 @media (orientation: landscape) and (max-width: 980px) and (max-height: 650px) {
   .hybrinx-page {
-    --hybrinx-min-viewport: 68px;
-    --hybrinx-min-timeline: 84px;
+    --hybrinx-min-viewport: 150px;
+    --hybrinx-min-timeline: 160px;
     --hybrinx-divider-size: 17px;
   }
 
   .hybrinx-page .shell {
-    height: calc(100dvh - 50px);
+    display: grid;
+    height: auto;
+    min-height: calc(100dvh - 50px);
+    overflow: visible;
     grid-template-columns: minmax(0, 1fr) clamp(260px, 42vw, 400px);
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-rows: auto;
+    align-items: start;
+  }
+
+  .hybrinx-page .syrinx-stage {
+    position: sticky;
+    top: 0;
+    height: max(420px, calc(100dvh - 50px));
+    min-height: 420px;
   }
 
   .hybrinx-page .stage-wrap {

@@ -479,7 +479,7 @@ test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewp
     /<body[^>]*class="[^"]*syrinx-ui-page[^"]*tongued-beasts-page[^"]*hybrinx-page[^"]*"/,
   );
   assert.match(html, /href="tongued-beasts\.css\?v=[^"]+"/);
-  assert.match(html, /href="hybrinx\.css\?v=[^"]+"/);
+  assert.match(html, /href="hybrinx\.css\?v=hybrinx-20260821-4"/);
   assert.match(html, /src="syrinx-app\.js\?v=[^"]+"/);
 
   const stage = html.match(/<section class="stage syrinx-stage"[\s\S]*?<\/section>/)?.[0] ?? "";
@@ -536,6 +536,56 @@ test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewp
     assert.match(css, new RegExp(`\\.${selector}\\b`), `Hybrinx CSS must style .${selector}`);
   }
   assert.match(css, /@media\s*\([^)]*(?:orientation:\s*landscape|max-height)[^)]*\)/i);
+  assert.match(
+    css,
+    /\.hybrinx-timeline-scroll\s*\{[^}]*overflow:\s*auto[^}]*overscroll-behavior-x:\s*contain[^}]*overscroll-behavior-y:\s*auto[^}]*touch-action:\s*pan-x pan-y[^}]*-webkit-overflow-scrolling:\s*touch/s,
+    "the timeline must retain horizontal gestures without trapping vertical page swipes",
+  );
+
+  const mobileCss = css.match(
+    /@media \(max-width:\s*980px\)\s*\{[\s\S]*?(?=@media \(max-width:\s*650px\))/,
+  )?.[0] ?? "";
+  assert.match(
+    mobileCss,
+    /html\s*\{[^}]*height:\s*auto[^}]*min-height:\s*100%[^}]*overflow-x:\s*hidden[^}]*overflow-y:\s*auto/s,
+    "compact screens must give vertical scrolling back to the document root",
+  );
+  assert.match(
+    mobileCss,
+    /\.hybrinx-page\s*\{[^}]*--hybrinx-min-viewport:\s*180px[^}]*--hybrinx-min-timeline:\s*190px[^}]*height:\s*auto[^}]*min-height:\s*100dvh[^}]*overflow-x:\s*hidden[^}]*overflow-y:\s*auto[^}]*overscroll-behavior-y:\s*auto[^}]*-webkit-overflow-scrolling:\s*touch/s,
+    "portrait phones need a natural page scroller and a usable timeline viewport",
+  );
+  assert.match(
+    mobileCss,
+    /\.hybrinx-page \.shell\s*\{[^}]*display:\s*block[^}]*height:\s*auto[^}]*min-height:\s*calc\(100dvh - 58px\)[^}]*overflow:\s*visible/s,
+  );
+  assert.match(
+    mobileCss,
+    /\.hybrinx-page \.syrinx-stage\s*\{[^}]*position:\s*relative[^}]*height:\s*clamp\(540px, 78dvh, 700px\)[^}]*min-height:\s*540px/s,
+  );
+  assert.match(mobileCss, /\.hybrinx-page #stage\s*\{[^}]*touch-action:\s*pan-y/s);
+  assert.match(
+    mobileCss,
+    /\.hybrinx-page \.panel\s*\{[^}]*overflow:\s*visible[^}]*overscroll-behavior-y:\s*auto/s,
+    "the controls panel must contribute to document height instead of becoming a trapped scroller",
+  );
+
+  const landscapeCss = css.match(
+    /@media \(orientation:\s*landscape\) and \(max-width:\s*980px\) and \(max-height:\s*650px\)\s*\{[\s\S]*?(?=@media \(prefers-reduced-motion:)/,
+  )?.[0] ?? "";
+  assert.match(
+    landscapeCss,
+    /\.hybrinx-page\s*\{[^}]*--hybrinx-min-viewport:\s*150px[^}]*--hybrinx-min-timeline:\s*160px/s,
+    "short landscape phones need enough room for both viewport and timeline",
+  );
+  assert.match(
+    landscapeCss,
+    /\.hybrinx-page \.shell\s*\{[^}]*display:\s*grid[^}]*height:\s*auto[^}]*min-height:\s*calc\(100dvh - 50px\)[^}]*overflow:\s*visible[^}]*grid-template-columns:[^;}]+;[^}]*grid-template-rows:\s*auto[^}]*align-items:\s*start/s,
+  );
+  assert.match(
+    landscapeCss,
+    /\.hybrinx-page \.syrinx-stage\s*\{[^}]*position:\s*sticky[^}]*top:\s*0[^}]*height:\s*max\(420px, calc\(100dvh - 50px\)\)[^}]*min-height:\s*420px/s,
+  );
 
   assert.match(app, /import\s*\{\s*createHybrinxTimeline\s*\}\s*from\s*["']\.\/src\/hybrinx-timeline\.js\?v=[^"']+["']/);
   assert.match(app, /const\s+HYBRINX_MODE\s*=\s*document\.body\.classList\.contains\(["']hybrinx-page["']\)/);

@@ -536,7 +536,7 @@ test("pitch and rhythm seams relabel independently in both directions", () => {
   }
 });
 
-test("the lazy audio wrapper sends sanitized parameters, transport, and strikes", async () => {
+test("the lazy audio wrapper separates audibility from transport and preserves start", async () => {
   const scheduled = [];
   const runtime = {
     clearTimeout(id) {
@@ -550,6 +550,10 @@ test("the lazy audio wrapper sends sanitized parameters, transport, and strikes"
   const audio = new OuroborosBorealisAudio(runtime);
   assert.equal(audio.context, null);
   assert.equal(audio.node, null);
+  assert.equal(audio.audible, false);
+  assert.equal(audio.transporting, false);
+  assert.equal(audio.enabled, false);
+  assert.equal(audio.setTransport(true), false);
 
   audio.setParameters({
     pitchDirection: -1,
@@ -634,11 +638,34 @@ test("the lazy audio wrapper sends sanitized parameters, transport, and strikes"
   });
   assert.deepEqual(filterTargets.at(-1), [12_000, 3, 0.025]);
 
-  await audio.start();
+  assert.equal(await audio.enable(), true);
   assert.equal(resumes, 1);
+  assert.equal(audio.audible, true);
+  assert.equal(audio.transporting, false);
   assert.equal(audio.enabled, true);
-  assert.deepEqual(messages.at(-1), { type: "active", value: true });
+  assert.deepEqual(messages.at(-1), { type: "audible", value: true });
   assert.deepEqual(ramps.at(-1), ["ramp", 0.7, 3.035]);
+
+  assert.equal(audio.setTransport(true), true);
+  assert.equal(audio.transporting, true);
+  assert.equal(audio.audible, true);
+  assert.deepEqual(messages.at(-1), { type: "transport", value: true });
+  assert.equal(audio.stopTransport(), true);
+  assert.equal(audio.transporting, false);
+  assert.equal(audio.audible, true);
+  assert.deepEqual(messages.at(-1), { type: "transport", value: false });
+  assert.equal(audio.strike(0.25, 0.2), true);
+  assert.deepEqual(messages.at(-1), {
+    type: "strike",
+    velocity: 0.25,
+    position: 0.2,
+  });
+
+  assert.equal(await audio.start(), true);
+  assert.equal(resumes, 2);
+  assert.equal(audio.transporting, true);
+  assert.equal(audio.audible, true);
+  assert.deepEqual(messages.at(-1), { type: "transport", value: true });
   audio.strike(0.8, 0.37);
   assert.deepEqual(messages.at(-1), {
     type: "strike",
@@ -655,11 +682,19 @@ test("the lazy audio wrapper sends sanitized parameters, transport, and strikes"
   audio.setParameters({ level: 0.42 });
   assert.deepEqual(ramps.at(-1), ["target", 0.42, 3, 0.015]);
   audio.stop();
+  assert.equal(audio.audible, false);
+  assert.equal(audio.transporting, false);
   assert.equal(audio.enabled, false);
-  assert.deepEqual(messages.at(-1), { type: "active", value: false });
+  assert.deepEqual(messages.slice(-2), [
+    { type: "transport", value: false },
+    { type: "audible", value: false },
+  ]);
   assert.deepEqual(ramps.at(-1), ["ramp", 0, 3.035]);
   assert.equal(scheduled.at(-1)[0], "set");
   assert.equal(scheduled.at(-1)[2], 55);
+  const messageCount = messages.length;
+  assert.equal(audio.setTransport(true), false);
+  assert.equal(messages.length, messageCount);
 });
 
 test("the worklet render loop contains no explicit allocations", async () => {
@@ -700,6 +735,64 @@ test("the worklet renders bounded stereo through both independent seams and extr
     assert.equal(registeredName, "morphazoid-ouroboros-borealis");
     assert.equal(registrationCount, 1);
     assert.equal(typeof Processor, "function");
+
+    const separated = new Processor({
+      processorOptions: OUROBOROS_BOREALIS_DEFAULTS,
+    });
+    const initialPitchPosition = separated.pitchPosition;
+    const initialRhythmPosition = separated.rhythmPosition;
+    const initialPulsePhases = Array.from(separated.pulsePhases);
+    separated.port.onmessage({ data: { type: "audible", value: true } });
+    assert.equal(separated.audibleTarget, 1);
+    assert.equal(separated.transportTarget, 0);
+    separated.process([], [[new Float32Array(128), new Float32Array(128)]]);
+    assert.ok(separated.activeGain > 0, "audible should open the output gain");
+    assert.equal(separated.pitchPosition, initialPitchPosition);
+    assert.equal(separated.rhythmPosition, initialRhythmPosition);
+    assert.deepEqual(
+      Array.from(separated.pulsePhases),
+      initialPulsePhases,
+      "audible alone must not advance the rhythm clocks",
+    );
+
+    separated.port.onmessage({ data: { type: "transport", value: true } });
+    assert.equal(separated.audibleTarget, 1);
+    assert.equal(separated.transportTarget, 1);
+    separated.process([], [[new Float32Array(128), new Float32Array(128)]]);
+    assert.notEqual(separated.pitchPosition, initialPitchPosition);
+    assert.notEqual(separated.rhythmPosition, initialRhythmPosition);
+    assert.ok(separated.pulsePhases.some((phase, index) => (
+      phase !== initialPulsePhases[index]
+    )));
+
+    const gainBeforeMute = separated.activeGain;
+    separated.port.onmessage({ data: { type: "audible", value: false } });
+    assert.equal(separated.audibleTarget, 0);
+    assert.equal(
+      separated.transportTarget,
+      1,
+      "muting must not stop an independently running transport",
+    );
+    const pitchBeforeMutedMotion = separated.pitchPosition;
+    separated.process([], [[new Float32Array(128), new Float32Array(128)]]);
+    assert.notEqual(separated.pitchPosition, pitchBeforeMutedMotion);
+    assert.ok(separated.activeGain < gainBeforeMute);
+
+    separated.port.onmessage({ data: { type: "transport", value: false } });
+    const stoppedPitchPosition = separated.pitchPosition;
+    const stoppedRhythmPosition = separated.rhythmPosition;
+    const stoppedPulsePhases = Array.from(separated.pulsePhases);
+    separated.process([], [[new Float32Array(128), new Float32Array(128)]]);
+    assert.equal(separated.pitchPosition, stoppedPitchPosition);
+    assert.equal(separated.rhythmPosition, stoppedRhythmPosition);
+    assert.deepEqual(Array.from(separated.pulsePhases), stoppedPulsePhases);
+
+    separated.port.onmessage({ data: { type: "active", value: true } });
+    assert.equal(separated.audibleTarget, 1);
+    assert.equal(separated.transportTarget, 1);
+    separated.port.onmessage({ data: { type: "active", value: false } });
+    assert.equal(separated.audibleTarget, 0);
+    assert.equal(separated.transportTarget, 0);
 
     const quadrants = [
       [1, 1, 0.5, -0.8],
@@ -958,7 +1051,7 @@ test("the worklet renders bounded stereo through both independent seams and extr
   }
 });
 
-test("the native page exposes accessible Start/Stop and two interactive racetracks", async () => {
+test("the native page exposes five circular, independently controlled Ouroboros rings", async () => {
   const [markup, app, source, styles] = await Promise.all([
     readFile(new URL("ouroboros-borealis.html", ROOT), "utf8"),
     readFile(new URL("ouroboros-borealis-app.js", ROOT), "utf8"),
@@ -969,34 +1062,40 @@ test("the native page exposes accessible Start/Stop and two interactive racetrac
   assert.match(markup, /<title>Ouroboros Borealis — Morphazoid<\/title>/);
   assert.equal((markup.match(/<h1\b/g) ?? []).length, 1);
   assert.match(markup, /<h1[^>]*>\s*Ouroboros Borealis\s*<\/h1>/);
-  assert.match(markup, /<body class="borealis-page">/);
+  assert.match(markup, /<body class="ouroboros-page borealis-page">/);
+  assert.match(markup, /href="ouroboros\.css"/);
+  assert.match(markup, /class="ouroboros-shell borealis-shell"/);
+  assert.match(markup, /class="panel ouroboros-control-panel borealis-control-panel"/);
   assert.match(markup, /<main[^>]+id="ouroborosBorealis"/);
   assert.match(markup, /id="audioButton"[\s\S]{0,220}aria-pressed="false"/);
-  assert.match(markup, /id="audioButton"[\s\S]{0,260}aria-label="Start Ouroboros Borealis"/);
-  assert.match(markup, /id="audioAction"[^>]*>Start</);
+  assert.match(markup, /id="audioButton"[\s\S]{0,260}aria-label="Turn Ouroboros Borealis audio on"/);
+  assert.match(markup, /id="audioAction"[^>]*>Audio</);
   assert.match(markup, /id="audioState">off</);
   const transportTag = markup.match(/<button\b[^>]*\bid="transportButton"[^>]*>/)?.[0];
   assert.ok(transportTag);
   assert.match(transportTag, /\bdata-primary-transport(?:\s|=|>)/);
   assert.match(transportTag, /\baria-pressed="false"/);
   assert.match(markup, /id="transportIcon"[^>]*>▶</);
-  assert.match(markup, /id="transportLabel"[^>]*>Start</);
-  assert.match(
-    markup,
-    /id="strikeButton"[^>]+data-midi-trigger="strike"[^>]+aria-label=/,
-  );
+  assert.match(markup, /id="transportLabel"[^>]*>Play</);
+  assert.doesNotMatch(markup, /id="strikeButton"|>\s*Strike\s*</i);
+  assert.match(markup, /data-section="rings"[^>]*open/);
+  assert.match(markup, /id="ringControls"[^>]+role="group"/);
+  assert.match(markup, /id="selectedRingName"/);
+  assert.match(markup, /id="selectedRingMotion"/);
   const canvasTag = markup.match(/<canvas\b[^>]*\bid="stage"[^>]*>/)?.[0];
   assert.ok(canvasTag);
   assert.match(canvasTag, /\bdata-interactive-track(?:\s|=|>)/);
   assert.match(canvasTag, /\btabindex="0"/);
-  assert.match(canvasTag, /\brole="img"/);
+  assert.match(canvasTag, /\brole="application"/);
+  assert.match(canvasTag, /\baria-roledescription="nested ring controller"/);
   assert.match(canvasTag, /\baria-describedby="canvasInstructions liveStatus"/);
   assert.match(markup, /id="liveStatus"[^>]+aria-live="polite"/);
   assert.match(markup, /id="audioError"[^>]+role="alert"[^>]+hidden/);
   assert.match(markup, /data-reset-all[^>]+data-reset-in-place/);
-  assert.match(markup, /two (?:interactive )?(?:aurora )?racetracks/i);
-  assert.match(markup, /two playheads/i);
-  assert.match(markup, /drag either/i);
+  assert.match(markup, /five differently colored circular Ouroboros rings/i);
+  assert.match(markup, /each ring rotates independently/i);
+  assert.match(markup, /drag (?:clockwise|around)/i);
+  assert.doesNotMatch(markup, /racetrack|oval/i);
 
   assert.match(markup, /id="pitchDirection"[^>]+role="group"[^>]+aria-label=/);
   assert.match(markup, /id="pitchRise"[^>]+data-value="1"[^>]+aria-pressed="true"/);
@@ -1029,14 +1128,25 @@ test("the native page exposes accessible Start/Stop and two interactive racetrac
 
   assert.match(app, /new OuroborosBorealisAudio\(globalThis\)/);
   assert.match(app, /audioButton"\)\.addEventListener\("click", toggleAudio\)/);
-  assert.match(app, /transportButton"\)\.addEventListener\("click", toggleAudio\)/);
-  assert.match(app, /setPressed\(\$\("transportButton"\), state\.audioOn\)/);
-  assert.match(app, /function trackPositionFromPointer\(event\)/);
+  assert.match(app, /transportButton"\)\.addEventListener\("click", toggleTransport\)/);
+  assert.match(app, /setPressed\(\$\("transportButton"\), state\.playing\)/);
+  assert.match(app, /function ringPositionFromPointer\(event, lockedRing = null\)/);
+  assert.match(app, /function signedRingDelta\(next, previous\)/);
   assert.match(app, /function strikeTrackPosition\(lane, position, velocity/);
-  assert.match(app, /function drawPlayhead\(/);
-  assert.match(app, /drawPlayhead\(context2d, "pitch", state\.pitchPosition/);
-  assert.match(app, /drawPlayhead\(context2d, "rhythm", state\.rhythmPosition/);
-  assert.match(app, /function drawStrikeHistory\(/);
+  assert.match(app, /const RING_DEFINITIONS = Object\.freeze\(\[/);
+  assert.equal((app.match(/name: "(?:Aurora|Verdant|Violet|Magenta|Solar)"/g) ?? []).length, 5);
+  for (const color of ["#77e5e3", "#9df09e", "#b498ff", "#ff91cd", "#f5d878"]) {
+    assert.match(app, new RegExp(color));
+  }
+  assert.match(app, /function ringGeometry\(width, height\)/);
+  const geometryBody = functionBody(app, "ringGeometry");
+  assert.match(geometryBody, /Math\.min\(horizontalRadius, verticalRadius\)/);
+  assert.match(geometryBody, /radii/);
+  assert.doesNotMatch(geometryBody, /radiusX|radiusY|ellipse|superellipse/i);
+  assert.match(app, /function pointOnRing\(/);
+  assert.match(app, /function drawNestedRingField\(/);
+  assert.match(app, /ctx\.arc\(geometry\.centerX, geometry\.centerY, radius, 0, TAU\)/);
+  assert.match(app, /function drawRingStrikeHistory\(/);
   const historyDuration = Number(app.match(/STRIKE_HISTORY_SECONDS\s*=\s*([\d.]+)/)?.[1]);
   assert.ok(historyDuration >= 2.8);
   assert.match(app, /canvas\.addEventListener\("pointerdown"/);
@@ -1045,11 +1155,21 @@ test("the native page exposes accessible Start/Stop and two interactive racetrac
   assert.match(app, /canvas\.addEventListener\("pointercancel", releaseTrackPointer\)/);
   assert.match(app, /canvas\.setPointerCapture\?\.\(event\.pointerId\)/);
   assert.match(app, /canvas\.releasePointerCapture\?\.\(event\.pointerId\)/);
+  const pointerMove = app.slice(
+    app.indexOf('canvas.addEventListener("pointermove"'),
+    app.indexOf('canvas.addEventListener("pointerup"'),
+  );
+  assert.match(pointerMove, /ring\.direction = delta > 0 \? 1 : -1/);
+  assert.match(pointerMove, /ring\.speed = clamp/);
+  assert.match(pointerMove, /ring\.phase = target\.position/);
+  assert.match(pointerMove, /projectRingMotionToEngine\(ring\)/);
   const trackStrike = functionBody(app, "strikeTrackPosition");
   assert.match(trackStrike, /await startAudio\(\)/);
   assert.match(trackStrike, /audio\.strike\([^,\n]+,\s*[^)\n]*position\)/);
   assert.doesNotMatch(trackStrike, /state\.(?:pitchPosition|rhythmPosition)\s*=/);
   const visualAdvance = functionBody(app, "advanceVisualState");
+  assert.match(visualAdvance, /for \(const ring of state\.rings\)/);
+  assert.match(visualAdvance, /ring\.direction \* ring\.speed \* elapsed/);
   assert.match(visualAdvance, /advanceOuroborosBorealisCoordinates\(/);
   assert.match(visualAdvance, /state\.pitchTravel \+= advanced\.pitchOctaveDelta/);
   assert.match(visualAdvance, /state\.rhythmTravel \+= advanced\.rhythmOctaveDelta/);
@@ -1081,7 +1201,10 @@ test("the native page exposes accessible Start/Stop and two interactive racetrac
   assert.match(pageHide, /audio\.stop\(\)/);
   assert.match(pageHide, /audio\.close\(\)/);
   assert.doesNotMatch(app, /new AudioContext/);
-  assert.match(source, /async start\(\)\s*\{\s*await this\.initialize\(\)/);
-  assert.match(styles, /#stage\s*\{[^}]*touch-action:\s*none/s);
+  assert.match(source, /async enable\(\)\s*\{\s*await this\.initialize\(\)/);
+  assert.match(source, /async start\(\)\s*\{\s*await this\.enable\(\)/);
+  assert.match(source, /setTransport\(active\)/);
+  assert.match(styles, /\.borealis-ring-row\s*\{/);
+  assert.match(styles, /\.borealis-stage-wrap\.is-dragging-ring #stage/);
   assert.match(styles, /@media \(max-width: 560px\)/);
 });

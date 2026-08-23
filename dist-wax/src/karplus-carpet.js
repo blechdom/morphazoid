@@ -12,28 +12,27 @@ import {
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const finiteOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
-const GOLDEN_PHASE = 0.6180339887498949;
 
 export const KARPLUS_CARPET_LIMITS = Object.freeze({
-  minimumHitCount: 8,
-  maximumHitCount: 128,
-  minimumDensity: 4,
-  maximumDensity: 28,
   minimumGrainDuration: 0.08,
   maximumGrainDuration: 0.4,
+  spatialCellSize: 10,
+  minimumSpatialColumns: 24,
+  maximumSpatialColumns: 512,
+  minimumSpatialRows: 12,
+  maximumSpatialRows: 96,
+  maximumCrossingsPerMove: 48,
+  minimumHeadroomDensity: 4,
+  maximumHeadroomDensity: 28,
+  defaultHeadroomDensity: 16,
   maximumVoices: 48,
-  scheduleAheadSeconds: 0.1,
 });
 
 export const KARPLUS_CARPET_DEFAULTS = Object.freeze({
   ...KARPLUS_STRONG_TUNING_DEFAULTS,
   lowFrequency: 110,
   highFrequency: 880,
-  hitCount: 64,
-  hitDensity: 16,
   grainDuration: 0.16,
-  timingJitter: 0.18,
-  pitchSpread: 0.72,
   velocityScatter: 0.28,
   stereoSpread: 0.78,
   centerPosition: 0.5,
@@ -49,30 +48,10 @@ export function sanitizeKarplusCarpetSettings(source = {}) {
   });
   return {
     ...tuning,
-    hitCount: clamp(
-      Math.round(finiteOr(settings.hitCount, KARPLUS_CARPET_DEFAULTS.hitCount)),
-      KARPLUS_CARPET_LIMITS.minimumHitCount,
-      KARPLUS_CARPET_LIMITS.maximumHitCount,
-    ),
-    hitDensity: clamp(
-      Math.round(finiteOr(settings.hitDensity, KARPLUS_CARPET_DEFAULTS.hitDensity)),
-      KARPLUS_CARPET_LIMITS.minimumDensity,
-      KARPLUS_CARPET_LIMITS.maximumDensity,
-    ),
     grainDuration: clamp(
       finiteOr(settings.grainDuration, KARPLUS_CARPET_DEFAULTS.grainDuration),
       KARPLUS_CARPET_LIMITS.minimumGrainDuration,
       KARPLUS_CARPET_LIMITS.maximumGrainDuration,
-    ),
-    timingJitter: clamp(
-      finiteOr(settings.timingJitter, KARPLUS_CARPET_DEFAULTS.timingJitter),
-      0,
-      1,
-    ),
-    pitchSpread: clamp(
-      finiteOr(settings.pitchSpread, KARPLUS_CARPET_DEFAULTS.pitchSpread),
-      0.04,
-      1,
     ),
     velocityScatter: clamp(
       finiteOr(settings.velocityScatter, KARPLUS_CARPET_DEFAULTS.velocityScatter),
@@ -109,42 +88,6 @@ function eventRandom(seed, index) {
   return createKarplusCarpetRandom(mixed >>> 0);
 }
 
-export function karplusCarpetIntervalMs(source = {}, index = 0, options = {}) {
-  const settings = sanitizeKarplusCarpetSettings(source);
-  const random = eventRandom(options.seed, index);
-  const baseInterval = 1_000 / settings.hitDensity;
-  const jitter = (random() * 2 - 1) * settings.timingJitter * 0.72;
-  return baseInterval * clamp(1 + jitter, 0.28, 1.72);
-}
-
-export function karplusCarpetResumeTime(nextHitAt, now, options = {}) {
-  const currentTime = Math.max(0, finiteOr(now, 0));
-  const scheduledTime = finiteOr(nextHitAt, currentTime);
-  const maximumLatenessMs = clamp(finiteOr(options.maximumLatenessMs, 50), 0, 1_000);
-  const restartDelayMs = clamp(finiteOr(options.restartDelayMs, 8), 0, 100);
-  return scheduledTime < currentTime - maximumLatenessMs
-    ? currentTime + restartDelayMs
-    : scheduledTime;
-}
-
-export function karplusCarpetRephaseTime(
-  source,
-  lastScheduledHitAt,
-  now,
-  index = 0,
-  options = {},
-) {
-  const currentTime = Math.max(0, finiteOr(now, 0));
-  const scheduledTime = lastScheduledHitAt == null
-    ? currentTime
-    : finiteOr(lastScheduledHitAt, currentTime);
-  const minimumLeadMs = clamp(finiteOr(options.minimumLeadMs, 8), 0, 1_000);
-  return Math.max(
-    currentTime + minimumLeadMs,
-    scheduledTime + karplusCarpetIntervalMs(source, index, options),
-  );
-}
-
 export function karplusCarpetStageGeometry(width, height) {
   const safeWidth = Math.max(1, finiteOr(width, 1));
   const safeHeight = Math.max(1, finiteOr(height, 1));
@@ -158,6 +101,146 @@ export function karplusCarpetStageGeometry(width, height) {
 export function karplusCarpetPositionFromStageX(x, width) {
   const { left, right } = karplusCarpetStageGeometry(width, 1);
   return clamp((finiteOr(x, left) - left) / Math.max(1, right - left), 0, 1);
+}
+
+export function karplusCarpetSpatialGrid(width, height, options = {}) {
+  const geometry = karplusCarpetStageGeometry(width, height);
+  const fieldWidth = Math.max(1, geometry.right - geometry.left);
+  const fieldHeight = Math.max(1, geometry.bottom - geometry.top);
+  const cellSize = clamp(
+    finiteOr(options.cellSize, KARPLUS_CARPET_LIMITS.spatialCellSize),
+    4,
+    32,
+  );
+  const pitchCount = Math.max(1, Math.round(finiteOr(options.pitchCount, 1)));
+  const columns = clamp(
+    Math.max(
+      KARPLUS_CARPET_LIMITS.minimumSpatialColumns,
+      pitchCount,
+      Math.ceil(fieldWidth / cellSize),
+    ),
+    1,
+    KARPLUS_CARPET_LIMITS.maximumSpatialColumns,
+  );
+  const rows = clamp(
+    Math.max(
+      KARPLUS_CARPET_LIMITS.minimumSpatialRows,
+      Math.ceil(fieldHeight / cellSize),
+    ),
+    1,
+    KARPLUS_CARPET_LIMITS.maximumSpatialRows,
+  );
+  return Object.freeze({
+    ...geometry,
+    columns,
+    rows,
+    cellWidth: fieldWidth / columns,
+    cellHeight: fieldHeight / rows,
+  });
+}
+
+function spatialCellFromIndices(grid, column, row, amount = 1) {
+  const safeColumn = clamp(Math.trunc(column), 0, grid.columns - 1);
+  const safeRow = clamp(Math.trunc(row), 0, grid.rows - 1);
+  const left = grid.left + safeColumn * grid.cellWidth;
+  const top = grid.top + safeRow * grid.cellHeight;
+  return Object.freeze({
+    key: safeColumn + ":" + safeRow,
+    index: safeRow * grid.columns + safeColumn,
+    column: safeColumn,
+    row: safeRow,
+    position: (safeColumn + 0.5) / grid.columns,
+    visualY: (safeRow + 0.5) / grid.rows,
+    x: left + grid.cellWidth * 0.5,
+    y: top + grid.cellHeight * 0.5,
+    left,
+    right: left + grid.cellWidth,
+    top,
+    bottom: top + grid.cellHeight,
+    amount: clamp(finiteOr(amount, 1), 0, 1),
+  });
+}
+
+export function karplusCarpetSpatialCellAtPosition(width, height, x, y, options = {}) {
+  const grid = options.grid ?? karplusCarpetSpatialGrid(width, height, options);
+  const pointX = finiteOr(x, Number.NaN);
+  const pointY = finiteOr(y, Number.NaN);
+  if (
+    !Number.isFinite(pointX)
+    || !Number.isFinite(pointY)
+    || pointX < grid.left
+    || pointX > grid.right
+    || pointY < grid.top
+    || pointY > grid.bottom
+  ) return null;
+  const column = Math.min(
+    grid.columns - 1,
+    Math.floor((pointX - grid.left) / grid.cellWidth),
+  );
+  const row = Math.min(
+    grid.rows - 1,
+    Math.floor((pointY - grid.top) / grid.cellHeight),
+  );
+  return spatialCellFromIndices(grid, column, row, 0);
+}
+
+export function karplusCarpetSpatialCrossings(from, to, options = {}) {
+  const width = Math.max(1, finiteOr(options.width, 1));
+  const height = Math.max(1, finiteOr(options.height, 1));
+  const grid = options.grid ?? karplusCarpetSpatialGrid(width, height, options);
+  const start = karplusCarpetSpatialCellAtPosition(width, height, from?.x, from?.y, { grid });
+  const end = karplusCarpetSpatialCellAtPosition(width, height, to?.x, to?.y, { grid });
+  if (!start || !end || start.key === end.key) return Object.freeze([]);
+
+  const epsilon = Number.EPSILON * 16;
+  const startX = clamp((finiteOr(from?.x, grid.left) - grid.left) / grid.cellWidth, 0, grid.columns - epsilon);
+  const startY = clamp((finiteOr(from?.y, grid.top) - grid.top) / grid.cellHeight, 0, grid.rows - epsilon);
+  const endX = clamp((finiteOr(to?.x, grid.left) - grid.left) / grid.cellWidth, 0, grid.columns - epsilon);
+  const endY = clamp((finiteOr(to?.y, grid.top) - grid.top) / grid.cellHeight, 0, grid.rows - epsilon);
+  const deltaX = endX - startX;
+  const deltaY = endY - startY;
+  const stepX = Math.sign(deltaX);
+  const stepY = Math.sign(deltaY);
+  const deltaTX = stepX ? Math.abs(1 / deltaX) : Number.POSITIVE_INFINITY;
+  const deltaTY = stepY ? Math.abs(1 / deltaY) : Number.POSITIVE_INFINITY;
+  let column = start.column;
+  let row = start.row;
+  let maxTX = stepX > 0
+    ? (column + 1 - startX) / deltaX
+    : stepX < 0 ? (startX - column) / -deltaX : Number.POSITIVE_INFINITY;
+  let maxTY = stepY > 0
+    ? (row + 1 - startY) / deltaY
+    : stepY < 0 ? (startY - row) / -deltaY : Number.POSITIVE_INFINITY;
+  const crossed = [];
+  const maximumSteps = grid.columns + grid.rows + 2;
+
+  for (let step = 0; step < maximumSteps && (column !== end.column || row !== end.row); step += 1) {
+    let amount;
+    if (Math.abs(maxTX - maxTY) <= 1e-10) {
+      amount = maxTX;
+      column += stepX;
+      row += stepY;
+      maxTX += deltaTX;
+      maxTY += deltaTY;
+    } else if (maxTX < maxTY) {
+      amount = maxTX;
+      column += stepX;
+      maxTX += deltaTX;
+    } else {
+      amount = maxTY;
+      row += stepY;
+      maxTY += deltaTY;
+    }
+    crossed.push(spatialCellFromIndices(grid, column, row, amount));
+  }
+  return Object.freeze(crossed);
+}
+
+export function karplusCarpetSpatialCellSeed(cell = {}) {
+  return (
+    Math.imul(Math.max(0, Math.trunc(finiteOr(cell.column, 0))) + 1, 0x8da6b343)
+    ^ Math.imul(Math.max(0, Math.trunc(finiteOr(cell.row, 0))) + 1, 0xd8163841)
+  ) >>> 0;
 }
 
 export function karplusCarpetPitchAtPosition(source = {}, position, frequencySource) {
@@ -179,90 +262,35 @@ export function karplusCarpetPitchAtPosition(source = {}, position, frequencySou
   });
 }
 
-export function karplusCarpetEvent(source = {}, index = 0, options = {}) {
-  const settings = sanitizeKarplusCarpetSettings(source);
-  const serial = Math.max(0, Math.trunc(finiteOr(index, 0)));
-  const seed = Math.trunc(finiteOr(options.seed, 1)) >>> 0;
-  const random = eventRandom(seed, serial);
-  const frequencies = Array.isArray(options.frequencies) && options.frequencies.length
-    ? options.frequencies
-    : karplusStrongStringFrequencies(settings);
-  const maximumIndex = Math.max(0, frequencies.length - 1);
-  const centerIndex = settings.centerPosition * maximumIndex;
-  const halfWidth = Math.max(0.5, maximumIndex * settings.pitchSpread * 0.5);
-  const lowerIndex = Math.max(0, centerIndex - halfWidth);
-  const upperIndex = Math.min(maximumIndex, centerIndex + halfWidth);
-  const wovenPhase = (serial * GOLDEN_PHASE + random() * 0.34) % 1;
-  const frequencyIndex = clamp(
-    Math.round(lowerIndex + (upperIndex - lowerIndex) * wovenPhase),
-    0,
-    maximumIndex,
-  );
-  const fieldPosition = maximumIndex ? frequencyIndex / maximumIndex : 0.5;
-  const duration = clamp(
-    settings.grainDuration * (0.78 + random() * 0.44),
-    KARPLUS_CARPET_LIMITS.minimumGrainDuration,
-    KARPLUS_CARPET_LIMITS.maximumGrainDuration,
-  );
-  const velocity = clamp(
-    0.38 + (random() * 2 - 1) * settings.velocityScatter * 0.2,
-    0.16,
-    0.62,
-  );
-  const pan = clamp(
-    (fieldPosition * 2 - 1) * settings.stereoSpread
-      + (random() * 2 - 1) * settings.stereoSpread * 0.12,
-    -1,
-    1,
-  );
-  const eventSeed = (seed ^ Math.imul(serial + 11, 0x85ebca6b)) >>> 0;
-  return Object.freeze({
-    index: serial,
-    seed: eventSeed,
-    frequencyIndex,
-    frequency: finiteOr(frequencies[frequencyIndex], settings.lowFrequency),
-    fieldPosition,
-    visualY: 0.12 + random() * 0.76,
-    duration,
-    velocity,
-    pan,
-    timbre: random() * 2 - 1,
-  });
-}
-
 export function karplusCarpetPointerEvent(source = {}, index = 0, options = {}) {
   const settings = sanitizeKarplusCarpetSettings(source);
   const frequencies = Array.isArray(options.frequencies) && options.frequencies.length
     ? options.frequencies
     : karplusStrongStringFrequencies(settings);
-  const event = karplusCarpetEvent(settings, index, { ...options, frequencies });
+  const serial = Math.max(0, Math.trunc(finiteOr(index, 0)));
+  const seed = Math.trunc(finiteOr(options.seed, 1)) >>> 0;
+  const random = eventRandom(seed, serial);
   const pitch = karplusCarpetPitchAtPosition(
     settings,
     options.position,
     frequencies,
   );
+  const duration = clamp(
+    settings.grainDuration * (0.9 + random() * 0.2),
+    KARPLUS_CARPET_LIMITS.minimumGrainDuration,
+    KARPLUS_CARPET_LIMITS.maximumGrainDuration,
+  );
+  const variedVelocity = 0.42 + (random() * 2 - 1) * settings.velocityScatter * 0.18;
   return Object.freeze({
-    ...event,
+    index: serial,
+    seed: (seed ^ Math.imul(serial + 11, 0x85ebca6b)) >>> 0,
     ...pitch,
     visualY: clamp(finiteOr(options.visualY, 0.5), 0, 1),
+    duration,
+    velocity: clamp(finiteOr(options.velocity, variedVelocity), 0.16, 0.7),
     pan: clamp((pitch.fieldPosition * 2 - 1) * settings.stereoSpread, -1, 1),
+    timbre: random() * 2 - 1,
   });
-}
-
-export function buildKarplusCarpetEvents(source = {}, options = {}) {
-  const settings = sanitizeKarplusCarpetSettings(source);
-  const frequencies = karplusStrongStringFrequencies(settings);
-  const events = [];
-  let atMs = 0;
-  for (let index = 0; index < settings.hitCount; index += 1) {
-    const event = karplusCarpetEvent(settings, index, {
-      seed: options.seed,
-      frequencies,
-    });
-    events.push(Object.freeze({ ...event, atMs }));
-    atMs += karplusCarpetIntervalMs(settings, index, options);
-  }
-  return Object.freeze(events);
 }
 
 export function generateKarplusCarpetSamples(event = {}, sourceSettings = {}, sampleRate = 48_000) {
@@ -482,11 +510,11 @@ export class KarplusCarpetAudio {
     body.Q.value = settings.bodyQ;
     body.gain.value = settings.body * 9;
     const density = clamp(
-      finiteOr(options.density, KARPLUS_CARPET_DEFAULTS.hitDensity),
-      KARPLUS_CARPET_LIMITS.minimumDensity,
-      KARPLUS_CARPET_LIMITS.maximumDensity,
+      finiteOr(options.density, KARPLUS_CARPET_LIMITS.defaultHeadroomDensity),
+      KARPLUS_CARPET_LIMITS.minimumHeadroomDensity,
+      KARPLUS_CARPET_LIMITS.maximumHeadroomDensity,
     );
-    const densityHeadroom = Math.sqrt(KARPLUS_CARPET_LIMITS.minimumDensity / density);
+    const densityHeadroom = Math.sqrt(KARPLUS_CARPET_LIMITS.minimumHeadroomDensity / density);
     const peak = clamp(finiteOr(event.velocity, 0.38), 0.05, 0.7) * 0.46 * densityHeadroom;
     gain.gain.setValueAtTime(0.0001, when);
     gain.gain.linearRampToValueAtTime(Math.max(0.0002, peak), when + 0.002);

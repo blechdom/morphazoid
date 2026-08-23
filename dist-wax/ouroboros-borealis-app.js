@@ -9,6 +9,10 @@ import {
 } from "./src/ouroboros-borealis.js";
 
 const $ = (id) => document.getElementById(id);
+const setText = (id, value) => {
+  const element = $(id);
+  if (element) element.textContent = value;
+};
 const audio = new OuroborosBorealisAudio(globalThis);
 const canvas = $("stage");
 const context2d = canvas.getContext("2d", { alpha: true, desynchronized: true });
@@ -39,6 +43,13 @@ const PARAMETER_KEYS = Object.freeze([
   "morphDepth",
   "noiseMix",
   "cutoff",
+]);
+const RING_DEFINITIONS = Object.freeze([
+  Object.freeze({ id: "aurora", name: "Aurora", color: "#77e5e3", channel: "pitch", rateScale: 0.55, phase: 0.03 }),
+  Object.freeze({ id: "verdant", name: "Verdant", color: "#9df09e", channel: "rhythm", rateScale: 0.9, phase: 0.21 }),
+  Object.freeze({ id: "violet", name: "Violet", color: "#b498ff", channel: "pitch", rateScale: 1, phase: 0.43, invert: true }),
+  Object.freeze({ id: "magenta", name: "Magenta", color: "#ff91cd", channel: "rhythm", rateScale: 1.5, phase: 0.64, invert: true }),
+  Object.freeze({ id: "solar", name: "Solar", color: "#f5d878", channel: "pitch", rateScale: 1.75, phase: 0.82 }),
 ]);
 
 function clamp(value, minimum, maximum) {
@@ -152,6 +163,26 @@ function createMemory(preset = OUROBOROS_BOREALIS_PRESETS[0] ?? OUROBOROS_BOREAL
   return memory;
 }
 
+function createRings(parameters = OUROBOROS_BOREALIS_DEFAULTS) {
+  const safe = sanitizeOuroborosBorealisParams(parameters);
+  return RING_DEFINITIONS.map((definition, index) => {
+    const baseDirection = definition.channel === "pitch"
+      ? safe.pitchDirection
+      : safe.rhythmDirection;
+    const baseSpeed = definition.channel === "pitch"
+      ? safe.pitchGlissRate
+      : safe.rhythmGlissRate;
+    return {
+      ...definition,
+      index,
+      direction: definition.invert ? -baseDirection : baseDirection,
+      speed: clamp(baseSpeed * definition.rateScale, 0.02, 1.2),
+      phase: wrapUnit(definition.phase + seed),
+      travel: 0,
+    };
+  });
+}
+
 const initialSafe = sanitizeOuroborosBorealisParams(OUROBOROS_BOREALIS_DEFAULTS);
 const seed = Number.isFinite(OUROBOROS_BOREALIS_PHASE_SEED)
   ? OUROBOROS_BOREALIS_PHASE_SEED
@@ -161,14 +192,18 @@ const state = {
   level: initialSafe.level,
   audioOn: false,
   audioStarting: false,
+  playing: false,
   pitchPosition: wrapUnit(seed),
   rhythmPosition: wrapUnit(seed),
   pitchTravel: 0,
   rhythmTravel: 0,
   pulsePhase: seed,
-  pointerLane: null,
+  rings: [],
+  selectedRing: 0,
+  pointerRing: null,
   pointerPosition: null,
 };
+state.rings = createRings(state.parameters);
 
 let disposed = false;
 let animationFrame = 0;
@@ -184,6 +219,7 @@ let audioStartGeneration = 0;
 let strikeEvents = [];
 let activeTrackPointer = null;
 let lastPointerPosition = null;
+let lastPointerTime = null;
 let lastPointerStrikeTime = -Infinity;
 let pendingTrackStrike = null;
 let trackStrikePromise = null;
@@ -258,6 +294,154 @@ function renderPresetGrid() {
   }
 }
 
+function selectedRing() {
+  return state.rings[state.selectedRing] ?? state.rings[0];
+}
+
+function ringDirectionLabel(ring, compact = false) {
+  if (!ring) return "clockwise";
+  if (compact) return ring.direction > 0 ? "RIGHT ↻" : "LEFT ↺";
+  return ring.direction > 0 ? "right / clockwise" : "left / counterclockwise";
+}
+
+function renderRingControls() {
+  const container = $("ringControls");
+  if (!container) return;
+  container.replaceChildren();
+  for (const ring of state.rings) {
+    const row = document.createElement("div");
+    const selector = document.createElement("button");
+    const swatch = document.createElement("i");
+    const name = document.createElement("b");
+    const direction = document.createElement("button");
+    const speedLabel = document.createElement("label");
+    const speed = document.createElement("input");
+    const output = document.createElement("output");
+
+    row.className = "borealis-ring-row";
+    row.dataset.ringRow = String(ring.index);
+    row.style.setProperty("--ring-color", ring.color);
+    selector.type = "button";
+    selector.className = "borealis-ring-select";
+    selector.dataset.ringSelect = String(ring.index);
+    selector.setAttribute("aria-label", `Select ${ring.name} ring`);
+    swatch.style.setProperty("--ring-color", ring.color);
+    name.textContent = ring.name;
+    selector.append(swatch, name);
+
+    direction.type = "button";
+    direction.className = "borealis-ring-direction";
+    direction.dataset.ringDirection = String(ring.index);
+    direction.setAttribute("aria-label", `Reverse ${ring.name} ring`);
+
+    speedLabel.className = "borealis-ring-speed";
+    speedLabel.setAttribute("for", `ringSpeed${ring.index}`);
+    speed.type = "range";
+    speed.id = `ringSpeed${ring.index}`;
+    speed.dataset.ringSpeed = String(ring.index);
+    speed.min = "0.02";
+    speed.max = "1.2";
+    speed.step = "0.01";
+    speed.setAttribute("aria-label", `${ring.name} ring speed`);
+    output.id = `ringSpeedOut${ring.index}`;
+    output.setAttribute("for", speed.id);
+    speedLabel.append(speed, output);
+    row.append(selector, direction, speedLabel);
+    container.append(row);
+  }
+}
+
+function updateRingControls() {
+  const active = selectedRing();
+  for (const ring of state.rings) {
+    const row = document.querySelector(`[data-ring-row="${ring.index}"]`);
+    row?.classList.toggle("is-selected", ring.index === state.selectedRing);
+    const selector = document.querySelector(`[data-ring-select="${ring.index}"]`);
+    setPressed(selector, ring.index === state.selectedRing);
+    const direction = document.querySelector(`[data-ring-direction="${ring.index}"]`);
+    if (direction) {
+      direction.textContent = ring.direction > 0 ? "↻ Right" : "↺ Left";
+      setPressed(direction, ring.direction > 0);
+    }
+    const speed = document.querySelector(`[data-ring-speed="${ring.index}"]`);
+    if (speed && document.activeElement !== speed) speed.value = ring.speed.toFixed(2);
+    setText(`ringSpeedOut${ring.index}`, `${ring.speed.toFixed(2)} rev/s`);
+  }
+  if (!active) return;
+  setText("selectedRingName", `${active.name} ring`);
+  setText("selectedRingMotion", `${ringDirectionLabel(active)} · ${active.speed.toFixed(2)} rev/s`);
+  setText("ringSummary", `5 independent rings · ${active.name.toLowerCase()} selected`);
+  setText("directionMarker", active.direction > 0 ? "↻" : "↺");
+  setText("directionMarkerText", `${active.name.toLowerCase()} · ${ringDirectionLabel(active)}`);
+}
+
+function selectRing(index, { announceSelection = false } = {}) {
+  state.selectedRing = Math.round(clamp(index, 0, state.rings.length - 1));
+  updateRingControls();
+  visualizationDirty = true;
+  scheduleAnimation();
+  if (announceSelection) {
+    const ring = selectedRing();
+    announce(`${ring.name} ring selected: ${ringDirectionLabel(ring)} at ${ring.speed.toFixed(2)} revolutions per second.`);
+  }
+}
+
+function applyGlobalMotionToRings(channel) {
+  for (const ring of state.rings) {
+    if (ring.channel !== channel) continue;
+    const baseDirection = channel === "pitch"
+      ? state.parameters.pitchDirection
+      : state.parameters.rhythmDirection;
+    const baseSpeed = channel === "pitch"
+      ? state.parameters.pitchGlissRate
+      : state.parameters.rhythmGlissRate;
+    ring.direction = ring.invert ? -baseDirection : baseDirection;
+    ring.speed = clamp(baseSpeed * ring.rateScale, 0.02, 1.2);
+  }
+}
+
+function projectRingMotionToEngine(ring) {
+  if (!ring) return;
+  if (ring.channel === "pitch") {
+    state.parameters.pitchDirection = ring.direction;
+    state.parameters.pitchGlissRate = ring.speed;
+  } else {
+    state.parameters.rhythmDirection = ring.direction;
+    state.parameters.rhythmGlissRate = ring.speed;
+  }
+  markCustom();
+}
+
+$("ringControls")?.addEventListener("click", (event) => {
+  const selector = event.target.closest("[data-ring-select]");
+  if (selector) {
+    selectRing(Number(selector.dataset.ringSelect), { announceSelection: true });
+    return;
+  }
+  const directionButton = event.target.closest("[data-ring-direction]");
+  if (!directionButton) return;
+  const index = Number(directionButton.dataset.ringDirection);
+  const ring = state.rings[index];
+  if (!ring) return;
+  ring.direction *= -1;
+  selectRing(index);
+  projectRingMotionToEngine(ring);
+  updateInterface();
+  announce(`${ring.name} ring now moves ${ringDirectionLabel(ring)}.`);
+});
+
+$("ringControls")?.addEventListener("input", (event) => {
+  const speedControl = event.target.closest("[data-ring-speed]");
+  if (!speedControl) return;
+  const index = Number(speedControl.dataset.ringSpeed);
+  const ring = state.rings[index];
+  if (!ring) return;
+  ring.speed = clamp(speedControl.value, 0.02, 1.2);
+  state.selectedRing = index;
+  projectRingMotionToEngine(ring);
+  updateInterface();
+});
+
 function updateAudioParameters() {
   audio.setParameters(currentParameters());
 }
@@ -266,34 +450,27 @@ function updateInterface({ rebuildPresets = false } = {}) {
   const safe = currentParameters();
   const pitchRising = safe.pitchDirection > 0;
   const rhythmAccelerating = safe.rhythmDirection > 0;
-  let frame = null;
-  try {
-    frame = currentFrame();
-  } catch {
-    // Keep the interface usable while an unavailable AudioWorklet is initializing.
-  }
 
   setPressed($("pitchRise"), pitchRising);
   setPressed($("pitchFall"), !pitchRising);
   setPressed($("rhythmAccelerate"), rhythmAccelerating);
   setPressed($("rhythmDecelerate"), !rhythmAccelerating);
   setPressed($("audioButton"), state.audioOn);
-  setPressed($("transportButton"), state.audioOn);
+  setPressed($("transportButton"), state.playing);
 
   $("audioButton").disabled = state.audioStarting;
   $("transportButton").disabled = state.audioStarting;
-  $("strikeButton").disabled = state.audioStarting;
   $("audioButton").dataset.audioState = state.audioStarting ? "starting" : state.audioOn ? "on" : "off";
-  $("audioButton").setAttribute("aria-label", state.audioOn ? "Stop Ouroboros Borealis" : "Start Ouroboros Borealis");
-  $("audioAction").textContent = state.audioOn ? "Stop" : "Start";
+  $("audioButton").setAttribute("aria-label", state.audioOn ? "Turn Ouroboros Borealis audio off" : "Turn Ouroboros Borealis audio on");
+  $("audioAction").textContent = "Audio";
   $("audioState").textContent = state.audioOn ? "on" : "off";
-  $("transportIcon").textContent = state.audioStarting ? "…" : state.audioOn ? "■" : "▶";
-  $("transportLabel").textContent = state.audioStarting ? "Starting" : state.audioOn ? "Stop" : "Start";
+  $("transportIcon").textContent = state.audioStarting ? "…" : state.playing ? "Ⅱ" : "▶";
+  $("transportLabel").textContent = state.audioStarting ? "Starting" : state.playing ? "Pause" : "Play";
   $("transportButton").setAttribute(
     "aria-label",
-    state.audioOn
-      ? "Stop automatic Ouroboros Borealis motion and strikes"
-      : "Start automatic Ouroboros Borealis motion and strikes",
+    state.playing
+      ? "Pause the five Ouroboros Borealis rings"
+      : "Play the five Ouroboros Borealis rings",
   );
 
   for (const key of PARAMETER_KEYS) {
@@ -321,28 +498,26 @@ function updateInterface({ rebuildPresets = false } = {}) {
   $("cutoffOut").textContent = formatFrequency(safe.cutoff);
   $("levelOut").textContent = `${Math.round(safe.level * 100)}%`;
 
-  const activePitch = frameActiveCount(frame, "pitch");
-  const activeRhythm = frameActiveCount(frame, "rhythm");
-  $("engineSummary").textContent = activePitch > 0 && activeRhythm > 0
-    ? `${activePitch} pitch bodies × ${activeRhythm} rhythm lanes`
-    : "pitch × rhythm Shepard field";
+  $("engineSummary").textContent = `${state.rings.length} independent rings`;
   $("pitchSummary").textContent = `${pitchRising ? "rise" : "fall"} · ${safe.pitchGlissRate.toFixed(2)} oct/s · ${safe.pitchInterval.toFixed(2)} oct voices`;
   $("rhythmSummary").textContent = `${rhythmAccelerating ? "speed up" : "slow down"} · ${safe.rhythmGlissRate.toFixed(2)} oct/s · ${compactNumber(safe.centerRate, 2)} hits/s center`;
   $("relationshipSummary").textContent = `${couplingLabel(safe.coupling).toLowerCase()} · ${phaseLabel(safe.phaseOffset)}`;
   $("soundSummary").textContent = `${morphLabel(safe.morphDepth).toLowerCase()} morph · ${characterLabel(safe.character).toLowerCase()}`;
-  $("pitchLegend").textContent = pitchRising ? "rising" : "falling";
-  $("rhythmLegend").textContent = rhythmAccelerating ? "speeding" : "slowing";
+  setText("pitchLegend", pitchRising ? "rising" : "falling");
+  setText("rhythmLegend", rhythmAccelerating ? "speeding" : "slowing");
+  setText("playSummary", state.playing ? "five rings in motion" : "ready · drag any ring");
   $("stageReadout").textContent = [
-    `PITCH ${pitchRising ? "RISING" : "FALLING"}`,
-    `RHYTHM ${rhythmAccelerating ? "SPEEDING UP" : "SLOWING DOWN"}`,
-    couplingLabel(safe.coupling).toUpperCase(),
-    `${safe.pitchInterval.toFixed(2)} / ${safe.rhythmInterval.toFixed(2)} OCT INTERVALS`,
-    state.audioOn ? "PLAYING" : "STOPPED",
+    "5 NESTED OUROBOROS RINGS",
+    `${selectedRing()?.name?.toUpperCase() ?? "AURORA"} ${ringDirectionLabel(selectedRing(), true)}`,
+    `${selectedRing()?.speed.toFixed(2) ?? "0.09"} REV/S`,
+    state.playing ? "PLAYING" : "PAUSED",
+    `AUDIO ${state.audioOn ? "ON" : "OFF"}`,
   ].join(" · ");
   canvas.setAttribute(
     "aria-label",
-    `Two interactive endless racetracks. Pitch is ${pitchRising ? "rising" : "falling"} at ${safe.pitchGlissRate.toFixed(2)} octaves per second. Rhythm is ${rhythmAccelerating ? "speeding up" : "slowing down"} at ${safe.rhythmGlissRate.toFixed(2)} octaves per second around ${formatRate(safe.centerRate)}. ${couplingLabel(safe.coupling)}. Drag either racetrack to strike it.`,
+    `Five nested circular Ouroboros rings rotate independently. ${selectedRing()?.name ?? "Aurora"} is selected, moving ${ringDirectionLabel(selectedRing())} at ${selectedRing()?.speed.toFixed(2) ?? "0.09"} revolutions per second. Drag around a ring slowly or quickly to change its speed; reverse your drag to reverse its direction.`,
   );
+  updateRingControls();
 
   const preset = selectedPreset();
   $("presetSummary").textContent = preset ? presetLabel(preset) : "Custom";
@@ -363,7 +538,7 @@ function markCustom() {
 }
 
 function synchronizeVisualClock() {
-  if (!state.audioOn) return;
+  if (!state.playing) return;
   const audioTime = Number(audio.context?.currentTime);
   if (!Number.isFinite(audioTime) || lastAudioVisualTime === null) return;
   advanceVisualState(Math.max(0, audioTime - lastAudioVisualTime));
@@ -377,6 +552,9 @@ function applyPreset(id) {
   const priorPhaseOffset = Number(state.parameters.phaseOffset) || 0;
   const safe = sanitizeOuroborosBorealisParams({ ...OUROBOROS_BOREALIS_DEFAULTS, ...preset });
   state.parameters = createMemory(preset);
+  state.rings = createRings(state.parameters);
+  state.selectedRing = 0;
+  renderRingControls();
   shiftRhythmVisualPhases(safe.phaseOffset - priorPhaseOffset);
   state.level = safe.level;
   updateInterface({ rebuildPresets: true });
@@ -392,6 +570,7 @@ function setDirection(kind, value) {
   synchronizeVisualClock();
   const direction = directionSign(value, kind === "pitch" ? 1 : -1);
   state.parameters[`${kind}Direction`] = direction;
+  applyGlobalMotionToRings(kind);
   markCustom();
   updateInterface();
   announce(
@@ -422,6 +601,8 @@ function bindRange(id, onInput) {
 for (const key of PARAMETER_KEYS.filter((key) => !key.endsWith("Direction") && key !== "phaseOffset")) {
   bindRange(key, (value) => {
     state.parameters[key] = value;
+    if (key === "pitchGlissRate") applyGlobalMotionToRings("pitch");
+    if (key === "rhythmGlissRate") applyGlobalMotionToRings("rhythm");
     markCustom();
   });
 }
@@ -447,7 +628,7 @@ async function startAudio() {
   const startPromise = (async () => {
     try {
       updateAudioParameters();
-      await audio.start();
+      await audio.enable();
       if (disposed || generation !== audioStartGeneration) {
         if (disposed) await audio.close();
         else audio.stop();
@@ -458,7 +639,7 @@ async function startAudio() {
       lastAudioVisualTime = Number.isFinite(audio.context?.currentTime)
         ? audio.context.currentTime
         : null;
-      announce("Ouroboros Borealis started.");
+      announce("Ouroboros Borealis audio is on.");
       return true;
     } catch (error) {
       state.audioOn = false;
@@ -483,22 +664,48 @@ async function toggleAudio() {
     synchronizeVisualClock();
     audio.stop();
     state.audioOn = false;
+    state.playing = false;
     lastAudioVisualTime = null;
     updateInterface();
-    announce("Ouroboros Borealis stopped.");
+    announce("Ouroboros Borealis audio is off.");
     return;
   }
   await startAudio();
 }
 
 $("audioButton").addEventListener("click", toggleAudio);
-$("transportButton").addEventListener("click", toggleAudio);
 
-function addStrikeEvent(velocity = 0.86, position = null, lane = "both", age = 0) {
+async function toggleTransport() {
+  if (state.audioStarting) return;
+  if (state.playing) {
+    synchronizeVisualClock();
+    audio.stopTransport();
+    state.playing = false;
+    lastAudioVisualTime = null;
+    updateInterface();
+    announce("The five rings are paused.");
+    return;
+  }
+  if (!await startAudio()) return;
+  audio.setTransport(true);
+  state.playing = true;
+  lastAnimationTime = performance.now();
+  lastAudioVisualTime = Number.isFinite(audio.context?.currentTime)
+    ? audio.context.currentTime
+    : null;
+  updateInterface();
+  scheduleAnimation();
+  announce("The five rings are playing independently.");
+}
+
+$("transportButton").addEventListener("click", toggleTransport);
+
+function addStrikeEvent(velocity = 0.86, position = null, lane = "both", age = 0, ringIndex = null) {
   const safePosition = position === null ? null : wrapUnit(position);
   strikeEvents.push({
     age,
     lane,
+    ringIndex,
     velocity: clamp(velocity, 0, 1),
     strength: 1,
     pitchPosition: safePosition ?? state.pitchPosition,
@@ -544,26 +751,20 @@ function addLayerStrike(layer, safe, age = 0) {
   visualizationDirty = true;
 }
 
-function flashStrikeButton() {
-  const button = $("strikeButton");
-  button.classList.add("is-striking");
-  globalThis.setTimeout?.(() => button.classList.remove("is-striking"), 85);
-}
-
 async function strikeCurrentField(velocity = 0.9) {
   if (!await startAudio()) return false;
   const struck = audio.strike(velocity);
   if (!struck) return false;
   addStrikeEvent(velocity);
-  flashStrikeButton();
   scheduleAnimation();
   announce("Ouroboros Borealis struck across its pitch and rhythm field.");
   return true;
 }
 
-function strikeTrackPosition(lane, position, velocity = 0.8) {
+function strikeTrackPosition(lane, position, velocity = 0.8, ringIndex = state.selectedRing) {
   pendingTrackStrike = {
     lane,
+    ringIndex,
     position: wrapUnit(position),
     velocity: clamp(velocity, 0, 1),
   };
@@ -578,12 +779,17 @@ function strikeTrackPosition(lane, position, velocity = 0.8) {
       const audition = pendingTrackStrike;
       pendingTrackStrike = null;
       if (audio.strike(audition.velocity, audition.position)) {
-        addStrikeEvent(audition.velocity, audition.position, audition.lane);
+        addStrikeEvent(
+          audition.velocity,
+          audition.position,
+          audition.lane,
+          0,
+          audition.ringIndex,
+        );
         struck = true;
       }
     }
     if (struck) {
-      flashStrikeButton();
       scheduleAnimation();
     }
     return struck;
@@ -594,14 +800,13 @@ function strikeTrackPosition(lane, position, velocity = 0.8) {
   return promise;
 }
 
-$("strikeButton").addEventListener("click", () => {
-  void strikeCurrentField();
-});
-
 document.querySelector("[data-reset-all]").addEventListener("click", () => {
   synchronizeVisualClock();
   const priorPhaseOffset = Number(state.parameters.phaseOffset) || 0;
   state.parameters = createMemory();
+  state.rings = createRings(state.parameters);
+  state.selectedRing = 0;
+  renderRingControls();
   shiftRhythmVisualPhases(initialSafe.phaseOffset - priorPhaseOffset);
   state.level = initialSafe.level;
   clearAudioError();
@@ -609,91 +814,115 @@ document.querySelector("[data-reset-all]").addEventListener("click", () => {
   announce("Ouroboros Borealis parameters reset.");
 });
 
+function adjustSelectedRingSignedSpeed(amount) {
+  const ring = selectedRing();
+  let signedSpeed = ring.direction * ring.speed + amount;
+  signedSpeed = clamp(signedSpeed, -1.2, 1.2);
+  if (Math.abs(signedSpeed) < 0.02) signedSpeed = amount < 0 ? -0.02 : 0.02;
+  ring.direction = signedSpeed < 0 ? -1 : 1;
+  ring.speed = Math.abs(signedSpeed);
+  projectRingMotionToEngine(ring);
+  updateInterface();
+  announce(`${ring.name} ring: ${ringDirectionLabel(ring)} at ${ring.speed.toFixed(2)} revolutions per second.`);
+}
+
 canvas.addEventListener("keydown", (event) => {
   if (event.key === "ArrowUp" || event.key === "ArrowDown") {
     event.preventDefault();
-    setDirection("pitch", event.key === "ArrowUp" ? 1 : -1);
+    const step = event.key === "ArrowUp" ? -1 : 1;
+    selectRing(wrapUnit((state.selectedRing + step) / state.rings.length) * state.rings.length, {
+      announceSelection: true,
+    });
   } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
     event.preventDefault();
-    setDirection("rhythm", event.key === "ArrowRight" ? 1 : -1);
+    adjustSelectedRingSignedSpeed(event.key === "ArrowRight" ? 0.02 : -0.02);
   } else if (event.key === " " || event.key === "Enter") {
     event.preventDefault();
     if (!event.repeat) void strikeCurrentField();
   } else if (event.key.toLowerCase() === "p") {
     event.preventDefault();
-    if (!event.repeat) void toggleAudio();
+    if (!event.repeat) void toggleTransport();
   }
 });
 
-function signedSuperellipsePower(value, power) {
-  return Math.sign(value) * Math.abs(value) ** power;
+function handleMidiInput(event) {
+  const { message, routeId } = event.detail ?? {};
+  if (routeId !== "ouroboros-borealis" || message?.type !== "noteOn") return;
+  event.preventDefault();
+  const note = clamp(Math.round(Number(message.note) || 60), 0, 127);
+  const velocity = clamp((Number(message.velocity) || 100) / 127, 0.05, 1);
+  const ringIndex = note % state.rings.length;
+  const position = clamp((note - 24) / 84, 0, 1);
+  selectRing(ringIndex);
+  const ring = selectedRing();
+  void strikeTrackPosition(ring.channel, position, velocity, ringIndex);
+  announce(`MIDI struck the ${ring.name} ring.`);
 }
 
-function trackGeometry(width, height) {
+globalThis.addEventListener?.("morphazoid:midi-input", handleMidiInput);
+
+function ringGeometry(width, height) {
   const compact = width < 640;
   const centerX = width * 0.5;
-  const centerY = height * (compact ? 0.44 : 0.46);
-  const availableWidth = Math.max(160, width - (compact ? 54 : 100));
-  const availableHeight = Math.max(112, height - (compact ? 114 : 142));
-  const pitchRadiusX = Math.max(72, availableWidth * 0.45);
-  const pitchRadiusY = Math.max(50, Math.min(availableHeight * 0.38, pitchRadiusX * 0.47));
-  const separation = clamp(pitchRadiusY * 0.28, 20, 42);
-  const rhythmRadiusX = Math.max(50, pitchRadiusX - separation * 1.28);
-  const rhythmRadiusY = Math.max(29, pitchRadiusY - separation);
-  const trackWidth = clamp(separation * 0.38, 9, 18);
+  const centerY = height * 0.5;
+  const horizontalRadius = Math.max(70, (width - (compact ? 42 : 72)) * 0.5);
+  const verticalRadius = Math.max(70, (height - (compact ? 56 : 76)) * 0.5);
+  const outerRadius = Math.max(70, Math.min(horizontalRadius, verticalRadius));
+  const innerRadius = outerRadius * 0.43;
+  const separation = (outerRadius - innerRadius) / Math.max(1, RING_DEFINITIONS.length - 1);
+  const radii = RING_DEFINITIONS.map((_, index) => outerRadius - separation * index);
   return {
     centerX,
     centerY,
-    pitchRadiusX,
-    pitchRadiusY,
-    rhythmRadiusX,
-    rhythmRadiusY,
+    outerRadius,
+    innerRadius,
     separation,
-    trackWidth,
+    radii,
+    trackWidth: clamp(separation * 0.36, 5, 11),
   };
 }
 
-function pointOnTrack(lane, normalized, geometry, radialOffset = 0) {
+function pointOnRing(ringIndex, normalized, geometry, radialOffset = 0) {
   const phase = wrapUnit(normalized);
   const angle = -Math.PI * 0.5 + phase * TAU;
-  const radiusX = (lane === "pitch" ? geometry.pitchRadiusX : geometry.rhythmRadiusX) + radialOffset;
-  const radiusY = (lane === "pitch" ? geometry.pitchRadiusY : geometry.rhythmRadiusY) + radialOffset * 0.68;
-  const power = 2 / 3.5;
-  const calculate = (sampleAngle) => ({
-    x: signedSuperellipsePower(Math.cos(sampleAngle), power) * radiusX,
-    y: signedSuperellipsePower(Math.sin(sampleAngle), power) * radiusY,
-  });
-  const point = calculate(angle);
-  const before = calculate(angle - 0.001);
-  const after = calculate(angle + 0.001);
+  const radius = geometry.radii[ringIndex] + radialOffset;
   return {
-    x: geometry.centerX + point.x,
-    y: geometry.centerY + point.y,
-    tangentAngle: Math.atan2(after.y - before.y, after.x - before.x),
+    x: geometry.centerX + Math.cos(angle) * radius,
+    y: geometry.centerY + Math.sin(angle) * radius,
+    tangentAngle: angle + Math.PI * 0.5,
+    angle,
+    radius,
   };
 }
 
-function trackPositionFromPointer(event) {
+function ringPositionFromPointer(event, lockedRing = null) {
   const bounds = canvas.getBoundingClientRect();
   const x = clamp(event.clientX - bounds.left, 0, Math.max(1, bounds.width));
   const y = clamp(event.clientY - bounds.top, 0, Math.max(1, bounds.height));
-  const geometry = trackGeometry(Math.max(1, bounds.width), Math.max(1, bounds.height));
-  let closest = { lane: "pitch", position: 0, distance: Infinity };
-  const sampleCount = 192;
-  for (const lane of ["pitch", "rhythm"]) {
-    for (let index = 0; index < sampleCount; index += 1) {
-      const position = index / sampleCount;
-      const point = pointOnTrack(lane, position, geometry);
-      const distance = (point.x - x) ** 2 + (point.y - y) ** 2;
-      if (distance < closest.distance) closest = { lane, position, distance };
-    }
-  }
-  return closest;
+  const geometry = ringGeometry(Math.max(1, bounds.width), Math.max(1, bounds.height));
+  const deltaX = x - geometry.centerX;
+  const deltaY = y - geometry.centerY;
+  const pointerRadius = Math.hypot(deltaX, deltaY);
+  const position = wrapUnit((Math.atan2(deltaY, deltaX) + Math.PI * 0.5) / TAU);
+  const ringIndex = lockedRing === null
+    ? geometry.radii.reduce((closest, radius, index) => (
+        Math.abs(radius - pointerRadius) < Math.abs(geometry.radii[closest] - pointerRadius)
+          ? index
+          : closest
+      ), 0)
+    : Math.round(clamp(lockedRing, 0, geometry.radii.length - 1));
+  return {
+    ringIndex,
+    position,
+    distance: Math.abs(geometry.radii[ringIndex] - pointerRadius),
+  };
 }
 
-function trackDistance(first, second) {
-  const direct = Math.abs(first - second);
-  return Math.min(direct, 1 - direct);
+function signedRingDelta(next, previous) {
+  let delta = wrapUnit(next) - wrapUnit(previous);
+  if (delta > 0.5) delta -= 1;
+  if (delta < -0.5) delta += 1;
+  return delta;
 }
 
 function releaseTrackPointer(event) {
@@ -705,9 +934,10 @@ function releaseTrackPointer(event) {
   }
   activeTrackPointer = null;
   lastPointerPosition = null;
-  state.pointerLane = null;
+  lastPointerTime = null;
+  state.pointerRing = null;
   state.pointerPosition = null;
-  $("stageWrap").classList.remove("is-auditioning");
+  $("stageWrap").classList.remove("is-dragging-ring");
   visualizationDirty = true;
   scheduleAnimation();
 }
@@ -715,10 +945,11 @@ function releaseTrackPointer(event) {
 function cancelTrackInteraction() {
   activeTrackPointer = null;
   lastPointerPosition = null;
+  lastPointerTime = null;
   pendingTrackStrike = null;
-  state.pointerLane = null;
+  state.pointerRing = null;
   state.pointerPosition = null;
-  $("stageWrap").classList.remove("is-auditioning");
+  $("stageWrap").classList.remove("is-dragging-ring");
 }
 
 canvas.addEventListener("pointerdown", (event) => {
@@ -727,282 +958,215 @@ canvas.addEventListener("pointerdown", (event) => {
   canvas.focus?.();
   activeTrackPointer = event.pointerId;
   canvas.setPointerCapture?.(event.pointerId);
-  $("stageWrap").classList.add("is-auditioning");
-  const target = trackPositionFromPointer(event);
-  state.pointerLane = target.lane;
+  $("stageWrap").classList.add("is-dragging-ring");
+  const target = ringPositionFromPointer(event);
+  selectRing(target.ringIndex);
+  const ring = selectedRing();
+  ring.phase = target.position;
+  state.pointerRing = target.ringIndex;
   state.pointerPosition = target.position;
   lastPointerPosition = target.position;
+  lastPointerTime = performance.now();
   lastPointerStrikeTime = performance.now();
   visualizationDirty = true;
   scheduleAnimation();
-  void strikeTrackPosition(target.lane, target.position, 0.84);
+  void strikeTrackPosition(ring.channel, target.position, 0.84, ring.index);
 });
 
 canvas.addEventListener("pointermove", (event) => {
   if (event.pointerId !== activeTrackPointer) return;
   event.preventDefault();
-  const target = trackPositionFromPointer(event);
-  const movement = trackDistance(target.position, lastPointerPosition ?? target.position);
-  state.pointerLane = target.lane;
+  const target = ringPositionFromPointer(event, state.pointerRing);
+  const ring = state.rings[target.ringIndex];
+  const delta = signedRingDelta(target.position, lastPointerPosition ?? target.position);
+  const movement = Math.abs(delta);
+  const now = performance.now();
+  const elapsed = Math.max(8, now - (lastPointerTime ?? now));
+  if (movement > 0.0002) {
+    const gestureSpeed = clamp(movement / (elapsed / 1_000), 0.02, 1.2);
+    ring.direction = delta > 0 ? 1 : -1;
+    ring.speed = clamp(ring.speed * 0.28 + gestureSpeed * 0.72, 0.02, 1.2);
+    ring.travel += delta;
+    ring.phase = target.position;
+    projectRingMotionToEngine(ring);
+  }
+  state.pointerRing = target.ringIndex;
   state.pointerPosition = target.position;
   visualizationDirty = true;
-  scheduleAnimation();
-  const now = performance.now();
+  lastPointerPosition = target.position;
+  lastPointerTime = now;
   if (movement >= 0.008 && now - lastPointerStrikeTime >= 32) {
     const pressure = Number.isFinite(event.pressure) ? event.pressure : 0.5;
     const velocity = clamp(0.55 + movement * 4 + pressure * 0.18, 0.55, 0.96);
-    lastPointerPosition = target.position;
     lastPointerStrikeTime = now;
-    void strikeTrackPosition(target.lane, target.position, velocity);
+    void strikeTrackPosition(ring.channel, target.position, velocity, ring.index);
   }
+  updateInterface();
 });
 
 canvas.addEventListener("pointerup", releaseTrackPointer);
 canvas.addEventListener("pointercancel", releaseTrackPointer);
-
-function mixColor(first, second, amount, alpha = 1) {
-  const mix = clamp(amount, 0, 1);
-  const channels = first.map((channel, index) => Math.round(channel + (second[index] - channel) * mix));
-  return `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${alpha})`;
-}
-
-const PITCH_LOW = Object.freeze([126, 231, 220]);
-const PITCH_HIGH = Object.freeze([157, 240, 158]);
-const RHYTHM_LOW = Object.freeze([180, 152, 255]);
-const RHYTHM_HIGH = Object.freeze([255, 145, 205]);
-
-function laneColor(lane, position, alpha = 1) {
-  return lane === "pitch"
-    ? mixColor(PITCH_LOW, PITCH_HIGH, position, alpha)
-    : mixColor(RHYTHM_LOW, RHYTHM_HIGH, position, alpha);
-}
-
-function drawAurora(ctx, geometry, safe) {
-  const ribbonCount = reducedMotion ? 2 : 4;
-  ctx.save();
-  ctx.lineCap = "round";
-  for (const lane of ["pitch", "rhythm"]) {
-    const travel = lane === "pitch" ? state.pitchTravel : state.rhythmTravel;
-    for (let ribbon = 0; ribbon < ribbonCount; ribbon += 1) {
-      ctx.beginPath();
-      const segments = 128;
-      for (let index = 0; index <= segments; index += 1) {
-        const position = index / segments;
-        const wave = Math.sin(TAU * (position * (2 + ribbon * 0.35) + travel * 0.13 + ribbon * 0.19));
-        const offset = (ribbon - (ribbonCount - 1) * 0.5) * 3.5 + wave * (4 + ribbon * 1.2);
-        const point = pointOnTrack(lane, position, geometry, offset);
-        if (index === 0) ctx.moveTo(point.x, point.y);
-        else ctx.lineTo(point.x, point.y);
-      }
-      ctx.strokeStyle = laneColor(lane, ribbon / Math.max(1, ribbonCount - 1), 0.08 + ribbon * 0.022);
-      ctx.lineWidth = geometry.trackWidth * (0.48 + ribbon * 0.16);
-      ctx.stroke();
-    }
-  }
-
-  if (Math.abs(safe.coupling) > 0.02) {
-    const rayCount = Math.max(3, Math.round(3 + Math.abs(safe.coupling) * 9));
-    for (let index = 0; index < rayCount; index += 1) {
-      const position = wrapUnit(index / rayCount + state.pitchTravel * 0.03);
-      const pitch = pointOnTrack("pitch", position, geometry);
-      const rhythm = pointOnTrack(
-        "rhythm",
-        wrapUnit(position + safe.phaseOffset * Math.sign(safe.coupling || 1)),
-        geometry,
-      );
-      ctx.beginPath();
-      ctx.moveTo(pitch.x, pitch.y);
-      ctx.lineTo(rhythm.x, rhythm.y);
-      ctx.strokeStyle = `rgba(214, 232, 226, ${0.025 + Math.abs(safe.coupling) * 0.11})`;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
-}
-
-function drawTrack(ctx, lane, geometry, travel) {
-  const segments = 128;
-  ctx.save();
-  ctx.lineCap = "butt";
-  for (let index = 0; index < segments; index += 1) {
-    const start = index / segments;
-    const end = (index + 1.07) / segments;
-    const first = pointOnTrack(lane, start, geometry);
-    const second = pointOnTrack(lane, end, geometry);
-    ctx.beginPath();
-    ctx.moveTo(first.x, first.y);
-    ctx.lineTo(second.x, second.y);
-    ctx.strokeStyle = "rgba(2, 5, 7, 0.93)";
-    ctx.lineWidth = geometry.trackWidth + 5;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(first.x, first.y);
-    ctx.lineTo(second.x, second.y);
-    const pulse = 0.5 + Math.sin(TAU * (start * 7 - travel * 0.28)) * 0.5;
-    ctx.strokeStyle = laneColor(lane, start, 0.25 + pulse * 0.35);
-    ctx.lineWidth = geometry.trackWidth;
-    ctx.stroke();
-  }
-  ctx.restore();
-}
 
 function layerArray(frame, lane) {
   const layers = lane === "pitch" ? frame?.pitchLayers : frame?.rhythmLayers;
   return Array.isArray(layers) ? layers : [];
 }
 
-function frameActiveCount(frame, lane) {
-  const candidates = lane === "pitch"
-    ? [
-        frame?.pitchActiveLayers,
-        frame?.activePitchLayers,
-        frame?.activePitchCount,
-        frame?.pitchActiveCount,
-      ]
-    : [
-        frame?.rhythmActiveLayers,
-        frame?.activeRhythmLayers,
-        frame?.activeRhythmCount,
-        frame?.rhythmActiveCount,
-      ];
-  for (const candidate of candidates) {
-    if (Array.isArray(candidate)) return candidate.length;
-    const count = Number(candidate);
-    if (Number.isFinite(count)) return Math.max(0, Math.round(count));
-  }
-  return layerArray(frame, lane).filter((layer) => layer.active !== false).length;
+function ringRgba(hex, alpha = 1) {
+  const value = String(hex).replace("#", "");
+  const numeric = Number.parseInt(value, 16);
+  const red = (numeric >> 16) & 255;
+  const green = (numeric >> 8) & 255;
+  const blue = numeric & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
-function drawLayerNodes(ctx, lane, geometry, frame) {
-  const layers = layerArray(frame, lane).filter((layer) => layer.active !== false && Number(layer.weight ?? layer.gain) > 1e-7);
-  const maximum = Math.max(1e-7, ...layers.map((layer) => Number(layer.weight ?? layer.gain) || 0));
+function drawNestedRing(ctx, ring, geometry) {
+  const radius = geometry.radii[ring.index];
+  const selected = ring.index === state.selectedRing;
+  const width = geometry.trackWidth * (selected ? 1.08 : 0.78);
   ctx.save();
-  for (const layer of layers) {
-    const normalized = clamp(
-      0.5 + Number(layer.normalizedPosition ?? 0) * 0.5,
-      0,
-      1,
-    );
-    const point = pointOnTrack(lane, normalized, geometry);
-    const strength = clamp(Number(layer.weight ?? layer.gain) / maximum, 0, 1);
-    const radius = 1.4 + strength * 3.2;
+
+  ctx.beginPath();
+  ctx.arc(geometry.centerX, geometry.centerY, radius, 0, TAU);
+  ctx.strokeStyle = "rgba(1, 4, 6, 0.94)";
+  ctx.lineWidth = width + (selected ? 7 : 5);
+  ctx.stroke();
+
+  ctx.shadowColor = ringRgba(ring.color, selected ? 0.72 : 0.46);
+  ctx.shadowBlur = selected ? 18 : 10;
+  ctx.beginPath();
+  ctx.arc(geometry.centerX, geometry.centerY, radius, 0, TAU);
+  ctx.strokeStyle = ringRgba(ring.color, selected ? 0.68 : 0.38);
+  ctx.lineWidth = width;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  ctx.setLineDash([Math.max(2, radius * 0.035), Math.max(5, radius * 0.065)]);
+  ctx.lineDashOffset = -ring.travel * radius * TAU;
+  ctx.beginPath();
+  ctx.arc(geometry.centerX, geometry.centerY, radius, 0, TAU);
+  ctx.strokeStyle = ringRgba(ring.color, selected ? 0.92 : 0.66);
+  ctx.lineWidth = Math.max(1, width * 0.34);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const head = pointOnRing(ring.index, ring.phase, geometry);
+  const trailLength = clamp(0.07 + ring.speed * 0.12, 0.08, 0.22) * TAU;
+  ctx.beginPath();
+  if (ring.direction > 0) {
+    ctx.arc(geometry.centerX, geometry.centerY, radius, head.angle - trailLength, head.angle);
+  } else {
+    ctx.arc(geometry.centerX, geometry.centerY, radius, head.angle + trailLength, head.angle, true);
+  }
+  ctx.strokeStyle = ringRgba(ring.color, 0.96);
+  ctx.lineWidth = width * 1.28;
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  const tangentX = Math.cos(head.tangentAngle) * ring.direction;
+  const tangentY = Math.sin(head.tangentAngle) * ring.direction;
+  const normalX = -tangentY;
+  const normalY = tangentX;
+  const markerSize = clamp(geometry.separation * 0.24, 5, 9);
+  ctx.shadowColor = ring.color;
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = ring.color;
+  ctx.beginPath();
+  ctx.moveTo(head.x + tangentX * markerSize, head.y + tangentY * markerSize);
+  ctx.lineTo(
+    head.x - tangentX * markerSize * 0.7 + normalX * markerSize * 0.62,
+    head.y - tangentY * markerSize * 0.7 + normalY * markerSize * 0.62,
+  );
+  ctx.lineTo(
+    head.x - tangentX * markerSize * 0.7 - normalX * markerSize * 0.62,
+    head.y - tangentY * markerSize * 0.7 - normalY * markerSize * 0.62,
+  );
+  ctx.closePath();
+  ctx.fill();
+
+  if (selected) {
+    ctx.shadowBlur = 0;
+    ctx.setLineDash([2, 5]);
     ctx.beginPath();
-    ctx.arc(point.x, point.y, radius, 0, TAU);
-    ctx.fillStyle = laneColor(lane, normalized, 0.3 + strength * 0.65);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(2, 5, 7, 0.9)";
+    ctx.arc(geometry.centerX, geometry.centerY, radius + width + 4, 0, TAU);
+    ctx.strokeStyle = ringRgba(ring.color, 0.42);
     ctx.lineWidth = 1;
     ctx.stroke();
   }
   ctx.restore();
 }
 
-function drawStrikeGlyph(ctx, lane, point, velocity, life, strength = 1) {
-  const size = 3.5 + velocity * 5.5;
-  ctx.save();
-  ctx.translate(Math.round(point.x) + 0.5, Math.round(point.y) + 0.5);
-  ctx.rotate(point.tangentAngle);
-  ctx.globalAlpha = (0.16 + life * 0.84) * clamp(strength, 0.12, 1);
-  ctx.strokeStyle = laneColor(lane, life, 1);
-  ctx.fillStyle = laneColor(lane, 1 - life, 0.72);
-  ctx.lineWidth = 1.4;
-  if (lane === "pitch") {
-    ctx.beginPath();
-    ctx.arc(0, 0, size * 0.62, 0, TAU);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(0, 0, Math.max(1.2, size * 0.18), 0, TAU);
-    ctx.fill();
-  } else {
-    ctx.beginPath();
-    ctx.moveTo(-size, -size * 0.42);
-    ctx.lineTo(size, -size * 0.42);
-    ctx.moveTo(-size * 0.66, size * 0.42);
-    ctx.lineTo(size * 0.66, size * 0.42);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-function drawStrikeHistory(ctx, geometry, safe) {
+function drawRingStrikeHistory(ctx, geometry) {
   for (const strike of strikeEvents) {
     const life = clamp(1 - strike.age / STRIKE_HISTORY_SECONDS, 0, 1);
-    if (strike.lane !== "rhythm") {
-      const movement = (state.pitchTravel - strike.pitchTravelAtStrike) / safe.pitchInterval;
-      const point = pointOnTrack("pitch", wrapUnit(strike.pitchPosition + movement), geometry);
-      drawStrikeGlyph(ctx, "pitch", point, strike.velocity, life, strike.strength);
-    }
-    if (strike.lane !== "pitch") {
-      const movement = (state.rhythmTravel - strike.rhythmTravelAtStrike) / safe.rhythmInterval;
-      const point = pointOnTrack("rhythm", wrapUnit(strike.rhythmPosition + movement), geometry);
-      drawStrikeGlyph(ctx, "rhythm", point, strike.velocity, life, strike.strength);
-    }
+    const ringIndex = Number.isInteger(strike.ringIndex)
+      ? Math.round(clamp(strike.ringIndex, 0, state.rings.length - 1))
+      : state.selectedRing;
+    const ring = state.rings[ringIndex];
+    const point = pointOnRing(ringIndex, strike.pitchPosition, geometry);
+    const size = 3 + strike.velocity * 8 + (1 - life) * 11;
+    ctx.save();
+    ctx.globalAlpha = life * (0.45 + strike.strength * 0.55);
+    ctx.strokeStyle = ring.color;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, size, 0, TAU);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(point.x - size * 0.45, point.y);
+    ctx.lineTo(point.x + size * 0.45, point.y);
+    ctx.moveTo(point.x, point.y - size * 0.45);
+    ctx.lineTo(point.x, point.y + size * 0.45);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
-function drawPlayhead(ctx, lane, position, direction, geometry) {
-  const point = pointOnTrack(lane, position, geometry);
-  const tangentX = Math.cos(point.tangentAngle) * direction;
-  const tangentY = Math.sin(point.tangentAngle) * direction;
-  const normalX = -Math.sin(point.tangentAngle);
-  const normalY = Math.cos(point.tangentAngle);
-  const size = Math.max(7, geometry.trackWidth * 0.72);
+function drawRingPointer(ctx, geometry) {
+  if (state.pointerRing === null || state.pointerPosition === null) return;
+  const ring = state.rings[state.pointerRing];
+  const point = pointOnRing(ring.index, state.pointerPosition, geometry);
   ctx.save();
-  ctx.shadowColor = laneColor(lane, 0.5, 0.86);
-  ctx.shadowBlur = 13;
-  ctx.fillStyle = laneColor(lane, 0.55, 1);
-  ctx.strokeStyle = "rgba(232, 255, 250, 0.96)";
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  if (lane === "pitch") {
-    ctx.moveTo(point.x + tangentX * size, point.y + tangentY * size);
-    ctx.lineTo(point.x - tangentX * size * 0.55 + normalX * size * 0.68, point.y - tangentY * size * 0.55 + normalY * size * 0.68);
-    ctx.lineTo(point.x - tangentX * size * 0.55 - normalX * size * 0.68, point.y - tangentY * size * 0.55 - normalY * size * 0.68);
-  } else {
-    ctx.moveTo(point.x + tangentX * size, point.y + tangentY * size);
-    ctx.lineTo(point.x + normalX * size * 0.72, point.y + normalY * size * 0.72);
-    ctx.lineTo(point.x - tangentX * size, point.y - tangentY * size);
-    ctx.lineTo(point.x - normalX * size * 0.72, point.y - normalY * size * 0.72);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawLabels(ctx, geometry, safe) {
-  ctx.save();
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "rgba(214, 232, 226, 0.34)";
-  ctx.font = "7px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-  ctx.fillText("PITCH SHEPARD COIL", geometry.centerX, geometry.centerY - 7);
-  ctx.fillText("RHYTHM RISSET COIL", geometry.centerX, geometry.centerY + 8);
-  ctx.fillStyle = "rgba(126, 231, 220, 0.74)";
-  ctx.font = "600 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-  ctx.fillText(`${safe.pitchInterval.toFixed(2)} OCT`, geometry.centerX - 54, geometry.centerY + 26);
-  ctx.fillStyle = "rgba(180, 152, 255, 0.78)";
-  ctx.fillText(`${safe.rhythmInterval.toFixed(2)} OCT`, geometry.centerX + 54, geometry.centerY + 26);
-  ctx.restore();
-}
-
-function drawPointer(ctx, geometry) {
-  if (state.pointerLane === null || state.pointerPosition === null) return;
-  const point = pointOnTrack(state.pointerLane, state.pointerPosition, geometry);
-  ctx.save();
-  ctx.strokeStyle = laneColor(state.pointerLane, state.pointerPosition, 0.98);
+  ctx.strokeStyle = ring.color;
   ctx.lineWidth = 1.5;
   ctx.setLineDash([3, 3]);
   ctx.beginPath();
-  ctx.arc(point.x, point.y, geometry.trackWidth * 1.18, 0, TAU);
+  ctx.arc(point.x, point.y, geometry.trackWidth * 1.75, 0, TAU);
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = "rgba(214, 232, 226, 0.72)";
-  ctx.font = "7px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  ctx.fillStyle = ringRgba(ring.color, 0.95);
+  ctx.font = "600 7px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
   ctx.textAlign = "center";
-  ctx.fillText(`${state.pointerLane.toUpperCase()} AUDITION`, point.x, point.y - geometry.trackWidth * 1.55);
+  ctx.fillText(
+    `${ringDirectionLabel(ring, true)} · ${ring.speed.toFixed(2)}`,
+    point.x,
+    point.y - geometry.trackWidth * 2.5,
+  );
   ctx.restore();
+}
+
+function drawNestedRingField(ctx, geometry) {
+  ctx.save();
+  const glow = ctx.createRadialGradient(
+    geometry.centerX,
+    geometry.centerY,
+    geometry.innerRadius * 0.2,
+    geometry.centerX,
+    geometry.centerY,
+    geometry.outerRadius * 1.08,
+  );
+  glow.addColorStop(0, "rgba(119, 229, 227, 0.035)");
+  glow.addColorStop(0.58, "rgba(180, 152, 255, 0.025)");
+  glow.addColorStop(1, "rgba(245, 216, 120, 0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(geometry.centerX, geometry.centerY, geometry.outerRadius * 1.08, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+  for (const ring of state.rings) drawNestedRing(ctx, ring, geometry);
+  drawRingStrikeHistory(ctx, geometry);
+  drawRingPointer(ctx, geometry);
 }
 
 function draw(timestamp, force = false) {
@@ -1015,24 +1179,8 @@ function draw(timestamp, force = false) {
   context2d.setTransform(canvasScale, 0, 0, canvasScale, 0, 0);
   context2d.clearRect(0, 0, canvasWidth, canvasHeight);
 
-  const safe = currentParameters();
-  let frame = null;
-  try {
-    frame = currentFrame();
-  } catch {
-    // Static racetracks remain available even if the frame helper is unavailable.
-  }
-  const geometry = trackGeometry(canvasWidth, canvasHeight);
-  drawAurora(context2d, geometry, safe);
-  drawTrack(context2d, "pitch", geometry, state.pitchTravel);
-  drawTrack(context2d, "rhythm", geometry, state.rhythmTravel);
-  drawLayerNodes(context2d, "pitch", geometry, frame);
-  drawLayerNodes(context2d, "rhythm", geometry, frame);
-  drawStrikeHistory(context2d, geometry, safe);
-  drawPlayhead(context2d, "pitch", state.pitchPosition, safe.pitchDirection, geometry);
-  drawPlayhead(context2d, "rhythm", state.rhythmPosition, safe.rhythmDirection, geometry);
-  drawLabels(context2d, geometry, safe);
-  drawPointer(context2d, geometry);
+  const geometry = ringGeometry(canvasWidth, canvasHeight);
+  drawNestedRingField(context2d, geometry);
 }
 
 function ageStrikeEvents(elapsed) {
@@ -1042,8 +1190,14 @@ function ageStrikeEvents(elapsed) {
 
 function advanceVisualState(elapsed) {
   if (!(elapsed > 0)) return;
-  const safe = currentParameters();
   ageStrikeEvents(elapsed);
+  if (!state.playing) return;
+  const safe = currentParameters();
+  for (const ring of state.rings) {
+    const delta = ring.direction * ring.speed * elapsed;
+    ring.phase = wrapUnit(ring.phase + delta);
+    ring.travel += delta;
+  }
   const advanced = advanceOuroborosBorealisCoordinates(
     {
       pitchPosition: state.pitchPosition,
@@ -1113,12 +1267,14 @@ function animate(timestamp) {
       : 0;
   lastAnimationTime = timestamp;
   if (hasAudioClock) lastAudioVisualTime = audioTime;
-  if (state.audioOn) {
+  if (state.playing || strikeEvents.length > 0) {
     advanceVisualState(elapsed);
     visualizationDirty = true;
   }
   draw(timestamp);
-  if (state.audioOn) animationFrame = requestAnimationFrame(animate);
+  if (state.playing || strikeEvents.length > 0 || activeTrackPointer !== null) {
+    animationFrame = requestAnimationFrame(animate);
+  }
 }
 
 function scheduleAnimation() {
@@ -1167,6 +1323,7 @@ function handlePageHide(event) {
     animationFrame = 0;
     audio.stop();
     state.audioOn = false;
+    state.playing = false;
     lastAudioVisualTime = null;
     return;
   }
@@ -1175,6 +1332,7 @@ function handlePageHide(event) {
   animationFrame = 0;
   resizeObserver?.disconnect();
   globalThis.removeEventListener("resize", resizeCanvas);
+  globalThis.removeEventListener("morphazoid:midi-input", handleMidiInput);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
   globalThis.removeEventListener("pageshow", handlePageShow);
   void audio.close();
@@ -1195,5 +1353,6 @@ globalThis.addEventListener("pagehide", handlePageHide);
 globalThis.addEventListener("pageshow", handlePageShow);
 
 renderPresetGrid();
+renderRingControls();
 updateInterface();
 resizeCanvas();

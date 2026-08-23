@@ -6,14 +6,15 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="Ouroboros Borealis — independent Shepard pitch and Risset rhythm coils turn Rattlesnake percussion into two coupled, endless illusions."
+      content="Ouroboros Borealis — five nested, independently turning Ouroboros rings shape an endless field of Shepard pitch, Risset rhythm, and Rattlesnake percussion."
     />
     <title>Ouroboros Borealis — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="ouroboros.css" />
     <link rel="stylesheet" href="ouroboros-borealis.css" />
   </head>
-  <body class="borealis-page">
+  <body class="ouroboros-page borealis-page">
     <header class="masthead">
       <a class="wordmark" href="./" aria-label="Morphazoid home">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -46,10 +47,10 @@
           id="audioButton"
           type="button"
           aria-pressed="false"
-          aria-label="Start Ouroboros Borealis"
+          aria-label="Turn Ouroboros Borealis audio on"
         >
           <span class="audio-glyph" aria-hidden="true">◉</span>
-          <span class="audio-copy"><b id="audioAction">Start</b><small id="audioState">off</small></span>
+          <span class="audio-copy"><b id="audioAction">Audio</b><small id="audioState">off</small></span>
         </button>
         <label class="header-level" for="level">
           <span><b>Master level</b><output id="levelOut" for="level">52%</output></span>
@@ -58,71 +59,84 @@
       </div>
     </header>
 
-    <main class="shell" id="ouroborosBorealis">
-      <section class="stage" aria-label="Ouroboros Borealis stage">
-        <div class="stage-wrap" id="stageWrap">
+    <main class="ouroboros-shell borealis-shell" id="ouroborosBorealis">
+      <section class="ouroboros-performance" aria-labelledby="borealisTitle">
+        <header class="ouroboros-titlebar">
+          <div class="ouroboros-title-identity">
+            <p>NESTED ENDLESS PERCUSSION</p>
+            <h1 id="borealisTitle">Ouroboros Borealis</h1>
+          </div>
+          <div class="ouroboros-live-readouts" aria-live="polite">
+            <span><b id="engineSummary">5 nested rings</b><small>BOREALIS FIELD</small></span>
+            <span><b id="pitchLegend">rising</b><small>PITCH MOTION</small></span>
+            <span><b id="rhythmLegend">slowing</b><small>RHYTHM MOTION</small></span>
+          </div>
+        </header>
+
+        <div class="ouroboros-stage-wrap borealis-stage-wrap" id="stageWrap">
           <canvas
             id="stage"
             data-interactive-track
             tabindex="0"
-            role="img"
-            aria-label="Two interactive aurora racetracks show independent endless pitch and rhythm playheads."
+            role="application"
+            aria-roledescription="nested ring controller"
+            aria-label="Five nested interactive circular Ouroboros rings. Each colored ring turns independently and can be dragged to change its speed and direction."
             aria-describedby="canvasInstructions liveStatus"
           >
-            Two wide racetracks carry endless Rattlesnake pitch and rhythm illusions.
+            Five differently colored circular Ouroboros rings rotate independently inside one another.
           </canvas>
-          <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">PITCH RISING · RHYTHM SLOWING · UNCOUPLED · STOPPED</span>
+          <div class="ouroboros-stage-meta" aria-hidden="true">
+            <span id="stageReadout">5 NESTED RINGS · INDEPENDENT MOTION · MANUAL · AUDIO OFF</span>
           </div>
-          <div class="borealis-stage-label">
-            <h1>Ouroboros Borealis</h1>
-            <small>two infinities · one percussion body</small>
-          </div>
-          <div class="borealis-legend" aria-hidden="true">
-            <span><i class="pitch-swatch"></i>pitch coil <b id="pitchLegend">rising</b></span>
-            <span><i class="rhythm-swatch"></i>rhythm coil <b id="rhythmLegend">slowing</b></span>
-          </div>
-          <div class="borealis-track-hint" aria-hidden="true">
-            <span>drag either racetrack to strike</span><i></i><span>two playheads orbit independently</span>
+          <div class="ouroboros-loop-core borealis-loop-core" aria-hidden="true">
+            <span id="directionMarker">◎</span>
+            <small id="directionMarkerText">five independent rings</small>
           </div>
         </div>
       </section>
 
-      <aside class="panel" aria-label="Ouroboros Borealis controls">
-        <section class="group borealis-identity" aria-labelledby="engineTitle">
-          <div class="borealis-identity-heading">
-            <div>
-              <h2 class="group-title" id="engineTitle">Dual illusion engine</h2>
-              <span class="section-state" id="engineSummary">pitch × rhythm Shepard field</span>
-            </div>
-            <div class="borealis-engine-actions">
-              <button
-                class="borealis-transport"
-                id="transportButton"
-                type="button"
-                data-primary-transport
-                aria-pressed="false"
-                aria-label="Start automatic Ouroboros Borealis motion and strikes"
-              >
-                <span id="transportIcon" aria-hidden="true">▶</span><b id="transportLabel">Start</b>
-              </button>
-              <button
-                class="borealis-strike"
-                id="strikeButton"
-                type="button"
-                data-midi-trigger="strike"
-                aria-label="Strike the Ouroboros Borealis percussion field"
-              >
-                <span aria-hidden="true">●</span><b>Strike</b>
-              </button>
-            </div>
+      <aside class="panel ouroboros-control-panel borealis-control-panel" aria-label="Ouroboros Borealis controls">
+        <section class="group control-section ouroboros-play-section" data-section="play" aria-labelledby="playSectionTitle">
+          <div class="group-summary static-group-summary">
+            <h2 class="group-title" id="playSectionTitle">Play</h2>
+            <span class="section-state" id="playSummary">ready · five independent rings</span>
           </div>
-          <p>
-            An octave-windowed Shepard pitch bank crosses an octave-windowed Risset rhythm bank.
-            Send pitch and tempo in opposite directions or together, then use phase and signed
-            coupling to decide where each slow-to-fast rhythm lane lands in the pitch bank.
-          </p>
+          <div class="group-body">
+            <button
+              class="ouroboros-play-button"
+              id="transportButton"
+              type="button"
+              data-primary-transport
+              aria-pressed="false"
+              aria-label="Play automatic Ouroboros Borealis ring motion"
+            >
+              <span class="ouroboros-play-icon" id="transportIcon" aria-hidden="true">▶</span>
+              <span class="ouroboros-play-copy">
+                <b id="transportLabel">Play</b>
+                <small>automatic independent motion</small>
+              </span>
+            </button>
+          </div>
         </section>
+
+        <details class="group control-section borealis-ring-section" data-section="rings" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Ring motion</h2>
+            <span class="section-state" id="ringSummary">five independent directions</span>
+          </summary>
+          <div class="group-body">
+            <div class="ouroboros-pluck-readout borealis-ring-readout" aria-live="polite">
+              <span><b id="selectedRingName">Cyan outer ring</b><output id="selectedRingMotion">right · 0.12 turns/s</output></span>
+              <small>Choose a ring, then drag around it to slow, accelerate, or reverse it.</small>
+            </div>
+            <div
+              class="borealis-ring-controls"
+              id="ringControls"
+              role="group"
+              aria-label="Select an Ouroboros ring to control"
+            ></div>
+          </div>
+        </details>
 
         <details class="group control-section" data-section="presets" open>
           <summary class="group-summary">
@@ -130,7 +144,7 @@
             <span class="section-state" id="presetSummary">Countercurrent</span>
           </summary>
           <div class="group-body">
-            <div class="borealis-preset-grid" id="presetGrid" role="group" aria-label="Ouroboros Borealis presets"></div>
+            <div class="ouroboros-preset-grid borealis-preset-grid" id="presetGrid" role="group" aria-label="Ouroboros Borealis presets"></div>
           </div>
         </details>
 
@@ -218,7 +232,7 @@
               <span><b>Stereo spread</b><output id="spreadOut" for="spread">34%</output></span>
               <input id="spread" type="range" min="0" max="1" step="0.01" value="0.34" />
             </label>
-            <small class="borealis-control-note">
+            <small class="ouroboros-control-note borealis-control-note">
               One-octave intervals produce the strongest circular illusions. Half-octave clusters,
               two-octave gaps, narrow banks, and sharply focused coupling deliberately expose or distort the seams.
             </small>
@@ -252,7 +266,7 @@
               <input id="cutoff" type="range" min="800" max="18000" step="100" value="8000" />
             </label>
 
-            <div class="borealis-signal-card" aria-label="Audio signal path">
+            <div class="ouroboros-signal-card borealis-signal-card" aria-label="Audio signal path">
               <span><b>Rhythm coil</b><small>tempo-windowed pulses</small></span><i aria-hidden="true">×</i>
               <span><b>Pitch coil</b><small>frequency-windowed bodies</small></span><i aria-hidden="true">→</i>
               <span><b>Rattlesnake</b><small>kick → tom → hand → air</small></span><i aria-hidden="true">→</i>
@@ -268,10 +282,12 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        The canvas contains a cyan pitch racetrack and a violet rhythm racetrack. Their automatic
-        playheads move independently. Drag either track to audition it, press Space or Strike for a
-        manual hit, press P or Start to run both infinite motions, and press P or Stop to pause them.
-        Up and Down arrows reverse pitch; Right and Left arrows reverse rhythm.
+        The canvas contains five differently colored circular Ouroboros rings nested inside one
+        another. Each ring rotates independently. Select a ring, then drag clockwise or
+        counterclockwise around it to change its direction; drag faster or slower to change its
+        speed. Press Space or Enter to audition the selected ring. Press P or Play to run the field,
+        and press P or Pause to pause it. Use Up and Down Arrow to select an adjacent ring and Left
+        and Right Arrow to adjust the selected ring's signed speed.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

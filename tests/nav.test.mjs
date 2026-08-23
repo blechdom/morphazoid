@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  FAVE_TOOL_IDS,
   SITE_LINKS,
   TOOL_GROUPS,
   enhanceSharedNavigation,
@@ -22,13 +23,28 @@ import {
 
 const SITE_ROOT = "https://example.test/blechdom/morphazoid/";
 
-function expectedPickerGroups() {
+function expectedBasePickerGroups() {
   return TOOL_GROUPS.flatMap((group) => {
     const tools = group.tools.filter((tool) => (
       group.picker !== false || tool.picker === true
     ));
     return tools.length > 0 ? [{ ...group, tools }] : [];
   });
+}
+
+function expectedPickerGroups() {
+  const groups = expectedBasePickerGroups();
+  const toolById = new Map(groups.flatMap(({ tools }) => (
+    tools.map((tool) => [tool.id, tool])
+  )));
+  return [
+    {
+      id: "faves",
+      label: "Faves",
+      tools: FAVE_TOOL_IDS.map((id) => toolById.get(id)).filter(Boolean),
+    },
+    ...groups,
+  ];
 }
 
 class FakeClassList {
@@ -542,10 +558,6 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     [
       { id: "sorting-algorithms", href: "algorithmic-sequencers.html" },
       { id: "dijkstra", href: "dijkstra.html" },
-      { id: "hanoi", href: "hanoi.html" },
-      { id: "minimax", href: "minimax.html" },
-      { id: "nqueens", href: "nqueens.html" },
-      { id: "euclid", href: "euclid.html" },
     ],
   );
   assert.deepEqual(
@@ -654,6 +666,10 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
       { id: "vocal-effects-room", href: "vocal-effects-room.html" },
       { id: "instrument-share-room", href: "instrument-share-room.html" },
       { id: "morphazoid-roulette", href: "morphazoid-roulette.html" },
+      { id: "hanoi", href: "hanoi.html" },
+      { id: "minimax", href: "minimax.html" },
+      { id: "nqueens", href: "nqueens.html" },
+      { id: "euclid", href: "euclid.html" },
       { id: "alien-larynx", href: "alien-larynx.html" },
       { id: "hyper-syrinx", href: "hyper-syrinx.html" },
       { id: "morphynx", href: "morphynx.html" },
@@ -828,7 +844,7 @@ test("active tool resolution preserves GitHub Pages subpaths and nested workbenc
   assert.equal(resolveActiveSiteLink(`${SITE_ROOT}julia.html`, SITE_ROOT), null);
 });
 
-test("shared navigation creates a title-only picker and preserves the native select fallback", () => {
+test("shared navigation creates a searchable accordion picker and preserves the native select fallback", () => {
   const doc = new FakeDocument();
   const result = enhanceSharedNavigation(doc, {
     currentHref: `${SITE_ROOT}julia.html`,
@@ -856,12 +872,28 @@ test("shared navigation creates a title-only picker and preserves the native sel
   );
   assert.doesNotMatch(trigger.textContent, /Fractals|Recursion/);
   const pickerGroups = expectedPickerGroups();
+  const basePickerGroups = expectedBasePickerGroups();
   const pickerTools = pickerGroups.flatMap((group) => group.tools);
   assert.equal(pickerGroups.some(({ id }) => id === "experiments"), false);
   assert.deepEqual(
     picker.findAll((node) => node.classList.contains("instrument-picker-group-title"))
-      .map((heading) => heading.textContent),
+      .map((heading) => heading.querySelector(".instrument-picker-group-label").textContent),
     pickerGroups.map((group) => group.label),
+  );
+  const groupNodes = picker.findAll(
+    (node) => node.classList.contains("instrument-picker-group"),
+  );
+  assert.equal(groupNodes.every(({ tagName }) => tagName === "DETAILS"), true);
+  assert.equal(groupNodes[0].getAttribute("data-group-id"), "faves");
+  assert.equal(groupNodes[0].open, true);
+  assert.equal(
+    groupNodes.find((group) => group.getAttribute("data-group-id") === "fractals-recursion").open,
+    true,
+  );
+  assert.deepEqual(
+    groupNodes[0].findAll((node) => node.classList.contains("instrument-picker-link"))
+      .map((link) => link.getAttribute("data-tool-id")),
+    FAVE_TOOL_IDS,
   );
   const pickerLinks = picker.findAll(
     (node) => node.classList.contains("instrument-picker-link"),
@@ -889,14 +921,42 @@ test("shared navigation creates a title-only picker and preserves the native sel
     orbitalFerrisLink[0].getAttribute("href"),
     `${SITE_ROOT}orbital-ferris.html`,
   );
+  const searchInput = picker.querySelector(".instrument-picker-search-input");
+  assert.equal(searchInput.type, "search");
+  assert.equal(searchInput.placeholder, "Type an instrument");
+  searchInput.value = "trombonazoid";
+  searchInput.dispatch("input");
+  assert.equal(groupNodes[0].hidden, true, "search suppresses duplicate Faves results");
+  const voiceGroup = groupNodes.find(
+    (group) => group.getAttribute("data-group-id") === "voice-synths",
+  );
+  assert.equal(voiceGroup.hidden, false);
+  assert.equal(voiceGroup.open, true);
+  assert.equal(
+    voiceGroup.findAll((node) => node.getAttribute("data-tool-id") === "pink-trombonazoid")[0]
+      .parentNode.hidden,
+    false,
+  );
+  assert.equal(
+    voiceGroup.findAll((node) => node.getAttribute("data-tool-id") === "throatazoid")[0]
+      .parentNode.hidden,
+    true,
+  );
+  searchInput.value = "not-an-instrument";
+  searchInput.dispatch("input");
+  assert.equal(picker.querySelector(".instrument-picker-empty").hidden, false);
+  searchInput.value = "";
+  searchInput.dispatch("input");
+  assert.equal(groupNodes[0].hidden, false);
+  assert.equal(groupNodes[0].open, true);
   const pageInfo = result.pageInfos[0];
   assert.equal(pageInfo.getAttribute("data-tool-id"), "julia");
   assert.equal(pageInfo.getAttribute("aria-label"), "About Julia");
   assert.equal(doc.panel.children.at(-1), pageInfo);
-  assert.equal(doc.select.children.length, pickerGroups.length);
+  assert.equal(doc.select.children.length, basePickerGroups.length);
   assert.deepEqual(
     doc.select.children.map((group) => group.label),
-    pickerGroups.map((group) => group.label),
+    basePickerGroups.map((group) => group.label),
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);
   const orbitalFerrisOption = doc.select.findAll(
@@ -928,7 +988,7 @@ test("home navigation shows Choose in both enhanced and fallback controls", () =
   );
   assert.equal(
     doc.select.children.length,
-    expectedPickerGroups().length + 1,
+    expectedBasePickerGroups().length + 1,
   );
 
   const selectedOptions = doc.select.findAll(
@@ -2056,7 +2116,16 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
   assert.doesNotMatch(css, /\.instrument-picker-info\s*\{/);
   assert.doesNotMatch(css, /\.selected-instrument-info/);
   assert.doesNotMatch(css, /\.instrument-picker-preview/);
+  assert.match(
+    css,
+    /\.instrument-picker-panel\s*\{[^}]*display: grid;[^}]*grid-template-rows: auto minmax\(0, 1fr\);/s,
+  );
+  assert.match(css, /\.instrument-picker-search-input\s*\{[^}]*height: 36px;/s);
   assert.match(css, /\.instrument-picker-group-title\s*\{[^}]*position: sticky;[^}]*top: 0;/s);
+  assert.match(
+    css,
+    /\.instrument-picker-group-title\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) auto 14px;/s,
+  );
   assert.match(css, /\.instrument-picker-link\s*\{[^}]*padding: 5px 8px 5px 10px;[^}]*gap: 10px;/s);
   assert.match(css, /\.instrument-picker-link-icon\s*\{[^}]*width: 24px;[^}]*height: 24px;[^}]*object-fit: contain;/s);
   assert.match(css, /\.instrument-picker-link-label\s*\{[^}]*text-overflow: ellipsis;/s);
@@ -2070,6 +2139,10 @@ test("mapped tablet and phone headers keep MIDI and output controls visible", as
   assert.match(
     css,
     /@media \(max-width: 650px\)[\s\S]*?\.instrument-picker-panel \{[^}]*grid-template-rows:/s,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 650px\)[\s\S]*?\.instrument-picker-search-input \{[^}]*font-size: 16px;/s,
   );
   assert.doesNotMatch(css, /\.instrument-picker\.has-preview/);
   assert.match(

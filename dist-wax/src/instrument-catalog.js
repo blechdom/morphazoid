@@ -1,4 +1,7 @@
-import { TOOL_GROUPS } from "../nav.js?v=catalog-20260822-1";
+import {
+  FAVE_TOOL_IDS,
+  TOOL_GROUPS,
+} from "../nav.js?v=catalog-20260822-2";
 import { instrumentMidiCapabilityForId } from "./instrument-midi-capabilities.js";
 
 const define = (kind, description, start, features = [], pluginHref = null) => Object.freeze({
@@ -214,7 +217,7 @@ const CATALOG_DETAILS = Object.freeze({
   ouroborousel: define(
     "Rhythm-pitch synth",
     "Builds an endless roll from higher-note chunks, Ouroboros drum bodies, or both, carrying octave-related pulses through the rhythm–pitch fusion threshold.",
-    "Choose Notes, Ouroboros Drums, or Notes + Drums, start the carousel, and shape its shared direction, roll rate, and bank width; Notes and Combo add chunk and fusion controls.",
+    "Choose Notes, Ouroboros Drums, or Notes + Drums, start the carousel, then shape its direction, chunk length, roll rate, and fusion point.",
     ["Built-in synth", "Pointer"],
   ),
   ouroboros: define(
@@ -336,8 +339,8 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "karplus-carpet": define(
     "Microsound physical-model synth",
-    "Weaves dense clouds from many freshly synthesized 80–400 millisecond Karplus delay-line attacks, distributed across a tunable microtonal pitch field without loading sample grains.",
-    "Set hit count and density, use Play for an automatically spread carpet, or drag the woven stage for an exact pointer-pitch pass whose clock follows Density and Timing Scatter.",
+    "Turns a dense two-dimensional surface of close areas into freshly synthesized 80–400 millisecond Karplus delay-line attacks across a tunable microtonal pitch field, without loading sample grains.",
+    "Press and drag across the surface: each newly crossed area sounds once per gesture, while moving inside an area or holding still stays silent.",
     ["Built-in synth", "MIDI", "Pointer", "Computer keys"],
   ),
   "sample-drums": define(
@@ -569,6 +572,7 @@ const ADDITIONAL_TAG_IDS = Object.freeze({
   "cascading-pm": Object.freeze(["fractals-recursion"]),
   weierstrass: Object.freeze(["fractals-recursion"]),
 });
+const FAVES_TAG = Object.freeze({ id: "faves", label: "Faves" });
 
 const instrumentToolGroups = TOOL_GROUPS
   .filter((group) => group.catalogue !== false)
@@ -590,8 +594,16 @@ const invalidAdditionalTags = Object.entries(ADDITIONAL_TAG_IDS).flatMap(
     .filter((tagId) => !instrumentIds.has(instrumentId) || !groupById.has(tagId))
     .map((tagId) => `${instrumentId}:${tagId}`),
 );
+const invalidFaveIds = FAVE_TOOL_IDS.filter((id) => (
+  !instrumentIds.has(id) || primaryGroupByToolId.get(id)?.id === "experiments"
+));
 
-if (missingDetails.length || unusedDetails.length || invalidAdditionalTags.length) {
+if (
+  missingDetails.length
+  || unusedDetails.length
+  || invalidAdditionalTags.length
+  || invalidFaveIds.length
+) {
   throw new Error([
     missingDetails.length
       ? `Missing catalogue details: ${missingDetails.map((tool) => tool.id).join(", ")}`
@@ -600,6 +612,7 @@ if (missingDetails.length || unusedDetails.length || invalidAdditionalTags.lengt
     invalidAdditionalTags.length
       ? `Invalid catalogue tags: ${invalidAdditionalTags.join(", ")}`
       : "",
+    invalidFaveIds.length ? `Invalid faves: ${invalidFaveIds.join(", ")}` : "",
   ].filter(Boolean).join(". "));
 }
 
@@ -607,8 +620,13 @@ const instrumentByToolId = new Map(instrumentTools.map((tool) => {
   const primaryGroup = primaryGroupByToolId.get(tool.id);
   const tagIds = primaryGroup.id === "experiments"
     ? [primaryGroup.id]
-    : [primaryGroup.id, ...(ADDITIONAL_TAG_IDS[tool.id] ?? [])];
+    : [
+      primaryGroup.id,
+      ...(ADDITIONAL_TAG_IDS[tool.id] ?? []),
+      ...(FAVE_TOOL_IDS.includes(tool.id) ? [FAVES_TAG.id] : []),
+    ];
   const tags = Object.freeze([...new Set(tagIds)].map((tagId) => {
+    if (tagId === FAVES_TAG.id) return FAVES_TAG;
     const group = groupById.get(tagId);
     return Object.freeze({ id: group.id, label: group.label });
   }));

@@ -102,7 +102,7 @@
 .ptz-shell {
   display: grid;
   width: 100%;
-  min-height: calc(100vh - var(--header-height, 58px));
+  min-height: calc(100dvh - var(--header-height, 58px));
   background: var(--ptz-black);
   grid-template-columns: minmax(0, 1fr) clamp(310px, 23vw, 400px);
 }
@@ -306,10 +306,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 14px;
   padding: 13px 14px 12px 17px;
   border-bottom: 1px solid var(--ptz-line);
   background: linear-gradient(90deg, var(--ptz-pale), var(--ptz-white) 52%);
+}
+
+.ptz-timeline-heading {
+  min-width: 180px;
 }
 
 .ptz-timeline-header h2,
@@ -318,6 +322,93 @@
   color: var(--ptz-deep);
   font-size: 13px;
   letter-spacing: 0.04em;
+}
+
+.ptz-timeline-controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ptz-timeline-zoom {
+  display: grid;
+  width: clamp(126px, 13vw, 158px);
+  min-width: 126px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid rgba(190, 79, 122, 0.24);
+  border-radius: 10px;
+  color: var(--ptz-deep);
+  background: rgba(255, 255, 255, 0.72);
+  align-content: center;
+  gap: 3px;
+}
+
+.ptz-timeline-zoom > small {
+  color: var(--ptz-muted);
+  font-size: 7px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.ptz-timeline-zoom > span {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  grid-template-columns: minmax(54px, 1fr) 32px;
+  gap: 5px;
+}
+
+.ptz-timeline-zoom input[type="range"] {
+  width: 100%;
+  min-width: 54px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  cursor: ew-resize;
+  accent-color: var(--ptz-outline);
+}
+
+.ptz-timeline-zoom input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  background: rgba(113, 48, 71, 0.24);
+}
+
+.ptz-timeline-zoom input[type="range"]::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  border: 1px solid var(--ptz-outline);
+  background: var(--ptz-white);
+  box-shadow: 0 0 0 3px rgba(216, 95, 146, 0.12);
+}
+
+.ptz-timeline-zoom input[type="range"]::-moz-range-track {
+  height: 2px;
+  background: rgba(113, 48, 71, 0.24);
+}
+
+.ptz-timeline-zoom input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-color: var(--ptz-outline);
+  background: var(--ptz-white);
+  box-shadow: 0 0 0 3px rgba(216, 95, 146, 0.12);
+}
+
+.ptz-timeline-zoom output {
+  overflow: hidden;
+  color: var(--ptz-deep);
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .ptz-transport {
@@ -388,10 +479,14 @@
   min-height: 88px;
   padding-left: 128px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   border-bottom: 1px solid var(--ptz-line);
   background: #fffafd;
   scrollbar-width: thin;
   scrollbar-color: var(--ptz-pink) transparent;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ptz-phoneme-cell {
@@ -498,7 +593,7 @@
 }
 
 .ptz-phone-move,
-.ptz-phone-add,
+.ptz-phone-add-shell,
 .ptz-phone-delete {
   display: grid;
   width: 24px;
@@ -512,6 +607,21 @@
   pointer-events: auto;
 }
 
+.ptz-phone-add-shell {
+  position: relative;
+  overflow: hidden;
+}
+
+.ptz-phone-add-glyph {
+  display: grid;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  place-items: center;
+  pointer-events: none;
+}
+
 .ptz-phone-move {
   cursor: grab;
   font-size: 11px;
@@ -522,13 +632,22 @@
 }
 
 .ptz-phone-add {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
   appearance: none;
+  box-sizing: border-box;
+  min-width: 24px;
+  max-width: 24px;
+  min-height: 24px;
+  max-height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  opacity: 0;
   color-scheme: light;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 800;
-  text-align: center;
-  text-align-last: center;
 }
 
 .ptz-phone-delete {
@@ -540,8 +659,8 @@
 
 .ptz-phone-move:hover,
 .ptz-phone-move:focus-visible,
-.ptz-phone-add:hover,
-.ptz-phone-add:focus-visible,
+.ptz-phone-add-shell:hover,
+.ptz-phone-add-shell:focus-within,
 .ptz-phone-delete:hover,
 .ptz-phone-delete:focus-visible {
   border-color: var(--ptz-deep);
@@ -562,7 +681,20 @@
 
 .ptz-empty-phone-add {
   width: 28px;
+  min-width: 28px;
+  max-width: 28px;
   height: 28px;
+  min-height: 28px;
+  max-height: 28px;
+}
+
+.ptz-empty-phone-add-shell {
+  width: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  max-height: 28px;
 }
 
 .ptz-phoneme-cell:nth-child(even) {
@@ -669,9 +801,13 @@
   display: grid;
   max-height: 360px;
   overflow: auto;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   grid-template-columns: 128px max-content;
   scrollbar-width: thin;
   scrollbar-color: var(--ptz-pink) transparent;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ptz-lane-gutter {
@@ -695,7 +831,7 @@
   border-bottom: 1px solid rgba(190, 79, 122, 0.1);
   color: var(--ptz-deep);
   align-content: center;
-  grid-template-columns: 8px 1fr;
+  grid-template-columns: 8px minmax(0, 1fr) 20px;
   column-gap: 7px;
 }
 
@@ -718,6 +854,31 @@
   font-size: 7px;
 }
 
+.ptz-lane-key-add {
+  display: grid;
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  padding: 0;
+  border: 1px solid rgba(113, 48, 71, 0.28);
+  border-radius: 50%;
+  color: var(--ptz-deep);
+  background: rgba(255, 238, 245, 0.64);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  place-items: center;
+}
+
+.ptz-lane-key-add:hover,
+.ptz-lane-key-add:focus-visible {
+  border-color: var(--ptz-outline);
+  background: var(--ptz-pale);
+}
+
 .ptz-timeline-svg {
   display: block;
   min-width: 920px;
@@ -726,7 +887,9 @@
 }
 
 .ptz-lane-background {
+  cursor: crosshair;
   fill: rgba(255, 238, 245, 0.38);
+  pointer-events: all;
 }
 
 .ptz-lane-background.is-even {
@@ -750,6 +913,8 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2.3;
+  cursor: crosshair;
+  pointer-events: stroke;
   vector-effect: non-scaling-stroke;
 }
 
@@ -765,11 +930,12 @@
 
 .ptz-keyframe,
 .ptz-keyframe-hit {
+  cursor: move;
   touch-action: none;
 }
 
 .ptz-keyframe-mark {
-  cursor: ns-resize;
+  cursor: move;
   fill: var(--ptz-white);
   stroke: var(--lane-color);
   stroke-width: 2;
@@ -1173,6 +1339,36 @@
     align-items: stretch;
     flex-direction: column;
   }
+
+  .ptz-timeline-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* The shared compact-screen shell locks the document for fixed instrument
+   dashboards. Pink Trombonazoid is a flowing editor, so phones need the
+   document itself to remain the vertical scroll owner. */
+@media (max-width: 960px) {
+  html {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  body.pink-trombonazoid-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ptz-timeline-scroll {
+    max-height: none;
+  }
 }
 
 @media (max-width: 880px) {
@@ -1236,6 +1432,17 @@
 
   .ptz-transport {
     grid-template-columns: 1.3fr 1fr 1fr;
+  }
+
+  .ptz-timeline-controls {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .ptz-timeline-zoom {
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 9px;
   }
 
   .ptz-phoneme-ruler {

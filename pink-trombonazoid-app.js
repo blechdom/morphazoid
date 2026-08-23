@@ -4,17 +4,21 @@ import {
   PINK_TROMBONAZOID_VOICE_PRESETS,
   PINK_TROMBONAZOID_PHONE_CATALOG,
   PINK_TROMBONAZOID_LANES,
+  addPinkTrombonazoidKeyframe,
   compilePinkTrombonazoid,
   insertPinkTrombonazoidPhone,
   movePinkTrombonazoidPhone,
   pinkTrombonazoidAudioEvent,
+  removePinkTrombonazoidKeyframe,
   removePinkTrombonazoidPhone,
   replacePinkTrombonazoidPhone,
   retimePinkTrombonazoidSequence,
+  samplePinkTrombonazoidAutomation,
   samplePinkTrombonazoidLfo,
+  updatePinkTrombonazoidKeyframe,
   updatePinkTrombonazoidPersonality,
   updatePinkTrombonazoidSegment,
-} from "./src/pink-trombonazoid.js?v=pink-trombonazoid-20260821-6";
+} from "./src/pink-trombonazoid.js?v=pink-trombonazoid-20260822-10";
 import {
   loadSpellingPronunciations,
 } from "./src/spelling-pronunciation.js?v=pink-trombonazoid-20260821-6";
@@ -47,6 +51,7 @@ const state = {
   lastAudioModulationAt: 0,
   drag: null,
   draggedPhoneId: "",
+  timelineZoomY: 1,
   timelineResizeFrame: 0,
   timelineViewportWidth: 0,
   buildGeneration: 0,
@@ -357,8 +362,18 @@ function durationHandle(segment, { edgePercent = null } = {}) {
 }
 
 function phoneAddSelect(afterPhone = null) {
+  const shell = document.createElement("span");
+  const glyph = document.createElement("span");
   const select = document.createElement("select");
-  select.className = afterPhone ? "ptz-phone-add" : "ptz-phone-add ptz-empty-phone-add";
+  shell.className = afterPhone
+    ? "ptz-phone-add-shell"
+    : "ptz-phone-add-shell ptz-empty-phone-add-shell";
+  glyph.className = "ptz-phone-add-glyph";
+  glyph.textContent = "+";
+  glyph.setAttribute("aria-hidden", "true");
+  select.className = afterPhone
+    ? "ptz-phone-add"
+    : "ptz-phone-add ptz-empty-phone-add";
   select.dataset.afterPhoneId = afterPhone?.id ?? "";
   populatePhoneOptions(select, { placeholder: true, placeholderLabel: "+" });
   select.value = "";
@@ -376,7 +391,8 @@ function phoneAddSelect(afterPhone = null) {
       insertPhone(afterPhone?.id ?? null, event.currentTarget.value);
     }
   });
-  return select;
+  shell.append(glyph, select);
+  return shell;
 }
 
 function renderPhonemeRuler() {
@@ -539,13 +555,75 @@ function laneValueText(lane, value) {
   return `${Math.round(normalized * 100)}%`;
 }
 
-function lanePath(samples, laneY, plotWidth) {
+function timelineGeometry() {
+  const zoomY = clamp(state.timelineZoomY, 1, 4);
+  const laneHeight = LANE_HEIGHT * state.timelineZoomY;
+  const graphHeight = Math.max(
+    LANE_GRAPH_HEIGHT,
+    laneHeight - (LANE_HEIGHT - LANE_GRAPH_HEIGHT),
+  );
+  return {
+    zoomY,
+    laneHeight,
+    graphHeight,
+    height: LANE_TOP + PINK_TROMBONAZOID_LANES.length * laneHeight + TIMELINE_BOTTOM,
+  };
+}
+
+function lanePath(samples, laneY, plotWidth, graphHeight) {
   if (!samples.length) return "";
   return samples.map((value, index) => {
     const x = index / Math.max(1, samples.length - 1) * plotWidth;
-    const y = laneY + (1 - clamp(value)) * LANE_GRAPH_HEIGHT;
+    const y = laneY + (1 - clamp(value)) * graphHeight;
     return `${index ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)}`;
   }).join(" ");
+}
+
+function laneKeyframes(segment, laneId) {
+  return segment?.laneKeyframes?.[laneId] ?? [];
+}
+
+function keyframeTimeMs(segment, keyframe) {
+  return segment.startMs + clamp(keyframe.phase) * segment.durationMs;
+}
+
+function articulationAtTime(timeMs) {
+  const articulations = state.sequence?.articulationSegments ?? [];
+  return articulations.find((segment) => timeMs >= segment.startMs && timeMs <= segment.endMs)
+    ?? null;
+}
+
+function activeKeyframeSegment() {
+  const selected = selectedSegment();
+  if (selected?.type === "articulation") return selected;
+  return articulationAtTime(state.elapsedMs)
+    ?? state.sequence?.articulationSegments?.[0]
+    ?? null;
+}
+
+function suggestedKeyframePhase(segment, laneId) {
+  const phases = laneKeyframes(segment, laneId)
+    .map(({ phase }) => clamp(phase))
+    .sort((left, right) => left - right);
+  const stops = [0, ...phases, 1];
+  let largestStart = 0;
+  let largestEnd = 0;
+  for (let index = 1; index < stops.length; index += 1) {
+    if (stops[index] - stops[index - 1] > largestEnd - largestStart) {
+      largestStart = stops[index - 1];
+      largestEnd = stops[index];
+    }
+  }
+  return (largestStart + largestEnd) / 2;
+}
+
+function svgPointerPosition(event, svg = $("timelineSvg")) {
+  const rect = svg.getBoundingClientRect();
+  const viewBox = svg.viewBox.baseVal;
+  return {
+    x: (event.clientX - rect.left) / Math.max(1, rect.width) * viewBox.width,
+    y: (event.clientY - rect.top) / Math.max(1, rect.height) * viewBox.height,
+  };
 }
 
 function renderTimeline() {
@@ -557,7 +635,8 @@ function renderTimeline() {
   if (!sequence) return;
 
   const plotWidth = timelineWidth();
-  const height = LANE_TOP + PINK_TROMBONAZOID_LANES.length * LANE_HEIGHT + TIMELINE_BOTTOM;
+  const geometry = timelineGeometry();
+  const { laneHeight, graphHeight, height } = geometry;
   svg.setAttribute("viewBox", `0 0 ${plotWidth} ${height}`);
   svg.setAttribute("width", String(plotWidth));
   svg.setAttribute("height", String(height));
@@ -585,13 +664,33 @@ function renderTimeline() {
   svg.append(grid);
 
   PINK_TROMBONAZOID_LANES.forEach((lane, laneIndex) => {
-    const laneY = LANE_TOP + laneIndex * LANE_HEIGHT;
+    const laneY = LANE_TOP + laneIndex * laneHeight;
     const label = document.createElement("div");
+    const dot = document.createElement("i");
+    const name = document.createElement("b");
+    const output = document.createElement("output");
+    const addButton = document.createElement("button");
     label.className = "ptz-lane-label";
     label.style.setProperty("--lane-top", `${laneY - 7}px`);
-    label.style.setProperty("--lane-height", `${LANE_HEIGHT}px`);
+    label.style.setProperty("--lane-height", `${laneHeight}px`);
     label.style.setProperty("--lane-color", lane.color);
-    label.innerHTML = `<i aria-hidden="true"></i><b>${lane.shortLabel}</b><output data-lane-output="${lane.id}">—</output>`;
+    dot.setAttribute("aria-hidden", "true");
+    name.textContent = lane.shortLabel;
+    output.dataset.laneOutput = lane.id;
+    output.textContent = "—";
+    addButton.type = "button";
+    addButton.className = "ptz-lane-key-add";
+    addButton.textContent = "+";
+    addButton.title = `Add a ${lane.label.toLowerCase()} keyframe`;
+    addButton.setAttribute("aria-label", `Add ${lane.label} keyframe in the selected phoneme`);
+    addButton.addEventListener("click", () => {
+      const segment = activeKeyframeSegment();
+      if (!segment) return;
+      addKeyframe(segment.id, lane.id, {
+        phase: suggestedKeyframePhase(segment, lane.id),
+      });
+    });
+    label.append(dot, name, output, addButton);
     gutter.append(label);
 
     const group = svgElement("g", {
@@ -605,61 +704,99 @@ function renderTimeline() {
         x: 0,
         y: laneY - 7,
         width: plotWidth,
-        height: LANE_HEIGHT,
+        height: laneHeight,
       }),
       svgElement("line", {
         class: "ptz-lane-midline",
         x1: 0,
         x2: plotWidth,
-        y1: laneY + LANE_GRAPH_HEIGHT / 2,
-        y2: laneY + LANE_GRAPH_HEIGHT / 2,
+        y1: laneY + graphHeight / 2,
+        y2: laneY + graphHeight / 2,
       }),
       svgElement("path", {
         class: "ptz-lane-curve",
-        d: lanePath(sequence.automation[lane.id].samples, laneY, plotWidth),
+        d: lanePath(sequence.automation[lane.id].samples, laneY, plotWidth, graphHeight),
       }),
     );
 
     sequence.articulationSegments.forEach((segment) => {
-      const x = (segment.startMs + segment.durationMs * 0.5) / sequence.durationMs * plotWidth;
-      const value = segment.laneValues[lane.id];
-      const y = laneY + (1 - value) * LANE_GRAPH_HEIGHT;
-      const key = svgElement("g", {
-        class: "ptz-keyframe",
-        "data-segment-id": segment.id,
-        "data-lane": lane.id,
-        tabindex: 0,
-        role: "slider",
-        "aria-label": `${lane.label} for ${segment.phoneLabel}`,
-        "aria-valuemin": 0,
-        "aria-valuemax": 1,
-        "aria-valuenow": value.toFixed(3),
-        "aria-valuetext": laneValueText(lane, value),
-      });
-      key.append(
-        svgElement("circle", { class: "ptz-keyframe-hit", cx: x, cy: y, r: 9 }),
-        svgElement("rect", {
-          class: "ptz-keyframe-mark",
-          x: x - 3.4,
-          y: y - 3.4,
-          width: 6.8,
-          height: 6.8,
-          transform: `rotate(45 ${x} ${y})`,
-        }),
-      );
-      key.addEventListener("pointerdown", (event) => beginLaneDrag(event, lane, segment, laneY));
-      key.addEventListener("click", () => selectSegment(segment.id));
-      key.addEventListener("keydown", (event) => {
-        if (!["ArrowUp", "ArrowDown"].includes(event.key)) return;
-        event.preventDefault();
-        const amount = event.shiftKey ? 0.1 : 0.02;
-        editSegment(segment.id, {
-          lanes: { [lane.id]: value + (event.key === "ArrowUp" ? amount : -amount) },
-        }, {
-          focus: { type: "lane", segmentId: segment.id, laneId: lane.id },
+      const keys = laneKeyframes(segment, lane.id);
+      keys.forEach((keyframe, keyframeIndex) => {
+        const timeMs = keyframeTimeMs(segment, keyframe);
+        const x = timeMs / Math.max(1, sequence.durationMs) * plotWidth;
+        const value = clamp(keyframe.value);
+        const y = laneY + (1 - value) * graphHeight;
+        const key = svgElement("g", {
+          class: [
+            "ptz-keyframe",
+            segment.id === state.selectedSegmentId ? "is-selected" : "",
+            state.drag?.keyframeId === keyframe.id ? "is-dragging" : "",
+          ].filter(Boolean).join(" "),
+          "data-keyframe-id": keyframe.id,
+          "data-segment-id": segment.id,
+          "data-lane": lane.id,
+          tabindex: 0,
+          role: "slider",
+          "aria-label": `${lane.label} keyframe ${keyframeIndex + 1} of ${keys.length} for ${segment.phoneLabel}`,
+          "aria-valuemin": 0,
+          "aria-valuemax": 1,
+          "aria-valuenow": value.toFixed(3),
+          "aria-valuetext": `${laneValueText(lane, value)} at ${Math.round(keyframe.phase * 100)}% of ${segment.phoneLabel}`,
         });
+        key.append(
+          svgElement("circle", { class: "ptz-keyframe-hit", cx: x, cy: y, r: 10 }),
+          svgElement("rect", {
+            class: "ptz-keyframe-mark",
+            x: x - 3.4,
+            y: y - 3.4,
+            width: 6.8,
+            height: 6.8,
+            transform: `rotate(45 ${x} ${y})`,
+          }),
+        );
+        key.addEventListener("pointerdown", (event) => (
+          beginLaneDrag(event, lane, segment, keyframe, laneY, graphHeight)
+        ));
+        key.addEventListener("click", () => selectSegment(segment.id));
+        key.addEventListener("keydown", (event) => {
+          const vertical = ["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key);
+          const horizontal = ["ArrowLeft", "ArrowRight"].includes(event.key);
+          const removing = ["Delete", "Backspace"].includes(event.key);
+          if (!vertical && !horizontal && !removing) return;
+          event.preventDefault();
+          if (removing) {
+            removeKeyframe(segment.id, lane.id, keyframe.id);
+            return;
+          }
+          const patch = {};
+          if (horizontal) {
+            const stepMs = event.shiftKey ? 25 : 5;
+            patch.timeMs = timeMs + (event.key === "ArrowRight" ? stepMs : -stepMs);
+          } else if (event.key === "Home" || event.key === "End") {
+            patch.value = event.key === "Home" ? 1 : 0;
+          } else {
+            const amount = event.shiftKey ? 0.1 : 0.02;
+            patch.value = value + (event.key === "ArrowUp" ? amount : -amount);
+          }
+          editKeyframe(segment.id, lane.id, keyframe.id, patch, { focus: true });
+        });
+        group.append(key);
       });
-      group.append(key);
+    });
+    group.addEventListener("dblclick", (event) => {
+      if (event.target.closest?.(".ptz-keyframe")) return;
+      const point = svgPointerPosition(event, svg);
+      const timeMs = clamp(point.x / Math.max(1, plotWidth)) * sequence.durationMs;
+      const segment = articulationAtTime(timeMs);
+      if (!segment) {
+        announce("Choose a sounding phoneme lane, not a pause, to add a keyframe.");
+        return;
+      }
+      event.preventDefault();
+      addKeyframe(segment.id, lane.id, {
+        timeMs,
+        value: 1 - (point.y - laneY) / graphHeight,
+      });
     });
     svg.append(group);
   });
@@ -804,6 +941,109 @@ function editSegment(id, patch, { focus = null } = {}) {
       ))
       ?.focus();
   }
+}
+
+function focusKeyframe(segmentId, laneId, keyframeId) {
+  if (!keyframeId) return;
+  [...document.querySelectorAll(".ptz-keyframe")]
+    .find((key) => (
+      key.dataset.segmentId === segmentId
+        && key.dataset.lane === laneId
+        && key.dataset.keyframeId === keyframeId
+    ))
+    ?.focus({ preventScroll: true });
+}
+
+function addKeyframe(segmentId, laneId, request = {}) {
+  if (!state.sequence) return;
+  const segment = state.sequence.segments.find(({ id }) => id === segmentId);
+  if (!segment || segment.type !== "articulation") return;
+  const previousIds = new Set(laneKeyframes(segment, laneId).map(({ id }) => id));
+  const elapsedMs = state.elapsedMs;
+  const scroller = $("timelineScroll");
+  const scrollLeft = scroller.scrollLeft;
+  const scrollTop = scroller.scrollTop;
+  const next = addPinkTrombonazoidKeyframe(
+    state.sequence,
+    segmentId,
+    laneId,
+    request,
+  );
+  if (next === state.sequence) return;
+  state.sequence = next;
+  state.selectedSegmentId = segmentId;
+  const changedSegment = next.segments.find(({ id }) => id === segmentId);
+  const added = laneKeyframes(changedSegment, laneId)
+    .find(({ id }) => !previousIds.has(id));
+  renderAll();
+  keepPlaybackAfterEdit(elapsedMs);
+  scroller.scrollLeft = scrollLeft;
+  scroller.scrollTop = scrollTop;
+  $("phonemeRuler").scrollLeft = scrollLeft;
+  focusKeyframe(segmentId, laneId, added?.id);
+  announce(`Keyframe added${state.playing ? ". Playback continues." : "."}`);
+}
+
+function editKeyframe(segmentId, laneId, keyframeId, patch, { focus = false } = {}) {
+  if (!state.sequence) return;
+  const elapsedMs = state.elapsedMs;
+  const scroller = $("timelineScroll");
+  const scrollLeft = scroller.scrollLeft;
+  const scrollTop = scroller.scrollTop;
+  const next = updatePinkTrombonazoidKeyframe(
+    state.sequence,
+    segmentId,
+    laneId,
+    keyframeId,
+    patch,
+  );
+  if (next === state.sequence) return;
+  state.sequence = next;
+  state.selectedSegmentId = segmentId;
+  renderAll();
+  keepPlaybackAfterEdit(elapsedMs);
+  scroller.scrollLeft = scrollLeft;
+  scroller.scrollTop = scrollTop;
+  $("phonemeRuler").scrollLeft = scrollLeft;
+  if (state.drag?.type === "lane") {
+    state.drag.svg = $("timelineSvg");
+    [...document.querySelectorAll(".ptz-keyframe")]
+      .find((key) => (
+        key.dataset.segmentId === segmentId
+          && key.dataset.lane === laneId
+          && key.dataset.keyframeId === keyframeId
+      ))
+      ?.classList.add("is-dragging");
+  }
+  if (focus) focusKeyframe(segmentId, laneId, keyframeId);
+}
+
+function removeKeyframe(segmentId, laneId, keyframeId) {
+  if (!state.sequence) return;
+  const segment = state.sequence.segments.find(({ id }) => id === segmentId);
+  const keys = laneKeyframes(segment, laneId);
+  const removedIndex = keys.findIndex(({ id }) => id === keyframeId);
+  if (removedIndex < 0) return;
+  const elapsedMs = state.elapsedMs;
+  const next = removePinkTrombonazoidKeyframe(
+    state.sequence,
+    segmentId,
+    laneId,
+    keyframeId,
+  );
+  if (next === state.sequence) {
+    announce("Each phoneme lane keeps at least one keyframe.");
+    return;
+  }
+  state.sequence = next;
+  state.selectedSegmentId = segmentId;
+  const changedSegment = next.segments.find(({ id }) => id === segmentId);
+  const remaining = laneKeyframes(changedSegment, laneId);
+  const focusId = remaining[Math.min(removedIndex, remaining.length - 1)]?.id;
+  renderAll();
+  keepPlaybackAfterEdit(elapsedMs);
+  focusKeyframe(segmentId, laneId, focusId);
+  announce(`Keyframe removed${state.playing ? ". Playback continues." : "."}`);
 }
 
 function replacePhone(phoneId, replacementId, {
@@ -1048,15 +1288,18 @@ function beginDurationDrag(event, segment) {
   event.currentTarget.setPointerCapture?.(event.pointerId);
 }
 
-function beginLaneDrag(event, lane, segment, laneY) {
+function beginLaneDrag(event, lane, segment, keyframe, laneY, graphHeight) {
   event.preventDefault();
+  event.stopPropagation();
   selectSegment(segment.id);
   state.drag = {
     type: "lane",
     pointerId: event.pointerId,
-    lane,
+    laneId: lane.id,
     laneY,
+    graphHeight,
     segmentId: segment.id,
+    keyframeId: keyframe.id,
     svg: $("timelineSvg"),
   };
   event.currentTarget.classList.add("is-dragging");
@@ -1072,11 +1315,17 @@ function continueDrag(event) {
     });
     return;
   }
-  const rect = state.drag.svg.getBoundingClientRect();
+  event.preventDefault();
+  const point = svgPointerPosition(event, state.drag.svg);
   const viewBox = state.drag.svg.viewBox.baseVal;
-  const y = (event.clientY - rect.top) / Math.max(1, rect.height) * viewBox.height;
-  const value = 1 - (y - state.drag.laneY) / LANE_GRAPH_HEIGHT;
-  editSegment(state.drag.segmentId, { lanes: { [state.drag.lane.id]: value } });
+  const timeMs = clamp(point.x / Math.max(1, viewBox.width)) * state.sequence.durationMs;
+  const value = 1 - (point.y - state.drag.laneY) / state.drag.graphHeight;
+  editKeyframe(
+    state.drag.segmentId,
+    state.drag.laneId,
+    state.drag.keyframeId,
+    { timeMs, value },
+  );
 }
 
 function endDrag(event) {
@@ -1151,6 +1400,7 @@ function activateSegment(index, elapsedSeconds) {
   }
   let event = pinkTrombonazoidAudioEvent(segment, {
     elapsedSeconds,
+    laneValues: automationLaneValuesAt(elapsedSeconds * 1_000),
     voice: voiceSettings(),
   });
   const phone = state.sequence?.phones.find(({ id }) => id === segment.phoneId);
@@ -1254,14 +1504,7 @@ function automationLaneValuesAt(milliseconds) {
   const phase = clamp(milliseconds / sequence.durationMs);
   const values = {};
   for (const lane of PINK_TROMBONAZOID_LANES) {
-    const samples = sequence.automation[lane.id]?.samples ?? [];
-    if (!samples.length) continue;
-    const position = phase * (samples.length - 1);
-    const left = Math.floor(position);
-    const right = Math.min(samples.length - 1, left + 1);
-    const mix = position - left;
-    const value = samples[left] + (samples[right] - samples[left]) * mix;
-    values[lane.id] = value;
+    values[lane.id] = samplePinkTrombonazoidAutomation(sequence, lane.id, phase);
   }
   return values;
 }
@@ -1362,6 +1605,19 @@ function bindRange(id, formatter, handler = null) {
   update();
 }
 
+function setTimelineZoomY(percent) {
+  const scroller = $("timelineScroll");
+  const previousHeight = timelineGeometry().height;
+  const viewportCenter = (scroller.scrollTop + scroller.clientHeight / 2)
+    / Math.max(1, previousHeight);
+  state.timelineZoomY = clamp(percent / 100, 1, 4);
+  if (!state.sequence) return;
+  renderTimeline();
+  updatePlayhead(state.elapsedMs);
+  const nextHeight = timelineGeometry().height;
+  scroller.scrollTop = Math.max(0, viewportCenter * nextHeight - scroller.clientHeight / 2);
+}
+
 $("audioButton").addEventListener("click", () => {
   if (state.audioEnabled || state.audioStarting) void disableAudio();
   else void enableAudio();
@@ -1445,6 +1701,7 @@ bindRange("speechRate", (value) => `${value.toFixed(2)}×`, (value) => {
   renderAll();
   keepPlaybackAfterEdit(elapsedPhase * state.sequence.durationMs);
 });
+bindRange("timelineZoomY", (value) => `${Math.round(value)}%`, setTimelineZoomY);
 bindRange("wordGap", (value) => `${Math.round(value)} ms`);
 bindRange("level", (value) => `${Math.round(value * 100)}%`, (value) => audio.setLevel(value));
 bindRange("pitchModRate", (value) => `${value.toFixed(1)} Hz`);
@@ -1488,6 +1745,7 @@ $("resetPinkTrombonazoid").addEventListener("click", () => {
   $("personality").value = DEFAULT_PINK_TROMBONAZOID_VOICE_PRESET;
   setVoiceControls(selectedVoicePreset().voice);
   $("speechRate").value = "1";
+  $("timelineZoomY").value = "100";
   $("wordGap").value = "420";
   $("pitchModShape").value = "sine";
   $("pitchModRate").value = "5.2";
@@ -1502,7 +1760,7 @@ $("resetPinkTrombonazoid").addEventListener("click", () => {
   for (const id of ["modulationBypass", "effectsBypass"]) $(id).setAttribute("aria-pressed", "false");
   previousSpeechRate = 1;
   for (const id of [
-    "speechRate", "wordGap", "pitchModRate", "pitchModDepth", "breathModRate",
+    "speechRate", "timelineZoomY", "wordGap", "pitchModRate", "pitchModDepth", "breathModRate",
     "breathModDepth", "drive", "tone", "echo", "echoTime",
   ]) $(id).dispatchEvent(new Event("input"));
   void buildWord("hello");

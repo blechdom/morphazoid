@@ -60,23 +60,23 @@
             tabindex="0"
             role="slider"
             data-interactive-track
-            aria-label="Karplus Carpet direct pitch"
+            aria-label="Karplus Carpet micro-area surface"
             aria-orientation="horizontal"
             aria-valuemin="0"
             aria-valuemax="100"
             aria-valuenow="50"
-            aria-valuetext="Pitch center 311.1 Hz; pointer starts the exact pitch; automatic carpet spread 72 percent"
+            aria-valuetext="Area pitch 311.1 Hz; each close area sounds once per gesture"
             aria-describedby="canvasInstructions liveStatus"
           >
             An interactive woven field of synthesized Karplus micro-attacks.
           </canvas>
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">64 HITS &middot; 16 /S &middot; 160 MS &middot; AUDIO OFF</span>
+            <span id="stageReadout">DENSE AREAS &middot; 160 MS &middot; AUDIO OFF</span>
           </div>
           <div class="ks-stage-title kc-stage-title" aria-hidden="true">
-            <p>SYNTHESIZED MICROSOUND WEAVE</p>
+            <p>SYNTHESIZED MICROSOUND SURFACE</p>
             <h1>Karplus Carpet</h1>
-            <small>drag = exact pitch &middot; density = clock &middot; scatter = deviation</small>
+            <small>press + drag &middot; cross an area = one attack &middot; hold still = silence</small>
           </div>
           <div class="ks-stage-legend kc-stage-legend" aria-hidden="true">
             <span>LOW</span><i></i><span id="stageSpacingLabel">12 DIV / OCT</span><i></i><span>HIGH</span>
@@ -85,53 +85,20 @@
       </section>
 
       <aside class="panel" aria-label="Karplus Carpet controls">
-        <details class="group control-section" data-section="play" open>
+        <details class="group control-section" data-section="surface" open>
           <summary class="group-summary">
-            <h2 class="group-title">Carpet</h2>
-            <span class="section-state" id="playSummary">64 hits &middot; ready</span>
+            <h2 class="group-title">Surface</h2>
+            <span class="section-state" id="surfaceSummary">Close areas &middot; drag to cross</span>
           </summary>
           <div class="group-body">
-            <div class="kc-transport-row">
-              <button class="play-button" id="carpetButton" type="button" aria-pressed="false" aria-label="Start Karplus Carpet" data-primary-transport>
-                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
-                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-              </button>
-              <div class="kc-transport-readout">
-                <b id="hitReadout">64 micro-attacks</b>
-                <span id="densityReadout">16 hits / second</span>
-                <small id="progressOut">0 / 64 woven</small>
-              </div>
-              <button class="mini-action kc-loop-toggle" id="loopCarpet" type="button" aria-pressed="false">Loop</button>
-            </div>
-
             <div class="kc-performance-sliders">
-              <label class="control kc-slider" for="hitCount">
-                <span><b>Hit count</b><output id="hitCountOut" for="hitCount">64 hits</output></span>
-                <input id="hitCount" type="range" min="8" max="128" step="1" value="64" />
-                <span class="form-range-poles" aria-hidden="true"><span>8</span><span>68</span><span>128</span></span>
-              </label>
-              <label class="control kc-slider" for="hitDensity">
-                <span><b>Hit density</b><output id="hitDensityOut" for="hitDensity">16 /s</output></span>
-                <input id="hitDensity" type="range" min="4" max="28" step="1" value="16" />
-                <span class="form-range-poles" aria-hidden="true"><span>4 /s</span><span>16 /s</span><span>28 /s</span></span>
-              </label>
               <label class="control kc-slider" for="grainDuration">
                 <span><b>Micro tail</b><output id="grainDurationOut" for="grainDuration">160 ms</output></span>
                 <input id="grainDuration" type="range" min=".08" max=".4" step=".01" value=".16" />
                 <span class="form-range-poles" aria-hidden="true"><span>80 ms</span><span>240 ms</span><span>400 ms</span></span>
               </label>
-              <label class="control kc-slider" for="timingJitter">
-                <span><b>Timing scatter</b><output id="timingJitterOut" for="timingJitter">18%</output></span>
-                <input id="timingJitter" type="range" min="0" max="1" step=".01" value=".18" />
-                <span class="form-range-poles" aria-hidden="true"><span>Even</span><span>50%</span><span>Loose</span></span>
-              </label>
-              <label class="control kc-slider" for="pitchSpread">
-                <span><b>Automatic pitch spread</b><output id="pitchSpreadOut" for="pitchSpread">72%</output></span>
-                <input id="pitchSpread" type="range" min=".04" max="1" step=".01" value=".72" />
-                <span class="form-range-poles" aria-hidden="true"><span>Narrow</span><span>Play / Loop only</span><span>Wide</span></span>
-              </label>
               <label class="control kc-slider" for="velocityScatter">
-                <span><b>Attack scatter</b><output id="velocityScatterOut" for="velocityScatter">28%</output></span>
+                <span><b>Area variation</b><output id="velocityScatterOut" for="velocityScatter">28%</output></span>
                 <input id="velocityScatter" type="range" min="0" max="1" step=".01" value=".28" />
               </label>
               <label class="control kc-slider" for="stereoSpread">
@@ -174,7 +141,7 @@
               </label>
               <button class="mini-action form-range-reset" id="centerPitchBend" type="button">Center</button>
             </div>
-            <p class="control-note">Click to start the exact pitch under the pointer. Drag horizontally and the next density-clocked attack follows. Timing Scatter is the only clock deviation; Automatic Pitch Spread belongs to Play and Loop. Every mote is synthesized now&mdash;no samples are loaded.</p>
+            <p class="control-note">Press and drag in any direction. Entering a close micro-area strikes it once; moving inside it or holding still stays silent. Previously crossed areas remain silent until the next gesture. Horizontal position selects pitch, while every mote is synthesized now&mdash;no samples are loaded.</p>
           </div>
         </details>
 
@@ -224,7 +191,7 @@
               <i aria-hidden="true">&rarr;</i>
               <span><b>Micro loop</b><small>80&ndash;400 ms</small></span>
               <i aria-hidden="true">&rarr;</i>
-              <span><b>Weave</b><small>count + density</small></span>
+              <span><b>Cross</b><small>one area, one attack</small></span>
               <i aria-hidden="true">&rarr;</i>
               <span><b>Carpet</b><small>pitch + stereo field</small></span>
             </div>
@@ -238,7 +205,7 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        The stage is a continuous Karplus microsound field rather than a row of strings. Pointer left and right directly selects the played pitch. Dragging changes each subsequent attack while Hit density controls its clock and Timing scatter controls deviation from that clock. Automatic pitch spread applies only when Start or Loop is used without the pointer. Press Left or Right to move the pitch, then Space or Enter to start a direct-pitch carpet.
+        The stage is a dense two-dimensional field of close micro-areas. Pressing enters one area and sounds one synthesized Karplus attack. Dragging across each new area sounds it once; moving within an area or holding still is silent. Areas rearm on the next pointer gesture. Horizontal position selects pitch. Press Left or Right to cross one area, or Space or Enter to strike the current area once.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

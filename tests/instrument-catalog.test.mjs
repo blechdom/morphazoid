@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
-import { TOOL_GROUPS } from "../nav.js";
+import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../nav.js";
 import {
   instrumentMatchesTag,
   renderInstrumentCatalog,
@@ -83,7 +83,7 @@ test("experiments carry a works-in-progress status while regular instruments do 
     instrument.tags.some(({ id }) => id === "experiments")
     && INSTRUMENT_GROUPS.find(({ id }) => id === "experiments")?.tools.includes(instrument)
   ));
-  assert.equal(experiments.length, 38);
+  assert.equal(experiments.length, 42);
   assert.equal(experiments.every(({ status }) => status === "Works in progress"), true);
   assert.equal(experiments.every(({ tags }) => (
     tags.length === 1 && tags[0].id === "experiments"
@@ -92,6 +92,39 @@ test("experiments carry a works-in-progress status while regular instruments do 
     INSTRUMENTS.filter((instrument) => !experiments.includes(instrument))
       .every(({ status }) => status === null),
     true,
+  );
+});
+
+test("unfinished algorithmic scores live only in Experiments", () => {
+  const movedIds = ["hanoi", "minimax", "nqueens", "euclid"];
+  const algorithmicIds = INSTRUMENT_GROUPS.find(
+    ({ id }) => id === "algorithmic-sequencers",
+  )?.tools.map(({ id }) => id);
+  const experimentIds = INSTRUMENT_GROUPS.find(
+    ({ id }) => id === "experiments",
+  )?.tools.map(({ id }) => id);
+
+  assert.deepEqual(algorithmicIds, ["sorting-algorithms", "dijkstra"]);
+  for (const id of movedIds) {
+    const instrument = instrumentById(id);
+    assert.equal(experimentIds.includes(id), true);
+    assert.equal(instrument?.status, "Works in progress");
+    assert.deepEqual(instrument?.tags.map(({ id: tagId }) => tagId), ["experiments"]);
+  }
+});
+
+test("Faves keep their regular catalogue groups and experiments never inherit the tag", () => {
+  for (const id of FAVE_TOOL_IDS) {
+    const instrument = instrumentById(id);
+    assert.ok(instrument, `${id} must exist in the catalogue`);
+    assert.equal(instrument.tags.some(({ id: tagId }) => tagId === "faves"), true);
+    assert.notEqual(instrument.tags[0].id, "faves", `${id} keeps its primary group first`);
+    assert.equal(instrument.status, null);
+  }
+  assert.equal(
+    INSTRUMENTS.filter(({ status }) => status)
+      .some(({ tags }) => tags.some(({ id }) => id === "faves")),
+    false,
   );
 });
 
@@ -166,6 +199,9 @@ test("Karplus Carpet is a synthesized microsound field with page-owned note gest
   assert.equal(instrument?.kind, "Microsound physical-model synth");
   assert.match(instrument?.description ?? "", /freshly synthesized/i);
   assert.match(instrument?.description ?? "", /without loading sample grains/i);
+  assert.match(instrument?.start ?? "", /each newly crossed area sounds once per gesture/i);
+  assert.match(instrument?.start ?? "", /holding still stays silent/i);
+  assert.doesNotMatch(instrument?.start ?? "", /\bPlay\b|hit count|timing scatter/i);
   assert.deepEqual(instrument?.tags.map(({ id }) => id), ["instruments"]);
   assert.ok(instrument?.features.includes("Built-in synth"));
   assert.ok(instrument?.features.includes("Pointer"));
@@ -210,7 +246,7 @@ test("Pink Trombonazoid is an articulatory voice sequencer without generic note 
   assert.match(instrument?.description ?? "", /physical vocal tract/i);
   assert.deepEqual(
     instrument?.tags.map(({ id }) => id),
-    ["voice-synths", "sequencers"],
+    ["voice-synths", "sequencers", "faves"],
   );
   assert.ok(instrument?.features.includes("Built-in source"));
   assert.ok(instrument?.features.includes("Pointer"));
@@ -268,6 +304,8 @@ test("catalogue tag matching includes secondary tags", () => {
   assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "experiments"), true);
   assert.equal(instrumentMatchesTag(instrumentById("plasma-ball"), "geometry"), false);
   assert.equal(instrumentMatchesTag(instrumentById("fm-drums"), "geometry-drums"), true);
+  assert.equal(instrumentMatchesTag(instrumentById("shape"), "faves"), true);
+  assert.equal(instrumentMatchesTag(instrumentById("lattice"), "faves"), false);
 });
 
 test("catalogue tag controls hide experiments until All is restored", () => {
@@ -311,6 +349,7 @@ test("catalogue tag controls hide experiments until All is restored", () => {
   const filterLabels = rendered.filter.children.map(({ textContent }) => textContent);
   assert.deepEqual(filterLabels, [
     "All",
+    "Faves",
     "Geometry Synths",
     "Drum Machines",
     "Sequencers",
@@ -323,6 +362,21 @@ test("catalogue tag controls hide experiments until All is restored", () => {
     "Instruments",
     "Algorithmic Sequencers",
   ]);
+
+  const favesButton = rendered.filter.children.find(
+    ({ dataset }) => dataset.catalogueTag === "faves",
+  );
+  favesButton.click();
+  assert.equal(rendered.experiments.hidden, true);
+  assert.equal(
+    rendered.cards.find(({ dataset }) => dataset.instrumentId === "shape").hidden,
+    false,
+  );
+  assert.equal(
+    rendered.cards.find(({ dataset }) => dataset.instrumentId === "lattice").hidden,
+    true,
+  );
+  assert.equal(favesButton.attributes.get("aria-pressed"), "true");
 
   const chaoticButton = rendered.filter.children.find(
     ({ dataset }) => dataset.catalogueTag === "chaotic-synths",

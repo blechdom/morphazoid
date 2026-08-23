@@ -6,15 +6,14 @@ import {
   KARPLUS_CARPET_DEFAULTS,
   KARPLUS_CARPET_LIMITS,
   KarplusCarpetAudio,
-  buildKarplusCarpetEvents,
   generateKarplusCarpetSamples,
-  karplusCarpetEvent,
-  karplusCarpetIntervalMs,
   karplusCarpetPitchAtPosition,
   karplusCarpetPointerEvent,
   karplusCarpetPositionFromStageX,
-  karplusCarpetRephaseTime,
-  karplusCarpetResumeTime,
+  karplusCarpetSpatialCellAtPosition,
+  karplusCarpetSpatialCellSeed,
+  karplusCarpetSpatialCrossings,
+  karplusCarpetSpatialGrid,
   karplusCarpetStageGeometry,
   normalizeKarplusCarpetSamples,
   sanitizeKarplusCarpetSettings,
@@ -26,13 +25,9 @@ import {
 
 const root = new URL("../", import.meta.url);
 
-test("Karplus Carpet settings keep hit count, Rattlesnake density, and grains bounded", () => {
+test("Karplus Carpet settings keep spatial grains and pitch fields bounded", () => {
   const low = sanitizeKarplusCarpetSettings({
-    hitCount: -40,
-    hitDensity: -8,
     grainDuration: -1,
-    timingJitter: -3,
-    pitchSpread: 0,
     velocityScatter: -1,
     stereoSpread: -1,
     centerPosition: -2,
@@ -41,11 +36,7 @@ test("Karplus Carpet settings keep hit count, Rattlesnake density, and grains bo
     divisionsPerOctave: -4,
     spacing: "unknown",
   });
-  assert.equal(low.hitCount, KARPLUS_CARPET_LIMITS.minimumHitCount);
-  assert.equal(low.hitDensity, 4);
   assert.equal(low.grainDuration, 0.08);
-  assert.equal(low.timingJitter, 0);
-  assert.equal(low.pitchSpread, 0.04);
   assert.equal(low.velocityScatter, 0);
   assert.equal(low.stereoSpread, 0);
   assert.equal(low.centerPosition, 0);
@@ -53,22 +44,14 @@ test("Karplus Carpet settings keep hit count, Rattlesnake density, and grains bo
   assert.ok(low.highFrequency > low.lowFrequency);
 
   const high = sanitizeKarplusCarpetSettings({
-    hitCount: 999.8,
-    hitDensity: 999,
     grainDuration: 8,
-    timingJitter: 4,
-    pitchSpread: 4,
     velocityScatter: 4,
     stereoSpread: 4,
     centerPosition: 4,
     divisionsPerOctave: 999,
     spacing: "equal-hz",
   });
-  assert.equal(high.hitCount, KARPLUS_CARPET_LIMITS.maximumHitCount);
-  assert.equal(high.hitDensity, 28);
   assert.equal(high.grainDuration, 0.4);
-  assert.equal(high.timingJitter, 1);
-  assert.equal(high.pitchSpread, 1);
   assert.equal(high.velocityScatter, 1);
   assert.equal(high.stereoSpread, 1);
   assert.equal(high.centerPosition, 1);
@@ -76,94 +59,83 @@ test("Karplus Carpet settings keep hit count, Rattlesnake density, and grains bo
   assert.equal(high.spacing, "equal-hz");
 });
 
-test("Karplus Carpet builds exactly one short synthesized attack per requested hit", () => {
-  const settings = sanitizeKarplusCarpetSettings({
-    ...KARPLUS_CARPET_DEFAULTS,
-    hitCount: 72,
-    hitDensity: 18,
-    timingJitter: 0,
+test("the Carpet stage is divided into close two-dimensional micro-areas", () => {
+  const settings = sanitizeKarplusCarpetSettings(KARPLUS_CARPET_DEFAULTS);
+  const frequencies = karplusStrongStringFrequencies(settings);
+  const grid = karplusCarpetSpatialGrid(1_000, 600, { pitchCount: frequencies.length });
+  assert.ok(grid.columns >= frequencies.length);
+  assert.ok(grid.cellWidth <= KARPLUS_CARPET_LIMITS.spatialCellSize);
+  assert.ok(grid.cellHeight <= KARPLUS_CARPET_LIMITS.spatialCellSize);
+  assert.ok(grid.columns >= KARPLUS_CARPET_LIMITS.minimumSpatialColumns);
+  assert.ok(grid.rows >= KARPLUS_CARPET_LIMITS.minimumSpatialRows);
+
+  const first = karplusCarpetSpatialCellAtPosition(
+    1_000,
+    600,
+    grid.left,
+    grid.top,
+    { grid },
+  );
+  const last = karplusCarpetSpatialCellAtPosition(
+    1_000,
+    600,
+    grid.right,
+    grid.bottom,
+    { grid },
+  );
+  assert.deepEqual([first.column, first.row], [0, 0]);
+  assert.deepEqual([last.column, last.row], [grid.columns - 1, grid.rows - 1]);
+  assert.equal(karplusCarpetSpatialCellSeed(first), karplusCarpetSpatialCellSeed(first));
+  assert.notEqual(karplusCarpetSpatialCellSeed(first), karplusCarpetSpatialCellSeed(last));
+  assert.equal(
+    karplusCarpetSpatialCellAtPosition(1_000, 600, grid.left - 0.01, grid.top, { grid }),
+    null,
+  );
+});
+
+test("spatial crossings are silent within an area and enumerate every crossed area", () => {
+  const grid = karplusCarpetSpatialGrid(800, 500, { cellSize: 12, pitchCount: 37 });
+  const point = (column, row, xAmount = 0.5, yAmount = 0.5) => ({
+    x: grid.left + (column + xAmount) * grid.cellWidth,
+    y: grid.top + (row + yAmount) * grid.cellHeight,
   });
-  const field = karplusStrongStringFrequencies(settings);
-  const events = buildKarplusCarpetEvents(settings, { seed: 20260821 });
-  assert.equal(events.length, 72);
-  assert.equal(events[0].atMs, 0);
-  for (let index = 0; index < events.length; index += 1) {
-    const event = events[index];
-    assert.equal(event.index, index);
-    assert.ok(field.includes(event.frequency));
-    assert.ok(event.duration >= 0.08 && event.duration <= 0.4);
-    assert.ok(event.velocity >= 0.16 && event.velocity <= 0.62);
-    assert.ok(event.pan >= -1 && event.pan <= 1);
-    assert.ok(event.visualY >= 0.12 && event.visualY <= 0.88);
-    if (index) {
-      assert.ok(event.atMs > events[index - 1].atMs);
-      assert.ok(Math.abs(event.atMs - events[index - 1].atMs - 1_000 / 18) < 1e-9);
-    }
-  }
-});
 
-test("higher hit density shortens a carpet while seeded weave stays deterministic", () => {
-  const common = {
-    ...KARPLUS_CARPET_DEFAULTS,
-    hitCount: 32,
-    timingJitter: 0.55,
-  };
-  const first = buildKarplusCarpetEvents({ ...common, hitDensity: 4 }, { seed: 47 });
-  const repeated = buildKarplusCarpetEvents({ ...common, hitDensity: 4 }, { seed: 47 });
-  const dense = buildKarplusCarpetEvents({ ...common, hitDensity: 28 }, { seed: 47 });
-  const alternate = buildKarplusCarpetEvents({ ...common, hitDensity: 4 }, { seed: 48 });
-  assert.deepEqual(first, repeated);
-  assert.notDeepEqual(first, alternate);
-  assert.ok(dense.at(-1).atMs < first.at(-1).atMs);
-});
-
-test("density and timing scatter literally control the attack clock", () => {
-  for (const hitDensity of [4, 16, 28]) {
-    for (const seed of [1, 47, 2_026_082_1]) {
-      assert.equal(
-        karplusCarpetIntervalMs({
-          ...KARPLUS_CARPET_DEFAULTS,
-          hitDensity,
-          timingJitter: 0,
-        }, 7, { seed }),
-        1_000 / hitDensity,
-      );
-    }
-  }
-
-  const source = { ...KARPLUS_CARPET_DEFAULTS, hitDensity: 16 };
-  const base = 1_000 / source.hitDensity;
-  const fullScatter = karplusCarpetIntervalMs(
-    { ...source, timingJitter: 1 },
-    5,
-    { seed: 91 },
+  assert.deepEqual(
+    karplusCarpetSpatialCrossings(point(2, 3), point(2, 3, 0.8), {
+      width: 800, height: 500, grid,
+    }),
+    [],
   );
-  const halfScatter = karplusCarpetIntervalMs(
-    { ...source, timingJitter: 0.5 },
-    5,
-    { seed: 91 },
-  );
-  assert.ok(Math.abs((halfScatter - base) - (fullScatter - base) * 0.5) < 1e-9);
+  const forward = karplusCarpetSpatialCrossings(point(2, 3), point(7, 3), {
+    width: 800, height: 500, grid,
+  });
+  assert.deepEqual(forward.map(({ column, row }) => [column, row]), [
+    [3, 3], [4, 3], [5, 3], [6, 3], [7, 3],
+  ]);
+  const reverse = karplusCarpetSpatialCrossings(point(7, 3), point(2, 3), {
+    width: 800, height: 500, grid,
+  });
+  assert.deepEqual(reverse.map(({ column, row }) => [column, row]), [
+    [6, 3], [5, 3], [4, 3], [3, 3], [2, 3],
+  ]);
+  const vertical = karplusCarpetSpatialCrossings(point(4, 2), point(4, 6), {
+    width: 800, height: 500, grid,
+  });
+  assert.deepEqual(vertical.map(({ column, row }) => [column, row]), [
+    [4, 3], [4, 4], [4, 5], [4, 6],
+  ]);
 
+  const visited = new Set(["2:3"]);
+  const firstGesturePass = forward.filter((cell) => !visited.has(cell.key));
+  for (const cell of firstGesturePass) visited.add(cell.key);
+  const returnPass = reverse.filter((cell) => !visited.has(cell.key));
+  assert.equal(firstGesturePass.length, 5);
+  assert.equal(returnPass.length, 0, "an area sounds only once until the next gesture");
+  const rearmed = new Set(["7:3"]);
   assert.equal(
-    karplusCarpetRephaseTime(
-      { ...source, hitDensity: 4, timingJitter: 0 },
-      1_000,
-      1_050,
-      5,
-      { seed: 91, minimumLeadMs: 40 },
-    ),
-    1_250,
-  );
-  assert.equal(
-    karplusCarpetRephaseTime(
-      { ...source, hitDensity: 28, timingJitter: 0 },
-      1_000,
-      1_050,
-      5,
-      { seed: 91, minimumLeadMs: 40 },
-    ),
-    1_090,
+    reverse.filter((cell) => !rearmed.has(cell.key)).length,
+    5,
+    "a new gesture rearms areas",
   );
 });
 
@@ -208,21 +180,11 @@ test("direct Carpet pitch follows the pointer's visible pitch field", () => {
   assert.equal(karplusCarpetPositionFromStageX(geometry.right + 40, 1_000), 1);
 });
 
-test("a late transport resumes its remaining weave instead of collapsing overdue hits", () => {
-  assert.equal(karplusCarpetResumeTime(900, 1_000), 1_008);
-  assert.equal(karplusCarpetResumeTime(960, 1_000), 960);
-  assert.equal(karplusCarpetResumeTime(1_100, 1_000), 1_100);
-  assert.equal(
-    karplusCarpetResumeTime(900, 1_000, { maximumLatenessMs: 200 }),
-    900,
-  );
-});
-
 test("a Carpet grain is a bounded Karplus waveform rather than a loaded sample", () => {
-  const event = karplusCarpetEvent({
+  const event = karplusCarpetPointerEvent({
     ...KARPLUS_CARPET_DEFAULTS,
     grainDuration: 0.12,
-  }, 3, { seed: 83 });
+  }, 3, { seed: 83, position: 0.4, visualY: 0.6 });
   const samples = generateKarplusCarpetSamples(
     { ...event, duration: 0.12 },
     KARPLUS_STRONG_DEFAULTS,
@@ -325,10 +287,10 @@ test("Karplus Carpet audio schedules short grains, bends them live, and stops cl
   }
 
   const audio = new KarplusCarpetAudio({ AudioContext: FakeContext });
-  const event = karplusCarpetEvent({
+  const event = karplusCarpetPointerEvent({
     ...KARPLUS_CARPET_DEFAULTS,
     grainDuration: 0.12,
-  }, 0, { seed: 91 });
+  }, 0, { seed: 91, position: 0.5, visualY: 0.5 });
   const scheduled = await audio.scheduleGrain(
     { ...event, duration: 0.12 },
     KARPLUS_STRONG_DEFAULTS,
@@ -369,42 +331,57 @@ test("Karplus Carpet page exposes synthesized microsound performance controls", 
     readFile(new URL("dist-wax/karplus-carpet.html", root), "utf8"),
   ]);
   assert.match(html, /<h1>Karplus Carpet<\/h1>/);
-  assert.match(html, /id="carpetButton"[^>]*data-primary-transport/);
-  assert.match(html, /id="hitCount"[^>]*type="range"[^>]*min="8"[^>]*max="128"/);
-  assert.match(html, /id="hitDensity"[^>]*type="range"[^>]*min="4"[^>]*max="28"/);
   assert.match(html, /id="grainDuration"[^>]*type="range"[^>]*min="\.08"[^>]*max="\.4"/);
+  assert.match(html, /id="velocityScatter"[^>]*type="range"/);
+  assert.match(html, /id="stereoSpread"[^>]*type="range"/);
   assert.match(html, /id="lowFrequency"[^>]*type="range"/);
   assert.match(html, /id="highFrequency"[^>]*type="range"/);
   assert.match(html, /id="divisionsPerOctave"[^>]*type="range"/);
-  assert.match(html, /Automatic pitch spread/);
-  assert.match(html, /Pointer left and right directly selects the played pitch/);
-  assert.match(html, /Timing Scatter is the only clock deviation/);
-  assert.doesNotMatch(html, /vertical position changes its spread/);
-  assert.match(html, /Every mote is synthesized/);
+  assert.match(html, /close micro-area strikes it once/i);
+  assert.match(html, /holding still stays silent/i);
+  assert.match(html, /Previously crossed areas remain silent until the next gesture/i);
+  assert.doesNotMatch(
+    html,
+    /id="(?:carpetButton|loopCarpet|hitCount|hitDensity|timingJitter|pitchSpread)"|data-primary-transport/,
+  );
+  assert.doesNotMatch(html, /hits \/ second|Timing scatter|Automatic pitch spread|>Play<|>Loop</i);
   assert.doesNotMatch(html, /<audio\b|type="file"|stringGrid|Chromatic strings/);
   assert.match(css, /\.kc-carpet-stage/);
   assert.match(css, /@media \(max-width: 960px\)/);
   assert.match(css, /\.karplus-carpet-page \.shell \{\s*display: grid;\s*grid-template-columns: minmax\(0, 1fr\);/);
   assert.match(css, /\.karplus-carpet-page \.panel \{\s*min-height: 0;\s*overflow-y: auto;/);
   assert.doesNotMatch(css, /\.karplus-carpet-page \.shell \{\s*display: block;/);
-  assert.match(app, /KARPLUS_CARPET_LIMITS\.scheduleAheadSeconds/);
-  assert.match(app, /window\.setTimeout\(scheduleTransport/);
-  assert.match(app, /karplusCarpetPointerEvent\(settings, hitIndex/);
-  assert.match(app, /karplusCarpetPositionFromStageX\(localX, bounds\.width\)/);
-  assert.match(app, /karplusCarpetRephaseTime\(/);
-  assert.doesNotMatch(app, /lastPointerGrainAt|< 55/);
+  assert.doesNotMatch(css, /kc-transport|kc-loop-toggle/);
+  assert.match(app, /karplusCarpetSpatialGrid/);
+  assert.match(app, /karplusCarpetSpatialCrossings/);
+  assert.match(app, /gesture\.visited\.has\(cell\.key\)/);
+  assert.match(app, /event\.getCoalescedEvents\(\)/);
+  assert.doesNotMatch(
+    app,
+    /scheduleTransport|startTransport|stopTransport|plantCloud|setTimeout|setInterval/,
+  );
+  assert.doesNotMatch(app, /hitCount|hitDensity|timingJitter|pitchSpread|loopCarpet|carpetButton/);
   const pointerDown = app.match(
     /canvas\.addEventListener\("pointerdown"[\s\S]*?\n\}\);/,
   )?.[0] ?? "";
-  assert.match(pointerDown, /startDirectCarpet/);
-  assert.doesNotMatch(pointerDown, /plantCloud/);
+  assert.match(pointerDown, /processPointerSample\(gesture, event\)/);
+  const pointerMove = app.match(
+    /canvas\.addEventListener\("pointermove"[\s\S]*?\n\}\);/,
+  )?.[0] ?? "";
+  assert.match(pointerMove, /processPointerSample/);
   assert.match(app, /message\?\.type === "pitchBend"/);
   assert.match(app, /message\?\.type !== "noteOn"/);
+  const presetBody = app.match(/function applyPreset\([\s\S]*?\n\}/)?.[0] ?? "";
+  assert.doesNotMatch(presetBody, /queueGrain|strikeSpatial|scheduleGrain/);
   assert.match(source, /generateKarplusStrongSamples/);
   assert.match(source, /function karplusCarpetPointerEvent/);
+  assert.match(source, /function karplusCarpetSpatialCrossings/);
   assert.match(source, /class KarplusCarpetAudio/);
   assert.match(source, /scheduleGrain\(event/);
+  assert.doesNotMatch(source, /function karplusCarpetIntervalMs|function buildKarplusCarpetEvents/);
   assert.doesNotMatch(source, /decodeAudioData|fetch\(|\.wav|\.mp3/);
+  assert.match(waxHtml, /close micro-area strikes it once/i);
+  assert.doesNotMatch(waxHtml, /id="carpetButton"|id="loopCarpet"/);
   assert.match(waxHtml, /data-morphazoid-wax-bootstrap/);
   assert.match(waxHtml, /data-morphazoid-wax-universal-adapter/);
 });

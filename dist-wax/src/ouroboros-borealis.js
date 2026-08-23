@@ -887,7 +887,8 @@ function createProcessorClass(AudioWorkletBase) {
         this.noiseSeedCounter = advanceNoiseSeed(this.noiseSeedCounter);
         this.noiseSeeds[index] = this.noiseSeedCounter;
       }
-      this.activeTarget = 0;
+      this.audibleTarget = 0;
+      this.transportTarget = 0;
       this.activeGain = 0;
       this.updateVoiceCoefficients(DEFAULT_SAMPLE_RATE);
       this.port.onmessage = (event) => {
@@ -899,10 +900,17 @@ function createProcessorClass(AudioWorkletBase) {
               ...event.data.parameters,
             }),
           };
-          if (this.activeTarget < 0.5) this.snapCurrentToTarget();
+          if (this.audibleTarget < 0.5) this.snapCurrentToTarget();
         } else if (event.data?.type === "active") {
-          this.activeTarget = event.data.value ? 1 : 0;
-          if (this.activeTarget < 0.5) this.snapCurrentToTarget();
+          const active = event.data.value ? 1 : 0;
+          this.audibleTarget = active;
+          this.transportTarget = active;
+          if (this.audibleTarget < 0.5) this.snapCurrentToTarget();
+        } else if (event.data?.type === "audible") {
+          this.audibleTarget = event.data.value ? 1 : 0;
+          if (this.audibleTarget < 0.5) this.snapCurrentToTarget();
+        } else if (event.data?.type === "transport") {
+          this.transportTarget = event.data.value ? 1 : 0;
         } else if (event.data?.type === "strike") {
           this.pendingStrike = Math.min(
             1,
@@ -1221,10 +1229,10 @@ function createProcessorClass(AudioWorkletBase) {
           this.target.noiseMix - this.current.noiseMix
         ) * parameterSlew;
         this.activeGain += (
-          this.activeTarget - this.activeGain
+          this.audibleTarget - this.activeGain
         ) * activeSlew;
 
-        const transportActive = this.activeTarget > 0.5;
+        const transportActive = this.transportTarget > 0.5;
         if (transportActive) {
           const rawPitchPosition = this.pitchPosition + (
             this.current.pitchDirection
@@ -1572,7 +1580,10 @@ if (
   );
 }
 
-/** Lazy Web Audio lifecycle for the coupled pitch/rhythm illusion. */
+/**
+ * Lazy Web Audio lifecycle for the coupled pitch/rhythm illusion. Audible
+ * output and the automatic pitch/rhythm transport are intentionally separate.
+ */
 export class OuroborosBorealisAudio {
   constructor(runtime = globalThis) {
     this.runtime = runtime;
@@ -1585,6 +1596,8 @@ export class OuroborosBorealisAudio {
     this.master = null;
     this.analyser = null;
     this.releaseAudioOutput = null;
+    this.audible = false;
+    this.transporting = false;
     this.enabled = false;
     this.params = { ...OUROBOROS_BOREALIS_DEFAULTS };
     this.level = OUROBOROS_BOREALIS_DEFAULTS.level;
@@ -1698,7 +1711,7 @@ export class OuroborosBorealisAudio {
       this.context.currentTime,
       0.025,
     );
-    if (this.enabled) {
+    if (this.audible) {
       this.master.gain.setTargetAtTime(
         this.level,
         this.context.currentTime,
@@ -1707,23 +1720,46 @@ export class OuroborosBorealisAudio {
     }
   }
 
-  async start() {
+  async enable() {
     await this.initialize();
     if (this.suspendTimer !== null) {
       this.runtime.clearTimeout?.(this.suspendTimer);
       this.suspendTimer = null;
     }
     await this.context.resume();
+    if (this.audible) return true;
     const now = this.context.currentTime;
-    this.node.port.postMessage({ type: "active", value: true });
+    this.node.port.postMessage({ type: "audible", value: true });
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setValueAtTime(this.master.gain.value, now);
     this.master.gain.linearRampToValueAtTime(this.level, now + 0.035);
+    this.audible = true;
     this.enabled = true;
+    return true;
+  }
+
+  async start() {
+    await this.enable();
+    return this.setTransport(true);
+  }
+
+  setTransport(active) {
+    const next = Boolean(active);
+    if (!this.isInitialized || !this.audible) {
+      if (!next) this.transporting = false;
+      return false;
+    }
+    this.node.port.postMessage({ type: "transport", value: next });
+    this.transporting = next;
+    return true;
+  }
+
+  stopTransport() {
+    return this.setTransport(false);
   }
 
   strike(velocity = 1, position = null) {
-    if (!this.isInitialized || !this.enabled) return false;
+    if (!this.isInitialized || !this.audible) return false;
     const message = {
       type: "strike",
       velocity: clamp(velocity, 0, 1, 1),
@@ -1739,16 +1775,25 @@ export class OuroborosBorealisAudio {
   }
 
   stop() {
-    if (!this.isInitialized || !this.enabled) return;
+    if (!this.isInitialized) {
+      this.audible = false;
+      this.transporting = false;
+      this.enabled = false;
+      return;
+    }
+    if (!this.audible && !this.transporting) return;
     const now = this.context.currentTime;
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setValueAtTime(this.master.gain.value, now);
     this.master.gain.linearRampToValueAtTime(0, now + 0.035);
-    this.node.port.postMessage({ type: "active", value: false });
+    this.node.port.postMessage({ type: "transport", value: false });
+    this.node.port.postMessage({ type: "audible", value: false });
+    this.audible = false;
+    this.transporting = false;
     this.enabled = false;
     this.suspendTimer = this.runtime.setTimeout?.(() => {
       this.suspendTimer = null;
-      if (!this.enabled && this.context?.state === "running") {
+      if (!this.audible && this.context?.state === "running") {
         this.context.suspend().catch(() => {});
       }
     }, 55) ?? null;
@@ -1765,10 +1810,13 @@ export class OuroborosBorealisAudio {
       this.runtime.clearTimeout?.(this.suspendTimer);
       this.suspendTimer = null;
     }
+    this.audible = false;
+    this.transporting = false;
     this.enabled = false;
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
-    this.node?.port.postMessage({ type: "active", value: false });
+    this.node?.port.postMessage({ type: "transport", value: false });
+    this.node?.port.postMessage({ type: "audible", value: false });
     this.node?.disconnect();
     this.highpass?.disconnect();
     this.lowpass?.disconnect();

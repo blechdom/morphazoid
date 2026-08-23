@@ -20,6 +20,8 @@ const DEFAULT_CARRIER = "a";
 const DEFAULT_INTERVAL_MS = 185;
 const MIN_SEGMENT_MS = 24;
 const MAX_SEGMENT_MS = 2_400;
+const KEYFRAME_PHASE_GAP = 0.002;
+const MAX_KEYFRAMES_PER_LANE = 256;
 export const PINK_TROMBONAZOID_LFO_SHAPES = Object.freeze([
   "sine",
   "triangle",
@@ -331,6 +333,116 @@ function rawLaneValue(id, normalized) {
   return minimum + clamp(normalized) * (maximum - minimum);
 }
 
+function keyframeId(laneId, index, segmentId = "") {
+  const owner = String(segmentId ?? "").trim();
+  return `${owner ? `${owner}-` : ""}${laneId}-key-${index}`;
+}
+
+function cloneLaneKeyframes(laneKeyframes = {}) {
+  return Object.fromEntries(
+    PINK_TROMBONAZOID_LANES
+      .filter(({ id }) => Array.isArray(laneKeyframes?.[id]))
+      .map(({ id }) => [id, laneKeyframes[id].map((keyframe) => ({
+        id: String(keyframe?.id ?? ""),
+        phase: finite(keyframe?.phase),
+        value: finite(keyframe?.value),
+      }))]),
+  );
+}
+
+function sanitizeLaneKeyframeList(candidate, laneId, fallbackValue = undefined, segmentId = "") {
+  const requested = Array.isArray(candidate) ? candidate.slice(0, MAX_KEYFRAMES_PER_LANE) : [];
+  const usedIds = new Set();
+  const keyframes = requested
+    .map((entry, index) => {
+      const source = Array.isArray(entry)
+        ? { phase: entry[0], value: entry[1] }
+        : entry ?? {};
+      if (!Number.isFinite(Number(source.phase)) || !Number.isFinite(Number(source.value))) {
+        return null;
+      }
+      let id = String(source.id ?? "").trim();
+      if (segmentId && id) {
+        const suffix = /-key-(\d+)$/.exec(id)?.[1];
+        id = keyframeId(laneId, suffix === undefined ? index : Number(suffix), segmentId);
+      }
+      if (!id || usedIds.has(id)) {
+        let suffix = index;
+        do {
+          id = keyframeId(laneId, suffix++, segmentId);
+        } while (usedIds.has(id));
+      }
+      usedIds.add(id);
+      return {
+        id,
+        phase: clamp(source.phase),
+        value: clamp(source.value),
+        order: index,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.phase - right.phase || left.order - right.order);
+
+  if (!keyframes.length && Number.isFinite(Number(fallbackValue))) {
+    keyframes.push({
+      id: keyframeId(laneId, 0, segmentId),
+      phase: 0.5,
+      value: clamp(fallbackValue),
+      order: 0,
+    });
+  }
+
+  const count = keyframes.length;
+  const normalized = [];
+  for (let index = 0; index < count; index += 1) {
+    const keyframe = keyframes[index];
+    normalized.push(Object.freeze({
+      id: keyframe.id,
+      phase: clamp(
+        keyframe.phase,
+        index > 0 ? normalized[index - 1].phase + KEYFRAME_PHASE_GAP : 0,
+        1 - (count - index - 1) * KEYFRAME_PHASE_GAP,
+      ),
+      value: clamp(keyframe.value),
+    }));
+  }
+  return Object.freeze(normalized);
+}
+
+function sanitizeAuthoredLaneKeyframes(candidate = {}, segmentId = "") {
+  const source = candidate && typeof candidate === "object" ? candidate : {};
+  return Object.freeze(Object.fromEntries(
+    PINK_TROMBONAZOID_LANES
+      .filter(({ id }) => Array.isArray(source[id]) && source[id].length)
+      .map(({ id }) => [id, sanitizeLaneKeyframeList(source[id], id, undefined, segmentId)])
+      .filter(([, keyframes]) => keyframes.length),
+  ));
+}
+
+function effectiveLaneKeyframes(candidate, laneValues, segmentId = "") {
+  const authored = sanitizeAuthoredLaneKeyframes(candidate, segmentId);
+  return Object.freeze(Object.fromEntries(PINK_TROMBONAZOID_LANES.map(({ id }) => [
+    id,
+    authored[id] ?? sanitizeLaneKeyframeList([], id, laneValues?.[id], segmentId),
+  ])));
+}
+
+function sampleLaneKeyframes(keyframes, phase = 0) {
+  if (!Array.isArray(keyframes) || !keyframes.length) return 0;
+  const position = clamp(phase);
+  if (position <= keyframes[0].phase) return clamp(keyframes[0].value);
+  for (let index = 1; index < keyframes.length; index += 1) {
+    const right = keyframes[index];
+    if (position > right.phase) continue;
+    const left = keyframes[index - 1];
+    const amount = clamp(
+      (position - left.phase) / Math.max(1e-9, right.phase - left.phase),
+    );
+    return clamp(left.value + (right.value - left.value) * amount);
+  }
+  return clamp(keyframes.at(-1).value);
+}
+
 function laneValuesFromPerformance(performance = {}) {
   const tongue = performance.tongues?.[0] ?? {};
   return Object.freeze({
@@ -611,6 +723,7 @@ function makeArticulationDraft({
     sustain: false,
     wordSpeech: true,
     laneOverrides: Object.freeze({}),
+    laneKeyframes: Object.freeze({}),
   };
 }
 
@@ -692,6 +805,8 @@ function materializeArticulation(draft, startMs, sequenceIndex) {
     )));
   carrierPerformance = performanceWithLaneValues(carrierPerformance, carrierOverrides);
   const laneValues = laneValuesFromPerformance(performance);
+  const laneKeyframeOverrides = sanitizeAuthoredLaneKeyframes(draft.laneKeyframes, draft.id);
+  const laneKeyframes = effectiveLaneKeyframes(laneKeyframeOverrides, laneValues, draft.id);
   const durationMs = dynamics.durationMs;
   const endMs = startMs + durationMs;
   const word = Object.freeze({
@@ -711,6 +826,8 @@ function materializeArticulation(draft, startMs, sequenceIndex) {
     end: endMs / 1_000,
     duration: durationMs / 1_000,
     laneOverrides: sanitizeLaneOverrides(draft.laneOverrides),
+    laneKeyframeOverrides,
+    laneKeyframes,
     laneValues,
     lanes: laneValues,
     performance,
@@ -853,47 +970,111 @@ function segmentIndexAtTime(segments, timeMs) {
   return segments.length - 1;
 }
 
+function automationLaneValueAtTime(segments, laneId, timeMs = 0) {
+  const index = segmentIndexAtTime(segments, Math.max(0, finite(timeMs)));
+  if (index < 0) return 0;
+  const segment = segments[index];
+  const localPhase = segment.durationMs > 0
+    ? clamp((timeMs - segment.startMs) / segment.durationMs)
+    : 0;
+  const authored = segment.type === "articulation"
+    ? segment.laneKeyframeOverrides?.[laneId]
+    : null;
+  return Array.isArray(authored) && authored.length
+    ? sampleLaneKeyframes(segment.laneKeyframes?.[laneId] ?? authored, localPhase)
+    : laneValueForSegment(segments, index, laneId, localPhase);
+}
+
+function sampleAutomationPoints(points, timeMs = 0) {
+  if (!Array.isArray(points) || !points.length) return 0;
+  const position = Math.max(0, finite(timeMs));
+  if (position <= points[0].timeMs) return clamp(points[0].value);
+  for (let index = 1; index < points.length; index += 1) {
+    const right = points[index];
+    if (position > right.timeMs) continue;
+    const left = points[index - 1];
+    const amount = clamp(
+      (position - left.timeMs) / Math.max(1e-9, right.timeMs - left.timeMs),
+    );
+    return clamp(left.value + (right.value - left.value) * amount);
+  }
+  return clamp(points.at(-1).value);
+}
+
+function automationPointsForLane(segments, durationMs, laneId) {
+  const points = [];
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (segment.type === "articulation") {
+      for (const keyframe of segment.laneKeyframes?.[laneId] ?? []) {
+        const timeMs = segment.startMs + keyframe.phase * segment.durationMs;
+        points.push({
+          id: keyframe.id,
+          keyframeId: keyframe.id,
+          segmentId: segment.id,
+          sequenceIndex: index,
+          localPhase: keyframe.phase,
+          timeMs,
+          time: timeMs / 1_000,
+          phase: durationMs > 0 ? timeMs / durationMs : 0,
+          value: keyframe.value,
+          editable: true,
+        });
+      }
+      continue;
+    }
+    if (!(segment.durationMs > 0)) continue;
+    const timeMs = segment.startMs + segment.durationMs * 0.5;
+    points.push({
+      id: `${segment.id}-${laneId}-pause`,
+      keyframeId: "",
+      segmentId: segment.id,
+      sequenceIndex: index,
+      localPhase: 0.5,
+      timeMs,
+      time: timeMs / 1_000,
+      phase: durationMs > 0 ? timeMs / durationMs : 0,
+      value: laneValueForSegment(segments, index, laneId, 0.5),
+      editable: false,
+    });
+  }
+  if (!points.length) {
+    points.push({
+      id: `empty-${laneId}`,
+      keyframeId: "",
+      segmentId: "",
+      sequenceIndex: -1,
+      localPhase: 0,
+      timeMs: 0,
+      time: 0,
+      phase: 0,
+      value: laneId === "intensity" || laneId === "breath" ? 0 : 0.5,
+      editable: false,
+    });
+  }
+  points.sort((left, right) => (
+    left.timeMs - right.timeMs
+      || left.sequenceIndex - right.sequenceIndex
+      || left.localPhase - right.localPhase
+  ));
+  return Object.freeze(points.map((point) => Object.freeze(point)));
+}
+
 function buildAutomation(segments, durationMs, sampleCount) {
   const times = Array.from({ length: sampleCount }, (_, index) => (
     sampleCount <= 1 ? 0 : durationMs * index / (sampleCount - 1)
   ));
   const automation = {};
   for (const definition of PINK_TROMBONAZOID_LANES) {
-    const points = segments.map((segment, index) => ({
-      segmentId: segment.id,
-      sequenceIndex: index,
-      timeMs: segment.startMs,
-      time: segment.start,
-      phase: durationMs > 0 ? segment.startMs / durationMs : 0,
-      value: laneValueForSegment(segments, index, definition.id, 0),
-      editable: segment.type === "articulation",
-    }));
-    if (segments.length) {
-      const lastIndex = segments.length - 1;
-      points.push({
-        segmentId: segments[lastIndex].id,
-        sequenceIndex: lastIndex,
-        timeMs: durationMs,
-        time: durationMs / 1_000,
-        phase: 1,
-        value: laneValueForSegment(segments, lastIndex, definition.id, 1),
-        editable: false,
-      });
-    }
-    const samples = times.map((timeMs) => {
-      const index = segmentIndexAtTime(segments, timeMs);
-      if (index < 0) return 0;
-      const segment = segments[index];
-      const localPhase = segment.durationMs > 0
-        ? clamp((timeMs - segment.startMs) / segment.durationMs)
-        : 0;
-      return laneValueForSegment(segments, index, definition.id, localPhase);
-    });
+    const points = automationPointsForLane(segments, durationMs, definition.id);
+    const samples = times.map((timeMs) => (
+      automationLaneValueAtTime(segments, definition.id, timeMs)
+    ));
     automation[definition.id] = {
       ...definition,
       sampleCount,
       samples: Object.freeze(samples),
-      points: Object.freeze(points),
+      points,
     };
   }
   return {
@@ -946,6 +1127,7 @@ function draftFromSegment(segment) {
     sustain: Boolean(segment.sustain),
     wordSpeech: Boolean(segment.wordSpeech),
     laneOverrides: sanitizeLaneOverrides(segment.laneOverrides),
+    laneKeyframes: cloneLaneKeyframes(segment.laneKeyframeOverrides),
   };
 }
 
@@ -1086,6 +1268,159 @@ function patchedLaneOverrides(segment, patch) {
   return sanitizeLaneOverrides(requested);
 }
 
+function explicitLanePatch(patch = {}) {
+  const requested = {
+    ...(patch?.laneOverrides ?? {}),
+    ...(patch?.lanes ?? {}),
+    ...(patch?.laneValues ?? {}),
+    ...(patch?.values ?? {}),
+    ...(patch?.automation ?? {}),
+  };
+  for (const { id } of PINK_TROMBONAZOID_LANES) {
+    if (Object.hasOwn(patch ?? {}, id)) requested[id] = patch[id];
+  }
+  if (LANE_BY_ID.has(patch?.parameter) && Number.isFinite(Number(patch?.value))) {
+    requested[patch.parameter] = patch.value;
+  }
+  if (LANE_BY_ID.has(patch?.lane) && Number.isFinite(Number(patch?.value))) {
+    requested[patch.lane] = patch.value;
+  }
+  return Object.fromEntries(
+    Object.entries(requested)
+      .filter(([id, value]) => LANE_BY_ID.has(id) && Number.isFinite(Number(value)))
+      .map(([id, value]) => [id, clamp(value)]),
+  );
+}
+
+function resolvedKeyframePhase(segment, patch, fallback = 0.5) {
+  if (Number.isFinite(Number(patch?.timeMs))) {
+    return segment.durationMs > 0
+      ? clamp((Number(patch.timeMs) - segment.startMs) / segment.durationMs)
+      : 0;
+  }
+  return Number.isFinite(Number(patch?.phase)) ? clamp(patch.phase) : clamp(fallback);
+}
+
+function nextKeyframeId(keyframes, laneId, segmentId) {
+  const used = new Set(keyframes.map(({ id }) => id));
+  let index = 0;
+  while (used.has(keyframeId(laneId, index, segmentId))) index += 1;
+  return keyframeId(laneId, index, segmentId);
+}
+
+function rebuildWithLaneKeyframes(sequence, segmentIndex, laneId, keyframes) {
+  const previous = sequence.segments[segmentIndex];
+  if (previous?.type !== "articulation") return sequence;
+  const drafts = sequence.segments.map(draftFromSegment);
+  const draft = drafts[segmentIndex];
+  draft.laneKeyframes = {
+    ...cloneLaneKeyframes(previous.laneKeyframeOverrides),
+    [laneId]: keyframes.map(({ id, phase, value }) => ({ id, phase, value })),
+  };
+  draft.laneOverrides = sanitizeLaneOverrides({
+    ...previous.laneOverrides,
+    [laneId]: sampleLaneKeyframes(keyframes, 0.5),
+  });
+  return buildSequence(drafts, metadataFromSequence(sequence));
+}
+
+function resolvedArticulationIndex(sequence, segmentId) {
+  if (!sequence || !Array.isArray(sequence.segments)) return -1;
+  const index = sequence.segments.findIndex(({ id }) => id === String(segmentId ?? ""));
+  return sequence.segments[index]?.type === "articulation" ? index : -1;
+}
+
+/** Add one immutable, segment-local automation key without changing phone timing. */
+export function addPinkTrombonazoidKeyframe(
+  sequence,
+  segmentId,
+  laneId,
+  patch = {},
+) {
+  const index = resolvedArticulationIndex(sequence, segmentId);
+  if (index < 0 || !LANE_BY_ID.has(laneId)) return sequence;
+  const segment = sequence.segments[index];
+  const current = segment.laneKeyframes?.[laneId];
+  if (!Array.isArray(current) || current.length >= MAX_KEYFRAMES_PER_LANE) return sequence;
+  const phase = resolvedKeyframePhase(segment, patch);
+  const collision = current.find(({ phase: candidate }) => (
+    Math.abs(candidate - phase) < KEYFRAME_PHASE_GAP
+  ));
+  if (collision) {
+    if (!Number.isFinite(Number(patch?.value))) return sequence;
+    return updatePinkTrombonazoidKeyframe(
+      sequence,
+      segmentId,
+      laneId,
+      collision.id,
+      { value: patch.value },
+    );
+  }
+  const globalPhase = sequence.durationMs > 0
+    ? (segment.startMs + phase * segment.durationMs) / sequence.durationMs
+    : 0;
+  const value = Number.isFinite(Number(patch?.value))
+    ? clamp(patch.value)
+    : samplePinkTrombonazoidAutomation(sequence, laneId, globalPhase);
+  const next = sanitizeLaneKeyframeList([
+    ...current,
+    { id: nextKeyframeId(current, laneId, segment.id), phase, value },
+  ], laneId, undefined, segment.id);
+  return rebuildWithLaneKeyframes(sequence, index, laneId, next);
+}
+
+/** Move or reshape one key; horizontal movement remains inside its phone gesture. */
+export function updatePinkTrombonazoidKeyframe(
+  sequence,
+  segmentId,
+  laneId,
+  keyframeIdValue,
+  patch = {},
+) {
+  const segmentIndex = resolvedArticulationIndex(sequence, segmentId);
+  if (segmentIndex < 0 || !LANE_BY_ID.has(laneId)) return sequence;
+  const segment = sequence.segments[segmentIndex];
+  const current = segment.laneKeyframes?.[laneId];
+  const keyIndex = current?.findIndex(({ id }) => id === String(keyframeIdValue ?? "")) ?? -1;
+  if (!Array.isArray(current) || keyIndex < 0) return sequence;
+  const hasPhase = Number.isFinite(Number(patch?.phase))
+    || Number.isFinite(Number(patch?.timeMs));
+  const hasValue = Number.isFinite(Number(patch?.value));
+  if (!hasPhase && !hasValue) return sequence;
+  const keyframe = current[keyIndex];
+  const minimum = keyIndex > 0
+    ? current[keyIndex - 1].phase + KEYFRAME_PHASE_GAP
+    : 0;
+  const maximum = keyIndex < current.length - 1
+    ? current[keyIndex + 1].phase - KEYFRAME_PHASE_GAP
+    : 1;
+  const phase = hasPhase
+    ? clamp(resolvedKeyframePhase(segment, patch, keyframe.phase), minimum, maximum)
+    : keyframe.phase;
+  const value = hasValue ? clamp(patch.value) : keyframe.value;
+  if (phase === keyframe.phase && value === keyframe.value) return sequence;
+  const next = current.map((candidate, index) => index === keyIndex
+    ? { id: candidate.id, phase, value }
+    : { id: candidate.id, phase: candidate.phase, value: candidate.value });
+  return rebuildWithLaneKeyframes(sequence, segmentIndex, laneId, next);
+}
+
+/** Remove a key while retaining one editable key for every articulation lane. */
+export function removePinkTrombonazoidKeyframe(
+  sequence,
+  segmentId,
+  laneId,
+  keyframeIdValue,
+) {
+  const segmentIndex = resolvedArticulationIndex(sequence, segmentId);
+  if (segmentIndex < 0 || !LANE_BY_ID.has(laneId)) return sequence;
+  const current = sequence.segments[segmentIndex].laneKeyframes?.[laneId];
+  if (!Array.isArray(current) || current.length <= 1) return sequence;
+  const next = current.filter(({ id }) => id !== String(keyframeIdValue ?? ""));
+  if (next.length === current.length) return sequence;
+  return rebuildWithLaneKeyframes(sequence, segmentIndex, laneId, next);
+}
+
 function resolvedPhone(sequence, idOrIndex) {
   if (!Array.isArray(sequence?.phones)) return null;
   if (typeof idOrIndex === "number") {
@@ -1117,6 +1452,61 @@ function expressiveLaneOverrides(segments) {
   return sanitizeLaneOverrides(overrides);
 }
 
+function phoneRelativeAuthoredCurves(segments) {
+  const durationMs = segments.reduce(
+    (total, segment) => total + Math.max(0, finite(segment?.durationMs)),
+    0,
+  );
+  if (!(durationMs > 0)) return Object.freeze({});
+  const authoredLanes = PINK_TROMBONAZOID_LANES
+    .map(({ id }) => id)
+    .filter((id) => (
+      CARRIER_SOURCE_LANE_IDS.has(id)
+        && segments.some((segment) => segment.laneKeyframeOverrides?.[id]?.length)
+    ));
+  return Object.freeze(Object.fromEntries(authoredLanes.map((laneId) => {
+    let cursorMs = 0;
+    const points = [];
+    for (const segment of segments) {
+      for (const keyframe of segment.laneKeyframes?.[laneId] ?? []) {
+        points.push({
+          id: `${segment.id}-${keyframe.id}`,
+          phase: (cursorMs + keyframe.phase * segment.durationMs) / durationMs,
+          value: keyframe.value,
+        });
+      }
+      cursorMs += segment.durationMs;
+    }
+    return [laneId, sanitizeLaneKeyframeList(points, laneId)];
+  })));
+}
+
+function reslicePhoneLaneKeyframes(segments, weights) {
+  const curves = phoneRelativeAuthoredCurves(segments);
+  const normalizedTotal = weights.reduce((total, weight) => total + Math.max(0, weight), 0) || 1;
+  let cursor = 0;
+  return weights.map((weight) => {
+    const start = cursor;
+    const span = Math.max(1e-9, Math.max(0, weight) / normalizedTotal);
+    const end = Math.min(1, start + span);
+    cursor = end;
+    return Object.fromEntries(Object.entries(curves).map(([laneId, points]) => {
+      const sliced = [
+        { phase: 0, value: sampleLaneKeyframes(points, start) },
+        ...points
+          .filter(({ phase }) => phase > start && phase < end)
+          .map(({ phase, value }) => ({ phase: (phase - start) / span, value })),
+        { phase: 1, value: sampleLaneKeyframes(points, end) },
+      ].map((keyframe, index) => ({
+        id: keyframeId(laneId, index),
+        phase: keyframe.phase,
+        value: keyframe.value,
+      }));
+      return [laneId, sanitizeLaneKeyframeList(sliced, laneId)];
+    }));
+  });
+}
+
 function phoneEntries(sequence) {
   return (sequence?.phones ?? []).map((phone) => ({
     id: phone.phone,
@@ -1136,6 +1526,7 @@ function copyAuthoredPhoneDraft(draft, origin) {
   if (!previous) return draft;
   draft.durationMs = previous.durationMs;
   draft.laneOverrides = sanitizeLaneOverrides(previous.laneOverrides);
+  draft.laneKeyframes = cloneLaneKeyframes(previous.laneKeyframeOverrides);
   draft.personality = previous.personality;
   draft.rhythmAmount = previous.rhythmAmount;
   draft.intervalMs = previous.intervalMs;
@@ -1212,6 +1603,7 @@ export function replacePinkTrombonazoidPhone(sequence, idOrIndex, replacementId)
   const targetIntervalMs = previousTarget[0]?.intervalMs ?? metadata.intervalMs;
   const targetSustain = previousTarget.some(({ sustain }) => sustain);
   const weights = gestureWeights(definition.gestures.length, definition.vowel);
+  const targetLaneKeyframes = reslicePhoneLaneKeyframes(previousTarget, weights);
 
   const drafts = draftsFromTokens(tokens, metadata).map((draft) => {
     const previous = previousById.get(draft.id);
@@ -1222,6 +1614,12 @@ export function replacePinkTrombonazoidPhone(sequence, idOrIndex, replacementId)
     if (draft.phoneId === target.id) {
       draft.durationMs = targetDurationMs * weights[draft.articulationIndex];
       draft.laneOverrides = targetOverrides;
+      draft.laneKeyframes = Object.fromEntries(Object.entries(
+        targetLaneKeyframes[draft.articulationIndex] ?? {},
+      ).map(([laneId, keyframes]) => [laneId, keyframes.map((keyframe, index) => ({
+        ...keyframe,
+        id: keyframeId(laneId, index, draft.id),
+      }))]));
       draft.personality = targetPersonality;
       draft.rhythmAmount = targetRhythmAmount;
       draft.intervalMs = targetIntervalMs;
@@ -1231,6 +1629,7 @@ export function replacePinkTrombonazoidPhone(sequence, idOrIndex, replacementId)
     if (!previous) return draft;
     draft.durationMs = previous.durationMs;
     draft.laneOverrides = sanitizeLaneOverrides(previous.laneOverrides);
+    draft.laneKeyframes = cloneLaneKeyframes(previous.laneKeyframeOverrides);
     draft.personality = previous.personality;
     draft.rhythmAmount = previous.rhythmAmount;
     draft.intervalMs = previous.intervalMs;
@@ -1279,6 +1678,7 @@ export function removePinkTrombonazoidPhone(sequence, idOrIndex) {
     if (!previous) return draft;
     draft.durationMs = previous.durationMs;
     draft.laneOverrides = sanitizeLaneOverrides(previous.laneOverrides);
+    draft.laneKeyframes = cloneLaneKeyframes(previous.laneKeyframeOverrides);
     draft.personality = previous.personality;
     draft.rhythmAmount = previous.rhythmAmount;
     draft.intervalMs = previous.intervalMs;
@@ -1360,7 +1760,17 @@ export function updatePinkTrombonazoidSegment(sequence, idOrIndex, patch = {}) {
     ? clamp(requestedDurationMs, 0, MAX_SEGMENT_MS)
     : clamp(requestedDurationMs, MIN_SEGMENT_MS, MAX_SEGMENT_MS);
   if (previous.type === "articulation") {
+    const lanePatch = explicitLanePatch(patch);
     draft.laneOverrides = patchedLaneOverrides(previous, patch);
+    for (const [laneId, value] of Object.entries(lanePatch)) {
+      const previousKeys = previous.laneKeyframes?.[laneId] ?? [];
+      const delta = value - sampleLaneKeyframes(previousKeys, 0.5);
+      draft.laneKeyframes[laneId] = previousKeys.map((keyframe) => ({
+        id: keyframe.id,
+        phase: keyframe.phase,
+        value: clamp(keyframe.value + delta),
+      }));
+    }
     if (Number.isFinite(Number(patch.stress))) draft.stress = clamp(patch.stress, 0, 2);
     if (typeof patch.personality === "string" && patch.personality) {
       draft.personality = patch.personality;
@@ -1529,7 +1939,22 @@ export function pinkTrombonazoidAudioEvent(segment, {
 }
 
 export function samplePinkTrombonazoidAutomation(sequence, laneId, phase = 0) {
-  const samples = sequence?.automation?.[laneId]?.samples;
+  const lane = sequence?.automation?.[laneId];
+  if (LANE_BY_ID.has(laneId) && Array.isArray(sequence?.segments) && sequence.segments.length) {
+    return automationLaneValueAtTime(
+      sequence.segments,
+      laneId,
+      clamp(phase) * Math.max(0, finite(sequence?.durationMs)),
+    );
+  }
+  const points = lane?.points;
+  if (Array.isArray(points) && points.length) {
+    return sampleAutomationPoints(
+      points,
+      clamp(phase) * Math.max(0, finite(sequence?.durationMs)),
+    );
+  }
+  const samples = lane?.samples;
   if (!Array.isArray(samples) || !samples.length) return 0;
   const position = clamp(phase) * (samples.length - 1);
   const left = Math.floor(position);

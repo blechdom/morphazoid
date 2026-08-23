@@ -10,6 +10,7 @@ import {
   PINK_TROMBONAZOID_PRESETS,
   PINK_TROMBONAZOID_VOICE_HARMONIES,
   PINK_TROMBONAZOID_VOICE_PRESETS,
+  addPinkTrombonazoidKeyframe,
   applyPinkTrombonazoidModulation,
   compilePinkTrombonazoid,
   insertPinkTrombonazoidPhone,
@@ -18,11 +19,13 @@ import {
   pinkTrombonazoidAudioEvent,
   pinkTrombonazoidSequenceDuration,
   pinkTrombonazoidVoicePerformance,
+  removePinkTrombonazoidKeyframe,
   removePinkTrombonazoidPhone,
   replacePinkTrombonazoidPhone,
   retimePinkTrombonazoidSequence,
   samplePinkTrombonazoidAutomation,
   samplePinkTrombonazoidLfo,
+  updatePinkTrombonazoidKeyframe,
   updatePinkTrombonazoidSegment,
 } from "../src/pink-trombonazoid.js";
 
@@ -32,6 +35,12 @@ const closeTo = (actual, expected, epsilon = 1e-9) => {
     `${actual} should be within ${epsilon} of ${expected}`,
   );
 };
+
+function laneKeys(sequence, segmentId, laneId) {
+  return sequence.articulationSegments
+    .find(({ id }) => id === segmentId)
+    ?.laneKeyframes?.[laneId] ?? [];
+}
 
 test("Pink Trombonazoid exposes four playable, immutable text presets", () => {
   assert.equal(DEFAULT_PINK_TROMBONAZOID_PRESET, "hello");
@@ -257,7 +266,14 @@ test("all automation lanes share bounded, normalized, immutable samples and edit
     const lane = sequence.automation[id];
     assert.equal(lane.samples.length, sampleCount);
     assert.equal(lane.sampleCount, sampleCount);
-    assert.equal(lane.points.length, sequence.segments.length + 1);
+    const editableKeyCount = sequence.articulationSegments.reduce(
+      (total, segment) => total + laneKeys(sequence, segment.id, id).length,
+      0,
+    );
+    const pausePointCount = sequence.boundarySegments
+      .filter(({ durationMs }) => durationMs > 0)
+      .length;
+    assert.equal(lane.points.length, editableKeyCount + pausePointCount);
     assert.equal(Object.isFrozen(lane.samples), true);
     for (const value of lane.samples) {
       assert.equal(Number.isFinite(value), true);
@@ -265,10 +281,286 @@ test("all automation lanes share bounded, normalized, immutable samples and edit
     }
     for (const segment of sequence.articulationSegments) {
       assert.ok(segment.laneValues[id] >= 0 && segment.laneValues[id] <= 1);
+      for (const keyframe of laneKeys(sequence, segment.id, id)) {
+        assert.ok(
+          lane.points.some((point) => (
+            point.segmentId === segment.id
+              && point.keyframeId === keyframe.id
+              && point.localPhase === keyframe.phase
+              && point.value === keyframe.value
+          )),
+          `${id} automation must expose authored key ${keyframe.id}`,
+        );
+      }
     }
     const mid = samplePinkTrombonazoidAutomation(sequence, id, 0.5);
     assert.ok(mid >= 0 && mid <= 1);
   }
+});
+
+test("articulation lanes expose frozen stable keys that can be added, moved in time, and removed", () => {
+  const source = compilePinkTrombonazoid("a", {
+    pronunciations: new Map([["a", ["AH"]]]),
+    sampleCount: 101,
+  });
+  const segment = source.articulationSegments[0];
+  const sourceSnapshot = JSON.stringify(source);
+  const timingSnapshot = source.segments.map(({ startMs, endMs, durationMs }) => ({
+    startMs,
+    endMs,
+    durationMs,
+  }));
+
+  assert.equal(Object.isFrozen(segment.laneKeyframes), true);
+  for (const { id } of PINK_TROMBONAZOID_LANES) {
+    const keys = laneKeys(source, segment.id, id);
+    assert.equal(keys.length, 1, `${id} starts with one editable key`);
+    assert.equal(Object.isFrozen(keys), true);
+    assert.equal(Object.isFrozen(keys[0]), true);
+    assert.equal(keys[0].phase, 0.5);
+    closeTo(keys[0].value, segment.laneValues[id]);
+    assert.equal(typeof keys[0].id, "string");
+    assert.ok(keys[0].id.length > 0);
+  }
+
+  const defaultKeyId = laneKeys(source, segment.id, "pitch")[0].id;
+  const withEarly = addPinkTrombonazoidKeyframe(
+    source,
+    segment.id,
+    "pitch",
+    { phase: 0.2, value: 0.15 },
+  );
+  const earlyKey = laneKeys(withEarly, segment.id, "pitch")
+    .find(({ id }) => id !== defaultKeyId);
+  assert.ok(earlyKey, "adding a key creates a stable identity");
+
+  const withBoth = addPinkTrombonazoidKeyframe(
+    withEarly,
+    segment.id,
+    "pitch",
+    { phase: 0.8, value: 0.85 },
+  );
+  const addedKeys = laneKeys(withBoth, segment.id, "pitch");
+  const lateKey = addedKeys.find(({ id }) => (
+    id !== defaultKeyId && id !== earlyKey.id
+  ));
+  assert.ok(lateKey);
+  assert.equal(addedKeys.length, 3);
+  assert.equal(new Set(addedKeys.map(({ id }) => id)).size, addedKeys.length);
+
+  const movedInTime = updatePinkTrombonazoidKeyframe(
+    withBoth,
+    segment.id,
+    "pitch",
+    earlyKey.id,
+    { phase: 0.35 },
+  );
+  let movedKey = laneKeys(movedInTime, segment.id, "pitch")
+    .find(({ id }) => id === earlyKey.id);
+  closeTo(movedKey.phase, 0.35);
+  closeTo(movedKey.value, 0.15, 1e-12);
+
+  const movedInValue = updatePinkTrombonazoidKeyframe(
+    movedInTime,
+    segment.id,
+    "pitch",
+    earlyKey.id,
+    { value: 0.27 },
+  );
+  movedKey = laneKeys(movedInValue, segment.id, "pitch")
+    .find(({ id }) => id === earlyKey.id);
+  closeTo(movedKey.phase, 0.35);
+  closeTo(movedKey.value, 0.27);
+
+  const movedByAbsoluteTime = updatePinkTrombonazoidKeyframe(
+    movedInValue,
+    segment.id,
+    "pitch",
+    earlyKey.id,
+    { timeMs: segment.startMs + segment.durationMs * 0.4 },
+  );
+  movedKey = laneKeys(movedByAbsoluteTime, segment.id, "pitch")
+    .find(({ id }) => id === earlyKey.id);
+  closeTo(movedKey.phase, 0.4);
+  closeTo(movedKey.value, 0.27);
+
+  const clamped = updatePinkTrombonazoidKeyframe(
+    movedByAbsoluteTime,
+    segment.id,
+    "pitch",
+    earlyKey.id,
+    { phase: 99, value: -99 },
+  );
+  const clampedKeys = laneKeys(clamped, segment.id, "pitch");
+  movedKey = clampedKeys.find(({ id }) => id === earlyKey.id);
+  assert.equal(movedKey.value, 0);
+  assert.equal(clampedKeys.every(({ phase, value }) => (
+    Number.isFinite(phase) && phase >= 0 && phase <= 1
+      && Number.isFinite(value) && value >= 0 && value <= 1
+  )), true);
+  for (let index = 1; index < clampedKeys.length; index += 1) {
+    assert.ok(
+      clampedKeys[index].phase > clampedKeys[index - 1].phase,
+      "horizontal edits keep keyframe phases strictly ordered",
+    );
+  }
+
+  const removed = removePinkTrombonazoidKeyframe(
+    clamped,
+    segment.id,
+    "pitch",
+    lateKey.id,
+  );
+  assert.equal(laneKeys(removed, segment.id, "pitch").length, 2);
+  assert.equal(
+    laneKeys(removed, segment.id, "pitch").some(({ id }) => id === lateKey.id),
+    false,
+  );
+  assert.deepEqual(
+    removed.phoneSegments.map(({ phone }) => phone),
+    source.phoneSegments.map(({ phone }) => phone),
+    "automation editing cannot alter pronunciation",
+  );
+  assert.deepEqual(
+    removed.segments.map(({ startMs, endMs, durationMs }) => ({ startMs, endMs, durationMs })),
+    timingSnapshot,
+    "automation editing cannot retime phonemes",
+  );
+  assert.equal(JSON.stringify(source), sourceSnapshot, "all mutations leave the source immutable");
+  assert.equal(
+    addPinkTrombonazoidKeyframe(source, "missing", "pitch", { phase: 0.4 }),
+    source,
+  );
+  assert.equal(
+    updatePinkTrombonazoidKeyframe(source, segment.id, "missing", defaultKeyId, {}),
+    source,
+  );
+  assert.equal(
+    removePinkTrombonazoidKeyframe(source, segment.id, "pitch", "missing"),
+    source,
+  );
+});
+
+test("multiple keyframes interpolate at authored times and feed the physical-tract audio event", () => {
+  const source = compilePinkTrombonazoid("a", {
+    pronunciations: new Map([["a", ["AH"]]]),
+    sampleCount: 17,
+  });
+  const segment = source.articulationSegments[0];
+  const defaultKey = laneKeys(source, segment.id, "pitch")[0];
+  let edited = updatePinkTrombonazoidKeyframe(
+    source,
+    segment.id,
+    "pitch",
+    defaultKey.id,
+    { phase: 0.5, value: 0.5 },
+  );
+  edited = addPinkTrombonazoidKeyframe(
+    edited,
+    segment.id,
+    "pitch",
+    { phase: 0.25, value: 0.2 },
+  );
+  edited = addPinkTrombonazoidKeyframe(
+    edited,
+    segment.id,
+    "pitch",
+    { phase: 0.75, value: 0.8 },
+  );
+
+  closeTo(samplePinkTrombonazoidAutomation(edited, "pitch", 0.25), 0.2);
+  closeTo(samplePinkTrombonazoidAutomation(edited, "pitch", 0.5), 0.5);
+  closeTo(samplePinkTrombonazoidAutomation(edited, "pitch", 0.75), 0.8);
+  const between = samplePinkTrombonazoidAutomation(edited, "pitch", 0.375);
+  closeTo(between, 0.35);
+
+  const editedSegment = edited.articulationSegments[0];
+  const laneValues = Object.fromEntries(PINK_TROMBONAZOID_LANES.map(({ id }) => [
+    id,
+    samplePinkTrombonazoidAutomation(edited, id, 0.375),
+  ]));
+  const event = pinkTrombonazoidAudioEvent(editedSegment, { laneValues });
+  closeTo(event.laneValues.pitch, 0.35);
+  closeTo(event.performance.exciterPitch, 40 + 0.35 * 480);
+  assert.equal(event.wordPhone, "AH");
+  assert.equal(Object.isFrozen(event), true);
+});
+
+test("untouched automation keeps each phoneme tract exact at articulation onset", () => {
+  const sequence = compilePinkTrombonazoid("tap", {
+    pronunciations: new Map([["tap", ["T", "AE", "P"]]]),
+    sampleCount: 17,
+  });
+  const onsetSafeLanes = [
+    "pitch",
+    "breath",
+    "tonguePosition",
+    "tongueHeight",
+    "lipOpening",
+    "nasalCoupling",
+    "mutation",
+  ];
+
+  for (const segment of sequence.articulationSegments) {
+    const phase = segment.startMs / sequence.durationMs;
+    const laneValues = Object.fromEntries(PINK_TROMBONAZOID_LANES.map(({ id }) => [
+      id,
+      samplePinkTrombonazoidAutomation(sequence, id, phase),
+    ]));
+    for (const laneId of onsetSafeLanes) {
+      closeTo(
+        laneValues[laneId],
+        segment.laneValues[laneId],
+        1e-9,
+      );
+    }
+
+    const event = pinkTrombonazoidAudioEvent(segment, { laneValues });
+    assert.equal(event.performance.phoneme, segment.performance.phoneme);
+    assert.equal(event.performance.articulationManner, segment.performance.articulationManner);
+    assert.equal(event.performance.oralClosure, segment.performance.oralClosure);
+    assert.equal(event.performance.glottalClosure, segment.performance.glottalClosure);
+    assert.deepEqual(event.performance.tongues, segment.performance.tongues);
+    closeTo(event.performance.lipDiameter, segment.performance.lipDiameter);
+    closeTo(event.performance.nasalCoupling, segment.performance.nasalCoupling);
+  }
+});
+
+test("authored keyframes survive segment edits and whole-sequence retiming", () => {
+  const source = compilePinkTrombonazoid("tap", {
+    pronunciations: new Map([["tap", ["T", "AE", "P"]]]),
+    sampleCount: 41,
+  });
+  const vowel = source.articulationSegments.find(({ phone }) => phone === "AE");
+  let authored = addPinkTrombonazoidKeyframe(
+    source,
+    vowel.id,
+    "pitch",
+    { phase: 0.22, value: 0.28 },
+  );
+  authored = addPinkTrombonazoidKeyframe(
+    authored,
+    vowel.id,
+    "pitch",
+    { phase: 0.78, value: 0.74 },
+  );
+  const authoredKeys = laneKeys(authored, vowel.id, "pitch");
+  const authoredSnapshot = JSON.stringify(authored);
+
+  const segmentEdited = updatePinkTrombonazoidSegment(authored, vowel.id, {
+    durationMs: vowel.durationMs + 80,
+    lanes: { intensity: 0.64 },
+  });
+  assert.deepEqual(laneKeys(segmentEdited, vowel.id, "pitch"), authoredKeys);
+  assert.deepEqual(
+    segmentEdited.phoneSegments.map(({ phone }) => phone),
+    source.phoneSegments.map(({ phone }) => phone),
+  );
+
+  const retimed = retimePinkTrombonazoidSequence(segmentEdited, { scale: 1.5 });
+  assert.deepEqual(laneKeys(retimed, vowel.id, "pitch"), authoredKeys);
+  assert.equal(new Set(laneKeys(retimed, vowel.id, "pitch").map(({ id }) => id)).size, 3);
+  assert.equal(JSON.stringify(authored), authoredSnapshot);
 });
 
 test("segment edits recompute lane-backed performance, dynamics, and all following times immutably", () => {

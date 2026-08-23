@@ -11,7 +11,7 @@
     <title>Pink Trombonazoid · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="pink-trombonazoid.css?v=pink-trombonazoid-20260821-7" />
+    <link rel="stylesheet" href="pink-trombonazoid.css?v=pink-trombonazoid-20260822-10" />
   </head>
   <body class="pink-trombonazoid-page" data-instrument-info="off">
     <header class="masthead">
@@ -109,20 +109,37 @@
 
         <section class="ptz-sequencer" aria-labelledby="timelineTitle">
           <header class="ptz-timeline-header">
-            <div>
-              <span>drag a block edge · drag a lane key</span>
+            <div class="ptz-timeline-heading">
+              <span>drag keys in 2D · double-click to add</span>
               <h2 id="timelineTitle">Pronunciation timeline</h2>
             </div>
-            <div class="ptz-transport" aria-label="Word transport">
-              <button id="playButton" type="button" data-primary-transport aria-pressed="false">
-                <i aria-hidden="true"></i><span><b id="playLabel">Say word</b><small id="playState">ready</small></span>
-              </button>
-              <button id="stopButton" type="button" disabled>
-                <span aria-hidden="true">■</span><span><b>Stop</b><small>release tract</small></span>
-              </button>
-              <button id="loopButton" type="button" aria-pressed="false">
-                <span aria-hidden="true">↻</span><span><b>Loop</b><small id="loopState">off</small></span>
-              </button>
+            <div class="ptz-timeline-controls">
+              <label class="ptz-timeline-zoom" for="timelineZoomY">
+                <small>lane zoom</small>
+                <span>
+                  <input
+                    id="timelineZoomY"
+                    type="range"
+                    min="100"
+                    max="400"
+                    step="25"
+                    value="100"
+                    aria-label="Vertical timeline zoom"
+                  />
+                  <output id="timelineZoomYOut" for="timelineZoomY">100%</output>
+                </span>
+              </label>
+              <div class="ptz-transport" aria-label="Word transport">
+                <button id="playButton" type="button" data-primary-transport aria-pressed="false">
+                  <i aria-hidden="true"></i><span><b id="playLabel">Say word</b><small id="playState">ready</small></span>
+                </button>
+                <button id="stopButton" type="button" disabled>
+                  <span aria-hidden="true">■</span><span><b>Stop</b><small>release tract</small></span>
+                </button>
+                <button id="loopButton" type="button" aria-pressed="false">
+                  <span aria-hidden="true">↻</span><span><b>Loop</b><small id="loopState">off</small></span>
+                </button>
+              </div>
             </div>
           </header>
 
@@ -140,11 +157,11 @@
               aria-labelledby="timelineSvgTitle timelineSvgDescription"
             >
               <title id="timelineSvgTitle">Pink Trombonazoid word automation</title>
-              <desc id="timelineSvgDescription">Editable pitch, intensity, breath, tongue, lip, and nasal keyframes aligned to each phoneme.</desc>
+              <desc id="timelineSvgDescription">Editable pitch, intensity, breath, tongue, lip, and nasal keyframes. Drag a key in time and value, or add another key to a lane.</desc>
             </svg>
           </div>
           <p class="ptz-timeline-help">
-            Each block is one phone. Choose it to correct the sound, use + to insert, drag ↔ to move within a word, or use x to remove. Diphthongs keep two tract gestures under one block and one acoustic envelope.
+            Drag a key left or right within its phoneme for time, and up or down for value. Double-click a lane—or use its +—to add a key; focus an added key and press Delete to remove it. Phone + inserts a sound, ↔ reorders it within the word, and x removes it. Diphthongs keep two tract gestures under one block and one acoustic envelope.
           </p>
         </section>
       </section>
@@ -344,6 +361,6 @@
     </main>
 
     <script type="module" src="nav.js?v=pink-trombonazoid-20260821-3"></script>
-    <script type="module" src="pink-trombonazoid-app.js?v=pink-trombonazoid-20260821-6"></script>
+    <script type="module" src="pink-trombonazoid-app.js?v=pink-trombonazoid-20260822-10"></script>
   </body>
 </html>

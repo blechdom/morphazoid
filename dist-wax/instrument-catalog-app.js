@@ -1,4 +1,4 @@
-import { INSTRUMENTS } from "./src/instrument-catalog.js?v=catalog-20260822-1";
+import { INSTRUMENTS } from "./src/instrument-catalog.js?v=catalog-20260822-2";
 
 const ALL_TAG_ID = "all";
 
@@ -101,6 +101,8 @@ function catalogueTags(records) {
     tags.push(tag);
   };
 
+  addTag(instruments.flatMap(({ tags: instrumentTags }) => instrumentTags)
+    .find(({ id }) => id === "faves"));
   for (const instrument of instruments) addTag(instrument.tags[0]);
   for (const instrument of instruments) {
     for (const tag of instrument.tags) addTag(tag);

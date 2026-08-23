@@ -14,6 +14,32 @@ function idsIn(markup) {
   return [...markup.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
 }
 
+function standaloneFunctionBody(source, name) {
+  const signature = new RegExp(`function\\s+${name}\\s*\\(`);
+  const match = signature.exec(source);
+  assert.ok(match, `Missing ${name}()`);
+  const parametersStart = source.indexOf("(", match.index);
+  let parameterDepth = 0;
+  let parametersEnd = -1;
+  for (let index = parametersStart; index < source.length; index += 1) {
+    if (source[index] === "(") parameterDepth += 1;
+    if (source[index] === ")") parameterDepth -= 1;
+    if (parameterDepth === 0) {
+      parametersEnd = index;
+      break;
+    }
+  }
+  const bodyStart = source.indexOf("{", parametersEnd);
+  assert.ok(bodyStart >= 0, `Missing body for ${name}()`);
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") depth -= 1;
+    if (depth === 0) return source.slice(bodyStart + 1, index);
+  }
+  assert.fail(`Unterminated ${name}()`);
+}
+
 test("Pink Trombonazoid page wires its accessible editor and local modules", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
@@ -25,15 +51,15 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
   assert.match(html, /<option value="pink-trombonazoid\.html" selected>Pink Trombonazoid<\/option>/);
   assert.match(
     html,
-    /href="pink-trombonazoid\.css\?v=pink-trombonazoid-20260821-7"/,
+    /href="pink-trombonazoid\.css\?v=pink-trombonazoid-20260822-10"/,
   );
   assert.match(
     html,
-    /<script type="module" src="pink-trombonazoid-app\.js\?v=pink-trombonazoid-20260821-6"><\/script>/,
+    /<script type="module" src="pink-trombonazoid-app\.js\?v=pink-trombonazoid-20260822-10"><\/script>/,
   );
   assert.match(
     app,
-    /from "\.\/src\/pink-trombonazoid\.js\?v=pink-trombonazoid-20260821-6"/,
+    /from "\.\/src\/pink-trombonazoid\.js\?v=pink-trombonazoid-20260822-10"/,
     "the app and its core must share a cache version",
   );
 
@@ -43,7 +69,8 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
   for (const id of [
     "pinkTrombonazoid", "audioButton", "audioState", "level",
     "wordInput", "buildWordButton", "pronunciationStatus", "phonemeRuler",
-    "timelineScroll", "laneGutter", "timelineSvg", "playButton", "stopButton",
+    "timelineScroll", "laneGutter", "timelineSvg", "timelineZoomY",
+    "timelineZoomYOut", "playButton", "stopButton",
     "loopButton", "selectedPhone", "selectedPhoneKind", "selectedPhoneHelp",
     "segmentDuration", "segmentPitch", "segmentIntensity",
     "segmentBreath", "personality", "voiceThroats", "voiceHarmony",
@@ -76,6 +103,15 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
   assert.match(html, /<details class="ptz-panel-section ptz-modulators"[^>]*>/);
   assert.doesNotMatch(html, /<details class="ptz-panel-section ptz-modulators"[^>]* open>/);
   assert.doesNotMatch(html, /<details class="ptz-panel-section ptz-effects"[^>]* open>/);
+
+  const zoomInput = html.match(/<input\b[^>]*id="timelineZoomY"[^>]*>/i)?.[0] ?? "";
+  assert.match(html, /<label\b[^>]*class="[^"]*ptz-timeline-zoom[^"]*"[^>]*for="timelineZoomY"/i);
+  assert.match(zoomInput, /type="range"/i);
+  assert.match(zoomInput, /min="100"/i, "100% is the fitted lane-height baseline");
+  assert.match(zoomInput, /max="400"/i, "vertical zoom must provide fine-grained enlargement");
+  assert.match(zoomInput, /value="100"/i);
+  assert.match(zoomInput, /aria-label="[^"]*(?:vertical|lane)[^"]*zoom[^"]*"/i);
+  assert.match(html, /<output\b[^>]*id="timelineZoomYOut"[^>]*for="timelineZoomY"[^>]*>100%<\/output>/i);
 
   const localAssets = [...html.matchAll(/<(?:link|script)\b[^>]*(?:href|src)="([^"]+)"[^>]*>/g)]
     .map((match) => match[1])
@@ -140,6 +176,8 @@ test("the page explains and implements word-to-tract sequencing", async () => {
   assert.match(app, /shortLabel\.textContent = entry\.phoneLabel/);
   assert.match(app, /removeButton\.textContent = "x"/);
   assert.match(app, /placeholderLabel: "\+"/);
+  assert.match(app, /ptz-phone-add-shell/);
+  assert.match(app, /shell\.append\(glyph, select\)/);
   assert.match(app, /moveButton\.draggable = true/);
   assert.match(app, /\["ArrowLeft", "ArrowRight"\][\s\S]*?movePhone\(/);
   assert.match(app, /focusOrigin === "timeline"[\s\S]*?\.focus\(\{ preventScroll: true \}\)/);
@@ -176,6 +214,97 @@ test("the page explains and implements word-to-tract sequencing", async () => {
   ]);
 });
 
+test("timeline automation supports multiple two-dimensional keys, live playback, and lane zoom", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
+    readFile(new URL("pink-trombonazoid-app.js", ROOT), "utf8"),
+  ]);
+  const renderTimeline = standaloneFunctionBody(app, "renderTimeline");
+  const timelineGeometry = standaloneFunctionBody(app, "timelineGeometry");
+  const continueDrag = standaloneFunctionBody(app, "continueDrag");
+  const activateSegment = standaloneFunctionBody(app, "activateSegment");
+  const automationLaneValuesAt = standaloneFunctionBody(app, "automationLaneValuesAt");
+
+  assert.match(html, /drag keys in (?:any direction|2D)/i);
+  assert.match(html, /double-click(?: a lane)? to add/i);
+  assert.match(html, /Drag a key left or right within its phoneme for time, and up or down for value/i);
+  assert.match(html, /press Delete to remove it/i);
+
+  for (const api of [
+    "addPinkTrombonazoidKeyframe",
+    "updatePinkTrombonazoidKeyframe",
+    "removePinkTrombonazoidKeyframe",
+  ]) {
+    assert.match(app, new RegExp(`\\b${api}\\b`), `${api} must be wired into the page app`);
+  }
+  for (const attribute of ["data-keyframe-id", "data-segment-id", "data-lane"]) {
+    assert.match(renderTimeline, new RegExp(`["']${attribute}["']`));
+  }
+  assert.match(renderTimeline, /laneKeyframes/);
+  assert.match(renderTimeline, /(?:class|className)\s*[:=]\s*["']ptz-lane-key-add["']/);
+  assert.match(renderTimeline, /addEventListener\(["']dblclick["']/);
+  assert.match(renderTimeline, /addEventListener\(["']click["']/);
+  assert.match(
+    renderTimeline,
+    /add(?:PinkTrombonazoid)?Keyframe[\s\S]*?timeMs[\s\S]*?value|timeMs[\s\S]*?value[\s\S]*?add(?:PinkTrombonazoid)?Keyframe/,
+    "double-click and + additions must author both the new key's time and value",
+  );
+
+  assert.match(continueDrag, /timeMs/);
+  assert.match(continueDrag, /value/);
+  assert.match(
+    continueDrag,
+    /updatePinkTrombonazoidKeyframe|editKeyframe/,
+    "pointer drags must update a stable key rather than overwrite the whole phone",
+  );
+  for (const key of ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
+    assert.match(renderTimeline, new RegExp(`["']${key}["']`));
+  }
+  assert.match(renderTimeline, /["'](?:Delete|Backspace)["']/);
+  assert.match(renderTimeline, /removePinkTrombonazoidKeyframe|removeKeyframe/);
+  assert.match(
+    app,
+    /updatePinkTrombonazoidKeyframe\([\s\S]{0,900}?renderAll\(\)[\s\S]{0,500}?keepPlaybackAfterEdit\(/,
+    "moving a key must preserve an active loop or playback pass",
+  );
+  assert.match(
+    app,
+    /addPinkTrombonazoidKeyframe\([\s\S]{0,900}?renderAll\(\)[\s\S]{0,500}?keepPlaybackAfterEdit\(/,
+    "adding a key must preserve an active loop or playback pass",
+  );
+  assert.match(
+    app,
+    /removePinkTrombonazoidKeyframe\([\s\S]{0,900}?renderAll\(\)[\s\S]{0,500}?keepPlaybackAfterEdit\(/,
+    "removing a key must preserve an active loop or playback pass",
+  );
+
+  assert.match(automationLaneValuesAt, /samplePinkTrombonazoidAutomation/);
+  assert.match(activateSegment, /automationLaneValuesAt\(/);
+  assert.match(
+    activateSegment,
+    /pinkTrombonazoidAudioEvent\([\s\S]*?laneValues/,
+    "the first audio event must consume the authored contour instead of waiting for a later tick",
+  );
+
+  assert.match(app, /timelineZoomY:\s*1/);
+  assert.match(app, /LANE_HEIGHT\s*\*\s*state\.timelineZoomY/);
+  assert.match(
+    app,
+    /Math\.max\(\s*LANE_GRAPH_HEIGHT\s*,\s*laneHeight\s*-\s*\(LANE_HEIGHT\s*-\s*LANE_GRAPH_HEIGHT\)\s*,?\s*\)/,
+    "vertical zoom must increase usable value-drag resolution as lanes get taller",
+  );
+  assert.match(
+    app,
+    /bindRange\(\s*["']timelineZoomY["'][\s\S]{0,200}?setTimelineZoomY\s*\)/,
+    "lane zoom must update live while the range is dragged",
+  );
+  const setTimelineZoomY = standaloneFunctionBody(app, "setTimelineZoomY");
+  assert.match(setTimelineZoomY, /state\.timelineZoomY\s*=/);
+  assert.match(setTimelineZoomY, /renderTimeline\(\)/);
+  assert.match(timelineGeometry, /PINK_TROMBONAZOID_LANES\.length\s*\*\s*laneHeight/);
+  assert.match(continueDrag, /graphHeight/);
+});
+
 test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lanes", async () => {
   const [html, css] = await Promise.all([
     readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
@@ -192,9 +321,25 @@ test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lan
   for (const color of ["#ffffff", "#ffeef5", "#ffc0cb", "#e779a8", "#d85f92"]) {
     assert.ok(css.toLowerCase().includes(color), `missing Pink Trombone color ${color}`);
   }
-  assert.match(css, /\.ptz-phoneme-ruler\s*\{[\s\S]*?overflow-x:\s*auto/);
-  assert.match(css, /\.ptz-timeline-scroll\s*\{[\s\S]*?overflow:\s*auto/);
+  assert.match(
+    css,
+    /\.ptz-phoneme-ruler\s*\{[^}]*overflow-x:\s*auto[^}]*overscroll-behavior-x:\s*contain[^}]*overscroll-behavior-y:\s*auto[^}]*touch-action:\s*pan-x pan-y[^}]*-webkit-overflow-scrolling:\s*touch/s,
+    "the phoneme ruler must allow page swipes while retaining horizontal timeline scrolling",
+  );
+  assert.match(
+    css,
+    /\.ptz-timeline-scroll\s*\{[^}]*overflow:\s*auto[^}]*overscroll-behavior-x:\s*contain[^}]*overscroll-behavior-y:\s*auto[^}]*touch-action:\s*pan-x pan-y[^}]*-webkit-overflow-scrolling:\s*touch/s,
+    "the lane scroller must allow page swipes while retaining two-axis timeline scrolling",
+  );
   assert.match(css, /\.ptz-lane-gutter\s*\{[\s\S]*?position:\s*sticky/);
+  assert.match(css, /\.ptz-timeline-controls\s*\{[^}]*display:\s*flex/s);
+  assert.match(css, /\.ptz-timeline-zoom\s*\{[^}]*display:\s*grid/s);
+  assert.match(css, /\.ptz-timeline-zoom input\[type="range"\]\s*\{[^}]*width:\s*100%/s);
+  assert.match(
+    css,
+    /\.ptz-lane-key-add\s*\{[^}]*width:\s*20px;[^}]*min-width:\s*20px;[^}]*height:\s*20px;[^}]*min-height:\s*20px;/s,
+    "each lane needs a compact keyboard-accessible add-key button",
+  );
   assert.match(css, /\.ptz-phone-pill select\s*\{[\s\S]*?border-radius:\s*999px/);
   assert.match(css, /\.ptz-phone-pill select\s*\{[\s\S]*?appearance:\s*none/);
   assert.match(css, /\.ptz-phoneme-select\s*\{[\s\S]*?min-height:\s*32px/);
@@ -202,8 +347,22 @@ test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lan
   assert.match(css, /\.ptz-phoneme-short\s*\{[\s\S]*?font-size:\s*12px/);
   assert.match(css, /\.ptz-phone-tools\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, 24px\)/);
   assert.match(css, /\.ptz-phone-move,[\s\S]*?\.ptz-phone-delete\s*\{[\s\S]*?width:\s*24px;[\s\S]*?height:\s*24px/);
+  assert.match(
+    css,
+    /\.ptz-phone-add\s*\{[^}]*min-width:\s*24px;[^}]*max-width:\s*24px;[^}]*min-height:\s*24px;[^}]*max-height:\s*24px;/s,
+    "the phoneme add select must override the global tall select minimum with a compact square",
+  );
+  assert.match(css, /\.ptz-phone-add-shell\s*\{[^}]*position:\s*relative;[^}]*overflow:\s*hidden/s);
+  assert.match(
+    css,
+    /\.ptz-phone-add\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;[^}]*opacity:\s*0/s,
+    "the native mobile picker must be an invisible overlay on a deterministic square +",
+  );
   assert.match(css, /\.ptz-phone-delete\s*\{[\s\S]*?font-size:\s*11px/);
-  assert.match(css, /\.ptz-empty-phone-add\s*\{[\s\S]*?width:\s*28px;[\s\S]*?height:\s*28px/);
+  assert.match(
+    css,
+    /\.ptz-empty-phone-add\s*\{[^}]*width:\s*28px;[^}]*min-width:\s*28px;[^}]*max-width:\s*28px;[^}]*height:\s*28px;[^}]*min-height:\s*28px;[^}]*max-height:\s*28px;/s,
+  );
   assert.match(css, /\.ptz-phoneme-cell\.is-drop-before/);
   assert.match(css, /@media \(max-width:\s*650px\)[\s\S]*?\.ptz-phoneme-select\s*\{[\s\S]*?font-size:\s*16px/);
   assert.match(css, /\.ptz-voice-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2/);
@@ -212,7 +371,36 @@ test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lan
   assert.match(css, /@media \(max-width:\s*420px\)[\s\S]*?\.ptz-voice-grid\s*\{[\s\S]*?grid-template-columns:\s*1fr/);
   assert.doesNotMatch(css, /tractCanvas|ptz-tract-card/);
   assert.match(css, /\.ptz-keyframe,[\s\S]*?\.ptz-keyframe-hit\s*\{[\s\S]*?touch-action:\s*none/);
+  assert.match(
+    css,
+    /\.ptz-keyframe,[^}]*\.ptz-keyframe-hit\s*\{[^}]*cursor:\s*move/s,
+    "timeline diamonds must advertise two-dimensional movement",
+  );
   assert.match(css, /@media \(max-width:\s*650px\)/);
+  assert.match(
+    css,
+    /@media \(max-width:\s*650px\)[\s\S]*?\.ptz-timeline-controls\s*\{[^}]*grid-template-columns:\s*1fr/s,
+    "vertical zoom and transport controls need a compact phone layout",
+  );
   assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
   assert.match(css, /@media \(forced-colors:\s*active\)/);
+
+  const mobileCss = css.match(
+    /@media \(max-width:\s*960px\)\s*\{[\s\S]*?(?=@media \(max-width:\s*880px\))/,
+  )?.[0] ?? "";
+  assert.match(
+    mobileCss,
+    /html\s*\{[^}]*height:\s*auto[^}]*min-height:\s*100%[^}]*overflow-x:\s*hidden[^}]*overflow-y:\s*auto/s,
+    "compact screens must give vertical scrolling back to the document root",
+  );
+  assert.match(
+    mobileCss,
+    /body\.pink-trombonazoid-page\s*\{[^}]*height:\s*auto[^}]*min-height:\s*100dvh[^}]*overflow-x:\s*hidden[^}]*overflow-y:\s*auto[^}]*overscroll-behavior-y:\s*auto[^}]*-webkit-overflow-scrolling:\s*touch/s,
+    "Pink Trombonazoid must remain a naturally scrolling document on mobile",
+  );
+  assert.match(
+    mobileCss,
+    /\.ptz-timeline-scroll\s*\{[^}]*max-height:\s*none/s,
+    "the short mobile timeline must hand vertical swipes directly to the page",
+  );
 });

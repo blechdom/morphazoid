@@ -49,6 +49,17 @@ const freezeGroup = (id, label, tools, metadata = {}) => Object.freeze({
   tools: Object.freeze(tools.map((tool) => Object.freeze(tool))),
 });
 
+export const FAVE_TOOL_IDS = Object.freeze([
+  "shape",
+  "linear-drums-machine",
+  "pink-trombonazoid",
+  "lumber",
+  "drum-roll-please",
+  "ouroboros",
+  "recursive-fm",
+  "linear-drums",
+]);
+
 /**
  * Shared navigation contract.
  *
@@ -202,10 +213,6 @@ export const TOOL_GROUPS = Object.freeze([
   freezeGroup("algorithmic-sequencers", "Algorithmic Sequencers", [
     { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },
     { id: "dijkstra", label: "DJ Dijkstra", href: "dijkstra.html" },
-    { id: "hanoi", label: "Hanoi Carillon", href: "hanoi.html" },
-    { id: "minimax", label: "Alpha-Beta Minimax", href: "minimax.html" },
-    { id: "nqueens", label: "N-Queens Backtracker", href: "nqueens.html" },
-    { id: "euclid", label: "Euclidean Pulse", href: "euclid.html" },
   ]),
   freezeGroup("experiments", "Experiments", [
     {
@@ -232,6 +239,10 @@ export const TOOL_GROUPS = Object.freeze([
       href: "morphazoid-roulette.html",
       catalogue: false,
     },
+    { id: "hanoi", label: "Hanoi Carillon", href: "hanoi.html" },
+    { id: "minimax", label: "Alpha-Beta Minimax", href: "minimax.html" },
+    { id: "nqueens", label: "N-Queens Backtracker", href: "nqueens.html" },
+    { id: "euclid", label: "Euclidean Pulse", href: "euclid.html" },
     { id: "alien-larynx", label: "Alien Larynx", href: "alien-larynx.html" },
     { id: "hyper-syrinx", label: "Hyper-Syrinx", href: "hyper-syrinx.html" },
     { id: "morphynx", label: "Morphynx", href: "morphynx.html" },
@@ -320,12 +331,22 @@ const SITE_LINK_ALIASES = Object.freeze({});
 export const NAVIGATION_BASE_URL = new URL("./", import.meta.url).href;
 
 const allTools = () => TOOL_GROUPS.flatMap((group) => group.tools);
-const pickerGroups = () => TOOL_GROUPS.flatMap((group) => {
+const basePickerGroups = () => TOOL_GROUPS.flatMap((group) => {
   const tools = group.tools.filter((tool) => (
     group.picker !== false || tool.picker === true
   ));
   return tools.length > 0 ? [{ ...group, tools }] : [];
 });
+const pickerGroups = () => {
+  const groups = basePickerGroups();
+  const toolById = new Map(groups.flatMap((group) => (
+    group.tools.map((tool) => [tool.id, tool])
+  )));
+  const faves = FAVE_TOOL_IDS.map((id) => toolById.get(id)).filter(Boolean);
+  return faves.length > 0
+    ? [{ id: "faves", label: "Faves", tools: faves }, ...groups]
+    : groups;
+};
 
 /**
  * Normalize a navigation URL to a pathname suitable for route comparison.
@@ -411,18 +432,39 @@ function createInstrumentPicker(doc, activeTool, siteRoot, index) {
 
   const panel = element(doc, "div", "instrument-picker-panel");
   panel.id = `instrument-picker-panel-${index}`;
+  const search = element(doc, "label", "instrument-picker-search");
+  const searchLabel = element(doc, "span", "instrument-picker-search-label", "Find");
+  const searchInput = element(doc, "input", "instrument-picker-search-input");
+  searchInput.type = "search";
+  searchInput.placeholder = "Type an instrument";
+  searchInput.autocomplete = "off";
+  searchInput.spellcheck = false;
+  searchInput.setAttribute("aria-label", "Filter instruments");
+  search.append(searchLabel, searchInput);
   const list = element(doc, "div", "instrument-picker-list");
   list.setAttribute("aria-label", "Morphazoid instruments");
+  const groupRecords = [];
 
   for (const group of pickerGroups()) {
-    const section = element(doc, "section", "instrument-picker-group");
-    const heading = element(doc, "h2", "instrument-picker-group-title", group.label);
+    const section = element(doc, "details", "instrument-picker-group");
+    section.setAttribute("data-group-id", group.id);
+    const heading = element(doc, "summary", "instrument-picker-group-title");
     heading.id = `instrument-picker-group-${index}-${group.id}`;
-    section.setAttribute("aria-labelledby", heading.id);
+    const groupChevron = element(doc, "span", "instrument-picker-group-chevron");
+    groupChevron.setAttribute("aria-hidden", "true");
+    heading.append(
+      element(doc, "span", "instrument-picker-group-label", group.label),
+      element(doc, "span", "instrument-picker-group-count", String(group.tools.length)),
+      groupChevron,
+    );
+    section.open = group.id === "faves"
+      || group.tools.some((tool) => tool.id === activeTool?.id);
+    const rows = [];
     section.append(heading);
 
     for (const tool of group.tools) {
       const row = element(doc, "div", "instrument-picker-row");
+      row.setAttribute("data-filter-text", `${tool.label} ${group.label}`.toLocaleLowerCase());
       const link = element(doc, "a", "instrument-picker-link");
       link.setAttribute("href", new URL(tool.href, siteRoot).href);
       link.setAttribute("data-tool-id", tool.id);
@@ -444,17 +486,54 @@ function createInstrumentPicker(doc, activeTool, siteRoot, index) {
       });
       row.append(link);
       section.append(row);
+      rows.push(row);
     }
+    groupRecords.push({ group, section, rows, defaultOpen: section.open });
     list.append(section);
   }
 
-  panel.append(list);
+  const noResults = element(doc, "p", "instrument-picker-empty", "No instruments found");
+  noResults.hidden = true;
+  noResults.setAttribute("role", "status");
+  list.append(noResults);
+
+  const applyFilter = () => {
+    const query = searchInput.value.trim().toLocaleLowerCase();
+    let visibleRows = 0;
+    for (const record of groupRecords) {
+      let groupMatches = 0;
+      for (const row of record.rows) {
+        const matches = !query || row.getAttribute("data-filter-text").includes(query);
+        row.hidden = !matches;
+        if (matches) groupMatches += 1;
+      }
+      const hideDuplicateFaves = Boolean(query) && record.group.id === "faves";
+      record.section.hidden = hideDuplicateFaves || groupMatches === 0;
+      record.section.open = query ? groupMatches > 0 : record.defaultOpen;
+      if (!hideDuplicateFaves) visibleRows += groupMatches;
+    }
+    noResults.hidden = visibleRows > 0;
+  };
+
+  searchInput.addEventListener?.("input", applyFilter);
+  panel.append(search, list);
   details.append(summary, panel);
   details.addEventListener?.("keydown", (event) => {
     if (event.key !== "Escape" || !details.open) return;
     event.preventDefault?.();
+    if (searchInput.value) {
+      searchInput.value = "";
+      applyFilter();
+      searchInput.focus?.();
+      return;
+    }
     details.open = false;
     summary.focus?.();
+  });
+  details.addEventListener?.("toggle", () => {
+    if (details.open || !searchInput.value) return;
+    searchInput.value = "";
+    applyFilter();
   });
   doc.addEventListener?.("pointerdown", (event) => {
     if (details.open && !details.contains(event.target)) details.open = false;
@@ -1522,7 +1601,7 @@ function populateMobileSelect(doc, select, activeTool, activeSiteLink, siteRoot)
     options.push(placeholder);
   }
 
-  const groups = pickerGroups().map((group) => {
+  const groups = basePickerGroups().map((group) => {
     const optgroup = element(doc, "optgroup");
     optgroup.label = group.label;
     for (const tool of group.tools) {
