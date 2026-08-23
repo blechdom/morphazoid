@@ -18,7 +18,7 @@ import {
   updatePinkTrombonazoidKeyframe,
   updatePinkTrombonazoidPersonality,
   updatePinkTrombonazoidSegment,
-} from "./src/pink-trombonazoid.js?v=pink-trombonazoid-20260822-10";
+} from "./src/pink-trombonazoid.js?v=pink-trombonazoid-20260822-12";
 import {
   loadSpellingPronunciations,
 } from "./src/spelling-pronunciation.js?v=pink-trombonazoid-20260821-6";
@@ -256,14 +256,6 @@ function voiceDescription() {
   const harmony = PINK_TROMBONAZOID_VOICE_HARMONIES[voice.harmony];
   const mode = voice.harmony === "shared" ? "linked" : "independently pitched";
   return `${voice.throatCount} ${mode} ${voice.throatCount === 1 ? "throat" : "throats"}, ${harmony.name.toLowerCase()}, ${voice.registerSemitones > 0 ? "+" : ""}${voice.registerSemitones} semitones`;
-}
-
-function updateSummary() {
-  const sequence = state.sequence;
-  if (!sequence) return;
-  $("wordReadout").textContent = sequence.source.trim() || "—";
-  $("phoneCountOut").textContent = String(sequence.phones.length);
-  $("durationOut").textContent = formatDuration(sequence.durationMs);
 }
 
 function updateAudioUi() {
@@ -825,7 +817,6 @@ function renderAll({ preserveSelection = true } = {}) {
   }
   renderPhonemeRuler();
   renderTimeline();
-  updateSummary();
   updateSelectedEditor();
   updatePlayhead(state.elapsedMs);
 }
@@ -1489,9 +1480,6 @@ function updatePlayhead(milliseconds) {
   }
   cap?.setAttribute("transform", `translate(${x - 4} 0)`);
   followPlayhead(x);
-  $("playheadOut").textContent = state.playing
-    ? `${(milliseconds / 1_000).toFixed(2)} s`
-    : "ready";
   const selected = selectedSegment();
   updateLaneReadouts(state.playing
     ? milliseconds
@@ -1537,7 +1525,6 @@ function updateTransport(now) {
       state.activeSegmentIndex = -1;
       document.querySelectorAll(".ptz-phoneme-cell.is-playing").forEach((cell) => cell.classList.remove("is-playing"));
       updatePlayhead(state.elapsedMs);
-      $("playheadOut").textContent = "breath";
       return;
     }
     stopPlayback({ announceStop: false });
@@ -1607,10 +1594,13 @@ function bindRange(id, formatter, handler = null) {
 
 function setTimelineZoomY(percent) {
   const scroller = $("timelineScroll");
+  const zoom = clamp(percent, 100, 400);
+  $("timelineZoomY").closest(".ptz-timeline-zoom")
+    ?.style.setProperty("--zoom-progress", String((zoom - 100) / 300));
   const previousHeight = timelineGeometry().height;
   const viewportCenter = (scroller.scrollTop + scroller.clientHeight / 2)
     / Math.max(1, previousHeight);
-  state.timelineZoomY = clamp(percent / 100, 1, 4);
+  state.timelineZoomY = zoom / 100;
   if (!state.sequence) return;
   renderTimeline();
   updatePlayhead(state.elapsedMs);

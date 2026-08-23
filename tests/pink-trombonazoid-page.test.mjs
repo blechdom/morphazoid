@@ -51,15 +51,15 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
   assert.match(html, /<option value="pink-trombonazoid\.html" selected>Pink Trombonazoid<\/option>/);
   assert.match(
     html,
-    /href="pink-trombonazoid\.css\?v=pink-trombonazoid-20260822-10"/,
+    /href="pink-trombonazoid\.css\?v=pink-trombonazoid-20260822-12"/,
   );
   assert.match(
     html,
-    /<script type="module" src="pink-trombonazoid-app\.js\?v=pink-trombonazoid-20260822-10"><\/script>/,
+    /<script type="module" src="pink-trombonazoid-app\.js\?v=pink-trombonazoid-20260822-12"><\/script>/,
   );
   assert.match(
     app,
-    /from "\.\/src\/pink-trombonazoid\.js\?v=pink-trombonazoid-20260822-10"/,
+    /from "\.\/src\/pink-trombonazoid\.js\?v=pink-trombonazoid-20260822-12"/,
     "the app and its core must share a cache version",
   );
 
@@ -96,6 +96,7 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
     assert.match(button[0], /\btype="button"/, `${button[0]} needs type=button`);
   }
   assert.doesNotMatch(html, /tractCanvas|ptz-tract-card/);
+  assert.doesNotMatch(html, /ptz-hero-readouts|What should it say\?|dictionary → tract gestures/);
   assert.equal((html.match(/<details class="ptz-panel-section/g) ?? []).length, 4);
   assert.equal((html.match(/<section class="ptz-panel-section/g) ?? []).length, 0);
   assert.match(html, /<details class="ptz-panel-section ptz-selected-editor"[^>]* open>/);
@@ -315,7 +316,7 @@ test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lan
   assert.match(css, /--ptz-black:\s*#050205/);
   assert.match(css, /\.pink-trombonazoid-page\s*\{[\s\S]*?background:[\s\S]*?var\(--ptz-black\)/);
   assert.match(css, /#wordInput\s*\{[\s\S]*?background:\s*var\(--ptz-pale\)/);
-  assert.match(css, /\.ptz-sequencer\s*\{[\s\S]*?background:\s*var\(--ptz-white\)/);
+  assert.match(css, /\.ptz-sequencer\s*\{[\s\S]*?background:\s*var\(--ptz-black-panel\)/);
   assert.match(css, /\.ptz-panel\s*\{[\s\S]*?background:\s*var\(--ptz-black\)/);
   assert.match(css, /\.audio-button\[aria-pressed="true"\]\s*\{[\s\S]*?background:\s*rgba\(216, 95, 146, 0\.2\)/);
   for (const color of ["#ffffff", "#ffeef5", "#ffc0cb", "#e779a8", "#d85f92"]) {
@@ -333,8 +334,12 @@ test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lan
   );
   assert.match(css, /\.ptz-lane-gutter\s*\{[\s\S]*?position:\s*sticky/);
   assert.match(css, /\.ptz-timeline-controls\s*\{[^}]*display:\s*flex/s);
+  assert.match(css, /\.ptz-phoneme-row\s*\{[^}]*grid-template-columns:\s*128px minmax\(0, 1fr\)/s);
   assert.match(css, /\.ptz-timeline-zoom\s*\{[^}]*display:\s*grid/s);
   assert.match(css, /\.ptz-timeline-zoom input\[type="range"\]\s*\{[^}]*width:\s*100%/s);
+  assert.match(css, /\.ptz-zoom-knob > i\s*\{[^}]*conic-gradient/s);
+  assert.match(css, /\.ptz-timeline-svg\s*\{[^}]*background:\s*var\(--ptz-black-panel\)/s);
+  assert.match(css, /\.ptz-lane-gutter\s*\{[^}]*background:\s*rgba\(12, 7, 13, 0\.98\)/s);
   assert.match(
     css,
     /\.ptz-lane-key-add\s*\{[^}]*width:\s*20px;[^}]*min-width:\s*20px;[^}]*height:\s*20px;[^}]*min-height:\s*20px;/s,
@@ -342,14 +347,16 @@ test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lan
   );
   assert.match(css, /\.ptz-phone-pill select\s*\{[\s\S]*?border-radius:\s*999px/);
   assert.match(css, /\.ptz-phone-pill select\s*\{[\s\S]*?appearance:\s*none/);
-  assert.match(css, /\.ptz-phoneme-select\s*\{[\s\S]*?min-height:\s*32px/);
+  assert.match(css, /\.ptz-phoneme-ruler\s*\{[\s\S]*?min-height:\s*42px/);
+  assert.match(css, /\.ptz-phoneme-cell\s*\{[\s\S]*?min-height:\s*41px/);
+  assert.match(css, /\.ptz-phoneme-select\s*\{[\s\S]*?min-height:\s*26px/);
   assert.match(css, /\.ptz-phoneme-select\s*\{[\s\S]*?touch-action:\s*manipulation/);
-  assert.match(css, /\.ptz-phoneme-short\s*\{[\s\S]*?font-size:\s*12px/);
-  assert.match(css, /\.ptz-phone-tools\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, 24px\)/);
-  assert.match(css, /\.ptz-phone-move,[\s\S]*?\.ptz-phone-delete\s*\{[\s\S]*?width:\s*24px;[\s\S]*?height:\s*24px/);
+  assert.match(css, /\.ptz-phoneme-short\s*\{[\s\S]*?font-size:\s*10px/);
+  assert.match(css, /\.ptz-phone-tools\s*\{[\s\S]*?position:\s*static[\s\S]*?grid-column:\s*2[\s\S]*?grid-template-columns:\s*repeat\(3, 20px\)/);
+  assert.match(css, /\.ptz-phone-move,[\s\S]*?\.ptz-phone-delete\s*\{[\s\S]*?width:\s*20px;[\s\S]*?height:\s*20px/);
   assert.match(
     css,
-    /\.ptz-phone-add\s*\{[^}]*min-width:\s*24px;[^}]*max-width:\s*24px;[^}]*min-height:\s*24px;[^}]*max-height:\s*24px;/s,
+    /\.ptz-phone-add\s*\{[^}]*min-width:\s*20px;[^}]*max-width:\s*20px;[^}]*min-height:\s*20px;[^}]*max-height:\s*20px;/s,
     "the phoneme add select must override the global tall select minimum with a compact square",
   );
   assert.match(css, /\.ptz-phone-add-shell\s*\{[^}]*position:\s*relative;[^}]*overflow:\s*hidden/s);
@@ -358,7 +365,7 @@ test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lan
     /\.ptz-phone-add\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;[^}]*opacity:\s*0/s,
     "the native mobile picker must be an invisible overlay on a deterministic square +",
   );
-  assert.match(css, /\.ptz-phone-delete\s*\{[\s\S]*?font-size:\s*11px/);
+  assert.match(css, /\.ptz-phone-delete\s*\{[\s\S]*?font-size:\s*9px/);
   assert.match(
     css,
     /\.ptz-empty-phone-add\s*\{[^}]*width:\s*28px;[^}]*min-width:\s*28px;[^}]*max-width:\s*28px;[^}]*height:\s*28px;[^}]*min-height:\s*28px;[^}]*max-height:\s*28px;/s,
