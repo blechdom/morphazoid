@@ -1,7 +1,12 @@
 import {
   WEBGPU_SYNTHS_DEFAULTS,
+  WEBGPU_SYNTHS_DEFAULT_LANE_ROUTES,
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
+  WEBGPU_SYNTHS_LANE_TARGETS,
   WEBGPU_SYNTHS_LIMITS,
+  WEBGPU_SYNTHS_MAX_LANES,
+  WEBGPU_SYNTHS_MAX_MODEL_LAYERS,
+  WEBGPU_SYNTHS_MIN_LANES,
   WEBGPU_SYNTHS_MODELS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
   WEBGPU_SYNTHS_RUNTIME_DEFAULTS,
@@ -9,27 +14,23 @@ import {
   WEBGPU_SYNTHS_WORKGROUP_SIZES,
   WebGpuSynthLabAudio,
   createWebGpuSynthSequence,
+  sanitizeWebGpuSynthLaneRoutes,
+  sanitizeWebGpuSynthModelLayers,
   sanitizeWebGpuSynthOrganRanks,
   sanitizeWebGpuSynthParams,
   sanitizeWebGpuSynthSequence,
   varyWebGpuSynthSequence,
-  webGpuSynthModelLabel,
   webGpuSynthSupport,
-} from "./src/webgpu-synths.js?v=20260823-model-pairs";
+} from "./src/webgpu-synths.js?v=20260823-layer-matrix";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
 
-const LANE_SPECS = Object.freeze([
-  Object.freeze({ id: "pitch", label: "Pitch", color: "#74f7ff", description: "scale degree" }),
-  Object.freeze({ id: "energy", label: "Pulse", color: "#ffda57", description: "gate + energy" }),
-  Object.freeze({ id: "timbre", label: "Timbre", color: "#ff6eaa", description: "model color" }),
-  Object.freeze({ id: "morph", label: "Morph", color: "#a78bff", description: "model + motion" }),
-]);
+const LANE_COLORS = Object.freeze(["#74f7ff", "#ffda57", "#ff6eaa", "#a78bff", "#91ff63", "#ffe6a8", "#ff936e", "#6effbd"]);
 
 const ORGAN_RANK_LABELS = Object.freeze(["16′", "5⅓′", "8′", "4′", "2⅔′", "2′", "1⅗′", "1⅓′", "1′"]);
 
-const MODEL_COLORS = Object.freeze(["#91ff63", "#74f7ff", "#ffda57", "#ff6eaa", "#a78bff", "#ffe6a8"]);
+const MODEL_COLORS = Object.freeze(["#91ff63", "#74f7ff", "#ffda57", "#ff6eaa", "#a78bff", "#ffe6a8", "#ff936e", "#6effbd"]);
 
 const TECHNIQUES = Object.freeze([
   Object.freeze({ id: "euclid", label: "Euclidean Pattern" }),
@@ -42,16 +43,19 @@ const TECHNIQUES = Object.freeze([
 
 function presetParams(overrides) {
   const legacyTopology = clamp(overrides.topology ?? WEBGPU_SYNTHS_DEFAULTS.topology, 0, WEBGPU_SYNTHS_MODELS.length - 1);
-  const modelA = Math.floor(legacyTopology);
-  const legacyBlend = legacyTopology - modelA;
-  const modelB = legacyBlend > 0.001 ? Math.ceil(legacyTopology) : (modelA + 1) % WEBGPU_SYNTHS_MODELS.length;
   return sanitizeWebGpuSynthParams({
     ...WEBGPU_SYNTHS_DEFAULTS,
     ...overrides,
-    topology: modelA,
-    modelB: overrides.modelB ?? modelB,
-    modelMix: overrides.modelMix ?? legacyBlend,
+    topology: Math.round(legacyTopology),
+    modelMix: 0,
+    layerCount: 1,
+    layerMode: 0,
+    fmOperators: overrides.fmOperators ?? overrides.pmOperators ?? WEBGPU_SYNTHS_DEFAULTS.fmOperators,
   });
+}
+
+function presetModelLayers(presetDefinition) {
+  return sanitizeWebGpuSynthModelLayers([{ model: presetDefinition.params.topology, level: 1, detune: 0, pan: 0 }]);
 }
 
 function preset(id, label, technique, variation, overrides) {
@@ -118,9 +122,7 @@ const PRESETS = shuffledPresetBank(PRESET_LIBRARY);
 
 const CONTROL_GROUPS = Object.freeze({
   model: Object.freeze([
-    { key: "topology", label: "Model A", type: "select", options: WEBGPU_SYNTHS_MODELS },
-    { key: "modelB", label: "Model B", type: "select", options: WEBGPU_SYNTHS_MODELS },
-    { key: "modelMix", label: "Model blend", step: 0.01, knobOnly: true },
+    { key: "modelMix", label: "Layer morph", step: 0.01, knobOnly: true },
     { key: "complexity", label: "Complexity", step: 0.01 },
     { key: "color", label: "Color", step: 0.01 },
     { key: "fold", label: "Nonlinearity", step: 0.01 },
@@ -142,12 +144,14 @@ const CONTROL_GROUPS = Object.freeze({
     { key: "seed", label: "Shader seed", step: 1 },
   ]),
   components: Object.freeze([
-    { key: "acidPartials", label: "Acid partials", step: 1 },
-    { key: "pmOperators", label: "PM operators", step: 1 },
-    { key: "foldLayers", label: "Wavefold layers", step: 1 },
-    { key: "modalModes", label: "Modal resonators", step: 1 },
-    { key: "grainCount", label: "Particle grains", step: 1 },
-    { key: "organRanks", label: "Organ ranks", step: 1 },
+    { key: "acidPartials", label: "Acid partials", step: 1, models: [0] },
+    { key: "fmOperators", label: "FM operators", step: 1, models: [1] },
+    { key: "foldLayers", label: "Wavefold layers", step: 1, models: [2] },
+    { key: "modalModes", label: "Modal resonators", step: 1, models: [3] },
+    { key: "grainCount", label: "Particle grains", step: 1, models: [4] },
+    { key: "organRanks", label: "Organ ranks", step: 1, models: [5] },
+    { key: "wavetableHarmonics", label: "Wavetable harmonics", step: 1, models: [6] },
+    { key: "formantVoices", label: "Formant harmonics", step: 1, models: [7] },
   ]),
   effects: Object.freeze([
     { key: "filterCutoff", label: "FIR cutoff", step: 10 },
@@ -160,6 +164,10 @@ const CONTROL_GROUPS = Object.freeze({
     { key: "shaperDrive", label: "Shaper drive", step: 0.1 },
     { key: "shaperFold", label: "Shaper fold", step: 0.01 },
     { key: "shaperMix", label: "Shaper mix", step: 0.01 },
+    { key: "reverbSize", label: "Reverb size", step: 0.01 },
+    { key: "reverbDecay", label: "Reverb decay", step: 0.01 },
+    { key: "reverbTaps", label: "Convolution taps", step: 1 },
+    { key: "reverbMix", label: "Reverb mix", step: 0.01 },
   ]),
 });
 
@@ -169,26 +177,31 @@ const EFFECT_CONTROL_SECTIONS = Object.freeze([
   Object.freeze({ label: "FIR low-pass", detail: "Causal windowed-sinc taps", keys: Object.freeze(["filterCutoff", "filterTaps", "filterMix"]) }),
   Object.freeze({ label: "Feed-forward delay", detail: "GPU history with stereo taps", keys: Object.freeze(["delayTime", "delayRepeats", "delayDecay", "delayMix"]) }),
   Object.freeze({ label: "Waveshaper", detail: "Soft clipping to sine folding", keys: Object.freeze(["shaperDrive", "shaperFold", "shaperMix"]) }),
+  Object.freeze({ label: "Convolution reverb", detail: "Up to 64 scattered GPU reflections", keys: Object.freeze(["reverbSize", "reverbDecay", "reverbTaps", "reverbMix"]) }),
 ]);
 const DISCRETE_KEYS = new Set([
   "topology",
-  "modelB",
+  "layerCount",
+  "layerMode",
   "steps",
   "baseNote",
   "seed",
   "scale",
   "acidPartials",
-  "pmOperators",
+  "fmOperators",
   "foldLayers",
   "modalModes",
   "grainCount",
   "organRanks",
+  "wavetableHarmonics",
+  "formantVoices",
   "filterTaps",
   "delayRepeats",
+  "reverbTaps",
 ]);
 const KNOB_ORDER = Object.freeze(["modelMix", "complexity", "color", "fold", "motion", "chaos"]);
 const KNOB_LABELS = Object.freeze({
-  modelMix: "A/B blend",
+  modelMix: "Layer morph",
   complexity: "Density",
   color: "Color",
   fold: "Fold",
@@ -205,6 +218,8 @@ const state = {
     seed: firstPreset.params.seed,
     variation: firstPreset.variation,
   }),
+  laneRoutes: sanitizeWebGpuSynthLaneRoutes(WEBGPU_SYNTHS_DEFAULT_LANE_ROUTES),
+  modelLayers: presetModelLayers(firstPreset),
   organRanks: sanitizeWebGpuSynthOrganRanks(WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS),
   presetId: firstPreset.id,
   techniqueId: firstPreset.technique,
@@ -246,21 +261,82 @@ function clearError() {
 }
 
 function formatParam(key, value) {
-  if (["topology", "modelB"].includes(key)) return WEBGPU_SYNTHS_MODELS[Math.round(value)];
+  if (key === "topology") return WEBGPU_SYNTHS_MODELS[Math.round(value)];
   if (key === "baseNote") return `MIDI ${Math.round(value)}`;
   if (["clock", "filterCutoff"].includes(key)) return `${value < 1000 ? value.toFixed(2) : (value / 1000).toFixed(2)} ${value < 1000 ? "Hz" : "kHz"}`;
   if (key === "steps") return `${Math.round(value)} steps`;
   if (key === "decay") return `${Math.round(value * 1000)} ms`;
   if (key === "delayTime") return `${Math.round(value * 1000)} ms`;
+  if (key === "reverbSize") return `${value.toFixed(2)} s`;
   if (key === "swing") return `${Math.round(value * 100)}%`;
   if (key === "gain") return `${Math.round(value * 100)}%`;
   if (key === "seed") return `${Math.round(value)}`;
   if (key === "scale") return WEBGPU_SYNTHS_SCALES[Math.round(value)];
-  if (["acidPartials", "pmOperators", "foldLayers", "modalModes", "grainCount", "organRanks", "filterTaps", "delayRepeats"].includes(key)) {
+  if (["acidPartials", "fmOperators", "foldLayers", "modalModes", "grainCount", "organRanks", "wavetableHarmonics", "formantVoices", "filterTaps", "delayRepeats", "reverbTaps"].includes(key)) {
     return `${Math.round(value)}`;
   }
   if (key === "shaperDrive") return `${value.toFixed(1)}×`;
   return `${Math.round(value * 100)}%`;
+}
+
+function laneTargetAt(laneIndex) {
+  return WEBGPU_SYNTHS_LANE_TARGETS[state.laneRoutes[laneIndex]] ?? WEBGPU_SYNTHS_LANE_TARGETS[0];
+}
+
+function laneSpec(laneIndex) {
+  const target = laneTargetAt(laneIndex);
+  return { ...target, color: LANE_COLORS[laneIndex % LANE_COLORS.length] };
+}
+
+function activeModelLayers() {
+  return state.modelLayers.slice(0, state.params.layerCount);
+}
+
+function syncModelVisibility() {
+  const activeModels = new Set(activeModelLayers().map(({ model }) => model));
+  let visibleComponents = 0;
+  for (const control of document.querySelectorAll("#componentsControls [data-models]")) {
+    const visible = control.dataset.models.split(",").some((model) => activeModels.has(Number(model)));
+    control.hidden = !visible;
+    if (visible) visibleComponents += 1;
+  }
+  $("componentsState").textContent = `${visibleComponents} applicable ${visibleComponents === 1 ? "bank" : "banks"}`;
+  document.querySelector('[data-section="organ-ranks"]').hidden = !activeModels.has(5);
+  const morphVisible = state.params.layerCount > 1 && state.params.layerMode === 1;
+  knobControls.get("modelMix")?.closest(".webgpu-synth-knob")?.toggleAttribute("hidden", !morphVisible);
+  knobControls.get("chaos")?.closest(".webgpu-synth-knob")?.toggleAttribute("hidden", !morphVisible);
+  document.querySelector('[data-param-key="chaos"]')?.toggleAttribute("hidden", !morphVisible);
+}
+
+function syncLaneRoutingControls() {
+  const laneCount = state.params.laneCount;
+  state.activeLane = clamp(state.activeLane, 0, laneCount - 1);
+  $("activeLaneSelect").replaceChildren(...Array.from({ length: laneCount }, (_, laneIndex) => {
+    const option = document.createElement("option");
+    option.value = String(laneIndex);
+    option.textContent = `Lane ${laneIndex + 1} · ${laneTargetAt(laneIndex).label}`;
+    return option;
+  }));
+  $("activeLaneSelect").value = String(state.activeLane);
+  $("laneTargetSelect").replaceChildren(...WEBGPU_SYNTHS_LANE_TARGETS.filter(({ core }) => !core).map((target) => {
+    const option = document.createElement("option");
+    option.value = String(target.id);
+    option.textContent = `${target.label} · ${target.description}`;
+    return option;
+  }));
+  const core = state.activeLane < WEBGPU_SYNTHS_MIN_LANES;
+  $("laneTargetSelect").disabled = core;
+  if (core) {
+    const target = laneTargetAt(state.activeLane);
+    const option = document.createElement("option");
+    option.value = String(target.id);
+    option.textContent = `${target.label} · fixed core lane`;
+    $("laneTargetSelect").replaceChildren(option);
+  }
+  $("laneTargetSelect").value = String(state.laneRoutes[state.activeLane]);
+  $("addLane").disabled = laneCount >= WEBGPU_SYNTHS_MAX_LANES;
+  $("removeLane").disabled = core || laneCount <= WEBGPU_SYNTHS_MIN_LANES;
+  $("laneState").textContent = `${laneCount} of ${WEBGPU_SYNTHS_MAX_LANES} lanes`;
 }
 
 function syncReadouts() {
@@ -278,13 +354,17 @@ function syncReadouts() {
     const output = knobOutputs.get(key);
     if (output) output.textContent = formatParam(key, value);
   }
-  $("modelState").textContent = webGpuSynthModelLabel(state.params.topology, state.params.modelB, state.params.modelMix);
+  const layers = activeModelLayers();
+  const joiner = state.params.layerMode === 1 ? " ↔ " : " + ";
+  $("modelState").textContent = `${layers.length} ${layers.length === 1 ? "layer" : "layers"} · ${layers.map(({ model }) => WEBGPU_SYNTHS_MODELS[model]).join(joiner)}`;
   $("timeState").textContent = `${state.params.steps} steps · ${state.params.clock.toFixed(2)} Hz`;
   $("fieldState").textContent = `${WEBGPU_SYNTHS_SCALES[state.params.scale]} · MIDI ${state.params.baseNote}`;
-  $("componentsState").textContent = "six adjustable banks";
-  const activeFx = [state.params.filterMix, state.params.delayMix, state.params.shaperMix].filter((value) => value > 0.001).length;
+  const activeFx = [state.params.filterMix, state.params.delayMix, state.params.shaperMix, state.params.reverbMix].filter((value) => value > 0.001).length;
   $("effectsState").textContent = activeFx ? `${activeFx} active` : "bypassed";
   $("organRanksState").textContent = `${state.params.organRanks} active`;
+  $("layerMode").value = String(state.params.layerMode);
+  syncLaneRoutingControls();
+  syncModelVisibility();
 }
 
 function applyParams(params, { preservePreset = false } = {}) {
@@ -316,17 +396,17 @@ function syncPressedStates() {
 }
 
 function selectSequenceLane(index, { quiet = false } = {}) {
-  state.activeLane = clamp(Math.round(index), 0, LANE_SPECS.length - 1);
-  for (const [buttonIndex, candidate] of [...$("laneButtons").children].entries()) {
-    candidate.setAttribute("aria-pressed", String(buttonIndex === state.activeLane));
-  }
-  if (!quiet) announce(`${LANE_SPECS[state.activeLane].label} lane selected for editing.`);
+  state.activeLane = clamp(Math.round(index), 0, state.params.laneCount - 1);
+  syncLaneRoutingControls();
+  if (!quiet) announce(`${laneTargetAt(state.activeLane).label} lane selected for editing.`);
 }
 
 function applyPreset(presetDefinition) {
   state.presetId = presetDefinition.id;
   state.techniqueId = presetDefinition.technique;
   state.params = sanitizeWebGpuSynthParams(presetDefinition.params);
+  state.laneRoutes = sanitizeWebGpuSynthLaneRoutes(WEBGPU_SYNTHS_DEFAULT_LANE_ROUTES);
+  state.modelLayers = presetModelLayers(presetDefinition);
   state.sequence = createWebGpuSynthSequence(presetDefinition.technique, {
     steps: state.params.steps,
     seed: state.params.seed,
@@ -334,6 +414,9 @@ function applyPreset(presetDefinition) {
   });
   engine?.updateParams(state.params);
   engine?.updateSequence(state.sequence);
+  engine?.updateLaneRoutes(state.laneRoutes);
+  engine?.updateModelLayers(state.modelLayers);
+  renderModelLayers();
   syncReadouts();
   syncPressedStates();
   announce(`${presetDefinition.label} shader preset loaded.`);
@@ -348,7 +431,7 @@ function applyTechnique(technique) {
     variation,
   }));
   $("variationState").textContent = technique.label;
-  announce(`${technique.label} generated four control lanes.`);
+  announce(`${technique.label} generated the routed control lanes.`);
 }
 
 function changeParam(key, rawValue) {
@@ -372,6 +455,8 @@ function createRangeControl(spec) {
   const wrapper = document.createElement("label");
   wrapper.className = "control";
   wrapper.htmlFor = spec.key;
+  wrapper.dataset.paramKey = spec.key;
+  if (spec.models) wrapper.dataset.models = spec.models.join(",");
   const line = document.createElement("span");
   const label = document.createElement("b");
   label.textContent = spec.label;
@@ -399,6 +484,8 @@ function createSelectControl(spec) {
   const wrapper = document.createElement("label");
   wrapper.className = "select-control";
   wrapper.htmlFor = spec.key;
+  wrapper.dataset.paramKey = spec.key;
+  if (spec.models) wrapper.dataset.models = spec.models.join(",");
   const line = document.createElement("span");
   const label = document.createElement("b");
   label.textContent = spec.label;
@@ -434,6 +521,7 @@ function createKnobControl(key, index) {
   const color = MODEL_COLORS[index % MODEL_COLORS.length];
   const wrapper = document.createElement("div");
   wrapper.className = "webgpu-synth-knob";
+  wrapper.dataset.knobKey = key;
   wrapper.style.setProperty("--knob-color", color);
   const dial = document.createElement("div");
   dial.className = "webgpu-synth-knob-dial";
@@ -484,6 +572,168 @@ function createKnobControl(key, index) {
   knobOutputs.set(key, output);
   wrapper.append(dial, label, output);
   return wrapper;
+}
+
+function commitModelLayers({ render = false } = {}) {
+  state.modelLayers = sanitizeWebGpuSynthModelLayers(state.modelLayers);
+  state.params = sanitizeWebGpuSynthParams({
+    ...state.params,
+    topology: state.modelLayers[0].model,
+    layerCount: clamp(state.params.layerCount, 1, WEBGPU_SYNTHS_MAX_MODEL_LAYERS),
+  });
+  state.presetId = "custom";
+  engine?.updateParams(state.params);
+  engine?.updateModelLayers(state.modelLayers);
+  if (render) renderModelLayers();
+  syncReadouts();
+  syncPressedStates();
+}
+
+function changeModelLayer(index, field, rawValue, { render = false } = {}) {
+  const next = state.modelLayers.map((layer) => ({ ...layer }));
+  next[index][field] = Number(rawValue);
+  state.modelLayers = next;
+  commitModelLayers({ render });
+}
+
+function createLayerRange(index, field, label, minimum, maximum, step, formatter) {
+  const wrapper = document.createElement("label");
+  wrapper.className = "control";
+  const line = document.createElement("span");
+  const title = document.createElement("b");
+  title.textContent = label;
+  const output = document.createElement("output");
+  output.textContent = formatter(state.modelLayers[index][field]);
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = String(minimum);
+  input.max = String(maximum);
+  input.step = String(step);
+  input.value = String(state.modelLayers[index][field]);
+  input.addEventListener("input", () => {
+    changeModelLayer(index, field, input.value);
+    output.textContent = formatter(Number(input.value));
+  });
+  line.append(title, output);
+  wrapper.append(line, input);
+  return wrapper;
+}
+
+function createModelLayerRow(layer, index) {
+  const row = document.createElement("div");
+  row.className = "model-layer-row";
+  row.style.setProperty("--layer-color", MODEL_COLORS[layer.model]);
+  const modelControl = document.createElement("label");
+  modelControl.className = "select-control";
+  const label = document.createElement("span");
+  const title = document.createElement("b");
+  title.textContent = `Layer ${index + 1}`;
+  label.append(title);
+  const shell = document.createElement("span");
+  shell.className = "select-shell";
+  const select = document.createElement("select");
+  select.setAttribute("aria-label", `Layer ${index + 1} synthesis model`);
+  select.replaceChildren(...WEBGPU_SYNTHS_MODELS.map((model, modelIndex) => {
+    const option = document.createElement("option");
+    option.value = String(modelIndex);
+    option.textContent = model;
+    return option;
+  }));
+  select.value = String(layer.model);
+  select.addEventListener("change", () => changeModelLayer(index, "model", select.value, { render: true }));
+  shell.append(select);
+  modelControl.append(label, shell);
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "mini-action model-layer-remove";
+  remove.textContent = "Remove";
+  remove.disabled = state.params.layerCount <= 1;
+  remove.addEventListener("click", () => removeModelLayer(index));
+  row.append(
+    modelControl,
+    createLayerRange(index, "level", "Level", 0, 1, 0.01, (value) => `${Math.round(value * 100)}%`),
+    createLayerRange(index, "detune", "Detune", -24, 24, 0.01, (value) => `${value.toFixed(2)} st`),
+    createLayerRange(index, "pan", "Pan", -1, 1, 0.01, (value) => `${Math.round(value * 100)}`),
+    remove,
+  );
+  return row;
+}
+
+function renderModelLayers() {
+  $("modelLayers").replaceChildren(...activeModelLayers().map(createModelLayerRow));
+  $("addModelLayer").disabled = state.params.layerCount >= WEBGPU_SYNTHS_MAX_MODEL_LAYERS;
+}
+
+function addModelLayer() {
+  if (state.params.layerCount >= WEBGPU_SYNTHS_MAX_MODEL_LAYERS) return;
+  const next = state.modelLayers.map((layer) => ({ ...layer }));
+  const index = state.params.layerCount;
+  const previousModel = next[index - 1]?.model ?? 0;
+  next[index] = { model: (previousModel + 1) % WEBGPU_SYNTHS_MODELS.length, level: 0.72, detune: 0, pan: 0 };
+  state.modelLayers = next;
+  state.params = sanitizeWebGpuSynthParams({ ...state.params, layerCount: index + 1 });
+  commitModelLayers({ render: true });
+  announce(`Synthesis layer ${index + 1} added in WGSL.`);
+}
+
+function removeModelLayer(index) {
+  if (state.params.layerCount <= 1) return;
+  const active = activeModelLayers().map((layer) => ({ ...layer }));
+  active.splice(index, 1);
+  state.modelLayers = sanitizeWebGpuSynthModelLayers(active);
+  state.params = sanitizeWebGpuSynthParams({ ...state.params, layerCount: active.length });
+  commitModelLayers({ render: true });
+  announce(`Synthesis layer ${index + 1} removed.`);
+}
+
+function commitLaneLayout() {
+  state.laneRoutes = sanitizeWebGpuSynthLaneRoutes(state.laneRoutes);
+  state.sequence = sanitizeWebGpuSynthSequence(state.sequence);
+  state.presetId = "custom";
+  engine?.updateParams(state.params);
+  engine?.updateLaneRoutes(state.laneRoutes);
+  engine?.updateSequence(state.sequence);
+  syncReadouts();
+  syncPressedStates();
+}
+
+function addSequenceLane() {
+  const laneCount = state.params.laneCount;
+  if (laneCount >= WEBGPU_SYNTHS_MAX_LANES) return;
+  const used = new Set(state.laneRoutes.slice(2, laneCount));
+  const nextTarget = WEBGPU_SYNTHS_LANE_TARGETS.find(({ id, core }) => !core && !used.has(id)) ?? WEBGPU_SYNTHS_LANE_TARGETS[2];
+  state.laneRoutes = state.laneRoutes.map((route, index) => index === laneCount ? nextTarget.id : route);
+  state.sequence = state.sequence.map((step) => step.map((value, index) => index === laneCount ? 0.5 : value));
+  state.params = sanitizeWebGpuSynthParams({ ...state.params, laneCount: laneCount + 1 });
+  state.activeLane = laneCount;
+  commitLaneLayout();
+  announce(`${nextTarget.label} parameter lane added in WGSL.`);
+}
+
+function removeSequenceLane() {
+  const laneIndex = state.activeLane;
+  if (laneIndex < WEBGPU_SYNTHS_MIN_LANES || state.params.laneCount <= WEBGPU_SYNTHS_MIN_LANES) return;
+  const routes = [...state.laneRoutes];
+  routes.splice(laneIndex, 1);
+  routes.push(WEBGPU_SYNTHS_DEFAULT_LANE_ROUTES.at(-1));
+  state.laneRoutes = routes;
+  state.sequence = state.sequence.map((step) => {
+    const values = [...step];
+    values.splice(laneIndex, 1);
+    values.push(0.5);
+    return values;
+  });
+  state.params = sanitizeWebGpuSynthParams({ ...state.params, laneCount: state.params.laneCount - 1 });
+  state.activeLane = Math.min(laneIndex, state.params.laneCount - 1);
+  commitLaneLayout();
+  announce("Parameter lane removed.");
+}
+
+function changeLaneTarget(rawTarget) {
+  if (state.activeLane < WEBGPU_SYNTHS_MIN_LANES) return;
+  state.laneRoutes = state.laneRoutes.map((route, index) => index === state.activeLane ? Number(rawTarget) : route);
+  commitLaneLayout();
+  announce(`${laneTargetAt(state.activeLane).label} assigned to lane ${state.activeLane + 1}.`);
 }
 
 const ORGAN_RANK_FIELDS = Object.freeze([
@@ -577,17 +827,9 @@ function renderControls() {
     )));
   }
   $("knobControls").replaceChildren(...KNOB_ORDER.map(createKnobControl));
+  renderModelLayers();
   renderOrganRankControls();
   renderEffectsControls();
-  $("laneButtons").replaceChildren(...LANE_SPECS.map((lane, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = `${lane.label} · ${lane.description}`;
-    button.style.setProperty("--lane-color", lane.color);
-    button.setAttribute("aria-pressed", String(index === state.activeLane));
-    button.addEventListener("click", () => selectSequenceLane(index));
-    return button;
-  }));
   $("presetButtons").replaceChildren(...PRESETS.map((presetDefinition) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -635,7 +877,7 @@ function setSupportState() {
 function paintAudioReadout() {
   $("engineBadge").textContent = state.audioOn
     ? state.synthPlaying ? "sequence running" : "sequence ready"
-    : "six synthesis models · two GPU passes";
+    : "eight synthesis models · layered in WGSL";
   $("stageReadout").textContent = state.audioOn
     ? `WEBGPU · ${Math.round(engine?.sampleRate ?? 44100)} HZ · ${state.synthPlaying ? "SEQUENCE PLAYING" : "SEQUENCE PAUSED"}`
     : "WEBGPU · STANDBY · AUDIO OFF";
@@ -673,6 +915,8 @@ async function startAudio() {
     workgroupSize: state.workgroupSize,
   });
   nextEngine.sequence = state.sequence;
+  nextEngine.laneRoutes = state.laneRoutes;
+  nextEngine.modelLayers = state.modelLayers;
   nextEngine.organRanks = state.organRanks;
   nextEngine.setOutput(Number($("output").value));
   nextEngine.setPlaybackEnabled(state.synthPlaying);
@@ -690,6 +934,8 @@ async function startAudio() {
       return false;
     }
     nextEngine.updateSequence(state.sequence);
+    nextEngine.updateLaneRoutes(state.laneRoutes);
+    nextEngine.updateModelLayers(state.modelLayers);
     nextEngine.updateOrganRanks(state.organRanks);
     nextEngine.setOutput(Number($("output").value));
     nextEngine.setPlaybackEnabled(state.synthPlaying);
@@ -759,8 +1005,9 @@ function runtimeChanged() {
 
 function varyLane(lane) {
   const amount = 0.08 + state.params.chaos * 0.28;
-  applySequence(varyWebGpuSynthSequence(state.sequence, lane, amount, state.params.seed + performance.now()));
-  announce(`${lane === "all" ? "All control lanes" : `${lane} lane`} varied.`);
+  const selected = lane === "selected" ? state.activeLane : lane;
+  applySequence(varyWebGpuSynthSequence(state.sequence, selected, amount, state.params.seed + performance.now()));
+  announce(`${lane === "all" ? "All control lanes" : `${laneTargetAt(state.activeLane).label} lane`} varied.`);
 }
 
 function rotateSequence(direction) {
@@ -784,7 +1031,7 @@ function invertActiveLane() {
     index < steps ? step.map((value, lane) => lane === state.activeLane ? 1 - value : value) : step
   ));
   applySequence(next);
-  announce(`${LANE_SPECS[state.activeLane].label} lane inverted.`);
+  announce(`${laneTargetAt(state.activeLane).label} lane inverted.`);
 }
 
 function resizeCanvas(canvas) {
@@ -799,11 +1046,11 @@ function resizeCanvas(canvas) {
   return { width, height, pixelRatio };
 }
 
-function laneMetrics(width, height) {
+function laneMetrics(width, height, laneCount = state.params.laneCount) {
   const top = height * 0.34;
   const bottom = height * 0.92;
   const gap = Math.max(6, height * 0.012);
-  const heightEach = (bottom - top - gap * 3) / 4;
+  const heightEach = (bottom - top - gap * Math.max(0, laneCount - 1)) / laneCount;
   return { top, bottom, gap, heightEach, width };
 }
 
@@ -822,7 +1069,8 @@ function drawLanes(context, width, height, time) {
   const steps = state.params.steps;
   const cellWidth = width / steps;
   const activeStep = Math.floor(time * state.params.clock) % steps;
-  for (const [laneIndex, lane] of LANE_SPECS.entries()) {
+  for (let laneIndex = 0; laneIndex < state.params.laneCount; laneIndex += 1) {
+    const lane = laneSpec(laneIndex);
     const y = top + laneIndex * (heightEach + gap);
     context.fillStyle = laneIndex === state.activeLane ? `${lane.color}12` : "rgba(255,255,255,0.018)";
     context.fillRect(0, y, width, heightEach);
@@ -831,7 +1079,7 @@ function drawLanes(context, width, height, time) {
     context.fillStyle = `${lane.color}b8`;
     context.font = `${Math.max(8, height * 0.018)}px ui-monospace, monospace`;
     context.fillText(lane.label.toUpperCase(), 9, y + 14);
-    if (laneIndex === 1) {
+    if (lane.id === "energy") {
       for (let step = 0; step < steps; step += 1) {
         const value = state.sequence[step][laneIndex];
         const valueY = y + heightEach - value * (heightEach - 8) - 4;
@@ -852,7 +1100,7 @@ function drawLanes(context, width, height, time) {
       context.lineWidth = laneIndex === state.activeLane ? 2 : 1;
       context.stroke();
     }
-    if (laneIndex === 0) {
+    if (lane.id === "pitch") {
       for (let step = 0; step < steps; step += 1) {
         if (state.sequence[step][1] <= 0.01) continue;
         const x = (step + 0.5) * cellWidth;
@@ -863,7 +1111,7 @@ function drawLanes(context, width, height, time) {
         context.arc(x, valueY, step === activeStep ? 4 : 2.6, 0, Math.PI * 2);
         context.fill();
       }
-    } else if (laneIndex !== 1) {
+    } else if (lane.id !== "energy") {
       const value = state.sequence[activeStep][laneIndex];
       const x = (activeStep + 0.5) * cellWidth;
       const valueY = y + heightEach - value * (heightEach - 8) - 4;
@@ -877,7 +1125,10 @@ function drawLanes(context, width, height, time) {
   context.save();
   context.strokeStyle = "rgba(255,255,255,0.9)";
   context.shadowBlur = 18;
-  context.shadowColor = MODEL_COLORS[state.params.modelMix < 0.5 ? Math.round(state.params.topology) : Math.round(state.params.modelB)];
+  const visibleLayer = state.params.layerMode === 1
+    ? Math.round(state.params.modelMix * Math.max(0, state.params.layerCount - 1))
+    : 0;
+  context.shadowColor = MODEL_COLORS[state.modelLayers[visibleLayer]?.model ?? 0];
   context.lineWidth = 2;
   context.beginPath();
   context.moveTo(playheadX, top - 5);
@@ -918,7 +1169,7 @@ function sequencePointerPosition(event, { laneIndex = null, stepIndex = null } =
     const laneStride = metrics.heightEach + metrics.gap;
     selectedLane = Math.floor((localY - metrics.top) / laneStride);
     const candidateY = metrics.top + selectedLane * laneStride;
-    if (selectedLane < 0 || selectedLane >= LANE_SPECS.length || localY < candidateY || localY > candidateY + metrics.heightEach) return null;
+    if (selectedLane < 0 || selectedLane >= state.params.laneCount || localY < candidateY || localY > candidateY + metrics.heightEach) return null;
   }
   const laneY = metrics.top + selectedLane * (metrics.heightEach + metrics.gap);
   const value = clamp(1 - ((localY - laneY) / metrics.heightEach), 0, 1);
@@ -933,7 +1184,7 @@ function editSequenceLane(event) {
   if (!position) return;
   const next = state.sequence.map((stepValues) => [...stepValues]);
   next[position.stepIndex][position.laneIndex] = event.shiftKey ? 0 : position.value;
-  if (position.laneIndex === 0 && next[position.stepIndex][1] <= 0.01) {
+  if (laneTargetAt(position.laneIndex).id === 0 && next[position.stepIndex][1] <= 0.01) {
     next[position.stepIndex][1] = 0.82;
   }
   state.techniqueId = "custom";
@@ -966,12 +1217,12 @@ function handlePointerEnd(event) {
   state.editingLane = null;
   state.editingStep = null;
   $("sequenceStage").releasePointerCapture?.(event.pointerId);
-  announce(`${LANE_SPECS[editedLane ?? state.activeLane].label} sequence lane edited.`);
+  announce(`${laneTargetAt(editedLane ?? state.activeLane).label} sequence lane edited.`);
 }
 
 function removeSequenceNote(event) {
   const position = sequencePointerPosition(event);
-  if (!position || position.laneIndex > 1) return;
+  if (!position || laneTargetAt(position.laneIndex).id > 1) return;
   event.preventDefault();
   const next = state.sequence.map((stepValues) => [...stepValues]);
   next[position.stepIndex][1] = 0;
@@ -1001,6 +1252,12 @@ $("rotateLeft").addEventListener("click", () => rotateSequence(-1));
 $("rotateRight").addEventListener("click", () => rotateSequence(1));
 $("reverseSequence").addEventListener("click", reverseSequence);
 $("invertLane").addEventListener("click", invertActiveLane);
+$("activeLaneSelect").addEventListener("change", () => selectSequenceLane($("activeLaneSelect").value));
+$("laneTargetSelect").addEventListener("change", () => changeLaneTarget($("laneTargetSelect").value));
+$("addLane").addEventListener("click", addSequenceLane);
+$("removeLane").addEventListener("click", removeSequenceLane);
+$("layerMode").addEventListener("change", () => changeParam("layerMode", $("layerMode").value));
+$("addModelLayer").addEventListener("click", addModelLayer);
 for (const button of document.querySelectorAll("[data-vary]")) {
   button.addEventListener("click", () => varyLane(button.dataset.vary));
 }

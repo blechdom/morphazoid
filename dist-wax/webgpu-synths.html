@@ -12,7 +12,7 @@
     <title>GPU Shader Synths — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="webgpu-synths.css?v=20260823-model-pairs" />
+    <link rel="stylesheet" href="webgpu-synths.css?v=20260823-layer-matrix" />
   </head>
   <body class="webgpu-synths-page">
     <header class="masthead">
@@ -58,7 +58,7 @@
           <canvas
             id="sequenceStage"
             role="img"
-            aria-label="Four-lane GPU sequence and modulation editor. Audio off."
+            aria-label="Expandable GPU sequence and modulation editor. Audio off."
             aria-describedby="sequenceEditHint webgpuSynthsDescription liveStatus"
           >
             GPU sequence lanes and synthesis-model display.
@@ -66,7 +66,7 @@
 
           <div class="webgpu-synths-heading">
             <h1 id="webgpuSynthsTitle">GPU Shader Synths</h1>
-            <span id="engineBadge">six synthesis models · two GPU passes</span>
+            <span id="engineBadge">eight synthesis models · layered in WGSL</span>
           </div>
 
           <div class="shader-contract" aria-hidden="true">
@@ -79,8 +79,14 @@
         </div>
 
         <div class="sequence-deck">
-          <div class="sequence-lane-tabs" id="laneButtons" role="group" aria-label="Editable sequence lane"></div>
-          <p class="sequence-edit-hint" id="sequenceEditHint">Click a lane to add or edit · drag vertically to change height · double-click Pitch or Pulse to remove a note</p>
+          <div class="sequence-router" aria-label="GPU lane routing">
+            <label class="select-control" for="activeLaneSelect"><span><b>Edit lane</b></span><span class="select-shell"><select id="activeLaneSelect"></select></span></label>
+            <label class="select-control" for="laneTargetSelect"><span><b>Destination</b></span><span class="select-shell"><select id="laneTargetSelect"></select></span></label>
+            <button class="mini-action" id="addLane" type="button">+ Add parameter lane</button>
+            <button class="mini-action" id="removeLane" type="button">Remove lane</button>
+            <span class="sequence-lane-state" id="laneState">4 of 8 lanes</span>
+          </div>
+          <p class="sequence-edit-hint" id="sequenceEditHint">Choose or click a lane to edit · drag vertically to change height · double-click Pitch or Pulse to remove a note</p>
           <div class="sequence-actions" aria-label="Sequence transformations">
             <button class="mini-action" id="rotateLeft" type="button">Rotate −1</button>
             <button class="mini-action" id="rotateRight" type="button">Rotate +1</button>
@@ -123,10 +129,7 @@
           <div class="group-body">
             <div class="technique-grid" id="techniqueButtons" role="group" aria-label="Sequence generators"></div>
             <div class="variation-grid" aria-label="Variation actions">
-              <button class="mini-action" type="button" data-vary="pitch">Vary pitch</button>
-              <button class="mini-action" type="button" data-vary="energy">Vary pulse</button>
-              <button class="mini-action" type="button" data-vary="timbre">Vary timbre</button>
-              <button class="mini-action" type="button" data-vary="morph">Vary morph</button>
+              <button class="mini-action" type="button" data-vary="selected">Vary selected lane</button>
               <button class="mini-action variation-all" type="button" data-vary="all">Vary all lanes</button>
             </div>
           </div>
@@ -135,10 +138,15 @@
         <details class="group control-section webgpu-synths-section" data-section="model" open>
           <summary class="group-summary">
             <h2 class="group-title">Synthesis model</h2>
-            <span class="section-state" id="modelState">Modal Metal × Particle Cloud</span>
+            <span class="section-state" id="modelState">1 layer · Modal Metal</span>
           </summary>
+          <div class="model-layer-toolbar">
+            <label class="select-control" for="layerMode"><span><b>Layer behavior</b></span><span class="select-shell"><select id="layerMode"><option value="0">Stack · add together</option><option value="1">Morph · crossfade in order</option></select></span></label>
+            <button class="mini-action" id="addModelLayer" type="button">+ Add synthesis layer</button>
+          </div>
+          <div class="model-layer-list" id="modelLayers"></div>
           <div class="group-body" id="modelControls"></div>
-          <p class="control-note">Choose any Model A and Model B. The Blend knob crossfades that pair; Morph Depth animates the same crossfade in WGSL.</p>
+          <p class="control-note">One layer is fully isolated. Add up to six, then stack them or morph across their order; layer weighting and crossfades run per sample in WGSL.</p>
         </details>
 
         <details class="group control-section webgpu-synths-section" data-section="components">
@@ -196,9 +204,9 @@
                 </select>
               </span>
             </label>
-            <p class="gpu-stream-note">Pass 1 writes dry synthesis and GPU history. Pass 2 applies FIR filtering, multi-tap delay, and waveshaping before the single CPU readback. The browser audio graph adds no synthesis nodes or effects.</p>
+            <p class="gpu-stream-note">Pass 1 writes layered synthesis and GPU history. Pass 2 applies FIR filtering, delay, waveshaping, and sparse convolution reverb before the single CPU readback. The browser audio graph adds no synthesis nodes or effects.</p>
             <div class="gpu-execution-map" aria-label="GPU audio execution and latency map">
-              <div><b>GPU-parallel</b><span>Oscillator/partial banks, feed-forward PM, grains, modal sums, FIR taps, delay taps, and stateless waveshaping.</span></div>
+              <div><b>GPU-parallel</b><span>Additive banks, classic FM operators, wavetables, grains, modal sums, FIR taps, delay taps, convolution reflections, and waveshaping.</span></div>
               <div><b>State-sensitive</b><span>Recursive IIR filters and true feedback delays need serialized state or block algorithms; this page uses a causal FIR and feed-forward taps.</span></div>
               <div><b>Per chunk</b><span>CPU time-offset upload → one GPU submission with two compute passes → one GPU readback → finished buffer playback. Parameters, lanes, and ranks upload only when edited; the second pass adds no CPU hop.</span></div>
               <div><b>Latency</b><span>Default chunks are 100 ms and queued ahead for stable playback. FIR adds at most 15 samples of group delay; delay time is an intentional echo.</span></div>
@@ -216,20 +224,20 @@
         <div class="wgsl-boundary">
           <small class="wgsl-stream-state">WGSL owns the signal path</small>
           <span>GPU / WGSL DOMAIN</span>
-          <p>Clock, swing, four sequence lanes, scales, envelopes, adjustable model component counts, editable additive ranks, synthesis, stereo, and two-pass GPU effects.</p>
-          <small>Web Audio is buffer playback only. Cascade PM is a deterministic feed-forward phase-modulation cascade; Model morph depth is a modulation amount, not a claim of mathematical chaos.</small>
+          <p>Clock, swing, up to eight routed sequence lanes, scales, click-safe envelopes, additive or morphable synthesis layers, stereo, and two-pass GPU effects.</p>
+          <small>Web Audio is buffer playback only. Model stacking, equal-power morphing, classic FM, sparse convolution reverb, and all lane modulation run in WGSL.</small>
           <small class="wgsl-runtime-state" id="streamState" aria-live="polite">Checking the GPU buffer path</small>
         </div>
       </aside>
 
       <p class="sr-only" id="webgpuSynthsDescription">
-        GPU compute shaders sequence four control lanes, render six synthesis models, and apply FIR filtering, multi-tap delay, and waveshaping. Web Audio only plays completed shader buffers.
+        GPU compute shaders route up to eight control lanes, stack or morph eight synthesis models, and apply FIR filtering, delay, waveshaping, and convolution reverb. Web Audio only plays completed shader buffers.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="webgpu-synths-app.js?v=20260823-model-pairs"></script>
+    <script type="module" src="webgpu-synths-app.js?v=20260823-layer-matrix"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

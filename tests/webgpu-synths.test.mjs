@@ -4,18 +4,26 @@ import test from "node:test";
 
 import {
   WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS,
+  WEBGPU_SYNTHS_DEFAULT_LANE_ROUTES,
   WEBGPU_SYNTHS_DEFAULTS,
+  WEBGPU_SYNTHS_LANE_TARGETS,
+  WEBGPU_SYNTHS_MAX_LANES,
+  WEBGPU_SYNTHS_MAX_MODEL_LAYERS,
   WEBGPU_SYNTHS_MODELS,
   WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
   WEBGPU_SYNTHS_PARAM_ORDER,
   WEBGPU_SYNTHS_SEQUENCE_LENGTH,
   WEBGPU_SYNTHS_SHADER,
   createWebGpuSynthSequence,
+  sanitizeWebGpuSynthLaneRoutes,
+  sanitizeWebGpuSynthModelLayers,
   sanitizeWebGpuSynthOrganRanks,
   sanitizeWebGpuSynthParams,
   sanitizeWebGpuSynthSequence,
   varyWebGpuSynthSequence,
   webGpuSynthModelLabel,
+  webGpuSynthLaneRouteArray,
+  webGpuSynthModelLayerArray,
   webGpuSynthOrganRankArray,
   webGpuSynthParamArray,
   webGpuSynthSequenceArray,
@@ -23,14 +31,16 @@ import {
 
 const root = new URL("../", import.meta.url);
 
-test("GPU Shader Synths packs one stable 34-float shader parameter contract", () => {
+test("GPU Shader Synths packs one stable 42-float shader parameter contract", () => {
   assert.deepEqual(WEBGPU_SYNTHS_PARAM_ORDER, [
     "topology",
-    "modelB",
     "modelMix",
+    "layerCount",
+    "layerMode",
     "baseNote",
     "clock",
     "steps",
+    "laneCount",
     "glide",
     "complexity",
     "color",
@@ -44,11 +54,13 @@ test("GPU Shader Synths packs one stable 34-float shader parameter contract", ()
     "seed",
     "scale",
     "acidPartials",
-    "pmOperators",
+    "fmOperators",
     "foldLayers",
     "modalModes",
     "grainCount",
     "organRanks",
+    "wavetableHarmonics",
+    "formantVoices",
     "filterCutoff",
     "filterTaps",
     "filterMix",
@@ -59,51 +71,65 @@ test("GPU Shader Synths packs one stable 34-float shader parameter contract", ()
     "shaperDrive",
     "shaperFold",
     "shaperMix",
+    "reverbSize",
+    "reverbDecay",
+    "reverbTaps",
+    "reverbMix",
   ]);
-  assert.equal(webGpuSynthParamArray().length, 34);
+  assert.equal(webGpuSynthParamArray().length, 42);
   assert.deepEqual(sanitizeWebGpuSynthParams(), WEBGPU_SYNTHS_DEFAULTS);
-  const clamped = sanitizeWebGpuSynthParams({ topology: 99, modelB: -4, modelMix: 9, steps: 2, gain: 9, scale: -4, pmOperators: 99, filterTaps: 10 });
-  assert.equal(clamped.topology, 5);
-  assert.equal(clamped.modelB, 0);
+  const clamped = sanitizeWebGpuSynthParams({ topology: 99, modelMix: 9, layerCount: 99, laneCount: 99, steps: 2, gain: 9, scale: -4, fmOperators: 99, filterTaps: 10, reverbTaps: 99 });
+  assert.equal(clamped.topology, 7);
   assert.equal(clamped.modelMix, 1);
+  assert.equal(clamped.layerCount, 6);
+  assert.equal(clamped.laneCount, 8);
   assert.equal(clamped.steps, 4);
   assert.equal(clamped.gain, 0.22);
   assert.equal(clamped.scale, 0);
-  assert.equal(clamped.pmOperators, 12);
+  assert.equal(clamped.fmOperators, 6);
   assert.equal(clamped.filterTaps, 11);
+  assert.equal(clamped.reverbTaps, 64);
 });
 
-test("four control lanes are deterministic, bounded, and GPU-buffer ready", () => {
+test("eight routed control lanes are deterministic, bounded, and GPU-buffer ready", () => {
   assert.equal(WEBGPU_SYNTHS_SEQUENCE_LENGTH, 64);
+  assert.equal(WEBGPU_SYNTHS_MAX_LANES, 8);
   for (const technique of ["euclid", "brownian", "cellular", "recurrence", "orbit", "noise"]) {
     const first = createWebGpuSynthSequence(technique, { steps: 21, seed: 1447, variation: 0.62 });
     const second = createWebGpuSynthSequence(technique, { steps: 21, seed: 1447, variation: 0.62 });
     assert.deepEqual(first, second, `${technique} must be deterministic`);
     assert.equal(first.length, WEBGPU_SYNTHS_SEQUENCE_LENGTH);
-    assert.equal(first.every((step) => step.length === 4), true);
+    assert.equal(first.every((step) => step.length === WEBGPU_SYNTHS_MAX_LANES), true);
     assert.equal(first.flat().every((value) => value >= 0 && value <= 1), true);
-    assert.equal(webGpuSynthSequenceArray(first).length, WEBGPU_SYNTHS_SEQUENCE_LENGTH * 4);
+    assert.equal(webGpuSynthSequenceArray(first).length, WEBGPU_SYNTHS_SEQUENCE_LENGTH * WEBGPU_SYNTHS_MAX_LANES);
   }
   const invalid = sanitizeWebGpuSynthSequence([[Infinity, -2, 8, "nope"]]);
-  assert.deepEqual(invalid[0], [0.5, 0, 1, 0.5]);
+  assert.deepEqual(invalid[0], [0.5, 0, 1, 0.5, 0.5, 0.5, 0.5, 0.5]);
+  assert.deepEqual(sanitizeWebGpuSynthLaneRoutes([99, 99, -4, 999]), [0, 1, 2, 19, 4, 5, 6, 9]);
+  assert.deepEqual([...webGpuSynthLaneRouteArray()], WEBGPU_SYNTHS_DEFAULT_LANE_ROUTES);
+  assert.equal(WEBGPU_SYNTHS_LANE_TARGETS.length, 20);
 });
 
-test("lane variations preserve unselected values and model topology labels expose morphs", () => {
+test("lane variations preserve unselected values and model layers are bounded", () => {
   const sequence = createWebGpuSynthSequence("orbit", { steps: 16, seed: 91 });
-  const varied = varyWebGpuSynthSequence(sequence, "timbre", 0.4, 123);
+  const varied = varyWebGpuSynthSequence(sequence, 5, 0.4, 123);
   for (let step = 0; step < sequence.length; step += 1) {
     assert.equal(varied[step][0], sequence[step][0]);
     assert.equal(varied[step][1], sequence[step][1]);
     assert.equal(varied[step][3], sequence[step][3]);
   }
-  assert.equal(WEBGPU_SYNTHS_MODELS.length, 6);
+  assert.equal(WEBGPU_SYNTHS_MODELS.length, 8);
   assert.equal(webGpuSynthModelLabel(0), "Spectral Acid");
-  assert.equal(webGpuSynthModelLabel(1.5), "Cascade PM × Wavefold Table");
+  assert.equal(webGpuSynthModelLabel(1.5), "Classic FM × Wavefold Table");
   assert.equal(webGpuSynthModelLabel(4), "Particle Cloud");
   assert.equal(webGpuSynthModelLabel(4.5), "Particle Cloud × Additive Organ");
   assert.equal(webGpuSynthModelLabel(5), "Additive Organ");
   assert.equal(webGpuSynthModelLabel(5, 0, 0.4), "Additive Organ × Spectral Acid");
   assert.equal(webGpuSynthModelLabel(5, 0, 1), "Spectral Acid");
+  assert.equal(WEBGPU_SYNTHS_MAX_MODEL_LAYERS, 6);
+  const layers = sanitizeWebGpuSynthModelLayers([{ model: 99, level: 2, detune: -99, pan: 3 }]);
+  assert.deepEqual(layers[0], { model: 7, level: 1, detune: -24, pan: 1 });
+  assert.equal(webGpuSynthModelLayerArray(layers).length, WEBGPU_SYNTHS_MAX_MODEL_LAYERS * 4);
 });
 
 test("additive organ ranks expose editable ratios, levels, and per-rank AM", () => {
@@ -121,28 +147,33 @@ test("the WGSL shader owns sequencing and the complete synthesis signal path", (
   assert.match(WEBGPU_SYNTHS_SHADER, /@compute/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn swingTime/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn scaleNote/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /@binding\(3\) var<storage, read> sequence_lanes: array<vec4<f32>>/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /@binding\(3\) var<storage, read> sequence_lanes: array<f32>/);
   assert.match(WEBGPU_SYNTHS_SHADER, /@binding\(4\) var<storage, read> organ_rank: array<vec4<f32>>/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /@binding\(7\) var<storage, read> lane_route: array<u32>/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /@binding\(8\) var<storage, read> model_layer: array<vec4<f32>>/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn routedUnit/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn spectralAcid/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /fn cascadePm/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn classicFm/);
+  assert.doesNotMatch(WEBGPU_SYNTHS_SHADER, /fn cascadePm/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn wavefoldTable/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn modalMetal/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn particleCloud/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn additiveOrgan/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn vectorWavetable/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn formantBank/);
   assert.match(WEBGPU_SYNTHS_SHADER, /for \(var drawbar = 0u; drawbar < 9u/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /synth_param\.pmOperators/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /synth_param\.fmOperators/);
   assert.match(WEBGPU_SYNTHS_SHADER, /synth_param\.modalModes/);
   assert.match(WEBGPU_SYNTHS_SHADER, /rank\.z/);
   assert.match(WEBGPU_SYNTHS_SHADER, /rank\.w/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /let modelAIndex = u32\(round\(clamp\(synth_param\.topology/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /let modelBIndex = u32\(round\(clamp\(synth_param\.modelB/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /let animatedBlend = clamp/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /synth_param\.modelMix \+ \(current\.w - 0\.5\) \* synth_param\.chaos/);
-  assert.doesNotMatch(WEBGPU_SYNTHS_SHADER, /lower \+ 1u/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /let currentNote = synth_param\.baseNote \+ scaleNote\(current\.x/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /let followingNote = synth_param\.baseNote \+ scaleNote\(following\.x/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn layeredSound/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /if \(synth_param\.layerMode < 0\.5\)/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /let lowerWeight = cos\(blend \* PI \* 0\.5\)/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /let currentNote = synth_param\.baseNote \+ scaleNote\(laneValue\(stepIndex, 0u\)/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /let followingNote = synth_param\.baseNote \+ scaleNote\(laneValue\(nextIndex, 0u\)/);
   assert.match(WEBGPU_SYNTHS_SHADER, /let note = mix\(currentNote, followingNote, glide\)/);
-  assert.match(WEBGPU_SYNTHS_SHADER, /let release = 1\.0 - smoothstep\(0\.982, 1\.0, phase\)/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /let edge = clamp\(synth_param\.clock \* 0\.008, 0\.018, 0\.24\)/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /let release = 1\.0 - smoothstep\(1\.0 - edge, 1\.0, phase\)/);
   assert.match(WEBGPU_SYNTHS_SHADER, /let envelope =/);
   assert.doesNotMatch(WEBGPU_SYNTHS_SHADER, /smoothTail/);
   assert.match(WEBGPU_SYNTHS_SHADER, /let pan =/);
@@ -151,6 +182,8 @@ test("the WGSL shader owns sequencing and the complete synthesis signal path", (
   assert.match(WEBGPU_SYNTHS_SHADER, /fn sincLowpass/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn multiTapDelay/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn postWaveshaper/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /fn convolutionReverb/);
+  assert.match(WEBGPU_SYNTHS_SHADER, /synth_param\.reverbTaps/);
   assert.match(WEBGPU_SYNTHS_SHADER, /fn processFx/);
 });
 
@@ -168,14 +201,18 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.doesNotMatch(html, /ALL MUSICAL LOGIC IN WGSL/);
   assert.match(html, /id="sequenceStage"/);
   assert.doesNotMatch(html, /id="modelRail"/);
-  assert.match(html, /Choose any Model A and Model B\. The Blend knob crossfades that pair/);
-  assert.match(html, /id="sequenceEditHint">Click a lane to add or edit · drag vertically to change height · double-click Pitch or Pulse to remove a note/);
+  assert.doesNotMatch(html, /id="laneButtons"/);
+  assert.match(html, /id="addLane"[^>]*>\+ Add parameter lane/);
+  assert.match(html, /id="laneTargetSelect"/);
+  assert.match(html, /id="addModelLayer"[^>]*>\+ Add synthesis layer/);
+  assert.match(html, /One layer is fully isolated\. Add up to six/);
+  assert.match(html, /id="sequenceEditHint">Choose or click a lane to edit · drag vertically to change height · double-click Pitch or Pulse to remove a note/);
   assert.match(html, /<h2 class="group-title">Presets<\/h2>/);
   assert.match(html, /id="presetButtons"/);
   assert.match(html, /id="techniqueButtons"/);
   assert.match(html, /Web Audio is buffer playback only/);
-  assert.match(html, /six synthesis models · two GPU passes/);
-  assert.match(html, /not a claim of mathematical chaos/);
+  assert.match(html, /eight synthesis models · layered in WGSL/);
+  assert.match(html, /equal-power morphing, classic FM, sparse convolution reverb/);
   assert.match(html, /id="componentsControls"/);
   assert.match(html, /id="organRankControls"/);
   assert.match(html, /id="effectsControls"/);
@@ -185,7 +222,8 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.ok(html.indexOf('data-section="time"') < html.indexOf('data-section="variations"'));
   assert.ok(html.indexOf('id="resetPatch"') < html.indexOf('class="wgsl-boundary"'));
   assert.doesNotMatch(css, /\.model-rail/);
-  assert.match(css, /\.sequence-lane-tabs/);
+  assert.match(css, /\.sequence-router/);
+  assert.match(css, /\.model-layer-row/);
   assert.match(css, /\.sequence-edit-hint/);
   assert.match(css, /\.preset-grid \{[\s\S]*grid-template-columns: repeat\(4/);
   assert.match(css, /\.organ-rank-row/);
@@ -224,13 +262,19 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(app, /next\[position\.stepIndex\]\[1\] = 0/);
   assert.match(app, /addEventListener\("dblclick", removeSequenceNote\)/);
   assert.match(app, /if \(state\.sequence\[step\]\[1\] <= 0\.01\) continue/);
-  assert.match(app, /context\.stroke\(\);\s*}\s*if \(laneIndex === 0\)/);
+  assert.match(app, /if \(lane\.id === "pitch"\)/);
   const modelControls = app.slice(app.indexOf("model: Object.freeze"), app.indexOf("time: Object.freeze"));
-  assert.match(modelControls, /key: "topology", label: "Model A", type: "select"/);
-  assert.match(modelControls, /key: "modelB", label: "Model B", type: "select"/);
-  assert.match(modelControls, /key: "modelMix", label: "Model blend", step: 0\.01, knobOnly: true/);
+  assert.doesNotMatch(modelControls, /key: "topology"/);
+  assert.doesNotMatch(modelControls, /key: "modelB"/);
+  assert.match(modelControls, /key: "modelMix", label: "Layer morph", step: 0\.01, knobOnly: true/);
   assert.match(app, /const KNOB_ORDER = Object\.freeze\(\["modelMix", "complexity", "color", "fold", "motion", "chaos"\]\)/);
-  assert.match(app, /modelMix: "A\/B blend"/);
+  assert.match(app, /modelMix: "Layer morph"/);
+  assert.match(app, /function addModelLayer/);
+  assert.match(app, /function removeModelLayer/);
+  assert.match(app, /function addSequenceLane/);
+  assert.match(app, /function changeLaneTarget/);
+  assert.match(app, /WEBGPU_SYNTHS_LANE_TARGETS/);
+  assert.match(app, /models: \[7\]/);
   assert.doesNotMatch(app, /topology: "Model"/);
   assert.match(css, /\.webgpu-synth-knob-bank \{[\s\S]*grid-template-columns: repeat\(6, var\(--knob-size\)\)/);
   assert.doesNotMatch(app, /function drawModelGraphic/);
@@ -238,6 +282,8 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(app, /FIR low-pass/);
   assert.match(app, /Feed-forward delay/);
   assert.match(app, /Waveshaper/);
+  assert.match(app, /Convolution reverb/);
+  assert.doesNotMatch(`${html}\n${engine}`, /Cascade PM/);
   assert.doesNotMatch(`${html}\n${css}\n${app}\n${engine}`, /\b(?:genome|organism|DNA)\b/i);
   assert.doesNotMatch(`${app}\n${engine}`, /createOscillator|createBiquadFilter|createDelay|createWaveShaper|audioWorklet|OscillatorNode|BiquadFilterNode/);
   assert.match(engine, /createBufferSource/);

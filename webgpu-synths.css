@@ -161,13 +161,30 @@
   gap: 9px;
 }
 
-.sequence-lane-tabs,
+.sequence-router,
 .sequence-actions {
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
   justify-content: center;
   gap: 6px;
+}
+
+.sequence-router {
+  align-items: end;
+}
+
+.sequence-router .select-control {
+  width: min(190px, 100%);
+  margin: 0;
+}
+
+.sequence-lane-state {
+  align-self: center;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 750;
+  text-transform: uppercase;
 }
 
 .sequence-edit-hint {
@@ -181,7 +198,7 @@
   text-transform: uppercase;
 }
 
-.sequence-lane-tabs button,
+.sequence-router .mini-action,
 .sequence-actions .mini-action {
   min-width: 92px;
   min-height: 29px;
@@ -196,14 +213,8 @@
   text-transform: uppercase;
 }
 
-.sequence-lane-tabs button {
-  border-style: solid;
-  cursor: pointer;
-}
-
-.sequence-lane-tabs button:hover,
-.sequence-lane-tabs button:focus-visible,
-.sequence-lane-tabs button[aria-pressed="true"],
+.sequence-router .mini-action:hover,
+.sequence-router .mini-action:focus-visible,
 .sequence-actions .mini-action:hover,
 .sequence-actions .mini-action:focus-visible {
   border-color: var(--lane-color, var(--accent));
@@ -211,8 +222,43 @@
   background: color-mix(in oklab, var(--lane-color, var(--accent)) 14%, var(--bg-deep));
 }
 
-.sequence-lane-tabs button[aria-pressed="true"] {
-  box-shadow: inset 0 -2px 0 var(--lane-color);
+.model-layer-toolbar,
+.model-layer-row {
+  display: grid;
+  align-items: end;
+  gap: 8px;
+}
+
+.model-layer-toolbar {
+  padding: 10px 12px 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.model-layer-toolbar .select-control {
+  margin: 0;
+}
+
+.model-layer-list {
+  display: grid;
+  padding: 10px 12px 2px;
+  gap: 8px;
+}
+
+.model-layer-row {
+  padding: 9px;
+  border: 1px solid color-mix(in oklab, var(--layer-color) 42%, var(--line));
+  background: color-mix(in oklab, var(--layer-color) 6%, var(--bg-deep));
+  grid-template-columns: minmax(130px, 1.35fr) repeat(3, minmax(78px, 1fr)) auto;
+}
+
+.model-layer-row .control,
+.model-layer-row .select-control {
+  margin: 0;
+}
+
+.model-layer-remove {
+  min-height: 29px;
+  margin: 0;
 }
 
 .webgpu-synth-knob-bank {
@@ -729,11 +775,15 @@
     padding: 8px 9px 10px;
   }
 
-  .sequence-lane-tabs button,
+  .sequence-router .mini-action,
   .sequence-actions .mini-action {
     min-width: 72px;
     padding: 0 7px;
     font-size: 7px;
+  }
+
+  .model-layer-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .webgpu-synth-knob-bank {

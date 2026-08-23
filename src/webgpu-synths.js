@@ -5,7 +5,12 @@ const TIME_INFO_BUFFER_SIZE = 16;
 const MAX_BUFFERED_CHUNKS = 2.5;
 export const WEBGPU_SYNTHS_SEQUENCE_LENGTH = 64;
 export const WEBGPU_SYNTHS_ORGAN_RANK_COUNT = 9;
-const SEQUENCE_BUFFER_SIZE = WEBGPU_SYNTHS_SEQUENCE_LENGTH * 4 * Float32Array.BYTES_PER_ELEMENT;
+export const WEBGPU_SYNTHS_MIN_LANES = 2;
+export const WEBGPU_SYNTHS_MAX_LANES = 8;
+export const WEBGPU_SYNTHS_MAX_MODEL_LAYERS = 6;
+const SEQUENCE_BUFFER_SIZE = WEBGPU_SYNTHS_SEQUENCE_LENGTH * WEBGPU_SYNTHS_MAX_LANES * Float32Array.BYTES_PER_ELEMENT;
+const LANE_ROUTE_BUFFER_SIZE = WEBGPU_SYNTHS_MAX_LANES * Uint32Array.BYTES_PER_ELEMENT;
+const MODEL_LAYER_BUFFER_SIZE = WEBGPU_SYNTHS_MAX_MODEL_LAYERS * 4 * Float32Array.BYTES_PER_ELEMENT;
 const ORGAN_RANK_BUFFER_SIZE = WEBGPU_SYNTHS_ORGAN_RANK_COUNT * 4 * Float32Array.BYTES_PER_ELEMENT;
 const FX_HISTORY_SECONDS = 8;
 
@@ -28,11 +33,13 @@ function setTarget(param, value, time = 0, constant = 0.015) {
 
 export const WEBGPU_SYNTHS_MODELS = Object.freeze([
   "Spectral Acid",
-  "Cascade PM",
+  "Classic FM",
   "Wavefold Table",
   "Modal Metal",
   "Particle Cloud",
   "Additive Organ",
+  "Vector Wavetable",
+  "Formant Bank",
 ]);
 
 export const WEBGPU_SYNTHS_SCALES = Object.freeze([
@@ -44,13 +51,40 @@ export const WEBGPU_SYNTHS_SCALES = Object.freeze([
   "Quartertone",
 ]);
 
+export const WEBGPU_SYNTHS_LANE_TARGETS = Object.freeze([
+  Object.freeze({ id: 0, key: "pitch", label: "Pitch", description: "scale degree", core: true }),
+  Object.freeze({ id: 1, key: "energy", label: "Pulse", description: "gate + energy", core: true }),
+  Object.freeze({ id: 2, key: "color", label: "Color", description: "model timbre" }),
+  Object.freeze({ id: 3, key: "motion", label: "Motion", description: "model movement" }),
+  Object.freeze({ id: 4, key: "modelMix", label: "Model blend", description: "A/B crossfade" }),
+  Object.freeze({ id: 5, key: "complexity", label: "Density", description: "model complexity" }),
+  Object.freeze({ id: 6, key: "fold", label: "Fold", description: "synthesis nonlinearity" }),
+  Object.freeze({ id: 7, key: "space", label: "Space", description: "stereo width" }),
+  Object.freeze({ id: 8, key: "decay", label: "Decay", description: "envelope length" }),
+  Object.freeze({ id: 9, key: "filterCutoff", label: "Filter cutoff", description: "80 Hz–20 kHz" }),
+  Object.freeze({ id: 10, key: "filterMix", label: "Filter mix", description: "dry/filter blend" }),
+  Object.freeze({ id: 11, key: "delayTime", label: "Delay time", description: "10 ms–1.5 s" }),
+  Object.freeze({ id: 12, key: "delayMix", label: "Delay mix", description: "dry/echo blend" }),
+  Object.freeze({ id: 13, key: "shaperDrive", label: "Shaper drive", description: "1×–16×" }),
+  Object.freeze({ id: 14, key: "shaperFold", label: "Shaper fold", description: "clip/fold shape" }),
+  Object.freeze({ id: 15, key: "shaperMix", label: "Shaper mix", description: "dry/shaped blend" }),
+  Object.freeze({ id: 16, key: "gain", label: "Voice gain", description: "shader output" }),
+  Object.freeze({ id: 17, key: "chaos", label: "Morph depth", description: "blend modulation" }),
+  Object.freeze({ id: 18, key: "reverbSize", label: "Reverb size", description: "diffusion time" }),
+  Object.freeze({ id: 19, key: "reverbMix", label: "Reverb mix", description: "dry/reverb blend" }),
+]);
+
+export const WEBGPU_SYNTHS_DEFAULT_LANE_ROUTES = Object.freeze([0, 1, 2, 3, 4, 5, 6, 9]);
+
 export const WEBGPU_SYNTHS_PARAM_ORDER = Object.freeze([
   "topology",
-  "modelB",
   "modelMix",
+  "layerCount",
+  "layerMode",
   "baseNote",
   "clock",
   "steps",
+  "laneCount",
   "glide",
   "complexity",
   "color",
@@ -64,11 +98,13 @@ export const WEBGPU_SYNTHS_PARAM_ORDER = Object.freeze([
   "seed",
   "scale",
   "acidPartials",
-  "pmOperators",
+  "fmOperators",
   "foldLayers",
   "modalModes",
   "grainCount",
   "organRanks",
+  "wavetableHarmonics",
+  "formantVoices",
   "filterCutoff",
   "filterTaps",
   "filterMix",
@@ -79,17 +115,23 @@ export const WEBGPU_SYNTHS_PARAM_ORDER = Object.freeze([
   "shaperDrive",
   "shaperFold",
   "shaperMix",
+  "reverbSize",
+  "reverbDecay",
+  "reverbTaps",
+  "reverbMix",
 ]);
 
 const PARAM_BUFFER_SIZE = WEBGPU_SYNTHS_PARAM_ORDER.length * Float32Array.BYTES_PER_ELEMENT;
 
 export const WEBGPU_SYNTHS_DEFAULTS = Object.freeze({
   topology: 0,
-  modelB: 1,
   modelMix: 0,
+  layerCount: 1,
+  layerMode: 0,
   baseNote: 34,
   clock: 5.2,
   steps: 16,
+  laneCount: 4,
   glide: 0.08,
   complexity: 0.58,
   color: 0.48,
@@ -103,11 +145,13 @@ export const WEBGPU_SYNTHS_DEFAULTS = Object.freeze({
   seed: 17011,
   scale: 1,
   acidPartials: 18,
-  pmOperators: 4,
+  fmOperators: 4,
   foldLayers: 2,
   modalModes: 10,
   grainCount: 7,
   organRanks: WEBGPU_SYNTHS_ORGAN_RANK_COUNT,
+  wavetableHarmonics: 24,
+  formantVoices: 5,
   filterCutoff: 12000,
   filterTaps: 9,
   filterMix: 0,
@@ -118,15 +162,21 @@ export const WEBGPU_SYNTHS_DEFAULTS = Object.freeze({
   shaperDrive: 1.5,
   shaperFold: 0,
   shaperMix: 0,
+  reverbSize: 1.6,
+  reverbDecay: 0.62,
+  reverbTaps: 32,
+  reverbMix: 0,
 });
 
 export const WEBGPU_SYNTHS_LIMITS = Object.freeze({
   topology: Object.freeze([0, WEBGPU_SYNTHS_MODELS.length - 1]),
-  modelB: Object.freeze([0, WEBGPU_SYNTHS_MODELS.length - 1]),
   modelMix: Object.freeze([0, 1]),
+  layerCount: Object.freeze([1, WEBGPU_SYNTHS_MAX_MODEL_LAYERS]),
+  layerMode: Object.freeze([0, 1]),
   baseNote: Object.freeze([18, 78]),
   clock: Object.freeze([0.25, 20]),
   steps: Object.freeze([4, WEBGPU_SYNTHS_SEQUENCE_LENGTH]),
+  laneCount: Object.freeze([WEBGPU_SYNTHS_MIN_LANES, WEBGPU_SYNTHS_MAX_LANES]),
   glide: Object.freeze([0, 1]),
   complexity: Object.freeze([0, 1]),
   color: Object.freeze([0, 1]),
@@ -140,11 +190,13 @@ export const WEBGPU_SYNTHS_LIMITS = Object.freeze({
   seed: Object.freeze([1, 65535]),
   scale: Object.freeze([0, WEBGPU_SYNTHS_SCALES.length - 1]),
   acidPartials: Object.freeze([1, 48]),
-  pmOperators: Object.freeze([1, 12]),
+  fmOperators: Object.freeze([1, 6]),
   foldLayers: Object.freeze([1, 8]),
   modalModes: Object.freeze([1, 32]),
   grainCount: Object.freeze([1, 16]),
   organRanks: Object.freeze([1, WEBGPU_SYNTHS_ORGAN_RANK_COUNT]),
+  wavetableHarmonics: Object.freeze([1, 64]),
+  formantVoices: Object.freeze([1, 12]),
   filterCutoff: Object.freeze([80, 20000]),
   filterTaps: Object.freeze([1, 31]),
   filterMix: Object.freeze([0, 1]),
@@ -155,6 +207,10 @@ export const WEBGPU_SYNTHS_LIMITS = Object.freeze({
   shaperDrive: Object.freeze([1, 16]),
   shaperFold: Object.freeze([0, 1]),
   shaperMix: Object.freeze([0, 1]),
+  reverbSize: Object.freeze([0.08, 4]),
+  reverbDecay: Object.freeze([0, 0.96]),
+  reverbTaps: Object.freeze([4, 64]),
+  reverbMix: Object.freeze([0, 1]),
 });
 
 export const WEBGPU_SYNTHS_RUNTIME_DEFAULTS = Object.freeze({
@@ -167,18 +223,23 @@ export const WEBGPU_SYNTHS_WORKGROUP_SIZES = Object.freeze([32, 64, 128, 256]);
 
 const INTEGER_PARAM_KEYS = new Set([
   "topology",
-  "modelB",
+  "layerCount",
+  "layerMode",
   "steps",
+  "laneCount",
   "seed",
   "scale",
   "acidPartials",
-  "pmOperators",
+  "fmOperators",
   "foldLayers",
   "modalModes",
   "grainCount",
   "organRanks",
+  "wavetableHarmonics",
+  "formantVoices",
   "filterTaps",
   "delayRepeats",
+  "reverbTaps",
 ]);
 
 export function sanitizeWebGpuSynthParams(params = {}) {
@@ -233,7 +294,45 @@ export function webGpuSynthOrganRankArray(ranks = WEBGPU_SYNTHS_DEFAULT_ORGAN_RA
   ]));
 }
 
-export const WEBGPU_SYNTHS_DEFAULT_STEP = Object.freeze([0.5, 0, 0.5, 0.5]);
+export const WEBGPU_SYNTHS_DEFAULT_MODEL_LAYERS = Object.freeze([
+  Object.freeze({ model: 0, level: 1, detune: 0, pan: 0 }),
+]);
+
+export function sanitizeWebGpuSynthModelLayers(layers = WEBGPU_SYNTHS_DEFAULT_MODEL_LAYERS) {
+  const source = Array.isArray(layers) && layers.length ? layers : WEBGPU_SYNTHS_DEFAULT_MODEL_LAYERS;
+  return Array.from({ length: WEBGPU_SYNTHS_MAX_MODEL_LAYERS }, (_, index) => {
+    const candidate = source[index] ?? { model: 0, level: 0, detune: 0, pan: 0 };
+    return Object.freeze({
+      model: Math.round(clamp(finiteOr(candidate.model, 0), 0, WEBGPU_SYNTHS_MODELS.length - 1)),
+      level: clamp(finiteOr(candidate.level, index === 0 ? 1 : 0), 0, 1),
+      detune: clamp(finiteOr(candidate.detune, 0), -24, 24),
+      pan: clamp(finiteOr(candidate.pan, 0), -1, 1),
+    });
+  });
+}
+
+export function webGpuSynthModelLayerArray(layers = WEBGPU_SYNTHS_DEFAULT_MODEL_LAYERS) {
+  return new Float32Array(sanitizeWebGpuSynthModelLayers(layers).flatMap((layer) => [
+    layer.model,
+    layer.level,
+    layer.detune,
+    layer.pan,
+  ]));
+}
+
+export const WEBGPU_SYNTHS_DEFAULT_STEP = Object.freeze([0.5, 0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]);
+
+export function sanitizeWebGpuSynthLaneRoutes(routes = WEBGPU_SYNTHS_DEFAULT_LANE_ROUTES) {
+  const maximumTarget = WEBGPU_SYNTHS_LANE_TARGETS.length - 1;
+  return Array.from({ length: WEBGPU_SYNTHS_MAX_LANES }, (_, lane) => {
+    if (lane < WEBGPU_SYNTHS_MIN_LANES) return lane;
+    return Math.round(clamp(finiteOr(routes?.[lane], WEBGPU_SYNTHS_DEFAULT_LANE_ROUTES[lane]), 2, maximumTarget));
+  });
+}
+
+export function webGpuSynthLaneRouteArray(routes = WEBGPU_SYNTHS_DEFAULT_LANE_ROUTES) {
+  return new Uint32Array(sanitizeWebGpuSynthLaneRoutes(routes));
+}
 
 export function sanitizeWebGpuSynthSequence(sequence = []) {
   return Array.from({ length: WEBGPU_SYNTHS_SEQUENCE_LENGTH }, (_, index) => {
@@ -258,8 +357,8 @@ function euclideanPulse(step, pulses, steps, rotation = 0) {
 }
 
 /**
- * Create one four-lane control sequence on the CPU. The browser only uploads
- * these normalized control lanes; lane decoding, timing, quantization, envelopes, synthesis,
+ * Create one normalized control sequence on the CPU. The browser only uploads
+ * lane values and route IDs; lane decoding, timing, quantization, envelopes, synthesis,
  * spatialization, drive, and limiting remain inside WEBGPU_SYNTHS_SHADER.
  */
 export function createWebGpuSynthSequence(technique = "euclid", {
@@ -334,7 +433,7 @@ export function createWebGpuSynthSequence(technique = "euclid", {
 
 export function varyWebGpuSynthSequence(sequence, lane = "all", amount = 0.18, seed = Date.now()) {
   const laneIndex = Object.freeze({ pitch: 0, energy: 1, timbre: 2, morph: 3 });
-  const selected = lane === "all" ? null : laneIndex[lane];
+  const selected = lane === "all" ? null : Number.isInteger(lane) ? clamp(lane, 0, WEBGPU_SYNTHS_MAX_LANES - 1) : laneIndex[lane];
   const depth = clamp(finiteOr(amount, 0.18), 0, 1);
   return sanitizeWebGpuSynthSequence(sequence).map((step, stepIndex) => step.map((value, index) => {
     if (selected !== null && selected !== index) return value;
@@ -373,15 +472,20 @@ const TAU: f32 = 6.28318530717958647692;
 
 override WORKGROUP_SIZE: u32 = 256;
 override SAMPLE_RATE: f32 = 44100.0;
+const MAX_SEQUENCE_STEPS: u32 = 64u;
+const MAX_SEQUENCE_LANES: u32 = 8u;
+const MAX_MODEL_LAYERS: u32 = 6u;
 
 struct TimeInfo { offset: f32 }
 struct SynthParam {
   topology: f32,
-  modelB: f32,
   modelMix: f32,
+  layerCount: f32,
+  layerMode: f32,
   baseNote: f32,
   clock: f32,
   steps: f32,
+  laneCount: f32,
   glide: f32,
   complexity: f32,
   color: f32,
@@ -395,11 +499,13 @@ struct SynthParam {
   seed: f32,
   scale: f32,
   acidPartials: f32,
-  pmOperators: f32,
+  fmOperators: f32,
   foldLayers: f32,
   modalModes: f32,
   grainCount: f32,
   organRanks: f32,
+  wavetableHarmonics: f32,
+  formantVoices: f32,
   filterCutoff: f32,
   filterTaps: f32,
   filterMix: f32,
@@ -410,15 +516,21 @@ struct SynthParam {
   shaperDrive: f32,
   shaperFold: f32,
   shaperMix: f32,
+  reverbSize: f32,
+  reverbDecay: f32,
+  reverbTaps: f32,
+  reverbMix: f32,
 }
 
 @group(0) @binding(0) var<uniform> time_info: TimeInfo;
 @group(0) @binding(1) var<storage, read_write> sound_chunk: array<vec2<f32>>;
 @group(0) @binding(2) var<storage, read> synth_param: SynthParam;
-@group(0) @binding(3) var<storage, read> sequence_lanes: array<vec4<f32>>;
+@group(0) @binding(3) var<storage, read> sequence_lanes: array<f32>;
 @group(0) @binding(4) var<storage, read> organ_rank: array<vec4<f32>>;
 @group(0) @binding(5) var<storage, read_write> dry_chunk: array<vec2<f32>>;
 @group(0) @binding(6) var<storage, read_write> fx_history: array<vec2<f32>>;
+@group(0) @binding(7) var<storage, read> lane_route: array<u32>;
+@group(0) @binding(8) var<storage, read> model_layer: array<vec4<f32>>;
 
 fn hash11(value: f32) -> f32 {
   return fract(sin(value * 127.1 + synth_param.seed * 0.0137) * 43758.5453123);
@@ -437,6 +549,33 @@ fn swingTime(straightTime: f32, swing: f32) -> f32 {
     return pair * 2.0 + within / evenDuration;
   }
   return pair * 2.0 + 1.0 + (within - evenDuration) / (1.0 - amount);
+}
+
+fn laneValue(step: u32, lane: u32) -> f32 {
+  return sequence_lanes[min(step, MAX_SEQUENCE_STEPS - 1u) * MAX_SEQUENCE_LANES + min(lane, MAX_SEQUENCE_LANES - 1u)];
+}
+
+fn sequenceStepAt(time: f32) -> u32 {
+  let clock = swingTime(time * synth_param.clock, synth_param.swing);
+  let stepCount = u32(clamp(round(synth_param.steps), 4.0, f32(MAX_SEQUENCE_STEPS)));
+  return u32(max(floor(clock), 0.0)) % stepCount;
+}
+
+fn routedUnit(step: u32, destination: u32, fallback: f32, amount: f32) -> f32 {
+  var value = clamp(fallback, 0.0, 1.0);
+  let count = u32(clamp(round(synth_param.laneCount), 2.0, f32(MAX_SEQUENCE_LANES)));
+  for (var lane = 2u; lane < MAX_SEQUENCE_LANES; lane += 1u) {
+    if (lane >= count) { break; }
+    if (lane_route[lane] == destination) {
+      value = mix(value, laneValue(step, lane), clamp(amount, 0.0, 1.0));
+    }
+  }
+  return clamp(value, 0.0, 1.0);
+}
+
+fn routedRange(step: u32, destination: u32, fallback: f32, minimum: f32, maximum: f32, amount: f32) -> f32 {
+  let normalized = clamp((fallback - minimum) / max(maximum - minimum, 0.0001), 0.0, 1.0);
+  return mix(minimum, maximum, routedUnit(step, destination, normalized, amount));
 }
 
 fn modeDegree(degree: u32, scale: u32) -> f32 {
@@ -462,11 +601,11 @@ fn midiFrequency(note: f32) -> f32 {
   return 440.0 * pow(2.0, (note - 69.0) / 12.0);
 }
 
-fn spectralAcid(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -> vec2<f32> {
+fn spectralAcid(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
   var voice = vec2(0.0);
   let requested = u32(round(clamp(synth_param.acidPartials, 1.0, 48.0)));
   let cutoff = 1.5 + timbre * 21.0 + exp(-local * 6.0) * (4.0 + motion * 18.0);
-  let resonance = 0.8 + synth_param.fold * 8.0;
+  let resonance = 0.8 + macros.y * 8.0;
   for (var partial = 1u; partial <= 48u; partial += 1u) {
     if (partial > requested) { break; }
     let harmonic = f32(partial);
@@ -481,33 +620,30 @@ fn spectralAcid(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) ->
   return voice * 0.24;
 }
 
-fn cascadePm(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -> vec2<f32> {
+fn classicFm(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
   let phase = t * frequency * TAU;
-  let index = 0.4 + synth_param.complexity * 8.5 + timbre * 4.0;
-  let ratio = 1.0 + floor(timbre * 7.0) * 0.5 + motion * 0.13;
-  let requested = u32(round(clamp(synth_param.pmOperators, 1.0, 12.0)));
-  var modulation = 0.0;
-  var previous = 0.0;
-  for (var stage = 0u; stage < 11u; stage += 1u) {
-    if (stage + 1u >= requested) { break; }
-    let order = f32(requested - stage - 1u);
-    let taper = mix(0.32, 0.72, f32(stage) / max(1.0, f32(requested - 1u)));
-    previous = modulation;
-    modulation = sin(phase * ratio * order + local * motion * order * 2.1 + modulation * index * taper);
-  }
-  let left = sin(phase + modulation * index);
-  let right = sin(phase * (1.0 + synth_param.space * 0.0015) + modulation * index + previous * motion * 0.4);
-  return vec2(left, right) * 0.62;
+  let requested = u32(round(clamp(synth_param.fmOperators, 1.0, 6.0)));
+  let ratio = 1.0 + floor(timbre * 5.0) * 0.5;
+  let index = 0.05 + macros.x * 4.8 + timbre * 1.7;
+  let modA = select(0.0, sin(phase * ratio + local * motion * 1.7), requested >= 2u);
+  let modB = select(0.0, sin(phase * (ratio + 1.0) + local * motion * 0.9), requested >= 3u);
+  let carrierA = sin(phase + (modA + modB * 0.55) * index);
+  let modC = select(0.0, sin(phase * (ratio * 0.5 + 2.0) - local * motion * 1.3), requested >= 4u);
+  let carrierB = select(0.0, sin(phase * 2.0 + modC * index * 0.62), requested >= 5u);
+  let sub = select(0.0, sin(phase * 0.5 + modA * index * 0.18), requested >= 6u);
+  let left = carrierA + carrierB * 0.32 + sub * 0.18;
+  let right = sin(phase * (1.0 + macros.z * 0.0012) + (modA - modB * 0.55) * index) + carrierB * 0.28 - sub * 0.16;
+  return vec2(left, right) * 0.48;
 }
 
-fn wavefoldTable(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -> vec2<f32> {
+fn wavefoldTable(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
   var voice = vec2(0.0);
   let requested = u32(round(clamp(synth_param.foldLayers, 1.0, 8.0)));
-  let folds = 1.0 + synth_param.fold * 10.0 + motion * 3.0;
+  let folds = 1.0 + macros.y * 10.0 + motion * 3.0;
   for (var layer = 0u; layer < 8u; layer += 1u) {
     if (layer >= requested) { break; }
     let centered = f32(layer) - f32(requested - 1u) * 0.5;
-    let detune = centered * (0.0007 + synth_param.complexity * 0.0024);
+    let detune = centered * (0.0007 + macros.x * 0.0024);
     let phase = fract(t * frequency * (1.0 + detune));
     let sine = sin(phase * TAU);
     let triangle = abs(phase * 4.0 - 2.0) - 1.0;
@@ -515,13 +651,13 @@ fn wavefoldTable(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -
     let tableA = mix(sine, triangle, smoothstep(0.0, 0.55, timbre));
     let table = mix(tableA, saw, smoothstep(0.48, 1.0, timbre));
     let laneMotion = sin(local * TAU + centered * 0.37) * motion * 0.08;
-    voice.x += sin((table + laneMotion) * folds * PI + centered * synth_param.space * 0.025);
-    voice.y += sin((table - laneMotion) * folds * PI - centered * synth_param.space * 0.025);
+    voice.x += sin((table + laneMotion) * folds * PI + centered * macros.z * 0.025);
+    voice.y += sin((table - laneMotion) * folds * PI - centered * macros.z * 0.025);
   }
   return voice * (0.58 / sqrt(f32(requested)));
 }
 
-fn modalMetal(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -> vec2<f32> {
+fn modalMetal(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
   var voice = vec2(0.0);
   let requested = u32(round(clamp(synth_param.modalModes, 1.0, 32.0)));
   for (var mode = 0u; mode < 32u; mode += 1u) {
@@ -529,17 +665,17 @@ fn modalMetal(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -> v
     let order = f32(mode + 1u);
     let stiffness = order + order * order * (0.006 + timbre * 0.038);
     let ratio = stiffness + hash11(f32(mode) + motion * 17.0) * timbre * 0.22;
-    let damping = exp(-local * (1.8 + order * (0.35 + (1.0 - synth_param.decay) * 0.6)));
+    let damping = exp(-local * (1.8 + order * (0.35 + (1.0 - macros.w) * 0.6)));
     let level = damping / sqrt(order);
     voice.x += sin(t * frequency * ratio * TAU + order * 0.19) * level;
-    voice.y += sin(t * frequency * ratio * TAU - order * (0.19 + synth_param.space * 0.05)) * level;
+    voice.y += sin(t * frequency * ratio * TAU - order * (0.19 + macros.z * 0.05)) * level;
   }
   return voice * 0.22;
 }
 
-fn particleCloud(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -> vec2<f32> {
+fn particleCloud(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
   var voice = vec2(0.0);
-  let density = 5.0 + synth_param.complexity * 31.0 + motion * 12.0;
+  let density = 5.0 + macros.x * 31.0 + motion * 12.0;
   let requested = u32(round(clamp(synth_param.grainCount, 1.0, 16.0)));
   for (var grain = 0u; grain < 16u; grain += 1u) {
     if (grain >= requested) { break; }
@@ -552,12 +688,12 @@ fn particleCloud(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -
     let grit = hash11(floor(t * SAMPLE_RATE / (3.0 + timbre * 22.0)) + f32(grain)) * 2.0 - 1.0;
     let particle = mix(sin(phase), grit, timbre * 0.42) * window * window;
     let pan = hash11(f32(grain) * 53.0) * 2.0 - 1.0;
-    voice += vec2(particle * (1.0 - pan * synth_param.space), particle * (1.0 + pan * synth_param.space));
+    voice += vec2(particle * (1.0 - pan * macros.z), particle * (1.0 + pan * macros.z));
   }
   return voice * 0.2;
 }
 
-fn additiveOrgan(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -> vec2<f32> {
+fn additiveOrgan(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
   var voice = vec2(0.0);
   let choraleRate = 0.18 + motion * 0.72;
   let rotorRate = 0.34 + motion * 4.8;
@@ -575,67 +711,134 @@ fn additiveOrgan(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -
     let phase = t * frequency * ratio * TAU;
     let rankMotion = chorale * (0.45 + order * 0.08);
     let side = select(-1.0, 1.0, (drawbar & 1u) == 0u);
-    let stereoPhase = side * synth_param.space * (0.018 + motion * 0.032);
+    let stereoPhase = side * macros.z * (0.018 + motion * 0.032);
     voice.x += sin(phase + rankMotion + stereoPhase) * level;
     voice.y += sin(phase - rankMotion - stereoPhase) * level;
   }
-  let rotorDepth = synth_param.space * motion * 0.16;
+  let rotorDepth = macros.z * motion * 0.16;
   voice *= vec2(1.0 - rotor * rotorDepth, 1.0 + rotor * rotorDepth);
   return voice * 0.15;
 }
 
-fn synthModel(model: u32, t: f32, local: f32, frequency: f32, timbre: f32, motion: f32) -> vec2<f32> {
-  switch model {
-    case 0u: { return spectralAcid(t, local, frequency, timbre, motion); }
-    case 1u: { return cascadePm(t, local, frequency, timbre, motion); }
-    case 2u: { return wavefoldTable(t, local, frequency, timbre, motion); }
-    case 3u: { return modalMetal(t, local, frequency, timbre, motion); }
-    case 4u: { return particleCloud(t, local, frequency, timbre, motion); }
-    default: { return additiveOrgan(t, local, frequency, timbre, motion); }
+fn vectorWavetable(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
+  var voice = vec2(0.0);
+  let requested = u32(round(clamp(synth_param.wavetableHarmonics, 1.0, 64.0)));
+  let scan = clamp(timbre + sin(local * TAU) * motion * 0.12, 0.0, 1.0);
+  for (var partial = 1u; partial <= 64u; partial += 1u) {
+    if (partial > requested || frequency * f32(partial) > SAMPLE_RATE * 0.46) { break; }
+    let harmonic = f32(partial);
+    let sineLevel = select(0.0, 1.0, partial == 1u);
+    let triangleLevel = select(0.0, 1.0 / (harmonic * harmonic), (partial & 1u) == 1u);
+    let sawLevel = 1.0 / harmonic;
+    let level = mix(mix(sineLevel, triangleLevel, smoothstep(0.0, 0.52, scan)), sawLevel, smoothstep(0.48, 1.0, scan));
+    let phase = t * frequency * harmonic * TAU;
+    voice += vec2(sin(phase + harmonic * macros.z * 0.003), sin(phase - harmonic * macros.z * 0.003)) * level;
   }
+  return voice * 0.5;
+}
+
+fn formantBank(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
+  var voice = vec2(0.0);
+  let requested = u32(round(clamp(synth_param.formantVoices, 1.0, 12.0)));
+  let first = mix(330.0, 800.0, timbre);
+  let second = mix(2400.0, 1150.0, timbre);
+  let third = mix(3000.0, 2700.0, timbre);
+  for (var partial = 1u; partial <= 12u; partial += 1u) {
+    if (partial > requested || frequency * f32(partial) > SAMPLE_RATE * 0.46) { break; }
+    let harmonic = f32(partial);
+    let hz = frequency * harmonic;
+    let envelope = exp(-pow((hz - first) / 180.0, 2.0)) + exp(-pow((hz - second) / 310.0, 2.0)) * 0.72 + exp(-pow((hz - third) / 420.0, 2.0)) * 0.42;
+    let phase = t * hz * TAU + sin(local * TAU + harmonic) * motion * 0.08;
+    voice += vec2(sin(phase + harmonic * macros.z * 0.006), sin(phase - harmonic * macros.z * 0.006)) * envelope / sqrt(harmonic);
+  }
+  return voice * 0.34;
+}
+
+fn synthModel(model: u32, t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
+  switch model {
+    case 0u: { return spectralAcid(t, local, frequency, timbre, motion, macros); }
+    case 1u: { return classicFm(t, local, frequency, timbre, motion, macros); }
+    case 2u: { return wavefoldTable(t, local, frequency, timbre, motion, macros); }
+    case 3u: { return modalMetal(t, local, frequency, timbre, motion, macros); }
+    case 4u: { return particleCloud(t, local, frequency, timbre, motion, macros); }
+    case 5u: { return additiveOrgan(t, local, frequency, timbre, motion, macros); }
+    case 6u: { return vectorWavetable(t, local, frequency, timbre, motion, macros); }
+    default: { return formantBank(t, local, frequency, timbre, motion, macros); }
+  }
+}
+
+fn renderLayer(layer: vec4<f32>, time: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
+  let layerFrequency = frequency * pow(2.0, clamp(layer.z, -24.0, 24.0) / 12.0);
+  let raw = synthModel(u32(round(clamp(layer.x, 0.0, 7.0))), time, local, layerFrequency, timbre, motion, macros);
+  let pan = clamp(layer.w, -1.0, 1.0);
+  return vec2(raw.x * (1.0 - pan * 0.72), raw.y * (1.0 + pan * 0.72)) * clamp(layer.y, 0.0, 1.0);
+}
+
+fn layeredSound(time: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>, morph: f32) -> vec2<f32> {
+  let count = u32(clamp(round(synth_param.layerCount), 1.0, f32(MAX_MODEL_LAYERS)));
+  if (count == 1u) {
+    return renderLayer(model_layer[0], time, local, frequency, timbre, motion, macros);
+  }
+  if (synth_param.layerMode < 0.5) {
+    var stacked = vec2(0.0);
+    var levelSum = 0.0;
+    for (var index = 0u; index < MAX_MODEL_LAYERS; index += 1u) {
+      if (index >= count) { break; }
+      stacked += renderLayer(model_layer[index], time, local, frequency, timbre, motion, macros);
+      levelSum += clamp(model_layer[index].y, 0.0, 1.0);
+    }
+    return stacked / max(1.0, sqrt(levelSum));
+  }
+  let position = clamp(morph, 0.0, 1.0) * f32(count - 1u);
+  let lower = u32(floor(position));
+  let upper = min(lower + 1u, count - 1u);
+  let blend = fract(position);
+  if (lower == upper) {
+    return renderLayer(model_layer[lower], time, local, frequency, timbre, motion, macros);
+  }
+  let lowerWeight = cos(blend * PI * 0.5);
+  let upperWeight = sin(blend * PI * 0.5);
+  return renderLayer(model_layer[lower], time, local, frequency, timbre, motion, macros) * lowerWeight
+    + renderLayer(model_layer[upper], time, local, frequency, timbre, motion, macros) * upperWeight;
 }
 
 fn drySound(time: f32) -> vec2<f32> {
   let straight = time * synth_param.clock;
   let clock = swingTime(straight, synth_param.swing);
-  let stepCount = u32(clamp(round(synth_param.steps), 4.0, f32(arrayLength(&sequence_lanes))));
+  let stepCount = u32(clamp(round(synth_param.steps), 4.0, f32(MAX_SEQUENCE_STEPS)));
   let absoluteStep = u32(max(floor(clock), 0.0));
   let stepIndex = absoluteStep % stepCount;
   let nextIndex = (stepIndex + 1u) % stepCount;
   let phase = fract(clock);
-  let current = sequence_lanes[stepIndex];
-  let following = sequence_lanes[nextIndex];
   let glideWindow = max(0.001, 1.0 - synth_param.glide);
   let glide = smoothstep(glideWindow, 1.0, phase);
-  let currentNote = synth_param.baseNote + scaleNote(current.x, synth_param.scale);
-  let followingNote = synth_param.baseNote + scaleNote(following.x, synth_param.scale);
+  let currentNote = synth_param.baseNote + scaleNote(laneValue(stepIndex, 0u), synth_param.scale);
+  let followingNote = synth_param.baseNote + scaleNote(laneValue(nextIndex, 0u), synth_param.scale);
   let note = mix(currentNote, followingNote, glide);
   let frequency = midiFrequency(note);
-  let energy = current.y;
-  let attack = smoothstep(0.0, 0.018, phase);
-  let release = 1.0 - smoothstep(0.982, 1.0, phase);
-  let envelope = attack * release * exp(-phase / max(0.03, synth_param.decay)) * energy;
-  let timbre = clamp(mix(synth_param.color, current.z, 0.7), 0.0, 1.0);
-  let motion = clamp(mix(synth_param.motion, current.w, 0.68), 0.0, 1.0);
+  let energy = laneValue(stepIndex, 1u);
+  let edge = clamp(synth_param.clock * 0.008, 0.018, 0.24);
+  let attack = smoothstep(0.0, edge, phase);
+  let release = 1.0 - smoothstep(1.0 - edge, 1.0, phase);
+  let decay = routedRange(stepIndex, 8u, synth_param.decay, 0.03, 1.8, 0.78);
+  let envelope = attack * release * exp(-phase / max(0.03, decay)) * energy;
+  let timbre = routedUnit(stepIndex, 2u, synth_param.color, 0.78);
+  let motion = routedUnit(stepIndex, 3u, synth_param.motion, 0.78);
+  let complexity = routedUnit(stepIndex, 5u, synth_param.complexity, 0.78);
+  let fold = routedUnit(stepIndex, 6u, synth_param.fold, 0.78);
+  let space = routedUnit(stepIndex, 7u, synth_param.space, 0.78);
+  let morphDepth = routedUnit(stepIndex, 17u, synth_param.chaos, 0.78);
+  let morph = routedUnit(stepIndex, 4u, synth_param.modelMix, 0.25 + morphDepth * 0.75);
+  let voiceGain = routedRange(stepIndex, 16u, synth_param.gain, 0.0, 0.22, 0.78);
+  let macros = vec4(complexity, fold, space, decay);
   let local = phase / max(synth_param.clock, 0.001);
-
-  let modelAIndex = u32(round(clamp(synth_param.topology, 0.0, 5.0)));
-  let modelBIndex = u32(round(clamp(synth_param.modelB, 0.0, 5.0)));
-  let animatedBlend = clamp(
-    synth_param.modelMix + (current.w - 0.5) * synth_param.chaos * 1.8,
-    0.0,
-    1.0
-  );
-  let blend = smoothstep(0.0, 1.0, animatedBlend);
-  let modelA = synthModel(modelAIndex, time, local, frequency, timbre, motion);
-  let modelB = synthModel(modelBIndex, time, local, frequency, timbre, motion);
-  var voice = mix(modelA, modelB, blend) * envelope;
+  var voice = layeredSound(time, local, frequency, timbre, motion, macros, morph) * envelope;
 
   let orbit = sin((time * (0.07 + motion * 0.41) + f32(stepIndex) * 0.173) * TAU);
-  let pan = orbit * synth_param.space * 0.48;
+  let pan = orbit * space * 0.48;
   voice = vec2(voice.x * (1.0 - pan), voice.y * (1.0 + pan));
-  let drive = 1.0 + synth_param.fold * 7.0 + synth_param.chaos * current.z * 3.0;
-  return clamp(softClip(voice * drive) * synth_param.gain * 5.0, vec2(-0.88), vec2(0.88));
+  let drive = 1.0 + fold * 7.0;
+  return clamp(softClip(voice * drive) * voiceGain * 5.0, vec2(-0.88), vec2(0.88));
 }
 
 @compute
@@ -655,10 +858,10 @@ fn historyAt(absoluteSample: u32, delaySamples: u32) -> vec2<f32> {
   return fx_history[(absoluteSample - delaySamples) % arrayLength(&fx_history)];
 }
 
-fn sincLowpass(absoluteSample: u32) -> vec2<f32> {
+fn sincLowpass(absoluteSample: u32, cutoffHz: f32) -> vec2<f32> {
   let taps = u32(round(clamp(synth_param.filterTaps, 1.0, 31.0)));
   if (taps <= 1u) { return historyAt(absoluteSample, 0u); }
-  let cutoff = clamp(synth_param.filterCutoff / SAMPLE_RATE, 0.001, 0.47);
+  let cutoff = clamp(cutoffHz / SAMPLE_RATE, 0.001, 0.47);
   let center = f32(taps - 1u) * 0.5;
   var filtered = vec2(0.0);
   var coefficientSum = 0.0;
@@ -677,8 +880,8 @@ fn sincLowpass(absoluteSample: u32) -> vec2<f32> {
   return filtered / max(abs(coefficientSum), 0.0001);
 }
 
-fn multiTapDelay(absoluteSample: u32) -> vec2<f32> {
-  let delaySamples = max(1u, u32(round(clamp(synth_param.delayTime, 0.01, 1.5) * SAMPLE_RATE)));
+fn multiTapDelay(absoluteSample: u32, delayTime: f32) -> vec2<f32> {
+  let delaySamples = max(1u, u32(round(clamp(delayTime, 0.01, 1.5) * SAMPLE_RATE)));
   let repeats = u32(round(clamp(synth_param.delayRepeats, 1.0, 4.0)));
   var echoes = vec2(0.0);
   var levelSum = 0.0;
@@ -693,11 +896,31 @@ fn multiTapDelay(absoluteSample: u32) -> vec2<f32> {
   return echoes / max(levelSum, 1.0);
 }
 
-fn postWaveshaper(value: vec2<f32>) -> vec2<f32> {
-  let driven = value * clamp(synth_param.shaperDrive, 1.0, 16.0);
+fn postWaveshaper(value: vec2<f32>, drive: f32, fold: f32) -> vec2<f32> {
+  let driven = value * clamp(drive, 1.0, 16.0);
   let soft = softClip(driven);
   let folded = sin(driven * PI);
-  return mix(soft, folded, clamp(synth_param.shaperFold, 0.0, 1.0));
+  return mix(soft, folded, clamp(fold, 0.0, 1.0));
+}
+
+fn convolutionReverb(absoluteSample: u32, size: f32, decay: f32) -> vec2<f32> {
+  let taps = u32(round(clamp(synth_param.reverbTaps, 4.0, 64.0)));
+  var wet = vec2(0.0);
+  var levelSum = 0.0;
+  for (var tap = 1u; tap <= 64u; tap += 1u) {
+    if (tap > taps) { break; }
+    let position = f32(tap) / f32(taps);
+    let scatter = 0.78 + hash11(f32(tap) * 43.17) * 0.44;
+    let delaySeconds = clamp(size, 0.08, 4.0) * (0.008 + pow(position, 1.72) * 0.992) * scatter;
+    let delaySamples = max(1u, u32(round(delaySeconds * SAMPLE_RATE)));
+    var reflection = historyAt(absoluteSample, delaySamples);
+    if ((tap & 1u) == 1u) { reflection = reflection.yx; }
+    let level = exp(-position * mix(8.0, 1.6, clamp(decay, 0.0, 0.96))) / sqrt(f32(tap));
+    let side = select(-1.0, 1.0, (tap & 2u) == 0u);
+    wet += vec2(reflection.x * (1.0 - side * 0.34), reflection.y * (1.0 + side * 0.34)) * level;
+    levelSum += level;
+  }
+  return wet / max(levelSum, 0.0001);
 }
 
 @compute
@@ -706,11 +929,24 @@ fn processFx(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let sample = global_id.x;
   if (sample >= arrayLength(&sound_chunk)) { return; }
   let absoluteSample = u32(max(round(time_info.offset * SAMPLE_RATE), 0.0)) + sample;
+  let time = f32(absoluteSample) / SAMPLE_RATE;
+  let stepIndex = sequenceStepAt(time);
   let dry = dry_chunk[sample];
-  let filtered = mix(dry, sincLowpass(absoluteSample), clamp(synth_param.filterMix, 0.0, 1.0));
-  let delayed = mix(filtered, multiTapDelay(absoluteSample), clamp(synth_param.delayMix, 0.0, 1.0));
-  let shaped = mix(delayed, postWaveshaper(delayed), clamp(synth_param.shaperMix, 0.0, 1.0));
-  sound_chunk[sample] = clamp(shaped, vec2(-0.88), vec2(0.88));
+  let filterCutoff = routedRange(stepIndex, 9u, synth_param.filterCutoff, 80.0, 20000.0, 0.78);
+  let filterMix = routedUnit(stepIndex, 10u, synth_param.filterMix, 0.78);
+  let delayTime = routedRange(stepIndex, 11u, synth_param.delayTime, 0.01, 1.5, 0.78);
+  let delayMix = routedUnit(stepIndex, 12u, synth_param.delayMix, 0.78);
+  let shaperDrive = routedRange(stepIndex, 13u, synth_param.shaperDrive, 1.0, 16.0, 0.78);
+  let shaperFold = routedUnit(stepIndex, 14u, synth_param.shaperFold, 0.78);
+  let shaperMix = routedUnit(stepIndex, 15u, synth_param.shaperMix, 0.78);
+  let reverbSize = routedRange(stepIndex, 18u, synth_param.reverbSize, 0.08, 4.0, 0.78);
+  let reverbMix = routedUnit(stepIndex, 19u, synth_param.reverbMix, 0.78);
+  var effected = dry;
+  if (filterMix > 0.0001) { effected = mix(effected, sincLowpass(absoluteSample, filterCutoff), filterMix); }
+  if (delayMix > 0.0001) { effected = mix(effected, multiTapDelay(absoluteSample, delayTime), delayMix); }
+  if (shaperMix > 0.0001) { effected = mix(effected, postWaveshaper(effected, shaperDrive, shaperFold), shaperMix); }
+  if (reverbMix > 0.0001) { effected = mix(effected, convolutionReverb(absoluteSample, reverbSize, synth_param.reverbDecay), reverbMix); }
+  sound_chunk[sample] = clamp(effected, vec2(-0.88), vec2(0.88));
 }`;
 
 function requireGpuConstants(runtime) {
@@ -744,6 +980,8 @@ export class WebGpuSynthLabAudio {
     this.chunkMapBuffer = null;
     this.paramBuffer = null;
     this.sequenceBuffer = null;
+    this.laneRouteBuffer = null;
+    this.modelLayerBuffer = null;
     this.organRankBuffer = null;
     this.dryBuffer = null;
     this.fxHistoryBuffer = null;
@@ -760,6 +998,8 @@ export class WebGpuSynthLabAudio {
     this.output = WEBGPU_SYNTHS_RUNTIME_DEFAULTS.output;
     this.params = sanitizeWebGpuSynthParams();
     this.sequence = createWebGpuSynthSequence();
+    this.laneRoutes = sanitizeWebGpuSynthLaneRoutes();
+    this.modelLayers = sanitizeWebGpuSynthModelLayers();
     this.organRanks = sanitizeWebGpuSynthOrganRanks();
     this.sources = new Set();
     this.scheduledChunks = [];
@@ -788,6 +1028,8 @@ export class WebGpuSynthLabAudio {
     await this.initGpu();
     this.updateParams(this.params);
     this.updateSequence(this.sequence);
+    this.updateLaneRoutes(this.laneRoutes);
+    this.updateModelLayers(this.modelLayers);
     this.updateOrganRanks(this.organRanks);
     this.setOutput(this.output);
     this.renderOffset = 0;
@@ -822,6 +1064,8 @@ export class WebGpuSynthLabAudio {
     this.chunkMapBuffer = this.device.createBuffer({ size: this.chunkBufferSize, usage: usage.MAP_READ | usage.COPY_DST });
     this.paramBuffer = this.device.createBuffer({ size: PARAM_BUFFER_SIZE, usage: usage.STORAGE | usage.COPY_DST });
     this.sequenceBuffer = this.device.createBuffer({ size: SEQUENCE_BUFFER_SIZE, usage: usage.STORAGE | usage.COPY_DST });
+    this.laneRouteBuffer = this.device.createBuffer({ size: LANE_ROUTE_BUFFER_SIZE, usage: usage.STORAGE | usage.COPY_DST });
+    this.modelLayerBuffer = this.device.createBuffer({ size: MODEL_LAYER_BUFFER_SIZE, usage: usage.STORAGE | usage.COPY_DST });
     this.organRankBuffer = this.device.createBuffer({ size: ORGAN_RANK_BUFFER_SIZE, usage: usage.STORAGE | usage.COPY_DST });
     this.dryBuffer = this.device.createBuffer({ size: this.chunkBufferSize, usage: usage.STORAGE });
     this.fxHistoryBuffer = this.device.createBuffer({
@@ -854,6 +1098,8 @@ export class WebGpuSynthLabAudio {
         { binding: 4, resource: { buffer: this.organRankBuffer } },
         { binding: 5, resource: { buffer: this.dryBuffer } },
         { binding: 6, resource: { buffer: this.fxHistoryBuffer } },
+        { binding: 7, resource: { buffer: this.laneRouteBuffer } },
+        { binding: 8, resource: { buffer: this.modelLayerBuffer } },
       ],
     });
     this.fxBindGroup = this.device.createBindGroup({
@@ -862,8 +1108,10 @@ export class WebGpuSynthLabAudio {
         { binding: 0, resource: { buffer: this.timeInfoBuffer } },
         { binding: 1, resource: { buffer: this.chunkBuffer } },
         { binding: 2, resource: { buffer: this.paramBuffer } },
+        { binding: 3, resource: { buffer: this.sequenceBuffer } },
         { binding: 5, resource: { buffer: this.dryBuffer } },
         { binding: 6, resource: { buffer: this.fxHistoryBuffer } },
+        { binding: 7, resource: { buffer: this.laneRouteBuffer } },
       ],
     });
   }
@@ -876,6 +1124,16 @@ export class WebGpuSynthLabAudio {
   updateSequence(sequence = this.sequence) {
     this.sequence = sanitizeWebGpuSynthSequence(sequence);
     if (this.device && this.sequenceBuffer) this.device.queue.writeBuffer(this.sequenceBuffer, 0, webGpuSynthSequenceArray(this.sequence));
+  }
+
+  updateLaneRoutes(routes = this.laneRoutes) {
+    this.laneRoutes = sanitizeWebGpuSynthLaneRoutes(routes);
+    if (this.device && this.laneRouteBuffer) this.device.queue.writeBuffer(this.laneRouteBuffer, 0, webGpuSynthLaneRouteArray(this.laneRoutes));
+  }
+
+  updateModelLayers(layers = this.modelLayers) {
+    this.modelLayers = sanitizeWebGpuSynthModelLayers(layers);
+    if (this.device && this.modelLayerBuffer) this.device.queue.writeBuffer(this.modelLayerBuffer, 0, webGpuSynthModelLayerArray(this.modelLayers));
   }
 
   updateOrganRanks(ranks = this.organRanks) {
@@ -961,7 +1219,7 @@ export class WebGpuSynthLabAudio {
   }
 
   async renderChunk(offset) {
-    if (!this.device || !this.timeInfoBuffer || !this.chunkBuffer || !this.chunkMapBuffer || !this.paramBuffer || !this.sequenceBuffer || !this.organRankBuffer || !this.dryBuffer || !this.fxHistoryBuffer || !this.dryPipeline || !this.fxPipeline || !this.dryBindGroup || !this.fxBindGroup) {
+    if (!this.device || !this.timeInfoBuffer || !this.chunkBuffer || !this.chunkMapBuffer || !this.paramBuffer || !this.sequenceBuffer || !this.laneRouteBuffer || !this.modelLayerBuffer || !this.organRankBuffer || !this.dryBuffer || !this.fxHistoryBuffer || !this.dryPipeline || !this.fxPipeline || !this.dryBindGroup || !this.fxBindGroup) {
       throw new Error("WebGPU renderer is not initialized.");
     }
     const { mapMode } = requireGpuConstants(this.runtime);
@@ -1024,6 +1282,8 @@ export class WebGpuSynthLabAudio {
       this.chunkMapBuffer,
       this.paramBuffer,
       this.sequenceBuffer,
+      this.laneRouteBuffer,
+      this.modelLayerBuffer,
       this.organRankBuffer,
       this.dryBuffer,
       this.fxHistoryBuffer,
@@ -1041,6 +1301,8 @@ export class WebGpuSynthLabAudio {
     this.chunkMapBuffer = null;
     this.paramBuffer = null;
     this.sequenceBuffer = null;
+    this.laneRouteBuffer = null;
+    this.modelLayerBuffer = null;
     this.organRankBuffer = null;
     this.dryBuffer = null;
     this.fxHistoryBuffer = null;
