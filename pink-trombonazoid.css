@@ -264,22 +264,23 @@
 }
 
 .ptz-timeline-header {
-  display: flex;
+  display: grid;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 13px 14px 12px 17px;
+  gap: 10px;
+  padding: 8px 10px 8px 15px;
   border-bottom: 1px solid var(--ptz-line);
   background: linear-gradient(90deg, var(--ptz-black-panel), var(--ptz-black-raised));
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .ptz-timeline-heading {
-  min-width: 180px;
+  min-width: 0;
 }
 
 .ptz-timeline-header h2,
 .ptz-panel-heading {
-  margin: 2px 0 0;
+  margin: 0;
   color: var(--ptz-paper);
   font-size: 13px;
   letter-spacing: 0.04em;
@@ -403,14 +404,14 @@
 .ptz-transport {
   display: grid;
   gap: 6px;
-  grid-template-columns: minmax(128px, 1.4fr) minmax(88px, 1fr) minmax(88px, 1fr);
+  grid-template-columns: minmax(112px, 1.4fr) minmax(76px, 1fr) minmax(76px, 1fr);
 }
 
 .ptz-transport button {
   display: flex;
   align-items: center;
-  min-height: 36px;
-  padding: 5px 9px;
+  min-height: 30px;
+  padding: 3px 8px;
   border: 1px solid rgba(190, 79, 122, 0.24);
   border-radius: 10px;
   color: var(--ptz-paper);
@@ -830,8 +831,8 @@
   border-bottom: 1px solid rgba(231, 121, 168, 0.1);
   color: var(--ptz-paper);
   align-content: center;
-  grid-template-columns: 8px minmax(0, 1fr) 20px;
-  column-gap: 7px;
+  grid-template-columns: 8px minmax(0, 1fr) 28px;
+  column-gap: 4px;
 }
 
 .ptz-lane-label i {
@@ -840,42 +841,77 @@
   border-radius: 50%;
   background: var(--lane-color);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--lane-color) 18%, transparent);
+  grid-column: 1;
+  grid-row: 1 / span 2;
 }
 
 .ptz-lane-label b {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--lane-color) 72%, var(--ptz-paper));
   font-size: 9px;
   letter-spacing: 0.03em;
+  grid-column: 2;
+  grid-row: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ptz-lane-label output {
   grid-column: 2;
+  grid-row: 2;
   color: var(--ptz-dark-muted);
   font-size: 7px;
 }
 
-.ptz-lane-key-add {
+.ptz-lane-label.is-modulation {
+  padding-left: 14px;
+  background: color-mix(in srgb, var(--lane-color) 6%, rgba(12, 7, 13, 0.98));
+  grid-template-columns: minmax(0, 1fr) 42px;
+}
+
+.ptz-lane-label.is-modulation b {
+  font-size: 7px;
+  grid-column: 1;
+  grid-row: 1;
+  text-transform: uppercase;
+}
+
+.ptz-lane-label.is-modulation output {
+  font-size: 6px;
+  grid-column: 2;
+  grid-row: 1;
+  text-align: right;
+}
+
+.ptz-lane-mod-toggle {
   display: grid;
-  width: 20px;
-  min-width: 20px;
+  width: 28px;
+  min-width: 28px;
   height: 20px;
   min-height: 20px;
-  padding: 0;
-  border: 1px solid rgba(231, 121, 168, 0.38);
-  border-radius: 50%;
-  color: var(--ptz-paper);
+  padding: 0 2px;
+  border: 1px solid color-mix(in srgb, var(--lane-color) 55%, transparent);
+  border-radius: 3px;
+  color: color-mix(in srgb, var(--lane-color) 76%, var(--ptz-paper));
   background: var(--ptz-black-raised);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 6px;
   font-weight: 800;
+  letter-spacing: 0.05em;
   grid-column: 3;
   grid-row: 1 / span 2;
   place-items: center;
 }
 
-.ptz-lane-key-add:hover,
-.ptz-lane-key-add:focus-visible {
-  border-color: var(--ptz-outline);
-  background: rgba(216, 95, 146, 0.2);
+.ptz-lane-mod-toggle:is(:hover, :focus-visible) {
+  border-color: var(--lane-color);
+  background: color-mix(in srgb, var(--lane-color) 16%, var(--ptz-black-panel));
+}
+
+.ptz-lane-mod-toggle[aria-pressed="true"] {
+  border-color: var(--lane-color);
+  color: var(--ptz-black);
+  background: color-mix(in srgb, var(--lane-color) 86%, var(--ptz-paper));
 }
 
 .ptz-timeline-svg {
@@ -893,6 +929,12 @@
 
 .ptz-lane-background.is-even {
   fill: rgba(255, 192, 203, 0.055);
+}
+
+.ptz-lane-background.is-modulation {
+  fill: color-mix(in srgb, var(--lane-color) 5%, var(--ptz-black-panel));
+  stroke: color-mix(in srgb, var(--lane-color) 16%, transparent);
+  stroke-width: 1;
 }
 
 .ptz-time-grid,
@@ -915,6 +957,20 @@
   cursor: crosshair;
   pointer-events: stroke;
   vector-effect: non-scaling-stroke;
+}
+
+.ptz-modulation-curve {
+  stroke: color-mix(in srgb, var(--lane-color) 72%, var(--ptz-orchid));
+  stroke-width: 1.35;
+  opacity: 0.84;
+}
+
+.ptz-modulation-curve.is-speed {
+  stroke-dasharray: 4 3;
+}
+
+.ptz-modulation-curve.is-depth {
+  stroke: color-mix(in srgb, var(--lane-color) 62%, var(--ptz-pink));
 }
 
 .ptz-lane-area {
@@ -947,6 +1003,10 @@
 .ptz-keyframe.is-dragging .ptz-keyframe-mark {
   fill: color-mix(in srgb, var(--lane-color) 82%, white);
   stroke: var(--ptz-white);
+}
+
+.ptz-modulation-keyframe .ptz-keyframe-mark {
+  stroke: color-mix(in srgb, var(--lane-color) 68%, var(--ptz-paper));
 }
 
 .ptz-playhead {
@@ -1330,13 +1390,7 @@
     flex-direction: column;
   }
 
-  .ptz-timeline-header {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
   .ptz-timeline-controls {
-    width: 100%;
     justify-content: flex-end;
   }
 }
@@ -1419,6 +1473,15 @@
   .ptz-timeline-controls {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .ptz-timeline-heading {
+    display: none;
+  }
+
+  .ptz-timeline-header {
+    padding-left: 10px;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .ptz-timeline-zoom {

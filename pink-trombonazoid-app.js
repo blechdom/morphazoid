@@ -14,11 +14,10 @@ import {
   replacePinkTrombonazoidPhone,
   retimePinkTrombonazoidSequence,
   samplePinkTrombonazoidAutomation,
-  samplePinkTrombonazoidLfo,
   updatePinkTrombonazoidKeyframe,
   updatePinkTrombonazoidPersonality,
   updatePinkTrombonazoidSegment,
-} from "./src/pink-trombonazoid.js?v=pink-trombonazoid-20260822-12";
+} from "./src/pink-trombonazoid.js?v=pink-trombonazoid-20260823-2";
 import {
   loadSpellingPronunciations,
 } from "./src/spelling-pronunciation.js?v=pink-trombonazoid-20260821-6";
@@ -33,6 +32,31 @@ const LANE_TOP = 18;
 const LANE_HEIGHT = 40;
 const LANE_GRAPH_HEIGHT = 27;
 const TIMELINE_BOTTOM = 28;
+const MODULATION_SPEED_MIN = 0.1;
+const MODULATION_SPEED_MAX = 14;
+const MODULATION_SAMPLE_COUNT = 96;
+
+function createLaneModulations() {
+  return Object.fromEntries(PINK_TROMBONAZOID_LANES.map((lane, laneIndex) => {
+    const pitch = lane.id === "pitch";
+    const breath = lane.id === "breath";
+    const speed = pitch ? 5.2 : breath ? 2.1 : 1.2;
+    const depth = pitch ? 0.025 : breath ? 0.09 : 0.08;
+    return [lane.id, {
+      enabled: pitch || breath,
+      shape: breath ? "triangle" : "sine",
+      seed: laneIndex + 1,
+      speed: [
+        { id: `${lane.id}-speed-start`, phase: 0, value: speed },
+        { id: `${lane.id}-speed-end`, phase: 1, value: speed },
+      ],
+      depth: [
+        { id: `${lane.id}-depth-start`, phase: 0, value: depth },
+        { id: `${lane.id}-depth-end`, phase: 1, value: depth },
+      ],
+    }];
+  }));
+}
 
 const state = {
   sequence: null,
@@ -55,6 +79,8 @@ const state = {
   timelineResizeFrame: 0,
   timelineViewportWidth: 0,
   buildGeneration: 0,
+  laneModulations: createLaneModulations(),
+  modulationKeyId: 0,
 };
 
 const audio = new SpellingSynthesizerAudio({
@@ -547,6 +573,91 @@ function laneValueText(lane, value) {
   return `${Math.round(normalized * 100)}%`;
 }
 
+function modulationFor(laneId) {
+  return state.laneModulations[laneId] ?? null;
+}
+
+function modulationRows() {
+  return PINK_TROMBONAZOID_LANES.flatMap((lane) => {
+    const modulation = modulationFor(lane.id);
+    return modulation?.enabled
+      ? [
+        { lane, contour: "", track: null },
+        { lane, contour: "speed", track: modulation.speed },
+        { lane, contour: "depth", track: modulation.depth },
+      ]
+      : [{ lane, contour: "", track: null }];
+  });
+}
+
+function sampleModulationPoints(points, phase) {
+  if (!Array.isArray(points) || !points.length) return 0;
+  const position = clamp(phase);
+  if (position <= points[0].phase) return Number(points[0].value) || 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const right = points[index];
+    if (position > right.phase) continue;
+    const left = points[index - 1];
+    const mix = (position - left.phase) / Math.max(0.0001, right.phase - left.phase);
+    return left.value + (right.value - left.value) * mix;
+  }
+  return Number(points.at(-1)?.value) || 0;
+}
+
+function normalizedModulationValue(contour, value) {
+  if (contour === "speed") {
+    return clamp((Number(value) - MODULATION_SPEED_MIN)
+      / (MODULATION_SPEED_MAX - MODULATION_SPEED_MIN));
+  }
+  return clamp(value);
+}
+
+function rawModulationValue(contour, normalized) {
+  return contour === "speed"
+    ? MODULATION_SPEED_MIN
+      + clamp(normalized) * (MODULATION_SPEED_MAX - MODULATION_SPEED_MIN)
+    : clamp(normalized);
+}
+
+function modulationValueText(contour, value) {
+  return contour === "speed"
+    ? `${Number(value).toFixed(2)} Hz`
+    : `${Math.round(clamp(value) * 100)}%`;
+}
+
+function modulationPath(points, laneY, plotWidth, graphHeight) {
+  const samples = Array.from({ length: MODULATION_SAMPLE_COUNT }, (_, index) => {
+    const phase = index / Math.max(1, MODULATION_SAMPLE_COUNT - 1);
+    return normalizedModulationValue("depth", sampleModulationPoints(points, phase));
+  });
+  return lanePath(samples, laneY, plotWidth, graphHeight);
+}
+
+function speedModulationPath(points, laneY, plotWidth, graphHeight) {
+  const samples = Array.from({ length: MODULATION_SAMPLE_COUNT }, (_, index) => {
+    const phase = index / Math.max(1, MODULATION_SAMPLE_COUNT - 1);
+    return normalizedModulationValue("speed", sampleModulationPoints(points, phase));
+  });
+  return lanePath(samples, laneY, plotWidth, graphHeight);
+}
+
+function activeModulatorsAt(milliseconds) {
+  if ($("modulationBypass").getAttribute("aria-pressed") === "true") return [];
+  const phase = clamp(milliseconds / Math.max(1, state.sequence?.durationMs ?? 1));
+  return PINK_TROMBONAZOID_LANES.flatMap((lane) => {
+    const modulation = modulationFor(lane.id);
+    if (!modulation?.enabled) return [];
+    return [{
+      enabled: true,
+      target: lane.id,
+      shape: modulation.shape,
+      seed: modulation.seed,
+      rateHz: sampleModulationPoints(modulation.speed, phase),
+      depth: sampleModulationPoints(modulation.depth, phase),
+    }];
+  });
+}
+
 function timelineGeometry() {
   const zoomY = clamp(state.timelineZoomY, 1, 4);
   const laneHeight = LANE_HEIGHT * state.timelineZoomY;
@@ -558,7 +669,7 @@ function timelineGeometry() {
     zoomY,
     laneHeight,
     graphHeight,
-    height: LANE_TOP + PINK_TROMBONAZOID_LANES.length * laneHeight + TIMELINE_BOTTOM,
+    height: LANE_TOP + modulationRows().length * laneHeight + TIMELINE_BOTTOM,
   };
 }
 
@@ -585,30 +696,6 @@ function articulationAtTime(timeMs) {
     ?? null;
 }
 
-function activeKeyframeSegment() {
-  const selected = selectedSegment();
-  if (selected?.type === "articulation") return selected;
-  return articulationAtTime(state.elapsedMs)
-    ?? state.sequence?.articulationSegments?.[0]
-    ?? null;
-}
-
-function suggestedKeyframePhase(segment, laneId) {
-  const phases = laneKeyframes(segment, laneId)
-    .map(({ phase }) => clamp(phase))
-    .sort((left, right) => left - right);
-  const stops = [0, ...phases, 1];
-  let largestStart = 0;
-  let largestEnd = 0;
-  for (let index = 1; index < stops.length; index += 1) {
-    if (stops[index] - stops[index - 1] > largestEnd - largestStart) {
-      largestStart = stops[index - 1];
-      largestEnd = stops[index];
-    }
-  }
-  return (largestStart + largestEnd) / 2;
-}
-
 function svgPointerPosition(event, svg = $("timelineSvg")) {
   const rect = svg.getBoundingClientRect();
   const viewBox = svg.viewBox.baseVal;
@@ -628,6 +715,7 @@ function renderTimeline() {
 
   const plotWidth = timelineWidth();
   const geometry = timelineGeometry();
+  const rows = modulationRows();
   const { laneHeight, graphHeight, height } = geometry;
   svg.setAttribute("viewBox", `0 0 ${plotWidth} ${height}`);
   svg.setAttribute("width", String(plotWidth));
@@ -639,7 +727,7 @@ function renderTimeline() {
   const title = svgElement("title", { id: "timelineSvgTitle" });
   title.textContent = `${sequence.source} Pink Trombonazoid automation`;
   const description = svgElement("desc", { id: "timelineSvgDescription" });
-  description.textContent = `${PINK_TROMBONAZOID_LANES.length} editable lanes across ${sequence.articulationSegments.length} articulation segments.`;
+  description.textContent = `${PINK_TROMBONAZOID_LANES.length} editable parameters across ${rows.length} value and modulation contours.`;
   svg.append(title, description);
 
   const grid = svgElement("g", { class: "ptz-grid" });
@@ -655,44 +743,65 @@ function renderTimeline() {
   }
   svg.append(grid);
 
-  PINK_TROMBONAZOID_LANES.forEach((lane, laneIndex) => {
-    const laneY = LANE_TOP + laneIndex * laneHeight;
+  rows.forEach(({ lane, contour, track }, rowIndex) => {
+    const laneY = LANE_TOP + rowIndex * laneHeight;
     const label = document.createElement("div");
-    const dot = document.createElement("i");
     const name = document.createElement("b");
     const output = document.createElement("output");
-    const addButton = document.createElement("button");
-    label.className = "ptz-lane-label";
+    label.className = `ptz-lane-label${contour ? " is-modulation" : ""}`;
     label.style.setProperty("--lane-top", `${laneY - 7}px`);
     label.style.setProperty("--lane-height", `${laneHeight}px`);
     label.style.setProperty("--lane-color", lane.color);
-    dot.setAttribute("aria-hidden", "true");
-    name.textContent = lane.shortLabel;
-    output.dataset.laneOutput = lane.id;
-    output.textContent = "—";
-    addButton.type = "button";
-    addButton.className = "ptz-lane-key-add";
-    addButton.textContent = "+";
-    addButton.title = `Add a ${lane.label.toLowerCase()} keyframe`;
-    addButton.setAttribute("aria-label", `Add ${lane.label} keyframe in the selected phoneme`);
-    addButton.addEventListener("click", () => {
-      const segment = activeKeyframeSegment();
-      if (!segment) return;
-      addKeyframe(segment.id, lane.id, {
-        phase: suggestedKeyframePhase(segment, lane.id),
-      });
-    });
-    label.append(dot, name, output, addButton);
+    label.dataset.lane = lane.id;
+    if (contour) label.dataset.contour = contour;
+    name.textContent = contour ? `↳ ${contour}` : lane.shortLabel;
+    if (contour) {
+      output.dataset.modulationOutput = `${lane.id}:${contour}`;
+      output.textContent = modulationValueText(
+        contour,
+        sampleModulationPoints(
+          track,
+          clamp(state.elapsedMs / Math.max(1, sequence.durationMs)),
+        ),
+      );
+    } else {
+      output.dataset.laneOutput = lane.id;
+      output.textContent = "—";
+    }
+    if (contour) {
+      label.append(name, output);
+    } else {
+      const dot = document.createElement("i");
+      const modToggle = document.createElement("button");
+      const modulation = modulationFor(lane.id);
+      dot.setAttribute("aria-hidden", "true");
+      modToggle.type = "button";
+      modToggle.className = "ptz-lane-mod-toggle";
+      modToggle.dataset.modToggle = lane.id;
+      modToggle.setAttribute("aria-pressed", String(Boolean(modulation?.enabled)));
+      modToggle.setAttribute(
+        "aria-label",
+        `${modulation?.enabled ? "Disable" : "Enable"} ${lane.label} modulation contours`,
+      );
+      modToggle.textContent = "MOD";
+      modToggle.addEventListener("click", () => toggleLaneModulation(lane.id));
+      label.append(dot, name, output, modToggle);
+    }
     gutter.append(label);
 
     const group = svgElement("g", {
-      class: "ptz-lane",
+      class: `ptz-lane${contour ? " ptz-modulation-lane" : ""}`,
       "data-lane": lane.id,
+      ...(contour ? { "data-contour": contour } : {}),
       style: `--lane-color:${lane.color}`,
     });
     group.append(
       svgElement("rect", {
-        class: `ptz-lane-background${laneIndex % 2 ? " is-even" : ""}`,
+        class: [
+          "ptz-lane-background",
+          rowIndex % 2 ? "is-even" : "",
+          contour ? "is-modulation" : "",
+        ].filter(Boolean).join(" "),
         x: 0,
         y: laneY - 7,
         width: plotWidth,
@@ -706,34 +815,36 @@ function renderTimeline() {
         y2: laneY + graphHeight / 2,
       }),
       svgElement("path", {
-        class: "ptz-lane-curve",
-        d: lanePath(sequence.automation[lane.id].samples, laneY, plotWidth, graphHeight),
+        class: `ptz-lane-curve${contour ? ` ptz-modulation-curve is-${contour}` : ""}`,
+        d: contour === "speed"
+          ? speedModulationPath(track, laneY, plotWidth, graphHeight)
+          : contour === "depth"
+            ? modulationPath(track, laneY, plotWidth, graphHeight)
+            : lanePath(sequence.automation[lane.id].samples, laneY, plotWidth, graphHeight),
       }),
     );
 
-    sequence.articulationSegments.forEach((segment) => {
-      const keys = laneKeyframes(segment, lane.id);
-      keys.forEach((keyframe, keyframeIndex) => {
-        const timeMs = keyframeTimeMs(segment, keyframe);
-        const x = timeMs / Math.max(1, sequence.durationMs) * plotWidth;
-        const value = clamp(keyframe.value);
+    if (contour) {
+      track.forEach((keyframe, keyframeIndex) => {
+        const x = clamp(keyframe.phase) * plotWidth;
+        const value = normalizedModulationValue(contour, keyframe.value);
         const y = laneY + (1 - value) * graphHeight;
         const key = svgElement("g", {
           class: [
             "ptz-keyframe",
-            segment.id === state.selectedSegmentId ? "is-selected" : "",
-            state.drag?.keyframeId === keyframe.id ? "is-dragging" : "",
+            "ptz-modulation-keyframe",
+            state.drag?.modulationKeyframeId === keyframe.id ? "is-dragging" : "",
           ].filter(Boolean).join(" "),
-          "data-keyframe-id": keyframe.id,
-          "data-segment-id": segment.id,
+          "data-modulation-keyframe-id": keyframe.id,
           "data-lane": lane.id,
+          "data-contour": contour,
           tabindex: 0,
           role: "slider",
-          "aria-label": `${lane.label} keyframe ${keyframeIndex + 1} of ${keys.length} for ${segment.phoneLabel}`,
+          "aria-label": `${lane.label} modulation ${contour} keyframe ${keyframeIndex + 1} of ${track.length}`,
           "aria-valuemin": 0,
           "aria-valuemax": 1,
           "aria-valuenow": value.toFixed(3),
-          "aria-valuetext": `${laneValueText(lane, value)} at ${Math.round(keyframe.phase * 100)}% of ${segment.phoneLabel}`,
+          "aria-valuetext": `${modulationValueText(contour, keyframe.value)} at ${Math.round(keyframe.phase * 100)}% of the word`,
         });
         key.append(
           svgElement("circle", { class: "ptz-keyframe-hit", cx: x, cy: y, r: 10 }),
@@ -747,9 +858,8 @@ function renderTimeline() {
           }),
         );
         key.addEventListener("pointerdown", (event) => (
-          beginLaneDrag(event, lane, segment, keyframe, laneY, graphHeight)
+          beginModulationDrag(event, lane, contour, keyframe, laneY, graphHeight)
         ));
-        key.addEventListener("click", () => selectSegment(segment.id));
         key.addEventListener("keydown", (event) => {
           const vertical = ["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key);
           const horizontal = ["ArrowLeft", "ArrowRight"].includes(event.key);
@@ -757,27 +867,100 @@ function renderTimeline() {
           if (!vertical && !horizontal && !removing) return;
           event.preventDefault();
           if (removing) {
-            removeKeyframe(segment.id, lane.id, keyframe.id);
+            removeModulationKeyframe(lane.id, contour, keyframe.id);
             return;
           }
           const patch = {};
           if (horizontal) {
-            const stepMs = event.shiftKey ? 25 : 5;
-            patch.timeMs = timeMs + (event.key === "ArrowRight" ? stepMs : -stepMs);
+            const amount = event.shiftKey ? 0.05 : 0.01;
+            patch.phase = keyframe.phase + (event.key === "ArrowRight" ? amount : -amount);
           } else if (event.key === "Home" || event.key === "End") {
-            patch.value = event.key === "Home" ? 1 : 0;
+            patch.normalizedValue = event.key === "Home" ? 1 : 0;
           } else {
             const amount = event.shiftKey ? 0.1 : 0.02;
-            patch.value = value + (event.key === "ArrowUp" ? amount : -amount);
+            patch.normalizedValue = value + (event.key === "ArrowUp" ? amount : -amount);
           }
-          editKeyframe(segment.id, lane.id, keyframe.id, patch, { focus: true });
+          editModulationKeyframe(lane.id, contour, keyframe.id, patch, { focus: true });
         });
         group.append(key);
       });
-    });
+    } else {
+      sequence.articulationSegments.forEach((segment) => {
+        const keys = laneKeyframes(segment, lane.id);
+        keys.forEach((keyframe, keyframeIndex) => {
+          const timeMs = keyframeTimeMs(segment, keyframe);
+          const x = timeMs / Math.max(1, sequence.durationMs) * plotWidth;
+          const value = clamp(keyframe.value);
+          const y = laneY + (1 - value) * graphHeight;
+          const key = svgElement("g", {
+            class: [
+              "ptz-keyframe",
+              segment.id === state.selectedSegmentId ? "is-selected" : "",
+              state.drag?.keyframeId === keyframe.id ? "is-dragging" : "",
+            ].filter(Boolean).join(" "),
+            "data-keyframe-id": keyframe.id,
+            "data-segment-id": segment.id,
+            "data-lane": lane.id,
+            tabindex: 0,
+            role: "slider",
+            "aria-label": `${lane.label} keyframe ${keyframeIndex + 1} of ${keys.length} for ${segment.phoneLabel}`,
+            "aria-valuemin": 0,
+            "aria-valuemax": 1,
+            "aria-valuenow": value.toFixed(3),
+            "aria-valuetext": `${laneValueText(lane, value)} at ${Math.round(keyframe.phase * 100)}% of ${segment.phoneLabel}`,
+          });
+          key.append(
+            svgElement("circle", { class: "ptz-keyframe-hit", cx: x, cy: y, r: 10 }),
+            svgElement("rect", {
+              class: "ptz-keyframe-mark",
+              x: x - 3.4,
+              y: y - 3.4,
+              width: 6.8,
+              height: 6.8,
+              transform: `rotate(45 ${x} ${y})`,
+            }),
+          );
+          key.addEventListener("pointerdown", (event) => (
+            beginLaneDrag(event, lane, segment, keyframe, laneY, graphHeight)
+          ));
+          key.addEventListener("click", () => selectSegment(segment.id));
+          key.addEventListener("keydown", (event) => {
+            const vertical = ["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key);
+            const horizontal = ["ArrowLeft", "ArrowRight"].includes(event.key);
+            const removing = ["Delete", "Backspace"].includes(event.key);
+            if (!vertical && !horizontal && !removing) return;
+            event.preventDefault();
+            if (removing) {
+              removeKeyframe(segment.id, lane.id, keyframe.id);
+              return;
+            }
+            const patch = {};
+            if (horizontal) {
+              const stepMs = event.shiftKey ? 25 : 5;
+              patch.timeMs = timeMs + (event.key === "ArrowRight" ? stepMs : -stepMs);
+            } else if (event.key === "Home" || event.key === "End") {
+              patch.value = event.key === "Home" ? 1 : 0;
+            } else {
+              const amount = event.shiftKey ? 0.1 : 0.02;
+              patch.value = value + (event.key === "ArrowUp" ? amount : -amount);
+            }
+            editKeyframe(segment.id, lane.id, keyframe.id, patch, { focus: true });
+          });
+          group.append(key);
+        });
+      });
+    }
     group.addEventListener("dblclick", (event) => {
       if (event.target.closest?.(".ptz-keyframe")) return;
       const point = svgPointerPosition(event, svg);
+      if (contour) {
+        event.preventDefault();
+        addModulationKeyframe(lane.id, contour, {
+          phase: point.x / Math.max(1, plotWidth),
+          normalizedValue: 1 - (point.y - laneY) / graphHeight,
+        });
+        return;
+      }
       const timeMs = clamp(point.x / Math.max(1, plotWidth)) * sequence.durationMs;
       const segment = articulationAtTime(timeMs);
       if (!segment) {
@@ -1035,6 +1218,143 @@ function removeKeyframe(segmentId, laneId, keyframeId) {
   keepPlaybackAfterEdit(elapsedMs);
   focusKeyframe(segmentId, laneId, focusId);
   announce(`Keyframe removed${state.playing ? ". Playback continues." : "."}`);
+}
+
+function preserveTimelineScroll(callback) {
+  const scroller = $("timelineScroll");
+  const scrollLeft = scroller.scrollLeft;
+  const scrollTop = scroller.scrollTop;
+  callback();
+  renderTimeline();
+  updatePlayhead(state.elapsedMs);
+  scroller.scrollLeft = scrollLeft;
+  scroller.scrollTop = scrollTop;
+  $("phonemeRuler").scrollLeft = scrollLeft;
+}
+
+function focusModulationKeyframe(laneId, contour, keyframeId) {
+  if (!keyframeId) return;
+  document.querySelector(
+    `.ptz-modulation-keyframe[data-lane="${laneId}"][data-contour="${contour}"]`
+      + `[data-modulation-keyframe-id="${keyframeId}"]`,
+  )?.focus({ preventScroll: true });
+}
+
+function toggleLaneModulation(laneId) {
+  const lane = PINK_TROMBONAZOID_LANES.find(({ id }) => id === laneId);
+  const previous = modulationFor(laneId);
+  if (!lane || !previous) return;
+  preserveTimelineScroll(() => {
+    state.laneModulations = {
+      ...state.laneModulations,
+      [laneId]: { ...previous, enabled: !previous.enabled },
+    };
+  });
+  document.querySelector(`[data-mod-toggle="${laneId}"]`)?.focus({ preventScroll: true });
+  announce(`${lane.label} modulation ${previous.enabled ? "off" : "on"}.`);
+}
+
+function suggestedModulationPhase(points) {
+  const phases = points.map(({ phase }) => clamp(phase)).sort((left, right) => left - right);
+  let start = 0;
+  let end = 0;
+  let largestGap = -1;
+  for (let index = 1; index < phases.length; index += 1) {
+    const gap = phases[index] - phases[index - 1];
+    if (gap > largestGap) {
+      largestGap = gap;
+      start = phases[index - 1];
+      end = phases[index];
+    }
+  }
+  return (start + end) / 2;
+}
+
+function addModulationKeyframe(laneId, contour, request = {}) {
+  const modulation = modulationFor(laneId);
+  const points = modulation?.[contour];
+  if (!modulation?.enabled || !Array.isArray(points)) return;
+  const phase = clamp(request.phase ?? suggestedModulationPhase(points), 0.002, 0.998);
+  const normalizedValue = request.normalizedValue == null
+    ? normalizedModulationValue(contour, sampleModulationPoints(points, phase))
+    : clamp(request.normalizedValue);
+  const keyframe = {
+    id: `${laneId}-${contour}-key-${++state.modulationKeyId}`,
+    phase,
+    value: rawModulationValue(contour, normalizedValue),
+  };
+  preserveTimelineScroll(() => {
+    state.laneModulations = {
+      ...state.laneModulations,
+      [laneId]: {
+        ...modulation,
+        [contour]: [...points, keyframe].sort((left, right) => left.phase - right.phase),
+      },
+    };
+  });
+  focusModulationKeyframe(laneId, contour, keyframe.id);
+  announce(`${contour === "speed" ? "Speed" : "Depth"} modulation keyframe added.`);
+}
+
+function editModulationKeyframe(
+  laneId,
+  contour,
+  keyframeId,
+  patch = {},
+  { focus = false } = {},
+) {
+  const modulation = modulationFor(laneId);
+  const points = modulation?.[contour];
+  const index = points?.findIndex(({ id }) => id === keyframeId) ?? -1;
+  if (index < 0) return;
+  const current = points[index];
+  let phase = Number.isFinite(Number(patch.phase)) ? Number(patch.phase) : current.phase;
+  if (index === 0) phase = 0;
+  else if (index === points.length - 1) phase = 1;
+  else phase = clamp(phase, points[index - 1].phase + 0.002, points[index + 1].phase - 0.002);
+  const value = patch.normalizedValue == null
+    ? current.value
+    : rawModulationValue(contour, patch.normalizedValue);
+  preserveTimelineScroll(() => {
+    state.laneModulations = {
+      ...state.laneModulations,
+      [laneId]: {
+        ...modulation,
+        [contour]: points.map((point, candidateIndex) => (
+          candidateIndex === index ? { ...point, phase, value } : point
+        )),
+      },
+    };
+  });
+  if (state.drag?.type === "modulation") {
+    state.drag.svg = $("timelineSvg");
+    document.querySelector(
+      `.ptz-modulation-keyframe[data-modulation-keyframe-id="${keyframeId}"]`,
+    )?.classList.add("is-dragging");
+  }
+  if (focus) focusModulationKeyframe(laneId, contour, keyframeId);
+}
+
+function removeModulationKeyframe(laneId, contour, keyframeId) {
+  const modulation = modulationFor(laneId);
+  const points = modulation?.[contour];
+  const index = points?.findIndex(({ id }) => id === keyframeId) ?? -1;
+  if (index <= 0 || index >= points.length - 1) {
+    announce("Modulation contours keep their start and end keys.");
+    return;
+  }
+  const nextFocus = points[index + 1]?.id ?? points[index - 1]?.id;
+  preserveTimelineScroll(() => {
+    state.laneModulations = {
+      ...state.laneModulations,
+      [laneId]: {
+        ...modulation,
+        [contour]: points.filter(({ id }) => id !== keyframeId),
+      },
+    };
+  });
+  focusModulationKeyframe(laneId, contour, nextFocus);
+  announce("Modulation keyframe removed.");
 }
 
 function replacePhone(phoneId, replacementId, {
@@ -1297,6 +1617,23 @@ function beginLaneDrag(event, lane, segment, keyframe, laneY, graphHeight) {
   event.currentTarget.setPointerCapture?.(event.pointerId);
 }
 
+function beginModulationDrag(event, lane, contour, keyframe, laneY, graphHeight) {
+  event.preventDefault();
+  event.stopPropagation();
+  state.drag = {
+    type: "modulation",
+    pointerId: event.pointerId,
+    laneId: lane.id,
+    contour,
+    laneY,
+    graphHeight,
+    modulationKeyframeId: keyframe.id,
+    svg: $("timelineSvg"),
+  };
+  event.currentTarget.classList.add("is-dragging");
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+}
+
 function continueDrag(event) {
   if (!state.drag || event.pointerId !== state.drag.pointerId) return;
   if (state.drag.type === "duration") {
@@ -1311,6 +1648,18 @@ function continueDrag(event) {
   const viewBox = state.drag.svg.viewBox.baseVal;
   const timeMs = clamp(point.x / Math.max(1, viewBox.width)) * state.sequence.durationMs;
   const value = 1 - (point.y - state.drag.laneY) / state.drag.graphHeight;
+  if (state.drag.type === "modulation") {
+    editModulationKeyframe(
+      state.drag.laneId,
+      state.drag.contour,
+      state.drag.modulationKeyframeId,
+      {
+        phase: point.x / Math.max(1, viewBox.width),
+        normalizedValue: value,
+      },
+    );
+    return;
+  }
   editKeyframe(
     state.drag.segmentId,
     state.drag.laneId,
@@ -1392,6 +1741,7 @@ function activateSegment(index, elapsedSeconds) {
   let event = pinkTrombonazoidAudioEvent(segment, {
     elapsedSeconds,
     laneValues: automationLaneValuesAt(elapsedSeconds * 1_000),
+    modulators: activeModulatorsAt(elapsedSeconds * 1_000),
     voice: voiceSettings(),
   });
   const phone = state.sequence?.phones.find(({ id }) => id === segment.phoneId);
@@ -1500,11 +1850,24 @@ function automationLaneValuesAt(milliseconds) {
 function updateLaneReadouts(milliseconds) {
   const values = automationLaneValuesAt(milliseconds);
   if (!values) return;
+  const phase = clamp(milliseconds / Math.max(1, state.sequence?.durationMs ?? 1));
   for (const lane of PINK_TROMBONAZOID_LANES) {
     const value = values[lane.id];
     if (!Number.isFinite(value)) continue;
     const output = document.querySelector(`[data-lane-output="${lane.id}"]`);
     if (output) output.textContent = laneValueText(lane, value);
+    const modulation = modulationFor(lane.id);
+    for (const contour of ["speed", "depth"]) {
+      const modulationOutput = document.querySelector(
+        `[data-modulation-output="${lane.id}:${contour}"]`,
+      );
+      if (modulationOutput && modulation?.[contour]) {
+        modulationOutput.textContent = modulationValueText(
+          contour,
+          sampleModulationPoints(modulation[contour], phase),
+        );
+      }
+    }
   }
 }
 
@@ -1535,37 +1898,25 @@ function updateTransport(now) {
   if (index !== state.activeSegmentIndex) activateSegment(index, state.elapsedMs / 1_000);
   if (audio.activeEngine === "tube" && now - state.lastAudioModulationAt > 26) {
     state.lastAudioModulationAt = now;
-    const pitchWave = samplePinkTrombonazoidLfo(
-      $("pitchModShape").value,
-      state.elapsedMs / 1_000 * Number($("pitchModRate").value),
-      17,
-    );
-    const breathWave = samplePinkTrombonazoidLfo(
-      $("breathModShape").value,
-      state.elapsedMs / 1_000 * Number($("breathModRate").value),
-      31,
-    );
-    const bypass = $("modulationBypass").getAttribute("aria-pressed") === "true";
     const segment = state.sequence.segments[index];
     if (segment?.type === "articulation") {
       const laneValues = automationLaneValuesAt(state.elapsedMs);
       const event = pinkTrombonazoidAudioEvent(segment, {
         elapsedSeconds: state.elapsedMs / 1_000,
         laneValues,
+        modulators: activeModulatorsAt(state.elapsedMs),
         voice: voiceSettings(),
       });
       const intensityScale = clamp(
-        laneValues.intensity / Math.max(0.001, segment.laneValues.intensity),
+        event.laneValues.intensity / Math.max(0.001, segment.laneValues.intensity),
         0,
         1.6,
       );
-      const flutterDepth = bypass ? 0 : Number($("breathModDepth").value);
       audio.modulate({
-        pitchCents: bypass ? 0 : pitchWave * Number($("pitchModDepth").value),
-        amplitude: clamp(intensityScale * (1 + breathWave * flutterDepth * 0.5), 0, 1.6),
+        pitchCents: 0,
+        amplitude: intensityScale,
         breath: clamp(
-          (laneValues.breath - segment.laneValues.breath) * 1.5
-            + breathWave * flutterDepth,
+          (event.laneValues.breath - segment.laneValues.breath) * 1.5,
           -1,
           1,
         ),
@@ -1694,10 +2045,6 @@ bindRange("speechRate", (value) => `${value.toFixed(2)}×`, (value) => {
 bindRange("timelineZoomY", (value) => `${Math.round(value)}%`, setTimelineZoomY);
 bindRange("wordGap", (value) => `${Math.round(value)} ms`);
 bindRange("level", (value) => `${Math.round(value * 100)}%`, (value) => audio.setLevel(value));
-bindRange("pitchModRate", (value) => `${value.toFixed(1)} Hz`);
-bindRange("pitchModDepth", (value) => `${Math.round(value)} ct`);
-bindRange("breathModRate", (value) => `${value.toFixed(1)} Hz`);
-bindRange("breathModDepth", (value) => `${Math.round(value * 100)}%`);
 bindRange("voiceThroats", (value) => String(Math.round(value)), updateVoiceControlAvailability);
 bindRange("voiceRegister", (value) => `${value > 0 ? "+" : ""}${Math.round(value)} st`);
 bindRange("voiceDetune", (value) => `${Math.round(value)} ct`);
@@ -1737,12 +2084,8 @@ $("resetPinkTrombonazoid").addEventListener("click", () => {
   $("speechRate").value = "1";
   $("timelineZoomY").value = "100";
   $("wordGap").value = "420";
-  $("pitchModShape").value = "sine";
-  $("pitchModRate").value = "5.2";
-  $("pitchModDepth").value = "18";
-  $("breathModShape").value = "triangle";
-  $("breathModRate").value = "2.1";
-  $("breathModDepth").value = "0.09";
+  state.laneModulations = createLaneModulations();
+  state.modulationKeyId = 0;
   $("drive").value = "0.08";
   $("tone").value = "0.86";
   $("echo").value = "0";
@@ -1750,8 +2093,7 @@ $("resetPinkTrombonazoid").addEventListener("click", () => {
   for (const id of ["modulationBypass", "effectsBypass"]) $(id).setAttribute("aria-pressed", "false");
   previousSpeechRate = 1;
   for (const id of [
-    "speechRate", "timelineZoomY", "wordGap", "pitchModRate", "pitchModDepth", "breathModRate",
-    "breathModDepth", "drive", "tone", "echo", "echoTime",
+    "speechRate", "timelineZoomY", "wordGap", "drive", "tone", "echo", "echoTime",
   ]) $(id).dispatchEvent(new Event("input"));
   void buildWord("hello");
 });

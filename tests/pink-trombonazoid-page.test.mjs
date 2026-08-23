@@ -51,15 +51,15 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
   assert.match(html, /<option value="pink-trombonazoid\.html" selected>Pink Trombonazoid<\/option>/);
   assert.match(
     html,
-    /href="pink-trombonazoid\.css\?v=pink-trombonazoid-20260822-12"/,
+    /href="pink-trombonazoid\.css\?v=pink-trombonazoid-20260823-2"/,
   );
   assert.match(
     html,
-    /<script type="module" src="pink-trombonazoid-app\.js\?v=pink-trombonazoid-20260822-12"><\/script>/,
+    /<script type="module" src="pink-trombonazoid-app\.js\?v=pink-trombonazoid-20260823-2"><\/script>/,
   );
   assert.match(
     app,
-    /from "\.\/src\/pink-trombonazoid\.js\?v=pink-trombonazoid-20260822-12"/,
+    /from "\.\/src\/pink-trombonazoid\.js\?v=pink-trombonazoid-20260823-2"/,
     "the app and its core must share a cache version",
   );
 
@@ -76,9 +76,7 @@ test("Pink Trombonazoid page wires its accessible editor and local modules", asy
     "segmentBreath", "personality", "voiceThroats", "voiceHarmony",
     "voiceRegister", "voiceDetune", "voiceBody", "voiceTension",
     "voiceVariation", "voiceCoupling", "voiceSpread", "voiceEngineNote",
-    "speechRate", "wordGap", "pitchModShape",
-    "pitchModRate", "pitchModDepth", "breathModShape", "breathModRate",
-    "breathModDepth", "modulationBypass", "drive", "tone", "echo",
+    "speechRate", "wordGap", "modulationBypass", "drive", "tone", "echo",
     "echoTime", "effectsBypass", "resetPinkTrombonazoid", "liveStatus",
   ]) assert.ok(idSet.has(id), `missing #${id}`);
 
@@ -155,7 +153,8 @@ test("the page explains and implements word-to-tract sequencing", async () => {
   assert.match(app, /segment\.type === "boundary"[\s\S]*?audio\.release/);
   assert.match(app, /pinkTrombonazoidAudioEvent\(segment/);
   assert.match(app, /audio\.articulate\(event\)/);
-  assert.match(app, /samplePinkTrombonazoidLfo/);
+  assert.match(app, /function activeModulatorsAt/);
+  assert.match(app, /modulators:\s*activeModulatorsAt/);
   assert.match(app, /audio\.modulate\(/);
   assert.match(app, /automationLaneValuesAt\(state\.elapsedMs\)/);
   assert.match(app, /performance:\s*event\?\.performance/);
@@ -228,7 +227,7 @@ test("timeline automation supports multiple two-dimensional keys, live playback,
 
   assert.match(html, /drag keys in (?:any direction|2D)/i);
   assert.match(html, /double-click(?: a lane)? to add/i);
-  assert.match(html, /Drag a key left or right within its phoneme for time, and up or down for value/i);
+  assert.match(html, /left or right within a phoneme for time, and up or down for value/i);
   assert.match(html, /press Delete to remove it/i);
 
   for (const api of [
@@ -242,13 +241,13 @@ test("timeline automation supports multiple two-dimensional keys, live playback,
     assert.match(renderTimeline, new RegExp(`["']${attribute}["']`));
   }
   assert.match(renderTimeline, /laneKeyframes/);
-  assert.match(renderTimeline, /(?:class|className)\s*[:=]\s*["']ptz-lane-key-add["']/);
+  assert.doesNotMatch(renderTimeline, /ptz-lane-key-add/);
   assert.match(renderTimeline, /addEventListener\(["']dblclick["']/);
   assert.match(renderTimeline, /addEventListener\(["']click["']/);
   assert.match(
     renderTimeline,
     /add(?:PinkTrombonazoid)?Keyframe[\s\S]*?timeMs[\s\S]*?value|timeMs[\s\S]*?value[\s\S]*?add(?:PinkTrombonazoid)?Keyframe/,
-    "double-click and + additions must author both the new key's time and value",
+    "double-click additions must author both the new key's time and value",
   );
 
   assert.match(continueDrag, /timeMs/);
@@ -302,8 +301,36 @@ test("timeline automation supports multiple two-dimensional keys, live playback,
   const setTimelineZoomY = standaloneFunctionBody(app, "setTimelineZoomY");
   assert.match(setTimelineZoomY, /state\.timelineZoomY\s*=/);
   assert.match(setTimelineZoomY, /renderTimeline\(\)/);
-  assert.match(timelineGeometry, /PINK_TROMBONAZOID_LANES\.length\s*\*\s*laneHeight/);
+  assert.match(timelineGeometry, /modulationRows\(\)\.length\s*\*\s*laneHeight/);
   assert.match(continueDrag, /graphHeight/);
+});
+
+test("timeline lanes expose Hybrinx-style editable modulation contours", async () => {
+  const [html, app, css] = await Promise.all([
+    readFile(new URL("pink-trombonazoid.html", ROOT), "utf8"),
+    readFile(new URL("pink-trombonazoid-app.js", ROOT), "utf8"),
+    readFile(new URL("pink-trombonazoid.css", ROOT), "utf8"),
+  ]);
+  const renderTimeline = standaloneFunctionBody(app, "renderTimeline");
+  const continueDrag = standaloneFunctionBody(app, "continueDrag");
+
+  assert.match(html, /Use MOD to reveal whole-word Speed and Depth contours/i);
+  assert.match(html, /Each timeline lane has a MOD switch/i);
+  assert.match(app, /function createLaneModulations/);
+  assert.match(app, /enabled:\s*pitch \|\| breath/);
+  assert.match(renderTimeline, /ptz-lane-mod-toggle/);
+  assert.match(renderTimeline, /data-modulation-keyframe-id/);
+  assert.match(renderTimeline, /dataset\.modulationOutput/);
+  assert.match(renderTimeline, /addModulationKeyframe/);
+  assert.match(renderTimeline, /removeModulationKeyframe/);
+  assert.match(renderTimeline, /editModulationKeyframe/);
+  assert.match(continueDrag, /state\.drag\.type === "modulation"/);
+  assert.match(continueDrag, /normalizedValue/);
+  assert.match(app, /function activeModulatorsAt[\s\S]*?rateHz:[\s\S]*?depth:/);
+  assert.match(css, /\.ptz-lane-mod-toggle\[aria-pressed="true"\]/);
+  assert.match(css, /\.ptz-lane-label\.is-modulation/);
+  assert.match(css, /\.ptz-modulation-curve\.is-speed[\s\S]*?stroke-dasharray/);
+  assert.match(css, /\.ptz-modulation-keyframe \.ptz-keyframe-mark/);
 });
 
 test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lanes", async () => {
@@ -340,11 +367,7 @@ test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lan
   assert.match(css, /\.ptz-zoom-knob > i\s*\{[^}]*conic-gradient/s);
   assert.match(css, /\.ptz-timeline-svg\s*\{[^}]*background:\s*var\(--ptz-black-panel\)/s);
   assert.match(css, /\.ptz-lane-gutter\s*\{[^}]*background:\s*rgba\(12, 7, 13, 0\.98\)/s);
-  assert.match(
-    css,
-    /\.ptz-lane-key-add\s*\{[^}]*width:\s*20px;[^}]*min-width:\s*20px;[^}]*height:\s*20px;[^}]*min-height:\s*20px;/s,
-    "each lane needs a compact keyboard-accessible add-key button",
-  );
+  assert.doesNotMatch(css, /\.ptz-lane-key-add/);
   assert.match(css, /\.ptz-phone-pill select\s*\{[\s\S]*?border-radius:\s*999px/);
   assert.match(css, /\.ptz-phone-pill select\s*\{[\s\S]*?appearance:\s*none/);
   assert.match(css, /\.ptz-phoneme-ruler\s*\{[\s\S]*?min-height:\s*42px/);
@@ -389,6 +412,8 @@ test("Pink Trombonazoid uses the source palette and responsive Hybrinx-style lan
     /@media \(max-width:\s*650px\)[\s\S]*?\.ptz-timeline-controls\s*\{[^}]*grid-template-columns:\s*1fr/s,
     "vertical zoom and transport controls need a compact phone layout",
   );
+  assert.match(css, /\.ptz-timeline-header\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto/s);
+  assert.match(css, /@media \(max-width:\s*650px\)[\s\S]*?\.ptz-timeline-heading\s*\{[^}]*display:\s*none/s);
   assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
   assert.match(css, /@media \(forced-colors:\s*active\)/);
 
