@@ -95,29 +95,30 @@
       <aside class="panel webgpu-synths-panel" aria-label="GPU Shader Synths controls">
         <div class="webgpu-status-strip" aria-live="polite">
           <b id="gpuState">Checking WebGPU</b>
-          <small id="streamState">WGSL owns the signal path</small>
         </div>
 
-        <div class="wgsl-boundary">
-          <span>GPU / WGSL DOMAIN</span>
-          <p>Clock, swing, four sequence lanes, scales, envelopes, adjustable model component counts, editable additive ranks, synthesis, stereo, and two-pass GPU effects.</p>
-          <small>Web Audio is buffer playback only. Cascade PM is a deterministic feed-forward phase-modulation cascade; Model morph depth is a modulation amount, not a claim of mathematical chaos.</small>
-        </div>
-
-        <details class="group control-section webgpu-synths-section" data-section="themes" open>
+        <details class="group control-section webgpu-synths-section" data-section="presets" open>
           <summary class="group-summary">
-            <h2 class="group-title">Themes</h2>
-            <span class="section-state" id="themeState">Acid Fossil</span>
+            <h2 class="group-title">Presets</h2>
+            <span class="section-state" id="presetState">Velvet Drawbars</span>
           </summary>
-          <div class="group-body">
-            <div class="theme-grid" id="themeButtons" role="group" aria-label="Shader themes"></div>
+          <div class="group-body preset-grid-wrap">
+            <div class="preset-grid" id="presetButtons" role="group" aria-label="32 shader synth presets ordered from tonal to noisy"></div>
           </div>
+        </details>
+
+        <details class="group control-section webgpu-synths-section" data-section="time" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Time</h2>
+            <span class="section-state" id="timeState">16 steps · 1.40 Hz</span>
+          </summary>
+          <div class="group-body" id="timeControls"></div>
         </details>
 
         <details class="group control-section webgpu-synths-section" data-section="variations" open>
           <summary class="group-summary">
             <h2 class="group-title">Variations</h2>
-            <span class="section-state" id="variationState">Euclidean Pattern</span>
+            <span class="section-state" id="variationState">Orbital Phase</span>
           </summary>
           <div class="group-body">
             <div class="technique-grid" id="techniqueButtons" role="group" aria-label="Sequence generators"></div>
@@ -134,7 +135,7 @@
         <details class="group control-section webgpu-synths-section" data-section="model" open>
           <summary class="group-summary">
             <h2 class="group-title">Synthesis model</h2>
-            <span class="section-state" id="modelState">Spectral Acid</span>
+            <span class="section-state" id="modelState">Additive Organ</span>
           </summary>
           <div class="group-body" id="modelControls"></div>
         </details>
@@ -165,18 +166,10 @@
           <div class="group-body" id="effectsControls"></div>
         </details>
 
-        <details class="group control-section webgpu-synths-section" data-section="time" open>
-          <summary class="group-summary">
-            <h2 class="group-title">Time</h2>
-            <span class="section-state" id="timeState">16 steps · 5.20 Hz</span>
-          </summary>
-          <div class="group-body" id="timeControls"></div>
-        </details>
-
         <details class="group control-section webgpu-synths-section" data-section="field" open>
           <summary class="group-summary">
             <h2 class="group-title">Field</h2>
-            <span class="section-state" id="fieldState">Dorian · MIDI 34</span>
+            <span class="section-state" id="fieldState">Dorian · MIDI 36</span>
           </summary>
           <div class="group-body" id="fieldControls"></div>
         </details>
@@ -218,6 +211,14 @@
           </button>
         </div>
         <p class="audio-error" id="audioError" role="alert" hidden></p>
+
+        <div class="wgsl-boundary">
+          <small class="wgsl-stream-state">WGSL owns the signal path</small>
+          <span>GPU / WGSL DOMAIN</span>
+          <p>Clock, swing, four sequence lanes, scales, envelopes, adjustable model component counts, editable additive ranks, synthesis, stereo, and two-pass GPU effects.</p>
+          <small>Web Audio is buffer playback only. Cascade PM is a deterministic feed-forward phase-modulation cascade; Model morph depth is a modulation amount, not a claim of mathematical chaos.</small>
+          <small class="wgsl-runtime-state" id="streamState" aria-live="polite">Checking the GPU buffer path</small>
+        </div>
       </aside>
 
       <p class="sr-only" id="webgpuSynthsDescription">

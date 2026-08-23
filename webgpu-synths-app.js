@@ -49,60 +49,51 @@ const TECHNIQUES = Object.freeze([
   Object.freeze({ id: "noise", label: "Seed Noise" }),
 ]);
 
-function themedParams(overrides) {
+function presetParams(overrides) {
   return sanitizeWebGpuSynthParams({ ...WEBGPU_SYNTHS_DEFAULTS, ...overrides });
 }
 
-const THEMES = Object.freeze([
-  Object.freeze({
-    id: "acid-fossil",
-    label: "Acid Fossil",
-    technique: "euclid",
-    variation: 0.18,
-    params: themedParams({ topology: 0.08, baseNote: 32, clock: 6.2, steps: 16, complexity: 0.82, color: 0.72, decay: 0.3, fold: 0.42, space: 0.28, chaos: 0.12, swing: 0.14, seed: 17011, scale: 2, acidPartials: 24, filterCutoff: 4200, filterTaps: 13, filterMix: 0.42, shaperDrive: 2.2, shaperMix: 0.18 }),
-  }),
-  Object.freeze({
-    id: "recursive-chrome",
-    label: "Recursive Chrome",
-    technique: "recurrence",
-    variation: 0.32,
-    params: themedParams({ topology: 1.14, baseNote: 30, clock: 4.8, steps: 21, glide: 0.18, complexity: 0.74, color: 0.63, motion: 0.58, decay: 0.52, fold: 0.3, space: 0.66, chaos: 0.26, seed: 24117, scale: 3, pmOperators: 7, delayTime: 0.19, delayRepeats: 3, delayDecay: 0.5, delayMix: 0.22 }),
-  }),
-  Object.freeze({
-    id: "folded-mutant",
-    label: "Folded Mutant",
-    technique: "cellular",
-    variation: 0.54,
-    params: themedParams({ topology: 2.18, baseNote: 38, clock: 8.4, steps: 32, glide: 0.04, complexity: 0.68, color: 0.38, motion: 0.72, decay: 0.2, fold: 0.88, space: 0.5, chaos: 0.48, swing: 0.06, seed: 39117, scale: 5, foldLayers: 5, shaperDrive: 4.8, shaperFold: 0.72, shaperMix: 0.48 }),
-  }),
-  Object.freeze({
-    id: "bell-swarm",
-    label: "Bell Swarm",
-    technique: "orbit",
-    variation: 0.2,
-    params: themedParams({ topology: 3.06, baseNote: 46, clock: 2.7, steps: 20, glide: 0, complexity: 0.9, color: 0.78, motion: 0.48, decay: 1.22, fold: 0.18, space: 0.9, chaos: 0.12, swing: 0.02, gain: 0.1, seed: 8271, scale: 4, modalModes: 18, delayTime: 0.37, delayRepeats: 4, delayDecay: 0.63, delayMix: 0.34 }),
-  }),
-  Object.freeze({
-    id: "dust-engine",
-    label: "Dust Engine",
-    technique: "brownian",
-    variation: 0.46,
-    params: themedParams({ topology: 3.88, baseNote: 27, clock: 7.7, steps: 24, glide: 0.42, complexity: 0.86, color: 0.9, motion: 0.82, decay: 0.34, fold: 0.56, space: 0.94, chaos: 0.72, swing: 0.21, gain: 0.11, seed: 51733, scale: 1, grainCount: 13, filterCutoff: 6100, filterTaps: 17, filterMix: 0.31, delayTime: 0.11, delayRepeats: 2, delayMix: 0.16 }),
-  }),
-  Object.freeze({
-    id: "velvet-drawbars",
-    label: "Velvet Drawbars",
-    technique: "orbit",
-    variation: 0.16,
-    params: themedParams({ topology: 5, baseNote: 36, clock: 2.2, steps: 16, glide: 0.36, complexity: 0.82, color: 0.34, motion: 0.28, decay: 1.65, fold: 0.04, space: 0.68, chaos: 0.03, swing: 0.04, gain: 0.092, seed: 31991, scale: 1, organRanks: 9, filterCutoff: 9200, filterTaps: 11, filterMix: 0.18, delayTime: 0.31, delayRepeats: 2, delayDecay: 0.38, delayMix: 0.13 }),
-  }),
-  Object.freeze({
-    id: "interzone",
-    label: "Interzone",
-    technique: "noise",
-    variation: 0.68,
-    params: themedParams({ topology: 1.72, baseNote: 24, clock: 11.3, steps: 48, glide: 0.28, complexity: 0.96, color: 0.54, motion: 0.93, decay: 0.14, fold: 0.74, space: 0.78, chaos: 0.94, swing: 0.31, gain: 0.085, seed: 64439, scale: 5, pmOperators: 10, foldLayers: 7, filterCutoff: 2800, filterTaps: 25, filterMix: 0.55, delayTime: 0.073, delayRepeats: 4, delayDecay: 0.72, delayMix: 0.27, shaperDrive: 7.4, shaperFold: 0.84, shaperMix: 0.62 }),
-  }),
+function preset(id, label, technique, variation, overrides) {
+  return Object.freeze({ id, label, technique, variation, params: presetParams(overrides) });
+}
+
+// Ordered from smooth and tonal to increasingly noisy and destructive.
+const PRESETS = Object.freeze([
+  preset("velvet-drawbars", "Velvet Drawbars", "orbit", 0.08, { topology: 5, baseNote: 36, clock: 1.4, steps: 16, glide: 0.46, complexity: 0.76, color: 0.28, motion: 0.18, decay: 1.72, fold: 0.02, space: 0.62, chaos: 0.01, swing: 0.03, gain: 0.09, seed: 31991, scale: 1, organRanks: 9, filterCutoff: 9800, filterTaps: 11, filterMix: 0.16, delayTime: 0.34, delayRepeats: 2, delayDecay: 0.34, delayMix: 0.11 }),
+  preset("glass-choir", "Glass Choir", "recurrence", 0.1, { topology: 4.78, baseNote: 48, clock: 1.1, steps: 24, glide: 0.62, complexity: 0.54, color: 0.16, motion: 0.24, decay: 1.56, fold: 0.03, space: 0.88, chaos: 0.02, gain: 0.074, seed: 4221, scale: 4, grainCount: 4, organRanks: 7, filterCutoff: 13200, filterTaps: 9, filterMix: 0.12, delayTime: 0.48, delayRepeats: 3, delayDecay: 0.46, delayMix: 0.18 }),
+  preset("slow-pipes", "Slow Pipes", "euclid", 0.06, { topology: 5, baseNote: 29, clock: 0.72, steps: 12, glide: 0.78, complexity: 0.62, color: 0.42, motion: 0.1, decay: 1.8, fold: 0, space: 0.54, chaos: 0, gain: 0.094, seed: 1139, scale: 3, organRanks: 6, filterCutoff: 6900, filterTaps: 15, filterMix: 0.28 }),
+  preset("lunar-bells", "Lunar Bells", "orbit", 0.12, { topology: 3.02, baseNote: 55, clock: 1.85, steps: 15, glide: 0.08, complexity: 0.66, color: 0.76, motion: 0.3, decay: 1.62, fold: 0.08, space: 0.94, chaos: 0.04, gain: 0.078, seed: 8271, scale: 4, modalModes: 12, delayTime: 0.56, delayRepeats: 4, delayDecay: 0.62, delayMix: 0.28 }),
+  preset("warm-reeds", "Warm Reeds", "brownian", 0.12, { topology: 0.42, baseNote: 43, clock: 2.1, steps: 18, glide: 0.38, complexity: 0.44, color: 0.3, motion: 0.22, decay: 1.1, fold: 0.06, space: 0.38, chaos: 0.05, swing: 0.08, gain: 0.1, seed: 9321, scale: 1, acidPartials: 10, pmOperators: 3, filterCutoff: 5200, filterTaps: 17, filterMix: 0.36 }),
+  preset("modal-bloom", "Modal Bloom", "recurrence", 0.14, { topology: 3.18, baseNote: 40, clock: 1.55, steps: 27, glide: 0.24, complexity: 0.78, color: 0.64, motion: 0.44, decay: 1.48, fold: 0.12, space: 0.82, chaos: 0.07, gain: 0.082, seed: 14417, scale: 3, modalModes: 24, filterCutoff: 11200, filterTaps: 7, filterMix: 0.08, delayTime: 0.29, delayRepeats: 2, delayMix: 0.13 }),
+  preset("soft-orbit", "Soft Orbit", "orbit", 0.15, { topology: 1.08, baseNote: 45, clock: 2.35, steps: 20, glide: 0.42, complexity: 0.48, color: 0.34, motion: 0.52, decay: 1.02, fold: 0.08, space: 0.76, chaos: 0.08, swing: 0.04, gain: 0.088, seed: 20119, scale: 4, pmOperators: 4, delayTime: 0.41, delayRepeats: 3, delayDecay: 0.5, delayMix: 0.2 }),
+  preset("velvet-echo", "Velvet Echo", "euclid", 0.16, { topology: 4.92, baseNote: 34, clock: 2.6, steps: 16, glide: 0.34, complexity: 0.72, color: 0.4, motion: 0.36, decay: 1.3, fold: 0.04, space: 0.92, chaos: 0.06, swing: 0.12, gain: 0.086, seed: 27803, scale: 2, grainCount: 3, organRanks: 8, delayTime: 0.24, delayRepeats: 4, delayDecay: 0.58, delayMix: 0.26 }),
+
+  preset("acid-fossil", "Acid Fossil", "euclid", 0.18, { topology: 0.08, baseNote: 32, clock: 6.2, steps: 16, complexity: 0.82, color: 0.72, decay: 0.3, fold: 0.42, space: 0.28, chaos: 0.12, swing: 0.14, seed: 17011, scale: 2, acidPartials: 24, filterCutoff: 4200, filterTaps: 13, filterMix: 0.42, shaperDrive: 2.2, shaperMix: 0.18 }),
+  preset("neon-pulse", "Neon Pulse", "euclid", 0.22, { topology: 0.18, baseNote: 39, clock: 9.6, steps: 12, glide: 0.05, complexity: 0.7, color: 0.9, motion: 0.6, decay: 0.18, fold: 0.38, space: 0.42, chaos: 0.18, swing: 0.18, gain: 0.105, seed: 3109, scale: 0, acidPartials: 32, filterCutoff: 7600, filterTaps: 9, filterMix: 0.24, shaperDrive: 2.8, shaperMix: 0.22 }),
+  preset("chrome-steps", "Chrome Steps", "cellular", 0.24, { topology: 1.04, baseNote: 35, clock: 7.4, steps: 32, glide: 0.12, complexity: 0.76, color: 0.68, motion: 0.54, decay: 0.28, fold: 0.26, space: 0.58, chaos: 0.2, swing: 0.08, seed: 18713, scale: 1, pmOperators: 6, delayTime: 0.16, delayRepeats: 2, delayMix: 0.12 }),
+  preset("harmonic-run", "Harmonic Run", "recurrence", 0.2, { topology: 0.26, baseNote: 50, clock: 8.2, steps: 21, glide: 0.2, complexity: 0.9, color: 0.56, motion: 0.48, decay: 0.36, fold: 0.18, space: 0.66, chaos: 0.14, swing: 0.1, gain: 0.096, seed: 24593, scale: 3, acidPartials: 40, filterCutoff: 10400, filterTaps: 5, filterMix: 0.08 }),
+  preset("phase-loom", "Phase Loom", "orbit", 0.28, { topology: 1.36, baseNote: 31, clock: 5.4, steps: 28, glide: 0.26, complexity: 0.84, color: 0.5, motion: 0.76, decay: 0.46, fold: 0.34, space: 0.78, chaos: 0.3, swing: 0.13, gain: 0.092, seed: 29171, scale: 5, pmOperators: 9, delayTime: 0.21, delayRepeats: 3, delayDecay: 0.42, delayMix: 0.18 }),
+  preset("folded-mutant", "Folded Mutant", "euclid", 0.3, { topology: 2.04, baseNote: 42, clock: 10.8, steps: 16, glide: 0.01, complexity: 0.58, color: 0.42, motion: 0.68, decay: 0.11, fold: 0.8, space: 0.46, chaos: 0.28, swing: 0.06, gain: 0.09, seed: 39117, scale: 2, foldLayers: 4, shaperDrive: 4.2, shaperFold: 0.56, shaperMix: 0.36 }),
+  preset("bell-swarm", "Bell Swarm", "orbit", 0.2, { topology: 3.06, baseNote: 46, clock: 2.7, steps: 20, glide: 0, complexity: 0.9, color: 0.78, motion: 0.48, decay: 1.22, fold: 0.18, space: 0.9, chaos: 0.12, swing: 0.02, gain: 0.1, seed: 8271, scale: 4, modalModes: 18, delayTime: 0.37, delayRepeats: 4, delayDecay: 0.63, delayMix: 0.34 }),
+  preset("drawbar-dance", "Drawbar Dance", "cellular", 0.26, { topology: 5, baseNote: 37, clock: 6.8, steps: 24, glide: 0.2, complexity: 0.88, color: 0.48, motion: 0.62, decay: 0.62, fold: 0.12, space: 0.7, chaos: 0.16, swing: 0.2, gain: 0.094, seed: 33107, scale: 1, organRanks: 9, filterCutoff: 8400, filterTaps: 13, filterMix: 0.2, delayTime: 0.18, delayRepeats: 3, delayMix: 0.16 }),
+
+  preset("recursive-chrome", "Recursive Chrome", "recurrence", 0.32, { topology: 1.14, baseNote: 30, clock: 4.8, steps: 21, glide: 0.18, complexity: 0.74, color: 0.63, motion: 0.58, decay: 0.52, fold: 0.3, space: 0.66, chaos: 0.26, seed: 24117, scale: 3, pmOperators: 7, delayTime: 0.19, delayRepeats: 3, delayDecay: 0.5, delayMix: 0.22 }),
+  preset("prism-cascade", "Prism Cascade", "orbit", 0.38, { topology: 1.82, baseNote: 52, clock: 6.1, steps: 35, glide: 0.16, complexity: 0.92, color: 0.82, motion: 0.88, decay: 0.4, fold: 0.5, space: 0.96, chaos: 0.42, swing: 0.17, gain: 0.076, seed: 36451, scale: 4, pmOperators: 12, foldLayers: 3, delayTime: 0.12, delayRepeats: 4, delayDecay: 0.66, delayMix: 0.3 }),
+  preset("copper-fold", "Copper Fold", "cellular", 0.44, { topology: 2.38, baseNote: 28, clock: 7.9, steps: 30, glide: 0.07, complexity: 0.78, color: 0.24, motion: 0.72, decay: 0.24, fold: 0.92, space: 0.52, chaos: 0.5, swing: 0.09, gain: 0.086, seed: 41023, scale: 3, foldLayers: 6, shaperDrive: 6.2, shaperFold: 0.7, shaperMix: 0.48 }),
+  preset("grain-halo", "Grain Halo", "brownian", 0.4, { topology: 4.02, baseNote: 44, clock: 3.7, steps: 40, glide: 0.48, complexity: 0.82, color: 0.74, motion: 0.92, decay: 0.7, fold: 0.34, space: 1, chaos: 0.46, swing: 0.22, gain: 0.082, seed: 47231, scale: 5, grainCount: 10, filterCutoff: 14800, filterTaps: 7, filterMix: 0.1, delayTime: 0.43, delayRepeats: 4, delayDecay: 0.74, delayMix: 0.36 }),
+  preset("modal-wire", "Modal Wire", "recurrence", 0.46, { topology: 3.42, baseNote: 33, clock: 5.9, steps: 26, glide: 0.04, complexity: 0.98, color: 0.92, motion: 0.7, decay: 0.58, fold: 0.48, space: 0.84, chaos: 0.52, swing: 0.11, gain: 0.078, seed: 50147, scale: 2, modalModes: 32, filterCutoff: 12400, filterTaps: 19, filterMix: 0.18, shaperDrive: 3.6, shaperMix: 0.24 }),
+  preset("clockwork-dust", "Clockwork Dust", "cellular", 0.5, { topology: 4.18, baseNote: 26, clock: 12.4, steps: 48, glide: 0.18, complexity: 0.9, color: 0.56, motion: 0.86, decay: 0.16, fold: 0.58, space: 0.72, chaos: 0.58, swing: 0.24, gain: 0.082, seed: 53719, scale: 0, grainCount: 12, filterCutoff: 5600, filterTaps: 21, filterMix: 0.36, delayTime: 0.08, delayRepeats: 3, delayMix: 0.14 }),
+  preset("particle-rain", "Particle Rain", "orbit", 0.52, { topology: 4.44, baseNote: 58, clock: 4.3, steps: 56, glide: 0.54, complexity: 0.96, color: 0.86, motion: 1, decay: 0.48, fold: 0.42, space: 1, chaos: 0.62, swing: 0.29, gain: 0.068, seed: 57037, scale: 4, grainCount: 16, delayTime: 0.67, delayRepeats: 4, delayDecay: 0.8, delayMix: 0.44 }),
+  preset("interzone", "Interzone", "noise", 0.68, { topology: 1.72, baseNote: 24, clock: 11.3, steps: 48, glide: 0.28, complexity: 0.96, color: 0.54, motion: 0.93, decay: 0.14, fold: 0.74, space: 0.78, chaos: 0.84, swing: 0.31, gain: 0.085, seed: 64439, scale: 5, pmOperators: 10, foldLayers: 7, filterCutoff: 2800, filterTaps: 25, filterMix: 0.55, delayTime: 0.073, delayRepeats: 4, delayDecay: 0.72, delayMix: 0.27, shaperDrive: 7.4, shaperFold: 0.84, shaperMix: 0.62 }),
+
+  preset("dust-engine", "Dust Engine", "brownian", 0.64, { topology: 3.88, baseNote: 27, clock: 7.7, steps: 24, glide: 0.42, complexity: 0.86, color: 0.9, motion: 0.82, decay: 0.34, fold: 0.56, space: 0.94, chaos: 0.72, swing: 0.21, gain: 0.09, seed: 51733, scale: 1, grainCount: 13, filterCutoff: 6100, filterTaps: 17, filterMix: 0.31, delayTime: 0.11, delayRepeats: 2, delayMix: 0.16 }),
+  preset("static-choir", "Static Choir", "noise", 0.72, { topology: 4.72, baseNote: 41, clock: 6.6, steps: 37, glide: 0.6, complexity: 1, color: 0.88, motion: 0.96, decay: 0.38, fold: 0.62, space: 1, chaos: 0.8, swing: 0.34, gain: 0.066, seed: 60101, scale: 5, grainCount: 16, organRanks: 9, filterCutoff: 3800, filterTaps: 27, filterMix: 0.48, shaperDrive: 5.8, shaperFold: 0.64, shaperMix: 0.4 }),
+  preset("razor-swarm", "Razor Swarm", "cellular", 0.76, { topology: 1.94, baseNote: 47, clock: 14.2, steps: 52, glide: 0.03, complexity: 1, color: 1, motion: 0.94, decay: 0.09, fold: 0.9, space: 0.86, chaos: 0.88, swing: 0.18, gain: 0.062, seed: 61583, scale: 2, pmOperators: 12, foldLayers: 8, filterCutoff: 9200, filterTaps: 23, filterMix: 0.34, shaperDrive: 9.4, shaperFold: 0.9, shaperMix: 0.68 }),
+  preset("noise-lattice", "Noise Lattice", "noise", 0.8, { topology: 3.56, baseNote: 23, clock: 13.1, steps: 64, glide: 0.14, complexity: 1, color: 0.68, motion: 1, decay: 0.12, fold: 0.78, space: 0.92, chaos: 0.92, swing: 0.38, gain: 0.06, seed: 62011, scale: 0, modalModes: 32, filterCutoff: 2300, filterTaps: 31, filterMix: 0.62, delayTime: 0.047, delayRepeats: 4, delayDecay: 0.82, delayMix: 0.32 }),
+  preset("broken-carrier", "Broken Carrier", "recurrence", 0.84, { topology: 1.28, baseNote: 20, clock: 16.6, steps: 43, glide: 0.72, complexity: 0.98, color: 0.12, motion: 0.98, decay: 0.07, fold: 0.84, space: 0.7, chaos: 0.96, swing: 0.41, gain: 0.058, seed: 63029, scale: 5, pmOperators: 12, filterCutoff: 1500, filterTaps: 29, filterMix: 0.68, shaperDrive: 10.8, shaperFold: 0.76, shaperMix: 0.72 }),
+  preset("shrapnel-fold", "Shrapnel Fold", "cellular", 0.88, { topology: 2.62, baseNote: 62, clock: 18.2, steps: 60, glide: 0.01, complexity: 1, color: 0.96, motion: 1, decay: 0.05, fold: 1, space: 0.9, chaos: 0.98, swing: 0.3, gain: 0.052, seed: 63809, scale: 5, foldLayers: 8, filterCutoff: 17400, filterTaps: 3, filterMix: 0.08, shaperDrive: 14.2, shaperFold: 1, shaperMix: 0.86 }),
+  preset("radio-storm", "Radio Storm", "noise", 0.94, { topology: 4.26, baseNote: 25, clock: 17.4, steps: 64, glide: 0.36, complexity: 1, color: 1, motion: 1, decay: 0.08, fold: 0.94, space: 1, chaos: 1, swing: 0.42, gain: 0.05, seed: 64937, scale: 0, grainCount: 16, filterCutoff: 840, filterTaps: 31, filterMix: 0.74, delayTime: 0.031, delayRepeats: 4, delayDecay: 0.88, delayMix: 0.48, shaperDrive: 12.8, shaperFold: 0.92, shaperMix: 0.82 }),
+  preset("void-grinder", "Void Grinder", "noise", 1, { topology: 2.9, baseNote: 18, clock: 20, steps: 64, glide: 0.9, complexity: 1, color: 0.04, motion: 1, decay: 0.03, fold: 1, space: 1, chaos: 1, swing: 0.42, gain: 0.045, seed: 65535, scale: 5, acidPartials: 48, pmOperators: 12, foldLayers: 8, modalModes: 32, grainCount: 16, filterCutoff: 420, filterTaps: 31, filterMix: 0.82, delayTime: 0.019, delayRepeats: 4, delayDecay: 0.88, delayMix: 0.56, shaperDrive: 16, shaperFold: 1, shaperMix: 1 }),
 ]);
 
 const CONTROL_GROUPS = Object.freeze({
@@ -182,17 +173,17 @@ const KNOB_LABELS = Object.freeze({
 });
 
 const support = webGpuSynthSupport(globalThis);
-const firstTheme = THEMES[0];
+const firstPreset = PRESETS[0];
 const state = {
-  params: firstTheme.params,
-  sequence: createWebGpuSynthSequence(firstTheme.technique, {
-    steps: firstTheme.params.steps,
-    seed: firstTheme.params.seed,
-    variation: firstTheme.variation,
+  params: firstPreset.params,
+  sequence: createWebGpuSynthSequence(firstPreset.technique, {
+    steps: firstPreset.params.steps,
+    seed: firstPreset.params.seed,
+    variation: firstPreset.variation,
   }),
   organRanks: sanitizeWebGpuSynthOrganRanks(WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS),
-  themeId: firstTheme.id,
-  techniqueId: firstTheme.technique,
+  presetId: firstPreset.id,
+  techniqueId: firstPreset.technique,
   activeLane: 0,
   audioOn: false,
   synthPlaying: false,
@@ -273,48 +264,48 @@ function syncReadouts() {
   }
 }
 
-function applyParams(params, { preserveTheme = false } = {}) {
+function applyParams(params, { preservePreset = false } = {}) {
   state.params = sanitizeWebGpuSynthParams({ ...state.params, ...params });
-  if (!preserveTheme) state.themeId = "custom";
+  if (!preservePreset) state.presetId = "custom";
   engine?.updateParams(state.params);
   syncReadouts();
   syncPressedStates();
 }
 
-function applySequence(sequence, { preserveTheme = false } = {}) {
+function applySequence(sequence, { preservePreset = false } = {}) {
   state.sequence = sanitizeWebGpuSynthSequence(sequence);
-  if (!preserveTheme) state.themeId = "custom";
+  if (!preservePreset) state.presetId = "custom";
   engine?.updateSequence(state.sequence);
   syncPressedStates();
 }
 
 function syncPressedStates() {
-  for (const button of $("themeButtons").querySelectorAll("button")) {
-    button.setAttribute("aria-pressed", String(button.dataset.theme === state.themeId));
+  for (const button of $("presetButtons").querySelectorAll("button")) {
+    button.setAttribute("aria-pressed", String(button.dataset.preset === state.presetId));
   }
   for (const button of $("techniqueButtons").querySelectorAll("button")) {
     button.setAttribute("aria-pressed", String(button.dataset.technique === state.techniqueId));
   }
-  const theme = THEMES.find(({ id }) => id === state.themeId);
-  $("themeState").textContent = theme?.label ?? "Custom patch";
+  const preset = PRESETS.find(({ id }) => id === state.presetId);
+  $("presetState").textContent = preset?.label ?? "Custom patch";
   const technique = TECHNIQUES.find(({ id }) => id === state.techniqueId);
   $("variationState").textContent = technique?.label ?? "Hand-drawn sequence";
 }
 
-function applyTheme(theme) {
-  state.themeId = theme.id;
-  state.techniqueId = theme.technique;
-  state.params = sanitizeWebGpuSynthParams(theme.params);
-  state.sequence = createWebGpuSynthSequence(theme.technique, {
+function applyPreset(presetDefinition) {
+  state.presetId = presetDefinition.id;
+  state.techniqueId = presetDefinition.technique;
+  state.params = sanitizeWebGpuSynthParams(presetDefinition.params);
+  state.sequence = createWebGpuSynthSequence(presetDefinition.technique, {
     steps: state.params.steps,
     seed: state.params.seed,
-    variation: theme.variation,
+    variation: presetDefinition.variation,
   });
   engine?.updateParams(state.params);
   engine?.updateSequence(state.sequence);
   syncReadouts();
   syncPressedStates();
-  announce(`${theme.label} shader theme loaded.`);
+  announce(`${presetDefinition.label} shader preset loaded.`);
 }
 
 function applyTechnique(technique) {
@@ -484,7 +475,7 @@ function changeOrganRank(rankIndex, field, rawValue) {
   const next = state.organRanks.map((rank) => ({ ...rank }));
   next[rankIndex][field] = Number(rawValue);
   state.organRanks = sanitizeWebGpuSynthOrganRanks(next);
-  state.themeId = "custom";
+  state.presetId = "custom";
   engine?.updateOrganRanks(state.organRanks);
   syncOrganRankInputs();
   syncPressedStates();
@@ -522,7 +513,7 @@ function renderOrganRankControls() {
   reset.textContent = "Reset rank table";
   reset.addEventListener("click", () => {
     state.organRanks = sanitizeWebGpuSynthOrganRanks(WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS);
-    state.themeId = "custom";
+    state.presetId = "custom";
     engine?.updateOrganRanks(state.organRanks);
     syncOrganRankInputs();
     syncPressedStates();
@@ -589,12 +580,12 @@ function renderControls() {
     });
     return button;
   }));
-  $("themeButtons").replaceChildren(...THEMES.map((theme) => {
+  $("presetButtons").replaceChildren(...PRESETS.map((presetDefinition) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.dataset.theme = theme.id;
-    button.textContent = theme.label;
-    button.addEventListener("click", () => applyTheme(theme));
+    button.dataset.preset = presetDefinition.id;
+    button.textContent = presetDefinition.label;
+    button.addEventListener("click", () => applyPreset(presetDefinition));
     return button;
   }));
   $("techniqueButtons").replaceChildren(...TECHNIQUES.map((technique) => {
@@ -627,7 +618,7 @@ function setSupportState() {
     $("streamState").textContent = "navigator.gpu missing";
   } else {
     $("gpuState").textContent = "WebGPU ready";
-    $("streamState").textContent = "WGSL owns the signal path";
+    $("streamState").textContent = "Ready for GPU buffer rendering";
   }
   $("audioButton").disabled = !support.supported || Boolean(audioStartPromise);
   $("synthPlayButton").disabled = !support.supported || Boolean(audioStartPromise);
@@ -973,7 +964,7 @@ $("resetPatch").addEventListener("click", () => {
   state.organRanks = sanitizeWebGpuSynthOrganRanks(WEBGPU_SYNTHS_DEFAULT_ORGAN_RANKS);
   engine?.updateOrganRanks(state.organRanks);
   syncOrganRankInputs();
-  applyTheme(THEMES[0]);
+  applyPreset(PRESETS[0]);
 });
 $("rotateLeft").addEventListener("click", () => rotateSequence(-1));
 $("rotateRight").addEventListener("click", () => rotateSequence(1));

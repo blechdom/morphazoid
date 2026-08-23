@@ -139,7 +139,7 @@ test("the WGSL shader owns sequencing and the complete synthesis signal path", (
   assert.match(WEBGPU_SYNTHS_SHADER, /fn processFx/);
 });
 
-test("the new page exposes themes, variations, direct lane drawing, and no Web Audio synthesis nodes", async () => {
+test("the page exposes 32 ordered presets, variations, direct lane drawing, and no Web Audio synthesis nodes", async () => {
   const [html, css, app, engine, nav, catalogue, build] = await Promise.all([
     readFile(new URL("webgpu-synths.html", root), "utf8"),
     readFile(new URL("webgpu-synths.css", root), "utf8"),
@@ -152,7 +152,8 @@ test("the new page exposes themes, variations, direct lane drawing, and no Web A
   assert.match(html, /<h1 id="webgpuSynthsTitle">GPU Shader Synths<\/h1>/);
   assert.match(html, /ALL MUSICAL LOGIC IN WGSL/);
   assert.match(html, /id="sequenceStage"/);
-  assert.match(html, /id="themeButtons"/);
+  assert.match(html, /<h2 class="group-title">Presets<\/h2>/);
+  assert.match(html, /id="presetButtons"/);
   assert.match(html, /id="techniqueButtons"/);
   assert.match(html, /Web Audio is buffer playback only/);
   assert.match(html, /six synthesis models · two GPU passes/);
@@ -162,8 +163,12 @@ test("the new page exposes themes, variations, direct lane drawing, and no Web A
   assert.match(html, /id="effectsControls"/);
   assert.match(html, /one GPU submission with two compute passes/);
   assert.match(html, /upload only when edited/);
+  assert.ok(html.indexOf('data-section="presets"') < html.indexOf('data-section="time"'));
+  assert.ok(html.indexOf('data-section="time"') < html.indexOf('data-section="variations"'));
+  assert.ok(html.indexOf('id="resetPatch"') < html.indexOf('class="wgsl-boundary"'));
   assert.match(css, /\.model-rail/);
   assert.match(css, /\.sequence-lane-tabs/);
+  assert.match(css, /\.preset-grid \{[\s\S]*grid-template-columns: repeat\(4/);
   assert.match(css, /\.organ-rank-row/);
   assert.match(css, /\.effect-module/);
   assert.match(css, /\.webgpu-synth-knob-bank/);
@@ -176,6 +181,11 @@ test("the new page exposes themes, variations, direct lane drawing, and no Web A
   assert.match(app, /Dust Engine/);
   assert.match(app, /Velvet Drawbars/);
   assert.match(app, /Interzone/);
+  assert.match(app, /Void Grinder/);
+  const presetBlock = app.slice(app.indexOf("const PRESETS"), app.indexOf("const CONTROL_GROUPS"));
+  assert.equal((presetBlock.match(/\bpreset\("/g) ?? []).length, 32);
+  assert.ok(presetBlock.indexOf("Velvet Drawbars") < presetBlock.indexOf("Dust Engine"));
+  assert.ok(presetBlock.indexOf("Dust Engine") < presetBlock.indexOf("Void Grinder"));
   assert.match(app, /createWebGpuSynthSequence/);
   assert.match(app, /varyWebGpuSynthSequence/);
   assert.match(app, /editSequenceLane/);
