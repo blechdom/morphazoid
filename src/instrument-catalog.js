@@ -172,6 +172,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose a harp and vowel preset, then pull and release the copper trigger or press Space to pluck.",
     ["Built-in source", "Pointer", "Computer keys"],
   ),
+  "breath-atlas": define(
+    "Breath physical-model atlas",
+    "Compares nineteen mouth and breath instruments through six physical source topologies, from quill-driven strings and bidirectional free reeds to lip valves, flutes, jaw reeds, and mouth bows.",
+    "Choose an instrument by evidence tier, turn on audio, then hold inhale or exhale; for hand-driven strings, pluck, rub, or bow against a linked breath rhythm.",
+    ["Built-in source", "Pointer", "Computer keys"],
+  ),
   morphynx: define(
     "Hybrid physical voice",
     "Crossfades persistent Syrinx and larynx models while multiple physical voices, tongue constrictions, nasal resonances, microphone formants, and letter-key mutations reshape the tract.",

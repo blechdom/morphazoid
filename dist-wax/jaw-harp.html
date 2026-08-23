@@ -26,6 +26,7 @@
         <a class="tab" href="syrinx.html">syrinx</a>
         <a class="tab" href="syrinx-ui.html">syrinx ui</a>
         <a class="tab active" href="jaw-harp.html" aria-current="page">jaw harp</a>
+        <a class="tab" href="breath-atlas.html">breath atlas</a>
         <a class="tab" href="karplus-strong.html">karplus strong</a>
       </nav>
 
@@ -36,6 +37,7 @@
           <option value="syrinx.html">syrinx</option>
           <option value="syrinx-ui.html">syrinx ui</option>
           <option value="jaw-harp.html" selected>jaw harp</option>
+          <option value="breath-atlas.html">breath atlas</option>
           <option value="karplus-strong.html">karplus strong</option>
         </select>
       </label>
@@ -179,7 +181,7 @@
               <span><b>Breath rhythm</b><output id="breathRateBpmOut" for="breathRateBpm">42 cycles/min</output></span>
               <input id="breathRateBpm" type="range" min="12" max="120" step="1" value="42" />
               <small>
-                One cycle contains a complete inhalation and exhalation, independent of pluck repeat.
+                One cycle contains a complete inhalation and exhalation. Link it to the hand loop below or let it run independently.
               </small>
             </label>
             <label class="control" for="breathBalance">
@@ -238,6 +240,11 @@
               <input id="cavityCoupling" type="range" min="0" max="1" step="0.01" value="0.82" />
               <small>Balances direct lamella radiation against the three moving oral modes.</small>
             </label>
+            <label class="control" for="dryResonance">
+              <span><b>Unbreathed resonance</b><output id="dryResonanceOut" for="dryResonance">6%</output></span>
+              <input id="dryResonance" type="range" min="0" max="0.35" step="0.01" value="0.06" />
+              <small>At minimum, an unbreathed pluck is only a soft mechanical tick; signed breath opens the mouth resonance.</small>
+            </label>
             <label class="control" for="frameCoupling">
               <span><b>Frame / teeth coupling</b><output id="frameCouplingOut" for="frameCoupling">36%</output></span>
               <input id="frameCoupling" type="range" min="0" max="1" step="0.01" value="0.36" />
@@ -261,19 +268,34 @@
               <button id="pluckOutward" type="button" aria-pressed="true">Outward</button>
               <button id="pluckInward" type="button" aria-pressed="false">Inward</button>
             </div>
+            <label class="jaw-select-control" for="rhythmSelect">
+              <span><b>Gesture loop</b><small>Rests and unequal force accents replace the plain metronome.</small></span>
+              <select id="rhythmSelect"></select>
+            </label>
             <label class="control" for="repeatRateBpm">
-              <span><b>Repeat rate</b><output id="repeatRateBpmOut" for="repeatRateBpm">148 BPM</output></span>
+              <span><b>Rhythm tempo</b><output id="repeatRateBpmOut" for="repeatRateBpm">148 BPM</output></span>
               <input id="repeatRateBpm" type="range" min="36" max="480" step="1" value="148" />
-              <small>Schedules a new physical displacement at each pulse while Repeat is on.</small>
+              <small>Sets the eighth-note grid. Only active pattern steps displace the reed.</small>
             </label>
             <label class="control" for="repeatSwing">
               <span><b>Alternating swing</b><output id="repeatSwingOut" for="repeatSwing">8%</output></span>
               <input id="repeatSwing" type="range" min="-0.42" max="0.42" step="0.01" value="0.08" />
               <small>Lengthens one pluck interval and shortens the next by the same amount.</small>
             </label>
-            <div class="jaw-pulse-map" aria-hidden="true">
-              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-            </div>
+            <label class="jaw-select-control" for="breathsPerLoop">
+              <span><b>Breath against pluck loop</b><small>The breath can move slower than, with, or faster than the hand.</small></span>
+              <select id="breathsPerLoop">
+                <option value="0.5">1 breath / 2 loops</option>
+                <option value="1" selected>1 breath / loop</option>
+                <option value="2">2 breaths / loop</option>
+                <option value="3">3 breaths / loop</option>
+              </select>
+            </label>
+            <button class="jaw-breath-link" id="breathLinkButton" type="button" aria-pressed="true">
+              <span aria-hidden="true">⛓</span>
+              <span><b>Lock breath to plucking</b><small id="breathLinkState">linked · pressure resets on the first step</small></span>
+            </button>
+            <div class="jaw-pulse-map" id="pulseMap" aria-hidden="true"></div>
           </div>
         </details>
 

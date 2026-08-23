@@ -172,6 +172,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose a harp and vowel preset, then pull and release the copper trigger or press Space to pluck.",
     ["Built-in source", "Pointer", "Computer keys"],
   ),
+  "breath-atlas": define(
+    "Breath physical-model atlas",
+    "Compares nineteen mouth and breath instruments through six physical source topologies, from quill-driven strings and bidirectional free reeds to lip valves, flutes, jaw reeds, and mouth bows.",
+    "Choose an instrument by evidence tier, turn on audio, then hold inhale or exhale; for hand-driven strings, pluck, rub, or bow against a linked breath rhythm.",
+    ["Built-in source", "Pointer", "Computer keys"],
+  ),
   morphynx: define(
     "Hybrid physical voice",
     "Crossfades persistent Syrinx and larynx models while multiple physical voices, tongue constrictions, nasal resonances, microphone formants, and letter-key mutations reshape the tract.",
@@ -217,7 +223,7 @@ const CATALOG_DETAILS = Object.freeze({
   ouroborousel: define(
     "Rhythm-pitch synth",
     "Builds an endless roll from higher-note chunks, Ouroboros drum bodies, or both, carrying octave-related pulses through the rhythm–pitch fusion threshold.",
-    "Choose Notes, Ouroboros Drums, or Notes + Drums, start the carousel, then shape its direction, chunk length, roll rate, and fusion point.",
+    "Choose Notes, Ouroboros Drums, or Notes + Drums, start the carousel, and shape its shared direction, roll rate, and bank width; Notes and Combo add chunk and fusion controls.",
     ["Built-in synth", "Pointer"],
   ),
   ouroboros: define(

@@ -56,6 +56,12 @@ done < <(git -C "$repo_root" ls-files -z)
 # Allow new public pages to enter local release artifacts before their first
 # commit; after tracking, these copies simply refresh the same paths.
 for worktree_runtime_file in \
+  breath-atlas.html \
+  breath-atlas.css \
+  breath-atlas-app.js \
+  src/breath-atlas.js \
+  src/breath-atlas-processor.js \
+  assets/instruments/breath-atlas.webp \
   shape.html \
   playhead-paint.html \
   playhead-paint.css \

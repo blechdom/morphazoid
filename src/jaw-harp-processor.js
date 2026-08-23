@@ -156,7 +156,10 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
 
   _approachConfiguration() {
     const smooth = 0.16;
-    const discrete = new Set(["presetId", "vowelId", "repeat", "autoBreath", "pluckDirection", "breathFlow"]);
+    const discrete = new Set([
+      "presetId", "vowelId", "repeat", "autoBreath", "breathLinked", "rhythmId",
+      "pluckDirection", "breathFlow",
+    ]);
     for (const [key, target] of Object.entries(this.targetConfiguration)) {
       if (discrete.has(key) || typeof target !== "number") {
         this.configuration[key] = target;
@@ -255,7 +258,11 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
     this.breathNoiseState += (rawBreathNoise - this.breathNoiseState) * breathColor;
     const breathNoise = (this.breathNoiseState * 0.74 + rawBreathNoise * 0.26)
       * flowMagnitude * (exhaling ? 0.055 : 0.036) * (0.35 + this.airGate * 0.65);
-    return pressureLoadedAc * (0.72 + flowMagnitude * 0.14) + clickNoise * 0.1 + breathNoise;
+    const breathLoad = state.dryResonance + flowMagnitude * (1 - state.dryResonance);
+    const mechanicalAudibility = 0.1 + breathLoad * 0.9;
+    return pressureLoadedAc * mechanicalAudibility * (0.72 + flowMagnitude * 0.14)
+      + clickNoise * (0.018 + breathLoad * 0.045)
+      + breathNoise;
   }
 
   _radiate(source, side) {
@@ -268,14 +275,18 @@ class JawHarpPhysicalProcessor extends AudioWorkletProcessor {
       cavity += filters[index].process(source) * weights[index];
     }
     const coupling = state.cavityCoupling;
+    const breathLoad = state.dryResonance + Math.abs(flow) * (1 - state.dryResonance);
     const openGlottisLoss = 1 - state.glottisOpening * 0.18;
     const directionalDirect = flow < -0.015 ? 0.14 : flow > 0.015 ? 0.27 : 0.2;
     const directionalCavity = flow < -0.015 ? 2.72 : flow > 0.015 ? 2.34 : 2.45;
-    const mouth = (source * (directionalDirect + (1 - coupling) * 0.34) + cavity * coupling * directionalCavity)
+    const mouth = (
+      source * (0.06 + directionalDirect * breathLoad + (1 - coupling) * 0.2)
+      + cavity * coupling * directionalCavity * breathLoad
+    )
       * openGlottisLoss;
     const frameFilter = side < 0 ? this.frameFilterLeft : this.frameFilterRight;
     const frame = frameFilter.process(source) * (0.5 + state.reedStiffness * 0.7);
-    return mouth + frame * state.frameCoupling * 0.72;
+    return mouth + frame * state.frameCoupling * (0.12 + breathLoad * 0.6);
   }
 
   process(_inputs, outputs) {
