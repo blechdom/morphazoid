@@ -881,7 +881,7 @@ function paintAudioReadout() {
   $("stageReadout").textContent = state.audioOn
     ? `WEBGPU · ${Math.round(engine?.sampleRate ?? 44100)} HZ · ${state.synthPlaying ? "SEQUENCE PLAYING" : "SEQUENCE PAUSED"}`
     : "WEBGPU · STANDBY · AUDIO OFF";
-  $("sequenceStage").setAttribute("aria-label", `Editable four-lane GPU sequence. Click to add, drag vertically to change height, and double-click Pitch or Pulse to remove a note. Audio ${state.audioOn ? "on" : "off"}.`);
+  $("sequenceStage").setAttribute("aria-label", `Expandable GPU sequence and modulation editor. Audio ${state.audioOn ? "on" : "off"}.`);
 }
 
 function setAudioState(enabled) {

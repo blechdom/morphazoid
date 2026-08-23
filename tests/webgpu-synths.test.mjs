@@ -206,7 +206,8 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(html, /id="laneTargetSelect"/);
   assert.match(html, /id="addModelLayer"[^>]*>\+ Add synthesis layer/);
   assert.match(html, /One layer is fully isolated\. Add up to six/);
-  assert.match(html, /id="sequenceEditHint">Choose or click a lane to edit · drag vertically to change height · double-click Pitch or Pulse to remove a note/);
+  assert.doesNotMatch(`${html}\n${app}`, /sequenceEditHint|Click a lane to add or edit|double-click Pitch or Pulse/);
+  assert.doesNotMatch(`${html}\n${app}`, /Pitch · scale degree|Pulse · gate \+ energy|Timbre · model color|Morph · model \+ motion/);
   assert.match(html, /<h2 class="group-title">Presets<\/h2>/);
   assert.match(html, /id="presetButtons"/);
   assert.match(html, /id="techniqueButtons"/);
@@ -224,7 +225,7 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.doesNotMatch(css, /\.model-rail/);
   assert.match(css, /\.sequence-router/);
   assert.match(css, /\.model-layer-row/);
-  assert.match(css, /\.sequence-edit-hint/);
+  assert.doesNotMatch(css, /\.sequence-edit-hint/);
   assert.match(css, /\.preset-grid \{[\s\S]*grid-template-columns: repeat\(4/);
   assert.match(css, /\.organ-rank-row/);
   assert.match(css, /\.effect-module/);

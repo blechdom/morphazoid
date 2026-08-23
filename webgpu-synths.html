@@ -58,7 +58,7 @@
             id="sequenceStage"
             role="img"
             aria-label="Expandable GPU sequence and modulation editor. Audio off."
-            aria-describedby="sequenceEditHint webgpuSynthsDescription liveStatus"
+            aria-describedby="webgpuSynthsDescription liveStatus"
           >
             GPU sequence lanes and synthesis-model display.
           </canvas>
@@ -85,7 +85,6 @@
             <button class="mini-action" id="removeLane" type="button">Remove lane</button>
             <span class="sequence-lane-state" id="laneState">4 of 8 lanes</span>
           </div>
-          <p class="sequence-edit-hint" id="sequenceEditHint">Choose or click a lane to edit · drag vertically to change height · double-click Pitch or Pulse to remove a note</p>
           <div class="sequence-actions" aria-label="Sequence transformations">
             <button class="mini-action" id="rotateLeft" type="button">Rotate −1</button>
             <button class="mini-action" id="rotateRight" type="button">Rotate +1</button>
@@ -236,6 +235,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="webgpu-synths-app.js?v=20260823-layer-matrix"></script>
+    <script type="module" src="webgpu-synths-app.js?v=20260823-clean-deck"></script>
   </body>
 </html>
