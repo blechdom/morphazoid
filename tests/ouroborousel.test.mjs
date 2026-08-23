@@ -11,6 +11,11 @@ import {
   advanceOuroborouselPosition,
   calculateOuroborouselLayers,
   ouroborouselChunkEnvelope,
+  ouroborouselDrumFusionFocus,
+  ouroborouselDrumFusionGate,
+  ouroborouselDrumFusionHarmonic,
+  ouroborouselDrumFusionToneBlend,
+  ouroborouselDrumFusionWindow,
   ouroborouselFrequencySafety,
   ouroborouselFusionBlend,
   ouroborouselFusionSpotlight,
@@ -38,6 +43,20 @@ function percentile(values, proportion) {
     Math.min(sorted.length - 1, Math.floor(proportion * (sorted.length - 1))),
   );
   return sorted[index];
+}
+
+function spectralMagnitude(values, frequency, sampleRate = 48_000) {
+  let real = 0;
+  let imaginary = 0;
+  for (let index = 0; index < values.length; index += 1) {
+    const window = 0.5 - 0.5 * Math.cos(
+      Math.PI * 2 * index / Math.max(1, values.length - 1),
+    );
+    const angle = Math.PI * 2 * frequency * index / sampleRate;
+    real += values[index] * window * Math.cos(angle);
+    imaginary -= values[index] * window * Math.sin(angle);
+  }
+  return Math.hypot(real, imaginary) / Math.max(1, values.length);
 }
 
 test("Ouroborousel parameters are finite, bounded, integral where required, and frozen", () => {
@@ -220,6 +239,13 @@ test("defaults match the page contract and whimsical presets are complete", () =
     for (const key of Object.keys(OUROBOROUSEL_DEFAULTS)) {
       assert.equal(safe[key], preset[key], `${preset.id}.${key}`);
     }
+    if (preset.materialMode === "drums") {
+      const fusionOffset = Math.log2(preset.fusionPoint / preset.centerRate);
+      assert.ok(
+        ouroborouselWindow(fusionOffset, preset.bankWidth) > 0.1,
+        `${preset.id} hides its drum-fusion point outside the audible bank`,
+      );
+    }
   }
 });
 
@@ -267,8 +293,9 @@ test("the page wires its recursive rail, transport, controls, and reset accessib
     /document\.querySelector\("\[data-reset-all\]"\)\.addEventListener\("click"/,
   );
   assert.match(app, /calculateOuroborouselLayers/);
-  assert.match(app, /const DRUM_OVERLAP_POINT = 18/);
-  assert.match(app, /ouroborouselFusionBlend\([\s\S]*?DRUM_OVERLAP_POINT/);
+  assert.doesNotMatch(app, /DRUM_OVERLAP_POINT|DRUM_OVERLAP_WIDTH/);
+  assert.match(app, /function layerFusionAmount\(layer, materialMode = "notes"\)/);
+  assert.match(app, /const drum = clamp\(layer\?\.drumToneGain/);
   assert.match(app, /new OuroborouselAudio/);
   assert.match(app, /const struck = audio\.strike\(velocity\);/);
   assert.doesNotMatch(app, /audio\.strike\(velocity, normalized\)/);
@@ -282,9 +309,24 @@ test("the page wires its recursive rail, transport, controls, and reset accessib
   assert.match(app, /function layerMaterialWeight\(layer, materialMode = "notes"\)/);
   assert.match(app, /Number\(layer\?\.drumWeight\)/);
   assert.match(app, /\$\(id\)\.disabled = drumsOnly/);
+  const drumDisabledControls = app.match(
+    /for \(const id of \[[\s\S]*?\]\) \{\s*\$\(id\)\.disabled = drumsOnly;/,
+  )?.[0] ?? "";
+  assert.match(drumDisabledControls, /"noteLift"[\s\S]*?"chunkDuty"[\s\S]*?"brightness"/);
+  assert.doesNotMatch(
+    drumDisabledControls,
+    /fusionPoint|fusionWidth|fusionEmphasis/,
+  );
   assert.match(app, /materialMode === "drums"[\s\S]*?return drumWeight/);
   assert.match(app, /materialMode === "combo"[\s\S]*?Math\.max\(noteWeight, drumWeight\)/);
-  assert.match(app, /Ouroboros bodies are live\. Note-only settings stay parked/);
+  assert.match(app, /Ouroboros strikes become a phase-locked drum-colored pitch/);
+  for (const id of ["fusionPoint", "fusionWidth", "fusionEmphasis"]) {
+    assert.doesNotMatch(
+      markup,
+      new RegExp(`for="${id}"[^>]*data-note-material-control`),
+      `${id} must stay available for drum fusion`,
+    );
+  }
   assert.match(app, /const RAIL_END_POSITION = 1 - Number\.EPSILON/);
   assert.match(
     app,
@@ -394,6 +436,82 @@ test("cosine bank, carrier safety, Hann chunks, and fusion bridge are continuous
   assert.equal(ouroborouselChunkEnvelope(1, 0.72), 0);
 });
 
+test("drum fusion establishes pitch on time while the bridge retains its pulse tail", () => {
+  const point = 18;
+  assert.equal(ouroborouselDrumFusionToneBlend(point / Math.SQRT2, point), 0);
+  assert.ok(Math.abs(
+    ouroborouselDrumFusionToneBlend(point, point) - 0.5,
+  ) < 1e-12);
+  assert.equal(ouroborouselDrumFusionToneBlend(point * Math.SQRT2, point), 1);
+
+  assert.equal(ouroborouselDrumFusionFocus(point / 2, point), 0);
+  assert.equal(ouroborouselDrumFusionFocus(point, point), 1);
+  assert.equal(ouroborouselDrumFusionFocus(point * 2, point), 0);
+  assert.equal(ouroborouselDrumFusionWindow(0, 1, 1), 0);
+  assert.equal(ouroborouselDrumFusionWindow(0.12, 1, 0), 0.5);
+  assert.equal(ouroborouselDrumFusionWindow(0.12, 1, 1), 1);
+
+  assert.equal(ouroborouselDrumFusionHarmonic(4), 28);
+  for (const centerRate of [0.5, 4, 12, 24]) {
+    for (const modalRatio of [1, 1.56, 2.29, 3.91]) {
+      const harmonic = ouroborouselDrumFusionHarmonic(centerRate, modalRatio);
+      assert.ok(Number.isInteger(harmonic) && harmonic > 0);
+      assert.ok(Math.abs(Math.sin(Math.PI * 2 * harmonic)) < 1e-11);
+    }
+  }
+
+  assert.equal(ouroborouselDrumFusionGate(0.9, 0), 0);
+  assert.equal(ouroborouselDrumFusionGate(0.36, 0), 1);
+  assert.equal(ouroborouselDrumFusionGate(0.9, 1), 1);
+  const extendedTailShare = ouroborouselFusionToneGain(
+    ouroborouselFusionBlend(20, point, 6),
+    1,
+  );
+  assert.ok(
+    ouroborouselDrumFusionGate(0.9, extendedTailShare) > 0.13,
+    "the extended 20 Hz carrier needs a stable pitch floor between pulses",
+  );
+
+  const position = Math.log2(20 / 4) % 1;
+  const ordinary = calculateOuroborouselLayers({
+    materialMode: "drums",
+    position,
+    centerRate: 4,
+    bankWidth: 6,
+    fusionPoint: point,
+    fusionWidth: 6,
+    fusionEmphasis: 0,
+  });
+  const emphasized = calculateOuroborouselLayers({
+    materialMode: "drums",
+    position,
+    centerRate: 4,
+    bankWidth: 6,
+    fusionPoint: point,
+    fusionWidth: 6,
+    fusionEmphasis: 1,
+  });
+  const crossingIndex = ordinary.layers.findIndex((layer) => (
+    Math.abs(layer.hitRate - 20) < 1e-10
+  ));
+  assert.ok(crossingIndex >= 0);
+  const crossing = ordinary.layers[crossingIndex];
+  const emphasizedCrossing = emphasized.layers[crossingIndex];
+  assert.ok(Math.abs(crossing.drumHitGain + crossing.drumToneGain - 1) < 1e-12);
+  assert.equal(crossing.drumFusionHarmonic, 28);
+  assert.ok(Math.abs(crossing.drumFusionHz - 560) < 1e-10);
+  assert.ok(crossing.drumToneBankGain > crossing.drumHitBankGain * 8);
+  assert.ok(
+    emphasizedCrossing.drumToneBankGain > crossing.drumToneBankGain * 1.7,
+    "fusion emphasis must pull the otherwise quiet crossing lane forward",
+  );
+  for (const frame of [ordinary, emphasized]) {
+    assert.ok(Math.abs(
+      frame.layers.reduce((sum, layer) => sum + layer.drumGain ** 2, 0) - 1,
+    ) < 1e-12);
+  }
+});
+
 test("fusion pulse emphasis deepens and spotlights the crossing without changing endpoints", () => {
   for (let step = 0; step <= 100; step += 1) {
     const blend = step / 100;
@@ -448,11 +566,22 @@ test("fusion pulse emphasis deepens and spotlights the crossing without changing
   assert.ok(Math.abs(
     emphasized.layers.reduce((sum, layer) => sum + layer.gain ** 2, 0) - 1,
   ) < 1e-12, "the spotlight must preserve normalized note-bank power");
+  assert.ok(
+    emphasized.layers[crossingIndex].drumToneWeight
+      > ordinary.layers[crossingIndex].drumToneWeight,
+    "shared emphasis must spotlight the drum-to-pitch crossing too",
+  );
+  for (const frame of [ordinary, emphasized]) {
+    assert.ok(Math.abs(
+      frame.drumNormalization ** 2 * frame.drumWeightPower - 1,
+    ) < 1e-12, "drum fusion must preserve normalized bank power");
+  }
   for (let index = 0; index < ordinary.layers.length; index += 1) {
+    if (ordinary.layers[index].drumToneGain > 0) continue;
     assert.equal(
-      emphasized.layers[index].drumWeight,
-      ordinary.layers[index].drumWeight,
-      "note emphasis must not alter drum weighting",
+      emphasized.layers[index].drumHitWeight,
+      ordinary.layers[index].drumHitWeight,
+      "emphasis must leave pre-fusion drum hits unchanged",
     );
   }
 });
@@ -664,6 +793,16 @@ test("worklet process has typed phase state and no render-loop allocations", asy
   assert.match(source, /drumNoiseSeeds = new Uint32Array\(LAYER_COUNT\)/);
   assert.match(source, /drumModalRe = new Float64Array\(LAYER_COUNT \* MODE_COUNT\)/);
   assert.match(source, /drumModalIm = new Float64Array\(LAYER_COUNT \* MODE_COUNT\)/);
+  assert.match(
+    source,
+    /drumFusionHarmonics = new Uint16Array\(LAYER_COUNT \* MODE_COUNT\)/,
+  );
+  assert.match(
+    source,
+    /drumFusionHarmonicTargets = new Uint16Array\([\s\S]*?LAYER_COUNT \* MODE_COUNT/,
+  );
+  assert.match(source, /TAU \* pulsePhase \* harmonic/);
+  assert.match(source, /drumFusionCarrierSample \* drumFusionGate \* drumToneWeight/);
   assert.match(source, /copyDrumLayerVoice\(processor, index,/);
   assert.match(source, /clearDrumLayerVoice\(processor,/);
   assert.doesNotMatch(source, /MAX_HIT_RATE|MAX_FULL_HIT_RATE/);
@@ -849,6 +988,140 @@ test("worklet renders bounded stereo chunks and tones through its octave seam", 
     emphasisChange.process([], [[new Float32Array(128), new Float32Array(128)]]);
     assert.ok(emphasisChange.current.fusionEmphasis > 0);
     assert.ok(emphasisChange.current.fusionEmphasis < 0.9);
+
+    const slowDrumVariants = [
+      new Processor({
+        processorOptions: {
+          ...OUROBOROUSEL_DEFAULTS,
+          materialMode: "drums",
+          centerRate: 0.5,
+          bankWidth: 3,
+          fusionWidth: 0.25,
+          fusionEmphasis: 0,
+        },
+      }),
+      new Processor({
+        processorOptions: {
+          ...OUROBOROUSEL_DEFAULTS,
+          materialMode: "drums",
+          centerRate: 0.5,
+          bankWidth: 3,
+          fusionWidth: 6,
+          fusionEmphasis: 1,
+        },
+      }),
+    ];
+    for (const candidate of slowDrumVariants) {
+      candidate.port.onmessage({ data: { type: "audible", value: true } });
+      candidate.port.onmessage({ data: { type: "transport", value: true } });
+    }
+    for (let block = 0; block < 180; block += 1) {
+      const narrowLeft = new Float32Array(128);
+      const narrowRight = new Float32Array(128);
+      const extendedLeft = new Float32Array(128);
+      const extendedRight = new Float32Array(128);
+      slowDrumVariants[0].process([], [[narrowLeft, narrowRight]]);
+      slowDrumVariants[1].process([], [[extendedLeft, extendedRight]]);
+      assert.deepEqual(
+        extendedLeft,
+        narrowLeft,
+        "fusion settings changed drums whose entire bank is below pitch onset",
+      );
+      assert.deepEqual(extendedRight, narrowRight);
+    }
+
+    const crossingPosition = Math.log2(20 / 4) % 1;
+    const crossingDrumVariants = [
+      new Processor({
+        processorOptions: {
+          ...OUROBOROUSEL_DEFAULTS,
+          materialMode: "drums",
+          centerRate: 4,
+          bankWidth: 6,
+          fusionPoint: 18,
+          fusionWidth: 1,
+          fusionEmphasis: 0,
+        },
+      }),
+      new Processor({
+        processorOptions: {
+          ...OUROBOROUSEL_DEFAULTS,
+          materialMode: "drums",
+          centerRate: 4,
+          bankWidth: 6,
+          fusionPoint: 18,
+          fusionWidth: 6,
+          fusionEmphasis: 1,
+        },
+      }),
+    ];
+    for (const candidate of crossingDrumVariants) {
+      candidate.port.onmessage({
+        data: { type: "position", value: crossingPosition },
+      });
+      candidate.current.glissRate = 0;
+      candidate.target.glissRate = 0;
+      candidate.port.onmessage({ data: { type: "audible", value: true } });
+      candidate.port.onmessage({ data: { type: "transport", value: true } });
+    }
+    let crossingDifferenceEnergy = 0;
+    const emphasizedTail = [];
+    for (let block = 0; block < 260; block += 1) {
+      const ordinaryLeft = new Float32Array(128);
+      const ordinaryRight = new Float32Array(128);
+      const emphasizedLeft = new Float32Array(128);
+      const emphasizedRight = new Float32Array(128);
+      crossingDrumVariants[0].process([], [[ordinaryLeft, ordinaryRight]]);
+      crossingDrumVariants[1].process([], [[emphasizedLeft, emphasizedRight]]);
+      if (block >= 196) emphasizedTail.push(...emphasizedLeft);
+      if (block < 30) continue;
+      for (let index = 0; index < ordinaryLeft.length; index += 1) {
+        crossingDifferenceEnergy += (
+          emphasizedLeft[index] - ordinaryLeft[index]
+        ) ** 2;
+      }
+    }
+    assert.ok(
+      crossingDifferenceEnergy > 1,
+      "drum bridge and emphasis controls did not audibly reshape the crossing",
+    );
+    const crossingLine = spectralMagnitude(emphasizedTail, 560);
+    const nearbyOffLine = spectralMagnitude(emphasizedTail, 600);
+    assert.ok(crossingLine > 0.0025, "the fused 20 Hz drum lacks its 560 Hz pitch");
+    assert.ok(
+      crossingLine > nearbyOffLine * 5,
+      "the fused drum carrier is not spectrally stable",
+    );
+
+    const harmonicLatch = new Processor({
+      processorOptions: {
+        ...OUROBOROUSEL_DEFAULTS,
+        materialMode: "drums",
+        centerRate: 4,
+      },
+    });
+    const centerMode = 10 * 4;
+    const neighboringMode = 9 * 4;
+    const originalCenterHarmonic = harmonicLatch.drumFusionHarmonics[centerMode];
+    const originalNeighborHarmonic = harmonicLatch.drumFusionHarmonics[
+      neighboringMode
+    ];
+    harmonicLatch.current.centerRate = 5;
+    harmonicLatch.pulsePhases[10] = 0.99999;
+    harmonicLatch.pulsePhases[9] = 0.5;
+    harmonicLatch.port.onmessage({ data: { type: "audible", value: true } });
+    harmonicLatch.port.onmessage({ data: { type: "transport", value: true } });
+    harmonicLatch.process([], [[new Float32Array(2), new Float32Array(2)]]);
+    assert.notEqual(
+      harmonicLatch.drumFusionHarmonics[centerMode],
+      originalCenterHarmonic,
+      "a wrapped drum lane did not latch its new integer harmonic",
+    );
+    assert.equal(
+      harmonicLatch.drumFusionHarmonics[neighboringMode],
+      originalNeighborHarmonic,
+      "an unwrapped drum lane changed harmonic at an arbitrary phase",
+    );
 
     const drumLayerStateNames = [
       "drumSlowEnvelopes",

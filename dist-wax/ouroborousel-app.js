@@ -4,7 +4,6 @@ import {
   OUROBOROUSEL_PRESETS,
   OuroborouselAudio,
   calculateOuroborouselLayers,
-  ouroborouselFusionBlend,
   sanitizeOuroborouselParams,
 } from "./src/ouroborousel.js";
 
@@ -30,8 +29,6 @@ const RAIL_END_POSITION = 1 - Number.EPSILON;
 const RED = [233, 64, 87];
 const CREAM = [255, 240, 232];
 const PINK = [255, 127, 168];
-const DRUM_OVERLAP_POINT = 18;
-const DRUM_OVERLAP_WIDTH = 1;
 
 function clamp(value, minimum, maximum, fallback = minimum) {
   const numeric = Number(value);
@@ -219,26 +216,41 @@ function fusionLabel(blend, materialMode = "notes") {
   return "crossing";
 }
 
+function layerFusionAmount(layer, materialMode = "notes") {
+  const note = clamp(layer?.toneGain ?? layer?.fusionBlend, 0, 1, 0);
+  const drum = clamp(layer?.drumToneGain, 0, 1, 0);
+  if (materialMode === "drums") return drum;
+  if (materialMode === "combo") return Math.max(note, drum);
+  return note;
+}
+
 function materialSourceCopy(layer, safe) {
   const hitRate = Math.max(0.0001, Number(layer?.hitRate ?? layer?.rate) || safe.centerRate);
   const noteHz = Math.max(
     0,
     Number(layer?.sourceHz ?? layer?.fundamentalHz) || hitRate * 2 ** safe.noteLift,
   );
-  const drumHz = Math.max(
+  const drumBodyHz = Math.max(
     0,
     Number(layer?.drumFundamentalHz) || 110 * 2 ** (Number(layer?.octaveOffset) || 0),
   );
+  const drumToneAmount = clamp(layer?.drumToneGain, 0, 1, 0);
+  const drumHz = drumToneAmount > 0.12
+    ? Math.max(0, Number(layer?.drumFusionHz) || drumBodyHz)
+    : drumBodyHz;
+  const drumSourceName = drumToneAmount > 0.12
+    ? "phase-locked Ouroboros drum pitch"
+    : "Ouroboros drum body";
   if (safe.materialMode === "drums") {
     return {
       compact: formatFrequency(drumHz),
-      aria: `${formatFrequency(drumHz)} Ouroboros drum body`,
+      aria: `${formatFrequency(drumHz)} ${drumSourceName}`,
     };
   }
   if (safe.materialMode === "combo") {
     return {
       compact: `${formatFrequency(noteHz)} + ${formatFrequency(drumHz)}`,
-      aria: `${formatFrequency(noteHz)} note source plus ${formatFrequency(drumHz)} Ouroboros drum body`,
+      aria: `${formatFrequency(noteHz)} note source plus ${formatFrequency(drumHz)} ${drumSourceName}`,
     };
   }
   return {
@@ -274,14 +286,7 @@ function materialCopy(mode) {
 
 function updateCanvasAccessibility(frame, safe) {
   const center = centralLayer(frame);
-  const blend = clamp(
-    safe.materialMode === "drums"
-      ? center?.fusionBlend
-      : center?.toneGain ?? center?.fusionBlend,
-    0,
-    1,
-    0,
-  );
+  const blend = layerFusionAmount(center, safe.materialMode);
   const positionPercent = Math.round(wrapUnit(state.visualPosition) * 100);
   const rate = Number(center?.hitRate) || safe.centerRate;
   const source = materialSourceCopy(center, safe);
@@ -293,9 +298,7 @@ function updateCanvasAccessibility(frame, safe) {
   );
   canvas.setAttribute(
     "aria-label",
-    safe.materialMode === "drums"
-      ? `Circular Ouroborousel rail with ${activeLayers(frame).length} active octave lanes using ${material.aria}; fast strikes overlap into tone`
-      : `Circular Ouroborousel rail with ${activeLayers(frame).length} active octave lanes using ${material.aria}; repeated events fuse into pitch near ${formatFrequency(safe.fusionPoint)}`,
+    `Circular Ouroborousel rail with ${activeLayers(frame).length} active octave lanes using ${material.aria}; repeated events fuse into pitch near ${formatFrequency(safe.fusionPoint)}`,
   );
 }
 
@@ -315,9 +318,6 @@ function updateInterface({ rebuildPresets = false } = {}) {
   for (const id of [
     "noteLift",
     "chunkDuty",
-    "fusionPoint",
-    "fusionWidth",
-    "fusionEmphasis",
     "brightness",
   ]) {
     $(id).disabled = drumsOnly;
@@ -384,7 +384,7 @@ function updateInterface({ rebuildPresets = false } = {}) {
 
   $("playSummary").textContent = `${state.playing ? "playing" : "ready"} · ${material.short} · ${rising ? "rising" : "falling"} · ${formatRate(safe.centerRate)}`;
   $("materialModeHelp").textContent = drumsOnly
-    ? "Ouroboros bodies are live. Note-only settings stay parked until Notes or Notes + drums is selected."
+    ? "Ouroboros strikes become a phase-locked drum-colored pitch. Note lift, chunk length, and brightness stay parked until Notes or Notes + drums is selected."
     : safe.materialMode === "combo"
       ? "Phase-locked note bites and Ouroboros kick-to-air bodies share every pulse."
       : "Phase-locked note bites climb through the rhythm–pitch threshold.";
@@ -398,10 +398,12 @@ function updateInterface({ rebuildPresets = false } = {}) {
   const fusionPulseSummary = safe.fusionEmphasis > 0.001
     ? ` · ${fusionEmphasisPercent}% pulse`
     : "";
-  $("fusionSectionTitle").textContent = drumsOnly ? "Drum overlap" : "Cross the threshold";
+  $("fusionSectionTitle").textContent = "Cross the threshold";
   $("fusionSummary").textContent = drumsOnly
-    ? "natural resonator overlap · note bridge parked"
-    : `${formatFrequency(safe.fusionPoint)} · ${safe.fusionWidth.toFixed(2)} oct bridge${fusionPulseSummary}`;
+    ? `${formatFrequency(safe.fusionPoint)} pitch · ${safe.fusionWidth.toFixed(2)} oct pulse tail${fusionPulseSummary}`
+    : safe.materialMode === "combo"
+      ? `${formatFrequency(safe.fusionPoint)} · ${safe.fusionWidth.toFixed(2)} oct bridge + drum tail${fusionPulseSummary}`
+      : `${formatFrequency(safe.fusionPoint)} · ${safe.fusionWidth.toFixed(2)} oct bridge${fusionPulseSummary}`;
   const tonalBrightness = drumsOnly
     ? (safe.cutoff - 800) / (18_000 - 800)
     : safe.brightness;
@@ -420,11 +422,9 @@ function updateInterface({ rebuildPresets = false } = {}) {
       ? `${Math.round(safe.chunkDuty * 100)}% bite + impact`
       : `${Math.round(safe.chunkDuty * 100)}% duty`;
   $("signalFusionLabel").textContent = drumsOnly
-    ? "Resonator overlap"
-    : safe.materialMode === "combo" ? "Fusion + overlap" : "Fusion rail";
-  $("signalFusionDetail").textContent = drumsOnly
-    ? "fast hits become tone"
-    : `${formatFrequency(safe.fusionPoint)} crossing`;
+    ? "Drum → pitch"
+    : safe.materialMode === "combo" ? "Dual fusion" : "Fusion rail";
+  $("signalFusionDetail").textContent = `${formatFrequency(safe.fusionPoint)} crossing`;
   const preset = selectedPreset();
   $("presetSummary").textContent = preset ? presetLabel(preset) : "Custom";
   if (rebuildPresets) renderPresetGrid();
@@ -940,13 +940,7 @@ function drawCandyCaneRing(ctx, layout) {
 function layerVisual(layer, safe) {
   const hitRate = Math.max(0.0001, Number(layer?.hitRate ?? layer?.rate) || safe.centerRate);
   const weight = layerMaterialWeight(layer, safe.materialMode);
-  const fusion = safe.materialMode === "drums"
-    ? ouroborouselFusionBlend(
-      hitRate,
-      DRUM_OVERLAP_POINT,
-      DRUM_OVERLAP_WIDTH,
-    )
-    : clamp(layer?.toneGain ?? layer?.fusionBlend, 0, 1, 0);
+  const fusion = layerFusionAmount(layer, safe.materialMode);
   const pulsePhase = wrapUnit(
     (Number(layer?.pulsePhase) || OUROBOROUSEL_PHASE_SEED)
       + state.visualSeconds * hitRate,
@@ -960,13 +954,14 @@ function drawChunkLane(ctx, layout, radius, layer, safe, laneIndex, laneCount) {
   const drumAmount = safe.materialMode === "drums"
     ? 1
     : safe.materialMode === "combo" ? 0.72 : 0;
+  const drumHitAmount = drumAmount * Math.cos(visual.fusion * Math.PI * 0.5);
   const noteAmount = safe.materialMode === "drums" ? 0 : 1;
   const chunkAlpha = Math.cos(visual.fusion * Math.PI * 0.5)
     * normalizedWeight
     * noteAmount;
   const toneAlpha = Math.sin(visual.fusion * Math.PI * 0.5)
     * normalizedWeight
-    * (0.34 + noteAmount * 0.66);
+    * (0.78 + noteAmount * 0.22);
   const transitionAlpha = Math.sin(visual.fusion * Math.PI) * normalizedWeight;
   const logarithmicRate = Math.max(0, Math.log2(visual.hitRate + 1));
   const eventCount = Math.round(clamp(4 + logarithmicRate * 3.2, 4, 38, 4));
@@ -1008,20 +1003,20 @@ function drawChunkLane(ctx, layout, radius, layer, safe, laneIndex, laneCount) {
     ctx.restore();
   }
 
-  if (drumAmount > 0.01) {
+  if (drumHitAmount > 0.01) {
     ctx.save();
-    ctx.shadowColor = rgba(PINK, normalizedWeight * drumAmount);
-    ctx.shadowBlur = 4 + 6 * drumAmount;
+    ctx.shadowColor = rgba(PINK, normalizedWeight * drumHitAmount);
+    ctx.shadowBlur = 4 + 6 * drumHitAmount;
     for (let strike = 0; strike < eventCount; strike += 1) {
       const angle = START_ANGLE + phaseAngle + strike * slot;
       const x = layout.centerX + Math.cos(angle) * radius;
       const y = layout.centerY + Math.sin(angle) * radius;
-      const size = Math.max(1.5, laneWidth * (0.42 + drumAmount * 0.2));
+      const size = Math.max(1.5, laneWidth * (0.42 + drumHitAmount * 0.2));
       ctx.beginPath();
       ctx.arc(x, y, size, 0, TAU);
       ctx.fillStyle = strike % 2 === laneIndex % 2
-        ? rgba(PINK, normalizedWeight * drumAmount * 0.94)
-        : rgba(CREAM, normalizedWeight * drumAmount * 0.76);
+        ? rgba(PINK, normalizedWeight * drumHitAmount * 0.94)
+        : rgba(CREAM, normalizedWeight * drumHitAmount * 0.76);
       ctx.fill();
     }
     ctx.restore();
@@ -1058,9 +1053,7 @@ function drawChunkLane(ctx, layout, radius, layer, safe, laneIndex, laneCount) {
 
 function drawFusionBand(ctx, layout, layers, safe, radii) {
   if (!layers.length) return;
-  const overlapPoint = safe.materialMode === "drums"
-    ? DRUM_OVERLAP_POINT
-    : safe.fusionPoint;
+  const overlapPoint = safe.fusionPoint;
   let closestIndex = 0;
   let closestDistance = Infinity;
   for (let index = 0; index < layers.length; index += 1) {
@@ -1072,9 +1065,7 @@ function drawFusionBand(ctx, layout, layers, safe, radii) {
     }
   }
   const radius = radii[closestIndex];
-  const emphasis = safe.materialMode === "drums"
-    ? 0
-    : clamp(safe.fusionEmphasis, 0, 1, 0);
+  const emphasis = clamp(safe.fusionEmphasis, 0, 1, 0);
   ctx.save();
   ctx.shadowColor = rgba(PINK, 0.78);
   ctx.shadowBlur = 18 + emphasis * 18;

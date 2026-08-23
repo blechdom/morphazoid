@@ -223,7 +223,7 @@ const CATALOG_DETAILS = Object.freeze({
   ouroborousel: define(
     "Rhythm-pitch synth",
     "Builds an endless roll from higher-note chunks, Ouroboros drum bodies, or both, carrying octave-related pulses through the rhythm–pitch fusion threshold.",
-    "Choose Notes, Ouroboros Drums, or Notes + Drums, start the carousel, and shape its shared direction, roll rate, and bank width; Notes and Combo add chunk and fusion controls.",
+    "Choose Notes, Ouroboros Drums, or Notes + Drums, start the carousel, and shape its direction, roll rate, bank width, and shared rhythm-to-pitch fusion; Notes and Combo also expose note-chunk controls.",
     ["Built-in synth", "Pointer"],
   ),
   ouroboros: define(

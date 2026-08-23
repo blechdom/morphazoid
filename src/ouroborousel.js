@@ -11,6 +11,9 @@ const NOTE_FULL_BAND_MIN = 20;
 const FUSION_EMPHASIS_DEPTH = 0.75;
 const FUSION_SPOTLIGHT_DEPTH = 0.75;
 const DRUM_CENTER_PITCH = 110;
+const DRUM_FUSION_ONSET_WIDTH = 1;
+const DRUM_FUSION_PULSE_DUTY = 0.72;
+const DRUM_FUSION_FOCUS_FLOOR = 0.5;
 const DRUM_DECAY = 0.18;
 const DRUM_CHARACTER = 0.5;
 const DRUM_MORPH_DEPTH = 1;
@@ -154,7 +157,7 @@ export const OUROBOROUSEL_PRESETS = Object.freeze([
     bankWidth: 4,
     noteLift: 3,
     chunkDuty: 0.2,
-    fusionPoint: 42,
+    fusionPoint: 24,
     fusionWidth: 0.4,
     spread: 0.82,
     brightness: 0.74,
@@ -371,6 +374,94 @@ export function ouroborouselFusionSpotlight(
   return 1 + FUSION_SPOTLIGHT_DEPTH * emphasis * focus;
 }
 
+/**
+ * Drum pitch onset is deliberately independent of the adjustable pulse tail.
+ * It always crosses one tempo octave, so a long bridge cannot postpone the
+ * continuous drum tone until after the audible Shepard bank has disappeared.
+ */
+export function ouroborouselDrumFusionToneBlend(
+  hitRate,
+  fusionPoint = OUROBOROUSEL_DEFAULTS.fusionPoint,
+) {
+  return ouroborouselFusionBlend(
+    hitRate,
+    fusionPoint,
+    DRUM_FUSION_ONSET_WIDTH,
+  );
+}
+
+/** Raised-cosine spotlight centered on the configured drum-fusion rate. */
+export function ouroborouselDrumFusionFocus(
+  hitRate,
+  fusionPoint = OUROBOROUSEL_DEFAULTS.fusionPoint,
+) {
+  const rate = Number(hitRate);
+  if (!Number.isFinite(rate) || rate <= 0) return 0;
+  const point = clamp(
+    fusionPoint,
+    8,
+    48,
+    OUROBOROUSEL_DEFAULTS.fusionPoint,
+  );
+  const distance = Math.abs(Math.log2(rate / point));
+  if (!Number.isFinite(distance) || distance >= 1) return 0;
+  return 0.5 + 0.5 * Math.cos(Math.PI * distance);
+}
+
+/**
+ * Keep the crossing audible even when it sits near the outside of the normal
+ * Shepard window. Emphasis raises that dedicated path from half to full scale.
+ */
+export function ouroborouselDrumFusionWindow(
+  bankWindow,
+  fusionFocus,
+  fusionEmphasis = OUROBOROUSEL_DEFAULTS.fusionEmphasis,
+) {
+  const window = clamp(bankWindow, 0, 1, 0);
+  const focus = clamp(fusionFocus, 0, 1, 0);
+  const emphasis = clamp(
+    fusionEmphasis,
+    0,
+    1,
+    OUROBOROUSEL_DEFAULTS.fusionEmphasis,
+  );
+  const focusGain = DRUM_FUSION_FOCUS_FLOOR
+    + (1 - DRUM_FUSION_FOCUS_FLOOR) * emphasis;
+  if (window <= 0) return 0;
+  return Math.max(window, focus * focusGain);
+}
+
+/** Positive integer mode index for a pulse-phase-locked drum carrier. */
+export function ouroborouselDrumFusionHarmonic(
+  centerRate,
+  modalRatio = 1,
+) {
+  const rate = clamp(
+    centerRate,
+    0.5,
+    24,
+    OUROBOROUSEL_DEFAULTS.centerRate,
+  );
+  const ratio = clamp(modalRatio, 1, 8, 1);
+  return Math.max(1, Math.round(DRUM_CENTER_PITCH * ratio / rate));
+}
+
+/**
+ * Pulse depth retained on the phase-locked drum carrier. The gate peaks at
+ * one, and its floor rises smoothly to one as the adjustable tail completes.
+ */
+export function ouroborouselDrumFusionGate(
+  pulsePhase,
+  continuousShare,
+) {
+  const tone = clamp(continuousShare, 0, 1, 0);
+  const pulse = ouroborouselChunkEnvelope(
+    pulsePhase,
+    DRUM_FUSION_PULSE_DUTY,
+  );
+  return 1 - (1 - tone) * (1 - pulse);
+}
+
 /** One Hann-windowed note bite within a normalized pulse cycle. */
 export function ouroborouselChunkEnvelope(
   pulsePhase,
@@ -468,6 +559,11 @@ export function calculateOuroborouselLayers({
       safe.fusionPoint,
       safe.fusionWidth,
     );
+    const toneGain = ouroborouselFusionToneGain(
+      fusionBlend,
+      safe.fusionEmphasis,
+    );
+    const chunkGain = 1 - toneGain;
     const weight = window * safety * ouroborouselFusionSpotlight(
       fusionBlend,
       safe.fusionEmphasis,
@@ -476,19 +572,44 @@ export function calculateOuroborouselLayers({
       drumFundamentalHz,
       sampleRate,
     );
-    const drumWeight = window * drumSafety;
-    const morphWeights = drumMorphWeights(octaveOffset, safe.bankWidth);
-    const toneGain = ouroborouselFusionToneGain(
-      fusionBlend,
+    const drumToneGain = ouroborouselDrumFusionToneBlend(
+      hitRate,
+      safe.fusionPoint,
+    );
+    const drumHitGain = 1 - drumToneGain;
+    const drumFusionFocus = ouroborouselDrumFusionFocus(
+      hitRate,
+      safe.fusionPoint,
+    );
+    const drumFusionWindow = ouroborouselDrumFusionWindow(
+      window,
+      drumFusionFocus,
       safe.fusionEmphasis,
     );
-    const chunkGain = 1 - toneGain;
+    const drumFusionHarmonic = ouroborouselDrumFusionHarmonic(
+      safe.centerRate,
+    );
+    const drumFusionHz = hitRate * drumFusionHarmonic;
+    const drumFusionSafety = ouroborouselFrequencySafety(
+      drumFusionHz,
+      sampleRate,
+    );
+    const drumHitWeight = window * drumSafety * drumHitGain;
+    const drumToneWeight = drumFusionWindow
+      * drumFusionSafety
+      * drumToneGain;
+    const drumWeight = Math.hypot(drumHitWeight, drumToneWeight);
+    const morphWeights = drumMorphWeights(octaveOffset, safe.bankWidth);
     const normalizedOffset = octaveOffset / Math.max(1.5, safe.bankWidth * 0.5);
     const pan = clamp(normalizedOffset, -1, 1, 0) * safe.spread;
     const pulsePhase = wrapUnit(
       OUROBOROUSEL_PHASE_SEED * 2 ** octaveOffset,
     );
     const carrierPhase = wrapUnit(pulsePhase * cyclesPerChunk);
+    const drumFusionGate = ouroborouselDrumFusionGate(
+      pulsePhase,
+      toneGain,
+    );
     const noteActive = weight > 1e-9;
     const drumActive = drumWeight > 1e-9;
     const active = safe.materialMode === "drums"
@@ -509,7 +630,8 @@ export function calculateOuroborouselLayers({
       totalHitRate += hitRate;
     }
     weightPower += weight * weight;
-    drumWeightPower += drumWeight * drumWeight;
+    drumWeightPower += drumHitWeight * drumHitWeight
+      + drumToneWeight * drumToneWeight;
     layers.push({
       index,
       octaveOffset,
@@ -520,7 +642,17 @@ export function calculateOuroborouselLayers({
       fundamentalHz: sourceHz,
       drumFundamentalHz,
       drumSafety,
+      drumHitGain,
+      drumToneGain,
+      drumHitWeight,
+      drumToneWeight,
       drumWeight,
+      drumFusionFocus,
+      drumFusionWindow,
+      drumFusionHarmonic,
+      drumFusionHz,
+      drumFusionSafety,
+      drumFusionGate,
       drumMorphWeights: morphWeights,
       noteActive,
       drumActive,
@@ -547,7 +679,9 @@ export function calculateOuroborouselLayers({
     : 0;
   const frozenLayers = layers.map((layer) => {
     const noteGain = layer.weight * normalization;
-    const drumGain = layer.drumWeight * drumNormalization;
+    const drumHitBankGain = layer.drumHitWeight * drumNormalization;
+    const drumToneBankGain = layer.drumToneWeight * drumNormalization;
+    const drumGain = Math.hypot(drumHitBankGain, drumToneBankGain);
     const gain = safe.materialMode === "drums"
       ? drumGain
       : safe.materialMode === "combo"
@@ -559,6 +693,8 @@ export function calculateOuroborouselLayers({
     return Object.freeze({
       ...layer,
       noteGain,
+      drumHitBankGain,
+      drumToneBankGain,
       drumGain,
       gain,
     });
@@ -625,8 +761,13 @@ function clearDrumLayerVoice(processor, layer) {
   processor.drumNoiseSeeds[layer] = processor.drumNoiseSeedCounter;
   const modeBase = layer * MODE_COUNT;
   for (let mode = 0; mode < MODE_COUNT; mode += 1) {
-    processor.drumModalRe[modeBase + mode] = 0;
-    processor.drumModalIm[modeBase + mode] = 0;
+    const stateIndex = modeBase + mode;
+    processor.drumModalRe[stateIndex] = 0;
+    processor.drumModalIm[stateIndex] = 0;
+    processor.drumFusionHarmonics[stateIndex] = Math.max(
+      1,
+      processor.drumFusionHarmonicTargets[stateIndex] || 1,
+    );
   }
 }
 
@@ -647,6 +788,10 @@ function copyDrumLayerVoice(processor, destination, source) {
     processor.drumModalIm[destinationBase + mode] = processor.drumModalIm[
       sourceBase + mode
     ];
+    processor.drumFusionHarmonics[destinationBase + mode]
+      = processor.drumFusionHarmonics[sourceBase + mode];
+    processor.drumFusionHarmonicTargets[destinationBase + mode]
+      = processor.drumFusionHarmonicTargets[sourceBase + mode];
   }
 }
 
@@ -708,6 +853,10 @@ function createProcessorClass(AudioWorkletBase) {
       this.drumModalSin = new Float64Array(LAYER_COUNT * MODE_COUNT);
       this.drumModalDecay = new Float64Array(LAYER_COUNT * MODE_COUNT);
       this.drumModalGain = new Float64Array(LAYER_COUNT * MODE_COUNT);
+      this.drumFusionHarmonics = new Uint16Array(LAYER_COUNT * MODE_COUNT);
+      this.drumFusionHarmonicTargets = new Uint16Array(
+        LAYER_COUNT * MODE_COUNT,
+      );
       this.drumBodyDecays = new Float64Array(LAYER_COUNT);
       this.drumPitchDrops = new Float64Array(LAYER_COUNT);
       this.drumPitchBendDecays = new Float64Array(LAYER_COUNT);
@@ -742,6 +891,7 @@ function createProcessorClass(AudioWorkletBase) {
       this.manualFastEnvelope = 0;
       this.manualPosition = Number.NaN;
       this.updateDrumCoefficients(DEFAULT_SAMPLE_RATE);
+      this.drumFusionHarmonics.set(this.drumFusionHarmonicTargets);
       this.port.onmessage = (event) => {
         if (event.data?.type === "parameters") {
           this.target = {
@@ -814,6 +964,7 @@ function createProcessorClass(AudioWorkletBase) {
       this.updateDrumCoefficients?.(
         Number(globalThis.sampleRate) || DEFAULT_SAMPLE_RATE,
       );
+      this.drumFusionHarmonics?.set(this.drumFusionHarmonicTargets);
     }
 
     updateDrumCoefficients(workletSampleRate) {
@@ -984,6 +1135,8 @@ function createProcessorClass(AudioWorkletBase) {
             aliasFade = 0.5 + 0.5 * Math.cos(Math.PI * aliasPosition);
           }
           const stateIndex = modeBase + mode;
+          this.drumFusionHarmonicTargets[stateIndex]
+            = ouroborouselDrumFusionHarmonic(this.current.centerRate, ratio);
           const boundedFrequency = Math.min(nyquistCull, modeFrequency);
           const radians = TAU * boundedFrequency / workletSampleRate;
           this.drumModalCos[stateIndex] = Math.cos(radians);
@@ -1118,6 +1271,10 @@ function createProcessorClass(AudioWorkletBase) {
           0,
           this.manualSlowEnvelope - this.manualFastEnvelope,
         );
+        const manualDrumBypass = Math.min(
+          1,
+          manualStrikeVelocity + manualEnvelope,
+        );
 
         const transportActive = this.transportTarget > 0.5;
         if (transportActive) {
@@ -1169,31 +1326,66 @@ function createProcessorClass(AudioWorkletBase) {
           let window = 0;
           let noteSafety = 0;
           let noteWeight = 0;
-          let drumWeight = 0;
-          let fusionBlend = 0;
+          const fusionBlend = ouroborouselFusionBlend(
+            hitRate,
+            this.current.fusionPoint,
+            this.current.fusionWidth,
+          );
+          const drumToneGain = ouroborouselDrumFusionToneBlend(
+            hitRate,
+            this.current.fusionPoint,
+          );
+          const drumTailToneGain = ouroborouselFusionToneGain(
+            fusionBlend,
+            this.current.fusionEmphasis,
+          );
+          const drumFusionFocus = ouroborouselDrumFusionFocus(
+            hitRate,
+            this.current.fusionPoint,
+          );
           if (distance < 1) {
             window = 0.5 + 0.5 * Math.cos(Math.PI * distance);
             noteSafety = ouroborouselFrequencySafety(
               sourceHz,
               workletSampleRate,
             );
-            fusionBlend = ouroborouselFusionBlend(
-              hitRate,
-              this.current.fusionPoint,
-              this.current.fusionWidth,
-            );
             noteWeight = window * noteSafety * ouroborouselFusionSpotlight(
               fusionBlend,
               this.current.fusionEmphasis,
-            );
-            drumWeight = window * ouroborouselFrequencySafety(
-              drumFundamental,
-              workletSampleRate,
             );
             if (window > 1e-7 && noteSafety === 1) {
               noteMaterialReady = true;
             }
           }
+          const rawDrumWeight = window * ouroborouselFrequencySafety(
+            drumFundamental,
+            workletSampleRate,
+          );
+          const automaticDrumToneGain = this.transportGain * drumToneGain;
+          const drumHitGain = 1 - automaticDrumToneGain
+            * (1 - manualDrumBypass);
+          const drumFusionWindow = ouroborouselDrumFusionWindow(
+            window,
+            drumFusionFocus,
+            this.current.fusionEmphasis,
+          );
+          const drumFundamentalHarmonic = Math.max(
+            1,
+            this.drumFusionHarmonics[index * MODE_COUNT] || 1,
+          );
+          const drumFusionSafety = ouroborouselFrequencySafety(
+            hitRate * drumFundamentalHarmonic,
+            workletSampleRate,
+          );
+          const drumHitWeight = rawDrumWeight * drumHitGain;
+          const drumToneWeight = drumFusionWindow
+            * drumFusionSafety
+            * automaticDrumToneGain;
+          const renderDrumFusionCarrier = drumToneWeight > 1e-9
+            && (
+              this.currentMaterialMix > 1e-7
+              || this.targetMaterialMix > 1e-7
+            );
 
           let manualWeight = 1;
           if (Number.isFinite(this.manualPosition)) {
@@ -1205,7 +1397,7 @@ function createProcessorClass(AudioWorkletBase) {
               : 0;
           }
 
-          if (drumWeight > 1e-9) {
+          if (rawDrumWeight > 1e-9) {
             let strikeVelocity = transportActive && pulseWraps > 0 ? 1 : 0;
             if (manualStrikeVelocity > 0) {
               let manualStrikeWeight = 1;
@@ -1255,6 +1447,8 @@ function createProcessorClass(AudioWorkletBase) {
           this.drumPitchBends[index] *= this.drumPitchBendDecays[index];
 
           let drumModalSample = 0;
+          let drumFusionCarrierSample = 0;
+          let drumFusionCarrierGain = 0;
           const drumModeBase = index * MODE_COUNT;
           for (let mode = 0; mode < MODE_COUNT; mode += 1) {
             const stateIndex = drumModeBase + mode;
@@ -1272,6 +1466,24 @@ function createProcessorClass(AudioWorkletBase) {
             this.drumModalRe[stateIndex] = nextReal;
             this.drumModalIm[stateIndex] = nextImaginary;
             drumModalSample += nextImaginary;
+            if (renderDrumFusionCarrier) {
+              const harmonic = Math.max(
+                1,
+                this.drumFusionHarmonics[stateIndex] || 1,
+              );
+              const carrierModeGain = this.drumModalGain[stateIndex]
+                * ouroborouselFrequencySafety(
+                  hitRate * harmonic,
+                  workletSampleRate,
+                );
+              drumFusionCarrierSample += Math.sin(
+                TAU * pulsePhase * harmonic,
+              ) * carrierModeGain;
+              drumFusionCarrierGain += carrierModeGain;
+            }
+          }
+          if (drumFusionCarrierGain > 1e-12) {
+            drumFusionCarrierSample /= drumFusionCarrierGain;
           }
 
           let noiseState = this.drumNoiseSeeds[index];
@@ -1353,10 +1565,24 @@ function createProcessorClass(AudioWorkletBase) {
             noteRightSample += voiceSample * noteWeight * Math.sin(panAngle);
             noteWeightPower += noteWeight * noteWeight;
           }
-          if (drumWeight > 1e-9) {
-            drumLeftSample += drumVoiceSample * drumWeight * Math.cos(panAngle);
-            drumRightSample += drumVoiceSample * drumWeight * Math.sin(panAngle);
-            drumWeightPower += drumWeight * drumWeight;
+          if (drumHitWeight > 1e-9 || drumToneWeight > 1e-9) {
+            const drumFusionGate = ouroborouselDrumFusionGate(
+              pulsePhase,
+              drumTailToneGain,
+            );
+            const drumSample = drumVoiceSample * drumHitWeight
+              + drumFusionCarrierSample * drumFusionGate * drumToneWeight;
+            drumLeftSample += drumSample * Math.cos(panAngle);
+            drumRightSample += drumSample * Math.sin(panAngle);
+            drumWeightPower += drumHitWeight * drumHitWeight
+              + drumToneWeight * drumToneWeight;
+          }
+          if (pulseWraps > 0) {
+            for (let mode = 0; mode < MODE_COUNT; mode += 1) {
+              const stateIndex = drumModeBase + mode;
+              this.drumFusionHarmonics[stateIndex]
+                = this.drumFusionHarmonicTargets[stateIndex];
+            }
           }
           hitRate *= 2;
         }
