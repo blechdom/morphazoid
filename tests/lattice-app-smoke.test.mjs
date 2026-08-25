@@ -425,7 +425,7 @@ test("lattice app renders and plays line contacts", async () => {
   assert.ok(Math.abs(gains[0].gain.value - Math.sqrt(0.65)) < 1e-12);
   now += 50;
   queuedFrame(now);
-  const voiceGains = gains.slice(1, 17);
+  const voiceGains = gains.slice(2, 18); // master, then Shapes host crossfade gate
   assert.ok(voiceGains.some((gain) => gain.gain.value > 0));
   const onsetCombinedGain = Math.hypot(...voiceGains.map((gain) => gain.gain.value));
   assert.ok(Number.isFinite(onsetCombinedGain));

@@ -433,7 +433,7 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   assert.equal(oscillators.length, 16);
   await listeners.get("playButton:click")();
   assert.equal(attributes.get("playButton:aria-pressed"), "false");
-  const parkedGains = gains.slice(1, 17);
+  const parkedGains = gains.slice(2, 18); // master, then Shapes host crossfade gate
   const notesBeforeParkedSlider = midiPreviewEvents.filter(({ kind }) => kind === "note").length;
   listeners.get("position:pointerdown")({ pointerId: 35, isTrusted: true });
   now += 20;
@@ -468,7 +468,7 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   queuedFrame(now);
   now += 60;
   queuedFrame(now);
-  const stoppedScrubGains = gains.slice(1, 17);
+  const stoppedScrubGains = gains.slice(2, 18);
   assert.equal(attributes.get("playButton:aria-pressed"), "false");
   assert.match(elements.get("stageReadout").textContent, /SCRUB · \d+ VOICES?$/);
   assert.ok(
@@ -617,7 +617,7 @@ test("spiral app renders intrinsic readers and plays tessellation contacts", asy
   queuedFrame(now);
   assert.equal(Number(elements.get("loopPhase").value), 0.25);
   assert.ok(Number(elements.get("position").value) < 0.45);
-  const voiceGains = gains.slice(1, 17);
+  const voiceGains = gains.slice(2, 18);
   assert.ok(voiceGains.some((gain) => gain.gain.value > 0));
   assert.ok(oscillators.some((oscillator) => oscillator.frequency.value !== 220));
   assert.ok(new Set(oscillators.map((oscillator) => (
