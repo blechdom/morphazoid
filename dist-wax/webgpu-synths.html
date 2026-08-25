@@ -12,7 +12,7 @@
     <title>GPU Shader Synths — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="webgpu-synths.css?v=20260824-side-tools" />
+    <link rel="stylesheet" href="webgpu-synths.css?v=20260825-sequencer-toolbar" />
   </head>
   <body class="webgpu-synths-page">
     <header class="masthead">
@@ -54,6 +54,15 @@
 
     <main class="shell webgpu-synths-shell" id="webgpuSynths">
       <section class="stage webgpu-synths-stage" aria-labelledby="webgpuSynthsTitle">
+        <div class="sequence-deck">
+          <div class="sequence-router" aria-label="GPU lane routing and sequencer controls">
+            <span class="select-control"><span class="select-shell"><select id="activeLaneSelect" aria-label="Edit lane"></select></span></span>
+            <span class="select-control"><span class="select-shell"><select id="laneTargetSelect" aria-label="Lane destination"></select></span></span>
+            <button class="mini-action" id="addLane" type="button">+ Add parameter lane</button>
+            <button class="mini-action" id="removeLane" type="button">Remove lane</button>
+          </div>
+        </div>
+
         <div class="webgpu-synths-stage-wrap" id="stageWrap">
           <canvas
             id="sequenceStage"
@@ -74,15 +83,6 @@
 
           <div class="stage-meta" aria-hidden="true">
             <span id="stageReadout">WEBGPU · STANDBY · AUDIO OFF</span>
-          </div>
-        </div>
-
-        <div class="sequence-deck">
-          <div class="sequence-router" aria-label="GPU lane routing">
-            <span class="select-control"><span class="select-shell"><select id="activeLaneSelect" aria-label="Edit lane"></select></span></span>
-            <span class="select-control"><span class="select-shell"><select id="laneTargetSelect" aria-label="Lane destination"></select></span></span>
-            <button class="mini-action" id="addLane" type="button">+ Add parameter lane</button>
-            <button class="mini-action" id="removeLane" type="button">Remove lane</button>
           </div>
         </div>
 
@@ -242,7 +242,7 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="webgpu-synths-app.js?v=20260824-compact-lanes"></script>
+    <script type="module" src="webgpu-synths-app.js?v=20260825-sequencer-toolbar"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

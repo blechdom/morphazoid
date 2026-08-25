@@ -143,8 +143,8 @@
 .sequence-deck {
   display: grid;
   flex: 0 0 auto;
-  padding: 9px 16px 12px;
-  border-top: 1px solid color-mix(in oklab, var(--lane-pitch) 30%, var(--line-strong));
+  padding: 9px 16px;
+  border-bottom: 1px solid color-mix(in oklab, var(--lane-pitch) 30%, var(--line-strong));
   background:
     linear-gradient(90deg, rgba(116, 247, 255, 0.055), rgba(255, 218, 87, 0.035), rgba(255, 110, 170, 0.045), rgba(167, 139, 255, 0.055)),
     color-mix(in oklab, var(--bg-deep) 97%, transparent);
@@ -157,7 +157,7 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 6px;
-  align-items: end;
+  align-items: stretch;
 }
 
 .sequence-actions {
@@ -172,10 +172,17 @@
   margin: 0;
 }
 
+.sequence-router .select-shell,
+.sequence-router select,
+.sequence-router .mini-action {
+  height: 36px;
+  min-height: 36px;
+}
+
 .sequence-router .mini-action,
 .sequence-actions .mini-action {
   min-width: 92px;
-  min-height: 29px;
+  min-height: 36px;
   margin: 0;
   padding: 0 10px;
   border-color: color-mix(in oklab, var(--lane-color, var(--line-strong)) 45%, var(--line-strong));
@@ -756,6 +763,15 @@
 
   .sequence-deck {
     padding: 8px 9px 10px;
+  }
+
+  .sequence-router {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sequence-router .select-control {
+    width: 100%;
   }
 
   .sequence-router .mini-action,

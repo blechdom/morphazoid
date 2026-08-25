@@ -991,6 +991,25 @@ function drawLanes(context, width, height, time, pixelRatio) {
   const steps = state.params.steps;
   const cellWidth = width / steps;
   const activeStep = Math.floor(time * state.params.clock) % steps;
+  const numberedStepInterval = steps > 32 ? 8 : 4;
+  context.save();
+  context.font = `${8 * pixelRatio}px ui-monospace, monospace`;
+  context.textBaseline = "alphabetic";
+  for (let step = 0; step <= steps; step += 1) {
+    const x = step * cellWidth;
+    const barLine = step % 4 === 0;
+    context.strokeStyle = barLine ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.055)";
+    context.lineWidth = barLine ? pixelRatio : Math.max(0.5, pixelRatio * 0.5);
+    context.beginPath();
+    context.moveTo(x, top);
+    context.lineTo(x, bottom);
+    context.stroke();
+    if (step < steps && step % numberedStepInterval === 0) {
+      context.fillStyle = "rgba(219,228,224,0.55)";
+      context.fillText(String(step + 1).padStart(2, "0"), x + 3 * pixelRatio, top - 6 * pixelRatio);
+    }
+  }
+  context.restore();
   for (let laneIndex = 0; laneIndex < state.params.laneCount; laneIndex += 1) {
     const lane = laneSpec(laneIndex);
     const y = top + laneIndex * (heightEach + gap);

@@ -205,6 +205,7 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.doesNotMatch(html, /id="laneButtons"/);
   assert.match(html, /id="addLane"[^>]*>\+ Add parameter lane/);
   assert.match(html, /id="laneTargetSelect"/);
+  assert.ok(html.indexOf('class="sequence-deck"') < html.indexOf('id="stageWrap"'));
   assert.doesNotMatch(html, /<b>Edit lane<\/b>|<b>Destination<\/b>/);
   assert.match(html, /data-section="sequence-tools"[\s\S]*id="laneState">4 of 8 lanes[\s\S]*id="rotateLeft"[\s\S]*id="invertLane"/);
   assert.match(html, /id="addModelLayer"[^>]*>\+ Add synthesis layer/);
@@ -228,6 +229,7 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.ok(html.indexOf('id="resetPatch"') < html.indexOf('class="wgsl-boundary"'));
   assert.doesNotMatch(css, /\.model-rail/);
   assert.match(css, /\.sequence-router/);
+  assert.match(css, /\.sequence-router select,[\s\S]*height: 36px;[\s\S]*min-height: 36px/);
   assert.match(css, /\.model-layer-row/);
   assert.doesNotMatch(css, /\.sequence-edit-hint/);
   assert.match(css, /\.preset-grid \{[\s\S]*grid-template-columns: repeat\(4/);
@@ -277,6 +279,8 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(app, /Math\.min\(naturalHeight, WIDE_LANE_MAX_HEIGHT \* pixelRatio\)/);
   assert.match(app, /const \{ width, height, pixelRatio \} = resizeCanvas\(canvas\)/);
   assert.match(app, /bottom \+ Math\.min\(5 \* pixelRatio, gap \* 0\.5\)/);
+  assert.match(app, /const numberedStepInterval = steps > 32 \? 8 : 4/);
+  assert.match(app, /context\.lineTo\(x, bottom\)/);
   const modelControls = app.slice(app.indexOf("model: Object.freeze"), app.indexOf("time: Object.freeze"));
   assert.doesNotMatch(modelControls, /key: "topology"/);
   assert.doesNotMatch(modelControls, /key: "modelB"/);
