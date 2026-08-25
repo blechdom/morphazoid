@@ -15,6 +15,7 @@ const liveStatus = document.getElementById("liveStatus");
 const frames = new Map();
 const nativePluginLayouts = new WeakMap();
 const nativeRouteToolbars = new WeakMap();
+const nativePickerLabelObservers = new WeakMap();
 const frameReadyWaiters = new WeakMap();
 const frameReadinessPolls = new WeakMap();
 const frameTransitionOwners = new WeakMap();
@@ -123,6 +124,7 @@ function finishFrameLoad(frame, instrument) {
 }
 
 function enhanceNativeFrame(frame, instrument) {
+  if (!frameHasExpectedDocument(frame, instrument)) return;
   const nativeDocument = frame.contentDocument;
   if (!nativeDocument?.documentElement || !nativeDocument.body) {
     return;
@@ -598,43 +600,47 @@ function createNativeRouteKnob(nativeDocument, label, className, {
 }
 
 function prepareNativeInstrumentPicker(nativeDocument) {
-  const pickerNav = nativeDocument.querySelector(".masthead > .tabs");
-  if (!pickerNav) return;
+  const masthead = nativeDocument.querySelector(".masthead");
+  if (!masthead) return;
 
-  const wordmark = nativeDocument.querySelector(".masthead > .wordmark");
-  if (wordmark) wordmark.target = "_top";
+  const enforceShapesPicker = () => {
+    const pickerNav = masthead.querySelector(":scope > .tabs");
+    if (!pickerNav) return;
 
-  pickerNav.classList.add("combo-native-picker");
-  const picker = pickerNav.querySelector(".instrument-picker");
-  const trigger = picker?.querySelector(".instrument-picker-trigger");
-  if (picker) {
-    const enforceShapesLabel = () => {
-      const current = picker.querySelector(".instrument-picker-current");
-      if (current && current.textContent !== "Shapes") current.textContent = "Shapes";
-    };
-    enforceShapesLabel();
-    const NativeMutationObserver = nativeDocument.defaultView?.MutationObserver;
-    if (NativeMutationObserver) {
-      new NativeMutationObserver(enforceShapesLabel).observe(picker, {
-        childList: true,
-        characterData: true,
-        subtree: true,
-      });
+    const wordmark = masthead.querySelector(":scope > .wordmark");
+    if (wordmark) wordmark.target = "_top";
+
+    pickerNav.classList.add("combo-native-picker");
+    const picker = pickerNav.querySelector(".instrument-picker");
+    const trigger = picker?.querySelector(".instrument-picker-trigger");
+    const current = picker?.querySelector(".instrument-picker-current");
+    if (current && current.textContent !== "Shapes") current.textContent = "Shapes";
+    if (trigger) {
+      trigger.setAttribute("aria-label", "Choose Morphazoid instrument. Current: Shapes");
+      trigger.setAttribute("title", "Choose Morphazoid instrument");
     }
-  }
-  if (trigger) {
-    trigger.setAttribute("aria-label", "Choose Morphazoid instrument. Current: Shapes");
-    trigger.setAttribute("title", "Choose Morphazoid instrument");
-  }
 
-  for (const link of picker?.querySelectorAll(".instrument-picker-link") ?? []) {
-    link.classList.remove("is-current");
-    link.removeAttribute("aria-current");
-    link.target = "_top";
-  }
-  const shapesLink = picker?.querySelector('[data-tool-id="combo"]');
-  shapesLink?.classList.add("is-current");
-  shapesLink?.setAttribute("aria-current", "page");
+    for (const link of picker?.querySelectorAll(".instrument-picker-link") ?? []) {
+      link.classList.remove("is-current");
+      link.removeAttribute("aria-current");
+      link.target = "_top";
+    }
+    const shapesLink = picker?.querySelector('[data-tool-id="combo"]');
+    shapesLink?.classList.add("is-current");
+    shapesLink?.setAttribute("aria-current", "page");
+  };
+
+  enforceShapesPicker();
+  if (nativePickerLabelObservers.has(nativeDocument)) return;
+  const NativeMutationObserver = nativeDocument.defaultView?.MutationObserver;
+  if (!NativeMutationObserver) return;
+  const observer = new NativeMutationObserver(enforceShapesPicker);
+  observer.observe(masthead, {
+    childList: true,
+    characterData: true,
+    subtree: true,
+  });
+  nativePickerLabelObservers.set(nativeDocument, observer);
 }
 
 function syncNativeRouteToolbar(frame, instrument) {
@@ -1153,6 +1159,7 @@ async function activateInstrument(instrument, { announce = true, updateUrl = tru
   const frame = instrumentFrame(instrument);
 
   if (!previousFrame || previousInstrument.id === instrument.id) {
+    prepareNativeInstrumentPicker(frame.contentDocument);
     frame.hidden = false;
     commitInstrumentSelection(instrument, frame, { announce, updateUrl });
     return;
@@ -1211,6 +1218,7 @@ async function activateInstrument(instrument, { announce = true, updateUrl = tru
       return;
     }
 
+    prepareNativeInstrumentPicker(frame.contentDocument);
     frame.hidden = false;
     previousFrame.classList.add("is-handoff-source");
     frame.classList.add("is-handoff-target");

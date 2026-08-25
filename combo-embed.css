@@ -44,12 +44,8 @@ body.combo-native-embed .combo-native-picker .instrument-picker-trigger {
   padding: 0 6px 0 8px;
 }
 body.combo-native-embed .combo-native-picker .instrument-picker-current {
-  font-size: 0;
-  letter-spacing: .08em;
-}
-body.combo-native-embed .combo-native-picker .instrument-picker-current::after {
-  content: "Shapes";
   font-size: 8px;
+  letter-spacing: .08em;
 }
 body.combo-native-embed .combo-native-picker .instrument-picker-panel {
   top: 50px;

@@ -90,7 +90,10 @@ test("Shapes is an additive focused host without a replacement sequencer or audi
   assert.doesNotMatch(html, /combo-modebar|geometry-owned pitched voices|Original ↗/);
   assert.match(app, /prepareNativeInstrumentPicker/);
   assert.match(app, /current\.textContent !== "Shapes"/);
-  assert.match(app, /MutationObserver\(enforceShapesLabel\)/);
+  assert.match(app, /const nativePickerLabelObservers = new WeakMap\(\)/);
+  assert.match(app, /MutationObserver\(enforceShapesPicker\)/);
+  assert.match(app, /observer\.observe\(masthead/);
+  assert.match(app, /nativePickerLabelObservers\.set\(nativeDocument, observer\)/);
   assert.match(app, /link\.target = "_top"/);
   assert.match(app, /wordmark\.target = "_top"/);
   assert.match(app, /label:\s*"2D"/);
@@ -116,6 +119,8 @@ test("Shapes is an additive focused host without a replacement sequencer or audi
   assert.match(app, /resetNativeControlBank/);
   assert.match(app, /watchNativeFrameReadiness\(frame, instrument\)/);
   assert.match(app, /frameHasExpectedDocument\(frame, instrument\) && nativeBridge\(frame\)/);
+  assert.match(app, /function enhanceNativeFrame\(frame, instrument\) \{\s*if \(!frameHasExpectedDocument\(frame, instrument\)\) return;/);
+  assert.match(app, /prepareNativeInstrumentPicker\(frame\.contentDocument\);\s*frame\.hidden = false;/);
   assert.doesNotMatch(app, /documentFallbackReady|FRAME_READINESS_FALLBACK/);
   assert.match(app, /finally \{\s*frame\.dataset\.ready = "true";[\s\S]*frameReadyWaiters\.delete\(frame\);\s*\}/);
   const enhanceStart = app.indexOf("function enhanceNativeFrame");
@@ -130,6 +135,8 @@ test("Shapes is an additive focused host without a replacement sequencer or audi
   assert.match(css, /\.combo-host\s*\{[^}]*height:\s*100dvh[^}]*display:\s*block/s);
   assert.match(embedCss, /body\.combo-native-embed \.masthead > \.tabs/);
   assert.match(embedCss, /\.masthead > \.tabs\.combo-native-picker\s*\{[^}]*display:\s*flex\s*!important/s);
+  assert.match(embedCss, /\.combo-native-picker \.instrument-picker-current\s*\{[^}]*font-size:\s*8px/s);
+  assert.doesNotMatch(embedCss, /\.instrument-picker-current::after\s*\{[^}]*content:\s*"Shapes"/s);
   assert.match(embedCss, /\.combo-native-route/);
   assert.match(embedCss, /\.combo-control-rail/);
   assert.match(embedCss, /\.masthead > \.wordmark\s*\{[^}]*display:\s*inline-flex\s*!important/s);
