@@ -235,6 +235,8 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(css, /@media \(min-width: 981px\) and \(max-height: 1000px\) \{[\s\S]*#sequenceStage \{[\s\S]*min-height: 0/);
   assert.match(css, /@media \(max-width: 620px\) \{[\s\S]*html\.webgpu-synths-document \{[\s\S]*overflow-y: auto/);
   assert.match(css, /@media \(max-width: 620px\) \{[\s\S]*#sequenceStage \{[\s\S]*touch-action: pan-y/);
+  assert.match(css, /@media \(max-width: 620px\) \{[\s\S]*\.webgpu-synths-page \.masthead \{[\s\S]*grid-template-rows: 48px 48px/);
+  assert.match(css, /\.masthead\.has-midi-toolbar \.header-io-controls > \.audio-strip \{[\s\S]*grid-column: 1 \/ -1;[\s\S]*grid-template-columns: 48px minmax\(92px, 0\.85fr\) minmax\(110px, 1\.15fr\)/);
   assert.match(app, /Acid Fossil/);
   assert.match(app, /Recursive Chrome/);
   assert.match(app, /Folded Mutant/);
