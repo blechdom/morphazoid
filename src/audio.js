@@ -722,6 +722,8 @@ export class VoicePool {
     this.master = null;
     /** @type {DynamicsCompressorNode|null} */
     this.compressor = null;
+    /** @type {GainNode|null} */
+    this.hostGate = null;
     /** @type {null|(() => void)} */
     this.outputRelease = null;
     /** @type {AudioWorkletNode|null} */
@@ -738,6 +740,7 @@ export class VoicePool {
     /** @type {Map<string, number>} */
     this.lastStrikeAtByKey = new Map();
     this.desiredLevel = 0.5;
+    this.hostGain = 1;
     this.enabled = false;
     /** @type {Promise<void>|null} */
     this.startPromise = null;
@@ -1045,19 +1048,23 @@ export class VoicePool {
     const context = new AudioContextConstructor();
     const master = context.createGain();
     const compressor = context.createDynamicsCompressor();
+    const hostGate = context.createGain();
 
     master.gain.value = 0;
+    hostGate.gain.value = this.hostGain;
     compressor.threshold.value = -4;
     compressor.knee.value = 6;
     compressor.ratio.value = 6;
     compressor.attack.value = 0.002;
     compressor.release.value = 0.12;
     master.connect(compressor);
-    this.outputRelease = connectAudioOutput(context, compressor);
+    compressor.connect(hostGate);
+    this.outputRelease = connectAudioOutput(context, hostGate);
 
     this.context = context;
     this.master = master;
     this.compressor = compressor;
+    this.hostGate = hostGate;
     this.voices = [];
   }
 
@@ -1092,6 +1099,22 @@ export class VoicePool {
       this.context.currentTime,
       MASTER_TIME_CONSTANT,
     );
+  }
+
+  /** Host-only gain used for seamless handoff without changing the saved level. */
+  setHostGain(gain, rampMilliseconds = 0) {
+    this.hostGain = clamp(Number(gain) || 0, 0, 1);
+    if (!this.context || !this.hostGate) return;
+    const now = this.context.currentTime;
+    const parameter = this.hostGate.gain;
+    if (typeof parameter.cancelAndHoldAtTime === "function") parameter.cancelAndHoldAtTime(now);
+    else {
+      parameter.cancelScheduledValues(now);
+      parameter.setValueAtTime(parameter.value, now);
+    }
+    const duration = Math.max(0, Number(rampMilliseconds) || 0) / 1000;
+    if (duration > 0) parameter.linearRampToValueAtTime(this.hostGain, now + duration);
+    else parameter.setValueAtTime(this.hostGain, now);
   }
 
   /** Keep both average energy and phase-aligned peaks inside the configured bus headroom. */
@@ -1679,6 +1702,7 @@ export class VoicePool {
     this.lastStrikeAtByKey.clear();
     this.master?.disconnect();
     this.compressor?.disconnect();
+    this.hostGate?.disconnect();
     this.synthNode?.disconnect();
     this.resetGraph();
 
@@ -1692,6 +1716,7 @@ export class VoicePool {
     this.context = null;
     this.master = null;
     this.compressor = null;
+    this.hostGate = null;
     this.synthNode = null;
     this.workletUnavailable = false;
     this.renderCapacityUpdatesToIgnore = 0;

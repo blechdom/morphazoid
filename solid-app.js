@@ -19,6 +19,7 @@ import {
   rotatePoint3,
 } from "./src/solid.js";
 import { createAmplitudeControl } from "./src/amplitude-control.js";
+import { installShapesNativeBridge } from "./src/shapes-native-bridge.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -30,6 +31,9 @@ const context = canvas.getContext("2d", { desynchronized: true });
 
 const state = {
   solidType: "cube",
+  profileSides: 4,
+  profileShapeType: "polygon",
+  profileStarDepth: 0.48,
   position: 0.5,
   continuousPosition: 0.5,
   speed: 0.12,
@@ -70,6 +74,7 @@ let cssWidth = 1;
 let cssHeight = 1;
 let pixelRatio = 1;
 let scheduledFrame = 0;
+let shapesHostParked = false;
 let lastFrameTime = performance.now();
 let lastAudioTime = null;
 let previousVertexSigns = null;
@@ -85,6 +90,7 @@ function announce(message) {
 }
 
 function scheduleFrame() {
+  if (shapesHostParked) return;
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
 
@@ -288,7 +294,13 @@ async function toggleAudio() {
 $("audioButton").addEventListener("click", toggleAudio);
 
 function transformedSolid(rotation = currentRotation()) {
-  const solid = deformSolid(buildSolid(state.solidType), {
+  const solid = deformSolid(buildSolid(state.solidType, {
+    profile: {
+      sides: state.profileSides,
+      shapeType: state.profileShapeType,
+      starDepth: state.profileStarDepth,
+    },
+  }), {
     scaleX: state.formScaleX,
     scaleY: state.formScaleY,
     scaleZ: state.formScaleZ,
@@ -300,6 +312,18 @@ function transformedSolid(rotation = currentRotation()) {
     vertices: solid.vertices.map((point) => rotatePoint3(point, rotation)),
   };
 }
+
+document.addEventListener("morphazoid:shapes-profile", (event) => {
+  const profile = event.detail ?? {};
+  state.profileSides = Math.round(clamp(profile.sides, 1, 32));
+  state.profileShapeType = profile.kind === "star" ? "star" : "polygon";
+  state.profileStarDepth = clamp(profile.starDepth, 0.05, 0.82);
+  state.solidType = "profile";
+  $("solidType").value = "profile";
+  $("formSummary").textContent = `${state.profileSides}-point ${state.profileShapeType} prism`;
+  previousVertexSigns = null;
+  scheduleFrame();
+});
 
 function currentRotation() {
   return { x: state.rotationX, y: state.rotationY, z: state.rotationZ };
@@ -634,6 +658,294 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) pool.silence();
   else scheduleFrame();
 });
+
+function bridgeRange(id, value) {
+  const input = $(id);
+  if (!input || !Number.isFinite(Number(value))) return;
+  input.value = String(value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function sharedProfileForSolid() {
+  if (state.solidType === "profile") {
+    return {
+      sides: state.profileSides,
+      kind: state.profileSides === 1
+        ? "circle"
+        : state.profileSides === 2 ? "line" : state.profileShapeType,
+      starDepth: state.profileStarDepth,
+      lift: "prism",
+    };
+  }
+  if (state.solidType === "sphere") {
+    return { sides: 1, kind: "circle", starDepth: 0.48, lift: "round" };
+  }
+  if (["cube", "prism"].includes(state.solidType)) {
+    const sides = state.solidType === "prism" ? 3 : 4;
+    return { sides, kind: "polygon", starDepth: 0.48, lift: "prism" };
+  }
+  return { sides: 4, kind: "polygon", starDepth: 0.48, lift: "local" };
+}
+
+function applySharedProfile(profile = {}) {
+  if (profile.lift === "local") return;
+  const sides = Math.round(clamp(profile.sides, 1, 32));
+  if (profile.kind === "circle" || sides === 1) {
+    state.solidType = "sphere";
+    $("solidType").value = "sphere";
+    $("formSummary").textContent = "sphere";
+    return;
+  }
+  state.profileSides = sides;
+  state.profileShapeType = profile.kind === "star" ? "star" : "polygon";
+  state.profileStarDepth = clamp(profile.starDepth, 0.05, 0.82);
+  state.solidType = "profile";
+  $("solidType").value = "profile";
+  $("formSummary").textContent = `${sides}-point ${state.profileShapeType} prism`;
+}
+
+function solidDimensionState() {
+  return {
+    solidType: state.solidType,
+    profileSides: state.profileSides,
+    profileShapeType: state.profileShapeType,
+    profileStarDepth: state.profileStarDepth,
+    formScaleX: state.formScaleX,
+    formScaleY: state.formScaleY,
+    formScaleZ: state.formScaleZ,
+    formSkewX: state.formSkewX,
+    formSkewZ: state.formSkewZ,
+    planeYaw: state.planeYaw,
+    planePitch: state.planePitch,
+    planeYawPlaying: state.planeYawPlaying,
+    planePitchPlaying: state.planePitchPlaying,
+    planeYawSpeed: state.planeYawSpeed,
+    planePitchSpeed: state.planePitchSpeed,
+    rotationX: state.rotationX,
+    rotationY: state.rotationY,
+    rotationZ: state.rotationZ,
+    rotationXPlaying: state.rotationXPlaying,
+    rotationYPlaying: state.rotationYPlaying,
+    rotationZPlaying: state.rotationZPlaying,
+    rotationXSpeed: state.rotationXSpeed,
+    rotationYSpeed: state.rotationYSpeed,
+    rotationZSpeed: state.rotationZSpeed,
+    rotationTarget,
+  };
+}
+
+function applySolidDimensionState(dimension = {}) {
+  if (!dimension || !Object.keys(dimension).length) return;
+  const solidTypes = new Set([
+    "cube", "pyramid", "octahedron", "prism", "cone", "cylinder", "sphere", "torus", "profile",
+  ]);
+  if (solidTypes.has(dimension.solidType)) {
+    state.solidType = dimension.solidType;
+    $("solidType").value = state.solidType;
+    $("formSummary").textContent = state.solidType;
+  }
+  if (Number.isFinite(Number(dimension.profileSides))) {
+    state.profileSides = Math.round(clamp(dimension.profileSides, 1, 32));
+  }
+  state.profileShapeType = dimension.profileShapeType === "star" ? "star" : "polygon";
+  if (Number.isFinite(Number(dimension.profileStarDepth))) {
+    state.profileStarDepth = clamp(dimension.profileStarDepth, 0.05, 0.82);
+  }
+  for (const key of ["formScaleX", "formScaleY", "formScaleZ", "formSkewX", "formSkewZ"]) {
+    bridgeRange(key, dimension[key]);
+  }
+  for (const key of [
+    "planeYaw", "planePitch", "planeYawSpeed", "planePitchSpeed",
+    "rotationX", "rotationY", "rotationZ",
+    "rotationXSpeed", "rotationYSpeed", "rotationZSpeed",
+  ]) {
+    bridgeRange(key, dimension[key]);
+  }
+  for (const key of [
+    "planeYawPlaying", "planePitchPlaying",
+    "rotationXPlaying", "rotationYPlaying", "rotationZPlaying",
+  ]) {
+    if (typeof dimension[key] === "boolean") state[key] = dimension[key];
+  }
+  rotationTarget = dimension.rotationTarget === "surface" ? "surface" : "solid";
+  paintMotionControls();
+  paintRotationTarget();
+}
+
+function resetShapesBank(bank) {
+  if (bank === "form") {
+    $("resetSolidForm").click();
+    return true;
+  }
+
+  if (bank === "play") {
+    state.playing = false;
+    state.position = 0.5;
+    state.continuousPosition = 0.5;
+    state.speed = 0.12;
+    state.direction = 1;
+    state.planeYaw = 45;
+    state.planePitch = -22;
+    state.planeYawPlaying = false;
+    state.planePitchPlaying = false;
+    state.planeYawSpeed = 0.04;
+    state.planePitchSpeed = 0.03;
+    for (const [id, value] of [
+      ["position", state.position],
+      ["speed", state.speed],
+      ["planeYaw", state.planeYaw],
+      ["planePitch", state.planePitch],
+      ["planeYawSpeed", state.planeYawSpeed],
+      ["planePitchSpeed", state.planePitchSpeed],
+    ]) bridgeRange(id, value);
+    $("directionButton").textContent = "Direction · forward";
+    previousVertexSigns = null;
+    resetClocks();
+    paintMotionControls();
+    if (!motionIsActive()) pool.silence();
+    announce("Play controls reset.");
+    scheduleFrame();
+    return true;
+  }
+
+  if (bank === "rotation") {
+    for (const [axis, angle, speed] of [
+      ["X", -24, 0.03],
+      ["Y", 36, 0.08],
+      ["Z", 8, 0.02],
+    ]) {
+      state[`rotation${axis}`] = angle;
+      state[`rotation${axis}Speed`] = speed;
+      state[`rotation${axis}Playing`] = false;
+      bridgeRange(`rotation${axis}`, angle);
+      bridgeRange(`rotation${axis}Speed`, speed);
+    }
+    previousVertexSigns = null;
+    resetClocks();
+    paintMotionControls();
+    if (!motionIsActive()) pool.silence();
+    announce("Rotation controls reset.");
+    scheduleFrame();
+    return true;
+  }
+
+  if (bank === "sound") {
+    $("soundMode").value = "sine";
+    $("soundMode").dispatchEvent(new Event("change", { bubbles: true }));
+    for (const [id, value] of [
+      ["baseFrequency", 110],
+      ["pitchRange", 3],
+      ["fmIndex", 3],
+      ["fmRatio", 2],
+      ["percussionAttack", 3],
+      ["percussionDecay", 110],
+    ]) bridgeRange(id, value);
+    amplitudeControl.reset();
+    previousVertexSigns = null;
+    announce("Sound controls reset.");
+    scheduleFrame();
+    return true;
+  }
+
+  return false;
+}
+
+installShapesNativeBridge({
+  geometry: "solid",
+  sound: "synth",
+  capabilities: {
+    continuousPosition: true,
+    hostGain: true,
+    sharedProfile: true,
+    bankReset: true,
+  },
+  captureState: () => ({
+    playback: {
+      position: state.position,
+      continuousPosition: state.continuousPosition,
+      speed: state.speed,
+      direction: state.direction,
+      playing: state.playing,
+    },
+    audio: { enabled: state.audio, level: state.level },
+    topology: sharedProfileForSolid(),
+    dimension: solidDimensionState(),
+    synth: {
+      mode: state.soundMode,
+      baseFrequency: state.baseFrequency,
+      pitchRange: state.pitchRange,
+      fmIndex: state.fmIndex,
+      fmRatio: state.fmRatio,
+      pmIndex: state.fmIndex * 0.7,
+      pmRatio: state.fmRatio,
+      envelope: amplitudeControl.captureState(),
+      percussionAttack: state.percussionAttack,
+      percussionDecay: state.percussionDecay,
+    },
+  }),
+  applyState: (snapshot = {}) => {
+    shapesHostParked = false;
+    const playback = snapshot.playback ?? {};
+    const synth = snapshot.synth ?? {};
+    applySolidDimensionState(snapshot.dimension ?? {});
+    applySharedProfile(snapshot.topology ?? sharedProfileForSolid());
+    if (synth.mode && $("soundMode").querySelector(`option[value="${synth.mode}"]`)) {
+      $("soundMode").value = synth.mode;
+      $("soundMode").dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    bridgeRange("baseFrequency", synth.baseFrequency);
+    bridgeRange("pitchRange", synth.pitchRange);
+    bridgeRange("fmIndex", synth.mode === "pm" ? Number(synth.pmIndex) / 0.7 : synth.fmIndex);
+    bridgeRange("fmRatio", synth.mode === "pm" ? synth.pmRatio : synth.fmRatio);
+    amplitudeControl.applyState(synth.envelope);
+    bridgeRange("percussionAttack", synth.percussionAttack);
+    bridgeRange("percussionDecay", synth.percussionDecay);
+    bridgeRange("level", snapshot.audio?.level);
+    bridgeRange("position", playback.position);
+    bridgeRange("speed", playback.speed);
+    state.continuousPosition = Number.isFinite(playback.continuousPosition)
+      ? playback.continuousPosition
+      : state.position;
+    state.position = ((state.continuousPosition % 1) + 1) % 1;
+    state.direction = playback.direction < 0 ? -1 : 1;
+    $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
+    state.playing = Boolean(playback.playing);
+    previousVertexSigns = null;
+    resetClocks();
+    paintTransport();
+    scheduleFrame();
+  },
+  prepareAudio: async ({ gain = 0 } = {}) => {
+    pool.setHostGain(gain);
+    if (!state.audio) {
+      await pool.enable();
+      pool.setLevel(state.level);
+      state.audio = true;
+    }
+    setPressed($("audioButton"), true);
+    $("audioState").textContent = "on";
+    resetClocks();
+    scheduleFrame();
+  },
+  setHostGain: (gain, rampMilliseconds) => pool.setHostGain(gain, rampMilliseconds),
+  parkAudio: () => {
+    shapesHostParked = true;
+    cancelAnimationFrame(scheduledFrame);
+    scheduledFrame = 0;
+    pool.setHostGain(0);
+    pool.silence();
+    scheduleFrame();
+  },
+  disableAudio: () => {
+    state.audio = false;
+    pool.disable();
+    setPressed($("audioButton"), false);
+    $("audioState").textContent = "off";
+    scheduleFrame();
+  },
+  resetBank: resetShapesBank,
+});
+
 window.addEventListener("pagehide", (event) => {
   if (event.persisted) pool.disable();
   else void pool.close();

@@ -24,7 +24,7 @@ test("catalogue data inherits exact section order, names, titles, and links from
       tools: group.tools.filter((tool) => tool.catalogue !== false),
     }))
     .filter((group) => group.tools.length > 0);
-  assert.equal(INSTRUMENTS.length, 100);
+  assert.equal(INSTRUMENTS.length, 101);
   assert.equal(new Set(INSTRUMENTS.map(({ id }) => id)).size, INSTRUMENTS.length);
   assert.deepEqual(
     INSTRUMENT_GROUPS.map(({ id, label }) => ({ id, label })),
@@ -350,6 +350,7 @@ test("catalogue tag controls hide experiments until All is restored", () => {
   assert.deepEqual(filterLabels, [
     "All",
     "Faves",
+    "Apps",
     "Geometry Synths",
     "Drum Machines",
     "Sequencers",
@@ -435,6 +436,7 @@ test("input and plug-in availability facts remain explicit", () => {
     [
       { id: "mic-fx", label: "Mic FX" },
       { id: "fractals-recursion", label: "Fractals & Recursion" },
+      { id: "faves", label: "Faves" },
     ],
   );
   assert.deepEqual(

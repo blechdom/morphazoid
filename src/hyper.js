@@ -1,5 +1,7 @@
 /** Pure 4D tesseract projection and hyperplane intersection helpers. */
 
+import { sharedProfilePoints } from "./shapes-profile.js";
+
 const EPSILON = 1e-8;
 
 export function buildTesseract(radius = 0.68) {
@@ -104,7 +106,52 @@ export function buildKleinBottle(radius = 0.82, uSteps = 12, vSteps = 8) {
   return { vertices, edges };
 }
 
-export function buildHyperShape(type = "tesseract") {
+export function buildProfileHyperprism(profile = {}) {
+  const shared = sharedProfilePoints(profile, 0.7);
+  const count = shared.points.length;
+  const vertices = [];
+  for (const z of [-0.56, 0.56]) {
+    for (const w of [-0.56, 0.56]) {
+      for (const point of shared.points) vertices.push({ ...point, z, w });
+    }
+  }
+  const at = (zIndex, wIndex, pointIndex) => (
+    (zIndex * 2 + wIndex) * count + pointIndex
+  );
+  const edges = [];
+  for (let zIndex = 0; zIndex < 2; zIndex += 1) {
+    for (let wIndex = 0; wIndex < 2; wIndex += 1) {
+      for (let index = 0; index < count; index += 1) {
+        if (shared.closed || index + 1 < count) {
+          const next = shared.closed ? (index + 1) % count : index + 1;
+          edges.push({
+            a: at(zIndex, wIndex, index),
+            b: at(zIndex, wIndex, next),
+            axis: "u",
+          });
+        }
+        if (zIndex === 0) {
+          edges.push({
+            a: at(0, wIndex, index),
+            b: at(1, wIndex, index),
+            axis: "z",
+          });
+        }
+        if (wIndex === 0) {
+          edges.push({
+            a: at(zIndex, 0, index),
+            b: at(zIndex, 1, index),
+            axis: "w",
+          });
+        }
+      }
+    }
+  }
+  return { type: "profile", profile: shared, vertices, edges };
+}
+
+export function buildHyperShape(type = "tesseract", options = {}) {
+  if (type === "profile") return buildProfileHyperprism(options.profile ?? options);
   if (type === "hypersphere") return buildHypersphere();
   if (type === "hyperpyramid") return buildHyperPyramid();
   if (type === "klein") return buildKleinBottle();
@@ -212,7 +259,7 @@ export function transformedTesseract(rotation) {
 }
 
 export function transformedHyperShape(type, rotation, form = {}) {
-  const source = buildHyperShape(type);
+  const source = buildHyperShape(type, form.profile ?? {});
   const scale = {
     x: Math.max(0.4, Math.min(1.6, Number(form.x) || 1)),
     y: Math.max(0.4, Math.min(1.6, Number(form.y) || 1)),

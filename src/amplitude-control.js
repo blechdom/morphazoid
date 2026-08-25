@@ -5,6 +5,7 @@ import {
   percussionEnvelopeTimeMs,
   sampleAmplitudeEnvelope,
   sampleTimedAmplitudeEnvelope,
+  sanitizeAmplitudeEnvelope,
   timedAmplitudeEnvelopeDurationMs,
   updateAmplitudeEnvelopeNode,
 } from "./audio.js";
@@ -75,6 +76,28 @@ export function createAmplitudeControl(host, {
     },
     setVisible(visible) {
       if (host) host.hidden = !visible;
+    },
+    captureState() {
+      return {
+        enabled: state.enabled,
+        swell: state.swell,
+        preset: state.preset,
+        level: state.level,
+        points: state.points.map(({ x, y }) => ({ x, y })),
+      };
+    },
+    applyState(snapshot = {}) {
+      if (!snapshot || typeof snapshot !== "object") return controller.captureState();
+      if (typeof snapshot.enabled === "boolean") state.enabled = snapshot.enabled;
+      state.swell = !usesMilliseconds && state.enabled && Boolean(snapshot.swell);
+      if (typeof snapshot.preset === "string") {
+        state.preset = PRESETS.includes(snapshot.preset) ? snapshot.preset : "custom";
+      }
+      if (Array.isArray(snapshot.points)) state.points = sanitizeAmplitudeEnvelope(snapshot.points);
+      if (Number.isFinite(Number(snapshot.level))) state.level = clamp(snapshot.level);
+      render();
+      onChange(controller);
+      return controller.captureState();
     },
     reset() {
       state.enabled = true;

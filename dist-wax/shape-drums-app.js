@@ -34,6 +34,7 @@ import {
   shapeRotationTravelForAngle,
   shapeSideSubdivision,
 } from "./src/shape-drums.js";
+import { installShapesNativeBridge } from "./src/shapes-native-bridge.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -92,6 +93,7 @@ let pixelRatio = 1;
 let cachedShape = null;
 let cachedShapeKey = "";
 let scheduledFrame = 0;
+let shapesHostParked = false;
 let lastFrameTime = performance.now();
 let suppressStrikes = 2;
 let draggingHead = null;
@@ -147,6 +149,7 @@ function setPressed(element, pressed) {
 }
 
 function scheduleFrame() {
+  if (shapesHostParked) return;
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
 
@@ -1341,6 +1344,307 @@ window.addEventListener("keydown", (event) => {
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) setAudioState(false);
 });
+
+function bridgeRange(id, value) {
+  const input = $(id);
+  if (!input || !Number.isFinite(Number(value))) return;
+  input.value = String(value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+const SHARED_MAPPING_FROM_SHAPE = Object.freeze({
+  "contour-corner": "feature",
+  "position-grid": "position",
+  "incidence-playhead": "incidence",
+});
+const SHAPE_MAPPING_FROM_SHARED = Object.freeze({
+  feature: "contour-corner",
+  position: "position-grid",
+  incidence: "incidence-playhead",
+});
+
+function shapeDimensionState() {
+  return {
+    shapeType: state.shapeType,
+    sides: state.sides,
+    closedShapeType: state.closedShapeType,
+    starDepth: state.starDepth,
+    curvature: state.curvature,
+    aspect: state.aspect,
+    skew: state.skew,
+    playMethod: state.playMethod,
+    heads: state.heads,
+    headOffsets: state.headOffsets.slice(0, 12),
+    scanLineAxes: state.scanLineAxes.slice(0, 12),
+    traceHeadDirections: state.traceHeadDirections.slice(0, 12),
+    radialHeadDirections: state.radialHeadDirections.slice(0, 12),
+    traceHeadDirectionAdjustments: state.traceHeadDirectionAdjustments.slice(0, 12),
+    radialHeadDirectionAdjustments: state.radialHeadDirectionAdjustments.slice(0, 12),
+    rotation: state.rotation,
+    continuousRotation: state.continuousRotation,
+    rotationMotionMode: state.rotationMotionMode,
+    autoRotate: state.autoRotate,
+    rotationSpeed: state.rotationSpeed,
+    rotationDirection: state.rotationDirection,
+  };
+}
+
+function applyShapeDimensionState(dimension = {}) {
+  if (!dimension || !Object.keys(dimension).length) return;
+  if (Number.isFinite(Number(dimension.sides))) {
+    state.sides = Math.round(clamp(dimension.sides, 1, 32));
+  }
+  state.closedShapeType = dimension.closedShapeType === "star" ? "star" : "polygon";
+  if (Number.isFinite(Number(dimension.starDepth))) {
+    state.starDepth = clamp(dimension.starDepth, 0.05, 0.82);
+  }
+  $("sides").value = String(state.sides);
+  $("starDepth").value = String(state.starDepth);
+  syncFormTopology();
+  bridgeRange("starDepth", state.starDepth);
+  bridgeRange("curvature", dimension.curvature);
+  bridgeRange("aspect", dimension.aspect);
+  bridgeRange("skew", dimension.skew);
+
+  setPlayMethod(dimension.playMethod, false);
+  if (Number.isFinite(Number(dimension.heads))) {
+    state.heads = Math.round(clamp(dimension.heads, 1, 12));
+  }
+  state.headOffsets = sanitizeHeadOffsets(
+    Array.isArray(dimension.headOffsets) ? dimension.headOffsets : state.headOffsets,
+    state.heads,
+  );
+  state.scanLineAxes = Array.from({ length: 12 }, (_, index) => (
+    dimension.scanLineAxes?.[index] === "horizontal" ? "horizontal" : "vertical"
+  ));
+  for (const key of ["traceHeadDirections", "radialHeadDirections"]) {
+    state[key] = Array.from({ length: 12 }, (_, index) => (
+      Number(dimension[key]?.[index]) < 0 ? -1 : 1
+    ));
+  }
+  for (const key of ["traceHeadDirectionAdjustments", "radialHeadDirectionAdjustments"]) {
+    state[key] = Array.from({ length: 12 }, (_, index) => (
+      Number.isFinite(Number(dimension[key]?.[index])) ? Number(dimension[key][index]) : 0
+    ));
+  }
+
+  state.rotationMotionMode = dimension.rotationMotionMode === "pingpong" ? "pingpong" : "loop";
+  if (Number.isFinite(Number(dimension.rotation))) setRotationAngle(dimension.rotation);
+  if (Number.isFinite(Number(dimension.continuousRotation))) {
+    state.continuousRotation = Number(dimension.continuousRotation);
+  }
+  bridgeRange("rotationSpeed", dimension.rotationSpeed);
+  state.rotationDirection = dimension.rotationDirection < 0 ? -1 : 1;
+  const clockwise = state.rotationDirection > 0;
+  $("rotationDirectionGlyph").textContent = clockwise ? "→" : "←";
+  $("rotationDirectionText").textContent = clockwise ? "CW" : "CCW";
+  $("rotationDirection").setAttribute("aria-label", `Rotation direction: ${clockwise ? "clockwise" : "counterclockwise"}`);
+  state.autoRotate = Boolean(dimension.autoRotate);
+  setPressed($("rotationPlayButton"), state.autoRotate);
+  $("rotationPlayButton").setAttribute("aria-label", state.autoRotate ? "Pause rotation" : "Start rotation");
+  for (const button of $("rotationMotion").querySelectorAll("button[data-value]")) {
+    setPressed(button, button.dataset.value === state.rotationMotionMode);
+  }
+  updatePlayheadControls();
+}
+
+function suppressShapeDrumContacts() {
+  lastEventTokens.clear();
+  lastStrikeTimes.clear();
+  suppressStrikes = Math.max(suppressStrikes, 2);
+}
+
+function resetShapesBank(bank) {
+  if (bank === "form") {
+    resetForm();
+    suppressShapeDrumContacts();
+    return true;
+  }
+
+  if (bank === "play") {
+    Object.assign(state, {
+      playMethod: defaults.playMethod,
+      heads: defaults.heads,
+      motionMode: defaults.motionMode,
+      position: defaults.position,
+      continuousPosition: defaults.position,
+      speed: defaults.speed,
+      traversalDirection: defaults.traversalDirection,
+      playing: false,
+      headOffsets: [0],
+      scanLineAxes: Array(12).fill("vertical"),
+      traceHeadDirections: Array(12).fill(1),
+      radialHeadDirections: Array(12).fill(1),
+      traceHeadDirectionAdjustments: Array(12).fill(0),
+      radialHeadDirectionAdjustments: Array(12).fill(0),
+    });
+    $("position").value = String(state.position);
+    $("speed").value = String(sliderFromSpeed(state.speed));
+    setPressed($("playButton"), false);
+    $("playButton").setAttribute("aria-label", "Play playhead");
+    for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
+      setPressed(button, button.dataset.value === state.motionMode);
+    }
+    updatePlayheadControls();
+    updatePlayheadReadouts();
+    updateSectionSummaries();
+    suppressShapeDrumContacts();
+    lastFrameTime = performance.now();
+    announce("Play controls reset.");
+    invalidateGeometry();
+    return true;
+  }
+
+  if (bank === "rotation") {
+    Object.assign(state, {
+      rotation: defaults.rotation,
+      continuousRotation: 0,
+      rotationSpeed: defaults.rotationSpeed,
+      rotationDirection: defaults.rotationDirection,
+      rotationMotionMode: defaults.rotationMotionMode,
+      autoRotate: false,
+    });
+    $("rotationSpeed").value = String(state.rotationSpeed);
+    $("rotationSpeedOut").textContent = `${state.rotationSpeed.toFixed(2)} rev/s`;
+    setRotationAngle(state.rotation);
+    setPressed($("rotationPlayButton"), false);
+    $("rotationPlayButton").setAttribute("aria-label", "Start rotation");
+    for (const button of $("rotationMotion").querySelectorAll("button[data-value]")) {
+      setPressed(button, button.dataset.value === state.rotationMotionMode);
+    }
+    $("rotationDirectionGlyph").textContent = "→";
+    $("rotationDirectionText").textContent = "CW";
+    $("rotationDirection").setAttribute("aria-label", "Rotation direction: clockwise");
+    updateSectionSummaries();
+    suppressShapeDrumContacts();
+    lastFrameTime = performance.now();
+    announce("Rotation controls reset.");
+    invalidateGeometry();
+    return true;
+  }
+
+  if (bank === "mapping") {
+    state.mappingMode = defaults.mappingMode;
+    $("mappingMode").value = state.mappingMode;
+    for (const key of ["pitchDepth", "characterDepth", "strikeLimit"]) {
+      bridgeRange(key, defaults[key]);
+    }
+    updateSectionSummaries();
+    updateHitCapStatus();
+    suppressShapeDrumContacts();
+    announce("Drum mapping reset.");
+    scheduleFrame();
+    return true;
+  }
+
+  return false;
+}
+
+installShapesNativeBridge({
+  geometry: "shape",
+  sound: "drums",
+  capabilities: {
+    continuousPosition: true,
+    hostGain: true,
+    sharedProfile: true,
+    bankReset: true,
+  },
+  captureState: () => ({
+    playback: {
+      position: state.position,
+      continuousPosition: state.continuousPosition,
+      speed: state.speed,
+      direction: state.traversalDirection,
+      playing: state.playing,
+      motionMode: state.motionMode,
+    },
+    audio: { enabled: state.audioOn, level: state.output },
+    topology: {
+      sides: state.sides,
+      kind: state.sides === 1
+        ? "circle"
+        : state.sides === 2 ? "line" : state.closedShapeType,
+      starDepth: state.starDepth,
+      lift: state.sides === 1 ? "round" : "prism",
+    },
+    dimension: shapeDimensionState(),
+    drums: {
+      mappingFamily: SHARED_MAPPING_FROM_SHAPE[state.mappingMode] ?? "feature",
+      subdivisions: state.sideSubdivisions,
+      pitchDepth: state.pitchDepth,
+      characterDepth: state.characterDepth,
+      strikeLimit: state.strikeLimit,
+    },
+  }),
+  applyState: (snapshot = {}) => {
+    shapesHostParked = false;
+    const playback = snapshot.playback ?? {};
+    const profile = snapshot.topology ?? {};
+    const drums = snapshot.drums ?? {};
+    applyShapeDimensionState(snapshot.dimension ?? {});
+    if (profile.lift !== "local" && Number.isFinite(Number(profile.sides))) {
+      state.sides = Math.round(clamp(profile.sides, 1, 32));
+      state.closedShapeType = profile.kind === "star" ? "star" : "polygon";
+      state.starDepth = clamp(profile.starDepth ?? state.starDepth, 0.05, 0.82);
+      $("sides").value = String(state.sides);
+      $("starDepth").value = String(state.starDepth);
+      syncFormTopology();
+      bridgeRange("starDepth", state.starDepth);
+    }
+    state.motionMode = playback.motionMode === "pingpong" ? "pingpong" : "loop";
+    for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
+      setPressed(button, button.dataset.value === state.motionMode);
+    }
+    state.speed = clamp(playback.speed ?? state.speed, 0, SPEED_MAX);
+    $("speed").value = String(sliderFromSpeed(state.speed));
+    state.continuousPosition = Number.isFinite(playback.continuousPosition)
+      ? playback.continuousPosition
+      : clamp(playback.position ?? state.position);
+    state.position = state.motionMode === "pingpong"
+      ? pingPong01(state.continuousPosition)
+      : wrap01(state.continuousPosition);
+    $("position").value = String(state.position);
+    state.traversalDirection = playback.direction < 0 ? -1 : 1;
+    state.playing = Boolean(playback.playing);
+    setPressed($("playButton"), state.playing);
+    $("playButton").setAttribute("aria-label", state.playing ? "Pause playhead" : "Play playhead");
+    const mappingMode = SHAPE_MAPPING_FROM_SHARED[drums.mappingFamily];
+    if (mappingMode && $("mappingMode").querySelector(`option[value="${mappingMode}"]`)) {
+      state.mappingMode = mappingMode;
+      $("mappingMode").value = mappingMode;
+    }
+    bridgeRange("sideSubdivisions", drums.subdivisions);
+    bridgeRange("pitchDepth", drums.pitchDepth);
+    bridgeRange("characterDepth", drums.characterDepth);
+    bridgeRange("strikeLimit", drums.strikeLimit);
+    bridgeRange("output", snapshot.audio?.level);
+    updateTraversalDirection();
+    updateSectionSummaries();
+    updatePlayheadReadouts();
+    suppressShapeDrumContacts();
+    lastFrameTime = performance.now();
+    scheduleFrame();
+  },
+  prepareAudio: async ({ gain = 0 } = {}) => {
+    audio.setHostGain(gain);
+    if (!state.audioOn) await enableAudio();
+    setAudioState(true);
+    lastFrameTime = performance.now();
+    scheduleFrame();
+  },
+  setHostGain: (gain, rampMilliseconds) => audio.setHostGain(gain, rampMilliseconds),
+  parkAudio: () => {
+    shapesHostParked = true;
+    cancelAnimationFrame(scheduledFrame);
+    scheduledFrame = 0;
+    audio.setHostGain(0);
+    suppressShapeDrumContacts();
+    scheduleFrame();
+  },
+  disableAudio: () => setAudioState(false),
+  resetBank: resetShapesBank,
+});
+
 window.addEventListener("pageshow", scheduleFrame);
 window.addEventListener("pagehide", () => {
   if (audio.context && audio.context.state !== "closed") void audio.context.close();

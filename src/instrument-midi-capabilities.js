@@ -30,6 +30,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "gesturama",
   ]),
   pitched: Object.freeze([
+    "combo",
     "shape",
     "playhead-paint",
     "lattice",
@@ -113,6 +114,7 @@ const NOTE_MODE_IDS = Object.freeze({
 });
 
 export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
+  "combo",
   "shape",
   "recursive-fm",
   "recursive-pm",

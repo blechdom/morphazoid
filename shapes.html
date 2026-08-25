@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta
+      name="description"
+      content="Morphazoid Shapes — the original 2D Polygon, 3D Polyhedra, and 4D Hyperpolyhedra synth and drum instruments in one focused host."
+    />
+    <title>Shapes — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="combo.css" />
+  </head>
+  <body class="combo-page">
+    <main class="combo-host" id="comboRack" data-geometry="shape" data-sound="synth">
+      <h1 class="sr-only" id="focusTitle">Polygon Synth</h1>
+
+      <section class="native-instrument-shell is-loading" id="nativeInstrumentShell" aria-labelledby="focusTitle">
+        <div class="native-loading" id="nativeLoading" role="status">Loading the original Polygon Synth…</div>
+        <iframe
+          id="nativeInstrumentFrame"
+          title="Polygon Synth"
+          src="shape.html?combo-embed=1"
+          loading="eager"
+          allow="autoplay; microphone; midi"
+        ></iframe>
+      </section>
+    </main>
+
+    <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    <script type="module" src="combo-app.js"></script>
+  </body>
+</html>

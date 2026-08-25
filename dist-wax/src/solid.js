@@ -1,5 +1,7 @@
 /** Pure wireframe geometry for the Solid instrument. */
 
+import { sharedProfilePoints } from "./shapes-profile.js";
+
 const TAU = Math.PI * 2;
 const EPSILON = 1e-8;
 
@@ -79,6 +81,27 @@ function triangularPrism() {
     [3, 4], [4, 5], [5, 3],
     [0, 3], [1, 4], [2, 5],
   ]);
+}
+
+export function buildProfilePrism(profile = {}) {
+  const shared = sharedProfilePoints(profile);
+  const vertices = [];
+  for (const z of [-0.62, 0.62]) {
+    for (const point of shared.points) vertices.push({ ...point, z });
+  }
+  const count = shared.points.length;
+  const pairs = [];
+  for (let index = 0; index < count; index += 1) {
+    if (shared.closed || index + 1 < count) {
+      const next = shared.closed ? (index + 1) % count : index + 1;
+      pairs.push([index, next], [index + count, next + count]);
+    }
+    pairs.push([index, index + count]);
+  }
+  return {
+    ...indexedSolid("profile", vertices, pairs),
+    profile: shared,
+  };
 }
 
 function cone(segments = 16) {
@@ -165,7 +188,8 @@ function torus(majorSegments = 12, minorSegments = 6) {
   return indexedSolid("torus", vertices, pairs);
 }
 
-export function buildSolid(type = "cube") {
+export function buildSolid(type = "cube", options = {}) {
+  if (type === "profile") return buildProfilePrism(options.profile ?? options);
   if (type === "torus") return torus();
   if (type === "sphere") return sphere();
   if (type === "cylinder") return cylinder();

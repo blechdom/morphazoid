@@ -73,9 +73,11 @@ export class FmDrumAudio {
     this.context = null;
     this.input = null;
     this.master = null;
+    this.hostGate = null;
     this.analyser = null;
     this.releaseAudioOutput = null;
     this.output = .72;
+    this.hostGain = 1;
     this.lifecycleGeneration = 0;
   }
 
@@ -88,6 +90,7 @@ export class FmDrumAudio {
       this.context = null;
       this.input = null;
       this.master = null;
+      this.hostGate = null;
       this.analyser = null;
       const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
       if (!Context) throw new Error("Web Audio is not available in this browser.");
@@ -101,10 +104,13 @@ export class FmDrumAudio {
       compressor.release.value = .18;
       this.master = context.createGain();
       this.master.gain.value = this.output;
+      this.hostGate = context.createGain();
+      this.hostGate.gain.value = this.hostGain;
       this.analyser = context.createAnalyser();
       this.analyser.fftSize = 256;
       compressor.connect(this.master);
-      this.master.connect(this.analyser);
+      this.master.connect(this.hostGate);
+      this.hostGate.connect(this.analyser);
       this.releaseAudioOutput = connectAudioOutput(context, this.analyser, { runtime: this.runtime });
       this.input = compressor;
     }
@@ -127,6 +133,22 @@ export class FmDrumAudio {
     }
   }
 
+  /** Host-only gain used for seamless handoff without changing the saved output. */
+  setHostGain(gain, rampMilliseconds = 0) {
+    this.hostGain = clamp(Number(gain) || 0, 0, 1);
+    if (!this.context || !this.hostGate) return;
+    const now = this.context.currentTime;
+    const parameter = this.hostGate.gain;
+    if (typeof parameter.cancelAndHoldAtTime === "function") parameter.cancelAndHoldAtTime(now);
+    else {
+      parameter.cancelScheduledValues(now);
+      parameter.setValueAtTime(parameter.value, now);
+    }
+    const duration = Math.max(0, Number(rampMilliseconds) || 0) / 1000;
+    if (duration > 0) parameter.linearRampToValueAtTime(this.hostGain, now + duration);
+    else parameter.setValueAtTime(this.hostGain, now);
+  }
+
   async close() {
     this.lifecycleGeneration += 1;
     const context = this.context;
@@ -135,6 +157,7 @@ export class FmDrumAudio {
     this.context = null;
     this.input = null;
     this.master = null;
+    this.hostGate = null;
     this.analyser = null;
     if (context && context.state !== "closed" && typeof context.close === "function") {
       await context.close();

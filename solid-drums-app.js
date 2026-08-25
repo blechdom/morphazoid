@@ -30,12 +30,16 @@ import {
   rebaseContinuousPosition,
   rebasePingPongPosition,
 } from "./src/articulation.js";
+import { installShapesNativeBridge } from "./src/shapes-native-bridge.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
 const audio = new FmDrumAudio(globalThis);
 const defaults = {
   solidType: "cube",
+  profileSides: 4,
+  profileShapeType: "polygon",
+  profileStarDepth: 0.48,
   position: 0.5,
   speed: 0.12,
   traversalDirection: 1,
@@ -84,6 +88,7 @@ let cssWidth = 1;
 let cssHeight = 1;
 let pixelRatio = 1;
 let scheduledFrame = 0;
+let shapesHostParked = false;
 let lastFrameTime = performance.now();
 let pointer = null;
 let rotationTarget = "solid";
@@ -154,6 +159,7 @@ function setPressed(element, pressed) {
 }
 
 function scheduleFrame() {
+  if (shapesHostParked) return;
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
 
@@ -417,7 +423,13 @@ function currentRotation() {
 }
 
 function transformedSolid(rotation = currentRotation()) {
-  const solid = deformSolid(buildSolid(state.solidType), {
+  const solid = deformSolid(buildSolid(state.solidType, {
+    profile: {
+      sides: state.profileSides,
+      shapeType: state.profileShapeType,
+      starDepth: state.profileStarDepth,
+    },
+  }), {
     scaleX: state.formScaleX,
     scaleY: state.formScaleY,
     scaleZ: state.formScaleZ,
@@ -429,6 +441,19 @@ function transformedSolid(rotation = currentRotation()) {
     vertices: solid.vertices.map((point) => rotatePoint3(point, rotation)),
   };
 }
+
+document.addEventListener("morphazoid:shapes-profile", (event) => {
+  const profile = event.detail ?? {};
+  state.profileSides = Math.round(clamp(profile.sides, 1, 32));
+  state.profileShapeType = profile.kind === "star" ? "star" : "polygon";
+  state.profileStarDepth = clamp(profile.starDepth, 0.05, 0.82);
+  state.solidType = "profile";
+  $("solidType").value = "profile";
+  previousContactKeys.clear();
+  suppressStrikesUntil = performance.now() + 80;
+  updateSummaries();
+  scheduleFrame();
+});
 
 function currentPlane(
   phase = state.position,
@@ -871,6 +896,294 @@ function reset() {
 }
 
 $("resetSolidDrums").addEventListener("click", reset);
+
+function bridgeRange(id, value) {
+  const input = $(id);
+  if (!input || !Number.isFinite(Number(value))) return;
+  input.value = String(value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+const SHARED_MAPPING_FROM_SOLID = Object.freeze({
+  "edge-axis": "feature",
+  "position-grid": "position",
+  "incidence-depth": "incidence",
+});
+const SOLID_MAPPING_FROM_SHARED = Object.freeze({
+  feature: "edge-axis",
+  position: "position-grid",
+  incidence: "incidence-depth",
+});
+
+function sharedProfileForSolid() {
+  if (state.solidType === "profile") {
+    return {
+      sides: state.profileSides,
+      kind: state.profileSides === 1
+        ? "circle"
+        : state.profileSides === 2 ? "line" : state.profileShapeType,
+      starDepth: state.profileStarDepth,
+      lift: "prism",
+    };
+  }
+  if (state.solidType === "sphere") {
+    return { sides: 1, kind: "circle", starDepth: 0.48, lift: "round" };
+  }
+  if (["cube", "prism"].includes(state.solidType)) {
+    return {
+      sides: state.solidType === "prism" ? 3 : 4,
+      kind: "polygon",
+      starDepth: 0.48,
+      lift: "prism",
+    };
+  }
+  return { sides: 4, kind: "polygon", starDepth: 0.48, lift: "local" };
+}
+
+function applySharedProfile(profile = {}) {
+  if (profile.lift === "local") return;
+  const sides = Math.round(clamp(profile.sides, 1, 32));
+  if (profile.kind === "circle" || sides === 1) {
+    state.solidType = "sphere";
+    $("solidType").value = "sphere";
+    return;
+  }
+  state.profileSides = sides;
+  state.profileShapeType = profile.kind === "star" ? "star" : "polygon";
+  state.profileStarDepth = clamp(profile.starDepth, 0.05, 0.82);
+  state.solidType = "profile";
+  $("solidType").value = "profile";
+}
+
+function solidDimensionState() {
+  return {
+    solidType: state.solidType,
+    profileSides: state.profileSides,
+    profileShapeType: state.profileShapeType,
+    profileStarDepth: state.profileStarDepth,
+    formScaleX: state.formScaleX,
+    formScaleY: state.formScaleY,
+    formScaleZ: state.formScaleZ,
+    formSkewX: state.formSkewX,
+    formSkewZ: state.formSkewZ,
+    planeYaw: state.planeYaw,
+    planePitch: state.planePitch,
+    planeYawPlaying: state.planeYawPlaying,
+    planePitchPlaying: state.planePitchPlaying,
+    planeYawSpeed: state.planeYawSpeed,
+    planePitchSpeed: state.planePitchSpeed,
+    rotationX: state.rotationX,
+    rotationY: state.rotationY,
+    rotationZ: state.rotationZ,
+    rotationXPlaying: state.rotationXPlaying,
+    rotationYPlaying: state.rotationYPlaying,
+    rotationZPlaying: state.rotationZPlaying,
+    rotationXSpeed: state.rotationXSpeed,
+    rotationYSpeed: state.rotationYSpeed,
+    rotationZSpeed: state.rotationZSpeed,
+    rotationTarget,
+  };
+}
+
+function applySolidDimensionState(dimension = {}) {
+  if (!dimension || !Object.keys(dimension).length) return;
+  const solidTypes = new Set([
+    "cube", "pyramid", "octahedron", "prism", "cone", "cylinder", "sphere", "torus", "profile",
+  ]);
+  if (solidTypes.has(dimension.solidType)) {
+    state.solidType = dimension.solidType;
+    $("solidType").value = state.solidType;
+  }
+  if (Number.isFinite(Number(dimension.profileSides))) {
+    state.profileSides = Math.round(clamp(dimension.profileSides, 1, 32));
+  }
+  state.profileShapeType = dimension.profileShapeType === "star" ? "star" : "polygon";
+  if (Number.isFinite(Number(dimension.profileStarDepth))) {
+    state.profileStarDepth = clamp(dimension.profileStarDepth, 0.05, 0.82);
+  }
+  for (const key of ["formScaleX", "formScaleY", "formScaleZ", "formSkewX", "formSkewZ"]) {
+    bridgeRange(key, dimension[key]);
+  }
+  for (const key of [
+    "planeYaw", "planePitch", "planeYawSpeed", "planePitchSpeed",
+    "rotationX", "rotationY", "rotationZ",
+    "rotationXSpeed", "rotationYSpeed", "rotationZSpeed",
+  ]) {
+    bridgeRange(key, dimension[key]);
+  }
+  for (const key of [
+    "planeYawPlaying", "planePitchPlaying",
+    "rotationXPlaying", "rotationYPlaying", "rotationZPlaying",
+  ]) {
+    if (typeof dimension[key] === "boolean") state[key] = dimension[key];
+  }
+  rotationTarget = dimension.rotationTarget === "surface" ? "surface" : "solid";
+  paintMotionControls();
+  paintRotationTarget();
+}
+
+function suppressSolidDrumContacts() {
+  previousContactKeys.clear();
+  lastStrikeTimes.clear();
+  suppressStrikesUntil = performance.now() + 80;
+}
+
+function resetShapesBank(bank) {
+  if (bank === "form") {
+    resetSolidForm();
+    suppressSolidDrumContacts();
+    return true;
+  }
+
+  if (bank === "play") {
+    Object.assign(state, {
+      position: defaults.position,
+      continuousPosition: defaults.position,
+      speed: defaults.speed,
+      traversalDirection: defaults.traversalDirection,
+      motionMode: defaults.motionMode,
+      playing: false,
+      planeYaw: defaults.planeYaw,
+      planePitch: defaults.planePitch,
+      planeYawSpeed: defaults.planeYawSpeed,
+      planePitchSpeed: defaults.planePitchSpeed,
+      planeYawPlaying: false,
+      planePitchPlaying: false,
+    });
+    for (const key of [
+      "position",
+      "speed",
+      "planeYaw",
+      "planePitch",
+      "planeYawSpeed",
+      "planePitchSpeed",
+    ]) bridgeRange(key, state[key]);
+    state.continuousPosition = defaults.position;
+    paintTraversalControls();
+    paintMotionControls();
+    suppressSolidDrumContacts();
+    updateSummaries();
+    lastFrameTime = performance.now();
+    announce("Play controls reset.");
+    scheduleFrame();
+    return true;
+  }
+
+  if (bank === "rotation") {
+    for (const axis of ["X", "Y", "Z"]) {
+      state[`rotation${axis}`] = defaults[`rotation${axis}`];
+      state[`rotation${axis}Speed`] = defaults[`rotation${axis}Speed`];
+      state[`rotation${axis}Playing`] = false;
+      bridgeRange(`rotation${axis}`, state[`rotation${axis}`]);
+      bridgeRange(`rotation${axis}Speed`, state[`rotation${axis}Speed`]);
+    }
+    paintMotionControls();
+    suppressSolidDrumContacts();
+    lastFrameTime = performance.now();
+    announce("Rotation controls reset.");
+    scheduleFrame();
+    return true;
+  }
+
+  if (bank === "mapping") {
+    state.mappingMode = defaults.mappingMode;
+    $("mappingMode").value = state.mappingMode;
+    for (const key of ["pitchDepth", "characterDepth", "strikeLimit"]) {
+      bridgeRange(key, defaults[key]);
+    }
+    suppressSolidDrumContacts();
+    updateSummaries();
+    announce("Drum mapping reset.");
+    scheduleFrame();
+    return true;
+  }
+
+  return false;
+}
+
+installShapesNativeBridge({
+  geometry: "solid",
+  sound: "drums",
+  capabilities: {
+    continuousPosition: true,
+    hostGain: true,
+    sharedProfile: true,
+    bankReset: true,
+  },
+  captureState: () => ({
+    playback: {
+      position: state.position,
+      continuousPosition: state.continuousPosition,
+      speed: state.speed,
+      direction: state.traversalDirection,
+      playing: state.playing,
+      motionMode: state.motionMode,
+    },
+    audio: { enabled: state.audioOn, level: state.output },
+    topology: sharedProfileForSolid(),
+    dimension: solidDimensionState(),
+    drums: {
+      mappingFamily: SHARED_MAPPING_FROM_SOLID[state.mappingMode] ?? "feature",
+      subdivisions: state.subdivisions,
+      pitchDepth: state.pitchDepth,
+      characterDepth: state.characterDepth,
+      strikeLimit: state.strikeLimit,
+    },
+  }),
+  applyState: (snapshot = {}) => {
+    shapesHostParked = false;
+    const playback = snapshot.playback ?? {};
+    const drums = snapshot.drums ?? {};
+    applySolidDimensionState(snapshot.dimension ?? {});
+    applySharedProfile(snapshot.topology ?? sharedProfileForSolid());
+    state.motionMode = playback.motionMode === "pingpong" ? "pingpong" : "loop";
+    state.speed = clamp(playback.speed ?? state.speed, 0, 4);
+    $("speed").value = String(state.speed);
+    state.continuousPosition = Number.isFinite(playback.continuousPosition)
+      ? playback.continuousPosition
+      : clamp(playback.position ?? state.position, 0, 1);
+    state.position = state.motionMode === "pingpong"
+      ? pingPong01(state.continuousPosition)
+      : wrap01(state.continuousPosition);
+    $("position").value = String(state.position);
+    state.traversalDirection = playback.direction < 0 ? -1 : 1;
+    state.playing = Boolean(playback.playing);
+    const mappingMode = SOLID_MAPPING_FROM_SHARED[drums.mappingFamily];
+    if (mappingMode && $("mappingMode").querySelector(`option[value="${mappingMode}"]`)) {
+      state.mappingMode = mappingMode;
+      $("mappingMode").value = mappingMode;
+    }
+    bridgeRange("subdivisions", drums.subdivisions);
+    bridgeRange("pitchDepth", drums.pitchDepth);
+    bridgeRange("characterDepth", drums.characterDepth);
+    bridgeRange("strikeLimit", drums.strikeLimit);
+    bridgeRange("output", snapshot.audio?.level);
+    paintTraversalControls();
+    paintMotionControls();
+    suppressSolidDrumContacts();
+    updateSummaries();
+    lastFrameTime = performance.now();
+    scheduleFrame();
+  },
+  prepareAudio: async ({ gain = 0 } = {}) => {
+    audio.setHostGain(gain);
+    if (!state.audioOn) await enableAudio();
+    setAudioState(true);
+    lastFrameTime = performance.now();
+    scheduleFrame();
+  },
+  setHostGain: (gain, rampMilliseconds) => audio.setHostGain(gain, rampMilliseconds),
+  parkAudio: () => {
+    shapesHostParked = true;
+    cancelAnimationFrame(scheduledFrame);
+    scheduledFrame = 0;
+    audio.setHostGain(0);
+    suppressSolidDrumContacts();
+    scheduleFrame();
+  },
+  disableAudio: () => setAudioState(false),
+  resetBank: resetShapesBank,
+});
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) setAudioState(false);

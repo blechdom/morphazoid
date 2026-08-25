@@ -259,6 +259,10 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
     setItem(key, value) { sessionStorage.set(key, String(value)); },
     removeItem(key) { sessionStorage.delete(key); },
   };
+  Object.defineProperty(globalThis, "performance", {
+    configurable: true,
+    value: { now: () => 1_000 },
+  });
 
   await import(`../app.js?smoke=${Date.now()}`);
   assert.equal(typeof queuedFrame, "function");
@@ -505,7 +509,7 @@ test("app.js initializes and draws one frame against browser APIs", async () => 
   assert.equal(audioOscillators.length, 0, "the worklet path should not allocate idle native oscillators");
   queuedFrame(1_020);
   assert.match(elements.get("stageReadout").textContent, /0 SYNTHS/);
-  const continuousGains = audioGains.slice(1, 33);
+  const continuousGains = audioGains.slice(2, 34); // master, then Shapes host crossfade gate
   const latestWorkletVoice = (mode) => audioWorkletMessages
     .toReversed()
     .flatMap((message) => message.voices ?? [])

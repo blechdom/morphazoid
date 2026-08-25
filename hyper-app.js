@@ -18,6 +18,7 @@ import {
   transformedHyperShape,
 } from "./src/hyper.js";
 import { createAmplitudeControl } from "./src/amplitude-control.js";
+import { installShapesNativeBridge } from "./src/shapes-native-bridge.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -30,6 +31,9 @@ const pool = new VoicePool(32, { continuousPeakCeiling: 0.78 });
 const amplitudeControl = createAmplitudeControl($("amplitudeControl"), { onChange: scheduleFrame });
 const state = {
   shapeType: "tesseract",
+  profileSides: 4,
+  profileShapeType: "polygon",
+  profileStarDepth: 0.48,
   position: 0.5,
   continuousPosition: 0.5,
   speed: 0.1,
@@ -62,6 +66,7 @@ let cssWidth = 1;
 let cssHeight = 1;
 let pixelRatio = 1;
 let scheduledFrame = 0;
+let shapesHostParked = false;
 let lastFrameTime = performance.now();
 let lastAudioTime = null;
 let previousSigns = null;
@@ -72,6 +77,7 @@ function normalizeDegrees(value) {
 }
 
 function scheduleFrame() {
+  if (shapesHostParked) return;
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
 
@@ -141,6 +147,7 @@ const SHAPE_LABELS = {
   hypersphere: "Hypersphere",
   hyperpyramid: "Hyperpyramid",
   klein: "Klein bottle",
+  profile: "Profile hyperprism",
 };
 
 $("hyperShape").addEventListener("change", (event) => {
@@ -308,8 +315,25 @@ function hyperForm() {
     y: state.hyperScaleY,
     z: state.hyperScaleZ,
     w: state.hyperScaleW,
+    profile: {
+      sides: state.profileSides,
+      shapeType: state.profileShapeType,
+      starDepth: state.profileStarDepth,
+    },
   };
 }
+
+document.addEventListener("morphazoid:shapes-profile", (event) => {
+  const profile = event.detail ?? {};
+  state.profileSides = Math.round(clamp(profile.sides, 1, 32));
+  state.profileShapeType = profile.kind === "star" ? "star" : "polygon";
+  state.profileStarDepth = clamp(profile.starDepth, 0.05, 0.82);
+  state.shapeType = "profile";
+  $("hyperShape").value = "profile";
+  $("formSummary").textContent = `${state.profileSides}-point ${state.profileShapeType} hyperprism`;
+  previousSigns = null;
+  scheduleFrame();
+});
 
 function currentHyperShape(nextRotation = rotation()) {
   return transformedHyperShape(state.shapeType, nextRotation, hyperForm());
@@ -524,6 +548,264 @@ function frame(now) {
 }
 
 document.addEventListener("visibilitychange", () => document.hidden ? pool.silence() : scheduleFrame());
+
+function bridgeRange(id, value) {
+  const input = $(id);
+  if (!input || !Number.isFinite(Number(value))) return;
+  input.value = String(value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function sharedProfileForHyper() {
+  if (state.shapeType === "profile") {
+    return {
+      sides: state.profileSides,
+      kind: state.profileSides === 1
+        ? "circle"
+        : state.profileSides === 2 ? "line" : state.profileShapeType,
+      starDepth: state.profileStarDepth,
+      lift: "prism",
+    };
+  }
+  if (state.shapeType === "hypersphere") {
+    return { sides: 1, kind: "circle", starDepth: 0.48, lift: "round" };
+  }
+  if (state.shapeType === "tesseract") {
+    return { sides: 4, kind: "polygon", starDepth: 0.48, lift: "prism" };
+  }
+  return { sides: 4, kind: "polygon", starDepth: 0.48, lift: "local" };
+}
+
+function applySharedProfile(profile = {}) {
+  if (profile.lift === "local") return;
+  const sides = Math.round(clamp(profile.sides, 1, 32));
+  if (profile.kind === "circle" || sides === 1) {
+    state.shapeType = "hypersphere";
+    $("hyperShape").value = "hypersphere";
+    $("formSummary").textContent = SHAPE_LABELS.hypersphere;
+    return;
+  }
+  state.profileSides = sides;
+  state.profileShapeType = profile.kind === "star" ? "star" : "polygon";
+  state.profileStarDepth = clamp(profile.starDepth, 0.05, 0.82);
+  state.shapeType = "profile";
+  $("hyperShape").value = "profile";
+  $("formSummary").textContent = `${sides}-point ${state.profileShapeType} hyperprism`;
+}
+
+function hyperDimensionState() {
+  return {
+    shapeType: state.shapeType,
+    profileSides: state.profileSides,
+    profileShapeType: state.profileShapeType,
+    profileStarDepth: state.profileStarDepth,
+    hyperScaleX: state.hyperScaleX,
+    hyperScaleY: state.hyperScaleY,
+    hyperScaleZ: state.hyperScaleZ,
+    hyperScaleW: state.hyperScaleW,
+    rotationXW: state.rotationXW,
+    rotationYW: state.rotationYW,
+    rotationZW: state.rotationZW,
+    rotationXWPlaying: state.rotationXWPlaying,
+    rotationYWPlaying: state.rotationYWPlaying,
+    rotationZWPlaying: state.rotationZWPlaying,
+    rotationXWSpeed: state.rotationXWSpeed,
+    rotationYWSpeed: state.rotationYWSpeed,
+    rotationZWSpeed: state.rotationZWSpeed,
+  };
+}
+
+function applyHyperDimensionState(dimension = {}) {
+  if (!dimension || !Object.keys(dimension).length) return;
+  const shapeTypes = new Set(["tesseract", "hypersphere", "hyperpyramid", "klein", "profile"]);
+  if (shapeTypes.has(dimension.shapeType)) {
+    state.shapeType = dimension.shapeType;
+    $("hyperShape").value = state.shapeType;
+    $("formSummary").textContent = SHAPE_LABELS[state.shapeType] ?? "Tesseract";
+  }
+  if (Number.isFinite(Number(dimension.profileSides))) {
+    state.profileSides = Math.round(clamp(dimension.profileSides, 1, 32));
+  }
+  state.profileShapeType = dimension.profileShapeType === "star" ? "star" : "polygon";
+  if (Number.isFinite(Number(dimension.profileStarDepth))) {
+    state.profileStarDepth = clamp(dimension.profileStarDepth, 0.05, 0.82);
+  }
+  for (const key of ["hyperScaleX", "hyperScaleY", "hyperScaleZ", "hyperScaleW"]) {
+    bridgeRange(key, dimension[key]);
+  }
+  for (const axis of ["XW", "YW", "ZW"]) {
+    bridgeRange(`rotation${axis}`, dimension[`rotation${axis}`]);
+    bridgeRange(`rotation${axis}Speed`, dimension[`rotation${axis}Speed`]);
+    const playing = dimension[`rotation${axis}Playing`];
+    if (typeof playing === "boolean") state[`rotation${axis}Playing`] = playing;
+  }
+  paintRotation();
+}
+
+function resetShapesBank(bank) {
+  if (bank === "form") {
+    $("resetHyperForm").click();
+    return true;
+  }
+
+  if (bank === "play") {
+    state.playing = false;
+    state.position = 0.5;
+    state.continuousPosition = 0.5;
+    state.speed = 0.1;
+    state.direction = 1;
+    bridgeRange("position", state.position);
+    bridgeRange("speed", state.speed);
+    $("directionButton").textContent = "Direction · forward";
+    setPressed($("playButton"), false);
+    $("playSummary").textContent = "W plane · paused";
+    previousSigns = null;
+    resetClocks();
+    if (!rotationIsMoving()) pool.silence();
+    $("liveStatus").textContent = "Play controls reset.";
+    scheduleFrame();
+    return true;
+  }
+
+  if (bank === "rotation") {
+    for (const [axis, angle, speed] of [
+      ["XW", 24, 0.06],
+      ["YW", -18, 0.04],
+      ["ZW", 12, -0.02],
+    ]) {
+      state[`rotation${axis}`] = angle;
+      state[`rotation${axis}Speed`] = speed;
+      state[`rotation${axis}Playing`] = false;
+      bridgeRange(`rotation${axis}`, angle);
+      bridgeRange(`rotation${axis}Speed`, speed);
+    }
+    previousSigns = null;
+    paintRotation();
+    resetClocks();
+    if (!state.playing) pool.silence();
+    $("liveStatus").textContent = "Rotation controls reset.";
+    scheduleFrame();
+    return true;
+  }
+
+  if (bank === "sound") {
+    $("soundMode").value = "sine";
+    $("soundMode").dispatchEvent(new Event("change", { bubbles: true }));
+    for (const [id, value] of [
+      ["baseFrequency", 82],
+      ["pitchRange", 4],
+      ["fmIndex", 3.5],
+      ["fmRatio", 1.5],
+      ["percussionAttack", 3],
+      ["percussionDecay", 120],
+    ]) bridgeRange(id, value);
+    amplitudeControl.reset();
+    previousSigns = null;
+    $("liveStatus").textContent = "Sound controls reset.";
+    scheduleFrame();
+    return true;
+  }
+
+  return false;
+}
+
+installShapesNativeBridge({
+  geometry: "hyper",
+  sound: "synth",
+  capabilities: {
+    continuousPosition: true,
+    hostGain: true,
+    sharedProfile: true,
+    bankReset: true,
+  },
+  captureState: () => ({
+    playback: {
+      position: state.position,
+      continuousPosition: state.continuousPosition,
+      speed: state.speed,
+      direction: state.direction,
+      playing: state.playing,
+    },
+    audio: { enabled: state.audio, level: state.level },
+    topology: sharedProfileForHyper(),
+    dimension: hyperDimensionState(),
+    synth: {
+      mode: state.soundMode,
+      baseFrequency: state.baseFrequency,
+      pitchRange: state.pitchRange,
+      fmIndex: state.fmIndex,
+      fmRatio: state.fmRatio,
+      pmIndex: state.fmIndex * 0.7,
+      pmRatio: state.fmRatio,
+      envelope: amplitudeControl.captureState(),
+      percussionAttack: state.percussionAttack,
+      percussionDecay: state.percussionDecay,
+    },
+  }),
+  applyState: (snapshot = {}) => {
+    shapesHostParked = false;
+    const playback = snapshot.playback ?? {};
+    const synth = snapshot.synth ?? {};
+    applyHyperDimensionState(snapshot.dimension ?? {});
+    applySharedProfile(snapshot.topology ?? sharedProfileForHyper());
+    if (synth.mode && $("soundMode").querySelector(`option[value="${synth.mode}"]`)) {
+      $("soundMode").value = synth.mode;
+      $("soundMode").dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    bridgeRange("baseFrequency", synth.baseFrequency);
+    bridgeRange("pitchRange", synth.pitchRange);
+    bridgeRange("fmIndex", synth.mode === "pm" ? Number(synth.pmIndex) / 0.7 : synth.fmIndex);
+    bridgeRange("fmRatio", synth.mode === "pm" ? synth.pmRatio : synth.fmRatio);
+    amplitudeControl.applyState(synth.envelope);
+    bridgeRange("percussionAttack", synth.percussionAttack);
+    bridgeRange("percussionDecay", synth.percussionDecay);
+    bridgeRange("level", snapshot.audio?.level);
+    bridgeRange("position", playback.position);
+    bridgeRange("speed", playback.speed);
+    state.continuousPosition = Number.isFinite(playback.continuousPosition)
+      ? playback.continuousPosition
+      : state.position;
+    state.position = ((state.continuousPosition % 1) + 1) % 1;
+    state.direction = playback.direction < 0 ? -1 : 1;
+    $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
+    state.playing = Boolean(playback.playing);
+    setPressed($("playButton"), state.playing);
+    $("playSummary").textContent = `W plane · ${state.playing ? "playing" : "paused"}`;
+    previousSigns = null;
+    resetClocks();
+    scheduleFrame();
+  },
+  prepareAudio: async ({ gain = 0 } = {}) => {
+    pool.setHostGain(gain);
+    if (!state.audio) {
+      await pool.enable();
+      pool.setLevel(state.level);
+      state.audio = true;
+    }
+    setPressed($("audioButton"), true);
+    $("audioState").textContent = "on";
+    resetClocks();
+    scheduleFrame();
+  },
+  setHostGain: (gain, rampMilliseconds) => pool.setHostGain(gain, rampMilliseconds),
+  parkAudio: () => {
+    shapesHostParked = true;
+    cancelAnimationFrame(scheduledFrame);
+    scheduledFrame = 0;
+    pool.setHostGain(0);
+    pool.silence();
+    scheduleFrame();
+  },
+  disableAudio: () => {
+    state.audio = false;
+    pool.disable();
+    setPressed($("audioButton"), false);
+    $("audioState").textContent = "off";
+    scheduleFrame();
+  },
+  resetBank: resetShapesBank,
+});
+
 window.addEventListener("pagehide", (event) => event.persisted ? pool.disable() : void pool.close());
 paintRotation();
 scheduleFrame();

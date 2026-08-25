@@ -30,6 +30,7 @@ import {
   pitch01ToFrequency,
   sampleAmplitudeEnvelope,
   scaleShapeVoiceGains,
+  sanitizeAmplitudeEnvelope,
   synthParametersForMode,
   updateAmplitudeEnvelopeNode,
   updatePercussionEnvelopeNode,
@@ -51,6 +52,7 @@ import {
   shapeMidiMacroAction,
   shapeMidiPadAction,
 } from "./src/shape-midi.js";
+import { installShapesNativeBridge } from "./src/shapes-native-bridge.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -274,6 +276,7 @@ let cachedShapeKey = "";
 let audioChanging = false;
 let audioLifecycleGeneration = 0;
 let scheduledFrame = 0;
+let shapesHostParked = false;
 let cornerSnapshot = null;
 let pendingCornerStrikes = [];
 
@@ -317,6 +320,7 @@ function setRotationAngle(angle, shouldAnnounce = false) {
 }
 
 function scheduleFrame() {
+  if (shapesHostParked) return;
   if (!scheduledFrame) scheduledFrame = requestAnimationFrame(frame);
 }
 
@@ -3287,6 +3291,358 @@ function registerShapeMidiClient() {
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) pool.silence();
   else invalidate();
+});
+
+function bridgeRange(id, value) {
+  const input = $(id);
+  if (!input || !Number.isFinite(Number(value))) return;
+  input.value = String(value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function shapeDimensionState() {
+  return {
+    shapeType: state.shapeType,
+    sides: state.sides,
+    closedShapeType: state.closedShapeType,
+    starDepth: state.starDepth,
+    curvature: state.curvature,
+    aspect: state.aspect,
+    skew: state.skew,
+    playMethod: state.playMethod,
+    heads: state.heads,
+    headOffsets: state.headOffsets.slice(0, 12),
+    scanLineAxes: state.scanLineAxes.slice(0, 12),
+    traceHeadDirections: state.traceHeadDirections.slice(0, 12),
+    radialHeadDirections: state.radialHeadDirections.slice(0, 12),
+    traceHeadDirectionAdjustments: state.traceHeadDirectionAdjustments.slice(0, 12),
+    radialHeadDirectionAdjustments: state.radialHeadDirectionAdjustments.slice(0, 12),
+    rotation: state.rotation,
+    continuousRotation: state.continuousRotation,
+    rotationMotionMode: state.rotationMotionMode,
+    autoRotate: state.autoRotate,
+    rotationSpeed: state.rotationSpeed,
+    rotationDirection: state.rotationDirection,
+  };
+}
+
+function applyShapeDimensionState(dimension = {}) {
+  if (!dimension || !Object.keys(dimension).length) return;
+  if (Number.isFinite(Number(dimension.sides))) {
+    state.sides = Math.round(clamp(dimension.sides, 1, 32));
+  }
+  state.closedShapeType = dimension.closedShapeType === "star" ? "star" : "polygon";
+  if (Number.isFinite(Number(dimension.starDepth))) {
+    state.starDepth = clamp(dimension.starDepth, 0.05, 0.82);
+  }
+  $("sides").value = String(state.sides);
+  $("starDepth").value = String(state.starDepth);
+  syncFormTopology(false);
+  updateSidesOutput();
+  updateStarDepthOutput();
+
+  bridgeRange("curvature", dimension.curvature);
+  bridgeRange("aspect", dimension.aspect);
+  bridgeRange("skew", dimension.skew);
+
+  setPlayMethod(dimension.playMethod, false);
+  if (Number.isFinite(Number(dimension.heads))) {
+    state.heads = Math.round(clamp(dimension.heads, 1, 12));
+  }
+  $("heads").value = String(state.heads);
+  state.headOffsets = sanitizeHeadOffsets(
+    Array.isArray(dimension.headOffsets) ? dimension.headOffsets : state.headOffsets,
+    state.heads,
+  );
+  state.scanLineAxes = Array.from({ length: 12 }, (_, index) => (
+    dimension.scanLineAxes?.[index] === "horizontal" ? "horizontal" : "vertical"
+  ));
+  for (const key of ["traceHeadDirections", "radialHeadDirections"]) {
+    state[key] = Array.from({ length: 12 }, (_, index) => (
+      Number(dimension[key]?.[index]) < 0 ? -1 : 1
+    ));
+  }
+  for (const key of ["traceHeadDirectionAdjustments", "radialHeadDirectionAdjustments"]) {
+    state[key] = Array.from({ length: 12 }, (_, index) => (
+      Number.isFinite(Number(dimension[key]?.[index])) ? Number(dimension[key][index]) : 0
+    ));
+  }
+
+  setRotationMotionMode(dimension.rotationMotionMode, false);
+  if (Number.isFinite(Number(dimension.rotation))) setRotationAngle(dimension.rotation);
+  if (Number.isFinite(Number(dimension.continuousRotation))) {
+    state.continuousRotation = Number(dimension.continuousRotation);
+  }
+  bridgeRange("rotationSpeed", dimension.rotationSpeed);
+  setRotationDirection(dimension.rotationDirection, false);
+  state.autoRotate = Boolean(dimension.autoRotate);
+  setPressed($("rotationPlayButton"), state.autoRotate);
+  $("rotationPlayButton").setAttribute("aria-label", state.autoRotate ? "Pause rotation" : "Start rotation");
+  updateHeadsOutput();
+  updateLineControls();
+  updatePlayheadReadouts();
+}
+
+function resetShapesBank(bank) {
+  if (bank === "form") {
+    $("resetForm").click();
+    return true;
+  }
+
+  if (bank === "play") {
+    Object.assign(state, {
+      playMethod: "trace",
+      motionMode: "loop",
+      heads: 1,
+      headOffsets: [0],
+      scanLineAxes: Array(12).fill("vertical"),
+      traceHeadDirections: Array(12).fill(1),
+      radialHeadDirections: Array(12).fill(1),
+      traceHeadDirectionAdjustments: Array(12).fill(0),
+      radialHeadDirectionAdjustments: Array(12).fill(0),
+      playing: false,
+      position: 0,
+      continuousPosition: 0,
+      speed: 0.25,
+      traversalDirection: 1,
+    });
+    $("heads").value = String(state.heads);
+    $("position").value = String(state.position);
+    $("speed").value = String(sliderFromSpeed(state.speed));
+    setPressed($("playButton"), false);
+    $("playButton").setAttribute("aria-label", "Play playhead");
+    setPlayMethod("trace", false);
+    setMotionMode("loop", false);
+    setTraversalDirection(1, false);
+    state.continuousPosition = 0;
+    state.position = 0;
+    $("position").value = "0";
+    updateHeadsOutput();
+    updateLineControls();
+    updatePlayheadReadouts();
+    updateAmplitudeTimingUi();
+    resetCornerTracking();
+    pool.silence();
+    announce("Play controls reset.");
+    invalidate();
+    return true;
+  }
+
+  if (bank === "rotation") {
+    Object.assign(state, {
+      rotation: 0,
+      continuousRotation: 0,
+      rotationMotionMode: "loop",
+      autoRotate: false,
+      rotationSpeed: 0.12,
+      rotationDirection: 1,
+    });
+    bridgeRange("rotationSpeed", state.rotationSpeed);
+    setRotationPlaying(false, false);
+    setRotationAngle(0);
+    setRotationDirection(1, false);
+    setRotationMotionMode("loop", false);
+    resetCornerTracking();
+    announce("Rotation controls reset.");
+    invalidate();
+    return true;
+  }
+
+  if (bank === "sound") {
+    state.amplitudeEnvelopeEnabled = true;
+    state.cornerSwell = false;
+    selectAmplitudePreset("segment", false);
+    selectPercussionPreset("pluck", false);
+    setSoundMode("sine", false);
+    for (const [id, value] of [
+      ["baseFrequency", 130],
+      ["pitchRange", 2.5],
+      ["percussionStrikeLevel", 0.9],
+      ["percussionAttackNoise", 0],
+      ["shepardCycles", 1],
+      ["shepardTurnGlide", 0.35],
+      ["shepardWidth", 4],
+      ["fmIndex", 3],
+      ["fmRatio", 2],
+      ["pmIndex", 2],
+      ["pmRatio", 1],
+    ]) bridgeRange(id, value);
+    state.shepardDirection = 1;
+    $("shepardDirection").value = "1";
+    setShepardMapping("travel", false);
+    updateAmplitudeUi();
+    updatePercussionUi();
+    updateAmplitudeArticulationVisibility();
+    updateTimbreMappingUi();
+    resetCornerTracking();
+    pool.silence();
+    announce("Sound controls reset.");
+    invalidate();
+    return true;
+  }
+
+  if (bank === "mapping") {
+    state.cornerAmplitudeSource = "fixed";
+    state.fmIndexSource = "fixed";
+    state.pmDepthSource = "fixed";
+    state.pitchSource = "vertical";
+    state.percussionLevelSource = "corner";
+    state.percussionLevelCurve = "linear";
+    state.stereoSource = "horizontal";
+    state.stereoInverted = false;
+    $("cornerAmplitudeSource").value = state.cornerAmplitudeSource;
+    $("percussionLevelSource").value = state.percussionLevelSource;
+    $("percussionLevelCurve").value = state.percussionLevelCurve;
+    setPitchDimension("vertical", false);
+    selectPitchCurvePreset("linear", false);
+    setStereoDimension("horizontal", false);
+    bridgeRange("stereoWidth", 1);
+    updateCornerAmplitudeMappingUi();
+    updateTimbreMappingUi();
+    updateStereoMappingUi();
+    resetCornerTracking();
+    announce("Mapping controls reset.");
+    invalidate();
+    return true;
+  }
+
+  return false;
+}
+
+installShapesNativeBridge({
+  geometry: "shape",
+  sound: "synth",
+  capabilities: {
+    continuousPosition: true,
+    hostGain: true,
+    sharedProfile: true,
+    bankReset: true,
+  },
+  captureState: () => ({
+    playback: {
+      position: state.position,
+      continuousPosition: state.continuousPosition,
+      speed: state.speed,
+      direction: state.traversalDirection,
+      playing: state.playing,
+      motionMode: state.motionMode,
+    },
+    audio: { enabled: state.audio, level: state.level },
+    topology: {
+      sides: state.sides,
+      kind: state.sides === 1
+        ? "circle"
+        : state.sides === 2 ? "line" : state.closedShapeType,
+      starDepth: state.starDepth,
+      lift: state.sides === 1 ? "round" : "prism",
+    },
+    dimension: shapeDimensionState(),
+    synth: {
+      mode: state.soundMode,
+      baseFrequency: state.baseFrequency,
+      pitchRange: state.pitchRange,
+      fmIndex: state.fmIndex,
+      fmRatio: state.fmRatio,
+      pmIndex: state.pmIndex,
+      pmRatio: state.pmRatio,
+      shepardCycles: state.shepardCycles,
+      shepardWidth: state.shepardWidth,
+      percussionStrikeLevel: state.percussionStrikeLevel,
+      percussionAttackNoise: state.percussionAttackNoise,
+      envelope: {
+        enabled: state.amplitudeEnvelopeEnabled,
+        swell: state.cornerSwell,
+        preset: state.amplitudePreset,
+        level: 1,
+        points: state.amplitudeEnvelopePoints.map(({ x, y }) => ({ x, y })),
+      },
+    },
+  }),
+  applyState: (snapshot = {}) => {
+    shapesHostParked = false;
+    const playback = snapshot.playback ?? {};
+    const profile = snapshot.topology ?? {};
+    const synth = snapshot.synth ?? {};
+    applyShapeDimensionState(snapshot.dimension ?? {});
+    if (profile.lift !== "local" && Number.isFinite(Number(profile.sides))) {
+      state.sides = Math.round(clamp(profile.sides, 1, 32));
+      state.closedShapeType = profile.kind === "star" ? "star" : "polygon";
+      state.starDepth = clamp(profile.starDepth ?? state.starDepth, 0.05, 0.82);
+      $("sides").value = String(state.sides);
+      $("starDepth").value = String(state.starDepth);
+      syncFormTopology(false);
+      updateSidesOutput();
+      updateStarDepthOutput();
+    }
+    setMotionMode(playback.motionMode === "pingpong" ? "pingpong" : "loop", false);
+    if (synth.mode) setSoundMode(synth.mode, false);
+    bridgeRange("baseFrequency", synth.baseFrequency);
+    bridgeRange("pitchRange", synth.pitchRange);
+    bridgeRange("fmIndex", synth.fmIndex);
+    bridgeRange("fmRatio", synth.fmRatio);
+    bridgeRange("pmIndex", synth.pmIndex);
+    bridgeRange("pmRatio", synth.pmRatio);
+    bridgeRange("shepardCycles", synth.shepardCycles);
+    bridgeRange("shepardWidth", synth.shepardWidth);
+    bridgeRange("percussionStrikeLevel", synth.percussionStrikeLevel);
+    bridgeRange("percussionAttackNoise", synth.percussionAttackNoise);
+    if (synth.envelope && typeof synth.envelope === "object") {
+      if (typeof synth.envelope.enabled === "boolean") {
+        state.amplitudeEnvelopeEnabled = synth.envelope.enabled;
+      }
+      const preset = String(synth.envelope.preset ?? "custom");
+      state.amplitudePreset = ["segment", "pluck", "note", "sustain", "pad", "custom"].includes(preset)
+        ? preset
+        : "custom";
+      state.cornerSwell = state.amplitudeEnvelopeEnabled
+        && state.amplitudePreset !== "segment"
+        && Boolean(synth.envelope.swell);
+      state.amplitudeEnvelopePoints = sanitizeAmplitudeEnvelope(synth.envelope.points);
+      updateAmplitudeUi();
+    }
+    bridgeRange("level", snapshot.audio?.level);
+    state.speed = clamp(playback.speed ?? state.speed, 0, SPEED_MAX);
+    $("speed").value = String(sliderFromSpeed(state.speed));
+    state.continuousPosition = Number.isFinite(playback.continuousPosition)
+      ? playback.continuousPosition
+      : clamp(playback.position ?? state.position, 0, 1);
+    state.position = state.motionMode === "pingpong"
+      ? pingPong01(state.continuousPosition)
+      : wrap01(state.continuousPosition);
+    $("position").value = String(state.position);
+    setTraversalDirection(playback.direction, false);
+    setPlaying(Boolean(playback.playing));
+    resetCornerTracking();
+    updatePlayheadReadouts();
+    invalidate();
+  },
+  prepareAudio: async ({ gain = 0 } = {}) => {
+    pool.setHostGain(gain);
+    if (!state.audio) {
+      await pool.enable();
+      pool.setLevel(state.level);
+      state.audio = true;
+    }
+    paintAudioState();
+    lastFrameTime = performance.now();
+    invalidate();
+  },
+  setHostGain: (gain, rampMilliseconds) => pool.setHostGain(gain, rampMilliseconds),
+  parkAudio: () => {
+    shapesHostParked = true;
+    cancelAnimationFrame(scheduledFrame);
+    scheduledFrame = 0;
+    pool.setHostGain(0);
+    pool.silence();
+    invalidate();
+  },
+  disableAudio: () => {
+    state.audio = false;
+    pool.disable();
+    paintAudioState();
+    invalidate();
+  },
+  resetBank: resetShapesBank,
 });
 
 window.addEventListener("pagehide", (event) => {

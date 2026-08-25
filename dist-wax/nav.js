@@ -51,13 +51,17 @@ const freezeGroup = (id, label, tools, metadata = {}) => Object.freeze({
 
 export const FAVE_TOOL_IDS = Object.freeze([
   "shape",
-  "linear-drums-machine",
+  "solid",
+  "hyper",
+  "rubix",
+  "hyper-rubix",
   "pink-trombonazoid",
-  "lumber",
-  "drum-roll-please",
-  "ouroboros",
-  "recursive-fm",
-  "linear-drums",
+  "hybrinx",
+  "ouroborousel",
+  "lattice-drums",
+  "micmic",
+  "webgpu-synths",
+  "sandy-syrup-delay",
 ]);
 
 /**
@@ -68,6 +72,9 @@ export const FAVE_TOOL_IDS = Object.freeze([
  * associated with the same top-level tool.
  */
 export const TOOL_GROUPS = Object.freeze([
+  freezeGroup("apps", "Apps", [
+    { id: "combo", label: "Shapes", href: "shapes.html" },
+  ]),
   freezeGroup("geometry", "Geometry Synths", [
     { id: "shape", label: "Shape", href: "shape.html" },
     { id: "lattice", label: "Lattice", href: "lattice.html" },

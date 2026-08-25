@@ -239,6 +239,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
   assert.deepEqual(
     TOOL_GROUPS.map((group) => group.label),
     [
+      "Apps",
       "Geometry Synths",
       "Drum Machines",
       "Sequencers",
@@ -254,7 +255,7 @@ test("tool registry is categorized, unique, and includes Morphazoidical", () => 
     ],
   );
   const tools = TOOL_GROUPS.flatMap((group) => group.tools);
-  assert.equal(tools.length, 104);
+  assert.equal(tools.length, 105);
   assert.equal(new Set(tools.map((tool) => tool.id)).size, tools.length);
   assert.equal(new Set(tools.map((tool) => tool.href)).size, tools.length);
   assert.equal(

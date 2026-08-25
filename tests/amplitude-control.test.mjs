@@ -67,3 +67,29 @@ test("phase amplitude control retains spatial swell behavior", () => {
   assert.doesNotMatch(host.innerHTML, /Node positions are milliseconds/);
   assert.ok(control.sample(0.5) > 0);
 });
+
+test("amplitude controls snapshot and restore a shared five-node envelope", () => {
+  const source = createAmplitudeControl(controlHost());
+  source.state.enabled = false;
+  source.state.swell = true;
+  source.state.preset = "custom";
+  source.state.level = 0.63;
+  source.state.points = [
+    { x: 0, y: 0 },
+    { x: 0.12, y: 1 },
+    { x: 0.44, y: 0.72 },
+    { x: 0.68, y: 0.72 },
+    { x: 0.91, y: 0 },
+  ];
+
+  const snapshot = source.captureState();
+  const target = createAmplitudeControl(controlHost());
+  const applied = target.applyState(snapshot);
+  assert.deepEqual(applied.points, snapshot.points);
+  assert.equal(applied.enabled, false);
+  assert.equal(applied.swell, false, "a bypassed envelope cannot keep swell active");
+  assert.equal(applied.preset, "custom");
+  assert.equal(applied.level, 0.63);
+  snapshot.points[1].x = 0.99;
+  assert.equal(target.captureState().points[1].x, 0.12, "state is copied across the bridge");
+});

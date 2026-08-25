@@ -1,0 +1,547 @@
+html.combo-native-embed,
+html.combo-native-embed body.combo-native-embed {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.combo-native-embed {
+  --combo-native-menu-control-height: 30px;
+}
+
+body.combo-native-embed .masthead {
+  min-height: 50px;
+  height: 50px;
+  padding: 0 10px;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+body.combo-native-embed .masthead > .tabs,
+body.combo-native-embed .masthead > .mobile-instrument-nav,
+body.combo-native-embed .masthead > .edition {
+  display: none !important;
+}
+
+body.combo-native-embed .masthead > .tabs.combo-native-picker {
+  display: flex !important;
+  width: 106px;
+  height: var(--combo-native-menu-control-height);
+  min-height: var(--combo-native-menu-control-height);
+  margin-right: 0;
+  align-self: center;
+  flex: 0 0 106px;
+}
+body.combo-native-embed .combo-native-picker .instrument-picker {
+  width: 100%;
+  height: var(--combo-native-menu-control-height);
+  min-height: var(--combo-native-menu-control-height);
+  flex: 1 1 auto;
+}
+body.combo-native-embed .combo-native-picker .instrument-picker-trigger {
+  height: var(--combo-native-menu-control-height);
+  min-height: var(--combo-native-menu-control-height);
+  padding: 0 6px 0 8px;
+}
+body.combo-native-embed .combo-native-picker .instrument-picker-current {
+  font-size: 0;
+  letter-spacing: .08em;
+}
+body.combo-native-embed .combo-native-picker .instrument-picker-current::after {
+  content: "Shapes";
+  font-size: 8px;
+}
+body.combo-native-embed .combo-native-picker .instrument-picker-panel {
+  top: 50px;
+  left: 8px;
+  height: min(72dvh, 540px);
+}
+
+body.combo-native-embed .masthead > .wordmark {
+  display: inline-flex !important;
+  flex: 0 0 auto;
+}
+
+body.combo-native-embed .masthead > .header-io-controls {
+  width: auto;
+  margin-left: auto;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+body.combo-native-embed .masthead .audio-strip { margin-left: auto; }
+body.combo-native-embed .masthead .transport-audio-attention {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+}
+
+body.combo-native-embed .combo-native-route {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 5px;
+  scrollbar-width: none;
+}
+body.combo-native-embed .combo-native-route::-webkit-scrollbar { display: none; }
+body.combo-native-embed .combo-native-route-select {
+  position: relative;
+  display: block;
+  height: var(--combo-native-menu-control-height);
+  flex: 0 0 auto;
+  line-height: 0;
+}
+body.combo-native-embed .combo-native-route-select::after {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  width: 0;
+  height: 0;
+  border: 3px solid transparent;
+  border-top-color: var(--faint);
+  content: "";
+  pointer-events: none;
+  transform: translateY(-1px);
+}
+body.combo-native-embed .combo-native-route-select select {
+  display: block;
+  width: 100%;
+  height: var(--combo-native-menu-control-height);
+  min-height: var(--combo-native-menu-control-height);
+  margin: 0;
+  appearance: none;
+  padding: 0 20px 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font: 600 8px/1.2 var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+body.combo-native-embed .combo-native-route-select select:focus-visible {
+  border-color: var(--combo-native-accent, var(--accent));
+  outline: 1px solid var(--combo-native-accent, var(--accent));
+  outline-offset: 1px;
+}
+body.combo-native-embed .combo-native-dimension-select select {
+  padding-left: 8px;
+  color: var(--combo-native-accent, var(--accent));
+  font-size: 8px;
+  letter-spacing: .08em;
+}
+body.combo-native-embed .combo-native-dimension-select { width: 70px; }
+body.combo-native-embed .combo-native-system-select { width: 82px; }
+body.combo-native-embed .combo-native-system-select select {
+  border-color: color-mix(in oklab, #d7f26e 42%, var(--line-strong));
+  color: #d7f26e;
+}
+body.combo-native-embed .combo-native-mode-select { width: 90px; }
+body.combo-native-embed .combo-native-mapping-select { width: 108px; }
+body.combo-native-embed .combo-native-route-knob {
+  width: 31px;
+  height: 30px;
+  display: grid;
+  grid-template: 21px 8px / 21px 10px;
+  flex: 0 0 31px;
+  place-items: center;
+}
+body.combo-native-embed .combo-native-knob-dial {
+  position: relative;
+  width: 21px;
+  height: 21px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--ink);
+  background: radial-gradient(circle at 38% 32%, #39424a 0 14%, #171c20 45%, #090c0e 72%);
+  cursor: ns-resize;
+  grid-column: 1;
+  grid-row: 1;
+}
+body.combo-native-embed .combo-native-knob-dial::after {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 1px;
+  height: 7px;
+  background: var(--combo-native-accent, var(--accent));
+  content: "";
+  transform: translateX(-50%) rotate(var(--combo-knob-turn, -135deg));
+  transform-origin: 50% 9px;
+}
+body.combo-native-embed .combo-native-knob-dial:focus-visible {
+  outline: 1px solid var(--combo-native-accent, var(--accent));
+  outline-offset: 2px;
+}
+body.combo-native-embed .combo-native-knob-caption,
+body.combo-native-embed .combo-native-knob-readout {
+  color: var(--faint);
+  font: 700 6px/1 var(--mono);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+body.combo-native-embed .combo-native-knob-caption { grid-column: 1; grid-row: 2; }
+body.combo-native-embed .combo-native-knob-readout { grid-column: 2; grid-row: 1; color: var(--ink); }
+body.combo-native-embed .combo-native-route-knob.is-disabled { opacity: .42; }
+
+body.combo-native-embed .shell { min-height: 0; flex: 1 1 auto; }
+body.combo-native-embed .stage-wrap,
+body.combo-native-embed #stage { min-height: 0; }
+
+/* Embedded Shapes instruments behave like a fixed hardware/plugin surface:
+   one controller bank is present at a time and the stage never moves. */
+@media (min-width: 961px) {
+  body.combo-native-embed .shell {
+    grid-template-columns: minmax(360px, 1fr) minmax(470px, 42vw);
+  }
+}
+
+body.combo-native-embed .panel.combo-plugin-panel {
+  display: grid;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-rows: 40px minmax(0, 1fr);
+}
+
+body.combo-native-embed .combo-control-rail {
+  display: grid;
+  min-width: 0;
+  height: 40px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--line-strong);
+  background: color-mix(in oklab, var(--bg-deep) 92%, var(--combo-native-accent, var(--accent)) 8%);
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+body.combo-native-embed .combo-control-rail::-webkit-scrollbar { display: none; }
+body.combo-native-embed .combo-control-rail .combo-native-system-select { width: 70px; }
+body.combo-native-embed .combo-control-rail .combo-native-mode-select { width: 86px; }
+body.combo-native-embed .combo-control-rail .combo-native-mapping-select { width: 94px; }
+body.combo-native-embed .combo-control-rail .combo-native-route-select,
+body.combo-native-embed .combo-control-rail .combo-native-route-select select {
+  height: 30px;
+  min-height: 30px;
+}
+
+body.combo-native-embed .combo-bank-tabs {
+  display: flex;
+  width: 100%;
+  height: 34px;
+  min-width: 0;
+  overflow: visible;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  flex: 1 1 auto;
+  scrollbar-width: none;
+}
+
+body.combo-native-embed .combo-bank-tabs::-webkit-scrollbar { display: none; }
+body.combo-native-embed .combo-bank-tabs button {
+  flex: 1 1 0;
+  min-width: 72px;
+  min-height: 32px;
+  padding: 0 9px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 2px solid transparent;
+  color: var(--faint);
+  background: transparent;
+  font: 700 9px/1 var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+body.combo-native-embed .combo-bank-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--accent-glow), transparent);
+}
+body.combo-native-embed .combo-bank-tabs button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline-offset: -3px;
+}
+
+body.combo-native-embed .combo-plugin-panel > details.control-section {
+  position: relative;
+  display: none;
+  min-height: 0;
+  overflow: hidden;
+  border-bottom: 0;
+}
+body.combo-native-embed .combo-plugin-panel > details.control-section[data-combo-bank-active="true"] {
+  display: grid;
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr);
+}
+body.combo-native-embed .combo-plugin-panel > details.control-section > .group-summary {
+  display: none !important;
+}
+body.combo-native-embed .combo-plugin-panel > details.control-section > .group-summary::after { display: none; }
+body.combo-native-embed .combo-plugin-panel > details.control-section > .group-body {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 10px 12px 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 7px 12px;
+}
+body.combo-native-embed .combo-plugin-panel > details[data-section="play"] > .group-body {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: space-evenly;
+  row-gap: clamp(10px, 2.2vh, 24px);
+}
+body.combo-native-embed .combo-plugin-panel > details[data-section="play"] > .group-body > .position-row,
+body.combo-native-embed .combo-plugin-panel > details[data-section="play"] > .group-body > .combo-primary-speed-control {
+  grid-column: 1 / -1;
+}
+body.combo-native-embed .combo-performance-routing {
+  display: grid;
+  min-width: 0;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(118px, 1.2fr) minmax(104px, 1fr) auto auto;
+  align-items: end;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid color-mix(in oklab, var(--line-strong) 76%, var(--combo-native-accent, var(--accent)) 24%);
+  background: color-mix(in oklab, var(--bg-deep) 94%, var(--combo-native-accent, var(--accent)) 6%);
+}
+body.combo-native-embed .combo-performance-routing .combo-native-route-select,
+body.combo-native-embed .combo-performance-routing .combo-native-route-select select {
+  width: 100%;
+  height: 34px;
+  min-height: 34px;
+}
+body.combo-native-embed .combo-live-rotation {
+  display: inline-flex;
+  min-width: 82px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  background: var(--bg-deep);
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font: 700 9px/1 var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+body.combo-native-embed .combo-live-rotation[aria-pressed="true"] {
+  border-color: var(--combo-native-accent, var(--accent));
+  color: var(--combo-native-accent, var(--accent));
+  background: var(--accent-glow);
+}
+body.combo-native-embed .combo-primary-speed-control input[type="range"] {
+  width: 100%;
+}
+body.combo-native-embed .combo-plugin-panel[data-combo-overflow="scroll"] > details.control-section[data-combo-bank-active="true"] > .group-body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+body.combo-native-embed .combo-plugin-panel > details[data-combo-merged-mapping="true"] > .group-body {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+body.combo-native-embed .combo-plugin-panel > details.control-section > .group-body > * {
+  min-width: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+body.combo-native-embed .combo-plugin-panel > details.control-section > .group-body > p,
+body.combo-native-embed .combo-plugin-panel > details.control-section > .group-body > .audio-error {
+  grid-column: 1 / -1;
+}
+body.combo-native-embed .combo-plugin-panel > details[data-section="output"] > .group-body > .output-lead,
+body.combo-native-embed .combo-plugin-panel > details[data-section="output"] > .group-body > .contact-stream,
+body.combo-native-embed .combo-plugin-panel > details[data-section="output"] > .group-body > .future-outputs,
+body.combo-native-embed .combo-plugin-panel > details.control-section > .group-body > [id="drumMap"] {
+  grid-column: 1 / -1;
+}
+body.combo-native-embed .combo-plugin-panel .control { margin-bottom: 0; }
+body.combo-native-embed .combo-plugin-panel .choice-switch { margin: 0; }
+body.combo-native-embed .combo-plugin-panel .choice-switch button { min-height: 32px; padding: 5px; }
+body.combo-native-embed .combo-plugin-panel .axis-control-group { margin-top: 0; padding-top: 6px; }
+body.combo-native-embed .combo-plugin-panel .solid-target-switch {
+  position: static;
+  width: max-content;
+  margin: 0;
+  grid-column: 1 / -1;
+}
+body.combo-native-embed .combo-plugin-panel .synth-panel { margin: 0; }
+body.combo-native-embed .combo-plugin-panel .curve-editor { height: 72px; margin-top: 7px; margin-bottom: 5px; }
+body.combo-native-embed .combo-plugin-panel .combo-plugin-reset { display: none !important; }
+body.combo-native-embed .combo-plugin-panel .combo-plugin-supplementary { display: none; }
+body.combo-native-embed .combo-host-mirrored-control { display: none !important; }
+body.combo-native-embed .combo-plugin-panel .reset-form { display: none; }
+body.combo-native-embed .combo-bank-reset {
+  position: static;
+  min-width: 42px;
+  min-height: 30px;
+  padding: 0 8px;
+  flex: 0 0 42px;
+}
+
+@media (max-width: 650px) {
+  body.combo-native-embed .combo-performance-routing {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body.combo-native-embed .combo-live-rotation { width: 100%; }
+}
+body.combo-native-embed .combo-shared-profile-controls {
+  display: grid;
+  min-width: 0;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px 12px;
+}
+body.combo-native-embed .combo-shared-profile-controls[hidden] { display: none; }
+body.combo-native-embed .combo-profile-kind { align-self: end; }
+
+body.combo-native-embed .combo-plugin-panel[data-combo-density="compact"] > details.control-section > .group-body {
+  padding: 7px 10px 6px;
+  gap: 5px 10px;
+}
+body.combo-native-embed .combo-plugin-panel[data-combo-density="compact"] .control b,
+body.combo-native-embed .combo-plugin-panel[data-combo-density="compact"] .field-label { font-size: 10px; }
+body.combo-native-embed .combo-plugin-panel[data-combo-density="compact"] .choice-switch button { min-height: 28px; }
+body.combo-native-embed .combo-plugin-panel[data-combo-density="compact"] .curve-editor { height: 60px; }
+
+body.combo-native-embed .combo-plugin-panel[data-combo-density="tight"] > details.control-section > .group-body {
+  padding: 5px 8px 4px;
+  gap: 3px 8px;
+}
+body.combo-native-embed .combo-plugin-panel[data-combo-density="tight"] .control b,
+body.combo-native-embed .combo-plugin-panel[data-combo-density="tight"] .field-label { font-size: 9px; }
+body.combo-native-embed .combo-plugin-panel[data-combo-density="tight"] .choice-switch button { min-height: 25px; padding: 3px; }
+body.combo-native-embed .combo-plugin-panel[data-combo-density="tight"] .curve-editor { height: 48px; margin-top: 4px; }
+
+@media (min-width: 1380px) {
+  body.combo-native-embed .shell {
+    grid-template-columns: minmax(390px, 1fr) minmax(600px, 46vw);
+  }
+  body.combo-native-embed .combo-plugin-panel > details.control-section > .group-body {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  body.combo-native-embed .combo-plugin-panel > details.control-section > .group-body > p,
+  body.combo-native-embed .combo-plugin-panel > details.control-section > .group-body > .audio-error,
+  body.combo-native-embed .combo-plugin-panel > details[data-section="output"] > .group-body > .output-lead,
+  body.combo-native-embed .combo-plugin-panel > details[data-section="output"] > .group-body > .contact-stream,
+  body.combo-native-embed .combo-plugin-panel > details[data-section="output"] > .group-body > .future-outputs,
+  body.combo-native-embed .combo-plugin-panel > details.control-section > .group-body > [id="drumMap"] {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1120px) and (min-width: 651px) {
+  body.combo-native-embed .masthead > .wordmark > span:last-child { display: none; }
+  body.combo-native-embed .masthead > .wordmark { gap: 0; }
+  body.combo-native-embed .masthead > .tabs.combo-native-picker {
+    width: 94px;
+    flex-basis: 94px;
+  }
+  body.combo-native-embed .combo-native-dimension-select { width: 136px; }
+  body.combo-native-embed .combo-native-mapping-select { width: 108px; }
+}
+
+@media (max-width: 960px) {
+  body.combo-native-embed .masthead {
+    min-height: 50px;
+    height: 50px;
+    flex-wrap: nowrap;
+  }
+  body.combo-native-embed .shell {
+    grid-template-rows: clamp(180px, 38dvh, 300px) minmax(0, 1fr);
+  }
+  body.combo-native-embed .panel.combo-plugin-panel {
+    padding-bottom: 0;
+    grid-template-rows: 36px minmax(0, 1fr);
+  }
+  body.combo-native-embed .combo-bank-tabs button {
+    min-height: 28px;
+    padding: 0 3px;
+  }
+  body.combo-native-embed .combo-plugin-panel > details.control-section[data-combo-bank-active="true"] {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  body.combo-native-embed .combo-plugin-panel > details.control-section > .group-body,
+  body.combo-native-embed .combo-plugin-panel[data-combo-density="compact"] > details.control-section > .group-body,
+  body.combo-native-embed .combo-plugin-panel[data-combo-density="tight"] > details.control-section > .group-body {
+    display: block;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+  body.combo-native-embed .combo-plugin-panel > details.control-section > .group-body > * {
+    margin-bottom: 9px;
+  }
+  body.combo-native-embed .combo-shared-profile-controls {
+    display: block;
+  }
+  body.combo-native-embed .combo-shared-profile-controls[hidden] { display: none; }
+}
+
+@media (max-width: 650px) {
+  body.combo-native-embed .masthead,
+  body.combo-native-embed .masthead.has-midi-toolbar {
+    min-height: 50px;
+    height: 50px;
+    padding: 0 6px;
+    flex-wrap: nowrap;
+    align-content: center;
+    row-gap: 0;
+  }
+  body.combo-native-embed .masthead > .wordmark { display: none !important; }
+  body.combo-native-embed .masthead > .header-io-controls,
+  body.combo-native-embed .masthead.has-midi-toolbar .header-io-controls {
+    width: auto;
+    margin-left: auto;
+    flex: 0 0 auto;
+    gap: 4px;
+  }
+  body.combo-native-embed .masthead .header-io-controls > .audio-strip,
+  body.combo-native-embed .masthead.has-midi-toolbar .header-io-controls > .audio-strip {
+    width: auto;
+    flex: 0 0 auto;
+    grid-template-columns: minmax(58px, 72px) var(--audio-control-width);
+    gap: 4px;
+  }
+  body.combo-native-embed .masthead.has-midi-toolbar .midi-toggle {
+    width: 64px;
+    min-width: 64px;
+    padding: 0 6px;
+  }
+  body.combo-native-embed .combo-native-route { gap: 4px; }
+  body.combo-native-embed .masthead > .tabs.combo-native-picker {
+    width: 86px;
+    flex-basis: 86px;
+  }
+  body.combo-native-embed .combo-native-dimension-select { width: 132px; }
+  body.combo-native-embed .combo-native-system-select { width: 76px; }
+  body.combo-native-embed .combo-native-mode-select { width: 88px; }
+  body.combo-native-embed .combo-native-mapping-select { width: 108px; }
+  body.combo-native-embed .masthead.has-midi-toolbar .header-settings-panel { top: 50px; max-height: calc(100dvh - 58px); }
+  body.combo-native-embed .shell {
+    grid-template-rows: clamp(155px, 32dvh, 235px) minmax(0, 1fr);
+  }
+}

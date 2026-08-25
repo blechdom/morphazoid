@@ -1,0 +1,71 @@
+:root {
+  --combo-shape: #69f2bd;
+  --combo-solid: #78a7ff;
+  --combo-hyper: #cb8fff;
+  --combo-step: #d7f26e;
+  --combo-panel: #0d1114;
+  --combo-edge: #303840;
+  --combo-muted: #8d969d;
+}
+
+body.combo-page {
+  min-height: 100%;
+  overflow: hidden;
+  background: #07090b;
+}
+
+.combo-host {
+  height: 100dvh;
+  min-height: 0;
+  display: block;
+  padding: 0;
+  overflow: hidden;
+}
+
+.combo-host[data-geometry="shape"] { --active-geometry: var(--combo-shape); }
+.combo-host[data-geometry="solid"] { --active-geometry: var(--combo-solid); }
+.combo-host[data-geometry="hyper"] { --active-geometry: var(--combo-hyper); }
+
+.native-instrument-shell { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; border: 0; background: var(--combo-panel); }
+.native-instrument-shell iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+  background: #07090b;
+  opacity: 1;
+  transition: opacity 120ms linear;
+}
+.native-instrument-shell iframe[hidden] { display: none; }
+.native-instrument-shell iframe.is-handoff-source { z-index: 2; pointer-events: none; }
+.native-instrument-shell iframe.is-handoff-target { z-index: 1; pointer-events: none; }
+.native-instrument-shell.is-loading iframe { opacity: 0; pointer-events: none; }
+.native-loading {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--active-geometry, var(--combo-shape));
+  background: #07090b;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.native-instrument-shell:not(.is-loading) .native-loading { display: none; }
+
+@media (max-width: 900px) {
+  body.combo-page { overflow: hidden; }
+  .combo-host {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 620px) {
+  .combo-host { height: 100dvh; }
+}
