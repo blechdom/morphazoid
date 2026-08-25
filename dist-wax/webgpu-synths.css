@@ -96,8 +96,7 @@
   pointer-events: none;
 }
 
-.webgpu-synths-heading h1,
-.webgpu-synths-heading span {
+.webgpu-synths-heading h1 {
   margin: 0;
   letter-spacing: 0;
 }
@@ -108,15 +107,6 @@
   font-size: clamp(32px, 4.2vw, 56px);
   font-weight: 650;
   line-height: 0.94;
-  text-transform: uppercase;
-}
-
-.webgpu-synths-heading span {
-  display: block;
-  margin-top: 9px;
-  color: var(--lane-pitch);
-  font-size: 11px;
-  font-weight: 750;
   text-transform: uppercase;
 }
 
@@ -161,30 +151,25 @@
   gap: 9px;
 }
 
-.sequence-router,
-.sequence-actions {
+.sequence-router {
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
   justify-content: center;
   gap: 6px;
+  align-items: end;
 }
 
-.sequence-router {
-  align-items: end;
+.sequence-actions {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .sequence-router .select-control {
   width: min(190px, 100%);
   margin: 0;
-}
-
-.sequence-lane-state {
-  align-self: center;
-  color: var(--muted);
-  font-size: 8px;
-  font-weight: 750;
-  text-transform: uppercase;
 }
 
 .sequence-router .mini-action,
@@ -209,6 +194,11 @@
   border-color: var(--lane-color, var(--accent));
   color: var(--ink);
   background: color-mix(in oklab, var(--lane-color, var(--accent)) 14%, var(--bg-deep));
+}
+
+.webgpu-synths-panel .sequence-actions .mini-action {
+  width: 100%;
+  min-width: 0;
 }
 
 .model-layer-toolbar,
@@ -248,84 +238,6 @@
 .model-layer-remove {
   min-height: 29px;
   margin: 0;
-}
-
-.webgpu-synth-knob-bank {
-  --knob-size: clamp(58px, 5.2vw, 72px);
-  display: grid;
-  min-width: 0;
-  justify-content: center;
-  grid-template-columns: repeat(6, var(--knob-size));
-  gap: 12px clamp(12px, 1.5vw, 20px);
-}
-
-.webgpu-synth-knob {
-  display: grid;
-  width: var(--knob-size);
-  justify-items: center;
-  gap: 4px;
-}
-
-.webgpu-synth-knob-dial {
-  --knob-fill: 0%;
-  --knob-angle: -135deg;
-  position: relative;
-  width: clamp(46px, 4vw, 58px);
-  height: clamp(46px, 4vw, 58px);
-  border: 1px solid color-mix(in oklab, var(--knob-color) 62%, transparent);
-  border-radius: 50%;
-  cursor: ns-resize;
-  background:
-    radial-gradient(circle at 50% 50%, var(--panel-high) 0 42%, transparent 43%),
-    conic-gradient(from -135deg, var(--knob-color) 0 var(--knob-fill), rgba(255, 255, 255, 0.1) var(--knob-fill) 75%, transparent 75%),
-    radial-gradient(circle at 34% 27%, rgba(255, 255, 255, 0.22), transparent 34%),
-    var(--bg-deep);
-  box-shadow: inset 0 -7px 13px rgba(0, 0, 0, 0.42), 0 0 14px color-mix(in oklab, var(--knob-color) 24%, transparent);
-  touch-action: none;
-}
-
-.webgpu-synth-knob-dial::before {
-  position: absolute;
-  top: 8px;
-  left: calc(50% - 1px);
-  width: 2px;
-  height: 18px;
-  border-radius: 99px;
-  background: color-mix(in oklab, var(--knob-color) 72%, white);
-  box-shadow: 0 0 8px var(--knob-color);
-  content: "";
-  transform: rotate(var(--knob-angle));
-  transform-origin: 1px 19px;
-}
-
-.webgpu-synth-knob-dial:hover,
-.webgpu-synth-knob-dial:focus-visible {
-  border-color: var(--knob-color);
-  outline-offset: 3px;
-  box-shadow: inset 0 -7px 13px rgba(0, 0, 0, 0.42), 0 0 22px color-mix(in oklab, var(--knob-color) 38%, transparent);
-}
-
-.webgpu-synth-knob-label,
-.webgpu-synth-knob-value {
-  display: block;
-  width: 100%;
-  overflow: hidden;
-  line-height: 1.1;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.webgpu-synth-knob-label {
-  color: color-mix(in oklab, var(--knob-color) 76%, white);
-  font-size: 8px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.webgpu-synth-knob-value {
-  color: var(--muted);
-  font-size: 7px;
 }
 
 .webgpu-synths-panel {
@@ -401,6 +313,7 @@
 }
 
 .webgpu-synths-section[data-section="presets"] { --accent: var(--lane-energy); }
+.webgpu-synths-section[data-section="sequence-tools"] { --accent: var(--lane-pitch); }
 .webgpu-synths-section[data-section="variations"] { --accent: var(--lane-pitch); }
 .webgpu-synths-section[data-section="model"] { --accent: var(--lane-timbre); }
 .webgpu-synths-section[data-section="components"] { --accent: #ff9a62; }
@@ -676,9 +589,6 @@
     min-height: 0;
   }
 
-  .webgpu-synth-knob-bank {
-    --knob-size: 60px;
-  }
 }
 
 @media (max-width: 1180px) {
@@ -686,10 +596,6 @@
     display: none;
   }
 
-  .webgpu-synth-knob-bank {
-    --knob-size: 56px;
-    gap: 10px 11px;
-  }
 }
 
 @media (max-width: 980px) {
@@ -848,10 +754,6 @@
     font-size: 33px;
   }
 
-  .webgpu-synths-heading span {
-    font-size: 9px;
-  }
-
   .sequence-deck {
     padding: 8px 9px 10px;
   }
@@ -867,23 +769,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .webgpu-synth-knob-bank {
-    --knob-size: 49px;
-    grid-template-columns: repeat(6, var(--knob-size));
-    gap: 8px 4px;
-  }
-
-  .webgpu-synth-knob-dial {
-    width: 42px;
-    height: 42px;
-  }
-
-  .webgpu-synth-knob-dial::before {
-    top: 7px;
-    height: 15px;
-    transform-origin: 1px 17px;
-  }
-
   .organ-rank-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -895,11 +780,4 @@
   .technique-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
-
-@media (max-width: 430px) {
-  .webgpu-synth-knob-bank {
-    grid-template-columns: repeat(3, 52px);
-  }
-
 }

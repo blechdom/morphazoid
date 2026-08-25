@@ -11,7 +11,7 @@
     <title>GPU Shader Synths — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="webgpu-synths.css?v=20260824-mobile-header" />
+    <link rel="stylesheet" href="webgpu-synths.css?v=20260824-side-tools" />
   </head>
   <body class="webgpu-synths-page">
     <header class="masthead">
@@ -65,7 +65,6 @@
 
           <div class="webgpu-synths-heading">
             <h1 id="webgpuSynthsTitle">GPU Shader Synths</h1>
-            <span id="engineBadge">eight synthesis models · layered in WGSL</span>
           </div>
 
           <div class="shader-contract" aria-hidden="true">
@@ -79,19 +78,11 @@
 
         <div class="sequence-deck">
           <div class="sequence-router" aria-label="GPU lane routing">
-            <label class="select-control" for="activeLaneSelect"><span><b>Edit lane</b></span><span class="select-shell"><select id="activeLaneSelect"></select></span></label>
-            <label class="select-control" for="laneTargetSelect"><span><b>Destination</b></span><span class="select-shell"><select id="laneTargetSelect"></select></span></label>
+            <span class="select-control"><span class="select-shell"><select id="activeLaneSelect" aria-label="Edit lane"></select></span></span>
+            <span class="select-control"><span class="select-shell"><select id="laneTargetSelect" aria-label="Lane destination"></select></span></span>
             <button class="mini-action" id="addLane" type="button">+ Add parameter lane</button>
             <button class="mini-action" id="removeLane" type="button">Remove lane</button>
-            <span class="sequence-lane-state" id="laneState">4 of 8 lanes</span>
           </div>
-          <div class="sequence-actions" aria-label="Sequence transformations">
-            <button class="mini-action" id="rotateLeft" type="button">Rotate −1</button>
-            <button class="mini-action" id="rotateRight" type="button">Rotate +1</button>
-            <button class="mini-action" id="reverseSequence" type="button">Reverse</button>
-            <button class="mini-action" id="invertLane" type="button">Invert lane</button>
-          </div>
-          <div class="webgpu-synth-knob-bank" id="knobControls" aria-label="Shared WGSL macro controls"></div>
         </div>
 
       </section>
@@ -117,6 +108,21 @@
             <span class="section-state" id="timeState">27 steps · 9.80 Hz</span>
           </summary>
           <div class="group-body" id="timeControls"></div>
+        </details>
+
+        <details class="group control-section webgpu-synths-section" data-section="sequence-tools" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Sequence tools</h2>
+            <span class="section-state" id="laneState">4 of 8 lanes</span>
+          </summary>
+          <div class="group-body">
+            <div class="sequence-actions" aria-label="Sequence transformations">
+              <button class="mini-action" id="rotateLeft" type="button">Rotate −1</button>
+              <button class="mini-action" id="rotateRight" type="button">Rotate +1</button>
+              <button class="mini-action" id="reverseSequence" type="button">Reverse</button>
+              <button class="mini-action" id="invertLane" type="button">Invert lane</button>
+            </div>
+          </div>
         </details>
 
         <details class="group control-section webgpu-synths-section" data-section="variations" open>
@@ -235,6 +241,6 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="webgpu-synths-app.js?v=20260823-clean-deck"></script>
+    <script type="module" src="webgpu-synths-app.js?v=20260824-side-tools"></script>
   </body>
 </html>

@@ -205,6 +205,8 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.doesNotMatch(html, /id="laneButtons"/);
   assert.match(html, /id="addLane"[^>]*>\+ Add parameter lane/);
   assert.match(html, /id="laneTargetSelect"/);
+  assert.doesNotMatch(html, /<b>Edit lane<\/b>|<b>Destination<\/b>/);
+  assert.match(html, /data-section="sequence-tools"[\s\S]*id="laneState">4 of 8 lanes[\s\S]*id="rotateLeft"[\s\S]*id="invertLane"/);
   assert.match(html, /id="addModelLayer"[^>]*>\+ Add synthesis layer/);
   assert.match(html, /One layer is fully isolated\. Add up to six/);
   assert.doesNotMatch(`${html}\n${app}`, /sequenceEditHint|Click a lane to add or edit|double-click Pitch or Pulse/);
@@ -213,7 +215,7 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(html, /id="presetButtons"/);
   assert.match(html, /id="techniqueButtons"/);
   assert.match(html, /Web Audio is buffer playback only/);
-  assert.match(html, /eight synthesis models · layered in WGSL/);
+  assert.doesNotMatch(`${html}\n${app}`, /eight synthesis models · layered in WGSL|id="engineBadge"/);
   assert.match(html, /equal-power morphing, classic FM, sparse convolution reverb/);
   assert.match(html, /id="componentsControls"/);
   assert.match(html, /id="organRankControls"/);
@@ -221,7 +223,8 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(html, /one GPU submission with two compute passes/);
   assert.match(html, /upload only when edited/);
   assert.ok(html.indexOf('data-section="presets"') < html.indexOf('data-section="time"'));
-  assert.ok(html.indexOf('data-section="time"') < html.indexOf('data-section="variations"'));
+  assert.ok(html.indexOf('data-section="time"') < html.indexOf('data-section="sequence-tools"'));
+  assert.ok(html.indexOf('data-section="sequence-tools"') < html.indexOf('data-section="variations"'));
   assert.ok(html.indexOf('id="resetPatch"') < html.indexOf('class="wgsl-boundary"'));
   assert.doesNotMatch(css, /\.model-rail/);
   assert.match(css, /\.sequence-router/);
@@ -230,7 +233,7 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(css, /\.preset-grid \{[\s\S]*grid-template-columns: repeat\(4/);
   assert.match(css, /\.organ-rank-row/);
   assert.match(css, /\.effect-module/);
-  assert.match(css, /\.webgpu-synth-knob-bank/);
+  assert.doesNotMatch(`${html}\n${css}\n${app}`, /knobControls|webgpu-synth-knob|KNOB_ORDER/);
   assert.match(css, /\.webgpu-synths-stage \{[\s\S]*overflow-y: auto/);
   assert.match(css, /@media \(min-width: 981px\) and \(max-height: 1000px\) \{[\s\S]*#sequenceStage \{[\s\S]*min-height: 0/);
   assert.match(css, /@media \(max-width: 620px\) \{[\s\S]*html\.webgpu-synths-document \{[\s\S]*overflow-y: auto/);
@@ -272,9 +275,11 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   const modelControls = app.slice(app.indexOf("model: Object.freeze"), app.indexOf("time: Object.freeze"));
   assert.doesNotMatch(modelControls, /key: "topology"/);
   assert.doesNotMatch(modelControls, /key: "modelB"/);
-  assert.match(modelControls, /key: "modelMix", label: "Layer morph", step: 0\.01, knobOnly: true/);
-  assert.match(app, /const KNOB_ORDER = Object\.freeze\(\["modelMix", "complexity", "color", "fold", "motion", "chaos"\]\)/);
-  assert.match(app, /modelMix: "Layer morph"/);
+  assert.match(modelControls, /key: "modelMix", label: "Layer morph", step: 0\.01/);
+  assert.doesNotMatch(modelControls, /knobOnly/);
+  assert.match(modelControls, /key: "complexity", label: "Density"/);
+  assert.match(modelControls, /key: "fold", label: "Fold"/);
+  assert.match(app, /key: "motion", label: "Orbit"/);
   assert.match(app, /function addModelLayer/);
   assert.match(app, /function removeModelLayer/);
   assert.match(app, /function addSequenceLane/);
@@ -282,7 +287,6 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(app, /WEBGPU_SYNTHS_LANE_TARGETS/);
   assert.match(app, /models: \[7\]/);
   assert.doesNotMatch(app, /topology: "Model"/);
-  assert.match(css, /\.webgpu-synth-knob-bank \{[\s\S]*grid-template-columns: repeat\(6, var\(--knob-size\)\)/);
   assert.doesNotMatch(app, /function drawModelGraphic/);
   assert.doesNotMatch(app, /WGSL synthesis running/);
   assert.match(app, /FIR low-pass/);

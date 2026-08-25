@@ -122,10 +122,10 @@ const PRESETS = shuffledPresetBank(PRESET_LIBRARY);
 
 const CONTROL_GROUPS = Object.freeze({
   model: Object.freeze([
-    { key: "modelMix", label: "Layer morph", step: 0.01, knobOnly: true },
-    { key: "complexity", label: "Complexity", step: 0.01 },
+    { key: "modelMix", label: "Layer morph", step: 0.01 },
+    { key: "complexity", label: "Density", step: 0.01 },
     { key: "color", label: "Color", step: 0.01 },
-    { key: "fold", label: "Nonlinearity", step: 0.01 },
+    { key: "fold", label: "Fold", step: 0.01 },
   ]),
   time: Object.freeze([
     { key: "clock", label: "Shader clock", step: 0.01 },
@@ -137,7 +137,7 @@ const CONTROL_GROUPS = Object.freeze({
   field: Object.freeze([
     { key: "baseNote", label: "Root note", step: 1 },
     { key: "scale", label: "Scale", type: "select", options: WEBGPU_SYNTHS_SCALES },
-    { key: "motion", label: "Motion", step: 0.01 },
+    { key: "motion", label: "Orbit", step: 0.01 },
     { key: "space", label: "Stereo field", step: 0.01 },
     { key: "chaos", label: "Model morph depth", step: 0.01 },
     { key: "gain", label: "Shader gain", step: 0.001 },
@@ -199,16 +199,6 @@ const DISCRETE_KEYS = new Set([
   "delayRepeats",
   "reverbTaps",
 ]);
-const KNOB_ORDER = Object.freeze(["modelMix", "complexity", "color", "fold", "motion", "chaos"]);
-const KNOB_LABELS = Object.freeze({
-  modelMix: "Layer morph",
-  complexity: "Density",
-  color: "Color",
-  fold: "Fold",
-  motion: "Orbit",
-  chaos: "Morph depth",
-});
-
 const support = webGpuSynthSupport(globalThis);
 const firstPreset = PRESETS[0];
 const state = {
@@ -236,14 +226,11 @@ const state = {
 
 const controlInputs = new Map();
 const controlOutputs = new Map();
-const knobControls = new Map();
-const knobOutputs = new Map();
 const organRankInputs = new Map();
 let engine = null;
 let audioStartPromise = null;
 let audioGeneration = 0;
 let animationFrame = 0;
-let activeKnobDrag = null;
 
 function announce(message) {
   $("liveStatus").textContent = "";
@@ -303,8 +290,7 @@ function syncModelVisibility() {
   $("componentsState").textContent = `${visibleComponents} applicable ${visibleComponents === 1 ? "bank" : "banks"}`;
   document.querySelector('[data-section="organ-ranks"]').hidden = !activeModels.has(5);
   const morphVisible = state.params.layerCount > 1 && state.params.layerMode === 1;
-  knobControls.get("modelMix")?.closest(".webgpu-synth-knob")?.toggleAttribute("hidden", !morphVisible);
-  knobControls.get("chaos")?.closest(".webgpu-synth-knob")?.toggleAttribute("hidden", !morphVisible);
+  document.querySelector('[data-param-key="modelMix"]')?.toggleAttribute("hidden", !morphVisible);
   document.querySelector('[data-param-key="chaos"]')?.toggleAttribute("hidden", !morphVisible);
 }
 
@@ -342,18 +328,6 @@ function syncLaneRoutingControls() {
 function syncReadouts() {
   for (const [key, input] of controlInputs) input.value = String(state.params[key]);
   for (const [key, output] of controlOutputs) output.textContent = formatParam(key, state.params[key]);
-  for (const key of KNOB_ORDER) {
-    const [minimum, maximum] = WEBGPU_SYNTHS_LIMITS[key];
-    const value = state.params[key];
-    const normalized = (value - minimum) / (maximum - minimum);
-    const dial = knobControls.get(key);
-    dial?.style.setProperty("--knob-fill", `${normalized * 75}%`);
-    dial?.style.setProperty("--knob-angle", `${-135 + normalized * 270}deg`);
-    dial?.setAttribute("aria-valuenow", value.toFixed(3));
-    dial?.setAttribute("aria-valuetext", formatParam(key, value));
-    const output = knobOutputs.get(key);
-    if (output) output.textContent = formatParam(key, value);
-  }
   const layers = activeModelLayers();
   const joiner = state.params.layerMode === 1 ? " ↔ " : " + ";
   $("modelState").textContent = `${layers.length} ${layers.length === 1 ? "layer" : "layers"} · ${layers.map(({ model }) => WEBGPU_SYNTHS_MODELS[model]).join(joiner)}`;
@@ -509,68 +483,6 @@ function createSelectControl(spec) {
   controlInputs.set(spec.key, select);
   controlOutputs.set(spec.key, output);
   wrapper.append(line, shell);
-  return wrapper;
-}
-
-function knobStep(spec) {
-  return spec.step ?? ((WEBGPU_SYNTHS_LIMITS[spec.key][1] - WEBGPU_SYNTHS_LIMITS[spec.key][0]) / 100);
-}
-
-function createKnobControl(key, index) {
-  const spec = CONTROL_BY_KEY.get(key);
-  const color = MODEL_COLORS[index % MODEL_COLORS.length];
-  const wrapper = document.createElement("div");
-  wrapper.className = "webgpu-synth-knob";
-  wrapper.dataset.knobKey = key;
-  wrapper.style.setProperty("--knob-color", color);
-  const dial = document.createElement("div");
-  dial.className = "webgpu-synth-knob-dial";
-  dial.style.setProperty("--knob-color", color);
-  dial.tabIndex = 0;
-  dial.setAttribute("role", "slider");
-  dial.setAttribute("aria-label", spec.label);
-  dial.setAttribute("aria-valuemin", String(WEBGPU_SYNTHS_LIMITS[key][0]));
-  dial.setAttribute("aria-valuemax", String(WEBGPU_SYNTHS_LIMITS[key][1]));
-  dial.addEventListener("pointerdown", (event) => {
-    if (event.button !== undefined && event.button !== 0) return;
-    event.preventDefault();
-    activeKnobDrag = { key, startY: event.clientY, startValue: state.params[key] };
-    dial.setPointerCapture?.(event.pointerId);
-  });
-  dial.addEventListener("pointermove", (event) => {
-    if (activeKnobDrag?.key !== key) return;
-    event.preventDefault();
-    const [minimum, maximum] = WEBGPU_SYNTHS_LIMITS[key];
-    changeParam(key, activeKnobDrag.startValue + ((activeKnobDrag.startY - event.clientY) / 130) * (maximum - minimum));
-  });
-  dial.addEventListener("pointerup", (event) => {
-    if (activeKnobDrag?.key !== key) return;
-    activeKnobDrag = null;
-    dial.releasePointerCapture?.(event.pointerId);
-  });
-  dial.addEventListener("pointercancel", () => { if (activeKnobDrag?.key === key) activeKnobDrag = null; });
-  dial.addEventListener("wheel", (event) => {
-    event.preventDefault();
-    changeParam(key, state.params[key] + Math.sign(-event.deltaY) * knobStep(spec));
-  }, { passive: false });
-  dial.addEventListener("keydown", (event) => {
-    const direction = ["ArrowUp", "ArrowRight"].includes(event.key) ? 1 : ["ArrowDown", "ArrowLeft"].includes(event.key) ? -1 : 0;
-    if (direction) {
-      event.preventDefault();
-      changeParam(key, state.params[key] + direction * knobStep(spec));
-    } else if (event.key === "Home" || event.key === "End") {
-      event.preventDefault();
-      changeParam(key, WEBGPU_SYNTHS_LIMITS[key][event.key === "Home" ? 0 : 1]);
-    }
-  });
-  const label = document.createElement("span");
-  label.className = "webgpu-synth-knob-label";
-  label.textContent = KNOB_LABELS[key];
-  const output = document.createElement("output");
-  output.className = "webgpu-synth-knob-value";
-  knobControls.set(key, dial);
-  knobOutputs.set(key, output);
-  wrapper.append(dial, label, output);
   return wrapper;
 }
 
@@ -822,11 +734,10 @@ function renderEffectsControls() {
 function renderControls() {
   for (const [group, specs] of Object.entries(CONTROL_GROUPS)) {
     if (group === "effects") continue;
-    $(`${group}Controls`).replaceChildren(...specs.filter((spec) => !spec.knobOnly).map((spec) => (
+    $(`${group}Controls`).replaceChildren(...specs.map((spec) => (
       spec.type === "select" ? createSelectControl(spec) : createRangeControl(spec)
     )));
   }
-  $("knobControls").replaceChildren(...KNOB_ORDER.map(createKnobControl));
   renderModelLayers();
   renderOrganRankControls();
   renderEffectsControls();
@@ -875,9 +786,6 @@ function setSupportState() {
 }
 
 function paintAudioReadout() {
-  $("engineBadge").textContent = state.audioOn
-    ? state.synthPlaying ? "sequence running" : "sequence ready"
-    : "eight synthesis models · layered in WGSL";
   $("stageReadout").textContent = state.audioOn
     ? `WEBGPU · ${Math.round(engine?.sampleRate ?? 44100)} HZ · ${state.synthPlaying ? "SEQUENCE PLAYING" : "SEQUENCE PAUSED"}`
     : "WEBGPU · STANDBY · AUDIO OFF";
