@@ -147,7 +147,6 @@ test("one acyclic capability registry covers every playable catalog instrument",
     new Set(INSTRUMENTS.map(({ id }) => id)),
   );
   assert.deepEqual(NATIVE_INSTRUMENT_MIDI_IDS, [
-    "combo",
     "shape",
     "recursive-fm",
     "recursive-pm",
@@ -239,23 +238,15 @@ test("one acyclic capability registry covers every playable catalog instrument",
   );
 });
 
-test("every playable catalog page owns or delegates one shared MIDI toolbar", async () => {
+test("every playable catalog page owns one shared MIDI toolbar", async () => {
   let mastheadPages = 0;
   let dedicatedHostPages = 0;
-  let delegatedNativeHosts = 0;
   for (const instrument of INSTRUMENTS) {
     const cleanHref = instrument.href.split(/[?#]/)[0];
     const htmlPath = cleanHref.endsWith("/")
       ? path.join(repositoryRoot, cleanHref, "index.html")
       : path.join(repositoryRoot, cleanHref);
     const html = await readFile(htmlPath, "utf8");
-    if (instrument.id === "combo") {
-      assert.match(html, /<iframe[^>]+src="shape\.html\?combo-embed=1"/s);
-      assert.match(html, /<script[^>]+src="combo-app\.js"/);
-      assert.doesNotMatch(html, /class="[^"]*masthead|data-midi-toolbar-host/);
-      delegatedNativeHosts += 1;
-      continue;
-    }
     assert.match(html, /<script[^>]+src="(?:\.\.\/)?nav\.js(?:\?[^"]+)?"/, `${instrument.id} loads nav.js`);
     assert.match(
       html,
@@ -283,8 +274,7 @@ test("every playable catalog page owns or delegates one shared MIDI toolbar", as
       );
     }
   }
-  assert.equal(mastheadPages, 99);
-  assert.equal(delegatedNativeHosts, 1, "Shapes delegates its one toolbar to the active native frame");
+  assert.equal(mastheadPages, 100);
   assert.equal(dedicatedHostPages, 1, "Morphazoidical supplies the one non-masthead host");
 
   const atlas = await readFile(path.join(repositoryRoot, "morphazoidical", "atlas.html"), "utf8");

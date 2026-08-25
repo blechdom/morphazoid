@@ -15,9 +15,9 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 const CATALOG_DETAILS = Object.freeze({
   combo: define(
     "2D / 3D / 4D instrument",
-    "Hosts the original Polygon, Polyhedra, and Hyperpolyhedra synth and drum engines with one shared transport, dimensional profile, and seamless handoff.",
-    "Choose 2D, 3D, or 4D, route the same running shape into Voices or Triggers, then tweak shared controls and each dimension's private form and rotation banks.",
-    ["Built-in synth", "Pointer", "Shared transport", "Native instruments"],
+    "A self-contained Polygon, Polyhedra, and Hyperpolyhedra instrument with one canvas, one shared transport, and dimension-aware form and rotation controls.",
+    "Choose 2D, 3D, or 4D, then play the same running form continuously, as notes, or as triggers from the responsive Twin Rack panel.",
+    ["Built-in synth", "Pointer", "Shared transport", "Self-contained app"],
   ),
   shape: define(
     "Synth",

@@ -36,6 +36,8 @@ test("site builder publishes runtime files without development material", async 
       "combo-embed.css",
       "combo-app.js",
       "src/combo-host.js",
+      "src/shapes-state.js",
+      "src/shapes-scene.js",
       "src/shapes-profile.js",
       "src/shapes-native-bridge.js",
       "assets/instruments/combo.webp",

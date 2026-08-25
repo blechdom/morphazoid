@@ -3,72 +3,51 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
-  COMBO_NATIVE_INSTRUMENTS,
-  COMBO_SOUNDS,
-  comboInstrumentFor,
+  COMBO_GEOMETRIES,
+  COMBO_PLAYING_MODES,
+  comboSelectionFor,
   sanitizeComboFocus,
 } from "../src/combo-host.js";
 import { resolveActiveTool, TOOL_GROUPS } from "../nav.js";
 
 const repositoryRoot = new URL("../", import.meta.url);
 
-test("combo host maps exactly to the six existing Morphazoid instruments", async () => {
-  assert.deepEqual(Object.keys(COMBO_NATIVE_INSTRUMENTS), [
-    "shape-synth",
-    "shape-drums",
-    "solid-synth",
-    "solid-drums",
-    "hyper-synth",
-    "hyper-drums",
-  ]);
+test("Shapes routes dimensions and playing modes as state rather than pages", () => {
+  assert.deepEqual(Object.keys(COMBO_GEOMETRIES), ["shape", "solid", "hyper"]);
   assert.deepEqual(
-    Object.values(COMBO_NATIVE_INSTRUMENTS).map(({ href }) => href),
-    [
-      "shape.html",
-      "shape-drums.html",
-      "solid.html",
-      "solid-drums.html",
-      "hyper.html",
-      "hyper-drums.html",
-    ],
+    Object.values(COMBO_GEOMETRIES).map(({ stateId, dimension }) => [stateId, dimension]),
+    [["2d", "2D"], ["3d", "3D"], ["4d", "4D"]],
   );
-
-  for (const instrument of Object.values(COMBO_NATIVE_INSTRUMENTS)) {
-    const html = await readFile(new URL(instrument.href, repositoryRoot), "utf8");
-    assert.match(
-      html,
-      new RegExp(`<script type="module" src="${instrument.appModule.replace(".", "\\.")}"></script>`),
-      `${instrument.title} uses its original application module`,
-    );
-
-    if (instrument.sound === "synth") {
-      assert.match(html, /id="soundMode"/);
-      for (const voice of ["sine", "fm", "pm", "shepard", "percussion"]) {
-        assert.match(html, new RegExp(`value="${voice}"`), `${instrument.title} exposes ${voice}`);
-      }
-    } else {
-      assert.match(html, /id="mappingMode"/);
-      assert.match(html, instrument.geometry === "shape" ? /id="sideSubdivisions"/ : /id="subdivisions"/);
-    }
+  assert.deepEqual(COMBO_PLAYING_MODES.map(({ id }) => id), ["continuous", "notes", "triggers"]);
+  assert.deepEqual(comboSelectionFor("solid", "drums"), { dimension: "3d", playingMode: "triggers" });
+  assert.deepEqual(sanitizeComboFocus({ dimension: "4d", playingMode: "notes" }), {
+    dimension: "4d",
+    playingMode: "notes",
+  });
+  assert.deepEqual(sanitizeComboFocus({ geometry: "invalid", sound: "noise" }), {
+    dimension: "2d",
+    playingMode: "continuous",
+  });
+  assert.deepEqual(sanitizeComboFocus(null), {
+    dimension: "2d",
+    playingMode: "continuous",
+  });
+  for (const geometry of Object.values(COMBO_GEOMETRIES)) {
+    assert.equal("href" in geometry, false);
+    assert.equal("appModule" in geometry, false);
   }
 });
 
-test("combo focus sanitization falls back to Polygon Synth", () => {
-  assert.equal(comboInstrumentFor("solid", "drums").href, "solid-drums.html");
-  assert.equal(sanitizeComboFocus({ geometry: "hyper", sound: "synth" }).href, "hyper.html");
-  assert.equal(sanitizeComboFocus({ geometry: "invalid", sound: "noise" }).href, "shape.html");
-  assert.equal(COMBO_SOUNDS.synth.systemLabel, "Voices");
-  assert.equal(COMBO_SOUNDS.drums.systemLabel, "Triggers");
-});
-
-test("Shapes is an additive focused host without a replacement sequencer or audio engine", async () => {
-  const [html, redirect, css, embedCss, app] = await Promise.all([
+test("Shapes is one native Morphazoid route with no embedded page dependencies", async () => {
+  const [html, redirect, css, app, scene, state] = await Promise.all([
     readFile(new URL("shapes.html", repositoryRoot), "utf8"),
     readFile(new URL("combo.html", repositoryRoot), "utf8"),
     readFile(new URL("combo.css", repositoryRoot), "utf8"),
-    readFile(new URL("combo-embed.css", repositoryRoot), "utf8"),
     readFile(new URL("combo-app.js", repositoryRoot), "utf8"),
+    readFile(new URL("src/shapes-scene.js", repositoryRoot), "utf8"),
+    readFile(new URL("src/shapes-state.js", repositoryRoot), "utf8"),
   ]);
+
   const comboTool = TOOL_GROUPS.flatMap(({ tools }) => tools).find(({ id }) => id === "combo");
   assert.equal(comboTool?.href, "shapes.html");
   assert.equal(comboTool?.label, "Shapes");
@@ -77,102 +56,69 @@ test("Shapes is an additive focused host without a replacement sequencer or audi
     "https://example.test/morphazoid/shapes.html",
     "https://example.test/morphazoid/",
   )?.id, "combo");
+
   assert.match(redirect, /new URL\("shapes\.html", window\.location\.href\)/);
-  assert.match(redirect, /destination\.search = window\.location\.search/);
-  assert.match(redirect, /destination\.hash = window\.location\.hash/);
   assert.match(redirect, /window\.location\.replace\(destination\)/);
-  assert.match(redirect, /<link rel="canonical" href="shapes\.html"/);
-  assert.doesNotMatch(redirect, /nativeInstrumentFrame|combo-app\.js/);
-  assert.match(html, /<iframe[^>]+id="nativeInstrumentFrame"/s);
-  assert.match(html, /<iframe[^>]+id="nativeInstrumentFrame"[^>]+loading="eager"/s);
   assert.match(html, /<title>Shapes — Morphazoid<\/title>/);
-  assert.match(html, /src="shape\.html\?combo-embed=1"/);
-  assert.doesNotMatch(html, /combo-modebar|geometry-owned pitched voices|Original ↗/);
-  assert.match(app, /prepareNativeInstrumentPicker/);
-  assert.match(app, /current\.textContent !== "Shapes"/);
-  assert.match(app, /const nativePickerLabelObservers = new WeakMap\(\)/);
-  assert.match(app, /MutationObserver\(enforceShapesPicker\)/);
-  assert.match(app, /observer\.observe\(masthead/);
-  assert.match(app, /nativePickerLabelObservers\.set\(nativeDocument, observer\)/);
-  assert.match(app, /link\.target = "_top"/);
-  assert.match(app, /wordmark\.target = "_top"/);
-  assert.match(app, /label:\s*"2D"/);
-  assert.match(app, /label:\s*"3D"/);
-  assert.match(app, /label:\s*"4D"/);
-  assert.match(app, /label:\s*"Continuous"/);
-  assert.match(app, /label:\s*"Notes"/);
-  assert.match(app, /label:\s*"Triggers"/);
-  assert.match(app, /label:\s*"Percussive"/);
-  assert.doesNotMatch(html, /sequencer|sequence-grid/i);
-  assert.doesNotMatch(app, /AudioContext|createOscillator|FmDrumAudio|scheduleStep/);
-  assert.match(app, /contentDocument/);
-  assert.match(app, /audioButton/);
-  assert.match(app, /getElementById\("soundMode"\)/);
-  assert.match(app, /getElementById\("mappingMode"\)/);
-  assert.match(app, /sideSubdivisions/);
-  assert.match(app, /installNativePluginLayout/);
-  assert.match(app, /activateNativeBank/);
-  assert.match(app, /installNativeRouteToolbar/);
-  assert.match(app, /createNativeRouteKnob/);
-  assert.match(app, /createNativeRotationToggle/);
-  assert.match(app, /selectNativePerformanceMode/);
-  assert.match(app, /resetNativeControlBank/);
-  assert.match(app, /watchNativeFrameReadiness\(frame, instrument\)/);
-  assert.match(app, /frameHasExpectedDocument\(frame, instrument\) && nativeBridge\(frame\)/);
-  assert.match(app, /function enhanceNativeFrame\(frame, instrument\) \{\s*if \(!frameHasExpectedDocument\(frame, instrument\)\) return;/);
-  assert.match(app, /prepareNativeInstrumentPicker\(frame\.contentDocument\);\s*frame\.hidden = false;/);
-  assert.doesNotMatch(app, /documentFallbackReady|FRAME_READINESS_FALLBACK/);
-  assert.match(app, /finally \{\s*frame\.dataset\.ready = "true";[\s\S]*frameReadyWaiters\.delete\(frame\);\s*\}/);
-  const enhanceStart = app.indexOf("function enhanceNativeFrame");
-  const enhanceEnd = app.indexOf("\nfunction nativeBridge", enhanceStart);
-  const enhancement = app.slice(enhanceStart, enhanceEnd);
+  assert.match(html, /<header class="masthead">/);
+  assert.match(html, /<a class="tab active" href="shapes\.html" aria-current="page">Shapes<\/a>/);
+  assert.match(html, /<canvas id="stage"/);
+  assert.match(html, /<aside class="shapes-panel"/);
+  assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="combo-app\.js"><\/script>/);
+  assert.doesNotMatch(html, /<(?:iframe|object|embed)\b/i);
+  assert.doesNotMatch(html, /(?:shape|solid|hyper)(?:-drums)?\.html/i);
+
+  assert.doesNotMatch(app, /contentDocument|contentWindow|window\.frames|createElement\(["']iframe/);
+  assert.doesNotMatch(app, /(?:^|["'/])(?:app|solid-app|hyper-app|shape-drums-app|solid-drums-app|hyper-drums-app)\.js/);
+  assert.match(app, /from "\.\/src\/shapes-state\.js"/);
+  assert.match(app, /from "\.\/src\/shapes-scene\.js"/);
+  assert.match(app, /legacySound === "synth"[\s\S]*?"continuous"/);
+  assert.match(app, /shapesEventIntervalMs\(state, scene\.contacts\.length\)/);
+  assert.match(app, /morphazoid:midi-input/);
+  assert.match(app, /event\.preventDefault\(\)/);
+  assert.doesNotMatch(app, /synthAudio\.strike\(/);
+  assert.match(scene, /from "\.\/geometry\.js"/);
+  assert.match(scene, /from "\.\/solid\.js"/);
+  assert.match(scene, /from "\.\/hyper\.js"/);
+  assert.match(state, /playingMode:\s*"continuous"/);
+  assert.match(state, /selection\.playingMode/);
+});
+
+test("Shapes owns the fixed application picker and local 2D, 3D, 4D submenu", async () => {
+  const html = await readFile(new URL("shapes.html", repositoryRoot), "utf8");
+  const dimensionOptions = [...html.matchAll(/<option value="(2d|3d|4d)">/g)].map((match) => match[1]);
+  assert.deepEqual(dimensionOptions.slice(0, 3), ["2d", "3d", "4d"]);
+  assert.match(html, /<select id="dimensionSelect" aria-label="Shapes dimension">/);
+  assert.match(html, /data-playing-mode="continuous"/);
+  assert.match(html, /data-playing-mode="notes"/);
+  assert.match(html, /data-playing-mode="triggers"/);
+  assert.match(html, /class="shapes-bank-tabs" role="tablist"/);
+  assert.equal((html.match(/role="tab"/g) ?? []).length, 4);
+  assert.equal((html.match(/role="tabpanel"/g) ?? []).length, 4);
   assert.ok(
-    enhancement.indexOf("nativeDocument.head.append(stylesheet)")
-      < enhancement.lastIndexOf("finishFrameLoad(frame, instrument)"),
-    "native controls become ready without waiting for the full iframe load event",
+    html.indexOf("id=\"playingMode\"") > html.indexOf("<aside class=\"shapes-panel\""),
+    "playing modes live in the right-hand Shapes panel",
   );
-  assert.doesNotMatch(app, /createNativeInstrumentSelect|TOOL_GROUPS/);
-  assert.match(css, /\.combo-host\s*\{[^}]*height:\s*100dvh[^}]*display:\s*block/s);
-  assert.match(embedCss, /body\.combo-native-embed \.masthead > \.tabs/);
-  assert.match(embedCss, /\.masthead > \.tabs\.combo-native-picker\s*\{[^}]*display:\s*flex\s*!important/s);
-  assert.match(embedCss, /\.combo-native-picker \.instrument-picker-current\s*\{[^}]*font-size:\s*8px/s);
-  assert.doesNotMatch(embedCss, /\.instrument-picker-current::after\s*\{[^}]*content:\s*"Shapes"/s);
-  assert.match(embedCss, /\.combo-native-route/);
-  assert.match(embedCss, /\.combo-control-rail/);
-  assert.match(embedCss, /\.masthead > \.wordmark\s*\{[^}]*display:\s*inline-flex\s*!important/s);
-  assert.match(embedCss, /\.masthead > \.header-io-controls\s*\{[^}]*width:\s*auto/s);
-  assert.match(embedCss, /\.panel\.combo-plugin-panel\s*\{[^}]*overflow:\s*hidden/s);
-  assert.match(embedCss, /\.combo-plugin-reset\s*\{\s*display:\s*none\s*!important/);
-  assert.match(embedCss, /\.combo-bank-reset/);
-  assert.match(embedCss, /\.combo-native-knob-dial/);
-  assert.match(embedCss, /--combo-native-menu-control-height:\s*30px/);
-  assert.match(
-    embedCss,
-    /\.combo-native-route-select select\s*\{[^}]*height:\s*var\(--combo-native-menu-control-height\);[^}]*min-height:\s*var\(--combo-native-menu-control-height\)/s,
-  );
-  assert.match(
-    embedCss,
-    /\.instrument-picker-trigger\s*\{[^}]*height:\s*var\(--combo-native-menu-control-height\);[^}]*min-height:\s*var\(--combo-native-menu-control-height\)/s,
-  );
-  assert.match(embedCss, /\.combo-bank-tabs/);
-  assert.match(embedCss, /\.combo-host-mirrored-control\s*\{\s*display:\s*none\s*!important/);
-  assert.match(embedCss, /grid-template-rows:\s*40px minmax\(0, 1fr\)/);
-  assert.match(embedCss, /\.combo-performance-routing/);
-  assert.match(embedCss, /\.combo-primary-speed-control/);
-  assert.match(embedCss, /\.combo-live-rotation/);
-  assert.match(embedCss, /@media \(max-width: 960px\)[\s\S]*overflow-y:\s*auto/);
-  assert.doesNotMatch(embedCss, /\.audio-strip\s*\{[^}]*display:\s*none/s);
-  assert.doesNotMatch(html, /combo-edition|<header class="masthead">/);
-  assert.match(app, /routeToolbar\?\.rail\.append\(tabs\)/);
-  assert.match(app, /panel\.prepend\(rail\)/);
-  assert.match(app, /const CONTROL_BANKS = Object\.freeze\(\["play", "form", "rotation", "mapping"\]\)/);
-  assert.match(app, /play:\s*"Main"/);
-  assert.match(app, /mappingBody\.prepend\(\.\.\.soundBody\.children\)/);
-  assert.doesNotMatch(app, /soundSection\.remove\(\)/);
-  assert.match(app, /for \(const selector of \["\.rotation-position-row", "#rotationControls"\]\)/);
-  assert.match(app, /activateNativeBank\(frame, "mapping"\)/);
-  assert.match(app, /layout\.buttons\[targetIndex\]\.scrollIntoView/);
 
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]);
-  assert.equal(new Set(ids).size, ids.length, "Combo host HTML IDs stay unique");
+  assert.equal(new Set(ids).size, ids.length, "Shapes HTML IDs stay unique");
+});
+
+test("the preferred Twin Rack fills wide panels and collapses responsively", async () => {
+  const [html, css] = await Promise.all([
+    readFile(new URL("shapes.html", repositoryRoot), "utf8"),
+    readFile(new URL("combo.css", repositoryRoot), "utf8"),
+  ]);
+  assert.match(html, /class="shapes-twin-rack"/);
+  assert.match(html, /Play &amp; voice/);
+  assert.match(html, /Shape &amp; motion/);
+  assert.match(html, /class="control shapes-primary-range shapes-speed-row"/);
+  assert.match(css, /\.shapes-twin-rack\s*\{[^}]*grid-template-columns:\s*repeat\(2,/s);
+  assert.match(css, /@container shapes-panel \(max-width: 500px\)[\s\S]*\.shapes-twin-rack,[\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(css, /\.shapes-speed-row\s*\{[^}]*width:\s*100%/s);
+  assert.match(css, /\.shapes-bank-tabs button\s*\{[^}]*font-size:\s*11px/s);
+  assert.match(css, /\.shapes-playing-mode \.choice-switch button\s*\{[^}]*font-size:\s*11px/s);
+  assert.match(css, /\.shapes-knob-control > span\s*\{[^}]*font-size:\s*11px/s);
+  assert.ok(html.indexOf("data-bank-panel=\"main\"") < html.indexOf("shapes-output-details"));
 });

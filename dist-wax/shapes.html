@@ -5,32 +5,256 @@
     <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#07090b" />
-    <meta
-      name="description"
-      content="Morphazoid Shapes — the original 2D Polygon, 3D Polyhedra, and 4D Hyperpolyhedra synth and drum instruments in one focused host."
-    />
+    <meta name="description" content="Morphazoid Shapes — one self-contained 2D, 3D, and 4D geometric instrument." />
     <title>Shapes — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="combo.css" />
   </head>
-  <body class="combo-page">
-    <main class="combo-host" id="comboRack" data-geometry="shape" data-sound="synth">
-      <h1 class="sr-only" id="focusTitle">Polygon Synth</h1>
+  <body class="shapes-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab active" href="shapes.html" aria-current="page">Shapes</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shapes.html" selected>Shapes</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">65%</output></span>
+          <input id="level" aria-label="Master audio level" type="range" min="0" max="1" step="0.01" value="0.65" />
+        </label>
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false" data-audio-state="off">
+          <span class="audio-glyph" aria-hidden="true">◉</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+      </div>
+    </header>
 
-      <section class="native-instrument-shell is-loading" id="nativeInstrumentShell" aria-labelledby="focusTitle">
-        <div class="native-loading" id="nativeLoading" role="status">Loading the original Polygon Synth…</div>
-        <iframe
-          id="nativeInstrumentFrame"
-          title="Polygon Synth"
-          src="shape.html?combo-embed=1"
-          loading="eager"
-          allow="autoplay; microphone; midi"
-        ></iframe>
+    <main class="shapes-shell" id="shapesApp" data-dimension="2d" data-playing-mode="continuous">
+      <section class="shapes-stage" aria-label="Shapes stage">
+        <div class="shapes-stage-wrap" id="stageWrap">
+          <canvas id="stage" tabindex="0" aria-label="Interactive 2D Polygon instrument canvas" aria-describedby="canvasInstructions liveStatus">
+            An animated geometric instrument with a moving reader.
+          </canvas>
+          <div class="shapes-stage-title" aria-hidden="true">
+            <span id="dimensionKicker">2D · POLYGON</span>
+            <strong id="shapeReadout">6-SIDED POLYGON</strong>
+          </div>
+          <div class="shapes-stage-meta" aria-hidden="true">
+            <span id="stageReadout">1 CONTACT · PAUSED · AUDIO OFF</span>
+          </div>
+        </div>
       </section>
+
+      <aside class="shapes-panel" aria-label="Shapes controls">
+        <header class="shapes-panel-header">
+          <div>
+            <span class="shapes-panel-eyebrow">Shapes app</span>
+            <strong>One form, three dimensions</strong>
+          </div>
+          <label class="shapes-dimension-menu" for="dimensionSelect">
+            <span>Dimension</span>
+            <span class="select-shell">
+              <select id="dimensionSelect" aria-label="Shapes dimension">
+                <option value="2d">2D · Polygon</option>
+                <option value="3d">3D · Polyhedra</option>
+                <option value="4d">4D · Hyperpolyhedra</option>
+              </select>
+            </span>
+          </label>
+        </header>
+
+        <div class="shapes-bank-tabs" role="tablist" aria-label="Shapes control banks">
+          <button id="mainBankTab" type="button" role="tab" data-bank="main" aria-selected="true" aria-controls="mainBankPanel" tabindex="0">Main</button>
+          <button id="formBankTab" type="button" role="tab" data-bank="form" aria-selected="false" aria-controls="formBankPanel" tabindex="-1">Form</button>
+          <button id="rotationBankTab" type="button" role="tab" data-bank="rotation" aria-selected="false" aria-controls="rotationBankPanel" tabindex="-1">Rotation</button>
+          <button id="mappingBankTab" type="button" role="tab" data-bank="mapping" aria-selected="false" aria-controls="mappingBankPanel" tabindex="-1">Mapping</button>
+        </div>
+
+        <div class="shapes-panel-scroll">
+          <section class="shapes-bank is-active" id="mainBankPanel" role="tabpanel" data-bank-panel="main" aria-labelledby="mainBankTab">
+            <h2 class="sr-only" id="mainBankTitle">Main performance controls</h2>
+            <div class="shapes-playing-mode" role="group" aria-label="Playing mode">
+              <span>Playing</span>
+              <div class="choice-switch" id="playingMode">
+                <button type="button" data-playing-mode="continuous" aria-pressed="true">Continuous</button>
+                <button type="button" data-playing-mode="notes" aria-pressed="false">Notes</button>
+                <button type="button" data-playing-mode="triggers" aria-pressed="false">Triggers</button>
+              </div>
+            </div>
+
+            <div class="shapes-twin-rack">
+              <section class="shapes-rack-card shapes-play-rack" aria-labelledby="playRackTitle">
+                <header><span>01</span><h3 id="playRackTitle">Play &amp; voice</h3></header>
+                <div class="shapes-live-row">
+                  <label class="select-control shapes-engine-control" for="voiceEngine">
+                    <span class="field-label">Voice engine</span>
+                    <span class="select-shell"><select id="voiceEngine"><option value="sine">Sine</option><option value="fm">FM</option><option value="pm">PM</option><option value="shepard">Shepard</option></select></span>
+                  </label>
+                  <button class="shapes-transport-button" id="playButton" type="button" aria-pressed="false">
+                    <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+                    <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                    <span id="playButtonLabel">Play</span>
+                  </button>
+                </div>
+                <label class="control shapes-primary-range" for="position">
+                  <span><b>Reader position</b><output id="positionOut" for="position">18.0%</output></span>
+                  <input id="position" type="range" min="0" max="1" step="0.0005" value="0.18" />
+                </label>
+                <label class="control shapes-primary-range shapes-speed-row" for="speed">
+                  <span><b>Speed</b><output id="speedOut" for="speed">0.12 cyc/s</output></span>
+                  <input id="speed" type="range" min="0" max="4" step="0.01" value="0.12" />
+                </label>
+                <div class="shapes-motion-row" aria-label="Reader motion">
+                  <button class="mini-action" id="directionButton" type="button">Direction · forward</button>
+                  <div class="choice-switch compact" id="motionMode" role="group" aria-label="Motion shape">
+                    <button type="button" data-motion="loop" aria-pressed="true">Loop</button>
+                    <button type="button" data-motion="pingpong" aria-pressed="false">Ping-pong</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="shapes-rack-card shapes-motion-rack" aria-labelledby="motionRackTitle">
+                <header><span>02</span><h3 id="motionRackTitle">Shape &amp; motion</h3></header>
+                <div class="shapes-live-row">
+                  <label class="select-control" for="mainFormSelect">
+                    <span class="field-label">Form</span>
+                    <span class="select-shell"><select id="mainFormSelect"></select></span>
+                  </label>
+                  <button class="shapes-rotate-button" id="rotateButton" type="button" aria-pressed="false">
+                    <span aria-hidden="true">↻</span><span id="rotateButtonLabel">Rotate</span>
+                  </button>
+                </div>
+                <div class="shapes-knob-row" aria-label="Live shape controls">
+                  <div class="shapes-knob-control" data-live-knob="a">
+                    <button class="shapes-knob" id="liveKnobA" type="button" role="slider" aria-label="Rotation" aria-valuemin="-180" aria-valuemax="180" aria-valuenow="0"><i></i></button>
+                    <span id="liveKnobALabel">Rotate</span><output id="liveKnobAOut">0°</output>
+                  </div>
+                  <div class="shapes-knob-control" data-live-knob="b">
+                    <button class="shapes-knob" id="liveKnobB" type="button" role="slider" aria-label="Sides" aria-valuemin="1" aria-valuemax="32" aria-valuenow="6"><i></i></button>
+                    <span id="liveKnobBLabel">Sides</span><output id="liveKnobBOut">6</output>
+                  </div>
+                  <div class="shapes-knob-control" data-live-knob="c">
+                    <button class="shapes-knob" id="liveKnobC" type="button" role="slider" aria-label="Roundness" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0"><i></i></button>
+                    <span id="liveKnobCLabel">Roundness</span><output id="liveKnobCOut">0%</output>
+                  </div>
+                </div>
+                <label class="select-control shapes-reader-control" for="readerSelect">
+                  <span class="field-label">Reader</span>
+                  <span class="select-shell"><select id="readerSelect"><option value="points">Points</option><option value="line">Line</option><option value="radar">Radar</option></select></span>
+                </label>
+              </section>
+            </div>
+          </section>
+
+          <section class="shapes-bank" id="formBankPanel" role="tabpanel" data-bank-panel="form" aria-labelledby="formBankTab" hidden>
+            <div class="shapes-bank-heading">
+              <div><span>Form</span><h2 id="formBankTitle">Topology &amp; deformation</h2></div>
+              <button class="mini-action" id="resetForm" type="button">Reset form</button>
+            </div>
+            <div class="shapes-parameter-grid">
+              <label class="select-control" for="profileKind">
+                <span class="field-label">Shared profile</span>
+                <span class="select-shell"><select id="profileKind"><option value="polygon">Polygon</option><option value="star">Star</option><option value="circle">Circle</option><option value="line">Open line</option></select></span>
+              </label>
+              <label class="control" for="profileSides"><span><b>Sides / points</b><output id="profileSidesOut" for="profileSides">6</output></span><input id="profileSides" type="range" min="1" max="32" step="1" value="6" /></label>
+              <label class="control" id="starDepthControl" for="starDepth"><span><b>Star depth</b><output id="starDepthOut" for="starDepth">48%</output></span><input id="starDepth" type="range" min="0.05" max="0.82" step="0.01" value="0.48" /></label>
+            </div>
+            <div class="shapes-dimension-form" data-dimension-form="2d">
+              <h3>2D deformation</h3>
+              <div class="shapes-parameter-grid">
+                <label class="control" for="curvature"><span><b>Roundness</b><output id="curvatureOut" for="curvature">0%</output></span><input id="curvature" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+                <label class="control" for="aspect"><span><b>Stretch</b><output id="aspectOut" for="aspect">0.00</output></span><input id="aspect" type="range" min="-2" max="2" step="0.01" value="0" /></label>
+                <label class="control" for="skew2d"><span><b>Skew</b><output id="skew2dOut" for="skew2d">0%</output></span><input id="skew2d" type="range" min="-2" max="2" step="0.01" value="0" /></label>
+              </div>
+            </div>
+            <div class="shapes-dimension-form" data-dimension-form="3d" hidden>
+              <h3>3D representation</h3>
+              <label class="select-control" for="solidRepresentation"><span class="field-label">Solid</span><span class="select-shell"><select id="solidRepresentation"><option value="profile">Shared profile prism</option><option value="cube">Cube</option><option value="pyramid">Pyramid</option><option value="octahedron">Octahedron</option><option value="prism">Triangular prism</option><option value="cone">Cone</option><option value="cylinder">Cylinder</option><option value="sphere">Sphere</option><option value="torus">Torus</option></select></span></label>
+              <div class="shapes-parameter-grid">
+                <label class="control" for="scale3x"><span><b>Width</b><output id="scale3xOut" for="scale3x">1.00×</output></span><input id="scale3x" type="range" min="0.5" max="1.6" step="0.01" value="1" /></label>
+                <label class="control" for="scale3y"><span><b>Height</b><output id="scale3yOut" for="scale3y">1.00×</output></span><input id="scale3y" type="range" min="0.5" max="1.6" step="0.01" value="1" /></label>
+                <label class="control" for="scale3z"><span><b>Depth</b><output id="scale3zOut" for="scale3z">1.00×</output></span><input id="scale3z" type="range" min="0.5" max="1.6" step="0.01" value="1" /></label>
+                <label class="control" for="skew3x"><span><b>X skew</b><output id="skew3xOut" for="skew3x">0%</output></span><input id="skew3x" type="range" min="-0.7" max="0.7" step="0.01" value="0" /></label>
+                <label class="control" for="skew3z"><span><b>Z skew</b><output id="skew3zOut" for="skew3z">0%</output></span><input id="skew3z" type="range" min="-0.7" max="0.7" step="0.01" value="0" /></label>
+              </div>
+            </div>
+            <div class="shapes-dimension-form" data-dimension-form="4d" hidden>
+              <h3>4D representation</h3>
+              <label class="select-control" for="hyperRepresentation"><span class="field-label">Hyper-form</span><span class="select-shell"><select id="hyperRepresentation"><option value="profile">Shared profile hyperprism</option><option value="tesseract">Tesseract</option><option value="hypersphere">Hypersphere</option><option value="hyperpyramid">Hyperpyramid</option><option value="klein">Klein bottle</option></select></span></label>
+              <div class="shapes-parameter-grid">
+                <label class="control" for="scale4x"><span><b>X scale</b><output id="scale4xOut" for="scale4x">1.00×</output></span><input id="scale4x" type="range" min="0.5" max="1.5" step="0.01" value="1" /></label>
+                <label class="control" for="scale4y"><span><b>Y scale</b><output id="scale4yOut" for="scale4y">1.00×</output></span><input id="scale4y" type="range" min="0.5" max="1.5" step="0.01" value="1" /></label>
+                <label class="control" for="scale4z"><span><b>Z scale</b><output id="scale4zOut" for="scale4z">1.00×</output></span><input id="scale4z" type="range" min="0.5" max="1.5" step="0.01" value="1" /></label>
+                <label class="control" for="scale4w"><span><b>W scale</b><output id="scale4wOut" for="scale4w">1.00×</output></span><input id="scale4w" type="range" min="0.5" max="1.5" step="0.01" value="1" /></label>
+              </div>
+            </div>
+          </section>
+
+          <section class="shapes-bank" id="rotationBankPanel" role="tabpanel" data-bank-panel="rotation" aria-labelledby="rotationBankTab" hidden>
+            <div class="shapes-bank-heading">
+              <div><span>Rotation</span><h2 id="rotationBankTitle">Dimension-owned motion</h2></div>
+              <button class="mini-action" id="resetRotation" type="button">Reset rotation</button>
+            </div>
+            <p class="shapes-bank-note">Angles remain private to each dimension. Returning to a dimension restores its last orientation.</p>
+            <div id="rotationControls" class="shapes-rotation-controls"></div>
+          </section>
+
+          <section class="shapes-bank" id="mappingBankPanel" role="tabpanel" data-bank-panel="mapping" aria-labelledby="mappingBankTab" hidden>
+            <div class="shapes-bank-heading">
+              <div><span>Mapping</span><h2 id="mappingBankTitle">Voice &amp; trigger response</h2></div>
+              <button class="mini-action" id="resetMapping" type="button">Reset mapping</button>
+            </div>
+            <div class="shapes-mapping-racks">
+              <section aria-labelledby="voiceMappingTitle">
+                <h3 id="voiceMappingTitle">Voice mapping</h3>
+                <div class="shapes-parameter-grid">
+                  <label class="control" for="baseFrequency"><span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">110 Hz</output></span><input id="baseFrequency" type="range" min="20" max="440" step="1" value="110" /></label>
+                  <label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">3.0 oct</output></span><input id="pitchRange" type="range" min="0" max="7" step="0.1" value="3" /></label>
+                  <label class="control" for="voiceCharacter"><span><b>Character</b><output id="voiceCharacterOut" for="voiceCharacter">35%</output></span><input id="voiceCharacter" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
+                  <label class="control" for="stereoSpread"><span><b>Stereo spread</b><output id="stereoSpreadOut" for="stereoSpread">85%</output></span><input id="stereoSpread" type="range" min="0" max="1" step="0.01" value="0.85" /></label>
+                  <label class="control" for="noteDivisions"><span><b>Note divisions</b><output id="noteDivisionsOut" for="noteDivisions">8</output></span><input id="noteDivisions" type="range" min="1" max="24" step="1" value="8" /></label>
+                </div>
+              </section>
+              <section aria-labelledby="triggerMappingTitle">
+                <h3 id="triggerMappingTitle">Trigger mapping</h3>
+                <label class="select-control" for="triggerMapping"><span class="field-label">Map</span><span class="select-shell"><select id="triggerMapping"><option value="feature">Feature</option><option value="position">Position</option><option value="incidence">Incidence</option></select></span></label>
+                <div class="shapes-parameter-grid">
+                  <label class="control" for="triggerDivisions"><span><b>Divisions</b><output id="triggerDivisionsOut" for="triggerDivisions">2</output></span><input id="triggerDivisions" type="range" min="1" max="16" step="1" value="2" /></label>
+                  <label class="control" for="tuningDepth"><span><b>Tuning depth</b><output id="tuningDepthOut" for="tuningDepth">12 st</output></span><input id="tuningDepth" type="range" min="0" max="24" step="1" value="12" /></label>
+                  <label class="control" for="triggerCharacter"><span><b>Character depth</b><output id="triggerCharacterOut" for="triggerCharacter">70%</output></span><input id="triggerCharacter" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+                  <label class="control" for="hitCap"><span><b>Hit cap</b><output id="hitCapOut" for="hitCap">6</output></span><input id="hitCap" type="range" min="1" max="16" step="1" value="6" /></label>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <details class="shapes-output-details">
+            <summary>Output &amp; diagnostics</summary>
+            <dl>
+              <div><dt>Route</dt><dd id="routeReadout">2D · Continuous</dd></div>
+              <div><dt>Contacts</dt><dd id="contactReadout">1</dd></div>
+              <div><dt>Phase</dt><dd id="phaseReadout">0.180</dd></div>
+              <div><dt>Engine</dt><dd id="engineReadout">Sine</dd></div>
+            </dl>
+          </details>
+          <div class="shapes-reset-row"><button class="reset-all-button" id="resetAll" type="button">Reset Shapes</button></div>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">Drag horizontally to scrub. Press Space to play or pause. Use Left and Right Arrow to move the reader.</p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
 
-    <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    <script type="module" src="nav.js"></script>
     <script type="module" src="combo-app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
