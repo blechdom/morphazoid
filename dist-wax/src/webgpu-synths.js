@@ -561,21 +561,22 @@ fn sequenceStepAt(time: f32) -> u32 {
   return u32(max(floor(clock), 0.0)) % stepCount;
 }
 
-fn routedUnit(step: u32, destination: u32, fallback: f32, amount: f32) -> f32 {
+fn routedUnit(step: u32, nextStep: u32, phase: f32, destination: u32, fallback: f32, amount: f32) -> f32 {
   var value = clamp(fallback, 0.0, 1.0);
   let count = u32(clamp(round(synth_param.laneCount), 2.0, f32(MAX_SEQUENCE_LANES)));
   for (var lane = 2u; lane < MAX_SEQUENCE_LANES; lane += 1u) {
     if (lane >= count) { break; }
     if (lane_route[lane] == destination) {
-      value = mix(value, laneValue(step, lane), clamp(amount, 0.0, 1.0));
+      let contour = mix(laneValue(step, lane), laneValue(nextStep, lane), clamp(phase, 0.0, 1.0));
+      value = mix(value, contour, clamp(amount, 0.0, 1.0));
     }
   }
   return clamp(value, 0.0, 1.0);
 }
 
-fn routedRange(step: u32, destination: u32, fallback: f32, minimum: f32, maximum: f32, amount: f32) -> f32 {
+fn routedRange(step: u32, nextStep: u32, phase: f32, destination: u32, fallback: f32, minimum: f32, maximum: f32, amount: f32) -> f32 {
   let normalized = clamp((fallback - minimum) / max(maximum - minimum, 0.0001), 0.0, 1.0);
-  return mix(minimum, maximum, routedUnit(step, destination, normalized, amount));
+  return mix(minimum, maximum, routedUnit(step, nextStep, phase, destination, normalized, amount));
 }
 
 fn modeDegree(degree: u32, scale: u32) -> f32 {
@@ -820,16 +821,16 @@ fn drySound(time: f32) -> vec2<f32> {
   let edge = clamp(synth_param.clock * 0.008, 0.018, 0.24);
   let attack = smoothstep(0.0, edge, phase);
   let release = 1.0 - smoothstep(1.0 - edge, 1.0, phase);
-  let decay = routedRange(stepIndex, 8u, synth_param.decay, 0.03, 1.8, 0.78);
+  let decay = routedRange(stepIndex, nextIndex, phase, 8u, synth_param.decay, 0.03, 1.8, 0.78);
   let envelope = attack * release * exp(-phase / max(0.03, decay)) * energy;
-  let timbre = routedUnit(stepIndex, 2u, synth_param.color, 0.78);
-  let motion = routedUnit(stepIndex, 3u, synth_param.motion, 0.78);
-  let complexity = routedUnit(stepIndex, 5u, synth_param.complexity, 0.78);
-  let fold = routedUnit(stepIndex, 6u, synth_param.fold, 0.78);
-  let space = routedUnit(stepIndex, 7u, synth_param.space, 0.78);
-  let morphDepth = routedUnit(stepIndex, 17u, synth_param.chaos, 0.78);
-  let morph = routedUnit(stepIndex, 4u, synth_param.modelMix, 0.25 + morphDepth * 0.75);
-  let voiceGain = routedRange(stepIndex, 16u, synth_param.gain, 0.0, 0.22, 0.78);
+  let timbre = routedUnit(stepIndex, nextIndex, phase, 2u, synth_param.color, 0.78);
+  let motion = routedUnit(stepIndex, nextIndex, phase, 3u, synth_param.motion, 0.78);
+  let complexity = routedUnit(stepIndex, nextIndex, phase, 5u, synth_param.complexity, 0.78);
+  let fold = routedUnit(stepIndex, nextIndex, phase, 6u, synth_param.fold, 0.78);
+  let space = routedUnit(stepIndex, nextIndex, phase, 7u, synth_param.space, 0.78);
+  let morphDepth = routedUnit(stepIndex, nextIndex, phase, 17u, synth_param.chaos, 0.78);
+  let morph = routedUnit(stepIndex, nextIndex, phase, 4u, synth_param.modelMix, 0.25 + morphDepth * 0.75);
+  let voiceGain = routedRange(stepIndex, nextIndex, phase, 16u, synth_param.gain, 0.0, 0.22, 0.78);
   let macros = vec4(complexity, fold, space, decay);
   let local = phase / max(synth_param.clock, 0.001);
   var voice = layeredSound(time, local, frequency, timbre, motion, macros, morph) * envelope;
@@ -930,17 +931,21 @@ fn processFx(@builtin(global_invocation_id) global_id: vec3<u32>) {
   if (sample >= arrayLength(&sound_chunk)) { return; }
   let absoluteSample = u32(max(round(time_info.offset * SAMPLE_RATE), 0.0)) + sample;
   let time = f32(absoluteSample) / SAMPLE_RATE;
+  let clock = swingTime(time * synth_param.clock, synth_param.swing);
+  let stepCount = u32(clamp(round(synth_param.steps), 4.0, f32(MAX_SEQUENCE_STEPS)));
   let stepIndex = sequenceStepAt(time);
+  let nextIndex = (stepIndex + 1u) % stepCount;
+  let phase = fract(clock);
   let dry = dry_chunk[sample];
-  let filterCutoff = routedRange(stepIndex, 9u, synth_param.filterCutoff, 80.0, 20000.0, 0.78);
-  let filterMix = routedUnit(stepIndex, 10u, synth_param.filterMix, 0.78);
-  let delayTime = routedRange(stepIndex, 11u, synth_param.delayTime, 0.01, 1.5, 0.78);
-  let delayMix = routedUnit(stepIndex, 12u, synth_param.delayMix, 0.78);
-  let shaperDrive = routedRange(stepIndex, 13u, synth_param.shaperDrive, 1.0, 16.0, 0.78);
-  let shaperFold = routedUnit(stepIndex, 14u, synth_param.shaperFold, 0.78);
-  let shaperMix = routedUnit(stepIndex, 15u, synth_param.shaperMix, 0.78);
-  let reverbSize = routedRange(stepIndex, 18u, synth_param.reverbSize, 0.08, 4.0, 0.78);
-  let reverbMix = routedUnit(stepIndex, 19u, synth_param.reverbMix, 0.78);
+  let filterCutoff = routedRange(stepIndex, nextIndex, phase, 9u, synth_param.filterCutoff, 80.0, 20000.0, 0.78);
+  let filterMix = routedUnit(stepIndex, nextIndex, phase, 10u, synth_param.filterMix, 0.78);
+  let delayTime = routedRange(stepIndex, nextIndex, phase, 11u, synth_param.delayTime, 0.01, 1.5, 0.78);
+  let delayMix = routedUnit(stepIndex, nextIndex, phase, 12u, synth_param.delayMix, 0.78);
+  let shaperDrive = routedRange(stepIndex, nextIndex, phase, 13u, synth_param.shaperDrive, 1.0, 16.0, 0.78);
+  let shaperFold = routedUnit(stepIndex, nextIndex, phase, 14u, synth_param.shaperFold, 0.78);
+  let shaperMix = routedUnit(stepIndex, nextIndex, phase, 15u, synth_param.shaperMix, 0.78);
+  let reverbSize = routedRange(stepIndex, nextIndex, phase, 18u, synth_param.reverbSize, 0.08, 4.0, 0.78);
+  let reverbMix = routedUnit(stepIndex, nextIndex, phase, 19u, synth_param.reverbMix, 0.78);
   var effected = dry;
   if (filterMix > 0.0001) { effected = mix(effected, sincLowpass(absoluteSample, filterCutoff), filterMix); }
   if (delayMix > 0.0001) { effected = mix(effected, multiTapDelay(absoluteSample, delayTime), delayMix); }
