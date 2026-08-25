@@ -269,7 +269,8 @@ function formatParam(key, value) {
 }
 
 function laneTargetAt(laneIndex) {
-  return WEBGPU_SYNTHS_LANE_TARGETS[state.laneRoutes[laneIndex]] ?? WEBGPU_SYNTHS_LANE_TARGETS[0];
+  const targetId = laneIndex < WEBGPU_SYNTHS_MIN_LANES ? laneIndex : state.laneRoutes[laneIndex];
+  return WEBGPU_SYNTHS_LANE_TARGETS[targetId] ?? WEBGPU_SYNTHS_LANE_TARGETS[0];
 }
 
 function laneSpec(laneIndex) {
@@ -791,7 +792,7 @@ function paintAudioReadout() {
   $("stageReadout").textContent = state.audioOn
     ? `WEBGPU · ${Math.round(engine?.sampleRate ?? 44100)} HZ · ${state.synthPlaying ? "SEQUENCE PLAYING" : "SEQUENCE PAUSED"}`
     : "WEBGPU · STANDBY · AUDIO OFF";
-  $("sequenceStage").setAttribute("aria-label", `Expandable GPU sequence and modulation editor. Audio ${state.audioOn ? "on" : "off"}.`);
+  $("sequenceStage").setAttribute("aria-label", `GPU rectangular step editor with fixed Pitch and Pulse lanes. Drag a rectangle vertically to change it; double-click to remove it. Audio ${state.audioOn ? "on" : "off"}.`);
 }
 
 function setAudioState(enabled) {
@@ -1013,54 +1014,43 @@ function drawLanes(context, width, height, time, pixelRatio) {
   for (let laneIndex = 0; laneIndex < state.params.laneCount; laneIndex += 1) {
     const lane = laneSpec(laneIndex);
     const y = top + laneIndex * (heightEach + gap);
+    const barGap = (steps > 48 ? 0.5 : steps > 32 ? 0.75 : 1.5) * pixelRatio;
+    const barWidth = Math.max(pixelRatio, cellWidth - barGap * 2);
+    const barBottom = y + heightEach - 3 * pixelRatio;
+    const usableHeight = Math.max(4 * pixelRatio, heightEach - 7 * pixelRatio);
     context.fillStyle = laneIndex === state.activeLane ? `${lane.color}12` : "rgba(255,255,255,0.018)";
     context.fillRect(0, y, width, heightEach);
     context.strokeStyle = laneIndex === state.activeLane ? `${lane.color}52` : "rgba(255,255,255,0.08)";
     context.strokeRect(0.5, y + 0.5, width - 1, heightEach - 1);
-    context.fillStyle = `${lane.color}b8`;
-    context.font = `${Math.max(8, height * 0.018)}px ui-monospace, monospace`;
-    context.fillText(lane.label.toUpperCase(), 9, y + 14);
-    if (lane.id === "energy") {
-      for (let step = 0; step < steps; step += 1) {
-        const value = state.sequence[step][laneIndex];
-        const valueY = y + heightEach - value * (heightEach - 8) - 4;
-        const barWidth = Math.max(1, cellWidth - 3);
-        context.fillStyle = value <= 0.01 ? "rgba(255,255,255,0.035)" : `${lane.color}${step === activeStep ? "f2" : "72"}`;
-        context.fillRect(step * cellWidth + 1.5, valueY, barWidth, y + heightEach - 4 - valueY);
+    for (let step = 0; step < steps; step += 1) {
+      const value = clamp(state.sequence[step][laneIndex], 0, 1);
+      const noteOff = (lane.id === "pitch" || lane.id === "energy") && state.sequence[step][1] <= 0.01;
+      const empty = noteOff || value <= 0.01;
+      const x = step * cellWidth + barGap;
+      const fillHeight = empty ? 0 : Math.max(2 * pixelRatio, value * usableHeight);
+      const valueY = barBottom - fillHeight;
+
+      context.strokeStyle = step === activeStep
+        ? "rgba(255,255,255,0.82)"
+        : laneIndex === state.activeLane
+          ? `${lane.color}58`
+          : "rgba(255,255,255,0.11)";
+      context.lineWidth = step === activeStep ? 1.5 * pixelRatio : Math.max(0.5, pixelRatio * 0.5);
+      context.strokeRect(x + 0.5, y + 2.5 * pixelRatio, Math.max(1, barWidth - 1), heightEach - 5 * pixelRatio);
+
+      if (!empty) {
+        context.fillStyle = `${lane.color}${step === activeStep ? "e8" : laneIndex === state.activeLane ? "98" : "68"}`;
+        context.fillRect(x, valueY, barWidth, fillHeight);
       }
-    } else {
-      context.beginPath();
-      for (let step = 0; step < steps; step += 1) {
-        const value = state.sequence[step][laneIndex];
-        const x = (step + 0.5) * cellWidth;
-        const valueY = y + heightEach - value * (heightEach - 8) - 4;
-        if (step === 0) context.moveTo(x, valueY);
-        else context.lineTo(x, valueY);
-      }
-      context.strokeStyle = `${lane.color}${laneIndex === state.activeLane ? "d8" : "78"}`;
-      context.lineWidth = laneIndex === state.activeLane ? 2 : 1;
-      context.stroke();
     }
-    if (lane.id === "pitch") {
-      for (let step = 0; step < steps; step += 1) {
-        if (state.sequence[step][1] <= 0.01) continue;
-        const x = (step + 0.5) * cellWidth;
-        const value = state.sequence[step][laneIndex];
-        const valueY = y + heightEach - value * (heightEach - 8) - 4;
-        context.fillStyle = `${lane.color}${step === activeStep ? "ff" : "c8"}`;
-        context.beginPath();
-        context.arc(x, valueY, step === activeStep ? 4 : 2.6, 0, Math.PI * 2);
-        context.fill();
-      }
-    } else if (lane.id !== "energy") {
-      const value = state.sequence[activeStep][laneIndex];
-      const x = (activeStep + 0.5) * cellWidth;
-      const valueY = y + heightEach - value * (heightEach - 8) - 4;
-      context.fillStyle = lane.color;
-      context.beginPath();
-      context.arc(x, valueY, 2.5, 0, Math.PI * 2);
-      context.fill();
-    }
+
+    const label = lane.label.toUpperCase();
+    context.font = `${Math.max(8 * pixelRatio, height * 0.018)}px ui-monospace, monospace`;
+    const labelWidth = context.measureText(label).width + 10 * pixelRatio;
+    context.fillStyle = "rgba(6,7,10,0.78)";
+    context.fillRect(5 * pixelRatio, y + 4 * pixelRatio, labelWidth, 14 * pixelRatio);
+    context.fillStyle = `${lane.color}e8`;
+    context.fillText(label, 9 * pixelRatio, y + 14 * pixelRatio);
   }
   const playheadX = (activeStep + 0.5) * cellWidth;
   context.save();
@@ -1163,13 +1153,15 @@ function handlePointerEnd(event) {
 
 function removeSequenceNote(event) {
   const position = sequencePointerPosition(event);
-  if (!position || laneTargetAt(position.laneIndex).id > 1) return;
+  if (!position) return;
   event.preventDefault();
   const next = state.sequence.map((stepValues) => [...stepValues]);
-  next[position.stepIndex][1] = 0;
+  const target = laneTargetAt(position.laneIndex);
+  if (target.id <= 1) next[position.stepIndex][1] = 0;
+  else next[position.stepIndex][position.laneIndex] = 0;
   state.techniqueId = "custom";
   applySequence(next);
-  announce(`Sequence note ${position.stepIndex + 1} removed.`);
+  announce(`${target.id <= 1 ? "Note" : target.label} step ${position.stepIndex + 1} removed.`);
 }
 
 renderControls();

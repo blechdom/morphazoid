@@ -270,10 +270,15 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(app, /editingStep: null/);
   assert.match(app, /next\[position\.stepIndex\]\[1\] = 0\.82/);
   assert.match(app, /function removeSequenceNote\(event\)/);
-  assert.match(app, /next\[position\.stepIndex\]\[1\] = 0/);
+  assert.match(app, /if \(target\.id <= 1\) next\[position\.stepIndex\]\[1\] = 0/);
+  assert.match(app, /else next\[position\.stepIndex\]\[position\.laneIndex\] = 0/);
   assert.match(app, /addEventListener\("dblclick", removeSequenceNote\)/);
-  assert.match(app, /if \(state\.sequence\[step\]\[1\] <= 0\.01\) continue/);
-  assert.match(app, /if \(lane\.id === "pitch"\)/);
+  assert.match(app, /const noteOff = \(lane\.id === "pitch" \|\| lane\.id === "energy"\)/);
+  assert.match(app, /const barWidth = Math\.max\(pixelRatio, cellWidth - barGap \* 2\)/);
+  assert.match(app, /context\.strokeRect\(x \+ 0\.5, y \+ 2\.5 \* pixelRatio/);
+  assert.match(app, /context\.fillRect\(x, valueY, barWidth, fillHeight\)/);
+  assert.match(app, /laneIndex < WEBGPU_SYNTHS_MIN_LANES \? laneIndex : state\.laneRoutes\[laneIndex\]/);
+  assert.match(html, /rectangular step editor with fixed Pitch and Pulse lanes/);
   assert.match(app, /const WIDE_LANE_MAX_HEIGHT = 56/);
   assert.match(app, /\(width \/ pixelRatio\) < 920 \? 96 : 150/);
   assert.match(app, /Math\.min\(naturalHeight, WIDE_LANE_MAX_HEIGHT \* pixelRatio\)/);
