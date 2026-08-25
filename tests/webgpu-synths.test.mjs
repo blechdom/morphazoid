@@ -272,6 +272,11 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(app, /addEventListener\("dblclick", removeSequenceNote\)/);
   assert.match(app, /if \(state\.sequence\[step\]\[1\] <= 0\.01\) continue/);
   assert.match(app, /if \(lane\.id === "pitch"\)/);
+  assert.match(app, /const WIDE_LANE_MAX_HEIGHT = 56/);
+  assert.match(app, /\(width \/ pixelRatio\) < 920 \? 96 : 150/);
+  assert.match(app, /Math\.min\(naturalHeight, WIDE_LANE_MAX_HEIGHT \* pixelRatio\)/);
+  assert.match(app, /const \{ width, height, pixelRatio \} = resizeCanvas\(canvas\)/);
+  assert.match(app, /bottom \+ Math\.min\(5 \* pixelRatio, gap \* 0\.5\)/);
   const modelControls = app.slice(app.indexOf("model: Object.freeze"), app.indexOf("time: Object.freeze"));
   assert.doesNotMatch(modelControls, /key: "topology"/);
   assert.doesNotMatch(modelControls, /key: "modelB"/);

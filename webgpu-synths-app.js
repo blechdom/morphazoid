@@ -27,6 +27,8 @@ const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
 
 const LANE_COLORS = Object.freeze(["#74f7ff", "#ffda57", "#ff6eaa", "#a78bff", "#91ff63", "#ffe6a8", "#ff936e", "#6effbd"]);
+const WIDE_LAYOUT_MIN_WIDTH = 981;
+const WIDE_LANE_MAX_HEIGHT = 56;
 
 const ORGAN_RANK_LABELS = Object.freeze(["16′", "5⅓′", "8′", "4′", "2⅔′", "2′", "1⅗′", "1⅓′", "1′"]);
 
@@ -954,11 +956,23 @@ function resizeCanvas(canvas) {
   return { width, height, pixelRatio };
 }
 
-function laneMetrics(width, height, laneCount = state.params.laneCount) {
-  const top = height * 0.34;
-  const bottom = height * 0.92;
-  const gap = Math.max(6, height * 0.012);
-  const heightEach = (bottom - top - gap * Math.max(0, laneCount - 1)) / laneCount;
+function laneMetrics(width, height, laneCount = state.params.laneCount, pixelRatio = 1) {
+  const wideLayout = window.innerWidth >= WIDE_LAYOUT_MIN_WIDTH;
+  const wideTitleClearance = (width / pixelRatio) < 920 ? 96 : 150;
+  const regionTop = wideLayout
+    ? wideTitleClearance * pixelRatio
+    : height * 0.34;
+  const regionBottom = height * 0.92;
+  const gap = Math.max(6 * pixelRatio, height * 0.012);
+  const gapTotal = gap * Math.max(0, laneCount - 1);
+  const availableHeight = regionBottom - regionTop;
+  const naturalHeight = (availableHeight - gapTotal) / laneCount;
+  const heightEach = wideLayout
+    ? Math.min(naturalHeight, WIDE_LANE_MAX_HEIGHT * pixelRatio)
+    : naturalHeight;
+  const matrixHeight = heightEach * laneCount + gapTotal;
+  const top = regionTop;
+  const bottom = top + matrixHeight;
   return { top, bottom, gap, heightEach, width };
 }
 
@@ -972,8 +986,8 @@ function visualTime() {
   return state.visualHoldTime;
 }
 
-function drawLanes(context, width, height, time) {
-  const { top, gap, heightEach } = laneMetrics(width, height);
+function drawLanes(context, width, height, time, pixelRatio) {
+  const { top, bottom, gap, heightEach } = laneMetrics(width, height, state.params.laneCount, pixelRatio);
   const steps = state.params.steps;
   const cellWidth = width / steps;
   const activeStep = Math.floor(time * state.params.clock) % steps;
@@ -1040,7 +1054,7 @@ function drawLanes(context, width, height, time) {
   context.lineWidth = 2;
   context.beginPath();
   context.moveTo(playheadX, top - 5);
-  context.lineTo(playheadX, height * 0.94);
+  context.lineTo(playheadX, bottom + Math.min(5 * pixelRatio, gap * 0.5));
   context.stroke();
   context.restore();
 }
@@ -1049,7 +1063,7 @@ function draw() {
   const canvas = $("sequenceStage");
   const context = canvas.getContext("2d");
   if (!context) return;
-  const { width, height } = resizeCanvas(canvas);
+  const { width, height, pixelRatio } = resizeCanvas(canvas);
   const time = visualTime();
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#06070a";
@@ -1062,7 +1076,7 @@ function draw() {
   for (let y = 0; y < height; y += 32) {
     context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke();
   }
-  drawLanes(context, width, height, time);
+  drawLanes(context, width, height, time, pixelRatio);
   animationFrame = requestAnimationFrame(draw);
 }
 
