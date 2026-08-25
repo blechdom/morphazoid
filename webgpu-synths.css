@@ -714,10 +714,18 @@
 }
 
 @media (max-width: 620px) {
+  html.webgpu-synths-document {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   body.webgpu-synths-page {
     height: auto;
     min-height: 100dvh;
-    overflow: auto;
+    overflow: visible;
   }
 
   .webgpu-synths-shell {
@@ -729,6 +737,10 @@
     position: relative;
     min-height: 675px;
     overflow: visible;
+  }
+
+  .webgpu-synths-page #sequenceStage {
+    touch-action: pan-y;
   }
 
   .webgpu-synths-panel {

@@ -198,6 +198,7 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
     readFile(new URL("scripts/build-site.sh", root), "utf8"),
   ]);
   assert.match(html, /<h1 id="webgpuSynthsTitle">GPU Shader Synths<\/h1>/);
+  assert.match(html, /<html lang="en" class="webgpu-synths-document">/);
   assert.doesNotMatch(html, /ALL MUSICAL LOGIC IN WGSL/);
   assert.match(html, /id="sequenceStage"/);
   assert.doesNotMatch(html, /id="modelRail"/);
@@ -232,6 +233,8 @@ test("the page exposes 32 shuffled presets, persistent envelopes, direct note ed
   assert.match(css, /\.webgpu-synth-knob-bank/);
   assert.match(css, /\.webgpu-synths-stage \{[\s\S]*overflow-y: auto/);
   assert.match(css, /@media \(min-width: 981px\) and \(max-height: 1000px\) \{[\s\S]*#sequenceStage \{[\s\S]*min-height: 0/);
+  assert.match(css, /@media \(max-width: 620px\) \{[\s\S]*html\.webgpu-synths-document \{[\s\S]*overflow-y: auto/);
+  assert.match(css, /@media \(max-width: 620px\) \{[\s\S]*#sequenceStage \{[\s\S]*touch-action: pan-y/);
   assert.match(app, /Acid Fossil/);
   assert.match(app, /Recursive Chrome/);
   assert.match(app, /Folded Mutant/);
