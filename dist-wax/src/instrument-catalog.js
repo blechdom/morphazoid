@@ -232,6 +232,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose Notes, Ouroboros Drums, or Notes + Drums, start the carousel, and shape its direction, roll rate, bank width, and shared rhythm-to-pitch fusion; Notes and Combo also expose note-chunk controls.",
     ["Built-in synth", "Pointer"],
   ),
+  ourorourobouroboros: define(
+    "Recursive rhythm-pitch synth",
+    "Purple-and-blue octave rings carry slow drum or note rhythms into pitch, then slower phase-locked gates carve silences into the high spectrum so the next rhythm seems to emerge from inside it.",
+    "Choose Notes, Drums, or Layered, add or remove Shepard rings, then shape the pitch threshold, note-lift/nested distance, interruption reach, silence depth, and rhythm-to-sustain audio mix.",
+    ["Built-in synth", "Pointer"],
+  ),
   ouroboros: define(
     "Percussion synth",
     "Strikes a Rattlesnake-style drum through octave-related Shepard bodies whose pitch keeps rising or falling while the audible register appears never to leave.",

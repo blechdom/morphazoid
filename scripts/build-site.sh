@@ -293,6 +293,11 @@ for worktree_runtime_file in \
   ouroborousel-app.js \
   src/ouroborousel.js \
   assets/instruments/ouroborousel.webp \
+  ourorourobouroboros.html \
+  ourorourobouroboros.css \
+  ourorourobouroboros-app.js \
+  src/ourorourobouroboros.js \
+  assets/instruments/ourorourobouroboros.webp \
   ouroboros.html \
   ouroboros.css \
   ouroboros-app.js \
@@ -575,6 +580,11 @@ required_files=(
   ouroborousel-app.js
   src/ouroborousel.js
   assets/instruments/ouroborousel.webp
+  ourorourobouroboros.html
+  ourorourobouroboros.css
+  ourorourobouroboros-app.js
+  src/ourorourobouroboros.js
+  assets/instruments/ourorourobouroboros.webp
   ouroboros.html
   ouroboros.css
   ouroboros-app.js

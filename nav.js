@@ -173,6 +173,11 @@ export const TOOL_GROUPS = Object.freeze([
       href: "drum-roll-please.html",
     },
     { id: "ouroborousel", label: "Ouroborousel", href: "ouroborousel.html" },
+    {
+      id: "ourorourobouroboros",
+      label: "Ourorourobouroboros",
+      href: "ourorourobouroboros.html",
+    },
     { id: "ouroboros", label: "Ouroboros", href: "ouroboros.html" },
     {
       id: "ouroboros-borealis",

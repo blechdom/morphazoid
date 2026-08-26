@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#160b36" />
+    <meta
+      name="description"
+      content="Ourorourobouroboros — a blue-violet Shepard recursion where high tones are interrupted into slower rhythms."
+    />
+    <title>Ourorourobouroboros — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="ourorourobouroboros.css" />
+  </head>
+  <body class="ouroborousel-page ourorourobouroboros-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="shepard-risset.html">shepard–risset</a>
+        <a class="tab" href="drum-roll-please.html">drum roll please!</a>
+        <a class="tab" href="ouroborousel.html">ouroborousel</a>
+        <a class="tab active" href="ourorourobouroboros.html" aria-current="page">ourorourobouroboros</a>
+        <a class="tab" href="ouroboros.html">ouroboros</a>
+        <a class="tab" href="ouroboros-borealis.html">ouroboros borealis</a>
+        <a class="tab" href="linear-drums.html">rattlesnake</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="shepard-risset.html">shepard–risset</option>
+          <option value="drum-roll-please.html">drum roll please!</option>
+          <option value="ouroborousel.html">ouroborousel</option>
+          <option value="ourorourobouroboros.html" selected>ourorourobouroboros</option>
+          <option value="ouroboros.html">ouroboros</option>
+          <option value="ouroboros-borealis.html">ouroboros borealis</option>
+          <option value="linear-drums.html">rattlesnake</option>
+        </select>
+      </label>
+
+      <div class="audio-strip" aria-label="Audio controls">
+        <button
+          class="audio-button"
+          id="audioButton"
+          type="button"
+          aria-pressed="false"
+          aria-label="Turn Ourorourobouroboros audio on"
+        >
+          <span class="audio-glyph ouroborousel-audio-glyph" aria-hidden="true">↻</span>
+          <span class="audio-copy"><b id="audioAction">Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="level">
+          <span><b>Master level</b><output id="levelOut" for="level">52%</output></span>
+          <input
+            id="level"
+            aria-label="Master audio level"
+            type="range"
+            min="0"
+            max="0.82"
+            step="0.01"
+            value="0.52"
+          />
+        </label>
+      </div>
+    </header>
+
+    <main class="ouroborousel-shell" id="ourorourobouroboros">
+      <section class="ouroborousel-performance" aria-label="Ourorourobouroboros">
+        <div class="ouroborousel-stage-wrap" id="stageWrap">
+          <canvas
+            id="stage"
+            data-interactive-track
+            tabindex="0"
+            role="slider"
+            aria-label="Circular Ourorourobouroboros rhythm and pitch rail"
+            aria-orientation="horizontal"
+            aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Home End Space Enter P"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="50"
+            aria-valuetext="center of the endless octave cycle"
+            aria-describedby="canvasInstructions materialModeHelp recursionNote liveStatus"
+          >
+            Purple octave rings carry slow pulses into continuous blue pitch; slower phase-locked
+            gaps interrupt the high rails so the next rhythm appears inside the pitch.
+          </canvas>
+
+        </div>
+      </section>
+
+      <aside class="panel ouroborousel-control-panel" aria-label="Ourorourobouroboros controls">
+        <section class="group control-section ouroborousel-play-section" data-section="play" aria-labelledby="playSectionTitle">
+          <div class="group-summary static-group-summary">
+            <h2 class="group-title" id="playSectionTitle">Play</h2>
+            <span class="section-state" id="playSummary">ready · layered · rising · 4 pulses/s</span>
+          </div>
+          <div class="group-body">
+            <button
+              class="ouroborousel-play-button"
+              id="transportButton"
+              type="button"
+              data-primary-transport
+              aria-pressed="false"
+              aria-label="Play automatic Ourorourobouroboros motion"
+            >
+              <span class="ouroborousel-play-icon" id="transportIcon" aria-hidden="true">▶</span>
+              <span class="ouroborousel-play-copy">
+                <b id="transportLabel">Play</b>
+                <small>send the snake around forever</small>
+              </span>
+            </button>
+
+            <fieldset class="ouroborousel-segmented" id="direction" aria-label="Motion direction">
+              <legend>Direction</legend>
+              <label><input id="directionRise" type="radio" name="sweepDirection" value="1" checked /><span>Rise</span></label>
+              <label><input id="directionFall" type="radio" name="sweepDirection" value="-1" /><span>Fall</span></label>
+            </fieldset>
+
+            <fieldset class="ouroborousel-segmented ouroborousel-material-mode" id="materialMode" aria-label="Sound source" aria-describedby="materialModeHelp">
+              <legend>Sound source</legend>
+              <label><input id="materialNotes" type="radio" name="soundMaterial" value="notes" /><span>Notes</span></label>
+              <label><input id="materialDrums" type="radio" name="soundMaterial" value="drums" /><span>Drums</span></label>
+              <label><input id="materialCombo" type="radio" name="soundMaterial" value="combo" checked /><span>Layered</span></label>
+            </fieldset>
+            <small class="ouroborousel-material-help" id="materialModeHelp">
+              Every source spans the whole illusion: slow rhythm, pitch fusion, and slower holes inside the high tone.
+            </small>
+
+            <label class="control" for="audioMix">
+              <span><b>Audio mix</b><output id="audioMixOut" for="audioMix">Balanced</output></span>
+              <input id="audioMix" aria-describedby="audioMixHelp" type="range" min="0" max="1" step="0.01" value="0.5" />
+              <small id="audioMixHelp">Rhythmic attacks and pulses ← balance → sustained Shepard rail.</small>
+            </label>
+
+            <label class="control" for="glissRate">
+              <span><b>Carousel speed</b><output id="glissRateOut" for="glissRate">0.12 oct/s</output></span>
+              <input id="glissRate" type="range" min="0.02" max="1.2" step="0.01" value="0.12" />
+            </label>
+
+            <label class="control" for="centerRate">
+              <span><b>Center rhythm</b><output id="centerRateOut" for="centerRate">4 pulses/s</output></span>
+              <input id="centerRate" type="range" min="0.5" max="24" step="0.25" value="4" />
+            </label>
+          </div>
+        </section>
+
+        <details class="group control-section" data-section="presets" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Presets</h2>
+            <span class="section-state" id="presetSummary">Round and Round and Pow</span>
+          </summary>
+          <div class="group-body">
+            <div
+              class="ouroborousel-preset-grid"
+              id="presetGrid"
+              role="group"
+              aria-label="Ourorourobouroboros presets"
+            ></div>
+            <a class="ouroborousel-original-link" href="ouroborousel.html">
+              <b>Open original Ouroborousel</b>
+              <small>previous sound, unchanged</small>
+            </a>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="recursion" open>
+          <summary class="group-summary">
+            <h2 class="group-title" id="recursionSectionTitle">Shepard spread</h2>
+            <span class="section-state" id="recursionSummary">8 rings · 4-oct nested rhythm</span>
+          </summary>
+          <div class="group-body">
+            <div class="control ouroborousel-ring-control" role="group" aria-labelledby="ringCountLabel" aria-describedby="ringCountHelp">
+              <span><b id="ringCountLabel">Shepard rings</b><output id="bankWidthOut" for="bankWidth">8 rings</output></span>
+              <div class="ouroborousel-ring-stepper">
+                <button id="bankWidthDown" type="button" aria-label="Remove one Shepard ring">−</button>
+                <input id="bankWidth" aria-labelledby="ringCountLabel" aria-describedby="ringCountHelp" type="range" min="3" max="20" step="1" value="8" />
+                <button id="bankWidthUp" type="button" aria-label="Add one Shepard ring">+</button>
+              </div>
+              <small id="ringCountHelp">Each step thins or thickens the octave-related rhythm and pitch bank.</small>
+            </div>
+
+            <label class="control" for="noteLift">
+              <span><b>Note lift / nested distance</b><output id="noteLiftOut" for="noteLift">4 oct · 1.13 pulses/s at 18 Hz</output></span>
+              <input id="noteLift" aria-describedby="noteLiftHelp" type="range" min="2" max="7" step="1" value="4" />
+            </label>
+
+            <small class="ouroborousel-control-note" id="noteLiftHelp">
+              Sets the slower interruption spacing; in Notes and Layered it also sets the octave-lifted note source.
+            </small>
+
+            <small class="ouroborousel-control-note" id="recursionNote">
+              Drum strikes stay audible while a slower lane four octaves below cuts smooth holes
+              into the high Shepard rail. The next rhythm appears as silence inside the pitch.
+            </small>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="notes" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Note settings</h2>
+            <span class="section-state" id="notesSummary">72% chunks · 68% brightness</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="chunkDuty" data-note-material-control>
+              <span><b>Note chunk length</b><output id="chunkDutyOut" for="chunkDuty">72% of each turn</output></span>
+              <input id="chunkDuty" aria-describedby="notesSectionNote" type="range" min="0.15" max="1" step="0.01" value="0.72" />
+            </label>
+
+            <label class="control" for="brightness" data-note-material-control>
+              <span><b id="brightnessLabel">Note brightness</b><output id="brightnessOut" for="brightness">68%</output></span>
+              <input id="brightness" aria-describedby="notesSectionNote" type="range" min="0" max="1" step="0.01" value="0.68" />
+            </label>
+
+            <small class="ouroborousel-control-note" id="notesSectionNote">
+              These shape the note-colored pulse edges and sustained rail. They stay parked in Drums mode and remain available in Notes or Layered.
+            </small>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="fusion" open>
+          <summary class="group-summary">
+            <h2 class="group-title" id="fusionSectionTitle">Nested rhythm</h2>
+            <span class="section-state" id="fusionSummary">18 Hz pitch → 1.13 pulses/s holes · 80% depth</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="fusionPoint">
+              <span><b>Pitch threshold</b><output id="fusionPointOut" for="fusionPoint">18 Hz · 1080 BPM</output></span>
+              <input id="fusionPoint" type="range" min="8" max="48" step="1" value="18" />
+            </label>
+
+            <label class="control" for="fusionWidth">
+              <span><b>Interruption reach</b><output id="fusionWidthOut" for="fusionWidth">2.00 oct above</output></span>
+              <input id="fusionWidth" type="range" min="0.25" max="6" step="0.05" value="2" />
+            </label>
+
+            <label class="control" for="fusionEmphasis">
+              <span><b>Fusion focus</b><output id="fusionEmphasisOut" for="fusionEmphasis">0%</output></span>
+              <input id="fusionEmphasis" type="range" min="0" max="1" step="0.01" value="0" />
+            </label>
+
+            <label class="control" for="nestedSilence">
+              <span><b>Nested silence</b><output id="nestedSilenceOut" for="nestedSilence">80%</output></span>
+              <input id="nestedSilence" type="range" min="0" max="1" step="0.01" value="0.8" />
+              <small>Above the threshold, a slower octave-related lane cuts brief silences into the high tone.</small>
+            </label>
+
+            <div class="ouroborousel-fusion-key" aria-hidden="true">
+              <span><i></i>slow rhythms</span>
+              <span><i></i>rhythm + pitch</span>
+              <span><i></i>high pitches</span>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section" data-section="sound" open>
+          <summary class="group-summary">
+            <h2 class="group-title">Carousel color</h2>
+            <span class="section-state" id="soundSummary">open · bright</span>
+          </summary>
+          <div class="group-body">
+            <label class="control" for="spread">
+              <span><b>Stereo spread</b><output id="spreadOut" for="spread">48%</output></span>
+              <input id="spread" type="range" min="0" max="1" step="0.01" value="0.48" />
+            </label>
+
+            <label class="control" for="cutoff">
+              <span><b>Brightness ceiling</b><output id="cutoffOut" for="cutoff">12.0 kHz</output></span>
+              <input id="cutoff" type="range" min="800" max="18000" step="100" value="12000" />
+            </label>
+
+            <div class="ouroborousel-signal-card" role="group" aria-label="Nested rhythm-to-pitch path">
+              <span><b id="signalSourceLabel">Slow rhythm</b><small id="signalSourceDetail">drums + note pulses</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b id="signalChunkLabel">Fuses into pitch</b><small id="signalChunkDetail">18 Hz threshold</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b id="signalFusionLabel">High pitch with slow holes</b><small id="signalFusionDetail">1.13 pulses/s · 80% depth</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b>Next rhythm</b><small>silence inside pitch</small></span>
+            </div>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <div class="reset-all-row">
+          <button class="reset-all-button" type="button" data-reset-all data-reset-in-place>Reset all parameters</button>
+        </div>
+      </aside>
+
+      <p class="sr-only" id="canvasInstructions">
+        The circular display is an interactive octave rail. Drag around the snake, or use Left and
+        Right Arrow, to place the endless bank. Press Space or Enter to audition the selected turn.
+        Use Up and Down Arrow to choose rising or falling motion, and P to play or pause. Purple
+        events become pale-blue pitch rails; slower phase-locked gaps interrupt those rails so the
+        next rhythm appears inside the high spectrum.
+      </p>
+      <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="ourorourobouroboros-app.js"></script>
+  </body>
+</html>
