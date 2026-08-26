@@ -64,6 +64,7 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
   assert.match(html, /<a class="tab active" href="shapes\.html" aria-current="page">Shapes<\/a>/);
   assert.match(html, /<canvas id="stage"/);
   assert.match(html, /<aside class="shapes-panel"/);
+  assert.doesNotMatch(html, /Shapes app|One form, three dimensions/);
   assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
   assert.match(html, /<script type="module" src="combo-app\.js"><\/script>/);
   assert.doesNotMatch(html, /<(?:iframe|object|embed)\b/i);
@@ -93,12 +94,20 @@ test("Shapes owns the fixed application picker and local 2D, 3D, 4D submenu", as
   assert.match(html, /data-playing-mode="continuous"/);
   assert.match(html, /data-playing-mode="notes"/);
   assert.match(html, /data-playing-mode="triggers"/);
+  assert.match(html, /id="divisionsControl"[^>]*for="divisions"[^>]*hidden/);
+  assert.equal((html.match(/id="divisions"/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /id="(?:noteDivisions|triggerDivisions)"/);
   assert.match(html, /class="shapes-bank-tabs" role="tablist"/);
   assert.equal((html.match(/role="tab"/g) ?? []).length, 4);
   assert.equal((html.match(/role="tabpanel"/g) ?? []).length, 4);
   assert.ok(
     html.indexOf("id=\"playingMode\"") > html.indexOf("<aside class=\"shapes-panel\""),
     "playing modes live in the right-hand Shapes panel",
+  );
+  assert.ok(
+    html.indexOf("id=\"divisionsControl\"") > html.indexOf("data-bank-panel=\"main\"")
+      && html.indexOf("id=\"divisionsControl\"") < html.indexOf("data-bank-panel=\"form\""),
+    "the mode-aware Divisions control lives on Main",
   );
 
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]);
@@ -117,6 +126,9 @@ test("the preferred Twin Rack fills wide panels and collapses responsively", asy
   assert.match(css, /\.shapes-twin-rack\s*\{[^}]*grid-template-columns:\s*repeat\(2,/s);
   assert.match(css, /@container shapes-panel \(max-width: 500px\)[\s\S]*\.shapes-twin-rack,[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(css, /\.shapes-speed-row\s*\{[^}]*width:\s*100%/s);
+  assert.match(css, /\.shapes-panel-header\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/s);
+  assert.doesNotMatch(css, /\.shapes-panel-header\s*>\s*div/);
+  assert.match(css, /\.shapes-divisions-row\s*\{/);
   assert.match(css, /\.shapes-bank-tabs button\s*\{[^}]*font-size:\s*11px/s);
   assert.match(css, /\.shapes-playing-mode \.choice-switch button\s*\{[^}]*font-size:\s*11px/s);
   assert.match(css, /\.shapes-knob-control > span\s*\{[^}]*font-size:\s*11px/s);

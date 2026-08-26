@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildShapesScene } from "../src/shapes-scene.js";
+import {
+  buildShapesDivisionMarkers,
+  buildShapesScene,
+} from "../src/shapes-scene.js";
 import {
   advanceShapesMotion,
   createShapesState,
   displayShapesPhase,
   selectShapesDimension,
   selectShapesPlayingMode,
+  setShapesDivisionCount,
+  shapesDivisionCount,
   shapesEventIntervalMs,
   shapesEventToken,
 } from "../src/shapes-state.js";
@@ -146,13 +151,24 @@ test("Continuous, Notes, and Triggers do not overwrite voice or trigger namespac
   state.trigger.mapping = "incidence";
   state.trigger.divisions = 13;
 
+  assert.equal(shapesDivisionCount(state), 1, "Continuous has no divisions");
+  setShapesDivisionCount(state, 21);
+  assert.equal(state.voice.noteDivisions, 8, "hidden Continuous control cannot overwrite Notes");
+  assert.equal(state.trigger.divisions, 13, "hidden Continuous control cannot overwrite Triggers");
   selectShapesPlayingMode(state, "notes");
+  assert.equal(shapesDivisionCount(state), 8);
+  setShapesDivisionCount(state, 11);
+  assert.equal(state.voice.noteDivisions, 11);
   assert.equal(state.voice.engine, "pm");
   selectShapesPlayingMode(state, "triggers");
+  assert.equal(shapesDivisionCount(state), 13);
+  setShapesDivisionCount(state, 15);
+  assert.equal(state.trigger.divisions, 15);
   assert.equal(state.trigger.mapping, "incidence");
-  assert.equal(state.trigger.divisions, 13);
+  assert.equal(state.voice.noteDivisions, 11);
   assert.equal(state.voice.character, 0.82);
   selectShapesPlayingMode(state, "continuous");
+  assert.equal(shapesDivisionCount(state), 1);
   assert.equal(state.voice.engine, "pm");
 });
 
@@ -181,6 +197,40 @@ test("the standalone scene router builds contacts for all three dimensions", () 
       && Number.isFinite(contact.pan)
       && Number.isFinite(contact.drive01)
     )), `${dimension} contacts are audio-ready`);
+  }
+});
+
+test("Divisions create visible semantic markers across 2D, 3D, and 4D", () => {
+  const state = createShapesState({ profile: { sides: 6, kind: "polygon", starDepth: 0.48 } });
+  const polygon = buildShapesScene(state);
+  assert.equal(polygon.topologyEdgeCount, 6);
+  assert.equal(buildShapesDivisionMarkers(polygon, 1).length, 0);
+  const polygonMarkers = buildShapesDivisionMarkers(polygon, 4);
+  assert.equal(polygonMarkers.length, 18, "four divisions add three markers to each of six sides");
+
+  state.profile = { sides: 1, kind: "circle", starDepth: 0.48 };
+  const circleMarkers = buildShapesDivisionMarkers(buildShapesScene(state), 4);
+  assert.equal(circleMarkers.length, 3, "circles visibly divide their full contour");
+
+  selectShapesDimension(state, "3d");
+  state.dimension["3d"].representation = "cube";
+  const solid = buildShapesScene(state);
+  assert.equal(buildShapesDivisionMarkers(solid, 4).length, solid.edges.length * 3);
+
+  selectShapesDimension(state, "4d");
+  state.dimension["4d"].representation = "tesseract";
+  const hyper = buildShapesScene(state);
+  assert.equal(buildShapesDivisionMarkers(hyper, 4).length, hyper.edges.length * 3);
+
+  state.dimension["4d"].representation = "hypersphere";
+  assert.ok(
+    buildShapesDivisionMarkers(buildShapesScene(state), 24).length <= 1600,
+    "dense meshes keep their visible marker budget bounded",
+  );
+
+  for (const marker of [...polygonMarkers, ...circleMarkers, ...buildShapesDivisionMarkers(solid, 4), ...buildShapesDivisionMarkers(hyper, 4)]) {
+    assert.ok(Number.isFinite(marker.view.x) && Number.isFinite(marker.view.y));
+    assert.ok(Number.isFinite(marker.tangent.x) && Number.isFinite(marker.tangent.y));
   }
 });
 

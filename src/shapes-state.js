@@ -232,6 +232,25 @@ export function selectShapesPlayingMode(state, playingMode) {
   return state;
 }
 
+export function shapesDivisionCount(state) {
+  if (state?.selection?.playingMode === "notes") {
+    return Math.round(clamp(state?.voice?.noteDivisions, 1, 24, DEFAULT_STATE.voice.noteDivisions));
+  }
+  if (state?.selection?.playingMode === "triggers") {
+    return Math.round(clamp(state?.trigger?.divisions, 1, 16, DEFAULT_STATE.trigger.divisions));
+  }
+  return 1;
+}
+
+export function setShapesDivisionCount(state, value) {
+  if (state?.selection?.playingMode === "notes") {
+    state.voice.noteDivisions = Math.round(clamp(value, 1, 24, DEFAULT_STATE.voice.noteDivisions));
+  } else if (state?.selection?.playingMode === "triggers") {
+    state.trigger.divisions = Math.round(clamp(value, 1, 16, DEFAULT_STATE.trigger.divisions));
+  }
+  return state;
+}
+
 export function selectShapesBank(state, bank) {
   state.selection.bank = choice(bank, SHAPES_BANKS, "main");
   return state;
@@ -328,12 +347,12 @@ function quantizedContactToken(scene, divisions) {
 
 export function shapesEventToken(state, scene = 1) {
   const phase = displayShapesPhase(state);
-  const divisions = state.selection.playingMode === "triggers"
-    ? state.trigger.divisions
-    : state.voice.noteDivisions;
-  const topology = Array.isArray(scene?.edges)
-    ? Math.max(1, Math.min(64, scene.edges.length))
-    : Math.max(1, state.profile.sides === 1 ? 8 : state.profile.sides);
+  const divisions = shapesDivisionCount(state);
+  const topology = Number.isFinite(Number(scene?.topologyEdgeCount))
+    ? Math.max(1, Math.min(64, Math.round(scene.topologyEdgeCount)))
+    : Array.isArray(scene?.edges)
+      ? Math.max(1, Math.min(64, scene.edges.length))
+      : Math.max(1, state.profile.sides === 1 ? 8 : state.profile.sides);
   const regionCount = Math.max(1, topology * divisions);
   const local = state.dimension[state.selection.dimension];
   const representation = scene?.geometry?.type ?? local.representation ?? local.reader ?? "profile";

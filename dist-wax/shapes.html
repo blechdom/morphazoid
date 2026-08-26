@@ -56,10 +56,6 @@
 
       <aside class="shapes-panel" aria-label="Shapes controls">
         <header class="shapes-panel-header">
-          <div>
-            <span class="shapes-panel-eyebrow">Shapes app</span>
-            <strong>One form, three dimensions</strong>
-          </div>
           <label class="shapes-dimension-menu" for="dimensionSelect">
             <span>Dimension</span>
             <span class="select-shell">
@@ -112,6 +108,10 @@
                 <label class="control shapes-primary-range shapes-speed-row" for="speed">
                   <span><b>Speed</b><output id="speedOut" for="speed">0.12 cyc/s</output></span>
                   <input id="speed" type="range" min="0" max="4" step="0.01" value="0.12" />
+                </label>
+                <label class="control shapes-primary-range shapes-divisions-row" id="divisionsControl" for="divisions" hidden>
+                  <span><b>Divisions</b><output id="divisionsOut" for="divisions">8</output></span>
+                  <input id="divisions" type="range" min="1" max="24" step="1" value="8" disabled />
                 </label>
                 <div class="shapes-motion-row" aria-label="Reader motion">
                   <button class="mini-action" id="directionButton" type="button">Direction · forward</button>
@@ -221,14 +221,12 @@
                   <label class="control" for="pitchRange"><span><b>Pitch range</b><output id="pitchRangeOut" for="pitchRange">3.0 oct</output></span><input id="pitchRange" type="range" min="0" max="7" step="0.1" value="3" /></label>
                   <label class="control" for="voiceCharacter"><span><b>Character</b><output id="voiceCharacterOut" for="voiceCharacter">35%</output></span><input id="voiceCharacter" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
                   <label class="control" for="stereoSpread"><span><b>Stereo spread</b><output id="stereoSpreadOut" for="stereoSpread">85%</output></span><input id="stereoSpread" type="range" min="0" max="1" step="0.01" value="0.85" /></label>
-                  <label class="control" for="noteDivisions"><span><b>Note divisions</b><output id="noteDivisionsOut" for="noteDivisions">8</output></span><input id="noteDivisions" type="range" min="1" max="24" step="1" value="8" /></label>
                 </div>
               </section>
               <section aria-labelledby="triggerMappingTitle">
                 <h3 id="triggerMappingTitle">Trigger mapping</h3>
                 <label class="select-control" for="triggerMapping"><span class="field-label">Map</span><span class="select-shell"><select id="triggerMapping"><option value="feature">Feature</option><option value="position">Position</option><option value="incidence">Incidence</option></select></span></label>
                 <div class="shapes-parameter-grid">
-                  <label class="control" for="triggerDivisions"><span><b>Divisions</b><output id="triggerDivisionsOut" for="triggerDivisions">2</output></span><input id="triggerDivisions" type="range" min="1" max="16" step="1" value="2" /></label>
                   <label class="control" for="tuningDepth"><span><b>Tuning depth</b><output id="tuningDepthOut" for="tuningDepth">12 st</output></span><input id="tuningDepth" type="range" min="0" max="24" step="1" value="12" /></label>
                   <label class="control" for="triggerCharacter"><span><b>Character depth</b><output id="triggerCharacterOut" for="triggerCharacter">70%</output></span><input id="triggerCharacter" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
                   <label class="control" for="hitCap"><span><b>Hit cap</b><output id="hitCapOut" for="hitCap">6</output></span><input id="hitCap" type="range" min="1" max="16" step="1" value="6" /></label>

@@ -23,6 +23,7 @@ import {
 import { displayShapesPhase } from "./shapes-state.js";
 
 const clamp01 = (value) => Math.min(1, Math.max(0, Number(value) || 0));
+const MAX_VISIBLE_DIVISION_MARKERS = 1600;
 
 function projectedBounds(points) {
   if (!points.length) return { minX: -1, maxX: 1, minY: -1, maxY: 1, span: 2 };
@@ -50,6 +51,13 @@ function contactVoice(contact, key, pitch, pan, drive) {
     drive01: clamp01(drive),
     strength: clamp01(0.28 + (contact.cornerStrength ?? 0.35) * 0.62),
   };
+}
+
+function twoDimensionalTopologyEdgeCount(path) {
+  if (path.shapeType === "circle") return 1;
+  return path.closed
+    ? Math.max(1, path.vertexDistances.length)
+    : Math.max(1, path.vertexDistances.length - 1);
 }
 
 function buildTwoDimensionalScene(state, phase) {
@@ -108,6 +116,7 @@ function buildTwoDimensionalScene(state, phase) {
     bounds: projectedBounds(path.points),
     closed: path.closed,
     vertexIndices: path.vertexIndices,
+    topologyEdgeCount: twoDimensionalTopologyEdgeCount(path),
     geometry: path,
   };
 }
@@ -171,6 +180,7 @@ function buildThreeDimensionalScene(state, phase) {
     contacts: voiced,
     reader: { type: "plane", corners: planeCorners },
     bounds: projectedBounds(vertices),
+    topologyEdgeCount: edges.length,
     geometry: solid,
     plane,
   };
@@ -215,9 +225,82 @@ function buildFourDimensionalScene(state, phase) {
     contacts: voiced,
     reader: { type: "hyperplane", offset },
     bounds: projectedBounds(vertices),
+    topologyEdgeCount: edges.length,
     geometry: hyper,
     offset,
   };
+}
+
+function divisionCount(value) {
+  const numeric = Number(value);
+  return Math.min(24, Math.max(1, Number.isFinite(numeric) ? Math.round(numeric) : 1));
+}
+
+function twoDimensionalDivisionMarkers(scene, count) {
+  const path = scene.geometry;
+  if (!path?.totalLength) return [];
+  const markers = [];
+  const addMarker = (distance) => {
+    const contact = pointAtPath(path, distance / path.totalLength, { pingPong: false });
+    markers.push({
+      view: { x: contact.x, y: contact.y, z: 0 },
+      tangent: contact.tangent ?? { x: 1, y: 0 },
+      depth: 0,
+      axis: "xy",
+    });
+  };
+
+  if (path.shapeType === "circle" || path.vertexDistances.length < 2) {
+    for (let division = 1; division < count; division += 1) {
+      addMarker(path.totalLength * division / count);
+    }
+    return markers;
+  }
+
+  const edgeCount = twoDimensionalTopologyEdgeCount(path);
+  for (let edgeIndex = 0; edgeIndex < edgeCount; edgeIndex += 1) {
+    const start = path.vertexDistances[edgeIndex];
+    const end = edgeIndex + 1 < path.vertexDistances.length
+      ? path.vertexDistances[edgeIndex + 1]
+      : path.totalLength;
+    for (let division = 1; division < count; division += 1) {
+      addMarker(start + (end - start) * division / count);
+    }
+  }
+  return markers;
+}
+
+export function buildShapesDivisionMarkers(scene, divisions = 1) {
+  const count = divisionCount(divisions);
+  if (count <= 1 || !scene) return [];
+  if (scene.dimension === "2d") return twoDimensionalDivisionMarkers(scene, count);
+
+  const markers = [];
+  const edges = scene.edges ?? [];
+  const markersPerEdge = count - 1;
+  const edgeStride = Math.max(
+    1,
+    Math.ceil(edges.length * markersPerEdge / MAX_VISIBLE_DIVISION_MARKERS),
+  );
+  for (let edgeIndex = 0; edgeIndex < edges.length; edgeIndex += edgeStride) {
+    const edge = edges[edgeIndex];
+    const dx = edge.b.x - edge.a.x;
+    const dy = edge.b.y - edge.a.y;
+    for (let division = 1; division < count; division += 1) {
+      const along = division / count;
+      markers.push({
+        view: {
+          x: edge.a.x + dx * along,
+          y: edge.a.y + dy * along,
+          z: (edge.a.z ?? 0) + ((edge.b.z ?? 0) - (edge.a.z ?? 0)) * along,
+        },
+        tangent: { x: dx, y: dy },
+        depth: edge.depth ?? 0,
+        axis: edge.axis,
+      });
+    }
+  }
+  return markers;
 }
 
 export function buildShapesScene(state) {

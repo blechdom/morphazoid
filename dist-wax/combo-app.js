@@ -8,7 +8,10 @@ import {
   cloneDefaultFmDrumVoices,
   FmDrumAudio,
 } from "./src/fm-drums.js";
-import { buildShapesScene } from "./src/shapes-scene.js";
+import {
+  buildShapesDivisionMarkers,
+  buildShapesScene,
+} from "./src/shapes-scene.js";
 import {
   advanceShapesMotion,
   createShapesState,
@@ -16,6 +19,8 @@ import {
   selectShapesBank,
   selectShapesDimension,
   selectShapesPlayingMode,
+  setShapesDivisionCount,
+  shapesDivisionCount,
   shapesEventIntervalMs,
   shapesEventToken,
   shapesRepresentationLabel,
@@ -194,6 +199,32 @@ function drawReader(scene, transform) {
   context.restore();
 }
 
+function drawDivisionMarkers(scene, transform) {
+  const markers = buildShapesDivisionMarkers(scene, shapesDivisionCount(state));
+  if (!markers.length) return;
+  const color = SHAPES_DIMENSIONS[scene.dimension].color;
+  const tickRadius = scene.dimension === "2d" ? 5 : 3.5;
+  context.save();
+  context.beginPath();
+  for (const marker of markers) {
+    const x = transform.x(marker.view.x);
+    const y = transform.y(marker.view.y);
+    const tangentX = transform.x(marker.view.x + marker.tangent.x) - x;
+    const tangentY = transform.y(marker.view.y + marker.tangent.y) - y;
+    const length = Math.hypot(tangentX, tangentY);
+    if (length < 8) continue;
+    const normalX = -tangentY / length;
+    const normalY = tangentX / length;
+    context.moveTo(x - normalX * tickRadius, y - normalY * tickRadius);
+    context.lineTo(x + normalX * tickRadius, y + normalY * tickRadius);
+  }
+  context.strokeStyle = `color-mix(in srgb, ${color} 68%, #fff3d6)`;
+  context.lineWidth = scene.dimension === "2d" ? 1.25 : 1;
+  context.lineCap = "round";
+  context.stroke();
+  context.restore();
+}
+
 function drawScene(scene) {
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context.clearRect(0, 0, cssWidth, cssHeight);
@@ -229,9 +260,14 @@ function drawScene(scene) {
     context.setLineDash([]);
   }
 
-  const vertexStride = Math.max(1, Math.ceil(scene.vertices.length / 180));
-  for (let index = 0; index < scene.vertices.length; index += vertexStride) {
-    const point = scene.vertices[index];
+  drawDivisionMarkers(scene, transform);
+
+  const visibleVertices = scene.dimension === "2d"
+    ? (scene.vertexIndices ?? []).map((index) => scene.vertices[index]).filter(Boolean)
+    : scene.vertices;
+  const vertexStride = Math.max(1, Math.ceil(visibleVertices.length / 180));
+  for (let index = 0; index < visibleVertices.length; index += vertexStride) {
+    const point = visibleVertices[index];
     context.beginPath();
     context.arc(transform.x(point.x), transform.y(point.y), scene.dimension === "2d" ? 2.4 : 2, 0, TAU);
     context.fillStyle = "#07090b";
@@ -387,7 +423,11 @@ function syncFastUi(scene) {
   const moving = transportIsMoving() || rotationIsMoving();
   const modeLabel = titleCase(state.selection.playingMode);
   const audioLabel = state.audio.enabled ? "AUDIO ON" : "AUDIO OFF";
-  $("stageReadout").textContent = `${scene.contacts.length} CONTACT${scene.contacts.length === 1 ? "" : "S"} · ${moving ? "MOVING" : "PAUSED"} · ${audioLabel}`;
+  const divisions = shapesDivisionCount(state);
+  const divisionLabel = state.selection.playingMode === "continuous"
+    ? ""
+    : ` · ${divisions} DIVISION${divisions === 1 ? "" : "S"}`;
+  $("stageReadout").textContent = `${scene.contacts.length} CONTACT${scene.contacts.length === 1 ? "" : "S"} · ${moving ? "MOVING" : "PAUSED"}${divisionLabel} · ${audioLabel}`;
   $("routeReadout").textContent = `${SHAPES_DIMENSIONS[state.selection.dimension].label} · ${modeLabel}`;
   $("engineReadout").textContent = state.selection.playingMode === "triggers"
     ? "FM drum bank"
@@ -715,17 +755,24 @@ function syncAllControls() {
   $("scale4w").value = String(state.dimension["4d"].scale.w);
   $("scale4wOut").textContent = `${state.dimension["4d"].scale.w.toFixed(2)}×`;
 
+  const divisionsActive = state.selection.playingMode !== "continuous";
+  const divisions = shapesDivisionCount(state);
+  $("divisionsControl").hidden = !divisionsActive;
+  $("divisions").disabled = !divisionsActive;
+  $("divisions").max = state.selection.playingMode === "triggers" ? "16" : "24";
+  $("divisions").value = String(divisions);
+  $("divisions").setAttribute("aria-valuetext", `${divisions} division${divisions === 1 ? "" : "s"}`);
+  $("divisionsOut").textContent = String(divisions);
+
   const voiceOutputs = {
     baseFrequency: [`${Math.round(state.voice.baseHz)} Hz`, state.voice.baseHz],
     pitchRange: [`${state.voice.rangeOctaves.toFixed(1)} oct`, state.voice.rangeOctaves],
     voiceCharacter: [`${Math.round(state.voice.character * 100)}%`, state.voice.character],
     stereoSpread: [`${Math.round(state.voice.spread * 100)}%`, state.voice.spread],
-    noteDivisions: [String(state.voice.noteDivisions), state.voice.noteDivisions],
   };
   for (const [id, [label, value]] of Object.entries(voiceOutputs)) { $(id).value = String(value); $(`${id}Out`).textContent = label; }
   $("triggerMapping").value = state.trigger.mapping;
   const triggerOutputs = {
-    triggerDivisions: [String(state.trigger.divisions), state.trigger.divisions],
     tuningDepth: [`${Math.round(state.trigger.tuningDepth)} st`, state.trigger.tuningDepth],
     triggerCharacter: [`${Math.round(state.trigger.characterDepth * 100)}%`, state.trigger.characterDepth],
     hitCap: [String(state.trigger.hitCap), state.trigger.hitCap],
@@ -872,9 +919,8 @@ bindRange("baseFrequency", (value) => { state.voice.baseHz = value; });
 bindRange("pitchRange", (value) => { state.voice.rangeOctaves = value; });
 bindRange("voiceCharacter", (value) => { state.voice.character = value; });
 bindRange("stereoSpread", (value) => { state.voice.spread = value; });
-bindRange("noteDivisions", (value) => { state.voice.noteDivisions = Math.round(value); });
+bindRange("divisions", (value) => { setShapesDivisionCount(state, value); resetEventClock(); });
 $("triggerMapping").addEventListener("change", () => { state.trigger.mapping = $("triggerMapping").value; afterMutation(); });
-bindRange("triggerDivisions", (value) => { state.trigger.divisions = Math.round(value); });
 bindRange("tuningDepth", (value) => { state.trigger.tuningDepth = value; });
 bindRange("triggerCharacter", (value) => { state.trigger.characterDepth = value; });
 bindRange("hitCap", (value) => { state.trigger.hitCap = Math.round(value); });
