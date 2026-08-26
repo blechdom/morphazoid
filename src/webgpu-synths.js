@@ -540,6 +540,11 @@ fn softClip(value: vec2<f32>) -> vec2<f32> {
   return value / (vec2(1.0) + abs(value));
 }
 
+fn smootherstep01(value: f32) -> f32 {
+  let x = clamp(value, 0.0, 1.0);
+  return x * x * x * (x * (x * 6.0 - 15.0) + 10.0);
+}
+
 fn swingTime(straightTime: f32, swing: f32) -> f32 {
   let amount = clamp(swing, 0.0, 0.42);
   let pair = floor(straightTime * 0.5);
@@ -610,11 +615,14 @@ fn spectralAcid(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, ma
   for (var partial = 1u; partial <= 48u; partial += 1u) {
     if (partial > requested) { break; }
     let harmonic = f32(partial);
+    let partialHz = frequency * harmonic;
+    let bandGain = 1.0 - smoothstep(SAMPLE_RATE * 0.34, SAMPLE_RATE * 0.46, partialHz);
+    if (bandGain <= 0.0001) { break; }
     let distance = abs(harmonic - cutoff);
     let lowpass = exp(-max(harmonic - cutoff, 0.0) * (0.18 + (1.0 - timbre) * 0.35));
     let peak = exp(-distance * distance * 0.32) * resonance;
-    let level = (lowpass + peak) / harmonic;
-    let phase = t * frequency * harmonic * TAU;
+    let level = (lowpass + peak) * bandGain / harmonic;
+    let phase = local * partialHz * TAU;
     voice.x += sin(phase + motion * harmonic * 0.012) * level;
     voice.y += sin(phase - motion * harmonic * 0.012) * level;
   }
@@ -622,9 +630,9 @@ fn spectralAcid(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, ma
 }
 
 fn classicFm(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
-  let phase = t * frequency * TAU;
+  let phase = local * frequency * TAU;
   let requested = u32(round(clamp(synth_param.fmOperators, 1.0, 6.0)));
-  let ratio = 1.0 + floor(timbre * 5.0) * 0.5;
+  let ratio = 1.0 + floor(clamp(synth_param.color, 0.0, 1.0) * 5.0) * 0.5;
   let index = 0.05 + macros.x * 4.8 + timbre * 1.7;
   let modA = select(0.0, sin(phase * ratio + local * motion * 1.7), requested >= 2u);
   let modB = select(0.0, sin(phase * (ratio + 1.0) + local * motion * 0.9), requested >= 3u);
@@ -633,7 +641,7 @@ fn classicFm(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macro
   let carrierB = select(0.0, sin(phase * 2.0 + modC * index * 0.62), requested >= 5u);
   let sub = select(0.0, sin(phase * 0.5 + modA * index * 0.18), requested >= 6u);
   let left = carrierA + carrierB * 0.32 + sub * 0.18;
-  let right = sin(phase * (1.0 + macros.z * 0.0012) + (modA - modB * 0.55) * index) + carrierB * 0.28 - sub * 0.16;
+  let right = sin(phase + macros.z * 0.12 + (modA - modB * 0.55) * index) + carrierB * 0.28 - sub * 0.16;
   return vec2(left, right) * 0.48;
 }
 
@@ -645,7 +653,7 @@ fn wavefoldTable(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, m
     if (layer >= requested) { break; }
     let centered = f32(layer) - f32(requested - 1u) * 0.5;
     let detune = centered * (0.0007 + macros.x * 0.0024);
-    let phase = fract(t * frequency * (1.0 + detune));
+    let phase = fract(local * frequency * (1.0 + detune));
     let sine = sin(phase * TAU);
     let triangle = abs(phase * 4.0 - 2.0) - 1.0;
     let saw = phase * 2.0 - 1.0;
@@ -661,15 +669,25 @@ fn wavefoldTable(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, m
 fn modalMetal(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
   var voice = vec2(0.0);
   let requested = u32(round(clamp(synth_param.modalModes, 1.0, 32.0)));
+  let decayNorm = clamp((macros.w - 0.03) / 1.77, 0.0, 1.0);
+  let tilt = mix(1.18, 0.82, clamp(timbre, 0.0, 1.0));
   for (var mode = 0u; mode < 32u; mode += 1u) {
     if (mode >= requested) { break; }
     let order = f32(mode + 1u);
-    let stiffness = order + order * order * (0.006 + timbre * 0.038);
-    let ratio = stiffness + hash11(f32(mode) + motion * 17.0) * timbre * 0.22;
-    let damping = exp(-local * (1.8 + order * (0.35 + (1.0 - macros.w) * 0.6)));
-    let level = damping / sqrt(order);
-    voice.x += sin(t * frequency * ratio * TAU + order * 0.19) * level;
-    voice.y += sin(t * frequency * ratio * TAU - order * (0.19 + macros.z * 0.05)) * level;
+    let stiffness = order + order * order * 0.018;
+    let scatter = (hash11(f32(mode) * 19.7) - 0.5) * 0.12;
+    let ratio = max(0.25, stiffness + scatter);
+    let modalHz = frequency * ratio;
+    let bandGain = 1.0 - smoothstep(SAMPLE_RATE * 0.34, SAMPLE_RATE * 0.46, modalHz);
+    if (bandGain <= 0.0001) { continue; }
+    let dampingRate = mix(14.0, 1.2, decayNorm) + order * mix(0.72, 0.10, decayNorm);
+    let damping = exp(-local * dampingRate);
+    let onset = smootherstep01(local / (0.003 + min(order, 24.0) * 0.0003));
+    let level = damping * onset * bandGain / pow(order, tilt);
+    let phaseMotion = sin(local * TAU * (0.35 + motion * 0.9) + order * 0.37) * motion * 0.035;
+    let phase = local * modalHz * TAU + phaseMotion;
+    voice.x += sin(phase + order * 0.19) * level;
+    voice.y += sin(phase - order * (0.19 + macros.z * 0.05)) * level;
   }
   return voice * 0.22;
 }
@@ -685,8 +703,8 @@ fn particleCloud(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, m
     let window = sin(grainPosition * PI);
     let detune = (hash11(f32(grain) * 31.1) - 0.5) * (0.02 + timbre * 0.18);
     let ratio = 0.5 + floor(hash11(f32(grain) * 7.3) * 7.0) * 0.5;
-    let phase = t * frequency * ratio * (1.0 + detune) * TAU;
-    let grit = hash11(floor(t * SAMPLE_RATE / (3.0 + timbre * 22.0)) + f32(grain)) * 2.0 - 1.0;
+    let phase = local * frequency * ratio * (1.0 + detune) * TAU;
+    let grit = hash11(floor(t * SAMPLE_RATE / 12.0) + f32(grain)) * 2.0 - 1.0;
     let particle = mix(sin(phase), grit, timbre * 0.42) * window * window;
     let pan = hash11(f32(grain) * 53.0) * 2.0 - 1.0;
     voice += vec2(particle * (1.0 - pan * macros.z), particle * (1.0 + pan * macros.z));
@@ -696,20 +714,21 @@ fn particleCloud(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, m
 
 fn additiveOrgan(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, macros: vec4<f32>) -> vec2<f32> {
   var voice = vec2(0.0);
-  let choraleRate = 0.18 + motion * 0.72;
-  let rotorRate = 0.34 + motion * 4.8;
-  let chorale = sin(t * choraleRate * TAU) * motion * 0.038;
-  let rotor = sin(t * rotorRate * TAU);
+  let chorale = sin(t * 0.46 * TAU) * motion * 0.038;
+  let rotor = sin(t * 2.2 * TAU);
   let requested = u32(round(clamp(synth_param.organRanks, 1.0, f32(arrayLength(&organ_rank)))));
   for (var drawbar = 0u; drawbar < 9u; drawbar += 1u) {
     if (drawbar >= requested) { break; }
     let order = f32(drawbar + 1u);
     let rank = organ_rank[drawbar];
     let ratio = clamp(rank.x, 0.125, 16.0);
+    let rankHz = frequency * ratio;
+    let bandGain = 1.0 - smoothstep(SAMPLE_RATE * 0.34, SAMPLE_RATE * 0.46, rankHz);
+    if (bandGain <= 0.0001) { continue; }
     let brightness = pow(max(ratio, 0.125), (timbre - 0.5) * 0.46);
     let am = mix(1.0, 0.5 + 0.5 * sin(t * clamp(rank.z, 0.0, 30.0) * TAU + order * 0.71), clamp(rank.w, 0.0, 1.0));
-    let level = clamp(rank.y, 0.0, 1.0) * brightness * am;
-    let phase = t * frequency * ratio * TAU;
+    let level = clamp(rank.y, 0.0, 1.0) * brightness * am * bandGain;
+    let phase = local * rankHz * TAU;
     let rankMotion = chorale * (0.45 + order * 0.08);
     let side = select(-1.0, 1.0, (drawbar & 1u) == 0u);
     let stereoPhase = side * macros.z * (0.018 + motion * 0.032);
@@ -726,13 +745,16 @@ fn vectorWavetable(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32,
   let requested = u32(round(clamp(synth_param.wavetableHarmonics, 1.0, 64.0)));
   let scan = clamp(timbre + sin(local * TAU) * motion * 0.12, 0.0, 1.0);
   for (var partial = 1u; partial <= 64u; partial += 1u) {
-    if (partial > requested || frequency * f32(partial) > SAMPLE_RATE * 0.46) { break; }
+    if (partial > requested) { break; }
     let harmonic = f32(partial);
+    let partialHz = frequency * harmonic;
+    let bandGain = 1.0 - smoothstep(SAMPLE_RATE * 0.34, SAMPLE_RATE * 0.46, partialHz);
+    if (bandGain <= 0.0001) { break; }
     let sineLevel = select(0.0, 1.0, partial == 1u);
     let triangleLevel = select(0.0, 1.0 / (harmonic * harmonic), (partial & 1u) == 1u);
     let sawLevel = 1.0 / harmonic;
-    let level = mix(mix(sineLevel, triangleLevel, smoothstep(0.0, 0.52, scan)), sawLevel, smoothstep(0.48, 1.0, scan));
-    let phase = t * frequency * harmonic * TAU;
+    let level = mix(mix(sineLevel, triangleLevel, smoothstep(0.0, 0.52, scan)), sawLevel, smoothstep(0.48, 1.0, scan)) * bandGain;
+    let phase = local * partialHz * TAU;
     voice += vec2(sin(phase + harmonic * macros.z * 0.003), sin(phase - harmonic * macros.z * 0.003)) * level;
   }
   return voice * 0.5;
@@ -745,11 +767,13 @@ fn formantBank(t: f32, local: f32, frequency: f32, timbre: f32, motion: f32, mac
   let second = mix(2400.0, 1150.0, timbre);
   let third = mix(3000.0, 2700.0, timbre);
   for (var partial = 1u; partial <= 12u; partial += 1u) {
-    if (partial > requested || frequency * f32(partial) > SAMPLE_RATE * 0.46) { break; }
+    if (partial > requested) { break; }
     let harmonic = f32(partial);
     let hz = frequency * harmonic;
-    let envelope = exp(-pow((hz - first) / 180.0, 2.0)) + exp(-pow((hz - second) / 310.0, 2.0)) * 0.72 + exp(-pow((hz - third) / 420.0, 2.0)) * 0.42;
-    let phase = t * hz * TAU + sin(local * TAU + harmonic) * motion * 0.08;
+    let bandGain = 1.0 - smoothstep(SAMPLE_RATE * 0.34, SAMPLE_RATE * 0.46, hz);
+    if (bandGain <= 0.0001) { break; }
+    let envelope = (exp(-pow((hz - first) / 180.0, 2.0)) + exp(-pow((hz - second) / 310.0, 2.0)) * 0.72 + exp(-pow((hz - third) / 420.0, 2.0)) * 0.42) * bandGain;
+    let phase = local * hz * TAU + sin(local * TAU + harmonic) * motion * 0.08;
     voice += vec2(sin(phase + harmonic * macros.z * 0.006), sin(phase - harmonic * macros.z * 0.006)) * envelope / sqrt(harmonic);
   }
   return voice * 0.34;
@@ -818,11 +842,16 @@ fn drySound(time: f32) -> vec2<f32> {
   let note = mix(currentNote, followingNote, glide);
   let frequency = midiFrequency(note);
   let energy = laneValue(stepIndex, 1u);
-  let edge = clamp(synth_param.clock * 0.008, 0.018, 0.24);
-  let attack = smoothstep(0.0, edge, phase);
-  let release = 1.0 - smoothstep(1.0 - edge, 1.0, phase);
+  let swingAmount = clamp(synth_param.swing, 0.0, 0.42);
+  let clockRate = max(synth_param.clock, 0.001);
+  let stepDuration = select((1.0 - swingAmount) / clockRate, (1.0 + swingAmount) / clockRate, (absoluteStep & 1u) == 0u);
+  let local = phase * stepDuration;
+  let remaining = (1.0 - phase) * stepDuration;
+  let edgeSeconds = min(0.012, stepDuration * 0.24);
+  let attack = smootherstep01(local / max(edgeSeconds, 0.0001));
+  let release = smootherstep01(remaining / max(edgeSeconds, 0.0001));
   let decay = routedRange(stepIndex, nextIndex, phase, 8u, synth_param.decay, 0.03, 1.8, 0.78);
-  let envelope = attack * release * exp(-phase / max(0.03, decay)) * energy;
+  let envelope = attack * release * exp(-local / max(0.03, decay)) * energy;
   let timbre = routedUnit(stepIndex, nextIndex, phase, 2u, synth_param.color, 0.78);
   let motion = routedUnit(stepIndex, nextIndex, phase, 3u, synth_param.motion, 0.78);
   let complexity = routedUnit(stepIndex, nextIndex, phase, 5u, synth_param.complexity, 0.78);
@@ -832,10 +861,9 @@ fn drySound(time: f32) -> vec2<f32> {
   let morph = routedUnit(stepIndex, nextIndex, phase, 4u, synth_param.modelMix, 0.25 + morphDepth * 0.75);
   let voiceGain = routedRange(stepIndex, nextIndex, phase, 16u, synth_param.gain, 0.0, 0.22, 0.78);
   let macros = vec4(complexity, fold, space, decay);
-  let local = phase / max(synth_param.clock, 0.001);
   var voice = layeredSound(time, local, frequency, timbre, motion, macros, morph) * envelope;
 
-  let orbit = sin((time * (0.07 + motion * 0.41) + f32(stepIndex) * 0.173) * TAU);
+  let orbit = sin((time * 0.07 + local * (0.08 + motion * 0.41) + f32(stepIndex) * 0.173) * TAU);
   let pan = orbit * space * 0.48;
   voice = vec2(voice.x * (1.0 - pan), voice.y * (1.0 + pan));
   let drive = 1.0 + fold * 7.0;
