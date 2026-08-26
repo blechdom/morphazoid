@@ -241,6 +241,54 @@ test("a low narrow Notes bank falls back to audible octave-lifted chunks", () =>
   }
 });
 
+test("Notes articulates pitched chunks below fusion without thickening Layered or Drums", () => {
+  const common = {
+    ...OUROBOROUSEL_DEFAULTS,
+    position: 0,
+  };
+  const notes = calculateOuroborouselLayers({
+    ...common,
+    materialMode: "notes",
+  });
+  const combo = calculateOuroborouselLayers({
+    ...common,
+    materialMode: "combo",
+  });
+  const drums = calculateOuroborouselLayers({
+    ...common,
+    materialMode: "drums",
+  });
+  const articulated = notes.layers.filter(({ noteRhythmWeight }) => (
+    noteRhythmWeight > 1e-6
+  ));
+
+  assert.ok(articulated.length >= 5, "Notes lacks a playable pitched rhythm bank");
+  assert.ok(Math.max(...articulated.map(({ noteRhythmWeight }) => (
+    noteRhythmWeight
+  ))) > 0.95);
+  assert.ok(articulated.some(({ sourceHz }) => sourceHz >= 55 && sourceHz <= 220));
+  for (const layer of articulated) {
+    assert.ok(Math.abs(
+      layer.noteRhythmWeight
+        - layer.window
+          * layer.safety
+          * layer.pitchPulseShare
+          * layer.fusionSpotlight,
+    ) < 1e-12);
+    assert.ok(
+      layer.hitRate < OUROBOROUSEL_DEFAULTS.fusionPoint * 4,
+      `pitched chunk survived beyond fusion at ${layer.hitRate} Hz`,
+    );
+  }
+  assert.ok(combo.layers.every(({ noteRhythmWeight }) => noteRhythmWeight === 0));
+  assert.ok(drums.layers.every(({ noteRhythmWeight }) => noteRhythmWeight === 0));
+  assert.deepEqual(
+    combo.layers.map(({ noteToneWeight }) => noteToneWeight),
+    notes.layers.map(({ noteToneWeight }) => noteToneWeight),
+    "Notes changed the existing sustained/nested rail",
+  );
+});
+
 test("defaults match the page contract and whimsical presets are complete", () => {
   assert.deepEqual(OUROBOROUSEL_DEFAULTS, {
     materialMode: "combo",
@@ -1083,6 +1131,60 @@ test("worklet renders bounded stereo chunks and tones through its octave seam", 
     assert.equal(registeredName, "morphazoid-ourorourobouroboros");
     assert.equal(registrationCount, 1);
     assert.equal(typeof Processor, "function");
+
+    const articulatedNotes = new Processor({
+      processorOptions: {
+        ...OUROBOROUSEL_DEFAULTS,
+        materialMode: "notes",
+      },
+    });
+    const layeredControl = new Processor({
+      processorOptions: OUROBOROUSEL_DEFAULTS,
+    });
+    const drumsControl = new Processor({
+      processorOptions: {
+        ...OUROBOROUSEL_DEFAULTS,
+        materialMode: "drums",
+      },
+    });
+    for (const candidate of [
+      articulatedNotes,
+      layeredControl,
+      drumsControl,
+    ]) {
+      candidate.process([], [[new Float32Array(1), new Float32Array(1)]]);
+    }
+    assert.ok(
+      articulatedNotes.renderNoteRhythmWeights.some((weight) => weight > 1e-6),
+      "the worklet did not route automatic pitched chunks in Notes",
+    );
+    assert.ok(
+      layeredControl.renderNoteRhythmWeights.every((weight) => weight === 0),
+      "Layered unexpectedly inherited the Notes-only attack rail",
+    );
+    assert.ok(
+      drumsControl.renderNoteRhythmWeights.every((weight) => weight === 0),
+      "Drums unexpectedly inherited the Notes-only attack rail",
+    );
+    assert.deepEqual(
+      Array.from(articulatedNotes.renderNoteToneWeights),
+      Array.from(layeredControl.renderNoteToneWeights),
+      "Notes changed the established sustained rail in the worklet",
+    );
+    articulatedNotes.current.glissRate = 0;
+    articulatedNotes.target.glissRate = 0;
+    articulatedNotes.port.onmessage({ data: { type: "audible", value: true } });
+    articulatedNotes.port.onmessage({ data: { type: "transport", value: true } });
+    const articulatedCapture = [];
+    for (let block = 0; block < 1_200; block += 1) {
+      const noteLeft = new Float32Array(128);
+      articulatedNotes.process([], [[noteLeft, new Float32Array(128)]]);
+      if (block >= 500) articulatedCapture.push(...noteLeft);
+    }
+    assert.ok(
+      spectralMagnitude(articulatedCapture, 128) > 4e-4,
+      "default Notes did not audibly expose its octave-lifted 128 Hz note rail",
+    );
 
     const processor = new Processor({
       processorOptions: {

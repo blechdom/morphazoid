@@ -719,11 +719,14 @@ export function calculateOuroborouselLayers({
       nestedMix,
       safe.chunkDuty,
     );
-    // One high source carries both parts of the illusion. The slower lane
-    // subtracts silence from it instead of adding a second, thicker voice.
-    const noteRhythmWeight = 0;
+    // Pure Notes adds an octave-lifted pitched chunk below fusion so it reads
+    // as discrete notes before becoming the existing continuous high rail.
+    // Layered and Drums keep the thinner nested-tone path unchanged.
+    const noteRhythmWeight = safe.materialMode === "notes"
+      ? window * safety * pitchPulseShare * fusionSpotlight
+      : 0;
     const noteToneWeight = nestedPairWeight;
-    const weight = nestedPairWeight;
+    const weight = Math.hypot(noteRhythmWeight, noteToneWeight);
     const toneGain = pitchBlend;
     const chunkGain = nestedMix;
     const drumSafety = ouroborouselFrequencySafety(
@@ -1627,6 +1630,12 @@ function createProcessorClass(AudioWorkletBase) {
           || this.targetMaterialMix < 0.999999;
         const renderDrumColor = this.currentMaterialMix > 1e-7
           || this.targetMaterialMix > 1e-7;
+        // This reaches one only in pure Notes and fades smoothly to zero at
+        // Layered, so switching modes cannot abruptly add or remove attacks.
+        const notesOnlyGain = Math.max(
+          0,
+          Math.min(1, 1 - this.currentMaterialMix * 2),
+        );
         this.sourceRendered.fill(0);
         let noteMaterialReady = false;
         let noteTonePresent = false;
@@ -1707,6 +1716,11 @@ function createProcessorClass(AudioWorkletBase) {
               * rhythmShare
               * fusionSpotlight;
             const nestedWeightTotal = nestedDryWeight + nestedWetWeight;
+            noteRhythmWeight = window
+              * noteSafety
+              * (1 - pitchBlend)
+              * fusionSpotlight
+              * notesOnlyGain;
             const noteToneWeight = Math.max(
               nestedDryWeight,
               nestedWetWeight,
