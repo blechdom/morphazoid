@@ -264,6 +264,69 @@ test("event routing has independent note and trigger subdivision semantics", () 
   assert.match(triggerToken, /^2d:/);
 });
 
+test("transport events use Divisions as their only clock", () => {
+  const state = createShapesState({ profile: { sides: 6, kind: "polygon", starDepth: 0.48 } });
+  selectShapesPlayingMode(state, "triggers");
+  state.play.running = true;
+
+  for (const divisions of [1, 2, 4, 8]) {
+    setShapesDivisionCount(state, divisions);
+    let previousToken = null;
+    let tokenRegions = 0;
+    for (let step = 0; step < 2400; step += 1) {
+      state.play.continuousPhase = step / 2400;
+      const token = shapesEventToken(state, buildShapesScene(state));
+      if (token !== previousToken) tokenRegions += 1;
+      previousToken = token;
+    }
+    assert.equal(
+      tokenRegions,
+      state.profile.sides * divisions,
+      `${divisions} divisions produce exactly ${divisions} events on every side`,
+    );
+  }
+
+  setShapesDivisionCount(state, 2);
+  state.play.continuousPhase = 0.01;
+  const firstHalfSide = shapesEventToken(state, buildShapesScene(state));
+  state.play.continuousPhase = 0.04;
+  state.dimension["2d"].rotation += 10;
+  assert.equal(
+    shapesEventToken(state, buildShapesScene(state)),
+    firstHalfSide,
+    "contact and rotation changes cannot add hidden events inside one division",
+  );
+  state.play.continuousPhase = 0.09;
+  assert.notEqual(
+    shapesEventToken(state, buildShapesScene(state)),
+    firstHalfSide,
+    "the midpoint starts the second division",
+  );
+
+  state.play.running = false;
+  const pausedToken = shapesEventToken(state, buildShapesScene(state));
+  state.dimension["2d"].rotation += 10;
+  assert.notEqual(
+    shapesEventToken(state, buildShapesScene(state)),
+    pausedToken,
+    "rotation-only playing keeps its geometry clock when transport is paused",
+  );
+
+  state.play.running = true;
+  state.play.motion = "pingpong";
+  state.play.continuousPhase = 0.9999;
+  const beforeTurn = shapesEventToken(state, buildShapesScene(state));
+  state.play.continuousPhase = 1;
+  const atTurn = shapesEventToken(state, buildShapesScene(state));
+  state.play.continuousPhase = 1.0001;
+  assert.notEqual(atTurn, beforeTurn, "the ping-pong endpoint is one division boundary");
+  assert.equal(
+    shapesEventToken(state, buildShapesScene(state)),
+    atTurn,
+    "folding away from a ping-pong endpoint cannot add an immediate duplicate event",
+  );
+});
+
 test("event routing follows visible topology and rotation within a bounded emission rate", () => {
   const state = createShapesState({ selection: { dimension: "3d", playingMode: "triggers" } });
   state.dimension["3d"].representation = "cube";

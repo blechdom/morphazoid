@@ -83,13 +83,14 @@ let animationFrame = 0;
 let lastFrameTime = performance.now();
 let lastAudioUpdate = -Infinity;
 let lastEventAt = -Infinity;
-let lastEventToken = null;
+const lastEventTokens = { phase: null, geometry: null };
 let noteReleaseTimer = 0;
 let lastScene = null;
 let renderedRotationDimension = null;
 let renderedMainFormDimension = null;
 let saveTimer = 0;
 let manualMotionUntil = 0;
+let manualMotionClock = "geometry";
 let pointerScrub = null;
 let audioRequest = 0;
 const heldMidiNotes = new Set();
@@ -124,7 +125,8 @@ function scheduleFrame() {
 }
 
 function resetEventClock() {
-  lastEventToken = null;
+  lastEventTokens.phase = null;
+  lastEventTokens.geometry = null;
   lastEventAt = -Infinity;
 }
 
@@ -392,6 +394,19 @@ function motionIsActive(now = performance.now()) {
   return transportIsMoving() || rotationIsMoving() || pointerScrub !== null || now < manualMotionUntil;
 }
 
+function eventClock(now = performance.now()) {
+  return transportIsMoving()
+    || pointerScrub !== null
+    || (now < manualMotionUntil && manualMotionClock === "phase")
+    ? "phase"
+    : "geometry";
+}
+
+function markManualMotion(clock = "geometry", duration = 100) {
+  manualMotionClock = clock;
+  manualMotionUntil = performance.now() + duration;
+}
+
 function updateAudio(scene, now) {
   if (!state.audio.enabled || document.hidden) return;
   const mode = state.selection.playingMode;
@@ -403,12 +418,18 @@ function updateAudio(scene, now) {
     }
     return;
   }
-  if (!motionIsActive(now)) return;
-  const token = shapesEventToken(state, scene);
-  if (token === lastEventToken) return;
+  const clock = eventClock(now);
+  const otherClock = clock === "phase" ? "geometry" : "phase";
+  lastEventTokens[otherClock] = shapesEventToken(state, scene, { clock: otherClock });
+  const token = shapesEventToken(state, scene, { clock });
+  if (!motionIsActive(now) || lastEventTokens[clock] === null) {
+    lastEventTokens[clock] = token;
+    return;
+  }
+  if (token === lastEventTokens[clock]) return;
   const minimumInterval = shapesEventIntervalMs(state, scene.contacts.length);
   if (now - lastEventAt < minimumInterval) return;
-  lastEventToken = token;
+  lastEventTokens[clock] = token;
   lastEventAt = now;
   if (mode === "notes") emitNotes(scene);
   else emitTriggers(scene);
@@ -660,7 +681,7 @@ function renderRotationControls() {
   for (const input of container.querySelectorAll("[data-rotation-target]")) {
     input.addEventListener("input", () => {
       setLocalPath(input.dataset.rotationTarget, Number(input.value));
-      manualMotionUntil = performance.now() + 90;
+      markManualMotion("geometry", 90);
       afterMutation({ save: true });
     });
   }
@@ -793,7 +814,7 @@ function afterMutation({ save = true, route = false, announceMessage = null } = 
 function bindRange(id, apply, { motion = false } = {}) {
   $(id).addEventListener("input", () => {
     apply(Number($(id).value));
-    if (motion) manualMotionUntil = performance.now() + 100;
+    if (motion) markManualMotion(motion === true ? "geometry" : motion);
     afterMutation();
   });
 }
@@ -814,7 +835,7 @@ function installKnobInteraction(button) {
     const raw = drag.value + (drag.y - event.clientY) / 120 * range;
     const stepped = Math.round(raw / configuration.step) * configuration.step;
     configuration.set(clamp(stepped, configuration.minimum, configuration.maximum));
-    manualMotionUntil = performance.now() + 100;
+    markManualMotion();
     afterMutation();
   });
   const stop = (event) => {
@@ -832,7 +853,7 @@ function installKnobInteraction(button) {
     if (!(event.key in values)) return;
     event.preventDefault();
     configuration.set(clamp(values[event.key], configuration.minimum, configuration.maximum));
-    manualMotionUntil = performance.now() + 100;
+    markManualMotion();
     afterMutation();
   });
 }
@@ -887,7 +908,7 @@ $("playButton").addEventListener("click", () => {
   lastFrameTime = performance.now();
   afterMutation({ announceMessage: state.play.running ? "Playback started." : "Playback paused." });
 });
-bindRange("position", (value) => { state.play.continuousPhase = value; }, { motion: true });
+bindRange("position", (value) => { state.play.continuousPhase = value; }, { motion: "phase" });
 bindRange("speed", (value) => { state.play.rateCyclesPerSecond = value; });
 $("directionButton").addEventListener("click", () => { state.play.direction *= -1; afterMutation(); });
 for (const button of $("motionMode").querySelectorAll("[data-motion]")) button.addEventListener("click", () => { state.play.motion = button.dataset.motion; afterMutation(); });
@@ -984,7 +1005,7 @@ async function auditionMidiNote(message) {
   const note = clamp(Math.round(Number(message.note) || 60), 0, 127);
   const velocity = clamp((Number(message.velocity) || 100) / 127, 0.05, 1);
   state.play.continuousPhase = clamp((note - 24) / 84, 0, 1);
-  manualMotionUntil = performance.now() + 160;
+  markManualMotion("phase", 160);
   resetEventClock();
   const scene = buildShapesScene(state);
   lastScene = scene;
@@ -1048,13 +1069,13 @@ canvas.addEventListener("pointerdown", (event) => {
   pointerScrub = event.pointerId;
   canvas.setPointerCapture?.(event.pointerId);
   state.play.continuousPhase = clamp(event.offsetX / Math.max(1, cssWidth), 0, 1);
-  manualMotionUntil = performance.now() + 120;
+  markManualMotion("phase", 120);
   afterMutation({ save: false });
 });
 canvas.addEventListener("pointermove", (event) => {
   if (pointerScrub !== event.pointerId) return;
   state.play.continuousPhase = clamp(event.offsetX / Math.max(1, cssWidth), 0, 1);
-  manualMotionUntil = performance.now() + 120;
+  markManualMotion("phase", 120);
   scheduleFrame();
 });
 const finishScrub = (event) => {
@@ -1074,7 +1095,7 @@ canvas.addEventListener("keydown", (event) => {
   if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
   event.preventDefault();
   state.play.continuousPhase += (event.key === "ArrowRight" ? 1 : -1) * (event.shiftKey ? 0.05 : 0.005);
-  manualMotionUntil = performance.now() + 120;
+  markManualMotion("phase", 120);
   afterMutation();
 });
 

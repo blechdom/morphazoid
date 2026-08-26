@@ -76,6 +76,8 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
   assert.match(app, /from "\.\/src\/shapes-scene\.js"/);
   assert.match(app, /legacySound === "synth"[\s\S]*?"continuous"/);
   assert.match(app, /shapesEventIntervalMs\(state, scene\.contacts\.length\)/);
+  assert.match(app, /lastEventTokens\[otherClock\] = shapesEventToken/);
+  assert.match(app, /lastEventTokens\[clock\] === null/);
   assert.match(app, /morphazoid:midi-input/);
   assert.match(app, /event\.preventDefault\(\)/);
   assert.doesNotMatch(app, /synthAudio\.strike\(/);

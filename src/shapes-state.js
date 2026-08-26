@@ -345,7 +345,7 @@ function quantizedContactToken(scene, divisions) {
   }).join(",");
 }
 
-export function shapesEventToken(state, scene = 1) {
+export function shapesEventToken(state, scene = 1, { clock = "auto" } = {}) {
   const phase = displayShapesPhase(state);
   const divisions = shapesDivisionCount(state);
   const topology = Number.isFinite(Number(scene?.topologyEdgeCount))
@@ -356,13 +356,20 @@ export function shapesEventToken(state, scene = 1) {
   const regionCount = Math.max(1, topology * divisions);
   const local = state.dimension[state.selection.dimension];
   const representation = scene?.geometry?.type ?? local.representation ?? local.reader ?? "profile";
-  return [
+  const usesDivisionClock = clock === "phase"
+    || (clock === "auto"
+      && state.play.running
+      && Math.abs(state.play.rateCyclesPerSecond) > 1e-6);
+  const eventPosition = usesDivisionClock
+    ? Math.floor(state.play.continuousPhase * regionCount)
+    : Math.floor(phase * regionCount) % regionCount;
+  const divisionToken = [
     state.selection.dimension,
     representation,
-    Math.floor(phase * regionCount) % regionCount,
-    quantizedRotationToken(state),
-    quantizedContactToken(scene, divisions),
-  ].join(":");
+    eventPosition,
+  ];
+  if (usesDivisionClock) return divisionToken.join(":");
+  return [...divisionToken, quantizedRotationToken(state), quantizedContactToken(scene, divisions)].join(":");
 }
 
 export function shapesEventIntervalMs(state, contactCount = 1) {
